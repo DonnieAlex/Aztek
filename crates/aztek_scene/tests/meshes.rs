@@ -96,6 +96,8 @@ fn set_mesh_points_moves_every_point_in_one_undo_step() {
 #[test]
 fn obj_export_and_import() {
     let mut s = Session::new();
+    // The objExport plug-in's commands.
+    aztek_scene::mesh_nodes::register_obj(&mut s.commands);
     run(&mut s, "polyCylinder", json!({"radius": 50.0, "height": 100.0, "name": "Can", "position": [0, 50, 0]}));
     let dir = std::env::temp_dir().join("aztek_tests");
     std::fs::create_dir_all(&dir).unwrap();

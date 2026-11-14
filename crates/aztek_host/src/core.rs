@@ -103,7 +103,6 @@ impl Core {
         crate::ctx_cmds::register(&mut c.s);
         crate::panel_cmds::register(&mut c.s);
         crate::host_general::register(&mut c.s);
-        aztek_usd::install(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.ensure_defaults();
@@ -727,7 +726,7 @@ impl Core {
         Value::Array(lines)
     }
 
-    /// Saves in the format the path's extension names: `.ma` or Aztek's own.
+    /// Saves in the format the path's extension names: mayaBinary for `.mb`, mayaAscii otherwise.
     pub fn save(&mut self, path: &str) -> Result<(), String> {
         crate::native_plugin::messages::before_ui(&mut self.s, "save", path)?;
         aztek_scene::ma_file::save_scene(&mut self.s, path, aztek_scene::ma_file::Format::of_path(path))?;
@@ -742,17 +741,19 @@ impl Core {
     pub fn open(&mut self, path: &str) -> Result<(), String> {
         crate::native_plugin::messages::before_ui(&mut self.s, "open", path)?;
         self.before_command("newScene", &json!({}));
-        let warnings = aztek_scene::ma_file::open_scene(&mut self.s, path)?;
-        crate::native_plugin::messages::after_ui(&mut self.s, "open", path);
-        // Files older than the default cameras, and .ma files, which leave them out, get them now.
-        aztek_scene::cameras::make_defaults(&mut self.s.graph);
-        // Warnings from a .ma file arrive through the log.
-        self.drain_captured();
-        if aztek_scene::ma_file::Format::of_path(path) != aztek_scene::ma_file::Format::Ma {
-            for w in warnings {
-                self.push(format!("// Warning: {w} //"), LineKind::Warning);
-            }
+        // A format a plug-in reads (FBX, OBJ, USD) opens through the file command, which hands it to the plug-in or
+        // says the plug-in isn't loaded; scene files open here.
+        let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+        if matches!(ext.as_str(), "fbx" | "obj" | "usd" | "usda" | "usdc" | "usdz") {
+            self.s.run("file", json!({"args": [path], "open": true, "force": true})).map_err(|e| e.to_string())?;
+        } else {
+            aztek_scene::ma_file::open_scene(&mut self.s, path)?;
         }
+        crate::native_plugin::messages::after_ui(&mut self.s, "open", path);
+        // .ma files, which leave the default cameras out, get them now.
+        aztek_scene::cameras::make_defaults(&mut self.s.graph);
+        // Warnings from the file arrive through the log.
+        self.drain_captured();
         self.version += 1;
         self.push(format!("// Opened {path} //"), LineKind::Info);
         crate::script_jobs::note_command("file", &json!({"open": true}));

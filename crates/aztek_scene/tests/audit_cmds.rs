@@ -222,8 +222,8 @@ fn locked_nodes() {
     assert_eq!(run(&mut s, "lockNode", json!({"args": ["a"], "q": true})), json!([true]));
     assert!(s.run("delete", json!({"args": ["a"]})).is_err());
     assert!(s.run("rename", json!({"args": ["a", "b"]})).is_err());
-    // Saved, in both formats.
-    for ext in ["ma", "aztek"] {
+    // Saved as .ma. A .mb file leaves node locks out, with a warning: see PARITY.md.
+    for ext in ["ma"] {
         let path = temp(&format!("locked.{ext}"));
         run(&mut s, "file", json!({"args": [path.clone()], "save": true}));
         let mut t = Session::new();
@@ -249,7 +249,7 @@ fn cube_file(ext: &str) -> String {
 
 #[test]
 fn reference_in_and_out() {
-    for ext in ["ma", "aztek"] {
+    for ext in ["ma", "mb"] {
         let path = cube_file(ext);
         let mut s = Session::new();
         assert_eq!(run(&mut s, "file", json!({"args": [path.clone()], "r": true, "ns": "x"})), json!(path));
@@ -297,7 +297,7 @@ fn second_reference_gets_a_copy_number() {
 
 #[test]
 fn saved_as_the_reference_with_its_edits() {
-    for (src, dst) in [("ma", "ma"), ("aztek", "aztek"), ("ma", "aztek")] {
+    for (src, dst) in [("ma", "ma"), ("mb", "mb"), ("ma", "mb")] {
         let path = cube_file(src);
         let mut s = Session::new();
         run(&mut s, "file", json!({"args": [path.clone()], "r": true, "ns": "x"}));
@@ -306,7 +306,7 @@ fn saved_as_the_reference_with_its_edits() {
         run(&mut s, "connectAttr", json!({"args": ["x:box.ry", "own.ty"]}));
         let scene = temp(&format!("main_{src}_{dst}.{dst}"));
         run(&mut s, "file", json!({"args": [scene.clone()], "save": true}));
-        let text = std::fs::read_to_string(&scene).unwrap();
+        let text = String::from_utf8_lossy(&std::fs::read(&scene).unwrap()).into_owned();
         assert!(!text.contains("createNode transform -n \"x:box\""), "the contents stay out");
         assert!(text.contains(&path));
         let mut t = Session::new();

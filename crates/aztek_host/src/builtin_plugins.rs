@@ -50,6 +50,20 @@ pub const BUILTINS: &[Builtin] = &[
         more: aztek_scene::fbx_options::command_names,
     },
     Builtin {
+        name: "objExport",
+        doc: "OBJ import and export, as the reference's objExport plug-in: the OBJ and OBJexport file types (file -import, -open, -exportAll and -exportSelected with -type \"OBJ\" or \"OBJexport\", or a .obj name), importObj and exportObj.",
+        commands: &["importObj", "exportObj"],
+        register: |s| aztek_scene::mesh_nodes::register_obj(&mut s.commands),
+        more: none,
+    },
+    Builtin {
+        name: "mayaUsdPlugin",
+        doc: "USD, as the reference's mayaUsdPlugin: the USD Import and USD Export file types (file with -type \"USD Import\" or \"USD Export\", or a .usd, .usda, .usdc or .usdz name), mayaUSDImport, mayaUSDExport, the proxy shape and the stage, layer and prim commands.",
+        commands: &[],
+        register: register_usd,
+        more: none,
+    },
+    Builtin {
         name: "gltf",
         doc: "glTF 2.0 import and export: File > Import and File > Export with a .glb or .gltf name, importGltf and exportGltf.",
         commands: &["exportGltf", "importGltf"],
@@ -61,11 +75,22 @@ pub const BUILTINS: &[Builtin] = &[
     },
 ];
 
+/// USD's commands; the wrappers it puts round file, select, ls, move, rotate and scale go in once, and stay.
+fn register_usd(s: &mut Session) {
+    aztek_usd::install_commands(s);
+    if !USD_WRAPPED.with(|w| w.replace(true)) {
+        aztek_usd::install_wrappers(s);
+    }
+}
+
 /// The names the two went by when they only exported.
 const OLD_NAMES: &[(&str, &str)] = &[("fbxExport", "fbx"), ("gltfExport", "gltf"), ("fbxmaya", "fbx")];
 
 thread_local! {
     static LOADED: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+    /// The commands each one added when it loaded, which unloading takes away.
+    static ADDED: RefCell<Vec<(&'static str, Vec<String>)>> = const { RefCell::new(Vec::new()) };
+    static USD_WRAPPED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 pub fn find(name: &str) -> Option<&'static Builtin> {
@@ -86,13 +111,24 @@ pub fn load(s: &mut Session, b: &'static Builtin) {
     if is_loaded(b.name) {
         return;
     }
+    let before: std::collections::HashSet<String> = s.commands.all().map(|d| d.name.clone()).collect();
     (b.register)(s);
+    let added: Vec<String> = s.commands.all().map(|d| d.name.clone()).filter(|n| !before.contains(n)).collect();
+    ADDED.with(|a| a.borrow_mut().push((b.name, added)));
     LOADED.with(|l| l.borrow_mut().push(b.name));
 }
 
 pub fn unload(s: &mut Session, b: &'static Builtin) {
     for c in b.all_commands() {
         s.commands.unregister(c);
+    }
+    let added = ADDED.with(|a| {
+        let mut a = a.borrow_mut();
+        let i = a.iter().position(|(n, _)| *n == b.name);
+        i.map(|i| a.remove(i).1).unwrap_or_default()
+    });
+    for c in added {
+        s.commands.unregister(&c);
     }
     LOADED.with(|l| l.borrow_mut().retain(|n| *n != b.name));
 }

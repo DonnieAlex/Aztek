@@ -1076,7 +1076,7 @@ fn a_job_at_idle_leaves_undo_alone() {
 fn script_nodes_run_and_save_with_the_scene() {
     let dir = std::env::temp_dir().join(format!("aztek_script_ui_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    for ext in ["ma", "aztek"] {
+    for ext in ["ma", "mb"] {
         let path = dir.join(format!("scene.{ext}")).display().to_string();
         let mut c = Core::new();
         ok(&mut c, "scriptNode -st 1 -bs \"polyCube -n onOpen\" -as \"polyCube -n onClose\" -n myScript;");

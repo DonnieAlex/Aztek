@@ -1178,21 +1178,27 @@ fn the_file_command() {
     std::fs::write(&mb, b"FOR8 data").unwrap();
     let e = s.run("file", json!({"args": [mb], "open": true, "force": true})).unwrap_err().to_string();
     assert!(e.contains("binary"), "{e}");
-    assert!(s.run("file", json!({"args": [temp("y.mb")], "save": true, "type": "mayaBinary"})).is_err());
+    run(&mut s, "file", json!({"args": [temp("y.mb")], "save": true, "type": "mayaBinary"}));
+    assert!(std::fs::read(temp("y.mb")).unwrap().starts_with(b"FOR8"));
     // A failed open leaves the scene alone.
     assert!(s.graph.find("box").unwrap().is_some());
 }
 
 #[test]
-fn aztek_files_still_work_through_the_same_routes() {
+fn only_the_two_scene_types() {
     let mut s = Session::new();
     run(&mut s, "polyCube", json!({"name": "box"}));
-    let path = temp("own.aztek");
+    // A name with another extension is written as mayaAscii, as the reference writes it.
+    let path = temp("other.scene");
     ma_file::save_scene(&mut s, &path, ma_file::Format::of_path(&path)).unwrap();
-    assert!(std::fs::read_to_string(&path).unwrap().contains("\"aztek\""));
-    ma_file::open_scene(&mut s, &path).unwrap();
+    assert!(std::fs::read_to_string(&path).unwrap().starts_with("//Maya ASCII"));
+    assert!(s.run("file", json!({"args": [temp("z")], "save": true, "type": "aztek"})).is_err());
+    // Aztek's old JSON scene format is no longer read.
+    let old = temp("old.aztek");
+    std::fs::write(&old, "{\"aztek\": 1, \"nodes\": []}").unwrap();
+    let e = ma_file::open_scene(&mut s, &old).unwrap_err();
+    assert!(e.contains("no longer read"), "{e}");
     assert!(s.graph.find("box").unwrap().is_some());
-    assert_eq!(s.scene_path.as_deref(), Some(path.as_str()));
 }
 
 #[test]

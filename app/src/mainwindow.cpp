@@ -1381,7 +1381,14 @@ void MainWindow::new_scene() {
 
 void MainWindow::open_scene() {
     if (!confirm_unsaved()) return;
-    QString f = QFileDialog::getOpenFileName(this, "Open Scene", QString(), "Scenes (*.aztek *.ma *.mb *.usd *.usda *.usdc *.usdz);;Aztek scenes (*.aztek);;ASCII scenes (*.ma);;Binary scenes (*.mb);;USD (*.usd *.usda *.usdc *.usdz);;All files (*)");
+    // The reference's scene types, then the plug-in types that open a file while their plug-ins are loaded.
+    auto plugin_loaded = [](const char* name) { return ask("pluginInfo", QJsonObject{{"args", QJsonArray{name}}, {"query", true}, {"loaded", true}}).toBool(); };
+    QString filter = "Maya Scenes (*.ma *.mb);;mayaAscii (*.ma);;mayaBinary (*.mb)";
+    if (plugin_loaded("fbx")) filter += ";;FBX (*.fbx)";
+    if (plugin_loaded("objExport")) filter += ";;OBJ (*.obj)";
+    if (plugin_loaded("mayaUsdPlugin")) filter += ";;USD Import (*.usd *.usda *.usdc *.usdz)";
+    filter += ";;All Files (*)";
+    QString f = QFileDialog::getOpenFileName(this, "Open Scene", QString(), filter);
     if (!f.isEmpty()) open_file(f);
 }
 
@@ -1400,18 +1407,15 @@ void MainWindow::open_file(const QString& path) {
 
 bool MainWindow::save_scene(bool as) {
     QString f = state()["file"].toString();
-    // Binary files are read, not written: saving one asks for a .ma beside it.
-    if (f.endsWith(".mb", Qt::CaseInsensitive)) {
-        f.chop(3);
-        f += ".ma";
-        as = true;
-    }
+    // A scene that came from another format (OBJ, FBX, USD) is saved as a scene file under a name asked for.
+    if (!f.isEmpty() && !f.endsWith(".ma", Qt::CaseInsensitive) && !f.endsWith(".mb", Qt::CaseInsensitive)) as = true;
     if (as || f.isEmpty()) {
-        QString filter;
-        f = QFileDialog::getSaveFileName(this, "Save Scene As", f.isEmpty() ? "untitled.aztek" : f, "Aztek scenes (*.aztek);;ASCII scenes (*.ma)", &filter);
+        // The reference's two scene types; mayaAscii is its default.
+        QString filter = f.endsWith(".mb", Qt::CaseInsensitive) ? "mayaBinary (*.mb)" : "mayaAscii (*.ma)";
+        f = QFileDialog::getSaveFileName(this, "Save Scene As", f.isEmpty() ? "untitled.ma" : f, "mayaAscii (*.ma);;mayaBinary (*.mb)", &filter);
         if (f.isEmpty()) return false;
         if (!f.section('/', -1).contains('.')) {
-            f += filter.contains("*.ma") ? ".ma" : ".aztek";
+            f += filter.contains("*.mb") ? ".mb" : ".ma";
             // The dialog only asked about the name as typed.
             if (QFile::exists(f) && QMessageBox::warning(this, "Save Scene As", QString("%1 already exists. Do you want to replace it?").arg(f), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return false;
         }

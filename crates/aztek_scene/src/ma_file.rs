@@ -51,20 +51,20 @@ use crate::transform::{euler_to_matrix, DagNode, RotateOrder, Transform};
 // Tokens
 
 #[derive(Clone, Debug, PartialEq)]
-enum Tok {
+pub(crate) enum Tok {
     Num(f64),
     Word(String),
     Str(String),
 }
 
 impl Tok {
-    fn text(&self) -> Option<&str> {
+    pub(crate) fn text(&self) -> Option<&str> {
         match self {
             Tok::Word(s) | Tok::Str(s) => Some(s),
             Tok::Num(_) => None,
         }
     }
-    fn num(&self) -> Option<f64> {
+    pub(crate) fn num(&self) -> Option<f64> {
         match self {
             Tok::Num(v) => Some(*v),
             Tok::Word(s) => truth_word(s).map(|b| b as i32 as f64),
@@ -77,7 +77,7 @@ impl Tok {
             Tok::Word(s) | Tok::Str(s) => truth_word(s),
         }
     }
-    fn is_flag(&self) -> bool {
+    pub(crate) fn is_flag(&self) -> bool {
         matches!(self, Tok::Word(s) if s.starts_with('-'))
     }
 }
@@ -91,13 +91,13 @@ fn truth_word(s: &str) -> Option<bool> {
 }
 
 /// Splits source into statements: whitespace-separated tokens up to a semicolon, spanning any number of lines.
-struct Lexer<'a> {
+pub(crate) struct Lexer<'a> {
     text: &'a str,
     i: usize,
 }
 
 impl<'a> Lexer<'a> {
-    fn new(text: &'a str) -> Self {
+    pub(crate) fn new(text: &'a str) -> Self {
         Lexer { text, i: 0 }
     }
 
@@ -145,7 +145,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// The next statement into out; false at the end of the text.
-    fn statement(&mut self, out: &mut Vec<Tok>) -> bool {
+    pub(crate) fn statement(&mut self, out: &mut Vec<Tok>) -> bool {
         out.clear();
         let b = self.text.as_bytes();
         let mut joining = false;
@@ -1531,6 +1531,34 @@ fn curve_keys(n: &MaNode, doc: &Doc, fps: f64) -> Keys {
             k.breakdown = c[0].truth().unwrap_or(false);
         }
     }
+    for (at, c) in n.elements(&["ktl", "keyTanLocked"], 1) {
+        if let Some(k) = keys.get_mut(at) {
+            k.tan_lock = c[0].truth().unwrap_or(true);
+        }
+    }
+    for (at, c) in n.elements(&["kwl", "keyWeightLocked"], 1) {
+        if let Some(k) = keys.get_mut(at) {
+            k.weight_lock = c[0].truth().unwrap_or(true);
+        }
+    }
+    // A weighted curve's tangent weights: the length of the stored vector.
+    let weighted = n.truth(&["wgt", "weightedTangents"]).unwrap_or(false);
+    let lengths = |xs: &[&str], ys: &[&str]| -> HashMap<usize, f64> {
+        let x: HashMap<usize, f64> = n.elements(xs, 1).into_iter().filter_map(|(i, c)| Some((i, c[0].num()?))).collect();
+        n.elements(ys, 1).into_iter().filter_map(|(i, c)| Some((i, (c[0].num()?.powi(2) + x.get(&i)?.powi(2)).sqrt()))).collect()
+    };
+    if weighted {
+        for (i, w) in lengths(&["kix", "keyTanInX"], &["kiy", "keyTanInY"]) {
+            if let Some(k) = keys.get_mut(i) {
+                k.in_weight = w;
+            }
+        }
+        for (i, w) in lengths(&["kox", "keyTanOutX"], &["koy", "keyTanOutY"]) {
+            if let Some(k) = keys.get_mut(i) {
+                k.out_weight = w;
+            }
+        }
+    }
     // A fixed tangent's slope: y over x, x in seconds, y in internal units (radians on angle curves).
     let slopes = |xs: &[&str], ys: &[&str]| -> HashMap<usize, f64> {
         let x: HashMap<usize, f64> = n.elements(xs, 1).into_iter().filter_map(|(i, c)| Some((i, c[0].num()?))).collect();
@@ -2854,6 +2882,9 @@ impl Build<'_> {
         let at = |a: &str| t.attr_index(a).unwrap();
         let keys = curve_keys(n, doc, fps);
         let _ = g.set_value(PlugRef::new(id, at("keys") as i32), PlugValue::Data(Some(Arc::new(keys))));
+        if n.truth(&["wgt", "weightedTangents"]) == Some(true) {
+            let _ = g.set_value(PlugRef::new(id, at("weightedTangents") as i32), PlugValue::Bool(true));
+        }
         if let Some(v) = n.num(&["pre", "preInfinity"]) {
             let _ = g.set_value(PlugRef::new(id, at("preInfinity") as i32), PlugValue::Int(v as i64));
         }
@@ -4471,7 +4502,7 @@ impl Writer<'_> {
         let (pre, post) = (n.data().int(t.attr_index("preInfinity").unwrap()), n.data().int(t.attr_index("postInfinity").unwrap()));
         let _ = writeln!(self.out, "createNode {} -n {};", t.name, quoted(&name));
         let _ = writeln!(self.out, "\tsetAttr \".tan\" 18;");
-        let _ = writeln!(self.out, "\tsetAttr \".wgt\" no;");
+        let _ = writeln!(self.out, "\tsetAttr \".wgt\" {};", if keys.weighted { "yes" } else { "no" });
         let count = keys.keys.len();
         if count > 0 {
             let last = range_text(0, count - 1);
@@ -4485,9 +4516,12 @@ impl Writer<'_> {
             if keys.keys.iter().any(|k| k.ott != Tangent::Auto) {
                 let _ = writeln!(self.out, "\tsetAttr -s {count} \".kot[{last}]\"  {};", list(&|k| tangent_code(k.ott).to_string()));
             }
-            let broken = |k: &Key| (k.itt == Tangent::Fixed || k.ott == Tangent::Fixed) && k.in_slope != k.out_slope;
+            let broken = |k: &Key| !k.tan_lock || ((k.itt == Tangent::Fixed || k.ott == Tangent::Fixed) && k.in_slope != k.out_slope);
             if keys.keys.iter().any(broken) {
                 let _ = writeln!(self.out, "\tsetAttr -s {count} \".ktl[{last}]\"  {};", list(&|k| if broken(k) { "no".into() } else { "yes".to_string() }));
+            }
+            if keys.weighted && keys.keys.iter().any(|k| !k.weight_lock) {
+                let _ = writeln!(self.out, "\tsetAttr -s {count} \".kwl[{last}]\"  {};", list(&|k| if k.weight_lock { "yes".into() } else { "no".to_string() }));
             }
             if keys.keys.iter().any(|k| k.breakdown) {
                 let _ = writeln!(self.out, "\tsetAttr -s {count} \".kbd[{last}]\"  {};", list(&|k| if k.breakdown { "yes".into() } else { "no".to_string() }));
@@ -4495,14 +4529,26 @@ impl Writer<'_> {
             // Fixed slopes as vectors one frame long. A time curve's value goes in seconds.
             let dx = 1.0 / anim::fps();
             let unit = if t.name.ends_with('T') { dx } else { 1.0 };
+            // On a weighted curve the vector's length is the tangent's weight.
+            let vector = |slope: f64, weight: f64| {
+                let (x, y) = (dx, slope * unit);
+                let len = (x * x + y * y).sqrt();
+                if keys.weighted && len > 0.0 {
+                    (x * weight / len, y * weight / len)
+                } else {
+                    (x, y)
+                }
+            };
             for (i, k) in keys.keys.iter().enumerate() {
                 if k.itt == Tangent::Fixed {
-                    let _ = writeln!(self.out, "\tsetAttr \".kix[{i}]\" {dx};");
-                    let _ = writeln!(self.out, "\tsetAttr \".kiy[{i}]\" {};", k.in_slope * unit);
+                    let (x, y) = vector(k.in_slope, k.in_weight);
+                    let _ = writeln!(self.out, "\tsetAttr \".kix[{i}]\" {x};");
+                    let _ = writeln!(self.out, "\tsetAttr \".kiy[{i}]\" {y};");
                 }
                 if k.ott == Tangent::Fixed {
-                    let _ = writeln!(self.out, "\tsetAttr \".kox[{i}]\" {dx};");
-                    let _ = writeln!(self.out, "\tsetAttr \".koy[{i}]\" {};", k.out_slope * unit);
+                    let (x, y) = vector(k.out_slope, k.out_weight);
+                    let _ = writeln!(self.out, "\tsetAttr \".kox[{i}]\" {x};");
+                    let _ = writeln!(self.out, "\tsetAttr \".koy[{i}]\" {y};");
                 }
             }
         }
@@ -5525,32 +5571,39 @@ fn fmt_num(v: f64) -> String {
 // ---------------------------------------------------------------------------------------------------------------------
 // Files
 
+/// The scene file types: mayaAscii (`.ma`) and mayaBinary (`.mb`), as the reference has them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     Ma,
-    Aztek,
+    Mb,
 }
 
 impl Format {
+    /// mayaBinary for `.mb`, mayaAscii for anything else.
     pub fn of_path(path: &str) -> Format {
-        if matches!(extension(path).as_str(), "ma" | "mb") {
-            Format::Ma
+        if extension(path) == "mb" {
+            Format::Mb
         } else {
-            Format::Aztek
+            Format::Ma
         }
     }
-    fn of_type(ty: &str) -> CmdResult<Format> {
+    pub fn of_type(ty: &str) -> CmdResult<Format> {
         match ty {
             "mayaAscii" => Ok(Format::Ma),
-            "aztek" => Ok(Format::Aztek),
-            "mayaBinary" => fail!("file: mayaBinary files are read, not written; use mayaAscii"),
+            "mayaBinary" => Ok(Format::Mb),
             other => fail!("file: unknown file type {other}"),
         }
     }
-    fn type_name(self) -> &'static str {
+    pub fn type_name(self) -> &'static str {
         match self {
             Format::Ma => "mayaAscii",
-            Format::Aztek => "aztek",
+            Format::Mb => "mayaBinary",
+        }
+    }
+    pub fn extension(self) -> &'static str {
+        match self {
+            Format::Ma => "ma",
+            Format::Mb => "mb",
         }
     }
 }
@@ -5575,99 +5628,92 @@ fn read_scene_text(path: &str) -> Result<SceneText, String> {
     if extension(path) == "mb" {
         return Err(format!("{path}: not a binary scene file"));
     }
-    Ok(SceneText { text: String::from_utf8_lossy(&bytes).into_owned(), binary: None })
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    if text.trim_start().starts_with('{') && text.contains("\"aztek\"") {
+        return Err(format!("{path}: a scene in Aztek's old .aztek format, which is no longer read; open it in an earlier Aztek and save it as .ma or .mb"));
+    }
+    Ok(SceneText { text, binary: None })
 }
 
 /// Writes the scene to path in the format given. Returns warnings; does not change the scene's name.
 pub fn write_file(s: &mut Session, path: &str, format: Format, only: Option<&[NodeId]>) -> Result<Vec<String>, String> {
-    if extension(path) == "mb" {
-        return Err(format!("{path}: binary .mb files can't be written; save it as .ma"));
-    }
     if s.commands.find("aztekUsdBeforeSave").is_some() {
         let _ = s.run("aztekUsdBeforeSave", json!({}));
     }
-    match format {
+    let warnings = match format {
         Format::Ma => {
             let (text, warnings) = write_text(s, path, only);
             std::fs::write(path, text).map_err(|e| format!("{path}: {e}"))?;
-            for w in &warnings {
-                log::warn!("{w}");
-            }
-            Ok(warnings)
+            warnings
         }
-        Format::Aztek => {
-            s.graph.evaluate();
-            let mut doc = crate::scene_file::serialize(&s.graph, false);
-            let r = anim::range();
-            doc["references"] = Value::Array(crate::references::to_doc(s));
-            doc["upAxis"] = json!(crate::world::up_name());
-            doc["playbackOptions"] = json!({"minTime": r.min, "maxTime": r.max, "animationStartTime": r.anim_start, "animationEndTime": r.anim_end, "framesPerSecond": anim::fps(), "currentTime": anim::frame(&s.graph)});
-            let text = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
-            std::fs::write(path, text).map_err(|e| format!("{path}: {e}"))?;
-            Ok(Vec::new())
+        Format::Mb => {
+            let (bytes, warnings) = binary_bytes(s, path, only);
+            std::fs::write(path, bytes).map_err(|e| format!("{path}: {e}"))?;
+            warnings
         }
+    };
+    for w in &warnings {
+        log::warn!("{w}");
     }
+    Ok(warnings)
+}
+
+/// The scene as a binary file: its `.ma` text in internal units (values in a binary file are centimetres and
+/// radians whatever the scene's units), then as chunks. The header keeps the scene's own units.
+fn binary_bytes(s: &mut Session, path: &str, only: Option<&[NodeId]>) -> (Vec<u8>, Vec<String>) {
+    let (lin, ang) = (units::cm_per_unit(), units::rad_per_unit());
+    let (linear, angle) = (units::linear_name().to_string(), units::angle_name().to_string());
+    units::set_linear(1.0);
+    units::set_angle(1.0);
+    let (text, mut warnings) = write_text(s, path, only);
+    units::set_linear(lin);
+    units::set_angle(ang);
+    let g = &s.graph;
+    let dag_roots = g.roots().iter().filter_map(|&r| g.node(r).map(|n| n.name().to_string())).collect();
+    let transform_types = g.nodes().iter().filter_map(|&id| g.node(id)).filter(|n| n.ty().is_a("transform")).map(|n| n.ty().name.clone()).collect();
+    let fps = anim::fps();
+    let hints = crate::mb_write::Hints { linear, angle, time: time_unit_name(fps), fps, dag_roots, transform_types };
+    let (bytes, more) = crate::mb_write::encode(&text, &hints);
+    warnings.extend(more);
+    (bytes, warnings)
 }
 
 /// Saves under path and makes it the scene's name.
 pub fn save_scene(s: &mut Session, path: &str, format: Format) -> Result<Vec<String>, String> {
     let w = write_file(s, path, format, None)?;
     s.scene_path = Some(path.to_string());
+    s.scene_type = Some(format);
     s.mark_saved();
     Ok(w)
 }
 
-/// Replaces the scene with the file's: `.ma`, `.mb` or Aztek's own format. Undo restarts.
+/// Replaces the scene with the file's, `.ma` or `.mb`. Undo restarts.
 pub fn open_scene(s: &mut Session, path: &str) -> Result<Vec<String>, String> {
     let SceneText { text, binary } = read_scene_text(path)?;
-    let warnings = if Format::of_path(path) == Format::Ma || binary.is_some() {
-        let _ = s.run("newScene", json!({}));
-        // Here and not at the next command: a script can use a camera straight after opening a file.
-        crate::cameras::make_defaults(&mut s.graph);
-        crate::references::note_scene_folder(s, path);
-        let g = &mut s.graph;
-        g.begin_batch();
-        g.undo_stack_mut().set_enabled(false);
-        let mut w = binary_warnings(&binary);
-        w.extend(read_text(s, &text, false));
-        // The scene takes on the file's units, as it does its frame rate. A binary file's values are in internal
-        // units, so its text says centimetres and radians and its own units come from its header.
-        let (lin, ang) = match &binary {
-            Some(b) => (linear_unit(&b.linear).unwrap_or(1.0), if b.angle.starts_with("rad") { 1.0 } else { std::f64::consts::PI / 180.0 }),
-            None => FILE_UNITS.with(Cell::get),
-        };
-        units::set_linear(lin);
-        units::set_angle(ang);
-        let g = &mut s.graph;
-        g.undo_stack_mut().set_enabled(true);
-        g.undo_stack_mut().clear();
-        g.end_batch();
-        w
-    } else {
-        let doc: Value = serde_json::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
-        let _ = s.run("newScene", json!({}));
-        crate::references::note_scene_folder(s, path);
-        let w = crate::scene_file::deserialize(&mut s.graph, &doc).map_err(|e| format!("{path}: {e}"))?;
-        if let Some(p) = doc.get("playbackOptions").and_then(Value::as_object) {
-            let mut call = p.clone();
-            let now = call.remove("currentTime");
-            let _ = s.run("playbackOptions", Value::Object(call));
-            if let Some(t) = now {
-                let _ = s.run("currentTime", json!({"args": [t]}));
-            }
-        }
-        if doc.get("upAxis").and_then(Value::as_str) == Some("z") && !crate::world::up_z() {
-            crate::world::set_up_z(true);
-            home_camera(s, "persp");
-        }
-        let mut w = w;
-        if let Some(list) = doc.get("references").and_then(Value::as_array) {
-            w.extend(crate::references::restore(s, list));
-        }
-        w
+    let _ = s.run("newScene", json!({}));
+    // Here and not at the next command: a script can use a camera straight after opening a file.
+    crate::cameras::make_defaults(&mut s.graph);
+    crate::references::note_scene_folder(s, path);
+    let g = &mut s.graph;
+    g.begin_batch();
+    g.undo_stack_mut().set_enabled(false);
+    let mut warnings = binary_warnings(&binary);
+    warnings.extend(read_text(s, &text, false));
+    // The scene takes on the file's units, as it does its frame rate. A binary file's values are in internal
+    // units, so its text says centimetres and radians and its own units come from its header.
+    let (lin, ang) = match &binary {
+        Some(b) => (linear_unit(&b.linear).unwrap_or(1.0), if b.angle.starts_with("rad") { 1.0 } else { std::f64::consts::PI / 180.0 }),
+        None => FILE_UNITS.with(Cell::get),
     };
+    units::set_linear(lin);
+    units::set_angle(ang);
+    let g = &mut s.graph;
+    g.undo_stack_mut().set_enabled(true);
+    g.undo_stack_mut().clear();
+    g.end_batch();
     let _ = s.run("flushUndo", json!({}));
     s.scene_path = Some(path.to_string());
+    s.scene_type = Some(if binary.is_some() { Format::Mb } else { Format::Ma });
     crate::shading::scene_was_read(s);
     s.mark_saved();
     Ok(warnings)
@@ -5680,19 +5726,13 @@ fn binary_warnings(binary: &Option<crate::mb_file::Converted>) -> Vec<String> {
     w
 }
 
-/// Adds a `.ma`, `.mb` or Aztek scene file's contents to the scene. One undo step.
+/// Adds a `.ma` or `.mb` scene file's contents to the scene. One undo step.
 pub fn import_scene(s: &mut Session, path: &str) -> Result<Vec<String>, String> {
     let SceneText { text, binary } = read_scene_text(path)?;
     crate::references::note_scene_folder(s, path);
-    if Format::of_path(path) == Format::Ma || binary.is_some() {
-        let mut w = binary_warnings(&binary);
-        w.extend(read_text(s, &text, true));
-        return Ok(w);
-    }
-    let doc: Value = serde_json::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
-    let mut warnings = Vec::new();
-    crate::scene_file::instantiate(&mut s.graph, &doc, &mut warnings);
-    Ok(warnings)
+    let mut w = binary_warnings(&binary);
+    w.extend(read_text(s, &text, true));
+    Ok(w)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -5714,6 +5754,9 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
     if let Some(r) = usd_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
         return r;
     }
+    if let Some(r) = obj_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
+        return r;
+    }
     if let Some(r) = crate::references::file_flags(s, a) {
         return r;
     }
@@ -5722,10 +5765,11 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
         return crate::references::file_reference(s, a, &path);
     }
     if let Some(t) = &type_flag {
-        // A binary file is read by what's in it; the type only matters to a write, which is refused.
+        // A file is read by what's in it; the type is what the next save writes.
         let reading = ["open", "import", "reference"].iter().any(|f| a.bool(f));
-        if t != "mayaBinary" || !reading {
-            s.scene_type = Some(Format::of_type(t)?);
+        let format = Format::of_type(t)?;
+        if !reading {
+            s.scene_type = Some(format);
         }
     }
     let format_for = |s: &Session, path: &str| -> Format {
@@ -5750,12 +5794,7 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
     }
     if a.bool("open") {
         let Some(path) = path_arg else { fail!("file: -open needs a path") };
-        let warnings = open_scene(s, &path).map_err(aztek_ops::CommandError::new)?;
-        s.scene_type = None;
-        // read_text logged .ma warnings already.
-        if Format::of_path(&path) != Format::Ma {
-            warnings.iter().for_each(|w| log::warn!("{w}"));
-        }
+        open_scene(s, &path).map_err(aztek_ops::CommandError::new)?;
         return Ok(json!(path));
     }
     if a.bool("import") {
@@ -5763,10 +5802,7 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
         s.graph.open_chunk("Import");
         let r = import_scene(s, &path);
         s.graph.close_chunk();
-        let warnings = r.map_err(aztek_ops::CommandError::new)?;
-        if Format::of_path(&path) != Format::Ma {
-            warnings.iter().for_each(|w| log::warn!("{w}"));
-        }
+        r.map_err(aztek_ops::CommandError::new)?;
         return Ok(json!(path));
     }
     if a.bool("exportSelected") || a.bool("exportAll") {
@@ -5776,9 +5812,6 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
         let only: Option<Vec<NodeId>> = a.bool("exportSelected").then(|| s.graph.selection().to_vec());
         if only.as_ref().is_some_and(Vec::is_empty) {
             fail!("file: nothing selected to export");
-        }
-        if only.is_some() && format == Format::Aztek {
-            fail!("file: -exportSelected writes mayaAscii only");
         }
         write_file(s, &path, format, only.as_deref()).map_err(aztek_ops::CommandError::new)?;
         return Ok(json!(path));
@@ -5823,18 +5856,57 @@ fn fbx_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> 
     })
 }
 
-/// USD files go to the USD crate's command, when it is installed.
+/// USD files go to the USD plug-in's command (mayaUsdPlugin). Without the plug-in the types are not known.
 fn usd_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
     let path = path?;
     let moving = ["import", "open", "exportAll", "exportSelected"].iter().find(|f| a.bool(f))?;
     let by_type = matches!(ty, Some("USD Import" | "USD Export"));
     let by_extension = ty.is_none() && matches!(extension(path).as_str(), "usd" | "usda" | "usdc" | "usdz");
-    if !(by_type || by_extension) || s.commands.find("aztekUsdFile").is_none() {
+    if !(by_type || by_extension) {
         return None;
+    }
+    if s.commands.find("aztekUsdFile").is_none() {
+        let t = ty.unwrap_or("USD Import");
+        return Some(Err(aztek_ops::CommandError::new(format!("file: unknown file type {t}: the mayaUsdPlugin plug-in is not loaded"))));
     }
     let mut call = json!({"file": path, "options": a.string("options", "")});
     call[*moving] = json!(true);
     Some(s.run("aztekUsdFile", call))
+}
+
+/// OBJ files go to the objExport plug-in's commands, as the reference's file command hands the OBJ (reading) and
+/// OBJexport (writing) types to that plug-in's translator; a .obj name with no type is read as OBJ. Without the
+/// plug-in the types are not known.
+fn obj_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
+    let path = path?;
+    let moving = ["import", "open", "exportAll", "exportSelected"].iter().find(|f| a.bool(f))?;
+    let named = matches!(ty, Some(t) if t.eq_ignore_ascii_case("OBJ") || t.eq_ignore_ascii_case("OBJexport"));
+    if !named && !(ty.is_none() && extension(path) == "obj") {
+        return None;
+    }
+    if s.commands.find("importObj").is_none() {
+        let t = ty.unwrap_or("OBJ");
+        return Some(Err(aztek_ops::CommandError::new(format!("file: unknown file type {t}: the objExport plug-in is not loaded"))));
+    }
+    Some(match *moving {
+        "open" => {
+            if !a.bool("force") && s.is_modified() {
+                return Some(Err(aztek_ops::CommandError::new("file: Unsaved changes.")));
+            }
+            let _ = s.run("newScene", json!({}));
+            s.scene_path = None;
+            s.run("importObj", json!({"args": [path]})).map(|_| json!(path))
+        }
+        "import" => s.run("importObj", json!({"args": [path]})).map(|_| json!(path)),
+        sel => {
+            let mut args = vec![json!(path)];
+            if sel == "exportAll" {
+                let g = &s.graph;
+                args.extend(g.nodes().into_iter().filter(|&id| crate::dag::is_transform(g, id) && crate::components::as_mesh(g, id).is_some()).map(|id| json!(g.path(id))));
+            }
+            s.run("exportObj", json!({"args": args})).map(|_| json!(path))
+        }
+    })
 }
 
 /// A bare name takes the extension of the type asked for, as the reference does.
@@ -5842,7 +5914,7 @@ fn with_type_extension(path: &str, ty: Option<&str>) -> String {
     if extension(path).is_empty() {
         match ty {
             Some("mayaAscii") => return format!("{path}.ma"),
-            Some("aztek") => return format!("{path}.aztek"),
+            Some("mayaBinary") => return format!("{path}.mb"),
             _ => {}
         }
     }
@@ -5878,7 +5950,7 @@ pub fn register(c: &mut Commands<Session>) {
         CommandDef::<Session>::new(
             "file",
             "Scene files: -new, -open path, -save, -rename name, -import path, -exportAll path, -exportSelected path; -type \
-             mayaAscii. In query mode -sceneName (with -shortName for the file alone), -exists, -type, -modified.",
+             mayaAscii or mayaBinary. In query mode -sceneName (with -shortName for the file alone), -exists, -type, -modified.",
             file_command,
         )
         .positional("the file")
@@ -5890,7 +5962,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(b("import", "i", "Add the file's contents to the scene."))
         .flag(b("exportAll", "ea", "Write the whole scene to the file."))
         .flag(b("exportSelected", "es", "Write the selection, what lies below it, its parents and the skeletons of its skins."))
-        .flag(FlagDef::new("type", "typ", ArgType::Any, Value::Null, "mayaAscii, or aztek for Aztek's own format."))
+        .flag(FlagDef::new("type", "typ", ArgType::Any, Value::Null, "mayaAscii or mayaBinary."))
         .flag(FlagDef::new("options", "op", ArgType::Any, Value::Null, "File translator options. Accepted for existing scripts."))
         .flag(b("force", "f", "Don't ask about unsaved changes. Nothing asks here."))
         .flag(b("query", "q", "Query mode."))

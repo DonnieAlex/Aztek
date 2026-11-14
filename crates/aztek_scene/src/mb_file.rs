@@ -198,6 +198,35 @@ fn type_table() -> &'static HashMap<[u8; 4], &'static str> {
     })
 }
 
+/// A node type's four-character id, the first the table gives it.
+pub(crate) fn id_of(type_name: &str) -> Option<[u8; 4]> {
+    static IDS: OnceLock<HashMap<String, [u8; 4]>> = OnceLock::new();
+    let ids = IDS.get_or_init(|| {
+        let mut m: HashMap<String, [u8; 4]> = HashMap::new();
+        m.insert("decomposeMatrix".into(), [0x58, 0x00, 0x03, 0x00]);
+        m.insert("composeMatrix".into(), [0x58, 0x00, 0x03, 0x01]);
+        for (tag, name) in MORE_TYPE_IDS {
+            if let Ok(t) = <[u8; 4]>::try_from(tag.as_bytes()) {
+                m.entry(name.to_string()).or_insert(t);
+            }
+        }
+        for line in TYPE_IDS.lines() {
+            if let (Some(tag), Some(name)) = (line.get(..4), line.get(5..)) {
+                if let Ok(t) = <[u8; 4]>::try_from(tag.as_bytes()) {
+                    m.entry(name.trim().to_string()).or_insert(t);
+                }
+            }
+        }
+        m
+    });
+    ids.get(type_name).copied()
+}
+
+/// Whether a four-character id is one of the table's.
+pub(crate) fn id_known(id: [u8; 4]) -> bool {
+    type_table().contains_key(&id)
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Writing .ma text
 

@@ -78,7 +78,9 @@ impl ApplicationHandler for App {
         egui_ctx.set_visuals(egui::Visuals::dark());
         let egui_winit = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, None);
         let mut ui = Ui::new();
-        let session = Session::new();
+        let mut session = Session::new();
+        // This window has no plug-in manager: the OBJ plug-in's commands, for its File menu.
+        aztek_scene::mesh_nodes::register_obj(&mut session.commands);
         ui.history.push(app::Line { text: format!("// Vulkan device: {} //", gpu.device_name), kind: app::LineKind::Info });
         self.state = Some(State {
             egui_renderer,
@@ -326,7 +328,7 @@ fn parse_args() -> Args {
             "--script" => a.script = it.next(),
             "--log" => a.log = true,
             "-h" | "--help" => {
-                println!("aztek [scene.aztek] [--script commands.mel] [--screenshot out.ppm]");
+                println!("aztek [scene.ma] [--script commands.mel] [--screenshot out.ppm]");
                 std::process::exit(0);
             }
             f => a.file = Some(f.to_string()),

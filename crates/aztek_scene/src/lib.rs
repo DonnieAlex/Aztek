@@ -69,6 +69,7 @@ pub mod lights;
 pub mod last_op;
 pub mod ma_file;
 pub mod mb_file;
+pub mod mb_write;
 pub mod ref_cmds;
 pub mod ref_attrs;
 pub mod ref_core;

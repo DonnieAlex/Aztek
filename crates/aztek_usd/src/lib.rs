@@ -25,8 +25,19 @@ pub mod util;
 
 use aztek_scene::session::Session;
 
-/// Adds USD's commands and nodes to a session.
+/// Adds USD's commands and nodes to a session, with the wrappers round the scene's own commands.
 pub fn install(s: &mut Session) {
+    install_commands(s);
+    install_wrappers(s);
+}
+
+/// The wrappers round file, select, ls, move, rotate and scale that let them take prims.
+pub fn install_wrappers(s: &mut Session) {
+    prims::install_wrappers(&mut s.commands);
+}
+
+/// USD's own commands and nodes.
+pub fn install_commands(s: &mut Session) {
     export::register(&mut s.commands);
     import::register(&mut s.commands);
     file_cmd::register(&mut s.commands);
@@ -36,5 +47,4 @@ pub fn install(s: &mut Session) {
     translate::register(&mut s.commands);
     py_api::register(&mut s.commands);
     extras::register(&mut s.commands);
-    prims::install_wrappers(&mut s.commands);
 }

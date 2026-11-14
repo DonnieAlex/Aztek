@@ -137,8 +137,8 @@ fn trim_keeps_the_side_asked() {
     assert_eq!(aztek_scene::surfaces::world_surface(&mut s.graph, id).unwrap().trim.len(), 1);
     assert_eq!(run(&mut s, "nodeType", json!({"args": [r[1].clone()]})), "trim");
     close(&json!(mesh_area(&mut s, "p")), 25.0, 0.2);
-    // Saved with the surface, in both formats.
-    for ext in ["ma", "aztek"] {
+    // Saved with the surface as .ma. A .mb file leaves NURBS surfaces out, with a warning: see PARITY.md.
+    for ext in ["ma"] {
         let path = temp(&format!("trim.{ext}"));
         run(&mut s, "file", json!({"args": [path.clone()], "save": true}));
         let mut t = Session::new();

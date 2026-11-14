@@ -39,16 +39,17 @@ bool loaded(const QString& plugin) {
 // The reference's File type names, for the formats Aztek reads or writes; plug-in formats while their plug-in is loaded.
 QStringList types(FileAction a) {
     QStringList t;
+    t << "mayaAscii" << "mayaBinary";
     if (a == FileAction::Import) {
-        t << "mayaAscii" << "mayaBinary";
         if (loaded("fbx")) t << "FBX";
-        t << "OBJ" << "USD Import";
+        if (loaded("objExport")) t << "OBJ";
+        if (loaded("mayaUsdPlugin")) t << "USD Import";
         if (loaded("gltf")) t << "glTF";
         t << "PLY" << "STL";
     } else {
-        t << "mayaAscii";
         if (loaded("fbx")) t << "FBX export";
-        t << "OBJexport" << "USD Export";
+        if (loaded("objExport")) t << "OBJexport";
+        if (loaded("mayaUsdPlugin")) t << "USD Export";
         if (loaded("gltf")) t << "glTF export";
         t << "PLY" << "STL";
     }
@@ -185,8 +186,8 @@ QString chosen_file_type(FileAction action) {
 }
 
 QString file_type_filter(const QString& t) {
-    if (t == "mayaAscii") return "ASCII scenes (*.ma)";
-    if (t == "mayaBinary") return "Binary scenes (*.mb)";
+    if (t == "mayaAscii") return "mayaAscii (*.ma)";
+    if (t == "mayaBinary") return "mayaBinary (*.mb)";
     if (t == "FBX" || t == "FBX export") return "FBX (*.fbx)";
     if (t == "OBJ" || t == "OBJexport") return "OBJ (*.obj)";
     if (t == "USD Import" || t == "USD Export") return kUsdFilter;

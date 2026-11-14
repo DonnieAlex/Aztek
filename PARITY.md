@@ -886,7 +886,7 @@ Shallower than it could be:
 
 ### References (07/11/2026)
 
-`references.rs` rewritten against scenes written by the reference (`tests/data/ref_files`), whose world matrices match the reference's recorded values. Load state from `-rdi`, nesting, the reference's `.ed` edits and placeholders, failed edits kept, `referenceEdit`, `file -ir -cr -gr -lck -rpr -mnc`, `ls -rn`, Reference Editor, File > Create Reference. Three production rigs referenced twice save and reopen with no joint difference (`examples/ref_rig.rs`). Shallower: `.mb` files are read but not written; `-shd` and `exportEdits` not done; painted skin weights and mesh tweaks on a referenced mesh aren't kept as edits; a few IK solver values show as edits; a second reference of a large rig loads slower than the first.
+`references.rs` rewritten against scenes written by the reference (`tests/data/ref_files`), whose world matrices match the reference's recorded values. Load state from `-rdi`, nesting, the reference's `.ed` edits and placeholders, failed edits kept, `referenceEdit`, `file -ir -cr -gr -lck -rpr -mnc`, `ls -rn`, Reference Editor, File > Create Reference. Three production rigs referenced twice save and reopen with no joint difference (`examples/ref_rig.rs`). Shallower: `-shd` and `exportEdits` not done; painted skin weights and mesh tweaks on a referenced mesh aren't kept as edits; a few IK solver values show as edits; a second reference of a large rig loads slower than the first.
 
 ## USD (07/11/2026)
 
@@ -1142,7 +1142,7 @@ kept in internal units with the file's own units given to the scene afterwards. 
 reference saved both ways and writing out what Aztek holds: eleven match line for line, and the metre scene differs only
 by the camera distances below. Node types come from a table of
 four-character ids plus the ids a file's plug-ins declare; a node of a type not in it is skipped with a warning (a
-transform stands in for an unknown transform kind). Not yet: writing `.mb`; added attributes beyond bool, double and the
+transform stands in for an unknown transform kind). Not yet (written since, 14/11/2026: see "Scene files are .ma and .mb only"): writing `.mb`; added attributes beyond bool, double and the
 data types; NURBS geometry data. Found on the way and fixed for `.ma`: mesh points (`.vt`, `.pt`) were read and written
 without the file's linear unit, so a mesh in a metre scene came out a hundredth of its size; a display layer's colour
 set a channel at a time wasn't read. Still to do in `.ma`: camera distances (`.coi`, `.ow`, clip planes) don't take
@@ -2287,3 +2287,54 @@ the pages' examples by a test. Not compared with a running copy of the reference
 - Not done: the `bessel` index entry as a call of its own (its page describes the six bessel functions above);
   fileInfo -referenceNode (gives nothing); requires' -nodeType and -dataType outside files; quit -abort keeping the
   window layout unsaved.
+
+### Scene files are .ma and .mb only; USD and OBJ are plug-ins (14/11/2026)
+
+As the reference: the scene file types are mayaAscii (`.ma`) and mayaBinary (`.mb`), Save Scene As offers those two
+with mayaAscii the default ([Save Scene As Options](https://help.autodesk.com/cloudhelp/2024/ENU/Maya-Basics/files/GUID-049E009D-34FE-4767-B9B2-047FFB3142E8.htm)),
+and other formats come from plug-ins whose file types exist only while they are loaded.
+
+- Aztek's own `.aztek` scene format is gone from saving, opening, importing, references, the `file` command (`-type
+  aztek` is an unknown type) and every dialog. A name with any other extension is written as mayaAscii. An old
+  `.aztek` file is refused with a message saying so; it can be opened in an earlier Aztek and saved as `.ma`.
+- `.mb` is written (`file -save`, `-type mayaBinary`, `-exportAll`, `-exportSelected`, File > Save Scene As, Export).
+  `mb_write.rs` turns the scene's `.ma` text, written in centimetres and radians, into the chunk layout `mb_file.rs`
+  reads and the reference's own files show: an `FOR8` `Maya` root, `HEAD` (version, units, `TDUR`, fileInfo,
+  plug-ins), `FREF`/`FRDI` for references, one group per node with `CREA` (flags, name, parent, id), values as `DBLE`,
+  `DBL2/3`, `FLT2/3`, `CMPD`, `STR `, `STR#`, `I32#`, `DBL#`, `PNT#`, `MATR` (plain and transformation), `CMP#`,
+  `NRBC`, `ATAL`, `REFE`, `FLGS`, a mesh's geometry as one `MESH` chunk, added attributes as `ATTR`, `SLCT` groups for
+  default nodes and a `CONS` list. Key times and `time1`'s time are written in ticks.
+- Checked: a scene with keys, joints, a skin, a curve, a constraint, added attributes and locked and hidden values,
+  saved both ways and opened again, gives the same `.ma` text line for line; the reference's `dummy_mesh.mb` opened and
+  saved again as `.mb` reads the same as when saved as `.ma` (points to single precision, as `.mb` keeps them); units
+  and frame rate (mm, radians, ntsc) come back; references to `.mb` files and scenes holding references save and
+  reopen as `.mb`; script nodes run from a reopened `.mb`. Not checked: whether the reference opens a `.mb` Aztek
+  wrote. The layout follows the reference's files, but a few fields are not understood (`CREA` flag bits beyond
+  shared, DAG and transform, the spare words in `MESH`, `FREF`'s flag bytes) and are written as the reference's
+  samples have them or as zero.
+- Left out of a `.mb`, with a warning on save, because no file here shows how the reference stores them: node locks
+  (`lockNode`), NURBS surfaces, lattices, vector arrays and plug-in data values, added compound attributes and
+  attributes of other types (compound, double3, float3, matrix as `-at`), nested references, reference prefixes
+  (written as namespaces), soft limits of added attributes. Node types with no id in the type table get ids of
+  Aztek's own, declared in the header; the reference would not know those types. `.ma` keeps all of these.
+- OBJ is the `objExport` plug-in: the `OBJ` and `OBJexport` file types (`file -i`, `-o`, `-ea`, `-es` with that
+  `-type`, or a `.obj` name), and `importObj`/`exportObj`, registered when it loads and removed when it unloads.
+  Without it `file` says the type is unknown and that objExport is not loaded.
+- USD is the `mayaUsdPlugin` plug-in: `USD Import` and `USD Export` (or a `.usd`, `.usda`, `.usdc`, `.usdz` name),
+  `mayaUSDImport`, `mayaUSDExport`, the proxy shape and the stage, layer and prim commands. Unloading removes the
+  commands it added; the wrappers it puts round `file`, `select`, `ls`, `move`, `rotate` and `scale` (so they take
+  prims) stay until Aztek restarts.
+- Both load at start unless turned off in the Plug-in Manager, as the reference's do. The Open, Import, Export and
+  Reference dialogs and the file options list their types only while they are loaded. Opening a `.fbx`, `.obj` or
+  `.usd*` from File > Open goes through the `file` command and its plug-in.
+- With `.aztek` gone, `.ma` is the only text form, so what only `.aztek` kept is now lost on save. Found by the tests
+  that saved `.aztek`: a curve's weighted tangents, tangent weights, tangent locks and weight locks were not written
+  to `.ma` (`.wgt` was always no); fixed, read and written as `.wgt`, `.kix/.kiy/.kox/.koy` (the vector's length is
+  the weight), `.ktl` and `.kwl`. Still lost: character sets and their clips (`character`, `clipLibrary`,
+  `clipScheduler`, `clipChannel`), which `.ma` doesn't write yet; nodes created on their own with nothing connected
+  (deformers with no geometry, curve and surface history nodes with no inputs, `snapshot`, `motionTrail`) are left
+  out of `.ma` as before.
+- The file type of the open scene (`file -q -type`) follows the file opened or saved last, as the reference's.
+- Not done: PLY and STL remain Aztek's own commands outside a plug-in (the reference has no PLY reader; its STL
+  translator is not done here); `translator` is not a command yet, so the dialogs ask `pluginInfo` which plug-ins are
+  loaded rather than listing translators.

@@ -200,12 +200,12 @@ impl Ui {
                     if ui.button("Save Scene").clicked() {
                         match self.current_file.clone() {
                             Some(p) => self.save(s, &p),
-                            None => self.file_dialog = Some(FileDialog { kind: FileKind::SaveAs, path: "scene.aztek".into() }),
+                            None => self.file_dialog = Some(FileDialog { kind: FileKind::SaveAs, path: "untitled.ma".into() }),
                         }
                         ui.close();
                     }
                     if ui.button("Save Scene As...").clicked() {
-                        self.file_dialog = Some(FileDialog { kind: FileKind::SaveAs, path: self.current_file.clone().unwrap_or("scene.aztek".into()) });
+                        self.file_dialog = Some(FileDialog { kind: FileKind::SaveAs, path: self.current_file.clone().unwrap_or("untitled.ma".into()) });
                         ui.close();
                     }
                     ui.separator();

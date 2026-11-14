@@ -1611,6 +1611,11 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("name", "n", T::String, Value::Null, "Name; made unique.")),
     );
 
+}
+
+/// OBJ files: importObj and exportObj, which the objExport plug-in registers and the file command uses for the OBJ
+/// and OBJexport types.
+pub fn register_obj(c: &mut Commands<Session>) {
     c.register(
         Cmd::new("importObj", "Import an OBJ file; one mesh per object. Returns the new mesh names.", |s, a| {
             let Some(path) = a.pos_str(0).map(str::to_string) else { fail!("importObj: path required") };

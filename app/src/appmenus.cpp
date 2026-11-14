@@ -121,7 +121,7 @@ void MainWindow::increment_save() {
         save_scene(true);
         return;
     }
-    // name.0003.aztek after name.0002.aztek; name.aztek is copied to name.0001.aztek, as the reference's.
+    // name.0003.ma after name.0002.ma; name.ma is copied to name.0001.ma, as the reference's.
     QFileInfo fi(f);
     QString stem = fi.completeBaseName();
     QRegularExpression re("^(.*?)\\.?(\\d+)$");
@@ -171,9 +171,17 @@ QMenu* MainWindow::file_menu() {
     // Import through the file browser, opened on the File type the Import Options were left on.
     auto do_import = [](const QString& type) {
         // The formats plug-ins read are offered while their plug-ins are loaded, as the reference lists a translator's.
-        const bool fbx = plugin_loaded("fbx"), gltf = plugin_loaded("gltf");
-        QString every = "*.ma *.mb *.obj *.ply *.stl *.usd *.usda *.usdc *.usdz";
+        const bool fbx = plugin_loaded("fbx"), gltf = plugin_loaded("gltf"), obj = plugin_loaded("objExport"), usd = plugin_loaded("mayaUsdPlugin");
+        QString every = "*.ma *.mb *.ply *.stl";
         QString extra;
+        if (obj) {
+            every += " *.obj";
+            extra += ";;OBJ (*.obj)";
+        }
+        if (usd) {
+            every += " *.usd *.usda *.usdc *.usdz";
+            extra += QString(";;") + kUsdFilter;
+        }
         if (fbx) {
             every += " *.fbx";
             extra += ";;FBX (*.fbx)";
@@ -183,7 +191,7 @@ QMenu* MainWindow::file_menu() {
             extra += ";;glTF 2.0 (*.glb *.gltf)";
         }
         QString selected = file_type_filter(type);
-        QString f = QFileDialog::getOpenFileName(nullptr, "Import", QString(), QString("Scenes and meshes (%1);;ASCII scenes (*.ma);;Binary scenes (*.mb);;%2%3;;OBJ (*.obj);;PLY (*.ply);;STL (*.stl)").arg(every, kUsdFilter, extra), &selected);
+        QString f = QFileDialog::getOpenFileName(nullptr, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), &selected);
         if (f.isEmpty()) return;
         const bool is_fbx = f.endsWith(".fbx", Qt::CaseInsensitive);
         if (is_fbx || f.endsWith(".glb", Qt::CaseInsensitive) || f.endsWith(".gltf", Qt::CaseInsensitive)) {
@@ -201,15 +209,19 @@ QMenu* MainWindow::file_menu() {
             return;
         }
         if (is_usd_file(f)) {
+            if (!plugin_loaded("mayaUsdPlugin")) {
+                log("// Error: USD files are read by the mayaUsdPlugin plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
+                return;
+            }
             usd_import(f);
             return;
         }
-        if (f.endsWith(".ma", Qt::CaseInsensitive) || f.endsWith(".mb", Qt::CaseInsensitive)) {
-            exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
+        if (f.endsWith(".ply", Qt::CaseInsensitive) || f.endsWith(".stl", Qt::CaseInsensitive)) {
+            exec(f.endsWith(".ply", Qt::CaseInsensitive) ? "importPly" : "importStl", args(QJsonArray{f}));
             return;
         }
-        QString c = f.endsWith(".ply", Qt::CaseInsensitive) ? "importPly" : f.endsWith(".stl", Qt::CaseInsensitive) ? "importStl" : "importObj";
-        exec(c, args(QJsonArray{f}));
+        // Scenes, and OBJ through the objExport plug-in, which the file command names when it isn't loaded.
+        exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
     };
     m->addAction(new OptionRow("Import...", QString(), [do_import] { do_import(chosen_file_type(FileAction::Import)); }, [this, do_import] { file_options_window(this, FileAction::Import, do_import); }, m));
     m->addSeparator();
@@ -225,7 +237,7 @@ QMenu* MainWindow::file_menu() {
         QString selected = file_type_filter(type);
         const QString ext = file_type_extension(type);
         QString f = QFileDialog::getSaveFileName(nullptr, all ? "Export All" : "Export Selection", ext.isEmpty() ? "export.ma" : "export." + ext,
-                                                 QString("ASCII scenes (*.ma);;%1%2%3;;OBJ (*.obj);;PLY (*.ply);;STL (*.stl)").arg(kUsdFilter, plugin_loaded("fbx") ? ";;FBX (*.fbx)" : "", plugin_loaded("gltf") ? ";;glTF 2.0 (*.glb *.gltf)" : ""), &selected);
+                                                 QString("mayaAscii (*.ma);;mayaBinary (*.mb)%1%2%3%4;;PLY (*.ply);;STL (*.stl)").arg(plugin_loaded("fbx") ? ";;FBX (*.fbx)" : "", plugin_loaded("objExport") ? ";;OBJ (*.obj)" : "", plugin_loaded("mayaUsdPlugin") ? QString(";;") + kUsdFilter : QString(), plugin_loaded("gltf") ? ";;glTF 2.0 (*.glb *.gltf)" : ""), &selected);
         if (f.isEmpty()) return;
         if (QFileInfo(f).suffix().isEmpty() && default_file_extensions() && !ext.isEmpty()) f += "." + ext;
         // The exporters are plug-ins: one that has been unloaded says so rather than failing on an unknown command.
@@ -263,16 +275,23 @@ QMenu* MainWindow::file_menu() {
             return;
         }
         if (is_usd_file(f)) {
+            if (!plugin_ready("mayaUsdPlugin", "USD")) return;
             usd_export(f, !all);
             return;
         }
-        if (f.endsWith(".ma", Qt::CaseInsensitive)) {
-            exec("file", QJsonObject{{"args", QJsonArray{f}}, {all ? "exportAll" : "exportSelected", true}, {"type", "mayaAscii"}});
+        if (f.endsWith(".ma", Qt::CaseInsensitive) || f.endsWith(".mb", Qt::CaseInsensitive)) {
+            const char* type = f.endsWith(".mb", Qt::CaseInsensitive) ? "mayaBinary" : "mayaAscii";
+            exec("file", QJsonObject{{"args", QJsonArray{f}}, {all ? "exportAll" : "exportSelected", true}, {"type", type}});
+            return;
+        }
+        if (f.endsWith(".obj", Qt::CaseInsensitive)) {
+            if (!plugin_ready("objExport", "OBJ")) return;
+            exec("file", QJsonObject{{"args", QJsonArray{f}}, {all ? "exportAll" : "exportSelected", true}, {"type", "OBJexport"}});
             return;
         }
         QStringList keep = selection_names();
         if (all) mel("SelectAll;");
-        QString c = f.endsWith(".ply", Qt::CaseInsensitive) ? "exportPly" : f.endsWith(".stl", Qt::CaseInsensitive) ? "exportStl" : "exportObj";
+        QString c = f.endsWith(".ply", Qt::CaseInsensitive) ? "exportPly" : "exportStl";
         exec(c, args(QJsonArray{f}));
         if (all) {
             QJsonArray a;
