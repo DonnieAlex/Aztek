@@ -2330,11 +2330,45 @@ and other formats come from plug-ins whose file types exist only while they are 
 - With `.aztek` gone, `.ma` is the only text form, so what only `.aztek` kept is now lost on save. Found by the tests
   that saved `.aztek`: a curve's weighted tangents, tangent weights, tangent locks and weight locks were not written
   to `.ma` (`.wgt` was always no); fixed, read and written as `.wgt`, `.kix/.kiy/.kox/.koy` (the vector's length is
-  the weight), `.ktl` and `.kwl`. Still lost: character sets and their clips (`character`, `clipLibrary`,
-  `clipScheduler`, `clipChannel`), which `.ma` doesn't write yet; nodes created on their own with nothing connected
+  the weight), `.ktl` and `.kwl`. Character sets and their clips, also lost at first, are written since (next
+  section). Still lost: nodes created on their own with nothing connected
   (deformers with no geometry, curve and surface history nodes with no inputs, `snapshot`, `motionTrail`) are left
   out of `.ma` as before.
 - The file type of the open scene (`file -q -type`) follows the file opened or saved last, as the reference's.
 - Not done: PLY and STL remain Aztek's own commands outside a plug-in (the reference has no PLY reader; its STL
   translator is not done here); `translator` is not a command yet, so the dialogs ask `pluginInfo` which plug-ins are
   loaded rather than listing translators.
+
+### Character sets and clips in .ma and .mb (14/11/2026)
+
+Written and read in the reference's layout, taken from a file the reference saved
+([Maya2glTF](https://github.com/iimachines/Maya2glTF)'s `TwoJointsLogicalParentAnim.ma`, MIT, now in
+`tests/data/ma_characters`) and the 2027 pages for
+[character](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/character.html),
+[clipLibrary](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/clipLibrary.html),
+[clipScheduler](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/clipScheduler.html) and
+[animClip](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/animClip.html). `.mb` comes with it,
+as it is written from the `.ma` text.
+
+- `character`: members through `.dnsm`, each driven by a value of the character's (`.lv[i]`, `.av[i]`, `.uv[i]` by
+  the attribute's unit), `.am` (characterMapping: plug, kind, index), `.cim`, `.aal` aliases. A member's keys go to
+  its value, as the reference keys a character member; read back, they go to the member, as Aztek keys it.
+- `clipLibrary`: source clips as `animClip` nodes on `.sc[s]` (start, end, `ci no`), a curve per member on
+  `.cel[s].cev[k].cevr`, the character's mapping on `.cd[0]`.
+- `clipScheduler`: each clip an `animClip` (start frame, source start and end, scale, pre and post cycle, hold,
+  weight, enable, absolute or relative channels) feeding the scheduler's arrays at its index; tracks `.tr[j]`,
+  `.nt`; mute, solo and lock as the track's state bits (`.ts`: 1 locked, 2 soloed, 4 muted).
+- `.mb`: the mapping is a `CHMP` chunk (count, then plug, a kind byte and a 32-bit index), read from an `.mb` the
+  reference wrote (an older FOR4 file; not added to the tests, as its repository has no licence). The clips' and
+  the character's times are written in ticks.
+- Checked: the reference's file reads with its 12 members, two source clips, two scheduled clips (`clipSchedule -q`
+  as the reference lists them) and the joints at each clip's end matching the clips' keys; saved again as `.ma` and
+  `.mb` it reads the same; a character made here with keys, a clip and a scaled second instance saves both ways
+  with the same schedule and values at seven frames. Not compared with the reference opening Aztek's files.
+- Reading `.mb` key times: ticks are now multiplied before they are divided, so a whole frame reads whole
+  (31, not 31.000000000000004).
+- Where Aztek and the reference differ: Aztek counts a clip's own play as its first cycle, the reference's
+  postCycle counts the repeats after it (written as Aztek's less one); mute and solo are per clip in Aztek and per
+  track in the reference, so a track takes the state of any clip on it.
+- Not done: poses (left out with a warning); a clip's offsets (`.oxf`), time warp and weight style beyond the
+  default; blends between clips (`.bl`); `characterOffset` nodes; clip ghosts.

@@ -979,3 +979,72 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("allPoses", "ap", ArgType::Bool, "Query: all poses.")),
     );
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Scene files: what a character holds, by member position, for the file's layout (see ma_file/characters.rs).
+
+/// A character as a file keeps it. Source clips' curves are keyed by member position, not by element.
+pub(crate) struct Saved {
+    pub members: Vec<PlugRef>,
+    /// The library's name and its source clips: {name: {start, end, curves: {position: keys}}}.
+    pub library: Option<(String, Value)>,
+    /// The scheduler's name and its clips, as `clipSchedule` keeps them.
+    pub scheduler: Option<(String, Value)>,
+    pub has_poses: bool,
+}
+
+pub(crate) fn saved(g: &Graph, c: NodeId) -> Saved {
+    let list: Vec<((i32, String, i32), PlugRef)> = member_list(g, c).into_iter().filter_map(|m| member_plug(g, c, &m).map(|p| (m, p))).collect();
+    let position: std::collections::HashMap<String, usize> = list.iter().enumerate().map(|(k, (m, _))| (m.0.to_string(), k)).collect();
+    let library = library_of(g, c).map(|l| {
+        let mut sources = node_json(g, l, LIB_SOURCES);
+        if let Some(o) = sources.as_object_mut() {
+            for src in o.values_mut() {
+                let curves: Map<String, Value> = src.get("curves").and_then(Value::as_object).map(|cs| cs.iter().filter_map(|(e, k)| Some((position.get(e)?.to_string(), k.clone()))).collect()).unwrap_or_default();
+                src["curves"] = Value::Object(curves);
+            }
+        }
+        (g.path(l), sources)
+    });
+    let has_poses = library_of(g, c).is_some_and(|l| node_json(g, l, LIB_POSES).as_object().is_some_and(|o| !o.is_empty()));
+    let scheduler = scheduler_of(g, c).map(|x| (g.path(x), node_json(g, x, SCHED_CLIPS)));
+    Saved { members: list.into_iter().map(|(_, p)| p).collect(), library, scheduler, has_poses }
+}
+
+
+/// Whether a plug is a clip channel's base: the keys left outside the clips.
+pub(crate) fn is_channel_base(g: &Graph, p: &PlugRef) -> bool {
+    is_clip_channel(g, p.node) && p.attr == CH_BASE as i32
+}
+
+/// Makes a character from a file: its members, then its library and scheduler under the file's names, with the
+/// channels that play the clips. Source clips' curves come keyed by member position.
+pub(crate) fn restore(g: &mut Graph, name: &str, plugs: &[PlugRef], library: Option<(String, Value)>, scheduler: Option<(String, Value)>) -> CmdResult<NodeId> {
+    let t = types::find("character").unwrap();
+    let c = g.create_node(&t, name, NO_NODE, true)?;
+    add_members(g, c, plugs)?;
+    if library.is_none() && scheduler.is_none() {
+        return Ok(c);
+    }
+    let (lib, sched) = ensure_clip_nodes(g, c)?;
+    let elements: Vec<String> = member_list(g, c).iter().map(|m| m.0.to_string()).collect();
+    if let Some((lname, mut sources)) = library {
+        if let Some(o) = sources.as_object_mut() {
+            for src in o.values_mut() {
+                let curves: Map<String, Value> = src.get("curves").and_then(Value::as_object).map(|cs| cs.iter().filter_map(|(k, keys)| Some((elements.get(k.parse::<usize>().ok()?)?.clone(), keys.clone()))).collect()).unwrap_or_default();
+                src["curves"] = Value::Object(curves);
+            }
+        }
+        set_json(g, lib, LIB_SOURCES, sources)?;
+        let _ = g.rename(lib, &lname);
+    }
+    let has_clips = scheduler.as_ref().is_some_and(|(_, c)| c.as_array().is_some_and(|a| !a.is_empty()));
+    if let Some((sname, clips)) = scheduler {
+        set_json(g, sched, SCHED_CLIPS, clips)?;
+        let _ = g.rename(sched, &sname);
+    }
+    if has_clips {
+        wire_channels(g, c, lib, sched)?;
+    }
+    Ok(c)
+}

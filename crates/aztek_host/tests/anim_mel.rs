@@ -141,5 +141,8 @@ fn layers_paths_and_weights_survive_a_save() {
     mel(&mut c, "currentTime 1;");
     assert_eq!(number(&mel(&mut c, "getAttr pSphere1.ty;")), 3.0);
     assert_eq!(mel(&mut c, "animLayer -q -at L1;"), json!(["pSphere1.translateY"]));
-    // Character sets and clips are not written to .ma yet (PARITY.md, "Scene files are .ma and .mb only").
+    assert_eq!(mel(&mut c, "character -q hero;"), json!(["pTorus1.translateX"]));
+    assert_eq!(mel(&mut c, "clipSchedule -q hero;"), json!(["walk,0,1,1,11,1,0,1,0"]));
+    mel(&mut c, "currentTime 11;");
+    assert_eq!(number(&mel(&mut c, "getAttr pTorus1.tx;")), 10.0);
 }

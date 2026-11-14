@@ -312,6 +312,17 @@ fn indexed(path: &str) -> Vec<(String, Option<(usize, usize)>)> {
         .collect()
 }
 
+/// Time attributes, which a binary file keeps in ticks.
+fn is_time(node_type: &str, leaf: &str) -> bool {
+    match node_type {
+        "time" => matches!(leaf, "o" | "outTime" | "unw" | "unwarpedTime"),
+        "animClip" => matches!(leaf, "sf" | "startFrame" | "ss" | "sourceStart" | "se" | "sourceEnd" | "h" | "hold" | "st" | "start" | "du" | "duration"),
+        "clipScheduler" => matches!(leaf, "st" | "start" | "ss" | "sourceStart" | "se" | "sourceEnd" | "h" | "hold"),
+        "character" => matches!(leaf, "tcs" | "timelineClipStart" | "tce" | "timelineClipEnd"),
+        _ => false,
+    }
+}
+
 fn component_kind(name: &str) -> Option<&'static [u8; 4]> {
     match name {
         "f" => Some(b"CMDF"),
@@ -643,7 +654,7 @@ impl Writer {
                     }
                     return Ok(Some(*b"CMPD"));
                 }
-                if node_type == "time" && matches!(leaf, "o" | "outTime" | "unw" | "unwarpedTime") {
+                if is_time(node_type, leaf) {
                     x.iter().for_each(|f| {
                         d.raw(&((f * ticks_per_frame).round() as i64).to_be_bytes());
                     });
@@ -796,6 +807,17 @@ impl Writer {
                     d.f64(*x);
                 });
                 Ok(Some(*b"NRBC"))
+            }
+            Some("characterMapping") => {
+                // Count, then each member's plug, kind (a byte) and index, as the reference's files hold it.
+                let n = v.first().and_then(Tok::num).unwrap_or(0.0) as u32;
+                d.u32(n);
+                for e in v.get(1..).unwrap_or(&[]).chunks(3) {
+                    if let [plug, kind, idx] = e {
+                        d.str(plug.text().unwrap_or("")).u8(kind.num().unwrap_or(0.0) as u8).u32(idx.num().unwrap_or(0.0) as u32);
+                    }
+                }
+                Ok(Some(*b"CHMP"))
             }
             Some("attributeAlias") => {
                 let items: Vec<&str> = v.iter().filter(|t| matches!(t, Tok::Str(_))).filter_map(Tok::text).collect();
@@ -971,6 +993,7 @@ impl Writer {
             Some("mesh") => *b"MESH",
             Some("nurbsCurve") => *b"NCRV",
             Some("componentList") => *b"CMP#",
+            Some("attributeAlias") => *b"ATAL",
             Some(other) => {
                 self.warn(format!("added attributes of data type {other}"));
                 return;

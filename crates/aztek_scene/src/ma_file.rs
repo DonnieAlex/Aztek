@@ -19,6 +19,7 @@ mod unknown;
 mod lights;
 mod shading;
 mod nurbs;
+mod characters;
 
 use aztek_ops::units;
 use std::cell::Cell;
@@ -434,6 +435,8 @@ struct Doc {
     /// when a placeholder named it.
     ref_conns: Vec<RefLine>,
     up_z: bool,
+    /// Characters and their clips, taken out of the nodes and connections (see characters.rs).
+    characters: Vec<characters::CharFile>,
 }
 
 fn linear_unit(s: &str) -> Option<f64> {
@@ -510,7 +513,7 @@ impl Doc {
 
     fn parse(text: &str) -> Doc {
         FILE_UNITS.with(|u| u.set((1.0, std::f64::consts::PI / 180.0)));
-        let mut d = Doc { light_set: Vec::new(), relationships: Vec::new(), nodes: Vec::new(), by_name: HashMap::new(), conns: Vec::new(), lin: 1.0, ang: std::f64::consts::PI / 180.0, fps: None, drop_frame: false, warnings: Vec::new(), refs: Vec::new(), ref_load: Vec::new(), instances: Vec::new(), ref_conns: Vec::new(), up_z: false, requires: Vec::new(), plugin_versions: HashMap::new(), file_info: Vec::new() };
+        let mut d = Doc { light_set: Vec::new(), relationships: Vec::new(), nodes: Vec::new(), by_name: HashMap::new(), conns: Vec::new(), lin: 1.0, ang: std::f64::consts::PI / 180.0, fps: None, drop_frame: false, warnings: Vec::new(), refs: Vec::new(), ref_load: Vec::new(), instances: Vec::new(), ref_conns: Vec::new(), up_z: false, requires: Vec::new(), plugin_versions: HashMap::new(), file_info: Vec::new(), characters: Vec::new() };
         let mut lex = Lexer::new(text);
         let mut st = Vec::new();
         let mut current: Option<usize> = None;
@@ -3578,6 +3581,7 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
         }
     }
     crate::hik::after_load(&mut b.s.graph);
+    b.read_characters(&doc.characters, fps);
     b.hold_unused();
     b.report_unused();
     let warnings = std::mem::take(&mut b.warnings);
@@ -3644,6 +3648,7 @@ pub fn read_text(s: &mut Session, text: &str, import: bool) -> Vec<String> {
     }
     let dyn_warnings = dynamics::translate(&mut doc);
     doc.warnings.extend(dyn_warnings);
+    doc.characters = characters::take(&mut doc);
     let mut before = Vec::new();
     // The plug-ins the file names, before its nodes. One that can't be found only matters if the file holds a type nobody knows.
     if s.commands.find("loadPlugin").is_some() {
@@ -4019,6 +4024,10 @@ struct Writer<'a> {
     /// Shading groups the light linker has to name, and its lines.
     needs_links: Vec<String>,
     links_text: String,
+    /// A character member, and the character's value that drives it (`hero.lv[1]`).
+    char_driven: HashMap<PlugRef, String>,
+    /// A clip channel, and the character's value its member's keys go to.
+    char_channels: HashMap<NodeId, String>,
 }
 
 impl Writer<'_> {
@@ -4500,64 +4509,8 @@ impl Writer<'_> {
         let keys = anim::keys_of(&self.s.graph, id);
         let n = self.s.graph.node(id).unwrap();
         let (pre, post) = (n.data().int(t.attr_index("preInfinity").unwrap()), n.data().int(t.attr_index("postInfinity").unwrap()));
-        let _ = writeln!(self.out, "createNode {} -n {};", t.name, quoted(&name));
-        let _ = writeln!(self.out, "\tsetAttr \".tan\" 18;");
-        let _ = writeln!(self.out, "\tsetAttr \".wgt\" {};", if keys.weighted { "yes" } else { "no" });
-        let count = keys.keys.len();
-        if count > 0 {
-            let last = range_text(0, count - 1);
-            let value_unit = if t.name.ends_with('A') { units::Unit::Angle } else if t.name.ends_with('L') { units::Unit::Linear } else { units::Unit::None };
-            let pairs = keys.keys.iter().map(|k| format!("{} {}", k.t, units::to_user(value_unit, k.v))).collect::<Vec<_>>().join(" ");
-            let _ = writeln!(self.out, "\tsetAttr -s {count} \".ktv[{last}]\"  {pairs};");
-            let list = |f: &dyn Fn(&Key) -> String| keys.keys.iter().map(f).collect::<Vec<_>>().join(" ");
-            if keys.keys.iter().any(|k| k.itt != Tangent::Auto) {
-                let _ = writeln!(self.out, "\tsetAttr -s {count} \".kit[{last}]\"  {};", list(&|k| tangent_code(k.itt).to_string()));
-            }
-            if keys.keys.iter().any(|k| k.ott != Tangent::Auto) {
-                let _ = writeln!(self.out, "\tsetAttr -s {count} \".kot[{last}]\"  {};", list(&|k| tangent_code(k.ott).to_string()));
-            }
-            let broken = |k: &Key| !k.tan_lock || ((k.itt == Tangent::Fixed || k.ott == Tangent::Fixed) && k.in_slope != k.out_slope);
-            if keys.keys.iter().any(broken) {
-                let _ = writeln!(self.out, "\tsetAttr -s {count} \".ktl[{last}]\"  {};", list(&|k| if broken(k) { "no".into() } else { "yes".to_string() }));
-            }
-            if keys.weighted && keys.keys.iter().any(|k| !k.weight_lock) {
-                let _ = writeln!(self.out, "\tsetAttr -s {count} \".kwl[{last}]\"  {};", list(&|k| if k.weight_lock { "yes".into() } else { "no".to_string() }));
-            }
-            if keys.keys.iter().any(|k| k.breakdown) {
-                let _ = writeln!(self.out, "\tsetAttr -s {count} \".kbd[{last}]\"  {};", list(&|k| if k.breakdown { "yes".into() } else { "no".to_string() }));
-            }
-            // Fixed slopes as vectors one frame long. A time curve's value goes in seconds.
-            let dx = 1.0 / anim::fps();
-            let unit = if t.name.ends_with('T') { dx } else { 1.0 };
-            // On a weighted curve the vector's length is the tangent's weight.
-            let vector = |slope: f64, weight: f64| {
-                let (x, y) = (dx, slope * unit);
-                let len = (x * x + y * y).sqrt();
-                if keys.weighted && len > 0.0 {
-                    (x * weight / len, y * weight / len)
-                } else {
-                    (x, y)
-                }
-            };
-            for (i, k) in keys.keys.iter().enumerate() {
-                if k.itt == Tangent::Fixed {
-                    let (x, y) = vector(k.in_slope, k.in_weight);
-                    let _ = writeln!(self.out, "\tsetAttr \".kix[{i}]\" {x};");
-                    let _ = writeln!(self.out, "\tsetAttr \".kiy[{i}]\" {y};");
-                }
-                if k.ott == Tangent::Fixed {
-                    let (x, y) = vector(k.out_slope, k.out_weight);
-                    let _ = writeln!(self.out, "\tsetAttr \".kox[{i}]\" {x};");
-                    let _ = writeln!(self.out, "\tsetAttr \".koy[{i}]\" {y};");
-                }
-            }
-        }
-        if pre != 0 {
-            let _ = writeln!(self.out, "\tsetAttr \".pre\" {pre};");
-        }
-        if post != 0 {
-            let _ = writeln!(self.out, "\tsetAttr \".pst\" {post};");
-        }
+        let text = curve_lines(&t.name, &name, &keys, pre, post);
+        self.out.push_str(&text);
     }
 
     fn write_constraint(&mut self, id: NodeId, kind: usize) {
@@ -5148,6 +5101,24 @@ impl Writer<'_> {
             if !self.keep.contains(&dst.node) || !self.keep.contains(&src.node) {
                 continue;
             }
+            // A character and its clips: written by write_character, with a member's keys going to the character's value.
+            let clip_kind = |ty: &str| matches!(ty, "character" | "clipLibrary" | "clipScheduler" | "clipChannel");
+            if clip_kind(&dn.ty().name) || clip_kind(&sn.ty().name) {
+                if let Some(target) = self.char_channels.get(&dst.node).cloned() {
+                    if anim::is_curve(g, src.node) && crate::characters::is_channel_base(g, &dst) {
+                        let from = format!("{}.o", g.path(src.node));
+                        self.conn(&from, &target);
+                    }
+                }
+                continue;
+            }
+            if let Some(target) = self.char_driven.get(&dst).cloned() {
+                if anim::is_curve(g, src.node) {
+                    let from = format!("{}.o", g.path(src.node));
+                    self.conn(&from, &target);
+                    continue;
+                }
+            }
             // A plug-in's deformer into a curve: written with the curve, in the reference's form.
             if crate::scripted::is_plugin_deformer(&sn.ty().name) && sn.ty().attr_index("outputCurve") == Some(src.attr as usize) && dn.ty().name == crate::curves::SHAPE_TYPE {
                 continue;
@@ -5397,7 +5368,8 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     keep.retain(|&id| g.node(id).is_some_and(|n| n.reference_id() == 0));
     let used: HashSet<String> = g.nodes().iter().filter_map(|&id| g.node(id).map(|n| n.name().to_string())).collect();
     let roots = g.roots().to_vec();
-    let mut w = Writer { s, out: String::new(), conns: Vec::new(), shading: Vec::new(), warnings: Vec::new(), used, keep, pending: Vec::new(), solvers: HashSet::new(), chain_written: HashSet::new(), needs_links: Vec::new(), links_text: String::new() };
+    let mut w = Writer { s, out: String::new(), conns: Vec::new(), shading: Vec::new(), warnings: Vec::new(), used, keep, pending: Vec::new(), solvers: HashSet::new(), chain_written: HashSet::new(), needs_links: Vec::new(), links_text: String::new(), char_driven: HashMap::new(), char_channels: HashMap::new() };
+    w.plan_characters();
 
     let fps = anim::fps();
     let name = std::path::Path::new(file_name).file_name().and_then(|n| n.to_str()).unwrap_or(file_name).to_string();
@@ -5466,9 +5438,17 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
             }
             continue;
         }
+        if crate::characters::is_character(&w.s.graph, id) {
+            w.write_character(id);
+            continue;
+        }
+        if matches!(ty, "clipLibrary" | "clipScheduler" | "clipChannel") {
+            // Written with their character.
+            continue;
+        }
         if t.is_a("animCurve") || DRIVEN_CURVES.contains(&ty) {
             let output = PlugRef::new(id, t.attr_index("output").unwrap() as i32);
-            let drives = w.s.graph.destinations(&output).iter().any(|d| {
+            let drives = w.s.graph.destinations(&output).iter().any(|d| w.char_channels.contains_key(&d.node)) || w.s.graph.destinations(&output).iter().any(|d| {
                 let dt = w.s.graph.node(d.node).unwrap().ty().name.as_str();
                 w.s.graph.node(d.node).unwrap().reference_id() != 0 || (w.keep.contains(&d.node) && (rig::CONSTRAINT_TYPES.contains(&dt) || w.dag_written(d.node) || DRIVEN_CURVES.contains(&dt) || is_plain_node(dt) || crate::deform::is_deformer(dt)))
             });
@@ -5551,6 +5531,70 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     }
     let _ = writeln!(w.out, "// End of {name}");
     (w.out, w.warnings)
+}
+
+/// An animCurve's lines: its node, tangents and keys, and its infinities.
+fn curve_lines(ty: &str, name: &str, keys: &Keys, pre: i64, post: i64) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "createNode {} -n {};", ty, quoted(&name));
+    let _ = writeln!(out, "\tsetAttr \".tan\" 18;");
+    let _ = writeln!(out, "\tsetAttr \".wgt\" {};", if keys.weighted { "yes" } else { "no" });
+    let count = keys.keys.len();
+    if count > 0 {
+        let last = range_text(0, count - 1);
+        let value_unit = if ty.ends_with('A') { units::Unit::Angle } else if ty.ends_with('L') { units::Unit::Linear } else { units::Unit::None };
+        let pairs = keys.keys.iter().map(|k| format!("{} {}", k.t, units::to_user(value_unit, k.v))).collect::<Vec<_>>().join(" ");
+        let _ = writeln!(out, "\tsetAttr -s {count} \".ktv[{last}]\"  {pairs};");
+        let list = |f: &dyn Fn(&Key) -> String| keys.keys.iter().map(f).collect::<Vec<_>>().join(" ");
+        if keys.keys.iter().any(|k| k.itt != Tangent::Auto) {
+            let _ = writeln!(out, "\tsetAttr -s {count} \".kit[{last}]\"  {};", list(&|k| tangent_code(k.itt).to_string()));
+        }
+        if keys.keys.iter().any(|k| k.ott != Tangent::Auto) {
+            let _ = writeln!(out, "\tsetAttr -s {count} \".kot[{last}]\"  {};", list(&|k| tangent_code(k.ott).to_string()));
+        }
+        let broken = |k: &Key| !k.tan_lock || ((k.itt == Tangent::Fixed || k.ott == Tangent::Fixed) && k.in_slope != k.out_slope);
+        if keys.keys.iter().any(broken) {
+            let _ = writeln!(out, "\tsetAttr -s {count} \".ktl[{last}]\"  {};", list(&|k| if broken(k) { "no".into() } else { "yes".to_string() }));
+        }
+        if keys.weighted && keys.keys.iter().any(|k| !k.weight_lock) {
+            let _ = writeln!(out, "\tsetAttr -s {count} \".kwl[{last}]\"  {};", list(&|k| if k.weight_lock { "yes".into() } else { "no".to_string() }));
+        }
+        if keys.keys.iter().any(|k| k.breakdown) {
+            let _ = writeln!(out, "\tsetAttr -s {count} \".kbd[{last}]\"  {};", list(&|k| if k.breakdown { "yes".into() } else { "no".to_string() }));
+        }
+        // Fixed slopes as vectors one frame long. A time curve's value goes in seconds.
+        let dx = 1.0 / anim::fps();
+        let unit = if ty.ends_with('T') { dx } else { 1.0 };
+        // On a weighted curve the vector's length is the tangent's weight.
+        let vector = |slope: f64, weight: f64| {
+            let (x, y) = (dx, slope * unit);
+            let len = (x * x + y * y).sqrt();
+            if keys.weighted && len > 0.0 {
+                (x * weight / len, y * weight / len)
+            } else {
+                (x, y)
+            }
+        };
+        for (i, k) in keys.keys.iter().enumerate() {
+            if k.itt == Tangent::Fixed {
+                let (x, y) = vector(k.in_slope, k.in_weight);
+                let _ = writeln!(out, "\tsetAttr \".kix[{i}]\" {x};");
+                let _ = writeln!(out, "\tsetAttr \".kiy[{i}]\" {y};");
+            }
+            if k.ott == Tangent::Fixed {
+                let (x, y) = vector(k.out_slope, k.out_weight);
+                let _ = writeln!(out, "\tsetAttr \".kox[{i}]\" {x};");
+                let _ = writeln!(out, "\tsetAttr \".koy[{i}]\" {y};");
+            }
+        }
+    }
+    if pre != 0 {
+        let _ = writeln!(out, "\tsetAttr \".pre\" {pre};");
+    }
+    if post != 0 {
+        let _ = writeln!(out, "\tsetAttr \".pst\" {post};");
+    }
+    out
 }
 
 /// Nodes whose result the mesh holds once baked: anything that outputs a mesh.

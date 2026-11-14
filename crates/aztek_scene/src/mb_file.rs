@@ -542,15 +542,15 @@ impl Writer {
                 };
                 if &k.tag == b"CMPD" && node_type.starts_with("animCurveT") && (attr == "ktv" || attr.starts_with("ktv[")) {
                     // Key times are ticks; the text has frames.
-                    let per = self.fps() / self.ticks;
+                    let (fps, ticks) = (self.fps(), self.ticks);
                     while c.left() >= 16 {
-                        let t = c.u64() as i64 as f64 * per;
+                        let t = c.u64() as i64 as f64 * fps / ticks;
                         let _ = write!(vals, " {} {}", num(t), num(c.f64()));
                     }
                 } else if matches!(&k.tag, b"DBLE" | b"CMPD") {
-                    let per = self.fps() / self.ticks;
+                    let (fps, ticks) = (self.fps(), self.ticks);
                     while c.left() >= 8 {
-                        let _ = write!(vals, " {}", num(double_or_ticks(c.u64(), per)));
+                        let _ = write!(vals, " {}", num(double_or_ticks(c.u64(), fps, ticks)));
                     }
                 } else {
                     while c.left() >= 8 {
@@ -606,6 +606,22 @@ impl Writer {
                 let _ = write!(vals, " {n}");
                 for _ in 0..n * 4 {
                     let _ = write!(vals, " {}", num(c.f64()));
+                }
+            }
+            b"CHMP" => {
+                // A character's mapping: count, then each member's plug, kind (a byte) and index.
+                ty = Some("characterMapping");
+                let n = c.count(6);
+                let _ = write!(vals, " {n}");
+                for _ in 0..n {
+                    let plug = c.str();
+                    let kind = c.u8();
+                    let idx = c.u32();
+                    let _ = write!(vals, " {} {kind} {idx}", q(&plug));
+                }
+                if !c.ok {
+                    *self.unknown_values.entry("CHMP (cut short)".into()).or_default() += 1;
+                    return;
                 }
             }
             b"MATR" => {
@@ -771,6 +787,7 @@ impl Writer {
                     [b'M', b'E', b'S', b'H'] => "mesh",
                     [b'N', b'C', b'R', b'V'] => "nurbsCurve",
                     [b'C', b'M', b'P', b'#'] => "componentList",
+                    [b'A', b'T', b'A', b'L'] => "attributeAlias",
                     other => {
                         self.warnings.push(format!("added attribute {long}: data type {} isn't known; left out", tag_name(other)));
                         return;
@@ -835,10 +852,11 @@ fn sparse_path(attr: &str) -> bool {
 }
 
 /// A double, or a time in ticks (a whole number the file keeps in the same eight bytes) given as frames.
-fn double_or_ticks(bits: u64, frames_per_tick: f64) -> f64 {
+/// Ticks are multiplied before they are divided, so whole frames come out whole.
+fn double_or_ticks(bits: u64, fps: f64, ticks: f64) -> f64 {
     // As a double it would be denormal, or a NaN with its sign set; -0 and 0 are themselves.
     if (bits >> 52 == 0 && bits != 0) || bits >> 52 == 0xfff {
-        return bits as i64 as f64 * frames_per_tick;
+        return bits as i64 as f64 * fps / ticks;
     }
     f64::from_bits(bits)
 }
@@ -1135,12 +1153,13 @@ mod tests {
 
     #[test]
     fn times_kept_as_ticks_read_as_frames() {
-        let per = 24.0 / TICKS;
-        assert_eq!(double_or_ticks(5_880_000, per), 1.0);
-        assert_eq!(double_or_ticks((-5_880_000i64) as u64, per), -1.0);
-        assert_eq!(double_or_ticks(2.5f64.to_bits(), per), 2.5);
-        assert_eq!(double_or_ticks(0, per), 0.0);
-        assert!(double_or_ticks((-0.0f64).to_bits(), per) == 0.0);
+        assert_eq!(double_or_ticks(5_880_000, 24.0, TICKS), 1.0);
+        assert_eq!(double_or_ticks((-5_880_000i64) as u64, 24.0, TICKS), -1.0);
+        assert_eq!(double_or_ticks(2.5f64.to_bits(), 24.0, TICKS), 2.5);
+        assert_eq!(double_or_ticks(0, 24.0, TICKS), 0.0);
+        assert!(double_or_ticks((-0.0f64).to_bits(), 24.0, TICKS) == 0.0);
+        // 31 frames, not 31.000000000000004.
+        assert_eq!(double_or_ticks(31 * 5_880_000, 24.0, TICKS), 31.0);
     }
 
     fn attr_record(code: &[u8; 4], flags: [u8; 4], name: &str, fields: Option<&str>, min: f64, max: f64, dv: f64) -> Vec<u8> {
