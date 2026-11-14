@@ -7,7 +7,7 @@ use crate::first_hit::{SampleOut, ALBEDO, BACKGROUND, DIRECT, EMISSION, INDIRECT
 use crate::scene::FilterKind;
 
 /// What an AOV holds, and how it is filled.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub enum AovKind {
     Beauty,
     /// Sum of light slots.

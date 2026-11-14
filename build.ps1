@@ -52,6 +52,8 @@ if ($LASTEXITCODE) { throw "build failed" }
 $dist = "$dir\dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 Copy-Item "$dir\aztek.exe" $dist -Force
+# Harold's command-line renderer, for .hss scene files.
+Copy-Item "$dir\harold.exe" $dist -Force
 & "$Qt\bin\windeployqt.exe" --no-translations --no-compiler-runtime "$dist\aztek.exe" | Out-Null
 if ($LASTEXITCODE) { throw "windeployqt failed" }
 if ($env:VCToolsRedistDir) {

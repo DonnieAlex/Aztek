@@ -234,7 +234,7 @@ pub fn ball(g: &mut Graph, material: NodeId, size: u32, scene: Option<&str>, pro
     let u = n.cross(Vec3::Y).normalize() * 3.0;
     let v = u.cross(n).normalize() * 3.0;
     sc.lights.push(Light::new("swatchKey", Shape::Quad { corner: centre - u * 0.5 - v * 0.5, u, v, n, two_sided: false, spread: 1.0 }, Vec3::splat(9.0)));
-    let mut sky = Light::new("swatchSky", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None }, Vec3::splat(0.22));
+    let mut sky = Light::new("swatchSky", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None, source: None }, Vec3::splat(0.22));
     sky.camera = 0.0;
     sc.lights.push(sky);
     super::lights::emissive(&mut sc);

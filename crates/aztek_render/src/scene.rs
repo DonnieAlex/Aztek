@@ -12,7 +12,7 @@ use crate::lights::{Light, Shape};
 use crate::shader::{Material, Network, Node};
 use crate::texture::TextureCache;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum FilterKind {
     Box,
     Triangle,
@@ -87,14 +87,14 @@ impl FilterKind {
 }
 
 /// A homogeneous fog filling the scene's bounds: Arnold's atmosphere volume, simplified.
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Atmosphere {
     pub density: f32,
     pub color: Vec3,
     pub anisotropy: f32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Options {
     pub width: u32,
     pub height: u32,
@@ -202,6 +202,7 @@ pub struct TracedInput {
     pub distance: f32,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Scene {
     pub geo: Geometry,
     pub network: Network,
@@ -211,13 +212,22 @@ pub struct Scene {
     pub camera: Camera,
     pub options: Options,
     pub atmosphere: Option<Atmosphere>,
+    /// Made again when a scene file is read (see `hss`).
+    #[serde(skip)]
     pub textures: Arc<TextureCache>,
     /// Per material, the traced input it reads, if any.
+    #[serde(skip)]
     pub traced: Vec<Option<TracedInput>>,
     /// Per instance, its world to object matrix at mid shutter, for object space lookups.
+    #[serde(skip, default = "empty_bounds")]
     pub bounds: Aabb,
     /// Warnings from building the scene, for the render log.
+    #[serde(skip)]
     pub warnings: Vec<String>,
+}
+
+fn empty_bounds() -> Aabb {
+    Aabb::EMPTY
 }
 
 impl Scene {
@@ -245,10 +255,12 @@ impl Scene {
                     self.geo.instances[inst as usize].light = Some(i as u32);
                 }
             }
-            if let Shape::Dome { to_local, image, dist } = &self.lights[i].shape {
+            if let Shape::Dome { to_local, image, dist, source } = &self.lights[i].shape {
+                // From a scene file: the image is loaded from its file.
+                let image = image.clone().or_else(|| source.as_ref().and_then(|k| self.textures.image(&k.path, k.space)));
                 if let (Some(img), None) = (image, dist) {
-                    let d = Arc::new(crate::lights::dome_distribution(img));
-                    self.lights[i].shape = Shape::Dome { to_local: *to_local, image: Some(img.clone()), dist: Some(d) };
+                    let d = Arc::new(crate::lights::dome_distribution(&img));
+                    self.lights[i].shape = Shape::Dome { to_local: *to_local, image: Some(img), dist: Some(d), source: source.clone() };
                 }
             }
         }

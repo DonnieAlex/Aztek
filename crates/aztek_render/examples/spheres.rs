@@ -61,7 +61,7 @@ fn main() {
         s.geo.instances.push(Instance::new("ball", 0, Mat4::from_translation(Vec3::new(x, 1.0, 0.0)), vec![*m]));
     }
     s.geo.instances.push(Instance::new("floor", 1, Mat4::IDENTITY, vec![floor]));
-    s.lights.push(Light::new("sky", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None }, Vec3::new(0.4, 0.5, 0.7)));
+    s.lights.push(Light::new("sky", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None, source: None }, Vec3::new(0.4, 0.5, 0.7)));
     let mut key = Light::new("key", Shape::Disk { center: Vec3::new(4.0, 7.0, 5.0), frame: aztek_render::math::Frame::from_n(Vec3::new(-4.0, -7.0, -5.0).normalize()), radius: 1.0, two_sided: false }, Vec3::splat(30.0));
     key.samples = 2;
     s.lights.push(key);

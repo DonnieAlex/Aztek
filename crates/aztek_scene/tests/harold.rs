@@ -355,3 +355,26 @@ fn default_lighting_as_the_viewport() {
     let c = centre(&film);
     assert!((c.x - expect).abs() / expect < 0.01, "{} vs {expect}", c.x);
 }
+
+#[test]
+fn exported_to_a_harold_scene_file_it_renders_as_the_scene_does() {
+    let mut s = scene();
+    small(&mut s, 1);
+    run(&mut s, "polySphere", json!({"name": "ball"}));
+    run(&mut s, "directionalLight", json!({"name": "sun"}));
+    let dir = std::env::temp_dir().join(format!("aztek_export_hss_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("one").display().to_string();
+    let written = run(&mut s, "haroldExportHss", json!({"filename": file, "camera": "persp"}));
+    let path = written[0].as_str().unwrap().to_string();
+    assert!(path.ends_with("one.hss"), "{path}");
+    let from_file = aztek_render::hss::read(std::path::Path::new(&path)).unwrap();
+    let (film, _) = aztek_render::render::render(Arc::new(from_file), 2);
+    let (direct, _) = render(&mut s, "persp");
+    assert_eq!(film.pixels(0), direct.pixels(0));
+    // A file per frame.
+    let seq = run(&mut s, "haroldExportHss", json!({"filename": dir.join("seq.hss").display().to_string(), "startFrame": 1, "endFrame": 3}));
+    let names: Vec<String> = seq.as_array().unwrap().iter().map(|v| std::path::Path::new(v.as_str().unwrap()).file_name().unwrap().to_str().unwrap().to_string()).collect();
+    assert_eq!(names, ["seq.0001.hss", "seq.0002.hss", "seq.0003.hss"]);
+    assert!(s.run("haroldExportHss", json!({})).is_err());
+}

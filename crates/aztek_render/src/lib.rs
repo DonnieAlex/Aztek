@@ -20,3 +20,4 @@ pub mod procedural;
 pub mod render;
 pub mod denoise;
 pub mod output;
+pub mod hss;

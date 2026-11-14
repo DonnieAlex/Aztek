@@ -4,7 +4,7 @@
 use glam::{Vec3, Vec4};
 use rayon::prelude::*;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct DenoiseSettings {
     /// Search radius in pixels.
     pub radius: i32,

@@ -242,6 +242,50 @@ pub fn render_frames(s: &mut Session, req: &Request, frames: &[f64]) -> Result<V
     Ok(written)
 }
 
+/// haroldExportHss: the scene as Harold renders it, written to a Harold scene file for the `harold` program, as the
+/// reference's renderer writes `.ass` files for its own. With -startFrame and -endFrame, a file per frame:
+/// `name.0001.hss`.
+fn export_hss(s: &mut Session, a: &Args) -> CmdResult {
+    let Some(file) = a.get("filename").and_then(Value::as_str).filter(|f| !f.is_empty()).map(str::to_string) else { fail!("haroldExportHss: -filename is needed") };
+    let path = if Path::new(&file).extension().is_none() { format!("{file}.hss") } else { file };
+    let req = request_from(a);
+    let fps = crate::anim::fps();
+    let now = s.graph.time() * fps;
+    let (start, end) = (a.get("startFrame").and_then(Value::as_f64), a.get("endFrame").and_then(Value::as_f64));
+    let step = a.get("frameStep").and_then(Value::as_f64).filter(|x| *x > 0.0).unwrap_or(1.0);
+    let list = match (start, end) {
+        (Some(a0), Some(b0)) => frames(a0, b0, step),
+        (Some(a0), None) => vec![a0],
+        _ => vec![now],
+    };
+    let sequence = start.is_some() && end.is_some();
+    let original = s.graph.time();
+    let mut written = Vec::new();
+    for &fr in &list {
+        s.graph.set_time(fr / fps);
+        s.graph.evaluate();
+        let mut tr = std::mem::take(&mut s.extras.harold.translator);
+        let r = super::translate(s, &mut tr, &req);
+        s.extras.harold.translator = tr;
+        let (scene, _) = r.map_err(aztek_ops::CommandError::new)?;
+        for w in &scene.warnings {
+            log::warn!("Harold: {w}");
+        }
+        let out = if sequence {
+            let p = Path::new(&path);
+            let stem = p.file_stem().and_then(|x| x.to_str()).unwrap_or("scene");
+            p.with_file_name(format!("{stem}.{:04}.hss", fr.round() as i64)).display().to_string()
+        } else {
+            path.clone()
+        };
+        aztek_render::hss::write(&scene, Path::new(&out)).map_err(aztek_ops::CommandError::new)?;
+        written.push(out);
+    }
+    s.graph.set_time(original);
+    s.graph.evaluate();
+    Ok(json!(written))
+}
+
 fn request_from(a: &Args) -> Request {
     let num = |k: &str| a.get(k).and_then(Value::as_f64).filter(|x| *x > 0.0).map(|x| x as u32);
     let region = a.get("region").and_then(Value::as_array).filter(|v| v.len() == 4).map(|v| {
@@ -441,6 +485,14 @@ pub fn register(c: &mut Commands<Session>) {
                 .undoable(false),
         );
     }
+    c.register(
+        common(Cmd::new("haroldExportHss", "Writes the scene as Harold renders it to a Harold scene file (.hss) for the harold program; a file per frame with -startFrame and -endFrame. Returns the files written.", export_hss))
+            .flag(f("filename", "f", ArgType::String, "The file; .hss is added when it has no extension."))
+            .flag(f("startFrame", "sf", ArgType::Float, "First frame; the current frame without it."))
+            .flag(f("endFrame", "ef", ArgType::Float, "Last frame."))
+            .flag(f("frameStep", "fs", ArgType::Float, "Frames between files."))
+            .undoable(false),
+    );
     c.register(common(Cmd::new("render", "Renders the current frame and returns the image's path.", render_cmd).positional("camera")).flag(f("batch", "b", ArgType::Bool, "Render the frames the render settings name.")).undoable(false));
     c.register(
         crate::system_cmds::q_flags(Cmd::new("renderSettings", "Output file names the render settings give.", render_settings))

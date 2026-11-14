@@ -11,7 +11,8 @@ scene holds is rendered by it; there is no choice of renderer.
 
 ## Where it lives
 
-- `crates/aztek_render`: the renderer, knowing nothing of the scene graph. `bvh.rs` (binned SAH hierarchy, refit),
+- `crates/aztek_render`: the renderer, knowing nothing of the scene graph, with `hss.rs` (scene files) and
+  `src/bin/harold.rs` (the command-line program). `bvh.rs` (binned SAH hierarchy, refit),
   `geom.rs` (meshes in object space with motion keys, instances over a top level hierarchy), `camera.rs` (film back,
   film fit, thin lens), `texture.rs` (images, mip pyramids, UDIM and `<uvtile>`, colour spaces, a memory limit),
   `shader.rs` (shading networks and the material description), `bsdf.rs` (the standard surface's lobes), `lights.rs`,
@@ -131,6 +132,21 @@ Batch rendering needs no display:
 
 `-b` steps frames, `-im` sets the file name prefix (tokens `<Scene>`, `<Camera>`, `<RenderLayer>`, `<AOV>`), `-as` the
 camera samples. Images go to the project's `images` folder, or `images` beside the scene, unless the prefix is a path.
+
+## Standalone: scene files and the harold program
+
+Harold renders without Aztek, as the reference's renderer does with its `.ass` files and its command-line program.
+
+- `haroldExportHss -f scene.hss` writes the scene as Harold renders it to a Harold scene file (`.hss`): meshes,
+  instances, shading networks, materials, lights, camera and settings. `-camera`, `-width`, `-height` and `-region` as
+  for `hrender`; `-startFrame`, `-endFrame` and `-frameStep` write a file per frame (`scene.0001.hss`). Textures are
+  kept as their files and colour spaces, so the images must be where the file says when it is rendered.
+- `harold scene.hss -o image.exr` renders one, beside `aztek` in every package. `-r width height`, `-as` camera
+  samples, `-t` threads, `-v` 0, 1 or 2; `-dw` and `-dp` are accepted. With no `-o` it writes the scene's name with
+  `.exr`.
+- The file is JSON, `{"harold": 1, "scene": {...}}`, the renderer's `Scene` as it holds it (`crates/aztek_render/src/hss.rs`).
+  A file of a later version is refused. A scene rendered from its file gives the same pixels as the scene rendered
+  in Aztek (`tests/hss.rs`, `aztek_scene/tests/harold.rs`).
 
 ## Interface
 

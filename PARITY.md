@@ -2372,3 +2372,21 @@ as it is written from the `.ma` text.
   track in the reference, so a track takes the state of any clip on it.
 - Not done: poses (left out with a warning); a clip's offsets (`.oxf`), time warp and weight style beyond the
   default; blends between clips (`.bl`); `characterOffset` nodes; clip ghosts.
+
+### Harold standalone, part 1: scene files and the harold program (14/11/2026)
+
+The first part of making Harold a standalone renderer with a plug-in, as the reference's renderer and its plug-in
+are: Harold renders scene files of its own without Aztek. Names as chosen for it: the program `harold`, scene files
+`.hss`, the export command `haroldExportHss` (the reference's plug-in has `arnoldExportAss`), the plug-in
+`haroldForAztek` (next part). See [docs/HAROLD.md](docs/HAROLD.md).
+
+- `haroldExportHss`: `-filename`, `-camera`, `-width`, `-height`, `-region`, `-startFrame`, `-endFrame`, `-frameStep`.
+- `harold`: `-i`, `-o`, `-r`, `-as`, `-t`, `-v`, `-dw`, `-dp`, as the reference's program takes them; built by CMake
+  beside `aztek` and in the Linux packages, the Windows folder and installer, and the macOS app.
+- Checked: a scene written and read back renders the same pixels; one exported from Aztek renders the same pixels as
+  rendering it in Aztek; the program renders a file at the size asked.
+- Not done: the format is JSON, so large meshes make large files (the reference's `.ass` is text too, and has a
+  compressed form); the export's `-selected`, `-lightLinks`, `-shadowLinks`, `-mask`, `-boundingBox`,
+  `-expandProcedurals` and `-compressed` flags of the reference's command.
+- Next part: the translator, render settings, Render View, swatches and the `ai*` node types move out of the core into
+  the `haroldForAztek` plug-in, built in and loaded at start, and the core stops linking the renderer.

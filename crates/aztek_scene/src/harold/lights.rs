@@ -120,11 +120,11 @@ pub fn translate(mb: &mut MatBuilder, scene: &mut Scene, warnings: &mut Vec<Stri
                 if format != 2 {
                     warnings.push(format!("{name}: only the latlong format is honoured"));
                 }
-                let image = key.and_then(|k| scene.textures.image(&k.path, k.space));
+                let image = key.as_ref().and_then(|k| scene.textures.image(&k.path, k.space));
                 // The dome turns with its transform.
                 let (_, r, _) = w.to_scale_rotation_translation();
                 let dome_color = if image.is_some() { Vec3::ONE * intensity * 2f32.powf(exposure) } else { color };
-                let mut l = Light::new(&name, Shape::Dome { to_local: Mat4::from_quat(r.inverse()), image, dist: None }, dome_color);
+                let mut l = Light::new(&name, Shape::Dome { to_local: Mat4::from_quat(r.inverse()), image, dist: None, source: key }, dome_color);
                 fill_common(g, shape, &mut l, scene);
                 l.camera = get_f(g, shape, "camera", 1.0) as f32;
                 out.push((l, shape));

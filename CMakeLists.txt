@@ -51,6 +51,24 @@ add_custom_target(aztek_host_build
   USES_TERMINAL
   COMMENT "cargo build -p aztek_host")
 
+# harold, Harold's command-line renderer: renders .hss scene files written by haroldExportHss. Built beside aztek.
+if(WIN32)
+  set(HAROLD_BIN ${CARGO_TARGET_DIR}/${CARGO_PROFILE}/harold.exe)
+  set(HAROLD_OUT ${CMAKE_BINARY_DIR}/harold.exe)
+else()
+  set(HAROLD_BIN ${CARGO_TARGET_DIR}/${CARGO_PROFILE}/harold)
+  set(HAROLD_OUT ${CMAKE_BINARY_DIR}/harold)
+endif()
+add_custom_target(harold_program ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CARGO_TARGET_DIR}
+          ${CARGO} build -p aztek_render --bin harold ${CARGO_FLAG}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${HAROLD_BIN} ${HAROLD_OUT}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  BYPRODUCTS ${HAROLD_OUT}
+  USES_TERMINAL
+  COMMENT "cargo build -p aztek_render --bin harold")
+add_dependencies(harold_program aztek_host_build)
+
 add_executable(aztek WIN32
   app/src/main.cpp
   app/src/host.cpp
@@ -183,6 +201,11 @@ endif()
 
 # Install: the binary, and on Linux its desktop entry and icon (cmake --install build --prefix ~/.local).
 install(TARGETS aztek RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+if(APPLE)
+  install(PROGRAMS ${HAROLD_OUT} DESTINATION aztek.app/Contents/MacOS)
+else()
+  install(PROGRAMS ${HAROLD_OUT} DESTINATION bin)
+endif()
 if(UNIX AND NOT APPLE)
   install(FILES app/aztek.desktop DESTINATION share/applications)
   install(FILES app/icons/aztek-icon.svg DESTINATION share/icons/hicolor/scalable/apps RENAME aztek.svg)

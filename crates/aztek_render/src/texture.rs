@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 use glam::{Vec2, Vec4};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum ColorSpace {
     #[default]
     Srgb,
@@ -233,7 +233,7 @@ pub enum TilePattern {
 }
 
 /// A texture as a material names it: a path, maybe with tile tokens, and a colour space.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TextureKey {
     pub path: String,
     pub space: ColorSpace,
@@ -428,5 +428,32 @@ mod tests {
         assert_eq!(ColorSpace::parse("Raw"), ColorSpace::Raw);
         assert_eq!(ColorSpace::parse("scene-linear Rec.709-sRGB"), ColorSpace::Linear);
         assert_eq!(ColorSpace::parse("Utility - Raw"), ColorSpace::Raw);
+    }
+}
+
+// A scene file keeps a texture by its key; read back, the handle is made over the cache of the scene being read.
+thread_local! {
+    static READING_INTO: std::cell::RefCell<Option<Arc<TextureCache>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// While `f` runs, textures read from a scene file go into `cache`.
+pub fn reading_into<T>(cache: Arc<TextureCache>, f: impl FnOnce() -> T) -> T {
+    READING_INTO.with(|r| *r.borrow_mut() = Some(cache));
+    let out = f();
+    READING_INTO.with(|r| *r.borrow_mut() = None);
+    out
+}
+
+impl serde::Serialize for TexHandle {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        self.key.serialize(s)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TexHandle {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let key = TextureKey::deserialize(d)?;
+        let cache = READING_INTO.with(|r| r.borrow().clone()).unwrap_or_else(|| Arc::new(TextureCache::default()));
+        Ok(TexHandle::new(key, cache))
     }
 }

@@ -21,7 +21,7 @@ pub mod vis {
     pub const ALL: u8 = 255;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct MeshData {
     pub name: String,
     /// Point positions, one list per motion key (at least one), evenly spaced over the shutter.
@@ -33,6 +33,8 @@ pub struct MeshData {
     pub tris: Vec<[u32; 3]>,
     /// Per triangle, the index into its instance's shader list.
     pub tri_shader: Vec<u16>,
+    /// Built again when a scene file is read.
+    #[serde(skip)]
     pub bvh: Bvh,
 }
 
@@ -136,7 +138,7 @@ fn tri_hit(o: Vec3, d: Vec3, p0: Vec3, p1: Vec3, p2: Vec3, tmax: f32) -> Option<
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Instance {
     pub name: String,
     pub mesh: u32,
@@ -212,10 +214,11 @@ pub struct Hit {
 }
 
 /// The instances over the scene.
-#[derive(Clone, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct Geometry {
     pub meshes: Vec<Arc<MeshData>>,
     pub instances: Vec<Instance>,
+    #[serde(skip)]
     pub tlas: Bvh,
 }
 

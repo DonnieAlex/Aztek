@@ -6,7 +6,7 @@ use glam::{Mat4, Vec2, Vec3};
 use crate::geom::lerp_mat;
 use crate::math::{concentric_disk, Ray};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum FilmFit {
     #[default]
     Fill,
@@ -26,7 +26,7 @@ impl FilmFit {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Camera {
     pub name: String,
     /// Camera to world, per motion key. The camera looks down its -z.

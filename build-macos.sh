@@ -75,6 +75,8 @@ if [ "$PACKAGE" = 1 ]; then
     mkdir -p "$APP/Contents/PlugIns/aztek"
     cp "$DIR"/plug-ins/*.so "$APP/Contents/PlugIns/aztek/"
   fi
+  # Harold's command-line renderer, beside the program.
+  cp "$DIR/harold" "$APP/Contents/MacOS/"
   codesign --force --deep --sign - "$APP"
   codesign --verify --deep --strict "$APP"
 

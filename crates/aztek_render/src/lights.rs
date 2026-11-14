@@ -11,7 +11,7 @@ use crate::math::{uniform_cone, uniform_sphere, uniform_triangle, Frame, Ray, PI
 use crate::texture::Image;
 
 /// A photometric profile: candela by vertical and horizontal angle (degrees), read from an IES file.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Ies {
     pub vertical: Vec<f32>,
     pub horizontal: Vec<f32>,
@@ -154,7 +154,7 @@ impl Distribution2d {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Shape {
     /// A sphere of the radius, or a point at radius 0.
     Point { pos: Vec3, radius: f32 },
@@ -167,7 +167,16 @@ pub enum Shape {
     /// From a to b (the axis) at the radius, emitting outward.
     Cylinder { a: Vec3, b: Vec3, radius: f32 },
     /// The environment: rotation, and an image or a constant colour.
-    Dome { to_local: Mat4, image: Option<Arc<Image>>, dist: Option<Arc<Distribution2d>> },
+    /// `source` is the image's file, which a scene file keeps and `prepare` loads.
+    Dome {
+        to_local: Mat4,
+        #[serde(skip)]
+        image: Option<Arc<Image>>,
+        #[serde(skip)]
+        dist: Option<Arc<Distribution2d>>,
+        #[serde(default)]
+        source: Option<crate::texture::TextureKey>,
+    },
     /// Emitting triangles of an instance, chosen by area.
     Mesh { inst: u32, tris: Vec<u32>, cdf: Vec<f32>, area: f32 },
     /// Maya's ambient light: light from all around unshadowed, and the shade part from its position.
@@ -178,7 +187,7 @@ pub enum Shape {
     Volume { pos: Vec3, to_unit: Mat4, shape: i32, mode: i32, ambient: bool, axis: Vec3 },
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Light {
     pub name: String,
     pub shape: Shape,
@@ -462,7 +471,7 @@ impl Light {
                 let area = TAU * radius * len;
                 none(wi, dist, self.color * self.surface_decay(dist), dist * dist / (cos_l * area), false)
             }
-            Shape::Dome { to_local, image, dist } => {
+            Shape::Dome { to_local, image, dist, .. } => {
                 let (wi, pdf) = match dist {
                     Some(d) => {
                         let (uv, pdf_uv) = d.sample(u);
@@ -648,7 +657,7 @@ impl Light {
 
     /// The dome's radiance in a direction, and its sampling density there.
     pub fn dome_eval(&self, d: Vec3, n: Vec3) -> Option<(Vec3, f32)> {
-        let Shape::Dome { to_local, image, dist } = &self.shape else { return None };
+        let Shape::Dome { to_local, image, dist, .. } = &self.shape else { return None };
         let le = dome_radiance(to_local, image, self.color, d);
         let pdf = match dist {
             Some(dd) => {

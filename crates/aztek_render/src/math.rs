@@ -35,7 +35,7 @@ pub fn offset(p: Vec3, ng: Vec3, outward: bool) -> Vec3 {
 }
 
 /// An orthonormal frame around a unit normal, without branches that cost precision (Duff et al. 2017).
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Frame {
     pub t: Vec3,
     pub b: Vec3,

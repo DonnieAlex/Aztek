@@ -7,7 +7,7 @@ use glam::{Vec2, Vec3, Vec4};
 use crate::texture::TextureCache;
 
 /// Which part of a node's output an input takes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Out {
     Rgb,
     R,
@@ -18,7 +18,7 @@ pub enum Out {
     Mean,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Input {
     Const(Vec3),
     Link(u32, Out),
@@ -68,7 +68,7 @@ impl Default for ShadeCtx {
 }
 
 /// Maya's place2dTexture: frame then tiling.
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Place2d {
     pub coverage: Vec2,
     pub translate_frame: Vec2,
@@ -137,7 +137,7 @@ impl Place2d {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RampInterp {
     None,
     Linear,
@@ -163,7 +163,7 @@ impl RampInterp {
 }
 
 /// Sorted keys of a ramp, each with its own interpolation to the next.
-#[derive(Clone, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
 pub struct Ramp {
     pub keys: Vec<(f32, Vec3, RampInterp)>,
 }
@@ -206,7 +206,7 @@ impl Ramp {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MathOp {
     None,
     Multiply,
@@ -214,7 +214,7 @@ pub enum MathOp {
     Power,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SumOp {
     None,
     Sum,
@@ -222,7 +222,7 @@ pub enum SumOp {
     Average,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Compare {
     Equal,
     NotEqual,
@@ -233,7 +233,7 @@ pub enum Compare {
 }
 
 /// samplerInfo's outputs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sampler {
     FacingRatio,
     Uv,
@@ -244,7 +244,7 @@ pub enum Sampler {
 }
 
 /// A layered texture's blend modes, Maya's numbering.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Blend {
     None,
     Over,
@@ -268,7 +268,7 @@ impl Blend {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Node {
     Constant(Vec4),
     /// An image: Maya's file node and aiImage.
@@ -378,7 +378,7 @@ fn rgb_to_hsv(c: Vec3) -> Vec3 {
 }
 
 /// The nodes of every network in a scene, and the images they read.
-#[derive(Default)]
+#[derive(serde::Serialize, serde::Deserialize, Default)]
 pub struct Network {
     pub nodes: Vec<Node>,
 }
@@ -657,7 +657,7 @@ fn pick(v: Vec4, out: Out) -> Vec3 {
 }
 
 /// How a material bends its shading normal.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Default)]
 pub enum NormalMod {
     #[default]
     None,
@@ -668,7 +668,7 @@ pub enum NormalMod {
 }
 
 /// The standard surface's parameters, as its published specification names them.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Standard {
     pub base: Input,
     pub base_color: Input,
@@ -822,7 +822,7 @@ pub struct Params {
     pub tangent: Vec3,
 }
 
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Material {
     Standard(Box<Standard>),
     /// Unlit colour: surfaceShader, aiFlat.

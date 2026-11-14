@@ -45,7 +45,7 @@ fn furnace_diffuse() {
     s.geo.meshes.push(Arc::new(sphere(Vec3::ZERO, 1.0, 48, 96)));
     let m = s.add_material("white", white(0.0));
     s.geo.instances.push(Instance::new("ball", 0, Mat4::IDENTITY, vec![m]));
-    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None }, Vec3::ONE));
+    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None, source: None }, Vec3::ONE));
     let (w, img) = render(s);
     // The middle of the image is all sphere.
     let c = mean(&img, |i| {
@@ -63,7 +63,7 @@ fn furnace_standard() {
     s.geo.meshes.push(Arc::new(sphere(Vec3::ZERO, 1.0, 48, 96)));
     let m = s.add_material("white", white(1.0));
     s.geo.instances.push(Instance::new("ball", 0, Mat4::IDENTITY, vec![m]));
-    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None }, Vec3::ONE));
+    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None, source: None }, Vec3::ONE));
     let (w, img) = render(s);
     let c = mean(&img, |i| {
         let (x, y) = ((i as u32 % w) as i32 - 16, (i as u32 / w) as i32 - 16);
@@ -97,7 +97,7 @@ fn sphere_scene(m: Material, aa: u32) -> Scene {
     s.geo.meshes.push(Arc::new(sphere(Vec3::ZERO, 1.0, 64, 128)));
     let m = s.add_material("m", m);
     s.geo.instances.push(Instance::new("ball", 0, Mat4::IDENTITY, vec![m]));
-    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None }, Vec3::ONE));
+    s.lights.push(Light::new("dome", Shape::Dome { to_local: Mat4::IDENTITY, image: None, dist: None, source: None }, Vec3::ONE));
     s
 }
 
@@ -298,7 +298,7 @@ fn sun_in_dome_makes_no_fireflies() {
     let m = s.add_material("white", white(0.0));
     s.geo.instances.push(Instance::new("floor", 0, Mat4::IDENTITY, vec![m]));
     let img = s.textures.image(path.to_str().unwrap(), aztek_render::texture::ColorSpace::Linear);
-    s.lights.push(Light::new("sky", Shape::Dome { to_local: Mat4::IDENTITY, image: img, dist: None }, Vec3::ONE));
+    s.lights.push(Light::new("sky", Shape::Dome { to_local: Mat4::IDENTITY, image: img, dist: None, source: None }, Vec3::ONE));
     let (_, out) = render(s);
     let mean_v = mean(&out, |_| true).x;
     let max = out.iter().map(|p| p.x).fold(0.0f32, f32::max);

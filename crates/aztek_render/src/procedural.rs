@@ -10,7 +10,7 @@ use crate::math::hash3;
 use crate::shader::perlin;
 
 /// What every texture applies to its result: the reference's colour balance attributes.
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Balance {
     pub default_color: Vec3,
     pub color_gain: Vec3,
@@ -101,7 +101,7 @@ fn cells(p: Vec3, randomness: f32) -> (f32, f32, u32) {
 }
 
 /// A 2D texture, by its node type.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Tex2d {
     Bulge { u_width: f32, v_width: f32 },
     Cloth { gap: Vec3, u_color: Vec3, v_color: Vec3, u_width: f32, v_width: f32, u_wave: f32, v_wave: f32, randomness: f32, width_spread: f32, bright_spread: f32 },
@@ -228,7 +228,7 @@ impl Tex2d {
 }
 
 /// A 3D texture, by its node type.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Tex3d {
     Brownian { lacunarity: f32, increment: f32, octaves: f32, weight: Vec3 },
     Cloud { color1: Vec3, color2: Vec3, contrast: f32, amplitude: f32, depth: Vec2, ripples: Vec3, soft_edges: bool, edge_thresh: f32, center_thresh: f32, transp_range: f32, ratio: f32 },
