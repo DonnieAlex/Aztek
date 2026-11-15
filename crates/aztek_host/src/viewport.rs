@@ -3713,9 +3713,10 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
             let factory = ds::palette_bytes(ds::display_index("light", false).unwrap_or(16));
             out.push(rig_item(g, id, aztek_scene::dag::transform_of(g, id), "light", factory, aztek_scene::lights::icon_lines(n, &w)));
         } else if ty.is_a("camera") {
-            // A box and a lens, for cameras that show: the default views' are hidden.
-            let (x, y, z) = (w.x_axis.truncate().normalize_or_zero(), w.y_axis.truncate().normalize_or_zero(), w.z_axis.truncate().normalize_or_zero());
-            let k = 0.5;
+            // A box and a lens, for cameras that show: the default views' are hidden. It scales with the transform and
+            // with the shape's locatorScale, as the reference's does.
+            let (x, y, z) = (w.x_axis.truncate(), w.y_axis.truncate(), w.z_axis.truncate());
+            let k = 0.5 * ty.attr_index("locatorScale").map_or(1.0, |i| n.data().float(i));
             let corner = |a: f64, b: f64, d: f64| c + x * a * k + y * b * k + z * d * k;
             let mut segs = Vec::new();
             for d in [0.0, 1.5] {

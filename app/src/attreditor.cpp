@@ -145,7 +145,7 @@ const QList<Section>& sections_for(const QString& type) {
         {"Orthographic Views", "orthographic orthographicWidth"},
         {"Harold", "renderable depthOfField fStop focusDistance focusRegionScale shutterAngle motionBlur"},
         {"Display Options", "displayFilmGate displayResolution displayGateMask overscan"},
-        {"Display", "visibility"}};
+        {"Display", "visibility locatorScale"}};
     static const QList<Section> ambient{
         {"Ambient Light Attributes", "color intensity ambientShade"},
         {"Shadows", "shadowColor useRayTraceShadows shadowRays rayDepthLimit castSoftShadows shadowRadius receiveShadows"},
