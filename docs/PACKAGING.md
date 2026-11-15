@@ -80,6 +80,12 @@ has: the C library, GL and Vulkan, X11, fontconfig and freetype, glib and D-Bus 
 AppImage project's excludelist). It needs FUSE to mount itself; without it, `--appimage-extract-and-run` unpacks and
 runs. Help > Check for Updates replaces the file with the new one.
 
+PySide6 comes inside too, the release built for the bundled Qt, for Python tools with windows of their own
+(`AZTEK_PYSIDE=0` leaves it out of a build). PySide only works with the Qt it was built for, so the packages that use
+the system's Qt (`.deb`, `.rpm`) use the distribution's PySide6 where it has one, or a pip release of the same version
+as that Qt. Python stops a PySide built for another Qt at import with an ImportError naming the one to install, rather
+than letting it bring the program down.
+
 CI starts it unpacked in clean `ubuntu:24.04` and `ubuntu:rolling` containers (`verify-appimage`). A build or check
 that fails leaves that release without an AppImage rather than holding the release back.
 

@@ -1,0 +1,10 @@
+[package]
+name = "aztek_api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+aztek_dg = { path = "../aztek_dg" }
+aztek_undo = { path = "../aztek_undo" }

@@ -32,6 +32,10 @@ pub enum ComponentMode {
     Vertex,
     Edge,
     Face,
+    /// UVs: the reference's `pCube1.map[3]`, ids as uv_ops::topo numbers them.
+    Uv,
+    /// Vertex faces: a point as one face sees it, the reference's `pCube1.vtxFace[2][5]`; the id is the corner.
+    VertexFace,
 }
 
 pub type Ids = Vec<u32>;
@@ -50,10 +54,14 @@ pub type Listener = Arc<dyn Fn() + Send + Sync>;
 #[derive(Default)]
 pub struct ComponentState {
     mode: ComponentMode,
-    /// Vertex, edge, face.
-    sets: [BTreeMap<NodeId, Ids>; 3],
+    /// The reference's Multi: vertices, edges and faces picked together, whichever is nearest.
+    multi: bool,
+    /// The reference's UV Shell: a UV pick takes its whole shell.
+    uv_shell: bool,
+    /// Vertex, edge, face, UV, vertex face.
+    sets: [BTreeMap<NodeId, Ids>; KINDS],
     /// Picks per kind, newest last; entries may since be deselected or repeated, `ordered` sorts that out.
-    picks: [Vec<(NodeId, u32)>; 3],
+    picks: [Vec<(NodeId, u32)>; KINDS],
     listeners: BTreeMap<i32, Listener>,
     next_listener: i32,
     command_running: bool,
@@ -97,7 +105,7 @@ impl ComponentState {
         self.notify();
     }
 
-    fn notify(&mut self) {
+    pub(crate) fn notify(&mut self) {
         self.serial += 1;
         let copy: Vec<Listener> = self.listeners.values().cloned().collect();
         for f in copy {
@@ -106,16 +114,24 @@ impl ComponentState {
     }
 }
 
+/// How many kinds of component are kept.
+const KINDS: usize = 5;
+
+/// Every kind of component, in slot order.
+pub const ALL_KINDS: [ComponentMode; KINDS] = [ComponentMode::Vertex, ComponentMode::Edge, ComponentMode::Face, ComponentMode::Uv, ComponentMode::VertexFace];
+
 fn slot(kind: ComponentMode) -> usize {
     match kind {
         ComponentMode::Vertex => 0,
         ComponentMode::Edge => 1,
         ComponentMode::Face => 2,
+        ComponentMode::Uv => 3,
+        ComponentMode::VertexFace => 4,
         ComponentMode::Object => panic!("object mode has no components"),
     }
 }
 
-type Snapshot = [BTreeMap<NodeId, Ids>; 3];
+type Snapshot = [BTreeMap<NodeId, Ids>; KINDS];
 
 fn snapshot(g: &Graph) -> Snapshot {
     g.components.sets.clone()
@@ -139,17 +155,77 @@ fn record(g: &mut Graph, before: Snapshot) {
     g.undo_stack_mut().record(action);
 }
 
+/// The component kind picked now. In Multi, the kind the selection holds most of (faces, then edges, then vertices),
+/// which is what commands working on "the selected components" take.
 pub fn mode(g: &Graph) -> ComponentMode {
-    g.components.mode
+    let st = &g.components;
+    if st.multi {
+        for k in [ComponentMode::Face, ComponentMode::Edge] {
+            if st.sets[slot(k)].values().any(|v| !v.is_empty()) {
+                return k;
+            }
+        }
+        return ComponentMode::Vertex;
+    }
+    st.mode
 }
 
-/// Not undoable, like the reference's selectMode.
+/// Whether Multi is on: vertices, edges and faces picked together.
+pub fn is_multi(g: &Graph) -> bool {
+    g.components.multi
+}
+
+/// Whether UV picks take whole shells.
+pub fn is_uv_shell(g: &Graph) -> bool {
+    g.components.uv_shell && g.components.mode == ComponentMode::Uv
+}
+
+/// Not undoable, like the reference's selectMode. A kind Multi or UV Shell already picks leaves them on, so edits that
+/// switch to their result's kind keep them.
 pub fn set_mode(g: &mut Graph, m: ComponentMode) {
-    if g.components.mode == m {
+    let st = &g.components;
+    if (st.multi && matches!(m, ComponentMode::Vertex | ComponentMode::Edge | ComponentMode::Face)) || (st.uv_shell && st.mode == ComponentMode::Uv && m == ComponentMode::Uv) {
+        return;
+    }
+    set_mode_exact(g, m);
+}
+
+/// The mode as asked, Multi and UV Shell off: selectMode and selectType.
+pub fn set_mode_exact(g: &mut Graph, m: ComponentMode) {
+    if g.components.mode == m && !g.components.multi && !g.components.uv_shell {
         return;
     }
     g.components.mode = m;
+    g.components.multi = false;
+    g.components.uv_shell = false;
     g.components.notify();
+}
+
+/// Multi: vertices, edges and faces at once, as the reference's selectType -pv -pe -pf together.
+pub fn set_multi(g: &mut Graph) {
+    if g.components.multi {
+        return;
+    }
+    g.components.mode = ComponentMode::Vertex;
+    g.components.multi = true;
+    g.components.uv_shell = false;
+    g.components.notify();
+}
+
+/// UV Shell: UVs picked a shell at a time, as selectType -msh.
+pub fn set_uv_shell(g: &mut Graph) {
+    if g.components.uv_shell && g.components.mode == ComponentMode::Uv {
+        return;
+    }
+    g.components.mode = ComponentMode::Uv;
+    g.components.multi = false;
+    g.components.uv_shell = true;
+    g.components.notify();
+}
+
+/// The selected components of every kind but the mode's, for drawing Multi: (vertices, edges, faces) of a node.
+pub fn selected_kind(g: &Graph, node: NodeId, kind: ComponentMode) -> &[u32] {
+    selected(g, node, kind)
 }
 
 /// set_mode recorded on the undo stack, for commands that switch mode as part of an edit.
@@ -177,6 +253,8 @@ pub fn mode_name(m: ComponentMode) -> &'static str {
         ComponentMode::Vertex => "vertex",
         ComponentMode::Edge => "edge",
         ComponentMode::Face => "face",
+        ComponentMode::Uv => "uv",
+        ComponentMode::VertexFace => "vertexFace",
     }
 }
 
@@ -186,7 +264,9 @@ pub fn mode_from_name(name: &str) -> Result<ComponentMode, String> {
         "vertex" | "point" | "points" | "vertices" => Ok(ComponentMode::Vertex),
         "edge" | "edges" => Ok(ComponentMode::Edge),
         "face" | "faces" => Ok(ComponentMode::Face),
-        _ => Err("mode must be object, vertex, edge or face".into()),
+        "uv" | "uvs" | "map" => Ok(ComponentMode::Uv),
+        "vertexFace" | "vtxFace" => Ok(ComponentMode::VertexFace),
+        _ => Err("mode must be object, vertex, edge, face, uv or vertexFace".into()),
     }
 }
 
@@ -338,11 +418,25 @@ pub fn clear(g: &mut Graph) {
     g.components.notify();
 }
 
-/// Replaces everything at once, as one undo step.
+/// Replaces every kind at once, as one undo step.
+pub fn set_all_kinds(g: &mut Graph, sets: [BTreeMap<NodeId, Ids>; KINDS]) {
+    let before = snapshot(g);
+    let st = &mut g.components;
+    st.sets = sets;
+    for p in &mut st.picks {
+        p.clear();
+    }
+    record(g, before);
+    g.components.notify();
+}
+
+/// Replaces vertices, edges and faces at once, as one undo step; UVs and vertex faces stay.
 pub fn set_all(g: &mut Graph, points: BTreeMap<NodeId, Ids>, edges: BTreeMap<NodeId, Ids>, faces: BTreeMap<NodeId, Ids>) {
     let before = snapshot(g);
     let st = &mut g.components;
-    st.sets = [points, edges, faces];
+    st.sets[0] = points;
+    st.sets[1] = edges;
+    st.sets[2] = faces;
     for p in &mut st.picks {
         p.clear();
     }
@@ -396,7 +490,8 @@ pub fn points_of(g: &mut Graph, node: NodeId) -> Ids {
                 }
             }
         }
-        ComponentMode::Object => {}
+        // UVs and vertex faces move in UV space and by their own commands, not as points.
+        ComponentMode::Uv | ComponentMode::VertexFace | ComponentMode::Object => {}
     }
     sorted_unique(out)
 }
@@ -417,6 +512,9 @@ pub fn remove_listener(g: &mut Graph, id: i32) {
 pub fn convert(m: &Mesh, from: ComponentMode, ids: &[u32], to: ComponentMode, touching: bool) -> Ids {
     if from == to {
         return ids.to_vec();
+    }
+    if matches!(from, ComponentMode::Uv | ComponentMode::VertexFace) || matches!(to, ComponentMode::Uv | ComponentMode::VertexFace) {
+        return convert_corners(m, from, ids, to, touching);
     }
     let points_of_ids = || {
         let mut pts = Vec::new();
@@ -490,6 +588,99 @@ pub fn convert(m: &Mesh, from: ComponentMode, ids: &[u32], to: ComponentMode, to
     sorted_unique(out)
 }
 
+/// Conversions to and from UVs and vertex faces, by the corners each stands for: a UV its corners, a vertex face its
+/// corner, a point the corners at it, an edge the corners at its ends on its faces, a face its corners.
+fn convert_corners(m: &Mesh, from: ComponentMode, ids: &[u32], to: ComponentMode, touching: bool) -> Ids {
+    let tp = (from == ComponentMode::Uv || to == ComponentMode::Uv).then(|| crate::uv_ops::topo(m));
+    let mut corners: Vec<u32> = Vec::new();
+    match from {
+        ComponentMode::Uv => {
+            let tp = tp.as_ref().unwrap();
+            for &i in ids {
+                corners.extend(tp.maps.get(i as usize).into_iter().flatten().copied());
+            }
+        }
+        ComponentMode::VertexFace => corners.extend(ids.iter().copied().filter(|&c| m.corner_valid(c))),
+        ComponentMode::Vertex => {
+            for &p in ids {
+                if m.point_valid(p) {
+                    for f in m.point_faces(p) {
+                        m.for_each_face_corner(f, |c| {
+                            if m.corner_point(c) == p {
+                                corners.push(c);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        ComponentMode::Edge => {
+            for &e in ids {
+                if !m.edge_valid(e) {
+                    continue;
+                }
+                let ends = [m.edge_point(e, 0), m.edge_point(e, 1)];
+                m.for_each_edge_corner(e, |c| {
+                    m.for_each_face_corner(m.corner_face(c), |k| {
+                        if ends.contains(&m.corner_point(k)) {
+                            corners.push(k);
+                        }
+                    });
+                });
+            }
+        }
+        ComponentMode::Face => {
+            for &f in ids {
+                if m.face_valid(f) {
+                    m.for_each_face_corner(f, |c| corners.push(c));
+                }
+            }
+        }
+        ComponentMode::Object => {}
+    }
+    let corners = sorted_unique(corners);
+    match to {
+        ComponentMode::Uv => {
+            let tp = tp.as_ref().unwrap();
+            sorted_unique(corners.iter().filter_map(|&c| tp.corner_map.get(c as usize).copied().filter(|&x| x != INVALID)).collect())
+        }
+        ComponentMode::VertexFace => corners,
+        ComponentMode::Vertex => sorted_unique(corners.iter().map(|&c| m.corner_point(c)).collect()),
+        ComponentMode::Face => {
+            let inside: BTreeSet<u32> = corners.iter().copied().collect();
+            let mut out = Vec::new();
+            for &c in &corners {
+                let f = m.corner_face(c);
+                let mut all = true;
+                if !touching {
+                    m.for_each_face_corner(f, |k| all = all && inside.contains(&k));
+                }
+                if all {
+                    out.push(f);
+                }
+            }
+            sorted_unique(out)
+        }
+        ComponentMode::Edge => {
+            // The face edges whose two corners at its ends are both held, or either when touching.
+            let inside: BTreeSet<u32> = corners.iter().copied().collect();
+            let mut out = Vec::new();
+            for &c in &corners {
+                let f = m.corner_face(c);
+                m.for_each_face_corner(f, |k| {
+                    let n = m.corner_next(k);
+                    let (a, b) = (inside.contains(&k), inside.contains(&n));
+                    if (a && b) || (touching && (a || b)) {
+                        out.push(m.corner_edge(k));
+                    }
+                });
+            }
+            sorted_unique(out)
+        }
+        ComponentMode::Object => Vec::new(),
+    }
+}
+
 /// Every mesh in the hilite set: the selected meshes and the meshes under selected groups.
 pub fn hilited_meshes(g: &Graph) -> Vec<NodeId> {
     let mut out = Vec::new();
@@ -511,6 +702,11 @@ pub fn hilited_meshes(g: &Graph) -> Vec<NodeId> {
 }
 
 pub fn all_ids(m: &Mesh, k: ComponentMode) -> Ids {
+    match k {
+        ComponentMode::Uv => return (0..crate::uv_ops::topo(m).maps.len() as u32).collect(),
+        ComponentMode::VertexFace => return (0..m.corner_capacity()).filter(|&c| m.corner_valid(c)).collect(),
+        _ => {}
+    }
     let cap = match k {
         ComponentMode::Vertex => m.point_capacity(),
         ComponentMode::Edge => m.edge_capacity(),
@@ -850,13 +1046,20 @@ fn along_loop(g: &mut Graph, grow: bool) {
 
 pub fn register(c: &mut Commands<Session>) {
     c.register(
-        Cmd::new("selectMode", "Switch between object, vertex, edge and face selection. With no argument, returns the current mode.", |s, a| {
+        Cmd::new("selectMode", "Switch between object, vertex, edge, face, uv, uvShell, vertexFace and multi selection (multi: vertices, edges and faces together). With no argument, returns the current mode.", |s, a| {
             if let Some(name) = a.pos_str(0) {
                 // Each kind keeps its own selection, so coming back to a mode brings back what was selected in it.
-                let next = mode_from_name(name).map_err(|e| CommandError::new(format!("selectMode: {e}")))?;
-                set_mode(&mut s.graph, next);
+                match name {
+                    "multi" => set_multi(&mut s.graph),
+                    "uvShell" | "shell" => set_uv_shell(&mut s.graph),
+                    _ => {
+                        let next = mode_from_name(name).map_err(|e| CommandError::new(format!("selectMode: {e}")))?;
+                        set_mode_exact(&mut s.graph, next);
+                    }
+                }
             }
-            Ok(json!(mode_name(mode(&s.graph))))
+            let g = &s.graph;
+            Ok(json!(if is_multi(g) { "multi" } else if is_uv_shell(g) { "uvShell" } else { mode_name(mode(g)) }))
         })
         .positional("[mode]")
         .undoable(false),
@@ -990,7 +1193,8 @@ pub fn register(c: &mut Commands<Session>) {
                 if to == ComponentMode::Object {
                     fail!("convertSelection: give vertex, edge or face");
                 }
-                let mut sets: [BTreeMap<NodeId, Ids>; 3] = Default::default();
+                let mut sets: [BTreeMap<NodeId, Ids>; KINDS] = std::array::from_fn(|i| selected_all(g, ALL_KINDS[i]).clone());
+                sets[slot(to)].clear();
                 if from == ComponentMode::Object {
                     // A whole object stands for all of its components.
                     for node in hilited_meshes(g) {
@@ -1010,8 +1214,7 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                     }
                 }
-                let [p, e, f] = sets;
-                set_all(g, p, e, f);
+                set_all_kinds(g, sets);
                 if from != to {
                     record_mode(g, from, to);
                 }
@@ -1506,7 +1709,7 @@ fn register_path_commands(c: &mut Commands<Session>) {
             // A loose edge or point has no faces to spread through, so it is its own piece.
             let ids = if faces.is_empty() { vec![id] } else { convert(m, ComponentMode::Face, &faces, kind, false) };
             let g = &mut s.graph;
-            let vis = isolation::active_visibility(g, t.node, m);
+            let vis = isolation::isolated_visibility(g, t.node, m);
             let ids = isolation::visible_only(&vis, kind, ids);
             g.chunk("Select Connected", |g| select_and_show(g, t.node, kind, &ids, op_arg(a, Op::Replace), a));
             Ok(json!(ids))
@@ -1611,8 +1814,29 @@ pub fn component_strings(g: &Graph, flatten: bool) -> Vec<String> {
     if kind == ComponentMode::Object {
         return Vec::new();
     }
+    // Multi holds vertices, edges and faces at once.
+    let kinds: Vec<ComponentMode> = if is_multi(g) { vec![ComponentMode::Vertex, ComponentMode::Edge, ComponentMode::Face] } else { vec![kind] };
+    let mut out = Vec::new();
+    for kind in kinds {
+        out.extend(kind_strings(g, kind, flatten));
+    }
+    out
+}
+
+/// A vertex face as the reference names it: vtxFace[point][face].
+pub(crate) fn vtx_face_string(g: &Graph, node: NodeId, path: &str, c: u32) -> Option<String> {
+    let m = g.node(node)?.data().mesh(crate::mesh_nodes::MeshNode::OUT_MESH).cloned()?;
+    m.corner_valid(c).then(|| format!("{path}.vtxFace[{}][{}]", m.corner_point(c), m.corner_face(c)))
+}
+
+fn kind_strings(g: &Graph, kind: ComponentMode, flatten: bool) -> Vec<String> {
     let mut out = Vec::new();
     for (&node, ids) in selected_all(g, kind) {
+        if kind == ComponentMode::VertexFace {
+            let path = display_path(g, node);
+            out.extend(ids.iter().filter_map(|&c| vtx_face_string(g, node, &path, c)));
+            continue;
+        }
         if ids.is_empty() || g.node(node).is_none() {
             continue;
         }
@@ -1642,6 +1866,7 @@ pub fn component_strings(g: &Graph, flatten: bool) -> Vec<String> {
                 ComponentMode::Vertex if !is_mesh(g, node) => "cv",
                 ComponentMode::Vertex => "vtx",
                 ComponentMode::Edge => "e",
+                ComponentMode::Uv => "map",
                 _ => "f",
             };
             let mut v = ids.clone();
@@ -1676,7 +1901,7 @@ pub fn select_strings(g: &mut Graph, items: &[String], how: crate::graph::Select
         g.evaluate();
     }
     let members = crate::object_sets::parse(g, items)?;
-    let mut sets = [selected_all(g, ComponentMode::Vertex).clone(), selected_all(g, ComponentMode::Edge).clone(), selected_all(g, ComponentMode::Face).clone()];
+    let mut sets: [BTreeMap<NodeId, Ids>; KINDS] = std::array::from_fn(|i| selected_all(g, ALL_KINDS[i]).clone());
     if how == M::Replace {
         for s in &mut sets {
             s.clear();
@@ -1708,7 +1933,6 @@ pub fn select_strings(g: &mut Graph, items: &[String], how: crate::graph::Select
     for s in &mut sets {
         s.retain(|_, v| !v.is_empty());
     }
-    let [p, e, f] = sets;
-    set_all(g, p, e, f);
+    set_all_kinds(g, sets);
     Ok(first)
 }

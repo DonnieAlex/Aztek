@@ -789,7 +789,10 @@ fn register_scene(c: &mut Commands<Session>) {
             aztek_ops::units::reset();
             crate::anim_time::set_time_unit(&crate::anim_time::default_time_unit());
             s.graph.clear();
+            // Display preferences belong to the app, not the scene.
+            let display = std::mem::take(&mut s.extras.display_pref);
             s.extras = Default::default();
+            s.extras.display_pref = display;
             crate::anim::set_frame(&mut s.graph, crate::anim::range().min);
             s.mark_saved();
             Ok(Value::Null)
@@ -1398,7 +1401,10 @@ fn register_queries(c: &mut Commands<Session>) {
                             ids.push(xf);
                         }
                     }
-                    if let Some(k) = kind {
+                    // In Multi, vertices, edges and faces stay together; UVs stay in UV Shell.
+                    let keep = (crate::components::is_multi(g) && matches!(kind, Some(crate::components::ComponentMode::Vertex | crate::components::ComponentMode::Edge | crate::components::ComponentMode::Face)))
+                        || (crate::components::is_uv_shell(g) && kind == Some(crate::components::ComponentMode::Uv));
+                    if let (Some(k), false) = (kind, keep) {
                         crate::components::set_mode_undoable(g, k);
                     }
                     let add_mode = if mode == SelectMode::Replace { SelectMode::Replace } else { SelectMode::Add };

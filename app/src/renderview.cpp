@@ -28,6 +28,8 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QKeyEvent>
+#include <QHash>
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPainter>
@@ -104,8 +106,11 @@ public:
     // How the image shows: its colour alone, opaque, as it was rendered (the default, so a background colour shows where
     // nothing was hit); its alpha as grey; or its colour over a checker, the colour taken as premultiplied by its alpha as
     // the renderer makes it.
-    enum Channels { Rgb, Alpha, OverChecker };
+    // Red, Green and Blue show that channel alone, as grey.
+    enum Channels { Rgb, Alpha, OverChecker, Red, Green, Blue };
     Channels channels = Rgb;
+    // Told when a key changes the channels, so the menu follows.
+    std::function<void(Channels)> on_channels;
     bool wipe = false;
     double split = 0.5;
     bool region_mode = false;
@@ -127,16 +132,17 @@ public:
 protected:
     QImage shown(const QImage& img) const {
         if (img.format() != QImage::Format_RGBA8888) return img;
-        if (channels != Alpha) {
+        if (channels == Rgb || channels == OverChecker) {
             QImage out = img.copy();
             out.reinterpretAsFormat(channels == Rgb ? QImage::Format_RGBX8888 : QImage::Format_RGBA8888_Premultiplied);
             return out;
         }
+        const int k = channels == Red ? 0 : channels == Green ? 1 : channels == Blue ? 2 : 3;
         QImage out(img.size(), QImage::Format_Grayscale8);
         for (int y = 0; y < img.height(); ++y) {
             const uchar* src = img.constScanLine(y);
             uchar* dst = out.scanLine(y);
-            for (int x = 0; x < img.width(); ++x) dst[x] = src[x * 4 + 3];
+            for (int x = 0; x < img.width(); ++x) dst[x] = src[x * 4 + k];
         }
         return out;
     }
@@ -211,8 +217,33 @@ protected:
         }
     }
 
+    // R, G, B and A show that channel alone; the same key again goes back to the colour.
+    void keyPressEvent(QKeyEvent* e) override {
+        Channels want;
+        switch (e->key()) {
+        case Qt::Key_R: want = Red; break;
+        case Qt::Key_G: want = Green; break;
+        case Qt::Key_B: want = Blue; break;
+        case Qt::Key_A: want = Alpha; break;
+        default: QWidget::keyPressEvent(e); return;
+        }
+        channels = channels == want ? Rgb : want;
+        if (on_channels) on_channels(channels);
+        update();
+    }
     void mousePressEvent(QMouseEvent* e) override {
         last_ = e->position();
+        // Alt and the right button: drag to zoom smoothly about where the drag began.
+        if (e->button() == Qt::RightButton && (e->modifiers() & Qt::AltModifier)) {
+            if (fit_) {
+                scale_ = scale();
+                pan_ = QPointF();
+                fit_ = false;
+            }
+            zooming_ = true;
+            zoom_at_ = e->position();
+            return;
+        }
         if (e->button() == Qt::MiddleButton || (e->button() == Qt::LeftButton && (e->modifiers() & Qt::AltModifier))) {
             if (fit_) {
                 scale_ = scale();
@@ -234,6 +265,16 @@ protected:
         }
     }
     void mouseMoveEvent(QMouseEvent* e) override {
+        if (zooming_) {
+            const QPointF d = e->position() - last_;
+            last_ = e->position();
+            const QPointF at = to_image(zoom_at_);
+            scale_ = qBound(0.05, scale_ * std::exp((d.x() - d.y()) * 0.01), 32.0);
+            const QPointF now = target().topLeft() + at * scale_;
+            pan_ += zoom_at_ - now;
+            update();
+            return;
+        }
         if (panning_) {
             pan_ += e->position() - last_;
             last_ = e->position();
@@ -250,7 +291,7 @@ protected:
         }
     }
     void mouseReleaseEvent(QMouseEvent*) override {
-        panning_ = dragging_split_ = false;
+        panning_ = dragging_split_ = zooming_ = false;
         if (dragging_region_) {
             dragging_region_ = false;
             QRect r = QRect(drag_from_.toPoint(), drag_to_.toPoint()).normalized();
@@ -287,7 +328,8 @@ private:
     double scale_ = 1.0;
     QPointF pan_;
     QPointF last_;
-    bool panning_ = false, dragging_split_ = false, dragging_region_ = false;
+    bool panning_ = false, dragging_split_ = false, dragging_region_ = false, zooming_ = false;
+    QPointF zoom_at_;
     QPointF drag_from_, drag_to_;
 };
 
@@ -323,9 +365,11 @@ public:
         // renderer's, premultiplied, and unchanged in the files written.
         auto* channels = new QActionGroup(this);
         const int saved = QSettings().value("renderView/channels", 0).toInt();
-        const std::pair<const char*, ImageView::Channels> modes[] = {{"RGB", ImageView::Rgb}, {"Alpha", ImageView::Alpha}, {"RGBA Over Checker", ImageView::OverChecker}};
+        const std::pair<const char*, ImageView::Channels> modes[] = {{"RGB", ImageView::Rgb}, {"Red\tR", ImageView::Red}, {"Green\tG", ImageView::Green}, {"Blue\tB", ImageView::Blue}, {"Alpha\tA", ImageView::Alpha}, {"RGBA Over Checker", ImageView::OverChecker}};
+        auto* by_mode = new QHash<int, QAction*>();
         for (const auto& [label, mode] : modes) {
             QAction* act = view->addAction(label);
+            (*by_mode)[int(mode)] = act;
             act->setCheckable(true);
             act->setChecked(saved == int(mode));
             channels->addAction(act);
@@ -407,7 +451,11 @@ public:
         v->addWidget(tb);
 
         view_ = new ImageView(this);
-        view_->channels = ImageView::Channels(qBound(0, QSettings().value("renderView/channels", 0).toInt(), 2));
+        view_->on_channels = [by_mode](ImageView::Channels c) {
+            if (QAction* act = by_mode->value(int(c))) act->setChecked(true);
+            QSettings().setValue("renderView/channels", int(c));
+        };
+        view_->channels = ImageView::Channels(qBound(0, QSettings().value("renderView/channels", 0).toInt(), 5));
         view_->on_region = [this](QRect) {
             if (!region_on_->isChecked()) return;
             if (ipr_->isChecked()) refresh_render();

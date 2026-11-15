@@ -523,7 +523,15 @@ pub fn register(c: &mut Commands<Session>) {
                 a2.flags.insert("offsetAsFraction".into(), json!(true));
                 a2.flags.insert("fraction".into(), json!(0.5));
             }
-            let (out, infos) = edit_selected_op_info(s, if from_faces { "polyBevelFace" } else { "polyBevel3" }, &a2, false, None)?;
+            // Edges bevel in world space, as the reference's polyBevel3 does by default.
+            let (out, infos) = if from_faces {
+                edit_selected_op_info(s, "polyBevelFace", &a2, false, None)?
+            } else {
+                if a2.get("worldSpace").is_none() {
+                    a2.flags.insert("worldSpace".into(), json!(true));
+                }
+                crate::mesh_edit::edit_selected_op_info_each(s, "polyBevel3", &a2, &|g, node, args| crate::mesh_edit::ref_poly::add_world(g, node, args))?
+            };
             let used = infos.iter().filter_map(|i| i.as_f64()).fold(offset, f64::min);
             if a.bool("clamp") && used < offset - 1e-9 {
                 crate::last_op::limit_flag(s, "offset", json!((used * 1000.0).floor() / 1000.0));
@@ -538,6 +546,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("offsetAsFraction", "oaf", T::Bool, Value::Null, "Width by fraction rather than distance."))
         .flag(FlagDef::new("depth", "dp", T::Float, Value::Null, "How far the bevel rounds out; held for the node."))
         .flag(FlagDef::new("chamfer", "c", T::Bool, Value::Null, "Flat across rather than round."))
+        .flag(FlagDef::new("worldSpace", "ws", T::Bool, Value::Null, "Widths measured on the object as it shows, scale and all (the default)."))
         .flag(FlagDef::new("segments", "sg", T::Int, json!(1), "Segments across the bevel.").min(1.0).max(64.0))
         .flag(flag("profile", T::Float, json!(0.5), "0.5 round, 0.25 straight, toward 1 square.").min(0.0).max(1.0))
         .flag(flag("clamp", T::Bool, json!(true), "Keep widths from overlapping."))

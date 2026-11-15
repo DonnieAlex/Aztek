@@ -20,6 +20,8 @@
 #include <cmath>
 #include <QStackedLayout>
 #include <QToolBar>
+#include <QTimer>
+#include <QSignalBlocker>
 
 namespace az {
 
@@ -155,10 +157,17 @@ void ModelPanel::build_menus() {
     };
     QAction* wire = shade("Wireframe\t4", true, false, false);
     QAction* smooth = shade("Smooth Shade All\t5", false, false, false);
-    shade("Flat Shade All", false, true, false);
-    shade("Bounding Box", false, false, true);
+    QAction* flat = shade("Flat Shade All", false, true, false);
+    QAction* box = shade("Bounding Box", false, false, true);
     smooth->setChecked(true);
-    (void)wire;
+    // The radio items follow the view, whatever changed it (hotkeys 4 and 5, the toolbar, a script).
+    connect(shading, &QMenu::aboutToShow, this, [v, wire, smooth, flat, box] {
+        QJsonObject d = parse(v->get("disp")).toObject();
+        if (d["boundingBox"].toBool()) box->setChecked(true);
+        else if (d["wireframe"].toBool()) wire->setChecked(true);
+        else if (d["flat"].toBool()) flat->setChecked(true);
+        else smooth->setChecked(true);
+    });
     shading->addSeparator();
     flag_item(shading, v, "Hardware Texturing\t6", "textured", *flags);
     flag_item(shading, v, "Use Default Material", "defaultMaterial", *flags);
@@ -377,17 +386,34 @@ void ModelPanel::build_menus() {
     grid2->setChecked(true);
     connect(grid2, &QAction::toggled, grid, &QAction::setChecked);
     connect(grid, &QAction::toggled, grid2, &QAction::setChecked);
-    auto bar_flag = [this, v](const char* ic, const char* tip, const char* key) {
+    // Toolbar buttons show the view's state, as the reference's do: each checkable one is kept in step with the
+    // view whatever changed it (its hotkey, the panel menus, a script).
+    auto* bar_state = new QHash<QString, QAction*>();
+    auto bar_flag = [this, v, bar_state](const char* ic, const char* tip, const char* key) {
         QString k = key;
         QAction* a = bar_->addAction(icon(ic), tip);
         a->setCheckable(true);
         connect(a, &QAction::triggered, this, [v, k](bool on) { v->set("disp", disp_json(k.toUtf8().constData(), on)); });
+        (*bar_state)[k] = a;
     };
     bar_flag("filmGate", "Film Gate", "filmGate");
     bar_flag("resGate", "Resolution Gate", "resGate");
     bar_->addSeparator();
-    bar_->addAction(icon("wireframe"), "Wireframe (4)", set("wireframe", "true"));
-    bar_->addAction(icon("shaded"), "Smooth Shade All (5)", set("wireframe", "false"));
+    QAction* wire_button = bar_->addAction(icon("wireframe"), "Wireframe (4)");
+    QAction* shade_button = bar_->addAction(icon("shaded"), "Smooth Shade All (5)");
+    for (QAction* a : {wire_button, shade_button}) a->setCheckable(true);
+    connect(wire_button, &QAction::triggered, this, [v, wire_button, shade_button] {
+        v->set("wireframe", "true");
+        v->set("disp", "{\"flat\":false,\"boundingBox\":false}");
+        wire_button->setChecked(true);
+        shade_button->setChecked(false);
+    });
+    connect(shade_button, &QAction::triggered, this, [v, wire_button, shade_button] {
+        v->set("wireframe", "false");
+        v->set("disp", "{\"flat\":false,\"boundingBox\":false}");
+        wire_button->setChecked(false);
+        shade_button->setChecked(true);
+    });
     bar_flag("defaultMaterial", "Use Default Material", "defaultMaterial");
     bar_flag("textured", "Textured (6)", "textured");
     QAction* all_lights = bar_->addAction(icon("lightsAll"), "Use All Lights (7)");
@@ -414,6 +440,30 @@ void ModelPanel::build_menus() {
     QAction* iso2 = bar_->addAction(icon("isolate"), "Isolate Select (Ctrl+1)");
     iso2->setCheckable(true);
     connect(iso2, &QAction::triggered, this, [v](bool on) { v->set("isolate", QString("{\"state\":%1}").arg(on ? "true" : "false")); });
+
+    // Keep the toggles in step with the view. Cheap: one state read a few times a second while the panel shows.
+    auto* sync = new QTimer(this);
+    sync->setInterval(250);
+    connect(sync, &QTimer::timeout, this, [this, v, bar_state, wire_button, shade_button, all_lights, wos2, grid2] {
+        if (!isVisible() || type_ != "model") return;
+        QJsonObject d = parse(v->get("disp")).toObject();
+        if (d.isEmpty()) return;
+        auto put = [](QAction* a, bool on) {
+            if (a->isChecked() != on) {
+                QSignalBlocker b(a);
+                a->setChecked(on);
+            }
+        };
+        for (auto it = bar_state->begin(); it != bar_state->end(); ++it)
+            if (d.contains(it.key())) put(it.value(), d[it.key()].toBool());
+        bool wire = d["wireframe"].toBool() && !d["boundingBox"].toBool();
+        put(wire_button, wire);
+        put(shade_button, !wire && !d["boundingBox"].toBool() && !d["flat"].toBool());
+        put(all_lights, d["displayLights"].toString() == "all");
+        if (wos2->isChecked() != d["wireOnShaded"].toBool()) wos2->setChecked(d["wireOnShaded"].toBool());
+        if (grid2->isChecked() != d["grid"].toBool()) grid2->setChecked(d["grid"].toBool());
+    });
+    sync->start();
 }
 
 } // namespace az

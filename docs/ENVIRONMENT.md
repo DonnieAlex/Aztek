@@ -43,7 +43,7 @@ the file; a warning says so.
 | `MAYA_LOCATION` | partly | Set at start to where Aztek is installed, whatever it was, so scripts that build paths from it stay inside Aztek. AZTEK_LOCATION is set to the same. Not taken from an environment file. |
 | `MAYA_PACKAGE_PATH` | no |  |
 | `MAYA_PLUG_IN_PATH` | yes | Folders plug-ins are found in, and what the Plug-in Manager lists. A module's plug-ins folder is added. |
-| `MAYA_PRESET_PATH` | partly | Each entry is the folder above attrPresets. Aztek's own preset files (.json) are found there; the reference's .mel presets are not read. |
+| `MAYA_PRESET_PATH` | partly | Each entry is the folder above attrPresets. Aztek's own preset files (.yaml, and .json from earlier versions) and the reference's .mel presets are found there. |
 | `MAYA_PROJECT` | yes | The project a session starts in. |
 | `MAYA_PROJECTS_DIR` | partly | The folder projects are kept in: what internalVar -userWorkspaceDir answers. The Preferences window does not show it. |
 | `MAYA_SHELF_PATH` | partly | Each folder's shelf_*.mel files are shown as shelves, after the ones kept in the preferences; a name already there is not loaded twice. They are read at start and not written back. |
@@ -192,5 +192,7 @@ the file; a warning says so.
 | `AZTEK_UPDATE_URL` | yes | Where updates are asked about. |
 | `AZTEK_ECHO` | yes | The Script Editor's lines are also written to standard error. |
 | `AZTEK_PROFILE` | yes | Timings of the view's drawing are written out. |
+| `AZTEK_QT_VERSION` | yes | Set at start to the Qt Aztek runs on, as about -qtVersion gives it. |
+| `AZTEK_SKIP_QT_CHECK` | yes | Python imports a PySide built for another Qt without the check that stops it. |
 
 18 of the reference's 122 are read.

@@ -35,6 +35,89 @@ pub struct DrawItem {
     pub smooth: i32,
 }
 
+/// Whether an edge is on a border of the first UV set: on the mesh's border, or with its faces' UVs apart along it.
+fn uv_border(m: &Mesh, uvs: &[[f32; 2]], e: Index, faces: usize) -> bool {
+    if faces != 2 {
+        return true;
+    }
+    if uvs.is_empty() {
+        return false;
+    }
+    let mut ends: Vec<(Index, [f32; 2])> = Vec::new();
+    m.for_each_edge_corner(e, |c| {
+        for k in [c, m.corner_next(c)] {
+            if let Some(uv) = uvs.get(k as usize) {
+                ends.push((m.corner_point(k), *uv));
+            }
+        }
+    });
+    ends.iter().any(|(p, uv)| ends.iter().any(|(q, w)| p == q && ((uv[0] - w[0]).abs() > 1e-6 || (uv[1] - w[1]).abs() > 1e-6)))
+}
+
+/// Where an orthographic view's grid lies and what it covers: the view's right and up directions, the span of each
+/// in the view, the spacing drawn and whether it is wider than the grid's own.
+pub struct OrthoGrid {
+    pub right: DVec3,
+    pub up: DVec3,
+    pub u: (f64, f64),
+    pub v: (f64, f64),
+    pub step: f64,
+    pub subdivisions: bool,
+    pub coarse: bool,
+}
+
+/// The grid command's settings a view draws with (its size and spacing are the view's grid_extent and grid_spacing).
+#[derive(Clone, Debug, PartialEq)]
+pub struct GridStyle {
+    /// Subdivision lines between grid lines: a grid line every `divisions` subdivision lines.
+    pub divisions: i32,
+    pub axes: bool,
+    pub axes_bold: bool,
+    pub lines: bool,
+    pub division_lines: bool,
+    pub persp_labels: bool,
+    pub ortho_labels: bool,
+    /// Numbers along the grid's edge rather than along the axes.
+    pub persp_label_edge: bool,
+    pub ortho_label_edge: bool,
+}
+
+impl Default for GridStyle {
+    fn default() -> Self {
+        GridStyle { divisions: 5, axes: true, axes_bold: true, lines: true, division_lines: true, persp_labels: false, ortho_labels: false, persp_label_edge: false, ortho_label_edge: false }
+    }
+}
+
+impl GridStyle {
+    /// From the grid command's flags.
+    pub fn from_json(j: &serde_json::Value) -> Self {
+        let d = GridStyle::default();
+        let b = |k: &str, def: bool| j.get(k).and_then(|v| v.as_bool().or_else(|| v.as_f64().map(|x| x != 0.0))).unwrap_or(def);
+        let edge = |k: &str| j.get(k).and_then(|v| v.as_str()).is_some_and(|v| v == "edge");
+        GridStyle {
+            divisions: j.get("divisions").and_then(|v| v.as_f64()).map_or(d.divisions, |x| (x.round() as i32).max(1)),
+            axes: b("displayAxes", d.axes),
+            axes_bold: b("displayAxesBold", d.axes_bold),
+            lines: b("displayGridLines", d.lines),
+            division_lines: b("displayDivisionLines", d.division_lines),
+            persp_labels: b("displayPerspectiveLabels", false),
+            ortho_labels: b("displayOrthographicLabels", false),
+            persp_label_edge: edge("perspectiveLabelPosition"),
+            ortho_label_edge: edge("orthographicLabelPosition"),
+        }
+    }
+
+    /// The axes', grid lines' and subdivision lines' colours: what displayRGBColor gives gridAxis, gridHighlight and
+    /// gridColor, else the views' own.
+    pub fn colors() -> [[u8; 4]; 3] {
+        let get = |name: &str, def: [u8; 4]| match aztek_scene::draw_style::display_rgb(name) {
+            Some(c) => [(c[0].clamp(0.0, 1.0) * 255.0).round() as u8, (c[1].clamp(0.0, 1.0) * 255.0).round() as u8, (c[2].clamp(0.0, 1.0) * 255.0).round() as u8, 255],
+            None => def,
+        };
+        [get("gridAxis", [0, 0, 0, 255]), get("gridHighlight", [70, 70, 70, 255]), get("gridColor", [105, 105, 105, 255])]
+    }
+}
+
 pub(crate) fn visible(g: &Graph, id: NodeId) -> bool {
     let mut n = id;
     while n != NO_NODE {
@@ -69,9 +152,37 @@ pub fn gather(g: &mut Graph) -> Vec<DrawItem> {
         let Some(mesh) = n.data().mesh(MeshNode::OUT_MESH).cloned() else { continue };
         let world = n.data().matrix(DagNode::WORLD_MATRIX);
         let smooth = MeshNode::preview_level(n) as i32;
+        let mesh = without_hidden_faces(g, id, mesh);
         out.push(DrawItem { shape: id, xf: aztek_scene::dag::transform_of(g, id), world, mesh, smooth });
     }
     out
+}
+
+thread_local! {
+    /// Per mesh shape: the mesh and hidden-faces version it was made from, and the mesh without those faces. Kept so the
+    /// view sees the same mesh frame to frame and its caches hold.
+    static MASKED: std::cell::RefCell<HashMap<NodeId, (Arc<Mesh>, u64, Arc<Mesh>)>> = Default::default();
+}
+
+/// The mesh as views show it: without the faces hidden on it (Display > Hide in a component mode).
+fn without_hidden_faces(g: &Graph, id: NodeId, mesh: Arc<Mesh>) -> Arc<Mesh> {
+    let hidden = aztek_scene::hidden_components::hidden(g, id);
+    MASKED.with(|c| {
+        let mut c = c.borrow_mut();
+        if hidden.is_empty() {
+            c.remove(&id);
+            return mesh;
+        }
+        let v = g.hidden_faces_version;
+        if let Some((src, ver, out)) = c.get(&id) {
+            if Arc::ptr_eq(src, &mesh) && *ver == v {
+                return out.clone();
+            }
+        }
+        let out = Arc::new(aztek_scene::hidden_components::masked(&mesh, hidden));
+        c.insert(id, (mesh, v, out.clone()));
+        out
+    })
 }
 
 /// How much of a subdivision's own edges shows in smooth preview's wire, where the cage's are solid.
@@ -330,6 +441,12 @@ pub struct Display {
     pub safe_action: bool,
     pub highlight: bool,
     pub border_edges: bool,
+    /// Polygon Display from the mesh being drawn (its displayMapBorders, displayCenter, displayTriangles,
+    /// displayVertices): UV borders thick, face centres, the triangles faces are drawn with, vertices.
+    pub texture_borders: bool,
+    pub face_centers: bool,
+    pub triangles: bool,
+    pub vertices: bool,
     pub face_normals: bool,
     pub vertex_normals: bool,
     pub hard_edges: bool,
@@ -377,6 +494,10 @@ impl Default for Display {
             safe_action: false,
             highlight: true,
             border_edges: false,
+            texture_borders: false,
+            face_centers: false,
+            triangles: false,
+            vertices: false,
             face_normals: false,
             vertex_normals: false,
             hard_edges: false,
@@ -430,8 +551,6 @@ pub struct Viewport {
     pub prevent_negative: bool,
     /// Custom axis orientation's axes.
     pub custom_frame: DMat3,
-    /// Multi component mode: a pick takes a vertex, edge or face, whichever is under the mouse.
-    pub multi: bool,
     /// Keep Spacing: with a grid snap, the selection moves as one; off, each point lands on the grid itself.
     pub keep_spacing: bool,
     /// Snap Pivot Position: in pivot mode the pivot lands on points near the cursor.
@@ -457,8 +576,12 @@ pub struct Viewport {
     meshes: HashMap<NodeId, GpuMesh>,
     mats: MatTable,
     grid: Option<(Buffer, u32)>,
+    /// The axes drawn thicker (Thicker Line for Axes), apart from the rest of the grid.
+    grid_bold: Option<(Buffer, u32)>,
     /// The up axis the grid was built for: it lies on the ground, so it is rebuilt when the axis changes.
     grid_up_z: bool,
+    /// The grid's colours it was built with: displayRGBColor changes them.
+    grid_colors: [[u8; 4]; 3],
     pub wireframe: bool,
     pub wire_on_shaded: bool,
     pub tool: Tool,
@@ -467,15 +590,22 @@ pub struct Viewport {
     /// Viewport rect in physical pixels: x, y, w, h.
     pub rect: [f64; 4],
     pub marquee: Option<(DVec2, DVec2)>,
+    /// Between subdivision lines, the finest the grid draws (and snaps to).
     pub grid_spacing: f64,
     /// How far the grid reaches each way from the origin.
     pub grid_extent: f64,
+    /// What the grid command asks of the grid beyond its size and spacing.
+    pub grid_style: GridStyle,
     pub show_grid: bool,
     pub manip_scale: f64,
     /// Smooth preview draws the cage too (the 2 key) rather than the smooth mesh alone (3).
     pub smooth_cage: bool,
     /// The component under the cursor: (shape, kind, id).
     pub hover_comp: Option<(NodeId, ComponentMode, Index)>,
+    /// UV topology per mesh shape, with the mesh it was worked out from.
+    uv_topos: HashMap<NodeId, (usize, Arc<aztek_scene::uv_ops::UvTopo>)>,
+    /// Ray trees for meshes not drawn here.
+    loose_bvhs: HashMap<NodeId, (usize, MeshBvh)>,
     /// The paint brush under the cursor: world centre and normal.
     pub brush: Option<(DVec3, DVec3)>,
     /// A curve tool's points so far, and its degree.
@@ -502,6 +632,8 @@ const SEL_COMP: [u8; 4] = [255, 160, 30, 255];
 /// The mirror image of what was picked, with symmetry on.
 const SEL_MIRROR: [u8; 4] = [80, 190, 255, 255];
 const UNSEL_EDGE: [u8; 4] = [40, 70, 200, 255];
+/// UVs shown in a view.
+const UV_POINT: [u8; 4] = [200, 60, 220, 255];
 
 impl Viewport {
     pub fn new(kind: CamKind) -> Viewport {
@@ -511,7 +643,9 @@ impl Viewport {
             meshes: HashMap::new(),
             mats: Default::default(),
             grid: None,
+            grid_bold: None,
             grid_up_z: false,
+            grid_colors: GridStyle::colors(),
             wireframe: false,
             wire_on_shaded: false,
             tool: Tool::Select,
@@ -521,6 +655,7 @@ impl Viewport {
             marquee: None,
             grid_spacing: 1.0,
             grid_extent: 12.0,
+            grid_style: GridStyle::default(),
             snap: 0,
             constraint: None,
             step_move: 0.0,
@@ -538,6 +673,8 @@ impl Viewport {
             manip_scale: 1.0,
             smooth_cage: false,
             hover_comp: None,
+            uv_topos: HashMap::new(),
+            loose_bvhs: HashMap::new(),
             brush: None,
             curve_points: Vec::new(),
             curve_degree: 3,
@@ -553,7 +690,6 @@ impl Viewport {
             preserve_children: false,
             prevent_negative: true,
             custom_frame: DMat3::IDENTITY,
-            multi: false,
             keep_spacing: true,
             snap_pivot: false,
             use_manip_pivot: false,
@@ -576,16 +712,121 @@ impl Viewport {
         Screen { view_proj: self.view_proj(), width: self.rect[2], height: self.rect[3] }
     }
 
-    /// The reference's grid: 12 units each way, a line per unit, darker every 5, black axes; on the ground (XZ, or XY when
-    /// Z is up), and in the view's own plane for the orthographic cameras.
-    fn grid_lines(&self) -> Vec<LineVertex> {
-        let n = ((self.grid_extent / self.grid_spacing).round() as i32).clamp(1, 200);
+    /// The reference's grid: on the ground (XZ, or XY when Z is up), and in the view's own plane for the orthographic
+    /// cameras; reaching the size each way, a grid line every spacing and subdivision lines between, the axes through
+    /// the origin. Each kind can be turned off and has its own colour. Returns the thin lines and the axes when they
+    /// are drawn thicker.
+    fn grid_lines(&self) -> (Vec<LineVertex>, Vec<LineVertex>) {
+        if let Some(b) = self.ortho_grid() {
+            return self.ortho_grid_lines(&b);
+        }
+        let st = &self.grid_style;
+        let n = ((self.grid_extent / self.grid_spacing).round() as i32).clamp(1, 2000);
+        let div = st.divisions.max(1);
         let s = self.grid_spacing as f32;
-        let ext = n as f32 * s;
-        // Maps (u, v) in the grid plane to world, through the Y up frame.
+        let to = self.grid_frame();
+        let [axis, major, minor] = self.grid_colors;
+        let (mut v, mut bold) = (Vec::new(), Vec::new());
+        // Each line in unit pieces: lines reaching far behind the camera clip badly on some drivers.
+        for i in -n..=n {
+            let (c, out) = if i == 0 {
+                if !st.axes {
+                    if !st.lines {
+                        continue;
+                    }
+                    (major, &mut v)
+                } else {
+                    (axis, if st.axes_bold { &mut bold } else { &mut v })
+                }
+            } else if i % div == 0 {
+                if !st.lines {
+                    continue;
+                }
+                (major, &mut v)
+            } else {
+                if !st.division_lines {
+                    continue;
+                }
+                (minor, &mut v)
+            };
+            let t = i as f32 * s;
+            for k in -n..n {
+                let (a, b) = (k as f32 * s, (k + 1) as f32 * s);
+                out.push(LineVertex { pos: to(t, a), color: c8(c) });
+                out.push(LineVertex { pos: to(t, b), color: c8(c) });
+                out.push(LineVertex { pos: to(a, t), color: c8(c) });
+                out.push(LineVertex { pos: to(b, t), color: c8(c) });
+            }
+        }
+        (v, bold)
+    }
+
+    /// An orthographic view's grid: in the view's own plane through the origin, whatever way the camera faces, and
+    /// with no edge: it covers what the view shows. Subdivision lines closer than a few pixels are left out, and then
+    /// grid lines, so a zoomed out view stays readable.
+    fn ortho_grid(&self) -> Option<OrthoGrid> {
+        if !self.cam.orthographic {
+            return None;
+        }
+        let view = self.cam.view();
+        let right = view.row(0).truncate().normalize_or_zero();
+        let up = view.row(1).truncate().normalize_or_zero();
+        let hw = self.cam.ortho_width.max(1e-6) * 0.5;
+        let hh = hw / self.aspect().max(1e-6);
+        let c = self.cam.coi;
+        let (cu, cv) = (c.dot(right), c.dot(up));
+        let px_per_unit = self.rect[2].max(1.0) / (2.0 * hw);
+        let div = self.grid_style.divisions.max(1) as f64;
+        let mut step = self.grid_spacing;
+        let mut subdivisions = self.grid_style.division_lines;
+        // Subdivisions under 5 pixels apart go; grid lines under 5 apart widen by the divisions.
+        if step * px_per_unit < 5.0 {
+            subdivisions = false;
+            step *= div;
+            while step * px_per_unit < 5.0 {
+                step *= div.max(2.0);
+            }
+        }
+        Some(OrthoGrid { right, up, u: (cu - hw, cu + hw), v: (cv - hh, cv + hh), step, subdivisions, coarse: step > self.grid_spacing * 1.5 })
+    }
+
+    fn ortho_grid_lines(&self, b: &OrthoGrid) -> (Vec<LineVertex>, Vec<LineVertex>) {
+        let st = &self.grid_style;
+        let div = st.divisions.max(1) as i64;
+        let [axis, major, minor] = self.grid_colors;
+        let (mut v, mut bold) = (Vec::new(), Vec::new());
+        let at = |u: f64, w: f64| (b.right * u + b.up * w).as_vec3().to_array();
+        for (dir, (lo, hi), (olo, ohi)) in [(0, b.u, b.v), (1, b.v, b.u)] {
+            let (k0, k1) = ((lo / b.step).floor() as i64, (hi / b.step).ceil() as i64);
+            for k in k0..=k1 {
+                let t = k as f64 * b.step;
+                let (c, out) = if k == 0 && st.axes {
+                    (axis, if st.axes_bold { &mut bold } else { &mut v })
+                } else if b.coarse || k % div == 0 {
+                    if !st.lines {
+                        continue;
+                    }
+                    (major, &mut v)
+                } else {
+                    if !b.subdivisions {
+                        continue;
+                    }
+                    (minor, &mut v)
+                };
+                let (p, q) = if dir == 0 { (at(t, olo), at(t, ohi)) } else { (at(olo, t), at(ohi, t)) };
+                out.push(LineVertex { pos: p, color: c8(c) });
+                out.push(LineVertex { pos: q, color: c8(c) });
+            }
+        }
+        (v, bold)
+    }
+
+    /// Maps (u, v) in the grid plane to world, through the Y up frame.
+    pub fn grid_frame(&self) -> impl Fn(f32, f32) -> [f32; 3] {
         let z_up = aztek_scene::world::up_z();
-        let to = |u: f32, v: f32| -> [f32; 3] {
-            let p = match self.cam.kind {
+        let kind = self.cam.kind;
+        move |u: f32, v: f32| -> [f32; 3] {
+            let p = match kind {
                 CamKind::Front => [u, v, 0.0],
                 CamKind::Side => [0.0, v, -u],
                 _ => [u, 0.0, v],
@@ -595,22 +836,52 @@ impl Viewport {
             } else {
                 p
             }
-        };
-        let mut v = Vec::new();
-        // Each line in unit pieces: lines reaching far behind the camera clip badly on some drivers.
-        for i in -n..=n {
+        }
+    }
+
+    /// Grid numbers to draw: each grid line's value (in the current linear unit) and where it is in the world, along
+    /// the axes or along the grid's edge, when the grid command asks for them in this kind of view.
+    pub fn grid_labels(&self) -> Vec<(String, DVec3)> {
+        let st = &self.grid_style;
+        let ortho = matches!(self.cam.kind, CamKind::Top | CamKind::Front | CamKind::Side);
+        let (on, edge) = if ortho { (st.ortho_labels, st.ortho_label_edge) } else { (st.persp_labels, st.persp_label_edge) };
+        if !self.show_grid || !on {
+            return Vec::new();
+        }
+        let k = aztek_ops::units::cm_per_unit();
+        let label = |value: f64| if (value - value.round()).abs() < 1e-6 { format!("{}", value.round() as i64) } else { format!("{value:.2}") };
+        if let Some(b) = self.ortho_grid() {
+            // Along the view's axes through the origin, or its left and bottom edges.
+            let major = if b.coarse { b.step } else { b.step * st.divisions.max(1) as f64 };
+            let (eu, ev) = if edge { (b.u.0 + (b.u.1 - b.u.0) * 0.01, b.v.0 + (b.v.1 - b.v.0) * 0.02) } else { (0.0, 0.0) };
+            let mut out = Vec::new();
+            for (dir, (lo, hi)) in [(0, b.u), (1, b.v)] {
+                for kk in (lo / major).ceil() as i64..=(hi / major).floor() as i64 {
+                    let t = kk as f64 * major;
+                    if kk == 0 && dir == 1 {
+                        continue;
+                    }
+                    let p = if dir == 0 { b.right * t + b.up * ev } else { b.right * eu + b.up * t };
+                    out.push((label(t / k), p));
+                }
+            }
+            return out;
+        }
+        let n = ((self.grid_extent / self.grid_spacing).round() as i32).clamp(1, 2000);
+        let div = st.divisions.max(1);
+        let s = self.grid_spacing as f32;
+        let to = self.grid_frame();
+        let along = if edge { -(n as f32) * s } else { 0.0 };
+        let mut out = Vec::new();
+        for i in (-n..=n).filter(|i| i % div == 0) {
             let t = i as f32 * s;
-            let c = if i == 0 { [0, 0, 0, 255] } else if i % 5 == 0 { [70, 70, 70, 255] } else { [105, 105, 105, 255] };
-            for k in -n..n {
-                let (a, b) = (k as f32 * s, (k + 1) as f32 * s);
-                v.push(LineVertex { pos: to(t, a), color: c8(c) });
-                v.push(LineVertex { pos: to(t, b), color: c8(c) });
-                v.push(LineVertex { pos: to(a, t), color: c8(c) });
-                v.push(LineVertex { pos: to(b, t), color: c8(c) });
+            let text = label(t as f64 / k);
+            out.push((text.clone(), glam::Vec3::from(to(t, along)).as_dvec3()));
+            if i != 0 {
+                out.push((text, glam::Vec3::from(to(along, t)).as_dvec3()));
             }
         }
-        let _ = ext;
-        v
+        out
     }
 
     /// Drops GPU buffers of shapes no longer drawn.
@@ -719,20 +990,31 @@ impl Viewport {
         r.set_viewport(gpu, x as f32, y as f32, w as f32, h as f32);
         let vp = self.view_proj();
         let view = self.cam.view();
-        if self.grid.is_some() && self.grid_up_z != aztek_scene::world::up_z() {
+        let colors = GridStyle::colors();
+        // An orthographic view's grid follows what it shows.
+        if self.grid.is_some() && (self.cam.orthographic || self.grid_up_z != aztek_scene::world::up_z() || self.grid_colors != colors) {
             self.reset_grid(gpu);
         }
         if self.grid.is_none() {
             self.grid_up_z = aztek_scene::world::up_z();
-            let lines = self.grid_lines();
+            self.grid_colors = colors;
+            let (lines, bold) = self.grid_lines();
             self.grid = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lines), lines.len() as u32));
+            self.grid_bold = (!bold.is_empty()).then(|| (gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &bold), bold.len() as u32));
         }
         if self.show_grid {
             r.bind(gpu, Kind::Lines);
             r.set_line_width(gpu, 1.0);
             r.push(gpu, &push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0));
             let (gb, gn) = self.grid.as_ref().unwrap();
-            r.draw(gpu, gb, None, *gn);
+            if *gn > 0 {
+                r.draw(gpu, gb, None, *gn);
+            }
+            if let Some((bb, bn)) = &self.grid_bold {
+                r.set_line_width(gpu, 2.0);
+                r.draw(gpu, bb, None, *bn);
+                r.set_line_width(gpu, 1.0);
+            }
         }
 
         let g = &s.graph;
@@ -867,11 +1149,29 @@ impl Viewport {
             let wire = ds::wire_color(g, it.shape, wire_sel, "polymesh", WIRE);
             let comps: &[u32] = if hilited { components::selected(g, it.shape, mode) } else { &[] };
             let comp_set: std::collections::HashSet<u32> = comps.iter().copied().collect();
+            // Multi shows its vertices, edges and faces together; each kind's own selection, by kind.
+            let multi = components::is_multi(g);
+            let kind_set = |k: ComponentMode| -> std::collections::HashSet<u32> {
+                if !hilited {
+                    Default::default()
+                } else if multi && matches!(k, ComponentMode::Vertex | ComponentMode::Edge | ComponentMode::Face) {
+                    components::selected(g, it.shape, k).iter().copied().collect()
+                } else if k == mode && !multi {
+                    comp_set.clone()
+                } else {
+                    Default::default()
+                }
+            };
+            let (v_set, e_set, f_set) = (kind_set(ComponentMode::Vertex), kind_set(ComponentMode::Edge), kind_set(ComponentMode::Face));
+            let shows = |k: ComponentMode| hilited && (mode == k || (multi && matches!(k, ComponentMode::Vertex | ComponentMode::Edge | ComponentMode::Face)));
             let soft = aztek_scene::soft_select::state();
             let global_seeds = soft.0 && mode != ComponentMode::Object && aztek_scene::soft_select::falloff_name() == "global";
             let soft_on = soft.0 && ((hilited && !comps.is_empty()) || (global_seeds && mode != ComponentMode::Object));
             let mut h = DefaultHasher::new();
             (mode as i32, selected, lead == Some(it.xf), self.wireframe, self.wire_on_shaded, comps, self.smooth_cage, entry.smooth, templated).hash(&mut h);
+            if multi && hilited {
+                (components::selected(g, it.shape, ComponentMode::Vertex), components::selected(g, it.shape, ComponentMode::Edge), components::selected(g, it.shape, ComponentMode::Face)).hash(&mut h);
+            }
             (wire, child_lit, style.shaded).hash(&mut h);
             (soft_on, soft.1.to_bits(), entry.mesh_gen).hash(&mut h);
             if soft.0 {
@@ -890,7 +1190,7 @@ impl Viewport {
                 let mirror_set: std::collections::HashSet<u32> = if hilited { components::mirrored_side(g, it.shape, mode, comps).into_iter().collect() } else { Default::default() };
                 let edge_color = |e: Index| -> [u8; 4] {
                     if hilited {
-                        if mode == ComponentMode::Edge && comp_set.contains(&e) {
+                        if e_set.contains(&e) {
                             if mirror_set.contains(&e) { SEL_MIRROR } else { SEL_COMP }
                         } else {
                             UNSEL_EDGE
@@ -947,23 +1247,48 @@ impl Viewport {
                     if !pv.is_empty() {
                         entry.points = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &pv), pv.len() as u32));
                     }
-                } else if hilited && mode == ComponentMode::Vertex {
+                } else if shows(ComponentMode::Vertex) {
                     let mut pv = Vec::new();
                     for p in 0..m.point_capacity() {
                         if m.point_valid(p) {
-                            let c = if mirror_set.contains(&p) { SEL_MIRROR } else if comp_set.contains(&p) { SEL_COMP } else { VERT };
+                            let c = if mirror_set.contains(&p) { SEL_MIRROR } else if v_set.contains(&p) { SEL_COMP } else { VERT };
                             pv.push(LineVertex { pos: m.position(p).as_vec3().to_array(), color: c8(c) });
                         }
                     }
                     if !pv.is_empty() {
                         entry.points = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &pv), pv.len() as u32));
                     }
+                } else if hilited && mode == ComponentMode::Uv {
+                    // UVs at their points: a point is lit when one of its UVs is selected.
+                    let lit: std::collections::HashSet<u32> = components::convert(&it.mesh, ComponentMode::Uv, comps, ComponentMode::Vertex, false).into_iter().collect();
+                    let mut pv = Vec::new();
+                    for p in 0..it.mesh.point_capacity() {
+                        if it.mesh.point_valid(p) {
+                            let c = if lit.contains(&p) { SEL_COMP } else { UV_POINT };
+                            pv.push(LineVertex { pos: it.mesh.position(p).as_vec3().to_array(), color: c8(c) });
+                        }
+                    }
+                    if !pv.is_empty() {
+                        entry.points = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &pv), pv.len() as u32));
+                    }
+                } else if hilited && mode == ComponentMode::VertexFace {
+                    // A point a little way into each face at each of its corners.
+                    let mut pv = Vec::new();
+                    for c in 0..it.mesh.corner_capacity() {
+                        if it.mesh.corner_valid(c) {
+                            let col = if comp_set.contains(&c) { SEL_COMP } else { VERT };
+                            pv.push(LineVertex { pos: Self::vertex_face_point(&it.mesh, c).as_vec3().to_array(), color: c8(col) });
+                        }
+                    }
+                    if !pv.is_empty() {
+                        entry.points = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &pv), pv.len() as u32));
+                    }
                 }
-                if hilited && mode == ComponentMode::Face && !comps.is_empty() {
+                if shows(ComponentMode::Face) && !f_set.is_empty() {
                     let mut ti = Vec::new();
                     let mut mi = Vec::new();
                     for (t, &f) in entry.tri_faces.iter().enumerate() {
-                        if comp_set.contains(&f) {
+                        if f_set.contains(&f) {
                             let into = if mirror_set.contains(&f) { &mut mi } else { &mut ti };
                             into.extend_from_slice(&entry.tri_indices[t * 3..t * 3 + 3]);
                         }
@@ -1332,18 +1657,34 @@ impl Viewport {
 
     /// Display > Polygons: border, hard and crease edges, face and vertex normals, as lines over the mesh.
     fn draw_poly_display(&mut self, gpu: &mut Gpu, r: &Renderer, s: &Session, items: &[DrawItem]) {
-        let d = self.disp.clone();
-        if !(d.border_edges || d.face_normals || d.vertex_normals || d.hard_edges || d.crease_edges) {
-            return;
-        }
+        let view = self.disp.clone();
         let sel = s.graph.selection().to_vec();
         for it in items {
-            if d.limit_to_selected && !sel.contains(&it.xf) && !sel.contains(&it.shape) {
+            // The view's switches, for the selection when limited to it; and the mesh's own (polyOptions).
+            let mut d = view.clone();
+            if view.limit_to_selected && !sel.contains(&it.xf) && !sel.contains(&it.shape) {
+                d.border_edges = false;
+                d.face_normals = false;
+                d.vertex_normals = false;
+                d.hard_edges = false;
+                d.crease_edges = false;
+            }
+            if let Some(n) = s.graph.node(it.shape) {
+                use aztek_scene::mesh_nodes::MeshNode;
+                d.border_edges |= MeshNode::display_switch(n, "displayBorders");
+                d.texture_borders = MeshNode::display_switch(n, "displayMapBorders");
+                d.face_centers = MeshNode::display_switch(n, "displayCenter");
+                d.triangles = MeshNode::display_switch(n, "displayTriangles");
+                d.vertices = MeshNode::display_switch(n, "displayVertices");
+            }
+            if !(d.border_edges || d.face_normals || d.vertex_normals || d.hard_edges || d.crease_edges || d.texture_borders || d.face_centers || d.triangles || d.vertices) {
                 continue;
             }
             let m = &it.mesh;
             let mut wide = Vec::new();
             let mut thin = Vec::new();
+            let mut dots = Vec::new();
+            let uvs = m.corner_attrs().get::<[f32; 2]>(&aztek_geo::attribute::names::uv(0));
             for e in 0..m.edge_capacity() {
                 if !m.edge_valid(e) {
                     continue;
@@ -1354,6 +1695,8 @@ impl Viewport {
                 let is_crease = edge_flag(m, aztek_geo::attribute::names::CREASE, e);
                 let c = if d.border_edges && faces == 1 {
                     Some([240, 240, 90, 255])
+                } else if d.texture_borders && uv_border(m, uvs, e, faces) {
+                    Some([240, 240, 240, 255])
                 } else if d.crease_edges && is_crease {
                     Some([255, 100, 160, 255])
                 } else if d.hard_edges && is_hard {
@@ -1376,6 +1719,46 @@ impl Viewport {
                     let n = m.face_normal(f);
                     thin.push(LineVertex { pos: c.as_vec3().to_array(), color: c8([40, 230, 230, 255]) });
                     thin.push(LineVertex { pos: (c + n * d.normal_size).as_vec3().to_array(), color: c8([40, 230, 230, 255]) });
+                }
+            }
+            if d.face_centers {
+                for f in 0..m.face_capacity() {
+                    if m.face_valid(f) {
+                        dots.push(LineVertex { pos: m.face_centroid(f).as_vec3().to_array(), color: c8([60, 200, 255, 255]) });
+                    }
+                }
+            }
+            if d.vertices {
+                for p in 0..m.point_capacity() {
+                    if m.point_valid(p) {
+                        dots.push(LineVertex { pos: m.position(p).as_vec3().to_array(), color: c8([200, 60, 220, 255]) });
+                    }
+                }
+            }
+            if d.triangles {
+                // The diagonals the drawing adds: triangle sides that are not edges of the face.
+                let opts = aztek_geo::triangulate::TriangulateOptions::default();
+                let mut tri = Vec::new();
+                for f in 0..m.face_capacity() {
+                    if !m.face_valid(f) || m.face_points(f).len() < 4 {
+                        continue;
+                    }
+                    tri.clear();
+                    aztek_geo::triangulate::triangulate_face(m, f, &mut tri, &opts);
+                    for t in tri.chunks(3) {
+                        for k in 0..3 {
+                            let (a, b) = (t[k], t[(k + 1) % 3]);
+                            if m.corner_next(a) == b || m.corner_next(b) == a {
+                                continue;
+                            }
+                            // Each diagonal belongs to two triangles: draw it once.
+                            if a < b {
+                                for c in [a, b] {
+                                    thin.push(LineVertex { pos: m.position(m.corner_point(c)).as_vec3().to_array(), color: c8([150, 150, 150, 255]) });
+                                }
+                            }
+                        }
+                    }
                 }
             }
             if d.vertex_normals {
@@ -1406,6 +1789,13 @@ impl Viewport {
                 r.set_line_width(gpu, w);
                 r.push(gpu, &push(mvp, it.world, self.cam.view(), [1.0; 4], 2e-3, 1.0));
                 r.draw(gpu, &b, None, v.len() as u32);
+                gpu.drop_buffer(b);
+            }
+            if !dots.is_empty() {
+                let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &dots);
+                r.bind(gpu, Kind::Points);
+                r.push(gpu, &push(mvp, it.world, self.cam.view(), [1.0; 4], 2e-3, 5.0));
+                r.draw(gpu, &b, None, dots.len() as u32);
                 gpu.drop_buffer(b);
             }
         }
@@ -1537,6 +1927,15 @@ impl Viewport {
     // Picking
 
     fn bvh_for(&mut self, it: &DrawItem) -> Option<&MeshBvh> {
+        if !self.meshes.contains_key(&it.shape) {
+            // Not drawn yet (or never, as in a script's view): a tree of its own, kept while the mesh is the same.
+            let key = Arc::as_ptr(&it.mesh) as usize;
+            let e = self.loose_bvhs.entry(it.shape).or_insert_with(|| (key, MeshBvh::new(&it.mesh)));
+            if e.0 != key {
+                *e = (key, MeshBvh::new(&it.mesh));
+            }
+            return Some(&e.1);
+        }
         let e = self.meshes.get_mut(&it.shape)?;
         if e.bvh.is_none() {
             e.bvh = Some(MeshBvh::new(&it.mesh));
@@ -1568,14 +1967,135 @@ impl Viewport {
         best.map(|b| (b.0, b.1, b.2))
     }
 
-    /// What a click at px picks, as select arguments: object names or component strings.
-    /// The component under a pixel on the hilited meshes: (item, kind, id).
+    /// The component under a pixel on the hilited meshes: (item, kind, id). UVs come as map ids, vertex faces as corners;
+    /// Multi gives whichever kind is nearest.
     pub fn pick_component(&mut self, s: &Session, items: &[DrawItem], px: DVec2) -> Option<(usize, ComponentMode, Index)> {
         let g = &s.graph;
-        let mode = components::mode(g);
-        if mode == ComponentMode::Object {
-            return None;
+        if components::is_multi(g) {
+            return self.pick_multi(s, items, px);
         }
+        match components::mode(g) {
+            ComponentMode::Object => None,
+            ComponentMode::Uv => {
+                // The UV of the face under the mouse at the nearest point, as the reference picks UVs in a view.
+                let (i, _, p) = self.pick_basic(s, items, px, ComponentMode::Vertex)?;
+                let m = items[i].mesh.clone();
+                let face = self.pick_basic(s, items, px, ComponentMode::Face).filter(|f| f.0 == i).map(|f| f.2);
+                let corner = face
+                    .and_then(|f| m.face_corners(f).into_iter().find(|&c| m.corner_point(c) == p))
+                    .or_else(|| m.point_faces(p).into_iter().flat_map(|f| m.face_corners(f)).find(|&c| m.corner_point(c) == p))?;
+                let tp = self.uv_topo(items[i].shape, &m);
+                let map = *tp.corner_map.get(corner as usize)?;
+                (map != aztek_geo::INVALID).then_some((i, ComponentMode::Uv, map))
+            }
+            ComponentMode::VertexFace => self.pick_vertex_face(s, items, px),
+            mode => self.pick_basic(s, items, px, mode),
+        }
+    }
+
+    /// The UV topology of a mesh, kept while the mesh is the same.
+    pub fn uv_topo(&mut self, shape: NodeId, m: &Arc<Mesh>) -> Arc<aztek_scene::uv_ops::UvTopo> {
+        let key = Arc::as_ptr(m) as usize;
+        if let Some((k, t)) = self.uv_topos.get(&shape) {
+            if *k == key {
+                return t.clone();
+            }
+        }
+        let t = Arc::new(aztek_scene::uv_ops::topo(m));
+        self.uv_topos.insert(shape, (key, t.clone()));
+        t
+    }
+
+    /// Multi: over a face, its nearest vertex or edge when the mouse is close enough to it, else the face; off the
+    /// surface, the nearest vertex or edge within reach.
+    fn pick_multi(&mut self, s: &Session, items: &[DrawItem], px: DVec2) -> Option<(usize, ComponentMode, Index)> {
+        let screen = self.screen();
+        if let Some((i, _, f)) = self.pick_basic(s, items, px, ComponentMode::Face) {
+            let it = &items[i];
+            let m = &it.mesh;
+            let proj = |p: Index| screen.project(it.world.transform_point3(m.position(p)));
+            let (mut bv, mut be): (Option<(f64, Index)>, Option<(f64, Index)>) = (None, None);
+            for c in m.face_corners(f) {
+                let p = m.corner_point(c);
+                if let Some(q) = proj(p) {
+                    let d = (q - px).length();
+                    if bv.is_none_or(|b| d < b.0) {
+                        bv = Some((d, p));
+                    }
+                }
+                let e = m.corner_edge(c);
+                if let (Some(a), Some(b)) = (proj(m.edge_point(e, 0)), proj(m.edge_point(e, 1))) {
+                    let d = seg_distance(px, a, b);
+                    if be.is_none_or(|b| d < b.0) {
+                        be = Some((d, e));
+                    }
+                }
+            }
+            if let Some((d, p)) = bv.filter(|b| b.0 <= component_pick::radius(ComponentMode::Vertex)) {
+                let _ = d;
+                return Some((i, ComponentMode::Vertex, p));
+            }
+            if let Some((_, e)) = be.filter(|b| b.0 <= component_pick::radius(ComponentMode::Edge)) {
+                return Some((i, ComponentMode::Edge, e));
+            }
+            return Some((i, ComponentMode::Face, f));
+        }
+        self.pick_basic(s, items, px, ComponentMode::Vertex).or_else(|| self.pick_basic(s, items, px, ComponentMode::Edge))
+    }
+
+    /// Where a vertex face is drawn and picked: a little way from its point into its face.
+    pub fn vertex_face_point(m: &Mesh, c: Index) -> DVec3 {
+        let f = m.corner_face(c);
+        let pts = m.face_points(f);
+        let centre = pts.iter().map(|&p| m.position(p)).sum::<DVec3>() / pts.len().max(1) as f64;
+        let p = m.position(m.corner_point(c));
+        p + (centre - p) * 0.25
+    }
+
+    /// The vertex face nearest the mouse: over a face, the nearest of its own; off it, the nearest within reach that no
+    /// face hides.
+    fn pick_vertex_face(&mut self, s: &Session, items: &[DrawItem], px: DVec2) -> Option<(usize, ComponentMode, Index)> {
+        let screen = self.screen();
+        if let Some((i, _, f)) = self.pick_basic(s, items, px, ComponentMode::Face) {
+            let it = &items[i];
+            let m = &it.mesh;
+            let best = m
+                .face_corners(f)
+                .into_iter()
+                .filter_map(|c| screen.project(it.world.transform_point3(Self::vertex_face_point(m, c))).map(|q| ((q - px).length(), c)))
+                .min_by(|a, b| a.0.total_cmp(&b.0))?;
+            return Some((i, ComponentMode::VertexFace, best.1));
+        }
+        let g = &s.graph;
+        let sel = g.selection();
+        let reach = component_pick::radius(ComponentMode::Vertex);
+        let mut best: Option<(f64, usize, Index)> = None;
+        for (i, it) in items.iter().enumerate() {
+            if !sel.contains(&it.xf) || surfaces::is_surface(g, it.shape) {
+                continue;
+            }
+            let m = &it.mesh;
+            for c in 0..m.corner_capacity() {
+                if !m.corner_valid(c) {
+                    continue;
+                }
+                let wp = it.world.transform_point3(Self::vertex_face_point(m, c));
+                let Some(q) = screen.project(wp) else { continue };
+                let d = (q - px).length();
+                if d < reach && best.is_none_or(|b| d < b.0) {
+                    let one = [DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }];
+                    if self.visible(&one, wp, &screen) {
+                        best = Some((d, i, c));
+                    }
+                }
+            }
+        }
+        best.map(|b| (b.1, ComponentMode::VertexFace, b.2))
+    }
+
+    /// The vertex, edge or face under a pixel on the hilited meshes.
+    fn pick_basic(&mut self, s: &Session, items: &[DrawItem], px: DVec2, mode: ComponentMode) -> Option<(usize, ComponentMode, Index)> {
+        let g = &s.graph;
         let sel = g.selection();
         let hil: Vec<usize> = (0..items.len()).filter(|&i| sel.contains(&items[i].xf) && !surfaces::is_surface(g, items[i].shape)).collect();
         if mode == ComponentMode::Face {
@@ -1638,7 +2158,7 @@ impl Viewport {
     }
 
     /// Whether a world point is in front of every surface of the items along its line of sight.
-    fn visible(&mut self, items: &[DrawItem], wp: DVec3, screen: &Screen) -> bool {
+    pub fn visible(&mut self, items: &[DrawItem], wp: DVec3, screen: &Screen) -> bool {
         let Some(q) = screen.project(wp) else { return false };
         let (o, _) = self.cam.ray(q, self.size());
         let dist = (wp - o).length();
@@ -1926,11 +2446,27 @@ impl Viewport {
                 return vec![hit];
             }
         }
+        let shell = components::is_uv_shell(g);
         match self.pick_component(s, items, px) {
+            Some((i, ComponentMode::Uv, id)) if shell => {
+                // UV Shell: every UV of the shell the picked one is in.
+                let m = items[i].mesh.clone();
+                let tp = self.uv_topo(items[i].shape, &m);
+                let shells: std::collections::BTreeSet<Index> = tp.maps.get(id as usize).into_iter().flatten().filter_map(|&c| tp.face_shell.get(m.corner_face(c) as usize).copied()).collect();
+                let maps = uv_shell_maps(&m, &tp, &shells);
+                let mut out = Vec::new();
+                push_ranges(&mut out, &g.path(items[i].xf), "map", &maps);
+                out
+            }
+            Some((i, ComponentMode::VertexFace, c)) => {
+                let m = &items[i].mesh;
+                vec![format!("{}.vtxFace[{}][{}]", g.path(items[i].xf), m.corner_point(c), m.corner_face(c))]
+            }
             Some((i, kind, id)) => {
                 let p = match kind {
                     ComponentMode::Vertex => "vtx",
                     ComponentMode::Edge => "e",
+                    ComponentMode::Uv => "map",
                     _ => "f",
                 };
                 vec![format!("{}.{p}[{id}]", g.path(items[i].xf))]
@@ -1978,11 +2514,18 @@ impl Viewport {
                     v.push(LineVertex { pos: pos(pts[(k + 1) % pts.len()]), color: c });
                 }
             }
+            ComponentMode::Uv => {
+                // A UV shows at its point.
+                let tp = aztek_scene::uv_ops::topo(m);
+                let Some(&corner) = tp.maps.get(id as usize).and_then(|c| c.first()) else { return };
+                v.push(LineVertex { pos: pos(m.corner_point(corner)), color: c });
+            }
+            ComponentMode::VertexFace if m.corner_valid(id) => v.push(LineVertex { pos: Self::vertex_face_point(m, id).as_vec3().to_array(), color: c }),
             _ => return,
         }
         let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &v);
         let mvp = self.view_proj() * it.world;
-        if kind == ComponentMode::Vertex {
+        if matches!(kind, ComponentMode::Vertex | ComponentMode::Uv | ComponentMode::VertexFace) {
             r.bind(gpu, Kind::Points);
             r.push(gpu, &push(mvp, it.world, self.cam.view(), [1.0; 4], 2.5e-3, (7.0 * scale) as f32));
         } else {
@@ -1997,12 +2540,15 @@ impl Viewport {
     /// Everything inside a viewport-pixel rectangle.
     pub fn pick_rect(&self, s: &Session, items: &[DrawItem], a: DVec2, b: DVec2) -> Vec<String> {
         let (lo, hi) = (a.min(b), a.max(b));
-        self.pick_inside(s, items, &|p: DVec2| p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y)
+        let corners = [lo, DVec2::new(hi.x, lo.y), hi, DVec2::new(lo.x, hi.y)];
+        let inside = |p: DVec2| p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y;
+        let crosses = |p: DVec2, q: DVec2| inside(p) || inside(q) || (0..4).any(|i| segments_cross(p, q, corners[i], corners[(i + 1) % 4]));
+        self.pick_region(s, items, &inside, &crosses, (lo + hi) * 0.5)
     }
 
     /// Everything inside a free-form outline, in pixels.
     pub fn pick_lasso(&self, s: &Session, items: &[DrawItem], outline: &[DVec2]) -> Vec<String> {
-        self.pick_inside(s, items, &|p: DVec2| {
+        let inside = |p: DVec2| {
             let mut odd = false;
             let n = outline.len();
             for i in 0..n {
@@ -2012,13 +2558,26 @@ impl Viewport {
                 }
             }
             odd
-        })
+        };
+        let n = outline.len();
+        let crosses = |p: DVec2, q: DVec2| inside(p) || inside(q) || (0..n).any(|i| segments_cross(p, q, outline[i], outline[(i + 1) % n]));
+        let probe = outline.first().copied().unwrap_or_default();
+        self.pick_region(s, items, &inside, &crosses, probe)
     }
 
     /// Everything whose points the test takes in.
     pub fn pick_inside(&self, s: &Session, items: &[DrawItem], inside: &dyn Fn(DVec2) -> bool) -> Vec<String> {
+        self.pick_region(s, items, inside, &|p, q| inside(p) || inside(q), DVec2::splat(f64::NAN))
+    }
+
+    /// Everything a drawn region takes in. Components count by their points (edges and faces by their centres); whole
+    /// objects count when any part of them is in the region, as the reference's: a point inside, an edge crossing its
+    /// outline, or a face lying over it (`probe` is a point of the region).
+    pub fn pick_region(&self, s: &Session, items: &[DrawItem], inside: &dyn Fn(DVec2) -> bool, crosses: &dyn Fn(DVec2, DVec2) -> bool, probe: DVec2) -> Vec<String> {
         let g = &s.graph;
         let mode = components::mode(g);
+        let multi = components::is_multi(g);
+        let shell = components::is_uv_shell(g);
         let screen = self.screen();
         let mut out = Vec::new();
         if mode == ComponentMode::Vertex {
@@ -2034,7 +2593,11 @@ impl Viewport {
                 if !self.rig_shown(g, it.node) || !self.node_shown(g, it.node) || !self.pickable(g, it.shape) {
                     continue;
                 }
-                if it.segs.iter().any(|(a, b)| screen.project(*a).is_some_and(inside) || screen.project(*b).is_some_and(inside)) {
+                if it.segs.iter().any(|(a, b)| match (screen.project(*a), screen.project(*b)) {
+                    (Some(p), Some(q)) => crosses(p, q),
+                    (Some(p), None) | (None, Some(p)) => inside(p),
+                    _ => false,
+                }) {
                     let path = g.path(crate::ui_cmds::scoped(g, it.node));
                     if !out.contains(&path) {
                         out.push(path);
@@ -2057,9 +2620,49 @@ impl Viewport {
         for it in items {
             let m = &it.mesh;
             let proj = |p: Index| screen.project(it.world.transform_point3(m.position(p)));
+            let on = g.selection().contains(&it.xf) && !surfaces::is_surface(g, it.shape);
+            // Multi: the vertices, edges and faces it takes, each as its own mode would.
+            let kinds: Vec<ComponentMode> = if multi && on { vec![ComponentMode::Vertex, ComponentMode::Edge, ComponentMode::Face] } else { vec![mode] };
+            for mode in kinds {
             match mode {
+                ComponentMode::Uv | ComponentMode::VertexFace if !on => {}
+                ComponentMode::Uv => {
+                    // The UVs at the points inside; in UV Shell, the shells they are in.
+                    let pts: Vec<Index> = (0..m.point_capacity()).filter(|&p| m.point_valid(p) && proj(p).is_some_and(inside)).collect();
+                    let tp = aztek_scene::uv_ops::topo(m);
+                    let mut maps = components::convert(m, ComponentMode::Vertex, &pts, ComponentMode::Uv, false);
+                    if shell {
+                        let shells = maps.iter().flat_map(|&mp| tp.maps.get(mp as usize).into_iter().flatten()).filter_map(|&c| tp.face_shell.get(m.corner_face(c) as usize).copied()).collect();
+                        maps = uv_shell_maps(m, &tp, &shells);
+                    }
+                    push_ranges(&mut out, &g.path(it.xf), "map", &maps);
+                }
+                ComponentMode::VertexFace => {
+                    for c in 0..m.corner_capacity() {
+                        if m.corner_valid(c) && screen.project(it.world.transform_point3(Self::vertex_face_point(m, c))).is_some_and(inside) {
+                            out.push(format!("{}.vtxFace[{}][{}]", g.path(it.xf), m.corner_point(c), m.corner_face(c)));
+                        }
+                    }
+                }
                 ComponentMode::Object => {
-                    if self.pickable(g, it.shape) && (0..m.point_capacity()).any(|p| m.point_valid(p) && proj(p).is_some_and(inside)) {
+                    let touched = || {
+                        (0..m.point_capacity()).any(|p| m.point_valid(p) && proj(p).is_some_and(inside))
+                            || (0..m.edge_capacity()).any(|e| {
+                                m.edge_valid(e)
+                                    && match (proj(m.edge_point(e, 0)), proj(m.edge_point(e, 1))) {
+                                        (Some(p), Some(q)) => crosses(p, q),
+                                        _ => false,
+                                    }
+                            })
+                            || (probe.is_finite()
+                                && (0..m.face_capacity()).any(|f| {
+                                    m.face_valid(f) && {
+                                        let pts: Vec<DVec2> = m.face_points(f).iter().filter_map(|&p| proj(p)).collect();
+                                        pts.len() >= 3 && (1..pts.len() - 1).any(|k| in_triangle(probe, pts[0], pts[k], pts[k + 1]))
+                                    }
+                                }))
+                    };
+                    if self.pickable(g, it.shape) && touched() {
                         let path = g.path(crate::ui_cmds::scoped(g, it.xf));
                         if !out.contains(&path) {
                             out.push(path);
@@ -2095,6 +2698,7 @@ impl Viewport {
                     push_ranges(&mut out, &g.path(it.xf), "f", &ids);
                 }
             }
+            }
         }
         out
     }
@@ -2113,6 +2717,10 @@ impl Viewport {
             }
         }
         let mode = components::mode(&s.graph);
+        // UVs and vertex faces have no handles in a view.
+        if matches!(mode, ComponentMode::Uv | ComponentMode::VertexFace) {
+            return None;
+        }
         if mode == ComponentMode::Object {
             if let Some(p) = crate::usd_view::manip_pivot(s) {
                 return Some(p);
@@ -2242,6 +2850,24 @@ impl Viewport {
         // Handles lit: the hovered or dragged one, and the set constraint in yellow.
         let tint = |h: Handle, c: [u8; 4]| if active == Some(h) || constraint == Some(h) { [255, 255, 0, 255] } else { c };
         let mut v = Vec::new();
+        // The solid parts: arrowheads, boxes, the centre and the plane squares, drawn under the lines.
+        let mut tris: Vec<LineVertex> = Vec::new();
+        let mut tri = |a: Vec3, b: Vec3, c: Vec3, col: [u8; 4]| {
+            for q in [a, b, c] {
+                tris.push(LineVertex { pos: q.to_array(), color: c8(col) });
+            }
+        };
+        let shade = |c: [u8; 4], k: f32| [(c[0] as f32 * k).min(255.0) as u8, (c[1] as f32 * k).min(255.0) as u8, (c[2] as f32 * k).min(255.0) as u8, c[3]];
+        let cube = |at: Vec3, x: Vec3, y: Vec3, z: Vec3, col: [u8; 4], tri: &mut dyn FnMut(Vec3, Vec3, Vec3, [u8; 4])| {
+            // Each face a little lighter or darker, so the box reads as one.
+            for (n, u, w, k) in [(x, y, z, 1.0), (-x, z, y, 0.8), (y, z, x, 1.15), (-y, x, z, 0.65), (z, x, y, 0.9), (-z, y, x, 0.75)] {
+                let c = at + n;
+                let q = [c + u + w, c - u + w, c - u - w, c + u - w];
+                let col = shade(col, k);
+                tri(q[0], q[1], q[2], col);
+                tri(q[0], q[2], q[3], col);
+            }
+        };
         let mut line = |a: Vec3, b: Vec3, c: [u8; 4]| {
             v.push(LineVertex { pos: a.to_array(), color: c8(c) });
             v.push(LineVertex { pos: b.to_array(), color: c8(c) });
@@ -2302,15 +2928,17 @@ impl Viewport {
                     let (u, w) = ax.any_orthonormal_pair();
                     let k = len * 0.08;
                     if scaling {
-                        // A small box at the tip.
-                        let q = [tip + (u + w) * k, tip + (w - u) * k, tip - (u + w) * k, tip + (u - w) * k];
-                        for j in 0..4 {
-                            line(q[j], q[(j + 1) % 4], c);
-                        }
+                        // A solid box at the tip.
+                        cube(tip, *ax * k, u * k, w * k, c, &mut tri);
                     } else {
+                        // A solid cone for the arrowhead.
                         let base = tip - *ax * len * 0.2;
-                        for d in [u, -u, w, -w] {
-                            line(tip, base + d * k, c);
+                        let n = 12;
+                        for j in 0..n {
+                            let (a0, a1) = (j as f32 / n as f32 * std::f32::consts::TAU, (j + 1) as f32 / n as f32 * std::f32::consts::TAU);
+                            let (e0, e1) = (base + (u * a0.cos() + w * a0.sin()) * k, base + (u * a1.cos() + w * a1.sin()) * k);
+                            tri(tip, e0, e1, shade(c, 0.75 + 0.35 * a0.cos().abs()));
+                            tri(base, e1, e0, shade(c, 0.6));
                         }
                     }
                 }
@@ -2323,14 +2951,35 @@ impl Viewport {
                     for j in 0..4 {
                         line(q[j], q[(j + 1) % 4], c);
                     }
+                    // Filled, see-through, so the square is a target and not a thin outline.
+                    let fill = [c[0], c[1], c[2], 90];
+                    tri(q[0], q[1], q[2], fill);
+                    tri(q[0], q[2], q[3], fill);
                 }
                 let c = tint(Handle::Center, [230, 230, 120, 255]);
                 let k = len * 0.1;
-                let corners = [p + (right + up) * k, p + (up - right) * k, p - (right + up) * k, p + (right - up) * k];
-                for i in 0..4 {
-                    line(corners[i], corners[(i + 1) % 4], c);
+                if scaling {
+                    // Scale's centre: a solid box, as in the reference.
+                    let fwd = right.cross(up);
+                    cube(p, right * k, up * k, fwd * k, c, &mut tri);
+                } else {
+                    // Move's centre: a solid square facing the view.
+                    let corners = [p + (right + up) * k, p + (up - right) * k, p - (right + up) * k, p + (right - up) * k];
+                    for i in 0..4 {
+                        line(corners[i], corners[(i + 1) % 4], c);
+                    }
+                    let fill = [c[0], c[1], c[2], 200];
+                    tri(corners[0], corners[1], corners[2], fill);
+                    tri(corners[0], corners[2], corners[3], fill);
                 }
             }
+        }
+        if !tris.is_empty() {
+            let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &tris);
+            r.bind(gpu, Kind::ColorTrisOnTop);
+            r.push(gpu, &push(self.view_proj(), DMat4::IDENTITY, self.cam.view(), [1.0; 4], 0.0, 1.0));
+            r.draw(gpu, &b, None, tris.len() as u32);
+            gpu.drop_buffer(b);
         }
         let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &v);
         r.bind(gpu, Kind::LinesOnTop);
@@ -2346,8 +2995,15 @@ impl Viewport {
         let len = self.handle_len(pivot, scale);
         let c = screen.project(pivot)?;
         let rotate = self.eff_tool() == Tool::Rotate;
-        if !rotate && (px - c).abs().max_element() < 10.0 * scale {
-            return Some(Handle::Center);
+        // The centre square takes the whole of its inside and a few pixels round it, not only its outline, so it is
+        // caught without aiming.
+        if !rotate {
+            let view = self.cam.view();
+            let right = DVec3::new(view.x_axis.x, view.y_axis.x, view.z_axis.x);
+            let half = (screen.project(pivot + right * len * 0.1).unwrap_or(c) - c).length();
+            if (px - c).abs().max_element() < half.max(10.0 * scale) + 5.0 * scale {
+                return Some(Handle::Center);
+            }
         }
         if rotate {
             // The view ring, on the outside.
@@ -2807,11 +3463,17 @@ impl Viewport {
         if let Some((b, _)) = self.grid.take() {
             gpu.drop_buffer(b);
         }
+        if let Some((b, _)) = self.grid_bold.take() {
+            gpu.drop_buffer(b);
+        }
     }
 
     pub fn release(&mut self, gpu: &mut Gpu) {
         for (_, m) in self.meshes.drain() {
             drop_mesh(gpu, m);
+        }
+        if let Some((b, _)) = self.grid_bold.take() {
+            gpu.drop_buffer(b);
         }
         if let Some((b, _)) = self.grid.take() {
             gpu.drop_buffer(b);
@@ -2847,6 +3509,25 @@ fn drop_mesh(gpu: &mut Gpu, m: GpuMesh) {
     }
 }
 
+/// The UVs of the shells.
+fn uv_shell_maps(m: &Mesh, tp: &aztek_scene::uv_ops::UvTopo, shells: &std::collections::BTreeSet<Index>) -> Vec<Index> {
+    let mut maps = Vec::new();
+    for &sh in shells {
+        for &f in tp.shells.get(sh as usize).into_iter().flatten() {
+            m.for_each_face_corner(f, |c| {
+                if let Some(&mp) = tp.corner_map.get(c as usize) {
+                    if mp != aztek_geo::INVALID {
+                        maps.push(mp);
+                    }
+                }
+            });
+        }
+    }
+    maps.sort_unstable();
+    maps.dedup();
+    maps
+}
+
 fn push_ranges(out: &mut Vec<String>, path: &str, p: &str, ids: &[Index]) {
     if ids.is_empty() {
         return;
@@ -2854,6 +3535,7 @@ fn push_ranges(out: &mut Vec<String>, path: &str, p: &str, ids: &[Index]) {
     let kind = match p {
         "vtx" => ComponentMode::Vertex,
         "e" => ComponentMode::Edge,
+        "map" => ComponentMode::Uv,
         _ => ComponentMode::Face,
     };
     for c in aztek_scene::history::format_components(kind, ids).split_whitespace() {
@@ -3155,4 +3837,17 @@ fn edge_flag(m: &Mesh, name: &str, e: Index) -> bool {
     } else {
         m.edge_attrs().get::<f32>(name).get(e as usize).copied().unwrap_or(0.0) > 0.0
     }
+}
+
+/// Whether two segments in the screen cross.
+fn segments_cross(a: DVec2, b: DVec2, c: DVec2, d: DVec2) -> bool {
+    let side = |p: DVec2, q: DVec2, r: DVec2| (q - p).perp_dot(r - p);
+    let (d1, d2, d3, d4) = (side(c, d, a), side(c, d, b), side(a, b, c), side(a, b, d));
+    ((d1 > 0.0) != (d2 > 0.0)) && ((d3 > 0.0) != (d4 > 0.0))
+}
+
+/// Whether a point is inside a screen triangle, either winding.
+fn in_triangle(p: DVec2, a: DVec2, b: DVec2, c: DVec2) -> bool {
+    let (d1, d2, d3) = ((b - a).perp_dot(p - a), (c - b).perp_dot(p - b), (a - c).perp_dot(p - c));
+    !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
 }

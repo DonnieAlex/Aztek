@@ -302,7 +302,8 @@ impl Visibility {
             ComponentMode::Vertex => self.point(id),
             ComponentMode::Edge => self.edge(id),
             ComponentMode::Face => self.face(id),
-            ComponentMode::Object => true,
+            // UVs and vertex faces show where their faces do; the caller passes the face.
+            ComponentMode::Uv | ComponentMode::VertexFace | ComponentMode::Object => true,
         }
     }
 }
@@ -431,11 +432,36 @@ pub fn active(g: &Graph) -> Option<&Set> {
     g.active_isolation.as_ref().filter(|s| s.active())
 }
 
-/// What the active view shows of the node's mesh (its cage, which component ids index).
-pub fn active_visibility(g: &Graph, id: NodeId, mesh: &Mesh) -> Visibility {
+/// What the active view isolates of the node's mesh, hidden faces or not: a shell picked by double-click takes its
+/// hidden faces too, so H on it shows them again, as in the reference.
+pub fn isolated_visibility(g: &Graph, id: NodeId, mesh: &Mesh) -> Visibility {
     match active(g) {
         Some(s) if s.is_partial(id) => visibility(mesh, s.shown_faces(id, mesh)),
         _ => Visibility::default(),
+    }
+}
+
+/// What the active view shows of the node's mesh (its cage, which component ids index): what it isolates, less the
+/// faces hidden in every view.
+pub fn active_visibility(g: &Graph, id: NodeId, mesh: &Mesh) -> Visibility {
+    let mut mask = match active(g) {
+        Some(s) if s.is_partial(id) => s.shown_faces(id, mesh),
+        _ => Vec::new(),
+    };
+    if let Some(hidden) = g.hidden_faces.get(&id).filter(|h| !h.is_empty()) {
+        if mask.is_empty() {
+            mask = vec![1; mesh.face_capacity() as usize];
+        }
+        for &f in hidden {
+            if let Some(x) = mask.get_mut(f as usize) {
+                *x = 0;
+            }
+        }
+    }
+    if mask.is_empty() {
+        Visibility::default()
+    } else {
+        visibility(mesh, mask)
     }
 }
 

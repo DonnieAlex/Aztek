@@ -73,6 +73,7 @@ void aztek_view_destroy(int id);
 void aztek_view_resize(int id, int width, int height);
 void aztek_view_render(int id);
 int aztek_view_mouse(int id, int kind, int button, double x, double y, int mods, int buttons);
+int aztek_view_on_cube(int id, double x, double y);
 void aztek_view_wheel(int id, double delta);
 void aztek_view_set(int id, const char* key, const char* value_json);
 char* aztek_view_get(int id, const char* key);

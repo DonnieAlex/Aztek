@@ -719,17 +719,61 @@ fn settings_command(s: &mut Session, name: &str, a: &Args, default: fn(&str) -> 
     Ok(Value::Null)
 }
 
+/// viewManip's settings before any are given: the ViewCube shows, top right, at its normal size, with no compass.
+fn view_manip_default(q: &str) -> Value {
+    match q {
+        // As the reference's ViewCube preferences start: shown top right, normal size, half opaque away from the mouse,
+        // no snapping on drags, the scene's up kept, and the scene fitted on a click.
+        "visible" | "topRight" | "preserveSceneUp" | "zoomToFitScene" => json!(true),
+        "dragSnap" | "drawCompass" | "topLeft" | "bottomLeft" | "bottomRight" => json!(false),
+        "size" => json!("normal"),
+        "minOpacity" => json!(0.5),
+        "compassAngle" => json!(0.0),
+        _ => Value::Null,
+    }
+}
+
+/// A held setting of a settings command (viewManip, manipOptions), or its default.
+pub fn setting(cmd: &str, key: &str) -> Value {
+    let held = with_ctx(|c| c.settings.get(cmd).and_then(|x| x.get(key).cloned()));
+    match (held, cmd) {
+        (Some(v), _) => v,
+        (None, "viewManip") => view_manip_default(key),
+        _ => Value::Null,
+    }
+}
+
 fn view_manip_act(s: &mut Session, f: &Map<String, Value>) {
-    if let Some(v) = f.get("visible") {
-        let cmd = json!({"args": ["viewAxis"], "visible": truthy(v)});
-        let _ = s.run("headsUpDisplay", cmd);
+    // One corner at a time: naming one moves the cube there.
+    let corners = ["topLeft", "topRight", "bottomLeft", "bottomRight"];
+    if let Some(on) = corners.iter().find(|k| f.get(**k).is_some_and(truthy)) {
+        with_ctx(|c| {
+            let held = c.settings.entry("viewManip".to_string()).or_default();
+            for k in corners {
+                held.insert(k.to_string(), json!(k == *on));
+            }
+        });
     }
-    if f.get("goHome").is_some_and(truthy) {
-        let _ = s.run("viewSet", json!({"home": true}));
+    // The current view's camera: home, set home, fit, level.
+    for (flag, action) in [
+        ("goHome", "home"),
+        ("goDefault", "default"),
+        ("setHome", "setHome"),
+        ("resetHome", "resetHome"),
+        ("setFront", "setFront"),
+        ("resetFront", "resetFront"),
+        ("fitToView", "fit"),
+        ("levelCamera", "level"),
+        ("restoreCenter", "restoreCenter"),
+    ] {
+        if f.get(flag).is_some_and(truthy) {
+            crate::core::push_ui_request(format!("viewCube|{}", json!({"action": action})));
+        }
     }
-    if f.get("fitToView").is_some_and(truthy) {
+    if f.get("fitToView").is_some_and(truthy) || f.get("zoomToFitScene").is_some_and(truthy) {
         let _ = s.run("viewFit", json!({}));
     }
+    view_all("viewCube", json!({"action": "redraw"}));
 }
 
 fn manip_options_act(_s: &mut Session, f: &Map<String, Value>) {
@@ -836,19 +880,11 @@ pub fn register(s: &mut Session) {
         "showUnits:su:b suppress:s:b useRotatePivot:urp:b useScalePivot:usp:b worldSpace:ws:b query:q:b edit:e:b queried::a",
     ));
     s.register(add_ctx_flags(
-        Cmd::new("viewManip", "The view's orientation aid: -visible shows or hides the axes in the corner, -goHome, -fitToView; the rest are held.", |s, a| {
-            fn d(q: &str) -> Value {
-                match q {
-                    "visible" | "dragSnap" | "drawCompass" => json!(q == "visible"),
-                    "size" => json!("auto"),
-                    "minOpacity" => json!(0.2),
-                    _ => Value::Null,
-                }
-            }
-            settings_command(s, "viewManip", a, d, view_manip_act)
+        Cmd::new("viewManip", "The ViewCube: -visible shows or hides it, -topLeft -topRight -bottomLeft -bottomRight put it in a corner, -size tiny, small, normal or large, -minOpacity how opaque it is away from the mouse, -dragSnap snaps a drag to the nearest view, -preserveSceneUp keeps the scene upright, -zoomToFitScene fits the scene on a click, -drawCompass a ring under it; -goHome, -goDefault, -setHome, -resetHome, -setFront, -resetFront, -fitToView and -levelCamera work on the current view's camera. The rest are held.", |s, a| {
+            settings_command(s, "viewManip", a, view_manip_default, view_manip_act)
         })
         .undoable(false),
-        "bottomLeft:bl:b bottomRight:br:b compassAngle:ca:a dragSnap:ds:b drawCompass:dc:b fitToView:ftv:b frontParameter:fp:a goDefault:gd:b goHome:gh:b homeParameter:hp:a levelCamera:lc:b minOpacity:mo:a postCommand:pc:a preCommand:prc:a restoreCenter:rc:b selectionLockParameter:slp:a setHome:sh:b size:s:a topLeft:tl:b topRight:tr:b visible:v:b zoomToFitScene:zf:b query:q:b edit:e:b queried::a",
+        "bottomLeft:bl:b bottomRight:br:b compassAngle:ca:a dragSnap:ds:b drawCompass:dc:b fitToView:ftv:b frontParameters:fp:a goDefault:gd:b goHome:gh:b homeParameters:hp:a levelCamera:lc:b minOpacity:mo:a namespace:ns:a postCommand:p:a preCommand:pr:a preserveSceneUp:psu:b resetFront:rf:b resetHome:rh:b restoreCenter:rc:b selectionLockParameters:slp:a setFront:sf:b setHome:sh:b size:s:a toggleSelectionLock:tsl:b topLeft:tl:b topRight:tr:b visible:v:b zoomToFitScene:zf:b query:q:b edit:e:b queried::a",
     ));
     s.register(
         Cmd::new("pixelMove", "pixelMove x y: moves the selection this many pixels in the view's plane.", |_s, a| {

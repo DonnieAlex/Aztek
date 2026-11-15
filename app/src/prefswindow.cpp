@@ -2,6 +2,7 @@
 // scripts read the same numbers.
 #include "mainwindow.h"
 #include "aztek.h"
+#include "editors.h"
 #include "host.h"
 #include "panels.h"
 #include "viewport.h"
@@ -194,6 +195,7 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     check(f, "Help line", "helpLine", true);
     f = page("Display");
     number(f, "View background (grey)", "background", 0.36, 0, 1, 0.02, 3);
+    check(f, "Background gradient", "backgroundGradient", false);
     number(f, "Joint size", "jointScale", 1, 0.01, 100, 0.1, 2);
     number(f, "IK handle size", "ikHandleScale", 1, 0.01, 100, 0.1, 2);
     number(f, "Resolution gate aspect", "resolutionAspect", 960.0 / 540.0, 0.1, 10, 0.01, 3);
@@ -203,7 +205,8 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     check(f, "Preselection highlight", "preSelectHilite", true);
     number(f, "Paint selection radius (pixels)", "paintSelectRadius", 22, 2, 300, 1, 0);
     f = page("Snapping");
-    number(f, "Grid spacing", "gridSpacing", 1, 0.001, 1000, 0.1, 3);
+    number(f, "Grid lines every", "gridLinesEvery", 5, 0.001, 10000, 0.5, 3);
+    number(f, "Grid subdivisions", "gridDivisions", 5, 1, 1000, 1, 0);
     number(f, "Move step (0 off)", "stepMove", 0, 0, 1000, 0.1, 3);
     number(f, "Rotate step in degrees (0 off)", "stepRotate", 0, 0, 180, 1, 2);
     number(f, "Scale step (0 off)", "stepScale", 0, 0, 100, 0.1, 3);
@@ -433,6 +436,19 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
                 log("// The user folder's scripts, plug-ins and modules are in use now. Its userSetup scripts and saved preferences are read when Aztek starts. //");
         });
     }
+    f = page("ViewCube");
+    // As the reference's ViewCube preferences.
+    f->addRow(new QLabel("<b>Display</b>", this));
+    check(f, "Show the ViewCube", "viewCubeShow", true);
+    choice(f, "On-screen position", "viewCubePosition", {"Top Right", "Bottom Right", "Top Left", "Bottom Left"}, "Top Right");
+    choice(f, "ViewCube size", "viewCubeSize", {"Small", "Normal", "Large"}, "Normal");
+    choice(f, "Inactive opacity", "viewCubeOpacity", {"0%", "25%", "50%", "75%", "100%"}, "50%");
+    f->addRow(new QLabel("<b>When Dragging on the ViewCube</b>", this));
+    check(f, "Snap to closest view", "viewCubeSnap", false);
+    check(f, "Preserve scene up during transitions", "viewCubeSceneUp", true);
+    f->addRow(new QLabel("<b>When Clicking on the ViewCube</b>", this));
+    check(f, "Fit-to-view on view change", "viewCubeFit", true);
+    check(f, "Use animated transitions when switching views", "viewCubeAnimate", true)->setEnabled(false);
     f = page("Modeling");
     number(f, "Face normal length", "normalSize", 0.4, 0.001, 100, 0.1, 3);
     check(f, "Keep faces together on extrude", "keepFacesTogether", true);
@@ -459,10 +475,16 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     resize(640, 540);
 }
 
-void MainWindow::show_preferences() {
+void MainWindow::show_preferences() { show_preferences_at(QString()); }
+
+void MainWindow::show_preferences_at(const QString& category) {
     auto* p = new Preferences(this);
     p->setAttribute(Qt::WA_DeleteOnClose);
     connect(p, &Preferences::changed, this, &MainWindow::apply_prefs);
+    if (!category.isEmpty())
+        if (auto* cats = p->findChild<QListWidget*>())
+            for (int i = 0; i < cats->count(); ++i)
+                if (cats->item(i)->text() == category) cats->setCurrentRow(i);
     p->show();
 }
 
@@ -488,8 +510,10 @@ void MainWindow::apply_prefs() {
         v->set("stepScale", QString::number(s.value("prefs/stepScale", 0.0).toDouble()));
         v->set("disp", QString("{\"normalSize\":%1}").arg(s.value("prefs/normalSize", 0.4).toDouble()));
     }
+    exec_quiet("displayPref", QJsonObject{{"displayGradient", s.value("prefs/backgroundGradient", false).toBool()}});
     // The grid goes through the grid command: its numbers are in the current linear unit, as the reference's are.
-    exec_quiet("grid", QJsonObject{{"spacing", s.value("prefs/gridSpacing", 1.0).toDouble() * 5.0}, {"divisions", 5}, {"size", s.value("prefs/gridSize", 12.0).toDouble()}});
+    apply_grid_prefs();
+    apply_view_cube_prefs();
     auto ui_pref = [](const char* name, const QJsonValue& v) { exec_quiet("uiPref", QJsonObject{{"args", QJsonArray{name, v}}}); };
     ui_pref("manipReadout", s.value("prefs/manipReadout", true).toBool());
     ui_pref("paintSelectRadius", s.value("prefs/paintSelectRadius", 22.0).toDouble());

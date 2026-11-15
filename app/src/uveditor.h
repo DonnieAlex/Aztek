@@ -45,6 +45,10 @@ public:
     // The material's image behind the UVs; what Image > Display Image turns off.
     bool show_image = true;
     void set_image(const QString& path, QPointF repeat, QPointF offset);
+    // The UVs picked here become the scene's UV selection, which the views share, as the reference's do.
+    void share_uv_selection();
+    // Takes the scene's selection type without setting it back.
+    void follow_mode(const QString& m);
     bool shaded = true;
 signals:
     void picked();
@@ -55,6 +59,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent*) override;
     void wheelEvent(QWheelEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
+    void mouseDoubleClickEvent(QMouseEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
 private:
     QImage image_;
@@ -78,6 +83,12 @@ private:
     QString tool_ = "move";
     // Local UV selection: mesh index -> maps.
     QHash<QString, QSet<int>> uv_sel_;
+    // The last two edges or faces clicked, for Shift+double-click's path: mesh, "edge" or "face", id.
+    struct Pick {
+        QString mesh, kind;
+        int id = -1;
+    };
+    QList<Pick> pick_hist_;
     // View: uv at the canvas centre and pixels per uv unit.
     QPointF center_{0.5, 0.5};
     double scale_ = 400;

@@ -155,3 +155,63 @@ fn held_settings_read_back() {
     run(&mut s, "uvLink", json!({"b": true, "uvSet": "cShape.uvSet[0].uvSetName", "texture": "file1"}));
     assert_eq!(run(&mut s, "uvLink", json!({"query": true, "texture": "file1"})), json!([]));
 }
+
+/// Issue 50: presets as YAML, the reference's MEL presets read and brought in, blended.
+#[test]
+fn attribute_presets_in_yaml_and_from_mel() {
+    let mut s = Session::new();
+    let home = std::env::temp_dir().join(format!("aztek_presets_{}", std::process::id()));
+    run(&mut s, "shadingNode", json!({"args": ["lambert"], "asShader": true, "name": "m"}));
+    run(&mut s, "setAttr", json!({"args": ["m.diffuse", 0.2]}));
+    run(&mut s, "nodePreset", json!({"save": ["m", "dull"]}));
+    let list = run(&mut s, "nodePreset", json!({"list": "m"}));
+    assert!(list.as_array().unwrap().iter().any(|x| x == "dull"), "{list}");
+    run(&mut s, "setAttr", json!({"args": ["m.diffuse", 1.0]}));
+    run(&mut s, "applyAttrPreset", json!({"args": ["m", "dull", 50]}));
+    let d = run(&mut s, "getAttr", json!({"args": ["m.diffuse"]}));
+    assert!((d.as_f64().unwrap_or_else(|| d[0].as_f64().unwrap()) - 0.6).abs() < 1e-9, "{d}");
+    // A reference MEL preset, brought in as YAML.
+    let mel = home.join("chalky.mel");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(&mel, "//Maya Preset File\nstartAttrPreset( \"lambert\" );\nblendAttr \"diffuse\" 0.9;\nblendAttr \"color\" 0.1 0.2 0.3;\nendAttrPreset();\n").unwrap();
+    let made = run(&mut s, "importAttrPresets", json!({"args": [mel.to_string_lossy()]}));
+    assert_eq!(made, json!(["lambert/chalky"]));
+    run(&mut s, "nodePreset", json!({"load": ["m", "chalky"]}));
+    let d = run(&mut s, "getAttr", json!({"args": ["m.diffuse"]}));
+    assert!((d.as_f64().unwrap_or_else(|| d[0].as_f64().unwrap()) - 0.9).abs() < 1e-9, "{d}");
+    let _ = std::fs::remove_dir_all(&home);
+    run(&mut s, "nodePreset", json!({"delete": ["m", "dull"]}));
+    run(&mut s, "nodePreset", json!({"delete": ["m", "chalky"]}));
+}
+
+#[test]
+fn yaml_presets_keep_every_kind_of_value() {
+    let mut s = Session::new();
+    let home = std::env::temp_dir().join(format!("aztek_presets_kinds_{}", std::process::id()));
+    std::fs::create_dir_all(&home).unwrap();
+    // A choice, a switch, a colour and a number round-trip through YAML.
+    run(&mut s, "createNode", json!({"args": ["multiplyDivide"], "name": "md"}));
+    run(&mut s, "setAttr", json!({"args": ["md.operation", 3]}));
+    run(&mut s, "setAttr", json!({"args": ["md.input1", 1.5, 2.5, 3.5], "type": "double3"}));
+    run(&mut s, "nodePreset", json!({"save": ["md", "kinds"]}));
+    let text = std::fs::read_to_string(aztek_core::paths::user_config_dir().join("presets/attrPresets/multiplyDivide/kinds.yaml")).unwrap();
+    assert!(text.contains("nodeType: \"multiplyDivide\"") && text.contains("  operation: 3"), "{text}");
+    run(&mut s, "createNode", json!({"args": ["multiplyDivide"], "name": "md2"}));
+    run(&mut s, "applyAttrPreset", json!({"args": ["md2", "kinds", 100]}));
+    assert_eq!(run(&mut s, "getAttr", json!({"args": ["md2.operation"]})), json!(3));
+    let v = run(&mut s, "getAttr", json!({"args": ["md2.input1"]}));
+    let v: Vec<f64> = v.as_array().unwrap().iter().flat_map(|x| x.as_array().cloned().unwrap_or_else(|| vec![x.clone()])).map(|x| x.as_f64().unwrap()).collect();
+    assert_eq!(v, vec![1.5, 2.5, 3.5]);
+    // A reference folder of .mel presets comes in as YAML, choices whole.
+    let folder = home.join("attrPresets/multiplyDivide");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("power.mel"), "//Maya Preset File\nstartAttrPreset( \"multiplyDivide\" );\nblendAttr \"operation\" 3;\nendAttrPreset();\n").unwrap();
+    let made = run(&mut s, "importAttrPresets", json!({"args": [home.to_string_lossy()]}));
+    assert_eq!(made, json!(["multiplyDivide/power"]));
+    run(&mut s, "setAttr", json!({"args": ["md2.operation", 1]}));
+    run(&mut s, "nodePreset", json!({"load": ["md2", "power"]}));
+    assert_eq!(run(&mut s, "getAttr", json!({"args": ["md2.operation"]})), json!(3));
+    run(&mut s, "nodePreset", json!({"delete": ["md2", "kinds"]}));
+    run(&mut s, "nodePreset", json!({"delete": ["md2", "power"]}));
+    let _ = std::fs::remove_dir_all(&home);
+}

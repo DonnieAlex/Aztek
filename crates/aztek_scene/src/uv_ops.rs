@@ -312,14 +312,70 @@ pub fn follow_surface(m: &mut Mesh, was: &[glam::DVec3], now: &[glam::DVec3]) {
 
 /// Flattens the shells of the faces with least distortion, keeping each where it was and its size.
 pub fn unfold(m: &mut Mesh, faces: &[Index]) {
+    unfold_with(m, faces, &UnfoldOpts::default());
+}
+
+/// How an unfold goes: the solver, its iterations, and the UVs held where they are.
+#[derive(Clone, Debug)]
+pub struct UnfoldOpts {
+    pub method: aztek_uv::unwrap::UnwrapMethod,
+    /// SLIM iterations: the reference's Unfold iterations times twelve.
+    pub iterations: i32,
+    /// Face corners whose UVs stay put (pinned UVs, the selection with Pin Selected).
+    pub pinned: std::collections::HashSet<Index>,
+    /// The shells' borders stay put.
+    pub pin_border: bool,
+}
+
+impl Default for UnfoldOpts {
+    fn default() -> Self {
+        Self { method: aztek_uv::unwrap::UnwrapMethod::Slim, iterations: 12, pinned: Default::default(), pin_border: false }
+    }
+}
+
+/// Unfolds the shells of the faces with the least stretch. Each shell keeps its place and size, unless two or more of
+/// its UVs are pinned: then they hold it.
+pub fn unfold_with(m: &mut Mesh, faces: &[Index], o: &UnfoldOpts) {
     let mut charts = charts_for(m, faces);
-    let before: Vec<(DVec2, f64)> = charts.iter().map(|c| (c.uv_centroid(), c.area_uv().abs())).collect();
-    unwrap_charts(&mut charts, &UnwrapOptions::default());
-    for (ch, (c, a)) in charts.iter_mut().zip(before) {
+    for ch in charts.iter_mut() {
+        for (i, &c) in ch.corners.iter().enumerate() {
+            if o.pinned.contains(&c) {
+                let v = ch.corner_vertex[i] as usize;
+                ch.pinned[v] = true;
+            }
+        }
+        if o.pin_border {
+            for l in ch.boundary_loops() {
+                for v in l {
+                    ch.pinned[v as usize] = true;
+                }
+            }
+        }
+    }
+    let before: Vec<(DVec2, f64, bool)> = charts.iter().map(|c| (c.uv_centroid(), c.area_uv().abs(), c.pinned.iter().filter(|&&p| p).count() >= 2)).collect();
+    unwrap_charts(&mut charts, &UnwrapOptions { method: o.method, iterations: o.iterations.max(1), use_pins: true });
+    for (ch, (c, a, held)) in charts.iter_mut().zip(before) {
+        if held {
+            continue;
+        }
         let area = if a > 1e-12 { a } else { ch.area_3d() };
         fit_chart(ch, c, area);
     }
     write_charts(m, &charts, UV);
+}
+
+/// The corners of UV ids (map ids) on a mesh.
+fn corners_of_maps(tp: &UvTopo, maps: &[Index]) -> std::collections::HashSet<Index> {
+    maps.iter().filter_map(|&u| tp.maps.get(u as usize)).flatten().copied().collect()
+}
+
+fn unfold_method(a: &Args) -> aztek_uv::unwrap::UnwrapMethod {
+    use aztek_uv::unwrap::UnwrapMethod as M;
+    match a.string("method", "minimumStretch").as_str() {
+        "conformal" | "angleBased" => M::Conformal,
+        "boundaryFirst" => M::Bff,
+        _ => M::Slim,
+    }
 }
 
 /// Packs the shells of the faces into 0-1: scaled to their 3D size, turned to their smallest rectangle, in rows.
@@ -1093,19 +1149,68 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "u3dUnfold",
-            "Unfold: flatten the UV shells of the selection with the least stretch, keeping each shell's place and size.",
+            "Unfold: flatten the UV shells of the selection with the least stretch (SLIM, as Blender's Minimum Stretch), keeping each shell's place and size; pinned UVs hold. -ite more passes, -p packs the shells into 0 to 1 after, -method minimumStretch, conformal (LSCM) or boundaryFirst (BFF). The solver lets no triangle flip.",
             |s, a| {
+                let o = UnfoldOpts { method: unfold_method(a), iterations: 12 * a.int("iterations", 1).max(1) as i32, ..Default::default() };
+                let pack = a.get("pack").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 each(s, a, "u3dUnfold", "Unfold", "Unfold3DUnfold", |m, t, tp| {
                     let faces = target_faces(m, t, tp);
-                    unfold(m, &faces);
+                    unfold_with(m, &faces, &o);
+                    if pack {
+                        let tp = topo(m);
+                        let shells: Vec<Index> = shells_of(&tp, &faces).concat();
+                        layout(m, &shells, 0.0078, true);
+                    }
                 })
             },
         )
         .positional("faces, UVs or meshes")
-        .flag(f("iterations", "ite", ArgType::Int, Value::Null, "Accepted for existing scripts."))
-        .flag(f("pack", "p", ArgType::Int, Value::Null, "Accepted for existing scripts."))
+        .flag(f("iterations", "ite", ArgType::Int, Value::Null, "More passes of the solver: each is twelve."))
+        .flag(f("pack", "p", ArgType::Int, Value::Null, "Pack the shells into 0 to 1 after."))
+        .flag(f("method", "m", ArgType::String, Value::Null, "minimumStretch (the default), conformal or boundaryFirst."))
         .flag(f("borderintersection", "bi", ArgType::Int, Value::Null, "Accepted for existing scripts."))
         .flag(f("triangleflip", "tf", ArgType::Int, Value::Null, "Accepted for existing scripts.")),
+    );
+
+    c.register(
+        Cmd::new(
+            "unfold",
+            "The reference's legacy Unfold: flatten UV shells, -ps holding the selected UVs where they are, -pub their borders; -i the solver's passes. The rest of its flags are accepted; the solver is Unfold's.",
+            |s, a| {
+                let pin_selected = a.get("pinSelected").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                let pin_border = a.get("pinUvBorder").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                let iterations = 12 * (a.int("iterations", 5000) / 1000).clamp(1, 10) as i32;
+                each(s, a, "unfold", "Unfold", "Unfold3DUnfold", |m, t, tp| {
+                    let mut o = UnfoldOpts { iterations, pin_border, ..Default::default() };
+                    if pin_selected {
+                        o.pinned = corners_of_maps(tp, &t.maps);
+                    }
+                    // UVs alone named or picked: the shells they are on.
+                    let faces = if t.faces.is_empty() && t.edges.is_empty() && !t.whole && !t.maps.is_empty() {
+                        let mut f: Vec<Index> = corners_of_maps(tp, &t.maps).into_iter().map(|c| m.corner_face(c)).collect();
+                        f.sort_unstable();
+                        f.dedup();
+                        shells_of(tp, &f).concat()
+                    } else {
+                        target_faces(m, t, tp)
+                    };
+                    unfold_with(m, &faces, &o);
+                })
+            },
+        )
+        .positional("UVs, faces or meshes")
+        .flag(f("iterations", "i", ArgType::Int, Value::Null, "The solver's passes: every thousand is twelve of Aztek's."))
+        .flag(f("pinSelected", "ps", ArgType::Any, Value::Null, "The selected UVs stay where they are."))
+        .flag(f("pinUvBorder", "pub", ArgType::Any, Value::Null, "Each shell's border stays where it is."))
+        .flag(f("stoppingThreshold", "ss", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("globalBlend", "gb", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("globalMethodBlend", "gmb", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("areaWeight", "aw", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("optimizeAxis", "oa", ArgType::Int, Value::Null, "Accepted for existing scripts."))
+        .flag(f("useScale", "us", ArgType::Any, Value::Null, "Accepted for existing scripts."))
+        .flag(f("scale", "s", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("pinned", "pin", ArgType::Any, Value::Null, "Accepted for existing scripts."))
+        .flag(f("constructionHistory", "ch", ArgType::Any, Value::Null, "Accepted for existing scripts.")),
     );
 
     c.register(

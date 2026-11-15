@@ -117,14 +117,31 @@ impl File {
     }
 }
 
+/// The file's up axis as the import is told it: Y (the format's), Z, or none for no conversion at all.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FileUp {
+    Y,
+    Z,
+    AsIs,
+}
+
 pub fn import(s: &mut Session, path: &str) -> CmdResult {
+    import_with(s, path, FileUp::Y)
+}
+
+pub fn import_with(s: &mut Session, path: &str, file_up: FileUp) -> CmdResult {
     let file = match load(path) {
         Ok(f) => f,
         Err(e) => fail!("importGltf: {e}"),
     };
     let doc = &file.doc;
-    // The file's axes to the scene's: Y up to Z up is a quarter turn about X.
-    let basis = if crate::world::up_z() { DMat4::from_rotation_x(std::f64::consts::FRAC_PI_2) } else { DMat4::IDENTITY };
+    // The file's axes to the scene's: a quarter turn about X one way or the other, or nothing when they agree or the
+    // file is to come in as it is.
+    let basis = match (file_up, crate::world::up_z()) {
+        (FileUp::Y, true) => DMat4::from_rotation_x(std::f64::consts::FRAC_PI_2),
+        (FileUp::Z, false) => DMat4::from_rotation_x(-std::f64::consts::FRAC_PI_2),
+        _ => DMat4::IDENTITY,
+    };
     let to_scene = |m: DMat4| {
         let mut out = basis * m * basis.inverse();
         out.w_axis = (out.w_axis.truncate() * SCALE).extend(1.0);
@@ -252,12 +269,19 @@ pub fn register(c: &mut Commands<Session>) {
             "importGltf",
             "Import a glTF 2.0 file (.gltf or .glb): its node hierarchy, triangle meshes with their first UV set, and \
              materials as standard surfaces. Lengths come in as centimetres and the file's Y up becomes the scene's up \
-             axis. Skin weights, animation, textures, cameras and lights are not read. Returns the top nodes made.",
+             axis (-upAxis says otherwise). Skin weights, animation, textures, cameras and lights are not read. Returns the top nodes made.",
             |s, a| {
                 let Some(path) = a.pos_str(0).map(str::to_string) else { fail!("importGltf: path required") };
-                import(s, &path)
+                let up = match a.get("upAxis").and_then(serde_json::Value::as_str).unwrap_or("y").to_ascii_lowercase().as_str() {
+                    "y" => FileUp::Y,
+                    "z" => FileUp::Z,
+                    "none" | "asis" => FileUp::AsIs,
+                    _ => fail!("importGltf: -upAxis is y, z or none"),
+                };
+                import_with(s, &path, up)
             },
         )
-        .positional("path"),
+        .positional("path")
+        .flag(aztek_ops::FlagDef::new("upAxis", "up", aztek_ops::ArgType::String, serde_json::Value::Null, "The file's up axis: y (the format's, the default), z, or none to bring it in with no conversion.")),
     );
 }

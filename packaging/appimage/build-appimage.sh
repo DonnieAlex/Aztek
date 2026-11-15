@@ -58,6 +58,21 @@ mkdir -p "$PYDEST/site-packages"
 DYNLOAD=$("$PY" -c 'import sysconfig; print(sysconfig.get_config_var("DESTSHARED"))')
 if [ ! -d "$PYDEST/lib-dynload" ] && [ -d "$DYNLOAD" ]; then cp -a "$DYNLOAD" "$PYDEST/lib-dynload"; fi
 
+# PySide6 for Python tools, the one built for the bundled Qt: PySide only works with the Qt it was built for. Its own
+# copies of the Qt libraries the bundle has already go, and its Qt plugins, QML and tools, which the bundle doesn't use.
+# AZTEK_PYSIDE=0 leaves it out; without a wheel for this Qt and Python the AppImage goes without it.
+if [ "${AZTEK_PYSIDE:-1}" != 0 ]; then
+  if [ -n "$QT" ]; then QTVER=$("$QT/bin/qmake" -query QT_VERSION 2>/dev/null || basename "$(dirname "$QT")"); else QTVER=$(qmake6 -query QT_VERSION); fi
+  if "$PY" -m pip install --quiet --no-deps --target "$PYDEST/site-packages" "PySide6-Essentials==$QTVER" "shiboken6==$QTVER"; then
+    PS=$PYDEST/site-packages/PySide6
+    rm -rf "$PS/Qt/plugins" "$PS/Qt/qml" "$PS/Qt/translations" "$PS/Qt/libexec" "$PS"/{assistant,designer,linguist,lrelease,lupdate,qmllint,qmlformat,qmlls,qmlcachegen,qmlimportscanner,qmltyperegistrar,rcc,uic,svgtoqml} \
+      "$PYDEST"/site-packages/*.dist-info/RECORD
+    copy_needed_later=1
+  else
+    echo "no PySide6 wheel for Qt $QTVER and this Python: the AppImage goes without it" >&2
+  fi
+fi
+
 # Every library the program, the plugins and Python's modules load, and what those load, except what every desktop
 # has and what has to match the machine: the C library, the graphics drivers' side (GL, Vulkan, DRM), X11 and
 # Wayland's own, fontconfig and freetype, and the like. The list follows the AppImage project's excludelist.
@@ -74,6 +89,12 @@ copy_needed() {
 }
 copy_needed "$APPDIR/usr/bin/aztek"
 for f in $(find "$APPDIR/usr/plugins" "$PYDEST/lib-dynload" -name '*.so'); do copy_needed "$f"; done
+# PySide's Qt libraries: those the bundle has are the same ones, so its copies go; the rest stay where it finds them.
+if [ -n "${copy_needed_later:-}" ]; then
+  for f in "$PYDEST/site-packages/PySide6/Qt/lib"/*.so*; do
+    [ -e "$LIB/$(basename "$f")" ] && rm -f "$f"
+  done
+fi
 find "$LIB" -maxdepth 1 -name '*.so*' -exec strip --strip-unneeded {} + 2>/dev/null || true
 
 cat >"$APPDIR/AppRun" <<'RUN'

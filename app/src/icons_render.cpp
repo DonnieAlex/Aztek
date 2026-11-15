@@ -243,6 +243,79 @@ bool draw_render_icon(const QString& name_in, QPainter& p) {
         p.drawLine(QPointF(16, 3), QPointF(16, 29));
         return true;
     }
+    // The Paint Skin Weights tool's buttons under its influence list.
+    if (name == "copyWeights" || name == "pasteWeights") {
+        line_pen(p, kInk, 1.4);
+        p.setBrush(Qt::NoBrush);
+        if (name == "copyWeights") {
+            p.drawRect(QRectF(5, 4, 14, 17));
+            p.setBrush(QColor(60, 60, 60));
+            p.drawRect(QRectF(12, 11, 14, 17));
+        } else {
+            p.drawRoundedRect(QRectF(6, 6, 18, 22), 2, 2);
+            p.setBrush(kInk);
+            p.drawRect(QRectF(11, 3, 8, 5));
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(kOrange);
+        p.drawEllipse(QPointF(name == "copyWeights" ? 19 : 15, name == "copyWeights" ? 20 : 18), 3.5, 3.5);
+        return true;
+    }
+    if (name == "hammerWeights") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(160, 110, 60));
+        p.save();
+        p.translate(16, 16);
+        p.rotate(-45);
+        p.drawRect(QRectF(-1.8, -4, 3.6, 18));
+        p.setBrush(kInk);
+        p.drawRect(QRectF(-8, -10, 16, 6));
+        p.restore();
+        p.setBrush(kOrange);
+        p.drawEllipse(QPointF(25, 26), 3, 3);
+        return true;
+    }
+    if (name == "moveWeights" || name == "showInfluences") {
+        // Joints as balls and bones; a red arrow for moving weight, a red outline for those on the points.
+        line_pen(p, kInk, 1.6);
+        p.drawLine(QPointF(8, 8), QPointF(8, 24));
+        p.drawLine(QPointF(8, 16), QPointF(24, 16));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kInk);
+        for (QPointF c : {QPointF(8, 8), QPointF(8, 24), QPointF(8, 16)}) p.drawEllipse(c, 3, 3);
+        if (name == "moveWeights") {
+            line_pen(p, kRed, 2.0);
+            p.drawLine(QPointF(13, 16), QPointF(26, 16));
+            p.drawLine(QPointF(21, 11), QPointF(26, 16));
+            p.drawLine(QPointF(21, 21), QPointF(26, 16));
+        } else {
+            p.setBrush(kInk);
+            p.drawEllipse(QPointF(24, 16), 3, 3);
+            line_pen(p, kRed, 1.4);
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(QRectF(19, 11, 10, 10));
+        }
+        return true;
+    }
+    if (name == "revealSelected" || name == "invertSelection") {
+        // List rows, the selected one red.
+        for (int i = 0; i < 4; ++i) {
+            bool sel = name == "revealSelected" ? i == 2 : i % 2 == 1;
+            line_pen(p, sel ? kRed : kInk, 2.0);
+            p.drawLine(QPointF(12, 7 + i * 6), QPointF(28, 7 + i * 6));
+        }
+        line_pen(p, kRed, 1.6);
+        if (name == "revealSelected") {
+            p.drawLine(QPointF(3, 19), QPointF(9, 19));
+            p.drawLine(QPointF(6, 16), QPointF(9, 19));
+            p.drawLine(QPointF(6, 22), QPointF(9, 19));
+        } else {
+            p.drawLine(QPointF(5, 6), QPointF(5, 26));
+            p.drawLine(QPointF(2, 9), QPointF(5, 6));
+            p.drawLine(QPointF(8, 23), QPointF(5, 26));
+        }
+        return true;
+    }
     if (name == "zoomFit") {
         line_pen(p, kInk, 1.6);
         for (auto [x, y, dx, dy] : {std::tuple{4, 4, 1, 1}, {28, 4, -1, 1}, {4, 28, 1, -1}, {28, 28, -1, -1}}) {

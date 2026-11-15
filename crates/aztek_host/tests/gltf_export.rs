@@ -235,3 +235,31 @@ fn a_bound_mesh_goes_out_with_its_joints_weights_and_bind_matrices() {
     assert!(top_joint >= 1);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// Issue 58: every influence goes out, four a set, nothing dropped.
+#[test]
+fn points_with_more_than_four_influences_keep_them_all() {
+    let dir = std::env::temp_dir().join(format!("aztek_gltf_many_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("many.glb").display().to_string().replace('\\', "/");
+    let mut c = Core::new();
+    c.mel("polyCylinder -n arm -r 1 -h 12 -sy 12; move 0 6 0 arm; select -cl;");
+    c.mel("joint -n j0 -p 0 0 0; joint -n j1 -p 0 2 0; joint -n j2 -p 0 4 0; joint -n j3 -p 0 6 0; joint -n j4 -p 0 8 0; joint -n j5 -p 0 10 0;");
+    c.mel("skinCluster -n skin -mi 6 j0 j1 j2 j3 j4 j5 arm;");
+    c.mel("skinPercent -tv j0 0.2 -tv j1 0.2 -tv j2 0.2 -tv j3 0.2 -tv j4 0.1 -tv j5 0.1 skin arm.vtx[0];");
+    c.mel(&format!("exportGltf \"{path}\" arm;"));
+    let (doc, bin) = glb(&dir.join("many.glb"));
+    let p = &doc["meshes"][0]["primitives"][0]["attributes"];
+    assert!(p.get("JOINTS_1").is_some() && p.get("WEIGHTS_1").is_some(), "{p}");
+    let w0 = floats(&doc, &bin, p["WEIGHTS_0"].as_u64().unwrap() as usize);
+    let w1 = floats(&doc, &bin, p["WEIGHTS_1"].as_u64().unwrap() as usize);
+    let mut more_than_four = 0;
+    for v in 0..w0.len() / 4 {
+        let (a, b) = (&w0[v * 4..v * 4 + 4], &w1[v * 4..v * 4 + 4]);
+        assert!((a.iter().chain(b).sum::<f32>() - 1.0).abs() < 1e-4, "{a:?} {b:?}");
+        if b.iter().any(|x| *x > 0.0) {
+            more_than_four += 1;
+        }
+    }
+    assert!(more_than_four > 0, "some points carry more than four influences");
+}

@@ -11,6 +11,16 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- From the issues pulled 15/11/2026, still open: Hypershade graphing any node and keeping selection across tabs (#38);
+  Render View Alt+right-drag zoom and R, G, B, A channels (#40); USD import merging scopes, UsdLux lights (#41, #42);
+  hiding components with H in a component mode (#48); Attribute Editor presets (#50); Outliner Hide In Outliner, Scene
+  Assembly, Asset and Render Setup submenus and the full Display and Show menus (#53); marking menu Polygon Display's
+  texture borders, face centres, hidden triangles and vertices (#47); UV Editor undo, loop selection, Unfold3D, grid
+  numbers and UDIM labels, the UV marking menu (#55); Paint Skin Weights window buttons (#56); PySide6 in Aztek's Python
+  (#57); glTF up axis as written and no influence limit (#58); ortho views' infinite grid and the up axis switch in a
+  running session (#61, needs a run to reproduce); grid subdivisions, per-line visibility and colours (#62); the sky
+  gradient background (#63); the View Cube (#64); Freeze Transformations keeping history through a transformGeometry
+  node on meshes (#65); clusters on NURBS CVs (#66); bevel offset independent of the object's scale (#67).
 - Found making the examples (09/11/2026): `cluster`, `skinCluster` and `blendShape` don't take NURBS curve CVs;
   `nurbsSquare -sl2` and `vortex -ax/-ay/-az` are missing; `connectDynamic -f` with a field's transform fails;
   `displaySmoothness -po` neither sets nor answers smooth preview; `scriptJob -listJobs` lists ids, not the Python

@@ -16,6 +16,12 @@ namespace az {
 // searchReplace, addAttribute, editAttribute, deleteAttribute, gridOptions. Null for an id it doesn't know.
 QWidget* make_editor_window(const QString& id, QWidget* parent);
 
+// The grid from the saved Grid Options: the grid command and the grid colours.
+void apply_grid_prefs();
+
+// The ViewCube's options window, and its saved options given to viewManip.
+void apply_view_cube_prefs();
+
 // Whether the core has a command, for items that stay disabled until it does.
 bool has_command_named(const QString& name);
 

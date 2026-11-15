@@ -57,6 +57,37 @@ fn smooth_mesh_attrs() -> Vec<AttrDef> {
     ]
 }
 
+/// The reference's per-mesh polygon display switches, which polyOptions sets on the selected meshes and the views draw.
+pub const DISPLAY_SWITCHES: &[(&str, &str, &str)] = &[
+    ("displayVertices", "dv", "Draw the vertices."),
+    ("displayBorders", "db", "Draw border edges thick."),
+    ("displayCenter", "dc", "Draw face centres."),
+    ("displayTriangles", "dt", "Draw the triangles faces are drawn with."),
+    ("displayMapBorders", "dmb", "Draw the first UV set's borders thick."),
+];
+
+fn display_switch_attrs() -> Vec<AttrDef> {
+    DISPLAY_SWITCHES
+        .iter()
+        .map(|(name, short, doc)| AttrDef {
+            name: (*name).into(),
+            short_name: (*short).into(),
+            ty: PlugType::Bool,
+            default_value: PlugValue::Bool(false),
+            flags: flags::INPUT | flags::STORABLE,
+            doc: (*doc).into(),
+            ..Default::default()
+        })
+        .collect()
+}
+
+impl MeshNode {
+    /// Whether a polygon display switch is on for this mesh.
+    pub fn display_switch(n: &crate::node::Node, name: &str) -> bool {
+        n.ty().attr_index(name).is_some_and(|i| n.bool(i))
+    }
+}
+
 impl MeshNode {
     /// Subdivision levels the viewport shows: none unless displaySmoothMesh is on.
     pub fn preview_level(n: &crate::node::Node) -> i64 {
@@ -249,6 +280,7 @@ impl MeshNode {
             .into_iter()
             .chain(crate::harold_nodes::shape_render_attrs())
             .chain(smooth_mesh_attrs())
+            .chain(display_switch_attrs())
             .chain(crate::component_tags::shape_attrs())
             .collect(),
             create: Some(Arc::new(|| Box::new(MeshNode))),

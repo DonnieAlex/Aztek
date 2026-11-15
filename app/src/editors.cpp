@@ -12,6 +12,9 @@ extern "C" {
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QColorDialog>
+#include <QDialogButtonBox>
+#include <QSpinBox>
 #include <QComboBox>
 #include <QDialog>
 #include <QDoubleSpinBox>
@@ -756,45 +759,215 @@ QWidget* attribute_list(QWidget* parent, bool editing) {
     return win;
 }
 
-QWidget* grid_options(QWidget* parent) {
-    auto* win = window_shell(parent, "Grid Options", 320, 190);
-    auto* form = new QFormLayout(win);
+// Grid Options, as the reference has them: size, grid lines and subdivisions, the three colours, which lines and
+// numbers show. Kept in the settings and given to the grid command, which every view follows.
+struct GridPrefs {
+    double size, every;
+    int divisions;
+    bool axes, bold, lines, subdivisions;
+    QString persp, ortho; // "axis", "edge" or "hidden"
+    QColor axis_color, line_color, sub_color;
+};
+
+static GridPrefs read_grid_prefs() {
     QSettings s;
+    GridPrefs g;
+    g.size = s.value("prefs/gridSize", 12.0).toDouble();
+    // Older settings kept the subdivision spacing alone, with a grid line every 5 of them.
+    g.every = s.value("prefs/gridLinesEvery", s.value("prefs/gridSpacing", 1.0).toDouble() * 5.0).toDouble();
+    g.divisions = s.value("prefs/gridDivisions", 5).toInt();
+    g.axes = s.value("prefs/gridAxes", true).toBool();
+    g.bold = s.value("prefs/gridAxesBold", true).toBool();
+    g.lines = s.value("prefs/gridLines", true).toBool();
+    g.subdivisions = s.value("prefs/gridSubdivisions", true).toBool();
+    g.persp = s.value("prefs/gridPerspNumbers", "hidden").toString();
+    g.ortho = s.value("prefs/gridOrthoNumbers", "hidden").toString();
+    g.axis_color = s.value("prefs/gridAxisColor", QColor(0, 0, 0)).value<QColor>();
+    g.line_color = s.value("prefs/gridLineColor", QColor(70, 70, 70)).value<QColor>();
+    g.sub_color = s.value("prefs/gridSubdivisionColor", QColor(105, 105, 105)).value<QColor>();
+    return g;
+}
+
+static void write_grid_prefs(const GridPrefs& g) {
+    QSettings s;
+    s.setValue("prefs/gridSize", g.size);
+    s.setValue("prefs/gridLinesEvery", g.every);
+    s.setValue("prefs/gridDivisions", g.divisions);
+    s.setValue("prefs/gridAxes", g.axes);
+    s.setValue("prefs/gridAxesBold", g.bold);
+    s.setValue("prefs/gridLines", g.lines);
+    s.setValue("prefs/gridSubdivisions", g.subdivisions);
+    s.setValue("prefs/gridPerspNumbers", g.persp);
+    s.setValue("prefs/gridOrthoNumbers", g.ortho);
+    s.setValue("prefs/gridAxisColor", g.axis_color);
+    s.setValue("prefs/gridLineColor", g.line_color);
+    s.setValue("prefs/gridSubdivisionColor", g.sub_color);
+}
+
+static void send_grid_prefs(const GridPrefs& g) {
+    auto rgb = [](const char* name, const QColor& c) {
+        exec_quiet("displayRGBColor", QJsonObject{{"args", QJsonArray{name, c.redF(), c.greenF(), c.blueF()}}});
+    };
+    rgb("gridAxis", g.axis_color);
+    rgb("gridHighlight", g.line_color);
+    rgb("gridColor", g.sub_color);
+    QJsonObject call{{"size", g.size}, {"spacing", g.every}, {"divisions", g.divisions}, {"displayAxes", g.axes},
+                     {"displayAxesBold", g.bold}, {"displayGridLines", g.lines}, {"displayDivisionLines", g.subdivisions},
+                     {"displayPerspectiveLabels", g.persp != "hidden"}, {"displayOrthographicLabels", g.ortho != "hidden"}};
+    if (g.persp != "hidden") call["perspectiveLabelPosition"] = g.persp;
+    if (g.ortho != "hidden") call["orthographicLabelPosition"] = g.ortho;
+    exec_quiet("grid", call);
+}
+
+QWidget* grid_options(QWidget* parent) {
+    auto* win = window_shell(parent, "Grid Options", 380, 470);
+    auto* outer = new QVBoxLayout(win);
+    auto* form = new QFormLayout();
+    outer->addLayout(form);
+    const GridPrefs g = read_grid_prefs();
     auto* size = new QDoubleSpinBox(win);
-    size->setRange(1, 10000);
-    size->setValue(s.value("prefs/gridSize", 12.0).toDouble());
-    auto* spacing = new QDoubleSpinBox(win);
-    spacing->setRange(0.001, 1000);
-    spacing->setDecimals(3);
-    spacing->setValue(s.value("prefs/gridSpacing", 1.0).toDouble());
+    size->setRange(1, 100000);
+    size->setDecimals(3);
+    size->setValue(g.size);
+    auto* every = new QDoubleSpinBox(win);
+    every->setRange(0.001, 10000);
+    every->setDecimals(3);
+    every->setValue(g.every);
+    auto* divisions = new QSpinBox(win);
+    divisions->setRange(1, 1000);
+    divisions->setValue(g.divisions);
+    auto section = [win, form](const QString& t) {
+        auto* l = new QLabel("<b>" + t + "</b>", win);
+        form->addRow(l);
+    };
+    section("Size");
     form->addRow("Length and width:", size);
-    form->addRow("Grid lines every:", spacing);
+    form->addRow("Grid lines every:", every);
+    form->addRow("Subdivisions:", divisions);
+    section("Color");
+    auto color_button = [win](const QColor& c) {
+        auto* b = new QPushButton(win);
+        b->setFixedSize(60, 20);
+        b->setProperty("color", c);
+        b->setStyleSheet(QString("background:%1; border:1px solid #222;").arg(c.name()));
+        QObject::connect(b, &QPushButton::clicked, b, [b] {
+            const QColor c = QColorDialog::getColor(b->property("color").value<QColor>(), b);
+            if (!c.isValid()) return;
+            b->setProperty("color", c);
+            b->setStyleSheet(QString("background:%1; border:1px solid #222;").arg(c.name()));
+        });
+        return b;
+    };
+    auto* axis_c = color_button(g.axis_color);
+    auto* line_c = color_button(g.line_color);
+    auto* sub_c = color_button(g.sub_color);
+    form->addRow("Axes:", axis_c);
+    form->addRow("Grid lines && numbers:", line_c);
+    form->addRow("Subdivision lines:", sub_c);
+    section("Display");
+    auto box = [win](const QString& t, bool on) {
+        auto* c = new QCheckBox(t, win);
+        c->setChecked(on);
+        return c;
+    };
+    auto* axes = box("Axes", g.axes);
+    auto* bold = box("Thicker line for axes", g.bold);
+    auto* lines = box("Grid lines", g.lines);
+    auto* subs = box("Subdivision lines", g.subdivisions);
+    form->addRow(axes);
+    form->addRow(bold);
+    form->addRow(lines);
+    form->addRow(subs);
+    auto numbers = [win](const QString& v) {
+        auto* c = new QComboBox(win);
+        c->addItem("On axes", "axis");
+        c->addItem("Along edge", "edge");
+        c->addItem("Hidden", "hidden");
+        c->setCurrentIndex(std::max(0, c->findData(v)));
+        return c;
+    };
+    auto* persp = numbers(g.persp);
+    auto* ortho = numbers(g.ortho);
+    form->addRow("Perspective grid numbers:", persp);
+    form->addRow("Orthographic grid numbers:", ortho);
     auto* row = new QHBoxLayout();
+    auto* apply_close = new QPushButton("Apply and Close", win);
     auto* apply = new QPushButton("Apply", win);
     auto* reset = new QPushButton("Reset", win);
+    auto* close = new QPushButton("Close", win);
+    row->addWidget(apply_close);
     row->addWidget(apply);
     row->addWidget(reset);
-    form->addRow(row);
-    auto push = [parent, size, spacing] {
-        QSettings st;
-        st.setValue("prefs/gridSize", size->value());
-        st.setValue("prefs/gridSpacing", spacing->value());
-        // Each view rebuilds its grid.
-        for (ViewportWidget* v : parent->findChildren<ViewportWidget*>()) {
-            v->set("gridSpacing", QString::number(spacing->value()));
-            v->set("gridSize", QString::number(size->value()));
-        }
+    row->addWidget(close);
+    outer->addStretch(1);
+    outer->addLayout(row);
+    auto take = [=] {
+        GridPrefs n;
+        n.size = size->value();
+        n.every = every->value();
+        n.divisions = divisions->value();
+        n.axes = axes->isChecked();
+        n.bold = bold->isChecked();
+        n.lines = lines->isChecked();
+        n.subdivisions = subs->isChecked();
+        n.persp = persp->currentData().toString();
+        n.ortho = ortho->currentData().toString();
+        n.axis_color = axis_c->property("color").value<QColor>();
+        n.line_color = line_c->property("color").value<QColor>();
+        n.sub_color = sub_c->property("color").value<QColor>();
+        write_grid_prefs(n);
+        send_grid_prefs(n);
     };
-    QObject::connect(apply, &QPushButton::clicked, win, push);
-    QObject::connect(reset, &QPushButton::clicked, win, [size, spacing, push] {
-        size->setValue(12);
-        spacing->setValue(1);
-        push();
+    QObject::connect(apply, &QPushButton::clicked, win, take);
+    QObject::connect(apply_close, &QPushButton::clicked, win, [take, win] {
+        take();
+        win->close();
+    });
+    QObject::connect(close, &QPushButton::clicked, win, &QWidget::close);
+    QObject::connect(reset, &QPushButton::clicked, win, [=] {
+        QSettings s;
+        for (const char* k : {"gridSize", "gridLinesEvery", "gridSpacing", "gridDivisions", "gridAxes", "gridAxesBold", "gridLines", "gridSubdivisions",
+                              "gridPerspNumbers", "gridOrthoNumbers", "gridAxisColor", "gridLineColor", "gridSubdivisionColor"})
+            s.remove(QString("prefs/") + k);
+        const GridPrefs d = read_grid_prefs();
+        size->setValue(d.size);
+        every->setValue(d.every);
+        divisions->setValue(d.divisions);
+        axes->setChecked(d.axes);
+        bold->setChecked(d.bold);
+        lines->setChecked(d.lines);
+        subs->setChecked(d.subdivisions);
+        persp->setCurrentIndex(persp->findData(d.persp));
+        ortho->setCurrentIndex(ortho->findData(d.ortho));
+        for (auto [b, c] : {std::pair{axis_c, d.axis_color}, std::pair{line_c, d.line_color}, std::pair{sub_c, d.sub_color}}) {
+            b->setProperty("color", c);
+            b->setStyleSheet(QString("background:%1; border:1px solid #222;").arg(c.name()));
+        }
+        send_grid_prefs(d);
     });
     return win;
 }
 
 } // namespace
+
+void apply_grid_prefs() {
+    send_grid_prefs(read_grid_prefs());
+}
+
+// The ViewCube preferences, as viewManip takes them.
+void apply_view_cube_prefs() {
+    QSettings s;
+    const QString pos = s.value("prefs/viewCubePosition", "Top Right").toString();
+    const QString corner = pos == "Top Left" ? "topLeft" : pos == "Bottom Right" ? "bottomRight" : pos == "Bottom Left" ? "bottomLeft" : "topRight";
+    QJsonObject call{{"visible", s.value("prefs/viewCubeShow", true).toBool()},
+                     {"size", s.value("prefs/viewCubeSize", "Normal").toString().toLower()},
+                     {"minOpacity", s.value("prefs/viewCubeOpacity", "50%").toString().chopped(1).toDouble() / 100.0},
+                     {"dragSnap", s.value("prefs/viewCubeSnap", false).toBool()},
+                     {"preserveSceneUp", s.value("prefs/viewCubeSceneUp", true).toBool()},
+                     {"zoomToFitScene", s.value("prefs/viewCubeFit", true).toBool()}};
+    call[corner] = true;
+    exec_quiet("viewManip", call);
+}
 
 bool has_command_named(const QString& name) {
     for (const QJsonValue& c : query("commands").toArray())

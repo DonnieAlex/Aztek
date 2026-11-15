@@ -9,6 +9,18 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
+#include <QHeaderView>
+#include <QLineEdit>
+#include <QToolButton>
+#include <QStandardItemModel>
+#include <QSignalBlocker>
+#include <QSet>
+#include <algorithm>
+#include "icons.h"
+#include <QColorDialog>
+#include <QSpinBox>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollArea>
@@ -21,6 +33,27 @@
 namespace az {
 
 namespace {
+// A titled part of the page that folds away.
+void fold(QVBoxLayout* page, const QString& title, QFormLayout*& form) {
+    auto* head = new QToolButton();
+    head->setText(title);
+    head->setCheckable(true);
+    head->setChecked(true);
+    head->setArrowType(Qt::DownArrow);
+    head->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    head->setAutoRaise(true);
+    head->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto* body = new QWidget();
+    form = new QFormLayout(body);
+    form->setContentsMargins(8, 2, 2, 6);
+    QObject::connect(head, &QToolButton::toggled, body, [head, body](bool open) {
+        body->setVisible(open);
+        head->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
+    });
+    page->addWidget(head);
+    page->addWidget(body);
+}
+
 QJsonValue paint_query(const char* flag) {
     return ask("artAttrSkinPaintCtx", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}});
 }
@@ -164,25 +197,112 @@ void ToolSettings::paint_set(const QString& flag, const QJsonValue& val) {
 }
 
 QWidget* ToolSettings::build_paint_page() {
-    auto* w = new QWidget(this);
-    auto* v = new QVBoxLayout(w);
-    v->setContentsMargins(0, 0, 0, 0);
-    v->addWidget(new QLabel("Influences", w));
-    influences_ = new QListWidget(w);
-    influences_->setMinimumHeight(120);
-    connect(influences_, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* cur, QListWidgetItem*) {
-        if (cur) paint_set("influence", cur->data(Qt::UserRole).toString());
+    // As the reference lays it out: Skin Clusters, Influences with the weight buttons, Brush, Visualization, Stroke and
+    // Display, each folding away. What isn't here yet shows greyed.
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto* w = new QWidget(scroll);
+    scroll->setWidget(w);
+    auto* page = new QVBoxLayout(w);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(2);
+    QFormLayout* form = nullptr;
+
+    fold(page, "Skin Clusters", form);
+    skins_ = new QListWidget(w);
+    skins_->setMaximumHeight(60);
+    connect(skins_, &QListWidget::itemClicked, this, [this](QListWidgetItem* it) {
+        // The skinned mesh of that skinCluster becomes the one painted.
+        QJsonArray geo = ask("skinCluster", QJsonObject{{"args", QJsonArray{it->text()}}, {"query", true}, {"geometry", true}}).toArray();
+        if (!geo.isEmpty()) exec("select", QJsonObject{{"args", QJsonArray{geo.at(0)}}});
     });
-    connect(influences_, &QListWidget::itemChanged, this, [this](QListWidgetItem* it) {
-        if (loading_) return;
-        bool lock = it->checkState() == Qt::Checked;
-        QString sk = ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{state()["selection"].toArray().at(0).toString().section('.', 0, 0)}}}).toString();
-        exec("skinCluster", QJsonObject{{"args", QJsonArray{sk}}, {"edit", true}, {"influence", it->data(Qt::UserRole).toString()}, {"lockWeights", lock}});
+    form->addRow(skins_);
+
+    fold(page, "Influences", form);
+    auto* sorts = new QWidget(w);
+    auto* sl = new QGridLayout(sorts);
+    sl->setContentsMargins(0, 0, 0, 0);
+    sort_ = new QButtonGroup(sorts);
+    int k = 0;
+    for (const char* label : {"Alphabetically", "By Hierarchy", "Flat"}) {
+        auto* r = new QRadioButton(label, sorts);
+        r->setChecked(k == 1);
+        sort_->addButton(r, k);
+        sl->addWidget(r, k / 2, k % 2);
+        ++k;
+    }
+    connect(sort_, &QButtonGroup::idClicked, this, [this](int) {
+        last_influences_.clear();
+        refresh_paint();
     });
-    v->addWidget(influences_, 1);
-    auto* hint = new QLabel("A checked influence holds its weights: it shows blue, and the brush leaves it alone.", w);
-    hint->setWordWrap(true);
-    v->addWidget(hint);
+    form->addRow("Sort:", sorts);
+    search_ = new QLineEdit(w);
+    search_->setPlaceholderText("Search...");
+    search_->setClearButtonEnabled(true);
+    connect(search_, &QLineEdit::textChanged, this, [this] { filter_influences(); });
+    form->addRow(search_);
+    influences_ = new QTreeWidget(w);
+    influences_->setColumnCount(1);
+    influences_->setHeaderHidden(true);
+    influences_->setMinimumHeight(160);
+    influences_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    influences_->setRootIsDecorated(true);
+    connect(influences_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* cur, QTreeWidgetItem*) {
+        if (cur) exec_quiet("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"influence", cur->data(0, Qt::UserRole).toString()}});
+    });
+    // The order influences are picked in: the first is the one Move weights takes from.
+    connect(influences_, &QTreeWidget::itemSelectionChanged, this, [this] {
+        QStringList now;
+        for (QTreeWidgetItem* it : influences_->selectedItems()) now << it->data(0, Qt::UserRole).toString();
+        QStringList kept;
+        for (const QString& n : pick_order_)
+            if (now.contains(n)) kept << n;
+        for (const QString& n : now)
+            if (!kept.contains(n)) kept << n;
+        pick_order_ = kept;
+    });
+    connect(influences_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* it, int col) {
+        if (loading_ || col != 0 || last_skin_.isEmpty()) return;
+        bool lock = it->checkState(0) == Qt::Checked;
+        exec("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"edit", true}, {"influence", it->data(0, Qt::UserRole).toString()}, {"lockWeights", lock}});
+    });
+    form->addRow(influences_);
+
+    // The buttons under the list.
+    auto* buttons = new QWidget(w);
+    auto* bl = new QHBoxLayout(buttons);
+    bl->setContentsMargins(0, 0, 0, 0);
+    bl->setSpacing(2);
+    auto button = [&](const QString& ic, const QString& tip, std::function<void()> fn) {
+        auto* b = new QToolButton(buttons);
+        b->setIcon(icon(ic));
+        b->setIconSize(QSize(20, 20));
+        b->setAutoRaise(true);
+        b->setToolTip(tip);
+        connect(b, &QToolButton::clicked, this, fn);
+        bl->addWidget(b);
+    };
+    bl->addStretch(1);
+    button("copyWeights", "Copy the weights of the selected vertex", [] { exec("artAttrSkinWeightCopy"); });
+    button("pasteWeights", "Paste the copied weights onto the selected vertices", [] { exec("artAttrSkinWeightPaste"); });
+    button("hammerWeights", "Weight Hammer: the selected vertices take the weights around them", [] { exec("weightHammerVerts"); });
+    button("moveWeights", "Move weights: the first selected influence gives the selected vertices' weight to the other selected influences",
+           [this] { move_weights(); });
+    button("showInfluences", "Show influences on selected vertices", [this] { show_vertex_influences(); });
+    bl->addSpacing(16);
+    button("revealSelected", "Reveal Selected", [this] {
+        if (QTreeWidgetItem* it = influences_->currentItem()) influences_->scrollToItem(it);
+        else if (!influences_->selectedItems().isEmpty()) influences_->scrollToItem(influences_->selectedItems().first());
+    });
+    button("invertSelection", "Invert Selection", [this] {
+        QSignalBlocker block(influences_);
+        for (QTreeWidgetItemIterator i(influences_); *i; ++i)
+            if (!(*i)->isHidden()) (*i)->setSelected(!(*i)->isSelected());
+    });
+    bl->addStretch(1);
+    form->addRow(buttons);
     auto* holds = new QHBoxLayout();
     for (auto [label, on] : {std::pair{"Hold All", true}, {"Release All", false}}) {
         auto* b = new QPushButton(label, w);
@@ -192,8 +312,39 @@ QWidget* ToolSettings::build_paint_page() {
         });
         holds->addWidget(b);
     }
-    v->addLayout(holds);
-    auto* form = new QFormLayout();
+    form->addRow(holds);
+
+    fold(page, "Brush", form);
+    auto radios = [&](const QStringList& labels, QButtonGroup*& group) {
+        auto* box = new QWidget(w);
+        auto* l = new QGridLayout(box);
+        l->setContentsMargins(0, 0, 0, 0);
+        group = new QButtonGroup(box);
+        for (int i = 0; i < labels.size(); ++i) {
+            auto* r = new QRadioButton(labels[i], box);
+            r->setChecked(i == 0);
+            group->addButton(r, i);
+            l->addWidget(r, i / 2, i % 2);
+        }
+        return box;
+    };
+    // Mode: -spm 1 paints, 0 selects with a marquee, 2 paint selects; the points are picked as vertices.
+    form->addRow("Mode:", radios({"Paint", "Select", "Paint Select"}, skin_mode_));
+    QWidget* ps = radios({"Add", "Remove", "Toggle"}, paint_select_);
+    form->addRow("Paint Select:", ps);
+    connect(skin_mode_, &QButtonGroup::idClicked, this, [this, ps](int id) {
+        const int spm[] = {1, 0, 2};
+        exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"skinPaintMode", spm[id]}});
+        if (id != 0) exec("selectMode", QJsonObject{{"args", QJsonArray{"vertex"}}});
+        ps->setEnabled(id == 2);
+    });
+    ps->setEnabled(false);
+    connect(paint_select_, &QButtonGroup::idClicked, this, [](int id) { exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"paintSelectMode", id + 1}}); });
+    auto* sel_geo = new QPushButton("Select Geometry", w);
+    connect(sel_geo, &QPushButton::clicked, this, [] {
+        exec("selectMode", QJsonObject{{"args", QJsonArray{"object"}}});
+    });
+    form->addRow("", sel_geo);
     op_ = new QButtonGroup(w);
     auto* ops = new QWidget(w);
     auto* grid = new QGridLayout(ops);
@@ -212,19 +363,159 @@ QWidget* ToolSettings::build_paint_page() {
     stamp_->addItems({"gaussian", "poly", "solid", "square"});
     connect(stamp_, &QComboBox::currentTextChanged, this, [this](const QString& t) { paint_set("stampProfile", t); });
     form->addRow("Profile:", stamp_);
-    value_ = slider_row(form, "Value:", 0.0, 1.0, 0.05, [this](double x) { paint_set("value", x); });
+    auto* weight_type = new QComboBox(w);
+    weight_type->addItems({"Skin Weight", "DQ Blend Weight"});
+    if (auto* m = qobject_cast<QStandardItemModel*>(weight_type->model())) m->item(1)->setEnabled(false);
+    form->addRow("Weight Type:", weight_type);
+    normalize_ = new QComboBox(w);
+    normalize_->addItems({"Off", "Interactive", "Post"});
+    connect(normalize_, &QComboBox::activated, this, [this](int n) {
+        if (!loading_ && !last_skin_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{last_skin_ + ".normalizeWeights", n}}});
+    });
+    form->addRow("Normalize Weights:", normalize_);
     opacity_ = slider_row(form, "Opacity:", 0.0, 1.0, 0.05, [this](double x) { paint_set("opacity", x); });
-    radius_ = slider_row(form, "Radius(U):", 0.001, 20.0, 0.05, [this](double x) { paint_set("radius", x); });
-    feedback_ = new QCheckBox("Color feedback", w);
-    connect(feedback_, &QCheckBox::toggled, this, [this](bool on) { paint_set("colorfeedback", on); });
-    form->addRow("", feedback_);
+    value_ = slider_row(form, "Value:", 0.0, 1.0, 0.05, [this](double x) { paint_set("value", x); });
+    // Min/Max value: the range the value slider covers.
+    auto* range = new QWidget(w);
+    auto* rl = new QHBoxLayout(range);
+    rl->setContentsMargins(0, 0, 0, 0);
+    auto* lo = new QDoubleSpinBox(range);
+    auto* hi = new QDoubleSpinBox(range);
+    for (QDoubleSpinBox* b : {lo, hi}) {
+        b->setDecimals(4);
+        b->setRange(-1000, 1000);
+        b->setSingleStep(0.1);
+        rl->addWidget(b);
+    }
+    lo->setValue(0.0);
+    hi->setValue(1.0);
+    rl->addStretch(1);
+    auto set_range = [this, lo, hi] {
+        if (hi->value() > lo->value()) value_->setRange(lo->value(), hi->value());
+    };
+    connect(lo, &QDoubleSpinBox::valueChanged, this, set_range);
+    connect(hi, &QDoubleSpinBox::valueChanged, this, set_range);
+    form->addRow("Min/Max value:", range);
     auto* flood = new QPushButton("Flood", w);
     connect(flood, &QPushButton::clicked, this, [] {
         exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"clear", true}});
     });
     form->addRow("", flood);
-    v->addLayout(form);
-    return w;
+
+    fold(page, "Visualization", form);
+    feedback_ = new QCheckBox("Color feedback", w);
+    connect(feedback_, &QCheckBox::toggled, this, [this](bool on) { paint_set("colorfeedback", on); });
+    form->addRow("", feedback_);
+    auto* ramp = new QCheckBox("Color Ramp", w);
+    ramp->setEnabled(false);
+    form->addRow("", ramp);
+    // Numeric: the painted influence's weight beside each point.
+    auto* numbers = new QCheckBox("Show Numbers", w);
+    connect(numbers, &QCheckBox::toggled, this, [](bool on) { exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"useNumericDisplay", on}}); });
+    form->addRow("", numbers);
+    auto* decimals = new QSpinBox(w);
+    decimals->setRange(0, 6);
+    decimals->setValue(2);
+    connect(decimals, &QSpinBox::valueChanged, this, [](int n) { exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"numericDisplayPrecision", n}}); });
+    form->addRow("Decimal Places:", decimals);
+    auto* number_color = new QPushButton(w);
+    number_color->setFixedWidth(60);
+    number_color->setStyleSheet("background: white;");
+    connect(number_color, &QPushButton::clicked, this, [this, number_color] {
+        const QColor c = QColorDialog::getColor(Qt::white, this, "Number Color");
+        if (!c.isValid()) return;
+        number_color->setStyleSheet(QString("background: %1;").arg(c.name()));
+        exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"numericDisplayColor", QJsonArray{c.redF(), c.greenF(), c.blueF()}}});
+    });
+    form->addRow("Number Color:", number_color);
+
+    fold(page, "Stroke", form);
+    radius_ = slider_row(form, "Radius(U):", 0.001, 50.0, 0.05, [this](double x) { paint_set("radius", x); });
+    // Radius(L) is a tablet's; Reflection is off for this tool, as the reference's (Skin > Mirror Skin Weights).
+    for (const char* label : {"Screen projection", "Reflection"}) {
+        auto* c = new QCheckBox(label, w);
+        c->setEnabled(false);
+        form->addRow("", c);
+    }
+
+    fold(page, "Stylus Pressure", form);
+    auto* stylus = new QCheckBox("Stylus pressure", w);
+    stylus->setEnabled(false);
+    form->addRow("", stylus);
+
+    fold(page, "Display", form);
+    for (const char* label : {"Draw brush", "Show wireframe"}) {
+        auto* c = new QCheckBox(label, w);
+        c->setChecked(true);
+        c->setEnabled(false);
+        form->addRow("", c);
+    }
+    auto* xray = new QCheckBox("X-Ray Joints", w);
+    connect(xray, &QCheckBox::toggled, this, [](bool on) {
+        for (const QJsonValue& p : ask("getPanel", QJsonObject{{"type", "modelPanel"}}).toArray())
+            exec_quiet("modelEditor", QJsonObject{{"args", QJsonArray{p}}, {"edit", true}, {"jointXray", on}});
+    });
+    form->addRow("", xray);
+    page->addStretch(1);
+    return scroll;
+}
+
+void ToolSettings::move_weights() {
+    // As the reference: the first influence picked gives its weight on the selected vertices to the others picked.
+    QStringList picked;
+    for (const QString& n : pick_order_)
+        for (QTreeWidgetItem* it : influences_->selectedItems())
+            if (it->data(0, Qt::UserRole).toString() == n) picked << n;
+    if (picked.size() < 2 || last_skin_.isEmpty()) {
+        log("// Warning: Move weights: select the influence to take weight from, then the ones to give it to. //", 4);
+        return;
+    }
+    QJsonArray tmw;
+    for (const QString& n : picked) tmw.append(n);
+    QJsonArray call{last_skin_};
+    for (const QJsonValue& v : ask("filterExpand", QJsonObject{{"selectionMask", 31}, {"expand", true}}).toArray()) call.append(v);
+    if (call.size() < 2) return;
+    exec("skinPercent", QJsonObject{{"args", call}, {"transformMoveWeights", tmw}});
+}
+
+void ToolSettings::show_vertex_influences() {
+    // Selects in the list the influences weighting the selected vertices.
+    QJsonArray verts = ask("filterExpand", QJsonObject{{"selectionMask", 31}, {"expand", true}}).toArray();
+    if (verts.isEmpty() || last_skin_.isEmpty()) return;
+    QJsonArray call{last_skin_};
+    for (const QJsonValue& v : verts) call.append(v);
+    QSet<QString> on;
+    for (const QJsonValue& v : ask("skinPercent", QJsonObject{{"args", call}, {"query", true}, {"transform", true}, {"ignoreBelow", 1e-6}}).toArray())
+        on.insert(v.toString());
+    QSignalBlocker block(influences_);
+    QTreeWidgetItem* first = nullptr;
+    for (QTreeWidgetItemIterator i(influences_); *i; ++i) {
+        QString n = (*i)->data(0, Qt::UserRole).toString();
+        bool hit = on.contains(n) || on.contains(n.section('|', -1));
+        (*i)->setSelected(hit);
+        if (hit && !first) first = *i;
+    }
+    if (first) influences_->scrollToItem(first);
+}
+
+void ToolSettings::filter_influences() {
+    QString t = search_->text().trimmed();
+    for (QTreeWidgetItemIterator i(influences_); *i; ++i) {
+        bool show = t.isEmpty() || (*i)->text(0).contains(t, Qt::CaseInsensitive);
+        // A parent stays to hold a matching child.
+        if (!show)
+            for (QTreeWidgetItemIterator c(*i); *c; ++c) {
+                QTreeWidgetItem* p = *c;
+                bool under = false;
+                for (QTreeWidgetItem* up = p->parent(); up; up = up->parent()) under |= up == *i;
+                if (!under) break;
+                if (p->text(0).contains(t, Qt::CaseInsensitive)) {
+                    show = true;
+                    break;
+                }
+            }
+        (*i)->setHidden(!show);
+    }
 }
 
 void ToolSettings::attr_set(const QString& flag, const QJsonValue& val) {
@@ -397,38 +688,77 @@ void ToolSettings::refresh_paint() {
     if (!opacity_->hasFocus()) opacity_->setValue(paint_query("opacity").toDouble());
     if (!radius_->hasFocus()) radius_->setValue(paint_query("radius").toDouble());
     feedback_->setChecked(paint_query("colorfeedback").toBool());
-    // The influence list of the selected skinned mesh.
-    QString obj;
+    // The skinClusters of the scene, the selected mesh's current.
+    QStringList skins;
+    for (const QJsonValue& x : ask("ls", QJsonObject{{"type", "skinCluster"}}).toArray()) skins << x.toString();
     QJsonArray sel = state()["selection"].toArray();
     QString sk;
-    for (const QJsonValue& s : sel) {
-        obj = s.toString().section('.', 0, 0);
-        sk = ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString();
+    for (const QJsonValue& v : sel) {
+        sk = ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{v.toString().section('.', 0, 0)}}}).toString();
         if (!sk.isEmpty()) break;
     }
+    QStringList had;
+    for (int i = 0; i < skins_->count(); ++i) had << skins_->item(i)->text();
+    if (had != skins) {
+        skins_->clear();
+        skins_->addItems(skins);
+    }
+    for (int i = 0; i < skins_->count(); ++i) skins_->item(i)->setSelected(skins_->item(i)->text() == sk.section('|', -1) || skins_->item(i)->text() == sk);
     QStringList names;
     if (!sk.isEmpty())
         for (const QJsonValue& v : ask("skinCluster", QJsonObject{{"args", QJsonArray{sk}}, {"query", true}, {"influence", true}}).toArray()) names << v.toString();
+    if (!sk.isEmpty() && !normalize_->hasFocus()) normalize_->setCurrentIndex(ask("getAttr", QJsonObject{{"args", QJsonArray{sk + ".normalizeWeights"}}}).toInt(1));
     QString current = paint_query("influence").toString();
     if (sk != last_skin_ || names != last_influences_) {
         last_skin_ = sk;
         last_influences_ = names;
         influences_->clear();
-        for (const QString& n : names) {
-            auto* it = new QListWidgetItem(n, influences_);
-            it->setData(Qt::UserRole, n);
+        int sort = sort_->checkedId();
+        QStringList order = names;
+        if (sort == 0) std::sort(order.begin(), order.end(), [](const QString& a, const QString& b) { return a.section('|', -1).compare(b.section('|', -1), Qt::CaseInsensitive) < 0; });
+        QHash<QString, QTreeWidgetItem*> made;
+        // By Hierarchy: under the nearest parent that is an influence too.
+        auto parent_of = [&](const QString& n) -> QString {
+            QString up = n;
+            for (int guard = 0; guard < 64; ++guard) {
+                QJsonArray p = ask("listRelatives", QJsonObject{{"args", QJsonArray{up}}, {"parent", true}, {"fullPath", true}}).toArray();
+                if (p.isEmpty()) return QString();
+                up = p.at(0).toString();
+                for (const QString& m : names)
+                    if (m == up || m == up.section('|', -1) || ("|" + m) == up || up.endsWith("|" + m)) return m;
+            }
+            return QString();
+        };
+        std::function<QTreeWidgetItem*(const QString&)> item_for = [&](const QString& n) -> QTreeWidgetItem* {
+            if (QTreeWidgetItem* it = made.value(n)) return it;
+            QTreeWidgetItem* parent = nullptr;
+            if (sort == 1) {
+                QString p = parent_of(n);
+                if (!p.isEmpty() && p != n) parent = item_for(p);
+            }
+            auto* it = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(influences_);
+            it->setText(0, n.section('|', -1));
+            it->setData(0, Qt::UserRole, n);
             it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
-            it->setCheckState(Qt::Unchecked);
-        }
+            it->setCheckState(0, Qt::Unchecked);
+            it->setToolTip(0, "Ticked holds the influence: the brush leaves its weights alone");
+            made.insert(n, it);
+            return it;
+        };
+        for (const QString& n : order) item_for(n);
+        influences_->setRootIsDecorated(sort == 1);
+        influences_->expandAll();
+        filter_influences();
     }
-    for (int i = 0; i < influences_->count(); ++i) {
-        auto* it = influences_->item(i);
-        QString n = it->data(Qt::UserRole).toString();
+    for (QTreeWidgetItemIterator i(influences_); *i; ++i) {
+        QTreeWidgetItem* it = *i;
+        QString n = it->data(0, Qt::UserRole).toString();
         bool locked = ask("skinCluster", QJsonObject{{"args", QJsonArray{sk}}, {"query", true}, {"influence", n}, {"lockWeights", true}}).toBool();
-        it->setCheckState(locked ? Qt::Checked : Qt::Unchecked);
-        it->setText(locked ? n + "  (hold)" : n);
-        it->setForeground(locked ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
-        if (n == current || (current.isEmpty() && i == 0)) influences_->setCurrentItem(it);
+        it->setCheckState(0, locked ? Qt::Checked : Qt::Unchecked);
+        it->setForeground(0, locked ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
+        if (n == current || (current.isEmpty() && influences_->currentItem() == nullptr)) {
+            if (influences_->currentItem() != it) influences_->setCurrentItem(it);
+        }
     }
     loading_ = false;
 }

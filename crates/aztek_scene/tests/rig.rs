@@ -152,6 +152,11 @@ fn skin_percent_sets_queries_and_normalizes() {
     // Move weight.
     run(&mut s, "skinPercent", json!({"args": ["skinCluster1", "pCube1.vtx[0]"], "transformMoveWeights": ["joint2", "joint3"]}));
     assert!((weight(&mut s, "joint3", "pCube1.vtx[0]") - 1.0).abs() < 1e-9);
+    // One source, two targets, one of them held: the held one gets nothing.
+    run(&mut s, "skinCluster", json!({"args": ["skinCluster1"], "edit": true, "influence": "joint2", "lockWeights": true}));
+    run(&mut s, "skinPercent", json!({"args": ["skinCluster1", "pCube1.vtx[0]"], "transformMoveWeights": ["joint3", "joint1", "joint2"]}));
+    assert!((weight(&mut s, "joint1", "pCube1.vtx[0]") - 1.0).abs() < 1e-9);
+    assert!(weight(&mut s, "joint2", "pCube1.vtx[0]").abs() < 1e-9);
 }
 
 #[test]

@@ -356,6 +356,8 @@ pub enum Kind {
     ShadedCull,
     /// Triangles with a colour per vertex, unlit: weight painting's feedback.
     ColorTris,
+    /// Coloured triangles over everything: the manipulators' solid handles.
+    ColorTrisOnTop,
     /// A material: its colour or file texture, with UVs in a second buffer.
     Material,
     MaterialCull,
@@ -393,7 +395,7 @@ impl Renderer {
             let lfs = module(LINE_FS, naga::ShaderStage::Fragment);
             let feats = gpu.shared.features;
             let mut pipelines = Vec::new();
-            for kind in [Kind::Shaded, Kind::Tint, Kind::Lines, Kind::LinesOnTop, Kind::Points, Kind::PointsOnTop, Kind::ShadedCull, Kind::ColorTris] {
+            for kind in [Kind::Shaded, Kind::Tint, Kind::Lines, Kind::LinesOnTop, Kind::Points, Kind::PointsOnTop, Kind::ShadedCull, Kind::ColorTris, Kind::ColorTrisOnTop] {
                 let shaded = matches!(kind, Kind::Shaded | Kind::Tint | Kind::ShadedCull);
                 let (vs, fs) = if shaded { (svs, sfs) } else { (lvs, lfs) };
                 let stages = [
@@ -420,7 +422,7 @@ impl Renderer {
                 let binding = [vk::VertexInputBindingDescription::default().stride(stride).input_rate(vk::VertexInputRate::VERTEX)];
                 let vin = vk::PipelineVertexInputStateCreateInfo::default().vertex_binding_descriptions(&binding).vertex_attribute_descriptions(&attrs);
                 let topo = match kind {
-                    Kind::Shaded | Kind::Tint | Kind::ShadedCull | Kind::ColorTris => vk::PrimitiveTopology::TRIANGLE_LIST,
+                    Kind::Shaded | Kind::Tint | Kind::ShadedCull | Kind::ColorTris | Kind::ColorTrisOnTop => vk::PrimitiveTopology::TRIANGLE_LIST,
                     Kind::Lines | Kind::LinesOnTop => vk::PrimitiveTopology::LINE_LIST,
                     Kind::Points | Kind::PointsOnTop => vk::PrimitiveTopology::POINT_LIST,
                     _ => unreachable!("made below"),
@@ -442,7 +444,7 @@ impl Renderer {
                 });
                 let rs = if matches!(kind, Kind::Lines | Kind::LinesOnTop) && gpu.samples != vk::SampleCountFlags::TYPE_1 && (rect || smooth) { rs.push_next(&mut line_state) } else { rs };
                 let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(gpu.samples);
-                let on_top = matches!(kind, Kind::LinesOnTop | Kind::PointsOnTop);
+                let on_top = matches!(kind, Kind::LinesOnTop | Kind::PointsOnTop | Kind::ColorTrisOnTop);
                 let ds = vk::PipelineDepthStencilStateCreateInfo::default()
                     .depth_test_enable(!on_top)
                     .depth_write_enable(matches!(kind, Kind::Shaded | Kind::ShadedCull | Kind::Lines | Kind::ColorTris))

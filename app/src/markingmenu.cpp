@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScreen>
+#include <QTimer>
 #include <cmath>
 
 namespace az {
@@ -12,9 +13,19 @@ namespace az {
 namespace {
 const int kRadius = 92;
 const int kH = 22;
+// The menus a submenu was opened from, outermost first: where each was centred and what it held.
+QList<QPair<QPoint, QList<MarkItem>>>& parents() {
+    static QList<QPair<QPoint, QList<MarkItem>>> list;
+    return list;
+}
 } // namespace
 
 void MarkingMenu::show_at(QPoint global, const QList<MarkItem>& items) {
+    parents().clear();
+    open(global, items);
+}
+
+void MarkingMenu::open(QPoint global, const QList<MarkItem>& items) {
     auto* m = new MarkingMenu(global, items);
     m->setAttribute(Qt::WA_DeleteOnClose);
     m->show();
@@ -58,6 +69,11 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items) : QWidget(
     }
     QRect bound(-6, -6, 12, 12);
     for (const QRect& r : rs) bound = bound.united(r);
+    if (!parents().isEmpty()) {
+        has_back_ = true;
+        back_ = parents().last().first - global;
+        bound = bound.united(QRect(back_ - QPoint(7, 7), QSize(14, 14)));
+    }
     bound.adjust(-4, -4, 4, 4);
     center_ = -bound.topLeft();
     for (QRect& r : rs) r.translate(center_);
@@ -70,7 +86,17 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items) : QWidget(
     QRegion mask(QRect(center_ - QPoint(6, 6), QSize(12, 12)), QRegion::Ellipse);
     for (const QRect& r : rects_) mask += r.adjusted(-1, -1, 1, 1);
     for (const QRect& r : rules_) mask += r.adjusted(-1, 0, 1, 0);
+    if (has_back_) {
+        back_ += center_;
+        mask += QRegion(QRect(back_ - QPoint(6, 6), QSize(12, 12)), QRegion::Ellipse);
+    }
     setMask(mask);
+    sub_timer_ = new QTimer(this);
+    sub_timer_->setSingleShot(true);
+    sub_timer_->setInterval(kSubmenuDelayMs);
+    connect(sub_timer_, &QTimer::timeout, this, [this] {
+        if (sub_pending_ >= 0 && sub_pending_ == hover_) open_sub(sub_pending_);
+    });
     opened_ms_ = QDateTime::currentMSecsSinceEpoch();
 }
 
@@ -96,9 +122,19 @@ std::function<void(const QString&, const std::function<void()>&)>& MarkingMenu::
 void MarkingMenu::open_sub(int i) {
     const QList<MarkItem> sub = items_[i].sub;
     const QPoint at = mapToGlobal(rects_[i].center());
+    parents().append({mapToGlobal(center_), items_});
     releaseMouse();
     close();
-    show_at(at, sub);
+    open(at, sub);
+}
+
+// Back over the dot: the menu this one came from opens again where it was.
+void MarkingMenu::back_to_parent() {
+    if (parents().isEmpty()) return;
+    const auto up = parents().takeLast();
+    releaseMouse();
+    close();
+    open(up.first, up.second);
 }
 
 void MarkingMenu::pick(int i) {
@@ -108,6 +144,7 @@ void MarkingMenu::pick(int i) {
     }
     releaseMouse();
     close();
+    parents().clear();
     if (i >= 0 && items_[i].fn) {
         auto fn = items_[i].fn;
         if (around()) around()(items_[i].label, fn);
@@ -124,6 +161,11 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
     if (hover_ >= 0 && items_[hover_].dir >= 0) {
         p.setPen(QPen(QColor(230, 230, 230), 1.5));
         p.drawLine(center_, rects_[hover_].center());
+    }
+    if (has_back_) {
+        p.setPen(QPen(QColor(30, 30, 30), 1.0));
+        p.setBrush(QColor(160, 160, 160));
+        p.drawEllipse(back_, 4, 4);
     }
     for (int i = 0; i < items_.size(); ++i) {
         const MarkItem& it = items_[i];
@@ -171,15 +213,25 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
 void MarkingMenu::mouseMoveEvent(QMouseEvent* e) {
     QPoint pos = e->position().toPoint();
     if ((pos - center_).manhattanLength() > 8) dragged_ = true;
-    int h = item_at(pos);
-    // On a submenu's own item, its menu opens there and the drag goes on in it.
-    if (h >= 0 && !items_[h].sub.isEmpty() && rects_[h].contains(pos)) {
-        open_sub(h);
+    if (has_back_ && (pos - back_).manhattanLength() < 9) {
+        back_to_parent();
         return;
     }
+    int h = item_at(pos);
     if (h != hover_) {
         hover_ = h;
         update();
+    }
+    // On a submenu's own item, its menu opens there once the pointer rests on it, so the list under a compass
+    // item can still be reached by passing over it, as in the reference.
+    if (h >= 0 && !items_[h].sub.isEmpty() && rects_[h].contains(pos)) {
+        if (sub_pending_ != h) {
+            sub_pending_ = h;
+            sub_timer_->start();
+        }
+    } else {
+        sub_pending_ = -1;
+        sub_timer_->stop();
     }
 }
 

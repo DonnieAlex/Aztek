@@ -122,7 +122,7 @@ pub const VARS: &[Var] = &[
     v("MAYA_LOCATION", FILES, Partly, "Set at start to where Aztek is installed, whatever it was, so scripts that build paths from it stay inside Aztek. AZTEK_LOCATION is set to the same. Not taken from an environment file."),
     v("MAYA_PACKAGE_PATH", FILES, NotRead, ""),
     v("MAYA_PLUG_IN_PATH", FILES, Read, "Folders plug-ins are found in, and what the Plug-in Manager lists. A module's plug-ins folder is added."),
-    v("MAYA_PRESET_PATH", FILES, Partly, "Each entry is the folder above attrPresets. Aztek's own preset files (.json) are found there; the reference's .mel presets are not read."),
+    v("MAYA_PRESET_PATH", FILES, Partly, "Each entry is the folder above attrPresets. Aztek's own preset files (.yaml, and .json from earlier versions) and the reference's .mel presets are found there."),
     v("MAYA_PROJECT", FILES, Read, "The project a session starts in."),
     v("MAYA_PROJECTS_DIR", FILES, Partly, "The folder projects are kept in: what internalVar -userWorkspaceDir answers. The Preferences window does not show it."),
     v("MAYA_SHELF_PATH", FILES, Partly, "Each folder's shelf_*.mel files are shown as shelves, after the ones kept in the preferences; a name already there is not loaded twice. They are read at start and not written back."),
@@ -241,6 +241,8 @@ pub const VARS: &[Var] = &[
     v("AZTEK_UPDATE_URL", OWN, Read, "Where updates are asked about."),
     v("AZTEK_ECHO", OWN, Read, "The Script Editor's lines are also written to standard error."),
     v("AZTEK_PROFILE", OWN, Read, "Timings of the view's drawing are written out."),
+    v("AZTEK_QT_VERSION", OWN, Read, "Set at start to the Qt Aztek runs on, as about -qtVersion gives it."),
+    v("AZTEK_SKIP_QT_CHECK", OWN, Read, "Python imports a PySide built for another Qt without the check that stops it."),
 ];
 
 /// The entry for a name, given in either spelling.

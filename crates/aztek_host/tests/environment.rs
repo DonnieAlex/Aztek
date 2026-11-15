@@ -85,8 +85,8 @@ fn the_reference_s_variables_are_read() {
     std::env::set_var("MAYA_PRESET_PATH", base.join("shared"));
     c.mel("shadingNode -asShader lambert -name \"envLambert\"; setAttr envLambert.diffuse 0.25;");
     c.mel("nodePreset -save envLambert \"studioGrey\";");
-    let saved = base.join("config/presets/attrPresets/lambert/studioGrey.json");
-    let shared = base.join("shared/attrPresets/lambert/studioGrey.json");
+    let saved = base.join("config/presets/attrPresets/lambert/studioGrey.yaml");
+    let shared = base.join("shared/attrPresets/lambert/studioGrey.yaml");
     std::fs::create_dir_all(shared.parent().unwrap()).unwrap();
     std::fs::rename(&saved, &shared).unwrap();
     c.mel("setAttr envLambert.diffuse 0.9;");

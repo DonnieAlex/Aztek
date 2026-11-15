@@ -92,7 +92,7 @@ pub struct View {
     joint_press: Option<DVec2>,
     /// The camera node this view looks through, by name, and what was last read from or written to it.
     pub cam_node: String,
-    cam_sync: Option<[f64; 9]>,
+    cam_sync: Option<[f64; 10]>,
     /// The modelling tools' state.
     pub ts: crate::tools::ToolState,
     /// A sculpt stroke in progress.
@@ -118,6 +118,11 @@ pub struct View {
     pub tab_held: bool,
     /// The heads up display's control being pressed: its name, and whether it is the slider.
     hud_grab: Option<(String, bool)>,
+    /// The ViewCube: the part under the mouse, and a press on it (part, where, whether it became a drag).
+    cube_hover: Option<crate::view_cube::Part>,
+    cube_press: Option<(crate::view_cube::Part, DVec2, bool)>,
+    /// The paint skin weights tool is picking (its Select or Paint Select mode).
+    skin_select: bool,
     /// The Bezier tool's anchors and the tangent end of each, world space, and whether the last is being dragged.
     bezier: Vec<(DVec3, DVec3)>,
     bezier_drag: bool,
@@ -184,6 +189,9 @@ impl View {
             brush_dragged: false,
             tab_held: false,
             hud_grab: None,
+            cube_hover: None,
+            cube_press: None,
+            skin_select: false,
             bezier: Vec::new(),
             bezier_drag: false,
             prim: None,
@@ -282,7 +290,9 @@ impl View {
         prof.mark("  overlay");
         // The scene is drawn: it goes to the window through the post effects.
         let d = &self.vp.disp;
-        let settings = crate::post::PostSettings { ambient_occlusion: d.ambient_occlusion && !d.xray, ao_radius: d.ao_radius as f32, ao_intensity: d.ao_intensity as f32 };
+        let rgb = |n: &str| aztek_scene::system_cmds::view_rgb(n).map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]).unwrap_or([0.0; 3]);
+        let gradient = aztek_scene::system_cmds::display_gradient(&core.s).then(|| (rgb("backgroundTop"), rgb("backgroundBottom")));
+        let settings = crate::post::PostSettings { ambient_occlusion: d.ambient_occlusion && !d.xray, ao_radius: d.ao_radius as f32, ao_intensity: d.ao_intensity as f32, gradient, clear_grey: bg[0] };
         let (proj, ortho) = (self.vp.cam.proj(self.vp.aspect()).as_mat4(), self.vp.cam.ortho());
         self.gpu.begin_occlusion();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
@@ -482,12 +492,192 @@ impl View {
         }
     }
 
+    pub fn on_cube(&self, px: DVec2) -> bool {
+        let [_, _, w, h] = self.vp.rect;
+        crate::view_cube::layout(w, h, self.dpr, &self.vp.cam).is_some_and(|c| c.hit(px).is_some())
+    }
+
+    /// The ViewCube under the mouse: hover, a click on a part, a drag to turn the camera. None when the mouse is not
+    /// the cube's.
+    fn cube_mouse(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, buttons: i32) -> Option<bool> {
+        use crate::view_cube::Part;
+        let [_, _, w, h] = self.vp.rect;
+        let cube = crate::view_cube::layout(w, h, self.dpr, &self.vp.cam)?;
+        match kind {
+            0 if button == 1 => {
+                let part = cube.hit(px)?;
+                self.cube_press = Some((part, px, false));
+                Some(true)
+            }
+            // A right click on the cube: its menu, as the triangle gives it.
+            0 if button == 3 => {
+                cube.hit(px)?;
+                let ortho = self.vp.cam.orthographic;
+                crate::core::push_ui_request(format!("viewCubeMenu|{}", json!({"orthographic": ortho, "camera": self.cam_node})));
+                Some(true)
+            }
+            1 if self.cube_press.is_some() && buttons & 1 != 0 => {
+                let (part, at, _) = self.cube_press.unwrap();
+                let d = px - at;
+                if d.length() > 4.0 * self.dpr || self.cube_press.is_some_and(|p| p.2) {
+                    // A drag on the cube turns the camera about its centre of interest.
+                    let up = crate::view_cube::flag("preserveSceneUp");
+                    let c = &mut self.vp.cam;
+                    c.yaw -= d.x * 0.5;
+                    c.pitch = (c.pitch + d.y * 0.5).clamp(-89.9, 89.9);
+                    if up {
+                        c.roll = 0.0;
+                    }
+                    self.cube_press = Some((part, px, true));
+                    self.write_camera(core);
+                }
+                Some(true)
+            }
+            2 if self.cube_press.is_some() => {
+                let (part, _, dragged) = self.cube_press.take().unwrap();
+                if dragged && crate::view_cube::flag("dragSnap") {
+                    // Snap to closest view: the drag ends on the nearest of the cube's views.
+                    let r = crate::view_cube::nearest_region(&cube, self.vp.cam.dir_to_eye());
+                    let (yaw, pitch) = crate::camera::Camera::angles_of(cube.direction(r));
+                    let c = &mut self.vp.cam;
+                    c.yaw = yaw;
+                    c.pitch = pitch;
+                    c.roll = 0.0;
+                    self.write_camera(core);
+                }
+                if !dragged && button == 1 && cube.hit(px) == Some(part) {
+                    match part {
+                        Part::Region(r) => {
+                            self.cam_push();
+                            let (yaw, pitch) = crate::camera::Camera::angles_of(cube.direction(r));
+                            let c = &mut self.vp.cam;
+                            c.yaw = yaw;
+                            c.pitch = pitch;
+                            c.roll = 0.0;
+                            self.write_camera(core);
+                            // Fit-to-view on view change.
+                            if crate::view_cube::flag("zoomToFitScene") {
+                                let _ = core.exec("viewFit", json!({}));
+                            }
+                        }
+                        Part::Home => self.cube_action(core, "home"),
+                        Part::Menu => {
+                            let ortho = self.vp.cam.orthographic;
+                            crate::core::push_ui_request(format!("viewCubeMenu|{}", json!({"orthographic": ortho, "camera": self.cam_node})));
+                        }
+                    }
+                }
+                Some(true)
+            }
+            1 if buttons == 0 => {
+                let part = cube.hit(px);
+                if part != self.cube_hover {
+                    self.cube_hover = part;
+                    self.needs_redraw = true;
+                }
+                // Over the cube the mouse is its own; elsewhere the view's.
+                part.map(|_| true)
+            }
+            _ => None,
+        }
+    }
+
+    /// The ViewCube's actions on this view's camera: home, the default home, set home, level, perspective or
+    /// orthographic, set or reset the front.
+    pub fn cube_action(&mut self, core: &mut Core, action: &str) {
+        let cam = self.cam_node.clone();
+        match action {
+            "home" | "default" => {
+                self.cam_push();
+                let home = if action == "home" { crate::view_cube::home_of(&cam) } else { None };
+                let k = self.vp.cam.kind;
+                let mut c = home.unwrap_or_else(|| crate::camera::Camera::new(k));
+                c.orthographic = self.vp.cam.orthographic;
+                self.vp.cam = c;
+                self.write_camera(core);
+            }
+            "setHome" => crate::view_cube::set_home(&cam, Some(self.vp.cam.clone())),
+            "resetHome" => crate::view_cube::set_home(&cam, None),
+            "level" => {
+                self.vp.cam.pitch = 0.0;
+                self.vp.cam.roll = 0.0;
+                self.write_camera(core);
+            }
+            "perspective" | "orthographic" => {
+                let ortho = action == "orthographic";
+                if self.vp.cam.orthographic != ortho {
+                    let c = &mut self.vp.cam;
+                    // As wide as the perspective view shows at its centre of interest, and back.
+                    if ortho {
+                        c.ortho_width = 2.0 * c.distance * (c.hfov.to_radians() * 0.5).tan();
+                    }
+                    c.orthographic = ortho;
+                    let path = self.cam_node.clone();
+                    let g = &mut core.s.graph;
+                    if let Ok(Some(id)) = g.find(&path) {
+                        let shape = aztek_scene::cameras::shape_of(g, id).unwrap_or(id);
+                        let _ = g.set_value(aztek_scene::plug::PlugRef::new(shape, aztek_scene::cameras::ORTHOGRAPHIC as i32), aztek_scene::plug::PlugValue::Bool(ortho));
+                    }
+                    self.write_camera(core);
+                }
+            }
+            "setFront" => {
+                // The view's direction, along the ground, becomes the front.
+                let (yaw, _) = crate::camera::Camera::angles_of(self.vp.cam.dir_to_eye());
+                crate::view_cube::set_front(yaw);
+            }
+            "resetFront" => crate::view_cube::set_front(0.0),
+            _ => {}
+        }
+        self.needs_redraw = true;
+    }
+
     /// Screen-space extras: marquee, lasso, gates, heads up display, axis triad, camera name, numeric readout.
+    /// The painted influence's weight beside each point of the hilited skinned meshes no surface hides, as the paint
+    /// skin weights tool's Show Numbers draws them.
+    fn weight_numbers(&mut self, core: &Core, items: &[crate::viewport::DrawItem]) -> Vec<(DVec2, String, [u8; 4])> {
+        let ctx = &core.s.paint_ctx;
+        if self.vp.tool != Tool::PaintSkin || !ctx.numeric {
+            return Vec::new();
+        }
+        let col = ctx.numeric_color.map(|x| (x.clamp(0.0, 1.0) * 255.0) as u8);
+        let col = [col[0], col[1], col[2], 255];
+        let decimals = ctx.numeric_precision.clamp(0, 6) as usize;
+        let screen = self.vp.screen();
+        let sel = core.s.graph.selection().to_vec();
+        let mut out = Vec::new();
+        for it in items {
+            if !sel.contains(&it.xf) && !sel.contains(&it.shape) {
+                continue;
+            }
+            let Some(w) = aztek_scene::skin::influence_weights(&core.s, it.shape) else { continue };
+            let m = &it.mesh;
+            // Too many to read: none.
+            if m.num_points() > 4000 {
+                continue;
+            }
+            let one = [crate::viewport::DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }];
+            for p in 0..m.point_capacity() {
+                if !m.point_valid(p) {
+                    continue;
+                }
+                let wp = it.world.transform_point3(m.position(p));
+                let Some(q) = screen.project(wp) else { continue };
+                if !self.vp.visible(&one, wp, &screen) {
+                    continue;
+                }
+                out.push((q, format!("{:.*}", decimals, w.get(p as usize).copied().unwrap_or(0.0)), col));
+            }
+        }
+        out
+    }
+
     fn overlay(&mut self, core: &mut Core, items: &[crate::viewport::DrawItem]) {
         let hud = self.hud_rows(core, items);
         let hud_parts = self.hud_parts();
         let readout = self.readout();
         let gate = self.gate_aspects(core);
+        let numbers = self.weight_numbers(core, items);
         let [_, _, w, h] = self.vp.rect;
         if w < 2.0 || h < 2.0 {
             return;
@@ -548,6 +738,23 @@ impl View {
             lines.push(LineVertex { pos: [b.x as f32, b.y as f32, 0.5], color: c8(c) });
         };
         let s = self.dpr;
+        // The ViewCube.
+        let mut tris: Vec<LineVertex> = Vec::new();
+        if let Some(cube) = crate::view_cube::layout(w, h, s, &self.vp.cam) {
+            let mut tri = |a: DVec2, b: DVec2, c: DVec2, col: [u8; 4]| {
+                for q in [a, b, c] {
+                    tris.push(LineVertex { pos: [q.x as f32, q.y as f32, 0.5], color: c8(col) });
+                }
+            };
+            let active = self.cube_hover.is_some() || self.cube_press.is_some();
+            cube.draw(self.cube_hover, active, &mut tri, &mut seg, 7.0 * s);
+        }
+        // The paint skin weights tool's Show Numbers.
+        for (at, text, col) in &numbers {
+            for (a, b) in font::strokes(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s) {
+                seg(a, b, *col);
+            }
+        }
         // Axis triad, bottom left.
         if crate::ui_cmds::hud_on("viewAxis") {
             let origin = DVec2::new(34.0 * s, h - 34.0 * s);
@@ -620,8 +827,16 @@ impl View {
                 seg(d, a, white);
             }
         }
-        // Dimension and annotation labels.
+        // Grid numbers.
         let screen = self.vp.screen();
+        for (text, at) in self.vp.grid_labels() {
+            if let Some(p) = screen.project(at) {
+                for (a, b) in font::strokes(&text, p + DVec2::new(3.0 * s, -3.0 * s), size) {
+                    seg(a, b, [200, 200, 200, 255]);
+                }
+            }
+        }
+        // Dimension and annotation labels.
         for id in core.s.graph.nodes() {
             let Some(n) = core.s.graph.node(id) else { continue };
             let Some((text, at)) = aztek_scene::rig_misc::shape_label(n) else { continue };
@@ -650,11 +865,26 @@ impl View {
                 seg(a, b, [255, 240, 150, 255]);
             }
         }
-        if lines.is_empty() {
+        if lines.is_empty() && tris.is_empty() {
             return;
         }
         // Pixels straight to clip space.
         let m = DMat4::from_cols_array(&[2.0 / w, 0.0, 0.0, 0.0, 0.0, 2.0 / h, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0]);
+        if !tris.is_empty() {
+            let b = self.gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &tris);
+            self.r.set_viewport(&self.gpu, 0.0, 0.0, w as f32, h as f32);
+            self.r.bind(&self.gpu, Kind::ColorTrisOnTop);
+            let mut p: Push = bytemuck::Zeroable::zeroed();
+            p.mvp = m.as_mat4().to_cols_array();
+            p.n1[3] = 1.0;
+            p.color = [1.0; 4];
+            self.r.push(&self.gpu, &p);
+            self.r.draw(&self.gpu, &b, None, tris.len() as u32);
+            self.gpu.drop_buffer(b);
+        }
+        if lines.is_empty() {
+            return;
+        }
         let b = self.gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lines);
         self.r.set_viewport(&self.gpu, 0.0, 0.0, w as f32, h as f32);
         self.r.bind(&self.gpu, Kind::LinesOnTop);
@@ -724,7 +954,15 @@ impl View {
         if picked.is_empty() {
             return;
         }
-        let key = if mods & CTRL != 0 && mods & SHIFT == 0 { "deselect" } else { "add" };
+        let mut key = if mods & CTRL != 0 && mods & SHIFT == 0 { "deselect" } else { "add" };
+        // The paint skin weights tool's Paint Select: add, remove or toggle, as its setting says.
+        if self.skin_select && mods & (CTRL | SHIFT) == 0 {
+            key = match core.s.paint_ctx.paint_select_mode {
+                2 => "deselect",
+                3 => "toggle",
+                _ => "add",
+            };
+        }
         let _ = core.exec_silent("select", json!({"args": picked, key: true}));
     }
 
@@ -767,7 +1005,21 @@ impl View {
             ((2.0 * (hfa * 25.4 * 0.5 / fl.max(1e-6)).atan()).to_degrees(), d.float(cam::ORTHO_WIDTH), d.float(cam::COI).max(1e-3), d.bool(cam::ORTHOGRAPHIC))
         };
         let (yaw, pitch) = crate::camera::Camera::angles_of(z);
-        let state = [eye.x, eye.y, eye.z, yaw, pitch, coi, ow, hfov, ortho as i32 as f64];
+        // The camera's turn about its view direction against the one yaw and pitch give: a camera that faces the
+        // world's up axis still shows what its own up says (the ortho views after upAxis without -rv).
+        let roll = {
+            let mut probe = self.vp.cam.clone();
+            probe.yaw = yaw;
+            probe.pitch = pitch;
+            probe.roll = 0.0;
+            probe.coi = eye - probe.dir_to_eye() * coi;
+            probe.distance = coi;
+            let up = probe.view().transform_vector3(w.y_axis.truncate().normalize_or_zero());
+            let r = 90.0 - up.y.atan2(up.x).to_degrees();
+            let r = (r + 180.0).rem_euclid(360.0) - 180.0;
+            if r.abs() < 1e-6 { 0.0 } else { r }
+        };
+        let state = [eye.x, eye.y, eye.z, yaw, pitch, coi, ow, hfov, ortho as i32 as f64, roll];
         let same = self.cam_sync.is_some_and(|s| s.iter().zip(&state).all(|(a, b)| (a - b).abs() < 1e-6));
         if same {
             return;
@@ -776,6 +1028,7 @@ impl View {
         let c = &mut self.vp.cam;
         c.yaw = yaw;
         c.pitch = pitch;
+        c.roll = roll;
         c.distance = coi;
         c.ortho_width = ow;
         c.hfov = hfov;
@@ -797,10 +1050,18 @@ impl View {
             let c = &self.vp.cam;
             (c.eye(), c.yaw, c.pitch, c.distance, c.ortho_width, c.orthographic)
         };
+        // A rolled camera keeps its roll: its rotate comes from the whole view.
+        let rotate = if self.vp.cam.roll != 0.0 {
+            let m = glam::DMat3::from_mat4(self.vp.cam.view().inverse());
+            let (rz, ry, rx) = m.to_euler(glam::EulerRot::ZYX);
+            glam::DVec3::new(rx, ry, rz)
+        } else {
+            cam::world_rotation(cam::rotate_for(yaw.to_radians(), pitch.to_radians()))
+        };
         // Driven or locked cameras keep to what drives them.
         g.without_undo(|g| {
             let _ = g.set_value(PlugRef::new(tr, Transform::TRANSLATE as i32), PlugValue::Vec3(eye));
-            let _ = g.set_value(PlugRef::new(tr, Transform::ROTATE as i32), PlugValue::Vec3(cam::world_rotation(cam::rotate_for(yaw.to_radians(), pitch.to_radians()))));
+            let _ = g.set_value(PlugRef::new(tr, Transform::ROTATE as i32), PlugValue::Vec3(rotate));
             if light.is_some() {
                 if let Some(i) = g.node(sh).and_then(|n| n.ty().attr_index("centerOfIllumination")) {
                     let _ = g.set_value(PlugRef::new(sh, i as i32), PlugValue::Float(dist));
@@ -820,12 +1081,31 @@ impl View {
     /// kind: 0 press, 1 move, 2 release. button: 1 left, 2 middle, 3 right (0 on moves). buttons: held, bit per button.
     /// Returns whether the view should redraw.
     pub fn mouse(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, buttons: i32) -> bool {
+        // The paint skin weights tool's Select and Paint Select modes pick as the select and paint select tools do.
+        let mode = core.s.paint_ctx.skin_paint_mode;
+        if self.vp.tool == Tool::PaintSkin && mode != 1 {
+            self.vp.tool = if mode == 0 { Tool::Select } else { Tool::PaintSelect };
+            self.skin_select = true;
+            let r = self.mouse_with_tool(core, kind, button, px, mods, buttons);
+            self.skin_select = false;
+            self.vp.tool = Tool::PaintSkin;
+            return r;
+        }
+        self.mouse_with_tool(core, kind, button, px, mods, buttons)
+    }
+
+    fn mouse_with_tool(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, buttons: i32) -> bool {
         self.iso_in(core);
         let gathered = gather(&mut core.s.graph);
         let mut items = self.vp.filter_items(&core.s.graph, gathered);
         let alt = mods & ALT != 0;
         if !alt && self.hud_mouse(core, kind, button, px) {
             return true;
+        }
+        if !alt {
+            if let Some(r) = self.cube_mouse(core, kind, button, px, buttons) {
+                return r;
+            }
         }
         if !alt && self.nav.is_none() && self.vp.tool == Tool::ShowManip && !self.brush_adjust {
             if let Some(r) = crate::node_manip::mouse(core, &self.vp, kind, button, px, buttons, self.dpr) {
@@ -1089,7 +1369,7 @@ impl View {
                 }
                 if button == 1 && (self.vp.tool == Tool::PaintSelect || self.tab_held) {
                     self.drag_selecting = true;
-                    if mods & (SHIFT | CTRL) == 0 {
+                    if mods & (SHIFT | CTRL) == 0 && !self.skin_select {
                         select_picked(core, Vec::new(), 0);
                     }
                     self.drag_select_at(core, &items, px, mods);
@@ -1467,9 +1747,6 @@ impl View {
                         return true;
                     }
                     let picked = if (px - start).length() < 4.0 * self.dpr {
-                        if self.vp.multi {
-                            self.multi_mode(core, &items, px);
-                        }
                         let p = self.vp.pick(&core.s, &items, px);
                         self.note_pick(&p);
                         p
@@ -1484,15 +1761,6 @@ impl View {
         }
     }
 
-    /// Multi: the nearest kind under the mouse, a vertex before an edge before a face, becomes the mode.
-    fn multi_mode(&mut self, core: &mut Core, items: &[crate::viewport::DrawItem], px: DVec2) {
-        for kind in ["vertex", "edge", "face"] {
-            let _ = core.exec_quiet("selectMode", json!({"args": [kind]}), aztek_ops::CallSource::Script);
-            if self.vp.pick_component(&core.s, items, px).is_some() {
-                return;
-            }
-        }
-    }
 
     /// The box in the view fills it: dragged left to right the camera comes in, the other way it goes out.
     fn box_dolly(&mut self, core: &mut Core, start: DVec2, end: DVec2) {
@@ -1852,7 +2120,6 @@ impl View {
             "stepScale" => self.vp.step_scale = v.as_f64().unwrap_or(0.0),
             "snapRelative" => self.vp.snap_relative = v.as_bool().unwrap_or(true),
             "tweakMode" => self.vp.tweak = v.as_bool().unwrap_or(false),
-            "multiSelect" => self.vp.multi = v.as_bool().unwrap_or(false),
             "keepSpacing" => self.vp.keep_spacing = v.as_bool().unwrap_or(true),
             "snapPivot" => self.vp.snap_pivot = v.as_bool().unwrap_or(false),
             "useManipPivot" => self.vp.use_manip_pivot = v.as_bool().unwrap_or(false),
@@ -1868,9 +2135,20 @@ impl View {
                 self.vp.grid_spacing = v.as_f64().unwrap_or(1.0).max(1e-4);
                 self.vp.reset_grid(&mut self.gpu);
             }
+            "gridStyle" => {
+                let st = crate::viewport::GridStyle::from_json(v);
+                if st != self.vp.grid_style {
+                    self.vp.grid_style = st;
+                    self.vp.reset_grid(&mut self.gpu);
+                }
+            }
             "gridSize" => {
                 self.vp.grid_extent = v.as_f64().unwrap_or(12.0).max(1.0);
                 self.vp.reset_grid(&mut self.gpu);
+            }
+            "viewCube" => {
+                let action = v.get("action").and_then(Value::as_str).unwrap_or("redraw").to_string();
+                self.cube_action(core, &action);
             }
             "home" => {
                 let k = self.vp.cam.kind;

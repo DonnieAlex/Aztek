@@ -63,6 +63,19 @@ private:
     QString list_connection_, item_filter_;
     void apply_list_limit();
     QSet<QString> hidden_types_;
+    // The reference's Display menu: what the list holds and how it reads.
+    bool materials_ = false, ref_members_ = true, set_members_ = true, connected_ = false, namespaces_ = true;
+    bool ignore_hidden_ = false, ignore_color_ = false, sort_alpha_ = false;
+    QString channel_names_ = "nice";
+    int attr_order_ = 0;
+    // The reference's Show menu: kinds of object and of attribute to show (none: all), and the other way round.
+    QSet<QString> show_kinds_, show_attrs_;
+    bool invert_ = false;
+    void fill_display_menu(QMenu* m);
+    void fill_show_menu(QMenu* m);
+    void fill_help_menu(QMenu* m);
+    void apply_show_filter();
+    QStringList attribute_rows(const QString& path);
     // What the tree was last built from, to tell a change of selection from one of the tree.
     QByteArray last_shape_;
     QString last_view_;

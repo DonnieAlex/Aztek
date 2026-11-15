@@ -1,6 +1,7 @@
 // Named actions (the reference's runtime commands), the hotkey table that runs them and the Hotkey Editor. A hotkey runs a named
 // action or MEL; bindings the user changes are saved in the settings over the defaults.
 #include "envvars.h"
+#include "editors.h"
 #include "mainwindow.h"
 #include "uveditor.h"
 #include "grapheditor.h"
@@ -34,8 +35,13 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QCursor>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
 #include <QSettings>
 #include <QStatusBar>
 #include <QCoreApplication>
@@ -215,10 +221,16 @@ void MainWindow::build_runtime() {
     r("IsolateSelect", "View", "Isolate Select in the view under the cursor", [this] { view_key("isolate", "{}"); });
     r("XRayToggle", "View", "X-Ray", [this] { toggle_view_flag("xray"); });
     r("BackgroundCycle", "View", "Cycle the view's background", [this] {
+        // Gradient, black, dark grey, light grey, and round again.
         QSettings s;
         double bg = s.value("prefs/background", 0.36).toDouble();
-        bg = bg > 0.5 ? 0.0 : bg > 0.2 ? 0.8 : 0.36;
+        bool gradient = s.value("prefs/backgroundGradient", false).toBool();
+        if (gradient) { gradient = false; bg = 0.0; }
+        else if (bg < 0.2) bg = 0.36;
+        else if (bg < 0.5) bg = 0.8;
+        else { gradient = true; bg = 0.36; }
         s.setValue("prefs/background", bg);
+        s.setValue("prefs/backgroundGradient", gradient);
         apply_prefs();
     });
     r("WireframeView", "View", "Wireframe", [this] { view_key("wireframe", "true"); });
@@ -247,6 +259,24 @@ void MainWindow::build_runtime() {
     r("HideSelected", "Display", "Hide the selection", [] { exec("hide"); });
     r("ShowLastHidden", "Display", "Show what was last hidden", [] { exec("showLastHidden"); });
     r("ToggleVisibility", "Display", "Show or hide", [] { exec("toggleVisibility"); });
+    r("ShowSelectedObjects", "Display", "Show the selection", [] {
+        const QJsonObject st = state();
+        const QJsonArray sel = st["selection"].toArray();
+        // In a component mode: the selected components, or with none selected every hidden one on the objects.
+        if (st["mode"].toString() != "object") exec("showHidden");
+        else if (!sel.isEmpty()) exec("showHidden", QJsonObject{{"args", sel}});
+    });
+    r("ShowAllComponents", "Display", "Show every hidden component of the selected objects", [] {
+        QJsonArray all;
+        QSet<QString> seen;
+        for (const QJsonValue& v : state()["selection"].toArray()) {
+            const QString n = v.toString();
+            const int dot = n.indexOf('[') >= 0 ? n.lastIndexOf('.', n.indexOf('[')) : -1;
+            const QString obj = dot > 0 ? n.left(dot) : n;
+            if (!seen.contains(obj)) { seen.insert(obj); all.append(obj + ".f[*]"); }
+        }
+        if (!all.isEmpty()) exec("showHidden", QJsonObject{{"args", all}});
+    });
     r("NewScene", "File", "New scene", [this] { new_scene(); });
     r("OpenScene", "File", "Open a scene", [this] { open_scene(); });
     r("SaveScene", "File", "Save the scene", [this] { save_scene(false); });
@@ -433,7 +463,7 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         {"F", 0, "FrameSelected", ""}, {"A", 0, "FrameAll", ""}, {"F", S, "FrameSelectedInAllViews", ""}, {"A", S, "FrameAllInAllViews", ""}, {"[", 0, "PreviousView", ""}, {"]", 0, "NextView", ""},
         {"Z", 0, "Undo", ""}, {"Z", C, "Undo", ""}, {"Z", S, "Redo", ""}, {"Z", C | S, "Redo", ""}, {"Y", C, "Redo", ""}, {"G", 0, "RepeatLast", ""}, {"R", C, "CreateReference", ""}, {"G", C, "Group", ""},
         {"D", C, "Duplicate", ""}, {"D", C | S, "DuplicateSpecialOptions", ""}, {"D", S, "DuplicateWithTransform", ""}, {"D", A | S, "DeleteHistory", ""},
-        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "ToggleVisibility", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""},
+        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "ToggleVisibility", ""}, {"H", S, "ShowSelectedObjects", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""}, {"H", C | A, "ShowAllComponents", ""},
         {"N", C, "NewScene", ""}, {"O", C, "OpenScene", ""}, {"S", C, "SaveScene", ""}, {"S", C | S, "SaveSceneAs", ""}, {"S", C | A, "IncrementAndSave", ""},
         {"A", C, "AttributeEditor", ""}, {"A", C | S, "SelectAll", ""}, {"I", C | S, "InvertSelection", ""}, {"T", C | S, "ToolSettingsWindow", ""},
         {"E", C, "Extrude", ""}, {"B", C, "Bevel", ""}, {">", 0, "GrowSelection", ""}, {"<", 0, "ShrinkSelection", ""},
@@ -743,6 +773,36 @@ void MainWindow::handle_ui_request(const QString& r) {
         ScriptUi::get()->show_in_view_message(parse(payload).toObject());
     } else if (name == "lookThru") {
         if (ViewportWidget* v = active_view()) v->set("camera", "\"" + payload + "\"");
+    } else if (name == "viewCube") {
+        if (ViewportWidget* v = active_view()) v->set("viewCube", payload);
+    } else if (name == "viewCubeMenu") {
+        // The ViewCube's menu, at the mouse, for the view it was opened from.
+        ViewportWidget* v = active_view();
+        if (!v) return;
+        const QJsonObject o = parse(payload).toObject();
+        QMenu menu;
+        auto act = [&menu, v](const QString& text, const char* action) {
+            QAction* a = menu.addAction(text);
+            QObject::connect(a, &QAction::triggered, v, [v, action] { v->set("viewCube", QString("{\"action\":\"%1\"}").arg(action)); });
+            return a;
+        };
+        // As the reference's: Default View, Orthographic View, Preferences, the two help pages, Hide ViewCube.
+        act("Default View", "default");
+        const bool is_ortho = o["orthographic"].toBool();
+        QAction* ortho = act("Orthographic View", is_ortho ? "perspective" : "orthographic");
+        ortho->setCheckable(true);
+        ortho->setChecked(is_ortho);
+        menu.addSeparator();
+        QObject::connect(menu.addAction("Preferences..."), &QAction::triggered, this, [this] { show_preferences_at("ViewCube"); });
+        menu.addSeparator();
+        for (const char* text : {"Help on Viewport Navigation...", "Help on the ViewCube..."})
+            QObject::connect(menu.addAction(text), &QAction::triggered, this, [] { QDesktopServices::openUrl(QUrl("https://srlegrand.github.io/Aztek/")); });
+        menu.addSeparator();
+        QObject::connect(menu.addAction("Hide ViewCube"), &QAction::triggered, this, [this] {
+            QSettings().setValue("prefs/viewCubeShow", false);
+            apply_prefs();
+        });
+        menu.exec(QCursor::pos());
     } else if (name == "polyOptions") {
         for (ViewportWidget* v : panels_->views()) v->set("disp", payload);
     } else if (name == "isolate") {

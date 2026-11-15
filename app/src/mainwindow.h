@@ -165,6 +165,8 @@ private:
     void show_graph_editor();
     void show_uv_editor();
     void show_preferences();
+    // Preferences, open at a category.
+    void show_preferences_at(const QString& category);
     void show_tool_settings();
     void show_dope_sheet();
     void show_node_editor();

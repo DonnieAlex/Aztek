@@ -19,6 +19,7 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <algorithm>
+#include <QFontMetricsF>
 #include <cmath>
 
 namespace az {
@@ -82,6 +83,12 @@ void UvCanvas::set_data(const QJsonObject& d) {
         for (const QJsonValue& x : o["selFaces"].toArray()) m.sel_faces.insert(x.toInt());
         for (const QJsonValue& x : o["selEdges"].toArray()) m.sel_edges.insert(x.toInt());
         for (const QJsonValue& x : o["selPoints"].toArray()) m.sel_points.insert(x.toInt());
+        // The scene's UV selection, which a view may have changed.
+        if (o.contains("selMaps")) {
+            QSet<int>& s = uv_sel_[m.path];
+            s.clear();
+            for (const QJsonValue& x : o["selMaps"].toArray()) s.insert(x.toInt());
+        }
         // Selected UVs that no longer exist go.
         if (uv_sel_.contains(m.path)) {
             QSet<int>& s = uv_sel_[m.path];
@@ -99,8 +106,31 @@ void UvCanvas::set_data(const QJsonObject& d) {
 
 void UvCanvas::set_mode(const QString& m) {
     mode_ = m;
-    if (m == "face" || m == "edge") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
+    // The selection type is the scene's, shared with the views.
+    if (m == "face" || m == "edge" || m == "uv") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
+    else if (m == "shell") exec("selectType", QJsonObject{{"meshUVShell", true}});
     update();
+}
+
+void UvCanvas::follow_mode(const QString& m) {
+    mode_ = m;
+    update();
+}
+
+void UvCanvas::share_uv_selection() {
+    QJsonArray names;
+    for (auto it = uv_sel_.begin(); it != uv_sel_.end(); ++it)
+        for (const QString& run : id_runs(it.value().values())) names.append(QString("%1.map[%2]").arg(it.key(), run));
+    if (names.isEmpty()) {
+        // Nothing picked: the meshes stay, their UVs go.
+        QJsonArray objs;
+        for (const UvMesh& m : meshes_) objs.append(m.path);
+        exec("select", QJsonObject{{"args", objs}});
+    } else {
+        exec("select", QJsonObject{{"args", names}});
+    }
+    if (mode_ == "shell") exec("selectType", QJsonObject{{"meshUVShell", true}});
+    else exec("selectMode", QJsonObject{{"args", QJsonArray{"uv"}}});
 }
 
 void UvCanvas::set_tool(const QString& t) {
@@ -366,10 +396,30 @@ void UvCanvas::paintEvent(QPaintEvent*) {
     QFont f = font();
     f.setPointSizeF(qMax(6.5, f.pointSizeF() - 1));
     p.setFont(f);
+    // Grid numbers: each whole unit along the bottom and left of the view, tenths when close enough, and each UDIM
+    // tile's number (1001 for 0-1, then 1002 along U, 1011 up V) at its corner.
     p.setPen(QColor(160, 160, 160));
-    p.drawText(unit.bottomLeft() + QPointF(2, 12), "0");
-    p.drawText(unit.bottomRight() + QPointF(2, 12), "1");
-    p.drawText(unit.topLeft() + QPointF(-10, 4), "1");
+    const QFontMetricsF fm(f);
+    const double label_step = scale_ > 400 ? 0.1 : scale_ > 40 ? 1.0 : scale_ > 4 ? 10.0 : 100.0;
+    auto num = [](double x) { return std::abs(x - std::round(x)) < 1e-6 ? QString::number(qRound64(x)) : QString::number(x, 'f', 1); };
+    for (double u = std::ceil(lo.x() / label_step) * label_step; u <= hi.x(); u += label_step) {
+        const double x = to_screen(QPointF(u, 0)).x();
+        p.drawText(QPointF(x + 2, height() - 4), num(u));
+    }
+    for (double v = std::ceil(lo.y() / label_step) * label_step; v <= hi.y(); v += label_step) {
+        const double y = to_screen(QPointF(0, v)).y();
+        p.drawText(QPointF(3, y - 2), num(v));
+    }
+    if (scale_ > 60) {
+        p.setPen(QColor(120, 120, 120));
+        for (int v = int(std::floor(lo.y())); v <= int(std::ceil(hi.y())); ++v)
+            for (int u = int(std::floor(lo.x())); u <= int(std::ceil(hi.x())); ++u) {
+                if (u < 0 || u > 9 || v < 0) continue;
+                const QPointF at = to_screen(QPointF(u, v + 1));
+                const QString tile = QString::number(1001 + u + 10 * v);
+                p.drawText(at + QPointF(4, fm.ascent() + 2), tile);
+            }
+    }
 
     p.setRenderHint(QPainter::Antialiasing);
     auto am = active_maps();
@@ -379,7 +429,8 @@ void UvCanvas::paintEvent(QPaintEvent*) {
         for (const auto& fc : m.faces) {
             QPolygonF poly;
             for (int id : fc.maps) poly << to_screen(m.maps[id]);
-            bool sel = mode_ == "face" && m.sel_faces.contains(fc.id);
+            // A UV shell picked whole shows as a block, the way faces do.
+            bool sel = (mode_ == "face" && m.sel_faces.contains(fc.id)) || (mode_ == "shell" && !fc.maps.isEmpty() && std::all_of(fc.maps.begin(), fc.maps.end(), [&](int id) { return am.value(mi).contains(id); }));
             if (sel) {
                 p.setPen(Qt::NoPen);
                 p.setBrush(QColor(235, 140, 40, 130));
@@ -551,6 +602,10 @@ void UvCanvas::pick(QPointF pos, QPointF to, bool rect, Qt::KeyboardModifiers mo
             if (best >= 0) ids = {best};
         }
         for (const QString& run : id_runs(ids)) names.append(QString("%1.%2[%3]").arg(m.path, mode_ == "face" ? "f" : "e", run));
+        if (!rect && ids.size() == 1) {
+            pick_hist_.append(Pick{m.path, mode_, ids.first()});
+            while (pick_hist_.size() > 2) pick_hist_.removeFirst();
+        }
     }
     QJsonObject call{{"args", names}};
     if (ctrl && shift) call["add"] = true;
@@ -682,7 +737,32 @@ void UvCanvas::wheelEvent(QWheelEvent* e) {
     update();
 }
 
+// Double-click: the edge loop through the edge, as in the views. Shift+double-click: the loop or the shorter way
+// between the last two edges or faces clicked on one mesh.
+void UvCanvas::mouseDoubleClickEvent(QMouseEvent* e) {
+    if (e->button() != Qt::LeftButton || (e->modifiers() & Qt::AltModifier)) return QWidget::mouseDoubleClickEvent(e);
+    if (mode_ != "edge" && mode_ != "face") return;
+    if ((e->modifiers() & Qt::ShiftModifier) && pick_hist_.size() == 2) {
+        const Pick &a = pick_hist_[0], &b = pick_hist_[1];
+        if (a.mesh == b.mesh && a.kind == b.kind && a.id != b.id) {
+            exec("selectPathBetween", QJsonObject{{"args", QJsonArray{a.mesh}}, {"from", a.id}, {"to", b.id}, {"kind", a.kind}});
+            return;
+        }
+    }
+    if (mode_ == "edge") exec("selectLoop");
+}
+
 void UvCanvas::keyPressEvent(QKeyEvent* e) {
+    // Undo and redo here too: the editor is a window of its own, out of the main window's shortcuts' reach.
+    const bool ctrl = e->modifiers() & Qt::ControlModifier, shift = e->modifiers() & Qt::ShiftModifier;
+    if ((e->key() == Qt::Key_Z && ctrl && shift) || (e->key() == Qt::Key_Y && ctrl)) {
+        exec("redo");
+        return;
+    }
+    if (e->key() == Qt::Key_Z && (ctrl || e->modifiers() == Qt::NoModifier)) {
+        exec("undo");
+        return;
+    }
     switch (e->key()) {
     case Qt::Key_F: frame(true); return;
     case Qt::Key_A: frame(false); return;
@@ -766,6 +846,7 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     v->setContentsMargins(0, 0, 0, 0);
     v->setSpacing(0);
     canvas_ = new UvCanvas(this);
+    connect(canvas_, &UvCanvas::picked, canvas_, &UvCanvas::share_uv_selection);
     auto* bar = new QToolBar(this);
     auto* modes = new QActionGroup(this);
     for (auto [label, mode] : {std::pair{"UV", "uv"}, {"Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
@@ -864,7 +945,15 @@ void UvEditor::run(const QString& cmd, const QJsonObject& call, bool on_selectio
 }
 
 void UvEditor::refresh() {
-    canvas_->set_data(query("uvData").toObject());
+    const QJsonObject data = query("uvData").toObject();
+    canvas_->set_data(data);
+    // The selection type is shared with the views: a view switched to UVs, UV shells, edges or faces brings the
+    // editor along.
+    const QString scene = data["uvShell"].toBool() ? "shell" : data["mode"].toString();
+    if ((scene == "uv" || scene == "shell" || scene == "edge" || scene == "face") && scene != canvas_->mode()) {
+        if (QAction* a = mode_buttons_.value(scene)) a->setChecked(true);
+        canvas_->follow_mode(scene);
+    }
     if (uv_set_ && !uv_set_->view()->isVisible()) {
         const QJsonArray sel = state()["selection"].toArray();
         uv_mesh_ = sel.isEmpty() ? QString() : sel.last().toString().section('.', 0, 0);

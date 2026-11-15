@@ -51,7 +51,7 @@ pub fn is_history(g: &Graph, id: NodeId) -> bool {
     g.node(id).is_some_and(|n| n.ty().is_a(BASE_TYPE))
 }
 
-const BASE_TYPE: &str = "polyModifier";
+pub(crate) const BASE_TYPE: &str = "polyModifier";
 
 pub const INPUT_POLYMESH: usize = 0;
 pub const OUTPUT: usize = 1;
@@ -75,6 +75,8 @@ fn prefix(kind: ComponentMode) -> &'static str {
         ComponentMode::Vertex => "vtx",
         ComponentMode::Edge => "e",
         ComponentMode::Face => "f",
+        ComponentMode::Uv => "map",
+        ComponentMode::VertexFace => "vtxFace",
         ComponentMode::Object => "",
     }
 }
@@ -601,6 +603,9 @@ pub fn history_of(g: &Graph, mesh: NodeId) -> Vec<NodeId> {
         } else if n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT) {
             // A deformed mesh's original: what made it is history too.
             p = plug(src.node, MeshNode::IN_MESH);
+        } else if n.ty().name == "transformGeometry" {
+            // Freeze Transformations' move: what it moves is history too.
+            p = plug(src.node, 0);
         } else {
             break;
         }

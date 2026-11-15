@@ -1728,6 +1728,8 @@ fn walk_chain(doc: &Doc, shape: usize, stored: &HashMap<usize, MaMesh>) -> Chain
             // Under a deformer it is in the chain; `walk_chain` moves any with no deformer upstream back to the base.
             "polyTweak" => c.deformers.insert(0, (next, index)),
             "skinCluster" => c.deformers.insert(0, (next, index)),
+            // Freeze Transformations' move on a mesh with history.
+            "transformGeometry" => c.deformers.insert(0, (next, 0)),
             t if file_deformer(t) => c.deformers.insert(0, (next, index)),
             "tweak" => c.vertex_tweaks.push(next),
             // A colour set changes no points.
@@ -2393,11 +2395,20 @@ impl Build<'_> {
             let made = match doc.nodes[d].ty.as_str() {
                 skin::SKIN_TYPE => self.create_skin(d),
                 crate::history::TWEAK_TYPE => self.create_chain_tweak(d),
+                // Made with the plain nodes, matrix and all.
+                "transformGeometry" => {
+                    self.used[d] = true;
+                    self.ids[d]
+                }
                 _ => self.create_deformer(d, k, shape),
             };
             let Some(id) = made else { continue };
             let t = self.s.graph.node(id).unwrap().type_arc().clone();
-            let (ip, out) = (t.attr_index("inputPolymesh").unwrap(), t.attr_index("output").unwrap());
+            let (ip, out) = if t.name == "transformGeometry" {
+                (t.attr_index("inputGeometry").unwrap(), t.attr_index("outputGeometry").unwrap())
+            } else {
+                (t.attr_index("inputPolymesh").unwrap(), t.attr_index("output").unwrap())
+            };
             let _ = self.s.graph.connect(&prev, &PlugRef::new(id, ip as i32), false);
             prev = PlugRef::new(id, out as i32);
         }
@@ -3495,6 +3506,12 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
                 if doc.nodes[i].num(&["useSmoothPreviewForRender", "uspr"]).is_some() {
                     set("useSmoothPreviewForRender", PlugValue::Bool(doc.nodes[i].truth(&["useSmoothPreviewForRender", "uspr"]).unwrap_or(true)));
                 }
+                // Polygon Display switches.
+                for (attr, short, _) in crate::mesh_nodes::DISPLAY_SWITCHES {
+                    if let Some(on) = doc.nodes[i].truth(&[attr, short]) {
+                        set(attr, PlugValue::Bool(on));
+                    }
+                }
             }
         }
         if doc.nodes[i].ty == "nurbsSurface" && b.ids[i].is_some() {
@@ -4212,6 +4229,12 @@ impl Writer<'_> {
                 }
                 if matches!(use_preview, Some(PlugValue::Bool(false))) {
                     let _ = writeln!(self.out, "\tsetAttr \".useSmoothPreviewForRender\" no;");
+                }
+                // Polygon Display switches that are on.
+                for (attr, short, _) in crate::mesh_nodes::DISPLAY_SWITCHES {
+                    if matches!(read(g, attr), Some(PlugValue::Bool(true))) {
+                        let _ = writeln!(self.out, "\tsetAttr \".{short}\" yes;");
+                    }
                 }
                 self.write_mesh(id, &name, parent);
             }
@@ -5366,6 +5389,11 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     };
     // What a reference brought in is written as the reference.
     keep.retain(|&id| g.node(id).is_some_and(|n| n.reference_id() == 0));
+    // A mesh's history is written as the geometry it makes: Freeze Transformations' move on one goes with the rest.
+    keep.retain(|&id| {
+        !g.node(id).is_some_and(|n| n.ty().name == "transformGeometry")
+            || !g.destinations(&PlugRef::new(id, 3)).iter().any(|d| g.node(d.node).is_some_and(|n| n.ty().is_a("mesh") || crate::modifiers::is_modifier(g, d.node) || g.node(d.node).is_some_and(|n| n.ty().is_a(crate::history::BASE_TYPE))))
+    });
     let used: HashSet<String> = g.nodes().iter().filter_map(|&id| g.node(id).map(|n| n.name().to_string())).collect();
     let roots = g.roots().to_vec();
     let mut w = Writer { s, out: String::new(), conns: Vec::new(), shading: Vec::new(), warnings: Vec::new(), used, keep, pending: Vec::new(), solvers: HashSet::new(), chain_written: HashSet::new(), needs_links: Vec::new(), links_text: String::new(), char_driven: HashMap::new(), char_channels: HashMap::new() };

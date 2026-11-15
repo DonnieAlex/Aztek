@@ -218,15 +218,9 @@ pub fn edit_selected_op_info(
     Ok((v, infos))
 }
 
-fn edit_selected_impl(
-    s: &mut Session,
-    label: &str,
-    kind: ComponentMode,
-    f: &mut EditFn,
-    allow_whole: bool,
-    mut handled_whole: Option<&mut HandledWhole>,
-    history: Option<(&crate::history::HistoryOp, &Args)>,
-) -> CmdResult {
+/// The meshes and components an edit on the selection works on, as kind: the component selection, else (when allowed)
+/// each selected mesh whole, unless `handled_whole` took care of it. Also whether anything was handled whole.
+fn selected_targets(s: &mut Session, label: &str, kind: ComponentMode, allow_whole: bool, mut handled_whole: Option<&mut HandledWhole>) -> CmdResult<(BTreeMap<NodeId, Ids>, ComponentMode, bool)> {
     s.graph.evaluate();
     let mut targets: BTreeMap<NodeId, Ids> = BTreeMap::new();
     let from = components::mode(&s.graph);
@@ -256,18 +250,69 @@ fn edit_selected_impl(
             }
         }
     }
-    if targets.is_empty() && handled {
-        return Ok(Value::Null);
-    }
-    if targets.is_empty() {
+    if targets.is_empty() && !handled {
         fail!("{label}: no components selected");
     }
+    Ok((targets, from, handled))
+}
 
+fn edit_selected_impl(
+    s: &mut Session,
+    label: &str,
+    kind: ComponentMode,
+    f: &mut EditFn,
+    allow_whole: bool,
+    handled_whole: Option<&mut HandledWhole>,
+    history: Option<(&crate::history::HistoryOp, &Args)>,
+) -> CmdResult {
+    let (targets, from, _) = selected_targets(s, label, kind, allow_whole, handled_whole)?;
+    if targets.is_empty() {
+        return Ok(Value::Null);
+    }
     let g = &mut s.graph;
     g.open_chunk(label);
     let r = apply_targets(g, kind, targets, f, history, Some(from));
     g.close_chunk();
     r.map(|made| names_of(&s.graph, &made))
+}
+
+/// edit_selected_op_info, with the flags worked out for each mesh by `prep` (its matrix, say) before its edit.
+pub fn edit_selected_op_info_each(
+    s: &mut Session,
+    node_type: &str,
+    a: &Args,
+    prep: &dyn Fn(&Graph, NodeId, &mut Args),
+) -> CmdResult<(Value, Vec<Value>)> {
+    let op = crate::history::op(node_type).ok_or_else(|| CommandError::new(format!("no history op {node_type}")))?;
+    let (targets, from, _) = selected_targets(s, op.label, op.kind, false, None)?;
+    let run = op.run;
+    let mut infos = Vec::new();
+    let g = &mut s.graph;
+    g.open_chunk(op.label);
+    let r = (|| -> CmdResult<Vec<NodeId>> {
+        let mut made = Vec::new();
+        for (node, ids) in targets {
+            let mut args = a.clone();
+            prep(g, node, &mut args);
+            let a1 = &args;
+            let got = apply_targets(
+                g,
+                op.kind,
+                BTreeMap::from([(node, ids)]),
+                &mut |m, sel, sym| {
+                    let r = run(a1, m, sel, sym)?;
+                    infos.push(r.info.clone());
+                    Ok(r)
+                },
+                Some((&*op, a1)),
+                Some(from),
+            )?;
+            made.extend(got);
+        }
+        Ok(made)
+    })();
+    g.close_chunk();
+    r.map(|made| (names_of(&s.graph, &made), infos))
 }
 
 /// The history nodes an edit made, as commands return them; Null when it recorded none.
@@ -356,7 +401,7 @@ pub fn with_mirror(m: &Mesh, s: Option<&SymmetryMap>, ids: &[Index], kind: Compo
         ComponentMode::Vertex => s.expand_points(ids),
         ComponentMode::Edge => s.expand_edges(m, ids),
         ComponentMode::Face => s.expand_faces(m, ids),
-        ComponentMode::Object => ids.to_vec(),
+        ComponentMode::Uv | ComponentMode::VertexFace | ComponentMode::Object => ids.to_vec(),
     }
 }
 

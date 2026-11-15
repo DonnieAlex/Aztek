@@ -11,6 +11,8 @@ class QComboBox;
 class QFormLayout;
 class QDoubleSpinBox;
 class QListWidget;
+class QTreeWidget;
+class QLineEdit;
 class QStackedLayout;
 class QButtonGroup;
 class QSlider;
@@ -39,6 +41,9 @@ private:
     void attr_set(const QString& flag, const QJsonValue& v);
     void refresh_sculpt();
     void refresh_paint();
+    void move_weights();
+    void show_vertex_influences();
+    void filter_influences();
     void refresh_transform();
     QString ctx_kind() const;
     QString ctx_name() const;
@@ -72,7 +77,14 @@ private:
     QCheckBox* sculpt_invert_ = nullptr;
     QCheckBox* sculpt_sym_ = nullptr;
     // Paint page.
-    QListWidget* influences_ = nullptr;
+    QListWidget* skins_ = nullptr;
+    QTreeWidget* influences_ = nullptr;
+    QButtonGroup* sort_ = nullptr;
+    QLineEdit* search_ = nullptr;
+    QStringList pick_order_;
+    QButtonGroup* skin_mode_ = nullptr;
+    QButtonGroup* paint_select_ = nullptr;
+    QComboBox* normalize_ = nullptr;
     QButtonGroup* op_ = nullptr;
     QComboBox* stamp_ = nullptr;
     QDoubleSpinBox* value_ = nullptr;

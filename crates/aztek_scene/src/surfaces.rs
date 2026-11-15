@@ -2095,25 +2095,10 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "selectType",
-            "Which components are picked: -cv, -v or -pv for points, -pe edges, -pf faces, each true or false; -q asks. Component modes do the masking here, so turning \
-             one on switches to its mode.",
+            "Which components are picked: -cv, -v or -pv for points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells, each true or false; \
+             -pv -pe -pf together are Multi; -q asks. Component modes do the masking here, so turning one on switches to its mode.",
             |s, a| {
-                let g = &mut s.graph;
-                let kinds = [("controlVertex", ComponentMode::Vertex), ("vertex", ComponentMode::Vertex), ("polymeshVertex", ComponentMode::Vertex), ("polymeshEdge", ComponentMode::Edge), ("polymeshFace", ComponentMode::Face)];
-                if a.has("query") && a.bool("query") {
-                    for (flag, mode) in kinds {
-                        if a.has(flag) {
-                            return Ok(json!(components::mode(g) == mode));
-                        }
-                    }
-                    return Ok(json!(false));
-                }
-                for (flag, mode) in kinds {
-                    if a.has(flag) && a.bool(flag) {
-                        components::set_mode(g, mode);
-                    }
-                }
-                Ok(Value::Null)
+                Ok(select_type_components(&mut s.graph, a).unwrap_or(Value::Null))
             },
         )
         .undoable(false)
@@ -2122,6 +2107,9 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("polymeshVertex", "pv", ArgType::Bool, "Mesh vertices."))
         .flag(f("polymeshEdge", "pe", ArgType::Bool, "Mesh edges."))
         .flag(f("polymeshFace", "pf", ArgType::Bool, "Mesh faces."))
+        .flag(f("polymeshUV", "puv", ArgType::Bool, "Mesh UVs."))
+        .flag(f("polymeshVtxFace", "pvf", ArgType::Bool, "Mesh vertex faces."))
+        .flag(f("meshUVShell", "msh", ArgType::Bool, "UV shells: a UV pick takes its whole shell."))
         .flag(f("query", "q", ArgType::Bool, "Ask rather than set.")),
     );
 
@@ -2192,4 +2180,49 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("queried", "", ArgType::Any, "What a query asks for."))
         .flag(f("all", "all", ArgType::Bool, "Every surface.")),
     );
+}
+
+/// selectType's component masks: -cv -v -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells;
+/// -pv -pe -pf together are Multi. A query on one gives Some(on); setting gives Some(null); None when no component flag
+/// was given.
+pub fn select_type_components(g: &mut crate::graph::Graph, a: &Args) -> Option<Value> {
+    let kinds = [
+        ("controlVertex", ComponentMode::Vertex),
+        ("vertex", ComponentMode::Vertex),
+        ("polymeshVertex", ComponentMode::Vertex),
+        ("polymeshEdge", ComponentMode::Edge),
+        ("polymeshFace", ComponentMode::Face),
+        ("polymeshUV", ComponentMode::Uv),
+        ("polymeshVtxFace", ComponentMode::VertexFace),
+    ];
+    if !kinds.iter().any(|k| a.has(k.0)) && !a.has("meshUVShell") {
+        return None;
+    }
+    let multi = components::is_multi(g);
+    if a.has("query") && a.bool("query") {
+        if a.has("meshUVShell") {
+            return Some(json!(components::is_uv_shell(g)));
+        }
+        for (flag, mode) in kinds {
+            if a.has(flag) {
+                // Multi has mesh vertices, edges and faces on together.
+                let on = if multi { matches!(flag, "polymeshVertex" | "polymeshEdge" | "polymeshFace") } else { components::mode(g) == mode };
+                return Some(json!(on));
+            }
+        }
+        return Some(json!(false));
+    }
+    let mesh_on = ["polymeshVertex", "polymeshEdge", "polymeshFace"].iter().filter(|f| a.has(f) && a.bool(f)).count();
+    if mesh_on > 1 {
+        components::set_multi(g);
+    } else if a.has("meshUVShell") && a.bool("meshUVShell") {
+        components::set_uv_shell(g);
+    } else {
+        for (flag, mode) in kinds {
+            if a.has(flag) && a.bool(flag) {
+                components::set_mode_exact(g, mode);
+            }
+        }
+    }
+    Some(Value::Null)
 }

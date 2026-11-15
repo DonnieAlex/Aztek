@@ -63,3 +63,58 @@ fn unfold_keeps_shell_in_place() {
     let v = uvs(&mut s, "pCylinder1");
     assert!(v.iter().all(|x| x.is_finite()));
 }
+
+/// Issue 55: unfold's options do what they say, and the legacy unfold holds pinned UVs.
+#[test]
+fn unfold_packs_and_pins() {
+    let mut s = Session::new();
+    run(&mut s, "polyPlane", json!({"subdivisionsX": 4, "subdivisionsY": 4}));
+    // Stretch the UVs out of shape, beyond 0 to 1.
+    run(&mut s, "polyEditUV", json!({"args": ["pPlane1.map[0:24]"], "scaleU": 3.0, "pivotU": 0.0, "pivotV": 0.0}));
+    run(&mut s, "u3dUnfold", json!({"args": ["pPlane1"], "pack": 1, "method": "conformal"}));
+    assert!(in_unit(&uvs(&mut s, "pPlane1")), "{:?}", uvs(&mut s, "pPlane1"));
+    // Two corners held: they stay where they were, whatever the rest does.
+    run(&mut s, "polyEditUV", json!({"args": ["pPlane1.map[0:24]"], "scaleU": 2.0, "pivotU": 0.0, "pivotV": 0.0}));
+    let held = |s: &mut Session| [uvs(s, "pPlane1.map[0]"), uvs(s, "pPlane1.map[24]")];
+    let before = held(&mut s);
+    run(&mut s, "unfold", json!({"args": ["pPlane1.map[0]", "pPlane1.map[24]"], "pinSelected": true}));
+    let after = held(&mut s);
+    for (a, b) in before.iter().zip(&after) {
+        for (x, y) in a.iter().zip(b) {
+            assert!((x - y).abs() < 1e-5, "{before:?} {after:?}");
+        }
+    }
+    // The rest moved: the stretch came out.
+    let mid = uvs(&mut s, "pPlane1.map[12]");
+    assert!(mid.iter().all(|x| x.is_finite()));
+}
+
+#[test]
+fn uvs_and_vertex_faces_select_like_the_reference() {
+    let mut s = Session::new();
+    run(&mut s, "polyCube", json!({}));
+    // UVs by name: the mode follows, and the selection reads back as the reference writes it.
+    run(&mut s, "select", json!({"args": ["pCube1.map[0:2]"]}));
+    assert_eq!(run(&mut s, "selectMode", json!({})), json!("uv"));
+    assert_eq!(run(&mut s, "ls", json!({"selection": true})), json!(["pCube1.map[0:2]"]));
+    assert_eq!(run(&mut s, "filterExpand", json!({"selectionMask": 35})), json!(["pCube1.map[0]", "pCube1.map[1]", "pCube1.map[2]"]));
+    // To vertices: the points those UVs sit at.
+    let pts = run(&mut s, "polyListComponentConversion", json!({"args": ["pCube1.map[0]"], "toVertex": true}));
+    assert_eq!(pts, json!(["pCube1.vtx[0]"]));
+    // Vertex faces: one point as one face sees it.
+    run(&mut s, "select", json!({"args": ["pCube1.vtxFace[0][0]"]}));
+    assert_eq!(run(&mut s, "selectMode", json!({})), json!("vertexFace"));
+    assert_eq!(run(&mut s, "ls", json!({"selection": true})), json!(["pCube1.vtxFace[0][0]"]));
+    // selectType's masks: UVs, UV shells, vertex faces, and Multi for vertices, edges and faces together.
+    run(&mut s, "selectType", json!({"polymeshUV": true}));
+    assert_eq!(run(&mut s, "selectType", json!({"query": true, "polymeshUV": true})), json!(true));
+    run(&mut s, "selectType", json!({"meshUVShell": true}));
+    assert_eq!(run(&mut s, "selectMode", json!({})), json!("uvShell"));
+    run(&mut s, "selectType", json!({"polymeshVertex": true, "polymeshEdge": true, "polymeshFace": true}));
+    assert_eq!(run(&mut s, "selectMode", json!({})), json!("multi"));
+    run(&mut s, "select", json!({"args": ["pCube1.vtx[1]", "pCube1.e[2]", "pCube1.f[3]"]}));
+    assert_eq!(run(&mut s, "selectMode", json!({})), json!("multi"));
+    assert_eq!(run(&mut s, "ls", json!({"selection": true})), json!(["pCube1.vtx[1]", "pCube1.e[2]", "pCube1.f[3]"]));
+    run(&mut s, "selectMode", json!({"args": ["vertex"]}));
+    assert_eq!(run(&mut s, "ls", json!({"selection": true})), json!(["pCube1.vtx[1]"]));
+}

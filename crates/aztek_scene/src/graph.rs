@@ -247,6 +247,13 @@ fn convert_value(v: &PlugValue, def: &AttrDef) -> PlugValue {
     if v.holds(def.ty) {
         return v.clone();
     }
+    // Geometry passes between geometry data and mesh plugs as it is.
+    if matches!(def.ty, PlugType::Data | PlugType::Mesh) && matches!(v, PlugValue::Mesh(_) | PlugValue::Data(_)) {
+        return match (def.ty, v) {
+            (PlugType::Mesh, PlugValue::Data(None)) => PlugValue::Mesh(None),
+            _ => v.clone(),
+        };
+    }
     let j = to_json(v);
     let mut numeric = true;
     let number = if let PlugValue::String(s) = v {
@@ -765,6 +772,12 @@ impl EvalView<'_> {
             // Numeric types convert across connections; a generic plug takes what comes.
             if std::mem::discriminant(slot) == std::mem::discriminant(sv) || (da.has(flags::GENERIC) && matches!(sv, PlugValue::Vec3(_) | PlugValue::Float(_))) {
                 *slot = sv.clone();
+            } else if matches!(slot, PlugValue::Mesh(_) | PlugValue::Data(_)) && matches!(sv, PlugValue::Mesh(_) | PlugValue::Data(_)) {
+                // Geometry passes between geometry data and mesh plugs as it is; empty data is no mesh.
+                *slot = match (&*slot, sv) {
+                    (PlugValue::Mesh(_), PlugValue::Data(None)) => PlugValue::Mesh(None),
+                    _ => sv.clone(),
+                };
             } else if let (Some(s), Some(_)) = (sv.scalar(), slot.scalar()) {
                 slot.assign_scalar(s);
             }
@@ -904,6 +917,9 @@ pub struct Graph {
     pub last_sphere: crate::conform_commands::SphereState,
     /// What the last hide hid, for showLastHidden.
     pub last_hidden: Vec<NodeId>,
+    /// Hidden polygon faces by mesh shape (see `hidden_components`), and a count of changes to them.
+    pub hidden_faces: BTreeMap<NodeId, crate::components::Ids>,
+    pub hidden_faces_version: u64,
     /// Whether poly edits record history nodes (constructionHistory).
     pub construction_history: bool,
     /// The move tools' options that change what a component move does.
@@ -1017,6 +1033,8 @@ impl Graph {
             inherit_listeners: BTreeMap::new(),
             last_sphere: Default::default(),
             last_hidden: Vec::new(),
+            hidden_faces: BTreeMap::new(),
+            hidden_faces_version: 0,
             construction_history: true,
             move_opts: MoveOptions::default(),
             duplicate_pairs: Default::default(),
@@ -1216,6 +1234,8 @@ impl Graph {
         self.undo.clear();
         self.components.cleared();
         self.last_hidden.clear();
+        self.hidden_faces.clear();
+        self.hidden_faces_version += 1;
         if let Some(set) = &mut self.active_isolation {
             set.clear();
         }
@@ -2881,7 +2901,9 @@ impl Graph {
             )
         };
         let generic = (sa.has(flags::GENERIC) || da.has(flags::GENERIC)) && [st, dt].iter().all(|&t| numeric(t) || t == PlugType::Vec3);
-        if st != dt && !(numeric(st) && numeric(dt)) && !generic {
+        // Geometry data (curves, surfaces, or any geometry, as transformGeometry takes) and meshes connect either way.
+        let geometry = |t: PlugType| matches!(t, PlugType::Data | PlugType::Mesh);
+        if st != dt && !(numeric(st) && numeric(dt)) && !generic && !(geometry(st) && geometry(dt)) {
             return Err(GraphError::invalid(format!(
                 "type mismatch: {} -> {}",
                 type_name(st),

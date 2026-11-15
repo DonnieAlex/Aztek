@@ -326,16 +326,32 @@ fn display_color(_s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// A named view colour: what displayRGBColor was given, else the reference's default.
+pub fn view_rgb(name: &str) -> Option<[f64; 4]> {
+    draw_style::display_rgb(name).or_else(|| NAMED_RGB.iter().find(|c| c.0 == name).map(|c| c.1))
+}
+
+/// Whether views show the gradient from backgroundTop to backgroundBottom (displayPref -displayGradient).
+pub fn display_gradient(s: &Session) -> bool {
+    match s.extras.display_pref.get("displayGradient") {
+        Some(Value::Bool(b)) => *b,
+        Some(v) => v.as_f64().is_some_and(|n| n != 0.0),
+        None => false,
+    }
+}
+
+const NAMED_RGB: &[(&str, [f64; 4])] = &[
+    ("background", [0.63, 0.63, 0.63, 1.0]),
+    ("backgroundTop", [0.54, 0.62, 0.70, 1.0]),
+    ("backgroundBottom", [0.05, 0.05, 0.05, 1.0]),
+    ("gridColor", [0.33, 0.33, 0.33, 1.0]),
+    ("gridAxis", [0.0, 0.0, 0.0, 1.0]),
+    ("gridHighlight", [0.0, 0.0, 0.0, 1.0]),
+    ("lead", [0.4, 1.0, 0.647, 1.0]),
+];
+
 fn display_rgb(_s: &mut Session, a: &Args) -> CmdResult {
-    const NAMED: &[(&str, [f64; 4])] = &[
-        ("background", [0.63, 0.63, 0.63, 1.0]),
-        ("backgroundTop", [0.54, 0.62, 0.70, 1.0]),
-        ("backgroundBottom", [0.05, 0.05, 0.05, 1.0]),
-        ("gridColor", [0.33, 0.33, 0.33, 1.0]),
-        ("gridAxis", [0.0, 0.0, 0.0, 1.0]),
-        ("gridHighlight", [0.0, 0.0, 0.0, 1.0]),
-        ("lead", [0.4, 1.0, 0.647, 1.0]),
-    ];
+    const NAMED: &[(&str, [f64; 4])] = NAMED_RGB;
     if a.bool("list") {
         return Ok(Value::Array(NAMED.iter().map(|c| json!(format!("{} {} {} {}", c.0, c.1[0], c.1[1], c.1[2]))).collect()));
     }
@@ -430,7 +446,7 @@ const DISPLAY_PREF: &[Setting] = &[
     ("activeObjectPivots", "aop", B, Def::B(false)),
     ("defaultFontSize", "dfs", I, Def::I(9)),
     ("displayAffected", "da", B, Def::B(true)),
-    ("displayGradient", "dgr", B, Def::B(true)),
+    ("displayGradient", "dgr", B, Def::B(false)),
     ("fontSettingMode", "fm", I, Def::I(0)),
     ("lineWidth", "lw", F, Def::F(1.0)),
     ("materialLoadingMode", "mld", S, Def::S("immediate")),

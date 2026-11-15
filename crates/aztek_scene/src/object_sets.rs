@@ -76,6 +76,8 @@ fn kind_key(k: ComponentMode) -> &'static str {
         ComponentMode::Vertex => "vertices",
         ComponentMode::Edge => "edges",
         ComponentMode::Face => "faces",
+        ComponentMode::Uv => "uvs",
+        ComponentMode::VertexFace => "vertexFaces",
         ComponentMode::Object => "",
     }
 }
@@ -85,6 +87,8 @@ fn kind_suffix(k: ComponentMode) -> &'static str {
         ComponentMode::Vertex => "vtx",
         ComponentMode::Edge => "e",
         ComponentMode::Face => "f",
+        ComponentMode::Uv => "map",
+        ComponentMode::VertexFace => "vtxFace",
         ComponentMode::Object => "",
     }
 }
@@ -115,7 +119,7 @@ impl SetMembers {
         for m in j.get("members").and_then(Value::as_array).into_iter().flatten() {
             let Some(name) = m.get("node").and_then(Value::as_str) else { continue };
             let mut e = Entry { bound: Mutex::new(Binding { name: name.into(), ..Default::default() }), kind: ComponentMode::Object, ids: Vec::new() };
-            for k in [ComponentMode::Vertex, ComponentMode::Edge, ComponentMode::Face] {
+            for k in crate::components::ALL_KINDS {
                 if let Some(ids) = m.get(kind_key(k)).and_then(Value::as_array) {
                     e.kind = k;
                     e.ids.extend(ids.iter().filter_map(Value::as_u64).map(|v| v as u32));
@@ -418,16 +422,20 @@ pub fn parse(g: &Graph, items: &[String]) -> Result<Vec<Member>, String> {
             "vtx" | "pt" => ComponentMode::Vertex,
             "e" => ComponentMode::Edge,
             "f" => ComponentMode::Face,
-            _ => return Err(format!("unknown component '{suffix}' in {item} (vtx, e or f)")),
+            "map" => ComponentMode::Uv,
+            "vtxFace" => ComponentMode::VertexFace,
+            _ => return Err(format!("unknown component '{suffix}' in {item} (vtx, e, f, map or vtxFace)")),
         };
         let range = &item[open + 1..item.len() - 1];
+        if kind == ComponentMode::VertexFace {
+            // vtxFace[points][faces]: the corners of those faces at those points.
+            let ids = vtx_face_ids(g, n, range).ok_or_else(|| format!("bad component range in {item}"))?;
+            out = merged(out, &[Member { node: n, kind, ids }]);
+            continue;
+        }
         if range == "*" {
             let ids: Vec<u32> = match g.node(n).and_then(|x| x.data().mesh(crate::mesh_nodes::MeshNode::OUT_MESH).cloned()) {
-                Some(m) => match kind {
-                    ComponentMode::Vertex => (0..m.point_capacity()).filter(|&i| m.point_valid(i)).collect(),
-                    ComponentMode::Edge => (0..m.edge_capacity()).filter(|&i| m.edge_valid(i)).collect(),
-                    _ => (0..m.face_capacity()).filter(|&i| m.face_valid(i)).collect(),
-                },
+                Some(m) => crate::components::all_ids(&m, kind),
                 None => Vec::new(),
             };
             out = merged(out, &[Member { node: n, kind, ids }]);
@@ -445,6 +453,24 @@ pub fn parse(g: &Graph, items: &[String]) -> Result<Vec<Member>, String> {
         out = merged(out, &[Member { node: n, kind, ids: (first..=last).collect() }]);
     }
     Ok(out)
+}
+
+/// The corners named by vtxFace's two brackets, "3][5", "0:2][*" and the like: those of the faces at the points.
+fn vtx_face_ids(g: &Graph, mesh: NodeId, range: &str) -> Option<Ids> {
+    let (pts, faces) = range.split_once("][")?;
+    let m = g.node(mesh)?.data().mesh(crate::mesh_nodes::MeshNode::OUT_MESH).cloned()?;
+    let pick = |r: &str, all: &dyn Fn(u32) -> bool| -> Option<Box<dyn Fn(u32) -> bool>> {
+        if r == "*" {
+            return Some(Box::new(|_| true));
+        }
+        let _ = all;
+        let ids = plain_ids(r)?;
+        Some(Box::new(move |x| ids.binary_search(&x).is_ok()))
+    };
+    let (in_p, in_f) = (pick(pts, &|_| true)?, pick(faces, &|_| true)?);
+    let mut out: Ids = (0..m.corner_capacity()).filter(|&c| m.corner_valid(c) && in_p(m.corner_point(c)) && in_f(m.corner_face(c))).collect();
+    out.sort_unstable();
+    Some(out)
 }
 
 /// The members as parse() reads them, consecutive ids folded into ranges.
@@ -465,6 +491,10 @@ pub fn format(g: &Graph, list: &[Member]) -> Vec<String> {
         }
         if let Some(stride) = crate::surfaces::id_stride(g, m.node) {
             out.extend(crate::surfaces::format_cvs(&m.ids, stride).into_iter().map(|c| format!("{path}.{c}")));
+            continue;
+        }
+        if m.kind == ComponentMode::VertexFace {
+            out.extend(m.ids.iter().filter_map(|&c| crate::components::vtx_face_string(g, m.node, &path, c)));
             continue;
         }
         let prefix = format!("{path}.{}[", kind_suffix(m.kind));

@@ -502,12 +502,41 @@ pub struct PaintCtx {
     pub stamp: Stamp,
     pub influence: String,
     pub color_feedback: bool,
+    /// -spm: 1 paints weights, 0 marquee selects, 2 paint selects.
+    pub skin_paint_mode: i64,
+    /// -psm: paint select adds (1), removes (2) or toggles (3).
+    pub paint_select_mode: i64,
+    /// -und: the weights as numbers beside their points, -ndp decimals, -ndc their colour.
+    pub numeric: bool,
+    pub numeric_precision: i64,
+    pub numeric_color: [f64; 3],
 }
 
 impl Default for PaintCtx {
     fn default() -> Self {
-        PaintCtx { radius: 1.0, opacity: 1.0, value: 1.0, op: PaintOp::Replace, stamp: Stamp::Gaussian, influence: String::new(), color_feedback: true }
+        PaintCtx {
+            radius: 1.0,
+            opacity: 1.0,
+            value: 1.0,
+            op: PaintOp::Replace,
+            stamp: Stamp::Gaussian,
+            influence: String::new(),
+            color_feedback: true,
+            skin_paint_mode: 1,
+            paint_select_mode: 1,
+            numeric: false,
+            numeric_precision: 2,
+            numeric_color: [1.0, 1.0, 1.0],
+        }
     }
+}
+
+/// The painted influence's weight at each point of a skinned mesh, for numbers shown beside them.
+pub fn influence_weights(s: &Session, mesh: NodeId) -> Option<Vec<f64>> {
+    let sk = skin_of(&s.graph, mesh)?;
+    let inf = paint_influence(s, sk)?;
+    let b = bind_of(&s.graph, sk)?;
+    Some(b.weights.iter().map(|pw| weight_at(pw, inf)).collect())
 }
 
 pub(crate) fn falloff(stamp: Stamp, t: f64) -> f64 {
@@ -1392,22 +1421,36 @@ fn skin_percent(s: &mut Session, a: &Args) -> CmdResult {
         touched = true;
     }
     if let Some(tm) = a.get("transformMoveWeights") {
+        // The first influence named gives its weight to the others, the reference's -tmw source -tmw target...:
+        // shared evenly by the targets that aren't held.
         let list_names = names_list(tm);
         let locks = SkinBind { locks: b.locks.clone(), ..Default::default() };
-        for pair in list_names.chunks(2) {
-            if pair.len() < 2 {
-                continue;
+        if list_names.len() < 2 {
+            fail!("skinPercent: -transformMoveWeights needs a source and at least one target");
+        }
+        let from = inf_named(g, &list_names[0])?;
+        let mut targets = Vec::new();
+        for n in &list_names[1..] {
+            let t = inf_named(g, n)?;
+            if t != from && !locks.locked(t) && !targets.contains(&t) {
+                targets.push(t);
             }
-            let (from, to) = (inf_named(g, &pair[0])?, inf_named(g, &pair[1])?);
+        }
+        if !targets.is_empty() && !locks.locked(from) {
+            let share = 1.0 / targets.len() as f64;
             for &p in &pts {
                 let Some(pw) = b.weights.get_mut(p as usize) else { continue };
                 let x = weight_at(pw, from);
-                if x > 0.0 && !locks.locked(from) && !locks.locked(to) {
-                    let y = weight_at(pw, to);
-                    pw.retain(|e| e.0 != from && e.0 != to);
-                    pw.push((to, x + y));
-                    pw.sort_by_key(|e| e.0);
+                if x <= 0.0 {
+                    continue;
                 }
+                pw.retain(|e| e.0 != from);
+                for &t in &targets {
+                    let y = weight_at(pw, t);
+                    pw.retain(|e| e.0 != t);
+                    pw.push((t, y + x * share));
+                }
+                pw.sort_by_key(|e| e.0);
             }
         }
         touched = true;
@@ -1669,14 +1712,14 @@ pub fn register(c: &mut Commands<Session>) {
         Cmd::new(
             "skinPercent",
             "Set or query skin weights of points: skinPercent -tv joint1 1 skinCluster1 pCube1.vtx[0]. -tv joint value (multi), -r \
-             relative, -zri zeroes the rest, -tmw from to moves weight, -prw prunes weights below a value, -nrm normalizes, -rtd \
+             relative, -zri zeroes the rest, -tmw source -tmw target... moves weight, -prw prunes weights below a value, -nrm normalizes, -rtd \
              resets to the default bind. Query: -v the weights, -t the influences or one influence's weight, -ib ignores small ones.",
             skin_percent,
         )
         .positional("skinCluster, then points or components (the selection when none)")
         .flag(f("transformValue", "tv", ArgType::List, "joint weight pairs.").multi(2))
         .flag(f("dqBlendWeight", "dqb", ArgType::Float, "The points' blend between linear and dual quaternion, for skinningMethod 2."))
-        .flag(f("transformMoveWeights", "tmw", ArgType::List, "from to pairs: moves the weight of one influence to another.").multi(2))
+        .flag(f("transformMoveWeights", "tmw", ArgType::List, "The first use names the influence to take weight from, the others the influences to give it to.").multi(1))
         .flag(f("relative", "r", ArgType::Bool, "-tv adds to the current weight."))
         .flag(f("zeroRemainingInfluences", "zri", ArgType::Bool, "-tv zeroes the influences it doesn't name."))
         .flag(f("pruneWeights", "prw", ArgType::Float, "Removes weights below this value, normalizing what's left."))
@@ -1737,6 +1780,11 @@ pub fn register(c: &mut Commands<Session>) {
                         ("stampProfile", json!(stamp_name(c.stamp))),
                         ("influence", json!(c.influence)),
                         ("colorfeedback", json!(c.color_feedback)),
+                        ("skinPaintMode", json!(c.skin_paint_mode)),
+                        ("paintSelectMode", json!(c.paint_select_mode)),
+                        ("useNumericDisplay", json!(c.numeric)),
+                        ("numericDisplayPrecision", json!(c.numeric_precision)),
+                        ("numericDisplayColor", json!(c.numeric_color)),
                     ] {
                         if asked(a, flag) {
                             return Ok(v);
@@ -1777,6 +1825,24 @@ pub fn register(c: &mut Commands<Session>) {
                 if a.has("colorfeedback") {
                     s.paint_ctx.color_feedback = a.bool("colorfeedback");
                 }
+                if a.has("skinPaintMode") {
+                    s.paint_ctx.skin_paint_mode = a.int("skinPaintMode", 1).clamp(0, 2);
+                }
+                if a.has("paintSelectMode") {
+                    s.paint_ctx.paint_select_mode = a.int("paintSelectMode", 1).clamp(1, 3);
+                }
+                if a.has("useNumericDisplay") {
+                    s.paint_ctx.numeric = a.bool("useNumericDisplay");
+                }
+                if a.has("numericDisplayPrecision") {
+                    s.paint_ctx.numeric_precision = a.int("numericDisplayPrecision", 2).clamp(0, 6);
+                }
+                if let Some(c) = a.get("numericDisplayColor").and_then(Value::as_array) {
+                    let v: Vec<f64> = c.iter().filter_map(Value::as_f64).collect();
+                    if v.len() == 3 {
+                        s.paint_ctx.numeric_color = [v[0], v[1], v[2]];
+                    }
+                }
                 if a.bool("clear") {
                     // Flood.
                     let names = {
@@ -1800,7 +1866,12 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("selectedattroper", "sao", ArgType::String, "absolute (replace), additive, scale or smooth."))
         .flag(f("stampProfile", "stP", ArgType::String, "gaussian, poly, solid or square."))
         .flag(f("influence", "inf", ArgType::String, "The joint painted."))
-        .flag(f("colorfeedback", "cl", ArgType::Bool, "Show the weights in colour."))
+        .flag(f("colorfeedback", "cf", ArgType::Bool, "Show the weights in colour."))
+        .flag(f("skinPaintMode", "spm", ArgType::Int, "1 paints weights, 0 marquee selects, 2 paint selects."))
+        .flag(f("paintSelectMode", "psm", ArgType::Int, "Paint select adds to the selection (1), removes from it (2) or toggles it (3)."))
+        .flag(f("useNumericDisplay", "und", ArgType::Bool, "The weights as numbers beside their points."))
+        .flag(f("numericDisplayPrecision", "ndp", ArgType::Int, "Decimals of the numbers."))
+        .flag(f("numericDisplayColor", "ndc", ArgType::List, "The numbers' colour."))
         .flag(f("clear", "clr", ArgType::Bool, "Flood: paint the value over the selection's points.")),
     ));
 

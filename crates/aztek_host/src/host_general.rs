@@ -249,8 +249,12 @@ fn send_grid(s: &State) {
     let divisions = grid_value(s, "divisions").as_f64().unwrap_or(5.0).max(1.0);
     let size = grid_value(s, "size").as_f64().unwrap_or(12.0) * k;
     let on = grid_value(s, "toggle").as_bool().unwrap_or(true);
+    let mut style = serde_json::Map::new();
+    for (name, _, _) in GRID_FLAGS {
+        style.insert(name.to_string(), grid_value(s, name));
+    }
     for panel in ["modelPanel1", "modelPanel2", "modelPanel3", "modelPanel4"] {
-        for (key, value) in [("grid", json!(on)), ("gridSpacing", json!(spacing / divisions)), ("gridSize", json!(size))] {
+        for (key, value) in [("grid", json!(on)), ("gridStyle", Value::Object(style.clone())), ("gridSpacing", json!(spacing / divisions)), ("gridSize", json!(size))] {
             push_ui_request(format!("panelSet|{}", json!({"panel": panel, "key": key, "value": value})));
         }
     }
@@ -418,7 +422,7 @@ pub fn register(s: &mut Session) {
     );
     let mut g = q_flags(Cmd::new(
         "grid",
-        "The ground plane: -s size, -sp spacing between major lines, -d divisions between them, -tgl on or off, -r back to the defaults, -df the defaults themselves. These reach the four model panels: a line every spacing / divisions, reaching -s each way. The major lines stay darker every 5 lines whatever -d says, and the axes, division line and label flags are only held. -q reads a flag.",
+        "The ground plane: -s size, -sp spacing between major lines, -d divisions between them, -tgl on or off, -r back to the defaults, -df the defaults themselves. These reach the four model panels: a line every spacing / divisions, reaching -s each way. -da, -dab, -dgl and -ddl show the axes, draw them thicker, and show the grid lines and the subdivision lines; -dpl and -dol number the grid lines in the perspective and orthographic views, along the axes or the edge (-plp, -olp). The colours are displayRGBColor's gridAxis, gridHighlight and gridColor. -q reads a flag.",
         grid,
     ))
     .flag(f("default", "df", B, "Set or read the defaults."))

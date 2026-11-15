@@ -622,6 +622,174 @@ pub(crate) fn read_group(c: &mut Ctx, prim: &Prim, parent: NodeId) -> Result<Nod
     Ok(tr)
 }
 
+const LIGHTS: [&str; 6] = ["SphereLight", "DistantLight", "RectLight", "DiskLight", "CylinderLight", "DomeLight"];
+
+/// Whether a prim holds only settings that aren't read as nodes (render settings, Arnold's options): a Scope of
+/// them makes no empty group.
+fn only_settings(prim: &Prim) -> bool {
+    let kids = prim.children().unwrap_or_default();
+    !kids.is_empty()
+        && kids.iter().all(|k| {
+            let t = k.type_name().ok().flatten().map_or(String::new(), |t| t.as_str().to_string());
+            SKIP_SUBTREE.contains(&t.as_str()) || (t.starts_with("Arnold") && !t.starts_with("ArnoldProcedural")) || (t == "Scope" && only_settings(k))
+        })
+}
+
+/// A UsdLux value, under its inputs: name or the older plain one.
+fn lux_f64(prim: &Prim, name: &str) -> Option<f64> {
+    f64_of(prim, &format!("inputs:{name}"), None).or_else(|| f64_of(prim, name, None))
+}
+
+fn lux_color(prim: &Prim) -> Option<DVec3> {
+    for name in ["inputs:color", "color"] {
+        let a = prim.attribute(name);
+        if let Ok(Some(v)) = a.get_at::<gf::Vec3f>(at(None)) {
+            return Some(DVec3::new(v.x as f64, v.y as f64, v.z as f64));
+        }
+        if let Ok(Some(v)) = a.get_at::<gf::Vec3d>(at(None)) {
+            return Some(DVec3::new(v.x, v.y, v.z));
+        }
+    }
+    None
+}
+
+fn lux_bool(prim: &Prim, name: &str) -> Option<bool> {
+    for n in [format!("inputs:{name}"), name.to_string()] {
+        if let Ok(Some(v)) = prim.attribute(n.as_str()).get_at::<bool>(at(None)) {
+            return Some(v);
+        }
+    }
+    None
+}
+
+fn lux_string(prim: &Prim, name: &str) -> Option<String> {
+    for n in [format!("inputs:{name}"), name.to_string()] {
+        let a = prim.attribute(n.as_str());
+        if let Ok(Some(v)) = a.get_at::<openusd::sdf::AssetPath>(at(None)) {
+            let p = v.resolved_path().filter(|x| !x.is_empty()).unwrap_or_else(|| v.asset_path()).to_string();
+            if !p.is_empty() {
+                return Some(p);
+            }
+        }
+        if let Ok(Some(v)) = a.get_at::<String>(at(None)) {
+            return Some(v);
+        }
+        if let Ok(Some(t)) = a.get_at::<Token>(at(None)) {
+            return Some(t.as_str().to_string());
+        }
+    }
+    None
+}
+
+/// A UsdLux light (Arnold's are UsdLux too) as the light the reference's USD plug-in makes of it: SphereLight a point
+/// light (a spot light with a shaping cone), DistantLight a directional light, RectLight an area light, DiskLight and
+/// CylinderLight Arnold area lights, DomeLight an Arnold sky dome with its texture. Intensity, exposure, colour, colour
+/// temperature, normalize, radius and angle, sizes as the transform's scale.
+fn read_light(c: &mut Ctx, prim: &Prim, tr: NodeId, ty: &str) -> Result<(), String> {
+    let cone = f64_of(prim, "inputs:shaping:cone:angle", None).or_else(|| f64_of(prim, "shaping:cone:angle", None));
+    let kind = match ty {
+        "SphereLight" if cone.is_some_and(|a| a < 90.0) => "spotLight",
+        "SphereLight" => "pointLight",
+        "DistantLight" => "directionalLight",
+        "RectLight" => "areaLight",
+        "DiskLight" | "CylinderLight" => "aiAreaLight",
+        _ => "aiSkyDomeLight",
+    };
+    let sh = shape_under(c, tr, kind)?;
+    let g = &mut c.s.graph;
+    if let Some(v) = lux_f64(prim, "intensity") {
+        set_attr(g, sh, "intensity", PlugValue::Float(v));
+    }
+    if let Some(v) = lux_f64(prim, "exposure") {
+        set_attr(g, sh, "aiExposure", PlugValue::Float(v));
+    }
+    if let Some(col) = lux_color(prim) {
+        set_attr(g, sh, "color", PlugValue::Vec3(col));
+    }
+    if lux_bool(prim, "enableColorTemperature") == Some(true) {
+        add_user_attr(g, sh, "aiUseColorTemperature", PlugValue::Bool(true));
+        if let Some(k) = lux_f64(prim, "colorTemperature") {
+            add_user_attr(g, sh, "aiColorTemperature", PlugValue::Float(k));
+        }
+    }
+    if let Some(v) = lux_bool(prim, "normalize") {
+        set_attr(g, sh, "aiNormalize", PlugValue::Bool(v));
+    }
+    if let Some(v) = lux_f64(prim, "diffuse") {
+        set_attr(g, sh, "aiDiffuse", PlugValue::Float(v));
+    }
+    if let Some(v) = lux_f64(prim, "specular") {
+        set_attr(g, sh, "aiSpecular", PlugValue::Float(v));
+    }
+    // Sizes: radius and angle on the light; a rect's, disc's or cylinder's extent scales its transform, as the
+    // reference's area lights are a unit shape.
+    let scale_by = |g: &mut Graph, k: DVec3| {
+        if let Some(p) = plug_of(g, tr, "scale") {
+            let now = g.value(&p).ok().map_or(DVec3::ONE, |v| if let PlugValue::Vec3(x) = v { x } else { DVec3::ONE });
+            let _ = g.set_value(p, PlugValue::Vec3(now * k));
+        }
+    };
+    match ty {
+        "SphereLight" => {
+            if let Some(r) = lux_f64(prim, "radius") {
+                set_attr(g, sh, "aiRadius", PlugValue::Float(r));
+            }
+            if let Some(a) = cone.filter(|a| *a < 90.0) {
+                // USD's cone angle is the half angle; the reference's is the whole cone, and its softness the penumbra.
+                set_attr(g, sh, "coneAngle", PlugValue::Float((a * 2.0).to_radians()));
+                let soft = f64_of(prim, "inputs:shaping:cone:softness", None).or_else(|| f64_of(prim, "shaping:cone:softness", None)).unwrap_or(0.0);
+                if soft > 0.0 {
+                    set_attr(g, sh, "penumbraAngle", PlugValue::Float((a * soft).to_radians()));
+                }
+            }
+        }
+        "DistantLight" => {
+            if let Some(a) = lux_f64(prim, "angle") {
+                set_attr(g, sh, "aiAngle", PlugValue::Float(a));
+            }
+        }
+        "RectLight" => {
+            let (w, h) = (lux_f64(prim, "width").unwrap_or(1.0), lux_f64(prim, "height").unwrap_or(1.0));
+            scale_by(g, DVec3::new(w * 0.5, h * 0.5, 1.0));
+        }
+        "DiskLight" => {
+            set_attr(g, sh, "aiTranslator", PlugValue::Int(1));
+            let r = lux_f64(prim, "radius").unwrap_or(0.5);
+            scale_by(g, DVec3::new(r, r, 1.0));
+        }
+        "CylinderLight" => {
+            set_attr(g, sh, "aiTranslator", PlugValue::Int(2));
+            // USD's cylinder runs along X, Arnold's along Y: turned a quarter about Z.
+            let (r, l) = (lux_f64(prim, "radius").unwrap_or(0.5), lux_f64(prim, "length").unwrap_or(1.0));
+            if let Some(p) = plug_of(g, tr, "rotate") {
+                let now = g.value(&p).ok().map_or(DVec3::ZERO, |v| if let PlugValue::Vec3(x) = v { x } else { DVec3::ZERO });
+                let _ = g.set_value(p, PlugValue::Vec3(now + DVec3::new(0.0, 0.0, std::f64::consts::FRAC_PI_2)));
+            }
+            scale_by(g, DVec3::new(r, l * 0.5, r));
+        }
+        _ => {
+            if let Some(f) = lux_string(prim, "texture:format") {
+                let i = match f.as_str() {
+                    "mirroredBall" => 0,
+                    "angular" => 1,
+                    _ => 2,
+                };
+                set_attr(g, sh, "format", PlugValue::Int(i));
+            }
+            if let Some(file) = lux_string(prim, "texture:file") {
+                // The image through a file texture into the dome's colour.
+                let made = c.s.run("shadingNode", json!({"args": ["file"], "asTexture": true}));
+                if let Ok(J::String(tex)) = made {
+                    let _ = c.s.run("setAttr", json!({"args": [format!("{tex}.fileTextureName"), file], "type": "string"}));
+                    let light = c.s.graph.path(sh);
+                    let _ = c.s.run("connectAttr", json!({"args": [format!("{tex}.outColor"), format!("{light}.color")], "force": true}));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Reads a prim and what's below it.
 pub(crate) fn read_prim(c: &mut Ctx, prim: &Prim, parent: NodeId, proto: Option<(String, String)>) -> Result<Option<NodeId>, String> {
     let ty = prim.type_name().map_err(|e| e.to_string())?.map_or(String::new(), |t| t.as_str().to_string());
@@ -635,12 +803,18 @@ pub(crate) fn read_prim(c: &mut Ctx, prim: &Prim, parent: NodeId, proto: Option<
     if matches!(spec, Some(openusd::sdf::Specifier::Class)) {
         return Ok(None);
     }
+    if ty == "Scope" && only_settings(prim) {
+        return Ok(None);
+    }
     let tr = make_transform(c, &name, parent)?;
     let key = prim.path().as_str().to_string();
     c.nodes.insert(key, tr);
     read_xform(c, prim, tr);
     read_visibility(c, prim, tr);
     read_custom(c, prim, tr);
+    if ty == "Scope" {
+        add_user_attr(c.g(), tr, "USD_typeName", PlugValue::String("Scope".into()));
+    }
 
     // Instancing: everything below an instance is known by its path inside the prototype.
     let mut proto = proto;
@@ -670,6 +844,7 @@ pub(crate) fn read_prim(c: &mut Ctx, prim: &Prim, parent: NodeId, proto: Option<
             }
         }
         "PointInstancer" => read_instancer(c, prim, tr)?,
+        t if LIGHTS.contains(&t) => read_light(c, prim, tr, t)?,
         t if GROUPING.contains(&t) => {}
         other => {
             let msg = format!("{}: type {other} comes in as a transform", prim.path());

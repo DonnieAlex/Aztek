@@ -10,7 +10,7 @@ use aztek_geo::symmetry::SymmetryMap;
 use aztek_geo::topology::{chain_edges, region_boundary_edges};
 use aztek_geo::{Index, Mesh};
 use aztek_ops::{fail, ArgType as T, Args, CmdResult, Commands, FlagDef};
-use glam::{DQuat, DVec3};
+use glam::{DMat4, DQuat, DVec3};
 use serde_json::{json, Value};
 
 use super::*;
@@ -202,6 +202,27 @@ fn shortest_near(m: &Mesh, sel: &Ids) -> f64 {
 }
 
 fn bevel_op(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+    // World space (the default, as in the reference): the offset, and the fraction's shortest edge, are measured on the
+    // object as it shows, scale and all. The mesh is beveled in the world and put back.
+    let world = object_to_world(a);
+    if world != DMat4::IDENTITY && world.determinant().abs() > 1e-12 {
+        let to_world = |m: &mut Mesh, x: &DMat4| {
+            for p in 0..m.point_capacity() {
+                if m.point_valid(p) {
+                    let at = x.transform_point3(m.position(p));
+                    m.set_position(p, at);
+                }
+            }
+        };
+        to_world(m, &world);
+        let r = bevel_in_place(a, m, sel, sym);
+        to_world(m, &world.inverse());
+        return r;
+    }
+    bevel_in_place(a, m, sel, sym)
+}
+
+fn bevel_in_place(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let mut offset = a.float("offset", 0.5);
     // A fraction reaches the middle of the shortest edge at 1.
     if a.bool("offsetAsFraction") {
@@ -811,10 +832,16 @@ pub(super) fn register(c: &mut Commands<Session>) {
             "polyBevel3",
             "Bevel edges: -o offset, -oaf as a fraction of the shortest edge, -sg segments, -c chamfer (flat) or round, -sa smoothing angle, \
              -mv -mvt merge the result. Returns the node.",
-            |s, a| run_op(s, "polyBevel3", a),
+            |s, a| {
+                run_op_with(s, "polyBevel3", a, &mut |g, n, _m, _ids, args| {
+                    add_world(g, n, args);
+                    Ok(())
+                })
+            },
         )
         .flag(legacy("profile", T::Float, json!(0.5)))
-        .flag(legacy("clamp", T::Bool, json!(true))),
+        .flag(legacy("clamp", T::Bool, json!(true)))
+        .flag(world_flag()),
         "polyBevel3",
         &[
             ("offset", json!(0.5)),
@@ -826,6 +853,7 @@ pub(super) fn register(c: &mut Commands<Session>) {
             ("chamfer", json!(true)),
             ("depth", json!(1.0)),
             ("angleTolerance", json!(20.0)),
+            ("worldSpace", json!(true)),
         ],
     ));
 

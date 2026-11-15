@@ -77,20 +77,38 @@ fn outliner_display(g: &Graph, id: NodeId) -> i32 {
     }
 }
 
-fn outliner_node(g: &Graph, id: NodeId, shapes: bool, show_intermediate: bool, sel: &[NodeId]) -> Option<Value> {
+/// What the Outliner's Display menu asks of the list beyond shapes: Assigned Materials under shapes, Ignore 'Hidden In
+/// Outliner'.
+#[derive(Clone, Copy, Default)]
+struct OutlinerAsk {
+    materials: bool,
+    show_hidden: bool,
+}
+
+fn outliner_node_with(g: &Graph, id: NodeId, shapes: bool, show_intermediate: bool, sel: &[NodeId], ask: OutlinerAsk) -> Option<Value> {
     let n = g.node(id)?;
     let shape = n.ty().is_a("shape");
     let intermediate = shape && n.bool(DagNode::INTERMEDIATE_OBJECT);
-    // Shapes on shows the original shapes deformers read from as well (pSphereShape1Orig), as the reference's Outliner
-    // lists them under the transform.
-    let _ = show_intermediate;
+    // The original shapes deformers read from (pSphereShape1Orig) only show with Display > Intermediate Objects on, as
+    // in the reference: Shapes alone leaves them out.
+    if intermediate && !show_intermediate {
+        return None;
+    }
     if shape && !shapes {
         return None;
     }
-    if n.ty().dag && n.bool(DagNode::HIDDEN_IN_OUTLINER) {
+    if n.ty().dag && n.bool(DagNode::HIDDEN_IN_OUTLINER) && !ask.show_hidden {
         return None;
     }
-    let kids: Vec<Value> = g.children(id).iter().filter_map(|&c| outliner_node(g, c, shapes, show_intermediate, sel)).collect();
+    let mut kids: Vec<Value> = g.children(id).iter().filter_map(|&c| outliner_node_with(g, c, shapes, show_intermediate, sel, ask)).collect();
+    // Assigned Materials: each shape's materials under it.
+    if ask.materials && shape {
+        for sg in aztek_scene::shading::groups_of(g, id) {
+            if let Some(m) = aztek_scene::shading::material_of_group(g, sg).and_then(|m| g.node(m).map(|x| (m, x))) {
+                kids.push(json!({"name": m.1.name(), "path": g.path(m.0), "type": m.1.ty().name, "icon": "material", "selected": sel.contains(&m.0), "visible": true, "intermediate": false, "material": true, "children": []}));
+            }
+        }
+    }
     // What the icon shows: a transform over a mesh is a mesh to the user.
     let icon = if n.ty().is_a("joint") {
         "joint".into()
@@ -137,12 +155,15 @@ pub fn outliner(core: &Core, arg: &str) -> Value {
     let show_intermediate = arg.contains("intermediate");
     let shapes = arg.contains("shapes") || show_intermediate;
     let all_nodes = arg.split_whitespace().any(|w| w == "dg");
+    let word = |w: &str| arg.split_whitespace().any(|x| x == w);
+    let ask = OutlinerAsk { materials: word("materials"), show_hidden: word("showHidden") };
+    let set_members = word("setMembers");
     let g = &core.s.graph;
     let sel = g.selection().to_vec();
     let mut out = Vec::new();
     for &r in g.roots() {
         if g.node(r).is_some_and(|n| n.ty().dag) {
-            if let Some(v) = outliner_node(g, r, shapes, show_intermediate, &sel) {
+            if let Some(v) = outliner_node_with(g, r, shapes, show_intermediate, &sel, ask) {
                 out.push(v);
             }
         }
@@ -152,7 +173,20 @@ pub fn outliner(core: &Core, arg: &str) -> Value {
         let Some(n) = g.node(id) else { continue };
         // Shading groups stay in the Hypershade unless everything is asked for, as the reference's outliner leaves them out.
         if n.ty().is_a("objectSet") && (show_intermediate || (aztek_scene::deform_sets::deformer_of_set(g, id).is_none() && !n.ty().is_a(aztek_scene::shading::SG_TYPE))) {
-            out.push(json!({"name": n.name(), "path": g.path(id), "type": n.ty().name, "icon": "set", "selected": sel.contains(&id), "visible": true, "intermediate": false, "children": []}));
+            // Set Members: what the set holds, under it.
+            let members: Vec<Value> = if set_members {
+                aztek_scene::object_sets::members(g, id)
+                    .iter()
+                    .filter_map(|m| {
+                        let x = g.node(m.node)?;
+                        let name = if m.kind == aztek_scene::components::ComponentMode::Object { x.name().to_string() } else { format!("{} ({} components)", x.name(), m.ids.len()) };
+                        Some(json!({"name": name, "path": g.path(m.node), "type": x.ty().name, "icon": x.ty().name, "selected": sel.contains(&m.node), "visible": true, "intermediate": false, "member": true, "children": []}))
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            out.push(json!({"name": n.name(), "path": g.path(id), "type": n.ty().name, "icon": "set", "selected": sel.contains(&id), "visible": true, "intermediate": false, "children": members}));
         } else if all_nodes && !n.ty().dag && !n.ty().is_a("objectSet") {
             // DAG Objects Only off: every other node too (a skin's bind pose, materials, history, time1), as the
             // reference lists them.
@@ -446,8 +480,15 @@ pub fn attribute_editor(core: &Core, path: &str) -> Value {
     let mut tabs = vec![id];
     let Some(n) = g.node(id) else { return Value::Null };
     if n.ty().is_a("transform") {
-        for s in aztek_scene::dag::shapes(g, id, false) {
+        let visible = aztek_scene::dag::shapes(g, id, false);
+        // The original shapes deformers read from (pSphereShape1Orig) get a tab of their own straight after the shape, as
+        // in the reference.
+        let originals: Vec<NodeId> = aztek_scene::dag::shapes(g, id, true).into_iter().filter(|s| !visible.contains(s)).collect();
+        for (k, s) in visible.into_iter().enumerate() {
             tabs.push(s);
+            if k == 0 {
+                tabs.extend(originals.iter().copied());
+            }
             if g.node(s).is_some_and(|n| n.ty().is_a("mesh")) {
                 tabs.extend(aztek_scene::history::history_of(g, s).into_iter().filter(|&h| g.node(h).is_some_and(|n| !n.ty().dag)));
             }
@@ -580,12 +621,7 @@ pub fn layers(core: &Core) -> Value {
 
 pub fn state(core: &Core) -> Value {
     let g = &core.s.graph;
-    let mode = match components::mode(g) {
-        ComponentMode::Object => "object",
-        ComponentMode::Vertex => "vertex",
-        ComponentMode::Edge => "edge",
-        ComponentMode::Face => "face",
-    };
+    let mode = if components::is_multi(g) { "multi" } else if components::is_uv_shell(g) { "uvShell" } else { components::mode_name(components::mode(g)) };
     let sel = components::component_strings(g, false);
     let sel = if sel.is_empty() { g.selection().iter().map(|&id| g.path(id)).collect() } else { sel };
     json!({
@@ -625,7 +661,7 @@ pub fn uv_data(core: &mut Core) -> Value {
         }
     }
     let mode = components::mode(g);
-    for kind in [ComponentMode::Vertex, ComponentMode::Edge, ComponentMode::Face] {
+    for kind in components::ALL_KINDS {
         for (&node, _) in components::selected_all(g, kind).iter() {
             if let Some(m) = components::as_mesh(g, node) {
                 if !meshes.contains(&m) {
@@ -644,15 +680,10 @@ pub fn uv_data(core: &mut Core) -> Value {
         d["selFaces"] = json!(sel(ComponentMode::Face));
         d["selEdges"] = json!(sel(ComponentMode::Edge));
         d["selPoints"] = json!(sel(ComponentMode::Vertex));
+        d["selMaps"] = json!(sel(ComponentMode::Uv));
         out.push(d);
     }
-    let mode = match mode {
-        ComponentMode::Object => "object",
-        ComponentMode::Vertex => "vertex",
-        ComponentMode::Edge => "edge",
-        ComponentMode::Face => "face",
-    };
-    json!({"mode": mode, "meshes": out})
+    json!({"mode": components::mode_name(mode), "uvShell": components::is_uv_shell(g), "multi": components::is_multi(g), "meshes": out})
 }
 
 /// The Node Editor's graph: the root nodes and what's connected to them, `depth` connections out. arg is JSON:

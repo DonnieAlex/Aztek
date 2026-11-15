@@ -112,6 +112,7 @@ pub mod split_rings_modifier;
 pub mod general_cmds;
 pub mod rig_extra;
 pub mod system_cmds;
+pub mod hidden_components;
 pub mod transform;
 pub mod transform_ops;
 pub mod texture_nodes;

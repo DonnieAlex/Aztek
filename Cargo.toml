@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/aztek_core", "crates/aztek_undo", "crates/aztek_ops", "crates/aztek_geo", "crates/aztek_scene", "crates/aztek_uv", "crates/aztek_host", "crates/aztek_usd", "crates/aztek_render", "crates/aztek_dyn"]
+members = ["crates/aztek_dg", "crates/aztek_api", "crates/aztek_core", "crates/aztek_undo", "crates/aztek_ops", "crates/aztek_geo", "crates/aztek_scene", "crates/aztek_uv", "crates/aztek_host", "crates/aztek_usd", "crates/aztek_render", "crates/aztek_dyn"]
 
 [workspace.package]
 version = "1.0.0"

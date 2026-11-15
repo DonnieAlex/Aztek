@@ -42,18 +42,24 @@ fn a_bind_locks_the_bound_objects_transform_and_unbinding_frees_it() {
     c.mel("setAttr ball.tx 3;");
 }
 
-// Issue 32: the original shape could not be found in the Outliner with Shapes on.
+// Issues 32 and 52: the original shape is listed with Display > Intermediate Objects on, not with Shapes alone, as in
+// the reference; the Attribute Editor gives it a tab straight after the shape.
 #[test]
-fn the_outliner_lists_the_original_shape_with_shapes_on() {
+fn the_original_shape_shows_with_intermediate_objects() {
     let mut c = Core::new();
     c.mel("polySphere -n ball; select -cl; joint -n a; skinCluster a ball;");
     let plain = query::outliner(&c, "");
     assert!(find(&plain, "ball").is_some() && find(&plain, "ballShapeOrig").is_none());
-    let shapes = query::outliner(&c, "shapes");
-    let ball = find(&shapes, "ball").unwrap();
-    let kids: Vec<&str> = ball["children"].as_array().unwrap().iter().map(|k| k["name"].as_str().unwrap()).collect();
-    assert_eq!(kids, ["ballShape", "ballShapeOrig"]);
-    assert_eq!(find(&shapes, "ballShapeOrig").unwrap()["intermediate"], json!(true));
+    let kids = |v: &Value| -> Vec<String> {
+        find(v, "ball").unwrap()["children"].as_array().unwrap().iter().map(|k| k["name"].as_str().unwrap().to_string()).collect()
+    };
+    assert_eq!(kids(&query::outliner(&c, "shapes")), ["ballShape"]);
+    let both = query::outliner(&c, "shapes intermediate");
+    assert_eq!(kids(&both), ["ballShape", "ballShapeOrig"]);
+    assert_eq!(find(&both, "ballShapeOrig").unwrap()["intermediate"], json!(true));
+    let ae = query::attribute_editor(&c, "ball");
+    let tabs: Vec<&str> = ae["tabs"].as_array().unwrap().iter().map(|t| t["name"].as_str().unwrap()).collect();
+    assert_eq!(&tabs[..3], ["ball", "ballShape", "ballShapeOrig"], "{tabs:?}");
 }
 
 fn attr<'a>(ae: &'a Value, tab: &str, name: &str) -> &'a Value {

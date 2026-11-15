@@ -1047,6 +1047,9 @@ fn about(_s: &mut Session, a: &Args) -> CmdResult {
         json!("en_US")
     } else if a.bool("product") || a.bool("application") {
         json!("Aztek")
+    } else if a.bool("qtVersion") {
+        // Set by the application when Qt starts; empty in batch.
+        json!(std::env::var("AZTEK_QT_VERSION").unwrap_or_default())
     } else {
         fail!("about: nothing asked")
     })
@@ -1515,8 +1518,8 @@ pub fn register(c: &mut Commands<Session>) {
         },
     );
     {
-        let mut ab = Cmd::new("about", "About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api.", about).undoable(false);
-        for (name, short) in [("version", "v"), ("apiVersion", "api"), ("operatingSystem", "os"), ("windows", "win"), ("nt", "nt"), ("linux", "li"), ("macOS", "mac"), ("batch", "b"), ("is64", "x64"), ("uiLanguage", "uil"), ("codeset", "cs"), ("product", "p"), ("application", "a")] {
+        let mut ab = Cmd::new("about", "About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api, -qt.", about).undoable(false);
+        for (name, short) in [("version", "v"), ("apiVersion", "api"), ("operatingSystem", "os"), ("windows", "win"), ("nt", "nt"), ("linux", "li"), ("macOS", "mac"), ("batch", "b"), ("is64", "x64"), ("uiLanguage", "uil"), ("codeset", "cs"), ("product", "p"), ("application", "a"), ("qtVersion", "qt")] {
             ab = ab.flag(f(name, short, B, "What to ask."));
         }
         c.register(ab);
@@ -1592,7 +1595,13 @@ pub fn register(c: &mut Commands<Session>) {
         },
     );
     c.register(
-        Cmd::new("showHidden", "Show objects: named, -a every one, -b those below the named.", |s, a| {
+        Cmd::new("showHidden", "Show objects: named, -a every one, -b those below the named. Components (or, with none named, the component selection in a component mode) show their hidden faces.", |s, a| {
+            if !a.bool("all") && !a.bool("below") && !a.bool("above") {
+                if let Some(faces) = crate::hidden_components::picked_faces(&mut s.graph, &a.named()).map_err(aztek_ops::CommandError::new)? {
+                    crate::hidden_components::show_picked(&mut s.graph, &faces);
+                    return Ok(Value::Null);
+                }
+            }
             let g = &mut s.graph;
             let mut ids = Vec::new();
             if a.bool("all") {

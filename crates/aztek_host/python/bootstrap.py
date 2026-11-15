@@ -356,6 +356,73 @@ class _ApiImporter:
 sys.meta_path.insert(0, _ApiImporter())
 
 
+class _QtBindingCheck:
+    """PySide uses Qt's private parts, so a PySide only works with the very Qt it was built for: another one aborts
+    the whole application on import. Checked here first, so a mismatch is an ImportError that says what to install.
+    AZTEK_SKIP_QT_CHECK=1 turns it off."""
+
+    NAMES = ("PySide6", "shiboken6", "PySide2", "shiboken2")
+
+    def __init__(self):
+        self.checked = set()
+
+    def find_spec(self, name, path=None, target=None):
+        if name not in self.NAMES or name in self.checked or path is not None:
+            return None
+        self.checked.add(name)
+        import os
+
+        if os.environ.get("AZTEK_SKIP_QT_CHECK"):
+            return None
+        # Asked of the application: Python may have started before Qt set it in the environment.
+        try:
+            qt = json.loads(_aztek.call("about", "[]", json.dumps({"qtVersion": True})))
+        except Exception:
+            qt = ""
+        if not isinstance(qt, str) or not qt:
+            return None
+        import importlib.machinery as m
+
+        spec = m.PathFinder.find_spec(name)
+        if spec is None or not spec.submodule_search_locations:
+            return None
+        here = list(spec.submodule_search_locations)[0]
+        built = self.built_for(here)
+        qt_mm = tuple(int(x) for x in qt.split(".")[:2])
+        if name.endswith("2"):
+            raise ImportError(
+                "%s is for Qt 5, and Aztek runs on Qt %s. Use PySide6 %s (%s)." % (name, qt, qt, self.how(qt))
+            )
+        if built is None or built[:2] == qt_mm:
+            return None
+        raise ImportError(
+            "%s %s is built for Qt %d.%d, but Aztek runs on Qt %s. PySide only works with the Qt it was built for, so "
+            "this one would stop Aztek. Use PySide6 %s (%s). Found at %s."
+            % (name, ".".join(map(str, built)), built[0], built[1], qt, qt, self.how(qt), here)
+        )
+
+    @staticmethod
+    def built_for(folder):
+        import os
+        import re
+
+        try:
+            with open(os.path.join(folder, "_config.py"), encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            return None
+        found = re.search(r'^version\s*=\s*"(\d+)\.(\d+)(?:\.(\d+))?', text, re.M)
+        return tuple(int(x) for x in found.groups() if x is not None) if found else None
+
+    @staticmethod
+    def how(qt):
+        v = "%d.%d" % sys.version_info[:2]
+        return 'pip: python%s -m pip install --user "PySide6-Essentials==%s", or your distribution\'s PySide6 when Aztek uses its Qt' % (v, qt)
+
+
+sys.meta_path.insert(0, _QtBindingCheck())
+
+
 def _run(src):
     """Runs script editor source in __main__; a lone expression's value is shown as the reference shows it."""
     import traceback

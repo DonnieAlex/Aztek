@@ -26,6 +26,8 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
+#include <QDialogButtonBox>
+#include <QVBoxLayout>
 #include <QDir>
 #include <QDockWidget>
 #include <QDoubleSpinBox>
@@ -204,7 +206,22 @@ QMenu* MainWindow::file_menu() {
                 fbx_apply_saved();
                 exec("FBXImport", QJsonObject{{"file", f}});
             } else {
-                exec("importGltf", args(QJsonArray{f}));
+                // The file's up axis, kept between imports: Y Up (the format's), Z Up, or As Is for no conversion.
+                QDialog d;
+                d.setWindowTitle("glTF Import");
+                auto* lay = new QFormLayout(&d);
+                auto* up = new QComboBox(&d);
+                up->addItems({"Y Up", "Z Up", "As Is"});
+                up->setCurrentIndex(QSettings().value("gltf/importUp", 0).toInt());
+                lay->addRow("File up axis:", up);
+                auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
+                QObject::connect(buttons, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+                QObject::connect(buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+                lay->addRow(buttons);
+                if (d.exec() != QDialog::Accepted) return;
+                QSettings().setValue("gltf/importUp", up->currentIndex());
+                static const char* kUp[] = {"y", "z", "none"};
+                exec("importGltf", QJsonObject{{"args", QJsonArray{f}}, {"upAxis", kUp[up->currentIndex()]}});
             }
             return;
         }
@@ -259,16 +276,22 @@ QMenu* MainWindow::file_menu() {
             // Its own command: the hierarchy, materials and textures go with the meshes.
             QJsonObject call{{"args", QJsonArray{f}}};
             if (all) call["all"] = true;
-            // The format is Y up. A Z-up scene can go out converted (what readers expect) or as it is.
-            if (ask("upAxis", QJsonObject{{"query", true}, {"axis", true}}).toString() == "z") {
-                QMessageBox ask_up(QMessageBox::Question, "glTF Up Axis", "This scene is Z up and glTF is Y up.\nConvert to Y up, or write the scene Z up as it is?", QMessageBox::NoButton, nullptr);
-                QPushButton* convert = ask_up.addButton("Convert to Y Up", QMessageBox::AcceptRole);
-                QPushButton* keep = ask_up.addButton("Keep Z Up", QMessageBox::ActionRole);
-                ask_up.addButton(QMessageBox::Cancel);
-                ask_up.setDefaultButton(convert);
-                ask_up.exec();
-                if (ask_up.clickedButton() == keep) call["upAxis"] = "z";
-                else if (ask_up.clickedButton() != convert) return;
+            // The file's up axis, as a "Y Up" switch kept between exports: on writes the file Y up, off Z up. Only a
+            // scene whose up axis differs from the file's is converted; otherwise it goes out as it is.
+            {
+                QDialog d;
+                d.setWindowTitle("glTF Export");
+                auto* lay = new QVBoxLayout(&d);
+                auto* y_up = new QCheckBox("Y Up", &d);
+                y_up->setChecked(QSettings().value("gltf/exportYUp", true).toBool());
+                lay->addWidget(y_up);
+                auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
+                QObject::connect(buttons, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+                QObject::connect(buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+                lay->addWidget(buttons);
+                if (d.exec() != QDialog::Accepted) return;
+                QSettings().setValue("gltf/exportYUp", y_up->isChecked());
+                call["upAxis"] = y_up->isChecked() ? "y" : "z";
             }
             const QJsonObject r = exec("exportGltf", call).toObject();
             for (const QJsonValue& n : r["notes"].toArray()) log("// Warning: " + n.toString() + " //", 4);
@@ -565,12 +588,11 @@ QMenu* MainWindow::select_menu() {
     cmd(m, "Vertex", "selectMode", args(QJsonArray{"vertex"}), "F9");
     cmd(m, "Edge", "selectMode", args(QJsonArray{"edge"}), "F10");
     cmd(m, "Face", "selectMode", args(QJsonArray{"face"}), "F11");
-    auto* multi = m->addAction("Multi");
-    multi->setCheckable(true);
-    connect(multi, &QAction::toggled, this, [this](bool on) {
-        if (on && state()["mode"].toString() == "object") set_mode("vertex");
-        for (ViewportWidget* v : panels_->views()) v->set("multiSelect", on ? "true" : "false");
-    });
+    // UVs, UV shells, vertex faces, and Multi: vertices, edges and faces picked together.
+    cmd(m, "UV", "selectMode", args(QJsonArray{"uv"}));
+    cmd(m, "UV Shell", "selectMode", args(QJsonArray{"uvShell"}));
+    cmd(m, "Vertex Face", "selectMode", args(QJsonArray{"vertexFace"}));
+    cmd(m, "Multi", "selectMode", args(QJsonArray{"multi"}));
     m->addAction("UV Editor\tF12", [this] { show_uv_editor(); });
     m->addSeparator();
     cmd(m, "Grow", "growSelection", {}, ">");
@@ -1372,6 +1394,35 @@ void MainWindow::marking_menu(QPoint global, int mods) {
                      {"Boolean Difference", 7, run("polyCBoolOp", {{"operation", 2}})},
                      {"Delete History", -1, run("delete", {{"constructionHistory", true}})}, {"Center Pivot", -1, run("centerPivot")},
                      {"Freeze Transformations", -1, run("freezeTransforms")}, {"Create Polygon", -1, [this] { set_tool("createPolygon"); }}, {"Quad Draw", -1, [this] { set_tool("quadDraw"); }}};
+            // Polygon Display, as the reference's has it: each item a switch of what the views draw on meshes.
+            static QHash<QString, bool> shown;
+            auto flip = [](const QString& key, const QString& flag, const QJsonObject& with) {
+                return [key, flag, with] {
+                    shown[key] = !shown.value(key);
+                    QJsonObject c = with;
+                    c[flag] = shown[key];
+                    exec("polyOptions", c);
+                };
+            };
+            QList<MarkItem> display = {
+                {"Toggle Backface Culling", -1, flip("bc", "backCulling", {})},
+                {"Toggle Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayBorder", true}}), true, false, false, true},
+                {"Toggle Texture Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayMapBorder", true}})},
+                {"Toggle Face Normals", -1, flip("fn", "displayNormal", QJsonObject{{"facet", true}}), true, false, false, true},
+                {"Toggle Vertex Normals", -1, flip("vn", "displayNormal", QJsonObject{{"point", true}})},
+                {"Toggle Face Centers", -1, run("polyOptions", {{"relative", true}, {"displayCenter", true}}), true, false, false, true},
+                {"Toggle Hidden Triangles", -1, run("polyOptions", {{"relative", true}, {"displayTriangle", true}})},
+                {"Toggle Vertices", -1, run("polyOptions", {{"relative", true}, {"displayVertex", true}})},
+                {"Reset Polygon Display", -1, [] {
+                     shown.clear();
+                     exec("polyOptions", QJsonObject{{"backCulling", false}, {"displayBorder", false}, {"displayMapBorder", false},
+                                                     {"displayCenter", false}, {"displayTriangle", false}, {"displayVertex", false}});
+                     exec("polyOptions", QJsonObject{{"displayNormal", false}, {"facet", true}});
+                     exec("polyOptions", QJsonObject{{"displayNormal", false}, {"point", true}});
+                 }, true, false, false, true}};
+            MarkItem sub{"Polygon Display", -1, {}};
+            sub.sub = display;
+            items.append(sub);
         }
     } else if (mods & 2) {
         // Ctrl: selection conversion.
@@ -1426,7 +1477,11 @@ void MainWindow::object_marking_items(const QString& hit, QPoint, QList<MarkItem
     QString type = ask("nodeType", args(QJsonArray{hit})).toString();
     QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{hit}}, {"shapes", true}}).toArray();
     QString shape_type = shapes.isEmpty() ? QString() : ask("nodeType", args(QJsonArray{shapes.at(0)})).toString();
-    QList<MarkItem> common{{"Select", -1, run("select", args(QJsonArray{hit}))},
+    QList<MarkItem> common{{"Select", -1, [hit] {
+                               // In a component mode it goes back to objects, then selects this one, as the reference's.
+                               if (state()["mode"].toString() != "object") exec("selectMode", QJsonObject{{"args", QJsonArray{"object"}}});
+                               exec("select", args(QJsonArray{hit}));
+                           }},
                            {"Select Hierarchy", -1, [hit] {
                                 exec("select", QJsonObject{{"args", QJsonArray{hit}}});
                                 exec("selectHierarchy");
@@ -1466,8 +1521,18 @@ void MainWindow::object_marking_items(const QString& hit, QPoint, QList<MarkItem
                   }},
                  {"Curve Point", 4, {}, false}};
     } else {
-        items = {{"Edge", 0, mode_to("edge")}, {"Object Mode", 1, mode_to("object")}, {"UV", 2, {}, false}, {"Vertex Face", 3, {}, false},
-                 {"Face", 4, mode_to("face")}, {"UV Shell", 5, {}, false}, {"Vertex", 6, mode_to("vertex")}, {"Multi", 7, {}, false}};
+        // UV opens to UV and UV Shell, as the reference's.
+        QList<MarkItem> uv = {{"UV", 2, mode_to("uv")}, {"UV Shell", 4, mode_to("uvShell")}};
+        items = {{"Edge", 0, mode_to("edge")}, {"Object Mode", 1, mode_to("object")}, {"UV", 2, mode_to("uv"), true, false, false, false, uv},
+                 {"Multi", 3, mode_to("multi")}, {"Face", 4, mode_to("face")}, {"Vertex Face", 5, mode_to("vertexFace")}, {"Vertex", 6, mode_to("vertex")}};
+        // A skinned mesh: the brush, as the reference puts it at the top left.
+        QJsonValue skin = ask("findRelatedSkinCluster", args(QJsonArray{hit}));
+        if (skin.isString() && !skin.toString().isEmpty())
+            items.append({"Paint Skin Weights Tool", 7, [this, hit] {
+                exec("select", QJsonObject{{"args", QJsonArray{hit}}});
+                set_tool("paintSkin");
+                show_tool_settings();
+            }});
     }
     items.append(common);
     if (shape_type == "mesh" || shape_type == "nurbsSurface") {

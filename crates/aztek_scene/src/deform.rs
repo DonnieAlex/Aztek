@@ -1004,6 +1004,154 @@ pub(crate) fn targets(s: &mut Session, a: &aztek_ops::Args) -> CmdResult<Vec<(No
     return Ok(out);
 }
 
+/// The CVs of a curve (`cv[a:b]`) or a surface (`cv[u][v]`, ranges in either) as point indices, U first on a surface:
+/// `u * nv + v`, the order the deformers' weights use.
+fn cv_ids(spec: &str, curve_count: Option<usize>, surface: Option<(usize, usize)>) -> Vec<u32> {
+    let range = |r: &str, n: usize| -> Vec<usize> {
+        if r == "*" || r == ":" {
+            return (0..n).collect();
+        }
+        match r.split_once(':') {
+            Some((a, b)) => {
+                let a = a.parse().unwrap_or(0);
+                let b = b.parse().unwrap_or(n.saturating_sub(1));
+                (a..=b.min(n.saturating_sub(1))).collect()
+            }
+            None => r.parse::<usize>().ok().filter(|&i| i < n).into_iter().collect(),
+        }
+    };
+    let parts: Vec<&str> = spec.trim_start_matches("cv").split('[').filter(|p| !p.is_empty()).map(|p| p.trim_end_matches(']')).collect();
+    match (curve_count, surface, parts.as_slice()) {
+        (Some(n), _, [r]) => range(r, n).into_iter().map(|i| i as u32).collect(),
+        (_, Some((nu, nv)), [u, v]) => {
+            let vs = range(v, nv);
+            range(u, nu).into_iter().flat_map(|u| vs.iter().map(move |v| (u * nv + v) as u32)).collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Curves and surfaces named or selected, with the CVs picked on each (None for all of them).
+pub(crate) fn nurbs_targets(s: &mut Session, a: &aztek_ops::Args) -> CmdResult<Vec<(NodeId, Option<Vec<u32>>)>> {
+    let g = &mut s.graph;
+    let shape_of = |g: &Graph, id: NodeId| crate::curves::as_curve(g, id).or_else(|| crate::surfaces::as_surface(g, id));
+    fn add(out: &mut Vec<(NodeId, Option<Vec<u32>>)>, shape: NodeId, ids: Option<Vec<u32>>) {
+        match out.iter_mut().find(|e| e.0 == shape) {
+            Some((_, Some(v))) => match ids {
+                Some(ids) => v.extend(ids),
+                None => out.iter_mut().find(|e| e.0 == shape).unwrap().1 = None,
+            },
+            Some(_) => {}
+            None => out.push((shape, ids)),
+        }
+    }
+    let mut out = Vec::new();
+    let names = a.named();
+    if !names.is_empty() {
+        for n in names {
+            let (obj, comp) = match n.split_once('.') {
+                Some((o, c)) => (o.to_string(), Some(c.to_string())),
+                None => (n.clone(), None),
+            };
+            let Some(id) = g.find(&obj)? else { continue };
+            let Some(shape) = shape_of(g, id) else { continue };
+            match comp {
+                None => add(&mut out, shape, None),
+                Some(c) if c.starts_with("cv[") => {
+                    let curve = crate::curves::local_curve(g, shape).map(|c| c.cvs.len());
+                    let surface = if curve.is_none() { crate::surfaces::local_surface(g, shape).map(|s| (s.nu, s.nv)) } else { None };
+                    add(&mut out, shape, Some(cv_ids(&c, curve, surface)));
+                }
+                Some(_) => {}
+            }
+        }
+        return Ok(out);
+    }
+    if components::mode(g) == ComponentMode::Vertex {
+        for (node, ids) in components::selected_all(g, ComponentMode::Vertex).clone() {
+            if let Some(shape) = shape_of(g, node) {
+                add(&mut out, shape, Some(ids));
+            }
+        }
+        if !out.is_empty() {
+            return Ok(out);
+        }
+    }
+    for id in g.selection().to_vec() {
+        if let Some(shape) = shape_of(g, id) {
+            add(&mut out, shape, None);
+        }
+    }
+    Ok(out)
+}
+
+/// A deformer on a curve or surface: its CVs go through `nurbsToPoints`, the deformer and `pointsToNurbs`, from an
+/// original shape (an intermediate object under the same transform, fed by what fed the shape) into the shape. A
+/// second deformer joins the chain after the first.
+pub(crate) fn nurbs_insert(g: &mut Graph, shape: NodeId, ty: &str, name: &str) -> CmdResult<NodeId> {
+    use crate::nurbs_nodes::{FROM_POINTS, TO_POINTS};
+    let curve = g.node(shape).is_some_and(|n| n.ty().is_a("nurbsCurve"));
+    let (local, create) = if curve {
+        (crate::curves::CurveShape::LOCAL, crate::curves::CurveShape::CREATE)
+    } else {
+        (crate::surfaces::SurfaceShape::LOCAL, crate::surfaces::SurfaceShape::CREATE)
+    };
+    let t = types::find(ty).unwrap();
+    let n = g.create_node(&t, name, NO_NODE, true)?;
+    let create_plug = PlugRef::new(shape, create as i32);
+    let xf = crate::dag::transform_of(g, shape);
+    if let Some(from) = g.source(&create_plug).filter(|p| g.node(p.node).is_some_and(|x| x.ty().name == FROM_POINTS)) {
+        let at = PlugRef::new(from.node, 1);
+        let Some(prev) = g.source(&at) else { fail!("{}: its deformer chain is broken", g.path(shape)) };
+        g.disconnect(&at);
+        g.connect(&prev, &plug(n, IN), false)?;
+        g.connect(&plug(n, OUT), &at, false)?;
+    } else {
+        g.evaluate();
+        let st = g.node(shape).unwrap().type_arc().clone();
+        let orig_name = format!("{}Orig", g.node(shape).unwrap().name());
+        let orig = g.create_node(&st, &orig_name, xf, true)?;
+        match g.source(&create_plug) {
+            Some(src) => {
+                g.disconnect(&create_plug);
+                g.connect(&src, &PlugRef::new(orig, create as i32), false)?;
+            }
+            None => {}
+        }
+        // What the shape holds of its own (its geometry with no history, its CV tweaks) moves to the original, so the
+        // deformers start from it.
+        let (cached, tweak) = if curve {
+            (crate::curves::CurveShape::CACHED, crate::curves::CurveShape::TWEAK)
+        } else {
+            (crate::surfaces::SurfaceShape::CACHED, crate::surfaces::SurfaceShape::TWEAK)
+        };
+        for k in [cached, tweak] {
+            let v = g.stored_value(&PlugRef::new(shape, k as i32)).clone();
+            g.set_value(PlugRef::new(orig, k as i32), v)?;
+        }
+        g.set_value(PlugRef::new(shape, tweak as i32), PlugValue::Data(None))?;
+        g.set_value(PlugRef::new(orig, crate::transform::DagNode::INTERMEDIATE_OBJECT as i32), PlugValue::Bool(true))?;
+        let (to_t, from_t) = (types::find(TO_POINTS).unwrap(), types::find(FROM_POINTS).unwrap());
+        let to = g.create_node(&to_t, "", NO_NODE, false)?;
+        let from = g.create_node(&from_t, "", NO_NODE, false)?;
+        let base_out = PlugRef::new(orig, local as i32);
+        g.connect(&base_out, &PlugRef::new(to, 0), false)?;
+        g.connect(&base_out, &PlugRef::new(from, 0), false)?;
+        g.connect(&PlugRef::new(to, 1), &plug(n, IN), false)?;
+        g.connect(&plug(n, OUT), &PlugRef::new(from, 1), false)?;
+        g.connect(&PlugRef::new(from, 2), &create_plug, false)?;
+    }
+    g.connect(&plug(xf, Transform::WORLD_MATRIX), &plug(n, GEOM), false)?;
+    Ok(n)
+}
+
+/// The world positions of a curve's or surface's CVs, U first on a surface.
+fn world_cvs(g: &mut Graph, shape: NodeId) -> Vec<DVec3> {
+    let w = world(g, crate::dag::transform_of(g, shape));
+    let cvs = crate::curves::local_curve(g, shape).map(|c| c.cvs).or_else(|| crate::surfaces::local_surface(g, shape).map(|s| s.cvs)).unwrap_or_default();
+    cvs.into_iter().map(|p| w.transform_point3(p)).collect()
+}
+
 /// Meshes and vertices by name, with the points named on each (None for all).
 pub(crate) fn named_targets(g: &mut Graph, names: &[String]) -> CmdResult<Vec<(NodeId, Option<Vec<u32>>)>> {
     let mut out: Vec<(NodeId, Option<Vec<u32>>)> = Vec::new();
@@ -1133,11 +1281,13 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "cluster",
-            "Make a cluster of the selected vertices (or whole meshes): a handle they follow. Returns [cluster, handle].",
+            "Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. \
+             Returns [cluster, handle].",
             |s, a| {
                 let meshes = targets(s, a)?;
-                if meshes.is_empty() {
-                    fail!("cluster: select vertices or meshes");
+                let nurbs = nurbs_targets(s, a)?;
+                if meshes.is_empty() && nurbs.is_empty() {
+                    fail!("cluster: select vertices, CVs, meshes, curves or surfaces");
                 }
                 let g = &mut s.graph;
                 g.evaluate();
@@ -1150,6 +1300,14 @@ pub fn register(c: &mut Commands<Session>) {
                     for p in 0..cage.point_capacity() {
                         if cage.point_valid(p) && pts.as_ref().is_none_or(|v| v.contains(&p)) {
                             sum += w.transform_point3(cage.position(p));
+                            n_pts += 1.0;
+                        }
+                    }
+                }
+                for (shape, pts) in &nurbs {
+                    for (i, p) in world_cvs(g, *shape).into_iter().enumerate() {
+                        if pts.as_ref().is_none_or(|v| v.contains(&(i as u32))) {
+                            sum += p;
                             n_pts += 1.0;
                         }
                     }
@@ -1184,6 +1342,21 @@ pub fn register(c: &mut Commands<Session>) {
                             link_follower(g, first, n)?;
                         }
                     }
+                    for (shape, pts) in &nurbs {
+                        let count = world_cvs(g, *shape).len() as u32;
+                        let geom = world(g, crate::dag::transform_of(g, *shape));
+                        let n = nurbs_insert(g, *shape, "cluster", &name)?;
+                        set_data(g, n, json!({"geom": mat_json(&geom), "bindPre": mat_json(&hw.inverse())}))?;
+                        if let Some(w) = weights_for(count, pts) {
+                            set_floats(g, n, WEIGHTS, w)?;
+                        }
+                        g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
+                        if first == NO_NODE {
+                            first = n;
+                        } else {
+                            link_follower(g, first, n)?;
+                        }
+                    }
                     components::set_mode_undoable(g, ComponentMode::Object);
                     g.select(&[h], SelectMode::Replace);
                     Ok((first, h))
@@ -1193,7 +1366,7 @@ pub fn register(c: &mut Commands<Session>) {
                 Ok(json!([g.path(n), g.path(h)]))
             },
         )
-        .positional("meshes or vertices (the selection when none)")
+        .positional("meshes, curves, surfaces, vertices or CVs (the selection when none)")
         .flag(f("name", "n", ArgType::String, "Name of the cluster; its handle takes the name plus Handle.")),
     );
 

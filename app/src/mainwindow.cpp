@@ -24,6 +24,8 @@
 #include <cstdio>
 #include <QActionGroup>
 #include <QApplication>
+#include <QFileInfo>
+#include <QCursor>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDateTime>
@@ -1339,10 +1341,18 @@ void MainWindow::note_repeat(const QString& label, const std::function<void()>& 
     last_repeat_label_ = label;
 }
 
+namespace {
+// Files a drop brings in: scenes and the formats the file command imports.
+bool droppable(const QString& f) {
+    static const QStringList ext = {"ma", "mb", "obj", "fbx", "gltf", "glb"};
+    return is_usd_file(f) || ext.contains(QFileInfo(f).suffix().toLower());
+}
+} // namespace
+
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
     if (e->mimeData()->hasUrls()) {
         for (const QUrl& u : e->mimeData()->urls()) {
-            if (is_usd_file(u.toLocalFile())) {
+            if (droppable(u.toLocalFile())) {
                 e->acceptProposedAction();
                 return;
             }
@@ -1350,12 +1360,18 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
     }
 }
 
+// A dropped file is imported, as the reference does, with the import options last used for its type; a USD file
+// becomes a stage, as the reference's USD plug-in makes it.
 void MainWindow::dropEvent(QDropEvent* e) {
     for (const QUrl& u : e->mimeData()->urls()) {
         const QString f = u.toLocalFile();
-        if (is_usd_file(f)) exec("mayaUsd_createStageFromFile", QJsonObject{{"args", QJsonArray{f}}});
+        if (is_usd_file(f))
+            exec("mayaUsd_createStageFromFile", QJsonObject{{"args", QJsonArray{f}}});
+        else if (droppable(f))
+            exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
     }
     e->acceptProposedAction();
+    Host::get()->poke();
 }
 
 bool MainWindow::confirm_unsaved() {
@@ -1617,6 +1633,16 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
         // The Outliner keeps its own keys while it has the keyboard: F frames its selection, the arrows walk its list.
         if (focus && focus->objectName() == "outliner" && outliner_key(k)) return QMainWindow::eventFilter(o, e);
         if (o != focus && focus) return QMainWindow::eventFilter(o, e);
+        // F goes to the panel under the pointer, as the reference's hotkeys do: over an Outliner it frames the
+        // Outliner's selection there, wherever the keyboard is.
+        if (e->type() == QEvent::KeyPress && k->key() == Qt::Key_F && !(k->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
+            for (QWidget* under = QApplication::widgetAt(QCursor::pos()); under; under = under->parentWidget())
+                if (under->objectName() == "outliner") {
+                    QKeyEvent copy(QEvent::KeyPress, k->key(), k->modifiers(), k->text());
+                    QApplication::sendEvent(under, &copy);
+                    return true;
+                }
+        }
         if (hotkey(k, e->type() == QEvent::KeyPress)) return true;
     }
     return QMainWindow::eventFilter(o, e);

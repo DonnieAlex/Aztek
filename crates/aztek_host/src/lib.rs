@@ -41,6 +41,7 @@ pub mod user_folder;
 pub mod view;
 pub mod usd_view;
 pub mod viewport;
+pub mod view_cube;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -650,6 +651,13 @@ pub extern "C" fn aztek_view_mouse(id: i32, kind: i32, button: i32, x: f64, y: f
         }
     })
     })
+}
+
+/// Whether a point, in device pixels, is on the view's ViewCube: a right click there opens the cube's menu, not the
+/// marking menu.
+#[no_mangle]
+pub extern "C" fn aztek_view_on_cube(id: i32, x: f64, y: f64) -> i32 {
+    with(|h| h.views.get(&id).is_some_and(|v| v.on_cube(DVec2::new(x, y))) as i32)
 }
 
 #[no_mangle]

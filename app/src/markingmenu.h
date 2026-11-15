@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <functional>
 
+class QTimer;
+
 namespace az {
 
 struct MarkItem {
@@ -27,6 +29,8 @@ public:
     /// What a picked item runs inside, so G can repeat it.
     static std::function<void(const QString&, const std::function<void()>&)>& around();
     static void show_at(QPoint global, const QList<MarkItem>& items);
+    // How long the pointer rests on a submenu's item before it opens.
+    static constexpr int kSubmenuDelayMs = 350;
 protected:
     void paintEvent(QPaintEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
@@ -35,6 +39,8 @@ protected:
     void keyPressEvent(QKeyEvent*) override;
 private:
     MarkingMenu(QPoint global, const QList<MarkItem>& items);
+    static void open(QPoint global, const QList<MarkItem>& items);
+    void back_to_parent();
     int item_at(QPoint local) const;
     void pick(int i);
     void open_sub(int i);
@@ -45,6 +51,11 @@ private:
     int hover_ = -1;
     bool dragged_ = false;
     qint64 opened_ms_ = 0;
+    // A submenu's way back: a dot where the menu it came from was centred.
+    bool has_back_ = false;
+    QPoint back_;
+    QTimer* sub_timer_ = nullptr;
+    int sub_pending_ = -1;
 };
 
 } // namespace az

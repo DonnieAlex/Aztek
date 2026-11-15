@@ -138,6 +138,12 @@ void ViewportWidget::mousePressEvent(QMouseEvent* e) {
     emit activated(this);
     // Right button without Alt opens the marking menu; Alt+right dollies.
     if (e->button() == Qt::RightButton && !(e->modifiers() & Qt::AltModifier)) {
+        // On the ViewCube, the cube's own menu.
+        const QPointF at = e->position() * devicePixelRatioF();
+        if (id_ && aztek_view_on_cube(id_, at.x(), at.y())) {
+            if (aztek_view_mouse(id_, 0, 3, at.x(), at.y(), mods_of(e->modifiers()), buttons_of(e->buttons()))) update();
+            return;
+        }
         emit rightClick(e->globalPosition().toPoint(), mods_of(e->modifiers()));
         return;
     }

@@ -96,6 +96,12 @@ pub fn bake_into_geometry(g: &mut Graph, id: NodeId, bake: &DMat4) -> CmdResult<
         if instancing::make_unique(g, id)? {
             log::warn!("{} shared its mesh; it has a copy of its own now", g.path(id));
         }
+        // A mesh with history keeps it: a transformGeometry goes on top of it, holding the move, as the reference
+        // leaves one.
+        let top = PlugRef::new(id, crate::mesh_nodes::MeshNode::IN_MESH as i32);
+        if let Some(src) = g.source(&top) {
+            return insert_transform_geometry(g, src, top, bake);
+        }
         let base = modifiers::edit_plug(g, id)?;
         if let PlugValue::Mesh(Some(m)) = g.stored_value(&base) {
             let mut copy = (**m).clone();
@@ -115,9 +121,42 @@ pub fn bake_into_geometry(g: &mut Graph, id: NodeId, bake: &DMat4) -> CmdResult<
             }
             g.set_value(base, PlugValue::Mesh(Some(Arc::new(copy))))?;
         }
+    } else if let Some((create, _)) = [(crate::curves::SHAPE_TYPE, crate::curves::CurveShape::CREATE, crate::curves::CurveShape::TWEAK), ("nurbsSurface", crate::surfaces::SurfaceShape::CREATE, crate::surfaces::SurfaceShape::TWEAK)]
+        .iter()
+        .find(|(t, _, _)| n.ty().name == *t)
+        .map(|(_, c, k)| (PlugRef::new(id, *c as i32), *k))
+        .filter(|(create, tweak)| g.source(create).is_some() && tweak_empty(g, id, *tweak))
+    {
+        // A curve or surface made by history, with no CVs moved by hand: the history stays, under a transformGeometry.
+        let src = g.source(&create).unwrap();
+        return insert_transform_geometry(g, src, create, bake);
     } else if let Some(bake_fn) = components::point_provider(n).and_then(|pp| pp.bake) {
         bake_fn(g, id, bake);
     }
+    Ok(())
+}
+
+/// Whether a curve's or surface's hand-moved CVs are none.
+fn tweak_empty(g: &Graph, id: NodeId, tweak: usize) -> bool {
+    g.node(id).is_none_or(|n| match crate::rig::json_of(n.data(), tweak) {
+        Value::Null => true,
+        Value::Object(o) => o.is_empty(),
+        Value::Array(a) => a.is_empty(),
+        _ => false,
+    })
+}
+
+/// Puts a transformGeometry holding `bake` between a shape's history and the shape, as the reference's Freeze
+/// Transformations leaves one.
+fn insert_transform_geometry(g: &mut Graph, src: PlugRef, dst: PlugRef, bake: &DMat4) -> CmdResult<()> {
+    let t = crate::node::types::find("transformGeometry").ok_or_else(|| CommandError::new("no transformGeometry node type"))?;
+    let tg = g.create_node(&t, "", crate::plug::NO_NODE, true)?;
+    let at = |g: &Graph, name: &str| PlugRef::new(tg, g.node(tg).unwrap().ty().attr_index(name).unwrap() as i32);
+    let (input, matrix, output) = (at(g, "inputGeometry"), at(g, "transform"), at(g, "outputGeometry"));
+    g.set_value(matrix, PlugValue::Matrix(*bake))?;
+    g.disconnect(&dst);
+    g.connect(&src, &input, false)?;
+    g.connect(&output, &dst, false)?;
     Ok(())
 }
 
@@ -350,7 +389,11 @@ pub fn register(c: &mut Commands<Session>) {
     );
 
     c.register(
-        CommandDef::<Session>::new("hide", "Hide objects (visibility off). Defaults to the selection.", |s, a| {
+        CommandDef::<Session>::new("hide", "Hide objects (visibility off). Defaults to the selection. Components (or, with none named, the component selection in a component mode) hide their faces.", |s, a| {
+            if let Some(faces) = crate::hidden_components::picked_faces(&mut s.graph, &a.named()).map_err(CommandError::new)? {
+                crate::hidden_components::hide(&mut s.graph, &faces);
+                return Ok(Value::Null);
+            }
             let mut hidden = Vec::new();
             for name in objects(s, a) {
                 let id = node_named(&s.graph, &name, "hide")?;
@@ -388,6 +431,10 @@ pub fn register(c: &mut Commands<Session>) {
             "Toggle visibility (the H key). Defaults to the selection. Every object ends up the same: hidden if most were \
              visible (a tie hides), shown otherwise. Returns the new visibility.",
             |s, a| {
+                // In a component mode: hides the selected components' faces, or shows the hidden ones.
+                if let Some(faces) = crate::hidden_components::picked_faces(&mut s.graph, &a.named()).map_err(CommandError::new)? {
+                    return Ok(Value::Bool(!crate::hidden_components::toggle(&mut s.graph, &faces)));
+                }
                 let mut ids = Vec::new();
                 let mut shown = 0;
                 for name in objects(s, a) {

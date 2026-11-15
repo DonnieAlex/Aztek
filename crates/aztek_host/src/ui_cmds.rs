@@ -543,17 +543,12 @@ pub fn register(s: &mut Session) {
         .flag(f("releaseName", "rn", ArgType::String, "The name command for release.")),
     );
 
-    let mut st = Cmd::new("selectType", "Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces pick the component kind. -q reads one.", |s, a| {
-        use aztek_scene::components::{self, ComponentMode};
-        let kinds = [("controlVertex", ComponentMode::Vertex), ("vertex", ComponentMode::Vertex), ("polymeshVertex", ComponentMode::Vertex), ("polymeshEdge", ComponentMode::Edge), ("polymeshFace", ComponentMode::Face)];
-        for (flag, mode) in kinds {
-            if a.has(flag) {
-                if a.bool("query") {
-                    return Ok(json!(components::mode(&s.graph) == mode));
-                }
-                if a.bool(flag) {
-                    components::set_mode(&mut s.graph, mode);
-                }
+    let mut st = Cmd::new("selectType", "Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells pick the component kind, and -pv -pe -pf together are Multi. -q reads one.", |s, a| {
+        // The component kinds: points, edges, faces, UVs, vertex faces, UV shells and Multi.
+        let comp = aztek_scene::surfaces::select_type_components(&mut s.graph, a);
+        if a.bool("query") {
+            if let Some(v) = comp {
+                return Ok(v);
             }
         }
         with_ui(|u| {
@@ -591,11 +586,20 @@ pub fn register(s: &mut Session) {
     })
     .undoable(false)
     .flag(f("query", "q", ArgType::Bool, "Query."))
-    .flag(f("allObjects", "alc", ArgType::Bool, "Everything on."));
+    .flag(f("allObjects", "alo", ArgType::Bool, "Everything on."));
     for (n, sh) in [("polymesh", "pm"), ("nurbsCurve", "nc"), ("nurbsSurface", "ns"), ("joint", "j"), ("ikHandle", "ikh"), ("handle", "ha"), ("cluster", "cl"), ("nonlinear", "nl"), ("locator", "lc"), ("camera", "ca"), ("group", "gr")] {
         st = st.flag(f(n, sh, ArgType::Bool, "This kind can be selected."));
     }
-    for (n, sh, doc) in [("controlVertex", "cv", "CVs."), ("vertex", "v", "Points."), ("polymeshVertex", "pv", "Mesh vertices."), ("polymeshEdge", "pe", "Mesh edges."), ("polymeshFace", "pf", "Mesh faces.")] {
+    for (n, sh, doc) in [
+        ("controlVertex", "cv", "CVs."),
+        ("vertex", "v", "Points."),
+        ("polymeshVertex", "pv", "Mesh vertices."),
+        ("polymeshEdge", "pe", "Mesh edges."),
+        ("polymeshFace", "pf", "Mesh faces."),
+        ("polymeshUV", "puv", "Mesh UVs."),
+        ("polymeshVtxFace", "pvf", "Mesh vertex faces."),
+        ("meshUVShell", "msh", "UV shells: a UV pick takes its whole shell."),
+    ] {
         st = st.flag(f(n, sh, ArgType::Bool, doc));
     }
     s.register(st);
@@ -825,13 +829,31 @@ pub fn register(s: &mut Session) {
         .flag(f("state", "st", ArgType::Bool, "On or off rather than a switch.")),
     );
 
-    reg(
-        s,
-        Cmd::new("polyOptions", "Polygon display in the views: -db borders, -dce crease edges, -dn with -f or -pt normals, -sn their size, -bc backface culling.", |_s, a| {
+    // polyOptions: the scene layer keeps every flag for scripts to read back; this draws them.
+    {
+        let mine: Cmd = Cmd::new("polyOptions", "Polygon display: -db borders, -dmb texture borders, -dc face centres, -dt the triangles faces are drawn with and -dv vertices are set on the selected meshes (every mesh with -gl), as their displayBorders, displayMapBorders, displayCenter, displayTriangles and displayVertices; -dce crease edges, -dn with -f or -pt normals, -sn their size and -bc backface culling are the views'.", |s, a| {
             let mut p = Map::new();
-            let on = |k: &str| a.get(k).and_then(Value::as_bool);
-            if let Some(v) = on("displayBorder") {
-                p.insert("borderEdges".into(), json!(v));
+            let on = |k: &str| a.get(k).and_then(|v| v.as_bool().or_else(|| v.as_f64().map(|x| x != 0.0)));
+            let per_mesh = [("displayBorder", "displayBorders"), ("displayMapBorder", "displayMapBorders"), ("displayCenter", "displayCenter"), ("displayTriangle", "displayTriangles"), ("displayVertex", "displayVertices")];
+            let changes: Vec<(&str, bool)> = per_mesh.iter().filter_map(|(flag, attr)| on(flag).map(|v| (*attr, v))).collect();
+            if !changes.is_empty() {
+                let g = &mut s.graph;
+                let targets: Vec<NodeId> = if a.bool("global") {
+                    g.nodes().into_iter().filter(|&i| g.node(i).is_some_and(|n| n.ty().is_a("mesh"))).collect()
+                } else {
+                    g.selection().iter().filter_map(|&i| aztek_scene::components::as_mesh(g, i)).collect()
+                };
+                // -r: each mesh's switch the other way round.
+                let relative = a.bool("relative");
+                for id in targets {
+                    for (attr, v) in &changes {
+                        let Some((i, now)) = g.node(id).and_then(|n| n.ty().attr_index(attr).map(|i| (i, n.bool(i)))) else { continue };
+                        let want = if relative { !now } else { *v };
+                        if want != now {
+                            g.set_value(aztek_scene::plug::PlugRef::new(id, i as i32), aztek_scene::plug::PlugValue::Bool(want)).map_err(|e| aztek_ops::CommandError::new(e.to_string()))?;
+                        }
+                    }
+                }
             }
             if let Some(v) = on("displayCreaseEdge") {
                 p.insert("creaseEdges".into(), json!(v));
@@ -848,15 +870,41 @@ pub fn register(s: &mut Session) {
             crate::core::push_ui_request(format!("polyOptions|{}", Value::Object(p)));
             Ok(Value::Null)
         })
-        .undoable(false)
         .flag(f("displayBorder", "db", ArgType::Bool, "Border edges thick."))
         .flag(f("displayCreaseEdge", "dce", ArgType::Bool, "Crease edges."))
         .flag(f("displayNormal", "dn", ArgType::Bool, "Normals."))
         .flag(f("facet", "f", ArgType::Bool, "With -dn: face normals."))
         .flag(f("point", "pt", ArgType::Bool, "With -dn: vertex normals."))
         .flag(f("sizeNormal", "sn", ArgType::Float, "Length of the normals."))
-        .flag(f("backCulling", "bc", ArgType::Bool, "Backface culling.")),
-    );
+        .flag(f("backCulling", "bc", ArgType::Bool, "Backface culling."))
+        .flag(f("displayMapBorder", "dmb", ArgType::Bool, "Texture border edges thick."))
+        .flag(f("displayCenter", "dc", ArgType::Bool, "Face centres."))
+        .flag(f("displayTriangle", "dt", ArgType::Bool, "The triangles faces are drawn with."))
+        .flag(f("displayVertex", "dv", ArgType::Bool, "Vertices."))
+        .flag(f("global", "gl", ArgType::Bool, "Every mesh rather than the selected ones."))
+        .flag(f("relative", "r", ArgType::Bool, "Switch each mesh's setting the other way."));
+        match s.commands.find("polyOptions").cloned() {
+            Some(mut def) => {
+                let (prev, run) = (def.run.clone(), mine.run.clone());
+                for fl in mine.flags {
+                    if !def.flags.iter().any(|o| o.name == fl.name) {
+                        def.flags.push(fl);
+                    }
+                }
+                def.doc = mine.doc;
+                def.undoable = true;
+                def.run = std::sync::Arc::new(move |s: &mut Session, a: &aztek_ops::Args| {
+                    let kept = prev(s, a)?;
+                    if a.bool("query") {
+                        return Ok(kept);
+                    }
+                    run(s, a)
+                });
+                s.register(def);
+            }
+            None => s.register(mine),
+        }
+    }
 
     reg(
         s,

@@ -187,6 +187,8 @@ impl PlugValue {
     pub fn as_mesh(&self) -> Option<&MeshPtr> {
         match self {
             PlugValue::Mesh(v) => v.as_ref(),
+            // Geometry data with nothing in it, as an unfed transformGeometry gives: no mesh.
+            PlugValue::Data(None) => None,
             other => panic!("expected mesh, got {other:?}"),
         }
     }

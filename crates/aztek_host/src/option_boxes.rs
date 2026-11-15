@@ -132,6 +132,7 @@ pub fn rows(command: &str) -> Vec<Value> {
             f("depth", "Depth", 1.0),
             b("chamfer", "Chamfer", true),
             f("smoothingAngle", "Smoothing angle", 30.0),
+            b("worldSpace", "Offset space: World", true),
         ],
         "polyChipOff" => vec![b("keepFacesTogether", "Keep faces together", true), f("offset", "Offset", 0.0)],
         "polyPoke" => vec![v3("localTranslate", "Vertex offset", [0.0; 3]), b("worldSpace", "Offset space: World", false)],
@@ -217,7 +218,13 @@ pub fn rows(command: &str) -> Vec<Value> {
         "circle" => vec![v3("center", "Center", [0.0; 3]), v3("normal", "Normal", [0.0, 1.0, 0.0]), f("radius", "Radius", 1.0), f("sweep", "Sweep angle", 360.0), degree(), i("sections", "Sections", 8)],
         "nurbsSquare" => vec![v3("center", "Center", [0.0; 3]), v3("normal", "Normal", [0.0, 1.0, 0.0]), f("sideLength1", "Side length", 1.0)],
         // UV
-        "u3dUnfold" => vec![i("iterations", "Iterations", 1), b("pack", "Pack", true), b("borderintersection", "Prevent border intersections", true), b("triangleflip", "Prevent triangle flips", true)],
+        "u3dUnfold" => vec![
+            e("method", "Method", &[("Minimum Stretch", json!("minimumStretch")), ("Conformal", json!("conformal")), ("Boundary First", json!("boundaryFirst"))]),
+            i("iterations", "Iterations", 1),
+            b("pack", "Pack", true),
+            b("borderintersection", "Prevent border intersections", true),
+            b("triangleflip", "Prevent triangle flips", true),
+        ],
         "u3dLayout" => vec![f("shellSpacing", "Shell spacing", 0.0), f("rotateStep", "Rotate step", 0.0), i("resolution", "Resolution", 256)],
         // Deform
         "deltaMush" => vec![i("smoothingIterations", "Smoothing iterations", 10), f("smoothingStep", "Smoothing step", 0.5), b("pinBorderVertices", "Pin border vertices", true), f("displacement", "Displacement", 1.0), f("envelope", "Envelope", 1.0)],

@@ -3,7 +3,8 @@
 //! What goes out: the transform hierarchy of the objects asked for, their meshes as they stand (deformed, triangulated,
 //! split along hard edges and UV seams), normals, every UV set, vertex colours, and each shading group's material with
 //! its base colour, transparency, emission and colour texture, and skins: the joints as nodes, each bound mesh in its
-//! bind pose with its four heaviest weights a point and the joints' inverse bind matrices. Lengths go from
+//! bind pose with every weight of every point (in sets of four, as painted) and the joints'
+//! inverse bind matrices. Lengths go from
 //! centimetres to metres.
 //!
 //! The format is Y up. A Z-up scene is written Y up by changing the basis of everything in it (each node's matrix,
@@ -306,32 +307,34 @@ fn mesh(doc: &mut Doc, s: &mut Session, shape: NodeId, out_dir: &Path, embed: bo
     }
     let mut skinned = None;
     if let Some((sk, _, bind)) = &skin {
-        // Influences are numbered by their place in the skin's joint list; the four heaviest a point, summing to one.
+        // Influences are numbered by their place in the skin's joint list. Every influence goes out, as the scene holds it:
+        // four a set (JOINTS_0 and WEIGHTS_0, then JOINTS_1 and WEIGHTS_1 and so on) for as many sets as the point with
+        // the most influences needs. Nothing is dropped or renormalised.
         let order: HashMap<u32, u16> = crate::skin::influences(&s.graph, *sk).iter().enumerate().map(|(k, (element, _))| (*element as u32, k as u16)).collect();
-        let (mut joints, mut weights) = (Vec::with_capacity(r.positions.len()), Vec::with_capacity(r.positions.len() * 4));
-        let mut dropped = false;
-        for &point in &r.vertex_point {
-            let mut w: Vec<(u16, f64)> = bind.weights.get(point as usize).map(|w| w.iter().filter_map(|(e, x)| order.get(e).map(|k| (*k, *x))).collect()).unwrap_or_default();
-            w.sort_by(|a, b| b.1.total_cmp(&a.1));
-            dropped |= w.len() > 4;
-            w.truncate(4);
-            let sum: f64 = w.iter().map(|x| x.1).sum();
-            let (mut j, mut x) = ([0u16; 4], [0f32; 4]);
-            for (k, (joint, weight)) in w.iter().enumerate() {
-                j[k] = *joint;
-                x[k] = if sum > 0.0 { (*weight / sum) as f32 } else { 0.0 };
+        let per_point: Vec<Vec<(u16, f64)>> = r
+            .vertex_point
+            .iter()
+            .map(|&point| {
+                let mut w: Vec<(u16, f64)> = bind.weights.get(point as usize).map(|w| w.iter().filter_map(|(e, x)| order.get(e).map(|k| (*k, *x))).filter(|x| x.1 != 0.0).collect()).unwrap_or_default();
+                w.sort_by(|a, b| b.1.total_cmp(&a.1));
+                w
+            })
+            .collect();
+        let sets = per_point.iter().map(|w| w.len().div_ceil(4)).max().unwrap_or(1).max(1);
+        for set in 0..sets {
+            let (mut joints, mut weights) = (Vec::with_capacity(per_point.len()), Vec::with_capacity(per_point.len() * 4));
+            for w in &per_point {
+                let (mut j, mut x) = ([0u16; 4], [0f32; 4]);
+                for (k, (joint, weight)) in w.iter().skip(set * 4).take(4).enumerate() {
+                    j[k] = *joint;
+                    x[k] = *weight as f32;
+                }
+                joints.push(j);
+                weights.extend_from_slice(&x);
             }
-            if sum <= 0.0 {
-                x[0] = 1.0;
-            }
-            joints.push(j);
-            weights.extend_from_slice(&x);
+            attributes.insert(format!("JOINTS_{set}"), json!(doc.joints(&joints)));
+            attributes.insert(format!("WEIGHTS_{set}"), json!(doc.floats(&weights, 4, "VEC4", false)));
         }
-        if dropped {
-            doc.notes.push(format!("{}: points with more than four influences keep their four heaviest", s.graph.path(shape)));
-        }
-        attributes.insert("JOINTS_0".into(), json!(doc.joints(&joints)));
-        attributes.insert("WEIGHTS_0".into(), json!(doc.floats(&weights, 4, "VEC4", false)));
         skinned = Some(*sk);
     }
     let mut slot = 0;

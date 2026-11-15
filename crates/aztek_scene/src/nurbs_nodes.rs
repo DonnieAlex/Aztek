@@ -119,7 +119,24 @@ impl NodeBehavior for TransformGeometry {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         let m = d.matrix(1);
         let m = if d.bool(2) { m.inverse() } else { m };
-        let out = if let Some(c) = curves::curve_value(d.value(0)) {
+        let out = if let PlugValue::Mesh(Some(mesh)) = d.value(0) {
+            // A mesh: its points moved, and its faces turned back the right way out when the matrix mirrors.
+            let mut copy = (**mesh).clone();
+            for p in 0..copy.point_capacity() {
+                if copy.point_valid(p) {
+                    let at = m.transform_point3(copy.position(p));
+                    copy.set_position(p, at);
+                }
+            }
+            if DMat3::from_mat4(m).determinant() < 0.0 {
+                for f in 0..copy.face_capacity() {
+                    if copy.face_valid(f) {
+                        copy.flip_face(f);
+                    }
+                }
+            }
+            PlugValue::Mesh(Some(Arc::new(copy)))
+        } else if let Some(c) = curves::curve_value(d.value(0)) {
             curves::to_value(c.transformed(&m))
         } else if let Some(s) = surfaces::surface_value(d.value(0)) {
             surfaces::to_value(s.transformed(&m))
@@ -283,7 +300,7 @@ pub fn register_types() {
         });
         reg(NodeType {
             name: "transformGeometry".into(),
-            doc: "A curve or surface moved by a matrix, as Freeze Transformations leaves in history.".into(),
+            doc: "A mesh, curve or surface moved by a matrix, as Freeze Transformations leaves in history.".into(),
             own_attrs: vec![
                 data_attr("inputGeometry", "ig", HIDDEN_IN, "The geometry."),
                 matrix_attr("transform", "txf", flags::INPUT | flags::STORABLE | flags::HIDDEN, "The matrix."),

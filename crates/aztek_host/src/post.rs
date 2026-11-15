@@ -33,6 +33,10 @@ layout(push_constant) uniform P {
     vec4 ao;
     // Width, height, and one over each.
     vec4 size;
+    // The background's gradient, top and bottom colours; top.w is 1 with the gradient on, bottom.w the flat grey the
+    // scene was cleared to.
+    vec4 bg_top;
+    vec4 bg_bottom;
 } pc;
 
 float depth_at(vec2 px) {
@@ -106,6 +110,13 @@ void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
     vec3 color = texelFetch(sampler2D(t_scene, s_point), ivec2(c), 0).rgb;
     float d = depth_at(c);
+    // Nothing drawn here (no depth, and still the colour it was cleared to): the gradient, top of the view to
+    // bottom. What was drawn without depth keeps its colour.
+    if (d <= 0.0 && pc.bg_top.w > 0.5 && all(lessThan(abs(color - vec3(pc.bg_bottom.w)), vec3(0.5 / 255.0)))) {
+        color = mix(pc.bg_top.rgb, pc.bg_bottom.rgb, uv.y);
+        o = vec4(color, 1.0);
+        return;
+    }
     if (pc.ao.z < 0.5 || d <= 0.0) {
         o = vec4(color, 1.0);
         return;
@@ -138,11 +149,15 @@ pub struct PostSettings {
     /// How far a surface is shadowed by what is near it, in scene units.
     pub ao_radius: f32,
     pub ao_intensity: f32,
+    /// The background's gradient, top and bottom, when it is on.
+    pub gradient: Option<([f32; 3], [f32; 3])>,
+    /// The grey the scene was cleared to.
+    pub clear_grey: f32,
 }
 
 impl Default for PostSettings {
     fn default() -> Self {
-        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5 }
+        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36 }
     }
 }
 
@@ -152,6 +167,8 @@ struct PostPush {
     inv_proj: [f32; 16],
     ao: [f32; 4],
     size: [f32; 4],
+    bg_top: [f32; 4],
+    bg_bottom: [f32; 4],
 }
 
 pub struct Post {
@@ -274,6 +291,8 @@ impl Post {
             inv_proj: proj.inverse().to_cols_array(),
             ao: [s.ao_radius.max(1e-4), s.ao_intensity.max(0.0), if s.ambient_occlusion { 1.0 } else { 0.0 }, if orthographic { 1.0 } else { 0.0 }],
             size: [w, h, 1.0 / w, 1.0 / h],
+            bg_top: match s.gradient { Some((t, _)) => [t[0], t[1], t[2], 1.0], None => [0.0; 4] },
+            bg_bottom: match s.gradient { Some((_, b)) => [b[0], b[1], b[2], s.clear_grey], None => [0.0, 0.0, 0.0, s.clear_grey] },
         }
     }
 
@@ -328,7 +347,7 @@ mod tests {
 
     #[test]
     fn the_push_block_is_what_the_shader_declares() {
-        // A mat4 and two vec4s, within the 128 bytes every device gives.
-        assert_eq!(std::mem::size_of::<PostPush>(), 96);
+        // A mat4 and four vec4s: the 128 bytes every device gives.
+        assert_eq!(std::mem::size_of::<PostPush>(), 128);
     }
 }

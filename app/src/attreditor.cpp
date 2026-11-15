@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <QJsonDocument>
 // The Attribute Editor: a tab per node in the chain, sections by node type, sliders on ranged attributes, a Notes box, and
 // Select, Load Attributes and Copy Tab along the bottom.
@@ -14,6 +15,7 @@
 #include <QFileInfo>
 #include <QMenu>
 #include <QComboBox>
+#include <QInputDialog>
 #include <QFormLayout>
 #include <QHash>
 #include <QHBoxLayout>
@@ -654,8 +656,9 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     return new QLabel(type == "matrix" ? "(matrix)" : "", parent);
 }
 
-// A row's name in a column of one width down the whole tab, so the fields line up from frame to frame. A name too long
-// for it loses its start, as the reference's does; the whole of it is in the tooltip.
+// A row's name in a column of one width down the whole tab, so the fields line up from frame to frame. The column is
+// as wide as the tab's longest name needs, within limits (see fit_labels); a name longer still loses its start, and the
+// whole of it is in the tooltip.
 class RowLabel : public QLabel {
 public:
     RowLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
@@ -670,6 +673,15 @@ protected:
         p.drawText(rect(), Qt::AlignRight | Qt::AlignVCenter, fontMetrics().elidedText(text(), Qt::ElideLeft, width()));
     }
 };
+
+// Widens a tab's name column to its longest name, between the default and a cap, so names read whole.
+void fit_labels(QWidget* body) {
+    const QList<RowLabel*> labels = body->findChildren<RowLabel*>();
+    int need = 112;
+    for (RowLabel* l : labels) need = std::max(need, l->fontMetrics().horizontalAdvance(l->text()) + 8);
+    need = std::min(need, 240);
+    for (RowLabel* l : labels) l->setFixedWidth(need);
+}
 
 // A row's name. A right click on it gives what the reference's gives there, for what this attribute can take.
 QLabel* attr_label(const QString& text, const QJsonObject& a, QWidget* parent, QWidget* field_widget) {
@@ -787,6 +799,45 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     top->addWidget(back);
     top->addWidget(fwd);
     top->addStretch(1);
+    // Presets, as the reference's: save this node's settings, apply one (replacing or blended), bring in the
+    // reference's MEL presets as YAML.
+    auto* presets = new QToolButton(this);
+    presets->setText("Presets");
+    presets->setPopupMode(QToolButton::InstantPopup);
+    auto* pmenu = new QMenu(presets);
+    presets->setMenu(pmenu);
+    top->addWidget(presets);
+    connect(pmenu, &QMenu::aboutToShow, this, [this, pmenu] {
+        pmenu->clear();
+        QWidget* w = tabs_->currentWidget();
+        const QString node = w ? w->property("nodePath").toString() : QString();
+        if (node.isEmpty()) {
+            pmenu->addAction("No node")->setEnabled(false);
+            return;
+        }
+        const QString type = exec_quiet("nodeType", QJsonObject{{"args", QJsonArray{node}}}).toString();
+        pmenu->addAction(QString("Save %1 Preset...").arg(type), this, [this, node] {
+            bool ok = false;
+            const QString name = QInputDialog::getText(this, "Save Attribute Preset", "Preset name:", QLineEdit::Normal, QString(), &ok).trimmed();
+            if (ok && !name.isEmpty()) exec("nodePreset", QJsonObject{{"save", QJsonArray{node, name}}});
+        });
+        pmenu->addAction("Import Reference Presets...", this, [this] {
+            const QStringList files = QFileDialog::getOpenFileNames(this, "Import Reference Presets", QString(), "MEL presets (*.mel)");
+            if (files.isEmpty()) return;
+            exec("importAttrPresets", QJsonObject{{"args", QJsonArray::fromStringList(files)}});
+        });
+        const QJsonArray list = exec_quiet("nodePreset", QJsonObject{{"list", node}}).toArray();
+        if (!list.isEmpty()) pmenu->addSeparator();
+        for (const QJsonValue& v : list) {
+            const QString name = v.toString();
+            QMenu* sub = pmenu->addMenu(name);
+            sub->addAction("Replace", this, [node, name] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, name, 100}}}); });
+            for (int pct : {90, 75, 50, 25, 10})
+                sub->addAction(QString("Blend %1%").arg(pct), this, [node, name, pct] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, name, pct}}}); });
+            sub->addSeparator();
+            sub->addAction("Delete", this, [node, name] { exec("nodePreset", QJsonObject{{"delete", QJsonArray{node, name}}}); });
+        }
+    });
     lay->addLayout(top);
     tabs_ = new QTabWidget(this);
     tabs_->setDocumentMode(true);
@@ -998,6 +1049,7 @@ void AttributeEditor::refresh() {
         note->setProperty("notesHad", had);
         v->addWidget(note);
         v->addStretch(1);
+        fit_labels(body);
         scroll->setWidget(body);
         int idx = tabs_->addTab(scroll, t["name"].toString());
         if (t["name"].toString() == keep) select = idx;

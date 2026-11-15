@@ -78,6 +78,8 @@ int main(int argc, char** argv) {
 #endif
     QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     QApplication app(argc, argv);
+    // The Qt this runs on, for about -qtVersion and the PySide check in Python.
+    qputenv("AZTEK_QT_VERSION", qVersion());
     QApplication::setOrganizationName("Aztek");
     QApplication::setApplicationName("Aztek");
     QApplication::setWindowIcon(QIcon(":/aztek-icon.png"));

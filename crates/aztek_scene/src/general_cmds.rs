@@ -492,9 +492,21 @@ fn preset_dirs(ty: &str) -> Vec<PathBuf> {
     out
 }
 
-/// A preset's file: the first of the folders that has it.
+/// The kinds of preset file read, in the order a name is looked for: Aztek's own YAML, the JSON earlier versions saved,
+/// and the reference's MEL presets.
+const PRESET_KINDS: [&str; 3] = ["yaml", "json", "mel"];
+
+/// A preset's file: the first of the folders, and kinds, that has it.
 fn preset_file(ty: &str, name: &str) -> PathBuf {
-    preset_dirs(ty).into_iter().map(|d| d.join(format!("{name}.json"))).find(|p| p.is_file()).unwrap_or_else(|| preset_dir(ty).join(format!("{name}.json")))
+    for d in preset_dirs(ty) {
+        for k in PRESET_KINDS {
+            let p = d.join(format!("{name}.{k}"));
+            if p.is_file() {
+                return p;
+            }
+        }
+    }
+    preset_dir(ty).join(format!("{name}.yaml"))
 }
 
 fn valid_preset_name(n: &str) -> bool {
@@ -509,6 +521,111 @@ fn preset_pair(a: &Args, flag: &str) -> Option<(String, String)> {
     }
 }
 
+/// A preset as YAML: one attribute a line, each value in YAML's flow style, which is JSON's.
+pub fn preset_yaml(ty: &str, values: &Map<String, Value>) -> String {
+    let mut out = format!("# Aztek attribute preset\nnodeType: {}\nattributes:\n", Value::String(ty.to_string()));
+    for (k, v) in values {
+        out.push_str(&format!("  {k}: {v}\n"));
+    }
+    out
+}
+
+/// A preset file's values, attribute to value: YAML as preset_yaml writes it, JSON, or a reference MEL preset
+/// (`blendAttr "name" values;` and `blendAttrStr "name" "text";` between startAttrPreset and endAttrPreset).
+pub fn preset_values(text: &str, kind: &str) -> Option<Map<String, Value>> {
+    let mut out = Map::new();
+    match kind {
+        "json" => return serde_json::from_str::<Value>(text).ok()?.as_object().cloned(),
+        "mel" => {
+            for stmt in text.split(';') {
+                let t = stmt.trim();
+                let (string, rest) = if let Some(r) = t.strip_prefix("blendAttrStr") {
+                    (true, r)
+                } else if let Some(r) = t.strip_prefix("blendAttr") {
+                    (false, r)
+                } else {
+                    continue;
+                };
+                let rest = rest.trim();
+                let Some(rest) = rest.strip_prefix('"') else { continue };
+                let Some((name, vals)) = rest.split_once('"') else { continue };
+                let vals = vals.trim();
+                let v = if string {
+                    Value::String(vals.trim_matches('"').replace("\\\"", "\"").replace("\\\\", "\\"))
+                } else {
+                    // Whole numbers stay whole, for switches and choices.
+                    let nums: Vec<Value> = vals
+                        .split_whitespace()
+                        .filter_map(|x| x.parse::<f64>().ok())
+                        .map(|x| if x.fract() == 0.0 && x.abs() < 1e15 { json!(x as i64) } else { json!(x) })
+                        .collect();
+                    match nums.len() {
+                        0 => continue,
+                        1 => nums[0].clone(),
+                        _ => Value::Array(nums),
+                    }
+                };
+                out.insert(name.to_string(), v);
+            }
+        }
+        _ => {
+            let mut inside = false;
+            for line in text.lines() {
+                let l = line.trim_end();
+                if l.trim_start().starts_with('#') || l.trim().is_empty() {
+                    continue;
+                }
+                if l == "attributes:" {
+                    inside = true;
+                    continue;
+                }
+                if !inside || !l.starts_with(' ') {
+                    continue;
+                }
+                let Some((k, v)) = l.trim().split_once(':') else { continue };
+                let v = v.trim();
+                let parsed = serde_json::from_str::<Value>(v).unwrap_or_else(|_| match v {
+                    "yes" | "on" => json!(true),
+                    "no" | "off" => json!(false),
+                    _ => json!(v.trim_matches('\'')),
+                });
+                out.insert(k.trim().to_string(), parsed);
+            }
+        }
+    }
+    Some(out)
+}
+
+fn read_preset(path: &std::path::Path) -> Option<Map<String, Value>> {
+    let kind = path.extension().and_then(|x| x.to_str()).unwrap_or("yaml").to_string();
+    preset_values(&std::fs::read_to_string(path).ok()?, &kind)
+}
+
+/// Sets a node's attributes from preset values, blended: 1 replaces them, 0.25 goes a quarter of the way.
+fn apply_preset(g: &mut Graph, id: NodeId, values: &Map<String, Value>, blend: f64) -> CmdResult<()> {
+    let ty = g.node(id).unwrap().ty().clone();
+    for (k, v) in values {
+        let Some(i) = ty.attr_index(k) else { continue };
+        if g.source(&plug(id, i)).is_some() {
+            continue;
+        }
+        let Ok(x) = crate::plug::from_json(&ty.attrs[i], v) else { continue };
+        let x = if blend >= 1.0 {
+            x
+        } else {
+            match (g.value(&plug(id, i)), &x) {
+                (Ok(PlugValue::Float(a)), PlugValue::Float(b)) => PlugValue::Float(a + (b - a) * blend),
+                (Ok(PlugValue::Vec3(a)), PlugValue::Vec3(b)) => PlugValue::Vec3(a + (*b - a) * blend),
+                // What doesn't blend changes past halfway, as the reference's presets do.
+                (Ok(now), _) if blend < 0.5 => now,
+                _ => x,
+            }
+        };
+        g.set_value(plug(id, i), x)?;
+    }
+    Ok(())
+}
+
 fn node_preset(s: &mut Session, a: &Args) -> CmdResult {
     if let Some(n) = a.get("isValidName").and_then(Value::as_str) {
         return Ok(json!(valid_preset_name(n)));
@@ -520,18 +637,24 @@ fn node_preset(s: &mut Session, a: &Args) -> CmdResult {
         let mut out: Vec<String> = Vec::new();
         for dir in preset_dirs(&ty) {
             let Ok(rd) = std::fs::read_dir(dir) else { continue };
-            out.extend(rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).filter_map(|p| p.file_stem().map(|x| x.to_string_lossy().to_string())));
+            out.extend(
+                rd.flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.extension().and_then(|x| x.to_str()).is_some_and(|x| PRESET_KINDS.contains(&x)))
+                    .filter_map(|p| p.file_stem().map(|x| x.to_string_lossy().to_string())),
+            );
         }
         out.sort();
         out.dedup();
         return Ok(json!(out));
     }
-    let file = |ty: &str, name: &str| preset_dir(ty).join(format!("{name}.json"));
     if let Some((n, name)) = preset_pair(a, "exists") {
         return Ok(json!(preset_file(&type_of(g, &n)?, &name).exists()));
     }
     if let Some((n, name)) = preset_pair(a, "delete") {
-        return Ok(json!(std::fs::remove_file(file(&type_of(g, &n)?, &name)).is_ok()));
+        let ty = type_of(g, &n)?;
+        let gone = PRESET_KINDS.iter().any(|k| std::fs::remove_file(preset_dir(&ty).join(format!("{name}.{k}"))).is_ok());
+        return Ok(json!(gone));
     }
     if let Some((n, name)) = preset_pair(a, "save") {
         if !valid_preset_name(&name) {
@@ -552,27 +675,87 @@ fn node_preset(s: &mut Session, a: &Args) -> CmdResult {
                 out.insert(def.name.clone(), crate::plug::to_json(&v));
             }
         }
-        std::fs::create_dir_all(preset_dir(&ty.name)).map_err(|e| aztek_ops::CommandError::new(format!("nodePreset: {e}")))?;
-        std::fs::write(file(&ty.name, &name), Value::Object(out).to_string()).map_err(|e| aztek_ops::CommandError::new(format!("nodePreset: {e}")))?;
+        let dir = preset_dir(&ty.name);
+        std::fs::create_dir_all(&dir).map_err(|e| aztek_ops::CommandError::new(format!("nodePreset: {e}")))?;
+        std::fs::write(dir.join(format!("{name}.yaml")), preset_yaml(&ty.name, &out)).map_err(|e| aztek_ops::CommandError::new(format!("nodePreset: {e}")))?;
+        // An older JSON copy of the same name would shadow nothing now, but would come back in lists: it goes.
+        let _ = std::fs::remove_file(dir.join(format!("{name}.json")));
         return Ok(json!(true));
     }
     if let Some((n, name)) = preset_pair(a, "load") {
         let id = find(g, &n, "nodePreset")?;
         let ty = g.node(id).unwrap().ty().clone();
-        let Ok(text) = std::fs::read_to_string(preset_file(&ty.name, &name)) else { fail!("nodePreset: {} has no preset {name}", ty.name) };
-        let Ok(Value::Object(values)) = serde_json::from_str::<Value>(&text) else { fail!("nodePreset: {name} can't be read") };
-        for (k, v) in values {
-            let Some(i) = ty.attr_index(&k) else { continue };
-            if g.source(&plug(id, i)).is_some() {
-                continue;
-            }
-            if let Ok(x) = crate::plug::from_json(&ty.attrs[i], &v) {
-                g.set_value(plug(id, i), x)?;
-            }
-        }
+        let Some(values) = read_preset(&preset_file(&ty.name, &name)) else { fail!("nodePreset: {} has no preset {name}", ty.name) };
+        apply_preset(g, id, &values, 1.0)?;
         return Ok(json!(true));
     }
     fail!("nodePreset: use one of -save, -load, -list, -delete, -exists, -isValidName");
+}
+
+/// applyAttrPreset node preset blend: the reference's script for the Attribute Editor's Presets menu. The preset is a
+/// name or a file (YAML, JSON, or the reference's MEL); blend 1 replaces, less goes part of the way.
+fn apply_attr_preset(s: &mut Session, a: &Args) -> CmdResult {
+    let p = texts(Some(&Value::Array(a.positional.clone())));
+    let (Some(node), Some(preset)) = (p.first(), p.get(1)) else { fail!("applyAttrPreset: give a node and a preset") };
+    let blend = a.positional.get(2).and_then(Value::as_f64).unwrap_or(100.0);
+    // The reference passes a percentage.
+    let blend = if blend > 1.0 { blend / 100.0 } else { blend };
+    let g = &mut s.graph;
+    let id = find(g, node, "applyAttrPreset")?;
+    let ty = g.node(id).unwrap().ty().name.to_string();
+    let path = if std::path::Path::new(preset).is_file() { PathBuf::from(preset) } else { preset_file(&ty, preset) };
+    let Some(values) = read_preset(&path) else { fail!("applyAttrPreset: no preset {preset} for {ty}") };
+    g.open_chunk("Apply Preset");
+    let r = apply_preset(g, id, &values, blend.clamp(0.0, 1.0));
+    g.close_chunk();
+    r?;
+    Ok(json!(true))
+}
+
+/// Brings the reference's MEL presets into Aztek's own folder as YAML, by the node type each one names. Returns the
+/// presets made, as type/name.
+fn import_attr_presets(_s: &mut Session, a: &Args) -> CmdResult {
+    let mut files: Vec<PathBuf> = Vec::new();
+    for t in texts(Some(&Value::Array(a.positional.clone()))) {
+        let p = PathBuf::from(&t);
+        if p.is_dir() {
+            // A folder: every .mel under it, as the reference keeps them, attrPresets/<type>/<name>.mel.
+            let mut stack = vec![p];
+            while let Some(d) = stack.pop() {
+                for e in std::fs::read_dir(&d).into_iter().flatten().flatten() {
+                    let q = e.path();
+                    if q.is_dir() {
+                        stack.push(q);
+                    } else if q.extension().is_some_and(|x| x == "mel") {
+                        files.push(q);
+                    }
+                }
+            }
+        } else {
+            files.push(p);
+        }
+    }
+    let mut made = Vec::new();
+    for f in files {
+        let Ok(text) = std::fs::read_to_string(&f) else { continue };
+        // startAttrPreset( "lambert" ); names the type; else the folder it sits in.
+        let ty = text
+            .split("startAttrPreset")
+            .nth(1)
+            .and_then(|r| r.split('"').nth(1))
+            .map(str::to_string)
+            .or_else(|| f.parent().and_then(|d| d.file_name()).map(|x| x.to_string_lossy().to_string()));
+        let (Some(ty), Some(values)) = (ty, preset_values(&text, "mel")) else { continue };
+        let name: String = f.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default().chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect();
+        if name.is_empty() || values.is_empty() {
+            continue;
+        }
+        let dir = preset_dir(&ty);
+        if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join(format!("{name}.yaml")), preset_yaml(&ty, &values)).is_ok() {
+            made.push(format!("{ty}/{name}"));
+        }
+    }
+    Ok(json!(made))
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -782,7 +965,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("swapValues", "sv", B, "Exchange common values rather than copy them.")),
     );
     c.register(
-        Cmd::new("nodePreset", "Save and load a node's settings by name: -sv node name, -ld node name, -ls node, -del node name, -ex node name, -ivn name; -atr limits what is saved. Less than the reference: multis and hidden attributes are left out, files are JSON, -ctm does nothing.", node_preset)
+        Cmd::new("nodePreset", "Save and load a node's settings by name: -sv node name, -ld node name, -ls node, -del node name, -ex node name, -ivn name; -atr limits what is saved. Presets are saved as YAML; JSON ones from earlier versions and the reference's MEL presets read too. Less than the reference: multis and hidden attributes are left out, -ctm does nothing.", node_preset)
             .flag(f("attributes", "atr", S, "Attributes to save, separated by spaces."))
             .flag(f("custom", "ctm", S, "Accepted for existing scripts; has no effect."))
             .flag(f("delete", "delete", L, "Node and preset.").multi(2))
@@ -791,6 +974,15 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("list", "ls", S, "The node."))
             .flag(f("load", "ld", L, "Node and preset.").multi(2))
             .flag(f("save", "sv", L, "Node and preset.").multi(2))
+            .undoable(false),
+    );
+    c.register(
+        Cmd::new("applyAttrPreset", "applyAttrPreset node preset blend: sets the node from a preset, by name or file (YAML, JSON or the reference's MEL), blend a percentage: 100 replaces, 50 goes halfway. What doesn't blend (a choice, a name) changes from 50 up.", apply_attr_preset)
+            .positional("node preset [blend]"),
+    );
+    c.register(
+        Cmd::new("importAttrPresets", "Brings the reference's MEL attribute presets (files, or folders of them as attrPresets/<type>/<name>.mel) into Aztek's presets as YAML. Returns type/name of each.", import_attr_presets)
+            .positional("files or folders")
             .undoable(false),
     );
     c.register(

@@ -118,9 +118,9 @@ fn original_shapes_show_with_shapes_and_deformer_sets_only_when_asked() {
     mel(&mut c, "polyCube -n a; cluster a;");
     let names = |v: &Value| v.to_string();
     assert!(!names(&aztek_host::outliner(&c, "")).contains("aShapeOrig"));
-    // Shapes on lists the original shape under its transform, as the reference's Outliner does (issue 32).
+    // The original shape is an intermediate object: the Outliner lists it only with Intermediate Objects on (issue 52).
     let plain = aztek_host::outliner(&c, "shapes");
-    assert!(names(&plain).contains("aShapeOrig") && !names(&plain).contains("cluster1Set"), "{plain}");
+    assert!(!names(&plain).contains("aShapeOrig") && !names(&plain).contains("cluster1Set"), "{plain}");
     let all = aztek_host::outliner(&c, "shapes intermediate");
     assert!(names(&all).contains("aShapeOrig") && names(&all).contains("cluster1Set"), "{all}");
 }
