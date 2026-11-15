@@ -31,7 +31,7 @@ pub fn glyph(g: &Graph, id: NodeId) -> Option<Vec<RigItem>> {
     let w: DMat4 = n.data().matrix(DagNode::WORLD_MATRIX);
     let c = w.w_axis.truncate();
     let xf = aztek_scene::dag::transform_of(g, id);
-    let item = |color: [u8; 4], segs: Vec<(DVec3, DVec3)>| RigItem { node: xf, shape: id, color, segs };
+    let item = |color: [u8; 4], segs: Vec<(DVec3, DVec3)>| RigItem { node: xf, shape: id, color, segs, fills: Vec::new() };
     let num = |name: &str, d: f64| n.ty().attr_index(name).and_then(|a| n.value(a).scalar()).unwrap_or(d);
     match ty.as_str() {
         dy::PARTICLES => {
@@ -55,7 +55,7 @@ pub fn glyph(g: &Graph, id: NodeId) -> Option<Vec<RigItem>> {
             }
             let mut items = vec![item([90, 170, 255, 255], segs)];
             if !out_segs.is_empty() {
-                items.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 140, 40, 255], segs: out_segs });
+                items.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 140, 40, 255], segs: out_segs, fills: Vec::new() });
             }
             Some(items)
         }
@@ -137,8 +137,8 @@ pub fn cloth_marks(g: &Graph) -> Vec<RigItem> {
             let at = w.transform_point3(*p);
             cross(at, k, if *wt <= 0.0 { &mut out_segs } else { &mut back_segs });
         }
-        out.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 120, 30, 255], segs: out_segs });
-        out.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 230, 60, 255], segs: back_segs });
+        out.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 120, 30, 255], segs: out_segs, fills: Vec::new() });
+        out.push(RigItem { node: NO_NODE, shape: NO_NODE, color: [255, 230, 60, 255], segs: back_segs, fills: Vec::new() });
     }
     out
 }

@@ -2215,6 +2215,14 @@ impl Viewport {
             if !self.rig_shown(g, it.node) || !self.node_shown(g, it.node) || !self.pickable(g, it.shape) {
                 continue;
             }
+            // Inside a ball beats inside a bone, which beats a line nearby.
+            if let Some(t) = it.fills.iter().find(|t| fill_hit(&screen, std::slice::from_ref(*t), px)) {
+                let d = if g.node(it.node).is_some_and(|n| t[0] == n.data().matrix(DagNode::WORLD_MATRIX).w_axis.truncate()) { -2.0 } else { -1.0 };
+                if best.is_none_or(|x| d < x.0) {
+                    best = Some((d, it.node));
+                }
+                continue;
+            }
             for (a, b) in &it.segs {
                 let (Some(pa), Some(pb)) = (screen.project(*a), screen.project(*b)) else { continue };
                 if !seg_hits_box(pa, pb, px, k) {
@@ -2588,6 +2596,8 @@ impl Viewport {
         let shell = components::is_uv_shell(g);
         let screen = self.screen();
         let mut out = Vec::new();
+        // Whole objects the region takes: what was hit, and what that selects.
+        let mut picked: Vec<(NodeId, NodeId)> = Vec::new();
         if mode == ComponentMode::Vertex {
             for (xf, _, dims, pts) in selected_lattices(g) {
                 let ids: Vec<u32> = (0..pts.len() as u32).filter(|&i| screen.project(pts[i as usize]).is_some_and(inside)).collect();
@@ -2605,11 +2615,9 @@ impl Viewport {
                     (Some(p), Some(q)) => crosses(p, q),
                     (Some(p), None) | (None, Some(p)) => inside(p),
                     _ => false,
-                }) {
-                    let path = g.path(crate::ui_cmds::scoped(g, it.node));
-                    if !out.contains(&path) {
-                        out.push(path);
-                    }
+                }) || (probe.is_finite() && fill_hit(&screen, &it.fills, probe))
+                {
+                    picked.push((it.node, crate::ui_cmds::scoped(g, it.node)));
                 }
             }
         }
@@ -2671,10 +2679,7 @@ impl Viewport {
                                 }))
                     };
                     if self.pickable(g, it.shape) && touched() {
-                        let path = g.path(crate::ui_cmds::scoped(g, it.xf));
-                        if !out.contains(&path) {
-                            out.push(path);
-                        }
+                        picked.push((it.shape, crate::ui_cmds::scoped(g, it.xf)));
                     }
                 }
                 _ if !g.selection().contains(&it.xf) || surfaces::is_surface(g, it.shape) => {}
@@ -2708,6 +2713,7 @@ impl Viewport {
             }
             }
         }
+        out.extend(by_priority(g, &picked));
         out
     }
 
@@ -3611,6 +3617,57 @@ pub struct RigItem {
     pub shape: NodeId,
     pub color: [u8; 4],
     pub segs: Vec<(DVec3, DVec3)>,
+    /// Triangles that pick as solidly as the lines: a joint's ball and bones.
+    pub fills: Vec<[DVec3; 3]>,
+}
+
+/// Whether a point falls on any of the triangles as drawn.
+fn fill_hit(screen: &Screen, fills: &[[DVec3; 3]], px: DVec2) -> bool {
+    fills.iter().any(|t| match (screen.project(t[0]), screen.project(t[1]), screen.project(t[2])) {
+        // Seen edge on, a triangle has no inside to pick.
+        (Some(a), Some(b), Some(c)) => (b - a).perp_dot(c - a).abs() > 0.5 && in_triangle(px, a, b, c),
+        _ => false,
+    })
+}
+
+/// Where a kind of object stands when one region takes several kinds, as the reference's selection priority: handles,
+/// then joints, then curves, then everything else. Lower goes first.
+fn priority_rank(g: &Graph, id: NodeId) -> u8 {
+    match type_category(g, id) {
+        "ikHandle" | "deformer" => 0,
+        "joint" => 1,
+        "curve" => 2,
+        _ => 3,
+    }
+}
+
+/// What a region selects of the objects it takes: only those of the highest priority, and of joints only the
+/// highest in each chain, as the reference's. Each pair is the object hit and what that selects.
+fn by_priority(g: &Graph, picked: &[(NodeId, NodeId)]) -> Vec<String> {
+    let Some(top) = picked.iter().map(|p| priority_rank(g, p.0)).min() else { return Vec::new() };
+    let won: Vec<&(NodeId, NodeId)> = picked.iter().filter(|p| priority_rank(g, p.0) == top).collect();
+    let hit: std::collections::HashSet<NodeId> = won.iter().map(|p| p.0).collect();
+    let under_hit_joint = |id: NodeId| {
+        let mut n = g.parent(id);
+        while n != NO_NODE {
+            if hit.contains(&n) && g.node(n).is_some_and(|x| x.ty().is_a("joint")) {
+                return true;
+            }
+            n = g.parent(n);
+        }
+        false
+    };
+    let mut out: Vec<String> = Vec::new();
+    for &&(node, sel) in &won {
+        if g.node(node).is_some_and(|x| x.ty().is_a("joint")) && under_hit_joint(node) {
+            continue;
+        }
+        let path = g.path(sel);
+        if !out.contains(&path) {
+            out.push(path);
+        }
+    }
+    out
 }
 
 fn circle(c: DVec3, u: DVec3, v: DVec3, r: f64, out: &mut Vec<(DVec3, DVec3)>) {
@@ -3626,7 +3683,7 @@ fn circle(c: DVec3, u: DVec3, v: DVec3, r: f64, out: &mut Vec<(DVec3, DVec3)>) {
 fn rig_item(g: &Graph, shape: NodeId, node: NodeId, kind: &str, factory: [u8; 4], segs: Vec<(DVec3, DVec3)>) -> RigItem {
     let st = ds::style(g, shape);
     let segs = if st.bounding_box { box_segs(&segs) } else { segs };
-    RigItem { node, shape, color: st.color.unwrap_or_else(|| ds::dormant_color(kind, factory)), segs }
+    RigItem { node, shape, color: st.color.unwrap_or_else(|| ds::dormant_color(kind, factory)), segs, fills: Vec::new() }
 }
 
 fn box_segs(segs: &[(DVec3, DVec3)]) -> Vec<(DVec3, DVec3)> {
@@ -3703,6 +3760,7 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
             let radius = n.data().float(Joint::RADIUS) * 0.5 * crate::ui_cmds::pref_f64("jointScale", 1.0);
             let (x, y, z) = (w.x_axis.truncate().normalize_or_zero(), w.y_axis.truncate().normalize_or_zero(), w.z_axis.truncate().normalize_or_zero());
             let mut segs = Vec::new();
+            let mut fills = Vec::new();
             circle(c, x, y, radius, &mut segs);
             circle(c, y, z, radius, &mut segs);
             circle(c, z, x, radius, &mut segs);
@@ -3725,9 +3783,20 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
                 for i in 0..4 {
                     segs.push((corners[i], corners[(i + 1) % 4]));
                     segs.push((corners[i], tip));
+                    fills.push([corners[i], corners[(i + 1) % 4], tip]);
                 }
+                fills.push([corners[0], corners[1], corners[2]]);
+                fills.push([corners[0], corners[2], corners[3]]);
             }
-            out.push(rig_item(g, id, id, "joint", [70, 110, 220, 255], segs));
+            // The ball picks across its whole face, not only on its rings.
+            for (a, b) in segs.iter().take(60) {
+                fills.push([c, *a, *b]);
+            }
+            let mut item = rig_item(g, id, id, "joint", [70, 110, 220, 255], segs);
+            if !ds::style(g, id).bounding_box {
+                item.fills = fills;
+            }
+            out.push(item);
         } else if let Some(kind) = aztek_scene::deform::handle_shape_kind(&ty.name) {
             // A cluster's handle draws at its shape's origin, which is the transform's pivot.
             let at = match ty.attr_index("origin") {
@@ -3790,7 +3859,7 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
                     for p in picked.iter().filter_map(|&i| pts.get(i as usize)) {
                         cross(*p, k * 2.5, &mut segs);
                     }
-                    out.push(RigItem { node: aztek_scene::NO_NODE, shape: aztek_scene::NO_NODE, color: [255, 200, 60, 255], segs });
+                    out.push(RigItem { node: aztek_scene::NO_NODE, shape: aztek_scene::NO_NODE, color: [255, 200, 60, 255], segs, fills: Vec::new() });
                 }
             }
         } else if ty.is_a("motionTrailShape") {

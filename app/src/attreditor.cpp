@@ -671,6 +671,7 @@ public:
     RowLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
         setFixedWidth(112);
         setToolTip(text);
+        setProperty("rowLabel", true);
     }
 
 protected:
@@ -683,11 +684,13 @@ protected:
 
 // Widens a tab's name column to its longest name, between the default and a cap, so names read whole.
 void fit_labels(QWidget* body) {
-    const QList<RowLabel*> labels = body->findChildren<RowLabel*>();
+    // By a property: findChildren needs Q_OBJECT on the class it looks for, and newer Qt refuses to build without it.
+    QList<QLabel*> labels = body->findChildren<QLabel*>();
+    labels.removeIf([](QLabel* l) { return !l->property("rowLabel").toBool(); });
     int need = 112;
-    for (RowLabel* l : labels) need = std::max(need, l->fontMetrics().horizontalAdvance(l->text()) + 8);
+    for (QLabel* l : labels) need = std::max(need, l->fontMetrics().horizontalAdvance(l->text()) + 8);
     need = std::min(need, 240);
-    for (RowLabel* l : labels) l->setFixedWidth(need);
+    for (QLabel* l : labels) l->setFixedWidth(need);
 }
 
 // A row's name. A right click on it gives what the reference's gives there, for what this attribute can take.
