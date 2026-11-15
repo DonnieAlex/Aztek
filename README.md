@@ -468,6 +468,33 @@ Node Editor:
 
 ![Node Editor](docs/node-editor.png)
 
+## Themes
+
+The reference has one look, and Aztek Classic is it, the default. The **Themes** button at the top right of the menu bar
+changes the interface's colours, font and buttons, live, and Aztek keeps the choice. The colour schemes are the ones
+Nord, Dracula, Catppuccin, One Dark and Solarized publish. The timeline and the drawn editors (Graph, Node and UV
+Editor, marking menus) keep their own colours.
+
+### Dark
+
+| | | |
+|---|---|---|
+| ![Aztek Classic](docs/theme-classic.jpg) | ![Graphite](docs/theme-graphite.jpg) | ![Midnight](docs/theme-midnight.jpg) |
+| **Aztek Classic**: the reference's look, and the default | **Graphite**: neutral modern dark | **Midnight**: blue-tinted dark |
+| ![Nord](docs/theme-nord.jpg) | ![Dracula](docs/theme-dracula.jpg) | ![Catppuccin Mocha](docs/theme-mocha.jpg) |
+| **Nord** | **Dracula** | **Catppuccin Mocha** |
+| ![One Dark](docs/theme-onedark.jpg) | ![Solarized Dark](docs/theme-solarized-dark.jpg) | ![Obsidian](docs/theme-obsidian.jpg) |
+| **One Dark** | **Solarized Dark** | **Obsidian**: near-black and sleek, after the game engine editors |
+
+### Light
+
+| | | |
+|---|---|---|
+| ![Paper Light](docs/theme-paper.jpg) | ![Catppuccin Latte](docs/theme-latte.jpg) | ![Nord Snow](docs/theme-snow.jpg) |
+| **Paper Light** | **Catppuccin Latte** | **Nord Snow** |
+| ![Solarized Light](docs/theme-solarized-light.jpg) | ![Motif](docs/theme-motif.jpg) | ![Classic 98](docs/theme-classic98.jpg) |
+| **Solarized Light** | **Motif**: the early-90s workstation desktops, bevelled | **Classic 98**: silver and navy, 1998 |
+
 ## Install
 
 Packages are on the [releases page](https://github.com/srlegrand/Aztek/releases): each build of the main branch is a release of its own, numbered 2.N where N counts the changes so far. A build from source of the same commit shows the same number in Help > About.
