@@ -22,8 +22,10 @@ fn expect(src: &str, want: &[&str]) {
     let l = log();
     let errors: Vec<&String> = l.iter().filter(|(k, _)| *k == 2).map(|(_, t)| t).collect();
     assert!(errors.is_empty(), "Python failed:\n{}\nrunning:\n{src}", errors.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n"));
+    let rest: Vec<String> = l.iter().filter(|(k, _)| *k != 3).map(|(k, t)| format!("[{k}] {t}")).collect();
     let got: Vec<String> = l.into_iter().filter(|(k, _)| *k == 3).map(|(_, t)| t).collect();
-    assert_eq!(got, want, "running:\n{src}");
+    // Warnings and the rest of the log come along, so a failure on another machine says why.
+    assert_eq!(got, want, "running:\n{src}\nlog:\n{}", rest.join("\n"));
 }
 
 fn plugin_dir() -> String {

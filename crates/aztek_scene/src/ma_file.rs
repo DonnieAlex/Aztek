@@ -3375,8 +3375,18 @@ fn plug_value(def: &AttrDef, comp: i32, values: &[Tok], _factor: f64) -> Option<
                 Tok::Word(w) => w.clone(),
                 Tok::Str(w) => quoted(w),
             }).collect();
-            let load = crate::plug::data::find(kind)?;
-            PlugValue::Data(Some(load(&json!({"kind": kind, "pluginData": true, "text": text.join(" ")})).ok()?))
+            // A value its type can't read is said, not dropped quietly: the reference warns on a setAttr that fails.
+            let Some(load) = crate::plug::data::find(kind) else {
+                log::warn!("setAttr: no data type {kind} is registered; is its plug-in loaded?");
+                return None;
+            };
+            match load(&json!({"kind": kind, "pluginData": true, "text": text.join(" ")})) {
+                Ok(d) => PlugValue::Data(Some(d)),
+                Err(e) => {
+                    log::warn!("setAttr: {kind}: {e}");
+                    return None;
+                }
+            }
         }
         // Array data: the count, then the items.
         PlugType::Data => {
