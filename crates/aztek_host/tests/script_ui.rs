@@ -1294,10 +1294,11 @@ fn tool_contexts() {
     assert_eq!(aztek_host::take_ui_requests_for_tests(), json!(["setTool|joint"]));
     assert_eq!(ok(&mut c, "jointCtx -q -ex myJoint;"), json!(true));
     assert!(c.mel_checked("jointCtx myJoint;").is_err());
-    ok(&mut c, "jointCtx -e -sao \"yup\" myJoint;");
-    assert_eq!(ok(&mut c, "jointCtx -q -sao myJoint;"), json!("yup"));
+    ok(&mut c, "jointCtx -e -sao \"zdown\" myJoint;");
+    assert_eq!(ok(&mut c, "jointCtx -q -sao myJoint;"), json!("zdown"));
+    // Reset: back to the tool's default.
     ok(&mut c, "resetTool myJoint;");
-    assert_eq!(ok(&mut c, "jointCtx -q -sao myJoint;"), Value::Null);
+    assert_eq!(ok(&mut c, "jointCtx -q -sao myJoint;"), json!("yup"));
     let auto = ok(&mut c, "curveCVCtx -d 2;");
     assert_eq!(auto, json!("curveCVCtx1"));
     assert_eq!(ok(&mut c, "contextInfo -c curveCVCtx1;"), json!("curveCVCtx"));

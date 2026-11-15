@@ -171,6 +171,7 @@ fn orienting_clears_rotate_axis_and_keeps_the_joints_placed() {
     chain_of(&mut s, &[[0.0, 0.0, 0.0], [2.0, 0.0, -1.0], [4.0, 1.0, 0.0]]);
     set(&mut s, "joint1.rotateAxis", json!([0.0, 45.0, 0.0]));
     let (a, b) = (at(&mut s, "joint2"), at(&mut s, "joint3"));
+    let end_axes = [axis(&mut s, "joint3", 0), axis(&mut s, "joint3", 1)];
     run(&mut s, "joint", json!({"args": ["joint1"], "edit": true, "orientJoint": "xyz", "secondaryAxisOrient": "yup", "children": true}));
     near(attr3(&mut s, "joint1.rotateAxis"), [0.0, 0.0, 0.0]);
     near(at(&mut s, "joint2"), a);
@@ -180,8 +181,9 @@ fn orienting_clears_rotate_axis_and_keeps_the_joints_placed() {
     let len = dist(to, [0.0; 3]);
     near(axis(&mut s, "joint1", 0), [to[0] / len, to[1] / len, to[2] / len]);
     assert!(axis(&mut s, "joint1", 1)[1] > 0.5);
-    // The end joint takes its parent's orientation.
-    near(axis(&mut s, "joint3", 0), axis(&mut s, "joint2", 0));
+    // The command leaves an end joint facing as it was, as the reference's: it has no child to aim at.
+    near(axis(&mut s, "joint3", 0), end_axes[0]);
+    near(axis(&mut s, "joint3", 1), end_axes[1]);
     near(attr3(&mut s, "joint3.rotate"), [0.0, 0.0, 0.0]);
     // None zeroes jointOrient; the child stays.
     run(&mut s, "joint", json!({"args": ["joint3"], "edit": true, "orientJoint": "none"}));
@@ -195,6 +197,29 @@ fn orienting_clears_rotate_axis_and_keeps_the_joints_placed() {
     close(dot, 0.0);
     close(y[1], 0.0);
     assert!(y[2] > 0.0, "{y:?}");
+    // The menu's orient lines the end joint up with its parent.
+    near(axis(&mut s, "joint3", 0), axis(&mut s, "joint2", 0));
+    near(attr3(&mut s, "joint3.jointOrient"), [0.0, 0.0, 0.0]);
+}
+
+#[test]
+fn orienting_leaves_rotated_joints_and_squares_to_the_bend_without_a_world_axis() {
+    let mut s = Session::new();
+    chain_of(&mut s, &[[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 2.0, 0.0], [4.0, 2.0, 0.0]]);
+    let before = attr3(&mut s, "joint2.jointOrient");
+    set(&mut s, "joint2.rotate", json!([0.0, 0.0, 10.0]));
+    run(&mut s, "joint", json!({"args": ["joint2"], "edit": true, "orientJoint": "xyz", "secondaryAxisOrient": "yup"}));
+    near(attr3(&mut s, "joint2.jointOrient"), before);
+    run(&mut s, "orientJoint", json!({"args": ["xyz", "joint2"], "secondaryAxisOrient": "yup"}));
+    near(attr3(&mut s, "joint2.jointOrient"), before);
+    set(&mut s, "joint2.rotate", json!([0.0, 0.0, 0.0]));
+    // No world axis: X down the bone, Z square to it and to the line back to the parent, Y following.
+    run(&mut s, "joint", json!({"args": ["joint2"], "edit": true, "orientJoint": "xyz"}));
+    near(axis(&mut s, "joint2", 0), [0.0, 1.0, 0.0]);
+    let z = axis(&mut s, "joint2", 2);
+    close(z[0], 0.0);
+    close(z[1], 0.0);
+    close(z[2].abs(), 1.0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

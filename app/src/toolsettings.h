@@ -19,6 +19,16 @@ class QSlider;
 
 namespace az {
 
+/// The reference's joint orientation rows: Orient Joint to World, Primary Axis, Secondary Axis and Secondary Axis World
+/// Orientation, added to a form. They start from an orientJoint order ("xyz", "none" for the world) and a
+/// secondaryAxisOrient ("yup", "none"), and hand both back on every change.
+void joint_orient_rows(QFormLayout* form, QWidget* parent, const QString& order, const QString& sao, std::function<void(const QString& order, const QString& sao)> changed);
+
+/// The Orient Joint options box.
+void open_orient_joint_options();
+/// Skeleton > Orient Joint with the options box's settings, on the selected joints.
+void orient_selected_joints();
+
 class ToolSettings : public Panel {
     Q_OBJECT
 public:
@@ -32,6 +42,7 @@ private:
     QWidget* build_transform_page();
     QWidget* build_paint_page();
     QWidget* build_joint_page();
+    void push_joint_settings();
     QWidget* build_curve_page();
     QWidget* build_sculpt_page();
     QWidget* build_attr_page();

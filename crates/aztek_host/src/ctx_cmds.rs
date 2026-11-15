@@ -210,6 +210,11 @@ pub fn delete_context(name: &str) {
     });
 }
 
+/// A setting of a context, or its default: what the tools read their options from.
+pub fn prop(context: &str, key: &str) -> Value {
+    with_ctx(|c| c.all.get(context).map(|x| (x.kind.clone(), x.props.get(key).cloned()))).map_or(Value::Null, |(kind, v)| v.filter(|v| !v.is_null()).unwrap_or_else(|| default_prop(&kind, key)))
+}
+
 pub fn current() -> String {
     with_ctx(|c| c.current.clone())
 }
@@ -247,7 +252,7 @@ const TYPES: &[(&str, &str)] = &[
     ("manipMoveContext", "activeHandle:ah:a alignAlong:aa:a bakePivotOri:bpo:b constrainAlongNormal:xn:b currentActiveHandle:cah:a editPivotMode:epm:b editPivotPosition:epp:b lastMode:lm:a manipVisible:vis:b mode:m:a orientAxes:oa:a orientObject:oo:a orientTowards:ot:a pinPivot:pin:b pivotOriHandle:poh:b position:p:b postCommand:psc:a postDragCommand:pod:a preCommand:prc:a preDragCommand:prd:a preserveChildPosition:pcp:b preserveUV:puv:b reflection:rfl:b reflectionAbout:rab:a reflectionAxis:rfa:a reflectionTolerance:rft:a resetPivotMode:rpm:a snap:s:b snapPivotOri:spo:b snapPivotPos:spp:b snapRelative:sr:b snapValue:sv:a tweakMode:twk:b xformConstraint:xc:a activeHandleNormal:ahn:a interactiveUpdate:iu:b orientJoint:oj:a orientJointEnabled:oje:b secondaryAxisOrient:sao:a snapComponentsRelative:scr:b snapLiveFaceCenter:slf:b snapLivePoint:slp:b translate:tr:a"),
     ("manipRotateContext", "activeHandle:ah:a alignAlong:aa:a bakePivotOri:bpo:b constrainAlongNormal:xn:b currentActiveHandle:cah:a editPivotMode:epm:b editPivotPosition:epp:b lastMode:lm:a manipVisible:vis:b mode:m:a orientAxes:oa:a orientObject:oo:a orientTowards:ot:a pinPivot:pin:b pivotOriHandle:poh:b position:p:b postCommand:psc:a postDragCommand:pod:a preCommand:prc:a preDragCommand:prd:a preserveChildPosition:pcp:b preserveUV:puv:b reflection:rfl:b reflectionAbout:rab:a reflectionAxis:rfa:a reflectionTolerance:rft:a resetPivotMode:rpm:a snap:s:b snapPivotOri:spo:b snapPivotPos:spp:b snapRelative:sr:b snapValue:sv:a tweakMode:twk:b xformConstraint:xc:a centerTrackball:ctb:b modifyTranslation:mt:b rotate:ro:a useCenterPivot:ucp:b useManipPivot:ump:b useObjectPivot:uop:b"),
     ("manipScaleContext", "activeHandle:ah:a alignAlong:aa:a bakePivotOri:bpo:b constrainAlongNormal:xn:b currentActiveHandle:cah:a editPivotMode:epm:b editPivotPosition:epp:b lastMode:lm:a manipVisible:vis:b mode:m:a orientAxes:oa:a orientObject:oo:a orientTowards:ot:a pinPivot:pin:b pivotOriHandle:poh:b position:p:b postCommand:psc:a postDragCommand:pod:a preCommand:prc:a preDragCommand:prd:a preserveChildPosition:pcp:b preserveUV:puv:b reflection:rfl:b reflectionAbout:rab:a reflectionAxis:rfa:a reflectionTolerance:rft:a resetPivotMode:rpm:a snap:s:b snapPivotOri:spo:b snapPivotPos:spp:b snapRelative:sr:b snapValue:sv:a tweakMode:twk:b xformConstraint:xc:a preventNegativeScale:pns:b scale:sc:a useManipPivot:ump:b useObjectPivot:uop:b"),
-    ("jointCtx", "autoJointOrient:ajo:a jointAutoLimits:jal:b jointOrientationPlane:jop:a secondaryAxisOrient:sao:a orientJoint:oj:a scaleJointOrient:sjo:b scaleOrientation:so:b scaleCompensate:sc:b degreeOfFreedomJ:dfj:a largeBoneRadius:lbr:a largeJointRadius:ljr:a smallBoneRadius:sbr:a smallJointRadius:sjr:a variableBoneSize:vbs:b createIKHandle:ikh:b ikSolverType:ikt:a poleVectorType:pvt:a snapHandleH:shh:b symmetry:sym:b symmetryAxis:sa:a"),
+    ("jointCtx", "autoJointOrient:ajo:a autoPriorityH:apH:b createIKHandle:ikh:b degreeOfFreedomJ:dJ:a forceSolverH:fsH:b jointAutoLimits:jal:b jointOrientationJ:joJ:a largeBoneLength:lbl:a largeBoneRadius:lbr:a poWeightH:pwH:a priorityH:pH:a scaleCompensateJ:scJ:b scaleJ:sJ:a scaleOrientationJ:soJ:a secondaryAxisOrient:sao:a smallBoneLength:sbl:a smallBoneRadius:sbr:a snapHandleH:snH:b solverTypeH:stH:a stickyH:sH:a symmetry:sym:b symmetryAxis:sa:a variableBoneSize:vbs:b weightH:wH:a"),
     ("ikHandleCtx", "autoPriorityH:apH:b createCurve:ccv:b createRootAxis:cra:b forceSolverH:fsH:b ikFKSwitching:ikf:b numSpans:ns:a parentCurve:pcv:b poWeightH:pwH:a priorityH:pH:a rootOnCurve:roc:b rootTwistMode:rtm:b simplifyCurve:scv:b snapCurve:snc:b snapHandleH:snH:b solverTypeH:stH:a stickyH:sH:a twistType:tws:a weightH:wH:a"),
     ("ikSplineHandleCtx", "autoPriorityH:apH:b createCurve:ccv:b createRootAxis:cra:b forceSolverH:fsH:b numSpans:ns:a parentCurve:pcv:b poWeightH:pwH:a priorityH:pH:a rootOnCurve:roc:b rootTwistMode:rtm:b simplifyCurve:scv:b snapCurve:snc:b snapHandleH:snH:b solverTypeH:stH:a stickyH:sH:a twistType:tws:a weightH:wH:a"),
     ("curveCVCtx", "degree:d:a multEndKnots:me:b preserveShape:ps:b rational:r:b refit:rf:b uniform:un:b bezier:bez:b"),
@@ -469,6 +474,15 @@ fn default_prop(kind: &str, key: &str) -> Value {
         (_, "position") => json!([0.0, 0.0, 0.0]),
         (_, "degree") => json!(3),
         (_, "title" | "image1" | "image2" | "image3") => json!(""),
+        // The joint tool's, as the reference's.
+        ("jointCtx", "autoJointOrient") => json!("xyz"),
+        ("jointCtx", "secondaryAxisOrient") => json!("yup"),
+        ("jointCtx", "degreeOfFreedomJ") => json!("xyz"),
+        ("jointCtx", "scaleCompensateJ" | "forceSolverH" | "snapHandleH") => json!(true),
+        ("jointCtx", "jointAutoLimits" | "createIKHandle" | "variableBoneSize" | "symmetry" | "autoPriorityH") => json!(false),
+        ("jointCtx", "symmetryAxis") => json!("x"),
+        ("jointCtx", "stickyH") => json!("off"),
+        ("jointCtx", "weightH" | "poWeightH") => json!(1.0),
         _ => Value::Null,
     }
 }

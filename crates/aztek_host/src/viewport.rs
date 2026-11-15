@@ -613,6 +613,8 @@ pub struct Viewport {
     pub brush: Option<(DVec3, DVec3)>,
     /// A curve tool's points so far, and its degree.
     pub curve_points: Vec<DVec3>,
+    /// The joint tool's joint while the button is down: where its parent is, if it has one, and where it would go.
+    pub joint_preview: Option<(Option<DVec3>, DVec3)>,
     pub curve_degree: i64,
     /// Manipulator axis orientation: world, object, component, parent or normal.
     pub axis_mode: String,
@@ -681,6 +683,7 @@ impl Viewport {
             loose_bvhs: HashMap::new(),
             brush: None,
             curve_points: Vec::new(),
+            joint_preview: None,
             curve_degree: 3,
             axis_mode: "world".into(),
             frame: DMat3::IDENTITY,
@@ -1851,8 +1854,27 @@ impl Viewport {
             .collect()
     }
 
-    /// A curve tool's points so far, with the curve they'd make.
+    /// A curve tool's points so far, with the curve they'd make; the joint tool's joint being dragged, with its bone.
     fn draw_curve_tool(&mut self, gpu: &mut Gpu, r: &Renderer, scale: f64) {
+        if let (Tool::Joint, Some((from, at))) = (self.tool, self.joint_preview) {
+            let col = c8([255, 255, 255, 255]);
+            let pv = [LineVertex { pos: at.as_vec3().to_array(), color: col }];
+            let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &pv);
+            r.bind(gpu, Kind::Points);
+            r.push(gpu, &push(self.view_proj(), DMat4::IDENTITY, self.cam.view(), [1.0; 4], 1e-3, (8.0 * scale) as f32));
+            r.draw(gpu, &b, None, 1);
+            gpu.drop_buffer(b);
+            if let Some(f) = from {
+                let lv = [LineVertex { pos: f.as_vec3().to_array(), color: col }, LineVertex { pos: at.as_vec3().to_array(), color: col }];
+                let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lv);
+                r.bind(gpu, Kind::Lines);
+                r.set_line_width(gpu, (1.5 * scale) as f32);
+                r.push(gpu, &push(self.view_proj(), DMat4::IDENTITY, self.cam.view(), [1.0; 4], 1e-3, 1.0));
+                r.draw(gpu, &b, None, 2);
+                gpu.drop_buffer(b);
+            }
+            return;
+        }
         if !matches!(self.tool, Tool::CurveCv | Tool::CurveEp) || self.curve_points.is_empty() {
             return;
         }
@@ -2191,7 +2213,17 @@ impl Viewport {
         if den.abs() < 1e-9 {
             return self.cam.coi;
         }
-        let t = n.dot(p0 - o) / den;
+        let mut t = n.dot(p0 - o) / den;
+        // Looking above the horizon the ground is behind the camera: the plane through the centre of interest, facing
+        // the view, takes the point instead.
+        if t <= 0.0 {
+            let n2 = (self.cam.eye() - self.cam.coi).normalize();
+            let den2 = n2.dot(d);
+            if den2.abs() < 1e-9 {
+                return self.cam.coi;
+            }
+            t = n2.dot(self.cam.coi - o) / den2;
+        }
         let mut p = o + d * t;
         if self.snap == 1 {
             // X held: to the grid.

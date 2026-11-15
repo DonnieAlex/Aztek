@@ -1406,6 +1406,13 @@ impl View {
                 if px.x < -1e5 && self.nav.is_some() {
                     return false;
                 }
+                // The joint tool: the joint follows the pointer until the button comes up.
+                if self.joint_press.is_some() && self.vp.tool == Tool::Joint && px.x > -1e5 {
+                    let g = &core.s.graph;
+                    let from = g.selection().last().copied().filter(|&id| aztek_scene::rig::is_joint(g, id)).and_then(|id| g.node(id)).map(|n| n.data().matrix(aztek_scene::transform::DagNode::WORLD_MATRIX).w_axis.truncate());
+                    self.vp.joint_preview = Some((from, self.vp.place_point(px)));
+                    return true;
+                }
                 if let Some((b, last)) = self.nav {
                     let d = px - last;
                     let aspect = self.vp.aspect();
@@ -1711,11 +1718,13 @@ impl View {
                     return true;
                 }
                 if let Some(start) = self.joint_press.take() {
-                    if (px - start).length() < 6.0 * self.dpr {
+                    // A joint goes where the button comes up, however far it was dragged.
+                    if self.vp.tool == Tool::Joint {
+                        self.vp.joint_preview = None;
+                        place_joint(core, self.vp.place_point(px));
+                    } else if (px - start).length() < 6.0 * self.dpr {
                         let at = self.vp.place_point(px);
-                        if self.vp.tool == Tool::Joint {
-                            place_joint(core, at);
-                        } else {
+                        {
                             self.vp.curve_points.push(at);
                             let want = match self.vp.tool {
                                 Tool::ArcTwo => 2,
@@ -2172,6 +2181,10 @@ impl View {
             "toolTab" => self.ts.tab = v.as_bool().unwrap_or(false),
             // Enter: makes the curve; the tool stays for the next.
             "finishTool" => {
+                if self.vp.tool == Tool::Joint {
+                    finish_joint_chain(core);
+                    return;
+                }
                 let items = gather(&mut core.s.graph);
                 self.tool_finish(core, &items);
                 if self.vp.tool == Tool::CurveBezier {
@@ -2275,17 +2288,66 @@ impl View {
     }
 }
 
-/// The joint tool's click: a joint under the selected one, the parent turned to aim at it.
+thread_local! {
+    /// The joints the joint tool has placed since the chain began, root first.
+    static JOINT_CHAIN: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn joint_setting(key: &str) -> Value {
+    crate::ctx_cmds::prop("jointContext", key)
+}
+
+/// The joint tool's click: a joint under the selected one, made with the tool's settings, the parent turned to aim at
+/// it as the tool's orientation settings say, the new end joint lined up with its parent.
 pub fn place_joint(core: &mut Core, at: DVec3) {
     let g = &core.s.graph;
     let parent = g.selection().last().copied().filter(|&id| aztek_scene::rig::is_joint(g, id)).map(|id| g.path(id));
-    let Ok(v) = core.exec("joint", json!({"position": [at.x, at.y, at.z]})) else { return };
-    if let Some(p) = parent {
-        let _ = core.exec_quiet("joint", json!({"args": [p], "edit": true, "orientJoint": "xyz", "secondaryAxisOrient": "yup"}), aztek_ops::CallSource::Script);
-        if let Some(j) = v.as_str() {
-            let _ = core.exec_quiet("joint", json!({"args": [j], "edit": true, "orientJoint": "xyz", "secondaryAxisOrient": "yup"}), aztek_ops::CallSource::Script);
+    let mut call = json!({"position": [at.x, at.y, at.z]});
+    let dof = joint_setting("degreeOfFreedomJ");
+    if dof.as_str().is_some_and(|d| d != "xyz") {
+        call["degreeOfFreedom"] = dof;
+    }
+    if !joint_setting("scaleCompensateJ").as_bool().unwrap_or(true) {
+        call["scaleCompensate"] = json!(false);
+    }
+    if joint_setting("symmetry").as_bool().unwrap_or(false) {
+        call["symmetry"] = json!(true);
+        call["symmetryAxis"] = joint_setting("symmetryAxis");
+    }
+    let Ok(v) = core.exec("joint", call) else { return };
+    let Some(j) = v.as_str().map(str::to_string) else { return };
+    JOINT_CHAIN.with(|c| {
+        let mut c = c.borrow_mut();
+        if parent.is_none() {
+            c.clear();
+        }
+        c.push(j.clone());
+    });
+    let Some(p) = parent else { return };
+    let order = joint_setting("autoJointOrient").as_str().unwrap_or("xyz").to_string();
+    let up = joint_setting("secondaryAxisOrient").as_str().unwrap_or("yup").to_string();
+    let _ = core.exec_quiet("joint", json!({"args": [p], "edit": true, "orientJoint": order, "secondaryAxisOrient": up}), aztek_ops::CallSource::Script);
+    // The end joint takes its parent's orientation: jointOrient zero.
+    let _ = core.exec_quiet("joint", json!({"args": [j], "edit": true, "orientJoint": "none"}), aztek_ops::CallSource::Script);
+}
+
+/// Enter in the joint tool ends the chain: an IK handle down it when the tool makes one, else the selection cleared so
+/// the next click starts a new chain. Nothing when no chain is being drawn.
+pub fn finish_joint_chain(core: &mut Core) {
+    let chain = JOINT_CHAIN.with(|c| std::mem::take(&mut *c.borrow_mut()));
+    if chain.is_empty() {
+        return;
+    }
+    if chain.len() >= 2 && joint_setting("createIKHandle").as_bool().unwrap_or(false) {
+        let mut call = json!({"startJoint": chain[0], "endEffector": chain[chain.len() - 1]});
+        if let Some(sol) = joint_setting("solverTypeH").as_str() {
+            call["solver"] = json!(sol);
+        }
+        if core.exec("ikHandle", call).is_ok() {
+            return;
         }
     }
+    let _ = core.exec("select", json!({"clear": true}));
 }
 
 /// Component names with their mirror images, on meshes whose symmetry is on.

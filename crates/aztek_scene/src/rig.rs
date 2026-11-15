@@ -296,56 +296,69 @@ fn zero_scale_orient(g: &mut Graph, j: NodeId) -> CmdResult<()> {
     set_vec3(g, j, Transform::ROTATE_AXIS, DVec3::ZERO)
 }
 
-/// The reference's orientJoint: the first axis of `order` aims at the first child joint, the second toward `up` (a world axis
-/// like "yup"). Joints with no child line up with their parent ("none" zeroes jointOrient).
-pub fn orient_joint(g: &mut Graph, j: NodeId, order: &str, up: &str) -> CmdResult<()> {
+/// The reference's orientJoint: the first axis of `order` aims at the first child joint. With `up` a world axis ("yup",
+/// "zdown"...) the second axis turns toward it; with "none" the last axis stands square to the bone and the line back
+/// to the parent joint. As the reference's, a joint with rotations, or with no child joint to aim at, is left as it is
+/// ("none" as the order zeroes jointOrient, whatever the joint). Returns whether the joint changed.
+pub fn orient_joint(g: &mut Graph, j: NodeId, order: &str, up: &str) -> CmdResult<bool> {
     g.evaluate();
     if order == "none" {
-        return keeping_children(g, j, |g| set_vec3(g, j, Joint::JOINT_ORIENT, DVec3::ZERO));
+        keeping_children(g, j, |g| set_vec3(g, j, Joint::JOINT_ORIENT, DVec3::ZERO))?;
+        return Ok(true);
     }
     let o: Vec<char> = order.chars().collect();
-    if o.len() != 3 {
+    if o.len() != 3 || !o.iter().all(|c| "xyz".contains(*c)) || o[0] == o[1] || o[1] == o[2] || o[0] == o[2] {
         fail!("orientJoint: {order} is not an axis order like xyz");
     }
-    let child = g.children(j).iter().copied().find(|&c| is_joint(g, c));
+    if vec3_of(g, j, Transform::ROTATE).abs().max_element() > 1e-9 {
+        return Ok(false);
+    }
+    let Some(child) = g.children(j).iter().copied().find(|&c| is_joint(g, c)) else { return Ok(false) };
     let here = world(g, j).w_axis.truncate();
-    let Some(child) = child else {
-        // End joints take their parent's orientation.
-        let p = g.parent(j);
-        let frame = if p != NO_NODE && is_joint(g, p) { rot3(&world(g, p)) } else { DMat3::IDENTITY };
-        return set_world_orientation(g, j, frame);
-    };
     let aim = (world(g, child).w_axis.truncate() - here).normalize_or_zero();
     if aim == DVec3::ZERO {
-        return Ok(());
+        return Ok(false);
     }
-    let mut upv = match up {
-        "xup" => DVec3::X,
-        "xdown" => -DVec3::X,
-        "ydown" => -DVec3::Y,
-        "zup" => DVec3::Z,
-        "zdown" => -DVec3::Z,
-        _ => DVec3::Y,
-    };
-    if upv.cross(aim).length() < 1e-6 {
-        upv = if aim.cross(DVec3::Z).length() > 1e-6 { DVec3::Z } else { DVec3::X };
-    }
-    let second = (upv - aim * upv.dot(aim)).normalize();
-    let third = aim.cross(second);
-    // Columns: the world direction of local X, Y, Z.
-    let mut cols = [DVec3::ZERO; 3];
     let idx = |c: char| match c {
         'x' => 0,
         'y' => 1,
         _ => 2,
     };
     let (a, b, c) = (idx(o[0]), idx(o[1]), idx(o[2]));
-    cols[a] = aim;
-    cols[b] = second;
-    // Right handed: the third axis completes the frame.
+    // Right handed: whether (first, second, third) runs x, y, z round.
     let sign = if matches!((a, b), (0, 1) | (1, 2) | (2, 0)) { 1.0 } else { -1.0 };
-    cols[c] = third * sign;
-    set_world_orientation(g, j, DMat3::from_cols(cols[0], cols[1], cols[2]))
+    let mut cols = [DVec3::ZERO; 3];
+    cols[a] = aim;
+    let world_up = match up {
+        "xup" => Some(DVec3::X),
+        "xdown" => Some(-DVec3::X),
+        "yup" => Some(DVec3::Y),
+        "ydown" => Some(-DVec3::Y),
+        "zup" => Some(DVec3::Z),
+        "zdown" => Some(-DVec3::Z),
+        _ => None,
+    };
+    // With no world axis: square to the bone and the line back to the parent joint, when there is one off the line.
+    let p = g.parent(j);
+    let back = (p != NO_NODE && is_joint(g, p)).then(|| world(g, p).w_axis.truncate() - here);
+    let plane = back.map(|v| aim.cross(v)).filter(|n| n.length() > 1e-9);
+    match (world_up, plane) {
+        (None, Some(n)) => {
+            cols[c] = n.normalize();
+            cols[b] = (cols[c].cross(aim) * sign).normalize();
+        }
+        _ => {
+            let mut upv = world_up.unwrap_or(DVec3::Y);
+            if upv.cross(aim).length() < 1e-6 {
+                upv = if aim.cross(DVec3::Z).length() > 1e-6 { DVec3::Z } else { DVec3::X };
+            }
+            let second = (upv - aim * upv.dot(aim)).normalize();
+            cols[b] = second;
+            cols[c] = aim.cross(second) * sign;
+        }
+    }
+    set_world_orientation(g, j, DMat3::from_cols(cols[0], cols[1], cols[2]))?;
+    Ok(true)
 }
 
 fn has_skin(g: &Graph, j: NodeId) -> bool {
@@ -1023,7 +1036,7 @@ pub fn register(c: &mut Commands<Session>) {
             if a.bool("edit") {
                 let names = if names.is_empty() { g.selection().iter().map(|&i| g.path(i)).collect() } else { names };
                 let order = a.string("orientJoint", "");
-                let up = a.string("secondaryAxisOrient", "yup");
+                let up = a.string("secondaryAxisOrient", "none");
                 let mut todo = Vec::new();
                 for n in names {
                     let id = find(g, &n, "joint")?;
@@ -1037,7 +1050,7 @@ pub fn register(c: &mut Commands<Session>) {
                     }
                 }
                 for id in todo {
-                    if !order.is_empty() {
+                    if !order.is_empty() && !a.has("orientation") && !a.has("scaleOrientation") {
                         orient_joint(g, id, &order, &up)?;
                     }
                     if let Some(p) = a.vec3("position") {
@@ -1069,7 +1082,7 @@ pub fn register(c: &mut Commands<Session>) {
             apply_joint_flags(g, j, a)?;
             // At creation -oj orients the joint this one extends.
             if parent != NO_NODE && a.has("orientJoint") {
-                orient_joint(g, parent, &a.string("orientJoint", "xyz"), &a.string("secondaryAxisOrient", "yup"))?;
+                orient_joint(g, parent, &a.string("orientJoint", "xyz"), &a.string("secondaryAxisOrient", "none"))?;
             }
             if a.bool("symmetry") {
                 make_symmetric(g, j, &a.string("symmetryAxis", "x").to_lowercase())?;
@@ -1117,31 +1130,52 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "orientJoint",
-            "Orient joints: the first axis of the order aims at the child joint, the second toward -sao. Joints below follow \
-             unless -ch 0.",
+            "The Orient Joint menu item: the first axis of the order aims at the child joint, the second toward -sao \
+             (none: square to the bone and the parent bone). End joints line up with their parent (jointOrient zero). \
+             Joints with rotations are left alone, with a warning. Joints below follow unless -ch 0. Order \"none\" \
+             orients the joints to the world.",
             |s, a| {
                 let names = named_or_selected(s, a);
                 let g = &mut s.graph;
                 let order = a.positional.iter().find_map(|v| v.as_str().filter(|x| x.len() == 3 && x.chars().all(|c| "xyz".contains(c)) || *x == "none")).unwrap_or("xyz").to_string();
                 let up = a.string("secondaryAxisOrient", "yup");
+                let mut todo: Vec<NodeId> = Vec::new();
                 for n in names.iter().filter(|n| **n != order) {
                     let id = find(g, n, "orientJoint")?;
-                    let mut todo = vec![id];
+                    let mut here = vec![id];
                     if a.get("children").and_then(Value::as_bool).unwrap_or(true) {
-                        todo.extend(g.descendants(id).into_iter().filter(|&d| is_joint(g, d)));
+                        here.extend(g.descendants(id).into_iter().filter(|&d| is_joint(g, d)));
                     }
-                    for j in todo {
-                        orient_joint(g, j, &order, &up)?;
-                        if a.bool("zeroScaleOrient") {
-                            zero_scale_orient(g, j)?;
+                    for j in here {
+                        if is_joint(g, j) && !todo.contains(&j) {
+                            todo.push(j);
                         }
+                    }
+                }
+                // As the reference's: only joints at their zero rotation are oriented.
+                let turned: Vec<String> = todo.iter().filter(|&&j| vec3_of(g, j, Transform::ROTATE).abs().max_element() > 1e-9).map(|&j| g.path(j)).collect();
+                if !turned.is_empty() {
+                    log::warn!("orientJoint: {} not oriented, rotations are not zero: {}", if turned.len() == 1 { "joint" } else { "joints" }, turned.join(", "));
+                }
+                for j in todo {
+                    if vec3_of(g, j, Transform::ROTATE).abs().max_element() > 1e-9 {
+                        continue;
+                    }
+                    let end = !g.children(j).iter().any(|&c| is_joint(g, c));
+                    if order == "none" || end {
+                        orient_joint(g, j, "none", &up)?;
+                    } else {
+                        orient_joint(g, j, &order, &up)?;
+                    }
+                    if a.bool("zeroScaleOrient") {
+                        zero_scale_orient(g, j)?;
                     }
                 }
                 Ok(Value::Null)
             },
         )
-        .positional("order (xyz), then joints")
-        .flag(f("secondaryAxisOrient", "sao", ArgType::String, "yup, zup, xdown..."))
+        .positional("order (xyz, or none for the world), then joints")
+        .flag(f("secondaryAxisOrient", "sao", ArgType::String, "yup, zup, xdown... or none"))
         .flag(f("zeroScaleOrient", "zso", ArgType::Bool, "Set rotateAxis to zero; jointOrient takes the change."))
         .flag(f("children", "ch", ArgType::Bool, "The joints below too (default on).")),
     );

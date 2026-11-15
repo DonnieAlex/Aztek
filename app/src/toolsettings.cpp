@@ -29,6 +29,13 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+#include <QApplication>
+#include <QDialog>
+#include <QFrame>
+#include <QMenu>
+#include <QMenuBar>
+#include <QPointer>
+#include <QTimer>
 
 namespace az {
 
@@ -179,13 +186,311 @@ QWidget* ToolSettings::build_curve_page() {
     return w;
 }
 
+void joint_orient_rows(QFormLayout* form, QWidget* parent, const QString& order, const QString& sao, std::function<void(const QString&, const QString&)> changed) {
+    auto radios = [parent](QStringList labels, QButtonGroup*& group) {
+        auto* row = new QWidget(parent);
+        auto* h = new QHBoxLayout(row);
+        h->setContentsMargins(0, 0, 0, 0);
+        group = new QButtonGroup(row);
+        for (int k = 0; k < labels.size(); ++k) {
+            auto* r = new QRadioButton(labels[k], row);
+            group->addButton(r, k);
+            h->addWidget(r);
+        }
+        return std::pair{row, h};
+    };
+    auto* world = new QCheckBox(parent);
+    QButtonGroup *primary, *secondary, *axis;
+    auto [prow, ph] = radios({"X", "Y", "Z"}, primary);
+    ph->addStretch(1);
+    auto [srow, sh] = radios({"X", "Y", "Z", "None"}, secondary);
+    sh->addStretch(1);
+    auto [arow, ah] = radios({"X", "Y", "Z"}, axis);
+    auto* sign = new QComboBox(arow);
+    sign->addItems({"+", "-"});
+    ah->addWidget(sign);
+    ah->addStretch(1);
+    form->addRow("Orient Joint to World:", world);
+    form->addRow("Primary Axis:", prow);
+    form->addRow("Secondary Axis:", srow);
+    form->addRow("Secondary Axis World Orientation:", arow);
+
+    const QString xyz = "xyz";
+    const bool to_world = order == "none";
+    const QString o = to_world || order.size() != 3 ? QString("xyz") : order;
+    primary->button(std::max<qsizetype>(0, xyz.indexOf(o[0])))->setChecked(true);
+    if (sao == "none" && !to_world) secondary->button(3)->setChecked(true);
+    else secondary->button(std::max<qsizetype>(0, xyz.indexOf(o[1])))->setChecked(true);
+    const QString a = sao.size() >= 3 && sao != "none" ? sao : QString("yup");
+    axis->button(std::max<qsizetype>(0, xyz.indexOf(a[0])))->setChecked(true);
+    sign->setCurrentIndex(a.endsWith("down") ? 1 : 0);
+    world->setChecked(to_world);
+
+    auto emit_now = [=] {
+        // With the world on, the rest has no say, as in the reference.
+        for (QWidget* w : {prow, srow, arow}) w->setEnabled(!world->isChecked());
+        const int p = primary->checkedId();
+        const int s2 = secondary->checkedId();
+        QString ord;
+        if (s2 == 3 || s2 < 0) ord = xyz.mid(p, 1) + xyz.mid((p + 1) % 3, 1) + xyz.mid((p + 2) % 3, 1);
+        else ord = xyz.mid(p, 1) + xyz.mid(s2, 1) + xyz.mid(3 - p - s2, 1);
+        QString up = s2 == 3 ? QString("none") : xyz.mid(axis->checkedId(), 1) + (sign->currentIndex() == 1 ? "down" : "up");
+        changed(world->isChecked() ? QString("none") : ord, up);
+    };
+    // The primary and secondary axes can't be the same: choosing one already in use moves the other along.
+    QObject::connect(primary, &QButtonGroup::idClicked, parent, [=](int id) {
+        if (secondary->checkedId() == id) secondary->button((id + 1) % 3)->setChecked(true);
+        emit_now();
+    });
+    QObject::connect(secondary, &QButtonGroup::idClicked, parent, [=](int id) {
+        if (primary->checkedId() == id) primary->button((id + 1) % 3)->setChecked(true);
+        emit_now();
+    });
+    QObject::connect(axis, &QButtonGroup::idClicked, parent, [=](int) { emit_now(); });
+    QObject::connect(sign, &QComboBox::currentIndexChanged, parent, [=](int) { emit_now(); });
+    QObject::connect(world, &QCheckBox::toggled, parent, [=](bool) { emit_now(); });
+    for (QWidget* w : {prow, srow, arow}) w->setEnabled(!to_world);
+}
+
+namespace {
+// The Orient Joint options box's settings, kept between sessions.
+QJsonObject orient_settings() {
+    QSettings st;
+    st.beginGroup("options/orientJointMenu");
+    return QJsonObject{{"order", st.value("order", "xyz").toString()}, {"sao", st.value("sao", "yup").toString()}, {"children", st.value("children", true).toBool()}, {"zso", st.value("zso", true).toBool()}};
+}
+
+void store_orient_settings(const QJsonObject& o) {
+    QSettings st;
+    st.beginGroup("options/orientJointMenu");
+    for (auto it = o.begin(); it != o.end(); ++it) st.setValue(it.key(), it.value().toVariant());
+}
+
+void orient_with(const QJsonObject& o) {
+    QJsonArray args{o["order"].toString()};
+    for (const QJsonValue& v : state()["selection"].toArray()) args.append(v);
+    exec("orientJoint", QJsonObject{{"args", args}, {"secondaryAxisOrient", o["sao"].toString()}, {"children", o["children"].toBool()}, {"zeroScaleOrient", o["zso"].toBool()}});
+}
+} // namespace
+
+void orient_selected_joints() { orient_with(orient_settings()); }
+
+void open_orient_joint_options() {
+    static QPointer<QDialog> open;
+    if (open) {
+        open->raise();
+        open->activateWindow();
+        return;
+    }
+    auto* d = new QDialog(QApplication::activeWindow());
+    open = d;
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowTitle("Orient Joint Options");
+    auto* lay = new QVBoxLayout(d);
+    auto* bar = new QMenuBar(d);
+    QMenu* edit = bar->addMenu("Edit");
+    QMenu* help = bar->addMenu("Help");
+    help->addAction("Help on Orient Joint...")->setEnabled(false);
+    lay->setMenuBar(bar);
+    auto* settings = new QJsonObject(orient_settings());
+    QObject::connect(d, &QObject::destroyed, [settings] { delete settings; });
+    auto* body = new QWidget(d);
+    auto* page = new QVBoxLayout(body);
+    page->setContentsMargins(0, 0, 0, 0);
+    QFormLayout* form = nullptr;
+    fold(page, "Orientation Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    joint_orient_rows(form, body, (*settings)["order"].toString(), (*settings)["sao"].toString(), [settings](const QString& order, const QString& sao) {
+        (*settings)["order"] = order;
+        (*settings)["sao"] = sao;
+    });
+    auto* auto_sec = new QCheckBox("Auto orient secondary axis", body);
+    auto_sec->setEnabled(false);
+    auto_sec->setToolTip("Not in Aztek yet.");
+    form->addRow("", auto_sec);
+    auto* line = new QFrame(body);
+    line->setFrameShape(QFrame::HLine);
+    form->addRow(line);
+    auto* children = new QCheckBox("Orient children of selected joints", body);
+    children->setChecked((*settings)["children"].toBool());
+    auto* zso = new QCheckBox("Reorient the local scale axes", body);
+    zso->setChecked((*settings)["zso"].toBool());
+    form->addRow("", children);
+    form->addRow("", zso);
+    QObject::connect(children, &QCheckBox::toggled, d, [settings](bool on) { (*settings)["children"] = on; });
+    QObject::connect(zso, &QCheckBox::toggled, d, [settings](bool on) { (*settings)["zso"] = on; });
+    QFormLayout* axes = nullptr;
+    fold(page, "Local Rotation Axes", axes);
+    auto* buttons_row = new QWidget(body);
+    auto* bh = new QHBoxLayout(buttons_row);
+    bh->setContentsMargins(0, 0, 0, 0);
+    auto* toggle = new QPushButton("Toggle", buttons_row);
+    toggle->setToolTip("Shows or hides the local rotation axes of the selected joints.");
+    auto* modify = new QPushButton("Modify", buttons_row);
+    auto* freeze = new QPushButton("Freeze", buttons_row);
+    for (QPushButton* b : {modify, freeze}) {
+        b->setEnabled(false);
+        b->setToolTip("Not in Aztek yet.");
+    }
+    bh->addStretch(1);
+    bh->addWidget(toggle);
+    bh->addWidget(modify);
+    bh->addWidget(freeze);
+    bh->addStretch(1);
+    axes->addRow(buttons_row);
+    QObject::connect(toggle, &QPushButton::clicked, d, [] {
+        QJsonArray sel = state()["selection"].toArray();
+        if (sel.isEmpty()) return;
+        const bool on = !ask("getAttr", QJsonObject{{"args", QJsonArray{sel.first().toString() + ".displayLocalAxis"}}}).toBool();
+        for (const QJsonValue& v : sel) exec("setAttr", QJsonObject{{"args", QJsonArray{v.toString() + ".displayLocalAxis", on ? 1 : 0}}});
+    });
+    page->addStretch(1);
+    lay->addWidget(body, 1);
+    auto* buttons = new QHBoxLayout();
+    auto* orient = new QPushButton("Orient", d);
+    auto* apply = new QPushButton("Apply", d);
+    auto* close = new QPushButton("Close", d);
+    buttons->addWidget(orient);
+    buttons->addWidget(apply);
+    buttons->addWidget(close);
+    lay->addLayout(buttons);
+    QObject::connect(orient, &QPushButton::clicked, d, [d, settings] {
+        store_orient_settings(*settings);
+        orient_with(*settings);
+        d->close();
+    });
+    QObject::connect(apply, &QPushButton::clicked, d, [settings] {
+        store_orient_settings(*settings);
+        orient_with(*settings);
+    });
+    QObject::connect(close, &QPushButton::clicked, d, &QDialog::close);
+    edit->addAction("Save Settings", d, [settings] { store_orient_settings(*settings); });
+    edit->addAction("Reset Settings", d, [d] {
+        QSettings().remove("options/orientJointMenu");
+        d->close();
+        QTimer::singleShot(0, [] { open_orient_joint_options(); });
+    });
+    d->resize(520, d->sizeHint().height());
+    d->show();
+}
+
+// The Joint Tool's settings as the reference lays them out, kept between sessions and handed to the joint tool's
+// context whenever the tool is chosen.
+void ToolSettings::push_joint_settings() {
+    QSettings st;
+    st.beginGroup("tools/joint");
+    QJsonObject c{{"edit", true}, {"args", QJsonArray{"jointContext"}}};
+    for (const QString& k : st.childKeys()) {
+        const QVariant v = st.value(k);
+        if (v.typeId() == QMetaType::Bool || v.toString() == "true" || v.toString() == "false") c[k] = v.toBool();
+        else c[k] = v.toString();
+    }
+    exec_quiet("jointCtx", c);
+}
+
 QWidget* ToolSettings::build_joint_page() {
-    auto* w = new QWidget(this);
-    auto* v = new QVBoxLayout(w);
-    v->setContentsMargins(0, 0, 0, 0);
-    v->addWidget(new QLabel("Click to place joints, each under the last.\nEnter ends the chain.", w));
-    v->addStretch(1);
-    return w;
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto* w = new QWidget(scroll);
+    scroll->setWidget(w);
+    auto* page = new QVBoxLayout(w);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(2);
+    auto value = [](const char* k, const QVariant& dflt) {
+        QSettings st;
+        return st.value(QString("tools/joint/") + k, dflt);
+    };
+    auto set = [this](const QString& k, const QVariant& v) {
+        QSettings().setValue("tools/joint/" + k, v);
+        QJsonObject c{{"edit", true}, {"args", QJsonArray{"jointContext"}}};
+        c[k] = QJsonValue::fromVariant(v);
+        exec_quiet("jointCtx", c);
+    };
+    QFormLayout* form = nullptr;
+
+    fold(page, "Joint Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    auto* dof = new QWidget(w);
+    auto* dh = new QHBoxLayout(dof);
+    dh->setContentsMargins(0, 0, 0, 0);
+    QList<QCheckBox*> dofs;
+    const QString had = value("degreeOfFreedomJ", "xyz").toString();
+    for (const char* a : {"X", "Y", "Z"}) {
+        auto* cb = new QCheckBox(a, dof);
+        cb->setChecked(had.contains(QString(a).toLower()));
+        dofs << cb;
+        dh->addWidget(cb);
+    }
+    dh->addStretch(1);
+    for (QCheckBox* cb : dofs)
+        connect(cb, &QCheckBox::toggled, this, [dofs, set] {
+            QString d;
+            for (int k = 0; k < 3; ++k)
+                if (dofs[k]->isChecked()) d += QString("xyz").mid(k, 1);
+            set("degreeOfFreedomJ", d.isEmpty() ? QString("none") : d);
+        });
+    form->addRow("Degrees of freedom:", dof);
+    auto* sym = new QComboBox(w);
+    sym->addItems({"Off", "X-axis", "Y-axis", "Z-axis"});
+    sym->setCurrentIndex(value("symmetry", false).toBool() ? 1 + QString("xyz").indexOf(value("symmetryAxis", "x").toString()) : 0);
+    connect(sym, &QComboBox::currentIndexChanged, this, [set](int i) {
+        set("symmetry", i > 0);
+        if (i > 0) set("symmetryAxis", QString("xyz").mid(i - 1, 1));
+    });
+    form->addRow("Symmetry:", sym);
+    auto check = [&](const char* flag, const QString& label, bool dflt, bool works) {
+        auto* cb = new QCheckBox(label, w);
+        cb->setChecked(value(flag, dflt).toBool());
+        if (!works) {
+            cb->setEnabled(false);
+            cb->setToolTip("Not in Aztek yet.");
+        }
+        connect(cb, &QCheckBox::toggled, this, [set, flag](bool on) { set(flag, on); });
+        form->addRow("", cb);
+        return cb;
+    };
+    check("scaleCompensateJ", "Scale compensate", true, true);
+    check("jointAutoLimits", "Auto joint limits", false, false);
+    QCheckBox* ik = check("createIKHandle", "Create IK handle", false, true);
+    check("variableBoneSize", "Variable bone radius", false, false);
+    auto* centering = new QCheckBox("Projected centering", w);
+    centering->setEnabled(false);
+    centering->setToolTip("Not in Aztek yet.");
+    form->addRow("", centering);
+
+    fold(page, "Orientation Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    // The panel is narrow: long labels go above their buttons rather than push them out of sight.
+    form->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    joint_orient_rows(form, w, value("autoJointOrient", "xyz").toString(), value("secondaryAxisOrient", "yup").toString(), [set](const QString& order, const QString& sao) {
+        set("autoJointOrient", order);
+        set("secondaryAxisOrient", sao);
+    });
+
+    fold(page, "IK Handle Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    auto* solver = new QComboBox(w);
+    solver->addItem("Rotate-Plane Solver", "ikRPsolver");
+    solver->addItem("Single-Chain Solver", "ikSCsolver");
+    solver->setCurrentIndex(std::max(0, solver->findData(value("solverTypeH", "ikRPsolver").toString())));
+    connect(solver, &QComboBox::currentIndexChanged, this, [set, solver](int) { set("solverTypeH", solver->currentData().toString()); });
+    form->addRow("Current solver:", solver);
+    solver->setEnabled(ik->isChecked());
+    connect(ik, &QCheckBox::toggled, solver, &QWidget::setEnabled);
+
+    fold(page, "Bone Radius Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    for (const char* label : {"Short bone length:", "Short bone radius:", "Long bone length:", "Long bone radius:"}) {
+        auto* e = new QLineEdit(w);
+        e->setEnabled(false);
+        e->setToolTip("Not in Aztek yet.");
+        form->addRow(label, e);
+    }
+    page->addStretch(1);
+    push_joint_settings();
+    return scroll;
 }
 
 void ToolSettings::paint_set(const QString& flag, const QJsonValue& val) {
@@ -659,6 +964,7 @@ void ToolSettings::set_tool(const QString& tool) {
     } else if (tool == "joint") {
         title_->setText("Joint Tool");
         stack_->setCurrentWidget(joint_page_);
+        push_joint_settings();
     } else if (tool == "curveCv" || tool == "curveEp") {
         title_->setText(tool == "curveCv" ? "CV Curve Tool" : "EP Curve Tool");
         stack_->setCurrentWidget(curve_page_);

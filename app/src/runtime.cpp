@@ -157,6 +157,9 @@ void MainWindow::build_runtime() {
     tool("RollTool", "camRoll", "Roll Tool");
     tool("YawPitchTool", "camYawPitch", "Yaw-Pitch Tool");
     r("ArtPaintAttrToolOptions", "Tools", "Paint Attribute and its settings", [this] { set_tool("paintAttr"); show_tool_settings(); });
+    r("JointToolOptions", "Skeleton", "Create Joints and its settings", [this] { set_tool("joint"); show_tool_settings(); });
+    r("OrientJoint", "Skeleton", "Orient Joint", [] { orient_selected_joints(); });
+    r("OrientJointOptions", "Skeleton", "Orient Joint options", [] { open_orient_joint_options(); });
     r("EditMembershipTool", "Tools", "Edit Membership", [this] { set_tool("editMembership"); show_tool_settings(); });
     r("ArtPaintSkinWeightsToolOptions", "Tools", "Paint Skin Weights and its settings", [this] { set_tool("paintSkin"); show_tool_settings(); });
     r("RepeatLast", "Edit", "Repeat the last command", [this] { repeat_last(); });
@@ -318,7 +321,12 @@ void MainWindow::build_runtime() {
     });
     r("DeleteEdgeVertex", "Mesh", "Delete edges or vertices", [] { delete_edge_vertex(); });
     r("FinishTool", "Tools", "Finish the current tool", [this] {
-        if (tool_ == "joint") { exec("select", QJsonObject{{"clear", true}}); return; }
+        // The joint tool ends its chain once, in one view: an IK handle down it when the tool makes one, else the
+        // selection cleared for the next chain.
+        if (tool_ == "joint") {
+            if (!panels_->views().isEmpty()) panels_->views().first()->set("finishTool", "true");
+            return;
+        }
         for (ViewportWidget* v : panels_->views()) v->set("finishTool", "true");
         // A scripted tool finishes at its next idle.
         exec_quiet("ctxCompletion");

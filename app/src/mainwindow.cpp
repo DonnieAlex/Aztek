@@ -568,7 +568,7 @@ QMenu* MainWindow::skeleton_menu() {
     // Runs on the selected joint until there is a tool to drag the new joint with.
     m->addAction("Insert Joints", [this] { set_tool("insertJoint"); });
     cmd(m, "Mirror Joints", "mirrorJoint", {}, QString(), true);
-    m->addAction("Orient Joint", [] { exec("joint", QJsonObject{{"edit", true}, {"orientJoint", "xyz"}, {"secondaryAxisOrient", "yup"}, {"children", true}}); });
+    m->addAction(new OptionRow("Orient Joint", QString(), [] { orient_selected_joints(); }, [] { open_orient_joint_options(); }, m));
     m->addSeparator();
     cmd(m, "Remove Joints", "removeJoint");
     cmd(m, "Connect Joint", "connectJoint", QJsonObject{{"connectMode", true}});
@@ -1249,7 +1249,13 @@ void MainWindow::set_tool(const QString& tool) {
     }
     tool_ = tool;
     if (tool_buttons_.contains(tool)) tool_buttons_[tool]->setChecked(true);
-    for (ViewportWidget* v : panels_->views()) v->set("tool", "\"" + tool + "\"");
+    // Tools that place points in the view show the reference's cross-hair.
+    const bool cross = tool == "joint";
+    for (ViewportWidget* v : panels_->views()) {
+        v->set("tool", "\"" + tool + "\"");
+        if (cross) v->setCursor(Qt::CrossCursor);
+        else v->unsetCursor();
+    }
     query("uiToolChanged", tool);
     if (tool_settings_) tool_settings_->set_tool(tool);
     // The tool brings the node's numbers with it; any other puts them away.
