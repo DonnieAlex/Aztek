@@ -1329,7 +1329,24 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone) {
         items = {{"Wireframe", 0, shade("wireframe", "true")}, {"Smooth Shade", 4, shade("wireframe", "false")}, {"X-Ray", 2, [this] { toggle_view_flag("xray"); }},
                  {"Wireframe on Shaded", 6, [this] { if (ViewportWidget* v = active_view()) v->set("wireOnShaded", v->get("wireOnShaded") == "true" ? "false" : "true"); }}};
         break;
-    case 2:
+    case 2: {
+        // What the panel under the cursor shows, as the reference's south zone.
+        auto type = [this](const char* t) {
+            QString k = t;
+            return [this, k] {
+                for (QWidget* w = active_view(); w; w = w->parentWidget())
+                    if (auto* p = qobject_cast<ModelPanel*>(w)) {
+                        p->set_panel_type(k);
+                        return;
+                    }
+            };
+        };
+        items = {{"Perspective", 0, [this, type] { type("model")(); if (ViewportWidget* v = active_view()) v->set("camera", "\"persp\""); }}, {"Outliner", 2, type("outliner")},
+                 {"Graph Editor", 4, type("graph")}, {"Dope Sheet", 6, type("dope")}, {"Node Editor", 5, type("node")}};
+        break;
+    }
+    case 4:
+        // The Aztek box: the cameras, as the reference's.
         items = {{"Top View", 0, cam("top")}, {"Right View", 2, cam("side")}, {"Front View", 4, cam("front")}, {"Perspective", 6, cam("persp")}};
         break;
     case 3:

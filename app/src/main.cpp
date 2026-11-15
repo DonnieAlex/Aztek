@@ -1,6 +1,7 @@
 // Aztek: Qt shell over the Rust host library.
 #include "userfolder.h"
 #include "aztek.h"
+#include "themes.h"
 #include "host.h"
 #include "mainwindow.h"
 
@@ -22,28 +23,8 @@ namespace {
 
 // The reference's dark interface: mid-grey panels, darker fields, blue highlight.
 void apply_style(QApplication& app) {
-    app.setStyle(QStyleFactory::create("Fusion"));
-    QPalette p;
-    QColor window(68, 68, 68), base(43, 43, 43), alt(55, 55, 55), text(200, 200, 200), button(93, 93, 93), hi(82, 133, 166);
-    p.setColor(QPalette::Window, window);
-    p.setColor(QPalette::WindowText, text);
-    p.setColor(QPalette::Base, base);
-    p.setColor(QPalette::AlternateBase, alt);
-    p.setColor(QPalette::ToolTipBase, QColor(255, 255, 220));
-    p.setColor(QPalette::ToolTipText, Qt::black);
-    p.setColor(QPalette::Text, text);
-    p.setColor(QPalette::Button, button);
-    p.setColor(QPalette::ButtonText, text);
-    p.setColor(QPalette::BrightText, Qt::white);
-    p.setColor(QPalette::Highlight, hi);
-    p.setColor(QPalette::HighlightedText, Qt::white);
-    p.setColor(QPalette::Link, QColor(110, 170, 230));
-    p.setColor(QPalette::Disabled, QPalette::Text, QColor(120, 120, 120));
-    p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(120, 120, 120));
-    p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(120, 120, 120));
-    app.setPalette(p);
-    QFile qss(":/style.qss");
-    if (qss.open(QIODevice::ReadOnly)) app.setStyleSheet(QString::fromUtf8(qss.readAll()));
+    // Aztek Classic, the reference's look, unless another theme was chosen.
+    az::apply_saved_theme(app);
 }
 
 #ifdef Q_OS_WIN

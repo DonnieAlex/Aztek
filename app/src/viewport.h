@@ -36,6 +36,8 @@ protected:
     void leaveEvent(QEvent*) override;
     void wheelEvent(QWheelEvent*) override;
     bool event(QEvent*) override;
+    void dragEnterEvent(QDragEnterEvent*) override;
+    void dropEvent(QDropEvent*) override;
 private:
     void ensure();
     void mouse(int kind, QMouseEvent* e);

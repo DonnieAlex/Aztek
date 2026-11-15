@@ -420,9 +420,8 @@ void MainWindow::build_runtime() {
     r("HotBoxPress", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_down_ms_ = QDateTime::currentMSecsSinceEpoch();
         space_held_ = true;
-        QTimer::singleShot(220, this, [this] {
-            if (space_held_ && hotbox_) hotbox_->popup(QCursor::pos());
-        });
+        // At once, as the reference's: a quick tap with nothing picked still toggles the view.
+        if (hotbox_ && !hotbox_->isVisible()) hotbox_->popup(QCursor::pos());
     });
     r("HotBoxRelease", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_held_ = false;

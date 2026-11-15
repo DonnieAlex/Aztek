@@ -2,6 +2,7 @@
 #include "markingmenu.h"
 #include "widgets.h"
 
+#include <QDateTime>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QKeyEvent>
@@ -27,21 +28,40 @@ Hotbox::Hotbox(const QList<QMenu*>& menus, int common, QWidget* parent) : QWidge
         b->setPopupMode(QToolButton::InstantPopup);
         b->setObjectName("hotboxButton");
         b->setMinimumWidth(92);
+        connect(m, &QMenu::aboutToShow, this, [this] { used_ = true; });
         grid->addWidget(b, row, col);
     };
-    // Common menus on top, the menu set's below, as the reference's rows.
+    // Common menus on top, the menu set's below, as the reference's rows, with the Aztek box between them.
+    const int per_row = 9;
     int row = 0, col = 0;
-    for (int i = 0; i < menus.size(); ++i) {
-        if (i == common) {
-            row += 1;
-            col = 0;
-        }
-        if (col == 9) {
+    for (int i = 0; i < common && i < menus.size(); ++i) {
+        if (col == per_row) {
             row += 1;
             col = 0;
         }
         add(menus[i], row, col++);
     }
+    row += 1;
+    auto* mid = new QLabel("Aztek", box_);
+    mid->setObjectName("hotboxCenter");
+    mid->setAlignment(Qt::AlignCenter);
+    mid->setMinimumHeight(26);
+    QFont f = mid->font();
+    f.setBold(true);
+    mid->setFont(f);
+    middle_ = mid;
+    grid->addWidget(mid, row, per_row / 2 - 1, 1, 3);
+    row += 1;
+    col = 0;
+    for (int i = common; i < menus.size(); ++i) {
+        if (col == per_row) {
+            row += 1;
+            col = 0;
+        }
+        add(menus[i], row, col++);
+    }
+    // Laid out now, so the Aztek box's place is known before the first show.
+    grid->activate();
     box_->adjustSize();
 }
 
@@ -51,15 +71,25 @@ void Hotbox::popup(QPoint global) {
     under_ = s ? s->grabWindow(0) : QPixmap();
     setGeometry(area);
     center_ = global - area.topLeft();
-    box_->move(center_ - QPoint(box_->width() / 2, box_->height() / 2));
+    // The Aztek box under the cursor, ready for the cameras.
+    // A layout places its widgets only once shown: placed here by hand, so the Aztek box's spot is known.
+    box_->resize(box_->sizeHint());
+    box_->layout()->setGeometry(QRect(QPoint(), box_->size()));
+    QPoint mid = middle_ ? middle_->geometry().center() : QPoint(box_->width() / 2, box_->height() / 2);
+    box_->move(center_ - mid);
+    shown_ms_ = QDateTime::currentMSecsSinceEpoch();
+    used_ = false;
     show();
+    activateWindow();
     setFocus();
 }
 
 int Hotbox::zone_at(QPoint p) const {
-    // The menus' block is the middle; outside it the screen splits along its diagonals, as the reference's zones do.
+    // The Aztek box; the rest of the menus' block; outside it the screen splits along its diagonals, as the reference's
+    // zones do.
     QRect mid = box_->geometry();
-    if (mid.contains(p)) return 4;
+    if (middle_ && middle_->geometry().translated(mid.topLeft()).contains(p)) return 4;
+    if (mid.contains(p)) return 5;
     QPoint d = p - center_;
     if (std::abs(d.x()) * mid.height() > std::abs(d.y()) * mid.width()) return d.x() > 0 ? 1 : 3;
     return d.y() > 0 ? 2 : 0;
@@ -84,7 +114,7 @@ void Hotbox::paintEvent(QPaintEvent*) {
     QFont f = font();
     f.setBold(true);
     p.setFont(f);
-    static const char* names[] = {"Panels and Layouts", "Display", "Views", "Selection Masks"};
+    static const char* names[] = {"Panels and Layouts", "Display", "Panel Types", "Selection Masks"};
     int off = 44;
     p.drawText(QRect(center_.x() - 100, mid.top() - off, 200, 20), Qt::AlignCenter, names[0]);
     p.drawText(QRect(mid.right() + 16, center_.y() - 10, 200, 20), Qt::AlignLeft | Qt::AlignVCenter, names[1]);
@@ -95,7 +125,8 @@ void Hotbox::paintEvent(QPaintEvent*) {
 void Hotbox::mousePressEvent(QMouseEvent* e) {
     QPoint at = e->position().toPoint();
     int zone = zone_at(at);
-    if (zone == 4 || !zones_) return;
+    used_ = true;
+    if (zone == 5 || !zones_) return;
     QPoint global = e->globalPosition().toPoint();
     QList<MarkItem> items = zones_(zone);
     hide();
@@ -104,8 +135,9 @@ void Hotbox::mousePressEvent(QMouseEvent* e) {
 
 void Hotbox::keyReleaseEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Space && !e->isAutoRepeat()) {
+        const bool tap = !used_ && QDateTime::currentMSecsSinceEpoch() - shown_ms_ < 220;
         hide();
-        emit spaceReleased();
+        emit spaceReleased(tap);
     }
 }
 

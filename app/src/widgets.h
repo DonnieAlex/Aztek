@@ -141,16 +141,19 @@ private:
 
 struct MarkItem;
 
-// Space held: every menu at the cursor, with marking menus in the zones around them. `common` of the menus go on top.
+// Space held: every menu at the cursor, with marking menus in the zones around them. `common` of the menus go on top,
+// the menu set's below, and between them the Aztek box, under the cursor, with the cameras' marking menu, as the
+// reference's hotbox has its own name there.
 class Hotbox : public QWidget {
     Q_OBJECT
 public:
     Hotbox(const QList<QMenu*>& menus, int common, QWidget* parent);
     void popup(QPoint global);
-    // Zone: 0 north, 1 east, 2 south, 3 west.
+    // Zone: 0 north, 1 east, 2 south, 3 west, 4 the Aztek box in the middle.
     void set_zones(std::function<QList<MarkItem>(int)> f) { zones_ = std::move(f); }
 signals:
-    void spaceReleased();
+    // Space up; a tap, quick and with nothing done in the hotbox, toggles the view under the cursor.
+    void spaceReleased(bool tap);
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
@@ -158,8 +161,11 @@ protected:
 private:
     int zone_at(QPoint p) const;
     QWidget* box_;
+    QWidget* middle_ = nullptr;
     QPoint center_;
     QPixmap under_;
+    qint64 shown_ms_ = 0;
+    bool used_ = false;
     std::function<QList<MarkItem>(int)> zones_;
 };
 

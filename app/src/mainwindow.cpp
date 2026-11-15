@@ -19,6 +19,7 @@
 #include "nodeeditor.h"
 #include "shelves.h"
 #include "editors.h"
+#include "themes.h"
 
 #include <QAction>
 #include <cstdio>
@@ -40,6 +41,7 @@
 #include <QJsonDocument>
 #include <QKeyEvent>
 #include <QIcon>
+#include <QImage>
 #include <QPolygonF>
 #include <QLabel>
 #include <QMouseEvent>
@@ -793,6 +795,18 @@ QMenu* MainWindow::playback_menu() {
 void MainWindow::build_menus() {
     QMenuBar* mb = menuBar();
     mb->setNativeMenuBar(false);
+    // Themes, top right of the menu bar: the interface's colours, font and buttons.
+    auto* themes = new QToolButton(mb);
+    themes->setText("Themes");
+    themes->setObjectName("themesButton");
+    themes->setToolTip("Themes: the interface's colours, font and buttons");
+    themes->setPopupMode(QToolButton::InstantPopup);
+    themes->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    themes->setAutoRaise(true);
+    auto* theme_menu = new QMenu(themes);
+    connect(theme_menu, &QMenu::aboutToShow, theme_menu, [theme_menu] { fill_theme_menu(theme_menu); });
+    themes->setMenu(theme_menu);
+    mb->setCornerWidget(themes, Qt::TopRightCorner);
     build_menu_set(menu_set_->currentText());
 }
 
@@ -827,9 +841,10 @@ void MainWindow::build_menu_set(const QString& set) {
     if (hotbox_) hotbox_->deleteLater();
     hotbox_ = new Hotbox(set_menus_, 7, this);
     hotbox_->set_zones([this](int zone) { return hotbox_zone(zone); });
-    connect(hotbox_, &Hotbox::spaceReleased, this, [this] {
+    connect(hotbox_, &Hotbox::spaceReleased, this, [this](bool tap) {
         held_.remove(Qt::Key_Space);
         space_held_ = false;
+        if (tap) panels_->toggle();
     });
 }
 
@@ -880,17 +895,22 @@ void MainWindow::build_toolbox() {
     mark->setObjectName("toolboxMark");
     mark->setAlignment(Qt::AlignCenter);
     {
-        // The A of the app icon, drawn without its black tile.
+        // The app icon's mark, the dog's head forming the A, in the brand orange without its black tile: the icon's
+        // white turned to orange, its black to nothing.
         const qreal dpr = devicePixelRatioF();
-        QPixmap pm(QSize(30, 30) * dpr);
+        QImage src = QImage(":/aztek-icon.png").convertToFormat(QImage::Format_ARGB32);
+        QImage out(src.size(), QImage::Format_ARGB32);
+        const QColor orange(0xff, 0x8a, 0x00);
+        for (int y = 0; y < src.height(); ++y) {
+            const QRgb* in = reinterpret_cast<const QRgb*>(src.constScanLine(y));
+            QRgb* o = reinterpret_cast<QRgb*>(out.scanLine(y));
+            for (int x = 0; x < src.width(); ++x) {
+                const int a = qGray(in[x]) * qAlpha(in[x]) / 255;
+                o[x] = qRgba(orange.red(), orange.green(), orange.blue(), a);
+            }
+        }
+        QPixmap pm = QPixmap::fromImage(out.scaled(QSize(32, 32) * dpr, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         pm.setDevicePixelRatio(dpr);
-        pm.fill(Qt::transparent);
-        QPainter p(&pm);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.scale(30.0 / 512.0, 30.0 / 512.0);
-        p.setPen(QPen(QColor(41, 184, 216), 34, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-        p.drawPolyline(QPolygonF({QPointF(90, 450), QPointF(210, 62), QPointF(330, 450)}));
-        p.drawPolyline(QPolygonF({QPointF(135, 310), QPointF(422, 310), QPointF(422, 400), QPointF(332, 400), QPointF(332, 355), QPointF(377, 355)}));
         mark->setPixmap(pm);
     }
     mark->setToolTip("Aztek");

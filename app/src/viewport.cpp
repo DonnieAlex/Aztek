@@ -1,5 +1,8 @@
 #include <QTimer>
 #include "viewport.h"
+#include <QDropEvent>
+#include <QDragEnterEvent>
+#include <QMimeData>
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
@@ -65,8 +68,41 @@ ViewportWidget::ViewportWidget(const QString& camera, QWidget* parent) : QWidget
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(64, 64);
+    // A camera or light middle-dragged from the Outliner: the view looks through it.
+    setAcceptDrops(true);
     all_views().append(this);
     connect(Host::get(), &Host::sceneChanged, this, [this] { update(); });
+}
+
+namespace {
+// What a dropped node can be looked through: a camera, or a light with a direction, as the reference allows (not a
+// point or an ambient light).
+bool can_look_through(const QString& node) {
+    QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{node}}, {"shapes", true}, {"fullPath", true}}).toArray();
+    QStringList types;
+    for (const QJsonValue& v : shapes) types << ask("nodeType", QJsonObject{{"args", QJsonArray{v.toString()}}}).toString();
+    types << ask("nodeType", QJsonObject{{"args", QJsonArray{node}}}).toString();
+    for (const QString& t : types) {
+        if (t == "camera" || t == "spotLight" || t == "directionalLight" || t == "areaLight" || t == "volumeLight") return true;
+        if (t.startsWith("aiAreaLight") || t == "aiPhotometricLight" || t == "aiMeshLight") return true;
+    }
+    return false;
+}
+} // namespace
+
+void ViewportWidget::dragEnterEvent(QDragEnterEvent* e) {
+    const QString node = e->mimeData()->text().trimmed();
+    if (!node.isEmpty() && !node.contains('\n') && can_look_through(node)) e->acceptProposedAction();
+    else e->ignore();
+}
+
+void ViewportWidget::dropEvent(QDropEvent* e) {
+    const QString node = e->mimeData()->text().trimmed();
+    if (!can_look_through(node)) return;
+    e->acceptProposedAction();
+    // This view, not the last one used: the one it was dropped on.
+    set("camera", QString::fromUtf8(QJsonDocument(QJsonArray{node}).toJson(QJsonDocument::Compact)).mid(1).chopped(1));
+    emit activated(this);
 }
 
 ViewportWidget::~ViewportWidget() {

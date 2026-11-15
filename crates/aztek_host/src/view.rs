@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 
 use crate::camera::CamKind;
 use crate::core::Core;
-use crate::font;
+use crate::text;
 use crate::gpu::Gpu;
 use crate::render::{c8, Kind, LineVertex, Push, Renderer};
 use crate::viewport::{gather, Drag, Handle, Tool, Viewport};
@@ -253,6 +253,13 @@ impl View {
         };
         // The last frame is done with them: the post pass reads this size's images.
         self.post.bind_images(&self.gpu);
+        // The camera it looked through is gone (a new scene, a delete): back to the perspective camera.
+        if !matches!(self.cam_node.as_str(), "persp" | "top" | "front" | "side") && !matches!(core.s.graph.find(&self.cam_node), Ok(Some(_))) {
+            self.cam_node = "persp".to_string();
+            self.vp.cam = crate::camera::Camera::new(CamKind::Persp);
+            self.vp.reset_grid(&mut self.gpu);
+            self.cam_sync = None;
+        }
         self.read_camera(core);
         self.iso_in(core);
         let gathered = gather(&mut core.s.graph);
@@ -418,9 +425,9 @@ impl View {
             let has_button = kind != "hudSlider";
             let button_text = if kind == "hudButton" { label.clone() } else { txt(&c, "buttonLabel") };
             let button_w = num(&c, "buttonWidth", 0.0).max(0.0) * s;
-            let button_w = if button_w > 0.0 { button_w } else { font::width(&button_text, size) + 12.0 * s };
+            let button_w = if button_w > 0.0 { button_w } else { text::width(&button_text, size) + 12.0 * s };
             let track = if kind == "hudSliderButton" { num(&c, "sliderLength", 80.0) } else { num(&c, "sliderLength", 100.0) } * s;
-            let label_w = if has_slider { font::width(&label, size) + 6.0 * s } else { 0.0 };
+            let label_w = if has_slider { text::width(&label, size) + 6.0 * s } else { 0.0 };
             let total = label_w + if has_slider { track + 52.0 * s } else { 0.0 } + if has_button { button_w + 4.0 * s } else { 0.0 };
             let x0 = match section % 5 {
                 0 | 1 => 10.0 * s,
@@ -751,9 +758,7 @@ impl View {
         }
         // The paint skin weights tool's Show Numbers.
         for (at, text, col) in &numbers {
-            for (a, b) in font::strokes(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s) {
-                seg(a, b, *col);
-            }
+            text::draw(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s, c8(*col), &mut tris);
         }
         // Axis triad, bottom left.
         if crate::ui_cmds::hud_on("viewAxis") {
@@ -765,19 +770,15 @@ impl View {
                 let tip = origin + DVec2::new(v.x, -v.y) * 20.0 * s;
                 seg(origin, tip, c);
                 let lp = origin + DVec2::new(v.x, -v.y) * 27.0 * s - DVec2::new(3.0, -4.0) * s;
-                for (a, b) in font::strokes(&name.to_string(), lp, 7.0 * s) {
-                    seg(a, b, c);
-                }
+                text::draw(&name.to_string(), lp, 7.0 * s, c8(c), &mut tris);
             }
         }
         // Camera name, bottom centre.
         if crate::ui_cmds::hud_on("cameraNames") {
             let name = self.cam_node.as_str();
             let size = 10.0 * s;
-            let tw = font::width(name, size);
-            for (a, b) in font::strokes(name, DVec2::new(w * 0.5 - tw * 0.5, h - 12.0 * s), size) {
-                seg(a, b, [225, 225, 225, 255]);
-            }
+            let tw = text::width(name, size);
+            text::draw(name, DVec2::new(w * 0.5 - tw * 0.5, h - 12.0 * s), size, c8([225, 225, 225, 255]), &mut tris);
         }
         // Heads up display text by section.
         let size = 9.0 * s;
@@ -785,7 +786,7 @@ impl View {
         for section in [0i64, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
             let col: Vec<&String> = hud.iter().filter(|(k, _)| *k == section).map(|(_, t)| t).collect();
             for (i, t) in col.iter().enumerate() {
-                let tw = font::width(t, size);
+                let tw = text::width(t, size);
                 let x = match section % 5 {
                     0 | 1 => 10.0 * s,
                     2 => w * 0.5 - tw * 0.5,
@@ -793,17 +794,13 @@ impl View {
                 };
                 let x = if section == 4 || section == 9 { w - tw - 10.0 * s } else { x };
                 let y = if section < 5 { 16.0 * s + i as f64 * row_h } else { h - 26.0 * s - (col.len() - 1 - i) as f64 * row_h };
-                for (a, b) in font::strokes(t, DVec2::new(x, y), size) {
-                    seg(a, b, [230, 230, 230, 255]);
-                }
+                text::draw(t, DVec2::new(x, y), size, c8([230, 230, 230, 255]), &mut tris);
             }
         }
         // What scripts put there: buttons as boxes, sliders as a track and a handle, drawn in lines like the rest.
         for p in &hud_parts {
             let (white, dim) = ([230, 230, 230, 255], [150, 150, 150, 255]);
-            for (a, b) in font::strokes(&p.text, p.text_at, size) {
-                seg(a, b, white);
-            }
+            text::draw(&p.text, p.text_at, size, c8(white), &mut tris);
             if p.slider {
                 let mid = (p.lo.y + p.hi.y) * 0.5;
                 seg(DVec2::new(p.lo.x, mid), DVec2::new(p.hi.x, mid), dim);
@@ -816,9 +813,7 @@ impl View {
                 seg(c, d, white);
                 seg(d, a, white);
                 let value = if p.int { format!("{}", p.value.round() as i64) } else { format!("{:.*}", p.precision, p.value) };
-                for (a, b) in font::strokes(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), size) {
-                    seg(a, b, white);
-                }
+                text::draw(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), size, c8(white), &mut tris);
             } else {
                 let (a, b, c, d) = (p.lo, DVec2::new(p.hi.x, p.lo.y), p.hi, DVec2::new(p.lo.x, p.hi.y));
                 seg(a, b, white);
@@ -831,9 +826,7 @@ impl View {
         let screen = self.vp.screen();
         for (text, at) in self.vp.grid_labels() {
             if let Some(p) = screen.project(at) {
-                for (a, b) in font::strokes(&text, p + DVec2::new(3.0 * s, -3.0 * s), size) {
-                    seg(a, b, [200, 200, 200, 255]);
-                }
+                text::draw(&text, p + DVec2::new(3.0 * s, -3.0 * s), size, c8([200, 200, 200, 255]), &mut tris);
             }
         }
         // Dimension and annotation labels.
@@ -841,9 +834,7 @@ impl View {
             let Some(n) = core.s.graph.node(id) else { continue };
             let Some((text, at)) = aztek_scene::rig_misc::shape_label(n) else { continue };
             let Some(p) = screen.project(at) else { continue };
-            for (a, b) in font::strokes(&text, p + DVec2::new(6.0 * s, -6.0 * s), size) {
-                seg(a, b, [230, 230, 230, 255]);
-            }
+            text::draw(&text, p + DVec2::new(6.0 * s, -6.0 * s), size, c8([230, 230, 230, 255]), &mut tris);
         }
         // The Normal orientation names its handles.
         if self.vp.axis_mode == "normal" && self.vp.tool == Tool::Move {
@@ -852,18 +843,14 @@ impl View {
                 let screen = self.vp.screen();
                 for (i, label) in ["U", "V", "N"].into_iter().enumerate() {
                     if let Some(at) = screen.project(pv + self.vp.frame.col(i) * len * 1.1) {
-                        for (a, b) in font::strokes(label, at, size) {
-                            seg(a, b, [255, 255, 255, 255]);
-                        }
+                        text::draw(label, at, size, c8([255, 255, 255, 255]), &mut tris);
                     }
                 }
             }
         }
         // What the drag has done so far, by the cursor.
         if let Some((at, t)) = &readout {
-            for (a, b) in font::strokes(t, *at + DVec2::new(14.0 * s, -10.0 * s), size) {
-                seg(a, b, [255, 240, 150, 255]);
-            }
+            text::draw(t, *at + DVec2::new(14.0 * s, -10.0 * s), size, c8([255, 240, 150, 255]), &mut tris);
         }
         if lines.is_empty() && tris.is_empty() {
             return;
