@@ -1096,6 +1096,7 @@ impl View {
 
     fn mouse_with_tool(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, buttons: i32) -> bool {
         self.iso_in(core);
+        self.vp.click_box = crate::ui_cmds::pref_f64("clickBoxSize", 4.0).max(1.0) * self.dpr;
         let gathered = gather(&mut core.s.graph);
         let mut items = self.vp.filter_items(&core.s.graph, gathered);
         let alt = mods & ALT != 0;
@@ -1747,7 +1748,12 @@ impl View {
                         return true;
                     }
                     let picked = if (px - start).length() < 4.0 * self.dpr {
-                        let p = self.vp.pick(&core.s, &items, px);
+                        // Too short for a marquee: a click over the little box dragged, as wide as the click box at least.
+                        let k = self.vp.click_box;
+                        let half = (px - start).abs() * 0.5;
+                        self.vp.click_box = k + half.max_element();
+                        let p = self.vp.pick(&core.s, &items, (start + px) * 0.5);
+                        self.vp.click_box = k;
                         self.note_pick(&p);
                         p
                     } else {

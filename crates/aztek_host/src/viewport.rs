@@ -602,6 +602,9 @@ pub struct Viewport {
     pub smooth_cage: bool,
     /// The component under the cursor: (shape, kind, id).
     pub hover_comp: Option<(NodeId, ComponentMode, Index)>,
+    /// Half the side of the square a click picks wires in, in device pixels: the reference's selectPref -clickBoxSize
+    /// times the screen's scale.
+    pub click_box: f64,
     /// UV topology per mesh shape, with the mesh it was worked out from.
     uv_topos: HashMap<NodeId, (usize, Arc<aztek_scene::uv_ops::UvTopo>)>,
     /// Ray trees for meshes not drawn here.
@@ -673,6 +676,7 @@ impl Viewport {
             manip_scale: 1.0,
             smooth_cage: false,
             hover_comp: None,
+            click_box: 4.0,
             uv_topos: HashMap::new(),
             loose_bvhs: HashMap::new(),
             brush: None,
@@ -2202,9 +2206,10 @@ impl Viewport {
         p
     }
 
-    /// The joint, locator or IK handle drawn nearest px (within a few pixels), as its transform.
+    /// The joint, locator or IK handle drawn through the click box around px, the nearest if several, as its transform.
     pub fn pick_rig(&self, g: &Graph, px: DVec2) -> Option<NodeId> {
         let screen = self.screen();
+        let k = self.click_box.max(1.0);
         let mut best: Option<(f64, NodeId)> = None;
         for it in rig_items(g) {
             if !self.rig_shown(g, it.node) || !self.node_shown(g, it.node) || !self.pickable(g, it.shape) {
@@ -2212,8 +2217,11 @@ impl Viewport {
             }
             for (a, b) in &it.segs {
                 let (Some(pa), Some(pb)) = (screen.project(*a), screen.project(*b)) else { continue };
+                if !seg_hits_box(pa, pb, px, k) {
+                    continue;
+                }
                 let d = seg_distance(px, pa, pb);
-                if d < 6.0 && best.is_none_or(|x| d < x.0) {
+                if best.is_none_or(|x| d < x.0) {
                     best = Some((d, it.node));
                 }
             }
@@ -3563,6 +3571,31 @@ fn push(mvp: DMat4, model: DMat4, view: DMat4, color: [f32; 4], bias: f32, point
         n2: [r2[0], r2[1], r2[2], 0.0],
         color,
     }
+}
+
+/// Whether a screen segment passes through the square of half side k around c.
+fn seg_hits_box(a: DVec2, b: DVec2, c: DVec2, k: f64) -> bool {
+    // Liang-Barsky clipping against the square.
+    let d = b - a;
+    let (mut t0, mut t1) = (0.0f64, 1.0f64);
+    for (p, q) in [(-d.x, a.x - (c.x - k)), (d.x, (c.x + k) - a.x), (-d.y, a.y - (c.y - k)), (d.y, (c.y + k) - a.y)] {
+        if p.abs() < 1e-12 {
+            if q < 0.0 {
+                return false;
+            }
+        } else {
+            let r = q / p;
+            if p < 0.0 {
+                t0 = t0.max(r);
+            } else {
+                t1 = t1.min(r);
+            }
+            if t0 > t1 {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 fn seg_distance(p: DVec2, a: DVec2, b: DVec2) -> f64 {

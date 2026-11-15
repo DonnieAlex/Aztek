@@ -203,6 +203,7 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     check(f, "Click and drag select", "clickDrag", false);
     check(f, "Track selection order", "trackSelectionOrder", false);
     check(f, "Preselection highlight", "preSelectHilite", true);
+    number(f, "Click box size", "clickBoxSize", 4, 1, 50, 1, 0);
     number(f, "Paint selection radius (pixels)", "paintSelectRadius", 22, 2, 300, 1, 0);
     f = page("Snapping");
     number(f, "Grid lines every", "gridLinesEvery", 5, 0.001, 10000, 0.5, 3);
@@ -522,7 +523,8 @@ void MainWindow::apply_prefs() {
     ui_pref("resolutionAspect", s.value("prefs/resolutionAspect", 960.0 / 540.0).toDouble());
     exec_quiet("selectPref", QJsonObject{{"clickDrag", s.value("prefs/clickDrag", false).toBool()},
                                          {"trackSelectionOrder", s.value("prefs/trackSelectionOrder", false).toBool()},
-                                         {"preSelectHilite", s.value("prefs/preSelectHilite", true).toBool()}});
+                                         {"preSelectHilite", s.value("prefs/preSelectHilite", true).toBool()},
+                                         {"clickBoxSize", s.value("prefs/clickBoxSize", 4).toInt()}});
     exec_quiet("keyTangent", QJsonObject{{"global", true}, {"inTangentType", s.value("prefs/defaultInTangent", "auto").toString()}, {"outTangentType", s.value("prefs/defaultOutTangent", "auto").toString()}});
     int undo_len = s.value("prefs/undoQueue", 0).toInt();
     exec_quiet("undoInfo", QJsonObject{{"limit", undo_len}});

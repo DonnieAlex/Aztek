@@ -626,14 +626,18 @@ pub fn register(s: &mut Session) {
 
     reg(
         s,
-        Cmd::new("selectPref", "Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection. -q reads.", |_s, a| {
+        Cmd::new("selectPref", "Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection, -clickBoxSize. -q reads.", |_s, a| {
             with_ui(|u| {
                 let query = a.bool("query");
                 let mut out = Value::Null;
-                for name in ["clickDrag", "trackSelectionOrder", "preSelectHilite", "xformNoSelect", "useDepth", "affectsActive", "lockSelection"] {
+                for name in ["clickDrag", "trackSelectionOrder", "preSelectHilite", "xformNoSelect", "useDepth", "affectsActive", "lockSelection", "clickBoxSize"] {
                     if let Some(v) = a.get(name) {
                         if query {
-                            out = if name == "lockSelection" { json!(u.lock_selection) } else { u.prefs.get(name).cloned().unwrap_or(json!(false)) };
+                            out = match name {
+                                "lockSelection" => json!(u.lock_selection),
+                                "clickBoxSize" => u.prefs.get(name).cloned().unwrap_or(json!(4)),
+                                _ => u.prefs.get(name).cloned().unwrap_or(json!(false)),
+                            };
                         } else if name == "lockSelection" {
                             u.lock_selection = v.as_bool().unwrap_or(false);
                         } else {
@@ -652,7 +656,8 @@ pub fn register(s: &mut Session) {
         .flag(f("xformNoSelect", "xns", ArgType::Bool, "A click on an object under the transform tools doesn't reselect."))
         .flag(f("useDepth", "ud", ArgType::Bool, "Marquee only picks what's visible."))
         .flag(f("affectsActive", "aa", ArgType::Bool, "Selection affects the active list."))
-        .flag(f("lockSelection", "lck", ArgType::Bool, "The selection doesn't change on a click.")),
+        .flag(f("lockSelection", "lck", ArgType::Bool, "The selection doesn't change on a click."))
+        .flag(f("clickBoxSize", "cbs", ArgType::Int, "Half the side, in pixels, of the square a click picks in (4).")),
     );
 
     const HUD_COMMON: &str = "section:s:a block:b:a blockSize:bs:a blockAlignment:ba:a padding:p:a visible:vis:b allowOverlap:ao:b";

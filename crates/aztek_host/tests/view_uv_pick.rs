@@ -59,3 +59,27 @@ fn uv_vertex_face_and_multi_picks() {
         assert!(boxed.iter().any(|x| x.contains(k)), "{k} {boxed:?}");
     }
 }
+
+#[test]
+fn a_click_or_a_short_drag_takes_a_locator_through_the_click_box() {
+    use aztek_host::viewport::Viewport;
+    let mut c = Core::new();
+    c.mel("spaceLocator -n loc; scale 5 5 5 loc; select -cl;");
+    let mut vp = Viewport::new(CamKind::Persp);
+    vp.rect = [0.0, 0.0, 800.0, 800.0];
+    vp.cam.coi = DVec3::ZERO;
+    vp.cam.yaw = 30.0;
+    vp.cam.pitch = -30.0;
+    vp.cam.distance = 30.0;
+    let items = gather(&mut c.s.graph);
+    let on = vp.screen().project(DVec3::new(4.5, 0.0, 0.0)).unwrap();
+    // Four pixels off the line: inside a click box of 4 either way it is picked; with 2, not.
+    let off = on + DVec2::new(0.0, 3.5);
+    vp.click_box = 4.0;
+    assert_eq!(vp.pick(&c.s, &items, off), vec!["loc".to_string()]);
+    vp.click_box = 2.0;
+    assert!(vp.pick(&c.s, &items, off).is_empty());
+    // selectPref keeps the size.
+    c.mel("selectPref -clickBoxSize 7;");
+    assert_eq!(c.s.run("selectPref", serde_json::json!({"query": true, "clickBoxSize": true})).unwrap(), serde_json::json!(7));
+}
