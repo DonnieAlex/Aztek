@@ -10,6 +10,8 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QTimer>
+#include <QScrollBar>
 #include <QColorDialog>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -389,6 +391,7 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     h->setContentsMargins(0, 0, 0, 0);
     h->setSpacing(4);
     auto* e = new QLineEdit(type == "int" ? QString::number(a["value"].toInteger()) : fmt3(value), row);
+    e->setProperty("plugKey", plug);
     e->setFixedWidth(54);
     auto* s = new AttrSlider(Qt::Horizontal, row);
     s->setMinimumWidth(8);
@@ -501,6 +504,7 @@ QWidget* file_field(const QJsonObject& a, QWidget* parent) {
     auto* row = new QHBoxLayout();
     row->setSpacing(3);
     auto* e = new QLineEdit(a["value"].toString(), w);
+    e->setProperty("plugKey", plug);
     QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
     QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
         if (!e->property("editing").toBool()) return;
@@ -607,6 +611,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             QString child = kids.at(k).toString();
             if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
             QString cp = plug.left(plug.lastIndexOf('.')) + "." + child;
+            e->setProperty("plugKey", cp);
             QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
             QObject::connect(e, &QLineEdit::editingFinished, e, [e, cp] {
                 if (!e->property("editing").toBool()) return;
@@ -620,6 +625,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     if (type == "float" || type == "int") {
         if (a["min"].isDouble() && a["max"].isDouble() && a["max"].toDouble() > a["min"].toDouble()) return ranged_field(a, a["min"].toDouble(), a["max"].toDouble(), parent);
         auto* e = new QLineEdit(type == "int" ? QString::number(a["value"].toInteger()) : fmt3(a["value"].toDouble()), parent);
+        e->setProperty("plugKey", plug);
         e->setReadOnly(ro);
         bool is_int = type == "int";
         QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
@@ -644,6 +650,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     }
     if (type == "string") {
         auto* e = new QLineEdit(a["value"].toString(), parent);
+        e->setProperty("plugKey", plug);
         e->setReadOnly(ro);
         QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
         QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
@@ -882,6 +889,18 @@ void AttributeEditor::refresh() {
         if (sl->isSliderDown()) return;
     last_ = now;
     QString keep = current_tab_;
+    // The field being typed in, and where the tab was scrolled to, come back after the rebuild: a value set and Tab
+    // to the next field rebuilds the editor, and the cursor goes on to that next field, as in the reference.
+    QString focus_key;
+    QString focus_text;
+    bool focus_edited = false;
+    if (auto* fe = qobject_cast<QLineEdit*>(QApplication::focusWidget()); fe && isAncestorOf(fe)) {
+        focus_key = fe->property("plugKey").toString();
+        focus_edited = fe->property("editing").toBool();
+        focus_text = fe->text();
+    }
+    int scrolled = 0;
+    if (auto* sa = qobject_cast<QScrollArea*>(tabs_->currentWidget())) scrolled = sa->verticalScrollBar()->value();
     tabs_->blockSignals(true);
     while (tabs_->count()) {
         QWidget* w = tabs_->widget(0);
@@ -1056,6 +1075,23 @@ void AttributeEditor::refresh() {
     }
     tabs_->setCurrentIndex(select);
     tabs_->blockSignals(false);
+    if (auto* sa = qobject_cast<QScrollArea*>(tabs_->currentWidget())) {
+        QScrollBar* bar = sa->verticalScrollBar();
+        // After the layout has given the page its height.
+        QTimer::singleShot(0, bar, [bar, scrolled] { bar->setValue(scrolled); });
+    }
+    if (!focus_key.isEmpty())
+        for (QLineEdit* e : tabs_->currentWidget() ? tabs_->currentWidget()->findChildren<QLineEdit*>() : QList<QLineEdit*>())
+            if (e->property("plugKey").toString() == focus_key) {
+                // A value half typed stays as typed.
+                if (focus_edited) {
+                    e->setText(focus_text);
+                    e->setProperty("editing", true);
+                }
+                e->setFocus(Qt::TabFocusReason);
+                if (!focus_edited) e->selectAll();
+                break;
+            }
 }
 
 bool AttributeEditor::eventFilter(QObject* o, QEvent* e) {
