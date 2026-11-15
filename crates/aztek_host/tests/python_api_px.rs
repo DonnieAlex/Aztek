@@ -15,6 +15,16 @@ fn log() -> Vec<(i64, String)> {
     v.as_array().unwrap().iter().map(|l| (l["kind"].as_i64().unwrap(), l["text"].as_str().unwrap().to_string())).collect()
 }
 
+/// Runs Python and gives back what it printed, with the rest of the log.
+fn run_py(src: &str) -> (Vec<String>, Vec<String>) {
+    log();
+    let c = CString::new(src).unwrap();
+    aztek_python(c.as_ptr());
+    let l = log();
+    let rest = l.iter().filter(|(k, _)| *k != 3).map(|(k, t)| format!("[{k}] {t}")).collect();
+    (l.into_iter().filter(|(k, _)| *k == 3).map(|(_, t)| t).collect(), rest)
+}
+
 fn expect(src: &str, want: &[&str]) {
     log();
     let c = CString::new(src).unwrap();
@@ -66,6 +76,39 @@ print(o.apiType() == om.MFn.kAbsolute, o.apiTypeStr, om.MSelectionList().add(cmd
 }
 
 fn data_shapes_locators(dir: &str) {
+    // Where the reopened value went, should it not come back: printed with the failure.
+    let probe = std::panic::catch_unwind(|| data_shapes_locators_run(dir));
+    if let Err(e) = probe {
+        let (out, rest) = run_py(
+            r#"
+s = "pySumPoints1"
+print("plugins", cmds.pluginInfo(q=True, listPlugins=True))
+print("nodes", cmds.ls(type="pySumPoints"), cmds.ls(type="pyMakePoints"))
+print("attrs", cmds.listAttr(s))
+print("connections", cmds.listConnections(s, c=True, p=True))
+try:
+    print("pts", cmds.getAttr(s + ".pts"))
+except Exception as ex:
+    print("pts error", ex)
+o = om.MSelectionList().add(s).getDependNode(0)
+p = om.MFnDependencyNode(o).findPlug("pts", False)
+try:
+    d = p.asMObject()
+    print("pts data", d.apiTypeStr, getattr(om.MFnPluginData(d).data(), "values", None))
+except Exception as ex:
+    print("pts data error", ex)
+print("sum again", cmds.getAttr(s + ".sum"))
+cmds.setAttr(s + ".pts", type="pyPoints")
+print("dirty sum", cmds.getAttr(s + ".sum"))
+print("file", [l for l in open(cmds.file(q=True, sn=True)).read().splitlines() if "requires" in l or "py" in l.lower() or ".pts" in l])
+"#,
+        );
+        let msg = e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|x| x.to_string())).unwrap_or_default();
+        panic!("{msg}\n\nafter reopening:\n{}\n{}", out.join("\n"), rest.join("\n"));
+    }
+}
+
+fn data_shapes_locators_run(dir: &str) {
     expect(
         &format!(
             r#"
