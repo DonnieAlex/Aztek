@@ -193,6 +193,7 @@ the file; a warning says so.
 | `AZTEK_ECHO` | yes | The Script Editor's lines are also written to standard error. |
 | `AZTEK_PROFILE` | yes | Timings of the view's drawing are written out. |
 | `AZTEK_QT_VERSION` | yes | Set at start to the Qt Aztek runs on, as about -qtVersion gives it. |
+| `AZTEK_PYTHON_PACKAGES` | yes | Where `aztekpy -m pip install` puts packages, and the folder every session imports them from first. By default `python/<version>/site-packages` in Aztek's own user folder. |
 | `AZTEK_SKIP_QT_CHECK` | yes | Python imports a PySide built for another Qt without the check that stops it. |
 
 18 of the reference's 122 are read.

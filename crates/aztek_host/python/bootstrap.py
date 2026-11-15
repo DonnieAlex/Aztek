@@ -538,3 +538,81 @@ __main__.__dict__["_aztek_eval"] = _eval_from_mel
 _pxr_shim = types.ModuleType("_aztek_pxr_shim")
 sys.modules["_aztek_pxr_shim"] = _pxr_shim
 exec(compile(_aztek.source("pxr_shim"), "<pxr_shim>", "exec"), _pxr_shim.__dict__)
+
+
+def _aztek_add_packages(folder):
+    """Aztek's own packages folder on the path, with its .pth files, ahead of the system's site-packages."""
+    import site
+
+    before = list(sys.path)
+    site.addsitedir(folder)
+    added = [p for p in sys.path if p not in before]
+    for p in added:
+        sys.path.remove(p)
+    at = next((i for i, p in enumerate(sys.path) if p.rstrip("/\\").endswith(("site-packages", "dist-packages"))), len(sys.path))
+    sys.path[at:at] = added
+
+
+def _aztek_pymain(argv, exe, packages):
+    """aztekpy: Python's own command line, run by Aztek's Python. The exit status comes back."""
+    import code
+    import os
+    import runpy
+
+    # The terminal's own streams, so prompts and output read as Python's do.
+    sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+    if exe:
+        sys.executable = exe
+    args = list(argv)
+    # pip installs into Aztek's own packages unless told where: the reference's mayapy keeps its packages to itself.
+    if len(args) >= 3 and args[0] == "-m" and args[1] == "pip" and args[2] == "install":
+        given = {"-t", "--target", "--prefix", "--root", "--user", "-e", "--editable"}
+        if not any(a.split("=", 1)[0] in given for a in args[3:]):
+            os.makedirs(packages, exist_ok=True)
+            args[3:3] = ["--target", packages]
+    main = sys.modules["__main__"].__dict__
+    try:
+        if args and args[0] in ("-V", "--version"):
+            print("Python " + sys.version.split()[0])
+            return 0
+        if not args or args == ["-i"]:
+            sys.argv = [""]
+            code.interact(banner="Aztek Python " + sys.version.split()[0] + "\nType help() for help.", local=main, exitmsg="")
+            return 0
+        if args[0] == "-c":
+            if len(args) < 2:
+                print("Argument expected for the -c option", file=sys.stderr)
+                return 2
+            sys.argv = ["-c"] + args[2:]
+            exec(compile(args[1], "<string>", "exec"), main)
+        elif args[0] == "-m":
+            if len(args) < 2:
+                print("Argument expected for the -m option", file=sys.stderr)
+                return 2
+            sys.argv = [args[1]] + args[2:]
+            sys.path.insert(0, os.getcwd())
+            runpy.run_module(args[1], run_name="__main__", alter_sys=True)
+        elif args[0] == "-":
+            sys.argv = ["-"] + args[1:]
+            exec(compile(sys.stdin.read(), "<stdin>", "exec"), main)
+        else:
+            sys.argv = list(args)
+            sys.path.insert(0, os.path.dirname(os.path.abspath(args[0])))
+            runpy.run_path(args[0], run_name="__main__")
+    except SystemExit as e:
+        c = e.code
+        if c is None:
+            return 0
+        if isinstance(c, int):
+            return c
+        print(c, file=sys.stderr)
+        return 1
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+        return 1
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    return 0

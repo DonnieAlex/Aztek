@@ -52,6 +52,8 @@ if ($LASTEXITCODE) { throw "build failed" }
 $dist = "$dir\dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 Copy-Item "$dir\aztek.exe" $dist -Force
+# aztekpy, the reference's mayapy, beside it.
+if (Test-Path "$dir\aztekpy.exe") { Copy-Item "$dir\aztekpy.exe" $dist -Force }
 # Harold's command-line renderer, for .hss scene files.
 Copy-Item "$dir\harold.exe" $dist -Force
 & "$Qt\bin\windeployqt.exe" --no-translations --no-compiler-runtime "$dist\aztek.exe" | Out-Null
@@ -62,11 +64,18 @@ if ($env:VCToolsRedistDir) {
 if ($py) {
     $home_ = Split-Path $py
     Get-ChildItem $home_ -Filter "python3*.dll" | Copy-Item -Destination $dist -Force
-    robocopy "$home_\Lib" "$dist\Lib" /E /NFL /NDL /NJH /NJS /NP /XD __pycache__ site-packages test tests idlelib tkinter turtledemo ensurepip | Out-Null
+    robocopy "$home_\Lib" "$dist\Lib" /E /NFL /NDL /NJH /NJS /NP /XD __pycache__ site-packages test tests idlelib tkinter turtledemo | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "copying Python's Lib failed" }
     robocopy "$home_\DLLs" "$dist\DLLs" /E /NFL /NDL /NJH /NJS /NP /XD __pycache__ /XF tcl*.dll tk*.dll _tkinter.pyd | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "copying Python's DLLs failed" }
     $global:LASTEXITCODE = 0
+    # pip in Aztek's own Python, as the reference's mayapy has it: `aztekpy -m pip install ...`. Not fatal: the program
+    # runs without it.
+    if (Test-Path "$dist\aztekpy.exe") {
+        & "$dist\aztekpy.exe" -m ensurepip --default-pip 2>&1 | Out-Host
+        if ($LASTEXITCODE -ne 0) { Write-Warning "pip was not added to the bundled Python" }
+        $global:LASTEXITCODE = 0
+    }
 }
 if (Test-Path examples) { Copy-Item examples "$dist\examples" -Recurse -Force }
 # The plug-ins that ship with Aztek (plugins\), where Aztek looks for them: plug-ins\ beside the exe.

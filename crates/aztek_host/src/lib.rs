@@ -170,6 +170,35 @@ pub extern "C" fn aztek_init() {
     with(|_| ());
 }
 
+/// `aztekpy` and `aztek --python`: Python's command line with Aztek's modules, no window. `argv` is the whole command
+/// line; everything after `--python` (or after the program, run as aztekpy) goes to Python.
+#[no_mangle]
+pub extern "C" fn aztek_python_main(argc: i32, argv: *const *const std::ffi::c_char) -> i32 {
+    let args: Vec<String> = (0..argc.max(0) as usize).map(|i| cstr(unsafe { *argv.add(i) })).collect();
+    let rest: Vec<String> = match args.iter().position(|a| a == "--python" || a == "-python") {
+        Some(i) => args[i + 1..].to_vec(),
+        None => args.iter().skip(1).cloned().collect(),
+    };
+    #[cfg(feature = "python")]
+    {
+        aztek_core::set_batch_mode(true);
+        aztek_init();
+        // The launcher beside the program, so a tool's subprocess of sys.executable runs Python, not the window.
+        let exe = std::env::current_exe().ok();
+        let launcher = exe.as_ref().and_then(|e| e.parent()).map(|d| d.join(if cfg!(windows) { "aztekpy.exe" } else { "aztekpy" })).filter(|p| p.exists());
+        let exe = launcher.or(exe).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+        let rc = python::python_main(&exe, &rest);
+        aztek_exiting();
+        rc
+    }
+    #[cfg(not(feature = "python"))]
+    {
+        let _ = rest;
+        eprintln!("aztekpy: this build has no Python");
+        1
+    }
+}
+
 /// The application's start-up: reads the saved preferences (the up axis, the units a new scene starts in, the
 /// optionVars) and keeps them from here on. Call first, before anything else.
 #[no_mangle]

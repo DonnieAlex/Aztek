@@ -2,12 +2,18 @@
 _name = __name__
 
 if _name == "maya.standalone":
-    # Aztek's batch mode is ready before a script runs: there is nothing to start or stop.
+    # aztekpy's commands work from the start; initialize brings in the user folder as the reference's does: its
+    # paths, modules, plug-ins to load and userSetup scripts. In a window it has nothing to do.
     def initialize(name="python"):
-        pass
+        import _aztek
+
+        _aztek.standalone_initialize()
 
     def uninitialize():
-        pass
+        import sys
+
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 elif _name == "maya.app.flux.core":
     def dpi(value):

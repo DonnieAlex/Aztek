@@ -69,6 +69,9 @@ add_custom_target(harold_program ALL
   COMMENT "cargo build -p aztek_render --bin harold")
 add_dependencies(harold_program aztek_host_build)
 
+# aztekpy, the reference's mayapy: a console program that runs the aztek beside it as `aztek --python`.
+add_executable(aztekpy app/src/aztekpy.cpp)
+
 add_executable(aztek WIN32
   app/src/main.cpp
   app/src/host.cpp
@@ -201,6 +204,9 @@ endif()
 
 # Install: the binary, and on Linux its desktop entry and icon (cmake --install build --prefix ~/.local).
 install(TARGETS aztek RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+if(NOT APPLE)
+  install(TARGETS aztekpy RUNTIME DESTINATION bin)
+endif()
 if(APPLE)
   install(PROGRAMS ${HAROLD_OUT} DESTINATION aztek.app/Contents/MacOS)
 else()

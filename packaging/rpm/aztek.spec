@@ -70,6 +70,8 @@ install -Dm644 %{aztek_src}/LICENSE %{buildroot}%{_datadir}/licenses/aztek/LICEN
 %files
 %{_datadir}/licenses/aztek/LICENSE
 %{_bindir}/aztek
+# aztekpy, the reference's mayapy.
+%{_bindir}/aztekpy
 # Harold, the command-line renderer.
 %{_bindir}/harold
 %{_datadir}/applications/aztek.desktop

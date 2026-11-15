@@ -56,6 +56,10 @@ void attach_console() {
         if (h == nullptr || h == INVALID_HANDLE_VALUE)
             SetStdHandle(w, CreateFileW(L"CONOUT$", GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
     }
+    // aztekpy's prompt reads the console too.
+    HANDLE in = GetStdHandle(STD_INPUT_HANDLE);
+    if (in == nullptr || in == INVALID_HANDLE_VALUE)
+        SetStdHandle(STD_INPUT_HANDLE, CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
 }
 #endif
 
@@ -65,6 +69,21 @@ int main(int argc, char** argv) {
     // Batch rendering and batch scripts need no display: handled before Qt starts.
     for (int i = 1; i < argc; ++i)
         if (std::strcmp(argv[i], "-render") == 0) return aztek_render_batch(argc, argv);
+    // aztekpy, the reference's mayapy: Python's command line with Aztek's modules and no window. As `aztek --python`,
+    // or this program run under that name.
+    {
+        const char* name = argv[0];
+        for (const char* c = argv[0]; *c; ++c)
+            if (*c == '/' || *c == '\\') name = c + 1;
+        bool python = std::strncmp(name, "aztekpy", 7) == 0;
+        for (int i = 1; i < argc && !python; ++i) python = std::strcmp(argv[i], "--python") == 0 || std::strcmp(argv[i], "-python") == 0;
+        if (python) {
+#ifdef Q_OS_WIN
+            attach_console();
+#endif
+            return aztek_python_main(argc, argv);
+        }
+    }
     for (int i = 1; i < argc; ++i)
         if (std::strcmp(argv[i], "--batch") == 0 || std::strcmp(argv[i], "-batch") == 0) {
 #ifdef Q_OS_WIN

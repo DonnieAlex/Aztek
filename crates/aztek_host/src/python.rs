@@ -654,7 +654,24 @@ fn _aztek(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(data_get, m)?)?;
     m.add_function(wrap_pyfunction!(data_put, m)?)?;
     m.add_function(wrap_pyfunction!(deregister_node, m)?)?;
+    m.add_function(wrap_pyfunction!(standalone_initialize, m)?)?;
     Ok(())
+}
+
+/// maya.standalone.initialize(): the user folder's paths, modules, plug-ins to load and userSetup scripts, as a
+/// window's start-up has them. Once a process; in a window they are there already.
+#[pyfunction]
+fn standalone_initialize(py: Python<'_>) {
+    static DONE: std::sync::Once = std::sync::Once::new();
+    if !aztek_core::batch_mode() {
+        return;
+    }
+    py.detach(|| {
+        DONE.call_once(|| {
+            crate::user_folder::apply(&crate::user_folder::load_choice());
+            crate::aztek_startup_scripts();
+        })
+    });
 }
 
 /// The interpreter starts once per process; its outcome stays for later callers.
@@ -669,13 +686,47 @@ fn ensure() -> Result<(), String> {
             Python::initialize();
             let r = Python::attach(|py| -> PyResult<()> {
                 let code = std::ffi::CString::new(include_str!("../python/bootstrap.py")).unwrap();
-                py.run(&code, None, None)
+                py.run(&code, None, None)?;
+                // Aztek's own packages, where aztekpy's pip puts them: on the path of every session, ahead of the
+                // system's, so what was installed for Aztek is what Aztek imports.
+                let dir = packages_folder();
+                py.import("__main__")?.getattr("_aztek_add_packages")?.call1((dir.to_string_lossy().to_string(),))?;
+                Ok(())
             })
             .map_err(|e| format!("Python start-up: {e}"));
             scripted::set_compute_hook(Arc::new(compute));
             r
         })
         .clone()
+}
+
+/// Aztek's own folder of Python packages, for this Python's version: what `aztekpy -m pip install` puts there is on
+/// every Aztek session's path and no other Python's. `AZTEK_PYTHON_PACKAGES` names another.
+pub fn packages_folder() -> std::path::PathBuf {
+    if let Some(d) = std::env::var_os("AZTEK_PYTHON_PACKAGES").filter(|d| !d.is_empty()) {
+        return d.into();
+    }
+    let v = Python::attach(|py| py.version_info().major.to_string() + "." + &py.version_info().minor.to_string());
+    crate::user_folder::own_folder().join("python").join(v).join("site-packages")
+}
+
+/// `aztekpy`, the reference's mayapy: Python's own command line (a script and its arguments, -c, -m, -V, or the
+/// interactive prompt with none), run by Aztek's Python with Aztek's modules ready, no window. `args` are what follow
+/// the program's name. The exit status is the script's.
+pub fn python_main(exe: &str, args: &[String]) -> i32 {
+    if let Err(e) = ensure() {
+        eprintln!("aztekpy: {e}");
+        return 1;
+    }
+    let dir = packages_folder();
+    Python::attach(|py| -> PyResult<i32> {
+        let main = py.import("__main__")?;
+        main.getattr("_aztek_pymain")?.call1((args.to_vec(), exe, dir.to_string_lossy().to_string()))?.extract()
+    })
+    .unwrap_or_else(|e| {
+        eprintln!("aztekpy: {e}");
+        1
+    })
 }
 
 /// Whether the interpreter has been started: no Python plug-in can be loaded before that.
