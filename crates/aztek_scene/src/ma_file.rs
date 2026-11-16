@@ -3440,6 +3440,10 @@ fn apply_tweaks(doc: &Doc, m: &mut Mesh, tweaks: &[usize]) {
 }
 
 /// Builds the document in the session. Everything goes in one pass; the graph evaluates on demand for world matrices.
+thread_local! {
+    static LAST_READ_NAMES: std::cell::RefCell<Vec<(NodeId, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
     let prior: Vec<NodeId> = s.graph.selection().to_vec();
     let fps = if import { anim::fps() } else { doc.fps.unwrap_or_else(anim::fps) };
@@ -3639,6 +3643,9 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
     b.hold_unused();
     b.report_unused();
     let warnings = std::mem::take(&mut b.warnings);
+    // Each node as the file names it, for an import that renames what it brought in (-renamingPrefix).
+    let named: Vec<(NodeId, String)> = (0..count).filter_map(|i| Some((b.ids[i]?, doc.nodes[i].name.clone()))).collect();
+    LAST_READ_NAMES.with(|n| *n.borrow_mut() = named);
     let g = &mut s.graph;
     if import {
         g.select(&prior, SelectMode::Replace);
@@ -5915,10 +5922,28 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
     }
     if a.bool("import") {
         let Some(path) = path_arg else { fail!("file: -import needs a path") };
+        let before: std::collections::HashSet<NodeId> = s.graph.nodes().into_iter().collect();
         s.graph.open_chunk("Import");
-        let r = import_scene(s, &path);
+        let r = import_scene(s, &path).map_err(aztek_ops::CommandError::new).and_then(|_| {
+            // -renamingPrefix (with -renameAll, or on its own): prefix_name, as the reference names pasted__pCube1.
+            let new: Vec<NodeId> = s.graph.nodes().into_iter().filter(|id| !before.contains(id)).collect();
+            let prefix = a.string("renamingPrefix", "");
+            if !prefix.is_empty() {
+                // From the name in the file, not the one a clash gave it: box pasted beside box is pasted__box.
+                let file_names = LAST_READ_NAMES.with(|n| n.borrow().clone());
+                for &id in &new {
+                    let Some(now) = s.graph.node(id).map(|n| n.name().to_string()) else { continue };
+                    let name = file_names.iter().find(|x| x.0 == id).map_or(now, |x| x.1.rsplit(':').next().unwrap_or(&x.1).to_string());
+                    s.graph.rename(id, &format!("{prefix}_{name}"))?;
+                }
+            }
+            Ok(new)
+        });
         s.graph.close_chunk();
-        r.map_err(aztek_ops::CommandError::new)?;
+        let new = r?;
+        if a.bool("returnNewNodes") {
+            return Ok(json!(new.iter().map(|&id| s.graph.path(id)).collect::<Vec<_>>()));
+        }
         return Ok(json!(path));
     }
     if a.bool("exportSelected") || a.bool("exportAll") {
@@ -6146,6 +6171,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(b("sharedReferenceFile", "srf", "Accepted for scripts: nothing's shared yet."))
         .flag(b("mergeNamespacesOnClash", "mnc", "Use the namespace even if it's there already."))
         .flag(t("renamingPrefix", "rpr", "A prefix instead of a namespace. Query: what it is."))
+        .flag(b("renameAll", "ra", "With -renamingPrefix on import: every imported node takes the prefix."))
         .flag(b("lockReference", "lck", "Lock the reference's nodes and attributes."))
         .flag(b("usingNamespaces", "uns", "Query: whether it uses a namespace."))
         .flag(b("unresolvedName", "un", "Query: the path as written."))

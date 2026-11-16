@@ -109,7 +109,7 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
   `ToggleWireframeOnShaded`, `DisplayShadedAndTextured`, `ToggleAutoKey`, `Ungroup`, `ArchiveScene`, `OptimizeScene`,
   `Hypershade`, `PlayblastOptions`, `CreateImagePlane`, `CreateNURBSCircle`. A test walks the captured list and fails
   on any name `exists` doesn't know. `runTimeCommand -q -uca` and `-dca` answer.
-- [~] 2.2 (16/11/2026: checked against the 2027 hotkey page, not a capture; menu set keys, F12, Alt+F9, H, Alt+H, F1, Page Up and Down fixed; `hotkeySet` with `.mhk` import and export; the keys PARITY.md lists not bound yet) Default hotkey set matches the captured one key for key, including Insert and D for pivot, X C V snapping,
+- [~] 2.2 (16/11/2026: checked against the 2027 hotkey page, not a capture; menu set keys, F12, Alt+F9, H, Alt+H, F1, Page Up and Down, Ctrl+X C V fixed; `hotkeySet` with `.mhk` import and export; the keys PARITY.md lists not bound yet) Default hotkey set matches the captured one key for key, including Insert and D for pivot, X C V snapping,
   6 and 7, H, Ctrl+H, Ctrl+Shift+H, Alt+B, Ctrl+Shift+D, Shift+H, F1 help, Home, Page Up and Down. Hotkey sets
   import from the reference's `.mhk`.
 - [~] 2.3 (16/11/2026: node, command, camera and free planes, sequences, depth, alpha and colour gain, fit modes,

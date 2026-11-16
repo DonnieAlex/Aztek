@@ -500,6 +500,20 @@ void MainWindow::build_runtime() {
     add_if("Hypershade", "Windows", "Hypershade", "HypershadeWindow;");
     add_if("CreateNURBSCircle", "Create", "NURBS Circle", "circle -nr 0 1 0;");
     add_if("CreateImagePlane", "Create", "Free Image Plane", "imagePlane;");
+    // Cut, Copy and Paste of objects: the selection written to a scene file in the user's temp folder and imported
+    // back with the pasted_ prefix, so pasted__pCube1, as the reference names them; a paste survives the originals
+    // being deleted and works across sessions.
+    add_if("CopySelected", "Edit", "Copy",
+           "if (size(`ls -sl`)) { string $f = `internalVar -userTmpDir` + \"aztekClipboard.ma\";"
+           " file -force -exportSelected -type \"mayaAscii\" $f; }");
+    add_if("CutSelected", "Edit", "Cut",
+           "if (size(`ls -sl`)) { string $f = `internalVar -userTmpDir` + \"aztekClipboard.ma\";"
+           " file -force -exportSelected -type \"mayaAscii\" $f; delete; }");
+    add_if("PasteSelected", "Edit", "Paste",
+           "string $f = `internalVar -userTmpDir` + \"aztekClipboard.ma\";"
+           " if (`filetest -r $f`) { string $new[] = `file -import -type \"mayaAscii\" -renameAll true"
+           " -renamingPrefix \"pasted_\" -returnNewNodes $f`; string $top[] = `ls -assemblies $new`;"
+           " if (size($top)) select -r $top; }");
     add_if("HideUnselectedObjects", "Display", "Hide Unselected Objects",
            "string $sel[] = `ls -sl -l`; string $all[] = `ls -assemblies -l`;"
            "for ($a in $all) { if (size(`listRelatives -s -type camera $a`)) continue; int $keep = 0;"
@@ -550,6 +564,7 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         {"F9", 0, "SelectVertexMask", ""}, {"F10", 0, "SelectEdgeMask", ""}, {"F11", 0, "SelectFacetMask", ""}, {"F12", 0, "SelectUVMask", ""}, {"F9", A, "SelectVertexFaceMask", ""},
         {"F9", C, "ConvertSelectionToVertices", ""}, {"F10", C, "ConvertSelectionToEdges", ""}, {"F11", C, "ConvertSelectionToFaces", ""}, {"F12", C, "ConvertSelectionToUVs", ""},
         {"PgUp", 0, "SmoothingLevelIncrease", ""}, {"PgDown", 0, "SmoothingLevelDecrease", ""}, {"Q", C | S, "QuadDrawTool", ""}, {"X", C | S, "MultiCutTool", ""},
+        {"X", C, "CutSelected", ""}, {"C", C, "CopySelected", ""}, {"V", C, "PasteSelected", ""},
         {"1", 0, "SmoothPreviewOff", ""}, {"2", 0, "SmoothPreviewCage", ""}, {"3", 0, "SmoothPreviewSmooth", ""}, {"4", 0, "WireframeView", ""}, {"5", 0, "ShadedView", ""}, {"6", 0, "TexturedView", ""}, {"7", 0, "DisplayLight", ""},
         {"1", C, "IsolateSelect", ""}, {"A", A, "XRayToggle", ""}, {"B", A, "BackgroundCycle", ""}, {"Space", C, "ToggleMainPane", ""},
         {"Del", 0, "DeleteSelection", ""}, {"Backspace", 0, "DeleteSelection", ""}, {"Del", C, "DeleteEdgeVertex", ""},

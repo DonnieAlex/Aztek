@@ -452,16 +452,9 @@ QMenu* MainWindow::edit_menu() {
         if (recents->isEmpty()) recents->addAction("(none)")->setEnabled(false);
     });
     m->addSeparator();
-    m->addAction("Cut\tCtrl+X", [this] {
-        clipboard_ = selection_names();
-        exec("delete");
-    });
-    m->addAction("Copy\tCtrl+C", [this] { clipboard_ = selection_names(); });
-    m->addAction("Paste\tCtrl+V", [this] {
-        QJsonArray a;
-        for (const QString& n : clipboard_) a.append(n);
-        if (!a.isEmpty()) exec("duplicate", args(a));
-    });
+    m->addAction("Cut\tCtrl+X", [this] { run_command("CutSelected"); });
+    m->addAction("Copy\tCtrl+C", [this] { run_command("CopySelected"); });
+    m->addAction("Paste\tCtrl+V", [this] { run_command("PasteSelected"); });
     m->addSeparator();
     cmd(m, "Delete", "delete", {}, "Delete");
     QMenu* by_type = m->addMenu("Delete by Type");

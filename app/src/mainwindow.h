@@ -229,7 +229,6 @@ private:
     bool scrubbing_ = false;
     QString last_tool_ = "select";
     QStringList recent_commands_;
-    QStringList clipboard_;
     QHash<QString, QWidget*> named_windows_;
     QByteArray main_pane_state_;
     bool main_pane_ = false;

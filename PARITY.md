@@ -2670,8 +2670,15 @@ comparison. Changed or added:
   A and F, [ and ], the arrows.
 - Not bound yet, from the page: Home (the page doesn't list it), 0 (default display quality), Ctrl+T (universal
   manipulator), Shift+J, Ctrl+I, Alt+I, Ctrl+Shift+E R W, Ctrl+Alt+. and ,, Shift+G, Shift+S, Ctrl+M, Shift+M,
-  Ctrl+Shift+M, Shift+{ and }, ` and Ctrl+`, Alt+1 2 4 5, Alt+J, the bookmark keys, Ctrl+X C V cut, copy and paste
-  of objects, L.
+  Ctrl+Shift+M, Shift+{ and }, ` and Ctrl+`, Alt+1 2 4 5, Alt+J, the bookmark keys, L.
+- Edit > Cut, Copy and Paste (Ctrl+X, C, V; `CutSelected`, `CopySelected`, `PasteSelected`): the selection exported to
+  `aztekClipboard.ma` in the user's temp folder and imported back with `-renamingPrefix pasted_`, so a pasted pCube1
+  is pasted__pCube1, the next pasted__pCube2, and a paste survives the originals being deleted. They duplicated by name
+  before, so Paste after Cut did nothing. How the reference stores its clipboard was not checked; the names follow
+  what it gives.
+- `file -import` now acts on `-renamingPrefix` (each imported node takes prefix_ before the name the file gives it,
+  not the one a clash gave it), `-renameAll` and `-returnNewNodes`. It ignored them; `-namespace` on import is still
+  ignored.
 - `hotkeySet`: a name with `-source` makes a set, `-current`, `-delete`, `-q -exists`, `-q -current`,
   `-q -hotkeySetArray`; the default set is Aztek_Default and answers to Maya_Default. Bindings are shared by every
   set: switching sets doesn't change the keys. `-import` runs a hotkey set file (MEL), so the reference's `.mhk`
