@@ -488,6 +488,7 @@ void MainWindow::build_runtime() {
            "string $ip = `getPanel -wf`; isolateSelect -state (!`isolateSelect -q -state $ip`) $ip;");
     add_if("SnapToGrid", "Modify", "Snap to grids on or off", "snapMode -grid (!`snapMode -q -grid`);");
     add_if("MatchPivots", "Modify", "Match Pivots", "matchTransform -pivots;");
+    add_if("BakeCustomPivot", "Modify", "Bake Pivot", "bakeCustomToolPivot;");
     add_if("PolyExtrude", "Mesh", "Extrude", "polyExtrudeFacet;");
     add_if("BevelPolygon", "Mesh", "Bevel", "polyBevel3;");
     add_if("ReversePolygonNormals", "Mesh Display", "Reverse normals", "polyNormal -normalMode 0;");

@@ -1908,8 +1908,8 @@ fn register_transform(c: &mut Commands<Session>) {
              they are.",
             |s, a| {
                 let turn = a.vec3("turnAxis").map(vec3).filter(|v| *v != DVec3::ZERO).map(|ax| DMat3::from_axis_angle(ax.normalize(), a.float("turnAngle", 0.0).to_radians()));
-                if !a.has("position") && !a.has("orient") && turn.is_none() {
-                    fail!("setPivot: give position=, orient= or turnAxis=");
+                if !a.has("position") && !a.has("orient") && turn.is_none() && !a.bool("orientToSurface") {
+                    fail!("setPivot: give position=, orient=, turnAxis= or orientToSurface");
                 }
                 for id in transforms_of(s, a, "setPivot")? {
                     if is_joint(&s.graph, id) {
@@ -1925,6 +1925,25 @@ fn register_transform(c: &mut Commands<Session>) {
                         let axes = xf::pivot_frame(&mut s.graph, id);
                         xf::set_world_pivot_frame(&mut s.graph, id, &(r * axes))?;
                     }
+                    // Snap Pivot Orientation: the pivot's axes to the vertex, edge or face of the object's mesh it sits on.
+                    if a.bool("orientToSurface") {
+                        let g = &mut s.graph;
+                        g.evaluate();
+                        let at = xf::world_pivot(g, id);
+                        for sh in crate::dag::shapes(g, id, false) {
+                            let Some(n) = g.node(sh) else { continue };
+                            if !n.ty().is_a("mesh") {
+                                continue;
+                            }
+                            let Some(m) = n.data().mesh(crate::mesh_nodes::MeshNode::OUT_MESH).cloned() else { continue };
+                            let w = n.data().matrix(crate::transform::DagNode::WORLD_MATRIX);
+                            let size = node_size(&m, &w);
+                            if let Some(f) = xf::surface_frame_at(&m, &w, at, size * 1e-4 + 1e-6) {
+                                xf::set_world_pivot_frame(g, id, &f)?;
+                                break;
+                            }
+                        }
+                    }
                 }
                 Ok(Value::Null)
             },
@@ -1938,6 +1957,7 @@ fn register_transform(c: &mut Commands<Session>) {
             Value::Null,
             "Pivot orientation relative to the object's axes, Euler XYZ degrees (pivotOrient); on a joint, its jointOrient.",
         ))
+        .flag(flag("orientToSurface", "", T::Bool, Value::Null, "Turn the pivot's axes to the vertex, edge or face it sits on (Snap Pivot Orientation)."))
         .flag(flag("turnAxis", "", T::Vec3, Value::Null, "World axis to turn the pivot's axes about, by turnAngle."))
         .flag(flag("turnAngle", "", T::Float, Value::Null, "Degrees to turn about turnAxis.")),
     );
@@ -2039,4 +2059,17 @@ fn register_transform(c: &mut Commands<Session>) {
         .positional("object")
         .undoable(false),
     );
+}
+
+/// A mesh's size in the world: its bounding box's diagonal.
+fn node_size(m: &aztek_geo::Mesh, w: &glam::DMat4) -> f64 {
+    let (mut lo, mut hi) = (DVec3::splat(f64::MAX), DVec3::splat(f64::MIN));
+    for p in 0..m.point_capacity() {
+        if m.point_valid(p) {
+            let q = w.transform_point3(m.position(p));
+            lo = lo.min(q);
+            hi = hi.max(q);
+        }
+    }
+    if lo.x > hi.x { 1.0 } else { (hi - lo).length() }
 }

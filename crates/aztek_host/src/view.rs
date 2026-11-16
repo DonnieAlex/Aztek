@@ -1753,6 +1753,10 @@ impl View {
                         if let Some((cmd, call)) = self.last_drag.take() {
                             core.retract_preview();
                             let _ = core.exec(&cmd, call);
+                            // Snap Pivot Orientation: a pivot moved onto a vertex, edge or face takes its axes.
+                            if self.vp.pivot_mode && self.vp.snap_pivot_ori && !matches!(d.handle, Handle::PivotRing(_)) && !d.targets.is_empty() {
+                                let _ = core.exec("setPivot", json!({"args": d.targets, "orientToSurface": true}));
+                            }
                             // A pivot turned in the view is what the tools then follow: their axes go to Object, which
                             // shows the pivot's. The reference goes to its Custom orientation here.
                             if matches!(d.handle, Handle::PivotRing(_)) {
@@ -2194,6 +2198,7 @@ impl View {
             "tweakMode" => self.vp.tweak = v.as_bool().unwrap_or(false),
             "keepSpacing" => self.vp.keep_spacing = v.as_bool().unwrap_or(true),
             "snapPivot" => self.vp.snap_pivot = v.as_bool().unwrap_or(false),
+            "snapPivotOri" => self.vp.snap_pivot_ori = v.as_bool().unwrap_or(false),
             "useManipPivot" => self.vp.use_manip_pivot = v.as_bool().unwrap_or(false),
             "preserveChildren" => self.vp.preserve_children = v.as_bool().unwrap_or(false),
             "preventNegativeScale" => self.vp.prevent_negative = v.as_bool().unwrap_or(true),

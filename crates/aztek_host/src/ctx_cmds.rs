@@ -438,6 +438,9 @@ fn apply_to_views(s: &mut Session, kind: &str, flags: &Map<String, Value>) {
     if let Some(v) = on_off("snapPivotPos") {
         view_all("snapPivot", json!(v));
     }
+    if let Some(v) = on_off("snapPivotOri") {
+        view_all("snapPivotOri", json!(v));
+    }
     if let Some(v) = on_off("useManipPivot") {
         view_all("useManipPivot", json!(v));
     }

@@ -2798,3 +2798,13 @@ Absolute step snap (Tool Settings' Step Snap Absolute, `-snapRelative false`) no
 rotate in Gimbal (where a ring is one channel), scale on an axis handle, one object; elsewhere the change itself is
 snapped, as relative does. Move had both already. Not done: absolute rotate snap in Object and World (a ring there
 turns several channels), the Universal Manipulator (Ctrl+T).
+
+### Bake Pivot's runtime command and Snap Pivot Orientation (16/11/2026)
+
+PLAN 3.6, part. `BakeCustomPivot` (and `bakeCustomToolPivot -pos -ori`, the reference's command name, which runs
+`bakePivot`) is in, so the runtime command list of 2.1 has it; Modify > Pivot > Bake Pivot was there. Tool Settings'
+Snap Pivot Orientation (`-snapPivotOri`) now acts: in Edit Pivot (D or Insert), a pivot moved onto the object's mesh
+takes the axes of the vertex (Z its normal), edge (X along it, Z its faces' normal) or face (Z its normal, X its first
+edge) it lands on, through `setPivot -orientToSurface`, as the Move tool's Normal orientation lays them out. The
+checkbox was there and did nothing. Not done: Snap Pivot Position lands on vertices only (edges and faces not yet), and
+which of the pivot's axes the reference puts along a normal was not checked.

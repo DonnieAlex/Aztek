@@ -234,6 +234,25 @@ pub fn register(c: &mut Commands<Session>) {
 
     c.register(
         CommandDef::<Session>::new(
+            "bakeCustomToolPivot",
+            "The reference's name for Modify > Bake Pivot (the runtime command BakeCustomPivot): bakePivot with \
+             -position (-pos) and -orientation (-ori), both by default.",
+            |s, a| {
+                let mut call = json!({"args": a.named()});
+                if a.has("position") || a.has("orientation") {
+                    call["position"] = json!(a.get("position").map_or(false, |v| v.as_bool().unwrap_or(true)));
+                    call["orientation"] = json!(a.get("orientation").map_or(false, |v| v.as_bool().unwrap_or(true)));
+                }
+                s.run("bakePivot", call)
+            },
+        )
+        .positional("objects")
+        .flag(FlagDef::new("position", "pos", T::Bool, Value::Null, "Bake the pivot's place."))
+        .flag(FlagDef::new("orientation", "ori", T::Bool, Value::Null, "Bake the pivot's axes.")),
+    );
+
+    c.register(
+        CommandDef::<Session>::new(
             "freezeTransforms",
             "Bake translate/rotate/scale into mesh or curve points, leaving identity values. World positions don't change. \
              With hierarchy (the default, like the reference) everything parented under the objects is frozen too; without it the \

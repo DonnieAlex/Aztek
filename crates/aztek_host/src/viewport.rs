@@ -571,6 +571,8 @@ pub struct Viewport {
     pub keep_spacing: bool,
     /// Snap Pivot Position: in pivot mode the pivot lands on points near the cursor.
     pub snap_pivot: bool,
+    /// Tool Settings' Snap Pivot Orientation: a pivot moved onto the mesh takes the vertex's, edge's or face's axes.
+    pub snap_pivot_ori: bool,
     /// Use Manipulator Pivot: objects turn and scale about the manipulator rather than each about its own.
     pub use_manip_pivot: bool,
     /// J held: rotate in discrete steps.
@@ -716,6 +718,7 @@ impl Viewport {
             custom_frame: DMat3::IDENTITY,
             keep_spacing: true,
             snap_pivot: false,
+            snap_pivot_ori: false,
             use_manip_pivot: false,
         }
     }

@@ -287,3 +287,92 @@ pub fn closest_euler(rotation: &DMat3, order: RotateOrder, hint: DVec3) -> DVec3
         a
     }
 }
+
+/// A frame from a Z axis and a hint for X: Z as given, X the hint made square to it (or any square axis).
+fn frame_z(z: DVec3, x_hint: DVec3) -> Option<DMat3> {
+    let z = z.normalize_or_zero();
+    if z == DVec3::ZERO {
+        return None;
+    }
+    let mut x = (x_hint - z * x_hint.dot(z)).normalize_or_zero();
+    if x == DVec3::ZERO {
+        x = z.any_orthonormal_vector();
+    }
+    Some(DMat3::from_cols(x, z.cross(x), z))
+}
+
+/// Snap Pivot Orientation: the axes of the mesh where a world point lies, as the Move tool's component orientation
+/// takes them: on a vertex, Z its normal; on an edge, X along it and Z its faces' normal; in a face, Z its normal and X
+/// along its first edge. None when the point is not on the mesh (farther than `tol` from it).
+pub fn surface_frame_at(m: &aztek_geo::Mesh, world: &glam::DMat4, at: DVec3, tol: f64) -> Option<DMat3> {
+    let w3 = DMat3::from_mat4(*world);
+    let pos = |p: aztek_geo::Index| world.transform_point3(m.position(p));
+    let nrm = |n: DVec3| (w3.inverse().transpose() * n).normalize_or_zero();
+    // A vertex.
+    let mut best: Option<(f64, aztek_geo::Index)> = None;
+    for p in 0..m.point_capacity() {
+        if m.point_valid(p) {
+            let d = (pos(p) - at).length();
+            if d <= tol && best.is_none_or(|b| d < b.0) {
+                best = Some((d, p));
+            }
+        }
+    }
+    if let Some((_, p)) = best {
+        let normals = aztek_geo::normals::point_normals(m, aztek_geo::normals::NormalWeight::Angle);
+        let n = nrm(normals.get(p as usize).map_or(DVec3::Z, |v| v.as_dvec3()));
+        return frame_z(n, w3 * DVec3::X);
+    }
+    // An edge.
+    let mut best: Option<(f64, aztek_geo::Index)> = None;
+    for e in 0..m.edge_capacity() {
+        if !m.edge_valid(e) {
+            continue;
+        }
+        let (a, b) = (pos(m.edge_point(e, 0)), pos(m.edge_point(e, 1)));
+        let ab = b - a;
+        let t = if ab.length_squared() > 0.0 { ((at - a).dot(ab) / ab.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+        let d = (a + ab * t - at).length();
+        if d <= tol && best.is_none_or(|x| d < x.0) {
+            best = Some((d, e));
+        }
+    }
+    if let Some((_, e)) = best {
+        let (a, b) = (pos(m.edge_point(e, 0)), pos(m.edge_point(e, 1)));
+        let mut n = DVec3::ZERO;
+        let c0 = m.edge_corner(e);
+        if c0 != aztek_geo::INVALID {
+            let mut c = c0;
+            loop {
+                n += nrm(m.face_normal(m.corner_face(c)));
+                c = m.corner_radial(c);
+                if c == c0 || c == aztek_geo::INVALID {
+                    break;
+                }
+            }
+        }
+        let x = (b - a).normalize_or_zero();
+        let n = (n - x * n.dot(x)).normalize_or_zero();
+        return if n == DVec3::ZERO { frame_z(x.any_orthonormal_vector(), x) } else { Some(DMat3::from_cols(x, n.cross(x), n)) };
+    }
+    // A face: the nearest whose plane holds the point, inside it.
+    for f in 0..m.face_capacity() {
+        if !m.face_valid(f) {
+            continue;
+        }
+        let pts: Vec<DVec3> = m.face_points(f).into_iter().map(pos).collect();
+        if pts.len() < 3 {
+            continue;
+        }
+        let n = nrm(m.face_normal(f));
+        if (at - pts[0]).dot(n).abs() > tol {
+            continue;
+        }
+        // Inside: on the same side of every edge.
+        let inside = (0..pts.len()).all(|i| (pts[(i + 1) % pts.len()] - pts[i]).cross(at - pts[i]).dot(n) >= -tol);
+        if inside {
+            return frame_z(n, pts[1] - pts[0]);
+        }
+    }
+    None
+}
