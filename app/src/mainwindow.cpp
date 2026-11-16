@@ -795,17 +795,8 @@ QMenu* MainWindow::playback_menu() {
 void MainWindow::build_menus() {
     QMenuBar* mb = menuBar();
     mb->setNativeMenuBar(false);
-    // Themes, top right of the menu bar: the interface's colours, font and buttons.
-    auto* themes = new QToolButton(mb);
-    themes->setText("Themes");
-    themes->setObjectName("themesButton");
-    themes->setToolTip("Themes: the interface's colours, font and buttons");
-    themes->setPopupMode(QToolButton::InstantPopup);
-    themes->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    themes->setAutoRaise(true);
-    auto* theme_menu = new QMenu(themes);
-    connect(theme_menu, &QMenu::aboutToShow, theme_menu, [theme_menu] { fill_theme_menu(theme_menu); });
-    themes->setMenu(theme_menu);
+    // Themes, top right of the menu bar: the interface's colours, fonts and shapes, and the Theme Editor.
+    QComboBox* themes = make_theme_box(mb);
     mb->setCornerWidget(themes, Qt::TopRightCorner);
     build_menu_set(menu_set_->currentText());
 }

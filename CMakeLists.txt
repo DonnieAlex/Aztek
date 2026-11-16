@@ -102,6 +102,7 @@ add_executable(aztek WIN32
   app/src/runtime.cpp
   app/src/statusline.cpp
   app/src/themes.cpp
+  app/src/theme_editor.cpp
   app/src/hotbox.cpp
   app/src/shelves.cpp
   app/src/panelmenus.cpp

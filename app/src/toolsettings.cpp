@@ -44,6 +44,7 @@ namespace {
 // A titled part of the page that folds away.
 void fold(QVBoxLayout* page, const QString& title, QFormLayout*& form) {
     auto* head = new QToolButton();
+    head->setObjectName("foldHead");
     head->setText(title);
     head->setCheckable(true);
     head->setChecked(true);

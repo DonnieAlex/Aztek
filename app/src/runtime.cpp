@@ -1,5 +1,6 @@
 // Named actions (the reference's runtime commands), the hotkey table that runs them and the Hotkey Editor. A hotkey runs a named
 // action or MEL; bindings the user changes are saved in the settings over the defaults.
+#include "themes.h"
 #include "envvars.h"
 #include "editors.h"
 #include "mainwindow.h"
@@ -162,6 +163,7 @@ void MainWindow::build_runtime() {
     r("OrientJointOptions", "Skeleton", "Orient Joint options", [] { open_orient_joint_options(); });
     r("EditMembershipTool", "Tools", "Edit Membership", [this] { set_tool("editMembership"); show_tool_settings(); });
     r("ArtPaintSkinWeightsToolOptions", "Tools", "Paint Skin Weights and its settings", [this] { set_tool("paintSkin"); show_tool_settings(); });
+    r("AztekThemeEditor", "Window", "Theme Editor: the interface's colours, fonts and shapes", [this] { show_theme_editor(this); });
     r("RepeatLast", "Edit", "Repeat the last command", [this] { repeat_last(); });
     r("CreateReference", "File", "Create a reference", [this] { create_reference_dialog(false); });
     r("CreateReferenceOptions", "File", "Create a reference, with options", [this] { create_reference_dialog(true); });

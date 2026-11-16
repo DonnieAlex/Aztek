@@ -470,30 +470,42 @@ Node Editor:
 
 ## Themes
 
-The reference has one look, and Aztek Classic is it, the default. The **Themes** button at the top right of the menu bar
-changes the interface's colours, font and buttons, live, and Aztek keeps the choice. The colour schemes are the ones
-Nord, Dracula, Catppuccin, One Dark and Solarized publish. The timeline and the drawn editors (Graph, Node and UV
-Editor, marking menus) keep their own colours.
+The reference has one look, and Aztek Classic is it, the default. The **Themes** box at the top right of the menu bar
+changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
+Aztek keeps the choice. They are listed from darkest to lightest. Dracula, Nord and Solarized are the colour schemes
+their authors publish. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
+colours.
+
+**Theme Editor...**, at the bottom of the box, edits every part of a theme: each colour, the font and its size, italic
+or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, single like Motif, double like 1998), corner
+radius, border width, padding, the tab, arrow and scroll bar styles. Built-in themes stay as they are and saving makes a
+copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pass around.
+
+![Theme Editor](docs/theme-editor.png)
 
 ### Dark
 
 | | | |
 |---|---|---|
-| ![Aztek Classic](docs/theme-classic.jpg) | ![Graphite](docs/theme-graphite.jpg) | ![Midnight](docs/theme-midnight.jpg) |
-| **Aztek Classic**: the reference's look, and the default | **Graphite**: neutral modern dark | **Midnight**: blue-tinted dark |
-| ![Nord](docs/theme-nord.jpg) | ![Dracula](docs/theme-dracula.jpg) | ![Catppuccin Mocha](docs/theme-mocha.jpg) |
-| **Nord** | **Dracula** | **Catppuccin Mocha** |
-| ![One Dark](docs/theme-onedark.jpg) | ![Solarized Dark](docs/theme-solarized-dark.jpg) | ![Obsidian](docs/theme-obsidian.jpg) |
-| **One Dark** | **Solarized Dark** | **Obsidian**: near-black and sleek, after the game engine editors |
+| ![Aztek Classic](docs/theme-classic.jpg) | ![Obsidian](docs/theme-obsidian.jpg) | ![Carbon](docs/theme-carbon.jpg) |
+| **Aztek Classic**: the reference's look, and the default | **Obsidian**: near-black and flat, after the game engine editors | **Carbon**: charcoal, teal, soft corners |
+| ![Midnight](docs/theme-midnight.jpg) | ![Dracula](docs/theme-dracula.jpg) | ![Solarized Dark](docs/theme-solarized-dark.jpg) |
+| **Midnight**: blue-black | **Dracula** | **Solarized Dark** |
+| ![Graphite](docs/theme-graphite.jpg) | ![Nord](docs/theme-nord.jpg) | ![Slate](docs/theme-slate.jpg) |
+| **Graphite**: neutral dark with a soft gradient | **Nord** | **Slate**: mid grey, gradient buttons |
+| ![Pewter](docs/theme-pewter.jpg) |  |  |
+| **Pewter**: warm mid grey with an orange accent |  |  |
 
 ### Light
 
 | | | |
 |---|---|---|
-| ![Paper Light](docs/theme-paper.jpg) | ![Catppuccin Latte](docs/theme-latte.jpg) | ![Nord Snow](docs/theme-snow.jpg) |
-| **Paper Light** | **Catppuccin Latte** | **Nord Snow** |
-| ![Solarized Light](docs/theme-solarized-light.jpg) | ![Motif](docs/theme-motif.jpg) | ![Classic 98](docs/theme-classic98.jpg) |
-| **Solarized Light** | **Motif**: the early-90s workstation desktops, bevelled | **Classic 98**: silver and navy, 1998 |
+| ![Studio 96](docs/theme-studio96.jpg) | ![Power Animator](docs/theme-poweranimator.jpg) | ![Classic 98](docs/theme-classic98.jpg) |
+| **Studio 96**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Power Animator**: blue-grey with two pixel shadows | **Classic 98**: silver and navy, two-tone bevels, 1998 |
+| ![Workstation](docs/theme-workstation.jpg) | ![Ash](docs/theme-ash.jpg) | ![Solarized Light](docs/theme-solarized-light.jpg) |
+| **Workstation**: the light grey workstation desktop the reference first ran on | **Ash**: light grey modern | **Solarized Light** |
+| ![Paper](docs/theme-paper.jpg) | ![Lilac](docs/theme-lilac.jpg) |  |
+| **Paper**: near white | **Lilac**: white, teal, soft corners |  |
 
 ## Install
 
