@@ -90,6 +90,19 @@ fn read_rec(b: &[u8], at: usize) -> (Option<Rec>, usize) {
                 props.push(if code == b'S' { P::S(String::from_utf8(bytes).unwrap()) } else { P::Raw(bytes) });
                 p += 4 + n;
             }
+            b'l' | b'f' => {
+                let (n, packed, len) = (u32_at(b, p), u32_at(b, p + 4), u32_at(b, p + 8));
+                assert_eq!(packed, 0, "arrays are written plain");
+                let width = if code == b'f' { 4 } else { 8 };
+                assert_eq!(len, n * width);
+                let data = &b[p + 12..p + 12 + len];
+                props.push(if code == b'f' {
+                    P::Doubles(data.chunks(4).map(|c| f32::from_le_bytes(c.try_into().unwrap()) as f64).collect())
+                } else {
+                    P::Doubles(data.chunks(8).map(|c| i64::from_le_bytes(c.try_into().unwrap()) as f64).collect())
+                });
+                p += 12 + len;
+            }
             b'i' | b'd' => {
                 let (n, packed, len) = (u32_at(b, p), u32_at(b, p + 4), u32_at(b, p + 8));
                 assert_eq!(packed, 0, "arrays are written plain");
@@ -335,4 +348,58 @@ fn the_formats_are_plug_ins_that_load_at_start_and_unload() {
     assert_eq!(c.mel("pluginInfo -q -loaded fbx"), json!(true));
     assert!(c.mel_checked("select -cl; exportFbx \"/tmp/never.fbx\";").unwrap_err().contains("nothing selected"));
     assert!(c.mel_checked("importFbx \"/nonexistent-folder/never.fbx\";").unwrap_err().contains("can't read"));
+}
+
+#[test]
+fn animation_goes_out_and_comes_back() {
+    let dir = std::env::temp_dir().join(format!("aztek_fbx_anim_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("anim.fbx").to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    let m = |c: &mut Core, src: &str| c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"));
+    m(&mut c, "loadPlugin fbx; polyCube -n box; playbackOptions -min 1 -max 24;");
+    m(&mut c, "setKeyframe -t 1 -v 0 -at translateX box; setKeyframe -t 24 -v 10 -at translateX box;");
+    m(&mut c, "setKeyframe -t 1 -v 0 -at rotateY box; setKeyframe -t 24 -v 90 -at rotateY box;");
+    m(&mut c, &format!("select -r box; FBXExport -f \"{f}\" -s;"));
+    let doc = read(std::path::Path::new(&f));
+    let objects = doc.kid("Objects");
+    assert_eq!(objects.all("AnimationStack").len(), 1);
+    assert!(objects.all("AnimationCurveNode").len() >= 2, "translation and rotation");
+    // What the scene had at some frames, then back in, in a new scene: the keys play the same.
+    let mut want = Vec::new();
+    for frame in [1.0, 7.0, 12.5, 24.0] {
+        m(&mut c, &format!("currentTime {frame};"));
+        want.push((frame, m(&mut c, "getAttr box.translateX;").as_f64().unwrap(), m(&mut c, "getAttr box.rotateY;").as_f64().unwrap()));
+    }
+    m(&mut c, &format!("file -f -new; FBXImport -f \"{f}\";"));
+    for (frame, tx, ry) in want {
+        m(&mut c, &format!("currentTime {frame};"));
+        let a = m(&mut c, "getAttr box.translateX;").as_f64().unwrap();
+        let b = m(&mut c, "getAttr box.rotateY;").as_f64().unwrap();
+        // Frame 12.5 falls between two baked keys, so only near.
+        let tol = if frame == 12.5 { 0.05 } else { 1e-3 };
+        assert!((a - tx).abs() < tol, "frame {frame}: tx {a} want {tx}");
+        assert!((b - ry).abs() < tol * 10.0, "frame {frame}: ry {b} want {ry}");
+    }
+    assert!(m(&mut c, "keyframe -q -kc box.translateX;").as_i64().unwrap() >= 24, "a key a frame, as baked");
+}
+
+#[test]
+fn a_skinned_joint_s_animation_with_its_orient() {
+    let dir = std::env::temp_dir().join(format!("aztek_fbx_janim_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("j.fbx").to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    let m = |c: &mut Core, src: &str| c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"));
+    m(&mut c, "loadPlugin fbx; playbackOptions -min 1 -max 10; select -cl; joint -p 0 0 0 -n root; joint -p 0 3 0 -n tip; select -cl;");
+    m(&mut c, "setAttr root.jointOrient 0 0 30; polyCube -n box; skinCluster root tip box;");
+    m(&mut c, "setKeyframe -t 1 -v 0 -at rotateZ root; setKeyframe -t 10 -v 45 -at rotateZ root;");
+    m(&mut c, "currentTime 6;");
+    let want = m(&mut c, "xform -q -ws -t tip;");
+    m(&mut c, &format!("select -r box; FBXExport -f \"{f}\" -s; file -f -new; FBXImport -f \"{f}\"; currentTime 6;"));
+    let got = m(&mut c, "xform -q -ws -t tip;");
+    for i in 0..3 {
+        assert!((want[i].as_f64().unwrap() - got[i].as_f64().unwrap()).abs() < 1e-3, "{want} {got}");
+    }
+    assert!((m(&mut c, "getAttr root.jointOrientZ;").as_f64().unwrap() - 30.0).abs() < 1e-6, "the orient stays the orient");
 }

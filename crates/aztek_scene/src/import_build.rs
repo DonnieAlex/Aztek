@@ -458,6 +458,12 @@ fn make_material(s: &mut Session, im: &ImpMaterial, files: &mut HashMap<i64, Str
 }
 
 /// Makes the nodes, meshes, materials, skins and bind pose; selects what was made at the top and returns those nodes' names.
+thread_local! {
+    /// The node each ImpNode of the last build_all became, in the same order, for an importer that adds to them after
+    /// (FBX animation).
+    pub static LAST_BUILT: std::cell::RefCell<Vec<NodeId>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 pub fn build_all(s: &mut Session, nodes: Vec<ImpNode>, materials: Vec<ImpMaterial>, extras: Extras) -> CmdResult {
     let mut ids: Vec<NodeId> = vec![NO_NODE; nodes.len()];
     let mut faces_made: Vec<Vec<Option<u32>>> = (0..nodes.len()).map(|_| Vec::new()).collect();
@@ -587,6 +593,7 @@ pub fn build_all(s: &mut Session, nodes: Vec<ImpNode>, materials: Vec<ImpMateria
         }
         crate::skin::bind_imported(&mut s.graph, ids[sk.mesh], &joints, sk.bind_pre, sk.geom, sk.weights, sk.normalize, &pose)?;
     }
+    LAST_BUILT.with(|l| *l.borrow_mut() = ids.clone());
     let tops: Vec<NodeId> = order.iter().filter(|&&k| nodes[k].parent.is_none_or(|p| p >= nodes.len()) && nodes[k].existing.is_none()).map(|&k| ids[k]).collect();
     let names: Vec<String> = tops.iter().map(|&id| s.graph.path(id)).collect();
     if names.is_empty() {

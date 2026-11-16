@@ -165,7 +165,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 
 ## Phase 4: interchange
 
-- [~] 4.1 (12/11/2026: the `fbx` plug-in reads and writes meshes, materials and textures, joints, skins and the `FBX*` settings; not animation, blend shapes, cameras, lights or ASCII) FBX import and export: meshes with normals, UVs, colours and materials, skeletons, skin weights,
+- [~] 4.1 (12/11/2026: the `fbx` plug-in reads and writes meshes, materials and textures, joints, skins and the `FBX*` settings. 16/11/2026: animation out (sampled a frame each) and in; not blend shapes, cameras, lights or ASCII) FBX import and export: meshes with normals, UVs, colours and materials, skeletons, skin weights,
   blendShapes, cameras, lights, animation, binary and ASCII, `FBXExport` and `FBXImport` with the common `FBX*`
   option commands. Pick a reader and writer whose licence fits MIT-0; write down the choice in PARITY.md.
 - [~] 4.2 (16/11/2026: Ogawa archives written and read by Aztek's own `aztek_abc`; AbcExport with -file, -root,

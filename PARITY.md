@@ -2922,3 +2922,18 @@ the Graph Editor and the Channel Box find those curves through the joint. Where 
 1, Solver Enable off) the keys play. Files write the curves on the joint (`connectAttr j1_rotateY.o j1.ry`) and read
 them back onto the solver, in .ma and .mb. Set IK/FK Key now keys the chain's joints as well as the handle. Not done:
 the curves' solid and dotted look in the Graph Editor by IK and FK, Connect and Disconnect from IK/FK.
+
+### FBX animation, out and in (16/11/2026)
+
+PLAN 4.1, part. `FBXExport` writes animation when FBXExportAnimation is on (the default): a take (`Take 001`) with one
+layer, and for each exported node whose channels move over the range, curve nodes on Lcl Translation, Rotation and
+Scaling with a curve per axis, sampled on every frame of the playback range, or of FBXExportBakeComplexStart/End/Step
+when FBXExportBakeComplexAnimation is on. The samples are what the node shows (constraints, IK and expressions
+included), folded as its static values are (pivots, joint orient, the file's axes and unit). The reference writes the
+curves' own keys and tangents unless baking is asked for; here it is always a key a frame, linear. `FBXImport` reads
+the curves back (it ignored them): per node, every key time of its curves, the node set from the file's channels at
+that time (through the same pre and post rotation, pivots, axes and unit as its rest pose) and keyed, linear where the
+file's keys are linear; FBXImportFillTimeline sets the playback range to them. Checked by a round trip of a cube's
+translate and rotate and of a skinned joint with an orient. Not done: blend shape channels, cameras' and lights'
+animated properties, several takes (FBXExportSplitAnimationIntoTakes is held), animation layers, Update animation
+(exmerge), the curves' own tangents both ways, ASCII files.

@@ -308,23 +308,29 @@ impl<'a> Templates<'a> {
 /// A model's channels as the reference keeps them, and the matrix they make. Pre rotation is a joint's orient and post
 /// rotation its rotate axis; a transform's pre rotation goes into its rotation, which comes to the same matrix.
 fn model_parts(t: &Templates, model: &Rec, joint: bool) -> (Parts, DMat4) {
+    model_parts_at(t, model, joint, None)
+}
+
+/// The same with the Lcl Translation, Rotation and Scaling given (an animation's values at some time).
+fn model_parts_at(t: &Templates, model: &Rec, joint: bool, lcl_given: Option<[DVec3; 3]>) -> (Parts, DMat4) {
     let active = t.num(model, "RotationActive").is_none_or(|v| v != 0.0);
     let fbx_order = if active { t.num(model, "RotationOrder").unwrap_or(0.0) as i64 } else { 0 };
     let order_ix = rotate_order(fbx_order);
     let order = RotateOrder::from_index(order_ix);
-    let lcl = turn(t.vec(model, "Lcl Rotation", 0.0), order);
+    let lcl_v = |k: usize, name: &str, rest: f64| lcl_given.map_or_else(|| t.vec(model, name, rest), |v| v[k]);
+    let lcl = turn(lcl_v(1, "Lcl Rotation", 0.0), order);
     let pre = if active { turn(t.vec(model, "PreRotation", 0.0), RotateOrder::Xyz) } else { DMat4::IDENTITY };
     let post = if active { turn(t.vec(model, "PostRotation", 0.0), RotateOrder::Xyz) } else { DMat4::IDENTITY };
     let rad = |m: &DMat4, o: RotateOrder| matrix_to_euler(&DMat3::from_mat4(*m), o);
     let inherit = t.num(model, "InheritType").unwrap_or(1.0) as i64;
     let mut p = Parts {
-        translate: t.vec(model, "Lcl Translation", 0.0),
+        translate: lcl_v(0, "Lcl Translation", 0.0),
         rotate_order: order_ix,
         rotate_pivot: t.vec(model, "RotationPivot", 0.0),
         rotate_pivot_translate: t.vec(model, "RotationOffset", 0.0),
         scale_pivot: t.vec(model, "ScalingPivot", 0.0),
         scale_pivot_translate: t.vec(model, "ScalingOffset", 0.0),
-        scale: t.vec(model, "Lcl Scaling", 1.0),
+        scale: lcl_v(2, "Lcl Scaling", 1.0),
         rotate_axis: rad(&post.inverse(), RotateOrder::Xyz),
         segment_scale_compensate: joint.then_some(inherit == 2),
         ..Default::default()
@@ -824,7 +830,7 @@ pub fn import(s: &mut Session, path: &str) -> CmdResult {
             }
         }
         if mode == "exmerge" {
-            notes.push("Update animation: only animation would change what is in the scene, and animation is not read".to_string());
+            notes.push("Update animation (exmerge) is not done: import with merge to bring the animation in".to_string());
             return Ok(json!([]));
         }
     }
@@ -891,11 +897,111 @@ pub fn import(s: &mut Session, path: &str) -> CmdResult {
     if objects.all("Deformer").any(|d| d.text(2) == "BlendShape") {
         notes.push("blend shapes are not read".to_string());
     }
-    if objects.all("AnimationCurve").next().is_some() {
-        notes.push("animation is not read".to_string());
+    // Animation: per node, its Lcl Translation, Rotation and Scaling curves (one per axis, None where the file has none).
+    struct Track {
+        times: Vec<i64>,
+        values: Vec<f64>,
+        linear: bool,
     }
+    let curves: HashMap<i64, &Rec> = objects.all("AnimationCurve").map(|c| (c.int(0), c)).collect();
+    let curve_nodes: HashMap<i64, &Rec> = objects.all("AnimationCurveNode").map(|c| (c.int(0), c)).collect();
+    let mut animated: Vec<(usize, usize, [[Option<Track>; 3]; 3], [DVec3; 3])> = Vec::new();
+    let anim_on = opts::on("FBXImportAnimation");
+    if anim_on && !curves.is_empty() {
+        for (mk, m) in models.iter().enumerate() {
+            let Some(&ni) = node_of.get(&m.int(0)) else { continue };
+            let mut tracks: [[Option<Track>; 3]; 3] = Default::default();
+            let mut any = false;
+            for (c, prop) in ["Lcl Translation", "Lcl Rotation", "Lcl Scaling"].into_iter().enumerate() {
+                let Some(cn) = feeds.iter().find(|f| f.1 == m.int(0) && f.2 == prop && curve_nodes.contains_key(&f.0)).map(|f| f.0) else { continue };
+                for (axis, ch) in ["d|X", "d|Y", "d|Z"].into_iter().enumerate() {
+                    let Some(cv) = feeds.iter().find(|f| f.1 == cn && f.2 == ch).and_then(|f| curves.get(&f.0)) else { continue };
+                    let times = cv.kid("KeyTime").map(Rec::ints).unwrap_or_default();
+                    let values = cv.kid("KeyValueFloat").map(Rec::doubles).unwrap_or_default();
+                    if times.is_empty() || times.len() != values.len() {
+                        continue;
+                    }
+                    let flags = cv.kid("KeyAttrFlags").map(Rec::ints).unwrap_or_default();
+                    let linear = flags.first().is_some_and(|f| f & 0x4 != 0);
+                    tracks[c][axis] = Some(Track { times, values, linear });
+                    any = true;
+                }
+            }
+            if any {
+                let rest = [tp.vec(m, "Lcl Translation", 0.0), tp.vec(m, "Lcl Rotation", 0.0), tp.vec(m, "Lcl Scaling", 1.0)];
+                animated.push((mk, ni, tracks, rest));
+            }
+        }
+    } else if !curves.is_empty() {
+        notes.push("animation left out, as FBXImportAnimation says".to_string());
+    }
+    let tops_of: Vec<bool> = nodes.iter().map(|n| n.parent.is_none()).collect();
+    let joints_of: Vec<bool> = nodes.iter().map(|n| n.joint).collect();
     s.graph.open_chunk("Import FBX");
     let made = build_all(s, nodes, materials, extras);
+    if made.is_ok() && !animated.is_empty() {
+        const KTIME: f64 = 46_186_158_000.0;
+        let ids = crate::import_build::LAST_BUILT.with(|l| l.borrow().clone());
+        let fps = crate::anim::fps();
+        let was = s.graph.time();
+        let (mut lo, mut hi) = (f64::MAX, f64::MIN);
+        for (mk, ni, tracks, rest) in &animated {
+            let Some(&id) = ids.get(*ni) else { continue };
+            let model = models[*mk];
+            let joint = joints_of[*ni];
+            // Every key time of any of its curves, in seconds.
+            let mut times: Vec<i64> = tracks.iter().flatten().flatten().flat_map(|t| t.times.iter().copied()).collect();
+            times.sort_unstable();
+            times.dedup();
+            let at = |t: &Track, when: i64| -> f64 {
+                match t.times.binary_search(&when) {
+                    Ok(i) => t.values[i],
+                    Err(0) => t.values[0],
+                    Err(i) if i >= t.times.len() => t.values[t.times.len() - 1],
+                    Err(i) => {
+                        let (a, b) = (t.times[i - 1], t.times[i]);
+                        let f = (when - a) as f64 / (b - a) as f64;
+                        t.values[i - 1] + (t.values[i] - t.values[i - 1]) * f
+                    }
+                }
+            };
+            let linear = tracks.iter().flatten().flatten().all(|t| t.linear);
+            let tangent = if linear { "linear" } else { "auto" };
+            let path = s.graph.path(id);
+            let channels: Vec<&str> = ["translate", "rotate", "scale"].into_iter().enumerate().filter(|(c, _)| tracks[*c].iter().any(Option::is_some)).map(|(_, n)| n).collect();
+            for &when in &times {
+                let mut lcl = *rest;
+                for c in 0..3 {
+                    for axis in 0..3 {
+                        if let Some(t) = &tracks[c][axis] {
+                            lcl[c][axis] = at(t, when);
+                        }
+                    }
+                }
+                let (mut parts, mut m) = model_parts_at(&tp, model, joint, Some(lcl));
+                if tops_of[*ni] && k != DMat4::IDENTITY {
+                    match convert_top(&parts, joint, k) {
+                        Some(p) => {
+                            parts = p;
+                            m = parts_matrix(&parts, joint);
+                        }
+                        None => m = k * m,
+                    }
+                }
+                let seconds = when as f64 / KTIME;
+                s.graph.set_time(seconds);
+                let _ = crate::transform::Transform::set_local_matrix(&mut s.graph, id, &m);
+                let frame = (seconds * fps * 1e6).round() / 1e6;
+                lo = lo.min(frame);
+                hi = hi.max(frame);
+                let _ = s.run("setKeyframe", json!({"args": [path.clone()], "attribute": channels.clone(), "time": frame, "inTangentType": tangent, "outTangentType": tangent, "minimizeRotation": true}));
+            }
+        }
+        s.graph.set_time(was);
+        if opts::on("FBXImportFillTimeline") && lo <= hi {
+            let _ = s.run("playbackOptions", json!({"minTime": lo, "maxTime": hi}));
+        }
+    }
     s.graph.close_chunk();
     let made = made?;
     for n in notes {

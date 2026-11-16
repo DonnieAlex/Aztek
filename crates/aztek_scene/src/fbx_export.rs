@@ -5,7 +5,7 @@
 //! and skins: the joints as limb nodes, a bound mesh in its bind pose, a cluster a joint with its points and weights,
 //! and the bind pose. Lengths are centimetres, as the file says of itself, and the scene's up axis is written in the
 //! file's settings, so nothing is turned. A node's pivots and a joint's orientation are folded into its translation,
-//! rotation and scale. Not written: animation, blend shapes, cameras and lights.
+//! rotation and scale. Animation goes out sampled per frame (see `animation`). Not written: blend shapes, cameras and lights.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -33,6 +33,8 @@ pub enum Prop {
     Raw(Vec<u8>),
     Ints(Vec<i32>),
     Doubles(Vec<f64>),
+    Longs(Vec<i64>),
+    Floats(Vec<f32>),
 }
 
 /// A record: a name, its values, and the records inside it.
@@ -92,6 +94,24 @@ fn write_prop(out: &mut Vec<u8>, p: &Prop) {
         // Arrays: how many, how packed (0 is plain), how many bytes, the values.
         Prop::Ints(v) => {
             out.push(b'i');
+            out.extend_from_slice(&(v.len() as u32).to_le_bytes());
+            out.extend_from_slice(&0u32.to_le_bytes());
+            out.extend_from_slice(&((v.len() * 4) as u32).to_le_bytes());
+            for x in v {
+                out.extend_from_slice(&x.to_le_bytes());
+            }
+        }
+        Prop::Longs(v) => {
+            out.push(b'l');
+            out.extend_from_slice(&(v.len() as u32).to_le_bytes());
+            out.extend_from_slice(&0u32.to_le_bytes());
+            out.extend_from_slice(&((v.len() * 8) as u32).to_le_bytes());
+            for x in v {
+                out.extend_from_slice(&x.to_le_bytes());
+            }
+        }
+        Prop::Floats(v) => {
+            out.push(b'f');
             out.extend_from_slice(&(v.len() as u32).to_le_bytes());
             out.extend_from_slice(&0u32.to_le_bytes());
             out.extend_from_slice(&((v.len() * 4) as u32).to_le_bytes());
@@ -192,6 +212,8 @@ struct Doc {
     embed: bool,
     /// File nodes already written as textures.
     texture_of: HashMap<NodeId, i64>,
+    /// Models whose channels may move: (node, its model, a top node).
+    moving: Vec<(NodeId, i64, bool)>,
 }
 
 impl Doc {
@@ -205,6 +227,9 @@ impl Doc {
     }
     fn link(&mut self, child: i64, parent: i64) {
         self.links.push(("OO", child, parent, None));
+    }
+    fn link_to(&mut self, child: i64, parent: i64, property: &'static str) {
+        self.links.push(("OP", child, parent, Some(property)));
     }
 }
 
@@ -541,6 +566,7 @@ fn model(doc: &mut Doc, sess: &mut Session, id: NodeId, parent: i64, top: bool) 
         props.push(vec3("Lcl Scaling", "Lcl Scaling", "A", scale));
     }
     let mid = doc.id();
+    doc.moving.push((id, mid, top));
     doc.add(
         "Model",
         Rec::new("Model", vec![Prop::L(mid), named(&name, "Model"), s(kind)]).with(vec![
@@ -574,6 +600,141 @@ fn model(doc: &mut Doc, sess: &mut Session, id: NodeId, parent: i64, top: bool) 
         let bone = sess.graph.node(c).is_some_and(|n| n.ty().is_a("joint"));
         if is_transform(&sess.graph, c) && (has_mesh_below(&sess.graph, c) || doc.needed.contains(&c) || bone) {
             model(doc, sess, c, mid, false);
+        }
+    }
+}
+
+/// A model's Lcl Translation, Rotation (degrees) and Scaling as model() writes them, at the graph's time now.
+fn local_trs(doc: &Doc, sess: &mut Session, id: NodeId, top: bool) -> [DVec3; 3] {
+    let n = sess.graph.node(id).unwrap();
+    let local: DMat4 = n.matrix(Transform::MATRIX);
+    let joint = n.ty().is_a("joint");
+    let folded = top && sess.graph.parent(id) != NO_NODE;
+    let m = if folded { n.matrix(Transform::WORLD_MATRIX) } else { local };
+    let deg = |v: DVec3| DVec3::new(v.x.to_degrees(), v.y.to_degrees(), v.z.to_degrees());
+    let g = &mut sess.graph;
+    let ch = |g: &mut Graph, a: &str, rest: f64| crate::shading::value_v(g, id, a).unwrap_or(DVec3::splat(rest));
+    let mut parts = crate::import_build::Parts {
+        translate: ch(g, "translate", 0.0),
+        rotate: ch(g, "rotate", 0.0),
+        rotate_order: crate::shading::value_f(g, id, "rotateOrder").unwrap_or(0.0) as i64,
+        joint_orient: if joint { ch(g, "jointOrient", 0.0) } else { DVec3::ZERO },
+        rotate_axis: ch(g, "rotateAxis", 0.0),
+        rotate_pivot: ch(g, "rotatePivot", 0.0),
+        rotate_pivot_translate: ch(g, "rotatePivotTranslate", 0.0),
+        scale_pivot: ch(g, "scalePivot", 0.0),
+        scale_pivot_translate: ch(g, "scalePivotTranslate", 0.0),
+        scale: ch(g, "scale", 1.0),
+        segment_scale_compensate: joint.then(|| crate::shading::value_f(g, id, "segmentScaleCompensate").unwrap_or(1.0) != 0.0),
+    };
+    let built = crate::fbx_import::parts_matrix(&parts, joint);
+    let close = |a: &DMat4, b: &DMat4| (0..4).all(|c| (a.col(c) - b.col(c)).length() <= 1e-6 * (1.0 + b.col(c).length()));
+    let mut by_parts = !folded && close(&built, &local);
+    if by_parts && top && doc.k != DMat4::IDENTITY {
+        match crate::fbx_import::convert_top(&parts, joint, doc.k) {
+            Some(p) => parts = p,
+            None => by_parts = false,
+        }
+    }
+    if by_parts {
+        return [parts.translate, deg(parts.rotate), parts.scale];
+    }
+    let m = if top { doc.k * m } else { m };
+    let (scale, rotation, translation) = m.to_scale_rotation_translation();
+    let euler = crate::transform::matrix_to_euler(&DMat3::from_quat(rotation), crate::transform::RotateOrder::Xyz);
+    [translation, deg(euler), scale]
+}
+
+/// FBX time: 46,186,158,000 ticks a second.
+const KTIME: f64 = 46_186_158_000.0;
+
+/// Animation, sampled on every frame (or step) of the range, as FBXExportBakeComplexAnimation writes it: a take with one
+/// layer, and for each model whose channels move, a curve node on Lcl Translation, Rotation and Scaling with a linear
+/// curve per axis. Keys of the scene's own curves are not kept as such.
+fn animation(doc: &mut Doc, sess: &mut Session) {
+    if !crate::fbx_options::on("FBXExportAnimation") || doc.moving.is_empty() {
+        return;
+    }
+    let fps = crate::anim::fps();
+    let (start, end, step) = if crate::fbx_options::on("FBXExportBakeComplexAnimation") {
+        (crate::fbx_options::number("FBXExportBakeComplexStart"), crate::fbx_options::number("FBXExportBakeComplexEnd"), crate::fbx_options::number("FBXExportBakeComplexStep").max(1.0))
+    } else {
+        let r = crate::anim::range();
+        (r.min, r.max, 1.0)
+    };
+    if end < start {
+        return;
+    }
+    let was = sess.graph.time();
+    let frames: Vec<f64> = (0..).map(|i| start + i as f64 * step).take_while(|f| *f <= end + 1e-9).collect();
+    let moving = doc.moving.clone();
+    let mut samples: Vec<Vec<[DVec3; 3]>> = vec![Vec::with_capacity(frames.len()); moving.len()];
+    for &f in &frames {
+        sess.graph.set_time(f / fps);
+        sess.graph.evaluate();
+        for (k, &(id, _, top)) in moving.iter().enumerate() {
+            let v = local_trs(doc, sess, id, top);
+            samples[k].push(v);
+        }
+    }
+    sess.graph.set_time(was);
+    sess.graph.evaluate();
+    let times: Vec<i64> = frames.iter().map(|f| (f / fps * KTIME).round() as i64).collect();
+    let mut stack_layer: Option<i64> = None;
+    for (k, &(_, model, _)) in moving.iter().enumerate() {
+        let s0 = samples[k][0];
+        for (c, prop) in ["Lcl Translation", "Lcl Rotation", "Lcl Scaling"].into_iter().enumerate() {
+            let changes = samples[k].iter().any(|v| (v[c] - s0[c]).length() > 1e-9);
+            if !changes {
+                continue;
+            }
+            let layer = *stack_layer.get_or_insert_with(|| {
+                let (stack, layer) = (doc.id(), doc.id());
+                let (t0, t1) = (*times.first().unwrap(), *times.last().unwrap());
+                doc.add(
+                    "AnimationStack",
+                    Rec::new("AnimationStack", vec![Prop::L(stack), named("Take 001", "AnimStack"), s("")]).with(vec![Rec::new("Properties70", vec![]).with(vec![
+                        p70("LocalStart", "KTime", "Time", "", vec![Prop::L(t0)]),
+                        p70("LocalStop", "KTime", "Time", "", vec![Prop::L(t1)]),
+                        p70("ReferenceStart", "KTime", "Time", "", vec![Prop::L(t0)]),
+                        p70("ReferenceStop", "KTime", "Time", "", vec![Prop::L(t1)]),
+                    ])]),
+                );
+                doc.add("AnimationLayer", Rec::new("AnimationLayer", vec![Prop::L(layer), named("BaseLayer", "AnimLayer"), s("")]));
+                doc.link(layer, stack);
+                layer
+            });
+            let node = doc.id();
+            let short = ["T", "R", "S"][c];
+            doc.add(
+                "AnimationCurveNode",
+                Rec::new("AnimationCurveNode", vec![Prop::L(node), named(short, "AnimCurveNode"), s("")]).with(vec![Rec::new("Properties70", vec![]).with(vec![
+                    p70("d|X", "Number", "", "A", vec![Prop::D(s0[c].x)]),
+                    p70("d|Y", "Number", "", "A", vec![Prop::D(s0[c].y)]),
+                    p70("d|Z", "Number", "", "A", vec![Prop::D(s0[c].z)]),
+                ])]),
+            );
+            doc.link(node, layer);
+            doc.link_to(node, model, prop);
+            for (axis, channel) in ["d|X", "d|Y", "d|Z"].into_iter().enumerate() {
+                let values: Vec<f32> = samples[k].iter().map(|v| v[c][axis] as f32).collect();
+                let curve = doc.id();
+                let n = times.len() as i32;
+                doc.add(
+                    "AnimationCurve",
+                    Rec::new("AnimationCurve", vec![Prop::L(curve), named("", "AnimCurve"), s("")]).with(vec![
+                        Rec::new("Default", vec![Prop::D(values[0] as f64)]),
+                        Rec::new("KeyVer", vec![Prop::I(4009)]),
+                        Rec::new("KeyTime", vec![Prop::Longs(times.clone())]),
+                        Rec::new("KeyValueFloat", vec![Prop::Floats(values)]),
+                        // Linear, all keys sharing one set of attributes.
+                        Rec::new("KeyAttrFlags", vec![Prop::Ints(vec![0x0000_0004])]),
+                        Rec::new("KeyAttrDataFloat", vec![Prop::Floats(vec![0.0, 0.0, f32::from_bits(218_434_821), 0.0])]),
+                        Rec::new("KeyAttrRefCount", vec![Prop::Ints(vec![n])]),
+                    ]),
+                );
+                doc.link_to(curve, node, channel);
+            }
         }
     }
 }
@@ -704,6 +865,7 @@ pub fn build(sess: &mut Session, objects: &[NodeId]) -> Result<(Vec<Rec>, Value)
         return Err("no meshes to export".into());
     }
     skins(&mut doc, &sess.graph);
+    animation(&mut doc, sess);
 
     let int = |name: &str, v: i32| p70(name, "int", "Integer", "", vec![Prop::I(v)]);
     let settings = Rec::new("GlobalSettings", vec![]).with(vec![
