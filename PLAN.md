@@ -141,7 +141,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 - [x] 3.1 (15/11/2026, issue 55) UV and Vertex Face component modes in the viewport and marking menu, and Multi that mixes kinds in one
   selection. `ComponentMode` grows both; everything that matches on it gets a case.
 - [x] 3.2 (16/11/2026: curves; surfaces' edit points, isoparms and surface points are scripts only) Curve Edit Point and Curve Point modes; `curve1.ep[]` and `.u[]` picked in the view.
-- [ ] 3.3 Graph Editor tangent handles drag (break and unify, weighted lengths, Shift to constrain), with one undo
+- [x] 3.3 (16/11/2026: weighted lengths go through keyTangent and were not checked by hand) Graph Editor tangent handles drag (break and unify, weighted lengths, Shift to constrain), with one undo
   step per drag. Handles are drawn today and do nothing.
 - [ ] 3.4 Ghosts drawn: `ghosting` settings, the Animation menu items, colours and opacities, steps before and after,
   keyframe ghosts.

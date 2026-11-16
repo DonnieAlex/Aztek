@@ -220,19 +220,11 @@ void CurveCanvas::paintEvent(QPaintEvent*) {
             QPointF at = curve_point(ci, k[0], k[1]);
             bool s = sel_.contains({ci, ki});
             if (s) {
-                double scale = ci < maps_.size() ? maps_[ci].first : 1.0;
                 // Tangent handles: as long as they are on a weighted curve, a fixed length on screen otherwise.
                 for (int side : {-1, 1}) {
-                    double slope = side < 0 ? k[2] : k[3];
-                    QPointF d(1 / tpp_, -slope * scale / vpp_);
-                    double len = std::hypot(d.x(), d.y());
-                    QPointF h = at + d / len * 40 * side;
-                    if (c.weighted && ki < c.handles.size()) {
-                        const auto& w = c.handles[ki];
-                        double hx = side < 0 ? w[0] : w[2], hy = side < 0 ? w[1] : w[3];
-                        h = at + QPointF(hx / tpp_, -hy * scale / vpp_) * side;
-                    }
-                    p.setPen(QPen(QColor(150, 110, 60), 1));
+                    QPointF h = handle_point(ci, ki, side);
+                    bool dragged = mode_ == Mode::Handle && handle_[0] == ci && handle_[1] == ki && handle_[2] == side;
+                    p.setPen(QPen(dragged ? QColor(255, 220, 40) : QColor(150, 110, 60), 1));
                     p.drawLine(at, h);
                     p.setBrush(QColor(170, 120, 70));
                     p.drawEllipse(h, 2.5, 2.5);
@@ -252,6 +244,69 @@ void CurveCanvas::paintEvent(QPaintEvent*) {
         p.setPen(QColor(150, 150, 150));
         p.drawText(rect(), Qt::AlignCenter, "Select animated objects to see their curves.");
     }
+}
+
+QPointF CurveCanvas::handle_point(int ci, int ki, int side) const {
+    const CurveView& c = curves_[ci];
+    const auto& k = c.keys[ki];
+    QPointF at = curve_point(ci, k[0], k[1]);
+    double scale = ci < maps_.size() ? maps_[ci].first : 1.0;
+    double slope = side < 0 ? k[2] : k[3];
+    QPointF d(1 / tpp_, -slope * scale / vpp_);
+    double len = std::hypot(d.x(), d.y());
+    QPointF h = at + d / len * 40 * side;
+    if (c.weighted && ki < c.handles.size()) {
+        const auto& w = c.handles[ki];
+        double hx = side < 0 ? w[0] : w[2], hy = side < 0 ? w[1] : w[3];
+        h = at + QPointF(hx / tpp_, -hy * scale / vpp_) * side;
+    }
+    return h;
+}
+
+std::array<int, 3> CurveCanvas::handle_at(QPointF pos) const {
+    std::array<int, 3> best{-1, -1, 0};
+    double bd = 6;
+    for (auto [ci, ki] : sel_) {
+        if (ci >= curves_.size() || !curves_[ci].visible || ki >= curves_[ci].keys.size()) continue;
+        for (int side : {-1, 1}) {
+            double d = QLineF(handle_point(ci, ki, side), pos).length();
+            if (d < bd) bd = d, best = {ci, ki, side};
+        }
+    }
+    return best;
+}
+
+// Dragging a tangent handle: the key's tangent on that side turns to point at the pointer (and, on a weighted curve,
+// takes its length), through keyTangent -ix -iy or -ox -oy, so locked tangents turn together and one undo step takes
+// the drag back. Shift keeps the handle's direction, so on a weighted curve only its length changes.
+void CurveCanvas::apply_handle(QPointF to, bool final) {
+    auto [ci, ki, side] = handle_;
+    if (ci < 0 || ci >= curves_.size() || ki >= curves_[ci].keys.size()) return;
+    const CurveView& c = curves_[ci];
+    const auto& k = c.keys[ki];
+    QPointF key = curve_point(ci, k[0], k[1]);
+    QPointF d = to - key;
+    if (axis_lock_ == -1) {
+        // Along the direction the handle had.
+        double along = QPointF::dotProduct(d, handle_dir_);
+        d = handle_dir_ * along;
+    }
+    // From the key towards the handle, in frames and the curve's own value; the in handle points back in time.
+    double scale = ci < maps_.size() && std::abs(maps_[ci].first) > 1e-12 ? maps_[ci].first : 1.0;
+    double dt = d.x() * tpp_ * side, dv = -d.y() * vpp_ / scale * side;
+    if (dt < 1e-6) dt = 1e-6;
+    if (drag_applied_) aztek_retract();
+    drag_applied_ = false;
+    // The handle is a third of the tangent: three times it, x in seconds.
+    double fps = ask("playbackOptions", QJsonObject{{"query", true}, {"queried", QJsonArray{"framesPerSecond"}}}).toDouble(24);
+    if (fps <= 0) fps = 24;
+    double x = 3.0 * dt / fps, y = 3.0 * dv;
+    QJsonObject call{{"args", QJsonArray{c.curve}}, {"edit", true}, {"time", QJsonArray{k[0], k[0]}}};
+    call[side < 0 ? "ix" : "ox"] = x;
+    call[side < 0 ? "iy" : "oy"] = y;
+    QJsonValue r = final ? exec("keyTangent", call) : exec_quiet("keyTangent", call);
+    drag_applied_ = !r.isUndefined() && !final;
+    emit keysChanged();
 }
 
 QPair<int, int> CurveCanvas::key_at(QPointF pos) const {
@@ -315,6 +370,16 @@ void CurveCanvas::mousePressEvent(QMouseEvent* e) {
     else if (e->button() == Qt::LeftButton && e->position().y() < 16) {
         mode_ = Mode::Scrub;
         emit timeDragged(std::round(to_graph(e->position()).x()));
+    } else if ((e->button() == Qt::LeftButton || e->button() == Qt::MiddleButton) && handle_at(e->position())[0] >= 0) {
+        handle_ = handle_at(e->position());
+        QPointF key = curve_point(handle_[0], curves_[handle_[0]].keys[handle_[1]][0], curves_[handle_[0]].keys[handle_[1]][1]);
+        QPointF dir = handle_point(handle_[0], handle_[1], handle_[2]) - key;
+        double len = std::hypot(dir.x(), dir.y());
+        handle_dir_ = len > 1e-9 ? dir / len : QPointF(handle_[2], 0);
+        mode_ = Mode::Handle;
+        drag_applied_ = false;
+        axis_lock_ = (e->modifiers() & Qt::ShiftModifier) ? -1 : 0;
+        update();
     } else if (e->button() == Qt::LeftButton) {
         auto hit = key_at(e->position());
         bool shift = e->modifiers() & Qt::ShiftModifier, ctrl = e->modifiers() & Qt::ControlModifier;
@@ -386,6 +451,7 @@ void CurveCanvas::mouseMoveEvent(QMouseEvent* e) {
     }
     case Mode::Marquee: update(); break;
     case Mode::Move: apply_drag(pos, false); break;
+    case Mode::Handle: apply_handle(pos, false); break;
     case Mode::Scrub: emit timeDragged(std::round(to_graph(pos).x())); break;
     default: break;
     }
@@ -408,6 +474,13 @@ void CurveCanvas::mouseReleaseEvent(QMouseEvent* e) {
             }
         }
         emit selectionChanged();
+    } else if (mode_ == Mode::Handle) {
+        if (drag_applied_) {
+            aztek_retract();
+            drag_applied_ = false;
+            apply_handle(e->position(), true);
+        }
+        handle_ = {-1, -1, 0};
     } else if (mode_ == Mode::Move) {
         bool was = drag_applied_;
         if (was) {

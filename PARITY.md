@@ -2754,3 +2754,13 @@ and `-curveParameterPoint` (`-cpp`) put a curve's picks on its edit points or on
   done.
 - Not done: surfaces' edit points, isoparms and surface points in the view (scripts have them), hull drawing in Edit
   Point mode, the Tool Settings' knot spacing.
+
+### Graph Editor tangent handles drag (16/11/2026)
+
+PLAN 3.3. A selected key's tangent handles drag with the left button (Select and Move tools) or the middle button: the
+tangent on that side turns to point at the pointer and, on a weighted curve, takes the handle's length. It goes
+through `keyTangent -ix -iy` or `-ox -oy`, so locked tangents turn together, broken ones (Tangents > Break Tangents)
+turn alone, and the drag is one undo step. Shift keeps the handle's direction, so on a weighted curve only its length
+changes; that Shift does this in the reference was not checked. Checked under Xvfb with a pointer driven by xdotool:
+a locked spline key at its peak dragged to 84.8 degrees both sides, one undo back to 0, then broken and only the in
+side changed (`docs/graph-editor-tangents.png`). A weighted curve's handle length was not checked that way.

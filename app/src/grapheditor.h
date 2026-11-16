@@ -69,13 +69,21 @@ private:
     void retime_keys(double factor);
     QPair<int, int> key_at(QPointF p) const;
     void apply_drag(QPointF to, bool final);
+    // A selected key's tangent handle on screen: side -1 in, 1 out.
+    QPointF handle_point(int ci, int ki, int side) const;
+    // The handle of a selected key under p: (curve, key, side), or curve -1.
+    std::array<int, 3> handle_at(QPointF p) const;
+    void apply_handle(QPointF to, bool final);
 
     QVector<CurveView> curves_;
     QSet<QPair<int, int>> sel_;
     double time_ = 1;
     // View: graph point at the canvas origin and units per pixel.
     double t0_ = -2, v0_ = 12, tpp_ = 0.2, vpp_ = 0.05;
-    enum class Mode { None, Pan, Zoom, Marquee, Move, Scrub } mode_ = Mode::None;
+    enum class Mode { None, Pan, Zoom, Marquee, Move, Scrub, Handle } mode_ = Mode::None;
+    // The tangent handle being dragged: curve, key, side; and its direction when the drag began, for Shift.
+    std::array<int, 3> handle_{-1, -1, 0};
+    QPointF handle_dir_;
     QPointF press_, last_;
     QPointF drag_delta_;
     bool drag_applied_ = false;
