@@ -242,6 +242,7 @@ pub const VARS: &[Var] = &[
     v("AZTEK_ECHO", OWN, Read, "The Script Editor's lines are also written to standard error."),
     v("AZTEK_PROFILE", OWN, Read, "Timings of the view's drawing are written out."),
     v("AZTEK_QT_VERSION", OWN, Read, "Set at start to the Qt Aztek runs on, as about -qtVersion gives it."),
+    v("AZTEK_PYTHON_PACKAGES", OWN, Read, "Where `aztekpy -m pip install` puts packages, and the folder every session imports them from first. By default `python/<version>/site-packages` in Aztek's own user folder."),
     v("AZTEK_SKIP_QT_CHECK", OWN, Read, "Python imports a PySide built for another Qt without the check that stops it."),
 ];
 
