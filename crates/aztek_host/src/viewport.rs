@@ -1434,7 +1434,7 @@ impl Viewport {
             // Quad Draw's mesh sits on the live surface, chords and all, so it's pulled forward to stay in sight.
             let retopo = if self.tool == Tool::QuadDraw && !s.live_surface.contains(&it.shape) && !s.live_surface.is_empty() { 0.03 } else { 0.0 };
             // Bounding box display: twelve lines and nothing else.
-            if self.disp.bounding_box || style.bounding_box || crate::ui_cmds::node_flag("boundingBox", it.xf) {
+            if self.disp.bounding_box || style.bounding_box || crate::ui_cmds::node_flag(&s.graph, "boundingBox", it.xf) {
                 let (mut lo, mut hi) = (DVec3::splat(f64::MAX), DVec3::splat(f64::MIN));
                 for p in 0..it.mesh.point_capacity() {
                     if it.mesh.point_valid(p) {
@@ -2451,7 +2451,7 @@ impl Viewport {
         // Display > Transform Display: local axes, pivots and selection handles.
         let mut marks = Vec::new();
         for flag in ["localAxis", "rotatePivot", "scalePivot", "selectHandle"] {
-            for id in crate::ui_cmds::node_flag_nodes(flag) {
+            for id in crate::ui_cmds::node_flag_nodes(g, flag) {
                 let Some(n) = g.node(id) else { continue };
                 let w = n.data().matrix(DagNode::WORLD_MATRIX);
                 let o = w.w_axis.truncate();

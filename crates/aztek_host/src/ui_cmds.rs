@@ -294,13 +294,34 @@ pub fn custom_huds() -> Vec<(i64, i64, String, String)> {
     })
 }
 
-pub fn node_flag(flag: &str, id: NodeId) -> bool {
-    with_ui(|u| u.node_flags.get(flag).is_some_and(|s| s.contains(&id)))
+/// The node attribute a display toggle sets, as the reference keeps them on the node (and so in the scene's file).
+fn toggle_attr(flag: &str) -> Option<&'static str> {
+    match flag {
+        "localAxis" => Some("displayLocalAxis"),
+        "rotatePivot" => Some("displayRotatePivot"),
+        "scalePivot" => Some("displayScalePivot"),
+        "selectHandle" => Some("displayHandle"),
+        _ => None,
+    }
+}
+
+fn attr_on(g: &Graph, id: NodeId, attr: &str) -> bool {
+    g.node(id).is_some_and(|n| n.ty().attr_index(attr).is_some_and(|i| n.data().value(i).as_bool()))
+}
+
+pub fn node_flag(g: &Graph, flag: &str, id: NodeId) -> bool {
+    match toggle_attr(flag) {
+        Some(attr) => attr_on(g, id, attr),
+        None => with_ui(|u| u.node_flags.get(flag).is_some_and(|s| s.contains(&id))),
+    }
 }
 
 /// The nodes a display toggle is on for.
-pub fn node_flag_nodes(flag: &str) -> Vec<NodeId> {
-    with_ui(|u| u.node_flags.get(flag).map(|s| s.iter().copied().collect()).unwrap_or_default())
+pub fn node_flag_nodes(g: &Graph, flag: &str) -> Vec<NodeId> {
+    match toggle_attr(flag) {
+        Some(attr) => g.nodes().into_iter().filter(|&id| attr_on(g, id, attr)).collect(),
+        None => with_ui(|u| u.node_flags.get(flag).map(|s| s.iter().copied().collect()).unwrap_or_default()),
+    }
 }
 
 /// JSON the shell reads: the runtime commands, for the Hotkey Editor.
@@ -993,6 +1014,15 @@ pub fn register(s: &mut Session) {
             };
             for flag in ["localAxis", "rotatePivot", "scalePivot", "selectHandle", "boundingBox"] {
                 if !a.bool(flag) {
+                    continue;
+                }
+                // On the node: displayLocalAxis and the like, undoable and saved with the scene.
+                if let Some(attr) = toggle_attr(flag) {
+                    for &id in &targets {
+                        let Some(i) = g.node(id).and_then(|n| n.ty().attr_index(attr)) else { continue };
+                        let on = if a.has("state") { a.bool("state") } else { !attr_on(g, id, attr) };
+                        g.set_value(aztek_scene::plug::PlugRef::new(id, i as i32), aztek_scene::plug::PlugValue::Bool(on))?;
+                    }
                     continue;
                 }
                 with_ui(|u| {

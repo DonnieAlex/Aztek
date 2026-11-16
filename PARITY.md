@@ -2777,3 +2777,13 @@ Not done: joints, locators and curves as ghosts (meshes only), ghosts of a drive
 reference's per-object ghost colours (`ghostColorPre` and the like, which these nodes don't have yet), the
 Ghosting Editor window. The reference's ghost colours and opacities by default were not checked; the defaults here
 are blue before, red after, 0.5 to 0.1.
+
+### Display toggles on the node (16/11/2026)
+
+PLAN 3.8. Display > Transform Display's Local Rotation Axes, Rotate Pivots, Scale Pivots and Selection Handles
+(`toggle -localAxis`, `-rotatePivot`, `-scalePivot`, `-selectHandle`) now set the node's `displayLocalAxis`,
+`displayRotatePivot`, `displayScalePivot` and `displayHandle`, as the reference keeps them: undone with the rest and
+saved in `.ma` and `.mb`; a script's `setAttr` on them shows in the views. They were held by the interface, lost on
+saving. Template and drawing overrides were already attributes; a test saves and opens all of them in both formats.
+Not done: Bounding Box (`toggle -boundingBox`) is still held by the interface; which attribute the reference sets for
+it was not checked.

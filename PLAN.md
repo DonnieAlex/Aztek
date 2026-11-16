@@ -149,9 +149,9 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   Manipulator.
 - [ ] 3.6 Snap Pivot Orientation acts; Modify > Bake Pivot (`BakeCustomPivot`); D and Insert pivot mode with point, edge and face snapping of the pivot;
   Bake Pivot and Match Pivots.
-- [ ] 3.7 Outliner: drag to reorder between siblings (and `reorder`), Middle-drag parenting, rename in place, Shift+click
+- [x] 3.7 (found done 16/11/2026: middle-drag reorder and parenting, drop between rows reorders with `reorder`, rename in place, Shift+click and Shift+arrows open the hierarchy, search) Outliner: drag to reorder between siblings (and `reorder`), Middle-drag parenting, rename in place, Shift+click
   expand all (already a ticket), search filter.
-- [ ] 3.8 Per-object display toggles (`displayHandle`, `displayLocalAxis`, `displayRotatePivot`, template, bounding box,
+- [x] 3.8 (16/11/2026: the four transform toggles are attributes now; Bounding Box still held by the interface) Per-object display toggles (`displayHandle`, `displayLocalAxis`, `displayRotatePivot`, template, bounding box,
   drawing overrides) saved with the scene in both formats.
 - [x] 3.9 (10/11/2026, PARITY.md Up axis; the ViewCube 15/11/2026) Z up: grid, view cube, default cameras, manipulators, new primitives' orientation and `.ma` header all follow
   `upAxis`. Camera roll lives on the camera node.
