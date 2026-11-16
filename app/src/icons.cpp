@@ -1,9 +1,14 @@
 #include "icons.h"
 
+#include <QGuiApplication>
 #include <QHash>
+#include <QIconEngine>
+#include <QImage>
+#include <QPalette>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
+#include <algorithm>
 #include <cmath>
 
 namespace az {
@@ -594,20 +599,77 @@ QPixmap draw(const QString& name, int size) {
 
 } // namespace
 
-QIcon icon(const QString& name, int size) {
-    static QHash<QString, QIcon> cache;
-    QString key = name + "@" + QString::number(size);
-    auto it = cache.find(key);
-    if (it != cache.end()) return *it;
-    QIcon ic;
-    // The same picture when its row is selected: the style's tint would wash a coloured icon into the highlight.
-    for (int s : {size, size * 2}) {
-        const QPixmap pm = draw(name, s);
-        ic.addPixmap(pm, QIcon::Normal);
-        ic.addPixmap(pm, QIcon::Selected);
+namespace {
+
+// The icons are drawn in light ink for the dark interface. On a light theme their greys are turned over (light to
+// dark, dark to light) so the line work reads; colours are kept and only darkened a little.
+QImage for_light(const QPixmap& pm) {
+    QImage im = pm.toImage().convertToFormat(QImage::Format_ARGB32);
+    for (int y = 0; y < im.height(); ++y) {
+        auto* row = reinterpret_cast<QRgb*>(im.scanLine(y));
+        for (int x = 0; x < im.width(); ++x) {
+            const QRgb px = row[x];
+            const int a = qAlpha(px);
+            if (a == 0) continue;
+            QColor c = QColor::fromRgba(px);
+            float h, sat, l, al;
+            c.getHslF(&h, &sat, &l, &al);
+            if (sat < 0.22f) l = 1.0f - l * 0.9f;
+            else l = l * 0.82f;
+            c.setHslF(h, sat, std::clamp(l, 0.0f, 1.0f), al);
+            row[x] = c.rgba();
+        }
     }
-    cache.insert(key, ic);
-    return ic;
+    return im;
+}
+
+bool light_interface() { return QGuiApplication::palette().color(QPalette::Window).lightnessF() > 0.5; }
+
+// Draws the icon at the size asked each time it is shown, for the theme in use then.
+class Engine : public QIconEngine {
+public:
+    explicit Engine(const QString& name) : name_(name) {}
+    QIconEngine* clone() const override { return new Engine(name_); }
+    void paint(QPainter* p, const QRect& rect, QIcon::Mode mode, QIcon::State state) override {
+        const qreal dpr = p->device() ? p->device()->devicePixelRatioF() : 1.0;
+        QPixmap pm = pixmap(rect.size() * dpr, mode, state);
+        pm.setDevicePixelRatio(dpr);
+        p->drawPixmap(rect, pm);
+    }
+    QPixmap pixmap(const QSize& size, QIcon::Mode mode, QIcon::State) override {
+        const int s = qMax(1, qMin(size.width(), size.height()));
+        const bool light = light_interface();
+        const QString key = name_ + "@" + QString::number(s) + (light ? "L" : "D") + QString::number(int(mode == QIcon::Disabled));
+        auto it = cache().find(key);
+        if (it != cache().end()) return *it;
+        QPixmap pm = draw(name_, s);
+        if (light) pm = QPixmap::fromImage(for_light(pm));
+        if (mode == QIcon::Disabled) {
+            QPixmap faded(pm.size());
+            faded.fill(Qt::transparent);
+            QPainter fp(&faded);
+            fp.setOpacity(0.35);
+            fp.drawPixmap(0, 0, pm);
+            fp.end();
+            pm = faded;
+        }
+        cache().insert(key, pm);
+        return pm;
+    }
+    QSize actualSize(const QSize& size, QIcon::Mode, QIcon::State) override { return size; }
+
+private:
+    static QHash<QString, QPixmap>& cache() {
+        static QHash<QString, QPixmap> c;
+        return c;
+    }
+    QString name_;
+};
+
+} // namespace
+
+QIcon icon(const QString& name, int) {
+    return QIcon(new Engine(name));
 }
 
 } // namespace az

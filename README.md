@@ -472,7 +472,7 @@ Node Editor:
 
 The reference has one look, and Aztek Classic is it, the default. The **Themes** box at the top right of the menu bar
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
-Aztek keeps the choice. They are listed from darkest to lightest. Dracula, Nord and Solarized are the colour schemes
+Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Dracula, Nord and Solarized are the colour schemes
 their authors publish. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
 colours.
 
@@ -493,17 +493,17 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 | **Midnight**: blue-black | **Dracula** | **Solarized Dark** |
 | ![Graphite](docs/theme-graphite.jpg) | ![Nord](docs/theme-nord.jpg) | ![Slate](docs/theme-slate.jpg) |
 | **Graphite**: neutral dark with a soft gradient | **Nord** | **Slate**: mid grey, gradient buttons |
-| ![Pewter](docs/theme-pewter.jpg) |  |  |
-| **Pewter**: warm mid grey with an orange accent |  |  |
+| ![Alias](docs/theme-alias.jpg) | ![Pewter](docs/theme-pewter.jpg) |  |
+| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **Pewter**: warm mid grey with an orange accent |  |
 
 ### Light
 
 | | | |
 |---|---|---|
-| ![Studio 96](docs/theme-studio96.jpg) | ![Power Animator](docs/theme-poweranimator.jpg) | ![Classic 98](docs/theme-classic98.jpg) |
-| **Studio 96**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Power Animator**: blue-grey with two pixel shadows | **Classic 98**: silver and navy, two-tone bevels, 1998 |
-| ![Workstation](docs/theme-workstation.jpg) | ![Ash](docs/theme-ash.jpg) | ![Solarized Light](docs/theme-solarized-light.jpg) |
-| **Workstation**: the light grey workstation desktop the reference first ran on | **Ash**: light grey modern | **Solarized Light** |
+| ![Studio 96](docs/theme-studio96.jpg) | ![Classic 98](docs/theme-classic98.jpg) | ![Workstation](docs/theme-workstation.jpg) |
+| **Studio 96**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Classic 98**: silver and navy, two-tone bevels, 1998 | **Workstation**: the light grey workstation desktop the reference first ran on |
+| ![Power Animator](docs/theme-poweranimator.jpg) | ![Ash](docs/theme-ash.jpg) | ![Solarized Light](docs/theme-solarized-light.jpg) |
+| **Power Animator**: light grey with mid grey fields and darker section bars, round-topped tabs | **Ash**: light grey modern | **Solarized Light** |
 | ![Paper](docs/theme-paper.jpg) | ![Lilac](docs/theme-lilac.jpg) |  |
 | **Paper**: near white | **Lilac**: white, teal, soft corners |  |
 

@@ -86,6 +86,8 @@ Theme tonal(const QString& id, const QString& name, double hue, double sat, doub
     }
     c["hi"] = QColor(accent);
     c["hitext"] = QColor("#ffffff");
+    c["section"] = c["button"];
+    c["sectiontext"] = c["bright"];
     t.font = kSans;
     t.point_size = 9;
     return t;
@@ -101,6 +103,8 @@ Theme hand(const QString& id, const QString& name, std::initializer_list<std::pa
     if (!t.c.contains("fieldtext")) t.c["fieldtext"] = t.c["text"];
     if (!t.c.contains("light")) t.c["light"] = t.c["hover"].lighter(125);
     if (!t.c.contains("shadow")) t.c["shadow"] = t.c["border"];
+    if (!t.c.contains("section")) t.c["section"] = t.c["button"];
+    if (!t.c.contains("sectiontext")) t.c["sectiontext"] = t.c["bright"];
     return t;
 }
 
@@ -234,15 +238,32 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // The Motif desktops of the 1990s workstations: blue-grey, two pixel shadows.
+    // Light grey with mid grey fields and darker section bars, the reference's look on the workstations of the 2000s.
     {
         Theme t = hand("poweranimator", "Power Animator",
-                       {{"window", "#aeb2c3"}, {"chrome", "#a2a6b8"}, {"base", "#c6c9d5"}, {"alt", "#bcbfcc"}, {"menu", "#aeb2c3"}, {"button", "#aeb2c3"}, {"hover", "#bcc0d0"},
-                        {"hi", "#4f6a8f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#2e3240"}, {"disabled", "#6e7284"}, {"border", "#3b3e4a"}, {"handle", "#aeb2c3"},
-                        {"light", "#e2e5ee"}, {"shadow", "#5c6072"}});
+                       {{"window", "#c6c6c6"}, {"chrome", "#b6b6b6"}, {"base", "#d8d8d8"}, {"alt", "#cfcfcf"}, {"menu", "#cccccc"}, {"button", "#c6c6c6"}, {"hover", "#d4d4d4"},
+                        {"hi", "#56739f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#303030"}, {"disabled", "#7a7a7a"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
+                        {"light", "#f2f2f2"}, {"shadow", "#727272"}, {"field", "#a9a9a9"}, {"fieldtext", "#000000"}, {"section", "#a2a2a2"}, {"sectiontext", "#000000"}});
         t.font = kHelvetica;
         t.point_size = 9;
-        t.menu_bold = true;
+        t.bevel = "single";
+        t.radius = 0;
+        t.tabs = "rounded";
+        t.arrows = "triangle";
+        t.scrollbar = "bevel";
+        t.padding = 2;
+        l << t;
+    }
+    // The animation package of the late 1990s in its own dark scheme: slate panels, white section bars with black
+    // text, black for what is on, a fixed-width face.
+    {
+        Theme t = hand("alias", "Alias",
+                       {{"window", "#5b5d6b"}, {"chrome", "#4f515e"}, {"base", "#434551"}, {"alt", "#555764"}, {"menu", "#666875"}, {"button", "#6c6e7b"}, {"hover", "#7b7d8b"},
+                        {"hi", "#000000"}, {"hitext", "#ffffff"}, {"text", "#ffffff"}, {"bright", "#ffffff"}, {"dim", "#cfd0d8"}, {"disabled", "#9a9ca8"}, {"border", "#1c1d24"},
+                        {"handle", "#b3b0a8"}, {"light", "#9294a2"}, {"shadow", "#2a2b33"}, {"field", "#4b4d5a"}, {"fieldtext", "#ffffff"}, {"section", "#ffffff"},
+                        {"sectiontext", "#000000"}});
+        t.font = QStringList{"Terminus", "Fixed", "Monospace", "DejaVu Sans Mono", "Liberation Mono", "Courier New"};
+        t.point_size = 9;
         t.bevel = "single";
         t.radius = 0;
         t.tabs = "rounded";
@@ -330,7 +351,7 @@ QList<Theme> user_themes() {
 
 QString assets_dir(const Theme& t) {
     // The drawing's version goes into the key, so pictures drawn by an older Aztek are not used again.
-    const QByteArray key = QCryptographicHash::hash("2" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
+    const QByteArray key = QCryptographicHash::hash("3" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
     return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/themes/" + QString::fromLatin1(key);
 }
 
@@ -491,6 +512,7 @@ QString write_assets(const Theme& t) {
         save_bevel(dir + "/sunken.png", t, t.c["button"], true);
         save_bevel(dir + "/raised-menu.png", t, t.c["menu"], false);
         save_bevel(dir + "/raised-window.png", t, t.c["window"], false);
+        save_bevel(dir + "/raised-section.png", t, t.c["section"], false);
         save_bevel(dir + "/field.png", t, t.c["field"], true);
         save_bevel(dir + "/well.png", t, t.c["base"], true);
         save_bevel(dir + "/tab.png", t, t.c["button"], false, true);
@@ -756,9 +778,11 @@ QString skin(const Theme& t, const QString& a) {
 
     // Aztek's own parts. Section heads of the tool settings and Attribute Editor: a bar, never the highlight.
     if (bevel) {
-        s += "QToolButton#foldHead, QToolButton#foldHead:checked, QToolButton#foldHead:hover, QToolButton#aeSectionButton, QToolButton#aeSectionButton:checked { " + raised("raised-window") + " color: @text; font-weight: bold; text-align: left; padding: 1px 4px; }\n";
+        s += "QToolButton#foldHead, QToolButton#foldHead:checked, QToolButton#foldHead:hover, QToolButton#aeSectionButton, QToolButton#aeSectionButton:checked { " + raised("raised-section") + " color: @sectiontext; font-weight: bold; text-align: left; padding: 1px 4px; }\n";
+        s += "QLabel#aeSection { " + raised("raised-section") + " color: @sectiontext; }\n";
     } else {
-        s += "QToolButton#foldHead, QToolButton#foldHead:checked, QToolButton#aeSectionButton, QToolButton#aeSectionButton:checked { background: @button; color: @bright; font-weight: bold; border: none; border-radius: " + r2 + "; padding: 3px 6px; text-align: left; }\n";
+        s += "QToolButton#foldHead, QToolButton#foldHead:checked, QToolButton#aeSectionButton, QToolButton#aeSectionButton:checked { background: @section; color: @sectiontext; font-weight: bold; border: none; border-radius: " + r2 + "; padding: 3px 6px; text-align: left; }\n";
+        s += "QLabel#aeSection { background: @section; color: @sectiontext; border-radius: " + r2 + "; }\n";
         s += "QToolButton#foldHead:hover, QToolButton#aeSectionButton:hover { background: @hover; }\n";
     }
     s += "QToolButton#hotboxButton { background: @menu; color: @text; border: 1px solid @border; border-radius: " + r2 + "; padding: 5px 10px; }\n";
@@ -882,7 +906,8 @@ const QList<QPair<QString, QString>>& colour_keys() {
         {"window", "Window"}, {"chrome", "Bars and docks"}, {"base", "Lists and views"}, {"alt", "Alternate rows"}, {"menu", "Menus"},
         {"button", "Buttons"}, {"hover", "Under the pointer"}, {"hi", "Highlight"}, {"hitext", "Highlighted text"}, {"text", "Text"},
         {"bright", "Bright text"}, {"dim", "Dim text"}, {"disabled", "Disabled text"}, {"field", "Fields"}, {"fieldtext", "Field text"},
-        {"border", "Borders"}, {"handle", "Handles"}, {"light", "Bevel light"}, {"shadow", "Bevel shadow"},
+        {"section", "Section bars"}, {"sectiontext", "Section text"}, {"border", "Borders"}, {"handle", "Handles"}, {"light", "Bevel light"},
+        {"shadow", "Bevel shadow"},
     };
     return k;
 }
