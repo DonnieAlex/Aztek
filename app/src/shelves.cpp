@@ -56,8 +56,8 @@ QJsonObject rendering_shelf() {
     return shelf("Rendering", items);
 }
 
-// The XGen shelf: the editor, a new description, and the grooming tools (icons borrowed from the sculpting brushes).
-QJsonObject xgen_shelf() {
+// The Hair shelf (XJEN): the editor, a new description, and the grooming tools (icons borrowed from the sculpting brushes).
+QJsonObject hair_shelf() {
     QJsonArray items{item("Interactive Groom Editor", "layer", "InteractiveGroomEditor;"), item("Create Interactive Groom Splines", "brushSculpt", "xjenCreateGroom;")};
     struct T { const char* id; const char* label; const char* icon; };
     for (T t : {T{"density", "Density", "brushSpray"}, T{"place", "Place", "brushImprint"}, T{"length", "Length", "brushBulge"}, T{"cut", "Cut", "brushKnife"},
@@ -65,7 +65,7 @@ QJsonObject xgen_shelf() {
                 T{"smooth", "Smooth", "brushSmooth"}, T{"noise", "Noise", "brushFoamy"}, T{"clump", "Clump", "brushPinch"}, T{"part", "Part", "brushScrape"},
                 T{"freeze", "Freeze", "brushFreeze"}, T{"select", "Select", "select"}})
         items.append(QJsonObject{{"label", t.label}, {"icon", t.icon}, {"command", QString("xjenGroomCtx -tool \"%1\"; InteractiveGroomTool;").arg(t.id)}, {"language", "mel"}});
-    return shelf("XGen", items);
+    return shelf("Hair", items);
 }
 
 } // namespace
@@ -115,7 +115,7 @@ QJsonArray ShelfBar::defaults() {
         item("Locator", "locator", "spaceLocator;"), item("Group", "group", "group;"), item("Delete History", "history", "DeleteHistory;"), item("Freeze", "transform", "freezeTransforms;"),
         item("Center Pivot", "frameSel", "centerPivot;"), item("New Layer", "layer", "createDisplayLayer;")};
     return QJsonArray{shelf("Poly Modeling", poly), shelf("Curves / Surfaces", curves), shelf("Sculpting", sculpt), shelf("Rigging", rig), shelf("Animation", anim),
-                      shelf("UV Editing", uv), shelf("Dynamics", dyn), xgen_shelf(), rendering_shelf(), shelf("General", general), shelf("Custom", QJsonArray())};
+                      shelf("UV Editing", uv), shelf("Dynamics", dyn), hair_shelf(), rendering_shelf(), shelf("General", general), shelf("Custom", QJsonArray())};
 }
 
 // One shelf's buttons: takes dropped scripts, and buttons dragged with the middle button.
@@ -261,18 +261,26 @@ ShelfBar::ShelfBar(std::function<void(const QString&, const QString&)> run, QWid
         s.setValue("shelves/hasRendering", true);
         if (!there && d.isArray() && !d.array().isEmpty()) save();
     }
-    // Shelves saved before there was an XGen shelf get it once, before Rendering.
-    if (!s.value("shelves/hasXGen", false).toBool()) {
-        bool there = false;
+    // Shelves saved before there was a Hair shelf get it once, before Rendering. One saved under its first name, XGen,
+    // takes the new name.
+    if (!s.value("shelves/hasHair", false).toBool()) {
+        bool there = false, renamed = false;
         int at = shelves_.size();
         for (int k = 0; k < shelves_.size(); ++k) {
-            QString n = shelves_.at(k).toObject()["name"].toString();
-            if (n == "XGen") there = true;
+            QJsonObject o = shelves_.at(k).toObject();
+            QString n = o["name"].toString();
+            if (n == "XGen" && !o.contains("shared")) {
+                o["name"] = "Hair";
+                shelves_[k] = o;
+                n = "Hair";
+                renamed = true;
+            }
+            if (n == "Hair") there = true;
             if (n == "Rendering" && at == shelves_.size()) at = k;
         }
-        if (!there) shelves_.insert(at, xgen_shelf());
-        s.setValue("shelves/hasXGen", true);
-        if (!there && d.isArray() && !d.array().isEmpty()) save();
+        if (!there) shelves_.insert(at, hair_shelf());
+        s.setValue("shelves/hasHair", true);
+        if ((renamed || !there) && d.isArray() && !d.array().isEmpty()) save();
     }
     // The shelf path's shelves: shown after the saved ones, read again at each start and never saved.
     for (const QJsonValue& file : ask("aztekEnvironment", QJsonObject{{"shelfFiles", true}}).toArray()) {

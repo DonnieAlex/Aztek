@@ -2485,7 +2485,7 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 4, 16/11/2026: modifiers Clump, Noise, Cut, Collide, Displace, Guide, Linear Wire and Curve to Spline, added
   to a stack from Generate > Add Modifier or `xjenAddModifier`. What each does and what is not in yet: docs/XJEN.md,
   Step 4 as built.
-- Step 5, 16/11/2026: the Interactive Groom Editor, the XGen shelf, Convert Interactive Groom to Polygons, presets
+- Step 5, 16/11/2026: the Interactive Groom Editor, the Hair shelf, Convert Interactive Groom to Polygons, presets
   (Aztek's JSON for now), Transfer, Select Splines on Selected Faces and Freeze Selected; see docs/XJEN.md.
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.

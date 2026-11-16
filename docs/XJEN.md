@@ -37,7 +37,7 @@ Two systems, both current in the 2027 release.
   Smoothness, Breakage and Reference State; both create guides or wires (10 percent of the hair density by default),
   take selected curves, and can be made dynamic through an nHair system. Curve to Spline takes scene curves or an
   Alembic cache, with Align To Normal.
-- Tools (Generate > Interactive Groom Tools, the XGen shelf): Density, Place, Length, Cut, Width, Twist, Comb, Grab,
+- Tools (Generate > Interactive Groom Tools, the Hair shelf): Density, Place, Length, Cut, Width, Twist, Comb, Grab,
   Smooth, Noise, Clump, Part, Freeze, Select. Common settings: Size (screen space), Strength, Collide with Meshes (off),
   Collision Distance (cm), Invert Frozen Effect. Keys: B and M drags for size and strength, Ctrl to invert the tool,
   Shift for the alternate action, N to toggle the tool's mode, Ctrl+Shift+I to invert frozen, Ctrl+1 to Ctrl+0 to
@@ -118,7 +118,7 @@ round trips, and screenshots.
    on the Sculpt modifier with weights, keys, groups, Merge and Merge Visible; freezing; undo per stroke.
 4. **Modifiers.** Clump with its clump map, Noise (Live; Baked waits for step 6), Cut, Collide, Displace, Guide and
    Linear Wire with region maps, Curve to Spline. Masks, Magnitude and Magnitude Scale on all.
-5. **Editor and the rest of the menu.** The Interactive Groom Editor, the XGen shelf, presets (export and import),
+5. **Editor and the rest of the menu.** The Interactive Groom Editor, the Hair shelf, presets (export and import),
    Transfer, Convert Interactive Groom to Polygons, Select Splines on Selected Face.
 6. **Alembic** (PLAN 4.2), then the Cache menu, Spline Cache, Noise baked, Curve to Spline from a cache.
 7. **XGen (collections).** `.xgen` and `.xdsc` read and written, primitives, generators, guides, the sixteen FX modules,
@@ -204,13 +204,13 @@ round trips, and screenshots.
 
 ![Interactive Groom Editor](xjen-editor.png)
 
-- Interactive Groom Editor (Generate menu, the XGen shelf, `InteractiveGroomEditor`): each description with its spline
+- Interactive Groom Editor (Generate menu, the Hair shelf, `InteractiveGroomEditor`): each description with its spline
   count, its stack from the top down with a switch for Mute, and the Sculpt modifier's layers with weight (editable),
   visibility, name (editable) and the active one (double-click to make active). A click selects the node for the
   Attribute Editor. Create, Add Modifier, Remove (a modifier, a layer or the description), Add Layer, Merge Visible,
   and a Description menu: Convert to Polygons, Export Preset, Import Preset, Select Splines on Selected Faces, Freeze
   Selected Splines. Groups of layers are not in yet.
-- XGen shelf: the editor, Create Interactive Groom Splines and the fourteen tools (icons borrowed from the sculpting
+- Hair shelf: the editor, Create Interactive Groom Splines and the fourteen tools (icons borrowed from the sculpting
   brushes until the shelf's own are drawn). Shelves saved before it get it once.
 - Generate menu: Interactive Groom Editor, Create Interactive Groom Splines, Interactive Groom Tools, Add Modifier,
   Convert Interactive Groom to Polygons (`xjenConvertToPolygons`: ribbons, or tubes with `-tube -sides`, with UVs),
