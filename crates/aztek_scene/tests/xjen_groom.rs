@@ -109,7 +109,7 @@ fn sculpt_one(s: &mut Session, id: u64) {
     let mut layer = sculpt::Layer { name: "Base".into(), ..Default::default() };
     layer.moves.insert(id, vec![[0.0; 3], [0.0; 3], [0.0; 3], [0.0; 3], [0.4, 0.0, 0.0]]);
     let p = aztek_scene::harold::network::attr(&s.graph, node, "sculptData").unwrap();
-    s.graph.set_value(p, aztek_scene::plug::PlugValue::Data(Some(Arc::new(sculpt::SculptData { layers: vec![layer] })))).unwrap();
+    s.graph.set_value(p, aztek_scene::plug::PlugValue::Data(Some(Arc::new(sculpt::SculptData { layers: vec![layer], ..Default::default() })))).unwrap();
 }
 
 #[test]

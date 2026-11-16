@@ -45,6 +45,8 @@ private:
     void push_joint_settings();
     QWidget* build_curve_page();
     QWidget* build_sculpt_page();
+    QWidget* build_groom_page();
+    void refresh_groom();
     QWidget* build_attr_page();
     QWidget* build_member_page();
     void refresh_attr();
@@ -72,6 +74,14 @@ private:
     QWidget* joint_page_ = nullptr;
     QWidget* curve_page_ = nullptr;
     QWidget* sculpt_page_ = nullptr;
+    QWidget* groom_page_ = nullptr;
+    QComboBox* groom_tool_ = nullptr;
+    QDoubleSpinBox* groom_size_ = nullptr;
+    QDoubleSpinBox* groom_strength_ = nullptr;
+    QCheckBox* groom_collide_ = nullptr;
+    QDoubleSpinBox* groom_distance_ = nullptr;
+    QCheckBox* groom_invert_frozen_ = nullptr;
+    QCheckBox* groom_alt_ = nullptr;
     QWidget* attr_page_ = nullptr;
     QWidget* member_page_ = nullptr;
     QComboBox* attr_list_ = nullptr;

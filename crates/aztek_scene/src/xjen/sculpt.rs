@@ -9,7 +9,7 @@ use std::sync::Arc;
 use glam::DVec3;
 use serde_json::{json, Value};
 
-use super::{at, data_value, spline_data, Spline};
+use super::{at, data_value, Spline};
 use crate::node::NodeData;
 use crate::plug::{flags, AttrDef, PlugType, PlugValue};
 
@@ -20,16 +20,21 @@ pub const KIND: &str = "xjenSculptData";
 pub struct Layer {
     pub name: String,
     pub moves: BTreeMap<u64, Vec<[f32; 3]>>,
+    /// Per spline id, a multiplier on its width (the Width tool).
+    pub widths: BTreeMap<u64, f32>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SculptData {
     pub layers: Vec<Layer>,
+    /// Per spline id, how frozen it is, 0 to 1: the tools leave frozen splines alone.
+    pub frozen: BTreeMap<u64, f32>,
 }
 
 impl SculptData {
-    /// As a scene file holds it: the layer count, then per layer its name and entry count, then per entry the spline
-    /// id, its point count and the moves.
+    /// As a scene file holds it: the layer count, then per layer its name, its moves (count, then per entry the
+    /// spline id, its point count and the moves) and its widths (count, then id and multiplier); then the frozen
+    /// splines (count, then id and amount).
     pub fn text(&self) -> String {
         let mut out = vec![self.layers.len().to_string()];
         for l in &self.layers {
@@ -42,6 +47,16 @@ impl SculptData {
                     out.extend(v.iter().map(|x| fmt(*x)));
                 }
             }
+            out.push(l.widths.len().to_string());
+            for (id, w) in &l.widths {
+                out.push(id.to_string());
+                out.push(fmt(*w));
+            }
+        }
+        out.push(self.frozen.len().to_string());
+        for (id, f) in &self.frozen {
+            out.push(id.to_string());
+            out.push(fmt(*f));
         }
         out.join(" ")
     }
@@ -68,9 +83,21 @@ impl SculptData {
                 }
                 moves.insert(id, v);
             }
-            layers.push(Layer { name, moves });
+            let mut widths = BTreeMap::new();
+            let m: usize = next()?.parse().map_err(|_| "width count")?;
+            for _ in 0..m {
+                let id: u64 = next()?.parse().map_err(|_| "spline id")?;
+                widths.insert(id, next()?.parse().map_err(|_| "width")?);
+            }
+            layers.push(Layer { name, moves, widths });
         }
-        Ok(SculptData { layers })
+        let mut frozen = BTreeMap::new();
+        let m: usize = next()?.parse().map_err(|_| "frozen count")?;
+        for _ in 0..m {
+            let id: u64 = next()?.parse().map_err(|_| "spline id")?;
+            frozen.insert(id, next()?.parse().map_err(|_| "frozen")?);
+        }
+        Ok(SculptData { layers, frozen })
     }
 }
 
@@ -92,7 +119,7 @@ impl crate::plug::Data for SculptData {
         json!({"kind": KIND, "pluginData": true, "text": self.text()})
     }
     fn bytes(&self) -> usize {
-        self.layers.iter().map(|l| 64 + l.moves.values().map(|m| 16 + m.len() * 12).sum::<usize>()).sum()
+        self.frozen.len() * 12 + self.layers.iter().map(|l| 64 + l.widths.len() * 12 + l.moves.values().map(|m| 16 + m.len() * 12).sum::<usize>()).sum::<usize>()
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -141,6 +168,15 @@ pub fn attrs() -> Vec<AttrDef> {
             doc: "The layers' moves.".into(),
             ..Default::default()
         },
+        AttrDef {
+            name: "activeLayer".into(),
+            short_name: "acl".into(),
+            ty: PlugType::Int,
+            default_value: PlugValue::Int(0),
+            flags: store,
+            doc: "The layer the grooming tools work on.".into(),
+            ..Default::default()
+        },
         kid("layerName", "lnm", PlugType::String, PlugValue::String(String::new()), store, "The layer's name."),
         kid("layerWeight", "lw", PlugType::Float, PlugValue::Float(1.0), store | flags::KEYABLE, "How much of the layer: 0 none, 1 all; keyable."),
         kid("layerVisibility", "lv", PlugType::Bool, PlugValue::Bool(true), store, "Hidden layers do nothing."),
@@ -177,11 +213,15 @@ pub(super) fn compute(d: &mut NodeData) {
         for (id, moves) in &layer.moves {
             let Some(&k) = index.get(id) else { continue };
             for (j, m) in moves.iter().enumerate() {
-                super::sculpt::apply(&mut s.splines[k], j, *m, w * mag);
+                apply(&mut s.splines[k], j, *m, w * mag);
             }
         }
+        for (id, x) in &layer.widths {
+            let Some(&k) = index.get(id) else { continue };
+            let sp = &mut s.splines[k];
+            sp.width_scale *= (1.0 + (*x as f64 - 1.0) * w * mag).max(0.0) as f32;
+        }
     }
-    let _ = spline_data;
     d.set_output(at(d, "outSplineData"), data_value(s));
 }
 
@@ -193,10 +233,14 @@ mod tests {
     fn text_round_trips() {
         let mut l = Layer { name: "base layer".into(), ..Default::default() };
         l.moves.insert(4294967297, vec![[0.0, 0.0, 0.0], [0.5, -0.25, 1.0]]);
-        let d = SculptData { layers: vec![l, Layer { name: "two".into(), ..Default::default() }] };
+        l.widths.insert(7, 1.5);
+        let mut d = SculptData { layers: vec![l, Layer { name: "two".into(), ..Default::default() }], ..Default::default() };
+        d.frozen.insert(9, 0.5);
         let back = SculptData::parse(&d.text()).unwrap();
         assert_eq!(back.layers[0].name, "base_layer");
         assert_eq!(back.layers[0].moves, d.layers[0].moves);
         assert_eq!(back.layers.len(), 2);
+        assert_eq!(back.layers[0].widths, d.layers[0].widths);
+        assert_eq!(back.frozen, d.frozen);
     }
 }

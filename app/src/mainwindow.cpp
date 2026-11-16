@@ -450,6 +450,20 @@ QMenu* MainWindow::generate_menu() {
     auto* m = new QMenu("Generate", this);
     menu_title(m, "Interactive Groom");
     cmd(m, "Create Interactive Groom Splines", "xjenCreateGroom", {}, QString(), true);
+    QMenu* tools = m->addMenu("Interactive Groom Tools");
+    for (const char* t : {"Density", "Place", "Length", "Cut", "Width", "Twist", "Comb", "Grab", "Smooth", "Noise", "Clump", "Part", "Freeze", "Select"}) {
+        QString id = QString(t).toLower();
+        QAction* a = tools->addAction(QString(t), [this, id] {
+            exec("xjenGroomCtx", QJsonObject{{"tool", id}});
+            set_tool("groom");
+            if (tool_settings_) tool_settings_->set_tool(tool_);
+        });
+        a->setEnabled(has_command("xjenGroomCtx"));
+    }
+    m->addSeparator();
+    QMenu* sel = m->addMenu("Select");
+    sel->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
+    sel->addAction("Freeze Selected Splines", [] { exec("xgmSplineSelect", QJsonObject{{"convertToFreeze", true}}); });
     return m;
 }
 
@@ -1669,9 +1683,38 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
                     return true;
                 }
         }
+        if (e->type() == QEvent::KeyPress && tool_ == "groom" && groom_key(k)) return true;
         if (hotkey(k, e->type() == QEvent::KeyPress)) return true;
     }
     return QMainWindow::eventFilter(o, e);
+}
+
+// The grooming tools' keys: N the tool's other mode, Ctrl+Shift+I invert frozen, Ctrl+1 to Ctrl+0 the first ten tools.
+bool MainWindow::groom_key(QKeyEvent* k) {
+    const auto mods = k->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier);
+    auto flip = [this](const char* flag) {
+        bool on = ask("xjenGroomCtx", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}).toBool();
+        exec("xjenGroomCtx", QJsonObject{{flag, !on}});
+        help_line_->setText(QString(flag) + (on ? " off" : " on"));
+        if (tool_settings_) tool_settings_->set_tool(tool_);
+    };
+    if (k->key() == Qt::Key_N && mods == Qt::NoModifier) {
+        flip("altMode");
+        return true;
+    }
+    if (k->key() == Qt::Key_I && mods == (Qt::ControlModifier | Qt::ShiftModifier)) {
+        flip("invertFrozen");
+        return true;
+    }
+    if (mods == Qt::ControlModifier && k->key() >= Qt::Key_0 && k->key() <= Qt::Key_9) {
+        static const char* ten[] = {"density", "place", "length", "cut", "width", "twist", "comb", "grab", "smooth", "noise"};
+        int i = k->key() == Qt::Key_0 ? 9 : k->key() - Qt::Key_1;
+        exec("xjenGroomCtx", QJsonObject{{"tool", ten[i]}});
+        help_line_->setText(QString("Groom: ") + ten[i]);
+        if (tool_settings_) tool_settings_->set_tool(tool_);
+        return true;
+    }
+    return false;
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {

@@ -43,6 +43,16 @@ pub fn object_bounds(g: &mut Graph, id: NodeId) -> Bounds {
         }
         return b;
     }
+    // A hair description: its splines' points.
+    if n.ty().is_a(crate::xjen::DESCRIPTION) {
+        g.evaluate();
+        if let Some(d) = crate::xjen::render_splines(g, id) {
+            for p in d.splines.iter().flat_map(|s| s.points.iter()) {
+                b.extend(*p);
+            }
+        }
+        return b;
+    }
     if n.ty().is_a("mesh") {
         if let Some(m) = n.data().mesh(MeshNode::OUT_MESH) {
             if m.num_points() > 0 {

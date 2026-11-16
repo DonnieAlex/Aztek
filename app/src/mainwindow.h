@@ -84,6 +84,7 @@ private:
     QMenu* mesh_display_menu();
     QMenu* curves_menu();
     QMenu* generate_menu();
+    bool groom_key(QKeyEvent* k);
     QMenu* surfaces_menu();
     QMenu* uv_menu();
     QMenu* deform_menu();

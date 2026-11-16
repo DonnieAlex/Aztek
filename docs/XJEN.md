@@ -5,8 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: steps 1 and 2 are in (strands in Harold and the views; the Interactive Groom core, below); the
-rest follows. This page is the target
+Status, 16/11/2026: steps 1 to 3 are in (strands in Harold and the views; the Interactive Groom core; the grooming
+tools, below); the rest follows. This page is the target
 and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
@@ -149,10 +149,34 @@ round trips, and screenshots.
 - Commands: `xjenCreateGroom` (Generate > Create Interactive Groom Splines, with its option box: name, seed, density,
   length, width scale, CV count; on selected meshes or faces) and `xgmSplineQuery` (`-listSplineDescriptions`,
   `-long`, `-isSplineDescription`, `-splineCount`).
-- Not yet, and why: the reference's creation command and attribute file names (undocumented: from the capture);
+- Not yet, and why (step 2): the reference's creation command and attribute file names (undocumented: from the capture);
   `.mb` keeps the groom but not the sculpt moves (plug-in data has no binary layout here yet); Density Mask, Subdivision
   Level, Interpolate and the modifiers' Mask are kept and not applied; Render Density Multiplier above 1;
   Highlight Placed Splines, Tube Shade, Draw Control Vertices in the views; Display HUD; `xgmSplineSelect` and
   `xgmExportSplineDataInternal` wait for step 3's selection of splines.
+
+## Step 3 as built (16/11/2026)
+
+![Combed and clumped](xjen-tools.jpg)
+
+- Generate > Interactive Groom Tools: Density, Place, Length, Cut, Width, Twist, Comb, Grab, Smooth, Noise, Clump,
+  Part, Freeze, Select, as one brush tool with the Tool Settings page Interactive Groom Tools: Tool, Size (pixels on
+  screen), Strength, Collide with Meshes, Collision Distance, Invert Frozen Effect, Alternate Mode. The brush works on
+  the meshes of the descriptions selected (all descriptions when none is), drawn as a red ring on the surface.
+- Keys while it is the tool: B drag sizes the brush; Ctrl inverts (shorter, thinner, unfreeze, spread, remove,
+  deselect); N toggles the alternate mode (Comb without keeping length, Clump spreading, Length and Width shrinking);
+  Ctrl+Shift+I inverts the frozen effect; Ctrl+1 to Ctrl+0 pick the first ten tools in the order above (the reference's
+  order for these keys is not documented). M for strength is not in yet.
+- Shaping tools write moves into the Sculpt modifier's active layer, in each root's frame, so they ride the surface
+  and weigh with the layer; Width writes width multipliers there; Density and Place add splines bound by face and
+  weights, and Ctrl+Density removes them, on the base (`editData`); Freeze marks splines, Select picks them, and the
+  other tools then work on the picked splines only. A stroke undoes as one step. Comb, Smooth, Noise and Part keep
+  each spline's length; Cut cuts where the spline passes the brush, keeping its point count.
+- Sculpt layers: `xjenSculptLayer` adds, removes and activates layers and merges them (`-merge`, `-mergeVisible`);
+  weights are keyable on the modifier. Freezing and picks: `xgmSplineSelect -replaceBySelectedFaces` and
+  `-convertToFreeze`; Generate > Select has both.
+- Scripts: `xjenGroomCtx` (the settings) and `xjenGroomStroke` (a stroke along points, with a radius in scene units).
+- Not yet: the reference's tool context names and their Tool Settings defaults (from the capture: today's are Aztek's);
+  groups of layers in an editor (step 5); highlighting picked and placed splines in the views.
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.

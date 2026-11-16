@@ -87,6 +87,8 @@ ToolSettings::ToolSettings(QWidget* parent) : Panel(parent) {
     stack_->addWidget(curve_page_);
     sculpt_page_ = build_sculpt_page();
     stack_->addWidget(sculpt_page_);
+    groom_page_ = build_groom_page();
+    stack_->addWidget(groom_page_);
     stack_->addWidget(transform_page_);
     stack_->addWidget(paint_page_);
     stack_->addWidget(joint_page_);
@@ -162,6 +164,58 @@ QWidget* ToolSettings::build_sculpt_page() {
     v->addLayout(form);
     v->addStretch(1);
     return w;
+}
+
+// The Interactive Groom tools' common settings, as the reference's Tool Settings show them.
+QWidget* ToolSettings::build_groom_page() {
+    auto* w = new QWidget(this);
+    auto* v = new QVBoxLayout(w);
+    v->setContentsMargins(0, 0, 0, 0);
+    auto* form = new QFormLayout();
+    auto set = [this](const char* flag, const QJsonValue& val) {
+        if (loading_) return;
+        QJsonObject c;
+        c[flag] = val;
+        exec_quiet("xjenGroomCtx", c);
+        Host::get()->poke();
+    };
+    groom_tool_ = new QComboBox(w);
+    for (const char* t : {"Density", "Place", "Length", "Cut", "Width", "Twist", "Comb", "Grab", "Smooth", "Noise", "Clump", "Part", "Freeze", "Select"})
+        groom_tool_->addItem(t, QString(t).toLower());
+    connect(groom_tool_, &QComboBox::currentIndexChanged, this, [this, set](int) { set("tool", groom_tool_->currentData().toString()); });
+    form->addRow("Tool:", groom_tool_);
+    groom_size_ = slider_row(form, "Size:", 1.0, 500.0, 1.0, [set](double x) { set("size", x); });
+    groom_strength_ = slider_row(form, "Strength:", 0.0, 1.0, 0.05, [set](double x) { set("strength", x); });
+    groom_collide_ = new QCheckBox("Collide with Meshes", w);
+    connect(groom_collide_, &QCheckBox::toggled, this, [set](bool on) { set("collide", on); });
+    form->addRow("", groom_collide_);
+    groom_distance_ = slider_row(form, "Collision Distance:", 0.0, 10.0, 0.01, [set](double x) { set("collisionDistance", x); });
+    groom_invert_frozen_ = new QCheckBox("Invert Frozen Effect", w);
+    connect(groom_invert_frozen_, &QCheckBox::toggled, this, [set](bool on) { set("invertFrozen", on); });
+    form->addRow("", groom_invert_frozen_);
+    groom_alt_ = new QCheckBox("Alternate Mode (N)", w);
+    connect(groom_alt_, &QCheckBox::toggled, this, [set](bool on) { set("altMode", on); });
+    form->addRow("", groom_alt_);
+    v->addLayout(form);
+    auto* keys = new QLabel("B drag: size. Ctrl: invert the tool. Shift: its other action. N: alternate mode. Ctrl+Shift+I: invert frozen. Ctrl+1 to Ctrl+0: the first ten tools.", w);
+    keys->setWordWrap(true);
+    v->addWidget(keys);
+    v->addStretch(1);
+    return w;
+}
+
+void ToolSettings::refresh_groom() {
+    loading_ = true;
+    auto q = [](const char* flag) { return ask("xjenGroomCtx", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}); };
+    int i = groom_tool_->findData(q("tool").toString());
+    if (i >= 0) groom_tool_->setCurrentIndex(i);
+    if (!groom_size_->hasFocus()) groom_size_->setValue(q("size").toDouble());
+    if (!groom_strength_->hasFocus()) groom_strength_->setValue(q("strength").toDouble());
+    groom_collide_->setChecked(q("collide").toBool());
+    if (!groom_distance_->hasFocus()) groom_distance_->setValue(q("collisionDistance").toDouble());
+    groom_invert_frozen_->setChecked(q("invertFrozen").toBool());
+    groom_alt_->setChecked(q("altMode").toBool());
+    loading_ = false;
 }
 
 void ToolSettings::refresh_sculpt() {
@@ -999,6 +1053,9 @@ void ToolSettings::set_tool(const QString& tool) {
     } else if (tool == "sculpt") {
         title_->setText("Sculpting Tools");
         stack_->setCurrentWidget(sculpt_page_);
+    } else if (tool == "groom") {
+        title_->setText("Interactive Groom Tools");
+        stack_->setCurrentWidget(groom_page_);
     } else if (tool == "joint") {
         title_->setText("Joint Tool");
         stack_->setCurrentWidget(joint_page_);
@@ -1019,6 +1076,7 @@ void ToolSettings::refresh() {
     else if (tool_ == "editMembership") refresh_member();
     else if (tool_ == "paintSkin") refresh_paint();
     else if (tool_ == "sculpt") refresh_sculpt();
+    else if (tool_ == "groom") refresh_groom();
     else if (stack_->currentWidget() == transform_page_) refresh_transform();
 }
 

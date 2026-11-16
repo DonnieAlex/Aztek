@@ -347,6 +347,8 @@ pub enum Tool {
     /// EP Curve Tool: clicks place edit points; Enter makes the curve.
     CurveEp,
     Sculpt,
+    /// The Interactive Groom tools on hair descriptions.
+    Groom,
     InsertJoint,
     MultiCut,
     InsertLoop,
@@ -1949,6 +1951,7 @@ impl Viewport {
             Tool::PaintSkin => s.paint_ctx.radius,
             Tool::PaintAttr => s.attr_ctx.paint.radius,
             Tool::Sculpt => s.sculpt_ctx.size,
+            Tool::Groom => aztek_scene::xjen::groom::ctx().lock().unwrap().size * self.cam.units_per_px_at(c, self.rect[3], self.aspect()),
             _ => return,
         };
         let (u, w) = n.any_orthonormal_pair();
@@ -1977,7 +1980,9 @@ impl Viewport {
         let g = &s.graph;
         let sel = g.selection();
         let any = self.tool == Tool::Sculpt;
-        let picked: Vec<usize> = (0..items.len()).filter(|&i| (sel.contains(&items[i].xf) || sel.contains(&items[i].shape)) && (any || if self.tool == Tool::PaintAttr { aztek_scene::deform_paint::current(s, items[i].shape).is_some() } else { aztek_scene::skin::skin_of(g, items[i].shape).is_some() })).collect();
+        // Grooming: the meshes the descriptions selected (or any, with none selected) grow on.
+        let groomed: Vec<aztek_scene::plug::NodeId> = if self.tool == Tool::Groom { aztek_scene::xjen::brush_meshes(g) } else { Vec::new() };
+        let picked: Vec<usize> = (0..items.len()).filter(|&i| if self.tool == Tool::Groom { groomed.contains(&items[i].shape) } else { (sel.contains(&items[i].xf) || sel.contains(&items[i].shape)) && (any || if self.tool == Tool::PaintAttr { aztek_scene::deform_paint::current(s, items[i].shape).is_some() } else { aztek_scene::skin::skin_of(g, items[i].shape).is_some() }) }).collect();
         let list: Vec<DrawItem> = picked
             .iter()
             .map(|&i| DrawItem { shape: items[i].shape, xf: items[i].xf, world: items[i].world, mesh: items[i].mesh.clone(), smooth: 0 })

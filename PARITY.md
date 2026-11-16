@@ -2479,6 +2479,9 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
   deformation, with Scale and Sculpt modifiers, widths and taper, drawn in the views and rendered by Harold, saved in
   `.ma` (and `.mb`, less sculpt moves); Generate > Create Interactive Groom Splines and `xgmSplineQuery`. What is kept
   and not yet applied is listed in docs/XJEN.md, Step 2 as built.
+- Step 3, 16/11/2026: the fourteen grooming tools with their shared settings and keys, sculpt layers with weights and
+  merging, freezing and picking splines, collision with the bound mesh, one undo per stroke. Details and gaps in
+  docs/XJEN.md, Step 3 as built.
 
 ### Tear-off menus and the Outliner at start (16/11/2026)
 

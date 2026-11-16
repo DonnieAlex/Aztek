@@ -7,6 +7,8 @@
 //! the mesh deforms or is skinned.
 
 pub mod cmds;
+pub mod edits;
+pub mod groom;
 pub mod sculpt;
 
 use std::any::Any;
@@ -49,6 +51,8 @@ pub struct Spline {
     pub points: Vec<DVec3>,
     /// Width at each point; empty until the description sets it.
     pub width: Vec<f32>,
+    /// A multiplier on the description's width, from the Width tool.
+    pub width_scale: f32,
 }
 
 impl Spline {
@@ -190,11 +194,11 @@ pub fn generate(mesh: &Mesh, p: &GrowParams) -> SplineData {
 }
 
 /// A straight spline at a root.
-fn place(mesh: &Mesh, normals: &[Vec3], face: u32, id: u64, t: [u32; 3], w: [f64; 3], length: f64, cv: usize) -> Spline {
+pub fn place(mesh: &Mesh, normals: &[Vec3], face: u32, id: u64, t: [u32; 3], w: [f64; 3], length: f64, cv: usize) -> Spline {
     let (pos, n, tan) = frame(mesh, normals, t, w);
     let uv = t.iter().zip(w).fold(DVec2::ZERO, |a, (&c, wk)| a + uv_at(mesh, c).unwrap_or_default() * wk);
     let points = (0..cv).map(|j| pos + n * (length * j as f64 / (cv - 1) as f64)).collect();
-    Spline { id, face, corners: t, w, uv: [uv.x as f32, uv.y as f32], normal: n, tangent: tan, points, width: Vec::new() }
+    Spline { id, face, corners: t, w, uv: [uv.x as f32, uv.y as f32], normal: n, tangent: tan, points, width: Vec::new(), width_scale: 1.0 }
 }
 
 /// Position, normal (point normals blended) and a tangent along the triangle's first edge, at a root.
@@ -327,7 +331,11 @@ fn base_compute(d: &mut NodeData) {
         cv_count: geti(d, "cvCount").clamp(2, 1000) as usize,
         faces: parse_faces(d.value(at(d, "boundFaces")).as_str()),
     };
-    d.set_output(out, data_value(generate(&mesh, &p)));
+    let mut grown = generate(&mesh, &p);
+    if let Some(e) = edits::edit_data(d.value(at(d, "editData"))) {
+        e.apply(&mesh, &mut grown, p.length, p.cv_count);
+    }
+    d.set_output(out, data_value(grown));
 }
 
 /// The splines in, or None when the modifier is muted or has none (then they pass through as they are).
@@ -379,7 +387,7 @@ fn description_compute(d: &mut NodeData) {
             .map(|j| {
                 let t = j as f64 / n as f64;
                 let r = crate::utility_nodes::ramp_value(&ramp, t).map(|v| v.x);
-                width_at(scale, taper, start, r, t) as f32
+                width_at(scale, taper, start, r, t) as f32 * sp.width_scale.max(0.0)
             })
             .collect();
     }
@@ -390,6 +398,7 @@ pub fn register_types() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         sculpt::register_kind();
+        edits::register_kind();
         let shape = types::find("shape").expect("shape");
         types::register_type(NodeType {
             name: BASE.into(),
@@ -406,6 +415,7 @@ pub fn register_types() {
                 int("cvCount", "cvc", 5, "Points on each spline."),
                 int("subdivisionLevel", "sl", 3, "Density grid subdivision, 1 to 5. Kept; not applied yet."),
                 boolean("interpolate", "itp", false, "Interpolate new splines from others. Kept; not applied yet."),
+                edits::attr(),
                 splines_out("outSplineData", "osd"),
             ],
             create: Some(Arc::new(|| Box::new(Compute(base_compute)))),
@@ -560,6 +570,26 @@ pub fn stack(g: &Graph, desc: NodeId) -> Vec<NodeId> {
     }
     out.reverse();
     out
+}
+
+/// The mesh shape a description grows on.
+pub fn bound_mesh(g: &Graph, desc: NodeId) -> Option<NodeId> {
+    let base = base_of(g, desc)?;
+    let p = crate::harold::network::attr(g, base, "boundMesh")?;
+    g.source(&p).map(|s| s.node)
+}
+
+/// The descriptions the grooming brush works on: those selected (by shape or transform), or every one when none is.
+pub fn brush_descriptions(g: &Graph) -> Vec<NodeId> {
+    let all = descriptions(g);
+    let sel = g.selection();
+    let picked: Vec<NodeId> = all.iter().copied().filter(|&d| sel.contains(&d) || sel.contains(&g.parent(d))).collect();
+    if picked.is_empty() { all } else { picked }
+}
+
+/// The meshes the grooming brush can touch.
+pub fn brush_meshes(g: &Graph) -> Vec<NodeId> {
+    brush_descriptions(g).into_iter().filter_map(|d| bound_mesh(g, d)).collect()
 }
 
 /// The base at the bottom of a description's stack.

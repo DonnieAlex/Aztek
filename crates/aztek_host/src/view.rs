@@ -97,6 +97,8 @@ pub struct View {
     pub ts: crate::tools::ToolState,
     /// A sculpt stroke in progress.
     sculpt: Option<SculptStroke>,
+    /// A grooming stroke in progress, and the press's pixel for sizing the brush.
+    groom: Option<aztek_scene::xjen::groom::Stroke>,
     /// A paint stroke in progress.
     stroke: Option<PaintStroke>,
     /// A paint attribute stroke in progress.
@@ -178,6 +180,7 @@ impl View {
             cam_sync: None,
             ts: Default::default(),
             sculpt: None,
+            groom: None,
             stroke: None,
             attr_stroke: None,
             brush_adjust: false,
@@ -1204,10 +1207,28 @@ impl View {
                     }
                 }
                 // B held: the drag sizes soft select's falloff.
-                if self.brush_adjust && (button == 1 || button == 2) && !matches!(self.vp.tool, Tool::Sculpt | Tool::PaintSkin) {
+                if self.brush_adjust && (button == 1 || button == 2) && !matches!(self.vp.tool, Tool::Sculpt | Tool::PaintSkin | Tool::Groom) {
                     self.soft_drag = Some((px, aztek_scene::soft_select::state().1));
                     self.soft_cursor = Some(px);
                     self.brush_dragged = false;
+                    return true;
+                }
+                if self.vp.tool == Tool::Groom && button == 1 {
+                    if self.brush_adjust {
+                        let size = aztek_scene::xjen::groom::ctx().lock().unwrap().size;
+                        self.brush_drag = Some((px, size));
+                        self.brush_dragged = true;
+                        return true;
+                    }
+                    if let Some((i, wp, n)) = self.vp.brush_hit(&core.s, &items, px) {
+                        let mesh = items[i].shape;
+                        let descs = aztek_scene::xjen::brush_descriptions(&core.s.graph);
+                        if let Some(d) = descs.into_iter().find(|&d| aztek_scene::xjen::bound_mesh(&core.s.graph, d) == Some(mesh)) {
+                            self.groom = aztek_scene::xjen::groom::Stroke::begin(&mut core.s, d, mods & CTRL != 0, mods & SHIFT != 0);
+                            self.groom_dab(core, wp, n);
+                            self.vp.brush = Some((wp, n));
+                        }
+                    }
                     return true;
                 }
                 if self.vp.tool == Tool::Sculpt && button == 1 {
@@ -1468,7 +1489,7 @@ impl View {
                     self.prim_preview();
                     return true;
                 }
-                if self.brush_adjust && self.soft_drag.is_none() && !matches!(self.vp.tool, Tool::Sculpt | Tool::PaintSkin | Tool::PaintAttr) {
+                if self.brush_adjust && self.soft_drag.is_none() && !matches!(self.vp.tool, Tool::Sculpt | Tool::PaintSkin | Tool::PaintAttr | Tool::Groom) {
                     self.soft_cursor = Some(px);
                     if buttons == 0 {
                         return true;
@@ -1495,6 +1516,12 @@ impl View {
                     self.vp.select_brush = Some((px, crate::ui_cmds::pref_f64("paintSelectRadius", 22.0) * self.dpr));
                     return true;
                 }
+                if let (Tool::Groom, Some((start, size))) = (self.vp.tool, self.brush_drag) {
+                    // B drag: the brush's size on screen.
+                    aztek_scene::xjen::groom::ctx().lock().unwrap().size = (size + (px.x - start.x)).max(1.0);
+                    core.version += 1;
+                    return true;
+                }
                 if let Some((start, radius)) = self.brush_drag {
                     let upp = self.vp.cam.units_per_px_at(self.vp.brush.map(|b| b.0).unwrap_or(self.vp.cam.coi), self.vp.rect[3], self.vp.aspect());
                     let next = (radius + (px.x - start.x) * upp).max(1e-3);
@@ -1508,6 +1535,26 @@ impl View {
                         let _ = core.exec_silent("artAttrSkinPaintCtx", json!({"edit": true, "radius": next}));
                     }
                     return true;
+                }
+                if self.groom.is_some() {
+                    if let Some((_, wp, n)) = self.vp.brush_hit(&core.s, &items, px) {
+                        self.groom_dab(core, wp, n);
+                        self.vp.brush = Some((wp, n));
+                    } else if let Some((c, n)) = self.vp.brush {
+                        // Off the surface (Grab and Comb follow on), on the plane through the last point.
+                        let (o, d) = self.vp.cam.ray(px, self.vp.size());
+                        let den = d.dot(n);
+                        if den.abs() > 1e-6 {
+                            let wp = o + d * ((c - o).dot(n) / den);
+                            self.groom_dab(core, wp, n);
+                        }
+                    }
+                    return true;
+                }
+                if self.vp.tool == Tool::Groom && buttons == 0 {
+                    let was = self.vp.brush.is_some();
+                    self.vp.brush = self.vp.brush_hit(&core.s, &items, px).map(|x| (x.1, x.2));
+                    return was || self.vp.brush.is_some();
                 }
                 if self.sculpt.is_some() {
                     if let Some((_, wp, n)) = self.vp.brush_hit(&core.s, &items, px) {
@@ -1679,6 +1726,10 @@ impl View {
                     return true;
                 }
                 if self.sculpt.take().is_some() {
+                    core.version += 1;
+                    return true;
+                }
+                if self.groom.take().is_some() {
                     core.version += 1;
                     return true;
                 }
@@ -1859,6 +1910,15 @@ impl View {
         }
     }
 
+    fn groom_dab(&mut self, core: &mut Core, wp: DVec3, n: DVec3) {
+        let size = aztek_scene::xjen::groom::ctx().lock().unwrap().size;
+        let radius = size * self.vp.cam.units_per_px_at(wp, self.vp.rect[3], self.vp.aspect());
+        if let Some(st) = self.groom.as_mut() {
+            st.dab(&mut core.s, wp, n, radius);
+            core.version += 1;
+        }
+    }
+
     fn sculpt_dab(&mut self, core: &mut Core, wp: DVec3, n: DVec3) {
         let Some(st) = self.sculpt.as_mut() else { return };
         let mut ctx = core.s.sculpt_ctx.clone();
@@ -1965,6 +2025,7 @@ impl View {
                     "paintSkin" => Tool::PaintSkin,
                     "paintAttr" => Tool::PaintAttr,
                     "sculpt" => Tool::Sculpt,
+                    "groom" => Tool::Groom,
                     "insertJoint" => Tool::InsertJoint,
                     "curveCv" => Tool::CurveCv,
                     "curveEp" => Tool::CurveEp,

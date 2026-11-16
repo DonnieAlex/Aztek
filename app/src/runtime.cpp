@@ -413,7 +413,7 @@ void MainWindow::build_runtime() {
             dragged = dragged || v->get("brushDragged") == "true";
             v->set("brushAdjust", "false");
         }
-        if (dragged) return;
+        if (dragged || tool_ == "groom") return;
         bool on = ask("softSelect", QJsonObject{{"query", true}, {"queried", QJsonArray{"softSelectEnabled"}}}).toInt() != 0;
         exec("softSelect", QJsonObject{{"softSelectEnabled", on ? 0 : 1}});
         for (ViewportWidget* v : panels_->views()) v->update();
