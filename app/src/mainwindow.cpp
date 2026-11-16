@@ -449,6 +449,7 @@ QMenu* MainWindow::curves_menu() {
 QMenu* MainWindow::generate_menu() {
     auto* m = new QMenu("Generate", this);
     menu_title(m, "Interactive Groom");
+    m->addAction("Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); })->setEnabled(has_command("xjenGroomInfo"));
     cmd(m, "Create Interactive Groom Splines", "xjenCreateGroom", {}, QString(), true);
     QMenu* tools = m->addMenu("Interactive Groom Tools");
     for (const char* t : {"Density", "Place", "Length", "Cut", "Width", "Twist", "Comb", "Grab", "Smooth", "Noise", "Clump", "Part", "Freeze", "Select"}) {
@@ -482,6 +483,11 @@ QMenu* MainWindow::generate_menu() {
         a->setEnabled(has_command("xjenAddModifier"));
     }
     m->addSeparator();
+    cmd(m, "Convert Interactive Groom to Polygons", "xjenConvertToPolygons", {}, QString(), true);
+    m->addAction("Transfer to Selected Mesh", [] {
+        QJsonArray sel = ask("ls", QJsonObject{{"selection", true}}).toArray();
+        if (sel.size() >= 2) exec("xjenTransfer", QJsonObject{{"args", QJsonArray{sel[0]}}, {"mesh", sel[sel.size() - 1]}});
+    })->setToolTip("Select the description, then the mesh");
     QMenu* sel = m->addMenu("Select");
     sel->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
     sel->addAction("Freeze Selected Splines", [] { exec("xgmSplineSelect", QJsonObject{{"convertToFreeze", true}}); });

@@ -358,6 +358,8 @@ void MainWindow::build_runtime() {
     r("MenuSetModeling", "Menus", "Modeling menus", [this] { menu_set_->setCurrentText("Modeling"); });
     r("MenuSetRigging", "Menus", "Rigging menus", [this] { menu_set_->setCurrentText("Rigging"); });
     r("MenuSetRendering", "Menus", "Rendering menus", [this] { menu_set_->setCurrentText("Rendering"); });
+    r("InteractiveGroomEditor", "Windows", "Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); });
+    r("InteractiveGroomTool", "Tools", "The Interactive Groom tools, with the tool xjenGroomCtx names", [this] { set_tool("groom"); });
     r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("Dynamics"); });
     // Plays every frame, looping, so the solver sees each one while things are moved in the view.
     r("InteractivePlayback", "Dynamics", "Play every frame and keep solving while objects are moved", [this] {

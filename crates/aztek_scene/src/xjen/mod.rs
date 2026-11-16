@@ -8,6 +8,7 @@
 
 pub mod cmds;
 pub mod edits;
+pub mod extra;
 pub mod groom;
 pub mod modifiers;
 pub mod sculpt;

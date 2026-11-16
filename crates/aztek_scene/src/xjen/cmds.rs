@@ -9,7 +9,7 @@ use crate::plug::{NodeId, PlugValue, NO_NODE};
 use crate::session::Session;
 
 /// The commands this file registers.
-pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect", "xjenAddModifier"];
+pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect", "xjenAddModifier", "xjenGroomInfo", "xjenConvertToPolygons", "xjenPreset", "xjenTransfer", "xjenRemoveModifier"];
 
 /// The description a name means: its shape, from the shape or its transform.
 pub fn description(s: &Session, n: &str) -> Option<NodeId> {
@@ -149,7 +149,7 @@ fn sculpt_of(s: &Session, desc: NodeId) -> Option<NodeId> {
 }
 
 /// Short names the command takes for the modifier types.
-const MODIFIER_NAMES: &[(&str, &str)] = &[
+pub(super) const MODIFIER_NAMES: &[(&str, &str)] = &[
     ("clump", "xgmModifierClump"),
     ("noise", "xgmModifierNoise"),
     ("cut", "xgmModifierCut"),
@@ -189,6 +189,7 @@ fn shape_of_curve(s: &mut Session, name: &str) -> Option<String> {
 
 pub fn register(c: &mut Commands<Session>) {
     use super::groom;
+    super::extra::register(c);
     c.register(
         CommandDef::<Session>::new(
             "xjenAddModifier",

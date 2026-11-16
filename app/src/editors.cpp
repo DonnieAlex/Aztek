@@ -14,6 +14,8 @@ extern "C" {
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QMenu>
 #include <QSpinBox>
 #include <QComboBox>
 #include <QDialog>
@@ -1086,7 +1088,160 @@ static QWidget* uv_set_editor(QWidget* parent) {
     return w;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Interactive Groom Editor: descriptions, their modifier stacks from the top down, and sculpt layers with weight,
+// visibility and the active one. A click selects the node for the Attribute Editor.
+
+QWidget* groom_editor(QWidget* parent) {
+    auto* win = window_shell(parent, "Interactive Groom Editor", 540, 520);
+    auto* v = new QVBoxLayout(win);
+    auto* bar = new QToolBar(win);
+    v->addWidget(bar);
+    auto* tree = new QTreeWidget(win);
+    tree->setColumnCount(3);
+    tree->setHeaderLabels({"Name", "Weight", "On"});
+    tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    tree->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    v->addWidget(tree, 1);
+    auto* updating = new bool(false);
+    // Roles: the node path, what the row is ("description", "modifier", "layer"), the layer's index, its description.
+    const int NODE = Qt::UserRole, KIND = Qt::UserRole + 1, INDEX = Qt::UserRole + 2, DESC = Qt::UserRole + 3;
+    auto refresh = [tree, updating, NODE, KIND, INDEX, DESC] {
+        *updating = true;
+        QSet<QString> open;
+        for (int i = 0; i < tree->topLevelItemCount(); ++i)
+            if (!tree->topLevelItem(i)->isExpanded()) open.insert("closed:" + tree->topLevelItem(i)->data(0, NODE).toString());
+        QString current = tree->currentItem() ? tree->currentItem()->data(0, NODE).toString() + "/" + tree->currentItem()->data(0, INDEX).toString() : QString();
+        tree->clear();
+        for (const QJsonValue& dv : ask("xjenGroomInfo", QJsonObject()).toArray()) {
+            QJsonObject d = dv.toObject();
+            QString tr = d["transform"].toString();
+            auto* top = new QTreeWidgetItem(tree, {QString("%1  (%2 splines)").arg(tr).arg(d["splines"].toInt())});
+            QFont f = top->font(0);
+            f.setBold(true);
+            top->setFont(0, f);
+            top->setData(0, NODE, tr);
+            top->setData(0, KIND, "description");
+            top->setData(0, DESC, tr);
+            QJsonObject sculpt = d["sculpt"].toArray().isEmpty() ? QJsonObject() : d["sculpt"].toArray()[0].toObject();
+            for (const QJsonValue& mv : d["stack"].toArray()) {
+                QJsonObject m = mv.toObject();
+                QString node = m["node"].toString();
+                QString ty = m["type"].toString();
+                QString label = ty.startsWith("xgmModifier") ? ty.mid(11) : ty == "xgmSplineBase" ? "Base" : ty.mid(3);
+                auto* it = new QTreeWidgetItem(top, {label + "   " + node});
+                it->setData(0, NODE, node);
+                it->setData(0, KIND, "modifier");
+                it->setData(0, DESC, tr);
+                if (ty != "xgmSplineBase") {
+                    it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
+                    it->setCheckState(2, m["mute"].toBool() ? Qt::Unchecked : Qt::Checked);
+                }
+                if (ty == "xgmModifierSculpt" && sculpt["node"].toString() == node) {
+                    int active = sculpt["active"].toInt();
+                    QJsonArray layers = sculpt["layers"].toArray();
+                    for (int k = layers.size() - 1; k >= 0; --k) {
+                        QJsonObject l = layers[k].toObject();
+                        auto* li = new QTreeWidgetItem(it, {(k == active ? QString::fromUtf8("● ") : QString("   ")) + l["name"].toString(), QString::number(l["weight"].toDouble(), 'f', 3)});
+                        li->setFlags(li->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsEditable);
+                        li->setCheckState(2, l["visible"].toBool() ? Qt::Checked : Qt::Unchecked);
+                        li->setData(0, NODE, node);
+                        li->setData(0, KIND, "layer");
+                        li->setData(0, INDEX, k);
+                        li->setData(0, DESC, tr);
+                        if (current == node + "/" + QString::number(k)) tree->setCurrentItem(li);
+                    }
+                    it->setExpanded(true);
+                }
+                if (current == node + "/") tree->setCurrentItem(it);
+            }
+            top->setExpanded(!open.contains("closed:" + tr));
+        }
+        *updating = false;
+    };
+    QObject::connect(tree, &QTreeWidget::itemChanged, win, [updating, NODE, KIND, INDEX](QTreeWidgetItem* it, int col) {
+        if (*updating) return;
+        QString node = it->data(0, NODE).toString();
+        QString kind = it->data(0, KIND).toString();
+        if (kind == "modifier" && col == 2) {
+            exec("setAttr", QJsonObject{{"args", QJsonArray{node + ".mute", it->checkState(2) != Qt::Checked}}});
+        } else if (kind == "layer") {
+            int k = it->data(0, INDEX).toInt();
+            if (col == 2) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerVisibility").arg(node).arg(k), it->checkState(2) == Qt::Checked}}});
+            if (col == 1) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerWeight").arg(node).arg(k), it->text(1).toDouble()}}});
+            if (col == 0) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerName").arg(node).arg(k), it->text(0).trimmed().remove(QString::fromUtf8("●")).trimmed()}}, {"type", "string"}});
+        }
+    });
+    QObject::connect(tree, &QTreeWidget::itemClicked, win, [updating, NODE](QTreeWidgetItem* it, int) {
+        if (*updating) return;
+        exec("select", QJsonObject{{"args", QJsonArray{it->data(0, NODE).toString()}}, {"replace", true}});
+    });
+    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, win, [NODE, KIND, INDEX, DESC](QTreeWidgetItem* it, int col) {
+        if (it->data(0, KIND).toString() == "layer" && col == 0)
+            exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{it->data(0, DESC).toString()}}, {"active", it->data(0, INDEX).toInt()}});
+        (void)NODE;
+    });
+    auto desc_of = [tree, DESC]() -> QString {
+        if (tree->currentItem()) return tree->currentItem()->data(0, DESC).toString();
+        if (tree->topLevelItemCount()) return tree->topLevelItem(0)->data(0, DESC).toString();
+        return QString();
+    };
+    bar->addAction("Create", [] { exec("xjenCreateGroom", QJsonObject()); });
+    auto* add = new QMenu(win);
+    for (auto [label, id] : std::initializer_list<std::pair<const char*, const char*>>{{"Clump", "clump"}, {"Noise", "noise"}, {"Cut", "cut"}, {"Collide", "collide"}, {"Displace", "displace"}, {"Guide", "guide"}, {"Linear Wire", "linearWire"}, {"Curve to Spline", "curveToSpline"}, {"Scale", "scale"}, {"Sculpt", "sculpt"}}) {
+        QString t = id;
+        add->addAction(label, [t, desc_of] {
+            QString d = desc_of();
+            if (!d.isEmpty()) exec("xjenAddModifier", QJsonObject{{"args", QJsonArray{d}}, {"type", t}});
+        });
+    }
+    QAction* add_a = bar->addAction("Add Modifier");
+    add_a->setMenu(add);
+    QObject::connect(add_a, &QAction::triggered, win, [add] { add->popup(QCursor::pos()); });
+    bar->addAction("Remove", [tree, NODE, KIND, INDEX, DESC] {
+        auto* it = tree->currentItem();
+        if (!it) return;
+        if (it->data(0, KIND).toString() == "modifier") exec("xjenRemoveModifier", QJsonObject{{"args", QJsonArray{it->data(0, NODE).toString()}}});
+        if (it->data(0, KIND).toString() == "layer") exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{it->data(0, DESC).toString()}}, {"remove", it->data(0, INDEX).toInt()}});
+        if (it->data(0, KIND).toString() == "description") exec("delete", QJsonObject{{"args", QJsonArray{it->data(0, NODE).toString()}}});
+    });
+    bar->addSeparator();
+    bar->addAction("Add Layer", [desc_of] {
+        QString d = desc_of();
+        if (!d.isEmpty()) exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{d}}, {"add", "Layer"}});
+    });
+    bar->addAction("Merge Visible", [desc_of] {
+        QString d = desc_of();
+        if (!d.isEmpty()) exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{d}}, {"mergeVisible", true}});
+    });
+    auto* more = new QMenu(win);
+    more->addAction("Convert to Polygons", [desc_of] {
+        QString d = desc_of();
+        if (!d.isEmpty()) exec("xjenConvertToPolygons", QJsonObject{{"args", QJsonArray{d}}});
+    });
+    more->addAction("Export Preset...", [win, desc_of] {
+        QString d = desc_of();
+        if (d.isEmpty()) return;
+        QString f = QFileDialog::getSaveFileName(win, "Export Preset", d + ".json", "XJEN preset (*.json)");
+        if (!f.isEmpty()) exec("xjenPreset", QJsonObject{{"args", QJsonArray{d}}, {"export", f}});
+    });
+    more->addAction("Import Preset...", [win] {
+        QString f = QFileDialog::getOpenFileName(win, "Import Preset onto the selected mesh", QString(), "XJEN preset (*.json)");
+        if (!f.isEmpty()) exec("xjenPreset", QJsonObject{{"import", f}});
+    });
+    more->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
+    more->addAction("Freeze Selected Splines", [] { exec("xgmSplineSelect", QJsonObject{{"convertToFreeze", true}}); });
+    QAction* more_a = bar->addAction("Description");
+    more_a->setMenu(more);
+    QObject::connect(more_a, &QAction::triggered, win, [more] { more->popup(QCursor::pos()); });
+    refresh();
+    follow_scene(win, refresh);
+    return win;
+}
+
 QWidget* make_editor_window(const QString& id, QWidget* parent) {
+    if (id == "interactiveGroomEditor") return groom_editor(parent);
     if (id == "spreadSheet") return spread_sheet(parent);
     if (id == "componentEditor") return component_editor(parent);
     if (id == "connectionEditor") return connection_editor(parent);

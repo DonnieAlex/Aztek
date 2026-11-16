@@ -5,8 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: steps 1 to 4 are in (strands in Harold and the views; the Interactive Groom core; the grooming
-tools; the modifiers, below); the rest follows. This page is the target
+Status, 16/11/2026: steps 1 to 5 are in (strands in Harold and the views; the Interactive Groom core; the grooming
+tools; the modifiers; the editor and the rest of the menu, below); the rest follows. This page is the target
 and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
@@ -199,5 +199,25 @@ round trips, and screenshots.
   to the tip. Curve to Spline: connected curves become splines, their roots put on the bound mesh, Align To Normal.
 - Not yet: Mask maps, Displacement Map, Breakage, Clump's clump map, Advanced Shape (Flatness, Offset, Orient) and
   Secondary Effects, dynamic guides and wires (step 8), and the reference's attribute file names (from the capture).
+
+## Step 5 as built (16/11/2026)
+
+![Interactive Groom Editor](xjen-editor.png)
+
+- Interactive Groom Editor (Generate menu, the XGen shelf, `InteractiveGroomEditor`): each description with its spline
+  count, its stack from the top down with a switch for Mute, and the Sculpt modifier's layers with weight (editable),
+  visibility, name (editable) and the active one (double-click to make active). A click selects the node for the
+  Attribute Editor. Create, Add Modifier, Remove (a modifier, a layer or the description), Add Layer, Merge Visible,
+  and a Description menu: Convert to Polygons, Export Preset, Import Preset, Select Splines on Selected Faces, Freeze
+  Selected Splines. Groups of layers are not in yet.
+- XGen shelf: the editor, Create Interactive Groom Splines and the fourteen tools (icons borrowed from the sculpting
+  brushes until the shelf's own are drawn). Shelves saved before it get it once.
+- Generate menu: Interactive Groom Editor, Create Interactive Groom Splines, Interactive Groom Tools, Add Modifier,
+  Convert Interactive Groom to Polygons (`xjenConvertToPolygons`: ribbons, or tubes with `-tube -sides`, with UVs),
+  Transfer to Selected Mesh (`xjenTransfer`), Select.
+- Presets (`xjenPreset -export`/`-import`) are Aztek's own JSON: the shape's and every stack node's settings, sculpt
+  layers, placed and removed splines; guide and wire curves are not kept. The reference's preset format is to be
+  read from the capture before presets are made compatible.
+- `xjenGroomInfo` (what the editor reads) and `xjenRemoveModifier` (joins the stack across a removed modifier).
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.
