@@ -799,27 +799,28 @@ fn manip_options_act(_s: &mut Session, f: &Map<String, Value>) {
     }
 }
 
+/// panZoom: the 2D pan and zoom of a camera's film (horizontalPan, verticalPan, zoom, in inches of film back), with
+/// its panZoomEnabled turned on. Relative by default: the distances add to the pan, the ratio multiplies the zoom.
 fn pan_zoom(s: &mut Session, a: &Args) -> CmdResult {
-    let cam = a.named().into_iter().next();
-    let mut call = Map::new();
-    if let Some(c) = &cam {
-        call.insert("args".to_string(), json!([c]));
-    }
-    let mut track = call.clone();
-    let mut moved = false;
-    for k in ["left", "right", "up", "down"] {
-        if a.has(k) {
-            track.insert(k.to_string(), json!(a.float(k, 0.0)));
-            moved = true;
-        }
-    }
-    if moved {
-        s.run("track", Value::Object(track))?;
-    }
-    if a.has("zoomRatio") {
-        let mut zoom = call;
-        zoom.insert("orthoScale".to_string(), json!(a.float("zoomRatio", 1.0)));
-        s.run("dolly", Value::Object(zoom))?;
+    let cam = a.named().into_iter().next().unwrap_or_else(crate::panel_cmds::active_camera);
+    let g = &s.graph;
+    let Some(id) = g.find(&cam)? else { fail!("panZoom: Object '{cam}' not found.") };
+    let Some(sh) = aztek_scene::cameras::shape_of(g, id) else { fail!("panZoom: {cam} is not a camera.") };
+    let shape = g.path(sh);
+    let dist = |k: &str, long: &str| a.get(long).or_else(|| a.get(k)).and_then(Value::as_f64).unwrap_or(0.0);
+    let (dx, dy) = (dist("right", "rightDistance") - dist("left", "leftDistance"), dist("up", "upDistance") - dist("down", "downDistance"));
+    let absolute = a.bool("absolute") && !a.bool("relative");
+    let get = |s: &mut Session, attr: &str| s.run("getAttr", json!({"args": [format!("{shape}.{attr}")]})).ok().and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let (h, v, z) = (get(s, "horizontalPan"), get(s, "verticalPan"), get(s, "zoom"));
+    let moved = ["left", "right", "up", "down", "leftDistance", "rightDistance", "upDistance", "downDistance"].iter().any(|k| a.has(k));
+    let (h, v) = if absolute && moved { (dx, dy) } else { (h + dx, v + dy) };
+    let z = match a.get("zoomRatio").and_then(Value::as_f64) {
+        Some(r) if absolute => r,
+        Some(r) => z * r,
+        None => z,
+    };
+    for (attr, val) in [("horizontalPan", json!(h)), ("verticalPan", json!(v)), ("zoom", json!(z.max(1e-4))), ("panZoomEnabled", json!(true))] {
+        s.run("setAttr", json!({"args": [format!("{shape}.{attr}"), val]}))?;
     }
     Ok(Value::Null)
 }
@@ -914,8 +915,8 @@ pub fn register(s: &mut Session) {
         .undoable(false),
     );
     s.register(add_ctx_flags(
-        Cmd::new("panZoom", "panZoom [camera]: -left -right -up -down slide the camera, -zoomRatio scales what it sees. It moves the camera; there is no 2D film pan here.", |s, a| pan_zoom(s, a)).positional("[camera]").undoable(false),
-        "left:l:a right:r:a up:u:a down:d:a zoomRatio:zr:a absolute:abs:b relative:rel:b",
+        Cmd::new("panZoom", "panZoom [camera]: pans and zooms the camera's 2D film (its horizontalPan, verticalPan and zoom, panZoomEnabled on): -l -r -u -d in inches, -z the zoom ratio; relative unless -abs.", |s, a| pan_zoom(s, a)).positional("[camera]"),
+        "leftDistance:l:a rightDistance:r:a upDistance:u:a downDistance:d:a zoomRatio:z:a absolute:abs:b relative:rel:b",
     ));
     s.register(
         Cmd::new("ctxCompletion", "Tells the current tool to finish, as Enter does.", |_s, _a| {

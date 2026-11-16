@@ -92,7 +92,7 @@ pub struct View {
     joint_press: Option<DVec2>,
     /// The camera node this view looks through, by name, and what was last read from or written to it.
     pub cam_node: String,
-    cam_sync: Option<[f64; 10]>,
+    cam_sync: Option<[f64; 14]>,
     /// The modelling tools' state.
     pub ts: crate::tools::ToolState,
     /// A sculpt stroke in progress.
@@ -1013,7 +1013,16 @@ impl View {
             let r = (r + 180.0).rem_euclid(360.0) - 180.0;
             if r.abs() < 1e-6 { 0.0 } else { r }
         };
-        let state = [eye.x, eye.y, eye.z, yaw, pitch, coi, ow, hfov, ortho as i32 as f64, roll];
+        // The film's 2D pan and zoom (panZoom), a camera's only.
+        let pan_zoom = if light.is_none() {
+            let n = g.node(sh).unwrap();
+            let read = |name: &str, fallback: f64| n.ty().attr_index(name).and_then(|i| n.value(i).scalar()).unwrap_or(fallback);
+            (read("panZoomEnabled", 0.0) != 0.0).then(|| [read("horizontalPan", 0.0), read("verticalPan", 0.0), read("zoom", 1.0), d.float(cam::H_APERTURE)])
+        } else {
+            None
+        };
+        let pz = pan_zoom.unwrap_or([0.0, 0.0, 1.0, 0.0]);
+        let state = [eye.x, eye.y, eye.z, yaw, pitch, coi, ow, hfov, ortho as i32 as f64, roll, pz[0], pz[1], pz[2], pz[3]];
         let same = self.cam_sync.is_some_and(|s| s.iter().zip(&state).all(|(a, b)| (a - b).abs() < 1e-6));
         if same {
             return;
@@ -1027,6 +1036,7 @@ impl View {
         c.ortho_width = ow;
         c.hfov = hfov;
         c.orthographic = ortho;
+        c.pan_zoom = pan_zoom;
         c.coi = eye - c.dir_to_eye() * coi;
     }
 

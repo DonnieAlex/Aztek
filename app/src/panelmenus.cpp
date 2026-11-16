@@ -118,6 +118,23 @@ void ModelPanel::build_menus() {
         QString c = t.cmd;
         tools->addAction(t.label, [c] { mel(c); });
     }
+    // The camera's 2D pan and zoom on its film (panZoom and the camera's attributes).
+    QMenu* pz = view->addMenu("2D Pan/Zoom");
+    connect(pz, &QMenu::aboutToShow, this, [v, pz] {
+        pz->clear();
+        QString cam = v->get("camera").remove('"');
+        QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{cam}}, {"shapes", true}}).toArray();
+        QString shape = shapes.isEmpty() ? cam : shapes.at(0).toString();
+        bool on = ask("getAttr", QJsonObject{{"args", QJsonArray{shape + ".panZoomEnabled"}}}).toBool();
+        QAction* en = pz->addAction("Enable 2D Pan/Zoom", [shape, on] { exec("setAttr", QJsonObject{{"args", QJsonArray{shape + ".panZoomEnabled", !on}}}); });
+        en->setCheckable(true);
+        en->setChecked(on);
+        pz->addAction("Zoom In", [cam] { exec("panZoom", QJsonObject{{"args", QJsonArray{cam}}, {"zoomRatio", 0.8}}); });
+        pz->addAction("Zoom Out", [cam] { exec("panZoom", QJsonObject{{"args", QJsonArray{cam}}, {"zoomRatio", 1.25}}); });
+        pz->addAction("Reset 2D Pan/Zoom", [cam] {
+            exec("panZoom", QJsonObject{{"args", QJsonArray{cam}}, {"absolute", true}, {"rightDistance", 0.0}, {"upDistance", 0.0}, {"zoomRatio", 1.0}});
+        });
+    });
     QMenu* bookmarks = view->addMenu("Bookmarks");
     connect(bookmarks, &QMenu::aboutToShow, this, [this, v, bookmarks] {
         bookmarks->clear();

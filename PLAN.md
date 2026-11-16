@@ -155,7 +155,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   drawing overrides) saved with the scene in both formats.
 - [x] 3.9 (10/11/2026, PARITY.md Up axis; the ViewCube 15/11/2026) Z up: grid, view cube, default cameras, manipulators, new primitives' orientation and `.ma` header all follow
   `upAxis`. Camera roll lives on the camera node.
-- [~] 3.10 (15/11/2026: the ViewCube; `walkCtx` drags with no WASD; film back pan and zoom not done) View tools: walk tool with WASD and speed keys, a view cube, 2D pan and zoom on the film back, tumble
+- [~] 3.10 (15/11/2026: the ViewCube; `walkCtx` drags with no WASD. 16/11/2026: film back pan and zoom on the camera and `panZoom`; no drag tool) View tools: walk tool with WASD and speed keys, a view cube, 2D pan and zoom on the film back, tumble
   around the selection or pivot by preference.
 - [ ] 3.11 Soft select Global and Object reach NURBS and show their colours; World symmetry follows a mesh moved after
   it was set.

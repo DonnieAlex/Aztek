@@ -87,7 +87,7 @@ pub fn delete_panel(name: &str) {
 }
 
 /// The camera the panel in focus looks through.
-fn active_camera() -> String {
+pub(crate) fn active_camera() -> String {
     with_panels(|p| {
         let focus = p.focus.clone();
         p.all.iter().find(|x| x.name == focus && x.kind == "modelPanel").or_else(|| p.all.iter().find(|x| x.name == "modelPanel4")).map(|x| x.camera.clone()).unwrap_or_else(|| "persp".to_string())

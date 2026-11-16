@@ -51,11 +51,14 @@ pub struct Camera {
     pub orthographic: bool,
     /// Degrees about the view axis, from the Roll tool. The view keeps it; the camera node doesn't hold it.
     pub roll: f64,
+    /// The camera node's 2D pan and zoom when it has panZoomEnabled: horizontal and vertical pan in inches of film
+    /// back, the zoom, and the horizontal film aperture in inches the pans are measured against.
+    pub pan_zoom: Option<[f64; 4]>,
 }
 
 impl Camera {
     pub fn new(kind: CamKind) -> Camera {
-        let mut c = Camera { kind, coi: DVec3::ZERO, yaw: 0.0, pitch: 0.0, distance: 1000.0, hfov: 54.43, ortho_width: 30.0, orthographic: kind != CamKind::Persp, roll: 0.0 };
+        let mut c = Camera { kind, coi: DVec3::ZERO, yaw: 0.0, pitch: 0.0, distance: 1000.0, hfov: 54.43, ortho_width: 30.0, orthographic: kind != CamKind::Persp, roll: 0.0, pan_zoom: None };
         match kind {
             CamKind::Persp => c.look_from(to_world(DVec3::new(28.0, 21.0, 28.0))),
             CamKind::Top => {
@@ -120,6 +123,18 @@ impl Camera {
             DMat4::perspective_infinite_reverse_rh(self.vfov(aspect), aspect, near)
         };
         p.y_axis.y = -p.y_axis.y;
+        if let Some([h, v, zoom, hfa]) = self.pan_zoom {
+            // On the film: the view slides by the pan (across the aperture's width is 2 in NDC) and narrows by zoom.
+            let z = zoom.max(1e-4);
+            let (px, py) = (2.0 * h / hfa.max(1e-6), 2.0 * v * aspect.max(1e-6) / hfa.max(1e-6));
+            let m = DMat4::from_cols(
+                glam::DVec4::new(1.0 / z, 0.0, 0.0, 0.0),
+                glam::DVec4::new(0.0, 1.0 / z, 0.0, 0.0),
+                glam::DVec4::new(0.0, 0.0, 1.0, 0.0),
+                glam::DVec4::new(-px / z, py / z, 0.0, 1.0),
+            );
+            p = m * p;
+        }
         p
     }
 
@@ -178,5 +193,32 @@ impl Camera {
         let near = inv.project_point3(DVec3::new(ndc.x, ndc.y, 1.0));
         let far = inv.project_point3(DVec3::new(ndc.x, ndc.y, if self.ortho() { 0.0 } else { 1e-6 }));
         (near, (far - near).normalize())
+    }
+}
+
+#[cfg(test)]
+mod pan_zoom_tests {
+    use super::*;
+
+    #[test]
+    fn film_pan_and_zoom() {
+        let mut c = Camera::new(CamKind::Persp);
+        let at = c.coi;
+        let ndc = |c: &Camera| {
+            let p = (c.proj(1.5) * c.view()).project_point3(at);
+            (p.x, p.y)
+        };
+        let (x0, y0) = ndc(&c);
+        assert!(x0.abs() < 1e-9 && y0.abs() < 1e-9);
+        // Panning right by a quarter of a 1.417 in aperture moves what was in the middle half way to the left edge.
+        c.pan_zoom = Some([1.417 / 4.0, 0.0, 1.0, 1.417]);
+        let (x, y) = ndc(&c);
+        assert!((x + 0.5).abs() < 1e-9 && y.abs() < 1e-9, "{x} {y}");
+        // Panning up moves it down the screen (y runs down); zoom 0.5 doubles what's seen across.
+        c.pan_zoom = Some([0.0, 0.1, 0.5, 1.417]);
+        let (_, y) = ndc(&c);
+        assert!(y > 0.0, "{y}");
+        let off = (c.proj(1.5) * c.view()).project_point3(at + DVec3::new(0.0, 0.0, 0.0));
+        assert!(off.x.abs() < 1e-9);
     }
 }

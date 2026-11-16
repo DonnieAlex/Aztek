@@ -2875,3 +2875,13 @@ time slider shows, Delete All Audio), Visualize (Create Motion Trail, Animation 
 of Key) and Cache (Alembic Cache: Export All, Export Selection, Import) menus. Not done: the reference's Cache menu's
 nCache and Geometry Cache items (Aztek has no cache file node), Visualize's Editable Motion Trail options and the
 Audio menu's audio editing.
+
+### 2D Pan/Zoom on the film (16/11/2026)
+
+PLAN 3.10, part. A camera's `panZoomEnabled`, `horizontalPan`, `verticalPan` (inches of film back) and `zoom` (the
+part of the film seen: 0.5 shows half, so it looks closer) now move and scale the picture in the views without moving
+the camera, as the reference's 2D Pan/Zoom does; picking and the manipulators follow, since they go through the same
+projection. `panZoom` does this now, as the reference's command: `-l -r -u -d` in inches, `-z` the zoom ratio,
+relative unless `-abs`, one undo step, the active view's camera when none is named. It moved the camera before. The
+panel's View menu has 2D Pan/Zoom: Enable, Zoom In, Zoom Out, Reset. Not done: the 2D Pan/Zoom Tool (dragging the
+film with the mouse), and the HUD's 2D Pan/Zoom marker.

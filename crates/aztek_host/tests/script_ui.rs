@@ -483,8 +483,10 @@ fn view_commands_for_cameras_and_manipulators() {
     ok(&mut c, "tumble -aa 30 -ea 10 persp;");
     assert_ne!(ok(&mut c, "getAttr persp.tx;"), before);
     let before = ok(&mut c, "getAttr persp.tx;");
+    // panZoom pans the film, not the camera.
     ok(&mut c, "panZoom -r 2 persp;");
-    assert_ne!(ok(&mut c, "getAttr persp.tx;"), before);
+    assert_eq!(ok(&mut c, "getAttr persp.tx;"), before);
+    assert_eq!(ok(&mut c, "getAttr perspShape.horizontalPan;"), json!(2.0));
 
     assert_eq!(ok(&mut c, "manipPivot -q -v;"), json!(false));
     ok(&mut c, "select box; manipPivot -p 1 2 3;");
