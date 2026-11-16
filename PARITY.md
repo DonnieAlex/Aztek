@@ -1225,7 +1225,7 @@ Differences from the reference, none checked against it:
 - `trace` writes to the terminal. `rehash` does nothing: scripts are looked for on the path each time.
 - A file opened for reading is read whole at `fopen`.
 
-Still missing from that list, as commands: `commandPort`, `fileInfo`, `lsUI`, `listAnimatable`, `scriptEditorInfo`, `hotkeySet`,
+Still missing from that list, as commands: `commandPort`, `fileInfo`, `lsUI`, `listAnimatable`, `scriptEditorInfo`, `hotkeySet` (16/11/2026: in),
 `dimWhen`, `memory`, `exec`, `treeView`, `iconTextScrollList`, `channelBox`, `cmdScrollFieldExecuter`, `cmdScrollFieldReporter`,
 `toolBar`, `draggerContext`, `repeatLast`, `quit`, `createRenderLayer` and the render layer commands, `cacheFile`, `geometryCache`,
 `timeEditor`, `AbcExport`, `AbcImport`, `FBXExport`, `FBXImport`, `gpuCache`, the fluid commands, `polyToSubdiv`, `subdiv`.
@@ -2650,3 +2650,37 @@ No running copy of the reference and no file from it were compared; the solve is
 - Not done: `driverEulerTwist` (twist is read from the quaternion), `driverController` and the controller data, pose
   shapes (Add Pose making or editing a corrective target: connect `output[i]` to a blend shape's weight by hand), the
   Pose Editor window, drawing `displayOutput`.
+
+### Default hotkeys and hotkey sets (16/11/2026)
+
+PLAN 2.2. The default keys checked against the reference's 2027
+[hotkey list](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-KeyboardShortcuts/files/GUID-30CACC9D-8FBE-4B85-8A8F-C5ADF32DDD4E.htm).
+No capture of the reference's own hotkey table exists yet, so this is a reading of that page, not a key-for-key
+comparison. Changed or added:
+
+- F2 Modeling, F3 Rigging, F4 Animation, F6 Rendering (they were Animation, Modeling, Rigging). F5 stays Dynamics; the
+  page doesn't list F5.
+- F12 UV selection (it opened the UV Editor), Ctrl+F12 to UVs, Alt+F9 vertex faces.
+- H the menu sets at the pointer (`MenuSetMenu`, a plain menu where the reference has a marking menu); H no longer
+  toggles visibility. Alt+H Hide Unselected Objects.
+- F1 Aztek's documentation (`Help`). Page Up and Page Down one more or one fewer smooth preview level
+  (`SmoothingLevelIncrease`, `SmoothingLevelDecrease`). Ctrl+Shift+Q Quad Draw, Ctrl+Shift+X Multi-Cut.
+- Already as the page has them: Insert and D for the pivot, X C V snapping, 4 to 7, Ctrl+H, Shift+H, Ctrl+Shift+H,
+  Alt+B, Shift+D, Ctrl+Shift+D, the F8 to F11 modes, Q W E R T Y, G, P, S, Shift+W E R, Alt+V, the frame and key steps,
+  A and F, [ and ], the arrows.
+- Not bound yet, from the page: Home (the page doesn't list it), 0 (default display quality), Ctrl+T (universal
+  manipulator), Shift+J, Ctrl+I, Alt+I, Ctrl+Shift+E R W, Ctrl+Alt+. and ,, Shift+G, Shift+S, Ctrl+M, Shift+M,
+  Ctrl+Shift+M, Shift+{ and }, ` and Ctrl+`, Alt+1 2 4 5, Alt+J, the bookmark keys, Ctrl+X C V cut, copy and paste
+  of objects, L.
+- `hotkeySet`: a name with `-source` makes a set, `-current`, `-delete`, `-q -exists`, `-q -current`,
+  `-q -hotkeySetArray`; the default set is Aztek_Default and answers to Maya_Default. Bindings are shared by every
+  set: switching sets doesn't change the keys. `-import` runs a hotkey set file (MEL), so the reference's `.mhk`
+  files load with their `runTimeCommand`, `nameCommand` and `hotkey` lines; `hotkeyCtx` is accepted and keys bound to
+  an editor's context (`hotkey -ctxClient`) are passed over. `-export` writes the keys the `hotkey` command bound.
+  Checked with a hand-written `.mhk`; no file from the reference is in the repo.
+- `hotkey` takes `-commandModifier` (as Ctrl), `-ctxClient`, `-factorySettings` (every key back to the defaults),
+  and accepts `-dragPress`, `-isModifier`, `-pressCommandRepeat`, `-releaseCommandRepeat`, `-autoSave`,
+  `-sourceUserHotkeys`.
+- The Hotkey Editor has Import... and Export...; Export writes every key bound now.
+- Found on the way: `ls -dag` with names or `-sl` now lists the DAG nodes below them too, so `ls -sl -dag -type mesh`
+  gives the selection's shapes; it gave nothing for a selected transform.

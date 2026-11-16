@@ -127,6 +127,7 @@ private:
     void view_key(const QString& key, const QString& json);
     void apply_snap();
     QList<HotkeyBinding> default_hotkeys() const;
+    void export_hotkeys(const QString& path) const;
     void load_hotkeys();
     void set_binding(const QJsonObject& o);
     void save_user_hotkey(const QJsonObject& o);

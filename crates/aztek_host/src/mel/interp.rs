@@ -1035,6 +1035,21 @@ impl Interp<'_> {
     }
 
     fn run_command(&mut self, name: &str, toks: &[Tok]) -> R<Value> {
+        // hotkeySet -import: the file is MEL, run here; the command then reports the set it made current.
+        if name == "hotkeySet" {
+            if let Some(k) = toks.iter().position(|t| matches!(t, Tok::Word(w) if w == "-import" || w == "-ip")) {
+                let file = match toks.get(k + 1) {
+                    Some(Tok::Val(J::String(f))) => f.clone(),
+                    Some(Tok::Word(f)) => f.clone(),
+                    _ => return err("hotkeySet: -import takes a file"),
+                };
+                let text = std::fs::read_to_string(&file).map_err(|e| Flow::Error(format!("hotkeySet: {file}: {e}")))?;
+                self.run_quiet(&text, Some(&file))?;
+                let j = self.core.run_mel_command("hotkeySet", &[Tok::Word("-q".into()), Tok::Word("-current".into())])?;
+                self.st().last_raw = Some(j.clone());
+                return Ok(Value::from_json(&j));
+            }
+        }
         let j = self.core.run_mel_command(name, toks)?;
         let v = Value::from_json(&j);
         self.st().last_raw = Some(j);

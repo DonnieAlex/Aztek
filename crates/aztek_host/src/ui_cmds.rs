@@ -35,6 +35,9 @@ struct Ui {
     hud_on: BTreeSet<String>,
     /// What `hotkey` has bound, for hotkeyCheck.
     hotkeys: Vec<Value>,
+    /// hotkeySet: the sets made, and the current one (None: the default set).
+    hotkey_sets: BTreeSet<String>,
+    hotkey_set: Option<String>,
     workspace: String,
     /// Per-node display toggles the Display menu sets: localAxis, rotatePivot, scalePivot, selectHandle.
     node_flags: BTreeMap<String, HashSet<NodeId>>,
@@ -330,6 +333,49 @@ pub fn register_ui_names(s: &mut Session, list: &Value) {
     }
 }
 
+/// The keys the hotkey command has bound, with their name commands, as a hotkey set file.
+fn export_hotkeys(set: &str) -> String {
+    let q = |s: &str| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));
+    with_ui(|u| {
+        let mut out = format!("//Aztek hotkey set\n//\nhotkeySet {} -current;\n", q(set));
+        let mut used: BTreeSet<String> = BTreeSet::new();
+        for h in &u.hotkeys {
+            for k in ["name", "releaseName"] {
+                if let Some(n) = h[k].as_str().filter(|n| !n.is_empty()) {
+                    used.insert(n.to_string());
+                }
+            }
+        }
+        for n in &used {
+            if let Some(e) = u.name_commands.get(n) {
+                out += &format!(
+                    "nameCommand -annotation {} -sourceType {} -command ({}) {};\n",
+                    q(e["annotation"].as_str().unwrap_or("")),
+                    q(e["language"].as_str().unwrap_or("mel")),
+                    q(e["command"].as_str().unwrap_or("")),
+                    n
+                );
+            }
+        }
+        for h in &u.hotkeys {
+            let mut line = format!("hotkey -keyShortcut {}", q(h["key"].as_str().unwrap_or("")));
+            for (k, flag) in [("ctrl", "-ctl"), ("alt", "-alt"), ("shift", "-sht")] {
+                if h[k].as_bool().unwrap_or(false) {
+                    line += &format!(" {flag}");
+                }
+            }
+            for (k, flag) in [("name", "-name"), ("releaseName", "-releaseName")] {
+                if let Some(n) = h[k].as_str().filter(|n| !n.is_empty()) {
+                    line += &format!(" {flag} ({})", q(n));
+                }
+            }
+            out += &line;
+            out += ";\n";
+        }
+        out
+    })
+}
+
 fn reg(s: &mut Session, c: Cmd) {
     // A command the scene layer already has wins.
     if s.commands.find(&c.name).is_none() {
@@ -522,7 +568,7 @@ pub fn register(s: &mut Session) {
         s,
         Cmd::new("hotkey", "Bind a key: -k the key, -alt -ctl -sht modifiers, -n the name command for press, -rn for release.", |_s, a| {
             let key = a.string("keyShortcut", "");
-            if key.is_empty() {
+            if key.is_empty() && !a.bool("factorySettings") {
                 fail!("hotkey: give -k");
             }
             if a.bool("query") {
@@ -536,9 +582,18 @@ pub fn register(s: &mut Session) {
                 let field = if release { "releaseName" } else { "name" };
                 return Ok(found.map_or(json!(""), |h| h[field].clone()));
             }
+            if a.bool("factorySettings") {
+                with_ui(|u| u.hotkeys.clear());
+                crate::core::push_ui_request("hotkeyFactory|{}".to_string());
+                return Ok(Value::Null);
+            }
+            // An editor's own context: not a key in the views.
+            if !a.string("ctxClient", "").is_empty() {
+                return Ok(Value::Null);
+            }
             let hk = json!({
                 "key": key,
-                "ctrl": a.bool("ctrlModifier"),
+                "ctrl": a.bool("ctrlModifier") || a.bool("commandModifier"),
                 "alt": a.bool("altModifier"),
                 "shift": a.bool("shiftModifier"),
                 "name": a.string("name", ""),
@@ -559,7 +614,124 @@ pub fn register(s: &mut Session) {
         .flag(f("ctrlModifier", "ctl", ArgType::Bool, "With Ctrl."))
         .flag(f("shiftModifier", "sht", ArgType::Bool, "With Shift."))
         .flag(f("name", "n", ArgType::String, "The name command for press."))
-        .flag(f("releaseName", "rn", ArgType::String, "The name command for release.")),
+        .flag(f("releaseName", "rn", ArgType::String, "The name command for release."))
+        .flag(f("commandModifier", "cmd", ArgType::Bool, "With Command: as Ctrl here."))
+        .flag(f("ctxClient", "ctc", ArgType::String, "Binds in one editor's context: held, not bound in the views."))
+        .flag(f("dragPress", "dp", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("isModifier", "ism", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("pressCommandRepeat", "pcr", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("releaseCommandRepeat", "rcr", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("autoSave", "as", ArgType::Bool, "Accepted: bindings are saved as they are made."))
+        .flag(f("sourceUserHotkeys", "suh", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("factorySettings", "fs", ArgType::Bool, "Every key back to the default set.")),
+    );
+
+    reg(
+        s,
+        Cmd::new(
+            "hotkeyCtx",
+            "Hotkey contexts, as a hotkey set file names them: accepted so that such files load. Keys bound to an editor's \
+             context (hotkey -ctxClient) are held, not bound in the views. -q -typeArray and -clientArray give empty lists.",
+            |_s, a| {
+                if a.bool("query") {
+                    return Ok(json!([]));
+                }
+                Ok(Value::Null)
+            },
+        )
+        .undoable(false)
+        .flag(f("type", "t", ArgType::String, "A context type."))
+        .flag(f("addClient", "ac", ArgType::Any, "A client of the type."))
+        .flag(f("removeClient", "rc", ArgType::Any, "A client to remove."))
+        .flag(f("removeAllClients", "rac", ArgType::Bool, "Every client."))
+        .flag(f("currentClient", "cc", ArgType::String, "The client now."))
+        .flag(f("clientArray", "ca", ArgType::Bool, "With -q: the clients."))
+        .flag(f("typeArray", "ta", ArgType::Bool, "With -q: the types."))
+        .flag(f("typeExists", "te", ArgType::Bool, "With -q: whether the type exists."))
+        .flag(f("insertTypeAt", "ita", ArgType::Any, "Where a type goes."))
+        .flag(f("query", "q", ArgType::Bool, "Read."))
+        .flag(f("queried", "", ArgType::Any, "What a query asks for.")),
+    );
+
+    reg(
+        s,
+        Cmd::new(
+            "hotkeySet",
+            "Hotkey sets: a name with -source makes one (bindings are shared by every set here), -current makes it the \
+             current one, -delete removes it, -exists, -q -current and -q -hotkeySetArray read them. -import runs a \
+             hotkey set file (the reference's .mhk: its hotkeySet, runTimeCommand, nameCommand and hotkey lines), \
+             -export writes the keys bound with the hotkey command as such a file. The default set is Aztek_Default \
+             (Maya_Default names it too).",
+            |_s, a| {
+                const DEFAULT: &str = "Aztek_Default";
+                let is_default = |n: &str| n == DEFAULT || n == "Maya_Default";
+                let queried: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+                let asked = |n: &str| a.bool(n) || queried.iter().any(|x| x == n);
+                let name = a.pos_str(0).map(str::to_string);
+                if a.bool("query") {
+                    if asked("hotkeySetArray") {
+                        let mut v = vec![DEFAULT.to_string()];
+                        v.extend(with_ui(|u| u.hotkey_sets.iter().cloned().collect::<Vec<_>>()));
+                        return Ok(json!(v));
+                    }
+                    if asked("current") {
+                        return Ok(json!(with_ui(|u| u.hotkey_set.clone()).unwrap_or_else(|| DEFAULT.to_string())));
+                    }
+                    if asked("exists") {
+                        let n = name.unwrap_or_default();
+                        return Ok(json!(is_default(&n) || with_ui(|u| u.hotkey_sets.contains(&n))));
+                    }
+                    fail!("hotkeySet: query what?");
+                }
+                if a.get("import").is_some() {
+                    // MEL runs the file before the command (mel/interp.rs); from elsewhere it goes through mel.eval.
+                    fail!("hotkeySet: -import runs from MEL (in Python, maya.mel.eval)");
+                }
+                if let Some(file) = a.get("export").and_then(Value::as_str) {
+                    let current = with_ui(|u| u.hotkey_set.clone()).unwrap_or_else(|| DEFAULT.to_string());
+                    let text = export_hotkeys(&current);
+                    std::fs::write(file, text).map_err(|e| aztek_ops::CommandError::new(format!("hotkeySet: {file}: {e}")))?;
+                    return Ok(json!(file));
+                }
+                let Some(name) = name else { fail!("hotkeySet: name a hotkey set") };
+                if a.bool("delete") {
+                    if is_default(&name) {
+                        fail!("hotkeySet: the default set can't be deleted");
+                    }
+                    with_ui(|u| {
+                        u.hotkey_sets.remove(&name);
+                        if u.hotkey_set.as_deref() == Some(name.as_str()) {
+                            u.hotkey_set = None;
+                        }
+                    });
+                    return Ok(Value::Null);
+                }
+                let exists = is_default(&name) || with_ui(|u| u.hotkey_sets.contains(&name));
+                if a.bool("edit") && !exists {
+                    fail!("hotkeySet: no set {name}");
+                }
+                if !exists {
+                    with_ui(|u| u.hotkey_sets.insert(name.clone()));
+                }
+                if a.get("current").is_some_and(|v| v.as_bool().unwrap_or(true)) {
+                    with_ui(|u| u.hotkey_set = if is_default(&name) { None } else { Some(name.clone()) });
+                }
+                Ok(json!(name))
+            },
+        )
+        .positional("name")
+        .undoable(false)
+        .flag(f("source", "src", ArgType::String, "The set a new one starts from."))
+        .flag(f("current", "cu", ArgType::Bool, "Make it the current set; with -q, the current set's name."))
+        .flag(f("delete", "del", ArgType::Bool, "Remove the set."))
+        .flag(f("exists", "ex", ArgType::Bool, "With -q: whether the set exists."))
+        .flag(f("hotkeySetArray", "hsa", ArgType::Bool, "With -q: every set."))
+        .flag(f("import", "ip", ArgType::String, "Runs a hotkey set file."))
+        .flag(f("export", "ep", ArgType::String, "Writes the bound keys as a hotkey set file."))
+        .flag(f("ip", "", ArgType::Any, "Accepted for older files."))
+        .flag(f("edit", "e", ArgType::Bool, "Change a set."))
+        .flag(f("query", "q", ArgType::Bool, "Read."))
+        .flag(f("queried", "", ArgType::Any, "What a query asks for.")),
     );
 
     let mut st = Cmd::new("selectType", "Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells pick the component kind, and -pv -pe -pf together are Multi. -q reads one.", |s, a| {

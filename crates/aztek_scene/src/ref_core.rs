@@ -274,7 +274,9 @@ fn ls(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
         ids.retain(|i| sel.contains(i));
         comps.clear();
     }
-    if a.bool("dagObjects") {
+    // -dag with names or the selection lists the DAG nodes below them too (`ls -sl -dag -type mesh`: the selection's
+    // shapes), as -dagObjects does.
+    if a.bool("dagObjects") || (a.bool("dag") && (a.bool("selection") || a.bool("orderedSelection") || !names.is_empty())) {
         let mut all = Vec::new();
         for &id in &ids {
             if g.node(id).is_some_and(|n| n.ty().dag) {
@@ -369,7 +371,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("shortNames", "sn", ArgType::Bool, "Shortest unique names (the default)."))
             .flag(f("type", "typ", ArgType::Any, "Only nodes of this type or derived; a list of types too."))
             .flag(f("exactType", "et", ArgType::Any, "Only nodes of exactly this type."))
-            .flag(f("dag", "dag", ArgType::Bool, "Only DAG nodes."))
+            .flag(f("dag", "dag", ArgType::Bool, "Only DAG nodes; with names or -sl, the DAG nodes below them too."))
             .flag(f("referencedNodes", "rn", ArgType::Bool, "Only nodes from references."))
             .flag(f("readOnly", "ro", ArgType::Bool, "Only nodes from references, which are read only (the older name for referencedNodes)."))
             .flag(f("defaultNodes", "dn", ArgType::Bool, "Only default nodes: those every scene is made with and no file saves (time1, lambert1)."))

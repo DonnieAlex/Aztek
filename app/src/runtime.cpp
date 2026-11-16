@@ -26,6 +26,7 @@
 #include <QDateTime>
 #include <QDialog>
 #include <QDockWidget>
+#include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -361,6 +362,21 @@ void MainWindow::build_runtime() {
     r("InteractiveGroomEditor", "Windows", "Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); });
     r("InteractiveGroomTool", "Tools", "The Interactive Groom tools, with the tool xjenGroomCtx names", [this] { set_tool("groom"); });
     r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("Dynamics"); });
+    // H: the menu sets at the pointer, as the reference's H marking menu offers them.
+    r("MenuSetMenu", "Menus", "Choose a menu set at the pointer", [this] {
+        QMenu menu(this);
+        for (int i = 0; i < menu_set_->count(); ++i) {
+            QString t = menu_set_->itemText(i);
+            QAction* a = menu.addAction(t, [this, t] { menu_set_->setCurrentText(t); });
+            a->setCheckable(true);
+            a->setChecked(t == menu_set_->currentText());
+        }
+        menu.exec(QCursor::pos());
+    });
+    r("SelectUVMask", "Select", "UVs", [this] { set_mode("uv"); });
+    r("SelectVertexFaceMask", "Select", "Vertex faces", [this] { set_mode("vertexFace"); });
+    r("ConvertSelectionToUVs", "Select", "To UVs", [] { exec("convertSelection", QJsonObject{{"args", QJsonArray{"uv"}}}); });
+    r("Help", "Help", "Aztek's documentation", [] { QDesktopServices::openUrl(QUrl("https://github.com/srlegrand/Aztek/tree/main/docs")); });
     // Plays every frame, looping, so the solver sees each one while things are moved in the view.
     r("InteractivePlayback", "Dynamics", "Play every frame and keep solving while objects are moved", [this] {
         exec("playbackOptions", QJsonObject{{"playbackSpeed", 0}, {"loop", "continuous"}});
@@ -484,6 +500,17 @@ void MainWindow::build_runtime() {
     add_if("Hypershade", "Windows", "Hypershade", "HypershadeWindow;");
     add_if("CreateNURBSCircle", "Create", "NURBS Circle", "circle -nr 0 1 0;");
     add_if("CreateImagePlane", "Create", "Free Image Plane", "imagePlane;");
+    add_if("HideUnselectedObjects", "Display", "Hide Unselected Objects",
+           "string $sel[] = `ls -sl -l`; string $all[] = `ls -assemblies -l`;"
+           "for ($a in $all) { if (size(`listRelatives -s -type camera $a`)) continue; int $keep = 0;"
+           " for ($x in $sel) { if ($x == $a || gmatch($x, $a + \"|*\")) $keep = 1; }"
+           " if (!$keep) hide $a; }");
+    add_if("SmoothingLevelIncrease", "Display", "One more smooth preview level",
+           "string $m[] = `ls -sl -dag -type mesh -l`; for ($x in $m) { int $l = `getAttr ($x + \".smoothLevel\")`;"
+           " if ($l < 4) setAttr ($x + \".smoothLevel\") ($l + 1); }");
+    add_if("SmoothingLevelDecrease", "Display", "One fewer smooth preview level",
+           "string $m[] = `ls -sl -dag -type mesh -l`; for ($x in $m) { int $l = `getAttr ($x + \".smoothLevel\")`;"
+           " if ($l > 0) setAttr ($x + \".smoothLevel\") ($l - 1); }");
     if (!runtime_.contains("DuplicateSpecial")) r("DuplicateSpecial", "Edit", "Duplicate Special", [] { exec("duplicate", OptionsDialog::saved("duplicate")); });
     if (!runtime_.contains("InsertEdgeLoopTool")) tool("InsertEdgeLoopTool", "insertLoop", "Insert Edge Loop Tool");
     if (!runtime_.contains("MergeVertexTool")) tool("MergeVertexTool", "targetWeld", "Merge Vertex Tool");
@@ -513,15 +540,16 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         {"F", 0, "FrameSelected", ""}, {"A", 0, "FrameAll", ""}, {"F", S, "FrameSelectedInAllViews", ""}, {"A", S, "FrameAllInAllViews", ""}, {"[", 0, "PreviousView", ""}, {"]", 0, "NextView", ""},
         {"Z", 0, "Undo", ""}, {"Z", C, "Undo", ""}, {"Z", S, "Redo", ""}, {"Z", C | S, "Redo", ""}, {"Y", C, "Redo", ""}, {"G", 0, "RepeatLast", ""}, {"R", C, "CreateReference", ""}, {"G", C, "Group", ""},
         {"D", C, "Duplicate", ""}, {"D", C | S, "DuplicateSpecialOptions", ""}, {"D", S, "DuplicateWithTransform", ""}, {"D", A | S, "DeleteHistory", ""},
-        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "ToggleVisibility", ""}, {"H", S, "ShowSelectedObjects", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""}, {"H", C | A, "ShowAllComponents", ""},
+        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "MenuSetMenu", ""}, {"H", S, "ShowSelectedObjects", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""}, {"H", A, "HideUnselectedObjects", ""}, {"H", C | A, "ShowAllComponents", ""},
         {"N", C, "NewScene", ""}, {"O", C, "OpenScene", ""}, {"S", C, "SaveScene", ""}, {"S", C | S, "SaveSceneAs", ""}, {"S", C | A, "IncrementAndSave", ""},
         {"A", C, "AttributeEditor", ""}, {"A", C | S, "SelectAll", ""}, {"I", C | S, "InvertSelection", ""}, {"T", C | S, "ToolSettingsWindow", ""},
         {"E", C, "Extrude", ""}, {"B", C, "Bevel", ""}, {">", 0, "GrowSelection", ""}, {"<", 0, "ShrinkSelection", ""},
         {"Up", 0, "PickWalkUp", ""}, {"Down", 0, "PickWalkDown", ""}, {"Left", 0, "PickWalkLeft", ""}, {"Right", 0, "PickWalkRight", ""},
         {"Up", A, "NudgeUp", ""}, {"Down", A, "NudgeDown", ""}, {"Left", A, "NudgeLeft", ""}, {"Right", A, "NudgeRight", ""},
-        {"F2", 0, "MenuSetAnimation", ""}, {"F3", 0, "MenuSetModeling", ""}, {"F4", 0, "MenuSetRigging", ""}, {"F5", 0, "MenuSetDynamics", ""}, {"F6", 0, "MenuSetRendering", ""}, {"F8", 0, "ToggleSelectMode", ""},
-        {"F9", 0, "SelectVertexMask", ""}, {"F10", 0, "SelectEdgeMask", ""}, {"F11", 0, "SelectFacetMask", ""}, {"F12", 0, "UVEditor", ""},
-        {"F9", C, "ConvertSelectionToVertices", ""}, {"F10", C, "ConvertSelectionToEdges", ""}, {"F11", C, "ConvertSelectionToFaces", ""},
+        {"F1", 0, "Help", ""}, {"F2", 0, "MenuSetModeling", ""}, {"F3", 0, "MenuSetRigging", ""}, {"F4", 0, "MenuSetAnimation", ""}, {"F5", 0, "MenuSetDynamics", ""}, {"F6", 0, "MenuSetRendering", ""}, {"F8", 0, "ToggleSelectMode", ""},
+        {"F9", 0, "SelectVertexMask", ""}, {"F10", 0, "SelectEdgeMask", ""}, {"F11", 0, "SelectFacetMask", ""}, {"F12", 0, "SelectUVMask", ""}, {"F9", A, "SelectVertexFaceMask", ""},
+        {"F9", C, "ConvertSelectionToVertices", ""}, {"F10", C, "ConvertSelectionToEdges", ""}, {"F11", C, "ConvertSelectionToFaces", ""}, {"F12", C, "ConvertSelectionToUVs", ""},
+        {"PgUp", 0, "SmoothingLevelIncrease", ""}, {"PgDown", 0, "SmoothingLevelDecrease", ""}, {"Q", C | S, "QuadDrawTool", ""}, {"X", C | S, "MultiCutTool", ""},
         {"1", 0, "SmoothPreviewOff", ""}, {"2", 0, "SmoothPreviewCage", ""}, {"3", 0, "SmoothPreviewSmooth", ""}, {"4", 0, "WireframeView", ""}, {"5", 0, "ShadedView", ""}, {"6", 0, "TexturedView", ""}, {"7", 0, "DisplayLight", ""},
         {"1", C, "IsolateSelect", ""}, {"A", A, "XRayToggle", ""}, {"B", A, "BackgroundCycle", ""}, {"Space", C, "ToggleMainPane", ""},
         {"Del", 0, "DeleteSelection", ""}, {"Backspace", 0, "DeleteSelection", ""}, {"Del", C, "DeleteEdgeVertex", ""},
@@ -536,6 +564,26 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         out.append(HotkeyBinding{x.key, (x.mods & C) != 0, (x.mods & S) != 0, (x.mods & A) != 0, x.press, x.release});
     }
     return out;
+}
+
+// Every key bound now, as a hotkey set file: hotkey lines naming the runtime commands, which import takes as they are.
+void MainWindow::export_hotkeys(const QString& path) const {
+    auto q = [](QString t) { return "\"" + t.replace('\\', "\\\\").replace('"', "\\\"") + "\""; };
+    QString set = mel("hotkeySet -q -current;").toString();
+    QString out = "//Aztek hotkey set\n//\nhotkeySet " + q(set.isEmpty() ? "Aztek_Default" : set) + " -current;\n";
+    for (const HotkeyBinding& h : hotkeys_) {
+        QString key = h.key.size() == 1 ? h.key.toLower() : h.key;
+        QString line = "hotkey -keyShortcut " + q(key);
+        if (h.ctrl) line += " -ctl";
+        if (h.alt) line += " -alt";
+        if (h.shift) line += " -sht";
+        if (!h.press.isEmpty()) line += " -name (" + q(h.press) + ")";
+        if (!h.release.isEmpty()) line += " -releaseName (" + q(h.release) + ")";
+        out += line + ";\n";
+    }
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) { log("// Error: can't write " + path + " //", 3); return; }
+    f.write(out.toUtf8());
 }
 
 void MainWindow::load_hotkeys() {
@@ -646,7 +694,11 @@ void MainWindow::show_hotkey_editor() {
     auto* close = new QPushButton("Close", d);
     buttons->addWidget(assign);
     buttons->addWidget(unassign);
+    auto* import_set = new QPushButton("Import...", d);
+    auto* export_set = new QPushButton("Export...", d);
     buttons->addStretch(1);
+    buttons->addWidget(import_set);
+    buttons->addWidget(export_set);
     buttons->addWidget(reset);
     buttons->addWidget(close);
     lay->addLayout(buttons);
@@ -732,6 +784,17 @@ void MainWindow::show_hotkey_editor() {
         QSettings().remove("hotkeys/user");
         load_hotkeys();
         fill();
+    });
+    connect(import_set, &QPushButton::clicked, d, [d, fill] {
+        QString f = QFileDialog::getOpenFileName(d, "Import Hotkey Set", QString(), "Hotkey sets (*.mhk *.mel);;All files (*)");
+        if (f.isEmpty()) return;
+        mel(QString("hotkeySet -import \"%1\";").arg(QString(f).replace('\\', '/')));
+        fill();
+    });
+    connect(export_set, &QPushButton::clicked, d, [this, d] {
+        QString f = QFileDialog::getSaveFileName(d, "Export Hotkey Set", "Aztek_Hotkeys.mhk", "Hotkey sets (*.mhk)");
+        if (f.isEmpty()) return;
+        export_hotkeys(f);
     });
     connect(close, &QPushButton::clicked, d, &QDialog::close);
     d->resize(820, 640);
@@ -857,6 +920,9 @@ void MainWindow::handle_ui_request(const QString& r) {
         for (ViewportWidget* v : panels_->views()) v->set("disp", payload);
     } else if (name == "isolate") {
         if (ViewportWidget* v = active_view()) v->set("isolate", payload);
+    } else if (name == "hotkeyFactory") {
+        QSettings().remove("hotkeys/user");
+        load_hotkeys();
     } else if (name == "hotkey") {
         QJsonObject h = parse(payload).toObject();
         auto named = [](const QString& n) -> QString {
