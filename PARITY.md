@@ -956,11 +956,11 @@ Not done, the ones a user would notice first:
 
 - UV, Vertex Face, Multi component modes in the view and marking menu: disabled entries, as `ComponentMode` has no such modes.
 - Soft select Global and Object are kept but act as Volume. World symmetry still mirrors in object space.
-- Gimbal rotate draws world axes, and rotate and scale step snap are always relative. Universal Manipulator is missing.
+- Universal Manipulator is missing. Absolute step snap for rotate works in Gimbal only (16/11/2026: Gimbal draws the channels' own axes).
 - Extract makes a new object with no history node, so it has no handles. Bevel and Bridge have numbers but no handles in the view, from memory as the reference does. Wire dropoff locators, jiggle, wrap, blendShape and delta mush have Envelope only. Lattice has translate arrows on the whole lattice. motionPath markers, pointConstraint and the light cones have nothing.
 - The extrude handles do not follow `offset`, `localRotate` or several separate regions: one set sits at the middle of them.
-- Option boxes with no layout of their own still list flags, and some are empty: NURBS primitives, Curves such as Detach, several Surfaces, Unfold and Layout. Tools have no option boxes. Boxes for Mesh Reduce and Combine are raw flags.
-- Missing menu items, by use: Joint Labelling, Rivet, UV Pin, Proximity Pin, Copy and Paste Vertex Weights, Mirror Skin Weights as an option box, Interactive Bind Skin, UV Set Editor, Split UVs, 3D Cut and Sew UV Tool, Smooth Proxy, Unsmooth, Slice, Hole Punch, Cut Out, the Deform > Edit submenus other than Lattice, Prune Membership, Display Intermediate Objects, Relationship Editors, Hold Current Keys, IK/FK Keys, the Audio and Cache menus, a top level Visualize.
+- Tools have no option boxes. Box for Mesh Reduce is raw flags (the NURBS primitives, Detach, Surfaces, Unfold, Layout and Combine have layouts since; see below).
+- Missing menu items, by use, as of 16/11/2026: Mirror Skin Weights as an option box, Interactive Bind Skin, 3D Cut and Sew UV Tool, Deform > Edit > Blend Shape and Wire's edits other than Add Wire, Connect and Disconnect from IK/FK, the Cache menu's nCache and Geometry Cache. The rest of the list from 07/11/2026 is in; see the dated sections below.
 - `polyBevel3`'s node is `polyBevel1`, with no test pinning anything else. From memory, not confirmed: `bevel.name` in the capture kit.
 
 ## Animation layers and HumanIK, 07/11/2026
@@ -1024,10 +1024,10 @@ Menus added: Joint Labelling, Copy and Paste Vertex Weights (`artAttrSkinWeightC
 Still not done:
 
 - UV and Vertex Face component modes in the view: `ComponentMode` has neither and they touch everything that uses it. Multi switches to the kind under the mouse, so a selection doesn't mix kinds.
-- Snap Pivot Orientation is held only. Gimbal rotate draws world axes.
+- (16/11/2026: Snap Pivot Orientation and Gimbal axes are in.)
 - Global reaches meshes only, not NURBS. Object mode has no colours in the view.
 - A World symmetry mesh moved after symmetry was set keeps its pairs from before. Set symmetry again after moving it.
-- Interactive Bind Skin, Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out, Deform > Edit other than Lattice, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, a top level Visualize.
+- As of 16/11/2026: Interactive Bind Skin, 3D Cut and Sew, Deform > Edit > Blend Shape and most of Wire, Set IK/FK Key on the joints (they hold FK rotates as data: TICKETS.md), nCache and Geometry Cache.
 
 ## Harold renderer (07/11/2026)
 
