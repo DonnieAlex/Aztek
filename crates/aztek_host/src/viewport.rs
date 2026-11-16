@@ -1933,7 +1933,7 @@ impl Viewport {
         pv.clear();
         if self.curve_points.len() >= 2 {
             let d = self.curve_degree.max(1) as usize;
-            let curve = if self.tool == Tool::CurveEp { aztek_geo::nurbs::NurbsCurve::through(d, &self.curve_points) } else { aztek_geo::nurbs::NurbsCurve::open(d, self.curve_points.clone()) };
+            let curve = if self.tool == Tool::CurveEp { aztek_geo::nurbs::NurbsCurve::through_edit_points(d, &self.curve_points) } else { aztek_geo::nurbs::NurbsCurve::open(d, self.curve_points.clone()) };
             let pts = curve.tessellate(12);
             for w in pts.windows(2) {
                 pv.push(LineVertex { pos: w[0].as_vec3().to_array(), color: line });
@@ -2500,6 +2500,26 @@ impl Viewport {
                 continue;
             }
             let picked = components::selected(g, shape, ComponentMode::Vertex);
+            // Edit Point and Curve Point: a hilited curve shows its edit points, or the curve points picked, not its CVs.
+            let kind = components::curve_kind(g);
+            if hilited && stride.is_none() && kind != components::CurveKind::Cv {
+                if let Some(c) = n.and_then(aztek_scene::curves::drawn_curve) {
+                    if kind == components::CurveKind::EditPoint {
+                        for (i, p) in c.edit_points().iter().enumerate() {
+                            let on = picked.contains(&aztek_scene::nurbs_components::ep_id(i as u32));
+                            points.push(LineVertex { pos: p.as_vec3().to_array(), color: c8(if on { SEL_COMP } else { VERT }) });
+                        }
+                    }
+                    for &id in picked {
+                        if kind == components::CurveKind::CurvePoint || !aztek_scene::nurbs_components::is_encoded(id) {
+                            if let Some(p) = aztek_scene::nurbs_components::curve_component_point(c, id) {
+                                points.push(LineVertex { pos: p.as_vec3().to_array(), color: c8(SEL_COMP) });
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
             for (i, p) in world_cvs.iter().enumerate() {
                 let c = if picked.contains(&(i as u32)) { SEL_COMP } else { VERT };
                 points.push(LineVertex { pos: p.as_vec3().to_array(), color: c8(c) });
@@ -2551,6 +2571,47 @@ impl Viewport {
         }
     }
 
+    /// Edit Point or Curve Point mode: the edit point of a hilited curve nearest a pixel, or the place on the curve
+    /// nearest it, as `curve1.ep[2]` or `curve1.u[0.37]`.
+    fn pick_curve_component(&self, g: &Graph, px: DVec2) -> Option<String> {
+        let screen = self.screen();
+        let sel = g.selection();
+        let kind = components::curve_kind(g);
+        let mut best: Option<(f64, String)> = None;
+        for (shape, xf, _, stride) in curve_cvs(g) {
+            if stride.is_some() || (!sel.contains(&xf) && !sel.contains(&shape)) {
+                continue;
+            }
+            let Some(c) = g.node(shape).and_then(aztek_scene::curves::drawn_curve) else { continue };
+            let path = g.path(xf);
+            if kind == components::CurveKind::EditPoint {
+                for (i, p) in c.edit_points().iter().enumerate() {
+                    let Some(q) = screen.project(*p) else { continue };
+                    let d = (q - px).length();
+                    if d < 14.0 && best.as_ref().is_none_or(|b| d < b.0) {
+                        best = Some((d, format!("{path}.ep[{i}]")));
+                    }
+                }
+            } else {
+                // The nearest place on the curve on screen, then its parameter.
+                let pts = c.tessellate(24);
+                for w in pts.windows(2) {
+                    let (Some(a), Some(b)) = (screen.project(w[0]), screen.project(w[1])) else { continue };
+                    let ab = b - a;
+                    let t = if ab.length_squared() > 0.0 { ((px - a).dot(ab) / ab.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                    let d = (a + ab * t - px).length();
+                    if d < 10.0 && best.as_ref().is_none_or(|x| d < x.0) {
+                        let u = c.closest_param(w[0].lerp(w[1], t));
+                        let text = format!("{u:.3}");
+                        let text = text.trim_end_matches('0').trim_end_matches('.');
+                        best = Some((d, format!("{path}.u[{text}]")));
+                    }
+                }
+            }
+        }
+        best.map(|b| b.1)
+    }
+
     /// The CV of a hilited curve or surface nearest a pixel.
     fn pick_cv(&self, g: &Graph, px: DVec2) -> Option<(NodeId, usize)> {
         let screen = self.screen();
@@ -2591,7 +2652,12 @@ impl Viewport {
             }
             return hit.map(|(i, _, _)| vec![g.path(crate::ui_cmds::scoped(g, allowed[i].xf))]).unwrap_or_default();
         }
-        if components::mode(g) == ComponentMode::Vertex {
+        if components::mode(g) == ComponentMode::Vertex && components::curve_kind(g) != components::CurveKind::Cv {
+            if let Some(hit) = self.pick_curve_component(g, px) {
+                return vec![hit];
+            }
+        }
+        if components::mode(g) == ComponentMode::Vertex && components::curve_kind(g) == components::CurveKind::Cv {
             if let Some((shape, i)) = self.pick_cv(g, px) {
                 return vec![cv_name(&g.path(aztek_scene::dag::transform_of(g, shape)), i, surfaces::id_stride(g, shape).map(|s| s as usize))];
             }
@@ -2759,8 +2825,22 @@ impl Viewport {
             }
         }
         if mode == ComponentMode::Vertex {
+            let kind = components::curve_kind(g);
             for (shape, xf, cvs, stride) in curve_cvs(g) {
                 if !g.selection().contains(&xf) && !g.selection().contains(&shape) {
+                    continue;
+                }
+                // Edit points inside the box; curve points are picked by clicking only, as in the reference.
+                if stride.is_none() && kind != components::CurveKind::Cv {
+                    if kind == components::CurveKind::EditPoint {
+                        if let Some(c) = g.node(shape).and_then(aztek_scene::curves::drawn_curve) {
+                            for (i, p) in c.edit_points().iter().enumerate() {
+                                if screen.project(*p).is_some_and(inside) {
+                                    out.push(format!("{}.ep[{i}]", g.path(xf)));
+                                }
+                            }
+                        }
+                    }
                     continue;
                 }
                 for (i, p) in cvs.iter().enumerate() {
@@ -2900,9 +2980,11 @@ impl Viewport {
         }
         if mode == ComponentMode::Vertex {
             for (shape, _, cvs, _) in curve_cvs(g) {
+                let curve = g.node(shape).and_then(aztek_scene::curves::drawn_curve);
                 for &i in components::selected(g, shape, mode) {
-                    if let Some(p) = cvs.get(i as usize) {
-                        sum += *p;
+                    let p = if aztek_scene::nurbs_components::is_encoded(i) { curve.and_then(|c| aztek_scene::nurbs_components::curve_component_point(c, i)) } else { cvs.get(i as usize).copied() };
+                    if let Some(p) = p {
+                        sum += p;
                         n += 1.0;
                     }
                 }

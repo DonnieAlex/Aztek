@@ -40,6 +40,15 @@ pub enum ComponentMode {
 
 pub type Ids = Vec<u32>;
 
+/// What a curve's component pick takes in Vertex mode: the reference's Control Vertex, Edit Point and Curve Point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CurveKind {
+    #[default]
+    Cv,
+    EditPoint,
+    CurvePoint,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
     Replace,
@@ -58,6 +67,8 @@ pub struct ComponentState {
     multi: bool,
     /// The reference's UV Shell: a UV pick takes its whole shell.
     uv_shell: bool,
+    /// On curves in Vertex mode: what a pick takes, CVs, edit points or curve points.
+    curve_kind: CurveKind,
     /// Vertex, edge, face, UV, vertex face.
     sets: [BTreeMap<NodeId, Ids>; KINDS],
     /// Picks per kind, newest last; entries may since be deselected or repeated, `ordered` sorts that out.
@@ -190,14 +201,36 @@ pub fn set_mode(g: &mut Graph, m: ComponentMode) {
     set_mode_exact(g, m);
 }
 
-/// The mode as asked, Multi and UV Shell off: selectMode and selectType.
+/// The mode as asked, Multi and UV Shell off, curves back to CVs: selectMode and selectType.
 pub fn set_mode_exact(g: &mut Graph, m: ComponentMode) {
-    if g.components.mode == m && !g.components.multi && !g.components.uv_shell {
+    if g.components.mode == m && !g.components.multi && !g.components.uv_shell && g.components.curve_kind == CurveKind::Cv {
         return;
     }
     g.components.mode = m;
     g.components.multi = false;
     g.components.uv_shell = false;
+    g.components.curve_kind = CurveKind::Cv;
+    g.components.notify();
+}
+
+/// What a curve pick takes; CVs outside Vertex mode.
+pub fn curve_kind(g: &Graph) -> CurveKind {
+    if g.components.mode == ComponentMode::Vertex && !g.components.multi {
+        g.components.curve_kind
+    } else {
+        CurveKind::Cv
+    }
+}
+
+/// Vertex mode with curves picking CVs, edit points or curve points: selectType -cv, -ep, -cpp.
+pub fn set_curve_kind(g: &mut Graph, k: CurveKind) {
+    if g.components.mode == ComponentMode::Vertex && !g.components.multi && !g.components.uv_shell && g.components.curve_kind == k {
+        return;
+    }
+    g.components.mode = ComponentMode::Vertex;
+    g.components.multi = false;
+    g.components.uv_shell = false;
+    g.components.curve_kind = k;
     g.components.notify();
 }
 

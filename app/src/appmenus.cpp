@@ -1533,11 +1533,18 @@ void MainWindow::object_marking_items(const QString& hit, QPoint, QList<MarkItem
                 exec_quiet("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"influence", hit}});
             }});
     } else if (shape_type == "nurbsCurve") {
-        items = {{"Control Vertex", 0, mode_to("vertex")}, {"Object Mode", 1, mode_to("object")},
-                 {"Edit Point", 2, {}, false}, {"Hull", 6, [hit] {
+        // Edit Point and Curve Point: Vertex mode with the curve's pick set by selectType, as the reference's.
+        auto curve_kind = [hit, mode_to](const char* flag) {
+            return [hit, mode_to, flag] {
+                mode_to("vertex")();
+                exec("selectType", QJsonObject{{flag, true}});
+            };
+        };
+        items = {{"Control Vertex", 0, curve_kind("controlVertex")}, {"Object Mode", 1, mode_to("object")},
+                 {"Edit Point", 2, curve_kind("editPoint")}, {"Hull", 6, [hit] {
                       for (const QJsonValue& s : ask("listRelatives", QJsonObject{{"args", QJsonArray{hit}}, {"shapes", true}}).toArray()) exec("setAttr", args(QJsonArray{s.toString() + ".dispHull", true}));
                   }},
-                 {"Curve Point", 4, {}, false}};
+                 {"Curve Point", 4, curve_kind("curveParameterPoint")}};
     } else {
         // UV opens to UV and UV Shell, as the reference's.
         QList<MarkItem> uv = {{"UV", 2, mode_to("uv")}, {"UV Shell", 4, mode_to("uvShell")}};

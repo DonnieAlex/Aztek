@@ -1128,7 +1128,7 @@ pub fn register(c: &mut Commands<Session>) {
                     return Ok(json!(g.path(crate::dag::transform_of(g, shape))));
                 }
                 let build = if !eps.is_empty() {
-                    NurbsCurve::through(degree, &eps)
+                    NurbsCurve::through_edit_points(degree, &eps)
                 } else if pts.len() < 2 {
                     fail!("curve: give at least two points with -p");
                 } else if a.bool("bezier") {

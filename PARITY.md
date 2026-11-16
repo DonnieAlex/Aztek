@@ -2734,3 +2734,23 @@ page. What the page doesn't say and is Aztek's: how distribute shares shells out
 the least area), and that the padding flags are UV units (the page's Padding Units can be pixels; the option box asks
 in UV units and has no Texture Map Size). Not done: `-preRotateMode` modes, `-rotateMin`, `-mutations`, `-resolution`
 (the packer is rows, not a grid), `-multiObject` (objects are packed one at a time, so several objects overlap).
+
+### Curve Edit Point and Curve Point modes (16/11/2026)
+
+PLAN 3.2. The curve marking menu's Edit Point and Curve Point (greyed until now) and `selectType -editPoint` (`-ep`)
+and `-curveParameterPoint` (`-cpp`) put a curve's picks on its edit points or on places along it; `-controlVertex`
+(and F9 or any other mode) puts them back on CVs. `selectType -q` reads each.
+
+- Edit Point: a hilited curve shows its edit points in place of its CVs and hull; a click takes the nearest as
+  `curve1.ep[2]`, a box those inside. Moving them moves the curve through them, as before from scripts.
+- Curve Point: a click on a hilited curve takes the place clicked as `curve1.u[0.37]` (to a thousandth), drawn as a
+  point; a box takes none, as only a click picks a curve point.
+- The manipulator sits at the edit points and curve points picked.
+- Found on the way: `curve -ep` and the EP Curve Tool made a curve whose CVs were as many as its points, so most points
+  were not edit points (four points gave one span). Now n points give n - 1 spans and n - 1 + degree CVs, each point
+  an edit point a span apart, as the reference's. The two conditions a cubic has left over hold the curvature at 0 at
+  the ends: the reference's end conditions are not documented, so a curve through the same points may bend a little
+  differently near its ends. Knots are one span apart (the EP Curve Tool's Uniform knot spacing); Chord length is not
+  done.
+- Not done: surfaces' edit points, isoparms and surface points in the view (scripts have them), hull drawing in Edit
+  Point mode, the Tool Settings' knot spacing.

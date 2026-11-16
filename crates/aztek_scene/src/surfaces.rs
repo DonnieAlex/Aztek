@@ -2195,13 +2195,22 @@ pub fn select_type_components(g: &mut crate::graph::Graph, a: &Args) -> Option<V
         ("polymeshUV", ComponentMode::Uv),
         ("polymeshVtxFace", ComponentMode::VertexFace),
     ];
-    if !kinds.iter().any(|k| a.has(k.0)) && !a.has("meshUVShell") {
+    let curve_kinds = [("editPoint", components::CurveKind::EditPoint), ("curveParameterPoint", components::CurveKind::CurvePoint)];
+    if !kinds.iter().any(|k| a.has(k.0)) && !a.has("meshUVShell") && !curve_kinds.iter().any(|k| a.has(k.0)) {
         return None;
     }
     let multi = components::is_multi(g);
     if a.has("query") && a.bool("query") {
         if a.has("meshUVShell") {
             return Some(json!(components::is_uv_shell(g)));
+        }
+        for (flag, k) in curve_kinds {
+            if a.has(flag) {
+                return Some(json!(components::curve_kind(g) == k));
+            }
+        }
+        if a.has("controlVertex") {
+            return Some(json!(components::mode(g) == ComponentMode::Vertex && !multi && components::curve_kind(g) == components::CurveKind::Cv));
         }
         for (flag, mode) in kinds {
             if a.has(flag) {
@@ -2213,7 +2222,9 @@ pub fn select_type_components(g: &mut crate::graph::Graph, a: &Args) -> Option<V
         return Some(json!(false));
     }
     let mesh_on = ["polymeshVertex", "polymeshEdge", "polymeshFace"].iter().filter(|f| a.has(f) && a.bool(f)).count();
-    if mesh_on > 1 {
+    if let Some((_, k)) = curve_kinds.iter().find(|(f, _)| a.has(f) && a.bool(f)) {
+        components::set_curve_kind(g, *k);
+    } else if mesh_on > 1 {
         components::set_multi(g);
     } else if a.has("meshUVShell") && a.bool("meshUVShell") {
         components::set_uv_shell(g);

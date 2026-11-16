@@ -394,6 +394,68 @@ impl NurbsCurve {
         NurbsCurve { degree, form: Form::Open, cvs, knots: knots.iter().map(|x| x * scale).collect() }
     }
 
+    /// A curve whose edit points are the points given, as the reference's EP Curve Tool and `curve -ep` make one: a
+    /// span between each pair, so n points give n - 1 spans and n - 1 + degree CVs, knots one span apart. The degree - 1
+    /// conditions left over hold the second (then third) derivative at 0 at the ends, alternating; the reference's own end
+    /// conditions are not documented.
+    pub fn through_edit_points(degree: usize, pts: &[DVec3]) -> NurbsCurve {
+        let n = pts.len();
+        if n < 2 {
+            return NurbsCurve::open(1, pts.to_vec());
+        }
+        let degree = degree.max(1);
+        if degree == 1 {
+            return NurbsCurve::open(1, pts.to_vec());
+        }
+        let spans = n - 1;
+        let count = spans + degree;
+        // The full clamped vector over 0..1: degree + 1 zeros, a knot at each inner edit point, degree + 1 ones.
+        let mut full = vec![0.0; degree + 1];
+        for i in 1..spans {
+            full.push(i as f64 / spans as f64);
+        }
+        full.extend(std::iter::repeat_n(1.0, degree + 1));
+        let mut a: Vec<Vec<f64>> = Vec::with_capacity(count);
+        let mut rhs: Vec<DVec3> = Vec::with_capacity(count);
+        for (i, p) in pts.iter().enumerate() {
+            a.push(basis_row(&full, degree, count, i as f64 / spans as f64));
+            rhs.push(*p);
+        }
+        // Derivatives of the basis at an end, by differences: order k at u (stepping inwards).
+        let h = 1e-3 / spans as f64;
+        let deriv = |at_end: bool, k: usize| -> Vec<f64> {
+            let at = |j: usize| {
+                let u = if at_end { 1.0 - j as f64 * h } else { j as f64 * h };
+                basis_row(&full, degree, count, u)
+            };
+            let mut row = vec![0.0; count];
+            // Forward differences of order k: sum (-1)^(k-j) C(k, j) B(j h).
+            let mut c = 1.0;
+            for j in 0..=k {
+                let b = at(j);
+                let sign = if (k - j) % 2 == 0 { 1.0 } else { -1.0 };
+                for (r, x) in row.iter_mut().zip(b) {
+                    *r += sign * c * x;
+                }
+                c = c * (k - j) as f64 / (j + 1) as f64;
+            }
+            row
+        };
+        let mut order = 2;
+        let mut at_end = false;
+        while a.len() < count {
+            a.push(deriv(at_end, order));
+            rhs.push(DVec3::ZERO);
+            if at_end {
+                order += 1;
+            }
+            at_end = !at_end;
+        }
+        let cvs = solve(&a, &rhs);
+        let knots = full[1..full.len() - 1].iter().map(|x| x * spans as f64).collect();
+        NurbsCurve { degree, form: Form::Open, cvs, knots }
+    }
+
     /// Rebuilt to uniform spans and a degree: points sampled by arc length, then interpolated.
     pub fn rebuilt(&self, spans: usize, degree: usize) -> NurbsCurve {
         let spans = spans.max(1);
@@ -1806,6 +1868,24 @@ pub fn patch_surface(origin: DVec3, du: DVec3, dv: DVec3, spans_u: usize, spans_
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn edit_point_curves_pass_through_their_points_one_span_apart() {
+        let pts = [DVec3::new(0.0, 0.0, 0.0), DVec3::new(2.0, 1.0, 0.0), DVec3::new(4.0, 0.0, 0.0), DVec3::new(6.0, 2.0, 1.0), DVec3::new(7.0, 0.0, 0.0)];
+        let c = NurbsCurve::through_edit_points(3, &pts);
+        assert_eq!(c.spans(), 4);
+        assert_eq!(c.cvs.len(), 7);
+        let eps = c.edit_points();
+        assert_eq!(eps.len(), 5);
+        for (a, b) in eps.iter().zip(pts.iter()) {
+            assert!((*a - *b).length() < 1e-6, "{a} {b}");
+        }
+        assert_eq!(c.domain(), (0.0, 4.0));
+        let q = NurbsCurve::through_edit_points(2, &pts[..3]);
+        assert_eq!((q.spans(), q.cvs.len()), (2, 4));
+        assert!((q.edit_points()[1] - pts[1]).length() < 1e-6);
+    }
+
     use super::*;
 
     #[test]

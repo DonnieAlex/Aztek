@@ -790,6 +790,8 @@ pub fn register(s: &mut Session) {
         ("polymeshUV", "puv", "Mesh UVs."),
         ("polymeshVtxFace", "pvf", "Mesh vertex faces."),
         ("meshUVShell", "msh", "UV shells: a UV pick takes its whole shell."),
+        ("editPoint", "ep", "Curve edit points."),
+        ("curveParameterPoint", "cpp", "Curve points: a click on a curve takes the place clicked."),
     ] {
         st = st.flag(f(n, sh, ArgType::Bool, doc));
     }

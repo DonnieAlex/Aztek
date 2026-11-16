@@ -25,6 +25,27 @@ pub fn is_encoded(id: u32) -> bool {
     id >= EP
 }
 
+/// A curve's edit point i as a component id.
+pub fn ep_id(i: u32) -> u32 {
+    EP | i
+}
+
+/// A curve point at parameter u as a component id (to a thousandth).
+pub fn curve_u_id(u: f64) -> u32 {
+    param_id(CURVE_U, u)
+}
+
+/// Where a curve's encoded component is: an edit point or a curve point. None for a CV or anything else.
+pub fn curve_component_point(c: &NurbsCurve, id: u32) -> Option<DVec3> {
+    if id & CURVE_U != 0 {
+        return Some(c.eval(param_of(id)));
+    }
+    if id & (ISO_V | PATCH) == 0 && id & EP != 0 {
+        return c.distinct_params().get((id & !EP) as usize).map(|&u| c.eval(u));
+    }
+    None
+}
+
 fn param_id(base: u32, x: f64) -> u32 {
     base | ((x * 1000.0).round().max(0.0) as u32 & 0x00FF_FFFF)
 }
