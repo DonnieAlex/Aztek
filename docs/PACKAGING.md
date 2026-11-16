@@ -20,7 +20,7 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | `aztek-<version>-1.el8.x86_64.rpm` | `rockylinux:8` container | `packaging/rpm/build-rpm.sh` | 6.8 bundled | 3.12 from AppStream |
 | `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | EPEL | 3.12 from AppStream |
 | `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | system | system 3.12 |
-| `aztek_<version>-1_ubuntu22.04_amd64.deb` | `ubuntu:22.04` container | `packaging/deb/build-deb.sh` | system 6.2 | system 3.10 |
+| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | system | system |
 | `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.8 bundled | 3.12 bundled |
 | `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8 bundled | 3.12 bundled |
 | `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system |
@@ -63,8 +63,6 @@ needs a driver:
 - The NVIDIA driver crashes in `libnvidia-eglcore` when asked for a surface on an X server without GLX, which takes
   Aztek with it. Seen on Rocky 8's Xvfb, and a VNC server without GLX should behave the same. Either use a server with
   GLX, or select Mesa with `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json` where lavapipe works.
-- On Ubuntu 22.04, Mesa's software driver under Xvfb draws the viewport very coarsely. The cause is not known. The same
-  package with the NVIDIA driver on a real X server draws properly.
 
 Aztek runs through X11 only (`QT_QPA_PLATFORM=xcb`, XWayland on a Wayland session).
 

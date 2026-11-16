@@ -125,14 +125,14 @@ jobs:
           name: aztek-deb-ubuntu24.04
           path: dist/*.deb
 
-  # Ubuntu 22.04 has Qt 6.2 and Python 3.10, so it gets its own package.
-  ubuntu-2204:
+  # Ubuntu 26.04 has its own Qt and Python, so it gets its own package.
+  ubuntu-2604:
     needs: gate
     if: needs.gate.outputs.go == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 340
     container:
-      image: ubuntu:22.04
+      image: ubuntu:26.04
       volumes:
         - /usr/share/dotnet:/host/usr/share/dotnet
         - /usr/local/lib/android:/host/usr/local/lib/android
@@ -176,7 +176,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: aztek-deb-ubuntu22.04
+          name: aztek-deb-ubuntu26.04
           path: dist/*.deb
 
   # Rocky 8 has no Qt 6 packages, so its RPM bundles Qt 6.8 from aqtinstall. Rocky 9 uses EPEL's Qt.
@@ -289,13 +289,13 @@ jobs:
         run: tools/ci/retry.sh 2 packaging/linux/smoke-test.sh
 
   verify-deb:
-    needs: [linux, ubuntu-2204]
+    needs: [linux, ubuntu-2604]
     runs-on: ubuntu-24.04
     container: ubuntu:${{ matrix.ubuntu }}
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: ["22.04", "24.04"]
+        ubuntu: ["24.04", "26.04"]
     steps:
       - uses: actions/checkout@v4
 
@@ -552,7 +552,7 @@ jobs:
   # Every push to main makes a release of what built; a v* tag makes a versioned release. A platform that failed is
   # left out of that release and named in its notes: one platform failing holds back none of the others.
   release:
-    needs: [gate, linux, ubuntu-2204, rocky, verify-rpm, verify-deb, verify-appimage, flatpak, windows, macos]
+    needs: [gate, linux, ubuntu-2604, rocky, verify-rpm, verify-deb, verify-appimage, flatpak, windows, macos]
     if: >-
       always() && needs.gate.outputs.go == 'true'
       && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -576,7 +576,7 @@ jobs:
           shopt -s nullglob
           missing=()
           [ "${{ needs.linux.result }}" = success ] || missing+=("Linux tar.gz, Ubuntu 24.04 .deb")
-          [ "${{ needs.ubuntu-2204.result }}" = success ] || missing+=("Ubuntu 22.04 .deb")
+          [ "${{ needs.ubuntu-2604.result }}" = success ] || missing+=("Ubuntu 26.04 .deb")
           [ "${{ needs.rocky.result }}" = success ] || missing+=("Rocky .rpm, AppImage, Flatpak")
           [ "${{ needs.windows.result }}" = success ] || missing+=("Windows")
           [ "${{ needs.macos.result }}" = success ] || missing+=("macOS")
