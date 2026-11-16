@@ -121,6 +121,8 @@ pub mod transform_ops;
 pub mod texel;
 pub mod pins;
 pub mod pose_interpolator;
+pub mod optimize;
+pub mod external_files;
 pub mod texture_nodes;
 pub mod utility_nodes;
 pub mod uv_misc;

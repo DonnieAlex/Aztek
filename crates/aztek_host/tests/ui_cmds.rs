@@ -60,7 +60,7 @@ fn select_type_masks_read_back() {
 }
 
 #[test]
-fn clean_up_scene_removes_empty_transforms_only() {
+fn clean_up_scene_removes_empty_transforms() {
     let mut c = Core::new();
     c.mel("polyCube; group -em -n emptyA; group -em -n emptyB; parent emptyB emptyA;");
     let gone = c.mel("cleanUpScene;");

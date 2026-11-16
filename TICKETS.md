@@ -16,6 +16,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
+  shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
   (and its colours checked against the reference's) and stylus pressure; Bind Skin's Colorize skeleton; the ViewCube's
   Animated transitions; the Outliner's Scene Assembly, Asset, Render Setup and Create Partition, greyed until those

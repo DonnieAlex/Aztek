@@ -99,8 +99,8 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 
 ## Phase 2: missing basics
 
-- [~] 2.1 (16/11/2026: the names below are in, but BakeCustomPivot, ArchiveScene,
-  OptimizeScene and TogglePolyDisplayHardEdges; the captured list is still to be walked) Runtime commands. Every name in the reference's default `runTimeCommand` list exists and does what its menu
+- [~] 2.1 (16/11/2026: the names below are in, ArchiveScene, OptimizeScene and TogglePolyDisplayHardEdges with them;
+  BakeCustomPivot moves to 3.6; the captured list is still to be walked) Runtime commands. Every name in the reference's default `runTimeCommand` list exists and does what its menu
   item does, so reference hotkey files, shelves and marking menus work. Today missing, among others:
   `GrowPolygonSelectionRegion`, `ShrinkPolygonSelectionRegion`, `FreezeTransformations`, `ResetTransformations`,
   `DuplicateSpecial`, `SelectHierarchy`, `SelectAllPolygonGeometry`, `HideSelectedObjects`, `ShowAll`,
@@ -146,7 +146,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   keyframe ghosts.
 - [ ] 3.5 Gimbal rotate draws the gimbal axes; rotate and scale step snap absolute as well as relative; Universal
   Manipulator.
-- [ ] 3.6 Snap Pivot Orientation acts; D and Insert pivot mode with point, edge and face snapping of the pivot;
+- [ ] 3.6 Snap Pivot Orientation acts; Modify > Bake Pivot (`BakeCustomPivot`); D and Insert pivot mode with point, edge and face snapping of the pivot;
   Bake Pivot and Match Pivots.
 - [ ] 3.7 Outliner: drag to reorder between siblings (and `reorder`), Middle-drag parenting, rename in place, Shift+click
   expand all (already a ticket), search filter.

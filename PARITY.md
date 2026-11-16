@@ -2668,17 +2668,21 @@ comparison. Changed or added:
 - Already as the page has them: Insert and D for the pivot, X C V snapping, 4 to 7, Ctrl+H, Shift+H, Ctrl+Shift+H,
   Alt+B, Shift+D, Ctrl+Shift+D, the F8 to F11 modes, Q W E R T Y, G, P, S, Shift+W E R, Alt+V, the frame and key steps,
   A and F, [ and ], the arrows.
-- Not bound yet, from the page: Home (the page doesn't list it), 0 (default display quality), Ctrl+T (universal
-  manipulator), Shift+J, Ctrl+I, Alt+I, Ctrl+Shift+E R W, Ctrl+Alt+. and ,, Shift+G, Shift+S, Ctrl+M, Shift+M,
-  Ctrl+Shift+M, Shift+{ and }, ` and Ctrl+`, Alt+1 2 4 5, Alt+J, the bookmark keys, L.
+- Alt+1, Alt+2 and Alt+4 show or hide NURBS, polygons and image planes in the view under the pointer
+  (`ToggleNurbsInView`, `TogglePolygonsInView`, `ToggleImagePlanesInView`: Aztek's names; the reference's runtime
+  command names for these keys were not found). Ctrl+M shows or hides the main menu bar (`ToggleMainMenubar`).
+- Not bound yet, from the page: Home (the page doesn't list it), 0 (default display quality), Ctrl+T (the universal
+  manipulator, which Aztek doesn't have yet: PLAN 3.5), Shift+J, Ctrl+I, Alt+I, Ctrl+Shift+E R W, Ctrl+Alt+. and ,,
+  Shift+G, Shift+S, Shift+M, Ctrl+Shift+M, Shift+{ and } (Aztek has two layouts), ` and Ctrl+`, Alt+5, Alt+J, the
+  bookmark keys (PLAN 8.4), L.
 - Edit > Cut, Copy and Paste (Ctrl+X, C, V; `CutSelected`, `CopySelected`, `PasteSelected`): the selection exported to
   `aztekClipboard.ma` in the user's temp folder and imported back with `-renamingPrefix pasted_`, so a pasted pCube1
   is pasted__pCube1, the next pasted__pCube2, and a paste survives the originals being deleted. They duplicated by name
   before, so Paste after Cut did nothing. How the reference stores its clipboard was not checked; the names follow
   what it gives.
 - `file -import` now acts on `-renamingPrefix` (each imported node takes prefix_ before the name the file gives it,
-  not the one a clash gave it), `-renameAll` and `-returnNewNodes`. It ignored them; `-namespace` on import is still
-  ignored.
+  not the one a clash gave it), `-renameAll` and `-returnNewNodes`, and `-namespace` (the nodes under it; when it is
+  in use, the next free numbered one, lib1, unless `-mergeNamespacesOnClash`). It ignored all of them.
 - `hotkeySet`: a name with `-source` makes a set, `-current`, `-delete`, `-q -exists`, `-q -current`,
   `-q -hotkeySetArray`; the default set is Aztek_Default and answers to Maya_Default. Bindings are shared by every
   set: switching sets doesn't change the keys. `-import` runs a hotkey set file (MEL), so the reference's `.mhk`
@@ -2691,3 +2695,29 @@ comparison. Changed or added:
 - The Hotkey Editor has Import... and Export...; Export writes every key bound now.
 - Found on the way: `ls -dag` with names or `-sl` now lists the DAG nodes below them too, so `ls -sl -dag -type mesh`
   gives the selection's shapes; it gave nothing for a selected transform.
+
+### Optimize Scene Size, Delete Unused Nodes, Archive Scene (16/11/2026)
+
+PLAN 2.1's remaining runtime commands. What each category removes follows the reference's
+[Optimize Scene Size Options](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-6798B37D-0FF0-4ED3-A151-5CC648BB8CED.htm)
+page; what Archive Scene packs, its
+[Archive a scene](https://download.autodesk.com/us/maya/2011help/files/WS73099cc142f48755-42a8108711a530ff1d36e3.htm) page.
+
+- `cleanUpScene` (File > Optimize Scene Size, the runtime command OptimizeScene): every category with no flag, or
+  the ones named: `-emptySets`, `-emptyTransforms`, `-displayLayers`, `-animationCurves`, `-expressions`, `-groupIds`,
+  `-renderingNodes` (the reference's three stages: shading groups with no members or no material, materials no group
+  uses, then textures and utilities that feed nothing), `-locators`, `-constraints`, `-pairBlends`,
+  `-unitConversions`, `-unknownNodes`. Each runs until it finds nothing more, so a group left empty by its child going
+  goes too. Referenced, locked and default nodes stay. One undo step; returns what went. Not done: invalid NURBS,
+  partitions, animation clips, poses, NURBS curves and surfaces, cached data, deformers, unused skin influences,
+  snapshots, brushes, referenced items, duplicate shading networks; the option box. It removed empty transforms only.
+- `MLdeleteUnused` and the Hypershade's Edit > Delete Unused Nodes: the rendering nodes category.
+- `archiveScene` (File > Archive Scene, the runtime command ArchiveScene; the command's name is Aztek's): the saved
+  scene and the files it uses (references, file textures, image planes, sounds, Alembic and XJEN caches) zipped into
+  `<scene>.zip` beside the scene (the reference's page doesn't give the zip's name). The menu item saves first. A file
+  in the scene's folder or the project keeps its relative path in the zip; any other goes under `external/`. A file
+  that can't be found is left out with a warning. Not done: the option for unloaded references' files.
+- `file -q -list`: the scene's file, then those files.
+- `TogglePolyDisplayHardEdges`: hard edges drawn or not in every view, as Display > Polygons > Hard Edges.
+- `BakeCustomPivot` left for PLAN 3.6: it bakes the tool's custom axis into the transform, and custom pivot
+  orientation is that item's work.

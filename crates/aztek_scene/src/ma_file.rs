@@ -3439,11 +3439,11 @@ fn apply_tweaks(doc: &Doc, m: &mut Mesh, tweaks: &[usize]) {
     }
 }
 
-/// Builds the document in the session. Everything goes in one pass; the graph evaluates on demand for world matrices.
 thread_local! {
     static LAST_READ_NAMES: std::cell::RefCell<Vec<(NodeId, String)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Builds the document in the session. Everything goes in one pass; the graph evaluates on demand for world matrices.
 fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
     let prior: Vec<NodeId> = s.graph.selection().to_vec();
     let fps = if import { anim::fps() } else { doc.fps.unwrap_or_else(anim::fps) };
@@ -5928,13 +5928,31 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
             // -renamingPrefix (with -renameAll, or on its own): prefix_name, as the reference names pasted__pCube1.
             let new: Vec<NodeId> = s.graph.nodes().into_iter().filter(|id| !before.contains(id)).collect();
             let prefix = a.string("renamingPrefix", "");
-            if !prefix.is_empty() {
+            // -namespace: under that namespace, or the next free numbered one when it is in use and
+            // -mergeNamespacesOnClash is off (ns1, ns2...), as the reference does. -renamingPrefix when there is none.
+            let mut ns = a.string("namespace", "").trim_start_matches(':').to_string();
+            if ns == ":" {
+                ns.clear();
+            }
+            if !ns.is_empty() && !a.bool("mergeNamespacesOnClash") && crate::ref_scene::namespace_exists(&s.graph, &ns) {
+                let stem = ns.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+                let mut k = 1;
+                while crate::ref_scene::namespace_exists(&s.graph, &format!("{stem}{k}")) {
+                    k += 1;
+                }
+                ns = format!("{stem}{k}");
+            }
+            if !ns.is_empty() || !prefix.is_empty() {
                 // From the name in the file, not the one a clash gave it: box pasted beside box is pasted__box.
                 let file_names = LAST_READ_NAMES.with(|n| n.borrow().clone());
+                if !ns.is_empty() {
+                    s.graph.set_namespace_known(&ns, true);
+                }
                 for &id in &new {
                     let Some(now) = s.graph.node(id).map(|n| n.name().to_string()) else { continue };
                     let name = file_names.iter().find(|x| x.0 == id).map_or(now, |x| x.1.rsplit(':').next().unwrap_or(&x.1).to_string());
-                    s.graph.rename(id, &format!("{prefix}_{name}"))?;
+                    let to = if ns.is_empty() { format!("{prefix}_{name}") } else { format!("{ns}:{name}") };
+                    s.graph.rename(id, &to)?;
                 }
             }
             Ok(new)
@@ -6102,7 +6120,16 @@ fn with_type_extension(path: &str, ty: Option<&str>) -> String {
     path.to_string()
 }
 
-fn file_query(s: &Session, a: &Args, path: Option<&str>) -> Value {
+fn file_query(s: &mut Session, a: &Args, path: Option<&str>) -> Value {
+    // -list: the scene's file, then the files it uses (references, textures, image planes, sounds, caches), where
+    // they were found or as written when they weren't. -withoutCopyNumber and -unresolvedName are references' own.
+    if a.bool("list") || crate::ref_core::asked(a, "list") {
+        let mut out: Vec<String> = s.scene_path.iter().cloned().collect();
+        for e in crate::external_files::list(s) {
+            out.push(e.found.map_or(e.written, |p| p.to_string_lossy().replace('\\', "/")));
+        }
+        return json!(out);
+    }
     if a.bool("exists") {
         return json!(path.map(str::to_string).or_else(|| s.scene_path.clone()).is_some_and(|p| std::path::Path::new(&p).exists()));
     }
@@ -6137,6 +6164,7 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("the file")
         .undoable(false)
         .flag(b("new", "new", "A new, empty scene."))
+        .flag(b("list", "l", "With -q: the scene's file and every file it uses."))
         .flag(b("open", "o", "Replace the scene with the file."))
         .flag(b("save", "s", "Write the scene under its name."))
         .flag(t("rename", "rn", "Set the scene's name, for the next save."))
@@ -6191,7 +6219,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(b("expressions", "exp", "Accepted for existing scripts."))
         .flag(b("shader", "sh", "Accepted for existing scripts."))
         .flag(b("returnNewNodes", "rnn", "With a reference, return the new nodes."))
-        .flag(t("namespace", "ns", "The namespace a reference goes under.")),
+        .flag(t("namespace", "ns", "The namespace a reference or an import goes under.")),
     );
 }
 

@@ -27,6 +27,7 @@
 #include <QDialog>
 #include <QDockWidget>
 #include <QFile>
+#include <QMenuBar>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -373,6 +374,7 @@ void MainWindow::build_runtime() {
         }
         menu.exec(QCursor::pos());
     });
+    r("ToggleMainMenubar", "Menus", "Main menu bar shown or not", [this] { menuBar()->setVisible(!menuBar()->isVisible()); });
     r("SelectUVMask", "Select", "UVs", [this] { set_mode("uv"); });
     r("SelectVertexFaceMask", "Select", "Vertex faces", [this] { set_mode("vertexFace"); });
     r("ConvertSelectionToUVs", "Select", "To UVs", [] { exec("convertSelection", QJsonObject{{"args", QJsonArray{"uv"}}}); });
@@ -514,6 +516,18 @@ void MainWindow::build_runtime() {
            " if (`filetest -r $f`) { string $new[] = `file -import -type \"mayaAscii\" -renameAll true"
            " -renamingPrefix \"pasted_\" -returnNewNodes $f`; string $top[] = `ls -assemblies $new`;"
            " if (size($top)) select -r $top; }");
+    add_if("ToggleNurbsInView", "Display", "NURBS shown or not in the view under the pointer",
+           "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -nurbsSurfaces $p`; modelEditor -e -nurbsSurfaces $on -nurbsCurves $on $p; }");
+    add_if("TogglePolygonsInView", "Display", "Polygons shown or not in the view under the pointer",
+           "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -polymeshes $p`; modelEditor -e -polymeshes $on $p; }");
+    add_if("ToggleImagePlanesInView", "Display", "Image planes shown or not in the view under the pointer",
+           "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -imagePlane $p`; modelEditor -e -imagePlane $on $p; }");
+    add_if("OptimizeScene", "File", "Optimize Scene Size", "cleanUpScene;");
+    add_if("ArchiveScene", "File", "Archive Scene", "archiveScene;");
+    r("TogglePolyDisplayHardEdges", "Display", "Hard edges shown or not", [this] {
+        hard_edges_shown_ = !hard_edges_shown_;
+        for (ViewportWidget* v : panels_->views()) v->set("disp", QString("{\"hardEdges\":%1}").arg(hard_edges_shown_ ? "true" : "false"));
+    });
     add_if("HideUnselectedObjects", "Display", "Hide Unselected Objects",
            "string $sel[] = `ls -sl -l`; string $all[] = `ls -assemblies -l`;"
            "for ($a in $all) { if (size(`listRelatives -s -type camera $a`)) continue; int $keep = 0;"
@@ -565,6 +579,7 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         {"F9", C, "ConvertSelectionToVertices", ""}, {"F10", C, "ConvertSelectionToEdges", ""}, {"F11", C, "ConvertSelectionToFaces", ""}, {"F12", C, "ConvertSelectionToUVs", ""},
         {"PgUp", 0, "SmoothingLevelIncrease", ""}, {"PgDown", 0, "SmoothingLevelDecrease", ""}, {"Q", C | S, "QuadDrawTool", ""}, {"X", C | S, "MultiCutTool", ""},
         {"X", C, "CutSelected", ""}, {"C", C, "CopySelected", ""}, {"V", C, "PasteSelected", ""},
+        {"1", A, "ToggleNurbsInView", ""}, {"2", A, "TogglePolygonsInView", ""}, {"4", A, "ToggleImagePlanesInView", ""}, {"M", C, "ToggleMainMenubar", ""},
         {"1", 0, "SmoothPreviewOff", ""}, {"2", 0, "SmoothPreviewCage", ""}, {"3", 0, "SmoothPreviewSmooth", ""}, {"4", 0, "WireframeView", ""}, {"5", 0, "ShadedView", ""}, {"6", 0, "TexturedView", ""}, {"7", 0, "DisplayLight", ""},
         {"1", C, "IsolateSelect", ""}, {"A", A, "XRayToggle", ""}, {"B", A, "BackgroundCycle", ""}, {"Space", C, "ToggleMainPane", ""},
         {"Del", 0, "DeleteSelection", ""}, {"Backspace", 0, "DeleteSelection", ""}, {"Del", C, "DeleteEdgeVertex", ""},

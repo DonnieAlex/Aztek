@@ -1,5 +1,5 @@
 //! Commands that belong to the application rather than the scene: optionVar, runTimeCommand, nameCommand, hotkey,
-//! selectType, selectPref, headsUpDisplay, lookThru, isolateSelect, workspace, toggle and cleanUpScene. State lives here;
+//! selectType, selectPref, headsUpDisplay, lookThru, isolateSelect, workspace and toggle. State lives here;
 //! requests the Qt shell must carry out go through the UI request list as "name|payload" strings.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -1120,29 +1120,4 @@ pub fn register(s: &mut Session) {
         .undoable(false),
     );
 
-    reg(
-        s,
-        Cmd::new("cleanUpScene", "Optimize Scene Size essentials: removes transforms with nothing under them, deepest first. Returns what went.", |s, _a| {
-            let mut gone = Vec::new();
-            loop {
-                let g = &s.graph;
-                let found: Vec<String> = g
-                    .nodes()
-                    .into_iter()
-                    .filter(|&id| g.node(id).is_some_and(|n| n.ty().name == "transform") && g.children(id).is_empty())
-                    .map(|id| g.path(id))
-                    .collect();
-                if found.is_empty() {
-                    break;
-                }
-                for p in found {
-                    s.run("delete", json!({"args": [p.clone()]}))?;
-                    gone.push(p);
-                }
-            }
-            Ok(json!(gone))
-        })
-        .positional("[what]")
-        .flag(f("emptyTransforms", "et", ArgType::Bool, "Remove transforms with nothing under them.")),
-    );
 }

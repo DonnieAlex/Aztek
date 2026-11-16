@@ -128,6 +128,7 @@ private:
     void apply_snap();
     QList<HotkeyBinding> default_hotkeys() const;
     void export_hotkeys(const QString& path) const;
+    bool hard_edges_shown_ = false;
     void load_hotkeys();
     void set_binding(const QJsonObject& o);
     void save_user_hotkey(const QJsonObject& o);

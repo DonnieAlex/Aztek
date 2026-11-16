@@ -36,3 +36,17 @@ fn copy_cut_and_paste() {
     assert_eq!(mel(&mut c, "ls -sl;"), json!(["pasted__grp2"]));
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn import_into_a_namespace() {
+    let tmp = std::env::temp_dir().join(format!("aztek_ns_{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let f = tmp.join("box.ma").to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    mel(&mut c, &format!("polyCube -n box; select box; file -force -exportSelected -type \"mayaAscii\" \"{f}\";"));
+    assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -returnNewNodes \"{f}\";")), json!(["lib:box", "lib:boxShape"]));
+    assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -returnNewNodes \"{f}\";")), json!(["lib1:box", "lib1:boxShape"]));
+    assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -mergeNamespacesOnClash true -returnNewNodes \"{f}\";")), json!(["lib:box1", "lib:box1|lib:boxShape"]));
+    assert_eq!(mel(&mut c, "namespaceInfo -lon;"), json!(["lib", "lib1"]));
+    let _ = std::fs::remove_dir_all(&tmp);
+}

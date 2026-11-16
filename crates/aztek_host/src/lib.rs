@@ -6,6 +6,7 @@
 
 pub mod dyn_draw;
 pub mod autosave;
+pub mod archive;
 pub mod axis_orient;
 mod batch;
 pub mod builtin_plugins;

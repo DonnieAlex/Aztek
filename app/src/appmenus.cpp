@@ -168,7 +168,14 @@ QMenu* MainWindow::file_menu() {
         }
         if (QMessageBox::question(this, "Revert", "Discard changes and open " + f + " again?") == QMessageBox::Yes) open_file(f);
     });
-    m->addAction("Optimize Scene Size", [] { exec("cleanUpScene"); });
+    m->addAction("Archive Scene", [this] {
+        // As the reference: a scene with unsaved changes is saved first.
+        if (state()["modified"].toBool() || state()["file"].toString().isEmpty()) save_scene(false);
+        if (state()["modified"].toBool() || state()["file"].toString().isEmpty()) return;
+        QJsonValue z = exec("archiveScene");
+        if (z.isString()) log("// Result: " + z.toString() + " //", 1);
+    });
+    m->addAction("Optimize Scene Size", [this] { run_command("OptimizeScene"); });
     m->addSeparator();
     // Import through the file browser, opened on the File type the Import Options were left on.
     auto do_import = [](const QString& type) {

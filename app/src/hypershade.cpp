@@ -429,6 +429,7 @@ private:
             QJsonArray sel = state()["selection"].toArray();
             if (!sel.isEmpty()) exec("delete", QJsonObject{{"args", sel}});
         });
+        edit->addAction("Delete Unused Nodes", [] { exec("MLdeleteUnused"); });
         edit->addAction("Duplicate Shading Network", [] { exec("hyperShade", QJsonObject{{"duplicate", true}}); });
         edit->addSeparator();
         edit->addAction("Select Objects with Materials", [] { exec("hyperShade", QJsonObject{{"objects", ""}}); });
