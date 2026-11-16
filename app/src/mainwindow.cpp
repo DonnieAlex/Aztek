@@ -959,11 +959,12 @@ void MainWindow::build_docks() {
     addDockWidget(Qt::LeftDockWidgetArea, tool_dock_);
     tabifyDockWidget(outliner_dock_, tool_dock_);
     tool_dock_->hide();
-    // As the reference's default workspace: tabbed editors on the window's outer edges, and no Outliner until asked
-    // for (the toolbox button, Persp/Outliner, or Windows > Outliner). A saved window state overrides both.
+    // As the reference's default workspace: tabbed editors on the window's outer edges, the Outliner open on the left
+    // of the views. A saved window state overrides both.
     setTabPosition(Qt::RightDockWidgetArea, QTabWidget::East);
     setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::West);
-    outliner_dock_->hide();
+    outliner_dock_->show();
+    outliner_dock_->raise();
 }
 
 void MainWindow::build_bottom() {

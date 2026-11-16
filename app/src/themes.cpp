@@ -351,7 +351,7 @@ QList<Theme> user_themes() {
 
 QString assets_dir(const Theme& t) {
     // The drawing's version goes into the key, so pictures drawn by an older Aztek are not used again.
-    const QByteArray key = QCryptographicHash::hash("4" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
+    const QByteArray key = QCryptographicHash::hash("5" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
     return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/themes/" + QString::fromLatin1(key);
 }
 
@@ -489,6 +489,15 @@ void save_radio(const QString& path, const Theme& t, bool on) {
     im.save(path);
 }
 
+// The tear-off line at the top of a menu: dashes across its width.
+void save_tearoff(const QString& path, const QColor& c) {
+    QImage im = canvas(400, 6);
+    QPainter p(&im);
+    for (int x = 0; x < 400; x += 7) p.fillRect(x, 2, 4, 2, c);
+    p.end();
+    im.save(path);
+}
+
 void save_dither(const QString& path, const QColor& a, const QColor& b) {
     QImage im(2, 2, QImage::Format_ARGB32);
     im.setPixelColor(0, 0, a);
@@ -513,6 +522,8 @@ QString write_assets(const Theme& t) {
     save_check(dir + "/check.png", bevel ? t.c["fieldtext"] : t.c["hitext"]);
     save_check(dir + "/check-off.png", t.c["disabled"]);
     save_dot(dir + "/dot.png", bevel ? t.c["fieldtext"] : t.c["hitext"]);
+    save_tearoff(dir + "/tearoff.png", t.c["dim"]);
+    save_tearoff(dir + "/tearoff-hi.png", t.c["hi"]);
     if (bevel) {
         save_bevel(dir + "/raised.png", t, t.c["button"], false);
         save_bevel(dir + "/raised-hover.png", t, t.c["hover"], false);
@@ -555,6 +566,9 @@ QString skin(const Theme& t, const QString& a) {
     s += "QMenuBar::item:selected, QMenu::item:selected { background: @hi; color: @hitext; }\n";
     s += "QTreeView::item:selected, QListView::item:selected, QTableView::item:selected { background: @hi; color: @hitext; }\n";
     s += "QLabel#channelName[picked=\"true\"] { color: @hitext; }\n";
+    // The tear-off line at the top of a menu: click it and the menu floats as a window of its own.
+    s += "QMenu::tearoff { image: url(" + a + "/tearoff.png); height: 8px; margin: 2px 6px; }\n";
+    s += "QMenu::tearoff:selected { image: url(" + a + "/tearoff-hi.png); }\n";
     if (t.fill == "classic") return s;
 
     const bool bevel = t.bevel != "none";

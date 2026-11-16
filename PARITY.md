@@ -2472,3 +2472,11 @@ on it, then moving the scene's node types across.
 
 Nothing yet: no hair node types, Harold renders no curves, the views draw curves as plain lines. `hairSystem` is
 held from files and not simulated. The target and order of work are in [docs/XJEN.md](docs/XJEN.md).
+
+### Tear-off menus and the Outliner at start (16/11/2026)
+
+Every menu reached from a menu bar (the main window's, each panel's, each editor's) and their submenus have the
+reference's dashed tear-off line at the top: a click floats the menu as a window of its own. Menus whose items are made
+as they open (recent files, workspaces) show the items of the last time the menu itself was opened. The default layout opens the Outliner on
+the left of the views, as the reference's default workspace does, and the General workspace shows it; a saved window
+layout still wins.

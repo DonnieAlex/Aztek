@@ -1,6 +1,7 @@
 // Aztek: Qt shell over the Rust host library.
 #include "userfolder.h"
 #include "aztek.h"
+#include "tearoff.h"
 #include "themes.h"
 #include "host.h"
 #include "mainwindow.h"
@@ -25,6 +26,7 @@ namespace {
 void apply_style(QApplication& app) {
     // Aztek Classic, the reference's look, unless another theme was chosen.
     az::apply_saved_theme(app);
+    az::install_tear_offs(app);
 }
 
 #ifdef Q_OS_WIN

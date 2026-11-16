@@ -906,7 +906,8 @@ void MainWindow::apply_workspace(const QString& name) {
         tool_dock_->setVisible(tool);
     };
     if (name == "General") {
-        only(false, true, true, false);
+        only(true, true, true, false);
+        outliner_dock_->raise();
         channel_dock_->raise();
         panels_->set_layout(0);
     } else if (name == "Modeling") {
