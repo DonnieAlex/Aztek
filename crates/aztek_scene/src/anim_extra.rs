@@ -1,6 +1,7 @@
 //! Animation commands: blendTwoAttr, ghosting and timeCode.
 //!
-//! Differs from the reference. ghosting sets the ghost attributes and answers about ghost frames, but the views draw no ghosts.
+//! Ghosts: `ghosts` gives the views each ghosted object's meshes as they are at its ghost frames, with their colour and
+//! opacity, from the ghosting options.
 //! timeCode's numbers live in the session rather than on the time1 node, so they are not saved.
 
 use aztek_ops::{fail, objects, ArgType, Args, CmdResult, CommandDef, Commands};
@@ -164,6 +165,128 @@ fn ghost_option(s: &Session, name: &str) -> Value {
     s.extras.more.ghosting.get(name).cloned().unwrap_or_else(|| ghost_default(name))
 }
 
+/// The options as the views read them: a copy of the session's, kept as they change.
+static VIEW_OPTIONS: std::sync::Mutex<Option<serde_json::Map<String, Value>>> = std::sync::Mutex::new(None);
+
+fn note_options(s: &Session) {
+    let mut m = serde_json::Map::new();
+    for (k, v) in &s.extras.more.ghosting {
+        m.insert(k.clone(), v.clone());
+    }
+    *VIEW_OPTIONS.lock().unwrap() = Some(m);
+}
+
+fn view_option(name: &str) -> Value {
+    VIEW_OPTIONS.lock().unwrap().as_ref().and_then(|m| m.get(name).cloned()).unwrap_or_else(|| ghost_default(name))
+}
+
+/// One ghost for the views: a mesh shape as it is at a frame, where it is then, and how it's drawn.
+#[derive(Clone)]
+pub struct Ghost {
+    pub frame: f64,
+    pub shape: NodeId,
+    pub world: glam::DMat4,
+    pub mesh: std::sync::Arc<aztek_geo::Mesh>,
+    pub color: [f32; 3],
+    pub opacity: f32,
+}
+
+fn int_attr(g: &Graph, n: NodeId, name: &str, d: i64) -> i64 {
+    match ghost_attr(g, n, name).and_then(|i| g.node(n).map(|x| x.data().value(i).clone())) {
+        Some(PlugValue::Int(v)) => v,
+        _ => d,
+    }
+}
+
+/// A ghosted object's ghost frames, from its own pre and post steps and step size and the mode.
+fn frames_of(g: &Graph, n: NodeId, mode: &str) -> Vec<f64> {
+    let now = crate::anim::frame(g);
+    let (pre, post, step) = (int_attr(g, n, "ghostPreSteps", 3), int_attr(g, n, "ghostPostSteps", 3), int_attr(g, n, "ghostStepSize", 1).max(1));
+    match mode {
+        "custom" => view_option("customFrames").as_array().map(|l| l.iter().filter_map(Value::as_f64).collect()).unwrap_or_default(),
+        "keyframes" => {
+            let mut keys = crate::anim::key_times(g, &[n]);
+            keys.sort_by(f64::total_cmp);
+            keys.dedup();
+            keys.into_iter().step_by(step as usize).filter(|&t| t != now).collect()
+        }
+        _ => {
+            let mut out = Vec::new();
+            if mode != "post" {
+                out.extend((1..=pre).rev().map(|k| now - (k * step) as f64));
+            }
+            if mode != "pre" {
+                out.extend((1..=post).map(|k| now + (k * step) as f64));
+            }
+            out
+        }
+    }
+}
+
+fn rgb(v: &Value, d: [f32; 3]) -> [f32; 3] {
+    let n: Vec<f32> = v.as_array().map(|a| a.iter().filter_map(Value::as_f64).map(|x| x as f32).collect()).unwrap_or_default();
+    if n.len() >= 3 { [n[0], n[1], n[2]] } else { d }
+}
+
+/// Every ghost to draw now: for each ghosted object (and the meshes under it), its meshes at each ghost frame. Before
+/// the current frame in the pre colour, after in the post colour; the nearest at the near opacity, the farthest at the
+/// far one. Nothing when ghosting is off (`ghosting -en false`).
+pub fn ghosts(g: &mut Graph) -> Vec<Ghost> {
+    if !view_option("enable").as_bool().unwrap_or(true) {
+        return Vec::new();
+    }
+    let ghosted: Vec<NodeId> = g.nodes().into_iter().filter(|&n| is_ghosted(g, n)).collect();
+    if ghosted.is_empty() {
+        return Vec::new();
+    }
+    let mode = view_option("mode").as_str().unwrap_or("preAndPost").to_string();
+    let (near, far) = (view_option("nearOpacity").as_f64().unwrap_or(0.5) as f32, view_option("farOpacity").as_f64().unwrap_or(0.1) as f32);
+    let (pre_c, post_c) = (rgb(&view_option("preColor"), [0.5, 0.5, 1.0]), rgb(&view_option("postColor"), [1.0, 0.5, 0.5]));
+    let now = crate::anim::frame(g);
+    let fps = crate::anim::fps();
+    let mut out = Vec::new();
+    for n in ghosted {
+        let mut shapes: Vec<NodeId> = std::iter::once(n).chain(g.descendants(n)).filter(|&k| g.node(k).is_some_and(|x| x.ty().is_a("mesh"))).collect();
+        shapes.retain(|&k| g.node(k).is_some_and(|x| !x.bool(crate::transform::DagNode::INTERMEDIATE_OBJECT)));
+        if shapes.is_empty() {
+            continue;
+        }
+        let frames = frames_of(g, n, &mode);
+        let (before, after): (Vec<f64>, Vec<f64>) = frames.iter().partition(|&&f| f < now);
+        let fade = |k: usize, count: usize| -> f32 {
+            if count <= 1 { near } else { near + (far - near) * k as f32 / (count - 1) as f32 }
+        };
+        for &f in &frames {
+            let (color, opacity) = if f < now {
+                // Nearest first: the last of `before` is the nearest.
+                let k = before.len() - 1 - before.iter().position(|&x| x == f).unwrap_or(0);
+                (pre_c, fade(k, before.len()))
+            } else {
+                let k = after.iter().position(|&x| x == f).unwrap_or(0);
+                (post_c, fade(k, after.len()))
+            };
+            let taken: Vec<(NodeId, glam::DMat4, Option<std::sync::Arc<aztek_geo::Mesh>>)> = g.at_time(f / fps, |g| {
+                g.evaluate();
+                shapes
+                    .iter()
+                    .map(|&k| {
+                        let node = g.node(k);
+                        (k, node.map(|x| x.data().matrix(crate::transform::DagNode::WORLD_MATRIX)).unwrap_or_default(), node.and_then(|x| x.data().mesh(crate::mesh_nodes::MeshNode::OUT_MESH).cloned()))
+                    })
+                    .collect()
+            });
+            for (shape, world, mesh) in taken {
+                if let Some(mesh) = mesh {
+                    out.push(Ghost { frame: f, shape, world, mesh, color, opacity });
+                }
+            }
+        }
+    }
+    // Back at the current frame.
+    g.evaluate();
+    out
+}
+
 fn ghost_attr(g: &Graph, n: NodeId, name: &str) -> Option<usize> {
     g.node(n)?.ty().attr_index(name)
 }
@@ -249,6 +372,7 @@ fn ghost_frames(s: &mut Session, n: NodeId) -> Vec<f64> {
 fn ghosting(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("resetAll") {
         s.extras.more.ghosting.clear();
+        note_options(s);
         let ghosted: Vec<NodeId> = s.graph.nodes().into_iter().filter(|&n| is_ghosted(&s.graph, n)).collect();
         for n in ghosted {
             if let Some(i) = ghost_attr(&s.graph, n, "ghosting") {
@@ -287,6 +411,7 @@ fn ghosting(s: &mut Session, a: &Args) -> CmdResult {
             s.extras.more.ghosting.insert((*name).to_string(), v);
         }
     }
+    note_options(s);
     if let Some(p) = a.get("preset").and_then(Value::as_str) {
         let step = match p {
             "1s" => Some(1),
@@ -374,7 +499,7 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         q_flags(Cmd::new(
             "ghosting",
-            "Ghosting state: -act ghost, unghost or unghostAll on the selection, the options as defaults, -e to change objects (-ago all ghosted), -q an option, -q -go the ghosted objects, -q -f their ghost frames. Less than the reference: the views draw no ghosts, so -en, the colours, the opacities and -ud are only held.",
+            "Ghosting: -act ghost, unghost or unghostAll on the selection, the options as defaults, -e to change objects (-ago all ghosted), -q an option, -q -go the ghosted objects, -q -f their ghost frames. The views draw each ghosted object's meshes at its ghost frames in the pre and post colours, from the near to the far opacity; -en false hides them. -ud is only held.",
             ghosting,
         ))
         .positional("objects (the selection when none)")

@@ -1620,6 +1620,7 @@ impl Viewport {
         }
         crate::usd_view::draw(gpu, r, s, vp, view);
         self.draw_image_planes(gpu, r, s);
+        self.draw_ghosts(gpu, r, s);
         self.draw_poly_display(gpu, r, s, items);
         self.draw_rig(gpu, r, s, scale);
         self.draw_strands(gpu, r, s);
@@ -1629,6 +1630,46 @@ impl Viewport {
         self.draw_brush(gpu, r, s);
         self.draw_curve_tool(gpu, r, scale);
         self.draw_tool_overlay(gpu, r, scale);
+    }
+
+    /// Ghosts: each ghosted object's meshes at its ghost frames, see-through in the ghost colours. Worked out again only
+    /// when the scene has changed since.
+    fn draw_ghosts(&mut self, gpu: &mut Gpu, r: &Renderer, s: &mut Session) {
+        thread_local! {
+            /// The scene's version before and after the ghosts were worked out (evaluating at other times moves it), and them.
+            static GHOSTS: std::cell::RefCell<(u64, u64, Vec<aztek_scene::anim_extra::Ghost>)> = const { std::cell::RefCell::new((u64::MAX, u64::MAX, Vec::new())) };
+        }
+        let v = s.graph.version();
+        let fresh = GHOSTS.with(|c| {
+            let c = c.borrow();
+            v == c.0 || v == c.1
+        });
+        if !fresh {
+            let list = aztek_scene::anim_extra::ghosts(&mut s.graph);
+            let after = s.graph.version();
+            GHOSTS.with(|c| *c.borrow_mut() = (v, after, list));
+        }
+        let ghosts = GHOSTS.with(|c| c.borrow().2.clone());
+        if ghosts.is_empty() {
+            return;
+        }
+        let vp = self.view_proj();
+        let view = self.cam.view();
+        r.bind(gpu, Kind::Tint);
+        for gh in &ghosts {
+            let rm = build_render_mesh(&gh.mesh, &RenderMeshOptions { max_uv_sets: 0, ..Default::default() });
+            if rm.indices.is_empty() {
+                continue;
+            }
+            let verts: Vec<ShadedVertex> = rm.positions.iter().zip(&rm.normals).map(|(p, n)| ShadedVertex { pos: p.to_array(), nrm: n.to_array() }).collect();
+            let vb = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &verts);
+            let ib = gpu.buffer_with(vk::BufferUsageFlags::INDEX_BUFFER, &rm.indices);
+            let c = gh.color;
+            r.push(gpu, &push(vp * gh.world, gh.world, view, [c[0], c[1], c[2], gh.opacity], 0.0, 1.0));
+            r.draw(gpu, &vb, Some((&ib, rm.indices.len() as u32)), 0);
+            gpu.drop_buffer(vb);
+            gpu.drop_buffer(ib);
+        }
     }
 
     /// Hair and fur: each strand a ribbon turned to the eye, at least a pixel wide, tapering as its radius does, lit as

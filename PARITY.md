@@ -2764,3 +2764,16 @@ turn alone, and the drag is one undo step. Shift keeps the handle's direction, s
 changes; that Shift does this in the reference was not checked. Checked under Xvfb with a pointer driven by xdotool:
 a locked spline key at its peak dragged to 84.8 degrees both sides, one undo back to 0, then broken and only the in
 side changed (`docs/graph-editor-tangents.png`). A weighted curve's handle length was not checked that way.
+
+### Ghosts drawn (16/11/2026)
+
+PLAN 3.4. The views draw each ghosted object's meshes (its own and those below it) as they are at its ghost frames:
+see-through, in the ghosting options' pre colour before the current frame and post colour after, the nearest at the
+near opacity fading to the far opacity at the farthest. The frames are the object's own `ghostPreSteps`,
+`ghostPostSteps` and `ghostStepSize` with the option's mode (pre and post, pre, post, keyframes, custom frames).
+`ghosting -en false` hides them all. Visualize > Ghost Selected, Unghost Selected and Unghost All were there; now
+they show. Ghosts are worked out again only when the scene changes. Checked under Xvfb (`docs/ghosts.png`).
+Not done: joints, locators and curves as ghosts (meshes only), ghosts of a driver object (`-useDriver`), the
+reference's per-object ghost colours (`ghostColorPre` and the like, which these nodes don't have yet), the
+Ghosting Editor window. The reference's ghost colours and opacities by default were not checked; the defaults here
+are blue before, red after, 0.5 to 0.1.

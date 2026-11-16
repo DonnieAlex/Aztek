@@ -143,7 +143,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 - [x] 3.2 (16/11/2026: curves; surfaces' edit points, isoparms and surface points are scripts only) Curve Edit Point and Curve Point modes; `curve1.ep[]` and `.u[]` picked in the view.
 - [x] 3.3 (16/11/2026: weighted lengths go through keyTangent and were not checked by hand) Graph Editor tangent handles drag (break and unify, weighted lengths, Shift to constrain), with one undo
   step per drag. Handles are drawn today and do nothing.
-- [ ] 3.4 Ghosts drawn: `ghosting` settings, the Animation menu items, colours and opacities, steps before and after,
+- [~] 3.4 (16/11/2026: meshes drawn at their ghost frames with the options' colours and opacities; joints, locators, curves, drivers and the Ghosting Editor not yet) Ghosts drawn: `ghosting` settings, the Animation menu items, colours and opacities, steps before and after,
   keyframe ghosts.
 - [ ] 3.5 Gimbal rotate draws the gimbal axes; rotate and scale step snap absolute as well as relative; Universal
   Manipulator.
