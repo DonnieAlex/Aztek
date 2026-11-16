@@ -74,6 +74,20 @@ pub const BUILTINS: &[Builtin] = &[
         more: none,
     },
     Builtin {
+        name: "AbcExport",
+        doc: "Alembic export, as the reference's AbcExport plug-in: AbcExport -j with its job strings, writing Ogawa files.",
+        commands: &["AbcExport"],
+        register: |s| aztek_scene::alembic::register_export(&mut s.commands),
+        more: none,
+    },
+    Builtin {
+        name: "AbcImport",
+        doc: "Alembic import, as the reference's AbcImport plug-in: AbcImport and the AlembicNode that streams an animated file.",
+        commands: &["AbcImport"],
+        register: |s| aztek_scene::alembic::register_import(&mut s.commands),
+        more: none,
+    },
+    Builtin {
         name: "xjenToolkit",
         doc: "XJEN hair, as the reference's xgenToolkit: Interactive Groom descriptions (xgmSplineDescription, xgmSplineBase, xgmModifierScale, xgmModifierSculpt) drawn in the views and rendered by Harold, Generate > Create Interactive Groom Splines (xjenCreateGroom) and xgmSplineQuery.",
         commands: aztek_scene::xjen::cmds::NAMES,

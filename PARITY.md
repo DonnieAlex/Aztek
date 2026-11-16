@@ -2487,6 +2487,32 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
   Step 4 as built.
 - Step 5, 16/11/2026: the Interactive Groom Editor, the XGen shelf, Convert Interactive Groom to Polygons, presets
   (Aztek's JSON for now), Transfer, Select Splines on Selected Faces and Freeze Selected; see docs/XJEN.md.
+- Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
+  the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
+
+### Alembic (16/11/2026)
+
+`AbcExport` and `AbcImport`, the reference's plug-in names, as built-in plug-ins. The format is Aztek's own code
+(`crates/aztek_abc`): Ogawa groups and data, and the Alembic layer over them laid out as the reference's Alembic library
+lays it out (read from its AbcCoreOgawa source: property header bits and size hints, samples keyed by a 16-byte hash,
+array dimensions after each sample, constant properties written once, object headers with their 32 bytes of hashes,
+indexed metadata, time samplings). What it writes is read back by `ogawa-rs` (MIT or Apache 2.0, a test dependency
+only), an independent reader of the reference's files; that reader maps animated samples differently from the
+reference's library, so it checks constant geometry and Aztek's reader checks animation.
+
+- AbcExport `-j` job strings (several allowed): `-file`, `-root` (repeatable; every top-level object when none),
+  `-frameRange`, `-step`, `-uvWrite`, `-worldSpace`; the other flags are accepted and change nothing. Transforms as one
+  matrix operation per sample, meshes as PolyMesh (points every frame, topology and UVs, indexed, from the first;
+  faces wound clockwise as the format has them), XJEN descriptions as linear curves with widths.
+- AbcImport: transforms (any of the format's operations), meshes with UVs, curves. An animated file gets an
+  `AlembicNode` (`abc_File`, `offset`, `speed`, `outPolyMesh[]`, `transOp[]` nine channels a transform) streaming the
+  file into the shapes' inMesh and the transforms' channels as time changes.
+- Generate > Cache: Export Selection to Alembic, Import Alembic, and XJEN's Export Cache and Import Cache.
+- Not yet: normals, colour sets, face sets, user attributes, cameras, NURBS curves and surfaces, visibility, euler
+  filter, the `-mode open/replace` and `-connect` behaviours (import is done in each case), HDF5 archives, gpuCache.
+- Not checked against a file the reference wrote: no such file is in the repo yet. One from the reference
+  (`AbcExport -j "-frameRange 1 10 -uvWrite -root pCube1 -file cube.abc"` on an animated cube) is wanted for
+  `tests/data/reference/`.
 
 ### Tear-off menus and the Outliner at start (16/11/2026)
 

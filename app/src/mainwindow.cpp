@@ -488,6 +488,28 @@ QMenu* MainWindow::generate_menu() {
         QJsonArray sel = ask("ls", QJsonObject{{"selection", true}}).toArray();
         if (sel.size() >= 2) exec("xjenTransfer", QJsonObject{{"args", QJsonArray{sel[0]}}, {"mesh", sel[sel.size() - 1]}});
     })->setToolTip("Select the description, then the mesh");
+    QMenu* cache = m->addMenu("Cache");
+    cache->addAction("Export Cache...", [this] {
+        QString f = QFileDialog::getSaveFileName(this, "Export Cache", "groom.abc", "Alembic (*.abc)");
+        QJsonArray range = QJsonArray{ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}), ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}})};
+        if (!f.isEmpty()) exec("xjenExportCache", QJsonObject{{"file", f}, {"frameRange", range}});
+    })->setEnabled(has_command("xjenExportCache"));
+    cache->addAction("Import Cache...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Cache", QString(), "Alembic (*.abc)");
+        if (!f.isEmpty()) exec("xjenImportCache", QJsonObject{{"file", f}});
+    })->setEnabled(has_command("xjenImportCache"));
+    cache->addSeparator();
+    cache->addAction("Export Selection to Alembic...", [this] {
+        QString f = QFileDialog::getSaveFileName(this, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)");
+        if (f.isEmpty()) return;
+        QString job = QString("-frameRange %1 %2 -uvWrite -worldSpace").arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble()).arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
+        for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
+        exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+    })->setEnabled(has_command("AbcExport"));
+    cache->addAction("Import Alembic...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Alembic", QString(), "Alembic (*.abc)");
+        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+    })->setEnabled(has_command("AbcImport"));
     QMenu* sel = m->addMenu("Select");
     sel->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
     sel->addAction("Freeze Selected Splines", [] { exec("xgmSplineSelect", QJsonObject{{"convertToFreeze", true}}); });

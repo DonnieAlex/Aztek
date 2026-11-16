@@ -5,8 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: steps 1 to 5 are in (strands in Harold and the views; the Interactive Groom core; the grooming
-tools; the modifiers; the editor and the rest of the menu, below); the rest follows. This page is the target
+Status, 16/11/2026: steps 1 to 6 are in (strands in Harold and the views; the Interactive Groom core; the grooming
+tools; the modifiers; the editor and the rest of the menu; Alembic and caches, below); steps 7 and 8 follow. This page is the target
 and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
@@ -219,5 +219,17 @@ round trips, and screenshots.
   layers, placed and removed splines; guide and wire curves are not kept. The reference's preset format is to be
   read from the capture before presets are made compatible.
 - `xjenGroomInfo` (what the editor reads) and `xjenRemoveModifier` (joins the stack across a removed modifier).
+
+## Step 6 as built (16/11/2026)
+
+- Alembic: see PARITY.md, Alembic. Descriptions export as linear curves with a width per point.
+- Generate > Cache > Export Cache (`xjenExportCache -file -frameRange`, the description in world space) and Import
+  Cache (`xjenImportCache -file`: a Spline Cache modifier at the top of the stack). `xgmModifierSplineCache`: Cache
+  File, Object Path, Offset; each spline takes the cached curve of its order at the scene's time, blended by Magnitude.
+- Noise Baked: `xjenBakeModifier noise1 -file -frameRange` writes the modifier's output and sets Mode to Baked, which
+  plays the file; Live again on Mode 0.
+- Curve to Spline: Cache File reads its curves from an Alembic file instead of connected curves.
+- The reference's cache layout for descriptions (what XGen writes under a description in Alembic) is to be read from
+  a file the reference wrote; until then Aztek's caches play in Aztek.
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.

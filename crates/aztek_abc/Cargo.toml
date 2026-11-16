@@ -1,0 +1,10 @@
+[package]
+name = "aztek_abc"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+ogawa-rs = "0.4.0"

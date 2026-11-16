@@ -19,8 +19,64 @@ pub const TYPES: &[(&str, &str)] = &[
     ("xgmModifierDisplace", "Moves splines along their root normals, more toward the tip."),
     ("xgmModifierGuide", "Shapes splines after the curves connected to it, each spline following its nearest guides."),
     ("xgmModifierLinearWire", "Bends splines near each wire curve by how the wire has moved from its reference state."),
-    ("xgmCurveToSpline", "Turns the curves connected to it into splines, rooted on the bound mesh, added to those coming in."),
+    ("xgmCurveToSpline", "Turns the curves connected to it, or those of an Alembic cache, into splines, rooted on the bound mesh, added to those coming in."),
+    ("xgmModifierSplineCache", "Plays splines back from an Alembic cache: each spline takes the cached curve of its order at the scene's time."),
 ];
+
+/// Curves of an Alembic file at a time: every curves object's (or the one at the path given), in order; each curve's
+/// points.
+pub fn cached_curves(file: &str, object: &str, seconds: f64) -> Vec<Vec<DVec3>> {
+    let Ok(a) = crate::alembic::archive(file) else { return Vec::new() };
+    fn all<'a>(o: &'a aztek_abc::Object, out: &mut Vec<&'a aztek_abc::Object>) {
+        if aztek_abc::geom::schema(o).as_deref() == Some(aztek_abc::geom::CURVES) {
+            out.push(o);
+        }
+        for c in &o.children {
+            all(c, out);
+        }
+    }
+    let mut objs = Vec::new();
+    match crate::alembic::find(&a.top, object).filter(|_| !object.is_empty()) {
+        Some(o) => all(o, &mut objs),
+        None => all(&a.top, &mut objs),
+    }
+    let mut out = Vec::new();
+    for o in objs {
+        let Some(c) = aztek_abc::geom::read_curves(o) else { continue };
+        let k = crate::alembic::sample_at(&a, aztek_abc::geom::sampling_of(o), c.points.len(), seconds);
+        let pts = &c.points[k];
+        let mut at = 0usize;
+        for &n in &c.counts {
+            let n = n.max(0) as usize;
+            out.push(pts[at.min(pts.len())..(at + n).min(pts.len())].iter().map(|p| DVec3::new(p[0] as f64, p[1] as f64, p[2] as f64)).collect());
+            at += n;
+        }
+    }
+    out
+}
+
+/// Splines take the cached curves, in order, blended in by magnitude.
+fn take_cached(s: &mut SplineData, cached: &[Vec<DVec3>], m: f64) {
+    for (sp, c) in s.splines.iter_mut().zip(cached) {
+        if c.len() < 2 {
+            continue;
+        }
+        let r = if c.len() == sp.points.len() { c.clone() } else { resample(c, sp.points.len()) };
+        for (p, q) in sp.points.iter_mut().zip(r) {
+            *p = p.lerp(q, m.clamp(0.0, 1.0));
+        }
+    }
+}
+
+fn spline_cache(d: &mut NodeData, s: &mut SplineData, m: f64, t: f64) {
+    let file = d.value(at(d, "cacheFile")).as_str().to_string();
+    if file.is_empty() {
+        return;
+    }
+    let obj = d.value(at(d, "objectPath")).as_str().to_string();
+    let cached = cached_curves(&file, &obj, t - getf(d, "offset"));
+    take_cached(s, &cached, m);
+}
 
 fn n_of(p: &[DVec3]) -> f64 {
     (p.len().max(2) - 1) as f64
@@ -83,7 +139,7 @@ fn value_noise(p: DVec3, seed: u64) -> f64 {
     v
 }
 
-fn clump(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn clump(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     let amount = getf(d, "clump") * m;
     let (variance, density, seed) = (getf(d, "clumpVariance"), getf(d, "density"), geti(d, "seed").max(0) as u64);
     let (curl, keep) = (getf(d, "curl"), getb(d, "preserveLength"));
@@ -123,7 +179,16 @@ fn clump(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn noise(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn noise(d: &mut NodeData, s: &mut SplineData, m: f64, t: f64) {
+    // Baked: the cache written by xjenBakeModifier stands in for the live noise.
+    if geti(d, "mode") == 1 {
+        let file = d.value(at(d, "cacheFile")).as_str().to_string();
+        if !file.is_empty() {
+            let cached = cached_curves(&file, "", t);
+            take_cached(s, &cached, 1.0);
+            return;
+        }
+    }
     let (freq, amp, corr, keep, seed) = (getf(d, "frequency"), getf(d, "noiseMagnitude"), getf(d, "correlation"), getb(d, "preserveLength"), geti(d, "seed").max(0) as u64);
     for sp in &mut s.splines {
         let lens = segments(&sp.points);
@@ -143,7 +208,7 @@ fn noise(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn cut(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn cut(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     let (amount, random, seed) = (getf(d, "amount"), getf(d, "randomness"), geti(d, "seed").max(0) as u64);
     for sp in &mut s.splines {
         let r = super::hash01(sp.id ^ seed.wrapping_mul(0xC07));
@@ -156,7 +221,7 @@ fn cut(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn collide(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn collide(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     if m <= 0.0 {
         return;
     }
@@ -189,7 +254,7 @@ fn collide(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn displace(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn displace(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     let amount = getf(d, "displacement") * m;
     for sp in &mut s.splines {
         let n = n_of(&sp.points);
@@ -209,7 +274,7 @@ fn curves_in(d: &NodeData, attr: &str) -> Vec<(i32, Vec<DVec3>)> {
         .collect()
 }
 
-fn guide(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn guide(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     let blend = getf(d, "blend").clamp(0.0, 1.0) * m;
     let guides = curves_in(d, "guideCurves");
     if guides.is_empty() || blend == 0.0 {
@@ -238,7 +303,7 @@ fn guide(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn linear_wire(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn linear_wire(d: &mut NodeData, s: &mut SplineData, m: f64, _t: f64) {
     let wires = curves_in(d, "wireCurves");
     let rests = curves_in(d, "referenceWires");
     let smooth = getf(d, "smoothness").max(1e-6);
@@ -276,11 +341,12 @@ fn linear_wire(d: &mut NodeData, s: &mut SplineData, m: f64) {
     }
 }
 
-fn curve_to_spline(d: &mut NodeData, s: &mut SplineData, m: f64) {
+fn curve_to_spline(d: &mut NodeData, s: &mut SplineData, m: f64, t: f64) {
     if m <= 0.0 {
         return;
     }
-    let curves = curves_in(d, "inputCurves");
+    let file = d.value(at(d, "cacheFile")).as_str().to_string();
+    let curves: Vec<(i32, Vec<DVec3>)> = if file.is_empty() { curves_in(d, "inputCurves") } else { cached_curves(&file, "", t).into_iter().enumerate().map(|(k, c)| (k as i32, c)).collect() };
     let mesh = d.mesh(at(d, "boundMesh")).cloned();
     let align = getb(d, "alignToNormal");
     let cv = geti(d, "cvCount").max(0) as usize;
@@ -351,7 +417,8 @@ fn own_attrs(ty: &str) -> Vec<AttrDef> {
             ranged(fl("correlation", "cor", 0.0, "1 moves neighbouring splines alike, 0 each on its own."), 0.0, 1.0),
             b("preserveLength", "pl", true, "Keep each spline's length."),
             i("seed", "sd", 0, "Another noise."),
-            AttrDef { enum_names: vec!["Live".into(), "Baked".into()], ..i("mode", "md", 0, "Live, or Baked to a cache (not yet: Live is used).") },
+            AttrDef { enum_names: vec!["Live".into(), "Baked".into()], ..i("mode", "md", 0, "Live, or Baked: played back from Cache File, written by xjenBakeModifier.") },
+            super::string("cacheFile", "cf", "Baked: the Alembic file the noise was baked to."),
         ],
         "xgmModifierCut" => vec![
             ranged(fl("amount", "amt", 0.2, "The part of each spline's length cut off."), 0.0, 1.0),
@@ -372,12 +439,18 @@ fn own_attrs(ty: &str) -> Vec<AttrDef> {
             AttrDef { name: "boundMesh".into(), short_name: "bm".into(), ty: PlugType::Mesh, default_value: PlugValue::Mesh(None), flags: flags::INPUT | flags::HIDDEN, doc: "The mesh their roots go onto.".into(), ..Default::default() },
             b("alignToNormal", "atn", false, "Turn each curve to leave the surface along its normal."),
             i("cvCount", "cvc", 0, "Points on each spline; 0 matches the splines coming in."),
+            super::string("cacheFile", "cf", "An Alembic file whose curves are used instead of those connected."),
+        ],
+        "xgmModifierSplineCache" => vec![
+            super::string("cacheFile", "cf", "The Alembic file."),
+            super::string("objectPath", "op", "The curves object in it, as /a/b; empty, every curves object in order."),
+            fl("offset", "ofs", 0.0, "Seconds the cache is shifted by."),
         ],
         _ => Vec::new(),
     }
 }
 
-fn compute_for(ty: &str) -> fn(&mut NodeData, &mut SplineData, f64) {
+fn compute_for(ty: &str) -> fn(&mut NodeData, &mut SplineData, f64, f64) {
     match ty {
         "xgmModifierClump" => clump,
         "xgmModifierNoise" => noise,
@@ -386,17 +459,18 @@ fn compute_for(ty: &str) -> fn(&mut NodeData, &mut SplineData, f64) {
         "xgmModifierDisplace" => displace,
         "xgmModifierGuide" => guide,
         "xgmModifierLinearWire" => linear_wire,
+        "xgmModifierSplineCache" => spline_cache,
         _ => curve_to_spline,
     }
 }
 
-struct Modifier(fn(&mut NodeData, &mut SplineData, f64));
+struct Modifier(fn(&mut NodeData, &mut SplineData, f64, f64));
 
 impl crate::node::NodeBehavior for Modifier {
-    fn compute(&mut self, _ctx: &crate::node::EvalContext, d: &mut NodeData) {
+    fn compute(&mut self, ctx: &crate::node::EvalContext, d: &mut NodeData) {
         let Some((mut s, _)) = super::modifier_input(d) else { return };
         let m = mag(d);
-        (self.0)(d, &mut s, m);
+        (self.0)(d, &mut s, m, ctx.time);
         d.set_output(at(d, "outSplineData"), data_value(s));
     }
     fn as_any(&self) -> &dyn std::any::Any {
@@ -412,6 +486,7 @@ pub fn register_types() {
         types::register_type(NodeType {
             name: ty.into(),
             icon: "grain".into(),
+            time_dependent: matches!(ty, "xgmModifierNoise" | "xgmCurveToSpline" | "xgmModifierSplineCache"),
             doc: format!("Interactive Groom modifier. {doc}"),
             own_attrs: attrs,
             create: Some(Arc::new(move || Box::new(Modifier(f)))),

@@ -13,6 +13,7 @@ aztek_geo = { path = "../aztek_geo" }
 aztek_uv = { path = "../aztek_uv" }
 aztek_render = { path = "../aztek_render" }
 aztek_dyn = { path = "../aztek_dyn" }
+aztek_abc = { path = "../aztek_abc" }
 glam.workspace = true
 serde_json.workspace = true
 rayon.workspace = true

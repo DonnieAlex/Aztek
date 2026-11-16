@@ -161,7 +161,10 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 - [~] 4.1 (12/11/2026: the `fbx` plug-in reads and writes meshes, materials and textures, joints, skins and the `FBX*` settings; not animation, blend shapes, cameras, lights or ASCII) FBX import and export: meshes with normals, UVs, colours and materials, skeletons, skin weights,
   blendShapes, cameras, lights, animation, binary and ASCII, `FBXExport` and `FBXImport` with the common `FBX*`
   option commands. Pick a reader and writer whose licence fits MIT-0; write down the choice in PARITY.md.
-- [ ] 4.2 Alembic: `AbcExport` and `AbcImport` with their `-j` job strings (frame range, step, roots, uv, normals,
+- [~] 4.2 (16/11/2026: Ogawa archives written and read by Aztek's own `aztek_abc`; AbcExport with -file, -root,
+  -frameRange, -step, -uvWrite, -worldSpace for transforms, meshes and XJEN descriptions; AbcImport of transforms,
+  meshes and curves, an AlembicNode streaming animated ones; not normals, attributes, cameras, NURBS, face sets or HDF5)
+  Alembic: `AbcExport` and `AbcImport` with their `-j` job strings (frame range, step, roots, uv, normals,
   world space, attributes, euler filter), Ogawa archives, an `AlembicNode` that streams a cache into a shape.
 - [x] 4.3 (09/11/2026, and written since 14/11/2026) `.mb` read (ticket, low priority): at least geometry, transforms, animation and skin.
 - [ ] 4.4 `.ma` against real files: run every capture from 0.1 through `load_ma` and fix what differs; check the parts
@@ -251,7 +254,7 @@ Three states:
 | fbxmaya | FBX import and export | `fbx` | plug-in (compiled in; skins, textures and the `FBX*` settings; no animation, blend shapes, cameras or lights) |
 | (no counterpart) | glTF import and export | `gltf` | plug-in (compiled in) |
 | objExport | OBJ import and export | `objExport` | plug-in (14/11/2026) |
-| AbcExport, AbcImport, gpuCache | Alembic | | none |
+| AbcExport, AbcImport, gpuCache | Alembic | `AbcExport`, `AbcImport` (16/11/2026) | gpuCache |
 | mayaUsdPlugin | USD | `mayaUsdPlugin` | plug-in (14/11/2026; its wrappers round `file`, `select`, `ls`, `move`, `rotate`, `scale` stay until restart) |
 | OpenEXRLoader, tiffFloatReader | image readers | image loading | core |
 | svgFileTranslator | SVG import | | none |

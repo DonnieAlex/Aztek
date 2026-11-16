@@ -9,7 +9,7 @@ use crate::plug::{NodeId, PlugValue, NO_NODE};
 use crate::session::Session;
 
 /// The commands this file registers.
-pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect", "xjenAddModifier", "xjenGroomInfo", "xjenConvertToPolygons", "xjenPreset", "xjenTransfer", "xjenRemoveModifier"];
+pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect", "xjenAddModifier", "xjenGroomInfo", "xjenConvertToPolygons", "xjenPreset", "xjenTransfer", "xjenRemoveModifier", "xjenExportCache", "xjenImportCache", "xjenBakeModifier"];
 
 /// The description a name means: its shape, from the shape or its transform.
 pub fn description(s: &Session, n: &str) -> Option<NodeId> {
@@ -160,6 +160,7 @@ pub(super) const MODIFIER_NAMES: &[(&str, &str)] = &[
     ("curveToSpline", "xgmCurveToSpline"),
     ("scale", "xgmModifierScale"),
     ("sculpt", "xgmModifierSculpt"),
+    ("splineCache", "xgmModifierSplineCache"),
 ];
 
 /// Curves made from some of a description's splines, as guides or wires: every spline whose id hashes below the
@@ -187,9 +188,95 @@ fn shape_of_curve(s: &mut Session, name: &str) -> Option<String> {
     s.graph.children(id).iter().copied().find(|&k| s.graph.node(k).is_some_and(|n| n.ty().is_a(crate::curves::SHAPE_TYPE))).map(|k| s.graph.path(k))
 }
 
+fn frame_range(s: &Session, a: &aztek_ops::Args) -> (f64, f64) {
+    let f = crate::anim::frame(&s.graph);
+    match a.get("frameRange").and_then(Value::as_array) {
+        Some(v) if v.len() == 2 => (v[0].as_f64().unwrap_or(f), v[1].as_f64().unwrap_or(f)),
+        _ => (f, f),
+    }
+}
+
 pub fn register(c: &mut Commands<Session>) {
     use super::groom;
     super::extra::register(c);
+    c.register(
+        CommandDef::<Session>::new(
+            "xjenExportCache",
+            "Cache > Export Cache: the description named (or selected), as Alembic curves with widths, over -frameRange.",
+            |s, a| {
+                let Some(&d) = named_descriptions(s, &a).first() else { fail!("xjenExportCache: name or select a description") };
+                let Some(file) = a.get("file").and_then(Value::as_str).map(str::to_string) else { fail!("xjenExportCache: give -file") };
+                let (f0, f1) = frame_range(s, &a);
+                let tr = s.graph.path(s.graph.parent(d));
+                let job = crate::alembic::Job { file: file.clone(), roots: vec![tr], start: f0, end: f1, step: 1.0, uv: false, world_space: true };
+                crate::alembic::export(s, &job)?;
+                Ok(json!(file))
+            },
+        )
+        .positional("description")
+        .flag(FlagDef::new("file", "f", ArgType::String, Value::Null, "The Alembic file to write."))
+        .flag(FlagDef::new("frameRange", "fr", ArgType::List, Value::Null, "First and last frame; the current frame by default."))
+        .undoable(false),
+    );
+    c.register(
+        CommandDef::<Session>::new(
+            "xjenImportCache",
+            "Cache > Import Cache: a Spline Cache modifier at the top of the description's stack, playing the file's curves.",
+            |s, a| {
+                let Some(&d) = named_descriptions(s, &a).first() else { fail!("xjenImportCache: name or select a description") };
+                let Some(file) = a.get("file").and_then(Value::as_str).map(str::to_string) else { fail!("xjenImportCache: give -file") };
+                let tr = s.graph.path(s.graph.parent(d));
+                let node = s.run("xjenAddModifier", json!({"args": [tr], "type": "splineCache"}))?;
+                let node = node.as_str().unwrap_or_default().to_string();
+                s.run("setAttr", json!({"args": [format!("{node}.cacheFile"), file], "type": "string"}))?;
+                Ok(json!(node))
+            },
+        )
+        .positional("description")
+        .flag(FlagDef::new("file", "f", ArgType::String, Value::Null, "The Alembic file to play.")),
+    );
+    c.register(
+        CommandDef::<Session>::new(
+            "xjenBakeModifier",
+            "Bakes a Noise modifier: its output over -frameRange written to -file as Alembic curves, and the modifier set to \
+             Baked, playing that file.",
+            |s, a| {
+                let names = a.named();
+                let Some(n) = names.first() else { fail!("xjenBakeModifier: name a modifier") };
+                let id = s.graph.find(n)?.ok_or_else(|| aztek_ops::CommandError::new(format!("xjenBakeModifier: no {n}")))?;
+                let Some(file) = a.get("file").and_then(Value::as_str).map(str::to_string) else { fail!("xjenBakeModifier: give -file") };
+                let (f0, f1) = frame_range(s, &a);
+                let out = crate::harold::network::attr(&s.graph, id, "outSplineData").ok_or_else(|| aztek_ops::CommandError::new("xjenBakeModifier: not a modifier"))?;
+                let was = crate::anim::frame(&s.graph);
+                let (mut pts, mut counts) = (Vec::new(), Vec::new());
+                let mut f = f0;
+                while f <= f1 + 1e-6 {
+                    crate::anim::set_frame(&mut s.graph, f);
+                    let v = s.graph.value(&out)?;
+                    let d = super::spline_data(&v).cloned().unwrap_or_default();
+                    if counts.is_empty() {
+                        counts = d.splines.iter().map(|x| x.points.len() as i32).collect();
+                    }
+                    pts.push(d.splines.iter().flat_map(|x| x.points.iter().map(|p| p.as_vec3().to_array())).collect::<Vec<_>>());
+                    f += 1.0;
+                }
+                crate::anim::set_frame(&mut s.graph, was);
+                let fps = crate::anim::fps();
+                let mut arc = aztek_abc::Archive::default();
+                arc.meta = "_ai_Application=Aztek".into();
+                arc.samplings.push(aztek_abc::TimeSampling::Uniform { start: f0 / fps, step: 1.0 / fps });
+                arc.top.children.push(aztek_abc::geom::curves("bake", 1, &pts, &[], &counts, false));
+                std::fs::write(&file, aztek_abc::write(&arc)).map_err(|e| aztek_ops::CommandError::new(format!("xjenBakeModifier: {file}: {e}")))?;
+                let p = s.graph.path(id);
+                s.run("setAttr", json!({"args": [format!("{p}.cacheFile"), file.clone()], "type": "string"}))?;
+                s.run("setAttr", json!({"args": [format!("{p}.mode"), 1]}))?;
+                Ok(json!(file))
+            },
+        )
+        .positional("modifier")
+        .flag(FlagDef::new("file", "f", ArgType::String, Value::Null, "The Alembic file to write."))
+        .flag(FlagDef::new("frameRange", "fr", ArgType::List, Value::Null, "First and last frame; the current frame by default.")),
+    );
     c.register(
         CommandDef::<Session>::new(
             "xjenAddModifier",
@@ -274,7 +361,7 @@ pub fn register(c: &mut Commands<Session>) {
             },
         )
         .positional("description")
-        .flag(FlagDef::new("type", "typ", ArgType::String, Value::Null, "The modifier.").choices(&["clump", "noise", "cut", "collide", "displace", "guide", "linearWire", "curveToSpline", "scale", "sculpt"]))
+        .flag(FlagDef::new("type", "typ", ArgType::String, Value::Null, "The modifier.").choices(&["clump", "noise", "cut", "collide", "displace", "guide", "linearWire", "curveToSpline", "scale", "sculpt", "splineCache"]))
         .flag(FlagDef::new("after", "aft", ArgType::String, Value::Null, "A node of the stack to put it just above."))
         .flag(FlagDef::new("curves", "crv", ArgType::List, Value::Null, "Guide, Linear Wire, Curve to Spline: the curves."))
         .flag(FlagDef::new("fraction", "fr", ArgType::Float, Value::Null, "Guide, Linear Wire with no curves: the part of the splines made into curves; 0.1 by default.").min(0.0).max(1.0))
