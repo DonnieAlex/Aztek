@@ -23,6 +23,9 @@ namespace az {
 // The logo on a dark panel with the version: the splash screen and the About box.
 QPixmap splash_pixmap();
 void show_about(QWidget* parent);
+// Windows > Relationship Editors, opened on one kind: displayLayers, sets, deformerSets, shadingGroups, characters,
+// lightCentric or objectCentric.
+void show_relationship_editor(QWidget* parent, const QString& kind);
 
 
 // A command's settings, built from its flags and remembered between sessions.

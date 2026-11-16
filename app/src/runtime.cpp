@@ -469,7 +469,7 @@ void MainWindow::build_runtime() {
     held_key("NudgeKeysKey", "nudgeKeys");
 
     // Names the reference's hotkey files, shelves and marking menus use (PLAN 2.1), each doing what its menu item does.
-    auto add_if = [this](const char* name, const char* cat, const char* ann, const char* code) {
+    auto add_if = [this](const char* name, const char* cat, const char* ann, const QString& code) {
         if (runtime_.contains(name)) return;
         QString c = code;
         add_runtime(name, cat, ann, [c] { mel(c); });
@@ -517,6 +517,18 @@ void MainWindow::build_runtime() {
            " if (`filetest -r $f`) { string $new[] = `file -import -type \"mayaAscii\" -renameAll true"
            " -renamingPrefix \"pasted_\" -returnNewNodes $f`; string $top[] = `ls -assemblies $new`;"
            " if (size($top)) select -r $top; }");
+    // UV > Split: each face round the selected UVs (or the UVs at the selected vertices) gets its own.
+    add_if("SplitUV", "Polygon UVs", "Split UVs", "polyForceUV -unshare `polyListComponentConversion -tuv`;");
+    // Deform > Edit > Wrap and Wire: the deformed object first, the influence or curve last.
+    auto on_deformer = [](const char* type, const char* what, const char* edit) {
+        return QString("{ string $s[] = `ls -sl -o`; if (size($s) < 2) error \"Select the deformed object, then the %2\";"
+                       " string $d[] = `ls -type %1 (listHistory($s[0]))`; if (!size($d)) error (\"No %1 on \" + $s[0]);"
+                       " %1 -e %3 $s[size($s) - 1] $d[0]; }")
+            .arg(type, what, edit);
+    };
+    add_if("AddWrapInfluence", "Deform", "Add the last selected mesh as an influence of the first one's wrap", on_deformer("wrap", "influence", "-inf"));
+    add_if("RemoveWrapInfluence", "Deform", "Remove the last selected influence from the first one's wrap", on_deformer("wrap", "influence", "-ri"));
+    add_if("AddWire", "Deform", "Add the last selected curve to the first one's wire", on_deformer("wire", "curve", "-w"));
     add_if("ToggleNurbsInView", "Display", "NURBS shown or not in the view under the pointer",
            "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -nurbsSurfaces $p`; modelEditor -e -nurbsSurfaces $on -nurbsCurves $on $p; }");
     add_if("TogglePolygonsInView", "Display", "Polygons shown or not in the view under the pointer",

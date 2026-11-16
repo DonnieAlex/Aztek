@@ -555,6 +555,7 @@ QMenu* MainWindow::uv_menu() {
     menu_title(m, "Cut and Sew");
     cmd(m, "Auto Seams", "u3dAutoSeam", {}, QString(), true);
     cmd(m, "Cut UV Edges", "polyMapCut");
+    m->addAction("Split", [] { mel_action("SplitUV;"); });
     cmd(m, "Sew UV Edges", "polyMapSew");
     cmd(m, "Move and Sew", "polyMapSewMove");
     cmd(m, "Merge UVs", "polyMergeUV", {}, QString(), true);
@@ -629,6 +630,11 @@ QMenu* MainWindow::deform_menu() {
     QMenu* edit_lattice = m->addMenu("Lattice");
     cmd(edit_lattice, "Remove Lattice Tweaks", "lattice", QJsonObject{{"edit", true}, {"removeTweaks", true}});
     cmd(edit_lattice, "Reset Lattice", "lattice", QJsonObject{{"edit", true}, {"latticeReset", true}});
+    QMenu* edit_wrap = m->addMenu("Wrap");
+    edit_wrap->addAction("Add Influence", [] { mel_action("AddWrapInfluence;"); });
+    edit_wrap->addAction("Remove Influence", [] { mel_action("RemoveWrapInfluence;"); });
+    QMenu* edit_wire = m->addMenu("Wire");
+    edit_wire->addAction("Add Wire", [] { mel_action("AddWire;"); });
     menu_title(m, "Membership");
     m->addAction("Edit Membership Tool", [this] { set_tool("editMembership"); show_tool_settings(); });
     menu_title(m, "Intermediate Objects");

@@ -875,6 +875,7 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     bar->addAction("Unfold", [this] { run("u3dUnfold"); });
     bar->addAction("Layout", [this] { run("u3dLayout"); });
     bar->addAction("Cut", [this] { run("polyMapCut"); });
+    bar->addAction("Split", [] { mel_action("SplitUV;"); });
     bar->addAction("Sew", [this] { run("polyMapSew"); });
     bar->addAction("Move and Sew", [this] { run("polyMapSewMove"); });
     bar->addSeparator();

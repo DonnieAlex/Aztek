@@ -129,14 +129,23 @@ pub(super) fn register(c: &mut Commands<Session>) {
     ));
     c.register(ref_cmd(
         "polyForceUV",
-        "Change UVs in place: -fh -fv flip about their middle, -uni gives each face all of 0 to 1, -nor \"transform\" or \"unitize\" fits them. Returns the node.",
+        "Change UVs in place: -u gives each face round the UVs its own (UV > Split), -fh -fv flip about their middle, -uni gives each face all of 0 to 1, -nor \"transform\" or \"unitize\" fits them. Returns the node.",
         &[],
         |s, a| {
             let (fh, fv) = (a.bool("flipHorizontal"), a.bool("flipVertical"));
             let unitize = a.bool("unitize") || a.string("normalize", "") == "unitize";
             let fit = a.string("normalize", "") == "transform";
+            let unshare = a.bool("unshare");
             uv_ops::each(s, a, "polyForceUV", "Force UVs", "polyForceUV", move |m, target, tp| {
                 let corners = corners_of(m, target, tp);
+                if unshare {
+                    // Each face round the UVs gets its own: the face edges at their corners are cut.
+                    let mut edges: Vec<Index> = corners.iter().flat_map(|&k| [m.corner_edge(k), m.corner_edge(m.corner_prev(k))]).collect();
+                    edges.sort_unstable();
+                    edges.dedup();
+                    uv_ops::cut(m, &edges);
+                    return;
+                }
                 let name = names::uv(0);
                 if unitize {
                     let faces = uv_ops::target_faces(m, target, tp);

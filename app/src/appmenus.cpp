@@ -1004,6 +1004,15 @@ QMenu* MainWindow::windows_menu() {
     rig_ed->addAction("Node Editor", this, &MainWindow::show_node_editor);
     rig_ed->addAction("Set Driven Key", this, &MainWindow::show_set_driven_key);
     rig_ed->addAction("Paint Skin Weights", [this] { set_tool("paintSkin"); show_tool_settings(); });
+    QMenu* rel = m->addMenu("Relationship Editors");
+    for (auto [label, kind] : {std::pair{"Character Sets", "characters"}, {"Deformer Sets", "deformerSets"}, {"Display Layers", "displayLayers"},
+                               {"Sets", "sets"}, {"Shading Groups", "shadingGroups"}}) {
+        QString k = kind;
+        rel->addAction(label, [this, k] { show_relationship_editor(this, k); });
+    }
+    QMenu* ll = rel->addMenu("Light Linking");
+    ll->addAction("Light Centric", [this] { show_relationship_editor(this, "lightCentric"); });
+    ll->addAction("Object Centric", [this] { show_relationship_editor(this, "objectCentric"); });
     m->addAction("Outliner", [this] { outliner_dock_->show(); outliner_dock_->raise(); });
     m->addSeparator();
     QMenu* layouts = m->addMenu("View Arrangement");

@@ -388,6 +388,17 @@ pub fn register(c: &mut Commands<Session>) {
              takes them out of any layer. Returns the layer's members.",
             |s, a| {
                 let layer_name = first_positional(a, "editDisplayLayerMembers", "name the layer first")?;
+                if a.bool("query") {
+                    if layer_name == DEFAULT_LAYER {
+                        return Ok(json!([]));
+                    }
+                    let layer = layer_arg(&s.graph, &layer_name, "editDisplayLayerMembers")?;
+                    let ids = members(&s.graph, layer);
+                    if crate::anim::queried(a, &["fullNames"]) {
+                        return Ok(json!(ids.iter().map(|&id| s.graph.full_path(id)).collect::<Vec<_>>()));
+                    }
+                    return Ok(names_of(&s.graph, &ids));
+                }
                 let mut rest = a.clone();
                 rest.positional.remove(0);
                 let ids = object_ids(&s.graph, &objects(s, &rest), "editDisplayLayerMembers")?;
@@ -400,7 +411,10 @@ pub fn register(c: &mut Commands<Session>) {
                 Ok(names_of(&s.graph, &members(&s.graph, layer)))
             },
         )
-        .positional("layer, objects"),
+        .positional("layer, objects")
+        .flag(flag("query", "q", T::Bool, json!(false), "List the layer's members."))
+        .flag(flag("fullNames", "fn", T::Bool, json!(false), "Query: full DAG paths."))
+        .flag(flag("noRecurse", "nr", T::Bool, json!(false), "Accepted: members are listed, not their children.")),
     );
 
     c.register(

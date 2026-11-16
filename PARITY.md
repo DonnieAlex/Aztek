@@ -2808,3 +2808,24 @@ takes the axes of the vertex (Z its normal), edge (X along it, Z its faces' norm
 edge) it lands on, through `setPivot -orientToSurface`, as the Move tool's Normal orientation lays them out. The
 checkbox was there and did nothing. Not done: Snap Pivot Position lands on vertices only (edges and faces not yet), and
 which of the pivot's axes the reference puts along a normal was not checked.
+
+### Relationship Editors, Split UVs, Wrap and Wire edits (16/11/2026)
+
+PLAN 3.12, part. Windows > Relationship Editors opens one window for Character Sets, Deformer Sets, Display Layers,
+Sets, Shading Groups and Light Linking (Light Centric and Object Centric), switched from a list at its top: the
+containers on the left, the objects (or lights) on the right with the left one's members highlighted; clicking an
+object puts it in or takes it out, through `editDisplayLayerMembers`, `sets -add`/`-rm`/`-fe`, `character -add`/`-rm`
+and `lightlink -make`/`-b`, so each change is one undo step and echoed. A shape or component member highlights its
+transform. `editDisplayLayerMembers -q` (with `-fn`) lists a layer's members; it returned nothing. The reference's
+editors also have per-kind menus (creating a layer or set from the window, filters, the outliner's hierarchy); these
+don't, and the right side is flat, indented by depth. Screenshot: docs/relationship-editor.png.
+
+UV > Split and the UV Editor's Split (`SplitUV`, running `polyForceUV -unshare` on the selected UVs, or the UVs at
+selected vertices) give each face round those UVs its own. It differs from the reference: Aztek's UVs are shared
+along whole edges, so the edges at the UV are cut and their far ends split too where they reach a border (the middle
+of a 2 by 2 plane gives 16 UVs; the reference's leaves the border ones shared, 12).
+
+Deform > Edit > Wrap > Add Influence and Remove Influence (`AddWrapInfluence`, `RemoveWrapInfluence`) and Wire > Add
+Wire (`AddWire`): the deformed object first, the influence or curve last, through `wrap -e -inf`/`-ri` and `wire -e
+-w`. Not done: Wire's other edits (remove, holders, dropoff locators) and Blend Shape's Edit submenu (the Shape Editor
+adds targets).
