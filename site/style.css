@@ -140,6 +140,11 @@ h1 { font: 700 clamp(34px, 5vw, 58px)/1.02 "Barlow Condensed", sans-serif; margi
 .btn.kofi.big { font-size: 21px; padding: 13px 24px; box-shadow: 0 4px 14px rgba(255, 94, 91, 0.45); }
 .hero-kofi { margin: 22px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
 .hero-kofi span { color: #d2deeb; font-size: 16px; }
+.btn.discord { background: linear-gradient(#6c78f7, #5865f2); border-color: #3f4ad1; color: #ffffff; }
+.btn.discord:hover { background: linear-gradient(#7f8af8, #6570f3); }
+.btn.discord.big { font-size: 21px; padding: 13px 24px; }
+.top nav a.nav-discord { background: #5865f2; color: #ffffff; padding: 4px 10px; border-radius: 3px; }
+.top nav a.nav-discord:hover { background: #6c78f7; }
 .top nav a.nav-kofi { background: #ff5e5b; color: #ffffff; padding: 4px 10px; border-radius: 3px; }
 .top nav a.nav-kofi:hover { background: #ff7a77; }
 
