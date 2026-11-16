@@ -21,7 +21,7 @@ use crate::uv_ops::{self, each, Target, UvTopo, UV};
 type Cmd = CommandDef<Session>;
 use ArgType::{Bool as B, Float as Fl, Int as I, String as S};
 
-fn uv_at(m: &Mesh, c: Index) -> DVec2 {
+pub(crate) fn uv_at(m: &Mesh, c: Index) -> DVec2 {
     m.corner_attrs().get::<[f32; 2]>(UV).get(c as usize).map_or(DVec2::ZERO, |u| DVec2::new(u[0] as f64, u[1] as f64))
 }
 
@@ -36,7 +36,7 @@ fn all_faces(m: &Mesh) -> Vec<Index> {
 }
 
 /// The faces a target names, directly or through its maps and edges; the whole mesh when it says so.
-fn target_faces(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
+pub(crate) fn target_faces(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
     if t.whole {
         return all_faces(m);
     }
@@ -57,7 +57,7 @@ fn target_faces(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
 }
 
 /// The shells the target's faces are in, as lists of faces.
-fn shells_of(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Vec<Index>> {
+pub(crate) fn shells_of(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Vec<Index>> {
     let mut ids: BTreeSet<Index> = BTreeSet::new();
     for f in target_faces(m, t, tp) {
         if let Some(&s) = tp.face_shell.get(f as usize) {
@@ -69,11 +69,11 @@ fn shells_of(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Vec<Index>> {
     ids.into_iter().filter_map(|s| tp.shells.get(s as usize).cloned()).collect()
 }
 
-fn corners_of_faces(m: &Mesh, list: &[Index]) -> Vec<Index> {
+pub(crate) fn corners_of_faces(m: &Mesh, list: &[Index]) -> Vec<Index> {
     list.iter().filter(|&&f| m.face_valid(f)).flat_map(|&f| m.face_corners(f)).collect()
 }
 
-fn bounds_of(m: &Mesh, corners: &[Index]) -> (DVec2, DVec2) {
+pub(crate) fn bounds_of(m: &Mesh, corners: &[Index]) -> (DVec2, DVec2) {
     let (mut lo, mut hi) = (DVec2::splat(f64::MAX), DVec2::splat(f64::MIN));
     for &c in corners {
         let p = uv_at(m, c);
@@ -601,7 +601,7 @@ fn uv_snapshot(s: &mut Session, a: &Args) -> CmdResult {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-fn poly_flag(c: Cmd) -> Cmd {
+pub(crate) fn poly_flag(c: Cmd) -> Cmd {
     c.positional("UVs, faces or meshes (the selection when none)")
         .flag(f("constructionHistory", "ch", B, "Accepted: a node is made while history is on."))
         .flag(f("name", "n", S, "Accepted for existing scripts."))

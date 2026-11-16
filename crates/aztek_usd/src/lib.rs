@@ -1,6 +1,7 @@
 //! USD in Aztek, on the native `openusd` crate: import and export, the stage in the DAG, prims, layers, and translation
 //! between prims and nodes. Commands take the names and flags of the reference's USD plug-in and of the Animal Logic USD plug-in.
 
+pub mod abc_layer;
 pub mod draw;
 pub mod export;
 pub mod extras;

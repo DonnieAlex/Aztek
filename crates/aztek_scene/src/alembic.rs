@@ -261,6 +261,31 @@ pub fn archive(path: &str) -> Result<Arc<Archive>, String> {
     Ok(a)
 }
 
+/// The frames an archive's samples span, at the scene's frame rate; None when nothing in it moves.
+pub fn frame_range(path: &str) -> Option<(f64, f64)> {
+    let a = archive(path).ok()?;
+    let mut range: Option<(f64, f64)> = None;
+    fn walk(a: &Archive, o: &Object, range: &mut Option<(f64, f64)>) {
+        let count = match geom::schema(o).as_deref() {
+            Some(s) if s.contains("Xform") => geom::xform_matrices(o).len(),
+            Some(s) if s.contains("PolyMesh") => geom::read_mesh(o).map_or(0, |m| m.points.len()),
+            _ => 0,
+        };
+        if count > 1 {
+            if let Some(ts) = a.samplings.get(geom::sampling_of(o) as usize) {
+                let (t0, t1) = (ts.time(0), ts.time(count - 1));
+                *range = Some(range.map_or((t0, t1), |(lo, hi)| (lo.min(t0), hi.max(t1))));
+            }
+        }
+        for c in &o.children {
+            walk(a, c, range);
+        }
+    }
+    walk(&a, &a.top, &mut range);
+    let fps = crate::anim::fps();
+    range.map(|(lo, hi)| ((lo * fps).round(), (hi * fps).round()))
+}
+
 /// An object by its path in the archive ("/a/b").
 pub fn find<'a>(top: &'a Object, path: &str) -> Option<&'a Object> {
     let mut o = top;

@@ -117,3 +117,28 @@ fn reference_an_obj() {
     assert_eq!(mel(&mut c, "objExists mocap:tri;"), json!(true));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #100: a stage referencing an Alembic file reads it, animation and all, as the reference's usdAbc does.
+#[test]
+fn usd_references_alembic() {
+    let dir = std::env::temp_dir().join(format!("az_usdabc_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let d = dir.to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n box; setKeyframe -t 1 -v 0 box.ty; setKeyframe -t 10 -v 5 box.ty;");
+    mel(&mut c, &format!("AbcExport -j \"-frameRange 1 10 -uvWrite -worldSpace -root |box -file {d}/box.abc\";"));
+    std::fs::write(dir.join("shot.usda"), "#usda 1.0\n\ndef Xform \"set\"\n{\n    def \"box\" (\n        references = @./box.abc@</box>\n    )\n    {\n    }\n}\n").unwrap();
+    mel(&mut c, "file -f -new;");
+    mel(&mut c, &format!("mayaUSDImport -file \"{d}/shot.usda\" -readAnimData 1;"));
+    let meshes = mel(&mut c, "ls -type mesh;");
+    assert!(!meshes.as_array().unwrap().is_empty(), "{meshes}");
+    // The cube's animation came through: it moves between frames 1 and 10.
+    let top = mel(&mut c, "ls -assemblies;");
+    let set = top.as_array().unwrap().iter().filter_map(Value::as_str).find(|n| n.starts_with("set")).unwrap_or("set").to_string();
+    mel(&mut c, "currentTime 1;");
+    let a = mel(&mut c, &format!("xform -q -ws -bb {set};"));
+    mel(&mut c, "currentTime 10;");
+    let b = mel(&mut c, &format!("xform -q -ws -bb {set};"));
+    assert!((b[1].as_f64().unwrap() - a[1].as_f64().unwrap() - 5.0).abs() < 1e-3, "{a} {b}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

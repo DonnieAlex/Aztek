@@ -178,12 +178,14 @@ void MainWindow::show_modeling_toolkit() {
         auto* form = new QFormLayout();
         form->setContentsMargins(0, 4, 0, 4);
         auto* camera = new QComboBox(w);
+        no_stray_wheel(camera);
         camera->addItems({"Off", "On"});
         camera->setToolTip("On: a marquee picks only what can be seen");
         camera->setCurrentIndex(ask("selectPref", QJsonObject{{"query", true}, {"useDepth", true}}).toBool() ? 1 : 0);
         connect(camera, &QComboBox::activated, this, [](int i) { exec_quiet("selectPref", QJsonObject{{"useDepth", i == 1}}); });
         form->addRow("Camera Based Selection", camera);
         auto* sym = new QComboBox(w);
+        no_stray_wheel(sym);
         sym->addItems({"Off", "Object X", "Object Y", "Object Z", "World X", "World Y", "World Z", "Topology"});
         connect(sym, &QComboBox::activated, this, [](int i) {
             QJsonObject c{{"edit", true}, {"symmetry", i != 0}};
@@ -197,6 +199,7 @@ void MainWindow::show_modeling_toolkit() {
         });
         form->addRow("Symmetry", sym);
         auto* constraint = new QComboBox(w);
+        no_stray_wheel(constraint);
         constraint->addItems({"Off", "Angle", "Border", "Edge Loop", "Edge Ring", "Shell"});
         connect(constraint, &QComboBox::activated, this, [](int i) {
             exec("polySelectConstraint", QJsonObject{{"disable", true}});
@@ -205,6 +208,7 @@ void MainWindow::show_modeling_toolkit() {
         });
         form->addRow("Selection Constraint", constraint);
         auto* xform = new QComboBox(w);
+        no_stray_wheel(xform);
         xform->addItem("Off", "none");
         xform->addItem("Edge", "edge");
         xform->addItem("Surface", "surface");
@@ -223,11 +227,13 @@ void MainWindow::show_modeling_toolkit() {
             f->addRow("Soft Select:", soft);
             auto* row = new QHBoxLayout();
             auto* mode = new QComboBox(body);
+        no_stray_wheel(mode);
             mode->addItems({"Volume", "Surface", "Global", "Object"});
             const QJsonValue m = ask("softSelect", QJsonObject{{"query", true}, {"queried", QJsonArray{"softSelectFalloff"}}});
             if (m.isDouble()) mode->setCurrentIndex(m.toInt());
             connect(mode, &QComboBox::activated, this, [](int i) { exec("softSelect", QJsonObject{{"softSelectFalloff", i}}); });
             auto* radius = new QDoubleSpinBox(body);
+        no_stray_wheel(radius);
             radius->setRange(0, 1000);
             radius->setDecimals(2);
             const QJsonValue r = ask("softSelect", QJsonObject{{"query", true}, {"queried", QJsonArray{"softSelectDistance"}}});

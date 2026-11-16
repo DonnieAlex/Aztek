@@ -243,10 +243,18 @@ impl Resolver for AztekResolver {
         self.inner.create_identifier(asset_path, anchor)
     }
     fn resolve(&self, asset_path: &str) -> Option<ResolvedPath> {
-        match self.mapped(asset_path) {
+        let found = match self.mapped(asset_path) {
             Some(m) => self.inner.resolve(&m),
             None => self.inner.resolve(asset_path),
+        }?;
+        // An Alembic file reads as the USD layer made from it (abc_layer, #100).
+        let p: &std::path::Path = &found;
+        if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("abc")) {
+            if let Some(usd) = crate::abc_layer::usd_for_abc(p) {
+                return self.inner.resolve(&usd.to_string_lossy());
+            }
         }
+        Some(found)
     }
     fn resolve_for_new_asset(&self, asset_path: &str) -> Option<ResolvedPath> {
         self.inner.resolve_for_new_asset(asset_path)

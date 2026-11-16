@@ -1,12 +1,14 @@
-// The UV Editor's UV Toolkit (#108), the side panel as the reference has it, built in batches as the issue asks. This
-// one: Selection, Pinning, Select By Type, Soft Selection, Transform, Texel Density, Create, Cut and Sew, Unfold, and
-// Arrange and Layout with what Aztek has commands for. The shell alignment, stacking and snapping tools come next.
+// The UV Editor's UV Toolkit (#108), the side panel as the reference has it, built in batches as the issue asks:
+// Selection, Pinning, Select By Type, Soft Selection, Transform, Texel Density, Create, Cut and Sew, Unfold, Align and
+// Snap, and Arrange and Layout.
 
 #include "uveditor.h"
 #include "host.h"
 #include "icons.h"
 #include "toolsettings.h"
 
+#include <QAbstractScrollArea>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -24,6 +26,31 @@
 #include <QVBoxLayout>
 
 namespace az {
+
+// Fields take the wheel only once clicked into, so scrolling the panel doesn't change them on the way past.
+struct WheelOnlyWhenFocused : QObject {
+    using QObject::QObject;
+    bool eventFilter(QObject* o, QEvent* e) override {
+        if (e->type() == QEvent::Wheel) {
+            if (auto* w = qobject_cast<QWidget*>(o); w && !w->hasFocus()) {
+                // The panel scrolls instead.
+                for (QWidget* p = w->parentWidget(); p; p = p->parentWidget())
+                    if (auto* area = qobject_cast<QAbstractScrollArea*>(p)) {
+                        QCoreApplication::sendEvent(area->viewport(), e);
+                        break;
+                    }
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+void no_stray_wheel(QWidget* w) {
+    static WheelOnlyWhenFocused* filter = new WheelOnlyWhenFocused(qApp);
+    w->setFocusPolicy(Qt::StrongFocus);
+    w->installEventFilter(filter);
+}
 
 namespace {
 
@@ -52,6 +79,7 @@ QDoubleSpinBox* number(double v, double lo, double hi, QWidget* parent) {
     s->setDecimals(4);
     s->setValue(v);
     s->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    no_stray_wheel(s);
     return s;
 }
 
@@ -180,6 +208,7 @@ QWidget* UvEditor::build_toolkit() {
         f->addRow("Soft Select:", soft);
         auto* row = new QHBoxLayout();
         auto* mode = new QComboBox(body);
+        no_stray_wheel(mode);
         mode->addItems({"Volume", "Surface", "Global", "Object"});
         connect(mode, &QComboBox::activated, this, [](int i) { exec("softSelect", QJsonObject{{"softSelectFalloff", i}}); });
         auto* radius = number(5.0, 0.0, 1000.0, body);
@@ -279,6 +308,7 @@ QWidget* UvEditor::build_toolkit() {
         g->setContentsMargins(0, 2, 0, 4);
         auto* td = number(32.0, 0.001, 100000, body);
         auto* map = new QComboBox(body);
+        no_stray_wheel(map);
         for (int px : {256, 512, 1024, 2048, 4096, 8192}) map->addItem(QString::number(px), px);
         map->setCurrentIndex(1);
         auto* get = new QPushButton("Get", body);
@@ -319,9 +349,85 @@ QWidget* UvEditor::build_toolkit() {
                                       {"Straighten Border", cmd("polyStraightenUVBorder")},
                                       {"Rectangle", cmd("polyUVRectangle")}});
 
-    buttons(fold(page, "Arrange and Layout", w), {{"Layout", cmd("u3dLayout")},
-                                                  {"Normalize", cmd("polyNormalizeUV", {{"normalizeType", 1}})},
-                                                  {"Stack Similar", cmd("polyUVStackSimilarShells")}});
+    // Align and Snap: shells lined up on the outermost one, UVs on a line, shells to a place on the tile.
+    {
+        QWidget* body = fold(page, "Align and Snap", w);
+        auto* v = new QVBoxLayout(body);
+        v->setContentsMargins(0, 2, 0, 4);
+        auto* row = new QHBoxLayout();
+        row->addWidget(new QLabel("Align", body));
+        for (auto [label, to, tip] : {std::tuple{"⇤", "left", "Align shells left"}, {"↔", "centerU", "Align shells to their middle in U"},
+                                      {"⇥", "right", "Align shells right"}, {"⤒", "top", "Align shells to the top"},
+                                      {"↕", "centerV", "Align shells to their middle in V"}, {"⤓", "bottom", "Align shells to the bottom"}}) {
+            auto* b = new QToolButton(body);
+            b->setText(label);
+            b->setToolTip(tip);
+            connect(b, &QToolButton::clicked, this, cmd("texAlignShells", {{"alignTo", to}}));
+            row->addWidget(b);
+        }
+        row->addStretch(1);
+        v->addLayout(row);
+        auto* linear = new QPushButton("Linear Align", body);
+        linear->setToolTip("The UVs selected onto the straight line that runs best through them");
+        connect(linear, &QPushButton::clicked, this, cmd("texLinearAlignUVs"));
+        v->addWidget(linear);
+        // Snap: nine buttons, the places on the 0 to 1 tile.
+        auto* snap = new QHBoxLayout();
+        snap->addWidget(new QLabel("Snap", body));
+        auto* grid = new QGridLayout();
+        grid->setSpacing(2);
+        static const char* where[] = {"top left", "top", "top right", "left", "middle", "right", "bottom left", "bottom", "bottom right"};
+        for (int i = 0; i < 9; ++i) {
+            auto* b = new QToolButton(body);
+            b->setFixedSize(22, 22);
+            b->setText(i == 4 ? "●" : "□");
+            b->setToolTip(QString("Snap shells to the %1 of the 0 to 1 tile").arg(where[i]));
+            connect(b, &QToolButton::clicked, this, cmd("texSnapShells", {{"position", i}}));
+            grid->addWidget(b, i / 3, i % 3);
+        }
+        snap->addLayout(grid);
+        snap->addStretch(1);
+        v->addLayout(snap);
+    }
+
+    // Arrange and Layout.
+    {
+        QWidget* body = fold(page, "Arrange and Layout", w);
+        auto* v = new QVBoxLayout(body);
+        v->setContentsMargins(0, 2, 0, 4);
+        auto* dist = new QHBoxLayout();
+        dist->addWidget(new QLabel("Distribute", body));
+        auto* gap = number(0.0, 0.0, 10.0, body);
+        gap->setToolTip("Gap between shells, in UV units");
+        dist->addWidget(gap);
+        for (auto [label, dir] : {std::pair{"U", "u"}, {"V", "v"}}) {
+            auto* b = new QPushButton(label, body);
+            b->setToolTip(QString("Space the shells along %1, the gap apart").arg(label));
+            const QString d = dir;
+            connect(b, &QPushButton::clicked, this, [this, gap, d] {
+                run("texDistributeShells", {{"direction", d}, {"spacing", gap->value()}});
+                Host::get()->poke();
+            });
+            dist->addWidget(b);
+        }
+        v->addLayout(dist);
+        auto* holder = new QWidget(body);
+        v->addWidget(holder);
+        buttons(holder, {{"Orient Shells", cmd("texOrientShells")},
+                         {"Orient to Edges", cmd("texOrientEdge")},
+                         {"Stack Shells", cmd("texStackShells")},
+                         {"Unstack Shells", cmd("texUnstackShells")},
+                         {"Stack and Orient", [this] {
+                              run("texOrientShells");
+                              run("texStackShells");
+                              Host::get()->poke();
+                          }},
+                         {"Stack Similar", cmd("polyUVStackSimilarShells")},
+                         {"Gather Shells", cmd("texGatherShells")},
+                         {"Randomize Shells", cmd("texRandomizeShells", {{"translate", 0.1}, {"rotate", 15.0}, {"scale", 10.0}, {"seed", 1}})},
+                         {"Layout", cmd("u3dLayout")},
+                         {"Normalize", cmd("polyNormalizeUV", {{"normalizeType", 1}})}});
+    }
 
     page->addStretch(1);
     scroll->setWidget(w);

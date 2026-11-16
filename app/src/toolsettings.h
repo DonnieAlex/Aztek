@@ -22,6 +22,8 @@ namespace az {
 // Soft select's falloff curve, as Tool Settings has it, for other panels (the Modeling Toolkit). reload, when given, is
 // set to what reads the curve again after it was changed elsewhere.
 QWidget* falloff_curve(QWidget* parent, std::function<void()>* reload = nullptr);
+// A field or list that takes the mouse wheel only once clicked into; otherwise the panel around it scrolls.
+void no_stray_wheel(QWidget* w);
 
 /// The reference's joint orientation rows: Orient Joint to World, Primary Axis, Secondary Axis and Secondary Axis World
 /// Orientation, added to a form. They start from an orientJoint order ("xyz", "none" for the world) and a

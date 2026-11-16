@@ -174,8 +174,17 @@ fn d(p: &P) -> f64 {
     }
 }
 
+/// The FBX plug-in's settings are the process's, as the reference's are the session's: one test at a time, so one's
+/// settings, or its unloading the plug-in, don't land in another's export or import.
+static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 #[test]
 fn a_hierarchy_goes_out_as_polygons_with_uvs_materials_and_its_place() {
+    let _one = one_at_a_time();
     let dir = std::env::temp_dir().join(format!("aztek_fbx_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let at = |n: &str| dir.join(n).display().to_string().replace('\\', "/");
@@ -264,6 +273,7 @@ fn a_hierarchy_goes_out_as_polygons_with_uvs_materials_and_its_place() {
 
 #[test]
 fn a_bound_mesh_goes_out_with_its_joints_clusters_and_bind_pose() {
+    let _one = one_at_a_time();
     let dir = std::env::temp_dir().join(format!("aztek_fbx_skin_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let at = |n: &str| dir.join(n).display().to_string().replace('\\', "/");
@@ -319,6 +329,7 @@ fn a_bound_mesh_goes_out_with_its_joints_clusters_and_bind_pose() {
 
 #[test]
 fn the_formats_are_plug_ins_that_load_at_start_and_unload() {
+    let _one = one_at_a_time();
     let mut c = Core::new();
     assert_eq!(c.mel("pluginInfo -q -loaded fbx"), json!(true));
     assert_eq!(c.mel("pluginInfo -q -loaded gltf"), json!(true));
@@ -352,6 +363,7 @@ fn the_formats_are_plug_ins_that_load_at_start_and_unload() {
 
 #[test]
 fn animation_goes_out_and_comes_back() {
+    let _one = one_at_a_time();
     let dir = std::env::temp_dir().join(format!("aztek_fbx_anim_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join("anim.fbx").to_string_lossy().replace('\\', "/");
@@ -386,6 +398,7 @@ fn animation_goes_out_and_comes_back() {
 
 #[test]
 fn a_skinned_joint_s_animation_with_its_orient() {
+    let _one = one_at_a_time();
     let dir = std::env::temp_dir().join(format!("aztek_fbx_janim_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join("j.fbx").to_string_lossy().replace('\\', "/");

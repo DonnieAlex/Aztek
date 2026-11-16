@@ -97,6 +97,19 @@ lock are checkboxes; the context menu saves, saves as, reloads, clears, adds and
 Saving a scene keeps layers with no edits as paths. A layer with unsaved edits and the session layer go into the proxy's attributes
 in the scene file, and come back when it opens. The File menu's save asks first: save them to their files, or keep them in the scene.
 
+### Alembic in a stage
+
+A sublayer, reference or payload naming a `.abc` file reads it, as the reference's usdAbc plug-in does: transforms, meshes with
+their UVs, curves and their animation. Aztek's USD library reads only USD itself, so the asset resolver hands the stage a USDA
+layer made from the Alembic file, kept in the temporary folder (`aztek-usdabc`) and made again when the file changes. As
+usdAbc: face sets, NURBS patches and lights aren't carried, and transforms come as matrices. Reading `.fbx` and `.obj` inside a
+stage (Adobe's file format plug-ins) isn't there.
+
+    def Xform "set"
+    {
+        def "crowd" (references = @./crowd.abc@</crowd>) {}
+    }
+
 ## Between prims and nodes
 
     mayaUsdEditAsMaya "|stage1|stageShape1,/World/thing";     // nodes under __mayaUsd__, the prim hidden
