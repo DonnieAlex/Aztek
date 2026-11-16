@@ -282,7 +282,7 @@ QList<Theme> builtins() {
         t.point_size = 8;
         t.bevel = "double";
         t.radius = 0;
-        t.tabs = "rounded";
+        t.tabs = "boxed";
         t.arrows = "boxed";
         t.scrollbar = "bevel";
         t.padding = 2;
@@ -351,7 +351,7 @@ QList<Theme> user_themes() {
 
 QString assets_dir(const Theme& t) {
     // The drawing's version goes into the key, so pictures drawn by an older Aztek are not used again.
-    const QByteArray key = QCryptographicHash::hash("3" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
+    const QByteArray key = QCryptographicHash::hash("4" + QJsonDocument(t.to_json()).toJson(QJsonDocument::Compact), QCryptographicHash::Md5).toHex().left(12);
     return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/themes/" + QString::fromLatin1(key);
 }
 
@@ -438,9 +438,16 @@ void save_bevel(const QString& path, const Theme& t, const QColor& face, bool su
         }
         im.setPixelColor(hi, lo, br);
     }
-    if (open_bottom)
+    if (open_bottom) {
         for (int y = 4; y < 6; ++y)
             for (int x = 2; x < 4; ++x) im.setPixelColor(x, y, face);
+        // The 1998 tab's top corners are clipped by a pixel.
+        if (t.bevel == "double") {
+            im.setPixelColor(0, 0, Qt::transparent);
+            im.setPixelColor(5, 0, Qt::transparent);
+            im.setPixelColor(1, 1, t.c["light"]);
+        }
+    }
     im.save(path);
 }
 
