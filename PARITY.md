@@ -2829,3 +2829,22 @@ Deform > Edit > Wrap > Add Influence and Remove Influence (`AddWrapInfluence`, `
 Wire (`AddWire`): the deformed object first, the influence or curve last, through `wrap -e -inf`/`-ri` and `wire -e
 -w`. Not done: Wire's other edits (remove, holders, dropoff locators) and Blend Shape's Edit submenu (the Shape Editor
 adds targets).
+
+### Prune Membership (16/11/2026)
+
+PLAN 3.12, part. Deform > Membership > Prune Membership > Cluster, Lattice, Sculpt and Wire (`PruneCluster` and the
+like, through `cluster -e -prune`, `lattice -e -prune`, `sculpt -e -prune`, `wire -e -prune`): the deformer of that
+kind on each selected object loses from its set the points it doesn't move, comparing each node's input and output at
+the current frame, as the reference's page says (an animated deformer may move them at other frames). One undo step.
+A command with its own `-e` and no `-q` (cluster now) gets `-e` in MEL rather than having its flags read as
+attributes to set.
+
+### Booleans: Difference (B - A), Slice, Hole Punch, Cut Out, Split Edges (16/11/2026)
+
+PLAN 3.12, part. Mesh > Booleans gains Slice, Hole Punch, Cut Out and Split Edges, and Difference (B - A) is now its
+own operation, as `polyCBoolOp -op` 4 (B - A), 5 (Slice, the reference's Split), 6 (Split Edges), 7 (Hole Punch) and
+8 (Cut Out), the reference's numbers, so a scene saved with them opens with the same result and the node stays live.
+Hole Punch keeps the first mesh's surface outside the others and Cut Out its surface inside them, both left open;
+Slice keeps both, as two shells; Split Edges welds them back into one, with edges along the intersection. B - A swaps
+the first two inputs (the menu item reversed the selection before). The reference's `booleanMode`, OpenVDB mode and
+per-input operations aren't in.

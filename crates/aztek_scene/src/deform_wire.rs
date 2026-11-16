@@ -386,6 +386,9 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                     }
                     return deform::query_flags(g, n, a, SETTINGS);
                 }
+                if a.bool("edit") && a.bool("prune") {
+                    return deform::prune(s, a, "wire");
+                }
                 if a.bool("edit") {
                     let Some(name) = a.named().into_iter().next() else { fail!("wire: name a wire to edit") };
                     let g = &mut s.graph;

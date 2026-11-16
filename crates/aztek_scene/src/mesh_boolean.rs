@@ -18,6 +18,14 @@ pub enum BooleanOp {
     Union,
     Difference,
     Intersection,
+    /// The first mesh cut where the others meet it, inside and outside kept as separate open shells.
+    Slice,
+    /// The first mesh with what is inside the others deleted, left open.
+    HolePunch,
+    /// The first mesh with what is outside the others deleted, left open.
+    CutOut,
+    /// The first mesh with new edges where the others meet it, nothing removed.
+    SplitEdges,
 }
 
 /// "union", "difference", "intersection" (or "intersect").
@@ -26,6 +34,10 @@ pub fn boolean_op_from_name(name: &str) -> Option<BooleanOp> {
         "union" => Some(BooleanOp::Union),
         "difference" => Some(BooleanOp::Difference),
         "intersection" | "intersect" => Some(BooleanOp::Intersection),
+        "slice" => Some(BooleanOp::Slice),
+        "holePunch" => Some(BooleanOp::HolePunch),
+        "cutOut" => Some(BooleanOp::CutOut),
+        "splitEdges" => Some(BooleanOp::SplitEdges),
         _ => None,
     }
 }
@@ -654,6 +666,29 @@ fn requad_band(m: &mut Mesh, band: &[Index], hard_angle: f64, timeout: f64) -> b
 /// Combines the operands in order (the first is the base) into a mesh in to_local space. Each operand's polygons come
 /// back whole away from the seam, with their uvs, the base's colour sets, hard edges, creases, uv seams and materials.
 pub fn mesh_boolean(operands: &[BooleanOperand], to_local: &DMat4, opts: &BooleanOptions) -> BooleanResult {
+    if matches!(opts.op, BooleanOp::Slice | BooleanOp::SplitEdges) {
+        // The first mesh's part outside the others and its part inside, as two shells; Split Edges welds them back.
+        let half = |op| mesh_boolean(operands, to_local, &BooleanOptions { op, ..opts.clone() });
+        let (outside, inside) = (half(BooleanOp::HolePunch), half(BooleanOp::CutOut));
+        if !outside.ok() {
+            return outside;
+        }
+        if !inside.ok() {
+            return inside;
+        }
+        let mut r = BooleanResult { seam_edges: outside.seam_edges, ..Default::default() };
+        let mut m = aztek_geo::ops::combine(&[&outside.mesh, &inside.mesh]);
+        if opts.op == BooleanOp::SplitEdges {
+            let border: Vec<Index> = (0..m.edge_capacity())
+                .filter(|&e| m.edge_valid(e) && m.edge_face_count(e) == 1)
+                .flat_map(|e| [m.edge_point(e, 0), m.edge_point(e, 1)])
+                .collect();
+            aztek_geo::ops::merge_by_distance(&mut m, &border, &aztek_geo::ops::MergeOptions { distance: 1e-5, ..Default::default() });
+            m.compact(None);
+        }
+        r.mesh = m;
+        return r;
+    }
     let mut r = BooleanResult::default();
     if operands.is_empty() {
         r.error = "no base mesh".into();
@@ -678,8 +713,8 @@ pub fn mesh_boolean(operands: &[BooleanOperand], to_local: &DMat4, opts: &Boolea
                 &solid,
                 match opts.op {
                     BooleanOp::Union => OpType::Add,
-                    BooleanOp::Difference => OpType::Subtract,
-                    BooleanOp::Intersection => OpType::Intersect,
+                    BooleanOp::Difference | BooleanOp::HolePunch => OpType::Subtract,
+                    _ => OpType::Intersect,
                 },
             ),
         });
@@ -695,6 +730,13 @@ pub fn mesh_boolean(operands: &[BooleanOperand], to_local: &DMat4, opts: &Boolea
         }
     }
     r.seam_edges = seam.len() as Index;
+    if matches!(opts.op, BooleanOp::HolePunch | BooleanOp::CutOut) {
+        // Only the first mesh's faces stay: the cutters' walls go, leaving it open.
+        let operand = m.face_attrs().get::<i32>(OPERAND_ATTR).to_vec();
+        let others: Vec<Index> = (0..m.face_capacity()).filter(|&f| m.face_valid(f) && operand[f as usize] != 0).collect();
+        delete_faces(&mut m, &others, None);
+        seam.clear();
+    }
 
     // Points on the seam can be operand points too, where the cut runs exactly through them.
     let mut on_seam = vec![false; m.point_capacity() as usize];

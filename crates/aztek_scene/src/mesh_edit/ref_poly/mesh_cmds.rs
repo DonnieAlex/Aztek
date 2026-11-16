@@ -285,15 +285,23 @@ impl NodeBehavior for MultiInput {
             _ => DMat4::IDENTITY,
         };
         if self.boolean {
-            let operands: Vec<BooleanOperand> = meshes.iter().map(|(i, m)| BooleanOperand { mesh: m, to_world: matrix(d, *i) }).collect();
+            let mut operands: Vec<BooleanOperand> = meshes.iter().map(|(i, m)| BooleanOperand { mesh: m, to_world: matrix(d, *i) }).collect();
+            // Difference (B - A): the second input minus the first.
+            if d.int(OPERATION) == 4 && operands.len() >= 2 {
+                operands.swap(0, 1);
+            }
             if operands.is_empty() {
                 d.set_output(crate::history::OUTPUT, PlugValue::Mesh(None));
                 return;
             }
             let o = BooleanOptions {
                 op: match d.int(OPERATION) {
-                    2 => BooleanOp::Difference,
+                    2 | 4 => BooleanOp::Difference,
                     3 => BooleanOp::Intersection,
+                    5 => BooleanOp::Slice,
+                    6 => BooleanOp::SplitEdges,
+                    7 => BooleanOp::HolePunch,
+                    8 => BooleanOp::CutOut,
                     _ => BooleanOp::Union,
                 },
                 cleanup: d.bool(bool_index("cleanup")),
@@ -1120,9 +1128,9 @@ pub(super) fn register(c: &mut Commands<Session>) {
             Ok(r)
         },
     ));
-    c.register(boolean_cmd("polyCBoolOp", "polyCBoolOp", "A boolean of meshes: -op 1 union, 2 difference, 3 intersection. Returns [transform, node]."));
+    c.register(boolean_cmd("polyCBoolOp", "polyCBoolOp", "A boolean of meshes: -op 1 union, 2 difference, 3 intersection, 4 difference B - A, 5 slice, 6 split edges, 7 hole punch, 8 cut out. Returns [transform, node]."));
     c.register(boolean_cmd("polyBoolOp", "polyBoolOp", "A boolean of two meshes: -op 1 union, 2 difference, 3 intersection. Returns [transform, node]."));
-    c.register(boolean_cmd("polyBooleanCmd", "polyCBoolOp", "A boolean of meshes: -op 1 union, 2 difference, 3 intersection. Returns [transform, node]."));
+    c.register(boolean_cmd("polyBooleanCmd", "polyCBoolOp", "A boolean of meshes: -op 1 union, 2 difference, 3 intersection, 4 difference B - A, 5 slice, 6 split edges, 7 hole punch, 8 cut out. Returns [transform, node]."));
 
     c.register(ref_cmd(
         "polySmooth",

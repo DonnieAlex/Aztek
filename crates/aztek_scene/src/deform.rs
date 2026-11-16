@@ -775,6 +775,35 @@ pub(crate) fn query_flags(g: &mut Graph, n: NodeId, a: &aztek_ops::Args, names: 
     fail!("nothing to query")
 }
 
+/// Edit > Prune Membership (`cluster -e -prune`, and the same on lattice, wire and sculpt): takes out of the deformer's
+/// set the points it doesn't move as things are now, comparing each node's input and output at the current frame.
+/// Returns the deformer.
+pub(crate) fn prune(s: &mut Session, a: &aztek_ops::Args, cmd: &str) -> CmdResult {
+    let Some(name) = a.named().into_iter().next() else { fail!("{cmd}: name the deformer to prune") };
+    let g = &mut s.graph;
+    let Some(n) = g.find(&name)? else { fail!("{cmd}: no deformer named {name}") };
+    let Some(set) = crate::deform_sets::set_of(g, n) else { fail!("{cmd}: {name} has no deformer set") };
+    g.evaluate();
+    let mut cut = Vec::new();
+    for x in group(g, n) {
+        let Some(mesh) = mesh_fed_by(g, x) else { continue };
+        let Some(node) = g.node(x) else { continue };
+        let ty = node.ty();
+        let (i, o) = (ty.attr_index("input").unwrap_or(IN), ty.attr_index("output").unwrap_or(OUT));
+        let (Some(inp), Some(out)) = (node.data().mesh(i).cloned(), node.data().mesh(o).cloned()) else { continue };
+        let still: Vec<u32> = (0..inp.point_capacity().min(out.point_capacity()))
+            .filter(|&p| inp.point_valid(p) && (inp.position(p) - out.position(p)).length() < 1e-7)
+            .collect();
+        if !still.is_empty() {
+            cut.push(crate::object_sets::Member { node: mesh, kind: crate::components::ComponentMode::Vertex, ids: still });
+        }
+    }
+    if !cut.is_empty() {
+        crate::object_sets::remove(g, set, &cut)?;
+    }
+    Ok(json!([g.path(leader_of(g, n))]))
+}
+
 /// The flags every deformer command shares.
 pub(crate) fn common_flags(c: Cmd) -> Cmd {
     c.flag(f("name", "n", ArgType::String, "Name of the deformer."))
@@ -782,6 +811,7 @@ pub(crate) fn common_flags(c: Cmd) -> Cmd {
         .flag(f("after", "af", ArgType::Bool, "Go nearest the mesh, after the other deformers (the default)."))
         .flag(f("frontOfChain", "foc", ArgType::Bool, "Go above every other deformer."))
         .flag(f("envelope", "en", ArgType::Float, "How much of the deformation applies (1)."))
+        .flag(f("prune", "pr", ArgType::Bool, "With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt)."))
 }
 
 /// The node of a deformer's group on this mesh.
@@ -1284,6 +1314,12 @@ pub fn register(c: &mut Commands<Session>) {
             "Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. \
              Returns [cluster, handle].",
             |s, a| {
+                if a.bool("edit") {
+                    if a.bool("prune") {
+                        return prune(s, a, "cluster");
+                    }
+                    fail!("cluster: -e takes -prune");
+                }
                 let meshes = targets(s, a)?;
                 let nurbs = nurbs_targets(s, a)?;
                 if meshes.is_empty() && nurbs.is_empty() {
@@ -1367,7 +1403,9 @@ pub fn register(c: &mut Commands<Session>) {
             },
         )
         .positional("meshes, curves, surfaces, vertices or CVs (the selection when none)")
-        .flag(f("name", "n", ArgType::String, "Name of the cluster; its handle takes the name plus Handle.")),
+        .flag(f("name", "n", ArgType::String, "Name of the cluster; its handle takes the name plus Handle."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit a cluster: with -prune."))
+        .flag(f("prune", "pr", ArgType::Bool, "With -e: take the points it doesn't move out of its set.")),
     );
 
 }

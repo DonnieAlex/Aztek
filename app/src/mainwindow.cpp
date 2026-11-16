@@ -294,13 +294,13 @@ QMenu* MainWindow::mesh_menu() {
     // A live polyCBoolOp node, as the reference's Booleans make.
     cmd(b, "Union", "polyCBoolOp", QJsonObject{{"operation", 1}});
     cmd(b, "Difference (A - B)", "polyCBoolOp", QJsonObject{{"operation", 2}});
-    b->addAction("Difference (B - A)", [] {
-        // The same with the selection the other way round.
-        QJsonArray sel = state()["selection"].toArray(), back;
-        for (int i = sel.size() - 1; i >= 0; --i) back.append(sel.at(i));
-        exec("polyCBoolOp", QJsonObject{{"args", back}, {"operation", 2}});
-    });
+    cmd(b, "Difference (B - A)", "polyCBoolOp", QJsonObject{{"operation", 4}});
     cmd(b, "Intersection", "polyCBoolOp", QJsonObject{{"operation", 3}});
+    b->addSeparator();
+    cmd(b, "Slice", "polyCBoolOp", QJsonObject{{"operation", 5}});
+    cmd(b, "Hole Punch", "polyCBoolOp", QJsonObject{{"operation", 7}});
+    cmd(b, "Cut Out", "polyCBoolOp", QJsonObject{{"operation", 8}});
+    cmd(b, "Split Edges", "polyCBoolOp", QJsonObject{{"operation", 6}});
     cmd(m, "Combine", "polyUnite", {}, QString(), true);
     cmd(m, "Separate", "polySeparate");
     m->addSeparator();
@@ -637,6 +637,11 @@ QMenu* MainWindow::deform_menu() {
     edit_wire->addAction("Add Wire", [] { mel_action("AddWire;"); });
     menu_title(m, "Membership");
     m->addAction("Edit Membership Tool", [this] { set_tool("editMembership"); show_tool_settings(); });
+    QMenu* prune = m->addMenu("Prune Membership");
+    for (auto [label, rt] : {std::pair{"Cluster", "PruneCluster;"}, {"Lattice", "PruneLattice;"}, {"Sculpt", "PruneSculpt;"}, {"Wire", "PruneWire;"}}) {
+        QString code = rt;
+        prune->addAction(label, [code] { mel_action(code); });
+    }
     menu_title(m, "Intermediate Objects");
     auto intermediates = [](bool show) {
         return [show] {

@@ -1227,6 +1227,9 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                     }
                     fail!("sculpt: query -mode, -mxd or -dds");
                 }
+                if a.bool("edit") && a.bool("prune") {
+                    return crate::deform::prune(s, a, "sculpt");
+                }
                 if a.bool("edit") {
                     let Some(name) = a.named().into_iter().next() else { fail!("sculpt: name the deformer") };
                     let n = named(&s.graph, &name, "sculpt")?;

@@ -402,7 +402,9 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
     if !args.is_empty() {
         flags.insert("args".into(), Value::Array(args));
     }
-    if own_query && (query || edit) {
+    // A command with its own -e (and no -q, as cluster -e -prune) takes its edits itself.
+    let own_edit = edit && !query && def.flags.iter().any(|d| d.name == "edit");
+    if (own_query && (query || edit)) || own_edit {
         flags.insert(if query { "query" } else { "edit" }.into(), json!(true));
         if query {
             if def.flags.iter().any(|d| d.name == "queried") {

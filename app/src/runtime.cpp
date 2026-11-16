@@ -1,4 +1,5 @@
 // Named actions (the reference's runtime commands), the hotkey table that runs them and the Hotkey Editor. A hotkey runs a named
+#include <tuple>
 // action or MEL; bindings the user changes are saved in the settings over the defaults.
 #include "themes.h"
 #include "envvars.h"
@@ -529,6 +530,14 @@ void MainWindow::build_runtime() {
     add_if("AddWrapInfluence", "Deform", "Add the last selected mesh as an influence of the first one's wrap", on_deformer("wrap", "influence", "-inf"));
     add_if("RemoveWrapInfluence", "Deform", "Remove the last selected influence from the first one's wrap", on_deformer("wrap", "influence", "-ri"));
     add_if("AddWire", "Deform", "Add the last selected curve to the first one's wire", on_deformer("wire", "curve", "-w"));
+    // Deform > Membership > Prune Membership: each selected object's deformer of that kind loses the points it doesn't move.
+    for (auto [rt, type, cmd] : {std::tuple{"PruneCluster", "cluster", "cluster"}, {"PruneLattice", "ffd", "lattice"},
+                                 {"PruneSculpt", "sculpt", "sculpt"}, {"PruneWire", "wire", "wire"}}) {
+        add_if(rt, "Deform", "Prune Membership",
+               QString("{ string $d[] = `ls -type %1 (listHistory(`ls -sl -o`))`; if (!size($d)) error \"Select an object with a %1\";"
+                       " for ($x in $d) %2 -e -prune true $x; }")
+                   .arg(type, cmd));
+    }
     add_if("ToggleNurbsInView", "Display", "NURBS shown or not in the view under the pointer",
            "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -nurbsSurfaces $p`; modelEditor -e -nurbsSurfaces $on -nurbsCurves $on $p; }");
     add_if("TogglePolygonsInView", "Display", "Polygons shown or not in the view under the pointer",

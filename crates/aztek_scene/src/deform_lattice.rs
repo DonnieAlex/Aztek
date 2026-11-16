@@ -614,6 +614,9 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                 if a.bool("query") {
                     return query(s, a);
                 }
+                if a.bool("edit") && a.bool("prune") {
+                    return deform::prune(s, a, "lattice");
+                }
                 if a.bool("edit") {
                     return edit(s, a);
                 }
