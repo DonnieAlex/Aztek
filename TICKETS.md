@@ -42,7 +42,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - World symmetry: an object moved after symmetry was set keeps its old pairs.
 - macOS tests: `python_forms` failed on the runner with `xform -q -ro` at 44.99999999999999 for 45; values shown in degrees are now tidied, so see if it passes (09/11/2026). `cargo test` stopped at that failure, so CI now runs `--no-fail-fast` to show the rest. The step is `continue-on-error`, so a green macOS job doesn't mean its tests passed: read the log.
 - macOS: the early Apple-silicon build has to be tried on a Mac (viewport through MoltenVK, Cmd and Option in mouse and key handling), then made a condition of a release.
-- Lou: `poseInterpolator`, blendShape on a lattice.
+- Lou: `poseInterpolator` (node in since 16/11/2026; try it on Lou's file), blendShape on a lattice.
 - Reference gaps: `exportEdits`, `-shd`, painted weights and tweaks on referenced meshes as edits; second reference of a large rig loads slower than the first.
 
 - USD gaps: MaterialX draws grey, subdivision meshes draw their hull, no component selection in a stage, time samples not on the time slider or in the Graph Editor, Outliner collections.

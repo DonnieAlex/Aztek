@@ -128,7 +128,7 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [~] 2.7 (16/11/2026: texGetTexelDensity, texSetTexelDensity and a Texel Density row in the UV Editor's toolbar;
   `polyEvaluate -uvShell` was in; UDIM layout not yet) UV basics: `texGetTexelDensity`, `texSetTexelDensity`, the UV Toolkit's texel density row, UDIM-aware
   layout (tiles, padding by pixels), `polyEvaluate -uvShell`.
-- [~] 2.8 (14/11/2026: `uvPin` and `proximityPin` nodes; 16/11/2026: their menus, `UVPin` and `ProximityPin`; `poseInterpolator` not yet) Rigging basics: `uvPin` and `proximityPin` nodes and menus (ribbons and pinned controls rely on them),
+- [x] 2.8 (14/11/2026: `uvPin` and `proximityPin` nodes; 16/11/2026: their menus, `UVPin` and `ProximityPin`, and `poseInterpolator` with its command and menu; the Pose Editor window and pose shapes not yet) Rigging basics: `uvPin` and `proximityPin` nodes and menus (ribbons and pinned controls rely on them),
   `poseInterpolator` (already a ticket: Lou needs it).
 - [x] 2.9 (11/11/2026: user folder, modules, `userSetup`; PARITY.md, Plug-in Manager and the user folder) `userSetup.py` and `userSetup.mel` run at start from the script paths; modules (`.mod` files on
   `MAYA_MODULE_PATH` and `AZTEK_MODULE_PATH`, `moduleInfo`) add script, plug-in, icon and Python paths.

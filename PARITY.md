@@ -343,7 +343,7 @@ Differences and gaps: `blendShape` origin defaults to local, where the documenta
 node with a handle, not a cluster over wires, and creases by normal. solidify fits the whole mesh, so several shells count as one.
 shrinkWrap's `.projection` enum order is from memory and needs checking against the reference. `copySkinWeights -uv` reads the one UV set.
 `transferBetweenInfluences`, `attrPaintStamp` and `pointOnCurveDeformer` are Aztek's own names. A skinCluster has no set, so
-membership doesn't limit a skin. `.ma` doesn't carry the new deformers. Not done: `poseInterpolator`.
+membership doesn't limit a skin. `.ma` doesn't carry the new deformers. `poseInterpolator`: see its own section (16/11/2026).
 
 Files, as of 06/11/2026: `.ma` read and write (`ma_file.rs`) and the `file` command (`-new`, `-open`, `-save`, `-rename`,
 `-import`, `-exportAll`, `-exportSelected`, `-type`, `-q -sn -ex -type`). Reads transforms, joints, locators, meshes
@@ -656,7 +656,7 @@ Looked at: all four rigs posed through arm IK and FK, legs, spine, head, jaw and
 
 Shallower than the reference, most noticeable first:
 
-- The fourth rig's `poseInterpolator` nodes are not read, so the corrective shapes on elbows and wrists don't fire. Nothing stands in for them and they are lost on saving.
+- The fourth rig's `poseInterpolator` nodes are not read, so the corrective shapes on elbows and wrists don't fire. Nothing stands in for them and they are lost on saving. (16/11/2026: the node now exists, see its section; not yet tried on this rig, which isn't in the repo.)
 - Its `SquintRightToLeftBS`, a blendShape on a lattice, is not read: the left squint lattice doesn't follow the right. A lattice has no deformers on it here.
 - Per change, measured over 30 changes: 13 to 127 ms on the second and third rigs and 29 to 206 ms on the fourth, the top of each range being the root control. A change to an attribute that computes nothing, such as a visibility switch on the main control, still recomputes everything below that node: 65 to 90 ms there.
 - Saved and reopened, the fourth rig under an arm IK pose differs by 8 on one proxy mesh's transform and 0.1 on twist joints, the third by 0.09 on a shoulder under a spine pose, the second by 0.05 on a finger joint under an FK arm pose. Cause not found. Other poses tried agree to 0.01.
@@ -2608,3 +2608,45 @@ menu items make were not checked against its docs page for the menu or a running
 - One undo step each; saved and opened with `.ma`.
 - Not done: pinning to selected components (the reference can make a locator per component), NURBS surfaces, an option
   box.
+
+### poseInterpolator (16/11/2026)
+
+PLAN 2.8. The node, its `poseInterpolator` command, and Deform > Pose Space Deformation > Create Pose Interpolator and
+Add Pose. Attributes, short names, defaults, limits and enums are the 2027 release's, read from
+[maya-node-list](https://github.com/yamahigashi/maya-node-list) (`2027/nodes/poseInterpolator.mll`): a shape, with
+`driver[]` (`driverMatrix`, `driverTwistAxis`, `driverEulerTwist`, `driverOrient`, `driverRotateAxis`,
+`driverRotateOrder`), `pose[]` (`poseName`, `poseType` Swing and Twist / Swing Only / Twist Only, `isEnabled`,
+`isIndependent`, `poseFalloff`, `poseRotationFalloff`, `poseTranslationFalloff`, `poseRotation`, `poseTranslation`),
+`interpolation` Linear / Gaussian, `regularization`, `outputSmoothing`, `allowNegativeWeights`, `enableRotation`,
+`enableTranslation`, and `output[]`. The command's flags are the reference's as PyMEL lists them
+([2016 PyMEL page](https://help.autodesk.com/cloudhelp/2016/ENU/Maya-Tech-Docs/PyMel/generated/functions/pymel.core.other/pymel.core.other.poseInterpolator.html),
+which gives names and types and no descriptions). The workflow is from the reference's pages on the
+[Pose Editor](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-CharacterAnimation/files/GUID-2AB6C4C3-75AC-4094-A65C-C232739AFB30.htm)
+and [creating pose space deformations](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-CharacterAnimation/files/GUID-00699C13-8CA1-450C-937D-57C7B3DFD8C6.htm).
+No running copy of the reference and no file from it were compared; the solve is Aztek's own.
+
+- Create Pose Interpolator (`createPoseInterpolator`, Aztek's name for the menu item): for each selected joint,
+  `<joint>_poseInterpolator` with its shape, the joint's `matrix` into `driver[0].driverMatrix`, its joint orient and
+  rotate order copied, and the poses `neutral`, `neutralSwing` and `neutralTwist` (the reference's names) unless
+  `-neutralPoses` is off.
+- `poseInterpolator`: `-addPose` (an empty name gives the reference's default, `<driver>_<rx>_<ry>_<rz>`;
+  `-poseType`, Aztek's, sets the type), `-deletePose`, `-updatePose`, `-goToPose`, `-rename`, and with `-query`
+  `-poseNames`, `-drivers`, `-index -pose`. Not done: `-kernelWidth`, `-mirror`, `-importPoses`, `-exportPoses`,
+  `-searchAndReplace`, `-name`.
+- A pose stores each driver's rotation as a quaternion (x, y, z, w) and its translation, as doubleArrays.
+- The solve, for the poses of each type together: radial basis functions over the distance between the drivers now
+  and each pose, linear (the distance) or Gaussian (`poseFalloff` as the width, in radians), `regularization` added to
+  the diagonal, so that each pose's weight is 1 at the pose and 0 at the other poses of its type. Swing is the angle
+  between the twist axis now and at the pose, twist the turn about that axis; Swing and Twist measures both. With
+  `enableTranslation` the distance between translations counts too. Negative weights are held at 0 when
+  `allowNegativeWeights` is off; `outputSmoothing` eases each weight towards a smoothstep.
+- Independent poses: 1 at the pose, falling straight to 0 at `poseRotationFalloff` degrees (and
+  `poseTranslationFalloff`, when above 0).
+- Poses of different types are solved apart: that is Aztek's choice, made so that the neutral poses of each type hold
+  that type's poses at 0 at rest. The reference may solve them together.
+- Files: Aztek writes `pose[i].poseRotation` as one array for all drivers. A file giving it per driver,
+  `pose[i].poseRotation[j]`, is read into its place (that layout is assumed from the attribute table, which marks the
+  attribute an array; no file from the reference was at hand). The manager node's tree is not read.
+- Not done: `driverEulerTwist` (twist is read from the quaternion), `driverController` and the controller data, pose
+  shapes (Add Pose making or editing a corrective target: connect `output[i]` to a blend shape's weight by hand), the
+  Pose Editor window, drawing `displayOutput`.

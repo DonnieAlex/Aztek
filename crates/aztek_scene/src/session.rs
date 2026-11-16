@@ -134,6 +134,7 @@ impl Session {
         crate::uv_ops::register(&mut s.commands);
         crate::texel::register(&mut s.commands);
         crate::pins::register(&mut s.commands);
+        crate::pose_interpolator::register(&mut s.commands);
         crate::rig::register(&mut s.commands);
         crate::constraint::register(&mut s.commands);
         crate::ik::register(&mut s.commands);

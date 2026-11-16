@@ -597,6 +597,15 @@ QMenu* MainWindow::deform_menu() {
     cmd(m, "Texture", "textureDeformer", {}, QString(), true);
     cmd(m, "Curve Warp", "curveWarp", {}, QString(), true);
     m->addSeparator();
+    auto* psd = m->addMenu("Pose Space Deformation");
+    cmd(psd, "Create Pose Interpolator", "createPoseInterpolator");
+    psd->addAction("Add Pose", [] {
+        // A pose of the drivers as they are now, on each selected pose interpolator, under the default name.
+        QJsonArray sel = state()["selection"].toArray();
+        if (sel.isEmpty()) { log("// Warning: select a pose interpolator //", 4); return; }
+        for (const auto& n : sel) exec("poseInterpolator", QJsonObject{{"args", QJsonArray{n}}, {"addPose", ""}});
+    });
+    m->addSeparator();
     auto* paint = m->addMenu("Paint Weights");
     for (auto [label, type] : {std::pair{"Blend Shape", "blendShape"}, {"Cluster", "cluster"}, {"Delta Mush", "deltaMush"}, {"Jiggle", "jiggle"}, {"Lattice", "ffd"}, {"Nonlinear", "nonLinear"}, {"Soft Modification", "softMod"}, {"Tension", "tension"}, {"Wire", "wire"}, {"Wrap", "wrap"}}) {
         QString ty = type;

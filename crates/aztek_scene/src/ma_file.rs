@@ -1258,7 +1258,7 @@ const DRAW_CHANNELS: &[&str] = &[
 /// Rigging and animation nodes that are all attributes and connections.
 const PLAIN_NODES: &[&str] = &["audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
 /// The same under a transform.
-const PLAIN_SHAPES: &[&str] = &["imagePlane", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
+const PLAIN_SHAPES: &[&str] = &["imagePlane", "poseInterpolator", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
 /// Nodes written and read attribute by attribute, with their connections: utility nodes and expressions.
 /// What a file's unitConversion does: values are in stored units, as in the reference, so its factor means what it says.
@@ -2019,6 +2019,31 @@ impl Build<'_> {
         plug_value(def, p.component, &set.values[..stride.min(set.values.len())], 1.0).is_some()
     }
 
+    /// An element of a typed array attribute that is itself an array in the reference (a poseInterpolator's
+    /// pose[i].poseRotation[driver]), held here in one array: each element's numbers in its place, in index order.
+    fn typed_array_element(&mut self, node_path: &str, text: &[String], chunk: &[Tok]) -> bool {
+        let Some(last) = text.last() else { return false };
+        let Some(open) = last.rfind('[') else { return false };
+        let Ok(j) = last[open + 1..last.len().saturating_sub(1)].parse::<usize>() else { return false };
+        let mut head = text.to_vec();
+        *head.last_mut().unwrap() = last[..open].to_string();
+        let Ok(p) = self.s.graph.plug(&format!("{node_path}.{}", head.join("."))) else { return false };
+        let def = self.s.graph.attr(&p).clone();
+        let Some(kind) = crate::array_data::of(&def.default_value).map(|d| d.kind.clone()) else { return false };
+        let Some(PlugValue::Data(Some(nd))) = plug_value(&def, p.component, chunk, 1.0) else { return false };
+        let Some(new) = nd.as_any().downcast_ref::<crate::array_data::ArrayData>() else { return false };
+        let mut have = self.s.graph.value(&p).ok().and_then(|v| crate::array_data::of(&v).cloned()).unwrap_or_else(|| crate::array_data::ArrayData::empty(&kind));
+        let w = new.nums.len();
+        if w == 0 {
+            return true;
+        }
+        if have.nums.len() < (j + 1) * w {
+            have.nums.resize((j + 1) * w, 0.0);
+        }
+        have.nums[j * w..(j + 1) * w].copy_from_slice(&new.nums);
+        self.s.graph.set_value(p, have.value()).is_ok()
+    }
+
     /// A utility node or expression: made as it is, its setAttrs applied by name. Attributes Aztek's node doesn't have
     /// (The reference's nodeState and the like) are passed over.
     fn create_plain(&mut self, i: usize) {
@@ -2072,7 +2097,9 @@ impl Build<'_> {
                     })
                     .collect();
                 let Ok(p) = self.s.graph.plug(&format!("{node_path}.{}", text.join("."))) else {
-                    self.note_drop(&n.ty, &text.join("."), "setAttr");
+                    if !self.typed_array_element(&node_path, &text, chunk) {
+                        self.note_drop(&n.ty, &text.join("."), "setAttr");
+                    }
                     continue;
                 };
                 let def = self.s.graph.attr(&p).clone();
