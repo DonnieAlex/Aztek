@@ -7,6 +7,7 @@
 #include <QActionGroup>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QDoubleSpinBox>
 #include <QJsonArray>
 #include <QKeyEvent>
 #include <QLabel>
@@ -882,6 +883,28 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     bar->addAction("Flip V", [this] { run("polyFlipUV", {{"flipType", 1}}); });
     bar->addAction("-90", [this] { run("polyEditUV", {{"angle", -90.0}}); });
     bar->addAction("+90", [this] { run("polyEditUV", {{"angle", 90.0}}); });
+    bar->addSeparator();
+    // Texel density: Get reads the selection's into the field, Set scales each shell to it, for the map size chosen.
+    auto* td = new QDoubleSpinBox(bar);
+    td->setRange(0.001, 100000.0);
+    td->setDecimals(3);
+    td->setValue(10.24);
+    td->setToolTip("Texel density: pixels per scene unit");
+    auto* map = new QComboBox(bar);
+    for (int px : {256, 512, 1024, 2048, 4096, 8192}) map->addItem(QString::number(px), px);
+    map->setCurrentIndex(2);
+    map->setToolTip("Map size, pixels");
+    bar->addWidget(new QLabel(" Texel Density ", bar));
+    bar->addWidget(td);
+    bar->addWidget(map);
+    bar->addAction("Get", [this, td, map] {
+        QJsonObject c{{"mapSize", map->currentData().toInt()}};
+        QJsonArray t = canvas_->targets();
+        if (!t.isEmpty()) c["args"] = t;
+        QJsonValue v = ask("texGetTexelDensity", c);
+        if (v.isDouble()) td->setValue(v.toDouble());
+    });
+    bar->addAction("Set", [this, td, map] { run("texSetTexelDensity", {{"texelDensity", td->value()}, {"mapSize", map->currentData().toInt()}}); });
     bar->addSeparator();
     QAction* display_image = bar->addAction("Image", [this](bool on) {
         canvas_->show_image = on;

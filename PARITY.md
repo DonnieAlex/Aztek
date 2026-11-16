@@ -2490,6 +2490,14 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### Texel density (16/11/2026)
+
+`texGetTexelDensity` (`-mapSize`, 1024 by default; faces or whole objects) answers pixels per scene unit: the square
+root of the faces' UV area over their world-space area, times the map size. `texSetTexelDensity -texelDensity -mapSize`
+scales each UV shell of the faces about its centre to that density, as one undo step with a polyTweakUV in history.
+Only the first UV set is read. The UV Editor's toolbar has Texel Density, Map size, Get and Set. Not checked against
+the reference's numbers yet: a capture of `texGetTexelDensity` on a default plane is wanted.
+
 ### Runtime commands and cmds.exists (16/11/2026)
 
 - `cmds.exists` answers as MEL's `exists` does (a command, a procedure, a built-in or a script on the script path).

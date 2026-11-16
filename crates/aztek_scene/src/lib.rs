@@ -116,6 +116,7 @@ pub mod system_cmds;
 pub mod hidden_components;
 pub mod transform;
 pub mod transform_ops;
+pub mod texel;
 pub mod texture_nodes;
 pub mod utility_nodes;
 pub mod uv_misc;
