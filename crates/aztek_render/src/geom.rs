@@ -36,17 +36,118 @@ pub struct MeshData {
     /// Built again when a scene file is read.
     #[serde(skip)]
     pub bvh: Bvh,
+    /// When set, the points are curves' control points and the primitives are their segments, not triangles.
+    #[serde(default)]
+    pub curves: Option<Curves>,
+}
+
+/// How a curve is drawn across its width, as Arnold's curves `mode`.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CurveMode {
+    /// A flat strip always turned to the ray: hair and fur.
+    #[default]
+    Ribbon,
+    /// A round tube.
+    Thick,
+}
+
+/// Curves as linear segments between their points. Smooth curves are refined into enough points before they get here.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
+pub struct Curves {
+    /// Radius at each point.
+    pub radius: Vec<f32>,
+    /// Per segment, the index of its first point (the second is the next).
+    pub seg: Vec<u32>,
+    /// Per segment, the curve it belongs to.
+    pub seg_curve: Vec<u32>,
+    /// Per point, how far along its curve it is, 0 at the root and 1 at the tip.
+    pub along: Vec<f32>,
+    /// Per curve, the texture coordinates of its root on the surface it grows from; empty when there are none.
+    pub root_uv: Vec<Vec2>,
+    pub mode: CurveMode,
 }
 
 impl MeshData {
     pub fn new(name: &str, positions: Vec<Vec3>, normals: Vec<Vec3>, uvs: Vec<Vec2>, tris: Vec<[u32; 3]>, tri_shader: Vec<u16>) -> MeshData {
         let normals = if normals.len() == positions.len() { vec![normals] } else { Vec::new() };
-        let mut m = MeshData { name: name.into(), keys: vec![positions], normals, uvs, tris, tri_shader, bvh: Bvh::default() };
+        let mut m = MeshData { name: name.into(), keys: vec![positions], normals, uvs, tris, tri_shader, bvh: Bvh::default(), curves: None };
         m.build();
         m
     }
 
+    /// Curves: `counts` points each, in order, with a radius per point. `shader` is per curve, as an index into the
+    /// instance's shader list.
+    pub fn curves(name: &str, points: Vec<Vec3>, radius: Vec<f32>, counts: &[u32], root_uv: Vec<Vec2>, shader: Vec<u16>, mode: CurveMode) -> MeshData {
+        let mut c = Curves { radius, root_uv, mode, ..Default::default() };
+        c.along = vec![0.0; points.len()];
+        let mut tri_shader = Vec::new();
+        let mut start = 0u32;
+        for (ci, &n) in counts.iter().enumerate() {
+            // How far along: by length, so a texture or a width ramp follows the curve evenly.
+            let mut total = 0.0f32;
+            let mut acc = vec![0.0f32; n as usize];
+            for i in 1..n as usize {
+                total += (points[start as usize + i] - points[start as usize + i - 1]).length();
+                acc[i] = total;
+            }
+            for i in 0..n as usize {
+                c.along[start as usize + i] = if total > 0.0 { acc[i] / total } else if n > 1 { i as f32 / (n - 1) as f32 } else { 0.0 };
+            }
+            for i in 0..n.saturating_sub(1) {
+                c.seg.push(start + i);
+                c.seg_curve.push(ci as u32);
+                tri_shader.push(shader.get(ci).copied().unwrap_or(0));
+            }
+            start += n;
+        }
+        if c.radius.len() != points.len() {
+            c.radius.resize(points.len(), c.radius.last().copied().unwrap_or(0.01));
+        }
+        let mut m = MeshData { name: name.into(), keys: vec![points], normals: Vec::new(), uvs: Vec::new(), tris: Vec::new(), tri_shader, bvh: Bvh::default(), curves: Some(c) };
+        m.build();
+        m
+    }
+
+    /// A segment's two points and radii at a time.
+    #[inline]
+    pub fn seg_points(&self, prim: u32, time: f32) -> (Vec3, Vec3, f32, f32) {
+        let c = self.curves.as_ref().unwrap();
+        let i = c.seg[prim as usize] as usize;
+        let (a, b) = if self.keys.len() == 1 {
+            (self.keys[0][i], self.keys[0][i + 1])
+        } else {
+            let (ka, kb, f) = key_span(self.keys.len(), time);
+            (self.keys[ka][i].lerp(self.keys[kb][i], f), self.keys[ka][i + 1].lerp(self.keys[kb][i + 1], f))
+        };
+        (a, b, c.radius[i], c.radius[i + 1])
+    }
+
+    pub fn prim_count(&self) -> usize {
+        match &self.curves {
+            Some(c) => c.seg.len(),
+            None => self.tris.len(),
+        }
+    }
+
     pub fn tri_bounds(&self) -> Vec<Aabb> {
+        if let Some(c) = &self.curves {
+            return c
+                .seg
+                .iter()
+                .map(|&i| {
+                    let i = i as usize;
+                    let r = c.radius[i].max(c.radius[i + 1]);
+                    let mut b = Aabb::EMPTY;
+                    for k in &self.keys {
+                        b.grow(k[i] - Vec3::splat(r));
+                        b.grow(k[i] + Vec3::splat(r));
+                        b.grow(k[i + 1] - Vec3::splat(r));
+                        b.grow(k[i + 1] + Vec3::splat(r));
+                    }
+                    b
+                })
+                .collect();
+        }
         self.tris
             .iter()
             .map(|t| {
@@ -62,8 +163,9 @@ impl MeshData {
     }
 
     pub fn build(&mut self) {
-        if self.tri_shader.len() != self.tris.len() {
-            self.tri_shader.resize(self.tris.len(), 0);
+        let n = self.prim_count();
+        if self.tri_shader.len() != n {
+            self.tri_shader.resize(n, 0);
         }
         self.bvh = Bvh::build(&self.tri_bounds());
     }
@@ -95,7 +197,9 @@ impl MeshData {
     }
 
     pub fn memory_bytes(&self) -> usize {
-        self.keys.iter().map(|k| k.len() * 12).sum::<usize>() + self.normals.iter().map(|k| k.len() * 12).sum::<usize>() + self.uvs.len() * 8 + self.tris.len() * 14 + self.bvh.nodes.len() * 32 + self.bvh.order.len() * 4
+        self.curves.as_ref().map_or(0, |c| c.radius.len() * 8 + c.seg.len() * 10 + c.root_uv.len() * 8)
+            + self.keys.iter().map(|k| k.len() * 12).sum::<usize>()
+            + self.normals.iter().map(|k| k.len() * 12).sum::<usize>() + self.uvs.len() * 8 + self.tris.len() * 14 + self.bvh.nodes.len() * 32 + self.bvh.order.len() * 4
     }
 }
 
@@ -136,6 +240,48 @@ fn tri_hit(o: Vec3, d: Vec3, p0: Vec3, p1: Vec3, p2: Vec3, tmax: f32) -> Option<
     } else {
         None
     }
+}
+
+/// A ray against a segment with a radius at each end. Returns the distance, how far along the segment (0 to 1) and the
+/// signed offset across the width (-1 to 1). A ribbon is hit at its middle line's nearest point to the ray; a thick
+/// curve on the near side of its tube.
+#[inline]
+fn seg_hit(o: Vec3, d: Vec3, p0: Vec3, p1: Vec3, r0: f32, r1: f32, tmax: f32, mode: CurveMode) -> Option<(f32, f32, f32)> {
+    let e = p1 - p0;
+    let w0 = o - p0;
+    let a = d.dot(d);
+    let b = d.dot(e);
+    let c = e.dot(e);
+    let dd = d.dot(w0);
+    let ee = e.dot(w0);
+    let den = a * c - b * b;
+    let mut u = if den.abs() > 1e-12 * a * c { (a * ee - b * dd) / den } else { 0.0 };
+    if c > 0.0 && den.abs() <= 1e-12 * a * c {
+        u = ee / c;
+    }
+    let u = u.clamp(0.0, 1.0);
+    let q = p0 + e * u;
+    let s = (q - o).dot(d) / a;
+    let pr = o + d * s;
+    let off = pr - q;
+    let dist2 = off.length_squared();
+    let r = r0 + (r1 - r0) * u;
+    if dist2 > r * r {
+        return None;
+    }
+    let t = match mode {
+        CurveMode::Ribbon => s,
+        CurveMode::Thick => s - (r * r - dist2).sqrt() / a.sqrt(),
+    };
+    // A ribbon is met where the ray passes nearest its middle line: a ray leaving the strand itself would meet it again
+    // there, so nothing nearer than the radius counts.
+    let near = if mode == CurveMode::Ribbon { r / a.sqrt() } else { 1e-6 };
+    if t <= near.max(1e-6) || t >= tmax {
+        return None;
+    }
+    let side = off.dot(e.cross(d));
+    let h = (dist2.sqrt() / r.max(1e-12)).min(1.0) * if side < 0.0 { -1.0 } else { 1.0 };
+    Some((t, u, h))
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -246,6 +392,16 @@ impl Geometry {
             let d = inv.transform_vector3(ray.d);
             // Object space distances equal world ones: the direction is not normalised.
             mesh.bvh.traverse(o, d, tmax, |p, tmax| {
+                if let Some(cv) = &mesh.curves {
+                    let (a, b, ra, rb) = mesh.seg_points(p, ray.time);
+                    return match seg_hit(o, d, a, b, ra, rb, tmax, cv.mode) {
+                        Some((t, u, v)) => {
+                            best = Some(Hit { t, inst: ii, prim: p, u, v });
+                            t
+                        }
+                        None => tmax,
+                    };
+                }
                 let (a, b, c) = mesh.tri_points(p, ray.time);
                 match tri_hit(o, d, a, b, c, tmax) {
                     Some((t, u, v)) => {
@@ -272,8 +428,14 @@ impl Geometry {
             let o = inv.transform_point3(ray.o);
             let d = inv.transform_vector3(ray.d);
             let r = mesh.bvh.traverse(o, d, tmax, |p, tm2| {
-                let (a, b, c) = mesh.tri_points(p, ray.time);
-                if let Some((t, u, v)) = tri_hit(o, d, a, b, c, tmax) {
+                let found = if let Some(cv) = &mesh.curves {
+                    let (a, b, ra, rb) = mesh.seg_points(p, ray.time);
+                    seg_hit(o, d, a, b, ra, rb, tmax, cv.mode)
+                } else {
+                    let (a, b, c) = mesh.tri_points(p, ray.time);
+                    tri_hit(o, d, a, b, c, tmax)
+                };
+                if let Some((t, u, v)) = found {
                     if !each(Hit { t, inst: ii, prim: p, u, v }) {
                         stopped = true;
                         return -1.0;
@@ -309,6 +471,8 @@ pub struct SurfacePoint {
     pub inst: u32,
     pub prim: u32,
     pub shader: u32,
+    /// On a curve: the offset across its width, -1 to 1, which hair shading reads.
+    pub curve_h: Option<f32>,
 }
 
 impl Geometry {
@@ -316,6 +480,9 @@ impl Geometry {
         let inst = &self.instances[h.inst as usize];
         let mesh = &self.meshes[inst.mesh as usize];
         let (m, inv) = inst.xform_at(ray.time);
+        if let Some(c) = &mesh.curves {
+            return self.curve_surface(ray, h, inst, mesh, c, &m);
+        }
         let t = mesh.tris[h.prim as usize];
         let (a, b, c) = mesh.tri_points(h.prim, ray.time);
         let w = 1.0 - h.u - h.v;
@@ -369,7 +536,41 @@ impl Geometry {
             n = -n;
         }
         let shader = inst.shaders.get(mesh.tri_shader[h.prim as usize] as usize).or(inst.shaders.first()).copied().unwrap_or(0);
-        SurfacePoint { p, ng: ng_out, n, uv, dpdu, dpdv, front, uv_density: density, inst: h.inst, prim: h.prim, shader }
+        SurfacePoint { p, ng: ng_out, n, uv, dpdu, dpdv, front, uv_density: density, inst: h.inst, prim: h.prim, shader, curve_h: None }
+    }
+
+    /// A curve's point: dpdu runs along the curve, the normal faces the ray (a ribbon) or out of the tube (thick).
+    fn curve_surface(&self, ray: &Ray, h: &Hit, inst: &Instance, mesh: &MeshData, c: &Curves, m: &Mat4) -> SurfacePoint {
+        let (a, b, _, _) = mesh.seg_points(h.prim, ray.time);
+        let (pa, pb) = (m.transform_point3(a), m.transform_point3(b));
+        let p = ray.at(h.t);
+        let mut t = (pb - pa).normalize_or_zero();
+        if t.length_squared() < 0.5 {
+            t = Vec3::Y;
+        }
+        let dir = ray.d.normalize_or_zero();
+        // Facing the ray, square to the curve.
+        let mut facing = -(dir - t * t.dot(dir));
+        if facing.length_squared() < 1e-12 {
+            facing = crate::math::Frame::from_n(t).t;
+        }
+        let facing = facing.normalize();
+        let n = match c.mode {
+            CurveMode::Ribbon => facing,
+            CurveMode::Thick => {
+                let axis = pa + (pb - pa) * h.u;
+                let out = (p - axis) - t * t.dot(p - axis);
+                if out.length_squared() > 1e-20 { out.normalize() } else { facing }
+            }
+        };
+        let i = c.seg[h.prim as usize] as usize;
+        let along = c.along[i] + (c.along[i + 1] - c.along[i]) * h.u;
+        let ci = c.seg_curve[h.prim as usize] as usize;
+        // Textures on hair read the root's place on the skin, as Arnold's uparamcoord and vparamcoord; with none, the
+        // offset across and the distance along.
+        let uv = c.root_uv.get(ci).copied().unwrap_or(Vec2::new(h.v * 0.5 + 0.5, along));
+        let shader = inst.shaders.get(mesh.tri_shader[h.prim as usize] as usize).or(inst.shaders.first()).copied().unwrap_or(0);
+        SurfacePoint { p, ng: facing, n, uv, dpdu: t, dpdv: facing.cross(t), front: true, uv_density: 1.0, inst: h.inst, prim: h.prim, shader, curve_h: Some(h.v) }
     }
 }
 

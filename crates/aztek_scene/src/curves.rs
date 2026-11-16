@@ -738,7 +738,10 @@ pub fn register_types() {
                 AttrDef { flags: flags::OUTPUT | flags::HIDDEN | flags::ARRAY, ..float_out("editPoints.yValueEp", "eps.yve", "An edit point's Y.") },
                 AttrDef { flags: flags::OUTPUT | flags::HIDDEN | flags::ARRAY, ..float_out("editPoints.zValueEp", "eps.zve", "An edit point's Z.") },
                 AttrDef { short_name: "ado".into(), ..store_bool("alwaysDrawOnTop", false, "Draw the curve over everything else, as rig controls are. Kept and saved; the views do not act on it yet.") },
-            ],
+            ]
+            .into_iter()
+            .chain(crate::harold_nodes::curve_render_attrs())
+            .collect(),
             create: Some(Arc::new(|| Box::new(CurveShape))),
             ..Default::default()
         })

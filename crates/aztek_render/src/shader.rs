@@ -718,6 +718,49 @@ pub struct Standard {
     pub exit_to_background: bool,
     pub indirect_diffuse: f32,
     pub indirect_specular: f32,
+    /// Set for aiStandardHair: the fibre model replaces the surface's lobes.
+    #[serde(default)]
+    pub hair: Option<HairInputs>,
+}
+
+/// aiStandardHair's inputs, by Arnold's names.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct HairInputs {
+    pub base: Input,
+    pub base_color: Input,
+    pub melanin: Input,
+    pub melanin_redness: Input,
+    pub roughness: Input,
+    pub roughness_azimuthal: Input,
+    pub ior: Input,
+    pub shift: Input,
+    pub specular_tint: Input,
+    pub specular2_tint: Input,
+    pub transmission_tint: Input,
+    pub emission: Input,
+    pub emission_color: Input,
+}
+
+impl Default for HairInputs {
+    fn default() -> Self {
+        let c = Input::c;
+        let d = crate::hair::HairParams::default();
+        HairInputs {
+            base: c(1.0),
+            base_color: c(1.0),
+            melanin: c(d.melanin),
+            melanin_redness: c(d.melanin_redness),
+            roughness: c(d.roughness),
+            roughness_azimuthal: c(d.roughness_azimuthal),
+            ior: c(d.ior),
+            shift: c(d.shift),
+            specular_tint: c(1.0),
+            specular2_tint: c(1.0),
+            transmission_tint: c(1.0),
+            emission: c(0.0),
+            emission_color: c(1.0),
+        }
+    }
 }
 
 impl Default for Standard {
@@ -771,6 +814,7 @@ impl Default for Standard {
             exit_to_background: false,
             indirect_diffuse: 1.0,
             indirect_specular: 1.0,
+            hair: None,
         }
     }
 }

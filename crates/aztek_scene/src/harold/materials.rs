@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use aztek_render::shader::{Input, Material, Node, Out, Standard};
+use aztek_render::shader::{HairInputs, Input, Material, Node, Out, Standard};
 use glam::Vec3;
 
 use super::network::{get_b, get_f, get_v, NetBuilder};
@@ -223,6 +223,26 @@ impl MatBuilder<'_, '_> {
                 let c = self.nb.input(id, "outColor");
                 let t = self.nb.input(id, "outTransparency");
                 Material::Flat { color: c, opacity: reverse(self.nb, t) }
+            }
+            "aiStandardHair" => {
+                let i = |me: &mut Self, a: &str| me.nb.input(id, a);
+                let hair = HairInputs {
+                    base: i(self, "base"),
+                    base_color: i(self, "baseColor"),
+                    melanin: i(self, "melanin"),
+                    melanin_redness: i(self, "melaninRedness"),
+                    roughness: i(self, "roughness"),
+                    roughness_azimuthal: i(self, "roughnessAzimuthal"),
+                    ior: i(self, "ior"),
+                    shift: i(self, "shift"),
+                    specular_tint: i(self, "specularTint"),
+                    specular2_tint: i(self, "specular2Tint"),
+                    transmission_tint: i(self, "transmissionTint"),
+                    emission: i(self, "emission"),
+                    emission_color: i(self, "emissionColor"),
+                };
+                let opacity = i(self, "opacity");
+                Material::Standard(Box::new(Standard { hair: Some(hair), opacity, ..Default::default() }))
             }
             "aiFlat" => Material::Flat { color: self.nb.input(id, "color"), opacity: Input::c(1.0) },
             "aiUtility" => {

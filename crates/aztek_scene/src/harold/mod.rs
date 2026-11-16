@@ -8,6 +8,7 @@ pub mod lights;
 pub mod materials;
 pub mod network;
 pub mod settings;
+pub mod strands;
 pub mod swatch;
 
 use std::collections::HashMap;
@@ -416,6 +417,32 @@ pub fn translate(s: &mut Session, tr: &mut Translator, req: &Request) -> Result<
             let _ = k;
             scene.geo.instances.push(inst);
             instance_shapes.push(shape);
+        }
+        // Strands: rendered curves and hair, each a set of curves with its own instance.
+        for st in strands::gather(mb.nb.g) {
+            if st.points.len() < 2 || st.counts.is_empty() {
+                continue;
+            }
+            let name = mb.nb.g.path(st.shape);
+            let shaders = match st.shader {
+                Some(m) => vec![mb.material(m)],
+                None => {
+                    let (ids, _) = shader_table(&mut mb, st.shape);
+                    if ids.is_empty() { vec![0] } else { ids }
+                }
+            };
+            let mode = if st.thick { aztek_render::geom::CurveMode::Thick } else { aztek_render::geom::CurveMode::Ribbon };
+            let data = MeshData::curves(&name, st.points, st.radius, &st.counts, st.root_uv, Vec::new(), mode);
+            let mesh_index = scene.geo.meshes.len() as u32;
+            scene.geo.meshes.push(Arc::new(data));
+            let mut inst = Instance::new(&name, mesh_index, mat4(&st.world), shaders);
+            let g = &mut *mb.nb.g;
+            inst.visibility = visibility_of(g, st.shape);
+            inst.receive_shadows = get_b(g, st.shape, "receiveShadows", true);
+            inst.id = crate::harold::object_id(&name);
+            inst.opaque = get_b(g, st.shape, "aiOpaque", true);
+            scene.geo.instances.push(inst);
+            instance_shapes.push(st.shape);
         }
         // Atmosphere: what the options node's atmosphere plug connects.
         let opts_node = mb.nb.g.find(settings::OPTIONS).ok().flatten();

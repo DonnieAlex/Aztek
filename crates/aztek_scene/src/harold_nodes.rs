@@ -225,6 +225,48 @@ fn ai_standard_out(d: &mut NodeData) {
     put(d, "outTransparency", DVec3::ONE - o);
 }
 
+/// aiStandardHair's attributes, with Arnold's documented defaults (unverified against a capture of the reference's).
+fn hair_attrs() -> Vec<AttrDef> {
+    vec![
+        ranged(f("base", "base", 1.0), 0.0, 1.0),
+        c("baseColor", "baseColor", [1.0; 3], IN),
+        ranged(f("melanin", "melanin", 1.0), 0.0, 1.0),
+        ranged(f("melaninRedness", "melaninRedness", 0.5), 0.0, 1.0),
+        ranged(f("melaninRandomize", "melaninRandomize", 0.0), 0.0, 1.0),
+        ranged(f("roughness", "roughness", 0.2), 0.0, 1.0),
+        ranged(f("roughnessAzimuthal", "roughnessAzimuthal", 0.2), 0.0, 1.0),
+        b("roughnessAnisotropic", "roughnessAnisotropic", false),
+        ranged(f("ior", "ior", 1.55), 1.0, 3.0),
+        ranged(f("shift", "shift", 3.0), -20.0, 20.0),
+        c("specularTint", "specularTint", [1.0; 3], IN),
+        c("specular2Tint", "specular2Tint", [1.0; 3], IN),
+        c("transmissionTint", "transmissionTint", [1.0; 3], IN),
+        ranged(f("diffuse", "diffuse", 0.0), 0.0, 1.0),
+        c("diffuseColor", "diffuseColor", [1.0; 3], IN),
+        ranged(f("emission", "emission", 0.0), 0.0, 1.0),
+        c("emissionColor", "emissionColor", [1.0; 3], IN),
+        c("opacity", "opacity", [1.0; 3], IN),
+        ranged(f("indirectDiffuse", "indirectDiffuse", 1.0), 0.0, 1.0),
+        ranged(f("indirectSpecular", "indirectSpecular", 1.0), 0.0, 1.0),
+        ranged(i("extraDepth", "extraDepth", 16), 0.0, 100.0),
+        ranged(i("extraSamples", "extraSamples", 0), 0.0, 10.0),
+        c("outColor", "oc", [0.0; 3], OUT),
+        c("outTransparency", "ot", [0.0; 3], OUT),
+        message(),
+    ]
+}
+
+/// The viewport's colour for hair: the fibre's colour from its melanin under its dye.
+fn hair_out(d: &mut NodeData) {
+    let m = get_f(d, "melanin").clamp(0.0, 1.0);
+    let red = get_f(d, "melaninRedness").clamp(0.0, 1.0);
+    // White with no pigment, through brown and red to black at full melanin.
+    let pigment = DVec3::new(1.0 - 0.75 * m + 0.25 * red * m * (1.0 - m) * 4.0, 1.0 - 0.85 * m, 1.0 - 0.92 * m).clamp(DVec3::ZERO, DVec3::ONE);
+    let col = pigment * get_v(d, "baseColor") * get_f(d, "base");
+    put(d, "outColor", col);
+    put(d, "outTransparency", DVec3::ONE - get_v(d, "opacity"));
+}
+
 fn flat_out(d: &mut NodeData) {
     let col = get_v(d, "color");
     put(d, "outColor", col);
@@ -240,6 +282,7 @@ fn table() -> Vec<(&'static str, &'static str, &'static str, Vec<AttrDef>, fn(&m
     let sampling = |name: &str, short: &str, d: i64| ranged(i(name, short, d), 0.0, 10.0);
     vec![
         ("aiStandardSurface", "shader/surface", "The physically based material, as files from other renderers name it: the same model as standardSurface.", standard_attrs(true), ai_standard_out),
+        ("aiStandardHair", "shader/surface", "Hair and fur: a fibre with melanin, a cuticle tilt and two roughnesses, for curves and hair.", hair_attrs(), hair_out),
         ("aiFlat", "shader/surface", "A flat colour, not lit.", vec![c("color", "color", [1.0; 3], IN), c("outColor", "oc", [0.0; 3], OUT), message()], flat_out),
         ("aiMixShader", "shader/surface", "Two materials blended by mix, or added.", vec![e("mode", "mode", 0, &["blend", "add"]), ranged(f("mix", "mix", 0.5), 0.0, 1.0), c("shader1", "shader1", [0.0; 3], IN), c("shader2", "shader2", [0.0; 3], IN), c("outColor", "oc", [0.0; 3], OUT), message()], none),
         ("aiShadowMatte", "shader/surface", "Invisible but for the shadows it receives: for putting renders over plates.", vec![b("background", "background", false), c("shadowColor", "shadowColor", [0.0; 3], IN), f("shadowOpacity", "shadowOpacity", 1.0), c("outColor", "oc", [0.0; 3], OUT), message()], none),
@@ -407,6 +450,22 @@ fn settings_table() -> Vec<(&'static str, &'static str, Vec<AttrDef>)> {
         ("aiAOV", "One output beside the beauty: its name, data type and which light group or lobe it holds.", vec![s("name", "name", ""), i("type", "type", 5), b("enabled", "enabled", true), s("lightGroupsList", "lightGroupsList", ""), b("lightGroups", "lightGroups", false), b("globalAov", "globalAov", true), hidden(slots("outputs", "outputs")), message()]),
         ("aiAOVDriver", "Where AOVs go: a file format and its settings, or the render view.", vec![s("ai_translator", "ai_translator", "exr"), e("exrCompression", "exrCompression", 3, &["none", "rle", "zips", "zip", "piz", "pxr24", "b44", "b44a", "dwaa", "dwab"]), b("halfPrecision", "halfPrecision", false), b("mergeAOVs", "mergeAOVs", false), b("tiled", "tiled", false), i("outputMode", "output_mode", 2), b("prefix", "prefix", false), i("quality", "quality", 100), message()]),
         ("aiAOVFilter", "How samples are weighted into pixels: the filter and its width.", vec![s("ai_translator", "ai_translator", "gaussian"), f("width", "width", 2.0), message()]),
+    ]
+}
+
+/// What Arnold reads on a NURBS curve to render it as a strand: whether to, its width, how finely it is sampled, the
+/// shader it takes and how it is drawn across. Names as files hold them (unverified against a capture).
+pub fn curve_render_attrs() -> Vec<AttrDef> {
+    vec![
+        b("aiRenderCurve", "rcurve", false),
+        ranged(fs("aiCurveWidth", "cwdth", 0.01), 0.0, 1.0),
+        ranged(i("aiSampleRate", "srate", 5), 1.0, 20.0),
+        c("aiCurveShader", "ai_curve_shader", [0.0; 3], IN),
+        e("aiMode", "ai_mode", 0, &["ribbon", "thick", "oriented"]),
+        b("primaryVisibility", "vis", true),
+        b("castsShadows", "csh", true),
+        b("receiveShadows", "rcsh", true),
+        b("aiOpaque", "ai_opaque", true),
     ]
 }
 

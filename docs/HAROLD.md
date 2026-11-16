@@ -200,7 +200,9 @@ On a Ryzen 9 5950X (16 cores, 32 threads), release build:
 Ranked by how much a user would notice:
 
 1. Render layers and render setup are not read: everything renders as the master layer.
-2. Hair and curves are not rendered; nor are particles or volumes other than the atmosphere fog.
+2. Particles and volumes other than the atmosphere fog are not rendered. Curves and hair are (see Strands below), without
+   minimum pixel width, oriented curves or Arnold's curve tessellation of B-splines: curves are sampled into straight
+   segments first.
 3. Subsurface scattering is noisy at default samples, more than a production renderer's.
 4. USD stages in the scene are not rendered.
 5. Textures load whole on first use, as mip pyramids, with a memory limit that drops fine levels of later images; there
@@ -215,3 +217,20 @@ Ranked by how much a user would notice:
 11. The sky dome reads the latitude-longitude format only; its orientation convention was not compared with another
     renderer's.
 12. Nothing here has been compared with a real copy of another renderer.
+
+## Strands
+
+Curves rendered as fibres, for NURBS curves with Render Curve on and for hair (XJEN, docs/XJEN.md).
+
+- **Geometry.** A curve set is a mesh of its own whose primitives are straight segments with a radius at each point,
+  in the same two-level hierarchy as triangles, with motion keys. Ribbon (Arnold's default for curves) is met where
+  the ray passes nearest the strand's middle line and faces the ray; Thick is a tube met on its near side.
+- **NURBS curves:** `aiRenderCurve`, `aiCurveWidth` (a diameter), `aiSampleRate` (points a span), `aiCurveShader` (the
+  material connected) and `aiMode` (ribbon, thick) on the shape, names as files hold them (unverified against a
+  capture). Oriented is read as ribbon.
+- **aiStandardHair:** the fibre model of d'Eon and Chiang as the PBRT book gives it: R, TT, TRT and the rest, a cuticle
+  tilt (`shift`), longitudinal and azimuthal roughness, melanin and its redness for the pigment, `baseColor` as a dye
+  over it, the three tints, emission and opacity. Not read: `melaninRandomize`, `roughnessAnisotropic`, `diffuse`,
+  `diffuseColor`, `extraDepth`, `extraSamples`. How Arnold maps melanin 0 to 1 onto pigment is not published: here 1 is
+  about eight units of eumelanin, scaled by the power 1.5. Defaults are Arnold's documentation's, unverified.
+- Surface materials on strands shade the ribbon or tube as a surface.

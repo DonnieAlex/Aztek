@@ -1055,7 +1055,7 @@ From older renderers, not honoured (each named in a warning when a scene uses it
 - Settings of other renderers in `defaultRenderGlobals.currentRenderer`: read and ignored, with a warning.
 - Render layers and render setup: not read; the master layer renders.
 
-Shallower than the brief, ranked by what a user would notice: render layers; hair and curves not rendered;
+Shallower than the brief, ranked by what a user would notice: render layers; hair and curves rendered since 16/11/2026 (docs/HAROLD.md, Strands);
 subsurface noisier than it should be at default samples; USD stages not rendered; whole-image texture loading with a
 memory limit rather than an evicting tile cache; no vector displacement or autobump; a simple non-local means
 denoiser run on the interface thread; light group AOVs by the light that started the light, mesh lights' direct light
@@ -2470,8 +2470,11 @@ on it, then moving the scene's node types across.
 
 ### Hair (XJEN)
 
-Nothing yet: no hair node types, Harold renders no curves, the views draw curves as plain lines. `hairSystem` is
-held from files and not simulated. The target and order of work are in [docs/XJEN.md](docs/XJEN.md).
+The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` is held from files and not simulated.
+
+- Step 1, 16/11/2026: strands in Harold (ribbons and tubes, aiStandardHair, NURBS curves with Render Curve on; see
+  docs/HAROLD.md, Strands) and in the views (eye-facing ribbons at least a pixel wide, lit as fibres, for whatever
+  registers strands for the views; NURBS curves stay curves in the views, as the reference draws them).
 
 ### Tear-off menus and the Outliner at start (16/11/2026)
 

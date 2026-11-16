@@ -5,8 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: nothing of it exists. No hair node, no curve primitive in Harold, no strand drawing in the views.
-This page is the target and the order of work; PARITY.md takes over as parts land.
+Status, 16/11/2026: step 1 is in (strands in Harold and the views); the rest follows below. This page is the target
+and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
 

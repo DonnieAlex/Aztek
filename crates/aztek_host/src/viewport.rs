@@ -1616,12 +1616,42 @@ impl Viewport {
         crate::usd_view::draw(gpu, r, s, vp, view);
         self.draw_poly_display(gpu, r, s, items);
         self.draw_rig(gpu, r, s, scale);
+        self.draw_strands(gpu, r, s);
         self.draw_hover(gpu, r, items, scale);
         self.draw_manip(gpu, r, s, scale);
         self.draw_node_lines(gpu, r);
         self.draw_brush(gpu, r, s);
         self.draw_curve_tool(gpu, r, scale);
         self.draw_tool_overlay(gpu, r, scale);
+    }
+
+    /// Hair and fur: each strand a ribbon turned to the eye, at least a pixel wide, tapering as its radius does, lit as
+    /// a fibre (bright where it runs across the view, dim where it runs along it) and darker towards the root.
+    fn draw_strands(&mut self, gpu: &mut Gpu, r: &Renderer, s: &Session) {
+        let sets = aztek_scene::harold::strands::view_gather(&s.graph);
+        if sets.is_empty() {
+            return;
+        }
+        let (verts, idx) = strand_ribbons(&sets, self.cam.eye(), self.cam.ortho().then(|| self.cam.dir_to_eye()), self.pixel_world());
+        if idx.is_empty() {
+            return;
+        }
+        let vb = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &verts);
+        let ib = gpu.buffer_with(vk::BufferUsageFlags::INDEX_BUFFER, &idx);
+        r.bind(gpu, Kind::ColorTris);
+        r.push(gpu, &push(self.view_proj(), DMat4::IDENTITY, self.cam.view(), [1.0; 4], 0.0, 1.0));
+        r.draw(gpu, &vb, Some((&ib, idx.len() as u32)), 0);
+        gpu.drop_buffer(vb);
+        gpu.drop_buffer(ib);
+    }
+
+    /// How wide a pixel is in world units at distance 1 from the eye (perspective), or anywhere (orthographic).
+    fn pixel_world(&self) -> (f64, bool) {
+        if self.cam.ortho() {
+            (self.cam.ortho_width / self.rect[2].max(1.0), true)
+        } else {
+            (2.0 * (self.cam.vfov(self.aspect()) * 0.5).tan() / self.rect[3].max(1.0), false)
+        }
     }
 
     fn draw_node_lines(&mut self, gpu: &mut Gpu, r: &Renderer) {
@@ -4007,4 +4037,50 @@ fn segments_cross(a: DVec2, b: DVec2, c: DVec2, d: DVec2) -> bool {
 fn in_triangle(p: DVec2, a: DVec2, b: DVec2, c: DVec2) -> bool {
     let (d1, d2, d3) = ((b - a).perp_dot(p - a), (c - b).perp_dot(p - b), (a - c).perp_dot(p - c));
     !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
+}
+
+/// Ribbons for strands in world space: two vertices a point, two triangles a segment. `eye` and, for an orthographic
+/// view, the direction to it; `px` the size of a pixel (per unit of distance in perspective).
+pub fn strand_ribbons(sets: &[aztek_scene::harold::strands::Strands], eye: DVec3, ortho_dir: Option<DVec3>, px: (f64, bool)) -> (Vec<LineVertex>, Vec<u32>) {
+    let mut verts = Vec::new();
+    let mut idx: Vec<u32> = Vec::new();
+    for st in sets {
+        let mut start = 0usize;
+        for &n in &st.counts {
+            let n = n as usize;
+            if n < 2 || start + n > st.points.len() {
+                start += n;
+                continue;
+            }
+            let pts: Vec<DVec3> = st.points[start..start + n].iter().map(|p| st.world.transform_point3(p.as_dvec3())).collect();
+            let base = verts.len() as u32;
+            for i in 0..n {
+                let p = pts[i];
+                let t = if i + 1 < n { pts[i + 1] - pts[i] } else { pts[i] - pts[i - 1] }.normalize_or_zero();
+                let to_eye = ortho_dir.unwrap_or_else(|| (eye - p).normalize_or_zero());
+                let dist = if px.1 { 1.0 } else { (eye - p).length() };
+                let r = st.radius.get(start + i).copied().unwrap_or(0.0) as f64 * st.world.x_axis.truncate().length();
+                // At least a pixel across, so fine hair stays visible far off.
+                let half = r.max(0.5 * px.0 * dist);
+                let side = t.cross(to_eye).normalize_or_zero() * half;
+                // Fibre lighting with the light at the eye: bright across the view, dim along it; a highlight on top.
+                let along = t.dot(to_eye).abs();
+                let diffuse = (1.0 - along * along).max(0.0).sqrt();
+                let spec = diffuse.powf(60.0) * 0.35;
+                let root = 0.55 + 0.45 * (i as f64 / (n - 1) as f64);
+                let shade = |k: f64| -> [f32; 4] {
+                    let c = |x: f32| ((x as f64 * (0.3 + 0.7 * diffuse) * root * k + spec).clamp(0.0, 1.0)) as f32;
+                    [c(st.color[0]), c(st.color[1]), c(st.color[2]), 1.0]
+                };
+                verts.push(LineVertex { pos: (p - side).as_vec3().to_array(), color: shade(0.8) });
+                verts.push(LineVertex { pos: (p + side).as_vec3().to_array(), color: shade(1.0) });
+            }
+            for i in 0..n as u32 - 1 {
+                let a = base + i * 2;
+                idx.extend_from_slice(&[a, a + 1, a + 3, a, a + 3, a + 2]);
+            }
+            start += n;
+        }
+    }
+    (verts, idx)
 }

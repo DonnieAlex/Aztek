@@ -268,6 +268,8 @@ pub enum LobeKind {
     Refract { tint: Vec3, ax: f32, ay: f32, eta: f32, thin: bool },
     /// Into the medium beneath for a random walk; the integrator takes over.
     Subsurface { color: Vec3, radius: Vec3, anisotropy: f32 },
+    /// A hair fibre, scattering all round: the frame's x runs along it.
+    Hair(crate::hair::HairLobe),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -439,6 +441,14 @@ impl Bsdf {
         b
     }
 
+    /// A hair fibre at a point: `t` runs along it, `n` faces the ray, `h` is the offset across it.
+    pub fn hair(hp: &crate::hair::HairParams, n: Vec3, t: Vec3, ng: Vec3, h: f32, emission: Vec3) -> Bsdf {
+        let frame = Frame::from_nt(n, t);
+        let mut b = Bsdf { frame, coat_frame: frame, ng, lobes: [None; 8], count: 0, emission, entering: true, thin_walled: true, albedo: hp.base_color };
+        b.push(Lobe { kind: LobeKind::Hair(crate::hair::HairLobe::new(hp, h)), weight: Vec3::ONE, pick: 1.0, cat: Category::Specular, coat_frame: false });
+        b
+    }
+
     /// A plain lambert: for tests and simple cases.
     pub fn lambert(color: Vec3, n: Vec3, ng: Vec3) -> Bsdf {
         let mut b = Bsdf { frame: Frame::from_n(n), coat_frame: Frame::from_n(n), ng, lobes: [None; 8], count: 0, emission: Vec3::ZERO, entering: true, thin_walled: false, albedo: color };
@@ -564,6 +574,9 @@ fn diel_fresnel(cos: f32, eta: f32, film: Option<(f32, f32)>) -> Vec3 {
 
 /// f * cos and pdf of one lobe, in its local frame.
 fn eval_lobe(k: &LobeKind, wo: Vec3, wi: Vec3, reflect: bool) -> (Vec3, f32) {
+    if let LobeKind::Hair(h) = k {
+        return h.eval(wo, wi);
+    }
     match *k {
         LobeKind::Diffuse { color, sigma } => {
             if !reflect || wi.z <= 0.0 || wo.z <= 0.0 {
@@ -660,7 +673,7 @@ fn eval_lobe(k: &LobeKind, wo: Vec3, wi: Vec3, reflect: bool) -> (Vec3, f32) {
             let pdf = vndf_pdf(wo, h, ax, ay) * eta * eta * (-hi) / denom;
             (tint * val, pdf)
         }
-        LobeKind::Subsurface { .. } => (Vec3::ZERO, 0.0),
+        LobeKind::Subsurface { .. } | LobeKind::Hair(_) => (Vec3::ZERO, 0.0),
     }
 }
 
@@ -674,7 +687,27 @@ fn refract(wo: Vec3, h: Vec3, eta: f32) -> Option<Vec3> {
     Some(-wo / eta + h * (c / eta - ct))
 }
 
+/// Two numbers from one, by its alternate bits: hair sampling needs four from the two it is given.
+fn demux(x: f32) -> (f32, f32) {
+    let v = (x.clamp(0.0, 0.999_999_9) as f64 * 4294967296.0) as u64;
+    fn compact(mut x: u64) -> u32 {
+        x &= 0x5555_5555_5555_5555;
+        x = (x ^ (x >> 1)) & 0x3333_3333_3333_3333;
+        x = (x ^ (x >> 2)) & 0x0f0f_0f0f_0f0f_0f0f;
+        x = (x ^ (x >> 4)) & 0x00ff_00ff_00ff_00ff;
+        x = (x ^ (x >> 8)) & 0x0000_ffff_0000_ffff;
+        x = (x ^ (x >> 16)) & 0x0000_0000_ffff_ffff;
+        x as u32
+    }
+    (compact(v) as f32 / 65536.0, compact(v >> 1) as f32 / 65536.0)
+}
+
 fn sample_lobe(k: &LobeKind, wo: Vec3, u: Vec2, _entering: bool) -> Option<Vec3> {
+    if let LobeKind::Hair(h) = k {
+        let (a, b) = demux(u.x);
+        let (c, d) = demux(u.y);
+        return h.sample(wo, Vec2::new(a, b), Vec2::new(c, d));
+    }
     match *k {
         LobeKind::Diffuse { .. } | LobeKind::Sheen { .. } => Some(cosine_hemisphere(u)),
         LobeKind::Translucent { .. } | LobeKind::Subsurface { .. } => {
@@ -701,6 +734,7 @@ fn sample_lobe(k: &LobeKind, wo: Vec3, u: Vec2, _entering: bool) -> Option<Vec3>
             let wi = refract(wo, h, eta)?;
             (wi.z < 0.0).then_some(wi)
         }
+        LobeKind::Hair(_) => None,
     }
 }
 

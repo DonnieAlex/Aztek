@@ -359,6 +359,13 @@ impl<'a> Tracer<'a> {
     pub fn bsdf_at(&self, sp: &SurfacePoint, mat: &Resolved, wo: Vec3, time: f32, ao: f32, footprint: f32) -> Option<(Bsdf, crate::shader::Params)> {
         let Resolved::Standard(s) = mat else { return None };
         let ctx = shade::ctx_of(self.s, sp, wo, footprint, time);
+        if let Some(hi) = &s.hair {
+            let (hp, emission) = shade::hair_params(self.s, hi, &ctx);
+            let mut p = shade::params(self.s, s, &ctx, ao);
+            p.base_color = hp.base_color;
+            let b = Bsdf::hair(&hp, sp.n, sp.dpdu, sp.ng, sp.curve_h.unwrap_or(0.0), emission);
+            return Some((b, p));
+        }
         let mut p = shade::params(self.s, s, &ctx, ao);
         // Bent normals stay on the side of the geometric normal the ray came from.
         if p.n.dot(sp.ng) < 0.0 {

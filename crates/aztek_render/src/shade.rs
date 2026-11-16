@@ -192,6 +192,27 @@ pub fn params(scene: &Scene, s: &Standard, ctx: &ShadeCtx, ao: f32) -> Params {
     }
 }
 
+/// aiStandardHair's inputs at a point, and the light it gives off.
+pub fn hair_params(scene: &Scene, h: &crate::shader::HairInputs, ctx: &ShadeCtx) -> (crate::hair::HairParams, Vec3) {
+    let net = &scene.network;
+    let tex = &scene.textures;
+    let v = |i: Input| net.eval(i, ctx, tex);
+    let f = |i: Input| net.eval_f(i, ctx, tex);
+    let p = crate::hair::HairParams {
+        melanin: f(h.melanin),
+        melanin_redness: f(h.melanin_redness),
+        base_color: (v(h.base_color) * f(h.base)).clamp(Vec3::ZERO, Vec3::ONE),
+        roughness: f(h.roughness),
+        roughness_azimuthal: f(h.roughness_azimuthal),
+        ior: f(h.ior),
+        shift: f(h.shift),
+        specular_tint: v(h.specular_tint).max(Vec3::ZERO),
+        specular2_tint: v(h.specular2_tint).max(Vec3::ZERO),
+        transmission_tint: v(h.transmission_tint).max(Vec3::ZERO),
+    };
+    (p, v(h.emission_color).max(Vec3::ZERO) * f(h.emission))
+}
+
 /// Opacity alone, for shadow rays and transparency, without the rest of the material.
 pub fn opacity(scene: &Scene, mat: u32, ctx: &ShadeCtx, rng: &mut Pcg) -> Vec3 {
     let (r, _) = resolve(scene, mat, ctx, rng);

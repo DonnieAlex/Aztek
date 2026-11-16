@@ -6,6 +6,7 @@ pub mod bsdf;
 pub mod bvh;
 pub mod camera;
 pub mod geom;
+pub mod hair;
 pub mod math;
 pub mod shader;
 pub mod texture;
