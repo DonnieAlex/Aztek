@@ -445,6 +445,14 @@ QMenu* MainWindow::curves_menu() {
     return m;
 }
 
+// XJEN: hair and fur, as the reference's Generate menu. Items come with the xjenToolkit plug-in.
+QMenu* MainWindow::generate_menu() {
+    auto* m = new QMenu("Generate", this);
+    menu_title(m, "Interactive Groom");
+    cmd(m, "Create Interactive Groom Splines", "xjenCreateGroom", {}, QString(), true);
+    return m;
+}
+
 QMenu* MainWindow::surfaces_menu() {
     auto* m = new QMenu("Surfaces", this);
     cmd(m, "Loft", "loft", {}, QString(), true);
@@ -809,11 +817,11 @@ void MainWindow::build_menu_set(const QString& set) {
     QList<QMenu*> menus = {file_menu(), edit_menu(), create_menu(), select_menu(), modify_menu(), display_menu(), windows_menu()};
     menus << lighting_shading_menu();
     if (set == "Modeling")
-        menus << mesh_menu() << edit_mesh_menu() << mesh_tools_menu() << mesh_display_menu() << curves_menu() << surfaces_menu() << uv_menu() << deform_menu();
+        menus << mesh_menu() << edit_mesh_menu() << mesh_tools_menu() << mesh_display_menu() << curves_menu() << surfaces_menu() << uv_menu() << deform_menu() << generate_menu();
     else if (set == "Rigging")
         menus << skeleton_menu() << skin_menu() << deform_menu() << constrain_menu() << control_menu();
     else if (set == "Dynamics")
-        menus << dynamics_menus() << playback_menu();
+        menus << dynamics_menus() << generate_menu() << playback_menu();
     else if (set == "Rendering")
         menus << render_menu(this) << harold_menu(this);
     else

@@ -1256,9 +1256,9 @@ const DRAW_CHANNELS: &[&str] = &[
 ];
 
 /// Rigging and animation nodes that are all attributes and connections.
-const PLAIN_NODES: &[&str] = &["collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
+const PLAIN_NODES: &[&str] = &["xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
 /// The same under a transform.
-const PLAIN_SHAPES: &[&str] = &["solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
+const PLAIN_SHAPES: &[&str] = &["xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
 /// Nodes written and read attribute by attribute, with their connections: utility nodes and expressions.
 /// What a file's unitConversion does: values are in stored units, as in the reference, so its factor means what it says.
@@ -4271,6 +4271,10 @@ impl Writer<'_> {
                     let path = self.s.graph.path(id);
                     self.write_membership(id, &path, 0);
                 }
+            }
+            if ty == crate::xjen::DESCRIPTION {
+                let path = self.s.graph.path(id);
+                self.write_membership(id, &path, 0);
             }
             if ty == "camera" {
                 self.write_camera(id);

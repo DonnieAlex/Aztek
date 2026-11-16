@@ -83,6 +83,7 @@ private:
     QMenu* mesh_tools_menu();
     QMenu* mesh_display_menu();
     QMenu* curves_menu();
+    QMenu* generate_menu();
     QMenu* surfaces_menu();
     QMenu* uv_menu();
     QMenu* deform_menu();

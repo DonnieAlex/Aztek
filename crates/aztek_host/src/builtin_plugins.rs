@@ -73,7 +73,20 @@ pub const BUILTINS: &[Builtin] = &[
         },
         more: none,
     },
+    Builtin {
+        name: "xjenToolkit",
+        doc: "XJEN hair, as the reference's xgenToolkit: Interactive Groom descriptions (xgmSplineDescription, xgmSplineBase, xgmModifierScale, xgmModifierSculpt) drawn in the views and rendered by Harold, Generate > Create Interactive Groom Splines (xjenCreateGroom) and xgmSplineQuery.",
+        commands: aztek_scene::xjen::cmds::NAMES,
+        register: |s| {
+            aztek_scene::xjen::cmds::register(&mut s.commands);
+            aztek_scene::xjen::register_strands();
+        },
+        more: none,
+    },
 ];
+
+/// The reference's name for it, which scene files require.
+pub const XGEN_NAME: &str = "xgenToolkit";
 
 /// USD's commands; the wrappers it puts round file, select, ls, move, rotate and scale go in once, and stay.
 fn register_usd(s: &mut Session) {
@@ -84,7 +97,7 @@ fn register_usd(s: &mut Session) {
 }
 
 /// The names the two went by when they only exported.
-const OLD_NAMES: &[(&str, &str)] = &[("fbxExport", "fbx"), ("gltfExport", "gltf"), ("fbxmaya", "fbx")];
+const OLD_NAMES: &[(&str, &str)] = &[("fbxExport", "fbx"), ("gltfExport", "gltf"), ("fbxmaya", "fbx"), (XGEN_NAME, "xjenToolkit")];
 
 thread_local! {
     static LOADED: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
@@ -119,6 +132,9 @@ pub fn load(s: &mut Session, b: &'static Builtin) {
 }
 
 pub fn unload(s: &mut Session, b: &'static Builtin) {
+    if b.name == "xjenToolkit" {
+        aztek_scene::xjen::unregister_strands();
+    }
     for c in b.all_commands() {
         s.commands.unregister(c);
     }

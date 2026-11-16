@@ -2475,6 +2475,10 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 1, 16/11/2026: strands in Harold (ribbons and tubes, aiStandardHair, NURBS curves with Render Curve on; see
   docs/HAROLD.md, Strands) and in the views (eye-facing ribbons at least a pixel wide, lit as fibres, for whatever
   registers strands for the views; NURBS curves stay curves in the views, as the reference draws them).
+- Step 2, 16/11/2026: the Interactive Groom core: descriptions grown on meshes or faces, bound so they follow
+  deformation, with Scale and Sculpt modifiers, widths and taper, drawn in the views and rendered by Harold, saved in
+  `.ma` (and `.mb`, less sculpt moves); Generate > Create Interactive Groom Splines and `xgmSplineQuery`. What is kept
+  and not yet applied is listed in docs/XJEN.md, Step 2 as built.
 
 ### Tear-off menus and the Outliner at start (16/11/2026)
 

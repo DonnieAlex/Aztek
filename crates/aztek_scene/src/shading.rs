@@ -452,7 +452,7 @@ pub fn all_groups(g: &Graph) -> Vec<NodeId> {
 }
 
 fn is_shaded_shape(g: &Graph, id: NodeId) -> bool {
-    g.node(id).is_some_and(|n| (n.ty().is_a("mesh") || n.ty().is_a("nurbsSurface")) && !n.bool(DagNode::INTERMEDIATE_OBJECT))
+    g.node(id).is_some_and(|n| (n.ty().is_a("mesh") || n.ty().is_a("nurbsSurface") || n.ty().is_a(crate::xjen::DESCRIPTION)) && !n.bool(DagNode::INTERMEDIATE_OBJECT))
 }
 
 /// Shapes and faces, from names as they come: a transform stands for the shapes under it.

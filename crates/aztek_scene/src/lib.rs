@@ -134,3 +134,4 @@ pub use plug::{flags, AttrDef, NodeId, PlugRef, PlugType, PlugValue, NO_NODE};
 pub use session::Session;
 pub use transform::{Locator, RotateOrder, Transform};
 pub mod world;
+pub mod xjen;

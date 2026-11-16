@@ -5,7 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: step 1 is in (strands in Harold and the views); the rest follows below. This page is the target
+Status, 16/11/2026: steps 1 and 2 are in (strands in Harold and the views; the Interactive Groom core, below); the
+rest follows. This page is the target
 and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
@@ -126,5 +127,32 @@ round trips, and screenshots.
    2.0, Ptex BSD) and are to be checked before they are taken.
 8. **Dynamics.** Make Guides and Wires Dynamic once the unified solver simulates hair (`hairSystem` is held, not
    simulated, today; see docs/DYNAMICS.md).
+
+## Step 2 as built (16/11/2026)
+
+![A description on a sphere](xjen-groom.jpg)
+
+- Node types `xgmSplineBase`, `xgmModifierScale`, `xgmModifierSculpt` and the shape `xgmSplineDescription`, registered
+  at start so files open with or without the plug-in; `xjenToolkit` (also answering to `xgenToolkit`) adds the
+  commands and puts descriptions in the views and Harold. Splines pass base, Scale, Sculpt, shape through
+  `outSplineData` into `inSplineData`; the shape's `outRenderData` carries them with widths.
+- Generation: per face, Density x Density Multiplier splines (the fraction as a chance), placed by UV area within the
+  face, drawn from Generator Seed and the face number only, so roots stay put as the mesh moves, deforms or is
+  skinned; straight along the smoothed normal for Initial Length, CV Count points. Bound to a mesh or to faces
+  (`boundFaces`).
+- Scale: about the root, by 1 + (Scale - 1) x Magnitude x Magnitude Scale. Sculpt: layers (`layer[i].layerName`,
+  keyable `layerWeight`, `layerVisibility`, `layerGroup`) of moves in each root's frame, so they ride the surface;
+  the moves are kept as plug-in data (`xjenSculptData`) and written in `.ma` as text. Mute on both.
+- Shape: Width Scale, Width Ramp, Taper, Taper Start; Color and Color Intensity for the views; Render Density
+  Multiplier thins what Harold renders (the views show every spline); `aiMode` ribbon or thick; shading group
+  membership as a mesh's, a new description getting its own `aiStandardHair`.
+- Commands: `xjenCreateGroom` (Generate > Create Interactive Groom Splines, with its option box: name, seed, density,
+  length, width scale, CV count; on selected meshes or faces) and `xgmSplineQuery` (`-listSplineDescriptions`,
+  `-long`, `-isSplineDescription`, `-splineCount`).
+- Not yet, and why: the reference's creation command and attribute file names (undocumented: from the capture);
+  `.mb` keeps the groom but not the sculpt moves (plug-in data has no binary layout here yet); Density Mask, Subdivision
+  Level, Interpolate and the modifiers' Mask are kept and not applied; Render Density Multiplier above 1;
+  Highlight Placed Splines, Tube Shade, Draw Control Vertices in the views; Display HUD; `xgmSplineSelect` and
+  `xgmExportSplineDataInternal` wait for step 3's selection of splines.
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.
