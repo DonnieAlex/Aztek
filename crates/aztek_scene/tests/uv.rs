@@ -118,3 +118,33 @@ fn uvs_and_vertex_faces_select_like_the_reference() {
     run(&mut s, "selectMode", json!({"args": ["vertex"]}));
     assert_eq!(run(&mut s, "ls", json!({"selection": true})), json!(["pCube1.vtx[1]"]));
 }
+
+/// u3dLayout over UDIM tiles, with a pack box, margins and the tile assign modes.
+#[test]
+fn layout_over_udim_tiles() {
+    let mut s = Session::new();
+    run(&mut s, "polySphere", json!({}));
+    run(&mut s, "polyAutoProjection", json!({"args": ["pSphere1"]}));
+    let count = |v: &[f64], f: &dyn Fn(f64, f64) -> bool| v.chunks(2).filter(|c| f(c[0], c[1])).count();
+    // Two tiles across: every UV in 0..2 by 0..1, both tiles used, none in the margin.
+    run(&mut s, "u3dLayout", json!({"args": ["pSphere1"], "tileU": 2, "tileV": 1, "tileMargin": 0.05, "shellSpacing": 0.01}));
+    let v = uvs(&mut s, "pSphere1");
+    assert!(v.chunks(2).all(|c| c[0] >= 0.05 - 1e-6 && c[0] <= 1.95 + 1e-6 && c[1] >= 0.05 - 1e-6 && c[1] <= 0.95 + 1e-6), "{v:?}");
+    assert!(v.chunks(2).all(|c| !(c[0] > 0.95 + 1e-6 && c[0] < 1.05 - 1e-6)), "a UV in the margin between the tiles");
+    assert!(count(&v, &|u, _| u < 1.0) > 0 && count(&v, &|u, _| u > 1.0) > 0);
+    // A pack box in the first tile's upper half.
+    run(&mut s, "u3dLayout", json!({"args": ["pSphere1"], "packBox": [0.0, 1.0, 0.5, 1.0], "tileMargin": 0.0}));
+    let v = uvs(&mut s, "pSphere1");
+    assert!(v.chunks(2).all(|c| c[1] >= 0.5 - 1e-6 && c[1] <= 1.0 + 1e-6 && c[0] >= -1e-6 && c[0] <= 1.0 + 1e-6));
+    // Shell centres: everything moved into tile 1002 stays there.
+    run(&mut s, "polyEditUV", json!({"args": ["pSphere1.map[*]"], "u": 1.0, "v": 0.0}));
+    run(&mut s, "u3dLayout", json!({"args": ["pSphere1"], "tileU": 2, "tileV": 1, "tileAssignMode": 1}));
+    let v = uvs(&mut s, "pSphere1");
+    assert!(v.chunks(2).all(|c| c[0] >= 1.0 - 1e-6 && c[0] <= 2.0 + 1e-6), "{v:?}");
+    // Non-uniform scale fills the box in both directions.
+    run(&mut s, "u3dLayout", json!({"args": ["pSphere1"], "layoutScaleMode": 2, "tileMargin": 0.0, "shellSpacing": 0.0}));
+    let v = uvs(&mut s, "pSphere1");
+    let (lo_u, hi_u) = v.chunks(2).fold((f64::MAX, f64::MIN), |(a, b), c| (a.min(c[0]), b.max(c[0])));
+    let (lo_v, hi_v) = v.chunks(2).fold((f64::MAX, f64::MIN), |(a, b), c| (a.min(c[1]), b.max(c[1])));
+    assert!(lo_u.abs() < 1e-6 && (hi_u - 1.0).abs() < 1e-6 && lo_v.abs() < 1e-6 && (hi_v - 1.0).abs() < 1e-6, "{lo_u} {hi_u} {lo_v} {hi_v}");
+}

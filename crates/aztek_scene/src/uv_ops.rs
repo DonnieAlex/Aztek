@@ -380,25 +380,62 @@ fn unfold_method(a: &Args) -> aztek_uv::unwrap::UnwrapMethod {
 
 /// Packs the shells of the faces into 0-1: scaled to their 3D size, turned to their smallest rectangle, in rows.
 pub fn layout(m: &mut Mesh, faces: &[Index], spacing: f64, rotate: bool) {
-    let mut charts = charts_for(m, faces);
-    if charts.is_empty() {
-        return;
-    }
-    for ch in charts.iter_mut() {
-        let c = ch.uv_centroid();
-        let a3 = ch.area_3d();
-        fit_chart(ch, c, a3);
-        if rotate {
-            orient_chart(ch, OrientMode::BoundingBox);
+    // As it always packed: shells at their 3D sizes, turned to fit, into 0 to 1 with the spacing as a share of the
+    // layout and the same again as a margin.
+    layout_with(m, faces, &Pack { spacing, margin: spacing, relative: true, rotate, ..Pack::default() });
+}
+
+/// How Layout packs, as u3dLayout's flags set it.
+#[derive(Clone, Debug)]
+pub struct Pack {
+    /// Space between shells, in UV units (a share of the layout's size when `relative`).
+    pub spacing: f64,
+    /// Space between the shells and the region's edges, in UV units.
+    pub margin: f64,
+    pub relative: bool,
+    /// The region in the first tile: (u min, v min), (u max, v max).
+    pub region: (DVec2, DVec2),
+    /// Tiles across and up, each a UV unit on from the last (UDIMs).
+    pub tiles: (u32, u32),
+    /// 0 shells shared out over the tiles by area, 1 each shell into the tile its centre is in.
+    pub assign: i64,
+    /// After packing: 0 no scaling, 1 uniform to fill the region, 2 U and V each to fill it.
+    pub scale: i64,
+    /// Before packing: 0 as they are, 1 to their 3D sizes, 2 keeping their UV sizes.
+    pub pre_scale: i64,
+    pub rotate: bool,
+    pub translate: bool,
+}
+
+impl Default for Pack {
+    fn default() -> Self {
+        Pack {
+            spacing: 0.0039,
+            margin: 0.0039,
+            relative: false,
+            region: (DVec2::ZERO, DVec2::ONE),
+            tiles: (1, 1),
+            assign: 0,
+            scale: 1,
+            pre_scale: 1,
+            rotate: true,
+            translate: true,
         }
     }
+}
+
+/// Packs a set of charts into a region: rows tried at several widths, the one that fills the region best kept.
+fn pack_charts(charts: &mut [&mut aztek_uv::chart::Chart], lo: DVec2, hi: DVec2, p: &Pack) {
+    if charts.is_empty() || !p.translate {
+        return;
+    }
+    let avail = ((hi - lo) - DVec2::splat(2.0 * p.margin)).max(DVec2::splat(1e-9));
     let boxes: Vec<(DVec2, DVec2)> = charts.iter().map(|c| (c.uv_min(), c.uv_max())).collect();
     let total: f64 = boxes.iter().map(|(a, b)| (b.x - a.x) * (b.y - a.y)).sum();
     let mut order: Vec<usize> = (0..charts.len()).collect();
     order.sort_by(|&a, &b| (boxes[b].1.y - boxes[b].0.y).total_cmp(&(boxes[a].1.y - boxes[a].0.y)));
-    // Rows of a given width; the square that holds them at the best width wins.
     let pack = |width: f64, pad: f64| -> (Vec<DVec2>, f64, f64) {
-        let mut at = vec![DVec2::ZERO; charts.len()];
+        let mut at = vec![DVec2::ZERO; boxes.len()];
         let (mut x, mut y, mut row_h, mut used_w) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
         for &i in &order {
             let size = boxes[i].1 - boxes[i].0;
@@ -414,25 +451,86 @@ pub fn layout(m: &mut Mesh, faces: &[Index], spacing: f64, rotate: bool) {
         }
         (at, used_w, y + row_h)
     };
-    let pad = spacing * total.sqrt();
     let widest = boxes.iter().map(|(a, b)| b.x - a.x).fold(0.0, f64::max);
-    let mut best: Option<(f64, Vec<DVec2>)> = None;
-    for k in 0..40 {
-        let w = widest.max(total.sqrt() * (0.6 + k as f64 * 0.05));
-        let (at, uw, h) = pack(w, pad);
-        let side = uw.max(h);
-        if best.as_ref().is_none_or(|b| side < b.0) {
-            best = Some((side, at));
+    let aspect = avail.x / avail.y;
+    let best_for = |pad: f64| -> (f64, f64, f64, Vec<DVec2>) {
+        let mut best: Option<(f64, f64, f64, Vec<DVec2>)> = None;
+        for k in 0..60 {
+            let w = widest.max((total * aspect).sqrt() * (0.5 + k as f64 * 0.04));
+            let (at, uw, h) = pack(w, pad);
+            // How much the layout must shrink to fit: the larger of its two ratios to the region.
+            let fill = (uw / avail.x).max(h / avail.y);
+            if best.as_ref().is_none_or(|b| fill < b.0) {
+                best = Some((fill, uw, h, at));
+            }
         }
-    }
-    let (side, at) = best.unwrap();
-    let margin = spacing;
-    let s = (1.0 - 2.0 * margin) / side.max(1e-12);
+        best.unwrap()
+    };
+    // The spacing is in final units: pack once without it to find the scale, then with it at that scale.
+    let (fill0, ..) = best_for(0.0);
+    let s0 = if p.scale == 0 { 1.0 } else { 1.0 / fill0.max(1e-12) };
+    let pad = if p.relative { p.spacing * total.sqrt() } else { p.spacing / s0 };
+    let (fill, uw, h, at) = best_for(pad);
+    let (sx, sy) = match p.scale {
+        0 => (1.0, 1.0),
+        2 => (avail.x / uw.max(1e-12), avail.y / h.max(1e-12)),
+        _ => (1.0 / fill.max(1e-12), 1.0 / fill.max(1e-12)),
+    };
+    let origin = lo + DVec2::splat(p.margin);
     for (i, ch) in charts.iter_mut().enumerate() {
         let off = at[i] - boxes[i].0;
-        for p in ch.uv.iter_mut() {
-            *p = (*p + off) * s + DVec2::splat(margin);
+        for q in ch.uv.iter_mut() {
+            let r = *q + off;
+            *q = origin + DVec2::new(r.x * sx, r.y * sy);
         }
+    }
+}
+
+/// Layout with u3dLayout's settings: shells pre-scaled and turned, shared out over the tiles, packed into each tile's
+/// region.
+pub fn layout_with(m: &mut Mesh, faces: &[Index], p: &Pack) {
+    let mut charts = charts_for(m, faces);
+    if charts.is_empty() {
+        return;
+    }
+    let centres: Vec<DVec2> = charts.iter().map(|c| (c.uv_min() + c.uv_max()) * 0.5).collect();
+    for ch in charts.iter_mut() {
+        if p.pre_scale == 1 {
+            let c = ch.uv_centroid();
+            let a3 = ch.area_3d();
+            fit_chart(ch, c, a3);
+        }
+        if p.rotate {
+            orient_chart(ch, OrientMode::BoundingBox);
+        }
+    }
+    let (tu, tv) = (p.tiles.0.max(1) as usize, p.tiles.1.max(1) as usize);
+    let n_tiles = tu * tv;
+    let mut tile_of = vec![0usize; charts.len()];
+    if n_tiles > 1 {
+        if p.assign == 1 {
+            for (i, c) in centres.iter().enumerate() {
+                let iu = ((c.x - p.region.0.x.floor()).floor().max(0.0) as usize).min(tu - 1);
+                let iv = ((c.y - p.region.0.y.floor()).floor().max(0.0) as usize).min(tv - 1);
+                tile_of[i] = iv * tu + iu;
+            }
+        } else {
+            // Largest first, each into the tile with the least area so far.
+            let areas: Vec<f64> = charts.iter().map(|c| (c.uv_max() - c.uv_min()).x * (c.uv_max() - c.uv_min()).y).collect();
+            let mut order: Vec<usize> = (0..charts.len()).collect();
+            order.sort_by(|&a, &b| areas[b].total_cmp(&areas[a]));
+            let mut load = vec![0.0f64; n_tiles];
+            for i in order {
+                let t = (0..n_tiles).min_by(|&a, &b| load[a].total_cmp(&load[b])).unwrap_or(0);
+                tile_of[i] = t;
+                load[t] += areas[i];
+            }
+        }
+    }
+    for t in 0..n_tiles {
+        let off = DVec2::new((t % tu) as f64, (t / tu) as f64);
+        let mut group: Vec<&mut aztek_uv::chart::Chart> = charts.iter_mut().enumerate().filter(|(i, _)| tile_of[*i] == t).map(|(_, c)| c).collect();
+        pack_charts(&mut group, p.region.0 + off, p.region.1 + off, p);
     }
     write_charts(m, &charts, UV);
 }
@@ -1216,21 +1314,53 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "u3dLayout",
-            "Layout: pack the UV shells of the selection into 0 to 1, each scaled to its size in 3D and turned to fit.",
+            "Layout: pack the UV shells of the selection into -packBox (0 to 1 by default), over -tileU by -tileV UDIM \
+             tiles when asked, -shellSpacing between shells and -tileMargin from the tile's edges (UV units; the UV \
+             Toolkit turns pixels into them by the map size). -preScaleMode 1 sizes shells to 3D, -layoutScaleMode 1 \
+             fills the region evenly, 2 in U and V apart, 0 not at all. -tileAssignMode 0 shares shells out by area, \
+             1 keeps each in the tile its centre is in.",
             |s, a| {
-                let spacing = a.float("shellSpacing", 0.0039);
-                let rotate = a.int("rotateStep", 90) != 0;
+                let num = |n: &str| a.get(n).and_then(Value::as_f64);
+                let mut p = Pack::default();
+                p.spacing = num("shellSpacing").unwrap_or(0.0039).max(0.0);
+                p.margin = num("tileMargin").unwrap_or(p.spacing).max(0.0);
+                p.rotate = num("rotateStep").is_none_or(|x| x != 0.0) && num("rotateMax").is_none_or(|x| x != 0.0);
+                p.translate = a.get("translate").is_none_or(|v| v.as_bool().unwrap_or(true));
+                p.scale = a.int("layoutScaleMode", 1).clamp(0, 2);
+                p.pre_scale = a.int("preScaleMode", 1).clamp(0, 2);
+                p.assign = a.int("tileAssignMode", 0).clamp(0, 1);
+                p.tiles = (a.int("tileU", 1).max(1) as u32, a.int("tileV", 1).max(1) as u32);
+                if let Some(b) = a.get("packBox").and_then(Value::as_array) {
+                    let n: Vec<f64> = b.iter().filter_map(Value::as_f64).collect();
+                    if n.len() == 4 {
+                        // Umin Umax Vmin Vmax.
+                        p.region = (DVec2::new(n[0].min(n[1]), n[2].min(n[3])), DVec2::new(n[0].max(n[1]), n[2].max(n[3])));
+                    }
+                }
                 each(s, a, "u3dLayout", "Layout", "polyLayoutUV", |m, t, tp| {
                     let faces = target_faces(m, t, tp);
                     let shells: Vec<Index> = shells_of(tp, &faces).concat();
-                    layout(m, &shells, spacing.max(0.002) * 2.0, rotate);
+                    layout_with(m, &shells, &p);
                 })
             },
         )
         .positional("faces, UVs or meshes")
         .flag(f("shellSpacing", "spc", ArgType::Float, Value::Null, "Space between shells, in UV units."))
+        .flag(f("tileMargin", "mar", ArgType::Float, Value::Null, "Space from the tile's edges, in UV units."))
+        .flag(f("packBox", "box", ArgType::List, Value::Null, "The region in the first tile: Umin Umax Vmin Vmax."))
+        .flag(f("tileU", "u", ArgType::Int, Value::Null, "Tiles across."))
+        .flag(f("tileV", "v", ArgType::Int, Value::Null, "Tiles up."))
+        .flag(f("tileAssignMode", "ta", ArgType::Int, Value::Null, "0 shared out by area, 1 by each shell's centre."))
+        .flag(f("layoutScaleMode", "ls", ArgType::Int, Value::Null, "0 off, 1 uniform, 2 non-uniform."))
+        .flag(f("preScaleMode", "scl", ArgType::Int, Value::Null, "0 off, 1 to 3D sizes, 2 keeping UV sizes."))
+        .flag(f("preRotateMode", "rot", ArgType::Int, Value::Null, "Accepted; shells are turned to their bounding box when rotation is on."))
         .flag(f("rotateStep", "rst", ArgType::Float, Value::Null, "0 keeps shells unturned."))
-        .flag(f("resolution", "res", ArgType::Int, Value::Null, "Accepted for existing scripts.")),
+        .flag(f("rotateMin", "rmn", ArgType::Float, Value::Null, "Accepted for existing scripts."))
+        .flag(f("rotateMax", "rmx", ArgType::Float, Value::Null, "0 keeps shells unturned."))
+        .flag(f("translate", "trs", ArgType::Bool, Value::Null, "Off: shells are not moved."))
+        .flag(f("multiObject", "m", ArgType::Bool, Value::Null, "Accepted; objects are packed one by one."))
+        .flag(f("mutations", "mut", ArgType::Int, Value::Null, "Accepted for existing scripts."))
+        .flag(f("resolution", "res", ArgType::Int, Value::Null, "The packing grid; accepted for existing scripts.")),
     );
 
     c.register(

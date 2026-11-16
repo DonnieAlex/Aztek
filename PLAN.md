@@ -125,8 +125,9 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [x] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; 16/11/2026: `translator -q`, and the
   `Alembic` type) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
   `exportObj` and `importObj` as Aztek's own. `translator -q -l` answers with the types Aztek has.
-- [~] 2.7 (16/11/2026: texGetTexelDensity, texSetTexelDensity and a Texel Density row in the UV Editor's toolbar;
-  `polyEvaluate -uvShell` was in; UDIM layout not yet) UV basics: `texGetTexelDensity`, `texSetTexelDensity`, the UV Toolkit's texel density row, UDIM-aware
+- [x] 2.7 (16/11/2026: texGetTexelDensity, texSetTexelDensity and a Texel Density row in the UV Editor's toolbar;
+  `polyEvaluate -uvShell` was in; u3dLayout over UDIM tiles with pack box, margins and scale modes; padding in UV
+  units, not pixels) UV basics: `texGetTexelDensity`, `texSetTexelDensity`, the UV Toolkit's texel density row, UDIM-aware
   layout (tiles, padding by pixels), `polyEvaluate -uvShell`.
 - [x] 2.8 (14/11/2026: `uvPin` and `proximityPin` nodes; 16/11/2026: their menus, `UVPin` and `ProximityPin`, and `poseInterpolator` with its command and menu; the Pose Editor window and pose shapes not yet) Rigging basics: `uvPin` and `proximityPin` nodes and menus (ribbons and pinned controls rely on them),
   `poseInterpolator` (already a ticket: Lou needs it).

@@ -2721,3 +2721,16 @@ page; what Archive Scene packs, its
 - `TogglePolyDisplayHardEdges`: hard edges drawn or not in every view, as Display > Polygons > Hard Edges.
 - `BakeCustomPivot` left for PLAN 3.6: it bakes the tool's custom axis into the transform, and custom pivot
   orientation is that item's work.
+
+### Layout over UDIM tiles (16/11/2026)
+
+PLAN 2.7. `u3dLayout` takes the reference's flags (names and types from its PyMEL page): `-packBox` (Umin Umax Vmin
+Vmax, the region in the first tile), `-tileU` and `-tileV` (tiles, each a UV unit on from the last), `-tileAssignMode`
+(0 shells shared out over the tiles by area, 1 each into the tile its centre is in), `-tileMargin` and
+`-shellSpacing` (UV units), `-layoutScaleMode` (0 off, 1 uniform, 2 non-uniform), `-preScaleMode` (0 off, 1 3D sizes,
+2 UV sizes), `-translate`, `-rotateStep`/`-rotateMax` 0 to keep shells unturned. The option box has the rows of the
+reference's [Layout UVs Options](https://help.autodesk.com/cloudhelp/ENU/MayaCRE-Modeling/files/GUID-47C4C13C-7DB9-46A0-B044-D336671BF266.htm)
+page. What the page doesn't say and is Aztek's: how distribute shares shells out (largest first, into the tile with
+the least area), and that the padding flags are UV units (the page's Padding Units can be pixels; the option box asks
+in UV units and has no Texture Map Size). Not done: `-preRotateMode` modes, `-rotateMin`, `-mutations`, `-resolution`
+(the packer is rows, not a grid), `-multiObject` (objects are packed one at a time, so several objects overlap).

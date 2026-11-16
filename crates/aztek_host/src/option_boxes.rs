@@ -235,7 +235,19 @@ pub fn rows(command: &str) -> Vec<Value> {
             b("borderintersection", "Prevent border intersections", true),
             b("triangleflip", "Prevent triangle flips", true),
         ],
-        "u3dLayout" => vec![f("shellSpacing", "Shell spacing", 0.0), f("rotateStep", "Rotate step", 0.0), i("resolution", "Resolution", 256)],
+        // Labels and defaults from the reference's Layout UVs Options page; padding in UV units, not pixels.
+        "u3dLayout" => vec![
+            i("resolution", "Packing resolution", 256),
+            with_default(en("preScaleMode", "Shell pre-scale", &["Off", "Preserve 3D Ratios", "Preserve UV Ratios"]), json!(1)),
+            b("translate", "Translate shells", true),
+            f("rotateStep", "Rotation steps", 90.0),
+            f("shellSpacing", "Shell padding (UV)", 0.0039),
+            f("tileMargin", "Tile padding (UV)", 0.0039),
+            en("tileAssignMode", "Shell distribution", &["Distribute", "Shell Centers"]),
+            i("tileU", "Tiles U", 1),
+            i("tileV", "Tiles V", 1),
+            with_default(en("layoutScaleMode", "Scale mode", &["Off", "Uniform", "Non-Uniform"]), json!(1)),
+        ],
         // Deform
         "deltaMush" => vec![i("smoothingIterations", "Smoothing iterations", 10), f("smoothingStep", "Smoothing step", 0.5), b("pinBorderVertices", "Pin border vertices", true), f("displacement", "Displacement", 1.0), f("envelope", "Envelope", 1.0)],
         "tension" => vec![i("smoothingIterations", "Smoothing iterations", 10), f("smoothingStep", "Smoothing step", 0.5), b("pinBorderVertices", "Pin border vertices", true), f("squashConstraint", "Squash constraint", 0.0), f("stretchConstraint", "Stretch constraint", 0.0), f("envelope", "Envelope", 1.0)],
