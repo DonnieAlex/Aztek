@@ -22,6 +22,7 @@ pub mod conform_commands;
 pub mod core_nodes;
 pub mod curve_history;
 pub mod curves;
+pub mod sound;
 pub mod surfaces;
 pub mod dag;
 pub mod defaults;

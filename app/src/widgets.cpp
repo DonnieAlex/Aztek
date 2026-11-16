@@ -469,6 +469,21 @@ void TimeSlider::paintEvent(QPaintEvent*) {
     p.fillRect(rect(), QColor(45, 45, 45));
     double w = width() - 16;
     double span = end_ - start_;
+    // The sound timeControl shows: its waveform behind the ticks, a column per pixel.
+    {
+        QJsonArray peaks = ask("aztekSoundPeaks", QJsonObject{{"start", start_}, {"end", end_}, {"count", int(std::max(1.0, w))}}).toArray();
+        if (!peaks.isEmpty()) {
+            p.setPen(QColor(90, 150, 125));
+            const double mid = height() * 0.5, half = height() * 0.45;
+            for (int i = 0; i < peaks.size(); ++i) {
+                QJsonArray b = peaks[i].toArray();
+                double lo = b.size() > 0 ? b[0].toDouble() : 0.0, hi = b.size() > 1 ? b[1].toDouble() : 0.0;
+                if (lo == 0.0 && hi == 0.0) continue;
+                double x = 8 + i * w / peaks.size();
+                p.drawLine(QPointF(x, mid - hi * half), QPointF(x, mid - lo * half));
+            }
+        }
+    }
     // A tick per frame when there's room, labels every few.
     int step = 1;
     for (int s : {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000})

@@ -361,10 +361,15 @@ fn time_control(s: &Session, a: &Args) -> CmdResult {
             anim::frame_json(r.min)
         } else if queried(a, &["maxTime"]) {
             anim::frame_json(r.max)
+        } else if queried(a, &["sound"]) {
+            json!(crate::sound::displayed().0)
+        } else if queried(a, &["displaySound"]) {
+            json!(crate::sound::displayed().1)
         } else {
             Value::Null
         });
     }
+    crate::sound::set_displayed(a.get("sound").and_then(Value::as_str).map(str::to_string), a.get("displaySound").and_then(Value::as_bool));
     let mut st = slider();
     match a.get("rangeArray") {
         Some(Value::Array(v)) if v.len() == 2 => st.range = Some((v[0].as_f64().unwrap_or(0.0), v[1].as_f64().unwrap_or(0.0))),
@@ -482,6 +487,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("tickSize", "ts", ArgType::Float, "How wide ticks are drawn."))
         .flag(f("minTime", "min", ArgType::Bool, "Query: the playback start."))
         .flag(f("maxTime", "max", ArgType::Bool, "Query: the playback end."))
+        .flag(f("sound", "s", ArgType::String, "The sound (audio node) the slider shows the waveform of; empty for none."))
+        .flag(f("displaySound", "ds", ArgType::Bool, "Show the sound's waveform."))
         .flag(f("beginScrub", "bs", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("endScrub", "es", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("forceRedraw", "fr", ArgType::Bool, "Accepted for existing scripts."))

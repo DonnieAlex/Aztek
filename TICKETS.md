@@ -3,6 +3,7 @@
 Requests waiting or in progress, newest detail kept. Move to Done with the date when reported finished.
 
 ## In progress
+- Sound output (Simon's call): which audio library Aztek plays sound through, for playback, scrubbing and sync.
 - XJEN (top priority, Simon 16/11/2026): hair and fur at XGen parity. Target and order in docs/XJEN.md; ground truth
   from `tools/reference_capture/xgen_capture.py`, to be run by Simon. Steps 1 (strands), 2 (Interactive Groom
   core), 3 (grooming tools), 4 (modifiers), 5 (editor, shelf,

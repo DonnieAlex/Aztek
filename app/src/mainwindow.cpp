@@ -1624,6 +1624,27 @@ void MainWindow::time_slider_menu(QPoint global) {
         label[0] = label[0].toUpper();
         tan->addAction(label, keyed("keyTangent", QJsonObject{{"inTangentType", t == QString("step") ? "clamped" : t}, {"outTangentType", t}}));
     }
+    // Sound: which audio node's waveform shows, and importing one.
+    m.addSeparator();
+    QMenu* snd = m.addMenu("Sound");
+    QString shown = ask("timeControl", QJsonObject{{"query", true}, {"queried", QJsonArray{"sound"}}}).toString();
+    QAction* none = snd->addAction("None", [this] { exec("timeControl", QJsonObject{{"sound", ""}}); time_slider_->update(); });
+    none->setCheckable(true);
+    none->setChecked(shown.isEmpty());
+    for (const QJsonValue& v : ask("ls", QJsonObject{{"type", "audio"}}).toArray()) {
+        QString n = v.toString();
+        QAction* a = snd->addAction(n, [this, n] { exec("timeControl", QJsonObject{{"sound", n}, {"displaySound", true}}); time_slider_->update(); });
+        a->setCheckable(true);
+        a->setChecked(n == shown);
+    }
+    snd->addSeparator();
+    snd->addAction("Import Audio...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Audio", QString(), "WAV (*.wav)");
+        if (f.isEmpty()) return;
+        QJsonValue n = ask("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
+        if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
+        time_slider_->update();
+    });
     m.exec(global);
 }
 

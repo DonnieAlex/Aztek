@@ -2490,6 +2490,19 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### Sound (16/11/2026)
+
+![The waveform in the time slider](docs/sound-waveform.png)
+
+- `audio` node (filename, offset, sourceStart, sourceEnd, mute, order) and the `sound` command: `-file`, `-offset`,
+  `-sourceStart`, `-sourceEnd`, `-mute`, `-name`, `-edit`, and `-q` with those, `-length` and `-endTime` (frames).
+  WAV is read by Aztek's own code: PCM at 8, 16, 24 and 32 bits and 32-bit float, any channels (mixed down).
+- `timeControl -sound name -displaySound true` picks the sound whose waveform the time slider draws; the slider's
+  right-click menu has Sound > None, each sound, and Import Audio (placed at the current frame). Sounds save in `.ma`.
+- Not yet: hearing it. Playback, scrubbing and sync need an audio output library (Qt Multimedia, or a Rust crate over
+  ALSA, CoreAudio and WASAPI), which is a dependency for every package; it waits on Simon's choice. Other formats than
+  WAV (the reference also reads AIFF) are not read.
+
 ### Image planes (16/11/2026)
 
 ![A plate on persp and a free plane](docs/image-planes.jpg)

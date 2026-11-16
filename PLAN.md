@@ -119,7 +119,8 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
   `.ma` read and write.
 - [x] 2.4 (16/11/2026; saving is on the interface thread, so a very large scene pauses while it writes) Autosave: `autoSave` command (enable, interval, limit, destination, prompt), the preference page, timed saves
   that don't block, recovery of the last autosave after a crash.
-- [ ] 2.5 Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
+- [~] 2.5 (16/11/2026: `sound` and the `audio` node, WAV read, `timeControl -sound`/`-displaySound`, the waveform in the
+  time slider, its Sound menu; hearing it, scrubbing and sync wait on an audio output library, Simon's call) Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
   playback. WAV first.
 - [~] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; `translator` is not a command yet) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
   `exportObj` and `importObj` as Aztek's own. `translator -q -l` answers with the types Aztek has.
