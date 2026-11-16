@@ -474,8 +474,8 @@ Node Editor:
 
 The reference has one look, and Aztek Classic is it, the default. The **Themes** box at the top right of the menu bar
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
-Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Dracula, Nord and Solarized are the colour schemes
-their authors publish. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
+Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Boisvert, MNovacek, Springer and Buffin are the Dracula, Nord and
+Solarized colour schemes as their authors publish them. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
 colours.
 
 **Theme Editor...**, at the bottom of the box, edits every part of a theme: each colour, the font and its size, italic
@@ -489,25 +489,25 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 
 | | | |
 |---|---|---|
-| ![Aztek Classic](docs/theme-classic.jpg) | ![Obsidian](docs/theme-obsidian.jpg) | ![Carbon](docs/theme-carbon.jpg) |
-| **Aztek Classic**: the reference's look, and the default | **Obsidian**: near-black and flat, after the game engine editors | **Carbon**: charcoal, teal, soft corners |
-| ![Midnight](docs/theme-midnight.jpg) | ![Dracula](docs/theme-dracula.jpg) | ![Solarized Dark](docs/theme-solarized-dark.jpg) |
-| **Midnight**: blue-black | **Dracula** | **Solarized Dark** |
-| ![Graphite](docs/theme-graphite.jpg) | ![Nord](docs/theme-nord.jpg) | ![Slate](docs/theme-slate.jpg) |
-| **Graphite**: neutral dark with a soft gradient | **Nord** | **Slate**: mid grey, gradient buttons |
-| ![Alias](docs/theme-alias.jpg) | ![Pewter](docs/theme-pewter.jpg) |  |
-| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **Pewter**: warm mid grey with an orange accent |  |
+| ![Aztek Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Flav](docs/theme-carbon.jpg) |
+| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: near-black and flat, after the game engine editors | **Flav**: charcoal, teal, soft corners |
+| ![KevinP](docs/theme-midnight.jpg) | ![Boisvert](docs/theme-dracula.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
+| **KevinP**: blue-black | **Boisvert** | **Springer** |
+| ![JGibson](docs/theme-graphite.jpg) | ![MNovacek](docs/theme-nord.jpg) | ![Ozymok](docs/theme-slate.jpg) |
+| **JGibson**: neutral dark with a soft gradient | **MNovacek** | **Ozymok**: mid grey, gradient buttons |
+| ![Alias](docs/theme-alias.jpg) | ![PewterTureski](docs/theme-pewter.jpg) | ![Shaq](docs/theme-shaq.jpg) |
+| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **PewterTureski**: warm mid grey with an orange accent | **Shaq**: near-black with bold violet highlights and gold section bars |
 
 ### Light
 
 | | | |
 |---|---|---|
-| ![Studio 96](docs/theme-studio96.jpg) | ![Classic 98](docs/theme-classic98.jpg) | ![Workstation](docs/theme-workstation.jpg) |
-| **Studio 96**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Classic 98**: silver and navy, two-tone bevels, 1998 | **Workstation**: the light grey workstation desktop the reference first ran on |
-| ![Power Animator](docs/theme-poweranimator.jpg) | ![Ash](docs/theme-ash.jpg) | ![Solarized Light](docs/theme-solarized-light.jpg) |
-| **Power Animator**: light grey with mid grey fields and darker section bars, round-topped tabs | **Ash**: light grey modern | **Solarized Light** |
-| ![Paper](docs/theme-paper.jpg) | ![Lilac](docs/theme-lilac.jpg) |  |
-| **Paper**: near white | **Lilac**: white, teal, soft corners |  |
+| ![sendvvv](docs/theme-studio96.jpg) | ![DonnieA](docs/theme-classic98.jpg) | ![Cattingway](docs/theme-workstation.jpg) |
+| **sendvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **DonnieA**: silver and navy, two-tone bevels, 1998 | **Cattingway**: the light grey workstation desktop the reference first ran on |
+| ![Hourihan](docs/theme-poweranimator.jpg) | ![AshT](docs/theme-ash.jpg) | ![Buffin](docs/theme-solarized-light.jpg) |
+| **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **AshT**: light grey modern | **Buffin** |
+| ![Royhall](docs/theme-paper.jpg) | ![Jostam](docs/theme-lilac.jpg) | ![Martino](docs/theme-martino.jpg) |
+| **Royhall**: near white | **Jostam**: white, teal, soft corners | **Martino**: after Softimage XSI: mid grey panels, pale fields, single bevels, square corners |
 
 ## Install
 

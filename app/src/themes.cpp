@@ -125,7 +125,7 @@ QList<Theme> builtins() {
     }
     // Near black, after the modern game engine editors: flat, thin lines, a bright blue, tabs marked by a line.
     {
-        Theme t = tonal("obsidian", "Obsidian", 0, 0, 8.5, "#0070e0");
+        Theme t = tonal("obsidian", "Brinsmead", 0, 0, 8.5, "#0070e0");
         t.font = QStringList{"Roboto", "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", "Arial"};
         t.radius = 3;
         t.tabs = "underline";
@@ -133,21 +133,54 @@ QList<Theme> builtins() {
     }
     // Charcoal with a teal accent and soft corners.
     {
-        Theme t = tonal("carbon", "Carbon", 200, 0.04, 13, "#2fa59a");
+        Theme t = tonal("carbon", "Flav", 200, 0.04, 13, "#2fa59a");
         t.radius = 8;
         t.tabs = "pill";
         t.padding = 4;
         l << t;
     }
     {
-        Theme t = tonal("midnight", "Midnight", 222, 0.28, 15, "#3d7eff");
+        Theme t = tonal("midnight", "KevinP", 222, 0.28, 15, "#3d7eff");
         t.radius = 6;
         t.tabs = "underline";
         l << t;
     }
+    // Shaq: near-black with a bold electric violet and gold, heavy section bars, crisp corners and bold menus.
+    {
+        Theme t = hand("shaq", "Shaq",
+                       {{"window", "#121218"}, {"chrome", "#0b0b10"}, {"base", "#08080c"}, {"alt", "#17171f"}, {"menu", "#1a1a24"}, {"button", "#22222e"}, {"hover", "#2e2e3e"},
+                        {"hi", "#7b3cff"}, {"hitext", "#ffffff"}, {"text", "#e6e6f0"}, {"bright", "#ffffff"}, {"dim", "#9a9ab0"}, {"disabled", "#55556a"}, {"border", "#2a2a3a"},
+                        {"handle", "#3a3a50"}, {"section", "#fdb927"}, {"sectiontext", "#0b0b10"}, {"light", "#3a3a4e"}, {"shadow", "#000000"}});
+        t.font = QStringList{"Inter", "Roboto", "Segoe UI", "Noto Sans", "DejaVu Sans", "Arial"};
+        t.point_size = 9;
+        t.menu_bold = true;
+        t.radius = 3;
+        t.border = 1;
+        t.tabs = "underline";
+        t.padding = 4;
+        l << t;
+    }
+    // Martino: after Softimage XSI, mid grey panels, pale fields, black type, single bevels, square corners and a
+    // blue highlight.
+    {
+        Theme t = hand("martino", "Martino",
+                       {{"window", "#a2a2a2"}, {"chrome", "#969696"}, {"base", "#c6c6c6"}, {"alt", "#b6b6b6"}, {"menu", "#b0b0b0"}, {"button", "#b8b8b8"}, {"hover", "#c8c8c8"},
+                        {"hi", "#4f6fa3"}, {"hitext", "#ffffff"}, {"text", "#111111"}, {"bright", "#000000"}, {"dim", "#3a3a3a"}, {"disabled", "#6e6e6e"}, {"border", "#6a6a6a"},
+                        {"handle", "#8a8a8a"}, {"section", "#8c8c8c"}, {"sectiontext", "#000000"}, {"light", "#dedede"}, {"shadow", "#5a5a5a"}});
+        t.font = kSans;
+        t.point_size = 8;
+        t.fill = "flat";
+        t.bevel = "single";
+        t.radius = 0;
+        t.tabs = "boxed";
+        t.arrows = "triangle";
+        t.scrollbar = "standard";
+        t.padding = 2;
+        l << t;
+    }
     // Colour schemes as their authors publish them (Dracula, Nord and Solarized are MIT).
     {
-        Theme t = hand("dracula", "Dracula",
+        Theme t = hand("dracula", "Boisvert",
                        {{"window", "#282a36"}, {"chrome", "#21222c"}, {"base", "#1b1c24"}, {"alt", "#2c2e3c"}, {"menu", "#343746"}, {"button", "#44475a"}, {"hover", "#565a72"},
                         {"hi", "#bd93f9"}, {"hitext", "#1b1c24"}, {"text", "#f8f8f2"}, {"bright", "#ffffff"}, {"dim", "#a0a5c4"}, {"disabled", "#6272a4"}, {"border", "#16171e"},
                         {"handle", "#5a5e78"}});
@@ -158,7 +191,7 @@ QList<Theme> builtins() {
         l << t;
     }
     {
-        Theme t = hand("solarized-dark", "Solarized Dark",
+        Theme t = hand("solarized-dark", "Springer",
                        {{"window", "#073642"}, {"chrome", "#04303b"}, {"base", "#002b36"}, {"alt", "#06313c"}, {"menu", "#0b4251"}, {"button", "#114f5f"}, {"hover", "#1a6274"},
                         {"hi", "#268bd2"}, {"text", "#93a1a1"}, {"bright", "#eee8d5"}, {"dim", "#839496"}, {"disabled", "#586e75"}, {"border", "#00212b"}, {"handle", "#2a6474"}});
         t.font = kSans;
@@ -168,13 +201,13 @@ QList<Theme> builtins() {
         l << t;
     }
     {
-        Theme t = tonal("graphite", "Graphite", 225, 0.07, 20, "#4f7bd9");
+        Theme t = tonal("graphite", "JGibson", 225, 0.07, 20, "#4f7bd9");
         t.radius = 5;
         t.fill = "gradient";
         l << t;
     }
     {
-        Theme t = hand("nord", "Nord",
+        Theme t = hand("nord", "MNovacek",
                        {{"window", "#3b4252"}, {"chrome", "#323946"}, {"base", "#2e3440"}, {"alt", "#3f4758"}, {"menu", "#434c5e"}, {"button", "#4c566a"}, {"hover", "#5a657c"},
                         {"hi", "#88c0d0"}, {"hitext", "#2e3440"}, {"text", "#d8dee9"}, {"bright", "#eceff4"}, {"dim", "#a3adbf"}, {"disabled", "#6c778c"}, {"border", "#272c36"},
                         {"handle", "#616d85"}});
@@ -186,7 +219,7 @@ QList<Theme> builtins() {
     }
     // Mid greys with a soft gradient, a studio application of the 2000s.
     {
-        Theme t = tonal("slate", "Slate", 210, 0.06, 35, "#4c8bd6");
+        Theme t = tonal("slate", "Ozymok", 210, 0.06, 35, "#4c8bd6");
         t.fill = "gradient";
         t.radius = 3;
         t.tabs = "boxed";
@@ -195,7 +228,7 @@ QList<Theme> builtins() {
         l << t;
     }
     {
-        Theme t = tonal("pewter", "Pewter", 30, 0.04, 44, "#e08a2e");
+        Theme t = tonal("pewter", "PewterTureski", 30, 0.04, 44, "#e08a2e");
         t.fill = "gradient";
         t.radius = 4;
         t.tabs = "boxed";
@@ -205,7 +238,7 @@ QList<Theme> builtins() {
     // The animation package of the mid 1990s on the workstations: grey panels, pink entry fields, bold italic menus,
     // bevelled buttons and round-topped tabs.
     {
-        Theme t = hand("studio96", "Studio 96",
+        Theme t = hand("studio96", "sendvvv",
                        {{"window", "#a0a0a0"}, {"chrome", "#949494"}, {"base", "#bdbdbd"}, {"alt", "#b4b4b4"}, {"menu", "#b0b0b0"}, {"button", "#b2b2b2"}, {"hover", "#c2c2c2"},
                         {"hi", "#5a6f92"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#2c2c2c"}, {"disabled", "#6e6e6e"}, {"border", "#2e2e2e"}, {"handle", "#b2b2b2"},
                         {"light", "#ececec"}, {"shadow", "#5e5e5e"}, {"field", "#eab4b4"}, {"fieldtext", "#000000"}});
@@ -223,7 +256,7 @@ QList<Theme> builtins() {
     }
     // The workstation desktop the first release of the reference ran on: light grey, deep bevels, upright Helvetica.
     {
-        Theme t = hand("workstation", "Workstation",
+        Theme t = hand("workstation", "Cattingway",
                        {{"window", "#c2c2c2"}, {"chrome", "#b2b2b2"}, {"base", "#dedede"}, {"alt", "#d4d4d4"}, {"menu", "#cacaca"}, {"button", "#c6c6c6"}, {"hover", "#d2d2d2"},
                         {"hi", "#52709f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#383838"}, {"disabled", "#7c7c7c"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
                         {"light", "#f4f4f4"}, {"shadow", "#6c6c6c"}, {"field", "#e4e4e4"}, {"fieldtext", "#000000"}});
@@ -240,7 +273,7 @@ QList<Theme> builtins() {
     }
     // Light grey with mid grey fields and darker section bars, the reference's look on the workstations of the 2000s.
     {
-        Theme t = hand("poweranimator", "Power Animator",
+        Theme t = hand("poweranimator", "Hourihan",
                        {{"window", "#c6c6c6"}, {"chrome", "#b6b6b6"}, {"base", "#d8d8d8"}, {"alt", "#cfcfcf"}, {"menu", "#cccccc"}, {"button", "#c6c6c6"}, {"hover", "#d4d4d4"},
                         {"hi", "#56739f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#303030"}, {"disabled", "#7a7a7a"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
                         {"light", "#f2f2f2"}, {"shadow", "#727272"}, {"field", "#a9a9a9"}, {"fieldtext", "#000000"}, {"section", "#a2a2a2"}, {"sectiontext", "#000000"}});
@@ -274,7 +307,7 @@ QList<Theme> builtins() {
     }
     // The desktop of 1998: silver, white fields, navy selection, two-tone raised and sunken edges.
     {
-        Theme t = hand("classic98", "Classic 98",
+        Theme t = hand("classic98", "DonnieA",
                        {{"window", "#c0c0c0"}, {"chrome", "#c0c0c0"}, {"base", "#ffffff"}, {"alt", "#f4f4f4"}, {"menu", "#c0c0c0"}, {"button", "#c0c0c0"}, {"hover", "#c0c0c0"},
                         {"hi", "#000080"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#404040"}, {"disabled", "#808080"}, {"border", "#000000"}, {"handle", "#c0c0c0"},
                         {"light", "#ffffff"}, {"shadow", "#808080"}, {"field", "#ffffff"}, {"fieldtext", "#000000"}});
@@ -289,14 +322,14 @@ QList<Theme> builtins() {
         l << t;
     }
     {
-        Theme t = tonal("ash", "Ash", 220, 0.06, 84, "#2f6fd8");
+        Theme t = tonal("ash", "AshT", 220, 0.06, 84, "#2f6fd8");
         t.fill = "gradient";
         t.radius = 5;
         t.tabs = "boxed";
         l << t;
     }
     {
-        Theme t = hand("solarized-light", "Solarized Light",
+        Theme t = hand("solarized-light", "Buffin",
                        {{"window", "#eee8d5"}, {"chrome", "#e4ddc6"}, {"base", "#fdf6e3"}, {"alt", "#f7f0dc"}, {"menu", "#fdf6e3"}, {"button", "#f6efd9"}, {"hover", "#dcd4bc"},
                         {"hi", "#268bd2"}, {"text", "#586e75"}, {"bright", "#073642"}, {"dim", "#657b83"}, {"disabled", "#93a1a1"}, {"border", "#cdc5ad"}, {"handle", "#c4bca3"},
                         {"light", "#ffffff"}, {"shadow", "#a89f86"}});
@@ -307,14 +340,14 @@ QList<Theme> builtins() {
         l << t;
     }
     {
-        Theme t = tonal("paper", "Paper", 0, 0, 94, "#2f6fd8");
+        Theme t = tonal("paper", "Royhall", 0, 0, 94, "#2f6fd8");
         t.radius = 6;
         t.tabs = "underline";
         l << t;
     }
     // White, soft corners and a teal accent, the light half of the modern widget galleries.
     {
-        Theme t = tonal("lilac", "Lilac", 200, 0.10, 97.5, "#3aa597");
+        Theme t = tonal("lilac", "Jostam", 200, 0.10, 97.5, "#3aa597");
         t.c["button"] = QColor("#ffffff");
         t.c["base"] = QColor("#ffffff");
         t.c["menu"] = QColor("#ffffff");
