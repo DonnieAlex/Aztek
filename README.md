@@ -6,6 +6,7 @@
   <a href="#copy-it-anywhere"><img src="https://img.shields.io/badge/Copy%20it%20anywhere-white?style=for-the-badge" alt="Copy it anywhere"></a>
   <a href="#fix-it-yourself"><img src="https://img.shields.io/badge/Fix%20it%20yourself-white?style=for-the-badge" alt="Fix it yourself"></a>
   <a href="https://srlegrand.github.io/Aztek/"><img src="https://img.shields.io/badge/Website-white?style=for-the-badge" alt="Website"></a>
+  <a href="https://ko-fi.com/turtleface"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 ## This doesn't feel right!
@@ -637,6 +638,10 @@ Existing scripts, habits and `.ma` files carry over: a production rig opens, pos
 [PARITY.md](PARITY.md)). Behaviour comes from published references, so expect differences in details; PARITY.md lists
 the known ones. `.mb` files open, import, load as references and save; a few things are left out of a saved `.mb` with a warning (see PARITY.md), and the C++ plug-in kit covers part of the API so far. Materials and render settings from other renderers in a file are
 read and rendered with Harold, with a warning naming what isn't honoured.
+
+## Support
+
+Aztek is free and stays free. If it helps your work and you'd like to chip in, there's a [Ko-fi page](https://ko-fi.com/turtleface).
 
 ## Licence
 
