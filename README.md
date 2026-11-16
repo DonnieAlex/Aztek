@@ -494,13 +494,13 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 | | | |
 |---|---|---|
 | ![Aztek Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Flav](docs/theme-carbon.jpg) |
-| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: near-black and flat, after the game engine editors | **Flav**: charcoal, teal, soft corners |
+| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: pure black and electric cyan, monospaced type, square corners, cyan section bars | **Flav**: charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners |
 | ![KevinP](docs/theme-midnight.jpg) | ![Boisvert](docs/theme-dracula.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
-| **KevinP**: blue-black | **Boisvert** | **Springer** |
+| **KevinP**: deep navy and gold, serif type with italic menus, round-topped tabs | **Boisvert**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **Springer**: Solarized dark with its yellow and orange: condensed type, single bevels, square edges |
 | ![JGibson](docs/theme-graphite.jpg) | ![MNovacek](docs/theme-nord.jpg) | ![Ozymok](docs/theme-slate.jpg) |
-| **JGibson**: neutral dark with a soft gradient | **MNovacek** | **Ozymok**: mid grey, gradient buttons |
+| **JGibson**: forest green and lime, humanist type, soft gradients | **MNovacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel |
 | ![Alias](docs/theme-alias.jpg) | ![PewterTureski](docs/theme-pewter.jpg) | ![Shaq](docs/theme-shaq.jpg) |
-| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **PewterTureski**: warm mid grey with an orange accent | **Shaq**: near-black with bold violet highlights and gold section bars |
+| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **PewterTureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars | **Shaq**: near-black with bold violet highlights and gold section bars |
 
 ### Light
 
@@ -509,9 +509,9 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 | ![sendvvv](docs/theme-studio96.jpg) | ![DonnieA](docs/theme-classic98.jpg) | ![Cattingway](docs/theme-workstation.jpg) |
 | **sendvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **DonnieA**: silver and navy, two-tone bevels, 1998 | **Cattingway**: the light grey workstation desktop the reference first ran on |
 | ![Hourihan](docs/theme-poweranimator.jpg) | ![AshT](docs/theme-ash.jpg) | ![Buffin](docs/theme-solarized-light.jpg) |
-| **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **AshT**: light grey modern | **Buffin** |
+| **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **AshT**: pale sky blue and navy, humanist type, navy section bars, round pills | **Buffin**: Solarized light with its cyan and magenta: serif type, round-topped tabs |
 | ![Royhall](docs/theme-paper.jpg) | ![Jostam](docs/theme-lilac.jpg) | ![Martino](docs/theme-martino.jpg) |
-| **Royhall**: near white | **Jostam**: white, teal, soft corners | **Martino**: after Softimage XSI: mid grey panels, pale fields, single bevels, square corners |
+| **Royhall**: cream paper and red ink, typewriter type, bold menus, square corners, black section bars | **Jostam**: mint and teal, rounded type, gradients, the roundest corners | **Martino**: after Softimage XSI: mid grey panels, pale fields, single bevels, square corners |
 
 ## Install
 

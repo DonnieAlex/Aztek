@@ -125,26 +125,56 @@ QList<Theme> builtins() {
         t.scrollbar = "standard";
         l << t;
     }
-    // Near black, after the modern game engine editors: flat, thin lines, a bright blue, tabs marked by a line.
+    // Brinsmead: pure black and electric cyan, monospaced type, square corners, cyan section bars.
     {
-        Theme t = tonal("obsidian", "Brinsmead", 0, 0, 8.5, "#0070e0");
-        t.font = QStringList{"Roboto", "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", "Arial"};
-        t.radius = 3;
+        Theme t = tonal("obsidian", "Brinsmead", 190, 0.0, 3, "#00e5ff");
+        t.font = QStringList{"JetBrains Mono", "Cascadia Mono", "SF Mono", "Menlo", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Courier New"};
+        t.point_size = 9;
+        t.fill = "flat";
+        t.bevel = "none";
+        t.radius = 0;
+        t.border = 1;
         t.tabs = "underline";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 3;
+        t.c["section"] = QColor("#00e5ff");
+        t.c["sectiontext"] = QColor("#000000");
+        t.c["hitext"] = QColor("#000000");
+        t.c["border"] = QColor("#1f2a2e");
         l << t;
     }
-    // Charcoal with a teal accent and soft corners.
+    // Flav: charcoal with tangerine, a geometric typeface, bold menus, borderless pills with big round corners.
     {
-        Theme t = tonal("carbon", "Flav", 200, 0.04, 13, "#2fa59a");
-        t.radius = 8;
+        Theme t = tonal("carbon", "Flav", 20, 0.06, 13, "#ff7a1a");
+        t.font = QStringList{"Montserrat", "Poppins", "Futura", "Century Gothic", "Avenir Next", "Avenir", "URW Gothic", "Gill Sans", "Verdana"};
+        t.point_size = 9;
+        t.menu_bold = true;
+        t.fill = "gradient";
+        t.radius = 11;
+        t.border = 0;
         t.tabs = "pill";
-        t.padding = 4;
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 5;
+        t.c["hitext"] = QColor("#1a0d00");
         l << t;
     }
+    // KevinP: deep navy and gold, serif type with italic menus, round-topped tabs, gold-lettered section bars.
     {
-        Theme t = tonal("midnight", "KevinP", 222, 0.28, 15, "#3d7eff");
-        t.radius = 6;
-        t.tabs = "underline";
+        Theme t = tonal("midnight", "KevinP", 226, 0.5, 13, "#f2c14e");
+        t.font = QStringList{"Georgia", "Charter", "Iowan Old Style", "Palatino Linotype", "Palatino", "Noto Serif", "DejaVu Serif", "Liberation Serif", "Times New Roman"};
+        t.point_size = 10;
+        t.menu_italic = true;
+        t.fill = "flat";
+        t.radius = 4;
+        t.tabs = "rounded";
+        t.arrows = "triangle";
+        t.scrollbar = "standard";
+        t.padding = 3;
+        t.c["hitext"] = QColor("#141a33");
+        t.c["section"] = QColor("#1d2a5c");
+        t.c["sectiontext"] = QColor("#f2c14e");
         l << t;
     }
     // Shaq: near-black with a bold electric violet and gold, heavy section bars, crisp corners and bold menus.
@@ -180,61 +210,108 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // Colour schemes as their authors publish them (Dracula, Nord and Solarized are MIT).
+    // Boisvert: the Dracula scheme as its author publishes it (MIT), pink highlights, purple section bars, rounded type and very round corners.
     {
         Theme t = hand("dracula", "Boisvert",
                        {{"window", "#282a36"}, {"chrome", "#21222c"}, {"base", "#1b1c24"}, {"alt", "#2c2e3c"}, {"menu", "#343746"}, {"button", "#44475a"}, {"hover", "#565a72"},
-                        {"hi", "#bd93f9"}, {"hitext", "#1b1c24"}, {"text", "#f8f8f2"}, {"bright", "#ffffff"}, {"dim", "#a0a5c4"}, {"disabled", "#6272a4"}, {"border", "#16171e"},
-                        {"handle", "#5a5e78"}});
-        t.font = kSans;
+                        {"hi", "#ff79c6"}, {"hitext", "#1b1c24"}, {"text", "#f8f8f2"}, {"bright", "#ffffff"}, {"dim", "#a0a5c4"}, {"disabled", "#6272a4"}, {"border", "#16171e"},
+                        {"handle", "#5a5e78"}, {"section", "#bd93f9"}, {"sectiontext", "#1b1c24"}});
+        t.font = QStringList{"Nunito", "Varela Round", "Quicksand", "Comfortaa", "Arial Rounded MT Bold", "Segoe UI", "Noto Sans", "Verdana"};
         t.point_size = 9;
-        t.radius = 6;
+        t.fill = "flat";
+        t.radius = 14;
+        t.border = 1;
         t.tabs = "pill";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 5;
         l << t;
     }
+    // Springer: the Solarized dark scheme as its author publishes it (MIT), with its yellow and orange: condensed type, single bevels, square edges.
     {
         Theme t = hand("solarized-dark", "Springer",
                        {{"window", "#073642"}, {"chrome", "#04303b"}, {"base", "#002b36"}, {"alt", "#06313c"}, {"menu", "#0b4251"}, {"button", "#114f5f"}, {"hover", "#1a6274"},
-                        {"hi", "#268bd2"}, {"text", "#93a1a1"}, {"bright", "#eee8d5"}, {"dim", "#839496"}, {"disabled", "#586e75"}, {"border", "#00212b"}, {"handle", "#2a6474"}});
-        t.font = kSans;
-        t.point_size = 9;
-        t.radius = 4;
-        t.tabs = "underline";
+                        {"hi", "#b58900"}, {"hitext", "#002b36"}, {"text", "#93a1a1"}, {"bright", "#eee8d5"}, {"dim", "#839496"}, {"disabled", "#586e75"}, {"border", "#00212b"},
+                        {"handle", "#2a6474"}, {"section", "#cb4b16"}, {"sectiontext", "#fdf6e3"}, {"light", "#2a6a7a"}, {"shadow", "#001a22"}});
+        t.font = QStringList{"Roboto Condensed", "Barlow Condensed", "Arial Narrow", "Helvetica Neue Condensed", "DejaVu Sans Condensed", "Liberation Sans Narrow", "Arial"};
+        t.point_size = 10;
+        t.menu_bold = true;
+        t.fill = "flat";
+        t.bevel = "single";
+        t.radius = 0;
+        t.tabs = "boxed";
+        t.arrows = "boxed";
+        t.scrollbar = "bevel";
+        t.padding = 2;
         l << t;
     }
+    // JGibson: deep forest green and lime, a humanist typeface, soft gradients.
     {
-        Theme t = tonal("graphite", "JGibson", 225, 0.07, 20, "#4f7bd9");
-        t.radius = 5;
+        Theme t = tonal("graphite", "JGibson", 145, 0.32, 13, "#9be15d");
+        t.font = QStringList{"Lato", "Open Sans", "Source Sans 3", "Source Sans Pro", "Fira Sans", "Calibri", "Noto Sans", "DejaVu Sans"};
+        t.point_size = 9;
         t.fill = "gradient";
+        t.radius = 6;
+        t.border = 1;
+        t.tabs = "underline";
+        t.arrows = "triangle";
+        t.scrollbar = "thin";
+        t.padding = 4;
+        t.c["hitext"] = QColor("#0d1f0d");
+        t.c["section"] = QColor("#21402b");
+        t.c["sectiontext"] = QColor("#c8f59e");
         l << t;
     }
+    // MNovacek: the Nord scheme as its author publishes it (MIT): frost blues, a geometric typeface, borderless, round-topped tabs.
     {
         Theme t = hand("nord", "MNovacek",
                        {{"window", "#3b4252"}, {"chrome", "#323946"}, {"base", "#2e3440"}, {"alt", "#3f4758"}, {"menu", "#434c5e"}, {"button", "#4c566a"}, {"hover", "#5a657c"},
                         {"hi", "#88c0d0"}, {"hitext", "#2e3440"}, {"text", "#d8dee9"}, {"bright", "#eceff4"}, {"dim", "#a3adbf"}, {"disabled", "#6c778c"}, {"border", "#272c36"},
-                        {"handle", "#616d85"}});
-        t.font = kSans;
+                        {"handle", "#616d85"}, {"section", "#5e81ac"}, {"sectiontext", "#eceff4"}});
+        t.font = QStringList{"Montserrat", "Poppins", "Futura", "Century Gothic", "Avenir Next", "Avenir", "URW Gothic", "Gill Sans", "Verdana"};
         t.point_size = 9;
-        t.radius = 5;
-        t.tabs = "boxed";
+        t.fill = "flat";
+        t.radius = 7;
+        t.border = 0;
+        t.tabs = "rounded";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 4;
         l << t;
     }
-    // Mid greys with a soft gradient, a studio application of the 2000s.
+    // Ozymok: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel.
     {
-        Theme t = tonal("slate", "Ozymok", 210, 0.06, 35, "#4c8bd6");
+        Theme t = tonal("slate", "Ozymok", 330, 0.28, 18, "#ff4f8b");
+        t.font = QStringList{"Gill Sans", "Gill Sans MT", "Josefin Sans", "Raleway", "Optima", "Candara", "Noto Sans", "DejaVu Sans"};
+        t.point_size = 9;
+        t.menu_italic = true;
         t.fill = "gradient";
+        t.bevel = "single";
         t.radius = 3;
         t.tabs = "boxed";
-        t.arrows = "triangle";
+        t.arrows = "boxed";
         t.scrollbar = "standard";
+        t.padding = 3;
+        t.c["hitext"] = QColor("#ffffff");
+        t.c["section"] = QColor("#5a1f3a");
+        t.c["sectiontext"] = QColor("#ffd1e3");
         l << t;
     }
+    // PewterTureski: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars.
     {
-        Theme t = tonal("pewter", "PewterTureski", 30, 0.04, 44, "#e08a2e");
+        Theme t = tonal("pewter", "PewterTureski", 30, 0.05, 44, "#e08a2e");
+        t.font = QStringList{"Verdana", "Tahoma", "DejaVu Sans", "Bitstream Vera Sans", "Arial"};
+        t.point_size = 10;
         t.fill = "gradient";
-        t.radius = 4;
+        t.bevel = "double";
+        t.radius = 2;
+        t.border = 1;
         t.tabs = "boxed";
-        t.scrollbar = "standard";
+        t.arrows = "boxed";
+        t.scrollbar = "bevel";
+        t.padding = 3;
+        t.c["section"] = QColor("#e08a2e");
+        t.c["sectiontext"] = QColor("#1e1206");
         l << t;
     }
     // The animation package of the mid 1990s on the workstations: grey panels, pink entry fields, bold italic menus,
@@ -323,39 +400,71 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
+    // AshT: pale sky blue with navy, a humanist typeface, navy section bars, round pills.
     {
-        Theme t = tonal("ash", "AshT", 220, 0.06, 84, "#2f6fd8");
-        t.fill = "gradient";
-        t.radius = 5;
-        t.tabs = "boxed";
+        Theme t = tonal("ash", "AshT", 205, 0.45, 86, "#0b3d91");
+        t.font = QStringList{"Lato", "Open Sans", "Source Sans 3", "Source Sans Pro", "Fira Sans", "Calibri", "Noto Sans", "DejaVu Sans"};
+        t.point_size = 9;
+        t.fill = "flat";
+        t.radius = 9;
+        t.border = 1;
+        t.tabs = "pill";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 5;
+        t.c["section"] = QColor("#0b3d91");
+        t.c["sectiontext"] = QColor("#ffffff");
         l << t;
     }
+    // Buffin: the Solarized light scheme as its author publishes it (MIT), with its cyan and magenta: serif type, round-topped tabs.
     {
         Theme t = hand("solarized-light", "Buffin",
-                       {{"window", "#eee8d5"}, {"chrome", "#e4ddc6"}, {"base", "#fdf6e3"}, {"alt", "#f7f0dc"}, {"menu", "#fdf6e3"}, {"button", "#f6efd9"}, {"hover", "#dcd4bc"},
-                        {"hi", "#268bd2"}, {"text", "#586e75"}, {"bright", "#073642"}, {"dim", "#657b83"}, {"disabled", "#93a1a1"}, {"border", "#cdc5ad"}, {"handle", "#c4bca3"},
-                        {"light", "#ffffff"}, {"shadow", "#a89f86"}});
-        t.font = kSans;
+                       {{"window", "#eee8d5"}, {"chrome", "#e4ddc8"}, {"base", "#fdf6e3"}, {"alt", "#f5efdc"}, {"menu", "#fdf6e3"}, {"button", "#e6dfca"}, {"hover", "#d9d1b9"},
+                        {"hi", "#2aa198"}, {"hitext", "#fdf6e3"}, {"text", "#586e75"}, {"bright", "#073642"}, {"dim", "#839496"}, {"disabled", "#a7a99a"}, {"border", "#c9c1a8"},
+                        {"handle", "#b8b09a"}, {"section", "#d33682"}, {"sectiontext", "#fdf6e3"}});
+        t.font = QStringList{"Georgia", "Charter", "Iowan Old Style", "Palatino Linotype", "Palatino", "Noto Serif", "DejaVu Serif", "Liberation Serif", "Times New Roman"};
+        t.point_size = 10;
+        t.fill = "flat";
+        t.radius = 3;
+        t.tabs = "rounded";
+        t.arrows = "triangle";
+        t.scrollbar = "standard";
+        t.padding = 3;
+        l << t;
+    }
+    // Royhall: cream paper and red ink, typewriter type, bold menus, square corners, black section bars.
+    {
+        Theme t = tonal("paper", "Royhall", 42, 0.55, 91, "#c0392b");
+        t.font = QStringList{"Courier Prime", "American Typewriter", "Courier New", "Courier", "Nimbus Mono PS", "Liberation Mono", "DejaVu Sans Mono"};
+        t.point_size = 10;
+        t.menu_bold = true;
+        t.fill = "flat";
+        t.radius = 0;
+        t.border = 1;
+        t.tabs = "underline";
+        t.arrows = "triangle";
+        t.scrollbar = "thin";
+        t.padding = 3;
+        t.c["section"] = QColor("#2b2b2b");
+        t.c["sectiontext"] = QColor("#f6ecd2");
+        t.c["text"] = QColor("#2a2118");
+        t.c["bright"] = QColor("#000000");
+        l << t;
+    }
+    // Jostam: mint and teal, rounded type, gradients, the roundest corners and the most room.
+    {
+        Theme t = tonal("lilac", "Jostam", 160, 0.4, 95, "#0f9d8a");
+        t.font = QStringList{"Nunito", "Varela Round", "Quicksand", "Comfortaa", "Arial Rounded MT Bold", "Segoe UI", "Noto Sans", "Verdana"};
         t.point_size = 9;
-        t.radius = 4;
-        t.tabs = "underline";
-        l << t;
-    }
-    {
-        Theme t = tonal("paper", "Royhall", 0, 0, 94, "#2f6fd8");
-        t.radius = 6;
-        t.tabs = "underline";
-        l << t;
-    }
-    // White, soft corners and a teal accent, the light half of the modern widget galleries.
-    {
-        Theme t = tonal("lilac", "Jostam", 200, 0.10, 97.5, "#3aa597");
-        t.c["button"] = QColor("#ffffff");
-        t.c["base"] = QColor("#ffffff");
-        t.c["menu"] = QColor("#ffffff");
-        t.radius = 8;
+        t.fill = "gradient";
+        t.radius = 12;
+        t.border = 1;
         t.tabs = "pill";
-        t.padding = 4;
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 6;
+        t.c["section"] = QColor("#c8efe4");
+        t.c["sectiontext"] = QColor("#0b5a50");
         l << t;
     }
     return l;

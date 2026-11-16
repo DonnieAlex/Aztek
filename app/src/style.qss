@@ -36,7 +36,7 @@ QLineEdit#channelKeyOnFrame { background: #cd2729; color: #f0f0f0; border: none;
 QLineEdit#channelChanged { background: #e3ac79; color: #1e1e1e; border: none; }
 QLineEdit#channelLayered { background: #d9c36a; color: #1e1e1e; border: none; }
 QLineEdit#channelMuted { background: #8a6a48; color: #1e1e1e; border: none; }
-QLineEdit#channelLocked { background: #5c6874; color: @text; border: none; }
+QLineEdit#channelLocked { background: #5c6874; color: #e6eaee; border: none; }
 QLineEdit#channelHeader { background: transparent; border: none; font-weight: bold; }
 QLabel#channelName { color: @text; padding-right: 2px; }
 QLabel#channelName[picked="true"] { background: @hi; color: #ffffff; }
