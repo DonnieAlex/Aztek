@@ -358,13 +358,17 @@ fn set_hooks(hooks: Py<PyAny>) {
 }
 
 /// A plugin node's inputs as JSON: {attr: value}, an array attr as [[index, value], ...].
-fn node_values(d: &NodeData) -> String {
+fn node_values(d: &NodeData, keys: &mut Vec<u64>) -> String {
     let mut o = Map::new();
     for (i, a) in d.ty().attrs.iter().enumerate() {
         if a.ty == PlugType::Data && a.category.starts_with(scripted::PLUGIN_DATA) {
             // A plug-in data value goes across by key.
-            let one = |v: &aztek_scene::plug::PlugValue| match v {
-                aztek_scene::plug::PlugValue::Data(Some(d)) => json!({"$data": hand_off(d.clone())}),
+            let mut one = |v: &aztek_scene::plug::PlugValue| match v {
+                aztek_scene::plug::PlugValue::Data(Some(d)) => {
+                    let k = hand_off(d.clone());
+                    keys.push(k);
+                    json!({"$data": k})
+                }
                 _ => Value::Null,
             };
             let v = if a.is_array() { Value::Array(d.elements(i).iter().map(|(k, v)| json!([k, one(v)])).collect()) } else { one(d.value(i)) };
@@ -412,14 +416,14 @@ fn write_outputs(d: &mut NodeData, out: &str) {
 }
 
 fn compute(type_name: &str, id: NodeId, name: &str, time: f64, d: &mut NodeData) {
-    let first = NEXT_HANDOFF.load(std::sync::atomic::Ordering::Relaxed);
-    let input = node_values(d);
-    let last = NEXT_HANDOFF.load(std::sync::atomic::Ordering::Relaxed);
+    // Computes run on several threads at once, so only this compute's own keys are handed back.
+    let mut keys = Vec::new();
+    let input = node_values(d, &mut keys);
     let was = IN_COMPUTE.with(|c| c.replace(true));
     let out = Python::attach(|py| hook_call(py, "compute", (type_name, id, name, time, input.as_str())));
     IN_COMPUTE.with(|c| c.set(was));
     // What was handed over for this compute goes back.
-    DATA_HANDOFF.lock().unwrap().retain(|(k, _)| !(first..last).contains(k));
+    DATA_HANDOFF.lock().unwrap().retain(|(k, _)| !keys.contains(k));
     match out {
         Ok(s) => write_outputs(d, &s),
         Err(e) => DEFERRED.lock().unwrap().push((format!("# Error: {e} #"), LineKind::Error)),

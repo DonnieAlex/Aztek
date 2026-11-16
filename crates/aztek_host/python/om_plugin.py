@@ -921,9 +921,6 @@ _loading = []
 
 
 def _plugin_instance(node_id):
-    inst = _node_instances.get(node_id)
-    if inst is not None:
-        return inst
     info = _api("node.info", id=node_id)
     if not info or info["type"] not in _node_classes:
         _fail()
@@ -932,6 +929,10 @@ def _plugin_instance(node_id):
 
 def _instance(type_name, node_id):
     inst = _node_instances.get(node_id)
+    # Node ids are used again once a node has gone (a new scene, a file opened): an instance made for another type
+    # under the same id is not this node's.
+    if inst is not None and inst._type_name != type_name:
+        inst = None
     if inst is None:
         e = _node_classes[type_name]
         inst = e["creator"]()
