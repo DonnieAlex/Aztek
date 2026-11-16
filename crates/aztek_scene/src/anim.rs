@@ -774,6 +774,10 @@ pub(crate) fn rotation_siblings(g: &Graph, curve: NodeId) -> Vec<NodeId> {
 /// The curve driving a plug, if any: through a mute node, and for a channel in animation layers, the curve of the layer
 /// keys go to.
 pub fn curve_of(g: &Graph, p: &PlugRef) -> Option<NodeId> {
+    // A joint an IK solver drives keeps its keys on the solver's FK rotate.
+    if let Some(fk) = crate::ik::fk_plug_for(g, p) {
+        return curve_of(g, &fk);
+    }
     let s = crate::anim_layers::driver(g, p)?;
     if is_curve(g, s.node) && s.attr == OUTPUT as i32 {
         return Some(s.node);
@@ -940,6 +944,22 @@ pub fn key_plug_in(g: &mut Graph, p: &PlugRef, t: f64, value: Option<f64>, itt: 
         Some(v) => v,
         None => plug_scalar(g, p),
     };
+    // A joint an IK solver drives: the key goes on its FK rotate, at the rotate it shows now (so keying an IK pose
+    // keeps it for FK), and the curve takes the joint's name, as in the reference.
+    if let Some(fk) = crate::ik::fk_plug_for(g, p) {
+        if fk.component < 0 {
+            return Ok(false);
+        }
+        let had = curve_of(g, &fk).is_some();
+        let r = key_plug_in(g, &fk, t, Some(v), itt, ott, layer, no_resolve)?;
+        if r && !had {
+            if let Some(c) = curve_of(g, &fk) {
+                let name = format!("{}_{}", g.node(p.node).map(|n| n.name.rsplit(':').next().unwrap_or("").to_string()).unwrap_or_default(), channel_name(g, p));
+                let _ = g.rename(c, &name);
+            }
+        }
+        return Ok(r);
+    }
     let r = range();
     let stepped = steps_only(g, p);
     let new_itt = itt.unwrap_or(if stepped { Tangent::Step } else { r.default_in });

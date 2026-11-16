@@ -3639,6 +3639,27 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
         }
     }
     crate::hik::after_load(&mut b.s.graph);
+    // Keys on a joint an IK handle drives: on the joint in the file, on the solver's FK rotate here.
+    for c in &doc.conns {
+        let (Some(src), Some(joint)) = (b.ids[c.src], b.ids[c.dst]) else { continue };
+        if !anim::is_curve(&b.s.graph, src) {
+            continue;
+        }
+        let channel = match plain_attr(&c.dst_attr).as_str() {
+            "rx" | "rotateX" => 0,
+            "ry" | "rotateY" => 1,
+            "rz" | "rotateZ" => 2,
+            _ => continue,
+        };
+        let rotate = PlugRef::component(joint, Transform::ROTATE as i32, channel);
+        if let Some(fk) = crate::ik::fk_plug_for(&b.s.graph, &rotate) {
+            let out = PlugRef::new(src, b.s.graph.node(src).unwrap().ty().attr_index("output").unwrap() as i32);
+            if b.s.graph.source(&fk).is_none() {
+                let _ = b.s.graph.connect(&out, &fk, true);
+                b.s.graph.disconnect(&rotate);
+            }
+        }
+    }
     b.read_characters(&doc.characters, fps);
     b.hold_unused();
     b.report_unused();
@@ -5169,6 +5190,17 @@ impl Writer<'_> {
         for (dst, src) in list {
             let g = &self.s.graph;
             let (Some(dn), Some(sn)) = (g.node(dst.node), g.node(src.node)) else { continue };
+            // Keys on a joint an IK solver drives live on the solver's FK rotate here; in the file they go on the
+            // joint, as the reference keeps them.
+            if dn.ty().name == "ikSolve" {
+                if let Some(joint) = crate::ik::joint_plug_for_fk(g, &dst) {
+                    if self.keep.contains(&joint.node) && self.keep.contains(&src.node) && anim::is_curve(g, src.node) {
+                        let (from, to) = (format!("{}.o", g.path(src.node)), g.plug_name(&joint));
+                        self.conn(&from, &to);
+                    }
+                }
+                continue;
+            }
             if !self.keep.contains(&dst.node) || !self.keep.contains(&src.node) {
                 continue;
             }
@@ -5524,7 +5556,8 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
         }
         if t.is_a("animCurve") || DRIVEN_CURVES.contains(&ty) {
             let output = PlugRef::new(id, t.attr_index("output").unwrap() as i32);
-            let drives = w.s.graph.destinations(&output).iter().any(|d| w.char_channels.contains_key(&d.node)) || w.s.graph.destinations(&output).iter().any(|d| {
+            let to_ik_joint = |d: &PlugRef| crate::ik::joint_plug_for_fk(&w.s.graph, d).is_some_and(|j| w.keep.contains(&j.node));
+            let drives = w.s.graph.destinations(&output).iter().any(|d| w.char_channels.contains_key(&d.node) || to_ik_joint(d)) || w.s.graph.destinations(&output).iter().any(|d| {
                 let dt = w.s.graph.node(d.node).unwrap().ty().name.as_str();
                 w.s.graph.node(d.node).unwrap().reference_id() != 0 || (w.keep.contains(&d.node) && (rig::CONSTRAINT_TYPES.contains(&dt) || w.dag_written(d.node) || DRIVEN_CURVES.contains(&dt) || is_plain_node(dt) || crate::deform::is_deformer(dt)))
             });

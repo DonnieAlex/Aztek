@@ -16,9 +16,6 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
-- Found 16/11/2026: joints under an IK solver keep their own (FK) rotates as data on the ikSolve node, so they can't
-  be keyed (`setKeyframe j1` keys nothing while a handle drives it) and Set IK/FK Key keys only the handle. The fix:
-  the FK rotates as keyable plugs, with keys on the joint's rotate going to them. Touches `ik.rs` (`set_fk`, `IK_FK`).
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
@@ -128,6 +125,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: found on the way, a script's idle job takes the keyboard from a field: ticketed.
 
 ## Done
+- 16/11/2026: joints under an IK solver keep keyable FK rotates on the solver; keys survive making a handle, play where IK is off, and save on the joint.
 - 16/11/2026 Issues 37 to 83 closed but #76 (PARITY.md, Issues 37 to 83): editors, views, UV, picking, rigging,
   skinning, `aztekpy`, themes. The UV and Vertex Face modes with Multi, and `.mb` reading, came off this list.
 - 08/11/2026 One light model: the viewport's lights render the same in Harold (decay rates, intensity, colour, spot cone and dropoff, ambient, area, volume, default lighting, ambient colour, black background); parity test against the shared formula.

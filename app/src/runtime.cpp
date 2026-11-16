@@ -548,7 +548,7 @@ void MainWindow::build_runtime() {
     }
     // Key > IK/FK Keys, on the selected IK handles.
     const QString handles = "string $h[] = `ls -sl -type ikHandle`; if (!size($h)) error \"Select an IK handle\";";
-    add_if("SetIKFKKeyframe", "Animation", "Set IK/FK Key", "{ " + handles + " for ($x in $h) { setKeyframe $x; setKeyframe -at ikBlend $x; } }");
+    add_if("SetIKFKKeyframe", "Animation", "Set IK/FK Key", "{ " + handles + " for ($x in $h) { setKeyframe $x; setKeyframe -at ikBlend $x; setKeyframe -at rotate `ikHandle -q -jl $x`; } }");
     add_if("EnableIKSolvers", "Animation", "Enable IK Solver",
            "{ " + handles + " for ($x in $h) setAttr ($x + \".solverEnable\") (!`getAttr ($x + \".solverEnable\")`); }");
     add_if("MoveIKtoFK", "Animation", "Move IK to FK", "{ " + handles + " for ($x in $h) ikHandle -e -see $x; }");

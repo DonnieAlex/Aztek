@@ -128,6 +128,37 @@ fn out_name(i: usize) -> String {
     format!("outRotate{i}")
 }
 
+/// A chain joint's own (FK) rotate on the solver: a plug, so it takes keys and connections, which applies wherever IK
+/// is off or blended. The joint's rotate is the solver's output; what was connected to it moves here.
+fn fk_name(i: usize) -> String {
+    format!("fkRotate{i}")
+}
+
+/// The solver's FK plug that stands for a joint rotate it drives (whole or one channel): what keys on that rotate go to.
+pub fn fk_plug_for(g: &Graph, joint_rotate: &PlugRef) -> Option<PlugRef> {
+    let src = g.source(&joint_rotate.whole())?;
+    let n = g.node(src.node)?;
+    if n.ty().name != "ikSolve" {
+        return None;
+    }
+    let name = &g.attr(&src.whole()).name;
+    let i: usize = name.strip_prefix("outRotate")?.parse().ok()?;
+    let attr = n.ty().attr_index(&fk_name(i))?;
+    Some(if joint_rotate.component >= 0 { PlugRef::component(src.node, attr as i32, joint_rotate.component) } else { plug(src.node, attr) })
+}
+
+/// The joint rotate an FK plug of a solver stands for, the other way round (for writing files).
+pub fn joint_plug_for_fk(g: &Graph, fk: &PlugRef) -> Option<PlugRef> {
+    let n = g.node(fk.node)?;
+    if n.ty().name != "ikSolve" {
+        return None;
+    }
+    let i: usize = g.attr(&fk.whole()).name.strip_prefix("fkRotate")?.parse().ok()?;
+    let out = n.ty().attr_index(&out_name(i))?;
+    let dst = g.destinations(&plug(fk.node, out)).into_iter().next()?;
+    Some(if fk.component >= 0 { PlugRef::component(dst.node, dst.attr, fk.component) } else { dst.whole() })
+}
+
 /// One chain joint, as its solver sees it.
 #[derive(Clone)]
 struct ChainJoint {
@@ -641,7 +672,11 @@ impl NodeBehavior for IkSolve {
         let chain = json_of(d, IK_CHAIN);
         let joints: Vec<ChainJoint> = chain.get("joints").and_then(Value::as_array).map(|a| a.iter().map(chain_joint).collect()).unwrap_or_default();
         let fk = json_of(d, IK_FK);
+        let fk_plugs: Vec<Option<DVec3>> = (0..joints.len()).map(|i| d.ty().attr_index(&fk_name(i)).map(|a| d.vec3(a))).collect();
         let fk_of = |i: usize, j: &ChainJoint| -> DVec3 {
+            if let Some(Some(v)) = fk_plugs.get(i) {
+                return *v;
+            }
             fk.get(i).and_then(Value::as_array).map(|a| DVec3::new(a[0].as_f64().unwrap_or(0.0), a[1].as_f64().unwrap_or(0.0), a[2].as_f64().unwrap_or(0.0))).unwrap_or(j.pa)
         };
         let weight = if chain.get("valid").and_then(Value::as_bool) == Some(true) && d.bool(IK_ENABLE) && d.bool(IK_GLOBAL) { d.float(IK_BLEND).clamp(0.0, 1.0) } else { 0.0 };
@@ -1040,6 +1075,11 @@ pub(crate) fn set_fk(g: &mut Graph, src: &PlugRef, v: DVec3) -> DrivenEdit {
         return DrivenEdit::Reject;
     }
     list[i] = vec3_json(v);
+    if let Some(attr) = g.node(solver).and_then(|n| n.ty().attr_index(&fk_name(i))) {
+        if g.set_value(plug(solver, attr), PlugValue::Vec3(v)).is_err() {
+            return DrivenEdit::Reject;
+        }
+    }
     match set_json(g, solver, IK_FK, fk) {
         Ok(()) => DrivenEdit::Handled,
         Err(_) => DrivenEdit::Reject,
@@ -1141,7 +1181,31 @@ fn wire_chain(g: &mut Graph, handle: NodeId, solver: NodeId, effector: NodeId, c
             Some(a) => a,
             None => g.add_attr(solver, vec3_attr(&name, &format!("or{i}"), DVec3::ZERO, flags::HIDDEN | flags::OUTPUT, "A chain joint's rotate."))?,
         };
-        g.connect(&plug(solver, attr), &plug(j, Transform::ROTATE), true)?;
+        let ty = g.node(solver).unwrap().type_arc().clone();
+        let fk = match ty.attr_index(&fk_name(i)) {
+            Some(a) => a,
+            None => g.add_attr(solver, vec3_attr(&fk_name(i), &format!("fk{i}"), DVec3::ZERO, flags::HIDDEN | flags::INPUT | flags::KEYABLE, "A chain joint's own (FK) rotate."))?,
+        };
+        g.set_value(plug(solver, fk), PlugValue::Vec3(rotates[i]))?;
+        // What drove the joint's rotate (keys, an expression) now drives its FK rotate, as in the reference, where they
+        // stay on the joint and apply where IK is off.
+        let rotate = plug(j, Transform::ROTATE);
+        let mut moved = Vec::new();
+        if let Some(src) = g.source(&rotate).filter(|s| s.node != solver) {
+            moved.push((src, plug(solver, fk)));
+        }
+        for c in 0..3 {
+            if let Some(src) = g.source(&PlugRef::component(j, Transform::ROTATE as i32, c)) {
+                moved.push((src, PlugRef::component(solver, fk as i32, c)));
+            }
+        }
+        for (src, to) in moved {
+            g.connect(&src, &to, true)?;
+        }
+        for c in 0..3 {
+            g.disconnect(&PlugRef::component(j, Transform::ROTATE as i32, c));
+        }
+        g.connect(&plug(solver, attr), &rotate, true)?;
     }
     let end_parent = g.parent(end);
     if g.parent(effector) != end_parent {

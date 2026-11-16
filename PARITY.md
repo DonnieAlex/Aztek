@@ -1027,7 +1027,7 @@ Still not done:
 - (16/11/2026: Snap Pivot Orientation and Gimbal axes are in.)
 - (16/11/2026: Global reaches NURBS.) Object mode has no colours in the view.
 - (16/11/2026: a World symmetry mesh moved after symmetry was set pairs across the world plane; a test holds it.)
-- As of 16/11/2026: Interactive Bind Skin, Blend Shape's Swap and Bake Topology to Targets, most of Wire's edits, Set IK/FK Key on the joints (they hold FK rotates as data: TICKETS.md), nCache and Geometry Cache.
+- As of 16/11/2026: Interactive Bind Skin, Blend Shape's Swap and Bake Topology to Targets, most of Wire's edits, nCache and Geometry Cache.
 
 ## Harold renderer (07/11/2026)
 
@@ -2911,3 +2911,14 @@ only. `softSelect -sse true` is read as on (it took only 1 or 0). World symmetry
 set was found to pair across the world plane already (the pairs are worked out at each edit); a test now holds it.
 Not done: Object mode's colours in the view, and Global's colours on CVs of a curve whose points are not selected
 (the move is right; the view shows no colour there).
+
+### FK keys on joints under IK (16/11/2026)
+
+The ticket from IK/FK Keys. A joint an IK solver drives now keeps its own (FK) rotate as a keyable plug on the solver
+(`fkRotate0` and on), where the reference keeps it on the joint: keys and other connections the joint's rotate had when
+the handle was made move there (making a handle used to orphan them, so FK animation stopped playing), `setKeyframe`
+on the joint's rotate keys it at the rotate the joint shows (so keying an IK pose keeps it for FK), and `keyframe`,
+the Graph Editor and the Channel Box find those curves through the joint. Where IK is off or blended (IK Blend under
+1, Solver Enable off) the keys play. Files write the curves on the joint (`connectAttr j1_rotateY.o j1.ry`) and read
+them back onto the solver, in .ma and .mb. Set IK/FK Key now keys the chain's joints as well as the handle. Not done:
+the curves' solid and dotted look in the Graph Editor by IK and FK, Connect and Disconnect from IK/FK.
