@@ -824,6 +824,11 @@ QMenu* MainWindow::key_menu() {
         exec("cutKey", QJsonObject{{"time", time_slider_->time()}});
     });
     m->addSeparator();
+    QMenu* ikfk = m->addMenu("IK/FK Keys");
+    ikfk->addAction("Set IK/FK Key", [] { mel_action("SetIKFKKeyframe;"); });
+    ikfk->addAction("Enable IK Solver", [] { mel_action("EnableIKSolvers;"); });
+    ikfk->addAction("Move IK to FK", [] { mel_action("MoveIKtoFK;"); });
+    m->addSeparator();
     cmd(m, "Set Breakdown", "setKeyframe", QJsonObject{{"breakdown", true}}, QString(), false);
     m->addAction("Convert to Breakdown", [this] { exec("keyframe", QJsonObject{{"edit", true}, {"time", time_slider_->time()}, {"breakdown", true}}); });
     m->addAction("Convert to Key", [this] { exec("keyframe", QJsonObject{{"edit", true}, {"time", time_slider_->time()}, {"breakdown", false}}); });

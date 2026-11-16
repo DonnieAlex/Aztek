@@ -538,6 +538,12 @@ void MainWindow::build_runtime() {
                        " for ($x in $d) %2 -e -prune true $x; }")
                    .arg(type, cmd));
     }
+    // Key > IK/FK Keys, on the selected IK handles.
+    const QString handles = "string $h[] = `ls -sl -type ikHandle`; if (!size($h)) error \"Select an IK handle\";";
+    add_if("SetIKFKKeyframe", "Animation", "Set IK/FK Key", "{ " + handles + " for ($x in $h) { setKeyframe $x; setKeyframe -at ikBlend $x; } }");
+    add_if("EnableIKSolvers", "Animation", "Enable IK Solver",
+           "{ " + handles + " for ($x in $h) setAttr ($x + \".solverEnable\") (!`getAttr ($x + \".solverEnable\")`); }");
+    add_if("MoveIKtoFK", "Animation", "Move IK to FK", "{ " + handles + " for ($x in $h) ikHandle -e -see $x; }");
     add_if("ToggleNurbsInView", "Display", "NURBS shown or not in the view under the pointer",
            "string $p = `getPanel -wf`; if (`getPanel -to $p` == \"modelPanel\") { int $on = !`modelEditor -q -nurbsSurfaces $p`; modelEditor -e -nurbsSurfaces $on -nurbsCurves $on $p; }");
     add_if("TogglePolygonsInView", "Display", "Polygons shown or not in the view under the pointer",

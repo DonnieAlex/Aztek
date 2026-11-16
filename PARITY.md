@@ -2858,3 +2858,12 @@ quad cage wins), the cage is rebuilt from the face points, and its positions are
 puts its points back where they were (so a cube smoothed twice and unsmoothed twice is the cube again). A mesh that
 isn't all quads or can't be read as smoothed is refused. Not done: Keep Original in the option box, corner UVs (the
 cage has none), creases.
+
+### IK/FK Keys (16/11/2026)
+
+PLAN 3.12, part. Key > IK/FK Keys: Set IK/FK Key (`SetIKFKKeyframe`) keys the selected IK handles' keyable channels
+and their IK Blend; Enable IK Solver (`EnableIKSolvers`) turns their Solver Enable over; Move IK to FK (`MoveIKtoFK`)
+puts each handle on its chain's end joint (`ikHandle -e -see`). Not done: the reference's Set IK/FK Key also keys the
+chain's joints. Aztek's joints under a solver hold their own (FK) rotates as data on the ikSolve node, not as plugs,
+so they can't take keys; that needs the solver's FK rotates as keyable plugs (a ticket). Connect and Disconnect
+from IK/FK aren't in.

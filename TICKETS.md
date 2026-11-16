@@ -16,6 +16,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Found 16/11/2026: joints under an IK solver keep their own (FK) rotates as data on the ikSolve node, so they can't
+  be keyed (`setKeyframe j1` keys nothing while a handle drives it) and Set IK/FK Key keys only the handle. The fix:
+  the FK rotates as keyable plugs, with keys on the joint's rotate going to them. Touches `ik.rs` (`set_fk`, `IK_FK`).
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
