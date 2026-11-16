@@ -1,5 +1,5 @@
 # aztek.api.OpenAztek, function sets: nodes, transforms, meshes, curves, sets, attributes, data, components.
-import __main__ as _main
+import _aztek_main as _main
 import array as _array
 
 

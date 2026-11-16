@@ -24,6 +24,9 @@ failed. A second argument to `mayapy` names another output folder.
 | `scenes/*.ma` | The scenes of `scenes.json`, saved by the reference |
 | `posed/<scene>.json` | World matrices and sample points of those scenes, reopened from the file, at their frames |
 
+`xgen_capture.py` is separate: it records a groom made by hand in two steps (see its header) and writes
+`tests/data/reference/xgen/`, which XJEN's tests read (docs/XJEN.md).
+
 `crates/aztek_host/tests/reference_fixtures.rs` reads `calls/`. To refresh the type list, run
 `cargo run -p aztek_host --example list_node_types > tools/reference_capture/node_types.txt`.
 
@@ -43,5 +46,6 @@ Each is a guess in a test, marked `// unverified:` at the line. `calls.json` car
 | Does `connectAttr` make a cycle and warn at evaluation, rather than refuse? | `cycles_connect` | `cycle.connects` |
 | Does `displaySmoothness -q -po` answer per object as an array? | `smooth_preview_attributes` | `smooth.query` |
 | What does `hyperShade -listUpstreamShaderNodes` return? | `shading_node_colour_managed` | none yet |
+| Every XGen default, the commands the Generate menu and the grooming tools run, how a groom is stored in `.ma` and `.mb` | XJEN, all steps | `xgen_capture.py` |
 
 Add a row, and a call in `calls.json`, whenever a test takes a guess.

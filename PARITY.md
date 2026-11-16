@@ -2390,3 +2390,85 @@ are: Harold renders scene files of its own without Aztek. Names as chosen for it
   `-expandProcedurals` and `-compressed` flags of the reference's command.
 - Next part: the translator, render settings, Render View, swatches and the `ai*` node types move out of the core into
   the `haroldForAztek` plug-in, built in and loaded at start, and the core stops linking the renderer.
+
+### Issues 37 to 83 (15/11 and 16/11/2026)
+
+From the issues pulled on 15/11/2026; each reply on GitHub has the detail and, where there is one, a screenshot
+(`docs/issues/`). Taken from the reference's documentation where a page says it; checked against a running copy of the
+reference in none of them.
+
+- Attribute Editor: the name column widens to the longest name on the tab, a longer one trimmed at the start with the
+  full name as a tooltip (37); the Orig shape has its own tab after the shape (52); the field being typed in keeps the
+  keyboard across rebuilds (70); presets (50): Save, Import Reference Presets (`.mel` files or folders, turned into
+  YAML), Replace, Blend 90 to 10 percent and Delete; `.mel` presets on `MAYA_PRESET_PATH` read as they are;
+  `nodePreset`, `applyAttrPreset`, `importAttrPresets`. Presets are saved as YAML, where the reference saves `.mel`:
+  Simon's choice.
+- Hypershade: Graph Input and Output Connections on any node, following the selection of every editor (38).
+- Render View: R, G, B and A show one channel, again for RGB; Alt+right-drag zooms about the point clicked (40).
+- USD import: lights (sphere as point or spot, distant, rect, disk and cylinder, dome as a sky dome with its texture;
+  colour, intensity, exposure, temperature) (41); scopes holding only render settings are skipped (42).
+- Files dropped on the window are imported with the last options used for their type; USD as a stage (43).
+- Marquee and lasso take an object when any part is inside: a vertex, an edge crossing, a face under (45). The
+  marquee takes only the highest kind it touches, in the mask bar's order (handles, joints, curves, the rest), joints
+  by the top of each chain (79). Bones and joint balls pick their joint (78). Wire picking uses a click box, and short
+  drags count as clicks (69).
+- Outliner: F frames its selection; the reference's Display, Show and Help menus and right-click menu, Hide In
+  Outliner, Sets, materials, set members, connected only, hidden objects, namespaces, sorting, filters by kind, Ctrl+F
+  (46, 53). Greyed until what they act on exists: Scene Assembly, Asset, Render Setup, Create Partition.
+- Polygon Display (47): Backface Culling, Border Edges, Texture Border Edges, Face Centers, Face and Vertex Normals,
+  Hidden Triangles, Vertices, Reset; per mesh (`displayBorders`, `displayMapBorders`, `displayCenter`,
+  `displayTriangles`, `displayVertices`), saved with the scene; `polyOptions` on the selection, `-gl`, `-r`.
+- Hiding (48): H in a component mode hides faces (edges and vertices hide the faces they touch), H again or with
+  nothing selected shows them; Shift+H shows the selected components, Ctrl+Alt+H every hidden component of the selected
+  objects; hidden faces can't be picked and Select All and Grow skip them; undoable. Shift+H shows selected objects.
+- Manipulators: solid cones, cubes, plane squares and centre handles, drawn on top; the centre handle picks over its
+  square (49).
+- Menus: submenus open after a rest, with a dot back to the menu left (54). Panel bar buttons show the view's state
+  whatever changed it (60). Hotbox (71): shows on Space down with no delay, the Aztek box under the cursor with the
+  cameras, the south zone switching the panel.
+- UV (55): undo and redo in the UV Editor, edge loops and paths by double-click, numbered grid with UDIM labels,
+  shells shaded; Unfold3D with iterations, pinning and packing, the legacy `unfold`; UV, UV Shell, Vertex Face and
+  Multi in the viewport and marking menu, one UV selection shared with the UV Editor, `selectType -puv -pvf -msh`.
+- Paint Skin Weights (56, 81): the reference's tool settings layout (skin clusters, influences sorted three ways with
+  search and hold boxes, the weight buttons, Move weights from the first influence picked to the others), Select and
+  Paint Select modes, numbers on points; Normalize Weights follows the skinCluster and asks to normalize when switched
+  to Interactive; Value follows Min/Max (`artAttrSkinPaintCtx -mnv -mxv`), so Scale can pass 1; Hammer works on
+  selected vertices only; Select Geometry; Use Color Ramp. Not done: editing the ramp (its colours are not checked
+  against the reference's), stylus pressure.
+- PySide6 (57): the AppImage ships one built for its Qt; on the `.deb` and `.rpm` a PySide6 built for another Qt
+  is refused with a message rather than crashing.
+- glTF (58): export Y Up and import As Is, Y Up, Z Up, remembered; every influence written, past four.
+- Views: endless orthographic grids in each view's plane and the camera's own up after a switch (61); Grid Options as
+  the reference's (lines every, subdivisions, colours, per-kind switches, thicker axes, numbers) (62); the sky
+  gradient, Alt+B cycling, `displayPref -displayGradient` and the background colours (63); the ViewCube with its menu
+  and Preferences page, Animated transitions greyed (64); camera icons follow scale and `locatorScale` (68);
+  cameras and lights with a direction (spot, directional, area) dropped from the Outliner on a view look through, and a view goes back to persp
+  when its camera goes (72); text in a real font with a soft shadow, the ViewCube's labels too (75, 83).
+- Freeze Transformations keeps history through a `transformGeometry` node, on meshes, curves and surfaces (65).
+  Clusters on curve and surface CVs (66). Bevel's offset in world space, `worldSpace` to change it (67).
+- Rigging: the joint tool's cursor, drag placement, settings and IK handle on Enter (73); Orient Joint and its options,
+  ends taking their parent's orientation (77); Bind Skin options with Allow multiple bind poses, Remove unused
+  influences (`skinCluster -rui`), Include hidden selections on creation and the reference's defaults (80). Not done:
+  Colorize skeleton.
+- `aztekpy`, the reference's `mayapy` (74): Python's command line with Aztek's modules, `maya.standalone`, the exit
+  status, `-m pip` into Aztek's own packages folder (`AZTEK_PYTHON_PACKAGES`). Fixed 16/11/2026: a script run by file
+  is `__main__`, and the API modules no longer reached Aztek's setup through `__main__`, so `import maya.OpenMaya`
+  failed in such a script.
+- Status line (82): groups fold from a handle, remembered; Select by Name after the render icons.
+- Open: #76, the install folder on PATH and a `bin` folder on Windows. The reference leaves PATH alone.
+- Not the reference's: themes (Themes, top right of the menu bar), asked for by Simon.
+
+### A new core: aztek_dg and aztek_api (15/11/2026)
+
+The ground-up core, written beside the current one and not yet used by the application. `crates/aztek_dg`: the
+reference's attribute model (every attribute kind, its properties and defaults), the DAG with instancing, paths and
+instance numbers, node types with inheritance and affects, dynamic attributes, plugs through compound children and
+sparse arrays, connections checked by kind with the three disconnect behaviours, push-dirty and pull evaluation through
+a datablock. `crates/aztek_api`: function sets, DAG paths, DG and DAG modifiers as the undoable way to change the
+graph, selection lists, callbacks, iterators and a session. 57 tests in `aztek_dg`, 28 in `aztek_api`. Next: commands
+on it, then moving the scene's node types across.
+
+### Hair (XJEN)
+
+Nothing yet: no hair node types, Harold renders no curves, the views draw curves as plain lines. `hairSystem` is
+held from files and not simulated. The target and order of work are in [docs/XJEN.md](docs/XJEN.md).

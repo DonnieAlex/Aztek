@@ -5,6 +5,10 @@ import types
 
 import _aztek
 
+# This module's namespace under a name of its own: a script run by aztekpy is __main__ while it runs, as in the
+# reference's mayapy, so the modules that reach back here can't go through __main__.
+sys.modules["_aztek_main"] = sys.modules["__main__"]
+
 
 class _Out:
     def __init__(self, kind):

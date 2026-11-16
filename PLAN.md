@@ -4,6 +4,22 @@ The work queue after the parity review of 08/11/2026 (commit 04fb742). Work top 
 Simon puts something there; otherwise take the first open item here. PARITY.md stays the record of what is done and how
 it differs; this file is what to do next.
 
+## Now (16/11/2026)
+
+Ahead of the phases below. XJEN first is Simon's call (16/11/2026); the order after it is proposed, for Simon to change.
+
+1. XJEN, steps 1 to 6 of [docs/XJEN.md](docs/XJEN.md): strands in Harold and the views, the Interactive Groom core,
+   the grooming tools, the modifiers, the editor and menus, then Alembic (4.2 below) and caching. Step 7 (XGen
+   collections, SeExpr, Ptex) and step 8 (dynamic guides) follow the rest of this list. Simon runs
+   `tools/reference_capture/xgen_capture.py` once so step 2 on is tested against the reference, not the documentation.
+2. The new core (`aztek_dg`, `aztek_api`, PARITY.md "A new core"): commands on it, then the scene's node types moved
+   across, one family at a time with the old tests passing.
+3. Scripted tools and plug-ins working out of the box (Simon, 14/11/2026: these matter more than the interface for
+   now): phase 5 below, `cmds.exists`, then the plug-ins table's "none" rows in the order given there.
+4. Phase 2's open items (runtime commands, hotkey sets, image planes, autosave, sound, texel density), then phase 3.
+5. Harold standalone, part 2 (`haroldForAztek`), then the Harold tickets.
+6. Run the capture kit (`capture.py`): phase 0 is done on Aztek's side and every test still guesses until it runs.
+
 ## How to work an item
 
 - One item, one branch, small commits, tests green, then merge. Mark the item `[x]` with the date and a one-line note
@@ -102,20 +118,20 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
   that don't block, recovery of the last autosave after a crash.
 - [ ] 2.5 Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
   playback. WAV first.
-- [ ] 2.6 `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
+- [~] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; `translator` is not a command yet) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
   `exportObj` and `importObj` as Aztek's own. `translator -q -l` answers with the types Aztek has.
 - [ ] 2.7 UV basics: `texGetTexelDensity`, `texSetTexelDensity`, the UV Toolkit's texel density row, UDIM-aware
   layout (tiles, padding by pixels), `polyEvaluate -uvShell`.
-- [ ] 2.8 Rigging basics: `uvPin` and `proximityPin` nodes and menus (ribbons and pinned controls rely on them),
+- [~] 2.8 (14/11/2026: `uvPin` and `proximityPin` nodes; their menus and `poseInterpolator` not yet) Rigging basics: `uvPin` and `proximityPin` nodes and menus (ribbons and pinned controls rely on them),
   `poseInterpolator` (already a ticket: Lou needs it).
-- [ ] 2.9 `userSetup.py` and `userSetup.mel` run at start from the script paths; modules (`.mod` files on
+- [x] 2.9 (11/11/2026: user folder, modules, `userSetup`; PARITY.md, Plug-in Manager and the user folder) `userSetup.py` and `userSetup.mel` run at start from the script paths; modules (`.mod` files on
   `MAYA_MODULE_PATH` and `AZTEK_MODULE_PATH`, `moduleInfo`) add script, plug-in, icon and Python paths.
 
 ## Phase 3: interaction basics
 
 From PARITY.md's own lists; each one a user notices in the first hour.
 
-- [ ] 3.1 UV and Vertex Face component modes in the viewport and marking menu, and Multi that mixes kinds in one
+- [x] 3.1 (15/11/2026, issue 55) UV and Vertex Face component modes in the viewport and marking menu, and Multi that mixes kinds in one
   selection. `ComponentMode` grows both; everything that matches on it gets a case.
 - [ ] 3.2 Curve Edit Point and Curve Point modes; `curve1.ep[]` and `.u[]` picked in the view.
 - [ ] 3.3 Graph Editor tangent handles drag (break and unify, weighted lengths, Shift to constrain), with one undo
@@ -130,9 +146,9 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   expand all (already a ticket), search filter.
 - [ ] 3.8 Per-object display toggles (`displayHandle`, `displayLocalAxis`, `displayRotatePivot`, template, bounding box,
   drawing overrides) saved with the scene in both formats.
-- [ ] 3.9 Z up: grid, view cube, default cameras, manipulators, new primitives' orientation and `.ma` header all follow
+- [x] 3.9 (10/11/2026, PARITY.md Up axis; the ViewCube 15/11/2026) Z up: grid, view cube, default cameras, manipulators, new primitives' orientation and `.ma` header all follow
   `upAxis`. Camera roll lives on the camera node.
-- [ ] 3.10 View tools: walk tool with WASD and speed keys, a view cube, 2D pan and zoom on the film back, tumble
+- [~] 3.10 (15/11/2026: the ViewCube; `walkCtx` drags with no WASD; film back pan and zoom not done) View tools: walk tool with WASD and speed keys, a view cube, 2D pan and zoom on the film back, tumble
   around the selection or pivot by preference.
 - [ ] 3.11 Soft select Global and Object reach NURBS and show their colours; World symmetry follows a mesh moved after
   it was set.
@@ -142,12 +158,12 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 
 ## Phase 4: interchange
 
-- [ ] 4.1 FBX import and export: meshes with normals, UVs, colours and materials, skeletons, skin weights,
+- [~] 4.1 (12/11/2026: the `fbx` plug-in reads and writes meshes, materials and textures, joints, skins and the `FBX*` settings; not animation, blend shapes, cameras, lights or ASCII) FBX import and export: meshes with normals, UVs, colours and materials, skeletons, skin weights,
   blendShapes, cameras, lights, animation, binary and ASCII, `FBXExport` and `FBXImport` with the common `FBX*`
   option commands. Pick a reader and writer whose licence fits MIT-0; write down the choice in PARITY.md.
 - [ ] 4.2 Alembic: `AbcExport` and `AbcImport` with their `-j` job strings (frame range, step, roots, uv, normals,
   world space, attributes, euler filter), Ogawa archives, an `AlembicNode` that streams a cache into a shape.
-- [ ] 4.3 `.mb` read (ticket, low priority): at least geometry, transforms, animation and skin.
+- [x] 4.3 (09/11/2026, and written since 14/11/2026) `.mb` read (ticket, low priority): at least geometry, transforms, animation and skin.
 - [ ] 4.4 `.ma` against real files: run every capture from 0.1 through `load_ma` and fix what differs; check the parts
   PARITY.md names first (`.kit`/`.kot`, `.kix`/`.kiy`, `.xm`, `conversionFactor`).
 
@@ -155,12 +171,12 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 
 What studio tools need before they run at all.
 
-- [ ] 5.1 PySide6 and shiboken6 bundled to match Aztek's Qt, `maya.OpenMayaUI.MQtUtil` (`mainWindow`, `findControl`,
+- [~] 5.1 (15/11/2026, issue 57: the AppImage ships PySide6 for its Qt, `MQtUtil` answers; the `.deb` and `.rpm` use the system's PySide6 if it matches the system Qt; Windows and macOS not checked) PySide6 and shiboken6 bundled to match Aztek's Qt, `maya.OpenMayaUI.MQtUtil` (`mainWindow`, `findControl`,
   `findLayout`, `fullName`, `getCurrentParent`), so tools that build Qt windows parent them to the main window and find
   script-built controls.
-- [ ] 5.2 `maya.OpenMaya` (API 1) subset over the same core as API 2: `MGlobal`, `MSelectionList`, `MDagPath`,
+- [~] 5.2 (`maya.OpenMaya` imports with `MScriptUtil`; how much of the list is covered not audited) `maya.OpenMaya` (API 1) subset over the same core as API 2: `MGlobal`, `MSelectionList`, `MDagPath`,
   `MObject`, `MFnMesh`, `MFnTransform`, `MFnDependencyNode`, the iterators, `MScriptUtil`, `MPxCommand`, `MPxNode`.
-- [ ] 5.3 API 2 gaps from PARITY.md: `MPxDeformerNode`, `MPxLocatorNode`, mesh attributes into `compute`, compound
+- [ ] 5.3 (16/11/2026: `MPxLocatorNode` is in `OpenMayaUI`; `MPxDeformerNode`, `MPxFileTranslator` and `MRampAttribute` are not in Python) API 2 gaps from PARITY.md: `MPxDeformerNode`, `MPxLocatorNode`, mesh attributes into `compute`, compound
   arrays, several UV sets, `MRampAttribute`, shear on `MFnTransform`.
 - [ ] 5.4 Check that `pip install pymel` imports and runs a common set of calls against the shims; fix the shim where
   pymel's import-time introspection fails.
@@ -234,18 +250,18 @@ Three states:
 |---|---|---|---|
 | fbxmaya | FBX import and export | `fbx` | plug-in (compiled in; skins, textures and the `FBX*` settings; no animation, blend shapes, cameras or lights) |
 | (no counterpart) | glTF import and export | `gltf` | plug-in (compiled in) |
-| objExport | OBJ export | importObj, exportObj | core |
+| objExport | OBJ import and export | `objExport` | plug-in (14/11/2026) |
 | AbcExport, AbcImport, gpuCache | Alembic | | none |
-| mayaUsdPlugin | USD | aztek_usd | core |
+| mayaUsdPlugin | USD | `mayaUsdPlugin` | plug-in (14/11/2026; its wrappers round `file`, `select`, `ls`, `move`, `rotate`, `scale` stay until restart) |
 | OpenEXRLoader, tiffFloatReader | image readers | image loading | core |
 | svgFileTranslator | SVG import | | none |
 | OneClick | send to other applications | | none, and nothing to send to |
-| mtoa | the renderer | Harold | core (the renderer is its own crate; its translator, nodes and windows are the core's) |
+| mtoa | the renderer | Harold | core; standalone part 1 done 14/11/2026 (`harold` program, `.hss`, `haroldExportHss`); `haroldForAztek` plug-in next |
 | renderSetup | render layers and overrides | | not checked |
 | lookdevKit, shaderFXPlugin | shading utility nodes, viewport shaders | | not checked |
 | LookdevX | MaterialX and USD shading | | none |
 | Substance | Substance materials | | none. The format and its engine are their owner's: a reader would have to be theirs |
-| xgenToolkit | grooming and instancing | XJEN | none |
+| xgenToolkit | grooming and instancing | XJEN (`xjenToolkit`) | none; first in "Now" above, docs/XJEN.md |
 | MASH | motion graphics | | none |
 | bifrostGraph, bifrostvisplugin | procedural graphs | | none |
 | modelingToolkit | Quad Draw, Multi-Cut | Quad Draw, Multi-Cut | core |

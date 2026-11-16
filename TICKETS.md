@@ -3,6 +3,8 @@
 Requests waiting or in progress, newest detail kept. Move to Done with the date when reported finished.
 
 ## In progress
+- XJEN (top priority, Simon 16/11/2026): hair and fur at XGen parity. Target and order in docs/XJEN.md; ground truth
+  from `tools/reference_capture/xgen_capture.py`, to be run by Simon.
 - Deformation speed: viewport staleness fixed; root control on Lou still about 115 ms a change; smooth preview subdivides from scratch each deformation.
 
 - Unified dynamics: in (see docs/DYNAMICS.md). Left: speed at 20,000 vertices with self collision (contact search
@@ -11,35 +13,31 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
-- From the issues pulled 15/11/2026, still open: Hypershade graphing any node and keeping selection across tabs (#38);
-  Render View Alt+right-drag zoom and R, G, B, A channels (#40); USD import merging scopes, UsdLux lights (#41, #42);
-  hiding components with H in a component mode (#48); Attribute Editor presets (#50); Outliner Hide In Outliner, Scene
-  Assembly, Asset and Render Setup submenus and the full Display and Show menus (#53); marking menu Polygon Display's
-  texture borders, face centres, hidden triangles and vertices (#47); UV Editor undo, loop selection, Unfold3D, grid
-  numbers and UDIM labels, the UV marking menu (#55); Paint Skin Weights window buttons (#56); PySide6 in Aztek's Python
-  (#57); glTF up axis as written and no influence limit (#58); ortho views' infinite grid and the up axis switch in a
-  running session (#61, needs a run to reproduce); grid subdivisions, per-line visibility and colours (#62); the sky
-  gradient background (#63); the View Cube (#64); Freeze Transformations keeping history through a transformGeometry
-  node on meshes (#65); clusters on NURBS CVs (#66); bevel offset independent of the object's scale (#67).
-- Found making the examples (09/11/2026): `cluster`, `skinCluster` and `blendShape` don't take NURBS curve CVs;
-  `nurbsSquare -sl2` and `vortex -ax/-ay/-az` are missing; `connectDynamic -f` with a field's transform fails;
-  `displaySmoothness -po` neither sets nor answers smooth preview; `scriptJob -listJobs` lists ids, not the Python
-  function.
-- `#` in `-n` flags when creating nodes (`polyCube -n thing#`): `rename` has it (PLAN 1.4).
+- Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
+  (and its colours checked against the reference's) and stylus pressure; Bind Skin's Colorize skeleton; the ViewCube's
+  Animated transitions; the Outliner's Scene Assembly, Asset, Render Setup and Create Partition, greyed until those
+  exist.
+- #76 (open): install folder on PATH and a `bin` folder on Windows. The reference leaves PATH alone; Simon to decide on
+  the `bin` folder.
+- CI: `python_api_px` fails on rocky9 and ubuntu-2204 (sum 0.0 after reopening a plug-in's data); diagnostics are in,
+  the "after reopening" output from the next failed run is wanted.
+- `cmds.exists` is missing in Python (MEL's `exists` works).
+- Found making the examples (09/11/2026), still so on 16/11/2026: `skinCluster` and `blendShape` don't take NURBS
+  curves (`cluster` does since #66); `nurbsSquare -sl2` and `vortex -ax/-ay/-az` are missing; `connectDynamic -f` with
+  a field's transform fails; `scriptJob -listJobs` lists ids, not the Python function. (`displaySmoothness -po` works
+  since PLAN 1.12.)
 - Real plug cycles: `a.tx -> b.tx -> a.tx` is refused. The reference connects it and warns at evaluation; the evaluator needs a guard first.
 - One shape node under several parents, in fact: each instance's parent holds its own node, kept the same by `setAttr` and `rename` (PLAN 1.14). A script sees one shape; the Python API's `instanceCount`, a direct graph write and non-mesh instances don't yet. A real multi-parent graph means every DAG walk and per-instance world matrices, picking and selection paths: a project of its own, Simon's call.
 - A script's `scriptJob -idleEvent` moves the core's version on each idle, so the panels rebuild and a Channel Box field being typed in loses the keyboard. Found writing the multi-edit check; callbacks that changed nothing shouldn't move it.
-- Missing commands found running the capture kit in Aztek (09/11/2026): `allNodeTypes`, `assignCommand`, `hotkeySet`, `imagePlane`, `runTimeCommand -dca` and `-uca`.
+- Missing commands found running the capture kit in Aztek (09/11/2026), still missing 16/11/2026: `assignCommand`, `hotkeySet`, `imagePlane`, `runTimeCommand -dca` and `-uca` (`allNodeTypes` is in).
 - PLAN.md (08/11/2026): parity review's work queue. Phase 0 and 1 before anything else that isn't a ticket.
 - Cloth feels wrong at scale: a cloth bigger than the grid acts stiff, small or heavy even as silk. Units, gravity, bending and presets must scale (agent, top priority). Real-world units by default from `currentUnit`: 1 cm of geometry is 1 cm of cloth, so nobody works in 10 cm = 1 m.
 - Shift+click on an expand arrow fully expands (and collapses) everything below it, in every hierarchy: Outliner, Hypershade, Reference Editor, Node Editor lists, Graph Editor and Dope Sheet outlines, layer editors, Attribute Editor sections.
-- Harold: render layers and render setup; hair and curves; quieter subsurface; USD stages in renders; an evicting texture tile cache; vector displacement and autobump; denoiser off the interface thread.
+- Harold: render layers and render setup; hair and curves (XJEN step 1); quieter subsurface; USD stages in renders; an evicting texture tile cache; vector displacement and autobump; denoiser off the interface thread.
 - Bicurious: something like Bifrost built into the dynamics, not a separate system. Liquids, smoke, fire and procedural graphs share the one solver, colliding with and affecting cloth, particles and rigid bodies. Start after the unified solver merges.
 - README screenshots refreshed as features land.
-- UV and Vertex Face component modes; Multi mixing kinds in one selection.
 - Menus still missing: UV Pin, Proximity Pin, Interactive Bind Skin, Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out, Deform Edit submenus, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, Visualize.
 - World symmetry: an object moved after symmetry was set keeps its old pairs.
-- `.mb` files read (low priority).
 - macOS tests: `python_forms` failed on the runner with `xform -q -ro` at 44.99999999999999 for 45; values shown in degrees are now tidied, so see if it passes (09/11/2026). `cargo test` stopped at that failure, so CI now runs `--no-fail-fast` to show the rest. The step is `continue-on-error`, so a green macOS job doesn't mean its tests passed: read the log.
 - macOS: the early Apple-silicon build has to be tried on a Mac (viewport through MoltenVK, Cmd and Option in mouse and key handling), then made a condition of a release.
 - Lou: `poseInterpolator`, blendShape on a lattice.
@@ -123,6 +121,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: found on the way, a script's idle job takes the keyboard from a field: ticketed.
 
 ## Done
+- 16/11/2026 Issues 37 to 83 closed but #76 (PARITY.md, Issues 37 to 83): editors, views, UV, picking, rigging,
+  skinning, `aztekpy`, themes. The UV and Vertex Face modes with Multi, and `.mb` reading, came off this list.
 - 08/11/2026 One light model: the viewport's lights render the same in Harold (decay rates, intensity, colour, spot cone and dropoff, ambient, area, volume, default lighting, ambient colour, black background); parity test against the shared formula.
 - 07/11/2026 Harold renderer, first parts: path tracer, standard surface, every material and light translated, Render View with IPR, Render Settings, AOVs to EXR, batch rendering; see docs/HAROLD.md for what is shallower.
 - 07/11/2026 History from every route: Smooth, Mirror, Reduce, Extract no longer wipe it; `G` after each; Hypergraph shows the whole chain.
