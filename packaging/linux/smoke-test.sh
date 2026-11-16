@@ -46,6 +46,7 @@ ldconfig -p | grep -q 'libvulkan\.so\.1' || { echo "libvulkan.so.1 is missing"; 
 
 cat >"$OUT/check.py" <<PY
 import sys, json, ctypes, ssl, sqlite3, zlib
+assert sys.version_info[:2] == (3, 12), sys.version
 import aztek.cmds as cmds
 cube = cmds.polyCube()
 with open("$OUT/python.txt", "w") as f:

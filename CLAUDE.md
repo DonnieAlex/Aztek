@@ -80,6 +80,10 @@ command once on release so the history shows one reference-style line.
     build.bat                  # Windows (PowerShell script build.ps1)
     cargo test --workspace     # all Rust tests; keep them green
 
+Python is 3.12 only: pyo3 must build against a python3.12 (`PYO3_PYTHON=/usr/bin/python3.12` where `python3` is newer),
+or aztek_host's build script stops. Without a system 3.12, `tools/python/fetch-python.sh <folder>` fetches one; cargo
+then also needs `RUSTFLAGS="-L <folder>/lib -C link-arg=-Wl,-rpath,<folder>/lib"`.
+
 The GitHub Action `.github/workflows/build.yml` builds Linux, Rocky Linux 8 and 9 and Windows on every push to main and attaches
 the packages to the release. `packaging/` holds the RPM spec, the deb and Windows installer scripts and the install checks; see
 `docs/PACKAGING.md`.

@@ -543,7 +543,14 @@ Linux:
 
 `--deps` installs the build dependencies (apt, dnf or pacman) and only needs running once; `--run` starts Aztek
 afterwards; `--install` puts it in `~/.local` with a menu entry and icon; `--debug` builds into `build-debug/`. Rust comes from [rustup](https://rustup.rs). An active conda
-environment is fine: the script builds against the system Python and ignores conda's libraries.
+environment is fine: the script ignores conda's Python and libraries.
+
+Python 3.12 is the only version Aztek embeds, as the reference's is 3.12. The build uses the system's `python3.12` with
+its development files where the distribution has it (`--deps` installs it on Ubuntu 24.04 and Rocky), and elsewhere
+(Ubuntu 26.04, Arch and others with only newer versions) fetches a relocatable 3.12 from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone) into `build/python` with
+`tools/python/fetch-python.sh`, checked against its SHA-256; the program links that one and installs it beside itself.
+A build against any other version stops with a message naming the one it found.
 
 macOS, with [Homebrew](https://brew.sh):
 
@@ -559,8 +566,9 @@ Windows, from PowerShell or a command prompt:
     build.bat -Run
 
 Needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", Rust from
-[rustup](https://rustup.rs), CMake, Qt 6.4+ for MSVC from the [Qt online installer](https://www.qt.io/download-qt-installer-oss),
-and Python 3 from [python.org](https://www.python.org/downloads/). The script finds Visual Studio and the newest Qt
+[rustup](https://rustup.rs) and CMake, Qt 6.4+ for MSVC from the [Qt online installer](https://www.qt.io/download-qt-installer-oss).
+Python 3.12 is used if installed (the `py` launcher's, else `python` on PATH); otherwise the script fetches one into
+`build\python` with `tools\python\fetch-python.ps1`. The script finds Visual Studio and the newest Qt
 under `C:\Qt` (or takes `-Qt C:\Qt\6.8.0\msvc2022_64`), builds, and makes a folder that runs by itself in `build\dist`:
 Qt's DLLs, the VC runtime and Python's standard library beside `aztek.exe`.
 

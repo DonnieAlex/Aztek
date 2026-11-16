@@ -4,14 +4,14 @@
 #   packaging/appimage/build-appimage.sh [build dir] [output dir]
 # Built on the oldest system it should run on: its C library is the newest the result needs (CI uses Rocky 8).
 # AZTEK_QT: a Qt kit to bundle (as packaging/linux/install-qt.sh makes); without it the system's Qt 6 is bundled.
-# AZTEK_PYTHON: the interpreter to embed, python3 by default. APPIMAGETOOL: an appimagetool to use, else downloaded.
+# AZTEK_PYTHON: the interpreter to embed, python3.12 by default (the only version Aztek embeds). APPIMAGETOOL: an appimagetool to use, else downloaded.
 set -euo pipefail
 
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
 mkdir -p "${1:-$SRC/build}" "${2:-$SRC/dist}"
 BUILD=$(cd "${1:-$SRC/build}" && pwd)
 OUT=$(cd "${2:-$SRC/dist}" && pwd)
-PY=${AZTEK_PYTHON:-$(command -v python3)}
+PY=${AZTEK_PYTHON:-$(command -v python3.12)}
 QT=${AZTEK_QT:-}
 VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$SRC/Cargo.toml" | head -n1)
 FILE="aztek-${VERSION}-x86_64.AppImage"

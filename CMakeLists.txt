@@ -19,14 +19,33 @@ if(UNIX AND NOT APPLE AND TARGET WrapOpenGL::WrapOpenGL)
   set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_LIBRARIES "")
 endif()
 
-# Python for aztek.cmds and the maya.cmds shim: the interpreter cargo's pyo3 builds against, and its library.
+# Python for aztek.cmds and the maya.cmds shim: the interpreter cargo's pyo3 builds against, and its library. Python 3.12
+# only, the reference's version. AZTEK_PYTHON_BUNDLE names a Python 3.12 from tools/python/fetch-python.sh, for systems
+# with no 3.12 of their own: the program links it and, on Linux, installs it beside itself in lib/aztek/python.
 option(AZTEK_PYTHON "Embed Python" ON)
+set(AZTEK_PYTHON_BUNDLE "" CACHE PATH "A Python 3.12 from tools/python/fetch-python.sh to link and ship")
 set(AZTEK_CARGO_FEATURES "")
 if(AZTEK_PYTHON)
-  find_package(Python3 COMPONENTS Interpreter Development.Embed)
+  if(AZTEK_PYTHON_BUNDLE)
+    set(Python3_ROOT_DIR ${AZTEK_PYTHON_BUNDLE})
+    if(WIN32)
+      set(Python3_EXECUTABLE ${AZTEK_PYTHON_BUNDLE}/python.exe)
+    else()
+      # Its sysconfig names the folder it was built in, not this one: the library and headers are given outright.
+      set(Python3_EXECUTABLE ${AZTEK_PYTHON_BUNDLE}/bin/python3.12)
+      set(Python3_INCLUDE_DIR ${AZTEK_PYTHON_BUNDLE}/include/python3.12)
+      if(APPLE)
+        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.12.dylib)
+      else()
+        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.12.so)
+      endif()
+    endif()
+  endif()
+  find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development.Embed)
   if(NOT Python3_FOUND)
-    message(WARNING "Python 3 development files not found: building without Python")
-    set(AZTEK_PYTHON OFF)
+    message(FATAL_ERROR "Python 3.12 with its development files is required. ./build.sh --deps (or build.ps1) installs or "
+                        "fetches it; tools/python/fetch-python.sh <folder> then -DAZTEK_PYTHON_BUNDLE=<folder> uses a "
+                        "downloaded one; -DAZTEK_PYTHON=OFF builds without Python.")
   endif()
 endif()
 if(NOT AZTEK_PYTHON)
@@ -179,6 +198,11 @@ target_link_libraries(aztek PRIVATE Qt6::Widgets ${AZTEK_HOST_LIB})
 if(AZTEK_PYTHON)
   target_link_libraries(aztek PRIVATE Python3::Python)
   target_compile_definitions(aztek PRIVATE AZTEK_HAS_PYTHON=1)
+  if(AZTEK_PYTHON_BUNDLE AND UNIX AND NOT APPLE)
+    # The bundled library: from its own folder in the build, from lib/aztek/python/lib once installed.
+    set_target_properties(aztek PROPERTIES BUILD_RPATH ${AZTEK_PYTHON_BUNDLE}/lib
+                          INSTALL_RPATH "$ORIGIN/../lib/aztek/python/lib")
+  endif()
 endif()
 if(MSVC)
   target_compile_options(aztek PRIVATE /utf-8 /permissive-)
@@ -215,6 +239,15 @@ if(APPLE)
   install(PROGRAMS ${HAROLD_OUT} DESTINATION aztek.app/Contents/MacOS)
 else()
   install(PROGRAMS ${HAROLD_OUT} DESTINATION bin)
+endif()
+# The bundled Python: its library, standard library and headers (for pip's builds), without Tcl/Tk and IDLE.
+if(AZTEK_PYTHON AND AZTEK_PYTHON_BUNDLE AND UNIX AND NOT APPLE)
+  install(DIRECTORY ${AZTEK_PYTHON_BUNDLE}/lib ${AZTEK_PYTHON_BUNDLE}/include DESTINATION lib/aztek/python
+          USE_SOURCE_PERMISSIONS
+          PATTERN "__pycache__" EXCLUDE PATTERN "libtcl*" EXCLUDE PATTERN "libtk*" EXCLUDE PATTERN "tcl9*" EXCLUDE
+          PATTERN "tk9*" EXCLUDE PATTERN "itcl*" EXCLUDE PATTERN "thread3*" EXCLUDE PATTERN "pkgconfig" EXCLUDE
+          PATTERN "tkinter" EXCLUDE PATTERN "idlelib" EXCLUDE PATTERN "turtledemo" EXCLUDE
+          PATTERN "_tkinter*" EXCLUDE PATTERN "config-3.12-*" EXCLUDE)
 endif()
 if(UNIX AND NOT APPLE)
   install(FILES app/aztek.desktop DESTINATION share/applications)

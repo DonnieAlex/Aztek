@@ -13,7 +13,17 @@ VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$SRC/Cargo.toml" | head -n1)
 ARCH=$(dpkg --print-architecture)
 FILE="aztek_${VERSION}-1_ubuntu${VERSION_ID}_${ARCH}.deb"
 
-cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE=/usr/bin/python3
+# Python 3.12, the only version Aztek embeds: the system's where Ubuntu has it (24.04), else one inside the package in
+# /usr/lib/aztek/python (26.04 ships 3.13 and later only).
+if [ -x /usr/bin/python3.12 ] && [ -f /usr/include/python3.12/Python.h ]; then
+  export PYO3_PYTHON=/usr/bin/python3.12
+  PYARGS=(-DPython3_EXECUTABLE=/usr/bin/python3.12 -DAZTEK_PYTHON_BUNDLE=)
+else
+  BUNDLE=$("$SRC/tools/python/fetch-python.sh" "$BUILD/python")
+  export PYO3_PYTHON="$BUNDLE/bin/python3.12"
+  PYARGS=(-DAZTEK_PYTHON_BUNDLE="$BUNDLE")
+fi
+cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release "${PYARGS[@]}"
 cmake --build "$BUILD"
 
 ROOT=$BUILD/debroot
@@ -21,13 +31,20 @@ rm -rf "$ROOT"
 DESTDIR=$ROOT cmake --install "$BUILD" --prefix /usr --strip
 mkdir -p "$ROOT/usr/share/aztek/examples" "$ROOT/usr/share/doc/aztek" "$ROOT/DEBIAN"
 install -m644 "$SRC/LICENSE" "$ROOT/usr/share/doc/aztek/copyright"
+PRIVATE=()
+if [ -d "$ROOT/usr/lib/aztek/python/lib" ]; then
+  # The bundled Python comes with its symbols: stripped, it is a fraction of the size.
+  find "$ROOT/usr/lib/aztek/python/lib" -name '*.so*' -type f -exec strip --strip-unneeded {} +
+  PRIVATE=(-l"$ROOT/usr/lib/aztek/python/lib")
+fi
 
 # dpkg-shlibdeps wants a debian/control beside it, and only looks at the binary. What is loaded with dlopen goes in
 # control.in: libvulkan1 for the viewport, qt6-qpa-plugins for the xcb platform plugin.
 WORK=$(mktemp -d)
 mkdir "$WORK/debian"
 printf 'Source: aztek\n' >"$WORK/debian/control"
-SHLIBS=$(cd "$WORK" && dpkg-shlibdeps -O "$ROOT/usr/bin/aztek" | sed 's/^shlibs:Depends=//')
+# A bundled libpython is the package's own: no other package provides it.
+SHLIBS=$(cd "$WORK" && dpkg-shlibdeps "${PRIVATE[@]}" --ignore-missing-info -O "$ROOT/usr/bin/aztek" | sed 's/^shlibs:Depends=//')
 rm -rf "$WORK"
 
 SIZE=$(du -sk "$ROOT" | cut -f1)

@@ -20,10 +20,10 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | `aztek-<version>-1.el8.x86_64.rpm` | `rockylinux:8` container | `packaging/rpm/build-rpm.sh` | 6.8 bundled | 3.12 from AppStream |
 | `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | EPEL | 3.12 from AppStream |
 | `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | system | system 3.12 |
-| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | system | system |
+| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | system | 3.12 bundled |
 | `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.8 bundled | 3.12 bundled |
 | `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8 bundled | 3.12 bundled |
-| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system |
+| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system 3.12 |
 | `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `packaging/appimage/build-appimage.sh` | 6.8 bundled | 3.12 bundled |
 | `aztek-<version>-x86_64.flatpak` | flatpak-builder container | `packaging/flatpak/build-flatpak.sh` | the AppImage's | the AppImage's |
 
@@ -99,11 +99,20 @@ not start in the clean containers, which have no `libOpenGL.so.0`. `CMakeLists.t
 Depends come from `dpkg-shlibdeps`, plus what it cannot see from `packaging/deb/control.in`: `libvulkan1`,
 `qt6-qpa-plugins` and `hicolor-icon-theme`.
 
+Python 3.12 is the only version Aztek embeds. Ubuntu 24.04 has it, and its package depends on `libpython3.12`. Ubuntu
+26.04 ships 3.13 and later only, so its package carries a 3.12 from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone) (`tools/python/fetch-python.sh`, pinned
+release and SHA-256) in `/usr/lib/aztek/python`, stripped, without Tcl/Tk and IDLE. The program finds its library
+through its RUNPATH (`$ORIGIN/../lib/aztek/python/lib`) and points Python at that folder when it starts, without leaving
+`PYTHONHOME` set for scripts that run the system's Python. The smoke test checks the version is 3.12.
+
 ## Windows
 
 `build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt from `windeployqt`, the VC runtime
-copied beside the exe, Python's DLL, its standard library in `Lib` and its extension modules in `DLLs`. CMake is told to
-use the Python on PATH, so the exe links the one that is copied.
+copied beside the exe, Python's DLL, its standard library in `Lib` and its extension modules in `DLLs`. Python is 3.12
+only: the installed one (`py -3.12`, else `python` on PATH when it is 3.12), else a python-build-standalone 3.12 fetched
+into `build\python` by `tools\python\fetch-python.ps1`. CMake is told which, so the exe links the one that is copied.
+The installer carries it, so it needs no Python on the machine it installs on.
 
 `packaging/windows/aztek.iss` is the Inno Setup script: Start Menu entry, uninstaller, and two optional tasks, off by
 default, for a desktop shortcut and for opening `.ma` files with Aztek. It installs for all users or the current one.

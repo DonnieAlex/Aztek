@@ -164,6 +164,7 @@ dependencies = [
  "log",
  "naga",
  "pyo3",
+ "pyo3-build-config",
  "raw-window-handle",
  "serde_json",
  "sha2",

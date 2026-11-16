@@ -457,13 +457,13 @@ fn make_material(s: &mut Session, im: &ImpMaterial, files: &mut HashMap<i64, Str
     Ok(name)
 }
 
-/// Makes the nodes, meshes, materials, skins and bind pose; selects what was made at the top and returns those nodes' names.
 thread_local! {
     /// The node each ImpNode of the last build_all became, in the same order, for an importer that adds to them after
     /// (FBX animation).
     pub static LAST_BUILT: std::cell::RefCell<Vec<NodeId>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+/// Makes the nodes, meshes, materials, skins and bind pose; selects what was made at the top and returns those nodes' names.
 pub fn build_all(s: &mut Session, nodes: Vec<ImpNode>, materials: Vec<ImpMaterial>, extras: Extras) -> CmdResult {
     let mut ids: Vec<NodeId> = vec![NO_NODE; nodes.len()];
     let mut faces_made: Vec<Vec<Option<u32>>> = (0..nodes.len()).map(|_| Vec::new()).collect();

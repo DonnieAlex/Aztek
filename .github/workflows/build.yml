@@ -84,7 +84,7 @@ jobs:
 
       - name: Dependencies
         run: |
-          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libvulkan-dev python3-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libvulkan-dev python3.12-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -125,7 +125,7 @@ jobs:
           name: aztek-deb-ubuntu24.04
           path: dist/*.deb
 
-  # Ubuntu 26.04 has its own Qt and Python, so it gets its own package.
+  # Ubuntu 26.04 has its own Qt, so it gets its own package. It has no Python 3.12: the package carries one.
   ubuntu-2604:
     needs: gate
     if: needs.gate.outputs.go == 'true'
@@ -155,7 +155,7 @@ jobs:
       - name: Dependencies
         run: |
           for i in 1 2 3 4 5; do
-            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libgl-dev libvulkan-dev python3-dev ca-certificates curl file && break
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libgl-dev libvulkan-dev ca-certificates curl file && break
             [ "$i" = 5 ] && exit 1
             sleep $((i * 60))
           done
@@ -167,6 +167,14 @@ jobs:
           workspaces: |
             . -> target
             . -> build/cargo
+
+      # The Python 3.12 the package will carry, for the tests too. Its sysconfig names the folder it was built in, so
+      # the library's folder is given to the linker, and the test programs find the library there.
+      - name: Python 3.12
+        run: |
+          P=$(tools/python/fetch-python.sh "$PWD/build/python")
+          echo "PYO3_PYTHON=$P/bin/python3.12" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
 
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace

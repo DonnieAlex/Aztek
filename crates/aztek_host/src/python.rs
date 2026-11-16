@@ -687,7 +687,17 @@ fn ensure() -> Result<(), String> {
         .get_or_init(|| {
             let _ = MAIN.set(std::thread::current().id());
             pyo3::append_to_inittab!(_aztek);
+            let home = bundled_home();
+            if let Some(h) = &home {
+                // Set before Python starts, on the thread that starts it; taken out again just after.
+                std::env::set_var("PYTHONHOME", h);
+            }
             Python::initialize();
+            if home.is_some() {
+                // Read once, at start-up: kept, it would point the system's own Python, run from a script, at this one.
+                std::env::remove_var("PYTHONHOME");
+                let _ = Python::attach(|py| py.run(c"import os; os.environ.pop('PYTHONHOME', None)", None, None));
+            }
             let r = Python::attach(|py| -> PyResult<()> {
                 let code = std::ffi::CString::new(include_str!("../python/bootstrap.py")).unwrap();
                 py.run(&code, None, None)?;
@@ -702,6 +712,21 @@ fn ensure() -> Result<(), String> {
             r
         })
         .clone()
+}
+
+/// The home of a bundled Python (tools/python/fetch-python.sh): the folder above the libpython this process loaded,
+/// when its standard library is there. Such a Python was built for another folder and doesn't find its own; a
+/// system's Python does, and isn't given one. None as well when PYTHONHOME is already set.
+fn bundled_home() -> Option<std::path::PathBuf> {
+    if !cfg!(target_os = "linux") || std::env::var_os("PYTHONHOME").is_some() {
+        return None;
+    }
+    let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
+    let lib = maps.lines().filter_map(|l| l.find('/').map(|i| &l[i..])).find(|p| p.contains("/libpython3.12.so"))?;
+    let dir = std::path::Path::new(lib).parent()?;
+    let home = dir.parent()?;
+    let own = dir.file_name()? == "lib" && !["/usr", "/usr/local"].iter().any(|s| home == std::path::Path::new(s));
+    (own && home.join("lib/python3.12/os.py").is_file()).then(|| home.to_path_buf())
 }
 
 /// Aztek's own folder of Python packages, for this Python's version: what `aztekpy -m pip install` puts there is on
