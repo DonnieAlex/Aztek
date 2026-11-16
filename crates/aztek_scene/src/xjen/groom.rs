@@ -108,7 +108,7 @@ fn keep_lengths(p: &mut [DVec3], lens: &[f64]) {
 }
 
 /// The polyline cut to a length from its root, with the same number of points, evenly along what is kept.
-fn cut_to(p: &[DVec3], length: f64) -> Vec<DVec3> {
+pub fn cut_to(p: &[DVec3], length: f64) -> Vec<DVec3> {
     let n = p.len();
     let lens = segments(p);
     let at = |s: f64| -> DVec3 {

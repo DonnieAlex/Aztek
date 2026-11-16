@@ -2482,6 +2482,9 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 3, 16/11/2026: the fourteen grooming tools with their shared settings and keys, sculpt layers with weights and
   merging, freezing and picking splines, collision with the bound mesh, one undo per stroke. Details and gaps in
   docs/XJEN.md, Step 3 as built.
+- Step 4, 16/11/2026: modifiers Clump, Noise, Cut, Collide, Displace, Guide, Linear Wire and Curve to Spline, added
+  to a stack from Generate > Add Modifier or `xjenAddModifier`. What each does and what is not in yet: docs/XJEN.md,
+  Step 4 as built.
 
 ### Tear-off menus and the Outliner at start (16/11/2026)
 

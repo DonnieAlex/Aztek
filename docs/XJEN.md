@@ -5,8 +5,8 @@ modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolk
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
 
-Status, 16/11/2026: steps 1 to 3 are in (strands in Harold and the views; the Interactive Groom core; the grooming
-tools, below); the rest follows. This page is the target
+Status, 16/11/2026: steps 1 to 4 are in (strands in Harold and the views; the Interactive Groom core; the grooming
+tools; the modifiers, below); the rest follows. This page is the target
 and the order of work; PARITY.md records what has landed.
 
 ## What the reference has
@@ -178,5 +178,26 @@ round trips, and screenshots.
 - Scripts: `xjenGroomCtx` (the settings) and `xjenGroomStroke` (a stroke along points, with a radius in scene units).
 - Not yet: the reference's tool context names and their Tool Settings defaults (from the capture: today's are Aztek's);
   groups of layers in an editor (step 5); highlighting picked and placed splines in the views.
+
+## Step 4 as built (16/11/2026)
+
+![Clump and Noise](xjen-modifiers.jpg)
+
+- Node types `xgmModifierClump`, `xgmModifierNoise`, `xgmModifierCut`, `xgmModifierCollide`, `xgmModifierDisplace`,
+  `xgmModifierGuide`, `xgmModifierLinearWire` and `xgmCurveToSpline`, each with Mute, Mask, Magnitude and Magnitude
+  Scale. `xjenAddModifier` (Generate > Add Modifier, on the selected description) puts one at the top of the stack or
+  `-after` a node in it.
+- Clump: guides picked by Density (clumps per face) and Seed; each spline drawn toward its nearest guide by Clump,
+  more toward the tip, less by Clump Variance; Curl turns it about the guide; Preserve Length.
+- Noise: smooth 3D noise by Frequency, Noise Magnitude (part of the length) and Correlation, Seed, Preserve Length;
+  Mode Live (Baked waits for step 6).
+- Cut: Amount (part of the length), Randomness, Seed. Displace: along the root normal, growing to the tip.
+- Collide: out of the meshes connected to Collision Mesh, to Distance above them.
+- Guide: each spline takes the shape of its three nearest guide curves (inverse distance), by Blend; with no curves
+  given, curves are made from a tenth of the splines (`-fraction`). Linear Wire: splines near a wire's root (within
+  Smoothness) follow how the wire moved from its reference state, a hidden copy made with the modifier; the pull grows
+  to the tip. Curve to Spline: connected curves become splines, their roots put on the bound mesh, Align To Normal.
+- Not yet: Mask maps, Displacement Map, Breakage, Clump's clump map, Advanced Shape (Flatness, Offset, Orient) and
+  Secondary Effects, dynamic guides and wires (step 8), and the reference's attribute file names (from the capture).
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.

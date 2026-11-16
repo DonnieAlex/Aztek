@@ -9,7 +9,7 @@ use crate::plug::{NodeId, PlugValue, NO_NODE};
 use crate::session::Session;
 
 /// The commands this file registers.
-pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect"];
+pub const NAMES: &[&str] = &["xjenCreateGroom", "xgmSplineQuery", "xjenGroomCtx", "xjenGroomStroke", "xjenSculptLayer", "xgmSplineSelect", "xjenAddModifier"];
 
 /// The description a name means: its shape, from the shape or its transform.
 pub fn description(s: &Session, n: &str) -> Option<NodeId> {
@@ -148,8 +148,137 @@ fn sculpt_of(s: &Session, desc: NodeId) -> Option<NodeId> {
     super::stack(&s.graph, desc).into_iter().rev().find(|&n| s.graph.node(n).is_some_and(|x| x.ty().is_a(SCULPT)))
 }
 
+/// Short names the command takes for the modifier types.
+const MODIFIER_NAMES: &[(&str, &str)] = &[
+    ("clump", "xgmModifierClump"),
+    ("noise", "xgmModifierNoise"),
+    ("cut", "xgmModifierCut"),
+    ("collide", "xgmModifierCollide"),
+    ("displace", "xgmModifierDisplace"),
+    ("guide", "xgmModifierGuide"),
+    ("linearWire", "xgmModifierLinearWire"),
+    ("curveToSpline", "xgmCurveToSpline"),
+    ("scale", "xgmModifierScale"),
+    ("sculpt", "xgmModifierSculpt"),
+];
+
+/// Curves made from some of a description's splines, as guides or wires: every spline whose id hashes below the
+/// fraction. Returns their transforms.
+fn curves_from_splines(s: &mut Session, desc: NodeId, fraction: f64, stem: &str) -> CmdResult<Vec<String>> {
+    s.graph.evaluate();
+    let pts: Vec<Vec<[f64; 3]>> = render_splines(&s.graph, desc)
+        .map(|d| d.splines.iter().filter(|x| super::hash01(x.id ^ 0x6D1D) < fraction).map(|x| x.points.iter().map(|p| p.to_array()).collect()).collect())
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for (k, p) in pts.into_iter().enumerate() {
+        let deg = if p.len() >= 4 { 3 } else { 1 };
+        let r = s.run("curve", json!({"degree": deg, "point": p, "name": format!("{stem}{}", k + 1)}))?;
+        let name = r.as_str().map(str::to_string).or_else(|| r[0].as_str().map(str::to_string)).unwrap_or_default();
+        out.push(name);
+    }
+    Ok(out)
+}
+
+fn shape_of_curve(s: &mut Session, name: &str) -> Option<String> {
+    let id = s.graph.find(name).ok().flatten()?;
+    if s.graph.node(id)?.ty().is_a(crate::curves::SHAPE_TYPE) {
+        return Some(s.graph.path(id));
+    }
+    s.graph.children(id).iter().copied().find(|&k| s.graph.node(k).is_some_and(|n| n.ty().is_a(crate::curves::SHAPE_TYPE))).map(|k| s.graph.path(k))
+}
+
 pub fn register(c: &mut Commands<Session>) {
     use super::groom;
+    c.register(
+        CommandDef::<Session>::new(
+            "xjenAddModifier",
+            "Adds a modifier to a description's stack, at the top (just under the shape) or -after a node in it. -type: clump, \
+             noise, cut, collide, displace, guide, linearWire, curveToSpline, scale or sculpt. Guide and Linear Wire take \
+             -curves, or make them from -fraction of the splines (0.1 by default) when none are given; a Linear Wire keeps \
+             copies of its wires as their reference state. Collide takes -meshes. Returns the modifier.",
+            |s, a| {
+                let Some(&desc) = named_descriptions(s, &a).first() else { fail!("xjenAddModifier: name or select a description") };
+                let kind = a.string("type", "");
+                let Some(&(_, ty)) = MODIFIER_NAMES.iter().find(|(k, t)| *k == kind || *t == kind) else {
+                    fail!("xjenAddModifier: -type is one of {}", MODIFIER_NAMES.iter().map(|x| x.0).collect::<Vec<_>>().join(", "))
+                };
+                let sh = s.graph.path(desc);
+                let short = s.graph.node(s.graph.parent(desc)).map(|n| n.name().to_string()).unwrap_or_default();
+                let stem = ty.trim_start_matches("xgmModifier").trim_start_matches("xgm");
+                let node = create(s, ty, &format!("{short}_{}1", stem[..1].to_lowercase() + &stem[1..]))?;
+                // Where it goes: under the node named by -after's consumer, or under the shape.
+                let below = match a.get("after").and_then(Value::as_str) {
+                    Some(after) => {
+                        let id = s.graph.find(after)?.ok_or_else(|| aztek_ops::CommandError::new(format!("xjenAddModifier: no {after}")))?;
+                        let out = crate::harold::network::attr(&s.graph, id, "outSplineData").ok_or_else(|| aztek_ops::CommandError::new(format!("xjenAddModifier: {after} is not in a stack")))?;
+                        let consumer = s.graph.destinations(&out).into_iter().next().ok_or_else(|| aztek_ops::CommandError::new(format!("xjenAddModifier: nothing reads {after}")))?;
+                        (s.graph.path(consumer.node), s.graph.path(id))
+                    }
+                    None => {
+                        let p = crate::harold::network::attr(&s.graph, desc, "inSplineData").unwrap();
+                        let src = s.graph.source(&p).ok_or_else(|| aztek_ops::CommandError::new("xjenAddModifier: the description has no stack"))?;
+                        (sh.clone(), s.graph.path(src.node))
+                    }
+                };
+                let (consumer, feeder) = below;
+                connect(s, format!("{feeder}.outSplineData"), format!("{node}.inSplineData"))?;
+                s.run("connectAttr", json!({"args": [format!("{node}.outSplineData"), format!("{consumer}.inSplineData")], "force": true}))?;
+                let mut curves: Vec<String> = a.get("curves").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect();
+                if matches!(ty, "xgmModifierGuide" | "xgmModifierLinearWire") && curves.is_empty() {
+                    let stem = if ty == "xgmModifierGuide" { format!("{short}_guide") } else { format!("{short}_wire") };
+                    curves = curves_from_splines(s, desc, a.float("fraction", 0.1).clamp(0.0, 1.0), &stem)?;
+                }
+                let attr = match ty {
+                    "xgmModifierGuide" => Some("guideCurves"),
+                    "xgmModifierLinearWire" => Some("wireCurves"),
+                    "xgmCurveToSpline" => Some("inputCurves"),
+                    _ => None,
+                };
+                if let Some(attr) = attr {
+                    for (k, cname) in curves.iter().enumerate() {
+                        let Some(cs) = shape_of_curve(s, cname) else { fail!("xjenAddModifier: {cname} is not a curve") };
+                        connect(s, format!("{cs}.worldSpace"), format!("{node}.{attr}[{k}]"))?;
+                        if ty == "xgmModifierLinearWire" {
+                            // The reference state: a hidden copy, as the wire is now.
+                            let dup = s.run("duplicate", json!({"args": [cname], "name": format!("{cname}_reference")}))?;
+                            let dup = dup.as_array().and_then(|x| x.first()).and_then(Value::as_str).map(str::to_string).unwrap_or_default();
+                            s.run("setAttr", json!({"args": [format!("{dup}.visibility"), false]}))?;
+                            let ds = shape_of_curve(s, &dup).unwrap_or(dup);
+                            connect(s, format!("{ds}.worldSpace"), format!("{node}.referenceWires[{k}]"))?;
+                        }
+                    }
+                }
+                if ty == "xgmModifierCollide" {
+                    let meshes: Vec<String> = a.get("meshes").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect();
+                    for (k, m) in meshes.iter().enumerate() {
+                        let Some(ms) = mesh_shape(s, m) else { fail!("xjenAddModifier: {m} is not a mesh") };
+                        connect(s, format!("{ms}.worldMesh[0]"), format!("{node}.collisionMesh[{k}]"))?;
+                    }
+                }
+                if ty == "xgmCurveToSpline" {
+                    if let Some(m) = super::bound_mesh(&s.graph, desc) {
+                        let mp = s.graph.path(m);
+                        connect(s, format!("{mp}.worldMesh[0]"), format!("{node}.boundMesh"))?;
+                    }
+                }
+                if ty == "xgmModifierSculpt" {
+                    let id = s.graph.find(&node)?.unwrap_or(NO_NODE);
+                    let data = sculpt::SculptData { layers: vec![sculpt::Layer { name: "Base".into(), ..Default::default() }], ..Default::default() };
+                    if let Some(p) = crate::harold::network::attr(&s.graph, id, "sculptData") {
+                        s.graph.set_value(p, PlugValue::Data(Some(std::sync::Arc::new(data))))?;
+                    }
+                    set(s, format!("{node}.layer[0].layerName"), json!("Base"))?;
+                }
+                Ok(json!(node))
+            },
+        )
+        .positional("description")
+        .flag(FlagDef::new("type", "typ", ArgType::String, Value::Null, "The modifier.").choices(&["clump", "noise", "cut", "collide", "displace", "guide", "linearWire", "curveToSpline", "scale", "sculpt"]))
+        .flag(FlagDef::new("after", "aft", ArgType::String, Value::Null, "A node of the stack to put it just above."))
+        .flag(FlagDef::new("curves", "crv", ArgType::List, Value::Null, "Guide, Linear Wire, Curve to Spline: the curves."))
+        .flag(FlagDef::new("fraction", "fr", ArgType::Float, Value::Null, "Guide, Linear Wire with no curves: the part of the splines made into curves; 0.1 by default.").min(0.0).max(1.0))
+        .flag(FlagDef::new("meshes", "msh", ArgType::List, Value::Null, "Collide: the meshes.")),
+    );
     c.register(
         CommandDef::<Session>::new(
             "xjenGroomCtx",

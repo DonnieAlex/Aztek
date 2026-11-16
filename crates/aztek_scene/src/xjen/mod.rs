@@ -9,6 +9,7 @@
 pub mod cmds;
 pub mod edits;
 pub mod groom;
+pub mod modifiers;
 pub mod sculpt;
 
 use std::any::Any;
@@ -447,6 +448,7 @@ pub fn register_types() {
             ..Default::default()
         })
         .expect(SCULPT);
+        modifiers::register_types();
         let mut own = vec![
             splines_in("inSplineData", "isd"),
             doc(base("outRenderData", "ord", PlugType::Data, PlugValue::Data(None), flags::OUTPUT | flags::HIDDEN), "The splines with their widths, as views and renderers read them."),

@@ -460,6 +460,27 @@ QMenu* MainWindow::generate_menu() {
         });
         a->setEnabled(has_command("xjenGroomCtx"));
     }
+    QMenu* mods = m->addMenu("Add Modifier");
+    for (auto [label, id] : std::initializer_list<std::pair<const char*, const char*>>{{"Clump", "clump"}, {"Noise", "noise"}, {"Cut", "cut"}, {"Collide", "collide"}, {"Displace", "displace"}, {"Guide", "guide"}, {"Linear Wire", "linearWire"}, {"Curve to Spline", "curveToSpline"}, {"Scale", "scale"}, {"Sculpt", "sculpt"}}) {
+        QString t = id;
+        QAction* a = mods->addAction(label, [t] {
+            QJsonObject c{{"type", t}};
+            // Guide, Linear Wire and Curve to Spline take the curves selected; Collide the meshes.
+            QJsonArray picked = ask("ls", QJsonObject{{"selection", true}}).toArray();
+            QJsonArray curves, meshes;
+            for (const QJsonValue& v : picked) {
+                QString n = v.toString();
+                QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{n}}, {"shapes", true}}).toArray();
+                QString st = shapes.isEmpty() ? QString() : ask("nodeType", QJsonObject{{"args", QJsonArray{shapes[0]}}}).toString();
+                if (st == "nurbsCurve") curves.append(n);
+                if (st == "mesh") meshes.append(n);
+            }
+            if (!curves.isEmpty()) c["curves"] = curves;
+            if (!meshes.isEmpty() && t == "collide") c["meshes"] = meshes;
+            exec("xjenAddModifier", c);
+        });
+        a->setEnabled(has_command("xjenAddModifier"));
+    }
     m->addSeparator();
     QMenu* sel = m->addMenu("Select");
     sel->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
