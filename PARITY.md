@@ -1027,7 +1027,7 @@ Still not done:
 - Snap Pivot Orientation is held only. Gimbal rotate draws world axes.
 - Global reaches meshes only, not NURBS. Object mode has no colours in the view.
 - A World symmetry mesh moved after symmetry was set keeps its pairs from before. Set symmetry again after moving it.
-- UV Pin, Proximity Pin, Interactive Bind Skin, Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out, Deform > Edit other than Lattice, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, a top level Visualize.
+- Interactive Bind Skin, Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out, Deform > Edit other than Lattice, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, a top level Visualize.
 
 ## Harold renderer (07/11/2026)
 
@@ -2592,3 +2592,19 @@ reference's dashed tear-off line at the top: a click floats the menu as a window
 as they open (recent files, workspaces) show the items of the last time the menu itself was opened. The default layout opens the Outliner on
 the left of the views, as the reference's default workspace does, and the General workspace shows it; a saved window
 layout still wins.
+
+### Constrain > UV Pin and Proximity Pin (16/11/2026)
+
+PLAN 2.8. `UVPin` and `ProximityPin` (runtime command names as the reference's) pin the selected transforms to the mesh
+selected last, from the Constrain menu. The nodes are the ones above; the exact nodes and connections the reference's
+menu items make were not checked against its docs page for the menu or a running copy.
+
+- UV Pin: one `uvPin` for the selection, the mesh's `worldMesh[0]` into `deformedGeometry`, a `coordinate` per object
+  at the UV of the closest place on the mesh, each `outputMatrix` into the object's `offsetParentMatrix`. The object's
+  own transform is set so that it stays where it was.
+- Proximity Pin: one `proximityPin`, each object's world matrix as its `inputMatrix`, the mesh's `worldMesh[0]` into
+  `deformedGeometry`, and the mesh as it is now kept as `originalGeometry` in a hidden intermediate shape under a
+  transform of its own (`<mesh>PinOrig`), so that moving the mesh moves the objects.
+- One undo step each; saved and opened with `.ma`.
+- Not done: pinning to selected components (the reference can make a locator per component), NURBS surfaces, an option
+  box.

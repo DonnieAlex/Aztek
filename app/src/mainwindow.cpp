@@ -764,6 +764,8 @@ QMenu* MainWindow::constrain_menu() {
     cmd(m, "Normal", "normalConstraint", {}, QString(), true);
     cmd(m, "Tangent", "tangentConstraint", {}, QString(), true);
     cmd(m, "Point on Poly", "pointOnPolyConstraint", {}, QString(), true);
+    cmd(m, "UV Pin", "UVPin");
+    cmd(m, "Proximity Pin", "ProximityPin");
     m->addAction("Rivet", [] {
         // A locator held to the selected components.
         QJsonArray sel = state()["selection"].toArray();
