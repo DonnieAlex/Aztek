@@ -5,6 +5,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 pub mod dyn_draw;
+pub mod autosave;
 pub mod axis_orient;
 mod batch;
 pub mod builtin_plugins;

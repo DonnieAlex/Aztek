@@ -1774,6 +1774,7 @@ void MainWindow::closeEvent(QCloseEvent* e) {
     QSettings s;
     s.setValue("window/geometry", saveGeometry());
     s.setValue("window/state", saveState());
+    s.setValue("session/running", false);
     e->accept();
 }
 
@@ -1785,6 +1786,18 @@ void MainWindow::run_startup(const QString& script, const QString& screenshot) {
         restoreState(s.value("window/state").toByteArray());
     }
     exec_quiet("constructionHistory", QJsonObject{{"state", s.value("prefs/constructionHistory", true).toBool()}});
+    // Last time ended without closing: offer the newest autosave. Not when a script or a screenshot drives the run.
+    const bool crashed = s.value("session/running", false).toBool();
+    s.setValue("session/running", true);
+    if (crashed && script.isEmpty() && screenshot.isEmpty()) {
+        QTimer::singleShot(800, this, [this] {
+            QString latest = ask("autoSave", QJsonObject{{"query", true}, {"queried", QJsonArray{"latestFile"}}}).toString();
+            if (latest.isEmpty()) return;
+            if (QMessageBox::question(this, "Recover", "Aztek did not close properly last time.\n\nOpen the newest autosave?\n" + latest,
+                                      QMessageBox::Open | QMessageBox::Ignore, QMessageBox::Open) == QMessageBox::Open)
+                exec("file", QJsonObject{{"args", QJsonArray{latest}}, {"open", true}, {"force", true}});
+        });
+    }
     // New versions: asked about once, then checked in the background. Not when a script or a screenshot drives the run.
     if (script.isEmpty() && screenshot.isEmpty())
         QTimer::singleShot(2500, this, [this] { updates_at_startup(this, [this] { return close(); }); });

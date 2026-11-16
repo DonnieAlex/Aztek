@@ -115,7 +115,7 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [ ] 2.3 Image planes: `imagePlane` command and node (camera-attached and free), `CreateImagePlane`, View > Image
   Plane menu, file sequences with frame offset, depth, alpha gain, fit modes, display in all views or looking through,
   `.ma` read and write.
-- [ ] 2.4 Autosave: `autoSave` command (enable, interval, limit, destination, prompt), the preference page, timed saves
+- [x] 2.4 (16/11/2026; saving is on the interface thread, so a very large scene pauses while it writes) Autosave: `autoSave` command (enable, interval, limit, destination, prompt), the preference page, timed saves
   that don't block, recovery of the last autosave after a crash.
 - [ ] 2.5 Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
   playback. WAV first.

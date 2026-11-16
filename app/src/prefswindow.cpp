@@ -271,8 +271,39 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     f->addRow("", new_opts);
     check(f, "Construction history on at start", "constructionHistory", true);
     number(f, "Undo queue length (0 infinite)", "undoQueue", 0, 0, 100000, 10, 0);
-    check(f, "Autosave", "autosave", false);
-    number(f, "Autosave every (minutes)", "autosaveMinutes", 10, 1, 240, 1, 0);
+    // Autosave: kept by the autoSave command, so scripts and this page agree.
+    {
+        auto q = [](const char* flag) { return ask("autoSave", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}); };
+        auto* en = new QCheckBox(this);
+        en->setChecked(q("enable").toBool());
+        f->addRow("Autosave:", en);
+        auto* mins = new QDoubleSpinBox(this);
+        mins->setRange(1, 240);
+        mins->setDecimals(0);
+        mins->setValue(std::max(1.0, q("interval").toDouble() / 60.0));
+        f->addRow("Autosave every (minutes):", mins);
+        auto* prompt = new QCheckBox(this);
+        prompt->setChecked(q("prompt").toBool());
+        f->addRow("Prompt before autosave:", prompt);
+        auto* limit = new QCheckBox(this);
+        limit->setChecked(q("limitBackups").toBool());
+        f->addRow("Limit autosaves:", limit);
+        auto* count = new QSpinBox(this);
+        count->setRange(1, 1000);
+        count->setValue(std::max(1, q("maxBackups").toInt()));
+        f->addRow("Number of autosaves:", count);
+        auto* dest = new QComboBox(this);
+        dest->addItems({"Project autosave folder", "Named folder", "Environment variable (AZTEK_AUTOSAVE_FOLDER)"});
+        dest->setCurrentIndex(std::clamp(q("destination").toInt(), 0, 2));
+        f->addRow("Autosave destination:", dest);
+        auto* folder = new QLineEdit(q("folder").toString(), this);
+        folder->setPlaceholderText("Folder, for Named folder");
+        f->addRow("Autosave folder:", folder);
+        savers->append([en, mins, prompt, limit, count, dest, folder](QSettings&) {
+            exec_quiet("autoSave", QJsonObject{{"enable", en->isChecked()}, {"interval", mins->value() * 60.0}, {"prompt", prompt->isChecked()}, {"limitBackups", limit->isChecked()},
+                                               {"maxBackups", count->value()}, {"destination", dest->currentIndex()}, {"folder", folder->text()}});
+        });
+    }
     // User Folder: where scripts, plug-ins, modules and preferences kept between versions are looked for. Aztek's
     // own, an existing folder used where it is, or any other folder laid out the same way.
     f = page("User Folder");
@@ -534,20 +565,27 @@ void MainWindow::apply_prefs() {
     QString sp = s.value("prefs/playbackSpeed", "Real-time").toString();
     play_speed_ = sp == "Half" ? 0.5 : sp == "Twice" ? 2.0 : 1.0;
     loop_mode_ = s.value("prefs/playbackLoop", "Continuous").toString();
-    if (s.value("prefs/autosave", false).toBool()) {
+    // Settings from before autoSave kept them: moved across once.
+    if (s.contains("prefs/autosave")) {
+        exec_quiet("autoSave", QJsonObject{{"enable", s.value("prefs/autosave").toBool()}, {"interval", s.value("prefs/autosaveMinutes", 10).toDouble() * 60.0}});
+        s.remove("prefs/autosave");
+        s.remove("prefs/autosaveMinutes");
+    }
+    // Autosave: a numbered copy in the autosave folder when the scene has changed, the scene keeping its name.
+    auto aq = [](const char* flag) { return ask("autoSave", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}); };
+    if (aq("enable").toBool()) {
         if (!autosave_) {
             autosave_ = new QTimer(this);
-            connect(autosave_, &QTimer::timeout, this, [this] {
-                QString file = state()["file"].toString();
-                // Beside the scene, numbered; an untitled scene isn't autosaved.
-                if (file.isEmpty()) return;
-                QString to = file + ".autosave";
-                aztek_free(aztek_file("save", to.toUtf8().constData()));
-                aztek_free(aztek_file("save", file.toUtf8().constData()));
-                log("// Autosaved " + to + " //");
+            connect(autosave_, &QTimer::timeout, this, [this, aq] {
+                if (!state()["modified"].toBool()) return;
+                if (aq("prompt").toBool() &&
+                    QMessageBox::question(this, "Autosave", "Autosave the scene now?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) != QMessageBox::Yes)
+                    return;
+                QJsonValue made = ask("autoSave", QJsonObject{{"perform", true}});
+                if (made.isString()) log("// Autosaved " + made.toString() + " //");
             });
         }
-        autosave_->start(s.value("prefs/autosaveMinutes", 10).toInt() * 60000);
+        autosave_->start(int(std::max(1.0, aq("interval").toDouble()) * 1000.0));
     } else if (autosave_) {
         autosave_->stop();
     }

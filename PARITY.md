@@ -2490,6 +2490,17 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### Autosave (16/11/2026)
+
+`autoSave` with the reference's flags: `-enable`, `-interval` (seconds), `-limitBackups`, `-maxBackups`, `-destination`
+(0 the project's `autosave` folder, 1 `-folder`, 2 the folder `AZTEK_AUTOSAVE_FOLDER` or `MAYA_AUTOSAVE_FOLDER` names),
+`-prompt` and `-perform`, each readable with `-q`; settings are optionVars, kept between sessions. An autosave is a
+numbered `.ma` copy (`shot.0001.ma`, ...) written with `file -exportAll`, so the scene keeps its own name and its unsaved
+state; with Limit autosaves only the newest Number of autosaves stay. Preferences > Settings sets them all. The timer
+saves only a changed scene. After a session that did not close, Aztek offers the newest autosave at start
+(`autoSave -q -latestFile`, Aztek's own flag, with `-q -destinationFolder`). The old Autosave preference is moved
+across once. Saving runs on the interface thread: a very large scene pauses while it writes.
+
 ### Texel density (16/11/2026)
 
 `texGetTexelDensity` (`-mapSize`, 1024 by default; faces or whole objects) answers pixels per scene unit: the square

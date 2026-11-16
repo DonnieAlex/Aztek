@@ -76,6 +76,25 @@ fn save_option_vars(u: &Ui) {
     let _ = std::fs::write(p, Value::Object(u.option_vars.clone()).to_string());
 }
 
+/// An optionVar's value, if set.
+pub(crate) fn option_var(name: &str) -> Option<Value> {
+    with_ui(|u| {
+        load_option_vars(u);
+        u.option_vars.get(name).cloned()
+    })
+}
+
+/// Sets optionVars and keeps them.
+pub(crate) fn set_option_vars(values: &[(&str, Value)]) {
+    with_ui(|u| {
+        load_option_vars(u);
+        for (k, v) in values {
+            u.option_vars.insert(k.to_string(), v.clone());
+        }
+        save_option_vars(u);
+    })
+}
+
 /// Does the selection mask let this category be picked?
 pub fn mask_allows(cat: &str) -> bool {
     with_ui(|u| !u.masks_off.contains(cat))
