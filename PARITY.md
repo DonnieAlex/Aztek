@@ -960,7 +960,7 @@ Not done, the ones a user would notice first:
 - Extract makes a new object with no history node, so it has no handles. Bevel and Bridge have numbers but no handles in the view, from memory as the reference does. Wire dropoff locators, jiggle, wrap, blendShape and delta mush have Envelope only. Lattice has translate arrows on the whole lattice. motionPath markers, pointConstraint and the light cones have nothing.
 - The extrude handles do not follow `offset`, `localRotate` or several separate regions: one set sits at the middle of them.
 - Tools have no option boxes. Box for Mesh Reduce is raw flags (the NURBS primitives, Detach, Surfaces, Unfold, Layout and Combine have layouts since; see below).
-- Missing menu items, by use, as of 16/11/2026: Mirror Skin Weights as an option box, Interactive Bind Skin, 3D Cut and Sew UV Tool, Deform > Edit > Blend Shape and Wire's edits other than Add Wire, Connect and Disconnect from IK/FK, the Cache menu's nCache and Geometry Cache. The rest of the list from 07/11/2026 is in; see the dated sections below.
+- Missing menu items, by use, as of 16/11/2026: Interactive Bind Skin, Deform > Edit > Blend Shape's Swap and Bake Topology to Targets, Wire's edits other than Add Wire, Connect and Disconnect from IK/FK, the Cache menu's nCache and Geometry Cache. The rest of the list from 07/11/2026 is in; see the dated sections below.
 - `polyBevel3`'s node is `polyBevel1`, with no test pinning anything else. From memory, not confirmed: `bevel.name` in the capture kit.
 
 ## Animation layers and HumanIK, 07/11/2026
@@ -1027,7 +1027,7 @@ Still not done:
 - (16/11/2026: Snap Pivot Orientation and Gimbal axes are in.)
 - Global reaches meshes only, not NURBS. Object mode has no colours in the view.
 - A World symmetry mesh moved after symmetry was set keeps its pairs from before. Set symmetry again after moving it.
-- As of 16/11/2026: Interactive Bind Skin, 3D Cut and Sew, Deform > Edit > Blend Shape and most of Wire, Set IK/FK Key on the joints (they hold FK rotates as data: TICKETS.md), nCache and Geometry Cache.
+- As of 16/11/2026: Interactive Bind Skin, Blend Shape's Swap and Bake Topology to Targets, most of Wire's edits, Set IK/FK Key on the joints (they hold FK rotates as data: TICKETS.md), nCache and Geometry Cache.
 
 ## Harold renderer (07/11/2026)
 
@@ -2885,3 +2885,19 @@ projection. `panZoom` does this now, as the reference's command: `-l -r -u -d` i
 relative unless `-abs`, one undo step, the active view's camera when none is named. It moved the camera before. The
 panel's View menu has 2D Pan/Zoom: Enable, Zoom In, Zoom Out, Reset. Not done: the 2D Pan/Zoom Tool (dragging the
 film with the mouse), and the HUD's 2D Pan/Zoom marker.
+
+### 3D Cut and Sew UV Tool, Blend Shape Add and Remove, Mirror Skin Weights' option box (16/11/2026)
+
+PLAN 3.12, part. UV > 3D Cut and Sew UV Tool (`SetCutSewUVTool`): in the view, the edge under the pointer shows; a drag
+gathers every edge it passes over on one mesh and the release cuts their UVs (`polyMapCut`), or sews them with Ctrl
+held (`polyMapSew`), one undo step per drag. Checked by driving it under Xvfb: docs/cut-sew-uv.png (cut in red, sew in
+green). Not done: the reference's tool also cuts with a click, selects shells and shows the seams in the view's own
+colour; here a drag of one edge does the click's job.
+
+Deform > Edit > Blend Shape > Add and Remove (`AddBlendShapeTarget`, `RemoveBlendShapeTarget`): the targets first, the
+base last, through `blendShape -e -t` at the next index and `blendShape -e -rmt`. Not done: Swap, Bake Topology to
+Targets, the normalization groups.
+
+Skin > Mirror Skin Weights is one item with an option box (plane, direction, surface and influence association,
+normalize), as the reference's, running `copySkinWeights` on the selected skin onto itself. It was a submenu of four
+fixed planes.

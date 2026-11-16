@@ -557,6 +557,7 @@ QMenu* MainWindow::uv_menu() {
     cmd(m, "Auto Seams", "u3dAutoSeam", {}, QString(), true);
     cmd(m, "Cut UV Edges", "polyMapCut");
     m->addAction("Split", [] { mel_action("SplitUV;"); });
+    m->addAction("3D Cut and Sew UV Tool", [this] { set_tool("cutSewUv"); });
     cmd(m, "Sew UV Edges", "polyMapSew");
     cmd(m, "Move and Sew", "polyMapSewMove");
     cmd(m, "Merge UVs", "polyMergeUV", {}, QString(), true);
@@ -628,6 +629,9 @@ QMenu* MainWindow::deform_menu() {
     cmd(m, "Export Weights", "deformerWeights", QJsonObject{{"export", true}}, QString(), true);
     cmd(m, "Import Weights", "deformerWeights", QJsonObject{{"import", true}}, QString(), true);
     menu_title(m, "Edit");
+    QMenu* edit_blend = m->addMenu("Blend Shape");
+    edit_blend->addAction("Add", [] { mel_action("AddBlendShapeTarget;"); });
+    edit_blend->addAction("Remove", [] { mel_action("RemoveBlendShapeTarget;"); });
     QMenu* edit_lattice = m->addMenu("Lattice");
     cmd(edit_lattice, "Remove Lattice Tweaks", "lattice", QJsonObject{{"edit", true}, {"removeTweaks", true}});
     cmd(edit_lattice, "Reset Lattice", "lattice", QJsonObject{{"edit", true}, {"latticeReset", true}});
@@ -714,18 +718,9 @@ QMenu* MainWindow::skin_menu() {
     cmd(m, "Hammer Skin Weights", "weightHammerVerts", {});
     cmd(m, "Remove Unused Influences", "removeUnusedInfluences", {});
     cmd(m, "Substitute Geometry", "substituteGeometry", {});
-    // Mirror and copy work on the selection: one skinned mesh mirrors onto itself, two copy from the first to the second.
-    QMenu* mirror = m->addMenu("Mirror Skin Weights");
-    for (auto [label, plane, inv] : {std::tuple{"Across YZ, +X to -X", "YZ", false}, {"Across YZ, -X to +X", "YZ", true}, {"Across XZ, +Y to -Y", "XZ", false}, {"Across XY, +Z to -Z", "XY", false}}) {
-        QString pl = plane;
-        bool in = inv;
-        mirror->addAction(label, [pl, in] {
-            QString obj = state()["selection"].toArray().at(0).toString().section('.', 0, 0);
-            QString sk = ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString();
-            if (sk.isEmpty()) { log("// Warning: select a skinned mesh //", 4); return; }
-            exec("copySkinWeights", QJsonObject{{"sourceSkin", sk}, {"destinationSkin", sk}, {"mirrorMode", pl}, {"mirrorInverse", in}, {"influenceAssociation", QJsonArray{"label", "closestJoint"}}});
-        });
-    }
+    // Mirror and copy work on the selection: one skinned mesh mirrors onto itself (copySkinWeights with the option box's
+    // plane and direction), two copy from the first to the second.
+    cmd(m, "Mirror Skin Weights", "copySkinWeights", {}, QString(), true);
     cmd(m, "Copy Vertex Weights", "artAttrSkinWeightCopy");
     cmd(m, "Paste Vertex Weights", "artAttrSkinWeightPaste");
     m->addAction("Copy Skin Weights", [] {
@@ -1477,6 +1472,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"crease", "Crease: pick edges, then middle-drag to set their crease."},
         {"createPolygon", "Create Polygon: click to place points, Enter makes the face."},
         {"appendPolygon", "Append to Polygon: click border edges and points, Enter makes the face."},
+        {"cutSewUv", "3D Cut and Sew UV: drag over edges to cut their UVs, Ctrl-drag to sew them."},
         {"quadDraw", "Quad Draw: click places dots, Shift-click fills a quad, Ctrl-click inserts a loop, Ctrl+Shift-click deletes, Tab-drag extends a border edge, drag moves."},
     };
     if (tool_help.contains(tool))

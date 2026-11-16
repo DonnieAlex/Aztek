@@ -359,6 +359,8 @@ pub enum Tool {
     CreatePolygon,
     AppendPolygon,
     QuadDraw,
+    /// The 3D Cut and Sew UV Tool: drag over edges to cut their UVs, Ctrl to sew them.
+    CutSew,
     /// Drag a free-form outline; what's inside is selected.
     Lasso,
     /// Drag a brush over components to select them.

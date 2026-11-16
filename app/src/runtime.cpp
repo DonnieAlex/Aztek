@@ -150,6 +150,7 @@ void MainWindow::build_runtime() {
     tool("CreatePolygonTool", "createPolygon", "Create Polygon");
     tool("AppendToPolygonTool", "appendPolygon", "Append to Polygon");
     tool("QuadDrawTool", "quadDraw", "Quad Draw");
+    tool("SetCutSewUVTool", "cutSewUv", "3D Cut and Sew UV Tool");
     tool("CVCurveTool", "curveCv", "CV Curve Tool");
     tool("EPCurveTool", "curveEp", "EP Curve Tool");
     tool("ArtPaintSkinWeightsTool", "paintSkin", "Paint Skin Weights");
@@ -529,6 +530,13 @@ void MainWindow::build_runtime() {
     };
     add_if("AddWrapInfluence", "Deform", "Add the last selected mesh as an influence of the first one's wrap", on_deformer("wrap", "influence", "-inf"));
     add_if("RemoveWrapInfluence", "Deform", "Remove the last selected influence from the first one's wrap", on_deformer("wrap", "influence", "-ri"));
+    // Deform > Edit > Blend Shape > Add and Remove: the targets first, the base last.
+    const QString blend_of = "string $s[] = `ls -sl -o`; if (size($s) < 2) error \"Select the targets, then the base\"; string $base = $s[size($s) - 1];"
+                             " string $b[] = `ls -type blendShape (listHistory($base))`; if (!size($b)) error (\"No blend shape on \" + $base);";
+    add_if("AddBlendShapeTarget", "Deform", "Add the selected meshes as targets of the last one's blend shape",
+           "{ " + blend_of + " int $n = `blendShape -q -wc $b[0]`; for ($i = 0; $i < size($s) - 1; $i++) blendShape -e -t $base ($n + $i) $s[$i] 1.0 $b[0]; }");
+    add_if("RemoveBlendShapeTarget", "Deform", "Remove the selected targets from the last one's blend shape",
+           "{ " + blend_of + " for ($i = 0; $i < size($s) - 1; $i++) blendShape -e -rmt $s[$i] $b[0]; }");
     add_if("AddWire", "Deform", "Add the last selected curve to the first one's wire", on_deformer("wire", "curve", "-w"));
     // Deform > Membership > Prune Membership: each selected object's deformer of that kind loses the points it doesn't move.
     for (auto [rt, type, cmd] : {std::tuple{"PruneCluster", "cluster", "cluster"}, {"PruneLattice", "ffd", "lattice"},

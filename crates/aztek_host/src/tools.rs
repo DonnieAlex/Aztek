@@ -54,6 +54,8 @@ pub struct ToolState {
     pub tab: bool,
     pub append_edges: Vec<Index>,
     pub weld_source: Option<(NodeId, Index, bool)>,
+    /// 3D Cut and Sew: the mesh and the edges dragged over so far.
+    pub cut_sew: Option<(NodeId, Vec<Index>)>,
 }
 
 /// Screen-space hit on any drawn mesh.
@@ -170,6 +172,7 @@ impl View {
             Tool::CreatePolygon => Some(self.create_polygon(core, kind, button, px, items)),
             Tool::AppendPolygon => Some(self.append_polygon(kind, button, px, items)),
             Tool::QuadDraw => Some(self.quad_draw(core, kind, button, px, mods, items)),
+            Tool::CutSew => Some(self.cut_sew(core, kind, button, px, mods, items)),
             _ => None,
         }
     }
@@ -327,6 +330,55 @@ impl View {
                     self.ts.cut_points.push(json!({"face": s.face, "position": s.world.to_array()}));
                     self.ts.cut_world.push(s.world);
                 }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// 3D Cut and Sew UV Tool: hovering shows the edge under the pointer; a drag gathers every edge it passes over on
+    /// one mesh, and the release cuts their UVs (polyMapCut), or sews them with Ctrl (polyMapSew), as one step.
+    fn cut_sew(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, items: &[DrawItem]) -> bool {
+        let snap = snap_at(self, items, px).filter(|s| s.edge.3 < 12.0);
+        let colour = if mods & CTRL != 0 { GREEN } else { RED };
+        let edge_line = |it: &DrawItem, e: Index| {
+            let m: &Mesh = &it.mesh;
+            (it.world.transform_point3(m.position(m.edge_point(e, 0))), it.world.transform_point3(m.position(m.edge_point(e, 1))))
+        };
+        match kind {
+            0 if button == 1 => {
+                let Some(s) = snap else { return false };
+                self.ts.cut_sew = Some((items[s.item].shape, vec![s.edge.0]));
+                true
+            }
+            1 => {
+                self.tool_preview_clear();
+                // Over a vertex the nearest edge could be any of its edges: wait until the pointer is along one.
+                if let (Some(s), Some((mesh, edges))) = (snap.as_ref().filter(|s| s.vertex.2 > 8.0), self.ts.cut_sew.as_mut()) {
+                    if items[s.item].shape == *mesh && !edges.contains(&s.edge.0) {
+                        edges.push(s.edge.0);
+                    }
+                }
+                if let Some((mesh, edges)) = &self.ts.cut_sew {
+                    if let Some(it) = items.iter().find(|i| i.shape == *mesh) {
+                        for &e in edges {
+                            let (a, b) = edge_line(it, e);
+                            self.vp.tool_lines.push((a, b, colour));
+                        }
+                    }
+                } else if let Some(s) = &snap {
+                    let (a, b) = edge_line(&items[s.item], s.edge.0);
+                    self.vp.tool_lines.push((a, b, colour));
+                }
+                true
+            }
+            2 if button == 1 => {
+                self.tool_preview_clear();
+                let Some((mesh, edges)) = self.ts.cut_sew.take() else { return false };
+                let name = components::display_path(&core.s.graph, mesh);
+                let list: Vec<String> = edges.iter().map(|e| format!("{name}.e[{e}]")).collect();
+                let cmd = if mods & CTRL != 0 { "polyMapSew" } else { "polyMapCut" };
+                let _ = core.exec(cmd, json!({"args": list}));
                 true
             }
             _ => false,

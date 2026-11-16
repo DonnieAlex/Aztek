@@ -2058,6 +2058,7 @@ impl View {
                     "createPolygon" => Tool::CreatePolygon,
                     "appendPolygon" => Tool::AppendPolygon,
                     "quadDraw" => Tool::QuadDraw,
+                    "cutSewUv" => Tool::CutSew,
                     "camBoxDolly" => Tool::CamBoxDolly,
                     "camWalk" => Tool::CamWalk,
                     "modelTime" => Tool::ModelTime,
