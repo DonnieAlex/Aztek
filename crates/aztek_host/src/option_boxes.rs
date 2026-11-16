@@ -33,6 +33,12 @@ fn nums(names: &[&str]) -> Vec<(String, Value)> {
     names.iter().enumerate().map(|(k, n)| (n.to_string(), json!(k))).collect()
 }
 
+/// A row with another default than its first choice.
+fn with_default(mut row: Value, v: Value) -> Value {
+    row["default"] = v;
+    row
+}
+
 fn en(flag: &str, label: &str, names: &[&str]) -> Value {
     let n = nums(names);
     let r: Vec<(&str, Value)> = n.iter().map(|(a, v)| (a.as_str(), v.clone())).collect();
@@ -82,16 +88,20 @@ pub fn rows(command: &str) -> Vec<Value> {
             s("worldUpObject", "World up object"),
         ],
         // Skeleton and skin
+        // In the reference's order. Its defaults: Closest in hierarchy, Interactive, Distance, 5 influences, 4 dropoff.
         "skinCluster" => vec![
             e("toSelectedBones", "Bind to", &[("Joint hierarchy", json!(false)), ("Selected joints", json!(true))]),
-            en("bindMethod", "Bind method", &["Closest distance", "Closest in hierarchy", "Heat map", "Geodesic voxel"]),
+            with_default(en("bindMethod", "Bind method", &["Closest distance", "Closest in hierarchy", "Heat map", "Geodesic voxel"]), json!(1)),
             en("skinMethod", "Skinning method", &["Classic linear", "Dual quaternion", "Weight blended"]),
             e("normalizeWeights", "Normalize weights", &[("Interactive", json!(1)), ("None", json!(0)), ("Post", json!(2))]),
             en("weightDistribution", "Weight distribution", &["Distance", "Neighbors"]),
+            b("multipleBindPose", "Allow multiple bind poses", false),
             i("maximumInfluences", "Max influences", 5),
-            b("obeyMaxInfluences", "Maintain max influences", false),
-            f("dropoffRate", "Dropoff rate", 4.0),
+            b("obeyMaxInfluences", "Maintain max influences", true),
+            b("removeUnusedInfluence", "Remove unused influences", false),
+            f("heatmapFalloff", "Heatmap falloff", 0.68),
             b("includeHiddenSelections", "Include hidden selections on creation", false),
+            f("dropoffRate", "Dropoff rate", 4.0),
         ],
         "ikHandle" => vec![
             e("solver", "Current solver", &[("Rotate-Plane Solver", json!("ikRPsolver")), ("Single-Chain Solver", json!("ikSCsolver"))]),

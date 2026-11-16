@@ -22,6 +22,7 @@
 #include <QColorDialog>
 #include <QSpinBox>
 #include <QPushButton>
+#include <QMessageBox>
 #include <QRadioButton>
 #include <QScrollArea>
 #include <QSlider>
@@ -109,8 +110,10 @@ QDoubleSpinBox* ToolSettings::slider_row(QFormLayout* form, const QString& label
     slider->setRange(0, 1000);
     h->addWidget(spin);
     h->addWidget(slider, 1);
+    // The slider covers the spin box's range, which Min/Max value can change.
     connect(slider, &QSlider::valueChanged, this, [=](int v) {
         if (loading_) return;
+        const double lo = spin->minimum(), hi = spin->maximum();
         double x = lo + (hi - lo) * v / 1000.0;
         spin->blockSignals(true);
         spin->setValue(x);
@@ -118,8 +121,9 @@ QDoubleSpinBox* ToolSettings::slider_row(QFormLayout* form, const QString& label
         on(x);
     });
     connect(spin, &QDoubleSpinBox::valueChanged, this, [=](double x) {
+        const double lo = spin->minimum(), hi = spin->maximum();
         slider->blockSignals(true);
-        slider->setValue(int((x - lo) / (hi - lo) * 1000.0));
+        slider->setValue(hi > lo ? int((x - lo) / (hi - lo) * 1000.0) : 0);
         slider->blockSignals(false);
         if (!loading_) on(x);
     });
@@ -646,8 +650,19 @@ QWidget* ToolSettings::build_paint_page() {
     ps->setEnabled(false);
     connect(paint_select_, &QButtonGroup::idClicked, this, [](int id) { exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"paintSelectMode", id + 1}}); });
     auto* sel_geo = new QPushButton("Select Geometry", w);
-    connect(sel_geo, &QPushButton::clicked, this, [] {
+    // The whole mesh again: the components picked in Select mode let go, so the brush paints everywhere.
+    connect(sel_geo, &QPushButton::clicked, this, [this] {
+        QString mesh;
+        if (!last_skin_.isEmpty()) {
+            QJsonArray geo = ask("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"query", true}, {"geometry", true}}).toArray();
+            if (!geo.isEmpty()) mesh = ask("listRelatives", QJsonObject{{"args", QJsonArray{geo.at(0).toString()}}, {"parent", true}, {"fullPath", true}}).toArray().at(0).toString();
+        }
         exec("selectMode", QJsonObject{{"args", QJsonArray{"object"}}});
+        if (!mesh.isEmpty()) exec("select", QJsonObject{{"args", QJsonArray{mesh}}});
+        if (skin_mode_ && skin_mode_->button(0)) {
+            skin_mode_->button(0)->setChecked(true);
+            exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"skinPaintMode", 1}});
+        }
     });
     form->addRow("", sel_geo);
     op_ = new QButtonGroup(w);
@@ -674,8 +689,19 @@ QWidget* ToolSettings::build_paint_page() {
     form->addRow("Weight Type:", weight_type);
     normalize_ = new QComboBox(w);
     normalize_->addItems({"Off", "Interactive", "Post"});
+    // The skinCluster's own setting. Turned to Interactive from Off or Post, the weights can be normalized there and
+    // then, as the reference asks.
     connect(normalize_, &QComboBox::activated, this, [this](int n) {
-        if (!loading_ && !last_skin_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{last_skin_ + ".normalizeWeights", n}}});
+        if (loading_ || last_skin_.isEmpty()) return;
+        const int was = ask("getAttr", QJsonObject{{"args", QJsonArray{last_skin_ + ".normalizeWeights"}}}).toInt(1);
+        exec("setAttr", QJsonObject{{"args", QJsonArray{last_skin_ + ".normalizeWeights", n}}});
+        if (n == 1 && was != 1) {
+            const auto answer = QMessageBox::question(this, "Normalize Weights", "Normalize the weights of " + last_skin_.section('|', -1) + " now?", QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+            if (answer == QMessageBox::Yes) {
+                QJsonArray geo = ask("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"query", true}, {"geometry", true}}).toArray();
+                if (!geo.isEmpty()) exec("skinPercent", QJsonObject{{"args", QJsonArray{last_skin_, geo.at(0).toString()}}, {"normalize", true}});
+            }
+        }
     });
     form->addRow("Normalize Weights:", normalize_);
     opacity_ = slider_row(form, "Opacity:", 0.0, 1.0, 0.05, [this](double x) { paint_set("opacity", x); });
@@ -696,7 +722,13 @@ QWidget* ToolSettings::build_paint_page() {
     hi->setValue(1.0);
     rl->addStretch(1);
     auto set_range = [this, lo, hi] {
-        if (hi->value() > lo->value()) value_->setRange(lo->value(), hi->value());
+        if (hi->value() <= lo->value()) return;
+        exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"minvalue", lo->value()}, {"maxvalue", hi->value()}});
+        const double v = value_->value();
+        value_->setRange(lo->value(), hi->value());
+        // The slider follows the new range.
+        value_->setValue(v);
+        emit value_->valueChanged(value_->value());
     };
     connect(lo, &QDoubleSpinBox::valueChanged, this, set_range);
     connect(hi, &QDoubleSpinBox::valueChanged, this, set_range);
@@ -711,9 +743,14 @@ QWidget* ToolSettings::build_paint_page() {
     feedback_ = new QCheckBox("Color feedback", w);
     connect(feedback_, &QCheckBox::toggled, this, [this](bool on) { paint_set("colorfeedback", on); });
     form->addRow("", feedback_);
-    auto* ramp = new QCheckBox("Color Ramp", w);
-    ramp->setEnabled(false);
-    form->addRow("", ramp);
+    ramp_ = new QCheckBox("Use Color Ramp", w);
+    connect(ramp_, &QCheckBox::toggled, this, [this](bool on) { paint_set("useColorRamp", on); });
+    form->addRow("", ramp_);
+    // The ramp the weights go through, 0 on the left, 1 on the right.
+    auto* swatch = new QLabel(w);
+    swatch->setFixedHeight(12);
+    swatch->setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #000000, stop:0.25 #0040ff, stop:0.5 #00d933, stop:0.75 #ffe600, stop:1 #ff1a0d); border: 1px solid #222;");
+    form->addRow("Weight Color:", swatch);
     // Numeric: the painted influence's weight beside each point.
     auto* numbers = new QCheckBox("Show Numbers", w);
     connect(numbers, &QCheckBox::toggled, this, [](bool on) { exec("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"useNumericDisplay", on}}); });
@@ -994,6 +1031,7 @@ void ToolSettings::refresh_paint() {
     if (!opacity_->hasFocus()) opacity_->setValue(paint_query("opacity").toDouble());
     if (!radius_->hasFocus()) radius_->setValue(paint_query("radius").toDouble());
     feedback_->setChecked(paint_query("colorfeedback").toBool());
+    if (ramp_) ramp_->setChecked(paint_query("useColorRamp").toBool());
     // The skinClusters of the scene, the selected mesh's current.
     QStringList skins;
     for (const QJsonValue& x : ask("ls", QJsonObject{{"type", "skinCluster"}}).toArray()) skins << x.toString();

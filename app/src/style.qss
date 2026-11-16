@@ -74,3 +74,7 @@ QMainWindow > QTabBar::tab:selected { background: @menu; color: @bright; }
 QLineEdit#connectedField { background: #f1f1a5; color: #101010; }
 QToolButton#mapButton { border: none; padding: 0; }
 QToolButton#mapButton:hover { background: @button; }
+/* The status line's group handles: a raised bar, an arrow when the group is folded. */
+QToolButton#statusHandle { border: none; border-left: 1px solid @border; border-right: 1px solid @hover; background: @chrome; margin: 2px 2px; padding: 0; color: @dim; font-size: 9px; }
+QToolButton#statusHandle:hover { background: @hi; }
+QToolButton#statusHandle:checked { background: @chrome; }

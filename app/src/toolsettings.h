@@ -94,6 +94,7 @@ private:
     QLineEdit* search_ = nullptr;
     QStringList pick_order_;
     QButtonGroup* skin_mode_ = nullptr;
+    QCheckBox* ramp_ = nullptr;
     QButtonGroup* paint_select_ = nullptr;
     QComboBox* normalize_ = nullptr;
     QButtonGroup* op_ = nullptr;

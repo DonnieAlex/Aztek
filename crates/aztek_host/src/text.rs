@@ -91,7 +91,8 @@ pub fn draw(text: &str, origin: DVec2, size: f64, color: [f32; 4], out: &mut Vec
         let pen = x.round() as i32;
         for (dx, dy, v) in px {
             let (x0, y0) = ((pen + ox + dx) as f32, (y + oy + dy) as f32);
-            let col = [color[0], color[1], color[2], color[3] * v.min(1.0)];
+            // Coverage a little heavier than linear, so thin stems at small sizes don't wash out to grey.
+            let col = [color[0], color[1], color[2], color[3] * v.min(1.0).powf(0.75)];
             for (a, b) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
                 out.push(LineVertex { pos: [x0 + a, y0 + b, 0.5], color: col });
             }
@@ -99,6 +100,13 @@ pub fn draw(text: &str, origin: DVec2, size: f64, color: [f32; 4], out: &mut Vec
         x += f.h_advance(g);
         last = Some(g);
     }
+}
+
+/// Text over the scene: a soft dark edge under it, so it reads on a light background as well as a dark one.
+pub fn label(text: &str, origin: DVec2, size: f64, color: [f32; 4], out: &mut Vec<LineVertex>) {
+    let shadow = [0.0, 0.0, 0.0, 0.3 * color[3]];
+    draw(text, origin + DVec2::new(1.0, 1.0), size, shadow, out);
+    draw(text, origin, size, color, out);
 }
 
 #[cfg(test)]

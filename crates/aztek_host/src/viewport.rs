@@ -1387,7 +1387,7 @@ impl Viewport {
                 for x in &w {
                     x.to_bits().hash(&mut h);
                 }
-                (entry.mesh_gen, slot_key, held).hash(&mut h);
+                (entry.mesh_gen, slot_key, held, self.tool == Tool::PaintSkin && s.paint_ctx.use_color_ramp).hash(&mut h);
                 let wk = h.finish();
                 if wk != entry.weight_key || entry.weight_tris.is_none() {
                     entry.weight_key = wk;
@@ -1395,12 +1395,20 @@ impl Viewport {
                         gpu.drop_buffer(a);
                         gpu.drop_buffer(b);
                     }
+                    let ramp = self.tool == Tool::PaintSkin && s.paint_ctx.use_color_ramp;
                     let verts: Vec<LineVertex> = entry
                         .vertex_point
                         .iter()
                         .map(|&pt| {
                             let x = w.get(pt as usize).copied().unwrap_or(0.0).clamp(0.0, 1.0) as f32;
-                            LineVertex { pos: it.mesh.position(pt).as_vec3().to_array(), color: if held { [x * 0.55, x * 0.7, 0.35 + x * 0.65, 1.0] } else { [x, x, x, 1.0] } }
+                            let color = if held {
+                                [x * 0.55, x * 0.7, 0.35 + x * 0.65, 1.0]
+                            } else if ramp {
+                                weight_ramp(x)
+                            } else {
+                                [x, x, x, 1.0]
+                            };
+                            LineVertex { pos: it.mesh.position(pt).as_vec3().to_array(), color }
                         })
                         .collect();
                     if !verts.is_empty() && !entry.tri_indices.is_empty() {
@@ -3651,6 +3659,20 @@ pub struct RigItem {
     pub segs: Vec<(DVec3, DVec3)>,
     /// Triangles that pick as solidly as the lines: a joint's ball and bones.
     pub fills: Vec<[DVec3; 3]>,
+}
+
+/// Paint Skin Weights' colour ramp: black at 0, then blue, green, yellow and red at 1.
+pub fn weight_ramp(x: f32) -> [f32; 4] {
+    const STOPS: [(f32, [f32; 3]); 5] = [(0.0, [0.0, 0.0, 0.0]), (0.25, [0.0, 0.25, 1.0]), (0.5, [0.0, 0.85, 0.2]), (0.75, [1.0, 0.9, 0.0]), (1.0, [1.0, 0.1, 0.05])];
+    let x = x.clamp(0.0, 1.0);
+    for w in STOPS.windows(2) {
+        let ((a, ca), (b, cb)) = (w[0], w[1]);
+        if x <= b {
+            let t = if b > a { (x - a) / (b - a) } else { 0.0 };
+            return [ca[0] + (cb[0] - ca[0]) * t, ca[1] + (cb[1] - ca[1]) * t, ca[2] + (cb[2] - ca[2]) * t, 1.0];
+        }
+    }
+    [1.0, 0.1, 0.05, 1.0]
 }
 
 /// Whether a point falls on any of the triangles as drawn.

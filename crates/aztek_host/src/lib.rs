@@ -12,7 +12,6 @@ pub mod camera;
 mod core;
 pub mod ctx_cmds;
 pub mod feedback;
-use aztek_geo::stroke_font as font;
 mod gpu;
 mod harold_view;
 pub mod mel;

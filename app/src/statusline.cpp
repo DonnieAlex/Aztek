@@ -2,6 +2,7 @@
 // The status line, left to right as the reference's: menu set, file, undo, selection scope and masks, snapping, selection locks,
 // construction history, symmetry, soft select, then the numeric input and select by name field.
 #include "mainwindow.h"
+#include <QSettings>
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
@@ -171,9 +172,7 @@ void MainWindow::build_status_line() {
     tb->addAction(icon("renderSettings"), "Display Render Settings window", [this] { show_render_settings(this); });
     tb->addAction(icon("hypershade"), "Display Hypershade window", [this] { show_hypershade(); });
 
-    auto* spacer = new QWidget(tb);
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    tb->addWidget(spacer);
+    tb->addSeparator();
 
     // The field: absolute and relative transforms by the current tool, rename, select by name.
     input_mode_ = new QComboBox(tb);
@@ -189,13 +188,49 @@ void MainWindow::build_status_line() {
         input_field_->clear();
     });
     tb->addWidget(input_field_);
-    tb->addSeparator();
+    auto* spacer = new QWidget(tb);
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    QAction* spacer_action = tb->addWidget(spacer);
     // The editors' show and hide buttons, at the far right, in the reference's order.
     tb->addAction(icon("humanIK"), "Show or hide the HumanIK Character Controls", [this] { show_named_window("humanIK"); });
     tb->addAction(icon("attrEditor"), "Show or hide the Attribute Editor", [this] { attr_dock_->setVisible(!attr_dock_->isVisible()); if (attr_dock_->isVisible()) attr_dock_->raise(); });
     tb->addAction(icon("toolSettings"), "Show or hide the Tool Settings", [this] { tool_dock_->setVisible(!tool_dock_->isVisible()); });
     tb->addAction(icon("channelBoxIcon"), "Show or hide the Channel Box", [this] { channel_dock_->setVisible(!channel_dock_->isVisible()); if (channel_dock_->isVisible()) channel_dock_->raise(); });
     tb->addAction(icon("outlinerIcon"), "Show or hide the Outliner", [this] { outliner_dock_->setVisible(!outliner_dock_->isVisible()); if (outliner_dock_->isVisible()) outliner_dock_->raise(); });
+
+    // Each group of buttons folds away behind the handle before it, as the reference's status line does: the
+    // separators become handles. What is folded is kept between sessions.
+    const QList<QAction*> all = tb->actions();
+    const int end = all.indexOf(spacer_action);
+    int group = 0;
+    for (int i = 0; i < end; ++i) {
+        if (!all[i]->isSeparator()) continue;
+        QList<QAction*> members;
+        for (int j = i + 1; j < end && !all[j]->isSeparator(); ++j) members << all[j];
+        if (members.isEmpty()) continue;
+        auto* handle = new QToolButton(tb);
+        handle->setObjectName("statusHandle");
+        handle->setCheckable(true);
+        handle->setToolTip("Show or hide this group of buttons");
+        handle->setFixedWidth(10);
+        const QString key = QString("statusLine/folded%1").arg(group++);
+        auto fold = [this, handle, members, key](bool folded) {
+            handle->setText(folded ? QString::fromUtf8("\u25B8") : QString());
+            for (QAction* a : members) {
+                a->setProperty("folded", folded);
+                a->setVisible(!folded);
+            }
+            QSettings().setValue(key, folded);
+            // What the scope hides stays hidden on unfolding.
+            sync_status_line();
+        };
+        connect(handle, &QToolButton::toggled, this, fold);
+        tb->insertWidget(all[i], handle);
+        all[i]->setVisible(false);
+        const bool folded = QSettings().value(key, false).toBool();
+        handle->setChecked(folded);
+        if (!folded) handle->setText(QString());
+    }
 }
 
 void MainWindow::input_entered(const QString& raw) {
@@ -272,9 +307,11 @@ void MainWindow::sync_status_line() {
         symmetry_->setCurrentIndex(at);
     }
     bool comps = state()["mode"].toString() != "object";
-    for (QAction* a : object_masks_) a->setVisible(!comps);
+    // A group folded behind its handle stays hidden whatever the scope.
+    auto shown = [](QAction* a, bool on) { a->setVisible(on && !a->property("folded").toBool()); };
+    for (QAction* a : object_masks_) shown(a, !comps);
     mode_buttons_["object"]->setVisible(false);
-    for (const char* m : {"vertex", "edge", "face"}) mode_buttons_[m]->setVisible(comps);
+    for (const char* m : {"vertex", "edge", "face"}) shown(mode_buttons_[m], comps);
 }
 
 } // namespace az

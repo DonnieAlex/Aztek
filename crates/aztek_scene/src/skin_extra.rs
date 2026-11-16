@@ -514,16 +514,31 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
 fn hammer(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let g = &mut s.graph;
-    let mut targets = crate::skin::points_named(g, &names);
+    // Only the vertices named or selected: a whole object is not hammered, as the reference's works on components.
+    let comps: Vec<String> = names.iter().filter(|n| n.contains('.')).cloned().collect();
+    let mut targets = crate::skin::points_named(g, &comps);
     if targets.iter().all(|t| t.1.is_empty()) {
         targets.clear();
-        for n in &names {
-            let id = crate::rig::find(g, n.split('.').next().unwrap_or(n), "weightHammerVerts")?;
-            if let Some(m) = crate::components::as_mesh(g, id) {
-                let ids = selected_points(g, m);
-                targets.push((m, ids));
+        let mode = crate::components::mode(g);
+        if mode != crate::components::ComponentMode::Object {
+            for n in &names {
+                let id = crate::rig::find(g, n.split('.').next().unwrap_or(n), "weightHammerVerts")?;
+                if let Some(m) = crate::components::as_mesh(g, id) {
+                    let ids = crate::components::selected(g, m, mode).to_vec();
+                    if ids.is_empty() {
+                        continue;
+                    }
+                    if let Some(mm) = crate::components::mesh_of(g, m) {
+                        let pts = crate::components::convert(&mm, mode, &ids, crate::components::ComponentMode::Vertex, false).to_vec();
+                        targets.push((m, pts));
+                    }
+                }
             }
         }
+    }
+    if targets.iter().all(|t| t.1.is_empty()) {
+        log::warn!("weightHammerVerts: select the vertices to hammer");
+        return Ok(Value::Null);
     }
     for (mesh, ids) in targets {
         let Some(sk) = crate::skin::skin_of(g, mesh) else { fail!("weightHammerVerts: {} has no skin", g.path(mesh)) };

@@ -498,10 +498,15 @@ pub struct PaintCtx {
     pub radius: f64,
     pub opacity: f64,
     pub value: f64,
+    /// -mnv, -mxv: the range the value is set in, 0 to 1 unless widened.
+    pub min_value: f64,
+    pub max_value: f64,
     pub op: PaintOp,
     pub stamp: Stamp,
     pub influence: String,
     pub color_feedback: bool,
+    /// -ucr: the weights through a colour ramp rather than in grey.
+    pub use_color_ramp: bool,
     /// -spm: 1 paints weights, 0 marquee selects, 2 paint selects.
     pub skin_paint_mode: i64,
     /// -psm: paint select adds (1), removes (2) or toggles (3).
@@ -518,10 +523,13 @@ impl Default for PaintCtx {
             radius: 1.0,
             opacity: 1.0,
             value: 1.0,
+            min_value: 0.0,
+            max_value: 1.0,
             op: PaintOp::Replace,
             stamp: Stamp::Gaussian,
             influence: String::new(),
             color_feedback: true,
+            use_color_ramp: false,
             skin_paint_mode: 1,
             paint_select_mode: 1,
             numeric: false,
@@ -919,19 +927,56 @@ fn hold_all(g: &Graph, sk: NodeId, b: &mut SkinBind) {
     }
 }
 
+/// Shown in the views: itself and every parent visible, nothing hidden by a display override.
+fn shown(g: &Graph, id: NodeId) -> bool {
+    let mut n = id;
+    while n != NO_NODE {
+        let Some(node) = g.node(n) else { return false };
+        if node.ty().dag && !node.bool(crate::transform::DagNode::VISIBILITY) {
+            return false;
+        }
+        if crate::draw_style::hidden_by_override(g, n) {
+            return false;
+        }
+        n = g.parent(n);
+    }
+    true
+}
+
+/// Whether the joints stand as a bind pose of theirs recorded them.
+fn at_bind_pose(g: &Graph, joints: &[NodeId]) -> bool {
+    joints.iter().all(|&j| {
+        let Some(pose) = bind_pose_of(g, j) else { return true };
+        let data = g.node(pose).map(|n| crate::rig::json_of(n.data(), 1)).unwrap_or(Value::Null);
+        let Some(&(i, _)) = pose_members(g, pose).iter().find(|m| m.1 == j) else { return true };
+        let Some(e) = data.get(i as usize) else { return true };
+        let now = local_of(g, j);
+        ["t", "r", "s"].iter().all(|k| (0..3).all(|x| {
+            let a = e.get(k).and_then(|v| v.get(x)).and_then(Value::as_f64).unwrap_or(if *k == "s" { 1.0 } else { 0.0 });
+            let b = now.get(k).and_then(|v| v.get(x)).and_then(Value::as_f64).unwrap_or(0.0);
+            (a - b).abs() < 1e-4
+        }))
+    })
+}
+
 fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
     let g = &mut s.graph;
     let mut joints = Vec::new();
     let mut mesh = None;
+    // Hidden joints and geometry are left out unless -ihs, as the reference's Include hidden selections on creation.
+    let hidden_too = a.bool("includeHiddenSelections");
     for n in names {
         let id = find(g, n, "skinCluster")?;
+        if !hidden_too && !shown(g, id) {
+            continue;
+        }
         if g.node(id).is_some_and(|x| x.ty().is_a("transform")) && !components::as_mesh(g, id).is_some() {
             joints.push(id);
         } else if let Some(m) = components::as_mesh(g, id) {
             mesh = Some(m);
         }
     }
-    let Some(mesh) = mesh else { fail!("skinCluster: name or select joints and a mesh") };
+    let Some(mesh) = mesh else { fail!("skinCluster: name or select joints and a mesh{}", if hidden_too { "" } else { " (hidden ones count only with -includeHiddenSelections)" }) };
     if joints.is_empty() {
         fail!("skinCluster: name or select the joints to bind to");
     }
@@ -942,11 +987,19 @@ fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
     if !a.bool("toSelectedBones") {
         if let Some(&j0) = joints.iter().find(|&&j| is_joint(g, j)) {
             for j in skeleton_of(g, j0) {
-                if !joints.contains(&j) {
+                if !joints.contains(&j) && (hidden_too || shown(g, j)) {
                     joints.push(j);
                 }
             }
         }
+    }
+    // A skeleton that has a bind pose: unless more than one is allowed, it must stand in it.
+    let skeleton_now: Vec<NodeId> = joints.iter().copied().filter(|&j| is_joint(g, j)).collect();
+    let has_pose = skeleton_now.iter().any(|&j| bind_pose_of(g, j).is_some());
+    // Given: the Bind Skin options' choice. Not given, as a script's skinCluster: bound as it stands.
+    let multiple = a.bool("multipleBindPose");
+    if has_pose && a.has("multipleBindPose") && !multiple && !at_bind_pose(g, &skeleton_now) {
+        fail!("skinCluster: the skeleton is not in its bind pose: go to the bind pose first, or allow multiple bind poses (-multipleBindPose)");
     }
     g.evaluate();
     let Some(cage) = crate::modifiers::cage(g, mesh) else { fail!("skinCluster: not a mesh") };
@@ -968,7 +1021,35 @@ fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
     let dropoff = a.float("dropoffRate", 4.0);
     let method = a.int("bindMethod", 0);
     let heat_falloff = a.float("heatmapFalloff", 0.68);
-    let weights = if method == 2 { crate::skin_extra::heat_weights(&cage, &geom, &bones, max_inf as usize, heat_falloff) } else { bind_weights(&cage, &geom, &bones, &joined, method, max_inf as usize, dropoff) };
+    let mut weights = if method == 2 { crate::skin_extra::heat_weights(&cage, &geom, &bones, max_inf as usize, heat_falloff) } else { bind_weights(&cage, &geom, &bones, &joined, method, max_inf as usize, dropoff) };
+    let mut jw = jw;
+    // -rui: influences no point would take weight from are not bound.
+    if a.bool("removeUnusedInfluence") {
+        let used: Vec<bool> = (0..joints.len()).map(|i| weights.iter().any(|w| weight_at(w, i as u32) > 0.0)).collect();
+        if used.iter().any(|u| *u) && used.iter().any(|u| !*u) {
+            let mut remap = vec![u32::MAX; joints.len()];
+            let mut k = 0u32;
+            for (i, u) in used.iter().enumerate() {
+                if *u {
+                    remap[i] = k;
+                    k += 1;
+                }
+            }
+            for w in weights.iter_mut() {
+                w.retain(|x| used[x.0 as usize]);
+                w.iter_mut().for_each(|x| x.0 = remap[x.0 as usize]);
+            }
+            fn keep<T>(v: &mut Vec<T>, used: &[bool]) {
+                let mut i = 0;
+                v.retain(|_| {
+                    i += 1;
+                    used[i - 1]
+                });
+            }
+            keep(&mut joints, &used);
+            keep(&mut jw, &used);
+        }
+    }
     let data = SkinBind { bind_pre: jw.iter().map(|m| m.inverse()).collect(), geom, weights, locks: vec![false; joints.len()], raw_edit: false };
     g.open_chunk("Bind Skin");
     let r = (|| -> CmdResult<NodeId> {
@@ -993,8 +1074,9 @@ fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
         g.connect(&src, &plug(sk, SK_IN), false)?;
         g.connect(&plug(sk, SK_OUT), &base, false)?;
         // Joints the skeleton's bind pose doesn't yet know go in a bind pose of their own.
+        // With multiple bind poses allowed, a skeleton bound again in another pose has that pose as a bind pose too.
         let skeleton: Vec<NodeId> = joints.iter().copied().filter(|&j| is_joint(g, j)).collect();
-        if !skeleton.is_empty() && !skeleton.iter().all(|&j| bind_pose_of(g, j).is_some()) {
+        if !skeleton.is_empty() && (!skeleton.iter().all(|&j| bind_pose_of(g, j).is_some()) || (multiple && !at_bind_pose(g, &skeleton))) {
             pose_node(g, "bindPose1", &skeleton, true)?;
         }
         // The bound geometry's transform is locked, as the reference locks it: the joints move the points now, and a
@@ -1690,13 +1772,14 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("skinMethod", "sm", ArgType::Int, "0 classic linear, 1 dual quaternion, 2 blended point by point by .blendWeights."))
         .flag(f("normalizeWeights", "nw", ArgType::Int, "0 none, 1 interactive, 2 post."))
         .flag(f("weightDistribution", "wd", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("includeHiddenSelections", "ihs", ArgType::Bool, "Accepted for existing scripts."))
+        .flag(f("includeHiddenSelections", "ihs", ArgType::Bool, "Bind hidden joints and geometry in the selection too (off: they are left out)."))
+        .flag(f("multipleBindPose", "mbp", ArgType::Bool, "The Bind Skin options' Allow multiple bind poses: bind a skeleton that has a bind pose in another pose, recording that one too. Off, it must stand in its bind pose."))
         .flag(f("name", "n", ArgType::String, "Name of the skinCluster."))
         .flag(f("unbind", "ub", ArgType::Bool, "With -e: remove the skin, back to the bind pose."))
         .flag(f("unbindKeepHistory", "ubk", ArgType::Bool, "With -e: stop the skinning, keeping the node and its weights."))
         .flag(f("addInfluence", "ai", ArgType::Any, "With -e: joints to add.").multi(1))
         .flag(f("removeInfluence", "ri", ArgType::Any, "With -e: joints to remove; their weight goes to the others.").multi(1))
-        .flag(f("removeUnusedInfluence", "rui", ArgType::Bool, "With -e: remove influences that hold no weight."))
+        .flag(f("removeUnusedInfluence", "rui", ArgType::Bool, "Influences that hold no weight are not bound (and with -e, are removed)."))
         .flag(f("weight", "wt", ArgType::Float, "With -ai: starting weight of the added influence."))
         .flag(f("influence", "inf", ArgType::Any, "With -e -lw: the joint. Query: the influences."))
         .flag(f("weightedInfluence", "wi", ArgType::Bool, "Query: influences holding weight."))
@@ -1774,12 +1857,15 @@ pub fn register(c: &mut Commands<Session>) {
                     let c = &s.paint_ctx;
                     for (flag, v) in [
                         ("value", json!(c.value)),
+                        ("minvalue", json!(c.min_value)),
+                        ("maxvalue", json!(c.max_value)),
                         ("opacity", json!(c.opacity)),
                         ("radius", json!(c.radius)),
                         ("selectedattroper", json!(op_name(c.op))),
                         ("stampProfile", json!(stamp_name(c.stamp))),
                         ("influence", json!(c.influence)),
                         ("colorfeedback", json!(c.color_feedback)),
+                        ("useColorRamp", json!(c.use_color_ramp)),
                         ("skinPaintMode", json!(c.skin_paint_mode)),
                         ("paintSelectMode", json!(c.paint_select_mode)),
                         ("useNumericDisplay", json!(c.numeric)),
@@ -1792,8 +1878,16 @@ pub fn register(c: &mut Commands<Session>) {
                     }
                     return Ok(Value::Null);
                 }
+                if a.has("minvalue") {
+                    s.paint_ctx.min_value = a.float("minvalue", 0.0);
+                }
+                if a.has("maxvalue") {
+                    s.paint_ctx.max_value = a.float("maxvalue", 1.0);
+                }
                 if a.has("value") {
-                    s.paint_ctx.value = a.float("value", 1.0).clamp(0.0, 1.0);
+                    // Min/Max value widen the range, as the reference's: Scale above 1 grows the weights.
+                    let (lo, hi) = (s.paint_ctx.min_value, s.paint_ctx.max_value.max(s.paint_ctx.min_value));
+                    s.paint_ctx.value = a.float("value", 1.0).clamp(lo, hi);
                 }
                 if a.has("opacity") {
                     s.paint_ctx.opacity = a.float("opacity", 1.0).clamp(0.0, 1.0);
@@ -1821,6 +1915,9 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 if a.has("influence") {
                     s.paint_ctx.influence = a.string("influence", "");
+                }
+                if a.has("useColorRamp") {
+                    s.paint_ctx.use_color_ramp = a.bool("useColorRamp");
                 }
                 if a.has("colorfeedback") {
                     s.paint_ctx.color_feedback = a.bool("colorfeedback");
@@ -1860,13 +1957,16 @@ pub fn register(c: &mut Commands<Session>) {
             },
         )
         .positional("the tool's name")
-        .flag(f("value", "val", ArgType::Float, "The value the brush paints, 0 to 1."))
+        .flag(f("value", "val", ArgType::Float, "The value the brush paints, between -mnv and -mxv."))
+        .flag(f("minvalue", "mnv", ArgType::Float, "The lowest value, 0 by default."))
+        .flag(f("maxvalue", "mxv", ArgType::Float, "The highest value, 1 by default."))
         .flag(f("opacity", "op", ArgType::Float, "How much of the value each dab applies."))
         .flag(f("radius", "r", ArgType::Float, "Brush radius in world units."))
         .flag(f("selectedattroper", "sao", ArgType::String, "absolute (replace), additive, scale or smooth."))
         .flag(f("stampProfile", "stP", ArgType::String, "gaussian, poly, solid or square."))
         .flag(f("influence", "inf", ArgType::String, "The joint painted."))
         .flag(f("colorfeedback", "cf", ArgType::Bool, "Show the weights in colour."))
+        .flag(f("useColorRamp", "ucr", ArgType::Bool, "Show the weights through a colour ramp rather than in grey."))
         .flag(f("skinPaintMode", "spm", ArgType::Int, "1 paints weights, 0 marquee selects, 2 paint selects."))
         .flag(f("paintSelectMode", "psm", ArgType::Int, "Paint select adds to the selection (1), removes from it (2) or toggles it (3)."))
         .flag(f("useNumericDisplay", "und", ArgType::Bool, "The weights as numbers beside their points."))

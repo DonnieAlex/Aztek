@@ -754,11 +754,14 @@ impl View {
                 }
             };
             let active = self.cube_hover.is_some() || self.cube_press.is_some();
-            cube.draw(self.cube_hover, active, &mut tri, &mut seg, 7.0 * s);
+            let mut words: Vec<LineVertex> = Vec::new();
+            let mut word = |t: &str, at: DVec2, size: f64, col: [u8; 4]| text::draw(t, at, size, c8(col), &mut words);
+            cube.draw(self.cube_hover, active, &mut tri, &mut seg, &mut word, 8.0 * s);
+            tris.extend(words);
         }
         // The paint skin weights tool's Show Numbers.
         for (at, text, col) in &numbers {
-            text::draw(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s, c8(*col), &mut tris);
+            text::label(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s, c8(*col), &mut tris);
         }
         // Axis triad, bottom left.
         if crate::ui_cmds::hud_on("viewAxis") {
@@ -770,19 +773,19 @@ impl View {
                 let tip = origin + DVec2::new(v.x, -v.y) * 20.0 * s;
                 seg(origin, tip, c);
                 let lp = origin + DVec2::new(v.x, -v.y) * 27.0 * s - DVec2::new(3.0, -4.0) * s;
-                text::draw(&name.to_string(), lp, 7.0 * s, c8(c), &mut tris);
+                text::label(&name.to_string(), lp, 7.0 * s, c8(c), &mut tris);
             }
         }
         // Camera name, bottom centre.
         if crate::ui_cmds::hud_on("cameraNames") {
             let name = self.cam_node.as_str();
-            let size = 10.0 * s;
+            let size = 11.0 * s;
             let tw = text::width(name, size);
-            text::draw(name, DVec2::new(w * 0.5 - tw * 0.5, h - 12.0 * s), size, c8([225, 225, 225, 255]), &mut tris);
+            text::label(name, DVec2::new(w * 0.5 - tw * 0.5, h - 12.0 * s), size, c8([225, 225, 225, 255]), &mut tris);
         }
         // Heads up display text by section.
-        let size = 9.0 * s;
-        let row_h = 13.0 * s;
+        let size = 10.0 * s;
+        let row_h = 15.0 * s;
         for section in [0i64, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
             let col: Vec<&String> = hud.iter().filter(|(k, _)| *k == section).map(|(_, t)| t).collect();
             for (i, t) in col.iter().enumerate() {
@@ -794,13 +797,13 @@ impl View {
                 };
                 let x = if section == 4 || section == 9 { w - tw - 10.0 * s } else { x };
                 let y = if section < 5 { 16.0 * s + i as f64 * row_h } else { h - 26.0 * s - (col.len() - 1 - i) as f64 * row_h };
-                text::draw(t, DVec2::new(x, y), size, c8([230, 230, 230, 255]), &mut tris);
+                text::label(t, DVec2::new(x, y), size, c8([230, 230, 230, 255]), &mut tris);
             }
         }
         // What scripts put there: buttons as boxes, sliders as a track and a handle, drawn in lines like the rest.
         for p in &hud_parts {
             let (white, dim) = ([230, 230, 230, 255], [150, 150, 150, 255]);
-            text::draw(&p.text, p.text_at, size, c8(white), &mut tris);
+            text::label(&p.text, p.text_at, size, c8(white), &mut tris);
             if p.slider {
                 let mid = (p.lo.y + p.hi.y) * 0.5;
                 seg(DVec2::new(p.lo.x, mid), DVec2::new(p.hi.x, mid), dim);
@@ -813,7 +816,7 @@ impl View {
                 seg(c, d, white);
                 seg(d, a, white);
                 let value = if p.int { format!("{}", p.value.round() as i64) } else { format!("{:.*}", p.precision, p.value) };
-                text::draw(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), size, c8(white), &mut tris);
+                text::label(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), size, c8(white), &mut tris);
             } else {
                 let (a, b, c, d) = (p.lo, DVec2::new(p.hi.x, p.lo.y), p.hi, DVec2::new(p.lo.x, p.hi.y));
                 seg(a, b, white);
@@ -826,7 +829,7 @@ impl View {
         let screen = self.vp.screen();
         for (text, at) in self.vp.grid_labels() {
             if let Some(p) = screen.project(at) {
-                text::draw(&text, p + DVec2::new(3.0 * s, -3.0 * s), size, c8([200, 200, 200, 255]), &mut tris);
+                text::label(&text, p + DVec2::new(3.0 * s, -3.0 * s), size, c8([200, 200, 200, 255]), &mut tris);
             }
         }
         // Dimension and annotation labels.
@@ -834,7 +837,7 @@ impl View {
             let Some(n) = core.s.graph.node(id) else { continue };
             let Some((text, at)) = aztek_scene::rig_misc::shape_label(n) else { continue };
             let Some(p) = screen.project(at) else { continue };
-            text::draw(&text, p + DVec2::new(6.0 * s, -6.0 * s), size, c8([230, 230, 230, 255]), &mut tris);
+            text::label(&text, p + DVec2::new(6.0 * s, -6.0 * s), size, c8([230, 230, 230, 255]), &mut tris);
         }
         // The Normal orientation names its handles.
         if self.vp.axis_mode == "normal" && self.vp.tool == Tool::Move {
@@ -843,14 +846,14 @@ impl View {
                 let screen = self.vp.screen();
                 for (i, label) in ["U", "V", "N"].into_iter().enumerate() {
                     if let Some(at) = screen.project(pv + self.vp.frame.col(i) * len * 1.1) {
-                        text::draw(label, at, size, c8([255, 255, 255, 255]), &mut tris);
+                        text::label(label, at, size, c8([255, 255, 255, 255]), &mut tris);
                     }
                 }
             }
         }
         // What the drag has done so far, by the cursor.
         if let Some((at, t)) = &readout {
-            text::draw(t, *at + DVec2::new(14.0 * s, -10.0 * s), size, c8([255, 240, 150, 255]), &mut tris);
+            text::label(t, *at + DVec2::new(14.0 * s, -10.0 * s), size, c8([255, 240, 150, 255]), &mut tris);
         }
         if lines.is_empty() && tris.is_empty() {
             return;

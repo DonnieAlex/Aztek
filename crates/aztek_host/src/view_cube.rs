@@ -224,8 +224,10 @@ impl Cube {
         (a[0] * r.x as f64 + a[1] * r.y as f64 + a[2] * r.z as f64).normalize_or_zero()
     }
 
-    /// Draws the cube: triangles and line segments in pixels, text by its strokes.
-    pub fn draw(&self, hover: Option<Part>, active: bool, tri: &mut dyn FnMut(DVec2, DVec2, DVec2, [u8; 4]), seg: &mut dyn FnMut(DVec2, DVec2, [u8; 4]), font_size: f64) {
+    /// Draws the cube: triangles and line segments in pixels, and its words through `text` (the words, where their
+    /// baseline starts, their size, their colour).
+    #[allow(clippy::type_complexity)]
+    pub fn draw(&self, hover: Option<Part>, active: bool, tri: &mut dyn FnMut(DVec2, DVec2, DVec2, [u8; 4]), seg: &mut dyn FnMut(DVec2, DVec2, [u8; 4]), text: &mut dyn FnMut(&str, DVec2, f64, [u8; 4]), font_size: f64) {
         // Away from the mouse as opaque as -minOpacity says; under it, fully.
         let min = setting("minOpacity").as_f64().unwrap_or(0.5).clamp(0.0, 1.0);
         let alpha = if active { 255 } else { (min * 255.0).round() as u8 };
@@ -240,9 +242,7 @@ impl Cube {
                 seg(self.screen(ring(a0)).0, self.screen(ring(a1)).0, [200, 200, 200, alpha]);
             }
             let (at, _) = self.screen(DVec3::new(0.0, -1.0, -2.3));
-            for (a, b) in font::strokes("N", at - DVec2::new(font::width("N", font_size) * 0.5, -font_size * 0.5), font_size) {
-                seg(a, b, [220, 220, 220, alpha]);
-            }
+            text("N", at - DVec2::new(crate::text::width("N", font_size) * 0.5, -font_size * 0.5), font_size, [220, 220, 220, alpha]);
         }
         for (axis, sign, facing) in self.faces() {
             for i in 0..3 {
@@ -268,10 +268,8 @@ impl Cube {
                 let name = label(axis, sign);
                 let size = font_size * (0.55 + 0.45 * facing);
                 let (at, _) = self.screen(Self::on_face(axis, sign, 0.0, 0.0));
-                let start = at + DVec2::new(-font::width(name, size) * 0.5, size * 0.5);
-                for (a, b) in font::strokes(name, start, size) {
-                    seg(a, b, [35, 35, 40, alpha]);
-                }
+                let start = at + DVec2::new(-crate::text::width(name, size) * 0.5, size * 0.5);
+                text(name, start, size, [35, 35, 40, alpha]);
             }
         }
         // The house: home.
@@ -293,7 +291,6 @@ impl Cube {
     }
 }
 
-use crate::font;
 
 #[cfg(test)]
 mod tests {
