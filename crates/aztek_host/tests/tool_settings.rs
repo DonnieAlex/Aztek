@@ -27,6 +27,8 @@ fn drag(handle: Handle, components: bool, pivot: DVec3, targets: &[&str]) -> Dra
         targets: targets.iter().map(|s| s.to_string()).collect(),
         snap_points: Vec::new(),
         snap_curves: Vec::new(),
+        start_rotate: None,
+        start_scale: None,
     }
 }
 
@@ -313,4 +315,37 @@ fn preserve_seam_holds_or_frees_points_on_the_plane() {
     };
     assert!(seam_x(1).abs() < 1e-9, "held on the plane");
     assert!((seam_x(0) - 0.4).abs() < 1e-9, "free to leave");
+}
+
+/// Absolute step snap: the channel lands on a whole step (in Gimbal for rotate), relative snaps the change.
+#[test]
+fn absolute_step_snap_lands_channels_on_whole_steps() {
+    let mut c = Core::new();
+    c.mel("polyCube -n box; setAttr box.ry 7; setAttr box.sx 1.3; select box;");
+    let mut vp = view(Tool::Rotate);
+    vp.axis_mode = "gimbal".into();
+    vp.step_rotate = 15.0;
+    vp.update_frame(&mut c.s);
+    let mut d = drag(Handle::Axis(1), false, DVec3::ZERO, &["box"]);
+    d.start_rotate = Some(DVec3::new(0.0, 7.0, 0.0));
+    d.start_scale = Some(DVec3::new(1.3, 1.0, 1.0));
+    // Any sweep: relative gives a multiple of 15, absolute gives 7 + it on a multiple of 15.
+    let px = d.start + DVec2::new(130.0, 60.0);
+    let ry = |call: &Value| call["by"][1].as_f64().unwrap().to_degrees();
+    vp.snap_relative = true;
+    let (_, rel) = vp.drag_call(&d, px, 1.0).unwrap();
+    assert!((ry(&rel) / 15.0 - (ry(&rel) / 15.0).round()).abs() < 1e-6, "{rel}");
+    vp.snap_relative = false;
+    let (_, abs) = vp.drag_call(&d, px, 1.0).unwrap();
+    let end = 7.0 + ry(&abs);
+    assert!((end / 15.0 - (end / 15.0).round()).abs() < 1e-6, "{abs}");
+    // Scale: 1.3 times the factor lands on a whole step of 0.5.
+    let mut vp = view(Tool::Scale);
+    vp.step_scale = 0.5;
+    vp.snap_relative = false;
+    let mut d = drag(Handle::Axis(0), false, DVec3::ZERO, &["box"]);
+    d.start_scale = Some(DVec3::new(1.3, 1.0, 1.0));
+    let (_, call) = vp.drag_call(&d, d.start + DVec2::new(90.0, 0.0), 1.0).unwrap();
+    let sx = 1.3 * call["by"][0].as_f64().unwrap();
+    assert!((sx / 0.5 - (sx / 0.5).round()).abs() < 1e-6, "{call}");
 }

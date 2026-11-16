@@ -2787,3 +2787,14 @@ saved in `.ma` and `.mb`; a script's `setAttr` on them shows in the views. They 
 saving. Template and drawing overrides were already attributes; a test saves and opens all of them in both formats.
 Not done: Bounding Box (`toggle -boundingBox`) is still held by the interface; which attribute the reference sets for
 it was not checked.
+
+### Gimbal axes and absolute step snap for rotate and scale (16/11/2026)
+
+PLAN 3.5, part. The Rotate tool's Gimbal axis orientation (`manipRotateContext -mode 2`) now puts the rings on the
+rotate channels' own axes: the last applied is the parent's (with a joint's orient), each earlier one turned by those
+applied after it, as the rotate order says. So they need not be at right angles and two line up in gimbal lock (a box
+at 0 90 0 with order xyz has its X ring on its Z ring), and a ring turns its channel alone. It drew the object's axes.
+Absolute step snap (Tool Settings' Step Snap Absolute, `-snapRelative false`) now lands the channel on a whole step:
+rotate in Gimbal (where a ring is one channel), scale on an axis handle, one object; elsewhere the change itself is
+snapped, as relative does. Move had both already. Not done: absolute rotate snap in Object and World (a ring there
+turns several channels), the Universal Manipulator (Ctrl+T).

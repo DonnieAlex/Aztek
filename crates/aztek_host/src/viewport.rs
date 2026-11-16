@@ -530,6 +530,18 @@ pub struct Drag {
     pub snap_points: Vec<DVec3>,
     /// World segments a curve-snapping move can land on.
     pub snap_curves: Vec<(DVec3, DVec3)>,
+    /// The lead object's rotate (degrees) and scale when the drag began, for absolute step snapping.
+    pub start_rotate: Option<DVec3>,
+    pub start_scale: Option<DVec3>,
+}
+
+/// A transform's rotate (in degrees) and scale channels, for snapping a drag to whole steps of them.
+pub fn channels(g: &Graph, id: NodeId) -> Option<(DVec3, DVec3)> {
+    let n = g.node(id)?;
+    let t = n.ty();
+    let r = n.data().value(t.attr_index("rotate")?).as_vec3();
+    let sc = n.data().value(t.attr_index("scale")?).as_vec3();
+    Some((DVec3::new(r.x.to_degrees(), r.y.to_degrees(), r.z.to_degrees()), sc))
 }
 
 pub struct Viewport {
@@ -3087,6 +3099,13 @@ impl Viewport {
             }
             // The object's world matrix already holds its rotate axis, as Ra comes before R.
             "rotationAxis" => self.frame = ortho(&aztek_scene::rig::world(g, lead)),
+            // Gimbal: the rotate channels' own axes, each turned by the channels applied after it, so they need not be
+            // at right angles: the last channel's axis is the parent's (and the joint orient's), the first turns with all.
+            "gimbal" => {
+                if let Some(f) = gimbal_frame(g, lead) {
+                    self.frame = f;
+                }
+            }
             "liveObject" => {
                 if let Some(&live) = s.live_surface.first() {
                     let xf = aztek_scene::dag::transform_of(&s.graph, live);
@@ -3584,10 +3603,20 @@ impl Viewport {
                     }
                     ang * -(self.cam.eye() - d.pivot).dot(ax).signum()
                 };
+                // Absolute step snap in Gimbal: the channel turned lands on a whole step, not the angle swept. Gimbal's
+                // axes are the channels' own, so the handle turns that channel alone.
+                let absolute = !self.snap_relative && step > 0.0 && self.axis_mode == "gimbal" && d.targets.len() == 1 && !comps;
                 let by: [f64; 3] = match d.handle {
                     Handle::Axis(i) => {
                         let ax = self.frame.col(i);
-                        let ang = snap(sweep(ax));
+                        let ang = match (absolute, d.start_rotate) {
+                            (true, Some(r0)) => {
+                                let r0 = r0[i];
+                                // The channel's sign against the handle's axis: a turn of +a about the axis is +a on it.
+                                ((r0 + sweep(ax)) / step).round() * step - r0
+                            }
+                            _ => snap(sweep(ax)),
+                        };
                         if self.frame == DMat3::IDENTITY {
                             let mut by = [0.0; 3];
                             by[i] = ang.to_radians();
@@ -3628,7 +3657,17 @@ impl Viewport {
                     f = f.max(0.001);
                 }
                 let step = if self.step_scale > 0.0 { self.step_scale } else if self.discrete_hold { 1.0 } else { 0.0 };
-                if step > 0.0 {
+                // Absolute: the scale channel lands on a whole step (one object, an axis handle); relative: the factor.
+                let absolute_axis = match d.handle {
+                    Handle::Axis(i) if !self.snap_relative && step > 0.0 && d.targets.len() == 1 && !comps => d.start_scale.map(|s0| (i, s0[i])),
+                    _ => None,
+                };
+                if let Some((_, s0)) = absolute_axis {
+                    if s0.abs() > 1e-12 {
+                        let target = ((s0 * f) / step).round() * step;
+                        f = target / s0;
+                    }
+                } else if step > 0.0 {
                     f = (f / step).round() * step;
                     if self.prevent_negative {
                         f = f.max(0.001);
@@ -3984,6 +4023,50 @@ fn cv_name(path: &str, i: usize, stride: Option<usize>) -> String {
         Some(s) => format!("{path}.cv[{}][{}]", i / s.max(1), i % s.max(1)),
         None => format!("{path}.cv[{i}]"),
     }
+}
+
+/// The gimbal axes of a transform: its rotate channels' axes in world space, in the order X, Y, Z, as its rotate order
+/// applies them (the first applied turns with the later ones).
+fn gimbal_frame(g: &Graph, id: NodeId) -> Option<DMat3> {
+    let n = g.node(id)?;
+    let t = n.ty();
+    let vec = |name: &str| t.attr_index(name).map(|i| n.data().value(i).as_vec3()).unwrap_or(DVec3::ZERO);
+    let r = vec("rotate");
+    let order = t.attr_index("rotateOrder").map(|i| n.data().value(i).as_int()).unwrap_or(0);
+    let ortho = |m: DMat3| DMat3::from_cols(m.x_axis.normalize_or_zero(), m.y_axis.normalize_or_zero(), m.z_axis.normalize_or_zero());
+    let parent = g.parent(id);
+    let pw = match g.node(parent) {
+        Some(p) if parent != NO_NODE => ortho(DMat3::from_mat4(p.data().matrix(DagNode::WORLD_MATRIX))),
+        _ => DMat3::IDENTITY,
+    };
+    // A joint's orient sits outside its rotation.
+    let jo = if t.is_a("joint") {
+        let o = vec("jointOrient");
+        DMat3::from_rotation_z(o.z) * DMat3::from_rotation_y(o.y) * DMat3::from_rotation_x(o.x)
+    } else {
+        DMat3::IDENTITY
+    };
+    // The axes in the order applied: xyz applies X first, so Z is outermost.
+    let seq: [usize; 3] = match order {
+        1 => [1, 2, 0],
+        2 => [2, 0, 1],
+        3 => [0, 2, 1],
+        4 => [1, 0, 2],
+        5 => [2, 1, 0],
+        _ => [0, 1, 2],
+    };
+    let unit = |i: usize| [DVec3::X, DVec3::Y, DVec3::Z][i];
+    let rot = |i: usize| DMat3::from_axis_angle(unit(i), r[i]);
+    let outer = pw * jo;
+    let mut cols = [DVec3::ZERO; 3];
+    // Outermost first: its axis as it is, then each inner one turned by those outside it.
+    let mut acc = outer;
+    for k in (0..3).rev() {
+        let i = seq[k];
+        cols[i] = (acc * unit(i)).normalize_or_zero();
+        acc *= rot(i);
+    }
+    Some(DMat3::from_cols(cols[0], cols[1], cols[2]))
 }
 
 /// Each visible curve and surface shape, its transform and its CVs in world space, one lap for a periodic direction. A

@@ -1368,7 +1368,12 @@ impl View {
                         .flat_map(|it| it.segs)
                         .collect();
                     let choose_axis = button == 2 && mods & SHIFT != 0 && hit.is_none();
-                    self.vp.drag = Some(Drag { handle: h, start: px, pivot: pv, applied: false, components: comps, choose_axis, targets, snap_points, snap_curves });
+                    let lead = core.s.graph.selection().last().copied();
+                    let (start_rotate, start_scale) = match lead.and_then(|l| crate::viewport::channels(&core.s.graph, l)) {
+                        Some((r, sc)) => (Some(r), Some(sc)),
+                        None => (None, None),
+                    };
+                    self.vp.drag = Some(Drag { handle: h, start: px, pivot: pv, applied: false, components: comps, choose_axis, targets, snap_points, snap_curves, start_rotate, start_scale });
                     self.drag_lines = 0;
                     return true;
                 }

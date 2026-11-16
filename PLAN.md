@@ -145,7 +145,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   step per drag. Handles are drawn today and do nothing.
 - [~] 3.4 (16/11/2026: meshes drawn at their ghost frames with the options' colours and opacities; joints, locators, curves, drivers and the Ghosting Editor not yet) Ghosts drawn: `ghosting` settings, the Animation menu items, colours and opacities, steps before and after,
   keyframe ghosts.
-- [ ] 3.5 Gimbal rotate draws the gimbal axes; rotate and scale step snap absolute as well as relative; Universal
+- [~] 3.5 (16/11/2026: gimbal axes; absolute step snap for rotate in Gimbal and scale on an axis; the Universal Manipulator not yet) Gimbal rotate draws the gimbal axes; rotate and scale step snap absolute as well as relative; Universal
   Manipulator.
 - [ ] 3.6 Snap Pivot Orientation acts; Modify > Bake Pivot (`BakeCustomPivot`); D and Insert pivot mode with point, edge and face snapping of the pivot;
   Bake Pivot and Match Pivots.
