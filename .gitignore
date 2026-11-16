@@ -9,3 +9,6 @@ examples/tools/make_showcase.log
 dist/
 deps/
 build-*/
+
+# Written by the website workflow for the welcome screen.
+site/announcements.json

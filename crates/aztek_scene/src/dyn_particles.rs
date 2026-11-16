@@ -382,7 +382,14 @@ fn connect_dynamic(s: &mut Session, a: &Args) -> CmdResult {
             }
         }
         for ename in list(a, "emitters") {
-            let Some(em) = resolve(g, &ename, &[dy::EMITTER]) else { fail!("connectDynamic: {ename} is not an emitter") };
+            let Some(em) = resolve(g, &ename, &[dy::EMITTER]) else {
+                // Say what it is when it is something: a particle object given as an emitter is the usual slip (#96).
+                let what = g.find(&ename).ok().flatten().and_then(|id| g.node(id)).map(|n| n.ty().name.clone());
+                match what {
+                    Some(t) => fail!("connectDynamic: -emitters {ename} is a {t}, not an emitter"),
+                    None => fail!("connectDynamic: -emitters {ename}: no such node"),
+                }
+            };
             if delete {
                 let arr = attr_plug(g, b, "newParticles")?;
                 for e in g.elements(&arr) {

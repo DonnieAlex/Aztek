@@ -505,14 +505,21 @@ impl Core {
             return (name, call);
         }
         if let Some(r) = renamed {
+            let along_normals = name == "move" && call.get("componentOffset").and_then(Value::as_bool) == Some(true);
             name = r.to_string();
             if let Some(o) = call.as_object_mut() {
                 // Components move relatively here.
                 if let Some(to) = o.remove("to") {
                     o.insert("by".into(), to);
                 }
+                // move -r -co -ls: each along its own normal by the first value (#102).
+                if along_normals {
+                    if let Some(x) = o.remove("by").and_then(|b| b.get(0).and_then(Value::as_f64)) {
+                        o.insert("normal".into(), json!(x));
+                    }
+                }
                 // The object form's switches mean nothing to the component commands.
-                o.retain(|k, _| matches!(k.as_str(), "by" | "args" | "pivot"));
+                o.retain(|k, _| matches!(k.as_str(), "by" | "args" | "pivot" | "normal"));
             }
         }
         let _ = self.exec_plain("select", json!({ "args": comps }));

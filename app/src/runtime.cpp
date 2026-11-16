@@ -328,9 +328,10 @@ void MainWindow::build_runtime() {
     r("DeleteEdgeVertex", "Mesh", "Delete edges or vertices", [] { delete_edge_vertex(); });
     r("FinishTool", "Tools", "Finish the current tool", [this] {
         // The joint tool ends its chain once, in one view: an IK handle down it when the tool makes one, else the
-        // selection cleared for the next chain.
+        // selection cleared. Then it quits to the Select tool, as the reference's does (#106).
         if (tool_ == "joint") {
             if (!panels_->views().isEmpty()) panels_->views().first()->set("finishTool", "true");
+            set_tool("select");
             return;
         }
         for (ViewportWidget* v : panels_->views()) v->set("finishTool", "true");

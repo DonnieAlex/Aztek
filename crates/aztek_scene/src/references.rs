@@ -738,8 +738,15 @@ fn load(s: &mut Session, at: usize, scene_edits: bool) -> Result<Vec<String>, St
     let sel: Vec<NodeId> = s.graph.selection().to_vec();
     let was = s.graph.undo_stack().enabled();
     s.graph.undo_stack_mut().set_enabled(false);
-    // A file's own time settings and the like don't change the scene's.
-    let r = crate::ma_file::import_scene(s, &path);
+    // A file's own time settings and the like don't change the scene's. A scene file reads as one; any other type an
+    // importer reads (FBX for retargeting, OBJ, USD, Alembic...) through the file command's import, its nodes then
+    // namespaced and tracked as the reference's like a scene's (#92).
+    let ext = Path::new(&path).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+    let r = if matches!(ext.as_str(), "ma" | "mb" | "") {
+        crate::ma_file::import_scene(s, &path)
+    } else {
+        s.run("file", json!({"args": [path.clone()], "import": true})).map(|_| Vec::new()).map_err(|e| e.to_string())
+    };
     {
         let t = &mut s.extras.references;
         t.depth -= 1;

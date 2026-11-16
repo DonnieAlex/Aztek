@@ -426,12 +426,29 @@ fn matches(ty: ArgType, v: &Value) -> bool {
         ArgType::Vec3 => v
             .as_array()
             .is_some_and(|a| a.len() == 3 && a.iter().all(Value::is_number)),
-        ArgType::List => v.is_array(),
+        // One name where a list goes is a list of one (connectDynamic -em particles1, #96).
+        ArgType::List => v.is_array() || v.is_string(),
         ArgType::Any => true,
     }
 }
 
+/// What a flag of this type takes, for the error that says what was given instead.
+fn expected(ty: ArgType) -> &'static str {
+    match ty {
+        ArgType::Bool => "on or off",
+        ArgType::Int => "a whole number",
+        ArgType::Float => "a number",
+        ArgType::String => "a string",
+        ArgType::Vec3 => "three numbers",
+        ArgType::List => "a list",
+        ArgType::Any => "a value",
+    }
+}
+
 fn coerce(flag: &FlagDef, v: &Value) -> Value {
+    if flag.ty == ArgType::List && v.is_string() {
+        return Value::Array(vec![v.clone()]);
+    }
     if flag.ty == ArgType::Bool {
         if let Some(i) = v.as_i64() {
             return Value::Bool(i != 0);
@@ -482,7 +499,7 @@ fn normalize<C>(def: &CommandDef<C>, call: &Value) -> CmdResult<Args> {
             fail!("{}: unknown flag '{key}'", def.name)
         };
         if !v.is_null() && !matches(flag.ty, v) {
-            fail!("{}: bad value for '{}': {v}", def.name, flag.name);
+            fail!("{}: bad value for '{}': {v}, where it takes {}", def.name, flag.name, expected(flag.ty));
         }
         if let Some(s) = v.as_str() {
             if !flag.choices.is_empty() && !flag.choices.iter().any(|c| c == s) {

@@ -9,7 +9,9 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QDrag>
+#include <QSet>
 #include <QDropEvent>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -40,8 +42,10 @@ QJsonObject args(const QJsonArray& a) {
     return o;
 }
 
-// Dropping on an item parents to it, on the space between items reorders under the same parent, on empty space
-// parents to the world. Middle-drag does the same as left-drag, as the reference's.
+// As the reference's Outliner (#101): a left drag selects the rows it passes over; a middle drag moves the selection
+// (or the row pressed, when it isn't selected), the selection left as it was. Dropping on an item parents to it, on the
+// space between items reorders under the same parent, on empty space parents to the world. The parents of selected
+// rows are faintly highlighted, and the right button opens the menu as it goes down, for a press-drag-release pick.
 class OutlinerTree : public QTreeWidget {
 public:
     using QTreeWidget::QTreeWidget;
@@ -86,19 +90,46 @@ protected:
         }
         if (e->button() == Qt::MiddleButton) {
             if (QTreeWidgetItem* it = itemAt(e->position().toPoint())) {
-                if (!it->isSelected()) {
-                    clearSelection();
-                    it->setSelected(true);
-                }
+                QStringList moving;
+                if (it->isSelected())
+                    for (QTreeWidgetItem* s : selectedItems()) moving << s->data(0, Qt::UserRole).toString();
+                else
+                    moving << it->data(0, Qt::UserRole).toString();
                 auto* drag = new QDrag(this);
                 auto* m = new QMimeData;
-                m->setText(it->data(0, Qt::UserRole).toString());
+                m->setData(kMoving, moving.join('\n').toUtf8());
+                m->setText(moving.join(' '));
                 drag->setMimeData(m);
                 drag->exec(Qt::MoveAction);
             }
             return;
         }
+        if (e->button() == Qt::RightButton) {
+            emit customContextMenuRequested(e->position().toPoint());
+            return;
+        }
         QTreeWidget::mousePressEvent(e);
+    }
+    // The menu comes up on the press (above); the release's context menu event, on systems that send one, is dropped.
+    bool viewportEvent(QEvent* e) override {
+        if (e->type() == QEvent::ContextMenu && static_cast<QContextMenuEvent*>(e)->reason() == QContextMenuEvent::Mouse) return true;
+        return QTreeWidget::viewportEvent(e);
+    }
+    void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override {
+        QTreeWidget::selectionChanged(selected, deselected);
+        parents_.clear();
+        for (QTreeWidgetItem* it : selectedItems())
+            for (QTreeWidgetItem* up = it->parent(); up; up = up->parent()) parents_.insert(up);
+        viewport()->update();
+    }
+    void drawRow(QPainter* p, const QStyleOptionViewItem& o, const QModelIndex& index) const override {
+        QTreeWidgetItem* it = itemFromIndex(index);
+        if (it && !it->isSelected() && parents_.contains(it)) {
+            QColor c = palette().color(QPalette::Highlight);
+            c.setAlpha(55);
+            p->fillRect(o.rect, c);
+        }
+        QTreeWidget::drawRow(p, o, index);
     }
     void dragEnterEvent(QDragEnterEvent* e) override { e->acceptProposedAction(); }
     void dragMoveEvent(QDragMoveEvent* e) override {
@@ -109,7 +140,11 @@ protected:
         QPoint at = e->position().toPoint();
         QTreeWidgetItem* target = itemAt(at);
         QJsonArray names;
-        for (auto* it : selectedItems()) names.append(it->data(0, Qt::UserRole).toString());
+        if (e->mimeData() && e->mimeData()->hasFormat(kMoving)) {
+            for (const QString& n : QString::fromUtf8(e->mimeData()->data(kMoving)).split('\n', Qt::SkipEmptyParts)) names.append(n);
+        } else {
+            for (auto* it : selectedItems()) names.append(it->data(0, Qt::UserRole).toString());
+        }
         e->setDropAction(Qt::IgnoreAction);
         e->accept();
         if (names.isEmpty()) return;
@@ -159,6 +194,8 @@ protected:
         }
     }
 private:
+    static constexpr const char* kMoving = "application/x-aztek-outliner-paths";
+    QSet<QTreeWidgetItem*> parents_;
     static bool has_reorder() {
         for (const QJsonValue& c : query("commands").toArray())
             if (c.toObject()["name"].toString() == "reorder") return true;
@@ -219,7 +256,9 @@ Outliner::Outliner(QWidget* parent) : Panel(parent) {
     tree_ = new OutlinerTree(this);
     tree_->setHeaderHidden(true);
     tree_->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    tree_->setDragDropMode(QAbstractItemView::InternalMove);
+    // Drops only: a left drag selects; the middle button starts the drags (OutlinerTree).
+    tree_->setDragDropMode(QAbstractItemView::DropOnly);
+    tree_->setDragEnabled(false);
     tree_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
     tree_->setIconSize(QSize(16, 16));
     tree_->setIndentation(14);

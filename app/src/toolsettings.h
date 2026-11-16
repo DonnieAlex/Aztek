@@ -19,6 +19,10 @@ class QSlider;
 
 namespace az {
 
+// Soft select's falloff curve, as Tool Settings has it, for other panels (the Modeling Toolkit). reload, when given, is
+// set to what reads the curve again after it was changed elsewhere.
+QWidget* falloff_curve(QWidget* parent, std::function<void()>* reload = nullptr);
+
 /// The reference's joint orientation rows: Orient Joint to World, Primary Axis, Secondary Axis and Secondary Axis World
 /// Orientation, added to a form. They start from an orientJoint order ("xyz", "none" for the world) and a
 /// secondaryAxisOrient ("yup", "none"), and hand both back on every change.
@@ -57,6 +61,10 @@ private:
     void move_weights();
     void show_vertex_influences();
     void filter_influences();
+public:
+    // A lock button clicked: that influence held or released, or every selected one when it is among them (#105).
+    void toggle_lock(QTreeWidgetItem* clicked);
+private:
     void refresh_transform();
     QString ctx_kind() const;
     QString ctx_name() const;

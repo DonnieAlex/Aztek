@@ -457,39 +457,6 @@ QWidget* channel_control(QWidget* parent) {
     return win;
 }
 
-QWidget* modeling_toolkit(QWidget* parent) {
-    auto* win = window_shell(parent, "Modeling Toolkit", 260, 560);
-    win->setWindowFlag(Qt::Tool);
-    auto* v = new QVBoxLayout(win);
-    auto section = [win, v](const QString& t) {
-        auto* l = new QLabel(t, win);
-        l->setObjectName("aeSection");
-        v->addWidget(l);
-    };
-    auto grid = [win, v](QList<QPair<QString, QString>> items) {
-        auto* g = new QGridLayout();
-        int i = 0;
-        for (const auto& it : items) {
-            auto* b = new QPushButton(it.first, win);
-            QString code = it.second;
-            QObject::connect(b, &QPushButton::clicked, win, [code] { mel_action(code); });
-            g->addWidget(b, i / 2, i % 2);
-            ++i;
-        }
-        v->addLayout(g);
-    };
-    section("Selection");
-    grid({{"Vertex", "selectMode vertex;"}, {"Edge", "selectMode edge;"}, {"Face", "selectMode face;"}, {"Object", "selectMode object;"}, {"Lasso", "LassoTool;"}, {"Drag Paint", "PaintSelectTool;"}, {"Shortest Path", "ShortestEdgePathTool;"}, {"Grow", "GrowSelection;"}});
-    section("Mesh");
-    grid({{"Combine", "polyCombine;"}, {"Separate", "polySeparate;"}, {"Smooth", "polySubdivide;"}, {"Mirror", "polyMirror;"}});
-    section("Components");
-    grid({{"Extrude", "Extrude;"}, {"Bevel", "Bevel;"}, {"Bridge", "polyBridge;"}, {"Inset", "polyInset;"}, {"Merge", "polyMerge;"}, {"Collapse", "polyCollapse;"}});
-    section("Tools");
-    grid({{"Multi-Cut", "MultiCutTool;"}, {"Target Weld", "TargetWeldTool;"}, {"Insert Loop", "SplitEdgeRingTool;"}, {"Offset Loop", "OffsetEdgeLoopTool;"}, {"Quad Draw", "QuadDrawTool;"}, {"Slide Edge", "SlideEdgeTool;"}});
-    v->addStretch(1);
-    return win;
-}
-
 QWidget* shape_editor(QWidget* parent) {
     auto* win = window_shell(parent, "Shape Editor", 560, 480);
     auto* v = new QVBoxLayout(win);
@@ -1249,7 +1216,6 @@ QWidget* make_editor_window(const QString& id, QWidget* parent) {
     if (id == "hypergraphConnections") return hypergraph_connections(parent);
     if (id == "namespaceEditor") return namespace_editor(parent);
     if (id == "channelControl") return channel_control(parent);
-    if (id == "modelingToolkit") return modeling_toolkit(parent);
     if (id == "shapeEditor") return shape_editor(parent);
     if (id == "humanIK") return human_ik(parent);
     if (id == "expressionEditor") return expression_editor(parent);

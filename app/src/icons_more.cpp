@@ -200,12 +200,34 @@ bool draw_more(const QString& name, QPainter& p) {
         p.setPen(Qt::NoPen);
         p.drawEllipse(QPointF(16, 15), 3.2, 3.2);
     } else if (name == "snapLive") {
-        line_pen(p, kGreen, 1.6);
-        p.drawEllipse(QPointF(16, 16), 11, 11);
-        p.drawEllipse(QPointF(16, 16), 11, 4);
-        p.setBrush(kOrange);
+        // A horseshoe magnet, as the reference's Make Live (#95): red body, grey poles.
+        QPainterPath u;
+        u.moveTo(9.5, 9);
+        u.lineTo(9.5, 17);
+        u.arcTo(QRectF(9.5, 10.5, 13, 13), 180, 180);
+        u.lineTo(22.5, 9);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(214, 58, 52), 6, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin));
+        p.drawPath(u);
         p.setPen(Qt::NoPen);
-        p.drawEllipse(QPointF(16, 16), 3, 3);
+        p.setBrush(QColor(205, 208, 214));
+        p.drawRect(QRectF(6.5, 3.5, 6, 5.5));
+        p.drawRect(QRectF(19.5, 3.5, 6, 5.5));
+    } else if (name == "influenceLocked" || name == "influenceUnlocked" || name == "uiLocked" || name == "uiUnlocked") {
+        // The paint skin weights list's lock buttons (#105) and the layout lock (#90): shut and grey-blue when on, open
+        // and faint when not.
+        const bool shut = name == "influenceLocked" || name == "uiLocked";
+        const QColor c = shut ? QColor(150, 185, 240) : QColor(150, 150, 150, 170);
+        line_pen(p, c, 2.2);
+        p.setBrush(Qt::NoBrush);
+        if (shut) p.drawArc(QRectF(10, 5, 12, 14), 0, 180 * 16);
+        else {
+            p.drawArc(QRectF(14, 3, 12, 14), 0, 180 * 16);
+            p.drawLine(QPointF(26, 10), QPointF(26, 14));
+        }
+        p.setBrush(c);
+        p.setPen(Qt::NoPen);
+        p.drawRoundedRect(QRectF(7, 13, 18, 14), 2, 2);
     } else if (name == "lockSel") {
         line_pen(p, kInk, 2);
         p.drawArc(QRectF(10, 4, 12, 14), 0, 180 * 16);

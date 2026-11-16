@@ -7,6 +7,8 @@ OUT=${1:-_site}
 rm -rf "$OUT"
 mkdir -p "$OUT/img"
 cp site/index.html site/style.css "$OUT/"
+# The welcome screen's announcements, when the workflow fetched them.
+[ -f site/announcements.json ] && cp site/announcements.json "$OUT/"
 cp docs/*.png docs/*.gif docs/*.jpg docs/*.mp4 "$OUT/img/"
 cp app/icons/aztek-icon.png "$OUT/img/"
 touch "$OUT/.nojekyll"

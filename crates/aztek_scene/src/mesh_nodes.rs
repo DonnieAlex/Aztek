@@ -1661,7 +1661,15 @@ pub fn register_obj(c: &mut Commands<Session>) {
             let mut ids = Vec::new();
             let mut result = Ok(());
             for o in r.objects {
-                let wanted = if Graph::valid_name(&o.name) { o.name.clone() } else { String::new() };
+                // Named by its "o", else its first "g" (exporters' own "default" group aside), else polySurface as the
+                // reference's importer names it (#91).
+                let named = Some(o.name.as_str())
+                    .filter(|n| !n.is_empty() && *n != "default")
+                    .or_else(|| o.group_names.iter().map(String::as_str).find(|n| !n.is_empty() && *n != "default"));
+                let wanted = match named {
+                    Some(n) if Graph::valid_name(n) => n.to_string(),
+                    _ => "polySurface1".to_string(),
+                };
                 match create_mesh_node(g, &wanted) {
                     Ok((xform, n)) => {
                         if let Err(e) = g.set_value(PlugRef::new(n, MeshNode::IN_MESH as i32), PlugValue::Mesh(Some(Arc::new(o.mesh)))) {

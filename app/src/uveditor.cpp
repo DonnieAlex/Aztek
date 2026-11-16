@@ -1,4 +1,5 @@
 #include "uveditor.h"
+#include <QSplitter>
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
@@ -107,10 +108,29 @@ void UvCanvas::set_data(const QJsonObject& d) {
 
 void UvCanvas::set_mode(const QString& m) {
     mode_ = m;
-    // The selection type is the scene's, shared with the views.
-    if (m == "face" || m == "edge" || m == "uv") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
+    // The selection type is the scene's, shared with the views. Object mode shows the shells alone, no UV points (#99).
+    if (m == "face" || m == "edge" || m == "uv" || m == "object") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
     else if (m == "shell") exec("selectType", QJsonObject{{"meshUVShell", true}});
     update();
+}
+
+QStringList UvCanvas::mesh_paths() const {
+    QStringList out;
+    for (const UvMesh& m : meshes_) out << m.path;
+    return out;
+}
+
+void UvCanvas::select_all_uvs(bool invert) {
+    for (const UvMesh& m : meshes_) {
+        QSet<int>& s = uv_sel_[m.path];
+        QSet<int> next;
+        for (int i = 0; i < m.maps.size(); ++i)
+            if (!invert || !s.contains(i)) next.insert(i);
+        s = next;
+    }
+    if (mode_ != "uv" && mode_ != "shell") mode_ = "uv";
+    update();
+    emit picked();
 }
 
 void UvCanvas::follow_mode(const QString& m) {
@@ -131,7 +151,7 @@ void UvCanvas::share_uv_selection() {
         exec("select", QJsonObject{{"args", names}});
     }
     if (mode_ == "shell") exec("selectType", QJsonObject{{"meshUVShell", true}});
-    else exec("selectMode", QJsonObject{{"args", QJsonArray{"uv"}}});
+    else if (mode_ == "uv") exec("selectMode", QJsonObject{{"args", QJsonArray{"uv"}}});
 }
 
 void UvCanvas::set_tool(const QString& t) {
@@ -534,6 +554,29 @@ static double seg_dist(QPointF p, QPointF a, QPointF b) {
 void UvCanvas::pick(QPointF pos, QPointF to, bool rect, Qt::KeyboardModifiers mods) {
     bool shift = mods & Qt::ShiftModifier, ctrl = mods & Qt::ControlModifier;
     QRectF r = QRectF(pos, to).normalized();
+    if (mode_ == "object") {
+        // Object mode picks meshes by their UV faces; a click on nothing keeps the meshes shown, as the reference's.
+        QJsonArray names;
+        for (const UvMesh& m : meshes_) {
+            bool hit = false;
+            for (const auto& fc : m.faces) {
+                QPolygonF poly;
+                for (int id : fc.maps) poly << to_screen(m.maps[id]);
+                if (rect ? r.intersects(poly.boundingRect()) : inside(poly, pos)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) names.append(m.path);
+        }
+        if (names.isEmpty()) return;
+        QJsonObject call{{"args", names}};
+        if (ctrl && shift) call["add"] = true;
+        else if (ctrl) call["deselect"] = true;
+        else if (shift) call["toggle"] = true;
+        exec("select", call);
+        return;
+    }
     if (mode_ == "uv" || mode_ == "shell") {
         QHash<QString, QSet<int>> hit;
         for (const UvMesh& m : meshes_) {
@@ -633,6 +676,10 @@ void UvCanvas::mousePressEvent(QMouseEvent* e) {
     }
     if (alt && e->button() == Qt::RightButton) {
         drag_ = Mode::Zoom;
+        return;
+    }
+    if (e->button() == Qt::RightButton) {
+        mode_menu(e->globalPosition().toPoint());
         return;
     }
     if (e->button() == Qt::LeftButton && (tool_ == "lasso" || tool_ == "window" || tool_ == "tweak" || tool_ == "cut" || tool_ == "path" || tool_ == "smooth")) {
@@ -771,6 +818,7 @@ void UvCanvas::keyPressEvent(QKeyEvent* e) {
     case Qt::Key_W: set_tool("move"); return;
     case Qt::Key_E: set_tool("rotate"); return;
     case Qt::Key_R: set_tool("scale"); return;
+    case Qt::Key_F8: set_mode(mode_ == "object" ? "uv" : "object"); return;
     case Qt::Key_F10: set_mode("edge"); return;
     case Qt::Key_F11: set_mode("face"); return;
     case Qt::Key_F12: set_mode(e->modifiers() & Qt::ShiftModifier ? "shell" : "uv"); return;
@@ -779,14 +827,21 @@ void UvCanvas::keyPressEvent(QKeyEvent* e) {
 }
 
 void UvCanvas::contextMenuEvent(QContextMenuEvent* e) {
-    if (e->modifiers() & Qt::AltModifier) return;
+    // From the mouse it came up on the press already (mode_menu); this is the keyboard's.
+    if (e->reason() == QContextMenuEvent::Mouse || (e->modifiers() & Qt::AltModifier)) return;
+    mode_menu(e->globalPos());
+}
+
+// The right button's menu, up as the button goes down, so a press-drag-release picks (#99): Object Mode with the
+// component types, as the reference's.
+void UvCanvas::mode_menu(QPoint global) {
     QMenu m(this);
-    for (auto [label, mode] : {std::pair{"UV", "uv"}, {"UV Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
+    for (auto [label, mode] : {std::pair{"Object Mode", "object"}, {"UV", "uv"}, {"UV Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
         QAction* a = m.addAction(label, [this, mode = QString(mode)] { set_mode(mode); });
         a->setCheckable(true);
         a->setChecked(mode_ == mode);
     }
-    m.exec(e->globalPos());
+    m.exec(global);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -850,10 +905,10 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     connect(canvas_, &UvCanvas::picked, canvas_, &UvCanvas::share_uv_selection);
     auto* bar = new QToolBar(this);
     auto* modes = new QActionGroup(this);
-    for (auto [label, mode] : {std::pair{"UV", "uv"}, {"Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
+    for (auto [label, mode] : {std::pair{"Object", "object"}, {"UV", "uv"}, {"Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
         QAction* a = bar->addAction(label, [this, mode = QString(mode)] { canvas_->set_mode(mode); });
         a->setCheckable(true);
-        a->setChecked(QString(mode) == "uv");
+        a->setChecked(QString(mode) == "object");
         modes->addAction(a);
         mode_buttons_[mode] = a;
     }
@@ -947,11 +1002,17 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     bar->addWidget(uv_set_);
     v->addWidget(tools_bar);
     v->addWidget(bar);
-    v->addWidget(canvas_, 1);
+    // The canvas, and the UV Toolkit beside it (#108).
+    auto* split = new QSplitter(Qt::Horizontal, this);
+    split->addWidget(canvas_);
+    split->addWidget(build_toolkit());
+    split->setStretchFactor(0, 1);
+    split->setStretchFactor(1, 0);
+    v->addWidget(split, 1);
     connect(Host::get(), &Host::sceneChanged, this, [this] {
         if (isVisible()) refresh();
     });
-    resize(760, 720);
+    resize(1060, 760);
 }
 
 void UvEditor::run(const QString& cmd, const QJsonObject& call, bool on_selection) {
@@ -974,9 +1035,9 @@ void UvEditor::refresh() {
     // The selection type is shared with the views: a view switched to UVs, UV shells, edges or faces brings the
     // editor along.
     const QString scene = data["uvShell"].toBool() ? "shell" : data["mode"].toString();
-    if ((scene == "uv" || scene == "shell" || scene == "edge" || scene == "face") && scene != canvas_->mode()) {
-        if (QAction* a = mode_buttons_.value(scene)) a->setChecked(true);
-        canvas_->follow_mode(scene);
+    if (scene == "object" || scene == "uv" || scene == "shell" || scene == "edge" || scene == "face") {
+        if (QAction* a = mode_buttons_.value(scene); a && !a->isChecked()) a->setChecked(true);
+        if (scene != canvas_->mode()) canvas_->follow_mode(scene);
     }
     if (uv_set_ && !uv_set_->view()->isVisible()) {
         const QJsonArray sel = state()["selection"].toArray();

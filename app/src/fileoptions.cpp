@@ -12,6 +12,8 @@
 #include <QMenuBar>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QSettings>
 #include <QVBoxLayout>
 
@@ -45,12 +47,14 @@ QStringList types(FileAction a) {
         if (loaded("objExport")) t << "OBJ";
         if (loaded("mayaUsdPlugin")) t << "USD Import";
         if (loaded("gltf")) t << "glTF";
+        if (loaded("AbcImport")) t << "Alembic";
         t << "PLY" << "STL";
     } else {
         if (loaded("fbx")) t << "FBX export";
         if (loaded("objExport")) t << "OBJexport";
         if (loaded("mayaUsdPlugin")) t << "USD Export";
         if (loaded("gltf")) t << "glTF export";
+        if (loaded("AbcExport")) t << "Alembic";
         t << "PLY" << "STL";
     }
     return t;
@@ -110,8 +114,9 @@ public:
         connect(act, &QPushButton::clicked, this, [this] {
             save();
             const QString t = type_->currentText();
-            accept();
-            run_(t);
+            auto run = run_;
+            this->close();
+            run(t);
         });
         connect(apply, &QPushButton::clicked, this, [this] {
             save();
@@ -177,8 +182,30 @@ private:
 } // namespace
 
 void file_options_window(QWidget* parent, FileAction action, std::function<void(const QString&)> run) {
-    FileOptions d(parent, action, std::move(run));
-    d.exec();
+    // Not modal (#109): Aztek stays usable beside it, and it stays over the main window.
+    auto* d = new FileOptions(parent ? parent->window() : main_window_widget(), action, std::move(run));
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowModality(Qt::NonModal);
+    d->show();
+    d->raise();
+}
+
+void browse_file(bool save, const QString& title, const QString& start, const QString& filters, const QString& selected,
+                 std::function<void(const QString&)> done) {
+    // Qt's own dialog: a system one blocks the window it belongs to while it is open.
+    auto* d = new QFileDialog(main_window_widget(), title, start, filters);
+    d->setOption(QFileDialog::DontUseNativeDialog, true);
+    d->setAcceptMode(save ? QFileDialog::AcceptSave : QFileDialog::AcceptOpen);
+    d->setFileMode(save ? QFileDialog::AnyFile : QFileDialog::ExistingFile);
+    if (!selected.isEmpty()) d->selectNameFilter(selected);
+    if (save && !start.isEmpty() && !QFileInfo(start).isDir()) d->selectFile(start);
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowModality(Qt::NonModal);
+    QObject::connect(d, &QFileDialog::fileSelected, d, [done](const QString& f) {
+        if (!f.isEmpty()) done(f);
+    });
+    d->show();
+    d->raise();
 }
 
 QString chosen_file_type(FileAction action) {
@@ -194,6 +221,7 @@ QString file_type_filter(const QString& t) {
     if (t == "glTF" || t == "glTF export") return "glTF 2.0 (*.glb *.gltf)";
     if (t == "PLY") return "PLY (*.ply)";
     if (t == "STL") return "STL (*.stl)";
+    if (t == "Alembic") return "Alembic (*.abc)";
     return QString();
 }
 
@@ -206,6 +234,7 @@ QString file_type_extension(const QString& t) {
     if (t == "glTF" || t == "glTF export") return "gltf";
     if (t == "PLY") return "ply";
     if (t == "STL") return "stl";
+    if (t == "Alembic") return "abc";
     return QString();
 }
 

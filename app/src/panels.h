@@ -15,6 +15,7 @@ class QLineEdit;
 class QLabel;
 class QToolButton;
 class QMenu;
+class QCheckBox;
 
 namespace az {
 
@@ -170,8 +171,17 @@ private:
     void save_current(bool as);
     void store_tabs();
     QPlainTextEdit* current() const;
+    // Ctrl+F: the find bar, over the pane it was opened from (#93).
+    void open_find(QPlainTextEdit* target);
+    void find(bool back);
+    // The history's lines coloured again for the theme in use (#88).
+    void recolour_history();
     QPlainTextEdit* history_;
     QTabWidget* inputs_;
+    QWidget* find_bar_ = nullptr;
+    QLineEdit* find_ = nullptr;
+    QCheckBox* find_case_ = nullptr;
+    QPlainTextEdit* find_target_ = nullptr;
     bool show_numbers_ = true;
     bool stack_trace_ = true;
     bool echo_all_ = false;

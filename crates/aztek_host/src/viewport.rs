@@ -415,6 +415,8 @@ pub enum Handle {
     Trackball,
     /// Edit Pivot: the ring that turns the pivot's axes about this one.
     PivotRing(usize),
+    /// Move tool, Ctrl+middle drag on components: each point along its own normal (#102).
+    Normal,
 }
 
 /// What a view shows and how, as the panel's Shading and Show menus set it.
@@ -1390,7 +1392,8 @@ impl Viewport {
             // The values in grey, white for 1, as the reference's colour feedback; a held influence reads blue.
             let feedback: Option<(Vec<f64>, u64, bool)> = if !selected || self.wireframe || entry.display.is_some() {
                 None
-            } else if self.tool == Tool::PaintSkin && s.paint_ctx.color_feedback {
+            } else if self.tool == Tool::PaintSkin && s.paint_ctx.color_feedback && s.paint_ctx.skin_paint_mode != 0 {
+                // Select mode picks components on the plain shaded mesh, as the reference's (#104).
                 aztek_scene::skin::skin_of(g, it.shape).and_then(|sk| {
                     let (bind, inf) = (aztek_scene::skin::bind_of(g, sk)?, aztek_scene::skin::paint_influence(s, sk)?);
                     Some((aztek_scene::skin::point_weights(&bind, inf), inf as u64, bind.locks.get(inf as usize).copied().unwrap_or(false)))
@@ -3543,6 +3546,14 @@ impl Viewport {
                 ang = (ang / step).round() * step;
             }
             return Some(("setPivot".into(), serde_json::json!({ "args": targets, "turnAxis": ax.to_array(), "turnAngle": ang })));
+        }
+        if d.handle == Handle::Normal {
+            // Left and right push the points out along their normals and back, a pixel's worth at the pivot's depth.
+            let dist = (px.x - d.start.x) * upp;
+            if dist.abs() < 1e-12 {
+                return None;
+            }
+            return Some(("moveComponents".into(), serde_json::json!({ "normal": dist })));
         }
         match self.eff_tool() {
             Tool::Move => {

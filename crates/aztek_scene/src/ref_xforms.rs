@@ -429,6 +429,22 @@ fn is_component_call(a: &Args) -> bool {
 
 fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let Some(m) = read_motion(a, "move", 0.0)? else { return prev(s, a) };
+    // -componentOffset with -localSpace: each component in its own space, the first value along its normal, as the
+    // reference's Ctrl+middle drag echoes it (#102).
+    if a.bool("componentOffset") && m.relative && (a.bool("localSpace") || a.bool("objectSpace")) {
+        let named: Vec<String> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).collect();
+        let before: Vec<String> = s.graph.selection().iter().map(|&id| s.graph.path(id)).collect();
+        let before_components = crate::components::component_strings(&s.graph, false);
+        if !named.is_empty() {
+            s.run("select", json!({"args": named}))?;
+        }
+        let r = s.run("moveComponents", json!({"normal": m.values.x}));
+        if !named.is_empty() {
+            let back: Vec<String> = if before_components.is_empty() { before } else { before_components };
+            let _ = if back.is_empty() { s.run("select", json!({"clear": true})) } else { s.run("select", json!({"args": back})) };
+        }
+        return r.map(|_| Value::Null);
+    }
     if is_component_call(a) {
         let key = if m.relative { "by" } else { "to" };
         return prev(s, &plain_args(a, json!({key: j3(m.values)})));
@@ -639,6 +655,7 @@ fn motion_flags(cmd: &str) -> Vec<FlagDef> {
         f("orientJoint", "oj", ArgType::String, "Accepted for existing scripts."),
         f("secondaryAxisOrient", "sao", ArgType::String, "Accepted for existing scripts."),
         f("componentSpace", "cs", ArgType::Bool, "Accepted for existing scripts."),
+        f("componentOffset", "co", ArgType::Bool, "move -r -co -ls: components moved each in its own space, the first value along its normal."),
         f("x", "", ArgType::Any, "This axis: a value, or on to read the positional value."),
         f("y", "", ArgType::Any, "This axis."),
         f("z", "", ArgType::Any, "This axis."),

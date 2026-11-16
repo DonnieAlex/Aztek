@@ -41,6 +41,8 @@ char* aztek_update_latest(void);
 char* aztek_update_download(const char* url, const char* path, const char* digest);
 void aztek_update_progress(uint64_t* done, uint64_t* total);
 void aztek_update_cancel(void);
+// A GET of a JSON document (the welcome screen's announcements): the body, or {error}. Blocks.
+char* aztek_fetch_json(const char* url);
 
 // Script UI: operations for the shell to mirror (null when none), what the user did, and the hook for what must answer
 // at once. Dialogs run the event loop inside the hook, on top of a suspended command.

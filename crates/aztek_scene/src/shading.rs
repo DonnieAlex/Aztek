@@ -1369,6 +1369,37 @@ pub fn membership(g: &Graph) -> HashMap<NodeId, Vec<(NodeId, Option<Vec<u32>>)>>
     out
 }
 
+/// Gives pieces cut from a shape the shading its faces had: each piece with the faces of the original it was made from,
+/// in its own face order (polySeparate, #94). A piece shaded by one group takes it whole; otherwise by face.
+pub fn copy_to_pieces(g: &mut Graph, from: NodeId, pieces: &[(NodeId, Vec<u32>)]) -> CmdResult<()> {
+    let groups = membership_of(g, from);
+    if groups.is_empty() {
+        return Ok(());
+    }
+    for (piece, faces) in pieces {
+        let mut by_group: Vec<Vec<u32>> = vec![Vec::new(); groups.len()];
+        for (i, f) in faces.iter().enumerate() {
+            // The last group naming the face wins, a whole-shape group being the fallback.
+            let k = groups.iter().rposition(|(_, held)| held.as_ref().is_some_and(|h| h.binary_search(f).is_ok()))
+                .or_else(|| groups.iter().position(|(_, held)| held.is_none()));
+            if let Some(k) = k {
+                by_group[k].push(i as u32);
+            }
+        }
+        let used: Vec<usize> = (0..groups.len()).filter(|&k| !by_group[k].is_empty()).collect();
+        for &k in &used {
+            let sg = groups[k].0;
+            let m = if used.len() == 1 && by_group[k].len() == faces.len() {
+                Member::object(*piece)
+            } else {
+                Member { node: *piece, kind: ComponentMode::Face, ids: std::mem::take(&mut by_group[k]) }
+            };
+            assign(g, sg, &[m])?;
+        }
+    }
+    Ok(())
+}
+
 /// One shape's shading groups, with what `membership` gives for each.
 pub fn membership_of(g: &Graph, shape: NodeId) -> Vec<(NodeId, Option<Vec<u32>>)> {
     let mut out = Vec::new();
@@ -1594,14 +1625,27 @@ pub fn register(c: &mut Commands<Session>) {
     }
     extend(c, "delete", vec![], |s, a, prev| {
         // Named or selected: a node every scene has stays. History deletion leaves the nodes named alone.
+        // Among others, it is passed over with a warning and the rest go (#89); alone, it is an error.
         if !a.bool("constructionHistory") {
             let names = if a.named().is_empty() { s.graph.selection().iter().map(|&id| s.graph.path(id)).collect() } else { a.named() };
+            let (mut kept, mut refused) = (Vec::new(), Vec::new());
             for name in names {
                 let g = &s.graph;
-                let refused = g.find(&name).ok().flatten().and_then(|id| crate::defaults::refusal(g, id, "delete"));
-                if let Some(why) = refused {
-                    fail!("{why}");
+                match g.find(&name).ok().flatten().and_then(|id| crate::defaults::refusal(g, id, "delete")) {
+                    Some(why) => refused.push(why),
+                    None => kept.push(name),
                 }
+            }
+            if !refused.is_empty() {
+                if kept.is_empty() {
+                    fail!("{}", refused[0]);
+                }
+                for why in &refused {
+                    log::warn!("{why}");
+                }
+                let mut a2 = a.clone();
+                a2.positional = vec![Value::Array(kept.into_iter().map(Value::String).collect())];
+                return prev(s, &a2);
             }
         }
         prev(s, a)

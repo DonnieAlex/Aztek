@@ -33,7 +33,26 @@ namespace az {
 
 namespace {
 
-const char* kFilter = "Maya Scenes (*.ma *.mb);;mayaAscii (*.ma);;mayaBinary (*.mb);;All Files (*)";
+bool plugin_loaded(const QString& name) {
+    return ask("pluginInfo", QJsonObject{{"args", QJsonArray{name}}, {"query", true}, {"loaded", true}}).toBool();
+}
+
+// Scenes, and every type an importer that is loaded reads: FBX (mocap to retarget), OBJ, USD, Alembic, glTF (#92).
+QString reference_filter() {
+    QString every = "*.ma *.mb";
+    QString extra;
+    auto add = [&](const char* plugin, const QString& globs, const QString& label) {
+        if (!plugin_loaded(plugin)) return;
+        every += " " + globs;
+        extra += QString(";;%1 (%2)").arg(label, globs);
+    };
+    add("fbx", "*.fbx", "FBX");
+    add("objExport", "*.obj", "OBJ");
+    add("mayaUsdPlugin", "*.usd *.usda *.usdc *.usdz", "USD");
+    add("AbcImport", "*.abc", "Alembic");
+    add("gltf", "*.glb *.gltf", "glTF 2.0");
+    return QString("Scenes and files to reference (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;All Files (*)").arg(every, extra);
+}
 
 QJsonObject with_file(const QString& path, QJsonObject call) {
     call["args"] = QJsonArray{path};
@@ -208,7 +227,7 @@ private:
     void replace_selected() {
         QString rfn = current();
         if (rfn.isEmpty()) return;
-        QString f = QFileDialog::getOpenFileName(this, "Replace Reference", QFileInfo(entry(rfn)["path"].toString()).path(), kFilter);
+        QString f = QFileDialog::getOpenFileName(this, "Replace Reference", QFileInfo(entry(rfn)["path"].toString()).path(), reference_filter());
         if (f.isEmpty()) return;
         az::exec("file", with_file(f, QJsonObject{{"loadReference", rfn}}));
         Host::get()->poke();
@@ -322,7 +341,7 @@ void MainWindow::show_reference_editor() {
 
 void MainWindow::create_reference_dialog(bool options) {
     QSettings s;
-    QString f = QFileDialog::getOpenFileName(this, "Create Reference", s.value("reference/folder").toString(), kFilter);
+    QString f = QFileDialog::getOpenFileName(this, "Create Reference", s.value("reference/folder").toString(), reference_filter());
     if (f.isEmpty()) return;
     s.setValue("reference/folder", QFileInfo(f).path());
     QJsonObject call{{"reference", true}};

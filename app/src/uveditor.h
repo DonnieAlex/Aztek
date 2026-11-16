@@ -2,6 +2,7 @@
 // projection, unfold, layout, cut and sew tools.
 #pragma once
 #include <QHash>
+#include <QStringList>
 class QComboBox;
 #include <QImage>
 #include <QJsonArray>
@@ -41,6 +42,11 @@ public:
     void frame(bool selected);
     // The UVs to act on, as polyEditUV arguments (pCube1.map[...]); falls back to the scene selection.
     QJsonArray targets() const;
+    // The meshes shown, by path; the middle of what is selected (x below -1e8 when nothing is).
+    QStringList mesh_paths() const;
+    QPointF selection_center() const;
+    // Every UV of the meshes shown selected, or with invert those not selected now.
+    void select_all_uvs(bool invert);
     bool show_checker = false;
     // The material's image behind the UVs; what Image > Display Image turns off.
     bool show_image = true;
@@ -61,6 +67,7 @@ protected:
     void keyPressEvent(QKeyEvent*) override;
     void mouseDoubleClickEvent(QMouseEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
+    void mode_menu(QPoint global);
 private:
     QImage image_;
     QString image_path_;
@@ -69,7 +76,6 @@ private:
     QPointF to_uv(QPointF p) const;
     // Selected maps per mesh, from the local UV selection or the scene's components.
     QHash<int, QSet<int>> active_maps() const;
-    QPointF selection_center() const;
     void pick(QPointF pos, QPointF to, bool rect, Qt::KeyboardModifiers mods);
     void tool_press(QMouseEvent* e);
     void pick_lasso(Qt::KeyboardModifiers mods);
@@ -79,7 +85,8 @@ private:
 
     QVector<UvMesh> meshes_;
     QString scene_mode_ = "object";
-    QString mode_ = "uv";
+    // The scene's selection type it follows: object until the scene goes to components (#99).
+    QString mode_ = "object";
     QString tool_ = "move";
     // Local UV selection: mesh index -> maps.
     QHash<QString, QSet<int>> uv_sel_;
@@ -116,6 +123,8 @@ public:
     void apply_flags(const QJsonObject& props);
 private:
     void run(const QString& cmd, const QJsonObject& call = QJsonObject(), bool on_selection = true);
+    // The UV Toolkit side panel (uvtoolkit.cpp, #108).
+    QWidget* build_toolkit();
     UvCanvas* canvas_ = nullptr;
     QHash<QString, QAction*> mode_buttons_;
     QHash<QString, QAction*> tool_buttons_;

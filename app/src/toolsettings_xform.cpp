@@ -1,6 +1,7 @@
 // Tool Settings for the Select, Move, Rotate and Scale tools: orientation, step snap, symmetry, soft selection and pivot.
 // Options are the manip contexts' flags, so scripts and this page see the same values. They are saved between sessions.
 #include "toolsettings.h"
+#include <QPointer>
 #include "host.h"
 
 #include <QCheckBox>
@@ -152,6 +153,15 @@ const QList<Orient> kMoveModes = {{"Object", 0}, {"World", 2}, {"Component", 10}
 const QList<Orient> kRotateModes = {{"Object", 0}, {"World", 1}, {"Gimbal", 2}, {"Component", 10}, {"Custom", 3}};
 
 } // namespace
+
+QWidget* falloff_curve(QWidget* parent, std::function<void()>* reload) {
+    auto* c = new FalloffCurve(parent);
+    c->reload();
+    if (reload) *reload = [p = QPointer<FalloffCurve>(c)] {
+        if (p) p->reload();
+    };
+    return c;
+}
 
 void ToolSettings::show_pivot_mode(bool on) {
     if (edit_pivot_) edit_pivot_->setChecked(on);

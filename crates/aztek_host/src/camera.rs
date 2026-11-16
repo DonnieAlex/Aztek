@@ -164,14 +164,32 @@ impl Camera {
         self.coi += (-right * delta.x + up * delta.y) * per_px;
     }
 
+    /// Dollying in moves by a share of the distance to the centre of interest; near it, the steps keep a floor's size and
+    /// the centre of interest is pushed ahead, so a long dolly never stalls in ever smaller steps, nor do tumbling and
+    /// tracking, which go by that distance (#98).
     pub fn dolly(&mut self, amount: f64) {
         let f = (-amount * 0.005).exp();
         if self.ortho() {
             self.ortho_width = (self.ortho_width * f).max(1e-4);
+            return;
+        }
+        if f >= 1.0 {
+            self.distance *= f;
+            return;
+        }
+        let step = self.distance.max(Self::DOLLY_FLOOR) * (1.0 - f);
+        let left = self.distance - step;
+        if left >= Self::DOLLY_FLOOR {
+            self.distance = left;
         } else {
-            self.distance = (self.distance * f).max(1e-3);
+            let past = Self::DOLLY_FLOOR - left;
+            self.coi -= self.dir_to_eye() * past;
+            self.distance = Self::DOLLY_FLOOR;
         }
     }
+
+    /// The nearest a dolly brings the camera to its centre of interest, in cm.
+    pub const DOLLY_FLOOR: f64 = 0.5;
 
     /// Fits a sphere in view.
     pub fn frame(&mut self, center: DVec3, radius: f64, aspect: f64) {
@@ -199,6 +217,28 @@ impl Camera {
 #[cfg(test)]
 mod pan_zoom_tests {
     use super::*;
+
+    /// A long dolly keeps going at a usable pace, past where the centre of interest was (#98).
+    #[test]
+    fn dolly_never_stalls() {
+        let mut c = Camera::new(CamKind::Persp);
+        let dir = -c.dir_to_eye();
+        let start = c.eye();
+        for _ in 0..400 {
+            c.dolly(60.0);
+        }
+        assert!(c.distance >= Camera::DOLLY_FLOOR - 1e-12);
+        let travelled = (c.eye() - start).dot(dir);
+        assert!(travelled > 20.0, "{travelled}");
+        // Each step near the floor still moves the camera by a visible amount.
+        let before = c.eye();
+        c.dolly(60.0);
+        assert!((c.eye() - before).length() > 0.1);
+        // Out again it goes back by shares of the distance.
+        let d = c.distance;
+        c.dolly(-60.0);
+        assert!(c.distance > d);
+    }
 
     #[test]
     fn film_pan_and_zoom() {

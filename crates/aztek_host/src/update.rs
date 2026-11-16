@@ -57,6 +57,20 @@ fn agent(url: &str) -> ureq::Agent {
     b.build()
 }
 
+/// A JSON document fetched from a URL (the welcome screen's announcements, #85): its text, or {error} as JSON.
+pub fn get_json(url: &str) -> String {
+    let resp = match agent(url).get(url).set("Accept", "application/json").call() {
+        Ok(r) => r,
+        Err(ureq::Error::Status(code, _)) => return json!({ "error": format!("the server answered {code}") }).to_string(),
+        Err(e) => return json!({ "error": format!("couldn't reach it: {e}") }).to_string(),
+    };
+    match resp.into_string() {
+        Ok(t) if serde_json::from_str::<Value>(&t).is_ok() => t,
+        Ok(_) => json!({ "error": "the answer isn't JSON" }).to_string(),
+        Err(e) => json!({ "error": format!("the answer couldn't be read: {e}") }).to_string(),
+    }
+}
+
 /// The latest release: {tag, name, body, url, assets: [{name, url, size, digest}]}, or {error}.
 pub fn latest() -> Value {
     let url = std::env::var("AZTEK_UPDATE_URL").unwrap_or_else(|_| LATEST.to_string());

@@ -214,6 +214,12 @@ QPixmap draw(const QString& name, int size) {
             pen_color(kGreen, 1.0);
             p.drawText(full, Qt::AlignCenter, "UV");
         }
+    } else if (name == "uvShellSel") {
+        // UV shells: two islands, the way the UV Toolkit's button shows them.
+        pen_color(kGreen, 1.4);
+        p.setBrush(QColor(80, 160, 90, 90));
+        p.drawRect(QRectF(4, 4, 11, 24));
+        p.drawRect(QRectF(18, 10, 10, 12));
     } else if (name == "history") {
         p.setBrush(Qt::NoBrush);
         p.drawEllipse(QRectF(5, 5, 22, 22));

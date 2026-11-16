@@ -611,7 +611,7 @@ Window Actions > Modifier key to Meta.
 | Alt+. and Alt+, | Next and previous frame |
 | Alt+V, Esc | Play / stop |
 | Ctrl+A | Attribute Editor |
-| Enter | Joint tool: end the chain. Curve, Multi-Cut and polygon tools: finish |
+| Enter | Joint tool: end the chain and go back to Select. Curve, Multi-Cut and polygon tools: finish |
 | B drag | Paint and sculpting tools: size the brush |
 | Ctrl+Shift+T | Tool Settings (also: double-click a tool) |
 
@@ -620,7 +620,22 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
 
 ## Editors
 
-- Outliner, Channel Box / Layer Editor, Attribute Editor (docked), Script Editor with MEL and Python tabs.
+- Outliner, Channel Box / Layer Editor, Attribute Editor (docked), Script Editor with MEL and Python tabs and Ctrl+F
+  to find. The thin arrows either side of the views fold away everything docked on that side; the lock beside the
+  Themes box keeps docked panels where they are.
+- Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, and the latest release
+  notes and announcements when update checks are on.
+
+  ![Welcome screen](docs/welcome-screen.png)
+- Modeling Toolkit (Windows > Modeling Editors), docked beside the Attribute Editor: selection types (Ctrl converts,
+  Ctrl+Shift to the perimeter, right-click clears), how clicks select, symmetry and constraints, soft selection, and
+  the mesh, component and tool buttons.
+
+  ![Modeling Toolkit](docs/modeling-toolkit.png)
+- UV Toolkit, the UV Editor's side panel: selection, pinning, select by type, soft selection, transform, texel density,
+  projections, cut and sew, unfold, layout. Shell alignment, stacking and snapping come next.
+
+  ![UV Toolkit](docs/uv-toolkit.png)
 - Graph Editor and Dope Sheet (Windows > Animation Editors): curves and keys of the selection.
 - Node Editor (Windows > General Editors): graph the selection, wire attributes, Tab creates a node.
 - Hotkeys and shelves are editable; the Hotkey Editor is under Windows > Settings/Preferences.

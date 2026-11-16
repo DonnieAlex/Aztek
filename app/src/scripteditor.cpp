@@ -6,6 +6,8 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QGuiApplication>
+#include <QPalette>
 #include <QCheckBox>
 #include <QDrag>
 #include <QFile>
@@ -27,6 +29,9 @@
 #include <QSyntaxHighlighter>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTextDocument>
+#include <QToolButton>
+#include <QHBoxLayout>
 #include <QTextBlock>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -35,17 +40,28 @@ namespace az {
 
 namespace {
 
+bool light_interface() { return QGuiApplication::palette().color(QPalette::Window).lightnessF() > 0.5; }
+
+// History colours by kind (output, result, error, echo, warning), for dark and for light themes (#88).
+const char* history_colour(int kind) {
+    static const char* dark[] = {"#d2d2d2", "#9fd0ff", "#ff8080", "#a0a0a0", "#f0c060"};
+    static const char* light[] = {"#1e1e1e", "#0b5cad", "#b3201b", "#5c5c5c", "#8a5a00"};
+    return (light_interface() ? light : dark)[qBound(0, kind, 4)];
+}
+
 class Highlighter : public QSyntaxHighlighter {
 public:
     Highlighter(QTextDocument* d, bool py) : QSyntaxHighlighter(d), python_(py) {
+        // Darker, stronger colours on a light theme, so code stays readable on a pale background (#88).
+        const bool l = light_interface();
         QTextCharFormat kw, str, com, num, var, flag;
-        kw.setForeground(QColor(120, 170, 240));
+        kw.setForeground(l ? QColor(20, 70, 170) : QColor(120, 170, 240));
         kw.setFontWeight(QFont::Bold);
-        str.setForeground(QColor(230, 190, 110));
-        com.setForeground(QColor(120, 170, 120));
-        num.setForeground(QColor(190, 150, 230));
-        var.setForeground(QColor(120, 215, 215));
-        flag.setForeground(QColor(170, 200, 130));
+        str.setForeground(l ? QColor(150, 80, 0) : QColor(230, 190, 110));
+        com.setForeground(l ? QColor(40, 120, 40) : QColor(120, 170, 120));
+        num.setForeground(l ? QColor(120, 40, 160) : QColor(190, 150, 230));
+        var.setForeground(l ? QColor(0, 115, 125) : QColor(120, 215, 215));
+        flag.setForeground(l ? QColor(80, 110, 20) : QColor(170, 200, 130));
         QString kws = py ? "and|as|assert|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|None|nonlocal|not|or|pass|raise|return|True|False|try|while|with|yield"
                          : "if|else|for|in|while|do|switch|case|default|break|continue|return|proc|global|int|float|string|vector|matrix|source";
         rules_.append({QRegularExpression("\\b(" + kws + ")\\b"), kw});
@@ -93,7 +109,16 @@ public:
 protected:
     void resizeEvent(QResizeEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
+    void changeEvent(QEvent* e) override {
+        QPlainTextEdit::changeEvent(e);
+        // A theme changed: the highlighting follows it.
+        if (e->type() == QEvent::PaletteChange || e->type() == QEvent::StyleChange) {
+            delete highlighter_;
+            highlighter_ = new Highlighter(document(), language == "python");
+        }
+    }
 private:
+    Highlighter* highlighter_ = nullptr;
     void update_margin() { setViewportMargins(gutter_width(), 0, 0, 0); }
     bool numbers_ = false;
     QWidget* gutter_;
@@ -116,7 +141,7 @@ ScriptEdit::ScriptEdit(const QString& lang, QWidget* parent) : QPlainTextEdit(pa
         if (dy) gutter_->scroll(0, dy);
         else gutter_->update(0, r.y(), gutter_->width(), r.height());
     });
-    new Highlighter(document(), lang == "python");
+    highlighter_ = new Highlighter(document(), lang == "python");
     setObjectName("scriptInput");
     setLineWrapMode(QPlainTextEdit::NoWrap);
 }
@@ -129,11 +154,13 @@ void ScriptEdit::resizeEvent(QResizeEvent* e) {
 
 void ScriptEdit::paint_gutter(QPaintEvent* e) {
     QPainter p(gutter_);
-    p.fillRect(e->rect(), QColor(50, 50, 50));
+    // The gutter from the theme: a shade off the editor's background, numbers in its muted text colour.
+    const QColor base = palette().color(QPalette::Base);
+    p.fillRect(e->rect(), light_interface() ? base.darker(108) : base.darker(140));
     QTextBlock b = firstVisibleBlock();
     int n = b.blockNumber();
     int top = qRound(blockBoundingGeometry(b).translated(contentOffset()).top());
-    p.setPen(QColor(150, 150, 150));
+    p.setPen(palette().color(QPalette::PlaceholderText));
     while (b.isValid() && top <= e->rect().bottom()) {
         p.drawText(0, top, gutter_->width() - 4, fontMetrics().height(), Qt::AlignRight, QString::number(n + 1));
         b = b.next();
@@ -190,6 +217,8 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     edit->addAction("Clear History", [this] { history_->clear(); });
     edit->addAction("Clear Input", [this] { if (auto* e = current()) e->clear(); });
     edit->addAction("Clear All", [this] { history_->clear(); if (auto* e = current()) e->clear(); });
+    edit->addSeparator();
+    edit->addAction("Find...\tCtrl+F", [this] { open_find(current()); });
     QMenu* cmd = mb->addMenu("Command");
     cmd->addAction("New Tab: MEL", [this] { add_tab("mel", "MEL", QString()); });
     cmd->addAction("New Tab: Python", [this] { add_tab("python", "Python", "import maya.cmds as cmds\n"); });
@@ -262,6 +291,46 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     split->setStretchFactor(0, 3);
     split->setStretchFactor(1, 2);
     lay->addWidget(split, 1);
+    history_->installEventFilter(this);
+
+    // The find bar, hidden until Ctrl+F: Enter finds the next, Shift+Enter the one before, Esc closes it.
+    find_bar_ = new QWidget(this);
+    auto* fl = new QHBoxLayout(find_bar_);
+    fl->setContentsMargins(4, 2, 4, 2);
+    find_ = new QLineEdit(find_bar_);
+    find_->setPlaceholderText("Find");
+    find_->setClearButtonEnabled(true);
+    find_case_ = new QCheckBox("Match case", find_bar_);
+    auto* prev = new QToolButton(find_bar_);
+    prev->setText("Previous");
+    auto* next = new QToolButton(find_bar_);
+    next->setText("Next");
+    auto* close = new QToolButton(find_bar_);
+    close->setText("x");
+    close->setToolTip("Close (Esc)");
+    fl->addWidget(find_, 1);
+    fl->addWidget(prev);
+    fl->addWidget(next);
+    fl->addWidget(find_case_);
+    fl->addWidget(close);
+    lay->addWidget(find_bar_);
+    find_bar_->hide();
+    find_->installEventFilter(this);
+    connect(find_, &QLineEdit::returnPressed, this, [this] { find(false); });
+    connect(find_, &QLineEdit::textEdited, this, [this] {
+        // As it is typed, from where the last match began.
+        if (!find_target_) return;
+        QTextCursor c = find_target_->textCursor();
+        c.setPosition(c.selectionStart());
+        find_target_->setTextCursor(c);
+        find(false);
+    });
+    connect(prev, &QToolButton::clicked, this, [this] { find(true); });
+    connect(next, &QToolButton::clicked, this, [this] { find(false); });
+    connect(close, &QToolButton::clicked, this, [this] {
+        find_bar_->hide();
+        if (find_target_) find_target_->setFocus();
+    });
     QFont mono("monospace");
     mono.setStyleHint(QFont::Monospace);
     mono.setPointSize(9);
@@ -357,14 +426,15 @@ void ScriptEditor::save_current(bool as) {
 }
 
 void ScriptEditor::append(const QJsonArray& lines) {
-    static const char* colors[] = {"#d2d2d2", "#9fd0ff", "#ff8080", "#a0a0a0", "#f0c060"};
     for (const QJsonValue& v : lines) {
         QJsonObject l = v.toObject();
         int k = qBound(0, l["kind"].toInt(), 4);
         QString text = l["text"].toString();
         // Python's traceback lines are errors with file lines; Show Stack Trace off keeps only the last.
         if (!stack_trace_ && k == 2 && (text.startsWith("Traceback") || text.startsWith("  File "))) continue;
-        history_->appendHtml(QString("<span style='color:%1; white-space:pre'>%2</span>").arg(colors[k], text.toHtmlEscaped()));
+        history_->appendHtml(QString("<span style='color:%1; white-space:pre'>%2</span>").arg(history_colour(k), text.toHtmlEscaped()));
+        // The kind kept on the line, so a theme change can colour it again.
+        history_->document()->lastBlock().setUserState(k);
     }
     history_->verticalScrollBar()->setValue(history_->verticalScrollBar()->maximum());
 }
@@ -381,9 +451,64 @@ void ScriptEditor::run(bool clear_after) {
     store_tabs();
 }
 
+void ScriptEditor::open_find(QPlainTextEdit* target) {
+    if (!target) return;
+    find_target_ = target;
+    find_bar_->show();
+    const QString picked = target->textCursor().selectedText();
+    if (!picked.isEmpty() && !picked.contains(QChar(0x2029))) find_->setText(picked);
+    find_->setFocus();
+    find_->selectAll();
+}
+
+void ScriptEditor::find(bool back) {
+    if (!find_target_ || find_->text().isEmpty()) return;
+    QTextDocument::FindFlags flags;
+    if (back) flags |= QTextDocument::FindBackward;
+    if (find_case_->isChecked()) flags |= QTextDocument::FindCaseSensitively;
+    bool found = find_target_->find(find_->text(), flags);
+    if (!found) {
+        // Round from the other end.
+        QTextCursor c = find_target_->textCursor();
+        c.movePosition(back ? QTextCursor::End : QTextCursor::Start);
+        find_target_->setTextCursor(c);
+        found = find_target_->find(find_->text(), flags);
+    }
+    // Red text when there is no match.
+    find_->setStyleSheet(found ? QString() : QString("QLineEdit { color: #d03030; }"));
+}
+
+void ScriptEditor::recolour_history() {
+    QTextCursor c(history_->document());
+    for (QTextBlock b = history_->document()->begin(); b.isValid(); b = b.next()) {
+        c.setPosition(b.position());
+        c.setPosition(b.position() + b.length() - 1, QTextCursor::KeepAnchor);
+        QTextCharFormat f;
+        f.setForeground(QColor(history_colour(qMax(0, b.userState()))));
+        c.mergeCharFormat(f);
+    }
+}
+
 bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
+    if (o == history_ && (ev->type() == QEvent::PaletteChange || ev->type() == QEvent::StyleChange)) recolour_history();
+    if (o == find_ && ev->type() == QEvent::KeyPress) {
+        auto* k = static_cast<QKeyEvent*>(ev);
+        if (k->key() == Qt::Key_Escape) {
+            find_bar_->hide();
+            if (find_target_) find_target_->setFocus();
+            return true;
+        }
+        if ((k->key() == Qt::Key_Return || k->key() == Qt::Key_Enter) && (k->modifiers() & Qt::ShiftModifier)) {
+            find(true);
+            return true;
+        }
+    }
     if (ev->type() == QEvent::KeyPress) {
         auto* k = static_cast<QKeyEvent*>(ev);
+        if (k->key() == Qt::Key_F && k->modifiers() == Qt::ControlModifier && o != find_) {
+            open_find(qobject_cast<QPlainTextEdit*>(o));
+            return true;
+        }
         bool enter = k->key() == Qt::Key_Return || k->key() == Qt::Key_Enter;
         // Ctrl+Enter runs and keeps the text; keypad Enter runs and clears it.
         if (enter && (k->modifiers() & Qt::ControlModifier)) {

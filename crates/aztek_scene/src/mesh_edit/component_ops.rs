@@ -559,8 +559,10 @@ pub fn register(c: &mut Commands<Session>) {
             K::Edge => "polyDelEdge",
             _ => "polyDelFacet",
         };
+        // Edges go as the reference's Delete takes them: dissolved, the faces either side merged (#103). Vertices and
+        // faces take their faces with them.
         let mut a2 = _a.clone();
-        a2.flags.insert("withFaces".into(), json!(true));
+        a2.flags.insert("withFaces".into(), json!(ty != "polyDelEdge"));
         edit_selected_op(s, ty, &a2, false, None)
     }));
 

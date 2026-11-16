@@ -328,12 +328,12 @@ fn deletes_and_collapses() {
     });
     assert_eq!(run(&mut s, "polyDelVertex", json!({"args": [format!("pPlane1.vtx[{}]", mid.unwrap())]})), json!(["polyDelVertex1"]));
     assert_eq!(counts(&mut s, "pPlane1").2, 1);
-    // The old delete still removes the faces.
+    // Delete on an edge dissolves it, as the reference's: the two faces beside it become one (#103).
     run(&mut s, "newScene", json!({}));
     cube(&mut s);
     run(&mut s, "select", json!({"args": ["pCube1.e[0]"]}));
     run(&mut s, "deleteComponents", json!({}));
-    assert_eq!(counts(&mut s, "pCube1").2, 4);
+    assert_eq!(counts(&mut s, "pCube1").2, 5);
 
     run(&mut s, "newScene", json!({}));
     cube(&mut s);

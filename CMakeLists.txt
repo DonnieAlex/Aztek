@@ -119,6 +119,9 @@ add_executable(aztek WIN32
   app/src/nodeeditor.cpp
   app/src/shapeeditor.cpp
   app/src/relationship.cpp
+  app/src/welcome.cpp
+  app/src/modelingtoolkit.cpp
+  app/src/uvtoolkit.cpp
   app/src/runtime.cpp
   app/src/statusline.cpp
   app/src/themes.cpp

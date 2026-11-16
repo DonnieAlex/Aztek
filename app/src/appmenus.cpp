@@ -199,9 +199,12 @@ QMenu* MainWindow::file_menu() {
             every += " *.glb *.gltf";
             extra += ";;glTF 2.0 (*.glb *.gltf)";
         }
-        QString selected = file_type_filter(type);
-        QString f = QFileDialog::getOpenFileName(nullptr, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), &selected);
-        if (f.isEmpty()) return;
+        if (plugin_loaded("AbcImport")) {
+            every += " *.abc";
+            extra += ";;Alembic (*.abc)";
+        }
+        // A browser that leaves Aztek usable while it is open (#109).
+        browse_file(false, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), file_type_filter(type), [](const QString& f) {
         const bool is_fbx = f.endsWith(".fbx", Qt::CaseInsensitive);
         if (is_fbx || f.endsWith(".glb", Qt::CaseInsensitive) || f.endsWith(".gltf", Qt::CaseInsensitive)) {
             if (!plugin_loaded(is_fbx ? "fbx" : "gltf")) {
@@ -244,8 +247,13 @@ QMenu* MainWindow::file_menu() {
             exec(f.endsWith(".ply", Qt::CaseInsensitive) ? "importPly" : "importStl", args(QJsonArray{f}));
             return;
         }
+        if (f.endsWith(".abc", Qt::CaseInsensitive) && !plugin_loaded("AbcImport")) {
+            log("// Error: Alembic files are read by the AbcImport plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
+            return;
+        }
         // Scenes, and OBJ through the objExport plug-in, which the file command names when it isn't loaded.
         exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
+        });
     };
     m->addAction(new OptionRow("Import...", QString(), [do_import] { do_import(chosen_file_type(FileAction::Import)); }, [this, do_import] { file_options_window(this, FileAction::Import, do_import); }, m));
     m->addSeparator();
@@ -258,11 +266,10 @@ QMenu* MainWindow::file_menu() {
     // Export through the file browser, opened on the File type the options were left on; with Default file extensions on,
     // a name given without one gets the type's.
     auto do_export = [](bool all, const QString& type) {
-        QString selected = file_type_filter(type);
         const QString ext = file_type_extension(type);
-        QString f = QFileDialog::getSaveFileName(nullptr, all ? "Export All" : "Export Selection", ext.isEmpty() ? "export.ma" : "export." + ext,
-                                                 QString("mayaAscii (*.ma);;mayaBinary (*.mb)%1%2%3%4;;PLY (*.ply);;STL (*.stl)").arg(plugin_loaded("fbx") ? ";;FBX (*.fbx)" : "", plugin_loaded("objExport") ? ";;OBJ (*.obj)" : "", plugin_loaded("mayaUsdPlugin") ? QString(";;") + kUsdFilter : QString(), plugin_loaded("gltf") ? ";;glTF 2.0 (*.glb *.gltf)" : ""), &selected);
-        if (f.isEmpty()) return;
+        // A browser that leaves Aztek usable while it is open (#109).
+        browse_file(true, all ? "Export All" : "Export Selection", ext.isEmpty() ? "export.ma" : "export." + ext,
+                                                 QString("mayaAscii (*.ma);;mayaBinary (*.mb)%1%2%3%4%5;;PLY (*.ply);;STL (*.stl)").arg(plugin_loaded("fbx") ? ";;FBX (*.fbx)" : "", plugin_loaded("objExport") ? ";;OBJ (*.obj)" : "", plugin_loaded("mayaUsdPlugin") ? QString(";;") + kUsdFilter : QString(), plugin_loaded("gltf") ? ";;glTF 2.0 (*.glb *.gltf)" : "", plugin_loaded("AbcExport") ? ";;Alembic (*.abc)" : ""), file_type_filter(type), [all, ext](QString f) {
         if (QFileInfo(f).suffix().isEmpty() && default_file_extensions() && !ext.isEmpty()) f += "." + ext;
         // The exporters are plug-ins: one that has been unloaded says so rather than failing on an unknown command.
         auto plugin_ready = [](const QString& plugin, const QString& what) {
@@ -314,6 +321,17 @@ QMenu* MainWindow::file_menu() {
             exec("file", QJsonObject{{"args", QJsonArray{f}}, {all ? "exportAll" : "exportSelected", true}, {"type", type}});
             return;
         }
+        if (f.endsWith(".abc", Qt::CaseInsensitive)) {
+            // Through AbcExport, as Cache > Alembic Cache does it: the playback range, UVs, world space (#87).
+            if (!plugin_ready("AbcExport", "Alembic")) return;
+            QString job = QString("-frameRange %1 %2 -uvWrite -worldSpace")
+                              .arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble())
+                              .arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
+            if (!all)
+                for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
+            exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+            return;
+        }
         if (f.endsWith(".obj", Qt::CaseInsensitive)) {
             if (!plugin_ready("objExport", "OBJ")) return;
             exec("file", QJsonObject{{"args", QJsonArray{f}}, {all ? "exportAll" : "exportSelected", true}, {"type", "OBJexport"}});
@@ -328,6 +346,7 @@ QMenu* MainWindow::file_menu() {
             for (const QString& k : keep) a.append(k);
             exec("select", a.isEmpty() ? QJsonObject{{"clear", true}} : args(a));
         }
+        });
     };
     m->addAction(new OptionRow("Export All...", QString(), [do_export] { do_export(true, chosen_file_type(FileAction::ExportAll)); },
                                [this, do_export] { file_options_window(this, FileAction::ExportAll, [do_export](const QString& t) { do_export(true, t); }); }, m));
@@ -879,6 +898,10 @@ QMenu* MainWindow::display_menu() {
 // Windows and workspaces
 
 void MainWindow::show_named_window(const QString& name) {
+    if (name == "modelingToolkit") {
+        show_modeling_toolkit();
+        return;
+    }
     QWidget* w = named_windows_.value(name);
     if (!w) {
         w = make_editor_window(name, this);

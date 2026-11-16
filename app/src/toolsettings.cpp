@@ -12,6 +12,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QHeaderView>
+#include <QMouseEvent>
 #include <QLineEdit>
 #include <QToolButton>
 #include <QStandardItemModel>
@@ -608,11 +609,35 @@ QWidget* ToolSettings::build_paint_page() {
     connect(search_, &QLineEdit::textChanged, this, [this] { filter_influences(); });
     form->addRow(search_);
     influences_ = new QTreeWidget(w);
-    influences_->setColumnCount(1);
+    // A column of lock buttons at the far left, aligned whatever the depth, then the names in their hierarchy (#105).
+    influences_->setColumnCount(2);
+    influences_->setTreePosition(1);
+    influences_->header()->setStretchLastSection(true);
+    influences_->header()->setSectionResizeMode(0, QHeaderView::Fixed);
+    influences_->header()->resizeSection(0, 26);
     influences_->setHeaderHidden(true);
     influences_->setMinimumHeight(160);
     influences_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     influences_->setRootIsDecorated(true);
+    influences_->setIconSize(QSize(16, 16));
+    // A click on a lock holds or releases that influence, or every selected one when it is among them, and leaves the
+    // selection as it is: two influences picked, Invert Selection, a click on a lock, and only the two take paint.
+    struct LockClicks : QObject {
+        ToolSettings* ts;
+        explicit LockClicks(ToolSettings* t, QObject* parent) : QObject(parent), ts(t) {}
+        bool eventFilter(QObject* o, QEvent* e) override {
+            if (e->type() != QEvent::MouseButtonPress && e->type() != QEvent::MouseButtonDblClick) return false;
+            auto* me = static_cast<QMouseEvent*>(e);
+            auto* tree = qobject_cast<QTreeWidget*>(o->parent());
+            if (!tree || me->button() != Qt::LeftButton) return false;
+            const QPoint at = me->position().toPoint();
+            QTreeWidgetItem* it = tree->itemAt(at);
+            if (!it || tree->columnAt(at.x()) != 0) return false;
+            if (e->type() == QEvent::MouseButtonPress) ts->toggle_lock(it);
+            return true;
+        }
+    };
+    influences_->viewport()->installEventFilter(new LockClicks(this, influences_));
     connect(influences_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* cur, QTreeWidgetItem*) {
         if (cur) exec_quiet("artAttrSkinPaintCtx", QJsonObject{{"edit", true}, {"influence", cur->data(0, Qt::UserRole).toString()}});
     });
@@ -626,11 +651,6 @@ QWidget* ToolSettings::build_paint_page() {
         for (const QString& n : now)
             if (!kept.contains(n)) kept << n;
         pick_order_ = kept;
-    });
-    connect(influences_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* it, int col) {
-        if (loading_ || col != 0 || last_skin_.isEmpty()) return;
-        bool lock = it->checkState(0) == Qt::Checked;
-        exec("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"edit", true}, {"influence", it->data(0, Qt::UserRole).toString()}, {"lockWeights", lock}});
     });
     form->addRow(influences_);
 
@@ -895,10 +915,22 @@ void ToolSettings::show_vertex_influences() {
     if (first) influences_->scrollToItem(first);
 }
 
+void ToolSettings::toggle_lock(QTreeWidgetItem* clicked) {
+    if (last_skin_.isEmpty()) return;
+    const bool lock = !clicked->data(0, Qt::UserRole + 1).toBool();
+    QList<QTreeWidgetItem*> items = clicked->isSelected() ? influences_->selectedItems() : QList<QTreeWidgetItem*>{clicked};
+    for (QTreeWidgetItem* it : items) {
+        exec("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"edit", true}, {"influence", it->data(0, Qt::UserRole).toString()}, {"lockWeights", lock}});
+        it->setData(0, Qt::UserRole + 1, lock);
+        it->setIcon(0, icon(lock ? "influenceLocked" : "influenceUnlocked"));
+        it->setForeground(1, lock ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
+    }
+}
+
 void ToolSettings::filter_influences() {
     QString t = search_->text().trimmed();
     for (QTreeWidgetItemIterator i(influences_); *i; ++i) {
-        bool show = t.isEmpty() || (*i)->text(0).contains(t, Qt::CaseInsensitive);
+        bool show = t.isEmpty() || (*i)->text(1).contains(t, Qt::CaseInsensitive);
         // A parent stays to hold a matching child.
         if (!show)
             for (QTreeWidgetItemIterator c(*i); *c; ++c) {
@@ -906,7 +938,7 @@ void ToolSettings::filter_influences() {
                 bool under = false;
                 for (QTreeWidgetItem* up = p->parent(); up; up = up->parent()) under |= up == *i;
                 if (!under) break;
-                if (p->text(0).contains(t, Qt::CaseInsensitive)) {
+                if (p->text(1).contains(t, Qt::CaseInsensitive)) {
                     show = true;
                     break;
                 }
@@ -1140,11 +1172,9 @@ void ToolSettings::refresh_paint() {
                 if (!p.isEmpty() && p != n) parent = item_for(p);
             }
             auto* it = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(influences_);
-            it->setText(0, n.section('|', -1));
+            it->setText(1, n.section('|', -1));
             it->setData(0, Qt::UserRole, n);
-            it->setFlags(it->flags() | Qt::ItemIsUserCheckable);
-            it->setCheckState(0, Qt::Unchecked);
-            it->setToolTip(0, "Ticked holds the influence: the brush leaves its weights alone");
+            it->setToolTip(0, "Lock: a held influence keeps its weights while the brush paints. On a selected influence, every selected one.");
             made.insert(n, it);
             return it;
         };
@@ -1157,8 +1187,9 @@ void ToolSettings::refresh_paint() {
         QTreeWidgetItem* it = *i;
         QString n = it->data(0, Qt::UserRole).toString();
         bool locked = ask("skinCluster", QJsonObject{{"args", QJsonArray{sk}}, {"query", true}, {"influence", n}, {"lockWeights", true}}).toBool();
-        it->setCheckState(0, locked ? Qt::Checked : Qt::Unchecked);
-        it->setForeground(0, locked ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
+        it->setData(0, Qt::UserRole + 1, locked);
+        it->setIcon(0, icon(locked ? "influenceLocked" : "influenceUnlocked"));
+        it->setForeground(1, locked ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
         if (n == current || (current.isEmpty() && influences_->currentItem() == nullptr)) {
             if (influences_->currentItem() != it) influences_->setCurrentItem(it);
         }

@@ -1090,11 +1090,13 @@ pub(super) fn register(c: &mut Commands<Session>) {
                     for shape in shapes {
                         g.evaluate();
                         let Some(m) = g.node(shape).unwrap().data().mesh(MeshNode::OUT_MESH).cloned() else { continue };
-                        let count = separate(&m).len();
+                        let parts = shells(&m);
+                        let count = parts.len();
                         if count < 2 {
                             fail!("polySeparate: {} has only one shell", components::display_path(g, shape));
                         }
                         let parent = crate::dag::transform_of(g, shape);
+                        let mut pieces = Vec::new();
                         for i in 0..count {
                             let t = types::find(op.node_type).unwrap();
                             let h = g.create_node(&t, "", NO_NODE, true)?;
@@ -1105,7 +1107,9 @@ pub(super) fn register(c: &mut Commands<Session>) {
                             xfs.push(json!(g.path(xf)));
                             nodes.push(json!(g.path(h)));
                             made.push(xf);
+                            pieces.push((piece, parts[i].clone()));
                         }
+                        crate::shading::copy_to_pieces(g, shape, &pieces)?;
                         g.set_value(plug(shape, DagNode::INTERMEDIATE_OBJECT), PlugValue::Bool(true))?;
                     }
                     g.select(&made, SelectMode::Replace);
@@ -1630,16 +1634,19 @@ fn separate_plain(s: &mut Session, a: &Args) -> CmdResult {
         let n = crate::mesh_edit::mesh_arg(g, &name, "polySeparate")?;
         g.evaluate();
         let Some(m) = g.node(n).unwrap().data().mesh(MeshNode::OUT_MESH).cloned() else { continue };
-        let parts = separate(&m);
-        if parts.len() < 2 {
+        let faces = shells(&m);
+        if faces.len() < 2 {
             continue;
         }
         let first = made.len();
-        for part in parts {
-            let piece = crate::mesh_edit::component_ops::mesh_beside(g, n, part)?;
+        let mut pieces = Vec::new();
+        for f in faces {
+            let piece = crate::mesh_edit::component_ops::mesh_beside(g, n, extract_faces(&m, &f))?;
             out.push(json!(components::display_path(g, piece)));
             made.push(piece);
+            pieces.push((piece, f));
         }
+        crate::shading::copy_to_pieces(g, n, &pieces)?;
         crate::isolation::inherit(g, &made[first..].to_vec(), &[n]);
         let gone = crate::dag::transform_of(g, n);
         g.delete_node(gone)?;

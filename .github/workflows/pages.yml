@@ -5,9 +5,13 @@ on:
     branches: [main]
     paths: ["site/**", "docs/**", "app/icons/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+  # The announcements the welcome screen shows come from the Discussions with the site: refreshed every few hours.
+  schedule:
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: read
+  discussions: read
   pages: write
   id-token: write
 
@@ -23,6 +27,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # announcements.json: the latest posts of the Announcements discussion category, [{title, url, date}], for the
+      # welcome screen. GitHub's discussions are only in its GraphQL API, which needs a token the program doesn't have.
+      - name: Announcements
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CAT=$(gh api graphql -f query='query { repository(owner: "srlegrand", name: "Aztek") { discussionCategory(slug: "announcements") { id } } }' --jq '.data.repository.discussionCategory.id' || true)
+          if [ -n "$CAT" ] && [ "$CAT" != "null" ]; then
+            gh api graphql -f query='query($c: ID!) { repository(owner: "srlegrand", name: "Aztek") { discussions(first: 10, categoryId: $c, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }' -f c="$CAT" \
+              --jq '[.data.repository.discussions.nodes[] | {title, url, date: .createdAt}]' > site/announcements.json || echo '[]' > site/announcements.json
+          else
+            echo '[]' > site/announcements.json
+          fi
+          cat site/announcements.json
       - run: sh site/build.sh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

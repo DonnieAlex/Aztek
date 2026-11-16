@@ -139,8 +139,29 @@ MainWindow::MainWindow() {
     build_bottom();
     build_menus();
 
-    // The centre: model panels.
-    setCentralWidget(panels_);
+    // The centre: model panels, between two thin handles that fold away everything docked on their side at a click
+    // and bring it back at the next (#97): the toolbox and left docks, the right docks.
+    {
+        auto* centre = new QWidget(this);
+        auto* row = new QHBoxLayout(centre);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(0);
+        auto handle = [this, centre](bool left) {
+            auto* b = new QToolButton(centre);
+            b->setObjectName(left ? "collapseLeft" : "collapseRight");
+            b->setAutoRaise(true);
+            b->setFixedWidth(9);
+            b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+            b->setArrowType(left ? Qt::LeftArrow : Qt::RightArrow);
+            b->setToolTip(left ? "Collapse the toolbox and the left panels" : "Collapse the right panels");
+            connect(b, &QToolButton::clicked, this, [this, b, left] { toggle_side(left, b); });
+            return b;
+        };
+        row->addWidget(handle(true));
+        row->addWidget(panels_, 1);
+        row->addWidget(handle(false));
+        setCentralWidget(centre);
+    }
     in_view_ = new InViewEditor(panels_);
 
     connect(Host::get(), &Host::sceneChanged, this, &MainWindow::refresh_state);
@@ -958,7 +979,33 @@ void MainWindow::build_menus() {
     mb->setNativeMenuBar(false);
     // Themes, top right of the menu bar: the interface's colours, fonts and shapes, and the Theme Editor.
     QComboBox* themes = make_theme_box(mb);
-    mb->setCornerWidget(themes, Qt::TopRightCorner);
+    // Beside it, the lock of the window's layout, as the reference's workspace lock (#90): locked, the docked panels
+    // can't be dragged off, moved or floated, only closed.
+    auto* corner = new QWidget(mb);
+    auto* row = new QHBoxLayout(corner);
+    row->setContentsMargins(0, 0, 2, 0);
+    row->setSpacing(2);
+    row->addWidget(themes);
+    auto* lock = new QToolButton(corner);
+    lock->setObjectName("uiLock");
+    lock->setAutoRaise(true);
+    lock->setCheckable(true);
+    lock->setIconSize(QSize(16, 16));
+    auto show_lock = [lock](bool on) {
+        lock->setIcon(icon(on ? "uiLocked" : "uiUnlocked"));
+        lock->setToolTip(on ? "The layout is locked: panels stay where they are. Click to unlock." : "Lock the layout: panels can't be moved, docked or floated");
+    };
+    const bool locked = QSettings().value("window/uiLocked", false).toBool();
+    lock->setChecked(locked);
+    show_lock(locked);
+    connect(lock, &QToolButton::toggled, this, [this, show_lock](bool on) {
+        QSettings().setValue("window/uiLocked", on);
+        show_lock(on);
+        lock_layout(on);
+    });
+    row->addWidget(lock);
+    mb->setCornerWidget(corner, Qt::TopRightCorner);
+    lock_layout(locked);
     build_menu_set(menu_set_->currentText());
 }
 
@@ -985,6 +1032,7 @@ void MainWindow::build_menu_set(const QString& set) {
         set_menus_.append(m);
     }
     auto* help = new QMenu("Help", this);
+    help->addAction("Welcome Screen", [this] { show_welcome(); });
     help->addAction("This doesn't feel right!", [this] { open_feedback(this); });
     help->addAction("Check for Updates...", [this] { check_for_updates(this, [this] { return close(); }); });
     help->addAction("About Aztek", [this] { show_about(this); });
@@ -1067,6 +1115,41 @@ void MainWindow::build_toolbox() {
     }
     mark->setToolTip("Aztek");
     tb->addWidget(mark);
+}
+
+void MainWindow::lock_layout(bool on) {
+    for (QDockWidget* d : findChildren<QDockWidget*>())
+        d->setFeatures(on ? QDockWidget::DockWidgetClosable : QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+}
+
+void MainWindow::toggle_side(bool left, QToolButton* handle) {
+    const Qt::DockWidgetArea area = left ? Qt::LeftDockWidgetArea : Qt::RightDockWidgetArea;
+    QList<QPointer<QWidget>>& folded = left ? folded_left_ : folded_right_;
+    QList<QPointer<QWidget>>& raised = left ? raised_left_ : raised_right_;
+    if (folded.isEmpty()) {
+        // Fold: what is open on that side now is remembered and hidden, tabs behind others too (hiding the front tab
+        // alone would bring the next one forward), and which tabs were in front.
+        for (QDockWidget* d : findChildren<QDockWidget*>())
+            if (dockWidgetArea(d) == area && !d->isHidden() && !d->isFloating()) {
+                folded << d;
+                if (d->isVisible()) raised << d;
+            }
+        if (left)
+            for (QToolBar* t : findChildren<QToolBar*>())
+                if (toolBarArea(t) == Qt::LeftToolBarArea && !t->isHidden()) folded << t;
+        for (QWidget* w : folded) w->hide();
+    } else {
+        for (QWidget* w : folded)
+            if (w) w->show();
+        for (QWidget* w : raised)
+            if (w) w->raise();
+        folded.clear();
+        raised.clear();
+    }
+    const bool now_folded = !folded.isEmpty();
+    handle->setArrowType(left == now_folded ? Qt::RightArrow : Qt::LeftArrow);
+    handle->setToolTip(now_folded ? (left ? "Bring back the toolbox and the left panels" : "Bring back the right panels")
+                                  : (left ? "Collapse the toolbox and the left panels" : "Collapse the right panels"));
 }
 
 void MainWindow::build_docks() {
@@ -1913,6 +1996,9 @@ void MainWindow::run_startup(const QString& script, const QString& screenshot) {
     // New versions: asked about once, then checked in the background. Not when a script or a screenshot drives the run.
     if (script.isEmpty() && screenshot.isEmpty())
         QTimer::singleShot(2500, this, [this] { updates_at_startup(this, [this] { return close(); }); });
+    // The welcome screen, unless it was turned off or a script or a scene drives the start.
+    if (script.isEmpty() && screenshot.isEmpty() && !crashed && state()["file"].toString().isEmpty())
+        QTimer::singleShot(600, this, [this] { show_welcome(true); });
     if (!script.isEmpty()) {
         QTimer::singleShot(300, this, [this, script] {
             QFile f(script);

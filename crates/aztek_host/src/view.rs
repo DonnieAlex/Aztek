@@ -1313,13 +1313,24 @@ impl View {
                         hit = pivot.map(|_| Handle::Center);
                     }
                 }
-                // Ctrl-click on a handle sets the constraint rather than dragging.
+                // Ctrl-click on a handle sets the constraint. On a move or scale axis it drags as well, in the other two
+                // axes, as the reference's: Ctrl on the Y scale handle scales X and Z (#86).
                 if button == 1 && mods & CTRL != 0 && mods & SHIFT == 0 {
                     if let Some(h) = hit {
                         self.vp.set_constraint(h);
-                        return true;
+                        match (self.vp.eff_tool(), h) {
+                            (Tool::Move | Tool::Scale, Handle::Axis(i)) if !self.vp.pivot_mode => hit = Some(Handle::Plane(i)),
+                            _ => return true,
+                        }
                     }
                 }
+                // Ctrl+middle drag with the Move tool on components: along their normals (#102).
+                let along_normals = button == 2
+                    && mods & CTRL != 0
+                    && mods & SHIFT == 0
+                    && self.vp.eff_tool() == Tool::Move
+                    && !self.vp.pivot_mode
+                    && components::mode(&core.s.graph) != ComponentMode::Object;
                 // Shift-drag on a handle makes something new and drags that, as the reference does: selected faces or
                 // edges are extruded, objects duplicated.
                 if button == 1 && mods & SHIFT != 0 && mods & CTRL == 0 && hit.is_some() && pivot.is_some() && matches!(self.vp.eff_tool(), Tool::Move | Tool::Rotate | Tool::Scale) && !self.vp.pivot_mode {
@@ -1337,6 +1348,7 @@ impl View {
                     }
                 }
                 let start_drag = match (button, hit, pivot) {
+                    (2, _, Some(_)) if along_normals => Some(Handle::Normal),
                     (1, Some(h), Some(_)) => Some(h),
                     // Middle drag anywhere drags the active handle, or in the view plane.
                     (2, h, Some(_)) => Some(h.or(self.vp.active_handle).or(self.vp.hover).or(self.vp.constraint).unwrap_or(match self.vp.eff_tool() {

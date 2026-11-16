@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QMainWindow>
+#include <QPointer>
 #include <QSet>
 #include <functional>
 
@@ -64,6 +65,10 @@ public:
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
     void create_reference_dialog(bool options = false);
+    // Help > Welcome Screen, and at start-up unless turned off (#85).
+    void show_welcome(bool at_startup = false);
+    // Windows > Modeling Toolkit: a tab beside the Attribute Editor (#107).
+    void show_modeling_toolkit();
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
     void closeEvent(QCloseEvent* e) override;
@@ -106,6 +111,12 @@ private:
     void build_status_line();
     void build_shelf();
     void build_toolbox();
+    // The centre's side handles: everything docked on that side folded away, or brought back (#97).
+    void toggle_side(bool left, QToolButton* handle);
+    // The layout lock beside the themes (#90): docked panels stay put, closable only.
+    void lock_layout(bool on);
+    QDockWidget* mtk_dock_ = nullptr;
+    QList<QPointer<QWidget>> folded_left_, folded_right_, raised_left_, raised_right_;
     void build_docks();
     void build_bottom();
     void apply_prefs();

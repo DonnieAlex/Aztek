@@ -20,4 +20,9 @@ QString file_type_extension(const QString& type);
 // Whether the export adds the type's extension to a name given without one.
 bool default_file_extensions();
 
+// A file browser that leaves the rest of Aztek usable while it is open and stays over the main window (#109): `done`
+// gets the file chosen. save picks a name to write, else an existing file to read; start is a folder or a file name.
+void browse_file(bool save, const QString& title, const QString& start, const QString& filters, const QString& selected,
+                 std::function<void(const QString& file)> done);
+
 } // namespace az

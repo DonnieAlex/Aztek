@@ -293,6 +293,12 @@ pub extern "C" fn aztek_update_progress(done: *mut u64, total: *mut u64) {
     }
 }
 
+/// A JSON document from a URL, as update::get_json: its text, or {error}. Blocks: call it off the interface thread.
+#[no_mangle]
+pub extern "C" fn aztek_fetch_json(url: *const c_char) -> *mut c_char {
+    out(update::get_json(&cstr(url)))
+}
+
 #[no_mangle]
 pub extern "C" fn aztek_update_cancel() {
     update::cancel();

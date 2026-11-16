@@ -806,15 +806,20 @@ pub fn combine(meshes: &[&Mesh]) -> Mesh {
 
 /// One mesh per connected part.
 pub fn separate(mesh: &Mesh) -> Vec<Mesh> {
+    shells(mesh).iter().map(|g| extract_faces(mesh, g)).collect()
+}
+
+/// The faces of each shell, ascending: what `separate` makes each mesh of, face i of a shell's mesh being its i-th.
+pub fn shells(mesh: &Mesh) -> Vec<Vec<Index>> {
     let mut comp = Vec::new();
     let count = face_components(mesh, &mut comp, &[]);
     let mut groups = vec![Vec::new(); count as usize];
     for f in 0..mesh.face_capacity() {
-        if comp[f as usize] != INVALID {
+        if comp[f as usize] != INVALID && mesh.face_valid(f) {
             groups[comp[f as usize] as usize].push(f);
         }
     }
-    groups.iter().map(|g| extract_faces(mesh, g)).collect()
+    groups
 }
 
 /// What cut_along_plane changed.
