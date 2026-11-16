@@ -2490,6 +2490,13 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### translator and the Alembic file type (16/11/2026)
+
+`translator -q -list` names the file types `file -type` knows whose plug-in is loaded (mayaAscii, mayaBinary, OBJ,
+OBJexport, FBX, FBX export, USD Import, USD Export, Alembic); `-q -extension`, `-filter`, `-readSupport`,
+`-writeSupport`, `-loaded` and `-defaultOptions` (empty) of one. `file -import` and `-open` read Alembic by `-type
+"Alembic"` or a `.abc` name, through AbcImport, as the reference's Alembic translator does; it does not write.
+
 ### Sound (16/11/2026)
 
 ![The waveform in the time slider](docs/sound-waveform.png)

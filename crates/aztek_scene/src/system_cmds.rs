@@ -6,7 +6,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use aztek_ops::{fail, objects, ArgType, Args, CmdResult, CommandDef, Commands};
+use aztek_ops::{fail, objects, ArgType, Args, CmdResult, CommandDef, Commands, FlagDef};
 use glam::{DMat3, DVec3, EulerRot};
 use serde_json::{json, Value};
 
@@ -806,6 +806,53 @@ fn closest_cmd(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
 }
 
 pub fn register(c: &mut Commands<Session>) {
+    c.register(
+        CommandDef::<Session>::new(
+            "translator",
+            "The file types file -type knows, as the reference's translators: -q -list their names (those whose plug-in is \
+             loaded), and of one named: -q -extension, -filter, -readSupport, -writeSupport, -loaded, -defaultOptions.",
+            |s, a| {
+                let known = |cmd: &Option<&str>| cmd.is_none_or(|c| s.commands.find(c).is_some());
+                if !a.bool("query") {
+                    fail!("translator: use -q");
+                }
+                let q: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+                let asked = |f: &str| a.bool(f) || q.iter().any(|x| x == f);
+                if asked("list") {
+                    return Ok(json!(crate::ma_file::TRANSLATORS.iter().filter(|t| known(&t.4)).map(|t| t.0).collect::<Vec<_>>()));
+                }
+                let names = a.named();
+                let Some(n) = names.first() else { fail!("translator: name a file type") };
+                let Some(t) = crate::ma_file::TRANSLATORS.iter().find(|t| t.0.eq_ignore_ascii_case(n)) else { fail!("translator: no file type {n}") };
+                Ok(if asked("extension") {
+                    json!(t.1)
+                } else if asked("filter") {
+                    json!(format!("*.{}", t.1))
+                } else if asked("readSupport") {
+                    json!(t.2)
+                } else if asked("writeSupport") {
+                    json!(t.3)
+                } else if asked("loaded") {
+                    json!(known(&t.4))
+                } else if asked("defaultOptions") {
+                    json!("")
+                } else {
+                    fail!("translator: query what?")
+                })
+            },
+        )
+        .positional("file type")
+        .flag(FlagDef::new("list", "l", ArgType::Bool, Value::Null, "Every file type."))
+        .flag(FlagDef::new("extension", "ext", ArgType::Bool, Value::Null, "Its extension."))
+        .flag(FlagDef::new("filter", "f", ArgType::Bool, Value::Null, "Its file filter."))
+        .flag(FlagDef::new("readSupport", "rs", ArgType::Bool, Value::Null, "Whether it reads."))
+        .flag(FlagDef::new("writeSupport", "ws", ArgType::Bool, Value::Null, "Whether it writes."))
+        .flag(FlagDef::new("loaded", "ld", ArgType::Bool, Value::Null, "Whether its plug-in is loaded."))
+        .flag(FlagDef::new("defaultOptions", "do", ArgType::Bool, Value::Null, "Its default options string."))
+        .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Read."))
+        .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What -q asks for."))
+        .undoable(false),
+    );
     c.register(
         q_flags(Cmd::new("upAxis", "The world's up axis, a preference kept between scenes: -ax y or z; -rv turns the cameras with it so the ground stays put on screen. -q -ax asks.", up_axis_cmd))
             .flag(f("axis", "ax", ArgType::Any, "y or z."))

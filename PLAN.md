@@ -122,7 +122,8 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [~] 2.5 (16/11/2026: `sound` and the `audio` node, WAV read, `timeControl -sound`/`-displaySound`, the waveform in the
   time slider, its Sound menu; hearing it, scrubbing and sync wait on an audio output library, Simon's call) Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
   playback. WAV first.
-- [~] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; `translator` is not a command yet) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
+- [x] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; 16/11/2026: `translator -q`, and the
+  `Alembic` type) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
   `exportObj` and `importObj` as Aztek's own. `translator -q -l` answers with the types Aztek has.
 - [~] 2.7 (16/11/2026: texGetTexelDensity, texSetTexelDensity and a Texel Density row in the UV Editor's toolbar;
   `polyEvaluate -uvShell` was in; UDIM layout not yet) UV basics: `texGetTexelDensity`, `texSetTexelDensity`, the UV Toolkit's texel density row, UDIM-aware

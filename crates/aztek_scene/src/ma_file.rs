@@ -5843,6 +5843,9 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
     if let Some(r) = obj_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
         return r;
     }
+    if let Some(r) = abc_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
+        return r;
+    }
     if let Some(r) = crate::references::file_flags(s, a) {
         return r;
     }
@@ -5959,6 +5962,46 @@ fn usd_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> 
     call[*moving] = json!(true);
     Some(s.run("aztekUsdFile", call))
 }
+
+/// Alembic files go to the AbcImport plug-in, as the reference's "Alembic" translator: read only (writing is
+/// AbcExport's). A .abc name with no type is read as Alembic. Without the plug-in the type is not known.
+fn abc_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
+    let path = path?;
+    let moving = ["import", "open", "exportAll", "exportSelected"].iter().find(|f| a.bool(f))?;
+    let named = matches!(ty, Some(t) if t.eq_ignore_ascii_case("Alembic"));
+    if !named && !(ty.is_none() && extension(path) == "abc") {
+        return None;
+    }
+    if s.commands.find("AbcImport").is_none() {
+        return Some(Err(aztek_ops::CommandError::new("file: unknown file type Alembic: the AbcImport plug-in is not loaded")));
+    }
+    Some(match *moving {
+        "open" => {
+            if !a.bool("force") && s.is_modified() {
+                return Some(Err(aztek_ops::CommandError::new("file: Unsaved changes.")));
+            }
+            let _ = s.run("newScene", json!({}));
+            s.scene_path = None;
+            s.run("AbcImport", json!({"args": [path]})).map(|_| json!(path))
+        }
+        "import" => s.run("AbcImport", json!({"args": [path]})).map(|_| json!(path)),
+        _ => Err(aztek_ops::CommandError::new("file: the Alembic type reads only; write with AbcExport")),
+    })
+}
+
+/// The file types `file -type` knows, as the reference's translators: (name, extension, read, write, the command a
+/// plug-in brings when the type is its).
+pub const TRANSLATORS: &[(&str, &str, bool, bool, Option<&str>)] = &[
+    ("mayaAscii", "ma", true, true, None),
+    ("mayaBinary", "mb", true, true, None),
+    ("OBJ", "obj", true, false, Some("importObj")),
+    ("OBJexport", "obj", false, true, Some("exportObj")),
+    ("FBX", "fbx", true, false, Some("FBXImport")),
+    ("FBX export", "fbx", false, true, Some("FBXExport")),
+    ("USD Import", "usd", true, false, Some("mayaUSDImport")),
+    ("USD Export", "usd", false, true, Some("mayaUSDExport")),
+    ("Alembic", "abc", true, false, Some("AbcImport")),
+];
 
 /// OBJ files go to the objExport plug-in's commands, as the reference's file command hands the OBJ (reading) and
 /// OBJexport (writing) types to that plug-in's translator; a .obj name with no type is read as OBJ. Without the
