@@ -1025,8 +1025,8 @@ Still not done:
 
 - UV and Vertex Face component modes in the view: `ComponentMode` has neither and they touch everything that uses it. Multi switches to the kind under the mouse, so a selection doesn't mix kinds.
 - (16/11/2026: Snap Pivot Orientation and Gimbal axes are in.)
-- Global reaches meshes only, not NURBS. Object mode has no colours in the view.
-- A World symmetry mesh moved after symmetry was set keeps its pairs from before. Set symmetry again after moving it.
+- (16/11/2026: Global reaches NURBS.) Object mode has no colours in the view.
+- (16/11/2026: a World symmetry mesh moved after symmetry was set pairs across the world plane; a test holds it.)
 - As of 16/11/2026: Interactive Bind Skin, Blend Shape's Swap and Bake Topology to Targets, most of Wire's edits, Set IK/FK Key on the joints (they hold FK rotates as data: TICKETS.md), nCache and Geometry Cache.
 
 ## Harold renderer (07/11/2026)
@@ -2901,3 +2901,13 @@ Targets, the normalization groups.
 Skin > Mirror Skin Weights is one item with an option box (plane, direction, surface and influence association,
 normalize), as the reference's, running `copySkinWeights` on the selected skin onto itself. It was a submenu of four
 fixed planes.
+
+### Soft select Global reaches NURBS; World symmetry after a move (16/11/2026)
+
+PLAN 3.11, part. Soft select's Global falloff now reaches NURBS curves and surfaces (and the other point providers:
+lattices and the like) both ways: a mesh's selected points pull the CVs of a curve in reach, and selected CVs pull
+the points of meshes and other curves in reach, by the same curve and radius, as one undo step. It reached meshes
+only. `softSelect -sse true` is read as on (it took only 1 or 0). World symmetry on a mesh moved after symmetry was
+set was found to pair across the world plane already (the pairs are worked out at each edit); a test now holds it.
+Not done: Object mode's colours in the view, and Global's colours on CVs of a curve whose points are not selected
+(the move is right; the view shows no colour there).

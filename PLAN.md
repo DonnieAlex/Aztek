@@ -157,7 +157,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   `upAxis`. Camera roll lives on the camera node.
 - [~] 3.10 (15/11/2026: the ViewCube; `walkCtx` drags with no WASD. 16/11/2026: film back pan and zoom on the camera and `panZoom`; no drag tool) View tools: walk tool with WASD and speed keys, a view cube, 2D pan and zoom on the film back, tumble
   around the selection or pivot by preference.
-- [ ] 3.11 Soft select Global and Object reach NURBS and show their colours; World symmetry follows a mesh moved after
+- [~] 3.11 (16/11/2026: Global reaches NURBS both ways; World symmetry follows a moved mesh; Object mode colours not done) Soft select Global and Object reach NURBS and show their colours; World symmetry follows a mesh moved after
   it was set.
 - [~] 3.12 (16/11/2026: Relationship Editors, Split UVs, Wrap Add/Remove Influence, Wire Add, Prune Membership, Slice, Hole Punch, Cut Out, Unsmooth and IK/FK Keys (handles only), Audio, Visualize and Cache menus, 3D Cut and Sew, Blend Shape Add and Remove, Mirror Skin Weights' option box in) The remaining menu items in PARITY.md's list: Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out,
   Deform > Edit submenus, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, Visualize. Tools get option

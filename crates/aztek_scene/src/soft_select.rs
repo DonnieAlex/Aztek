@@ -454,7 +454,7 @@ pub fn register(c: &mut Commands<Session>) {
                     return Ok(json!(if p.bool("general", ENABLED, false) { 1 } else { 0 }));
                 }
                 if let Some(v) = a.get("softSelectEnabled") {
-                    let on = v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0);
+                    let on = v.as_bool().or_else(|| v.as_i64().map(|i| i != 0)).or_else(|| v.as_str().map(|t| matches!(t, "true" | "on" | "yes" | "1"))).unwrap_or(false);
                     p.set("general", ENABLED, json!(on), PrefScope::User);
                 }
                 if let Some(v) = a.get("softSelectDistance").and_then(Value::as_f64) {

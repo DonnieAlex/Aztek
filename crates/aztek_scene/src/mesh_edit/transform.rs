@@ -294,6 +294,25 @@ fn soft_radius() -> f64 {
     PrefStore::get().f64("general", soft_select::RADIUS, 5.0)
 }
 
+/// Global soft select's seeds on NURBS and other point providers (selected CVs), world space, while an edit runs: the
+/// meshes' falloff starts from them too. Their points are only reachable with the graph borrowed mutably, so the edit
+/// gathers them first.
+static PROVIDER_SEEDS: RwLock<Vec<DVec3>> = RwLock::new(Vec::new());
+
+/// World positions of the selected points of NURBS curves, surfaces and the other point providers.
+fn provider_seeds(g: &mut Graph) -> Vec<DVec3> {
+    let mut out = Vec::new();
+    let selected: Vec<(NodeId, Ids)> = components::selected_all(g, ComponentMode::Vertex).iter().map(|(n, i)| (*n, i.clone())).collect();
+    for (node, ids) in selected {
+        let Some(pp) = g.node(node).and_then(components::point_provider) else { continue };
+        let Some(points) = &pp.points else { continue };
+        let world = g.node(node).unwrap().matrix(Transform::WORLD_MATRIX);
+        let all: BTreeMap<u32, DVec3> = points(g, node).into_iter().collect();
+        out.extend(ids.iter().filter_map(|i| all.get(i)).map(|&p| world.transform_point3(p)));
+    }
+    out
+}
+
 /// World positions of every selected component: Global's falloff starts from all of them.
 fn global_seeds(g: &Graph) -> Vec<DVec3> {
     let kind = components::mode(g);
@@ -346,6 +365,7 @@ fn falloff_weights(g: &Graph, m: &Mesh, world: &DMat4, selected: &[Index]) -> Ve
     let mut seeds: Vec<DVec3> = selected.iter().filter(|&&p| m.point_valid(p)).map(|&p| world.transform_point3(m.position(p))).collect();
     if global {
         seeds.extend(global_seeds(g));
+        seeds.extend(PROVIDER_SEEDS.read().unwrap().iter().copied());
     }
     if seeds.is_empty() {
         return w;
@@ -373,8 +393,13 @@ fn falloff_weights(g: &Graph, m: &Mesh, world: &DMat4, selected: &[Index]) -> Ve
 
 /// Soft selection weights for loose world points, selected ones 1.
 pub fn soft_weights_points(points: &[DVec3], selected: &[bool]) -> Vec<f32> {
+    soft_weights_points_from(points, selected, &[])
+}
+
+/// The same, with more seeds beyond the selected points (Global's, on other objects).
+fn soft_weights_points_from(points: &[DVec3], selected: &[bool], more: &[DVec3]) -> Vec<f32> {
     let mut w = vec![0.0f32; points.len()];
-    let mut seeds = Vec::new();
+    let mut seeds = more.to_vec();
     for (i, p) in points.iter().enumerate() {
         if selected.get(i).copied().unwrap_or(false) {
             w[i] = 1.0;
@@ -736,7 +761,9 @@ fn deform_provided_points(
             source.push(id);
         }
     }
-    if source.is_empty() {
+    // Global: an object with nothing selected still takes the falloff from what is selected elsewhere.
+    let global = provided.is_none() && soft_enabled() && soft_select::falloff_name() == "global";
+    if source.is_empty() && !global {
         return false;
     }
     let world = g.node(node).unwrap().matrix(Transform::WORLD_MATRIX);
@@ -758,12 +785,16 @@ fn deform_provided_points(
                 picked.push(chosen.contains(&id));
             }
         }
-        let w = soft_weights_points(&world_pts, &picked);
+        let more: Vec<DVec3> = if global { global_seeds(g).into_iter().chain(PROVIDER_SEEDS.read().unwrap().iter().copied()).collect() } else { Vec::new() };
+        let w = soft_weights_points_from(&world_pts, &picked, &more);
         for k in 0..order.len() {
             if !picked[k] && w[k] > 0.0 {
                 soft.push(SoftPoint { id: order[k], local: m.add_point(all[&order[k]]), weight: w[k] });
             }
         }
+    }
+    if source.is_empty() && soft.is_empty() {
+        return false;
     }
     let target_of = match provided {
         Some(p) => p(g, node, pp, &source),
@@ -801,10 +832,21 @@ fn deform_selected(
         components::selected_all(g, kind).clone()
     };
     let mut selection = selection;
-    // Global: every other visible mesh within reach takes its share, with nothing of its own selected.
-    if soft_enabled() && soft_select::falloff_name() == "global" && !whole && provided.is_none() {
+    // Global: every other visible mesh, curve and surface within reach takes its share, with nothing of its own selected.
+    let global = soft_enabled() && soft_select::falloff_name() == "global" && !whole && provided.is_none();
+    *PROVIDER_SEEDS.write().unwrap() = if global { provider_seeds(g) } else { Vec::new() };
+    if global {
         for id in g.nodes() {
-            if selection.contains_key(&id) || !is_mesh(g, id) || g.node(id).is_none_or(|n| n.bool(crate::transform::DagNode::INTERMEDIATE_OBJECT)) {
+            // Shapes only: what isn't a DAG shape has no intermediate flag.
+            let shape = g.node(id).is_some_and(|n| n.ty().dag && !n.ty().is_a("transform"));
+            if selection.contains_key(&id) || !shape || g.node(id).is_none_or(|n| n.bool(crate::transform::DagNode::INTERMEDIATE_OBJECT)) {
+                continue;
+            }
+            if !is_mesh(g, id) {
+                // NURBS and other point providers: deform_provided_points finds their share itself.
+                if g.node(id).and_then(components::point_provider).is_some_and(|pp| pp.points.is_some() && pp.set_points.is_some()) {
+                    selection.insert(id, Vec::new());
+                }
                 continue;
             }
             let Some(m) = modifiers::cage(g, id) else { continue };
@@ -820,7 +862,7 @@ fn deform_selected(
         for (node, mut ids) in selection {
             let Some(n) = g.node(node) else { continue };
             if let Some(pp) = components::point_provider(n) {
-                if kind == ComponentMode::Vertex {
+                if kind == ComponentMode::Vertex || ids.is_empty() {
                     edited += deform_provided_points(g, node, &pp, &ids, setup, provided) as i32;
                     continue;
                 }
@@ -894,6 +936,7 @@ fn deform_selected(
         }
         Ok(edited)
     })();
+    PROVIDER_SEEDS.write().unwrap().clear();
     g.close_chunk();
     r
 }
