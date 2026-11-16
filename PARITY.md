@@ -2867,3 +2867,11 @@ puts each handle on its chain's end joint (`ikHandle -e -see`). Not done: the re
 chain's joints. Aztek's joints under a solver hold their own (FK) rotates as data on the ikSolve node, not as plugs,
 so they can't take keys; that needs the solver's FK rotates as keyable plugs (a ticket). Connect and Disconnect
 from IK/FK aren't in.
+
+### Audio, Visualize and Cache menus (16/11/2026)
+
+PLAN 3.12, part. The Animation menu set now has the reference's top level Audio (Import Audio, which waveform the
+time slider shows, Delete All Audio), Visualize (Create Motion Trail, Animation Snapshot, the ghost items; moved out
+of Key) and Cache (Alembic Cache: Export All, Export Selection, Import) menus. Not done: the reference's Cache menu's
+nCache and Geometry Cache items (Aztek has no cache file node), Visualize's Editable Motion Trail options and the
+Audio menu's audio editing.

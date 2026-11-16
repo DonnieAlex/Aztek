@@ -95,6 +95,10 @@ private:
     QMenu* control_menu();
     QMenu* key_menu();
     QMenu* playback_menu();
+    // The Animation menu set's Audio, Visualize and Cache menus.
+    QMenu* audio_menu();
+    QMenu* visualize_menu();
+    QMenu* cache_menu();
     QAction* cmd(QMenu* m, const QString& label, const QString& command, const QJsonObject& call = QJsonObject(), const QString& shortcut = QString(), bool options = false);
     QAction* todo(QMenu* m, const QString& label);
 

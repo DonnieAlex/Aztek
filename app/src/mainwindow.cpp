@@ -862,16 +862,79 @@ QMenu* MainWindow::key_menu() {
     cmd(layers, "Create Layer", "animLayer");
     cmd(layers, "Create Layer from Selected", "animLayer", QJsonObject{{"addSelectedObjects", true}});
     cmd(layers, "Merge Layers", "mergeAnimLayers");
-    auto* vis = m->addMenu("Visualize");
-    cmd(vis, "Create Motion Trail", "snapshot", QJsonObject{{"motionTrail", true}});
-    cmd(vis, "Animation Snapshot", "snapshot", QJsonObject{{"constructionHistory", true}});
-    cmd(vis, "Ghost Selected", "GhostSelected");
-    cmd(vis, "Unghost Selected", "UnghostSelected");
-    cmd(vis, "Unghost All", "UnghostAll");
     cmd(m, "Create Character Set", "character");
     m->addSeparator();
     m->addAction("Graph Editor...", [this] { show_graph_editor(); });
     m->addAction("Dope Sheet...", [this] { show_dope_sheet(); });
+    return m;
+}
+
+QMenu* MainWindow::visualize_menu() {
+    auto* vis = new QMenu("Visualize", this);
+    cmd(vis, "Create Motion Trail", "snapshot", QJsonObject{{"motionTrail", true}});
+    cmd(vis, "Animation Snapshot", "snapshot", QJsonObject{{"constructionHistory", true}});
+    vis->addSeparator();
+    cmd(vis, "Ghost Selected", "GhostSelected");
+    cmd(vis, "Unghost Selected", "UnghostSelected");
+    cmd(vis, "Unghost All", "UnghostAll");
+    return vis;
+}
+
+QMenu* MainWindow::audio_menu() {
+    auto* m = new QMenu("Audio", this);
+    m->addAction("Import Audio...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Audio", QString(), "WAV (*.wav)");
+        if (f.isEmpty()) return;
+        QJsonValue n = exec("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
+        if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
+        time_slider_->update();
+    });
+    // Which audio node's waveform the time slider shows, as its right-click menu offers.
+    QMenu* shown = m->addMenu("Show in Time Slider");
+    connect(shown, &QMenu::aboutToShow, this, [this, shown] {
+        shown->clear();
+        QString now = ask("timeControl", QJsonObject{{"query", true}, {"queried", QJsonArray{"sound"}}}).toString();
+        QAction* none = shown->addAction("None", [this] { exec("timeControl", QJsonObject{{"sound", ""}}); time_slider_->update(); });
+        none->setCheckable(true);
+        none->setChecked(now.isEmpty());
+        for (const QJsonValue& v : ask("ls", QJsonObject{{"type", "audio"}}).toArray()) {
+            QString n = v.toString();
+            QAction* a = shown->addAction(n, [this, n] { exec("timeControl", QJsonObject{{"sound", n}, {"displaySound", true}}); time_slider_->update(); });
+            a->setCheckable(true);
+            a->setChecked(n == now);
+        }
+    });
+    m->addAction("Delete All Audio", [this] {
+        QJsonArray all = ask("ls", QJsonObject{{"type", "audio"}}).toArray();
+        if (all.isEmpty()) return;
+        exec("timeControl", QJsonObject{{"sound", ""}});
+        exec("delete", QJsonObject{{"args", all}});
+        time_slider_->update();
+    });
+    return m;
+}
+
+QMenu* MainWindow::cache_menu() {
+    auto* m = new QMenu("Cache", this);
+    QMenu* abc = m->addMenu("Alembic Cache");
+    auto range = [] {
+        return QString("-frameRange %1 %2").arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble()).arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
+    };
+    abc->addAction("Export All to Alembic...", [this, range] {
+        QString f = QFileDialog::getSaveFileName(this, "Export All to Alembic", "scene.abc", "Alembic (*.abc)");
+        if (!f.isEmpty()) exec("AbcExport", QJsonObject{{"jobArg", range() + " -uvWrite -worldSpace -file \"" + f + "\""}});
+    })->setEnabled(has_command("AbcExport"));
+    abc->addAction("Export Selection to Alembic...", [this, range] {
+        QString f = QFileDialog::getSaveFileName(this, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)");
+        if (f.isEmpty()) return;
+        QString job = range() + " -uvWrite -worldSpace";
+        for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
+        exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+    })->setEnabled(has_command("AbcExport"));
+    abc->addAction("Import Alembic...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Alembic", QString(), "Alembic (*.abc)");
+        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+    })->setEnabled(has_command("AbcImport"));
     return m;
 }
 
@@ -920,7 +983,7 @@ void MainWindow::build_menu_set(const QString& set) {
     else if (set == "Rendering")
         menus << render_menu(this) << harold_menu(this);
     else
-        menus << key_menu() << playback_menu() << deform_menu() << constrain_menu();
+        menus << key_menu() << playback_menu() << audio_menu() << visualize_menu() << deform_menu() << constrain_menu() << cache_menu();
     for (QMenu* m : menus) {
         m->setToolTipsVisible(true);
         mb->addMenu(m);
