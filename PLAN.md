@@ -99,7 +99,8 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 
 ## Phase 2: missing basics
 
-- [ ] 2.1 Runtime commands. Every name in the reference's default `runTimeCommand` list exists and does what its menu
+- [~] 2.1 (16/11/2026: the names below are in, but CreateImagePlane (no `imagePlane` yet), BakeCustomPivot, ArchiveScene,
+  OptimizeScene and TogglePolyDisplayHardEdges; the captured list is still to be walked) Runtime commands. Every name in the reference's default `runTimeCommand` list exists and does what its menu
   item does, so reference hotkey files, shelves and marking menus work. Today missing, among others:
   `GrowPolygonSelectionRegion`, `ShrinkPolygonSelectionRegion`, `FreezeTransformations`, `ResetTransformations`,
   `DuplicateSpecial`, `SelectHierarchy`, `SelectAllPolygonGeometry`, `HideSelectedObjects`, `ShowAll`,
@@ -264,7 +265,7 @@ Three states:
 | lookdevKit, shaderFXPlugin | shading utility nodes, viewport shaders | | not checked |
 | LookdevX | MaterialX and USD shading | | none |
 | Substance | Substance materials | | none. The format and its engine are their owner's: a reader would have to be theirs |
-| xgenToolkit | grooming and instancing | XJEN (`xjenToolkit`) | none; first in "Now" above, docs/XJEN.md |
+| xgenToolkit | grooming and instancing | XJEN (`xjenToolkit`) | plug-in (16/11/2026: Interactive Groom, steps 1 to 6 of docs/XJEN.md; XGen collections not yet) |
 | MASH | motion graphics | | none |
 | bifrostGraph, bifrostvisplugin | procedural graphs | | none |
 | modelingToolkit | Quad Draw, Multi-Cut | Quad Draw, Multi-Cut | core |

@@ -201,6 +201,14 @@ def _eval_deferred(*args, **kwargs):
     return _command("deferScript")(*([src] if args else []), **kwargs)
 
 
+def _exists(name, *args, **kwargs):
+    # MEL's exists: a command, a procedure, a built-in or a script on the script path.
+    if not isinstance(name, str):
+        raise TypeError("exists: give a name.")
+    return bool(_mel_eval("exists " + json.dumps(name)))
+
+
+cmds.exists = _exists
 cmds.warning = _warning
 cmds.error = _error
 setattr(cmds, "print", _print)

@@ -2490,6 +2490,17 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### Runtime commands and cmds.exists (16/11/2026)
+
+- `cmds.exists` answers as MEL's `exists` does (a command, a procedure, a built-in or a script on the script path).
+- Runtime commands added under the reference's names, each doing what its menu item does: GrowPolygonSelectionRegion,
+  ShrinkPolygonSelectionRegion, FreezeTransformations, ResetTransformations, DuplicateSpecial, SelectHierarchy,
+  SelectAllPolygonGeometry, HideSelectedObjects, ShowAll, ToggleIsolateSelect, SnapToGrid, MatchPivots, PolyExtrude,
+  BevelPolygon, InsertEdgeLoopTool, MergeVertexTool, ReversePolygonNormals, ToggleBackfaceCulling,
+  ToggleWireframeOnShaded, DisplayShadedAndTextured, ToggleAutoKey, Ungroup, Hypershade, PlayblastOptions,
+  CreateNURBSCircle. Not yet: CreateImagePlane (no `imagePlane`), BakeCustomPivot, ArchiveScene, OptimizeScene,
+  TogglePolyDisplayHardEdges; the full captured list is still to be walked.
+
 ### Alembic (16/11/2026)
 
 `AbcExport` and `AbcImport`, the reference's plug-in names, as built-in plug-ins. The format is Aztek's own code

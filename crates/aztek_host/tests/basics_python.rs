@@ -50,3 +50,10 @@ fn units_through_python() {
     let out = run("cmds.polyCube()\ncmds.move(100, 0, 0)\ncmds.rotate(0, 90, 0)\ncmds.currentUnit(l='m', a='rad')\nprint(round(cmds.getAttr('pCube1.tx'), 4))\nprint(round(cmds.getAttr('pCube1.ry'), 4))\ncmds.currentUnit(l='cm', a='deg')");
     assert_eq!(out, ["1.0", "1.5708"]);
 }
+
+#[test]
+fn exists_answers_as_mel_does() {
+    let _one = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let out = run("print(cmds.exists('polyCube'), cmds.exists('nothingAtAll'), cmds.exists('print'))");
+    assert_eq!(out, ["True False True"]);
+}

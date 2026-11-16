@@ -23,7 +23,6 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   the `bin` folder.
 - CI: `python_api_px` fails on rocky9 and ubuntu-2204 (sum 0.0 after reopening a plug-in's data); diagnostics are in,
   the "after reopening" output from the next failed run is wanted.
-- `cmds.exists` is missing in Python (MEL's `exists` works).
 - Found making the examples (09/11/2026), still so on 16/11/2026: `skinCluster` and `blendShape` don't take NURBS
   curves (`cluster` does since #66); `nurbsSquare -sl2` and `vortex -ax/-ay/-az` are missing; `connectDynamic -f` with
   a field's transform fails; `scriptJob -listJobs` lists ids, not the Python function. (`displaySmoothness -po` works

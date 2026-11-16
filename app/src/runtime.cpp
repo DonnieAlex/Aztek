@@ -450,6 +450,44 @@ void MainWindow::build_runtime() {
     held_key("ScrubTimeKey", "scrub");
     held_key("NudgeKeysKey", "nudgeKeys");
 
+    // Names the reference's hotkey files, shelves and marking menus use (PLAN 2.1), each doing what its menu item does.
+    auto add_if = [this](const char* name, const char* cat, const char* ann, const char* code) {
+        if (runtime_.contains(name)) return;
+        QString c = code;
+        add_runtime(name, cat, ann, [c] { mel(c); });
+    };
+    add_if("GrowPolygonSelectionRegion", "Select", "Grow Selection", "growSelection;");
+    add_if("ShrinkPolygonSelectionRegion", "Select", "Shrink Selection", "shrinkSelection;");
+    add_if("FreezeTransformations", "Modify", "Freeze Transformations", "makeIdentity -apply true -t 1 -r 1 -s 1;");
+    add_if("ResetTransformations", "Modify", "Reset Transformations",
+           "string $rt[] = `ls -sl -type transform`; for ($o in $rt) { setAttr ($o + \".t\") 0 0 0; setAttr ($o + \".r\") 0 0 0; setAttr ($o + \".s\") 1 1 1; }");
+    add_if("SelectHierarchy", "Select", "Select Hierarchy", "string $hs[] = `ls -sl`; select -hi $hs;");
+    add_if("SelectAllPolygonGeometry", "Select", "Select All Polygon Geometry",
+           "string $pm[] = `ls -type mesh -ni`; if (size($pm)) { string $pp[] = `listRelatives -p -f $pm`; select -r $pp; }");
+    add_if("HideSelectedObjects", "Display", "Hide Selection", "string $hd[] = `ls -sl`; if (size($hd)) hide $hd;");
+    add_if("ShowAll", "Display", "Show All", "showHidden -all;");
+    add_if("ToggleIsolateSelect", "Display", "Isolate Select",
+           "string $ip = `getPanel -wf`; isolateSelect -state (!`isolateSelect -q -state $ip`) $ip;");
+    add_if("SnapToGrid", "Modify", "Snap to grids on or off", "snapMode -grid (!`snapMode -q -grid`);");
+    add_if("MatchPivots", "Modify", "Match Pivots", "matchTransform -pivots;");
+    add_if("PolyExtrude", "Mesh", "Extrude", "polyExtrudeFacet;");
+    add_if("BevelPolygon", "Mesh", "Bevel", "polyBevel3;");
+    add_if("ReversePolygonNormals", "Mesh Display", "Reverse normals", "polyNormal -normalMode 0;");
+    add_if("ToggleBackfaceCulling", "Display", "Backface culling on or off",
+           "string $bp = `getPanel -wf`; modelEditor -e -backfaceCulling (!`modelEditor -q -backfaceCulling $bp`) $bp;");
+    add_if("ToggleWireframeOnShaded", "Display", "Wireframe on Shaded on or off",
+           "string $wp = `getPanel -wf`; modelEditor -e -wireframeOnShaded (!`modelEditor -q -wireframeOnShaded $wp`) $wp;");
+    add_if("DisplayShadedAndTextured", "Display", "Shaded and textured",
+           "string $dp = `getPanel -wf`; modelEditor -e -displayAppearance \"smoothShaded\" -displayTextures true $dp;");
+    add_if("ToggleAutoKey", "Animation", "Auto Key on or off", "autoKeyframe -state (!`autoKeyframe -q -state`);");
+    add_if("Ungroup", "Edit", "Ungroup", "ungroup;");
+    add_if("Hypershade", "Windows", "Hypershade", "HypershadeWindow;");
+    add_if("CreateNURBSCircle", "Create", "NURBS Circle", "circle -nr 0 1 0;");
+    if (!runtime_.contains("DuplicateSpecial")) r("DuplicateSpecial", "Edit", "Duplicate Special", [] { exec("duplicate", OptionsDialog::saved("duplicate")); });
+    if (!runtime_.contains("InsertEdgeLoopTool")) tool("InsertEdgeLoopTool", "insertLoop", "Insert Edge Loop Tool");
+    if (!runtime_.contains("MergeVertexTool")) tool("MergeVertexTool", "targetWeld", "Merge Vertex Tool");
+    if (!runtime_.contains("PlayblastOptions")) r("PlayblastOptions", "Windows", "Playblast options", [] { OptionsDialog::open("playblast", "Playblast"); });
+
     // Scripts can call all of these by name, as the reference's runtime commands.
     QJsonArray names;
     for (auto it = runtime_.begin(); it != runtime_.end(); ++it) names.append(QJsonArray{it.key(), it->annotation});
