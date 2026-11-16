@@ -310,6 +310,7 @@ QMenu* MainWindow::mesh_menu() {
     cmd(m, "Remesh", "polyRemesh", {}, QString(), true);
     cmd(m, "Retopologize", "polyRetopo", {}, QString(), true);
     cmd(m, "Smooth", "polySmooth", {}, QString(), true);
+    cmd(m, "Unsmooth", "polyUnsmooth", {}, QString(), true);
     cmd(m, "Average Vertices", "polyAverageVertex", {}, QString(), true);
     cmd(m, "Triangulate", "polyTriangulate", {}, QString(), true);
     cmd(m, "Quadrangulate", "polyQuadrangulate", {}, QString(), true);

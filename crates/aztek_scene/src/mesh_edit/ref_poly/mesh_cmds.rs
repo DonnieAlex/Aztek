@@ -190,6 +190,16 @@ fn stored_world(a: &Args) -> DMat4 {
     <[f64; 16]>::try_from(v).map_or(DMat4::IDENTITY, |c| DMat4::from_cols_array(&c).inverse())
 }
 
+fn unsmooth_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+    for _ in 0..a.int("divisionLevels", 1).clamp(1, 6) {
+        match aztek_geo::ops::unsmooth::unsmooth(m) {
+            Some(c) => *m = c,
+            None => fail!("polyUnsmooth: the mesh isn't a Catmull-Clark smoothed one (all quads, a level of smoothing)"),
+        }
+    }
+    Ok(EditResult::default())
+}
+
 fn shell_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let parts = separate(m);
     let i = a.int("shell", 0).max(0) as usize;
@@ -204,6 +214,7 @@ pub(super) fn register_ops() {
         register_op(HistoryOp { node_type, command, label, kind, run, skip_flags: &[], doc })
     };
     op("polySmoothFace", "polySmooth", "Smooth", K::Face, smooth_op, "Subdivides and smooths faces.");
+    op("polyUnsmooth", "polyUnsmooth", "Unsmooth", K::Face, unsmooth_op, "Undoes levels of Catmull-Clark smoothing.");
     op("polyReduce", "polyReduce", "Reduce", K::Face, reduce_op, "Lowers the polygon count, keeping the shape.");
     op("polyRemesh", "polyRemesh", "Remesh", K::Face, remesh_op, "Rebuilds faces as even triangles.");
     op("polyRetopo", "polyRetopo", "Retopologize", K::Face, retopo_op, "Rebuilds the surface as even, quad-dominant faces.");
@@ -1149,6 +1160,13 @@ pub(super) fn register(c: &mut Commands<Session>) {
             ("roundness", json!(1.0)),
         ],
         |s, a| run_op(s, "polySmoothFace", a),
+    ));
+    c.register(ref_cmd(
+        "polyUnsmooth",
+        "Mesh > Unsmooth: undoes -dlv levels of Catmull-Clark smoothing (polySmooth), rebuilding the lower resolution \
+         mesh whose smoothing gives this one. Corner UVs aren't kept. Returns the node.",
+        &[("divisionLevels", json!(1))],
+        |s, a| run_op(s, "polyUnsmooth", a),
     ));
     c.register(ref_cmd(
         "polyRemesh",

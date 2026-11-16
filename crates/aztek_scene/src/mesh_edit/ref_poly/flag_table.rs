@@ -335,6 +335,7 @@ pub fn table(command: &str) -> &'static [Row] {
             ("angle", "a", 'f'), ("keepGroupBorder", "kgb", 'b'), ("keepHardEdges", "khe", 'b'),
             ("keepTextureBorders", "ktb", 'b'), ("worldSpace", "ws", 'b'),
         ],
+        "polyUnsmooth" => &[("divisionLevels", "dlv", 'i')],
         "polyReduce" => &[
             ("cachingReduce", "cr", 'b'), ("colorWeights", "cwt", 'f'), ("compactness", "com", 'f'),
             ("geomWeights", "gwt", 'f'), ("invertVertexWeights", "iwt", 'b'), ("keepBorder", "kb", 'b'),

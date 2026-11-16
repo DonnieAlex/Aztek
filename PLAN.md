@@ -159,7 +159,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
   around the selection or pivot by preference.
 - [ ] 3.11 Soft select Global and Object reach NURBS and show their colours; World symmetry follows a mesh moved after
   it was set.
-- [~] 3.12 (16/11/2026: Relationship Editors, Split UVs, Wrap Add/Remove Influence, Wire Add, Prune Membership, Slice, Hole Punch and Cut Out in) The remaining menu items in PARITY.md's list: Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out,
+- [~] 3.12 (16/11/2026: Relationship Editors, Split UVs, Wrap Add/Remove Influence, Wire Add, Prune Membership, Slice, Hole Punch, Cut Out and Unsmooth in) The remaining menu items in PARITY.md's list: Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out,
   Deform > Edit submenus, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, Visualize. Tools get option
   boxes.
 

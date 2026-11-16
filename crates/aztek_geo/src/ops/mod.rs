@@ -17,6 +17,7 @@ pub mod loops;
 pub mod poly_tools;
 pub mod split_ngons;
 pub mod subdivide;
+pub mod unsmooth;
 
 pub use basic::*;
 pub use bevel::*;

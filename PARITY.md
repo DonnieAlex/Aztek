@@ -2848,3 +2848,13 @@ Hole Punch keeps the first mesh's surface outside the others and Cut Out its sur
 Slice keeps both, as two shells; Split Edges welds them back into one, with edges along the intersection. B - A swaps
 the first two inputs (the menu item reversed the selection before). The reference's `booleanMode`, OpenVDB mode and
 per-input operations aren't in.
+
+### Unsmooth (16/11/2026)
+
+PLAN 3.12, part. Mesh > Unsmooth (`polyUnsmooth -dlv`, a live history node with the reference's `divisionLevels`)
+undoes levels of Catmull-Clark smoothing: the fine mesh's points are read as cage, edge and face points (the point
+graph is two-coloured, cage and face points sit on each quad's diagonal; where several readings work, the one giving a
+quad cage wins), the cage is rebuilt from the face points, and its positions are solved so that smoothing it again
+puts its points back where they were (so a cube smoothed twice and unsmoothed twice is the cube again). A mesh that
+isn't all quads or can't be read as smoothed is refused. Not done: Keep Original in the option box, corner UVs (the
+cage has none), creases.
