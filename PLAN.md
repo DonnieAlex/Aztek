@@ -99,7 +99,7 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 
 ## Phase 2: missing basics
 
-- [~] 2.1 (16/11/2026: the names below are in, but CreateImagePlane (no `imagePlane` yet), BakeCustomPivot, ArchiveScene,
+- [~] 2.1 (16/11/2026: the names below are in, but BakeCustomPivot, ArchiveScene,
   OptimizeScene and TogglePolyDisplayHardEdges; the captured list is still to be walked) Runtime commands. Every name in the reference's default `runTimeCommand` list exists and does what its menu
   item does, so reference hotkey files, shelves and marking menus work. Today missing, among others:
   `GrowPolygonSelectionRegion`, `ShrinkPolygonSelectionRegion`, `FreezeTransformations`, `ResetTransformations`,
@@ -112,7 +112,9 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [ ] 2.2 Default hotkey set matches the captured one key for key, including Insert and D for pivot, X C V snapping,
   6 and 7, H, Ctrl+H, Ctrl+Shift+H, Alt+B, Ctrl+Shift+D, Shift+H, F1 help, Home, Page Up and Down. Hotkey sets
   import from the reference's `.mhk`.
-- [ ] 2.3 Image planes: `imagePlane` command and node (camera-attached and free), `CreateImagePlane`, View > Image
+- [~] 2.3 (16/11/2026: node, command, camera and free planes, sequences, depth, alpha and colour gain, fit modes,
+  shown only through their camera or in all views, `.ma`, View > Image Plane, Create > Free Image Plane; movies and
+  depth maps not yet) Image planes: `imagePlane` command and node (camera-attached and free), `CreateImagePlane`, View > Image
   Plane menu, file sequences with frame offset, depth, alpha gain, fit modes, display in all views or looking through,
   `.ma` read and write.
 - [x] 2.4 (16/11/2026; saving is on the interface thread, so a very large scene pauses while it writes) Autosave: `autoSave` command (enable, interval, limit, destination, prompt), the preference page, timed saves

@@ -62,6 +62,7 @@ pub mod hik_rig;
 pub mod hik_slots;
 pub mod hik_solve;
 pub mod history;
+pub mod image_plane;
 pub mod ik;
 pub mod instancing;
 pub mod isolation;

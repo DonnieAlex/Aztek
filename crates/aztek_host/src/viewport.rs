@@ -535,6 +535,8 @@ pub struct Drag {
 pub struct Viewport {
     /// Lights and highlights for the material shader, made at the first frame.
     pub lit: Option<crate::lighting::ViewLights>,
+    /// The camera shape the view looks through, for image planes shown only through their camera.
+    pub look_camera: NodeId,
     /// Snap: 0 none, 1 grid (X), 2 point (V), 3 curve (C), 4 view plane, 5 live surface.
     pub snap: i32,
     /// The handle Ctrl-click made the default for middle drags.
@@ -646,6 +648,7 @@ impl Viewport {
     pub fn new(kind: CamKind) -> Viewport {
         Viewport {
             lit: None,
+            look_camera: NO_NODE,
             cam: Camera::new(kind),
             meshes: HashMap::new(),
             mats: Default::default(),
@@ -1616,6 +1619,7 @@ impl Viewport {
             r.draw_material(gpu, vb, uvs, ib, b.first, b.count);
         }
         crate::usd_view::draw(gpu, r, s, vp, view);
+        self.draw_image_planes(gpu, r, s);
         self.draw_poly_display(gpu, r, s, items);
         self.draw_rig(gpu, r, s, scale);
         self.draw_strands(gpu, r, s);
@@ -1941,6 +1945,64 @@ impl Viewport {
             r.push(gpu, &push(self.view_proj(), DMat4::IDENTITY, self.cam.view(), [1.0; 4], 1e-3, 1.0));
             r.draw(gpu, &b, None, pv.len() as u32);
             gpu.drop_buffer(b);
+        }
+    }
+
+    /// Image planes: each picture fitted into its gate (a camera's at its depth, or a free plane's own), unlit, with its
+    /// colour gain and alpha gain; Outline draws the frame only, and so does a picture that can't be read.
+    fn draw_image_planes(&mut self, gpu: &mut Gpu, r: &Renderer, s: &Session) {
+        let frame = aztek_scene::anim::frame(&s.graph);
+        let draws = aztek_scene::image_plane::draws(&s.graph, self.look_camera, frame);
+        if draws.is_empty() {
+            return;
+        }
+        let (vp, view) = (self.view_proj(), self.cam.view());
+        for d in draws {
+            let tex = if d.file.is_empty() || d.display_mode == 1 { None } else { crate::textures::with_cache(gpu, |c| c.get(gpu, &d.file, true)) };
+            let (iw, ih) = tex.map_or((1, 1), |t| t.size);
+            let ga = d.right.length() / d.up.length().max(1e-12);
+            let (fx, fy) = aztek_scene::image_plane::fitted(d.fit, ga, iw as f64 / ih.max(1) as f64, d.to_size);
+            let (rr, uu) = (d.right * fx, d.up * fy);
+            let rot = d.rotate;
+            let (cs, sn) = (rot.cos(), rot.sin());
+            let (rx, ux) = (rr * cs + uu * sn, uu * cs - rr * sn);
+            let corners = [d.center - rx - ux, d.center + rx - ux, d.center + rx + ux, d.center - rx + ux];
+            let Some(t) = tex.filter(|_| r.materials) else {
+                let col = c8([110, 110, 110, 255]);
+                let mut v = Vec::new();
+                for k in 0..4 {
+                    v.push(LineVertex { pos: corners[k].as_vec3().to_array(), color: col });
+                    v.push(LineVertex { pos: corners[(k + 1) % 4].as_vec3().to_array(), color: col });
+                }
+                let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &v);
+                r.bind(gpu, Kind::Lines);
+                r.set_line_width(gpu, 1.0);
+                r.push(gpu, &push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0));
+                r.draw(gpu, &b, None, v.len() as u32);
+                gpu.drop_buffer(b);
+                continue;
+            };
+            let n = rx.cross(ux).normalize_or_zero().as_vec3().to_array();
+            let verts: Vec<crate::render::ShadedVertex> = corners.iter().map(|c| crate::render::ShadedVertex { pos: c.as_vec3().to_array(), nrm: n }).collect();
+            let (u0, u1) = if d.flip.0 { (1.0, 0.0) } else { (0.0, 1.0) };
+            let (v0, v1) = if d.flip.1 { (1.0, 0.0) } else { (0.0, 1.0) };
+            let uvs: Vec<[f32; 2]> = vec![[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+            let idx: Vec<u32> = vec![0, 1, 2, 0, 2, 3];
+            let vb = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &verts);
+            let ub = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &uvs);
+            let ib = gpu.buffer_with(vk::BufferUsageFlags::INDEX_BUFFER, &idx);
+            let with_alpha = matches!(d.display_mode, 3 | 5) && t.has_alpha;
+            let m = DrawMaterial { unlit: true, color: d.gain, transparency: (1.0 - d.alpha_gain as f32).clamp(0.0, 1.0), ..no_material() };
+            let sets = MatSets { color: Some(t.set), alpha: with_alpha.then_some(t.set), alpha_has_alpha: t.has_alpha };
+            let pc = push(vp, DMat4::IDENTITY, view, [d.gain[0], d.gain[1], d.gain[2], 1.0], 0.0, 1.0);
+            let (mp, clear) = material_push(pc, &m, Some(&sets));
+            let white = crate::textures::with_cache(gpu, |c| c.white(gpu));
+            r.bind_material(gpu, if clear { Kind::MaterialBlend } else { Kind::Material }, t.set, sets.alpha.unwrap_or(white), self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set));
+            r.push_material(gpu, &mp);
+            r.draw_material(gpu, &vb, &ub, &ib, 0, 6);
+            gpu.drop_buffer(vb);
+            gpu.drop_buffer(ub);
+            gpu.drop_buffer(ib);
         }
     }
 

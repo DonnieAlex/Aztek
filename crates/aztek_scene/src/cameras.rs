@@ -135,6 +135,16 @@ pub fn register_types() {
                 stored(float_attr_short("threshold", "tthd", 0.9, "Depth threshold.", None, None)),
                 // Not an attribute of the reference's: its startup flag is internal. Hidden, cleared by camera -e -sc off.
                 crate::plug::AttrDef { flags: flags::INPUT | flags::HIDDEN, ..short_bool("aztekStartupCamera", "azsc", false) },
+                // The image planes attached to it: each one's message.
+                crate::plug::AttrDef {
+                    name: "imagePlane".into(),
+                    short_name: "ip".into(),
+                    ty: crate::plug::PlugType::Int,
+                    default_value: crate::plug::PlugValue::Int(0),
+                    flags: flags::INPUT | flags::ARRAY | flags::MESSAGE | flags::HIDDEN,
+                    doc: "Image planes attached to the camera.".into(),
+                    ..Default::default()
+                },
             ],
             create: Some(Arc::new(|| Box::new(CameraShape))),
             ..Default::default()

@@ -483,6 +483,7 @@ void MainWindow::build_runtime() {
     add_if("Ungroup", "Edit", "Ungroup", "ungroup;");
     add_if("Hypershade", "Windows", "Hypershade", "HypershadeWindow;");
     add_if("CreateNURBSCircle", "Create", "NURBS Circle", "circle -nr 0 1 0;");
+    add_if("CreateImagePlane", "Create", "Free Image Plane", "imagePlane;");
     if (!runtime_.contains("DuplicateSpecial")) r("DuplicateSpecial", "Edit", "Duplicate Special", [] { exec("duplicate", OptionsDialog::saved("duplicate")); });
     if (!runtime_.contains("InsertEdgeLoopTool")) tool("InsertEdgeLoopTool", "insertLoop", "Insert Edge Loop Tool");
     if (!runtime_.contains("MergeVertexTool")) tool("MergeVertexTool", "targetWeld", "Merge Vertex Tool");

@@ -2490,6 +2490,27 @@ The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` i
 - Step 6, 16/11/2026: Alembic (above), XJEN's Export Cache and Import Cache (`xjenExportCache`, `xjenImportCache`,
   the `xgmModifierSplineCache` modifier), Noise baked (`xjenBakeModifier`, Mode Baked) and Curve to Spline from a cache.
 
+### Image planes (16/11/2026)
+
+![A plate on persp and a free plane](docs/image-planes.jpg)
+
+- `imagePlane` node with the reference's 2027 attributes and defaults (its node documentation): imageName, type,
+  displayMode, alphaGain, colorGain, colorOffset, depth (100), fit (Best), displayOnlyIfCurrent, lockedToCamera,
+  useFrameExtension, frameExtension, frameOffset, width, height, maintainRatio, imageCenter, offset, size (3.6 x 2.4
+  cm), rotate, squeezeCorrection, flips and the rest; a shape under its own transform, as since the reference's 2016.
+- `imagePlane` command: `-camera` (parented under the camera, message into `cameraShape.imagePlane[]`, the camera's
+  message into `lookThroughCamera`), `-fileName`, `-width`, `-height`, `-maintainRatio`, `-showInAllViews`, `-name`,
+  `-edit`, `-query`, `-detach`. A free plane with no size given is 10 by 10 (Aztek's default; the reference's is to be
+  captured).
+- The views draw each picture fitted into its gate: on a camera, the film gate at its depth (focal length and film
+  aperture, or the orthographic width), fit Fill, Best, Horizontal, Vertical or To Size; free, width by height about
+  imageCenter in its own space. Unlit, colour gain and alpha gain applied, RGBA using the picture's alpha, Outline the
+  frame only; a sequence shows the scene's frame (plus frameOffset) in place of the last digits of the file name
+  unless frameExtension is driven. Display Only If Current hides it from views not looking through its camera. A camera
+  plane shows even though the default cameras are hidden.
+- View > Image Plane > Import Image and Image Plane Attributes; Create > Free Image Plane; CreateImagePlane.
+- Not yet: movies, textures as the source, depth maps, coverage, colour management, rendering by Harold.
+
 ### Autosave (16/11/2026)
 
 `autoSave` with the reference's flags: `-enable`, `-interval` (seconds), `-limitBackups`, `-maxBackups`, `-destination`
@@ -2517,7 +2538,7 @@ the reference's numbers yet: a capture of `texGetTexelDensity` on a default plan
   SelectAllPolygonGeometry, HideSelectedObjects, ShowAll, ToggleIsolateSelect, SnapToGrid, MatchPivots, PolyExtrude,
   BevelPolygon, InsertEdgeLoopTool, MergeVertexTool, ReversePolygonNormals, ToggleBackfaceCulling,
   ToggleWireframeOnShaded, DisplayShadedAndTextured, ToggleAutoKey, Ungroup, Hypershade, PlayblastOptions,
-  CreateNURBSCircle. Not yet: CreateImagePlane (no `imagePlane`), BakeCustomPivot, ArchiveScene, OptimizeScene,
+  CreateNURBSCircle, CreateImagePlane. Not yet: BakeCustomPivot, ArchiveScene, OptimizeScene,
   TogglePolyDisplayHardEdges; the full captured list is still to be walked.
 
 ### Alembic (16/11/2026)

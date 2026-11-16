@@ -143,6 +143,7 @@ impl Session {
         crate::surfaces::register(&mut s.commands);
         crate::sculpt::register(&mut s.commands);
         crate::cameras::register(&mut s.commands);
+        crate::image_plane::register(&mut s.commands);
         crate::deform_lattice::register(&mut s.commands);
         crate::deform_soft::register(&mut s.commands);
         crate::deform_mush::register(&mut s.commands);

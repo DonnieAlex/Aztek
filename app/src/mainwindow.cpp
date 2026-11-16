@@ -274,6 +274,10 @@ QMenu* MainWindow::create_menu() {
     m->addSeparator();
     cmd(m, "Camera", "camera");
     cmd(m, "Locator", "spaceLocator");
+    m->addAction("Free Image Plane", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Free Image Plane", QString(), "Images (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.tga *.bmp);;All files (*)");
+        exec("imagePlane", f.isEmpty() ? QJsonObject() : QJsonObject{{"fileName", f}});
+    })->setEnabled(has_command("imagePlane"));
     cmd(m, "Annotation", "annotate", QJsonObject{{"text", "Annotation"}});
     QMenu* measure = m->addMenu("Measure Tools");
     cmd(measure, "Distance Tool", "distanceDimension", QJsonObject{{"startPoint", QJsonArray{0, 0, 0}}, {"endPoint", QJsonArray{1, 0, 0}}});

@@ -10,6 +10,7 @@
 #include <QPointer>
 #include <QAction>
 #include <QActionGroup>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -135,6 +136,24 @@ void ModelPanel::build_menus() {
             QString st = s.value(k).toString();
             bookmarks->addAction(k, [v, st] { v->set("camState", st); });
         }
+    });
+    QMenu* planes = view->addMenu("Image Plane");
+    planes->addAction("Import Image...", [this, v] {
+        QString f = QFileDialog::getOpenFileName(this, "Import Image", QString(), "Images (*.png *.jpg *.jpeg *.tif *.tiff *.exr *.tga *.bmp);;All files (*)");
+        if (!f.isEmpty()) exec("imagePlane", QJsonObject{{"camera", v->get("camera").remove('"')}, {"fileName", f}});
+    });
+    planes->addAction("Image Plane Attributes", [v] {
+        QString cam = v->get("camera").remove('"');
+        QJsonArray kids = ask("listRelatives", QJsonObject{{"args", QJsonArray{cam}}, {"children", true}, {"type", "transform"}}).toArray();
+        for (const QJsonValue& k : kids) {
+            QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{k}}, {"shapes", true}}).toArray();
+            if (!shapes.isEmpty() && ask("nodeType", QJsonObject{{"args", QJsonArray{shapes[0]}}}).toString() == "imagePlane") {
+                exec("select", QJsonObject{{"args", QJsonArray{shapes[0]}}});
+                mel("AttributeEditor;");
+                return;
+            }
+        }
+        log("// Warning: the camera has no image plane //", 4);
     });
     QMenu* settings = view->addMenu("Camera Settings");
     flag_item(settings, v, "Film Gate", "filmGate", *flags);

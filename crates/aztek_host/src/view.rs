@@ -288,6 +288,7 @@ impl View {
                 self.vp.node_lines.push((at(k), at(k + 1), [255, 255, 80, 255]));
             }
         }
+        self.vp.look_camera = core.s.graph.find(&self.cam_node).ok().flatten().and_then(|id| aztek_scene::cameras::shape_of(&core.s.graph, id)).unwrap_or(aztek_scene::plug::NO_NODE);
         self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr);
         prof.mark("  draw");
         if crate::usd_view::busy() {

@@ -1258,7 +1258,7 @@ const DRAW_CHANNELS: &[&str] = &[
 /// Rigging and animation nodes that are all attributes and connections.
 const PLAIN_NODES: &[&str] = &["xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
 /// The same under a transform.
-const PLAIN_SHAPES: &[&str] = &["xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
+const PLAIN_SHAPES: &[&str] = &["imagePlane", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
 /// Nodes written and read attribute by attribute, with their connections: utility nodes and expressions.
 /// What a file's unitConversion does: values are in stored units, as in the reference, so its factor means what it says.

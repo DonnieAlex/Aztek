@@ -339,6 +339,7 @@ pub mod types {
             crate::harold_nodes::register_types();
             crate::xjen::register_types();
             crate::alembic::register_types();
+            crate::image_plane::register_types();
             crate::texture_nodes::register_types();
             crate::expression::register_types();
             crate::defaults::register_types();
