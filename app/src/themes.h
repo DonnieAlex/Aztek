@@ -62,6 +62,10 @@ void apply_theme(QApplication& app, const QString& id);
 // Applies a theme without remembering it: the editor's preview.
 void preview_theme(QApplication& app, const Theme& t);
 void apply_saved_theme(QApplication& app);
+// Every option at random, fonts included, still readable: Random! in the Themes box and the Theme Editor's Randomize.
+Theme random_theme();
+// A random theme, kept as the user's "Random" theme and applied.
+void apply_random_theme(QApplication& app);
 // The folder user themes are kept in.
 QString themes_folder();
 // Saves a theme made in the editor; returns false with a message when it can't.

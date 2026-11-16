@@ -97,6 +97,20 @@ public:
         note_->setObjectName("optionsDoc");
         right->addWidget(note_);
         auto* buttons = new QHBoxLayout;
+        // Randomize: every option of the theme being edited at random, fonts included, for fun; Revert undoes it.
+        auto* dice = new QPushButton("Randomize", this);
+        dice->setToolTip("Every option at random, fonts and all. Revert brings the theme back.");
+        connect(dice, &QPushButton::clicked, this, [this] {
+            Theme r = random_theme();
+            r.id = work_.id;
+            r.name = work_.name;
+            r.builtin = work_.builtin;
+            load(r);
+            dirty_ = true;
+            preview_theme(*qApp, work_);
+            update_note();
+        });
+        buttons->addWidget(dice);
         auto* save = new QPushButton("Save", this);
         auto* revert = new QPushButton("Revert", this);
         auto* close = new QPushButton("Close", this);

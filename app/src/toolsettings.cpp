@@ -923,7 +923,8 @@ void ToolSettings::toggle_lock(QTreeWidgetItem* clicked) {
         exec("skinCluster", QJsonObject{{"args", QJsonArray{last_skin_}}, {"edit", true}, {"influence", it->data(0, Qt::UserRole).toString()}, {"lockWeights", lock}});
         it->setData(0, Qt::UserRole + 1, lock);
         it->setIcon(0, icon(lock ? "influenceLocked" : "influenceUnlocked"));
-        it->setForeground(1, lock ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
+        if (lock) it->setForeground(1, QBrush(QColor(120, 160, 230)));
+        else it->setData(1, Qt::ForegroundRole, QVariant());
     }
 }
 
@@ -1189,7 +1190,9 @@ void ToolSettings::refresh_paint() {
         bool locked = ask("skinCluster", QJsonObject{{"args", QJsonArray{sk}}, {"query", true}, {"influence", n}, {"lockWeights", true}}).toBool();
         it->setData(0, Qt::UserRole + 1, locked);
         it->setIcon(0, icon(locked ? "influenceLocked" : "influenceUnlocked"));
-        it->setForeground(1, locked ? QBrush(QColor(120, 160, 230)) : QBrush(palette().color(QPalette::Text)));
+        // Held ones in blue; the rest take the theme's text colour as it is when drawn, so a theme change leaves them readable.
+        if (locked) it->setForeground(1, QBrush(QColor(120, 160, 230)));
+        else it->setData(1, Qt::ForegroundRole, QVariant());
         if (n == current || (current.isEmpty() && influences_->currentItem() == nullptr)) {
             if (influences_->currentItem() != it) influences_->setCurrentItem(it);
         }

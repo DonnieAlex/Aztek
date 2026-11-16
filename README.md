@@ -478,6 +478,10 @@ Aztek keeps the choice. They are listed from darkest to lightest, and the icons 
 Solarized colour schemes as their authors publish them. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
 colours.
 
+**Random!**, at the bottom of the box, makes a theme with every option at random, fonts included, and applies it: pick
+it again for another. It is kept as your Random theme until the next roll, so one you like can be opened in the editor
+and saved under a name; the editor's **Randomize** button does the same to the theme being edited.
+
 **Theme Editor...**, at the bottom of the box, edits every part of a theme: each colour, the font and its size, italic
 or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, single like Motif, double like 1998), corner
 radius, border width, padding, the tab, arrow and scroll bar styles. Built-in themes stay as they are and saving makes a

@@ -7,6 +7,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
+#include <QFontDatabase>
+#include <QRandomGenerator>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -955,6 +957,68 @@ Theme Theme::from_json(const QJsonObject& o) {
     return t;
 }
 
+Theme random_theme() {
+    auto* r = QRandomGenerator::global();
+    auto pick = [r](const QStringList& l) { return l.at(int(r->bounded(l.size()))); };
+    auto between = [r](double lo, double hi) { return lo + r->generateDouble() * (hi - lo); };
+    // The base: a hue, how much of it, dark or light; the accent anywhere on the wheel, strong. Text keeps its contrast
+    // whatever comes up, as tonal() works it out from the lightness.
+    const bool dark = r->bounded(100) < 60;
+    const double hue = between(0, 360), sat = r->bounded(100) < 30 ? 0.0 : between(0.03, 0.45);
+    const double light = dark ? between(6, 34) : between(62, 96);
+    const QColor accent = QColor::fromHslF(between(0, 1), between(0.55, 0.95), between(0.42, 0.58));
+    Theme t = tonal("random", "Random", hue, sat, light, accent.name().toLatin1().constData());
+    // Now and then the section bars take the accent, or a second colour of their own.
+    switch (r->bounded(3)) {
+    case 0:
+        t.c["section"] = accent;
+        t.c["sectiontext"] = accent.lightnessF() > 0.55 ? QColor("#000000") : QColor("#ffffff");
+        break;
+    case 1: {
+        const QColor second = QColor::fromHslF(between(0, 1), between(0.4, 0.9), dark ? between(0.25, 0.4) : between(0.6, 0.78));
+        t.c["section"] = second;
+        t.c["sectiontext"] = second.lightnessF() > 0.55 ? QColor("#000000") : QColor("#ffffff");
+        break;
+    }
+    default:
+        break;
+    }
+    t.c["hitext"] = accent.lightnessF() > 0.6 ? QColor("#000000") : QColor("#ffffff");
+    // A font any of the system's that writes Latin and isn't symbols, or now and then the system's own.
+    if (r->bounded(100) < 85) {
+        QStringList fonts;
+        for (const QString& f : QFontDatabase::families(QFontDatabase::Latin)) {
+            const QString low = f.toLower();
+            if (low.contains("symbol") || low.contains("emoji") || low.contains("dings") || low.contains("icon") || low.contains("awesome") || low.contains("math")) continue;
+            fonts << f;
+        }
+        if (!fonts.isEmpty()) t.font = QStringList{pick(fonts)};
+        t.point_size = 7 + int(r->bounded(5));
+    } else {
+        t.font.clear();
+        t.point_size = 0;
+    }
+    t.menu_italic = r->bounded(100) < 25;
+    t.menu_bold = r->bounded(100) < 35;
+    t.fill = pick({"classic", "flat", "flat", "gradient", "gradient"});
+    t.bevel = pick({"none", "none", "single", "double"});
+    t.radius = int(r->bounded(15));
+    t.border = int(r->bounded(4));
+    t.padding = int(r->bounded(9));
+    t.tabs = pick({"boxed", "underline", "pill", "rounded"});
+    t.arrows = pick({"chevron", "triangle", "boxed"});
+    t.scrollbar = pick({"thin", "standard", "bevel"});
+    t.builtin = false;
+    return t;
+}
+
+void apply_random_theme(QApplication& app) {
+    Theme t = random_theme();
+    // Kept as a theme of the user's, so it stays after a restart and can be opened in the editor and saved under a name.
+    save_user_theme(t, nullptr);
+    apply_theme(app, t.id);
+}
+
 const QList<QPair<QString, QString>>& colour_keys() {
     static const QList<QPair<QString, QString>> k = {
         {"window", "Window"}, {"chrome", "Bars and docks"}, {"base", "Lists and views"}, {"alt", "Alternate rows"}, {"menu", "Menus"},
@@ -1038,12 +1102,18 @@ QComboBox* make_theme_box(QWidget* parent) {
             if (t.id == now) box->setCurrentIndex(box->count() - 1);
         }
         box->insertSeparator(box->count());
+        box->addItem("Random!", QStringLiteral("#random"));
+        box->setItemData(box->count() - 1, "Every option at random, fonts and all: pick it again for another", Qt::ToolTipRole);
         box->addItem("Theme Editor...", QStringLiteral("#editor"));
     };
     fill();
     on_themes_changed(fill);
     QObject::connect(box, &QComboBox::activated, box, [box](int i) {
         const QString id = box->itemData(i).toString();
+        if (id == "#random") {
+            apply_random_theme(*qApp);
+            return;
+        }
         if (id == "#editor") {
             const QString now = current_theme();
             for (int k = 0; k < box->count(); ++k)
