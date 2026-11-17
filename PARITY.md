@@ -1322,6 +1322,17 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Modeling Toolkit (17/11/2026, #107)
+
+The status line's Modeling Toolkit button (and ToggleModelingToolkit) opens the toolkit beside the Channel Box and
+Attribute Editor, laid out as the reference's: Object and Help menus; Multi-Component and the five selection types
+drawn as the reference's (orange cube, square corners, diamond edge, lit top face, UV square), each with its tooltip
+(F8 to F12, Ctrl+click converts, Ctrl+Shift+click converts to the perimeter, right click clears); Pick/Marquee,
+Drag, Tweak/Marquee; Highlight Backfaces, Highlight Nearest Component; Camera Based Selection, Symmetry, Selection
+and Transform Constraint; Soft Selection with its curve; then Mesh (Combine, Separate, Smooth, Boolean), Components
+(Extrude, Bevel, Smart Extrude, Add Divisions, Bridge) and Tools (Multi-Cut, Target Weld, Connect, Quad Draw), in
+the reference's order (docs/issues/107-modeling-toolkit.png).
+
 ### Joint Tool quits on Enter (17/11/2026, #106)
 
 Enter ends the joint chain (with an IK handle down it when the tool's settings make one) and, as the reference's

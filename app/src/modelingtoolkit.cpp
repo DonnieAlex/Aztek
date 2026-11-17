@@ -42,9 +42,11 @@ public:
     TypeButton(const QString& type, const QString& tip, QWidget* parent) : QToolButton(parent), type_(type) {
         setCheckable(true);
         setAutoRaise(true);
-        setIcon(az::icon(type));
+        static const QHash<QString, QString> kIcons{{"object", "mtkObject"}, {"vertex", "mtkVertex"}, {"edge", "mtkEdge"}, {"face", "mtkFace"}, {"uv", "mtkUV"}};
+        setIcon(az::icon(kIcons.value(type, type)));
         setIconSize(QSize(28, 28));
-        setMinimumSize(52, 40);
+        setMinimumSize(40, 40);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         setToolTip(tip);
     }
 protected:
@@ -194,15 +196,16 @@ void MainWindow::show_modeling_toolkit() {
             set_tool("move");
             for (ViewportWidget* v : panels_->views()) v->set("tweakMode", "true");
         });
-        auto* nearest = new QCheckBox("Highlight Nearest Component", w);
-        nearest->setChecked(ask("selectPref", QJsonObject{{"query", true}, {"preSelectHilite", true}}).toBool(true));
-        connect(nearest, &QCheckBox::toggled, this, [](bool on) { exec_quiet("selectPref", QJsonObject{{"preSelectHilite", on}}); });
-        page->addWidget(nearest);
+        // Highlight Backfaces first, then Highlight Nearest Component, as the reference lists them.
         auto* backfaces = new QCheckBox("Highlight Backfaces", w);
         backfaces->setToolTip("On: back-facing components highlight under the cursor too");
         backfaces->setChecked(ask("selectPref", QJsonObject{{"query", true}, {"preSelectBackfacing", true}}).toBool(false));
         connect(backfaces, &QCheckBox::toggled, this, [](bool on) { exec_quiet("selectPref", QJsonObject{{"preSelectBackfacing", on}}); });
         page->addWidget(backfaces);
+        auto* nearest = new QCheckBox("Highlight Nearest Component", w);
+        nearest->setChecked(ask("selectPref", QJsonObject{{"query", true}, {"preSelectHilite", true}}).toBool(true));
+        connect(nearest, &QCheckBox::toggled, this, [](bool on) { exec_quiet("selectPref", QJsonObject{{"preSelectHilite", on}}); });
+        page->addWidget(nearest);
 
         auto* form = new QFormLayout();
         form->setContentsMargins(0, 4, 0, 4);
@@ -298,23 +301,23 @@ void MainWindow::show_modeling_toolkit() {
             }
         };
         auto run = [](const QString& cmd) { return [cmd] { exec(cmd); Host::get()->poke(); }; };
-        grid("Mesh", {{"Combine", "polyUnite", run("polyUnite")},
-                      {"Separate", "polySeparate", run("polySeparate")},
-                      {"Smooth", "polySmooth", run("polySmooth")},
-                      {"Boolean", "polyBooleanUnion", [] { exec("polyCBoolOp", QJsonObject{{"operation", 1}}); Host::get()->poke(); }}});
-        grid("Components", {{"Extrude", "polyExtrude", run("polyExtrude")},
-                            {"Bevel", "polyBevel", run("polyBevel")},
-                            {"Smart Extrude", "polyExtrude", [this] {
+        grid("Mesh", {{"Combine", "combine", run("polyUnite")},
+                      {"Separate", "separate", run("polySeparate")},
+                      {"Smooth", "smooth", run("polySmooth")},
+                      {"Boolean", "boolean", [] { exec("polyCBoolOp", QJsonObject{{"operation", 1}}); Host::get()->poke(); }}});
+        grid("Components", {{"Extrude", "extrude", run("polyExtrude")},
+                            {"Bevel", "bevel", run("polyBevel")},
+                            {"Smart Extrude", "extrude", [this] {
                                  // Extruded and straight into the move manipulator, to drag out.
                                  exec("polyExtrude");
                                  set_tool("move");
                                  Host::get()->poke();
                              }},
-                            {"Bridge", "polyBridge", run("polyBridge")},
-                            {"Add Divisions", "polySubdivideFacet", run("polySubdivideFacet")}});
+                            {"Add Divisions", "insertLoop", run("polySubdivideFacet")},
+                            {"Bridge", "bridge", run("polyBridge")}});
         grid("Tools", {{"Multi-Cut", "multiCut", [this] { set_tool("multiCut"); }},
-                       {"Target Weld", "targetWeld", [this] { set_tool("targetWeld"); }},
-                       {"Connect", "polyConnectComponents", run("polyConnectComponents")},
+                       {"Target Weld", "merge", [this] { set_tool("targetWeld"); }},
+                       {"Connect", "insertLoop", run("polyConnectComponents")},
                        {"Quad Draw", "quadDraw", [this] { set_tool("quadDraw"); }}});
         page->addStretch(1);
         scroll->setWidget(w);

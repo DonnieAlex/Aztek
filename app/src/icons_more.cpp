@@ -45,6 +45,60 @@ void brush(QPainter& p, const QColor& c) {
 } // namespace
 
 bool draw_more(const QString& name, QPainter& p) {
+    if (name.startsWith("mtk")) {
+        // The Modeling Toolkit's selection type buttons, as the reference's: an orange cube, a square's corners, a
+        // diamond's edges, a grey cube with its top face lit, a UV square with its points (#107).
+        const QPolygonF top({{16, 5}, {27, 10}, {16, 15}, {5, 10}});
+        const QPolygonF left({{5, 10}, {16, 15}, {16, 27}, {5, 22}});
+        const QPolygonF right({{16, 15}, {27, 10}, {27, 22}, {16, 27}});
+        if (name == "mtkObject" || name == "mtkFace") {
+            const bool obj = name == "mtkObject";
+            p.setPen(QPen(QColor(60, 40, 20), 0.8));
+            p.setBrush(obj ? QColor(250, 175, 80) : QColor(250, 250, 250));
+            p.drawPolygon(top);
+            p.setBrush(obj ? QColor(225, 120, 40) : QColor(150, 150, 150));
+            p.drawPolygon(left);
+            p.setBrush(obj ? QColor(195, 95, 30) : QColor(120, 120, 120));
+            p.drawPolygon(right);
+            if (!obj) {
+                p.setPen(QPen(QColor(240, 150, 50), 1.6));
+                p.setBrush(Qt::NoBrush);
+                p.drawPolygon(top);
+            }
+            return true;
+        }
+        if (name == "mtkVertex") {
+            line_pen(p, kInk, 1.4);
+            p.drawRect(QRectF(7, 7, 18, 18));
+            p.setPen(QPen(QColor(30, 30, 30), 0.8));
+            p.setBrush(QColor(250, 250, 250));
+            for (QPointF c : {QPointF(7, 7), QPointF(25, 7), QPointF(7, 25), QPointF(25, 25)}) p.drawRect(QRectF(c.x() - 2.2, c.y() - 2.2, 4.4, 4.4));
+            return true;
+        }
+        if (name == "mtkEdge") {
+            const QPolygonF d({{16, 4}, {28, 16}, {16, 28}, {4, 16}});
+            line_pen(p, kInk, 1.4);
+            p.drawPolygon(d);
+            line_pen(p, QColor(240, 150, 50), 2.4);
+            p.drawLine(QPointF(16, 4), QPointF(28, 16));
+            return true;
+        }
+        if (name == "mtkUV") {
+            p.setPen(QPen(kInk, 1.2, Qt::DashLine));
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(QRectF(6, 6, 20, 20));
+            p.setPen(QPen(QColor(30, 30, 30), 0.8));
+            p.setBrush(QColor(250, 250, 250));
+            for (QPointF c : {QPointF(6, 6), QPointF(26, 6), QPointF(6, 26), QPointF(26, 26)}) p.drawRect(QRectF(c.x() - 2, c.y() - 2, 4, 4));
+            p.setPen(Qt::NoPen);
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j) {
+                    p.setBrush((i + j) % 2 ? QColor(60, 60, 60) : QColor(230, 230, 230));
+                    p.drawRect(QRectF(12 + i * 2.8, 12 + j * 2.8, 2.8, 2.8));
+                }
+            return true;
+        }
+    }
     if (name == "paintSelect") {
         // A brush stroke of picked points.
         line_pen(p, kInk, 2.4);
