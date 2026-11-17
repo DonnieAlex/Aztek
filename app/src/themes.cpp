@@ -220,11 +220,11 @@ QList<Theme> builtins() {
         t.padding = 4;
         l << t;
     }
-    // Boisvert: Softimage XSI, matched to its screens: warm grey panels and lists, soft raised buttons a shade lighter
+    // Martino: Softimage XSI, matched to its screens: warm grey panels and lists, soft raised buttons a shade lighter
     // with rounded corners (lit white when on), blue-grey section and panel title bars with black bold type, dark
     // rounded entry fields with light type, a white bar with black type for what is picked, Tahoma.
     {
-        Theme t = hand("martino", "Boisvert",
+        Theme t = hand("martino", "Martino",
                        {{"window", "#aca8a7"}, {"chrome", "#a7a3a2"}, {"base", "#aca8a7"}, {"alt", "#a6a2a1"}, {"menu", "#cccbc9"}, {"button", "#b6b3b1"}, {"hover", "#c6c3c1"},
                         {"hi", "#ffffff"}, {"hitext", "#000000"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#3a3938"}, {"disabled", "#858281"}, {"border", "#7a7776"},
                         {"handle", "#b6b3b1"}, {"section", "#899aa4"}, {"sectiontext", "#000000"}, {"light", "#d6d3d1"}, {"shadow", "#838182"},
@@ -539,10 +539,10 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#0b5a50");
         l << t;
     }
-    // Martino: the Mac desktop of the 2020s in its light appearance: pale grey windows and toolbars, white controls and
+    // Boisvert: the Mac desktop of the 2020s in its light appearance: pale grey windows and toolbars, white controls and
     // fields, its blue for what is picked, SF Pro, soft round corners, segmented tabs, scroll bars that stay out of the way.
     {
-        Theme t = hand("macos", "Martino",
+        Theme t = hand("macos", "Boisvert",
                        {{"window", "#ececec"}, {"chrome", "#e3e3e3"}, {"base", "#ffffff"}, {"alt", "#f5f5f5"}, {"menu", "#f6f6f6"}, {"button", "#ffffff"}, {"hover", "#f0f0f0"},
                         {"hi", "#007aff"}, {"hitext", "#ffffff"}, {"text", "#1d1d1f"}, {"bright", "#000000"}, {"dim", "#6e6e73"}, {"disabled", "#b0b0b5"}, {"border", "#c8c8cc"},
                         {"handle", "#c1c1c1"}, {"section", "#e3e3e8"}, {"sectiontext", "#1d1d1f"}, {"light", "#ffffff"}, {"shadow", "#b6b6bb"},
