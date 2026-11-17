@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Paint Skin Weights in Select mode (17/11/2026, #104)
+
+Switching the Paint Skin Weights Tool's Mode to Select (or Paint Select) drops the weight colours, as the
+reference's does: the mesh is drawn plain with its vertices to pick; back to Paint, the colours return
+(docs/issues/104-select-mode-plain.png: Paint, then Select).
+
 ### Influence locks, and docked panels behind a tab (17/11/2026, #105)
 
 The Paint Skin Weights Tool's influence list has a column of lock buttons at its far left, lined up whatever the
