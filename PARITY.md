@@ -1322,6 +1322,14 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Outliner drags (17/11/2026, #101)
+
+As the reference's Outliner: a left drag selects the rows it passes over; a middle drag moves the selection (or the
+row pressed, when it isn't selected) and leaves it selected: released on a row it parents to it, between rows it
+reorders there, on empty space it parents to the world. The parents of selected rows are faintly highlighted, and
+the right button opens the menu as it goes down (docs/issues/101-outliner-drag.png: a left drag over two rows, a
+child picked with its parent shown, pCube1 middle-dragged under pCube2 and still selected).
+
 ### Alembic, OBJ, FBX and glTF inside a stage (17/11/2026, #100)
 
 A sublayer, reference or payload naming an Alembic file reads as the reference's usdAbc plug-in gives it, in a USD
