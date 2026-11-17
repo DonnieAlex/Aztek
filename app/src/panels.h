@@ -181,6 +181,11 @@ private:
     QWidget* find_bar_ = nullptr;
     QLineEdit* find_ = nullptr;
     QCheckBox* find_case_ = nullptr;
+    QCheckBox* find_word_ = nullptr;
+    QWidget* replace_row_ = nullptr;
+    QLineEdit* replace_ = nullptr;
+    // Replaces the match under the cursor (and finds the next), or every match; returns how many.
+    int replace(bool all);
     QPlainTextEdit* find_target_ = nullptr;
     bool show_numbers_ = true;
     bool stack_trace_ = true;

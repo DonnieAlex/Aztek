@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Script Editor search (17/11/2026, #93)
+
+Ctrl+F in the input tabs or the history opens the find bar (Enter next, Shift+Enter previous, Esc closes; red when
+nothing matches), with Match case and Whole word; the magnifier on the toolbar shows and hides it, as the reference's
+search field button. Edit > Search and Replace (Ctrl+H) adds the Replace row: Replace swaps the match and finds the
+next, Replace All does every one as one undo and says how many (docs/issues/93-script-editor-find.png).
+
 ### Reference any file an importer reads (17/11/2026, #92)
 
 File > Create Reference and the Reference Editor take every type a loaded importer reads: FBX (mocap to retarget),

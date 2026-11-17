@@ -68,6 +68,15 @@ bool draw_more(const QString& name, QPainter& p) {
         }
         return true;
     }
+    if (name == "search") {
+        // A magnifying glass.
+        line_pen(p, kInk, 2.6);
+        p.setBrush(QColor(200, 220, 240));
+        p.drawEllipse(QPointF(13, 13), 8, 8);
+        line_pen(p, kInk, 4.0);
+        p.drawLine(QPointF(19, 19), QPointF(27, 27));
+        return true;
+    }
     if (name == "modelingToolkit") {
         // A cube with one face picked and a pen across it, as the reference's Modeling Toolkit button.
         line_pen(p, kInk, 1.6);

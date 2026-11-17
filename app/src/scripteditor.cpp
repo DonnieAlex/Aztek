@@ -220,6 +220,11 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     edit->addAction("Clear All", [this] { history_->clear(); if (auto* e = current()) e->clear(); });
     edit->addSeparator();
     edit->addAction("Find...\tCtrl+F", [this] { open_find(current()); });
+    // As the reference's Search and Replace: the find bar with its Replace row.
+    edit->addAction("Search and Replace...\tCtrl+H", [this] {
+        open_find(current());
+        replace_row_->show();
+    });
     QMenu* cmd = mb->addMenu("Command");
     cmd->addAction("New Tab: MEL", [this] { add_tab("mel", "MEL", QString()); });
     cmd->addAction("New Tab: Python", [this] { add_tab("python", "Python", "import maya.cmds as cmds\n"); });
@@ -265,6 +270,16 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     bar->addAction(icon("clearInput"), "Clear Input", [this] { if (auto* e = current()) e->clear(); });
     bar->addSeparator();
     bar->addAction(icon("play"), "Execute (Ctrl+Enter): the selection, or the whole tab", [this] { run(false); });
+    bar->addSeparator();
+    // Show or hide the search field, as the reference's toolbar button.
+    bar->addAction(icon("search"), "Show/hide search field (Ctrl+F)", [this] {
+        if (find_bar_->isVisible()) {
+            find_bar_->hide();
+            if (find_target_) find_target_->setFocus();
+        } else {
+            open_find(current());
+        }
+    });
     lay->addWidget(bar);
     auto* split = new QSplitter(Qt::Vertical, this);
     history_ = new QPlainTextEdit(split);
@@ -313,8 +328,28 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     fl->addWidget(prev);
     fl->addWidget(next);
     fl->addWidget(find_case_);
+    find_word_ = new QCheckBox("Whole word", find_bar_);
+    fl->addWidget(find_word_);
     fl->addWidget(close);
     lay->addWidget(find_bar_);
+    replace_row_ = new QWidget(this);
+    auto* rl = new QHBoxLayout(replace_row_);
+    rl->setContentsMargins(4, 0, 4, 2);
+    replace_ = new QLineEdit(replace_row_);
+    replace_->setPlaceholderText("Replace with");
+    auto* one = new QToolButton(replace_row_);
+    one->setText("Replace");
+    auto* every = new QToolButton(replace_row_);
+    every->setText("Replace All");
+    rl->addWidget(replace_, 1);
+    rl->addWidget(one);
+    rl->addWidget(every);
+    lay->addWidget(replace_row_);
+    replace_row_->hide();
+    replace_->installEventFilter(this);
+    connect(replace_, &QLineEdit::returnPressed, this, [this] { replace(false); });
+    connect(one, &QToolButton::clicked, this, [this] { replace(false); });
+    connect(every, &QToolButton::clicked, this, [this] { replace(true); });
     find_bar_->hide();
     find_->installEventFilter(this);
     connect(find_, &QLineEdit::returnPressed, this, [this] { find(false); });
@@ -330,6 +365,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     connect(next, &QToolButton::clicked, this, [this] { find(false); });
     connect(close, &QToolButton::clicked, this, [this] {
         find_bar_->hide();
+        replace_row_->hide();
         if (find_target_) find_target_->setFocus();
     });
     QFont mono("monospace");
@@ -467,6 +503,7 @@ void ScriptEditor::find(bool back) {
     QTextDocument::FindFlags flags;
     if (back) flags |= QTextDocument::FindBackward;
     if (find_case_->isChecked()) flags |= QTextDocument::FindCaseSensitively;
+    if (find_word_->isChecked()) flags |= QTextDocument::FindWholeWords;
     bool found = find_target_->find(find_->text(), flags);
     if (!found) {
         // Round from the other end.
@@ -477,6 +514,32 @@ void ScriptEditor::find(bool back) {
     }
     // Red text when there is no match.
     find_->setStyleSheet(found ? QString() : QString("QLineEdit { color: #d03030; }"));
+}
+
+int ScriptEditor::replace(bool all) {
+    if (!find_target_ || find_target_->isReadOnly() || find_->text().isEmpty()) return 0;
+    const Qt::CaseSensitivity cs = find_case_->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive;
+    if (!all) {
+        QTextCursor c = find_target_->textCursor();
+        if (c.hasSelection() && c.selectedText().compare(find_->text(), cs) == 0) c.insertText(replace_->text());
+        find(false);
+        return 1;
+    }
+    QTextDocument::FindFlags flags;
+    if (find_case_->isChecked()) flags |= QTextDocument::FindCaseSensitively;
+    if (find_word_->isChecked()) flags |= QTextDocument::FindWholeWords;
+    QTextCursor edit(find_target_->document());
+    edit.beginEditBlock();
+    int n = 0;
+    QTextCursor at = find_target_->document()->find(find_->text(), 0, flags);
+    while (!at.isNull()) {
+        at.insertText(replace_->text());
+        ++n;
+        at = find_target_->document()->find(find_->text(), at, flags);
+    }
+    edit.endEditBlock();
+    log(QString("// %1 replaced //").arg(n), 1);
+    return n;
 }
 
 void ScriptEditor::recolour_history() {
@@ -492,10 +555,11 @@ void ScriptEditor::recolour_history() {
 
 bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
     if (o == history_ && (ev->type() == QEvent::PaletteChange || ev->type() == QEvent::StyleChange)) recolour_history();
-    if (o == find_ && ev->type() == QEvent::KeyPress) {
+    if ((o == find_ || o == replace_) && ev->type() == QEvent::KeyPress) {
         auto* k = static_cast<QKeyEvent*>(ev);
         if (k->key() == Qt::Key_Escape) {
             find_bar_->hide();
+            replace_row_->hide();
             if (find_target_) find_target_->setFocus();
             return true;
         }
@@ -508,6 +572,12 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
         auto* k = static_cast<QKeyEvent*>(ev);
         if (k->key() == Qt::Key_F && k->modifiers() == Qt::ControlModifier && o != find_) {
             open_find(qobject_cast<QPlainTextEdit*>(o));
+            return true;
+        }
+        if (k->key() == Qt::Key_H && k->modifiers() == Qt::ControlModifier && o != find_ && o != replace_) {
+            open_find(qobject_cast<QPlainTextEdit*>(o));
+            replace_row_->show();
+            replace_->setFocus();
             return true;
         }
         bool enter = k->key() == Qt::Key_Return || k->key() == Qt::Key_Enter;

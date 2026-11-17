@@ -18,7 +18,7 @@ static const char* const kIconNames[] = {
     "objectSet", "offsetCurve", "offsetLoop", "open", "options", "orientCon", "outlinerIcon", "paintSelect",
     "paintSkin", "parentCon", "perspOutliner", "pipe", "planarSurface", "plane", "play", "playBack", "pointCon",
     "pointLight", "prev", "prevKey", "quadDraw", "rebuildCurve", "redo", "resGate", "reverseCurve", "revolve",
-    "rotate", "save", "scale", "scaleCon", "scopeComponent", "scopeHierarchy", "scopeObject", "script", "select",
+    "rotate", "save", "scale", "search", "scaleCon", "scopeComponent", "scopeHierarchy", "scopeObject", "script", "select",
     "selectCamera", "separate", "set", "shaded", "shadows", "single", "skin", "smooth", "snapCurve", "snapGrid",
     "snapLive", "snapPlane", "snapPoint", "softSelect", "sphere", "spotLight", "square", "stop", "textured",
     "toolSettings", "torus", "transform", "uiLocked", "uiUnlocked", "undo", "uv", "uvAuto", "uvCut", "uvEditor",
