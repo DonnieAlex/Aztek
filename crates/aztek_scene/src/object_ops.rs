@@ -234,6 +234,16 @@ pub fn register(c: &mut Commands<Session>) {
 
     c.register(
         CommandDef::<Session>::new(
+            "DeleteHistory",
+            "The reference's runtime command for Edit > Delete by Type > History: delete -constructionHistory on the \
+             selection, or on the objects given. The objects stay (#130).",
+            |s, a| s.run("delete", json!({"args": a.named(), "constructionHistory": true})),
+        )
+        .positional("objects"),
+    );
+
+    c.register(
+        CommandDef::<Session>::new(
             "bakeCustomToolPivot",
             "The reference's name for Modify > Bake Pivot (the runtime command BakeCustomPivot): bakePivot with \
              -position (-pos) and -orientation (-ori), both by default.",

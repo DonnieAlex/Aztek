@@ -1417,6 +1417,13 @@ Delete on edges dissolves them as the reference's does: the faces either side be
 says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
 the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
 
+### Delete History from the shelf (17/11/2026, #130)
+
+`DeleteHistory`, the reference's runtime command that the General shelf's Delete History button runs, is a command
+of its own: `delete -constructionHistory` on the selection or the objects named. It had been spelled as plain
+`delete` since 13/11/2026, which deleted the object. A test now runs every shelf button's command on a selected cube
+and fails if one is unknown or takes the cube away.
+
 ### Active handle (17/11/2026, #128)
 
 As in the reference, a left click on an axis, plane or the centre of the Move, Rotate or Scale manipulator makes it

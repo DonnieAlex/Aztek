@@ -299,3 +299,61 @@ fn a_live_surface_has_no_component_mode() {
     mel(&mut c, "makeLive -none; select -r ball; selectMode -component;");
     assert_eq!(mel(&mut c, "ls -hilite;"), json!(["ballShape"]));
 }
+
+/// #130: DeleteHistory, as the General shelf runs it, takes the history off and leaves the object.
+#[test]
+fn delete_history_keeps_the_object() {
+    let mut c = Core::new();
+    c.mel("polyCube; polySmooth pCube1; select pCube1;");
+    assert!(c.mel("listHistory pCube1;").as_array().unwrap().iter().any(|v| v.as_str().is_some_and(|n| n.starts_with("polySmooth"))));
+    c.mel("DeleteHistory;");
+    assert_eq!(c.mel("objExists pCube1;"), json!(true));
+    assert_eq!(c.mel("objExists pCubeShape1;"), json!(true));
+    assert!(!c.mel("listHistory pCube1;").as_array().unwrap().iter().any(|v| v.as_str().is_some_and(|n| n.starts_with("poly"))));
+    // Named objects too.
+    c.mel("polySphere; polySmooth pSphere1; select -cl;");
+    c.mel("DeleteHistory pSphere1;");
+    assert_eq!(c.mel("objExists pSphere1;"), json!(true));
+    assert!(!c.mel("listHistory pSphere1;").as_array().unwrap().iter().any(|v| v.as_str().is_some_and(|n| n.starts_with("poly"))));
+}
+
+/// #130's guard: every shelf button's command runs, and none but those that make something new out of the selection
+/// takes the selected object away.
+#[test]
+fn every_shelf_button_runs_and_keeps_the_selection() {
+    let src = include_str!("../../../app/src/shelves.cpp");
+    // The shell's own runtime commands, which it hands the host at start (ui_cmds::register_ui_names).
+    let runtime = include_str!("../../../app/src/runtime.cpp");
+    let shell: std::collections::HashSet<&str> = ["    r(\"", "    m(\"", "    tool(\""]
+        .iter()
+        .flat_map(|lead| runtime.split(lead).skip(1).filter_map(|p| p.split('"').next()))
+        .collect();
+    let mut c = Core::new();
+    let mut seen = 0;
+    let mut wrong = Vec::new();
+    for part in src.split("item(\"").skip(1) {
+        let fields: Vec<&str> = part.splitn(4, "\", \"").collect();
+        if fields.len() < 3 {
+            continue;
+        }
+        let Some(end) = fields[2].find("\")") else { continue };
+        let cmd = &fields[2][..end];
+        seen += 1;
+        c.mel("file -f -new; polyCube; select -r pCube1;");
+        let r = c.mel_checked(cmd);
+        if let Err(e) = &r {
+            let first = cmd.split([' ', ';']).next().unwrap_or("");
+            if e.contains("Cannot find procedure") && !shell.contains(first) {
+                wrong.push(format!("{cmd}: {e}"));
+                continue;
+            }
+        }
+        // Combine and Separate replace the object with what they make, as in the reference.
+        let replaces = cmd.starts_with("polyCombine") || cmd.starts_with("polySeparate");
+        if !replaces && c.mel("objExists pCube1;") != json!(true) {
+            wrong.push(format!("{cmd}: removed pCube1"));
+        }
+    }
+    assert!(seen > 80, "{seen} buttons read");
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}
