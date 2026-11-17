@@ -4,6 +4,7 @@
 #include <QDoubleSpinBox>
 #include <QSignalBlocker>
 #include <QFormLayout>
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QShortcut>
 #include <QRandomGenerator>
@@ -812,17 +813,8 @@ QMenu* MainWindow::constrain_menu() {
     cmd(m, "Scale", "scaleConstraint", {}, QString(), true);
     cmd(m, "Aim", "aimConstraint", {}, QString(), true);
     cmd(m, "Pole Vector", "poleVectorConstraint", {}, QString(), true);
-    m->addSeparator();
-    cmd(m, "Geometry", "geometryConstraint", {}, QString(), true);
-    cmd(m, "Normal", "normalConstraint", {}, QString(), true);
-    cmd(m, "Tangent", "tangentConstraint", {}, QString(), true);
-    m->addSeparator();
-    cmd(m, "Point on Poly", "pointOnPolyConstraint", {}, QString(), true);
-    cmd(m, "UV Pin", "UVPin");
-    cmd(m, "Proximity Pin", "ProximityPin");
     m->addAction("Rivet", [] {
         // A locator held to the selected components.
-        QJsonArray sel = state()["selection"].toArray();
         QJsonArray comps = ask("ls", QJsonObject{{"selection", true}, {"flatten", true}}).toArray();
         if (comps.isEmpty()) { log("// Warning: select a vertex, edge or face //", 4); return; }
         QString loc = exec("spaceLocator", QJsonObject{{"name", "rivet1"}}).toArray().at(0).toString();
@@ -830,11 +822,42 @@ QMenu* MainWindow::constrain_menu() {
         exec("pointOnPolyConstraint", QJsonObject{{"args", a}});
     });
     m->addSeparator();
-    // As the reference's: Motion Paths here too, then the editing of constraints made already (#121).
+    // The reference's order (#121): Motion Paths, Closest Point, Point On Poly, Geometry, Normal, Tangent, then the
+    // matrix constraints and the editing of those made already.
     auto* path = m->addMenu("Motion Paths");
     cmd(path, "Attach to Motion Path", "pathAnimation", QJsonObject{{"follow", true}, {"fractionMode", true}, {"startTimeU", 1}, {"endTimeU", 120}});
     cmd(path, "Flow Path Object", "flow");
-    m->addSeparator();
+    m->addAction("Closest Point", [] {
+        // Objects then a mesh: a locator for each object, held where the mesh is nearest it.
+        const QJsonArray sel = state()["selection"].toArray();
+        if (sel.size() < 2) { log("// Warning: select one or more objects, then a mesh //", 4); return; }
+        const QString mesh = sel.last().toString();
+        const QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{mesh}}, {"shapes", true}, {"type", "mesh"}}).toArray();
+        if (shapes.isEmpty()) { log("// Warning: the last object selected is not a mesh //", 4); return; }
+        const QString shape = shapes.at(0).toString();
+        QJsonArray made;
+        for (int i = 0; i < sel.size() - 1; ++i) {
+            const QString obj = sel.at(i).toString();
+            const QString cp = exec("createNode", QJsonObject{{"args", QJsonArray{"closestPointOnMesh"}}, {"name", obj.section('|', -1) + "_closestPoint1"}}).toString();
+            const QString dm = exec("createNode", QJsonObject{{"args", QJsonArray{"decomposeMatrix"}}}).toString();
+            const QString loc = exec("spaceLocator", QJsonObject{{"name", obj.section('|', -1) + "_closestPointLocator1"}}).toArray().at(0).toString();
+            exec("connectAttr", QJsonObject{{"args", QJsonArray{shape + ".worldMesh[0]", cp + ".inMesh"}}});
+            exec("connectAttr", QJsonObject{{"args", QJsonArray{mesh + ".worldMatrix[0]", cp + ".inputMatrix"}}});
+            exec("connectAttr", QJsonObject{{"args", QJsonArray{obj + ".worldMatrix[0]", dm + ".inputMatrix"}}});
+            exec("connectAttr", QJsonObject{{"args", QJsonArray{dm + ".outputTranslate", cp + ".inPosition"}}});
+            exec("connectAttr", QJsonObject{{"args", QJsonArray{cp + ".position", loc + ".translate"}}});
+            made.append(loc);
+        }
+        exec("select", QJsonObject{{"args", made}});
+    });
+    cmd(m, "Point On Poly", "pointOnPolyConstraint", {}, QString(), true);
+    cmd(m, "Geometry", "geometryConstraint", {}, QString(), true);
+    cmd(m, "Normal", "normalConstraint", {}, QString(), true);
+    cmd(m, "Tangent", "tangentConstraint", {}, QString(), true);
+    m->addSection("Matrix Constraints");
+    cmd(m, "UV Pin", "UVPin");
+    cmd(m, "Proximity Pin", "ProximityPin");
+    m->addSection("Modify");
     cmd(m, "Remove Target", "RemoveConstraintTarget");
     m->addAction("Set Rest Position", [] {
         // Each selected constraint, or those under the selected objects: the object as it stands is where it rests.
@@ -861,6 +884,48 @@ QMenu* MainWindow::constrain_menu() {
             }
         }
         if (!done) log("// Warning: select constraints, or objects with constraints //", 4);
+    });
+    m->addAction("Modify Constrained Axis...", [this] {
+        // Which channels of the selected objects their constraints drive: each axis on reconnects the constraint's
+        // output to it, off disconnects it, as the reference's window does.
+        QDialog d(this);
+        d.setWindowTitle("Modify Constrained Axis");
+        auto* form = new QFormLayout(&d);
+        QHash<QString, QCheckBox*> boxes;
+        for (const char* ch : {"translate", "rotate", "scale"}) {
+            auto* row = new QWidget(&d);
+            auto* h = new QHBoxLayout(row);
+            h->setContentsMargins(0, 0, 0, 0);
+            for (const char* ax : {"X", "Y", "Z"}) {
+                auto* b = new QCheckBox(ax, row);
+                b->setChecked(true);
+                h->addWidget(b);
+                boxes.insert(QString(ch) + ax, b);
+            }
+            form->addRow(QString(ch).left(1).toUpper() + QString(ch).mid(1) + ":", row);
+        }
+        auto* bb = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, &d);
+        form->addRow(bb);
+        connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+        connect(bb->button(QDialogButtonBox::Apply), &QPushButton::clicked, &d, [boxes] {
+            for (const QJsonValue& v : state()["selection"].toArray()) {
+                const QString obj = v.toString();
+                for (const QJsonValue& c : ask("listRelatives", QJsonObject{{"args", QJsonArray{obj}}, {"type", "constraint"}, {"fullPath", true}}).toArray()) {
+                    const QString con = c.toString();
+                    for (auto it = boxes.begin(); it != boxes.end(); ++it) {
+                        const QString ch = it.key().chopped(1), ax = it.key().right(1);
+                        const QString out = con + ".constraint" + ch.left(1).toUpper() + ch.mid(1) + ax;
+                        if (!ask("attributeQuery", QJsonObject{{"args", QJsonArray{"constraint" + ch.left(1).toUpper() + ch.mid(1)}}, {"node", con}, {"exists", true}}).toBool()) continue;
+                        if (ask("attributeQuery", QJsonObject{{"args", QJsonArray{"constraint" + ch.left(1).toUpper() + ch.mid(1)}}, {"node", con}, {"hidden", true}}).toBool()) continue;
+                        const QString in = obj + "." + it.key();
+                        const bool linked = ask("isConnected", QJsonObject{{"args", QJsonArray{out, in}}}).toBool();
+                        if (it.value()->isChecked() && !linked) exec("connectAttr", QJsonObject{{"args", QJsonArray{out, in}}, {"force", true}});
+                        if (!it.value()->isChecked() && linked) exec("disconnectAttr", QJsonObject{{"args", QJsonArray{out, in}}});
+                    }
+                }
+            }
+        });
+        d.exec();
     });
     return m;
 }

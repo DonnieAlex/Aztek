@@ -46,3 +46,27 @@ fn a_constraint_lives_under_what_it_drives() {
     assert_eq!(mel(&mut c, "ls -type pointConstraint;"), json!([]));
     let _ = std::fs::remove_file(&p);
 }
+
+/// #121: each kind's outputs and own settings, a parent constraint's target offsets by their reference paths.
+#[test]
+fn constraint_kinds_show_their_own_outputs() {
+    let mut c = Core::new();
+    mel(&mut c, "spaceLocator -n t; setAttr t.t 3 0 0; polyCube -n box; parentConstraint -mo t box; pointConstraint -n pc t box; polyCube -n aimer; aimConstraint -n ac t aimer;");
+    let q = |c: &mut Core, n: &str, a: &str| mel(c, &format!("attributeQuery -n {n} -h {a};"));
+    assert_eq!(q(&mut c, "box_parentConstraint1", "constraintTranslate"), json!(false));
+    assert_eq!(q(&mut c, "box_parentConstraint1", "constraintVector"), json!(true));
+    assert_eq!(q(&mut c, "pc", "offsetPolarity"), json!(false));
+    assert_eq!(q(&mut c, "pc", "constraintRotate"), json!(true));
+    assert_eq!(q(&mut c, "ac", "constraintVector"), json!(false));
+    let v = mel(&mut c, "getAttr ac.constraintVector;");
+    let x = v.as_array().map(|a| a[0].as_f64().unwrap()).unwrap_or(0.0);
+    assert!(x > 0.0, "{v}");
+    assert_eq!(mel(&mut c, "getAttr box_parentConstraint1.target[0].targetOffsetTranslate;"), json!([-3.0, 0.0, 0.0]));
+    mel(&mut c, "setAttr box_parentConstraint1.target[0].targetOffsetTranslate 1 0 0;");
+    assert_eq!(mel(&mut c, "getAttr box_parentConstraint1.target[0].targetOffsetTranslate;"), json!([1.0, 0.0, 0.0]));
+    // Polarity turns the point constraint's offset round.
+    mel(&mut c, "delete box_parentConstraint1 ac; setAttr pc.offset 0 1 0;");
+    assert_eq!(mel(&mut c, "getAttr box.ty;"), json!(1.0));
+    mel(&mut c, "setAttr pc.offsetPolarity -1;");
+    assert_eq!(mel(&mut c, "getAttr box.ty;"), json!(-1.0));
+}

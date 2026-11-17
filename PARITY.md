@@ -1405,9 +1405,20 @@ live when pressed and nothing live when released, and follows Modify > Make Live
 - `lockOutput` is in: while on, the outputs stay as they are.
 - Constrain menu: the reference's order and separators, Motion Paths, and Set Rest Position (the object as it
   stands becomes the rest translate and rotate of each selected constraint, or of those under the selected objects).
-- Not yet: Modify Constrained Axis, Closest Point, and the reference's attribute names where Aztek's differ inside
-  the node (`constraintParentMatrix` for the reference's `constraintParentInverseMatrix`; files are read and written
-  with the reference's).
+- Not yet: the reference's attribute names where Aztek's differ inside the node (`constraintParentMatrix` for the
+  reference's `constraintParentInverseMatrix`; files are read and written with the reference's), and the orient and
+  parent constraints' rotation cache (Cache Create and Delete).
+
+Second pass, 17/11/2026: the Attribute Editor has the transform's sections first, then the kind's own in the
+reference's order (Lock Output, Offset, Offset Polarity, Interp Type, the aim settings, the outputs greyed:
+Constraint Translate, Rotate, Scale or Vector, Enable Rest Position, the rest values). A parent constraint's tab
+starts with Parent Constraint Target Offsets: each target's translate and rotate offsets, Update (the object's place
+now becomes the offset) and Key. New attributes: `offsetPolarity` (point: the offset's sign) and `constraintVector`
+(aim: from the object to its targets, in its parent's space). The Constrain menu is the reference's: Parent to Pole
+Vector, Rivet, Motion Paths, Closest Point (a locator held to where a mesh is nearest each selected object, through
+closestPointOnMesh), Point On Poly, Geometry, Normal, Tangent, Matrix Constraints (UV Pin, Proximity Pin), Modify
+(Remove Target, Set Rest Position, Modify Constrained Axis..., which connects or disconnects each translate, rotate
+and scale axis of the selected objects from their constraints).
 
 ### Marking menu off the object (17/11/2026, #119)
 

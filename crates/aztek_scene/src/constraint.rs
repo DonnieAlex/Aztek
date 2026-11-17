@@ -101,6 +101,8 @@ const T_SCALE: usize = B + 31;
 /// The driven object's offsetParentMatrix: what it is placed in is its parent's frame times this.
 const OFFSET_PARENT: usize = B + 32;
 const LOCK_OUTPUT: usize = B + 33;
+const OFFSET_POLARITY: usize = B + 34;
+const CON_VECTOR: usize = B + 35;
 
 /// A target's world matrix with its origin moved to its rotate pivot, which is where the reference constrains to.
 fn at_pivot(m: DMat4, rp: DVec3) -> DMat4 {
@@ -308,7 +310,7 @@ impl NodeBehavior for ConstraintNode {
         let pm = d.matrix(PARENT_MATRIX) * d.matrix(OFFSET_PARENT);
         let pinv = pm.inverse();
         let pr = rot3(&pm);
-        let offset = d.vec3(OFFSET);
+        let offset = if self.kind == POINT { d.vec3(OFFSET) * d.float(OFFSET_POLARITY) } else { d.vec3(OFFSET) };
         let pivot = d.vec3(PIVOT);
         let interp = d.int(INTERP);
         let (rest_t, rest_e, rest_s) = (d.vec3(REST_T), d.vec3(REST_R), d.vec3(REST_S));
@@ -366,6 +368,7 @@ impl NodeBehavior for ConstraintNode {
                         at += x.matrix.w_axis.truncate() * w;
                     }
                     let dir = at / total - eye;
+                    d.set_output(CON_VECTOR, PlugValue::Vec3(pinv.transform_vector3(dir)));
                     if let Some(frame) = aim_rotation(d, dir, eye, &pm, rest_e) {
                         let frame = frame * mat3(offset, RotateOrder::from_index(d.int(ROTATE_ORDER)));
                         e = rotate_for(d, &with_rest(vec![(DQuat::from_mat3(&frame), total)]));
@@ -494,6 +497,8 @@ fn kind_has(k: usize, attr: &str) -> bool {
         "interpType" => matches!(k, PARENT | ORIENT | POINT_ON_POLY),
         "constraintRotateOrder" => matches!(k, PARENT | ORIENT | AIM | NORMAL | TANGENT | POINT_ON_POLY),
         "aimVector" | "upVector" | "worldUpVector" | "worldUpType" => matches!(k, AIM | NORMAL | TANGENT),
+        "offsetPolarity" => k == POINT,
+        "constraintVector" => k == AIM,
         _ => true,
     }
 }
@@ -574,10 +579,22 @@ pub(crate) fn register_types() {
                 array_vec("target.targetScale", "ts", "A scale constraint target's scale."),
                 matrix_in("constraintOffsetParentMatrix", "copm", false, "The driven object's offsetParentMatrix."),
                 AttrDef { short_name: "lo".into(), ..crate::attr_defs::bool_attr("lockOutput", false, "The outputs stay as they are while on.") },
+                crate::attr_defs::float_attr_short("offsetPolarity", "op", 1.0, "Point constraint: the offset's sign, 1 or -1.", None, None),
+                vec3_attr("constraintVector", "cv", DVec3::ZERO, flags::OUTPUT, "Aim constraint: from the object to its targets, in its parent's space."),
             ];
         for a in &mut own {
             if !kind_has(k, &a.name) {
                 a.flags |= flags::HIDDEN;
+            }
+            // The outputs the kind writes show, greyed, in the Attribute Editor, as the reference's do (#121).
+            let shown = match a.name.as_str() {
+                "constraintTranslate" => matches!(k, PARENT | POINT | POLE | GEOMETRY | POINT_ON_POLY),
+                "constraintRotate" => matches!(k, PARENT | ORIENT | AIM | NORMAL | TANGENT | POINT_ON_POLY),
+                "constraintScale" => k == SCALE,
+                _ => false,
+            };
+            if shown {
+                a.flags &= !flags::HIDDEN;
             }
         }
         let ty = types::register_type(NodeType {
@@ -595,6 +612,7 @@ pub(crate) fn register_types() {
         .expect(name);
         debug_assert_eq!(ty.attr_index("target.targetMatrix"), Some(T_MATRIX));
         debug_assert_eq!(ty.attr_index("lockOutput"), Some(LOCK_OUTPUT));
+        debug_assert_eq!(ty.attr_index("constraintVector"), Some(CON_VECTOR));
     }
 }
 

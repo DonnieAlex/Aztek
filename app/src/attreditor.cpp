@@ -271,9 +271,11 @@ const QList<Section>& sections_for(const QString& type) {
                 if (c.isUpper()) nice += ' ';
                 nice += nice.isEmpty() ? c.toUpper() : c;
             }
-            titles.append((nice + " Attributes").toUtf8());
-            QList<Section> l{{titles.last().constData(), "offset restTranslate restRotate restScale interpType constraintRotateOrder aimVector upVector worldUpType worldUpVector enableRestPosition lockOutput"}};
-            l.append(xf);
+            // The reference's layout: the transform's sections, then the constraint's own in its order; a parent
+            // constraint's are Constraint Attributes, after its Target Offsets.
+            titles.append((type == "parentConstraint" ? QString("Constraint Attributes") : nice + " Attributes").toUtf8());
+            QList<Section> l = xf;
+            l.append(Section{titles.last().constData(), "lockOutput offset offsetPolarity interpType aimVector upVector worldUpType worldUpVector constraintTranslate constraintRotate constraintScale constraintVector enableRestPosition restTranslate restRotate restScale constraintRotateOrder"});
             made.insert(type, l);
         }
         return made[type];
@@ -981,6 +983,54 @@ void AttributeEditor::refresh() {
                 exec("aztekIlluminatesByDefault", QJsonObject{{"args", QJsonArray{shape}}, {"set", on}});
             });
             form->addRow("Illuminates by Default", by_default);
+        }
+
+        // A parent constraint's offset from each target, as the reference's Target Offsets: Update takes the object's
+        // place now as the offset, Key keys the offsets (#121).
+        if (node_type == "parentConstraint") {
+            auto* form = add_section(v, body, "Parent Constraint Target Offsets");
+            const QJsonArray targets = ask("parentConstraint", QJsonObject{{"args", QJsonArray{path}}, {"query", true}, {"targetList", true}, {"queried", QJsonArray{"targetList"}}}).toArray();
+            const QJsonArray driven = ask("listRelatives", QJsonObject{{"args", QJsonArray{path}}, {"parent", true}}).toArray();
+            for (int i = 0; i < targets.size(); ++i) {
+                const QString target = targets.at(i).toString();
+                form->addRow(new QLabel("<b>" + target.section('|', -1) + "</b>", body));
+                for (auto [label, attr] : {std::pair{"Translate", "targetOffsetTranslate"}, std::pair{"Rotate", "targetOffsetRotate"}}) {
+                    const QString plug = QString("%1.target[%2].%3").arg(path).arg(i).arg(attr);
+                    QJsonArray val = ask("getAttr", QJsonObject{{"args", QJsonArray{plug}}}).toArray();
+                    if (val.size() == 1 && val.at(0).isArray()) val = val.at(0).toArray();
+                    auto* row = new QWidget(body);
+                    auto* h = new QHBoxLayout(row);
+                    h->setContentsMargins(0, 0, 0, 0);
+                    QList<QLineEdit*> fields;
+                    for (int k = 0; k < 3; ++k) {
+                        auto* f = new QLineEdit(fmt3(val.at(k).toDouble()), row);
+                        f->setProperty("plugKey", plug + QString::number(k));
+                        fields << f;
+                        h->addWidget(f);
+                    }
+                    for (QLineEdit* f : fields)
+                        connect(f, &QLineEdit::editingFinished, f, [plug, fields] {
+                            exec("setAttr", QJsonObject{{"args", QJsonArray{plug, fields[0]->text().toDouble(), fields[1]->text().toDouble(), fields[2]->text().toDouble()}}});
+                        });
+                    form->addRow(label, row);
+                }
+                auto* buttons = new QWidget(body);
+                auto* bh = new QHBoxLayout(buttons);
+                bh->setContentsMargins(0, 0, 0, 0);
+                auto* update = new QPushButton("Update", buttons);
+                auto* key = new QPushButton("Key", buttons);
+                const QString obj = driven.isEmpty() ? QString() : driven.at(0).toString();
+                connect(update, &QPushButton::clicked, update, [target, obj] {
+                    if (!obj.isEmpty()) exec("parentConstraint", QJsonObject{{"args", QJsonArray{target, obj}}, {"edit", true}, {"maintainOffset", true}});
+                });
+                connect(key, &QPushButton::clicked, key, [path, i] {
+                    for (const char* a : {"targetOffsetTranslate", "targetOffsetRotate"})
+                        exec("setKeyframe", QJsonObject{{"args", QJsonArray{QString("%1.target[%2].%3").arg(path).arg(i).arg(a)}}});
+                });
+                bh->addWidget(update);
+                bh->addWidget(key);
+                form->addRow(QString(), buttons);
+            }
         }
 
         // Cloth: material presets.
