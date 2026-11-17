@@ -1403,7 +1403,7 @@ import and in a stage shown live (mayaUsdProxyShape): the file is read into a sc
 layer, kept in the temporary folder and made again when the file changes. OBJ, FBX and glTF files read the same way,
 as Adobe's USD file format plug-ins give them. As usdAbc: face sets, NURBS patches and lights are not carried, and
 transforms come as matrices. The prim referencing one should have no type of its own (`def "Name"`), as in USD a
-typed prim keeps its type over the file's.
+typed prim keeps its type over the file's (docs/issues/100-usd-alembic-obj-fbx.png).
 
 ### UV Editor keeps Object mode (17/11/2026, #99)
 
@@ -1438,7 +1438,7 @@ Attribute Editor and the rest. Display > UI Elements and Ctrl+Space (Main Pane O
   pointEmitter for the emitter, nParticle and particle for particles, nucleus for the solver. `nodeType` still gives
   Aztek's own names (emitter, particles, solver): one system stands behind them (docs/DYNAMICS.md).
 - `connectDynamic -em` given something that is not an emitter says what it is (a particle object's transform names
-  its shape) and lists the scene's emitters; connecting an emitter already connected warns and adds nothing.
+  its shape) and lists the scene's emitters; connecting an emitter already connected warns and adds nothing (docs/issues/96-emitter-connect-dynamic.png).
 
 ### Make Live button (17/11/2026, #95)
 
@@ -1449,7 +1449,7 @@ surface is live and toggles it for the selected object (docs/issues/95-make-live
 
 Mesh > Combine (`polyUnite`, `polyCombine`) gives the new mesh the shading of its meshes face by face (one group over
 all of it is assigned to the whole shape), as the reference's does; Separate then hands each piece the faces' groups,
-so materials survive a Combine and Separate round trip.
+so materials survive a Combine and Separate round trip (docs/issues/94-combine-separate-materials.png).
 
 ### Script Editor search (17/11/2026, #93)
 
@@ -1463,7 +1463,7 @@ next, Replace All does every one as one undo and says how many (docs/issues/93-s
 File > Create Reference and the Reference Editor take every type a loaded importer reads: FBX (mocap to retarget),
 OBJ, USD, Alembic, glTF, PLY, STL and any plug-in's reading translator. The file is read through `file -import` into
 the reference's namespace, so its nodes keep the file's names (`mocap:Hips`, not `mocap:Hips1` when the scene has a
-Hips); an FBX reference always adds, whatever FBXImportMode says, never merging onto the scene's nodes. `file -import`
+Hips); an FBX reference always adds, whatever FBXImportMode says, never merging onto the scene's nodes (docs/issues/92-fbx-reference.png). `file -import`
 also reads glTF (.glb, .gltf), PLY and STL, and `file -exportAll`/`-exportSelected` write PLY and STL.
 
 ### Translators' imports return what they made (17/11/2026, #91)
