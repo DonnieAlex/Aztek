@@ -532,25 +532,33 @@ QMenu* MainWindow::generate_menu() {
     })->setToolTip("Select the description, then the mesh");
     QMenu* cache = m->addMenu("Cache");
     cache->addAction("Export Cache...", [this] {
-        QString f = QFileDialog::getSaveFileName(this, "Export Cache", "groom.abc", "Alembic (*.abc)");
-        QJsonArray range = QJsonArray{ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}), ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}})};
-        if (!f.isEmpty()) exec("xjenExportCache", QJsonObject{{"file", f}, {"frameRange", range}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(true, "Export Cache", "groom.abc", "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            QJsonArray range = QJsonArray{ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}), ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}})};
+            if (!f.isEmpty()) exec("xjenExportCache", QJsonObject{{"file", f}, {"frameRange", range}});
+        });
     })->setEnabled(has_command("xjenExportCache"));
     cache->addAction("Import Cache...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Import Cache", QString(), "Alembic (*.abc)");
-        if (!f.isEmpty()) exec("xjenImportCache", QJsonObject{{"file", f}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Cache", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (!f.isEmpty()) exec("xjenImportCache", QJsonObject{{"file", f}});
+        });
     })->setEnabled(has_command("xjenImportCache"));
     cache->addSeparator();
     cache->addAction("Export Selection to Alembic...", [this] {
-        QString f = QFileDialog::getSaveFileName(this, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)");
-        if (f.isEmpty()) return;
-        QString job = QString("-frameRange %1 %2 -uvWrite -worldSpace").arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble()).arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
-        for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
-        exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(true, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (f.isEmpty()) return;
+            QString job = QString("-frameRange %1 %2 -uvWrite -worldSpace").arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble()).arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
+            for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
+            exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+        });
     })->setEnabled(has_command("AbcExport"));
     cache->addAction("Import Alembic...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Import Alembic", QString(), "Alembic (*.abc)");
-        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Alembic", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+        });
     })->setEnabled(has_command("AbcImport"));
     QMenu* sel = m->addMenu("Select");
     sel->addAction("Select Splines on Selected Faces", [] { exec("xgmSplineSelect", QJsonObject{{"replaceBySelectedFaces", true}}); });
@@ -1012,11 +1020,13 @@ QMenu* MainWindow::visualize_menu() {
 QMenu* MainWindow::audio_menu() {
     auto* m = new QMenu("Audio", this);
     m->addAction("Import Audio...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Import Audio", QString(), "WAV (*.wav)");
-        if (f.isEmpty()) return;
-        QJsonValue n = exec("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
-        if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
-        time_slider_->update();
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Audio", QString(), "WAV (*.wav)", QString(), [=, this](const QString& f) {
+            if (f.isEmpty()) return;
+            QJsonValue n = exec("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
+            if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
+            time_slider_->update();
+        });
     });
     // Which audio node's waveform the time slider shows, as its right-click menu offers.
     QMenu* shown = m->addMenu("Show in Time Slider");
@@ -1050,19 +1060,25 @@ QMenu* MainWindow::cache_menu() {
         return QString("-frameRange %1 %2").arg(ask("playbackOptions", QJsonObject{{"query", true}, {"minTime", true}}).toDouble()).arg(ask("playbackOptions", QJsonObject{{"query", true}, {"maxTime", true}}).toDouble());
     };
     abc->addAction("Export All to Alembic...", [this, range] {
-        QString f = QFileDialog::getSaveFileName(this, "Export All to Alembic", "scene.abc", "Alembic (*.abc)");
-        if (!f.isEmpty()) exec("AbcExport", QJsonObject{{"jobArg", range() + " -uvWrite -worldSpace -file \"" + f + "\""}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(true, "Export All to Alembic", "scene.abc", "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (!f.isEmpty()) exec("AbcExport", QJsonObject{{"jobArg", range() + " -uvWrite -worldSpace -file \"" + f + "\""}});
+        });
     })->setEnabled(has_command("AbcExport"));
     abc->addAction("Export Selection to Alembic...", [this, range] {
-        QString f = QFileDialog::getSaveFileName(this, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)");
-        if (f.isEmpty()) return;
-        QString job = range() + " -uvWrite -worldSpace";
-        for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
-        exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(true, "Export Selection to Alembic", "scene.abc", "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (f.isEmpty()) return;
+            QString job = range() + " -uvWrite -worldSpace";
+            for (const QJsonValue& n : ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray()) job += " -root " + n.toString();
+            exec("AbcExport", QJsonObject{{"jobArg", job + " -file \"" + f + "\""}});
+        });
     })->setEnabled(has_command("AbcExport"));
     abc->addAction("Import Alembic...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Import Alembic", QString(), "Alembic (*.abc)");
-        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Alembic", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
+        });
     })->setEnabled(has_command("AbcImport"));
     // As the reference's Alembic Cache menu (#87): open in a new scene, reference, drive the selection by name, and
     // point the selected AlembicNodes at another file.
@@ -1070,8 +1086,10 @@ QMenu* MainWindow::cache_menu() {
         auto* a = new QAction("Open Alembic...", abc);
         connect(a, &QAction::triggered, this, [this] {
             if (!confirm_unsaved()) return;
-            QString f = QFileDialog::getOpenFileName(this, "Open Alembic", QString(), "Alembic (*.abc)");
-            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "open"}});
+            // Leaves Aztek usable while it is open, over the main window (#109).
+            browse_file(false, "Open Alembic", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+                if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "open"}});
+            });
         });
         a->setEnabled(has_command("AbcImport"));
         return a;
@@ -1079,8 +1097,10 @@ QMenu* MainWindow::cache_menu() {
     abc->insertAction(abc->actions().value(1), [&] {
         auto* a = new QAction("Reference Alembic...", abc);
         connect(a, &QAction::triggered, this, [this] {
-            QString f = QFileDialog::getOpenFileName(this, "Reference Alembic", QString(), "Alembic (*.abc)");
-            if (!f.isEmpty()) exec("file", QJsonObject{{"args", QJsonArray{f}}, {"reference", true}, {"type", "Alembic"}, {"namespace", QFileInfo(f).completeBaseName()}});
+            // Leaves Aztek usable while it is open, over the main window (#109).
+            browse_file(false, "Reference Alembic", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+                if (!f.isEmpty()) exec("file", QJsonObject{{"args", QJsonArray{f}}, {"reference", true}, {"type", "Alembic"}, {"namespace", QFileInfo(f).completeBaseName()}});
+            });
         });
         a->setEnabled(has_command("AbcImport"));
         return a;
@@ -1089,14 +1109,18 @@ QMenu* MainWindow::cache_menu() {
         // The file's animated objects drive the selected hierarchies' nodes of the same names.
         QJsonArray sel = ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray();
         if (sel.isEmpty()) { log("// Warning: select the hierarchies the cache drives //", 4); return; }
-        QString f = QFileDialog::getOpenFileName(this, "Import Alembic onto Selection", QString(), "Alembic (*.abc)");
-        QStringList roots;
-        for (const QJsonValue& v : sel) roots << v.toString();
-        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"connect", roots.join(' ')}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Alembic onto Selection", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            QStringList roots;
+            for (const QJsonValue& v : sel) roots << v.toString();
+            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"connect", roots.join(' ')}});
+        });
     })->setEnabled(has_command("AbcImport"));
     abc->addAction("Replace Alembic...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Replace Alembic", QString(), "Alembic (*.abc)");
-        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "replace"}});
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Replace Alembic", QString(), "Alembic (*.abc)", QString(), [=, this](const QString& f) {
+            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "replace"}});
+        });
     })->setEnabled(has_command("AbcImport"));
     // Export after the reading ones, as the reference orders them.
     for (QAction* a : abc->actions())
@@ -2162,11 +2186,13 @@ void MainWindow::time_slider_menu(QPoint global) {
     }
     snd->addSeparator();
     snd->addAction("Import Audio...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Import Audio", QString(), "WAV (*.wav)");
-        if (f.isEmpty()) return;
-        QJsonValue n = ask("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
-        if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
-        time_slider_->update();
+        // Leaves Aztek usable while it is open, over the main window (#109).
+        browse_file(false, "Import Audio", QString(), "WAV (*.wav)", QString(), [=, this](const QString& f) {
+            if (f.isEmpty()) return;
+            QJsonValue n = ask("sound", QJsonObject{{"file", f}, {"offset", time_slider_->time()}});
+            if (n.isString()) exec("timeControl", QJsonObject{{"sound", n.toString()}, {"displaySound", true}});
+            time_slider_->update();
+        });
     });
     m.exec(global);
 }

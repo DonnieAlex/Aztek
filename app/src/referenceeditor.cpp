@@ -353,50 +353,59 @@ void MainWindow::show_reference_editor() {
 }
 
 void MainWindow::create_reference_dialog(bool options) {
-    QSettings s;
-    QString f = QFileDialog::getOpenFileName(this, "Create Reference", s.value("reference/folder").toString(), reference_filter());
-    if (f.isEmpty()) return;
-    s.setValue("reference/folder", QFileInfo(f).path());
-    QJsonObject call{{"reference", true}};
-    QString stem = QFileInfo(f).completeBaseName();
-    if (options) {
-        QDialog d(this);
-        d.setWindowTitle("Create Reference Options");
-        auto* form = new QFormLayout(&d);
-        auto* ns = new QLineEdit(stem, &d);
-        auto* merge = new QCheckBox("Merge into an existing namespace", &d);
-        auto* load = new QCheckBox("Load the reference now", &d);
-        load->setChecked(true);
-        auto* lock = new QCheckBox("Lock its nodes and attributes", &d);
-        auto* group = new QCheckBox("Group its top nodes", &d);
-        auto* group_name = new QLineEdit(&d);
-        auto* locator = new QCheckBox("Use a locator for the group", &d);
-        form->addRow("Namespace", ns);
-        form->addRow("", merge);
-        form->addRow("", load);
-        form->addRow("", lock);
-        form->addRow("", group);
-        form->addRow("Group name", group_name);
-        form->addRow("", locator);
-        auto* box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-        connect(box, &QDialogButtonBox::accepted, &d, &QDialog::accept);
-        connect(box, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-        form->addRow(box);
-        if (d.exec() != QDialog::Accepted) return;
-        call["namespace"] = ns->text();
-        if (merge->isChecked()) call["mergeNamespacesOnClash"] = true;
-        if (!load->isChecked()) call["deferReference"] = true;
-        if (lock->isChecked()) call["lockReference"] = true;
-        if (group->isChecked()) {
-            call["groupReference"] = true;
-            if (!group_name->text().isEmpty()) call["groupName"] = group_name->text();
-            if (locator->isChecked()) call["groupLocator"] = true;
+    // The browser leaves Aztek usable while it is open and stays over the main window, as Import's does (#109).
+    auto* fd = new QFileDialog(this, "Create Reference", QSettings().value("reference/folder").toString(), reference_filter());
+    fd->setOption(QFileDialog::DontUseNativeDialog, true);
+    fd->setFileMode(QFileDialog::ExistingFile);
+    fd->setAttribute(Qt::WA_DeleteOnClose);
+    fd->setWindowModality(Qt::NonModal);
+    connect(fd, &QFileDialog::fileSelected, this, [this, options](const QString& f) {
+        if (f.isEmpty()) return;
+        QSettings s;
+        s.setValue("reference/folder", QFileInfo(f).path());
+        QJsonObject call{{"reference", true}};
+        QString stem = QFileInfo(f).completeBaseName();
+        if (options) {
+            QDialog d(this);
+            d.setWindowTitle("Create Reference Options");
+            auto* form = new QFormLayout(&d);
+            auto* ns = new QLineEdit(stem, &d);
+            auto* merge = new QCheckBox("Merge into an existing namespace", &d);
+            auto* load = new QCheckBox("Load the reference now", &d);
+            load->setChecked(true);
+            auto* lock = new QCheckBox("Lock its nodes and attributes", &d);
+            auto* group = new QCheckBox("Group its top nodes", &d);
+            auto* group_name = new QLineEdit(&d);
+            auto* locator = new QCheckBox("Use a locator for the group", &d);
+            form->addRow("Namespace", ns);
+            form->addRow("", merge);
+            form->addRow("", load);
+            form->addRow("", lock);
+            form->addRow("", group);
+            form->addRow("Group name", group_name);
+            form->addRow("", locator);
+            auto* box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
+            connect(box, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+            connect(box, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+            form->addRow(box);
+            if (d.exec() != QDialog::Accepted) return;
+            call["namespace"] = ns->text();
+            if (merge->isChecked()) call["mergeNamespacesOnClash"] = true;
+            if (!load->isChecked()) call["deferReference"] = true;
+            if (lock->isChecked()) call["lockReference"] = true;
+            if (group->isChecked()) {
+                call["groupReference"] = true;
+                if (!group_name->text().isEmpty()) call["groupName"] = group_name->text();
+                if (locator->isChecked()) call["groupLocator"] = true;
+            }
+        } else {
+            call["namespace"] = stem;
         }
-    } else {
-        call["namespace"] = stem;
-    }
-    az::exec("file", with_file(f, call));
-    Host::get()->poke();
+        az::exec("file", with_file(f, call));
+        Host::get()->poke();
+    });
+    fd->show();
+    fd->raise();
 }
 
 } // namespace az

@@ -1322,6 +1322,15 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### File browsers that leave Aztek usable (17/11/2026, #109)
+
+The Import, Export All and Export Selection browsers (with their options panels), their Options windows, and now
+File > Create Reference, the Alembic Cache menu's browsers (Open, Reference, Import, Import onto Selection,
+Replace, Export All, Export Selection), the groom cache's and Import Audio's no longer hold the rest of Aztek while
+they are open: the scene can be selected, framed and edited beside them, and they stay over the main window. Open
+Scene and Save Scene As still wait for an answer, as they replace or write the scene
+(docs/issues/109-browser-not-modal.png: pCube1 picked in the Outliner with Create Reference open).
+
 ### UV Editor menus, round two (17/11/2026, #108)
 
 Added to the UV Editor's menus, in the reference's places: Edit > Reset Settings > Reset UV Editor UI (display
