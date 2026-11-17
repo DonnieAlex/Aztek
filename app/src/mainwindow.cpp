@@ -1064,6 +1064,47 @@ QMenu* MainWindow::cache_menu() {
         QString f = QFileDialog::getOpenFileName(this, "Import Alembic", QString(), "Alembic (*.abc)");
         if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}});
     })->setEnabled(has_command("AbcImport"));
+    // As the reference's Alembic Cache menu (#87): open in a new scene, reference, drive the selection by name, and
+    // point the selected AlembicNodes at another file.
+    abc->insertAction(abc->actions().value(0), [&] {
+        auto* a = new QAction("Open Alembic...", abc);
+        connect(a, &QAction::triggered, this, [this] {
+            if (!confirm_unsaved()) return;
+            QString f = QFileDialog::getOpenFileName(this, "Open Alembic", QString(), "Alembic (*.abc)");
+            if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "open"}});
+        });
+        a->setEnabled(has_command("AbcImport"));
+        return a;
+    }());
+    abc->insertAction(abc->actions().value(1), [&] {
+        auto* a = new QAction("Reference Alembic...", abc);
+        connect(a, &QAction::triggered, this, [this] {
+            QString f = QFileDialog::getOpenFileName(this, "Reference Alembic", QString(), "Alembic (*.abc)");
+            if (!f.isEmpty()) exec("file", QJsonObject{{"args", QJsonArray{f}}, {"reference", true}, {"type", "Alembic"}, {"namespace", QFileInfo(f).completeBaseName()}});
+        });
+        a->setEnabled(has_command("AbcImport"));
+        return a;
+    }());
+    abc->addAction("Import Alembic onto Selection...", [this] {
+        // The file's animated objects drive the selected hierarchies' nodes of the same names.
+        QJsonArray sel = ask("ls", QJsonObject{{"selection", true}, {"long", true}}).toArray();
+        if (sel.isEmpty()) { log("// Warning: select the hierarchies the cache drives //", 4); return; }
+        QString f = QFileDialog::getOpenFileName(this, "Import Alembic onto Selection", QString(), "Alembic (*.abc)");
+        QStringList roots;
+        for (const QJsonValue& v : sel) roots << v.toString();
+        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"connect", roots.join(' ')}});
+    })->setEnabled(has_command("AbcImport"));
+    abc->addAction("Replace Alembic...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Replace Alembic", QString(), "Alembic (*.abc)");
+        if (!f.isEmpty()) exec("AbcImport", QJsonObject{{"args", QJsonArray{f}}, {"mode", "replace"}});
+    })->setEnabled(has_command("AbcImport"));
+    // Export after the reading ones, as the reference orders them.
+    for (QAction* a : abc->actions())
+        if (a->text().startsWith("Export")) {
+            abc->removeAction(a);
+            abc->addAction(a);
+        }
+    abc->insertSeparator(abc->actions().value(abc->actions().size() - 2));
     return m;
 }
 

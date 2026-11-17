@@ -114,3 +114,37 @@ fn hair_exports_as_curves_with_widths() {
     let curves = run(&mut t, "ls", json!({"type": "nurbsCurve"}));
     assert_eq!(curves.as_array().unwrap().len(), 3);
 }
+
+/// #87: -connect drives the scene's nodes of the same names; -mode replace points AlembicNodes at another file.
+#[test]
+fn connect_drives_existing_nodes_and_replace_swaps_the_file() {
+    let file = temp("connect.abc");
+    let mut s = session();
+    run(&mut s, "polyCube", json!({"name": "box"}));
+    key(&mut s, "box.translateX", 1.0, 0.0);
+    key(&mut s, "box.translateX", 10.0, 9.0);
+    run(&mut s, "AbcExport", json!({"jobArg": format!("-frameRange 1 10 -uvWrite -worldSpace -root |box -file \"{file}\"")}));
+    // A scene with its own box, unanimated.
+    let mut s = session();
+    run(&mut s, "polyCube", json!({"name": "box"}));
+    run(&mut s, "AbcImport", json!({"args": [file.clone()], "connect": "/"}));
+    let boxes = run(&mut s, "ls", json!({"type": "transform", "args": ["box*"]}));
+    assert_eq!(boxes, json!(["box"]), "no second box");
+    frame(&mut s, 10.0);
+    assert!((world(&mut s, "box").w_axis.x - 9.0).abs() < 1e-6);
+    frame(&mut s, 1.0);
+    assert!(world(&mut s, "box").w_axis.x.abs() < 1e-6);
+    // Replace: the node reads another file, of the box keyed further.
+    let other = temp("connect2.abc");
+    let mut t = session();
+    run(&mut t, "polyCube", json!({"name": "box"}));
+    key(&mut t, "box.translateX", 1.0, 0.0);
+    key(&mut t, "box.translateX", 10.0, 20.0);
+    run(&mut t, "AbcExport", json!({"jobArg": format!("-frameRange 1 10 -worldSpace -root |box -file \"{other}\"")}));
+    let r = run(&mut s, "AbcImport", json!({"args": [other.clone()], "mode": "replace"}));
+    assert_eq!(r.as_array().map(|a| a.len()), Some(1), "{r}");
+    frame(&mut s, 10.0);
+    assert!((world(&mut s, "box").w_axis.x - 20.0).abs() < 1e-6, "{:?}", world(&mut s, "box"));
+    let _ = std::fs::remove_file(&file);
+    let _ = std::fs::remove_file(&other);
+}

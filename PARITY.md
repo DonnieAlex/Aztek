@@ -1322,6 +1322,15 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Alembic cache menu and AbcImport modes (17/11/2026, #87)
+
+- `AbcImport -connect "/"` (or node names): the file's animated transforms and meshes drive the scene's nodes of
+  the same names under them, through one AlembicNode, instead of new nodes; static ones are left as they are.
+- `-mode open` reads the file into a new scene; `-mode replace` points the selected AlembicNodes (every one with
+  none selected) at the file.
+- Cache > Alembic Cache: Open Alembic, Reference Alembic (a reference with the file's name as namespace), Import
+  Alembic, Import Alembic onto Selection, Replace Alembic, then Export All and Export Selection.
+
 ### Ctrl-click on manipulator handles, checked (17/11/2026, #86)
 
 Checked in the app on 17/11/2026: Ctrl and a drag on the scale tool's Y handle scales X and Z and leaves Y (1.4,

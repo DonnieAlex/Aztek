@@ -412,11 +412,40 @@ fn animated(o: &Object) -> bool {
 struct Importer {
     made: Vec<String>,
     streamed: Vec<(String, String, String)>,
+    /// -connect: the nodes whose names the file's objects are matched to; the file's animation drives those that
+    /// match instead of new nodes.
+    connect: Option<Vec<NodeId>>,
 }
 
 impl Importer {
+    /// The scene node -connect matches an object to: of the kind asked, with its name, in the connect root.
+    fn matched(&self, s: &Session, name: &str, kind: &str) -> Option<NodeId> {
+        let within = self.connect.as_ref()?;
+        within.iter().copied().find(|&id| s.graph.node(id).is_some_and(|n| n.name == name && n.ty().is_a(kind)))
+    }
+
     fn object(&mut self, s: &mut Session, o: &Object, path: &str, parent: NodeId) -> CmdResult<()> {
         let me = format!("{path}/{}", o.name);
+        // -connect: a transform or mesh of the same name already there takes the file's animation (#87).
+        if let Some(kind) = match geom::schema(o).as_deref() {
+            Some(geom::XFORM) => Some("transform"),
+            Some(geom::POLYMESH) => Some("mesh"),
+            _ => None,
+        } {
+            let found = self.matched(s, &o.name, kind).or_else(|| {
+                // A mesh written at the top has the name of its transform there.
+                (kind == "mesh").then(|| self.matched(s, &o.name, "transform")).flatten().and_then(|xf| crate::dag::shapes(&s.graph, xf, false).into_iter().find(|&sh| s.graph.node(sh).is_some_and(|n| n.ty().is_a("mesh"))))
+            });
+            if let Some(id) = found {
+                if animated(o) {
+                    self.streamed.push((me.clone(), if kind == "mesh" { "mesh".into() } else { "xform".into() }, s.graph.path(id)));
+                }
+                for c in &o.children {
+                    self.object(s, c, &me, id)?;
+                }
+                return Ok(());
+            }
+        }
         match geom::schema(o).as_deref() {
             Some(geom::XFORM) => {
                 let tt = types::find("transform").unwrap();
@@ -483,8 +512,26 @@ impl Importer {
 }
 
 pub fn import(s: &mut Session, path: &str) -> CmdResult<Vec<String>> {
+    import_with(s, path, None)
+}
+
+/// An import whose objects drive the scene's nodes of the same names, under `connect` (every node for "/").
+pub fn import_with(s: &mut Session, path: &str, connect: Option<&str>) -> CmdResult<Vec<String>> {
     let a = archive(path).map_err(|e| aztek_ops::CommandError::new(format!("AbcImport: {e}")))?;
-    let mut im = Importer { made: Vec::new(), streamed: Vec::new() };
+    let within = match connect {
+        None => None,
+        Some("/") | Some("") => Some(s.graph.nodes()),
+        Some(root) => {
+            let mut v = Vec::new();
+            for r in root.split_whitespace() {
+                let Some(id) = s.graph.find(r)? else { fail!("AbcImport: -connect: no node named {r}") };
+                v.push(id);
+                v.extend(s.graph.descendants(id));
+            }
+            Some(v)
+        }
+    };
+    let mut im = Importer { made: Vec::new(), streamed: Vec::new(), connect: within };
     for c in &a.top.children {
         im.object(s, c, "", NO_NODE)?;
     }
@@ -557,12 +604,36 @@ pub fn register_import(c: &mut Commands<Session>) {
             |s, a| {
                 let names = a.named();
                 let Some(path) = names.first() else { fail!("AbcImport: give a file") };
-                Ok(json!(import(s, path)?))
+                match a.string("mode", "import").as_str() {
+                    // Open: the file in a new scene, as File > Open would leave it.
+                    "open" => {
+                        s.run("file", json!({"new": true, "force": true}))?;
+                    }
+                    // Replace: the AlembicNodes picked (all of them with none picked) read the new file instead.
+                    "replace" => {
+                        let picked: Vec<NodeId> = s.graph.selection().iter().copied().filter(|&id| s.graph.node(id).is_some_and(|n| n.ty().name == NODE_TYPE)).collect();
+                        let nodes = if picked.is_empty() { s.graph.nodes().into_iter().filter(|&id| s.graph.node(id).is_some_and(|n| n.ty().name == NODE_TYPE)).collect() } else { picked };
+                        if nodes.is_empty() {
+                            fail!("AbcImport: -mode replace: no AlembicNode to read the file");
+                        }
+                        let mut out = Vec::new();
+                        for n in nodes {
+                            let name = s.graph.path(n);
+                            s.run("setAttr", json!({"args": [format!("{name}.abc_File"), path], "type": "string"}))?;
+                            out.push(name);
+                        }
+                        return Ok(json!(out));
+                    }
+                    "import" => {}
+                    m => fail!("AbcImport: -mode is import, open or replace, not {m}"),
+                }
+                let connect = a.get("connect").and_then(Value::as_str).map(str::to_string);
+                Ok(json!(import_with(s, path, connect.as_deref())?))
             },
         )
         .positional("file")
-        .flag(FlagDef::new("mode", "m", ArgType::String, Value::Null, "import (the default), open or replace: Aztek imports in each case."))
-        .flag(FlagDef::new("connect", "ct", ArgType::String, Value::Null, "Accepted; not acted on yet.")),
+        .flag(FlagDef::new("mode", "m", ArgType::String, Value::Null, "import (the default), open (in a new scene) or replace (the picked AlembicNodes read this file)."))
+        .flag(FlagDef::new("connect", "ct", ArgType::String, Value::Null, "Nodes to drive: the file's animated transforms and meshes drive the nodes of the same names under these (\"/\" for the whole scene) instead of new ones.")),
     );
 }
 
