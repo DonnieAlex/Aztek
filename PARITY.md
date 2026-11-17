@@ -1322,6 +1322,11 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Layout lock (16/11/2026, documented 17/11/2026, #90)
+
+A padlock right of the Themes box, where the reference has its workspace lock: locked, docked panels can't be
+dragged off, moved or floated, only closed; the setting is kept between sessions (docs/issues/90-layout-lock.png).
+
 ### Delete passes over what can't be deleted (17/11/2026, #89)
 
 Besides default and locked nodes (16/11/2026), nodes a reference brought in and startup cameras among those deleted
