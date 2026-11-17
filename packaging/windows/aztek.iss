@@ -36,13 +36,18 @@ ChangesEnvironment=yes
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "associate"; Description: "Open .ma files with Aztek"; GroupDescription: "File associations:"; Flags: unchecked
-; aztek, aztekpy and harold from any command prompt: the install folder on PATH, the machine's for an install for all
-; users, the user's own otherwise. Taken off again by the uninstaller.
+; aztek, aztekpy and harold from any command prompt: the install's bin folder on PATH, as the reference puts its own
+; bin there, the machine's for an install for all users, the user's own otherwise. Taken off again by the uninstaller,
+; with the install folder itself, which installs before 17/11/2026 put on PATH (#76).
 Name: "addtopath"; Description: "Add Aztek to PATH (aztek, aztekpy, harold from a command prompt)"; GroupDescription: "Command line:"
 
 [Files]
 Source: "..\..\build\dist\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+; bin: a launcher for each program, which runs it from the install folder with what is typed after it.
+Source: "bin\aztek.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\aztekpy.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "bin\harold.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Aztek"; Filename: "{app}\aztek.exe"
@@ -56,8 +61,8 @@ Root: HKA; Subkey: "Software\Classes\Aztek.Scene"; ValueType: string; ValueName:
 Root: HKA; Subkey: "Software\Classes\Aztek.Scene\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\aztek.exe,0"; Tasks: associate
 Root: HKA; Subkey: "Software\Classes\Aztek.Scene\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\aztek.exe"" ""%1"""; Tasks: associate
 
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: IsAdminInstallMode and NeedsAddPath(ExpandConstant('{app}')); Tasks: addtopath
-Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: (not IsAdminInstallMode) and NeedsAddPath(ExpandConstant('{app}')); Tasks: addtopath
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Check: IsAdminInstallMode and NeedsAddPath(ExpandConstant('{app}\bin')); Tasks: addtopath
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}\bin"; Check: (not IsAdminInstallMode) and NeedsAddPath(ExpandConstant('{app}\bin')); Tasks: addtopath
 
 [Run]
 Filename: "{app}\aztek.exe"; Description: "Start Aztek"; Flags: nowait postinstall skipifsilent
@@ -90,19 +95,31 @@ begin
   Result := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Paths) + ';') = 0;
 end;
 
-{ The uninstaller takes the folder off PATH again, wherever it is in the list. }
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+{ Takes a folder off PATH, wherever it is in the list. }
+procedure RemoveFromPath(Dir: String);
 var
-  Paths, Dir: String;
+  Paths: String;
   P: Integer;
 begin
-  if CurUninstallStep <> usPostUninstall then exit;
   if not RegQueryStringValue(EnvRoot, EnvKey, 'Path', Paths) then exit;
-  Dir := ExpandConstant('{app}');
   Paths := ';' + Paths + ';';
   P := Pos(';' + Uppercase(Dir) + ';', Uppercase(Paths));
   if P = 0 then exit;
   Delete(Paths, P, Length(Dir) + 1);
   Paths := Copy(Paths, 2, Length(Paths) - 2);
   RegWriteExpandStringValue(EnvRoot, EnvKey, 'Path', Paths);
+end;
+
+{ An install over an older one moves PATH from the install folder to its bin. }
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('addtopath') then RemoveFromPath(ExpandConstant('{app}'));
+end;
+
+{ The uninstaller takes bin, and the install folder older installs added, off PATH again. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep <> usPostUninstall then exit;
+  RemoveFromPath(ExpandConstant('{app}\bin'));
+  RemoveFromPath(ExpandConstant('{app}'));
 end;

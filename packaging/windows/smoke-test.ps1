@@ -13,6 +13,7 @@ if ($p.ExitCode) { Get-Content $log | Select-Object -Last 30; throw "installer e
 $exe = Join-Path $dir "aztek.exe"
 if (-not (Test-Path $exe)) { throw "aztek.exe was not installed" }
 if (-not (Test-Path (Join-Path $dir "unins000.exe"))) { throw "no uninstaller" }
+foreach ($c in "aztek", "aztekpy", "harold") { if (-not (Test-Path (Join-Path $dir "bin\$c.cmd"))) { throw "no bin\$c.cmd" } }
 
 $out = Join-Path $env:RUNNER_TEMP "aztek-smoke"
 New-Item -ItemType Directory -Force $out | Out-Null

@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### A bin folder on PATH (17/11/2026, #76)
+
+The Windows install has a `bin` folder, as the reference's has, with `aztek`, `aztekpy` and `harold` launchers that
+run the programs in the install folder with what is typed after them (`aztek` waits in batch mode and opens the
+window otherwise). Add Aztek to PATH puts `bin` on PATH; an install over an older one takes the install folder off
+PATH, and the uninstaller takes both off.
+
 ### UV Editor marking menus (17/11/2026, #113)
 
 - Right button (and Shift+right): Edge, UV Shell, Vertex, UV and Face round the cursor as the reference places them,

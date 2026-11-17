@@ -537,7 +537,7 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Ubuntu 24.04, 26.04 | `aztek_<version>-1_ubuntu24.04_amd64.deb`, `..._ubuntu26.04_...` | `sudo apt install ./aztek_*.deb` |
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt and Python are inside) |
 | Linux with Flatpak | `aztek-<version>-x86_64.flatpak` | `flatpak install --user ./aztek-*.flatpak`, then `flatpak run io.github.srlegrand.Aztek` |
-| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first |
+| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
 | macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | `brew install python@3.12`, unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
