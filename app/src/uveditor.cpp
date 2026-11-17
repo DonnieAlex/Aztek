@@ -3,6 +3,10 @@
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
+#include "markingmenu.h"
+#include <QMenuBar>
+#include <QPointer>
+#include <QSettings>
 
 #include <QAbstractItemView>
 #include <QActionGroup>
@@ -113,7 +117,7 @@ void UvCanvas::set_data(const QJsonObject& d) {
 void UvCanvas::set_mode(const QString& m) {
     mode_ = m;
     // The selection type is the scene's, shared with the views. Object mode shows the shells alone, no UV points (#99).
-    if (m == "face" || m == "edge" || m == "uv" || m == "object") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
+    if (m == "face" || m == "edge" || m == "uv" || m == "object" || m == "vertex") exec("selectMode", QJsonObject{{"args", QJsonArray{m}}});
     else if (m == "shell") exec("selectType", QJsonObject{{"meshUVShell", true}});
     update();
 }
@@ -592,13 +596,28 @@ void UvCanvas::paintEvent(QPaintEvent*) {
                 p.setBrush(QColor(235, 140, 40, 130));
                 p.drawPolygon(poly);
             } else if (shaded) {
+                // Blue facing the viewer, red where the UVs are flipped, as the reference shades them.
+                double twice = 0;
+                for (int k = 0; k < fc.maps.size(); ++k) {
+                    const QPointF a = m.maps[fc.maps[k]], b = m.maps[fc.maps[(k + 1) % fc.maps.size()]];
+                    twice += a.x() * b.y() - b.x() * a.y();
+                }
                 p.setPen(Qt::NoPen);
-                p.setBrush(QColor(60, 105, 180, 70));
+                p.setBrush(twice < 0 ? QColor(200, 60, 60, 80) : QColor(60, 105, 180, 70));
                 p.drawPolygon(poly);
             }
             p.setPen(QPen(QColor(170, 175, 195), 1));
             p.setBrush(Qt::NoBrush);
             p.drawPolygon(poly);
+        }
+        // Vertex mode: each UV as a dot, those of the selected vertices picked out.
+        if (mode_ == "vertex") {
+            p.setPen(Qt::NoPen);
+            for (int i = 0; i < m.maps.size() && i < m.map_point.size(); ++i) {
+                const bool on = m.sel_points.contains(m.map_point[i]);
+                p.setBrush(on ? QColor(255, 160, 30) : QColor(170, 90, 200));
+                p.drawEllipse(to_screen(m.maps[i]), on ? 3.5 : 2.5, on ? 3.5 : 2.5);
+            }
         }
         // Where UVs split: thicker, as the reference's texture borders; with shell borders on, each shell's own colour.
         if (show_texture_borders || show_shell_borders) {
@@ -794,11 +813,25 @@ void UvCanvas::pick(QPointF pos, QPointF to, bool rect, Qt::KeyboardModifiers mo
         emit picked();
         return;
     }
-    // Faces and edges are the scene's selection.
+    // Faces, edges and vertices are the scene's selection.
     QJsonArray names;
     for (const UvMesh& m : meshes_) {
         QList<int> ids;
-        if (mode_ == "face") {
+        if (mode_ == "vertex") {
+            // The vertex a UV belongs to: the nearest UV point, or those in the box.
+            int best = -1;
+            double bd = 8;
+            for (int i = 0; i < m.maps.size() && i < m.map_point.size(); ++i) {
+                const QPointF sp = to_screen(m.maps[i]);
+                if (rect) {
+                    if (r.contains(sp) && !ids.contains(m.map_point[i])) ids << m.map_point[i];
+                } else if (const double d = std::hypot(sp.x() - pos.x(), sp.y() - pos.y()); d < bd) {
+                    bd = d;
+                    best = m.map_point[i];
+                }
+            }
+            if (best >= 0) ids = {best};
+        } else if (mode_ == "face") {
             for (const auto& fc : m.faces) {
                 QPolygonF poly;
                 for (int id : fc.maps) poly << to_screen(m.maps[id]);
@@ -820,7 +853,7 @@ void UvCanvas::pick(QPointF pos, QPointF to, bool rect, Qt::KeyboardModifiers mo
                 }
             if (best >= 0) ids = {best};
         }
-        for (const QString& run : id_runs(ids)) names.append(QString("%1.%2[%3]").arg(m.path, mode_ == "face" ? "f" : "e", run));
+        for (const QString& run : id_runs(ids)) names.append(QString("%1.%2[%3]").arg(m.path, mode_ == "face" ? "f" : mode_ == "vertex" ? "vtx" : "e", run));
         if (!rect && ids.size() == 1) {
             pick_hist_.append(Pick{m.path, mode_, ids.first()});
             while (pick_hist_.size() > 2) pick_hist_.removeFirst();
@@ -856,7 +889,7 @@ void UvCanvas::mousePressEvent(QMouseEvent* e) {
         return;
     }
     if (e->button() == Qt::RightButton) {
-        mode_menu(e->globalPosition().toPoint());
+        mode_menu(e->globalPosition().toPoint(), e->modifiers());
         return;
     }
     if (e->button() == Qt::LeftButton && editing_pivot) {
@@ -1115,16 +1148,120 @@ void UvCanvas::contextMenuEvent(QContextMenuEvent* e) {
     mode_menu(e->globalPos());
 }
 
-// The right button's menu, up as the button goes down, so a press-drag-release picks (#99): Object Mode with the
-// component types, as the reference's.
-void UvCanvas::mode_menu(QPoint global) {
-    QMenu m(this);
-    for (auto [label, mode] : {std::pair{"Object Mode", "object"}, {"UV", "uv"}, {"UV Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}}) {
-        QAction* a = m.addAction(label, [this, mode = QString(mode)] { set_mode(mode); });
-        a->setCheckable(true);
-        a->setChecked(mode_ == mode);
+// The menu bar's menus as marking menu items: each action, its submenus, ticks and separators as they are.
+static QList<MarkItem> mark_items(QMenu* menu) {
+    QList<MarkItem> out;
+    bool rule = false;
+    for (QAction* a : menu->actions()) {
+        if (a->isSeparator()) {
+            rule = !out.isEmpty();
+            continue;
+        }
+        if (!a->isVisible()) continue;
+        MarkItem m;
+        m.label = a->text().remove('&');
+        m.enabled = a->isEnabled();
+        m.checkable = a->isCheckable();
+        m.checked = a->isChecked();
+        m.separator = rule;
+        rule = false;
+        if (QMenu* sub = a->menu()) {
+            emit sub->aboutToShow();
+            m.sub = mark_items(sub);
+        } else {
+            QPointer<QAction> keep(a);
+            m.fn = [keep] {
+                if (keep) keep->trigger();
+            };
+        }
+        out.append(m);
     }
-    m.exec(global);
+    return out;
+}
+
+// The right button's marking menus, up as the button goes down so a press-drag-release picks, as the reference's
+// (#113). Right: the component types round the cursor, Object Mode with them (#99), the editor's menus below.
+// Shift+right: the same. Ctrl+Shift+right: symmetry, the two selection styles, Highlight Backfaces and Soft Select
+// round it; selection and transform constraints and the selection options below.
+void UvCanvas::mode_menu(QPoint global, Qt::KeyboardModifiers mods) {
+    auto item = [](const QString& label, int dir, std::function<void()> fn, bool on = false, bool box = false) {
+        MarkItem m;
+        m.label = label;
+        m.dir = dir;
+        m.fn = std::move(fn);
+        m.checked = on;
+        m.checkable = box;
+        return m;
+    };
+    auto sub = [](const QString& label, int dir, const QList<MarkItem>& items) {
+        MarkItem m;
+        m.label = label;
+        m.dir = dir;
+        m.sub = items;
+        return m;
+    };
+    QList<MarkItem> items;
+    if ((mods & Qt::ControlModifier) && (mods & Qt::ShiftModifier)) {
+        auto sym = [](const char* flag) { return ask("symmetricModelling", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}); };
+        int at = 0;
+        if (sym("symmetry").toBool()) {
+            const QString about = sym("about").toString(), axis = sym("axis").toString();
+            const int k = axis == "z" ? 2 : axis == "y" ? 1 : 0;
+            at = about == "topo" ? 7 : about == "world" ? 4 + k : 1 + k;
+        }
+        QList<MarkItem> symmetry;
+        const char* names[] = {"Off", "Object X", "Object Y", "Object Z", "World X", "World Y", "World Z", "Topology"};
+        for (int i = 0; i < 8; ++i)
+            symmetry.append(item(names[i], -1, [i] {
+                static const char* axis[] = {"", "x", "y", "z", "x", "y", "z"};
+                if (i == 7) exec("symmetricModelling", QJsonObject{{"edit", true}, {"topoSymmetry", true}});
+                else if (i == 0) exec("symmetricModelling", QJsonObject{{"edit", true}, {"symmetry", false}});
+                else exec("symmetricModelling", QJsonObject{{"edit", true}, {"symmetry", true}, {"about", i >= 4 ? "world" : "object"}, {"axis", axis[i]}});
+                Host::get()->poke();
+            }, at == i, true));
+        const bool drag = ask("selectPref", QJsonObject{{"query", true}, {"clickDrag", true}}).toBool();
+        auto click_drag = [](bool on) {
+            return [on] {
+                QSettings().setValue("prefs/clickDrag", on);
+                exec_quiet("selectPref", QJsonObject{{"clickDrag", on}});
+            };
+        };
+        const bool backs = ask("selectPref", QJsonObject{{"query", true}, {"preSelectBackfacing", true}}).toBool();
+        const bool soft = ask("softSelect", QJsonObject{{"query", true}, {"queried", QJsonArray{"softSelectEnabled"}}}).toInt() != 0;
+        QList<MarkItem> soft_items{item("Soft Select", -1, [soft] { exec("softSelect", QJsonObject{{"softSelectEnabled", soft ? 0 : 1}}); Host::get()->poke(); }, soft, true)};
+        for (auto [label, mode] : {std::pair{"Volume", 0}, {"Surface", 1}, {"Global", 2}, {"Object", 3}})
+            soft_items.append(item(label, -1, [mode = mode] { exec("softSelect", QJsonObject{{"softSelectEnabled", 1}, {"softSelectFalloff", mode}}); Host::get()->poke(); }));
+        const QString xc = ask("xformConstraint", QJsonObject{{"query", true}}).toString("none");
+        QList<MarkItem> xf;
+        for (auto [label, type] : {std::pair{"Off", "none"}, {"Edge", "edge"}, {"Surface", "surface"}}) {
+            const QString t = type;
+            xf.append(item(label, -1, [t] { exec_quiet("xformConstraint", QJsonObject{{"type", t}}); Host::get()->poke(); }, xc == t, true));
+        }
+        QList<MarkItem> sel{item("Off", -1, [] { exec("polySelectConstraint", QJsonObject{{"disable", true}}); }),
+                            item("Use Constraints...", -1, [] { mel("PolygonSelectionConstraints;"); })};
+        MarkItem opts = item("Select Options", -1, [] { mel("PreferencesWindow;"); });
+        opts.separator = true;
+        items = {sub("Symmetry", 0, symmetry),
+                 item("Pick/Marquee", 6, click_drag(false), !drag, true),
+                 item("Drag/Marquee", 2, click_drag(true), drag, true),
+                 item("Highlight Backfaces", 3, [backs] { exec_quiet("selectPref", QJsonObject{{"preSelectBackfacing", !backs}}); }, backs, true),
+                 sub("Soft Select", 4, soft_items),
+                 sub("Selection Constraints", -1, sel),
+                 sub("Transform Constraints", -1, xf),
+                 opts};
+        MarkingMenu::show_at(global, items);
+        return;
+    }
+    auto mode = [this](const char* m) { return [this, m = QString(m)] { set_mode(m); }; };
+    items = {item("Edge", 0, mode("edge")), item("UV Shell", 7, mode("shell")), item("Vertex", 6, mode("vertex")), item("UV", 2, mode("uv")),
+             item("Face", 4, mode("face")), item("Object Mode", 1, mode("object"))};
+    if (menus)
+        for (QAction* a : menus->actions())
+            if (QMenu* m = a->menu(); m && a->text().remove('&') != "Help") {
+                emit m->aboutToShow();
+                items.append(sub(a->text().remove('&'), -1, mark_items(m)));
+            }
+    MarkingMenu::show_at(global, items);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1344,7 +1481,9 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     bar->addSeparator();
     bar->addWidget(show_bar);
     toolkit_ = build_toolkit();
-    v->addWidget(build_menu_bar());
+    QWidget* menu_bar = build_menu_bar();
+    canvas_->menus = qobject_cast<QMenuBar*>(menu_bar);
+    v->addWidget(menu_bar);
     v->addWidget(tools_bar);
     v->addWidget(bar);
     // The canvas, and the UV Toolkit beside it (#108).

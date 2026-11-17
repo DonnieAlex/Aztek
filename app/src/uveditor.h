@@ -14,6 +14,8 @@ class QComboBox;
 #include <QVector>
 #include <QWidget>
 
+class QMenuBar;
+
 namespace az {
 
 struct UvMesh {
@@ -36,6 +38,8 @@ class UvCanvas : public QWidget {
     Q_OBJECT
 public:
     explicit UvCanvas(QWidget* parent = nullptr);
+    // The editor's menu bar, whose menus the right button's marking menu lists below its compass (#113).
+    QMenuBar* menus = nullptr;
     void set_data(const QJsonObject& d);
     void set_mode(const QString& m);
     QString mode() const { return mode_; }
@@ -88,7 +92,7 @@ protected:
     void keyReleaseEvent(QKeyEvent*) override;
     void mouseDoubleClickEvent(QMouseEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
-    void mode_menu(QPoint global);
+    void mode_menu(QPoint global, Qt::KeyboardModifiers mods = Qt::NoModifier);
 private:
     QImage image_;
     struct ViewState {

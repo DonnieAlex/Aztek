@@ -1322,6 +1322,16 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### UV Editor marking menus (17/11/2026, #113)
+
+- Right button (and Shift+right): Edge, UV Shell, Vertex, UV and Face round the cursor as the reference places them,
+  Object Mode with them (#99), and the editor's menus below (Edit, Create, Select, Cut/Sew, Modify, Tools, View,
+  Image, Textures, UV Sets) as submenus, each with what its menu has, ticks and greyed items as they are.
+- Ctrl+Shift+right: Symmetry, Pick/Marquee, Drag/Marquee, Highlight Backfaces and Soft Select round it; Selection
+  Constraints, Transform Constraints and Select Options below.
+- Vertex mode in the editor: a click takes the vertex of the nearest UV, a box those inside; the selected vertices'
+  UVs are marked. Shaded UVs are red where they are flipped, blue otherwise, as in the reference.
+
 ### Shelves (17/11/2026, #117)
 
 - Each shelf is also kept as the reference's `shelf_Name.mel` in `~/.aztek/prefs/shelves` (or `$AZTEK_PREFS/prefs/
