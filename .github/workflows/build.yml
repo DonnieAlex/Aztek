@@ -144,6 +144,11 @@ jobs:
     timeout-minutes: 340
     container:
       image: ubuntu:26.04
+      # Set here because a step that adds to PATH (rust-toolchain adds ~/.cargo/bin) gets the image's own PATH appended
+      # by the runner, and when the image config gives none the next step has only ~/.cargo/bin: "bash: executable
+      # file not found".
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       volumes:
         - /usr/share/dotnet:/host/usr/share/dotnet
         - /usr/local/lib/android:/host/usr/local/lib/android
@@ -206,6 +211,11 @@ jobs:
     timeout-minutes: 340
     container:
       image: rockylinux:${{ matrix.el }}
+      # Set here because a step that adds to PATH (rust-toolchain adds ~/.cargo/bin) gets the image's own PATH appended
+      # by the runner, and when the image config gives none the next step has only ~/.cargo/bin: "bash: executable
+      # file not found".
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       volumes:
         - /usr/share/dotnet:/host/usr/share/dotnet
         - /usr/local/lib/android:/host/usr/local/lib/android
