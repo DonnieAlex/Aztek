@@ -724,8 +724,23 @@ public:
         retake->setAutoDefault(false);
         retake->setToolTip("Hides this window and takes the screenshot again, in place of the picture shown. What you have drawn on it is cleared.");
         connect(retake, &QPushButton::clicked, this, &FeedbackDialog::retake);
+        // Another screenshot, kept beside the others: with a delay, to catch the views in the middle of something (#126).
+        auto* another = new QPushButton("Take Another", picture_box_);
+        another->setAutoDefault(false);
+        another->setToolTip("Hides this window and takes one more screenshot, added after the others.");
+        connect(another, &QPushButton::clicked, this, [this] { capture_later(true); });
+        delay_ = new QSpinBox(picture_box_);
+        delay_->setObjectName("feedbackDelay");
+        delay_->setRange(0, 30);
+        delay_->setSuffix(" s");
+        delay_->setPrefix("Delay ");
+        delay_->setToolTip("How long Retake and Take Another wait before the screenshot, with a count in the corner of the screen: time to start a drag or open a menu.");
+        delay_->setValue(QSettings().value("feedback/delay", 0).toInt());
+        connect(delay_, &QSpinBox::valueChanged, this, [](int v) { QSettings().setValue("feedback/delay", v); });
         picture_row->addWidget(larger);
         picture_row->addWidget(retake);
+        picture_row->addWidget(another);
+        picture_row->addWidget(delay_);
         picture_row->addStretch(1);
         right->addLayout(picture_row);
         picture_box_->hide();
@@ -839,16 +854,57 @@ private:
             auto answer = QMessageBox::question(this, "Retake Screenshot", "Taking it again clears what you have drawn. Go on?", QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
             if (answer != QMessageBox::Yes) return;
         }
+        capture_later(false);
+    }
+
+    // Hides this window, waits the delay with a count in the corner, and takes the screenshot: in place of the one shown,
+    // or added after them.
+    void capture_later(bool add) {
         if (large_) large_->close();
         hide();
-        // Long enough for the window system to take this window off the screen and repaint what was under it.
-        QTimer::singleShot(250, this, [this] {
-            QApplication::processEvents();
-            doc_->set_picture(capture_app(main_));
-            show();
-            raise();
-            activateWindow();
+        const int seconds = delay_ ? delay_->value() : 0;
+        auto* count = new QLabel(nullptr, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+        count->setAttribute(Qt::WA_ShowWithoutActivating);
+        count->setAttribute(Qt::WA_TransparentForMouseEvents);
+        count->setStyleSheet("QLabel { background: #d85a1a; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px; }");
+        auto place = [count, this] {
+            const QRect r = main_ ? main_->frameGeometry() : QApplication::primaryScreen()->geometry();
+            count->adjustSize();
+            count->move(r.right() - count->width() - 16, r.bottom() - count->height() - 40);
+        };
+        auto left = std::make_shared<int>(seconds);
+        auto* tick = new QTimer(count);
+        auto shoot = [this, add, count] {
+            count->hide();
+            // Long enough for the window system to take this window and the count off the screen.
+            QTimer::singleShot(250, this, [this, add, count] {
+                QApplication::processEvents();
+                const QImage shot = capture_app(main_);
+                count->deleteLater();
+                if (add) doc_->add(shot);
+                else doc_->set_picture(shot);
+                show();
+                raise();
+                activateWindow();
+            });
+        };
+        if (seconds <= 0) {
+            shoot();
+            return;
+        }
+        count->setText(QString("Screenshot in %1").arg(*left));
+        place();
+        count->show();
+        connect(tick, &QTimer::timeout, count, [count, left, tick, shoot, place] {
+            if (--*left <= 0) {
+                tick->stop();
+                shoot();
+                return;
+            }
+            count->setText(QString("Screenshot in %1").arg(*left));
+            place();
         });
+        tick->start(1000);
     }
 
     // Writes what was ticked, opens the browser and shows what is left to do.
@@ -955,6 +1011,7 @@ private:
     QTabBar* tabs_;
     bool syncing_ = false;
     QPointer<LargeDrawing> large_;
+    QSpinBox* delay_ = nullptr;
     int narrow_width_ = 620;
     QJsonObject report_;
 };

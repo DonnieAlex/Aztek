@@ -1341,6 +1341,13 @@ selected UVs at the canvas's top left); UV Sets > Per Instance Sharing (greyed: 
 Auto-Load Textures. The UV Toolkit beside the canvas already follows the reference's sections, Selection to UV Sets
 (docs/issues/108-uv-toolkit-menus.png).
 
+### Report screenshots with a delay (17/11/2026, #126)
+
+The report window's pictures have Take Another beside Retake, and a Delay (0 to 30 seconds, kept between sessions):
+the window hides, a count shows in the corner of the screen, and the screenshot is taken when it runs out, without the
+count, so a drag, a menu or a tool's feedback in the views can be caught. Take Another adds the picture after the
+others (docs/issues/126-screenshot-delay.png).
+
 ### Live surfaces can't be edited (17/11/2026, #125, #127)
 
 A live surface never goes into component mode: picked in the Outliner, it stays drawn as an object whatever the
