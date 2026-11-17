@@ -22,6 +22,7 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <array>
 
 namespace az {
 
@@ -192,19 +193,23 @@ QList<Theme> builtins() {
         t.padding = 4;
         l << t;
     }
-    // Martino: after Softimage XSI, mid grey panels, pale fields, black type, single bevels, square corners and a
-    // blue highlight.
+    // Martino: after Softimage XSI. Mid grey panels with darker header bars, light grey buttons with rounded corners, a
+    // soft top-to-bottom shade and a dark outline, pale grey fields with black type, rounded property page tabs, bold
+    // black section labels on a darker bar, a pale blue for what is picked, Tahoma at 8 points.
     {
         Theme t = hand("martino", "Martino",
-                       {{"window", "#a2a2a2"}, {"chrome", "#969696"}, {"base", "#c6c6c6"}, {"alt", "#b6b6b6"}, {"menu", "#b0b0b0"}, {"button", "#b8b8b8"}, {"hover", "#c8c8c8"},
-                        {"hi", "#4f6fa3"}, {"hitext", "#ffffff"}, {"text", "#111111"}, {"bright", "#000000"}, {"dim", "#3a3a3a"}, {"disabled", "#6e6e6e"}, {"border", "#6a6a6a"},
-                        {"handle", "#8a8a8a"}, {"section", "#8c8c8c"}, {"sectiontext", "#000000"}, {"light", "#dedede"}, {"shadow", "#5a5a5a"}});
-        t.font = kSans;
+                       {{"window", "#a8a8a8"}, {"chrome", "#8e8e8e"}, {"base", "#d0d0d0"}, {"alt", "#c4c4c4"}, {"menu", "#c0c0c0"}, {"button", "#c6c6c6"}, {"hover", "#d6d6d6"},
+                        {"hi", "#8fb0d9"}, {"hitext", "#000000"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#333333"}, {"disabled", "#707070"}, {"border", "#4c4c4c"},
+                        {"handle", "#bcbcbc"}, {"section", "#8a8a8a"}, {"sectiontext", "#000000"}, {"light", "#e4e4e4"}, {"shadow", "#5c5c5c"},
+                        {"field", "#d2d2d2"}, {"fieldtext", "#000000"}});
+        t.font = QStringList{"Tahoma", "Verdana", "DejaVu Sans", "Segoe UI", "Arial"};
         t.point_size = 8;
-        t.fill = "flat";
-        t.bevel = "single";
-        t.radius = 0;
-        t.tabs = "boxed";
+        t.menu_bold = false;
+        t.fill = "gradient";
+        t.bevel = "none";
+        t.radius = 4;
+        t.border = 1;
+        t.tabs = "rounded";
         t.arrows = "triangle";
         t.scrollbar = "standard";
         t.padding = 2;
@@ -466,6 +471,22 @@ QList<Theme> builtins() {
         t.c["section"] = QColor("#c8efe4");
         t.c["sectiontext"] = QColor("#0b5a50");
         l << t;
+    }
+    // Buttons, panel edges and title bars: each theme its own, so no two built-ins draw the same.
+    static const QHash<QString, std::array<const char*, 3>> shape_of{
+        {"obsidian", {"outline", "line", "underline"}},  {"carbon", {"pill", "rounded", "accent"}},      {"midnight", {"glossy", "groove", "tab"}},
+        {"shaq", {"chunky", "thick", "inverse"}},        {"martino", {"soft", "line", "gradient"}},      {"dracula", {"pill", "rounded", "tab"}},
+        {"solarized-dark", {"auto", "bevel", "accent"}}, {"graphite", {"soft", "shadow", "gradient"}},   {"nord", {"underline", "none", "underline"}},
+        {"slate", {"glossy", "shadow", "inverse"}},      {"pewter", {"auto", "bevel", "gradient"}},      {"studio96", {"auto", "groove", "auto"}},
+        {"workstation", {"auto", "bevel", "auto"}},      {"poweranimator", {"auto", "groove", "gradient"}}, {"alias", {"auto", "line", "inverse"}},
+        {"classic98", {"auto", "bevel", "auto"}},        {"ash", {"outline", "rounded", "accent"}},      {"solarized-light", {"inset", "line", "tab"}},
+        {"paper", {"chunky", "shadow", "underline"}},    {"lilac", {"pill", "rounded", "gradient"}}};
+    for (Theme& t : l) {
+        const auto it = shape_of.find(t.id);
+        if (it == shape_of.end()) continue;
+        t.buttons = it->at(0);
+        t.frames = it->at(1);
+        t.titles = it->at(2);
     }
     return l;
 }
@@ -958,6 +979,116 @@ QString skin(const Theme& t, const QString& a) {
     return s;
 }
 
+// Buttons, panel edges and title bars, drawn over what skin() gives, so themes that share a fill and bevel still
+// look apart.
+QString shapes(const Theme& t) {
+    QString s;
+    const auto& c = t.c;
+    const QString r = px(std::max(t.radius, 2)), r2 = px(std::max(0, t.radius - 1)), pad = px(t.padding);
+    auto g2 = [](const QColor& a, const QColor& b) { return QString("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 %1, stop:1 %2)").arg(a.name(), b.name()); };
+    auto gloss = [](const QColor& base) {
+        return QString("qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 %1, stop:0.48 %2, stop:0.52 %3, stop:1 %4)")
+            .arg(base.lighter(135).name(), base.lighter(112).name(), base.name(), base.darker(108).name());
+    };
+    const QString push = "QPushButton", tool = "QToolButton";
+    const QString edge_dark = c["border"].name(), mid = c["shadow"].name();
+    if (t.buttons == "soft") {
+        s += push + " { background: " + g2(c["button"].lighter(116), c["button"].darker(112)) + "; border: 1px solid " + edge_dark + "; border-radius: " + r + "; padding: " + pad + " 12px; color: @text; border-image: none; }\n";
+        s += push + ":hover { background: " + g2(c["hover"].lighter(118), c["hover"].darker(108)) + "; }\n";
+        s += push + ":pressed, " + push + ":checked { background: " + g2(c["button"].darker(122), c["button"].darker(104)) + "; border-color: " + mid + "; }\n";
+        s += tool + " { border: 1px solid transparent; border-radius: " + r + "; background: transparent; border-image: none; padding: 2px; }\n";
+        s += tool + ":hover { background: " + g2(c["hover"].lighter(118), c["hover"].darker(108)) + "; border-color: " + edge_dark + "; }\n";
+        s += tool + ":checked, " + tool + ":pressed { background: " + g2(c["button"].darker(125), c["button"].darker(106)) + "; border-color: " + edge_dark + "; color: @text; }\n";
+    } else if (t.buttons == "glossy") {
+        s += push + " { background: " + gloss(c["button"]) + "; border: 1px solid " + edge_dark + "; border-radius: " + r + "; padding: " + pad + " 12px; color: @text; border-image: none; }\n";
+        s += push + ":hover { background: " + gloss(c["hover"]) + "; }\n";
+        s += push + ":pressed, " + push + ":checked { background: " + gloss(c["hi"]) + "; color: @hitext; border-color: " + c["hi"].darker(140).name() + "; }\n";
+        s += tool + " { border: 1px solid transparent; border-radius: " + r + "; background: transparent; border-image: none; padding: 2px; }\n";
+        s += tool + ":hover { background: " + gloss(c["hover"]) + "; border-color: " + edge_dark + "; }\n";
+        s += tool + ":checked, " + tool + ":pressed { background: " + gloss(c["hi"]) + "; border-color: " + c["hi"].darker(140).name() + "; color: @hitext; }\n";
+    } else if (t.buttons == "outline") {
+        s += push + " { background: transparent; border: " + px(std::max(1, t.border)) + " solid @dim; border-radius: " + r + "; padding: " + pad + " 12px; color: @text; border-image: none; }\n";
+        s += push + ":hover { border-color: @hi; color: @bright; }\n";
+        s += push + ":pressed, " + push + ":checked { background: transparent; border-color: @hi; color: @hi; }\n";
+        s += tool + " { border: 1px solid transparent; border-radius: " + r + "; background: transparent; border-image: none; padding: 2px; }\n";
+        s += tool + ":hover { border-color: @dim; background: transparent; }\n";
+        s += tool + ":checked, " + tool + ":pressed { border-color: @hi; background: transparent; color: @hi; }\n";
+    } else if (t.buttons == "inset") {
+        s += push + " { background: @base; border: 1px solid @border; border-top: 2px solid @shadow; border-radius: " + r2 + "; padding: " + pad + " 12px; color: @text; border-image: none; }\n";
+        s += push + ":hover { background: @alt; }\n";
+        s += push + ":pressed, " + push + ":checked { background: @hi; color: @hitext; border-top-color: " + c["hi"].darker(150).name() + "; }\n";
+        s += tool + " { border: 1px solid transparent; border-radius: " + r2 + "; background: transparent; border-image: none; padding: 2px; }\n";
+        s += tool + ":hover { background: @base; border-color: @border; }\n";
+        s += tool + ":checked, " + tool + ":pressed { background: @base; border: 1px solid @border; border-top: 2px solid @shadow; color: @hi; }\n";
+    } else if (t.buttons == "chunky") {
+        s += push + " { background: @button; border: 2px solid @bright; border-bottom-width: 4px; border-radius: " + r2 + "; padding: " + pad + " 12px; color: @bright; font-weight: bold; border-image: none; }\n";
+        s += push + ":hover { background: @hover; }\n";
+        s += push + ":pressed, " + push + ":checked { background: @hi; color: @hitext; border-bottom-width: 2px; margin-top: 2px; }\n";
+        s += tool + " { border: 2px solid transparent; border-radius: " + r2 + "; background: transparent; border-image: none; padding: 1px; }\n";
+        s += tool + ":hover { border-color: @bright; background: @hover; }\n";
+        s += tool + ":checked, " + tool + ":pressed { background: @hi; border-color: @bright; color: @hitext; }\n";
+    } else if (t.buttons == "underline") {
+        s += push + " { background: transparent; border: none; border-bottom: 2px solid @handle; border-radius: 0; padding: " + pad + " 10px; color: @text; border-image: none; }\n";
+        s += push + ":hover { border-bottom-color: @hi; color: @bright; }\n";
+        s += push + ":pressed, " + push + ":checked { border-bottom: 3px solid @hi; color: @hi; background: transparent; }\n";
+        s += tool + " { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; border-image: none; padding: 2px; }\n";
+        s += tool + ":hover { border-bottom-color: @dim; background: transparent; }\n";
+        s += tool + ":checked, " + tool + ":pressed { border-bottom-color: @hi; background: transparent; }\n";
+    } else if (t.buttons == "pill") {
+        s += push + " { background: @button; border: none; border-radius: 12px; padding: " + pad + " 16px; color: @text; border-image: none; }\n";
+        s += push + ":hover { background: @hover; }\n";
+        s += push + ":pressed, " + push + ":checked { background: @hi; color: @hitext; }\n";
+        s += tool + " { border: none; border-radius: 11px; background: transparent; border-image: none; padding: 3px; }\n";
+        s += tool + ":hover { background: @hover; }\n";
+        s += tool + ":checked, " + tool + ":pressed { background: @hi; color: @hitext; }\n";
+    }
+    if (t.buttons != "auto") {
+        // The Attribute Editor's and tool settings' section bars stay bars, and the feedback button its own colour.
+        s += "QPushButton#feelButton { border-image: none; }\n";
+    }
+
+    // Edges round panels, and the gaps between them.
+    const QString content = "QDockWidget > QWidget";
+    if (t.frames == "line") {
+        s += content + " { border: 1px solid @border; }\n";
+        s += "QMainWindow::separator { background: @window; width: 3px; height: 3px; }\n";
+    } else if (t.frames == "groove") {
+        s += content + " { border: 2px groove @light; }\n";
+        s += "QMainWindow::separator { background: @window; width: 4px; height: 4px; }\n";
+    } else if (t.frames == "bevel") {
+        s += content + " { border: 2px solid; border-color: @light @shadow @shadow @light; }\n";
+        s += "QMainWindow::separator { background: @chrome; width: 5px; height: 5px; }\n";
+    } else if (t.frames == "thick") {
+        s += content + " { border: 3px solid @section; }\n";
+        s += "QMainWindow::separator { background: @base; width: 4px; height: 4px; }\n";
+    } else if (t.frames == "rounded") {
+        s += content + " { border: 1px solid @border; border-radius: 8px; background: @window; }\n";
+        s += "QMainWindow::separator { background: @chrome; width: 7px; height: 7px; }\n";
+    } else if (t.frames == "shadow") {
+        s += content + " { border: 1px solid @border; border-right: 3px solid @shadow; border-bottom: 3px solid @shadow; }\n";
+        s += "QMainWindow::separator { background: @chrome; width: 6px; height: 6px; }\n";
+    }
+    if (t.frames != "none") s += "QMainWindow::separator:hover { background: @hi; }\n";
+
+    // Panel title bars.
+    const QString title = "QDockWidget::title";
+    if (t.titles == "gradient") {
+        s += title + " { background: " + g2(c["chrome"].lighter(125), c["chrome"].darker(115)) + "; border: 1px solid @border; border-image: none; padding: 3px 6px; }\n";
+        s += "QDockWidget { font-weight: bold; }\n";
+    } else if (t.titles == "underline") {
+        s += title + " { background: transparent; border: none; border-bottom: 2px solid @hi; border-image: none; padding: 3px 4px; }\n";
+    } else if (t.titles == "accent") {
+        s += title + " { background: @chrome; border: none; border-left: 4px solid @hi; border-image: none; padding: 3px 8px; }\n";
+    } else if (t.titles == "inverse") {
+        s += title + " { background: @bright; border: none; border-image: none; padding: 3px 8px; }\n";
+        s += "QDockWidget { color: @window; font-weight: bold; }\n";
+    } else if (t.titles == "tab") {
+        s += title + " { background: @section; border: 1px solid @border; border-bottom: none; border-top-left-radius: 7px; border-top-right-radius: 7px; border-image: none; padding: 3px 10px; }\n";
+        s += "QDockWidget { color: @sectiontext; }\n";
+    }
+    return s;
+}
+
 QString fill_tokens(QString qss, const Theme& t) {
     // Longest names first, so @hi doesn't eat @hitext's or @hover's start.
     QStringList keys = t.c.keys();
@@ -1004,7 +1135,7 @@ void apply(QApplication& app, const Theme& t) {
     QFile qss(":/style.qss");
     const QString base = qss.open(QIODevice::ReadOnly) ? QString::fromUtf8(qss.readAll()) : QString();
     const QString assets = write_assets(t);
-    app.setStyleSheet(fill_tokens(base + "\n" + skin(t, assets), t));
+    app.setStyleSheet(fill_tokens(base + "\n" + skin(t, assets) + shapes(t), t));
     for (QWidget* w : QApplication::allWidgets()) w->update();
 }
 
@@ -1036,6 +1167,9 @@ QJsonObject Theme::to_json() const {
     o["arrows"] = arrows;
     o["scrollbar"] = scrollbar;
     o["padding"] = padding;
+    o["buttons"] = buttons;
+    o["frames"] = frames;
+    o["titles"] = titles;
     return o;
 }
 
@@ -1063,6 +1197,9 @@ Theme Theme::from_json(const QJsonObject& o) {
     t.arrows = o["arrows"].toString("chevron");
     t.scrollbar = o["scrollbar"].toString("thin");
     t.padding = o["padding"].toInt(3);
+    t.buttons = o["buttons"].toString("auto");
+    t.frames = o["frames"].toString("none");
+    t.titles = o["titles"].toString("auto");
     return t;
 }
 
@@ -1117,6 +1254,9 @@ Theme random_theme() {
     t.tabs = pick({"boxed", "underline", "pill", "rounded"});
     t.arrows = pick({"chevron", "triangle", "boxed"});
     t.scrollbar = pick({"thin", "standard", "bevel"});
+    t.buttons = pick({"auto", "soft", "glossy", "outline", "inset", "chunky", "underline", "pill"});
+    t.frames = pick({"none", "line", "groove", "bevel", "thick", "rounded", "shadow"});
+    t.titles = pick({"auto", "gradient", "underline", "accent", "inverse", "tab"});
     t.builtin = false;
     return t;
 }

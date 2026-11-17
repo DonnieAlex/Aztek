@@ -322,6 +322,12 @@ private:
         choice(f, "Tabs:", {{"boxed", "Boxed"}, {"underline", "Underlined"}, {"pill", "Pills"}, {"rounded", "Rounded tops"}}, &Theme::tabs);
         choice(f, "Arrows:", {{"chevron", "Chevron"}, {"triangle", "Triangle"}, {"boxed", "Triangle in a button"}}, &Theme::arrows);
         choice(f, "Scroll bars:", {{"thin", "Thin, no arrows"}, {"standard", "With arrows"}, {"bevel", "Bevelled"}}, &Theme::scrollbar);
+        choice(f, "Buttons:", {{"auto", "From fill and bevel"}, {"soft", "Soft (rounded gradient, dark outline)"}, {"glossy", "Glossy"}, {"outline", "Outline"},
+                               {"inset", "Inset"}, {"chunky", "Chunky"}, {"underline", "Underlined"}, {"pill", "Pills"}}, &Theme::buttons);
+        choice(f, "Panel edges:", {{"none", "None"}, {"line", "Line"}, {"groove", "Groove"}, {"bevel", "Raised"}, {"thick", "Thick"}, {"rounded", "Rounded"},
+                                   {"shadow", "Drop shadow"}}, &Theme::frames);
+        choice(f, "Panel titles:", {{"auto", "Plain bar"}, {"gradient", "Gradient"}, {"underline", "Underlined"}, {"accent", "Highlight stripe"},
+                                    {"inverse", "Inverse"}, {"tab", "Folder tab"}}, &Theme::titles);
         auto* note = new QLabel("Classic keeps the reference's own drawing and uses only the colours and text settings. Bevels "
                                 "draw buttons, fields and menus with raised and sunken edges from the bevel light and shadow "
                                 "colours.",

@@ -43,6 +43,16 @@ struct Theme {
     QString scrollbar = "thin";
     // Space inside buttons and fields, in pixels.
     int padding = 3;
+    // The drawing of push and tool buttons over what fill and bevel give: auto (theirs), soft (a rounded gradient with a
+    // dark outline, the 2000s animation package's), glossy (a lit top half), outline (an edge and no fill), inset (sunk
+    // into the panel), chunky (thick edges and a heavy bottom), underline (a bar under the label), pill (fully round).
+    QString buttons = "auto";
+    // The edges round docked panels and the gaps between them: none, line, groove, bevel (raised), thick, rounded,
+    // shadow (a drop shadow to the right and below).
+    QString frames = "none";
+    // Panel title bars: auto (the bevel's or a plain bar), gradient, underline (a highlight rule), accent (a highlight
+    // stripe at the left), inverse (text colour behind, window colour on top), tab (a folder tab).
+    QString titles = "auto";
 
     bool dark() const;
     // How light the window colour is, 0 to 1: themes are listed by it.

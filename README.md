@@ -485,7 +485,11 @@ and saved under a name; the editor's **Randomize** button does the same to the t
 
 **Theme Editor...**, at the bottom of the box, edits every part of a theme: each colour, the font and its size, italic
 or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, single like Motif, double like 1998), corner
-radius, border width, padding, the tab, arrow and scroll bar styles. Built-in themes stay as they are and saving makes a
+radius, border width, padding, the tab, arrow and scroll bar styles, the buttons (soft, glossy, outline, inset, chunky,
+underlined or pills), the edges round panels (line, groove, raised, thick, rounded or a drop shadow) and the panel title
+bars (gradient, underlined, a highlight stripe, inverse or a folder tab). Every built-in theme has its own mix of these;
+Martino follows Softimage XSI: grey panels with darker headers, light rounded buttons with a soft shade and a dark
+outline, rounded property tabs and Tahoma. Built-in themes stay as they are and saving makes a
 copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pass around.
 
 ![Theme Editor](docs/theme-editor.png)
