@@ -1,7 +1,7 @@
 <p align="center"><img src="docs/splash.png" alt="Aztek"></p>
 
 <p align="center">
-  <a href="https://github.com/srlegrand/Aztek/releases/latest"><img src="https://img.shields.io/badge/Download-Windows%20%7C%20Linux%20%7C%20macOS-white?style=for-the-badge" alt="Download"></a>
+  <a href="https://github.com/srlegrand/Aztek/releases"><img src="https://img.shields.io/badge/Download-Windows%20%7C%20Linux%20%7C%20macOS-white?style=for-the-badge" alt="Download"></a>
   <a href="https://github.com/srlegrand/Aztek/fork"><img src="https://img.shields.io/badge/Fork%20it%20on%20GitHub-white?style=for-the-badge&logo=github&logoColor=black" alt="Fork it on GitHub"></a>
   <a href="#copy-it-anywhere"><img src="https://img.shields.io/badge/Copy%20it%20anywhere-white?style=for-the-badge" alt="Copy it anywhere"></a>
   <a href="#fix-it-yourself"><img src="https://img.shields.io/badge/Fix%20it%20yourself-white?style=for-the-badge" alt="Fix it yourself"></a>
@@ -245,7 +245,7 @@ target and status, including known differences; [docs/COMMANDS.md](docs/COMMANDS
 
 Website: [srlegrand.github.io/Aztek](https://srlegrand.github.io/Aztek/). Licence: [MIT-0](LICENSE).
 
-**Download** from the [latest release](https://github.com/srlegrand/Aztek/releases/latest): Windows installer or zip, Rocky Linux 9 and 8 `.rpm`, Ubuntu 26.04 and 24.04 `.deb`, an AppImage for any other Linux, a Flatpak, Linux `.tar.gz`, and an early macOS build for Apple silicon. Install steps are under [Install](#install).
+**Download** from the [releases page](https://github.com/srlegrand/Aztek/releases): Windows installer or zip, Rocky Linux 9 and 8 `.rpm`, Ubuntu 26.04 and 24.04 `.deb`, an AppImage for any other Linux, a Flatpak, Linux `.tar.gz`, and an early macOS build for Apple silicon. Install steps are under [Install](#install).
 
 | Modelling history | A flag in a breeze | A tower knocked down |
 | --- | --- | --- |
@@ -525,7 +525,7 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 
 ## Install
 
-Packages are on the [releases page](https://github.com/srlegrand/Aztek/releases): each build of the main branch is a release of its own, numbered 2.N where N counts the changes so far. A build from source of the same commit shows the same number in Help > About.
+Packages are on the [releases page](https://github.com/srlegrand/Aztek/releases): each build of the main branch is a release of its own, numbered 2.N where N counts the changes so far. A build from source of the same commit shows the same number in Help > About. Each package goes out on its own: one whose build or check failed is left out of that release and the rest are published, and the website links every download to the newest release that has it.
 
 **Updates.** On its first start Aztek asks whether to check for new versions when it starts; the answer can be changed in
 Preferences > Interface, and Help > Check for Updates works either way. The check asks GitHub for the latest release and
