@@ -49,7 +49,7 @@ const char* kSite = "https://srlegrand.github.io/Aztek/";
 const char* kAnnouncements = "https://srlegrand.github.io/Aztek/announcements.json";
 const char* kAnnouncementsPage = "https://github.com/srlegrand/Aztek/discussions/categories/announcements";
 const char* kReleases = "https://github.com/srlegrand/Aztek/releases";
-const char* kReleasesApi = "https://api.github.com/repos/srlegrand/Aztek/releases?per_page=40";
+const char* kCommitsApi = "https://api.github.com/repos/srlegrand/Aztek/commits?sha=main&per_page=100";
 
 // N of "2.N (commit)" or "2.N.0".
 int build_number() {
@@ -344,40 +344,48 @@ void MainWindow::show_welcome(bool at_startup) {
     auto load_news = [d, notes, ann, news_title] {
         notes->setPlainText("Asking GitHub...");
         ann->clear();
-        // Every release of the newest one's day, newest first: there are often several a day.
-        // AZTEK_RELEASES_URL stands in for GitHub's list, as AZTEK_UPDATE_URL does for the update check.
-        fetch(d, qEnvironmentVariable("AZTEK_RELEASES_URL", kReleasesApi), [notes, news_title](const QJsonDocument& doc) {
+        // The changes themselves: every commit of the newest one's day, newest first, in the words they were made with.
+        // There are often several releases a day, each built from the commits before it. AZTEK_COMMITS_URL stands in
+        // for GitHub's list, as AZTEK_UPDATE_URL does for the update check.
+        fetch(d, qEnvironmentVariable("AZTEK_COMMITS_URL", kCommitsApi), [notes, news_title](const QJsonDocument& doc) {
             if (!doc.isArray()) {
-                notes->setPlainText("The release notes couldn't be fetched: " + doc.object()["error"].toString("no answer"));
+                notes->setPlainText("The changes couldn't be fetched: " + doc.object()["error"].toString("no answer"));
                 return;
             }
-            QList<QJsonObject> list;
-            for (const QJsonValue& v : doc.array())
-                if (!v.toObject()["draft"].toBool()) list << v.toObject();
-            std::sort(list.begin(), list.end(), [](const QJsonObject& a, const QJsonObject& b) { return a["published_at"].toString() > b["published_at"].toString(); });
+            const QJsonArray list = doc.array();
             if (list.isEmpty()) {
-                notes->setPlainText("No releases yet.");
+                notes->setPlainText("No changes yet.");
                 return;
             }
-            auto when = [](const QJsonObject& r) { return QDateTime::fromString(r["published_at"].toString(), Qt::ISODate).toLocalTime(); };
-            const QDate day = when(list.first()).date();
+            auto when = [](const QJsonObject& c) {
+                const QJsonObject commit = c["commit"].toObject();
+                const QString at = commit["committer"].toObject()["date"].toString(commit["author"].toObject()["date"].toString());
+                return QDateTime::fromString(at, Qt::ISODate).toLocalTime();
+            };
+            const QDate day = when(list.first().toObject()).date();
             if (auto* l = news_title->findChild<QLabel*>("title"); l && day != QDate::currentDate()) l->setText("What's new on " + day.toString("dd/MM/yyyy"));
-            const QString mine = QString("v2.%1.0").arg(build_number());
+            // This copy's commit, from "2.N (commit)": those above it came after it.
+            const QRegularExpressionMatch own = QRegularExpression("\\(([0-9a-f]{7,40})\\)").match(QString(AZTEK_VERSION));
+            const QString mine = own.hasMatch() ? own.captured(1) : QString();
             QString md;
             int count = 0;
-            for (const QJsonObject& r : list) {
-                if (when(r).date() != day) break;
+            bool newer = !mine.isEmpty();
+            for (const QJsonValue& v : list) {
+                const QJsonObject c = v.toObject();
+                if (when(c).date() != day) break;
                 ++count;
-                md += QString("### %1, %2%3\n\n").arg(r["name"].toString(r["tag_name"].toString()), when(r).toString("HH:mm"),
-                                                      r["tag_name"].toString() == mine ? "  (this version)" : "");
-                // The notes' own headings sit below each release's.
-                QString body = r["body"].toString().trimmed();
-                body.replace(QRegularExpression("(^|\\n)#{1,3} "), "\\1#### ");
-                md += body + "\n\n---\n\n";
+                const QString sha = c["sha"].toString();
+                const bool this_one = !mine.isEmpty() && sha.startsWith(mine);
+                if (this_one) newer = false;
+                // The first paragraph: what the change is, as written when it was made.
+                QString message = c["commit"].toObject()["message"].toString().trimmed().split("\n\n").first();
+                message.replace('\n', ' ');
+                md += QString("- **%1**  %2%3\n").arg(when(c).toString("HH:mm"), message.toHtmlEscaped(),
+                                                      this_one ? "  *(this version)*" : newer ? "  *(newer than this version)*" : "");
             }
-            notes->setMarkdown(QString("%1 release%2 that day.\n\n").arg(count).arg(count == 1 ? "" : "s") + md);
+            notes->setMarkdown(QString("%1 change%2 that day.\n\n").arg(count).arg(count == 1 ? "" : "s") + md);
         });
-        fetch(d, kAnnouncements, [ann](const QJsonDocument& doc) {
+        fetch(d, qEnvironmentVariable("AZTEK_ANNOUNCEMENTS_URL", kAnnouncements), [ann](const QJsonDocument& doc) {
             const QJsonArray list = doc.isArray() ? doc.array() : doc.object()["announcements"].toArray();
             if (list.isEmpty()) {
                 // Unreachable, or reached with nothing in it: which, and the way to them on GitHub either way.

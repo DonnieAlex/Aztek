@@ -1419,8 +1419,9 @@ the vertices left on a straight run (Clean Vertices on); on vertices it is polyD
 
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
-What's new lists every release of the newest one's day, newest first, each with its time and notes, the running
-version marked; on a later day the heading names the date. A bar along the foot shows parity: of the reference's
+What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
+this copy's own change and those that came after it; on a later day the heading names the date. Announcements list the
+newest ten, however old. Releases' notes on GitHub are the commits since the release before. A bar along the foot shows parity: of the reference's
 1198 commands and their 40285 flags (`tools/reference_capture/reference_commands.txt`), the share Aztek takes, each
 command and each flag counting once, a flag only when its command is there. `aztekParity -q` gives the percentage, the
 counts and the missing commands; `cargo run -p aztek_host --example parity` prints it. It measures commands and

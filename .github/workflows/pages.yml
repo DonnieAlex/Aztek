@@ -33,18 +33,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         # Never fails the deploy, but says why when the list comes out empty: a warning on the run's summary page.
+        # One query for the newest discussions with their category, kept to the Announcements category: no category
+        # id or slug lookup to go wrong. The newest ten, however old.
         run: |
           echo '[]' > site/announcements.json
-          if ! CAT=$(gh api graphql -f query='query { repository(owner: "srlegrand", name: "Aztek") { discussionCategory(slug: "announcements") { id } } }' --jq '.data.repository.discussionCategory.id' 2>err.txt); then
-            echo "::warning title=Announcements::The category query failed: $(tr '\n' ' ' < err.txt)"
-          elif [ -z "$CAT" ] || [ "$CAT" = "null" ]; then
-            echo "::warning title=Announcements::No discussion category with the slug announcements"
-          elif ! gh api graphql -f query='query($c: ID!) { repository(owner: "srlegrand", name: "Aztek") { discussions(first: 10, categoryId: $c, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }' -f c="$CAT" \
-              --jq '[.data.repository.discussions.nodes[] | {title, url, date: .createdAt}]' > list.json 2>err.txt; then
-            echo "::warning title=Announcements::The discussions query failed: $(tr '\n' ' ' < err.txt)"
-          else
+          if gh api graphql -f query='query { repository(owner: "srlegrand", name: "Aztek") { discussions(first: 50, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt category { name slug } } } } }' \
+              --jq '[.data.repository.discussions.nodes[] | select(.category.slug == "announcements" or (.category.name | ascii_downcase) == "announcements") | {title, url, date: .createdAt}][:10]' > list.json 2>err.txt; then
             cp list.json site/announcements.json
-            [ "$(cat list.json)" = "[]" ] && echo "::warning title=Announcements::The category has no discussions"
+            [ "$(tr -d ' \n' < list.json)" = "[]" ] && echo "::warning title=Announcements::No discussion in the Announcements category among the newest 50"
+          else
+            echo "::warning title=Announcements::The discussions query failed: $(tr '\n' ' ' < err.txt)"
+            cat err.txt
           fi
           cat site/announcements.json
       - run: sh site/build.sh _site

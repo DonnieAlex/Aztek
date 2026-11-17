@@ -665,6 +665,12 @@ jobs:
         with:
           merge-multiple: true
 
+      # The history, for the notes: the commits since the last release.
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 0
+
       # Each package on its own: what built goes out, and a Linux package only once its own install-and-start check
       # left its mark. No other platform's failure keeps anything back.
       - name: Keep what was checked
@@ -693,15 +699,22 @@ jobs:
           files=(aztek-* aztek_*)
           printf '%s\n' "${files[@]}" > files.txt
           echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          # The notes are the changes, in the words of their commits since the last release; what's missing from this
+          # release goes on the run's summary page, where it isn't the same line in every release.
+          prev=$(gh release list --limit 1 --exclude-drafts --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          if [ -n "$prev" ] && git -C src rev-parse -q --verify "refs/tags/$prev" >/dev/null; then
+            range="$prev..$GITHUB_SHA"
+          else
+            range="-20 $GITHUB_SHA"
+          fi
           {
             echo "notes<<EOF"
-            echo "Built $(date -u '+%d/%m/%Y %H:%M') UTC from $GITHUB_SHA."
-            if [ ${#missing[@]} -gt 0 ]; then
-              echo
-              echo "Not in this release, as its build or check failed: $(IFS=';'; echo "${missing[*]}" | sed 's/;/; /g'). The website links each of those to the newest release that has it."
-            fi
+            git -C src log --no-merges --format='- %s' $range
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Not in this release, as its build or check failed: $(IFS=';'; echo "${missing[*]}" | sed 's/;/; /g')." >> "$GITHUB_STEP_SUMMARY"
+          fi
           cat files.txt
 
       - name: Release
@@ -714,8 +727,7 @@ jobs:
           short="${VERSION%.0} (${GITHUB_SHA::7})"
           mapfile -t files < files.txt
           if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --latest --title "Aztek $short" \
-              --notes "$NOTES" --generate-notes
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --latest --title "Aztek $short" --notes "$NOTES"
           fi
           # The old rolling pre-release, from before builds had numbers of their own.
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
@@ -726,4 +738,4 @@ jobs:
           NOTES: ${{ steps.keep.outputs.notes }}
         run: |
           mapfile -t files < files.txt
-          gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Aztek $GITHUB_REF_NAME" --notes "$NOTES" --generate-notes
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Aztek $GITHUB_REF_NAME" --notes "$NOTES"
