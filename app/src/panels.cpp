@@ -26,6 +26,7 @@
 #include <QScrollBar>
 #include <QSplitter>
 #include <QTabWidget>
+#include <QDockWidget>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -128,6 +129,18 @@ void Panel::schedule() {
 
 void Panel::showEvent(QShowEvent*) {
     schedule();
+    // A dock tabbed behind another counts as shown with nothing of it on screen, so it waits; bringing its tab to the
+    // front shows nothing new, only the dock says so. Tool Settings behind the Outliner stayed empty (#105).
+    for (QWidget* up = parentWidget(); up; up = up->parentWidget())
+        if (auto* dock = qobject_cast<QDockWidget*>(up)) {
+            if (!dock->property("panelWatch").toBool()) {
+                dock->setProperty("panelWatch", true);
+                connect(dock, &QDockWidget::visibilityChanged, this, [this](bool on) {
+                    if (on) QTimer::singleShot(0, this, [this] { schedule(); });
+                });
+            }
+            break;
+        }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

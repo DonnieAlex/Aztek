@@ -1322,6 +1322,17 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Influence locks, and docked panels behind a tab (17/11/2026, #105)
+
+The Paint Skin Weights Tool's influence list has a column of lock buttons at its far left, lined up whatever the
+depth, shut and blue-grey when held, open and faint when not. A click on a lock holds or releases that influence, or
+every selected one when it is among them, leaving the selection as it is: pick two, Invert Selection, click a lock,
+and only the two take paint. Hold All and Release All are under the list (docs/issues/105-influence-locks.png).
+
+Fixed with it: a docked panel tabbed behind another (Tool Settings behind the Outliner, the Attribute Editor behind
+the Channel Box) was not brought up to date when its tab came to the front, so the tool's skin clusters and
+influences could show empty until the scene next changed.
+
 ### Deleting edges (17/11/2026, #103)
 
 Delete on edges dissolves them as the reference's does: the faces either side become one and the polyDelEdge node
