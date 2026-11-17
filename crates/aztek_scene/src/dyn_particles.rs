@@ -37,6 +37,15 @@ fn particle_ids(name: &str) -> Option<Vec<usize>> {
 }
 
 fn particle(s: &mut Session, a: &Args) -> CmdResult {
+    make_particles(s, a, "particle1")
+}
+
+/// nParticle names its particles as the reference does: nParticle1, nParticleShape1.
+fn n_particle(s: &mut Session, a: &Args) -> CmdResult {
+    make_particles(s, a, "nParticle1")
+}
+
+fn make_particles(s: &mut Session, a: &Args, default_name: &str) -> CmdResult {
     let g = &mut s.graph;
     if a.bool("query") {
         let Some(name) = a.named().into_iter().next() else { fail!("particle: name the particles") };
@@ -81,7 +90,7 @@ fn particle(s: &mut Session, a: &Args) -> CmdResult {
     }
     pts.truncate(pts.len() / 3 * 3);
     let solver = solver_for(g, a)?;
-    let name = a.string("name", "particles1");
+    let name = a.string("name", default_name);
     let (xf, shape) = make_shape(g, dy::PARTICLES, &name)?;
     if !pts.is_empty() {
         crate::deform::set_floats(g, shape, attr_plug(g, shape, "startPositions")?.attr as usize, pts)?;
@@ -213,7 +222,6 @@ fn emitter(s: &mut Session, a: &Args) -> CmdResult {
     // A mesh named or selected: emits off its surface.
     let named = a.named();
     let source = named.first().and_then(|n| g.find(n).ok().flatten()).or_else(|| g.selection().first().copied()).and_then(|id| crate::components::as_mesh(g, id));
-    let solver = solver_for(g, a)?;
     let name = a.string("name", "emitter1");
     let (xf, shape) = make_shape(g, dy::EMITTER, &name)?;
     if let Some(p) = a.vec3("position") {
@@ -228,19 +236,20 @@ fn emitter(s: &mut Session, a: &Args) -> CmdResult {
         connect(g, m, "worldMatrix", shape, "inputMatrix")?;
     }
     emitter_flags(g, shape, a)?;
-    // Feeds the particles named, or new ones.
-    let particles = if a.has("particles") {
-        particles_named(g, &a.string("particles", ""))?
-    } else {
-        let (_, p) = make_shape(g, dy::PARTICLES, "particles1")?;
-        join(g, p, solver)?;
-        p
-    };
-    connect_next(g, shape, "message", particles, "newParticles")?;
-    if let Some(sv) = solver_of(g, particles) {
-        crate::dyn_solve::invalidate(g, sv);
+    // As the reference's command, only the emitter: particles to emit into are made apart (particle, nParticle) and
+    // joined with connectDynamic -em, or named here with -particles. The Create Emitter menu does all three (#96).
+    if a.has("particles") {
+        let particles = particles_named(g, &a.string("particles", ""))?;
+        connect_next(g, shape, "message", particles, "newParticles")?;
+        if let Some(sv) = solver_of(g, particles) {
+            crate::dyn_solve::invalidate(g, sv);
+        }
     }
-    Ok(json!([g.path(xf), g.path(particles)]))
+    // An emitter on an object comes back after it, as the reference returns them.
+    Ok(match source {
+        Some(m) => json!([g.path(crate::dag::transform_of(g, m)), g.path(xf)]),
+        None => json!([g.path(xf)]),
+    })
 }
 
 fn emitter_flags(g: &mut Graph, e: NodeId, a: &Args) -> CmdResult<()> {
@@ -384,12 +393,28 @@ fn connect_dynamic(s: &mut Session, a: &Args) -> CmdResult {
         for ename in list(a, "emitters") {
             let Some(em) = resolve(g, &ename, &[dy::EMITTER]) else {
                 // Say what it is when it is something: a particle object given as an emitter is the usual slip (#96).
-                let what = g.find(&ename).ok().flatten().and_then(|id| g.node(id)).map(|n| n.ty().name.clone());
+                let found = g.find(&ename).ok().flatten();
+                let what = found.map(|id| {
+                    // A transform says what its shape is.
+                    let shape = crate::dag::shapes(g, id, false).into_iter().next();
+                    match shape.and_then(|sh| g.node(sh)) {
+                        Some(sh) if g.node(id).is_some_and(|n| n.ty().name == "transform") => format!("transform of a {} ({})", sh.ty().name, sh.name()),
+                        _ => g.node(id).map(|n| n.ty().name.clone()).unwrap_or_default(),
+                    }
+                });
+                let emitters: Vec<String> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| n.ty().name == dy::EMITTER)).map(|id| g.path(crate::dag::transform_of(g, id))).take(3).collect();
+                let hint = if emitters.is_empty() { "there are no emitters; make one with emitter".to_string() } else { format!("emitters here: {}", emitters.join(", ")) };
                 match what {
-                    Some(t) => fail!("connectDynamic: -emitters {ename} is a {t}, not an emitter"),
-                    None => fail!("connectDynamic: -emitters {ename}: no such node"),
+                    Some(t) => fail!("connectDynamic: -emitters takes an emitter; {ename} is a {t} ({hint})"),
+                    None => fail!("connectDynamic: -emitters {ename}: no such node ({hint})"),
                 }
             };
+            let arr = attr_plug(g, b, "newParticles")?;
+            let already = g.elements(&arr).iter().any(|e| g.source(e).is_some_and(|s| s.node == em));
+            if already && !delete {
+                log::warn!("connectDynamic: {ename} already emits into {name}");
+                continue;
+            }
             if delete {
                 let arr = attr_plug(g, b, "newParticles")?;
                 for e in g.elements(&arr) {
@@ -529,9 +554,9 @@ fn dyn_cache(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 pub fn register(c: &mut Commands<Session>) {
-    for name in ["particle", "nParticle"] {
+    for (name, run) in [("particle", particle as fn(&mut Session, &Args) -> CmdResult), ("nParticle", n_particle)] {
         c.register(
-            q(Cmd::new(name, "Make particles: -p x y z for each one, or a grid with -ll, -ur and -grs. -q -ct counts them; -q -at position -id 3 reads one. Returns [transform, shape].", particle))
+            q(Cmd::new(name, "Make particles: -p x y z for each one, or a grid with -ll, -ur and -grs. -q -ct counts them; -q -at position -id 3 reads one. Returns [transform, shape].", run))
                 .positional("particles (query)")
                 .flag(f("position", "p", ArgType::List, "A particle there: x y z. Repeat it.").multi(3))
                 .flag(f("lowerLeft", "ll", ArgType::Vec3, "Grid: one corner."))
@@ -545,7 +570,7 @@ pub fn register(c: &mut Commands<Session>) {
         );
     }
     c.register(
-        q(Cmd::new("emitter", "Make an emitter feeding particles: -type omni, dir, surf, curve or vol, -r rate, -spd speed. With a mesh selected it emits off its surface. Returns [emitter, particles].", emitter))
+        q(Cmd::new("emitter", "Make an emitter: -type omni, dir, surf, curve or vol, -r rate, -spd speed. With a mesh named or selected it emits off its surface. Only the emitter, as the reference makes it: connectDynamic -em (or -particles here) gives it particles to emit into. Returns [emitter], or [object, emitter] on an object.", emitter))
             .positional("a mesh to emit from")
             .flag(f("type", "typ", ArgType::String, "omni, dir, surf, curve or vol."))
             .flag(f("rate", "r", ArgType::Float, "Particles per second."))

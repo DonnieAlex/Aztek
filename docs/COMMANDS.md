@@ -6628,7 +6628,7 @@ Arguments: the effector (the selection when none)
 
 ## emitter
 
-Make an emitter feeding particles: -type omni, dir, surf, curve or vol, -r rate, -spd speed. With a mesh selected it emits off its surface. Returns [emitter, particles].
+Make an emitter: -type omni, dir, surf, curve or vol, -r rate, -spd speed. With a mesh named or selected it emits off its surface. Only the emitter, as the reference makes it: connectDynamic -em (or -particles here) gives it particles to emit into. Returns [emitter], or [object, emitter] on an object.
 
 Arguments: a mesh to emit from
 

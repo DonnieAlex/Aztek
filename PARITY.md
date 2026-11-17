@@ -1322,6 +1322,19 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### emitter, nParticle and connectDynamic as scripts expect (17/11/2026, #96)
+
+- `emitter` makes only the emitter, as the reference's: it returns `[emitter]`, or `[object, emitter]` on an object,
+  and makes no particles or solver. Particles come from `nParticle` (named nParticle1/nParticleShape1) or `particle`
+  (particle1), joined with `connectDynamic -em`, or named with `emitter -particles`. Particles > Create Emitter, Emit
+  from Object and the Dynamics shelf's Emitter (runtime commands CreateEmitter and EmitFromObject) make all three, as
+  the reference's menu items do.
+- The reference's type names find Aztek's nodes: `ls -type`, `objectType -isType` and every other type filter take
+  pointEmitter for the emitter, nParticle and particle for particles, nucleus for the solver. `nodeType` still gives
+  Aztek's own names (emitter, particles, solver): one system stands behind them (docs/DYNAMICS.md).
+- `connectDynamic -em` given something that is not an emitter says what it is (a particle object's transform names
+  its shape) and lists the scene's emitters; connecting an emitter already connected warns and adds nothing.
+
 ### Make Live button (17/11/2026, #95)
 
 The status line's Make Live button is a magnet, as the reference's, beside the snap buttons; it shows on while a

@@ -48,7 +48,9 @@ fn own_nodes_save_and_read_back_the_same() {
     run(&mut s, "collider", json!({"args": ["ball"]}));
     run(&mut s, "setAttr", json!({"args": ["cloth1.stretchResistance", 55]}));
     let em = run(&mut s, "emitter", json!({"type": "omni", "rate": 24}));
-    run(&mut s, "gravity", json!({"args": [em[1].clone()]}));
+    let parts = run(&mut s, "nParticle", json!({}));
+    run(&mut s, "connectDynamic", json!({"args": [parts[1].clone()], "emitters": [em[0].clone()]}));
+    run(&mut s, "gravity", json!({"args": [parts[1].clone()]}));
     let (text, warnings) = write_text(&mut s, "drape.ma", None);
     assert!(warnings.is_empty(), "{warnings:?}");
     assert!(text.contains("requires \"aztekDynamics\""), "a file with dynamics says so");

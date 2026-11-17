@@ -113,7 +113,11 @@ impl NodeType {
             }
             t = ty.base.as_deref();
         }
-        false
+        // The reference's name for one of these types (pointEmitter, nParticle, nucleus...) answers as it does (#96).
+        match types::alias_of(type_name) {
+            Some(real) if real != type_name => self.is_a(&real),
+            _ => false,
+        }
     }
 
     /// The children of a grouped array ("group.child" attrs), in declaration order.
@@ -291,6 +295,11 @@ pub mod types {
             return Some(t.clone());
         }
         r.aliases.get(name).and_then(|n| r.types.get(n)).cloned()
+    }
+
+    /// The type an alias stands for. None while the registry is being changed.
+    pub fn alias_of(name: &str) -> Option<String> {
+        registry().try_read().ok()?.aliases.get(name).cloned()
     }
 
     /// Makes `find(old_name)` return the type named `ty`, for scene files that store a type under an older name.

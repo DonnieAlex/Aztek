@@ -194,6 +194,14 @@ void MainWindow::build_runtime() {
     r("RenderSequenceOptions", "Rendering", "Render a sequence of frames", [this] { render_sequence_dialog(this); });
     r("TextureViewWindow", "Windows", "UV Editor", [this] { show_uv_editor(); });
     r("UVSetEditor", "Windows", "UV Set Editor", [this] { show_named_window("uvSetEditor"); });
+    // As the reference's menu items: the emitter, particles for it to emit into, and the two connected (#96). The
+    // emitter command alone makes only the emitter.
+    m("CreateEmitter", "Dynamics", "Create Emitter",
+      "{ string $e[] = `emitter -type omni`; string $p[] = `nParticle`; connectDynamic -em $e[0] $p[0]; select -r $e[0]; }");
+    m("EmitFromObject", "Dynamics", "Emit from Object",
+      "{ string $s[] = `ls -sl -tr`; if (size($s) == 0) error \"Emit from Object: select the objects to emit from\"; "
+      "string $p[] = `nParticle`; string $made[]; for ($o in $s) { string $e[] = `emitter -type surface $o`; "
+      "string $one = $e[size($e) - 1]; connectDynamic -em $one $p[0]; $made[size($made)] = $one; } select -r $made; }");
     // The reference's names for windows Aztek has, so scripts and hotkeys that open them work (#88).
     r("ExpressionEditor", "Windows", "Expression Editor", [this] { show_named_window("expressionEditor"); });
     r("ComponentEditor", "Windows", "Component Editor", [this] { show_named_window("componentEditor"); });

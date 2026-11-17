@@ -35,8 +35,8 @@ QList<QMenu*> MainWindow::dynamics_menus() {
 
     auto* particles = new QMenu("Particles", this);
     cmd(particles, "Create Particles", "particle", QJsonObject{{"position", QJsonArray{QJsonArray{0, 0, 0}}}}, QString(), true);
-    cmd(particles, "Create Emitter", "emitter", QJsonObject{{"type", "omni"}}, QString(), true);
-    cmd(particles, "Emit from Object", "emitter", QJsonObject{{"type", "surf"}}, QString(), true);
+    particles->addAction("Create Emitter", [] { mel("CreateEmitter;"); });
+    particles->addAction("Emit from Object", [] { mel("EmitFromObject;"); });
     out << particles;
 
     // nHair: curves on follicles of a hair system (no nucleus or collisions yet; docs/DYNAMICS.md, Hair).

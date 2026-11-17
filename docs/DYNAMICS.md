@@ -20,8 +20,10 @@ Solver menus, and the Dynamics shelf the common items.
   (how strongly each point follows the incoming mesh), `massPerVertex` and `pinPerVertex` (1 holds a point to the
   incoming mesh).
 - **Colliders.** Select a mesh, Cloth > Create Collider. It may be animated or skinned.
-- **Particles.** Particles > Create Emitter makes an emitter and the particles it feeds; with a mesh selected,
-  Emit from Object emits off its surface. Particles draw as points, spheres or blobs (`particleRenderType`).
+- **Particles.** Particles > Create Emitter makes an emitter, particles and connects them; with meshes selected,
+  Emit from Object does the same off their surfaces. The `emitter` command, as the reference's, makes only the
+  emitter (an emitter on an object is returned after it); `nParticle` or `particle` makes the particles and
+  `connectDynamic -em` joins them, or `emitter -particles` names them. Particles draw as points, spheres or blobs (`particleRenderType`).
 - **Rigid bodies.** Select objects, Rigid Bodies > Create Active (moved by the solver) or Passive (only pushes).
 - **Fields.** Select bodies and choose a field: air, drag, gravity, newton, radial, turbulence, uniform, vortex,
   volume axis. Fields > Affect Selected Objects connects a field to more bodies.
@@ -38,10 +40,10 @@ and shown again when scrubbing back. `dynInfo` reports the solver's state.
 
 | Node | Made by | What it is |
 |---|---|---|
-| `solver` (shape under `solver1`) | any body, `createSolver` | Time, gravity, wind, ground plane, substeps. Bodies connect its `message` to their `solver`. |
+| `solver` (shape under `solver1`; also answers to `nucleus`) | any body, `createSolver` | Time, gravity, wind, ground plane, substeps. Bodies connect its `message` to their `solver`. |
 | `cloth` (`cloth1`) | `createCloth` | A deformer: mesh in, simulated mesh out. |
-| `particles` (shape under `particles1`) | `particle`, `emitter` | Particles with position, velocity, age, lifespan, colour, opacity, radius. |
-| `emitter` (shape under `emitter1`) | `emitter` | Feeds particles through their `newParticles[]`. |
+| `particles` (shape under `particles1`; `ls -type` and `objectType -isType` also answer to `particle` and `nParticle`) | `particle`, `nParticle` | Particles with position, velocity, age, lifespan, colour, opacity, radius. |
+| `emitter` (shape under `emitter1`; also answers to `pointEmitter`) | `emitter` | Feeds particles through their `newParticles[]` (`connectDynamic -em`). |
 | `rigidBody` (`rigidBody1`) | `rigidBody` | Drives its object's translate and rotate; passive ones only push. |
 | `collider` (`collider1`) | `collider` | An animated mesh the others hit. |
 | `field` (shape under `gravityField1` and the like) | the field commands | Acts on bodies connected to its `message` through their `inputForce[]`. |

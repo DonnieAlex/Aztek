@@ -830,8 +830,9 @@ def _():
     mc.collider(ramp)
     fl = floor(3000)
     mc.collider(fl)
-    e = mc.emitter(type="omni", r=200, spd=150, n="fountain")
-    em, parts = e[0], e[1]
+    em = mc.emitter(type="omni", r=200, spd=150, n="fountain")[0]
+    parts = mc.nParticle()[1]
+    mc.connectDynamic(parts, em=em)
     mc.move(-250, 800, 0, em)
     for a, v in (("radius", 9), ("bounce", 0.6), ("friction", 0.1), ("lifespanMode", 1), ("lifespan", 5), ("particleRenderType", 4)):
         mc.setAttr(parts + "." + a, v)
@@ -844,7 +845,8 @@ def _():
 def _():
     # Particles lifted by a uniform field and spun by a vortex into a column.
     e = mc.emitter(type="omni", r=400, spd=60, n="swirlSource")
-    parts = e[1]
+    parts = mc.nParticle()[1]
+    mc.connectDynamic(parts, em=e[0])
     mc.select(parts)
     mc.vortex(m=400, n="swirl")
     mc.select(parts)

@@ -180,3 +180,28 @@ fn combine_and_separate_keep_materials() {
     let both = shading(&mut c, &second);
     assert!(both.as_array().unwrap().contains(&json!("redSG")) && both.as_array().unwrap().contains(&json!("blueSG")), "{both}");
 }
+
+/// #96: emitter makes only the emitter; the reference's type names find these nodes; connectDynamic says what it got.
+#[test]
+fn emitter_alone_reference_type_names_and_clear_errors() {
+    let mut c = Core::new();
+    assert_eq!(mel(&mut c, "emitter -type volume -n em1;"), json!(["em1"]));
+    assert_eq!(mel(&mut c, "ls -type particles;"), json!([]));
+    assert_eq!(mel(&mut c, "ls -type nucleus;"), json!([]));
+    assert!(!mel(&mut c, "ls -type pointEmitter;").as_array().unwrap().is_empty());
+    let p = mel(&mut c, "nParticle -n np;");
+    assert_eq!(p, json!(["np", "npShape"]));
+    assert_eq!(mel(&mut c, "nParticle;"), json!(["nParticle1", "nParticleShape1"]));
+    assert_eq!(mel(&mut c, "particle;")[0], json!("particle1"));
+    assert_eq!(mel(&mut c, "ls -type nParticle;")[0], json!("npShape"));
+    assert_eq!(mel(&mut c, "ls -type particle;")[0], json!("npShape"));
+    assert_eq!(mel(&mut c, "size(`ls -type nucleus`);"), json!(1));
+    mel(&mut c, "connectDynamic -em em1 np;");
+    // Again: nothing doubled.
+    mel(&mut c, "connectDynamic -em em1 np;");
+    assert_eq!(mel(&mut c, "size(`listConnections -s 1 -d 0 npShape.newParticles`);"), json!(1));
+    let e = c.mel_checked("connectDynamic -em np np;").unwrap_err().to_string();
+    assert!(e.contains("takes an emitter") && e.contains("np is a transform of a particles") && e.contains("em1"), "{e}");
+    mel(&mut c, "polySphere -n ball;");
+    assert_eq!(mel(&mut c, "emitter -type surface ball;"), json!(["ball", "emitter1"]));
+}

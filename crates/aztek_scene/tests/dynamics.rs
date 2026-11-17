@@ -119,7 +119,9 @@ fn emitted_particles_fall_under_gravity() {
     let mut s = Session::new();
     run(&mut s, "playbackOptions", json!({"minTime": 1, "maxTime": 60}));
     let made = run(&mut s, "emitter", json!({"type": "omni", "rate": 48, "speed": 1, "name": "spout"}));
-    let particles = made[1].as_str().unwrap().to_string();
+    assert_eq!(made, json!(["spout"]), "the emitter alone");
+    let particles = run(&mut s, "nParticle", json!({}))[1].as_str().unwrap().to_string();
+    run(&mut s, "connectDynamic", json!({"args": [particles.clone()], "emitters": ["spout"]}));
     let solvers = s.graph.nodes().into_iter().filter(|&id| s.graph.node(id).unwrap().ty().name == "solver").count();
     assert_eq!(solvers, 1);
     let g = run(&mut s, "gravity", json!({"args": [particles.clone()], "magnitude": 9.8}));

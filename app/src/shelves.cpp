@@ -232,7 +232,7 @@ QJsonArray ShelfBar::defaults() {
         item("Unfold", "uvUnfold", "u3dUnfold;"), item("Layout", "uvLayout", "u3dLayout;"), item("Cut", "uvCut", "polyMapCut;"), item("Sew", "uvSew", "polyMapSew;")};
     QJsonArray dyn{
         item("Cloth", "cloth", "createCloth;"), item("Collider", "collider", "collider;"), item("Particles", "particles", "particle -p 0 0 0;"),
-        item("Emitter", "emitter", "emitter -type omni;"), item("Active Rigid Body", "rigid", "rigidBody -active;"), item("Passive Rigid Body", "rigidPassive", "rigidBody -passive;"),
+        item("Emitter", "emitter", "CreateEmitter;"), item("Active Rigid Body", "rigid", "rigidBody -active;"), item("Passive Rigid Body", "rigidPassive", "rigidBody -passive;"),
         item("Gravity", "gravity", "gravity;"), item("Turbulence", "turbulence", "turbulence;"), item("Air", "air", "air;"),
         item("Create Cache", "cache", "dynCache -create;"), item("Interactive Playback", "playDyn", "InteractivePlayback;")};
     QJsonArray general{
