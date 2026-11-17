@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Translators' imports return what they made (17/11/2026, #91)
+
+`file -import -returnNewNodes` (and -open) with an OBJ, FBX, USD, Alembic or plug-in translator file returns the new
+nodes, as a .ma import does, where it returned the file's name. An OBJ is named by its `o`, else its first `g` that is
+not an exporter's `default`, else polySurface1 as the reference's.
+
 ### Layout lock (16/11/2026, documented 17/11/2026, #90)
 
 A padlock right of the Themes box, where the reference has its workspace lock: locked, docked panels can't be

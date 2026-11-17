@@ -113,3 +113,21 @@ fn delete_passes_over_referenced_nodes_and_startup_cameras() {
     assert!(c.mel_checked("delete rd:crate;").is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #91: an OBJ's exporter "default" group doesn't name the mesh; `file -i -rnn` returns the new nodes.
+#[test]
+fn obj_import_names_and_returns_new_nodes() {
+    let mut c = Core::new();
+    let dir = std::env::temp_dir().join("aztek_issue_91");
+    std::fs::create_dir_all(&dir).unwrap();
+    let a = dir.join("a.obj");
+    std::fs::write(&a, "g default\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n").unwrap();
+    let b = dir.join("b.obj");
+    std::fs::write(&b, "o Thing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl default\nf 1 2 3\n").unwrap();
+    mel(&mut c, "loadPlugin objExport;");
+    let n = mel(&mut c, &format!("file -i -rnn \"{}\";", a.display()));
+    assert!(n.as_array().unwrap().iter().any(|x| x.as_str().unwrap().ends_with("polySurface1")), "{n}");
+    let n = mel(&mut c, &format!("file -i -rnn \"{}\";", b.display()));
+    assert!(n.as_array().unwrap().iter().any(|x| x == "Thing"), "{n}");
+    assert_eq!(mel(&mut c, "ls -type transform \"default*\";"), json!([]));
+}

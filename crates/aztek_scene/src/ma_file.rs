@@ -5901,20 +5901,19 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
         }
         return Ok(file_query(s, a, path_arg.as_deref()));
     }
-    if let Some(r) = plugin_translator_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
-        return r;
-    }
-    if let Some(r) = fbx_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
-        return r;
-    }
-    if let Some(r) = usd_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
-        return r;
-    }
-    if let Some(r) = obj_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
-        return r;
-    }
-    if let Some(r) = abc_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
-        return r;
+    // -returnNewNodes on a translator's import: the nodes it made, as the reference returns them, not the file.
+    let before: Option<std::collections::HashSet<_>> = (a.bool("returnNewNodes") && (a.bool("import") || a.bool("open"))).then(|| s.graph.nodes().into_iter().collect());
+    let routes: [fn(&mut Session, &Args, Option<&str>, Option<&str>) -> Option<CmdResult>; 5] = [plugin_translator_file, fbx_file, usd_file, obj_file, abc_file];
+    for route in routes {
+        if let Some(r) = route(s, a, path_arg.as_deref(), type_flag.as_deref()) {
+            return match (r, &before) {
+                (Ok(_), Some(old)) => {
+                    let g = &s.graph;
+                    Ok(json!(g.nodes().into_iter().filter(|id| !old.contains(id)).map(|id| g.path(id)).collect::<Vec<_>>()))
+                }
+                (r, _) => r,
+            };
+        }
     }
     if let Some(r) = crate::references::file_flags(s, a) {
         return r;
