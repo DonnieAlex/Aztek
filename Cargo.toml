@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["crates/vendor"]
 members = ["crates/aztek_dg", "crates/aztek_api", "crates/aztek_core", "crates/aztek_undo", "crates/aztek_ops", "crates/aztek_geo", "crates/aztek_scene", "crates/aztek_uv", "crates/aztek_host", "crates/aztek_usd", "crates/aztek_abc", "crates/aztek_render", "crates/aztek_dyn"]
 
 [workspace.package]
@@ -27,3 +28,10 @@ debug = false
 [profile.dev.package.aztek_dyn]
 opt-level = 3
 debug-assertions = false
+
+# openusd 0.8.0, the newest on crates.io, asks for zip 8, which has RUSTSEC-2026-0367, 0368, 0369, 0429, 0545, 0546, 0547 and 0548.
+# crates/vendor/openusd is that release unchanged but for zip 9.0.5 and the dropped examples and tests; its main branch has made the same move.
+# ogawa-rs 0.4.0 asks for memmap2 0.5 (RUSTSEC-2026-0186); its master, on 0.9, has no release yet. Drop both once they publish one.
+[patch.crates-io]
+openusd = { path = "crates/vendor/openusd" }
+ogawa-rs = { git = "https://github.com/Traverse-Research/ogawa-rs", rev = "f1a7a3963431d4696868fa53062ddfb27ef2cad8" }

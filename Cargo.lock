@@ -170,7 +170,7 @@ dependencies = [
  "sha2",
  "stacker",
  "ureq",
- "zip 9.4.1",
+ "zip",
 ]
 
 [[package]]
@@ -1405,9 +1405,9 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "memmap2"
-version = "0.5.10"
+version = "0.9.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
+checksum = "6b0ca1155a9ecc25aa12e8313a119f32edf0255fea2f44839c4ac0a12b2ac157"
 dependencies = [
  "libc",
 ]
@@ -1664,8 +1664,7 @@ dependencies = [
 [[package]]
 name = "ogawa-rs"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fdf2409d65c59876941afbd39f931fdf1b1c74edc21f72f1a6b9b7052351133"
+source = "git+https://github.com/Traverse-Research/ogawa-rs?rev=f1a7a3963431d4696868fa53062ddfb27ef2cad8#f1a7a3963431d4696868fa53062ddfb27ef2cad8"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -1689,8 +1688,6 @@ checksum = "d05e27ee213611ffe7d6348b942e8f942b37114c00cc03cec254295a4a17852e"
 [[package]]
 name = "openusd"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54f38d869c64c96492e1a482fb621eda620d120d91dbe93072112ee315a8923c"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -1703,7 +1700,7 @@ dependencies = [
  "strum",
  "thiserror 2.0.21",
  "windows-sys 0.61.2",
- "zip 8.6.0",
+ "zip",
 ]
 
 [[package]]
@@ -2729,12 +2726,6 @@ checksum = "86a801b3cea342a06d468c8710662aa29e5e05e4f5c0d62f00bbb7f2ad7941c2"
 
 [[package]]
 name = "typed-path"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ec2755506471f54baf5e4bb5499d8e510cc1caf271270e778a736bd2d7336c"
-
-[[package]]
-name = "typed-path"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
@@ -2945,7 +2936,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3328,20 +3319,6 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
-dependencies = [
- "crc32fast",
- "flate2",
- "indexmap",
- "memchr",
- "typed-path 0.12.4",
- "zopfli",
-]
-
-[[package]]
-name = "zip"
 version = "9.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23f17fbc870bfac28c6228aed7d6e6df352e26bf7015c4313727e16a7a01ce5e"
@@ -3353,8 +3330,9 @@ dependencies = [
  "libc",
  "memchr",
  "nix",
- "typed-path 0.13.0",
+ "typed-path",
  "windows-sys 0.61.2",
+ "zopfli",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 # Third-party material
 
-Aztek is MIT-0. Four pieces of it come from elsewhere under the MIT licence, which asks for its notice to go with copies.
+Aztek is MIT-0. Five pieces of it come from elsewhere under the MIT licence, which asks for its notice to go with copies.
 
 ## Binary scene type ids
 
@@ -36,6 +36,15 @@ unmodified but for its `CMakeLists.txt`, which is left out, with the repository'
 with Aztek's plug-in kit and ships with the program.
 
 Copyright (c) 2015 Chad Vernon. Licence: MIT, full text in `plugins/cvwrap/LICENSE`.
+
+## openusd
+
+`crates/vendor/openusd/` is the `openusd` crate, version 0.8.0 as published on crates.io (https://github.com/mxpv/openusd),
+with its examples and tests left out and its `zip` dependency moved from 8 to 9, which takes a few small changes in
+`src/usdz/reader.rs` and `src/usd_utils/package.rs`. It is built into the program in place of the crates.io copy until
+a release past 0.8.0 makes the same move.
+
+Copyright (c) 2024 Maksym Pavlenko. Licence: MIT, full text in `crates/vendor/openusd/LICENSE`.
 
 ## Test files
 
