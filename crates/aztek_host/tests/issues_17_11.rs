@@ -357,3 +357,23 @@ fn every_shelf_button_runs_and_keeps_the_selection() {
     assert!(seen > 80, "{seen} buttons read");
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
+
+/// #132: outside a procedure, code is in the global scope, so a global reads without being declared there, as in the
+/// reference; inside a procedure it still has to be declared.
+#[test]
+fn globals_read_at_the_top_level_without_a_declaration() {
+    let mut c = Core::new();
+    assert_eq!(c.mel_checked("$w = $gMainWindow;").unwrap(), json!("MayaWindow"));
+    assert_eq!(c.mel_checked("eval(\"$w2 = $gMainWindow\");").unwrap(), json!("MayaWindow"));
+    assert_eq!(c.mel_checked("$p = $gMainProgressBar;").unwrap(), json!("MainProgressBar"));
+    // A script's own global, declared once, then read and set at the top level of later runs.
+    c.mel_checked("global int $issue132 = 4;").unwrap();
+    assert_eq!(c.mel_checked("$issue132 + 1;").unwrap(), json!(5));
+    c.mel_checked("$issue132 = 9;").unwrap();
+    assert_eq!(c.mel_checked("global int $issue132; $issue132;").unwrap(), json!(9));
+    // In a procedure, undeclared is still an error, and declared reads it.
+    assert!(c.mel_checked("proc string issue132a() { return $gMainWindow; } issue132a();").is_err());
+    assert_eq!(c.mel_checked("proc string issue132b() { global string $gMainWindow; return $gMainWindow; } issue132b();").unwrap(), json!("MayaWindow"));
+    // From Python, as the reporter's start-up package does.
+    assert_eq!(c.mel_checked(r#"python("import maya.mel as mel"); python("mel.eval('$mainWindow = $gMainWindow')");"#).unwrap(), json!("MayaWindow"));
+}

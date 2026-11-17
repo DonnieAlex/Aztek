@@ -1417,6 +1417,14 @@ Delete on edges dissolves them as the reference's does: the faces either side be
 says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
 the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
 
+### Globals at the top level (17/11/2026, #132)
+
+As in the reference, code outside a procedure (typed, `eval`, `mel.eval` from Python, a sourced file's top level) is
+in the global scope: a global variable reads and sets there without a `global` declaration, so
+`mel.eval("$w = $gMainWindow")` gives `MayaWindow`. Inside a procedure a global still has to be declared. Since
+13/11/2026 an undeclared read had been an error at the top level too. The application's globals are `$gMainWindow` and
+`$gMainProgressBar`.
+
 ### User folder at start, the welcome screen after an unclean end, announcements (17/11/2026)
 
 Start-up asks about the user folder whenever there is none to use, not only on the first start: when Aztek's own

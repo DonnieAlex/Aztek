@@ -48,6 +48,10 @@ struct Frame {
     scopes: Vec<HashMap<String, Slot>>,
     /// Whose local procedures are visible: 0 is what was typed or run directly, each sourced file has its own.
     unit: u32,
+    /// A procedure's body. Outside one (what was typed, eval, a sourced file's top level) the code is in the global
+    /// scope, as in the reference: a global variable reads without being declared there, so the scripts that do
+    /// `mel.eval("$w = $gMainWindow")` work (#132).
+    proc: bool,
 }
 
 struct ProcEntry {
@@ -92,7 +96,7 @@ impl Default for MelState {
             globals: HashMap::new(),
             global_procs: HashMap::new(),
             local_procs: HashMap::new(),
-            frames: vec![Frame { scopes: vec![HashMap::new()], unit: 0 }],
+            frames: vec![Frame { scopes: vec![HashMap::new()], unit: 0, proc: false }],
             cur: 0,
             next_unit: 1,
             calls: 0,
@@ -326,12 +330,17 @@ impl Interp<'_> {
                 None => {}
             }
         }
-        None
+        if st.frames[st.cur].proc {
+            None
+        } else {
+            st.globals.get(name)
+        }
     }
 
     fn lookup_mut(&mut self, name: &str) -> Option<&mut Value> {
         let st = &mut self.core.mel_state;
         let MelState { frames, cur, globals, .. } = st;
+        let in_proc = frames[*cur].proc;
         for s in frames[*cur].scopes.iter_mut().rev() {
             match s.get_mut(name) {
                 Some(Slot::Local(v)) => return Some(v),
@@ -339,7 +348,11 @@ impl Interp<'_> {
                 None => {}
             }
         }
-        None
+        if in_proc {
+            None
+        } else {
+            globals.get_mut(name)
+        }
     }
 
     pub fn var_type(&mut self, name: &str) -> Option<Ty> {
@@ -701,7 +714,7 @@ impl Interp<'_> {
         let r = if file.is_some() {
             let unit = self.st().next_unit;
             self.st().next_unit += 1;
-            self.st().frames.push(Frame { scopes: vec![HashMap::new()], unit });
+            self.st().frames.push(Frame { scopes: vec![HashMap::new()], unit, proc: false });
             let cur = self.st().frames.len() - 1;
             self.st().cur = cur;
             let r = self.run_program(&prog, file);
@@ -1103,7 +1116,7 @@ impl Interp<'_> {
             scope.insert(pname.clone(), Slot::Local(converted));
         }
         let saved = self.st().cur;
-        self.st().frames.push(Frame { scopes: vec![scope], unit });
+        self.st().frames.push(Frame { scopes: vec![scope], unit, proc: true });
         let here = self.st().frames.len() - 1;
         self.st().cur = here;
         self.st().calls += 1;
