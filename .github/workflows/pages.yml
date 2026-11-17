@@ -32,13 +32,19 @@ jobs:
       - name: Announcements
         env:
           GH_TOKEN: ${{ github.token }}
+        # Never fails the deploy, but says why when the list comes out empty: a warning on the run's summary page.
         run: |
-          CAT=$(gh api graphql -f query='query { repository(owner: "srlegrand", name: "Aztek") { discussionCategory(slug: "announcements") { id } } }' --jq '.data.repository.discussionCategory.id' || true)
-          if [ -n "$CAT" ] && [ "$CAT" != "null" ]; then
-            gh api graphql -f query='query($c: ID!) { repository(owner: "srlegrand", name: "Aztek") { discussions(first: 10, categoryId: $c, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }' -f c="$CAT" \
-              --jq '[.data.repository.discussions.nodes[] | {title, url, date: .createdAt}]' > site/announcements.json || echo '[]' > site/announcements.json
+          echo '[]' > site/announcements.json
+          if ! CAT=$(gh api graphql -f query='query { repository(owner: "srlegrand", name: "Aztek") { discussionCategory(slug: "announcements") { id } } }' --jq '.data.repository.discussionCategory.id' 2>err.txt); then
+            echo "::warning title=Announcements::The category query failed: $(tr '\n' ' ' < err.txt)"
+          elif [ -z "$CAT" ] || [ "$CAT" = "null" ]; then
+            echo "::warning title=Announcements::No discussion category with the slug announcements"
+          elif ! gh api graphql -f query='query($c: ID!) { repository(owner: "srlegrand", name: "Aztek") { discussions(first: 10, categoryId: $c, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { title url createdAt } } } }' -f c="$CAT" \
+              --jq '[.data.repository.discussions.nodes[] | {title, url, date: .createdAt}]' > list.json 2>err.txt; then
+            echo "::warning title=Announcements::The discussions query failed: $(tr '\n' ' ' < err.txt)"
           else
-            echo '[]' > site/announcements.json
+            cp list.json site/announcements.json
+            [ "$(cat list.json)" = "[]" ] && echo "::warning title=Announcements::The category has no discussions"
           fi
           cat site/announcements.json
       - run: sh site/build.sh _site

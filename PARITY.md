@@ -1417,6 +1417,19 @@ Delete on edges dissolves them as the reference's does: the faces either side be
 says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
 the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
 
+### User folder at start, the welcome screen after an unclean end, announcements (17/11/2026)
+
+Start-up asks about the user folder whenever there is none to use, not only on the first start: when Aztek's own
+folder (`~/aztek`, `Documents/aztek` on Windows) has been deleted, or a linked folder has gone. With a Maya folder
+found, the choices are to copy it into a new `~/aztek`, to use it directly (marked risky: a Maya script run in Aztek
+can write into it), or to create an empty `~/aztek`; with none, whether to create `~/aztek`. Choosing Aztek's own
+folder makes it, with `scripts`, `plug-ins`, `modules` and `prefs`. `aztekUserFolder -q` reports `needsChoice`.
+
+The welcome screen opens at start after an unclean end too, once there is no autosave to offer or it was turned
+down; before, a start after any end that skipped the window's close never showed it. When the announcements can't
+be listed, the welcome screen says whether the website couldn't be reached or lists none, with a link to them on
+GitHub, and the website's workflow puts a warning on its run saying why the list came out empty.
+
 ### Delete History from the shelf (17/11/2026, #130)
 
 `DeleteHistory`, the reference's runtime command that the General shelf's Delete History button runs, is a command

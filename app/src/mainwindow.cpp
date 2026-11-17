@@ -2412,21 +2412,24 @@ void MainWindow::run_startup(const QString& script, const QString& screenshot) {
     // Last time ended without closing: offer the newest autosave. Not when a script or a screenshot drives the run.
     const bool crashed = s.value("session/running", false).toBool();
     s.setValue("session/running", true);
+    // The welcome screen follows, unless it was turned off or a scene is open by then: after an unclean end as well,
+    // which had kept it from ever showing for those whose Aztek doesn't get to close itself.
+    const bool welcome = script.isEmpty() && screenshot.isEmpty() && state()["file"].toString().isEmpty();
     if (crashed && script.isEmpty() && screenshot.isEmpty()) {
-        QTimer::singleShot(800, this, [this] {
+        QTimer::singleShot(800, this, [this, welcome] {
             QString latest = ask("autoSave", QJsonObject{{"query", true}, {"queried", QJsonArray{"latestFile"}}}).toString();
-            if (latest.isEmpty()) return;
-            if (QMessageBox::question(this, "Recover", "Aztek did not close properly last time.\n\nOpen the newest autosave?\n" + latest,
-                                      QMessageBox::Open | QMessageBox::Ignore, QMessageBox::Open) == QMessageBox::Open)
+            if (!latest.isEmpty() && QMessageBox::question(this, "Recover", "Aztek did not close properly last time.\n\nOpen the newest autosave?\n" + latest,
+                                                           QMessageBox::Open | QMessageBox::Ignore, QMessageBox::Open) == QMessageBox::Open) {
                 exec("file", QJsonObject{{"args", QJsonArray{latest}}, {"open", true}, {"force", true}});
+                return;
+            }
+            if (welcome) show_welcome(true);
         });
     }
     // New versions: asked about once, then checked in the background. Not when a script or a screenshot drives the run.
     if (script.isEmpty() && screenshot.isEmpty())
         QTimer::singleShot(2500, this, [this] { updates_at_startup(this, [this] { return close(); }); });
-    // The welcome screen, unless it was turned off or a script or a scene drives the start.
-    if (script.isEmpty() && screenshot.isEmpty() && !crashed && state()["file"].toString().isEmpty())
-        QTimer::singleShot(600, this, [this] { show_welcome(true); });
+    if (welcome && !crashed) QTimer::singleShot(600, this, [this] { show_welcome(true); });
     if (!script.isEmpty()) {
         QTimer::singleShot(300, this, [this, script] {
             QFile f(script);

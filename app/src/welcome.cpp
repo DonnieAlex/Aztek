@@ -256,8 +256,15 @@ void MainWindow::show_welcome(bool at_startup) {
         fetch(d, kAnnouncements, [ann](const QJsonDocument& doc) {
             const QJsonArray list = doc.isArray() ? doc.array() : doc.object()["announcements"].toArray();
             if (list.isEmpty()) {
-                auto* it = new QListWidgetItem("No announcements could be fetched", ann);
+                // Unreachable, or reached with nothing in it: which, and the way to them on GitHub either way.
+                const QString why = doc.object().contains("error") ? "The announcements couldn't be fetched: " + doc.object()["error"].toString()
+                                    : doc.isNull()                 ? QString("The announcements couldn't be fetched")
+                                                                   : QString("The website lists no announcements yet");
+                auto* it = new QListWidgetItem(why, ann);
                 it->setFlags(Qt::NoItemFlags);
+                auto* open = new QListWidgetItem("Open the announcements on GitHub", ann);
+                open->setData(Qt::UserRole, QString(kAnnouncementsPage));
+                open->setToolTip(kAnnouncementsPage);
                 return;
             }
             for (const QJsonValue& v : list) {

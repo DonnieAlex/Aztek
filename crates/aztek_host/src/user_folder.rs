@@ -633,6 +633,10 @@ fn copy_tree(from: &Path, to: &Path, r: &mut Copied) {
 pub fn copy_into_own(from: &Path, version: &str) -> Copied {
     let mut r = Copied::default();
     let to = own_folder();
+    // Made even when there is nothing to copy, so the choice holds at the next start.
+    if std::fs::create_dir_all(&to).is_err() {
+        r.failed.push(to.to_string_lossy().into_owned());
+    }
     let version = if version.is_empty() { versions(from).into_iter().next().unwrap_or_default() } else { version.to_string() };
     let bases: Vec<PathBuf> = if version.is_empty() { vec![from.to_path_buf()] } else { vec![from.join(&version), from.to_path_buf()] };
     for b in &bases {
@@ -659,6 +663,12 @@ fn slashed(p: &Path) -> String {
     s
 }
 
+/// Whether start-up asks where the user folder is: on the first start, and whenever the folder in use is gone (Aztek's
+/// own folder deleted, or a linked folder moved away).
+pub fn needs_choice(c: &Choice) -> bool {
+    !choice_file().is_file() || !root_of(c).is_dir()
+}
+
 fn describe(c: &Choice, a: &Applied) -> Value {
     let list = |v: &[PathBuf]| v.iter().map(|p| json!({"path": p.to_string_lossy(), "exists": p.is_dir()})).collect::<Vec<_>>();
     let detected = detect_reference_folder();
@@ -681,6 +691,7 @@ fn describe(c: &Choice, a: &Applied) -> Value {
         // Whether Aztek's own folder is there yet, and whether a choice has been made: the first start asks.
         "ownExists": own_folder().is_dir(),
         "chosen": choice_file().is_file(),
+        "needsChoice": needs_choice(c),
         "detected": detected.as_ref().map(|p| p.to_string_lossy().into_owned()),
         "detectedVersions": detected.as_ref().map(|p| versions(p)).unwrap_or_default(),
         "root": a.root.to_string_lossy(),
@@ -743,6 +754,10 @@ fn user_folder_cmd(_s: &mut Session, a: &Args) -> CmdResult {
     if c.mode == "aztek" {
         c.folder.clear();
         c.version.clear();
+        // Aztek's own folder is made when it is chosen, empty, with the folders the paths look in.
+        for sub in ["", "scripts", "plug-ins", "modules", "prefs"] {
+            std::fs::create_dir_all(own_folder().join(sub)).map_err(|e| CommandError::new(format!("aztekUserFolder: {}: {e}", own_folder().display())))?;
+        }
     }
     save_choice(&c).map_err(|e| CommandError::new(format!("aztekUserFolder: {e}")))?;
     let applied = apply(&c);
