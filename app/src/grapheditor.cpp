@@ -35,6 +35,7 @@ static QColor channel_color(const QString& ch, int component) {
 // Canvas
 
 CurveCanvas::CurveCanvas(QWidget* parent) : QWidget(parent) {
+    setObjectName("graphCanvas");
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
     setMinimumSize(200, 120);

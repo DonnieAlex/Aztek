@@ -2157,6 +2157,24 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
         // A number field has no use for a plain letter: it goes to the hotkeys.
         bool letter_in_number = qobject_cast<QAbstractSpinBox*>(focus) && k->key() >= Qt::Key_A && k->key() <= Qt::Key_Z && !(k->modifiers() & (Qt::ControlModifier | Qt::AltModifier));
         if (typing_widget(focus) && !letter_in_number) return QMainWindow::eventFilter(o, e);
+        // A key goes to the panel under the pointer, as the reference's hotkeys do (#112): the keyboard follows the
+        // pointer into another panel before the key is read, so F over a view frames the view whatever had the
+        // keyboard before.
+        if (e->type() == QEvent::KeyPress && focus && o == focus && !QApplication::activePopupWidget()) {
+            QWidget* under = QApplication::widgetAt(QCursor::pos());
+            QWidget* panel = nullptr;
+            for (QWidget* w = under; w && w != this; w = w->parentWidget())
+                if (qobject_cast<ViewportWidget*>(w) || w->objectName() == "outliner" || w->objectName() == "uvCanvas" || w->objectName() == "graphCanvas") {
+                    panel = w;
+                    break;
+                }
+            if (panel && panel != focus && !panel->isAncestorOf(focus) && panel->window() == focus->window()) {
+                panel->setFocus(Qt::MouseFocusReason);
+                QKeyEvent copy(QEvent::KeyPress, k->key(), k->modifiers(), k->text(), k->isAutoRepeat(), k->count());
+                QApplication::sendEvent(QApplication::focusWidget() ? QApplication::focusWidget() : panel, &copy);
+                return true;
+            }
+        }
         // The Outliner keeps its own keys while it has the keyboard: F frames its selection, the arrows walk its list.
         if (focus && focus->objectName() == "outliner" && outliner_key(k)) return QMainWindow::eventFilter(o, e);
         if (o != focus && focus) return QMainWindow::eventFilter(o, e);

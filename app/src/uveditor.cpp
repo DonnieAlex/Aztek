@@ -46,6 +46,7 @@ static QStringList id_runs(QList<int> ids) {
 // Canvas
 
 UvCanvas::UvCanvas(QWidget* parent) : QWidget(parent) {
+    setObjectName("uvCanvas");
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
     setMinimumSize(240, 240);

@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Hotkeys go to the panel under the pointer (17/11/2026, #112)
+
+A key goes to the panel under the pointer, whatever had the keyboard: selecting in the Outliner, then pressing F over
+a view frames the view. Views, the Outliner, the UV Editor, the Graph Editor and the Dope Sheet take the keyboard
+this way; fields being typed in keep it.
+
 ### Selection modifiers (17/11/2026, #114)
 
 Clicks, boxes and lassos in the viewport and the UV Editor: Shift toggles, Ctrl removes, Ctrl+Shift adds, in

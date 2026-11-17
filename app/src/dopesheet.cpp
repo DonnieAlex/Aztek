@@ -18,6 +18,7 @@
 namespace az {
 
 DopeCanvas::DopeCanvas(QWidget* parent) : QWidget(parent) {
+    setObjectName("graphCanvas");
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(false);
     setMinimumWidth(200);
