@@ -584,6 +584,8 @@ pub struct Viewport {
     pub disp: Display,
     /// Where a live-surface move lands, worked out before the drag's call.
     pub live_hit: Option<DVec3>,
+    /// A live surface is set: moves snap onto it.
+    pub live_auto: bool,
     /// The lasso's outline so far, in pixels.
     pub lasso: Vec<DVec2>,
     /// The select brush under the cursor, in pixels, and its radius.
@@ -654,6 +656,13 @@ pub struct Viewport {
 }
 
 const WIRE: [u8; 4] = [10, 10, 30, 255];
+/// The live surface's wire: the reference's dark green.
+const LIVE_WIRE: [u8; 4] = [22, 96, 34, 255];
+
+/// What a click can pick: everything but the live surface, which the reference leaves out of selection.
+fn pickable(s: &Session, items: &[DrawItem]) -> Vec<DrawItem> {
+    items.iter().filter(|i| !s.live_surface.contains(&i.shape)).map(|i| DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: i.smooth }).collect()
+}
 const VERT: [u8; 4] = [170, 30, 170, 255];
 const SEL_COMP: [u8; 4] = [255, 160, 30, 255];
 /// The mirror image of what was picked, with symmetry on.
@@ -692,6 +701,7 @@ impl Viewport {
             discrete_hold: false,
             disp: Display::default(),
             live_hit: None,
+            live_auto: false,
             lasso: Vec::new(),
             select_brush: None,
             iso: Default::default(),
@@ -1177,7 +1187,9 @@ impl Viewport {
             let checkered = !is_surface && (sel.contains(&it.xf) || sel.contains(&it.shape));
             let child_lit = !is_surface && self.disp.highlight && ds::select_state(g, it.shape, &sel) == ds::SelectState::Child;
             let wire_sel: &[NodeId] = if self.disp.highlight { &sel } else { &[] };
-            let wire = ds::wire_color(g, it.shape, wire_sel, "polymesh", WIRE);
+            // The live surface: a dark green wire over it, as the reference draws it (#116).
+            let live = s.live_surface.contains(&it.shape);
+            let wire = if live { LIVE_WIRE } else { ds::wire_color(g, it.shape, wire_sel, "polymesh", WIRE) };
             let comps: &[u32] = if hilited { components::selected(g, it.shape, mode) } else { &[] };
             let comp_set: std::collections::HashSet<u32> = comps.iter().copied().collect();
             // Multi shows its vertices, edges and faces together; each kind's own selection, by kind.
@@ -1230,7 +1242,7 @@ impl Viewport {
                         wire
                     }
                 };
-                let want_lines = !is_surface && (selected || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && self.smooth_cage));
+                let want_lines = !is_surface && (live || selected || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && self.smooth_cage));
                 if want_lines {
                     let mut lv = Vec::new();
                     // Smooth preview's wire: the cage's edges follow the smooth surface, and those the subdivision added
@@ -2700,6 +2712,8 @@ impl Viewport {
 
     /// What a click at px picks, as select arguments: object names or component strings.
     pub fn pick(&mut self, s: &Session, items: &[DrawItem], px: DVec2) -> Vec<String> {
+        let kept = pickable(s, items);
+        let items = &kept[..];
         let g = &s.graph;
         if components::mode(g) == ComponentMode::Object {
             if let Some(id) = self.pick_rig(g, px) {
@@ -2859,6 +2873,8 @@ impl Viewport {
     /// objects count when any part of them is in the region, as the reference's: a point inside, an edge crossing its
     /// outline, or a face lying over it (`probe` is a point of the region).
     pub fn pick_region(&self, s: &Session, items: &[DrawItem], inside: &dyn Fn(DVec2) -> bool, crosses: &dyn Fn(DVec2, DVec2) -> bool, probe: DVec2) -> Vec<String> {
+        let kept = pickable(s, items);
+        let items = &kept[..];
         let g = &s.graph;
         let mode = components::mode(g);
         let multi = components::is_multi(g);
@@ -3426,7 +3442,8 @@ impl Viewport {
     /// A move's offset with snapping on: the pivot lands on the grid, a vertex or curve near the cursor, or the live surface;
     /// along an axis handle only that axis moves, in a plane handle only that plane.
     fn snapped(&self, d: &Drag, world: DVec3, handle: Handle, px: DVec2) -> DVec3 {
-        let snap = if self.pivot_mode && self.snap_pivot && self.snap == 0 { 2 } else { self.snap };
+        // A live surface snaps whatever moves onto it with no other snap on, as in the reference.
+        let snap = if self.pivot_mode && self.snap_pivot && self.snap == 0 { 2 } else if self.snap == 0 && self.live_auto { 5 } else { self.snap };
         let target = match snap {
             1 => {
                 let s = self.grid_spacing;

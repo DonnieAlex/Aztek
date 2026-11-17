@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Make Live (17/11/2026, #116)
+
+The live surface is drawn with a dark green wire, can't be picked or box selected, and leaves the selection when made
+live. With it set and no other snap on, moves snap the pivot onto it. The status line magnet makes the selected mesh
+live when pressed and nothing live when released, and follows Modify > Make Live and Make Not Live.
+
 ### Constraints in the hierarchy, with their own attributes (17/11/2026, #120, #121)
 
 - Every constraint is a transform under the object it drives, as in the reference: `listRelatives box` lists it,

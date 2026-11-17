@@ -431,8 +431,8 @@ QMenu* MainWindow::mesh_tools_menu() {
         });
     }
     m->addSeparator();
-    m->addAction("Make Live", [] { exec("makeLive"); });
-    m->addAction("Make Not Live", [] { exec("makeLive", QJsonObject{{"none", true}}); });
+    m->addAction("Make Live", [this] { exec("makeLive"); sync_status_line(); });
+    m->addAction("Make Not Live", [this] { exec("makeLive", QJsonObject{{"none", true}}); sync_status_line(); });
     m->addSeparator();
     cmd(m, "Symmetry: Toggle", "toggleSymmetry");
     cmd(m, "Symmetry: World X", "setSymmetry", QJsonObject{{"axis", "x"}});

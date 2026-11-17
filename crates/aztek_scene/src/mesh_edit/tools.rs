@@ -369,6 +369,9 @@ pub fn register(c: &mut Commands<Session>) {
                     let Some(m) = components::as_mesh(&s.graph, id) else { fail!("makeLive: {n} is not a mesh") };
                     list.push(m);
                 }
+                // The live surface can't be selected: it leaves the selection, as in the reference (#116).
+                let drop: Vec<crate::NodeId> = list.iter().flat_map(|&m| [m, crate::dag::transform_of(&s.graph, m)]).collect();
+                s.graph.select(&drop, crate::graph::SelectMode::Remove);
                 s.live_surface = list;
                 Ok(Value::Null)
             },

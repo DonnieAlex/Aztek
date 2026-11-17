@@ -1,3 +1,4 @@
+#include <QSignalBlocker>
 #include <QAbstractItemView>
 // The status line, left to right as the reference's: menu set, file, undo, selection scope and masks, snapping, selection locks,
 // construction history, symmetry, soft select, then the numeric input and select by name field.
@@ -123,7 +124,22 @@ void MainWindow::build_status_line() {
     snap("curve", "snapCurve", "Snap to curves (hold C)");
     snap("point", "snapPoint", "Snap to points (hold V)");
     snap("viewPlane", "snapPlane", "Snap to view planes");
-    snap("live", "snapLive", "Make the selected object live");
+    // The magnet: on makes the selected object the live surface, off makes nothing live, as the reference's (#116).
+    live_button_ = tb->addAction(icon("snapLive"), "Make the selected object live");
+    live_button_->setCheckable(true);
+    connect(live_button_, &QAction::triggered, this, [this](bool on) {
+        if (on) {
+            if (state()["selection"].toArray().isEmpty()) {
+                log("// Warning: select a mesh to make live //", 4);
+                live_button_->setChecked(false);
+                return;
+            }
+            exec("makeLive");
+        } else {
+            exec("makeLive", QJsonObject{{"none", true}});
+        }
+        sync_status_line();
+    });
     tb->addSeparator();
 
     QAction* lock = tb->addAction(icon("lockSel"), "Lock selection: clicks leave it as it is");
@@ -296,6 +312,10 @@ void MainWindow::sync_status_line() {
     if (scope_buttons_.contains(scope)) scope_buttons_[scope]->setChecked(true);
     bool on = ask("softSelect", QJsonObject{{"query", true}, {"queried", QJsonArray{"softSelectEnabled"}}}).toInt() != 0;
     soft_button_->setChecked(on);
+    {
+        const QSignalBlocker b(live_button_);
+        live_button_->setChecked(!ask("makeLive", QJsonObject{{"query", true}}).toArray().isEmpty());
+    }
     if (!symmetry_->view()->isVisible()) {
         auto sym = [](const char* flag) { return ask("symmetricModelling", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}); };
         int at = 0;

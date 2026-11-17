@@ -240,6 +240,7 @@ private:
     QComboBox* input_mode_ = nullptr;
     QLineEdit* input_field_ = nullptr;
     QAction* soft_button_ = nullptr;
+    QAction* live_button_ = nullptr;
     ShelfBar* shelf_bar_ = nullptr;
     QHash<QString, RuntimeCommand> runtime_;
     QList<HotkeyBinding> hotkeys_;

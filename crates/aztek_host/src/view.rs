@@ -1627,7 +1627,8 @@ impl View {
                     self.vp.brush = self.vp.brush_hit(&core.s, &items, px).map(|x| (x.1, x.2));
                     return was || self.vp.brush.is_some();
                 }
-                if self.vp.snap == 5 && self.vp.drag.is_some() {
+                self.vp.live_auto = !core.s.live_surface.is_empty();
+                if (self.vp.snap == 5 || (self.vp.snap == 0 && self.vp.live_auto)) && self.vp.drag.is_some() {
                     let live: Vec<crate::viewport::DrawItem> = items
                         .iter()
                         .filter(|it| core.s.live_surface.contains(&it.shape))
