@@ -637,8 +637,9 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
 - Outliner, Channel Box / Layer Editor, Attribute Editor (docked), Script Editor with MEL and Python tabs and Ctrl+F
   to find. The thin arrows either side of the views fold away everything docked on that side; the lock beside the
   Themes box keeps docked panels where they are.
-- Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, and the latest release
-  notes and announcements when update checks are on.
+- Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, the notes of every
+  release of the day and the announcements when update checks are on, a parity bar along the foot (the share of the
+  reference's commands and flags Aztek takes, `aztekParity -q`), and a greyhound in a new pose with each version.
 
   ![Welcome screen](docs/welcome-screen.png)
 - Modeling Toolkit (Windows > Modeling Editors), docked beside the Attribute Editor: selection types (Ctrl converts,

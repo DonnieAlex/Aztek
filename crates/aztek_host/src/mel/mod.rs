@@ -7,6 +7,7 @@ mod call;
 mod interp;
 mod lexer;
 mod parser;
+pub mod parity;
 pub(crate) mod pattern;
 mod value;
 

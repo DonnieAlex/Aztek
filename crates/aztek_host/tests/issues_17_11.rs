@@ -377,3 +377,20 @@ fn globals_read_at_the_top_level_without_a_declaration() {
     // From Python, as the reporter's start-up package does.
     assert_eq!(c.mel_checked(r#"python("import maya.mel as mel"); python("mel.eval('$mainWindow = $gMainWindow')");"#).unwrap(), json!("MayaWindow"));
 }
+
+/// The welcome screen's parity bar: of the reference's commands and flags, the share Aztek takes, from the list in
+/// tools/reference_capture/reference_commands.txt.
+#[test]
+fn parity_counts_the_reference_commands_and_flags() {
+    let mut c = Core::new();
+    let p = c.exec("aztekParity", json!({"query": true})).unwrap();
+    assert_eq!(p["commands"], json!(1198));
+    let have = p["commandsHave"].as_u64().unwrap();
+    assert!(have > 500 && have < 1198, "{have}");
+    let percent = p["percent"].as_f64().unwrap();
+    assert!(percent > 0.0 && percent < 100.0);
+    // Commands Aztek has are not in the missing list; one it lacks is.
+    let missing: Vec<&str> = p["missing"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+    assert!(!missing.contains(&"polyCube") && !missing.contains(&"makeIdentity"));
+    assert_eq!(missing.len() as u64, 1198 - have);
+}

@@ -1,6 +1,6 @@
 # Third-party material
 
-Aztek is MIT-0. Five pieces of it come from elsewhere under the MIT licence, which asks for its notice to go with copies.
+Aztek is MIT-0. Six pieces of it come from elsewhere under the MIT licence, which asks for its notice to go with copies.
 
 ## Binary scene type ids
 
@@ -45,6 +45,12 @@ with its examples and tests left out and its `zip` dependency moved from 8 to 9,
 a release past 0.8.0 makes the same move.
 
 Copyright (c) 2024 Maksym Pavlenko. Licence: MIT, full text in `crates/vendor/openusd/LICENSE`.
+
+## The reference's command list
+
+`tools/reference_capture/reference_commands.txt` lists the reference's commands and their flags, by name only, taken
+from the command stubs of the `types-maya` package, version 0.6.1, on PyPI. Aztek's parity measure (`aztekParity`, the
+bar on the welcome screen) reads it. Licence: MIT, full text in `tools/reference_capture/types-maya-LICENSE`.
 
 ## Test files
 

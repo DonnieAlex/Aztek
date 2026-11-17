@@ -823,6 +823,15 @@ pub fn module_path(name: &str) -> Option<String> {
 
 pub fn register_commands(s: &mut Session) {
     let b = |name: &str, short: &str, doc: &str| FlagDef::new(name, short, ArgType::Bool, Value::Null, doc);
+    s.register(
+        CommandDef::<Session>::new(
+            "aztekParity",
+            "How far Aztek is towards the reference: of its commands and their flags, the share Aztek takes, with the counts and the commands still missing. Shown at the foot of the welcome screen.",
+            |s, _| Ok(crate::mel::parity::measure(s)),
+        )
+        .flag(b("query", "q", "Read it (the only mode)."))
+        .undoable(false),
+    );
     let t = |name: &str, short: &str, doc: &str| FlagDef::new(name, short, ArgType::String, Value::Null, doc);
     s.register(
         CommandDef::<Session>::new(
