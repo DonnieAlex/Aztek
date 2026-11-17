@@ -194,6 +194,7 @@ void MainWindow::build_runtime() {
     r("RenderSequenceOptions", "Rendering", "Render a sequence of frames", [this] { render_sequence_dialog(this); });
     r("TextureViewWindow", "Windows", "UV Editor", [this] { show_uv_editor(); });
     r("UVSetEditor", "Windows", "UV Set Editor", [this] { show_named_window("uvSetEditor"); });
+    r("DeletePolyElements", "Polygons", "Delete Edge/Vertex", [] { delete_edge_vertex(); });
     // As the reference's menu items: the emitter, particles for it to emit into, and the two connected (#96). The
     // emitter command alone makes only the emitter.
     m("CreateEmitter", "Dynamics", "Create Emitter",

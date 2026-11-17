@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Deleting edges (17/11/2026, #103)
+
+Delete on edges dissolves them as the reference's does: the faces either side become one and the polyDelEdge node
+says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
+the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
+
 ### Move along normals (17/11/2026, #102)
 
 With the Move tool on vertices, edges or faces, Ctrl+middle drag pushes each component along its own normal, and
