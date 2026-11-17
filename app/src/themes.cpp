@@ -542,7 +542,7 @@ QList<Theme> builtins() {
     // Boisvert: the Mac desktop of the 2020s in its light appearance: pale grey windows and toolbars, white controls and
     // fields, its blue for what is picked, SF Pro, soft round corners, segmented tabs, scroll bars that stay out of the way.
     {
-        Theme t = hand("macos", "macintosh",
+        Theme t = hand("macos", "Macintosh",
                        {{"window", "#ececec"}, {"chrome", "#e3e3e3"}, {"base", "#ffffff"}, {"alt", "#f5f5f5"}, {"menu", "#f6f6f6"}, {"button", "#ffffff"}, {"hover", "#f0f0f0"},
                         {"hi", "#007aff"}, {"hitext", "#ffffff"}, {"text", "#1d1d1f"}, {"bright", "#000000"}, {"dim", "#6e6e73"}, {"disabled", "#b0b0b5"}, {"border", "#c8c8cc"},
                         {"handle", "#c1c1c1"}, {"section", "#e3e3e8"}, {"sectiontext", "#1d1d1f"}, {"light", "#ffffff"}, {"shadow", "#b6b6bb"},
