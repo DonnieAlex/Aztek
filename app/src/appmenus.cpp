@@ -60,6 +60,51 @@ namespace {
 bool plugin_loaded(const QString& name) {
     return ask("pluginInfo", QJsonObject{{"args", QJsonArray{name}}, {"query", true}, {"loaded", true}}).toBool();
 }
+
+} // namespace
+
+// A file imported by the options its type's import keeps: the Import browser's and a drop on the window take the same
+// way, so a dropped file is read as File > Import would read it (#110).
+void import_file(const QString& f) {
+        const bool is_fbx = f.endsWith(".fbx", Qt::CaseInsensitive);
+        if (is_fbx || f.endsWith(".glb", Qt::CaseInsensitive) || f.endsWith(".gltf", Qt::CaseInsensitive)) {
+            if (!plugin_loaded(is_fbx ? "fbx" : "gltf")) {
+                log(QString("// Error: %1 files are read by the %2 plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //").arg(is_fbx ? "FBX" : "glTF", is_fbx ? "fbx" : "gltf"), 2);
+                return;
+            }
+            if (is_fbx) {
+                // By the FBX Import settings, as the reference's plug-in reads them.
+                fbx_apply_saved();
+                exec("FBXImport", QJsonObject{{"file", f}});
+            } else {
+                // The file's up axis as the glTF import options keep it: Y Up (the format's), Z Up, or As Is.
+                static const char* kUp[] = {"y", "z", "none"};
+                exec("importGltf", QJsonObject{{"args", QJsonArray{f}}, {"upAxis", kUp[std::clamp(QSettings().value("gltf/importUp", 0).toInt(), 0, 2)]}});
+            }
+            return;
+        }
+        if (is_usd_file(f)) {
+            if (!plugin_loaded("mayaUsdPlugin")) {
+                log("// Error: USD files are read by the mayaUsdPlugin plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
+                return;
+            }
+            usd_import(f);
+            return;
+        }
+        if (f.endsWith(".ply", Qt::CaseInsensitive) || f.endsWith(".stl", Qt::CaseInsensitive)) {
+            exec(f.endsWith(".ply", Qt::CaseInsensitive) ? "importPly" : "importStl", QJsonObject{{"args", QJsonArray{f}}});
+            return;
+        }
+        if (f.endsWith(".abc", Qt::CaseInsensitive) && !plugin_loaded("AbcImport")) {
+            log("// Error: Alembic files are read by the AbcImport plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
+            return;
+        }
+        // Scenes, and OBJ through the objExport plug-in, which the file command names when it isn't loaded.
+        exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
+}
+
+namespace {
+
 } // namespace
 
 namespace {
@@ -204,56 +249,7 @@ QMenu* MainWindow::file_menu() {
             extra += ";;Alembic (*.abc)";
         }
         // A browser that leaves Aztek usable while it is open (#109).
-        browse_file_with_options(false, FileAction::Import, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), file_type_filter(type), [](const QString& f) {
-        const bool is_fbx = f.endsWith(".fbx", Qt::CaseInsensitive);
-        if (is_fbx || f.endsWith(".glb", Qt::CaseInsensitive) || f.endsWith(".gltf", Qt::CaseInsensitive)) {
-            if (!plugin_loaded(is_fbx ? "fbx" : "gltf")) {
-                log(QString("// Error: %1 files are read by the %2 plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //").arg(is_fbx ? "FBX" : "glTF", is_fbx ? "fbx" : "gltf"), 2);
-                return;
-            }
-            if (is_fbx) {
-                // By the FBX Import settings, as the reference's plug-in reads them.
-                fbx_apply_saved();
-                exec("FBXImport", QJsonObject{{"file", f}});
-            } else {
-                // The file's up axis, kept between imports: Y Up (the format's), Z Up, or As Is for no conversion.
-                QDialog d;
-                d.setWindowTitle("glTF Import");
-                auto* lay = new QFormLayout(&d);
-                auto* up = new QComboBox(&d);
-                up->addItems({"Y Up", "Z Up", "As Is"});
-                up->setCurrentIndex(QSettings().value("gltf/importUp", 0).toInt());
-                lay->addRow("File up axis:", up);
-                auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-                QObject::connect(buttons, &QDialogButtonBox::accepted, &d, &QDialog::accept);
-                QObject::connect(buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-                lay->addRow(buttons);
-                if (d.exec() != QDialog::Accepted) return;
-                QSettings().setValue("gltf/importUp", up->currentIndex());
-                static const char* kUp[] = {"y", "z", "none"};
-                exec("importGltf", QJsonObject{{"args", QJsonArray{f}}, {"upAxis", kUp[up->currentIndex()]}});
-            }
-            return;
-        }
-        if (is_usd_file(f)) {
-            if (!plugin_loaded("mayaUsdPlugin")) {
-                log("// Error: USD files are read by the mayaUsdPlugin plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
-                return;
-            }
-            usd_import(f);
-            return;
-        }
-        if (f.endsWith(".ply", Qt::CaseInsensitive) || f.endsWith(".stl", Qt::CaseInsensitive)) {
-            exec(f.endsWith(".ply", Qt::CaseInsensitive) ? "importPly" : "importStl", args(QJsonArray{f}));
-            return;
-        }
-        if (f.endsWith(".abc", Qt::CaseInsensitive) && !plugin_loaded("AbcImport")) {
-            log("// Error: Alembic files are read by the AbcImport plug-in, which is not loaded. Load it in Windows > Settings/Preferences > Plug-in Manager. //", 2);
-            return;
-        }
-        // Scenes, and OBJ through the objExport plug-in, which the file command names when it isn't loaded.
-        exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
-        });
+        browse_file_with_options(false, FileAction::Import, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), file_type_filter(type), import_file);
     };
     m->addAction(new OptionRow("Import...", QString(), [do_import] { do_import(chosen_file_type(FileAction::Import)); }, [this, do_import] { file_options_window(this, FileAction::Import, do_import); }, m));
     m->addSeparator();

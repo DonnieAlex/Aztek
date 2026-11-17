@@ -292,6 +292,16 @@ OptionsPanel panel_for_filter(FileAction action, const QString& filter, QWidget*
     }
     if (filter.startsWith("USD")) return import ? usd_import_panel(parent) : usd_export_panel(parent);
     if (filter.startsWith("glTF") && !import) return gltf_export_panel(parent);
+    if (filter.startsWith("glTF") && import) {
+        auto* w = new QWidget(parent);
+        auto* form = new QFormLayout(w);
+        auto* up = new QComboBox(w);
+        up->addItems({"Y Up", "Z Up", "As Is"});
+        up->setCurrentIndex(QSettings().value("gltf/importUp", 0).toInt());
+        up->setToolTip("The file's up axis: Y (the format's), Z, or As Is for no conversion");
+        form->addRow("File up axis:", up);
+        return {w, [up] { QSettings().setValue("gltf/importUp", up->currentIndex()); }, [] { QSettings().remove("gltf/importUp"); }};
+    }
     auto* l = new QLabel("This file type has no further options.", parent);
     l->setWordWrap(true);
     return {l, [] {}, [] {}};

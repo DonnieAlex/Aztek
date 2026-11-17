@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Dropped files use the import options (17/11/2026, #110)
+
+A file dropped on the window is read as File > Import reads it, by the import options kept for its type: USD by
+the USD Import options (up axis and units among them), FBX by the FBX Import settings, glTF by its up axis. Alembic,
+PLY and STL files can be dropped too. glTF's up axis is in the Import browser's options panel, in place of the
+question that came after it.
+
 ### Out of component modes (17/11/2026, #124)
 
 In a component mode, a click on an object that isn't hilited selects it and goes back to object mode, as the

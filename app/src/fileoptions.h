@@ -31,6 +31,9 @@ void browse_file(bool save, const QString& title, const QString& start, const QS
 void browse_file_with_options(bool save, FileAction action, const QString& title, const QString& start, const QString& filters,
                               const QString& selected, std::function<void(const QString& file)> done);
 
+// A file imported by its type's saved import options, as File > Import reads it: also what a drop on the window does.
+void import_file(const QString& f);
+
 // glTF export settings, as the options panels keep them: the exportGltf flags they give.
 QJsonObject gltf_export_flags();
 

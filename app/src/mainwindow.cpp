@@ -1,4 +1,5 @@
 #include <QWidgetAction>
+#include "fileoptions.h"
 #include "mainwindow.h"
 #include <QDoubleSpinBox>
 #include <QSignalBlocker>
@@ -1685,7 +1686,7 @@ void MainWindow::note_repeat(const QString& label, const std::function<void()>& 
 namespace {
 // Files a drop brings in: scenes and the formats the file command imports.
 bool droppable(const QString& f) {
-    static const QStringList ext = {"ma", "mb", "obj", "fbx", "gltf", "glb"};
+    static const QStringList ext = {"ma", "mb", "obj", "fbx", "gltf", "glb", "abc", "ply", "stl"};
     return is_usd_file(f) || ext.contains(QFileInfo(f).suffix().toLower());
 }
 } // namespace
@@ -1706,10 +1707,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
 void MainWindow::dropEvent(QDropEvent* e) {
     for (const QUrl& u : e->mimeData()->urls()) {
         const QString f = u.toLocalFile();
-        if (is_usd_file(f))
-            exec("mayaUsd_createStageFromFile", QJsonObject{{"args", QJsonArray{f}}});
-        else if (droppable(f))
-            exec("file", QJsonObject{{"args", QJsonArray{f}}, {"import", true}});
+        // Read as File > Import reads it, by the import options kept for its type (#110).
+        if (droppable(f)) import_file(f);
     }
     e->acceptProposedAction();
     Host::get()->poke();
