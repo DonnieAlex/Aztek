@@ -302,9 +302,9 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#ffd1e3");
         l << t;
     }
-    // PewterTureski: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars.
+    // Tureski: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars.
     {
-        Theme t = tonal("pewter", "PewterTureski", 30, 0.05, 44, "#e08a2e");
+        Theme t = tonal("pewter", "Tureski", 30, 0.05, 44, "#e08a2e");
         t.font = QStringList{"Verdana", "Tahoma", "DejaVu Sans", "Bitstream Vera Sans", "Arial"};
         t.point_size = 10;
         t.fill = "gradient";
@@ -322,7 +322,7 @@ QList<Theme> builtins() {
     // The animation package of the mid 1990s on the workstations: grey panels, pink entry fields, bold italic menus,
     // bevelled buttons and round-topped tabs.
     {
-        Theme t = hand("studio96", "sendvvv",
+        Theme t = hand("studio96", "sebdvvv",
                        {{"window", "#a0a0a0"}, {"chrome", "#949494"}, {"base", "#bdbdbd"}, {"alt", "#b4b4b4"}, {"menu", "#b0b0b0"}, {"button", "#b2b2b2"}, {"hover", "#c2c2c2"},
                         {"hi", "#5a6f92"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#2c2c2c"}, {"disabled", "#6e6e6e"}, {"border", "#2e2e2e"}, {"handle", "#b2b2b2"},
                         {"light", "#ececec"}, {"shadow", "#5e5e5e"}, {"field", "#eab4b4"}, {"fieldtext", "#000000"}});
