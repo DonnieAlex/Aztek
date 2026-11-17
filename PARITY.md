@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Move along normals (17/11/2026, #102)
+
+With the Move tool on vertices, edges or faces, Ctrl+middle drag pushes each component along its own normal, and
+echoes `move -r -co -ls -wd <d> 0 0`, as the reference's does; that command moves by the first value along the
+normals from a script too (docs/issues/102-move-along-normals.png: a band of a sphere's faces pushed out 0.3).
+
 ### Outliner drags (17/11/2026, #101)
 
 As the reference's Outliner: a left drag selects the rows it passes over; a middle drag moves the selection (or the
