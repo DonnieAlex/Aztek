@@ -160,7 +160,12 @@ impl Camera {
         let view = self.view();
         let right = DVec3::new(view.x_axis.x, view.y_axis.x, view.z_axis.x);
         let up = DVec3::new(view.x_axis.y, view.y_axis.y, view.z_axis.y);
-        let per_px = self.units_per_px_at(self.coi, height, aspect);
+        let mut per_px = self.units_per_px_at(self.coi, height, aspect);
+        // Pushed along by a long dolly, the centre of interest is right at the lens: track as if it were a pace ahead,
+        // or tracking would crawl (#98).
+        if !self.ortho() && self.distance <= Self::DOLLY_FLOOR + 1e-9 {
+            per_px *= Self::PUSH_PACE / Self::DOLLY_FLOOR;
+        }
         self.coi += (-right * delta.x + up * delta.y) * per_px;
     }
 
@@ -182,14 +187,18 @@ impl Camera {
         if left >= Self::DOLLY_FLOOR {
             self.distance = left;
         } else {
-            let past = Self::DOLLY_FLOOR - left;
-            self.coi -= self.dir_to_eye() * past;
+            // Pushing on past the centre of interest: at a walking pace, not the crawl the floor's own share would be.
+            let pace = (Self::PUSH_PACE * (1.0 - f)).max(step);
+            let to_floor = (self.distance - Self::DOLLY_FLOOR).max(0.0);
+            self.coi -= self.dir_to_eye() * (pace - to_floor);
             self.distance = Self::DOLLY_FLOOR;
         }
     }
 
     /// The nearest a dolly brings the camera to its centre of interest, in cm.
     pub const DOLLY_FLOOR: f64 = 0.5;
+    /// How far a dolly step goes once it pushes the centre of interest ahead, as a share of this, in cm.
+    pub const PUSH_PACE: f64 = 10.0;
 
     /// Fits a sphere in view.
     pub fn frame(&mut self, center: DVec3, radius: f64, aspect: f64) {
@@ -233,9 +242,13 @@ mod pan_zoom_tests {
         // Each step near the floor still moves the camera by a visible amount.
         let before = c.eye();
         c.dolly(60.0);
-        assert!((c.eye() - before).length() > 0.1);
+        assert!((c.eye() - before).length() > 2.0, "a wheel step past the centre of interest goes a few cm");
         // Out again it goes back by shares of the distance.
         let d = c.distance;
+        // Tracking from there moves at a pace's speed, not the floor's.
+        let at = c.coi;
+        c.track(DVec2::new(100.0, 0.0), 800.0, 1.5);
+        assert!((c.coi - at).length() > 0.5, "{}", (c.coi - at).length());
         c.dolly(-60.0);
         assert!(c.distance > d);
     }

@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### A long dolly keeps its pace (17/11/2026, #98)
+
+Dollying in goes by shares of the distance to the centre of interest; once it gets within half a centimetre, it no
+longer creeps on in ever smaller steps: it pushes the centre of interest ahead and goes on at a steady few
+centimetres a wheel step (a share of 10 cm), and tracking from there moves as it would 10 cm from the centre of
+interest instead of crawling. Dollying out goes back by shares of the distance; framing (F) still sets it afresh.
+
 ### Collapse the sides (17/11/2026, #97)
 
 Thin handles with an arrow either side of the view panels fold away everything docked on that side at a click and
