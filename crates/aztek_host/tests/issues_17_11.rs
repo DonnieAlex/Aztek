@@ -95,3 +95,21 @@ fn a_click_on_another_object_leaves_component_mode() {
     assert_eq!(mel(&mut c, "selectMode -q -object;"), json!(true));
     assert_eq!(mel(&mut c, "ls -sl;"), json!(["b"]));
 }
+
+/// #89: referenced nodes and startup cameras among those deleted are passed over too; the rest go.
+#[test]
+fn delete_passes_over_referenced_nodes_and_startup_cameras() {
+    let dir = std::env::temp_dir().join(format!("az_del_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let prop = dir.join("prop.ma").to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    mel(&mut c, &format!("polyCube -n crate; file -rename \"{prop}\"; file -save -type \"mayaAscii\"; file -f -new;"));
+    mel(&mut c, &format!("file -r -ns \"rd\" \"{prop}\"; polySphere -n ball; shadingNode -asShader lambert -n mat;"));
+    mel(&mut c, "select -r rd:crate ball persp mat defaultRenderGlobals; delete;");
+    assert_eq!(mel(&mut c, "objExists ball;"), json!(false));
+    assert_eq!(mel(&mut c, "objExists mat;"), json!(false));
+    assert_eq!(mel(&mut c, "objExists rd:crate;"), json!(true));
+    assert_eq!(mel(&mut c, "objExists persp;"), json!(true));
+    assert!(c.mel_checked("delete rd:crate;").is_err());
+    let _ = std::fs::remove_dir_all(&dir);
+}

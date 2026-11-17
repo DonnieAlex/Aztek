@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Delete passes over what can't be deleted (17/11/2026, #89)
+
+Besides default and locked nodes (16/11/2026), nodes a reference brought in and startup cameras among those deleted
+are passed over with a warning each, and the rest are deleted; on their own they are an error, as before. Rename
+refuses them the same way.
+
 ### Editors on light themes (17/11/2026, #88)
 
 Checked on DonnieA (light): the Graph Editor, Dope Sheet, Node Editor and Hypershade read as they should

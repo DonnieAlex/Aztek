@@ -137,6 +137,13 @@ pub fn refusal(g: &Graph, id: crate::plug::NodeId, verb: &str) -> Option<String>
     if n.namespace.is_empty() && is_scene_node(&name) {
         return Some(format!("{verb}: {name} is a default node and can't be {verb}d"));
     }
+    // What a reference brought in belongs to its file; startup cameras stay until they are told not to (#89).
+    if n.reference_id() != 0 {
+        return Some(format!("{verb}: {} is from a referenced file and can't be {verb}d", g.path(id)));
+    }
+    if crate::cameras::is_startup(g, crate::dag::transform_of(g, id)) {
+        return Some(format!("{verb}: {name} is a startup camera and can't be {verb}d"));
+    }
     None
 }
 
