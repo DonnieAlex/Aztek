@@ -539,6 +539,25 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#0b5a50");
         l << t;
     }
+    // Martino: the Mac desktop of the 2020s in its light appearance: pale grey windows and toolbars, white controls and
+    // fields, its blue for what is picked, SF Pro, soft round corners, segmented tabs, scroll bars that stay out of the way.
+    {
+        Theme t = hand("macos", "Martino",
+                       {{"window", "#ececec"}, {"chrome", "#e3e3e3"}, {"base", "#ffffff"}, {"alt", "#f5f5f5"}, {"menu", "#f6f6f6"}, {"button", "#ffffff"}, {"hover", "#f0f0f0"},
+                        {"hi", "#007aff"}, {"hitext", "#ffffff"}, {"text", "#1d1d1f"}, {"bright", "#000000"}, {"dim", "#6e6e73"}, {"disabled", "#b0b0b5"}, {"border", "#c8c8cc"},
+                        {"handle", "#c1c1c1"}, {"section", "#e3e3e8"}, {"sectiontext", "#1d1d1f"}, {"light", "#ffffff"}, {"shadow", "#b6b6bb"},
+                        {"field", "#ffffff"}, {"fieldtext", "#1d1d1f"}});
+        t.font = QStringList{"SF Pro Text", "SF Pro", ".AppleSystemUIFont", "Helvetica Neue", "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", "Arial"};
+        t.point_size = 10;
+        t.fill = "flat";
+        t.radius = 6;
+        t.border = 1;
+        t.tabs = "pill";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 4;
+        l << t;
+    }
     // Buttons, panel edges and title bars: each theme its own, so no two built-ins draw the same.
     static const QHash<QString, std::array<const char*, 3>> shape_of{
         {"obsidian", {"outline", "line", "underline"}},  {"tangerine", {"pill", "rounded", "accent"}},   {"midnight", {"glossy", "groove", "tab"}},
@@ -548,7 +567,7 @@ QList<Theme> builtins() {
         {"poweranimator", {"auto", "groove", "gradient"}}, {"alias", {"auto", "line", "inverse"}},       {"desktop98", {"auto", "bevel", "auto"}},
         {"sky", {"outline", "rounded", "accent"}},       {"solarized-light", {"inset", "line", "tab"}},  {"paper", {"chunky", "shadow", "underline"}},
         {"lilac", {"pill", "rounded", "gradient"}},      {"shaq", {"auto", "line", "auto"}},             {"classic98", {"auto", "rounded", "auto"}},
-        {"ash", {"pill", "rounded", "tab"}}};
+        {"ash", {"pill", "rounded", "tab"}},             {"macos", {"auto", "rounded", "auto"}}};
     // Flav (carbon) and Sebdvvv (studio96) as they first were: no button, frame or title style of their own.
     for (Theme& t : l) {
         const auto it = shape_of.find(t.id);
