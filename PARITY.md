@@ -1301,6 +1301,27 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   application or run through the Khronos validator: neither was available.
 - FBX is not written. The format can be written without its owner's SDK, but nothing here can read one back to check it.
 
+### glTF blend shapes, animation and the export browser's options (17/11/2026, #122)
+
+- `exportGltf -blendShapes` (on by default): each blendShape target on a mesh's history goes out as a morph target,
+  its full-weight deltas times its per point weights, named in the mesh's `extras.targetNames` (the target's alias),
+  with the weights as they stand (envelope included) as the mesh's `weights`. The mesh is written with every target
+  at nothing. In-between shapes are left out and the result says so.
+- `-animation` with `-startTime` and `-endTime` (the playback range by default): each exported node's translation,
+  rotation and scale and each morph weight, sampled once a frame, linear; only channels that change are written.
+- `-materials` and `-skins` false leave materials and skins out.
+- File > Export All and Export Selection: the browser has the chosen file type's options at its right, as the
+  reference's has (FBX, USD and glTF; the others say they have none), and follows the Files of type list. The glTF
+  options (Format, Up axis, Materials, Skins, Blend Shapes, Animation, Frame range) replace the Y Up question that
+  came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
+  extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
+
+### Marking menu off the object (17/11/2026, #119)
+
+Right-clicking where there is no object gives the menu of the last selected one (the object of selected components,
+or the hilited one in a component mode), as the reference does: a joint inside a mesh gets its own menu by being
+selected and right-clicked away from the mesh. Before, only joints and curves were taken this way.
+
 ### Issues 26 to 33 (12/11/2026)
 
 What the reference does was taken from its documentation where a page says it, and from the screenshots in the issues.

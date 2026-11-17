@@ -263,3 +263,47 @@ fn points_with_more_than_four_influences_keep_them_all() {
     }
     assert!(more_than_four > 0, "some points carry more than four influences");
 }
+
+#[test]
+fn blend_shapes_go_out_as_morph_targets_and_animation_as_sampled_channels() {
+    let dir = std::env::temp_dir().join(format!("aztek_gltf_morph_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("m.glb");
+    let mut c = Core::new();
+    c.mel("polyPlane -n face -sx 1 -sy 1 -w 100 -h 100; polyPlane -n smile -sx 1 -sy 1 -w 100 -h 100; move -r 0 50 0 smile.vtx[0];");
+    c.mel("blendShape -n bs smile face; setAttr bs.smile 0.5;");
+    c.mel("setKeyframe -t 1 -v 0 -at tx face; setKeyframe -t 11 -v 200 -at tx face; setKeyframe -t 1 -v 0 bs.smile; setKeyframe -t 11 -v 1 bs.smile; currentTime 6;");
+    let r = c.mel(&format!("select face; exportGltf -animation true -startTime 1 -endTime 11 \"{}\";", file.to_string_lossy().replace('\\', "/")));
+    assert_eq!(r["animations"], json!(1), "{r}");
+    let (doc, bin) = glb(&file);
+    let mesh = &doc["meshes"][0];
+    assert_eq!(mesh["extras"]["targetNames"], json!(["smile"]));
+    let w = mesh["weights"][0].as_f64().unwrap();
+    assert!((w - 0.5).abs() < 1e-6, "{w}");
+    let prim = &mesh["primitives"][0];
+    let base = floats(&doc, &bin, prim["attributes"]["POSITION"].as_u64().unwrap() as usize);
+    let delta = floats(&doc, &bin, prim["targets"][0]["POSITION"].as_u64().unwrap() as usize);
+    // The base is the plane flat; the target lifts one corner half a metre.
+    assert!(base.chunks(3).all(|p| p[1].abs() < 1e-6), "{base:?}");
+    let lifted: Vec<f32> = delta.chunks(3).map(|d| d[1]).filter(|y| y.abs() > 1e-6).collect();
+    assert!(!lifted.is_empty() && lifted.iter().all(|y| (y - 0.5).abs() < 1e-5), "{delta:?}");
+    // Eleven samples; translation and weights change, rotation and scale don't.
+    let anim = &doc["animations"][0];
+    let paths: Vec<&str> = anim["channels"].as_array().unwrap().iter().map(|ch| ch["target"]["path"].as_str().unwrap()).collect();
+    assert_eq!(paths, vec!["translation", "weights"]);
+    let s0 = &anim["samplers"][0];
+    let times = floats(&doc, &bin, s0["input"].as_u64().unwrap() as usize);
+    assert_eq!(times.len(), 11);
+    assert!((times[10] - 10.0 / 24.0).abs() < 1e-5, "{times:?}");
+    let tx = floats(&doc, &bin, s0["output"].as_u64().unwrap() as usize);
+    assert!((tx[30] - 2.0).abs() < 1e-5, "{tx:?}");
+    let ws = floats(&doc, &bin, anim["samplers"][1]["output"].as_u64().unwrap() as usize);
+    assert!((ws[0]).abs() < 1e-6 && (ws[10] - 1.0).abs() < 1e-6, "{ws:?}");
+    // Off, nothing of either.
+    let r = c.mel(&format!("select face; exportGltf -blendShapes false -materials false \"{}\";", file.to_string_lossy().replace('\\', "/")));
+    assert_eq!(r["animations"], json!(0), "{r}");
+    let (doc, _) = glb(&file);
+    assert!(doc["meshes"][0]["primitives"][0].get("targets").is_none());
+    assert!(doc.get("materials").is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}

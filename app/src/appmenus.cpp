@@ -204,7 +204,7 @@ QMenu* MainWindow::file_menu() {
             extra += ";;Alembic (*.abc)";
         }
         // A browser that leaves Aztek usable while it is open (#109).
-        browse_file(false, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), file_type_filter(type), [](const QString& f) {
+        browse_file_with_options(false, FileAction::Import, "Import", QString(), QString("Scenes and meshes (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;PLY (*.ply);;STL (*.stl)").arg(every, extra), file_type_filter(type), [](const QString& f) {
         const bool is_fbx = f.endsWith(".fbx", Qt::CaseInsensitive);
         if (is_fbx || f.endsWith(".glb", Qt::CaseInsensitive) || f.endsWith(".gltf", Qt::CaseInsensitive)) {
             if (!plugin_loaded(is_fbx ? "fbx" : "gltf")) {
@@ -268,9 +268,11 @@ QMenu* MainWindow::file_menu() {
     auto do_export = [](bool all, const QString& type) {
         const QString ext = file_type_extension(type);
         // A browser that leaves Aztek usable while it is open (#109).
-        browse_file(true, all ? "Export All" : "Export Selection", ext.isEmpty() ? "export.ma" : "export." + ext,
+        browse_file_with_options(true, all ? FileAction::ExportAll : FileAction::ExportSelection, all ? "Export All" : "Export Selection", ext.isEmpty() ? "export.ma" : "export." + ext,
                                                  QString("mayaAscii (*.ma);;mayaBinary (*.mb)%1%2%3%4%5;;PLY (*.ply);;STL (*.stl)").arg(plugin_loaded("fbx") ? ";;FBX (*.fbx)" : "", plugin_loaded("objExport") ? ";;OBJ (*.obj)" : "", plugin_loaded("mayaUsdPlugin") ? QString(";;") + kUsdFilter : QString(), plugin_loaded("gltf") ? ";;glTF 2.0 (*.glb *.gltf)" : "", plugin_loaded("AbcExport") ? ";;Alembic (*.abc)" : ""), file_type_filter(type), [all, ext](QString f) {
-        if (QFileInfo(f).suffix().isEmpty() && default_file_extensions() && !ext.isEmpty()) f += "." + ext;
+        // glTF without an extension: the kind the options pick.
+        const QString add = ext == "gltf" && QSettings().value("gltf/format", 0).toInt() == 0 ? "glb" : ext;
+        if (QFileInfo(f).suffix().isEmpty() && default_file_extensions() && !add.isEmpty()) f += "." + add;
         // The exporters are plug-ins: one that has been unloaded says so rather than failing on an unknown command.
         auto plugin_ready = [](const QString& plugin, const QString& what) {
             if (plugin_loaded(plugin)) return true;
@@ -290,23 +292,9 @@ QMenu* MainWindow::file_menu() {
             // Its own command: the hierarchy, materials and textures go with the meshes.
             QJsonObject call{{"args", QJsonArray{f}}};
             if (all) call["all"] = true;
-            // The file's up axis, as a "Y Up" switch kept between exports: on writes the file Y up, off Z up. Only a
-            // scene whose up axis differs from the file's is converted; otherwise it goes out as it is.
-            {
-                QDialog d;
-                d.setWindowTitle("glTF Export");
-                auto* lay = new QVBoxLayout(&d);
-                auto* y_up = new QCheckBox("Y Up", &d);
-                y_up->setChecked(QSettings().value("gltf/exportYUp", true).toBool());
-                lay->addWidget(y_up);
-                auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
-                QObject::connect(buttons, &QDialogButtonBox::accepted, &d, &QDialog::accept);
-                QObject::connect(buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-                lay->addWidget(buttons);
-                if (d.exec() != QDialog::Accepted) return;
-                QSettings().setValue("gltf/exportYUp", y_up->isChecked());
-                call["upAxis"] = y_up->isChecked() ? "y" : "z";
-            }
+            // By the glTF options of the browser's side panel or the Export Options window (#122).
+            const QJsonObject flags = gltf_export_flags();
+            for (auto it = flags.begin(); it != flags.end(); ++it) call[it.key()] = it.value();
             const QJsonObject r = exec("exportGltf", call).toObject();
             for (const QJsonValue& n : r["notes"].toArray()) log("// Warning: " + n.toString() + " //", 4);
             return;
@@ -1487,14 +1475,18 @@ void MainWindow::marking_menu(QPoint global, int mods) {
             double dpr = v->devicePixelRatioF();
             hit = take(aztek_view_hit(v->id(), local.x() * dpr, local.y() * dpr));
         }
-        // Not on a mesh: the object nearest the cursor might be a joint or curve under the selection.
+        // Off every object: the menu of the last selected one, as the reference gives it (#119), so a joint inside a
+        // mesh, say, gets its own menu by being selected and right-clicked away from. Components count for their object.
         QString target = hit;
         if (target.isEmpty()) {
             QStringList sel = selection_names();
-            if (!sel.isEmpty() && (mode == "object")) {
-                QString t = ask("nodeType", args(QJsonArray{sel.last()})).toString();
-                bool curve = !ask("listRelatives", QJsonObject{{"args", QJsonArray{sel.last()}}, {"shapes", true}, {"type", "nurbsCurve"}}).toArray().isEmpty();
-                if (t == "joint" || curve) target = sel.last();
+            if (sel.isEmpty() && mode != "object") {
+                const QJsonArray hl = ask("ls", QJsonObject{{"hilite", true}}).toArray();
+                if (!hl.isEmpty()) sel << hl.last().toString();
+            }
+            if (!sel.isEmpty()) {
+                const QString obj = sel.last().section('.', 0, 0);
+                if (!ask("ls", QJsonObject{{"args", QJsonArray{obj}}, {"dag", true}}).toArray().isEmpty()) target = obj;
             }
         }
         if (!target.isEmpty()) {

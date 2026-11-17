@@ -10,7 +10,12 @@
 //! The format is Y up. A Z-up scene is written Y up by changing the basis of everything in it (each node's matrix,
 //! the points, the normals, the bind matrices), so no node carries a turn the scene did not have: a point at Z 2 goes
 //! out at Y 2. `-upAxis z` writes Z up instead, which for a Z-up scene is the data as it is.
-//! Not written: animation, blend shapes, cameras and lights.
+//!
+//! Blend shapes go out as morph targets: each target's full-weight deltas (times its per point weights), named in the
+//! mesh's `extras.targetNames`, with the weights as they stand; the mesh goes out with every target at nothing.
+//! In-betweens are left out. `-animation` samples every exported node's translate, rotate and scale and every morph
+//! weight once a frame over `-startTime` to `-endTime`, writing the channels that change. `-materials`, `-skins` and
+//! `-blendShapes` off leave those out. Not written: cameras and lights.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -34,8 +39,38 @@ const USHORT: u32 = 5123;
 const ARRAY_BUFFER: u32 = 34962;
 const ELEMENT_ARRAY_BUFFER: u32 = 34963;
 
+/// What exportGltf writes besides the meshes and hierarchy.
+#[derive(Clone, Debug)]
+pub struct Options {
+    pub up_z: bool,
+    pub materials: bool,
+    pub skins: bool,
+    pub blend_shapes: bool,
+    /// The first and last frame to sample, when animation goes out.
+    pub animation: Option<(f64, f64)>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options { up_z: false, materials: true, skins: true, blend_shapes: true, animation: None }
+    }
+}
+
+/// A morph target's weight as the scene holds it: blendShape node and target index, and the envelope it is under.
+#[derive(Clone)]
+struct MorphWeight {
+    blend: NodeId,
+    index: i32,
+}
+
 #[derive(Default)]
 struct Doc {
+    opts: Option<Options>,
+    /// Each glTF node carrying a mesh with morph targets, and where its weights come from.
+    morphed: Vec<(usize, Vec<MorphWeight>)>,
+    /// Transforms written with their world matrix: the tops of what is exported.
+    tops: HashSet<NodeId>,
+    animations: Vec<Value>,
     bin: Vec<u8>,
     views: Vec<Value>,
     accessors: Vec<Value>,
@@ -55,6 +90,8 @@ struct Doc {
     node_of: HashMap<NodeId, usize>,
     /// (glTF node carrying the mesh, skinCluster) for each bound mesh written with weights.
     bound: Vec<(usize, NodeId)>,
+    /// The morph weights of the mesh just written, for the node that carries it.
+    pending_morph: Vec<MorphWeight>,
     material_of: HashMap<NodeId, usize>,
     image_of: HashMap<String, Option<usize>>,
     notes: Vec<String>,
@@ -75,8 +112,12 @@ impl Doc {
     }
 
     fn floats(&mut self, data: &[f32], width: usize, kind: &str, bounds: bool) -> usize {
+        self.floats_in(data, width, kind, bounds, Some(ARRAY_BUFFER))
+    }
+
+    fn floats_in(&mut self, data: &[f32], width: usize, kind: &str, bounds: bool, target: Option<u32>) -> usize {
         let bytes: Vec<u8> = data.iter().flat_map(|f| f.to_le_bytes()).collect();
-        let view = self.view(&bytes, Some(ARRAY_BUFFER));
+        let view = self.view(&bytes, target);
         let mut a = json!({"bufferView": view, "componentType": FLOAT, "count": data.len() / width, "type": kind});
         if bounds {
             let (mut lo, mut hi) = (vec![f32::MAX; width], vec![f32::MIN; width]);
@@ -120,6 +161,10 @@ impl Doc {
         let view = self.view(&bytes, Some(ELEMENT_ARRAY_BUFFER));
         self.accessors.push(json!({"bufferView": view, "componentType": UINT, "count": data.len(), "type": "SCALAR"}));
         self.accessors.len() - 1
+    }
+
+    fn opts(&self) -> Options {
+        self.opts.clone().unwrap_or_default()
     }
 
     fn uses(&mut self, extension: &'static str) {
@@ -275,13 +320,24 @@ fn mesh(doc: &mut Doc, s: &mut Session, shape: NodeId, out_dir: &Path, embed: bo
     if m.num_faces() == 0 {
         return None;
     }
-    let skin = bound(s, shape, m.num_points() as usize);
-    if crate::skin::skin_of(&s.graph, shape).is_some() && skin.is_none() {
+    let opts = doc.opts();
+    let skin = if opts.skins { bound(s, shape, m.num_points() as usize) } else { None };
+    if opts.skins && crate::skin::skin_of(&s.graph, shape).is_some() && skin.is_none() {
         doc.notes.push(format!("{}: something after its skin changes its points, so it is written as it stands, without weights", s.graph.path(shape)));
     }
     if let Some((_, cage, _)) = &skin {
         // The bind pose is what the joints move.
         m = cage.clone();
+    }
+    // Blend shapes: the mesh goes out with each target at nothing, each target its deltas.
+    let morphs = if opts.blend_shapes { morph_targets(doc, &s.graph, shape, &m) } else { Vec::new() };
+    if !morphs.is_empty() {
+        let pts = m.positions_mut();
+        for t in &morphs {
+            for (p, d) in pts.iter_mut().zip(&t.deltas) {
+                *p -= *d * t.weight;
+            }
+        }
     }
     let groups = crate::shading::membership_of(&s.graph, shape);
     let of_face = crate::shading::face_groups(&m, &groups);
@@ -349,6 +405,11 @@ fn mesh(doc: &mut Doc, s: &mut Session, shape: NodeId, out_dir: &Path, embed: bo
         let flat: Vec<f32> = r.colors.iter().flat_map(|c| c.map(|x| x.clamp(0.0, 1.0))).collect();
         attributes.insert("COLOR_0".into(), json!(doc.floats(&flat, 4, "VEC4", false)));
     }
+    let mut targets = Vec::new();
+    for t in &morphs {
+        let flat: Vec<f32> = r.vertex_point.iter().flat_map(|&p| (basis.transform_vector3(t.deltas.get(p as usize).copied().unwrap_or(DVec3::ZERO)) * SCALE).as_vec3().to_array()).collect();
+        targets.push(json!({"POSITION": doc.floats(&flat, 3, "VEC3", true)}));
+    }
     let mut primitives = Vec::new();
     for section in &r.sections {
         let (a, b) = (section.first_index as usize, (section.first_index + section.index_count) as usize);
@@ -356,7 +417,10 @@ fn mesh(doc: &mut Doc, s: &mut Session, shape: NodeId, out_dir: &Path, embed: bo
             continue;
         }
         let mut p = json!({"attributes": attributes, "indices": doc.indices(&r.indices[a..b]), "mode": 4});
-        let sg = usize::try_from(section.material).ok().and_then(|k| groups.get(k)).map(|g| g.0);
+        if !targets.is_empty() {
+            p["targets"] = json!(targets);
+        }
+        let sg = usize::try_from(section.material).ok().and_then(|k| groups.get(k)).map(|g| g.0).filter(|_| opts.materials);
         if let Some(i) = sg.and_then(|sg| material(doc, s, sg, out_dir, embed)) {
             p["material"] = json!(i);
         }
@@ -365,8 +429,55 @@ fn mesh(doc: &mut Doc, s: &mut Session, shape: NodeId, out_dir: &Path, embed: bo
     if primitives.is_empty() {
         return None;
     }
-    doc.meshes.push(json!({"name": s.graph.path(shape), "primitives": primitives}));
+    let mut out = json!({"name": s.graph.path(shape), "primitives": primitives});
+    if !morphs.is_empty() {
+        out["weights"] = json!(morphs.iter().map(|t| t.weight).collect::<Vec<_>>());
+        out["extras"] = json!({"targetNames": morphs.iter().map(|t| t.name.clone()).collect::<Vec<_>>()});
+    }
+    doc.meshes.push(out);
+    doc.pending_morph = morphs.iter().map(|t| t.source.clone()).collect();
     Some((doc.meshes.len() - 1, skinned))
+}
+
+struct Morph {
+    name: String,
+    /// Per point of the mesh, in its own space.
+    deltas: Vec<DVec3>,
+    /// As the scene has it now, envelope included.
+    weight: f64,
+    source: MorphWeight,
+}
+
+/// The blend shape targets on a shape's history, as morph targets of a mesh of `m`'s points: each target's full-weight
+/// deltas times its per point weights. In-betweens are not carried.
+fn morph_targets(doc: &mut Doc, g: &Graph, shape: NodeId, m: &aztek_geo::mesh::Mesh) -> Vec<Morph> {
+    let n = m.num_points() as usize;
+    let mut out = Vec::new();
+    for bs in crate::history::history_of(g, shape) {
+        if g.node(bs).is_none_or(|x| x.ty().name != "blendShape") {
+            continue;
+        }
+        let data = crate::deform_blend::blend_of(g, bs);
+        let envelope = g.node(bs).map_or(1.0, |x| x.data().float(crate::deform::ENVELOPE));
+        let aliases = g.aliases(bs);
+        let alias = |index: i32| aliases.iter().find(|a| a.1 == format!("weight[{index}]")).map(|a| a.0.clone());
+        for t in &data.targets {
+            let Some(hero) = t.items.iter().max_by_key(|i| i.iti) else { continue };
+            if t.items.len() > 1 {
+                doc.notes.push(format!("{}: in-between shapes of {} are left out", g.path(bs), t.name));
+            }
+            let mut deltas = vec![DVec3::ZERO; n];
+            for &(p, d) in &hero.deltas {
+                if let Some(slot) = deltas.get_mut(p as usize) {
+                    *slot = d * t.weights.as_ref().and_then(|w| w.get(p as usize)).copied().unwrap_or(1.0);
+                }
+            }
+            let w = g.node(bs).and_then(|x| x.data().element(crate::deform_blend::WEIGHT, t.index).map(|v| v.as_float())).unwrap_or(0.0);
+            let name = alias(t.index).unwrap_or_else(|| t.name.clone());
+            out.push(Morph { name, deltas, weight: w * envelope, source: MorphWeight { blend: bs, index: t.index } });
+        }
+    }
+    out
 }
 
 /// A node's own name, without the path above it or its namespace.
@@ -417,16 +528,25 @@ fn node(doc: &mut Doc, s: &mut Session, id: NodeId, top: bool, out_dir: &Path, e
     let shapes: Vec<NodeId> = children.iter().copied().filter(|&c| visible_shape(&s.graph, c)).collect();
     let mut below = Vec::new();
     let mut own_skin = None;
+    let mut own_morph = Vec::new();
     for (k, shape) in shapes.iter().enumerate() {
+        doc.pending_morph.clear();
         let Some((mesh_index, skin)) = mesh(doc, s, *shape, out_dir, embed) else { continue };
+        let morph = std::mem::take(&mut doc.pending_morph);
         counts.1 += 1;
         if k == 0 {
             out["mesh"] = json!(mesh_index);
             own_skin = skin;
+            if !morph.is_empty() {
+                own_morph = morph;
+            }
         } else {
             // glTF has one mesh to a node: a second shape rides on a node of its own.
             doc.nodes.push(json!({"name": leaf(&s.graph, *shape), "mesh": mesh_index}));
             below.push(doc.nodes.len() - 1);
+            if !morph.is_empty() {
+                doc.morphed.push((doc.nodes.len() - 1, morph));
+            }
             if let Some(sk) = skin {
                 doc.bound.push((doc.nodes.len() - 1, sk));
             }
@@ -445,10 +565,108 @@ fn node(doc: &mut Doc, s: &mut Session, id: NodeId, top: bool, out_dir: &Path, e
     doc.nodes.push(out);
     let index = doc.nodes.len() - 1;
     doc.node_of.insert(id, index);
+    if top {
+        doc.tops.insert(id);
+    }
     if let Some(sk) = own_skin {
         doc.bound.push((index, sk));
     }
+    if !own_morph.is_empty() {
+        doc.morphed.push((index, own_morph));
+    }
     index
+}
+
+/// A node's translation, rotation and scale as the file has them, from its matrix in the scene.
+fn trs(doc: &Doc, m: DMat4) -> (DVec3, DQuat, DVec3) {
+    let (scale, rotation, translation) = doc.matrix(m).to_scale_rotation_translation();
+    (translation, rotation.normalize(), scale)
+}
+
+/// Samples each exported node and morph weight once a frame from `start` to `end`, and writes the channels that change
+/// as one animation.
+fn write_animation(doc: &mut Doc, g: &mut Graph, start: f64, end: f64) {
+    let fps = crate::anim::fps();
+    let frames: Vec<f64> = {
+        let mut f = Vec::new();
+        let mut t = start;
+        while t <= end + 1e-9 {
+            f.push(t);
+            t += 1.0;
+        }
+        f
+    };
+    if frames.len() < 2 {
+        return;
+    }
+    let nodes: Vec<(NodeId, usize, bool)> = {
+        let mut v: Vec<(NodeId, usize, bool)> = doc.node_of.iter().map(|(&id, &i)| (id, i, doc.tops.contains(&id))).collect();
+        v.sort_by_key(|x| x.1);
+        v
+    };
+    let morphed = doc.morphed.clone();
+    let mut t_samples: Vec<Vec<DVec3>> = vec![Vec::new(); nodes.len()];
+    let mut r_samples: Vec<Vec<DQuat>> = vec![Vec::new(); nodes.len()];
+    let mut s_samples: Vec<Vec<DVec3>> = vec![Vec::new(); nodes.len()];
+    let mut w_samples: Vec<Vec<f64>> = vec![Vec::new(); morphed.len()];
+    for &f in &frames {
+        g.at_time(f / fps, |g| {
+            g.evaluate();
+            for (k, &(id, _, top)) in nodes.iter().enumerate() {
+                let Some(n) = g.node(id) else { continue };
+                let m = n.matrix(if top { Transform::WORLD_MATRIX } else { Transform::MATRIX });
+                let (t, mut r, sc) = trs(doc, m);
+                // The short way round from the last sample, so the reader doesn't spin.
+                if let Some(prev) = r_samples[k].last() {
+                    if prev.dot(r) < 0.0 {
+                        r = -r;
+                    }
+                }
+                t_samples[k].push(t);
+                r_samples[k].push(r);
+                s_samples[k].push(sc);
+            }
+            for (k, (_, ws)) in morphed.iter().enumerate() {
+                for w in ws {
+                    let envelope = g.node(w.blend).map_or(1.0, |x| x.data().float(crate::deform::ENVELOPE));
+                    let v = g.value(&crate::plug::PlugRef::element(w.blend, crate::deform_blend::WEIGHT as i32, w.index)).ok().and_then(|v| v.scalar()).unwrap_or(0.0);
+                    w_samples[k].push(v * envelope);
+                }
+            }
+        });
+    }
+    let times: Vec<f32> = frames.iter().map(|f| ((f - start) / fps) as f32).collect();
+    let mut samplers = Vec::new();
+    let mut channels = Vec::new();
+    let mut input = None;
+    let mut add = |doc: &mut Doc, node: usize, path: &str, data: Vec<f32>, kind: &str, width: usize| {
+        let i = *input.get_or_insert_with(|| doc.floats_in(&times, 1, "SCALAR", true, None));
+        let o = doc.floats_in(&data, width, kind, false, None);
+        samplers.push(json!({"input": i, "output": o, "interpolation": "LINEAR"}));
+        channels.push(json!({"sampler": samplers.len() - 1, "target": {"node": node, "path": path}}));
+    };
+    let varies3 = |v: &[DVec3]| v.iter().any(|x| (*x - v[0]).length() > 1e-7);
+    for (k, &(_, index, _)) in nodes.iter().enumerate() {
+        if varies3(&t_samples[k]) {
+            add(doc, index, "translation", t_samples[k].iter().flat_map(|v| v.as_vec3().to_array()).collect(), "VEC3", 3);
+        }
+        if r_samples[k].iter().any(|q| q.dot(r_samples[k][0]).abs() < 1.0 - 1e-9) {
+            add(doc, index, "rotation", r_samples[k].iter().flat_map(|q| q.as_quat().to_array()).collect(), "VEC4", 4);
+        }
+        if varies3(&s_samples[k]) {
+            add(doc, index, "scale", s_samples[k].iter().flat_map(|v| v.as_vec3().to_array()).collect(), "VEC3", 3);
+        }
+    }
+    for (k, (index, ws)) in morphed.iter().enumerate() {
+        let n = ws.len();
+        let first = &w_samples[k][..n];
+        if w_samples[k].chunks(n).any(|c| c.iter().zip(first).any(|(a, b)| (a - b).abs() > 1e-7)) {
+            add(doc, *index, "weights", w_samples[k].iter().map(|&x| x as f32).collect(), "SCALAR", 1);
+        }
+    }
+    if !channels.is_empty() {
+        doc.animations.push(json!({"name": "Take 001", "samplers": samplers, "channels": channels}));
+    }
 }
 
 /// The joints the skins under these objects use, each with everything above it.
@@ -512,7 +730,8 @@ fn write_skins(doc: &mut Doc, g: &Graph) {
 
 /// Writes the objects (and what is under them) to `path`: `.glb` is binary, anything else JSON. Returns what was
 /// written and what was left out.
-pub fn export(s: &mut Session, path: &str, objects: &[NodeId], up_z: bool) -> CmdResult {
+pub fn export(s: &mut Session, path: &str, objects: &[NodeId], opts: &Options) -> CmdResult {
+    let up_z = opts.up_z;
     let out = PathBuf::from(path);
     let glb = out.extension().is_some_and(|e| e.eq_ignore_ascii_case("glb"));
     let out_dir = out.parent().map(Path::to_path_buf).unwrap_or_default();
@@ -545,7 +764,8 @@ pub fn export(s: &mut Session, path: &str, objects: &[NodeId], up_z: bool) -> Cm
         _ => DMat4::IDENTITY,
     };
     // Skeletons go out with the meshes bound to them: a joint's top-most parent is exported if nothing asked for holds it.
-    let mut doc = Doc { basis, needed: skeletons(&s.graph, &tops), ..Default::default() };
+    let needed = if opts.skins { skeletons(&s.graph, &tops) } else { HashSet::new() };
+    let mut doc = Doc { basis, needed, opts: Some(opts.clone()), ..Default::default() };
     let mut skeleton_tops: Vec<NodeId> = doc.needed.iter().copied().filter(|&j| s.graph.parent(j) == NO_NODE).collect();
     skeleton_tops.sort_unstable();
     for t in skeleton_tops {
@@ -566,6 +786,9 @@ pub fn export(s: &mut Session, path: &str, objects: &[NodeId], up_z: bool) -> Cm
         fail!("exportGltf: no meshes to export");
     }
     write_skins(&mut doc, &s.graph);
+    if let Some((a, b)) = opts.animation {
+        write_animation(&mut doc, &mut s.graph, a, b);
+    }
     if up_z {
         doc.notes.push("written Z up: the format is Y up, and a reader that follows it will turn the scene".to_string());
     }
@@ -586,7 +809,7 @@ pub fn export(s: &mut Session, path: &str, objects: &[NodeId], up_z: bool) -> Cm
         "bufferViews": doc.views,
         "accessors": doc.accessors,
     });
-    for (key, list) in [("materials", &doc.materials), ("textures", &doc.textures), ("images", &doc.images), ("samplers", &doc.samplers), ("skins", &doc.skins)] {
+    for (key, list) in [("materials", &doc.materials), ("textures", &doc.textures), ("images", &doc.images), ("samplers", &doc.samplers), ("skins", &doc.skins), ("animations", &doc.animations)] {
         if !list.is_empty() {
             root[key] = json!(list);
         }
@@ -617,7 +840,7 @@ pub fn export(s: &mut Session, path: &str, objects: &[NodeId], up_z: bool) -> Cm
     if std::fs::write(&out, bytes).is_err() {
         fail!("exportGltf: can't write {path}");
     }
-    Ok(json!({"path": path, "nodes": counts.0, "meshes": counts.1, "materials": doc.materials.len(), "textures": doc.textures.len(), "skins": doc.skins.len(), "notes": doc.notes}))
+    Ok(json!({"path": path, "nodes": counts.0, "meshes": counts.1, "materials": doc.materials.len(), "textures": doc.textures.len(), "skins": doc.skins.len(), "animations": doc.animations.len(), "notes": doc.notes}))
 }
 
 /// The commands the glTF plug-in brings.
@@ -629,9 +852,11 @@ pub fn register(c: &mut Commands<Session>) {
             "exportGltf",
             "Export to glTF 2.0: a .glb file (binary, textures inside it) or a .gltf file (JSON, textures by path). The objects \
              named, or the selection, with what is under them: hierarchy, meshes as they stand, normals, UV sets, vertex \
-             colours, materials, colour textures and skins (joints, weights, bind matrices), in metres. The file is Y up, \
-             as the format is: a Z-up scene is converted, with no node added to carry the turn. -upAxis z writes Z up \
-             instead. Animation, blend shapes, cameras and lights are not written. -all exports every top-level object.",
+             colours, materials, colour textures, skins (joints, weights, bind matrices) and blend shapes (morph targets), in \
+             metres. The file is Y up, as the format is: a Z-up scene is converted, with no node added to carry the turn. \
+             -upAxis z writes Z up instead. -animation samples transforms and morph weights once a frame over -startTime \
+             to -endTime. -materials, -skins and -blendShapes false leave those out. Cameras and lights are not written. \
+             -all exports every top-level object.",
             |s, a| {
                 let Some(path) = a.pos_str(0).map(str::to_string) else { fail!("exportGltf: path required") };
                 let mut ids = Vec::new();
@@ -657,12 +882,24 @@ pub fn register(c: &mut Commands<Session>) {
                 if up != "y" && up != "z" {
                     fail!("exportGltf: -upAxis is y or z");
                 }
-                export(s, &path, &ids, up == "z")
+                let on = |flag: &str| a.get(flag).and_then(|v| v.as_bool()).unwrap_or(true);
+                let animation = a.bool("animation").then(|| {
+                    let r = crate::anim::range();
+                    (a.get("startTime").and_then(|v| v.as_f64()).unwrap_or(r.min), a.get("endTime").and_then(|v| v.as_f64()).unwrap_or(r.max))
+                });
+                let opts = Options { up_z: up == "z", materials: on("materials"), skins: on("skins"), blend_shapes: on("blendShapes"), animation };
+                export(s, &path, &ids, &opts)
             },
         )
         .positional("path objects...")
         .flag(FlagDef::new("all", "all", ArgType::Bool, Value::Null, "Every top-level object, not the selection."))
         .flag(FlagDef::new("upAxis", "up", ArgType::String, Value::Null, "The file's up axis: y (the format's, the default) or z."))
+        .flag(FlagDef::new("materials", "mat", ArgType::Bool, Value::Null, "Materials and their textures (on by default)."))
+        .flag(FlagDef::new("skins", "sk", ArgType::Bool, Value::Null, "Skins: joints, weights and bind matrices (on by default)."))
+        .flag(FlagDef::new("blendShapes", "bs", ArgType::Bool, Value::Null, "Blend shapes as morph targets (on by default)."))
+        .flag(FlagDef::new("animation", "an", ArgType::Bool, Value::Null, "Transforms and morph weights sampled once a frame."))
+        .flag(FlagDef::new("startTime", "st", ArgType::Float, Value::Null, "First frame of the animation (the playback start by default)."))
+        .flag(FlagDef::new("endTime", "et", ArgType::Float, Value::Null, "Last frame of the animation (the playback end by default)."))
         .undoable(false),
     );
 }

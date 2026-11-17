@@ -328,8 +328,9 @@ Every extra copy makes the project harder to lose.
   ![Two rigs and a row of materials rendered with Harold](docs/harold.png)
 - **UV sets and glTF:** several UV sets to a mesh, each with its own seams, kept in `.ma` files; the UV Set Editor
   and a UV set list in the UV Editor. File > Import reads FBX (binary) as the reference's FBX plug-in does: hierarchy, joints with their orients, meshes with UVs, colour sets and hard edges, lambert and phong materials with file textures and normal maps, skins with their weights and bind pose, under the `FBXImport*` settings and the FBX Import Options; and glTF 2.0: hierarchy, meshes, UVs, materials, joints. File > Export writes FBX (binary 7.4: hierarchy, joints with their orients, polygons, UV sets, materials with colour, transparency and normal maps, skins, under the `FBXExport*` settings) and glTF 2.0 (`.glb` or `.gltf`): hierarchy, meshes, normals,
-  UV sets, vertex colours, materials, colour textures and skins (joints, weights, bind matrices). The file is Y up; a
-  Z-up scene is converted with no node added, or kept Z up (`exportGltf -upAxis z`). Animation is not written yet.
+  UV sets, vertex colours, materials, colour textures, skins (joints, weights, bind matrices), blend shapes as morph
+  targets and sampled animation. The file is Y up; a Z-up scene is converted with no node added, or kept Z up
+  (`exportGltf -upAxis z`). The export browser shows the chosen type's options at its right, as the reference's does.
 - **Materials and textures:** a physically based standard surface, and lambert, blinn, phong, phongE and surfaceShader with file textures and place2dTexture, assigned to objects or faces; Textured mode (6), anti-aliasing and ambient occlusion in the viewport; the Hypershade (Browser, Create panel, node graph, Material Viewer, Property Editor); a map button on every colour and number a texture can drive; the image behind the UV Editor.
 
   ![Materials and a file texture in Textured mode](docs/materials.png)

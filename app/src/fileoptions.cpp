@@ -14,6 +14,9 @@
 #include <QScrollArea>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
+#include <QRegularExpression>
+#include <memory>
 #include <QSettings>
 #include <QVBoxLayout>
 
@@ -58,6 +61,56 @@ QStringList types(FileAction a) {
         t << "PLY" << "STL";
     }
     return t;
+}
+
+// glTF export: what goes in the file and how, kept under gltf/ (#122). The file kind follows the name's extension;
+// "Format" picks it when the name has none.
+OptionsPanel gltf_export_panel(QWidget* parent) {
+    auto* w = new QWidget(parent);
+    auto* form = new QFormLayout(w);
+    QSettings s;
+    auto* format = new QComboBox(w);
+    format->addItems({"glTF Binary (.glb)", "glTF Separate (.gltf)"});
+    format->setCurrentIndex(s.value("gltf/format", 0).toInt());
+    format->setToolTip("The kind of file when the name has no extension: one binary file with textures inside, or JSON with textures beside it");
+    form->addRow("Format:", format);
+    auto* up = new QComboBox(w);
+    up->addItems({"Y Up", "Z Up"});
+    up->setCurrentIndex(s.value("gltf/exportYUp", true).toBool() ? 0 : 1);
+    up->setToolTip("The file's up axis. Y is the format's; a scene that is the other way up is converted");
+    form->addRow("Up axis:", up);
+    struct Box { const char* label; const char* key; bool on; const char* tip; };
+    const Box boxes[] = {
+        {"Materials", "materials", true, "Each shading group's material and its colour texture"},
+        {"Skins", "skins", true, "Joints, weights and bind matrices of bound meshes"},
+        {"Blend Shapes", "blendShapes", true, "Each blend shape target as a morph target, with the weights as they are"},
+        {"Animation", "animation", false, "Keyed transforms and blend shape weights, sampled over the frame range"},
+    };
+    QList<QPair<QString, QCheckBox*>> checks;
+    for (const Box& b : boxes) {
+        auto* c = new QCheckBox(b.label, w);
+        c->setChecked(s.value(QString("gltf/") + b.key, b.on).toBool());
+        c->setToolTip(b.tip);
+        form->addRow(c);
+        checks.append({b.key, c});
+    }
+    auto* range = new QComboBox(w);
+    range->addItems({"Time Slider", "Animation Range"});
+    range->setCurrentIndex(s.value("gltf/range", 0).toInt());
+    range->setToolTip("The frames animation is sampled over: the playback range or the whole animation range");
+    form->addRow("Frame range:", range);
+    auto save = [format, up, checks, range] {
+        QSettings s;
+        s.setValue("gltf/format", format->currentIndex());
+        s.setValue("gltf/exportYUp", up->currentIndex() == 0);
+        for (const auto& c : checks) s.setValue("gltf/" + c.first, c.second->isChecked());
+        s.setValue("gltf/range", range->currentIndex());
+    };
+    auto reset = [] {
+        QSettings s;
+        for (const char* k : {"format", "exportYUp", "materials", "skins", "blendShapes", "animation", "range"}) s.remove(QString("gltf/") + k);
+    };
+    return {w, save, reset};
 }
 
 class FileOptions : public QDialog {
@@ -145,6 +198,11 @@ private:
             panel_ = p.widget;
             save_panel_ = p.save;
             reset_panel_ = p.reset;
+        } else if (t == "glTF export") {
+            OptionsPanel p = gltf_export_panel(specific_);
+            panel_ = p.widget;
+            save_panel_ = p.save;
+            reset_panel_ = p.reset;
         } else {
             panel_ = new QLabel("This file type has no further options.", specific_);
         }
@@ -204,6 +262,103 @@ void browse_file(bool save, const QString& title, const QString& start, const QS
     QObject::connect(d, &QFileDialog::fileSelected, d, [done](const QString& f) {
         if (!f.isEmpty()) done(f);
     });
+    d->show();
+    d->raise();
+}
+
+QJsonObject gltf_export_flags() {
+    QSettings s;
+    QJsonObject f{{"upAxis", s.value("gltf/exportYUp", true).toBool() ? "y" : "z"},
+                  {"materials", s.value("gltf/materials", true).toBool()},
+                  {"skins", s.value("gltf/skins", true).toBool()},
+                  {"blendShapes", s.value("gltf/blendShapes", true).toBool()},
+                  {"animation", s.value("gltf/animation", false).toBool()}};
+    if (f["animation"].toBool()) {
+        const bool whole = s.value("gltf/range", 0).toInt() == 1;
+        f["startTime"] = ask("playbackOptions", QJsonObject{{"query", true}, {whole ? "animationStartTime" : "minTime", true}}).toDouble();
+        f["endTime"] = ask("playbackOptions", QJsonObject{{"query", true}, {whole ? "animationEndTime" : "maxTime", true}}).toDouble();
+    }
+    return f;
+}
+
+namespace {
+
+// The options for a file type filter's formats, for the browser's side panel.
+OptionsPanel panel_for_filter(FileAction action, const QString& filter, QWidget* parent) {
+    const bool import = action == FileAction::Import;
+    if (filter.startsWith("FBX")) {
+        FbxPanel p = import ? fbx_import_panel(parent) : fbx_export_panel(parent);
+        return {p.widget, [] {}, p.reset};
+    }
+    if (filter.startsWith("USD")) return import ? usd_import_panel(parent) : usd_export_panel(parent);
+    if (filter.startsWith("glTF") && !import) return gltf_export_panel(parent);
+    auto* l = new QLabel("This file type has no further options.", parent);
+    l->setWordWrap(true);
+    return {l, [] {}, [] {}};
+}
+
+} // namespace
+
+void browse_file_with_options(bool save, FileAction action, const QString& title, const QString& start, const QString& filters,
+                              const QString& selected, std::function<void(const QString& file)> done) {
+    auto* d = new QDialog(main_window_widget());
+    d->setWindowTitle(title);
+    d->resize(1100, 620);
+    auto* row = new QHBoxLayout(d);
+    row->setContentsMargins(4, 4, 4, 4);
+    auto* fd = new QFileDialog(d, title, start, filters);
+    fd->setWindowFlags(Qt::Widget);
+    fd->setOption(QFileDialog::DontUseNativeDialog, true);
+    fd->setAcceptMode(save ? QFileDialog::AcceptSave : QFileDialog::AcceptOpen);
+    fd->setFileMode(save ? QFileDialog::AnyFile : QFileDialog::ExistingFile);
+    if (!selected.isEmpty()) fd->selectNameFilter(selected);
+    if (save && !start.isEmpty() && !QFileInfo(start).isDir()) fd->selectFile(start);
+    row->addWidget(fd, 3);
+    auto* side = new QGroupBox("Options", d);
+    auto* side_lay = new QVBoxLayout(side);
+    auto* scroll = new QScrollArea(side);
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setFrameShape(QFrame::NoFrame);
+    side_lay->addWidget(scroll);
+    side->setMinimumWidth(300);
+    row->addWidget(side, 2);
+    auto saver = std::make_shared<std::function<void()>>([] {});
+    auto show = [action, scroll, side, saver](const QString& filter) {
+        OptionsPanel p = panel_for_filter(action, filter, scroll);
+        if (QWidget* old = scroll->takeWidget()) old->deleteLater();
+        scroll->setWidget(p.widget);
+        side->setTitle(filter.section(" (", 0, 0) + " Options");
+        *saver = p.save;
+    };
+    show(fd->selectedNameFilter());
+    QObject::connect(fd, &QFileDialog::filterSelected, d, show);
+    // A name typed with an extension shows that type's options.
+    QObject::connect(fd, &QFileDialog::currentChanged, d, [fd, show](const QString& f) {
+        const QString ext = QFileInfo(f).suffix().toLower();
+        if (ext.isEmpty()) return;
+        for (const QString& filter : fd->nameFilters())
+            if (filter.contains("*." + ext) && filter != fd->selectedNameFilter() && !filter.contains(' ' + QString("*.ma *.mb"))) {
+                fd->selectNameFilter(filter);
+                show(filter);
+                return;
+            }
+    });
+    QObject::connect(fd, &QFileDialog::fileSelected, d, [d, fd, save, saver, done](QString f) {
+        (*saver)();
+        // A name without an extension takes the chosen type's (glTF's as its Format says).
+        if (save && !f.isEmpty() && QFileInfo(f).suffix().isEmpty() && default_file_extensions()) {
+            const QString filter = fd->selectedNameFilter();
+            const int at = filter.indexOf("*.");
+            if (filter.startsWith("glTF")) f += QSettings().value("gltf/format", 0).toInt() == 0 ? ".glb" : ".gltf";
+            else if (at >= 0) f += "." + filter.mid(at + 2).section(QRegularExpression("[ )]"), 0, 0);
+        }
+        d->accept();
+        if (!f.isEmpty()) done(f);
+    });
+    QObject::connect(fd, &QFileDialog::rejected, d, &QDialog::reject);
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowModality(Qt::NonModal);
     d->show();
     d->raise();
 }

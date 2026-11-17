@@ -1,6 +1,7 @@
 // The Import, Export All and Export Selection options windows, as the reference's: a File type, the options of that
 // type, and the action, Apply and Close buttons. The action and Apply open the file browser on that type and do it.
 #pragma once
+#include <QJsonObject>
 #include <QString>
 #include <QWidget>
 #include <functional>
@@ -24,5 +25,13 @@ bool default_file_extensions();
 // gets the file chosen. save picks a name to write, else an existing file to read; start is a folder or a file name.
 void browse_file(bool save, const QString& title, const QString& start, const QString& filters, const QString& selected,
                  std::function<void(const QString& file)> done);
+
+// The same browser with the chosen type's options at its right, as the reference's Export and Import browsers have
+// them (#122): the panel follows the file type filter, and its settings are kept when the file is taken.
+void browse_file_with_options(bool save, FileAction action, const QString& title, const QString& start, const QString& filters,
+                              const QString& selected, std::function<void(const QString& file)> done);
+
+// glTF export settings, as the options panels keep them: the exportGltf flags they give.
+QJsonObject gltf_export_flags();
 
 } // namespace az
