@@ -68,6 +68,23 @@ bool draw_more(const QString& name, QPainter& p) {
         }
         return true;
     }
+    if (name == "modelingToolkit") {
+        // A cube with one face picked and a pen across it, as the reference's Modeling Toolkit button.
+        line_pen(p, kInk, 1.6);
+        QPolygonF top, left, right;
+        top << QPointF(16, 4) << QPointF(27, 9) << QPointF(16, 14) << QPointF(5, 9);
+        left << QPointF(5, 9) << QPointF(16, 14) << QPointF(16, 27) << QPointF(5, 22);
+        right << QPointF(16, 14) << QPointF(27, 9) << QPointF(27, 22) << QPointF(16, 27);
+        p.setBrush(QColor(200, 200, 200));
+        p.drawPolygon(top);
+        p.setBrush(kBlue);
+        p.drawPolygon(left);
+        p.setBrush(QColor(150, 150, 150));
+        p.drawPolygon(right);
+        line_pen(p, kRed, 3.0);
+        p.drawLine(QPointF(19, 26), QPointF(29, 16));
+        return true;
+    }
     if (name == "humanIK") {
         // A figure, as the reference's Character Controls button.
         p.setPen(Qt::NoPen);

@@ -208,6 +208,12 @@ void MainWindow::build_status_line() {
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     QAction* spacer_action = tb->addWidget(spacer);
     // The editors' show and hide buttons, at the far right, in the reference's order.
+    // The reference's order (#111): Modeling Toolkit, Character Controls, Attribute Editor, Tool Settings, Channel Box,
+    // then Aztek's Outliner.
+    tb->addAction(icon("modelingToolkit"), "Show or hide the Modeling Toolkit", [this] {
+        if (mtk_dock_ && mtk_dock_->isVisible()) mtk_dock_->hide();
+        else show_modeling_toolkit();
+    });
     tb->addAction(icon("humanIK"), "Show or hide the HumanIK Character Controls", [this] { show_named_window("humanIK"); });
     tb->addAction(icon("attrEditor"), "Show or hide the Attribute Editor", [this] { attr_dock_->setVisible(!attr_dock_->isVisible()); if (attr_dock_->isVisible()) attr_dock_->raise(); });
     tb->addAction(icon("toolSettings"), "Show or hide the Tool Settings", [this] { tool_dock_->setVisible(!tool_dock_->isVisible()); });

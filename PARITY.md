@@ -1322,6 +1322,11 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Status line panel buttons (17/11/2026, #111)
+
+The buttons at the right of the status line are in the reference's order: Modeling Toolkit (new, shows or hides
+the toolkit), Character Controls, Attribute Editor, Tool Settings, Channel Box, then Aztek's Outliner.
+
 ### Outliner tints on light themes (17/11/2026, #115)
 
 The Outliner's own tints (USD prims, unloaded and inactive prims, materials and set members, intermediate objects,
