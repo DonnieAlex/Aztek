@@ -367,7 +367,10 @@ public:
         const int saved = QSettings().value("renderView/channels", 0).toInt();
         const std::pair<const char*, ImageView::Channels> modes[] = {{"RGB", ImageView::Rgb}, {"Red\tR", ImageView::Red}, {"Green\tG", ImageView::Green}, {"Blue\tB", ImageView::Blue}, {"Alpha\tA", ImageView::Alpha}, {"RGBA Over Checker", ImageView::OverChecker}};
         auto* by_mode = new QHash<int, QAction*>();
-        for (const auto& [label, mode] : modes) {
+        for (const auto& entry : modes) {
+            // Named, not bound: the lambda below captures mode, which C++17 allows only of a variable.
+            const char* label = entry.first;
+            const ImageView::Channels mode = entry.second;
             QAction* act = view->addAction(label);
             (*by_mode)[int(mode)] = act;
             act->setCheckable(true);

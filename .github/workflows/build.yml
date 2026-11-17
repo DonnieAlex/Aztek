@@ -67,6 +67,17 @@ jobs:
       - name: Compile
         run: tools/check_kit.sh
 
+  # The shell's C++ as strict C++17 under clang and GCC, in a few minutes: what would stop the Windows (MSVC) or macOS
+  # (AppleClang) compile stops here first, and those builds don't start on code that can't compile.
+  app:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: tools/ci/retry.sh 3 bash -c "sudo apt-get update && sudo apt-get install -y --no-install-recommends qt6-base-dev ninja-build cmake clang"
+      - name: Compile
+        run: tools/check_app.sh
+
   linux:
     needs: gate
     if: needs.gate.outputs.go == 'true'
@@ -391,7 +402,7 @@ jobs:
           path: aztek-*.flatpak
 
   windows:
-    needs: gate
+    needs: [gate, app]
     if: needs.gate.outputs.go == 'true'
     runs-on: windows-2022
     timeout-minutes: 340
@@ -490,7 +501,7 @@ jobs:
 
   # Apple silicon. Not yet a condition of a release: a failure here leaves the other packages to go out without it.
   macos:
-    needs: gate
+    needs: [gate, app]
     if: needs.gate.outputs.go == 'true'
     runs-on: macos-15
     timeout-minutes: 340

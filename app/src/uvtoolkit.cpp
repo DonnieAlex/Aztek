@@ -1039,7 +1039,9 @@ QWidget* UvEditor::build_toolkit() {
         nudges->addWidget(new QLabel("by", body));
         nudges->addWidget(step);
         v->addLayout(nudges);
-        auto [move_mode, move_step] = step_row(v, 0.1);
+        const auto move_mode_move_step = step_row(v, 0.1);
+        const auto move_mode = move_mode_move_step.first;
+        const auto move_step = move_mode_move_step.second;
         auto* retain = new QCheckBox("Retain component spacing", body);
         retain->setChecked(true);
         v->addWidget(retain);
@@ -1095,7 +1097,9 @@ QWidget* UvEditor::build_toolkit() {
         rot->addWidget(ccw);
         rot->addWidget(cw);
         v->addLayout(rot);
-        auto [rot_mode, rot_step] = step_row(v, 15.0);
+        const auto rot_mode_rot_step = step_row(v, 15.0);
+        const auto rot_mode = rot_mode_rot_step.first;
+        const auto rot_step = rot_mode_rot_step.second;
         auto turn = [this, pivot, angle, rot_mode, rot_step, snapped](double sign) {
             const QPointF c = pivot();
             if (c.x() < -1e8) return;
@@ -1124,7 +1128,9 @@ QWidget* UvEditor::build_toolkit() {
         sc->addWidget(sv);
         sc->addWidget(scale);
         v->addLayout(sc);
-        auto [scale_mode, scale_step] = step_row(v, 1.0);
+        const auto scale_mode_scale_step = step_row(v, 1.0);
+        const auto scale_mode = scale_mode_scale_step.first;
+        const auto scale_step = scale_mode_scale_step.second;
         auto* no_negative = new QCheckBox("Prevent Negative Scale", body);
         no_negative->setChecked(true);
         v->addWidget(no_negative);

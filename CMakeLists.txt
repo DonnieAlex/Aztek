@@ -3,6 +3,8 @@ project(Aztek LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Standard C++ as MSVC compiles it, not GNU C++.
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -210,6 +212,10 @@ endif()
 if(MSVC)
   target_compile_options(aztek PRIVATE /utf-8 /permissive-)
   target_compile_definitions(aztek PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  # Plain C++17 and nothing more, as MSVC holds the shell to it: a later standard's syntax or a compiler extension fails
+  # the Linux and macOS builds, and a build here, instead of only the Windows one.
+  target_compile_options(aztek PRIVATE -pedantic-errors)
 endif()
 if(WIN32)
   # What the Rust standard library and its crates link on Windows (cargo rustc --print native-static-libs).

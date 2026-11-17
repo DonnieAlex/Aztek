@@ -341,7 +341,9 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
         f->addRow(own);
         f->addRow(note(uf["ownFolder"].toString() + ", with scripts, plug-ins, modules and prefs folders inside."));
         f->addRow(link);
-        auto [link_w, link_edit] = folder_row(mode == "link" ? uf["folder"].toString() : detected, "Maya Folder");
+        const auto link_w_link_edit = folder_row(mode == "link" ? uf["folder"].toString() : detected, "Maya Folder");
+        const auto link_w = link_w_link_edit.first;
+        const auto link_edit = link_w_link_edit.second;
         link_edit->setPlaceholderText(detected.isEmpty() ? "No Maya folder was found: browse to one" : detected);
         f->addRow(link_w);
         auto* version = new QComboBox(this);
@@ -364,7 +366,9 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
         f->addRow(version_w);
         f->addRow(note("Its scripts, plug-ins, modules, Maya.env and saved preferences are read from there. Aztek never writes into it."));
         f->addRow(custom);
-        auto [custom_w, custom_edit] = folder_row(mode == "custom" ? uf["folder"].toString() : QString(), "User Folder");
+        const auto custom_w_custom_edit = folder_row(mode == "custom" ? uf["folder"].toString() : QString(), "User Folder");
+        const auto custom_w = custom_w_custom_edit.first;
+        const auto custom_edit = custom_w_custom_edit.second;
         f->addRow(custom_w);
         f->addRow(note("Any folder laid out the same way: scripts, plug-ins, modules and prefs, with or without a version's folder."));
         auto enable = [own, link, custom, link_w, version_w, custom_w] {
