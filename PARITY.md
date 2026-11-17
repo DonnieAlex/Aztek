@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Joint Tool quits on Enter (17/11/2026, #106)
+
+Enter ends the joint chain (with an IK handle down it when the tool's settings make one) and, as the reference's
+does, leaves the Joint Tool for the Select tool; the help line says which tool is on (docs/issues/106-joint-tool-quits.png: the help line before and
+after Enter).
+
 ### Paint Skin Weights in Select mode (17/11/2026, #104)
 
 Switching the Paint Skin Weights Tool's Mode to Select (or Paint Select) drops the weight colours, as the
