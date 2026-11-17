@@ -193,6 +193,8 @@ impl View {
             Tool::CreatePolygon => {
                 let pts: Vec<[f64; 3]> = self.ts.cut_world.drain(..).map(|p| p.to_array()).collect();
                 if pts.len() >= 3 {
+                    // The new polygon, selected in object mode, as the reference leaves it (#124).
+                    let _ = core.exec("selectMode", json!({"object": true}));
                     let _ = core.exec("polyCreateFacet", json!({"point": pts}));
                 }
             }

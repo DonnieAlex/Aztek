@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Out of component modes (17/11/2026, #124)
+
+In a component mode, a click on an object that isn't hilited selects it and goes back to object mode, as the
+reference's click out does; a click on nothing clears the components and keeps the mode, and the right-click menu
+off every object is the last selected one's (#119). The Create Polygon tool's Enter leaves the new polygon selected
+in object mode.
+
 ### Alt+B only changes the background (17/11/2026, #123)
 
 Alt+B cycles the views' background (gradient, black, dark grey, light grey) and nothing else. It went through the

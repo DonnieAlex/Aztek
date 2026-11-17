@@ -2770,7 +2770,27 @@ impl Viewport {
                 };
                 vec![format!("{}.{p}[{id}]", g.path(items[i].xf))]
             }
-            None => Vec::new(),
+            None => {
+                // Off the hilited objects, on another one: that object, which takes the selection back to object
+                // mode, as the reference's click out of a component mode does (#124).
+                let sel = g.selection();
+                let lit = components::hilited_meshes(g);
+                let others: Vec<DrawItem> = items
+                    .iter()
+                    .filter(|it| !sel.contains(&it.xf) && !sel.contains(&it.shape) && !lit.contains(&it.shape) && self.pickable(g, it.shape))
+                    .map(|it| DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 })
+                    .collect();
+                if others.is_empty() {
+                    return Vec::new();
+                }
+                // Only when nothing hilited is nearer along the ray.
+                let all: Vec<DrawItem> = items.iter().map(|it| DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }).collect();
+                let eye = self.cam.eye();
+                match (self.raycast(&others, px), self.raycast(&all, px)) {
+                    (Some((i, _, p)), Some((_, _, q))) if (p - eye).length() <= (q - eye).length() + 1e-6 => vec![g.path(crate::ui_cmds::scoped(g, others[i].xf))],
+                    _ => Vec::new(),
+                }
+            }
         }
     }
 

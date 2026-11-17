@@ -2489,6 +2489,10 @@ pub fn select_picked(core: &mut Core, picked: Vec<String>, mods: i32) {
         }
         return;
     }
+    // An object picked in a component mode is a click out of it: object mode, that object (#124).
+    if comps && picked.iter().all(|p| !p.contains('.')) {
+        let _ = core.exec("selectMode", json!({"object": true}));
+    }
     let call = if ctrl && shift {
         json!({"args": picked, "add": true})
     } else if ctrl {

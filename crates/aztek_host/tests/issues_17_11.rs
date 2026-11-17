@@ -76,3 +76,22 @@ fn view_cube_settings_leave_the_camera() {
     assert_eq!(mel(&mut c, "getAttr persp.t;"), before);
     assert_eq!(mel(&mut c, "viewManip -q -zoomToFitScene;"), json!(true));
 }
+
+/// #124: in a component mode, a click on another object takes it, in object mode; a click on nothing keeps the mode.
+#[test]
+fn a_click_on_another_object_leaves_component_mode() {
+    use aztek_host::view::select_picked;
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n a -w 2 -h 2 -d 2; move -4 0 0; polyCube -n b -w 2 -h 2 -d 2; move 4 0 0; select a; selectMode -component; selectType -v true; select a.vtx[0];");
+    let mut vp = top_view();
+    let items = gather(&mut c.s.graph);
+    let on_b = vp.screen().project(DVec3::new(4.0, 1.0, 0.0)).unwrap();
+    let nothing = vp.screen().project(DVec3::new(0.0, 0.0, 9.0)).unwrap();
+    let picked = vp.pick(&c.s, &items, nothing);
+    assert!(picked.is_empty());
+    let picked = vp.pick(&c.s, &items, on_b);
+    assert_eq!(picked, vec!["b".to_string()]);
+    select_picked(&mut c, picked, 0);
+    assert_eq!(mel(&mut c, "selectMode -q -object;"), json!(true));
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["b"]));
+}
