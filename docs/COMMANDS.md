@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1237 commands.
+1324 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -88,6 +88,25 @@ As the Animal Logic USD plug-in: -ip paths imports prims as nodes, -tp paths tea
 | `teardownPaths` | `tp` | Prims to tear down, separated by commas. |
 | `forceImport` | `fi` | Accepted. |
 | `forceDefault` | `fd` | Accepted. |
+
+## AbcExport
+
+Writes Alembic (Ogawa) files, one per -j job string: -file path, -root node (repeatable; every top-level object when none), -frameRange start end, -step, -uvWrite, -worldSpace. Transforms, meshes (points every frame, topology from the first) and XJEN descriptions (curves with widths) are written; other job flags are accepted.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `jobArg` | `j` | A job string; give several for several files. |
+
+## AbcImport
+
+Reads an Alembic (Ogawa) file: transforms, meshes (with UVs) and curves. An animated file gets an AlembicNode that streams it as time changes. Returns the top nodes made.
+
+Arguments: file
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `mode` | `m` | import (the default), open (in a new scene) or replace (the picked AlembicNodes read this file). |
+| `connect` | `ct` | Nodes to drive: the file's animated transforms and meshes drive the nodes of the same names under these ("/" for the whole scene) instead of new ones. |
 
 ## AppendToPolygonTool
 
@@ -1367,6 +1386,10 @@ The runtime command for invertSelection.
 
 The joint tool: click to place joints.
 
+## MLdeleteUnused
+
+The Hypershade's Edit > Delete Unused Nodes: shading groups with no members or material, materials no group uses, and textures and utilities that feed nothing. One undo step. Returns what went.
+
 ## MoveTool
 
 The move tool.
@@ -1398,6 +1421,10 @@ The Crease tool.
 ## PreferencesWindow
 
 Open the Preferences.
+
+## ProximityPin
+
+Constrain > Proximity Pin: pins the selected objects to the nearest place on the mesh selected last, through a proximityPin node (with the mesh as it is now kept, hidden, as its original) into their offsetParentMatrix.
 
 ## QuadDrawTool
 
@@ -1469,6 +1496,10 @@ Show the Tool Settings.
 
 Open the UV Editor.
 
+## UVPin
+
+Constrain > UV Pin: pins the selected objects to the mesh selected last at the UV nearest each, through a uvPin node into their offsetParentMatrix; they stay where they are and follow the mesh as it moves and deforms.
+
 ## UVSetEditor
 
 Open the UV Set Editor.
@@ -1495,7 +1526,7 @@ Open the USD Stats window.
 
 ## about
 
-About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api.
+About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api, -qt.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -1512,6 +1543,7 @@ About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api.
 | `codeset` | `cs` | What to ask. |
 | `product` | `p` | What to ask. |
 | `application` | `a` | What to ask. |
+| `qtVersion` | `qt` | What to ask. |
 
 ## addAttr
 
@@ -1595,6 +1627,17 @@ Arguments: mesh
 Add members (the selection by default) to a set. Returns the set's members.
 
 Arguments: set, members
+
+## affects
+
+The attributes of a node, or of a node type with -type, that affect the one named; -by those it affects. A node here computes every output from every input.
+
+Arguments: an attribute, then a node (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `by` | `by` | The attributes it affects. |
+| `type` | `t` | A node type instead of a node. |
 
 ## aimConstraint
 
@@ -1918,11 +1961,25 @@ Bake every modifier of a mesh into its base mesh, leaving an empty stack over an
 
 Arguments: meshes
 
+## applyAttrPreset
+
+applyAttrPreset node preset blend: sets the node from a preset, by name or file (YAML, JSON or the reference's MEL), blend a percentage: 100 replaces, 50 goes halfway. What doesn't blend (a choice, a name) changes from 50 up.
+
+Arguments: node preset [blend]
+
 ## applyModifier
 
 Bake a modifier (and everything below it in the stack) into the base mesh.
 
 Arguments: modifier
+
+## archiveScene
+
+File > Archive Scene: the saved scene and every file it uses (references, file textures, image planes, sounds, Alembic and XJEN caches) zipped into <scene>.zip beside it, or -file. Files that can't be found are left out with a warning. Aztek's name for the menu item. Returns the zip.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | Where the zip goes. |
 
 ## arclen
 
@@ -2033,13 +2090,21 @@ Arguments: the tool's name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `value` | `val` | The value the brush paints, 0 to 1. |
+| `value` | `val` | The value the brush paints, between -mnv and -mxv. |
+| `minvalue` | `mnv` | The lowest value, 0 by default. |
+| `maxvalue` | `mxv` | The highest value, 1 by default. |
 | `opacity` | `op` | How much of the value each dab applies. |
 | `radius` | `r` | Brush radius in world units. |
 | `selectedattroper` | `sao` | absolute (replace), additive, scale or smooth. |
 | `stampProfile` | `stP` | gaussian, poly, solid or square. |
 | `influence` | `inf` | The joint painted. |
-| `colorfeedback` | `cl` | Show the weights in colour. |
+| `colorfeedback` | `cf` | Show the weights in colour. |
+| `useColorRamp` | `ucr` | Show the weights through a colour ramp rather than in grey. |
+| `skinPaintMode` | `spm` | 1 paints weights, 0 marquee selects, 2 paint selects. |
+| `paintSelectMode` | `psm` | Paint select adds to the selection (1), removes from it (2) or toggles it (3). |
+| `useNumericDisplay` | `und` | The weights as numbers beside their points. |
+| `numericDisplayPrecision` | `ndp` | Decimals of the numbers. |
+| `numericDisplayColor` | `ndc` | The numbers' colour. |
 | `clear` | `clr` | Flood: paint the value over the selection's points. |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
@@ -3167,6 +3232,24 @@ Auto key: changing an animated channel keys it at the current frame. Returns whe
 | `edit` | `e` | Change the flags named. |
 | `state` | `st` | On or off. |
 
+## autoSave
+
+Autosave settings, kept between sessions: -enable, -interval (seconds), -limitBackups and -maxBackups, -destination (0 the project's autosave folder, 1 -folder, 2 the folder AZTEK_AUTOSAVE_FOLDER or MAYA_AUTOSAVE_FOLDER names) and -prompt. -perform writes a numbered copy of the scene there now (scene.0001.ma, ...), the scene keeping its own name. -q with a flag reads it; -q -latestFile gives the newest autosave, for recovery.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `enable` | `en` | A setting; see the command's description. |
+| `interval` | `int` | A setting; see the command's description. |
+| `limitBackups` | `lim` | A setting; see the command's description. |
+| `maxBackups` | `max` | A setting; see the command's description. |
+| `destination` | `dst` | A setting; see the command's description. |
+| `folder` | `fol` | A setting; see the command's description. |
+| `prompt` | `prm` | A setting; see the command's description. |
+| `perform` | `p` | Autosave now. |
+| `latestFile` | `lf` | With -q: the newest autosave. |
+| `destinationFolder` | `df` | With -q: the folder autosaves go to. |
+| `query` | `q` | Read a setting. |
+
 ## aztekChangeLightType
 
 The Attribute Editor's Type menu: the light's shape becomes another type under the same transform, with the same name, keeping what the two types share.
@@ -3211,6 +3294,16 @@ Run Python from inside a command, as schema translators do.
 
 Arguments: code
 
+## aztekSoundPeaks
+
+For the time slider: the waveform of the sound timeControl shows, from -start to -end frame in -count buckets, each bucket's lowest and highest sample. Empty when no sound is shown.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `start` | `s` | First frame. |
+| `end` | `e` | Last frame. |
+| `count` | `c` | Buckets. |
+
 ## aztekUsdBeforeSave
 
 What a scene save runs: proxies take in their session and unsaved layers. Returns the unsaved layers.
@@ -3254,6 +3347,17 @@ Arguments: character
 | `blend` | `bl` | A blend's two clips. |
 | `keepOriginals` | `k` | Keep the clips, disabled. |
 | `name` | `n` | The new clip's name. |
+
+## bakeCustomToolPivot
+
+The reference's name for Modify > Bake Pivot (the runtime command BakeCustomPivot): bakePivot with -position (-pos) and -orientation (-ori), both by default.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `position` | `pos` | Bake the pivot's place. |
+| `orientation` | `ori` | Bake the pivot's axes. |
 
 ## bakeModifierStack
 
@@ -3561,6 +3665,7 @@ Arguments: targets, then the base; the blendShape with -e and -q
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `weight` | `w` | index weight, repeatable. Query: all the weights. |
@@ -4168,13 +4273,24 @@ Arguments: two surfaces
 
 ## cleanUpScene
 
-Optimize Scene Size essentials: removes transforms with nothing under them, deepest first. Returns what went.
+File > Optimize Scene Size (the runtime command OptimizeScene): removes what the flags name, or every category when none is named: empty sets, empty transforms, empty display layers, unused animation curves, expressions and groupIds, unused rendering nodes, lone locators, idle constraints, pairBlends and unitConversions, and unknown nodes. Referenced, locked and default nodes stay. One undo step. Returns what went.
 
-Arguments: [what]
+Arguments: [mode]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `emptyTransforms` | `et` | Remove transforms with nothing under them. |
+| `emptySets` | `es` | Empty sets, other than the default ones. |
+| `emptyTransforms` | `et` | Transforms with no children and no connections. |
+| `displayLayers` | `dl` | Empty, unlocked display layers other than the default one. |
+| `animationCurves` | `ac` | Animation curves that drive nothing. |
+| `expressions` | `ex` | Expressions with no output connected. |
+| `groupIds` | `gi` | groupId nodes with no connections. |
+| `renderingNodes` | `rn` | Empty shading groups, materials no group uses, and textures and utilities that feed nothing. |
+| `locators` | `lc` | Locators with no connections, alone under a transform with none. |
+| `constraints` | `cn` | Constraints that drive nothing. |
+| `pairBlends` | `pb` | pairBlends with no output or nothing into input2. |
+| `unitConversions` | `uc` | unitConversion nodes with one connection or none. |
+| `unknownNodes` | `un` | unknown, unknownDag and unknownTransform nodes. |
 
 ## clip
 
@@ -4355,13 +4471,15 @@ Arguments: cloth nodes or meshes
 
 ## cluster
 
-Make a cluster of the selected vertices (or whole meshes): a handle they follow. Returns [cluster, handle].
+Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. Returns [cluster, handle].
 
-Arguments: meshes or vertices (the selection when none)
+Arguments: meshes, curves, surfaces, vertices or CVs (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the cluster; its handle takes the name plus Handle. |
+| `edit` | `e` | Edit a cluster: with -prune. |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set. |
 
 ## cmdFileOutput
 
@@ -4730,6 +4848,25 @@ Selected components: {mesh: {"vertices": [...], "edges": [...], "faces": [...]}}
 | --- | --- | --- |
 | `ordered` |  | True: a flat list [[mesh, kind, id], ...] in the order the components were picked. False: grouped per mesh and kind, ids sorted ascending, pick order lost. |
 
+## componentTag
+
+Make, change, rename or delete the component tags of a mesh: named groups of its vertices, edges or faces. They are held on the mesh's original shape when it is deformed, else on the mesh. -cr returns the new tag's name.
+
+Arguments: a mesh, or its components
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `create` | `cr` | Make a tag of the components given (all of them when only the mesh is named). |
+| `delete` | `d` | Delete the tags -tagName names (wildcards allowed). |
+| `rename` | `rn` | Rename the tag -tagName to -newTagName. |
+| `modify` | `m` | replace, add, remove or clear the components of the tags -tagName names. |
+| `tagName` | `tn` | The tags to change; wildcards allowed. |
+| `newTagName` | `ntn` | The new tag's name, or the renamed one's. |
+| `uniqueTagName` | `utn` | With -cr: number the name if it is taken. |
+| `injectionLocation` | `il` | Where the tag is edited (the original shape, or the mesh). |
+| `queryEdit` | `qe` | What edits are allowed. |
+| `query` | `q` | Query. |
+
 ## condition
 
 A named condition isTrue and scriptJob -ct can read: -s the MEL script that gives its state, -d conditions it follows (checked at idle), -i run the script now, -st set the state, -delete remove it. -q -st reads it. Scripts run just after the command, or at idle when a dependency changes. Not undoable, and not saved.
@@ -4965,6 +5102,30 @@ Convert the component selection to another kind and switch to that mode. In obje
 
 Arguments: to
 
+## convertSolidTx
+
+Bake an attribute's colour (a material's color, a texture's outColor, anything a network gives) over the objects' UVs into an image, as the reference's: -rx -ry its size (256), -fin the file (a name in the project's sourceimages without it), -bc r g b behind the faces, -fts grows the faces out at the seams (on), -aa four samples a texel, -al leaves what no face covers transparent, -uvr u0 u1 v0 v1 the part of UV space. Makes a file node reading it and returns it; -noFileNode only writes the image and returns its path.
+
+Arguments: attribute, then objects or faces (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `resolutionX` | `rx` | Width. |
+| `resolutionY` | `ry` | Height. |
+| `fileImageName` | `fin` | The image to write. |
+| `fileFormat` | `fil` | png, tif, tga, bmp or jpg, with no -fin. |
+| `backgroundColor` | `bc` | 0 to 255 each. |
+| `backgroundMode` | `bm` | Accepted: the colour is what -bc gives. |
+| `fillTextureSeams` | `fts` | Grow the faces out at their edges. |
+| `antiAlias` | `aa` | Four samples a texel. |
+| `alpha` | `al` | Uncovered texels transparent. |
+| `uvRange` | `uvr` | u0 u1 v0 v1. |
+| `force` | `f` | Write over the file. |
+| `name` | `n` | The file node's name. |
+| `doubleSided` | `ds` | Accepted: both sides are the same here. |
+| `shadows` | `sh` | Accepted: no lighting is baked. |
+| `noFileNode` | `nfn` | Aztek: only the image, no file node. |
+
 ## convertToInstance
 
 Replace meshes identical to a source with instances of it, dropping their own copies of the data: cleans up imported kits. The source is the last mesh given (the lead); with only the source, every other mesh in the scene is checked. Returns the meshes converted.
@@ -5093,6 +5254,7 @@ Arguments: the mesh, then the curve (the selection when none)
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `curve` | `c` | The curve; or name it last. |
@@ -5221,6 +5383,30 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## createPoseInterpolator
+
+Deform > Pose Space Deformation > Create Pose Interpolator: a pose interpolator for each joint named or selected (<joint>_poseInterpolator), driven by the joint's matrix, with the neutral, neutralSwing and neutralTwist poses unless -neutralPoses is off. Returns the shapes. Aztek's name for the menu item.
+
+Arguments: joints
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `neutralPoses` | `np` | Adds the neutral poses; on by default. |
+
+## createPsdNetwork
+
+UV Editor > Image > Create PSD Network: a PSD for the material named (or the selected mesh's) with a layer set for each of -attributes (color without it), filled with the attribute as it is now over the meshes' UVs, the UV snapshot over them (-uvSnapshot false: none), and a psdFileTex reading each set in the attribute's place (a bump through bump2d). -psf the file (the material's name in sourceimages without it), -xr -yr its size (1024). Returns the file and the nodes.
+
+Arguments: material
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `psdFileName` | `psf` | The PSD to write. |
+| `xResolution` | `xr` | Width. |
+| `yResolution` | `yr` | Height. |
+| `attributes` | `at` | The material's attributes, a layer set each. |
+| `uvSnapshot` | `uvs` | The UV snapshot layer on top. |
 
 ## createSet
 
@@ -5548,6 +5734,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `curve` | `c` | The curve; or name it last. |
@@ -5860,6 +6047,7 @@ Arguments: meshes or vertices (the selection when none); the deformer with -e an
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `smoothingIterations` | `si` | Smoothing passes (10). |
@@ -6537,6 +6725,12 @@ Put objects (the selection by default) in a display layer, moving them out of th
 
 Arguments: layer, objects
 
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | List the layer's members. |
+| `fullNames` | `fn` | Query: full DAG paths. |
+| `noRecurse` | `nr` | Accepted: members are listed, not their children. |
+
 ## editKeys
 
 Edit keys picked by curve and index: -dt/-dv move them, -t/-v set them, -itt/-ott change their tangents, -delete removes them. Keys are [[curve, index], ...].
@@ -6706,7 +6900,7 @@ Arguments: path objects...
 
 ## exportGltf
 
-Export to glTF 2.0: a .glb file (binary, textures inside it) or a .gltf file (JSON, textures by path). The objects named, or the selection, with what is under them: hierarchy, meshes as they stand, normals, UV sets, vertex colours, materials, colour textures and skins (joints, weights, bind matrices), in metres. The file is Y up, as the format is: a Z-up scene is converted, with no node added to carry the turn. -upAxis z writes Z up instead. Animation, blend shapes, cameras and lights are not written. -all exports every top-level object.
+Export to glTF 2.0: a .glb file (binary, textures inside it) or a .gltf file (JSON, textures by path). The objects named, or the selection, with what is under them: hierarchy, meshes as they stand, normals, UV sets, vertex colours, materials, colour textures, skins (joints, weights, bind matrices) and blend shapes (morph targets), in metres. The file is Y up, as the format is: a Z-up scene is converted, with no node added to carry the turn. -upAxis z writes Z up instead. -animation samples transforms and morph weights once a frame over -startTime to -endTime. -materials, -skins and -blendShapes false leave those out. Cameras and lights are not written. -all exports every top-level object.
 
 Arguments: path objects...
 
@@ -6714,6 +6908,12 @@ Arguments: path objects...
 | --- | --- | --- |
 | `all` | `all` | Every top-level object, not the selection. |
 | `upAxis` | `up` | The file's up axis: y (the format's, the default) or z. |
+| `materials` | `mat` | Materials and their textures (on by default). |
+| `skins` | `sk` | Skins: joints, weights and bind matrices (on by default). |
+| `blendShapes` | `bs` | Blend shapes as morph targets (on by default). |
+| `animation` | `an` | Transforms and morph weights sampled once a frame. |
+| `startTime` | `st` | First frame of the animation (the playback start by default). |
+| `endTime` | `et` | Last frame of the animation (the playback end by default). |
 
 ## exportObj
 
@@ -6833,20 +7033,21 @@ Arguments: the profile, then the path (the selection when none)
 
 ## file
 
-Scene files: -new, -open path, -save, -rename name, -import path, -exportAll path, -exportSelected path; -type mayaAscii. In query mode -sceneName (with -shortName for the file alone), -exists, -type, -modified.
+Scene files: -new, -open path, -save, -rename name, -import path, -exportAll path, -exportSelected path; -type mayaAscii or mayaBinary. In query mode -sceneName (with -shortName for the file alone), -exists, -type, -modified.
 
 Arguments: the file
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `new` | `new` | A new, empty scene. |
+| `list` | `l` | With -q: the scene's file and every file it uses. |
 | `open` | `o` | Replace the scene with the file. |
 | `save` | `s` | Write the scene under its name. |
 | `rename` | `rn` | Set the scene's name, for the next save. |
 | `import` | `i` | Add the file's contents to the scene. |
 | `exportAll` | `ea` | Write the whole scene to the file. |
 | `exportSelected` | `es` | Write the selection, what lies below it, its parents and the skeletons of its skins. |
-| `type` | `typ` | mayaAscii, or aztek for Aztek's own format. |
+| `type` | `typ` | mayaAscii or mayaBinary. |
 | `options` | `op` | File translator options. Accepted for existing scripts. |
 | `force` | `f` | Don't ask about unsaved changes. Nothing asks here. |
 | `query` | `q` | Query mode. |
@@ -6873,6 +7074,7 @@ Arguments: the file
 | `sharedReferenceFile` | `srf` | Accepted for scripts: nothing's shared yet. |
 | `mergeNamespacesOnClash` | `mnc` | Use the namespace even if it's there already. |
 | `renamingPrefix` | `rpr` | A prefix instead of a namespace. Query: what it is. |
+| `renameAll` | `ra` | With -renamingPrefix on import: every imported node takes the prefix. |
 | `lockReference` | `lck` | Lock the reference's nodes and attributes. |
 | `usingNamespaces` | `uns` | Query: whether it uses a namespace. |
 | `unresolvedName` | `un` | Query: the path as written. |
@@ -6892,7 +7094,7 @@ Arguments: the file
 | `expressions` | `exp` | Accepted for existing scripts. |
 | `shader` | `sh` | Accepted for existing scripts. |
 | `returnNewNodes` | `rnn` | With a reference, return the new nodes. |
-| `namespace` | `ns` | The namespace a reference goes under. |
+| `namespace` | `ns` | The namespace a reference or an import goes under. |
 
 ## fileDialog
 
@@ -6932,6 +7134,18 @@ The file browser. -fm 0 any file, 1 an existing file, 2 a folder, 3 a folder onl
 | `optionsUICancel` | `ocl` |  |
 | `buttonBoxOrientation` | `bbo` |  |
 | `selectionChanged` | `sc` |  |
+
+## fileInfo
+
+Keyword and value pairs saved with the scene: fileInfo key value sets one, -rm removes one, -q lists them (key value...) or gives one key's value.
+
+Arguments: keyword, value
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `remove` | `rm` | Remove this keyword. |
+| `referenceNode` | `rfn` | With -q: the fileInfo of a referenced file. |
+| `query` | `q` | Query. |
 
 ## filletCurve
 
@@ -7046,6 +7260,12 @@ Arguments: objects
 | --- | --- | --- |
 | `which` | `w` | next, previous, first or last. |
 | `time` | `t` | Search from this frame instead of the current one. |
+
+## findRelatedDeformer
+
+The deformers and skins acting on a shape (or a transform's shapes), nearest the shape first.
+
+Arguments: an object
 
 ## findRelatedSkinCluster
 
@@ -7719,6 +7939,32 @@ Arguments: skinCluster or skinned mesh
 | `geodesicVoxelParams` | `gvp` | Accepted for existing scripts. |
 | `postVoxelSmooth` | `pvs` | Accepted for existing scripts. |
 
+## geometryAttrInfo
+
+What geometry at a plug holds: its tags (-cnm), the components a tag expression names (-cex with -cmp, -pi, -pc, -pnt, -bb, -ec, -ccy), and the nodes it came through (-nch, -dch, -og).
+
+Arguments: a geometry plug, or a shape
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `componentTagExpression` | `cex` | Limit the results to what the expression names. |
+| `componentTagNames` | `cnm` | The tags' names. |
+| `componentTagCategory` | `ccy` | v, e, f, or unknown. |
+| `components` | `cmp` | The components. |
+| `elementCount` | `ec` | How many components. |
+| `pointCount` | `pc` | How many points. |
+| `pointIndices` | `pi` | The points' indices. |
+| `points` | `pnt` | The points' positions, x y z each. |
+| `boundingBox` | `bb` | xmin xmax ymin ymax zmin zmax. |
+| `subsetState` | `sbs` | 0 none of the points, 1 some, 2 all. |
+| `castToVerts` | `ctv` | As vertices. |
+| `castToEdges` | `cte` | As edges. |
+| `castToFaces` | `ctf` | As faces. |
+| `nodeChain` | `nch` | The nodes the geometry came through. |
+| `deformerChain` | `dch` | The deformers it came through. |
+| `originalGeometry` | `og` | The original shape's output. |
+| `matrix` | `mtx` | The shape's world matrix. |
+
 ## geometryConstraint
 
 Constrain the object named (or selected) last to the targets before it; a second call adds targets. -mo keeps the current offset; -w sets the targets' weight; -e and -q work on the constraint or the object it drives. Returns [constraint].
@@ -7747,6 +7993,10 @@ Arguments: targets, then the object to drive or the constraint
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
+## getAllChains
+
+Each deformer chain in the scene, its deformers' names separated by spaces.
+
 ## getAttr
 
 Value of 'node.attr'; a whole array gives its elements' values in index order. lock=True returns whether it is locked instead; multiIndices=True an array's element indices.
@@ -7766,6 +8016,12 @@ Arguments: plug
 | `expandEnvironmentVariables` | `x` | Accepted for existing scripts. |
 | `lock` | `l` | Whether it is locked. |
 | `multiIndices` | `mi` | The element indices of a multi attribute. |
+
+## getChain
+
+The deformers between a shape and the shape upstream of them, nearest the shape first.
+
+Arguments: a shape
 
 ## getClassification
 
@@ -7865,7 +8121,7 @@ Arguments: name
 
 ## ghosting
 
-Ghosting state: -act ghost, unghost or unghostAll on the selection, the options as defaults, -e to change objects (-ago all ghosted), -q an option, -q -go the ghosted objects, -q -f their ghost frames. Less than the reference: the views draw no ghosts, so -en, the colours, the opacities and -ud are only held.
+Ghosting: -act ghost, unghost or unghostAll on the selection, the options as defaults, -e to change objects (-ago all ghosted), -q an option, -q -go the ghosted objects, -q -f their ghost frames. The views draw each ghosted object's meshes at its ghost frames in the pre and post colours, from the near to the far opacity; -en false hides them. -ud is only held.
 
 Arguments: objects (the selection when none)
 
@@ -7920,6 +8176,10 @@ Arguments: surfaces
 | `nodeState` | `nds` | Accepted for existing scripts. |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+
+## gotoBindPose
+
+The selected skeletons go to their bind pose.
 
 ## graphDollyCtx
 
@@ -8004,7 +8264,7 @@ Arguments: bodies to act on
 
 ## grid
 
-The ground plane: -s size, -sp spacing between major lines, -d divisions between them, -tgl on or off, -r back to the defaults, -df the defaults themselves. These reach the four model panels: a line every spacing / divisions, reaching -s each way. The major lines stay darker every 5 lines whatever -d says, and the axes, division line and label flags are only held. -q reads a flag.
+The ground plane: -s size, -sp spacing between major lines, -d divisions between them, -tgl on or off, -r back to the defaults, -df the defaults themselves. These reach the four model panels: a line every spacing / divisions, reaching -s each way. -da, -dab, -dgl and -ddl show the axes, draw them thicker, and show the grid lines and the subdivision lines; -dpl and -dol number the grid lines in the perspective and orthographic views, along the axes or the edge (-plp, -olp). The colours are displayRGBColor's gridAxis, gridHighlight and gridColor. -q reads a flag.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -8113,6 +8373,21 @@ Arguments: CVs (the selection when none)
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
 
+## haroldExportHss
+
+Writes the scene as Harold renders it to a Harold scene file (.hss) for the harold program; a file per frame with -startFrame and -endFrame. Returns the files written.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `camera` | `cam` | Camera to render through. |
+| `width` | `w` | Image width. |
+| `height` | `h` | Image height. |
+| `region` | `reg` | x0 y0 x1 y1, pixels from the top left. |
+| `filename` | `f` | The file; .hss is added when it has no extension. |
+| `startFrame` | `sf` | First frame; the current frame without it. |
+| `endFrame` | `ef` | Last frame. |
+| `frameStep` | `fs` | Frames between files. |
+
 ## haroldSwatch
 
 A shading node as a small picture rendered by Harold: a material on a ball, a texture or utility flat over the UV square. Writes a .ppm file and returns its path, size and the node's signature; -signature alone gives the signature, which changes when the node or anything connected into it does.
@@ -8180,7 +8455,7 @@ Arguments: a command, or a pattern with -l
 
 ## hide
 
-Hide objects (visibility off). Defaults to the selection.
+Hide objects (visibility off). Defaults to the selection. Components (or, with none named, the component selection in a component mode) hide their faces.
 
 Arguments: objects
 
@@ -8527,6 +8802,15 @@ Bind a key: -k the key, -alt -ctl -sht modifiers, -n the name command for press,
 | `shiftModifier` | `sht` | With Shift. |
 | `name` | `n` | The name command for press. |
 | `releaseName` | `rn` | The name command for release. |
+| `commandModifier` | `cmd` | With Command: as Ctrl here. |
+| `ctxClient` | `ctc` | Binds in one editor's context: held, not bound in the views. |
+| `dragPress` | `dp` | Accepted; has no effect. |
+| `isModifier` | `ism` | Accepted; has no effect. |
+| `pressCommandRepeat` | `pcr` | Accepted; has no effect. |
+| `releaseCommandRepeat` | `rcr` | Accepted; has no effect. |
+| `autoSave` | `as` | Accepted: bindings are saved as they are made. |
+| `sourceUserHotkeys` | `suh` | Accepted; has no effect. |
+| `factorySettings` | `fs` | Every key back to the default set. |
 
 ## hotkeyCheck
 
@@ -8541,6 +8825,42 @@ The annotation of the nameCommand a key is bound to, or an empty string: -k the 
 | `keyString` | `k` | The key. |
 | `keyUp` | `kup` | On release. |
 | `optionModifier` | `opt` | With Option: as Alt here. |
+
+## hotkeyCtx
+
+Hotkey contexts, as a hotkey set file names them: accepted so that such files load. Keys bound to an editor's context (hotkey -ctxClient) are held, not bound in the views. -q -typeArray and -clientArray give empty lists.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `type` | `t` | A context type. |
+| `addClient` | `ac` | A client of the type. |
+| `removeClient` | `rc` | A client to remove. |
+| `removeAllClients` | `rac` | Every client. |
+| `currentClient` | `cc` | The client now. |
+| `clientArray` | `ca` | With -q: the clients. |
+| `typeArray` | `ta` | With -q: the types. |
+| `typeExists` | `te` | With -q: whether the type exists. |
+| `insertTypeAt` | `ita` | Where a type goes. |
+| `query` | `q` | Read. |
+
+## hotkeySet
+
+Hotkey sets: a name with -source makes one (bindings are shared by every set here), -current makes it the current one, -delete removes it, -exists, -q -current and -q -hotkeySetArray read them. -import runs a hotkey set file (the reference's .mhk: its hotkeySet, runTimeCommand, nameCommand and hotkey lines), -export writes the keys bound with the hotkey command as such a file. The default set is Aztek_Default (Maya_Default names it too).
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `source` | `src` | The set a new one starts from. |
+| `current` | `cu` | Make it the current set; with -q, the current set's name. |
+| `delete` | `del` | Remove the set. |
+| `exists` | `ex` | With -q: whether the set exists. |
+| `hotkeySetArray` | `hsa` | With -q: every set. |
+| `import` | `ip` | Runs a hotkey set file. |
+| `export` | `ep` | Writes the bound keys as a hotkey set file. |
+| `ip` |  | Accepted for older files. |
+| `edit` | `e` | Change a set. |
+| `query` | `q` | Read. |
 
 ## hrender
 
@@ -9055,6 +9375,32 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## imagePlane
+
+Makes an image plane: on -camera (shown on it, at its depth, fitted to its gate) or free in the scene, showing -fileName, -width by -height. Returns its transform and shape. With -edit or -query on an image plane: -fileName, -width, -height, -camera, -showInAllViews (displayOnlyIfCurrent off), -lookThrough. -detach frees one from its camera.
+
+Arguments: image plane
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `camera` | `c` | The camera it goes on. |
+| `name` | `n` | Its name. |
+| `fileName` | `fn` | The picture. |
+| `width` | `w` | Width of a free plane. |
+| `height` | `h` | Height of a free plane. |
+| `maintainRatio` | `mr` | Keep the picture's proportions. |
+| `showInAllViews` | `sia` | Shown in every view, not only looking through its camera. |
+| `lookThrough` | `lt` | The camera it is shown on, by name. |
+| `detach` | `d` | Free it from its camera. |
+| `edit` | `e` | Change one. |
+| `query` | `q` | Read one. |
+
+## importAttrPresets
+
+Brings the reference's MEL attribute presets (files, or folders of them as attrPresets/<type>/<name>.mel) into Aztek's presets as YAML. Returns type/name of each.
+
+Arguments: files or folders
+
 ## importFbx
 
 Import a binary FBX file as the reference's FBX plug-in does, by the FBXImport settings: the model hierarchy with each node's channels (pre rotation as a joint's orient), meshes as polygons with UV sets, colour sets, normals and hard edges, limb nodes as joints, lambert and phong materials with their file textures (place2dTexture each, normal maps through a bump2d), skins with the file's weights and bind matrices, and the bind pose. The file's axes and unit turn and scale its top nodes. Textures are looked for where the file says, beside it and in its .fbm folder; textures inside the file are written to the .fbm folder. Not read: ASCII FBX, animation, blend shapes, cameras and lights (their nodes come in as transforms). Returns the top nodes made.
@@ -9063,9 +9409,13 @@ Arguments: path
 
 ## importGltf
 
-Import a glTF 2.0 file (.gltf or .glb): its node hierarchy, triangle meshes with their first UV set, and materials as standard surfaces. Lengths come in as centimetres and the file's Y up becomes the scene's up axis. Skin weights, animation, textures, cameras and lights are not read. Returns the top nodes made.
+Import a glTF 2.0 file (.gltf or .glb): its node hierarchy, triangle meshes with their first UV set, and materials as standard surfaces. Lengths come in as centimetres and the file's Y up becomes the scene's up axis (-upAxis says otherwise). Skin weights, animation, textures, cameras and lights are not read. Returns the top nodes made.
 
 Arguments: path
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `upAxis` | `up` | The file's up axis: y (the format's, the default), z, or none to bring it in with no conversion. |
 
 ## importObj
 
@@ -9629,6 +9979,12 @@ Arguments: plug
 | `connection` | `c` | Accepted: dirt is per node here. |
 | `datablock` | `d` | Accepted: dirt is per node here. |
 
+## isParentOf
+
+Whether the first node is a DAG parent (at any depth) of the second.
+
+Arguments: parent, child
+
 ## isTrue
 
 Whether a named condition holds, as scriptJob -conditionTrue reads them.
@@ -9698,6 +10054,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `enable` | `ena` | 0 enable (true), 1 disable (false), 2 only after the start frame. |
@@ -9737,6 +10094,8 @@ Arguments: joints (edit and query)
 | `secondaryAxisOrient` | `sao` | Where the second axis points, yup, zup, xdown... |
 | `children` | `ch` | Edit: the joints below too. |
 | `zeroScaleOrient` | `zso` | Set rotateAxis to zero; jointOrient takes the change. |
+| `symmetry` | `sym` | Also make the joint's mirrored twin, kept mirrored by a symmetryConstraint. |
+| `symmetryAxis` | `sa` | The axes -sym mirrors across: any of x, y and z (x). |
 | `exists` | `ex` | Whether a joint of this name exists. |
 | `edit` | `e` | Change existing joints. |
 | `query` | `q` | Query a joint (its world position unless a flag is asked about). |
@@ -9782,25 +10141,29 @@ Arguments: [name]
 | Flag | Short | Description |
 | --- | --- | --- |
 | `autoJointOrient` | `ajo` |  |
-| `jointAutoLimits` | `jal` |  |
-| `jointOrientationPlane` | `jop` |  |
-| `secondaryAxisOrient` | `sao` |  |
-| `orientJoint` | `oj` |  |
-| `scaleJointOrient` | `sjo` |  |
-| `scaleOrientation` | `so` |  |
-| `scaleCompensate` | `sc` |  |
-| `degreeOfFreedomJ` | `dfj` |  |
-| `largeBoneRadius` | `lbr` |  |
-| `largeJointRadius` | `ljr` |  |
-| `smallBoneRadius` | `sbr` |  |
-| `smallJointRadius` | `sjr` |  |
-| `variableBoneSize` | `vbs` |  |
+| `autoPriorityH` | `apH` |  |
 | `createIKHandle` | `ikh` |  |
-| `ikSolverType` | `ikt` |  |
-| `poleVectorType` | `pvt` |  |
-| `snapHandleH` | `shh` |  |
+| `degreeOfFreedomJ` | `dJ` |  |
+| `forceSolverH` | `fsH` |  |
+| `jointAutoLimits` | `jal` |  |
+| `jointOrientationJ` | `joJ` |  |
+| `largeBoneLength` | `lbl` |  |
+| `largeBoneRadius` | `lbr` |  |
+| `poWeightH` | `pwH` |  |
+| `priorityH` | `pH` |  |
+| `scaleCompensateJ` | `scJ` |  |
+| `scaleJ` | `sJ` |  |
+| `scaleOrientationJ` | `soJ` |  |
+| `secondaryAxisOrient` | `sao` |  |
+| `smallBoneLength` | `sbl` |  |
+| `smallBoneRadius` | `sbr` |  |
+| `snapHandleH` | `snH` |  |
+| `solverTypeH` | `stH` |  |
+| `stickyH` | `sH` |  |
 | `symmetry` | `sym` |  |
 | `symmetryAxis` | `sa` |  |
+| `variableBoneSize` | `vbs` |  |
+| `weightH` | `wH` |  |
 | `image1` | `i1` |  |
 | `image2` | `i2` |  |
 | `image3` | `i3` |  |
@@ -10214,6 +10577,7 @@ Arguments: meshes or vertices (the selection when none); the ffd or lattice with
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `divisions` | `dv` | Control points in S, T and U (2 2 2). |
@@ -10589,7 +10953,7 @@ Arguments: names or patterns
 | `shortNames` | `sn` | Shortest unique names (the default). |
 | `type` | `typ` | Only nodes of this type or derived; a list of types too. |
 | `exactType` | `et` | Only nodes of exactly this type. |
-| `dag` | `dag` | Only DAG nodes. |
+| `dag` | `dag` | Only DAG nodes; with names or -sl, the DAG nodes below them too. |
 | `referencedNodes` | `rn` | Only nodes from references. |
 | `readOnly` | `ro` | Only nodes from references, which are read only (the older name for referencedNodes). |
 | `defaultNodes` | `dn` | Only default nodes: those every scene is made with and no file saves (time1, lambert1). |
@@ -10632,6 +10996,12 @@ Arguments: filter
 | `selection` | `sl` |  |
 | `sort` | `so` |  |
 
+## lsType
+
+The nodes of a type, ended by "<done>".
+
+Arguments: a node type
+
 ## makeCollideNCloth
 
 Make the selected meshes colliders: cloth, particles and rigid bodies hit them. Returns the collider nodes.
@@ -10645,6 +11015,12 @@ Arguments: meshes
 | `name` | `n` | Name of the new node. |
 | `solver` | `sv` | The solver to join. |
 | `thickness` | `th` | Collision thickness. |
+
+## makeCurvesDynamic
+
+Make Selected Curves Dynamic: each selected curve gets a follicle on a hair system (a new one, or the one selected) and a dynamic output curve. The reference's arguments (surface attach and its options) are accepted. Returns the hair system.
+
+Arguments: the reference's options, curves or a hair system (the selection when none)
 
 ## makeIdentity
 
@@ -10966,6 +11342,25 @@ Arguments: objects, then the target
 | `scale` | `scl` | Match scale. |
 | `pivots` | `piv` | Match the pivots. |
 | `positionConstraint` | `pcp` | Accepted for existing scripts. |
+
+## matrixUtil
+
+Make a matrix from -t, -r (degrees), -s, -sh or -qt; with a matrix given: -q one of them, -iv or -tp the matrix, or set its parts (-rt adds to them). 16 numbers, row by row.
+
+Arguments: a matrix: 16 numbers
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `translation` | `t` | Translation. |
+| `rotation` | `r` | Rotation, degrees, xyz. |
+| `scale` | `s` | Scale. |
+| `shear` | `sh` | Shear. |
+| `quaternion` | `qt` | Rotation as a quaternion x y z w. |
+| `relative` | `rt` | Add to the matrix's own parts. |
+| `inverse` | `iv` | The inverse. |
+| `transpose` | `tp` | The transpose. |
+| `query` | `q` | Query. |
+| `edit` | `e` | Edit. |
 
 ## mayaHIKgetInputCharacter
 
@@ -11562,6 +11957,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `morphTarget` | `mt` | The mesh to morph to. |
@@ -11615,6 +12011,7 @@ Arguments: objects
 | `orientJoint` | `oj` | Accepted for existing scripts. |
 | `secondaryAxisOrient` | `sao` | Accepted for existing scripts. |
 | `componentSpace` | `cs` | Accepted for existing scripts. |
+| `componentOffset` | `co` | move -r -co -ls: components moved each in its own space, the first value along its normal. |
 | `x` |  | This axis: a value, or on to read the positional value. |
 | `y` |  | This axis. |
 | `z` |  | This axis. |
@@ -11637,6 +12034,10 @@ Move the selected components by an offset in world space, or with normal= push e
 | `normal` |  | Distance along the vertex normals, cm. |
 | `uvn` |  | Distances along each point's own U tangent, V tangent and normal, cm. |
 | `onto` |  | Meshes whose surface each moved point then lands on, at its closest point. |
+
+## moveIKtoFK
+
+The selected IK handle, or what drives one, moves to the handle's end joint.
 
 ## moveKeyCtx
 
@@ -12041,7 +12442,7 @@ Arguments: name
 
 ## nodePreset
 
-Save and load a node's settings by name: -sv node name, -ld node name, -ls node, -del node name, -ex node name, -ivn name; -atr limits what is saved. Less than the reference: multis and hidden attributes are left out, files are JSON, -ctm does nothing.
+Save and load a node's settings by name: -sv node name, -ld node name, -ls node, -del node name, -ex node name, -ivn name; -atr limits what is saved. Presets are saved as YAML; JSON ones from earlier versions and the reference's MEL presets read too. Less than the reference: multis and hidden attributes are left out, -ctm does nothing.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -12577,13 +12978,13 @@ Arguments: targets, then the object to drive or the constraint
 
 ## orientJoint
 
-Orient joints: the first axis of the order aims at the child joint, the second toward -sao. Joints below follow unless -ch 0.
+The Orient Joint menu item: the first axis of the order aims at the child joint, the second toward -sao (none: square to the bone and the parent bone). End joints line up with their parent (jointOrient zero). Joints with rotations are left alone, with a warning. Joints below follow unless -ch 0. Order "none" orients the joints to the world.
 
-Arguments: order (xyz), then joints
+Arguments: order (xyz, or none for the world), then joints
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `secondaryAxisOrient` | `sao` | yup, zup, xdown... |
+| `secondaryAxisOrient` | `sao` | yup, zup, xdown... or none |
 | `zeroScaleOrient` | `zso` | Set rotateAxis to zero; jointOrient takes the change. |
 | `children` | `ch` | The joints below too (default on). |
 
@@ -12762,17 +13163,17 @@ Arguments: pairBlend, with -q
 
 ## panZoom
 
-panZoom [camera]: -left -right -up -down slide the camera, -zoomRatio scales what it sees. It moves the camera; there is no 2D film pan here.
+panZoom [camera]: pans and zooms the camera's 2D film (its horizontalPan, verticalPan and zoom, panZoomEnabled on): -l -r -u -d in inches, -z the zoom ratio; relative unless -abs.
 
 Arguments: [camera]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `left` | `l` |  |
-| `right` | `r` |  |
-| `up` | `u` |  |
-| `down` | `d` |  |
-| `zoomRatio` | `zr` |  |
+| `leftDistance` | `l` |  |
+| `rightDistance` | `r` |  |
+| `upDistance` | `u` |  |
+| `downDistance` | `d` |  |
+| `zoomRatio` | `z` |  |
 | `absolute` | `abs` |  |
 | `relative` | `rel` |  |
 
@@ -13317,6 +13718,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `curve` | `c` | The curve; or name it last. |
@@ -13561,6 +13963,7 @@ Bevel the selected edges (vertex or face selections convert to their edges).
 | `offsetAsFraction` | `oaf` | Width by fraction rather than distance. |
 | `depth` | `dp` | How far the bevel rounds out; held for the node. |
 | `chamfer` | `c` | Flat across rather than round. |
+| `worldSpace` | `ws` | Widths measured on the object as it shows, scale and all (the default). |
 | `segments` | `sg` | Segments across the bevel. |
 | `profile` |  | 0.5 round, 0.25 straight, toward 1 square. |
 | `clamp` |  | Keep widths from overlapping. |
@@ -13576,6 +13979,7 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `profile` |  | Also accepted under this command's other name. |
 | `clamp` |  | Also accepted under this command's other name. |
+| `worldInverse` |  | The object's inverse world matrix when the edit was made. |
 | `angleTolerance` | `at` | See the command reference. |
 | `autoFit` | `af` | See the command reference. |
 | `chamfer` | `c` | See the command reference. |
@@ -13710,7 +14114,7 @@ Arguments: base cutters...
 
 ## polyBooleanCmd
 
-A boolean of meshes: -op 1 union, 2 difference, 3 intersection. Returns [transform, node].
+A boolean of meshes: -op 1 union, 2 difference, 3 intersection, 4 difference B - A, 5 slice, 6 split edges, 7 hole punch, 8 cut out. Returns [transform, node].
 
 Arguments: components or meshes (the selection when none)
 
@@ -13811,7 +14215,7 @@ Arguments: components or meshes (the selection when none)
 
 ## polyCBoolOp
 
-A boolean of meshes: -op 1 union, 2 difference, 3 intersection. Returns [transform, node].
+A boolean of meshes: -op 1 union, 2 difference, 3 intersection, 4 difference B - A, 5 slice, 6 split edges, 7 hole punch, 8 cut out. Returns [transform, node].
 
 Arguments: components or meshes (the selection when none)
 
@@ -14578,7 +14982,8 @@ Arguments: faces or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `mapDirection` | `md` | x, y, z, or b (best plane). |
+| `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
+| `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
 
 ## polyDelEdge
@@ -15033,7 +15438,7 @@ Arguments: UVs, faces or meshes
 
 ## polyForceUV
 
-Change UVs in place: -fh -fv flip about their middle, -uni gives each face all of 0 to 1, -nor "transform" or "unitize" fits them. Returns the node.
+Change UVs in place: -u gives each face round the UVs its own (UV > Split), -fh -fv flip about their middle, -uni gives each face all of 0 to 1, -nor "transform" or "unitize" fits them. Returns the node.
 
 Arguments: components or meshes (the selection when none)
 
@@ -15800,6 +16205,7 @@ Arguments: faces or meshes
 | Flag | Short | Description |
 | --- | --- | --- |
 | `normalizeType` | `nt` | 1 all together, 0 each shell. |
+| `normalizeDirection` | `nd` | 0 along U and V, 1 along U alone, 2 along V alone. |
 | `preserveAspectRatio` | `pa` | Keep proportions (default on). |
 
 ## polyOffsetLoop
@@ -15840,7 +16246,7 @@ Arguments: UVs, faces or meshes (the selection when none)
 
 ## polyOptions
 
-Display options for meshes: -bc -dn -sn -ds -dt -dv -dce and the rest are remembered and read back with -q. They set state for scripts; most don't change the viewport.
+Polygon display: -db borders, -dmb texture borders, -dc face centres, -dt the triangles faces are drawn with and -dv vertices are set on the selected meshes (every mesh with -gl), as their displayBorders, displayMapBorders, displayCenter, displayTriangles and displayVertices; -dce crease edges, -dn with -f or -pt normals, -sn their size and -bc backface culling are the views'.
 
 Arguments: components or meshes (the selection when none)
 
@@ -15900,6 +16306,7 @@ Arguments: components or meshes (the selection when none)
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `global` | `gl` | Every mesh rather than the selected ones. |
 
 ## polyOutput
 
@@ -15991,7 +16398,8 @@ Arguments: faces or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `mapDirection` | `md` | x, y, z, or b (best plane). |
+| `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
+| `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
 
 ## polyPlane
@@ -16146,7 +16554,8 @@ Arguments: faces or meshes
 | Flag | Short | Description |
 | --- | --- | --- |
 | `type` | `t` | planar, cylindrical or spherical. |
-| `mapDirection` | `md` | x, y, z, or b (best plane). |
+| `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
+| `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
 
 ## polyPyramid
@@ -16340,6 +16749,19 @@ Arguments: components or meshes (the selection when none)
 Turn UVs about the middle of their bounds, degrees counterclockwise.
 
 Arguments: angle, then UVs, faces or meshes
+
+## polyRotateUVsByVertex
+
+Cycle: each face's UVs move on one corner round it. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
 
 ## polySelect
 
@@ -16606,6 +17028,7 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `profile` |  | Also accepted under this command's other name. |
 | `clamp` |  | Also accepted under this command's other name. |
+| `worldInverse` |  | The object's inverse world matrix when the edit was made. |
 | `angleTolerance` | `at` | See the command reference. |
 | `autoFit` | `af` | See the command reference. |
 | `chamfer` | `c` | See the command reference. |
@@ -16738,7 +17161,8 @@ Arguments: faces or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `mapDirection` | `md` | x, y, z, or b (best plane). |
+| `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
+| `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
 
 ## polySpherize
@@ -17290,6 +17714,40 @@ Arguments: components or meshes (the selection when none)
 
 Drop the stored split normals of the selected meshes, so shading comes from the hard and soft edges again.
 
+## polyUnsmooth
+
+Mesh > Unsmooth: undoes -dlv levels of Catmull-Clark smoothing (polySmooth), rebuilding the lower resolution mesh whose smoothing gives this one. Corner UVs aren't kept. Returns the node.
+
+Arguments: components or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `divisionLevels` | `dlv` | See the command reference. |
+| `constructionHistory` | `ch` | Accepted; see the command reference. |
+| `name` | `n` | Accepted; see the command reference. |
+| `caching` | `cch` | Accepted; see the command reference. |
+| `nodeState` | `nds` | Accepted; see the command reference. |
+| `frozen` | `fzn` | Accepted; see the command reference. |
+
+## polyWarpImage
+
+Warp Image: an image laid on a mesh by one UV set (-iuv) drawn again for another (-ouv), written to -outputName at -xr by -yr. Returns the file.
+
+Arguments: a mesh
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `inputName` | `in` | The image as the input set lays it. |
+| `outputName` | `on` | The image to write. |
+| `inputUvSetName` | `iuv` | The UV set the image fits (the current one). |
+| `outputUvSetName` | `ouv` | The UV set to draw it for (the current one). |
+| `xResolution` | `xr` | Width in pixels (1024). |
+| `yResolution` | `yr` | Height in pixels (1024). |
+| `antiAlias` | `aa` | Nine samples a pixel. |
+| `bilinear` | `bi` | Accepted: lookups are filtered. |
+| `fileFormat` | `ff` | png, jpg, tif, tga or exr; from the name otherwise. |
+| `overwrite` | `o` | Accepted: the file is written over. |
+
 ## polyWedgeFace
 
 Extrude faces in an arc: -wa degrees, -d divisions, round the edge -ed or the -ax axis through -cen. Returns the node.
@@ -17432,6 +17890,26 @@ Arguments: name
 | `width` | `w` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## poseInterpolator
+
+Works on a pose interpolator: -addPose name (the drivers as they are now; -poseType 0 swing and twist, 1 swing, 2 twist) returns the pose's index, -deletePose, -updatePose (stores the drivers now), -goToPose (sets the drivers to it), -rename old new. With -query: -poseNames, -drivers, -index with -pose name.
+
+Arguments: pose interpolator
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `addPose` | `ap` | Adds a pose of the drivers as they are now; an empty name takes the default. |
+| `poseType` | `pt` | With -addPose: 0 swing and twist, 1 swing only, 2 twist only. |
+| `deletePose` | `dp` | Removes a pose. |
+| `updatePose` | `up` | Stores the drivers as they are now in a pose. |
+| `goToPose` | `gtp` | Sets the drivers to a pose. |
+| `rename` | `rn` | Renames a pose: old new. |
+| `poseNames` | `pn` | With -query: the poses' names, by index. |
+| `drivers` | `d` | With -query: the driver nodes. |
+| `index` | `i` | With -query and -pose: the pose's index. |
+| `pose` | `p` | The pose -index asks for. |
+| `query` | `q` | Reads. |
 
 ## posePanel
 
@@ -17606,6 +18084,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `drivers` | `drv` | The driver meshes. Query: them. |
@@ -17614,6 +18093,31 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `maxDrivers` | `md` | How many driver points each point follows (4). |
 | `falloffScale` | `fsc` | How far each binding reaches (1). |
 | `dropoffRateScale` | `drs` | How fast a binding's weight falls with distance (1). |
+
+## psdExport
+
+Read a Photoshop file out to an image: -psf the PSD, -ofn the image, -lsn the layer set (all of it without). Without -ofn it lists the layer sets, top first.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `psdFileName` | `psf` | The PSD. |
+| `outFileName` | `ofn` | The image to write. |
+| `layerSetName` | `lsn` | The layer set. |
+| `format` | `fmt` | Accepted: the type is the name's extension. |
+
+## psdTextureFile
+
+Write a Photoshop file for painting, as the reference's: -psf the file, -xr -yr its size (1024), -chs a layer set for each channel name, -ifn image layerSet fills one from an image, -ssi a UV snapshot image as a layer over them (-uvt false: under them). Returns the file.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `psdFileName` | `psf` | The PSD to write. |
+| `xResolution` | `xr` | Width. |
+| `yResolution` | `yr` | Height. |
+| `channels` | `chs` | A layer set: its name (then whether it has alpha, accepted). Repeat it. |
+| `imageFileName` | `ifn` | image layerSet [index]: an image in a layer set. Repeat it. |
+| `snapShotImageName` | `ssi` | The UV snapshot's image: its black goes transparent. |
+| `uvSnapPostionTop` | `uvt` | The snapshot over the sets (the default) or under them. |
 
 ## putenv
 
@@ -17624,6 +18128,16 @@ Arguments: name value
 ## pwd
 
 The current working directory.
+
+## quit
+
+Exit the application. -f quits without asking to save; -a also leaves the preferences unsaved; -ec is the exit code (0).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `force` | `f` | Quit without asking to save. |
+| `abort` | `a` | Quit without saving anything, preferences included. |
+| `exitCode` | `ec` | The exit code. |
 
 ## radial
 
@@ -18167,6 +18681,17 @@ Arguments: layer
 | --- | --- | --- |
 | `index` | `i` | Row it moves to. |
 
+## requires
+
+What a scene needs: the product and its version. A plug-in named loads if it can; the file's own lines are read when it opens.
+
+Arguments: product, version
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `nodeType` | `nt` | A node type the plug-in makes. |
+| `dataType` | `dt` | A data type the plug-in makes. |
+
 ## reroot
 
 Make a joint the root of its skeleton. Every joint stays where it is.
@@ -18346,6 +18871,7 @@ Arguments: objects
 | `orientJoint` | `oj` | Accepted for existing scripts. |
 | `secondaryAxisOrient` | `sao` | Accepted for existing scripts. |
 | `componentSpace` | `cs` | Accepted for existing scripts. |
+| `componentOffset` | `co` | move -r -co -ls: components moved each in its own space, the first value along its normal. |
 | `x` |  | This axis: a value, or on to read the positional value. |
 | `y` |  | This axis. |
 | `z` |  | This axis. |
@@ -18585,6 +19111,7 @@ Arguments: objects
 | `orientJoint` | `oj` | Accepted for existing scripts. |
 | `secondaryAxisOrient` | `sao` | Accepted for existing scripts. |
 | `componentSpace` | `cs` | Accepted for existing scripts. |
+| `componentOffset` | `co` | move -r -co -ls: components moved each in its own space, the first value along its normal. |
 | `x` |  | This axis: a value, or on to read the positional value. |
 | `y` |  | This axis. |
 | `z` |  | This axis. |
@@ -19014,6 +19541,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `mode` | `m` | flip, project or stretch (the default). |
@@ -19330,7 +19858,7 @@ Arguments: mesh
 
 ## selectMode
 
-Switch between object, vertex, edge and face selection. With no argument, returns the current mode.
+Switch between object, vertex, edge, face, uv, uvShell, vertexFace and multi selection (multi: vertices, edges and faces together). With no argument, returns the current mode.
 
 Arguments: [mode]
 
@@ -19362,7 +19890,7 @@ Arguments: mesh
 
 ## selectPref
 
-Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection. -q reads.
+Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection, -clickBoxSize. -q reads.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -19370,10 +19898,12 @@ Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xfor
 | `clickDrag` | `cld` | Click and drag to select or to move what's under the cursor. |
 | `trackSelectionOrder` | `tso` | Keep the order things were picked in. |
 | `preSelectHilite` | `psh` | Highlight what's under the cursor. |
+| `preSelectBackfacing` | `psb` | Highlight back-facing components under the cursor too. |
 | `xformNoSelect` | `xns` | A click on an object under the transform tools doesn't reselect. |
 | `useDepth` | `ud` | Marquee only picks what's visible. |
 | `affectsActive` | `aa` | Selection affects the active list. |
 | `lockSelection` | `lck` | The selection doesn't change on a click. |
+| `clickBoxSize` | `cbs` | Half the side, in pixels, of the square a click picks in (4). |
 
 ## selectPriority
 
@@ -19475,12 +20005,12 @@ Arguments: sets
 
 ## selectType
 
-Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces pick the component kind. -q reads one.
+Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells pick the component kind, and -pv -pe -pf together are Multi. -q reads one.
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Query. |
-| `allObjects` | `alc` | Everything on. |
+| `allObjects` | `alo` | Everything on. |
 | `polymesh` | `pm` | This kind can be selected. |
 | `nurbsCurve` | `nc` | This kind can be selected. |
 | `nurbsSurface` | `ns` | This kind can be selected. |
@@ -19497,6 +20027,11 @@ Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, 
 | `polymeshVertex` | `pv` | Mesh vertices. |
 | `polymeshEdge` | `pe` | Mesh edges. |
 | `polymeshFace` | `pf` | Mesh faces. |
+| `polymeshUV` | `puv` | Mesh UVs. |
+| `polymeshVtxFace` | `pvf` | Mesh vertex faces. |
+| `meshUVShell` | `msh` | UV shells: a UV pick takes its whole shell. |
+| `editPoint` | `ep` | Curve edit points. |
+| `curveParameterPoint` | `cpp` | Curve points: a click on a curve takes the place clicked. |
 
 ## selected
 
@@ -19624,6 +20159,10 @@ Held only: an offset and scale for a device attachment. Input devices are not su
 Put a joint in a character's slot, as setCharacterObject(joint, character, slot, 0); the slot by id or name, the last 1 to take it out.
 
 Arguments: joint, character, slot, 0
+
+## setConstraintRestPosition
+
+The selected objects' constraints rest where the objects are now.
 
 ## setCurvePoints
 
@@ -19822,6 +20361,7 @@ Arguments: objects
 | --- | --- | --- |
 | `position` |  | World position, cm. |
 | `orient` |  | Pivot orientation relative to the object's axes, Euler XYZ degrees (pivotOrient); on a joint, its jointOrient. |
+| `orientToSurface` |  | Turn the pivot's axes to the vertex, edge or face it sits on (Snap Pivot Orientation). |
 | `turnAxis` |  | World axis to turn the pivot's axes about, by turnAngle. |
 | `turnAngle` |  | Degrees to turn about turnAxis. |
 
@@ -20121,7 +20661,7 @@ Arguments: objects
 
 ## showHidden
 
-Show objects: named, -a every one, -b those below the named.
+Show objects: named, -a every one, -b those below the named. Components (or, with none named, the component selection in a component mode) show their hidden faces.
 
 Arguments: objects
 
@@ -20190,6 +20730,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `target` | `t` | The mesh to shrink onto. |
@@ -20304,13 +20845,14 @@ Arguments: joints, then the mesh (the selection when none); a skinCluster or ski
 | `skinMethod` | `sm` | 0 classic linear, 1 dual quaternion, 2 blended point by point by .blendWeights. |
 | `normalizeWeights` | `nw` | 0 none, 1 interactive, 2 post. |
 | `weightDistribution` | `wd` | Accepted for existing scripts. |
-| `includeHiddenSelections` | `ihs` | Accepted for existing scripts. |
+| `includeHiddenSelections` | `ihs` | Bind hidden joints and geometry in the selection too (off: they are left out). |
+| `multipleBindPose` | `mbp` | The Bind Skin options' Allow multiple bind poses: bind a skeleton that has a bind pose in another pose, recording that one too. Off, it must stand in its bind pose. |
 | `name` | `n` | Name of the skinCluster. |
 | `unbind` | `ub` | With -e: remove the skin, back to the bind pose. |
 | `unbindKeepHistory` | `ubk` | With -e: stop the skinning, keeping the node and its weights. |
 | `addInfluence` | `ai` | With -e: joints to add. |
 | `removeInfluence` | `ri` | With -e: joints to remove; their weight goes to the others. |
-| `removeUnusedInfluence` | `rui` | With -e: remove influences that hold no weight. |
+| `removeUnusedInfluence` | `rui` | Influences that hold no weight are not bound (and with -e, are removed). |
 | `weight` | `wt` | With -ai: starting weight of the added influence. |
 | `influence` | `inf` | With -e -lw: the joint. Query: the influences. |
 | `weightedInfluence` | `wi` | Query: influences holding weight. |
@@ -20337,7 +20879,7 @@ Arguments: a skinned mesh
 
 ## skinPercent
 
-Set or query skin weights of points: skinPercent -tv joint1 1 skinCluster1 pCube1.vtx[0]. -tv joint value (multi), -r relative, -zri zeroes the rest, -tmw from to moves weight, -prw prunes weights below a value, -nrm normalizes, -rtd resets to the default bind. Query: -v the weights, -t the influences or one influence's weight, -ib ignores small ones.
+Set or query skin weights of points: skinPercent -tv joint1 1 skinCluster1 pCube1.vtx[0]. -tv joint value (multi), -r relative, -zri zeroes the rest, -tmw source -tmw target... moves weight, -prw prunes weights below a value, -nrm normalizes, -rtd resets to the default bind. Query: -v the weights, -t the influences or one influence's weight, -ib ignores small ones.
 
 Arguments: skinCluster, then points or components (the selection when none)
 
@@ -20345,7 +20887,7 @@ Arguments: skinCluster, then points or components (the selection when none)
 | --- | --- | --- |
 | `transformValue` | `tv` | joint weight pairs. |
 | `dqBlendWeight` | `dqb` | The points' blend between linear and dual quaternion, for skinningMethod 2. |
-| `transformMoveWeights` | `tmw` | from to pairs: moves the weight of one influence to another. |
+| `transformMoveWeights` | `tmw` | The first use names the influence to take weight from, the others the influences to give it to. |
 | `relative` | `r` | -tv adds to the current weight. |
 | `zeroRemainingInfluences` | `zri` | -tv zeroes the influences it doesn't name. |
 | `pruneWeights` | `prw` | Removes weights below this value, normalizing what's left. |
@@ -20486,6 +21028,7 @@ Arguments: vertices or meshes (the selection when none); the softMod with -e and
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `falloffRadius` | `fr` | How far the effect reaches, cm (5). |
@@ -20575,9 +21118,49 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `scaleEnvelope` | `se` | How much of the size change comes through (1). |
+
+## sortCaseInsensitive
+
+Sort strings regardless of case.
+
+Arguments: the strings
+
+## sortStringArray
+
+Sort strings: natural order (file9 before file10) unless -ord alphabetic; -ic ignores case, -rev reverses, -ia returns the sorted indices.
+
+Arguments: the strings
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `ignoreCase` | `ic` | Ignore case. |
+| `indexArray` | `ia` | Return the sorted indices instead. |
+| `reverse` | `rev` | Sort the other way. |
+| `sortOrder` | `ord` | natural (the default) or alphabetic. |
+| `stable` | `st` | Keep equal items in their order (they always are here). |
+
+## sound
+
+Makes a sound (an audio node) from -file, starting at frame -offset, or with -edit or -query changes or reads one: -file, -offset, -sourceStart, -sourceEnd, -mute, -endTime and -length (frames, query). Only WAV files are read.
+
+Arguments: sound
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | The WAV file. |
+| `offset` | `o` | The frame it starts at. |
+| `sourceStart` | `ss` | Where in the file it starts, frames. |
+| `sourceEnd` | `se` | Where in the file it ends, frames. |
+| `mute` | `m` | Silent. |
+| `name` | `n` | Its name. |
+| `length` | `l` | Query: its length in frames. |
+| `endTime` | `et` | Query: the frame it ends at. |
+| `edit` | `e` | Change one. |
+| `query` | `q` | Read one. |
 
 ## spaceLocator
 
@@ -21164,6 +21747,7 @@ Arguments: meshes or vertices (the selection when none); the deformer with -e an
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `smoothingIterations` | `si` | Smoothing passes (10). |
@@ -21174,6 +21758,51 @@ Arguments: meshes or vertices (the selection when none); the deformer with -e an
 | `outwardConstraint` | `oc` | Stops points moving out along the normal: 0 free, 1 not at all. |
 | `squashConstraint` | `sqc` | Stops squashed edges relaxing: 0 free, 1 not at all. |
 | `stretchConstraint` | `stc` | Stops stretched edges relaxing: 0 free, 1 not at all. |
+
+## texAlignShells
+
+Line the shells named up on the outermost one's edge or the middle of them all. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `alignTo` | `at` | left, right, top, bottom, centerU or centerV. |
+
+## texBrushUVs
+
+A UV brush stroke over the meshes named: -mode grab, pinch, smear, smooth, optimize, unfold, pin or unpin, -radius in UV units, -strength 0 to 1, -samples u v du dv for each step of the stroke. Pinned UVs stay. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `mode` | `m` | grab, pinch, smear, smooth, optimize, unfold, pin or unpin. |
+| `radius` | `r` | The brush's radius in UV units (0.05). |
+| `strength` | `st` | 0 to 1 (1). |
+| `samples` | `sm` | The stroke: u v du dv for each step. |
+
+## texCreateShell
+
+Create UV Shell: the faces named cut out as a shell of their own; -grid also lays their quads out as an even grid filling 0 to 1. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `grid` | `g` | Create Shell (Grid). |
 
 ## texCutContext
 
@@ -21204,6 +21833,66 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## texDistributeShells
+
+Space the shells named along U or V, in the order they lie, from the first one's edge, -spacing apart. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `direction` | `d` | u or v. |
+| `spacing` | `sp` | Gap between shells, in UV units (0). |
+
+## texDistributeShellsToTarget
+
+Distribute to Target: the shells evenly spaced on the line from the one furthest from the target (the shell of the last UV picked) to it. Returns the nodes.
+
+Arguments: UVs, faces or edges, the target's last (the selection when none)
+
+## texDistributeUVs
+
+Distribute UVs: the UVs named evenly spaced along U or V between the first and last, or -spacing apart from the first. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `direction` | `d` | u or v. |
+| `spacing` | `sp` | Distance between UVs; 0 (the default) spreads them between the ends. |
+
+## texGatherShells
+
+Move each shell named by whole tiles so its middle is in 0 to 1. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+
+## texGetTexelDensity
+
+The texel density of the faces named or selected (objects count all their faces): pixels per scene unit for a map of -mapSize pixels (1024 by default), from their UV area against their world-space area.
+
+Arguments: components or objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `mapSize` | `ms` | The map's size in pixels; 1024 by default. |
+| `uvSetName` | `uvs` | The UV set; the first. |
+
 ## texLatticeDeformContext
 
 A texLatticeDeformContext tool context: create by name, -e and -q its settings. setToolTo makes it current.
@@ -21230,6 +21919,80 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## texLatticeUVs
+
+The UV Lattice Tool: the UVs named move with a lattice of -columns x -rows points over -box u0 v0 u1 v1, as its points moved to -points (u v each, row by row from the bottom). Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `columns` | `c` | Lattice points across U (3). |
+| `rows` | `r` | Lattice points across V (3). |
+| `box` | `b` | The lattice's box: u0 v0 u1 v1. |
+| `points` | `p` | Its points where they are now, u v each, row by row from the bottom. |
+
+## texLayoutAlong
+
+Layout Along: the shells named in a row along U or V, -spacing apart, scaled together to fit 0 to 1. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `direction` | `d` | u or v. |
+| `spacing` | `sp` | Gap between shells and round them, in UV units (0.01). |
+
+## texLinearAlignUVs
+
+Line the UVs named up along the straight line that runs best through them. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+
+## texMatchGrid
+
+Move each UV named to the nearest crossing of a grid over the 0 to 1 tile. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `gridU` | `gu` | Grid divisions across U (16). |
+| `gridV` | `gv` | Grid divisions across V (16). |
+
+## texMatchUVs
+
+Bring the UVs named that lie within -tolerance of one another to where they are on average, unjoined. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `tolerance` | `tol` | How near, in UV units (0.01). |
 
 ## texMoveContext
 
@@ -21280,6 +22043,49 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## texOrientEdge
+
+Turn each shell so the first edge named in it lies along U or V, whichever is nearer. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+
+## texOrientShells
+
+Turn each shell named to lie square to U and V: the turn that makes its bounding box smallest. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+
+## texRandomizeShells
+
+Move, turn and scale each shell named by a random amount up to the most given. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `translate` | `t` | Furthest a shell moves, in U and in V. |
+| `rotate` | `r` | Most it turns, degrees. |
+| `scale` | `s` | Most it grows or shrinks, as a percent of its size. |
+| `seed` | `sd` | Seed: the same seed gives the same result. |
 
 ## texRotateContext
 
@@ -21333,6 +22139,16 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## texSelectByType
+
+The faces (backFacing, frontFacing) or UVs (textureBorders) of the meshes or components named, for Select By Type. Returns them.
+
+Arguments: meshes or components (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `type` | `t` | backFacing, frontFacing, textureBorders or unmapped. |
+
 ## texSelectContext
 
 A texSelectContext tool context: create by name, -e and -q its settings. setToolTo makes it current.
@@ -21370,6 +22186,18 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## texSetTexelDensity
+
+Scales each UV shell of the faces named or selected about its centre so that it has -texelDensity pixels per scene unit for a map of -mapSize pixels. One undo step.
+
+Arguments: components or objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `texelDensity` | `td` | Pixels per scene unit wanted. |
+| `mapSize` | `ms` | The map's size in pixels; 1024 by default. |
+| `uvSetName` | `uvs` | The UV set; the first. |
 
 ## texSmoothContext
 
@@ -21414,6 +22242,97 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 
+## texSnapShells
+
+Move each shell named to one of nine places of a UV range (0 to 1 by default): a corner, the middle of a side, or the middle. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `position` | `p` | 0 top left, 1 top, 2 top right, 3 left, 4 middle, 5 right, 6 bottom left, 7 bottom, 8 bottom right. |
+| `uMin` | `u0` | The range's lowest U (0). |
+| `uMax` | `u1` | Its highest U (1). |
+| `vMin` | `v0` | The range's lowest V (0). |
+| `vMax` | `v1` | Its highest V (1). |
+
+## texSnapStackShells
+
+Snap and Stack: each shell with UVs picked moves, turns and scales so its first two UVs picked land on the first two of the shell of the last UV picked. Returns the nodes.
+
+Arguments: UVs, in order (the selection when none)
+
+## texSnapTogether
+
+Two UVs on two shells, in order: the second's shell moves so its UV lands on the first; -order ba the other way. Returns the node.
+
+Arguments: two UVs
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `order` | `o` | ab (the default) or ba. |
+
+## texStackShells
+
+Move the shells named onto one another, their middles on the middle of them all. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+
+## texStraightenShell
+
+Straighten Shell: every UV edge of each shell named that runs within -angle of U or V runs along it. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `angle` | `a` | Most an edge may lean and still be straightened, degrees (30). |
+
+## texStraightenUVs
+
+Make each UV edge between the UVs named that runs within -angle of U or V run along it. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `angle` | `a` | Most an edge may lean and still be straightened, degrees (30). |
+| `u` | `u` | Straighten along U (on). |
+| `v` | `v` | Straighten along V (on). |
+
+## texSymmetrizeUVs
+
+Mirror the UVs named across the edge -edge: each sets the UV of the point opposite its own, across the line through the edge's UVs. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `edge` | `e` | The edge on the mesh's line of symmetry. |
+
 ## texTweakUVContext
 
 A texTweakUVContext tool context: create by name, -e and -q its settings. setToolTo makes it current.
@@ -21434,6 +22353,20 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## texUnstackShells
+
+Move the shells named so none overlap, each as little as it can, the largest staying put. Returns the nodes.
+
+Arguments: UVs, faces or meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
+| `name` | `n` | Accepted for existing scripts. |
+| `caching` | `cch` | Accepted for existing scripts. |
+| `nodeState` | `nds` | Accepted for existing scripts. |
+| `spacing` | `sp` | Gap kept between shells, in UV units (0.01). |
 
 ## texWinToolCtx
 
@@ -21797,6 +22730,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `strength` | `str` | Multiplies the texture (1). |
@@ -22064,6 +22998,8 @@ Arguments: the slider's name, accepted for existing scripts
 | `tickSize` | `ts` | How wide ticks are drawn. |
 | `minTime` | `min` | Query: the playback start. |
 | `maxTime` | `max` | Query: the playback end. |
+| `sound` | `s` | The sound (audio node) the slider shows the waveform of; empty for none. |
+| `displaySound` | `ds` | Show the sound's waveform. |
 | `beginScrub` | `bs` | Accepted for existing scripts. |
 | `endScrub` | `es` | Accepted for existing scripts. |
 | `forceRedraw` | `fr` | Accepted for existing scripts. |
@@ -22460,6 +23396,23 @@ Arguments: objects
 | `scaleZ` | `sz` | Low and high values, or whether each is on. |
 | `enableScaleZ` | `esz` | Low and high values, or whether each is on. |
 
+## translator
+
+The file types file -type knows, as the reference's translators: -q -list their names (those whose plug-in is loaded), and of one named: -q -extension, -filter, -readSupport, -writeSupport, -loaded, -defaultOptions.
+
+Arguments: file type
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `list` | `l` | Every file type. |
+| `extension` | `ext` | Its extension. |
+| `filter` | `f` | Its file filter. |
+| `readSupport` | `rs` | Whether it reads. |
+| `writeSupport` | `ws` | Whether it writes. |
+| `loaded` | `ld` | Whether its plug-in is loaded. |
+| `defaultOptions` | `do` | Its default options string. |
+| `query` | `q` | Read. |
+
 ## trim
 
 Trim a surface along closed curves on it: the region holding -lu -lv (0 to 1, the middle by default) stays, or with -sl 1 goes. Returns [surface, node].
@@ -22601,15 +23554,28 @@ Arguments: UVs, faces or meshes (the selection when none)
 
 ## u3dLayout
 
-Layout: pack the UV shells of the selection into 0 to 1, each scaled to its size in 3D and turned to fit.
+Layout: pack the UV shells of the selection into -packBox (0 to 1 by default), over -tileU by -tileV UDIM tiles when asked, -shellSpacing between shells and -tileMargin from the tile's edges (UV units; the UV Toolkit turns pixels into them by the map size). -preScaleMode 1 sizes shells to 3D, -layoutScaleMode 1 fills the region evenly, 2 in U and V apart, 0 not at all. -tileAssignMode 0 shares shells out by area, 1 keeps each in the tile its centre is in.
 
 Arguments: faces, UVs or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `shellSpacing` | `spc` | Space between shells, in UV units. |
+| `tileMargin` | `mar` | Space from the tile's edges, in UV units. |
+| `packBox` | `box` | The region in the first tile: Umin Umax Vmin Vmax. |
+| `tileU` | `u` | Tiles across. |
+| `tileV` | `v` | Tiles up. |
+| `tileAssignMode` | `ta` | 0 shared out by area, 1 by each shell's centre. |
+| `layoutScaleMode` | `ls` | 0 off, 1 uniform, 2 non-uniform. |
+| `preScaleMode` | `scl` | 0 off, 1 to 3D sizes, 2 keeping UV sizes. |
+| `preRotateMode` | `rot` | Accepted; shells are turned to their bounding box when rotation is on. |
 | `rotateStep` | `rst` | 0 keeps shells unturned. |
-| `resolution` | `res` | Accepted for existing scripts. |
+| `rotateMin` | `rmn` | Accepted for existing scripts. |
+| `rotateMax` | `rmx` | 0 keeps shells unturned. |
+| `translate` | `trs` | Off: shells are not moved. |
+| `multiObject` | `m` | Accepted; objects are packed one by one. |
+| `mutations` | `mut` | Accepted for existing scripts. |
+| `resolution` | `res` | The packing grid; accepted for existing scripts. |
 
 ## u3dOptimize
 
@@ -22633,14 +23599,15 @@ Arguments: UVs, faces or meshes (the selection when none)
 
 ## u3dUnfold
 
-Unfold: flatten the UV shells of the selection with the least stretch, keeping each shell's place and size.
+Unfold: flatten the UV shells of the selection with the least stretch (SLIM, as Blender's Minimum Stretch), keeping each shell's place and size; pinned UVs hold. -ite more passes, -p packs the shells into 0 to 1 after, -method minimumStretch, conformal (LSCM) or boundaryFirst (BFF). The solver lets no triangle flip.
 
 Arguments: faces, UVs or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `iterations` | `ite` | Accepted for existing scripts. |
-| `pack` | `p` | Accepted for existing scripts. |
+| `iterations` | `ite` | More passes of the solver: each is twelve. |
+| `pack` | `p` | Pack the shells into 0 to 1 after. |
+| `method` | `m` | minimumStretch (the default), conformal or boundaryFirst. |
 | `borderintersection` | `bi` | Accepted for existing scripts. |
 | `triangleflip` | `tf` | Accepted for existing scripts. |
 
@@ -22696,6 +23663,27 @@ Undo or redo in one go until the given number of undo steps remain, as listed by
 | Flag | Short | Description |
 | --- | --- | --- |
 | `position` | `p` | Undo steps left afterwards: 0 undoes everything. |
+
+## unfold
+
+The reference's legacy Unfold: flatten UV shells, -ps holding the selected UVs where they are, -pub their borders; -i the solver's passes. The rest of its flags are accepted; the solver is Unfold's.
+
+Arguments: UVs, faces or meshes
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `iterations` | `i` | The solver's passes: every thousand is twelve of Aztek's. |
+| `pinSelected` | `ps` | The selected UVs stay where they are. |
+| `pinUvBorder` | `pub` | Each shell's border stays where it is. |
+| `stoppingThreshold` | `ss` | Accepted for existing scripts. |
+| `globalBlend` | `gb` | Accepted for existing scripts. |
+| `globalMethodBlend` | `gmb` | Accepted for existing scripts. |
+| `areaWeight` | `aw` | Accepted for existing scripts. |
+| `optimizeAxis` | `oa` | 0 unfolds along U and V, 1 along U alone, 2 along V alone. |
+| `useScale` | `us` | Accepted for existing scripts. |
+| `scale` | `s` | Accepted for existing scripts. |
+| `pinned` | `pin` | Accepted for existing scripts. |
+| `constructionHistory` | `ch` | Accepted for existing scripts. |
 
 ## unfrozenTransforms
 
@@ -22820,6 +23808,12 @@ The world's up axis, a preference kept between scenes: -ax y or z; -rv turns the
 | `edit` | `e` | Edit mode. |
 | `axis` | `ax` | y or z. |
 | `rotateView` | `rv` | Turn the default cameras too. |
+
+## updatePsdNetworks
+
+UV Editor > Image > Update PSD Networks: the UV snapshot layer of the PSDs the psdFileTex nodes named (all of them without) drawn again from the UVs as they are now, the painted layers kept. The textures show the file again. Returns the files written.
+
+Arguments: psdFileTex nodes
 
 ## usdAttr
 
@@ -23088,7 +24082,7 @@ Arguments: [camera]
 
 ## viewManip
 
-The view's orientation aid: -visible shows or hides the axes in the corner, -goHome, -fitToView; the rest are held.
+The ViewCube: -visible shows or hides it, -topLeft -topRight -bottomLeft -bottomRight put it in a corner, -size tiny, small, normal or large, -minOpacity how opaque it is away from the mouse, -dragSnap snaps a drag to the nearest view, -preserveSceneUp keeps the scene upright, -zoomToFitScene fits the scene on a click, -drawCompass a ring under it; -goHome, -goDefault, -setHome, -resetHome, -setFront, -resetFront, -fitToView and -levelCamera work on the current view's camera. The rest are held.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -23098,18 +24092,24 @@ The view's orientation aid: -visible shows or hides the axes in the corner, -goH
 | `dragSnap` | `ds` |  |
 | `drawCompass` | `dc` |  |
 | `fitToView` | `ftv` |  |
-| `frontParameter` | `fp` |  |
+| `frontParameters` | `fp` |  |
 | `goDefault` | `gd` |  |
 | `goHome` | `gh` |  |
-| `homeParameter` | `hp` |  |
+| `homeParameters` | `hp` |  |
 | `levelCamera` | `lc` |  |
 | `minOpacity` | `mo` |  |
-| `postCommand` | `pc` |  |
-| `preCommand` | `prc` |  |
+| `namespace` | `ns` |  |
+| `postCommand` | `p` |  |
+| `preCommand` | `pr` |  |
+| `preserveSceneUp` | `psu` |  |
+| `resetFront` | `rf` |  |
+| `resetHome` | `rh` |  |
 | `restoreCenter` | `rc` |  |
-| `selectionLockParameter` | `slp` |  |
+| `selectionLockParameters` | `slp` |  |
+| `setFront` | `sf` |  |
 | `setHome` | `sh` |  |
 | `size` | `s` |  |
+| `toggleSelectionLock` | `tsl` |  |
 | `topLeft` | `tl` |  |
 | `topRight` | `tr` |  |
 | `visible` | `v` |  |
@@ -23376,6 +24376,7 @@ Arguments: meshes to deform, then the wire unless -w names it (the selection whe
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `wire` | `w` | The curve to follow, or several. Any shape with points will do. |
@@ -23500,6 +24501,7 @@ Arguments: meshes to deform, then the wrapper unless -inf names it (the selectio
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `influence` | `inf` | The wrapper mesh, or several. With -e: add. Query: the influences. |
@@ -23524,6 +24526,7 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
 | `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `wrinkleCount` | `wc` | How many creases (3). |
@@ -23588,6 +24591,178 @@ Held for scripts: the transform tools' constraint, -t none, surface, edge or liv
 | `type` | `t` | none, surface, edge or live. |
 | `alongNormal` | `n` | Along the normals first. |
 | `live` | `l` | With -q: whether a live surface is set. |
+
+## xgmSplineQuery
+
+Asks about Interactive Groom descriptions: -listSplineDescriptions lists them, -isSplineDescription says whether the object named is one (its transform or shape), -splineCount counts a description's splines.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `listSplineDescriptions` | `lsd` | Every description in the scene. |
+| `long` | `l` | With -listSplineDescriptions: full paths. |
+| `isSplineDescription` | `isd` | Whether the object named is a description. |
+| `splineCount` | `sc` | How many splines the description has. |
+
+## xgmSplineSelect
+
+Spline selection on descriptions: -replaceBySelectedFaces picks the splines rooted on the faces selected, -convertToFreeze freezes the splines picked and clears the pick. Applies to the descriptions named, or else every description.
+
+Arguments: descriptions...
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `replaceBySelectedFaces` | `rsf` | Pick the splines on the selected faces. |
+| `convertToFreeze` | `ctf` | Freeze the picked splines. |
+
+## xjenAddModifier
+
+Adds a modifier to a description's stack, at the top (just under the shape) or -after a node in it. -type: clump, noise, cut, collide, displace, guide, linearWire, curveToSpline, scale or sculpt. Guide and Linear Wire take -curves, or make them from -fraction of the splines (0.1 by default) when none are given; a Linear Wire keeps copies of its wires as their reference state. Collide takes -meshes. Returns the modifier.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `type` | `typ` | The modifier. |
+| `after` | `aft` | A node of the stack to put it just above. |
+| `curves` | `crv` | Guide, Linear Wire, Curve to Spline: the curves. |
+| `fraction` | `fr` | Guide, Linear Wire with no curves: the part of the splines made into curves; 0.1 by default. |
+| `meshes` | `msh` | Collide: the meshes. |
+
+## xjenBakeModifier
+
+Bakes a Noise modifier: its output over -frameRange written to -file as Alembic curves, and the modifier set to Baked, playing that file.
+
+Arguments: modifier
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | The Alembic file to write. |
+| `frameRange` | `fr` | First and last frame; the current frame by default. |
+
+## xjenConvertToPolygons
+
+Convert Interactive Groom to Polygons: each description named (or selected) as a mesh of ribbons, two points \ across each spline point (-tube makes tubes of -sides sides), each its spline's width, with UVs. Returns \ the meshes.
+
+Arguments: descriptions...
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `tube` | `tb` | Tubes rather than ribbons. |
+| `sides` | `sd` | Sides of a tube; 4 by default. |
+
+## xjenCreateGroom
+
+Create Interactive Groom Splines: a description on each mesh named or selected (or on the faces named), grown by density and seed, with a Scale and a Sculpt modifier and a default aiStandardHair shader. Returns the descriptions' transforms. The reference's own command for this is not documented; this is Aztek's.
+
+Arguments: meshes or faces...
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | New Description Name; taken with its next free number if in use. |
+| `seed` | `sd` | Generator Seed. |
+| `density` | `den` | Splines per face; 10 by default. |
+| `length` | `len` | Length of the splines, in scene units; 1 by default. |
+| `widthScale` | `ws` | Width of the splines, in scene units; 0.01 by default. |
+| `cvCount` | `cvc` | Points on each spline; 5 by default. |
+
+## xjenExportCache
+
+Cache > Export Cache: the description named (or selected), as Alembic curves with widths, over -frameRange.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | The Alembic file to write. |
+| `frameRange` | `fr` | First and last frame; the current frame by default. |
+
+## xjenGroomCtx
+
+The Interactive Groom tools' settings: -tool (density, place, length, cut, width, twist, comb, grab, smooth, noise, clump, part, freeze, select), -size (pixels), -strength, -collide, -collisionDistance, -invertFrozen, -altMode (the tool's other mode, N in the views). -q with a flag asks it. -clearSelection forgets the splines picked.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `tool` | `t` | The tool. |
+| `size` | `sz` | Brush size, pixels on screen. |
+| `strength` | `st` | 0 to 1. |
+| `collide` | `col` | Keep splines out of the bound mesh. |
+| `collisionDistance` | `cd` | How far above the surface they are kept, scene units. |
+| `invertFrozen` | `ivf` | Work on frozen splines only. |
+| `altMode` | `alt` | The tool's other mode. |
+| `clearSelection` | `cs` | Forget the splines picked with Select. |
+| `query` | `q` | Ask. |
+
+## xjenGroomInfo
+
+Every Interactive Groom description, for the editor: its transform and shape, its stack from the top (shape side) \ down, each node's type and Mute, and its Sculpt modifier's layers with the active one.
+
+## xjenGroomStroke
+
+A stroke of the current grooming tool on a description, from a script: -points the brush's centres in world space, in order, -radius its size in scene units, -normal the surface's (up by default), -invert as Ctrl. Undoes as one step.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `points` | `p` | Brush centres, world space: [[x, y, z], ...], or x, y, z after one another. |
+| `radius` | `r` | Brush radius, scene units; 1 by default. |
+| `normal` | `nr` | The surface normal under the brush. |
+| `invert` | `inv` | The tool inverted, as with Ctrl held. |
+
+## xjenImportCache
+
+Cache > Import Cache: a Spline Cache modifier at the top of the description's stack, playing the file's curves.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | The Alembic file to play. |
+
+## xjenPreset
+
+Description presets, in Aztek's own JSON: -export writes the description named to a file (its shape's and every \ modifier's settings, sculpt layers and the splines placed or taken away); -import makes a description from one \ on the mesh named or selected. Guide and wire curves are not kept in a preset.
+
+Arguments: description or mesh
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `export` | `ex` | The file to write. |
+| `import` | `im` | The file to read. |
+| `name` | `n` | Import: the new description's name. |
+
+## xjenRemoveModifier
+
+Takes a modifier out of its description's stack, joining what fed it to what it fed, and deletes it. The base cannot be removed.
+
+Arguments: modifier
+
+## xjenSculptLayer
+
+A description's sculpt layers: -add a new layer (made active), -remove one, -active the one the tools work on, -merge some into the first of them, -mergeVisible all visible ones into the first, -list them as [name, weight, visible].
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `add` | `a` | A new layer of this name. |
+| `remove` | `rm` | Removes the layer at this index. |
+| `active` | `ac` | Makes the layer at this index the one the tools work on. |
+| `merge` | `m` | Merges these layers into the first of them. |
+| `mergeVisible` | `mv` | Merges the visible layers into the first of them. |
+| `list` | `ls` | The layers: [name, weight, visible] each. |
+
+## xjenTransfer
+
+Transfer: the description named grows on another mesh (-mesh) from now on. Its sculpt moves and placed splines \ follow by face, so they carry across only where the faces match.
+
+Arguments: description
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `mesh` | `m` | The mesh to grow on. |
 
 ## zeroPivot
 
