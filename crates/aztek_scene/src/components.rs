@@ -719,7 +719,8 @@ pub fn hilited_meshes(g: &Graph) -> Vec<NodeId> {
     let mut out = Vec::new();
     let mut seen = BTreeSet::new();
     let mut add = |id: NodeId| {
-        if let Some(id) = as_mesh(g, id) {
+        // A live surface is never in component mode (#125).
+        if let Some(id) = as_mesh(g, id).filter(|m| !g.live.contains(m)) {
             if seen.insert(id) {
                 out.push(id);
             }

@@ -1183,7 +1183,8 @@ impl Viewport {
             // A surface's tessellation is only shaded: isoparms and CVs are drawn with the rig lines.
             let is_surface = surfaces::is_surface(g, it.shape);
             let selected = !is_surface && self.disp.highlight && (sel.contains(&it.xf) || sel.contains(&it.shape));
-            let hilited = selected && mode != ComponentMode::Object;
+            // The live surface shows no components, whatever the selection type (#125).
+            let hilited = selected && mode != ComponentMode::Object && !s.live_surface.contains(&it.shape);
             let checkered = !is_surface && (sel.contains(&it.xf) || sel.contains(&it.shape));
             let child_lit = !is_surface && self.disp.highlight && ds::select_state(g, it.shape, &sel) == ds::SelectState::Child;
             let wire_sel: &[NodeId] = if self.disp.highlight { &sel } else { &[] };
@@ -1464,7 +1465,10 @@ impl Viewport {
                 }
             }
             // Quad Draw's mesh sits on the live surface, chords and all, so it's pulled forward to stay in sight.
-            let retopo = if self.tool == Tool::QuadDraw && !s.live_surface.contains(&it.shape) && !s.live_surface.is_empty() { 0.03 } else { 0.0 };
+            // The mesh being built on a live surface: pulled forward to stay in sight, and seen through in blue as the
+            // reference shows it (#127).
+            let on_live = !s.live_surface.is_empty() && !s.live_surface.contains(&it.shape) && (sel.contains(&it.xf) || sel.contains(&it.shape) || self.tool == Tool::QuadDraw);
+            let retopo = if on_live { 0.03 } else { 0.0 };
             // Bounding box display: twelve lines and nothing else.
             if self.disp.bounding_box || style.bounding_box || crate::ui_cmds::node_flag(&s.graph, "boundingBox", it.xf) {
                 let (mut lo, mut hi) = (DVec3::splat(f64::MAX), DVec3::splat(f64::MIN));
@@ -1517,7 +1521,13 @@ impl Viewport {
                     // Per object too (Modeling Toolkit > Object > X-Ray, displaySurface -xr; displayCull -bfc).
                     let own = |k: &str| [it.xf, it.shape].iter().any(|&n| s.extras.display_surface.get(&(n, k.to_string())).copied().unwrap_or(false));
                     let (obj_xray, obj_cull) = (own("xRay"), own("backFaceCulling"));
-                    if self.disp.xray || obj_xray {
+                    if on_live && self.disp.highlight {
+                        r.bind(gpu, Kind::Tint);
+                        let mut pc = push(mvp, it.world, view, [0.2, 0.42, 0.95, 0.5], retopo, 1.0);
+                        pc.n2[3] = self.disp.flat as i32 as f32;
+                        r.push(gpu, &pc);
+                        r.draw(gpu, vb, Some((ib, *n)), 0);
+                    } else if self.disp.xray || obj_xray {
                         // X-Ray: see-through, no sorting.
                         r.bind(gpu, Kind::Tint);
                         let mut pc = push(mvp, it.world, view, [0.55, 0.55, 0.55, 0.45], retopo, 1.0);

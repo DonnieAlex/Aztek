@@ -1341,6 +1341,15 @@ selected UVs at the canvas's top left); UV Sets > Per Instance Sharing (greyed: 
 Auto-Load Textures. The UV Toolkit beside the canvas already follows the reference's sections, Selection to UV Sets
 (docs/issues/108-uv-toolkit-menus.png).
 
+### Live surfaces can't be edited (17/11/2026, #125, #127)
+
+A live surface never goes into component mode: picked in the Outliner, it stays drawn as an object whatever the
+selection type, and `ls -hilite` leaves it out. Modelling tools (Multi-Cut, Insert and Offset Edge Loop, Target Weld,
+Slide Edge, Crease, Append Polygon, Cut/Sew) work on everything but the live surface; only Quad Draw and Create
+Polygon draw onto it. The mesh being built on a live surface (the selected one, or Quad Draw's) is drawn see-through in
+blue and pulled forward, as the reference shows it (docs/issues/125-127-live-surface.png: a patch on a live sphere;
+the live sphere picked in component mode).
+
 ### Texture baking and PSD networks (17/11/2026, #108)
 
 - `convertSolidTx attribute objects`: as the reference's, the colour an attribute gets (a material's color with

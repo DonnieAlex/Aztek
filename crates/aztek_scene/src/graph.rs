@@ -941,6 +941,8 @@ pub struct Graph {
     pub namespaces: BTreeSet<String>,
     /// Where new nodes go ("" is the root): namespace -set.
     pub current_namespace: String,
+    /// The live surfaces (makeLive): never in component mode, never what a tool edits.
+    pub live: Vec<NodeId>,
     /// What a file set on a default node that isn't modelled, as it wrote it, to write back: node -> attribute -> the
     /// setAttr line's text after the plug.
     pub default_lines: BTreeMap<String, Vec<(String, String)>>,
@@ -1051,6 +1053,7 @@ impl Graph {
             duplicate_pairs: Default::default(),
             namespaces: BTreeSet::new(),
             current_namespace: String::new(),
+            live: Vec::new(),
             default_lines: BTreeMap::new(),
         }
     }

@@ -289,3 +289,13 @@ fn bakes_and_psd_networks() {
     assert!(std::path::Path::new(t["path"].as_str().unwrap()).is_file());
     mel(&mut c, "uiPref uvEditorBaking 0;");
 }
+
+/// #125: a live surface picked in the Outliner doesn't go into component mode.
+#[test]
+fn a_live_surface_has_no_component_mode() {
+    let mut c = Core::new();
+    mel(&mut c, "polySphere -n ball; makeLive ball; select -r ball; selectMode -component; selectType -vertex 1;");
+    assert_eq!(mel(&mut c, "ls -hilite;"), json!([]));
+    mel(&mut c, "makeLive -none; select -r ball; selectMode -component;");
+    assert_eq!(mel(&mut c, "ls -hilite;"), json!(["ballShape"]));
+}

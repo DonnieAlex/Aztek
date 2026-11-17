@@ -1098,6 +1098,17 @@ impl View {
         self.mouse_with_tool(core, kind, button, px, mods, buttons)
     }
 
+    /// What a modelling tool works on: everything but the live surface, which only Quad Draw and Create Polygon draw
+    /// onto and nothing edits (#127).
+    fn tool_items(&self, core: &Core, items: &[crate::viewport::DrawItem]) -> Vec<crate::viewport::DrawItem> {
+        let live = &core.s.live_surface;
+        items
+            .iter()
+            .filter(|i| live.is_empty() || matches!(self.vp.tool, Tool::QuadDraw | Tool::CreatePolygon) || !live.contains(&i.shape))
+            .map(|i| crate::viewport::DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: i.smooth })
+            .collect()
+    }
+
     fn mouse_with_tool(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, buttons: i32) -> bool {
         self.iso_in(core);
         self.vp.click_box = crate::ui_cmds::pref_f64("clickBoxSize", 4.0).max(1.0) * self.dpr;
@@ -1118,7 +1129,8 @@ impl View {
             }
         }
         if !alt && self.nav.is_none() && !self.brush_adjust && (kind != 1 || buttons == 0 || buttons & 1 != 0 || buttons & 2 != 0) {
-            if let Some(r) = self.tool_mouse(core, kind, button, px, mods, &items) {
+            let tool_items = self.tool_items(core, &items);
+            if let Some(r) = self.tool_mouse(core, kind, button, px, mods, &tool_items) {
                 return r;
             }
         }
@@ -2272,6 +2284,7 @@ impl View {
                     return;
                 }
                 let items = gather(&mut core.s.graph);
+                let items = self.tool_items(core, &items);
                 self.tool_finish(core, &items);
                 if self.vp.tool == Tool::CurveBezier {
                     let cvs = bezier_cvs(&self.bezier);

@@ -360,6 +360,7 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 if a.bool("none") {
                     s.live_surface.clear();
+                    s.graph.live.clear();
                     return Ok(Value::Null);
                 }
                 let names = if a.named().is_empty() { s.graph.selection().iter().map(|&i| s.graph.path(i)).collect() } else { a.named() };
@@ -372,6 +373,7 @@ pub fn register(c: &mut Commands<Session>) {
                 // The live surface can't be selected: it leaves the selection, as in the reference (#116).
                 let drop: Vec<crate::NodeId> = list.iter().flat_map(|&m| [m, crate::dag::transform_of(&s.graph, m)]).collect();
                 s.graph.select(&drop, crate::graph::SelectMode::Remove);
+                s.graph.live = list.clone();
                 s.live_surface = list;
                 Ok(Value::Null)
             },
