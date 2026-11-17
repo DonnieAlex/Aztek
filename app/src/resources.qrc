@@ -4,11 +4,6 @@
     <file alias="aztek-icon.png">../icons/aztek-icon.png</file>
     <file alias="aztek-logo.png">../icons/aztek-logo.png</file>
     <file alias="aztek-splash.png">../icons/aztek-splash.png</file>
-    <file alias="greyhound/1-stand.png">../icons/greyhound/1-stand.png</file>
-    <file alias="greyhound/2-sit.png">../icons/greyhound/2-sit.png</file>
-    <file alias="greyhound/3-bow.png">../icons/greyhound/3-bow.png</file>
-    <file alias="greyhound/4-run.png">../icons/greyhound/4-run.png</file>
-    <file alias="greyhound/5-lie.png">../icons/greyhound/5-lie.png</file>
-    <file alias="greyhound/6-sleep.png">../icons/greyhound/6-sleep.png</file>
+    <file alias="greyhound.png">../icons/greyhound.png</file>
   </qresource>
 </RCC>

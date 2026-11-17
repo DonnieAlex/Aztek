@@ -639,7 +639,7 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
   Themes box keeps docked panels where they are.
 - Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, the notes of every
   release of the day and the announcements when update checks are on, a parity bar along the foot (the share of the
-  reference's commands and flags Aztek takes, `aztekParity -q`), and a greyhound in a new pose with each version.
+  reference's commands and flags Aztek takes, `aztekParity -q`), and a greyhound under the links.
 
   ![Welcome screen](docs/welcome-screen.png)
 - Modeling Toolkit (Windows > Modeling Editors), docked beside the Attribute Editor: selection types (Ctrl converts,

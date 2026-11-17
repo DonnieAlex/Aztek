@@ -1425,8 +1425,7 @@ version marked; on a later day the heading names the date. A bar along the foot 
 command and each flag counting once, a flag only when its command is there. `aztekParity -q` gives the percentage, the
 counts and the missing commands; `cargo run -p aztek_host --example parity` prints it. It measures commands and
 flags, not how closely each behaves. The sections and links carry small icons, the greeting follows the time of day,
-and a sandy greyhound sits in the corner, standing, sitting, bowing, running, lying or asleep: version 2.N takes pose
-N mod 6.
+and a sandy greyhound with a red collar stands under the links.
 
 ### Globals at the top level (17/11/2026, #132)
 

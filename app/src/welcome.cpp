@@ -1,8 +1,8 @@
 // The welcome screen (#85), as the reference has one at start-up that can be turned off: ways in (a new scene, a scene
 // to open, the recent ones), the example scenes and scripts that come with Aztek, useful links, and from GitHub the
 // notes of the day's releases and the announcements. GitHub is asked only when update checks are on (Preferences >
-// Interface), as nothing leaves the machine otherwise; a button asks once on demand. A greyhound keeps it company,
-// in a new pose with each version, and a bar along the foot shows how far Aztek is towards parity.
+// Interface), as nothing leaves the machine otherwise; a button asks once on demand. A greyhound keeps it company
+// under the links, and a bar along the foot shows how far Aztek is towards parity.
 
 #include "mainwindow.h"
 #include "aztek.h"
@@ -50,9 +50,6 @@ const char* kAnnouncements = "https://srlegrand.github.io/Aztek/announcements.js
 const char* kAnnouncementsPage = "https://github.com/srlegrand/Aztek/discussions/categories/announcements";
 const char* kReleases = "https://github.com/srlegrand/Aztek/releases";
 const char* kReleasesApi = "https://api.github.com/repos/srlegrand/Aztek/releases?per_page=40";
-
-// The greyhound's poses, one a version: 2.N shows pose N mod their number.
-const char* kPoses[] = {"1-stand", "2-sit", "3-bow", "4-run", "5-lie", "6-sleep"};
 
 // N of "2.N (commit)" or "2.N.0".
 int build_number() {
@@ -427,17 +424,14 @@ void MainWindow::show_welcome(bool at_startup) {
     right->addWidget(link_button("Discord", "https://discord.gg/XDEgpWDVKa", d, "chat", QColor(120, 130, 230)));
     right->addWidget(link_button("Report an issue", "https://github.com/srlegrand/Aztek/issues/new/choose", d, "bug", QColor(220, 90, 80)));
     right->addWidget(link_button("Support on Ko-fi", "https://ko-fi.com/turtleface", d, "heart", QColor(240, 110, 140)));
-    // The greyhound, under the links: a new pose with each version.
+    // The greyhound, under the links.
     {
-        const int n = int(sizeof(kPoses) / sizeof(kPoses[0]));
-        const int pose = build_number() % n;
         auto* dog = new QLabel(d);
-        QPixmap dpm(QString(":/greyhound/%1.png").arg(kPoses[pose]));
+        QPixmap dpm(":/greyhound.png");
         if (!dpm.isNull()) {
             dpm.setDevicePixelRatio(2.0);
             dog->setPixmap(dpm);
         }
-        dog->setToolTip(QString("Pose %1 of %2: it changes with every version.").arg(pose + 1).arg(n));
         right->addSpacing(8);
         right->addWidget(dog, 0, Qt::AlignHCenter | Qt::AlignTop);
     }
