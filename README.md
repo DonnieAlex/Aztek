@@ -477,7 +477,7 @@ The reference has one look, and Aztek Classic is it, the default. The **Themes**
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
 Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Keating,
 Novacek, Springer and Buxton are the Dracula, Nord and Solarized colour schemes as their authors publish them; Shaq
-follows Unreal Engine 5's editor, DonnieAlex Blender's, TDI Softimage XSI and Martino macOS. The timeline and the drawn editors (Graph,
+follows Unreal Engine 5's editor, DonnieAlex Blender's, Boisvert Softimage XSI and Martino macOS. The timeline and the drawn editors (Graph,
 Node and UV Editor, marking menus) keep their own colours.
 
 **Random!**, at the bottom of the box, makes a theme with every option at random, fonts included, and applies it: pick
@@ -489,8 +489,8 @@ or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, sing
 radius, border width, padding, the tab, arrow and scroll bar styles, the buttons (soft, glossy, outline, inset, chunky,
 underlined or pills), the edges round panels (line, groove, raised, thick, rounded or a drop shadow) and the panel title
 bars (gradient, underlined, a highlight stripe, inverse or a folder tab). Every built-in theme has its own mix of these;
-TDI follows Softimage XSI: grey panels with darker headers, light rounded buttons with a soft shade and a dark
-outline, rounded property tabs and Tahoma. Built-in themes stay as they are and saving makes a
+Boisvert follows Softimage XSI: warm grey panels, soft rounded buttons, blue-grey section bars, dark rounded entry
+fields and a white bar for what is picked. Built-in themes stay as they are and saving makes a
 copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pass around.
 
 ![Theme Editor](docs/theme-editor.png)
@@ -514,8 +514,8 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 
 | | | |
 |---|---|---|
-| ![Sebdvvv](docs/theme-studio96.jpg) | ![TDI](docs/theme-martino.jpg) | ![Krieger](docs/theme-desktop98.jpg) |
-| **Sebdvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **TDI**: after Softimage XSI: grey panels, light rounded buttons with a soft shade, pale fields, Tahoma | **Krieger**: silver and navy, two-tone bevels, 1998 |
+| ![Sebdvvv](docs/theme-studio96.jpg) | ![Boisvert](docs/theme-martino.jpg) | ![Krieger](docs/theme-desktop98.jpg) |
+| **Sebdvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Boisvert**: after Softimage XSI: warm grey, soft rounded buttons, blue-grey section bars, dark rounded fields, white selection | **Krieger**: silver and navy, two-tone bevels, 1998 |
 | ![Wavefront](docs/theme-workstation.jpg) | ![Hourihan](docs/theme-poweranimator.jpg) | ![Hourcade](docs/theme-sky.jpg) |
 | **Wavefront**: the light grey workstation desktop the reference first ran on | **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **Hourcade**: pale sky blue and navy, humanist type, navy section bars, round pills |
 | ![Buxton](docs/theme-solarized-light.jpg) | ![Hall](docs/theme-paper.jpg) | ![AshT](docs/theme-ash.jpg) |

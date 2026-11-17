@@ -220,26 +220,26 @@ QList<Theme> builtins() {
         t.padding = 4;
         l << t;
     }
-    // TDI: after Softimage XSI. Mid grey panels with darker header bars, light grey buttons with rounded corners, a
-    // soft top-to-bottom shade and a dark outline, pale grey fields with black type, rounded property page tabs, bold
-    // black section labels on a darker bar, a pale blue for what is picked, Tahoma at 8 points.
+    // Boisvert: Softimage XSI, matched to its screens: warm grey panels and lists, soft raised buttons a shade lighter
+    // with rounded corners (lit white when on), blue-grey section and panel title bars with black bold type, dark
+    // rounded entry fields with light type, a white bar with black type for what is picked, Tahoma.
     {
-        Theme t = hand("martino", "TDI",
-                       {{"window", "#a8a8a8"}, {"chrome", "#8e8e8e"}, {"base", "#d0d0d0"}, {"alt", "#c4c4c4"}, {"menu", "#c0c0c0"}, {"button", "#c6c6c6"}, {"hover", "#d6d6d6"},
-                        {"hi", "#8fb0d9"}, {"hitext", "#000000"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#333333"}, {"disabled", "#707070"}, {"border", "#4c4c4c"},
-                        {"handle", "#bcbcbc"}, {"section", "#8a8a8a"}, {"sectiontext", "#000000"}, {"light", "#e4e4e4"}, {"shadow", "#5c5c5c"},
-                        {"field", "#d2d2d2"}, {"fieldtext", "#000000"}});
+        Theme t = hand("martino", "Boisvert",
+                       {{"window", "#aca8a7"}, {"chrome", "#a7a3a2"}, {"base", "#aca8a7"}, {"alt", "#a6a2a1"}, {"menu", "#cccbc9"}, {"button", "#b6b3b1"}, {"hover", "#c6c3c1"},
+                        {"hi", "#ffffff"}, {"hitext", "#000000"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#3a3938"}, {"disabled", "#858281"}, {"border", "#7a7776"},
+                        {"handle", "#b6b3b1"}, {"section", "#899aa4"}, {"sectiontext", "#000000"}, {"light", "#d6d3d1"}, {"shadow", "#838182"},
+                        {"field", "#353334"}, {"fieldtext", "#f2f0f1"}});
         t.font = QStringList{"Tahoma", "Verdana", "DejaVu Sans", "Segoe UI", "Arial"};
         t.point_size = 8;
         t.menu_bold = false;
         t.fill = "gradient";
         t.bevel = "none";
-        t.radius = 4;
+        t.radius = 6;
         t.border = 1;
         t.tabs = "rounded";
         t.arrows = "triangle";
         t.scrollbar = "standard";
-        t.padding = 2;
+        t.padding = 3;
         l << t;
     }
     // Keating: the Dracula scheme as its author publishes it (MIT), pink highlights, purple section bars, rounded type and very round corners.
