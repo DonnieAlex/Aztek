@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Ctrl-click on manipulator handles, checked (17/11/2026, #86)
+
+Checked in the app on 17/11/2026: Ctrl and a drag on the scale tool's Y handle scales X and Z and leaves Y (1.4,
+1.0, 1.4 in docs/issues/86-ctrl-scale.png); on a move axis it moves in the plane of the other two. The click alone
+sets the handle as the active one for middle drags.
+
 ### Examples checked (17/11/2026, #85)
 
 Every example scene opens without an error (51 checked in batch, 17/11/2026). The ten at the top of the examples
