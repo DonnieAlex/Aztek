@@ -37,3 +37,31 @@ fn a_live_surface_is_not_picked() {
     mel(&mut c, "makeLive -none;");
     assert_eq!(vp.pick(&c.s, &items, off), vec!["ground".to_string()]);
 }
+
+/// #114: Shift toggles, Ctrl removes, Ctrl+Shift adds, in objects and components.
+#[test]
+fn click_modifiers_are_the_references() {
+    use aztek_host::view::{select_picked, CTRL, SHIFT};
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n a; polyCube -n b; select -cl;");
+    let p = |s: &str| vec![s.to_string()];
+    select_picked(&mut c, p("a"), 0);
+    select_picked(&mut c, p("b"), SHIFT);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["a", "b"]));
+    select_picked(&mut c, p("a"), SHIFT);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["b"]));
+    select_picked(&mut c, p("b"), CTRL);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!([]));
+    select_picked(&mut c, p("b"), CTRL);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!([]));
+    select_picked(&mut c, p("a"), CTRL | SHIFT);
+    select_picked(&mut c, p("a"), CTRL | SHIFT);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["a"]));
+    mel(&mut c, "select a; selectMode -component; selectType -v true; select a.vtx[0];");
+    select_picked(&mut c, p("a.vtx[1]"), SHIFT);
+    select_picked(&mut c, p("a.vtx[0]"), SHIFT);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["a.vtx[1]"]));
+    select_picked(&mut c, p("a.vtx[2]"), CTRL | SHIFT);
+    select_picked(&mut c, p("a.vtx[1]"), CTRL);
+    assert_eq!(mel(&mut c, "ls -sl;"), json!(["a.vtx[2]"]));
+}

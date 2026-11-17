@@ -1322,6 +1322,11 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Selection modifiers (17/11/2026, #114)
+
+Clicks, boxes and lassos in the viewport and the UV Editor: Shift toggles, Ctrl removes, Ctrl+Shift adds, in
+objects and components. The UV Editor's lasso added with Shift; it toggles now.
+
 ### Make Live (17/11/2026, #116)
 
 The live surface is drawn with a dark green wire, can't be picked or box selected, and leaves the selection when made

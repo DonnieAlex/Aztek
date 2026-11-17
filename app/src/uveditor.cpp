@@ -276,10 +276,12 @@ void UvCanvas::pick_lasso(Qt::KeyboardModifiers mods) {
     bool ctrl = mods & Qt::ControlModifier, shift = mods & Qt::ShiftModifier;
     if (!ctrl && !shift) uv_sel_.clear();
     mode_ = "uv";
+    // As a click: Shift toggles, Ctrl removes, Ctrl+Shift adds (#114).
     for (const UvMesh& m : meshes_)
         for (int i = 0; i < m.maps.size(); ++i)
             if (lasso_.containsPoint(to_screen(m.maps[i]), Qt::OddEvenFill)) {
-                if (ctrl) uv_sel_[m.path].remove(i);
+                if (ctrl && !shift) uv_sel_[m.path].remove(i);
+                else if (shift && !ctrl && uv_sel_[m.path].contains(i)) uv_sel_[m.path].remove(i);
                 else uv_sel_[m.path].insert(i);
             }
     lasso_.clear();
