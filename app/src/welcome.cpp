@@ -226,17 +226,6 @@ void MainWindow::show_welcome(bool at_startup) {
                                      .arg(QString(AZTEK_VERSION).toHtmlEscaped(), hello),
                                  d);
         top->addWidget(title, 1);
-        // The greyhound: a new pose with each version.
-        const int n = int(sizeof(kPoses) / sizeof(kPoses[0]));
-        const int pose = build_number() % n;
-        auto* dog = new QLabel(d);
-        QPixmap dpm(QString(":/greyhound/%1.png").arg(kPoses[pose]));
-        if (!dpm.isNull()) {
-            dpm.setDevicePixelRatio(2.0 * 240.0 / 200.0);
-            dog->setPixmap(dpm);
-        }
-        dog->setToolTip(QString("Pose %1 of %2: it changes with every version.").arg(pose + 1).arg(n));
-        top->addWidget(dog, 0, Qt::AlignRight | Qt::AlignBottom);
         outer->addLayout(top);
     }
 
@@ -438,6 +427,20 @@ void MainWindow::show_welcome(bool at_startup) {
     right->addWidget(link_button("Discord", "https://discord.gg/XDEgpWDVKa", d, "chat", QColor(120, 130, 230)));
     right->addWidget(link_button("Report an issue", "https://github.com/srlegrand/Aztek/issues/new/choose", d, "bug", QColor(220, 90, 80)));
     right->addWidget(link_button("Support on Ko-fi", "https://ko-fi.com/turtleface", d, "heart", QColor(240, 110, 140)));
+    // The greyhound, under the links: a new pose with each version.
+    {
+        const int n = int(sizeof(kPoses) / sizeof(kPoses[0]));
+        const int pose = build_number() % n;
+        auto* dog = new QLabel(d);
+        QPixmap dpm(QString(":/greyhound/%1.png").arg(kPoses[pose]));
+        if (!dpm.isNull()) {
+            dpm.setDevicePixelRatio(2.0);
+            dog->setPixmap(dpm);
+        }
+        dog->setToolTip(QString("Pose %1 of %2: it changes with every version.").arg(pose + 1).arg(n));
+        right->addSpacing(8);
+        right->addWidget(dog, 0, Qt::AlignHCenter | Qt::AlignTop);
+    }
     right->addStretch(1);
 
     // Bottom: shown at start-up or not, and close.
