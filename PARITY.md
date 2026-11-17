@@ -1417,6 +1417,14 @@ Delete on edges dissolves them as the reference's does: the faces either side be
 says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
 the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
 
+### Active handle (17/11/2026, #128)
+
+As in the reference, a left click on an axis, plane or the centre of the Move, Rotate or Scale manipulator makes it
+that tool's active handle, drawn yellow. A middle drag that starts anywhere off the manipulator drags it: X active
+moves or scales along X only, and V snaps along it. The handle stays active across selection and component changes
+("Remember active handle"), each tool keeps its own, and every view shares it. `manipMoveContext -ah` and its like
+set it and `-q -ah` reads it back, clicks included.
+
 ### Move along normals (17/11/2026, #102)
 
 With the Move tool on vertices, edges or faces, Ctrl+middle drag pushes each component along its own normal, and

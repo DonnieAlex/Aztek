@@ -1359,11 +1359,18 @@ impl View {
                         pivot = self.vp.manip_pivot(&mut core.s, &items).or(pivot);
                     }
                 }
+                let remembered = if self.vp.pivot_mode { None } else { crate::viewport::active_handle(self.vp.eff_tool()) };
                 let start_drag = match (button, hit, pivot) {
                     (2, _, Some(_)) if along_normals => Some(Handle::Normal),
-                    (1, Some(h), Some(_)) => Some(h),
+                    (1, Some(h), Some(_)) => {
+                        // A clicked axis, plane or centre becomes the tool's active handle, as in the reference (#128).
+                        if !self.vp.pivot_mode && matches!(h, Handle::Axis(_) | Handle::Plane(_) | Handle::Center | Handle::ViewRing | Handle::Trackball) {
+                            crate::viewport::set_active_handle(self.vp.eff_tool(), Some(h));
+                        }
+                        Some(h)
+                    }
                     // Middle drag anywhere drags the active handle, or in the view plane.
-                    (2, h, Some(_)) => Some(h.or(self.vp.active_handle).or(self.vp.hover).or(self.vp.constraint).unwrap_or(match self.vp.eff_tool() {
+                    (2, h, Some(_)) => Some(h.or(remembered).or(self.vp.hover).or(self.vp.constraint).unwrap_or(match self.vp.eff_tool() {
                         Tool::Rotate => Handle::ViewRing,
                         _ => Handle::Center,
                     })),
@@ -2308,20 +2315,6 @@ impl View {
                 } else {
                     self.vp.curve_points.clear();
                 }
-            }
-            "activeHandle" => {
-                // The reference's numbers: 0 X, 1 Y, 2 Z, 3 centre, then the planes.
-                let h = match v.as_i64().unwrap_or(3) {
-                    0 => Some(Handle::Axis(0)),
-                    1 => Some(Handle::Axis(1)),
-                    2 => Some(Handle::Axis(2)),
-                    4 => Some(Handle::Plane(2)),
-                    5 => Some(Handle::Plane(0)),
-                    6 => Some(Handle::Plane(1)),
-                    _ => None,
-                };
-                self.vp.active_handle = h;
-                self.vp.hover = h;
             }
             "redraw" => {}
             "undoToolPoint" => {

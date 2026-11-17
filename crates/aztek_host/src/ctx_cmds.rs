@@ -212,7 +212,9 @@ pub fn delete_context(name: &str) {
 
 /// A setting of a context, or its default: what the tools read their options from.
 pub fn prop(context: &str, key: &str) -> Value {
-    with_ctx(|c| c.all.get(context).map(|x| (x.kind.clone(), x.props.get(key).cloned()))).map_or(Value::Null, |(kind, v)| v.filter(|v| !v.is_null()).unwrap_or_else(|| default_prop(&kind, key)))
+    with_ctx(|c| c.all.get(context).map(|x| (x.kind.clone(), x.props.get(key).cloned()))).map_or(Value::Null, |(kind, v)| {
+        live_prop(&kind, key).or_else(|| v.filter(|v| !v.is_null())).unwrap_or_else(|| default_prop(&kind, key))
+    })
 }
 
 pub fn current() -> String {
@@ -414,7 +416,7 @@ fn apply_to_views(s: &mut Session, kind: &str, flags: &Map<String, Value>) {
     }
     // Which handle is active: 0 X, 1 Y, 2 Z, 3 centre, and 4 XY, 5 YZ, 6 XZ for a move.
     if let Some(h) = flags.get("activeHandle").and_then(Value::as_i64) {
-        view_all("activeHandle", json!(h));
+        set_active(kind, h);
     }
     if let Some(m) = flags.get("mode").and_then(Value::as_i64) {
         view_all("axisOrientation", json!(axis_name(kind, m)));
@@ -466,6 +468,33 @@ fn apply_to_views(s: &mut Session, kind: &str, flags: &Map<String, Value>) {
     }
 }
 
+/// The tool a manip context drives.
+fn manip_tool(kind: &str) -> Option<crate::viewport::Tool> {
+    match kind {
+        "manipMoveContext" => Some(crate::viewport::Tool::Move),
+        "manipRotateContext" => Some(crate::viewport::Tool::Rotate),
+        "manipScaleContext" => Some(crate::viewport::Tool::Scale),
+        _ => None,
+    }
+}
+
+/// A manip context's -ah: that tool's active handle from here on, in every view.
+fn set_active(kind: &str, h: i64) {
+    if let Some(tool) = manip_tool(kind) {
+        crate::viewport::set_active_handle(tool, crate::viewport::handle_from_number(h));
+        view_all("redraw", json!(true));
+    }
+}
+
+/// What a query reads from the views rather than the context's stored flags: the active handle, which a click on the
+/// manipulator changes too (#128).
+fn live_prop(kind: &str, key: &str) -> Option<Value> {
+    match key {
+        "activeHandle" | "currentActiveHandle" => manip_tool(kind).map(|t| json!(crate::viewport::handle_number(crate::viewport::active_handle(t)))),
+        _ => None,
+    }
+}
+
 fn default_prop(kind: &str, key: &str) -> Value {
     match (kind, key) {
         ("manipMoveContext" | "manipScaleContext", "mode") => json!(2),
@@ -506,7 +535,7 @@ fn context_command(kind: &'static str, s: &mut Session, a: &Args) -> CmdResult {
         }
         return with_ctx(|c| {
             let Some(x) = c.all.get(&n) else { fail!("{kind}: Object '{n}' not found.") };
-            Ok(x.props.get(&q).cloned().unwrap_or_else(|| default_prop(&x.kind, &q)))
+            Ok(live_prop(&x.kind, &q).or_else(|| x.props.get(&q).cloned()).unwrap_or_else(|| default_prop(&x.kind, &q)))
         });
     }
     let mut flags = a.flags.clone();
@@ -597,8 +626,8 @@ fn set_tool_to(s: &mut Session, name: &str) -> CmdResult {
             }
             // The tool's own state of a manip context applies as it comes in.
             if kind.starts_with("manip") {
-                if let Some(h) = props.get("activeHandle") {
-                    view_all("activeHandle", h.clone());
+                if let Some(h) = props.get("activeHandle").and_then(Value::as_i64) {
+                    set_active(&kind, h);
                 }
             }
         }

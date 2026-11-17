@@ -402,6 +402,56 @@ pub enum Tool {
 /// Radius of the Edit Pivot rings, in handle lengths: outside the arrows.
 const PIVOT_RING: f32 = 1.22;
 
+/// The handle each transform tool has active (Move, Rotate, Scale): the last one clicked, or the one its context's -ah
+/// set. Every view shares it, as they share the tool, and it stays through selection changes ("Remember active handle"
+/// is on in the reference's preferences). A middle drag that starts off the manipulator takes it (#128).
+static ACTIVE_HANDLES: std::sync::Mutex<[Option<Handle>; 3]> = std::sync::Mutex::new([None; 3]);
+
+fn active_slot(tool: Tool) -> Option<usize> {
+    match tool {
+        Tool::Move => Some(0),
+        Tool::Rotate => Some(1),
+        Tool::Scale => Some(2),
+        _ => None,
+    }
+}
+
+/// The handle `tool` has active, if one was clicked or set.
+pub fn active_handle(tool: Tool) -> Option<Handle> {
+    active_slot(tool).and_then(|i| ACTIVE_HANDLES.lock().map(|a| a[i]).unwrap_or(None))
+}
+
+/// Makes `h` `tool`'s active handle; None goes back to the default (the centre, or the view ring).
+pub fn set_active_handle(tool: Tool, h: Option<Handle>) {
+    if let (Some(i), Ok(mut a)) = (active_slot(tool), ACTIVE_HANDLES.lock()) {
+        a[i] = h;
+    }
+}
+
+/// A manip context's handle number as the reference numbers them: 0 X, 1 Y, 2 Z, 3 centre, then 4 XY, 5 YZ, 6 XZ.
+pub fn handle_from_number(n: i64) -> Option<Handle> {
+    match n {
+        0 => Some(Handle::Axis(0)),
+        1 => Some(Handle::Axis(1)),
+        2 => Some(Handle::Axis(2)),
+        4 => Some(Handle::Plane(2)),
+        5 => Some(Handle::Plane(0)),
+        6 => Some(Handle::Plane(1)),
+        _ => None,
+    }
+}
+
+/// The reverse of [`handle_from_number`]: what a query of -ah gives.
+pub fn handle_number(h: Option<Handle>) -> i64 {
+    match h {
+        Some(Handle::Axis(i)) => i as i64,
+        Some(Handle::Plane(2)) => 4,
+        Some(Handle::Plane(0)) => 5,
+        Some(Handle::Plane(1)) => 6,
+        _ => 3,
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Handle {
     Axis(usize),
@@ -647,8 +697,6 @@ pub struct Viewport {
     /// What the modelling tools draw over the scene, world space.
     pub tool_lines: Vec<(DVec3, DVec3, [u8; 4])>,
     pub tool_points: Vec<(DVec3, [u8; 4])>,
-    /// The handle a script made active (the contexts' -ah): what a middle drag takes when none is under the mouse.
-    pub active_handle: Option<Handle>,
     /// What CreateRound makes: polySphere, polyCylinder, polyCone or polyTorus.
     pub round_kind: String,
     /// The Show Manipulator tool's lines, world space.
@@ -722,7 +770,6 @@ impl Viewport {
             frame: DMat3::IDENTITY,
             tool_lines: Vec::new(),
             tool_points: Vec::new(),
-            active_handle: None,
             node_lines: Vec::new(),
             round_kind: String::new(),
             snap_relative: true,
@@ -3223,8 +3270,9 @@ impl Viewport {
         let colors = [[230, 40, 40, 255], [40, 230, 40, 255], [40, 80, 255, 255]];
         let active = self.drag.as_ref().map(|d| d.handle).or(self.hover);
         let constraint = self.constraint;
-        // Handles lit: the hovered or dragged one, and the set constraint in yellow.
-        let tint = |h: Handle, c: [u8; 4]| if active == Some(h) || constraint == Some(h) { [255, 255, 0, 255] } else { c };
+        let remembered = if self.pivot_mode { None } else { active_handle(self.eff_tool()) };
+        // Handles lit: the hovered or dragged one, the tool's active one and the set constraint in yellow.
+        let tint = |h: Handle, c: [u8; 4]| if active == Some(h) || remembered == Some(h) || constraint == Some(h) { [255, 255, 0, 255] } else { c };
         let mut v = Vec::new();
         // The solid parts: arrowheads, boxes, the centre and the plane squares, drawn under the lines.
         let mut tris: Vec<LineVertex> = Vec::new();

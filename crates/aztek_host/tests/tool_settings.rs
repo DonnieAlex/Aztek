@@ -349,3 +349,40 @@ fn absolute_step_snap_lands_channels_on_whole_steps() {
     let sx = 1.3 * call["by"][0].as_f64().unwrap();
     assert!((sx / 0.5 - (sx / 0.5).round()).abs() < 1e-6, "{call}");
 }
+
+/// #128: the handle a tool has active is the one a middle drag off the manipulator takes. -ah sets it per tool and a
+/// query reads it back, and a V-snapped drag of an axis moves along that axis only.
+#[test]
+fn the_active_handle_is_per_tool_and_a_snapped_axis_drag_keeps_to_it() {
+    use aztek_host::viewport::{active_handle, handle_from_number, handle_number, set_active_handle};
+    let mut c = Core::new();
+    c.mel("manipMoveContext -e -ah 0 Move; manipScaleContext -e -ah 2 Scale;");
+    assert_eq!(active_handle(Tool::Move), Some(Handle::Axis(0)));
+    assert_eq!(active_handle(Tool::Scale), Some(Handle::Axis(2)));
+    assert_eq!(active_handle(Tool::Rotate), None);
+    // A click on the manipulator sets it the same way, and the context's query follows.
+    set_active_handle(Tool::Move, Some(Handle::Axis(1)));
+    assert_eq!(c.mel("manipMoveContext -q -ah Move;"), json!(1));
+    set_active_handle(Tool::Move, Some(Handle::Plane(2)));
+    assert_eq!(c.mel("manipMoveContext -q -ah Move;"), json!(4));
+    for n in 0..7 {
+        assert_eq!(handle_number(handle_from_number(n)), n);
+    }
+    set_active_handle(Tool::Move, None);
+    set_active_handle(Tool::Scale, None);
+
+    // Vertex snap with X active: the point lands under the target's X, its Y and Z unchanged.
+    c.mel("polyCube; select pCube1.vtx[0];");
+    let mut vp = view(Tool::Move);
+    vp.update_frame(&mut c.s);
+    vp.snap = 2;
+    let pivot = DVec3::new(-0.5, -0.5, 0.5);
+    let target = DVec3::new(2.0, 3.0, -4.0);
+    let mut d = drag(Handle::Axis(0), true, pivot, &["pCube1.vtx[0]"]);
+    d.start = vp.screen().project(pivot).unwrap();
+    d.snap_points = vec![target];
+    let px = vp.screen().project(target).unwrap();
+    let (_, args) = vp.drag_call(&d, px, 1.0).unwrap();
+    let by: Vec<f64> = args["by"].as_array().or(args["args"].as_array()).unwrap().iter().filter_map(Value::as_f64).collect();
+    assert!((by[0] - 2.5).abs() < 1e-6 && by[1].abs() < 1e-9 && by[2].abs() < 1e-9, "{args}");
+}
