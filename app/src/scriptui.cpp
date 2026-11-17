@@ -866,7 +866,7 @@ void ScriptUi::build_layout(Item* it, const QJsonObject& props) {
         auto* head = new QPushButton(outer);
         head->setObjectName("frameHeader");
         head->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        head->setStyleSheet("QPushButton#frameHeader { text-align: left; font-weight: bold; background: #5d5d5d; border: 0; padding: 3px 6px; }");
+        head->setStyleSheet("QPushButton#frameHeader { text-align: left; font-weight: bold; background: palette(mid); color: palette(window-text); border: 0; padding: 3px 6px; }");
         auto* frame = new QFrame(outer);
         auto* inner = new QVBoxLayout(frame);
         inner->setContentsMargins(int(as_number(props["marginWidth"])), int(as_number(props["marginHeight"])), int(as_number(props["marginWidth"])), int(as_number(props["marginHeight"])));

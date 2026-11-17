@@ -341,7 +341,7 @@ QWidget* AnimLayerEditor::make_row(const QJsonObject& l) {
     if (!base) {
         auto* tag = new QLabel(l["override"].toBool() ? "O" : "A");
         tag->setToolTip(mode);
-        tag->setStyleSheet("color: #9a9a9a");
+        tag->setStyleSheet("color: palette(mid);");
         h->addWidget(tag);
         const auto wire = [&](const QString& text, bool on, const char* word, const QString& tip) {
             auto* b = toggle(text, on, tip);

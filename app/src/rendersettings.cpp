@@ -243,7 +243,7 @@ private:
         f->addRow("File name prefix", prow);
         auto* hint = new QLabel(tokens, body);
         hint->setWordWrap(true);
-        hint->setStyleSheet("color: #999;");
+        hint->setStyleSheet("color: palette(mid);");
         f->addRow("", hint);
         string_choice(f, "Image format", QString(kDriver) + ".ai_translator", {{"exr", "exr"}, {"png", "png"}, {"tif", "tif"}, {"jpeg", "jpg"}, {"tga", "tga"}});
         // Frame/Animation ext: whether there's a frame number, and where it goes.
@@ -340,7 +340,7 @@ private:
 
         QFormLayout* f = frame(v, body, "Sampling");
         counts_ = new QLabel(body);
-        counts_->setStyleSheet("color: #bbb;");
+        counts_->setStyleSheet("color: palette(mid);");
         f->addRow(counts_);
         aa_ = whole(f, "Camera (AA)", o + ".AASamples", -3, 100);
         diffuse_ = whole(f, "Diffuse", o + ".GIDiffuseSamples", 0, 100);
@@ -421,7 +421,7 @@ private:
 
         f = frame(v, body, "Operators", false);
         auto* none = new QLabel("Harold has no operators; nothing to set here.", body);
-        none->setStyleSheet("color: #999;");
+        none->setStyleSheet("color: palette(mid);");
         f->addRow(none);
 
         f = frame(v, body, "Diagnostics", false);
@@ -467,7 +467,7 @@ private:
         v->addLayout(g, 1);
         auto* note = new QLabel("Light group AOVs (RGBA_<group>) come from each light's AOV light group (aiAov). Untick an active AOV to keep its node but not render it. Double-click to edit its node.", body);
         note->setWordWrap(true);
-        note->setStyleSheet("color: #999;");
+        note->setStyleSheet("color: palette(mid);");
         v->addWidget(note);
         auto activate = [this] {
             for (QListWidgetItem* it : available_->selectedItems()) {

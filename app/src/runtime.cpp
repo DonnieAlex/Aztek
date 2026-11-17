@@ -194,6 +194,16 @@ void MainWindow::build_runtime() {
     r("RenderSequenceOptions", "Rendering", "Render a sequence of frames", [this] { render_sequence_dialog(this); });
     r("TextureViewWindow", "Windows", "UV Editor", [this] { show_uv_editor(); });
     r("UVSetEditor", "Windows", "UV Set Editor", [this] { show_named_window("uvSetEditor"); });
+    // The reference's names for windows Aztek has, so scripts and hotkeys that open them work (#88).
+    r("ExpressionEditor", "Windows", "Expression Editor", [this] { show_named_window("expressionEditor"); });
+    r("ComponentEditor", "Windows", "Component Editor", [this] { show_named_window("componentEditor"); });
+    r("BlendShapeEditor", "Windows", "Shape Editor", [this] { show_named_window("shapeEditor"); });
+    r("PolygonSelectionConstraints", "Select", "Selection constraints", [this] { show_named_window("polySelectConstraint"); });
+    r("ToggleAttributeEditor", "Windows", "Show or hide the Attribute Editor", [this] { attr_dock_->setVisible(!attr_dock_->isVisible()); if (attr_dock_->isVisible()) attr_dock_->raise(); });
+    r("ToggleChannelBox", "Windows", "Show or hide the Channel Box", [this] { channel_dock_->setVisible(!channel_dock_->isVisible()); if (channel_dock_->isVisible()) channel_dock_->raise(); });
+    r("ToggleToolSettings", "Windows", "Show or hide the Tool Settings", [this] { tool_dock_->setVisible(!tool_dock_->isVisible()); });
+    r("ToggleOutliner", "Windows", "Show or hide the Outliner", [this] { outliner_dock_->setVisible(!outliner_dock_->isVisible()); if (outliner_dock_->isVisible()) outliner_dock_->raise(); });
+    r("ToggleModelingToolkit", "Windows", "Show or hide the Modeling Toolkit", [this] { if (mtk_dock_ && mtk_dock_->isVisible()) mtk_dock_->hide(); else show_modeling_toolkit(); });
     r("PreferencesWindow", "Windows", "Preferences", [this] { show_preferences(); });
     r("HotkeyPreferencesWindow", "Windows", "Hotkey Editor", [this] { show_hotkey_editor(); });
     r("PluginManager", "Windows", "Plug-in Manager", [this] { show_plugin_manager(); });

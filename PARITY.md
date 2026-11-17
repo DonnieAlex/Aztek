@@ -1322,6 +1322,15 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Editors on light themes (17/11/2026, #88)
+
+Checked on DonnieA (light): the Graph Editor, Dope Sheet, Node Editor and Hypershade read as they should
+(docs/issues/88-editors-light-theme.png). Grey hints in Render Settings and the Animation Layers editor, and the
+headers of script-made frame layouts, used fixed colours picked for dark themes; they take the theme's now.
+ExpressionEditor, ComponentEditor, BlendShapeEditor, PolygonSelectionConstraints and the Toggle commands for the
+Attribute Editor, Channel Box, Tool Settings, Outliner and Modeling Toolkit are runtime commands under the
+reference's names, so scripts and hotkeys that open them work.
+
 ### Alembic cache menu and AbcImport modes (17/11/2026, #87)
 
 - `AbcImport -connect "/"` (or node names): the file's animated transforms and meshes drive the scene's nodes of
