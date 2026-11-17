@@ -231,3 +231,61 @@ fn a_stage_reads_alembic_obj_fbx_and_gltf_references() {
         assert!(meshes.as_array().unwrap().contains(&json!(m)), "{m}: {meshes}");
     }
 }
+
+/// #108: convertSolidTx bakes a network over the UVs; Create PSD Network makes a PSD with a layer set for each
+/// attribute and psdFileTex nodes in their place; Update PSD Networks redraws the snapshot; UV Editor Baking bakes the
+/// material behind the UVs.
+#[test]
+fn bakes_and_psd_networks() {
+    let mut c = Core::new();
+    let dir = std::env::temp_dir().join(format!("aztek_issue_108_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let d = dir.display().to_string();
+    mel(&mut c, "polyPlane -n p -sx 1 -sy 1; shadingNode -asShader lambert -n m; sets -renderable true -noSurfaceShader true -empty -n mSG; connectAttr m.outColor mSG.surfaceShader; sets -e -forceElement mSG p;");
+    mel(&mut c, "shadingNode -asTexture checker -n ch; connectAttr ch.outColor m.color; setAttr ch.color1 -type double3 1 0 0; setAttr ch.color2 -type double3 0 0 1;");
+    let made = mel(&mut c, &format!("convertSolidTx -rx 64 -ry 64 -fin \"{d}/bake.png\" -force m.color p;"));
+    assert_eq!(made.as_array().unwrap().len(), 1, "{made}");
+    let img = image::open(dir.join("bake.png")).unwrap().to_rgba8();
+    assert_eq!(img.dimensions(), (64, 64));
+    // The checker's two colours, red at one corner and blue beside it.
+    let (a, b) = (img.get_pixel(4, 4).0, img.get_pixel(4 + 16, 4).0);
+    let red = |p: [u8; 4]| p[0] > 200 && p[2] < 50;
+    let blue = |p: [u8; 4]| p[2] > 200 && p[0] < 50;
+    assert!((red(a) && blue(b)) || (blue(a) && red(b)), "{a:?} {b:?}");
+    let file = mel(&mut c, &format!("getAttr {}.fileTextureName;", made[0].as_str().unwrap()));
+    assert!(file.as_str().unwrap().ends_with("bake.png"));
+
+    let r = mel(&mut c, &format!("createPsdNetwork m -psf \"{d}/m.psd\" -xr 64 -yr 64 -attributes color -attributes transparency;"));
+    assert_eq!(r["nodes"].as_array().unwrap().len(), 2, "{r}");
+    let sets = mel(&mut c, &format!("psdExport -psf \"{d}/m.psd\";"));
+    assert_eq!(sets, json!(["m.transparency", "m.color"]));
+    let tex = r["nodes"][0].as_str().unwrap().to_string();
+    assert_eq!(mel(&mut c, &format!("nodeType {tex};")), json!("psdFileTex"));
+    assert_eq!(mel(&mut c, "listConnections -s 1 -d 0 m.color;"), json!([tex.clone()]));
+    assert_eq!(mel(&mut c, &format!("getAttr {tex}.layerSetName;")), json!("m.color"));
+    // The layer set as the texture shows it: the checker, now painted in the PSD.
+    let out = dir.join("set.png").display().to_string();
+    mel(&mut c, &format!("psdExport -psf \"{d}/m.psd\" -lsn m.color -ofn \"{out}\";"));
+    let set = image::open(&out).unwrap().to_rgba8();
+    assert_eq!(set.get_pixel(4, 4).0, img.get_pixel(4, 4).0);
+    let id = c.s.graph.find(&tex).unwrap().unwrap();
+    let png = aztek_scene::shading::on_disk(&mut c.s.graph, id, dir.join("m.psd")).unwrap();
+    assert!(png.extension().unwrap() == "png" && png.is_file());
+
+    // The snapshot follows the UVs.
+    let before = aztek_scene::psd::read_file(&dir.join("m.psd")).unwrap();
+    let snap = |p: &aztek_scene::psd::Psd| p.layers.iter().find(|l| l.name == "UVSnapShot").unwrap().rgba.clone();
+    mel(&mut c, "polyEditUV -u 0.3 -v 0.2 p.map[*];");
+    assert_eq!(mel(&mut c, "updatePsdNetworks;").as_array().unwrap().len(), 1);
+    let after = aztek_scene::psd::read_file(&dir.join("m.psd")).unwrap();
+    assert_ne!(snap(&before), snap(&after));
+    // The painted sets are kept.
+    assert_eq!(after.composite(Some("m.color")), before.composite(Some("m.color")));
+
+    // UV Editor Baking.
+    mel(&mut c, "select -r p; uiPref uvEditorBaking 1;");
+    let t = aztek_host::query::uv_texture(&mut c);
+    assert_eq!(t["baked"], json!(true), "{t}");
+    assert!(std::path::Path::new(t["path"].as_str().unwrap()).is_file());
+    mel(&mut c, "uiPref uvEditorBaking 0;");
+}

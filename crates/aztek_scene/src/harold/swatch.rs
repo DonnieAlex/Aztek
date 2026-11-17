@@ -37,7 +37,7 @@ impl PartialEq for Picture {
     }
 }
 
-fn textures() -> Arc<TextureCache> {
+pub(crate) fn textures() -> Arc<TextureCache> {
     static CACHE: OnceLock<Arc<TextureCache>> = OnceLock::new();
     CACHE.get_or_init(|| Arc::new(TextureCache::new(256))).clone()
 }

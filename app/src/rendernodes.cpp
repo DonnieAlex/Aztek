@@ -47,7 +47,7 @@ QString group_of(const QString& type) {
 } // namespace
 
 QString render_node_label(const QString& type) {
-    static const QHash<QString, QString> named{{"file", "File"}, {"place2dTexture", "2d Placement"}, {"place3dTexture", "3d Placement"}, {"bump2d", "Bump 2d"}, {"bump3d", "Bump 3d"},
+    static const QHash<QString, QString> named{{"file", "File"}, {"psdFileTex", "PSD File"}, {"place2dTexture", "2d Placement"}, {"place3dTexture", "3d Placement"}, {"bump2d", "Bump 2d"}, {"bump3d", "Bump 3d"},
                                                {"phongE", "Phong E"}, {"multDL", "Mult DL"}, {"addDL", "Add DL"}, {"hsvToRgb", "Hsv To Rgb"}, {"rgbToHsv", "Rgb To Hsv"},
                                                {"aiBump2d", "Bump 2d"}};
     if (named.contains(type)) return named.value(type);
@@ -155,7 +155,7 @@ QString make_render_node(const RenderNodeKind& kind, QStringList* with) {
     // A texture comes with its placement, wired as the reference wires it: a 2D one with where it sits in UV space, a
     // 3D one with where it sits in the scene.
     const QString group = group_of(kind.type);
-    if (kind.type == "file") {
+    if (kind.type == "file" || kind.type == "psdFileTex") {
         QString place = exec("shadingNode", QJsonObject{{"args", QJsonArray{"place2dTexture"}}, {"asUtility", true}}).toString();
         if (!place.isEmpty()) exec("defaultNavigation", QJsonObject{{"connectToExisting", true}, {"source", place}, {"destination", node}});
         if (with && !place.isEmpty()) *with << place;

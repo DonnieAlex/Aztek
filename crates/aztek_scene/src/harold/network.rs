@@ -224,7 +224,7 @@ impl NetBuilder<'_> {
                 None => pattern.clone(),
             }
         } else {
-            match crate::shading::resolve_texture(&written, self.scene_path.as_deref(), self.project.as_deref()) {
+            match crate::shading::resolve_texture(&written, self.scene_path.as_deref(), self.project.as_deref()).and_then(|p| crate::shading::on_disk(self.g, id, p)) {
                 Some(p) => p.display().to_string(),
                 None => {
                     self.warn(format!("{}: texture {written} not found", self.g.node(id).map(|n| n.name().to_string()).unwrap_or_default()));
@@ -246,7 +246,8 @@ impl NetBuilder<'_> {
         let slot = self.net.add(Node::Constant(Vec4::ZERO));
         self.built.insert(id, slot);
         let node = match ty.as_str() {
-            "file" | "aiImage" => {
+            "file" | "psdFileTex" | "aiImage" => {
+                let ty = if ty == "psdFileTex" { "file".to_string() } else { ty };
                 let file_attr = if ty == "file" { "fileTextureName" } else { "filename" };
                 let key = if self.ignore_textures { None } else { self.texture_key(id, file_attr) };
                 let place = if ty == "file" { self.place(id) } else { Place2d { repeat: Vec2::new(self.num(id, "sscale", 1.0), self.num(id, "tscale", 1.0)), offset: Vec2::new(self.num(id, "soffset", 0.0), self.num(id, "toffset", 0.0)), ..Default::default() } };
@@ -569,7 +570,7 @@ impl NetBuilder<'_> {
 fn is_shading(ty: &str) -> bool {
     matches!(
         ty,
-        "file" | "aiImage" | "place2dTexture" | "checker" | "ramp" | "noise" | "layeredTexture" | "multiplyDivide" | "plusMinusAverage" | "blendColors" | "remapValue" | "reverse" | "clamp" | "luminance" | "gammaCorrect" | "setRange" | "condition" | "contrast" | "hsvToRgb" | "rgbToHsv" | "samplerInfo" | "aiAmbientOcclusion" | "aiCurvature" | "aiUtility" | "aiFlat" | "surfaceShader" | "standardSurface" | "aiStandardSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" | "projection" | "fractal" | "cloth" | "grid" | "bulge" | "stucco" | "leather" | "marble" | "wood" | "granite" | "rock" | "crater" | "solidFractal" | "volumeNoise" | "mountain" | "water" | "envSphere" | "envBall" | "brownian" | "cloud" | "snow"
+        "file" | "psdFileTex" | "aiImage" | "place2dTexture" | "checker" | "ramp" | "noise" | "layeredTexture" | "multiplyDivide" | "plusMinusAverage" | "blendColors" | "remapValue" | "reverse" | "clamp" | "luminance" | "gammaCorrect" | "setRange" | "condition" | "contrast" | "hsvToRgb" | "rgbToHsv" | "samplerInfo" | "aiAmbientOcclusion" | "aiCurvature" | "aiUtility" | "aiFlat" | "surfaceShader" | "standardSurface" | "aiStandardSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" | "projection" | "fractal" | "cloth" | "grid" | "bulge" | "stucco" | "leather" | "marble" | "wood" | "granite" | "rock" | "crater" | "solidFractal" | "volumeNoise" | "mountain" | "water" | "envSphere" | "envBall" | "brownian" | "cloud" | "snow"
     )
 }
 

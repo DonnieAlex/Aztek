@@ -1338,9 +1338,28 @@ switches, image settings, toolbar, toolkit and view back as the editor opens); S
 type), Grow Along Loop and Shrink Along Loop, and Filter Selection (the picked components narrowed to back-facing,
 front-facing, texture border or unmapped ones); View > Heads-Up Display > UV Statistics (UV shells, UVs, faces and
 selected UVs at the canvas's top left); UV Sets > Per Instance Sharing (greyed: instances share their UVs here) and
-Auto-Load Textures. Image > UV Editor Baking, Create PSD Network and Update PSD Networks are listed greyed: Aztek has
-neither. The UV Toolkit beside the canvas already follows the reference's sections, Selection to UV Sets
+Auto-Load Textures. The UV Toolkit beside the canvas already follows the reference's sections, Selection to UV Sets
 (docs/issues/108-uv-toolkit-menus.png).
+
+### Texture baking and PSD networks (17/11/2026, #108)
+
+- `convertSolidTx attribute objects`: as the reference's, the colour an attribute gets (a material's color with
+  whatever network drives it, a texture's outColor, procedural and 3D textures included) evaluated by Harold at each
+  texel of the objects' faces and written to an image (-rx -ry, -fin, -bc, -aa, -al, -uvr; -fts grows the faces out
+  at the seams), with a file node reading it. `-noFileNode` (Aztek's) writes only the image.
+- UV Editor > Image > UV Editor Baking: the first selected mesh's material colour baked behind its UVs, made again
+  when the material, the network or the UVs change (docs/issues/108-uv-editor-baking.png).
+- Image > Create PSD Network (`createPsdNetwork`): the options as the reference's (image name, size, UV snapshot,
+  the material's attributes), then a Photoshop file with a layer set for each attribute named shader.attribute,
+  filled with the attribute as it is now, the UV snapshot as a layer over them, and a psdFileTex with its
+  place2dTexture in each attribute's place (a bump through bump2d) (docs/issues/108-psd-network.png).
+- Image > Update PSD Networks (`updatePsdNetworks`): the snapshot layer of each PSD drawn again from the UVs as they
+  are, the painted layers kept; the textures show the file again.
+- `psdFileTex`: a file texture on a PSD; layerSetName (a list of the document's sets in the Attribute Editor) picks
+  the set, empty for all of it. PSDs are read as Photoshop saves them (raw, RLE or zip layers, groups, opacity,
+  visibility; normal blend for every mode), 8 bit RGB or greyscale; a set is turned into a PNG in the temporary
+  folder whenever the file changes, for the views, the UV Editor and Harold alike. `psdTextureFile` writes a PSD
+  from images and channel names, `psdExport` writes a set out to an image or, with no image, lists the sets.
 
 ### Modeling Toolkit (17/11/2026, #107)
 

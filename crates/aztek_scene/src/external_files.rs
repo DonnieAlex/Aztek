@@ -7,7 +7,7 @@ use crate::session::Session;
 
 /// (type, attribute) of each kind of node that names a file. A node of another type with a `cacheFile` attribute
 /// (XJEN's caches) counts too.
-const FILE_ATTRS: &[(&str, &str)] = &[("file", "fileTextureName"), ("imagePlane", "imageName"), ("audio", "filename"), ("AlembicNode", "abc_File")];
+const FILE_ATTRS: &[(&str, &str)] = &[("file", "fileTextureName"), ("psdFileTex", "fileTextureName"), ("imagePlane", "imageName"), ("audio", "filename"), ("AlembicNode", "abc_File")];
 
 /// Each file: as written, and where it was found (None when it wasn't).
 #[derive(Clone, Debug)]

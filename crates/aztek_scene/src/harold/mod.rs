@@ -2,6 +2,7 @@
 //! scene. Meshes are kept between translations by the identity of their evaluated mesh, so an interactive render after
 //! a light or material edit reuses every mesh, and one after a deformation refits rather than rebuilds.
 
+pub mod bake;
 pub mod commands;
 pub mod displace;
 pub mod lights;

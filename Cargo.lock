@@ -208,6 +208,7 @@ dependencies = [
  "aztek_undo",
  "aztek_uv",
  "glam 0.29.3",
+ "image",
  "log",
  "manifold-rust",
  "miniz_oxide 0.8.9",

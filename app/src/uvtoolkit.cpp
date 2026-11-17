@@ -33,6 +33,7 @@
 #include <QDialogButtonBox>
 #include <QDialog>
 #include <QLineEdit>
+#include <QListWidget>
 #include <cmath>
 #include <QMouseEvent>
 #include <QPushButton>
@@ -42,6 +43,88 @@
 #include <QVBoxLayout>
 
 namespace az {
+
+namespace {
+
+// Create PSD Network Options, as the reference's: the image, its size, the UV snapshot, and the selected mesh's
+// material's attributes to paint, each a layer set with a psdFileTex in its place.
+void create_psd_network(QWidget* parent) {
+    QString shader;
+    for (const QJsonValue& v : ask("ls", QJsonObject{{"selection", true}, {"objectsOnly", true}}).toArray()) {
+        for (const QJsonValue& sh : ask("listRelatives", QJsonObject{{"args", QJsonArray{v}}, {"shapes", true}, {"fullPath", true}}).toArray()) {
+            for (const QJsonValue& sg : ask("listConnections", QJsonObject{{"args", QJsonArray{sh}}, {"type", "shadingEngine"}}).toArray()) {
+                const QJsonArray m = ask("listConnections", QJsonObject{{"args", QJsonArray{sg.toString() + ".surfaceShader"}}}).toArray();
+                if (!m.isEmpty()) shader = m.first().toString();
+                if (!shader.isEmpty()) break;
+            }
+            if (!shader.isEmpty()) break;
+        }
+        if (!shader.isEmpty()) break;
+    }
+    if (shader.isEmpty()) {
+        log("// Warning: Create PSD Network: select a mesh with a material //", 4);
+        return;
+    }
+    QDialog d(parent);
+    d.setWindowTitle("Create PSD Network Options");
+    auto* form = new QFormLayout(&d);
+    auto* name = new QLineEdit(&d);
+    const QString project = ask("workspace", QJsonObject{{"query", true}, {"queried", QJsonArray{"rootDirectory"}}}).toString();
+    name->setText((project.isEmpty() ? QString() : project + "/sourceimages/") + shader + ".psd");
+    auto* browse = new QPushButton("Browse...", &d);
+    auto* row = new QHBoxLayout();
+    row->addWidget(name, 1);
+    row->addWidget(browse);
+    QObject::connect(browse, &QPushButton::clicked, &d, [&d, name] {
+        const QString f = QFileDialog::getSaveFileName(&d, "PSD File", name->text(), "Photoshop (*.psd)");
+        if (!f.isEmpty()) name->setText(f.endsWith(".psd", Qt::CaseInsensitive) ? f : f + ".psd");
+    });
+    form->addRow("Image name:", row);
+    auto* sx = new QComboBox(&d);
+    auto* sy = new QComboBox(&d);
+    for (QComboBox* b : {sx, sy}) {
+        for (int s : {128, 256, 512, 1024, 2048, 4096}) b->addItem(QString::number(s), s);
+        b->setCurrentIndex(3);
+    }
+    form->addRow("Size X (pixels):", sx);
+    form->addRow("Size Y (pixels):", sy);
+    auto* snap = new QCheckBox("Include UV snapshot", &d);
+    snap->setChecked(true);
+    form->addRow(snap);
+    auto* list = new QListWidget(&d);
+    list->setSelectionMode(QAbstractItemView::MultiSelection);
+    struct A { const char* attr; const char* label; };
+    for (A a : {A{"color", "Color"}, A{"transparency", "Transparency"}, A{"ambientColor", "Ambient Color"}, A{"incandescence", "Incandescence"},
+                A{"normalCamera", "Bump Map"}, A{"diffuse", "Diffuse"}, A{"translucence", "Translucence"}, A{"specularColor", "Specular Color"},
+                A{"reflectivity", "Reflectivity"}, A{"reflectedColor", "Reflected Color"}, A{"baseColor", "Base Color"}, A{"specularRoughness", "Specular Roughness"},
+                A{"emissionColor", "Emission Color"}, A{"opacity", "Opacity"}}) {
+        if (!ask("attributeQuery", QJsonObject{{"args", QJsonArray{a.attr}}, {"node", shader}, {"exists", true}}).toBool()) continue;
+        auto* it = new QListWidgetItem(QString("%1 (%2)").arg(a.label, a.attr), list);
+        it->setData(Qt::UserRole, QString(a.attr));
+        if (QString(a.attr) == "color" || QString(a.attr) == "baseColor") it->setSelected(true);
+    }
+    form->addRow(QString("Attributes of %1:").arg(shader), list);
+    auto* b = new QDialogButtonBox(&d);
+    b->addButton("Create", QDialogButtonBox::AcceptRole);
+    b->addButton(QDialogButtonBox::Close);
+    QObject::connect(b, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+    QObject::connect(b, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+    form->addRow(b);
+    if (d.exec() != QDialog::Accepted) return;
+    QJsonArray attrs;
+    for (QListWidgetItem* it : list->selectedItems()) attrs.append(it->data(Qt::UserRole).toString());
+    if (attrs.isEmpty()) {
+        log("// Warning: Create PSD Network: pick at least one attribute //", 4);
+        return;
+    }
+    const QJsonValue r = exec("createPsdNetwork", QJsonObject{{"args", QJsonArray{shader}}, {"psdFileName", name->text()}, {"xResolution", sx->currentData().toInt()},
+                                                             {"yResolution", sy->currentData().toInt()}, {"attributes", attrs}, {"uvSnapshot", snap->isChecked()}});
+    if (r.isObject()) log(QString("// Result: %1 //").arg(r.toObject()["file"].toString()), 1);
+    Host::get()->poke();
+}
+
+} // namespace
+
 
 // Fields take the wheel only once clicked into, so scrolling the panel doesn't change them on the way past.
 struct WheelOnlyWhenFocused : QObject {
@@ -560,12 +643,26 @@ QWidget* UvEditor::build_menu_bar() {
         log(QString("// Result: %1 pixels (%2 x %3 image) //").arg(std::hypot(du, dv), 0, 'f', 2).arg(sz.width()).arg(sz.height()), 0);
     });
     image->addSeparator();
-    // PSD networks and texture baking aren't here: shown greyed where the reference has them.
-    for (const char* label : {"UV Editor Baking", "Create PSD Network...", "Update PSD Networks"}) {
-        QAction* a = image->addAction(label);
-        a->setEnabled(false);
-        a->setToolTip("Not in Aztek");
-    }
+    // UV Editor Baking: the material's colour baked over the UVs, whatever network makes it (#108).
+    QAction* baking = image->addAction("UV Editor Baking");
+    baking->setCheckable(true);
+    connect(image, &QMenu::aboutToShow, baking, [baking] {
+        QSignalBlocker hold(baking);
+        baking->setChecked(ask("uiPref", QJsonObject{{"args", QJsonArray{"uvEditorBaking"}}}).toBool());
+    });
+    connect(baking, &QAction::toggled, this, [](bool on) {
+        exec_quiet("uiPref", QJsonObject{{"args", QJsonArray{"uvEditorBaking", on}}});
+        Host::get()->poke();
+    });
+    image->addSeparator();
+    image->addAction("Create PSD Network...", [this] { create_psd_network(this); });
+    image->addAction("Update PSD Networks", [] {
+        const QJsonValue r = exec("updatePsdNetworks");
+        const QJsonArray files = r.toArray();
+        log(files.isEmpty() ? QString("// Warning: Update PSD Networks: there are no PSD networks //") : QString("// Result: %1 updated //").arg(files.size()), files.isEmpty() ? 4 : 1);
+        Host::get()->poke();
+    });
+    image->addSeparator();
     image->addAction("UV Snapshot...", [this, meshes] {
         const QJsonArray m = meshes();
         if (m.isEmpty()) return;

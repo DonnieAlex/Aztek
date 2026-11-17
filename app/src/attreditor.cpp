@@ -206,6 +206,11 @@ const QList<Section>& sections_for(const QString& type) {
         {"Color Balance", "defaultColor colorGain colorOffset alphaGain alphaOffset alphaIsLuminance invert exposure"},
         {"Effects", "fileHasAlpha"},
         {"2d Texture Placement", "coverage translateFrame rotateFrame mirrorU mirrorV wrapU wrapV stagger repeatUV offset rotateUV noiseUV"}};
+    static const QList<Section> psd{
+        {"PSD File Attributes", "fileTextureName layerSetName alpha colorSpace ignoreColorSpaceFileRules filterType filter filterOffset useFrameExtension frameExtension frameOffset uvTilingMode"},
+        {"Color Balance", "defaultColor colorGain colorOffset alphaGain alphaOffset alphaIsLuminance invert exposure"},
+        {"Effects", "fileHasAlpha"},
+        {"2d Texture Placement", "coverage translateFrame rotateFrame mirrorU mirrorV wrapU wrapV stagger repeatUV offset rotateUV noiseUV"}};
     static const QList<Section> place{{"2d Texture Placement Attributes", "coverage translateFrame rotateFrame mirrorU mirrorV wrapU wrapV stagger repeatUV offset rotateUV noiseUV"}};
     static const QList<Section> group{{"Shading Group Attributes", "surfaceShader volumeShader displacementShader imageShader renderableOnlySet annotation"}};
     static const QList<Section> other{{"Node Behaviour", "caching nodeState frozen"}};
@@ -255,6 +260,7 @@ const QList<Section>& sections_for(const QString& type) {
     static const QSet<QString> materials{"lambert", "blinn", "phong", "phongE", "anisotropic", "surfaceShader"};
     if (materials.contains(type)) return material;
     if (type == "file") return file;
+    if (type == "psdFileTex") return psd;
     if (type == "place2dTexture") return place;
     if (type == "shadingEngine") return group;
     if (type == "transform" || type == "ikHandle" || type == "locator") return xf;
@@ -464,7 +470,7 @@ void make_file_texture(const QString& plug, const QString& path) {
     exec("defaultNavigation", QJsonObject{{"connectToExisting", true}, {"source", file}, {"destination", plug}});
 }
 
-const char* kImageFilter = "Images (*.png *.jpg *.jpeg *.tga *.bmp *.tif *.tiff);;All Files (*)";
+const char* kImageFilter = "Images (*.png *.jpg *.jpeg *.tga *.bmp *.tif *.tiff *.psd);;All Files (*)";
 
 // A colour: its swatch, and the slot a texture goes in.
 QWidget* color_field(const QJsonObject& a, QWidget* parent) {
@@ -602,6 +608,24 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     if (a["attr"].toString() == "overrideColor") return color_index_field(a, parent);
     if (type == "vec3" && a["color"].toBool()) return color_field(a, parent);
     if (type == "string" && a["file"].toBool() && !ro) return file_field(a, parent);
+    if (type == "string" && a["attr"].toString() == "layerSetName" && !ro) {
+        // A psdFileTex's Link to Layer Set: the document's layer sets, or all of it (#108).
+        const QString node = plug.left(plug.lastIndexOf('.'));
+        const QString psd = ask("getAttr", QJsonObject{{"args", QJsonArray{node + ".fileTextureName"}}}).toString();
+        auto* box = new QComboBox(parent);
+        box->addItem("Composite (all layers)", QString());
+        if (!psd.isEmpty())
+            for (const QJsonValue& v : ask("psdExport", QJsonObject{{"psdFileName", psd}}).toArray()) box->addItem(v.toString(), v.toString());
+        const QString cur = a["value"].toString();
+        int at = box->findData(cur);
+        if (at < 0 && !cur.isEmpty()) {
+            box->addItem(cur + " (not in the file)", cur);
+            at = box->count() - 1;
+        }
+        box->setCurrentIndex(qMax(0, at));
+        QObject::connect(box, &QComboBox::activated, box, [box, plug](int i) { set_plug(plug, box->itemData(i).toString(), "string"); });
+        return box;
+    }
     if (type == "bool") {
         auto* cb = new QCheckBox(parent);
         cb->setChecked(a["value"].toBool());

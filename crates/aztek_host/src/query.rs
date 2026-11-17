@@ -546,7 +546,7 @@ pub fn shading(core: &mut Core) -> Value {
         } else if aztek_scene::shading::is_texture_type(&t) {
             let p = g.plug(&format!("{name}.fileTextureName"));
             let written = p.ok().and_then(|p| g.value(&p).ok()).and_then(|v| if let PlugValue::String(x) = v { Some(x) } else { None }).unwrap_or_default();
-            let found = aztek_scene::shading::resolve_texture(&written, scene.as_deref(), project.as_deref());
+            let found = aztek_scene::shading::resolve_texture(&written, scene.as_deref(), project.as_deref()).and_then(|p| aztek_scene::shading::on_disk(g, id, p));
             textures.push(json!({"name": name, "type": t.name, "written": written, "image": found.map(|p| p.display().to_string())}));
         } else if aztek_scene::shading::classification(&t.name).is_some_and(|c| c.starts_with("utility")) && t.name != "materialInfo" {
             utilities.push(json!({"name": name, "type": t.name}));
@@ -576,6 +576,13 @@ pub fn shading(core: &mut Core) -> Value {
 
 /// The image to draw behind the UV Editor's UVs: the first selected mesh's first material with a file on its colour.
 pub fn uv_texture(core: &mut Core) -> Value {
+    // Image > UV Editor Baking: the material's colour baked over the UVs, whatever makes it (#108).
+    if crate::ui_cmds::pref_bool("uvEditorBaking", false) {
+        let size = crate::ui_cmds::pref_f64("uvEditorBakingResolution", 512.0).clamp(16.0, 4096.0) as u32;
+        if let Some(path) = aztek_scene::harold::bake::uv_editor_bake(&mut core.s, size) {
+            return json!({"path": path, "repeat": [1.0, 1.0], "offset": [0.0, 0.0], "baked": true});
+        }
+    }
     let project = aztek_scene::shading::project_dir(&mut core.s);
     let scene = core.s.scene_path.clone();
     let g = &mut core.s.graph;

@@ -268,7 +268,7 @@ impl Writer<'_> {
             return true;
         }
         let list = match ty.as_str() {
-            "file" => Some(":defaultTextureList1.tx"),
+            "file" | "psdFileTex" => Some(":defaultTextureList1.tx"),
             "place2dTexture" | "bump2d" => Some(":defaultRenderUtilityList1.u"),
             _ if shading::is_material_type(self.s.graph.node(id).unwrap().ty()) => Some(":defaultShaderList1.s"),
             _ => None,

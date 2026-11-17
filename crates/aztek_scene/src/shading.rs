@@ -62,6 +62,10 @@ fn text(name: &str, short: &str, d: &str) -> AttrDef {
 fn message() -> AttrDef {
     base("message", "msg", PlugType::Int, PlugValue::Int(0), OUT | flags::HIDDEN | flags::MESSAGE)
 }
+/// A list of names, one an element.
+fn slots_text(name: &str, short: &str) -> AttrDef {
+    base(name, short, PlugType::String, PlugValue::String(String::new()), STORE | flags::ARRAY)
+}
 /// A connection point of no value: its elements only ever hold connections.
 fn slots(name: &str, short: &str) -> AttrDef {
     base(name, short, PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::ARRAY | flags::HIDDEN)
@@ -303,6 +307,8 @@ fn table() -> Vec<Spec> {
         Spec("surfaceShader", "", "A flat colour, not lit.", vec![col("outColor", "oc", ["ocr", "ocg", "ocb"], 0.0), col("outTransparency", "ot", ["otr", "otg", "otb"], 0.0), col("outGlowColor", "ogc", ["ogr", "ogg", "ogb"], 0.0), col("outMatteOpacity", "omo", ["omor", "omog", "omob"], 1.0), message()], Some(no_compute)),
         Spec("standardSurface", "", "A physically based material; the viewport draws its base colour.", crate::harold_nodes::standard_attrs(false), Some(standard_surface)),
         Spec("file", "", "An image on disk as a texture.", file, Some(file_out)),
+        // A file texture on a Photoshop document, showing one of its layer sets (#108).
+        Spec("psdFileTex", "file", "A Photoshop file as a texture: layerSetName picks the layer set it shows (all of the image when empty).", vec![text("layerSetName", "lsn", ""), slots_text("layerSets", "lss"), text("alpha", "alp", ""), slots_text("alphaList", "al")], Some(file_out)),
         Spec("place2dTexture", "", "Where a 2D texture sits in UV space: repeat, offset, rotation, coverage.", place, Some(place_out)),
         Spec("bump2d", "", "Turns a texture into a bump. The viewport doesn't draw it.", vec![fl("bumpValue", "bv", 0.0), fl("bumpDepth", "bd", 1.0), base("bumpInterp", "bi", PlugType::Int, PlugValue::Int(0), STORE), vector("normalCamera", "n", ["nx", "ny", "nz"], IN), vector("outNormal", "o", ["ox", "oy", "oz"], OUT), message()], Some(bump_out)),
         Spec("materialInfo", "", "Ties a shading group to its material and textures, for the interface.", vec![base("shadingGroup", "sg", PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::HIDDEN), base("material", "m", PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::HIDDEN), slots("texture", "t"), base("textureChannel", "tc", PlugType::Int, PlugValue::Int(0), STORE | flags::HIDDEN), message()], Some(no_compute)),
@@ -313,7 +319,7 @@ fn table() -> Vec<Spec> {
 pub fn classification(type_name: &str) -> Option<&'static str> {
     match type_name {
         "lambert" | "phong" | "blinn" | "phongE" | "anisotropic" | "surfaceShader" | "standardSurface" => Some("shader/surface"),
-        "file" => Some("texture/2d"),
+        "file" | "psdFileTex" => Some("texture/2d"),
         "place2dTexture" | "bump2d" => Some("utility/general"),
         "materialInfo" => Some("utility/shading"),
         _ => crate::harold_nodes::classification(type_name).or_else(|| crate::texture_nodes::classification(type_name)).or_else(|| crate::defaults::classification(type_name)),
@@ -335,7 +341,7 @@ pub fn takes_textures(t: &NodeType) -> bool {
 }
 
 pub fn is_texture_type(t: &NodeType) -> bool {
-    t.name == "file" || t.name == "ramp" || crate::harold_nodes::classification(&t.name) == Some("texture/2d") || crate::texture_nodes::is_texture(&t.name)
+    t.name == "file" || t.name == "psdFileTex" || t.name == "ramp" || crate::harold_nodes::classification(&t.name) == Some("texture/2d") || crate::texture_nodes::is_texture(&t.name)
 }
 
 pub fn register_types() {
@@ -859,8 +865,8 @@ fn default_out(g: &Graph, src: NodeId, dst: Option<&PlugRef>) -> Option<PlugRef>
     let scalar = dst.is_some_and(|d| d.component >= 0 || g.attr(d).ty == PlugType::Float);
     let transparent = dst.is_some_and(|d| g.attr(d).name == "transparency");
     let names: &[&str] = match g.node(src)?.ty().name.as_str() {
-        "file" if scalar => &["outAlpha"],
-        "file" if transparent => &["outTransparency"],
+        "file" | "psdFileTex" if scalar => &["outAlpha"],
+        "file" | "psdFileTex" if transparent => &["outTransparency"],
         "place2dTexture" => &["outUV"],
         _ if transparent => &["outTransparency", "outColor"],
         _ if scalar => &["outValue", "outAlpha", "output"],
@@ -914,7 +920,7 @@ fn default_navigation(s: &mut Session, a: &Args) -> CmdResult {
     let src_named = src.contains('.');
     let src_id = if src_named { g.plug(src)?.node } else { node_named(g, src, "defaultNavigation")? };
     let dst_id = if dst_named { g.plug(dst)?.node } else { node_named(g, dst, "defaultNavigation")? };
-    if !src_named && !dst_named && g.node(src_id).is_some_and(|n| n.ty().name == "place2dTexture") && g.node(dst_id).is_some_and(|n| n.ty().name == "file") {
+    if !src_named && !dst_named && g.node(src_id).is_some_and(|n| n.ty().name == "place2dTexture") && g.node(dst_id).is_some_and(|n| n.ty().is_a("file")) {
         connect_placement(g, src_id, dst_id)?;
         return Ok(json!([]));
     }
@@ -1215,7 +1221,7 @@ fn file_feeding(g: &Graph, id: NodeId, attr: &str) -> Option<NodeId> {
         let at = seen[k];
         k += 1;
         let Some(n) = g.node(at) else { continue };
-        if n.ty().name == "file" {
+        if n.ty().is_a("file") {
             return Some(at);
         }
         for (a, def) in n.ty().attrs.iter().enumerate() {
@@ -1236,6 +1242,16 @@ fn file_feeding(g: &Graph, id: NodeId, attr: &str) -> Option<NodeId> {
     None
 }
 
+/// The image a file node shows, from the file its name resolves to: a Photoshop document's layer set (the node's
+/// layerSetName when it is a psdFileTex, all of it otherwise) as a PNG made from it, any other file as it is.
+pub fn on_disk(g: &mut Graph, file: NodeId, resolved: std::path::PathBuf) -> Option<std::path::PathBuf> {
+    if !resolved.extension().is_some_and(|e| e.eq_ignore_ascii_case("psd")) {
+        return Some(resolved);
+    }
+    let set = plug_named(g, file, "layerSetName").and_then(|p| g.value(&p).ok()).and_then(|v| if let PlugValue::String(x) = v { Some(x) } else { None }).unwrap_or_default();
+    crate::psd::layer_set_png(&resolved, &set)
+}
+
 fn texture_ref(g: &mut Graph, file: NodeId, scene: Option<&str>, project: Option<&str>) -> TextureRef {
     let written = plug_named(g, file, "fileTextureName").and_then(|p| g.value(&p).ok()).and_then(|v| if let PlugValue::String(x) = v { Some(x) } else { None }).unwrap_or_default();
     let space = plug_named(g, file, "colorSpace").and_then(|p| g.value(&p).ok()).and_then(|v| if let PlugValue::String(x) = v { Some(x) } else { None }).unwrap_or_default();
@@ -1244,7 +1260,7 @@ fn texture_ref(g: &mut Graph, file: NodeId, scene: Option<&str>, project: Option
     TextureRef {
         baked: None,
         file,
-        resolved: resolve_texture(&written, scene, project).map(|p| p.display().to_string()),
+        resolved: resolve_texture(&written, scene, project).and_then(|p| on_disk(g, file, p)).map(|p| p.display().to_string()),
         written,
         srgb: !matches!(space.to_lowercase().as_str(), "raw" | "linear" | "scene-linear rec.709-srgb" | "scene-linear rec 709/srgb" | "utility - raw"),
         coverage: two(g, "coverage", 1.0),
@@ -1269,7 +1285,7 @@ fn map_feeding(g: &mut Graph, id: NodeId, attr: &str, scene: Option<&str>, proje
     let i = g.node(id)?.ty().attr_index(attr)? as i32;
     let whole = g.source(&PlugRef::new(id, i));
     let any = whole.or_else(|| (0..3).find_map(|k| g.source(&PlugRef::component(id, i, k))))?;
-    if g.node(any.node).is_some_and(|n| n.ty().name == "file") {
+    if g.node(any.node).is_some_and(|n| n.ty().is_a("file")) {
         return Some(texture_ref(g, any.node, scene, project));
     }
     // One channel of a node into one channel of the colour: the node's colour is still the closest picture of it.
