@@ -734,6 +734,24 @@ void UvCanvas::paintEvent(QPaintEvent*) {
         p.setBrush(Qt::NoBrush);
         p.drawRect(QRectF(press_, last_).normalized());
     }
+    if (show_uv_stats && !meshes_.isEmpty()) {
+        int shells = 0, uvs = 0, faces = 0, picked = 0;
+        for (const UvMesh& m : meshes_) {
+            QSet<int> ids;
+            for (const auto& fc : m.faces) ids.insert(fc.shell);
+            shells += ids.size();
+            uvs += m.maps.size();
+            faces += m.faces.size();
+            picked += uv_sel_.value(m.path).size();
+        }
+        const QStringList lines{QString("UV Shells: %1").arg(shells), QString("UVs: %1").arg(uvs), QString("Faces: %1").arg(faces), QString("Selected UVs: %1").arg(picked)};
+        p.setPen(QColor(225, 225, 225));
+        int y = 18;
+        for (const QString& l : lines) {
+            p.drawText(QPointF(10, y), l);
+            y += 15;
+        }
+    }
     if (meshes_.isEmpty()) {
         p.setPen(QColor(170, 170, 170));
         p.drawText(rect(), Qt::AlignCenter, "Select a mesh to see its UVs.");

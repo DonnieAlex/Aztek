@@ -70,6 +70,8 @@ public:
     bool shaded = true;
     // View and Image menu switches.
     bool show_distortion = false, show_shell_borders = false, show_texture_borders = true, show_grid = true;
+    // View > Heads-Up Display > UV Statistics: shells, UVs, faces and what is picked, at the top left (#108).
+    bool show_uv_stats = false;
     bool dim_image = false, image_unfiltered = false, image_ratio = false, pixel_snap = false;
     // 0 RGB, 1 RGBA, 2 Alpha.
     int image_channels = 1;

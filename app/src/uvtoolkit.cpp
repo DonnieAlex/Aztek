@@ -187,6 +187,21 @@ QWidget* UvEditor::build_menu_bar() {
         if (!m.isEmpty()) exec("polyPinUV", QJsonObject{{"args", m}, {"operation", 2}});
         Host::get()->poke();
     });
+    edit->addSection("Reset Settings");
+    edit->addAction("Reset UV Editor UI", [this] {
+        // The display switches and the view back to how the editor opens.
+        canvas_->shaded = true;
+        canvas_->show_distortion = canvas_->show_shell_borders = canvas_->show_uv_stats = false;
+        canvas_->show_texture_borders = canvas_->show_grid = canvas_->show_image = true;
+        canvas_->dim_image = canvas_->image_unfiltered = canvas_->image_ratio = canvas_->pixel_snap = false;
+        canvas_->image_channels = 1;
+        canvas_->image_lo = 0.0;
+        canvas_->image_hi = 1.0;
+        if (toolkit_) toolkit_->setVisible(true);
+        for (QToolBar* b : findChildren<QToolBar*>()) b->setVisible(true);
+        canvas_->frame(false);
+        canvas_->update();
+    });
 
     QMenu* create = bar->addMenu("Create");
     create->addSection("UV Mapping");
@@ -211,6 +226,13 @@ QWidget* UvEditor::build_menu_bar() {
         Host::get()->poke();
     });
     select->addAction("Inverse", [this] { canvas_->select_all_uvs(true); })->setShortcut(QKeySequence("Ctrl+Shift+I"));
+    select->addSeparator();
+    // Components: the selection type, as the buttons above the canvas set it.
+    QMenu* comps = select->addMenu("Components");
+    for (auto [label, mode] : {std::pair{"UV", "uv"}, {"UV Shell", "shell"}, {"Edge", "edge"}, {"Face", "face"}, {"Vertex", "vertex"}, {"Object", "object"}}) {
+        const QString m = mode;
+        comps->addAction(label, [this, m] { canvas_->set_mode(m); Host::get()->poke(); });
+    }
     select->addSeparator();
     auto pick = [this, meshes](const QString& type, const QString& mode) {
         return [this, meshes, type, mode] {
@@ -242,7 +264,29 @@ QWidget* UvEditor::build_menu_bar() {
     select->addAction("Shortest Edge Path Tool", [this] { canvas_->set_tool("path"); });
     select->addSeparator();
     select->addAction("Grow\t>", [] { exec("growSelection"); Host::get()->poke(); });
+    select->addAction("Grow Along Loop\tCtrl+>", [] { exec("growSelection", QJsonObject{{"alongLoop", true}}); Host::get()->poke(); });
     select->addAction("Shrink\t<", [] { exec("shrinkSelection"); Host::get()->poke(); });
+    select->addAction("Shrink Along Loop\tCtrl+<", [] { exec("shrinkSelection", QJsonObject{{"alongLoop", true}}); Host::get()->poke(); });
+    select->addSeparator();
+    // Filter Selection: the picked UVs or faces narrowed to those of a kind, as Select By Type picks them anew.
+    QMenu* filter = select->addMenu("Filter Selection");
+    auto narrow = [this, meshes](const QString& type) {
+        return [this, meshes, type] {
+            const QJsonArray m = meshes();
+            if (m.isEmpty()) return;
+            QSet<QString> of;
+            for (const QJsonValue& v : ask("ls", QJsonObject{{"args", ask("texSelectByType", QJsonObject{{"args", m}, {"type", type}})}, {"flatten", true}}).toArray()) of.insert(v.toString());
+            QJsonArray keep;
+            for (const QJsonValue& v : ask("ls", QJsonObject{{"selection", true}, {"flatten", true}}).toArray())
+                if (of.contains(v.toString())) keep.append(v);
+            exec("select", keep.isEmpty() ? QJsonObject{{"args", m}} : QJsonObject{{"args", keep}});
+            Host::get()->poke();
+        };
+    };
+    filter->addAction("Back-Facing", narrow("backFacing"));
+    filter->addAction("Front-Facing", narrow("frontFacing"));
+    filter->addAction("Texture Borders", narrow("textureBorders"));
+    filter->addAction("Unmapped", narrow("unmapped"));
     QMenu* convert = select->addMenu("Convert Selection");
     for (auto [label, to] : {std::pair{"To UVs", "uv"}, {"To Edges", "edge"}, {"To Faces", "face"}, {"To Vertices", "vertex"}}) {
         const QString t = to;
@@ -440,6 +484,8 @@ QWidget* UvEditor::build_menu_bar() {
     connect(toolbar, &QAction::toggled, this, [this](bool on) {
         for (QToolBar* b : findChildren<QToolBar*>()) b->setVisible(on);
     });
+    QMenu* hud = view->addMenu("Heads-Up Display");
+    toggle(hud, "UV Statistics", &canvas_->show_uv_stats);
     view->addSeparator();
     QMenu* iso = view->addMenu("Isolate Select");
     iso->addAction("View Set", [this] { canvas_->frame(true); });
@@ -514,6 +560,12 @@ QWidget* UvEditor::build_menu_bar() {
         log(QString("// Result: %1 pixels (%2 x %3 image) //").arg(std::hypot(du, dv), 0, 'f', 2).arg(sz.width()).arg(sz.height()), 0);
     });
     image->addSeparator();
+    // PSD networks and texture baking aren't here: shown greyed where the reference has them.
+    for (const char* label : {"UV Editor Baking", "Create PSD Network...", "Update PSD Networks"}) {
+        QAction* a = image->addAction(label);
+        a->setEnabled(false);
+        a->setToolTip("Not in Aztek");
+    }
     image->addAction("UV Snapshot...", [this, meshes] {
         const QJsonArray m = meshes();
         if (m.isEmpty()) return;
@@ -598,7 +650,16 @@ QWidget* UvEditor::build_menu_bar() {
             exec("polyUVSet", QJsonObject{{"args", QJsonArray{mesh}}, {"rename", true}, {"uvSet", cur}, {"newUVSet", to}});
             Host::get()->poke();
         });
+        QMenu* share = sets->addMenu("Per Instance Sharing");
+        share->setEnabled(false);
         sets->addSeparator();
+        QAction* autoload = sets->addAction("Auto-Load Textures");
+        autoload->setCheckable(true);
+        autoload->setChecked(canvas_->show_image);
+        connect(autoload, &QAction::toggled, this, [this](bool on) {
+            canvas_->show_image = on;
+            canvas_->update();
+        });
         sets->addSection("Current UV Set");
         auto* group = new QActionGroup(sets);
         for (const QString& n : names) {

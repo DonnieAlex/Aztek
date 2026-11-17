@@ -1322,6 +1322,17 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### UV Editor menus, round two (17/11/2026, #108)
+
+Added to the UV Editor's menus, in the reference's places: Edit > Reset Settings > Reset UV Editor UI (display
+switches, image settings, toolbar, toolkit and view back as the editor opens); Select > Components (the selection
+type), Grow Along Loop and Shrink Along Loop, and Filter Selection (the picked components narrowed to back-facing,
+front-facing, texture border or unmapped ones); View > Heads-Up Display > UV Statistics (UV shells, UVs, faces and
+selected UVs at the canvas's top left); UV Sets > Per Instance Sharing (greyed: instances share their UVs here) and
+Auto-Load Textures. Image > UV Editor Baking, Create PSD Network and Update PSD Networks are listed greyed: Aztek has
+neither. The UV Toolkit beside the canvas already follows the reference's sections, Selection to UV Sets
+(docs/issues/108-uv-toolkit-menus.png).
+
 ### Modeling Toolkit (17/11/2026, #107)
 
 The status line's Modeling Toolkit button (and ToggleModelingToolkit) opens the toolkit beside the Channel Box and
