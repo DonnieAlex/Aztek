@@ -6,6 +6,10 @@ use aztek_host::viewport::{gather, Viewport};
 use aztek_host::Core;
 use glam::{DVec2, DVec3};
 
+// The selection masks are the UI's, shared by every Core in the process: one test at a time, or a mask one test turns
+// off is off for the other.
+static MASKS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn view() -> Viewport {
     let mut vp = Viewport::new(CamKind::Persp);
     vp.rect = [0.0, 0.0, 800.0, 800.0];
@@ -31,6 +35,7 @@ fn marquee(c: &mut Core, vp: &Viewport) -> Vec<String> {
 
 #[test]
 fn a_marquee_takes_the_highest_priority_kind_and_a_joint_chain_by_its_top() {
+    let _one = MASKS.lock().unwrap_or_else(|e| e.into_inner());
     let mut c = Core::new();
     scene(&mut c);
     let vp = view();
@@ -45,7 +50,9 @@ fn a_marquee_takes_the_highest_priority_kind_and_a_joint_chain_by_its_top() {
 
 #[test]
 fn a_click_inside_a_bone_takes_its_joint() {
+    let _one = MASKS.lock().unwrap_or_else(|e| e.into_inner());
     let mut c = Core::new();
+    c.mel("selectType -allObjects 1;");
     c.mel("select -cl; joint -p 0 0 0 -rad 3; joint -p 0 8 0; select -cl;");
     c.s.run("getAttr", serde_json::json!({"args": ["joint2.worldMatrix"]})).ok();
     let mut vp = view();

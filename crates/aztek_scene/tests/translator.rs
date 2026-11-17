@@ -11,10 +11,11 @@ fn run(s: &mut Session, name: &str, call: Value) -> Value {
 fn lists_types_by_loaded_plug_in() {
     let mut s = Session::new();
     let l = run(&mut s, "translator", json!({"query": true, "queried": ["list"]}));
-    assert_eq!(l, json!(["mayaAscii", "mayaBinary"]));
+    // PLY and STL are Aztek's own, read and written with no plug-in (#92).
+    assert_eq!(l, json!(["mayaAscii", "mayaBinary", "PLY", "STL"]));
     aztek_scene::alembic::register(&mut s.commands);
     let l = run(&mut s, "translator", json!({"query": true, "queried": ["list"]}));
-    assert_eq!(l, json!(["mayaAscii", "mayaBinary", "Alembic"]));
+    assert_eq!(l, json!(["mayaAscii", "mayaBinary", "Alembic", "PLY", "STL"]));
     assert_eq!(run(&mut s, "translator", json!({"args": ["Alembic"], "query": true, "queried": ["extension"]})), json!("abc"));
     assert_eq!(run(&mut s, "translator", json!({"args": ["Alembic"], "query": true, "queried": ["writeSupport"]})), json!(false));
     assert_eq!(run(&mut s, "translator", json!({"args": ["mayaAscii"], "query": true, "queried": ["filter"]})), json!("*.ma"));
