@@ -65,3 +65,14 @@ fn click_modifiers_are_the_references() {
     select_picked(&mut c, p("a.vtx[1]"), CTRL);
     assert_eq!(mel(&mut c, "ls -sl;"), json!(["a.vtx[2]"]));
 }
+
+/// #123: setting the ViewCube's preferences, as Alt+B's preference pass did, leaves the camera where it is.
+#[test]
+fn view_cube_settings_leave_the_camera() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -w 10 -h 10 -d 10; select -cl; setAttr persp.t 3 4 5; setAttr persp.r -20 30 0;");
+    let before = mel(&mut c, "getAttr persp.t;");
+    mel(&mut c, "viewManip -visible true -topRight true -zoomToFitScene true -preserveSceneUp true;");
+    assert_eq!(mel(&mut c, "getAttr persp.t;"), before);
+    assert_eq!(mel(&mut c, "viewManip -q -zoomToFitScene;"), json!(true));
+}

@@ -787,7 +787,9 @@ fn view_manip_act(s: &mut Session, f: &Map<String, Value>) {
             crate::core::push_ui_request(format!("viewCube|{}", json!({"action": action})));
         }
     }
-    if f.get("fitToView").is_some_and(truthy) || f.get("zoomToFitScene").is_some_and(truthy) {
+    // -zoomToFitScene is a setting, what a click on the cube does; only -fitToView fits now (#123: applying the
+    // preferences, Alt+B among them, moved the camera).
+    if f.get("fitToView").is_some_and(truthy) {
         let _ = s.run("viewFit", json!({}));
     }
     view_all("viewCube", json!({"action": "redraw"}));

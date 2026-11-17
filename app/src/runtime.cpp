@@ -240,7 +240,10 @@ void MainWindow::build_runtime() {
         else { gradient = true; bg = 0.36; }
         s.setValue("prefs/background", bg);
         s.setValue("prefs/backgroundGradient", gradient);
-        apply_prefs();
+        // Only the background changes (#123): the rest of the preferences, the views' cameras among what they
+        // touch, are left as they are.
+        for (ViewportWidget* v : panels_->views()) v->set("background", QString::number(bg));
+        exec_quiet("displayPref", QJsonObject{{"displayGradient", gradient}});
     });
     r("WireframeView", "View", "Wireframe", [this] { view_key("wireframe", "true"); });
     r("ShadedView", "View", "Smooth shade all", [this] { view_key("wireframe", "false"); view_key("disp", "{\"textured\":false,\"displayLights\":\"default\"}"); });

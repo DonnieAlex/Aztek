@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Alt+B only changes the background (17/11/2026, #123)
+
+Alt+B cycles the views' background (gradient, black, dark grey, light grey) and nothing else. It went through the
+whole preference pass, and `viewManip -zoomToFitScene`, a setting for clicks on the ViewCube, fitted the view each
+time it was set; only `-fitToView` fits now, so saving the preferences no longer moves the camera either.
+
 ### Hotkeys go to the panel under the pointer (17/11/2026, #112)
 
 A key goes to the panel under the pointer, whatever had the keyboard: selecting in the Outliner, then pressing F over
