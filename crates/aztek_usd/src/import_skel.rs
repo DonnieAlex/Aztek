@@ -72,7 +72,8 @@ fn read_skeleton(c: &mut Ctx, prim: &Prim, parent: NodeId) -> Result<Skel, Strin
             Some((u, n)) => (tokens.iter().position(|t| t == u).map_or(parent, |k| joints[k]), n),
             None => (parent, tok.as_str()),
         };
-        let j = c.s.graph.create_node(&jt, &node_name(name), up, false).map_err(|e| e.to_string())?;
+        let jn = crate::util::in_namespace(&c.s.graph, node_name(name));
+        let j = c.s.graph.create_node(&jt, &jn, up, false).map_err(|e| e.to_string())?;
         // USD has no scale compensation: a parent's scale reaches its children.
         set_attr(&mut c.s.graph, j, "segmentScaleCompensate", PlugValue::Bool(false));
         joints[i] = j;

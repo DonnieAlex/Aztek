@@ -83,6 +83,11 @@ pub fn node_name(name: &str) -> String {
     out
 }
 
+/// A node name in the scene's current namespace (a reference's, as it loads).
+pub fn in_namespace(g: &aztek_scene::graph::Graph, name: String) -> String {
+    if g.current_namespace.is_empty() || name.contains(':') { name } else { format!("{}:{name}", g.current_namespace) }
+}
+
 /// `target` written relative to the directory `base_dir`, when both are absolute and share a first component.
 pub fn relative_to(target: &str, base_dir: &str) -> Option<String> {
     use std::path::{Component, Path};

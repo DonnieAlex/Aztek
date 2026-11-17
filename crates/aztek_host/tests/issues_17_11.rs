@@ -131,3 +131,31 @@ fn obj_import_names_and_returns_new_nodes() {
     assert!(n.as_array().unwrap().iter().any(|x| x == "Thing"), "{n}");
     assert_eq!(mel(&mut c, "ls -type transform \"default*\";"), json!([]));
 }
+
+/// #92: every type an importer reads can be referenced, its nodes named as the file has them inside the namespace.
+#[test]
+fn every_imported_type_can_be_referenced() {
+    let mut c = Core::new();
+    let dir = std::env::temp_dir().join("aztek_issue_92");
+    std::fs::create_dir_all(&dir).unwrap();
+    let d = dir.display().to_string();
+    mel(&mut c, "loadPlugin objExport; loadPlugin fbx; loadPlugin gltf; loadPlugin AbcImport; loadPlugin AbcExport;");
+    mel(&mut c, "polyCube -n c;");
+    mel(&mut c, &format!("file -f -type \"FBX export\" -exportAll \"{d}/c.fbx\";"));
+    mel(&mut c, &format!("exportGltf \"{d}/c.glb\";"));
+    mel(&mut c, &format!("AbcExport -j \"-root |c -file {d}/c.abc\";"));
+    mel(&mut c, &format!("file -f -exportAll -type OBJexport \"{d}/c.obj\";"));
+    mel(&mut c, &format!("file -f -exportAll -type STL \"{d}/c.stl\";"));
+    for ext in ["fbx", "glb", "abc", "obj", "stl"] {
+        mel(&mut c, &format!("file -r -ns r{ext} \"{d}/c.{ext}\";"));
+        let rn = mel(&mut c, &format!("referenceQuery -rfn \"{d}/c.{ext}\";"));
+        assert_eq!(rn, json!(format!("r{ext}RN")), "{ext}");
+        let nodes = mel(&mut c, &format!("ls -type transform \"r{ext}:*\";"));
+        assert!(!nodes.as_array().unwrap().is_empty(), "{ext}: {nodes}");
+        if matches!(ext, "fbx" | "glb" | "abc") {
+            assert!(nodes.as_array().unwrap().contains(&json!(format!("r{ext}:c"))), "{ext}: {nodes}");
+        }
+    }
+    // Nothing merged into the scene's own cube.
+    assert_eq!(mel(&mut c, "ls -type transform \"c*\";"), json!(["c"]));
+}

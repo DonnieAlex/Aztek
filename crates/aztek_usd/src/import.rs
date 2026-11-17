@@ -437,7 +437,8 @@ const GPRIMS: [&str; 6] = ["Cube", "Sphere", "Cylinder", "Cone", "Capsule", "Pla
 
 fn make_transform(c: &mut Ctx, name: &str, parent: NodeId) -> Result<NodeId, String> {
     let t = types::find("transform").expect("transform");
-    c.g().create_node(&t, &node_name(name), parent, false).map_err(|e| e.to_string())
+    let name = crate::util::in_namespace(c.g(), node_name(name));
+    c.g().create_node(&t, &name, parent, false).map_err(|e| e.to_string())
 }
 
 fn shape_under(c: &mut Ctx, tr: NodeId, ty: &str) -> Result<NodeId, String> {

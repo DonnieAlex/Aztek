@@ -745,7 +745,23 @@ fn load(s: &mut Session, at: usize, scene_edits: bool) -> Result<Vec<String>, St
     let r = if matches!(ext.as_str(), "ma" | "mb" | "") {
         crate::ma_file::import_scene(s, &path)
     } else {
-        s.run("file", json!({"args": [path.clone()], "import": true})).map(|_| Vec::new()).map_err(|e| e.to_string())
+        // FBX merges onto same-named nodes by default; a reference always adds its own.
+        let mode = (ext == "fbx").then(|| crate::fbx_options::word("FBXImportMode"));
+        if mode.is_some() {
+            let _ = crate::fbx_options::set("FBXImportMode", &json!("add"));
+        }
+        // Made inside the namespace, so a name the scene has already doesn't pick up a number on the way in.
+        let current = std::mem::take(&mut s.graph.current_namespace);
+        if !ns.is_empty() {
+            s.graph.set_namespace_known(&ns, true);
+            s.graph.current_namespace = ns.trim_start_matches(':').to_string();
+        }
+        let r = s.run("file", json!({"args": [path.clone()], "import": true})).map(|_| Vec::new()).map_err(|e| e.to_string());
+        s.graph.current_namespace = current;
+        if let Some(m) = mode {
+            let _ = crate::fbx_options::set("FBXImportMode", &json!(m));
+        }
+        r
     };
     {
         let t = &mut s.extras.references;
@@ -760,7 +776,8 @@ fn load(s: &mut Session, at: usize, scene_edits: bool) -> Result<Vec<String>, St
         let new: Vec<NodeId> = g.nodes().into_iter().filter(|n| !before.contains(n) && g.node(*n).is_some_and(|x| x.reference_id() == 0) && !is_shared_node(g, *n)).collect();
         for &n in &new {
             let name = g.node(n).unwrap().name().to_string();
-            if !ns.is_empty() {
+            if !ns.is_empty() && name.starts_with(&format!("{}:", ns.trim_start_matches(':'))) {
+            } else if !ns.is_empty() {
                 let _ = g.rename(n, &format!("{ns}:{name}"));
             } else if !prefix.is_empty() {
                 let _ = g.rename(n, &format!("{prefix}_{name}"));

@@ -1322,6 +1322,14 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Reference any file an importer reads (17/11/2026, #92)
+
+File > Create Reference and the Reference Editor take every type a loaded importer reads: FBX (mocap to retarget),
+OBJ, USD, Alembic, glTF, PLY, STL and any plug-in's reading translator. The file is read through `file -import` into
+the reference's namespace, so its nodes keep the file's names (`mocap:Hips`, not `mocap:Hips1` when the scene has a
+Hips); an FBX reference always adds, whatever FBXImportMode says, never merging onto the scene's nodes. `file -import`
+also reads glTF (.glb, .gltf), PLY and STL, and `file -exportAll`/`-exportSelected` write PLY and STL.
+
 ### Translators' imports return what they made (17/11/2026, #91)
 
 `file -import -returnNewNodes` (and -open) with an OBJ, FBX, USD, Alembic or plug-in translator file returns the new

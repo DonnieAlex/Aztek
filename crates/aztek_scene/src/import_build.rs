@@ -493,6 +493,8 @@ pub fn build_all(s: &mut Session, nodes: Vec<ImpNode>, materials: Vec<ImpMateria
         let parent = n.parent.filter(|p| *p < nodes.len()).map_or(NO_NODE, |p| ids[p]);
         let wanted = clean_name(&n.name, if n.joint { "joint1" } else if n.mesh.is_some() { "polySurface1" } else { "transform1" });
         let g = &mut s.graph;
+        // In the current namespace (a reference's, as it loads) as everything else made lands there.
+        let wanted = if g.current_namespace.is_empty() || wanted.contains(':') { wanted } else { format!("{}:{wanted}", g.current_namespace) };
         let id = match &n.mesh {
             Some(m) => {
                 // Names as the file has them: unique among their siblings, as the reference keeps a file's names.

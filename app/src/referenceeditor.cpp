@@ -51,6 +51,19 @@ QString reference_filter() {
     add("mayaUsdPlugin", "*.usd *.usda *.usdc *.usdz", "USD");
     add("AbcImport", "*.abc", "Alembic");
     add("gltf", "*.glb *.gltf", "glTF 2.0");
+    every += " *.ply *.stl";
+    extra += ";;PLY (*.ply);;STL (*.stl)";
+    // Every reading translator a loaded plug-in registered, as the reference offers each one.
+    const QJsonArray types = ask("translator", QJsonObject{{"list", true}}).toArray();
+    for (const auto& v : types) {
+        const QString t = v.toString();
+        if (QStringList{"mayaAscii", "mayaBinary", "OBJ", "OBJexport", "FBX", "FBX export", "USD Import", "USD Export", "Alembic", "glTF", "PLY", "STL"}.contains(t)) continue;
+        if (!ask("translator", QJsonObject{{"args", QJsonArray{t}}, {"readSupport", true}}).toBool()) continue;
+        const QString ext = ask("translator", QJsonObject{{"args", QJsonArray{t}}, {"extension", true}}).toString();
+        if (ext.isEmpty()) continue;
+        every += " *." + ext;
+        extra += QString(";;%1 (*.%2)").arg(t, ext);
+    }
     return QString("Scenes and files to reference (%1);;mayaAscii (*.ma);;mayaBinary (*.mb)%2;;All Files (*)").arg(every, extra);
 }
 

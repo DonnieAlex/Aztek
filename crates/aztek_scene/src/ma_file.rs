@@ -5903,7 +5903,7 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
     }
     // -returnNewNodes on a translator's import: the nodes it made, as the reference returns them, not the file.
     let before: Option<std::collections::HashSet<_>> = (a.bool("returnNewNodes") && (a.bool("import") || a.bool("open"))).then(|| s.graph.nodes().into_iter().collect());
-    let routes: [fn(&mut Session, &Args, Option<&str>, Option<&str>) -> Option<CmdResult>; 5] = [plugin_translator_file, fbx_file, usd_file, obj_file, abc_file];
+    let routes: [fn(&mut Session, &Args, Option<&str>, Option<&str>) -> Option<CmdResult>; 7] = [plugin_translator_file, fbx_file, usd_file, obj_file, abc_file, gltf_file, mesh_file];
     for route in routes {
         if let Some(r) = route(s, a, path_arg.as_deref(), type_flag.as_deref()) {
             return match (r, &before) {
@@ -6094,6 +6094,69 @@ fn abc_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> 
     })
 }
 
+/// glTF files go to the gltf plug-in's importGltf, read only (exportGltf writes). A .glb or .gltf name with no type
+/// is read as glTF. Without the plug-in the type is not known.
+fn gltf_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
+    let path = path?;
+    let moving = ["import", "open", "exportAll", "exportSelected"].iter().find(|f| a.bool(f))?;
+    let named = matches!(ty, Some(t) if t.eq_ignore_ascii_case("glTF") || t.eq_ignore_ascii_case("glTF 2.0"));
+    if !named && !(ty.is_none() && matches!(extension(path).as_str(), "glb" | "gltf")) {
+        return None;
+    }
+    if s.commands.find("importGltf").is_none() {
+        return Some(Err(aztek_ops::CommandError::new("file: unknown file type glTF: the gltf plug-in is not loaded")));
+    }
+    Some(match *moving {
+        "open" => {
+            if !a.bool("force") && s.is_modified() {
+                return Some(Err(aztek_ops::CommandError::new("file: Unsaved changes.")));
+            }
+            let _ = s.run("newScene", json!({}));
+            s.scene_path = None;
+            s.run("importGltf", json!({"args": [path]})).map(|_| json!(path))
+        }
+        "import" => s.run("importGltf", json!({"args": [path]})).map(|_| json!(path)),
+        _ => Err(aztek_ops::CommandError::new("file: the glTF type reads only; write with exportGltf")),
+    })
+}
+
+/// PLY and STL meshes read with importPly and importStl, and are written with exportPly and exportStl.
+fn mesh_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
+    let path = path?;
+    let moving = ["import", "open", "exportAll", "exportSelected"].iter().find(|f| a.bool(f))?;
+    let ext = match ty {
+        Some(t) if t.eq_ignore_ascii_case("PLY") => "ply".to_string(),
+        Some(t) if t.eq_ignore_ascii_case("STL") => "stl".to_string(),
+        None => extension(path),
+        _ => return None,
+    };
+    let (read, write) = match ext.as_str() {
+        "ply" => ("importPly", "exportPly"),
+        "stl" => ("importStl", "exportStl"),
+        _ => return None,
+    };
+    s.commands.find(read)?;
+    Some(match *moving {
+        "open" => {
+            if !a.bool("force") && s.is_modified() {
+                return Some(Err(aztek_ops::CommandError::new("file: Unsaved changes.")));
+            }
+            let _ = s.run("newScene", json!({}));
+            s.scene_path = None;
+            s.run(read, json!({"args": [path]})).map(|_| json!(path))
+        }
+        "import" => s.run(read, json!({"args": [path]})).map(|_| json!(path)),
+        sel => {
+            let mut args = vec![json!(path)];
+            if sel == "exportAll" {
+                let g = &s.graph;
+                args.extend(g.nodes().into_iter().filter(|&id| crate::dag::is_transform(g, id) && crate::components::as_mesh(g, id).is_some()).map(|id| json!(g.path(id))));
+            }
+            s.run(write, json!({"args": args})).map(|_| json!(path))
+        }
+    })
+}
+
 /// The file types `file -type` knows, as the reference's translators: (name, extension, read, write, the command a
 /// plug-in brings when the type is its).
 pub const TRANSLATORS: &[(&str, &str, bool, bool, Option<&str>)] = &[
@@ -6106,6 +6169,9 @@ pub const TRANSLATORS: &[(&str, &str, bool, bool, Option<&str>)] = &[
     ("USD Import", "usd", true, false, Some("mayaUSDImport")),
     ("USD Export", "usd", false, true, Some("mayaUSDExport")),
     ("Alembic", "abc", true, false, Some("AbcImport")),
+    ("glTF", "glb", true, false, Some("importGltf")),
+    ("PLY", "ply", true, true, None),
+    ("STL", "stl", true, true, None),
 ];
 
 /// A file translator a plug-in registered (MPxFileTranslator): its name, extension, and whether it reads and writes.
