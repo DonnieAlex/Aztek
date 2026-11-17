@@ -205,3 +205,29 @@ fn emitter_alone_reference_type_names_and_clear_errors() {
     mel(&mut c, "polySphere -n ball;");
     assert_eq!(mel(&mut c, "emitter -type surface ball;"), json!(["ball", "emitter1"]));
 }
+
+/// #100: a stage's references and payloads to Alembic (as usdAbc), OBJ, FBX and glTF files read as USD.
+#[test]
+fn a_stage_reads_alembic_obj_fbx_and_gltf_references() {
+    let mut c = Core::new();
+    let dir = std::env::temp_dir().join("aztek_issue_100");
+    std::fs::create_dir_all(&dir).unwrap();
+    let d = dir.display().to_string();
+    mel(&mut c, "loadPlugin objExport; loadPlugin fbx; loadPlugin gltf; loadPlugin AbcExport; loadPlugin mayaUsdPlugin;");
+    mel(&mut c, "polyCube -n c;");
+    mel(&mut c, &format!("AbcExport -j \"-root |c -file {d}/c.abc\";"));
+    mel(&mut c, &format!("file -f -exportAll -type OBJexport \"{d}/c.obj\";"));
+    mel(&mut c, &format!("file -f -type \"FBX export\" -exportAll \"{d}/c.fbx\";"));
+    mel(&mut c, &format!("exportGltf \"{d}/c.glb\";"));
+    std::fs::write(
+        dir.join("stage.usda"),
+        "#usda 1.0\ndef Xform \"World\"\n{\n    def \"A\" ( references = @./c.abc@ ) {}\n    def \"P\" ( payload = @./c.abc@ ) {}\n    def \"O\" ( references = @./c.obj@ ) {}\n    def \"F\" ( references = @./c.fbx@ ) {}\n    def \"G\" ( references = @./c.glb@ ) {}\n}\n",
+    )
+    .unwrap();
+    mel(&mut c, "file -f -new;");
+    mel(&mut c, &format!("file -i \"{d}/stage.usda\";"));
+    let meshes = mel(&mut c, "ls -type mesh;");
+    for m in ["AShape", "PShape", "OShape", "FShape", "GShape"] {
+        assert!(meshes.as_array().unwrap().contains(&json!(m)), "{m}: {meshes}");
+    }
+}

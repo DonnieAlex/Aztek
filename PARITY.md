@@ -1322,6 +1322,15 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Alembic, OBJ, FBX and glTF inside a stage (17/11/2026, #100)
+
+A sublayer, reference or payload naming an Alembic file reads as the reference's usdAbc plug-in gives it, in a USD
+import and in a stage shown live (mayaUsdProxyShape): the file is read into a scene of its own and written as a USD
+layer, kept in the temporary folder and made again when the file changes. OBJ, FBX and glTF files read the same way,
+as Adobe's USD file format plug-ins give them. As usdAbc: face sets, NURBS patches and lights are not carried, and
+transforms come as matrices. The prim referencing one should have no type of its own (`def "Name"`), as in USD a
+typed prim keeps its type over the file's.
+
 ### UV Editor keeps Object mode (17/11/2026, #99)
 
 Opening the UV Editor leaves the selection type as it is: in Object mode the meshes' shells are drawn without UV

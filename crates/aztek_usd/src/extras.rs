@@ -249,7 +249,7 @@ impl Resolver for AztekResolver {
         }?;
         // An Alembic file reads as the USD layer made from it (abc_layer, #100).
         let p: &std::path::Path = &found;
-        if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("abc")) {
+        if p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["abc", "obj", "fbx", "glb", "gltf"].iter().any(|x| e.eq_ignore_ascii_case(x))) {
             if let Some(usd) = crate::abc_layer::usd_for_abc(p) {
                 return self.inner.resolve(&usd.to_string_lossy());
             }

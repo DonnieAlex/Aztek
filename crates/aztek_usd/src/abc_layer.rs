@@ -4,6 +4,8 @@
 //! animation) and written out as USDA, kept beside the other temporary files and made again when the .abc changes.
 //!
 //! As the reference's: face sets, NURBS patches and lights aren't carried, and transforms come as matrices.
+//!
+//! OBJ, FBX and glTF files read the same way, as Adobe's USD file format plug-ins let a stage name them.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -28,7 +30,18 @@ pub fn usd_for_abc(abc: &Path) -> Option<PathBuf> {
     std::fs::create_dir_all(&dir).ok()?;
     let path = abc.to_string_lossy().replace('\\', "/");
     let mut s = Session::new();
-    aztek_scene::alembic::import(&mut s, &path).ok()?;
+    // Alembic as usdAbc; OBJ, FBX and glTF as the Adobe file format plug-ins give them, read by Aztek's importers.
+    let ext = abc.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    match ext.as_str() {
+        "abc" => aztek_scene::alembic::import(&mut s, &path).map(|_| ()).ok()?,
+        "obj" => {
+            aztek_scene::mesh_nodes::register_obj(&mut s.commands);
+            s.run("importObj", json!({"args": [path.clone()]})).ok()?;
+        }
+        "fbx" => aztek_scene::fbx_import::import(&mut s, &path).map(|_| ()).ok()?,
+        "glb" | "gltf" => aztek_scene::gltf_import::import(&mut s, &path).map(|_| ()).ok()?,
+        _ => return None,
+    }
     let mut flags = serde_json::Map::new();
     flags.insert("file".into(), json!(out.to_string_lossy().replace('\\', "/")));
     flags.insert("defaultUSDFormat".into(), json!("usda"));
