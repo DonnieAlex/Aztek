@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Examples checked (17/11/2026, #85)
+
+Every example scene opens without an error (51 checked in batch, 17/11/2026). The ten at the top of the examples
+folder had no camera of their own and opened on the default view, which left the cornell box a speck and the cloth
+and dynamics scenes cut off: each now has its persp camera framed on what the scene is about (the floors left out).
+The welcome screen's examples, links, release notes and announcements are as they were.
+
 ### A bin folder on PATH (17/11/2026, #76)
 
 The Windows install has a `bin` folder, as the reference's has, with `aztek`, `aztekpy` and `harold` launchers that
