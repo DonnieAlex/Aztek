@@ -113,6 +113,30 @@ void MainWindow::show_modeling_toolkit() {
 
         auto* bar = new QMenuBar(w);
         bar->setNativeMenuBar(false);
+        // Object: display switches for the selected objects, as the reference's toolkit has them.
+        QMenu* object = bar->addMenu("Object");
+        object->addAction("Show/Hide", [] {
+            mel_action("string $s[] = `ls -sl -o`; for ($o in $s) { if (`objExists ($o + \".visibility\")`) setAttr ($o + \".visibility\") (!`getAttr ($o + \".visibility\")`); }");
+            Host::get()->poke();
+        });
+        object->addAction("Freeze/Unfreeze", [] {
+            // Frozen: drawn as a reference, out of reach of clicks.
+            mel_action("string $s[] = `ls -sl -o -tr`; for ($o in $s) { int $on = `getAttr ($o + \".overrideDisplayType\")` == 2 && `getAttr ($o + \".overrideEnabled\")`;"
+                       " setAttr ($o + \".overrideEnabled\") (!$on); setAttr ($o + \".overrideDisplayType\") ($on ? 0 : 2); }");
+            Host::get()->poke();
+        });
+        object->addAction("X-Ray On/Off", [] {
+            mel_action("string $s[] = `ls -sl -o`; for ($o in $s) { int $x[] = `displaySurface -q -xRay $o`; displaySurface -xRay (!$x[0]) $o; }");
+            Host::get()->poke();
+        });
+        object->addAction("Show/Hide Backfaces", [] {
+            mel_action("string $s[] = `ls -sl -o`; for ($o in $s) { int $c = `displayCull -q -bfc $o`; displayCull -bfc (!$c) $o; }");
+            Host::get()->poke();
+        });
+        object->addAction("Show/Hide Face Triangles", [] {
+            mel_action("polyOptions -r -dt;");
+            Host::get()->poke();
+        });
         QMenu* help = bar->addMenu("Help");
         help->addAction("Modeling Toolkit", [] { QDesktopServices::openUrl(QUrl("https://github.com/srlegrand/Aztek#readme")); });
         page->addWidget(bar);
@@ -174,6 +198,11 @@ void MainWindow::show_modeling_toolkit() {
         nearest->setChecked(ask("selectPref", QJsonObject{{"query", true}, {"preSelectHilite", true}}).toBool(true));
         connect(nearest, &QCheckBox::toggled, this, [](bool on) { exec_quiet("selectPref", QJsonObject{{"preSelectHilite", on}}); });
         page->addWidget(nearest);
+        auto* backfaces = new QCheckBox("Highlight Backfaces", w);
+        backfaces->setToolTip("On: back-facing components highlight under the cursor too");
+        backfaces->setChecked(ask("selectPref", QJsonObject{{"query", true}, {"preSelectBackfacing", true}}).toBool(false));
+        connect(backfaces, &QCheckBox::toggled, this, [](bool on) { exec_quiet("selectPref", QJsonObject{{"preSelectBackfacing", on}}); });
+        page->addWidget(backfaces);
 
         auto* form = new QFormLayout();
         form->setContentsMargins(0, 4, 0, 4);
@@ -275,6 +304,12 @@ void MainWindow::show_modeling_toolkit() {
                       {"Boolean", "polyBooleanUnion", [] { exec("polyCBoolOp", QJsonObject{{"operation", 1}}); Host::get()->poke(); }}});
         grid("Components", {{"Extrude", "polyExtrude", run("polyExtrude")},
                             {"Bevel", "polyBevel", run("polyBevel")},
+                            {"Smart Extrude", "polyExtrude", [this] {
+                                 // Extruded and straight into the move manipulator, to drag out.
+                                 exec("polyExtrude");
+                                 set_tool("move");
+                                 Host::get()->poke();
+                             }},
                             {"Bridge", "polyBridge", run("polyBridge")},
                             {"Add Divisions", "polySubdivideFacet", run("polySubdivideFacet")}});
         grid("Tools", {{"Multi-Cut", "multiCut", [this] { set_tool("multiCut"); }},

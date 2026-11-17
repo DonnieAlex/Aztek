@@ -1706,6 +1706,30 @@ del _c
 _om2._MSG_TO1[0] = _to1
 _om2._MSG_PTR[0] = lambda: _Ptr([True], _bool)
 
+def _ramp_value(self, position, out=None):
+    v = _om2.MRampAttribute.getValueAtPosition(self, position)
+    if out is None:
+        return v
+    _put(out, v)
+
+
+def _ramp_color(self, position, out=None):
+    c = _om2.MRampAttribute.getColorAtPosition(self, position)
+    if out is None:
+        return _to1(c)
+    _copy(out, c)
+
+
+def _ramp_entries(self, indices=None, positions=None, values=None, interps=None):
+    got = _om2.MRampAttribute.getEntries(self)
+    if indices is None:
+        return tuple(_to1(x) for x in got)
+    for dst, src in zip((indices, positions, values, interps), got):
+        _copy(dst, src)
+
+
+MRampAttribute = _v1(_om2.MRampAttribute, {"getValueAtPosition": _ramp_value, "getColorAtPosition": _ramp_color, "getEntries": _ramp_entries})
+
 # The reference's 1.0 module also holds these names.
 MStatus.kSuccess = 0
 MFn.kInvalid = getattr(MFn, "kInvalid", 0)

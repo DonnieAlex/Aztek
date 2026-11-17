@@ -819,10 +819,29 @@ pub fn register(c: &mut Commands<Session>) {
                 let q: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
                 let asked = |f: &str| a.bool(f) || q.iter().any(|x| x == f);
                 if asked("list") {
-                    return Ok(json!(crate::ma_file::TRANSLATORS.iter().filter(|t| known(&t.4)).map(|t| t.0).collect::<Vec<_>>()));
+                    let mut l: Vec<String> = crate::ma_file::TRANSLATORS.iter().filter(|t| known(&t.4)).map(|t| t.0.to_string()).collect();
+                    l.extend(crate::ma_file::plugin_translators().into_iter().map(|t| t.name));
+                    return Ok(json!(l));
                 }
                 let names = a.named();
                 let Some(n) = names.first() else { fail!("translator: name a file type") };
+                if let Some(t) = crate::ma_file::plugin_translators().into_iter().find(|t| t.name.eq_ignore_ascii_case(n)) {
+                    return Ok(if asked("extension") {
+                        json!(t.extension)
+                    } else if asked("filter") {
+                        json!(format!("*.{}", t.extension))
+                    } else if asked("readSupport") {
+                        json!(t.read)
+                    } else if asked("writeSupport") {
+                        json!(t.write)
+                    } else if asked("loaded") {
+                        json!(true)
+                    } else if asked("defaultOptions") {
+                        json!(t.default_options)
+                    } else {
+                        json!(t.name)
+                    });
+                }
                 let Some(t) = crate::ma_file::TRANSLATORS.iter().find(|t| t.0.eq_ignore_ascii_case(n)) else { fail!("translator: no file type {n}") };
                 Ok(if asked("extension") {
                     json!(t.1)

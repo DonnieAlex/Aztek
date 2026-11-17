@@ -538,6 +538,10 @@ class MDataHandle:
 
     def child(self, attr):
         name = _attr_name(attr)
+        if isinstance(self._v, dict) and name in self._v:
+            # An element of an array of compounds: the child at this element.
+            host, v = self._v[name]
+            return MDataHandle(self._block, host, v, element=self._element)
         kids = self._block._children.get(self._attr)
         if isinstance(self._v, (list, tuple)) and kids and name in kids:
             return MDataHandle(self._block, name, self._v[kids.index(name)])
@@ -613,6 +617,8 @@ class MDataHandle:
         return None
 
     def data(self):
+        if isinstance(self._v, dict) and "$mesh" in self._v:
+            return self.asMesh()
         d = self.asPluginData()
         if d is None:
             _fail(status="kFailure", message="The handle holds no plug-in data")
@@ -623,7 +629,21 @@ class MDataHandle:
             _fail()
         return self._write(data)
 
+    def asMesh(self):
+        v = self._v
+        if isinstance(v, dict) and "$mesh" in v:
+            return _mesh_value_object(v["$mesh"])
+        if isinstance(v, MObject):
+            return v
+        return MObject()
+
+    asMeshTransformed = asMesh
+
     def setMObject(self, obj):
+        if isinstance(obj, MObject) and obj._kind == "data" and obj._fn == MFn.kMeshData:
+            if obj._data.key is None:
+                _fail(message="The mesh data holds no mesh")
+            return self._write({"$mesh": obj._data.key})
         if isinstance(obj, MObject) and obj._kind == "data" and isinstance(obj._data, MPxData):
             return self._write(obj._data)
         if isinstance(obj, MObject) and obj._kind == "data":
@@ -693,6 +713,15 @@ class MArrayDataHandle:
     outputValue = inputValue
 
     def addElement(self, i):
+        kids = self._block._groups.get(self._attr)
+        if kids:
+            v = {c: (h, d) for c, (h, d) in kids.items()}
+            self._els.append([i, v])
+            self._els.sort(key=lambda e: e[0])
+            for k, e in enumerate(self._els):
+                if e[0] == i:
+                    self._k = k
+            return MDataHandle(self._block, self._attr, v, element=i)
         self._els.append([i, None])
         self._els.sort(key=lambda e: e[0])
         for k, e in enumerate(self._els):
@@ -714,6 +743,8 @@ class MDataBlock:
         self._out = {}
         self._time = time
         self._clean = set()
+        # Arrays of compounds: group -> {child: (the host's name for it, its default)}.
+        self._groups = {}
 
     def _name(self, a):
         if isinstance(a, MPlug):
@@ -740,6 +771,16 @@ class MDataBlock:
 
     def inputArrayValue(self, a):
         n = self._name(a)
+        if n in self._groups:
+            kids = self._groups[n]
+            els = {}
+            for child, (host, _) in kids.items():
+                for k, v in self._values.get(host) or []:
+                    els.setdefault(k, {})[child] = (host, v)
+            for k in els:
+                for child, (host, default) in kids.items():
+                    els[k].setdefault(child, (host, default))
+            return MArrayDataHandle(self, n, [[k, els[k]] for k in sorted(els)])
         v = self._values.get(n)
         if not isinstance(v, list):
             _fail(message="Attribute is not an array")
@@ -878,7 +919,27 @@ def _flatten_attrs(attrs):
                 d["default"] = [k.get("default") or 0.0 for k in kids]
                 out.append(d)
             elif s.get("array"):
-                _fail(status="kNotImplemented", message="Array compounds aren't available on plug-in nodes: %s" % (s["name"],))
+                # An array of compounds: each child an array of its own, named group.child, as the scene's ramps are
+                # (value[3].value_Position is value.value_Position, element 3).
+                for k in kids:
+                    if k["type"] == "compound":
+                        sub = k["children"]
+                        if len(sub) == 3 and all(c["type"] == "float" for c in sub):
+                            d = dict(k)
+                            d["type"] = "vec3"
+                            d["default"] = [c.get("default") or 0.0 for c in sub]
+                            d["children"] = [{"name": s["name"] + "." + c["name"], "short": s["short"] + "." + c["short"]} for c in sub]
+                        else:
+                            _fail(status="kNotImplemented", message="Compounds inside an array of compounds aren't available: %s" % (k["name"],))
+                    else:
+                        d = dict(k)
+                    d["name"] = s["name"] + "." + k["name"]
+                    d["short"] = (s["short"] or s["name"]) + "." + (k["short"] or k["name"])
+                    d["array"] = True
+                    d["$group"] = s["name"]
+                    d["$child"] = k["name"]
+                    d.pop("parent", None)
+                    out.append(d)
             else:
                 out.extend(_flatten_attrs(kids))
         elif not s.get("parent") or s not in out:
@@ -890,8 +951,14 @@ def _flatten_attrs(attrs):
     for s in attrs:
         if s["type"] == "compound" and len(s["children"]) == 3 and not s.get("array"):
             inside.update(k["name"] for k in s["children"])
+        if s["type"] == "compound" and s.get("array"):
+            # Its children live as group.child: added on their own as well, they don't count again.
+            for k in s["children"]:
+                inside.add(k["name"])
+                if k["type"] == "compound":
+                    inside.update(c["name"] for c in k["children"])
     for s in out:
-        if s["name"] in names or (s["name"] in inside and s["type"] != "vec3"):
+        if s["name"] in names or (s["name"] in inside and (s["type"] != "vec3" or "$group" not in s and s.get("parent"))):
             continue
         names.add(s["name"])
         unique.append(s)
@@ -902,6 +969,8 @@ def _flatten_attrs(attrs):
 # a constraint, a shape, an IK solver.
 _HOST_KINDS = {
     MPxNode.kDependNode: 0,
+    MPxNode.kDeformerNode: 1,
+    MPxNode.kGeometryFilter: 1,
     MPxNode.kLocatorNode: 2,
     MPxNode.kTransformNode: 3,
     MPxNode.kConstraintNode: 4,
@@ -913,6 +982,8 @@ _HOST_KINDS = {
 _node_classes = {}
 # data type name -> {"creator", "id", "owner"}
 _data_classes = {}
+# file translator name -> {"creator", "owner", "options"}
+_translator_classes = {}
 _node_instances = {}
 _command_classes = {}
 # plugin name -> {"path", "vendor", "version", "api", "module", "commands", "nodes", "object"}
@@ -1020,6 +1091,26 @@ class MFnPlugin(MFnBase):
         self._p.setdefault("data", []).append(name)
         return self
 
+    def registerFileTranslator(self, name, pixmapName, creator, optionsScriptName=None, defaultOptionsString=None, requiresFullMel=False, dataStorage=None):
+        t = creator()
+        if not isinstance(t, MPxFileTranslator):
+            _fail(status="kInvalidParameter", message="The creator didn't make an MPxFileTranslator")
+        if name in _translator_classes:
+            _fail(status="kFailure", message="A file translator named %s already exists" % (name,))
+        _az.register_translator(name, self._p["name"], t.defaultExtension() or "", bool(t.haveReadMethod()), bool(t.haveWriteMethod()), defaultOptionsString or "")
+        _translator_classes[name] = {"creator": creator, "owner": self._p["name"], "options": optionsScriptName}
+        self._p.setdefault("translators", []).append(name)
+        return self
+
+    def deregisterFileTranslator(self, name):
+        if name not in _translator_classes:
+            _fail(status="kFailure", message="No file translator named %s" % (name,))
+        _az.deregister_translator(name)
+        del _translator_classes[name]
+        if name in self._p.get("translators", []):
+            self._p["translators"].remove(name)
+        return self
+
     def deregisterData(self, typeId):
         tid = MTypeId(typeId)
         for name, e in list(_data_classes.items()):
@@ -1058,10 +1149,15 @@ class MFnPlugin(MFnBase):
             if s["type"] == "vec3":
                 kids = s.get("children") or [{"name": s["name"] + a, "short": s["short"] + a.lower()} for a in "XYZ"]
                 children[s["name"]] = [k["name"] for k in kids]
-        _az.register_node(name, self._p["name"], _json.dumps(attrs), kind)
+        groups = {}
+        for s in attrs:
+            if "$group" in s:
+                groups.setdefault(s["$group"], {})[s["$child"]] = (s["name"], s.get("default"))
+        host_attrs = [{k: v for k, v in a.items() if not k.startswith("$")} for a in attrs]
+        _az.register_node(name, self._p["name"], _json.dumps(host_attrs), kind)
         _node_classes[name] = {
             "creator": creator, "id": MTypeId(typeId), "owner": self._p["name"], "outputs": outputs, "units": units, "children": children,
-            "attrs": attrs, "kind": kind,
+            "attrs": attrs, "kind": kind, "groups": groups,
         }
         _node_classes[name].update(extra or {})
         self._p["nodes"].append(name)
@@ -1119,6 +1215,40 @@ def _show_traceback(e):
 
 class _Hooks:
     """What the host calls."""
+
+    def translate(self, name, mode, path, options):
+        """A plug-in translator's reader or writer for a file command."""
+        e = _translator_classes.get(name)
+        if e is None:
+            return _error_answer("No file translator %s" % (name,))
+        modes = {"open": MPxFileTranslator.kOpenAccessMode, "import": MPxFileTranslator.kImportAccessMode,
+                 "reference": MPxFileTranslator.kReferenceAccessMode, "save": MPxFileTranslator.kSaveAccessMode,
+                 "exportAll": MPxFileTranslator.kExportAccessMode, "exportSelected": MPxFileTranslator.kExportActiveAccessMode}
+        try:
+            t = e["creator"]()
+            f = MFileObject()
+            f.setRawFullName(path)
+            # The file the command names, even one still to be written.
+            f.overrideResolvedFullName(path)
+            m = modes.get(mode, MPxFileTranslator.kUnknownAccessMode)
+            MPxFileTranslator._mode = m
+            if mode in ("open", "import", "reference"):
+                if not t.haveReadMethod():
+                    return _error_answer("The %s translator can't read" % (name,))
+                got = t.reader(f, options, m)
+            else:
+                if not t.haveWriteMethod():
+                    return _error_answer("The %s translator can't write" % (name,))
+                got = t.writer(f, options, m)
+            if got is False:
+                return _error_answer("The %s translator failed" % (name,))
+            return _json.dumps({"ok": path})
+        except Exception as ex:
+            _show_traceback(ex)
+            return _error_answer(ex)
+        finally:
+            MPxFileTranslator._mode = MPxFileTranslator.kUnknownAccessMode
+            _sys.stdout.flush()
 
     def load_plugin(self, input):
         a = _json.loads(input)
@@ -1211,15 +1341,18 @@ class _Hooks:
     def compute(self, type_name, node_id, name, time, values):
         e = _node_classes.get(type_name)
         # Transforms, shapes and locators give their matrix and bounds even with no outputs of their own.
-        if e is None or not (e["outputs"] or e["kind"] in (2, 3, 4, 5)):
+        if e is None or not (e["outputs"] or e["kind"] in (1, 2, 3, 4, 5)):
             return "{}"
         vals = _json.loads(values)
+        if e["kind"] == 1:
+            return self._deform(type_name, node_id, name, time, e, vals)
         ctx = {"id": node_id, "name": name, "type": type_name, "owner": e["owner"], "attrs": e["attrs"], "values": vals, "children": e["children"]}
         ctx["command"] = lambda n, a, k: _compute_command(ctx, n, a, k)
         _compute_local.ctx = ctx
         try:
             inst = _instance(type_name, node_id)
             block = MDataBlock(vals, e["units"], e["children"], time)
+            block._groups = e.get("groups", {})
             for out in e["outputs"]:
                 inst.compute(MPlug._of(node_id, out), block)
             res = _host_outputs(block._out)
@@ -1233,6 +1366,38 @@ class _Hooks:
                 b = inst.boundingBox()
                 lo, hi = b.min, b.max
                 res["$bbox"] = [lo.x, lo.y, lo.z, hi.x, hi.y, hi.z]
+            return _json.dumps(res)
+        except Exception as ex:
+            _show_traceback(ex)
+            _az.write("# Error: %s: %s #" % (type(ex).__name__, ex), 2)
+            return "{}"
+        finally:
+            _compute_local.ctx = None
+            _sys.stdout.flush()
+
+    def _deform(self, type_name, node_id, name, time, e, vals):
+        """A deformer: its deform() moves the mesh's points, which go back as $points."""
+        pts = vals.pop("$points", None)
+        weights = vals.pop("$weights", None)
+        gm = vals.pop("$geomMatrix", None)
+        if pts is None:
+            return "{}"
+        ctx = {"id": node_id, "name": name, "type": type_name, "owner": e["owner"], "attrs": e["attrs"], "values": vals, "children": e["children"]}
+        ctx["command"] = lambda n, a, k: _compute_command(ctx, n, a, k)
+        _compute_local.ctx = ctx
+        try:
+            inst = _instance(type_name, node_id)
+            block = MDataBlock(vals, e["units"], e["children"], time)
+            block._groups = e.get("groups", {})
+            block._az_weights = weights
+            it = _DeformIterator([MPoint(pts[i], pts[i + 1], pts[i + 2]) for i in range(0, len(pts), 3)])
+            m = MMatrix(gm) if gm else MMatrix()
+            inst.deform(block, it, m, 0)
+            res = _host_outputs(block._out)
+            out = []
+            for p in it._pts:
+                out.extend((p.x, p.y, p.z))
+            res["$points"] = out
             return _json.dumps(res)
         except Exception as ex:
             _show_traceback(ex)
@@ -1506,7 +1671,9 @@ def _host_value(v):
 def _host_outputs(out):
     res = {}
     for k, v in out.items():
-        res[k] = sorted([[i, _host_value(x)] for i, x in v.items()]) if isinstance(v, dict) else _host_value(v)
+        # A dict is an array's elements by index, but for a mesh handed on by key.
+        array = isinstance(v, dict) and "$mesh" not in v
+        res[k] = sorted([[i, _host_value(x)] for i, x in v.items()]) if array else _host_value(v)
     return res
 
 
@@ -1556,7 +1723,11 @@ def _take_back(p):
         if name in _data_classes:
             _az.deregister_data(name)
             del _data_classes[name]
-    p["commands"], p["nodes"], p["data"] = [], [], []
+    for name in list(p.get("translators", [])):
+        if name in _translator_classes:
+            _az.deregister_translator(name)
+            del _translator_classes[name]
+    p["commands"], p["nodes"], p["data"], p["translators"] = [], [], [], []
 
 
 def _unload_one(name):
@@ -1594,3 +1765,388 @@ def _plugin_info(args, flags):
 
 
 _az.set_hooks(_Hooks())
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Deformers (MPxGeometryFilter, MPxDeformerNode, in OpenAztekAnim as the reference's are in OpenMayaAnim)
+
+
+class _DeformIterator:
+    """The points a deform() is handed: MItGeometry's walk over the deformed mesh's points."""
+
+    def __init__(self, pts):
+        self._pts = pts
+        self._k = 0
+
+    def count(self):
+        return len(self._pts)
+
+    exactCount = count
+
+    def index(self):
+        return self._k
+
+    def isDone(self):
+        return self._k >= len(self._pts)
+
+    def next(self):
+        self._k += 1
+        return self
+
+    def reset(self, *a):
+        self._k = 0
+        return self
+
+    def position(self, space=0):
+        return MPoint(self._pts[self._k])
+
+    def setPosition(self, point, space=0):
+        self._pts[self._k] = MPoint(point.x, point.y, point.z)
+        return self
+
+    def normal(self, space=0):
+        return MVector()
+
+    def allPositions(self, space=0):
+        return MPointArray([MPoint(p) for p in self._pts])
+
+    def setAllPositions(self, points, space=0):
+        if len(points) != len(self._pts):
+            _fail(message="setAllPositions: %d points for %d" % (len(points), len(self._pts)))
+        self._pts = [MPoint(p.x, p.y, p.z) for p in points]
+        return self
+
+    def currentItem(self):
+        return _component_object(MFn.kMeshVertComponent, [self._k])
+
+    def component(self):
+        return self.currentItem()
+
+
+class _MPxGeometryFilter(MPxNode):
+    """A deformer: deform() moves the points of the mesh in; envelope, weights and the mesh's world matrix come with
+    them. A compute of its own is not called."""
+
+    def deform(self, dataBlock, geomIter, localToWorldMatrix, multiIndex):
+        return None
+
+    def accessoryAttribute(self):
+        return MObject()
+
+    def accessoryNodeSetup(self, cmd):
+        return None
+
+    def setUseExistingConnectionWhenSetEditing(self, state):
+        return None
+
+    def getDeformationDetails(self):
+        return 0
+
+    def setDeformationDetails(self, details):
+        return None
+
+    def getInputGeom(self, dataBlock, multiIndex):
+        return MObject()
+
+    def weightValue(self, dataBlock, multiIndex, index):
+        """The painted weight of a point: 1 where none was painted."""
+        w = getattr(dataBlock, "_az_weights", None)
+        if not w or index < 0 or index >= len(w):
+            return 1.0
+        return float(w[index])
+
+
+class _MPxDeformerNode(_MPxGeometryFilter):
+    pass
+
+
+for _n, _a in (("input", "inputPolymesh"), ("inputGeom", "inputPolymesh"), ("outputGeom", "output"), ("envelope", "envelope"),
+               ("groupId", "deformerSet"), ("originalGeometry", "inputPolymesh")):
+    setattr(_MPxGeometryFilter, _n, _builtin_attr(_a))
+for _n in ("weightList", "weights"):
+    setattr(_MPxDeformerNode, _n, _builtin_attr("weightList"))
+del _n, _a
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Ramps (MRampAttribute): an array of compounds, Position, FloatValue (or Color) and Interp, as the reference's.
+
+
+def _ramp_eval(pts, t):
+    """The ramp at t from sorted (position, value, interp) points: None holds, Linear, Smooth, Spline (Catmull-Rom)."""
+    if not pts:
+        return None
+    if t <= pts[0][0]:
+        return pts[0][1]
+    if t >= pts[-1][0]:
+        return pts[-1][1]
+    k = max(i for i, p in enumerate(pts) if p[0] <= t)
+    a, c = pts[k], pts[k + 1]
+    span = c[0] - a[0]
+    u = (t - a[0]) / span if span > 0 else 0.0
+
+    def mix(x, y, f):
+        return [x[i] + (y[i] - x[i]) * f for i in range(len(x))]
+
+    if a[2] == 0:
+        return a[1]
+    if a[2] == 2:
+        return mix(a[1], c[1], u * u * (3 - 2 * u))
+    if a[2] == 3:
+        before = pts[k - 1][1] if k > 0 else a[1]
+        after = pts[k + 2][1] if k + 2 < len(pts) else c[1]
+        u2, u3 = u * u, u * u * u
+        return [a[1][i] * (2 * u3 - 3 * u2 + 1) + (c[1][i] - before[i]) * 0.5 * (u3 - 2 * u2 + u) + c[1][i] * (-2 * u3 + 3 * u2)
+                + (after[i] - a[1][i]) * 0.5 * (u3 - u2) for i in range(len(a[1]))]
+    return mix(a[1], c[1], u)
+
+
+class MRampAttribute:
+    kNone = 0
+    kLinear = 1
+    kSmooth = 2
+    kSpline = 3
+
+    @staticmethod
+    def _create(longName, shortName, color):
+        fc = MFnCompoundAttribute()
+        o = fc.create(longName, shortName)
+        n = MFnNumericAttribute()
+        fc.addChild(n.create(longName + "_Position", shortName + "p", MFnNumericData.kFloat, 0.0))
+        if color:
+            fc.addChild(n.createColor(longName + "_Color", shortName + "c"))
+        else:
+            fc.addChild(n.create(longName + "_FloatValue", shortName + "fv", MFnNumericData.kFloat, 0.0))
+        e = MFnEnumAttribute()
+        i = e.create(longName + "_Interp", shortName + "i", 1)
+        for k, name in enumerate(("None", "Linear", "Smooth", "Spline")):
+            e.addField(name, k)
+        fc.addChild(i)
+        fc.array = True
+        o._attr["ramp"] = "color" if color else "curve"
+        return o
+
+    @staticmethod
+    def createCurveRamp(longName, shortName):
+        return MRampAttribute._create(longName, shortName, False)
+
+    @staticmethod
+    def createColorRamp(longName, shortName):
+        return MRampAttribute._create(longName, shortName, True)
+
+    def __init__(self, *args):
+        self._node = None
+        self._name = None
+        if len(args) == 1 and isinstance(args[0], MPlug):
+            p = args[0]
+            self._node = MFnDependencyNode(p.node()).name()
+            self._name = p.partialName(useLongNames=True).split("[")[0]
+        elif len(args) == 2:
+            self._node = MFnDependencyNode(args[0]).name()
+            self._name = _attr_name(args[1])
+        elif len(args) == 1 and isinstance(args[0], MRampAttribute):
+            self._node, self._name = args[0]._node, args[0]._name
+        if self._name is not None and "." in self._name:
+            self._name = self._name.split(".")[-1]
+
+    def _kids(self):
+        color = self._value_kid().endswith("_Color")
+        return self._name + "_Position", self._value_kid(), self._name + "_Interp", color
+
+    def _value_kid(self):
+        if getattr(self, "_vk", None) is None:
+            try:
+                _cmds.getAttr("%s.%s[0].%s_Color" % (self._node, self._name, self._name))
+                self._vk = self._name + "_Color"
+            except Exception:
+                self._vk = self._name + "_FloatValue"
+                ctx = getattr(_compute_local, "ctx", None)
+                if ctx is not None and (self._name + "." + self._name + "_Color") in ctx["values"]:
+                    self._vk = self._name + "_Color"
+        return self._vk
+
+    def _entries(self):
+        """{index: [position, value (a list), interp]}"""
+        pos, val, interp, color = self._kids()
+        ctx = getattr(_compute_local, "ctx", None)
+        out = {}
+        if ctx is not None and self._node and ctx["name"].split("|")[-1] == self._node.split("|")[-1]:
+            vals = ctx["values"]
+            g = self._name + "."
+            for k, v in vals.get(g + pos) or []:
+                out.setdefault(k, [0.0, [0.0, 0.0, 0.0] if color else [0.0], 1])[0] = float(v or 0.0)
+            for k, v in vals.get(g + val) or []:
+                e = out.setdefault(k, [0.0, [0.0, 0.0, 0.0] if color else [0.0], 1])
+                e[1] = list(v) if isinstance(v, (list, tuple)) else [float(v or 0.0)]
+            for k, v in vals.get(g + interp) or []:
+                out.setdefault(k, [0.0, [0.0, 0.0, 0.0] if color else [0.0], 1])[2] = int(v or 0)
+            return out
+        ids = _cmds.getAttr("%s.%s" % (self._node, self._name), multiIndices=True) or []
+        for k in ids:
+            base = "%s.%s[%d]." % (self._node, self._name, k)
+            v = _cmds.getAttr(base + val)
+            if isinstance(v, list) and v and isinstance(v[0], (list, tuple)):
+                v = list(v[0])
+            out[k] = [float(_cmds.getAttr(base + pos)), v if isinstance(v, list) else [float(v)], int(_cmds.getAttr(base + interp))]
+        return out
+
+    def _sorted(self):
+        return sorted(([e[0], e[1], e[2]] for e in self._entries().values()), key=lambda e: e[0])
+
+    def isCurveRamp(self):
+        return not self._kids()[3]
+
+    def isColorRamp(self):
+        return self._kids()[3]
+
+    def numEntries(self):
+        return len(self._entries())
+
+    def getEntries(self):
+        e = self._entries()
+        ids = sorted(e)
+        color = self._kids()[3]
+        values = MColorArray([MColor(e[k][1]) for k in ids]) if color else MFloatArray([e[k][1][0] for k in ids])
+        return MIntArray(ids), MFloatArray([e[k][0] for k in ids]), values, MIntArray([e[k][2] for k in ids])
+
+    def getValueAtPosition(self, position):
+        v = _ramp_eval(self._sorted(), float(position))
+        return 0.0 if v is None else float(v[0])
+
+    def getColorAtPosition(self, position):
+        v = _ramp_eval(self._sorted(), float(position))
+        return MColor() if v is None else MColor(v[0], v[1], v[2])
+
+    def hasIndex(self, index):
+        return index in self._entries()
+
+    def _set(self, index, kid, value):
+        attr = "%s.%s[%d].%s" % (self._node, self._name, index, kid)
+        if isinstance(value, (list, tuple)):
+            _cmds.setAttr(attr, *value, type="double3")
+        else:
+            _cmds.setAttr(attr, value)
+
+    def setPositionAtIndex(self, position, index):
+        self._set(index, self._kids()[0], float(position))
+
+    def setValueAtIndex(self, value, index):
+        self._set(index, self._kids()[1], float(value))
+
+    def setColorAtIndex(self, color, index):
+        self._set(index, self._kids()[1], [color.r, color.g, color.b])
+
+    def setInterpolationAtIndex(self, interp, index):
+        self._set(index, self._kids()[2], int(interp))
+
+    def addEntries(self, positions, values, interps):
+        e = self._entries()
+        nxt = (max(e) + 1) if e else 0
+        color = self._kids()[3]
+        for i in range(len(positions)):
+            k = nxt + i
+            self.setPositionAtIndex(positions[i], k)
+            if color:
+                self.setColorAtIndex(values[i], k)
+            else:
+                self.setValueAtIndex(values[i], k)
+            self.setInterpolationAtIndex(interps[i], k)
+
+    def deleteEntries(self, indices):
+        if len(indices) >= self.numEntries():
+            _fail(status="kFailure", message="A ramp keeps at least one entry")
+        for k in indices:
+            _cmds.removeMultiInstance("%s.%s[%d]" % (self._node, self._name, k), b=True)
+
+    def setRamp(self, values, positions=None, interps=None):
+        """setRamp(value) sets every entry to one value; with positions and interps, the ramp becomes those points."""
+        if positions is None:
+            color = self._kids()[3]
+            for k in self._entries():
+                if color:
+                    self.setColorAtIndex(values, k)
+                else:
+                    self.setValueAtIndex(values, k)
+            return
+        for k in list(self._entries()):
+            _cmds.removeMultiInstance("%s.%s[%d]" % (self._node, self._name, k), b=True)
+        self.addEntries(positions, values, interps)
+
+    def sort(self, ascending=True):
+        pts = sorted(self._entries().values(), key=lambda e: e[0], reverse=not ascending)
+        positions = [p[0] for p in pts]
+        color = self._kids()[3]
+        values = [MColor(p[1]) for p in pts] if color else [p[1][0] for p in pts]
+        self.setRamp(values, positions, [p[2] for p in pts])
+
+    def pack(self):
+        self.sort()
+
+    @staticmethod
+    def createRamp(*a):
+        _fail(status="kNotImplemented", message="createRamp: use createCurveRamp or createColorRamp")
+
+
+
+class MPxFileTranslator:
+    """A file type of a plug-in's own: file -open, -import, -exportAll and -exportSelected with its type (or a file
+    with its extension) run reader() or writer()."""
+
+    kUnknownAccessMode = 0
+    kOpenAccessMode = 1
+    kReferenceAccessMode = 2
+    kImportAccessMode = 3
+    kSaveAccessMode = 4
+    kExportAccessMode = 5
+    kExportActiveAccessMode = 6
+    kNotMyFileType = 0
+    kIsMyFileType = 1
+    kCouldBeMyFileType = 2
+    kNone = 0
+    kOverwriteFile = 1
+    kOpen = 1
+    kImport = 3
+    kReference = 2
+
+    _mode = 0
+
+    def __init__(self):
+        pass
+
+    def haveReadMethod(self):
+        return False
+
+    def haveWriteMethod(self):
+        return False
+
+    def haveReferenceMethod(self):
+        return False
+
+    def haveNamespaceSupport(self):
+        return False
+
+    def canBeOpened(self):
+        return True
+
+    def defaultExtension(self):
+        return ""
+
+    def filter(self):
+        ext = self.defaultExtension()
+        return "*." + ext if ext else "*.*"
+
+    def identifyFile(self, file, buffer, size):
+        return MPxFileTranslator.kNotMyFileType
+
+    def reader(self, file, optionsString, mode):
+        _fail(status="kNotImplemented", message="This translator has no reader")
+
+    def writer(self, file, optionsString, mode):
+        _fail(status="kNotImplemented", message="This translator has no writer")
+
+    def allowMultipleFileOptimization(self):
+        return False
+
+    @staticmethod
+    def fileAccessMode():
+        return MPxFileTranslator._mode

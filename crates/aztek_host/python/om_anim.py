@@ -23,6 +23,9 @@ from aztek.api.OpenAztek import (
 # The API's commands: in stored units, as its values are.
 from aztek.api.OpenAztek import _cmds
 
+# Deformers, as the reference has them in OpenMayaAnim.
+from aztek.api.OpenAztek import _MPxGeometryFilter as MPxGeometryFilter, _MPxDeformerNode as MPxDeformerNode
+
 
 class MFnSkinCluster(MFnDependencyNode):
     def _check(self, obj):

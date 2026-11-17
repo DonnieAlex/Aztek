@@ -1,6 +1,7 @@
 // Smaller pieces of the main window: option boxes, the time and range sliders, the command line, the hotbox and
 // the preferences window.
 #pragma once
+#include <QColor>
 #include <QDialog>
 #include <QHash>
 #include <QJsonObject>
@@ -76,8 +77,21 @@ public:
     void set_tick_width(int w) { tick_width_ = w; update(); }
     void set_ticks_shown(bool on) { ticks_shown_ = on; update(); }
     QString range_text() const;
+    // Time Slider bookmarks: node, name, first and last frame, colour.
+    struct Bookmark {
+        QString node, name;
+        double start = 1, stop = 1;
+        QColor color;
+    };
+    void set_bookmarks(const QVector<Bookmark>& b);
+    const QVector<Bookmark>& bookmarks() const { return bookmarks_; }
+    bool bookmarks_shown = true;
+    // The range picked with Shift-drag, or the current frame when there is none.
+    std::pair<double, double> picked_range() const;
 signals:
     void timeChanged(double t);
+    // A bookmark Ctrl-dragged: its node, new first and last frame.
+    void bookmarkMoved(const QString& node, double start, double stop);
     // A selected range was dragged by this many frames.
     void rangeMoved(double from, double to, double by);
     void contextMenuAt(QPoint global);
@@ -98,6 +112,13 @@ private:
     bool selecting_ = false;
     bool moving_ = false;
     double move_from_ = 0, move_by_ = 0;
+    QVector<Bookmark> bookmarks_;
+    // Ctrl-drag of a bookmark: which, which part (0 middle, 1 start edge, 2 stop edge), by how much.
+    int bm_drag_ = -1, bm_part_ = 0;
+    double bm_from_ = 0, bm_by_ = 0;
+    int bookmark_at(double x, int* part) const;
+protected:
+    bool event(QEvent* e) override;
 };
 
 // The bar under the time slider: the playback range inside the animation range, dragged by its ends or middle.

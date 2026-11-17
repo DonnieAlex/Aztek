@@ -140,9 +140,11 @@ pub(super) fn translate(doc: &mut Doc) -> Vec<String> {
     let mut became: HashMap<usize, usize> = HashMap::new();
     let mut held: Vec<usize> = Vec::new();
     let mut dropped_parents = Vec::new();
+    // A file Aztek wrote: its hairSystem is Aztek's own, not the reference's to hold.
+    let ours = doc.requires.iter().any(|(n, _)| n == "aztekDynamics");
     for i in 0..count {
         let old = doc.nodes[i].ty.clone();
-        if is_held(&old) {
+        if is_held(&old) && !(ours && old == crate::hair::HAIR_SYSTEM) {
             held.push(i);
             continue;
         }

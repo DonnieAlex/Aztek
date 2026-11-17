@@ -17,6 +17,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
+#include <QSlider>
+#include <QDateTime>
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWheelEvent>
@@ -76,6 +78,7 @@ void UvCanvas::set_data(const QJsonObject& d) {
             f.shell = a[1].toInt();
             for (const QJsonValue& x : a[2].toArray()) f.maps.append(x.toInt());
             for (const QJsonValue& x : a[3].toArray()) f.edges.append(x.toInt());
+            f.area3d = a.size() > 4 ? a[4].toDouble() : 0.0;
             m.faces.append(f);
         }
         for (const QJsonValue& bv : o["borders"].toArray()) {
@@ -164,7 +167,35 @@ void UvCanvas::set_tool(const QString& t) {
     }
     lasso_.clear();
     path_map_ = -1;
+    if (tool_ == "lattice") lattice_reset();
     update();
+}
+
+// A fresh lattice over the selected UVs, a little bigger than they are.
+void UvCanvas::lattice_reset() {
+    lat_pts_.clear();
+    QRectF b = selection_bounds();
+    if (b.isNull()) {
+        lat_box_ = QRectF();
+        return;
+    }
+    const double pad = std::max(b.width(), b.height()) * 0.05 + 1e-3;
+    lat_box_ = b.adjusted(-pad, -pad, pad, pad);
+    for (int j = 0; j < lat_n_; ++j)
+        for (int i = 0; i < lat_n_; ++i)
+            lat_pts_.append(QPointF(lat_box_.left() + lat_box_.width() * i / (lat_n_ - 1), lat_box_.top() + lat_box_.height() * j / (lat_n_ - 1)));
+}
+
+void UvCanvas::lattice_apply(bool final) {
+    if (applied_) aztek_retract();
+    applied_ = false;
+    if (lat_box_.isNull() || drag_targets_.isEmpty()) return;
+    QJsonArray pts;
+    for (const QPointF& p : lat_pts_) pts << p.x() << p.y();
+    const QJsonObject call{{"args", drag_targets_}, {"columns", lat_n_}, {"rows", lat_n_}, {"box", QJsonArray{lat_box_.left(), lat_box_.top(), lat_box_.right(), lat_box_.bottom()}}, {"points", pts}};
+    QJsonValue r = final ? exec("texLatticeUVs", call) : exec_quiet("texLatticeUVs", call);
+    applied_ = !final && !r.isUndefined();
+    Host::get()->poke();
 }
 
 // A left press with one of the tools that are not a manipulator. True when it was taken.
@@ -213,6 +244,22 @@ void UvCanvas::tool_press(QMouseEvent* e) {
                 }
         if (edge < 0) return;
         exec(ctrl ? "polyMapSew" : "polyMapCut", QJsonObject{{"args", QJsonArray{QString("%1.e[%2]").arg(mesh).arg(edge)}}});
+        Host::get()->poke();
+    } else if (tool_ == "sew") {
+        // The Sew brush: the edge clicked sewn.
+        double best = 8;
+        QString mesh;
+        int edge = -1;
+        for (const UvMesh& m : meshes_)
+            for (const auto& fc : m.faces)
+                for (int k = 0; k < fc.edges.size(); ++k) {
+                    QLineF l(to_screen(m.maps[fc.maps[k]]), to_screen(m.maps[fc.maps[(k + 1) % fc.maps.size()]]));
+                    double t = qBound(0.0, QPointF::dotProduct(pos - l.p1(), l.p2() - l.p1()) / qMax(1e-9, l.length() * l.length()), 1.0);
+                    double d = QLineF(l.pointAt(t), pos).length();
+                    if (d < best) best = d, mesh = m.path, edge = fc.edges[k];
+                }
+        if (edge < 0) return;
+        exec("polyMapSew", QJsonObject{{"args", QJsonArray{QString("%1.e[%2]").arg(mesh).arg(edge)}}});
         Host::get()->poke();
     } else if (tool_ == "path") {
         pick_path(pos);
@@ -336,7 +383,44 @@ QPointF UvCanvas::selection_center() const {
     return QPointF((lx + hx) / 2, (ly + hy) / 2);
 }
 
+QRectF UvCanvas::selection_bounds() const {
+    auto am = active_maps();
+    double lx = 1e18, ly = 1e18, hx = -1e18, hy = -1e18;
+    for (auto it = am.begin(); it != am.end(); ++it)
+        for (int id : it.value()) {
+            QPointF p = meshes_[it.key()].maps[id];
+            lx = qMin(lx, p.x()), ly = qMin(ly, p.y()), hx = qMax(hx, p.x()), hy = qMax(hy, p.y());
+        }
+    if (lx > hx) return QRectF();
+    return QRectF(QPointF(lx, ly), QPointF(hx, hy));
+}
+
+void UvCanvas::remember_view() {
+    // Steps a moment apart are one change, as a wheel's turn is.
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (!view_back_.isEmpty() && now - last_view_push_ < 400) {
+        last_view_push_ = now;
+        return;
+    }
+    last_view_push_ = now;
+    view_back_.append({center_, scale_});
+    if (view_back_.size() > 100) view_back_.removeFirst();
+    view_ahead_.clear();
+}
+
+void UvCanvas::undo_view(bool redo) {
+    QVector<ViewState>& from = redo ? view_ahead_ : view_back_;
+    QVector<ViewState>& to = redo ? view_back_ : view_ahead_;
+    if (from.isEmpty()) return;
+    to.append({center_, scale_});
+    const ViewState v = from.takeLast();
+    center_ = v.center;
+    scale_ = v.scale;
+    update();
+}
+
 void UvCanvas::frame(bool selected) {
+    remember_view();
     double lx = 1e18, ly = 1e18, hx = -1e18, hy = -1e18;
     auto am = active_maps();
     for (int mi = 0; mi < meshes_.size(); ++mi)
@@ -389,23 +473,47 @@ void UvCanvas::paintEvent(QPaintEvent*) {
     if (show_image && !image_.isNull() && image_repeat_.x() > 0 && image_repeat_.y() > 0) {
         double tu = 1.0 / image_repeat_.x(), tv = 1.0 / image_repeat_.y();
         double u0 = -image_offset_.x() * tu, v0 = -image_offset_.y() * tv;
+        // The channels and range asked for: RGB drops the alpha, Alpha shows it as grey; Image Range stretches the
+        // values between its ends to the whole range.
+        QImage shown = image_;
+        if (image_channels != 1 || image_lo > 0.0 || image_hi < 1.0 || image_exposure != 0.0 || image_gamma != 1.0) {
+            shown = image_.convertToFormat(QImage::Format_RGBA8888);
+            const double span = std::max(image_hi - image_lo, 1e-6);
+            const double gain = std::pow(2.0, image_exposure), inv_gamma = 1.0 / std::max(image_gamma, 1e-3);
+            auto range = [&](int c) {
+                const double x = std::clamp((c / 255.0 * gain - image_lo) / span, 0.0, 1.0);
+                return int(std::pow(x, inv_gamma) * 255.0 + 0.5);
+            };
+            for (int y = 0; y < shown.height(); ++y) {
+                uchar* row = shown.scanLine(y);
+                for (int x = 0; x < shown.width(); ++x) {
+                    uchar* px = row + x * 4;
+                    if (image_channels == 2) px[0] = px[1] = px[2] = px[3];
+                    for (int k = 0; k < 3; ++k) px[k] = uchar(range(px[k]));
+                    if (image_channels != 1) px[3] = 255;
+                }
+            }
+        }
+        // Image Ratio: the image keeps its own proportions, its height fitted to the tile.
+        double ratio = image_ratio && shown.height() > 0 ? double(shown.width()) / shown.height() : 1.0;
         p.save();
-        p.setClipRect(unit);
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
+        p.setClipRect(image_ratio ? QRectF(to_screen(QPointF(0, 1)), to_screen(QPointF(ratio, 0))) : unit);
+        p.setRenderHint(QPainter::SmoothPixmapTransform, !image_unfiltered);
+        p.setOpacity((dim_image ? 0.45 : 1.0) * image_opacity);
         for (double v = v0 - std::ceil(v0 / tv) * tv; v < 1.0; v += tv)
-            for (double u = u0 - std::ceil(u0 / tu) * tu; u < 1.0; u += tu)
-                p.drawImage(QRectF(to_screen(QPointF(u, v + tv)), to_screen(QPointF(u + tu, v))), image_);
+            for (double u = u0 - std::ceil(u0 / tu) * tu; u < ratio; u += tu)
+                p.drawImage(QRectF(to_screen(QPointF(u, v + tv)), to_screen(QPointF(u + tu * ratio, v))), shown);
         p.restore();
     }
     QPointF lo = to_uv(QPointF(0, height())), hi = to_uv(QPointF(width(), 0));
     double step = scale_ > 150 ? 0.1 : 1.0;
-    for (double u = std::floor(lo.x() / step) * step; u <= hi.x(); u += step) {
+    for (double u = std::floor(lo.x() / step) * step; show_grid && u <= hi.x(); u += step) {
         bool whole = std::abs(u - std::round(u)) < 1e-6;
         p.setPen(whole ? QColor(40, 40, 40) : QColor(86, 86, 86));
         double x = to_screen(QPointF(u, 0)).x();
         p.drawLine(QPointF(x, 0), QPointF(x, height()));
     }
-    for (double v = std::floor(lo.y() / step) * step; v <= hi.y(); v += step) {
+    for (double v = std::floor(lo.y() / step) * step; show_grid && v <= hi.y(); v += step) {
         bool whole = std::abs(v - std::round(v)) < 1e-6;
         p.setPen(whole ? QColor(40, 40, 40) : QColor(86, 86, 86));
         double y = to_screen(QPointF(0, v)).y();
@@ -446,10 +554,34 @@ void UvCanvas::paintEvent(QPaintEvent*) {
     auto am = active_maps();
     for (int mi = 0; mi < meshes_.size(); ++mi) {
         const UvMesh& m = meshes_[mi];
+        // UV Distortion: each face's share of the UVs against its share of the surface. Red where the texture
+        // stretches (less UV than surface), blue where it squeezes, white where it is even.
+        auto uv_area = [&m](const UvMesh::Face& fc) {
+            double a = 0;
+            for (int k = 0; k < fc.maps.size(); ++k) {
+                const QPointF p = m.maps[fc.maps[k]], q = m.maps[fc.maps[(k + 1) % fc.maps.size()]];
+                a += p.x() * q.y() - q.x() * p.y();
+            }
+            return std::abs(a) * 0.5;
+        };
+        double uv_total = 0, surf_total = 0;
+        if (show_distortion)
+            for (const auto& fc : m.faces) {
+                uv_total += uv_area(fc);
+                surf_total += fc.area3d;
+            }
         // Faces.
         for (const auto& fc : m.faces) {
             QPolygonF poly;
             for (int id : fc.maps) poly << to_screen(m.maps[id]);
+            if (show_distortion && uv_total > 0 && surf_total > 0 && fc.area3d > 0) {
+                const double r = std::log2(std::max(uv_area(fc) / uv_total, 1e-12) / (fc.area3d / surf_total));
+                const double t = std::clamp(std::abs(r) / 2.0, 0.0, 1.0);
+                const QColor c = r < 0 ? QColor(255, int(255 * (1 - t)), int(255 * (1 - t)), 150) : QColor(int(255 * (1 - t)), int(255 * (1 - t)), 255, 150);
+                p.setPen(Qt::NoPen);
+                p.setBrush(c);
+                p.drawPolygon(poly);
+            }
             // A UV shell picked whole shows as a block, the way faces do.
             bool sel = (mode_ == "face" && m.sel_faces.contains(fc.id)) || (mode_ == "shell" && !fc.maps.isEmpty() && std::all_of(fc.maps.begin(), fc.maps.end(), [&](int id) { return am.value(mi).contains(id); }));
             if (sel) {
@@ -465,9 +597,19 @@ void UvCanvas::paintEvent(QPaintEvent*) {
             p.setBrush(Qt::NoBrush);
             p.drawPolygon(poly);
         }
-        // Where UVs split: thicker, as the reference's texture borders.
-        p.setPen(QPen(QColor(235, 235, 245), 2));
-        for (auto& b : m.borders) p.drawLine(to_screen(m.maps[b[0]]), to_screen(m.maps[b[1]]));
+        // Where UVs split: thicker, as the reference's texture borders; with shell borders on, each shell's own colour.
+        if (show_texture_borders || show_shell_borders) {
+            QHash<int, int> shell_of;
+            if (show_shell_borders)
+                for (const auto& fc : m.faces)
+                    for (int id : fc.maps) shell_of.insert(id, fc.shell);
+            for (auto& b : m.borders) {
+                QColor c(235, 235, 245);
+                if (show_shell_borders) c = QColor::fromHsv((shell_of.value(b[0]) * 67) % 360, 200, 255);
+                p.setPen(QPen(c, show_texture_borders ? 2 : 1.2));
+                p.drawLine(to_screen(m.maps[b[0]]), to_screen(m.maps[b[1]]));
+            }
+        }
         if (mode_ == "edge") {
             p.setPen(QPen(QColor(255, 150, 30), 2.5));
             for (const auto& fc : m.faces)
@@ -515,6 +657,36 @@ void UvCanvas::paintEvent(QPaintEvent*) {
             p.fillRect(QRectF(o.x() - 4, o.y() - 64, 8, 8), QColor(80, 220, 80));
             p.fillRect(QRectF(o.x() - 6, o.y() - 6, 12, 12), QColor(240, 220, 60));
         }
+    }
+    if (tool_ == "lattice" && !lat_box_.isNull() && lat_pts_.size() == lat_n_ * lat_n_) {
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(QColor(160, 90, 230), 1.5));
+        for (int j = 0; j < lat_n_; ++j)
+            for (int i = 0; i < lat_n_; ++i) {
+                const QPointF a = to_screen(lat_pts_[j * lat_n_ + i]);
+                if (i + 1 < lat_n_) p.drawLine(a, to_screen(lat_pts_[j * lat_n_ + i + 1]));
+                if (j + 1 < lat_n_) p.drawLine(a, to_screen(lat_pts_[(j + 1) * lat_n_ + i]));
+            }
+        p.setBrush(QColor(160, 90, 230));
+        for (const QPointF& q : lat_pts_) p.drawRect(QRectF(to_screen(q) - QPointF(3, 3), QSizeF(6, 6)));
+    }
+    if (has_pivot) {
+        // The Transform section's own pivot.
+        const QPointF o = to_screen(pivot_uv);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(QColor(250, 200, 60), 1.5));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(o, 5, 5);
+        p.drawLine(o + QPointF(-9, 0), o + QPointF(9, 0));
+        p.drawLine(o + QPointF(0, -9), o + QPointF(0, 9));
+    }
+    if (is_brush() && rect().contains(hover_.toPoint())) {
+        // The brush: its reach, and a dot where it presses.
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(QColor(250, 120, 40), 1.5));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(hover_, brush_px_, brush_px_);
+        p.drawEllipse(hover_, 1.5, 1.5);
     }
     if (drag_ == Mode::Marquee) {
         p.setPen(QPen(QColor(230, 230, 230), 1, Qt::DashLine));
@@ -671,10 +843,12 @@ void UvCanvas::mousePressEvent(QMouseEvent* e) {
     press_ = last_ = e->position();
     bool alt = e->modifiers() & Qt::AltModifier;
     if (alt && e->button() == Qt::MiddleButton) {
+        remember_view();
         drag_ = Mode::Pan;
         return;
     }
     if (alt && e->button() == Qt::RightButton) {
+        remember_view();
         drag_ = Mode::Zoom;
         return;
     }
@@ -682,7 +856,45 @@ void UvCanvas::mousePressEvent(QMouseEvent* e) {
         mode_menu(e->globalPosition().toPoint());
         return;
     }
-    if (e->button() == Qt::LeftButton && (tool_ == "lasso" || tool_ == "window" || tool_ == "tweak" || tool_ == "cut" || tool_ == "path" || tool_ == "smooth")) {
+    if (e->button() == Qt::LeftButton && editing_pivot) {
+        pivot_uv = to_uv(e->position());
+        has_pivot = true;
+        editing_pivot = false;
+        update();
+        return;
+    }
+    if (e->button() == Qt::LeftButton && tool_ == "lattice") {
+        if (lat_box_.isNull()) lattice_reset();
+        lat_drag_ = -1;
+        double best = 9;
+        for (int k = 0; k < lat_pts_.size(); ++k) {
+            const double d = QLineF(to_screen(lat_pts_[k]), e->position()).length();
+            if (d < best) best = d, lat_drag_ = k;
+        }
+        if (lat_drag_ >= 0) {
+            drag_ = Mode::Lattice;
+            drag_targets_ = targets();
+            applied_ = false;
+        } else {
+            drag_ = Mode::Marquee;
+        }
+        return;
+    }
+    if (e->button() == Qt::LeftButton && is_brush()) {
+        // B held: drag to size the brush. Otherwise a stroke.
+        if (b_held_) {
+            drag_ = Mode::BrushSize;
+            return;
+        }
+        drag_ = Mode::Brush;
+        stroke_ = QJsonArray();
+        const QPointF uv = to_uv(e->position());
+        stroke_ << uv.x() << uv.y() << 0.0 << 0.0;
+        applied_ = false;
+        brush_apply(false);
+        return;
+    }
+    if (e->button() == Qt::LeftButton && (tool_ == "lasso" || tool_ == "window" || tool_ == "tweak" || tool_ == "cut" || tool_ == "sew" || tool_ == "path" || tool_ == "smooth")) {
         tool_press(e);
         return;
     }
@@ -734,6 +946,24 @@ void UvCanvas::drag_to(QPointF pos, bool final) {
     }
 }
 
+// The stroke so far run as one brush command: the last preview taken back first, so a stroke is one undo.
+void UvCanvas::brush_apply(bool final) {
+    if (applied_) aztek_retract();
+    applied_ = false;
+    QJsonArray meshes;
+    for (const UvMesh& m : meshes_) meshes.append(m.path);
+    if (meshes.isEmpty() || stroke_.isEmpty()) return;
+    const QJsonObject call{{"args", meshes}, {"mode", tool_.mid(6)}, {"radius", brush_px_ / scale_}, {"samples", stroke_}};
+    QJsonValue r = final ? exec("texBrushUVs", call) : exec_quiet("texBrushUVs", call);
+    applied_ = !final && !r.isUndefined();
+    Host::get()->poke();
+}
+
+void UvCanvas::keyReleaseEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_B && !e->isAutoRepeat()) b_held_ = false;
+    QWidget::keyReleaseEvent(e);
+}
+
 void UvCanvas::mouseMoveEvent(QMouseEvent* e) {
     QPointF pos = e->position();
     QPointF d = pos - last_;
@@ -754,7 +984,29 @@ void UvCanvas::mouseMoveEvent(QMouseEvent* e) {
         update();
         break;
     case Mode::Drag: drag_to(pos, false); break;
+    case Mode::Lattice:
+        if (lat_drag_ >= 0 && lat_drag_ < lat_pts_.size()) {
+            lat_pts_[lat_drag_] = to_uv(pos);
+            lattice_apply(false);
+            update();
+        }
+        break;
+    case Mode::BrushSize:
+        brush_px_ = qBound(4.0, brush_px_ + d.x(), 600.0);
+        update();
+        break;
+    case Mode::Brush: {
+        if (QLineF(last_, pos).length() < 2) return;
+        const QPointF uv = to_uv(pos), was = to_uv(last_);
+        stroke_ << uv.x() << uv.y() << uv.x() - was.x() << uv.y() - was.y();
+        brush_apply(false);
+        break;
+    }
     default: break;
+    }
+    if (is_brush()) {
+        hover_ = pos;
+        update();
     }
     last_ = pos;
 }
@@ -765,11 +1017,23 @@ void UvCanvas::mouseReleaseEvent(QMouseEvent* e) {
     } else if (drag_ == Mode::Marquee) {
         bool rect = QLineF(press_, e->position()).length() > 4;
         pick(press_, e->position(), rect, e->modifiers());
+        if (tool_ == "lattice") lattice_reset();
+    } else if (drag_ == Mode::Lattice) {
+        lattice_apply(true);
+        lat_drag_ = -1;
+        // The next drag starts from a fresh lattice over where the UVs are now.
+        QTimer::singleShot(150, this, [this] { lattice_reset(); update(); });
+    } else if (drag_ == Mode::Brush) {
+        brush_apply(true);
+        stroke_ = QJsonArray();
     } else if (drag_ == Mode::Drag) {
         if (applied_) {
             aztek_retract();
             applied_ = false;
             drag_to(e->position(), true);
+            // Pixel Snap: the moved UVs onto the image's pixel corners.
+            if (pixel_snap && !image_.isNull() && !drag_targets_.isEmpty())
+                exec("texMatchGrid", QJsonObject{{"args", drag_targets_}, {"gridU", image_.width()}, {"gridV", image_.height()}});
         }
     }
     drag_ = Mode::None;
@@ -777,6 +1041,7 @@ void UvCanvas::mouseReleaseEvent(QMouseEvent* e) {
 }
 
 void UvCanvas::wheelEvent(QWheelEvent* e) {
+    remember_view();
     QPointF at = e->position();
     QPointF before = to_uv(at);
     scale_ = qBound(5.0, scale_ * std::exp(e->angleDelta().y() / 120.0 * 0.15), 1e6);
@@ -811,7 +1076,22 @@ void UvCanvas::keyPressEvent(QKeyEvent* e) {
         exec("undo");
         return;
     }
+    if (e->key() == Qt::Key_B && !e->isAutoRepeat()) {
+        b_held_ = true;
+        return;
+    }
+    if (e->key() == Qt::Key_Insert) {
+        // Edit Pivot on and off, as the reference's Insert.
+        editing_pivot = !editing_pivot;
+        return;
+    }
     switch (e->key()) {
+    case Qt::Key_4: shaded = false; update(); return;
+    case Qt::Key_5: shaded = true; update(); return;
+    case Qt::Key_6: show_image = !show_image; update(); return;
+    case Qt::Key_7: show_distortion = !show_distortion; update(); return;
+    case Qt::Key_8: show_shell_borders = !show_shell_borders; update(); return;
+    case Qt::Key_9: show_texture_borders = !show_texture_borders; update(); return;
     case Qt::Key_F: frame(true); return;
     case Qt::Key_A: frame(false); return;
     case Qt::Key_Q: set_tool("select"); return;
@@ -985,6 +1265,64 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
     });
     shade->setCheckable(true);
     shade->setChecked(true);
+    // The reference's display bar: what draws, the image's channels and strength, exposure and gamma.
+    auto* show_bar = new QToolBar(this);
+    auto flag = [this, show_bar](const QString& label, const QString& tip, bool* f) {
+        QAction* a = show_bar->addAction(label, [this, f](bool on) {
+            *f = on;
+            canvas_->update();
+        });
+        a->setCheckable(true);
+        a->setChecked(*f);
+        a->setToolTip(tip);
+        return a;
+    };
+    flag("Distortion", "UV Distortion (7): red where the texture stretches, blue where it squeezes", &canvas_->show_distortion);
+    flag("Shell Borders", "Toggle Shell Borders (8): each shell's border in its own colour", &canvas_->show_shell_borders);
+    flag("Borders", "Texture Borders (9)", &canvas_->show_texture_borders);
+    flag("Grid", "Grid", &canvas_->show_grid);
+    flag("Pixel Snap", "Pixel Snap: moved UVs land on the image's pixel corners", &canvas_->pixel_snap);
+    show_bar->addSeparator();
+    QAction* alpha = show_bar->addAction("A", [this](bool on) {
+        canvas_->image_channels = on ? 2 : 1;
+        canvas_->update();
+    });
+    alpha->setCheckable(true);
+    alpha->setToolTip("The image's alpha channel");
+    auto* dim = new QSlider(Qt::Horizontal, show_bar);
+    dim->setRange(0, 100);
+    dim->setValue(100);
+    dim->setMaximumWidth(90);
+    dim->setToolTip("How strongly the image shows");
+    connect(dim, &QSlider::valueChanged, this, [this](int v) {
+        canvas_->image_opacity = v / 100.0;
+        canvas_->update();
+    });
+    show_bar->addWidget(dim);
+    show_bar->addSeparator();
+    auto* exposure = new QDoubleSpinBox(show_bar);
+    exposure->setRange(-20, 20);
+    exposure->setDecimals(2);
+    exposure->setSingleStep(0.1);
+    exposure->setToolTip("Exposure, in stops");
+    connect(exposure, &QDoubleSpinBox::valueChanged, this, [this](double v) {
+        canvas_->image_exposure = v;
+        canvas_->update();
+    });
+    auto* gamma = new QDoubleSpinBox(show_bar);
+    gamma->setRange(0.01, 10);
+    gamma->setDecimals(2);
+    gamma->setSingleStep(0.1);
+    gamma->setValue(1.0);
+    gamma->setToolTip("Gamma");
+    connect(gamma, &QDoubleSpinBox::valueChanged, this, [this](double v) {
+        canvas_->image_gamma = v;
+        canvas_->update();
+    });
+    show_bar->addWidget(new QLabel(" Exposure ", show_bar));
+    show_bar->addWidget(exposure);
+    show_bar->addWidget(new QLabel(" Gamma ", show_bar));
+    show_bar->addWidget(gamma);
     // The UV set shown: the current one of the mesh worked on. Picking another makes that one current.
     // On a bar of its own, so it is there however narrow the window is.
     auto* tools_bar = bar;
@@ -1000,12 +1338,16 @@ UvEditor::UvEditor(QWidget* parent) : QWidget(parent) {
         Host::get()->poke();
     });
     bar->addWidget(uv_set_);
+    bar->addSeparator();
+    bar->addWidget(show_bar);
+    toolkit_ = build_toolkit();
+    v->addWidget(build_menu_bar());
     v->addWidget(tools_bar);
     v->addWidget(bar);
     // The canvas, and the UV Toolkit beside it (#108).
     auto* split = new QSplitter(Qt::Horizontal, this);
     split->addWidget(canvas_);
-    split->addWidget(build_toolkit());
+    split->addWidget(toolkit_);
     split->setStretchFactor(0, 1);
     split->setStretchFactor(1, 0);
     v->addWidget(split, 1);

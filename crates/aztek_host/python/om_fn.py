@@ -387,6 +387,12 @@ class MFnDependencyNode(MFnBase):
             if a in d["children"] or a in d["childShort"]:
                 i = d["children"].index(a) if a in d["children"] else d["childShort"].index(a)
                 return _attr_object(self._id(), d["children"][i], "float")
+        # An array of compounds (a ramp's, a plug-in's): held as its children, group.child.
+        for d in attrs:
+            for key in ("long", "short"):
+                head, dot, _ = d[key].partition(".")
+                if dot and head == a:
+                    return _attr_object(self._id(), d["long"].partition(".")[0], "compound")
         _fail(message="Cannot find attribute named '%s'" % (a,))
 
     def hasAttribute(self, name):
@@ -780,8 +786,16 @@ class MFnTransform(MFnDagNode):
         s = self.scale()
         return self.setScale([s[0] * seq[0], s[1] * seq[1], s[2] * seq[2]])
 
-    def shear(self):
-        return [0.0, 0.0, 0.0]
+    def shear(self, space=MSpace.kTransform):
+        return list(_vec_attr(self._attr("shear")))
+
+    def setShear(self, seq, space=MSpace.kTransform):
+        _set_vec_attr(self._attr("shear"), list(seq))
+        return self
+
+    def shearBy(self, seq, space=MSpace.kTransform):
+        s = self.shear()
+        return self.setShear([s[0] * seq[0], s[1] * seq[1], s[2] * seq[2]])
 
     # Pivots
 
@@ -898,13 +912,26 @@ class MFnMesh(MFnDagNode):
             self._path = path
             self._obj = path.node()
             return self
+        if isinstance(obj, MObject) and obj._kind == "data" and obj._fn == MFn.kMeshData:
+            # A mesh as a value (a compute's mesh attribute, MFnMeshData's object): no node behind it.
+            self._obj = MObject(obj)
+            self._path = None
+            return self
         if not isinstance(obj, MObject) or not obj.hasFn(MFn.kMesh):
             _fail()
         self._obj = MObject(obj)
         self._path = None
         return self
 
+    def _is_data(self):
+        return self._obj._kind == "data" and self._obj._fn == MFn.kMeshData
+
     def _m(self):
+        if self._is_data():
+            h = self._obj._data
+            if h.m is None:
+                _fail(message="The mesh data holds no mesh yet")
+            return h.m
         return _mesh_data(self._id())
 
     @staticmethod
@@ -922,6 +949,18 @@ class MFnMesh(MFnDagNode):
     # Making one
 
     def create(self, vertices, polygonCounts, polygonConnects, uValues=None, vValues=None, parent=None):
+        if parent is not None and isinstance(parent, MObject) and parent._kind == "data" and parent._fn == MFn.kMeshData:
+            # Into mesh data: a value, made here, that a compute hands on through its output.
+            flat = []
+            for p in vertices:
+                flat.extend((float(p[0]), float(p[1]), float(p[2])))
+            # UVs one per corner come in with it; others wait for assignUVs, which data doesn't take here.
+            per_corner = uValues is not None and vValues is not None and len(uValues) == len(polygonConnects) == len(vValues)
+            uv = (list(map(float, uValues)), list(map(float, vValues))) if per_corner else (None, None)
+            parent._data.set(_az.mesh_from_arrays(flat, [int(c) for c in polygonCounts], [int(c) for c in polygonConnects], uv[0], uv[1], None))
+            self._obj = MObject(parent)
+            self._path = None
+            return MObject(parent)
         pts = [[p[0], p[1], p[2]] for p in vertices]
         faces = []
         at = 0
@@ -971,10 +1010,13 @@ class MFnMesh(MFnDagNode):
         return _CInt(len(self._m().normal_ids()[1]))
 
     def numUVs(self, uvSet=""):
+        other = self._other_set(uvSet)
+        if other is not None:
+            return len(other[1]) // 2
         return self._m().num_uvs
 
     def numUVSets(self):
-        return 1
+        return len(self.getUVSetNames())
 
     @property
     def numColorSets(self):
@@ -1024,6 +1066,14 @@ class MFnMesh(MFnDagNode):
 
     def setPoints(self, points, space=MSpace.kObject):
         m = self._m()
+        if self._is_data():
+            if len(points) != m.num_vertices:
+                _fail(message="Mesh has %d vertices, got %d points" % (m.num_vertices, len(points)))
+            flat = []
+            for p in points:
+                flat.extend((float(p[0]), float(p[1]), float(p[2])))
+            self._obj._data.reshape(flat)
+            return self
         if len(points) != m.num_vertices:
             _fail(message="Mesh has %d vertices, got %d points" % (m.num_vertices, len(points)))
         flat = [0.0] * (3 * len(points))
@@ -1056,6 +1106,13 @@ class MFnMesh(MFnDagNode):
 
     def setPoint(self, index, point, space=MSpace.kObject):
         m = self._m()
+        if self._is_data():
+            if not 0 <= index < m.num_vertices:
+                _fail(message="Vertex index out of range")
+            flat = list(m.points)
+            flat[index * 3 : index * 3 + 3] = [float(point[0]), float(point[1]), float(point[2])]
+            self._obj._data.reshape(flat)
+            return self
         if not 0 <= index < m.num_vertices:
             _fail(message="Vertex index out of range")
         q = m.to_object(point, space)
@@ -1159,17 +1216,52 @@ class MFnMesh(MFnDagNode):
     # UVs
 
     def getCurrentUVSetName(self, instance=-1):
-        return "map1"
+        return (_cmds.polyUVSet(self._nm(), q=True, currentUVSet=True) or ["map1"])[0]
+
+    currentUVSetName = getCurrentUVSetName
 
     def setCurrentUVSetName(self, name, modifier=None, currentSelection=None):
-        if name != "map1":
-            _fail(message="Only the set map1 exists")
+        if name not in self.getUVSetNames():
+            _fail(message="No UV set named %s" % (name,))
+        _cmds.polyUVSet(self._nm(), currentUVSet=True, uvSet=name)
         return self
 
     def getUVSetNames(self):
-        return ["map1"]
+        return list(_cmds.polyUVSet(self._nm(), q=True, allUVSets=True) or ["map1"])
+
+    def createUVSet(self, name, modifier=None, instance=None):
+        got = _cmds.polyUVSet(self._nm(), create=True, uvSet=name)
+        return got[0] if got else name
+
+    createUVSetWithName = createUVSet
+    createUVSetDataMesh = createUVSet
+
+    def deleteUVSet(self, name, modifier=None, currentSelection=None):
+        _cmds.polyUVSet(self._nm(), delete=True, uvSet=name)
+        return self
+
+    def renameUVSet(self, origName, newName, modifier=None):
+        _cmds.polyUVSet(self._nm(), rename=True, uvSet=origName, newUVSet=newName)
+        return self
+
+    def copyUVSet(self, fromName, toName, modifier=None):
+        got = _cmds.polyUVSet(self._nm(), copy=True, uvSet=fromName, newUVSet=toName)
+        return got[0] if got else toName
+
+    def _other_set(self, uvSet):
+        """A set other than the current one: (corner UV ids, UV values), or None for the current set."""
+        if not uvSet or uvSet == self.getCurrentUVSetName():
+            return None
+        try:
+            return _az.mesh_uv_set(self._id(), uvSet)
+        except RuntimeError as e:
+            _fail(message=str(e))
 
     def getUVs(self, uvSet=""):
+        other = self._other_set(uvSet)
+        if other is not None:
+            uvs = other[1]
+            return (MFloatArray(uvs[0::2]), MFloatArray(uvs[1::2]))
         m = self._m()
         if not m.has_uvs:
             return (MFloatArray(), MFloatArray())
@@ -1197,6 +1289,9 @@ class MFnMesh(MFnDagNode):
         return self
 
     def getAssignedUVs(self, uvSet=""):
+        other = self._other_set(uvSet)
+        if other is not None:
+            return (MIntArray(self._m().counts), MIntArray(other[0]))
         m = self._m()
         return (MIntArray(m.counts), MIntArray(m.corner_maps))
 
@@ -1946,6 +2041,45 @@ class MFnGenericAttribute(MFnAttribute):
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Data
+
+
+class _MeshValue:
+    """A mesh as a value: the key the host keeps it under and its arrays."""
+
+    def __init__(self, key=None, arrays=None):
+        self.key = None
+        self.m = None
+        if key is not None:
+            self.set((key, arrays))
+
+    def set(self, made):
+        key, arrays = made
+        self.key = key
+        self.m = _MeshData(arrays)
+        self.m._world = MMatrix()
+
+    def reshape(self, flat):
+        """New points on the same faces (and UVs)."""
+        m = self.m
+        us = vs = ids = None
+        if m.has_uvs and m.num_uvs:
+            us, vs, ids = list(m.map_uvs[0::2]), list(m.map_uvs[1::2]), list(m.corner_maps)
+        self.set(_az.mesh_from_arrays(flat, list(m.counts), list(m.connects), us, vs, ids))
+
+
+def _mesh_value_object(key):
+    """The MObject a mesh attribute's handle gives: mesh data."""
+    o = MObject()
+    o._kind, o._fn, o._data = "data", MFn.kMeshData, _MeshValue(key, _az.mesh_handoff_arrays(key))
+    return o
+
+
+class MFnMeshData(MFnBase):
+    def create(self):
+        o = MObject()
+        o._kind, o._fn, o._data = "data", MFn.kMeshData, _MeshValue()
+        self._obj = o
+        return MObject(o)
 
 
 class MFnMatrixData(MFnBase):

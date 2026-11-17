@@ -458,13 +458,18 @@ fn feeds_of(inputs: &BTreeMap<PlugRef, PlugRef>, p: &PlugRef) -> Vec<PlugRef> {
 /// worldMatrix doesn't depend on these, so what drives them may depend on the node. They are filled in once everything has computed.
 fn computes_nothing(ty: &NodeType, attr: i32) -> bool {
     let added = ty.attrs[attr as usize].has(flags::USER);
-    (ty.dag && (added || ((attr as usize) < crate::transform::DagNode::COUNT && attr as usize != Transform::PARENT_MATRIX))) || (added && ty.ignores_added_attrs)
+    (ty.dag && ((added && !ty.reads_added_attrs) || ((attr as usize) < crate::transform::DagNode::COUNT && attr as usize != Transform::PARENT_MATRIX))) || (added && ty.ignores_added_attrs)
 }
 
 /// transMinusRotatePivot on a transform: what is added to a position on a motion path to give translate, so it follows from the pivots
 /// alone. `motionPath.xc + obj.tmrx -> obj.tx` is no cycle in the reference.
 fn from_pivots(n: &Node, attr: i32) -> bool {
     attr as usize == Transform::TRANS_MINUS_ROTATE_PIVOT && n.data.ty.is_a("transform")
+}
+
+/// The plug an output mirrors (see `NodeType::mirrors`), if it is one.
+fn mirror_of(n: &Node, p: &PlugRef) -> Option<PlugRef> {
+    n.data.ty.mirrors.iter().find(|(o, _)| *o as i32 == p.attr).map(|&(_, i)| PlugRef { attr: i as i32, element: -1, component: p.component, ..*p })
 }
 
 fn pivot_plugs(p: &PlugRef) -> [PlugRef; 2] {
@@ -485,6 +490,9 @@ fn read_after(nodes: &IdMap<Box<Node>>, rel: &IdMap<Relations>, inputs: &BTreeMa
             read_after(nodes, rel, inputs, &q, out, depth + 1);
         }
         return;
+    }
+    if let Some(q) = mirror_of(n, p).filter(|_| depth <= 64) {
+        return read_after(nodes, rel, inputs, &q, out, depth + 1);
     }
     let pass = n.data.ty.attrs.get(p.attr as usize).is_some_and(passes_through);
     if !pass || depth > 64 {
@@ -524,6 +532,9 @@ fn resolve_input(nodes: &IdMap<Box<Node>>, rel: &IdMap<Relations>, inputs: &BTre
             (PlugValue::Float(x), PlugValue::Float(y)) => PlugValue::Float(-(x + y)),
             (x, y) => PlugValue::Vec3(-(x.as_vec3() + y.as_vec3())),
         };
+    }
+    if let Some(q) = mirror_of(n, p).filter(|_| depth <= 64) {
+        return resolve_input(nodes, rel, inputs, held, &q, depth + 1);
     }
     let a = &n.data.ty.attrs[p.attr as usize];
     if !passes_through(a) || depth > 64 {
@@ -2778,6 +2789,10 @@ impl Graph {
                 stack.extend(pivot_plugs(&p).map(|q| (q, direct)));
                 continue;
             }
+            if let Some(q) = mirror_of(n, &p) {
+                stack.push((q, direct));
+                continue;
+            }
             let a = &n.ty().attrs[p.attr as usize];
             if passes_through(a) {
                 let same_element = p.element < 0 || dst.element < 0 || p.element == dst.element;
@@ -3864,7 +3879,7 @@ impl Graph {
             let mut passed = HashMap::new();
             for id in level {
                 for (_, src) in inputs_of(&self.inputs, *id) {
-                    let pass = self.nodes.get(&src.node).is_some_and(|n| from_parent(n, src.attr) || from_pivots(n, src.attr) || passes_through(&n.data.ty.attrs[src.attr as usize]));
+                    let pass = self.nodes.get(&src.node).is_some_and(|n| from_parent(n, src.attr) || from_pivots(n, src.attr) || mirror_of(n, src).is_some() || passes_through(&n.data.ty.attrs[src.attr as usize]));
                     if pass && !passed.contains_key(src) {
                         passed.insert(*src, resolve_input(&self.nodes, &self.rel, &self.inputs, &self.held, src, 0));
                     }

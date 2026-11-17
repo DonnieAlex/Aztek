@@ -160,7 +160,6 @@ pub struct Alias {
 pub const ALIASES: &[Alias] = &[
     Alias { the_reference: "makeIdentity", target: "freezeTransforms", flags: &[("a", "apply")] },
     Alias { the_reference: "CenterPivot", target: "centerPivot", flags: &[] },
-    Alias { the_reference: "unfold", target: "u3dUnfold", flags: &[] },
     Alias { the_reference: "polyMultiLayoutUV", target: "u3dLayout", flags: &[("ps", "shellSpacing")] },
     Alias { the_reference: "DeleteHistory", target: "delete", flags: &[] },
 ];

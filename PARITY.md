@@ -359,10 +359,15 @@ and arrays, `MGlobal`, `MSelectionList`, `MObject`, `MDagPath`, `MPlug`, modifie
 meshes (rays and closest points included), curves, sets, attributes, data and components, the selection, DAG, graph and
 mesh iterators, `MFnSkinCluster`, `MAnimControl`, `MFnAnimCurve`. Python plug-ins with `loadPlugin`, `unloadPlugin` and
 `pluginInfo`: `MPxCommand` (runs from `cmds` and MEL, `undoIt` and `redoIt` on the undo stack) and `MPxNode` for plain
-dependency nodes. Differences from the reference: only dependency nodes can come from plug-ins (no `MPxDeformerNode` or
-`MPxLocatorNode`), mesh attributes don't reach `compute`, compound attributes can't be arrays, one UV set (`map1`), one
-path per DAG node, `setKeyable` only on added attributes, `MFnTransform` has no shear, and cycles are refused node by
-node, not plug by plug. MEL can't pass flags to a plug-in command with no syntax. `MRampAttribute` isn't there.
+dependency nodes. Since 17/11/2026 also deformers: `MPxDeformerNode` and `MPxGeometryFilter` (in `OpenMayaAnim`, and
+in `OpenMayaMPx` with `cvar` for 1.0), made with `deformer -type`; `deform()` gets the mesh's points through an
+`MItGeometry`, `weightValue` the painted weights, the matrix the mesh's world matrix; curves aren't handed to Python
+deformers, and a deformer's own `compute` isn't called. Also since then: meshes reach `compute` and leave it
+(`asMesh`, `MFnMeshData`, `MFnMesh.create` with mesh data as parent), arrays of compounds (held as `group.child`
+arrays, as the scene's ramps are; a compound inside one isn't available), `MRampAttribute`, `MPxFileTranslator`
+(`identifyFile` isn't asked: a file goes to a translator by `-type` or its extension), several UV sets on `MFnMesh`, and
+shear on `MFnTransform`. Differences from the reference: one path per DAG node, `setKeyable` only on added attributes,
+and cycles are refused node by node, not plug by plug. MEL can't pass flags to a plug-in command with no syntax.
 
 Python API 1.0, as of 10/11/2026: `maya.OpenMaya`, `maya.OpenMayaAnim` and `maya.OpenMayaMPx`, built on the 2.0 classes
 above, so it covers the same classes. Each 1.0 class is its 2.0 class with the 1.0 calls on top: results handed back
@@ -619,7 +624,8 @@ Shallower than the reference:
 
 - Nothing here has been compared with the reference running. The checks are against values the reference saved at rest; posed results are only checked to be
   plausible and the same after saving. Whether the reference opens what Aztek writes is unchecked.
-- Follicle hair, simulation and most of its attributes are ignored: it is a point and frame. `pu` and `pv` are clamped to 0 to 1.
+- Follicle hair: startPosition, currentPosition, pointLock, simulationMethod, outHair and outCurve are used (see
+  docs/DYNAMICS.md, Hair); its other hair attributes are ignored. `pu` and `pv` are clamped to 0 to 1.
 - Spline IK stretch comes only from what the rig wires up. Advanced twist: see the next section.
 - blendWeighted ignores `.w`. A periodic curve's skin weights cover its first lap only.
 - A mesh named the same as its transform needs a path: `hair|hair`, as in the reference.
@@ -1089,7 +1095,7 @@ Not honoured from the older systems (kept in the file, not used): nCloth lift, s
 shadow, self collision flags, per vertex maps but input attract and mass; nucleus wind noise, plane bounce, plane
 normal, collision layers; particle ramps; per particle creation and runtime expressions (kept as text, not run);
 field volume shapes and falloff curves; rigid solver settings; Bullet constraints and soft bodies; the components of
-dynamic constraints from files; hair, fluid and molecular matter simulation.
+dynamic constraints from files; hair collisions and nucleus, fluid and molecular matter simulation.
 
 Shallower than the reference, most important first:
 1. Speed: a 3,000 vertex shirt on a 15,000 vertex skinned body solves in 130 to 190 ms a frame, 12,000 vertices in 240
@@ -1315,6 +1321,22 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   options (Format, Up axis, Materials, Skins, Blend Shapes, Animation, Frame range) replace the Y Up question that
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
+
+### Constraints in the hierarchy, with their own attributes (17/11/2026, #120, #121)
+
+- Every constraint is a transform under the object it drives, as in the reference: `listRelatives box` lists it,
+  the Outliner shows it under that object whatever DAG Objects Only says, it moves and is deleted with it, and it
+  has the transform's attributes and manipulator. The abstract `constraint` type is there for `-type constraint`
+  and `objectType -isAType constraint`; nothing is made of it.
+- Each kind shows only its own settings (a point constraint: Offset, Rest Translate, Enable Rest Position, Lock
+  Output; an aim constraint adds the aim, up and world up settings, and so on); the others are hidden attributes.
+  The Attribute Editor puts them first, then the transform's sections; target weights are under Extra Attributes.
+- `lockOutput` is in: while on, the outputs stay as they are.
+- Constrain menu: the reference's order and separators, Motion Paths, and Set Rest Position (the object as it
+  stands becomes the rest translate and rotate of each selected constraint, or of those under the selected objects).
+- Not yet: Modify Constrained Axis, Closest Point, and the reference's attribute names where Aztek's differ inside
+  the node (`constraintParentMatrix` for the reference's `constraintParentInverseMatrix`; files are read and written
+  with the reference's).
 
 ### Marking menu off the object (17/11/2026, #119)
 
@@ -2491,7 +2513,8 @@ on it, then moving the scene's node types across.
 
 ### Hair (XJEN)
 
-The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` is held from files and not simulated.
+The target and order of work are in [docs/XJEN.md](docs/XJEN.md). `hairSystem` simulates curves made dynamic since
+17/11/2026 (docs/DYNAMICS.md, Hair): no nucleus, no collisions.
 
 - Step 1, 16/11/2026: strands in Harold (ribbons and tubes, aiStandardHair, NURBS curves with Render Curve on; see
   docs/HAROLD.md, Strands) and in the views (eye-facing ribbons at least a pixel wide, lit as fibres, for whatever

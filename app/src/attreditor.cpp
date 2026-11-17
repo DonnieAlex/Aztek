@@ -258,6 +258,26 @@ const QList<Section>& sections_for(const QString& type) {
     if (type == "place2dTexture") return place;
     if (type == "shadingEngine") return group;
     if (type == "transform" || type == "ikHandle" || type == "locator") return xf;
+    // Constraints are transforms (#121): their own settings first, then the transform's sections. Weights are added
+    // attributes, so they come under Extra Attributes, as in the reference.
+    static const QStringList constraints{"parentConstraint", "pointConstraint", "orientConstraint", "scaleConstraint", "aimConstraint", "poleVectorConstraint",
+                                         "geometryConstraint", "normalConstraint", "pointOnPolyConstraint", "tangentConstraint"};
+    if (constraints.contains(type)) {
+        static QHash<QString, QList<Section>> made;
+        static QList<QByteArray> titles;
+        if (!made.contains(type)) {
+            QString nice;
+            for (QChar c : type) {
+                if (c.isUpper()) nice += ' ';
+                nice += nice.isEmpty() ? c.toUpper() : c;
+            }
+            titles.append((nice + " Attributes").toUtf8());
+            QList<Section> l{{titles.last().constData(), "offset restTranslate restRotate restScale interpType constraintRotateOrder aimVector upVector worldUpType worldUpVector enableRestPosition lockOutput"}};
+            l.append(xf);
+            made.insert(type, l);
+        }
+        return made[type];
+    }
     if (type == "joint") return joint;
     if (type == "mesh") return mesh;
     if (type == "camera") return camera;

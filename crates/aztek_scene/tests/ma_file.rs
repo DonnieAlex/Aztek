@@ -1125,6 +1125,11 @@ connectAttr "cl.og[1]" "bShape.i";
 
 fn temp(name: &str) -> String {
     let dir = std::env::temp_dir().join(format!("aztek_ma_{}", std::process::id()));
+    // A folder an earlier run under the same process id left behind holds files of the same names: emptied once.
+    static CLEAR: std::sync::Once = std::sync::Once::new();
+    CLEAR.call_once(|| {
+        let _ = std::fs::remove_dir_all(&dir);
+    });
     std::fs::create_dir_all(&dir).unwrap();
     dir.join(name).to_str().unwrap().to_string()
 }

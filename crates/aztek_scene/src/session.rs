@@ -180,6 +180,7 @@ impl Session {
         crate::anim_misc::register(&mut s.commands);
         crate::uv_misc::register(&mut s.commands);
         crate::uv_arrange::register(&mut s.commands);
+        crate::hair::register(&mut s.commands);
         crate::nurbs_ops::register(&mut s.commands);
         crate::rig_extra::register(&mut s.commands);
         crate::general_cmds::register(&mut s.commands);

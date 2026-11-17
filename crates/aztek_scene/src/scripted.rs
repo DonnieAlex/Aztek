@@ -222,9 +222,14 @@ pub fn register_type(name: &str, owner: &str, attrs: &[Value]) -> Result<()> {
 }
 
 /// A script plug-in's node type of a kind: a transform, constraint, shape or locator is built on the reference's type
-/// of that kind, whose matrices come first. Deformers are not available to scripts.
+/// of that kind, whose matrices come first; a deformer on geometryFilter.
 pub fn register_script_type(name: &str, owner: &str, attrs: &[Value], kind: NativeKind) -> Result<()> {
     let type_name: Arc<str> = Arc::from(name);
+    if kind == NativeKind::Deformer {
+        // On geometryFilter, as a compiled plug-in's: the host's compute hook hands the points to the script.
+        let tn = type_name.clone();
+        return register_native_type(name, owner, attrs, kind, Arc::new(move || Box::new(ScriptedNode { type_name: tn.clone(), id: NO_NODE, name: String::new(), kind })));
+    }
     let base = match kind {
         NativeKind::Locator => types::find("locator"),
         NativeKind::Transform | NativeKind::Constraint => types::find("transform"),

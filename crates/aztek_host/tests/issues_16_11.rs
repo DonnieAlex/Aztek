@@ -142,3 +142,83 @@ fn usd_references_alembic() {
     assert!((b[1].as_f64().unwrap() - a[1].as_f64().unwrap() - 5.0).abs() < 1e-3, "{a} {b}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #108: the UV Toolkit's further tools by their MEL names and short flags.
+#[test]
+fn uv_toolkit_from_mel() {
+    let mut c = Core::new();
+    mel(&mut c, "polyPlane -sx 2 -sy 2 -n p;");
+    mel(&mut c, "polyNormalizeUV -nt 1 -nd 1 p;");
+    mel(&mut c, "unfold -oa 2 p;");
+    mel(&mut c, "polyRotateUVsByVertex p.f[0];");
+    mel(&mut c, "polyForceUV -uni p.f[1];");
+    mel(&mut c, "texCreateShell -g 1 p.f[2:3];");
+    mel(&mut c, "texLayoutAlong -d v p;");
+    mel(&mut c, "texStraightenShell p.map[0];");
+    mel(&mut c, "texBrushUVs -m smooth -r 0.3 -sm {0.5, 0.5, 0.0, 0.0} p;");
+    mel(&mut c, "polyProjection -t planar -md n p.f[*];");
+    assert_eq!(mel(&mut c, "texSelectByType -t unmapped p;"), json!([]));
+}
+
+/// #107: Camera Based Selection: with selectPref -useDepth on, a marquee takes only the vertices the camera sees.
+#[test]
+fn camera_based_selection() {
+    use aztek_host::camera::CamKind;
+    use aztek_host::viewport::{gather, Viewport};
+    let mut c = Core::new();
+    mel(&mut c, "polySphere -r 1 -n s; select s; selectMode -component; selectType -vertex 1;");
+    let mut vp = Viewport::new(CamKind::Persp);
+    vp.rect = [0.0, 0.0, 800.0, 800.0];
+    vp.cam.coi = glam::DVec3::ZERO;
+    vp.cam.yaw = 0.0;
+    vp.cam.pitch = 0.0;
+    vp.cam.distance = 10.0;
+    let count = |c: &mut Core, vp: &Viewport| {
+        let items = gather(&mut c.s.graph);
+        let picked = vp.pick_rect(&c.s, &items, glam::DVec2::ZERO, glam::DVec2::new(800.0, 800.0));
+        let n = picked.len();
+        mel(c, &format!("select -r {};", picked.join(" ")));
+        let _ = n;
+        mel(c, "size(`ls -sl -fl`);").as_i64().unwrap()
+    };
+    let all = count(&mut c, &vp);
+    mel(&mut c, "select s; selectPref -useDepth 1;");
+    let seen = count(&mut c, &vp);
+    mel(&mut c, "selectPref -useDepth 0;");
+    assert!(all > 300 && seen < all * 2 / 3 && seen > all / 4, "{all} {seen}");
+}
+
+/// #107: the Modeling Toolkit's Object menu: hide, freeze, X-ray and backfaces of the selection.
+#[test]
+fn modeling_toolkit_object_menu() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n b; select b;");
+    mel(&mut c, "string $s[] = `ls -sl -o -tr`; for ($o in $s) { int $on = `getAttr ($o + \".overrideDisplayType\")` == 2 && `getAttr ($o + \".overrideEnabled\")`; setAttr ($o + \".overrideEnabled\") (!$on); setAttr ($o + \".overrideDisplayType\") ($on ? 0 : 2); }");
+    assert_eq!(mel(&mut c, "getAttr b.overrideDisplayType;"), json!(2));
+    mel(&mut c, "string $s[] = `ls -sl -o`; for ($o in $s) { int $x[] = `displaySurface -q -xRay $o`; displaySurface -xRay (!$x[0]) $o; }");
+    assert_eq!(mel(&mut c, "displaySurface -q -xRay b;"), json!([true]));
+    mel(&mut c, "string $s[] = `ls -sl -o`; for ($o in $s) { int $c = `displayCull -q -bfc $o`; displayCull -bfc (!$c) $o; }");
+    assert_eq!(mel(&mut c, "displayCull -q -bfc b;"), json!(true));
+    mel(&mut c, "string $s[] = `ls -sl -o`; for ($o in $s) { if (`objExists ($o + \".visibility\")`) setAttr ($o + \".visibility\") (!`getAttr ($o + \".visibility\")`); }");
+    assert_eq!(mel(&mut c, "getAttr b.visibility;"), json!(false));
+}
+
+/// PLAN 8.4: Time Slider bookmarks are timeSliderBookmark nodes, kept in the scene file.
+#[test]
+fn time_slider_bookmarks() {
+    let dir = std::env::temp_dir().join(format!("az_bookmarks_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let p = dir.join("b.ma").to_string_lossy().replace('\\', "/");
+    let mut c = Core::new();
+    mel(&mut c, "string $b = `createNode timeSliderBookmark`; setAttr ($b + \".name\") -type \"string\" \"walk\"; setAttr ($b + \".timeRangeStart\") 10; setAttr ($b + \".timeRangeStop\") 24; setAttr ($b + \".color\") 1 0 0;");
+    mel(&mut c, &format!("file -rename \"{p}\"; file -save -type \"mayaAscii\";"));
+    mel(&mut c, "file -f -new;");
+    assert_eq!(mel(&mut c, "ls -type timeSliderBookmark;"), json!([]));
+    mel(&mut c, &format!("file -f -open \"{p}\";"));
+    assert_eq!(mel(&mut c, "ls -type timeSliderBookmark;"), json!(["timeSliderBookmark1"]));
+    assert_eq!(mel(&mut c, "getAttr timeSliderBookmark1.name;"), json!("walk"));
+    assert_eq!(mel(&mut c, "getAttr timeSliderBookmark1.timeRangeStop;"), json!(24.0));
+    let all = aztek_scene::bookmarks::all(&c.s.graph);
+    assert_eq!(all[0]["start"], json!(10.0));
+    let _ = std::fs::remove_dir_all(&dir);
+}

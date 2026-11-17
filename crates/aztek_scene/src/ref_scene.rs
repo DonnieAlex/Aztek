@@ -1646,6 +1646,10 @@ pub fn register(c: &mut Commands<Session>) {
             if a.has("backFaceCulling") {
                 for n in &names {
                     s.option_vars.insert(key(n), json!(a.bool("backFaceCulling")));
+                    // The views cull it too.
+                    if let Ok(Some(id)) = s.graph.find(n) {
+                        s.extras.display_surface.insert((id, "backFaceCulling".to_string()), a.bool("backFaceCulling"));
+                    }
                 }
             }
             Ok(Value::Null)

@@ -205,12 +205,13 @@ fn deregister_command(py: Python<'_>, name: &str) -> PyResult<()> {
     })
 }
 
-/// kind: 0 a dependency node, 2 a locator, 3 a transform, 4 a constraint, 5 a shape, 6 an IK solver (the ABI's numbers).
+/// kind: 0 a dependency node, 1 a deformer, 2 a locator, 3 a transform, 4 a constraint, 5 a shape, 6 an IK solver (the ABI's numbers).
 #[pyfunction]
 #[pyo3(signature = (name, owner, attrs, kind=0))]
 fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32) -> PyResult<()> {
     let attrs: Vec<Value> = serde_json::from_str(attrs).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     let kind = match kind {
+        1 => scripted::NativeKind::Deformer,
         2 => scripted::NativeKind::Locator,
         3 => scripted::NativeKind::Transform,
         4 => scripted::NativeKind::Constraint,
@@ -219,6 +220,32 @@ fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32
         _ => scripted::NativeKind::Depend,
     };
     py.detach(|| scripted::register_script_type(name, owner, &attrs, kind)).map_err(|e| PyRuntimeError::new_err(e.to_string()))
+}
+
+/// A plug-in's file translator (MPxFileTranslator): `file` hands its type's files to the plug-in's reader and writer.
+#[pyfunction]
+#[pyo3(signature = (name, owner, extension, read, write, default_options=""))]
+fn register_translator(name: &str, owner: &str, extension: &str, read: bool, write: bool, default_options: &str) {
+    static HOOKED: std::sync::Once = std::sync::Once::new();
+    HOOKED.call_once(|| {
+        aztek_scene::ma_file::set_translator_hook(Arc::new(|s: &mut Session, name: &str, mode: &str, path: &str, options: &str| {
+            let (name, mode, path, options) = (name.to_string(), mode.to_string(), path.to_string(), options.to_string());
+            answer(nested(s, || Python::attach(|py| hook_call(py, "translate", (name.as_str(), mode.as_str(), path.as_str(), options.as_str())))))
+        }));
+    });
+    aztek_scene::ma_file::register_plugin_translator(aztek_scene::ma_file::PluginTranslator {
+        name: name.to_string(),
+        extension: extension.to_string(),
+        read,
+        write,
+        owner: owner.to_string(),
+        default_options: default_options.to_string(),
+    });
+}
+
+#[pyfunction]
+fn deregister_translator(name: &str) {
+    aztek_scene::ma_file::deregister_plugin_translator(name);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -375,6 +402,17 @@ fn node_values(d: &NodeData, keys: &mut Vec<u64>) -> String {
             o.insert(a.name.clone(), v);
             continue;
         }
+        if a.ty == PlugType::Mesh && !a.is_array() {
+            // A mesh goes across by key; Python asks for its arrays when it reads it.
+            if let aztek_scene::plug::PlugValue::Mesh(Some(m)) = d.value(i) {
+                let k = mesh_hand_off(m.clone());
+                keys.push(k);
+                o.insert(a.name.clone(), json!({"$mesh": k}));
+            } else {
+                o.insert(a.name.clone(), Value::Null);
+            }
+            continue;
+        }
         if matches!(a.ty, PlugType::Mesh | PlugType::Data) {
             continue;
         }
@@ -388,6 +426,15 @@ fn node_values(d: &NodeData, keys: &mut Vec<u64>) -> String {
     Value::Object(o).to_string()
 }
 
+/// The mesh keys a compute's outputs name.
+fn mesh_keys(v: &Value) -> Vec<u64> {
+    match v {
+        Value::Object(o) => o.iter().flat_map(|(k, x)| if k == "$mesh" { x.as_u64().into_iter().collect() } else { mesh_keys(x) }).collect(),
+        Value::Array(a) => a.iter().flat_map(mesh_keys).collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn write_outputs(d: &mut NodeData, out: &str) {
     let Ok(Value::Object(o)) = serde_json::from_str::<Value>(out) else { return };
     let nums = |v: Option<&Value>| v.and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_f64).collect::<Vec<f64>>());
@@ -396,6 +443,9 @@ fn write_outputs(d: &mut NodeData, out: &str) {
     let value_of = |ty: PlugType, v: &Value| -> Option<aztek_scene::plug::PlugValue> {
         if let Some(k) = v.get("$data").and_then(Value::as_u64) {
             return Some(aztek_scene::plug::PlugValue::Data(take_handoff(k)));
+        }
+        if let Some(k) = v.get("$mesh").and_then(Value::as_u64) {
+            return Some(aztek_scene::plug::PlugValue::Mesh(mesh_handed(k)));
         }
         scripted::value_from_json(ty, v)
     };
@@ -418,14 +468,54 @@ fn write_outputs(d: &mut NodeData, out: &str) {
 fn compute(type_name: &str, id: NodeId, name: &str, time: f64, d: &mut NodeData) {
     // Computes run on several threads at once, so only this compute's own keys are handed back.
     let mut keys = Vec::new();
-    let input = node_values(d, &mut keys);
+    let mut input = node_values(d, &mut keys);
+    // A deformer: its mesh's points go across, with the painted weights and the mesh's world matrix; with no mesh
+    // in, nothing comes out.
+    let deformer = scripted::is_plugin_deformer(type_name);
+    let (inp, outp) = (d.ty().attr_index("inputPolymesh"), d.ty().attr_index("output"));
+    let mesh_in = if deformer { inp.and_then(|i| d.mesh(i).cloned()) } else { None };
+    if deformer {
+        let Some(m) = &mesh_in else {
+            if let Some(o) = outp {
+                d.set_output(o, aztek_scene::plug::PlugValue::Mesh(None));
+            }
+            return;
+        };
+        let mut v: Value = serde_json::from_str(&input).unwrap_or_else(|_| json!({}));
+        let pts: Vec<f64> = (0..m.point_capacity()).flat_map(|p| {
+            let q = if m.point_valid(p) { m.position(p) } else { glam::DVec3::ZERO };
+            [q.x, q.y, q.z]
+        }).collect();
+        v["$points"] = json!(pts);
+        if let Some(w) = scripted::deformer_weights(d) {
+            v["$weights"] = json!(w);
+        }
+        if let Some(gm) = d.ty().attr_index("geomMatrix") {
+            v["$geomMatrix"] = json!(d.matrix(gm).to_cols_array());
+        }
+        input = v.to_string();
+    }
     let was = IN_COMPUTE.with(|c| c.replace(true));
     let out = Python::attach(|py| hook_call(py, "compute", (type_name, id, name, time, input.as_str())));
     IN_COMPUTE.with(|c| c.set(was));
     // What was handed over for this compute goes back.
     DATA_HANDOFF.lock().unwrap().retain(|(k, _)| !keys.contains(k));
     match out {
-        Ok(s) => write_outputs(d, &s),
+        Ok(s) => {
+            // Meshes made or handed in during the compute go once its outputs hold what they need.
+            let made: Vec<u64> = serde_json::from_str::<Value>(&s).ok().map(|v| mesh_keys(&v)).unwrap_or_default();
+            write_outputs(d, &s);
+            MESH_HANDOFF.lock().unwrap().retain(|(k, _)| !keys.contains(k) && !made.contains(k));
+            if let (true, Some(m), Some(o)) = (deformer, &mesh_in, outp) {
+                // The points the deform gave back, on the mesh that came in; none back: the mesh as it came.
+                let got = serde_json::from_str::<Value>(&s).ok().and_then(|v| v.get("$points").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_f64).collect::<Vec<f64>>()));
+                let out_mesh = match got {
+                    Some(p) if p.len() == m.point_capacity() as usize * 3 => Arc::new(m.with_positions(p.chunks(3).map(|c| glam::DVec3::new(c[0], c[1], c[2])).collect())),
+                    _ => m.clone(),
+                };
+                d.set_output(o, aztek_scene::plug::PlugValue::Mesh(Some(out_mesh)));
+            }
+        }
         Err(e) => DEFERRED.lock().unwrap().push((format!("# Error: {e} #"), LineKind::Error)),
     }
 }
@@ -575,10 +665,20 @@ fn scene_version(py: Python<'_>) -> PyResult<u64> {
 }
 
 #[pyfunction]
+fn mesh_uv_set(py: Python<'_>, id: NodeId, set: &str) -> PyResult<(Vec<i64>, Vec<f64>)> {
+    let set = set.to_string();
+    host(py, move |c| crate::python_api::uv_set_arrays(c, id, &set))?.map_err(PyRuntimeError::new_err)
+}
+
+#[pyfunction]
 fn mesh_arrays<'py>(py: Python<'py>, id: NodeId) -> PyResult<Bound<'py, PyDict>> {
     let m = host(py, |c| crate::python_api::mesh_arrays(c, id))?.map_err(PyRuntimeError::new_err)?;
-    // The numbers go across as raw bytes, which Python takes into array.array in one copy: a list of Python floats
-    // for every number of a big mesh takes seconds to build.
+    arrays_dict(py, &m)
+}
+
+/// A mesh's arrays as Python takes them. The numbers go across as raw bytes, which Python takes into array.array in
+/// one copy: a list of Python floats for every number of a big mesh takes seconds to build.
+fn arrays_dict<'py>(py: Python<'py>, m: &crate::python_api::MeshArrays) -> PyResult<Bound<'py, PyDict>> {
     let d = PyDict::new(py);
     let f = |v: &Vec<f64>| PyBytes::new(py, bytemuck::cast_slice(v));
     let i = |v: &Vec<i64>| PyBytes::new(py, bytemuck::cast_slice(v));
@@ -593,10 +693,58 @@ fn mesh_arrays<'py>(py: Python<'py>, id: NodeId) -> PyResult<Bound<'py, PyDict>>
     d.set_item("has_uvs", m.has_uvs)?;
     d.set_item("corner_maps", i(&m.corner_maps))?;
     d.set_item("map_uvs", f(&m.map_uvs))?;
-    d.set_item("point_ids", m.point_ids)?;
-    d.set_item("edge_ids", m.edge_ids)?;
-    d.set_item("face_ids", m.face_ids)?;
+    d.set_item("point_ids", m.point_ids.clone())?;
+    d.set_item("edge_ids", m.edge_ids.clone())?;
+    d.set_item("face_ids", m.face_ids.clone())?;
     Ok(d)
+}
+
+// Meshes handed across a compute (mesh attributes in and out), by key, as plug-in data values are.
+static MESH_HANDOFF: Mutex<Vec<(u64, Arc<aztek_geo::Mesh>)>> = Mutex::new(Vec::new());
+
+fn mesh_hand_off(m: Arc<aztek_geo::Mesh>) -> u64 {
+    let k = NEXT_HANDOFF.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    MESH_HANDOFF.lock().unwrap().push((k, m));
+    k
+}
+
+fn mesh_handed(k: u64) -> Option<Arc<aztek_geo::Mesh>> {
+    MESH_HANDOFF.lock().unwrap().iter().find(|(x, _)| *x == k).map(|(_, m)| m.clone())
+}
+
+/// A mesh a compute was handed, or made: its arrays.
+#[pyfunction]
+fn mesh_handoff_arrays<'py>(py: Python<'py>, key: u64) -> PyResult<Bound<'py, PyDict>> {
+    let m = mesh_handed(key).ok_or_else(|| PyRuntimeError::new_err("(kFailure): The mesh data is gone"))?;
+    arrays_dict(py, &crate::python_api::arrays_of(&m))
+}
+
+/// A mesh made from arrays in Python (MFnMesh.create on MFnMeshData's object): its key, and its arrays. uv_ids, when
+/// given, picks each corner's UV from us and vs.
+#[pyfunction]
+#[pyo3(signature = (points, counts, connects, us=None, vs=None, uv_ids=None))]
+fn mesh_from_arrays<'py>(py: Python<'py>, points: Vec<f64>, counts: Vec<i64>, connects: Vec<i64>, us: Option<Vec<f64>>, vs: Option<Vec<f64>>, uv_ids: Option<Vec<i64>>) -> PyResult<(u64, Bound<'py, PyDict>)> {
+    let pts: Vec<glam::DVec3> = points.chunks(3).filter(|c| c.len() == 3).map(|c| glam::DVec3::new(c[0], c[1], c[2])).collect();
+    let sizes: Vec<aztek_geo::Index> = counts.iter().map(|&c| c as aztek_geo::Index).collect();
+    let idx: Vec<aztek_geo::Index> = connects.iter().map(|&c| c as aztek_geo::Index).collect();
+    if sizes.iter().map(|&c| c as usize).sum::<usize>() != idx.len() || idx.iter().any(|&i| i as usize >= pts.len()) {
+        return Err(PyRuntimeError::new_err("(kInvalidParameter): polygonCounts and polygonConnects don't agree with the points"));
+    }
+    let mut m = aztek_geo::Mesh::from_polygons(&pts, &sizes, &idx);
+    if let (Some(us), Some(vs)) = (us, vs) {
+        // Corners in face order, as from_polygons made them.
+        let corners: Vec<aztek_geo::Index> = (0..m.face_capacity()).filter(|&f| m.face_valid(f)).flat_map(|f| m.face_corners(f)).collect();
+        let layer = m.corner_attrs_mut().get_or_add::<[f32; 2]>(aztek_scene::uv_ops::UV);
+        for (k, &c) in corners.iter().enumerate() {
+            let at = uv_ids.as_ref().map_or(k, |ids| ids.get(k).copied().unwrap_or(0) as usize);
+            if let (Some(&u), Some(&v)) = (us.get(at), vs.get(at)) {
+                layer[c as usize] = [u as f32, v as f32];
+            }
+        }
+    }
+    let m = Arc::new(m);
+    let d = arrays_dict(py, &crate::python_api::arrays_of(&m))?;
+    Ok((mesh_hand_off(m), d))
 }
 
 /// The source of an embedded Python file; the parts of a package are run in one module, in order.
@@ -647,12 +795,17 @@ fn _aztek(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(api, m)?)?;
     m.add_function(wrap_pyfunction!(scene_version, m)?)?;
     m.add_function(wrap_pyfunction!(mesh_arrays, m)?)?;
+    m.add_function(wrap_pyfunction!(mesh_handoff_arrays, m)?)?;
+    m.add_function(wrap_pyfunction!(mesh_from_arrays, m)?)?;
+    m.add_function(wrap_pyfunction!(mesh_uv_set, m)?)?;
     m.add_function(wrap_pyfunction!(source, m)?)?;
     m.add_function(wrap_pyfunction!(set_usd_resolve_hook, m)?)?;
     m.add_function(wrap_pyfunction!(set_hooks, m)?)?;
     m.add_function(wrap_pyfunction!(register_command, m)?)?;
     m.add_function(wrap_pyfunction!(deregister_command, m)?)?;
     m.add_function(wrap_pyfunction!(register_node, m)?)?;
+    m.add_function(wrap_pyfunction!(register_translator, m)?)?;
+    m.add_function(wrap_pyfunction!(deregister_translator, m)?)?;
     m.add_function(wrap_pyfunction!(register_data, m)?)?;
     m.add_function(wrap_pyfunction!(deregister_data, m)?)?;
     m.add_function(wrap_pyfunction!(data_get, m)?)?;

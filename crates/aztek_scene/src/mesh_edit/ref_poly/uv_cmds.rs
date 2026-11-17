@@ -149,6 +149,9 @@ pub(super) fn register(c: &mut Commands<Session>) {
                 let name = names::uv(0);
                 if unitize {
                     let faces = uv_ops::target_faces(m, target, tp);
+                    // Each face a shell of its own.
+                    let edges: Vec<Index> = faces.iter().flat_map(|&f| m.face_corners(f)).map(|k| m.corner_edge(k)).collect();
+                    uv_ops::cut(m, &edges);
                     for f in faces {
                         let cs = m.face_corners(f);
                         let n = cs.len() as f64;

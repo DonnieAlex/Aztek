@@ -605,6 +605,8 @@ pub fn make(g: &mut Graph) {
     if types::find("ikSystem").is_none() {
         crate::ik::register_types();
     }
+    crate::bookmarks::register_types();
+    crate::hair::register_types();
     g.without_undo(|g| {
         let mut made = Vec::new();
         for &(name, ty) in DEFAULT_NODES.iter().chain(SCENE_NODES) {

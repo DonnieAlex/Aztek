@@ -300,7 +300,7 @@ Every extra copy makes the project harder to lose.
 
 - Keys with weighted tangents and infinities, Graph Editor, Dope Sheet, set driven keys, breakdowns,
   copy and paste keys, baking, motion paths, animation layers with their editor (additive, override, passthrough, merge, extract),
-  character sets and clips. **Playblast** to images or, through ffmpeg, to a movie.
+  character sets and clips, Time Slider bookmarks. **Playblast** to images or, through ffmpeg, to a movie.
 
   ![A keyed IK arm played back](docs/clip-arm.gif)
 
@@ -641,8 +641,14 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
   the mesh, component and tool buttons.
 
   ![Modeling Toolkit](docs/modeling-toolkit.png)
-- UV Toolkit, the UV Editor's side panel: selection, pinning, select by type, soft selection, transform, texel density,
-  projections, cut and sew, unfold, layout. Shell alignment, stacking and snapping come next.
+- UV Toolkit, the UV Editor's side panel, and its menu bar (Edit, Create, Select, Cut/Sew, Modify, Tools, View, Image,
+  UV Sets): selection, pinning, select by type (unmapped faces too), soft selection, transform, texel density,
+  projections (camera and normal based, best plane), cut and sew (Create UV Shell, Create Shell (Grid)), unfold and
+  unfold along U or V, straighten UVs, borders and shells, align and snap (snap and stack, normalize along U or V),
+  arranging shells (orient, stack, unstack, gather, distribute toward a target, randomize, layout along U or V),
+  measuring, Cycle, Symmetrize, Unitize and Map Border, the Transform section's pivot (on the selection, the UV area or
+  put with Edit Pivot), step snaps, Retain component spacing and Prevent Negative Scale, the Lattice tool, Warp Image, and the
+  brushes (Grab, Pinch, Smear, Pin, Optimize, Unfold, Sew; B and drag sizes them).
 
   ![UV Toolkit](docs/uv-toolkit.png)
 - Graph Editor and Dope Sheet (Windows > Animation Editors): curves and keys of the selection.

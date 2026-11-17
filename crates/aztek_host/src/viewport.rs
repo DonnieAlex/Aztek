@@ -1502,7 +1502,10 @@ impl Viewport {
                         Some((pb, pn)) => (pb, pn),
                         None => (ib, n),
                     };
-                    if self.disp.xray {
+                    // Per object too (Modeling Toolkit > Object > X-Ray, displaySurface -xr; displayCull -bfc).
+                    let own = |k: &str| [it.xf, it.shape].iter().any(|&n| s.extras.display_surface.get(&(n, k.to_string())).copied().unwrap_or(false));
+                    let (obj_xray, obj_cull) = (own("xRay"), own("backFaceCulling"));
+                    if self.disp.xray || obj_xray {
                         // X-Ray: see-through, no sorting.
                         r.bind(gpu, Kind::Tint);
                         let mut pc = push(mvp, it.world, view, [0.55, 0.55, 0.55, 0.45], retopo, 1.0);
@@ -1510,7 +1513,7 @@ impl Viewport {
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
                     } else if self.disp.default_material && (self.disp.light_mode == crate::lighting::LightMode::Default || !r.materials) && !(checker_set.is_some() && checkered) {
-                        r.bind(gpu, if self.disp.backface { Kind::ShadedCull } else { Kind::Shaded });
+                        r.bind(gpu, if self.disp.backface || obj_cull { Kind::ShadedCull } else { Kind::Shaded });
                         let mut pc = push(mvp, it.world, view, [0.5, 0.5, 0.5, 1.0], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
                         r.push(gpu, &pc);
@@ -1571,7 +1574,7 @@ impl Viewport {
                             if r.materials {
                                 let sets = if checker_sets.is_some() { checker_sets.as_ref() } else if plain { None } else { self.mats.sets.get(&b.group).filter(|_| style.textured) };
                                 let white = crate::textures::with_cache(gpu, |c| c.white(gpu));
-                                let kind = match (clear, self.disp.backface) {
+                                let kind = match (clear, self.disp.backface || obj_cull) {
                                     (false, false) => Kind::Material,
                                     (false, true) => Kind::MaterialCull,
                                     (true, false) => Kind::MaterialBlend,
@@ -1582,7 +1585,7 @@ impl Viewport {
                                 r.draw_material(gpu, vb, uvs, ib, b.first, b.count);
                             } else {
                                 // A device without room for the material constants: flat colours.
-                                r.bind(gpu, if clear { Kind::Tint } else if self.disp.backface { Kind::ShadedCull } else { Kind::Shaded });
+                                r.bind(gpu, if clear { Kind::Tint } else if self.disp.backface || obj_cull { Kind::ShadedCull } else { Kind::Shaded });
                                 let mut pc = mp.base;
                                 pc.color = [m.color[0] * m.diffuse, m.color[1] * m.diffuse, m.color[2] * m.diffuse, mp.base.color[3]];
                                 r.push(gpu, &pc);
@@ -2326,7 +2329,9 @@ impl Viewport {
                 return Some((hil[k], mode, id));
             }
         }
-        // Off the surface: the nearest within reach that no face hides.
+        // Off the surface: the nearest within reach that no face hides; with Highlight Backfaces on
+        // (selectPref -preSelectBackfacing), hidden ones too.
+        let backfacing = crate::ui_cmds::select_pref("preSelectBackfacing", false);
         let mut best: Option<(f64, usize, Index)> = None;
         for (k, &i) in hil.iter().enumerate() {
             let it = &items[i];
@@ -2337,7 +2342,7 @@ impl Viewport {
                     (it.mesh.position(it.mesh.edge_point(c.id, 0)) + it.mesh.position(it.mesh.edge_point(c.id, 1))) * 0.5
                 };
                 let wp = it.world.transform_point3(local);
-                if !self.visible(&hil_items[k..=k], wp, &screen) {
+                if !backfacing && !self.visible(&hil_items[k..=k], wp, &screen) {
                     continue;
                 }
                 if best.is_none_or(|b| c.px < b.0) {
@@ -2911,6 +2916,26 @@ impl Viewport {
                 }
             }
         }
+        // Camera Based Selection (selectPref -useDepth): components hidden behind a surface stay out.
+        let depth = crate::ui_cmds::select_pref("useDepth", false) && !self.disp.xray && !self.wireframe;
+        let trees: Vec<MeshBvh> = if depth { items.iter().map(|it| MeshBvh::new(&it.mesh)).collect() } else { Vec::new() };
+        let size = self.size();
+        let seen = |wp: DVec3| -> bool {
+            if !depth {
+                return true;
+            }
+            let Some(q) = screen.project(wp) else { return false };
+            let (o, d) = self.cam.ray(q, size);
+            let dist = (wp - o).length();
+            let near = dist - dist.max(1.0) * 1e-3;
+            !items.iter().zip(&trees).any(|(it, bvh)| {
+                let inv = it.world.inverse();
+                let (lo, ld) = (inv.transform_point3(o), inv.transform_vector3(d));
+                let len = ld.length();
+                len > 1e-12
+                    && bvh.raycast_with(lo, ld / len, f64::MAX, true).is_some_and(|h| (it.world.transform_point3(lo + ld / len * h.t) - o).length() < near)
+            })
+        };
         for it in items {
             let m = &it.mesh;
             let proj = |p: Index| screen.project(it.world.transform_point3(m.position(p)));
@@ -2962,7 +2987,7 @@ impl Viewport {
                 }
                 _ if !g.selection().contains(&it.xf) || surfaces::is_surface(g, it.shape) => {}
                 ComponentMode::Vertex => {
-                    let ids: Vec<Index> = (0..m.point_capacity()).filter(|&p| m.point_valid(p) && proj(p).is_some_and(inside)).collect();
+                    let ids: Vec<Index> = (0..m.point_capacity()).filter(|&p| m.point_valid(p) && proj(p).is_some_and(inside) && seen(it.world.transform_point3(m.position(p)))).collect();
                     push_ranges(&mut out, &g.path(it.xf), "vtx", &ids);
                 }
                 ComponentMode::Edge => {
@@ -2970,7 +2995,8 @@ impl Viewport {
                         .filter(|&e| {
                             m.edge_valid(e) && {
                                 let (a, b) = (m.edge_point(e, 0), m.edge_point(e, 1));
-                                screen.project(it.world.transform_point3((m.position(a) + m.position(b)) * 0.5)).is_some_and(inside)
+                                let wp = it.world.transform_point3((m.position(a) + m.position(b)) * 0.5);
+                                screen.project(wp).is_some_and(inside) && seen(wp)
                             }
                         })
                         .collect();
@@ -2982,7 +3008,10 @@ impl Viewport {
                             m.face_valid(f) && {
                                 let pts = m.face_points(f);
                                 let c = pts.iter().map(|&p| m.position(p)).sum::<DVec3>() / pts.len().max(1) as f64;
-                                screen.project(it.world.transform_point3(c)).is_some_and(inside)
+                                // A face's centre sits on it: seen from a hair in front.
+                                let n = it.world.transform_vector3(m.face_normal(f)).normalize_or_zero();
+                                let wp = it.world.transform_point3(c);
+                                screen.project(wp).is_some_and(inside) && seen(wp + n * 1e-4 * wp.length().max(1.0))
                             }
                         })
                         .collect();

@@ -23,6 +23,8 @@ struct UvMesh {
     struct Face {
         int id = 0, shell = 0;
         QVector<int> maps, edges;
+        // Its area on the surface, for UV Distortion.
+        double area3d = 0;
     };
     QVector<Face> faces;
     // map a, map b, edge
@@ -45,6 +47,12 @@ public:
     // The meshes shown, by path; the middle of what is selected (x below -1e8 when nothing is).
     QStringList mesh_paths() const;
     QPointF selection_center() const;
+    // The selected UVs' bounds (empty when none).
+    QRectF selection_bounds() const;
+    // Edit Pivot: a click in the editor puts the pivot the Transform section turns and scales about.
+    bool editing_pivot = false;
+    bool has_pivot = false;
+    QPointF pivot_uv;
     // Every UV of the meshes shown selected, or with invert those not selected now.
     void select_all_uvs(bool invert);
     bool show_checker = false;
@@ -56,6 +64,18 @@ public:
     // Takes the scene's selection type without setting it back.
     void follow_mode(const QString& m);
     bool shaded = true;
+    // View and Image menu switches.
+    bool show_distortion = false, show_shell_borders = false, show_texture_borders = true, show_grid = true;
+    bool dim_image = false, image_unfiltered = false, image_ratio = false, pixel_snap = false;
+    // 0 RGB, 1 RGBA, 2 Alpha.
+    int image_channels = 1;
+    // Image Range: the part of the image shown, 0 to 1 of its values.
+    double image_lo = 0.0, image_hi = 1.0;
+    // The image's exposure (stops), gamma and how strongly it shows (Dim's slider).
+    double image_exposure = 0.0, image_gamma = 1.0, image_opacity = 1.0;
+    QSize image_size() const { return image_.size(); }
+    // Frame and zoom history: Undo View Change and Redo View Change.
+    void undo_view(bool redo);
 signals:
     void picked();
 protected:
@@ -65,11 +85,19 @@ protected:
     void mouseReleaseEvent(QMouseEvent*) override;
     void wheelEvent(QWheelEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
+    void keyReleaseEvent(QKeyEvent*) override;
     void mouseDoubleClickEvent(QMouseEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
     void mode_menu(QPoint global);
 private:
     QImage image_;
+    struct ViewState {
+        QPointF center;
+        double scale;
+    };
+    QVector<ViewState> view_back_, view_ahead_;
+    qint64 last_view_push_ = 0;
+    void remember_view();
     QString image_path_;
     QPointF image_repeat_{1, 1}, image_offset_{0, 0};
     QPointF to_screen(QPointF uv) const;
@@ -100,7 +128,20 @@ private:
     QPointF center_{0.5, 0.5};
     double scale_ = 400;
     bool framed_ = false;
-    enum class Mode { None, Pan, Zoom, Marquee, Drag, Lasso } drag_ = Mode::None;
+    enum class Mode { None, Pan, Zoom, Marquee, Drag, Lasso, Brush, BrushSize, Lattice } drag_ = Mode::None;
+    // The UV Lattice Tool: its box, its points (row by row from the bottom), the one dragged.
+    QRectF lat_box_;
+    QVector<QPointF> lat_pts_;
+    int lat_n_ = 3, lat_drag_ = -1;
+    void lattice_reset();
+    void lattice_apply(bool final);
+    // UV brushes (Tools > Brushes): the stroke so far as u v du dv per step, the brush's size in pixels, B held.
+    QJsonArray stroke_;
+    double brush_px_ = 40;
+    bool b_held_ = false;
+    QPointF hover_;
+    bool is_brush() const { return tool_.startsWith("brush:"); }
+    void brush_apply(bool final);
     QPolygonF lasso_;
     // The path tool's last pick: mesh and map.
     QString path_mesh_;
@@ -125,6 +166,14 @@ private:
     void run(const QString& cmd, const QJsonObject& call = QJsonObject(), bool on_selection = true);
     // The UV Toolkit side panel (uvtoolkit.cpp, #108).
     QWidget* build_toolkit();
+    // The menu bar over it all, as the reference's UV Editor has (uvtoolkit.cpp).
+    QWidget* build_menu_bar();
+    // Snap Together on the two UVs picked: the second's shell onto the first, or the other way.
+    void snap_together(bool b_to_a);
+    void assign_checker();
+    void camera_projection();
+    void symmetrize();
+    QWidget* toolkit_ = nullptr;
     UvCanvas* canvas_ = nullptr;
     QHash<QString, QAction*> mode_buttons_;
     QHash<QString, QAction*> tool_buttons_;

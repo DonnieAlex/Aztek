@@ -1,4 +1,6 @@
 #include "widgets.h"
+#include <QHelpEvent>
+#include <QToolTip>
 #include "host.h"
 #include "icons.h"
 
@@ -454,6 +456,52 @@ void TimeSlider::set_breakdowns(const QVector<double>& k) {
     update();
 }
 
+void TimeSlider::set_bookmarks(const QVector<Bookmark>& b) {
+    bool same = b.size() == bookmarks_.size();
+    for (int i = 0; same && i < b.size(); ++i)
+        same = b[i].node == bookmarks_[i].node && b[i].start == bookmarks_[i].start && b[i].stop == bookmarks_[i].stop && b[i].color == bookmarks_[i].color && b[i].name == bookmarks_[i].name;
+    if (same) return;
+    bookmarks_ = b;
+    update();
+}
+
+std::pair<double, double> TimeSlider::picked_range() const {
+    if (range_a_ != range_b_) return {qMin(range_a_, range_b_), qMax(range_a_, range_b_) - 1};
+    return {time_, time_};
+}
+
+// The bookmark under x, along the slider's top band; part: 1 near its start, 2 near its end, 0 in between.
+int TimeSlider::bookmark_at(double x, int* part) const {
+    const double w = width() - 16, span = end_ - start_;
+    for (int i = bookmarks_.size() - 1; i >= 0; --i) {
+        const Bookmark& b = bookmarks_[i];
+        const double a = 8 + (b.start - start_) / span * w, z = 8 + (b.stop + 1 - start_) / span * w;
+        if (x >= a - 3 && x <= z + 3) {
+            if (part) *part = std::abs(x - a) <= 4 ? 1 : std::abs(x - z) <= 4 ? 2 : 0;
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool TimeSlider::event(QEvent* e) {
+    if (e->type() == QEvent::ToolTip && bookmarks_shown) {
+        auto* h = static_cast<QHelpEvent*>(e);
+        if (h->pos().y() <= 8) {
+            const int i = bookmark_at(h->pos().x(), nullptr);
+            if (i >= 0) {
+                const Bookmark& b = bookmarks_[i];
+                QToolTip::showText(h->globalPos(), QString("%1\n%2 - %3").arg(b.name.isEmpty() ? b.node : b.name).arg(b.start).arg(b.stop), this);
+                return true;
+            }
+        }
+        QToolTip::hideText();
+        e->ignore();
+        return true;
+    }
+    return QWidget::event(e);
+}
+
 QString TimeSlider::range_text() const {
     double a = qMin(range_a_, range_b_), b = qMax(range_a_, range_b_);
     return QString("%1:%2").arg(a).arg(b);
@@ -516,6 +564,19 @@ void TimeSlider::paintEvent(QPaintEvent*) {
             double kw = qMax(double(tick_width_), fw * 0.5);
             p.fillRect(QRectF(kx - kw * 0.5, 3, kw, height() - 6), breakdowns_.contains(k) ? QColor(60, 190, 80) : QColor(204, 40, 40));
         }
+    // Bookmarks: a band of each one's colour along the top, its frames lightly tinted below.
+    if (bookmarks_shown)
+        for (int i = 0; i < bookmarks_.size(); ++i) {
+            const Bookmark& b = bookmarks_[i];
+            const double by = i == bm_drag_ ? bm_by_ : 0.0;
+            const double s0 = b.start + (bm_part_ != 2 || i != bm_drag_ ? by : 0), s1 = b.stop + (bm_part_ != 1 || i != bm_drag_ ? by : 0);
+            const double a = 8 + (s0 - start_) / span * w, z = 8 + (s1 + 1 - start_) / span * w;
+            if (z < 0 || a > width()) continue;
+            QColor c = b.color;
+            p.fillRect(QRectF(a, 0, z - a, 6), c);
+            c.setAlpha(40);
+            p.fillRect(QRectF(a, 6, z - a, height() - 6), c);
+        }
     double x = 8 + (time_ - start_) / span * w;
     p.fillRect(QRectF(x - fw / 2, 0, fw, height()), QColor(210, 210, 210, 120));
     p.setPen(QColor(230, 230, 230));
@@ -527,6 +588,18 @@ void TimeSlider::mousePressEvent(QMouseEvent* e) {
     if (e->button() == Qt::RightButton) {
         emit contextMenuAt(e->globalPosition().toPoint());
         return;
+    }
+    if ((e->modifiers() & Qt::ControlModifier) && bookmarks_shown) {
+        // Ctrl-drag moves a bookmark, by its edges resizes it.
+        int part = 0;
+        const int i = bookmark_at(e->position().x(), &part);
+        if (i >= 0) {
+            bm_drag_ = i;
+            bm_part_ = part;
+            bm_from_ = fr;
+            bm_by_ = 0;
+            return;
+        }
     }
     if (e->modifiers() & Qt::ShiftModifier) {
         selecting_ = true;
@@ -549,6 +622,11 @@ void TimeSlider::mousePressEvent(QMouseEvent* e) {
 void TimeSlider::mouseMoveEvent(QMouseEvent* e) {
     if (!e->buttons()) return;
     double fr = std::round(frame_at(int(e->position().x())));
+    if (bm_drag_ >= 0) {
+        bm_by_ = fr - bm_from_;
+        update();
+        return;
+    }
     if (selecting_) {
         range_b_ = fr >= range_a_ ? fr + 1 : fr;
         update();
@@ -561,6 +639,18 @@ void TimeSlider::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void TimeSlider::mouseReleaseEvent(QMouseEvent*) {
+    if (bm_drag_ >= 0) {
+        if (bm_by_ != 0 && bm_drag_ < bookmarks_.size()) {
+            const Bookmark& b = bookmarks_[bm_drag_];
+            double a = b.start + (bm_part_ != 2 ? bm_by_ : 0), z = b.stop + (bm_part_ != 1 ? bm_by_ : 0);
+            if (z < a) std::swap(a, z);
+            emit bookmarkMoved(b.node, a, z);
+        }
+        bm_drag_ = -1;
+        bm_by_ = 0;
+        update();
+        return;
+    }
     if (moving_ && move_by_ != 0) {
         double lo = qMin(range_a_, range_b_), hi = qMax(range_a_, range_b_);
         emit rangeMoved(lo, hi, move_by_);

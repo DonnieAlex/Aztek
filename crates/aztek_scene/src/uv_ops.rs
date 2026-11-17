@@ -1115,6 +1115,84 @@ pub(crate) fn each(s: &mut Session, a: &Args, cmd: &str, label: &str, node_type:
     Ok(Value::Array(made))
 }
 
+/// Planar UVs seen along a direction: the camera's view (-md c), or the faces' mean normal (-md n), the view's right and
+/// up (or world up's) as U and V, fitted into 0 to 1 keeping proportions.
+fn project_along(s: &mut Session, a: &Args, md: &str) -> CmdResult {
+    let targets = targets(s, a, "polyProjection")?;
+    let mut frames: Vec<Option<(DVec3, DVec3)>> = Vec::new();
+    let cam = if md == "c" {
+        let name = a.string("camera", "persp");
+        let Some(id) = s.graph.find(&name).ok().flatten() else { fail!("polyProjection: no camera {name}") };
+        let t = crate::dag::transform_of(&s.graph, id);
+        Some(crate::rig::world(&mut s.graph, t))
+    } else {
+        None
+    };
+    for (&mesh, _) in &targets {
+        frames.push(cam.map(|cw| {
+            // The camera's right and up in the mesh's own space.
+            let t = crate::dag::transform_of(&s.graph, mesh);
+            let inv = crate::rig::world(&mut s.graph, t).inverse();
+            let r = inv.transform_vector3(cw.x_axis.truncate()).normalize_or_zero();
+            let u = inv.transform_vector3(cw.y_axis.truncate()).normalize_or_zero();
+            (r, u)
+        }));
+    }
+    let mut at = 0;
+    each(s, a, "polyProjection", "Projection", "polyPlanarProj", |m, t, tp| {
+        let faces = target_faces(m, t, tp);
+        let frame = frames.get(at).copied().flatten();
+        at += 1;
+        let (right, up) = match frame {
+            Some(f) => f,
+            None => {
+                let mut n = DVec3::ZERO;
+                for &f in &faces {
+                    n += m.face_area_vector(f);
+                }
+                let n = n.try_normalize().unwrap_or(DVec3::Y);
+                let world_up = if n.y.abs() > 0.99 { DVec3::Z } else { DVec3::Y };
+                let r = world_up.cross(n).normalize();
+                (r, n.cross(r))
+            }
+        };
+        let corners: Vec<Index> = faces.iter().flat_map(|&f| m.face_corners(f)).collect();
+        let pts: Vec<DVec2> = corners.iter().map(|&c| {
+            let p = m.position(m.corner_point(c));
+            DVec2::new(p.dot(right), p.dot(up))
+        }).collect();
+        let (mut lo, mut hi) = (DVec2::splat(f64::MAX), DVec2::splat(f64::MIN));
+        for p in &pts {
+            lo = lo.min(*p);
+            hi = hi.max(*p);
+        }
+        let size = (hi - lo).max_element().max(1e-12);
+        let layer = m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV);
+        for (&c, p) in corners.iter().zip(&pts) {
+            let q = (*p - lo) / size;
+            layer[c as usize] = [q.x as f32, q.y as f32];
+        }
+        // One shell: the faces' inner edges joined, the edges round them cut.
+        let inside: std::collections::BTreeSet<Index> = faces.iter().copied().collect();
+        let (mut inner, mut outer) = (Vec::new(), Vec::new());
+        for &f in &faces {
+            for c in m.face_corners(f) {
+                let e = m.corner_edge(c);
+                let mut all_in = true;
+                m.for_each_edge_corner(e, |k| all_in &= inside.contains(&m.corner_face(k)));
+                if all_in { inner.push(e) } else { outer.push(e) }
+            }
+        }
+        cut(m, &outer);
+        let seam = m.edge_attrs_mut().get_or_add::<bool>(SEAM);
+        for e in inner {
+            if let Some(x) = seam.get_mut(e as usize) {
+                *x = false;
+            }
+        }
+    })
+}
+
 pub fn register(c: &mut Commands<Session>) {
     register_types();
 
@@ -1169,7 +1247,11 @@ pub fn register(c: &mut Commands<Session>) {
                     "spherical" => Projection::Spherical,
                     t => fail!("polyProjection: type {t} is not planar, cylindrical or spherical"),
                 };
-                let axis = match a.string("mapDirection", "b").to_lowercase().as_str() {
+                let md = a.string("mapDirection", "b").to_lowercase();
+                if ty == Projection::Planar && (md == "c" || md == "n") {
+                    return project_along(s, a, &md);
+                }
+                let axis = match md.as_str() {
                     "x" => ProjectAxis::X,
                     "y" => ProjectAxis::Y,
                     "z" => ProjectAxis::Z,
@@ -1196,7 +1278,8 @@ pub fn register(c: &mut Commands<Session>) {
         )
         .positional("faces or meshes")
         .flag(f("type", "t", ArgType::String, Value::Null, "planar, cylindrical or spherical."))
-        .flag(f("mapDirection", "md", ArgType::String, Value::Null, "x, y, z, or b (best plane)."))
+        .flag(f("mapDirection", "md", ArgType::String, Value::Null, "x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals)."))
+        .flag(f("camera", "cam", ArgType::String, Value::Null, "The camera -md c projects through (persp)."))
         .flag(f("constructionHistory", "ch", ArgType::Bool, Value::Null, "Accepted for existing scripts.")),
     );
     // The reference's commands for each kind: polyProjection of that type, making polyPlanarProj, polyCylProj or polySphProj.
@@ -1278,6 +1361,7 @@ pub fn register(c: &mut Commands<Session>) {
                 let pin_selected = a.get("pinSelected").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 let pin_border = a.get("pinUvBorder").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 let iterations = 12 * (a.int("iterations", 5000) / 1000).clamp(1, 10) as i32;
+                let axis = a.int("optimizeAxis", 0).clamp(0, 2);
                 each(s, a, "unfold", "Unfold", "Unfold3DUnfold", |m, t, tp| {
                     let mut o = UnfoldOpts { iterations, pin_border, ..Default::default() };
                     if pin_selected {
@@ -1292,7 +1376,40 @@ pub fn register(c: &mut Commands<Session>) {
                     } else {
                         target_faces(m, t, tp)
                     };
+                    // -oa 1 unfolds along U alone, 2 along V alone: the other stays as it was, and each shell keeps the
+                    // span it had along the one unfolded.
+                    let before: Vec<(Vec<Index>, Vec<DVec2>)> = if axis == 0 {
+                        Vec::new()
+                    } else {
+                        shells_of(tp, &faces)
+                            .into_iter()
+                            .map(|sh| {
+                                let cs = corners_of(m, tp, &sh, &[]);
+                                let uv = m.corner_attrs().get::<[f32; 2]>(UV);
+                                let was = cs.iter().map(|&c| uv_of(uv, c)).collect();
+                                (cs, was)
+                            })
+                            .collect()
+                    };
                     unfold_with(m, &faces, &o);
+                    let k = if axis == 1 { 0 } else { 1 };
+                    for (cs, was) in before {
+                        let layer = m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV);
+                        let (mut lo0, mut hi0, mut lo1, mut hi1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+                        for (i, &c) in cs.iter().enumerate() {
+                            lo0 = lo0.min(was[i][k]);
+                            hi0 = hi0.max(was[i][k]);
+                            let now = layer[c as usize][k] as f64;
+                            lo1 = lo1.min(now);
+                            hi1 = hi1.max(now);
+                        }
+                        let sc = if hi1 - lo1 > 1e-12 { (hi0 - lo0) / (hi1 - lo1) } else { 1.0 };
+                        for (i, &c) in cs.iter().enumerate() {
+                            let now = layer[c as usize][k] as f64;
+                            layer[c as usize][k] = (lo0 + (now - lo1) * sc) as f32;
+                            layer[c as usize][1 - k] = was[i][1 - k] as f32;
+                        }
+                    }
                 })
             },
         )
@@ -1304,7 +1421,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("globalBlend", "gb", ArgType::Float, Value::Null, "Accepted for existing scripts."))
         .flag(f("globalMethodBlend", "gmb", ArgType::Float, Value::Null, "Accepted for existing scripts."))
         .flag(f("areaWeight", "aw", ArgType::Float, Value::Null, "Accepted for existing scripts."))
-        .flag(f("optimizeAxis", "oa", ArgType::Int, Value::Null, "Accepted for existing scripts."))
+        .flag(f("optimizeAxis", "oa", ArgType::Int, Value::Null, "0 unfolds along U and V, 1 along U alone, 2 along V alone."))
         .flag(f("useScale", "us", ArgType::Any, Value::Null, "Accepted for existing scripts."))
         .flag(f("scale", "s", ArgType::Float, Value::Null, "Accepted for existing scripts."))
         .flag(f("pinned", "pin", ArgType::Any, Value::Null, "Accepted for existing scripts."))
@@ -1476,6 +1593,7 @@ pub fn register(c: &mut Commands<Session>) {
             |s, a| {
                 let each_shell = a.int("normalizeType", 1) == 0;
                 let keep = a.get("preserveAspectRatio").and_then(Value::as_bool).unwrap_or(true);
+                let dir = a.int("normalizeDirection", 0);
                 each(s, a, "polyNormalizeUV", "Normalize UVs", "polyNormalizeUV", |m, t, tp| {
                     let faces = target_faces(m, t, tp);
                     let groups: Vec<Vec<Index>> = if each_shell { shells_of(tp, &faces) } else { vec![faces] };
@@ -1487,10 +1605,20 @@ pub fn register(c: &mut Commands<Session>) {
                             continue;
                         }
                         let mut sc = DVec2::new(1.0 / size.x.max(1e-12), 1.0 / size.y.max(1e-12));
-                        if keep {
-                            sc = DVec2::splat(sc.x.min(sc.y));
+                        let mut off = -lo;
+                        match dir {
+                            1 => {
+                                sc.y = 1.0;
+                                off.y = 0.0;
+                            }
+                            2 => {
+                                sc.x = 1.0;
+                                off.x = 0.0;
+                            }
+                            _ if keep => sc = DVec2::splat(sc.x.min(sc.y)),
+                            _ => {}
                         }
-                        transform(m, &corners, -lo, sc, 0.0, lo);
+                        transform(m, &corners, off, sc, 0.0, lo);
                         // pivot lo: v' = lo + (v - lo) * s - lo = (v - lo) * s
                     }
                 })
@@ -1498,6 +1626,7 @@ pub fn register(c: &mut Commands<Session>) {
         )
         .positional("faces or meshes")
         .flag(f("normalizeType", "nt", ArgType::Int, Value::Null, "1 all together, 0 each shell."))
+        .flag(f("normalizeDirection", "nd", ArgType::Int, Value::Null, "0 along U and V, 1 along U alone, 2 along V alone."))
         .flag(f("preserveAspectRatio", "pa", ArgType::Bool, Value::Null, "Keep proportions (default on).")),
     );
 
@@ -1561,7 +1690,7 @@ pub fn editor_data(g: &mut Graph, mesh: NodeId) -> Option<Value> {
         let cs = m.face_corners(f);
         let ids: Vec<Index> = cs.iter().map(|&c| tp.corner_map[c as usize]).collect();
         let edges: Vec<Index> = cs.iter().map(|&c| m.corner_edge(c)).collect();
-        faces.push(json!([f, tp.face_shell[f as usize], ids, edges]));
+        faces.push(json!([f, tp.face_shell[f as usize], ids, edges, m.face_area(f)]));
     }
     let mut borders = Vec::new();
     for c in 0..m.corner_capacity() {

@@ -4,9 +4,10 @@
 //! constraintRotate and constraintScale. Each target has an element of `target` and a keyable weight attr
 //! `<target>W<index>` added to the node; indices stay as they were when other targets are removed.
 //!
-//! The node has no place in the hierarchy under the object it drives, as the reference's has: the graph orders whole nodes, so
-//! a child driving its parent would be a cycle. What it would read back from that object (rotate order, jointOrient,
-//! translate) is copied to it by `sync`, and the constraint is found through its connections.
+//! The node is a transform under the object it drives, as the reference's is: it has the transform's attributes, shows in
+//! the Outliner under that object and goes where it goes. Its outputs don't depend on where its parent is
+//! (`free_of_parent`), so it may drive that parent. What it would read back from that object (rotate order,
+//! jointOrient, translate) is copied to it by `sync`, and the constraint is found through its connections.
 //!
 //! tangentConstraint needs curves and is not here yet.
 
@@ -61,42 +62,45 @@ fn rot3(m: &DMat4) -> DMat3 {
     }
 }
 
-const T_MATRIX: usize = 0;
-const T_OFFSET_T: usize = 1;
-const T_OFFSET_R: usize = 2;
-const T_GEOMETRY: usize = 3;
-const PARENT_MATRIX: usize = 4;
-const OUT_T: usize = 5;
-const OUT_R: usize = 6;
-const OUT_S: usize = 7;
-const OFFSET: usize = 8;
-const REST_T: usize = 9;
-const REST_R: usize = 10;
-const REST_S: usize = 11;
-const ENABLE_REST: usize = 12;
-const INTERP: usize = 13;
-const NODE_STATE: usize = 14;
-const ROTATE_ORDER: usize = 15;
-const JOINT_ORIENT: usize = 16;
-const ROTATE_AXIS: usize = 17;
-const POSITION: usize = 18;
-const PIVOT: usize = 19;
-const AIM_VECTOR: usize = 20;
-const UP_VECTOR: usize = 21;
-const WORLD_UP_VECTOR: usize = 22;
-const WORLD_UP_TYPE: usize = 23;
-const WORLD_UP_MATRIX: usize = 24;
-const T_CURVE: usize = 25;
-const T_PIVOT: usize = 26;
+/// The constraint's own attrs follow the transform's.
+const B: usize = Transform::COUNT;
+const T_MATRIX: usize = B;
+const T_OFFSET_T: usize = B + 1;
+const T_OFFSET_R: usize = B + 2;
+const T_GEOMETRY: usize = B + 3;
+const PARENT_MATRIX: usize = B + 4;
+const OUT_T: usize = B + 5;
+const OUT_R: usize = B + 6;
+const OUT_S: usize = B + 7;
+const OFFSET: usize = B + 8;
+const REST_T: usize = B + 9;
+const REST_R: usize = B + 10;
+const REST_S: usize = B + 11;
+const ENABLE_REST: usize = B + 12;
+const INTERP: usize = B + 13;
+const NODE_STATE: usize = B + 14;
+const ROTATE_ORDER: usize = B + 15;
+const JOINT_ORIENT: usize = B + 16;
+const ROTATE_AXIS: usize = B + 17;
+const POSITION: usize = B + 18;
+const PIVOT: usize = B + 19;
+const AIM_VECTOR: usize = B + 20;
+const UP_VECTOR: usize = B + 21;
+const WORLD_UP_VECTOR: usize = B + 22;
+const WORLD_UP_TYPE: usize = B + 23;
+const WORLD_UP_MATRIX: usize = B + 24;
+const T_CURVE: usize = B + 25;
+const T_PIVOT: usize = B + 26;
 // A target only its position counts for is read plug by plug, as the reference reads it: tpm * (tt + trp + trt). Its rotation may depend on what
 // the constraint drives without that being a cycle.
-const T_PARENT: usize = 27;
-const T_TRANSLATE: usize = 28;
-const T_ROTATE_TRANSLATE: usize = 29;
-const T_OFFSET_PARENT: usize = 30;
-const T_SCALE: usize = 31;
+const T_PARENT: usize = B + 27;
+const T_TRANSLATE: usize = B + 28;
+const T_ROTATE_TRANSLATE: usize = B + 29;
+const T_OFFSET_PARENT: usize = B + 30;
+const T_SCALE: usize = B + 31;
 /// The driven object's offsetParentMatrix: what it is placed in is its parent's frame times this.
-const OFFSET_PARENT: usize = 32;
+const OFFSET_PARENT: usize = B + 32;
+const LOCK_OUTPUT: usize = B + 33;
 
 /// A target's world matrix with its origin moved to its rotate pivot, which is where the reference constrains to.
 fn at_pivot(m: DMat4, rp: DVec3) -> DMat4 {
@@ -278,10 +282,15 @@ fn point_at_uv(m: &Mesh, uv: DVec2) -> Option<(DVec3, DVec3, DVec3)> {
     best.map(|b| b.1)
 }
 
+static TRANSFORM: Transform = Transform;
+
 impl NodeBehavior for ConstraintNode {
-    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
-        // Anything but Normal: the outputs stay as they were.
-        if d.int(NODE_STATE) != 0 {
+    fn compute(&mut self, ctx: &EvalContext, d: &mut NodeData) {
+        // Its own place, as any transform's.
+        let mut t = Transform;
+        NodeBehavior::compute(&mut t, ctx, d);
+        // Anything but Normal, or Lock Output on: the outputs stay as they were.
+        if d.int(NODE_STATE) != 0 || (d.bool(LOCK_OUTPUT) && self.ran) {
             if !self.ran {
                 self.ran = true;
                 let (t, e, s) = (d.vec3(REST_T), d.vec3(REST_R), d.vec3(REST_S));
@@ -446,6 +455,9 @@ impl NodeBehavior for ConstraintNode {
         d.set_output(OUT_R, PlugValue::Vec3(e));
         d.set_output(OUT_S, PlugValue::Vec3(s));
     }
+    fn as_transform(&self) -> Option<&dyn crate::transform::TransformBehavior> {
+        Some(&TRANSFORM)
+    }
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -472,8 +484,37 @@ fn aim_rotation(d: &NodeData, dir: DVec3, eye: DVec3, pm: &DMat4, rest_e: DVec3)
     }
 }
 
+/// The settings each kind has, as the reference's node of that kind does (#121): the others are hidden on it.
+fn kind_has(k: usize, attr: &str) -> bool {
+    match attr {
+        "offset" => matches!(k, POINT | ORIENT | SCALE | AIM | POLE),
+        "restTranslate" => matches!(k, PARENT | POINT | POLE | GEOMETRY | POINT_ON_POLY),
+        "restRotate" => matches!(k, PARENT | ORIENT | AIM | NORMAL | TANGENT | POINT_ON_POLY),
+        "restScale" => k == SCALE,
+        "interpType" => matches!(k, PARENT | ORIENT | POINT_ON_POLY),
+        "constraintRotateOrder" => matches!(k, PARENT | ORIENT | AIM | NORMAL | TANGENT | POINT_ON_POLY),
+        "aimVector" | "upVector" | "worldUpVector" | "worldUpType" => matches!(k, AIM | NORMAL | TANGENT),
+        _ => true,
+    }
+}
+
 pub(crate) fn register_types() {
     let store = flags::INPUT | flags::STORABLE;
+    let transform = types::find("transform").expect("transform registered before constraints");
+    // What every constraint is, as in the reference: a transform. Nothing is made of this type itself.
+    let base = types::find("constraint").unwrap_or_else(|| {
+        types::register_type(NodeType {
+            name: "constraint".into(),
+            base: Some(transform.clone()),
+            dag: true,
+            free_of_parent: true,
+            reads_added_attrs: true,
+            icon: "link".into(),
+            doc: "What every constraint is: a transform under the object it drives.".into(),
+            ..Default::default()
+        })
+        .expect("constraint")
+    });
     for (k, name) in CONSTRAINT_TYPES.iter().enumerate() {
         let array_vec = |n: &str, short: &str, doc: &str| {
             let mut a = vec3_attr(n, short, DVec3::ZERO, store | flags::ARRAY | flags::HIDDEN, doc);
@@ -482,11 +523,7 @@ pub(crate) fn register_types() {
             a
         };
         let out = flags::OUTPUT | flags::HIDDEN;
-        types::register_type(NodeType {
-            name: name.to_string(),
-            icon: "link".into(),
-            doc: "Drives an object from its targets.".into(),
-            own_attrs: vec![
+        let mut own = vec![
                 matrix_in("target.targetMatrix", "tgm", true, "Each target's world matrix."),
                 array_vec("target.targetOffsetTranslate", "tot", "Parent constraint: the object's place in the target's frame."),
                 array_vec("target.targetOffsetRotate", "tor", "Parent constraint: the object's rotation in the target's frame, Euler XYZ degrees."),
@@ -536,11 +573,28 @@ pub(crate) fn register_types() {
                 matrix_in("target.targetOffsetParentMatrix", "topm", true, "That target's offsetParentMatrix."),
                 array_vec("target.targetScale", "ts", "A scale constraint target's scale."),
                 matrix_in("constraintOffsetParentMatrix", "copm", false, "The driven object's offsetParentMatrix."),
-            ],
+                AttrDef { short_name: "lo".into(), ..crate::attr_defs::bool_attr("lockOutput", false, "The outputs stay as they are while on.") },
+            ];
+        for a in &mut own {
+            if !kind_has(k, &a.name) {
+                a.flags |= flags::HIDDEN;
+            }
+        }
+        let ty = types::register_type(NodeType {
+            name: name.to_string(),
+            base: Some(base.clone()),
+            dag: true,
+            free_of_parent: true,
+            reads_added_attrs: true,
+            icon: "link".into(),
+            doc: "Drives an object from its targets.".into(),
+            own_attrs: own,
             create: Some(Arc::new(move || Box::new(ConstraintNode { kind: k, ran: false }))),
             ..Default::default()
         })
         .expect(name);
+        debug_assert_eq!(ty.attr_index("target.targetMatrix"), Some(T_MATRIX));
+        debug_assert_eq!(ty.attr_index("lockOutput"), Some(LOCK_OUTPUT));
     }
 }
 
@@ -1183,7 +1237,8 @@ fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
             None => {
                 let t = types::find(cmd).unwrap();
                 let driven_name = g.node(driven).map(|n| n.name().replace([':', '|'], "_")).unwrap_or_default();
-                let c = g.create_node(&t, &a.string("name", &format!("{driven_name}_{cmd}1")), NO_NODE, true)?;
+                // Under the object it drives, as the reference puts it.
+                let c = g.create_node(&t, &a.string("name", &format!("{driven_name}_{cmd}1")), driven, true)?;
                 // The rest position is where the object is now.
                 let n = g.node(driven).unwrap().data();
                 let (rt, rr, rs) = (n.vec3(Transform::TRANSLATE), n.vec3(Transform::ROTATE), n.vec3(Transform::SCALE));

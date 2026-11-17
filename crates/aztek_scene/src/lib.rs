@@ -127,6 +127,8 @@ pub mod texture_nodes;
 pub mod utility_nodes;
 pub mod uv_misc;
 pub mod uv_arrange;
+pub mod bookmarks;
+pub mod hair;
 pub mod uv_ops;
 pub mod uv_sets;
 pub mod fbx_export;

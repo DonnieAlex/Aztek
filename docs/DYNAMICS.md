@@ -206,7 +206,7 @@ rig; `dynInfo` shows it per part.
 | `pointEmitter` | a transform with an `emitter` shape |
 | `airField`, `dragField`, `gravityField`, `newtonField`, `radialField`, `turbulenceField`, `uniformField`, `vortexField`, `volumeAxisField` | a transform with a `field` shape |
 | `dynamicConstraint` | held as one, without its components |
-| `hairSystem`, `nComponent`, fluids, `cacheFile`, `geoConnector`, the soft body and spring nodes, and nodes of the molecular matter plug-in | `heldNode`: not simulated, written back as they came |
+| `nComponent`, fluids, `cacheFile`, `geoConnector`, the soft body and spring nodes, and nodes of the molecular matter plug-in | `heldNode`: not simulated, written back as they came |
 
 `follicle` stays as it is. What a node set that is not used here is kept on it as the file's own lines
 (`fileAttributes`) and its old type in `fileType`; a warning names those attributes. Connections that mean nothing
@@ -221,8 +221,28 @@ Not honoured from the older systems: nCloth's lift, stickiness, pressure, rigidi
 and every per vertex map but input attract and mass (all kept); nucleus wind noise, plane bounce and normal (the plane
 always faces up), collision layers; particle ramps and per particle expressions (`dynExpression` keeps the text but
 does not run it); fields' volume shapes and per field falloff curves; rigid solver settings; Bullet's constraints and
-soft bodies; dynamic constraints' components (made again with `dynamicConstraint`); hair, fluids and molecular matter
+soft bodies; dynamic constraints' components (made again with `dynamicConstraint`); fluids and molecular matter
 simulation.
+
+## Hair (17/11/2026)
+
+`makeCurvesDynamic` (nHair > Make Selected Curves Dynamic) puts each selected curve under a new follicle in
+`hairSystem1Follicles`, makes a dynamic output curve for it in `hairSystem1OutputCurves`, and wires them as the
+reference does: `curve.worldSpace -> follicle.startPosition`, `follicle.outHair -> hairSystem.inputHair[i]`,
+`follicle.pointLock -> hairSystem.inputHairPin[i]`, `hairSystem.outputHair[i] -> follicle.currentPosition`,
+`follicle.outCurve -> outputCurve.create`. With a hair system selected too, the curves join it. The reference's
+surface attach arguments are accepted and not used.
+
+The `hairSystem` shape steps its strands a frame at a time from `startFrame` (points with Verlet integration, then
+length, bend and pin constraints): `active`, `startFrame`, `gravity`, `drag`, `damp`, `stretchResistance`,
+`bendResistance`, `startCurveAttract`, `substeps` and `iterations` are used. The follicle's `pointLock` (No
+Attach, Base, Tip, Both Ends) and `simulationMethod` (Static and Passive give the start curve) are used. Frames are
+kept, so going back to one already solved gives it again; going forward past a gap solves the frames between.
+
+Not yet: a nucleus (the system uses its own gravity rather than a nucleus's), collisions (self, with meshes and
+the ground), attraction and stiffness ramps, turbulence and fields, the follicle's per hair overrides, rest
+position and rest curves, hair rendering of the system (Paint Effects and Harold strands), caches, and the rest of
+the nHair menu.
 
 ## The disk cache
 

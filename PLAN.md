@@ -186,7 +186,7 @@ What studio tools need before they run at all.
   script-built controls.
 - [~] 5.2 (`maya.OpenMaya` imports with `MScriptUtil`; how much of the list is covered not audited) `maya.OpenMaya` (API 1) subset over the same core as API 2: `MGlobal`, `MSelectionList`, `MDagPath`,
   `MObject`, `MFnMesh`, `MFnTransform`, `MFnDependencyNode`, the iterators, `MScriptUtil`, `MPxCommand`, `MPxNode`.
-- [ ] 5.3 (16/11/2026: `MPxLocatorNode` is in `OpenMayaUI`; `MPxDeformerNode`, `MPxFileTranslator` and `MRampAttribute` are not in Python) API 2 gaps from PARITY.md: `MPxDeformerNode`, `MPxLocatorNode`, mesh attributes into `compute`, compound
+- [x] 5.3 (17/11/2026: in `crates/aztek_host/tests/python_plugin_kinds.rs`. Deformers through `MPxDeformerNode` and `MPxGeometryFilter` (deform() on meshes, not curves), arrays of compounds on plug-in nodes, `MRampAttribute` (curve and colour, 2.0 and 1.0), `MPxFileTranslator` (readers and writers for file -open, -import, -exportAll, -exportSelected and -save), meshes into and out of `compute` (`asMesh`, `MFnMeshData`, `MFnMesh.create` into data, `setPoints` on data), several UV sets on `MFnMesh`, shear on `MFnTransform`. Compounds inside arrays of compounds and `identifyFile` are not) API 2 gaps from PARITY.md: `MPxDeformerNode`, `MPxLocatorNode`, mesh attributes into `compute`, compound
   arrays, several UV sets, `MRampAttribute`, shear on `MFnTransform`.
 - [ ] 5.4 Check that `pip install pymel` imports and runs a common set of calls against the shims; fix the shim where
   pymel's import-time introspection fails.
@@ -210,7 +210,7 @@ What studio tools need before they run at all.
   skinCluster and in `.ma`.
 - [ ] 7.2 One deformer node across several meshes, as the reference (today one node per mesh); skinCluster with its set
   so membership limits a skin.
-- [ ] 7.3 IK handle `weight`, `poWeight`, `priority`, `stickiness` and joint `stiffness` change the solve.
+- [~] 7.3 (17/11/2026: the reference's 2027 ikHandle page says `weight` and `poWeight` have no effect on single-chain (ikRPsolver, ikSCsolver) or spline handles, the only solvers Aztek has, so they stay stored only; `priority` matters only for handles sharing joints, and chained handles already solve parent first through the graph; `stickiness` is interactive only; whether `stiffness` changes an RP or SC solve the joint page doesn't say: in WANTED.md) IK handle `weight`, `poWeight`, `priority`, `stickiness` and joint `stiffness` change the solve.
 - [ ] 7.4 HumanIK Custom Rig and the full body solve with Pull, Stiffness, Reach and pinning.
 - [ ] 7.5 The remaining items: `combinationShape` formula against a capture, `skeletonEmbed`, `flexor`, the deformer
   differences PARITY.md lists.
@@ -221,7 +221,7 @@ What studio tools need before they run at all.
   and retime by dragging, OTIO import and export as the reference's 2027.1 adds.
 - [ ] 8.2 Time Editor with clips, composition and layers; then Trax.
 - [ ] 8.3 Blue Pencil drawing on views by frame.
-- [ ] 8.4 Animation bookmarks on the time slider.
+- [x] 8.4 (17/11/2026: `timeSliderBookmark` nodes saved in `.ma`; drawn on the Time Slider with a tooltip; the bookmark icon by the range slider, Alt+T and Alt+Shift+T, the Bookmark Manager, Frame Bookmark, Ctrl-drag to move and resize. Not done: the ; and ' stepping keys, which would fight typing in the editors, and the reference's Python module for scripting them) Animation bookmarks on the time slider.
 
 ## Phase 9: look development in the viewport
 

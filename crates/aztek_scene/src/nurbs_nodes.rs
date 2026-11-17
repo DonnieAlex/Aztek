@@ -180,6 +180,11 @@ impl Follicle {
     const PARAM_V: usize = Shape::COUNT + 4;
     const OUT_T: usize = Shape::COUNT + 5;
     const OUT_R: usize = Shape::COUNT + 6;
+    const START: usize = Shape::COUNT + 7;
+    const CURRENT: usize = Shape::COUNT + 8;
+    const SIM: usize = Shape::COUNT + 10;
+    const OUT_CURVE: usize = Shape::COUNT + 11;
+    const OUT_HAIR: usize = Shape::COUNT + 12;
 
     /// Which triangle of the mesh holds a UV, nearest when it falls outside them all, as a follicle stays on the mesh.
     fn find_uv(m: &Mesh, u: f64, v: f64) -> Option<([u32; 3], [f64; 3])> {
@@ -244,6 +249,16 @@ impl Follicle {
 impl NodeBehavior for Follicle {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         Shape::compute_matrices(d);
+        // Hair: the start curve goes to the hair system; the curve out is the one it moved, when the follicle is
+        // dynamic and has one, else the start curve.
+        let start = curves::curve_value(d.value(Self::START)).cloned();
+        let current = curves::curve_value(d.value(Self::CURRENT)).cloned();
+        d.set_output(Self::OUT_HAIR, start.clone().map_or(PlugValue::Data(None), curves::to_value));
+        let out = match (d.int(Self::SIM), current) {
+            (2, Some(c)) => Some(c),
+            _ => start,
+        };
+        d.set_output(Self::OUT_CURVE, out.map_or(PlugValue::Data(None), curves::to_value));
         let (u, v) = (d.float(Self::PARAM_U), d.float(Self::PARAM_V));
         let frame = if let Some(s) = surfaces::surface_value(d.value(Self::IN_SURFACE)) {
             let (ulo, uhi) = s.domain_u();
@@ -325,9 +340,16 @@ pub fn register_types() {
                 float_attr("parameterV", "pv", 0.5, "Where along V, 0 to 1."),
                 vec3_out("outTranslate", "ot", "The point, world space."),
                 vec3_out("outRotate", "or", "The frame, world space."),
+                curves::curve_attr("startPosition", "sp", HIDDEN_IN, "Hair: the start curve, world space."),
+                curves::curve_attr("currentPosition", "crp", HIDDEN_IN, "Hair: the curve as the hair system moved it."),
+                AttrDef { short_name: "ptl".into(), flags: flags::INPUT | flags::STORABLE, ..crate::attr_defs::enum_attr("pointLock", &["No Attach", "Base", "Tip", "BothEnds"], 3, "Hair: which ends hold to the start curve.") },
+                AttrDef { short_name: "sim".into(), flags: flags::INPUT | flags::STORABLE, ..crate::attr_defs::enum_attr("simulationMethod", &["Static", "Passive", "Dynamic"], 2, "Hair: whether the curve moves.") },
+                curves::curve_attr("outCurve", "ocr", HIDDEN_OUT, "Hair: the curve to draw, world space."),
+                curves::curve_attr("outHair", "oh", HIDDEN_OUT, "Hair: the start curve, to the hair system."),
             ],
             create: Some(Arc::new(|| Box::<Follicle>::default())),
             free_of_parent: true,
+            mirrors: vec![(Follicle::OUT_HAIR, Follicle::START)],
             ..Default::default()
         });
     });

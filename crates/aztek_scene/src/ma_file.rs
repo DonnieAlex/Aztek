@@ -1256,9 +1256,9 @@ const DRAW_CHANNELS: &[&str] = &[
 ];
 
 /// Rigging and animation nodes that are all attributes and connections.
-const PLAIN_NODES: &[&str] = &["audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
+const PLAIN_NODES: &[&str] = &["timeSliderBookmark", "audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup"];
 /// The same under a transform.
-const PLAIN_SHAPES: &[&str] = &["imagePlane", "poseInterpolator", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
+const PLAIN_SHAPES: &[&str] = &["hairSystem", "imagePlane", "poseInterpolator", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
 /// Nodes written and read attribute by attribute, with their connections: utility nodes and expressions.
 /// What a file's unitConversion does: values are in stored units, as in the reference, so its factor means what it says.
@@ -5486,7 +5486,7 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     let _ = writeln!(w.out, "//Codeset: UTF-8");
     let _ = writeln!(w.out, "requires maya \"2024\";");
     // The reference reads the file, keeping these nodes as unknown ones from a plug-in it does not have.
-    if w.s.graph.nodes().iter().any(|&id| w.keep.contains(&id) && w.s.graph.node(id).is_some_and(|n| crate::dynamics::is_dynamics_type(&n.ty().name))) {
+    if w.s.graph.nodes().iter().any(|&id| w.keep.contains(&id) && w.s.graph.node(id).is_some_and(|n| crate::dynamics::is_dynamics_type(&n.ty().name) || n.ty().name == crate::hair::HAIR_SYSTEM)) {
         let _ = writeln!(w.out, "requires \"aztekDynamics\" \"1.0\";");
     }
     // The plug-ins whose nodes this file holds, as the reference lists them; reading loads them first.
@@ -5901,6 +5901,9 @@ fn file_command(s: &mut Session, a: &Args) -> CmdResult {
         }
         return Ok(file_query(s, a, path_arg.as_deref()));
     }
+    if let Some(r) = plugin_translator_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
+        return r;
+    }
     if let Some(r) = fbx_file(s, a, path_arg.as_deref(), type_flag.as_deref()) {
         return r;
     }
@@ -6105,6 +6108,75 @@ pub const TRANSLATORS: &[(&str, &str, bool, bool, Option<&str>)] = &[
     ("USD Export", "usd", false, true, Some("mayaUSDExport")),
     ("Alembic", "abc", true, false, Some("AbcImport")),
 ];
+
+/// A file translator a plug-in registered (MPxFileTranslator): its name, extension, and whether it reads and writes.
+#[derive(Clone, Debug)]
+pub struct PluginTranslator {
+    pub name: String,
+    pub extension: String,
+    pub read: bool,
+    pub write: bool,
+    pub owner: String,
+    pub default_options: String,
+}
+
+/// What runs a plug-in's translator: (session, translator, "open" | "import" | "reference" | "exportAll" |
+/// "exportSelected" | "save", path, options).
+pub type TranslatorHook = std::sync::Arc<dyn Fn(&mut Session, &str, &str, &str, &str) -> CmdResult + Send + Sync>;
+
+static PLUGIN_TRANSLATORS: std::sync::RwLock<Vec<PluginTranslator>> = std::sync::RwLock::new(Vec::new());
+static TRANSLATOR_HOOK: std::sync::RwLock<Option<TranslatorHook>> = std::sync::RwLock::new(None);
+
+pub fn set_translator_hook(h: TranslatorHook) {
+    *TRANSLATOR_HOOK.write().unwrap() = Some(h);
+}
+
+pub fn register_plugin_translator(t: PluginTranslator) {
+    let mut l = PLUGIN_TRANSLATORS.write().unwrap();
+    l.retain(|x| x.name != t.name);
+    l.push(t);
+}
+
+pub fn deregister_plugin_translator(name: &str) {
+    PLUGIN_TRANSLATORS.write().unwrap().retain(|x| x.name != name);
+}
+
+pub fn plugin_translators() -> Vec<PluginTranslator> {
+    PLUGIN_TRANSLATORS.read().unwrap().clone()
+}
+
+/// A plug-in translator's file: named by -type, or a file with its extension when no type is given.
+fn plugin_translator_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> Option<CmdResult> {
+    let mode = ["open", "import", "exportAll", "exportSelected"].into_iter().find(|f| a.bool(f)).or_else(|| a.bool("save").then_some("save"))?;
+    let owned = match path {
+        Some(p) => p.to_string(),
+        None if mode == "save" => s.scene_path.clone()?,
+        None => return None,
+    };
+    let path = owned.as_str();
+    let writing = mode.starts_with("export") || mode == "save";
+    let list = plugin_translators();
+    let t = match ty {
+        Some(t) => list.into_iter().find(|x| x.name.eq_ignore_ascii_case(t))?,
+        None => {
+            let ext = extension(path);
+            list.into_iter().find(|x| !x.extension.is_empty() && x.extension.eq_ignore_ascii_case(&ext) && if writing { x.write } else { x.read })?
+        }
+    };
+    if (writing && !t.write) || (!writing && !t.read) {
+        return Some(Err(aztek_ops::CommandError::new(format!("file: the {} type can't {}", t.name, if writing { "write" } else { "read" }))));
+    }
+    let hook = TRANSLATOR_HOOK.read().unwrap().clone()?;
+    if mode == "open" {
+        if !a.bool("force") && s.is_modified() {
+            return Some(Err(aztek_ops::CommandError::new("file: Unsaved changes.")));
+        }
+        let _ = s.run("newScene", json!({}));
+        s.scene_path = None;
+    }
+    let options = a.get("options").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| t.default_options.clone());
+    Some(hook(s, &t.name, mode, path, &options).map(|_| json!(path)))
+}
 
 /// OBJ files go to the objExport plug-in's commands, as the reference's file command hands the OBJ (reading) and
 /// OBJexport (writing) types to that plug-in's translator; a .obj name with no type is read as OBJ. Without the

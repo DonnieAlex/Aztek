@@ -13,6 +13,26 @@ MPxData = _om2.MPxData
 MPxSurfaceShape = _om2.MPxSurfaceShape
 MPxLocatorNode = _omui2.MPxLocatorNode
 MPxSurfaceShapeUI = _omui2.MPxSurfaceShapeUI
+MPxFileTranslator = _om2.MPxFileTranslator
+MPxGeometryFilter = _om2._MPxGeometryFilter
+MPxDeformerNode = _om2._MPxDeformerNode
+
+
+class cvar:
+    """The 1.0 API's static attributes of its base classes, as SWIG gives them: MPxGeometryFilter_envelope and so on."""
+
+    MPxGeometryFilter_input = _om2._MPxGeometryFilter.input
+    MPxGeometryFilter_inputGeom = _om2._MPxGeometryFilter.inputGeom
+    MPxGeometryFilter_outputGeom = _om2._MPxGeometryFilter.outputGeom
+    MPxGeometryFilter_envelope = _om2._MPxGeometryFilter.envelope
+    MPxGeometryFilter_groupId = _om2._MPxGeometryFilter.groupId
+    MPxDeformerNode_weightList = _om2._MPxDeformerNode.weightList
+    MPxDeformerNode_weights = _om2._MPxDeformerNode.weights
+    MPxDeformerNode_input = MPxGeometryFilter_input
+    MPxDeformerNode_inputGeom = MPxGeometryFilter_inputGeom
+    MPxDeformerNode_outputGeom = MPxGeometryFilter_outputGeom
+    MPxDeformerNode_envelope = MPxGeometryFilter_envelope
+    MPxDeformerNode_groupId = MPxGeometryFilter_groupId
 
 
 def asMPxPtr(obj):

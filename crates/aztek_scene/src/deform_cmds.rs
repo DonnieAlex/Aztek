@@ -13,7 +13,7 @@ use crate::skin::{asked, modes};
 /// The deformer a name stands for.
 pub(crate) fn deformer_named(g: &Graph, name: &str, cmd: &str) -> CmdResult<NodeId> {
     let id = crate::rig::find(g, name, cmd)?;
-    if g.node(id).is_some_and(|n| is_deformer(n.ty().name.as_str())) {
+    if g.node(id).is_some_and(|n| is_deformer(n.ty().name.as_str()) || crate::scripted::is_plugin_deformer(n.ty().name.as_str())) {
         return Ok(id);
     }
     fail!("{cmd}: {name} is not a deformer")

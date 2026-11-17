@@ -197,6 +197,11 @@ private:
     QMenu* lighting_shading_menu();
     void show_set_driven_key();
     void time_slider_menu(QPoint global);
+    // Time Slider bookmarks: the Create Bookmark window (quick: unnamed, a random colour, at once), the Bookmark
+    // Manager, and framing one (0 the one at the current frame, -1 the one before, 1 the one after).
+    void create_bookmark(bool quick);
+    void bookmark_manager();
+    void frame_bookmark(int dir);
     void update_title();
     void toggle_play(int dir);
     void stop_play();

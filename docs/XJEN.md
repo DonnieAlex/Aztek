@@ -125,8 +125,9 @@ round trips, and screenshots.
    SeExpr expressions, Ptex maps, archives, the XGen Editor and Library, the `xgenm` Python API, Convert to
    Interactive Groom. Needs an expression language and a Ptex reader; both have permissive licences (SeExpr Apache
    2.0, Ptex BSD) and are to be checked before they are taken.
-8. **Dynamics.** Make Guides and Wires Dynamic once the unified solver simulates hair (`hairSystem` is held, not
-   simulated, today; see docs/DYNAMICS.md).
+8. **Dynamics.** Make Guides and Wires Dynamic once the unified solver simulates hair. Under way: `hairSystem`
+   simulates curves made dynamic with `makeCurvesDynamic` since 17/11/2026 (docs/DYNAMICS.md, Hair); guides and wires
+   are not hooked to it yet.
 
 ## Step 2 as built (16/11/2026)
 

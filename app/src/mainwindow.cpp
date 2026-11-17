@@ -1,5 +1,14 @@
 #include <QWidgetAction>
 #include "mainwindow.h"
+#include <QDoubleSpinBox>
+#include <QSignalBlocker>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QShortcut>
+#include <QRandomGenerator>
+#include <QColorDialog>
+#include <QHeaderView>
+#include <QTableWidget>
 #include "updates.h"
 #include "renderui.h"
 #include "aztek.h"
@@ -797,9 +806,11 @@ QMenu* MainWindow::constrain_menu() {
     cmd(m, "Scale", "scaleConstraint", {}, QString(), true);
     cmd(m, "Aim", "aimConstraint", {}, QString(), true);
     cmd(m, "Pole Vector", "poleVectorConstraint", {}, QString(), true);
+    m->addSeparator();
     cmd(m, "Geometry", "geometryConstraint", {}, QString(), true);
     cmd(m, "Normal", "normalConstraint", {}, QString(), true);
     cmd(m, "Tangent", "tangentConstraint", {}, QString(), true);
+    m->addSeparator();
     cmd(m, "Point on Poly", "pointOnPolyConstraint", {}, QString(), true);
     cmd(m, "UV Pin", "UVPin");
     cmd(m, "Proximity Pin", "ProximityPin");
@@ -813,7 +824,38 @@ QMenu* MainWindow::constrain_menu() {
         exec("pointOnPolyConstraint", QJsonObject{{"args", a}});
     });
     m->addSeparator();
+    // As the reference's: Motion Paths here too, then the editing of constraints made already (#121).
+    auto* path = m->addMenu("Motion Paths");
+    cmd(path, "Attach to Motion Path", "pathAnimation", QJsonObject{{"follow", true}, {"fractionMode", true}, {"startTimeU", 1}, {"endTimeU", 120}});
+    cmd(path, "Flow Path Object", "flow");
+    m->addSeparator();
     cmd(m, "Remove Target", "RemoveConstraintTarget");
+    m->addAction("Set Rest Position", [] {
+        // Each selected constraint, or those under the selected objects: the object as it stands is where it rests.
+        int done = 0;
+        for (const QJsonValue& v : state()["selection"].toArray()) {
+            const QString n = v.toString();
+            QJsonArray cs;
+            if (ask("objectType", QJsonObject{{"args", QJsonArray{n}}, {"isAType", "constraint"}}).toBool()) cs.append(n);
+            else cs = ask("listRelatives", QJsonObject{{"args", QJsonArray{n}}, {"type", "constraint"}, {"fullPath", true}}).toArray();
+            for (const QJsonValue& c : cs) {
+                const QString con = c.toString();
+                const QJsonArray up = ask("listRelatives", QJsonObject{{"args", QJsonArray{con}}, {"parent", true}, {"fullPath", true}}).toArray();
+                if (up.isEmpty()) continue;
+                const QString obj = up.at(0).toString();
+                for (auto pr : {std::pair{"restTranslate", "translate"}, std::pair{"restRotate", "rotate"}}) {
+                    if (!ask("attributeQuery", QJsonObject{{"args", QJsonArray{pr.first}}, {"node", con}, {"exists", true}}).toBool()) continue;
+                    if (ask("attributeQuery", QJsonObject{{"args", QJsonArray{pr.first}}, {"node", con}, {"hidden", true}}).toBool()) continue;
+                    QJsonArray val = ask("getAttr", QJsonObject{{"args", QJsonArray{obj + "." + pr.second}}}).toArray();
+                    if (val.size() == 1 && val.at(0).isArray()) val = val.at(0).toArray();
+                    if (val.size() != 3) continue;
+                    exec("setAttr", QJsonObject{{"args", QJsonArray{con + "." + pr.first, val.at(0), val.at(1), val.at(2)}}});
+                }
+                ++done;
+            }
+        }
+        if (!done) log("// Warning: select constraints, or objects with constraints //", 4);
+    });
     return m;
 }
 
@@ -1328,6 +1370,32 @@ void MainWindow::build_bottom() {
     row2->addWidget(anim_start_);
     row2->addWidget(play_start_);
     row2->addWidget(range_slider_, 1);
+    // The bookmark icon: a click makes one, a right-click has the manager and framing.
+    auto* bookmark = new QToolButton(w);
+    bookmark->setText(QString::fromUtf8("\u2691"));
+    bookmark->setToolTip("Create Bookmark (Alt+T); right-click for the Bookmark Manager");
+    bookmark->setAutoRaise(true);
+    bookmark->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(bookmark, &QToolButton::clicked, this, [this] { create_bookmark(false); });
+    connect(bookmark, &QToolButton::customContextMenuRequested, this, [this, bookmark](const QPoint& at) {
+        QMenu m;
+        m.addAction("Create Bookmark\tAlt+T", [this] { create_bookmark(false); });
+        m.addAction("Bookmark Manager", [this] { bookmark_manager(); });
+        m.addSeparator();
+        m.addAction("Frame Bookmark", [this] { frame_bookmark(0); });
+        m.addAction("Frame Previous Bookmark", [this] { frame_bookmark(-1); });
+        m.addAction("Frame Next Bookmark", [this] { frame_bookmark(1); });
+        m.exec(bookmark->mapToGlobal(at));
+    });
+    row2->addWidget(bookmark);
+    auto* bm_create = new QShortcut(QKeySequence("Alt+T"), this);
+    connect(bm_create, &QShortcut::activated, this, [this] { create_bookmark(false); });
+    auto* bm_quick = new QShortcut(QKeySequence("Alt+Shift+T"), this);
+    connect(bm_quick, &QShortcut::activated, this, [this] { create_bookmark(true); });
+    connect(time_slider_, &TimeSlider::bookmarkMoved, this, [](const QString& node, double a, double b) {
+        mel_action(QString("setAttr %1.timeRangeStart %2; setAttr %1.timeRangeStop %3;").arg(node).arg(a).arg(b));
+        Host::get()->poke();
+    });
     row2->addWidget(play_end_);
     row2->addWidget(anim_end_);
     // Time units by name, as the Settings have them.
@@ -1447,6 +1515,16 @@ void MainWindow::refresh_state() {
     QVector<double> kt;
     for (const QJsonValue& k : keys.toArray()) kt.append(k.toDouble());
     time_slider_->set_keys(kt);
+    {
+        QVector<TimeSlider::Bookmark> bms;
+        for (const QJsonValue& v : query("bookmarks").toArray()) {
+            const QJsonObject o = v.toObject();
+            const QJsonArray c = o["color"].toArray();
+            bms.append({o["node"].toString(), o["name"].toString(), o["start"].toDouble(), o["stop"].toDouble(),
+                        QColor::fromRgbF(float(c[0].toDouble()), float(c[1].toDouble()), float(c[2].toDouble()))});
+        }
+        time_slider_->set_bookmarks(bms);
+    }
     QVector<double> bd;
     if (!kt.isEmpty())
         for (const QJsonValue& k : ask("keyframe", QJsonObject{{"query", true}, {"queried", QJsonArray{"breakdown"}}}).toArray()) bd.append(k.toDouble());
@@ -1770,6 +1848,171 @@ void MainWindow::show_set_driven_key() {
     sdk_window_->show();
     sdk_window_->raise();
     sdk_window_->activateWindow();
+}
+
+void MainWindow::create_bookmark(bool quick) {
+    const auto [a, b] = time_slider_->picked_range();
+    QString name;
+    QColor color = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 180, 230);
+    double start = a, stop = b;
+    if (!quick) {
+        QDialog d(this);
+        d.setWindowTitle("Create Bookmark");
+        auto* f = new QFormLayout(&d);
+        auto* n = new QLineEdit(&d);
+        auto* s0 = new QDoubleSpinBox(&d);
+        auto* s1 = new QDoubleSpinBox(&d);
+        for (QDoubleSpinBox* x : {s0, s1}) {
+            x->setRange(-1e6, 1e6);
+            x->setDecimals(0);
+        }
+        s0->setValue(a);
+        s1->setValue(b);
+        auto* pick = new QPushButton(&d);
+        auto paint = [pick](const QColor& c) { pick->setStyleSheet(QString("background: %1; min-width: 60px;").arg(c.name())); };
+        paint(color);
+        connect(pick, &QPushButton::clicked, &d, [&color, &d, paint] {
+            const QColor c = QColorDialog::getColor(color, &d, "Bookmark Colour");
+            if (c.isValid()) {
+                color = c;
+                paint(c);
+            }
+        });
+        f->addRow("Name:", n);
+        f->addRow("Color:", pick);
+        f->addRow("Start:", s0);
+        f->addRow("End:", s1);
+        auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &d);
+        bb->button(QDialogButtonBox::Ok)->setText("Create");
+        connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+        connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+        f->addRow(bb);
+        if (d.exec() != QDialog::Accepted) return;
+        name = n->text();
+        start = std::min(s0->value(), s1->value());
+        stop = std::max(s0->value(), s1->value());
+    }
+    QString esc = name;
+    esc.replace("\\", "\\\\").replace("\"", "\\\"");
+    mel_action(QString("{ string $b = `createNode timeSliderBookmark`; setAttr ($b + \".name\") -type \"string\" \"%1\"; "
+                       "setAttr ($b + \".timeRangeStart\") %2; setAttr ($b + \".timeRangeStop\") %3; setAttr ($b + \".color\") %4 %5 %6; }")
+                   .arg(esc).arg(start).arg(stop).arg(color.redF()).arg(color.greenF()).arg(color.blueF()));
+    Host::get()->poke();
+}
+
+void MainWindow::frame_bookmark(int dir) {
+    const auto& bms = time_slider_->bookmarks();
+    if (bms.isEmpty()) return;
+    const double t = time_slider_->time();
+    const TimeSlider::Bookmark* pick = nullptr;
+    for (const auto& b : bms) {
+        if (dir == 0 && t >= b.start && t <= b.stop && (!pick || b.start > pick->start)) pick = &b;
+        if (dir < 0 && b.stop < t && (!pick || b.stop > pick->stop)) pick = &b;
+        if (dir > 0 && b.start > t && (!pick || b.start < pick->start)) pick = &b;
+    }
+    if (!pick && dir == 0) {
+        // None at the current frame: the nearest.
+        for (const auto& b : bms)
+            if (!pick || std::abs(b.start - t) < std::abs(pick->start - t)) pick = &b;
+    }
+    if (!pick) return;
+    exec_quiet("playbackOptions", QJsonObject{{"minTime", pick->start}, {"maxTime", pick->stop}});
+    sync_time_range();
+    time_slider_->set_time(pick->start);
+}
+
+void MainWindow::bookmark_manager() {
+    auto* d = new QDialog(this);
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowTitle("Bookmark Manager");
+    auto* v = new QVBoxLayout(d);
+    auto* bar = new QToolBar(d);
+    auto* table = new QTableWidget(0, 6, d);
+    table->setHorizontalHeaderLabels({"", "Name", "Start", "End", "", ""});
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->verticalHeader()->hide();
+    v->addWidget(bar);
+    v->addWidget(table, 1);
+    std::function<void()> fill;
+    auto set = [](const QString& node, const QString& attr, const QString& value) {
+        mel_action(QString("setAttr %1.%2 %3;").arg(node, attr, value));
+        Host::get()->poke();
+    };
+    fill = [this, table, set, &fill, d]() {
+        Q_UNUSED(d);
+        QSignalBlocker hold(table);
+        const auto bms = time_slider_->bookmarks();
+        table->setRowCount(bms.size());
+        for (int r = 0; r < bms.size(); ++r) {
+            const auto& b = bms[r];
+            auto* sw = new QPushButton(table);
+            sw->setStyleSheet(QString("background: %1;").arg(b.color.name()));
+            sw->setToolTip("Its colour");
+            connect(sw, &QPushButton::clicked, table, [this, b, set] {
+                const QColor c = QColorDialog::getColor(b.color, this, "Bookmark Colour");
+                if (c.isValid()) set(b.node, "color", QString("%1 %2 %3").arg(c.redF()).arg(c.greenF()).arg(c.blueF()));
+            });
+            table->setCellWidget(r, 0, sw);
+            auto* item = new QTableWidgetItem(b.name);
+            item->setData(Qt::UserRole, b.node);
+            table->setItem(r, 1, item);
+            table->setItem(r, 2, new QTableWidgetItem(QString::number(b.start)));
+            table->setItem(r, 3, new QTableWidgetItem(QString::number(b.stop)));
+            auto* upd = new QPushButton("Use Selection", table);
+            upd->setToolTip("Update the bookmark to the frames picked on the Time Slider");
+            connect(upd, &QPushButton::clicked, table, [this, b] {
+                const auto [a, z] = time_slider_->picked_range();
+                mel_action(QString("setAttr %1.timeRangeStart %2; setAttr %1.timeRangeStop %3;").arg(b.node).arg(a).arg(z));
+                Host::get()->poke();
+            });
+            table->setCellWidget(r, 4, upd);
+            auto* del = new QPushButton("Delete", table);
+            connect(del, &QPushButton::clicked, table, [b] {
+                mel_action(QString("delete %1;").arg(b.node));
+                Host::get()->poke();
+            });
+            table->setCellWidget(r, 5, del);
+        }
+    };
+    connect(table, &QTableWidget::itemChanged, d, [table, set](QTableWidgetItem* it) {
+        const QString node = table->item(it->row(), 1)->data(Qt::UserRole).toString();
+        if (it->column() == 1) {
+            QString t = it->text();
+            t.replace("\\", "\\\\").replace("\"", "\\\"");
+            set(node, "name", QString("-type \"string\" \"%1\"").arg(t));
+        } else if (it->column() == 2) {
+            set(node, "timeRangeStart", QString::number(it->text().toDouble()));
+        } else if (it->column() == 3) {
+            set(node, "timeRangeStop", QString::number(it->text().toDouble()));
+        }
+    });
+    bar->addAction("Create", [this] { create_bookmark(false); });
+    QAction* shown = bar->addAction("Show Bookmarks", [this](bool on) {
+        time_slider_->bookmarks_shown = on;
+        time_slider_->update();
+    });
+    shown->setCheckable(true);
+    shown->setChecked(time_slider_->bookmarks_shown);
+    bar->addAction("Frame Bookmark", [this, table] {
+        const int r = table->currentRow();
+        const auto& bms = time_slider_->bookmarks();
+        if (r < 0 || r >= bms.size()) return frame_bookmark(0);
+        exec_quiet("playbackOptions", QJsonObject{{"minTime", bms[r].start}, {"maxTime", bms[r].stop}});
+        sync_time_range();
+    });
+    bar->addAction("Delete All", [this] {
+        QStringList nodes;
+        for (const auto& b : time_slider_->bookmarks()) nodes << b.node;
+        if (!nodes.isEmpty()) mel_action("delete " + nodes.join(" ") + ";");
+        Host::get()->poke();
+    });
+    // The list follows the scene.
+    auto* keep = new std::function<void()>(fill);
+    connect(d, &QObject::destroyed, [keep] { delete keep; });
+    connect(Host::get(), &Host::sceneChanged, d, [keep] { (*keep)(); });
+    (*keep)();
+    d->resize(560, 300);
+    d->show();
 }
 
 void MainWindow::time_slider_menu(QPoint global) {

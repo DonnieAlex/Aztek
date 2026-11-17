@@ -432,6 +432,7 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             }
             "editors" => query::editors(c, &arg),
             "uvData" => query::uv_data(c),
+            "bookmarks" => aztek_scene::bookmarks::all(&c.s.graph),
             "shading" => query::shading(c),
             "uvTexture" => query::uv_texture(c),
             "texturePath" => query::texture_path(c, &arg),

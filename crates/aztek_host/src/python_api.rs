@@ -162,6 +162,18 @@ fn closest_on_triangle(p: DVec3, [a, b, c]: [DVec3; 3]) -> DVec3 {
 }
 
 /// A JSON query from Python.
+/// One UV set's arrays: each corner's UV id and each UV's u and v, for a set that isn't the current one too.
+pub fn uv_set_arrays(core: &mut Core, id: NodeId, set: &str) -> Result<(Vec<i64>, Vec<f64>), String> {
+    let (_, m) = out_mesh(&mut core.s.graph, id)?;
+    let Some(m) = m else { return Ok((Vec::new(), Vec::new())) };
+    let mut copy = (*m).clone();
+    if !aztek_scene::uv_sets::set_current(&mut copy, set) {
+        return Err(format!("(kInvalidParameter): No UV set named {set}"));
+    }
+    let a = arrays_of(&copy);
+    Ok((a.corner_maps, a.map_uvs))
+}
+
 pub fn out_mesh_of(core: &mut Core, id: NodeId) -> Result<Option<MeshPtr>, String> {
     out_mesh(&mut core.s.graph, id).map(|x| x.1)
 }

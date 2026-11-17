@@ -122,6 +122,11 @@ pub fn selection_locked() -> bool {
     with_ui(|u| u.lock_selection)
 }
 
+/// A selectPref setting that is on or off (useDepth, preSelectHilite, preSelectBackfacing...).
+pub fn select_pref(name: &str, default: bool) -> bool {
+    with_ui(|u| u.prefs.get(name).and_then(|v| v.as_bool().or_else(|| v.as_i64().map(|i| i != 0))).unwrap_or(default))
+}
+
 thread_local! {
     static KEEP_PREFS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
@@ -844,7 +849,7 @@ pub fn register(s: &mut Session) {
             with_ui(|u| {
                 let query = a.bool("query");
                 let mut out = Value::Null;
-                for name in ["clickDrag", "trackSelectionOrder", "preSelectHilite", "xformNoSelect", "useDepth", "affectsActive", "lockSelection", "clickBoxSize"] {
+                for name in ["clickDrag", "trackSelectionOrder", "preSelectHilite", "preSelectBackfacing", "xformNoSelect", "useDepth", "affectsActive", "lockSelection", "clickBoxSize"] {
                     if let Some(v) = a.get(name) {
                         if query {
                             out = match name {
@@ -867,6 +872,7 @@ pub fn register(s: &mut Session) {
         .flag(f("clickDrag", "cld", ArgType::Bool, "Click and drag to select or to move what's under the cursor."))
         .flag(f("trackSelectionOrder", "tso", ArgType::Bool, "Keep the order things were picked in."))
         .flag(f("preSelectHilite", "psh", ArgType::Bool, "Highlight what's under the cursor."))
+        .flag(f("preSelectBackfacing", "psb", ArgType::Bool, "Highlight back-facing components under the cursor too."))
         .flag(f("xformNoSelect", "xns", ArgType::Bool, "A click on an object under the transform tools doesn't reselect."))
         .flag(f("useDepth", "ud", ArgType::Bool, "Marquee only picks what's visible."))
         .flag(f("affectsActive", "aa", ArgType::Bool, "Selection affects the active list."))

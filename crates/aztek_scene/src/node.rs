@@ -44,6 +44,12 @@ pub struct NodeType {
     pub free_of_parent: bool,
     /// Its compute reads only its declared attrs, so one added to a node of this type orders nothing. DAG nodes are like this anyway.
     pub ignores_added_attrs: bool,
+    /// (output, input) pairs: the output holds what the input does, so reading it waits only for what drives the input. A
+    /// follicle's outHair is its startPosition, which lets its hair system drive its currentPosition, as in the reference.
+    pub mirrors: Vec<(usize, usize)>,
+    /// A DAG type whose compute reads attrs added to its nodes (a constraint's target weights), so connections to them
+    /// order it as its own inputs do.
+    pub reads_added_attrs: bool,
 }
 
 impl fmt::Debug for NodeType {

@@ -1,4 +1,4 @@
-// The Dynamics menu set: cloth, particles, rigid bodies, fields, constraints, caches and the solver, all one system.
+// The Dynamics menu set: cloth, particles, hair, rigid bodies, fields, constraints, caches and the solver, all one system.
 #include "mainwindow.h"
 
 #include <QJsonArray>
@@ -38,6 +38,11 @@ QList<QMenu*> MainWindow::dynamics_menus() {
     cmd(particles, "Create Emitter", "emitter", QJsonObject{{"type", "omni"}}, QString(), true);
     cmd(particles, "Emit from Object", "emitter", QJsonObject{{"type", "surf"}}, QString(), true);
     out << particles;
+
+    // nHair: curves on follicles of a hair system (no nucleus or collisions yet; docs/DYNAMICS.md, Hair).
+    auto* hair = new QMenu("Hair", this);
+    cmd(hair, "Make Selected Curves Dynamic", "makeCurvesDynamic", {}, QString(), true);
+    out << hair;
 
     auto* rigid = new QMenu("Rigid Bodies", this);
     cmd(rigid, "Create Active Rigid Body", "rigidBody", QJsonObject{{"active", true}}, QString(), true);
