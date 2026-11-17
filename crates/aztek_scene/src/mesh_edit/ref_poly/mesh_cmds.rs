@@ -440,6 +440,10 @@ pub(crate) fn multi_input(s: &mut Session, a: &Args, node_type: &str, shapes: &[
         }
         let (xf, shape) = crate::mesh_nodes::create_mesh_node(g, &name)?;
         g.connect(&plug(h, crate::history::OUTPUT), &plug(shape, MeshNode::IN_MESH), false)?;
+        if node_type == "polyUnite" {
+            // The combined mesh wears what its meshes wore, face by face, as the reference's Combine keeps them (#94).
+            combined_shading(g, shapes, shape)?;
+        }
         g.select(&[xf], SelectMode::Replace);
         components::clear(g);
         if !ch {
@@ -458,6 +462,41 @@ pub(crate) fn multi_input(s: &mut Session, a: &Args, node_type: &str, shapes: &[
     })();
     g.close_chunk();
     r
+}
+
+/// Assigns the shading groups of `shapes` to the faces they became in `combined`, laid end to end in input order. One
+/// group over everything is assigned to the whole shape.
+fn combined_shading(g: &mut Graph, shapes: &[NodeId], combined: NodeId) -> CmdResult<()> {
+    g.evaluate();
+    let mut by_group: Vec<(NodeId, Vec<u32>)> = Vec::new();
+    let mut offset = 0u32;
+    let mut uncovered = false;
+    for &m in shapes {
+        let count = g.node(m).and_then(|n| n.data().mesh(MeshNode::OUT_MESH).map(|x| x.num_faces())).unwrap_or(0) as u32;
+        let groups = crate::shading::membership_of(g, m);
+        for f in 0..count {
+            let k = groups.iter().rposition(|(_, held)| held.as_ref().is_some_and(|h| h.contains(&f)))
+                .or_else(|| groups.iter().position(|(_, held)| held.is_none()));
+            match k {
+                Some(k) => {
+                    let sg = groups[k].0;
+                    match by_group.iter_mut().find(|(x, _)| *x == sg) {
+                        Some((_, l)) => l.push(offset + f),
+                        None => by_group.push((sg, vec![offset + f])),
+                    }
+                }
+                None => uncovered = true,
+            }
+        }
+        offset += count;
+    }
+    if by_group.len() == 1 && !uncovered {
+        return crate::shading::assign(g, by_group[0].0, &[crate::object_sets::Member::object(combined)]);
+    }
+    for (sg, faces) in by_group {
+        crate::shading::assign(g, sg, &[crate::object_sets::Member { node: combined, kind: K::Face, ids: faces }])?;
+    }
+    Ok(())
 }
 
 pub(crate) fn shapes_named(s: &Session, a: &Args, cmd: &str) -> CmdResult<Vec<NodeId>> {

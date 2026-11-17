@@ -159,3 +159,24 @@ fn every_imported_type_can_be_referenced() {
     // Nothing merged into the scene's own cube.
     assert_eq!(mel(&mut c, "ls -type transform \"c*\";"), json!(["c"]));
 }
+
+/// #94: Combine keeps each mesh's materials face by face, and Separate gives them to the pieces.
+#[test]
+fn combine_and_separate_keep_materials() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n a; polyCube -n b; move 3 0 0 b;");
+    mel(&mut c, "shadingNode -asShader lambert -n red; sets -renderable true -noSurfaceShader true -empty -n redSG; connectAttr red.outColor redSG.surfaceShader;");
+    mel(&mut c, "shadingNode -asShader lambert -n blue; sets -renderable true -noSurfaceShader true -empty -n blueSG; connectAttr blue.outColor blueSG.surfaceShader;");
+    mel(&mut c, "sets -e -forceElement redSG a; sets -e -forceElement blueSG b.f[0:2]; sets -e -forceElement redSG b.f[3:5];");
+    mel(&mut c, "polyUnite -n u a b;");
+    let red = mel(&mut c, "sets -q redSG;");
+    assert!(red.as_array().unwrap().contains(&json!("u.f[0:5]")) && red.as_array().unwrap().contains(&json!("u.f[9:11]")), "{red}");
+    assert!(mel(&mut c, "sets -q blueSG;").as_array().unwrap().contains(&json!("u.f[6:8]")));
+    let pieces = mel(&mut c, "polySeparate u;");
+    let first = pieces[0].as_str().unwrap().to_string();
+    let second = pieces[1].as_str().unwrap().to_string();
+    let shading = |c: &mut Core, x: &str| mel(c, &format!("listConnections -type shadingEngine `listRelatives -s {x}`;"));
+    assert_eq!(shading(&mut c, &first), json!(["redSG"]));
+    let both = shading(&mut c, &second);
+    assert!(both.as_array().unwrap().contains(&json!("redSG")) && both.as_array().unwrap().contains(&json!("blueSG")), "{both}");
+}

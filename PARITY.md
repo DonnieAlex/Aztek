@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Combine and Separate keep materials (17/11/2026, #94)
+
+Mesh > Combine (`polyUnite`, `polyCombine`) gives the new mesh the shading of its meshes face by face (one group over
+all of it is assigned to the whole shape), as the reference's does; Separate then hands each piece the faces' groups,
+so materials survive a Combine and Separate round trip.
+
 ### Script Editor search (17/11/2026, #93)
 
 Ctrl+F in the input tabs or the history opens the find bar (Enter next, Shift+Enter previous, Esc closes; red when
