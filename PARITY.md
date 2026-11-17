@@ -1322,6 +1322,14 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### UV Editor keeps Object mode (17/11/2026, #99)
+
+Opening the UV Editor leaves the selection type as it is: in Object mode the meshes' shells are drawn without UV
+points, here and in the views, and nothing is converted to UVs. A click on a shell, a marquee and now the lasso pick
+meshes in Object mode instead of switching to UVs; the Object/UV/Shell/Edge/Face/Vertex buttons and the right-button
+marking menu (Object Mode at its upper right) change the type, shared with the views
+(docs/issues/99-uv-editor-object-mode.png).
+
 ### A long dolly keeps its pace (17/11/2026, #98)
 
 Dollying in goes by shares of the distance to the centre of interest; once it gets within half a centimetre, it no

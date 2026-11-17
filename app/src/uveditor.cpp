@@ -279,8 +279,27 @@ void UvCanvas::tool_press(QMouseEvent* e) {
 // What the lasso drew round, as a UV selection.
 void UvCanvas::pick_lasso(Qt::KeyboardModifiers mods) {
     bool ctrl = mods & Qt::ControlModifier, shift = mods & Qt::ShiftModifier;
+    if (mode_ == "object") {
+        // Object mode stays object mode (#99): the meshes with a UV in the lasso.
+        QJsonArray names;
+        for (const UvMesh& m : meshes_)
+            for (const QPointF& uv : m.maps)
+                if (lasso_.containsPoint(to_screen(uv), Qt::OddEvenFill)) {
+                    names.append(m.path);
+                    break;
+                }
+        lasso_.clear();
+        update();
+        if (names.isEmpty()) return;
+        QJsonObject call{{"args", names}};
+        if (ctrl && shift) call["add"] = true;
+        else if (ctrl) call["deselect"] = true;
+        else if (shift) call["toggle"] = true;
+        exec("select", call);
+        return;
+    }
     if (!ctrl && !shift) uv_sel_.clear();
-    mode_ = "uv";
+    if (mode_ != "shell") mode_ = "uv";
     // As a click: Shift toggles, Ctrl removes, Ctrl+Shift adds (#114).
     for (const UvMesh& m : meshes_)
         for (int i = 0; i < m.maps.size(); ++i)
