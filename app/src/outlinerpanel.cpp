@@ -36,6 +36,19 @@ namespace az {
 
 namespace {
 
+// A tint picked for a dark list, kept readable on a light one (#115): the same hue, dark enough for the list's base.
+QColor readable(const QColor& c) {
+    const QColor base = qApp->palette().color(QPalette::Base);
+    if (base.lightnessF() < 0.5) return c;
+    QColor h = c.toHsl();
+    const double sat = h.hslSaturationF();
+    return QColor::fromHslF(h.hslHueF() < 0 ? 0 : h.hslHueF(), sat < 0.05 ? 0 : std::min(1.0, sat + 0.25), sat < 0.05 ? 0.38 : 0.3);
+}
+
+} // namespace
+
+namespace {
+
 QJsonObject args(const QJsonArray& a) {
     QJsonObject o;
     o["args"] = a;
@@ -668,7 +681,7 @@ void Outliner::add(QTreeWidgetItem* parent, const QJsonObject& node) {
     it->setData(0, Qt::UserRole, path);
     it->setData(0, Qt::UserRole + 1, ic);
     it->setData(0, Qt::UserRole + 2, node["type"].toString());
-    if (node["material"].toBool() || node["member"].toBool()) it->setForeground(0, QColor(190, 175, 140));
+    if (node["material"].toBool() || node["member"].toBool()) it->setForeground(0, readable(QColor(190, 175, 140)));
     if (show_icons_) {
         QIcon shown = icon(ic, 16);
         // A node from a reference: a small blue diamond on its icon.
@@ -690,12 +703,12 @@ void Outliner::add(QTreeWidgetItem* parent, const QJsonObject& node) {
     }
     it->setFlags(it->flags() | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
     // Default nodes dim, as the reference's are.
-    if (cam_default) it->setForeground(0, QColor(150, 150, 150));
-    if (!node["visible"].toBool()) it->setForeground(0, QColor(130, 130, 130));
-    if (node["intermediate"].toBool()) it->setForeground(0, QColor(110, 110, 160));
+    if (cam_default) it->setForeground(0, readable(QColor(150, 150, 150)));
+    if (!node["visible"].toBool()) it->setForeground(0, readable(QColor(130, 130, 130)));
+    if (node["intermediate"].toBool()) it->setForeground(0, readable(QColor(110, 110, 160)));
     // Templated objects dim, with what is under them; their own outliner colour is kept unless hidden.
     if (node["display"].toInt() == 1) {
-        it->setForeground(0, QColor(140, 140, 140));
+        it->setForeground(0, readable(QColor(140, 140, 140)));
         QFont font = it->font(0);
         font.setItalic(true);
         it->setFont(0, font);
@@ -737,7 +750,7 @@ void Outliner::add(QTreeWidgetItem* parent, const QJsonObject& node) {
                 if (!nn.isEmpty()) label = nn;
             }
             ch->setText(0, label);
-            ch->setForeground(0, QColor(170, 190, 210));
+            ch->setForeground(0, readable(QColor(170, 190, 210)));
             ch->setFlags(Qt::ItemIsEnabled);
             ch->setData(0, Qt::UserRole, path);
         }
@@ -813,7 +826,7 @@ void Outliner::add_prims(QTreeWidgetItem* parent, const QString& stage, const QS
         it->setToolTip(0, type.isEmpty() ? path : QString("%1 (%2)").arg(path, type));
         it->setFlags(it->flags() | Qt::ItemIsEditable);
         if (show_icons_) it->setIcon(0, icon(type == "Mesh" ? "mesh" : type == "Camera" ? "camera" : "transform", 16));
-        it->setForeground(0, !o["active"].toBool() ? QColor(120, 120, 120) : !o["loaded"].toBool() ? QColor(170, 150, 100) : QColor(150, 200, 230));
+        it->setForeground(0, readable(!o["active"].toBool() ? QColor(120, 120, 120) : !o["loaded"].toBool() ? QColor(170, 150, 100) : QColor(150, 200, 230)));
         if (selected.contains(full)) it->setSelected(true);
         if (o["kids"].toBool()) {
             if (expanded_.contains(full)) {

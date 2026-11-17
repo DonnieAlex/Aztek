@@ -1322,6 +1322,12 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Outliner tints on light themes (17/11/2026, #115)
+
+The Outliner's own tints (USD prims, unloaded and inactive prims, materials and set members, intermediate objects,
+hidden objects, the default cameras) were picked for dark lists: on a light theme they keep their hue and go dark
+enough to read, so USD prims are a dark blue on sendvvv's grey.
+
 ### Dropped files use the import options (17/11/2026, #110)
 
 A file dropped on the window is read as File > Import reads it, by the import options kept for its type: USD by
