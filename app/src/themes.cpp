@@ -145,9 +145,17 @@ QList<Theme> builtins() {
         t.c["border"] = QColor("#1f2a2e");
         l << t;
     }
-    // Flav: charcoal with tangerine, a geometric typeface, bold menus, borderless pills with big round corners.
+    // Flav: the first Carbon, blue-grey charcoal with teal, round corners and pill tabs.
     {
-        Theme t = tonal("carbon", "Flav", 20, 0.06, 13, "#ff7a1a");
+        Theme t = tonal("carbon", "Flav", 200, 0.04, 13, "#2fa59a");
+        t.radius = 8;
+        t.tabs = "pill";
+        t.padding = 4;
+        l << t;
+    }
+    // Kurtenbach: charcoal with tangerine, a geometric typeface, bold menus, borderless pills with big round corners.
+    {
+        Theme t = tonal("tangerine", "Kurtenbach", 20, 0.06, 13, "#ff7a1a");
         t.font = QStringList{"Montserrat", "Poppins", "Futura", "Century Gothic", "Avenir Next", "Avenir", "URW Gothic", "Gill Sans", "Verdana"};
         t.point_size = 9;
         t.menu_bold = true;
@@ -161,9 +169,9 @@ QList<Theme> builtins() {
         t.c["hitext"] = QColor("#1a0d00");
         l << t;
     }
-    // KevinP: deep navy and gold, serif type with italic menus, round-topped tabs, gold-lettered section bars.
+    // Kovacs: deep navy and gold, serif type with italic menus, round-topped tabs, gold-lettered section bars.
     {
-        Theme t = tonal("midnight", "KevinP", 226, 0.5, 13, "#f2c14e");
+        Theme t = tonal("midnight", "Kovacs", 226, 0.5, 13, "#f2c14e");
         t.font = QStringList{"Georgia", "Charter", "Iowan Old Style", "Palatino Linotype", "Palatino", "Noto Serif", "DejaVu Serif", "Liberation Serif", "Times New Roman"};
         t.point_size = 10;
         t.menu_italic = true;
@@ -178,9 +186,28 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#f2c14e");
         l << t;
     }
-    // Shaq: near-black with a bold electric violet and gold, heavy section bars, crisp corners and bold menus.
+    // Shaq: the game engine editor of the 2020s in its dark scheme: near-black recessed panels, charcoal panels and
+    // headers, black entry fields, its bright blue for what is picked, Roboto, small round corners.
     {
         Theme t = hand("shaq", "Shaq",
+                       {{"window", "#242424"}, {"chrome", "#151515"}, {"base", "#0f0f0f"}, {"alt", "#1a1a1a"}, {"menu", "#1a1a1a"}, {"button", "#383838"}, {"hover", "#575757"},
+                        {"hi", "#0070e0"}, {"hitext", "#ffffff"}, {"text", "#c0c0c0"}, {"bright", "#ffffff"}, {"dim", "#808080"}, {"disabled", "#585858"}, {"border", "#0f0f0f"},
+                        {"handle", "#383838"}, {"section", "#2f2f2f"}, {"sectiontext", "#ffffff"}, {"light", "#444444"}, {"shadow", "#0a0a0a"},
+                        {"field", "#0f0f0f"}, {"fieldtext", "#c0c0c0"}});
+        t.font = QStringList{"Roboto", "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", "Arial"};
+        t.point_size = 9;
+        t.fill = "flat";
+        t.radius = 4;
+        t.border = 1;
+        t.tabs = "boxed";
+        t.arrows = "triangle";
+        t.scrollbar = "thin";
+        t.padding = 4;
+        l << t;
+    }
+    // Nicolas: near-black with a bold electric violet and gold, heavy section bars, crisp corners and bold menus.
+    {
+        Theme t = hand("violet", "Nicolas",
                        {{"window", "#121218"}, {"chrome", "#0b0b10"}, {"base", "#08080c"}, {"alt", "#17171f"}, {"menu", "#1a1a24"}, {"button", "#22222e"}, {"hover", "#2e2e3e"},
                         {"hi", "#7b3cff"}, {"hitext", "#ffffff"}, {"text", "#e6e6f0"}, {"bright", "#ffffff"}, {"dim", "#9a9ab0"}, {"disabled", "#55556a"}, {"border", "#2a2a3a"},
                         {"handle", "#3a3a50"}, {"section", "#fdb927"}, {"sectiontext", "#0b0b10"}, {"light", "#3a3a4e"}, {"shadow", "#000000"}});
@@ -193,11 +220,11 @@ QList<Theme> builtins() {
         t.padding = 4;
         l << t;
     }
-    // Martino: after Softimage XSI. Mid grey panels with darker header bars, light grey buttons with rounded corners, a
+    // TDI: after Softimage XSI. Mid grey panels with darker header bars, light grey buttons with rounded corners, a
     // soft top-to-bottom shade and a dark outline, pale grey fields with black type, rounded property page tabs, bold
     // black section labels on a darker bar, a pale blue for what is picked, Tahoma at 8 points.
     {
-        Theme t = hand("martino", "Martino",
+        Theme t = hand("martino", "TDI",
                        {{"window", "#a8a8a8"}, {"chrome", "#8e8e8e"}, {"base", "#d0d0d0"}, {"alt", "#c4c4c4"}, {"menu", "#c0c0c0"}, {"button", "#c6c6c6"}, {"hover", "#d6d6d6"},
                         {"hi", "#8fb0d9"}, {"hitext", "#000000"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#333333"}, {"disabled", "#707070"}, {"border", "#4c4c4c"},
                         {"handle", "#bcbcbc"}, {"section", "#8a8a8a"}, {"sectiontext", "#000000"}, {"light", "#e4e4e4"}, {"shadow", "#5c5c5c"},
@@ -215,9 +242,9 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // Boisvert: the Dracula scheme as its author publishes it (MIT), pink highlights, purple section bars, rounded type and very round corners.
+    // Keating: the Dracula scheme as its author publishes it (MIT), pink highlights, purple section bars, rounded type and very round corners.
     {
-        Theme t = hand("dracula", "Boisvert",
+        Theme t = hand("dracula", "Keating",
                        {{"window", "#282a36"}, {"chrome", "#21222c"}, {"base", "#1b1c24"}, {"alt", "#2c2e3c"}, {"menu", "#343746"}, {"button", "#44475a"}, {"hover", "#565a72"},
                         {"hi", "#ff79c6"}, {"hitext", "#1b1c24"}, {"text", "#f8f8f2"}, {"bright", "#ffffff"}, {"dim", "#a0a5c4"}, {"disabled", "#6272a4"}, {"border", "#16171e"},
                         {"handle", "#5a5e78"}, {"section", "#bd93f9"}, {"sectiontext", "#1b1c24"}});
@@ -250,9 +277,9 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // JGibson: deep forest green and lime, a humanist typeface, soft gradients.
+    // Gibson: deep forest green and lime, a humanist typeface, soft gradients.
     {
-        Theme t = tonal("graphite", "JGibson", 145, 0.32, 13, "#9be15d");
+        Theme t = tonal("graphite", "Gibson", 145, 0.32, 13, "#9be15d");
         t.font = QStringList{"Lato", "Open Sans", "Source Sans 3", "Source Sans Pro", "Fira Sans", "Calibri", "Noto Sans", "DejaVu Sans"};
         t.point_size = 9;
         t.fill = "gradient";
@@ -267,9 +294,9 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#c8f59e");
         l << t;
     }
-    // MNovacek: the Nord scheme as its author publishes it (MIT): frost blues, a geometric typeface, borderless, round-topped tabs.
+    // Novacek: the Nord scheme as its author publishes it (MIT): frost blues, a geometric typeface, borderless, round-topped tabs.
     {
-        Theme t = hand("nord", "MNovacek",
+        Theme t = hand("nord", "Novacek",
                        {{"window", "#3b4252"}, {"chrome", "#323946"}, {"base", "#2e3440"}, {"alt", "#3f4758"}, {"menu", "#434c5e"}, {"button", "#4c566a"}, {"hover", "#5a657c"},
                         {"hi", "#88c0d0"}, {"hitext", "#2e3440"}, {"text", "#d8dee9"}, {"bright", "#eceff4"}, {"dim", "#a3adbf"}, {"disabled", "#6c778c"}, {"border", "#272c36"},
                         {"handle", "#616d85"}, {"section", "#5e81ac"}, {"sectiontext", "#eceff4"}});
@@ -319,10 +346,10 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#1e1206");
         l << t;
     }
-    // The animation package of the mid 1990s on the workstations: grey panels, pink entry fields, bold italic menus,
-    // bevelled buttons and round-topped tabs.
+    // Sebdvvv: the animation package of the mid 1990s on the workstations: grey panels, pink entry fields, bold italic
+    // menus, bevelled buttons and round-topped tabs.
     {
-        Theme t = hand("studio96", "sebdvvv",
+        Theme t = hand("studio96", "Sebdvvv",
                        {{"window", "#a0a0a0"}, {"chrome", "#949494"}, {"base", "#bdbdbd"}, {"alt", "#b4b4b4"}, {"menu", "#b0b0b0"}, {"button", "#b2b2b2"}, {"hover", "#c2c2c2"},
                         {"hi", "#5a6f92"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#2c2c2c"}, {"disabled", "#6e6e6e"}, {"border", "#2e2e2e"}, {"handle", "#b2b2b2"},
                         {"light", "#ececec"}, {"shadow", "#5e5e5e"}, {"field", "#eab4b4"}, {"fieldtext", "#000000"}});
@@ -338,9 +365,10 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // The workstation desktop the first release of the reference ran on: light grey, deep bevels, upright Helvetica.
+    // Wavefront: the workstation desktop the first release of the reference ran on: light grey, deep bevels, upright
+    // Helvetica.
     {
-        Theme t = hand("workstation", "Cattingway",
+        Theme t = hand("workstation", "Wavefront",
                        {{"window", "#c2c2c2"}, {"chrome", "#b2b2b2"}, {"base", "#dedede"}, {"alt", "#d4d4d4"}, {"menu", "#cacaca"}, {"button", "#c6c6c6"}, {"hover", "#d2d2d2"},
                         {"hi", "#52709f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#383838"}, {"disabled", "#7c7c7c"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
                         {"light", "#f4f4f4"}, {"shadow", "#6c6c6c"}, {"field", "#e4e4e4"}, {"fieldtext", "#000000"}});
@@ -389,9 +417,28 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // The desktop of 1998: silver, white fields, navy selection, two-tone raised and sunken edges.
+    // DonnieAlex: the open source 3D suite of the 2020s: mid-dark grey regions with darker panel headers, grey widgets
+    // with soft round corners, near-black entry fields, its blue for what is on and picked, chevrons on the panels.
     {
-        Theme t = hand("classic98", "DonnieA",
+        Theme t = hand("classic98", "DonnieAlex",
+                       {{"window", "#303030"}, {"chrome", "#232323"}, {"base", "#1d1d1d"}, {"alt", "#2b2b2b"}, {"menu", "#181818"}, {"button", "#545454"}, {"hover", "#656565"},
+                        {"hi", "#4772b3"}, {"hitext", "#ffffff"}, {"text", "#e6e6e6"}, {"bright", "#ffffff"}, {"dim", "#a5a5a5"}, {"disabled", "#737373"}, {"border", "#191919"},
+                        {"handle", "#545454"}, {"section", "#3d3d3d"}, {"sectiontext", "#e6e6e6"}, {"light", "#5e5e5e"}, {"shadow", "#141414"},
+                        {"field", "#1d1d1d"}, {"fieldtext", "#e6e6e6"}});
+        t.font = QStringList{"Inter", "DejaVu Sans", "Segoe UI", "Noto Sans", "Arial"};
+        t.point_size = 9;
+        t.fill = "flat";
+        t.radius = 5;
+        t.border = 1;
+        t.tabs = "rounded";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 4;
+        l << t;
+    }
+    // Krieger: the desktop of 1998: silver, white fields, navy selection, two-tone raised and sunken edges.
+    {
+        Theme t = hand("desktop98", "Krieger",
                        {{"window", "#c0c0c0"}, {"chrome", "#c0c0c0"}, {"base", "#ffffff"}, {"alt", "#f4f4f4"}, {"menu", "#c0c0c0"}, {"button", "#c0c0c0"}, {"hover", "#c0c0c0"},
                         {"hi", "#000080"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#404040"}, {"disabled", "#808080"}, {"border", "#000000"}, {"handle", "#c0c0c0"},
                         {"light", "#ffffff"}, {"shadow", "#808080"}, {"field", "#ffffff"}, {"fieldtext", "#000000"}});
@@ -405,9 +452,29 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // AshT: pale sky blue with navy, a humanist typeface, navy section bars, round pills.
+    // AshT: the white kitten with the red bow: candy pink and white, its red for what is picked and on the section bars,
+    // the yellow of its nose for hover, black outlines, rounded type and the roundest pills.
     {
-        Theme t = tonal("ash", "AshT", 205, 0.45, 86, "#0b3d91");
+        Theme t = hand("ash", "AshT",
+                       {{"window", "#ffd6e6"}, {"chrome", "#ffc2da"}, {"base", "#ffffff"}, {"alt", "#fff0f6"}, {"menu", "#ffffff"}, {"button", "#ffffff"}, {"hover", "#ffe680"},
+                        {"hi", "#e60023"}, {"hitext", "#ffffff"}, {"text", "#2b1a1f"}, {"bright", "#000000"}, {"dim", "#7a5562"}, {"disabled", "#c79aab"}, {"border", "#1a1a1a"},
+                        {"handle", "#ff8fb8"}, {"section", "#e60023"}, {"sectiontext", "#ffffff"}, {"light", "#ffffff"}, {"shadow", "#d98aa8"},
+                        {"field", "#ffffff"}, {"fieldtext", "#2b1a1f"}});
+        t.font = QStringList{"Nunito", "Varela Round", "Quicksand", "Comfortaa", "Arial Rounded MT Bold", "Segoe UI", "Noto Sans", "Verdana"};
+        t.point_size = 9;
+        t.menu_bold = true;
+        t.fill = "flat";
+        t.radius = 12;
+        t.border = 2;
+        t.tabs = "pill";
+        t.arrows = "chevron";
+        t.scrollbar = "thin";
+        t.padding = 5;
+        l << t;
+    }
+    // Hourcade: pale sky blue with navy, a humanist typeface, navy section bars, round pills.
+    {
+        Theme t = tonal("sky", "Hourcade", 205, 0.45, 86, "#0b3d91");
         t.font = QStringList{"Lato", "Open Sans", "Source Sans 3", "Source Sans Pro", "Fira Sans", "Calibri", "Noto Sans", "DejaVu Sans"};
         t.point_size = 9;
         t.fill = "flat";
@@ -421,9 +488,9 @@ QList<Theme> builtins() {
         t.c["sectiontext"] = QColor("#ffffff");
         l << t;
     }
-    // Buffin: the Solarized light scheme as its author publishes it (MIT), with its cyan and magenta: serif type, round-topped tabs.
+    // Buxton: the Solarized light scheme as its author publishes it (MIT), with its cyan and magenta: serif type, round-topped tabs.
     {
-        Theme t = hand("solarized-light", "Buffin",
+        Theme t = hand("solarized-light", "Buxton",
                        {{"window", "#eee8d5"}, {"chrome", "#e4ddc8"}, {"base", "#fdf6e3"}, {"alt", "#f5efdc"}, {"menu", "#fdf6e3"}, {"button", "#e6dfca"}, {"hover", "#d9d1b9"},
                         {"hi", "#2aa198"}, {"hitext", "#fdf6e3"}, {"text", "#586e75"}, {"bright", "#073642"}, {"dim", "#839496"}, {"disabled", "#a7a99a"}, {"border", "#c9c1a8"},
                         {"handle", "#b8b09a"}, {"section", "#d33682"}, {"sectiontext", "#fdf6e3"}});
@@ -437,9 +504,9 @@ QList<Theme> builtins() {
         t.padding = 3;
         l << t;
     }
-    // Royhall: cream paper and red ink, typewriter type, bold menus, square corners, black section bars.
+    // Hall: cream paper and red ink, typewriter type, bold menus, square corners, black section bars.
     {
-        Theme t = tonal("paper", "Royhall", 42, 0.55, 91, "#c0392b");
+        Theme t = tonal("paper", "Hall", 42, 0.55, 91, "#c0392b");
         t.font = QStringList{"Courier Prime", "American Typewriter", "Courier New", "Courier", "Nimbus Mono PS", "Liberation Mono", "DejaVu Sans Mono"};
         t.point_size = 10;
         t.menu_bold = true;
@@ -456,9 +523,9 @@ QList<Theme> builtins() {
         t.c["bright"] = QColor("#000000");
         l << t;
     }
-    // Jostam: mint and teal, rounded type, gradients, the roundest corners and the most room.
+    // Stam: mint and teal, rounded type, gradients, the roundest corners and the most room.
     {
-        Theme t = tonal("lilac", "Jostam", 160, 0.4, 95, "#0f9d8a");
+        Theme t = tonal("lilac", "Stam", 160, 0.4, 95, "#0f9d8a");
         t.font = QStringList{"Nunito", "Varela Round", "Quicksand", "Comfortaa", "Arial Rounded MT Bold", "Segoe UI", "Noto Sans", "Verdana"};
         t.point_size = 9;
         t.fill = "gradient";
@@ -474,13 +541,15 @@ QList<Theme> builtins() {
     }
     // Buttons, panel edges and title bars: each theme its own, so no two built-ins draw the same.
     static const QHash<QString, std::array<const char*, 3>> shape_of{
-        {"obsidian", {"outline", "line", "underline"}},  {"carbon", {"pill", "rounded", "accent"}},      {"midnight", {"glossy", "groove", "tab"}},
-        {"shaq", {"chunky", "thick", "inverse"}},        {"martino", {"soft", "line", "gradient"}},      {"dracula", {"pill", "rounded", "tab"}},
+        {"obsidian", {"outline", "line", "underline"}},  {"tangerine", {"pill", "rounded", "accent"}},   {"midnight", {"glossy", "groove", "tab"}},
+        {"violet", {"chunky", "thick", "inverse"}},      {"martino", {"soft", "line", "gradient"}},      {"dracula", {"pill", "rounded", "tab"}},
         {"solarized-dark", {"auto", "bevel", "accent"}}, {"graphite", {"soft", "shadow", "gradient"}},   {"nord", {"underline", "none", "underline"}},
-        {"slate", {"glossy", "shadow", "inverse"}},      {"pewter", {"auto", "bevel", "gradient"}},      {"studio96", {"auto", "groove", "auto"}},
-        {"workstation", {"auto", "bevel", "auto"}},      {"poweranimator", {"auto", "groove", "gradient"}}, {"alias", {"auto", "line", "inverse"}},
-        {"classic98", {"auto", "bevel", "auto"}},        {"ash", {"outline", "rounded", "accent"}},      {"solarized-light", {"inset", "line", "tab"}},
-        {"paper", {"chunky", "shadow", "underline"}},    {"lilac", {"pill", "rounded", "gradient"}}};
+        {"slate", {"glossy", "shadow", "inverse"}},      {"pewter", {"auto", "bevel", "gradient"}},      {"workstation", {"auto", "bevel", "auto"}},
+        {"poweranimator", {"auto", "groove", "gradient"}}, {"alias", {"auto", "line", "inverse"}},       {"desktop98", {"auto", "bevel", "auto"}},
+        {"sky", {"outline", "rounded", "accent"}},       {"solarized-light", {"inset", "line", "tab"}},  {"paper", {"chunky", "shadow", "underline"}},
+        {"lilac", {"pill", "rounded", "gradient"}},      {"shaq", {"auto", "line", "auto"}},             {"classic98", {"auto", "rounded", "auto"}},
+        {"ash", {"pill", "rounded", "tab"}}};
+    // Flav (carbon) and Sebdvvv (studio96) as they first were: no button, frame or title style of their own.
     for (Theme& t : l) {
         const auto it = shape_of.find(t.id);
         if (it == shape_of.end()) continue;

@@ -475,9 +475,10 @@ Node Editor:
 
 The reference has one look, and Aztek Classic is it, the default. The **Themes** box at the top right of the menu bar
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
-Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Boisvert, MNovacek, Springer and Buffin are the Dracula, Nord and
-Solarized colour schemes as their authors publish them. The timeline and the drawn editors (Graph, Node and UV Editor, marking menus) keep their own
-colours.
+Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Keating,
+Novacek, Springer and Buxton are the Dracula, Nord and Solarized colour schemes as their authors publish them; Shaq
+follows Unreal Engine 5's editor, DonnieAlex Blender's, TDI Softimage XSI. The timeline and the drawn editors (Graph,
+Node and UV Editor, marking menus) keep their own colours.
 
 **Random!**, at the bottom of the box, makes a theme with every option at random, fonts included, and applies it: pick
 it again for another. It is kept as your Random theme until the next roll, so one you like can be opened in the editor
@@ -488,7 +489,7 @@ or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, sing
 radius, border width, padding, the tab, arrow and scroll bar styles, the buttons (soft, glossy, outline, inset, chunky,
 underlined or pills), the edges round panels (line, groove, raised, thick, rounded or a drop shadow) and the panel title
 bars (gradient, underlined, a highlight stripe, inverse or a folder tab). Every built-in theme has its own mix of these;
-Martino follows Softimage XSI: grey panels with darker headers, light rounded buttons with a soft shade and a dark
+TDI follows Softimage XSI: grey panels with darker headers, light rounded buttons with a soft shade and a dark
 outline, rounded property tabs and Tahoma. Built-in themes stay as they are and saving makes a
 copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pass around.
 
@@ -498,25 +499,29 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 
 | | | |
 |---|---|---|
-| ![Aztek Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Flav](docs/theme-carbon.jpg) |
-| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: pure black and electric cyan, monospaced type, square corners, cyan section bars | **Flav**: charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners |
-| ![KevinP](docs/theme-midnight.jpg) | ![Boisvert](docs/theme-dracula.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
-| **KevinP**: deep navy and gold, serif type with italic menus, round-topped tabs | **Boisvert**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **Springer**: Solarized dark with its yellow and orange: condensed type, single bevels, square edges |
-| ![JGibson](docs/theme-graphite.jpg) | ![MNovacek](docs/theme-nord.jpg) | ![Ozymok](docs/theme-slate.jpg) |
-| **JGibson**: forest green and lime, humanist type, soft gradients | **MNovacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel |
-| ![Alias](docs/theme-alias.jpg) | ![PewterTureski](docs/theme-pewter.jpg) | ![Shaq](docs/theme-shaq.jpg) |
-| **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **PewterTureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars | **Shaq**: near-black with bold violet highlights and gold section bars |
+| ![Aztek Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Nicolas](docs/theme-violet.jpg) |
+| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: pure black and electric cyan, monospaced type, square corners, cyan section bars | **Nicolas**: near-black with bold violet highlights and gold section bars |
+| ![Flav](docs/theme-carbon.jpg) | ![Kurtenbach](docs/theme-tangerine.jpg) | ![Kovacs](docs/theme-midnight.jpg) |
+| **Flav**: blue-grey charcoal and teal, round corners, pill tabs | **Kurtenbach**: charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners | **Kovacs**: deep navy and gold, serif type with italic menus, round-topped tabs |
+| ![Gibson](docs/theme-graphite.jpg) | ![Shaq](docs/theme-shaq.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
+| **Gibson**: forest green and lime, humanist type, soft gradients | **Shaq**: after Unreal Engine 5's editor: near-black and charcoal panels, black fields, its bright blue, Roboto | **Springer**: Solarized dark with its yellow and orange: condensed type, single bevels, square edges |
+| ![Ozymok](docs/theme-slate.jpg) | ![Keating](docs/theme-dracula.jpg) | ![DonnieAlex](docs/theme-classic98.jpg) |
+| **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel | **Keating**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **DonnieAlex**: after Blender: mid-dark grey regions, darker panel headers, grey rounded widgets, its blue |
+| ![Novacek](docs/theme-nord.jpg) | ![Alias](docs/theme-alias.jpg) | ![Tureski](docs/theme-pewter.jpg) |
+| **Novacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **Tureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars |
 
 ### Light
 
 | | | |
 |---|---|---|
-| ![sendvvv](docs/theme-studio96.jpg) | ![DonnieA](docs/theme-classic98.jpg) | ![Cattingway](docs/theme-workstation.jpg) |
-| **sendvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **DonnieA**: silver and navy, two-tone bevels, 1998 | **Cattingway**: the light grey workstation desktop the reference first ran on |
-| ![Hourihan](docs/theme-poweranimator.jpg) | ![AshT](docs/theme-ash.jpg) | ![Buffin](docs/theme-solarized-light.jpg) |
-| **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **AshT**: pale sky blue and navy, humanist type, navy section bars, round pills | **Buffin**: Solarized light with its cyan and magenta: serif type, round-topped tabs |
-| ![Royhall](docs/theme-paper.jpg) | ![Jostam](docs/theme-lilac.jpg) | ![Martino](docs/theme-martino.jpg) |
-| **Royhall**: cream paper and red ink, typewriter type, bold menus, square corners, black section bars | **Jostam**: mint and teal, rounded type, gradients, the roundest corners | **Martino**: after Softimage XSI: mid grey panels, pale fields, single bevels, square corners |
+| ![Sebdvvv](docs/theme-studio96.jpg) | ![TDI](docs/theme-martino.jpg) | ![Krieger](docs/theme-desktop98.jpg) |
+| **Sebdvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **TDI**: after Softimage XSI: grey panels, light rounded buttons with a soft shade, pale fields, Tahoma | **Krieger**: silver and navy, two-tone bevels, 1998 |
+| ![Wavefront](docs/theme-workstation.jpg) | ![Hourihan](docs/theme-poweranimator.jpg) | ![Hourcade](docs/theme-sky.jpg) |
+| **Wavefront**: the light grey workstation desktop the reference first ran on | **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **Hourcade**: pale sky blue and navy, humanist type, navy section bars, round pills |
+| ![Buxton](docs/theme-solarized-light.jpg) | ![Hall](docs/theme-paper.jpg) | ![AshT](docs/theme-ash.jpg) |
+| **Buxton**: Solarized light with its cyan and magenta: serif type, round-topped tabs | **Hall**: cream paper and red ink, typewriter type, bold menus, square corners, black section bars | **AshT**: after Hello Kitty: candy pink and white, red highlights and section bars, black outlines, rounded type |
+| ![Stam](docs/theme-lilac.jpg) |  |  |
+| **Stam**: mint and teal, rounded type, gradients, the roundest corners |  |  |
 
 ## Install
 
