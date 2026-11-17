@@ -1322,6 +1322,13 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Collapse the sides (17/11/2026, #97)
+
+Thin handles with an arrow either side of the view panels fold away everything docked on that side at a click and
+bring it back at the next: left, the toolbox and the Outliner or whatever is docked there; right, the Channel Box,
+Attribute Editor and the rest. Display > UI Elements and Ctrl+Space (Main Pane Only) still hide everything
+(docs/issues/97-collapse-sides.png: before, then both sides folded).
+
 ### emitter, nParticle and connectDynamic as scripts expect (17/11/2026, #96)
 
 - `emitter` makes only the emitter, as the reference's: it returns `[emitter]`, or `[object, emitter]` on an object,
