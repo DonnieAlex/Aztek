@@ -1322,6 +1322,11 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Make Live button (17/11/2026, #95)
+
+The status line's Make Live button is a magnet, as the reference's, beside the snap buttons; it shows on while a
+surface is live and toggles it for the selected object (docs/issues/95-make-live-magnet.png).
+
 ### Combine and Separate keep materials (17/11/2026, #94)
 
 Mesh > Combine (`polyUnite`, `polyCombine`) gives the new mesh the shading of its meshes face by face (one group over
