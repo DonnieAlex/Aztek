@@ -2,10 +2,14 @@
 #include "envvars.h"
 #include "host.h"
 #include "icons.h"
+#include "icon_names.h"
 
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
+#include <QDir>
+#include <QDirIterator>
+#include <QStandardPaths>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -46,6 +50,126 @@ QJsonObject shelf(const char* name, const QJsonArray& items) {
 }
 
 const char* kMoveMime = "application/x-aztek-shelf-move";
+
+// Where the shelves are kept as files, as the reference keeps shelf_Name.mel in its prefs folder (#117).
+QString shelves_folder() {
+    const QByteArray env = qgetenv("AZTEK_PREFS");
+    return (env.isEmpty() ? QDir::homePath() + "/.aztek" : QString::fromLocal8Bit(env)) + "/prefs/shelves";
+}
+
+// Pictures the user keeps for shelf buttons: searched by the icon browser, which opens files there.
+QString icons_folder() {
+    const QByteArray env = qgetenv("AZTEK_PREFS");
+    return (env.isEmpty() ? QDir::homePath() + "/.aztek" : QString::fromLocal8Bit(env)) + "/prefs/icons";
+}
+
+QString mel_quote(QString v) {
+    v.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
+    return "\"" + v + "\"";
+}
+
+// A drawn icon's name, or a picture's file found on the icon path or in the icons folder.
+bool known_icon(const QString& name) {
+    if (name.isEmpty()) return false;
+    for (const char* n : kIconNames)
+        if (name == n) return true;
+    return !find_image(name).isEmpty() || QFileInfo(QDir(icons_folder()).filePath(name)).isFile();
+}
+
+QString image_file(const QString& name) {
+    QString f = find_image(name);
+    if (f.isEmpty() && QFileInfo(QDir(icons_folder()).filePath(name)).isFile()) f = QDir(icons_folder()).filePath(name);
+    return f;
+}
+
+// The icon browser: the drawn icons, and pictures on the icon path and in the icons folder, with a search; Files...
+// takes any picture. Empty when cancelled.
+QString pick_icon(QWidget* parent, const QString& current) {
+    QDialog d(parent);
+    d.setWindowTitle("Choose an Icon");
+    auto* v = new QVBoxLayout(&d);
+    auto* search = new QLineEdit(&d);
+    search->setPlaceholderText("Search icons...");
+    search->setClearButtonEnabled(true);
+    v->addWidget(search);
+    auto* list = new QListWidget(&d);
+    list->setViewMode(QListView::IconMode);
+    list->setIconSize(QSize(32, 32));
+    list->setGridSize(QSize(92, 64));
+    list->setResizeMode(QListView::Adjust);
+    list->setWordWrap(true);
+    list->setUniformItemSizes(true);
+    v->addWidget(list, 1);
+    for (const char* n : kIconNames) {
+        auto* it = new QListWidgetItem(icon(n), n, list);
+        it->setData(Qt::UserRole, QString(n));
+        it->setToolTip(n);
+    }
+    QStringList dirs{icons_folder()};
+    for (QString dir : qEnvironmentVariable("XBMLANGPATH").split(QDir::listSeparator(), Qt::SkipEmptyParts)) {
+        if (dir.endsWith("%B")) dir.chop(2);
+        dirs << dir;
+    }
+    for (const QString& dir : dirs) {
+        QDirIterator files(dir, {"*.png", "*.svg", "*.xpm", "*.jpg", "*.bmp"}, QDir::Files);
+        while (files.hasNext()) {
+            const QString f = files.next();
+            auto* it = new QListWidgetItem(QIcon(f), QFileInfo(f).fileName(), list);
+            it->setData(Qt::UserRole, f);
+            it->setToolTip(f);
+        }
+    }
+    for (int i = 0; i < list->count(); ++i)
+        if (list->item(i)->data(Qt::UserRole).toString() == current) list->setCurrentRow(i);
+    QObject::connect(search, &QLineEdit::textChanged, &d, [list](const QString& t) {
+        for (int i = 0; i < list->count(); ++i) list->item(i)->setHidden(!list->item(i)->text().contains(t, Qt::CaseInsensitive));
+    });
+    QString chosen;
+    auto* row = new QHBoxLayout();
+    auto* files = new QPushButton("Files...", &d);
+    files->setToolTip("A picture from disk; the browser opens in the icons folder, " + icons_folder());
+    auto* ok = new QPushButton("Choose", &d);
+    auto* cancel = new QPushButton("Cancel", &d);
+    ok->setDefault(true);
+    row->addWidget(files);
+    row->addStretch(1);
+    row->addWidget(ok);
+    row->addWidget(cancel);
+    v->addLayout(row);
+    QObject::connect(files, &QPushButton::clicked, &d, [&d, &chosen] {
+        QDir().mkpath(icons_folder());
+        const QString f = QFileDialog::getOpenFileName(&d, "Icon File", icons_folder(), "Pictures (*.png *.svg *.xpm *.jpg *.bmp)");
+        if (f.isEmpty()) return;
+        chosen = f;
+        d.accept();
+    });
+    auto take = [&d, &chosen, list] {
+        if (!list->currentItem()) return;
+        chosen = list->currentItem()->data(Qt::UserRole).toString();
+        d.accept();
+    };
+    QObject::connect(ok, &QPushButton::clicked, &d, take);
+    QObject::connect(list, &QListWidget::itemDoubleClicked, &d, take);
+    QObject::connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
+    d.resize(620, 480);
+    return d.exec() == QDialog::Accepted ? chosen : QString();
+}
+
+// An icon field with a button that opens the browser.
+QWidget* icon_field(QWidget* parent, QLineEdit* field) {
+    auto* w = new QWidget(parent);
+    auto* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->addWidget(field, 1);
+    auto* b = new QPushButton("Browse...", w);
+    b->setToolTip("Choose from Aztek's icons, or a picture on disk");
+    QObject::connect(b, &QPushButton::clicked, w, [w, field] {
+        const QString c = pick_icon(w, field->text());
+        if (!c.isEmpty()) field->setText(c);
+    });
+    h->addWidget(b);
+    return w;
+}
 const char* kLangMime = "application/x-aztek-script-language";
 
 QJsonObject rendering_shelf() {
@@ -282,6 +406,25 @@ ShelfBar::ShelfBar(std::function<void(const QString&, const QString&)> run, QWid
         s.setValue("shelves/hasHair", true);
         if ((renamed || !there) && d.isArray() && !d.array().isEmpty()) save();
     }
+    // Shelf files put in the prefs shelves folder by hand, or kept from another machine: the ones not saved here are
+    // read in (#117).
+    {
+        const QStringList mine = s.value("shelves/files").toStringList();
+        QDirIterator files(shelves_folder(), {"shelf_*.mel"}, QDir::Files);
+        bool added = false;
+        while (files.hasNext()) {
+            const QString file = files.next();
+            if (mine.contains(QFileInfo(file).fileName())) continue;
+            QJsonObject shelf;
+            if (!read_mel(file, &shelf)) continue;
+            bool there = false;
+            for (const QJsonValue& have : std::as_const(shelves_)) there = there || have.toObject()["name"] == shelf["name"];
+            if (there) continue;
+            shelves_.append(shelf);
+            added = true;
+        }
+        if (added || !s.contains("shelves/files")) save();
+    }
     // The shelf path's shelves: shown after the saved ones, read again at each start and never saved.
     for (const QJsonValue& file : ask("aztekEnvironment", QJsonObject{{"shelfFiles", true}}).toArray()) {
         QJsonObject shelf;
@@ -333,7 +476,42 @@ void ShelfBar::save() const {
     QJsonArray own;
     for (const QJsonValue& shelf : shelves_)
         if (!shelf.toObject().contains("shared")) own.append(shelf);
-    QSettings().setValue("shelves/json", QJsonDocument(own).toJson(QJsonDocument::Compact));
+    QSettings settings;
+    settings.setValue("shelves/json", QJsonDocument(own).toJson(QJsonDocument::Compact));
+    // Each shelf also as the reference's shelf_Name.mel in the prefs shelves folder (#117), which another Aztek or
+    // the reference reads; files this wrote for shelves since removed go.
+    const QString dir = shelves_folder();
+    QDir().mkpath(dir);
+    QStringList written;
+    for (const QJsonValue& v : own) {
+        const QJsonObject shelf = v.toObject();
+        const QString file = "shelf_" + shelf["name"].toString().replace(QRegularExpression("[^A-Za-z0-9_]"), "_") + ".mel";
+        if (write_mel(QDir(dir).filePath(file), shelf)) written << file;
+    }
+    for (const QString& old : settings.value("shelves/files").toStringList())
+        if (!written.contains(old)) QFile::remove(QDir(dir).filePath(old));
+    settings.setValue("shelves/files", written);
+}
+
+bool ShelfBar::write_mel(const QString& path, const QJsonObject& shelf) {
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+    QString name = QFileInfo(path).baseName();
+    QString out = "global proc " + name + " () {\n    global string $gBuffStr;\n    global string $gBuffStr0;\n    global string $gBuffStr1;\n\n";
+    for (const QJsonValue& v : shelf["items"].toArray()) {
+        const QJsonObject it = v.toObject();
+        const QString ic = it["icon"].toString();
+        out += "    shelfButton\n        -enableCommandRepeat 1\n        -enable 1\n        -width 35\n        -height 34\n        -manage 1\n        -visible 1\n";
+        out += "        -label " + mel_quote(it["label"].toString()) + "\n";
+        out += "        -annotation " + mel_quote(it["label"].toString()) + "\n";
+        if (!ic.isEmpty()) out += "        -image " + mel_quote(ic) + "\n        -image1 " + mel_quote(ic) + "\n";
+        out += "        -style \"iconOnly\"\n";
+        out += "        -command " + mel_quote(it["command"].toString()) + "\n";
+        out += "        -sourceType " + mel_quote(it["language"].toString("mel") == "python" ? "python" : "mel") + "\n    ;\n";
+    }
+    out += "\n}\n";
+    f.write(out.toUtf8());
+    return true;
 }
 
 void ShelfBar::rebuild() {
@@ -355,7 +533,7 @@ void ShelfBar::rebuild() {
             b->index = i;
             b->setProperty("shelfItem", i);
             QString label = it["label"].toString(), name = it["icon"].toString();
-            const QString image = az::find_image(name);
+            const QString image = image_file(name);
             b->setIcon(image.isEmpty() ? az::icon(name.isEmpty() ? label : name) : QIcon(image));
             b->setIconSize(QSize(32, 32));
             b->setAutoRaise(true);
@@ -460,7 +638,7 @@ void ShelfBar::edit_item(int si, int i) {
     auto* cmd = new QPlainTextEdit(it["command"].toString(), &d);
     auto* ok = new QPushButton("Save", &d);
     form->addRow("Label:", label);
-    form->addRow("Icon:", ic);
+    form->addRow("Icon:", icon_field(&d, ic));
     form->addRow("Language:", lang);
     form->addRow("Command:", cmd);
     form->addRow("", ok);
@@ -501,7 +679,7 @@ void ShelfBar::open_editor() {
     lang->addItems({"mel", "python"});
     auto* cmd = new QPlainTextEdit(d);
     form->addRow("Label:", label);
-    form->addRow("Icon:", ic);
+    form->addRow("Icon:", icon_field(d, ic));
     form->addRow("Language:", lang);
     form->addRow("Command:", cmd);
     lay->addLayout(form, 1);
@@ -519,7 +697,8 @@ void ShelfBar::open_editor() {
         if (si < 0) return;
         for (const QJsonValue& it : shelves_[si].toObject()["items"].toArray()) {
             QJsonObject o = it.toObject();
-            items->addItem(new QListWidgetItem(az::icon(o["icon"].toString().isEmpty() ? o["label"].toString() : o["icon"].toString()), o["label"].toString()));
+            const QString pic = image_file(o["icon"].toString());
+            items->addItem(new QListWidgetItem(!pic.isEmpty() ? QIcon(pic) : az::icon(o["icon"].toString().isEmpty() ? o["label"].toString() : o["icon"].toString()), o["label"].toString()));
         }
         items->setCurrentRow(qBound(-1, r, int(items->count()) - 1));
     };
@@ -668,7 +847,7 @@ bool ShelfBar::read_mel(const QString& path, QJsonObject* shelf) {
         // The button's picture, when it is a file on the icon path: the reference's own pictures are not there.
         QString image = flag("image1");
         if (image.isEmpty()) image = flag("image");
-        if (az::find_image(image).isEmpty()) image.clear();
+        if (!known_icon(image)) image.clear();
         if (!cmd.isEmpty())
             items.append(QJsonObject{{"label", label}, {"icon", image}, {"command", cmd}, {"language", lang == "python" ? "python" : "mel"}});
         at = end;

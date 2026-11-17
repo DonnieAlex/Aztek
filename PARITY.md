@@ -1322,6 +1322,19 @@ glTF 2.0 (issue 26): `exportGltf path [objects]`, `-all`, and File > Export All 
   came after the browser, and are also in Export All Options and Export Selection Options. A name given without an
   extension takes the chosen type's; glTF's is `.glb` or `.gltf` as Format says.
 
+### Shelves (17/11/2026, #117)
+
+- Each shelf is also kept as the reference's `shelf_Name.mel` in `~/.aztek/prefs/shelves` (or `$AZTEK_PREFS/prefs/
+  shelves`), written on every change; a shelf file put there by hand is read in at the next start.
+- Icon fields in Edit Shelf Button and the Shelf Editor have Browse...: Aztek's drawn icons and the pictures on the
+  icon path and in `~/.aztek/prefs/icons`, with a search, and Files... for any picture, opening in the icons folder.
+  Shelf files keep drawn icon names, which they dropped on reading before.
+- Text selected anywhere (the Script Editor's input and history, the command line, any text field) can be dragged
+  with the middle button; dropped on a shelf it makes a button. The Script Editor tab's language goes with it;
+  elsewhere Python is recognised by its look.
+- The command line's result field shows printed output too, as the reference's shows the Script Editor's last
+  line, so a shelf script that prints says so there.
+
 ### Status line panel buttons (17/11/2026, #111)
 
 The buttons at the right of the status line are in the reference's order: Modeling Toolkit (new, shows or hides

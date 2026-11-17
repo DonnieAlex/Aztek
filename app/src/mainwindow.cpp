@@ -45,6 +45,8 @@
 #include <QDropEvent>
 #include <QFileDialog>
 #include <QMimeData>
+#include <QDrag>
+#include <QTextEdit>
 #include <QUrl>
 #include <QHBoxLayout>
 #include <QJsonArray>
@@ -188,7 +190,10 @@ MainWindow::MainWindow() {
         for (const QJsonValue& v : lines) {
             QJsonObject l = v.toObject();
             int k = l["kind"].toInt();
+            // Printed output too, as the reference's field shows the Script Editor's last line: a shelf script that
+            // prints says so there (#117).
             if (k == 1 || k == 2 || k == 4) command_line_->show_result(l["text"].toString(), k == 2);
+            else if (k == 3 && !l["text"].toString().trimmed().isEmpty()) command_line_->show_result(l["text"].toString().trimmed().section('\n', -1), false);
             if (k == 0) {
                 remember_command(l["text"].toString());
                 QString t = l["text"].toString();
@@ -2104,6 +2109,37 @@ void MainWindow::show_attribute_editor() {
 // Marking menus and hotkeys
 
 bool MainWindow::eventFilter(QObject* o, QEvent* e) {
+    // Text dragged with the middle button from any text field or editor, as the reference allows: dropped on a shelf
+    // it makes a button (#117). Script Editor tabs carry their own language; elsewhere Python is told by its look.
+    if (e->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent*>(e)->button() == Qt::MiddleButton) {
+        QString text;
+        QWidget* src = nullptr;
+        QWidget* w = qobject_cast<QWidget*>(o);
+        if (auto* pe = w ? qobject_cast<QPlainTextEdit*>(w->parentWidget()) : nullptr; pe && pe->viewport() == w && pe->textCursor().hasSelection()) {
+            text = pe->textCursor().selectedText().replace(QChar(0x2029), '\n');
+            src = pe;
+        } else if (auto* te = w ? qobject_cast<QTextEdit*>(w->parentWidget()) : nullptr; te && te->viewport() == w && te->textCursor().hasSelection()) {
+            text = te->textCursor().selectedText().replace(QChar(0x2029), '\n');
+            src = te;
+        } else if (auto* le = qobject_cast<QLineEdit*>(o); le && le->hasSelectedText()) {
+            text = le->selectedText();
+            src = le;
+        }
+        if (!text.trimmed().isEmpty() && src) {
+            QString lang = src->property("scriptLanguage").toString();
+            if (lang.isEmpty()) {
+                static const QRegularExpression py("^\\s*(import |from |def |print\\(|cmds\\.|pm\\.|for .* in )", QRegularExpression::MultilineOption);
+                lang = py.match(text).hasMatch() ? "python" : "mel";
+            }
+            auto* drag = new QDrag(src);
+            auto* m = new QMimeData;
+            m->setText(text);
+            m->setData("application/x-aztek-script-language", lang.toUtf8());
+            drag->setMimeData(m);
+            drag->exec(Qt::CopyAction);
+            return true;
+        }
+    }
     // Ctrl+Shift+click on a menu item puts it on the shelf.
     if (e->type() == QEvent::MouseButtonRelease) {
         if (auto* menu = qobject_cast<QMenu*>(o)) {

@@ -135,6 +135,7 @@ private:
 };
 
 ScriptEdit::ScriptEdit(const QString& lang, QWidget* parent) : QPlainTextEdit(parent), language(lang) {
+    setProperty("scriptLanguage", lang);
     gutter_ = new Gutter(this);
     connect(this, &QPlainTextEdit::blockCountChanged, this, [this] { update_margin(); });
     connect(this, &QPlainTextEdit::updateRequest, this, [this](const QRect& r, int dy) {

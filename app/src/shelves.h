@@ -27,6 +27,8 @@ public:
     // Reads the reference's shelf_Name.mel into a new shelf: its shelfButton blocks.
     void import_mel(const QString& path);
     static bool read_mel(const QString& path, QJsonObject* shelf);
+    // Writes a shelf as the reference's shelf_Name.mel: a global proc of shelfButton calls.
+    static bool write_mel(const QString& path, const QJsonObject& shelf);
     void rebuild();
     void save() const;
     QJsonArray& data() { return shelves_; }
