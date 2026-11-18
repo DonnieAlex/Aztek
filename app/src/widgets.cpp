@@ -18,6 +18,8 @@
 #include <QKeyEvent>
 #include <QImage>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QListWidget>
 #include <QMouseEvent>
 #include <QPainter>
@@ -121,18 +123,25 @@ QJsonObject OptionsDialog::saved(const QString& command) {
     return call;
 }
 
-void OptionsDialog::open(const QString& command, const QString& title, const QJsonObject& fixed) {
+void OptionsDialog::open(const QString& command, const QString& title, const QJsonObject& fixed, const QPoint& at) {
     auto* d = new OptionsDialog(command, title);
     d->fixed_ = fixed;
     d->setAttribute(Qt::WA_DeleteOnClose);
+    if (!at.isNull()) d->move(at);
     d->show();
 }
 
-OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDialog(QApplication::activeWindow()), command_(command) {
+// Owned by the main window, whatever was active when it opened: it stays above the main window, also after Reset
+// Settings opens it again (#139).
+OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDialog(main_window_widget()), command_(command) {
     setWindowTitle(title + " Options");
+    // Edit holds Save and Reset Settings, as in every option window of the reference (#139).
+    auto* bar = new QMenuBar(this);
+    QMenu* edit = bar->addMenu("Edit");
     QJsonObject def = command_def(command);
     QJsonObject saved_call = saved(command);
     auto* lay = new QVBoxLayout(this);
+    lay->setMenuBar(bar);
     auto* doc = new QLabel(def["doc"].toString(), this);
     doc->setWordWrap(true);
     doc->setObjectName("optionsDoc");
@@ -279,11 +288,9 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
     auto* apply_close = new QPushButton(title, this);
     auto* apply = new QPushButton("Apply", this);
     auto* close_button = new QPushButton("Close", this);
-    auto* reset = new QPushButton("Reset Settings", this);
     buttons->addWidget(apply_close);
     buttons->addWidget(apply);
     buttons->addWidget(close_button);
-    lay->addWidget(reset, 0, Qt::AlignLeft);
     lay->addLayout(buttons);
     auto run = [this] {
         QJsonObject call = collect();
@@ -298,12 +305,15 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
     });
     connect(apply, &QPushButton::clicked, this, run);
     connect(close_button, &QPushButton::clicked, this, &QDialog::close);
-    connect(reset, &QPushButton::clicked, this, [this, title] {
+    edit->addAction("Save Settings", this, [this] { store(collect()); });
+    edit->addAction("Reset Settings", this, [this, title] {
         QSettings s;
         s.remove("options/" + command_);
-        QString cmd = command_;
+        const QString cmd = command_;
+        const QJsonObject fixed = fixed_;
+        const QPoint at = pos();
         close();
-        OptionsDialog::open(cmd, title);
+        OptionsDialog::open(cmd, title, fixed, at);
     });
     resize(440, sizeHint().height());
 }

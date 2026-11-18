@@ -348,7 +348,8 @@ void open_orient_joint_options() {
         open->activateWindow();
         return;
     }
-    auto* d = new QDialog(QApplication::activeWindow());
+    // The main window owns it, so it stays above it, also when Reset Settings opens it again (#139).
+    auto* d = new QDialog(main_window_widget());
     open = d;
     d->setAttribute(Qt::WA_DeleteOnClose);
     d->setWindowTitle("Orient Joint Options");

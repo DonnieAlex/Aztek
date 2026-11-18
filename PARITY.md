@@ -1417,6 +1417,13 @@ Delete on edges dissolves them as the reference's does: the faces either side be
 says With Faces off. Edit Mesh > Delete Edge/Vertex (Ctrl+Delete, runtime command DeletePolyElements) also cleans up
 the vertices left on a straight run (Clean Vertices on); on vertices it is polyDelVertex.
 
+### Option windows stay above after Reset Settings (17/11/2026, #139)
+
+Option windows belong to the main window whatever was active when they opened, so after Edit > Reset Settings opens
+one again (in the same place) it still stays above the main window. Save Settings and Reset Settings are in every
+option window's Edit menu, as in the reference: the command option boxes (Mirror Joints and the rest) and Grid Options
+lost their Reset buttons for it; Orient Joint and the file option windows already had the menu.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

@@ -16,6 +16,7 @@ extern "C" {
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QMenu>
+#include <QMenuBar>
 #include <QSpinBox>
 #include <QComboBox>
 #include <QDialog>
@@ -791,6 +792,10 @@ static void send_grid_prefs(const GridPrefs& g) {
 QWidget* grid_options(QWidget* parent) {
     auto* win = window_shell(parent, "Grid Options", 380, 470);
     auto* outer = new QVBoxLayout(win);
+    // Save and Reset Settings in the Edit menu, as in every option window (#139).
+    auto* bar = new QMenuBar(win);
+    QMenu* edit_menu = bar->addMenu("Edit");
+    outer->setMenuBar(bar);
     auto* form = new QFormLayout();
     outer->addLayout(form);
     const GridPrefs g = read_grid_prefs();
@@ -862,11 +867,9 @@ QWidget* grid_options(QWidget* parent) {
     auto* row = new QHBoxLayout();
     auto* apply_close = new QPushButton("Apply and Close", win);
     auto* apply = new QPushButton("Apply", win);
-    auto* reset = new QPushButton("Reset", win);
     auto* close = new QPushButton("Close", win);
     row->addWidget(apply_close);
     row->addWidget(apply);
-    row->addWidget(reset);
     row->addWidget(close);
     outer->addStretch(1);
     outer->addLayout(row);
@@ -893,7 +896,8 @@ QWidget* grid_options(QWidget* parent) {
         win->close();
     });
     QObject::connect(close, &QPushButton::clicked, win, &QWidget::close);
-    QObject::connect(reset, &QPushButton::clicked, win, [=] {
+    edit_menu->addAction("Save Settings", win, take);
+    QObject::connect(edit_menu->addAction("Reset Settings"), &QAction::triggered, win, [=] {
         QSettings s;
         for (const char* k : {"gridSize", "gridLinesEvery", "gridSpacing", "gridDivisions", "gridAxes", "gridAxesBold", "gridLines", "gridSubdivisions",
                               "gridPerspNumbers", "gridOrthoNumbers", "gridAxisColor", "gridLineColor", "gridSubdivisionColor"})

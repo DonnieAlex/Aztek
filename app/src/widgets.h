@@ -33,7 +33,7 @@ void show_relationship_editor(QWidget* parent, const QString& kind);
 class OptionsDialog : public QDialog {
     Q_OBJECT
 public:
-    static void open(const QString& command, const QString& title, const QJsonObject& fixed = QJsonObject());
+    static void open(const QString& command, const QString& title, const QJsonObject& fixed = QJsonObject(), const QPoint& at = QPoint());
     // The remembered settings of a command, as a call.
     static QJsonObject saved(const QString& command);
 private:
