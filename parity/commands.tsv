@@ -1,0 +1,1199 @@
+command	status	evidence
+aaf2fcp	missing	
+about	done	auto
+addAttr	done	auto
+addDynamic	missing	
+addExtension	missing	
+addMetadata	done	auto
+addPP	missing	
+affectedNet	missing	
+affects	done	auto
+aimConstraint	done	auto
+air	done	auto
+aliasAttr	done	auto
+align	done	auto
+alignCtx	missing	
+alignCurve	missing	
+alignSurface	missing	
+allNodeTypes	done	auto
+ambientLight	done	auto
+angleBetween	done	auto
+animCurveEditor	done	auto
+animDisplay	done	auto
+animLayer	done	auto
+animView	missing	
+annotate	done	auto
+appHome	missing	
+applyAttrPattern	missing	
+applyMetadata	missing	
+applyTake	missing	
+arcLenDimContext	missing	
+arcLengthDimension	missing	
+arclen	done	auto
+arrayMapper	missing	
+art3dPaintCtx	missing	
+artAttrCtx	done	auto
+artAttrPaintVertexCtx	done	auto
+artAttrSkinPaintCtx	done	auto
+artAttrTool	missing	
+artBuildPaintMenu	missing	
+artFluidAttrCtx	missing	
+artPuttyCtx	done	auto
+artSelectCtx	done	auto
+artSetPaintCtx	done	auto
+artUserPaintCtx	done	auto
+arubaNurbsToPoly	missing	
+assembly	missing	
+assignCommand	missing	
+assignInputDevice	missing	
+assignViewportFactories	missing	
+attachCurve	done	auto
+attachDeviceAttr	missing	
+attachSurface	done	auto
+attrColorSliderGrp	done	auto
+attrControlGrp	done	auto
+attrEnumOptionMenu	done	auto
+attrEnumOptionMenuGrp	done	auto
+attrFieldGrp	done	auto
+attrFieldSliderGrp	done	auto
+attrNavigationControlGrp	done	auto
+attributeInfo	done	auto
+attributeMenu	missing	
+attributeName	done	auto
+attributeQuery	done	auto
+audioTrack	missing	
+autoKeyframe	done	auto
+autoPlace	missing	
+autoSave	done	auto
+backgroundEvaluationManager	missing	
+bakeClip	done	auto
+bakeDeformer	missing	
+bakePartialHistory	done	auto
+bakeResults	done	auto
+bakeSimulation	done	auto
+baseTemplate	done	auto
+baseView	missing	
+batchRender	missing	
+bevel	done	auto
+bevelPlus	done	auto
+bezierAnchorPreset	done	auto
+bezierAnchorState	done	auto
+bezierCurveToNurbs	done	auto
+bezierInfo	done	auto
+binMembership	missing	
+bindSkin	done	auto
+blend2	done	auto
+blendShape	done	auto
+blendShapeEditor	done	auto
+blendShapePanel	done	auto
+blendTwoAttr	done	auto
+blindDataType	missing	
+bluePencilDrawCtx	missing	
+bluePencilFrame	missing	
+bluePencilLayer	missing	
+bluePencilNode	missing	
+bluePencilStroke	missing	
+bluePencilUtil	missing	
+boneLattice	done	auto
+boundary	done	auto
+boxDollyCtx	done	auto
+boxZoomCtx	done	auto
+bufferCurve	done	auto
+buildBookmarkMenu	missing	
+buildKeyframeMenu	missing	
+button	done	auto
+buttonManip	missing	
+cacheEvaluator	missing	
+cacheFile	missing	
+cacheFileCombine	missing	
+cacheFileMerge	missing	
+cacheFileTrack	missing	
+callbacks	missing	
+camera	done	auto
+cameraSet	missing	
+cameraView	missing	
+canCreateCaddyManip	missing	
+canCreateManip	missing	
+canvas	done	auto
+changeSubdivComponentDisplayLevel	missing	
+changeSubdivRegion	missing	
+channelBox	missing	
+character	done	auto
+characterMap	done	auto
+characterize	done	auto
+checkBox	done	auto
+checkBoxGrp	done	auto
+checkDefaultRenderGlobals	missing	
+choice	missing	
+circle	done	auto
+circularFillet	done	auto
+clearCache	missing	
+clip	done	auto
+clipEditor	done	auto
+clipEditorCurrentTimeCtx	missing	
+clipMatching	done	auto
+clipSchedule	done	auto
+clipSchedulerOutliner	missing	
+closeCurve	done	auto
+closeSurface	done	auto
+cluster	done	auto
+cmdFileOutput	done	auto
+cmdScrollFieldExecuter	missing	
+cmdScrollFieldReporter	missing	
+cmdShell	missing	
+coarsenSubdivSelectionList	missing	
+collision	missing	
+color	done	auto
+colorAtPoint	missing	
+colorEditor	missing	
+colorIndex	done	auto
+colorIndexSliderGrp	done	auto
+colorInputWidgetGrp	missing	
+colorManagementCatalog	missing	
+colorManagementConvert	missing	
+colorManagementFileRules	missing	
+colorManagementPrefs	missing	
+colorSliderButtonGrp	missing	
+colorSliderGrp	done	auto
+columnLayout	done	auto
+combinationShape	done	auto
+commandEcho	done	auto
+commandLine	missing	
+commandLogging	missing	
+commandPort	missing	
+componentBox	missing	
+componentEditor	done	auto
+componentTag	done	auto
+condition	done	auto
+cone	done	auto
+confirmDialog	done	auto
+connectAttr	done	auto
+connectControl	done	auto
+connectDynamic	done	auto
+connectJoint	done	auto
+connectionInfo	done	auto
+constrain	missing	
+constructionHistory	done	auto
+container	done	auto
+containerBind	missing	
+containerProxy	missing	
+containerPublish	missing	
+containerTemplate	missing	
+containerView	missing	
+contentBrowser	missing	
+contextInfo	done	auto
+control	done	auto
+controller	done	auto
+convertIffToPsd	missing	
+convertSolidTx	done	auto
+convertTessellation	missing	
+convertUnit	done	auto
+copyAttr	done	auto
+copyDeformerWeights	done	auto
+copyFlexor	done	auto
+copyKey	done	auto
+copySkinWeights	done	auto
+crashInfo	missing	
+createAttrPatterns	missing	
+createDisplayLayer	done	auto
+createEditor	missing	
+createLayeredPsdFile	missing	
+createNode	done	auto
+createRenderLayer	missing	
+createSubdivRegion	missing	
+ctxAbort	done	auto
+ctxCompletion	done	auto
+ctxEditMode	done	auto
+ctxTraverse	missing	
+currentCtx	done	auto
+currentTime	done	auto
+currentTimeCtx	done	auto
+currentUnit	done	auto
+curve	done	auto
+curveAddPtCtx	done	auto
+curveCVCtx	done	auto
+curveEPCtx	done	auto
+curveEditorCtx	done	auto
+curveIntersect	done	auto
+curveMoveEPCtx	done	auto
+curveOnSurface	done	auto
+curveRGBColor	missing	
+curveSketchCtx	done	auto
+cutKey	done	auto
+cycleCheck	done	auto
+cylinder	done	auto
+dagObjectCompare	missing	
+dagPose	done	auto
+dataStructure	done	auto
+date	done	auto
+dbcount	missing	
+dbfootprint	missing	
+dbmessage	missing	
+dbpeek	missing	
+dbtrace	missing	
+defaultLightListCheckBox	missing	
+defaultNavigation	done	auto
+defineDataServer	missing	
+defineVirtualDevice	missing	
+deformableShape	done	auto
+deformer	done	auto
+deformerEvaluator	missing	
+deformerWeights	done	auto
+delete	done	auto
+deleteAttr	done	auto
+deleteAttrPattern	missing	
+deleteExtension	missing	
+deleteUI	done	auto
+deltaMush	done	auto
+detachCurve	done	auto
+detachDeviceAttr	missing	
+detachSurface	done	auto
+deviceEditor	missing	
+deviceManager	missing	
+devicePanel	missing	
+dgInfo	done	auto
+dgValidateCurve	missing	
+dgdirty	done	auto
+dgeval	done	auto
+dgfilter	missing	
+dgmodified	missing	
+dgtimer	done	auto
+dimWhen	missing	
+directKeyCtx	done	auto
+directionalLight	done	auto
+dirmap	done	auto
+disable	done	auto
+disableIncorrectNameWarning	missing	
+disconnectAttr	done	auto
+disconnectJoint	done	auto
+diskCache	missing	
+displacementToPoly	missing	
+displayAffected	done	auto
+displayColor	done	auto
+displayCull	done	auto
+displayLevelOfDetail	done	auto
+displayPref	done	auto
+displayRGBColor	done	auto
+displaySmoothness	done	auto
+displayString	missing	
+displaySurface	done	auto
+distanceDimContext	missing	
+distanceDimension	done	auto
+doBlur	missing	
+dockControl	done	auto
+dolly	done	auto
+dollyCtx	done	auto
+dopeSheetEditor	done	auto
+doubleProfileBirailSurface	missing	
+drag	done	auto
+dragAttrContext	missing	
+draggerContext	missing	
+dropoffLocator	done	auto
+duplicate	done	auto
+duplicateCurve	done	auto
+duplicateSurface	done	auto
+dynCache	done	auto
+dynExport	missing	
+dynExpression	done	auto
+dynGlobals	missing	
+dynPaintEditor	missing	
+dynParticleCtx	missing	
+dynPref	missing	
+dynamicLoad	missing	
+editDisplayLayerGlobals	missing	
+editDisplayLayerMembers	done	auto
+editMetadata	done	auto
+editRenderLayerAdjustment	missing	
+editRenderLayerGlobals	missing	
+editRenderLayerMembers	missing	
+editor	missing	
+editorTemplate	done	auto
+effector	done	auto
+emit	missing	
+emitter	done	auto
+enableDevice	missing	
+encodeString	done	auto
+error	done	auto
+evalDeferred	done	auto
+evaluationManager	done	auto
+evaluator	missing	
+event	missing	
+exactWorldBoundingBox	done	auto
+excludeObjectDisplayPreset	missing	
+exclusiveLightCheckBox	missing	
+expandedSelection	done	auto
+exportEdits	missing	
+expression	done	auto
+expressionEditorListen	missing	
+extendCurve	done	auto
+extendSurface	done	auto
+extrude	done	auto
+falloffCurve	missing	
+falloffCurveAttr	missing	
+fcheck	missing	
+file	done	auto
+fileBrowserDialog	missing	
+fileDialog	done	auto
+fileDialog2	done	auto
+fileInfo	done	auto
+filePathEditor	missing	
+filletCurve	done	auto
+filter	missing	
+filterButterworthCtx	missing	
+filterCurve	done	auto
+filterExpand	done	auto
+filterGaussianCtx	missing	
+filterInstances	missing	
+filterKeyReducerCtx	missing	
+filterStudioImport	missing	
+findDeformers	done	auto
+findKeyframe	done	auto
+findType	done	auto
+fitBspline	done	auto
+flexor	done	auto
+floatField	done	auto
+floatFieldGrp	done	auto
+floatScrollBar	done	auto
+floatSlider	done	auto
+floatSlider2	missing	
+floatSliderButtonGrp	done	auto
+floatSliderGrp	done	auto
+flow	done	auto
+flowLayout	done	auto
+fluidCacheInfo	missing	
+fluidEmitter	missing	
+fluidVoxelInfo	missing	
+flushUndo	done	auto
+fontDialog	missing	
+formLayout	done	auto
+format	done	auto
+frameBufferName	missing	
+frameLayout	done	auto
+framelessDialog	missing	
+freeFormFillet	done	auto
+freeze	missing	
+freezeOptions	missing	
+geomBind	done	auto
+geomToBBox	missing	
+geometryAttrInfo	done	auto
+geometryConstraint	done	auto
+getAttr	done	auto
+getClassification	done	auto
+getDefaultBrush	missing	
+getFileList	done	auto
+getFluidAttr	missing	
+getInputDeviceRange	missing	
+getMetadata	done	auto
+getModifiers	done	auto
+getModulePath	done	auto
+getPanel	done	auto
+getParticleAttr	done	auto
+getRenderDependencies	missing	
+getRenderTasks	missing	
+ghosting	done	auto
+glRender	missing	
+glRenderEditor	missing	
+globalStitch	done	auto
+goal	missing	
+grabColor	missing	
+gradientControl	missing	
+gradientControlNoAttr	missing	
+graphDollyCtx	done	auto
+graphSelectContext	done	auto
+graphTrackCtx	done	auto
+gravity	done	auto
+grid	done	auto
+gridLayout	done	auto
+group	done	auto
+hardenPointCurve	done	auto
+hardware	missing	
+hardwareRenderPanel	missing	
+hasMetadata	missing	
+headsUpDisplay	done	auto
+headsUpMessage	done	auto
+help	done	auto
+helpLine	missing	
+hide	done	auto
+hikGlobals	done	auto
+hilite	done	auto
+hitTest	done	auto
+hotBox	missing	
+hotkey	done	auto
+hotkeyCheck	done	auto
+hotkeyCtx	done	auto
+hotkeyEditorPanel	missing	
+hotkeySet	done	auto
+hudButton	done	auto
+hudSlider	done	auto
+hudSliderButton	done	auto
+hwReflectionMap	missing	
+hwRender	missing	
+hwRenderLoad	missing	
+hyperGraph	missing	
+hyperPanel	missing	
+hyperShade	done	auto
+iconTextButton	done	auto
+iconTextCheckBox	done	auto
+iconTextRadioButton	done	auto
+iconTextRadioCollection	missing	
+iconTextScrollList	missing	
+iconTextStaticLabel	missing	
+ikHandle	done	auto
+ikHandleCtx	done	auto
+ikHandleDisplayScale	done	auto
+ikSolver	done	auto
+ikSplineHandleCtx	done	auto
+ikSystem	done	auto
+ikSystemInfo	done	auto
+ikfkDisplayMethod	done	auto
+illustratorCurves	missing	
+image	done	auto
+imagePlane	done	auto
+imfPlugins	missing	
+inViewEditor	missing	
+inViewMessage	done	auto
+inheritTransform	done	auto
+insertJoint	done	auto
+insertJointCtx	done	auto
+insertKeyCtx	done	auto
+insertKnotCurve	done	auto
+insertKnotSurface	done	auto
+instance	done	auto
+instanceable	done	auto
+instancer	missing	
+intField	done	auto
+intFieldGrp	done	auto
+intScrollBar	done	auto
+intSlider	done	auto
+intSliderGrp	done	auto
+internalVar	done	auto
+intersect	done	auto
+iprEngine	missing	
+isConnected	done	auto
+isDirty	done	auto
+isTrue	done	auto
+isolateSelect	done	auto
+itemFilter	done	auto
+itemFilterAttr	missing	
+itemFilterType	missing	
+joint	done	auto
+jointCluster	done	auto
+jointCtx	done	auto
+jointDisplayScale	done	auto
+jointLattice	done	auto
+keyTangent	done	auto
+keyframe	done	auto
+keyframeOutliner	done	auto
+keyframeRegionCurrentTimeCtx	done	auto
+keyframeRegionDirectKeyCtx	done	auto
+keyframeRegionDollyCtx	done	auto
+keyframeRegionInsertKeyCtx	done	auto
+keyframeRegionMoveKeyCtx	done	auto
+keyframeRegionScaleKeyCtx	done	auto
+keyframeRegionSelectKeyCtx	done	auto
+keyframeRegionSetKeyCtx	done	auto
+keyframeRegionTrackCtx	done	auto
+keyframeStats	done	auto
+keyframeTangentControl	missing	
+keyingGroup	done	auto
+lassoContext	done	auto
+lattice	done	auto
+latticeDeformKeyCtx	missing	
+launch	missing	
+launchImageEditor	missing	
+layerButton	done	auto
+layeredShaderPort	missing	
+layeredTexturePort	missing	
+layout	done	auto
+layoutDialog	missing	
+license	missing	
+lightList	missing	
+lightlink	done	auto
+linearPrecision	missing	
+listAnimatable	missing	
+listAttr	done	auto
+listAttrPatterns	missing	
+listCameras	done	auto
+listConnections	done	auto
+listDeviceAttachments	missing	
+listHistory	done	auto
+listInputDeviceAxes	missing	
+listInputDeviceButtons	missing	
+listInputDevices	missing	
+listNodeTypes	done	auto
+listNodesWithIncorrectNames	missing	
+listRelatives	done	auto
+listSets	done	auto
+loadFluid	missing	
+loadModule	missing	
+loadPlugin	done	auto
+loadPrefObjects	missing	
+loadUI	missing	
+lockNode	done	auto
+loft	done	auto
+lookThru	done	auto
+ls	done	auto
+lsThroughFilter	done	auto
+lsUI	missing	
+makeIdentity	done	auto
+makeLive	done	auto
+makePaintable	done	auto
+makeSingleSurface	done	auto
+makebot	missing	
+manipMoveContext	done	auto
+manipMoveLimitsCtx	missing	
+manipOptions	done	auto
+manipPivot	done	auto
+manipRotateContext	done	auto
+manipRotateLimitsCtx	missing	
+manipScaleContext	done	auto
+manipScaleLimitsCtx	missing	
+marker	missing	
+matchTransform	done	auto
+matrixUtil	done	auto
+mayaDpiSetting	missing	
+mayaHasRenderSetup	missing	
+melInfo	missing	
+melOptions	missing	
+memory	missing	
+menu	done	auto
+menuBarLayout	done	auto
+menuEditor	missing	
+menuItem	done	auto
+menuSet	missing	
+menuSetPref	missing	
+messageLine	missing	
+mimicManipulation	missing	
+minimizeApp	missing	
+mirrorJoint	done	auto
+mlDeformer	missing	
+modelCurrentTimeCtx	done	auto
+modelEditor	done	auto
+modelPanel	done	auto
+moduleInfo	done	auto
+mouse	missing	
+movIn	missing	
+movOut	missing	
+move	done	auto
+moveKeyCtx	done	auto
+moveVertexAlongDirection	done	auto
+movieInfo	missing	
+multiProfileBirailSurface	missing	
+multiTouch	missing	
+mute	done	auto
+nBase	missing	
+nParticle	done	auto
+nSoft	missing	
+nameCommand	done	auto
+nameField	missing	
+namespace	done	auto
+namespaceInfo	done	auto
+newton	done	auto
+nodeCast	done	auto
+nodeEditor	done	auto
+nodeIconButton	missing	
+nodeOutliner	missing	
+nodePreset	done	auto
+nodeTreeLister	missing	
+nodeType	done	auto
+nonLinear	done	auto
+normalConstraint	done	auto
+nurbsBoolean	done	auto
+nurbsCopyUVSet	done	auto
+nurbsCube	done	auto
+nurbsCurveToBezier	done	auto
+nurbsEditUV	done	auto
+nurbsPlane	done	auto
+nurbsSelect	done	auto
+nurbsSquare	done	auto
+nurbsToPoly	done	auto
+nurbsToPolygonsPref	missing	
+nurbsToSubdiv	missing	
+nurbsToSubdivPref	missing	
+nurbsUVSet	done	auto
+objExists	done	auto
+objectCenter	done	auto
+objectType	done	auto
+objectTypeUI	done	auto
+offsetCurve	done	auto
+offsetCurveOnSurface	done	auto
+offsetSurface	done	auto
+ogs	missing	
+ogsRender	missing	
+openCLInfo	missing	
+openGLExtension	missing	
+openMayaPref	missing	
+optionMenu	done	auto
+optionMenuGrp	done	auto
+optionVar	done	auto
+orbit	done	auto
+orbitCtx	done	auto
+orientConstraint	done	auto
+outlinerEditor	done	auto
+outlinerPanel	done	auto
+outputWindow	missing	
+overrideModifier	missing	
+paintEffectsDisplay	missing	
+pairBlend	done	auto
+palettePort	missing	
+panZoom	done	auto
+panZoomCtx	missing	
+paneLayout	done	auto
+panel	done	auto
+panelConfiguration	done	auto
+panelHistory	missing	
+paramDimContext	missing	
+paramDimension	done	auto
+paramLocator	missing	
+parent	done	auto
+parentConstraint	done	auto
+particle	done	auto
+particleExists	missing	
+particleFill	missing	
+particleInstancer	missing	
+particleRenderInfo	missing	
+partition	missing	
+pasteKey	done	auto
+pathAnimation	done	auto
+pause	missing	
+perCameraVisibility	missing	
+percent	done	auto
+performanceOptions	missing	
+pfxstrokes	missing	
+pickWalk	done	auto
+picture	done	auto
+pixelMove	done	auto
+planarSrf	done	auto
+plane	done	auto
+play	done	auto
+playbackOptions	done	auto
+playblast	done	auto
+pluginDisplayFilter	missing	
+pluginInfo	done	auto
+pointConstraint	done	auto
+pointCurveConstraint	done	auto
+pointLight	done	auto
+pointOnCurve	done	auto
+pointOnPolyConstraint	done	auto
+pointOnSurface	done	auto
+pointPosition	done	auto
+poleVectorConstraint	done	auto
+polyAppend	done	auto
+polyAppendFacetCtx	done	auto
+polyAppendVertex	done	auto
+polyAutoProjection	done	auto
+polyAverageNormal	done	auto
+polyAverageVertex	done	auto
+polyAxis	missing	
+polyBevel	done	auto
+polyBevel3	done	auto
+polyBlendColor	done	auto
+polyBlindData	done	auto
+polyBoolOp	done	auto
+polyBooleanCmd	done	auto
+polyBridgeEdge	done	auto
+polyCBoolOp	done	auto
+polyCacheMonitor	missing	
+polyCanBridgeEdge	missing	
+polyCheck	done	auto
+polyChipOff	done	auto
+polyCircularize	done	auto
+polyCircularizeEdge	missing	
+polyCircularizeFace	missing	
+polyClean	done	auto
+polyClipboard	done	auto
+polyCloseBorder	done	auto
+polyCollapseEdge	done	auto
+polyCollapseFacet	done	auto
+polyCollapseTweaks	missing	
+polyColorBlindData	done	auto
+polyColorDel	done	auto
+polyColorMod	done	auto
+polyColorPerVertex	done	auto
+polyColorSet	done	auto
+polyCompare	done	auto
+polyCone	done	auto
+polyConnectComponents	done	auto
+polyContourProjection	done	auto
+polyCopyUV	done	auto
+polyCrease	done	auto
+polyCreaseCtx	done	auto
+polyCreateFacet	done	auto
+polyCreateFacetCtx	done	auto
+polyCube	done	auto
+polyCut	done	auto
+polyCutCtx	done	auto
+polyCutUVCtx	missing	
+polyCylinder	done	auto
+polyCylindricalProjection	done	auto
+polyDelEdge	done	auto
+polyDelFacet	done	auto
+polyDelVertex	done	auto
+polyDuplicateAndConnect	done	auto
+polyDuplicateEdge	done	auto
+polyEditEdgeFlow	done	auto
+polyEditUV	done	auto
+polyEditUVShell	done	auto
+polyEvaluate	done	auto
+polyExtrudeEdge	done	auto
+polyExtrudeFacet	done	auto
+polyExtrudeVertex	done	auto
+polyFlipEdge	done	auto
+polyFlipUV	done	auto
+polyForceUV	done	auto
+polyGeoSampler	done	auto
+polyHelix	done	auto
+polyHole	done	auto
+polyInfo	done	auto
+polyInstallAction	done	auto
+polyLayoutUV	done	auto
+polyListComponentConversion	done	auto
+polyMapCut	done	auto
+polyMapDel	done	auto
+polyMapSew	done	auto
+polyMapSewMove	done	auto
+polyMergeEdge	done	auto
+polyMergeEdgeCtx	done	auto
+polyMergeFacet	done	auto
+polyMergeFacetCtx	done	auto
+polyMergeUV	done	auto
+polyMergeVertex	done	auto
+polyMirrorFace	done	auto
+polyMoveEdge	done	auto
+polyMoveFacet	done	auto
+polyMoveFacetUV	done	auto
+polyMoveUV	done	auto
+polyMoveVertex	done	auto
+polyMultiLayoutUV	done	auto
+polyNormal	done	auto
+polyNormalPerVertex	done	auto
+polyNormalizeUV	done	auto
+polyOptUvs	done	auto
+polyOptions	done	auto
+polyOutput	done	auto
+polyPinUV	done	auto
+polyPipe	done	auto
+polyPlanarProjection	done	auto
+polyPlane	done	auto
+polyPlatonicSolid	done	auto
+polyPoke	done	auto
+polyPrimitive	done	auto
+polyPrism	done	auto
+polyProjectCurve	done	auto
+polyProjection	done	auto
+polyPyramid	done	auto
+polyQuad	done	auto
+polyQueryBlindData	done	auto
+polyReduce	done	auto
+polyRemesh	done	auto
+polyRetopo	done	auto
+polySelect	done	auto
+polySelectConstraint	done	auto
+polySelectConstraintMonitor	missing	
+polySelectCtx	done	auto
+polySelectEditCtx	done	auto
+polySeparate	done	auto
+polySetToFaceNormal	done	auto
+polySewEdge	done	auto
+polyShortestPathCtx	done	auto
+polySlideEdge	done	auto
+polySmartExtrude	missing	
+polySmooth	done	auto
+polySoftEdge	done	auto
+polySphere	done	auto
+polySphericalProjection	done	auto
+polySplit	done	auto
+polySplitCtx	done	auto
+polySplitCtx2	missing	
+polySplitEdge	done	auto
+polySplitRing	done	auto
+polySplitVertex	done	auto
+polyStraightenUVBorder	done	auto
+polySubdivideEdge	done	auto
+polySubdivideFacet	done	auto
+polyToSubdiv	missing	
+polyTorus	done	auto
+polyTransfer	done	auto
+polyTriangulate	done	auto
+polyUVCoverage	done	auto
+polyUVOverlap	done	auto
+polyUVRectangle	done	auto
+polyUVSet	done	auto
+polyUVStackSimilarShells	done	auto
+polyUnite	done	auto
+polyUniteSkinned	missing	
+polyUnsmooth	done	auto
+polyWedgeFace	done	auto
+popupMenu	done	auto
+pose	done	auto
+poseEditor	done	auto
+posePanel	done	auto
+preferredRenderer	missing	
+preloadRefEd	missing	
+prepareRender	missing	
+profiler	missing	
+profilerTool	missing	
+progressBar	done	auto
+progressWindow	done	auto
+projectCurve	done	auto
+projectTangent	done	auto
+projectionContext	missing	
+projectionManip	missing	
+promptDialog	done	auto
+propModCtx	missing	
+propMove	missing	
+proximityWrap	done	auto
+psdChannelOutliner	missing	
+psdEditTextureFile	missing	
+psdExport	done	auto
+psdTextureFile	done	auto
+querySubdiv	missing	
+quit	done	auto
+radial	done	auto
+radioButton	done	auto
+radioButtonGrp	done	auto
+radioCollection	done	auto
+radioMenuItemCollection	done	auto
+rampColorPort	missing	
+rangeControl	done	auto
+readTake	missing	
+rebuildCurve	done	auto
+rebuildSurface	done	auto
+recordAttr	done	auto
+recordDevice	missing	
+redo	done	auto
+referenceEdit	done	auto
+referenceQuery	done	auto
+refineSubdivSelectionList	missing	
+refresh	done	auto
+refreshEditorTemplates	missing	
+regionSelectKeyCtx	missing	
+relationship	done	auto
+reloadImage	missing	
+rememberCtxSettings	missing	
+removeJoint	done	auto
+removeMultiInstance	done	auto
+rename	done	auto
+renameAttr	done	auto
+renameUI	missing	
+render	done	auto
+renderGlobalsNode	missing	
+renderInfo	missing	
+renderLayerPostProcess	missing	
+renderManip	missing	
+renderPartition	missing	
+renderPassRegistry	missing	
+renderQualityNode	missing	
+renderSettings	done	auto
+renderThumbnailUpdate	missing	
+renderWindowEditor	done	auto
+renderWindowSelectContext	missing	
+renderer	missing	
+reorder	done	auto
+reorderContainer	missing	
+reorderDeformers	done	auto
+requires	done	auto
+reroot	done	auto
+resampleFluid	missing	
+resetTool	done	auto
+resolutionNode	missing	
+resourceManager	missing	
+retimeKeyCtx	missing	
+reverseCurve	done	auto
+reverseSurface	done	auto
+revolve	done	auto
+rigidBody	done	auto
+rigidSolver	missing	
+roll	done	auto
+rollCtx	done	auto
+rotate	done	auto
+rotationInterpolation	done	auto
+roundConstantRadius	done	auto
+rowColumnLayout	done	auto
+rowLayout	done	auto
+runTimeCommand	done	auto
+runup	missing	
+sampleImage	missing	
+saveAllShelves	missing	
+saveFluid	missing	
+saveImage	missing	
+saveInitialState	missing	
+saveMenu	missing	
+savePrefObjects	missing	
+savePrefs	missing	
+saveShelf	missing	
+saveToolSettings	missing	
+saveViewportSettings	missing	
+scale	done	auto
+scaleComponents	done	auto
+scaleConstraint	done	auto
+scaleKey	done	auto
+scaleKeyCtx	done	auto
+sceneEditor	missing	
+sceneLint	missing	
+sceneUIReplacement	missing	
+scmh	missing	
+scriptCtx	done	auto
+scriptEditorInfo	missing	
+scriptJob	done	auto
+scriptNode	done	auto
+scriptTable	done	auto
+scriptedPanel	done	auto
+scriptedPanelType	done	auto
+scrollField	done	auto
+scrollLayout	done	auto
+sculpt	done	auto
+sculptKeyCtx	missing	
+sculptMeshCacheChangeCloneSource	missing	
+sculptMeshCacheCtx	done	auto
+sculptTarget	done	auto
+selLoadSettings	missing	
+select	done	auto
+selectContext	missing	
+selectKey	done	auto
+selectKeyCtx	done	auto
+selectKeyframeRegionCtx	missing	
+selectMode	done	auto
+selectPref	done	auto
+selectPriority	done	auto
+selectType	done	auto
+selectionConnection	done	auto
+separator	done	auto
+sequenceManager	missing	
+setAttr	done	auto
+setAttrMapping	done	auto
+setDefaultShadingGroup	missing	
+setDrivenKeyframe	done	auto
+setDynamic	missing	
+setEditCtx	done	auto
+setFluidAttr	missing	
+setFocus	done	auto
+setInfinity	done	auto
+setInputDeviceMapping	missing	
+setKeyCtx	done	auto
+setKeyPath	done	auto
+setKeyframe	done	auto
+setKeyframeBlendshapeTargetWts	done	auto
+setMenuMode	missing	
+setNodeTypeFlag	missing	
+setParent	done	auto
+setParticleAttr	done	auto
+setRenderPassType	missing	
+setStartupMessage	missing	
+setToolTo	done	auto
+setUITemplate	done	auto
+setXformManip	done	auto
+sets	done	auto
+shadingConnection	missing	
+shadingGeometryRelCtx	missing	
+shadingLightRelCtx	missing	
+shadingNetworkCompare	missing	
+shadingNode	done	auto
+shapeCompare	missing	
+shapeEditor	missing	
+shapePanel	missing	
+shelfButton	done	auto
+shelfLayout	done	auto
+shelfTabLayout	done	auto
+shot	missing	
+shotRipple	missing	
+shotTrack	missing	
+showHelp	missing	
+showHidden	done	auto
+showManipCtx	done	auto
+showMetadata	missing	
+showSelectionInTitle	missing	
+showShadingGroupAttrEditor	missing	
+showWindow	done	auto
+simplify	done	auto
+singleProfileBirailSurface	done	auto
+skeletonEmbed	done	auto
+skinBindCtx	done	auto
+skinCluster	done	auto
+skinPercent	done	auto
+smoothCurve	done	auto
+smoothTangentSurface	done	auto
+snapKey	done	auto
+snapMode	done	auto
+snapTogetherCtx	done	auto
+snapshot	done	auto
+snapshotBeadCtx	missing	
+snapshotModifyKeyCtx	missing	
+soft	missing	
+softMod	done	auto
+softModCtx	missing	
+softSelect	done	auto
+soloMaterial	missing	
+sortCaseInsensitive	done	auto
+sound	done	auto
+soundControl	missing	
+soundPopup	missing	
+spaceLocator	done	auto
+sphere	done	auto
+spotLight	done	auto
+spotLightPreviewPort	missing	
+spreadSheetEditor	done	auto
+spring	missing	
+squareSurface	done	auto
+srtContext	missing	
+stereoCameraView	missing	
+stereoRigManager	missing	
+stitchSurface	done	auto
+stitchSurfacePoints	done	auto
+stringArrayIntersector	done	auto
+stroke	missing	
+subdAutoProjection	missing	
+subdCleanTopology	missing	
+subdCollapse	missing	
+subdDuplicateAndConnect	missing	
+subdEditUV	missing	
+subdLayoutUV	missing	
+subdListComponentConversion	missing	
+subdMapCut	missing	
+subdMapSewMove	missing	
+subdMatchTopology	missing	
+subdMirror	missing	
+subdPlanarProjection	missing	
+subdToBlind	missing	
+subdToPoly	missing	
+subdTransferUVsToCache	missing	
+subdiv	missing	
+subdivCrease	missing	
+subdivDisplaySmoothness	missing	
+substituteGeometry	done	auto
+suitePrefs	missing	
+surface	done	auto
+surfaceSampler	missing	
+surfaceShaderList	missing	
+swatchDisplayPort	missing	
+swatchRefresh	missing	
+switchTable	missing	
+symbolButton	done	auto
+symbolCheckBox	done	auto
+symmetricModelling	done	auto
+sysFile	done	auto
+tabLayout	done	auto
+tangentConstraint	done	auto
+targetWeldCtx	done	auto
+tension	done	auto
+texCutContext	done	auto
+texLatticeDeformContext	done	auto
+texManipContext	missing	
+texMoveContext	done	auto
+texMoveUVShellContext	done	auto
+texRotateContext	done	auto
+texScaleContext	done	auto
+texSculptCacheContext	missing	
+texSelectContext	done	auto
+texSelectShortestPathCtx	done	auto
+texSmudgeUVContext	done	auto
+texTweakUVContext	done	auto
+texWinToolCtx	done	auto
+text	done	auto
+textCurves	done	auto
+textField	done	auto
+textFieldButtonGrp	done	auto
+textFieldGrp	done	auto
+textManip	missing	
+textScrollList	done	auto
+textureDeformer	done	auto
+texturePlacementContext	missing	
+textureWindow	done	auto
+threadCount	done	auto
+threePointArcCtx	done	auto
+thumbnailCaptureComponent	missing	
+timeCode	done	auto
+timeControl	done	auto
+timeEditor	missing	
+timeEditorAnimSource	missing	
+timeEditorBakeClips	missing	
+timeEditorClip	missing	
+timeEditorClipLayer	missing	
+timeEditorClipOffset	missing	
+timeEditorComposition	missing	
+timeEditorPanel	missing	
+timeEditorTracks	missing	
+timeField	missing	
+timeFieldGrp	missing	
+timePort	done	auto
+timeWarp	done	auto
+timer	done	auto
+timerX	done	auto
+toggle	done	auto
+toggleAxis	done	auto
+toggleDisplacement	missing	
+toggleWindowVisibility	missing	
+tolerance	missing	
+toolBar	missing	
+toolButton	done	auto
+toolCollection	done	auto
+toolDropped	missing	
+toolHasOptions	done	auto
+toolPropertyWindow	missing	
+torus	done	auto
+track	done	auto
+trackCtx	done	auto
+transferAttributes	done	auto
+transferShadingSets	missing	
+transformCompare	done	auto
+transformLimits	done	auto
+translator	done	auto
+treeLister	missing	
+treeView	missing	
+trim	done	auto
+truncateFluidCache	missing	
+truncateHairCache	missing	
+tumble	done	auto
+tumbleCtx	done	auto
+turbulence	done	auto
+twoPointArcCtx	done	auto
+ubercam	missing	
+uiTemplate	done	auto
+unassignInputDevice	missing	
+undo	done	auto
+undoInfo	done	auto
+unfold	done	auto
+ungroup	done	auto
+uniform	done	auto
+unknownNode	done	auto
+unknownPlugin	missing	
+unloadPlugin	done	auto
+untangleUV	done	auto
+untrim	done	auto
+upAxis	done	auto
+uvLink	done	auto
+uvSnapshot	done	auto
+vectorize	missing	
+view2dToolCtx	missing	
+viewCamera	done	auto
+viewClipPlane	done	auto
+viewFit	done	auto
+viewHeadOn	done	auto
+viewLookAt	done	auto
+viewManip	done	auto
+viewPlace	done	auto
+viewSet	done	auto
+visor	missing	
+volumeAxis	done	auto
+volumeBind	missing	
+vortex	done	auto
+waitCursor	done	auto
+walkCtx	done	auto
+warning	done	auto
+webBrowser	missing	
+weightsColor	done	auto
+whatsNewHighlight	missing	
+window	done	auto
+windowPref	done	auto
+wire	done	auto
+wireContext	missing	
+workspace	done	auto
+workspaceControl	done	auto
+workspaceControlState	done	auto
+workspaceLayoutManager	done	auto
+wrinkle	done	auto
+wrinkleContext	missing	
+writeTake	missing	
+xform	done	auto
+xformConstraint	done	auto
+xpmPicker	missing	

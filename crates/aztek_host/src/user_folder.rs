@@ -870,8 +870,8 @@ pub fn register_commands(s: &mut Session) {
     s.register(
         CommandDef::<Session>::new(
             "aztekParity",
-            "How far Aztek is towards the reference: of its commands and their flags, the share Aztek takes, with the counts and the commands still missing. Shown at the foot of the welcome screen.",
-            |s, _| Ok(crate::mel::parity::measure(s)),
+            "How far Aztek is towards the reference, from the parity ledger (parity/ in the source): the share done over all its areas, and each area's counts. Shown at the foot of the welcome screen.",
+            |_, _| Ok(crate::mel::parity::measure()),
         )
         .flag(b("query", "q", "Read it (the only mode)."))
         .undoable(false),

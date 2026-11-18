@@ -1553,14 +1553,27 @@ faces turned toward the view only). With no live surface, a middle drag on a dot
 (a dot's is the grid's up); Shift+middle drag relaxes the picked points, by the Relax setting. Not yet: Multi-Cut's X
 and V snapping.
 
+### Parity ledger (18/11/2026)
+
+`parity/` holds what the reference exposes, one row per item, in tab-separated files by area (commands, flags, node
+types, attributes, both scripting APIs, the C++ API, environment variables, preferences, runtime and name commands,
+hotkeys, menus, shelves, panels, tool contexts, translators, project rules, plug-ins), each with a status (done,
+partial, missing, n/a) and its evidence. Commands, flags, node types and attributes are ticked by a checker
+(`cargo run -p aztek_host --example parity -- --write`), the rest by hand; a test fails while the checked rows or the
+summary are stale. The welcome screen's bar is the areas' weighted mean, partial counting half and n/a left out, and its
+tooltip lists each area. `tools/reference_capture/inventory.py`, run inside the reference, lists every area with the
+product's and vendor's names and the user's paths taken out; `tools/parity/import_inventory.py` merges its zip into the
+ledger, keeping what has been ticked. Until the first one comes in, the ledger holds the 1198 commands and 40285 flag
+names the bar counted before. parity/README.md.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
 this copy's own change and those that came after it; on a later day the heading names the date. Announcements list the
 newest ten, however old. Releases' notes on GitHub are the commits since the release before. A bar along the foot shows parity: of the reference's
-1198 commands and their 40285 flags (`tools/reference_capture/reference_commands.txt`), the share Aztek takes, each
-command and each flag counting once, a flag only when its command is there. `aztekParity -q` gives the percentage, the
-counts and the missing commands; `cargo run -p aztek_host --example parity` prints it. It measures commands and
+1198 commands and their 40285 flags, the share Aztek takes, each command and each flag counting once, a flag only when
+its command is there (since 18/11/2026 from the parity ledger). `aztekParity -q` gives the percentage and the counts;
+`cargo run -p aztek_host --example parity` prints it. It measures commands and
 flags, not how closely each behaves. The sections and links carry small icons, the greeting follows the time of day,
 and a sandy greyhound with a red collar stands under the links.
 

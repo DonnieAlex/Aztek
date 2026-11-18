@@ -1,0 +1,25 @@
+area	rows	done	partial	missing	na	percent	weight
+commands	1198	753	0	445	0	62.9	1
+command_flags	40285	20614	0	19671	0	51.2	1
+python_commands	0	0	0	0	0		1
+mel_procs	0	0	0	0	0		1
+node_types	0	0	0	0	0		1
+node_attributes	0	0	0	0	0		1
+api_python_classes	0	0	0	0	0		1
+api_python_members	0	0	0	0	0		1
+api_cpp_classes	0	0	0	0	0		1
+api_cpp_members	0	0	0	0	0		1
+api_cpp_enums	0	0	0	0	0		1
+environment	0	0	0	0	0		1
+preferences	0	0	0	0	0		1
+runtime_commands	0	0	0	0	0		1
+name_commands	0	0	0	0	0		1
+hotkeys	0	0	0	0	0		1
+menus	0	0	0	0	0		1
+shelves	0	0	0	0	0		1
+panels	0	0	0	0	0		1
+tool_contexts	0	0	0	0	0		1
+translators	0	0	0	0	0		1
+workspace_rules	0	0	0	0	0		1
+plugins	0	0	0	0	0		1
+all						57.0	

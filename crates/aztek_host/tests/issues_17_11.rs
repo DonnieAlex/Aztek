@@ -378,8 +378,8 @@ fn globals_read_at_the_top_level_without_a_declaration() {
     assert_eq!(c.mel_checked(r#"python("import maya.mel as mel"); python("mel.eval('$mainWindow = $gMainWindow')");"#).unwrap(), json!("MayaWindow"));
 }
 
-/// The welcome screen's parity bar: of the reference's commands and flags, the share Aztek takes, from the list in
-/// tools/reference_capture/reference_commands.txt.
+/// The welcome screen's parity bar: from the parity ledger's summary (parity/summary.tsv), the commands and flags among
+/// its areas.
 #[test]
 fn parity_counts_the_reference_commands_and_flags() {
     let mut c = Core::new();
@@ -389,10 +389,8 @@ fn parity_counts_the_reference_commands_and_flags() {
     assert!(have > 500 && have < 1198, "{have}");
     let percent = p["percent"].as_f64().unwrap();
     assert!(percent > 0.0 && percent < 100.0);
-    // Commands Aztek has are not in the missing list; one it lacks is.
-    let missing: Vec<&str> = p["missing"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
-    assert!(!missing.contains(&"polyCube") && !missing.contains(&"makeIdentity"));
-    assert_eq!(missing.len() as u64, 1198 - have);
+    let areas = p["areas"].as_array().unwrap();
+    assert!(areas.iter().any(|a| a["area"] == json!("command_flags") && a["rows"] == p["flags"]));
 }
 
 /// #138: a selected joint draws its axes, from its centre to its ball; not when it isn't selected.

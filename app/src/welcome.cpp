@@ -465,7 +465,7 @@ void MainWindow::show_welcome(bool at_startup) {
     bottom->addWidget(close);
     outer->addLayout(bottom);
 
-    // Right at the foot: how far towards parity, from the reference's commands and flags that Aztek takes.
+    // Right at the foot: how far towards parity, from the parity ledger's summary.
     {
         const QJsonObject p = ask("aztekParity", QJsonObject{{"query", true}}).toObject();
         const double percent = p["percent"].toDouble();
@@ -477,9 +477,20 @@ void MainWindow::show_welcome(bool at_startup) {
         bar->setValue(int(percent * 10));
         bar->setTextVisible(false);
         bar->setFixedHeight(14);
-        label->setToolTip(QString("Of the reference's %1 commands, Aztek takes %2, and %3 of their %4 flags. Each command and each flag "
-                                "counts once; aztekParity -q lists what is missing.")
-                            .arg(p["commands"].toInt()).arg(p["commandsHave"].toInt()).arg(p["flagsHave"].toInt()).arg(p["flags"].toInt()));
+        // The parity ledger's areas (parity/ in the source), each done over the rows that apply, partial counting half.
+        QString tip = "<b>Parity ledger</b><table>";
+        for (const QJsonValue& v : p["areas"].toArray()) {
+            const QJsonObject a = v.toObject();
+            if (a["rows"].toInt() == 0)
+                continue;
+            tip += QString("<tr><td>%1</td><td align=right>&nbsp;%2 of %3&nbsp;</td><td align=right>%4%</td></tr>")
+                       .arg(a["area"].toString().replace('_', ' '))
+                       .arg(a["done"].toInt())
+                       .arg(a["rows"].toInt() - a["na"].toInt())
+                       .arg(a["percent"].toDouble(), 0, 'f', 1);
+        }
+        tip += "</table>The figure is the areas' weighted mean; areas with no rows yet don't count.";
+        label->setToolTip(tip);
         bar->setToolTip(label->toolTip());
         bar->setStyleSheet("QProgressBar#parityBar { border: 1px solid rgba(128,128,128,0.6); border-radius: 6px; font-weight: 600; }"
                            "QProgressBar#parityBar::chunk { border-radius: 5px; background: qlineargradient(x1:0, y1:0, x2:1, y2:0,"

@@ -48,9 +48,9 @@ Copyright (c) 2024 Maksym Pavlenko. Licence: MIT, full text in `crates/vendor/op
 
 ## The reference's command list
 
-`tools/reference_capture/reference_commands.txt` lists the reference's commands and their flags, by name only, taken
-from the command stubs of the `types-maya` package, version 0.6.1, on PyPI. Aztek's parity measure (`aztekParity`, the
-bar on the welcome screen) reads it. Licence: MIT, full text in `tools/reference_capture/types-maya-LICENSE`.
+`parity/commands.tsv` and `parity/command_flags.tsv`, the parity ledger's first rows, list the reference's commands and
+their flags by name only, taken from the command stubs of the `types-maya` package, version 0.6.1, on PyPI. Licence:
+MIT, full text in `tools/reference_capture/types-maya-LICENSE`.
 
 ## Test files
 

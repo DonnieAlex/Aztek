@@ -30,6 +30,21 @@ failed. A second argument to `mayapy` names another output folder.
 `crates/aztek_host/tests/reference_fixtures.rs` reads `calls/`. To refresh the type list, run
 `cargo run -p aztek_host --example list_node_types > tools/reference_capture/node_types.txt`.
 
+## The inventory
+
+`inventory.py` lists everything the reference exposes, for the parity ledger (`parity/README.md`): commands and their
+flags, node types and their attributes, both scripting APIs, the C++ headers, environment variables (set, in the
+environment file, or read by the shipped scripts), preferences, runtime and name commands, hotkeys, menus, shelves,
+panels, tool contexts, translators, project rules and plug-ins. Names and interfaces only, with the product's and
+vendor's names and the user's paths taken out. In a Python tab of the Script Editor of a running copy (menus, hotkeys
+and shelves need the interface):
+
+    exec(open("/path/to/aztek/tools/reference_capture/inventory.py").read())
+
+or `mayapy tools/reference_capture/inventory.py`. It writes `reference_inventory_<stamp>/` and a zip of it in the home
+folder; the header lists its settings (`INVENTORY_ONLY`, `INVENTORY_DEVKIT` for the C++ headers, and others). Then
+`python3 tools/parity/import_inventory.py <zip>` merges it into `parity/`.
+
 ## What tests still need
 
 Each is a guess in a test, marked `// unverified:` at the line. `calls.json` carries a call for each where one fits.

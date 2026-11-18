@@ -1,0 +1,24 @@
+area	key	check	weight	about
+commands	command	commands	1	Commands, from MEL and Python
+command_flags	command,flag	flags	1	Each command's flags
+python_commands	name	commands	1	Commands as Python sees them
+mel_procs	proc	hand	1	Global MEL procedures the shipped scripts define
+node_types	node_type	node_types	1	Node types
+node_attributes	node_type,attribute	node_attributes	1	Each node type's own attributes
+api_python_classes	module,class	hand	1	Classes of the Python APIs
+api_python_members	module,class,member	hand	1	Their methods, properties and constants
+api_cpp_classes	header,class	hand	1	Classes of the C++ API
+api_cpp_members	header,class,declaration	hand	1	Their public declarations
+api_cpp_enums	header,class,enum	hand	1	Their enums
+environment	variable	hand	1	Environment variables read at start or by scripts
+preferences	option	hand	1	Preference variables (optionVar)
+runtime_commands	runtime_command	hand	1	Runtime commands
+name_commands	name_command	hand	1	Name commands
+hotkeys	key,ctrl,alt,shift,release	hand	1	Default hotkeys
+menus	menu_set,path,item	hand	1	Main window menu items, by menu set
+shelves	shelf,label	hand	1	Shelf buttons
+panels	panel_type	hand	1	Panel types
+tool_contexts	context	hand	1	Tool contexts
+translators	translator	hand	1	File translators
+workspace_rules	rule	hand	1	Project file rules
+plugins	plugin	hand	1	Bundled plug-ins
