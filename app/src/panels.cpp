@@ -4,6 +4,7 @@
 #include <QMouseEvent>
 #include "host.h"
 #include "icons.h"
+#include "viewport.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -181,7 +182,10 @@ QStringList selected_input_plugs() {
 void tell_channel_space() {
     bool translate = false;
     for (const QString& a : g_channel_sel) translate = translate || a.startsWith("translate") || a == "tx" || a == "ty" || a == "tz";
-    query("uiChannelSpace", translate ? "parent" : "");
+    // Only the views change: the manipulator's axes.
+    if (query("uiChannelSpace", translate ? "parent" : "").toBool())
+        for (QWidget* w : QApplication::allWidgets())
+            if (auto* v = qobject_cast<ViewportWidget*>(w)) v->update();
 }
 
 void clear_channel_selection() {

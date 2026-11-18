@@ -423,11 +423,9 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
                 crate::user_folder::set_current_workspace(&arg);
                 Value::Null
             }
-            "uiChannelSpace" => {
-                crate::viewport::set_channel_space(!arg.is_empty());
-                c.version += 1;
-                Value::Null
-            }
+            // No version bump: that rebuilds the Channel Box, which asks this on every restyle, so a field being typed
+            // in lost the keyboard and a drag down the names lost its label. The shell redraws the views on a change.
+            "uiChannelSpace" => json!(crate::viewport::set_channel_space(!arg.is_empty())),
             "uiShowManipAttr" => {
                 c.node_manip.active_attr = if arg.is_empty() { None } else { Some(arg.clone()) };
                 c.version += 1;

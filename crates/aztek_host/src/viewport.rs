@@ -406,8 +406,9 @@ const PIVOT_RING: f32 = 1.22;
 /// is set to, as in the reference, until they are let go (#136).
 static CHANNEL_SPACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-pub fn set_channel_space(on: bool) {
-    CHANNEL_SPACE.store(on, std::sync::atomic::Ordering::Relaxed);
+/// Whether it changed.
+pub fn set_channel_space(on: bool) -> bool {
+    CHANNEL_SPACE.swap(on, std::sync::atomic::Ordering::Relaxed) != on
 }
 
 pub fn channel_space() -> bool {
