@@ -12,6 +12,7 @@
 
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDockWidget>
@@ -106,8 +107,12 @@ QWidget* section(QVBoxLayout* page, const QString& title, QWidget* parent) {
 const QJsonObject& option_defaults(const QString& tool) {
     static const QJsonObject quad{{"autoWeld", true}, {"autoWeldDistance", 10.0}, {"relax", 0}, {"extend", 0}, {"stripWidth", 20.0}};
     static const QJsonObject cut{{"snapStep", 10.0}, {"smoothingAngle", 180.0}, {"edgeFlow", false}, {"edgeFlowAmount", 1.0}, {"subdivisions", 1},
-                                 {"ignoreBackfaces", false}, {"deleteFaces", false}, {"extractFaces", false}, {"extractOffset", QJsonArray{0.5, 0.5, 0.5}}};
-    return tool == "quadDraw" ? quad : cut;
+                                 {"ignoreBackfaces", false}, {"deleteFaces", false}, {"extractFaces", false}, {"extractOffset", QJsonArray{0.5, 0.5, 0.5}},
+                                 {"forceCage", false}, {"lineColor", "#e6a000"}, {"vertexColor", "#e6dc00"}, {"edgeColor", "#0000dc"}, {"faceColor", "#dcdcdc"}};
+    // Live Constraint Options, shared by both tools.
+    static const QJsonObject live{{"wireOverlay", true}, {"wireColor", "#000000"}, {"meshColorOn", true}, {"meshColor", "#336bf2"}, {"meshAlphaOn", true},
+                                  {"meshAlpha", 0.75}, {"surfaceOffsetOn", false}, {"surfaceOffset", 0.0}, {"snapToBackfaces", false}};
+    return tool == "quadDraw" ? quad : tool == "live" ? live : cut;
 }
 
 } // namespace
@@ -145,6 +150,66 @@ T* narrow(T* w) {
     w->setMinimumWidth(40);
     w->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     return w;
+}
+
+// A colour swatch that opens a picker and keeps what's picked as an option.
+QPushButton* color_button(MainWindow* mw, const QString& tool, const QString& key, const QString& now, QWidget* parent) {
+    auto* b = new QPushButton(parent);
+    b->setFixedSize(36, 16);
+    auto paint = [b](const QString& c) { b->setStyleSheet(QString("QPushButton { background: %1; border: 1px solid #222; }").arg(c)); };
+    paint(now);
+    QObject::connect(b, &QPushButton::clicked, b, [mw, tool, key, b, paint] {
+        const QColor was(tool_options(tool)[key].toString());
+        const QColor c = QColorDialog::getColor(was, b->window(), "Color");
+        if (!c.isValid()) return;
+        paint(c.name());
+        set_tool_option(mw, tool, key, c.name());
+    });
+    return b;
+}
+
+// Live Constraint Options, the same in Quad Draw and Multi-Cut: how a mesh built on the live surface draws, and where on
+// it points go.
+void live_constraint_section(MainWindow* mw, QVBoxLayout* page, QWidget* panel) {
+    const QJsonObject o = tool_options("live");
+    QWidget* body = section(page, "Live Constraint Options", panel);
+    auto* f = new QFormLayout(body);
+    f->setContentsMargins(4, 2, 2, 4);
+    auto check = [mw, body](const QString& label, const QString& key, bool on) {
+        auto* cb = new QCheckBox(label, body);
+        cb->setChecked(on);
+        QObject::connect(cb, &QCheckBox::toggled, body, [mw, key](bool v) { set_tool_option(mw, "live", key, v); });
+        return cb;
+    };
+    auto value = [mw, body](const QString& key, double lo, double hi, double v) {
+        auto* sb = narrow(new QDoubleSpinBox(body));
+        no_stray_wheel(sb);
+        sb->setRange(lo, hi);
+        sb->setDecimals(3);
+        sb->setSingleStep(0.05);
+        sb->setValue(v);
+        QObject::connect(sb, &QDoubleSpinBox::valueChanged, body, [mw, key](double x) { set_tool_option(mw, "live", key, x); });
+        return sb;
+    };
+    auto row = [f, body](QCheckBox* cb, QWidget* w) {
+        auto* h = new QHBoxLayout();
+        h->addWidget(cb);
+        h->addWidget(w, 1);
+        w->setEnabled(cb->isChecked());
+        QObject::connect(cb, &QCheckBox::toggled, w, &QWidget::setEnabled);
+        f->addRow(h);
+    };
+    QCheckBox* wire = check("Wireframe Overlay", "wireOverlay", o["wireOverlay"].toBool());
+    wire->setToolTip("The wire of a mesh built on the live surface, in this colour");
+    row(wire, color_button(mw, "live", "wireColor", o["wireColor"].toString(), body));
+    row(check("Mesh Color", "meshColorOn", o["meshColorOn"].toBool()), color_button(mw, "live", "meshColor", o["meshColor"].toString(), body));
+    row(check("Mesh Alpha", "meshAlphaOn", o["meshAlphaOn"].toBool()), value("meshAlpha", 0, 1, o["meshAlpha"].toDouble()));
+    QCheckBox* offset = check("Surface Offset", "surfaceOffsetOn", o["surfaceOffsetOn"].toBool());
+    offset->setToolTip("New points sit this far off the live surface, along its normal");
+    row(offset, value("surfaceOffset", -100, 100, o["surfaceOffset"].toDouble()));
+    QCheckBox* back = check("Snap to Backfaces", "snapToBackfaces", o["snapToBackfaces"].toBool());
+    back->setToolTip("Points can land on faces of the live surface turned away from the view");
+    f->addRow(back);
 }
 
 QWidget* quad_draw_panel(MainWindow* mw, QWidget* parent) {
@@ -197,6 +262,7 @@ QWidget* quad_draw_panel(MainWindow* mw, QWidget* parent) {
         QObject::connect(width, &QSpinBox::valueChanged, body, [mw](int v) { set_tool_option(mw, "quadDraw", "stripWidth", v); });
         f->addRow("Quad Strip Width:", width);
     }
+    live_constraint_section(mw, page, panel);
     auto* clear = new QPushButton("Clear Dots", panel);
     QObject::connect(clear, &QPushButton::clicked, panel, [mw] {
         for (ViewportWidget* v : mw->panels()->views()) v->set("quadDrawAction", "\"clearDots\"");
@@ -205,6 +271,7 @@ QWidget* quad_draw_panel(MainWindow* mw, QWidget* parent) {
     auto* reset = new QPushButton("Reset Settings", panel);
     QObject::connect(reset, &QPushButton::clicked, panel, [mw] {
         QSettings().remove("mtk/quadDraw");
+        QSettings().remove("mtk/live");
         mw->reset_tool_panel("quadDraw");
     });
     page->addWidget(reset);
@@ -214,11 +281,12 @@ QWidget* quad_draw_panel(MainWindow* mw, QWidget* parent) {
         f->setContentsMargins(4, 2, 2, 4);
         f->addWidget(new QLabel("<i>Hovering outside the quad mesh</i>"));
         shortcut_rows(f, {{"LMB", "Click to drop dots"}, {"LMB", "Drag to tweak dots"}, {"Ctrl+Shift+LMB", "Delete dots"}, {"Tab+LMB", "Drag to draw quad strips"},
-                          {"Tab+MMB", "Drag to resize quad strips"}, {"Shift+LMB", "Click between dots to create geometry"}});
+                          {"Tab+MMB", "Drag to resize quad strips"}, {"Shift+LMB", "Click between dots to create geometry"}, {"MMB", "Drag dots along normals **"}});
         f->addWidget(new QLabel("<i>Hovering inside the quad mesh</i>"));
         shortcut_rows(f, {{"LMB", "Drag to tweak components"}, {"Ctrl+LMB", "Click edge to insert loop"}, {"Ctrl+MMB", "Click edge to insert centered loop"},
-                          {"Shift+LMB", "Drag to relax points"}, {"Tab+LMB", "Drag to extend border edge"}, {"Tab+MMB", "Drag to extend border edge loop"},
+                          {"MMB", "Drag components along normals **"}, {"Shift+LMB", "Drag to relax points"}, {"Shift+MMB", "Drag to relax highlighted points"}, {"Tab+LMB", "Drag to extend border edge"}, {"Tab+MMB", "Drag to extend border edge loop"},
                           {"Ctrl+Shift+LMB", "Click face to delete it"}, {"Ctrl+Shift+LMB", "Click edge to delete edge loop"}});
+        f->addWidget(new QLabel("<i>** when no live surface constraint is active</i>"));
     }
     return panel;
 }
@@ -252,6 +320,9 @@ QWidget* multi_cut_panel(MainWindow* mw, QWidget* parent) {
         step->setSuffix(" %");
         step->setToolTip("Shift+click or drag snaps a point along an edge in steps of this much of its length");
         f->addRow("Snap Step %:", step);
+        QCheckBox* cage = check(body, "Force Cage + Smooth", "forceCage", o["forceCage"].toBool());
+        cage->setToolTip("Force display mode to \"Cage + Smooth\" on smooth mesh previews");
+        f->addRow(cage);
     }
     {
         QWidget* body = section(page, "Insert Edge Loop Tool", panel);
@@ -325,9 +396,24 @@ QWidget* multi_cut_panel(MainWindow* mw, QWidget* parent) {
         }
         f->addRow(planes);
     }
+    {
+        QWidget* body = section(page, "Color Settings", panel);
+        auto* g = new QGridLayout(body);
+        g->setContentsMargins(4, 2, 2, 4);
+        int i = 0;
+        for (const auto& [label, key] : {std::pair{"Line", "lineColor"}, {"Vertex Point", "vertexColor"}, {"Edge Point", "edgeColor"}, {"Face Point", "faceColor"}}) {
+            auto* l = new QLabel(label, body);
+            l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            g->addWidget(l, i / 2, (i % 2) * 2);
+            g->addWidget(color_button(mw, "multiCut", key, o[key].toString(), body), i / 2, (i % 2) * 2 + 1);
+            ++i;
+        }
+    }
+    live_constraint_section(mw, page, panel);
     auto* reset = new QPushButton("Reset Settings", panel);
     QObject::connect(reset, &QPushButton::clicked, panel, [mw] {
         QSettings().remove("mtk/multiCut");
+        QSettings().remove("mtk/live");
         mw->reset_tool_panel("multiCut");
     });
     page->addWidget(reset);
@@ -630,9 +716,12 @@ void MainWindow::reset_tool_panel(const QString& tool) {
 }
 
 void MainWindow::push_tool_options(const QString& tool) {
-    const QJsonObject o = tool_options(tool);
-    const QString text = QString::fromUtf8(QJsonDocument(o).toJson(QJsonDocument::Compact));
-    for (ViewportWidget* v : panels_->views()) v->set(tool, text);
+    // Each tool's own options, and the Live Constraint Options both share.
+    for (const QString& t : {tool == "live" ? QString() : tool, QString("live")}) {
+        if (t.isEmpty()) continue;
+        const QString text = QString::fromUtf8(QJsonDocument(tool_options(t)).toJson(QJsonDocument::Compact));
+        for (ViewportWidget* v : panels_->views()) v->set(t == "live" ? "liveConstraint" : t, text);
+    }
 }
 
 } // namespace az

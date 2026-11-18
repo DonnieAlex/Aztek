@@ -2286,7 +2286,11 @@ impl View {
             "toolTab" => self.ts.tab = v.as_bool().unwrap_or(false),
             // Quad Draw's and Multi-Cut's options from the Modeling Toolkit, and its buttons (#140).
             "quadDraw" => self.ts.qd.set(&v),
-            "multiCut" => self.ts.mc.set(&v),
+            "multiCut" => {
+                self.ts.mc.set(&v);
+                self.vp.force_cage = self.ts.mc.force_cage;
+            }
+            "liveConstraint" => self.vp.live.set(&v),
             "quadDrawAction" => {
                 if v.as_str() == Some("clearDots") {
                     self.ts.dots.clear();

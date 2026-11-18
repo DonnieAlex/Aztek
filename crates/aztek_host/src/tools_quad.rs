@@ -49,11 +49,18 @@ pub struct CutOpts {
     pub delete_faces: bool,
     pub extract_faces: bool,
     pub extract_offset: [f64; 3],
+    /// Force Cage + Smooth: smooth previews show their cage while the tool is on.
+    pub force_cage: bool,
+    /// Color Settings: the cut line, and points on a vertex, an edge or a face.
+    pub line_color: [u8; 4],
+    pub vertex_color: [u8; 4],
+    pub edge_color: [u8; 4],
+    pub face_color: [u8; 4],
 }
 
 impl Default for CutOpts {
     fn default() -> Self {
-        CutOpts { snap_step: 10.0, smoothing_angle: 180.0, edge_flow: false, edge_flow_amount: 1.0, subdivisions: 1, ignore_backfaces: false, delete_faces: false, extract_faces: false, extract_offset: [0.5; 3] }
+        CutOpts { snap_step: 10.0, smoothing_angle: 180.0, edge_flow: false, edge_flow_amount: 1.0, subdivisions: 1, ignore_backfaces: false, delete_faces: false, extract_faces: false, extract_offset: [0.5; 3], force_cage: false, line_color: [230, 160, 0, 255], vertex_color: [230, 220, 0, 255], edge_color: [0, 0, 220, 255], face_color: [220, 220, 220, 255] }
     }
 }
 
@@ -73,6 +80,22 @@ pub struct Extend {
     pub mesh: NodeId,
     pub edges: Vec<Index>,
     pub from: DVec3,
+}
+
+/// What a middle drag moves along its normal.
+#[derive(Clone, Debug)]
+pub enum Dragged {
+    Dot(usize),
+    Vertex(NodeId, Index),
+}
+
+/// A middle drag along a normal: what, from where, along which world direction, and where the mouse went down.
+#[derive(Clone, Debug)]
+pub struct NormalDrag {
+    pub what: Dragged,
+    pub from: DVec3,
+    pub normal: DVec3,
+    pub press: DVec2,
 }
 
 fn f(v: &Value, k: &str, d: f64) -> f64 {
@@ -102,6 +125,12 @@ impl CutOpts {
         self.ignore_backfaces = b(v, "ignoreBackfaces", self.ignore_backfaces);
         self.delete_faces = b(v, "deleteFaces", self.delete_faces);
         self.extract_faces = b(v, "extractFaces", self.extract_faces);
+        self.force_cage = b(v, "forceCage", self.force_cage);
+        let col = |k: &str, d: [u8; 4]| crate::viewport::hex_color(v.get(k)).map_or(d, |c| [(c[0] * 255.0).round() as u8, (c[1] * 255.0).round() as u8, (c[2] * 255.0).round() as u8, 255]);
+        self.line_color = col("lineColor", self.line_color);
+        self.vertex_color = col("vertexColor", self.vertex_color);
+        self.edge_color = col("edgeColor", self.edge_color);
+        self.face_color = col("faceColor", self.face_color);
         if let Some(a) = v.get("extractOffset").and_then(Value::as_array) {
             for (k, x) in a.iter().take(3).enumerate() {
                 self.extract_offset[k] = x.as_f64().unwrap_or(self.extract_offset[k]);
@@ -244,6 +273,81 @@ fn vertex_at(core: &mut Core, shape: NodeId, w: DVec3) -> Option<Index> {
 }
 
 impl View {
+    /// A middle press in Quad Draw with no live surface: a dot or a vertex under the mouse starts moving along its
+    /// normal, a dot's being the grid's up.
+    pub(crate) fn quad_normal_press(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) -> bool {
+        if !core.s.live_surface.is_empty() {
+            return false;
+        }
+        let screen = self.vp.screen();
+        let reach = 12.0 * self.dpr;
+        if let Some(i) = self.ts.dots.iter().position(|d| screen.project(*d).is_some_and(|q| (q - px).length() < reach)) {
+            self.ts.normal_drag = Some(NormalDrag { what: Dragged::Dot(i), from: self.ts.dots[i], normal: DVec3::Y, press: px });
+            return true;
+        }
+        let Some(it) = self.quad_target(core, items) else { return false };
+        let (shape, world, m) = (it.shape, it.world, it.mesh.clone());
+        let Some(p) = (0..m.point_capacity()).filter(|&p| m.point_valid(p)).find(|&p| screen.project(world.transform_point3(m.position(p))).is_some_and(|q| (q - px).length() < reach)) else { return false };
+        let n = m.point_faces(p).into_iter().map(|f| m.face_area_vector(f)).sum::<DVec3>();
+        let n = world.inverse().transpose().transform_vector3(n).normalize_or_zero();
+        if n == DVec3::ZERO {
+            return false;
+        }
+        self.ts.applied = false;
+        self.ts.normal_drag = Some(NormalDrag { what: Dragged::Vertex(shape, p), from: world.transform_point3(m.position(p)), normal: n, press: px });
+        true
+    }
+
+    /// The middle drag along the normal: as far along it as the mouse has gone along its line on screen.
+    pub(crate) fn quad_normal_drag(&mut self, core: &mut Core, px: DVec2) {
+        let Some(d) = self.ts.normal_drag.clone() else { return };
+        let screen = self.vp.screen();
+        let len = self.vp.handle_len(d.from, self.dpr).max(1e-6);
+        let (Some(a), Some(b)) = (screen.project(d.from), screen.project(d.from + d.normal * len)) else { return };
+        let dir = b - a;
+        if dir.length_squared() < 1e-6 {
+            return;
+        }
+        let t = (px - d.press).dot(dir) / dir.length_squared();
+        let to = d.from + d.normal * len * t;
+        match d.what {
+            Dragged::Dot(i) => {
+                if let Some(x) = self.ts.dots.get_mut(i) {
+                    *x = to;
+                }
+            }
+            Dragged::Vertex(mesh, v) => {
+                let name = components::display_path(&core.s.graph, mesh);
+                self.apply_preview(core, "xform", json!({"args": [format!("{name}.vtx[{v}]")], "worldSpace": true, "translation": to.to_array()}));
+            }
+        }
+    }
+
+    /// Shift+middle drag: one relax step on the picked points of the quad mesh, by the Relax setting.
+    pub(crate) fn quad_relax_picked(&mut self, core: &mut Core, items: &[DrawItem]) {
+        let Some(it) = self.quad_target(core, items) else { return };
+        let (shape, world, mesh) = (it.shape, it.world, it.mesh.clone());
+        let g = &core.s.graph;
+        let mode = components::mode(g);
+        if mode == aztek_scene::components::ComponentMode::Object {
+            return;
+        }
+        let picked = components::selected(g, shape, mode).to_vec();
+        let pts = components::convert(&mesh, mode, &picked, aztek_scene::components::ComponentMode::Vertex, false);
+        let pts = relax_points(&mesh, &pts, self.ts.qd.relax);
+        let name = components::display_path(&core.s.graph, shape);
+        let screen = self.vp.screen();
+        for (p, local) in relaxed(&mesh, &pts) {
+            let mut w = world.transform_point3(local);
+            if !core.s.live_surface.is_empty() {
+                if let Some(on) = screen.project(w).and_then(|q| self.live_point(core, items, q)) {
+                    w = on;
+                }
+            }
+            let _ = core.exec_silent("xform", json!({"args": [format!("{name}.vtx[{p}]")], "worldSpace": true, "translation": w.to_array()}));
+        }
+    }
+
     /// The four corners of a strip quad on screen, round its middle along `dir`, `w` pixels a side.
     fn strip_corners(&self, at: DVec2, dir: DVec2, w: f64) -> [DVec2; 4] {
         let d = if dir.length_squared() < 1e-9 { DVec2::X } else { dir.normalize() };
@@ -426,7 +530,8 @@ impl View {
 
     /// Slices the meshes under a screen line through the eye, or the given meshes along a world plane, as the Slice Tool
     /// settings say: faces deleted or pulled off on the plane's far side, back faces left alone if asked.
-    pub(crate) fn slice(&mut self, core: &mut Core, shapes: &[(NodeId, DVec3, DVec3)]) {
+    pub(crate) fn slice(&mut self, core: &mut Core, shapes: &[(NodeId, DVec3, DVec3)]) -> Option<String> {
+        let mut last = None;
         let c = self.ts.mc.clone();
         let eye = self.vp.cam.eye();
         let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
@@ -457,7 +562,9 @@ impl View {
                 call["extractFaces"] = json!(true);
                 call["extractOffset"] = json!(c.extract_offset);
             }
-            let _ = core.exec("polyCut", call);
+            if let Ok(v) = core.exec("polyCut", call) {
+                last = v.as_str().map(str::to_string).or_else(|| v.get(0).and_then(Value::as_str).map(str::to_string)).or(last);
+            }
         }
         let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
         // The sliced objects stay selected, to see the cut and go on.
@@ -465,6 +572,7 @@ impl View {
         if !names.is_empty() {
             let _ = core.exec_silent("select", json!({"args": names}));
         }
+        last
     }
 
     /// The meshes a screen line crosses, by samples along it.
@@ -507,9 +615,14 @@ impl View {
             }
         }
         let keep: Vec<String> = core.s.graph.selection().iter().map(|&id| core.s.graph.path(id)).collect();
-        self.slice(core, &shapes);
+        let cut = self.slice(core, &shapes);
         if !keep.is_empty() {
             let _ = core.exec_silent("select", json!({"args": keep}));
+        }
+        // The plane's handles straight away, as the reference's gizmo: its centre moves and it turns, the cut following.
+        if let Some(node) = cut {
+            crate::node_manip::show_node(core, &node);
+            crate::core::push_ui_request("setTool|showManip".to_string());
         }
     }
 }

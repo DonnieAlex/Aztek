@@ -1542,9 +1542,16 @@ Multi-Cut Options: Snap Step % (Shift+click snaps along an edge in those steps),
 amount (off on a live surface), Subdivisions; the Slice Tool's Ignore Backfaces, Delete Faces, Extract Faces with its
 offset, and Slice Along Plane YZ, ZX and XY, which cut the selected objects through their middle. A middle drag across
 a mesh slices it through the view, Shift turning the line in 45 degree steps. Ctrl+Shift after a point on an edge
-puts the next one square to that edge. Not yet: Live Constraint Options (overlay colours, mesh alpha, surface offset,
-snap to backfaces), middle drags along normals, Shift+middle relax, Force Cage + Smooth, the slice plane's gizmo and
-Color Settings.
+puts the next one square to that edge. Multi-Cut's Force Cage + Smooth shows smooth previews' cage while the tool is
+on; Color Settings colour the cut line and each point by what it sits on (vertex, edge, face). Slice Along Plane leaves
+the cut's plane in the Show Manipulator tool: arrows move its centre and rings turn it, the cut following.
+
+Live Constraint Options, the same in both tools: Wireframe Overlay and its colour (the wire of a mesh built on the live
+surface, black by default, while its components aren't showing), Mesh Color and Mesh Alpha (0.75), Surface Offset (new
+points sit that far off the live surface along its normal, toward the eye) and Snap to Backfaces (off: points land on
+faces turned toward the view only). With no live surface, a middle drag on a dot or a vertex moves it along its normal
+(a dot's is the grid's up); Shift+middle drag relaxes the picked points, by the Relax setting. Not yet: Multi-Cut's X
+and V snapping.
 
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 

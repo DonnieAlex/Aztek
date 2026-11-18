@@ -113,7 +113,7 @@ fn is_projection(ty: &str) -> bool {
 
 /// Whether a node has handles or fields of its own, so a history walk stops at it.
 pub fn has_manip(ty: &str) -> bool {
-    is_move_family(ty) || is_primitive(ty) || is_nonlinear(ty) || is_projection(ty) || matches!(ty, "polyPoke" | "polyMirror" | "polyWedgeFace" | "polyExtrudeVertex" | "softMod" | "sculpt") || !fields_of(ty).is_empty()
+    is_move_family(ty) || is_primitive(ty) || is_nonlinear(ty) || is_projection(ty) || matches!(ty, "polyPoke" | "polyMirror" | "polyWedgeFace" | "polyExtrudeVertex" | "softMod" | "sculpt" | "polyCut") || !fields_of(ty).is_empty()
 }
 
 /// The in-view editor's rows for a node type, in order: (attribute, label, kind, min, max). Kind is f, i or b.
@@ -326,6 +326,8 @@ pub fn build(s: &mut Session, vp: &Viewport, node: NodeId, world_axes: bool, dpr
         }
     } else if ty == "polyMirror" {
         mirror(s, vp, node, dpr, &mut m)?;
+    } else if ty == "polyCut" {
+        cut_plane(s, vp, dpr, &mut m);
     } else if ty == "polyWedgeFace" {
         let (shape_world, (mesh, kind, ids)) = (owner(s, node)?.1, input_of(s, node, &ty)?);
         let f = frame_of(&mesh, kind, &ids);
@@ -417,6 +419,27 @@ fn mirror(s: &mut Session, vp: &Viewport, node: NodeId, dpr: f64, m: &mut Manip)
         m.lines.push((q[i], q[(i + 1) % 4], CYAN));
     }
     Some(())
+}
+
+/// A cut's plane: arrows to move its centre, rings to turn it, and its outline (#140).
+fn cut_plane(s: &mut Session, vp: &Viewport, dpr: f64, m: &mut Manip) {
+    let n = m.node.clone();
+    let at = DVec3::new(get(s, &n, "cutPlaneCenterX"), get(s, &n, "cutPlaneCenterY"), get(s, &n, "cutPlaneCenterZ"));
+    let r = DVec3::new(get(s, &n, "cutPlaneRotateX"), get(s, &n, "cutPlaneRotateY"), get(s, &n, "cutPlaneRotateZ")) * (std::f64::consts::PI / 180.0);
+    let axes = DMat3::from_euler(glam::EulerRot::ZYX, r.z, r.y, r.x);
+    let len = vp.handle_len(at, dpr);
+    for (i, attr) in ["cutPlaneCenterX", "cutPlaneCenterY", "cutPlaneCenterZ"].into_iter().enumerate() {
+        arrow(m, s, attr, at, DVec3::AXES[i], 1.0, len, AXES[i], None, None);
+    }
+    for (i, attr) in ["cutPlaneRotateX", "cutPlaneRotateY", "cutPlaneRotateZ"].into_iter().enumerate() {
+        ring(m, s, attr, at, DVec3::AXES[i], len * 1.2, AXES[i]);
+    }
+    let (u, v) = (axes.x_axis * len * 1.4, axes.y_axis * len * 1.4);
+    let q = [at + u + v, at - u + v, at - u - v, at + u - v];
+    for i in 0..4 {
+        m.lines.push((q[i], q[(i + 1) % 4], CYAN));
+    }
+    m.lines.push((at, at + axes.z_axis * len, CYAN));
 }
 
 fn primitive(s: &mut Session, node: NodeId, ty: &str, m: &mut Manip) -> Option<()> {

@@ -17,6 +17,7 @@ use aztek_scene::plug::{NodeId, NO_NODE};
 use aztek_scene::transform::DagNode;
 use aztek_scene::Session;
 use ash::vk;
+use serde_json::Value;
 use glam::{DMat3, DMat4, DVec2, DVec3, Vec3};
 
 use aztek_scene::surfaces::{self, SurfaceShape};
@@ -406,6 +407,46 @@ const PIVOT_RING: f32 = 1.22;
 /// is set to, as in the reference, until they are let go (#136).
 static CHANNEL_SPACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// The Live Constraint Options: the wire drawn over a mesh built on the live surface and its colour, the mesh's own colour
+/// and how see-through it is, how far off the surface new points sit, and whether points land on back faces.
+#[derive(Clone, Debug)]
+pub struct LiveOpts {
+    pub wire: Option<[f32; 3]>,
+    pub color: Option<[f32; 3]>,
+    pub alpha: Option<f32>,
+    pub offset: Option<f64>,
+    pub backfaces: bool,
+}
+
+impl Default for LiveOpts {
+    fn default() -> Self {
+        LiveOpts { wire: Some([0.0; 3]), color: Some([0.2, 0.42, 0.95]), alpha: Some(0.75), offset: None, backfaces: false }
+    }
+}
+
+/// "#rrggbb" as linear-ish 0 to 1 channels, as the toolkit's colour swatches send them.
+pub fn hex_color(v: Option<&Value>) -> Option<[f32; 3]> {
+    let s = v?.as_str()?.trim_start_matches('#');
+    if s.len() != 6 {
+        return None;
+    }
+    let c = |i: usize| u8::from_str_radix(&s[i..i + 2], 16).ok().map(|x| x as f32 / 255.0);
+    Some([c(0)?, c(2)?, c(4)?])
+}
+
+impl LiveOpts {
+    /// From the toolkit: each setting with its switch ("wireOverlay" and "wireColor", ...).
+    pub fn set(&mut self, v: &Value) {
+        let on = |k: &str, d: bool| v.get(k).and_then(Value::as_bool).unwrap_or(d);
+        let d = LiveOpts::default();
+        self.wire = on("wireOverlay", self.wire.is_some()).then(|| hex_color(v.get("wireColor")).or(self.wire).or(d.wire).unwrap());
+        self.color = on("meshColorOn", self.color.is_some()).then(|| hex_color(v.get("meshColor")).or(self.color).or(d.color).unwrap());
+        self.alpha = on("meshAlphaOn", self.alpha.is_some()).then(|| v.get("meshAlpha").and_then(Value::as_f64).map(|x| x as f32).or(self.alpha).or(d.alpha).unwrap().clamp(0.0, 1.0));
+        self.offset = on("surfaceOffsetOn", self.offset.is_some()).then(|| v.get("surfaceOffset").and_then(Value::as_f64).or(self.offset).unwrap_or(0.0));
+        self.backfaces = on("snapToBackfaces", self.backfaces);
+    }
+}
+
 /// Whether it changed.
 pub fn set_channel_space(on: bool) -> bool {
     CHANNEL_SPACE.swap(on, std::sync::atomic::Ordering::Relaxed) != on
@@ -687,6 +728,11 @@ pub struct Viewport {
     pub manip_scale: f64,
     /// Smooth preview draws the cage too (the 2 key) rather than the smooth mesh alone (3).
     pub smooth_cage: bool,
+    /// Multi-Cut's Force Cage + Smooth: the cage drawn with the smooth mesh while the tool is on (#140).
+    pub force_cage: bool,
+    /// Quad Draw's and Multi-Cut's Live Constraint Options: how a mesh built on the live surface draws, and where on it
+    /// points go (#140).
+    pub live: LiveOpts,
     /// The component under the cursor: (shape, kind, id).
     pub hover_comp: Option<(NodeId, ComponentMode, Index)>,
     /// Half the side of the square a click picks wires in, in device pixels: the reference's selectPref -clickBoxSize
@@ -771,6 +817,8 @@ impl Viewport {
             show_grid: true,
             manip_scale: 1.0,
             smooth_cage: false,
+            force_cage: false,
+            live: LiveOpts::default(),
             hover_comp: None,
             click_box: 4.0,
             uv_topos: HashMap::new(),
@@ -1125,6 +1173,7 @@ impl Viewport {
         let checker_set = (r.materials && crate::ui_cmds::pref_bool("uvChecker", false)).then(|| crate::textures::with_cache(gpu, |c| c.checker(gpu)));
         let lead = sel.last().copied();
         let mut transparent: Vec<Clear> = Vec::new();
+        let smooth_cage = self.smooth_cage || (self.force_cage && self.tool == Tool::MultiCut);
         for it in items {
             let entry = self.meshes.entry(it.shape).or_insert_with(|| GpuMesh {
                 drawn: None,
@@ -1272,7 +1321,7 @@ impl Viewport {
             let global_seeds = soft.0 && mode != ComponentMode::Object && aztek_scene::soft_select::falloff_name() == "global";
             let soft_on = soft.0 && ((hilited && !comps.is_empty()) || (global_seeds && mode != ComponentMode::Object));
             let mut h = DefaultHasher::new();
-            (mode as i32, selected, lead == Some(it.xf), self.wireframe, self.wire_on_shaded, comps, self.smooth_cage, entry.smooth, templated).hash(&mut h);
+            (mode as i32, selected, lead == Some(it.xf), self.wireframe, self.wire_on_shaded, comps, smooth_cage, entry.smooth, templated).hash(&mut h);
             if multi && hilited {
                 (components::selected(g, it.shape, ComponentMode::Vertex), components::selected(g, it.shape, ComponentMode::Edge), components::selected(g, it.shape, ComponentMode::Face)).hash(&mut h);
             }
@@ -1288,7 +1337,7 @@ impl Viewport {
                     gpu.drop_buffer(b.0);
                 }
                 // Smooth preview: the cage's wire on the 2 key and in component modes, the smooth mesh's otherwise.
-                let cage = entry.display.is_none() || self.smooth_cage || hilited;
+                let cage = entry.display.is_none() || smooth_cage || hilited;
                 let wire_mesh = if cage { it.mesh.clone() } else { entry.display.clone().unwrap() };
                 let m = &wire_mesh;
                 let mirror_set: std::collections::HashSet<u32> = if hilited { components::mirrored_side(g, it.shape, mode, comps).into_iter().collect() } else { Default::default() };
@@ -1303,7 +1352,7 @@ impl Viewport {
                         wire
                     }
                 };
-                let want_lines = !is_surface && (live || selected || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && self.smooth_cage));
+                let want_lines = !is_surface && (live || selected || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && smooth_cage));
                 if want_lines {
                     let mut lv = Vec::new();
                     // Smooth preview's wire: the cage's edges follow the smooth surface, and those the subdivision added
@@ -1581,9 +1630,10 @@ impl Viewport {
                     // Per object too (Modeling Toolkit > Object > X-Ray, displaySurface -xr; displayCull -bfc).
                     let own = |k: &str| [it.xf, it.shape].iter().any(|&n| s.extras.display_surface.get(&(n, k.to_string())).copied().unwrap_or(false));
                     let (obj_xray, obj_cull) = (own("xRay"), own("backFaceCulling"));
-                    if on_live && self.disp.highlight {
+                    if on_live && self.disp.highlight && self.live.color.is_some() {
                         r.bind(gpu, Kind::Tint);
-                        let mut pc = push(mvp, it.world, view, [0.2, 0.42, 0.95, 0.5], retopo, 1.0);
+                        let c = self.live.color.unwrap_or([0.2, 0.42, 0.95]);
+                        let mut pc = push(mvp, it.world, view, [c[0], c[1], c[2], self.live.alpha.unwrap_or(1.0)], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
@@ -1693,7 +1743,28 @@ impl Viewport {
             if let Some((b, _)) = partial {
                 gpu.drop_buffer(b);
             }
-            if let Some((lb, ln)) = &entry.lines {
+            // Wireframe Overlay: a mesh built on the live surface draws its wire in the overlay's colour, unless its
+            // components are showing.
+            let overlay = if on_live && !hilited { self.live.wire } else { None };
+            if let Some(c) = overlay {
+                let col = [c[0], c[1], c[2], 1.0];
+                let m = &it.mesh;
+                let mut lv = Vec::new();
+                for e in (0..m.edge_capacity()).filter(|&e| m.edge_valid(e)) {
+                    for k in 0..2 {
+                        lv.push(LineVertex { pos: m.position(m.edge_point(e, k)).as_vec3().to_array(), color: col });
+                    }
+                }
+                if !lv.is_empty() {
+                    let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lv);
+                    r.bind(gpu, Kind::Lines);
+                    r.set_line_width(gpu, 1.0);
+                    r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
+                    r.draw(gpu, &b, None, lv.len() as u32);
+                    gpu.drop_buffer(b);
+                }
+            }
+            if let Some((lb, ln)) = entry.lines.as_ref().filter(|_| overlay.is_none()) {
                 r.bind(gpu, if self.disp.xray_active && hilited { Kind::LinesOnTop } else { Kind::Lines });
                 r.set_line_width(gpu, if selected && mode == ComponentMode::Object { 1.5 } else { 1.0 });
                 r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
@@ -2222,6 +2293,11 @@ impl Viewport {
 
     /// The nearest mesh hit under a viewport pixel: (item index, face, world point).
     pub fn raycast(&mut self, items: &[DrawItem], px: DVec2) -> Option<(usize, Index, DVec3)> {
+        self.raycast_faces(items, px, true)
+    }
+
+    /// As raycast; with `backfaces` off a face turned away from the eye is passed through.
+    pub fn raycast_faces(&mut self, items: &[DrawItem], px: DVec2, backfaces: bool) -> Option<(usize, Index, DVec3)> {
         let (o, d) = self.cam.ray(px, self.size());
         let mut best: Option<(usize, Index, DVec3, f64)> = None;
         for (i, it) in items.iter().enumerate() {
@@ -2233,7 +2309,7 @@ impl Viewport {
                 continue;
             }
             let Some(bvh) = self.bvh_for(it) else { continue };
-            if let Some(hit) = bvh.raycast_with(lo, ld / len, f64::MAX, true) {
+            if let Some(hit) = bvh.raycast_with(lo, ld / len, f64::MAX, backfaces) {
                 let wp = it.world.transform_point3(lo + ld / len * hit.t);
                 let dist = (wp - o).length();
                 if best.as_ref().is_none_or(|b| dist < b.3) {

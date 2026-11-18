@@ -291,3 +291,47 @@ fn quad_draw_auto_weld_commands() {
     });
     assert_eq!(verts(&mesh_of(&mut c, &shape)), 7);
 }
+
+/// #140: the Live Constraint Options and Multi-Cut's colours and Force Cage + Smooth, as the toolkit sends them.
+#[test]
+fn live_constraint_and_cut_colour_settings() {
+    use aztek_host::viewport::LiveOpts;
+    let mut o = LiveOpts::default();
+    assert_eq!(o.wire, Some([0.0; 3]));
+    assert!(!o.backfaces && o.offset.is_none());
+    o.set(&json!({"wireOverlay": false, "meshColor": "#ff0000", "meshAlphaOn": true, "meshAlpha": 0.4, "surfaceOffsetOn": true, "surfaceOffset": 0.2, "snapToBackfaces": true}));
+    assert_eq!(o.wire, None);
+    assert_eq!(o.color, Some([1.0, 0.0, 0.0]));
+    assert_eq!(o.alpha, Some(0.4));
+    assert_eq!(o.offset, Some(0.2));
+    assert!(o.backfaces);
+    o.set(&json!({"meshColorOn": false, "meshAlphaOn": false}));
+    assert_eq!((o.color, o.alpha), (None, None));
+    let mut c = aztek_host::tools_quad::CutOpts::default();
+    c.set(&json!({"forceCage": true, "lineColor": "#00ff00", "faceColor": "#102030"}));
+    assert!(c.force_cage);
+    assert_eq!(c.line_color, [0, 255, 0, 255]);
+    assert_eq!(c.face_color, [16, 32, 48, 255]);
+}
+
+/// #140: Slice Along Plane leaves the cut's plane in the Show Manipulator tool: arrows for its centre, rings to turn it,
+/// and moving its centre moves the cut.
+#[test]
+fn slice_plane_handles() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n box -w 2 -h 2 -d 2 -sx 1;");
+    aztek_ops::units::stored(|| c.exec("polyCut", json!({"args": ["box.f[*]"], "cutPlaneCenter": [0.0, 0.0, 0.0], "cutPlaneRotate": aztek_host::tools_quad::cut_rotation(glam::DVec3::X), "worldSpace": true, "deleteFaces": true}))).unwrap();
+    let xs = |c: &mut Core| points(c, "box").iter().map(|p| p[0]).fold(f64::MIN, f64::max);
+    assert!(xs(&mut c).abs() < 1e-6 || xs(&mut c) > 0.99);
+    let before = xs(&mut c);
+    assert!((mel(&mut c, "getAttr polyCut1.cutPlaneRotateY;").as_f64().unwrap() - 90.0).abs() < 1e-6);
+    mel(&mut c, "setAttr polyCut1.cutPlaneCenterX 0.5;");
+    assert!((xs(&mut c) - before).abs() > 0.4, "{before} {}", xs(&mut c));
+    let mut vp = aztek_host::viewport::Viewport::new(aztek_host::camera::CamKind::Persp);
+    vp.rect = [0.0, 0.0, 800.0, 600.0];
+    let id = c.s.graph.find("polyCut1").unwrap().unwrap();
+    let m = aztek_host::node_manip::build(&mut c.s, &vp, id, true, 1.0).unwrap();
+    let attrs: Vec<&str> = m.handles.iter().map(|h| h.attr.as_str()).collect();
+    assert_eq!(attrs, ["cutPlaneCenterX", "cutPlaneCenterY", "cutPlaneCenterZ", "cutPlaneRotateX", "cutPlaneRotateY", "cutPlaneRotateZ"]);
+    assert_eq!(m.lines.len(), 5);
+}

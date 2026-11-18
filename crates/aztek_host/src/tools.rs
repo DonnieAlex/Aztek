@@ -68,6 +68,10 @@ pub struct ToolState {
     pub last_px: Option<DVec2>,
     /// Multi-Cut: where a middle-button slice started.
     pub slice_from: Option<DVec2>,
+    /// Quad Draw: a middle drag moving a dot or a vertex along its normal, and a Shift+middle drag relaxing the
+    /// picked points, with where it last stepped.
+    pub normal_drag: Option<crate::tools_quad::NormalDrag>,
+    pub relax_picked: Option<DVec2>,
 }
 
 /// Screen-space hit on any drawn mesh.
@@ -325,18 +329,21 @@ impl View {
                     self.slice_preview(items, from, to);
                     return true;
                 }
+                // Color Settings: the line, and each point by what it sits on (#140).
+                let c = self.ts.mc.clone();
+                let kind_color = |p: &Value| if p.get("vertex").is_some() { c.vertex_color } else if p.get("edge").is_some() { c.edge_color } else { c.face_color };
                 let list = self.ts.cut_world.clone();
                 for w in list.windows(2) {
-                    self.vp.tool_lines.push((w[0], w[1], GREEN));
+                    self.vp.tool_lines.push((w[0], w[1], c.line_color));
                 }
-                for p in &list {
-                    self.vp.tool_points.push((*p, WHITE));
+                for (p, at) in self.ts.cut_points.clone().iter().zip(&list) {
+                    self.vp.tool_points.push((*at, kind_color(p)));
                 }
                 if let Some(s) = &snap {
-                    let (_, at) = place(self, s);
-                    self.vp.tool_points.push((at, GREEN));
+                    let (point, at) = place(self, s);
+                    self.vp.tool_points.push((at, kind_color(&point)));
                     if let Some(l) = list.last() {
-                        self.vp.tool_lines.push((*l, at, WHITE));
+                        self.vp.tool_lines.push((*l, at, c.line_color));
                     }
                     if ctrl && !shift {
                         let it = &items[s.item];
@@ -653,7 +660,14 @@ impl View {
             .filter(|i| live.contains(&i.shape))
             .map(|i| DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: 0 })
             .collect();
-        self.vp.raycast(&hits, px).map(|h| h.2)
+        // Live Constraint Options: back faces only when Snap to Backfaces is on, and the Surface Offset off the
+        // surface along its normal, toward the eye (#140).
+        let (i, f, at) = self.vp.raycast_faces(&hits, px, self.vp.live.backfaces)?;
+        let Some(off) = self.vp.live.offset.filter(|o| *o != 0.0) else { return Some(at) };
+        let it = &hits[i];
+        let n = it.world.inverse().transpose().transform_vector3(it.mesh.face_normal(f)).normalize_or_zero();
+        let n = if n.dot(self.vp.cam.eye() - at) < 0.0 { -n } else { n };
+        Some(at + n * off)
     }
 
     pub(crate) fn quad_target<'a>(&self, core: &Core, items: &'a [DrawItem]) -> Option<&'a DrawItem> {
@@ -723,6 +737,17 @@ impl View {
                 self.tool_preview_clear();
                 for d in self.ts.dots.clone() {
                     self.vp.tool_points.push((d, GREEN));
+                }
+                if self.ts.normal_drag.is_some() {
+                    self.quad_normal_drag(core, px);
+                    return true;
+                }
+                if let Some(last) = self.ts.relax_picked {
+                    if (px - last).length() >= 4.0 * self.dpr {
+                        self.ts.relax_picked = Some(px);
+                        self.quad_relax_picked(core, items);
+                    }
+                    return true;
                 }
                 if let Some((from, width)) = self.ts.strip_resize {
                     // Tab+middle drag: the strip width follows the mouse sideways.
@@ -828,7 +853,15 @@ impl View {
                     self.ts.strip_resize = Some((px, self.ts.qd.strip_px));
                     return true;
                 }
-                false
+                if shift {
+                    // Shift+middle drag: the picked points relax, a step each few pixels.
+                    let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
+                    self.ts.relax_picked = Some(px);
+                    self.quad_relax_picked(core, items);
+                    return true;
+                }
+                // Middle drag on a dot or a vertex, with no live surface: along its normal.
+                self.quad_normal_press(core, items, px)
             }
             0 if button == 1 => {
                 let target = self.quad_target(core, items).map(|i| (i.shape, i.xf, i.world, i.mesh.clone()));
@@ -934,7 +967,15 @@ impl View {
             }
             2 if button == 1 || button == 2 => {
                 // A middle release the tool didn't start is the view's (a manipulator drag).
-                let mine = button == 1 || self.ts.strip_resize.is_some() || self.ts.extend.is_some();
+                let mine = button == 1 || self.ts.strip_resize.is_some() || self.ts.extend.is_some() || self.ts.normal_drag.is_some() || self.ts.relax_picked.is_some();
+                if self.ts.relax_picked.take().is_some() {
+                    let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
+                }
+                if let Some(d) = self.ts.normal_drag.take() {
+                    if matches!(d.what, crate::tools_quad::Dragged::Vertex(..)) {
+                        self.commit_preview(core);
+                    }
+                }
                 self.ts.dragging_dot = None;
                 self.ts.strip = None;
                 self.ts.strip_resize = None;
