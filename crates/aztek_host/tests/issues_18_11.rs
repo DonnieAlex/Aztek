@@ -97,3 +97,76 @@ fn texture_deformer_saves() {
         assert!((a[1] - b[1]).abs() < 1e-6, "{before:?} {after:?}");
     }
 }
+
+/// #144: Duplicate input graph copies everything upstream of the shape, Duplicate input connections shares it.
+#[test]
+fn duplicate_special_input_graph_and_connections() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n box; polyBevel box.e[0];");
+    // Plain: no history on the copy.
+    mel(&mut c, "duplicate box;");
+    assert_eq!(mel(&mut c, "listHistory box1;"), json!(["boxShape1"]));
+    // Input graph: its own bevel and cube, wired as the original's.
+    mel(&mut c, "duplicate -un box;");
+    let hist = mel(&mut c, "listHistory box2;");
+    let names: Vec<&str> = hist.as_array().unwrap().iter().filter_map(Value::as_str).collect();
+    assert_eq!(names.len(), 3, "{names:?}");
+    assert!(names.iter().all(|n| !["polyBevel1", "polyCube1"].contains(n)), "{names:?}");
+    let shape2 = mel(&mut c, "listRelatives -s box2;")[0].as_str().unwrap().to_string();
+    let src = mel(&mut c, &format!("listConnections -s 1 -d 0 {shape2}.inMesh;"));
+    let src = src[0].as_str().unwrap().to_string();
+    assert!(src.starts_with("polyBevel") && src != "polyBevel1", "{src}");
+    assert!(names.contains(&src.as_str()), "{names:?}");
+    // Editing the copy's cube leaves the original alone.
+    let before = points(&mut c, "box");
+    let cube = names.iter().find(|n| n.starts_with("polyCube")).unwrap().to_string();
+    mel(&mut c, &format!("setAttr {cube}.width 5;"));
+    assert_eq!(points(&mut c, "box"), before);
+    assert_ne!(points(&mut c, "box2"), before);
+    // Input connections: the copy is fed by the original's bevel itself.
+    mel(&mut c, "duplicate -ic box;");
+    let shape3 = mel(&mut c, "listRelatives -s box3;")[0].as_str().unwrap().to_string();
+    assert_eq!(mel(&mut c, &format!("listConnections -s 1 -d 0 {shape3}.inMesh;")), json!(["polyBevel1"]));
+    mel(&mut c, "setAttr polyCube1.height 3;");
+    assert_eq!(points(&mut c, "box3"), points(&mut c, "box"));
+}
+
+/// #144: Group under World and New group, a run of copies, and Instance leaf nodes.
+#[test]
+fn duplicate_special_group_under_and_instance_leaf() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n leaf; group -n inner leaf; group -n outer inner;");
+    let made = mel(&mut c, "duplicate -groupUnder world -rr inner;");
+    assert_eq!(made, json!(["inner1"]));
+    assert!(mel(&mut c, "listRelatives -p inner1;").as_array().is_none_or(|a| a.is_empty()));
+    let made = mel(&mut c, "duplicate -groupUnder group -rr -count 3 -t 2 0 0 inner;");
+    assert_eq!(made.as_array().unwrap().len(), 3);
+    let parent = mel(&mut c, "listRelatives -p inner2;");
+    assert_ne!(parent, json!(["outer"]));
+    assert_eq!(mel(&mut c, &format!("listRelatives -p {};", parent[0].as_str().unwrap())), json!(["outer"]));
+    // Instance leaf nodes: the transforms are new, the shape is an instance of the original's mesh.
+    let made = mel(&mut c, "duplicate -ilf -rr inner;");
+    let top = made[0].as_str().unwrap().to_string();
+    let shape = mel(&mut c, &format!("listRelatives -s -f {top}|leaf;"));
+    let s = shape[0].as_str().unwrap().to_string();
+    mel(&mut c, "move -r 0 1 0 outer|inner|leaf.vtx[0];");
+    let a = points(&mut c, "outer|inner|leaf");
+    let b = points(&mut c, &s);
+    let local = |p: &[[f64; 3]]| p.iter().map(|q| [q[0] - p[0][0], q[1] - p[0][1], q[2] - p[0][2]]).collect::<Vec<_>>();
+    assert_eq!(local(&a), local(&b));
+}
+
+/// #144: the option box has the reference's rows, greys the input switches under Instance and makes the two input
+/// switches exclude each other.
+#[test]
+fn duplicate_special_option_box_layout() {
+    let rows = aztek_host::option_boxes::rows("duplicate");
+    let flags: Vec<&str> = rows.iter().map(|r| r["flag"].as_str().unwrap()).collect();
+    assert_eq!(flags, ["mode", "groupUnder", "smartTransform", "translate", "rotate", "scale", "count", "upstreamNodes", "inputConnections", "instanceLeaf", "renameChildren"]);
+    for f in ["upstreamNodes", "inputConnections", "instanceLeaf"] {
+        let r = rows.iter().find(|r| r["flag"] == f).unwrap();
+        assert_eq!(r["disabledWhen"], json!({"flag": "mode", "value": "instance"}));
+    }
+    assert_eq!(rows[7]["excludes"], json!("inputConnections"));
+    assert_eq!(rows[8]["excludes"], json!("upstreamNodes"));
+}

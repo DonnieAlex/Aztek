@@ -5,6 +5,9 @@
 #include "icons.h"
 
 #include <QApplication>
+#include <QButtonGroup>
+#include <QFrame>
+#include <QRadioButton>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
@@ -156,11 +159,46 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
         QString name = r["flag"].toString(), kind = r["kind"].toString();
         QJsonValue dflt = saved_call.contains(name) ? saved_call[name] : r["default"];
         QWidget* w = nullptr;
+        if (r["separatorBefore"].toBool()) {
+            auto* line = new QFrame(this);
+            line->setFrameShape(QFrame::HLine);
+            line->setFrameShadow(QFrame::Sunken);
+            form->addRow(line);
+        }
         if (kind == "bool") {
-            auto* cb = new QCheckBox(this);
+            // Inline: the label beside the box, as the reference's option windows show their switches.
+            auto* cb = new QCheckBox(r["inline"].toBool() ? r["label"].toString() : QString(), this);
             cb->setChecked(dflt.toBool());
-            readers_.append([cb, name](QJsonObject& o) { o[name] = cb->isChecked(); });
+            // A greyed-out switch doesn't apply.
+            readers_.append([cb, name](QJsonObject& o) { o[name] = cb->isEnabled() && cb->isChecked(); });
+            value_of_[name] = [cb] { return QJsonValue(cb->isChecked()); };
+            connect(cb, &QCheckBox::toggled, this, [this] { apply_rules(); });
             w = cb;
+        } else if (kind == "radio") {
+            // One of a few, as radio buttons down the row.
+            auto* box = new QWidget(this);
+            auto* v = new QVBoxLayout(box);
+            v->setContentsMargins(0, 0, 0, 0);
+            v->setSpacing(2);
+            auto* group = new QButtonGroup(box);
+            QList<QPair<QRadioButton*, QJsonValue>> choices;
+            for (const QJsonValue& cv : r["choices"].toArray()) {
+                QJsonArray pair = cv.toArray();
+                auto* rb = new QRadioButton(pair[0].toString(), box);
+                rb->setChecked(pair[1] == dflt);
+                group->addButton(rb);
+                v->addWidget(rb);
+                choices.append({rb, pair[1]});
+                connect(rb, &QRadioButton::toggled, this, [this] { apply_rules(); });
+            }
+            auto current = [choices] {
+                for (const auto& c : choices)
+                    if (c.first->isChecked()) return c.second;
+                return choices.isEmpty() ? QJsonValue() : choices.first().second;
+            };
+            readers_.append([current, name](QJsonObject& o) { o[name] = current(); });
+            value_of_[name] = current;
+            w = box;
         } else if (kind == "float" || kind == "int") {
             auto* sb = new QDoubleSpinBox(this);
             sb->setRange(-1e9, 1e9);
@@ -227,8 +265,39 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
             });
             w = row;
         }
-        if (w) form->addRow(r["label"].toString() + ":", w);
+        if (w) {
+            widget_of_[name] = w;
+            if (kind == "bool" && r["inline"].toBool()) form->addRow(QString(), w);
+            else form->addRow(r["label"].toString() + ":", w);
+        }
+        // Greyed out while another row holds a value: Duplicate Special's input options under Instance (#144).
+        const QJsonObject when = r["disabledWhen"].toObject();
+        if (!when.isEmpty() && w) {
+            const QString other = when["flag"].toString();
+            const QJsonValue value = when["value"];
+            rules_.append([this, w, other, value] {
+                if (value_of_.contains(other)) w->setEnabled(value_of_[other]() != value);
+            });
+        }
+        // Two switches of which only one can be on: turning this one on turns the other off and greys it out.
+        const QString excludes = r["excludes"].toString();
+        if (!excludes.isEmpty() && kind == "bool") {
+            auto* cb = static_cast<QCheckBox*>(w);
+            exclusions_.append([this, cb, excludes] {
+                auto* other = qobject_cast<QCheckBox*>(widget_of_.value(excludes));
+                if (!other || !cb->isEnabled()) return;
+                if (cb->isChecked()) {
+                    other->blockSignals(true);
+                    other->setChecked(false);
+                    other->blockSignals(false);
+                    other->setEnabled(false);
+                } else if (!other->isChecked()) {
+                    other->setEnabled(true);
+                }
+            });
+        }
     }
+    apply_rules();
     if (layout.isEmpty()) for (const QJsonValue& fv : def["flags"].toArray()) {
         QJsonObject f = fv.toObject();
         QString name = f["name"].toString();
@@ -316,6 +385,12 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
         OptionsDialog::open(cmd, title, fixed, at);
     });
     resize(440, sizeHint().height());
+}
+
+void OptionsDialog::apply_rules() {
+    // What greys rows out first, then the pairs that switch each other off among those left.
+    for (auto& f : rules_) f();
+    for (auto& f : exclusions_) f();
 }
 
 QJsonObject OptionsDialog::collect() const {

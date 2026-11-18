@@ -1515,6 +1515,18 @@ have sliders but no limits. `textureDeformer` makes a textureDeformerHandle at t
 connected to the deformer's handleMatrix, and returns both. Vector Space Tangent is taken as Object for now. The
 procedural noise and its two attributes Aztek had before are gone.
 
+### Duplicate Special (18/11/2026, #144)
+
+Edit > Duplicate Special's options are the reference's: Geometry type (Copy, Instance), Group under (Parent, World,
+New group), Smart transform, Translate, Rotate, Scale, Number of copies, Duplicate input graph, Duplicate input
+connections, Instance leaf nodes and Assign unique name to children nodes. Under Instance the three input switches
+grey out and don't apply; Duplicate input graph and Duplicate input connections exclude each other, one turning the
+other off and greying it out. Duplicate input graph (`duplicate -un`) copies everything upstream of the hierarchy and
+its shapes, wired as the original's, sharing only DAG nodes outside it and the scene's own nodes; Duplicate input
+connections (`-ic`) feeds the copies from the original's own inputs, so they share history. `-ilf` copies the
+hierarchy with its leaf shapes instances of the originals', and `-groupUnder world` or `group` places the copies.
+Option windows take radio rows, rows greyed out by another's value and pairs of switches that exclude each other.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

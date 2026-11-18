@@ -1,6 +1,8 @@
 //! The reference's scene commands with their full flag sets: hierarchy, naming, selection, sets, namespaces, undo and the small
 //! commands scripts lean on. Older commands of the same name keep doing what they did; these add to them.
 
+use std::collections::HashMap;
+
 use aztek_ops::{fail, objects, run, ArgType, Args, CmdResult, CommandDef, Commands};
 use glam::DVec3;
 use serde_json::{json, Value};
@@ -8,7 +10,7 @@ use serde_json::{json, Value};
 use crate::graph::{Graph, SelectMode};
 use crate::ref_core::{asked, extend, f, matching_nodes};
 use crate::node::types;
-use crate::plug::{flags, NodeId, PlugRef, PlugValue, NO_NODE};
+use crate::plug::{NodeId, PlugRef, PlugValue, NO_NODE};
 use crate::session::Session;
 use crate::transform::{DagNode, Transform};
 
@@ -315,7 +317,8 @@ fn select_cmd(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> Cm
     prev(s, &call)
 }
 
-/// Copies a node's input connections onto its duplicate (duplicate -ic).
+/// Copies a node's input connections onto its duplicate (duplicate -ic): the copy is fed by the very nodes that feed
+/// the original, so they share their history.
 fn copy_inputs(g: &mut Graph, from: NodeId, to: NodeId) -> CmdResult<()> {
     for (d, sp) in g.connections() {
         if d.node == from {
@@ -325,43 +328,84 @@ fn copy_inputs(g: &mut Graph, from: NodeId, to: NodeId) -> CmdResult<()> {
     Ok(())
 }
 
-/// Copies the non-DAG nodes feeding `from` and feeds `to` from the copies (duplicate -un).
-fn copy_upstream(g: &mut Graph, from: NodeId, to: NodeId) -> CmdResult<()> {
-    for (d, sp) in g.connections() {
-        if d.node != from {
-            continue;
-        }
-        let Some(ty) = g.node(sp.node).map(|n| n.type_arc().clone()) else { continue };
-        if ty.dag {
-            g.connect(&sp, &PlugRef { node: to, ..d }, true)?;
-            continue;
-        }
-        let made = g.create_node(&ty, "", NO_NODE, true)?;
-        for (i, def) in ty.attrs.iter().enumerate() {
-            if def.has(flags::INPUT) && !def.is_array() {
-                let v = g.node(sp.node).unwrap().value(i).clone();
-                g.set_value(PlugRef::new(made, i as i32), v)?;
-            }
-        }
-        copy_inputs(g, sp.node, made)?;
-        g.connect(&PlugRef { node: made, ..sp }, &PlugRef { node: to, ..d }, true)?;
+/// The copy of an upstream node for duplicate -un: a node of the duplicated hierarchy is its copy there; a DAG node
+/// outside it, or one every scene has (time1), is shared; anything else is copied once, with what feeds it in turn.
+fn upstream_copy(g: &mut Graph, n: NodeId, pairs: &HashMap<NodeId, NodeId>, made: &mut HashMap<NodeId, NodeId>) -> CmdResult<NodeId> {
+    if let Some(&c) = pairs.get(&n).or_else(|| made.get(&n)) {
+        return Ok(c);
     }
-    Ok(())
+    let Some(ty) = g.node(n).map(|x| x.type_arc().clone()) else { return Ok(n) };
+    if ty.dag || crate::defaults::undeletable(g, n) {
+        return Ok(n);
+    }
+    let stem = g.node(n).map(|x| x.name().to_string()).unwrap_or_default();
+    let name = unique_everywhere(g, &g.available_name(&stem, NO_NODE));
+    let c = g.create_node(&ty, &name, NO_NODE, true)?;
+    made.insert(n, c);
+    crate::duplicate::copy_values(g, n, c)?;
+    for (d, sp) in g.connections() {
+        if d.node == n {
+            let from = upstream_copy(g, sp.node, pairs, made)?;
+            g.connect(&PlugRef { node: from, ..sp }, &PlugRef { node: c, ..d }, true)?;
+        }
+    }
+    Ok(c)
+}
+
+/// Each node of a duplicated hierarchy with its copy: the top, then the descendants, matched in order while their types
+/// agree.
+fn hierarchy_pairs(g: &Graph, from: NodeId, to: NodeId) -> Vec<(NodeId, NodeId)> {
+    let a: Vec<NodeId> = std::iter::once(from).chain(g.descendants(from)).collect();
+    let b: Vec<NodeId> = std::iter::once(to).chain(g.descendants(to)).collect();
+    let ty = |id: NodeId| g.node(id).map(|n| n.ty().name.clone());
+    if a.len() != b.len() || a.iter().zip(&b).any(|(x, y)| ty(*x) != ty(*y)) {
+        return vec![(from, to)];
+    }
+    a.into_iter().zip(b).collect()
+}
+
+/// The objects as duplicate takes them: a shape stands for its transform, and only the top of a picked hierarchy counts.
+fn duplicate_sources(s: &Session, a: &Args) -> Vec<NodeId> {
+    let g = &s.graph;
+    let ids: Vec<NodeId> = objects(s, a)
+        .iter()
+        .filter_map(|n| g.find(n).ok().flatten())
+        .map(|id| {
+            let shape = g.node(id).is_some_and(|x| x.ty().dag && !x.ty().is_a("transform"));
+            if shape && g.parent(id) != NO_NODE {
+                g.parent(id)
+            } else {
+                id
+            }
+        })
+        .collect();
+    crate::transform_ops::top_level(g, &ids)
 }
 
 fn duplicate_cmd(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> CmdResult {
     if a.bool("smartTransform") {
         return run(s, "duplicateWithTransform", json!({}));
     }
-    let names = objects(s, a);
-    let sources: Vec<NodeId> = names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).collect();
-    let made = prev(s, a)?;
+    let sources = duplicate_sources(s, a);
+    let count = a.int("count", 1).max(1) as usize;
+    let instanced = a.string("mode", "copy") == "instance";
+    // Group under: the copies' parent (the default), the world, or a new group (duplicate's own -group).
+    let under = a.string("groupUnder", if a.bool("group") { "group" } else { "parent" });
+    let mut call = a.clone();
+    call.flags.insert("group".into(), json!(under == "group"));
+    let made = prev(s, &call)?;
     let new: Vec<String> = made.as_array().map(|v| v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let mut roots = Vec::new();
+    for n in &new {
+        if let Some(id) = s.graph.find(n)? {
+            roots.push(id);
+        }
+    }
     let g = &mut s.graph;
-    let mut out = Vec::new();
-    for (k, n) in new.iter().enumerate() {
-        let Some(id) = g.find(n)? else { continue };
-        let source = sources.get(k % sources.len().max(1)).copied();
+    // The copies come source by source, `count` of each.
+    let mut made_up = HashMap::new();
+    for (k, &id) in roots.iter().enumerate() {
+        let source = sources.get(k / count).copied();
         if a.bool("parentOnly") {
             for c in g.children(id).to_vec() {
                 if !crate::dag::is_shape(g, c) {
@@ -378,13 +422,53 @@ fn duplicate_cmd(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) ->
                 }
             }
         }
-        if let Some(src) = source {
-            if a.bool("inputConnections") {
-                copy_inputs(g, src, id)?;
-            } else if a.bool("upstreamNodes") {
-                copy_upstream(g, src, id)?;
+        let Some(src) = source else { continue };
+        let pairs = hierarchy_pairs(g, src, id);
+        if instanced {
+            continue;
+        }
+        if a.bool("instanceLeaf") {
+            // The hierarchy is copied, its leaves are instances of the originals'.
+            for &(from, to) in &pairs {
+                if g.children(from).is_empty() && crate::dag::is_shape(g, from) {
+                    let parent = g.parent(to);
+                    let name = g.node(to).map(|x| x.name().to_string()).unwrap_or_default();
+                    g.delete_node(to)?;
+                    let mut copies = HashMap::new();
+                    let c = crate::duplicate::copy_tree(g, from, parent, crate::duplicate::Mode::Instance, "", &mut copies)?;
+                    g.rename(c, &name)?;
+                }
+            }
+            continue;
+        }
+        if a.bool("inputConnections") {
+            for &(from, to) in &pairs {
+                copy_inputs(g, from, to)?;
+            }
+        } else if a.bool("upstreamNodes") {
+            let map: HashMap<NodeId, NodeId> = pairs.iter().copied().collect();
+            for &(from, to) in &pairs {
+                for (d, sp) in g.connections() {
+                    if d.node != from {
+                        continue;
+                    }
+                    let up = upstream_copy(g, sp.node, &map, &mut made_up)?;
+                    if up != sp.node || g.source(&PlugRef { node: to, ..d }).is_none() {
+                        g.connect(&PlugRef { node: up, ..sp }, &PlugRef { node: to, ..d }, true)?;
+                    }
+                }
             }
         }
+    }
+    if under == "world" {
+        for &id in &roots {
+            if g.parent(id) != NO_NODE {
+                g.set_parent(id, NO_NODE, true, usize::MAX)?;
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for &id in &roots {
         if a.bool("renameChildren") {
             for d in g.descendants(id) {
                 let stem = g.node(d).unwrap().name().to_string();
@@ -1423,10 +1507,11 @@ pub fn register(c: &mut Commands<Session>) {
         for (name, short, doc) in [
             ("returnRootsOnly", "rr", "Only the top nodes in the result."), ("upstreamNodes", "un", "Copy the nodes feeding it too."), ("parentOnly", "po", "Only the node itself, no children."),
             ("inputConnections", "ic", "The copy takes the same inputs."), ("renameChildren", "rc", "Give the children new unique names."), ("smartTransform", "st", "Repeat the last duplicate's step."),
-            ("transformsOnly", "to", "Leave out the shapes."), ("instanceLeaf", "ilf", "Accepted for existing scripts."),
+            ("transformsOnly", "to", "Leave out the shapes."), ("instanceLeaf", "ilf", "Copy the hierarchy, with its leaf shapes instances of the originals'."),
         ] {
             v.push(f(name, short, B, doc));
         }
+        v.push(f("groupUnder", "gu", ArgType::String, "Where the copies go: parent (beside their originals, the default), world, or group (a new group, as -group)."));
         extend(c, "duplicate", v, duplicate_cmd);
     }
     extend(c, "instance", vec![f("leaf", "lf", B, "Accepted for existing scripts."), f("smartTransform", "st", B, "Accepted for existing scripts.")], |s, a, prev| prev(s, a));

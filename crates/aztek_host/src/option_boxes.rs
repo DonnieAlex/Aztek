@@ -24,6 +24,26 @@ fn e(flag: &str, label: &str, choices: &[(&str, Value)]) -> Value {
     let c: Vec<Value> = choices.iter().map(|(l, v)| json!([l, v])).collect();
     json!({"flag": flag, "label": label, "kind": "enum", "default": choices[0].1, "choices": c})
 }
+/// A pick of one as radio buttons: (label, the value sent). The default is the first.
+fn radio(flag: &str, label: &str, choices: &[(&str, Value)]) -> Value {
+    let mut r = e(flag, label, choices);
+    r["kind"] = json!("radio");
+    r
+}
+
+/// A switch with its label beside it.
+fn inline(row: Value) -> Value {
+    let mut r = row;
+    r["inline"] = json!(true);
+    r
+}
+
+/// A line above the row, between groups of rows.
+fn after_line(mut row: Value) -> Value {
+    row["separatorBefore"] = json!(true);
+    row
+}
+
 /// All, X, Y, Z ticks; the axes left out go in the flag.
 fn skip(flag: &str, label: &str) -> Value {
     json!({"flag": flag, "label": label, "kind": "axes", "default": []})
@@ -279,6 +299,31 @@ pub fn rows(command: &str) -> Vec<Value> {
             b("simulation", "Keep unbaked: Simulation", false),
             b("shape", "Shapes", true),
         ],
+        // Edit > Duplicate Special, as the reference's (#144): under Instance the input switches grey out, and the
+        // two input switches exclude each other.
+        "duplicate" => {
+            let instance_off = |mut r: Value| {
+                r["disabledWhen"] = json!({"flag": "mode", "value": "instance"});
+                r
+            };
+            let mut graph = instance_off(after_line(inline(b("upstreamNodes", "Duplicate input graph", false))));
+            graph["excludes"] = json!("inputConnections");
+            let mut conns = instance_off(inline(b("inputConnections", "Duplicate input connections", false)));
+            conns["excludes"] = json!("upstreamNodes");
+            vec![
+                radio("mode", "Geometry type", &[("Copy", json!("copy")), ("Instance", json!("instance"))]),
+                radio("groupUnder", "Group under", &[("Parent", json!("parent")), ("World", json!("world")), ("New group", json!("group"))]),
+                after_line(inline(b("smartTransform", "Smart transform", false))),
+                v3("translate", "Translate", [0.0; 3]),
+                v3("rotate", "Rotate", [0.0; 3]),
+                v3("scale", "Scale", [1.0; 3]),
+                i("count", "Number of copies", 1),
+                graph,
+                conns,
+                instance_off(inline(b("instanceLeaf", "Instance leaf nodes", false))),
+                after_line(inline(b("renameChildren", "Assign unique name to children nodes", false))),
+            ]
+        }
         _ => Vec::new(),
     }
 }
@@ -289,5 +334,5 @@ pub const COMMANDS: &[&str] = &[
     "skinCluster", "ikHandle", "mirrorJoint", "lattice", "softMod", "wrap", "wire", "blendShape", "polyExtrude", "polyBevel", "polyChipOff", "polyPoke", "polyWedgeFace",
     "polyConnectComponents", "polyMirrorFace", "polyAutoProjection", "rebuildCurve", "attachCurve", "closeCurve", "extendCurve", "offsetCurve", "loft", "revolve", "extrude",
     "setKeyframe", "cutKey", "bakeResults", "detachCurve", "insertKnotCurve", "attachSurface", "sphere", "cylinder", "cone", "torus", "nurbsPlane", "circle", "nurbsSquare", "u3dUnfold",
-    "u3dLayout", "deltaMush", "tension", "jiggle", "polyUnite", "freezeTransforms", "copySkinWeights",
+    "u3dLayout", "deltaMush", "tension", "jiggle", "polyUnite", "freezeTransforms", "copySkinWeights", "duplicate",
 ];

@@ -44,6 +44,11 @@ private:
     // What the menu item itself passes: the projection type, the deformer's kind.
     QJsonObject fixed_;
     QList<std::function<void(QJsonObject&)>> readers_;
+    // Rows that grey out or switch off others, from the layout's disabledWhen and excludes (#144).
+    void apply_rules();
+    QHash<QString, std::function<QJsonValue()>> value_of_;
+    QHash<QString, QWidget*> widget_of_;
+    QList<std::function<void()>> rules_, exclusions_;
 };
 
 // What Ctrl+Shift+click on a menu row with an option box does.
