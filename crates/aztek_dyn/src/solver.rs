@@ -74,6 +74,9 @@ pub enum Anchor {
     Surface(u32, u32, DVec3),
 }
 
+/// A rigid body whose points move slower on average than this share of one substep of gravity is held still.
+pub const RIGID_REST: f64 = 0.9;
+
 /// A constraint between two places: weld, component to component, point to surface, and the rigid pin, nail, hinge
 /// and spring are all links.
 #[derive(Clone, Debug)]
@@ -817,6 +820,25 @@ impl Solver {
         self.stats.ms_other += tr.elapsed().as_secs_f64() * 1e3;
     }
 
+    /// A rigid body barely moving is still: what contacts leave of each substep's gravity would otherwise add up, and
+    /// a stack or a wall left standing creeps until it falls (#145). Anything that hits it moves it again.
+    fn settle_rigids(&mut self, h: f64) {
+        // Under what a substep of gravity gives a body falling from rest, so that one still falls.
+        let rest = RIGID_REST * self.settings.gravity.length() * h;
+        for b in &self.bodies {
+            if b.kind != BodyKind::Rigid || b.count == 0 || !b.settings.enabled {
+                continue;
+            }
+            let r = b.start..b.start + b.count;
+            let mean = self.pt.v[r.clone()].iter().map(|v| v.length()).sum::<f64>() / b.count as f64;
+            if mean < rest {
+                for v in &mut self.pt.v[r] {
+                    *v = DVec3::ZERO;
+                }
+            }
+        }
+    }
+
     /// Velocities from what moved, inside the limits; anything not finite goes back where it was.
     fn finish_substep(&mut self, h: f64) {
         let vmax = self.settings.max_velocity.max(1e-6);
@@ -873,6 +895,7 @@ impl Solver {
                 self.stats.clamped += 1;
             }
         }
+        self.settle_rigids(h);
     }
 
     /// Fields acting on body b at a point.

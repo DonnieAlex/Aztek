@@ -457,7 +457,7 @@ pub(crate) fn links_of(g: &mut Graph, s: NodeId, bodies: &[BodyRef], solver: &az
         let targets = points_of(g, &targets_text, bodies, solver);
         let rest_of = |b: usize| &solver.bodies[b].rest;
         let mut push = |a: Anchor, b: Anchor, pa: DVec3, pb: DVec3| {
-            let rest = fixed.unwrap_or_else(|| if matches!(kind, 2 | 3 | 4) { 0.0 } else { (pa - pb).length() });
+            let rest = fixed.unwrap_or_else(|| if matches!(kind, 2 | 3) { 0.0 } else { (pa - pb).length() });
             out.push(Link { name: name.clone(), a, b, rest, compliance, tear: if kind == 3 && tear <= 0.0 { 0.05 } else { tear }, broken: false, enabled: true });
         };
         match kind {
@@ -493,6 +493,20 @@ pub(crate) fn links_of(g: &mut Graph, s: NodeId, bodies: &[BodyRef], solver: &az
             4 | 5 | 6 => {
                 let (Some((ba, _)), Some((bb, _))) = (members.first(), targets.first()) else { continue };
                 let (ra, rb) = (rest_of(*ba), rest_of(*bb));
+                // A pin between two rigid bodies glues the faces that meet: each point of the one's near layer to the
+                // nearest of the other's, as far apart as they start. Spread over the face, the links pull evenly,
+                // where one link off centre would turn the bodies as they settle, and they tear one by one (#145).
+                let rigid = |b: usize| solver.bodies[b].kind == aztek_dyn::BodyKind::Rigid;
+                if kind == 4 && rigid(*ba) && rigid(*bb) {
+                    let pairs: Vec<(usize, usize, f64)> = ra.iter().enumerate().filter_map(|(i, p)| nearest(rb, *p).map(|j| (i, j, (rb[j] - *p).length()))).collect();
+                    let closest = pairs.iter().map(|x| x.2).fold(f64::INFINITY, f64::min);
+                    for &(i, j, d) in &pairs {
+                        if d <= closest * 1.25 + 1e-9 {
+                            push(Anchor::Particle(*ba as u32, i as u32), Anchor::Particle(*bb as u32, j as u32), ra[i], rb[j]);
+                        }
+                    }
+                    continue;
+                }
                 let ca = ra.iter().sum::<DVec3>() / ra.len().max(1) as f64;
                 let cb = rb.iter().sum::<DVec3>() / rb.len().max(1) as f64;
                 let pivot = (ca + cb) * 0.5;
@@ -512,8 +526,9 @@ pub(crate) fn links_of(g: &mut Graph, s: NodeId, bodies: &[BodyRef], solver: &az
                 }
                 for pv in pivots {
                     if let (Some(ia), Some(ib)) = (nearest(ra, pv), nearest(rb, pv)) {
-                        // Both ends at the pivot: the link holds the two particles together.
-                        push(Anchor::Particle(*ba as u32, ia as u32), Anchor::Particle(*bb as u32, ib as u32), pv, pv);
+                        // The two particles nearest the pivot, kept as far apart as they start: pulled together
+                        // they would tear a glued pin at once (#145).
+                        push(Anchor::Particle(*ba as u32, ia as u32), Anchor::Particle(*bb as u32, ib as u32), ra[ia], rb[ib]);
                     }
                 }
             }

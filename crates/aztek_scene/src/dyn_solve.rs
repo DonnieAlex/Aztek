@@ -521,6 +521,17 @@ fn build(g: &mut Graph, s: NodeId, st: &mut State) {
     st.cache.clear();
 }
 
+/// Puts the objects rigid bodies move back where they start, so they are read there.
+fn rest_rigids(g: &mut Graph, st: &State) {
+    for b in st.bodies.iter().filter(|b| b.kind == Kind::Rigid) {
+        let Some(n) = g.node(b.node) else { continue };
+        if let Some(rn) = n.behavior().as_any().downcast_ref::<RigidNode>() {
+            *rn.local.lock().unwrap() = None;
+        }
+        g.touch(b.node);
+    }
+}
+
 /// The key the solver would be built with now.
 fn current_key(g: &mut Graph, s: NodeId) -> Vec<(NodeId, Kind, usize, u64)> {
     let mut k = Vec::new();
@@ -729,6 +740,9 @@ fn run(g: &mut Graph, s: NodeId) {
         // Built afresh at the start: the rest shapes, and the nails and other links taken from them, are where the
         // meshes are now. One built while a file was still being read had them before the meshes were placed.
         if st.last.is_some() || st.results == 0 {
+            // A rigid body's object is placed by the body: back to its start first, or the solve starts again from
+            // where the last one ended (#145).
+            rest_rigids(g, &st);
             build(g, s, &mut st);
         }
         feed(g, &mut st, mpu);

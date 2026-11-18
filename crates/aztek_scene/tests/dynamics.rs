@@ -247,3 +247,76 @@ fn units_free_fall_in_centimetres() {
     eprintln!("UNITS fell {y} units in one second");
     assert!((y + 490.0).abs() < 10.0, "one second of free fall in a centimetre scene is 490 cm, got {y}");
 }
+
+/// #145: played a second time from the start frame, rigid bodies start where they did the first time, not where the
+/// last run left them.
+#[test]
+fn rigid_bodies_play_again_from_the_start() {
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/dynamics/rigid_tower.ma");
+    let mut s = Session::new();
+    aztek_scene::ma_file::open_scene(&mut s, &path.to_string_lossy()).unwrap();
+    let ty = |s: &mut Session| run(s, "getAttr", json!({"args": ["block_7_1.translateY"]})).as_f64().unwrap();
+    let mut first = Vec::new();
+    for f in 1..=20 {
+        frame(&mut s, f as f64);
+        first.push(ty(&mut s));
+    }
+    let mut again = Vec::new();
+    for f in 1..=20 {
+        frame(&mut s, f as f64);
+        again.push(ty(&mut s));
+    }
+    assert_eq!(first, again);
+}
+
+/// #145: glue between rigid bodies holds at rest, and a glued stack left alone stays standing.
+#[test]
+fn glued_rigid_bodies_stand_until_pulled_apart() {
+    let mut s = Session::new();
+    run(&mut s, "playbackOptions", json!({"minTime": 1, "maxTime": 200}));
+    run(&mut s, "polyPlane", json!({"name": "ground", "width": 2000, "height": 2000}));
+    run(&mut s, "rigidBody", json!({"args": ["ground"], "passive": true}));
+    // Three bricks in a column, a little apart where they settle, each glued to the next.
+    for i in 0..3 {
+        let n = format!("brick{i}");
+        run(&mut s, "polyCube", json!({"name": n, "width": 114, "height": 60, "depth": 96}));
+        run(&mut s, "move", json!({"args": [0, 32.25 + i as f64 * 62.25, 0, n]}));
+        run(&mut s, "rigidBody", json!({"args": [n], "active": true, "mass": 8}));
+    }
+    for i in 0..2 {
+        run(&mut s, "dynamicConstraint", json!({"args": [format!("brick{i}"), format!("brick{}", i + 1)], "type": "pin", "glueStrength": 0.05}));
+    }
+    let solver = s.graph.nodes().into_iter().find(|&id| s.graph.node(id).unwrap().ty().name == "solver").unwrap();
+    let broken = |s: &Session| aztek_scene::dyn_solve::with_state(&s.graph, solver, |st| st.solver.as_ref().map(|v| v.links.iter().filter(|l| l.broken).count())).flatten().unwrap();
+    for f in 1..=120 {
+        frame(&mut s, f as f64);
+    }
+    assert_eq!(broken(&s), 0, "the glue holds at rest");
+    let top = run(&mut s, "getAttr", json!({"args": ["brick2.translateY"]})).as_f64().unwrap();
+    assert!((top - 156.75).abs() < 5.0, "the column stands: {top}");
+    let tx = run(&mut s, "getAttr", json!({"args": ["brick2.translateX"]})).as_f64().unwrap();
+    assert!(tx.abs() < 2.0, "and doesn't creep: {tx}");
+}
+
+/// #145: a glued pin tears once the bodies are pulled further apart than its glue strength.
+#[test]
+fn glue_between_rigid_bodies_tears() {
+    let mut s = Session::new();
+    run(&mut s, "playbackOptions", json!({"minTime": 1, "maxTime": 60}));
+    for (i, v) in [(0, 0.0), (1, 800.0)] {
+        let n = format!("block{i}");
+        run(&mut s, "polyCube", json!({"name": n, "width": 60, "height": 60, "depth": 60}));
+        run(&mut s, "move", json!({"args": [i as f64 * 62.0, 300, 0, n]}));
+        run(&mut s, "rigidBody", json!({"args": [n], "active": true, "mass": 8, "initialVelocity": [v, 0, 0]}));
+    }
+    run(&mut s, "dynamicConstraint", json!({"args": ["block0", "block1"], "type": "pin", "glueStrength": 0.05}));
+    let solver = s.graph.nodes().into_iter().find(|&id| s.graph.node(id).unwrap().ty().name == "solver").unwrap();
+    for f in 1..=10 {
+        frame(&mut s, f as f64);
+    }
+    let (links, broken) = aztek_scene::dyn_solve::with_state(&s.graph, solver, |st| st.solver.as_ref().map(|v| (v.links.len(), v.links.iter().filter(|l| l.broken).count()))).flatten().unwrap();
+    assert!(links > 1, "the faces are glued over their area: {links}");
+    assert_eq!(broken, links, "all torn");
+    let gap = run(&mut s, "getAttr", json!({"args": ["block1.translateX"]})).as_f64().unwrap() - run(&mut s, "getAttr", json!({"args": ["block0.translateX"]})).as_f64().unwrap();
+    assert!(gap > 150.0, "apart: {gap}");
+}

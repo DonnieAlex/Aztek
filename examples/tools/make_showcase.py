@@ -881,6 +881,55 @@ def _():
     lights_basic()
     look((800, 500, 900), (-50, 150, 0))
 
+@scene("dynamics", "rigid_wall_breaking")
+def _():
+    # A long brick wall in running bond, each brick glued to the ones beside, above and below it with a pin that
+    # tears past a stretch, so the wall breaks where it is hit and along its weakest joints. Two heavy balls: one low
+    # through the middle, one later and higher from the side. The rows stand a little apart, where the bricks settle,
+    # so the glue starts slack.
+    fl = floor(8000)
+    mc.rigidBody(fl, passive=True)
+    random.seed(7)
+    cols, rows = 14, 8
+    w, h, d, gap, settle = 120.0, 60.0, 96.0, 6.0, 2.25
+    rows_of = []
+    left = -cols * w / 2.0
+    for r in range(rows):
+        # Every other row starts and ends with a half brick, so no brick overhangs the end of the one below.
+        widths = [w] * cols if r % 2 == 0 else [w / 2] + [w] * (cols - 1) + [w / 2]
+        row = []
+        at = left
+        for k, bw in enumerate(widths):
+            n = "brick_%d_%d" % (r, k)
+            b = mc.polyCube(n=n, w=bw - gap, h=h, d=d)[0]
+            x = at + bw / 2
+            at += bw
+            mc.move(x, h * 0.5 + settle + r * (h + settle), 0, b)
+            mc.rigidBody(b, active=True, m=8, b=0.05, sf=0.5, df=0.5)
+            tone = random.uniform(-0.08, 0.08)
+            mat("brickMat_%d_%d" % (r, k), (0.62 + tone, 0.3 + tone * 0.5, 0.22), b, "lambert")
+            row.append((b, x))
+        rows_of.append(row)
+    for r, row in enumerate(rows_of):
+        for k, (b, x) in enumerate(row):
+            if k + 1 < len(row):
+                mc.dynamicConstraint(b, row[k + 1][0], type="pin", glueStrength=0.05, n="glue_%d_%d_side" % (r, k))
+            if r + 1 < rows:
+                for j, (up, ux) in enumerate(rows_of[r + 1]):
+                    if abs(ux - x) < w * 0.7:
+                        mc.dynamicConstraint(b, up, type="pin", glueStrength=0.05, n="glue_%d_%d_up%d" % (r, k, j))
+    ball = mc.polySphere(n="wreckingBall", r=90)[0]
+    mc.move(-150, 150, -900, ball)
+    mc.rigidBody(ball, active=True, m=3000, iv=(0, 0, 1500))
+    ball2 = mc.polySphere(n="secondBall", r=70)[0]
+    mc.move(900, 380, -2600, ball2)
+    mc.rigidBody(ball2, active=True, m=2000, iv=(0, 0, 1800))
+    for bl in (ball, ball2):
+        mat(bl + "Mat", (0.15, 0.15, 0.18), bl)
+    mc.playbackOptions(min=1, max=200)
+    lights_basic()
+    look((1600, 900, -2200), (0, 250, 0))
+
 # ========================================================================================================= rendering
 def shot(eye, at, fl=40, w=960, h=540):
     cam = mc.camera(n="shotCam", focalLength=fl)[0]

@@ -1597,6 +1597,20 @@ The welcome screen's top right says "Thanks to:" with the GitHub names of everyo
 most issues first, leaving out the repository's owner and bots. The list comes from the repository's issues each time
 the screen opens and is kept, so the last one shows offline; the mouse over it holds it still.
 
+### Rigid bodies play again; glued walls (18/11/2026, #145)
+
+Played a second time from the start frame, rigid bodies start where they did the first time. Before, the solver was
+rebuilt from where the objects stood, which was where the last run ended, so the rigid tower jumped to its last frame.
+
+A pin between two rigid bodies now glues the faces that meet: each point of one's near layer to the nearest point of
+the other, as far apart as they start, each link tearing on its own past the glue strength. One link off centre turned
+the bodies as they settled and pulled a glued stack over. Pins elsewhere hold their two points as far apart as they
+start too, rather than pulling them together, which tore any glue at once. A rigid body moving slower than one substep
+of gravity is held still for that substep, so a stack or wall left standing no longer creeps until it falls.
+
+New example: examples/dynamics/rigid_wall_breaking.ma, a 116 brick wall in running bond glued brick to brick, with two
+heavy balls sent into it.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
