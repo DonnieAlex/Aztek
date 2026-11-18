@@ -17,8 +17,13 @@ on:
   issues:
     types: [labeled]
 
+# GitHub keeps one run waiting per group and cancels the one before it. So: an issue asked for by number or by the auto
+# label waits in a group of its own and is never dropped; runs for the next one due share a group, where one waiting is
+# enough; any other label gets a group of its own, so it can't cancel a run that is waiting.
 concurrency:
-  group: issue-bot
+  group: >-
+    ${{ github.event_name == 'issues' && github.event.label.name != 'auto' && format('issue-bot-label-{0}', github.run_id)
+    || format('issue-bot-{0}', github.event.inputs.issue || github.event.issue.number || 'next') }}
   cancel-in-progress: false
 
 env:

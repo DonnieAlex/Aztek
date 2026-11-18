@@ -35,6 +35,10 @@ From `.github/issue-bot.json`:
 - A question answered by the issue's author.
 - By hand: Actions, Issue bot, Run workflow, with an issue number.
 
+Issues asked for by number or by the `auto` label each run in parallel with the rest. Runs for the next one due (the
+hourly run, or Run workflow left empty) go one at a time, and a second one asked for while one waits replaces it, so
+pressing Run workflow empty several times runs it twice at most.
+
 Never: pull requests, issues with a label in `skip_labels` or an `auto:` label of their own. Nothing new starts while
 `max_open_prs` of the bot's pull requests wait for you. After `max_asks` unanswered questions an issue goes to
 `needs-srlegrand`.
