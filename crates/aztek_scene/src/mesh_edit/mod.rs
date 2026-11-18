@@ -346,9 +346,11 @@ pub(crate) fn apply_targets(
                 && spec.as_ref().is_none_or(|s| s.radial.is_none() && s.plane.is_none())
                 && a.get("constructionHistory").and_then(Value::as_bool) != Some(false)
         });
+        let mut input = None;
         let (base, mut mesh) = if record.is_some() {
             g.evaluate();
-            (None, modifiers::cage(g, node).map(|m| (*m).clone()).unwrap_or_default())
+            input = modifiers::cage(g, node);
+            (None, input.as_ref().map(|m| (**m).clone()).unwrap_or_default())
         } else {
             let base = base_plug(g, node)?;
             let mesh = base_mesh(g, &base);
@@ -381,7 +383,12 @@ pub(crate) fn apply_targets(
                     g.rename(h, &name)?;
                 }
                 made.push(h);
-                modifiers::base_remapped(g, node, &remap, &Arc::new(mesh));
+                let mesh = Arc::new(mesh);
+                // With symmetry the command's copy carried the pairs stored onto it first: the node computes its own.
+                if let (Some(input), None) = (input.take(), spec.as_ref()) {
+                    crate::history::prime(g, h, input, mesh.clone());
+                }
+                modifiers::base_remapped(g, node, &remap, &mesh);
             }
             (None, None) => unreachable!(),
         }

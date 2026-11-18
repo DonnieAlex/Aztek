@@ -1572,6 +1572,20 @@ Objects under a selected group or transform draw in the colour the selected node
 under the lead, the active white under any other selected node. The dimmer green they had before read as a live surface.
 selectionChildHighlighting off still leaves them alone.
 
+### Poly tools on dense meshes (18/11/2026)
+
+Timed on a 250,000 face sphere with `tools/poly_bench.sh`. Mirror takes about 0.9 s rather than 14 s: it no longer
+checks each new face against every old one. Retopology of a mesh far denser than its target first reduces it towards
+the target, then remeshes, and reaches the face count asked for (5,000 asked gives 4,964 in about 9 s); before, it ran
+49 s and returned 374,000 faces. Remesh keeps the faces its welds and flips rebuild in its region, so later passes work
+on them, and welds one edge's points through a small map rather than the whole mesh each time; it now finishes (25 s)
+where it ran past a minute. Collapsing and welding edges are no longer slower the bigger the mesh. Deleting edges that
+fill a patch of 16 faces or more makes that patch one face at once. Every edit with history ran twice, once to apply it
+and again when the graph evaluated; the second now takes the first's result. Compacting a mesh, reordering its
+attributes, the reduce's first costs and remesh smoothing run on every core. polyEvaluate works out only the counts
+asked for (0.06 s rather than 0.7 s). Most other tools take about half the time they did. Unfold UV (7.4 s) and
+deleting long bands of edges (13 s) are still slow.
+
 ### Joint colour (18/11/2026, #150)
 
 Joints draw in a darker blue, nearer the reference's. The value is matched by eye; `displayColor` and

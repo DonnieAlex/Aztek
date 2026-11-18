@@ -142,7 +142,7 @@ pub fn copy_face(mesh: &Mesh, f: Index) -> FaceCopy {
 }
 
 /// weld_points, also giving each face it rebuilt its new id, or INVALID when the face collapsed or doubled another.
-pub fn weld_points_rebuilt(mesh: &mut Mesh, target: &[Index], mut rebuilt: Option<&mut HashMap<Index, Index>>) {
+pub fn weld_points_rebuilt(mesh: &mut Mesh, target: &[Index], rebuilt: Option<&mut HashMap<Index, Index>>) {
     let mapped = |p: Index| {
         if (p as usize) < target.len() && target[p as usize] != INVALID {
             target[p as usize]
@@ -151,16 +151,29 @@ pub fn weld_points_rebuilt(mesh: &mut Mesh, target: &[Index], mut rebuilt: Optio
         }
     };
     let moving: Vec<Index> = (0..target.len() as Index).filter(|&p| mesh.point_valid(p) && mapped(p) != p).collect();
+    weld_moving(mesh, &moving, mapped, rebuilt);
+}
+
+/// The same as weld_points with the moves given sparsely, point to point: its cost follows the points moved, not the
+/// mesh, for welds of a few points at a time on a dense mesh (edge collapses one by one, say).
+pub fn weld_point_map(mesh: &mut Mesh, map: &HashMap<Index, Index>, rebuilt: Option<&mut HashMap<Index, Index>>) {
+    let mapped = |p: Index| map.get(&p).copied().filter(|&q| q != INVALID).unwrap_or(p);
+    let mut moving: Vec<Index> = map.keys().copied().filter(|&p| mesh.point_valid(p) && mapped(p) != p).collect();
+    moving.sort_unstable();
+    weld_moving(mesh, &moving, mapped, rebuilt);
+}
+
+fn weld_moving(mesh: &mut Mesh, moving: &[Index], mapped: impl Fn(Index) -> Index, mut rebuilt: Option<&mut HashMap<Index, Index>>) {
     if moving.is_empty() {
         return;
     }
-    let faces = faces_of_points(mesh, &moving);
+    let faces = faces_of_points(mesh, moving);
     let near_edges = edges_of_faces(mesh, &faces);
     let copies: Vec<FaceCopy> = faces.iter().map(|&f| copy_face(mesh, f)).collect();
     for &f in &faces {
         mesh.remove_face(f);
     }
-    for &p in &moving {
+    for &p in moving {
         mesh.remove_point(p);
     }
 

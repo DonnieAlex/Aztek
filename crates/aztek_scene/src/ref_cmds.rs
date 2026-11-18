@@ -1,7 +1,6 @@
 //! The reference commands scripts lean on that have no Aztek counterpart of their own: polyEvaluate, listConnections,
 //! objectType, pointPosition. The polygon commands are in mesh_edit/ref_poly.
 
-use aztek_geo::Index;
 use aztek_ops::{execute, fail, objects, ArgType, CallSource, CmdResult, CommandDef, Commands, FlagDef};
 use glam::DVec3;
 use serde_json::{json, Value};
@@ -40,6 +39,10 @@ pub fn register(c: &mut Commands<Session>) {
                 let ms = members(s, a)?;
                 let g = &mut s.graph;
                 let mut tot = [0i64; 6];
+                // Only what was asked for: UVs and shells cost a pass over the mesh each, which counts don't need.
+                let pick = [("vertex", 0), ("edge", 1), ("face", 2), ("triangle", 3), ("uvcoord", 4), ("shell", 5)];
+                let asked = pick.iter().find(|(flag, _)| a.bool(flag)).map(|(_, i)| *i);
+                let wants = |i: usize| asked.is_none_or(|k| k == i);
                 let mut lo = DVec3::splat(f64::MAX);
                 let mut hi = DVec3::splat(f64::MIN);
                 for m in &ms {
@@ -54,14 +57,28 @@ pub fn register(c: &mut Commands<Session>) {
                         tot[i] += m.ids.len() as i64;
                         continue;
                     }
-                    tot[0] += (0..cage.point_capacity()).filter(|&p| cage.point_valid(p)).count() as i64;
-                    tot[1] += (0..cage.edge_capacity()).filter(|&e| cage.edge_valid(e)).count() as i64;
-                    let faces: Vec<Index> = (0..cage.face_capacity()).filter(|&f| cage.face_valid(f)).collect();
-                    tot[2] += faces.len() as i64;
-                    tot[3] += faces.iter().map(|&f| cage.face_size(f) as i64 - 2).sum::<i64>();
-                    let t = crate::uv_ops::topo(&cage);
-                    tot[4] += t.maps.len() as i64;
-                    tot[5] += aztek_geo::multibox::shells_of(&cage).1 as i64;
+                    if wants(0) {
+                        tot[0] += (0..cage.point_capacity()).filter(|&p| cage.point_valid(p)).count() as i64;
+                    }
+                    if wants(1) {
+                        tot[1] += (0..cage.edge_capacity()).filter(|&e| cage.edge_valid(e)).count() as i64;
+                    }
+                    if wants(2) || wants(3) {
+                        let faces = (0..cage.face_capacity()).filter(|&f| cage.face_valid(f));
+                        for f in faces {
+                            tot[2] += 1;
+                            tot[3] += cage.face_size(f) as i64 - 2;
+                        }
+                    }
+                    if wants(4) {
+                        tot[4] += crate::uv_ops::topo(&cage).maps.len() as i64;
+                    }
+                    if wants(5) {
+                        tot[5] += aztek_geo::multibox::shells_of(&cage).1 as i64;
+                    }
+                    if asked.is_some() {
+                        continue;
+                    }
                     let w = crate::rig::world(g, crate::dag::transform_of(g, mesh));
                     for p in 0..cage.point_capacity() {
                         if cage.point_valid(p) {
@@ -71,11 +88,8 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                     }
                 }
-                let pick = [("vertex", 0), ("edge", 1), ("face", 2), ("triangle", 3), ("uvcoord", 4), ("shell", 5)];
-                for (flag, i) in pick {
-                    if a.bool(flag) {
-                        return Ok(json!(tot[i]));
-                    }
+                if let Some(i) = asked {
+                    return Ok(json!(tot[i]));
                 }
                 if a.bool("boundingBox") {
                     return Ok(json!([[lo.x, hi.x], [lo.y, hi.y], [lo.z, hi.z]]));

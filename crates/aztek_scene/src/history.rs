@@ -217,12 +217,46 @@ fn spec_of(d: &NodeData) -> Option<SymmetrySpec> {
     Some(SymmetrySpec { axis: axis as i32, offset: d.float(SYMMETRY_OFFSET), radial: None, plane: None, free_seam: false })
 }
 
+thread_local! {
+    /// The result a command just worked out for the history node it made: (its input, the node's settings, the result).
+    /// The node's first compute takes it instead of running the edit again, which on a dense mesh is most of the time
+    /// an edit takes. Anything else about the node (another input, other settings) and it computes as usual.
+    static PRIMED: std::cell::RefCell<Option<(crate::plug::MeshPtr, String, crate::plug::MeshPtr)>> = const { std::cell::RefCell::new(None) };
+}
+
+fn settings_key(d: &NodeData) -> String {
+    format!("{}|{}|{}|{}|{}", d.ty().name, d.string(INPUT_COMPONENTS), d.int(SYMMETRY_AXIS), d.float(SYMMETRY_OFFSET), Value::Object(args_of(d).flags))
+}
+
+/// Hands history node `h` the result its command computed from `input`, for its next compute.
+pub fn prime(g: &Graph, h: NodeId, input: crate::plug::MeshPtr, result: crate::plug::MeshPtr) {
+    let Some(n) = g.node(h) else { return };
+    let key = settings_key(n.data());
+    PRIMED.with(|p| *p.borrow_mut() = Some((input, key, result)));
+}
+
+fn take_primed(input: &crate::plug::MeshPtr, d: &NodeData) -> Option<crate::plug::MeshPtr> {
+    PRIMED.with(|p| {
+        let mut p = p.borrow_mut();
+        let hit = p.as_ref().is_some_and(|(i, k, _)| Arc::ptr_eq(i, input) && *k == settings_key(d));
+        if hit {
+            p.take().map(|(_, _, r)| r)
+        } else {
+            None
+        }
+    })
+}
+
 impl NodeBehavior for HistoryNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         let Some(input) = d.mesh(INPUT_POLYMESH).cloned() else {
             d.set_output(OUTPUT, PlugValue::Mesh(None));
             return;
         };
+        if let Some(r) = take_primed(&input, d) {
+            d.set_output(OUTPUT, PlugValue::Mesh(Some(r)));
+            return;
+        }
         let args = args_of(d);
         let ids = parse_components(d.string(INPUT_COMPONENTS));
         let spec = spec_of(d);

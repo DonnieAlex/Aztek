@@ -108,6 +108,10 @@ interaction (marking menus, drags, separate editor windows) drive a real Xvfb wi
 ImageMagick `import -window root`. `AZTEK_ECHO=1` prints the script history to stderr. Runtime commands such as
 `GraphEditor;`, `UVEditor;`, `FourViewLayout;`, `JointTool;`, `MoveTool;` let a script open editors and set tools.
 
+Timing the poly tools on a dense mesh: `cargo build --release -p aztek_host --example poly_bench`, then
+`tools/poly_bench.sh [faces] [seconds each] [name filter]` prints each command's milliseconds and the face count after.
+Run it before and after a change to a mesh op; `crates/aztek_geo/tests/dense.rs` holds the dense cases as tests.
+
 ## Issues
 
 The issue bot (docs/ISSUE_BOT.md) works on GitHub issues unattended by `.claude/skills/fix-issue/SKILL.md`; the same

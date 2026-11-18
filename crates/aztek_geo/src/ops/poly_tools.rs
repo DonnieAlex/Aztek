@@ -9,7 +9,7 @@ use glam::{DMat3, DMat4, DQuat, DVec3};
 use crate::attribute::{Index, INVALID};
 use crate::bvh::MeshBvh;
 use crate::mesh::Mesh;
-use crate::ops::basic::{collapse_edges, dissolve_points, poke_faces, quadrangulate_faces, triangulate_faces, QuadrangulateOptions};
+use crate::ops::basic::{dissolve_points, poke_faces, quadrangulate_faces, triangulate_faces, QuadrangulateOptions};
 use crate::ops::common::UnionFind;
 use crate::triangulate::TriangulateOptions;
 
@@ -590,7 +590,7 @@ fn collapse_is_safe(m: &Mesh, e: Index) -> bool {
 }
 
 /// Splits a triangle-pair edge and rejoins its faces as triangles.
-fn split_into_triangles(m: &mut Mesh, e: Index, region: &mut BTreeSet<Index>) {
+fn split_into_triangles(m: &mut Mesh, e: Index, region: &mut FaceSet) {
     let mut faces = Vec::new();
     m.for_each_edge_corner(e, |c| faces.push(m.corner_face(c)));
     let mid = m.split_edge(e, 0.5);
@@ -601,7 +601,7 @@ fn split_into_triangles(m: &mut Mesh, e: Index, region: &mut BTreeSet<Index>) {
         }
         let across = m.corner_next(m.corner_next(c));
         let g = m.split_face(f, c, across);
-        if g != INVALID && region.contains(&f) {
+        if g != INVALID && region.contains(f) {
             region.insert(g);
         }
     }
@@ -618,11 +618,16 @@ pub fn remesh(m: &mut Mesh, faces: &[Index], o: &RemeshOptions) -> Vec<Index> {
     };
     let bvh = MeshBvh::new(&reference);
     let tri = TriangulateOptions::default();
-    let mut region: BTreeSet<Index> = triangulate_faces(m, faces, &tri).into_iter().collect();
+    let mut region = FaceSet::from(triangulate_faces(m, faces, &tri));
     let max_edge = o.max_edge.max(1e-9);
     for _ in 0..o.passes.max(1) {
         // Which points may move: every face round them in the region and not on an open border.
-        let held = |m: &Mesh, region: &BTreeSet<Index>, p: Index| m.is_boundary_point(p) || m.point_faces(p).iter().any(|f| !region.contains(f));
+        let held = |m: &Mesh, region: &FaceSet, p: Index| {
+            let mut out = false;
+            m.for_each_point_edge(p, |e| out |= !m.is_manifold_edge(e));
+            m.for_each_point_corner(p, |c| out |= !region.contains(m.corner_face(c)));
+            out
+        };
 
         // Split.
         let mut guard = 0;
@@ -642,24 +647,28 @@ pub fn remesh(m: &mut Mesh, faces: &[Index], o: &RemeshOptions) -> Vec<Index> {
             }
         }
 
-        // Collapse.
+        // Collapse, again while it finds short edges: one sweep leaves the neighbours of every collapse.
         let short = o.collapse * max_edge;
-        for e in region_edges(m, &region) {
-            if !m.edge_valid(e) || m.edge_length(e) >= short || !collapse_is_safe(m, e) {
-                continue;
+        for _ in 0..4 {
+            let mut collapsed = 0;
+            for e in region_edges(m, &region) {
+                if !m.edge_valid(e) || m.edge_length(e) >= short || !collapse_is_safe(m, e) {
+                    continue;
+                }
+                let (a, b) = (m.edge_point(e, 0), m.edge_point(e, 1));
+                let (ha, hb) = (held(m, &region, a), held(m, &region, b));
+                if ha && hb {
+                    continue;
+                }
+                let at = if ha { m.position(a) } else if hb { m.position(b) } else { (m.position(a) + m.position(b)) * 0.5 };
+                collapse_in_region(m, e, at, &mut region);
+                collapsed += 1;
             }
-            let (a, b) = (m.edge_point(e, 0), m.edge_point(e, 1));
-            let (ha, hb) = (held(m, &region, a), held(m, &region, b));
-            if ha && hb {
-                continue;
-            }
-            let keep = if ha { Some(m.position(a)) } else if hb { Some(m.position(b)) } else { None };
-            let merged = collapse_edges(m, &[e]);
-            if let (Some(k), Some(&p)) = (keep, merged.first()) {
-                m.set_position(p, k);
+            region.retain(|f| m.face_valid(f));
+            if collapsed == 0 {
+                break;
             }
         }
-        region.retain(|&f| m.face_valid(f));
 
         // Flip toward valence six.
         for e in region_edges(m, &region) {
@@ -668,7 +677,7 @@ pub fn remesh(m: &mut Mesh, faces: &[Index], o: &RemeshOptions) -> Vec<Index> {
             }
             let mut fs = Vec::new();
             m.for_each_edge_corner(e, |c| fs.push(m.corner_face(c)));
-            if fs.iter().any(|f| !region.contains(f) || m.face_size(*f) != 3) {
+            if fs.iter().any(|&f| !region.contains(f) || m.face_size(f) != 3) {
                 continue;
             }
             let (a, b) = (m.edge_point(e, 0), m.edge_point(e, 1));
@@ -683,15 +692,25 @@ pub fn remesh(m: &mut Mesh, faces: &[Index], o: &RemeshOptions) -> Vec<Index> {
             let now = dev(a, val(a)) + dev(b, val(b)) + dev(c, val(c)) + dev(d, val(d));
             let then = dev(a, val(a) - 1) + dev(b, val(b) - 1) + dev(c, val(c) + 1) + dev(d, val(d) + 1);
             if then < now {
-                crate::ops::basic::spin_edges(m, &[e]);
+                // The spin rebuilds the pair as new faces: they stay in the region.
+                for ne in crate::ops::basic::spin_edges(m, &[e]) {
+                    m.for_each_edge_corner(ne, |c| {
+                        region.insert(m.corner_face(c));
+                    });
+                }
             }
         }
-        region.retain(|&f| m.face_valid(f));
+        region.retain(|f| m.face_valid(f));
 
         // Relax across the surface, then back onto it.
-        let points: BTreeSet<Index> = region.iter().flat_map(|&f| m.face_points(f)).collect();
+        let mut points: Vec<Index> = region.iter().flat_map(|f| m.face_points(f)).collect();
+        points.sort_unstable();
+        points.dedup();
+        // Read-only per point, so across all cores.
+        use rayon::prelude::*;
         let moved: Vec<(Index, DVec3)> = points
-            .iter()
+            .par_iter()
+            .with_min_len(1024)
             .filter(|&&p| !held(m, &region, p))
             .filter_map(|&p| {
                 let mut sum = DVec3::ZERO;
@@ -713,19 +732,83 @@ pub fn remesh(m: &mut Mesh, faces: &[Index], o: &RemeshOptions) -> Vec<Index> {
             m.set_position(p, at);
         }
     }
-    region.into_iter().collect()
+    region.iter().collect()
 }
 
-fn region_edges(m: &Mesh, region: &BTreeSet<Index>) -> Vec<Index> {
-    let mut out = BTreeSet::new();
-    for &f in region {
+/// Collapses edge e into its lower point, placed at `at`. The faces the weld rebuilds take their old faces' place in
+/// the region, so it keeps everything it held: a collapse costs what it touches, not the mesh.
+fn collapse_in_region(m: &mut Mesh, e: Index, at: DVec3, region: &mut FaceSet) -> Index {
+    let (a, b) = (m.edge_point(e, 0), m.edge_point(e, 1));
+    let (keep, gone) = (a.min(b), a.max(b));
+    m.set_position(keep, at);
+    let mut rebuilt = HashMap::new();
+    crate::ops::common::weld_point_map(m, &HashMap::from([(gone, keep)]), Some(&mut rebuilt));
+    for (old, new) in rebuilt {
+        if region.remove(old) && new != INVALID {
+            region.insert(new);
+        }
+    }
+    keep
+}
+
+fn region_edges(m: &Mesh, region: &FaceSet) -> Vec<Index> {
+    let mut seen = vec![false; m.edge_capacity() as usize];
+    let mut out = Vec::new();
+    for f in region.iter() {
         if m.face_valid(f) {
-            for c in m.face_corners(f) {
-                out.insert(m.corner_edge(c));
+            m.for_each_face_corner(f, |c| {
+                let e = m.corner_edge(c);
+                if !std::mem::replace(&mut seen[e as usize], true) {
+                    out.push(e);
+                }
+            });
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
+/// A set of faces as a flag per face id: the remesh asks it whether a face is in, millions of times.
+struct FaceSet {
+    on: Vec<bool>,
+}
+
+impl FaceSet {
+    fn from(faces: Vec<Index>) -> Self {
+        let mut s = FaceSet { on: Vec::new() };
+        for f in faces {
+            s.insert(f);
+        }
+        s
+    }
+    fn contains(&self, f: Index) -> bool {
+        self.on.get(f as usize).copied().unwrap_or(false)
+    }
+    fn insert(&mut self, f: Index) -> bool {
+        if f == INVALID {
+            return false;
+        }
+        if self.on.len() <= f as usize {
+            self.on.resize(f as usize + 1, false);
+        }
+        !std::mem::replace(&mut self.on[f as usize], true)
+    }
+    fn remove(&mut self, f: Index) -> bool {
+        match self.on.get_mut(f as usize) {
+            Some(v) => std::mem::replace(v, false),
+            None => false,
+        }
+    }
+    fn retain(&mut self, keep: impl Fn(Index) -> bool) {
+        for (f, v) in self.on.iter_mut().enumerate() {
+            if *v && !keep(f as Index) {
+                *v = false;
             }
         }
     }
-    out.into_iter().collect()
+    fn iter(&self) -> impl Iterator<Item = Index> + '_ {
+        self.on.iter().enumerate().filter(|(_, v)| **v).map(|(f, _)| f as Index)
+    }
 }
 
 /// Automatic retopology: an isotropic remesh sized for about target_faces quads, its triangles then paired into quads
@@ -736,7 +819,19 @@ pub fn retopo(m: &mut Mesh, faces: &[Index], target_faces: i64, quad_angle: f64)
     // Two equilateral triangles make a quad of about the edge length squared times root three over two.
     let edge = (area / target / (3f64.sqrt() * 0.5)).sqrt() * 1.15;
     let o = RemeshOptions { max_edge: edge, collapse: 0.6, smooth: 0.6, tessellate_borders: true, passes: 5 };
-    let tris = remesh(m, faces, &o);
+    // A dense mesh is brought down near the target with quadric collapses first: the remesh's passes only even out
+    // edge lengths, and on a mesh many times denser than the target they barely dent it (and take minutes).
+    let live = (0..m.face_capacity()).filter(|&f| m.face_valid(f)).count();
+    let tris_now: usize = faces.iter().filter(|&&f| m.face_valid(f)).map(|&f| m.face_size(f) as usize - 2).sum();
+    let tris_wanted = (target * 2.0 * 2.0) as usize;
+    let faces: Vec<Index> = if faces.len() >= live && tris_now > tris_wanted * 2 {
+        let opts = crate::reduce::ReduceOptions { target_triangles: tris_wanted as Index, ..Default::default() };
+        *m = crate::reduce::reduce_mesh(m, &opts).mesh;
+        (0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect()
+    } else {
+        faces.to_vec()
+    };
+    let tris = remesh(m, &faces, &o);
     let q = QuadrangulateOptions { max_face_angle: quad_angle, keep_hard_edges: false, keep_seams: false, keep_materials: true };
     quadrangulate_faces(m, &tris, &q)
 }

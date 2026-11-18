@@ -1211,13 +1211,17 @@ impl Mesh {
         }
         let map = |m: &[Index], i: Index| if i == INVALID { INVALID } else { m[i as usize] };
 
-        let pos: Vec<DVec3> = p_old.iter().map(|&p| self.point_pos[p as usize]).collect();
+        // Each array is rebuilt in parallel: compaction follows every edit, on the whole mesh.
+        const CHUNK: usize = 1 << 13;
+        let pos: Vec<DVec3> = p_old.par_iter().with_min_len(CHUNK).map(|&p| self.point_pos[p as usize]).collect();
         let p_edge: Vec<Index> = p_old
-            .iter()
+            .par_iter()
+            .with_min_len(CHUNK)
             .map(|&p| map(&r.edges, self.point_edge[p as usize]))
             .collect();
         let edges: Vec<Edge> = e_old
-            .iter()
+            .par_iter()
+            .with_min_len(CHUNK)
             .map(|&e| {
                 let o = &self.edges[e as usize];
                 let mut n = DEAD_EDGE;
@@ -1231,14 +1235,16 @@ impl Mesh {
             })
             .collect();
         let faces: Vec<Face> = f_old
-            .iter()
+            .par_iter()
+            .with_min_len(CHUNK)
             .map(|&f| Face {
                 corner: r.corners[self.faces[f as usize].corner as usize],
                 size: self.faces[f as usize].size,
             })
             .collect();
         let corners: Vec<Corner> = c_old
-            .iter()
+            .par_iter()
+            .with_min_len(CHUNK)
             .map(|&c| {
                 let o = &self.corners[c as usize];
                 Corner {
@@ -1259,10 +1265,8 @@ impl Mesh {
         self.edges = (edges).into();
         self.faces = (faces).into();
         self.corners = (corners).into();
-        self.attrs[0].reorder(&p_old);
-        self.attrs[1].reorder(&e_old);
-        self.attrs[2].reorder(&f_old);
-        self.attrs[3].reorder(&c_old);
+        let orders = [&p_old, &e_old, &f_old, &c_old];
+        self.attrs.par_iter_mut().zip(orders.par_iter()).for_each(|(a, o)| a.reorder(o));
         self.last_split_edge = INVALID;
     }
 

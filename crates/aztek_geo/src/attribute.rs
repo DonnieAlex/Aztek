@@ -329,12 +329,12 @@ impl Attribute {
     pub fn reorder(&mut self, new_to_old: &[Index]) {
         let s = self.stride;
         let mut out = Bytes::zeroed(new_to_old.len() * s);
-        {
+        if s > 0 {
+            use rayon::prelude::*;
             let src = self.data.as_slice();
-            let dst = out.as_mut();
-            for (i, &o) in new_to_old.iter().enumerate() {
-                dst[i * s..(i + 1) * s].copy_from_slice(&src[o as usize * s..(o as usize + 1) * s]);
-            }
+            out.as_mut().par_chunks_mut(s).zip(new_to_old.par_iter()).with_min_len(1 << 14).for_each(|(dst, &o)| {
+                dst.copy_from_slice(&src[o as usize * s..(o as usize + 1) * s]);
+            });
         }
         self.data = out;
     }
@@ -460,10 +460,9 @@ impl AttributeSet {
         }
     }
     pub fn reorder(&mut self, new_to_old: &[Index]) {
+        use rayon::prelude::*;
         self.size = new_to_old.len();
-        for a in &mut self.layers {
-            a.reorder(new_to_old);
-        }
+        self.layers.par_iter_mut().for_each(|a| a.reorder(new_to_old));
     }
     pub fn clear(&mut self) {
         self.layers.clear();

@@ -117,31 +117,36 @@ pub fn topo(m: &Mesh) -> UvTopo {
     }
     let mut corner_map = vec![INVALID; nc];
     let mut maps: Vec<Vec<Index>> = Vec::new();
-    let mut root_map: BTreeMap<u32, Index> = BTreeMap::new();
+    // Roots are corner ids: a slot per corner rather than a tree, which on a dense mesh was most of the time here.
+    let mut root_map = vec![INVALID; nc];
     for c in 0..nc as Index {
         if !m.corner_valid(c) || !m.face_valid(m.corner_face(c)) {
             continue;
         }
         let root = corners.find(c);
-        let id = *root_map.entry(root).or_insert_with(|| {
+        let slot = &mut root_map[root as usize];
+        if *slot == INVALID {
             maps.push(Vec::new());
-            (maps.len() - 1) as Index
-        });
+            *slot = (maps.len() - 1) as Index;
+        }
+        let id = *slot;
         maps[id as usize].push(c);
         corner_map[c as usize] = id;
     }
     let mut face_shell = vec![INVALID; m.face_capacity() as usize];
     let mut shells: Vec<Vec<Index>> = Vec::new();
-    let mut root_shell: BTreeMap<u32, Index> = BTreeMap::new();
+    let mut root_shell = vec![INVALID; m.face_capacity() as usize];
     for f in 0..m.face_capacity() {
         if !m.face_valid(f) {
             continue;
         }
         let root = faces.find(f);
-        let id = *root_shell.entry(root).or_insert_with(|| {
+        let slot = &mut root_shell[root as usize];
+        if *slot == INVALID {
             shells.push(Vec::new());
-            (shells.len() - 1) as Index
-        });
+            *slot = (shells.len() - 1) as Index;
+        }
+        let id = *slot;
         shells[id as usize].push(f);
         face_shell[f as usize] = id;
     }

@@ -1,6 +1,6 @@
 //! Delete, orientation, triangles and quads, merging, dissolve, whole-mesh ops, plane cuts and symmetrize.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::f64::consts::FRAC_PI_2;
 
 use glam::{DMat3, DMat4, DVec3, DVec4, Mat3, Vec3};
@@ -388,13 +388,13 @@ fn cell_of(p: DVec3, cell: f64) -> [i64; 3] {
     [q.x as i64, q.y as i64, q.z as i64]
 }
 
-/// Welds clusters, each into its lowest id, optionally moving it to the cluster average.
-fn weld_clusters(mesh: &mut Mesh, uf: &mut UnionFind, members: &[Index], average: bool) -> Vec<Index> {
-    let mut target = vec![INVALID; mesh.point_capacity() as usize];
+/// Welds clusters, each into its lowest id, optionally moving it to the cluster average. Its cost follows the members.
+fn weld_clusters(mesh: &mut Mesh, uf: &mut impl FindRoot, members: &[Index], average: bool) -> Vec<Index> {
+    let mut target: HashMap<Index, Index> = HashMap::with_capacity(members.len());
     let mut sums: HashMap<Index, (DVec3, i32)> = HashMap::new();
     for &p in members {
-        let r = uf.find(p);
-        target[p as usize] = r;
+        let r = uf.root(p);
+        target.insert(p, r);
         let s = sums.entry(r).or_insert((DVec3::ZERO, 0));
         s.0 += mesh.position(p);
         s.1 += 1;
@@ -406,8 +406,57 @@ fn weld_clusters(mesh: &mut Mesh, uf: &mut UnionFind, members: &[Index], average
         }
         survivors.push(r);
     }
-    weld_points(mesh, &target);
+    crate::ops::common::weld_point_map(mesh, &target, None);
     unique_sorted(&survivors)
+}
+
+/// Union-find roots, dense (a slot per point) or sparse (only the points named).
+trait FindRoot {
+    fn root(&mut self, p: Index) -> Index;
+}
+
+impl FindRoot for UnionFind {
+    fn root(&mut self, p: Index) -> Index {
+        self.find(p)
+    }
+}
+
+/// Union-find over the few points named, the lower id the root, for collapses that touch little of a large mesh.
+#[derive(Default)]
+struct SparseSets {
+    parent: HashMap<Index, Index>,
+}
+
+impl SparseSets {
+    fn find(&mut self, p: Index) -> Index {
+        let mut r = p;
+        while let Some(&q) = self.parent.get(&r) {
+            if q == r {
+                break;
+            }
+            r = q;
+        }
+        let mut c = p;
+        while c != r {
+            let next = self.parent.get(&c).copied().unwrap_or(r);
+            self.parent.insert(c, r);
+            c = next;
+        }
+        r
+    }
+    fn unite(&mut self, a: Index, b: Index) {
+        let (a, b) = (self.find(a), self.find(b));
+        if a != b {
+            self.parent.insert(a.max(b), a.min(b));
+            self.parent.entry(a.min(b)).or_insert(a.min(b));
+        }
+    }
+}
+
+impl FindRoot for SparseSets {
+    fn root(&mut self, p: Index) -> Index {
+        self.find(p)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -554,7 +603,7 @@ pub fn edge_weld_pairs(mesh: &Mesh, source: Index, target: Index) -> [WeldPair; 
 
 /// Collapses each connected group of edges to its centre. Returns the resulting points.
 pub fn collapse_edges(mesh: &mut Mesh, edges: &[Index]) -> Vec<Index> {
-    let mut uf = UnionFind::new(mesh.point_capacity() as usize);
+    let mut uf = SparseSets::default();
     for &e in edges {
         if mesh.edge_valid(e) {
             uf.unite(mesh.edge_point(e, 0), mesh.edge_point(e, 1));
@@ -618,7 +667,12 @@ fn is_winged_point(mesh: &Mesh, p: Index) -> bool {
 pub fn dissolve_edges(mesh: &mut Mesh, edges: &[Index], clean: bool) -> Vec<Index> {
     let mut faces = Vec::new();
     let ends = points_of_edges(mesh, edges);
-    for e in unique_sorted(edges) {
+    let sel = unique_sorted(edges);
+    // Many edges inside one patch merge into one face at once: joining them one by one walks the growing face each
+    // time, which on a dense mesh is minutes. A patch whose outline isn't one simple loop is joined edge by edge.
+    let (merged, rest) = dissolve_patches(mesh, &sel);
+    faces.extend(merged);
+    for e in rest {
         if !mesh.edge_valid(e) {
             continue;
         }
@@ -635,6 +689,122 @@ pub fn dissolve_edges(mesh: &mut Mesh, edges: &[Index], clean: bool) -> Vec<Inde
         }
     }
     unique_sorted(&faces).into_iter().filter(|&f| mesh.face_valid(f)).collect()
+}
+
+/// Patches of faces joined by the selected manifold edges, each made one face when its outline is a single loop that
+/// visits no point twice; small patches are left to the edge-by-edge join. Returns the new faces and the edges left.
+fn dissolve_patches(mesh: &mut Mesh, sel: &[Index]) -> (Vec<Index>, Vec<Index>) {
+    const BULK: usize = 16;
+    if sel.len() < BULK {
+        return (Vec::new(), sel.to_vec());
+    }
+    // Dense flags and sets: a boolean's cleanup hands this every edge of the result.
+    let mut is_inner = vec![false; mesh.edge_capacity() as usize];
+    let mut inner = Vec::new();
+    for &e in sel {
+        if mesh.edge_valid(e) && mesh.is_manifold_edge(e) && !is_inner[e as usize] {
+            is_inner[e as usize] = true;
+            inner.push(e);
+        }
+    }
+    let sides = |mesh: &Mesh, e: Index| {
+        let c = mesh.edge_corner(e);
+        (mesh.corner_face(c), mesh.corner_face(mesh.corner_radial(c)))
+    };
+    let mut uf = UnionFind::new(mesh.face_capacity() as usize);
+    let mut touched = Vec::new();
+    let mut seen = vec![false; mesh.face_capacity() as usize];
+    for &e in &inner {
+        let (a, b) = sides(mesh, e);
+        uf.unite(a, b);
+        for f in [a, b] {
+            if !std::mem::replace(&mut seen[f as usize], true) {
+                touched.push(f);
+            }
+        }
+    }
+    let mut size = vec![0u32; mesh.face_capacity() as usize];
+    for &f in &touched {
+        let r = uf.find(f);
+        size[r as usize] += 1;
+    }
+    let mut rest = Vec::new();
+    let mut patches: BTreeMap<Index, Vec<Index>> = BTreeMap::new();
+    for &f in &touched {
+        let r = uf.find(f);
+        if size[r as usize] as usize >= BULK {
+            patches.entry(r).or_default().push(f);
+        }
+    }
+    // Each big patch's edges, worked out before any patch is changed; a few faces join faster edge by edge.
+    let mut patch_edges_of: BTreeMap<Index, Vec<Index>> = BTreeMap::new();
+    for &e in &inner {
+        let r = uf.find(sides(mesh, e).0);
+        if size[r as usize] as usize >= BULK {
+            patch_edges_of.entry(r).or_default().push(e);
+        } else {
+            rest.push(e);
+        }
+    }
+    let mut made = Vec::new();
+    for (r, mut fs) in patches {
+        fs.sort_unstable();
+        let mut patch_edges = patch_edges_of.remove(&r).unwrap_or_default();
+        patch_edges.sort_unstable();
+        let interior = |c: Index| is_inner.get(mesh.corner_edge(c) as usize).copied().unwrap_or(false);
+        // The outline: corners on the patch's faces whose edge isn't dissolved, each followed by the next one round.
+        let outline: Vec<Index> = fs.iter().flat_map(|&f| mesh.face_corners(f)).filter(|&c| !interior(c)).collect();
+        let loop_ok = (|| {
+            let start = *outline.first()?;
+            let mut lp = vec![start];
+            let mut c = start;
+            loop {
+                let mut n = mesh.corner_next(c);
+                let mut guard = 0;
+                while interior(n) {
+                    n = mesh.corner_next(mesh.corner_radial(n));
+                    guard += 1;
+                    if guard > 64 {
+                        return None;
+                    }
+                }
+                if n == start {
+                    break;
+                }
+                lp.push(n);
+                if lp.len() > outline.len() {
+                    return None;
+                }
+                c = n;
+            }
+            (lp.len() == outline.len()).then_some(lp)
+        })();
+        let Some(lp) = loop_ok.filter(|lp| {
+            let pts: Vec<Index> = lp.iter().map(|&c| mesh.corner_point(c)).collect();
+            let unique: std::collections::HashSet<Index> = pts.iter().copied().collect();
+            pts.len() >= 3 && unique.len() == pts.len()
+        }) else {
+            rest.extend(patch_edges);
+            continue;
+        };
+        let points: Vec<Index> = lp.iter().map(|&c| mesh.corner_point(c)).collect();
+        let src_edges: Vec<Index> = lp.iter().map(|&c| mesh.corner_edge(c)).collect();
+        let inner_points = points_of_edges(mesh, &patch_edges);
+        // The old corners' attributes stay readable once their faces go, as weld_points relies on.
+        for &f in &fs {
+            mesh.remove_face(f);
+        }
+        let f = add_face_from(mesh, &points, fs[0], &lp, &src_edges);
+        mesh.remove_loose(&patch_edges, &inner_points);
+        if f == INVALID {
+            continue;
+        }
+        made.push(f);
+    }
+    // Edges no patch took (on an open border, say) and patches left whole go one by one, in order.
+    rest.extend(sel.iter().copied().filter(|&e| !is_inner.get(e as usize).copied().unwrap_or(false)));
+    rest.sort_unstable();
+    (made, rest)
 }
 
 /// Removes points by merging the faces around them. Returns the merged faces.
@@ -1159,14 +1329,8 @@ pub fn mirror_mesh(mesh: &mut Mesh, opts: &MirrorOptions) -> Vec<Index> {
             }
         }
         weld_points(mesh, &target);
-        let mut alive: Vec<Index> = out.iter().copied().filter(|&f| mesh.face_valid(f)).collect();
-        // Welding rebuilds faces on the seam with new ids.
-        for f in first_face..mesh.face_capacity() {
-            if mesh.face_valid(f) && !alive.contains(&f) {
-                alive.push(f);
-            }
-        }
-        out = unique_sorted(&alive);
+        // Welding rebuilds faces on the seam with new ids: every live face from the first copied one on.
+        out = (first_face..mesh.face_capacity()).filter(|&f| mesh.face_valid(f)).collect();
     }
     out
 }

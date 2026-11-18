@@ -319,15 +319,26 @@ impl<'a> Collapser<'a> {
     }
 
     fn run(&mut self, target_tris: Index) {
-        let mut heap = BinaryHeap::new();
+        let mut heap: BinaryHeap<Entry>;
         fn push(s: &Collapser, heap: &mut BinaryHeap<Entry>, u: Index) {
             let (c, to) = s.best_collapse(u);
             if to != INVALID {
                 heap.push(Entry { cost: c, from: u, to, version: s.version[u as usize] });
             }
         }
-        for p in 0..self.point_tris.len() as Index {
-            push(self, &mut heap, p);
+        // Every point's first choice, worked out on all cores: on a dense mesh it is a good part of the run.
+        {
+            use rayon::prelude::*;
+            let s: &Collapser = self;
+            let first: Vec<Entry> = (0..self.point_tris.len() as Index)
+                .into_par_iter()
+                .with_min_len(1024)
+                .filter_map(|u| {
+                    let (c, to) = s.best_collapse(u);
+                    (to != INVALID).then(|| Entry { cost: c, from: u, to, version: s.version[u as usize] })
+                })
+                .collect();
+            heap = BinaryHeap::from(first);
         }
         while self.alive_count > target_tris {
             let Some(Entry { cost, from: u, to: v, version }) = heap.pop() else { break };
