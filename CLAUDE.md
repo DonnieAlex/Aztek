@@ -108,6 +108,11 @@ interaction (marking menus, drags, separate editor windows) drive a real Xvfb wi
 ImageMagick `import -window root`. `AZTEK_ECHO=1` prints the script history to stderr. Runtime commands such as
 `GraphEditor;`, `UVEditor;`, `FourViewLayout;`, `JointTool;`, `MoveTool;` let a script open editors and set tools.
 
+## Issues
+
+The issue bot (docs/ISSUE_BOT.md) works on GitHub issues unattended by `.claude/skills/fix-issue/SKILL.md`; the same
+skill applies when working on an issue by hand.
+
 ## Working loop
 
 Pick the next gap from PARITY.md ("Not yet") or below, implement it to the reference's behaviour, add tests in the crate's

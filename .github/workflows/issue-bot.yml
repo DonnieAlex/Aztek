@@ -1,0 +1,166 @@
+# The issue bot: every hour, one issue at a time. It reads the issue, decides whether Aztek is wrong by the reference,
+# and fixes it (a pull request, with the reply posted on merge), asks the reporter to run a script in the reference and
+# paste what it prints, explains that the reference does the same, or leaves it for Simon. See docs/ISSUE_BOT.md.
+#
+# Which issues it takes is in .github/issue-bot.json and .github/scripts/issue_bot_pick.py. The job that runs the bot
+# can read the repository and nothing more; the job that pushes, opens the pull request and comments runs only scripts.
+name: Issue bot
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number (empty: the next one due)"
+        required: false
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: issue-bot
+  cancel-in-progress: false
+
+env:
+  CARGO_BUILD_JOBS: 2
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+  RUST_TEST_THREADS: 2
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_NET_RETRY: 10
+  CARGO_TERM_COLOR: never
+
+jobs:
+  pick:
+    # A label only starts it when it is the auto label, put on by someone with write access.
+    if: github.event_name != 'issues' || github.event.label.name == 'auto'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      number: ${{ steps.pick.outputs.number }}
+      mode: ${{ steps.pick.outputs.mode }}
+      base: ${{ steps.base.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - id: base
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          ISSUE_INPUT: ${{ github.event.inputs.issue }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LABEL: ${{ github.event.label.name }}
+        run: python3 .github/scripts/issue_bot_pick.py
+
+  work:
+    needs: pick
+    if: needs.pick.outputs.number != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.pick.outputs.base }}
+          fetch-depth: 0
+
+      - name: Free disk
+        run: tools/ci/free-disk.sh
+
+      - name: Dependencies
+        run: |
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential cmake ninja-build clang qt6-base-dev libvulkan-dev python3.12-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      - name: The issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/issue_bot_fetch.py ${{ needs.pick.outputs.number }} .issue
+
+      - name: Build
+        run: tools/ci/retry.sh 2 ./build.sh
+
+      # A run that ends early (out of turns, say) still goes on: the next step makes it needs-simon.
+      - name: Work on it
+        uses: anthropics/claude-code-action@v1
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Work on issue #${{ needs.pick.outputs.number }} of ${{ github.repository }} (mode: ${{ needs.pick.outputs.mode }}) by
+            following .claude/skills/fix-issue/SKILL.md. The issue, its comments and attachments are in .issue/ and the
+            app is built in build/. Finish by writing .issue/out/result.json as the skill says.
+          claude_args: |
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep,TodoWrite,WebSearch,WebFetch"
+            --max-turns 400
+          settings: |
+            {"permissions": {"deny": ["Edit(.github/**)", "Write(.github/**)", "Edit(.claude/**)", "Write(.claude/**)"]}}
+
+      - name: Check and test
+        if: always()
+        run: python3 .github/scripts/issue_bot_finish.py ${{ needs.pick.outputs.base }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue-${{ needs.pick.outputs.number }}
+          path: |
+            .issue/meta.json
+            .issue/out/
+          include-hidden-files: true
+
+  publish:
+    needs: [pick, work]
+    if: always() && needs.pick.outputs.number != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        if: needs.work.result == 'success'
+        with:
+          name: issue-${{ needs.pick.outputs.number }}
+          path: .issue
+
+      - name: Publish
+        if: needs.work.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLY_TOKEN: ${{ secrets.AZTEK_REPLY_TOKEN }}
+          NUMBER: ${{ needs.pick.outputs.number }}
+          BASE_SHA: ${{ needs.pick.outputs.base }}
+          COMMIT_NAME: ${{ vars.AZTEK_COMMIT_NAME }}
+          COMMIT_EMAIL: ${{ vars.AZTEK_COMMIT_EMAIL }}
+        run: python3 .github/scripts/issue_bot_publish.py
+
+      - name: Failed
+        if: needs.work.result != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue edit ${{ needs.pick.outputs.number }} --repo ${{ github.repository }} --add-label auto:failed --remove-label auto:working

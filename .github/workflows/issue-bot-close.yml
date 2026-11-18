@@ -1,0 +1,37 @@
+# When one of the issue bot's pull requests is merged: its reply (between <!-- reply --> and <!-- /reply --> in the
+# pull request's description, as edited) goes on the issue, and the issue is closed.
+name: Issue bot close
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  close:
+    if: github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'auto/issue-')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reply and close
+        env:
+          GH_TOKEN: ${{ secrets.AZTEK_REPLY_TOKEN || github.token }}
+          LABEL_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          BODY: ${{ github.event.pull_request.body }}
+          REPO: ${{ github.repository }}
+        run: |
+          number="${BRANCH#auto/issue-}"
+          python3 - <<'EOF' > reply.md
+          import os, re
+          m = re.search(r"<!-- reply -->\n(.*?)\n<!-- /reply -->", os.environ["BODY"].replace("\r\n", "\n"), re.S)
+          print(m.group(1).strip() if m else "")
+          EOF
+          if [ -s reply.md ] && [ "$(tr -d '[:space:]' < reply.md)" != "" ]; then
+            gh issue close "$number" --repo "$REPO" --reason completed --comment "$(cat reply.md)"
+          else
+            gh issue close "$number" --repo "$REPO" --reason completed
+          fi
+          GH_TOKEN="$LABEL_TOKEN" gh issue edit "$number" --repo "$REPO" --remove-label auto:pr || true

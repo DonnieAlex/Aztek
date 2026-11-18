@@ -3,7 +3,10 @@ build/
 *.aztek.bak
 .vscode/
 .idea/
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/skills/
+.issue/
 _site/
 examples/tools/make_showcase.log
 dist/
