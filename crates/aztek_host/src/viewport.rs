@@ -4333,6 +4333,10 @@ fn selected_lattices(g: &Graph) -> Vec<(NodeId, NodeId, [u32; 3], Vec<DVec3>)> {
     out
 }
 
+/// A joint's colour when nothing sets one: a mid blue, a shade darker than it was, nearer the reference's (#150).
+/// Unverified against a measured value.
+pub const JOINT_COLOR: [u8; 4] = [48, 84, 196, 255];
+
 pub fn rig_items(g: &Graph) -> Vec<RigItem> {
     use aztek_scene::rig::Joint;
     use aztek_scene::transform::{Locator, Transform};
@@ -4381,7 +4385,7 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
             for (a, b) in segs.iter().take(60) {
                 fills.push([c, *a, *b]);
             }
-            let mut item = rig_item(g, id, id, "joint", [70, 110, 220, 255], segs);
+            let mut item = rig_item(g, id, id, "joint", JOINT_COLOR, segs);
             if !ds::style(g, id).bounding_box {
                 item.fills = fills;
             }

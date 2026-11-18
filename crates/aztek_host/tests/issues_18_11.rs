@@ -335,3 +335,12 @@ fn slice_plane_handles() {
     assert_eq!(attrs, ["cutPlaneCenterX", "cutPlaneCenterY", "cutPlaneCenterZ", "cutPlaneRotateX", "cutPlaneRotateY", "cutPlaneRotateZ"]);
     assert_eq!(m.lines.len(), 5);
 }
+
+/// #150: joints draw in the darker blue.
+#[test]
+fn joints_draw_in_their_blue() {
+    let mut c = Core::new();
+    mel(&mut c, "select -cl; joint -p 0 0 0;");
+    let items = aztek_host::viewport::rig_items(&c.s.graph);
+    assert_eq!(items[0].color, aztek_host::viewport::JOINT_COLOR);
+}

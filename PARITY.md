@@ -1572,6 +1572,11 @@ Objects under a selected group or transform draw in the colour the selected node
 under the lead, the active white under any other selected node. The dimmer green they had before read as a live surface.
 selectionChildHighlighting off still leaves them alone.
 
+### Joint colour (18/11/2026, #150)
+
+Joints draw in a darker blue, nearer the reference's. The value is matched by eye; `displayColor` and
+`displayRGBColor` still change it.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
