@@ -1566,6 +1566,12 @@ product's and vendor's names and the user's paths taken out; `tools/parity/impor
 ledger, keeping what has been ticked. Until the first one comes in, the ledger holds the 1198 commands and 40285 flag
 names the bar counted before. parity/README.md.
 
+### A selected group's children light up as it does (18/11/2026, #151)
+
+Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
+under the lead, the active white under any other selected node. The dimmer green they had before read as a live surface.
+selectionChildHighlighting off still leaves them alone.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

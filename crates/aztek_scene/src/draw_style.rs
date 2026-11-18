@@ -6,7 +6,7 @@
 //!
 //! The order a wire colour is decided in, first match wins:
 //!   1. Selected: lead and active colours; a selected template has its own active colour.
-//!   2. Under something selected: the child highlight, unless selectionChildHighlighting is off.
+//!   2. Under something selected: that ancestor's colour (lead or active), unless selectionChildHighlighting is off (#151).
 //!   3. Display type, from the node up: template draws in the template colour, reference in black.
 //!   4. Drawing override colour, from the node up. The nearest enabled one with a colour wins, so a shape beats its
 //!      transform, and a transform beats its group. Index 0 is no colour, and the search goes on above it.
@@ -50,8 +50,6 @@ pub const DISPLAY_COLORS: &[(&str, i64, i64)] = &[
 
 pub const LEAD: [u8; 4] = [66, 255, 163, 255];
 pub const SELECTED: [u8; 4] = [255, 255, 255, 255];
-/// Something above this object is selected. Unverified: a dimmer lead colour, not the reference's measured value.
-pub const CHILD_HIGHLIGHT: [u8; 4] = [46, 178, 114, 255];
 
 /// What the colour commands change. They are preferences rather than scene data, so they outlive a new scene; a new
 /// session starts from the factory colours.
@@ -376,6 +374,18 @@ pub fn wire_color(g: &Graph, id: NodeId, sel: &[NodeId], kind: &str, factory: [u
     selected_color(g, id, sel).unwrap_or_else(|| style(g, id).color.unwrap_or_else(|| dormant_color(kind, factory)))
 }
 
+/// Whether the nearest selected node above it is the lead.
+fn under_lead(g: &Graph, id: NodeId, sel: &[NodeId]) -> bool {
+    let mut n = g.parent(crate::dag::transform_of(g, id));
+    while n != NO_NODE {
+        if sel.contains(&n) {
+            return sel.last() == Some(&n);
+        }
+        n = g.parent(n);
+    }
+    false
+}
+
 /// The colour the selection gives an object, if it touches it.
 pub fn selected_color(g: &Graph, id: NodeId, sel: &[NodeId]) -> Option<[u8; 4]> {
     let state = select_state(g, id, sel);
@@ -385,7 +395,8 @@ pub fn selected_color(g: &Graph, id: NodeId, sel: &[NodeId]) -> Option<[u8; 4]> 
     match state {
         SelectState::Lead => Some(lead_color()),
         SelectState::Selected => Some(SELECTED),
-        SelectState::Child => Some(CHILD_HIGHLIGHT),
+        // As the selected object above it draws: the lead's colour under the lead, the active colour otherwise (#151).
+        SelectState::Child => Some(if under_lead(g, id, sel) { lead_color() } else { SELECTED }),
         SelectState::None => None,
     }
 }

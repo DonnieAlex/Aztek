@@ -311,7 +311,10 @@ fn selected_colours_win_and_children_highlight() {
     assert_eq!(ds::wire_color(&s.graph, a, &[xa], "curve", f), ds::LEAD);
     assert_eq!(ds::wire_color(&s.graph, a, &[xa, g], "curve", f), ds::SELECTED);
     assert_eq!(ds::select_state(&s.graph, a, &[g]), SelectState::Child);
-    assert_eq!(ds::wire_color(&s.graph, a, &[g], "curve", f), ds::CHILD_HIGHLIGHT);
+    // #151: under the lead, the lead's colour; under another selected node, the active colour.
+    assert_eq!(ds::wire_color(&s.graph, a, &[g], "curve", f), ds::LEAD);
+    let other = id(&s, "b");
+    assert_eq!(ds::wire_color(&s.graph, a, &[g, other], "curve", f), ds::SELECTED);
     assert_eq!(ds::select_state(&s.graph, b, &[g]), SelectState::None, "selectionChildHighlighting off");
 }
 
