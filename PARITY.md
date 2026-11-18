@@ -1424,6 +1424,12 @@ one again (in the same place) it still stays above the main window. Save Setting
 option window's Edit menu, as in the reference: the command option boxes (Mirror Joints and the rest) and Grid Options
 lost their Reset buttons for it; Orient Joint and the file option windows already had the menu.
 
+### What's new by release (17/11/2026, #135)
+
+The welcome screen's What's new lists the last hundred changes in their commits' words, newest first, under the
+release each went out in, with its version and date, those not released yet at the top; this copy's release and change
+are marked, and issue numbers link to the issues.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
