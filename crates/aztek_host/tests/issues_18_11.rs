@@ -336,6 +336,24 @@ fn slice_plane_handles() {
     assert_eq!(m.lines.len(), 5);
 }
 
+/// #149: a held X snaps to the grid lines the view shows, past the grid's edge at the same spacing, and the move
+/// tool's centre handle takes the grid point under the cursor on the grid's plane.
+#[test]
+fn grid_snap_follows_the_visible_grid() {
+    use glam::DVec3;
+    let mut vp = aztek_host::viewport::Viewport::new(aztek_host::camera::CamKind::Persp);
+    vp.rect = [0.0, 0.0, 800.0, 600.0];
+    vp.grid_spacing = 0.5;
+    assert_eq!(vp.snap_step(), 0.5);
+    vp.grid_style.division_lines = false;
+    assert_eq!(vp.snap_step(), 0.5 * vp.grid_style.divisions as f64);
+    // The cursor over a point on the ground finds that point.
+    let at = DVec3::new(3.2, 0.0, -1.7);
+    let px = vp.screen().project(at).unwrap();
+    let hit = vp.grid_point(px).unwrap();
+    assert!((hit - at).length() < 1e-6, "{hit}");
+}
+
 /// #150: joints draw in the darker blue.
 #[test]
 fn joints_draw_in_their_blue() {

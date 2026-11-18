@@ -1577,6 +1577,15 @@ selectionChildHighlighting off still leaves them alone.
 Joints draw in a darker blue, nearer the reference's. The value is matched by eye; `displayColor` and
 `displayRGBColor` still change it.
 
+### Held X and V snapping (18/11/2026, #149)
+
+A held X snaps to the grid lines the view shows: the subdivisions when they're drawn, else the grid lines, and in an
+orthographic view zoomed out the coarser lines it shows, on past the grid's edge at the same spacing. The move tool's
+centre handle in a perspective view now takes the grid point under the cursor on the grid's plane, rather than rounding
+a point in the view's plane, which could leave the object below the grid; in an orthographic view the depth stays put.
+Placing joints and components with X held use the same spacing. A held V lands on the nearest point on screen however
+far the cursor is from it, as the reference's does, rather than only within 25 pixels.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

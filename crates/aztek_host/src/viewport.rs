@@ -2523,6 +2523,30 @@ impl Viewport {
         }
     }
 
+    /// The spacing of the grid lines the view shows: subdivisions when they're drawn, else the grid lines; an
+    /// orthographic view zoomed out shows coarser ones.
+    pub fn snap_step(&self) -> f64 {
+        let div = self.grid_style.divisions.max(1) as f64;
+        match self.ortho_grid() {
+            Some(b) if b.coarse || b.subdivisions => b.step,
+            Some(b) => b.step * div,
+            None if self.grid_style.division_lines => self.grid_spacing,
+            None => self.grid_spacing * div,
+        }
+    }
+
+    /// Where the cursor's ray meets the perspective grid's plane, in front of the camera.
+    pub fn grid_point(&self, px: DVec2) -> Option<DVec3> {
+        let (o, d) = self.cam.ray(px, self.size());
+        let n = aztek_scene::world::up();
+        let den = n.dot(d);
+        if den.abs() < 1e-9 {
+            return None;
+        }
+        let t = -n.dot(o) / den;
+        (t > 0.0).then(|| o + d * t)
+    }
+
     /// Where a click places a joint: on the view plane through the origin in the orthographic views, on the ground
     /// in perspective (or facing the camera at the centre of interest when looking along the ground).
     pub fn place_point(&self, px: DVec2) -> DVec3 {
@@ -2556,7 +2580,8 @@ impl Viewport {
         let mut p = o + d * t;
         if self.snap == 1 {
             // X held: to the grid.
-            p = (p / self.grid_spacing).round() * self.grid_spacing;
+            let step = self.snap_step();
+            p = (p / step).round() * step;
         }
         // Snap tiny noise so ortho placements sit exactly in their plane.
         for i in 0..3 {
@@ -3616,9 +3641,20 @@ impl Viewport {
         let snap = if self.pivot_mode && self.snap_pivot && self.snap == 0 { 2 } else if self.snap == 0 && self.live_auto { 5 } else { self.snap };
         let target = match snap {
             1 => {
-                let s = self.grid_spacing;
+                // The visible grid's intersections, and on past its edge at the same spacing (#149). The centre
+                // handle in a perspective view takes the grid point under the cursor, on the grid's plane.
+                let s = self.snap_step();
                 let t = d.pivot + world;
-                (t / s).round() * s
+                match (handle, self.cam.orthographic, self.grid_point(px)) {
+                    (Handle::Center, false, Some(p)) => (p / s).round() * s,
+                    (_, true, _) => {
+                        // In the view's plane: the depth stays where it was.
+                        let r = (t / s).round() * s;
+                        let n = (self.cam.eye() - self.cam.coi).normalize_or_zero();
+                        r + n * (t - r).dot(n)
+                    }
+                    _ => (t / s).round() * s,
+                }
             }
             2 => {
                 let screen = self.screen();
@@ -3626,7 +3662,9 @@ impl Viewport {
                 for &p in &d.snap_points {
                     if let Some(q) = screen.project(p) {
                         let dist = (q - px).length();
-                        if dist < 25.0 && best.is_none_or(|b| dist < b.0) {
+                        // The nearest on screen, however far: a held V always lands on a point, as the reference's
+                        // does (#149).
+                        if best.is_none_or(|b| dist < b.0) {
                             best = Some((dist, p));
                         }
                     }
@@ -3804,7 +3842,7 @@ impl Viewport {
                         Handle::Plane(i) => raw - self.frame.col(i) * raw.dot(self.frame.col(i)),
                         _ => raw,
                     };
-                    ("moveComponents".into(), serde_json::json!({ "by": raw.to_array(), "snapEach": self.grid_spacing }))
+                    ("moveComponents".into(), serde_json::json!({ "by": raw.to_array(), "snapEach": self.snap_step() }))
                 } else if comps && self.axis_mode == "normal" && !self.pivot_mode {
                     // Each point along its own U, V and N, as the Normal orientation moves them.
                     let f = self.frame;
