@@ -1503,6 +1503,18 @@ The main window's Qt object name is `MayaWindow`, what `$gMainWindow` holds, as 
 among `QApplication.topLevelWidgets()` through PySide alone, without shiboken. `maya.app.general.mayaMixin` finds it
 that way first, then through `MQtUtil.mainWindow()` and shiboken, and only imports shiboken when it gets that far.
 
+### Texture deformer (18/11/2026, #143)
+
+The reference's textureDeformer: Point Space (World, Local, UV, UV by default), Direction (Normal, Handle, Vector,
+Handle by default), Vector Space, Texture, Strength, Offset, Vector Strength and Vector Offset, under their own short
+names. Texture is a colour with a map button: a texture connected to it (a checker, a ramp, a file, any network) is
+worked out at each point, at its UV, its object-space place or its world place through the handle, and the point
+moves by the colour's brightness times Strength, plus Offset, in world units, along the handle's up axis or the
+point's normal; with Vector, R G B move it along X Y Z, times Vector Strength plus Vector Offset. Strength and Offset
+have sliders but no limits. `textureDeformer` makes a textureDeformerHandle at the middle of what it deforms,
+connected to the deformer's handleMatrix, and returns both. Vector Space Tangent is taken as Object for now. The
+procedural noise and its two attributes Aztek had before are gone.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

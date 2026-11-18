@@ -96,6 +96,29 @@ fn builder<'a>(g: &'a mut Graph, net: &'a mut Network, scene: Option<&str>, proj
     NetBuilder { g, net, built: HashMap::new(), warnings: Vec::new(), scene_path: scene.map(str::to_string), project: project.map(str::to_string), ignore_textures: false, textures }
 }
 
+/// A network giving `src`'s colour wherever it is shaded, with the image cache it reads: what a texture deformer
+/// samples at each point.
+pub(crate) fn sampler(g: &mut Graph, src: &PlugRef) -> Option<(Network, Input, Arc<TextureCache>)> {
+    let tex = textures();
+    let mut net = Network::default();
+    let input = {
+        let mut nb = builder(g, &mut net, None, None, tex.clone());
+        let n = nb.node(src.node)?;
+        let a = nb.g.attr(src).clone();
+        let out = if src.component >= 0 {
+            [Out::R, Out::G, Out::B][src.component.clamp(0, 2) as usize]
+        } else if a.name.ends_with("Alpha") {
+            Out::A
+        } else if a.ty == crate::plug::PlugType::Vec3 {
+            Out::Rgb
+        } else {
+            Out::R
+        };
+        Input::Link(n, out)
+    };
+    Some((net, input, tex))
+}
+
 /// The colour an output of a node has over the UV square, `size` pixels a side. None when the node is nothing the
 /// renderer shades.
 pub fn flat(g: &mut Graph, src: &PlugRef, size: u32, scene: Option<&str>, project: Option<&str>) -> Option<Picture> {

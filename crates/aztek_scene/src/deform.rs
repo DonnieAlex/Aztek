@@ -140,6 +140,7 @@ pub fn handle_shape_kind(shape_type: &str) -> Option<&'static str> {
     match shape_type {
         "clusterHandle" => Some("cluster"),
         "implicitSphere" => Some("sculpt"),
+        "textureDeformerHandle" => Some("textureDeformer"),
         _ => None,
     }
 }
@@ -473,6 +474,17 @@ pub fn register_types() {
             ..Default::default()
         })
         .expect("clusterHandle");
+        types::register_type(NodeType {
+            name: "textureDeformerHandle".into(),
+            base: Some(shape.clone()),
+            dag: true,
+            icon: "wave-sine".into(),
+            doc: "A texture deformer's handle shape: the deformer moves points along its up axis, and samples world space through it.".into(),
+            own_attrs: vec![],
+            create: Some(Arc::new(|| Box::<HandleShape>::default())),
+            ..Default::default()
+        })
+        .expect("textureDeformerHandle");
         types::register_type(NodeType {
             name: "implicitSphere".into(),
             base: Some(shape),
@@ -969,6 +981,7 @@ pub(crate) fn make_handle(g: &mut Graph, name: &str, kind: &str, at: DVec3, scal
     let shape_type = match kind {
         "cluster" | "wrinkle" => "clusterHandle",
         "sculpt" => "implicitSphere",
+        "textureDeformer" => "textureDeformerHandle",
         k => match params_of(k) {
             Some((_, t, _)) => *t,
             None => fail!("no handle for a {k}"),
@@ -985,6 +998,7 @@ pub(crate) fn add_handle_shape(g: &mut Graph, h: NodeId, kind: &str) -> CmdResul
     let shape_type = match kind {
         "cluster" | "wrinkle" => "clusterHandle",
         "sculpt" => "implicitSphere",
+        "textureDeformer" => "textureDeformerHandle",
         k => match params_of(k) {
             Some((_, t, _)) => *t,
             None => return Ok(()),
@@ -1437,6 +1451,15 @@ pub fn handle_lines(kind: &str, w: &DMat4) -> Vec<(DVec3, DVec3)> {
                 out.push((pts[i], pts[(i + 1) % 4]));
             }
             out.push((p(0.0, 0.0, -k), p(0.0, 0.0, k)));
+        }
+        "textureDeformer" => {
+            // Three axes, the up one with a head: the direction points move in.
+            for (a, len) in [(DVec3::X, 0.5), (DVec3::Z, 0.5), (DVec3::Y, 1.0)] {
+                out.push((p(0.0, 0.0, 0.0), p(a.x * len, a.y * len, a.z * len)));
+            }
+            for (x, z) in [(0.08, 0.0), (-0.08, 0.0), (0.0, 0.08), (0.0, -0.08)] {
+                out.push((p(0.0, 1.0, 0.0), p(x, 0.85, z)));
+            }
         }
         "wave" => {
             let n = 24;

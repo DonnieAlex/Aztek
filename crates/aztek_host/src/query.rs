@@ -458,7 +458,7 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             "mappable": a.flags & flags::INPUT != 0
                 && a.flags & flags::OUTPUT == 0
                 && (a.flags & flags::COLOR != 0 || a.ty == aztek_scene::plug::PlugType::Float)
-                && aztek_scene::shading::takes_textures(n.ty()),
+                && (aztek_scene::shading::takes_textures(n.ty()) || (a.name == "texture" && n.ty().is_a("textureDeformer"))),
             "hardMin": a.min_value,
             "hardMax": a.max_value,
         }));

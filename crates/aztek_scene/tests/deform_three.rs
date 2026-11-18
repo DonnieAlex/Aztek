@@ -491,17 +491,14 @@ fn point_on_curve_moves_with_its_place() {
 fn texture_deformer_displaces_by_its_texture() {
     let mut s = Session::new();
     run(&mut s, "polyPlane", json!({"subdivisionsX": 4, "subdivisionsZ": 4}));
-    run(&mut s, "textureDeformer", json!({"args": ["pPlane1"], "noiseAmplitude": 0.0, "offset": 0.5}));
-    assert!((point(&mut s, "pPlane1.vtx[0]")[1] - 0.5).abs() < 1e-6, "offset alone, along the normal");
+    run(&mut s, "textureDeformer", json!({"args": ["pPlane1"], "offset": 0.5}));
+    assert!((point(&mut s, "pPlane1.vtx[0]")[1] - 0.5).abs() < 1e-6, "offset alone, along the handle's up axis");
     set(&mut s, "textureDeformer1.offset", 0.0);
-    set(&mut s, "textureDeformer1.texture", 0.25);
+    run(&mut s, "setAttr", json!({"args": ["textureDeformer1.texture", 0.25, 0.25, 0.25], "type": "double3"}));
     set(&mut s, "textureDeformer1.strength", 2.0);
-    assert!((point(&mut s, "pPlane1.vtx[0]")[1] - 0.5).abs() < 1e-6, "the connected value by the strength");
-    set(&mut s, "textureDeformer1.texture", 0.0);
-    set(&mut s, "textureDeformer1.noiseAmplitude", 1.0);
-    let ys: Vec<f64> = (0..25).map(|v| point(&mut s, &format!("pPlane1.vtx[{v}]"))[1]).collect();
-    assert!(ys.iter().any(|y| (y - ys[0]).abs() > 1e-3), "the procedural varies");
-    run(&mut s, "textureDeformer", json!({"args": ["textureDeformer1"], "edit": true, "direction": 1, "vectorStrength": [0.0, 0.0, 0.0], "vectorOffset": [1.0, 0.0, 0.0]}));
+    assert!((point(&mut s, "pPlane1.vtx[0]")[1] - 0.5).abs() < 1e-6, "the texture's value by the strength");
+    run(&mut s, "setAttr", json!({"args": ["textureDeformer1.texture", 0.0, 0.0, 0.0], "type": "double3"}));
+    run(&mut s, "textureDeformer", json!({"args": ["textureDeformer1"], "edit": true, "direction": 2, "vectorStrength": [0.0, 0.0, 0.0], "vectorOffset": [1.0, 0.0, 0.0]}));
     assert!(near(point(&mut s, "pPlane1.vtx[0]"), [-0.5 + 1.0, 0.0, 0.5]));
 }
 

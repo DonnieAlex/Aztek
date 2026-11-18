@@ -198,6 +198,7 @@ impl Session {
         crate::duplicate::install(&mut s.graph);
         crate::anim::install(&mut s.graph);
         crate::deform_wire::install(&mut s.graph);
+        crate::deform_extra::install(&mut s.graph);
         crate::rig::install(&mut s.graph);
         crate::dyn_solve::install(&mut s.graph);
         s.load_naming_policy();

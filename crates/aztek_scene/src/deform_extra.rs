@@ -756,43 +756,128 @@ impl NodeBehavior for PointOnCurve {
 // ---------------------------------------------------------------------------------------------------------------------
 // textureDeformer
 
-const TD_STRENGTH: usize = BASE_COUNT;
-const TD_OFFSET: usize = BASE_COUNT + 1;
-const TD_DIRECTION: usize = BASE_COUNT + 2;
-const TD_VECTOR_STRENGTH: usize = BASE_COUNT + 3;
-const TD_VECTOR_OFFSET: usize = BASE_COUNT + 4;
-const TD_TEXTURE: usize = BASE_COUNT + 5;
-const TD_FREQUENCY: usize = BASE_COUNT + 6;
-const TD_AMPLITUDE: usize = BASE_COUNT + 7;
-const TD_SPACE: usize = BASE_COUNT + 8;
+const TD_POINT_SPACE: usize = BASE_COUNT;
+const TD_DIRECTION: usize = BASE_COUNT + 1;
+const TD_VECTOR_SPACE: usize = BASE_COUNT + 2;
+const TD_TEXTURE: usize = BASE_COUNT + 3;
+const TD_STRENGTH: usize = BASE_COUNT + 4;
+const TD_OFFSET: usize = BASE_COUNT + 5;
+const TD_VECTOR_STRENGTH: usize = BASE_COUNT + 6;
+const TD_VECTOR_OFFSET: usize = BASE_COUNT + 7;
 
-/// A smooth value from -1 to 1 through space: the node's own texture, since nothing is shaded here.
-fn procedural(p: DVec3) -> f64 {
-    ((p.x * 1.7 + 0.3).sin() * (p.y * 2.3 + 1.1).sin() * (p.z * 1.9 + 2.1).sin() + 0.5 * (p.x * 3.1 + p.y * 4.3 + p.z * 2.7).sin()) / 1.5
+/// The network connected to a textureDeformer's .texture, worked out on the main thread before the graph evaluates,
+/// so each point can be shaded at its own place. `sig` is the network's signature when it was built.
+pub(crate) struct TextureSampler {
+    pub net: aztek_render::shader::Network,
+    pub input: aztek_render::shader::Input,
+    pub tex: Arc<aztek_render::texture::TextureCache>,
+    pub sig: u64,
 }
 
-struct TextureDeformer;
+#[derive(Default)]
+struct TextureDeformer {
+    sampler: std::sync::Mutex<Option<Arc<TextureSampler>>>,
+}
+
+static TEXTURE_DEFORMERS_MADE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Each point's UV: the first of its corners that has one.
+fn point_uvs(m: &Mesh) -> Vec<glam::Vec2> {
+    let mut out = vec![glam::Vec2::ZERO; m.point_capacity() as usize];
+    let mut set = vec![false; out.len()];
+    for f in (0..m.face_capacity()).filter(|&f| m.face_valid(f)) {
+        for c in m.face_corners(f) {
+            let p = m.corner_point(c) as usize;
+            if p < set.len() && !set[p] {
+                let uv = crate::uv_misc::uv_at(m, c);
+                out[p] = glam::Vec2::new(uv.x as f32, uv.y as f32);
+                set[p] = true;
+            }
+        }
+    }
+    out
+}
 
 impl NodeBehavior for TextureDeformer {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         let Some(input) = pass(d) else { return };
-        let (strength, offset, dir, vs, vo, tex, freq, amp, local) = (d.float(TD_STRENGTH), d.float(TD_OFFSET), d.int(TD_DIRECTION), d.vec3(TD_VECTOR_STRENGTH), d.vec3(TD_VECTOR_OFFSET), d.float(TD_TEXTURE), d.float(TD_FREQUENCY), d.float(TD_AMPLITUDE), d.int(TD_SPACE) == 1);
+        let (space, dir, vspace, constant, strength, offset, vs, vo) = (d.int(TD_POINT_SPACE), d.int(TD_DIRECTION), d.int(TD_VECTOR_SPACE), d.vec3(TD_TEXTURE), d.float(TD_STRENGTH), d.float(TD_OFFSET), d.vec3(TD_VECTOR_STRENGTH), d.vec3(TD_VECTOR_OFFSET));
         let geom = d.matrix(GEOM);
+        let handle = d.matrix(HANDLE);
+        let handle_inv = handle.inverse();
+        let up = handle.transform_vector3(DVec3::Y).normalize_or_zero();
         let normals = point_normals(&input);
         let positions = input.positions().to_vec();
+        let uvs = if space == 2 { point_uvs(&input) } else { Vec::new() };
+        let sampler = self.sampler.lock().unwrap().clone();
         deform_world(d, &input, |p, at| {
-            let sample = if local { positions[p as usize] } else { at };
-            let value = tex + procedural(sample * freq) * amp;
-            Some(if dir == 1 {
-                at + (vs * value + vo)
-            } else {
-                at + geom.transform_vector3(normals[p as usize]).normalize_or_zero() * (strength * value + offset)
+            let i = p as usize;
+            let colour = match &sampler {
+                Some(s) => {
+                    let local = positions[i];
+                    // World space is taken through the handle, so moving it moves the texture over the surface.
+                    let world = if space == 0 { handle_inv.transform_point3(at) } else { local };
+                    let n = geom.transform_vector3(normals[i]).normalize_or_zero();
+                    let ctx = aztek_render::shader::ShadeCtx { p: world.as_vec3(), p_obj: local.as_vec3(), n: n.as_vec3(), ng: n.as_vec3(), uv: uvs.get(i).copied().unwrap_or_default(), wo: n.as_vec3(), ..Default::default() };
+                    let c = s.net.eval(s.input, &ctx, &s.tex);
+                    if c.is_finite() {
+                        c.as_dvec3()
+                    } else {
+                        DVec3::ZERO
+                    }
+                }
+                None => constant,
+            };
+            Some(match dir {
+                // Vector: the colour is the move, R G B on X Y Z, in the object's space or the world's. Tangent space is
+                // taken as the object's for now.
+                2 => {
+                    let v = colour * vs + vo;
+                    at + if vspace == 1 { v } else { geom.transform_vector3(v) }
+                }
+                // Normal or the handle's up: the colour's brightness times strength, plus offset, in world units.
+                _ => {
+                    let value = colour.dot(DVec3::new(0.3, 0.59, 0.11));
+                    let along = if dir == 0 { geom.transform_vector3(normals[i]).normalize_or_zero() } else { up };
+                    at + along * (strength * value + offset)
+                }
             })
         });
     }
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+/// Builds the network feeding each textureDeformer's .texture before the graph evaluates, again when it changes.
+pub fn install(g: &mut Graph) {
+    g.add_evaluate_hook(Arc::new(|g: &mut Graph, after: bool| {
+        if after || TEXTURE_DEFORMERS_MADE.load(std::sync::atomic::Ordering::Relaxed) == 0 {
+            return;
+        }
+        let ids: Vec<NodeId> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| n.ty().name == "textureDeformer")).collect();
+        for id in ids {
+            sample_texture(g, id);
+        }
+    }));
+}
+
+fn texture_source(g: &Graph, id: NodeId) -> Option<PlugRef> {
+    let whole = PlugRef::new(id, TD_TEXTURE as i32);
+    g.source(&whole).or_else(|| (0..3).find_map(|k| g.source(&PlugRef::component(id, TD_TEXTURE as i32, k))))
+}
+
+fn sample_texture(g: &mut Graph, id: NodeId) {
+    let src = texture_source(g, id);
+    let sig = src.map(|s| crate::harold::swatch::signature(g, s.node) ^ ((s.attr as u64) << 32) ^ (s.component as u64));
+    let had = g.node(id).and_then(|n| n.behavior().as_any().downcast_ref::<TextureDeformer>()).and_then(|t| t.sampler.lock().unwrap().as_ref().map(|s| s.sig));
+    if had == sig {
+        return;
+    }
+    let made = src.and_then(|s| crate::harold::swatch::sampler(g, &s)).map(|(net, input, tex)| Arc::new(TextureSampler { net, input, tex, sig: sig.unwrap_or(0) }));
+    let Some(t) = g.node(id).and_then(|n| n.behavior().as_any().downcast_ref::<TextureDeformer>()) else { return };
+    *t.sampler.lock().unwrap() = made;
+    g.touch(id);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1026,25 +1111,29 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
         ],
         Arc::new(|| Box::new(PointOnCurve)),
     );
-    let vs = vec3_attr("vectorStrength", "vs", DVec3::ONE, IN_STORE, "With direction Vector: multiplies the texture on each axis.");
-    let vo = vec3_attr("vectorOffset", "vo", DVec3::ZERO, IN_STORE, "With direction Vector: added on each axis.");
+    let vs = vec3_attr("vectorStrength", "vs", DVec3::ONE, IN_STORE, "With direction Vector: how far each of R, G and B moves on X, Y and Z.");
+    let vo = vec3_attr("vectorOffset", "vo", DVec3::ZERO, IN_STORE, "With direction Vector: added to the move on each axis, not scaled by vector strength.");
+    // No slider limits: the move is in world units, so a scaled-up object needs bigger values than the sliders show.
+    let soft = |a: AttrDef, lo: f64, hi: f64| AttrDef { soft_min: Some(lo), soft_max: Some(hi), ..a };
     reg(
         "textureDeformer",
         "wave-sine",
-        "Displaces points by a texture value: its own procedural one, plus what is connected to .texture.",
+        "Moves points by a texture: connect one to .texture, and each point is moved by the colour it has there.",
         false,
         vec![
-            fl("strength", "str", 1.0, "Multiplies the texture."),
-            fl("offset", "off", 0.0, "Added to the displacement."),
-            short(enum_attr("direction", &["Normal", "Vector"], 0, "Along each point's normal, or by vector."), "dir"),
+            short(enum_attr("pointSpace", &["World", "Local", "UV"], 2, "Where each point samples the texture: its world place (through the handle), its object-space place, or its UV."), "ps"),
+            short(enum_attr("direction", &["Normal", "Handle", "Vector"], 1, "Which way points move: along their normal, along the handle's up (Y) axis, or by the colour itself as X Y Z."), "d"),
+            short(enum_attr("vectorSpace", &["Object", "World", "Tangent"], 0, "With direction Vector: the space the colour moves points in."), "vsp"),
+            crate::harold_nodes::c("texture", "t", [0.0; 3], IN_STORE),
+            soft(fl("strength", "s", 1.0, "How far a white texture moves points, in world units; negative moves them the other way."), 0.0, 2.0),
+            soft(fl("offset", "o", 0.0, "Added to the move, not scaled by strength: -strength/2 keeps a black and white texture centred on the surface."), -1.0, 1.0),
             vs,
             vo,
-            fl("texture", "tx", 0.0, "A value to add to the procedural texture; connect anything to it."),
-            fl("noiseFrequency", "nf", 1.0, "How fine the procedural texture is."),
-            fl("noiseAmplitude", "na", 1.0, "How strong the procedural texture is."),
-            short(enum_attr("pointSpace", &["World", "Local"], 0, "Where the texture is sampled."), "ps"),
         ],
-        Arc::new(|| Box::new(TextureDeformer)),
+        Arc::new(|| {
+            TEXTURE_DEFORMERS_MADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Box::<TextureDeformer>::default()
+        }),
     );
     reg(
         "curveWarp",
@@ -1120,7 +1209,7 @@ const WRINKLE: &[&str] = &["wrinkleCount", "wrinkleIntensity", "thickness", "ran
 const PROXIMITY: &[&str] = &["wrapMode", "maxDrivers", "falloffScale", "dropoffRateScale", "envelope"];
 const SOLIDIFY: &[&str] = &["scaleEnvelope", "envelope"];
 const POINT_CURVE: &[&str] = &["parameter", "turnOnPercentage", "envelope"];
-const TEXTURE: &[&str] = &["strength", "offset", "direction", "vectorStrength", "vectorOffset", "noiseFrequency", "noiseAmplitude", "pointSpace", "envelope"];
+const TEXTURE: &[&str] = &["strength", "offset", "direction", "vectorSpace", "vectorStrength", "vectorOffset", "pointSpace", "envelope"];
 const WARP: &[&str] = &["lengthScale", "offset", "twistRotation", "rollRotation", "alignmentMode", "keepLength", "envelope"];
 
 fn apply_settings(g: &mut Graph, n: NodeId, a: &Args, names: &[&str]) -> CmdResult<()> {
@@ -1514,23 +1603,50 @@ pub(crate) fn register(c: &mut Commands<Session>) {
     c.register(setting_flags(
         modes(deform::common_flags(Cmd::new(
             "textureDeformer",
-            "Texture Deformer: displaces points by a procedural value plus whatever is connected to .texture. Returns [textureDeformer1].",
+            "Texture Deformer: moves points by the texture connected to the deformer's .texture, with a handle whose up axis is the direction by default. Returns [textureDeformer1, textureDeformerHandle1].",
             |s, a| {
                 if let Some(r) = settings_modes(s, a, "textureDeformer", TEXTURE) {
                     return r;
                 }
-                make_on(s, a, "textureDeformer", TEXTURE, |_, _| 0, |_, _, _, _| Ok(()))
+                let mut handle = String::new();
+                let made = make_on(s, a, "textureDeformer", TEXTURE, |_, _| 0, |g, n, _, meshes| {
+                    // The handle at the middle of what is deformed, as the reference puts it.
+                    let mut lo = DVec3::splat(f64::MAX);
+                    let mut hi = DVec3::splat(f64::MIN);
+                    for (m, _) in meshes {
+                        let w = crate::rig::world(g, crate::dag::transform_of(g, *m));
+                        if let Some(mesh) = g.node(*m).and_then(|x| x.data().mesh(MeshNode::OUT_MESH).cloned()) {
+                            for p in (0..mesh.point_capacity()).filter(|&p| mesh.point_valid(p)) {
+                                let q = w.transform_point3(mesh.position(p));
+                                lo = lo.min(q);
+                                hi = hi.max(q);
+                            }
+                        }
+                    }
+                    let at = if lo.x <= hi.x { (lo + hi) * 0.5 } else { DVec3::ZERO };
+                    let base = g.node(n).map(|x| x.name().to_string()).unwrap_or_default();
+                    let name = base.replacen("textureDeformer", "textureDeformerHandle", 1);
+                    let name = if name == base { format!("{base}Handle") } else { name };
+                    let h = deform::make_handle(g, &name, "textureDeformer", at, DVec3::ONE)?;
+                    g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
+                    handle = g.path(h);
+                    Ok(())
+                })?;
+                let mut out = made.as_array().cloned().unwrap_or_default();
+                if !handle.is_empty() {
+                    out.push(json!(handle));
+                }
+                Ok(json!(out))
             },
         ))),
         vec![
-            fx("strength", "str", "Multiplies the texture (1)."),
-            fx("offset", "off", "Added to the displacement."),
-            f("direction", "dir", ArgType::Int, "0 normal, 1 vector."),
+            fx("strength", "s", "How far a white texture moves points (1)."),
+            fx("offset", "o", "Added to the move, not scaled by strength."),
+            f("direction", "d", ArgType::Int, "0 normal, 1 the handle's up axis (the default), 2 vector."),
+            f("vectorSpace", "vsp", ArgType::Int, "With direction vector: 0 object, 1 world, 2 tangent."),
             f("vectorStrength", "vs", ArgType::Vec3, "With direction vector: on each axis."),
             f("vectorOffset", "vo", ArgType::Vec3, "With direction vector: added on each axis."),
-            fx("noiseFrequency", "nf", "How fine the procedural texture is (1)."),
-            fx("noiseAmplitude", "na", "How strong the procedural texture is (1)."),
-            f("pointSpace", "ps", ArgType::Int, "0 world, 1 local."),
+            f("pointSpace", "ps", ArgType::Int, "0 world, 1 local, 2 UV (the default)."),
         ],
     ));
 }
