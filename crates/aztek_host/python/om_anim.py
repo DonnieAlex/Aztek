@@ -245,14 +245,17 @@ class MFnAnimCurve(MFnDependencyNode):
     kTangentPlateau = 9
     kTangentStepNext = 10
     kTangentAuto = 11
+    kTangentAutoMix = 12
+    kTangentAutoEase = 13
+    kTangentAutoCustom = 14
     kConstant = 0
     kLinear = 1
     kCycle = 3
     kCycleRelative = 4
     kOscillate = 5
 
-    _TANGENTS = {"fixed": 1, "linear": 2, "flat": 3, "spline": 4, "smooth": 4, "step": 5, "slow": 6, "fast": 7, "clamped": 8, "plateau": 9, "stepnext": 10, "auto": 11}
-    _TANGENT_NAMES = {1: "fixed", 2: "linear", 3: "flat", 4: "spline", 5: "step", 6: "slow", 7: "fast", 8: "clamped", 9: "plateau", 10: "stepnext", 11: "auto"}
+    _TANGENTS = {"fixed": 1, "linear": 2, "flat": 3, "spline": 4, "smooth": 4, "step": 5, "slow": 6, "fast": 7, "clamped": 8, "plateau": 9, "stepnext": 10, "auto": 11, "automix": 12, "autoease": 13, "autocustom": 14}
+    _TANGENT_NAMES = {1: "fixed", 2: "linear", 3: "flat", 4: "spline", 5: "step", 6: "slow", 7: "fast", 8: "clamped", 9: "plateau", 10: "stepnext", 11: "auto", 12: "automix", 13: "autoease", 14: "autocustom"}
 
     def __init__(self, obj=None):
         self._target = None

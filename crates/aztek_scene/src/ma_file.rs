@@ -1477,7 +1477,9 @@ fn tangent_from_code(i: i64) -> Tangent {
         1 => Tangent::Fixed,
         2 => Tangent::Linear,
         3 => Tangent::Flat,
-        4 | 6 | 7 | 9 => Tangent::Spline,
+        6 => Tangent::Slow,
+        7 => Tangent::Fast,
+        4 | 9 => Tangent::Spline,
         5 => Tangent::Step,
         8 | 10 => Tangent::Clamped,
         16 => Tangent::Plateau,
@@ -1493,10 +1495,12 @@ fn tangent_code(t: Tangent) -> i64 {
         Tangent::Flat => 3,
         Tangent::Step => 5,
         Tangent::Spline => 9,
+        Tangent::Slow => 6,
+        Tangent::Fast => 7,
         Tangent::Clamped => 10,
         Tangent::Plateau => 16,
         Tangent::StepNext => 17,
-        Tangent::Auto => 18,
+        Tangent::Auto | Tangent::AutoMix | Tangent::AutoEase | Tangent::AutoCustom => 18,
     }
 }
 

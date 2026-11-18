@@ -135,10 +135,15 @@ pub enum Tangent {
     Clamped,
     Plateau,
     Fixed,
+    Slow,
+    Fast,
+    AutoMix,
+    AutoEase,
+    AutoCustom,
 }
 
 impl Tangent {
-    pub const NAMES: &'static [&'static str] = &["auto", "spline", "linear", "flat", "step", "stepnext", "clamped", "plateau", "fixed"];
+    pub const NAMES: &'static [&'static str] = &["auto", "spline", "linear", "flat", "step", "stepnext", "clamped", "plateau", "fixed", "slow", "fast", "automix", "autoease", "autocustom"];
 
     pub fn name(self) -> &'static str {
         Self::NAMES[self as usize]
@@ -156,6 +161,11 @@ impl Tangent {
             "clamped" => Clamped,
             "plateau" => Plateau,
             "fixed" => Fixed,
+            "slow" => Slow,
+            "fast" => Fast,
+            "automix" => AutoMix,
+            "autoease" => AutoEase,
+            "autocustom" => AutoCustom,
             _ => return None,
         })
     }
@@ -292,8 +302,10 @@ impl Keys {
         };
         let one = |t: Tangent, fixed: f64, side: Option<f64>| -> f64 {
             match t {
-                Tangent::Auto | Tangent::Plateau => auto(),
-                Tangent::Spline => smooth,
+                // The auto variants weigh their neighbours differently in the reference; here they share auto's shape.
+                Tangent::Auto | Tangent::Plateau | Tangent::AutoMix | Tangent::AutoEase | Tangent::AutoCustom => auto(),
+                // Slow and fast are kept as set and drawn as spline for now.
+                Tangent::Spline | Tangent::Slow | Tangent::Fast => smooth,
                 Tangent::Clamped => clamped(),
                 Tangent::Linear => side.unwrap_or(0.0),
                 Tangent::Flat | Tangent::Step | Tangent::StepNext => 0.0,

@@ -1489,6 +1489,14 @@ Workspace; a saved arrangement under a workspace's name wins over the shipped on
 workspace docks go back to windows when another is chosen. `workspaceLayoutManager -setCurrent`, `-q -current`,
 `-listLayouts` and `-reset` script it. MASH and Motion Graphics wait for TRASH.
 
+### Tangent types: auto mix, ease and custom, slow and fast (18/11/2026, #141)
+
+`MFnAnimCurve` in both APIs has the reference's whole TangentType list, `kTangentAutoMix`, `kTangentAutoEase` and
+`kTangentAutoCustom` (12, 13, 14) after `kTangentAuto`, and the devkit's header has them too. `keyTangent` takes and
+reports `automix`, `autoease`, `autocustom`, `slow` and `fast`, and the API reads and sets them by those names.
+Files keep slow and fast as their own codes (6 and 7). The three auto kinds are drawn like auto for now, and slow and
+fast like spline; a file writes the auto kinds as auto.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

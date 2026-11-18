@@ -21,6 +21,9 @@ const char* tangentName(MFnAnimCurve::TangentType t) {
         case MFnAnimCurve::kTangentPlateau: return "plateau";
         case MFnAnimCurve::kTangentStepNext: return "stepnext";
         case MFnAnimCurve::kTangentAuto: return "auto";
+        case MFnAnimCurve::kTangentAutoMix: return "automix";
+        case MFnAnimCurve::kTangentAutoEase: return "autoease";
+        case MFnAnimCurve::kTangentAutoCustom: return "autocustom";
         default: return 0;
     }
 }
@@ -30,7 +33,8 @@ MFnAnimCurve::TangentType tangentOf(const std::string& s) {
         {"fixed", MFnAnimCurve::kTangentFixed}, {"linear", MFnAnimCurve::kTangentLinear}, {"flat", MFnAnimCurve::kTangentFlat},
         {"spline", MFnAnimCurve::kTangentSmooth}, {"step", MFnAnimCurve::kTangentStep}, {"slow", MFnAnimCurve::kTangentSlow},
         {"fast", MFnAnimCurve::kTangentFast}, {"clamped", MFnAnimCurve::kTangentClamped}, {"plateau", MFnAnimCurve::kTangentPlateau},
-        {"stepnext", MFnAnimCurve::kTangentStepNext}, {"auto", MFnAnimCurve::kTangentAuto}};
+        {"stepnext", MFnAnimCurve::kTangentStepNext}, {"auto", MFnAnimCurve::kTangentAuto},
+        {"automix", MFnAnimCurve::kTangentAutoMix}, {"autoease", MFnAnimCurve::kTangentAutoEase}, {"autocustom", MFnAnimCurve::kTangentAutoCustom}};
     std::map<std::string, MFnAnimCurve::TangentType>::const_iterator it = m.find(s);
     return it == m.end() ? MFnAnimCurve::kTangentGlobal : it->second;
 }

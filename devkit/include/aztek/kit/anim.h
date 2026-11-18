@@ -36,7 +36,10 @@ public:
         kTangentClamped,
         kTangentPlateau,
         kTangentStepNext,
-        kTangentAuto
+        kTangentAuto,
+        kTangentAutoMix,
+        kTangentAutoEase,
+        kTangentAutoCustom
     };
     enum InfinityType { kConstant = 0, kLinear, kCycle = 3, kCycleRelative, kOscillate };
     MFnAnimCurve();
