@@ -170,3 +170,124 @@ fn duplicate_special_option_box_layout() {
     assert_eq!(rows[7]["excludes"], json!("inputConnections"));
     assert_eq!(rows[8]["excludes"], json!("upstreamNodes"));
 }
+
+fn faces(m: &aztek_geo::Mesh) -> usize {
+    (0..m.face_capacity()).filter(|&f| m.face_valid(f)).count()
+}
+
+fn verts(m: &aztek_geo::Mesh) -> usize {
+    (0..m.point_capacity()).filter(|&p| m.point_valid(p)).count()
+}
+
+fn mesh_of(c: &mut Core, shape: &str) -> std::sync::Arc<aztek_geo::Mesh> {
+    let g = &mut c.s.graph;
+    g.evaluate();
+    let id = g.find(shape).unwrap().unwrap();
+    let id = aztek_scene::components::as_mesh(g, id).unwrap();
+    g.node(id).unwrap().data().mesh(aztek_scene::mesh_nodes::MeshNode::OUT_MESH).cloned().unwrap()
+}
+
+/// #140: Quad Draw's Extend picks the edge, its run along the border, or the whole border; Relax's Auto-Lock keeps the
+/// border while there are inner points.
+#[test]
+fn quad_draw_extend_and_relax_picks() {
+    use aztek_host::tools_quad::{extend_edges, relax_points};
+    let mut c = Core::new();
+    mel(&mut c, "polyPlane -n grid -w 4 -h 4 -sx 4 -sy 4;");
+    let m = mesh_of(&mut c, "grid");
+    let border: Vec<u32> = (0..m.edge_capacity()).filter(|&e| m.edge_valid(e) && m.is_boundary_edge(e)).collect();
+    assert_eq!(border.len(), 16);
+    // An edge in the middle of one side: alone, the side's four, all sixteen.
+    let side = border.iter().copied().find(|&e| {
+        let (a, b) = (m.position(m.edge_point(e, 0)), m.position(m.edge_point(e, 1)));
+        (a.z - 2.0).abs() < 1e-9 && (b.z - 2.0).abs() < 1e-9 && a.x.min(b.x) > -1.5 && a.x.max(b.x) < 1.5
+    }).unwrap();
+    assert_eq!(extend_edges(&m, side, 0), vec![side]);
+    let mut run = extend_edges(&m, side, 1);
+    run.sort();
+    assert_eq!(run.len(), 4, "{run:?}");
+    assert!(run.iter().all(|&e| (m.position(m.edge_point(e, 0)).z - 2.0).abs() < 1e-9));
+    assert_eq!(extend_edges(&m, side, 2).len(), 16);
+    // Relax: auto-lock moves the inner points only; border only; all.
+    let all: Vec<u32> = (0..m.point_capacity()).filter(|&p| m.point_valid(p)).collect();
+    assert_eq!(relax_points(&m, &all, 0).len(), 9);
+    assert_eq!(relax_points(&m, &all, 1).len(), 9);
+    assert_eq!(relax_points(&m, &all, 2).len(), 16);
+    assert_eq!(relax_points(&m, &all, 3).len(), 25);
+}
+
+/// #140: what the tools run: border edges extruded together and moved in world space, loops with edge flow and more than
+/// one division, a loop deleted, and a slice across a plane, deleting or pulling off a side.
+#[test]
+fn quad_draw_and_multi_cut_commands() {
+    use aztek_host::tools_quad::{cut_rotation, snap45, CutOpts};
+    let mut c = Core::new();
+    mel(&mut c, "polyPlane -n grid -w 4 -h 4 -sx 4 -sy 4;");
+    let m = mesh_of(&mut c, "grid");
+    let run = aztek_host::tools_quad::extend_edges(&m, (0..m.edge_capacity()).find(|&e| m.edge_valid(e) && m.is_boundary_edge(e) && (m.position(m.edge_point(e, 0)).z - 2.0).abs() < 1e-9 && (m.position(m.edge_point(e, 1)).z - 2.0).abs() < 1e-9).unwrap(), 1);
+    let list: Vec<String> = run.iter().map(|e| format!("grid.e[{e}]")).collect();
+    c.exec("polyExtrudeEdge", json!({"args": list, "worldSpace": true, "translate": [0.0, 0.0, 1.0], "keepFacesTogether": true})).unwrap();
+    let m2 = mesh_of(&mut c, "grid");
+    assert_eq!(faces(&m2), 16 + 4);
+    assert_eq!(verts(&m2), 25 + 5, "the new faces share their new points");
+    assert!((0..m2.point_capacity()).any(|p| m2.point_valid(p) && (m2.position(p).z - 3.0).abs() < 1e-6));
+    // A centred loop with two divisions and edge flow.
+    mel(&mut c, "polyCube -n cube -sx 1 -sy 1 -sz 1;");
+    c.exec("polySplitRing", json!({"args": ["cube.e[0]"], "weight": 0.5, "splitType": 2, "divisions": 2, "insertWithEdgeFlow": true, "adjustEdgeFlow": 1.0})).unwrap();
+    assert_eq!(faces(&mesh_of(&mut c, "cube")), 6 + 4 * 2);
+    // Deleting a loop takes it out again.
+    let cm = mesh_of(&mut c, "cube");
+    let lp = aztek_geo::topology::edge_loop(&cm, (0..cm.edge_capacity()).find(|&e| cm.edge_valid(e) && aztek_geo::topology::edge_loop(&cm, e).len() == 4 && {
+        let (a, b) = (cm.position(cm.edge_point(e, 0)), cm.position(cm.edge_point(e, 1)));
+        (a.x - b.x).abs() < 1e-9 && a.x.abs() < 0.45 && a.x.abs() > 1e-6
+    }).unwrap());
+    let args: Vec<String> = lp.iter().map(|e| format!("cube.e[{e}]")).collect();
+    c.exec("polyDelEdge", json!({"args": args, "cleanVertices": true})).unwrap();
+    assert_eq!(faces(&mesh_of(&mut c, "cube")), 6 + 4);
+    // Slice along the YZ plane through the middle: the plane's rotation in degrees.
+    mel(&mut c, "polyCube -n s -w 2 -h 2 -d 2;");
+    // As the tools run it: in stored units, the rotation in radians.
+    aztek_ops::units::stored(|| c.exec("polyCut", json!({"args": ["s.f[*]"], "cutPlaneCenter": [0.0, 0.0, 0.0], "cutPlaneRotate": cut_rotation(glam::DVec3::X), "worldSpace": true, "deleteFaces": true}))).unwrap();
+    let sm = mesh_of(&mut c, "s");
+    let xs: Vec<f64> = (0..sm.point_capacity()).filter(|&p| sm.point_valid(p)).map(|p| sm.position(p).x).collect();
+    assert!(xs.iter().all(|x| *x < 1e-6) || xs.iter().all(|x| *x > -1e-6), "{xs:?}");
+    // Shift snaps a slice to 45 degrees and a point along an edge to the snap step.
+    let to = snap45(glam::DVec2::ZERO, glam::DVec2::new(10.0, 1.0));
+    assert!((to.y).abs() < 1e-9 && (to.x - 101f64.sqrt()).abs() < 1e-9);
+    let o = CutOpts { snap_step: 25.0, ..Default::default() };
+    assert_eq!(o.snap(0.3), 0.25);
+    assert_eq!(o.snap(0.4), 0.5);
+}
+
+/// #140: a relax step keeps a border straight and its corners still, and evens out the points along it.
+#[test]
+fn quad_draw_relax_keeps_the_border() {
+    use aztek_host::tools_quad::{relax_points, relaxed};
+    let mut c = Core::new();
+    mel(&mut c, "polyPlane -n strip -w 6 -h 1 -sx 6 -sy 1; move -r 0.3 0 0 strip.vtx[2] strip.vtx[9];");
+    let m = mesh_of(&mut c, "strip");
+    let all: Vec<u32> = (0..m.point_capacity()).filter(|&p| m.point_valid(p)).collect();
+    let moved = relaxed(&m, &relax_points(&m, &all, 0));
+    for (p, q) in &moved {
+        let was = m.position(*p);
+        assert!((q.z - was.z).abs() < 1e-9 && (q.y - was.y).abs() < 1e-9, "a border point stays on its side");
+    }
+    assert!(moved.iter().all(|(p, _)| m.position(*p).x.abs() < 2.99), "corners stay");
+    let dragged = moved.iter().find(|(p, _)| (m.position(*p).x - (-1.0 + 0.3)).abs() < 1e-6).unwrap();
+    assert!(dragged.1.x < -0.7 + 1e-9, "the moved point goes back toward its neighbours");
+}
+
+/// #140: what auto-weld runs when a dragged vertex is let go near another: onto it, then welded.
+#[test]
+fn quad_draw_auto_weld_commands() {
+    let mut c = Core::new();
+    c.exec("polyAppendVertex", json!({"items": [{"position": [0.0, 0.0, 0.0]}, {"position": [1.0, 0.0, 0.0]}, {"position": [1.0, 0.0, 1.0]}, {"position": [0.0, 0.0, 1.0]}]})).unwrap();
+    c.exec("polyAppendVertex", json!({"items": [{"position": [1.05, 0.0, 0.0]}, {"position": [2.0, 0.0, 0.0]}, {"position": [2.0, 0.0, 1.0]}, {"position": [1.05, 0.0, 1.0]}]})).unwrap();
+    let shape = mel(&mut c, "ls -type mesh;")[0].as_str().unwrap().to_string();
+    assert_eq!(verts(&mesh_of(&mut c, &shape)), 8);
+    aztek_ops::units::stored(|| {
+        c.exec("xform", json!({"args": [format!("{shape}.vtx[4]")], "worldSpace": true, "translation": [1.0, 0.0, 0.0]})).unwrap();
+        c.exec("polyMergeVertex", json!({"args": [format!("{shape}.vtx[4]"), format!("{shape}.vtx[1]")], "distance": 1e-4})).unwrap();
+    });
+    assert_eq!(verts(&mesh_of(&mut c, &shape)), 7);
+}

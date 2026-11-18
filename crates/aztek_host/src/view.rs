@@ -2284,6 +2284,20 @@ impl View {
             "axisOrientation" => self.vp.axis_mode = v.as_str().unwrap_or("world").to_string(),
             "curveDegree" => self.vp.curve_degree = v.as_i64().unwrap_or(3),
             "toolTab" => self.ts.tab = v.as_bool().unwrap_or(false),
+            // Quad Draw's and Multi-Cut's options from the Modeling Toolkit, and its buttons (#140).
+            "quadDraw" => self.ts.qd.set(&v),
+            "multiCut" => self.ts.mc.set(&v),
+            "quadDrawAction" => {
+                if v.as_str() == Some("clearDots") {
+                    self.ts.dots.clear();
+                    self.vp.tool_points.clear();
+                }
+            }
+            "multiCutAction" => {
+                if let Some(plane) = v.as_str() {
+                    self.slice_along(core, plane);
+                }
+            }
             // Enter: makes the curve; the tool stays for the next.
             "finishTool" => {
                 if self.vp.tool == Tool::Joint {

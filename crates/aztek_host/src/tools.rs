@@ -50,12 +50,24 @@ pub struct ToolState {
     pub quad_mesh: Option<NodeId>,
     pub dragging_dot: Option<usize>,
     pub dragging_vertex: Option<(NodeId, Index)>,
-    pub extend_edge: Option<(NodeId, Index)>,
     pub tab: bool,
     pub append_edges: Vec<Index>,
     pub weld_source: Option<(NodeId, Index, bool)>,
     /// 3D Cut and Sew: the mesh and the edges dragged over so far.
     pub cut_sew: Option<(NodeId, Vec<Index>)>,
+    /// Quad Draw's and Multi-Cut's options, from the Modeling Toolkit (#140).
+    pub qd: crate::tools_quad::QuadOpts,
+    pub mc: crate::tools_quad::CutOpts,
+    /// Quad Draw: a quad strip being drawn, border edges being extended, a strip width being dragged, a relax.
+    pub strip: Option<crate::tools_quad::Strip>,
+    pub extend: Option<crate::tools_quad::Extend>,
+    pub strip_resize: Option<(DVec2, f64)>,
+    pub relaxing: bool,
+    /// The way the mouse last moved on screen, and where it was.
+    pub last_dir: DVec2,
+    pub last_px: Option<DVec2>,
+    /// Multi-Cut: where a middle-button slice started.
+    pub slice_from: Option<DVec2>,
 }
 
 /// Screen-space hit on any drawn mesh.
@@ -134,12 +146,12 @@ pub fn ring_preview(m: &Mesh, e: Index, t: f64) -> Vec<(DVec3, DVec3)> {
 }
 
 impl View {
-    fn tool_preview_clear(&mut self) {
+    pub(crate) fn tool_preview_clear(&mut self) {
         self.vp.tool_lines.clear();
         self.vp.tool_points.clear();
     }
 
-    fn apply_preview(&mut self, core: &mut Core, cmd: &str, call: Value) {
+    pub(crate) fn apply_preview(&mut self, core: &mut Core, cmd: &str, call: Value) {
         if self.ts.applied {
             core.retract_preview();
         }
@@ -148,7 +160,7 @@ impl View {
         self.ts.last_call = ok.then(|| (cmd.to_string(), call));
     }
 
-    fn commit_preview(&mut self, core: &mut Core) {
+    pub(crate) fn commit_preview(&mut self, core: &mut Core) {
         if self.ts.applied {
             if let Some((cmd, call)) = self.ts.last_call.take() {
                 core.retract_preview();
@@ -269,9 +281,50 @@ impl View {
     fn multi_cut(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, items: &[DrawItem]) -> bool {
         let snap = snap_at(self, items, px);
         let shift = mods & SHIFT != 0;
+        let ctrl = mods & CTRL != 0;
+        let near_px = 12.0 * self.dpr;
+        // Where a click would put the next point: a vertex, a place along an edge (Shift: in snap steps; Ctrl+Shift after
+        // a point on an edge: square to that edge), or on the face.
+        let place = |v: &View, s: &Snap| -> (Value, DVec3) {
+            let it = &items[s.item];
+            if s.vertex.2 < near_px {
+                return (json!({"vertex": s.vertex.0}), s.vertex.1);
+            }
+            if s.edge.3 < near_px {
+                let (a, b) = (it.mesh.edge_point(s.edge.0, 0), it.mesh.edge_point(s.edge.0, 1));
+                let (pa, pb) = (it.mesh.position(a), it.mesh.position(b));
+                let mut t = s.edge.1;
+                if shift && ctrl {
+                    if let (Some(&last), Some(prev)) = (v.ts.cut_world.last(), v.ts.cut_points.last()) {
+                        if let Some(e0) = prev.get("edge").and_then(Value::as_u64) {
+                            let (qa, qb) = (it.mesh.position(it.mesh.edge_point(e0 as Index, 0)), it.mesh.position(it.mesh.edge_point(e0 as Index, 1)));
+                            let d0 = it.world.transform_vector3(qb - qa).normalize_or_zero();
+                            let (wa, wb) = (it.world.transform_point3(pa), it.world.transform_point3(pb));
+                            let den = (wb - wa).dot(d0);
+                            if den.abs() > 1e-9 {
+                                let k = (last - wa).dot(d0) / den;
+                                if (0.0..=1.0).contains(&k) {
+                                    t = k;
+                                }
+                            }
+                        }
+                    }
+                } else if shift {
+                    t = v.ts.mc.snap(t);
+                }
+                let w = it.world.transform_point3(pa.lerp(pb, t));
+                return (json!({"edge": s.edge.0, "t": t}), w);
+            }
+            (json!({"face": s.face, "position": s.world.to_array()}), s.world)
+        };
         match kind {
             1 => {
                 self.tool_preview_clear();
+                if let Some(from) = self.ts.slice_from {
+                    let to = if shift { crate::tools_quad::snap45(from, px) } else { px };
+                    self.slice_preview(items, from, to);
+                    return true;
+                }
                 let list = self.ts.cut_world.clone();
                 for w in list.windows(2) {
                     self.vp.tool_lines.push((w[0], w[1], GREEN));
@@ -280,31 +333,45 @@ impl View {
                     self.vp.tool_points.push((*p, WHITE));
                 }
                 if let Some(s) = &snap {
-                    let at = if s.vertex.2 < 12.0 {
-                        s.vertex.1
-                    } else if s.edge.3 < 12.0 {
-                        if shift {
-                            let t = (s.edge.1 * 10.0).round() / 10.0;
-                            let it = &items[s.item];
-                            let (a, b) = (it.mesh.edge_point(s.edge.0, 0), it.mesh.edge_point(s.edge.0, 1));
-                            it.world.transform_point3(it.mesh.position(a).lerp(it.mesh.position(b), t))
-                        } else {
-                            s.edge.2
-                        }
-                    } else {
-                        s.world
-                    };
+                    let (_, at) = place(self, s);
                     self.vp.tool_points.push((at, GREEN));
                     if let Some(l) = list.last() {
                         self.vp.tool_lines.push((*l, at, WHITE));
                     }
-                    if mods & CTRL != 0 {
+                    if ctrl && !shift {
                         let it = &items[s.item];
                         for (a, b) in ring_preview(&it.mesh, s.edge.0, s.edge.1) {
                             self.vp.tool_lines.push((it.world.transform_point3(a), it.world.transform_point3(b), GREEN));
                         }
                     }
                 }
+                true
+            }
+            0 if button == 2 => {
+                if ctrl {
+                    // Ctrl+middle click: a loop through the middle of the edge's ring.
+                    let Some(s) = snap else { return false };
+                    let shape = items[s.item].shape;
+                    self.insert_loop_at(core, shape, s.edge.0, 0.5);
+                    return true;
+                }
+                if self.ts.cut_points.is_empty() {
+                    // A middle drag across the surface slices it.
+                    self.ts.slice_from = Some(px);
+                    return true;
+                }
+                false
+            }
+            2 if button == 2 => {
+                let Some(from) = self.ts.slice_from.take() else { return false };
+                self.tool_preview_clear();
+                let to = if shift { crate::tools_quad::snap45(from, px) } else { px };
+                if (to - from).length() < 4.0 * self.dpr {
+                    return true;
+                }
+                let (at, n) = crate::tools_quad::screen_plane(self, from, to);
+                let shapes: Vec<(NodeId, DVec3, DVec3)> = self.meshes_under_line(items, from, to).into_iter().map(|m| (m, at, n)).collect();
+                self.slice(core, &shapes);
                 true
             }
             0 if button == 1 => {
@@ -315,23 +382,15 @@ impl View {
                     self.ts.cut_world.clear();
                 }
                 self.ts.cut_mesh = Some(it.shape);
-                if mods & CTRL != 0 {
+                if ctrl && !shift {
                     // Ctrl: an edge loop, at the middle with Ctrl+middle as the reference offers.
-                    let name = core.s.graph.path(it.shape);
-                    let _ = core.exec("polyKnife", json!({"mesh": name, "loopEdge": s.edge.0, "fraction": s.edge.1, "select": false}));
+                    let shape = it.shape;
+                    self.insert_loop_at(core, shape, s.edge.0, s.edge.1);
                     return true;
                 }
-                if s.vertex.2 < 12.0 {
-                    self.ts.cut_points.push(json!({"vertex": s.vertex.0}));
-                    self.ts.cut_world.push(s.vertex.1);
-                } else if s.edge.3 < 12.0 {
-                    let t = if shift { (s.edge.1 * 10.0).round() / 10.0 } else { s.edge.1 };
-                    self.ts.cut_points.push(json!({"edge": s.edge.0, "t": t}));
-                    self.ts.cut_world.push(s.edge.2);
-                } else {
-                    self.ts.cut_points.push(json!({"face": s.face, "position": s.world.to_array()}));
-                    self.ts.cut_world.push(s.world);
-                }
+                let (point, at) = place(self, &s);
+                self.ts.cut_points.push(point);
+                self.ts.cut_world.push(at);
                 true
             }
             _ => false,
@@ -584,7 +643,7 @@ impl View {
     // Quad Draw
 
     /// Where the cursor is on the live surface, or on the view plane with nothing live.
-    fn live_point(&mut self, core: &Core, items: &[DrawItem], px: DVec2) -> Option<DVec3> {
+    pub(crate) fn live_point(&mut self, core: &Core, items: &[DrawItem], px: DVec2) -> Option<DVec3> {
         let live = &core.s.live_surface;
         if live.is_empty() {
             return Some(self.vp.place_point(px));
@@ -597,7 +656,7 @@ impl View {
         self.vp.raycast(&hits, px).map(|h| h.2)
     }
 
-    fn quad_target<'a>(&self, core: &Core, items: &'a [DrawItem]) -> Option<&'a DrawItem> {
+    pub(crate) fn quad_target<'a>(&self, core: &Core, items: &'a [DrawItem]) -> Option<&'a DrawItem> {
         let live = &core.s.live_surface;
         if let Some(m) = self.ts.quad_mesh {
             if let Some(it) = items.iter().find(|i| i.shape == m) {
@@ -654,9 +713,34 @@ impl View {
         let (shift, ctrl) = (mods & SHIFT != 0, mods & CTRL != 0);
         match kind {
             1 => {
+                if let Some(last) = self.ts.last_px {
+                    let d = px - last;
+                    if d.length() > 2.0 {
+                        self.ts.last_dir = d.normalize();
+                    }
+                }
+                self.ts.last_px = Some(px);
                 self.tool_preview_clear();
                 for d in self.ts.dots.clone() {
                     self.vp.tool_points.push((d, GREEN));
+                }
+                if let Some((from, width)) = self.ts.strip_resize {
+                    // Tab+middle drag: the strip width follows the mouse sideways.
+                    self.ts.qd.strip_px = (width + (px.x - from.x) / self.dpr).clamp(2.0, 400.0);
+                    self.quad_strip_preview(core, items, from);
+                    return true;
+                }
+                if self.ts.strip.is_some() {
+                    self.quad_strip_drag(core, items, px);
+                    return true;
+                }
+                if self.ts.extend.is_some() {
+                    self.quad_extend_drag(core, items, px);
+                    return true;
+                }
+                if self.ts.relaxing {
+                    self.quad_relax(core, items, px);
+                    return true;
                 }
                 if let Some(i) = self.ts.dragging_dot {
                     if let Some(p) = self.live_point(core, items, px) {
@@ -673,19 +757,21 @@ impl View {
                     }
                     return true;
                 }
-                if let Some((mesh, e)) = self.ts.extend_edge {
-                    if let (Some(it), Some(p)) = (items.iter().find(|i| i.shape == mesh), self.live_point(core, items, px)) {
-                        let (a, b) = (it.mesh.edge_point(e, 0), it.mesh.edge_point(e, 1));
-                        let (wa, wb) = (it.world.transform_point3(it.mesh.position(a)), it.world.transform_point3(it.mesh.position(b)));
-                        let mid = (wa + wb) * 0.5;
-                        let (na, nb) = (p + (wa - mid), p + (wb - mid));
-                        for (x, y) in [(wa, na), (na, nb), (nb, wb)] {
-                            self.vp.tool_lines.push((x, y, GREEN));
+                if self.ts.tab {
+                    // Over a border edge: the edges Tab+drag would extend; elsewhere the strip's next quad.
+                    if let Some(it) = self.quad_target(core, items) {
+                        let list = [DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }];
+                        if let Some(s) = snap_at(self, &list, px).filter(|s| s.edge.3 < 12.0 * self.dpr && list[0].mesh.is_boundary_edge(s.edge.0)) {
+                            let it = &list[0];
+                            for e in crate::tools_quad::extend_edges(&it.mesh, s.edge.0, self.ts.qd.extend) {
+                                let (a, b) = (it.mesh.position(it.mesh.edge_point(e, 0)), it.mesh.position(it.mesh.edge_point(e, 1)));
+                                self.vp.tool_lines.push((it.world.transform_point3(a), it.world.transform_point3(b), GREEN));
+                            }
+                            return true;
                         }
                     }
-                    return true;
-                }
-                if shift {
+                    self.quad_strip_preview(core, items, px);
+                } else if shift && !ctrl {
                     let poly = self.quad_preview(core, items, px);
                     for i in 0..poly.len() {
                         self.vp.tool_lines.push((poly[i].0, poly[(i + 1) % poly.len()].0, GREEN));
@@ -696,18 +782,58 @@ impl View {
                         let list = [DrawItem { shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }];
                         if let Some(s) = snap_at(self, &list, px) {
                             let it = &list[0];
-                            for (a, b) in ring_preview(&it.mesh, s.edge.0, s.edge.1) {
-                                self.vp.tool_lines.push((it.world.transform_point3(a), it.world.transform_point3(b), GREEN));
+                            if shift {
+                                // Ctrl+Shift on an edge: the loop that would go.
+                                if s.edge.3 >= 6.0 * self.dpr || s.vertex.2 <= 10.0 * self.dpr {
+                                    return true;
+                                }
+                                for e in aztek_geo::topology::edge_loop(&it.mesh, s.edge.0) {
+                                    let (a, b) = (it.mesh.position(it.mesh.edge_point(e, 0)), it.mesh.position(it.mesh.edge_point(e, 1)));
+                                    self.vp.tool_lines.push((it.world.transform_point3(a), it.world.transform_point3(b), RED));
+                                }
+                            } else {
+                                for (a, b) in ring_preview(&it.mesh, s.edge.0, s.edge.1) {
+                                    self.vp.tool_lines.push((it.world.transform_point3(a), it.world.transform_point3(b), GREEN));
+                                }
                             }
                         }
                     }
                 }
                 true
             }
+            0 if button == 2 => {
+                let target = self.quad_target(core, items).map(|i| (i.shape, i.xf, i.world, i.mesh.clone()));
+                if ctrl {
+                    // Ctrl+middle click: a loop through the middle of the edge's ring.
+                    if let Some((shape, xf, world, mesh)) = target {
+                        let list = [DrawItem { shape, xf, world, mesh, smooth: 0 }];
+                        if let Some(s) = snap_at(self, &list, px) {
+                            self.insert_loop_at(core, shape, s.edge.0, 0.5);
+                        }
+                    }
+                    return true;
+                }
+                if self.ts.tab {
+                    if let Some((shape, xf, world, mesh)) = target {
+                        let list = [DrawItem { shape, xf, world, mesh, smooth: 0 }];
+                        if let Some(s) = snap_at(self, &list, px).filter(|s| s.edge.3 < 12.0 * self.dpr && list[0].mesh.is_boundary_edge(s.edge.0)) {
+                            // Tab+middle on a border edge: its loop along the border.
+                            let edges = crate::tools_quad::extend_edges(&list[0].mesh, s.edge.0, 1);
+                            self.ts.extend = Some(crate::tools_quad::Extend { mesh: shape, edges, from: s.edge.2 });
+                            self.ts.applied = false;
+                            return true;
+                        }
+                    }
+                    // Tab+middle elsewhere: the strip width.
+                    self.ts.strip_resize = Some((px, self.ts.qd.strip_px));
+                    return true;
+                }
+                false
+            }
             0 if button == 1 => {
                 let target = self.quad_target(core, items).map(|i| (i.shape, i.xf, i.world, i.mesh.clone()));
                 if shift && ctrl {
-                    // Delete: a dot, or the face under the cursor.
+                    // Delete: a dot, an edge's loop when on an edge, or the face under the cursor.
                     let screen = self.vp.screen();
                     if let Some(i) = self.ts.dots.iter().position(|d| screen.project(*d).is_some_and(|q| (q - px).length() < 12.0 * self.dpr)) {
                         self.ts.dots.remove(i);
@@ -715,15 +841,29 @@ impl View {
                     }
                     if let Some((shape, xf, world, mesh)) = target {
                         let list = [DrawItem { shape, xf, world, mesh, smooth: 0 }];
-                        if let Some((_, f, _)) = self.vp.raycast(&list, px) {
+                        if let Some(s) = snap_at(self, &list, px) {
+                            if s.edge.3 < 6.0 * self.dpr && s.vertex.2 > 10.0 * self.dpr {
+                                self.quad_delete_loop(core, shape, &list[0].mesh, s.edge.0);
+                                return true;
+                            }
                             let name = components::display_path(&core.s.graph, shape);
-                            let _ = core.exec("select", json!({"args": [format!("{name}.f[{f}]")]}));
+                            let _ = core.exec("select", json!({"args": [format!("{name}.f[{}]", s.face)]}));
                             let _ = core.exec("deleteComponents", json!({}));
                         }
                     }
                     return true;
                 }
                 if shift {
+                    // Inside the quad mesh: a drag relaxes; outside it a click fills between the dots.
+                    if let Some((shape, xf, world, mesh)) = &target {
+                        let list = [DrawItem { shape: *shape, xf: *xf, world: *world, mesh: mesh.clone(), smooth: 0 }];
+                        if self.vp.raycast(&list, px).is_some() {
+                            self.ts.relaxing = true;
+                            let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
+                            self.quad_relax(core, items, px);
+                            return true;
+                        }
+                    }
                     let poly = self.quad_preview(core, items, px);
                     if poly.len() >= 3 {
                         let items_json: Vec<Value> = poly.iter().map(|p| p.1.clone()).collect();
@@ -752,21 +892,25 @@ impl View {
                     if let Some((shape, xf, world, mesh)) = target {
                         let list = [DrawItem { shape, xf, world, mesh, smooth: 0 }];
                         if let Some(s) = snap_at(self, &list, px) {
-                            let name = core.s.graph.path(shape);
-                            let _ = core.exec("polyKnife", json!({"mesh": name, "loopEdge": s.edge.0, "fraction": s.edge.1, "select": false}));
+                            self.insert_loop_at(core, shape, s.edge.0, s.edge.1);
                         }
                     }
                     return true;
                 }
                 if self.ts.tab {
-                    if let Some((shape, xf, world, mesh)) = target {
-                        let list = [DrawItem { shape, xf, world, mesh, smooth: 0 }];
-                        if let Some(s) = snap_at(self, &list, px) {
+                    if let Some((shape, xf, world, mesh)) = &target {
+                        let list = [DrawItem { shape: *shape, xf: *xf, world: *world, mesh: mesh.clone(), smooth: 0 }];
+                        if let Some(s) = snap_at(self, &list, px).filter(|s| s.edge.3 < 12.0 * self.dpr) {
                             if list[0].mesh.is_boundary_edge(s.edge.0) {
-                                self.ts.extend_edge = Some((shape, s.edge.0));
+                                let edges = crate::tools_quad::extend_edges(&list[0].mesh, s.edge.0, self.ts.qd.extend);
+                                self.ts.extend = Some(crate::tools_quad::Extend { mesh: *shape, edges, from: s.edge.2 });
+                                self.ts.applied = false;
+                                return true;
                             }
                         }
                     }
+                    // Off the mesh's border: a quad strip from here.
+                    self.ts.strip = Some(crate::tools_quad::Strip { last_px: px, dir: self.ts.last_dir, edge: None, started: false });
                     return true;
                 }
                 // A drag on what's there moves it; a click on nothing places a dot.
@@ -788,22 +932,23 @@ impl View {
                 }
                 true
             }
-            2 if button == 1 => {
+            2 if button == 1 || button == 2 => {
+                // A middle release the tool didn't start is the view's (a manipulator drag).
+                let mine = button == 1 || self.ts.strip_resize.is_some() || self.ts.extend.is_some();
                 self.ts.dragging_dot = None;
-                if self.ts.dragging_vertex.take().is_some() {
+                self.ts.strip = None;
+                self.ts.strip_resize = None;
+                if std::mem::take(&mut self.ts.relaxing) {
+                    let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
+                }
+                if let Some((mesh, v)) = self.ts.dragging_vertex.take() {
+                    self.commit_preview(core);
+                    self.quad_auto_weld(core, mesh, v);
+                }
+                if self.ts.extend.take().is_some() {
                     self.commit_preview(core);
                 }
-                if let Some((mesh, e)) = self.ts.extend_edge.take() {
-                    if let (Some(it), Some(p)) = (items.iter().find(|i| i.shape == mesh), self.live_point(core, items, px)) {
-                        let (a, b) = (it.mesh.edge_point(e, 0), it.mesh.edge_point(e, 1));
-                        let (wa, wb) = (it.world.transform_point3(it.mesh.position(a)), it.world.transform_point3(it.mesh.position(b)));
-                        let mid = (wa + wb) * 0.5;
-                        let (na, nb) = (p + (wa - mid), p + (wb - mid));
-                        let name = core.s.graph.path(mesh);
-                        let _ = core.exec("polyAppendVertex", json!({"mesh": name, "items": [{"vertex": a}, {"vertex": b}, {"position": nb.to_array()}, {"position": na.to_array()}]}));
-                    }
-                }
-                true
+                mine
             }
             _ => false,
         }

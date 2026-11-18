@@ -20,6 +20,8 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QSpinBox>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMouseEvent>
@@ -97,6 +99,248 @@ QWidget* section(QVBoxLayout* page, const QString& title, QWidget* parent) {
     page->addWidget(head);
     page->addWidget(body);
     return body;
+}
+
+
+// Quad Draw's and Multi-Cut's options as the toolkit keeps them, with the reference's defaults (#140).
+const QJsonObject& option_defaults(const QString& tool) {
+    static const QJsonObject quad{{"autoWeld", true}, {"autoWeldDistance", 10.0}, {"relax", 0}, {"extend", 0}, {"stripWidth", 20.0}};
+    static const QJsonObject cut{{"snapStep", 10.0}, {"smoothingAngle", 180.0}, {"edgeFlow", false}, {"edgeFlowAmount", 1.0}, {"subdivisions", 1},
+                                 {"ignoreBackfaces", false}, {"deleteFaces", false}, {"extractFaces", false}, {"extractOffset", QJsonArray{0.5, 0.5, 0.5}}};
+    return tool == "quadDraw" ? quad : cut;
+}
+
+} // namespace
+
+QJsonObject tool_options(const QString& tool) {
+    QJsonObject o = option_defaults(tool);
+    QSettings s;
+    s.beginGroup("mtk/" + tool);
+    for (const QString& k : s.childKeys()) {
+        const QJsonDocument d = QJsonDocument::fromJson(("[" + s.value(k).toString() + "]").toUtf8());
+        if (d.isArray() && !d.array().isEmpty()) o[k] = d.array().first();
+    }
+    return o;
+}
+
+namespace {
+
+void set_tool_option(MainWindow* mw, const QString& tool, const QString& key, const QJsonValue& v) {
+    QSettings().setValue("mtk/" + tool + "/" + key, QString::fromUtf8(QJsonDocument(QJsonArray{v}).toJson(QJsonDocument::Compact)).mid(1).chopped(1));
+    mw->push_tool_options(tool);
+}
+
+// The shortcut list: each row the keys, then what they do, wrapping in the toolkit's width.
+void shortcut_rows(QVBoxLayout* v, const QList<QPair<QString, QString>>& rows) {
+    for (const auto& [keys, what] : rows) {
+        auto* l = new QLabel("<b>" + keys + ":</b> " + what);
+        l->setWordWrap(true);
+        v->addWidget(l);
+    }
+}
+
+// Spin boxes that give way to the toolkit's width rather than widen it.
+template <typename T>
+T* narrow(T* w) {
+    w->setMinimumWidth(40);
+    w->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    return w;
+}
+
+QWidget* quad_draw_panel(MainWindow* mw, QWidget* parent) {
+    auto* panel = new QWidget(parent);
+    auto* page = new QVBoxLayout(panel);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(4);
+    const QJsonObject o = tool_options("quadDraw");
+    {
+        QWidget* body = section(page, "Quad Draw Options", panel);
+        auto* f = new QFormLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        auto* row = new QHBoxLayout();
+        auto* weld = new QCheckBox("Auto-weld", body);
+        weld->setToolTip("A vertex dragged this many pixels from another welds to it when let go");
+        weld->setChecked(o["autoWeld"].toBool());
+        auto* dist = narrow(new QSpinBox(body));
+        no_stray_wheel(dist);
+        dist->setRange(1, 100);
+        dist->setValue(o["autoWeldDistance"].toInt());
+        dist->setEnabled(weld->isChecked());
+        row->addWidget(weld);
+        row->addWidget(dist, 1);
+        f->addRow(row);
+        QObject::connect(weld, &QCheckBox::toggled, body, [mw, dist](bool on) {
+            dist->setEnabled(on);
+            set_tool_option(mw, "quadDraw", "autoWeld", on);
+        });
+        QObject::connect(dist, &QSpinBox::valueChanged, body, [mw](int v) { set_tool_option(mw, "quadDraw", "autoWeldDistance", v); });
+        auto* relax = narrow(new QComboBox(body));
+        no_stray_wheel(relax);
+        relax->addItems({"Auto-Lock", "Interior Vertices", "Border Vertices", "All Vertices"});
+        relax->setToolTip("Which points Shift+drag relaxes. Auto-Lock keeps the border still while there are inner points to move.");
+        relax->setCurrentIndex(o["relax"].toInt());
+        QObject::connect(relax, &QComboBox::activated, body, [mw](int i) { set_tool_option(mw, "quadDraw", "relax", i); });
+        f->addRow("Relax:", relax);
+        auto* extend = narrow(new QComboBox(body));
+        no_stray_wheel(extend);
+        extend->addItems({"Edge", "Loop", "Border"});
+        extend->setToolTip("What Tab+drag on a border edge extends: the edge, its run along the border, or the whole border");
+        extend->setCurrentIndex(o["extend"].toInt());
+        QObject::connect(extend, &QComboBox::activated, body, [mw](int i) { set_tool_option(mw, "quadDraw", "extend", i); });
+        f->addRow("Extend:", extend);
+        auto* width = narrow(new QSpinBox(body));
+        no_stray_wheel(width);
+        width->setRange(2, 400);
+        width->setSuffix(" px");
+        width->setValue(o["stripWidth"].toInt());
+        width->setToolTip("How wide Tab+drag draws a quad strip; Tab+middle drag changes it in the view");
+        QObject::connect(width, &QSpinBox::valueChanged, body, [mw](int v) { set_tool_option(mw, "quadDraw", "stripWidth", v); });
+        f->addRow("Quad Strip Width:", width);
+    }
+    auto* clear = new QPushButton("Clear Dots", panel);
+    QObject::connect(clear, &QPushButton::clicked, panel, [mw] {
+        for (ViewportWidget* v : mw->panels()->views()) v->set("quadDrawAction", "\"clearDots\"");
+    });
+    page->addWidget(clear);
+    auto* reset = new QPushButton("Reset Settings", panel);
+    QObject::connect(reset, &QPushButton::clicked, panel, [mw] {
+        QSettings().remove("mtk/quadDraw");
+        mw->reset_tool_panel("quadDraw");
+    });
+    page->addWidget(reset);
+    {
+        QWidget* body = section(page, "Keyboard/Mouse Shortcuts", panel);
+        auto* f = new QVBoxLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        f->addWidget(new QLabel("<i>Hovering outside the quad mesh</i>"));
+        shortcut_rows(f, {{"LMB", "Click to drop dots"}, {"LMB", "Drag to tweak dots"}, {"Ctrl+Shift+LMB", "Delete dots"}, {"Tab+LMB", "Drag to draw quad strips"},
+                          {"Tab+MMB", "Drag to resize quad strips"}, {"Shift+LMB", "Click between dots to create geometry"}});
+        f->addWidget(new QLabel("<i>Hovering inside the quad mesh</i>"));
+        shortcut_rows(f, {{"LMB", "Drag to tweak components"}, {"Ctrl+LMB", "Click edge to insert loop"}, {"Ctrl+MMB", "Click edge to insert centered loop"},
+                          {"Shift+LMB", "Drag to relax points"}, {"Tab+LMB", "Drag to extend border edge"}, {"Tab+MMB", "Drag to extend border edge loop"},
+                          {"Ctrl+Shift+LMB", "Click face to delete it"}, {"Ctrl+Shift+LMB", "Click edge to delete edge loop"}});
+    }
+    return panel;
+}
+
+QWidget* multi_cut_panel(MainWindow* mw, QWidget* parent) {
+    auto* panel = new QWidget(parent);
+    auto* page = new QVBoxLayout(panel);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(4);
+    const QJsonObject o = tool_options("multiCut");
+    auto spin = [mw](QWidget* body, const QString& key, double lo, double hi, double v, int decimals) {
+        auto* sb = narrow(new QDoubleSpinBox(body));
+        no_stray_wheel(sb);
+        sb->setRange(lo, hi);
+        sb->setDecimals(decimals);
+        sb->setValue(v);
+        QObject::connect(sb, &QDoubleSpinBox::valueChanged, body, [mw, key](double x) { set_tool_option(mw, "multiCut", key, x); });
+        return sb;
+    };
+    auto check = [mw](QWidget* body, const QString& label, const QString& key, bool v) {
+        auto* cb = new QCheckBox(label, body);
+        cb->setChecked(v);
+        QObject::connect(cb, &QCheckBox::toggled, body, [mw, key](bool on) { set_tool_option(mw, "multiCut", key, on); });
+        return cb;
+    };
+    {
+        QWidget* body = section(page, "Multi-Cut Options", panel);
+        auto* f = new QFormLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        QDoubleSpinBox* step = spin(body, "snapStep", 0, 100, o["snapStep"].toDouble(), 0);
+        step->setSuffix(" %");
+        step->setToolTip("Shift+click or drag snaps a point along an edge in steps of this much of its length");
+        f->addRow("Snap Step %:", step);
+    }
+    {
+        QWidget* body = section(page, "Insert Edge Loop Tool", panel);
+        auto* f = new QFormLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        f->addRow("Smoothing Angle:", spin(body, "smoothingAngle", 0, 180, o["smoothingAngle"].toDouble(), 0));
+        auto* row = new QHBoxLayout();
+        QCheckBox* flow = check(body, "Edge Flow", "edgeFlow", o["edgeFlow"].toBool());
+        flow->setToolTip("A new loop follows the curvature of the loops beside it; off on a live surface, where it follows the surface");
+        QDoubleSpinBox* amount = spin(body, "edgeFlowAmount", -10, 10, o["edgeFlowAmount"].toDouble(), 2);
+        amount->setEnabled(flow->isChecked());
+        QObject::connect(flow, &QCheckBox::toggled, amount, &QWidget::setEnabled);
+        row->addWidget(flow);
+        row->addWidget(amount, 1);
+        f->addRow(row);
+        auto* subs = narrow(new QSpinBox(body));
+        no_stray_wheel(subs);
+        subs->setRange(1, 64);
+        subs->setValue(o["subdivisions"].toInt());
+        subs->setToolTip("How many evenly spaced loops Ctrl+click inserts");
+        QObject::connect(subs, &QSpinBox::valueChanged, body, [mw](int v) { set_tool_option(mw, "multiCut", "subdivisions", v); });
+        f->addRow("Subdivisions:", subs);
+    }
+    {
+        QWidget* body = section(page, "Slice Tool", panel);
+        auto* f = new QFormLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        f->addRow(check(body, "Ignore Backfaces", "ignoreBackfaces", o["ignoreBackfaces"].toBool()));
+        QCheckBox* del = check(body, "Delete Faces", "deleteFaces", o["deleteFaces"].toBool());
+        QCheckBox* extract = check(body, "Extract Faces", "extractFaces", o["extractFaces"].toBool());
+        f->addRow(del);
+        f->addRow(extract);
+        auto* off = new QWidget(body);
+        auto* h = new QHBoxLayout(off);
+        h->setContentsMargins(0, 0, 0, 0);
+        QList<QDoubleSpinBox*> parts;
+        const QJsonArray now = o["extractOffset"].toArray();
+        for (int k = 0; k < 3; ++k) {
+            auto* sb = narrow(new QDoubleSpinBox(off));
+            no_stray_wheel(sb);
+            sb->setRange(-1e4, 1e4);
+            sb->setDecimals(3);
+            sb->setValue(now.size() == 3 ? now[k].toDouble() : 0.5);
+            h->addWidget(sb);
+            parts << sb;
+        }
+        for (QDoubleSpinBox* sb : parts)
+            QObject::connect(sb, &QDoubleSpinBox::valueChanged, off, [mw, parts] {
+                set_tool_option(mw, "multiCut", "extractOffset", QJsonArray{parts[0]->value(), parts[1]->value(), parts[2]->value()});
+            });
+        f->addRow(off);
+        // Delete and Extract are one or the other; the offset is Extract's.
+        auto sync = [del, extract, off] {
+            extract->setEnabled(!del->isChecked());
+            off->setEnabled(!del->isChecked() && extract->isChecked());
+        };
+        QObject::connect(del, &QCheckBox::toggled, body, sync);
+        QObject::connect(extract, &QCheckBox::toggled, body, sync);
+        sync();
+        f->addRow(new QLabel("Slice Along Plane:"));
+        auto* planes = new QHBoxLayout();
+        for (const char* p : {"YZ", "ZX", "XY"}) {
+            auto* b = narrow(new QPushButton(p, body));
+            b->setToolTip(QString("Cut the selected objects through their middle along the world %1 plane").arg(p));
+            const QString key = QString(p).toLower();
+            QObject::connect(b, &QPushButton::clicked, body, [mw, key] {
+                if (ViewportWidget* v = mw->active_view()) v->set("multiCutAction", "\"" + key + "\"");
+                Host::get()->poke();
+            });
+            planes->addWidget(b);
+        }
+        f->addRow(planes);
+    }
+    auto* reset = new QPushButton("Reset Settings", panel);
+    QObject::connect(reset, &QPushButton::clicked, panel, [mw] {
+        QSettings().remove("mtk/multiCut");
+        mw->reset_tool_panel("multiCut");
+    });
+    page->addWidget(reset);
+    {
+        QWidget* body = section(page, "Keyboard/Mouse Shortcuts", panel);
+        auto* f = new QVBoxLayout(body);
+        f->setContentsMargins(4, 2, 2, 4);
+        shortcut_rows(f, {{"LMB", "Click to drop a point"}, {"Ctrl+LMB", "Insert edge loop"}, {"Ctrl+MMB", "Insert centered edge loop"},
+                          {"MMB", "Drag across the mesh to slice it"}, {"Shift+MMB", "Slice at 45 degree steps"}, {"Backspace", "Undo last dropped point"},
+                          {"Shift+LMB", "Snap a point along an edge by the snap step"}, {"Ctrl+Shift+LMB", "Constrain to the perpendicular of the last edge"},
+                          {"Enter", "Commit cut"}});
+    }
+    return panel;
 }
 
 } // namespace
@@ -315,10 +559,37 @@ void MainWindow::show_modeling_toolkit() {
                              }},
                             {"Add Divisions", "insertLoop", run("polySubdivideFacet")},
                             {"Bridge", "bridge", run("polyBridge")}});
-        grid("Tools", {{"Multi-Cut", "multiCut", [this] { set_tool("multiCut"); }},
-                       {"Target Weld", "merge", [this] { set_tool("targetWeld"); }},
-                       {"Connect", "insertLoop", run("polyConnectComponents")},
-                       {"Quad Draw", "quadDraw", [this] { set_tool("quadDraw"); }}});
+        // Tools: Multi-Cut and Quad Draw are mode tools, their buttons lit while they are on, with their options below
+        // (#140).
+        {
+            QWidget* body = section(page, "Tools", w);
+            auto* g = new QGridLayout(body);
+            g->setContentsMargins(0, 2, 0, 4);
+            g->setSpacing(2);
+            const std::tuple<QString, QString, QString> tools[] = {
+                {"Multi-Cut", "multiCut", "multiCut"}, {"Target Weld", "merge", "targetWeld"}, {"Connect", "insertLoop", ""}, {"Quad Draw", "quadDraw", "quadDraw"}};
+            int i = 0;
+            for (const auto& [label, ic, tool] : tools) {
+                auto* b = new QPushButton(icon(ic), label, body);
+                b->setStyleSheet("QPushButton { text-align: left; padding: 3px 6px; } QPushButton:checked { background: #3d6f99; }");
+                if (tool.isEmpty()) {
+                    connect(b, &QPushButton::clicked, this, run("polyConnectComponents"));
+                } else {
+                    b->setCheckable(true);
+                    mtk_tools_[tool] = b;
+                    const QString t = tool;
+                    connect(b, &QPushButton::clicked, this, [this, t, b] {
+                        // A second click on a lit tool puts it down, as the reference's toolkit does.
+                        set_tool(b->isChecked() ? t : "select");
+                    });
+                }
+                g->addWidget(b, i / 2, i % 2);
+                ++i;
+            }
+        }
+        mtk_tool_panels_["quadDraw"] = quad_draw_panel(this, w);
+        mtk_tool_panels_["multiCut"] = multi_cut_panel(this, w);
+        for (QWidget* p : mtk_tool_panels_) page->addWidget(p);
         page->addStretch(1);
         scroll->setWidget(w);
         mtk_dock_->setWidget(scroll);
@@ -337,8 +608,31 @@ void MainWindow::show_modeling_toolkit() {
         connect(Host::get(), &Host::sceneChanged, mtk_dock_, follow);
         follow();
     }
+    mtk_follow_tool(tool_);
     mtk_dock_->show();
     mtk_dock_->raise();
+}
+
+void MainWindow::mtk_follow_tool(const QString& tool) {
+    for (auto it = mtk_tools_.begin(); it != mtk_tools_.end(); ++it) it.value()->setChecked(it.key() == tool);
+    for (auto it = mtk_tool_panels_.begin(); it != mtk_tool_panels_.end(); ++it) it.value()->setVisible(it.key() == tool);
+    if (tool == "quadDraw" || tool == "multiCut") push_tool_options(tool);
+}
+
+void MainWindow::reset_tool_panel(const QString& tool) {
+    QWidget* old = mtk_tool_panels_.value(tool);
+    if (!old) return;
+    QWidget* fresh = tool == "quadDraw" ? quad_draw_panel(this, old->parentWidget()) : multi_cut_panel(this, old->parentWidget());
+    if (auto* lay = qobject_cast<QVBoxLayout*>(old->parentWidget()->layout())) lay->insertWidget(lay->indexOf(old), fresh);
+    mtk_tool_panels_[tool] = fresh;
+    old->deleteLater();
+    mtk_follow_tool(tool_);
+}
+
+void MainWindow::push_tool_options(const QString& tool) {
+    const QJsonObject o = tool_options(tool);
+    const QString text = QString::fromUtf8(QJsonDocument(o).toJson(QJsonDocument::Compact));
+    for (ViewportWidget* v : panels_->views()) v->set(tool, text);
 }
 
 } // namespace az

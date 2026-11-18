@@ -1375,6 +1375,31 @@ void MainWindow::tool_options_marking_menu(QPoint global) {
     }
 
     QList<MarkItem> items;
+    if (tool_ == "quadDraw" || tool_ == "multiCut") {
+        // Quad Draw's: Relax and Extend, a switch to Multi-Cut (or back), and the toolkit with the rest (#140).
+        const QJsonObject o = tool_options("quadDraw");
+        auto pick = [this, box](const QString& key, int now, const QStringList& names) {
+            QList<MarkItem> out;
+            for (int i = 0; i < names.size(); ++i)
+                out.append(box(names[i], -1, now == i, [this, key, i] {
+                    QSettings().setValue("mtk/quadDraw/" + key, QString::number(i));
+                    push_tool_options("quadDraw");
+                    reset_tool_panel("quadDraw");
+                }));
+            return out;
+        };
+        const bool quad = tool_ == "quadDraw";
+        items = {menu("Relax", 0, pick("relax", o["relax"].toInt(), {"Auto-Lock", "Interior Vertices", "Border Vertices", "All Vertices"})),
+                 menu("Extend", 4, pick("extend", o["extend"].toInt(), {"Edge", "Loop", "Border"})),
+                 item(quad ? "Multi-Cut" : "Quad Draw", 2, [this, quad] { set_tool(quad ? "multiCut" : "quadDraw"); }),
+                 item("Modeling Toolkit", 6, [this] { show_modeling_toolkit(); }),
+                 item("Clear Dots", -1, [this] {
+                     for (ViewportWidget* v : panels_->views()) v->set("quadDrawAction", "\"clearDots\"");
+                 }),
+                 menu("Symmetry", -1, symmetry)};
+        MarkingMenu::show_at(global, items);
+        return;
+    }
     if (!xform) {
         items = {menu("Symmetry", 0, symmetry), item("Lasso", 2, [this] { set_tool("lasso"); }), menu("Select", 4, select), item("Paint Select", 6, [this] { set_tool("paintSelect"); }),
                  menu("Selection Constraints", -1, sel_constraints), menu("Transform Constraints", -1, xf_constraints)};

@@ -1527,6 +1527,25 @@ connections (`-ic`) feeds the copies from the original's own inputs, so they sha
 hierarchy with its leaf shapes instances of the originals', and `-groupUnder world` or `group` places the copies.
 Option windows take radio rows, rows greyed out by another's value and pairs of switches that exclude each other.
 
+### Quad Draw and Multi-Cut as mode tools (18/11/2026, #140)
+
+In the Modeling Toolkit, Quad Draw and Multi-Cut stay lit while on, and their options show under the tools, with the
+shortcuts. Quad Draw Options: Auto-weld and its distance in pixels (a vertex dragged that near another welds to it when
+let go), Relax (Auto-Lock, Interior, Border, All Vertices: the points Shift+drag on the mesh relaxes), Extend (Edge,
+Loop, Border: what Tab+drag on a border edge extrudes; Loop runs along the border through points of three edges), Quad
+Strip Width, Clear Dots and Reset Settings. Tab held over the surface previews a quad along the way the mouse last
+moved; Tab+drag there draws a strip of quads, each on the last; Tab+middle drag sizes it, or on a border edge extends
+its loop. Ctrl+middle click inserts a centred loop; Ctrl+Shift+click on an edge deletes its loop. Ctrl+Shift+right
+click is its marking menu: Relax, Extend, Multi-Cut, the toolkit and Clear Dots.
+
+Multi-Cut Options: Snap Step % (Shift+click snaps along an edge in those steps), Smoothing Angle, Edge Flow and its
+amount (off on a live surface), Subdivisions; the Slice Tool's Ignore Backfaces, Delete Faces, Extract Faces with its
+offset, and Slice Along Plane YZ, ZX and XY, which cut the selected objects through their middle. A middle drag across
+a mesh slices it through the view, Shift turning the line in 45 degree steps. Ctrl+Shift after a point on an edge
+puts the next one square to that edge. Not yet: Live Constraint Options (overlay colours, mesh alpha, surface offset,
+snap to backfaces), middle drags along normals, Shift+middle relax, Force Cage + Smooth, the slice plane's gizmo and
+Color Settings.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

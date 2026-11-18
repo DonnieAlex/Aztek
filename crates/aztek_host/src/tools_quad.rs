@@ -1,0 +1,515 @@
+//! Quad Draw and Multi-Cut as the reference's mode tools (#140): their options, set from the Modeling Toolkit, and the
+//! drags beyond a click: quad strips, extending border edges by edge, loop or border, relaxing, centred loops, deleting
+//! loops, and Multi-Cut's slice across the surface or along a plane.
+
+use aztek_geo::{Index, Mesh};
+use aztek_scene::components;
+use aztek_scene::plug::NodeId;
+use glam::{DVec2, DVec3};
+use serde_json::{json, Value};
+
+use crate::core::Core;
+use crate::view::View;
+use crate::viewport::DrawItem;
+
+const GREEN: [u8; 4] = [70, 255, 120, 255];
+const ORANGE: [u8; 4] = [235, 160, 30, 255];
+
+/// Quad Draw Options, as the Modeling Toolkit sets them.
+#[derive(Clone, Debug)]
+pub struct QuadOpts {
+    pub auto_weld: bool,
+    /// Pixels: a dragged vertex let go this near another welds to it.
+    pub weld_px: f64,
+    /// Which points Shift+drag relaxes: 0 auto-lock (border points stay when there are inner ones), 1 interior, 2 border,
+    /// 3 all.
+    pub relax: u8,
+    /// What Tab+drag on a border edge extends: 0 the edge, 1 its loop along the border, 2 the whole border.
+    pub extend: u8,
+    /// Pixels across a quad strip.
+    pub strip_px: f64,
+}
+
+impl Default for QuadOpts {
+    fn default() -> Self {
+        QuadOpts { auto_weld: true, weld_px: 10.0, relax: 0, extend: 0, strip_px: 20.0 }
+    }
+}
+
+/// Multi-Cut Options.
+#[derive(Clone, Debug)]
+pub struct CutOpts {
+    /// Shift snaps a point along an edge in steps of this percentage.
+    pub snap_step: f64,
+    pub smoothing_angle: f64,
+    pub edge_flow: bool,
+    pub edge_flow_amount: f64,
+    pub subdivisions: i64,
+    pub ignore_backfaces: bool,
+    pub delete_faces: bool,
+    pub extract_faces: bool,
+    pub extract_offset: [f64; 3],
+}
+
+impl Default for CutOpts {
+    fn default() -> Self {
+        CutOpts { snap_step: 10.0, smoothing_angle: 180.0, edge_flow: false, edge_flow_amount: 1.0, subdivisions: 1, ignore_backfaces: false, delete_faces: false, extract_faces: false, extract_offset: [0.5; 3] }
+    }
+}
+
+/// A quad strip being drawn: where its last edge is on screen and which way it went, and that edge's vertices once
+/// they exist.
+#[derive(Clone, Debug, Default)]
+pub struct Strip {
+    pub last_px: DVec2,
+    pub dir: DVec2,
+    pub edge: Option<(Index, Index)>,
+    pub started: bool,
+}
+
+/// Border edges being extended: the mesh, the edges, and where the drag started.
+#[derive(Clone, Debug)]
+pub struct Extend {
+    pub mesh: NodeId,
+    pub edges: Vec<Index>,
+    pub from: DVec3,
+}
+
+fn f(v: &Value, k: &str, d: f64) -> f64 {
+    v.get(k).and_then(Value::as_f64).unwrap_or(d)
+}
+fn b(v: &Value, k: &str, d: bool) -> bool {
+    v.get(k).and_then(Value::as_bool).unwrap_or(d)
+}
+
+impl QuadOpts {
+    pub fn set(&mut self, v: &Value) {
+        self.auto_weld = b(v, "autoWeld", self.auto_weld);
+        self.weld_px = f(v, "autoWeldDistance", self.weld_px).max(0.0);
+        self.relax = f(v, "relax", self.relax as f64).clamp(0.0, 3.0) as u8;
+        self.extend = f(v, "extend", self.extend as f64).clamp(0.0, 2.0) as u8;
+        self.strip_px = f(v, "stripWidth", self.strip_px).max(1.0);
+    }
+}
+
+impl CutOpts {
+    pub fn set(&mut self, v: &Value) {
+        self.snap_step = f(v, "snapStep", self.snap_step).clamp(0.0, 100.0);
+        self.smoothing_angle = f(v, "smoothingAngle", self.smoothing_angle);
+        self.edge_flow = b(v, "edgeFlow", self.edge_flow);
+        self.edge_flow_amount = f(v, "edgeFlowAmount", self.edge_flow_amount);
+        self.subdivisions = f(v, "subdivisions", self.subdivisions as f64).max(1.0) as i64;
+        self.ignore_backfaces = b(v, "ignoreBackfaces", self.ignore_backfaces);
+        self.delete_faces = b(v, "deleteFaces", self.delete_faces);
+        self.extract_faces = b(v, "extractFaces", self.extract_faces);
+        if let Some(a) = v.get("extractOffset").and_then(Value::as_array) {
+            for (k, x) in a.iter().take(3).enumerate() {
+                self.extract_offset[k] = x.as_f64().unwrap_or(self.extract_offset[k]);
+            }
+        }
+    }
+
+    /// A fraction along an edge snapped to the step.
+    pub fn snap(&self, t: f64) -> f64 {
+        let step = (self.snap_step / 100.0).max(1e-6);
+        ((t / step).round() * step).clamp(0.0, 1.0)
+    }
+}
+
+/// How many edges meet at a point.
+fn valence(m: &Mesh, p: Index) -> usize {
+    let mut n = 0;
+    m.for_each_point_edge(p, |_| n += 1);
+    n
+}
+
+/// The border edges Tab+drag extends from `e`: the edge alone, its run along the border while the border goes straight
+/// on through points of three edges, or the whole border it is on.
+pub fn extend_edges(m: &Mesh, e: Index, mode: u8) -> Vec<Index> {
+    if !m.is_boundary_edge(e) {
+        return Vec::new();
+    }
+    match mode {
+        2 => aztek_geo::topology::boundary_loops(m).into_iter().find(|l| l.edges.contains(&e)).map(|l| l.edges).unwrap_or_else(|| vec![e]),
+        1 => {
+            let mut out = vec![e];
+            for end in 0..2 {
+                let (mut cur, mut p) = (e, m.edge_point(e, end));
+                loop {
+                    if valence(m, p) != 3 {
+                        break;
+                    }
+                    let mut next = None;
+                    m.for_each_point_edge(p, |x| {
+                        if x != cur && m.is_boundary_edge(x) {
+                            next = Some(x);
+                        }
+                    });
+                    let Some(x) = next.filter(|x| !out.contains(x)) else { break };
+                    out.push(x);
+                    p = m.edge_other_point(x, p);
+                    cur = x;
+                }
+            }
+            out
+        }
+        _ => vec![e],
+    }
+}
+
+/// The points Shift+drag relaxes among those near the brush, by the Relax setting.
+pub fn relax_points(m: &Mesh, near: &[Index], mode: u8) -> Vec<Index> {
+    let border = |p: Index| {
+        let mut on = false;
+        m.for_each_point_edge(p, |e| on |= m.is_boundary_edge(e));
+        on
+    };
+    let inner: Vec<Index> = near.iter().copied().filter(|&p| !border(p)).collect();
+    match mode {
+        1 => inner,
+        2 => near.iter().copied().filter(|&p| border(p)).collect(),
+        3 => near.to_vec(),
+        // Auto-lock: the border holds while there are inner points to move; a strip with none relaxes its border.
+        _ => {
+            if inner.is_empty() {
+                near.to_vec()
+            } else {
+                inner
+            }
+        }
+    }
+}
+
+/// Each point moved a quarter of the way to the middle of its neighbours: one step of a relax. A border point only
+/// looks along the border, so it slides along it and the border keeps its shape; a corner stays.
+pub fn relaxed(m: &Mesh, pts: &[Index]) -> Vec<(Index, DVec3)> {
+    pts.iter()
+        .filter_map(|&p| {
+            let mut on_border = false;
+            m.for_each_point_edge(p, |e| on_border |= m.is_boundary_edge(e));
+            if on_border && valence(m, p) <= 2 {
+                return None;
+            }
+            let mut sum = DVec3::ZERO;
+            let mut n = 0.0;
+            m.for_each_point_edge(p, |e| {
+                if !on_border || m.is_boundary_edge(e) {
+                    sum += m.position(m.edge_other_point(e, p));
+                    n += 1.0;
+                }
+            });
+            (n > 0.0).then(|| (p, m.position(p).lerp(sum / n, 0.25)))
+        })
+        .collect()
+}
+
+/// The plane through the eye and a line across the screen: a point on it and its normal.
+pub fn screen_plane(v: &View, a: DVec2, b: DVec2) -> (DVec3, DVec3) {
+    let size = v.vp.size();
+    let (oa, da) = v.vp.cam.ray(a, size);
+    let (ob, db) = v.vp.cam.ray(b, size);
+    let n = da.cross((ob + db) - oa).normalize_or_zero();
+    (oa, n)
+}
+
+/// A screen line's end turned to the nearest 45 degrees from its start.
+pub fn snap45(from: DVec2, to: DVec2) -> DVec2 {
+    let d = to - from;
+    let len = d.length();
+    let step = std::f64::consts::FRAC_PI_4;
+    let a = (d.y.atan2(d.x) / step).round() * step;
+    from + DVec2::new(a.cos(), a.sin()) * len
+}
+
+/// polyCut's plane rotation for a plane with this normal, in radians: the tools run their commands in stored units.
+pub fn cut_rotation(n: DVec3) -> [f64; 3] {
+    let n = n.normalize_or_zero();
+    [(-n.y).clamp(-1.0, 1.0).asin(), n.x.atan2(n.z), 0.0]
+}
+
+/// A mesh shape's evaluated mesh.
+fn mesh_of(g: &aztek_scene::graph::Graph, shape: NodeId) -> Option<std::sync::Arc<Mesh>> {
+    g.node(shape)?.data().mesh(aztek_scene::mesh_nodes::MeshNode::OUT_MESH).cloned()
+}
+
+/// The vertex of a mesh at a world place, as polyAppendVertex left it.
+fn vertex_at(core: &mut Core, shape: NodeId, w: DVec3) -> Option<Index> {
+    let g = &mut core.s.graph;
+    g.evaluate();
+    let m = mesh_of(g, shape)?;
+    let xf = aztek_scene::dag::transform_of(g, shape);
+    let world = aztek_scene::rig::world(g, xf);
+    let local = world.inverse().transform_point3(w);
+    (0..m.point_capacity()).filter(|&p| m.point_valid(p)).min_by(|&x, &y| (m.position(x) - local).length().total_cmp(&(m.position(y) - local).length())).filter(|&p| (m.position(p) - local).length() < 1e-5)
+}
+
+impl View {
+    /// The four corners of a strip quad on screen, round its middle along `dir`, `w` pixels a side.
+    fn strip_corners(&self, at: DVec2, dir: DVec2, w: f64) -> [DVec2; 4] {
+        let d = if dir.length_squared() < 1e-9 { DVec2::X } else { dir.normalize() };
+        let side = DVec2::new(-d.y, d.x) * w * 0.5;
+        let along = d * w * 0.5;
+        [at - along - side, at - along + side, at + along + side, at + along - side]
+    }
+
+    /// Tab held over an empty part of the live surface: the strip's next quad, along the last way the mouse moved.
+    pub(crate) fn quad_strip_preview(&mut self, core: &Core, items: &[DrawItem], px: DVec2) {
+        let w = self.ts.qd.strip_px * self.dpr;
+        let corners = self.strip_corners(px, self.ts.last_dir, w);
+        let pts: Vec<DVec3> = corners.iter().filter_map(|&c| self.live_point(core, items, c)).collect();
+        if pts.len() == 4 {
+            for i in 0..4 {
+                self.vp.tool_lines.push((pts[i], pts[(i + 1) % 4], GREEN));
+            }
+        }
+    }
+
+    /// Tab+drag on an empty part of the surface: a quad each strip width the mouse moves, each on the last.
+    pub(crate) fn quad_strip_drag(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) {
+        let w = self.ts.qd.strip_px * self.dpr;
+        let Some(mut s) = self.ts.strip.clone() else { return };
+        let mut guard = 0;
+        while (px - s.last_px).length() >= w && guard < 64 {
+            guard += 1;
+            let dir = (px - s.last_px).normalize();
+            let back = s.last_px;
+            let front = back + dir * w;
+            let side = DVec2::new(-dir.y, dir.x) * w * 0.5;
+            let (bl, br, fl, fr) = (back - side, back + side, front - side, front + side);
+            let world = |v: &mut View, c: DVec2| v.live_point(core, items, c);
+            let (Some(wfl), Some(wfr)) = (world(self, fl), world(self, fr)) else { break };
+            let target = self.quad_target(core, items).map(|i| i.shape);
+            let mut call_items = Vec::new();
+            match s.edge {
+                Some((a, b)) => {
+                    call_items.push(json!({"vertex": a}));
+                    call_items.push(json!({"vertex": b}));
+                }
+                None => {
+                    let (Some(wbl), Some(wbr)) = (world(self, bl), world(self, br)) else { break };
+                    call_items.push(json!({"position": wbl.to_array()}));
+                    call_items.push(json!({"position": wbr.to_array()}));
+                }
+            }
+            call_items.push(json!({"position": wfr.to_array()}));
+            call_items.push(json!({"position": wfl.to_array()}));
+            let mut call = json!({"items": call_items});
+            if let Some(t) = target {
+                call["mesh"] = json!(core.s.graph.path(t));
+            } else {
+                let _ = core.exec_silent("select", json!({"clear": true}));
+            }
+            let Ok(v) = core.exec("polyAppendVertex", call) else { break };
+            if self.ts.quad_mesh.is_none() {
+                if let Some(n) = v.get(0).and_then(Value::as_str) {
+                    if let Ok(Some(id)) = core.s.graph.find(n) {
+                        self.ts.quad_mesh = components::as_mesh(&core.s.graph, id);
+                    }
+                }
+            }
+            let Some(shape) = self.ts.quad_mesh.or(target) else { break };
+            // The quad's front edge is the next one's back.
+            s.edge = match (vertex_at(core, shape, wfl), vertex_at(core, shape, wfr)) {
+                (Some(l), Some(r)) => Some((l, r)),
+                _ => None,
+            };
+            s.last_px = front;
+            s.dir = dir;
+            s.started = true;
+        }
+        self.ts.strip = Some(s);
+    }
+
+    /// Tab+drag on a border edge: the edges the Extend setting picks, extruded and moved with the mouse, live.
+    pub(crate) fn quad_extend_drag(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) {
+        let Some(x) = self.ts.extend.clone() else { return };
+        let Some(p) = self.live_point(core, items, px) else { return };
+        let name = components::display_path(&core.s.graph, x.mesh);
+        let list: Vec<String> = x.edges.iter().map(|e| format!("{name}.e[{e}]")).collect();
+        let d = p - x.from;
+        self.apply_preview(core, "polyExtrudeEdge", json!({"args": list, "worldSpace": true, "translate": d.to_array(), "keepFacesTogether": true}));
+    }
+
+    /// Shift+drag inside the quad mesh: the points near the brush relax toward their neighbours, kept on the surface.
+    pub(crate) fn quad_relax(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) {
+        let Some(it) = self.quad_target(core, items) else { return };
+        let (shape, world, mesh) = (it.shape, it.world, it.mesh.clone());
+        let screen = self.vp.screen();
+        let reach = 60.0 * self.dpr;
+        let near: Vec<Index> = (0..mesh.point_capacity()).filter(|&p| mesh.point_valid(p) && screen.project(world.transform_point3(mesh.position(p))).is_some_and(|q| (q - px).length() < reach)).collect();
+        let pts = relax_points(&mesh, &near, self.ts.qd.relax);
+        if pts.is_empty() {
+            return;
+        }
+        let moved = relaxed(&mesh, &pts);
+        let name = components::display_path(&core.s.graph, shape);
+        let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
+        for (p, local) in moved {
+            let mut w = world.transform_point3(local);
+            if let Some(q) = screen.project(w) {
+                if let Some(on) = self.live_point(core, items, q) {
+                    if !core.s.live_surface.is_empty() {
+                        w = on;
+                    }
+                }
+            }
+            let _ = core.exec_silent("xform", json!({"args": [format!("{name}.vtx[{p}]")], "worldSpace": true, "translation": w.to_array()}));
+        }
+        let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
+    }
+
+    /// A dragged vertex let go within the auto-weld distance of another of its mesh's points welds to it.
+    pub(crate) fn quad_auto_weld(&mut self, core: &mut Core, mesh: NodeId, v: Index) {
+        if !self.ts.qd.auto_weld {
+            return;
+        }
+        core.s.graph.evaluate();
+        let Some(m) = mesh_of(&core.s.graph, mesh) else { return };
+        let world = { let xf = aztek_scene::dag::transform_of(&core.s.graph, mesh); aztek_scene::rig::world(&mut core.s.graph, xf) };
+        let screen = self.vp.screen();
+        let Some(at) = m.point_valid(v).then(|| world.transform_point3(m.position(v))).and_then(|w| screen.project(w)) else { return };
+        let reach = self.ts.qd.weld_px * self.dpr;
+        let other = (0..m.point_capacity())
+            .filter(|&p| p != v && m.point_valid(p))
+            .filter_map(|p| screen.project(world.transform_point3(m.position(p))).map(|q| (p, (q - at).length())))
+            .filter(|x| x.1 < reach)
+            .min_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((p, _)) = other {
+            // Onto the other point, then welded there.
+            let name = components::display_path(&core.s.graph, mesh);
+            let target = world.transform_point3(m.position(p));
+            let _ = core.exec("xform", json!({"args": [format!("{name}.vtx[{v}]")], "worldSpace": true, "translation": target.to_array()}));
+            let _ = core.exec("polyMergeVertex", json!({"args": [format!("{name}.vtx[{v}]"), format!("{name}.vtx[{p}]")], "distance": 1e-4}));
+        }
+    }
+
+    /// Ctrl+Shift+click on an edge in Quad Draw: its whole loop goes.
+    pub(crate) fn quad_delete_loop(&mut self, core: &mut Core, shape: NodeId, m: &Mesh, e: Index) {
+        let lp = aztek_geo::topology::edge_loop(m, e);
+        let list: Vec<Index> = if lp.is_empty() { vec![e] } else { lp };
+        let name = components::display_path(&core.s.graph, shape);
+        let args: Vec<String> = list.iter().map(|e| format!("{name}.e[{e}]")).collect();
+        let _ = core.exec("polyDelEdge", json!({"args": args, "cleanVertices": true}));
+    }
+
+    /// An edge loop through an edge: by Multi-Cut's settings, with edge flow and more than one loop through
+    /// polySplitRing, otherwise the knife's, which keeps to symmetry.
+    pub(crate) fn insert_loop_at(&mut self, core: &mut Core, shape: NodeId, e: Index, t: f64) {
+        let name = core.s.graph.path(shape);
+        let c = self.ts.mc.clone();
+        let live = !core.s.live_surface.is_empty();
+        if (c.edge_flow && !live) || c.subdivisions > 1 {
+            let edge = format!("{}.e[{e}]", components::display_path(&core.s.graph, shape));
+            let mut call = json!({"args": [edge], "weight": t, "smoothingAngle": c.smoothing_angle.to_radians()});
+            if c.subdivisions > 1 {
+                call["splitType"] = json!(2);
+                call["divisions"] = json!(c.subdivisions);
+            }
+            if c.edge_flow && !live {
+                call["insertWithEdgeFlow"] = json!(true);
+                call["adjustEdgeFlow"] = json!(c.edge_flow_amount);
+            }
+            let _ = core.exec("polySplitRing", call);
+            let _ = core.exec_silent("select", json!({"clear": true}));
+            return;
+        }
+        let _ = core.exec("polyKnife", json!({"mesh": name, "loopEdge": e, "fraction": t, "select": false}));
+    }
+
+    /// Multi-Cut's middle drag across the surface: the line drawn, Shift turning it in 45 degree steps.
+    pub(crate) fn slice_preview(&mut self, items: &[DrawItem], from: DVec2, to: DVec2) {
+        let _ = items;
+        let a = self.vp.place_point(from);
+        let b = self.vp.place_point(to);
+        self.vp.tool_lines.push((a, b, ORANGE));
+    }
+
+    /// Slices the meshes under a screen line through the eye, or the given meshes along a world plane, as the Slice Tool
+    /// settings say: faces deleted or pulled off on the plane's far side, back faces left alone if asked.
+    pub(crate) fn slice(&mut self, core: &mut Core, shapes: &[(NodeId, DVec3, DVec3)]) {
+        let c = self.ts.mc.clone();
+        let eye = self.vp.cam.eye();
+        let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
+        for &(shape, at, n) in shapes {
+            core.s.graph.evaluate();
+            let Some(m) = mesh_of(&core.s.graph, shape) else { continue };
+            let world = { let xf = aztek_scene::dag::transform_of(&core.s.graph, shape); aztek_scene::rig::world(&mut core.s.graph, xf) };
+            let name = components::display_path(&core.s.graph, shape);
+            let faces: Vec<String> = (0..m.face_capacity())
+                .filter(|&fc| m.face_valid(fc))
+                .filter(|&fc| {
+                    if !c.ignore_backfaces {
+                        return true;
+                    }
+                    let mid = world.transform_point3(m.face_centroid(fc));
+                    let nn = world.transform_vector3(m.face_normal(fc));
+                    nn.dot(eye - mid) > 0.0
+                })
+                .map(|fc| format!("{name}.f[{fc}]"))
+                .collect();
+            if faces.is_empty() {
+                continue;
+            }
+            let mut call = json!({"args": faces, "cutPlaneCenter": at.to_array(), "cutPlaneRotate": cut_rotation(n), "worldSpace": true});
+            if c.delete_faces {
+                call["deleteFaces"] = json!(true);
+            } else if c.extract_faces {
+                call["extractFaces"] = json!(true);
+                call["extractOffset"] = json!(c.extract_offset);
+            }
+            let _ = core.exec("polyCut", call);
+        }
+        let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
+        // The sliced objects stay selected, to see the cut and go on.
+        let names: Vec<String> = shapes.iter().map(|s| core.s.graph.path(aztek_scene::dag::transform_of(&core.s.graph, s.0))).collect();
+        if !names.is_empty() {
+            let _ = core.exec_silent("select", json!({"args": names}));
+        }
+    }
+
+    /// The meshes a screen line crosses, by samples along it.
+    pub(crate) fn meshes_under_line(&mut self, items: &[DrawItem], a: DVec2, b: DVec2) -> Vec<NodeId> {
+        let mut out = Vec::new();
+        for k in 0..=48 {
+            let p = a.lerp(b, k as f64 / 48.0);
+            if let Some((i, _, _)) = self.vp.raycast(items, p) {
+                if !out.contains(&items[i].shape) {
+                    out.push(items[i].shape);
+                }
+            }
+        }
+        out
+    }
+
+    /// Slice Along Plane: each selected mesh cut through its middle across X (YZ), Y (ZX) or Z (XY), in world space.
+    pub(crate) fn slice_along(&mut self, core: &mut Core, plane: &str) {
+        let n = match plane {
+            "yz" => DVec3::X,
+            "zx" => DVec3::Y,
+            _ => DVec3::Z,
+        };
+        let g = &mut core.s.graph;
+        g.evaluate();
+        let mut shapes = Vec::new();
+        for id in g.selection().to_vec() {
+            let Some(shape) = components::as_mesh(g, id) else { continue };
+            let Some(m) = mesh_of(g, shape) else { continue };
+            let xf = aztek_scene::dag::transform_of(g, shape);
+            let world = aztek_scene::rig::world(g, xf);
+            let (mut lo, mut hi) = (DVec3::splat(f64::MAX), DVec3::splat(f64::MIN));
+            for p in (0..m.point_capacity()).filter(|&p| m.point_valid(p)) {
+                let w = world.transform_point3(m.position(p));
+                lo = lo.min(w);
+                hi = hi.max(w);
+            }
+            if lo.x <= hi.x && !shapes.iter().any(|s: &(NodeId, DVec3, DVec3)| s.0 == shape) {
+                shapes.push((shape, (lo + hi) * 0.5, n));
+            }
+        }
+        let keep: Vec<String> = core.s.graph.selection().iter().map(|&id| core.s.graph.path(id)).collect();
+        self.slice(core, &shapes);
+        if !keep.is_empty() {
+            let _ = core.exec_silent("select", json!({"args": keep}));
+        }
+    }
+}

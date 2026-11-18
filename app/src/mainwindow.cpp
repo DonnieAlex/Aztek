@@ -1776,6 +1776,7 @@ void MainWindow::set_tool(const QString& tool) {
     }
     query("uiToolChanged", tool);
     if (tool_settings_) tool_settings_->set_tool(tool);
+    mtk_follow_tool(tool);
     // The tool brings the node's numbers with it; any other puts them away.
     bool off = QSettings().value("prefs/inViewEditorOff", false).toBool();
     if (tool == "showManip" && !off) QTimer::singleShot(0, this, [this] { in_view_->show_last(); });
@@ -1809,7 +1810,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"createTorus", "Polygon Torus: drag on the grid for the radius."},
         {"snapTogether", "Snap Together Tool: click a point on the object to move, then the point it goes to."},
         {"insertJoint", "Insert Joint: drag from a joint to add a joint along the bone."},
-        {"multiCut", "Multi-Cut: click to place cut points, Shift snaps along edges, Ctrl-click inserts a loop, Backspace takes the last back, Enter cuts."},
+        {"multiCut", "Multi-Cut: click to place cut points, Shift snaps along edges by the snap step, Ctrl+Shift squares to the last edge, Ctrl-click inserts a loop (Ctrl+middle centred), middle-drag slices, Backspace takes the last back, Enter cuts."},
         {"insertLoop", "Insert Edge Loop: hover an edge to see the loop, click to insert it."},
         {"offsetLoop", "Offset Edge Loop: drag from an edge to add loops either side."},
         {"targetWeld", "Target Weld: drag from a vertex or edge onto another."},
@@ -1818,7 +1819,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"createPolygon", "Create Polygon: click to place points, Enter makes the face."},
         {"appendPolygon", "Append to Polygon: click border edges and points, Enter makes the face."},
         {"cutSewUv", "3D Cut and Sew UV: drag over edges to cut their UVs, Ctrl-drag to sew them."},
-        {"quadDraw", "Quad Draw: click places dots, Shift-click fills a quad, Ctrl-click inserts a loop, Ctrl+Shift-click deletes, Tab-drag extends a border edge, drag moves."},
+        {"quadDraw", "Quad Draw: click places dots, Shift-click fills a quad, Shift-drag relaxes, Ctrl-click inserts a loop (Ctrl+middle centred), Ctrl+Shift-click deletes a face or an edge's loop, Tab-drag draws a quad strip or extends a border edge, drag moves."},
     };
     if (tool_help.contains(tool))
         help_line_->setText(tool_help[tool]);

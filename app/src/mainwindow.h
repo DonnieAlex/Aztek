@@ -22,6 +22,8 @@ class QToolButton;
 class QSpinBox;
 class QTimer;
 
+class QPushButton;
+
 namespace az {
 
 class PanelLayout;
@@ -48,6 +50,9 @@ struct HotkeyBinding {
     QString press, release;
 };
 
+// Quad Draw's or Multi-Cut's options from the Modeling Toolkit, defaults filled in (#140).
+QJsonObject tool_options(const QString& tool);
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -69,6 +74,11 @@ public:
     void show_welcome(bool at_startup = false);
     // Windows > Modeling Toolkit: a tab beside the Attribute Editor (#107).
     void show_modeling_toolkit();
+    // Quad Draw's and Multi-Cut's saved options, sent to every view (#140).
+    void push_tool_options(const QString& tool);
+    // Its toolkit options again from the saved settings, after Reset Settings.
+    void reset_tool_panel(const QString& tool);
+    ViewportWidget* active_view() const;
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
     void closeEvent(QCloseEvent* e) override;
@@ -116,6 +126,10 @@ private:
     // The layout lock beside the themes (#90): docked panels stay put, closable only.
     void lock_layout(bool on);
     QDockWidget* mtk_dock_ = nullptr;
+    // The toolkit's mode tools (#140): their buttons stay lit while the tool is on, and its options show below them.
+    QHash<QString, QPushButton*> mtk_tools_;
+    QHash<QString, QWidget*> mtk_tool_panels_;
+    void mtk_follow_tool(const QString& tool);
     QList<QPointer<QWidget>> folded_left_, folded_right_, raised_left_, raised_right_;
     void build_docks();
     void build_bottom();
@@ -125,7 +139,6 @@ private:
     void refresh_state();
     void set_tool(const QString& tool);
     void set_mode(const QString& mode);
-    ViewportWidget* active_view() const;
     void marking_menu(QPoint global, int mods);
     void repeat_last();
     void open_scene();

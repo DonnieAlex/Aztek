@@ -35,6 +35,7 @@ pub mod script_objects;
 pub mod host_general;
 pub mod scriptui;
 pub mod tools;
+pub mod tools_quad;
 pub mod ui_cmds;
 pub mod update;
 pub mod environment;
