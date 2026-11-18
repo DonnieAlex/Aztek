@@ -7,12 +7,14 @@ the reason in the summary. Nothing here can push or comment: the publish job doe
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
 OUT = ".issue/out"
 DECISIONS = {"fixed", "ask", "not-reference", "close", "needs-simon"}
 PROTECTED = (".github/", ".claude/")
+WRITER = re.compile(r"\b(Claude|Anthropic|AI|LLM|bot|automated|automation|language model)\b")
 
 
 def run(cmd, **kw):
@@ -34,6 +36,15 @@ def main():
         decision = "needs-simon"
     if decision in {"ask", "not-reference", "close"} and not (result.get("reply") or "").strip():
         notes.append("No reply was written.")
+        decision = "needs-simon"
+
+    # Posted as Simon: no em dashes, and nothing about who or what wrote it.
+    reply = result.get("reply") or ""
+    reply = re.sub(r"\s*[\u2014\u2013]\s*", ", ", reply)
+    result["reply"] = reply
+    named = WRITER.findall(reply)
+    if named and decision != "needs-simon":
+        notes.append("The reply mentions " + ", ".join(sorted(set(named))) + "; left for Simon to word.")
         decision = "needs-simon"
 
     # Everything changed since the run started, committed or not; .issue/ is ignored by git.

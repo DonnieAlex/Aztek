@@ -97,19 +97,20 @@ what you need and nothing else, and they paste back what it printed.
 
 ## 4. The reply
 
-Written as Simon, the maintainer, to the reporter, in the issue's language when it isn't English:
+Read VOICE.md in this folder before writing anything that will be posted: the reply, a question, an explanation. It
+is posted as Simon, so it must sound like him: thankful, warm, encouraging, plain. In the issue's language when it
+isn't English.
 
-- Friendly and plain, first person, British spelling. A short thanks where it's earned, not every time.
 - What was wrong and what happens now, in the reporter's terms; bullets when there are several parts.
 - Honest about what isn't done or isn't verified.
-- No em dashes. Dates DD/MM/YYYY. Never mention AI, a bot, Claude or automation.
 - Pictures as `![N](https://raw.githubusercontent.com/srlegrand/Aztek/main/docs/issues/<file>.png)`.
 
-An example of the tone:
+An example:
 
-> Fixed. When playback went back to the start frame, the solver was rebuilt from wherever the blocks were standing,
-> which was where the last run had left them, so the tower popped straight to its last frame. Rigid bodies now go back
-> to their start before the rebuild, so the second run plays the same as the first.
+> Thanks for spotting this, and for the screenshot, it made it easy to track down. When playback went back to the start
+> frame, the solver was rebuilt from wherever the blocks were standing, which was where the last run had left them, so
+> the tower popped straight to its last frame. Rigid bodies now go back to their start first, so the second run plays
+> the same as the first. Keep them coming!
 
 ## 5. result.json
 
