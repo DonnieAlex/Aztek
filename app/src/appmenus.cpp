@@ -898,47 +898,171 @@ void MainWindow::show_named_window(const QString& name) {
     w->activateWindow();
 }
 
+QStringList MainWindow::workspace_names() {
+    // The reference's list, with Aztek's names for its systems (the host's workspaceLayoutManager holds it); MASH and
+    // Motion Graphics are left out until TRASH is in.
+    static QStringList names;
+    if (names.isEmpty())
+        for (const QJsonValue& v : ask("workspaceLayoutManager", QJsonObject{{"listLayouts", true}}).toArray()) names << v.toString();
+    return names;
+}
+
+// An editor window docked into the main window for a workspace; release_docked_editors gives it back as a window.
+QDockWidget* MainWindow::dock_editor(const QString& id, QWidget* editor, const QString& title, Qt::DockWidgetArea area) {
+    if (!editor) return nullptr;
+    QDockWidget* d = ws_docks_.value(id);
+    if (!d) {
+        d = new QDockWidget(title, this);
+        d->setObjectName("workspace_" + id);
+        ws_docks_[id] = d;
+    }
+    editor->setWindowFlags(Qt::Widget);
+    d->setWidget(editor);
+    editor->show();
+    addDockWidget(area, d);
+    d->show();
+    return d;
+}
+
+void MainWindow::release_docked_editors() {
+    for (QDockWidget* d : ws_docks_) {
+        if (QWidget* w = d->widget()) {
+            d->setWidget(nullptr);
+            w->setParent(this, editor_window_flags());
+            w->hide();
+        }
+        removeDockWidget(d);
+        d->deleteLater();
+    }
+    ws_docks_.clear();
+}
+
 void MainWindow::apply_workspace(const QString& name) {
-    // A saved one first: the arrangement the user kept under this name.
     QSettings s;
+    if (workspace_box_) {
+        QSignalBlocker b(workspace_box_);
+        if (workspace_box_->findText(name) < 0) workspace_box_->addItem(name);
+        workspace_box_->setCurrentText(name);
+    }
+    s.setValue("workspaces_current", name);
+    query("uiWorkspace", name);
+    release_docked_editors();
+    // A saved one first: the arrangement the user kept under this name.
     QByteArray saved = s.value("workspaces/" + name).toByteArray();
     if (!saved.isEmpty()) {
         restoreState(saved);
         return;
     }
+    if (!workspace_names().contains(name)) return;
+    auto bar = [this](const char* id, bool on) {
+        if (auto* b = findChild<QToolBar*>(id)) b->setVisible(on);
+    };
+    // The panels on the edges; the rest of the reference's editors are docked in below.
     auto only = [this](bool outliner, bool channels, bool attr, bool tool) {
         outliner_dock_->setVisible(outliner);
         channel_dock_->setVisible(channels);
         attr_dock_->setVisible(attr);
         tool_dock_->setVisible(tool);
+        if (mtk_dock_) mtk_dock_->hide();
     };
-    if (name == "General") {
+    auto set_menus = [this](const QString& set) {
+        if (menu_set_) menu_set_->setCurrentText(set);
+    };
+    auto shelf = [this](const QString& n) {
+        if (shelf_bar_) shelf_bar_->select_shelf(n);
+    };
+    for (const char* id : {"statusLine", "shelf", "toolbox", "timeBar", "commandLine"}) bar(id, true);
+    panels_->set_layout(0);
+    if (name == "General" || name == "Bicrust Fluids") {
         only(true, true, true, false);
         outliner_dock_->raise();
         channel_dock_->raise();
-        panels_->set_layout(0);
-    } else if (name == "Modeling") {
-        only(true, true, true, false);
-        outliner_dock_->raise();
-        channel_dock_->raise();
-        panels_->set_layout(0);
-        menu_set_->setCurrentText("Modeling");
-    } else if (name == "Rigging") {
-        only(true, true, true, false);
-        outliner_dock_->raise();
-        attr_dock_->raise();
-        panels_->set_layout(0);
-        menu_set_->setCurrentText("Rigging");
-    } else if (name == "Animation") {
-        only(true, true, false, false);
-        channel_dock_->raise();
-        panels_->set_layout(0);
-        menu_set_->setCurrentText("Animation");
-        show_graph_editor();
+    } else if (name == "Modeling - Standard") {
+        // The Modeling Toolkit on the right, tabbed with the Attribute Editor; no time slider.
+        only(false, false, true, false);
+        show_modeling_toolkit();
+        if (mtk_dock_) {
+            addDockWidget(Qt::RightDockWidgetArea, mtk_dock_);
+            tabifyDockWidget(attr_dock_, mtk_dock_);
+            mtk_dock_->show();
+            mtk_dock_->raise();
+        }
+        bar("timeBar", false);
+        set_menus("Modeling");
+        shelf("Poly Modeling");
+    } else if (name == "Modeling - Expert") {
+        // The view alone: no shelf, tool box, time slider or panels.
+        only(false, false, false, false);
+        for (const char* id : {"shelf", "toolbox", "timeBar"}) bar(id, false);
+        set_menus("Modeling");
+    } else if (name == "Sculpting" || name == "Pose Sculpting") {
+        // The Shape Editor over the Tool Settings on the right.
+        only(false, name == "Pose Sculpting", true, true);
+        show_named_window("shapeEditor");
+        if (QDockWidget* d = dock_editor("shapeEditor", named_windows_.value("shapeEditor"), "Shape Editor", Qt::RightDockWidgetArea)) {
+            addDockWidget(Qt::RightDockWidgetArea, tool_dock_);
+            splitDockWidget(d, tool_dock_, Qt::Vertical);
+            if (name == "Pose Sculpting") {
+                splitDockWidget(tool_dock_, attr_dock_, Qt::Horizontal);
+                tabifyDockWidget(attr_dock_, channel_dock_);
+            } else {
+                tabifyDockWidget(tool_dock_, attr_dock_);
+            }
+            tool_dock_->raise();
+        }
+        bar("timeBar", false);
+        set_menus("Modeling");
+        shelf("Sculpting");
     } else if (name == "UV Editing") {
-        only(false, true, true, false);
-        panels_->set_layout(0);
+        // The UV Editor beside the view, as wide.
+        only(false, false, false, false);
         show_uv_editor();
+        if (QDockWidget* d = dock_editor("uvEditor", uv_window_, "UV Editor", Qt::RightDockWidgetArea)) resizeDocks({d}, {width() / 2}, Qt::Horizontal);
+        bar("timeBar", false);
+        set_menus("Modeling");
+        shelf("UV Editing");
+    } else if (name == "XJEN" || name == "XJEN - Interactive Groom") {
+        // The groom editor on the right, tabbed with the Channel Box, Attribute Editor and Outliner.
+        only(true, true, true, false);
+        show_named_window("interactiveGroomEditor");
+        if (QDockWidget* d = dock_editor("interactiveGroomEditor", named_windows_.value("interactiveGroomEditor"), "XJEN", Qt::RightDockWidgetArea)) {
+            addDockWidget(Qt::RightDockWidgetArea, outliner_dock_);
+            tabifyDockWidget(d, channel_dock_);
+            tabifyDockWidget(d, attr_dock_);
+            tabifyDockWidget(d, outliner_dock_);
+            d->raise();
+        }
+        shelf("Hair");
+    } else if (name == "Rigging" || name == "Animation") {
+        // The Outliner left, the Channel Box right, and the Node Editor (rigging) or Graph Editor (animation) under the view.
+        only(true, true, false, false);
+        if (name == "Rigging") {
+            show_node_editor();
+            dock_editor("nodeEditor", node_window_, "Node Editor", Qt::BottomDockWidgetArea);
+        } else {
+            show_graph_editor();
+            dock_editor("graphEditor", graph_window_, "Graph Editor", Qt::BottomDockWidgetArea);
+        }
+        outliner_dock_->raise();
+        channel_dock_->raise();
+        set_menus(name);
+        shelf(name);
+    } else if (name.startsWith("Rendering")) {
+        // The Outliner left, the Script Editor under the view, the Attribute Editor right; Expert puts the Render View
+        // beside the view too.
+        only(true, false, true, false);
+        show_script_editor();
+        dock_editor("scriptEditor", script_window_, "Script Editor", Qt::BottomDockWidgetArea);
+        attr_dock_->raise();
+        if (name == "Rendering - Expert") {
+            show_render_view(this);
+            QWidget* rv = nullptr;
+            for (QWidget* w : findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+                if (w->isWindow() && w->windowTitle().contains("RenderView")) rv = w;
+            dock_editor("renderView", rv, "Render View", Qt::LeftDockWidgetArea);
+        }
+        set_menus("Rendering");
+        shelf("Rendering");
     }
 }
 
@@ -961,11 +1085,13 @@ QMenu* MainWindow::windows_menu() {
     m->addAction("USD Layer Editor", [this] { show_usd_layer_editor(this); });
     m->addAction("USD Stats", [this] { show_usd_stats(this); });
     QMenu* ws = m->addMenu("Workspaces");
-    for (const char* n : {"General", "Modeling", "Rigging", "Animation", "UV Editing"}) {
-        QString name = n;
-        ws->addAction(name, [this, name] { apply_workspace(name); });
-    }
+    for (const QString& name : workspace_names()) ws->addAction(name, [this, name] { apply_workspace(name); });
     ws->addSeparator();
+    ws->addAction("Reset Current Workspace", [this] {
+        const QString n = QSettings().value("workspaces_current", "General").toString();
+        if (workspace_names().contains(n)) QSettings().remove("workspaces/" + n);
+        apply_workspace(n);
+    });
     ws->addAction("Save Current Workspace As...", [this] {
         bool ok = false;
         QString n = QInputDialog::getText(this, "Save Workspace", "Name:", QLineEdit::Normal, "myWorkspace", &ok);

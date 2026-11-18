@@ -434,3 +434,15 @@ fn picked_translate_channels_turn_the_move_manipulator_to_the_parent() {
     vp.update_frame(&mut c.s);
     assert!((vp.frame.x_axis - DVec3::X).length() < 1e-9);
 }
+
+/// #134: the reference's workspaces, by name, and the one shown.
+#[test]
+fn workspaces_list_and_switch() {
+    let mut c = Core::new();
+    let names = mel(&mut c, "workspaceLayoutManager -listLayouts;");
+    for n in ["General", "Modeling - Standard", "Modeling - Expert", "Sculpting", "Pose Sculpting", "UV Editing", "XJEN", "Rigging", "Animation", "Rendering - Standard", "Rendering - Expert"] {
+        assert!(names.as_array().unwrap().contains(&json!(n)), "{n}");
+    }
+    mel(&mut c, "workspaceLayoutManager -setCurrent \"Rigging\";");
+    assert_eq!(mel(&mut c, "workspaceLayoutManager -q -current;"), json!("Rigging"));
+}

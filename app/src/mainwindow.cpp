@@ -2,6 +2,7 @@
 #include "fileoptions.h"
 #include "mainwindow.h"
 #include <QDoubleSpinBox>
+#include <QInputDialog>
 #include <QSignalBlocker>
 #include <QFormLayout>
 #include <QCheckBox>
@@ -1163,6 +1164,50 @@ void MainWindow::build_menus() {
     auto* row = new QHBoxLayout(corner);
     row->setContentsMargins(0, 0, 2, 0);
     row->setSpacing(2);
+    // The reference's Workspace box (#134): its workspaces, those saved here, and Reset, Save and Delete.
+    row->addWidget(new QLabel("Workspace:", corner));
+    workspace_box_ = new QComboBox(corner);
+    workspace_box_->setObjectName("workspaceBox");
+    workspace_box_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    auto fill_workspaces = [this] {
+        QSignalBlocker b(workspace_box_);
+        workspace_box_->clear();
+        workspace_box_->addItems(workspace_names());
+        QSettings s;
+        s.beginGroup("workspaces");
+        const QStringList mine = s.childKeys();
+        s.endGroup();
+        for (const QString& k : mine)
+            if (!workspace_names().contains(k)) workspace_box_->addItem(k);
+        workspace_box_->insertSeparator(workspace_box_->count());
+        for (const char* a : {"Reset Current Workspace", "Save Current Workspace As...", "Delete Current Workspace"}) workspace_box_->addItem(a, QString("action"));
+        workspace_box_->setCurrentText(s.value("workspaces_current", "General").toString());
+    };
+    fill_workspaces();
+    connect(workspace_box_, &QComboBox::activated, this, [this, fill_workspaces](int i) {
+        const QString current = QSettings().value("workspaces_current", "General").toString();
+        const QString picked = workspace_box_->itemText(i);
+        if (workspace_box_->itemData(i).toString() != "action") {
+            apply_workspace(picked);
+            return;
+        }
+        if (picked.startsWith("Reset")) {
+            if (workspace_names().contains(current)) QSettings().remove("workspaces/" + current);
+            apply_workspace(current);
+        } else if (picked.startsWith("Save")) {
+            bool ok = false;
+            const QString n = QInputDialog::getText(this, "Save Workspace", "Name:", QLineEdit::Normal, current, &ok).trimmed();
+            if (ok && !n.isEmpty()) {
+                QSettings().setValue("workspaces/" + n, saveState());
+                QSettings().setValue("workspaces_current", n);
+            }
+        } else if (!workspace_names().contains(current)) {
+            QSettings().remove("workspaces/" + current);
+            QSettings().setValue("workspaces_current", "General");
+        }
+        fill_workspaces();
+    });
+    row->addWidget(workspace_box_);
     row->addWidget(themes);
     auto* lock = new QToolButton(corner);
     lock->setObjectName("uiLock");

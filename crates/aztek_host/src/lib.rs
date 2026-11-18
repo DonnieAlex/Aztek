@@ -418,6 +418,10 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
                 Value::Null
             }
             // The channel box's picked channels: "parent" while translate channels are picked (#136).
+            "uiWorkspace" => {
+                crate::user_folder::set_current_workspace(&arg);
+                Value::Null
+            }
             "uiChannelSpace" => {
                 crate::viewport::set_channel_space(!arg.is_empty());
                 c.version += 1;

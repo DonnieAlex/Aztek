@@ -708,6 +708,37 @@ fn describe(c: &Choice, a: &Applied) -> Value {
     })
 }
 
+/// The workspaces the window has, in its Workspace box's order; the window says which is shown.
+pub const WORKSPACES: &[&str] = &["General", "Modeling - Standard", "Modeling - Expert", "Sculpting", "Pose Sculpting", "UV Editing", "XJEN",
+    "XJEN - Interactive Groom", "Rigging", "Animation", "Rendering - Standard", "Rendering - Expert", "Bicrust Fluids"];
+static CURRENT_WORKSPACE: Mutex<String> = Mutex::new(String::new());
+
+/// The window tells which workspace it shows.
+pub fn set_current_workspace(name: &str) {
+    if let Ok(mut c) = CURRENT_WORKSPACE.lock() {
+        *c = name.to_string();
+    }
+}
+
+fn workspace_cmd(_s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("listLayouts") {
+        return Ok(json!(WORKSPACES));
+    }
+    let current = CURRENT_WORKSPACE.lock().map(|c| c.clone()).unwrap_or_default();
+    if a.bool("query") || a.bool("current") && a.get("setCurrent").is_none() {
+        return Ok(json!(if current.is_empty() { "General".to_string() } else { current }));
+    }
+    if let Some(name) = a.get("setCurrent").and_then(Value::as_str) {
+        set_current_workspace(name);
+        crate::core::push_ui_request(format!("workspace|{name}"));
+        return Ok(json!(name));
+    }
+    if a.bool("reset") {
+        crate::core::push_ui_request(format!("workspaceReset|{current}"));
+    }
+    Ok(Value::Null)
+}
+
 fn user_folder_cmd(_s: &mut Session, a: &Args) -> CmdResult {
     if let Some(from) = a.get("copyFrom").and_then(Value::as_str) {
         let from = PathBuf::from(expand(from));
@@ -823,6 +854,19 @@ pub fn module_path(name: &str) -> Option<String> {
 
 pub fn register_commands(s: &mut Session) {
     let b = |name: &str, short: &str, doc: &str| FlagDef::new(name, short, ArgType::Bool, Value::Null, doc);
+    s.register(
+        CommandDef::<Session>::new(
+            "workspaceLayoutManager",
+            "The window's workspaces, as the reference's: -setCurrent name switches to one, -q -current names the one shown, -listLayouts lists them, -reset puts the current one back as it ships (#134).",
+            workspace_cmd,
+        )
+        .flag(b("query", "q", "Read."))
+        .flag(FlagDef::new("setCurrent", "sc", ArgType::String, Value::Null, "Switch to this workspace."))
+        .flag(b("current", "cu", "Query: the workspace shown."))
+        .flag(b("listLayouts", "ll", "The workspaces there are."))
+        .flag(b("reset", "rs", "The current workspace as it ships."))
+        .undoable(false),
+    );
     s.register(
         CommandDef::<Session>::new(
             "aztekParity",

@@ -1009,6 +1009,11 @@ void MainWindow::handle_ui_request(const QString& r) {
         for (ViewportWidget* v : panels_->views()) v->set("disp", payload);
     } else if (name == "isolate") {
         if (ViewportWidget* v = active_view()) v->set("isolate", payload);
+    } else if (name == "workspace") {
+        apply_workspace(payload);
+    } else if (name == "workspaceReset") {
+        if (workspace_names().contains(payload)) QSettings().remove("workspaces/" + payload);
+        apply_workspace(payload.isEmpty() ? QString("General") : payload);
     } else if (name == "hotkeyFactory") {
         QSettings().remove("hotkeys/user");
         load_hotkeys();

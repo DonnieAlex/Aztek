@@ -16,6 +16,8 @@ public:
     // run(command, language): language is "mel" or "python".
     explicit ShelfBar(std::function<void(const QString&, const QString&)> run, QWidget* parent = nullptr);
     void add_to_current(const QString& label, const QString& icon_name, const QString& command, const QString& language);
+    // The shelf tab of this name in front, if there is one (a workspace's shelf).
+    void select_shelf(const QString& name);
     void open_editor();
     // A widget at the far right of the tab row. Tabs that don't fit scroll; it stays.
     void set_corner(QWidget* w);

@@ -170,6 +170,12 @@ private:
     QList<MarkItem> hotbox_zone(int zone);
     void object_marking_items(const QString& hit, QPoint global, QList<MarkItem>& items);
     void apply_workspace(const QString& name);
+    // The reference's workspaces (#134): which docks, editors, shelf, menu set and bars each shows.
+    static QStringList workspace_names();
+    QDockWidget* dock_editor(const QString& id, QWidget* editor, const QString& title, Qt::DockWidgetArea area);
+    void release_docked_editors();
+    QComboBox* workspace_box_ = nullptr;
+    QHash<QString, QDockWidget*> ws_docks_;
     void show_named_window(const QString& name);
     void add_to_shelf(QAction* a);
     void select_by_type(const QString& type);

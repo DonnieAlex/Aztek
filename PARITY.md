@@ -1473,6 +1473,22 @@ Warning and Error Messages, line numbers, tabs for indent, tabs and spaces shown
 on yet: Batch Render Messages, Line numbers in errors, History Output, Suppress Duplicate Variable Messages and Stack
 Window, Command and Object Path Completion, Tooltip Help and quick help.
 
+### Workspaces (17/11/2026, #134)
+
+The reference's workspaces, in its Workspace box at the top right of the menu bar and under Windows > Workspaces:
+General; Modeling - Standard (the Modeling Toolkit tabbed with the Attribute Editor, no time slider); Modeling - Expert
+(the view alone: no shelf, tool box, time slider or panels); Sculpting (the Shape Editor over the Tool Settings);
+Pose Sculpting (as Sculpting, with the Attribute Editor and Channel Box beside the Tool Settings: the reference's Pose
+Editor isn't in Aztek, so the Shape Editor stands alone at the top); UV Editing (the UV Editor docked beside the view);
+XJEN and XJEN - Interactive Groom (the groom editor tabbed with the Channel Box, Attribute Editor and Outliner);
+Rigging and Animation (Outliner left, Channel Box right, the Node Editor or the Graph Editor under the view);
+Rendering - Standard (Outliner, the Script Editor under the view, the Attribute Editor) and Rendering - Expert (with
+the Render View docked left; the reference's Render Setup and Property Editor aren't in Aztek); Bicrust Fluids, which
+is General. Each sets its menu set and shelf. The box also has Reset, Save Current Workspace As... and Delete Current
+Workspace; a saved arrangement under a workspace's name wins over the shipped one until reset. The editors a
+workspace docks go back to windows when another is chosen. `workspaceLayoutManager -setCurrent`, `-q -current`,
+`-listLayouts` and `-reset` script it. MASH and Motion Graphics wait for TRASH.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

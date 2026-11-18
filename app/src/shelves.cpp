@@ -550,6 +550,11 @@ void ShelfBar::rebuild() {
     tabs_->blockSignals(false);
 }
 
+void ShelfBar::select_shelf(const QString& name) {
+    for (int i = 0; i < tabs_->count(); ++i)
+        if (tabs_->tabText(i) == name) tabs_->setCurrentIndex(i);
+}
+
 void ShelfBar::add_to_current(const QString& label, const QString& icon_name, const QString& command, const QString& language) {
     int si = qMax(0, tabs_->currentIndex());
     QJsonObject s = shelves_[si].toObject();
