@@ -368,6 +368,11 @@ QPixmap draw(const QString& name, int size) {
         p.drawPolygon(QPolygonF({{18, 6}, {28, 16}, {18, 26}}));
         p.setPen(QPen(kInk, 1.0, Qt::DashLine));
         p.drawLine(QPointF(16, 3), QPointF(16, 29));
+    } else if (name == "pause") {
+        p.setBrush(kInk);
+        p.setPen(Qt::NoPen);
+        p.drawRect(QRectF(9, 7, 5, 18));
+        p.drawRect(QRectF(18, 7, 5, 18));
     } else if (name == "play" || name == "playBack") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);

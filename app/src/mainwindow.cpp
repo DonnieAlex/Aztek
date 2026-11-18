@@ -1,4 +1,5 @@
 #include <QWidgetAction>
+#include <tuple>
 #include "fileoptions.h"
 #include "mainwindow.h"
 #include <QDoubleSpinBox>
@@ -1477,6 +1478,7 @@ void MainWindow::build_bottom() {
     row1->addWidget(time_slider_, 1);
     row1->addWidget(current);
     auto* play = new QToolBar(w);
+    play->setObjectName("playback");
     play->setIconSize(QSize(16, 16));
     play_timer_ = new QTimer(this);
     play_timer_->setInterval(1000 / 24);
@@ -1510,8 +1512,10 @@ void MainWindow::build_bottom() {
     play->addAction(icon("first"), "Go to start of playback range", [this] { time_slider_->set_time(time_slider_->start()); });
     play->addAction(icon("prev"), "Step back one frame", [this] { time_slider_->set_time(time_slider_->time() - 1); });
     play->addAction(icon("prevKey"), "Step back one key", [key_step] { key_step("previous"); });
-    play->addAction(icon("playBack"), "Play backwards", [this] { toggle_play(-1); });
-    play->addAction(icon("play"), "Play forwards", [this] { toggle_play(1); });
+    play_back_ = play->addAction(icon("playBack"), "Play backwards", [this] { toggle_play(-1); });
+    play_fwd_ = play->addAction(icon("play"), "Play forwards", [this] { toggle_play(1); });
+    play_back_->setCheckable(true);
+    play_fwd_->setCheckable(true);
     play->addAction(icon("nextKey"), "Step forward one key", [key_step] { key_step("next"); });
     play->addAction(icon("next"), "Step forward one frame", [this] { time_slider_->set_time(time_slider_->time() + 1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { time_slider_->set_time(time_slider_->end()); });
@@ -1644,11 +1648,25 @@ void MainWindow::toggle_play(int dir) {
     play_started_ms_ = QDateTime::currentMSecsSinceEpoch();
     play_started_frame_ = time_slider_->time();
     play_timer_->start();
+    show_play_state();
 }
 
 void MainWindow::stop_play() {
     play_timer_->stop();
     ask("play", QJsonObject{{"state", false}});
+    show_play_state();
+}
+
+void MainWindow::show_play_state() {
+    const bool on = play_timer_ && play_timer_->isActive();
+    for (auto [a, dir, name, tip] : {std::tuple{play_fwd_, 1, "play", "Play forwards"}, std::tuple{play_back_, -1, "playBack", "Play backwards"}}) {
+        if (!a) continue;
+        const bool playing = on && play_dir_ == dir;
+        a->setChecked(playing);
+        a->setIcon(icon(playing ? "pause" : name));
+        a->setText(playing ? "Stop playback" : tip);
+        a->setToolTip(a->text());
+    }
 }
 
 void MainWindow::sync_time_range() {

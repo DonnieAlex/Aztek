@@ -16,7 +16,7 @@ static const char* const kIconNames[] = {
     "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "maskSurface", "merge", "mesh", "mirror",
     "modelingToolkit", "mtkEdge", "mtkFace", "mtkObject", "mtkUV", "mtkVertex", "move", "multiCut", "new", "next", "nextKey", "nurbsCurve", "nurbsSurface", "object",
     "objectSet", "offsetCurve", "offsetLoop", "open", "options", "orientCon", "outlinerIcon", "paintSelect",
-    "paintSkin", "parentCon", "perspOutliner", "pipe", "planarSurface", "plane", "play", "playBack", "pointCon",
+    "paintSkin", "parentCon", "pause", "perspOutliner", "pipe", "planarSurface", "plane", "play", "playBack", "pointCon",
     "pointLight", "prev", "prevKey", "quadDraw", "rebuildCurve", "redo", "resGate", "reverseCurve", "revolve",
     "rotate", "save", "scale", "search", "scaleCon", "scopeComponent", "scopeHierarchy", "scopeObject", "script", "select",
     "selectCamera", "separate", "set", "shaded", "shadows", "single", "skin", "smooth", "snapCurve", "snapGrid",

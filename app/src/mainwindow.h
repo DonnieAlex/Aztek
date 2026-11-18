@@ -243,6 +243,9 @@ private:
     QSpinBox *anim_start_ = nullptr, *play_start_ = nullptr, *play_end_ = nullptr, *anim_end_ = nullptr, *current_frame_ = nullptr;
     QTimer* play_timer_ = nullptr;
     int play_dir_ = 1;
+    // The play buttons: the one playing shows pause and stays down (#146).
+    QAction *play_fwd_ = nullptr, *play_back_ = nullptr;
+    void show_play_state();
     QAction* auto_key_ = nullptr;
     QLabel* help_line_ = nullptr;
     ToolSettings* tool_settings_ = nullptr;

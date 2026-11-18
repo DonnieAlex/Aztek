@@ -72,6 +72,7 @@ QMainWindow > QTabBar::tab:selected { background: @menu; color: @bright; }
 
 /* A field something else drives: the reference's yellow. */
 QLineEdit#connectedField { background: #f1f1a5; color: #101010; }
+QToolBar#playback QToolButton:checked { background: @hi; border-radius: 3px; }
 QToolButton#mapButton { border: none; padding: 0; }
 QToolButton#mapButton:hover { background: @button; }
 /* The status line's group handles: a raised bar, an arrow when the group is folded. */

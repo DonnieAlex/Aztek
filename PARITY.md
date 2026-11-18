@@ -1586,6 +1586,11 @@ a point in the view's plane, which could leave the object below the grid; in an 
 Placing joints and components with X held use the same spacing. A held V lands on the nearest point on screen however
 far the cursor is from it, as the reference's does, rather than only within 25 pixels.
 
+### Play button shows pause (18/11/2026, #146)
+
+While playing, the play button for that direction stays down and shows a pause symbol; clicking it stops. It goes back
+to play when playback stops, from the button, Alt+V or the end of a range played once.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
