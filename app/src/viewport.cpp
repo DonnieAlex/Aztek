@@ -16,6 +16,8 @@
 #include <QApplication>
 #include <QGridLayout>
 #include <QGuiApplication>
+#include <QSettings>
+#include <algorithm>
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QToolBar>
@@ -215,6 +217,12 @@ void ViewportWidget::slide_to(double dx, bool final) {
     slide_applied_ = 0;
     // A tenth per pixel; Ctrl for fine steps, Shift for coarse, as the reference's slider.
     double step = (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) ? 0.01 : (QGuiApplication::keyboardModifiers() & Qt::ShiftModifier) ? 1.0 : 0.1;
+    // The Channel Box's Settings: Slowest, Slow, Medium (the default) or Fast, and Hyperbolic, which speeds up the
+    // further the drag goes (#137).
+    QSettings cb;
+    static const double speeds[] = {0.1, 0.5, 1.0, 2.0};
+    step *= speeds[std::clamp(cb.value("channelBox/speed", 2).toInt(), 0, 3)];
+    if (cb.value("channelBox/hyperbolic", false).toBool()) dx = dx * (1.0 + std::abs(dx) / 50.0);
     if (dx == 0) {
         Host::get()->poke();
         return;

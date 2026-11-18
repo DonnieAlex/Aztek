@@ -27,6 +27,12 @@
 #include <QSplitter>
 #include <QTabWidget>
 #include <QDockWidget>
+#include <QActionGroup>
+#include <QSettings>
+#include <functional>
+#include <tuple>
+#include <QInputDialog>
+#include <QGuiApplication>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -43,10 +49,16 @@ QJsonObject args(const QJsonArray& a) {
     return o;
 }
 
+// The Channel Box's settings (Ctrl+right-click > Settings and Channel Names), kept between sessions.
+QVariant cb_setting(const QString& key, const QVariant& fallback) {
+    return QSettings().value("channelBox/" + key, fallback);
+}
+
 QString fmt(double v) {
-    // The reference shows three decimals in the channel box.
-    QString s = QString::number(v, 'f', 3);
-    if (s == "-0.000") s = "0.000";
+    // Three decimals as the reference shows by default; Settings > Change Precision sets another.
+    const int places = cb_setting("precision", 3).toInt();
+    QString s = QString::number(v, 'f', places);
+    if (s.startsWith('-') && s.toDouble() == 0.0) s = s.mid(1);
     return s;
 }
 
@@ -259,8 +271,11 @@ protected:
             g_input_plugs[a] = property("inputPlug").toString();
             // The channel's handle lights up, and a middle drag takes it.
             QString plug = property("inputPlug").toString();
-            query("uiShowManip", plug.section('.', 0, -2));
-            query("uiShowManipAttr", plug.section('.', -1));
+            // Settings > No or Invisible Manipulators keep the handle out of the view; the middle drag still works.
+            if (cb_setting("manipulators", 2).toInt() == 2) {
+                query("uiShowManip", plug.section('.', 0, -2));
+                query("uiShowManipAttr", plug.section('.', -1));
+            }
         }
         else g_input_plugs.remove(a);
         restyle_channel_labels();
@@ -319,7 +334,9 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     auto* h = new QHBoxLayout(row);
     h->setContentsMargins(0, 0, 0, 0);
     h->setSpacing(4);
-    auto* label = new ChannelLabel(ch["nice"].toString(), row);
+    const int names = cb_setting("names", 0).toInt();
+    const QString shown = names == 1 ? ch["attr"].toString() : names == 2 ? ch["short"].toString(ch["attr"].toString()) : ch["nice"].toString();
+    auto* label = new ChannelLabel(shown, row);
     label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     label->setFixedWidth(label_width);
     label->setToolTip(ch["plug"].toString());
@@ -367,60 +384,250 @@ QWidget* section(const QString& text, QWidget* parent) {
 
 namespace {
 
-// The reference's Channels menu, also the channel box's right-click menu: keys, mutes, connections and locks on the
-// picked channels of the selected objects.
-void fill_channels_menu(QMenu* m) {
+// A right-click menu's name at its top, as the reference shows it.
+void menu_title(QMenu* m, const QString& text) {
+    QAction* a = m->addAction(text);
+    QFont f = a->font();
+    f.setBold(true);
+    a->setFont(f);
+    a->setEnabled(false);
+    m->addSeparator();
+}
+
+// The reference's Channels menu, also the channel box's right-click menu (#137): keys, mutes, the key clipboard, values,
+// freezing, connections, locks and animation layers, on the picked channels of the selected objects.
+void fill_channels_menu(QMenu* m, bool titled) {
     QJsonArray picked;
     for (const QString& a : g_channel_sel) picked.append(a);
     bool any = !picked.isEmpty();
-    auto plugs = [] {
-        QJsonArray out;
-        QJsonArray sel = state()["selection"].toArray();
-        for (const QJsonValue& o : sel)
-            for (const QString& a : g_channel_sel) out.append(o.toString().section('.', 0, 0) + "." + a);
+    auto objects = [] {
+        QStringList out;
+        for (const QJsonValue& o : state()["selection"].toArray()) {
+            const QString n = o.toString().section('.', 0, 0);
+            if (!out.contains(n)) out << n;
+        }
         return out;
     };
+    auto plugs = [objects] {
+        QJsonArray out;
+        for (const QString& n : objects())
+            for (const QString& a : g_channel_sel) out.append(n + "." + a);
+        return out;
+    };
+    auto each = [plugs](std::function<void(const QJsonValue&)> f) {
+        const QJsonArray all = plugs();
+        if (all.size() > 1) exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+        for (const QJsonValue& pl : all) f(pl);
+        if (all.size() > 1) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
+    };
+    if (titled) menu_title(m, "Channels");
     m->addAction("Key Selected", [picked] { exec("setKeyframe", QJsonObject{{"attribute", picked}}); })->setEnabled(any);
-    m->addAction("Key All", [] { exec("setKeyframe"); });
+    m->addAction("Key All Keyable", [] { exec("setKeyframe"); });
     m->addAction("Breakdown Selected", [picked] { exec("setKeyframe", QJsonObject{{"attribute", picked}, {"breakdown", true}}); })->setEnabled(any);
     m->addAction("Breakdown All", [] { exec("setKeyframe", QJsonObject{{"breakdown", true}}); });
-    m->addSeparator();
-    m->addAction("Mute Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("mute", QJsonObject{{"args", QJsonArray{pl}}});
-    })->setEnabled(any);
+    m->addAction("Mute Selected", [each] { each([](const QJsonValue& pl) { exec("mute", QJsonObject{{"args", QJsonArray{pl}}}); }); })->setEnabled(any);
     m->addAction("Mute All", [] { exec("mute"); });
-    m->addAction("Unmute Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("mute", QJsonObject{{"args", QJsonArray{pl}}, {"disable", true}, {"force", true}});
+    m->addAction("Unmute Selected", [each] {
+        each([](const QJsonValue& pl) { exec("mute", QJsonObject{{"args", QJsonArray{pl}}, {"disable", true}, {"force", true}}); });
     })->setEnabled(any);
     m->addAction("Unmute All", [] { exec("mute", QJsonObject{{"disable", true}, {"force", true}}); });
     m->addSeparator();
-    m->addAction("Delete Selected Keys", [picked] { exec("cutKey", QJsonObject{{"attribute", picked}}); })->setEnabled(any);
-    m->addAction("Break Connections", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("disconnectAttr", QJsonObject{{"args", QJsonArray{pl}}});
+    for (auto [label, key, fallback] : {std::tuple{"Sync Selection in Graph Editor", "syncGraphEditor", true}, std::tuple{"Sync Timeline Display", "syncTimeline", false}}) {
+        QAction* a = m->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(cb_setting(key, fallback).toBool());
+        QObject::connect(a, &QAction::toggled, [key = QString(key)](bool on) { QSettings().setValue("channelBox/" + key, on); });
+    }
+    m->addSeparator();
+    // The key clipboard, on the picked channels.
+    m->addAction("Cut Selected", [picked] { exec("cutKey", QJsonObject{{"attribute", picked}}); })->setEnabled(any);
+    m->addAction("Copy Selected", [picked] { exec("copyKey", QJsonObject{{"attribute", picked}}); })->setEnabled(any);
+    m->addAction("Paste Selected", [picked] { exec("pasteKey", QJsonObject{{"attribute", picked}}); })->setEnabled(any);
+    m->addAction("Delete Selected", [picked] { exec("cutKey", QJsonObject{{"attribute", picked}, {"clear", true}}); })->setEnabled(any);
+    m->addSeparator();
+    // Values: copied from the lead object's picked channels, pasted onto the same channels of the selected objects.
+    static QList<QPair<QString, QJsonValue>> copied;
+    m->addAction("Copy Selected Attribute Values", [objects] {
+        copied.clear();
+        const QStringList objs = objects();
+        if (objs.isEmpty()) return;
+        for (const QString& a : g_channel_sel) copied.append({a, ask("getAttr", QJsonObject{{"args", QJsonArray{objs.last() + "." + a}}})});
+    })->setEnabled(any);
+    m->addAction("Paste Selected Attribute Values", [objects] {
+        exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+        for (const QString& n : objects())
+            for (const auto& [a, v] : copied)
+                if (!v.isUndefined() && !v.isNull()) exec("setAttr", QJsonObject{{"args", QJsonArray{n + "." + a, v}}});
+        exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
+    })->setEnabled(!copied.isEmpty());
+    m->addSeparator();
+    // The lead object's values of the picked channels, given to the other selected objects.
+    m->addAction("Duplicate Values", [objects] {
+        const QStringList objs = objects();
+        if (objs.size() < 2) return;
+        exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+        for (const QString& a : g_channel_sel) {
+            const QJsonValue v = ask("getAttr", QJsonObject{{"args", QJsonArray{objs.last() + "." + a}}});
+            for (int i = 0; i + 1 < objs.size(); ++i) exec("setAttr", QJsonObject{{"args", QJsonArray{objs[i] + "." + a, v}}});
+        }
+        exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
+    })->setEnabled(any);
+    QMenu* freeze = m->addMenu("Freeze");
+    for (auto [label, flags] : {std::pair{"Translate", QJsonObject{{"translate", true}}}, std::pair{"Rotate", QJsonObject{{"rotate", true}}},
+                                std::pair{"Scale", QJsonObject{{"scale", true}}}, std::pair{"All", QJsonObject{{"translate", true}, {"rotate", true}, {"scale", true}}}}) {
+        QJsonObject call = flags;
+        call["apply"] = true;
+        freeze->addAction(label, [call] { exec("makeIdentity", call); });
+    }
+    m->addSeparator();
+    m->addAction("Break Connections", [each] { each([](const QJsonValue& pl) { exec("disconnectAttr", QJsonObject{{"args", QJsonArray{pl}}}); }); })->setEnabled(any);
+    // The nodes driving the picked channels.
+    m->addAction("Select Connection", [plugs] {
+        QJsonArray sources;
+        for (const QJsonValue& pl : plugs()) {
+            const QJsonArray s = ask("listConnections", QJsonObject{{"args", QJsonArray{pl}}, {"source", true}, {"destination", false}, {"skipConversionNodes", true}}).toArray();
+            for (const QJsonValue& n : s)
+                if (!sources.contains(n)) sources.append(n);
+        }
+        if (!sources.isEmpty()) exec("select", QJsonObject{{"args", sources}, {"replace", true}});
     })->setEnabled(any);
     m->addSeparator();
-    m->addAction("Lock Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", true}});
+    m->addAction("Lock Selected", [each] { each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", true}}); }); })->setEnabled(any);
+    m->addAction("Unlock Selected", [each] { each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", false}}); }); })->setEnabled(any);
+    m->addAction("Hide Selected", [each] { each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"keyable", false}, {"channelBox", false}}); }); })->setEnabled(any);
+    m->addAction("Lock and Hide Selected", [each] {
+        each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", true}, {"keyable", false}, {"channelBox", false}}); });
     })->setEnabled(any);
-    m->addAction("Unlock Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", false}});
-    })->setEnabled(any);
-    m->addAction("Hide Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"keyable", false}});
-    })->setEnabled(any);
-    m->addAction("Lock and Hide Selected", [plugs] {
-        for (const QJsonValue& pl : plugs()) exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"lock", true}, {"keyable", false}});
-    })->setEnabled(any);
+    // Nonkeyable but still in the box, shown grey, as the reference's.
+    m->addAction("Make Selected Nonkeyable", [each] { each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"keyable", false}, {"channelBox", true}}); }); })->setEnabled(any);
+    m->addAction("Make Selected Keyable", [each] { each([](const QJsonValue& pl) { exec("setAttr", QJsonObject{{"args", QJsonArray{pl}}, {"keyable", true}}); }); })->setEnabled(any);
     m->addSeparator();
-    m->addAction("Select All Channels", [] {
-        g_channel_sel.clear();
-        for (QLabel* l : g_channel_labels) g_channel_sel << l->property("attr").toString();
-        restyle_channel_labels();
+    // The animation layers picked in the Anim layer editor.
+    auto selected_layers = [] {
+        QStringList out;
+        for (const QJsonValue& l : ask("ls", QJsonObject{{"type", "animLayer"}}).toArray())
+            if (ask("animLayer", QJsonObject{{"args", QJsonArray{l}}, {"query", true}, {"selected", true}}).toBool()) out << l.toString();
+        return out;
+    };
+    const bool layers = !selected_layers().isEmpty();
+    m->addAction("Add to Selected Layers", [plugs, selected_layers] {
+        for (const QString& l : selected_layers()) exec("animLayer", QJsonObject{{"args", QJsonArray{l}}, {"edit", true}, {"attribute", plugs()}});
+    })->setEnabled(any && layers);
+    m->addAction("Remove From Selected Layers", [plugs, selected_layers] {
+        for (const QString& l : selected_layers()) exec("animLayer", QJsonObject{{"args", QJsonArray{l}}, {"edit", true}, {"removeAttribute", plugs()}});
+    })->setEnabled(any && layers);
+}
+
+// Ctrl+right-click: the reference's Edit menu for the node the click was on (the object, a shape or an input): editors,
+// attributes, the node itself and the Channel Box's settings (#137).
+void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh) {
+    const bool any = !g_channel_sel.isEmpty();
+    menu_title(m, "Edit");
+    m->addAction("Expressions...", [] { mel_action("ExpressionEditor"); })->setEnabled(any);
+    m->addAction("Set Driven Key...", [] { mel_action("SetDrivenKeyOptions"); })->setEnabled(any);
+    m->addAction("Graph Editor", [] { mel_action("GraphEditor"); });
+    m->addAction("Channel Control", [] { mel_action("ChannelControlEditor"); });
+    m->addAction("Connection Editor", [] { mel_action("ConnectionEditor"); });
+    m->addAction("Attribute Editor", [] { mel_action("AttributeEditor"); });
+    // The material on the object, in the Attribute Editor.
+    m->addAction("Material Attributes", [node] {
+        const QJsonArray shapes = ask("listRelatives", QJsonObject{{"args", QJsonArray{node}}, {"shapes", true}, {"fullPath", true}}).toArray();
+        const QJsonArray from = shapes.isEmpty() ? QJsonArray{node} : shapes;
+        for (const QJsonValue& s : from) {
+            const QJsonArray sgs = ask("listConnections", QJsonObject{{"args", QJsonArray{s}}, {"type", "shadingEngine"}}).toArray();
+            if (sgs.isEmpty()) continue;
+            const QJsonArray mats = ask("listConnections", QJsonObject{{"args", QJsonArray{sgs[0].toString() + ".surfaceShader"}}, {"source", true}, {"destination", false}}).toArray();
+            if (mats.isEmpty()) continue;
+            exec("select", QJsonObject{{"args", QJsonArray{mats[0]}}, {"replace", true}});
+            mel_action("AttributeEditor");
+            return;
+        }
     });
-    m->addAction("Deselect Channels", [] {
+    m->addSeparator();
+    m->addAction("Add Attribute", [] { mel_action("AddAttribute"); });
+    // Rename the one picked attribute (one added with Add Attribute).
+    m->addAction("Edit Attribute", [node, refresh] {
+        const QString a = g_channel_sel.first();
+        bool ok = false;
+        const QString to = QInputDialog::getText(main_window_widget(), "Edit Attribute", "Name:", QLineEdit::Normal, a, &ok).trimmed();
+        if (ok && !to.isEmpty() && to != a) {
+            exec("renameAttr", QJsonObject{{"args", QJsonArray{node + "." + a, to}}});
+            g_channel_sel = {to};
+            refresh();
+        }
+    })->setEnabled(g_channel_sel.size() == 1);
+    QAction* dup = m->addAction("Duplicate Attribute");
+    dup->setEnabled(false);
+    dup->setToolTip("Not in Aztek yet.");
+    m->addAction("Delete Attributes", [node] {
+        exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+        for (const QString& a : g_channel_sel) exec("deleteAttr", QJsonObject{{"args", QJsonArray{node + "." + a}}});
+        exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
         g_channel_sel.clear();
-        restyle_channel_labels();
+    })->setEnabled(any);
+    // Assets (containers) are not in Aztek: these stay off.
+    for (const char* label : {"Publish to Asset", "Unpublish from Asset", "Lock Unpublished Attributes", "Unlock Unpublished Attributes"}) {
+        QAction* a = m->addAction(label);
+        a->setEnabled(false);
+        a->setToolTip("Assets are not in Aztek yet.");
+    }
+    m->addSeparator();
+    m->addAction("Select Node", [node] { exec("select", QJsonObject{{"args", QJsonArray{node}}, {"replace", true}}); });
+    m->addAction("Delete Node", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}}); });
+    m->addAction("Delete History", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}, {"constructionHistory", true}}); });
+    QMenu* settings = m->addMenu("Settings");
+    auto radio = [settings, refresh](const QString& key, int fallback, const QStringList& labels) {
+        auto* group = new QActionGroup(settings);
+        for (int i = 0; i < labels.size(); ++i) {
+            QAction* a = settings->addAction(labels[i]);
+            a->setCheckable(true);
+            a->setChecked(cb_setting(key, fallback).toInt() == i);
+            group->addAction(a);
+            QObject::connect(a, &QAction::triggered, [key, i, refresh] {
+                QSettings().setValue("channelBox/" + key, i);
+                refresh();
+            });
+        }
+    };
+    radio("speed", 2, {"Slowest", "Slow", "Medium", "Fast"});
+    settings->addSeparator();
+    for (auto [label, key, fallback] : {std::tuple{"Hyperbolic", "hyperbolic", false}, std::tuple{"Show Namespace", "namespace", true}}) {
+        QAction* a = settings->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(cb_setting(key, fallback).toBool());
+        QObject::connect(a, &QAction::toggled, [key = QString(key), refresh](bool on) {
+            QSettings().setValue("channelBox/" + key, on);
+            refresh();
+        });
+    }
+    settings->addSeparator();
+    radio("manipulators", 2, {"No Manipulators", "Invisible Manipulators", "Standard Manipulators"});
+    settings->addSeparator();
+    settings->addAction("Change Precision...", [refresh] {
+        bool ok = false;
+        const int p = QInputDialog::getInt(main_window_widget(), "Change Precision", "Decimal places:", cb_setting("precision", 3).toInt(), 0, 15, 1, &ok);
+        if (!ok) return;
+        QSettings().setValue("channelBox/precision", p);
+        refresh();
     });
+    settings->addAction("Reset to Default", [refresh] {
+        QSettings s;
+        for (const char* k : {"speed", "hyperbolic", "namespace", "manipulators", "precision"}) s.remove(QString("channelBox/") + k);
+        refresh();
+    });
+    QMenu* names = m->addMenu("Channel Names");
+    auto* group = new QActionGroup(names);
+    const QStringList kinds{"Nice", "Long", "Short"};
+    for (int i = 0; i < kinds.size(); ++i) {
+        QAction* a = names->addAction(kinds[i]);
+        a->setCheckable(true);
+        a->setChecked(cb_setting("names", 0).toInt() == i);
+        group->addAction(a);
+        QObject::connect(a, &QAction::triggered, [i, refresh] {
+            QSettings().setValue("channelBox/names", i);
+            refresh();
+        });
+    }
 }
 
 } // namespace
@@ -436,7 +643,7 @@ ChannelBox::ChannelBox(QWidget* parent) : Panel(parent) {
     QMenu* channels = bar->addMenu("Channels");
     connect(channels, &QMenu::aboutToShow, channels, [channels] {
         channels->clear();
-        fill_channels_menu(channels);
+        fill_channels_menu(channels, false);
     });
     QMenu* edit = bar->addMenu("Edit");
     edit->addAction("Expressions...", [] { mel_action("ExpressionEditor"); });
@@ -478,7 +685,22 @@ ChannelBox::ChannelBox(QWidget* parent) : Panel(parent) {
     setContextMenuPolicy(Qt::CustomContextMenu);
     connect(this, &QWidget::customContextMenuRequested, this, [this](const QPoint& p) {
         QMenu m;
-        fill_channels_menu(&m);
+        if (QGuiApplication::keyboardModifiers() & Qt::ControlModifier) {
+            // The node of the row or heading under the click: an input, a shape or the object.
+            QString node;
+            for (QWidget* w = childAt(p); w && node.isEmpty() && w != this; w = w->parentWidget()) {
+                node = w->property("node").toString();
+                if (node.isEmpty()) {
+                    for (QObject* c : w->children())
+                        if (c->property("node").isValid() && node.isEmpty()) node = c->property("node").toString();
+                }
+            }
+            if (node.isEmpty() && body_) node = body_->property("mainNode").toString();
+            if (node.isEmpty()) return;
+            fill_edit_menu(&m, node, [this] { refresh(); });
+        } else {
+            fill_channels_menu(&m, true);
+        }
         m.exec(mapToGlobal(p));
     });
 }
@@ -506,7 +728,9 @@ void ChannelBox::refresh() {
         return;
     }
     // Object name, editable to rename.
-    auto* name = new QLineEdit(cb["name"].toString(), body_);
+    // Settings > Show Namespace off drops the namespace from the name shown.
+    const QString full = cb["name"].toString();
+    auto* name = new QLineEdit(cb_setting("namespace", true).toBool() ? full : full.section(':', -1), body_);
     name->setObjectName("channelHeader");
     QString path = cb["path"].toString();
     connect(name, &QLineEdit::textEdited, name, [name] { name->setProperty("editing", true); });
@@ -515,6 +739,7 @@ void ChannelBox::refresh() {
         name->setProperty("editing", false);
         exec("rename", args(QJsonArray{path, name->text().trimmed()}));
     });
+    name->setProperty("node", path);
     lay->addWidget(name);
     body_->setProperty("mainNode", path);
     add_channels(lay, cb["channels"].toArray());
@@ -524,6 +749,7 @@ void ChannelBox::refresh() {
         lay->addWidget(section("SHAPES", body_));
         for (const QJsonValue& s : shapes) {
             auto* l = new QLabel(s.toObject()["name"].toString(), body_);
+            l->setProperty("node", s.toObject()["path"].toString());
             l->setObjectName("channelNode");
             lay->addWidget(l);
             add_channels(lay, s.toObject()["channels"].toArray());
@@ -537,6 +763,7 @@ void ChannelBox::refresh() {
             QJsonObject in = v.toObject();
             QString p = in["path"].toString();
             auto* b = new QPushButton(in["name"].toString(), body_);
+            b->setProperty("node", p);
             b->setObjectName("channelNodeButton");
             b->setFlat(true);
             connect(b, &QPushButton::clicked, this, [this, p] {

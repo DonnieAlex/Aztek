@@ -329,6 +329,7 @@ fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
                     "attr": alias,
                     "plug": format!("{path}.{alias}"),
                     "nice": alias,
+                    "short": alias,
                     "type": "float",
                     "value": n.data().element(i, e.element).map_or(0.0, |v| v.as_float()) / aztek_ops::units::factor(a.unit),
                     "enum": [],
@@ -356,6 +357,7 @@ fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
                     let child = if a.child_names[k].is_empty() { format!("{}{}", a.name, ["X", "Y", "Z"][k]) } else { a.child_names[k].clone() };
                     out.push(json!({
                         "attr": child,
+                        "short": if a.child_short[k].is_empty() { child.clone() } else { a.child_short[k].clone() },
                         "plug": format!("{path}.{child}"),
                         "nice": format!("{} {}", attr_nice(a), if a.has(flags::COLOR) { ["R", "G", "B"][k] } else { ["X", "Y", "Z"][k] }),
                         "type": "float",
@@ -368,6 +370,7 @@ fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
             (t, v) if matches!(t, PlugType::Bool | PlugType::Int | PlugType::Float | PlugType::Enum | PlugType::String) => {
                 out.push(json!({
                     "attr": a.name,
+                    "short": if a.short_name.is_empty() { a.name.clone() } else { a.short_name.clone() },
                     "plug": format!("{path}.{}", a.name),
                     "nice": attr_nice(a),
                     "type": type_name(t),

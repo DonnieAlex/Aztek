@@ -1439,6 +1439,22 @@ Channel Box lets its picked channels go, so clicking empty space ends it, as in 
 A selected joint draws its transform hint: red X, green Y and blue Z from its centre out to its ball, without the
 letters Local Rotation Axes have, in object mode only.
 
+### Channel Box right-click menus (17/11/2026, #137)
+
+Right-click in the Channel Box is the reference's Channels menu: Key Selected, Key All Keyable, Breakdown, Mute and
+Unmute; Sync Selection in Graph Editor and Sync Timeline Display (kept as settings, not acted on yet); Cut, Copy, Paste
+and Delete Selected keys; Copy and Paste Selected Attribute Values; Duplicate Values (the lead object's values to the
+other selected objects); Freeze Translate, Rotate, Scale or All; Break Connections and Select Connection; Lock, Unlock,
+Hide, Lock and Hide, Make Selected Nonkeyable and Keyable; Add to and Remove From Selected (animation) Layers. Select All
+Channels and Deselect Channels, which the reference doesn't have, are gone.
+
+Ctrl+right-click is the Edit menu for the node under the click (the object, a shape or an input): the editors,
+Material Attributes, Add, Edit (rename) and Delete Attributes, Select Node, Delete Node, Delete History, Settings
+(slider speed Slowest to Fast, Hyperbolic, Show Namespace, No, Invisible or Standard Manipulators, Change Precision,
+Reset to Default) and Channel Names (Nice, Long, Short). Duplicate Attribute and the asset entries are there but off:
+Aztek has neither yet. The speeds are 0.1, 0.5, 1 and 2 times the slider's step; the reference's own factors aren't
+known here.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
