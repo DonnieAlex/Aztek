@@ -417,6 +417,12 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
                 node_manip::show_node(c, &arg);
                 Value::Null
             }
+            // The channel box's picked channels: "parent" while translate channels are picked (#136).
+            "uiChannelSpace" => {
+                crate::viewport::set_channel_space(!arg.is_empty());
+                c.version += 1;
+                Value::Null
+            }
             "uiShowManipAttr" => {
                 c.node_manip.active_attr = if arg.is_empty() { None } else { Some(arg.clone()) };
                 c.version += 1;

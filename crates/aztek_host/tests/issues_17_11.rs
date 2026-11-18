@@ -394,3 +394,43 @@ fn parity_counts_the_reference_commands_and_flags() {
     assert!(!missing.contains(&"polyCube") && !missing.contains(&"makeIdentity"));
     assert_eq!(missing.len() as u64, 1198 - have);
 }
+
+/// #138: a selected joint draws its axes, from its centre to its ball; not when it isn't selected.
+#[test]
+fn a_selected_joint_shows_its_transform_hint() {
+    let mut c = Core::new();
+    c.mel("select -cl; joint -p 0 0 0 -rad 2; joint -p 4 0 0; select -cl;");
+    assert!(aztek_host::viewport::joint_hints(&c.s.graph).is_empty());
+    c.mel("select -r joint1;");
+    let lines = aztek_host::viewport::joint_hints(&c.s.graph);
+    assert_eq!(lines.len(), 6);
+    // Out to the ball: half the radius, as the joint is drawn.
+    let len = |i: usize| {
+        let (a, b) = (lines[2 * i].pos, lines[2 * i + 1].pos);
+        ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
+    };
+    for i in 0..3 {
+        assert!((len(i) - 1.0).abs() < 1e-4, "{}", len(i));
+    }
+    c.mel("selectMode -component;");
+    assert!(aztek_host::viewport::joint_hints(&c.s.graph).is_empty());
+}
+
+/// #136: picked translate channels put the Move manipulator in the parent's axes; letting them go puts it back.
+#[test]
+fn picked_translate_channels_turn_the_move_manipulator_to_the_parent() {
+    let mut c = Core::new();
+    c.mel("group -em -n p; rotate 0 0 90 p; polyCube -n box; parent box p; select -r box; setToolTo moveSuperContext;");
+    let mut vp = Viewport::new(CamKind::Persp);
+    vp.tool = aztek_host::viewport::Tool::Move;
+    vp.axis_mode = "world".into();
+    vp.update_frame(&mut c.s);
+    assert!((vp.frame.x_axis - DVec3::X).length() < 1e-9);
+    aztek_host::viewport::set_channel_space(true);
+    vp.update_frame(&mut c.s);
+    // The parent is turned 90 degrees about Z: its X is the world's Y.
+    assert!((vp.frame.x_axis - DVec3::Y).length() < 1e-6, "{:?}", vp.frame);
+    aztek_host::viewport::set_channel_space(false);
+    vp.update_frame(&mut c.s);
+    assert!((vp.frame.x_axis - DVec3::X).length() < 1e-9);
+}

@@ -402,6 +402,18 @@ pub enum Tool {
 /// Radius of the Edit Pivot rings, in handle lengths: outside the arrows.
 const PIVOT_RING: f32 = 1.22;
 
+/// Translate channels picked in the channel box: the Move manipulator takes the parent's axes, whatever orientation it
+/// is set to, as in the reference, until they are let go (#136).
+static CHANNEL_SPACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn set_channel_space(on: bool) {
+    CHANNEL_SPACE.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn channel_space() -> bool {
+    CHANNEL_SPACE.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// The handle each transform tool has active (Move, Rotate, Scale): the last one clicked, or the one its context's -ah
 /// set. Every view shares it, as they share the tool, and it stays through selection changes ("Remember active handle"
 /// is on in the reference's preferences). A middle drag that starts off the manipulator takes it (#128).
@@ -2578,6 +2590,7 @@ impl Viewport {
                 }
             }
         }
+        marks.extend(joint_hints(g));
         if !marks.is_empty() {
             let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &marks);
             r.bind(gpu, Kind::LinesOnTop);
@@ -3194,10 +3207,12 @@ impl Viewport {
                 return;
             }
         }
-        if self.axis_mode == "world" {
+        let channel_parent = channel_space() && self.eff_tool() == Tool::Move && components::mode(g) == ComponentMode::Object;
+        let axis_mode = if channel_parent { "parent".to_string() } else { self.axis_mode.clone() };
+        if axis_mode == "world" {
             return;
         }
-        if self.axis_mode == "custom" {
+        if axis_mode == "custom" {
             self.frame = self.custom_frame;
             return;
         }
@@ -3214,7 +3229,7 @@ impl Viewport {
         };
         g.evaluate();
         let mode = components::mode(g);
-        match self.axis_mode.as_str() {
+        match axis_mode.as_str() {
             "object" => {
                 self.frame = match pivot_of(g) {
                     Some(lead) => aztek_scene::transform_ops::pivot_frame(g, lead),
@@ -4385,6 +4400,31 @@ pub fn rig_items(g: &Graph) -> Vec<RigItem> {
         let _ = Transform::TRANSLATE;
     }
     out.extend(crate::dyn_draw::cloth_marks(g));
+    out
+}
+
+/// A selected joint's transform hint, as the reference draws it: its axes, red X, green Y and blue Z, from the centre
+/// out to its ball, with no letters (those are Local Rotation Axes). Only while the joint is selected (#138).
+pub fn joint_hints(g: &Graph) -> Vec<LineVertex> {
+    use aztek_scene::rig::Joint;
+    let mut out = Vec::new();
+    if components::mode(g) != ComponentMode::Object {
+        return out;
+    }
+    let scale = crate::ui_cmds::pref_f64("jointScale", 1.0);
+    for &id in g.selection() {
+        let Some(n) = g.node(id) else { continue };
+        if !n.ty().is_a("joint") || !visible(g, id) {
+            continue;
+        }
+        let w = n.data().matrix(DagNode::WORLD_MATRIX);
+        let o = w.w_axis.truncate();
+        let r = n.data().float(Joint::RADIUS) * 0.5 * scale;
+        for (axis, c) in [(w.x_axis, [220u8, 50, 50, 255]), (w.y_axis, [50, 200, 50, 255]), (w.z_axis, [50, 90, 240, 255])] {
+            out.push(LineVertex { pos: o.as_vec3().to_array(), color: c8(c) });
+            out.push(LineVertex { pos: (o + axis.truncate().normalize_or_zero() * r).as_vec3().to_array(), color: c8(c) });
+        }
+    }
     out
 }
 

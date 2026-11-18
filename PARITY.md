@@ -1430,6 +1430,15 @@ The welcome screen's What's new lists the last hundred changes in their commits'
 release each went out in, with its version and date, those not released yet at the top; this copy's release and change
 are marked, and issue numbers link to the issues.
 
+### Picked channels and the manipulator (17/11/2026, #136, #138)
+
+Picked translate channels in the Channel Box turn the Move manipulator to the parent's axes, whatever orientation it is
+set to, as those channels are values in the parent's space; letting them go turns it back. With nothing selected the
+Channel Box lets its picked channels go, so clicking empty space ends it, as in the reference.
+
+A selected joint draws its transform hint: red X, green Y and blue Z from its centre out to its ball, without the
+letters Local Rotation Axes have, in object mode only.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

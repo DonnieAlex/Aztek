@@ -164,15 +164,25 @@ QStringList selected_input_plugs() {
     return out;
 }
 
+// Picked translate channels put the Move manipulator in the parent's axes, as the reference does: those channels are
+// values in the parent's space (#136).
+void tell_channel_space() {
+    bool translate = false;
+    for (const QString& a : g_channel_sel) translate = translate || a.startsWith("translate") || a == "tx" || a == "ty" || a == "tz";
+    query("uiChannelSpace", translate ? "parent" : "");
+}
+
 void clear_channel_selection() {
     g_channel_sel.clear();
     g_input_plugs.clear();
     g_channel_anchor.clear();
+    tell_channel_space();
 }
 
 namespace {
 
 void restyle_channel_labels() {
+    tell_channel_space();
     for (QLabel* l : g_channel_labels) {
         l->setProperty("picked", g_channel_sel.contains(l->property("attr").toString()));
         l->style()->unpolish(l);
@@ -489,6 +499,8 @@ void ChannelBox::refresh() {
     lay->setContentsMargins(4, 4, 4, 4);
     lay->setSpacing(1);
     if (cb.isEmpty()) {
+        // Nothing selected: the picked channels go too, as in the reference (#136).
+        if (!g_channel_sel.isEmpty()) clear_channel_selection();
         lay->addStretch(1);
         scroll_->setWidget(body_);
         return;
