@@ -4,7 +4,7 @@ Section: graphics
 Priority: optional
 Architecture: @ARCH@
 Installed-Size: @SIZE@
-Maintainer: Simon Legrand <srlegrand@users.noreply.github.com>
+Maintainer: srlegrand <srlegrand@users.noreply.github.com>
 Homepage: https://github.com/srlegrand/AKA-Crest-Aztek
 Depends: @SHLIBS@, libvulkan1, qt6-qpa-plugins, hicolor-icon-theme
 Recommends: mesa-vulkan-drivers

@@ -155,7 +155,7 @@ print([round(v, 3) + 0.0 for v in cmds.matrixUtil(mx, t=(1, 1, 1), rt=True)][12:
             r#"
 cmds.file(new=True, force=True)
 cmds.fileInfo("rig", "v3")
-cmds.fileInfo("owner", "simon")
+cmds.fileInfo("owner", "srlegrand")
 cmds.fileInfo("rig", "v4")
 print(cmds.fileInfo(q=True), cmds.fileInfo("rig", q=True))
 cmds.fileInfo(rm="owner")
@@ -173,7 +173,7 @@ cmds.file("{p}", open=True, force=True)
 print(cmds.fileInfo("rig", q=True), cmds.fileInfo("owner", q=True))
 "#
         ),
-        &["['rig', 'v4', 'owner', 'simon'] ['v4']", "[2.5, 2.5, 2.5, 2.5, 2.5]", "[]", "['v4'] []"],
+        &["['rig', 'v4', 'owner', 'srlegrand'] ['v4']", "[2.5, 2.5, 2.5, 2.5, 2.5]", "[]", "['v4'] []"],
     );
     let _ = std::fs::remove_file(path);
 }

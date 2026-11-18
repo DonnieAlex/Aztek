@@ -155,7 +155,7 @@ Attributes tagged as angles: `rotate`, `rotateAxis`, `jointOrient`, `preferredAn
 - The reference's published command reference (flags, short names, create/query/edit modes, return values) and node reference
   (node types, attribute long and short names, defaults) are the spec.
 - Every command and node gets tests written from that spec. Behaviour the reference does not pin down is checked
-  against the reference by Simon and recorded in the test.
+  against the reference by srlegrand and recorded in the test.
 
 ## Scene model
 
@@ -3016,7 +3016,7 @@ reference in none of them.
   keyboard across rebuilds (70); presets (50): Save, Import Reference Presets (`.mel` files or folders, turned into
   YAML), Replace, Blend 90 to 10 percent and Delete; `.mel` presets on `MAYA_PRESET_PATH` read as they are;
   `nodePreset`, `applyAttrPreset`, `importAttrPresets`. Presets are saved as YAML, where the reference saves `.mel`:
-  Simon's choice.
+  srlegrand's choice.
 - Hypershade: Graph Input and Output Connections on any node, following the selection of every editor (38).
 - Render View: R, G, B and A show one channel, again for RGB; Alt+right-drag zooms about the point clicked (40).
 - USD import: lights (sphere as point or spot, distant, rect, disk and cylinder, dome as a sky dome with its texture;
@@ -3070,7 +3070,7 @@ reference in none of them.
   failed in such a script.
 - Status line (82): groups fold from a handle, remembered; Select by Name after the render icons.
 - Open: #76, the install folder on PATH and a `bin` folder on Windows. The reference leaves PATH alone.
-- Not the reference's: themes (Themes, top right of the menu bar), asked for by Simon.
+- Not the reference's: themes (Themes, top right of the menu bar), asked for by srlegrand.
 
 ### A new core: aztek_dg and aztek_api (15/11/2026)
 
@@ -3122,7 +3122,7 @@ OBJexport, FBX, FBX export, USD Import, USD Export, Alembic); `-q -extension`, `
 - `timeControl -sound name -displaySound true` picks the sound whose waveform the time slider draws; the slider's
   right-click menu has Sound > None, each sound, and Import Audio (placed at the current frame). Sounds save in `.ma`.
 - Not yet: hearing it. Playback, scrubbing and sync need an audio output library (Qt Multimedia, or a Rust crate over
-  ALSA, CoreAudio and WASAPI), which is a dependency for every package; it waits on Simon's choice. Other formats than
+  ALSA, CoreAudio and WASAPI), which is a dependency for every package; it waits on srlegrand's choice. Other formats than
   WAV (the reference also reads AIFF) are not read.
 
 ### Image planes (16/11/2026)

@@ -3,9 +3,9 @@
 Requests waiting or in progress, newest detail kept. Move to Done with the date when reported finished.
 
 ## In progress
-- Sound output (Simon's call): which audio library Aztek plays sound through, for playback, scrubbing and sync.
-- XJEN (top priority, Simon 16/11/2026): hair and fur at XGen parity. Target and order in docs/XJEN.md; ground truth
-  from `tools/reference_capture/xgen_capture.py`, to be run by Simon. Steps 1 (strands), 2 (Interactive Groom
+- Sound output (srlegrand's call): which audio library Aztek plays sound through, for playback, scrubbing and sync.
+- XJEN (top priority, srlegrand 16/11/2026): hair and fur at XGen parity. Target and order in docs/XJEN.md; ground truth
+  from `tools/reference_capture/xgen_capture.py`, to be run by srlegrand. Steps 1 (strands), 2 (Interactive Groom
   core), 3 (grooming tools), 4 (modifiers), 5 (editor, shelf,
   menu) and 6 (Alembic, caches) in, 16/11/2026.
 - Deformation speed: viewport staleness fixed; root control on Lou still about 115 ms a change; smooth preview subdivides from scratch each deformation.
@@ -22,7 +22,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   (and its colours checked against the reference's) and stylus pressure; Bind Skin's Colorize skeleton; the ViewCube's
   Animated transitions; the Outliner's Scene Assembly, Asset, Render Setup and Create Partition, greyed until those
   exist.
-- #76 (open): install folder on PATH and a `bin` folder on Windows. The reference leaves PATH alone; Simon to decide on
+- #76 (open): install folder on PATH and a `bin` folder on Windows. The reference leaves PATH alone; srlegrand to decide on
   the `bin` folder.
 - CI: `python_api_px` fails on rocky9 and ubuntu-2204 (sum 0.0 after reopening a plug-in's data); diagnostics are in,
   the "after reopening" output from the next failed run is wanted.
@@ -31,7 +31,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   a field's transform fails; `scriptJob -listJobs` lists ids, not the Python function. (`displaySmoothness -po` works
   since PLAN 1.12.)
 - Real plug cycles: `a.tx -> b.tx -> a.tx` is refused. The reference connects it and warns at evaluation; the evaluator needs a guard first.
-- One shape node under several parents, in fact: each instance's parent holds its own node, kept the same by `setAttr` and `rename` (PLAN 1.14). A script sees one shape; the Python API's `instanceCount`, a direct graph write and non-mesh instances don't yet. A real multi-parent graph means every DAG walk and per-instance world matrices, picking and selection paths: a project of its own, Simon's call.
+- One shape node under several parents, in fact: each instance's parent holds its own node, kept the same by `setAttr` and `rename` (PLAN 1.14). A script sees one shape; the Python API's `instanceCount`, a direct graph write and non-mesh instances don't yet. A real multi-parent graph means every DAG walk and per-instance world matrices, picking and selection paths: a project of its own, srlegrand's call.
 - A script's `scriptJob -idleEvent` moves the core's version on each idle, so the panels rebuild and a Channel Box field being typed in loses the keyboard. Found writing the multi-edit check; callbacks that changed nothing shouldn't move it.
 - Missing commands found running the capture kit in Aztek (09/11/2026), still missing 16/11/2026: `assignCommand`, `hotkeySet`, `imagePlane`, `runTimeCommand -dca` and `-uca` (`allNodeTypes` is in).
 - PLAN.md (08/11/2026): parity review's work queue. Phase 0 and 1 before anything else that isn't a ticket.
@@ -71,7 +71,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: the suite drives one `Core` in process. CI runs both suites by name and `basics.py` through the binary.
 - 0.1 Capture kit. Done: `tools/reference_capture/` with `capture.py`, `calls.json`, `scenes.json`, `node_types.txt`, `WANTED.md`; dry run through `aztek --batch` with no script errors.
   Not done: never run in the reference itself, and no fixtures exist yet.
-  Why: needs Simon to run it: `mayapy tools/reference_capture/capture.py`, then commit `tests/data/reference/`. Nothing else waits on it.
+  Why: needs srlegrand to run it: `mayapy tools/reference_capture/capture.py`, then commit `tests/data/reference/`. Nothing else waits on it.
 - 0.2 Fixture harness. Done: `reference_fixtures.rs` compares 99 calls with hand-written readings, reports by area, and fails on a new mismatch or a stale entry on the open list (44 entries at the start).
   Not done: no comparison yet for attribute, hotkey or posed fixtures; 6 calls are skipped with no reading.
   Why: nothing captured to compare against, and writing those comparisons blind would guess at the fixture shapes' use.
@@ -89,7 +89,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: the item names rename; ticket added
 - 1.5. Done: `arm_01` copies to `arm_02`, `ctl_L_009` to `ctl_L_010`, `pCube2` has `pCubeShape2`, `listRelatives` leaf names
   Not done: padding rules unverified against a capture
-  Why: calls.json holds them until Simon runs the kit
+  Why: calls.json holds them until srlegrand runs the kit
 - 1.6. Done: `move -a 0 0 0 obj.rp obj.sp`, either pivot alone, relative and object space
   Not done: `-rpr` and `-spr` are accepted and do nothing on pivots
   Why: nothing in the reference's docs says what they mean there
@@ -116,7 +116,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: they drive the reference's Hypershade window, which Aztek doesn't have in that form
 - 1.14. Done: `listRelatives -ap` gives every parent, attributes set on one instance's shape reach the others, a rename follows, `.ma` keeps the reference's form
   Not done: one node under two parents inside the graph; `instanceCount`; non-mesh instances
-  Why: a true multi-parent graph means rewriting every DAG walk; ticketed for Simon's call
+  Why: a true multi-parent graph means rewriting every DAG walk; ticketed for srlegrand's call
 - After 1.14, every test and example under `--batch`. Done: the full suite green with no basics test ignored and `reference_open.txt` empty; all 51 example scenes open with no warnings; world matrices and mesh points at frames 1, 12 and 24 match the build from before the unit change on all 51; `aztekDynamics` warning gone; `tools/check_examples.sh` in CI.
   Not done: `examples/tools/make_examples.mel` only runs from the repo's root, as written.
   Why: it's the tool that writes the examples, not an example.

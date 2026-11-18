@@ -3,7 +3,7 @@
 ## What it is
 
 Aztek is a modelling, UV, rigging and animation application that behaves like the reference application (Maya; everywhere else it is called "the reference"),
-released by Simon (srlegrand) at https://github.com/srlegrand/Aztek. PARITY.md holds the target and status.
+released by srlegrand at https://github.com/srlegrand/Aztek. PARITY.md holds the target and status.
 
 ## Rules
 
@@ -121,9 +121,9 @@ skill applies when working on an issue by hand.
 
 Pick the next gap from PARITY.md ("Not yet") or below, implement it to the reference's behaviour, add tests in the crate's
 `tests/`, build, check it in the UI with screenshots, update PARITY.md's status with the date. Commit locally in small
-steps with plain messages (no attribution); Simon pushes.
+steps with plain messages (no attribution); srlegrand pushes.
 
 ## Next
 
 Work PLAN.md from the top: ground truth from the reference first, then the basics, then breadth. TICKETS.md wins when
-Simon puts something there. PARITY.md stays the record of what is done and how it differs.
+srlegrand puts something there. PARITY.md stays the record of what is done and how it differs.

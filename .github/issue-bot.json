@@ -1,8 +1,8 @@
 {
-  "about": "Settings for .github/workflows/issue-bot.yml. allow: GitHub names whose issues are taken without the auto label. since: issues opened before this date (YYYY-MM-DD) are taken only with the auto label. max_open_prs: no new issue is started while this many of the bot's pull requests wait. max_asks: questions asked on one issue before it goes to needs-simon. skip_labels: issues with any of these are left alone.",
+  "about": "Settings for .github/workflows/issue-bot.yml. allow: GitHub names whose issues are taken without the auto label. since: issues opened before this date (YYYY-MM-DD) are taken only with the auto label. max_open_prs: no new issue is started while this many of the bot's pull requests wait. max_asks: questions asked on one issue before it goes to needs-srlegrand. skip_labels: issues with any of these are left alone.",
   "allow": ["srlegrand", "sebdvvv", "DonnieAlex"],
   "since": "2026-11-19",
   "max_open_prs": 3,
   "max_asks": 2,
-  "skip_labels": ["patch", "needs-simon", "not-reference", "auto:working", "auto:pr", "auto:failed", "wontfix", "duplicate"]
+  "skip_labels": ["patch", "needs-srlegrand", "not-reference", "auto:working", "auto:pr", "auto:failed", "wontfix", "duplicate"]
 }

@@ -9,7 +9,22 @@ Code (`anthropics/claude-code-action`) following `.claude/skills/fix-issue/SKILL
 | ask | A comment asking the reporter to run a script in the reference and paste what it prints; `auto:waiting`. When the reporter (or someone on the allow list) answers, the next run takes it up again. |
 | not-reference | A comment showing the reference does the same; `not-reference`, left open for you to close. |
 | close | A comment, and the issue closed: thanks, answered questions, duplicates. |
-| needs-simon | Nothing posted; `needs-simon`. What it got to, if anything, is on `auto/draft-issue-N`. The run's summary says why. |
+| needs-srlegrand | Nothing posted; `needs-srlegrand`. What it got to, if anything, is on `auto/draft-issue-N`. The run's summary says why. |
+
+## An issue labelled needs-srlegrand
+
+The bot stopped and posted nothing. To pick it up:
+
+1. Read why: Actions, Issue bot, the run for that issue; its summary says what it found, what stopped it and what it
+   would do.
+2. If the summary names `auto/draft-issue-N`, look at what it got to: `git fetch origin auto/draft-issue-N` and
+   `git diff main...FETCH_HEAD`.
+3. Then one of:
+   - Finish it yourself: fix it (from the draft or not), reply on the issue, close it, and remove the label.
+   - Hand it back: add a comment with what it lacked (your decision, the reference's output), remove
+     `needs-srlegrand`, then add `auto`. The next run reads every comment, yours included.
+   - Close it, if it shouldn't be done.
+4. Delete `auto/draft-issue-N` once it's settled: `git push origin --delete auto/draft-issue-N`.
 
 ## Which issues
 
@@ -22,7 +37,7 @@ From `.github/issue-bot.json`:
 
 Never: pull requests, issues with a label in `skip_labels` or an `auto:` label of their own. Nothing new starts while
 `max_open_prs` of the bot's pull requests wait for you. After `max_asks` unanswered questions an issue goes to
-`needs-simon`.
+`needs-srlegrand`.
 
 ## Safety
 
@@ -51,7 +66,7 @@ gh label create auto:working --repo srlegrand/Aztek --color fbca04 --description
 gh label create auto:waiting --repo srlegrand/Aztek --color c5def5 --description "Waiting for an answer from the reporter"
 gh label create auto:pr --repo srlegrand/Aztek --color 1d76db --description "A fix waits in a pull request"
 gh label create auto:failed --repo srlegrand/Aztek --color b60205 --description "The issue bot's run failed"
-gh label create needs-simon --repo srlegrand/Aztek --color d93f0b --description "Left for Simon"
+gh label create needs-srlegrand --repo srlegrand/Aztek --color d93f0b --description "Left for srlegrand"
 gh label create not-reference --repo srlegrand/Aztek --color cccccc --description "The reference does the same"
 ```
 

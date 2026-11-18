@@ -1,20 +1,20 @@
 # Plan
 
 The work queue after the parity review of 08/11/2026 (commit 04fb742). Work top to bottom. TICKETS.md still wins when
-Simon puts something there; otherwise take the first open item here. PARITY.md stays the record of what is done and how
+srlegrand puts something there; otherwise take the first open item here. PARITY.md stays the record of what is done and how
 it differs; this file is what to do next.
 
 ## Now (16/11/2026)
 
-Ahead of the phases below. XJEN first is Simon's call (16/11/2026); the order after it is proposed, for Simon to change.
+Ahead of the phases below. XJEN first is srlegrand's call (16/11/2026); the order after it is proposed, for srlegrand to change.
 
 1. XJEN, steps 1 to 6 of [docs/XJEN.md](docs/XJEN.md): strands in Harold and the views, the Interactive Groom core,
    the grooming tools, the modifiers, the editor and menus, then Alembic (4.2 below) and caching. Step 7 (XGen
-   collections, SeExpr, Ptex) and step 8 (dynamic guides) follow the rest of this list. Simon runs
+   collections, SeExpr, Ptex) and step 8 (dynamic guides) follow the rest of this list. srlegrand runs
    `tools/reference_capture/xgen_capture.py` once so step 2 on is tested against the reference, not the documentation.
 2. The new core (`aztek_dg`, `aztek_api`, PARITY.md "A new core"): commands on it, then the scene's node types moved
    across, one family at a time with the old tests passing.
-3. Scripted tools and plug-ins working out of the box (Simon, 14/11/2026: these matter more than the interface for
+3. Scripted tools and plug-ins working out of the box (srlegrand, 14/11/2026: these matter more than the interface for
    now): phase 5 below, `cmds.exists`, then the plug-ins table's "none" rows in the order given there.
 4. Phase 2's open items (runtime commands, hotkey sets, image planes, autosave, sound, texel density), then phase 3.
 5. Harold standalone, part 2 (`haroldForAztek`), then the Harold tickets.
@@ -29,7 +29,7 @@ Ahead of the phases below. XJEN first is Simon's call (16/11/2026); the order af
   adds that request to `tools/reference_capture/WANTED.md`.
 - A test that pins behaviour the reference doesn't have is a bug in the test. Change it to the reference's behaviour
   and fix whatever relied on it (see 1.10).
-- Basics before breadth. No new command families, editors or menus until phases 0 to 3 are done, unless Simon asks.
+- Basics before breadth. No new command families, editors or menus until phases 0 to 3 are done, unless srlegrand asks.
 - Check interactive items under Xvfb with xdotool, as in CLAUDE.md, and keep the screenshots out of the repo.
 
 ## Phase 0: ground truth
@@ -37,8 +37,8 @@ Ahead of the phases below. XJEN first is Simon's call (16/11/2026); the order af
 Almost nothing in PARITY.md has been compared with a running copy of the reference. That has to change first, or every
 fix below is another guess.
 
-- [x] 0.1 (09/11/2026: kit written and dry run in Aztek through `--batch`; never run in the reference, so the fixtures are still to come from Simon) Reference capture kit in `tools/reference_capture/`. Plain Python that runs inside the reference
-  (`mayapy` or the Script Editor) and writes JSON fixtures to `tests/data/reference/<area>/`. Simon runs it, commits the
+- [x] 0.1 (09/11/2026: kit written and dry run in Aztek through `--batch`; never run in the reference, so the fixtures are still to come from srlegrand) Reference capture kit in `tools/reference_capture/`. Plain Python that runs inside the reference
+  (`mayapy` or the Script Editor) and writes JSON fixtures to `tests/data/reference/<area>/`. srlegrand runs it, commits the
   output. It captures:
   - command return values and default names for a fixed list of calls (create, duplicate, group, rename with `#`,
     instance, parent, polyEvaluate with every flag, undoInfo, currentUnit round trips in m, mm, rad, pal);
@@ -120,7 +120,7 @@ Each was reproduced on 08/11/2026 through `maya.cmds` in the built app.
 - [x] 2.4 (16/11/2026; saving is on the interface thread, so a very large scene pauses while it writes) Autosave: `autoSave` command (enable, interval, limit, destination, prompt), the preference page, timed saves
   that don't block, recovery of the last autosave after a crash.
 - [~] 2.5 (16/11/2026: `sound` and the `audio` node, WAV read, `timeControl -sound`/`-displaySound`, the waveform in the
-  time slider, its Sound menu; hearing it, scrubbing and sync wait on an audio output library, Simon's call) Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
+  time slider, its Sound menu; hearing it, scrubbing and sync wait on an audio output library, srlegrand's call) Sound: `sound` node and command, `timeControl -sound`, waveform in the time slider, scrubbing audio, sync to
   playback. WAV first.
 - [x] 2.6 (14/11/2026: the `objExport` plug-in with the `OBJ` and `OBJexport` types; 16/11/2026: `translator -q`, and the
   `Alembic` type) `file -type "OBJexport"` and `file -i -type "OBJ"` with the reference's `OBJexport` options string; keep
@@ -240,7 +240,7 @@ Bicurious in their own order; this plan doesn't reorder them. macOS: CI builds a
 
 ## Not planned
 
-Out of scope unless Simon says otherwise: Paint Effects, the reference's fluids (Bicurious covers liquids and smoke),
+Out of scope unless srlegrand says otherwise: Paint Effects, the reference's fluids (Bicurious covers liquids and smoke),
 MotionMaker, the reference's help chatbot and its cloud service button. Hair grooming (XJEN) and MASH were here until
 12/11/2026: they are in "Plug-ins that ship" below.
 

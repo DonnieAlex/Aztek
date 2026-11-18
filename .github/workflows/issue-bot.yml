@@ -1,6 +1,6 @@
 # The issue bot: every hour, one issue at a time. It reads the issue, decides whether Aztek is wrong by the reference,
 # and fixes it (a pull request, with the reply posted on merge), asks the reporter to run a script in the reference and
-# paste what it prints, explains that the reference does the same, or leaves it for Simon. See docs/ISSUE_BOT.md.
+# paste what it prints, explains that the reference does the same, or leaves it for srlegrand. See docs/ISSUE_BOT.md.
 #
 # Which issues it takes is in .github/issue-bot.json and .github/scripts/issue_bot_pick.py. The job that runs the bot
 # can read the repository and nothing more; the job that pushes, opens the pull request and comments runs only scripts.
@@ -98,7 +98,7 @@ jobs:
       - name: Build
         run: tools/ci/retry.sh 2 ./build.sh
 
-      # A run that ends early (out of turns, say) still goes on: the next step makes it needs-simon.
+      # A run that ends early (out of turns, say) still goes on: the next step makes it needs-srlegrand.
       - name: Work on it
         uses: anthropics/claude-code-action@v1
         continue-on-error: true

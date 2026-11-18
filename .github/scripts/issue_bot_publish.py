@@ -4,11 +4,11 @@
   fixed          the change as one commit on auto/issue-N and a pull request; the reply waits in the pull request and
                  is posted, and the issue closed, when it is merged (.github/workflows/issue-bot-close.yml)
   ask            the reply posted as a question (a script to run in the reference, say); auto:waiting until answered
-  not-reference  the reply posted; labelled not-reference and left open for Simon to close
+  not-reference  the reply posted; labelled not-reference and left open for srlegrand to close
   close          the reply posted and the issue closed (thanks, questions answered, duplicates)
-  needs-simon    labelled needs-simon; nothing posted
+  needs-srlegrand    labelled needs-srlegrand; nothing posted
 
-Replies go out with REPLY_TOKEN (Simon's own token when one is set, else the workflow's). The bot's own process never
+Replies go out with REPLY_TOKEN (srlegrand's own token when one is set, else the workflow's). The bot's own process never
 sees this token or a token that can push.
 """
 import json
@@ -59,8 +59,8 @@ def main():
     decision = result["decision"]
     text = (result.get("reply") or "").strip()
     if decision == "ask" and meta.get("asks", 0) >= CONF["max_asks"]:
-        result["summary"] = (result.get("summary") or "") + f"\n\nAlready asked {meta['asks']} times; left for Simon."
-        decision = "needs-simon"
+        result["summary"] = (result.get("summary") or "") + f"\n\nAlready asked {meta['asks']} times; left for srlegrand."
+        decision = "needs-srlegrand"
     summary(f"## #{NUMBER}: {decision}\n\n{result.get('summary') or ''}\n")
 
     if decision == "fixed":
@@ -105,7 +105,7 @@ def main():
                 run("git", "-c", "user.name=github-actions[bot]", "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com", "commit", "-q", "-m", message)
                 run("git", "push", "-q", "--force", "origin", draft)
                 summary(f"Unfinished change on the branch `{draft}`.")
-        labels(add=["needs-simon"])
+        labels(add=["needs-srlegrand"])
 
 
 if __name__ == "__main__":
