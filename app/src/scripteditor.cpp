@@ -3,13 +3,22 @@
 #include "panels.h"
 #include "host.h"
 #include "icons.h"
+#include "markingmenu.h"
+#include "shelves.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QGuiApplication>
 #include <QPalette>
 #include <QCheckBox>
+#include <QActionGroup>
+#include <QDesktopServices>
 #include <QDrag>
+#include <QHash>
+#include <QMouseEvent>
+#include <QTextOption>
+#include <QUrl>
+#include <functional>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -199,9 +208,21 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
 
     auto* mb = new QMenuBar(this);
     mb->setNativeMenuBar(false);
+    // A ticked setting kept between sessions, applied by `on`.
+    auto toggle = [this](QMenu* m, const QString& label, const QString& key, bool fallback, std::function<void(bool)> on = nullptr) {
+        QAction* a = m->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(option(key, fallback));
+        connect(a, &QAction::toggled, this, [key, on](bool v) {
+            QSettings().setValue("scriptEditor/" + key, v);
+            if (on) on(v);
+        });
+        return a;
+    };
+    // The reference's menus, item for item (#133).
     QMenu* file = mb->addMenu("File");
-    file->addAction("Load Script...", [this] {
-        QString f = QFileDialog::getOpenFileName(this, "Load Script", QSettings().value("project/current").toString(), "Scripts (*.mel *.py);;All files (*)");
+    file->addAction("Open Script...", [this] {
+        QString f = QFileDialog::getOpenFileName(this, "Open Script", QSettings().value("project/current").toString(), "Scripts (*.mel *.py);;All files (*)");
         if (!f.isEmpty()) load_file(f);
     });
     file->addAction("Source Script...", [] {
@@ -212,58 +233,108 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
         if (f.endsWith(".py", Qt::CaseInsensitive)) python(QString::fromUtf8(in.readAll()));
         else mel(QString::fromUtf8(in.readAll()));
     });
-    file->addAction("Save Script...", [this] { save_current(false); });
-    file->addAction("Save Script As...", [this] { save_current(true); });
+    file->addAction("Save Script...", [this] { save_current(true); });
+    file->addAction("Save All Script Tabs", [this] { save_all_tabs(); });
+    file->addSeparator();
+    file->addAction("Save Script to Shelf...", [this] { save_to_shelf(); });
+
     QMenu* edit = mb->addMenu("Edit");
-    edit->addAction("Clear History", [this] { history_->clear(); });
-    edit->addAction("Clear Input", [this] { if (auto* e = current()) e->clear(); });
-    edit->addAction("Clear All", [this] { history_->clear(); if (auto* e = current()) e->clear(); });
+    edit->addAction("Undo", [this] { if (auto* e = current()) e->undo(); });
+    edit->addAction("Redo", [this] { if (auto* e = current()) e->redo(); });
     edit->addSeparator();
-    edit->addAction("Find...\tCtrl+F", [this] { open_find(current()); });
-    // As the reference's Search and Replace: the find bar with its Replace row.
-    edit->addAction("Search and Replace...\tCtrl+H", [this] {
+    // On the pane with the focus: the history copies and selects too.
+    auto pane = [this]() -> QPlainTextEdit* { return history_->hasFocus() ? history_ : current(); };
+    edit->addAction("Cut", [this] { if (auto* e = current()) e->cut(); });
+    edit->addAction("Copy", [pane] { if (auto* e = pane()) e->copy(); });
+    edit->addAction("Paste", [this] { if (auto* e = current()) e->paste(); });
+    edit->addAction("Select All", [pane] { if (auto* e = pane()) e->selectAll(); });
+    edit->addSeparator();
+    edit->addAction("Goto line...", [this] { goto_line(); });
+    edit->addAction("Search and Replace...", [this] {
         open_find(current());
         replace_row_->show();
     });
-    QMenu* cmd = mb->addMenu("Command");
-    cmd->addAction("New Tab: MEL", [this] { add_tab("mel", "MEL", QString()); });
-    cmd->addAction("New Tab: Python", [this] { add_tab("python", "Python", "import maya.cmds as cmds\n"); });
-    cmd->addAction("Rename Tab...", [this] { rename_tab(inputs_->currentIndex()); });
-    cmd->addAction("Close Tab", [this] { close_tab(inputs_->currentIndex()); });
-    cmd->addSeparator();
-    cmd->addAction("Execute\tCtrl+Enter", [this] { run(false); });
-    cmd->addAction("Execute and Clear\tNumpad Enter", [this] { run(true); });
+    edit->addSeparator();
+    edit->addAction("Indent Selection", [this] { indent(true); });
+    edit->addAction("Unindent Selection", [this] { indent(false); });
+    edit->addSeparator();
+    edit->addAction("Clear History", [this] { history_->clear(); });
+    edit->addAction("Clear Input", [this] { if (auto* e = current()) e->clear(); });
+    edit->addAction("Clear All", [this] { history_->clear(); if (auto* e = current()) e->clear(); });
+
     QMenu* hist = mb->addMenu("History");
-    QAction* echo = hist->addAction("Echo All Commands");
-    echo->setCheckable(true);
-    echo->setChecked(s.value("scriptEditor/echoAll", false).toBool());
-    echo_all_ = echo->isChecked();
-    connect(echo, &QAction::toggled, this, [this](bool on) {
+    toggle(hist, "Batch Render Messages", "batchRenderMessages", true);
+    echo_all_ = option("echoAll", false);
+    toggle(hist, "Echo All Commands", "echoAll", false, [this](bool on) {
         echo_all_ = on;
-        QSettings().setValue("scriptEditor/echoAll", on);
         exec_quiet("uiPref", QJsonObject{{"args", QJsonArray{"echoAllCommands", on}}});
     });
-    QAction* trace = hist->addAction("Show Stack Trace");
-    trace->setCheckable(true);
-    trace->setChecked(stack_trace_);
-    connect(trace, &QAction::toggled, this, [this](bool on) {
-        stack_trace_ = on;
-        QSettings().setValue("scriptEditor/stackTrace", on);
-    });
-    QAction* numbers = hist->addAction("Show Line Numbers");
-    numbers->setCheckable(true);
-    numbers->setChecked(show_numbers_);
-    connect(numbers, &QAction::toggled, this, [this](bool on) {
+    toggle(hist, "Line numbers in errors", "lineNumbersInErrors", true);
+    toggle(hist, "Show Stack Trace", "stackTrace", true, [this](bool on) { stack_trace_ = on; });
+    hist->addSeparator();
+    QMenu* output = hist->addMenu("History Output");
+    auto* outputs = new QActionGroup(output);
+    const QStringList shown{"Show Both", "Show MEL Only", "Show Python Only"};
+    for (int i = 0; i < shown.size(); ++i) {
+        QAction* a = output->addAction(shown[i]);
+        a->setCheckable(true);
+        a->setChecked(QSettings().value("scriptEditor/historyOutput", 0).toInt() == i);
+        outputs->addAction(a);
+        connect(a, &QAction::triggered, this, [i] { QSettings().setValue("scriptEditor/historyOutput", i); });
+    }
+    hist->addSeparator();
+    toggle(hist, "Suppress Command Results", "suppressResults", false);
+    toggle(hist, "Suppress Info Messages", "suppressInfo", false);
+    toggle(hist, "Suppress Warning Messages", "suppressWarnings", false);
+    toggle(hist, "Suppress Error Messages", "suppressErrors", false);
+    toggle(hist, "Suppress Duplicate Variable Messages", "suppressDuplicateVariables", false);
+    toggle(hist, "Suppress Stack Window", "suppressStackWindow", false);
+
+    QMenu* cmd = mb->addMenu("Command");
+    toggle(cmd, "Show line numbers", "lineNumbers", true, [this](bool on) {
         show_numbers_ = on;
-        QSettings().setValue("scriptEditor/lineNumbers", on);
         for (int i = 0; i < inputs_->count(); ++i)
             if (ScriptEdit* e = edit_at(inputs_, i)) e->set_numbers(on);
     });
+    toggle(cmd, "Use tabs for indent", "tabsForIndent", false);
+    toggle(cmd, "Show tabs and spaces", "showTabsAndSpaces", false, [this](bool) { apply_editor_options(); });
+    toggle(cmd, "Auto-close braces", "autoCloseBraces", true);
+    toggle(cmd, "Command Completion", "commandCompletion", false);
+    toggle(cmd, "Object Path Completion", "objectPathCompletion", false);
+    toggle(cmd, "Show Tooltip Help", "tooltipHelp", false);
+    toggle(cmd, "Show quick help", "quickHelp", false);
+    cmd->addSeparator();
+    cmd->addAction("Execute", [this] { run(false); });
+
+    QMenu* tabs = mb->addMenu("Tabs");
+    tabs->addAction("New Tab...", [this] { new_tab_prompt(); });
+    tabs->addAction("Rename Tab...", [this] { rename_tab(inputs_->currentIndex()); });
+    tabs->addAction("Go to Previous Tab", [this] { step_tab(-1); });
+    tabs->addAction("Go to Next Tab", [this] { step_tab(1); });
+    tabs->addAction("Delete Tab", [this] { close_tab(inputs_->currentIndex()); });
+    tabs->addAction("Delete All Other Tabs", [this] { delete_other_tabs(); });
+
+    QMenu* help = mb->addMenu("Help");
+    const QString repo = "https://github.com/srlegrand/Aztek";
+    auto link = [help](const QString& label, const QString& url) { help->addAction(label, [url] { QDesktopServices::openUrl(QUrl(url)); }); };
+    link("Aztek Help", repo + "#readme");
+    link("What's New", repo + "/releases");
+    help->addSeparator();
+    link("Help on MEL", repo + "/blob/main/docs/COMMANDS.md");
+    link("Help on Python", repo + "/blob/main/docs/COMMANDS.md");
+    help->addAction("Help on Selected Command", [this] { quick_help(true); });
+    link("Help on Script Editor", repo + "#readme");
+    help->addSeparator();
+    link("MEL Command Reference", repo + "/blob/main/docs/COMMANDS.md");
+    link("Python Command Reference", repo + "/blob/main/docs/COMMANDS.md");
+    link("Node and Attribute Reference", repo + "/blob/main/PARITY.md");
+    help->addSeparator();
+    link("Aztek Home Page", "https://srlegrand.github.io/Aztek/");
     lay->addWidget(mb);
 
     auto* bar = new QToolBar(this);
     bar->setIconSize(QSize(18, 18));
-    bar->addAction(icon("open"), "Load Script", [this, file] { file->actions().at(0)->trigger(); });
+    bar->addAction(icon("open"), "Open Script", [this, file] { file->actions().at(0)->trigger(); });
     bar->addAction(icon("save"), "Save Script", [this] { save_current(false); });
     bar->addSeparator();
     bar->addAction(icon("clearHistory"), "Clear History", [this] { history_->clear(); });
@@ -294,12 +365,13 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     inputs_->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(inputs_->tabBar(), &QWidget::customContextMenuRequested, this, [this](const QPoint& p) {
         int i = inputs_->tabBar()->tabAt(p);
+        if (i >= 0) inputs_->setCurrentIndex(i);
         QMenu m;
-        m.addAction("New Tab: MEL", [this] { add_tab("mel", "MEL", QString()); });
-        m.addAction("New Tab: Python", [this] { add_tab("python", "Python", "import maya.cmds as cmds\n"); });
+        m.addAction("New Tab...", [this] { new_tab_prompt(); });
         if (i >= 0) {
-            m.addAction("Rename...", [this, i] { rename_tab(i); });
-            m.addAction("Close", [this, i] { close_tab(i); });
+            m.addAction("Rename Tab...", [this, i] { rename_tab(i); });
+            m.addAction("Delete Tab", [this, i] { close_tab(i); });
+            m.addAction("Delete All Other Tabs", [this] { delete_other_tabs(); });
         }
         m.exec(inputs_->tabBar()->mapToGlobal(p));
     });
@@ -308,6 +380,8 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     split->setStretchFactor(1, 2);
     lay->addWidget(split, 1);
     history_->installEventFilter(this);
+    // Right-click is the reference's marking menu, over the history and over the input.
+    history_->viewport()->installEventFilter(this);
 
     // The find bar, hidden until Ctrl+F: Enter finds the next, Shift+Enter the one before, Esc closes it.
     find_bar_ = new QWidget(this);
@@ -419,10 +493,12 @@ void ScriptEditor::add_tab(const QString& language, const QString& name, const Q
     e->setFont(mono);
     e->setTabStopDistance(4 * e->fontMetrics().horizontalAdvance(' '));
     e->installEventFilter(this);
+    e->viewport()->installEventFilter(this);
     e->set_numbers(show_numbers_);
     e->setPlainText(text);
     e->path = path;
     inputs_->setCurrentIndex(inputs_->addTab(e, name));
+    apply_editor_options();
 }
 
 void ScriptEditor::rename_tab(int i) {
@@ -469,6 +545,10 @@ void ScriptEditor::append(const QJsonArray& lines) {
         QString text = l["text"].toString();
         // Python's traceback lines are errors with file lines; Show Stack Trace off keeps only the last.
         if (!stack_trace_ && k == 2 && (text.startsWith("Traceback") || text.startsWith("  File "))) continue;
+        // History > Suppress: results, info (comment lines), warnings and errors.
+        if ((k == 1 && option("suppressResults", false)) || (k == 4 && option("suppressWarnings", false)) || (k == 2 && option("suppressErrors", false))
+            || (k == 0 && text.startsWith("// ") && option("suppressInfo", false)))
+            continue;
         history_->appendHtml(QString("<span style='color:%1; white-space:pre'>%2</span>").arg(history_colour(k), text.toHtmlEscaped()));
         // The kind kept on the line, so a theme change can colour it again.
         history_->document()->lastBlock().setUserState(k);
@@ -554,6 +634,34 @@ void ScriptEditor::recolour_history() {
 }
 
 bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
+    // Right-click on the history or an input: the marking menu.
+    if (ev->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent*>(ev)->button() == Qt::RightButton) {
+        auto* w = qobject_cast<QWidget*>(o);
+        auto* pane = w ? qobject_cast<QPlainTextEdit*>(w->parentWidget()) : nullptr;
+        if (pane && (pane == history_ || dynamic_cast<ScriptEdit*>(pane))) {
+            marking_menu(pane, static_cast<QMouseEvent*>(ev)->globalPosition().toPoint());
+            return true;
+        }
+    }
+    if (ev->type() == QEvent::ContextMenu && o->parent() && (o->parent() == history_ || dynamic_cast<ScriptEdit*>(o->parent()))) return true;
+    if (ev->type() == QEvent::KeyPress && dynamic_cast<ScriptEdit*>(o)) {
+        auto* e = static_cast<ScriptEdit*>(o);
+        auto* k = static_cast<QKeyEvent*>(ev);
+        // Tab indents with a tab or four spaces, as Command > Use tabs for indent says.
+        if (k->key() == Qt::Key_Tab && k->modifiers() == Qt::NoModifier && !e->textCursor().hasSelection()) {
+            e->insertPlainText(option("tabsForIndent", false) ? "\t" : "    ");
+            return true;
+        }
+        // Auto-close braces: the closer goes in after the cursor.
+        static const QHash<QString, QString> pairs{{"(", ")"}, {"[", "]"}, {"{", "}"}, {"\"", "\""}};
+        if (option("autoCloseBraces", true) && pairs.contains(k->text())) {
+            QTextCursor c = e->textCursor();
+            c.insertText(k->text() + pairs[k->text()]);
+            c.movePosition(QTextCursor::Left);
+            e->setTextCursor(c);
+            return true;
+        }
+    }
     if (o == history_ && (ev->type() == QEvent::PaletteChange || ev->type() == QEvent::StyleChange)) recolour_history();
     if ((o == find_ || o == replace_) && ev->type() == QEvent::KeyPress) {
         auto* k = static_cast<QKeyEvent*>(ev);
@@ -592,6 +700,157 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
         }
     }
     return QWidget::eventFilter(o, ev);
+}
+
+bool ScriptEditor::option(const QString& key, bool fallback) const {
+    return QSettings().value("scriptEditor/" + key, fallback).toBool();
+}
+
+// Show tabs and spaces, on every tab.
+void ScriptEditor::apply_editor_options() {
+    for (int i = 0; i < inputs_->count(); ++i) {
+        ScriptEdit* e = edit_at(inputs_, i);
+        if (!e) continue;
+        QTextOption o = e->document()->defaultTextOption();
+        o.setFlags(option("showTabsAndSpaces", false) ? (o.flags() | QTextOption::ShowTabsAndSpaces) : (o.flags() & ~QTextOption::ShowTabsAndSpaces));
+        e->document()->setDefaultTextOption(o);
+    }
+}
+
+// New Tab...: which language, as the reference asks.
+void ScriptEditor::new_tab_prompt() {
+    bool ok = false;
+    const QString lang = QInputDialog::getItem(this, "New Tab", "Language:", {"MEL", "Python"}, 0, false, &ok);
+    if (!ok) return;
+    if (lang == "Python") add_tab("python", "Python", "import maya.cmds as cmds\n");
+    else add_tab("mel", "MEL", QString());
+}
+
+void ScriptEditor::step_tab(int by) {
+    const int n = inputs_->count();
+    if (n > 0) inputs_->setCurrentIndex((inputs_->currentIndex() + by + n) % n);
+}
+
+void ScriptEditor::delete_other_tabs() {
+    QWidget* keep = inputs_->currentWidget();
+    for (int i = inputs_->count() - 1; i >= 0; --i)
+        if (inputs_->widget(i) != keep) {
+            QWidget* w = inputs_->widget(i);
+            inputs_->removeTab(i);
+            w->deleteLater();
+        }
+}
+
+// Every tab with a file saved to it; those without one ask where.
+void ScriptEditor::save_all_tabs() {
+    const int was = inputs_->currentIndex();
+    for (int i = 0; i < inputs_->count(); ++i) {
+        inputs_->setCurrentIndex(i);
+        save_current(false);
+    }
+    inputs_->setCurrentIndex(was);
+    store_tabs();
+}
+
+// The selected text, or the whole tab, as a button on the current shelf.
+void ScriptEditor::save_to_shelf() {
+    ScriptEdit* e = edit_at(inputs_, inputs_->currentIndex());
+    if (!e) return;
+    const QString src = e->textCursor().hasSelection() ? e->textCursor().selectedText().replace(QChar(0x2029), '\n') : e->toPlainText();
+    if (src.trimmed().isEmpty()) return;
+    bool ok = false;
+    const QString label = QInputDialog::getText(this, "Save Script to Shelf", "Label:", QLineEdit::Normal, inputs_->tabText(inputs_->currentIndex()), &ok).trimmed();
+    if (!ok || label.isEmpty()) return;
+    if (QWidget* main = main_window_widget())
+        if (auto* shelf = main->findChild<ShelfBar*>()) shelf->add_to_current(label, "script", src, e->language);
+}
+
+void ScriptEditor::goto_line() {
+    ScriptEdit* e = edit_at(inputs_, inputs_->currentIndex());
+    if (!e) return;
+    bool ok = false;
+    const int line = QInputDialog::getInt(this, "Goto line", "Line:", e->textCursor().blockNumber() + 1, 1, e->blockCount(), 1, &ok);
+    if (!ok) return;
+    QTextCursor c(e->document()->findBlockByNumber(line - 1));
+    e->setTextCursor(c);
+    e->setFocus();
+}
+
+// The selected lines one level in or out: a tab or four spaces, as Use tabs for indent says.
+void ScriptEditor::indent(bool in) {
+    ScriptEdit* e = edit_at(inputs_, inputs_->currentIndex());
+    if (!e) return;
+    QTextCursor c = e->textCursor();
+    QTextBlock first = e->document()->findBlock(c.selectionStart()), last = e->document()->findBlock(c.selectionEnd());
+    const QString unit = option("tabsForIndent", false) ? "\t" : "    ";
+    QTextCursor edit(e->document());
+    edit.beginEditBlock();
+    for (QTextBlock b = first; b.isValid(); b = b.next()) {
+        QTextCursor at(b);
+        if (in) {
+            at.insertText(unit);
+        } else {
+            const QString t = b.text();
+            int cut = t.startsWith('\t') ? 1 : 0;
+            while (!cut && cut < 4 && cut < t.size() && t[cut] == ' ') ++cut;
+            if (t.startsWith('\t')) cut = 1;
+            at.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, cut);
+            at.removeSelectedText();
+        }
+        if (b == last) break;
+    }
+    edit.endEditBlock();
+}
+
+// The word under the cursor, or the selection: a command's name.
+QString ScriptEditor::word_at_cursor() const {
+    auto* e = current();
+    if (!e) return QString();
+    QTextCursor c = e->textCursor();
+    if (!c.hasSelection()) c.select(QTextCursor::WordUnderCursor);
+    return c.selectedText().trimmed();
+}
+
+// Quick Help: the command's flags in the history; Command documentation: its page.
+void ScriptEditor::quick_help(bool documentation) {
+    const QString name = word_at_cursor();
+    if (name.isEmpty()) return;
+    if (documentation) {
+        QDesktopServices::openUrl(QUrl("https://github.com/srlegrand/Aztek/blob/main/docs/COMMANDS.md#" + name.toLower()));
+        return;
+    }
+    mel(QString("help %1;").arg(name));
+}
+
+// The reference's marking menus: tabs at the compass points, editing in the list below (#133).
+void ScriptEditor::marking_menu(QPlainTextEdit* pane, QPoint global) {
+    const bool input = pane != history_;
+    QList<MarkItem> items;
+    items.append(MarkItem{"New Tab...", 0, [this] { new_tab_prompt(); }});
+    items.append(MarkItem{"Go to Next Tab", 2, [this] { step_tab(1); }});
+    items.append(MarkItem{"Delete", 3, nullptr, true, false, false, false,
+                          {MarkItem{"All Other Tabs", 6, [this] { delete_other_tabs(); }}, MarkItem{"Current Tab", 2, [this] { close_tab(inputs_->currentIndex()); }}}});
+    items.append(MarkItem{"Rename Tab...", 4, [this] { rename_tab(inputs_->currentIndex()); }});
+    items.append(MarkItem{"Save All Script Tabs", 5, [this] { save_all_tabs(); }});
+    items.append(MarkItem{"Go to Previous Tab", 6, [this] { step_tab(-1); }});
+    if (input) {
+        items.append(MarkItem{"Execute", -1, [this] { run(false); }});
+        items.append(MarkItem{"Quick Help", -1, [this] { quick_help(false); }});
+        items.append(MarkItem{"Command documentation", -1, [this] { quick_help(true); }});
+        items.append(MarkItem{"Undo", -1, [pane] { pane->undo(); }, true, false, false, true});
+        items.append(MarkItem{"Redo", -1, [pane] { pane->redo(); }});
+        items.append(MarkItem{"Cut", -1, [pane] { pane->cut(); }, true, false, false, true});
+        items.append(MarkItem{"Copy", -1, [pane] { pane->copy(); }});
+        items.append(MarkItem{"Paste", -1, [pane] { pane->paste(); }});
+        items.append(MarkItem{"Select All", -1, [pane] { pane->selectAll(); }, true, false, false, true});
+        items.append(MarkItem{"Clear Input", -1, [pane] { pane->clear(); }, true, false, false, true});
+    } else {
+        items.append(MarkItem{"Copy", -1, [pane] { pane->copy(); }});
+        items.append(MarkItem{"Select All", -1, [pane] { pane->selectAll(); }});
+        items.append(MarkItem{"Clear History", -1, [this] { history_->clear(); }, true, false, false, true});
+    }
+    items.append(MarkItem{"Clear All", -1, [this] { history_->clear(); if (auto* e = current()) e->clear(); }});
+    MarkingMenu::show_at(global, items);
 }
 
 } // namespace az

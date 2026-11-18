@@ -190,6 +190,19 @@ private:
     bool show_numbers_ = true;
     bool stack_trace_ = true;
     bool echo_all_ = false;
+    // The reference's menus and marking menus (#133).
+    void new_tab_prompt();
+    void step_tab(int by);
+    void delete_other_tabs();
+    void save_all_tabs();
+    void save_to_shelf();
+    void goto_line();
+    void indent(bool in);
+    void quick_help(bool documentation);
+    void marking_menu(QPlainTextEdit* pane, QPoint global);
+    void apply_editor_options();
+    bool option(const QString& key, bool fallback) const;
+    QString word_at_cursor() const;
 };
 
 } // namespace az

@@ -1455,6 +1455,24 @@ Reset to Default) and Channel Names (Nice, Long, Short). Duplicate Attribute and
 Aztek has neither yet. The speeds are 0.1, 0.5, 1 and 2 times the slider's step; the reference's own factors aren't
 known here.
 
+### Script Editor menus and marking menus (17/11/2026, #133)
+
+Right-click on the Script Editor's history or input opens the reference's marking menu: New Tab... north, Go to
+Previous and Next Tab west and east, Save All Script Tabs south-west, Delete south-east (All Other Tabs or Current Tab),
+Rename Tab... south. Below, the input's list has Execute, Quick Help (the command under the cursor's flags, through
+help), Command documentation, Undo, Redo, Cut, Copy, Paste, Select All, Clear Input and Clear All; the history's has
+Copy, Select All, Clear History and Clear All.
+
+The menus are the reference's: File (Open, Source, Save Script, Save All Script Tabs, Save Script to Shelf), Edit (Undo,
+Redo, Cut, Copy, Paste, Select All, Goto line, Search and Replace, Indent and Unindent Selection, the Clears), History
+(Batch Render Messages, Echo All Commands, Line numbers in errors, Show Stack Trace, History Output, the six Suppress
+settings), Command (Show line numbers, Use tabs for indent, Show tabs and spaces, Auto-close braces, the completion and
+help settings, Execute), Tabs (New Tab asks for MEL or Python, Rename, Previous, Next, Delete, Delete All Other Tabs)
+and Help (Aztek's pages). Acted on: Echo All Commands, Show Stack Trace, Suppress Command Results, Info (comment lines),
+Warning and Error Messages, line numbers, tabs for indent, tabs and spaces shown, auto-closed braces. Held but not acted
+on yet: Batch Render Messages, Line numbers in errors, History Output, Suppress Duplicate Variable Messages and Stack
+Window, Command and Object Path Completion, Tooltip Help and quick help.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
