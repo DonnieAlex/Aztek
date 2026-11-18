@@ -1591,6 +1591,12 @@ far the cursor is from it, as the reference's does, rather than only within 25 p
 While playing, the play button for that direction stays down and shows a pause symbol; clicking it stops. It goes back
 to play when playback stops, from the button, Alt+V or the end of a range played once.
 
+### Thanks to the issue reporters (18/11/2026, #148)
+
+The welcome screen's top right says "Thanks to:" with the GitHub names of everyone who has opened an issue going by,
+most issues first, leaving out the repository's owner and bots. The list comes from the repository's issues each time
+the screen opens and is kept, so the last one shows offline; the mouse over it holds it still.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking

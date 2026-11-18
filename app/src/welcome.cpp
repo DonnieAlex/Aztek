@@ -33,6 +33,7 @@
 #include <QSettings>
 #include <QTextBrowser>
 #include <QThread>
+#include <QTimer>
 #include <QTime>
 #include <QTreeWidget>
 #include <QUrl>
@@ -40,6 +41,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
+#include <memory>
 
 namespace az {
 
@@ -52,6 +55,8 @@ const char* kReleases = "https://github.com/srlegrand/Aztek/releases";
 const char* kRepo = "https://github.com/srlegrand/Aztek";
 const char* kCommitsApi = "https://api.github.com/repos/srlegrand/Aztek/commits?sha=main&per_page=100";
 const char* kReleasesApi = "https://api.github.com/repos/srlegrand/Aztek/releases?per_page=100";
+const char* kIssuesApi = "https://api.github.com/repos/srlegrand/Aztek/issues?state=all&per_page=100&page=";
+const char* kOwner = "srlegrand";
 
 // N of "2.N (commit)" or "2.N.0".
 int build_number() {
@@ -160,6 +165,77 @@ void fetch(QObject* owner, const QString& url, std::function<void(const QJsonDoc
     t->start();
 }
 
+// A line of text going by, right to left, round and round; the mouse over it holds it still (#148).
+class Ticker : public QWidget {
+public:
+    explicit Ticker(QWidget* parent) : QWidget(parent) {
+        setMinimumWidth(240);
+        setFixedHeight(fontMetrics().height() + 6);
+        connect(&timer_, &QTimer::timeout, this, [this] {
+            if (!underMouse()) {
+                offset_ += 1;
+                update();
+            }
+        });
+        timer_.start(33);
+    }
+    void set_text(const QString& t) {
+        text_ = t;
+        setToolTip(t);
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        if (text_.isEmpty()) return;
+        QPainter p(this);
+        p.setRenderHint(QPainter::TextAntialiasing);
+        const int gap = 48;
+        const int span = fontMetrics().horizontalAdvance(text_) + gap;
+        const int y = (height() + fontMetrics().ascent() - fontMetrics().descent()) / 2;
+        for (int x = -(offset_ % span); x < width(); x += span) p.drawText(x, y, text_);
+        // Soft ends, so names come and go rather than being cut.
+        const QColor bg = palette().color(QPalette::Window);
+        QColor clear = bg;
+        clear.setAlpha(0);
+        for (bool right : {false, true}) {
+            QLinearGradient g(right ? width() - 24 : 24, 0, right ? width() : 0, 0);
+            g.setColorAt(0, clear);
+            g.setColorAt(1, bg);
+            p.fillRect(right ? QRect(width() - 24, 0, 24, height()) : QRect(0, 0, 24, height()), g);
+        }
+    }
+
+private:
+    QString text_;
+    int offset_ = 0;
+    QTimer timer_;
+};
+
+// Who has opened issues on GitHub, most first, leaving out the owner and bots: every page of the repository's issues,
+// then done with the names. Kept, so the last list shows while offline.
+void fetch_reporters(QObject* owner, std::function<void(const QStringList&)> done, int page = 1,
+                     std::shared_ptr<std::map<QString, int>> counts = std::make_shared<std::map<QString, int>>()) {
+    const QString base = qEnvironmentVariable("AZTEK_ISSUES_URL", kIssuesApi);
+    fetch(owner, base + QString::number(page), [owner, done, page, counts](const QJsonDocument& doc) {
+        const QJsonArray a = doc.array();
+        for (const QJsonValue& v : a) {
+            const QString login = v.toObject()["user"].toObject()["login"].toString();
+            if (login.isEmpty() || login == kOwner || login.endsWith("[bot]")) continue;
+            ++(*counts)[login];
+        }
+        if (a.size() >= 100 && page < 10) {
+            fetch_reporters(owner, done, page + 1, counts);
+            return;
+        }
+        std::vector<std::pair<QString, int>> v(counts->begin(), counts->end());
+        std::stable_sort(v.begin(), v.end(), [](const auto& x, const auto& y) { return x.second > y.second; });
+        QStringList names;
+        for (const auto& [n, c] : v) names << n;
+        done(names);
+    });
+}
+
 // A section's title, with a small coloured icon before it.
 QWidget* heading(const QString& text, QWidget* parent, const QString& glyph = QString(), const QColor& tint = QColor(217, 176, 124)) {
     auto* w = new QWidget(parent);
@@ -225,6 +301,29 @@ void MainWindow::show_welcome(bool at_startup) {
                                      .arg(QString(AZTEK_VERSION).toHtmlEscaped(), hello),
                                  d);
         top->addWidget(title, 1);
+        // Top right: thanks to the people reporting issues, their GitHub names going by (#148).
+        auto* thanks = new QLabel("<b>Thanks to:</b>", d);
+        auto* names = new Ticker(d);
+        names->setMinimumWidth(300);
+        names->setMaximumWidth(420);
+        auto show = [thanks, names](const QStringList& list) {
+            thanks->setVisible(!list.isEmpty());
+            names->setVisible(!list.isEmpty());
+            names->set_text(list.join("   \u00b7   "));
+        };
+        show(QSettings().value("welcome/thanks").toStringList());
+        fetch_reporters(d, [show](const QStringList& list) {
+            if (list.isEmpty()) return;
+            QSettings().setValue("welcome/thanks", list);
+            show(list);
+        });
+        auto* thanks_col = new QVBoxLayout();
+        auto* thanks_row = new QHBoxLayout();
+        thanks_row->addWidget(thanks);
+        thanks_row->addWidget(names);
+        thanks_col->addLayout(thanks_row);
+        thanks_col->addStretch(1);
+        top->addLayout(thanks_col);
         outer->addLayout(top);
     }
 
