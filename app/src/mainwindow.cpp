@@ -116,6 +116,9 @@ bool typing_widget(QWidget* w) {
 MainWindow::MainWindow() {
     setAcceptDrops(true);
     setWindowTitle("Aztek");
+    // The name $gMainWindow holds, as the reference's main window has: tools find the window by it through Qt alone,
+    // with QApplication.topLevelWidgets(), without shiboken (#142).
+    setObjectName("MayaWindow");
     setDockOptions(QMainWindow::AnimatedDocks | QMainWindow::AllowTabbedDocks | QMainWindow::AllowNestedDocks);
     setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
     setCorner(Qt::TopRightCorner, Qt::RightDockWidgetArea);

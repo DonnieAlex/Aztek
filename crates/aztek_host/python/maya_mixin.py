@@ -4,17 +4,38 @@ import uuid
 
 try:
     from PySide6 import QtCore, QtWidgets
-    import shiboken6 as _shiboken
 except ImportError:
     from PySide2 import QtCore, QtWidgets
-    import shiboken2 as _shiboken
 
 import aztek.OpenAztekUI as _omui
 
 
+def _shiboken():
+    """shiboken for the binding in use, or None: only wanted when the main window can't be found through Qt itself."""
+    for name in ("shiboken6", "shiboken2"):
+        try:
+            return __import__(name)
+        except ImportError:
+            continue
+    return None
+
+
 def _main_window():
+    """The application's main window: found among the top-level widgets by the name $gMainWindow holds, which needs
+    nothing but Qt, then through MQtUtil.mainWindow() and shiboken (#142)."""
+    app = QtWidgets.QApplication.instance()
+    if app is not None:
+        for w in app.topLevelWidgets():
+            if isinstance(w, QtWidgets.QMainWindow) and w.objectName() == "MayaWindow":
+                return w
     p = _omui.MQtUtil.mainWindow()
-    return _shiboken.wrapInstance(int(p), QtWidgets.QMainWindow) if p else None
+    shiboken = _shiboken() if p else None
+    if shiboken is None:
+        return None
+    try:
+        return shiboken.wrapInstance(int(p), QtWidgets.QMainWindow)
+    except TypeError:
+        return None
 
 
 class MayaQWidgetBaseMixin(object):

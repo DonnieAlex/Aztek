@@ -1497,6 +1497,12 @@ reports `automix`, `autoease`, `autocustom`, `slow` and `fast`, and the API read
 Files keep slow and fast as their own codes (6 and 7). The three auto kinds are drawn like auto for now, and slow and
 fast like spline; a file writes the auto kinds as auto.
 
+### The main window by its name (18/11/2026, #142)
+
+The main window's Qt object name is `MayaWindow`, what `$gMainWindow` holds, as in the reference: a tool can find it
+among `QApplication.topLevelWidgets()` through PySide alone, without shiboken. `maya.app.general.mayaMixin` finds it
+that way first, then through `MQtUtil.mainWindow()` and shiboken, and only imports shiboken when it gets that far.
+
 ### Welcome screen: the day's releases, a parity bar, a greyhound (17/11/2026)
 
 What's new lists every change of the newest one's day, newest first, in its commit's words with its time, marking
