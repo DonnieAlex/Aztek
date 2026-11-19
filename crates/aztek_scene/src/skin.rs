@@ -119,6 +119,59 @@ fn set_bind(g: &mut Graph, sk: NodeId, b: SkinBind) -> CmdResult<()> {
     Ok(())
 }
 
+/// The weights moved onto a mesh whose points changed under the skin (#172): each new point takes the weights of the
+/// old point nearest it. Points missing on either side (NaN) are skipped.
+pub(crate) fn remap_to_nearest(g: &mut Graph, sk: NodeId, old: &[DVec3], new: &[DVec3]) -> CmdResult<()> {
+    let Some(b) = bind_of(g, sk) else { return Ok(()) };
+    let mut b = (*b).clone();
+    // A grid of the old points, cells about the spacing of the points.
+    let live: Vec<usize> = (0..old.len()).filter(|&i| old[i].is_finite() && i < b.weights.len()).collect();
+    if live.is_empty() {
+        return Ok(());
+    }
+    let (mut lo, mut hi) = (old[live[0]], old[live[0]]);
+    for &i in &live {
+        lo = lo.min(old[i]);
+        hi = hi.max(old[i]);
+    }
+    let cell = ((hi - lo).max_element() / (live.len() as f64).cbrt()).max(1e-9);
+    let key = |p: DVec3| ((p - lo) / cell).floor().as_ivec3();
+    let mut grid: std::collections::HashMap<glam::IVec3, Vec<usize>> = std::collections::HashMap::new();
+    for &i in &live {
+        grid.entry(key(old[i])).or_default().push(i);
+    }
+    let nearest = |p: DVec3| -> usize {
+        let k = key(p);
+        let mut best = (f64::INFINITY, live[0]);
+        let mut r: i32 = 0;
+        loop {
+            for x in -r..=r {
+                for y in -r..=r {
+                    for z in -r..=r {
+                        if x.abs().max(y.abs()).max(z.abs()) != r {
+                            continue;
+                        }
+                        for &i in grid.get(&(k + glam::IVec3::new(x, y, z))).into_iter().flatten() {
+                            let d = (old[i] - p).length_squared();
+                            if d < best.0 {
+                                best = (d, i);
+                            }
+                        }
+                    }
+                }
+            }
+            // Anything in a ring further out is at least r cells away.
+            if best.0.is_finite() && best.0.sqrt() <= r as f64 * cell || r > 64 {
+                return best.1;
+            }
+            r += 1;
+        }
+    };
+    let weights: Vec<Vec<(u32, f64)>> = new.iter().map(|&p| if p.is_finite() { b.weights[nearest(p)].clone() } else { Vec::new() }).collect();
+    b.weights = weights;
+    set_bind(g, sk, b)
+}
+
 #[derive(Default)]
 pub struct SkinNode {
     flat: Option<FlatBind>,

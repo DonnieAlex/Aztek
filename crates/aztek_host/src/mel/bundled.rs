@@ -6,6 +6,7 @@ use std::path::PathBuf;
 /// Path under scripts/, and the text.
 const SCRIPTS: &[(&str, &str)] = &[
     ("startup/preferencesWnd.mel", include_str!("../../../../scripts/startup/preferencesWnd.mel")),
+    ("others/doBakeNonDefHistory.mel", include_str!("../../../../scripts/others/doBakeNonDefHistory.mel")),
 ];
 
 /// The folder the scripts show as coming from: scripts/ in the installation where it has one (the Linux packages put a

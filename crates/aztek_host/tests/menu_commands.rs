@@ -141,3 +141,32 @@ fn shelf_edits_bring_up_handles() {
     let r = c.mel("polyExtrude;");
     assert!(aztek_host::node_manip::after_action(&mut c, &r), "{r}");
 }
+
+/// All non-deformer history takes the edits made after a deformer too, through the reference's procedure; history
+/// before deformers only leaves them (#172). The skin's weights follow the points the edit added.
+#[test]
+fn all_non_deformer_history_takes_the_edits_after_the_deformers() {
+    let mut c = Core::new();
+    c.mel("polyCube -n a -sy 4 -h 4; joint -n j1 -p 0 -2 0; joint -n j2 -p 0 2 0; select -cl; skinCluster j1 a;");
+    c.mel("select a.f[1]; polyExtrudeFacet -ltz 1;");
+    let faces_after = c.s.run("meshInfo", json!({"args": ["a"]})).unwrap()["faces"].clone();
+    let list = |c: &mut Core| -> Vec<String> { c.mel("listHistory a;").as_array().unwrap().iter().filter_map(Value::as_str).map(str::to_string).collect() };
+    assert!(list(&mut c).iter().any(|n| n.starts_with("polyExtrude")), "{:?}", list(&mut c));
+    // Before the deformers only: the extrusion after the skin stays.
+    c.mel("select a; doBakeNonDefHistory(1, {\"pre\"});");
+    assert!(list(&mut c).iter().any(|n| n.starts_with("polyExtrude")), "{:?}", list(&mut c));
+    // All of it: the extrusion goes into the original, the skin stays, and the mesh is as it was.
+    c.mel("select a; doBakeNonDefHistory(1, {\"prePost\"});");
+    let h = list(&mut c);
+    assert!(h.iter().any(|n| n.starts_with("skinCluster")), "{h:?}");
+    assert!(!h.iter().any(|n| n.starts_with("polyExtrude") || n.starts_with("polyCube")), "{h:?}");
+    assert_eq!(c.s.run("meshInfo", json!({"args": ["a"]})).unwrap()["faces"], faces_after);
+    // Every point still follows the joint.
+    let before = c.s.run("meshData", json!({"args": ["a"]})).unwrap()["points"].clone();
+    c.mel("move -r 3 0 0 j1;");
+    let after = c.s.run("meshData", json!({"args": ["a"]})).unwrap()["points"].clone();
+    for (p, q) in before.as_array().unwrap().iter().zip(after.as_array().unwrap()) {
+        assert!((q[0].as_f64().unwrap() - p[0].as_f64().unwrap() - 3.0).abs() < 1e-6, "{p} {q}");
+    }
+    assert_eq!(c.mel("whatIs doBakeNonDefHistory;").as_str().unwrap().split(':').next(), Some("Mel procedure found in"));
+}

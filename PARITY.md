@@ -1603,6 +1603,17 @@ file one comes from (`Mel procedure found in: .../scripts/startup/preferencesWnd
 already sourced as the reference's do, and `exists` knows them. The Linux packages put a copy to read in
 share/aztek/scripts. The first is `preferencesWnd`; more are added as scripts people use call them (scripts/README.md).
 
+### Non-deformer history, all of it (19/11/2026, #172)
+
+Edit > Delete by Type > Non-Deformer History has the reference's option box, Delete: All non-deformer history or
+History before deformers only. All of it now takes the modelling edits made after the deformers too: they move to feed
+the original shape and are baked into it with the rest, the deformers staying, and a skin's weights follow the points
+(a point the edits add takes the weights of the nearest point before). Before, only the history before the deformers
+went. The menu items run the reference's runtime commands, `BakeNonDefHistory` and, under Delete All by Type,
+`BakeAllNonDefHistory` (with `BakeNonDefHistoryOptions` for the box), which call the global procedure
+`doBakeNonDefHistory(1, {"prePost"})` or `{"pre"}`, found in scripts/others as the reference's is; it runs
+`bakePartialHistory`.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

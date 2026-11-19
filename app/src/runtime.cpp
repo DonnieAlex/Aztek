@@ -285,6 +285,14 @@ void MainWindow::build_runtime() {
     r("DuplicateSpecialOptions", "Edit", "Duplicate Special", [] { OptionsDialog::open("duplicate", "Duplicate Special"); });
     r("DuplicateWithTransform", "Edit", "Duplicate with Transform", [] { exec("duplicateWithTransform"); });
     r("DeleteHistory", "Edit", "Delete history", [] { exec("delete", QJsonObject{{"constructionHistory", true}}); });
+    // Edit > Delete by Type and Delete All by Type > Non-Deformer History, through the reference's script procedure so
+    // scripts that call either get the same (#172). The option box's choice: all of it, or what's before the deformers.
+    auto bake_how = [] { return OptionsDialog::saved("bakePartialHistory").value("prePostDeformers").toBool(true) ? QString("prePost") : QString("pre"); };
+    r("BakeNonDefHistory", "Edit", "Delete non-deformer history", [bake_how] { mel(QString("doBakeNonDefHistory(1, {\"%1\"});").arg(bake_how())); });
+    r("BakeAllNonDefHistory", "Edit", "Delete all non-deformer history", [bake_how] {
+        mel(QString("select -r `ls -type mesh -noIntermediate`; doBakeNonDefHistory(1, {\"%1\"});").arg(bake_how()));
+    });
+    r("BakeNonDefHistoryOptions", "Edit", "Delete non-deformer history options", [] { OptionsDialog::open("bakePartialHistory", "Delete Non Deformer History Options"); });
     r("Parent", "Edit", "Parent", [] { exec("parent"); });
     r("Unparent", "Edit", "Unparent", [] { exec("parent", QJsonObject{{"world", true}}); });
     r("HideSelected", "Display", "Hide the selection", [] { exec("hide"); });

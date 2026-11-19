@@ -299,6 +299,8 @@ pub fn rows(command: &str) -> Vec<Value> {
             b("simulation", "Keep unbaked: Simulation", false),
             b("shape", "Shapes", true),
         ],
+        // Edit > Delete by Type > Non-Deformer History, as the reference's Delete Non Deformer History Options (#172).
+        "bakePartialHistory" => vec![radio("prePostDeformers", "Delete", &[("All non-deformer history", json!(true)), ("History before deformers only", json!(false))])],
         // Edit > Duplicate Special, as the reference's (#144): under Instance the input switches grey out, and the
         // two input switches exclude each other.
         "duplicate" => {

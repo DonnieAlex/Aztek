@@ -598,6 +598,71 @@ pub fn upstream_nodes(g: &Graph, from: &PlugRef) -> Vec<NodeId> {
     out
 }
 
+/// bakePartialHistory -prePostDeformers: the modelling edits between a deformed mesh's deformers and the mesh move to
+/// feed its original instead, so baking the original takes them in. Skin weights follow the points: a point the edits
+/// add or renumber takes the weights of the original's nearest point before.
+fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId) -> CmdResult<()> {
+    let is_edit = |g: &Graph, id: NodeId| {
+        g.node(id).is_some_and(|n| n.ty().is_a(BASE_TYPE) || n.ty().name == TWEAK_TYPE || crate::uv_ops::is_uv_node(n.ty().name.as_str()))
+    };
+    // The edits after the deformers, nearest the mesh first.
+    let mut post = Vec::new();
+    let mut p = plug(shape, MeshNode::IN_MESH);
+    while let Some(src) = g.source(&p) {
+        if !is_edit(g, src.node) {
+            break;
+        }
+        post.push(src.node);
+        p = plug(src.node, INPUT_POLYMESH);
+    }
+    let Some(deformed) = g.source(&p) else { return Ok(()) };
+    if post.is_empty() || deformed.node == orig || g.node(deformed.node).is_some_and(|n| n.ty().is_a("mesh")) {
+        return Ok(());
+    }
+    g.evaluate();
+    let points_of = |g: &Graph, m: NodeId| -> Vec<DVec3> {
+        match g.node(m).map(|n| n.data().value(MeshNode::OUT_MESH)) {
+            Some(PlugValue::Mesh(Some(mesh))) => (0..mesh.point_capacity()).map(|i| if mesh.point_valid(i) { mesh.position(i) } else { DVec3::splat(f64::NAN) }).collect(),
+            _ => Vec::new(),
+        }
+    };
+    let before = points_of(g, orig);
+    let (first, last) = (post[0], *post.last().unwrap());
+    // Out of the deformed end: the deformers feed the mesh.
+    g.disconnect(&plug(last, INPUT_POLYMESH));
+    g.disconnect(&plug(shape, MeshNode::IN_MESH));
+    g.connect(&deformed, &plug(shape, MeshNode::IN_MESH), false)?;
+    // Into the original's: what made the original feeds the edits, which make the original.
+    let made = match g.source(&plug(orig, MeshNode::IN_MESH)) {
+        Some(s) => s,
+        None => {
+            let stored = g.stored_value(&plug(orig, MeshNode::IN_MESH)).clone();
+            let src = g.create_node(&types::find("meshSource").ok_or_else(|| CommandError::new("no meshSource node type"))?, "", NO_NODE, true)?;
+            g.set_value(plug(src, crate::modifiers::MeshSourceNode::MESH), stored)?;
+            plug(src, crate::modifiers::MeshSourceNode::OUT_MESH)
+        }
+    };
+    g.disconnect(&plug(orig, MeshNode::IN_MESH));
+    g.connect(&made, &plug(last, INPUT_POLYMESH), false)?;
+    g.connect(&plug(first, OUTPUT), &plug(orig, MeshNode::IN_MESH), false)?;
+    g.evaluate();
+    let after = points_of(g, orig);
+    if after.len() != before.len() || after.iter().zip(&before).any(|(a, b)| (*a - *b).length_squared() > 1e-18) {
+        let mut d = deformed.node;
+        loop {
+            if g.node(d).is_some_and(|n| n.ty().name == "skinCluster") {
+                crate::skin::remap_to_nearest(g, d, &before, &after)?;
+            }
+            // Deformers and skins both take the mesh at their first attribute.
+            match g.source(&plug(d, 0)) {
+                Some(s) if s.node != orig => d = s.node,
+                _ => break,
+            }
+        }
+    }
+    Ok(())
+}
+
 /// delete on a node in the middle of a mesh's history, as the reference's: the chain closes up round it, what fed it
 /// feeding what it fed, so the nodes before it stay in the history (#173). Nodes with no mesh in and out are left.
 pub(crate) fn splice_out(g: &mut Graph, n: NodeId) -> CmdResult<()> {
@@ -761,6 +826,7 @@ pub fn register(c: &mut Commands<Session>) {
                     Some(l) if !l.is_empty() => l.iter().filter_map(|v| v.as_str()).filter_map(|n| g.find(n).ok().flatten()).collect(),
                     _ => g.selection().to_vec(),
                 };
+                let all = a.bool("prePostDeformers");
                 g.open_chunk("Bake Partial History");
                 let mut r = Ok(());
                 for id in named {
@@ -771,6 +837,16 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                         // A deformed mesh's history runs through its original: bake that.
                         let original = history_of(g, sh).into_iter().find(|&h| g.node(h).is_some_and(|n| n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT)));
+                        // All non-deformer history: the edits made after the deformers go before them first, so they're
+                        // baked with the rest (#172). History before deformers only leaves them.
+                        if all {
+                            if let Some(orig) = original {
+                                if let Err(e) = move_post_deformer_edits(g, sh, orig) {
+                                    r = Err(e);
+                                    continue;
+                                }
+                            }
+                        }
                         if let Err(e) = delete_history(g, original.unwrap_or(sh)) {
                             r = Err(e);
                         }
