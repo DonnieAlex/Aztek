@@ -606,6 +606,9 @@ pub(crate) fn split_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&Symmetr
     if pts.len() < 2 {
         fail!("polySplit: give at least two points, or one on an edge");
     }
+    if let Some(made) = split_edges_in_order(m, &pts, a.bool("closed")) {
+        return Ok(edges(made));
+    }
     let mut o = KnifeOptions { eye: None, view_dir: DVec3::ZERO, closed: a.bool("closed"), through: a.bool("through"), symmetry: None };
     if let Some(e) = a.vec3("eye") {
         if a.bool("useEye") {
@@ -619,6 +622,67 @@ pub(crate) fn split_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&Symmetr
     }
     let plan = knife_plan(m, &pts, &o);
     Ok(edges(knife_apply(m, &plan)))
+}
+
+/// A cut through points on edges, each next to the one before across a face, made as the reference makes it so its
+/// numbers come out the same (#180): the points in order, each new point after the last and the far half of its edge a
+/// new edge, then the edges across the faces in order. The same edge and fraction again is the same point (the
+/// reference closes a loop by repeating the first). None, leaving the mesh alone, when a point isn't on an edge or two
+/// in a row share no face.
+fn split_edges_in_order(m: &mut Mesh, pts: &[KnifePoint], closed: bool) -> Option<Vec<Index>> {
+    if pts.iter().any(|p| p.kind != KnifeKind::Edge || !m.edge_valid(p.id)) {
+        return None;
+    }
+    let faces_of = |m: &Mesh, e: Index| {
+        let mut f = Vec::new();
+        m.for_each_edge_corner(e, |c| f.push(m.corner_face(c)));
+        f
+    };
+    let mut order: Vec<(Index, u64)> = pts.iter().map(|p| (p.id, p.t.to_bits())).collect();
+    if closed && order.first() != order.last() {
+        order.push(order[0]);
+    }
+    for w in order.windows(2) {
+        if w[0] != w[1] && w[0].0 != w[1].0 && !faces_of(m, w[0].0).iter().any(|f| faces_of(m, w[1].0).contains(f)) {
+            return None;
+        }
+    }
+    let mut made: Vec<((Index, u64), Index)> = Vec::new();
+    let mut points = Vec::new();
+    for &(e, t) in &order {
+        let p = match made.iter().find(|(k, _)| *k == (e, t)) {
+            Some(&(_, p)) => p,
+            None => {
+                let p = m.split_edge(e, f64::from_bits(t));
+                made.push(((e, t), p));
+                p
+            }
+        };
+        points.push(p);
+    }
+    let mut cuts = Vec::new();
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        if a == b {
+            continue;
+        }
+        let mut done = false;
+        let mut corners = Vec::new();
+        m.for_each_point_corner(a, |c| corners.push(c));
+        for ca in corners {
+            let f = m.corner_face(ca);
+            let Some(cb) = m.face_corners(f).into_iter().find(|&c| m.corner_point(c) == b) else { continue };
+            if m.split_face(f, ca, cb) != aztek_geo::INVALID {
+                cuts.push(m.last_split_edge());
+                done = true;
+                break;
+            }
+        }
+        if !done && m.find_edge(a, b) == aztek_geo::INVALID {
+            log::warn!("polySplit: no face between points {a} and {b}");
+        }
+    }
+    Some(cuts)
 }
 
 /// The flags of polySplit a knife cut records; polyKnife fills them too.

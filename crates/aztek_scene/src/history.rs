@@ -677,6 +677,36 @@ fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId, smooth: 
     Ok(())
 }
 
+/// Every deformed mesh's edits after its deformers moved before them, as bakePartialHistory -prePostDeformers does
+/// but leaving all the history in place: what a file is written from (#180).
+pub(crate) fn move_post_edits_everywhere(g: &mut Graph) {
+    let shapes: Vec<NodeId> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| n.ty().is_a("mesh") && !n.bool(DagNode::INTERMEDIATE_OBJECT))).collect();
+    for sh in shapes {
+        // Tweaks alone after the deformers are written as the reference's tweak in the chain; only an edit that isn't
+        // one needs moving.
+        let mut p = plug(sh, MeshNode::IN_MESH);
+        let mut edit = false;
+        while let Some(src) = g.source(&p) {
+            let Some(n) = g.node(src.node) else { break };
+            if n.ty().name == TWEAK_TYPE {
+                p = plug(src.node, INPUT_POLYMESH);
+                continue;
+            }
+            edit = n.ty().is_a(BASE_TYPE) || crate::uv_ops::is_uv_node(n.ty().name.as_str());
+            break;
+        }
+        if !edit {
+            continue;
+        }
+        let original = history_of(g, sh).into_iter().find(|&h| g.node(h).is_some_and(|n| n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT)));
+        if let Some(orig) = original {
+            if let Err(e) = move_post_deformer_edits(g, sh, orig, false) {
+                log::warn!("{e}");
+            }
+        }
+    }
+}
+
 /// delete on a node in the middle of a mesh's history, as the reference's: the chain closes up round it, what fed it
 /// feeding what it fed, so the nodes before it stay in the history (#173). Nodes with no mesh in and out are left.
 pub(crate) fn splice_out(g: &mut Graph, n: NodeId) -> CmdResult<()> {

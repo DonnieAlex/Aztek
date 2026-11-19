@@ -1113,7 +1113,35 @@ impl MaMesh {
             warnings.push(format!("{name}: {} face holes dropped", self.holes));
         }
         let points: Vec<DVec3> = self.points.iter().enumerate().map(|(i, p)| *p + self.tweaks.get(&i).copied().unwrap_or(DVec3::ZERO)).collect();
-        let mut m = Mesh::from_polygons(&points, &sizes, &indices);
+        // The edges numbered as the file numbers them, when every one is a side of a face: the reference's history
+        // names edges by number, and replaying it needs the same ones (#180). Very large meshes are built in bulk.
+        let mut used = vec![false; self.edges.len()];
+        for &fi in &kept {
+            for &e in &self.faces[fi].edges {
+                if let Some(u) = used.get_mut((if e < 0 { !e } else { e }) as usize) {
+                    *u = true;
+                }
+            }
+        }
+        let in_range = |p: i64| 0 <= p && (p as usize) < points.len();
+        let file_order = indices.len() < (1 << 16) && points.len() < (1 << 16) && used.iter().all(|&u| u) && self.edges.iter().all(|e| in_range(e[0]) && in_range(e[1]) && e[0] != e[1]);
+        let mut m = if file_order {
+            let mut m = Mesh::new();
+            for &p in &points {
+                m.add_point(p);
+            }
+            for e in &self.edges {
+                m.add_edge(e[0] as Index, e[1] as Index);
+            }
+            let mut at = 0;
+            for &n in &sizes {
+                m.add_face(&indices[at..at + n as usize]);
+                at += n as usize;
+            }
+            m
+        } else {
+            Mesh::from_polygons(&points, &sizes, &indices)
+        };
 
         let mut hard = Vec::new();
         for e in &self.edges {
@@ -1669,6 +1697,40 @@ struct Chain {
     lost: Vec<usize>,
     /// Faces and edges deleted from the stored mesh, source first.
     deletions: Vec<usize>,
+    /// The reference's polySplit nodes before the deformers, source first: replayed onto the stored mesh (#180).
+    pre_edits: Vec<usize>,
+    /// Those between the deformers and the shape, source first: made again as history after the deformers.
+    post_edits: Vec<usize>,
+}
+
+/// A polySplit node's cut as polySplit's points here: `.edge` holds each point's fraction and `.desc` the edge it is on,
+/// with the top bit set (-2147483648 + the edge's number). None for a cut with a point inside a face, which isn't read.
+fn file_split_points(n: &MaNode) -> Option<Vec<Value>> {
+    let fractions = n.elements(&["e", "edge"], 1);
+    let descs = n.elements(&["d", "desc"], 1);
+    if descs.is_empty() || descs.len() != fractions.len() {
+        return None;
+    }
+    let mut pts = Vec::new();
+    for ((_, d), (_, f)) in descs.iter().zip(&fractions) {
+        let code = d[0].num()? as i64;
+        if code >= 0 {
+            return None;
+        }
+        pts.push(json!({"edge": code + (1i64 << 31), "t": f[0].num()?}));
+    }
+    Some(pts)
+}
+
+/// Replays a file's polySplit on a mesh, as the reference made it.
+fn apply_file_split(n: &MaNode, m: &mut Mesh) -> Result<(), String> {
+    let pts = file_split_points(n).ok_or_else(|| format!("{}: a cut through a face isn't read", n.name))?;
+    let op = crate::history::op("polySplit").ok_or("no polySplit")?;
+    let mut flags = serde_json::Map::new();
+    flags.insert("points".into(), Value::Array(pts));
+    let args = aztek_ops::Args { positional: Vec::new(), flags };
+    let run = op.run;
+    crate::history::apply_edit(m, None, &Default::default(), op.kind, &mut |m, sel, sym| run(&args, m, sel, sym)).map(|_| ()).map_err(|e| format!("{}: {e}", n.name))
 }
 
 const INPUT_ATTRS: &[&str] = &["i", "inMesh", "ip", "inputPolymesh", "ig", "inputGeometry", "ip.ig", "input.inputGeometry"];
@@ -1739,6 +1801,14 @@ fn walk_chain(doc: &Doc, shape: usize, stored: &HashMap<usize, MaMesh>) -> Chain
             // A colour set changes no points.
             "groupParts" | "groupId" | "unitConversion" | "createColorSet" => {}
             "deleteComponent" | "polyDelEdge" => c.deletions.insert(0, next),
+            // Cuts are replayed: before the deformers onto the stored mesh, after them as history (#180).
+            "polySplit" if file_split_points(n).is_some() => {
+                if c.deformers.is_empty() {
+                    c.post_edits.insert(0, next)
+                } else {
+                    c.pre_edits.insert(0, next)
+                }
+            }
             t if creator_attrs(t).is_some() => {
                 c.creator = Some(next);
                 break;
@@ -1774,6 +1844,8 @@ fn plain_object_set(doc: &Doc, i: usize) -> bool {
 
 struct Build<'a> {
     deformers: Vec<FileDeformer>,
+    /// Shapes with the file's polySplit nodes after their deformers, replayed once the scene is read.
+    post_edits: Vec<(NodeId, Vec<usize>)>,
     s: &'a mut Session,
     doc: &'a Doc,
     ids: Vec<Option<NodeId>>,
@@ -2366,6 +2438,14 @@ impl Build<'_> {
             for &k in &chain.deletions {
                 apply_deletion(&doc.nodes[k], &mut m);
             }
+            // The cuts before the deformers; with no deformers every cut, since the shape shows them all (#180).
+            let baked = if chained { chain.pre_edits.clone() } else { chain.post_edits.clone() };
+            for e in baked {
+                self.used[e] = true;
+                if let Err(w) = apply_file_split(&doc.nodes[e], &mut m) {
+                    self.warnings.push(w);
+                }
+            }
             Source::Stored(m)
         } else if let Some(c) = chain.creator {
             if !chain.tweaks.is_empty() {
@@ -2444,6 +2524,37 @@ impl Build<'_> {
             prev = PlugRef::new(id, out as i32);
         }
         let _ = self.s.graph.connect(&prev, &in_mesh, false);
+        // The cuts made after the deformers, history after them again once everything is read (#180).
+        if !chain.post_edits.is_empty() {
+            for &e in &chain.post_edits {
+                self.used[e] = true;
+            }
+            self.post_edits.push((shape, chain.post_edits.clone()));
+        }
+    }
+
+    /// The reference's cuts after a mesh's deformers, as polySplit history on the mesh, named as in the file.
+    fn replay_post_edits(&mut self) {
+        let doc = self.doc;
+        for (shape, edits) in std::mem::take(&mut self.post_edits) {
+            for e in edits {
+                let n = &doc.nodes[e];
+                let Some(pts) = file_split_points(n) else { continue };
+                let path = self.s.graph.path(shape);
+                match self.s.run("polySplit", json!({"args": [path], "points": pts})) {
+                    Ok(made) => {
+                        let made = made.as_array().and_then(|a| a.first()).and_then(Value::as_str).map(str::to_string).or_else(|| made.as_str().map(str::to_string));
+                        if let Some(id) = made.and_then(|m| self.s.graph.find(&m).ok().flatten()) {
+                            self.ids[e] = Some(id);
+                            if Graph::valid_name(&n.name) {
+                                let _ = self.s.graph.rename(id, &n.name);
+                            }
+                        }
+                    }
+                    Err(err) => self.warnings.push(format!("{}: {err}", n.name)),
+                }
+            }
+        }
     }
 
     fn create_skin(&mut self, sk: usize) -> Option<NodeId> {
@@ -3464,7 +3575,7 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
             meshes.insert(i, MaMesh::from_node(n));
         }
     }
-    let mut b = Build { s, doc, ids: vec![None; count], used: vec![false; count], meshes, warnings: doc.warnings.clone(), deformers: Vec::new() };
+    let mut b = Build { s, doc, ids: vec![None; count], used: vec![false; count], meshes, warnings: doc.warnings.clone(), deformers: Vec::new(), post_edits: Vec::new() };
 
     // Cameras are skipped with the transforms that exist only to hold them.
     for i in 0..count {
@@ -3643,6 +3754,7 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
         }
     }
     crate::hik::after_load(&mut b.s.graph);
+    b.replay_post_edits();
     // Keys on a joint an IK handle drives: on the joint in the file, on the solver's FK rotate here.
     for c in &doc.conns {
         let (Some(src), Some(joint)) = (b.ids[c.src], b.ids[c.dst]) else { continue };
@@ -5463,6 +5575,17 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     // Every scene has them; one that never needed them writes them too.
     crate::shading::make_defaults(&mut s.graph);
     crate::defaults::make(&mut s.graph);
+    // A deformed mesh with edits after its deformers is written as Delete Non-Deformer History would leave it: the edits
+    // go before the deformers, into the original the file holds, and the skin's weights follow the new points. Written
+    // as it is, the file lost its skin (#180). The scene is put back once the file is written.
+    // Only when the edits can be taken back: within whatever command is open, back to where this started.
+    let undo = s.graph.undo_stack();
+    let put_back = (undo.enabled() && !undo.replaying()).then(|| {
+        s.graph.open_chunk("Write scene");
+        let mark = s.graph.undo_stack().open_edits();
+        crate::history::move_post_edits_everywhere(&mut s.graph);
+        mark
+    });
     s.graph.evaluate();
     // Before anything's borrowed: this reads the scene against what the files gave.
     let (ref_head, ref_tail) = crate::references::ma_statements(s);
@@ -5643,6 +5766,11 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
         let _ = writeln!(w.out, "{l}");
     }
     let _ = writeln!(w.out, "// End of {name}");
+    if let Some(mark) = put_back {
+        w.s.graph.rollback_to(mark);
+        w.s.graph.close_chunk();
+        w.s.graph.evaluate();
+    }
     (w.out, w.warnings)
 }
 

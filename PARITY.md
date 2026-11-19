@@ -1783,6 +1783,15 @@ cuts, blended between the points round it, as if it had been there when the skin
 -postSmooth, which also evens out the new points' weights with their neighbours', and Edit > Delete by Type >
 Non-Deformer History uses it, as the reference's does.
 
+### .ma files with cuts after a skin read and write again (19/11/2026, #180)
+
+The reference's polySplit nodes in a file weren't read: a mesh cut before and after its skin opened as the bare cube.
+They are now: the cuts before the skin go into the original, those after it are polySplit history after the skin,
+named as in the file. A mesh's edges are numbered as the file numbers them, and polySplit through points on edges
+numbers its new points and edges as the reference does, so the file's later cuts land on the right edges. Writing, a
+mesh with edits after its skin lost the skin; it is written now as Delete Non-Deformer History would leave it, the
+edits in the original and the weights following, and the scene itself is left as it was.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
