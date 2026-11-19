@@ -1732,6 +1732,12 @@ text is never more than what sits over it now.
 Ctrl+Space hid the panels and bars round the views but left a two-, three- or four-view layout as it was. As in the
 reference, the view under the pointer now fills the pane too; Ctrl+Space again puts the layout and the panels back.
 
+### F in the Node Editor and Hypergraph frames the selected node (19/11/2026, #182)
+
+F framed the whole graph, at its top left. It now frames the selected nodes, those picked in the editor or else those
+selected in the scene, in the middle and at a size that reads (up to one and a half times). A, or F with nothing
+selected, frames them all, also in the middle.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

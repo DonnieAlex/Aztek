@@ -468,13 +468,27 @@ void NodeEditor::keyPressEvent(QKeyEvent* e) {
     case Qt::Key_F:
     case Qt::Key_A: {
         if (nodes_.isEmpty()) break;
-        QRectF all;
-        for (const NodeBox& n : nodes_) {
-            QRectF g(n.pos, QSizeF(kWidth, kHeader + shown_attrs(n).size() * kRow));
-            all = all.isNull() ? g : all.united(g);
+        // F frames the selected nodes, those picked here or else those selected in the scene, at a size that reads;
+        // A, or F with nothing selected, frames them all (#182). Either way they sit in the middle.
+        QSet<QString> want;
+        if (e->key() == Qt::Key_F) {
+            want = sel_;
+            if (want.isEmpty())
+                for (const QJsonValue& v : state()["selection"].toArray()) want.insert(v.toString().section('.', 0, 0).section('|', -1));
         }
-        zoom_ = qBound(0.1, qMin(width() / (all.width() + 60), height() / (all.height() + 60)), 1.5);
-        pan_ = QPointF(30, 30) - all.topLeft() * zoom_;
+        QRectF box;
+        for (const NodeBox& n : nodes_) {
+            if (!want.isEmpty() && !want.contains(n.name) && !want.contains(n.name.section('|', -1))) continue;
+            QRectF g(n.pos, QSizeF(kWidth, kHeader + shown_attrs(n).size() * kRow));
+            box = box.isNull() ? g : box.united(g);
+        }
+        if (box.isNull())
+            for (const NodeBox& n : nodes_) {
+                QRectF g(n.pos, QSizeF(kWidth, kHeader + shown_attrs(n).size() * kRow));
+                box = box.isNull() ? g : box.united(g);
+            }
+        zoom_ = qBound(0.1, qMin(width() / (box.width() + 120), height() / (box.height() + 120)), 1.5);
+        pan_ = QPointF(width() / 2.0, height() / 2.0) - box.center() * zoom_;
         update();
         break;
     }
