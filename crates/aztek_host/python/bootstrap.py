@@ -386,13 +386,6 @@ class _QtBindingCheck:
 
         if os.environ.get("AZTEK_SKIP_QT_CHECK"):
             return None
-        # Asked of the application: Python may have started before Qt set it in the environment.
-        try:
-            qt = json.loads(_aztek.call("about", "[]", json.dumps({"qtVersion": True})))
-        except Exception:
-            qt = ""
-        if not isinstance(qt, str) or not qt:
-            return None
         import importlib.machinery as m
 
         spec = m.PathFinder.find_spec(name)
@@ -400,6 +393,37 @@ class _QtBindingCheck:
             return None
         here = list(spec.submodule_search_locations)[0]
         built = self.built_for(here)
+        # Asked of the application: Python may have started before Qt set it in the environment.
+        try:
+            qt = json.loads(_aztek.call("about", "[]", json.dumps({"qtVersion": True})))
+        except Exception:
+            qt = ""
+        if not isinstance(qt, str):
+            qt = ""
+        # Two other ways shiboken aborts the whole application as PySide loads, "init_enum: libshiboken: could not
+        # init enum" (#169): a shiboken6 of another version than the PySide6, and an `enum` module that isn't Python's
+        # own (a backport, or a tool's enum.py, earlier on the path). Each an ImportError that says which.
+        if name in ("PySide6", "shiboken6"):
+            other = m.PathFinder.find_spec("shiboken6" if name == "PySide6" else "PySide6")
+            if other is not None and other.submodule_search_locations:
+                there = list(other.submodule_search_locations)[0]
+                theirs = self.built_for(there, "__version__") or self.built_for(there)
+                mine = self.built_for(here, "__version__") or built
+                if theirs and mine and theirs[:2] != mine[:2]:
+                    raise ImportError(
+                        "%s is version %s but %s is %s, at %s; shiboken6 and PySide6 must be the same version or "
+                        "PySide stops Aztek as it loads. Install the two together (%s)."
+                        % (name, ".".join(map(str, mine)), "shiboken6" if name == "PySide6" else "PySide6", ".".join(map(str, theirs)), there, self.how(qt or ".".join(map(str, mine))))
+                    )
+            stray = self.stray_enum()
+            if stray:
+                raise ImportError(
+                    "The enum module Python loaded is %s, not Python's own, and PySide stops Aztek when it isn't. Take that "
+                    "folder off the script path or PYTHONPATH (a Python 2 backport of enum, enum34, is the usual one), "
+                    "or rename the file." % stray
+                )
+        if not qt:
+            return None
         qt_mm = tuple(int(x) for x in qt.split(".")[:2])
         if name.endswith("2"):
             raise ImportError(
@@ -414,7 +438,8 @@ class _QtBindingCheck:
         )
 
     @staticmethod
-    def built_for(folder):
+    def built_for(folder, key="version"):
+        """From the package's _config.py: version is the Qt it was built for, __version__ its own."""
         import os
         import re
 
@@ -423,8 +448,22 @@ class _QtBindingCheck:
                 text = f.read()
         except OSError:
             return None
-        found = re.search(r'^version\s*=\s*"(\d+)\.(\d+)(?:\.(\d+))?', text, re.M)
+        found = re.search(r'^%s\s*=\s*"(\d+)\.(\d+)(?:\.(\d+))?' % re.escape(key), text, re.M)
         return tuple(int(x) for x in found.groups() if x is not None) if found else None
+
+    @staticmethod
+    def stray_enum():
+        """Where the enum module came from when it isn't Python's standard library, else None."""
+        import os
+        import sysconfig
+
+        e = sys.modules.get("enum")
+        f = getattr(e, "__file__", None)
+        if not f:
+            return None
+        std = os.path.normcase(os.path.realpath(sysconfig.get_paths()["stdlib"]))
+        here = os.path.normcase(os.path.realpath(os.path.dirname(f)))
+        return None if here == std else f
 
     @staticmethod
     def how(qt):

@@ -1640,6 +1640,13 @@ Projection (Along Normals: each point to the nearest hit either way along its no
 `polyConformToLive -projection normals|closest -surfaceOffset d`. Aztek's own conform onto another mesh or a curve is
 beside it as Mesh > Conform to Object (`polyConformToObject`).
 
+### PySide's "could not init enum" as an error that says why (19/11/2026, #169)
+
+Two more ways a PySide stops the whole of Aztek as it loads, with "init_enum: libshiboken: could not init enum", are
+checked before it loads and become an ImportError that names the cause: a shiboken6 of another version than the
+PySide6, and an `enum` module that isn't Python's own (a Python 2 backport, enum34, or a tool's enum.py earlier on the
+path). Not confirmed as the cause of #169: the reporter's setup is still to be checked.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
