@@ -229,8 +229,8 @@ void MainWindow::build_runtime() {
     window("NamespaceEditor", "namespaceEditor", "Namespace Editor");
     window("ChannelControlEditor", "channelControl", "Channel Control");
     window("ShapeEditor", "shapeEditor", "Shape Editor");
-    window("HumanIK", "humanIK", "Human IK");
-    window("HIKCharacterControlsTool", "humanIK", "Human IK");
+    window("HumanIK", "humanIK", "Humanoid IK");
+    window("HIKCharacterControlsTool", "humanIK", "Humanoid IK");
     window("ModelingToolkitWindow", "modelingToolkit", "Modeling Toolkit");
     window("GridOptions", "gridOptions", "Grid Options");
     window("AddAttribute", "addAttribute", "Add Attribute");

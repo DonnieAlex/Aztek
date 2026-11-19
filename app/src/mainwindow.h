@@ -126,6 +126,10 @@ private:
     // The layout lock beside the themes (#90): docked panels stay put, closable only.
     void lock_layout(bool on);
     QDockWidget* mtk_dock_ = nullptr;
+    // Humanoid IK, a tab beside the Channel Box and the Attribute Editor (#177).
+    QDockWidget* hik_dock_ = nullptr;
+    void show_human_ik();
+    void default_dock_layout();
     // The toolkit's mode tools (#140): their buttons stay lit while the tool is on, and its options show below them.
     QHash<QString, QPushButton*> mtk_tools_;
     QHash<QString, QWidget*> mtk_tool_panels_;

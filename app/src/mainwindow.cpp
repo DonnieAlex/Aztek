@@ -748,8 +748,8 @@ QMenu* MainWindow::skeleton_menu() {
     cmd(m, "Set Preferred Angle", "joint", QJsonObject{{"edit", true}, {"setPreferredAngles", true}, {"children", true}});
     cmd(m, "Assume Preferred Angle", "joint", QJsonObject{{"edit", true}, {"assumePreferredAngles", true}, {"children", true}});
     m->addSeparator();
-    m->addAction("HumanIK", [this] { show_named_window("humanIK"); });
-    QMenu* hik = m->addMenu("HumanIK Tools");
+    m->addAction("Humanoid IK", [this] { show_named_window("humanIK"); });
+    QMenu* hik = m->addMenu("Humanoid IK Tools");
     cmd(hik, "Create Skeleton", "hikCreateSkeleton", QJsonObject{{"character", true}}, QString(), true);
     cmd(hik, "Define Character from Selection", "hikCreateCharacter");
     hik->addAction("Create Control Rig", [] { exec("hikCreateControlRig"); });

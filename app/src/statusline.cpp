@@ -214,7 +214,7 @@ void MainWindow::build_status_line() {
         if (mtk_dock_ && mtk_dock_->isVisible()) mtk_dock_->hide();
         else show_modeling_toolkit();
     });
-    tb->addAction(icon("humanIK"), "Show or hide the HumanIK Character Controls", [this] { show_named_window("humanIK"); });
+    tb->addAction(icon("humanIK"), "Show or hide Humanoid IK", [this] { show_named_window("humanIK"); });
     tb->addAction(icon("attrEditor"), "Show or hide the Attribute Editor", [this] { attr_dock_->setVisible(!attr_dock_->isVisible()); if (attr_dock_->isVisible()) attr_dock_->raise(); });
     tb->addAction(icon("toolSettings"), "Show or hide the Tool Settings", [this] { tool_dock_->setVisible(!tool_dock_->isVisible()); });
     tb->addAction(icon("channelBoxIcon"), "Show or hide the Channel Box", [this] { channel_dock_->setVisible(!channel_dock_->isVisible()); if (channel_dock_->isVisible()) channel_dock_->raise(); });

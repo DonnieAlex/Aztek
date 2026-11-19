@@ -55,6 +55,8 @@
 
 namespace az {
 
+QWidget* human_ik_panel(QWidget* parent);
+
 namespace {
 // Whether a plug-in is loaded: the file formats plug-ins bring are offered only while they are.
 bool plugin_loaded(const QString& name) {
@@ -900,6 +902,10 @@ void MainWindow::show_named_window(const QString& name) {
         show_modeling_toolkit();
         return;
     }
+    if (name == "humanIK") {
+        show_human_ik();
+        return;
+    }
     QWidget* w = named_windows_.value(name);
     if (!w) {
         w = make_editor_window(name, this);
@@ -919,6 +925,34 @@ QStringList MainWindow::workspace_names() {
     if (names.isEmpty())
         for (const QJsonValue& v : ask("workspaceLayoutManager", QJsonObject{{"listLayouts", true}}).toArray()) names << v.toString();
     return names;
+}
+
+// Humanoid IK as a tab on the right with the Channel Box and the Attribute Editor, not a window of its own (#177).
+void MainWindow::show_human_ik() {
+    if (!hik_dock_) {
+        hik_dock_ = new QDockWidget("Humanoid IK", this);
+        hik_dock_->setObjectName("humanIKDock");
+        hik_dock_->setWidget(human_ik_panel(hik_dock_));
+        addDockWidget(Qt::RightDockWidgetArea, hik_dock_);
+        tabifyDockWidget(attr_dock_, hik_dock_);
+    }
+    hik_dock_->show();
+    hik_dock_->raise();
+}
+
+// The panels as a fresh layout has them: the Outliner and the Tool Settings tabbed on the left, the Channel Box, the
+// Attribute Editor and the other panels tabbed on the right, rather than stacked as another workspace may have left
+// them (#177).
+void MainWindow::default_dock_layout() {
+    addDockWidget(Qt::LeftDockWidgetArea, outliner_dock_);
+    addDockWidget(Qt::LeftDockWidgetArea, tool_dock_);
+    tabifyDockWidget(outliner_dock_, tool_dock_);
+    addDockWidget(Qt::RightDockWidgetArea, channel_dock_);
+    for (QDockWidget* d : {attr_dock_, mtk_dock_, hik_dock_}) {
+        if (!d) continue;
+        addDockWidget(Qt::RightDockWidgetArea, d);
+        tabifyDockWidget(channel_dock_, d);
+    }
 }
 
 // An editor window docked into the main window for a workspace; release_docked_editors gives it back as a window.
@@ -973,11 +1007,13 @@ void MainWindow::apply_workspace(const QString& name) {
     };
     // The panels on the edges; the rest of the reference's editors are docked in below.
     auto only = [this](bool outliner, bool channels, bool attr, bool tool) {
+        default_dock_layout();
         outliner_dock_->setVisible(outliner);
         channel_dock_->setVisible(channels);
         attr_dock_->setVisible(attr);
         tool_dock_->setVisible(tool);
         if (mtk_dock_) mtk_dock_->hide();
+        if (hik_dock_) hik_dock_->hide();
     };
     auto set_menus = [this](const QString& set) {
         if (menu_set_) menu_set_->setCurrentText(set);

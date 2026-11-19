@@ -1688,6 +1688,14 @@ With soft selection on, Quad Draw's drags carry the points round what's dragged 
 of a vertex, edge or face over the live surface (the points it carries staying on the surface too), and a middle drag
 of a vertex along its normal with nothing live. Before, only the vertex under the pointer moved.
 
+### Humanoid IK as a tab; panels tabbed by default (19/11/2026, #177)
+
+Human IK is now Humanoid IK, and it opens as a tab on the right with the Channel Box and the Attribute Editor rather
+than as a window of its own (Windows > Humanoid IK, the status line button, and the HumanIK runtime commands). Picking
+a built-in workspace puts the panels back as a fresh layout has them: the Channel Box, the Attribute Editor, the
+Modeling Toolkit and Humanoid IK tabbed on the right, the Outliner and the Tool Settings tabbed on the left, rather than
+stacked as another workspace may have left them.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
