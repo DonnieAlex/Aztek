@@ -798,10 +798,11 @@ QMenu* MainWindow::display_menu() {
         if (!hidden.isEmpty()) exec("hide", QJsonObject{{"args", hidden}});
     });
     QMenu* show = m->addMenu("Show");
-    cmd(show, "Show Selection", "show");
+    cmd(show, "Show Selection", "show", {}, "Shift+H");
     cmd(show, "All", "showHidden", QJsonObject{{"all", true}});
     cmd(show, "Show Last Hidden", "showLastHidden", {}, "Ctrl+Shift+H");
-    cmd(m, "Toggle Show/Hide", "toggleVisibility", {}, "H");
+    // No key: H is the menu sets, as the reference's (#175).
+    cmd(m, "Toggle Show/Hide", "toggleVisibility", {});
     m->addSeparator();
     QMenu* obj = m->addMenu("Object Display");
     cmd(obj, "Template", "toggle", QJsonObject{{"template", true}, {"state", true}});
