@@ -1066,10 +1066,10 @@ print(cmds.pluginInfo("broken", q=True, loaded=True), cmds.loadPlugin("noSuch", 
         ),
         &[
             // The plug-ins that come with Aztek are loaded from the start.
-            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'xjenToolkit']",
+            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'xjenToolkit']",
             "Plug-in \"testPlugin\" was not found on the plug-in path.",
             "['testPlugin']",
-            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
+            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
             "['asksCmd', 'boomCmd', 'innerCmd', 'makeLoc', 'modCmd', 'plainCmd'] ['chatty', 'doubler']",
             "['testPlugin'] True",
             "cannot start",

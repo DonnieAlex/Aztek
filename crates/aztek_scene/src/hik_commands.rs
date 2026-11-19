@@ -29,6 +29,9 @@ fn window_info(s: &mut Session) -> Value {
     json!({"characters": list, "current": cur, "character": me, "slotNames": slot_names()})
 }
 
+/// Every command register makes: the mayaHIK plug-in's (#167).
+pub const NAMES: &[&str] = &["hikCreateSkeleton", "hikCreateDefinition", "hikRemoveCharacterObject", "GetHIKNodeName", "hikGetNodeIdFromName", "hikGetNodeCount", "hikGetSkNode", "hikGetCurrentCharacter", "hikSetCurrentCharacter", "hikGetCurrentSource", "hikSetCurrentSource", "hikSetCurrentSourceFromCharacter", "hikSetSource", "mayaHIKgetInputCharacter", "hikCharacterLock", "hikToggleLockDefinition", "hikEnableCharacter", "hikDefinitionStatus", "hikNameMatch", "hikMirrorMatching", "hikSaveTemplate", "hikLoadTemplate", "hikCreateControlRig", "hikDeleteControlRig", "hikBakeToSkeleton", "hikBake", "hikBakeToControlRig", "hikStraightenArms", "hikInfo", "setCharacterObject", "hikSetCharacterObject"];
+
 pub fn register(c: &mut Commands<Session>) {
     register_types();
     c.register(

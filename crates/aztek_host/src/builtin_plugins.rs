@@ -15,6 +15,8 @@ pub struct Builtin {
     pub register: fn(&mut Session),
     /// Commands it registers besides, listed where they are made.
     pub more: fn() -> Vec<&'static str>,
+    /// The node types it stands for, as pluginInfo -dependNode lists them.
+    pub nodes: &'static [&'static str],
 }
 
 fn none() -> Vec<&'static str> {
@@ -37,8 +39,8 @@ pub const FOLDER: &str = "Aztek (built in)";
 pub const BUILTINS: &[Builtin] = &[
     // The reference keeps these nodes in plug-ins of these names, and tools load them by name before they make the
     // nodes. Aztek's are part of the core: the names are here so that loading them succeeds.
-    Builtin { name: "matrixNodes", doc: "The matrix utility nodes: decomposeMatrix, composeMatrix, multMatrix, inverseMatrix, wtAddMatrix and the rest. Part of Aztek's core; listed so that tools which load matrixNodes find it.", commands: &[], register: |_| {}, more: none },
-    Builtin { name: "quatNodes", doc: "The quaternion utility nodes: quatAdd, quatConjugate, quatInvert, quatNegate, quatNormalize, quatProd, quatSlerp, quatSub, quatToEuler and eulerToQuat. Part of Aztek's core; listed so that tools which load quatNodes find it.", commands: &[], register: |_| {}, more: none },
+    Builtin { name: "matrixNodes", doc: "The matrix utility nodes: decomposeMatrix, composeMatrix, multMatrix, inverseMatrix, wtAddMatrix and the rest. Part of Aztek's core; listed so that tools which load matrixNodes find it.", commands: &[], register: |_| {}, more: none, nodes: &[] },
+    Builtin { name: "quatNodes", doc: "The quaternion utility nodes: quatAdd, quatConjugate, quatInvert, quatNegate, quatNormalize, quatProd, quatSlerp, quatSub, quatToEuler and eulerToQuat. Part of Aztek's core; listed so that tools which load quatNodes find it.", commands: &[], register: |_| {}, more: none, nodes: &[] },
     Builtin {
         name: "fbx",
         doc: "FBX import and export: File > Import and File > Export with a .fbx name, file -import/-export -type \"FBX\", importFbx, exportFbx, FBXImport, FBXExport and the FBXImport and FBXExport settings commands.",
@@ -48,6 +50,7 @@ pub const BUILTINS: &[Builtin] = &[
             aztek_scene::fbx_import::register(&mut s.commands);
         },
         more: aztek_scene::fbx_options::command_names,
+        nodes: &[],
     },
     Builtin {
         name: "objExport",
@@ -55,6 +58,7 @@ pub const BUILTINS: &[Builtin] = &[
         commands: &["importObj", "exportObj"],
         register: |s| aztek_scene::mesh_nodes::register_obj(&mut s.commands),
         more: none,
+        nodes: &[],
     },
     Builtin {
         name: "mayaUsdPlugin",
@@ -62,6 +66,7 @@ pub const BUILTINS: &[Builtin] = &[
         commands: &[],
         register: register_usd,
         more: none,
+        nodes: &[],
     },
     Builtin {
         name: "gltf",
@@ -72,6 +77,7 @@ pub const BUILTINS: &[Builtin] = &[
             aztek_scene::gltf_import::register(&mut s.commands);
         },
         more: none,
+        nodes: &[],
     },
     Builtin {
         name: "AbcExport",
@@ -79,6 +85,7 @@ pub const BUILTINS: &[Builtin] = &[
         commands: &["AbcExport"],
         register: |s| aztek_scene::alembic::register_export(&mut s.commands),
         more: none,
+        nodes: &[],
     },
     Builtin {
         name: "AbcImport",
@@ -86,6 +93,7 @@ pub const BUILTINS: &[Builtin] = &[
         commands: &["AbcImport"],
         register: |s| aztek_scene::alembic::register_import(&mut s.commands),
         more: none,
+        nodes: &[],
     },
     Builtin {
         name: "xjenToolkit",
@@ -96,6 +104,15 @@ pub const BUILTINS: &[Builtin] = &[
             aztek_scene::xjen::register_strands();
         },
         more: none,
+        nodes: &[],
+    },
+    Builtin {
+        name: "mayaHIK",
+        doc: "HumanIK, as the reference's mayaHIK plug-in (#167): the character definitions, the full body solve, retargeting between characters, the control rig and the bakes, with the hik commands the HumanIK window and scripts use.",
+        commands: aztek_scene::hik_rig::NAMES,
+        register: |s| aztek_scene::hik::register(&mut s.commands),
+        more: none,
+        nodes: &["HIKCharacterNode", "HIKSolverNode", "HIKState2SK", "HIKProperty2State"],
     },
 ];
 

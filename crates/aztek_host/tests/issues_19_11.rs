@@ -25,3 +25,20 @@ fn mismatched_shiboken_is_an_import_error() {
     assert!(why.contains("same version") && why.contains("6.7.1"), "{why}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// #167: HumanIK is the mayaHIK plug-in, loaded at start: pluginInfo lists its commands and nodes, unloading takes the
+/// commands away and loading puts them back.
+#[test]
+fn humanik_is_the_mayahik_plugin() {
+    let mut c = Core::new();
+    assert_eq!(mel(&mut c, "pluginInfo -q -loaded mayaHIK;"), serde_json::json!(true));
+    let cmds = mel(&mut c, "pluginInfo -q -command mayaHIK;");
+    assert!(cmds.as_array().unwrap().iter().any(|v| v == "GetHIKNodeName"), "{cmds}");
+    let nodes = mel(&mut c, "pluginInfo -q -dependNode mayaHIK;");
+    assert!(nodes.as_array().unwrap().iter().any(|v| v == "HIKCharacterNode"), "{nodes}");
+    assert_eq!(mel(&mut c, "hikGetNodeCount;"), mel(&mut c, "hikGetNodeCount;"));
+    mel(&mut c, "unloadPlugin mayaHIK;");
+    assert!(c.mel_checked("hikGetNodeCount;").is_err());
+    mel(&mut c, "loadPlugin mayaHIK;");
+    assert!(c.mel_checked("hikGetNodeCount;").is_ok());
+}

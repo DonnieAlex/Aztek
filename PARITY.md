@@ -1647,6 +1647,15 @@ checked before it loads and become an ImportError that names the cause: a shibok
 PySide6, and an `enum` module that isn't Python's own (a Python 2 backport, enum34, or a tool's enum.py earlier on the
 path). Not confirmed as the cause of #169: the reporter's setup is still to be checked.
 
+### HumanIK as the mayaHIK plug-in (19/11/2026, #167)
+
+HumanIK is a plug-in of Aztek's own named mayaHIK, as the reference's is, loaded at start and listed in the Plug-in
+Manager. `pluginInfo -q -command mayaHIK` lists its commands and `-dependNode` its node types (HIKCharacterNode,
+HIKSolverNode, HIKState2SK, HIKProperty2State); unloading it takes the commands away and loading puts them back, and
+built-in plug-ins now answer -dependNode. Of the reference plug-in's own commands only GetHIKNodeName, hikGetNodeCount
+and hikGetNodeIdFromName are here; the rest of its list (HIKComputeReference, GetHIKChildId, hikBodyPart, the
+character state nodes and data types, and so on) is still to do.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

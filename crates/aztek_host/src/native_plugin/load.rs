@@ -513,7 +513,7 @@ fn plugin_info(s: &mut Session, a: &Args) -> CmdResult {
         } else if on("command") {
             json!(if is_loaded { b.all_commands() } else { Vec::new() })
         } else if on("dependNode") {
-            json!(Vec::<String>::new())
+            json!(if is_loaded { b.nodes.to_vec() } else { Vec::new() })
         } else {
             return Err(CommandError::new("pluginInfo: nothing asked"));
         });
