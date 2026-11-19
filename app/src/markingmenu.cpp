@@ -13,6 +13,9 @@ namespace az {
 namespace {
 const int kRadius = 92;
 const int kH = 22;
+// Between compass rows, and from the dot to a side item's near edge.
+const int kRow = 27;
+const int kSide = 55;
 // The menus a submenu was opened from, outermost first: where each was centred and what it held.
 QList<QPair<QPoint, QList<MarkItem>>>& parents() {
     static QList<QPair<QPoint, QList<MarkItem>>> list;
@@ -44,25 +47,27 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items) : QWidget(
     int list_w = 140;
     for (const MarkItem& it : items_) {
         compass |= it.dir >= 0;
-        if (it.dir < 0) list_w = qMax(list_w, fm.horizontalAdvance(it.label) + 24 + (it.checkable ? 18 : 0) + (it.sub.isEmpty() ? 0 : 14));
+        if (it.dir < 0) list_w = qMax(list_w, fm.horizontalAdvance(it.label) + 24 + (it.checkable ? 18 : 0) + (it.sub.isEmpty() ? 0 : 14) + (it.option ? 22 : 0));
     }
-    int list_y = compass ? kRadius + kH : 14;
+    int list_y = compass ? 2 * kRow + kH + 10 : 14;
     QList<QRect> rules;
     for (const MarkItem& it : items_) {
-        int w = fm.horizontalAdvance(it.label) + 24 + (it.checkable ? 18 : 0) + (it.sub.isEmpty() ? 0 : 14);
+        int w = fm.horizontalAdvance(it.label) + 24 + (it.checkable ? 18 : 0) + (it.sub.isEmpty() ? 0 : 14) + (it.option ? 22 : 0);
         QRect r;
         if (it.dir >= 0) {
-            double a = it.dir * M_PI / 4.0;
-            int x = int(std::sin(a) * kRadius), y = int(-std::cos(a) * kRadius * 0.82);
-            // Side items anchor their near edge to the circle, as the reference's do.
-            int left = it.dir == 0 || it.dir == 4 ? x - w / 2 : (it.dir < 4 ? x - 14 : x - w + 14);
+            // The reference's compass (#183): five rows a little over an item apart, north and south centred over the
+            // dot, the sides with their near edge on a narrow ellipse.
+            static const int rows[8] = {-2, -1, 0, 1, 2, 1, 0, -1};
+            const double a = it.dir * M_PI / 4.0;
+            const int x = int(std::lround(std::sin(a) * kSide)), y = rows[it.dir] * kRow;
+            int left = it.dir == 0 || it.dir == 4 ? x - w / 2 : (it.dir < 4 ? x : x - w);
             r = QRect(left, y - kH / 2, w, kH);
         } else {
             if (it.separator) {
-                rules.append(QRect(-70, list_y, list_w, 7));
+                rules.append(QRect(-85, list_y, list_w, 7));
                 list_y += 7;
             }
-            r = QRect(-70, list_y, list_w, kH);
+            r = QRect(-85, list_y, list_w, kH);
             list_y += kH;
         }
         rs.append(r);
@@ -137,7 +142,12 @@ void MarkingMenu::back_to_parent() {
     open(up.first, up.second);
 }
 
-void MarkingMenu::pick(int i) {
+QRect MarkingMenu::option_box(int i) const {
+    const QRect r = rects_[i];
+    return QRect(r.right() - 17, r.center().y() - 5, 11, 11);
+}
+
+void MarkingMenu::pick(int i, bool option) {
     if (i >= 0 && !items_[i].sub.isEmpty()) {
         open_sub(i);
         return;
@@ -145,7 +155,12 @@ void MarkingMenu::pick(int i) {
     releaseMouse();
     close();
     parents().clear();
-    if (i >= 0 && items_[i].fn) {
+    if (i < 0) return;
+    if (option && items_[i].option) {
+        items_[i].option();
+        return;
+    }
+    if (items_[i].fn) {
         auto fn = items_[i].fn;
         if (around()) around()(items_[i].label, fn);
         else fn();
@@ -194,6 +209,12 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
             text = QString::fromUtf8("✓ ") + text;
         }
         p.drawText(r.adjusted(left, 0, -6, 0), Qt::AlignVCenter | Qt::AlignLeft, text);
+        if (it.option) {
+            const QRect box = option_box(i);
+            p.setPen(QPen(ink, 1.0));
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(box);
+        }
         if (!it.sub.isEmpty()) {
             const int x = r.right() - 11, y = r.center().y();
             p.setPen(Qt::NoPen);
@@ -241,20 +262,20 @@ void MarkingMenu::mouseReleaseEvent(QMouseEvent* e) {
     qint64 held = QDateTime::currentMSecsSinceEpoch() - opened_ms_;
     // A quick click leaves the menu open for a second click.
     if (i < 0 && !dragged_ && held < 400) return;
-    pick(i);
+    pick(i, i >= 0 && items_[i].option && option_box(i).adjusted(-4, -6, 6, 6).contains(pos));
 }
 
 void MarkingMenu::mousePressEvent(QMouseEvent* e) {
     QPoint pos = e->position().toPoint();
     if (!rect().contains(pos)) {
-        pick(-1);
+        pick(-1, false);
         return;
     }
     dragged_ = true;
 }
 
 void MarkingMenu::keyPressEvent(QKeyEvent* e) {
-    if (e->key() == Qt::Key_Escape) pick(-1);
+    if (e->key() == Qt::Key_Escape) pick(-1, false);
 }
 
 } // namespace az

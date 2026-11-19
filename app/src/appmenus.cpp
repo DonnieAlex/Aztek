@@ -1586,10 +1586,102 @@ void MainWindow::marking_menu(QPoint global, int mods) {
     QString mode = state()["mode"].toString();
     QList<MarkItem> items;
     auto run = [](const QString& c, const QJsonObject& call = QJsonObject()) { return [c, call] { exec(c, call); }; };
+    // The reference's contextual menus, item for item and in its order (#183). An item with nothing behind it yet is
+    // there, greyed out, so the menu keeps its shape.
+    auto act = [](const QString& label, int dir, std::function<void()> fn, std::function<void()> option = {}) {
+        MarkItem m;
+        m.label = label;
+        m.dir = dir;
+        m.fn = std::move(fn);
+        m.option = std::move(option);
+        return m;
+    };
+    // A command, its option box the command's option window.
+    auto com = [act](const QString& label, int dir, const QString& c, const QJsonObject& call = QJsonObject(), bool box = false) {
+        return act(label, dir, [c, call] { exec(c, call); }, box ? std::function<void()>([c, label, call] { OptionsDialog::open(c, label, call); }) : std::function<void()>());
+    };
+    // A tool, its option box the tool's settings.
+    auto tool = [this, act](const QString& label, int dir, const QString& id, bool box = true) {
+        return act(label, dir, [this, id] { set_tool(id); }, box ? std::function<void()>([this, id] { set_tool(id); show_tool_settings(); }) : std::function<void()>());
+    };
+    auto melc = [act](const QString& label, int dir, const QString& code) { return act(label, dir, [code] { mel(code); }); };
+    auto none = [](const QString& label, int dir, bool box = false) {
+        MarkItem m;
+        m.label = label;
+        m.dir = dir;
+        m.enabled = false;
+        if (box) m.option = [] {};
+        return m;
+    };
+    auto sep = [](MarkItem m) {
+        m.separator = true;
+        return m;
+    };
+    auto subm = [](const QString& label, int dir, const QList<MarkItem>& items) {
+        MarkItem m;
+        m.label = label;
+        m.dir = dir;
+        m.sub = items;
+        return m;
+    };
+    // The Move Component command for the mode: its handles straight away.
+    auto transform_component = [act, mode]() {
+        const QString c = mode == "face" ? "polyMoveFacet" : mode == "edge" ? "polyMoveEdge" : "polyMoveVertex";
+        return act("Transform Component", -1, [c] { exec(c); }, [c] { OptionsDialog::open(c, "Transform Component"); });
+    };
+        static QHash<QString, bool> shown;
+        auto flip = [](const QString& key, const QString& flag, const QJsonObject& with) {
+            return [key, flag, with] {
+                shown[key] = !shown.value(key);
+                QJsonObject c = with;
+                c[flag] = shown[key];
+                exec("polyOptions", c);
+            };
+        };
+        QList<MarkItem> display = {
+            {"Toggle Backface Culling", -1, flip("bc", "backCulling", {})},
+            {"Toggle Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayBorder", true}}), true, false, false, true},
+            {"Toggle Texture Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayMapBorder", true}})},
+            {"Toggle Face Normals", -1, flip("fn", "displayNormal", QJsonObject{{"facet", true}}), true, false, false, true},
+            {"Toggle Vertex Normals", -1, flip("vn", "displayNormal", QJsonObject{{"point", true}})},
+            {"Toggle Face Centers", -1, run("polyOptions", {{"relative", true}, {"displayCenter", true}}), true, false, false, true},
+            {"Toggle Hidden Triangles", -1, run("polyOptions", {{"relative", true}, {"displayTriangle", true}})},
+            {"Toggle Vertices", -1, run("polyOptions", {{"relative", true}, {"displayVertex", true}})},
+            {"Reset Polygon Display", -1, [] {
+                 shown.clear();
+                 exec("polyOptions", QJsonObject{{"backCulling", false}, {"displayBorder", false}, {"displayMapBorder", false},
+                                                 {"displayCenter", false}, {"displayTriangle", false}, {"displayVertex", false}});
+                 exec("polyOptions", QJsonObject{{"displayNormal", false}, {"facet", true}});
+                 exec("polyOptions", QJsonObject{{"displayNormal", false}, {"point", true}});
+             }, true, false, false, true}};
+    auto polygon_display = [subm, display]() { return subm("Polygon Display", -1, display); };
+    auto mapping = [subm, com]() {
+        return subm("Mapping", -1, {com("Automatic", -1, "polyAutoProjection", {}, true), com("Contour Stretch", -1, "polyContourProjection", {}, true),
+                                    com("Cylindrical", -1, "polyCylindricalProjection", {}, true), com("Planar", -1, "polyPlanarProjection", {}, true),
+                                    com("Spherical", -1, "polySphericalProjection", {}, true)});
+    };
+    auto soften_harden = [subm, com, act, flip]() {
+        return subm("Soften/Harden Edges", 3, {com("Soften Edge", 1, "polySoftEdge", {{"angle", 180.0}}), com("Soften/Harden", 2, "polySoftEdge", {}, true),
+                                              com("Harden Edge", 3, "polySoftEdge", {{"angle", 0.0}}), act("Toggle Soft Edge Display", 4, flip("se", "softEdge", {}))});
+    };
     if ((mods & 1) && (mods & 2)) {
-        // Ctrl+Shift: the tool's options, as the reference's.
-        tool_options_marking_menu(global);
-        return;
+        // Ctrl+Shift: converting the selection, as the reference's (#183).
+        auto to = [com](const QString& label, const QString& kind) { return com(label, -1, "convertSelection", args(QJsonArray{kind})); };
+        items = {subm("To Edges", 0, {to("To Edges", "edge"), com("To Edge Loop", -1, "selectLoop"), com("To Edge Ring", -1, "selectLoop", {{"ring", true}})}),
+                 subm("Grow Selection", 1, {com("Grow Selection", -1, "growSelection"), com("Grow Along Loop", -1, "growSelection", {{"alongLoop", true}})}),
+                 subm("To UVs", 2, {to("To UVs", "uv"), com("To UV Shell", -1, "selectMode", args(QJsonArray{"uvShell"}))}),
+                 subm("Edge Loop Utilities", 3, {com("To Edge Loop", -1, "selectLoop")}),
+                 subm("To Faces", 4, {to("To Faces", "face")}),
+                 subm("Edge Ring Utilities", 5, {com("To Edge Ring", -1, "selectLoop", {{"ring", true}})}),
+                 subm("To Vertices", 6, {to("To Vertices", "vertex")}),
+                 subm("Shrink Selection", 7, {com("Shrink Selection", -1, "shrinkSelection"), com("Shrink Along Loop", -1, "shrinkSelection", {{"alongLoop", true}})}),
+                 none("To Face Path", -1),
+                 com("To UV Shell", -1, "selectMode", args(QJsonArray{"uvShell"})),
+                 act("To Shell", -1, [this] { select_shell(false); }),
+                 act("To Shell Border", -1, [this] { select_shell(true); }),
+                 sep(none("Select Border Edge Tool", -1)),
+                 sep(com("Selection Boundary", -1, "selectBorder")),
+                 act("Selection Constraints...", -1, [this] { show_named_window("polySelectConstraint"); })};
     } else if ((mods & 1) && selection_names().isEmpty()) {
         // Shift with nothing selected: the polygon primitives of the Create menu, made as its items make them
         // (Interactive Creation and the option boxes' saved settings apply).
@@ -1612,57 +1704,72 @@ void MainWindow::marking_menu(QPoint global, int mods) {
                  {"Platonic Solid", -1, prim("polyPlatonicSolid")}, {"Super Shape", -1, prim("polySuperShape")},
                  {"Interactive Creation", -1, [interactive] { QSettings().setValue("prefs/interactiveCreation", !interactive); }, true, interactive}};
     } else if (mods & 1) {
-        // Shift: the modelling tools for the current component type.
+        // Shift: the modelling tools for the component type, as the reference's (#183).
         if (mode == "face") {
-            items = {{"Extrude Face", 0, run("polyExtrude")}, {"Bevel Face", 4, run("polyBevel")}, {"Bridge Face", 2, run("polyBridge")},
-                     {"Inset Face", 6, run("polyInset")}, {"Poke Face", 1, run("polyPoke")}, {"Duplicate Face", 7, run("polyDuplicateFaces")},
-                     {"Extract Face", 3, run("polyExtract")}, {"Delete Face", 5, run("deleteComponents")},
-                     {"Triangulate", -1, run("polyTriangulate")}, {"Quadrangulate", -1, run("polyQuadrangulate")}, {"Flip", -1, run("polyFlip")}, {"Multi-Cut", -1, [this] { set_tool("multiCut"); }}};
+            items = {com("Merge Faces To Center", 0, "polyMergeCenter"), com("Poke Face", 1, "polyPoke", {}, true), com("Bevel Face", 2, "polyBevel", {}, true),
+                     subm("Face Normals", 3, {com("Reverse Propagate", 1, "polyNormal", {{"normalMode", 1}}), com("Reverse Normals", 2, "polyNormal", {{"normalMode", 0}}, true),
+                                              com("Conform Normals", 3, "polyNormal", {{"normalMode", 2}}), act("Toggle Face Normal Display", 4, flip("fn", "displayNormal", QJsonObject{{"facet", true}}))}),
+                     com("Extrude Face", 4, "polyExtrude", {}, true), com("Wedge Face", 5, "polyWedgeFace", {}, true), tool("Multi-Cut", 6, "multiCut"),
+                     tool("Paint Select Faces", 7, "paintSelect", false),
+                     none("Smart Extrude", -1), com("Smooth Faces", -1, "polySmooth", {}, true), com("Assign Invisible Faces", -1, "polyHole", {}, true),
+                     com("Add Divisions To Faces", -1, "polySubdivideFacet", {}, true), com("Circularize Components", -1, "polyCircularize", {}, true),
+                     com("Connect Components", -1, "polyConnectComponents", {}, true), melc("Detach Components", -1, "DetachComponent;"),
+                     com("Triangulate Faces", -1, "polyTriangulate"), com("Quadrangulate Faces", -1, "polyQuadrangulate", {}, true),
+                     com("Reduce Faces", -1, "polyReduce", {}, true), com("Remesh", -1, "polyRemesh", {}, true), com("Bridge Faces", -1, "polyBridge", {}, true),
+                     sep(com("Mirror", -1, "polyMirrorFace", {}, true)), com("Extract Faces", -1, "polyExtract", {}, true),
+                     com("Duplicate Face", -1, "polyChipOff", {{"duplicate", true}}, true), transform_component(), none("Connect Tool", -1, true),
+                     tool("Target Weld Tool", -1, "targetWeld"),
+                     sep(mapping()), sep(polygon_display())};
         } else if (mode == "edge") {
-            items = {{"Extrude Edge", 0, run("polyExtrude")}, {"Bevel Edge", 4, run("polyBevel")}, {"Bridge", 2, run("polyBridge")},
-                     {"Insert Edge Loop", 6, [this] { set_tool("insertLoop"); }}, {"Collapse Edge", 1, run("polyCollapse")}, {"Delete Edge", 5, [] { delete_edge_vertex(); }},
-                     {"Offset Edge Loop", 7, [this] { set_tool("offsetLoop"); }}, {"Connect", 3, run("polyConnectComponents")},
-                     {"Spin Edge", -1, run("polySpinEdge")}, {"Fill Hole", -1, run("polyFillHole")}, {"Soften Edge", -1, run("polySoftEdge", {{"angle", 180.0}})},
-                     {"Harden Edge", -1, run("polySoftEdge", {{"angle", 0.0}})}, {"Slide Edge", -1, [this] { set_tool("slideEdge"); }}, {"Multi-Cut", -1, [this] { set_tool("multiCut"); }}};
+            items = {subm("Merge/Collapse Edges", 0, {com("Merge Edges To Center", 0, "polyMergeCenter"), com("Merge Border Edges", 1, "polyMergeEdge", {}, true),
+                                                     com("Collapse Edge", 2, "polyCollapseEdge"), tool("Target Weld Tool", 4, "targetWeld")}),
+                     subm("Flip/Spin Edge", 1, {com("Flip Triangle Edge", 0, "polyFlipEdge"), com("Spin Forward", 2, "polySpinEdge", {{"offset", 1}}),
+                                               com("Spin Backward", 6, "polySpinEdge", {{"offset", -1}})}),
+                     com("Bevel Edge", 2, "polyBevel", {}, true), soften_harden(), com("Extrude Edge", 4, "polyExtrude", {}, true),
+                     act("Delete Edge", 5, [] { delete_edge_vertex(); }), tool("Multi-Cut", 6, "multiCut"), tool("Paint Select Edges", 7, "paintSelect", false),
+                     tool("Crease Tool", -1, "crease"), tool("Offset Edge Loop Tool", -1, "offsetLoop"), tool("Insert Edge Loop Tool", -1, "insertLoop"),
+                     tool("Slide Edge Tool", -1, "slideEdge"), com("Circularize Components", -1, "polyCircularize", {}, true),
+                     com("Edit Edge Flow", -1, "polyEditEdgeFlow", {}, true),
+                     sep(com("Add Divisions To Edge", -1, "polySubdivideEdge", {}, true)), com("Bridge", -1, "polyBridge", {}, true), com("Fill Hole", -1, "polyFillHole"),
+                     sep(com("Connect Components", -1, "polyConnectComponents", {}, true)), melc("Detach Components", -1, "DetachComponent;"), transform_component(),
+                     none("Connect Tool", -1, true),
+                     sep(polygon_display())};
         } else if (mode == "vertex") {
-            items = {{"Merge Vertices", 0, run("polyMerge")}, {"Merge to Center", 4, run("polyMergeCenter")}, {"Connect", 2, run("polyConnectComponents")},
-                     {"Delete Vertex", 6, [] { delete_edge_vertex(); }}, {"Target Weld", 1, [this] { set_tool("targetWeld"); }}, {"Average Vertices", 7, run("polyAverageVertex")},
-                     {"Multi-Cut", -1, [this] { set_tool("multiCut"); }}};
+            items = {subm("Merge Vertices", 0, {com("Merge Vertices To Center", 0, "polyMergeCenter"), com("Merge Vertices", 1, "polyMerge", {}, true),
+                                               tool("Target Weld Tool", 4, "targetWeld")}),
+                     com("Average Vertices", 1, "polyAverageVertex"), com("Chamfer Vertex", 2, "polyChamferVtx", {}, true),
+                     subm("Vertex Normals", 3, {com("Average Normals", 1, "polyAverageNormal", {}, true), none("Vertex Normal Edit Tool", 2),
+                                               com("Set Normals to Face", 3, "polySetToFaceNormal", {}, true), act("Toggle Vertex Normal Display", 4, flip("vn", "displayNormal", QJsonObject{{"point", true}}))}),
+                     com("Extrude Vertex", 4, "polyExtrudeVertex", {}, true), act("Delete Vertex", 5, [] { delete_edge_vertex(); }), tool("Multi-Cut", 6, "multiCut"),
+                     tool("Paint Select Vertices", 7, "paintSelect", false),
+                     tool("Crease Tool", -1, "crease"), com("Connect Components", -1, "polyConnectComponents", {}, true), melc("Detach Components", -1, "DetachComponent;"),
+                     transform_component(), none("Connect Tool", -1, true),
+                     sep(com("Circularize Vertices", -1, "polyCircularize", {}, true)), com("Reorder Vertices", -1, "meshReorder"),
+                     sep(com("Apply Color", -1, "polyColorPerVertex", {}, true)),
+                     sep(polygon_display())};
         } else {
-            items = {{"Combine", 0, run("polyCombine")}, {"Separate", 4, run("polySeparate")}, {"Smooth", 2, run("polySmooth")},
-                     {"Mirror", 6, run("polyMirror")}, {"Boolean Union", 1, run("polyCBoolOp", {{"operation", 1}})},
-                     {"Boolean Difference", 7, run("polyCBoolOp", {{"operation", 2}})},
-                     {"Delete History", -1, run("delete", {{"constructionHistory", true}})}, {"Center Pivot", -1, run("centerPivot")},
-                     {"Freeze Transformations", -1, run("freezeTransforms")}, {"Create Polygon", -1, [this] { set_tool("createPolygon"); }}, {"Quad Draw", -1, [this] { set_tool("quadDraw"); }}};
-            // Polygon Display, as the reference's has it: each item a switch of what the views draw on meshes.
-            static QHash<QString, bool> shown;
-            auto flip = [](const QString& key, const QString& flag, const QJsonObject& with) {
-                return [key, flag, with] {
-                    shown[key] = !shown.value(key);
-                    QJsonObject c = with;
-                    c[flag] = shown[key];
-                    exec("polyOptions", c);
-                };
+            auto subdiv_proxy = [] {
+                // A smoothed copy that follows the original's edits.
+                QJsonValue made = exec("polyDuplicateAndConnect");
+                QString copy = made.isArray() ? made.toArray().at(0).toString() : made.toString();
+                if (!copy.isEmpty()) exec("polySmooth", QJsonObject{{"args", QJsonArray{copy}}, {"divisions", 2}});
             };
-            QList<MarkItem> display = {
-                {"Toggle Backface Culling", -1, flip("bc", "backCulling", {})},
-                {"Toggle Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayBorder", true}}), true, false, false, true},
-                {"Toggle Texture Border Edges", -1, run("polyOptions", {{"relative", true}, {"displayMapBorder", true}})},
-                {"Toggle Face Normals", -1, flip("fn", "displayNormal", QJsonObject{{"facet", true}}), true, false, false, true},
-                {"Toggle Vertex Normals", -1, flip("vn", "displayNormal", QJsonObject{{"point", true}})},
-                {"Toggle Face Centers", -1, run("polyOptions", {{"relative", true}, {"displayCenter", true}}), true, false, false, true},
-                {"Toggle Hidden Triangles", -1, run("polyOptions", {{"relative", true}, {"displayTriangle", true}})},
-                {"Toggle Vertices", -1, run("polyOptions", {{"relative", true}, {"displayVertex", true}})},
-                {"Reset Polygon Display", -1, [] {
-                     shown.clear();
-                     exec("polyOptions", QJsonObject{{"backCulling", false}, {"displayBorder", false}, {"displayMapBorder", false},
-                                                     {"displayCenter", false}, {"displayTriangle", false}, {"displayVertex", false}});
-                     exec("polyOptions", QJsonObject{{"displayNormal", false}, {"facet", true}});
-                     exec("polyOptions", QJsonObject{{"displayNormal", false}, {"point", true}});
-                 }, true, false, false, true}};
-            MarkItem sub{"Polygon Display", -1, {}};
-            sub.sub = display;
-            items.append(sub);
+            QList<MarkItem> booleans = {com("Union", -1, "polyCBoolOp", {{"operation", 1}}), com("Difference (A - B)", -1, "polyCBoolOp", {{"operation", 2}}),
+                                        com("Difference (B - A)", -1, "polyCBoolOp", {{"operation", 4}}), com("Intersection", -1, "polyCBoolOp", {{"operation", 3}})};
+            items = {tool("Target Weld Tool", 0, "targetWeld"), com("Fill Holes", 1, "polyFillHole"), tool("Append to Polygon Tool", 2, "appendPolygon"),
+                     soften_harden(), com("Extrude", 4, "polyExtrude"), tool("Insert Edge Loop Tool", 5, "insertLoop"), tool("Multi-Cut", 6, "multiCut"),
+                     tool("Sculpt Tool", 7, "sculpt"),
+                     tool("Offset Edge Loop Tool", -1, "offsetLoop"), com("Smooth", -1, "polySmooth", {}, true), com("Unsmooth", -1, "polyUnsmooth", {}, true),
+                     act("Subdiv Proxy", -1, subdiv_proxy, [] { OptionsDialog::open("polySmooth", "Subdiv Proxy"); }), tool("Crease Tool", -1, "crease"),
+                     sep(com("Project Curve on mesh", -1, "polyProjectCurve", {}, true)), none("Split mesh with projected curve", -1, true),
+                     sep(com("Mirror", -1, "polyMirrorFace", {}, true)), mapping(),
+                     sep(com("Triangulate", -1, "polyTriangulate")), com("Quadrangulate", -1, "polyQuadrangulate", {}, true), com("Reduce", -1, "polyReduce", {}, true),
+                     com("Remesh", -1, "polyRemesh", {}, true), com("Retopologize", -1, "polyRetopo", {}, true),
+                     sep(none("Transfer Vertex Order", -1)),
+                     sep(com("Separate", -1, "polySeparate")), com("Combine", -1, "polyUnite", {}, true), subm("Booleans", -1, booleans),
+                     sep(com("Cleanup...", -1, "polyCleanup", {{"selectOnly", true}, {"nsided", true}, {"nonManifold", true}, {"lamina", true}, {"zeroGeometry", true}})),
+                     none("Connect Tool", -1, true), tool("Quad Draw Tool", -1, "quadDraw"),
+                     sep(polygon_display())};
         }
     } else if (mods & 2) {
         // Ctrl: selection conversion.

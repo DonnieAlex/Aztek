@@ -21,6 +21,8 @@ struct MarkItem {
     bool separator = false;
     // A marking menu of its own, opened when the cursor reaches the item.
     QList<MarkItem> sub = {};
+    // The option box at the right end, as the reference's items have: released over it, this runs instead (#183).
+    std::function<void()> option = {};
 };
 
 class MarkingMenu : public QWidget {
@@ -42,7 +44,9 @@ private:
     static void open(QPoint global, const QList<MarkItem>& items);
     void back_to_parent();
     int item_at(QPoint local) const;
-    void pick(int i);
+    void pick(int i, bool option = false);
+    // Where item i draws its option box.
+    QRect option_box(int i) const;
     void open_sub(int i);
     QList<QRect> rules_;
     QList<MarkItem> items_;
