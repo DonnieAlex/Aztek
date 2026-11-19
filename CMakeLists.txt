@@ -268,4 +268,6 @@ if(UNIX AND NOT APPLE)
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples)
     install(DIRECTORY examples/ DESTINATION share/aztek/examples)
   endif()
+  # The global MEL procedures that come with Aztek, to read: the program has them built in (scripts/README.md).
+  install(DIRECTORY scripts/ DESTINATION share/aztek/scripts PATTERN "README.md" EXCLUDE)
 endif()

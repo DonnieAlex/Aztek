@@ -1,0 +1,6 @@
+// preferencesWnd: opens the Preferences window, as Windows > Settings/Preferences > Preferences does. The category is
+// accepted for scripts that name one; the window opens where it was last left.
+global proc preferencesWnd(string $category)
+{
+    PreferencesWindow;
+}

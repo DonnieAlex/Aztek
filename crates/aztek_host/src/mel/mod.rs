@@ -2,6 +2,7 @@
 //! command's evaluated arguments into a command call; the state that outlives a run lives in `Core::mel_state`.
 
 mod builtins;
+mod bundled;
 mod builtins_sys;
 mod call;
 mod interp;

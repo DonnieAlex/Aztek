@@ -99,3 +99,16 @@ fn the_shell_dates_and_helpers() {
     assert_eq!(num(&c.mel("gauss(<<1, 1, 1>>);")).len(), 3);
     assert_eq!(num(&c.mel("gauss(0.0);")), vec![0.0]);
 }
+
+/// The procedures that come with Aztek (#171): known to whatIs by the file they come from, as the reference's startup
+/// scripts are, and called by name like any procedure.
+#[test]
+fn bundled_procedures_are_found() {
+    let mut c = Core::new();
+    let w = c.mel("whatIs preferencesWnd;");
+    let w = w.as_str().unwrap();
+    assert!(w.starts_with("Mel procedure found in: ") && w.replace('\\', "/").ends_with("scripts/startup/preferencesWnd.mel"), "{w}");
+    assert_eq!(c.mel("exists preferencesWnd;"), json!(1));
+    assert!(c.mel_checked("preferencesWnd \"general\";").is_ok());
+    assert!(c.mel_checked("preferencesWnd(\"general\");").is_ok());
+}

@@ -325,6 +325,10 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
                     None => "Unknown".into(),
                 }));
             }
+            // The reference sources its startup scripts as it starts: theirs are procedures already (#171).
+            if it.proc_file(&w).is_none() && find_script(&w).is_none() && super::bundled::at_startup(&w) {
+                it.auto_source(&w)?;
+            }
             if let Some(file) = it.proc_file(&w) {
                 return Ok(Value::Str(match file {
                     Some(f) => format!("Mel procedure found in: {f}"),
@@ -339,13 +343,16 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
             }
             Ok(Value::Str(match find_script(&w) {
                 Some(p) => format!("Script found in: {}", p.display()),
-                None => "Unknown".into(),
+                None => match super::bundled::script(&w) {
+                    Some((file, _)) => format!("Script found in: {file}"),
+                    None => "Unknown".into(),
+                },
             }))
         }
         "exists" => {
             need(1)?;
             let w = s(&a[0]);
-            Ok(Value::Int((it.is_proc(&w) || it.is_command(&w) || NAMES.contains(&w.as_str()) || super::builtins_sys::NAMES.contains(&w.as_str()) || find_script(&w).is_some()) as i32))
+            Ok(Value::Int((it.is_proc(&w) || it.is_command(&w) || NAMES.contains(&w.as_str()) || super::builtins_sys::NAMES.contains(&w.as_str()) || find_script(&w).is_some() || super::bundled::script(&w).is_some()) as i32))
         }
         // A script of the reference's, here a built-in: the version as a number, for tools that branch on it.
         "getApplicationVersionAsFloat" => Ok(Value::Float(aztek_core::REFERENCE_VERSION.parse().unwrap_or(0.0))),

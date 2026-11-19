@@ -1089,13 +1089,19 @@ impl Interp<'_> {
     }
 
     /// An unknown name found as name.mel on the script path is sourced, as the reference does.
-    fn auto_source(&mut self, name: &str) -> R<bool> {
-        let Some(path) = super::builtins::find_script(name) else { return Ok(false) };
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(_) => return Ok(false),
+    /// Then the procedures that come with Aztek (#171), after the user's own so theirs win.
+    pub(crate) fn auto_source(&mut self, name: &str) -> R<bool> {
+        let (text, file) = match super::builtins::find_script(name) {
+            Some(path) => match std::fs::read_to_string(&path) {
+                Ok(t) => (t, path.to_string_lossy().into_owned()),
+                Err(_) => return Ok(false),
+            },
+            None => match super::bundled::script(name) {
+                Some((file, text)) => (text.to_string(), file),
+                None => return Ok(false),
+            },
         };
-        self.run_quiet(&text, Some(&path.to_string_lossy()))?;
+        self.run_quiet(&text, Some(&file))?;
         Ok(self.is_proc(name))
     }
 

@@ -1595,6 +1595,14 @@ Deleting a history node that sits between others, from the Channel Box's Delete 
 up round it as the reference does: what fed it feeds what it fed, so the nodes before it stay in the history and the
 mesh is what they and the nodes after it make. Before, the nodes before it dropped out of the mesh's history.
 
+### Global procedures that come with Aztek (19/11/2026, #171)
+
+Aztek has a scripts folder laid out as the reference's installation's: `startup/` and `others/`, global MEL procedures
+built into the program, found after the user's script path so a script of the same name there wins. `whatIs` names the
+file one comes from (`Mel procedure found in: .../scripts/startup/preferencesWnd.mel`), the startup ones counting as
+already sourced as the reference's do, and `exists` knows them. The Linux packages put a copy to read in
+share/aztek/scripts. The first is `preferencesWnd`; more are added as scripts people use call them (scripts/README.md).
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
