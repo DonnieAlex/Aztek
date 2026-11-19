@@ -50,6 +50,8 @@ pub struct ToolState {
     pub quad_mesh: Option<NodeId>,
     pub dragging_dot: Option<usize>,
     pub dragging_vertex: Option<(NodeId, Index)>,
+    pub comp_drag: Option<crate::tools_quad::CompDrag>,
+    pub vertex_extrude: Option<crate::tools_quad::VertexExtrude>,
     pub tab: bool,
     pub append_edges: Vec<Index>,
     pub weld_source: Option<(NodeId, Index, bool)>,
@@ -785,6 +787,14 @@ impl View {
                     }
                     return true;
                 }
+                if self.ts.comp_drag.is_some() {
+                    self.quad_comp_drag(core, items, px);
+                    return true;
+                }
+                if self.ts.vertex_extrude.is_some() {
+                    self.quad_vertex_extrude_drag(core, items, px);
+                    return true;
+                }
                 if let Some((mesh, v)) = self.ts.dragging_vertex {
                     if let Some(p) = self.live_point(core, items, px) {
                         let name = components::display_path(&core.s.graph, mesh);
@@ -811,6 +821,8 @@ impl View {
                     for i in 0..poly.len() {
                         self.vp.tool_lines.push((poly[i].0, poly[(i + 1) % poly.len()].0, GREEN));
                     }
+                } else if !ctrl {
+                    self.quad_highlight(core, items, px);
                 } else if ctrl {
                     if let Some(it) = self.quad_target(core, items) {
                         let shape = it.shape;
@@ -869,6 +881,10 @@ impl View {
                     self.ts.relax_picked = Some(px);
                     self.quad_relax_picked(core, items);
                     return true;
+                }
+                // With a live surface a middle drag moves what's under it over the surface, as a left drag does (#164).
+                if !core.s.live_surface.is_empty() {
+                    return self.quad_comp_press(core, items, px);
                 }
                 // Middle drag on a dot or a vertex, with no live surface: along its normal.
                 self.quad_normal_press(core, items, px)
@@ -941,6 +957,10 @@ impl View {
                     return true;
                 }
                 if self.ts.tab {
+                    // Tab+drag on a border vertex: a quad out of its corner (#164).
+                    if self.quad_vertex_extrude_press(core, items, px) {
+                        return true;
+                    }
                     if let Some((shape, xf, world, mesh)) = &target {
                         let list = [DrawItem { shape: *shape, xf: *xf, world: *world, mesh: mesh.clone(), smooth: 0 }];
                         if let Some(s) = snap_at(self, &list, px).filter(|s| s.edge.3 < 12.0 * self.dpr) {
@@ -962,13 +982,9 @@ impl View {
                     self.ts.dragging_dot = Some(i);
                     return true;
                 }
-                if let Some((shape, _, world, mesh)) = &target {
-                    let near = (0..mesh.point_capacity()).filter(|&p| mesh.point_valid(p)).find(|&p| screen.project(world.transform_point3(mesh.position(p))).is_some_and(|q| (q - px).length() < 12.0 * self.dpr));
-                    if let Some(p) = near {
-                        self.ts.dragging_vertex = Some((*shape, p));
-                        self.ts.applied = false;
-                        return true;
-                    }
+                // A vertex, an edge or a face of the quad mesh: it moves over the surface (#164).
+                if target.is_some() && self.quad_comp_press(core, items, px) {
+                    return true;
                 }
                 if let Some(p) = self.live_point(core, items, px) {
                     self.ts.dots.push(p);
@@ -995,6 +1011,13 @@ impl View {
                 if let Some((mesh, v)) = self.ts.dragging_vertex.take() {
                     self.commit_preview(core);
                     self.quad_auto_weld(core, mesh, v);
+                }
+                let mine = mine || self.ts.comp_drag.is_some() || self.ts.vertex_extrude.is_some();
+                if self.ts.comp_drag.is_some() {
+                    self.quad_comp_release(core);
+                }
+                if self.ts.vertex_extrude.take().is_some() {
+                    self.commit_preview(core);
                 }
                 if self.ts.extend.take().is_some() {
                     self.commit_preview(core);

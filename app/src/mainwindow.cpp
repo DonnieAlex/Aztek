@@ -1846,7 +1846,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"createPolygon", "Create Polygon: click to place points, Enter makes the face."},
         {"appendPolygon", "Append to Polygon: click border edges and points, Enter makes the face."},
         {"cutSewUv", "3D Cut and Sew UV: drag over edges to cut their UVs, Ctrl-drag to sew them."},
-        {"quadDraw", "Quad Draw: click places dots, Shift-click fills a quad, Shift-drag relaxes, Ctrl-click inserts a loop (Ctrl+middle centred), Ctrl+Shift-click deletes a face or an edge's loop, Tab-drag draws a quad strip or extends a border edge, drag moves."},
+        {"quadDraw", "Quad Draw: click places dots, Shift-click fills a quad, Shift-drag relaxes, Ctrl-click inserts a loop (Ctrl+middle centred), Ctrl+Shift-click deletes a face or an edge's loop, Tab-drag draws a quad strip, extends a border edge or pulls a quad out of a border vertex, left or middle drag moves a vertex, edge or face."},
     };
     if (tool_help.contains(tool))
         help_line_->setText(tool_help[tool]);

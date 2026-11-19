@@ -1674,6 +1674,14 @@ one by one.
 
 A tap of H shows or hides the selection, as Display > Toggle Show/Hide and the reference's H do; held with a left click
 in a view, H gives the menu sets. Before, H only opened the menu sets. Show > Show Selection shows its Shift+H.
+### Quad Draw: highlight, drag any component, vertex extrude (19/11/2026, #164)
+
+In Quad Draw, with no keys held, the vertex, edge or face under the pointer lights up red, as the reference shows it. A
+left drag, or a middle drag with a live surface, moves that vertex, edge or face, its points staying on the live
+surface; a lone vertex dragged near another within the auto weld distance snaps onto it and is welded on release when
+Auto Weld is on. Tab+drag on a border vertex pulls a quad out of its corner, from its two border neighbours to a new
+point on the surface. Before, only a vertex could be dragged, with the left button, and nothing lit up.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

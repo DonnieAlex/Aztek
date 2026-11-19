@@ -671,3 +671,227 @@ impl View {
         }
     }
 }
+
+/// A Quad Draw drag of a vertex, an edge or a face (#164): every point's place when the drag began, the points that
+/// move and by how much, and where on the surface it was grabbed.
+#[derive(Clone)]
+pub struct CompDrag {
+    pub shape: NodeId,
+    pub world: glam::DMat4,
+    pub start: Vec<DVec3>,
+    pub moving: Vec<(Index, f32)>,
+    pub grab: DVec3,
+    /// The vertex dragged alone, which snaps onto another within the auto weld distance.
+    pub single: Option<Index>,
+    pub surface: Option<std::sync::Arc<(aztek_geo::bvh::MeshBvh, glam::DMat4)>>,
+}
+
+/// Tab+drag on a border vertex: a quad out of the corner, from the vertex's two border neighbours to the new point.
+#[derive(Clone)]
+pub struct VertexExtrude {
+    pub shape: NodeId,
+    pub ring: [Index; 3],
+}
+
+/// The live surface in world space, for putting points onto it.
+fn live_bvh(core: &mut Core) -> Option<std::sync::Arc<(aztek_geo::bvh::MeshBvh, glam::DMat4)>> {
+    let &live = core.s.live_surface.first()?;
+    let g = &mut core.s.graph;
+    g.evaluate();
+    let m = mesh_of(g, live)?;
+    let w = { let xf = aztek_scene::dag::transform_of(g, live); aztek_scene::rig::world(g, xf) };
+    let mut ws = (*m).clone();
+    for p in 0..ws.point_capacity() {
+        if ws.point_valid(p) {
+            let at = w.transform_point3(ws.position(p));
+            ws.set_position(p, at);
+        }
+    }
+    Some(std::sync::Arc::new((aztek_geo::bvh::MeshBvh::new(&ws), w)))
+}
+
+/// What's under the pointer in Quad Draw: a vertex within reach, else an edge, else the face.
+enum Under {
+    Vertex(Index),
+    Edge(Index),
+    Face(Index),
+}
+
+impl View {
+    fn quad_under(&mut self, it: &DrawItem, px: DVec2) -> Option<Under> {
+        let list = [DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: it.mesh.clone(), smooth: 0 }];
+        let screen = self.vp.screen();
+        let reach = 12.0 * self.dpr;
+        let m = &it.mesh;
+        if let Some(p) = (0..m.point_capacity()).filter(|&p| m.point_valid(p)).min_by(|&a, &b| {
+            let d = |p: Index| screen.project(it.world.transform_point3(m.position(p))).map(|q| (q - px).length()).unwrap_or(f64::INFINITY);
+            d(a).total_cmp(&d(b))
+        }) {
+            if screen.project(it.world.transform_point3(m.position(p))).is_some_and(|q| (q - px).length() < reach) {
+                return Some(Under::Vertex(p));
+            }
+        }
+        let s = crate::tools::snap_at(self, &list, px)?;
+        if s.edge.3 < 6.0 * self.dpr {
+            return Some(Under::Edge(s.edge.0));
+        }
+        Some(Under::Face(s.face))
+    }
+
+    /// Hovering in Quad Draw with no keys held: what a press would take lights up, as the reference shows it (#164).
+    pub(crate) fn quad_highlight(&mut self, core: &Core, items: &[DrawItem], px: DVec2) {
+        let Some(it) = self.quad_target(core, items).map(|i| DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: 0 }) else { return };
+        const HI: [u8; 4] = [255, 60, 60, 255];
+        let (m, w) = (&it.mesh, it.world);
+        let line = |v: &mut View, e: Index| {
+            let (a, b) = (m.position(m.edge_point(e, 0)), m.position(m.edge_point(e, 1)));
+            v.vp.tool_lines.push((w.transform_point3(a), w.transform_point3(b), HI));
+        };
+        match self.quad_under(&it, px) {
+            Some(Under::Vertex(p)) => self.vp.tool_points.push((w.transform_point3(m.position(p)), HI)),
+            Some(Under::Edge(e)) => line(self, e),
+            Some(Under::Face(f)) => {
+                let mut edges = Vec::new();
+                m.for_each_face_corner(f, |c| edges.push(m.corner_edge(c)));
+                for e in edges {
+                    line(self, e);
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// A left press, or a middle one with a live surface, on the quad mesh: its vertex, edge or face starts moving
+    /// over the surface.
+    pub(crate) fn quad_comp_press(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) -> bool {
+        let Some(it) = self.quad_target(core, items).map(|i| DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: 0 }) else { return false };
+        let m = it.mesh.clone();
+        let picked: Vec<Index> = match self.quad_under(&it, px) {
+            Some(Under::Vertex(p)) => vec![p],
+            Some(Under::Edge(e)) => vec![m.edge_point(e, 0), m.edge_point(e, 1)],
+            Some(Under::Face(f)) => {
+                // Only a press on the face itself, not the empty surface beside the mesh.
+                let list = [DrawItem { shape: it.shape, xf: it.xf, world: it.world, mesh: m.clone(), smooth: 0 }];
+                if self.vp.raycast(&list, px).is_none() {
+                    return false;
+                }
+                let mut ps = Vec::new();
+                m.for_each_face_corner(f, |c| ps.push(m.corner_point(c)));
+                ps
+            }
+            None => return false,
+        };
+        let Some(grab) = (if picked.len() == 1 { Some(it.world.transform_point3(m.position(picked[0]))) } else { self.live_point(core, items, px) }) else { return false };
+        let mut weights = vec![0.0f32; m.point_capacity() as usize];
+        for &p in &picked {
+            weights[p as usize] = 1.0;
+        }
+        let moving: Vec<(Index, f32)> = (0..m.point_capacity()).filter(|&p| m.point_valid(p) && weights[p as usize] > 0.0).map(|p| (p, weights[p as usize])).collect();
+        let start = (0..m.point_capacity()).map(|p| if m.point_valid(p) { m.position(p) } else { DVec3::ZERO }).collect();
+        self.ts.comp_drag = Some(CompDrag {
+            shape: it.shape,
+            world: it.world,
+            start,
+            moving,
+            grab,
+            single: (picked.len() == 1).then(|| picked[0]),
+            surface: live_bvh(core),
+        });
+        self.ts.applied = false;
+        true
+    }
+
+    pub(crate) fn quad_comp_drag(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) {
+        let Some(d) = self.ts.comp_drag.clone() else { return };
+        let Some(now) = self.live_point(core, items, px) else { return };
+        let mut delta = now - d.grab;
+        let screen = self.vp.screen();
+        // One vertex near another within the auto weld distance: onto it, to be welded on release.
+        if let (Some(v), true) = (d.single, self.ts.qd.auto_weld) {
+            let reach = self.ts.qd.weld_px * self.dpr;
+            let near = (0..d.start.len() as Index)
+                .filter(|&p| p != v && d.moving.iter().all(|x| x.0 != p))
+                .filter_map(|p| screen.project(d.world.transform_point3(d.start[p as usize])).map(|q| (p, (q - px).length())))
+                .filter(|x| x.1 < reach)
+                .min_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((p, _)) = near {
+                delta = d.world.transform_point3(d.start[p as usize]) - d.grab;
+            }
+        }
+        let inv = d.world.inverse();
+        let mut lo = Index::MAX;
+        let mut hi = 0;
+        let mut to: std::collections::HashMap<Index, DVec3> = std::collections::HashMap::new();
+        for &(p, w) in &d.moving {
+            let mut at = d.world.transform_point3(d.start[p as usize]) + delta * w as f64;
+            if let Some(s) = &d.surface {
+                if let Some(c) = s.0.closest_point(at) {
+                    at = c.point;
+                }
+            }
+            to.insert(p, inv.transform_point3(at));
+            lo = lo.min(p);
+            hi = hi.max(p);
+        }
+        if to.is_empty() {
+            return;
+        }
+        // One setAttr over the run of points, those not moving keeping their place.
+        let mut vals = Vec::with_capacity(((hi - lo + 1) * 3) as usize);
+        for p in lo..=hi {
+            let at = to.get(&p).copied().unwrap_or(d.start[p as usize]);
+            vals.extend([json!(at.x), json!(at.y), json!(at.z)]);
+        }
+        let name = components::display_path(&core.s.graph, d.shape);
+        let mut args = vec![json!(format!("{name}.vtx[{lo}:{hi}]"))];
+        args.extend(vals);
+        self.apply_preview(core, "setAttr", json!({"args": args}));
+    }
+
+    /// The drag's end: one undo step, and a lone vertex left on another welded to it.
+    pub(crate) fn quad_comp_release(&mut self, core: &mut Core) {
+        let Some(d) = self.ts.comp_drag.take() else { return };
+        self.commit_preview(core);
+        if let Some(v) = d.single {
+            self.quad_auto_weld(core, d.shape, v);
+        }
+    }
+
+    /// Tab+left press on a border vertex: its extrusion starts (#164).
+    pub(crate) fn quad_vertex_extrude_press(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) -> bool {
+        let Some(it) = self.quad_target(core, items).map(|i| DrawItem { shape: i.shape, xf: i.xf, world: i.world, mesh: i.mesh.clone(), smooth: 0 }) else { return false };
+        let Some(Under::Vertex(v)) = self.quad_under(&it, px) else { return false };
+        let m = &it.mesh;
+        let mut border = Vec::new();
+        m.for_each_point_edge(v, |e| {
+            if m.is_boundary_edge(e) {
+                let o = if m.edge_point(e, 0) == v { m.edge_point(e, 1) } else { m.edge_point(e, 0) };
+                border.push(o);
+            }
+        });
+        if border.len() != 2 {
+            return false;
+        }
+        // The new face runs its border edges the other way from the faces already on them: when a face goes from v
+        // to the first neighbour, the new one goes from that neighbour to v.
+        let mut v_to_first = false;
+        m.for_each_point_corner(v, |c| {
+            if m.corner_point(m.corner_next(c)) == border[0] {
+                v_to_first = true;
+            }
+        });
+        let ring = if v_to_first { [border[0], v, border[1]] } else { [border[1], v, border[0]] };
+        self.ts.vertex_extrude = Some(VertexExtrude { shape: it.shape, ring });
+        self.ts.applied = false;
+        true
+    }
+
+    pub(crate) fn quad_vertex_extrude_drag(&mut self, core: &mut Core, items: &[DrawItem], px: DVec2) {
+        let Some(x) = self.ts.vertex_extrude.clone() else { return };
+        let Some(at) = self.live_point(core, items, px) else { return };
+        let name = core.s.graph.path(x.shape);
+        let [a, v, b] = x.ring;
+        let items_json = json!([{"vertex": a}, {"vertex": v}, {"vertex": b}, {"position": at.to_array()}]);
+        self.apply_preview(core, "polyAppendVertex", json!({"mesh": name, "items": items_json}));
+    }
+}
