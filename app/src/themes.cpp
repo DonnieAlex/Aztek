@@ -1045,7 +1045,9 @@ QString skin(const Theme& t, const QString& a) {
     } else if (bevel) {
         s += "QDockWidget::title { " + raised("raised-window") + " padding: 2px 6px; }\n";
     } else {
-        s += "QDockWidget::title { background: @chrome; padding: 4px 8px; border-bottom: 1px solid @border; }\n";
+        // What sits under the title's text (padding and border) can't be more than what sits over it: the title's height
+        // counts the top twice, so a heavier bottom clips the letters that hang below the line (#187).
+        s += "QDockWidget::title { background: @chrome; padding: 4px 8px 3px 8px; border-bottom: 1px solid @border; }\n";
     }
     if (bevel) s += "QToolTip { background: #ffffe1; color: #000000; border: 1px solid #000000; padding: 2px; }\n";
     else s += "QToolTip { background: @menu; color: @bright; border: 1px solid @border; border-radius: " + r2 + "; padding: 4px 7px; }\n";
@@ -1164,7 +1166,7 @@ QString shapes(const Theme& t) {
         s += title + " { background: " + g2(c["chrome"].lighter(125), c["chrome"].darker(115)) + "; border: 1px solid @border; border-image: none; padding: 3px 6px; }\n";
         s += "QDockWidget { font-weight: bold; }\n";
     } else if (t.titles == "underline") {
-        s += title + " { background: transparent; border: none; border-bottom: 2px solid @hi; border-image: none; padding: 3px 4px; }\n";
+        s += title + " { background: transparent; border: none; border-bottom: 2px solid @hi; border-image: none; padding: 3px 4px 1px 4px; }\n";
     } else if (t.titles == "accent") {
         s += title + " { background: @chrome; border: none; border-left: 4px solid @hi; border-image: none; padding: 3px 8px; }\n";
     } else if (t.titles == "inverse") {

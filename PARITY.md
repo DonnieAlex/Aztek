@@ -1721,6 +1721,12 @@ The Delete Non Deformer History option window was titled "Delete Non Deformer Hi
 button carried the whole title. As in the reference, the title says "Options" once, the buttons are Delete, Apply and
 Close, and the window has Help beside Edit.
 
+### Panel titles keep the letters that hang below the line (19/11/2026, #187)
+
+A panel's title bar is as tall as Qt works it out from what sits over its text, but the themes put more under it (a
+border, more padding), so "g", "p" and "y" in Tool Settings or Modeling Toolkit lost their bottoms. What sits under the
+text is never more than what sits over it now.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
