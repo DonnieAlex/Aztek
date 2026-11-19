@@ -1798,6 +1798,11 @@ They opened as windows of their own. They open as floating panels now: dragged b
 window or onto another panel, they dock beside it or as a tab, as in the reference. Right-clicking a panel's title gives
 that panel's Undock Tab and Close Tab rather than the list of every panel and bar.
 
+### The second Outliner (19/11/2026, #188)
+
+As in the reference, a second Outliner sits under the first, closed: drag the bottom edge of the Outliner up to bring
+it out and look at one part of a long hierarchy in each.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

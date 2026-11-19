@@ -1385,8 +1385,18 @@ void MainWindow::toggle_side(bool left, QToolButton* handle) {
 void MainWindow::build_docks() {
     outliner_dock_ = new QDockWidget("Outliner", this);
     outliner_dock_->setObjectName("outlinerDock");
-    outliner_dock_->setWidget(new Outliner(outliner_dock_));
-    ScriptUi::get()->add_builtin_editor("outlinerPanel1", "outlinerEditor", outliner_dock_->widget());
+    // A second Outliner under the first, closed until its edge is dragged up from the bottom, as the reference's has:
+    // one part of a long hierarchy in each (#188).
+    auto* outliners = new QSplitter(Qt::Vertical, outliner_dock_);
+    auto* outliner = new Outliner(outliners);
+    outliners->addWidget(outliner);
+    outliners->addWidget(new Outliner(outliners));
+    outliners->setCollapsible(0, false);
+    outliners->setCollapsible(1, true);
+    outliners->setHandleWidth(6);
+    outliners->setSizes({1, 0});
+    outliner_dock_->setWidget(outliners);
+    ScriptUi::get()->add_builtin_editor("outlinerPanel1", "outlinerEditor", outliner);
     addDockWidget(Qt::LeftDockWidgetArea, outliner_dock_);
     resizeDocks({outliner_dock_}, {220}, Qt::Horizontal);
 
