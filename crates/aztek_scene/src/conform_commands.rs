@@ -550,6 +550,91 @@ pub fn register(c: &mut Commands<Session>) {
 
     c.register(
         CommandDef::<Session>::new(
+            "polyConformToLive",
+            "Mesh > Conform, as the reference's (#165): the selected components onto the live surface, along their normals \
+             (the nearest hit either way along each point's normal) or to the closest point, then surfaceOffset along the \
+             surface's normal. Without a live surface it says so and changes nothing.",
+            |s, a| {
+                let Some(&live) = s.live_surface.first() else {
+                    fail!("polyConformToLive: there is no live surface; make a mesh live first (Modify > Make Live)");
+                };
+                let g = &mut s.graph;
+                g.evaluate();
+                let (surface, live_world) = {
+                    let Some(node) = g.node(live) else { fail!("polyConformToLive: the live surface is gone") };
+                    let Some(m) = node.data().mesh(MeshNode::OUT_MESH).cloned() else { fail!("polyConformToLive: the live surface has no mesh") };
+                    (m, node.matrix(Transform::WORLD_MATRIX))
+                };
+                let along_normals = a.string("projection", "normals") != "closest";
+                let offset = a.float("surfaceOffset", 0.0);
+                let mut world_surface = (*surface).clone();
+                for p in 0..world_surface.point_capacity() {
+                    if world_surface.point_valid(p) {
+                        let at = live_world.transform_point3(world_surface.position(p));
+                        world_surface.set_position(p, at);
+                    }
+                }
+                let bvh = Arc::new(aztek_geo::bvh::MeshBvh::new(&world_surface));
+                let world_surface = Arc::new(world_surface);
+                let edited = deform_selected_components(
+                    g,
+                    "polyConformToLive",
+                    &|m, world, kind, ids| {
+                        let mut points: Vec<Index> = Vec::new();
+                        let mut seen = vec![false; m.point_capacity() as usize];
+                        let mut take = |p: Index| {
+                            if m.point_valid(p) && !seen[p as usize] {
+                                seen[p as usize] = true;
+                                points.push(p);
+                            }
+                        };
+                        match kind {
+                            ComponentMode::Edge => ids.iter().filter(|&&e| m.edge_valid(e)).for_each(|&e| {
+                                take(m.edge_point(e, 0));
+                                take(m.edge_point(e, 1));
+                            }),
+                            ComponentMode::Face => ids.iter().filter(|&&f| m.face_valid(f)).for_each(|&f| m.for_each_face_corner(f, |c| take(m.corner_point(c)))),
+                            _ => ids.iter().for_each(|&p| take(p)),
+                        }
+                        let normals = aztek_geo::normals::point_normals(m, aztek_geo::normals::NormalWeight::Area);
+                        let to_local = world.inverse();
+                        let mut moves = PointMoves::new();
+                        for p in points {
+                            let at = world.transform_point3(m.position(p));
+                            let n = world.transform_vector3(normals[p as usize].as_dvec3()).normalize_or_zero();
+                            let hit = if along_normals && n != DVec3::ZERO {
+                                let fwd = bvh.raycast_with(at, n, f64::INFINITY, true).map(|h| (h.t, h.point, h.face));
+                                let back = bvh.raycast_with(at, -n, f64::INFINITY, true).map(|h| (h.t, h.point, h.face));
+                                match (fwd, back) {
+                                    (Some(x), Some(y)) => Some(if x.0 <= y.0 { (x.1, x.2) } else { (y.1, y.2) }),
+                                    (x, y) => x.or(y).map(|h| (h.1, h.2)),
+                                }
+                            } else {
+                                bvh.closest_point(at).map(|c| (c.point, c.face))
+                            };
+                            let Some((on, face)) = hit else { continue };
+                            let up = if offset != 0.0 { world_surface.face_normal(face) } else { DVec3::ZERO };
+                            moves.push(aztek_geo::conform::PointMove { point: p, position: to_local.transform_point3(on + up * offset) });
+                        }
+                        if moves.is_empty() {
+                            return None;
+                        }
+                        Some(target_of_moves(m, &moves, 1.0))
+                    },
+                    false,
+                )?;
+                if edited == 0 {
+                    fail!("polyConformToLive: nothing to conform; select components on a mesh that isn't live");
+                }
+                Ok(Value::Null)
+            },
+        )
+        .flag(flag("projection", T::String, json!("normals"), "normals: along each point's normal; closest: to the closest point.").choices(&["normals", "closest"]))
+        .flag(flag("surfaceOffset", T::Float, json!(0.0), "How far off the surface, along its normal, in world units.")),
+    );
+
+    c.register(
+        CommandDef::<Session>::new(
             "polyEditEdgeFlow",
             "Move the selected edge loops onto the curvature of the surface around them (the reference's Edit Edge Flow). Each vertex \
              lands on a curve through the nearest unselected vertices across the loop, shaped by the vertices beyond them, and \

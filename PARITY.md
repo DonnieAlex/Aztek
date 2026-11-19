@@ -1632,6 +1632,14 @@ The live surface is shaded as the view's settings say, as any other object, and 
 the view shows wires: Wireframe on Shaded, or wireframe display. Before, the wire was always drawn over it. It still
 leaves the selection when made live.
 
+### Conform onto the live surface (19/11/2026, #165)
+
+Mesh > Conform is the reference's: it conforms the selection to the live surface, with the reference's Conform Options,
+Projection (Along Normals: each point to the nearest hit either way along its normal; Closest Point) and Surface Offset
+(world units off the surface, along its normal). With nothing live it says so and changes nothing. The command is
+`polyConformToLive -projection normals|closest -surfaceOffset d`. Aztek's own conform onto another mesh or a curve is
+beside it as Mesh > Conform to Object (`polyConformToObject`).
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

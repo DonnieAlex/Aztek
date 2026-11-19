@@ -347,7 +347,9 @@ QMenu* MainWindow::mesh_menu() {
     cmd(m, "Combine", "polyUnite", {}, QString(), true);
     cmd(m, "Separate", "polySeparate");
     m->addSeparator();
-    cmd(m, "Conform", "polyConformToObject", {}, QString(), true);
+    // Conform as the reference's, onto the live surface (#165); Aztek's own conform to another object beside it.
+    cmd(m, "Conform", "polyConformToLive", {}, QString(), true);
+    cmd(m, "Conform to Object", "polyConformToObject", {}, QString(), true);
     cmd(m, "Fill Hole", "polyFillHole", {}, QString(), true);
     cmd(m, "Reduce", "polyReduce", {}, QString(), true);
     cmd(m, "Remesh", "polyRemesh", {}, QString(), true);

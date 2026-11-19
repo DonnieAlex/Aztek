@@ -205,3 +205,31 @@ fn spherize_in_object_mode_moves_the_whole_mesh() {
     let first_point = all_points(&before)[0];
     assert!(approx_eps(mesh_of(&mut s, &cube).position(first_point).length(), 30.0, 1e-9));
 }
+
+/// Mesh > Conform as the reference's (#165): the selection onto the live surface along the points' normals or to the
+/// closest point, an offset off it along its normal, and a clear message with nothing live.
+#[test]
+fn conform_onto_the_live_surface() {
+    let mut s = aztek_scene::Session::new();
+    let r = |s: &mut aztek_scene::Session, n: &str, v: serde_json::Value| s.run(n, v);
+    r(&mut s, "polySphere", serde_json::json!({"name": "ball", "radius": 2.0, "subdivisionsAxis": 48, "subdivisionsHeight": 24})).unwrap();
+    r(&mut s, "polyPlane", serde_json::json!({"name": "sheet", "width": 1.0, "height": 1.0, "subdivisionsX": 4, "subdivisionsY": 4})).unwrap();
+    r(&mut s, "move", serde_json::json!({"args": [0.0, 3.0, 0.0, "sheet"], "absolute": true})).unwrap();
+    // Nothing live: it says so.
+    r(&mut s, "select", serde_json::json!({"args": ["sheet.vtx[*]"], "replace": true})).unwrap();
+    let e = r(&mut s, "polyConformToLive", serde_json::json!({})).unwrap_err().to_string();
+    assert!(e.contains("live surface"), "{e}");
+    r(&mut s, "makeLive", serde_json::json!({"args": ["ball"]})).unwrap();
+    let radii = |s: &mut aztek_scene::Session| -> Vec<f64> {
+        let v = s.run("xform", serde_json::json!({"args": ["sheet.vtx[*]"], "query": true, "worldSpace": true, "translation": true})).unwrap();
+        v.as_array().unwrap().chunks(3).map(|p| (p[0].as_f64().unwrap().powi(2) + p[1].as_f64().unwrap().powi(2) + p[2].as_f64().unwrap().powi(2)).sqrt()).collect()
+    };
+    for (projection, offset) in [("normals", 0.0), ("closest", 0.0), ("closest", 0.5)] {
+        r(&mut s, "select", serde_json::json!({"args": ["sheet.vtx[*]"], "replace": true})).unwrap();
+        r(&mut s, "polyConformToLive", serde_json::json!({"projection": projection, "surfaceOffset": offset})).unwrap();
+        for d in radii(&mut s) {
+            assert!((d - 2.0 - offset).abs() < 0.03, "{projection} {offset}: {d}");
+        }
+        r(&mut s, "undo", serde_json::json!({})).unwrap();
+    }
+}
