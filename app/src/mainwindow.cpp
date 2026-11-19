@@ -69,6 +69,7 @@
 #include <QPainter>
 #include <QFile>
 #include <QDialog>
+#include <QResizeEvent>
 #include <QSettings>
 #include <QSpinBox>
 #include <QSplitter>
@@ -1412,6 +1413,7 @@ void MainWindow::build_docks() {
     tabifyDockWidget(channel_dock_, attr_dock_);
     channel_dock_->raise();
     resizeDocks({channel_dock_}, {290}, Qt::Horizontal);
+    keep_dock_widths();
 
     tool_dock_ = new QDockWidget("Tool Settings", this);
     tool_dock_->setObjectName("toolDock");
@@ -2293,6 +2295,49 @@ void MainWindow::show_graph_editor() {
     graph_window_->show();
     graph_window_->raise();
     static_cast<GraphEditor*>(graph_window_)->refresh();
+}
+
+// The Channel Box and the Attribute Editor share a side but not a width (#159): the Channel Box as narrow as its numbers
+// need, the Attribute Editor about twice that. Each keeps the width it was last dragged to, and takes it again when it
+// comes to the front of the tab.
+namespace {
+class DockWidth : public QObject {
+public:
+    DockWidth(QDockWidget* d, QString key, int fallback) : QObject(d), dock_(d), key_(std::move(key)), fallback_(fallback) { d->installEventFilter(this); }
+    int width() const { return QSettings().value(key_, fallback_).toInt(); }
+    bool applying = false;
+
+protected:
+    bool eventFilter(QObject*, QEvent* e) override {
+        if (e->type() == QEvent::Resize && !applying && !dock_->isFloating() && dock_->isVisible() && !dock_->visibleRegion().isEmpty()) {
+            const int w = static_cast<QResizeEvent*>(e)->size().width();
+            if (w > 60) QSettings().setValue(key_, w);
+        }
+        return false;
+    }
+
+private:
+    QDockWidget* dock_;
+    QString key_;
+    int fallback_;
+};
+} // namespace
+
+void MainWindow::keep_dock_widths() {
+    const QList<QPair<QDockWidget*, int>> docks = {{channel_dock_, 260}, {attr_dock_, 520}};
+    for (const auto& entry : docks) {
+        QDockWidget* d = entry.first;
+        auto* keep = new DockWidth(d, "docks/" + d->objectName() + "Width", entry.second);
+        connect(d, &QDockWidget::visibilityChanged, this, [this, d, keep](bool on) {
+            if (!on || d->isFloating()) return;
+            QTimer::singleShot(0, this, [this, d, keep] {
+                if (!d->isVisible() || d->visibleRegion().isEmpty() || d->isFloating() || d->width() == keep->width()) return;
+                keep->applying = true;
+                resizeDocks({d}, {keep->width()}, Qt::Horizontal);
+                keep->applying = false;
+            });
+        });
+    }
 }
 
 void MainWindow::show_attribute_editor() {

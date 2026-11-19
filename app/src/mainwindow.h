@@ -196,6 +196,7 @@ private:
     void set_project();
     void add_recent_project(const QString& dir);
     void add_recent_file(const QString& path);
+    void keep_dock_widths();
     QString titled_file_;
     void remember_command(const QString& mel_text);
     void view_scrub(QObject* o, QEvent* e);

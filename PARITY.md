@@ -1583,6 +1583,12 @@ In the Render View, F frames the image in the window, as View > Frame Image does
 follow the pointer into the image, so F over it frames the image rather than the viewport behind it, docked or in its
 own window.
 
+### Channel Box narrow, Attribute Editor wide (19/11/2026, #159)
+
+The Channel Box and the Attribute Editor share a side but no longer a width: the Channel Box starts at 260 pixels, the
+Attribute Editor at twice that, and Ctrl+A between them changes the side's width with the tab. Each keeps the width it
+was last dragged to, from one session to the next.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
