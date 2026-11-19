@@ -42,3 +42,25 @@ fn humanik_is_the_mayahik_plugin() {
     mel(&mut c, "loadPlugin mayaHIK;");
     assert!(c.mel_checked("hikGetNodeCount;").is_ok());
 }
+
+/// #174: Set Key from the Attribute Editor keys the attribute and leaves it editable, shown as keyed, not as a
+/// connection that can't be typed into; a vector's keyed parts show keyed one by one.
+#[test]
+fn keyed_attributes_stay_editable_in_the_attribute_editor() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n box; setKeyframe box.visibility; setKeyframe box.translate;");
+    let row = |c: &Core, name: &str| -> serde_json::Value {
+        let ae = aztek_host::query::attribute_editor(c, "box");
+        let tab = ae["tabs"].as_array().unwrap().iter().find(|t| t["name"] == "box").unwrap().clone();
+        tab["attrs"].as_array().unwrap().iter().find(|a| a["attr"] == name).unwrap_or_else(|| panic!("no {name}")).clone()
+    };
+    let v = row(&c, "visibility");
+    assert_eq!((v["connected"].clone(), v["keyed"].clone()), (serde_json::json!(true), serde_json::json!(true)), "{v}");
+    let t = row(&c, "translate");
+    assert_eq!(t["childKeyed"], serde_json::json!([true, true, true]), "{t}");
+    assert_eq!(row(&c, "rotate")["childKeyed"], serde_json::json!([false, false, false]));
+    // Typed into and keyed again at another frame: two keys, holding what it was given.
+    mel(&mut c, "currentTime 10; setAttr box.visibility 0; setKeyframe box.visibility;");
+    assert_eq!(mel(&mut c, "keyframe -q -keyframeCount box.visibility;"), serde_json::json!(2));
+    assert_eq!(mel(&mut c, "getAttr box.visibility;"), serde_json::json!(false));
+}

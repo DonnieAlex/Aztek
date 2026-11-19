@@ -426,9 +426,10 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     s->setRange(0, 1000);
     auto to_pos = [lo, hi](double v) { return int(qBound(0.0, (v - lo) / qMax(1e-9, hi - lo), 1.0) * 1000 + 0.5); };
     s->setValue(to_pos(value));
-    bool ro = a["output"].toBool() || a["connected"].toBool();
+    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
     e->setReadOnly(ro);
-    if (a["connected"].toBool()) e->setObjectName("connectedField");
+    if (a["keyed"].toBool()) e->setObjectName("keyedField");
+    else if (a["connected"].toBool()) e->setObjectName("connectedField");
     s->setEnabled(!ro);
     bool is_int = type == "int";
     auto value_of = [lo, hi, is_int](int p) {
@@ -475,7 +476,7 @@ const char* kImageFilter = "Images (*.png *.jpg *.jpeg *.tga *.bmp *.tif *.tiff 
 // A colour: its swatch, and the slot a texture goes in.
 QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     QString plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || a["connected"].toBool();
+    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
     auto* w = new QWidget(parent);
     auto* h = new QHBoxLayout(w);
     h->setContentsMargins(0, 0, 0, 0);
@@ -563,7 +564,7 @@ QWidget* file_field(const QJsonObject& a, QWidget* parent) {
 // The override colour's index: its swatch, which opens the palette, and a slider through the 32 entries.
 QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
     QString plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || a["connected"].toBool();
+    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
     int index = a["value"].toInt();
     auto* w = new QWidget(parent);
     auto* h = new QHBoxLayout(w);
@@ -604,7 +605,7 @@ QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
 
 QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     QString type = a["type"].toString(), plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || a["connected"].toBool();
+    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
     if (a["attr"].toString() == "overrideColor") return color_index_field(a, parent);
     if (type == "vec3" && a["color"].toBool()) return color_field(a, parent);
     if (type == "string" && a["file"].toBool() && !ro) return file_field(a, parent);
@@ -654,6 +655,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             e->setStyleSheet("padding-left: 1px; padding-right: 0px;");
             e->setMinimumWidth(38);
             e->setReadOnly(ro);
+            if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
             QString child = kids.at(k).toString();
             if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
             QString cp = plug.left(plug.lastIndexOf('.')) + "." + child;
@@ -682,7 +684,8 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
         });
         if (!a["mappable"].toBool()) return e;
         // A number a texture can drive: the field, then the map button at the row's end where the sliders' are.
-        if (a["connected"].toBool()) e->setObjectName("connectedField");
+        if (a["keyed"].toBool()) e->setObjectName("keyedField");
+    else if (a["connected"].toBool()) e->setObjectName("connectedField");
         auto* w = new QWidget(parent);
         auto* h = new QHBoxLayout(w);
         h->setContentsMargins(0, 0, 0, 0);
@@ -745,7 +748,7 @@ QLabel* attr_label(const QString& text, const QJsonObject& a, QWidget* parent, Q
     auto* l = new RowLabel(text, parent);
     l->setContextMenuPolicy(Qt::CustomContextMenu);
     const QString plug = a["plug"].toString(), source = a["source"].toString();
-    const bool mappable = a["mappable"].toBool(), connected = a["connected"].toBool(), output = a["output"].toBool();
+    const bool mappable = a["mappable"].toBool(), connected = a["connected"].toBool(), output = a["output"].toBool(), keyed = a["keyed"].toBool();
     const bool colour = a["type"].toString() == "vec3" && a["color"].toBool();
     QObject::connect(l, &QLabel::customContextMenuRequested, l, [=](const QPoint& at) {
         QMenu m;
@@ -753,7 +756,7 @@ QLabel* attr_label(const QString& text, const QJsonObject& a, QWidget* parent, Q
             m.addAction(source + "...", [source] { exec("select", args(QJsonArray{source})); });
             m.addSeparator();
         }
-        if (!output) m.addAction("Set Key", [plug] { exec("setKeyframe", args(QJsonArray{plug})); })->setEnabled(!connected || source.startsWith("animCurve"));
+        if (!output) m.addAction("Set Key", [plug] { exec("setKeyframe", args(QJsonArray{plug})); })->setEnabled(!connected || keyed);
         if (connected) m.addAction("Break Connection", [plug] { break_connection(plug); });
         if (mappable && !connected) m.addAction("Create New Texture...", [l, plug] { create_render_node(l->window(), plug); });
         if (colour && !connected && !output) {

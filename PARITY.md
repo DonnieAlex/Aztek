@@ -1663,6 +1663,13 @@ Draw's Ctrl loop, Multi-Cut's clicked cuts and its Ctrl loops (with or without e
 Insert Edge Loop tool. Before, they lay on the old edges, across the surface's curve. Quad Draw's own dots and strips
 already sat on it.
 
+### Set Key in the Attribute Editor leaves the attribute editable (19/11/2026, #174)
+
+An attribute keyed from the Attribute Editor's right-click Set Key (or anywhere else) shows as keyed, in the Channel
+Box's key colour, and can still be typed into, ticked and keyed again. Before, its keys counted as a connection there,
+so the field went read-only and looked locked; the Channel Box was right. A vector's parts keyed one by one show keyed
+one by one.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

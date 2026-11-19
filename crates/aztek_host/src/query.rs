@@ -448,6 +448,11 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             "max": a.soft_max.or(a.max_value),
             "connected": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).is_some() || aztek_scene::draw_style::driven_by_layer(g, &aztek_scene::plug::PlugRef::new(id, i as i32)),
             "source": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).map(|s| g.path(s.node)),
+            // Driven by keys (an animation curve, or a layer's): it can still be typed into and keyed again (#174).
+            "keyed": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))
+                || aztek_scene::draw_style::driven_by_layer(g, &aztek_scene::plug::PlugRef::new(id, i as i32)),
+            // A vector's parts keyed one by one, as Set Key on its row keys them.
+            "childKeyed": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))).collect::<Vec<bool>>(),
             // Wire and interface colours are shown as they are stored; materials' are linear.
             "displayColor": matches!(a.name.as_str(), "overrideColorRGB" | "objectColorRGB" | "wireColorRGB" | "outlinerColor"),
             "color": a.flags & flags::COLOR != 0,
