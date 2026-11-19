@@ -1738,6 +1738,12 @@ F framed the whole graph, at its top left. It now frames the selected nodes, tho
 selected in the scene, in the middle and at a size that reads (up to one and a half times). A, or F with nothing
 selected, frames them all, also in the middle.
 
+### Esc stops a render (19/11/2026, #186)
+
+Esc, wherever the keyboard is, stops the render under way, a frame in the Render View, interactive rendering or a
+Render Sequence, as in the reference, and the Script Editor says so. With nothing rendering, Esc goes on to whatever had
+it.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

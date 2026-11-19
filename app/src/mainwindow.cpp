@@ -2399,6 +2399,15 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
             }
         }
     }
+    // Esc stops a render under way, wherever the keyboard is, as in the reference (#186). With nothing running it goes on
+    // to whatever had it.
+    if (e->type() == QEvent::KeyPress) {
+        auto* ke = static_cast<QKeyEvent*>(e);
+        if (ke->key() == Qt::Key_Escape && !ke->isAutoRepeat() && ke->modifiers() == Qt::NoModifier && abort_render()) {
+            mel("print \"Render aborted.\\n\";");
+            return true;
+        }
+    }
     // A tool key held with a left press in a view: the tool's marking menu. K and I work a drag.
     if (!view_hold_.isEmpty() && qobject_cast<ViewportWidget*>(o) && (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseMove || e->type() == QEvent::MouseButtonRelease)) {
         auto* me = static_cast<QMouseEvent*>(e);

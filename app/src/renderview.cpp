@@ -782,9 +782,17 @@ RenderView* view(QWidget* parent) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Render Sequence: the scene written to a temporary file and rendered frame by frame by `aztek -render`.
 
+class SequenceDialog;
+// The open Render Sequence windows, for Esc anywhere (#186).
+static QList<SequenceDialog*>& sequence_dialogs() {
+    static QList<SequenceDialog*> l;
+    return l;
+}
+
 class SequenceDialog : public QDialog {
 public:
     explicit SequenceDialog(QWidget* parent) : QDialog(parent) {
+        sequence_dialogs().append(this);
         setWindowTitle("Render Sequence");
         setAttribute(Qt::WA_DeleteOnClose);
         auto* v = new QVBoxLayout(this);
@@ -866,7 +874,12 @@ public:
         connect(close, &QPushButton::clicked, this, &QDialog::close);
         resize(520, 460);
     }
-    ~SequenceDialog() override { cancel(); }
+    ~SequenceDialog() override {
+        sequence_dialogs().removeAll(this);
+        cancel();
+    }
+    bool busy() const { return proc_ != nullptr; }
+    void abort() { cancel(); }
 
 private:
     void say(const QString& s) { log_->appendPlainText(s); }
@@ -1000,6 +1013,21 @@ void redo_previous_render(QWidget* parent) {
     RenderView* v = view(parent);
     if (!l.any) v->render_now();
     else v->redo(l);
+}
+
+bool abort_render() {
+    bool any = false;
+    QJsonObject st = parse(take(aztek_render_status())).toObject();
+    if (st["running"].toBool() || st["ipr"].toBool()) {
+        exec("hrender", QJsonObject{{"ipr", "stop"}});
+        any = true;
+    }
+    for (SequenceDialog* d : sequence_dialogs())
+        if (d->busy()) {
+            d->abort();
+            any = true;
+        }
+    return any;
 }
 
 void render_sequence_dialog(QWidget* parent) {

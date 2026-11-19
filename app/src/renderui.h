@@ -15,6 +15,8 @@ void render_current_frame(QWidget* parent);
 void render_ipr(QWidget* parent);
 void redo_previous_render(QWidget* parent);
 void render_sequence_dialog(QWidget* parent);
+// Esc: stops the render under way, interactive or not, and any Render Sequence; false when nothing was running (#186).
+bool abort_render();
 QMenu* render_menu(QWidget* parent);
 QMenu* harold_menu(QWidget* parent);
 // Create > Harold: lights, the atmosphere and the standard surface.
