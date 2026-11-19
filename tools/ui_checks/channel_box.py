@@ -148,6 +148,21 @@ try:
     type_in("tx", "4")
     s = state()
     check("Ctrl+click leaves Translate Y out", translates(s), [4, 1.5, 4, 4, 1.5, 4])
+
+    # A drag down the values picks the run too, and what's typed next goes to all of them (#161).
+    move(FIELD_X, ROW["tx"])
+    time.sleep(0.2)
+    xdo("mousedown", 1)
+    for y in range(ROW["tx"], ROW["tz"] + 1, 4):
+        move(FIELD_X, y)
+        time.sleep(0.03)
+    xdo("mouseup", 1)
+    time.sleep(0.4)
+    shot("6_values_dragged")
+    xdo("type", "--delay", 40, "7")
+    xdo("key", "Return")
+    time.sleep(0.5)
+    check("a drag down the values picks a run", translates(state()), [7] * 6)
 finally:
     app.terminate()
     try:

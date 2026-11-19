@@ -1614,6 +1614,12 @@ went. The menu items run the reference's runtime commands, `BakeNonDefHistory` a
 `doBakeNonDefHistory(1, {"prePost"})` or `{"pre"}`, found in scripts/others as the reference's is; it runs
 `bakePartialHistory`.
 
+### A drag down the Channel Box's values (19/11/2026, #161)
+
+A drag down the Channel Box's value fields picks the run of channels, as a drag down the names does, and the fields
+light up with their names. What's typed next goes to all of them, on every selected object, as one undo step. The UI
+check (tools/ui_checks/channel_box.py) drives it.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

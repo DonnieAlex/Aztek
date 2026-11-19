@@ -161,6 +161,8 @@ void Panel::showEvent(QShowEvent*) {
 // Channel names picked in the channel box (the reference's highlighted channels): their attribute names, kept across refreshes.
 static QStringList g_channel_sel;
 static QList<QLabel*> g_channel_labels;
+// The value fields, which light up with their names when picked (#161).
+static QList<QLineEdit*> g_channel_fields;
 // Where a Shift+click or a drag over the names starts its range.
 static QString g_channel_anchor;
 // attr to whole plug for the picked channels under INPUTS.
@@ -204,6 +206,13 @@ void restyle_channel_labels() {
         l->style()->unpolish(l);
         l->style()->polish(l);
     }
+    for (QLineEdit* f : g_channel_fields) {
+        const bool on = g_channel_sel.contains(f->property("attr").toString());
+        if (f->property("picked").toBool() == on) continue;
+        f->setProperty("picked", on);
+        f->style()->unpolish(f);
+        f->style()->polish(f);
+    }
 }
 
 // The channel names from the anchor's row to this one, in the order the box shows them.
@@ -239,7 +248,8 @@ void pick_channel(const QString& a, Qt::KeyboardModifiers mods, bool on_value) {
     }
 }
 
-// A value field: a click picks its channel the same way, before the field takes the focus.
+// A value field: a click picks its channel the same way, before the field takes the focus. A drag over the values picks
+// the run, as a drag over the names does, and what's typed next goes to all of them (#161).
 class ChannelValueClicks : public QObject {
 public:
     using QObject::QObject;
@@ -248,9 +258,36 @@ protected:
         if (e->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent*>(e)->button() == Qt::LeftButton) {
             pick_channel(o->property("attr").toString(), static_cast<QMouseEvent*>(e)->modifiers(), true);
             restyle_channel_labels();
+            dragged_ = false;
+            if (!(static_cast<QMouseEvent*>(e)->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier))) g_channel_anchor = o->property("attr").toString();
+        } else if (e->type() == QEvent::MouseMove && (static_cast<QMouseEvent*>(e)->buttons() & Qt::LeftButton) && !g_channel_anchor.isEmpty()) {
+            QWidget* over = QApplication::widgetAt(static_cast<QMouseEvent*>(e)->globalPosition().toPoint());
+            auto* field = qobject_cast<QLineEdit*>(over);
+            auto* name = qobject_cast<QLabel*>(over);
+            QString attr;
+            if (field && g_channel_fields.contains(field)) attr = field->property("attr").toString();
+            else if (name && g_channel_labels.contains(name)) attr = name->property("attr").toString();
+            if (attr.isEmpty() || (!dragged_ && attr == o->property("attr").toString())) return false;
+            dragged_ = true;
+            QStringList run = channel_range(attr);
+            if (run != g_channel_sel) {
+                g_channel_sel = run;
+                restyle_channel_labels();
+            }
+            // The run, not the text under the drag.
+            return true;
+        } else if (e->type() == QEvent::MouseButtonRelease && dragged_) {
+            dragged_ = false;
+            if (auto* f = qobject_cast<QLineEdit*>(o)) {
+                f->setFocus(Qt::MouseFocusReason);
+                f->selectAll();
+            }
         }
         return false;
     }
+
+private:
+    bool dragged_ = false;
 };
 
 // A channel name: click picks it, Ctrl+click toggles, Shift+click or a drag down the names picks a run.
@@ -357,6 +394,8 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     g_channel_labels << label;
     auto* edit = new QLineEdit(value_text(ch), row);
     edit->setProperty("attr", ch["attr"].toString());
+    edit->setProperty("picked", g_channel_sel.contains(ch["attr"].toString()));
+    g_channel_fields << edit;
     static auto* clicks = new ChannelValueClicks(qApp);
     edit->installEventFilter(clicks);
     // The reference's channel colours: keyed, key on this frame, changed since keyed, driven, locked.
@@ -719,6 +758,7 @@ void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels) {
 void ChannelBox::refresh() {
     QJsonObject cb = query("channelBox").toObject();
     g_channel_labels.clear();
+    g_channel_fields.clear();
     int scroll = scroll_->verticalScrollBar()->value();
     body_ = new QWidget();
     auto* lay = new QVBoxLayout(body_);
