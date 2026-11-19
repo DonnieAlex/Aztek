@@ -284,6 +284,8 @@ private:
     QStringList recent_commands_;
     QHash<QString, QWidget*> named_windows_;
     QByteArray main_pane_state_;
+    // Ctrl+Space found a multi-view layout and made it one view (#189).
+    bool main_pane_split_ = false;
     bool main_pane_ = false;
     QTimer* autosave_ = nullptr;
     InViewEditor* in_view_ = nullptr;

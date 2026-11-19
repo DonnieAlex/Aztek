@@ -1122,8 +1122,13 @@ void MainWindow::toggle_main_pane() {
         for (QToolBar* t : findChildren<QToolBar*>(QString(), Qt::FindDirectChildrenOnly)) t->hide();
         for (QDockWidget* d : findChildren<QDockWidget*>(QString(), Qt::FindDirectChildrenOnly)) d->hide();
         statusBar()->hide();
+        // In a multi-view layout the view under the pointer fills the pane too (#189); the way back restores it.
+        main_pane_split_ = panels_ && !panels_->single();
+        if (main_pane_split_) panels_->toggle();
         main_pane_ = true;
     } else {
+        if (main_pane_split_ && panels_ && panels_->single()) panels_->toggle();
+        main_pane_split_ = false;
         restoreState(main_pane_state_);
         statusBar()->setVisible(QSettings().value("prefs/helpLine", true).toBool());
         main_pane_ = false;

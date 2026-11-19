@@ -1727,6 +1727,11 @@ A panel's title bar is as tall as Qt works it out from what sits over its text, 
 border, more padding), so "g", "p" and "y" in Tool Settings or Modeling Toolkit lost their bottoms. What sits under the
 text is never more than what sits over it now.
 
+### Ctrl+Space in a four-view layout fills the window with the view under the pointer (19/11/2026, #189)
+
+Ctrl+Space hid the panels and bars round the views but left a two-, three- or four-view layout as it was. As in the
+reference, the view under the pointer now fills the pane too; Ctrl+Space again puts the layout and the panels back.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
