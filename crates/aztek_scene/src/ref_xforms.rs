@@ -540,7 +540,8 @@ fn run_rotate(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     if m.relative {
         // About a point: the object's place turns around it too.
         let turn = DMat3::from_mat4(euler_to_matrix(values, RotateOrder::Xyz));
-        for &id in &ids {
+        // Only the tops of what is picked travel round the point; those under them go with them.
+        for id in xf::top_level(&s.graph, &ids) {
             if let Some(p) = pivot {
                 let at = xf::world_pivot(&mut s.graph, id);
                 let moved = turn * (at - p) + p - at;
@@ -601,7 +602,7 @@ fn run_scale(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let pivot = a.vec3("pivot").map(DVec3::from_array);
     if m.relative {
         let by = DVec3::new(if m.mask[0] { m.values.x } else { 1.0 }, if m.mask[1] { m.values.y } else { 1.0 }, if m.mask[2] { m.values.z } else { 1.0 });
-        for &id in &ids {
+        for id in xf::top_level(&s.graph, &ids) {
             if let Some(p) = pivot {
                 let at = xf::world_pivot(&mut s.graph, id);
                 xf::move_by(&mut s.graph, &[id], (at - p) * (by - DVec3::ONE), Space::World)?;

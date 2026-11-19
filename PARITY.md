@@ -1757,6 +1757,14 @@ Channel Box. The reference doesn't show it: which components an edit takes is ch
 still in the node, the file and scripts. Average Vertices with an object selected averages all of its vertices, from
 Mesh > Average Vertices and its option window.
 
+### Rotating or scaling joints in a chain turns each by the same amount (19/11/2026, #178)
+
+With joint1 to joint5 selected, the rotate manipulator turned only joint1, since the rest went with it; the Channel Box
+turned each. As in the reference, rotate and scale now go to every selected object, one under another selected one
+too, so a chain curls with each joint turned by the same amount, by the manipulator, the Channel Box or rotate and
+scale in scripts. About a point, only the tops of the selection travel round it. Move still moves the tops only, so a
+child doesn't go twice as far.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

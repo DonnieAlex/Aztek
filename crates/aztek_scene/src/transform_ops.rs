@@ -157,10 +157,18 @@ pub fn rotated_euler(g: &mut Graph, id: NodeId, r: &DMat3, space: Space) -> DVec
     closest_euler(&next, order, n.vec3(Transform::ROTATE))
 }
 
-/// Rotates each object about its own pivot. `r` is in `space` (world, or each object's own frame).
+/// The transforms among `ids`, each once, in the order given.
+fn transforms(g: &Graph, ids: &[NodeId]) -> Vec<NodeId> {
+    let mut seen = HashSet::new();
+    ids.iter().copied().filter(|&id| g.node(id).is_some_and(|n| n.ty().is_a("transform")) && seen.insert(id)).collect()
+}
+
+/// Rotates each object about its own pivot. `r` is in `space` (world, or each object's own frame). Every object turns,
+/// one under another selected one too, as the reference's: a selected joint chain curls, each joint by the same amount
+/// (#178).
 pub fn rotate_by(g: &mut Graph, ids: &[NodeId], r: &DMat3, space: Space) -> Result<()> {
     g.evaluate();
-    for id in top_level(g, ids) {
+    for id in transforms(g, ids) {
         let e = rotated_euler(g, id, r, space);
         let p = plug(id, Transform::ROTATE);
         let v = g.keep_locked(&p, e.into());
@@ -169,9 +177,10 @@ pub fn rotate_by(g: &mut Graph, ids: &[NodeId], r: &DMat3, space: Space) -> Resu
     Ok(())
 }
 
-/// Multiplies local scale; scaling is always along the object's own axes.
+/// Multiplies local scale; scaling is always along the object's own axes. Each selected object scales, one under
+/// another selected one too (#178).
 pub fn scale_by(g: &mut Graph, ids: &[NodeId], factor: DVec3) -> Result<()> {
-    for id in top_level(g, ids) {
+    for id in transforms(g, ids) {
         let p = plug(id, Transform::SCALE);
         let v = g.keep_locked(&p, (v3(g, id, Transform::SCALE) * factor).into());
         g.set_value(p, v)?;
