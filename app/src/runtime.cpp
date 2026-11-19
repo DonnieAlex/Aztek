@@ -396,7 +396,19 @@ void MainWindow::build_runtime() {
     r("InteractiveGroomEditor", "Windows", "Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); });
     r("InteractiveGroomTool", "Tools", "The Interactive Groom tools, with the tool xjenGroomCtx names", [this] { set_tool("groom"); });
     r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("Dynamics"); });
-    // H: the menu sets at the pointer, as the reference's H marking menu offers them.
+    // H as the reference's: a tap shows or hides the selection (Display > Toggle Show/Hide), held with a left click in a
+    // view it's the menu sets (#175).
+    r("MenuSetHoldPress", "Menus", "H: hold with a left click in a view for the menu sets", [this] {
+        view_hold_ = "menuSet";
+        hold_used_ = false;
+    });
+    r("MenuSetHoldRelease", "Display", "H: a tap shows or hides the selection, held with a click the menu sets", [this] {
+        const bool used = hold_used_;
+        view_hold_.clear();
+        hold_used_ = false;
+        if (!used) exec("toggleVisibility", QJsonObject{});
+    });
+    // The menu sets at the pointer, as the reference's H marking menu offers them.
     r("MenuSetMenu", "Menus", "Choose a menu set at the pointer", [this] {
         QMenu menu(this);
         for (int i = 0; i < menu_set_->count(); ++i) {
@@ -635,7 +647,7 @@ QList<HotkeyBinding> MainWindow::default_hotkeys() const {
         {"F", 0, "FrameSelected", ""}, {"A", 0, "FrameAll", ""}, {"F", S, "FrameSelectedInAllViews", ""}, {"A", S, "FrameAllInAllViews", ""}, {"[", 0, "PreviousView", ""}, {"]", 0, "NextView", ""},
         {"Z", 0, "Undo", ""}, {"Z", C, "Undo", ""}, {"Z", S, "Redo", ""}, {"Z", C | S, "Redo", ""}, {"Y", C, "Redo", ""}, {"G", 0, "RepeatLast", ""}, {"R", C, "CreateReference", ""}, {"G", C, "Group", ""},
         {"D", C, "Duplicate", ""}, {"D", C | S, "DuplicateSpecialOptions", ""}, {"D", S, "DuplicateWithTransform", ""}, {"D", A | S, "DeleteHistory", ""},
-        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "MenuSetMenu", ""}, {"H", S, "ShowSelectedObjects", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""}, {"H", A, "HideUnselectedObjects", ""}, {"H", C | A, "ShowAllComponents", ""},
+        {"P", 0, "Parent", ""}, {"P", S, "Unparent", ""}, {"H", 0, "MenuSetHoldPress", "MenuSetHoldRelease"}, {"H", S, "ShowSelectedObjects", ""}, {"H", C, "HideSelected", ""}, {"H", C | S, "ShowLastHidden", ""}, {"H", A, "HideUnselectedObjects", ""}, {"H", C | A, "ShowAllComponents", ""},
         {"N", C, "NewScene", ""}, {"O", C, "OpenScene", ""}, {"S", C, "SaveScene", ""}, {"S", C | S, "SaveSceneAs", ""}, {"S", C | A, "IncrementAndSave", ""},
         {"A", C, "AttributeEditor", ""}, {"A", C | S, "SelectAll", ""}, {"I", C | S, "InvertSelection", ""}, {"T", C | S, "ToolSettingsWindow", ""},
         {"E", C, "Extrude", ""}, {"B", C, "Bevel", ""}, {">", 0, "GrowSelection", ""}, {"<", 0, "ShrinkSelection", ""},

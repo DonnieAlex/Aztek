@@ -1670,13 +1670,10 @@ Box's key colour, and can still be typed into, ticked and keyed again. Before, i
 so the field went read-only and looked locked; the Channel Box was right. A vector's parts keyed one by one show keyed
 one by one.
 
-### Display > Toggle Show/Hide no longer claims H (19/11/2026, #175)
+### H toggles show and hide (19/11/2026, #175)
 
-Display > Toggle Show/Hide showed H as its key, left from before H became the menu sets as in the reference, so the menu
-said one thing and the key did another. It has no key now, and Show > Show Selection shows its Shift+H. Hiding is Ctrl+H
-(Hide Selection, objects or components), Alt+H hides the rest, Shift+H shows the selection, Ctrl+Shift+H the last
-hidden.
-
+A tap of H shows or hides the selection, as Display > Toggle Show/Hide and the reference's H do; held with a left click
+in a view, H gives the menu sets. Before, H only opened the menu sets. Show > Show Selection shows its Shift+H.
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
@@ -3387,8 +3384,8 @@ comparison. Changed or added:
 - F2 Modeling, F3 Rigging, F4 Animation, F6 Rendering (they were Animation, Modeling, Rigging). F5 stays Dynamics; the
   page doesn't list F5.
 - F12 UV selection (it opened the UV Editor), Ctrl+F12 to UVs, Alt+F9 vertex faces.
-- H the menu sets at the pointer (`MenuSetMenu`, a plain menu where the reference has a marking menu); H no longer
-  toggles visibility. Alt+H Hide Unselected Objects.
+- H held with a left click in a view the menu sets at the pointer (`MenuSetMenu`, a plain menu where the reference has
+  a marking menu); a tap of H toggles show and hide (#175). Alt+H Hide Unselected Objects.
 - F1 Aztek's documentation (`Help`). Page Up and Page Down one more or one fewer smooth preview level
   (`SmoothingLevelIncrease`, `SmoothingLevelDecrease`). Ctrl+Shift+Q Quad Draw, Ctrl+Shift+X Multi-Cut.
 - Already as the page has them: Insert and D for the pivot, X C V snapping, 4 to 7, Ctrl+H, Shift+H, Ctrl+Shift+H,

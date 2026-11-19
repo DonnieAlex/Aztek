@@ -2407,6 +2407,11 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
             return true;
         }
         if (e->type() == QEvent::MouseButtonPress && me->button() == Qt::LeftButton && !(me->modifiers() & Qt::AltModifier)) {
+            if (view_hold_ == "menuSet") {
+                hold_used_ = true;
+                mel("MenuSetMenu;");
+                return true;
+            }
             tool_marking_menu(me->globalPosition().toPoint(), view_hold_);
             return true;
         }

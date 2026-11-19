@@ -801,8 +801,8 @@ QMenu* MainWindow::display_menu() {
     cmd(show, "Show Selection", "show", {}, "Shift+H");
     cmd(show, "All", "showHidden", QJsonObject{{"all", true}});
     cmd(show, "Show Last Hidden", "showLastHidden", {}, "Ctrl+Shift+H");
-    // No key: H is the menu sets, as the reference's (#175).
-    cmd(m, "Toggle Show/Hide", "toggleVisibility", {});
+    // H: a tap runs it, as the reference's; held with a click in a view, the menu sets (#175).
+    cmd(m, "Toggle Show/Hide", "toggleVisibility", {}, "H");
     m->addSeparator();
     QMenu* obj = m->addMenu("Object Display");
     cmd(obj, "Template", "toggle", QJsonObject{{"template", true}, {"state", true}});

@@ -272,6 +272,8 @@ private:
     QHash<int, QString> held_;
     // A key held for a drag in the view: move, rotate, scale, select (marking menu), scrub, nudgeKeys.
     QString view_hold_;
+    // H held: whether a click opened the menu sets, so its release doesn't also show or hide (#175).
+    bool hold_used_ = false;
     double scrub_from_ = 0, scrub_time_ = 0;
     bool scrubbing_ = false;
     QString last_tool_ = "select";
