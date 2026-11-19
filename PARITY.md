@@ -1620,6 +1620,12 @@ A drag down the Channel Box's value fields picks the run of channels, as a drag 
 light up with their names. What's typed next goes to all of them, on every selected object, as one undo step. The UI
 check (tools/ui_checks/channel_box.py) drives it.
 
+### Double-click a face for its shell (19/11/2026, #154)
+
+In face mode a double-click on a face selects its whole shell, the polygon island it's part of, as the reference does;
+Shift+double-click adds the shell to what's picked. Double-click in edge mode is still the edge loop, and
+Shift+double-click after a pick the loop or ring between the two (or the shorter path) in any component mode.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

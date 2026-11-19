@@ -1721,6 +1721,19 @@ impl View {
                     let _ = core.exec("selectLoop", json!({}));
                     return true;
                 }
+                // In face mode the face's whole shell, its polygon island (#154); Shift adds it to what's picked.
+                if components::mode(&core.s.graph) == ComponentMode::Face {
+                    if let Some((obj, kind, id)) = self.pick_hist.last().cloned() {
+                        if kind == "f" {
+                            let mut call = json!({"args": [obj], "id": id, "kind": "face"});
+                            if mods & SHIFT != 0 {
+                                call["add"] = json!(true);
+                            }
+                            let _ = core.exec("selectConnected", call);
+                            return true;
+                        }
+                    }
+                }
                 false
             }
             _ => {
