@@ -172,6 +172,61 @@ pub(crate) fn remap_to_nearest(g: &mut Graph, sk: NodeId, old: &[DVec3], new: &[
     set_bind(g, sk, b)
 }
 
+/// The weights moved onto a mesh whose points changed under the skin, as bakePartialHistory -prePostDeformers does
+/// (#179): each new point takes the weights of where it lies on the old surface, blended across the triangle it lands
+/// on, so a point a split puts halfway along an edge takes half of each end's, as if it had been there when the skin
+/// was bound. With `smooth` (-postSmooth), the points that weren't there before then take the mean of their own and
+/// their neighbours' weights once more.
+pub(crate) fn remap_onto_surface(g: &mut Graph, sk: NodeId, old: &aztek_geo::Mesh, new: &aztek_geo::Mesh, smooth: bool) -> CmdResult<()> {
+    let Some(b) = bind_of(g, sk) else { return Ok(()) };
+    let mut b = (*b).clone();
+    let bvh = aztek_geo::bvh::MeshBvh::new(old);
+    let tris = bvh.triangles();
+    let blend = |parts: &[(usize, f64)], weights: &[Vec<(u32, f64)>]| -> Vec<(u32, f64)> {
+        let mut sum: std::collections::BTreeMap<u32, f64> = std::collections::BTreeMap::new();
+        for &(p, t) in parts {
+            if t <= 0.0 {
+                continue;
+            }
+            for &(inf, w) in weights.get(p).map(Vec::as_slice).unwrap_or(&[]) {
+                *sum.entry(inf).or_default() += w * t;
+            }
+        }
+        let total: f64 = sum.values().sum();
+        sum.into_iter().filter(|(_, w)| *w > 1e-9).map(|(i, w)| (i, if total > 0.0 { w / total } else { w })).collect()
+    };
+    let cap = new.point_capacity() as usize;
+    let mut weights: Vec<Vec<(u32, f64)>> = vec![Vec::new(); cap];
+    // Points that land on none of the old points: what the edits made.
+    let mut made = vec![false; cap];
+    for p in 0..cap {
+        if !new.point_valid(p as aztek_geo::Index) {
+            continue;
+        }
+        let at = new.position(p as aztek_geo::Index);
+        let Some(hit) = bvh.closest_point(at) else { continue };
+        let t = hit.triangle as usize;
+        let corners = [tris.corners[3 * t], tris.corners[3 * t + 1], tris.corners[3 * t + 2]];
+        let pts = corners.map(|c| old.corner_point(c) as usize);
+        let parts = [(pts[0], hit.bary.x), (pts[1], hit.bary.y), (pts[2], hit.bary.z)];
+        weights[p] = blend(&parts, &b.weights);
+        made[p] = !pts.iter().any(|&o| (old.position(o as aztek_geo::Index) - at).length_squared() < 1e-12);
+    }
+    if smooth {
+        let before = weights.clone();
+        for p in 0..cap {
+            if !made[p] {
+                continue;
+            }
+            let mut parts = vec![(p, 1.0)];
+            new.for_each_point_edge(p as aztek_geo::Index, |e| parts.push((new.edge_other_point(e, p as aztek_geo::Index) as usize, 1.0)));
+            weights[p] = blend(&parts, &before);
+        }
+    }
+    b.weights = weights;
+    set_bind(g, sk, b)
+}
+
 #[derive(Default)]
 pub struct SkinNode {
     flat: Option<FlatBind>,

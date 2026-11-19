@@ -1775,6 +1775,14 @@ behind yet (Smart Extrude, Connect Tool, Vertex Normal Edit Tool, Transfer Verte
 curve, To Face Path, Select Border Edge Tool) are there greyed out. The compass sits closer, in five rows, as the
 reference's does.
 
+### Delete Non-Deformer History smooths the skin over cuts made after it (19/11/2026, #179)
+
+Points that cuts made after a skin took the weights of the nearest old point, so a new loop halfway between two joints
+went with one of them and bent the mesh. Each new point now takes the weights of where it lies on the mesh before the
+cuts, blended between the points round it, as if it had been there when the skin was bound; bakePartialHistory takes
+-postSmooth, which also evens out the new points' weights with their neighbours', and Edit > Delete by Type >
+Non-Deformer History uses it, as the reference's does.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

@@ -1,6 +1,7 @@
 // doBakeNonDefHistory: Edit > Delete by Type > Non-Deformer History, as the reference's, on the selection. $version is 1.
 // $args[0] says what goes: "prePost" all the modelling history, the edits made after the deformers too, "pre" only the
-// history before the deformers. The deformers stay either way; a mesh with none loses all its history.
+// history before the deformers. The deformers stay either way; a mesh with none loses all its history. With "prePost" the
+// weights of the points the later edits made are smoothed (-postSmooth), as the reference's menu item does (#179).
 global proc doBakeNonDefHistory(int $version, string $args[])
 {
     string $how = "prePost";
@@ -9,5 +10,5 @@ global proc doBakeNonDefHistory(int $version, string $args[])
     if ($how == "pre")
         bakePartialHistory -preDeformers true;
     else
-        bakePartialHistory -prePostDeformers true;
+        bakePartialHistory -prePostDeformers true -postSmooth true;
 }

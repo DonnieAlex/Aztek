@@ -602,8 +602,9 @@ pub fn upstream_nodes(g: &Graph, from: &PlugRef) -> Vec<NodeId> {
 
 /// bakePartialHistory -prePostDeformers: the modelling edits between a deformed mesh's deformers and the mesh move to
 /// feed its original instead, so baking the original takes them in. Skin weights follow the points: a point the edits
-/// add or renumber takes the weights of the original's nearest point before.
-fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId) -> CmdResult<()> {
+/// add or renumber takes the weights of where it lies on the original before, blended between the points round it
+/// (#179); `smooth` (-postSmooth) evens out the new points' weights with their neighbours'.
+fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId, smooth: bool) -> CmdResult<()> {
     let is_edit = |g: &Graph, id: NodeId| {
         g.node(id).is_some_and(|n| n.ty().is_a(BASE_TYPE) || n.ty().name == TWEAK_TYPE || crate::uv_ops::is_uv_node(n.ty().name.as_str()))
     };
@@ -622,13 +623,20 @@ fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId) -> CmdRe
         return Ok(());
     }
     g.evaluate();
-    let points_of = |g: &Graph, m: NodeId| -> Vec<DVec3> {
+    let mesh_of = |g: &Graph, m: NodeId| -> Option<Arc<aztek_geo::Mesh>> {
         match g.node(m).map(|n| n.data().value(MeshNode::OUT_MESH)) {
-            Some(PlugValue::Mesh(Some(mesh))) => (0..mesh.point_capacity()).map(|i| if mesh.point_valid(i) { mesh.position(i) } else { DVec3::splat(f64::NAN) }).collect(),
-            _ => Vec::new(),
+            Some(PlugValue::Mesh(Some(mesh))) => Some(mesh.clone()),
+            _ => None,
         }
     };
-    let before = points_of(g, orig);
+    let points_of = |mesh: &Option<Arc<aztek_geo::Mesh>>| -> Vec<DVec3> {
+        match mesh {
+            Some(mesh) => (0..mesh.point_capacity()).map(|i| if mesh.point_valid(i) { mesh.position(i) } else { DVec3::splat(f64::NAN) }).collect(),
+            None => Vec::new(),
+        }
+    };
+    let old_mesh = mesh_of(g, orig);
+    let before = points_of(&old_mesh);
     let (first, last) = (post[0], *post.last().unwrap());
     // Out of the deformed end: the deformers feed the mesh.
     g.disconnect(&plug(last, INPUT_POLYMESH));
@@ -648,12 +656,16 @@ fn move_post_deformer_edits(g: &mut Graph, shape: NodeId, orig: NodeId) -> CmdRe
     g.connect(&made, &plug(last, INPUT_POLYMESH), false)?;
     g.connect(&plug(first, OUTPUT), &plug(orig, MeshNode::IN_MESH), false)?;
     g.evaluate();
-    let after = points_of(g, orig);
+    let new_mesh = mesh_of(g, orig);
+    let after = points_of(&new_mesh);
     if after.len() != before.len() || after.iter().zip(&before).any(|(a, b)| (*a - *b).length_squared() > 1e-18) {
         let mut d = deformed.node;
         loop {
             if g.node(d).is_some_and(|n| n.ty().name == "skinCluster") {
-                crate::skin::remap_to_nearest(g, d, &before, &after)?;
+                match (&old_mesh, &new_mesh) {
+                    (Some(o), Some(n)) => crate::skin::remap_onto_surface(g, d, o, n, smooth)?,
+                    _ => crate::skin::remap_to_nearest(g, d, &before, &after)?,
+                }
             }
             // Deformers and skins both take the mesh at their first attribute.
             match g.source(&plug(d, 0)) {
@@ -829,6 +841,7 @@ pub fn register(c: &mut Commands<Session>) {
                     _ => g.selection().to_vec(),
                 };
                 let all = a.bool("prePostDeformers");
+                let smooth = a.bool("postSmooth");
                 g.open_chunk("Bake Partial History");
                 let mut r = Ok(());
                 for id in named {
@@ -843,7 +856,7 @@ pub fn register(c: &mut Commands<Session>) {
                         // baked with the rest (#172). History before deformers only leaves them.
                         if all {
                             if let Some(orig) = original {
-                                if let Err(e) = move_post_deformer_edits(g, sh, orig) {
+                                if let Err(e) = move_post_deformer_edits(g, sh, orig, smooth) {
                                     r = Err(e);
                                     continue;
                                 }
@@ -862,6 +875,7 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("objects")
         .flag(FlagDef::new("prePostDeformers", "ppt", ArgType::Bool, Value::Null, "Before and after the deformers."))
         .flag(FlagDef::new("preDeformers", "pre", ArgType::Bool, Value::Null, "Before the deformers."))
+        .flag(FlagDef::new("postSmooth", "nps", ArgType::Bool, Value::Null, "With -prePostDeformers: the weights of the points the edits after the deformers made are smoothed with their neighbours'."))
         .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Query.")),
     );
     c.register(

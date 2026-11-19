@@ -3979,9 +3979,9 @@ bakeDeformer	ss	missing
 bakeDeformer	sw	missing	
 bakePartialHistory	all	missing	
 bakePartialHistory	allShapes	missing	
-bakePartialHistory	nps	missing	
+bakePartialHistory	nps	done	auto
 bakePartialHistory	pc	missing	
-bakePartialHistory	postSmooth	missing	
+bakePartialHistory	postSmooth	done	auto
 bakePartialHistory	ppt	done	auto
 bakePartialHistory	pre	done	auto
 bakePartialHistory	preCache	missing	
