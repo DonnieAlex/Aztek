@@ -1744,6 +1744,12 @@ Esc, wherever the keyboard is, stops the render under way, a frame in the Render
 Render Sequence, as in the reference, and the Script Editor says so. With nothing rendering, Esc goes on to whatever had
 it.
 
+### The Channel Box and Outliner are up to date when they show again (19/11/2026, #185)
+
+A panel brought back (its tab clicked, or shown after Modeling Toolkit took its place) could look before its window was
+laid out, see nothing of itself on screen and wait for the next change in the scene: the Channel Box showed old INPUTS
+and the Outliner could be empty until a click in a view. It looks again a moment later now, until it is on screen.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

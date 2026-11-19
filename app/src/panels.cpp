@@ -114,7 +114,18 @@ void Panel::schedule() {
     QTimer::singleShot(0, this, [this] {
         pending_ = false;
         // Not seen (closed, or a tab behind another): brought up to date when it shows, as showEvent schedules.
-        if (!isVisible() || visibleRegion().isEmpty()) return;
+        if (!isVisible()) return;
+        // Just shown, its window not laid out yet: nothing of it is on screen for a moment. It looks again shortly, or it
+        // stayed out of date until the next change in the scene (#185). A tab behind another stops after a while and
+        // waits for its dock to say it shows.
+        if (visibleRegion().isEmpty()) {
+            if (retries_ < 20) {
+                ++retries_;
+                QTimer::singleShot(50, this, [this] { schedule(); });
+            }
+            return;
+        }
+        retries_ = 0;
         if (!live_during_drag() && QApplication::mouseButtons() != Qt::NoButton && !underMouse()) {
             if (!waiting_for_release_) {
                 waiting_for_release_ = true;
@@ -141,6 +152,7 @@ void Panel::schedule() {
 }
 
 void Panel::showEvent(QShowEvent*) {
+    retries_ = 0;
     schedule();
     // A dock tabbed behind another counts as shown with nothing of it on screen, so it waits; bringing its tab to the
     // front shows nothing new, only the dock says so. Tool Settings behind the Outliner stayed empty (#105).

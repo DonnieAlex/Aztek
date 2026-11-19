@@ -33,6 +33,8 @@ protected:
 private:
     bool pending_ = false;
     bool waiting_for_release_ = false;
+    // Looks taken since it showed with nothing of it on screen yet.
+    int retries_ = 0;
 };
 
 class Outliner : public Panel {
