@@ -198,6 +198,17 @@ void MainWindow::add_recent_project(const QString& dir) {
     s.setValue("project/recent", r.mid(0, 10));
 }
 
+// File > Recent Files and the welcome screen's list: the scenes opened or saved, newest first. A scene's name changing
+// by any route (Open, Save As, Increment and Save, a script's file -save or -rename) puts it at the top.
+void MainWindow::add_recent_file(const QString& path) {
+    if (path.isEmpty()) return;
+    QSettings s;
+    QStringList r = s.value("recentFiles").toStringList();
+    r.removeAll(path);
+    r.prepend(path);
+    s.setValue("recentFiles", r.mid(0, 10));
+}
+
 QMenu* MainWindow::file_menu() {
     auto* m = new QMenu("File", this);
     m->addAction(new OptionRow("New Scene", "Ctrl+N", [this] { new_scene(); }, [this] { new_scene_options(); }, m));

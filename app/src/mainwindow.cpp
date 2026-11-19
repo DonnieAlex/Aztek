@@ -1767,6 +1767,11 @@ void MainWindow::watch_menus() {
 
 void MainWindow::update_title() {
     QString file = state()["file"].toString();
+    // A scene saved or opened some other way, by a script say, joins the recent files too.
+    if (file != titled_file_) {
+        titled_file_ = file;
+        add_recent_file(file);
+    }
     setWindowTitle(QString("Aztek - %1%2").arg(file.isEmpty() ? "untitled" : file, state()["modified"].toBool() ? "*" : ""));
 }
 
@@ -1953,13 +1958,7 @@ void MainWindow::open_scene() {
 void MainWindow::open_file(const QString& path) {
     QString err = take(aztek_file("open", path.toUtf8().constData()));
     Host::get()->poke();
-    if (err.isEmpty()) {
-        QSettings s;
-        QStringList r = s.value("recentFiles").toStringList();
-        r.removeAll(path);
-        r.prepend(path);
-        s.setValue("recentFiles", r.mid(0, 10));
-    }
+    if (err.isEmpty()) add_recent_file(path);
     update_title();
 }
 
@@ -1981,6 +1980,7 @@ bool MainWindow::save_scene(bool as) {
     if (!no_prompts_ && !usd_confirm_dirty_layers(this)) return false;
     QString err = take(aztek_file("save", f.toUtf8().constData()));
     Host::get()->poke();
+    if (err.isEmpty()) add_recent_file(f);
     update_title();
     if (!err.isEmpty()) {
         QMessageBox::critical(this, "Save Scene", err);

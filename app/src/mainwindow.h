@@ -195,6 +195,8 @@ private:
     void select_shell(bool border);
     void set_project();
     void add_recent_project(const QString& dir);
+    void add_recent_file(const QString& path);
+    QString titled_file_;
     void remember_command(const QString& mel_text);
     void view_scrub(QObject* o, QEvent* e);
     void run_menu_path(const QString& path);

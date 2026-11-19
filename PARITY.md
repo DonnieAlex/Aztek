@@ -1566,6 +1566,11 @@ product's and vendor's names and the user's paths taken out; `tools/parity/impor
 ledger, keeping what has been ticked. Until the first one comes in, the ledger holds the 1198 commands and 40285 flag
 names the bar counted before. parity/README.md.
 
+### Recent Files take saved scenes (19/11/2026, #155)
+
+File > Recent Files and the welcome screen's Recent list take a scene when it's saved, not only when it's opened: Save,
+Save As, Increment and Save, and a script's `file -save` all put it at the top.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
