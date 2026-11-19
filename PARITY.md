@@ -1696,6 +1696,25 @@ a built-in workspace puts the panels back as a fresh layout has them: the Channe
 Modeling Toolkit and Humanoid IK tabbed on the right, the Outliner and the Tool Settings tabbed on the left, rather than
 stacked as another workspace may have left them.
 
+### Humanoid IK panel laid out as the reference's (19/11/2026, #168)
+
+The Humanoid IK panel follows the reference's HumanIK panel: the menu button, Character and Source, a row of tool
+buttons that changes with the tab, then Skeleton, Definition, Controls and Properties.
+
+- Skeleton: the reference's frames, Scale and Bones (Character Scale, Spine, Neck, Shoulder / Clavicle), Roll Bones,
+  Finger Bones and Toe Bones (which digits, Num Bones, the base and in-hand or in-foot bones), and Create Skeleton,
+  which makes that skeleton with a definition. `hikCreateSkeleton` takes all of them as flags.
+- Definition: the body with a marker per slot, green when a joint is in it, a tick or a cross for whether the
+  definition is valid, and ways into the hands, feet, spine, clavicles, neck and (red squares) each limb's roll bones,
+  with a way back. A click picks a slot and selects its joint; a right click assigns the selected joint, removes it or
+  selects it. Under the figure the status, then the slot, its joint, the scene selection and the joint's values.
+- Controls: once the source is the control rig, sticks for the bones and circles for the hand and foot effectors, a
+  click selecting the control (a finger's stick its whole finger), and the hands and feet with the other side's in
+  the corner to go to it. The HumanIK Controls frame's IK Blend T sets the picked effector's IK blend; IK Blend R and IK
+  Pull are there but not in Aztek yet.
+
+The figures are Aztek's own drawings.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

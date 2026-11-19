@@ -1,6 +1,7 @@
-// The HumanIK window: Character and Source at the top, then the Definition tab with a figure of the slots to assign, Controls with
-// a figure that selects the control rig, Custom Rig, and Properties. It reads hikInfo and acts through the hik commands.
-// The figure is drawn here from circles and lines.
+// Humanoid IK, laid out as the reference's HumanIK panel (#168): the menu button, Character and Source, a row of tool
+// buttons, then the Skeleton, Definition, Controls and Properties tabs. Definition and Controls draw the body, with views
+// of the hands, feet, spine, clavicles, neck and roll bones to go into; under Definition the status and the picked
+// joint's values. It reads hikInfo and acts through the hik commands. The figures are drawn here, Aztek's own.
 #include "editors.h"
 #include "panels.h"
 
@@ -11,6 +12,7 @@
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
@@ -23,10 +25,16 @@
 #include <QPainterPath>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QRadialGradient>
 #include <QScrollArea>
+#include <QSlider>
+#include <QSpinBox>
+#include <QStackedWidget>
 #include <QTabWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include <functional>
 
 #include "host.h"
 
@@ -34,161 +42,405 @@ namespace az {
 
 namespace {
 
+// A joint's place in a view, in a box 1 wide and 1.5 tall.
 struct Spot {
-    const char* slot;
+    QString slot;
     double x, y;
-    bool small;
 };
 
-// In a unit box, the character facing the viewer: its left on the right of the figure.
-const Spot SPOTS[] = {
-    {"Reference", 0.50, 0.97, false}, {"Hips", 0.50, 0.52, false}, {"HipsTranslation", 0.46, 0.55, true},
-    {"Spine", 0.50, 0.46, false}, {"Spine1", 0.50, 0.42, true}, {"Spine2", 0.50, 0.38, true}, {"Spine3", 0.50, 0.34, true}, {"Spine4", 0.50, 0.30, true}, {"Spine5", 0.50, 0.27, true},
-    {"Neck", 0.50, 0.21, false}, {"Neck1", 0.50, 0.185, true}, {"Head", 0.50, 0.12, false},
-    {"LeftShoulder", 0.56, 0.245, false}, {"LeftArm", 0.63, 0.25, false}, {"LeftArmRoll", 0.68, 0.25, true}, {"LeftForeArm", 0.75, 0.25, false}, {"LeftForeArmRoll", 0.80, 0.25, true}, {"LeftHand", 0.86, 0.25, false},
-    {"RightShoulder", 0.44, 0.245, false}, {"RightArm", 0.37, 0.25, false}, {"RightArmRoll", 0.32, 0.25, true}, {"RightForeArm", 0.25, 0.25, false}, {"RightForeArmRoll", 0.20, 0.25, true}, {"RightHand", 0.14, 0.25, false},
-    {"LeftUpLeg", 0.57, 0.55, false}, {"LeftUpLegRoll", 0.585, 0.62, true}, {"LeftLeg", 0.60, 0.72, false}, {"LeftLegRoll", 0.605, 0.79, true}, {"LeftFoot", 0.61, 0.89, false}, {"LeftToeBase", 0.66, 0.93, false},
-    {"RightUpLeg", 0.43, 0.55, false}, {"RightUpLegRoll", 0.415, 0.62, true}, {"RightLeg", 0.40, 0.72, false}, {"RightLegRoll", 0.395, 0.79, true}, {"RightFoot", 0.39, 0.89, false}, {"RightToeBase", 0.34, 0.93, false},
+// A way into another view: where it sits, which view, and whether it's a roll bone's (a square, as the reference marks them).
+struct Door {
+    QString view;
+    double x, y;
+    bool square;
 };
 
-const char* const LINES[][2] = {
-    {"Hips", "Spine"}, {"Spine", "Neck"}, {"Neck", "Head"}, {"Neck", "LeftShoulder"}, {"LeftShoulder", "LeftArm"}, {"LeftArm", "LeftForeArm"}, {"LeftForeArm", "LeftHand"}, {"Neck", "RightShoulder"}, {"RightShoulder", "RightArm"}, {"RightArm", "RightForeArm"}, {"RightForeArm", "RightHand"},
-    {"Hips", "LeftUpLeg"}, {"LeftUpLeg", "LeftLeg"}, {"LeftLeg", "LeftFoot"}, {"LeftFoot", "LeftToeBase"}, {"Hips", "RightUpLeg"}, {"RightUpLeg", "RightLeg"}, {"RightLeg", "RightFoot"}, {"RightFoot", "RightToeBase"},
-};
+const QColor ASSIGNED(120, 224, 70), EMPTY(150, 150, 150), GLOW(40, 150, 255);
 
-// Fingers fan out from each hand, in rows of joints.
-QList<Spot> finger_spots() {
-    static QList<QByteArray> keep;
-    QList<Spot> out;
-    const char* digits[] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
+QList<Spot> body_spots() {
+    QList<Spot> s = {{"Head", .50, .13}, {"Neck", .50, .245}, {"Spine", .50, .44}, {"Hips", .50, .62}, {"Reference", .50, 1.43}};
     for (int side = 0; side < 2; ++side) {
-        const double x0 = side == 0 ? 0.885 : 0.115, dir = side == 0 ? 1 : -1;
-        for (int d = 0; d < 5; ++d) {
-            for (int k = 1; k <= 3; ++k) {
-                keep.append(QByteArray(side == 0 ? "LeftHand" : "RightHand") + digits[d] + QByteArray::number(k));
-                out.append({keep.last().constData(), x0 + dir * 0.022 * k, 0.215 + d * 0.018, true});
-            }
-        }
+        const QString n = side == 0 ? "Left" : "Right";
+        const double d = side == 0 ? 1 : -1;
+        // The character faces the viewer: its left is on the right of the figure.
+        s += {{n + "Shoulder", .5 + d * .08, .30}, {n + "Arm", .5 + d * .17, .33}, {n + "ForeArm", .5 + d * .25, .53}, {n + "Hand", .5 + d * .32, .71},
+              {n + "UpLeg", .5 + d * .08, .68}, {n + "Leg", .5 + d * .10, .98}, {n + "Foot", .5 + d * .11, 1.30}, {n + "ToeBase", .5 + d * .13, 1.40}};
     }
-    return out;
+    return s;
 }
 
-// The figure: a dot per slot, coloured by the definition's check, or by whether a control exists.
+QList<Door> body_doors(bool definition) {
+    QList<Door> d = {{"Spine", .64, .44, false}, {"Neck", .64, .22, false}};
+    for (int side = 0; side < 2; ++side) {
+        const QString n = side == 0 ? "Left" : "Right";
+        const double k = side == 0 ? 1 : -1;
+        d += {{n + "Hand", .5 + k * .43, .76, false}, {n + "Foot", .5 + k * .22, 1.40, false}, {n + "Clavicle", .5 + k * .26, .26, false}};
+        if (definition) d += {{n + "ArmRoll", .5 + k * .27, .38, true}, {n + "ForeArmRoll", .5 + k * .35, .52, true}, {n + "UpLegRoll", .5 + k * .2, .80, true}, {n + "LegRoll", .5 + k * .2, 1.02, true}};
+    }
+    return d;
+}
+
+// A view's joints: the hands and feet with their digits, the spine and neck from the bottom up, the clavicles, the roll bones.
+QList<Spot> view_spots(const QString& view) {
+    QList<Spot> s;
+    const bool right = view.startsWith("Right");
+    const QString side = right ? "Right" : "Left";
+    const double d = right ? -1 : 1;
+    const auto mx = [d](double x) { return d > 0 ? x : 1 - x; };
+    if (view.endsWith("Hand") || view.endsWith("Foot")) {
+        const bool hand = view.endsWith("Hand");
+        const QString limb = side + (hand ? "Hand" : "Foot");
+        s << Spot{limb, mx(.30), 1.25};
+        s << Spot{side + (hand ? "FingerBase" : "ToeBase"), mx(.36), 1.05};
+        const char* digits[] = {"Thumb", "Index", "Middle", "Ring", "Pinky", "ExtraFinger"};
+        for (int k = 0; k < 6; ++k) {
+            const double x0 = hand ? (k == 0 ? .62 : .26 + k * .11) : .22 + k * .11;
+            const double y0 = hand ? (k == 0 ? .95 : .78) : .70;
+            s << Spot{side + (hand ? "InHand" : "InFoot") + digits[k], mx(x0 - .03), y0 + .12};
+            for (int b = 1; b <= 4; ++b) {
+                const double dx = hand && k == 0 ? .07 : 0.0;
+                s << Spot{limb + digits[k] + QString::number(b), mx(x0 + dx * b), y0 - b * (hand ? .13 : .10)};
+            }
+        }
+    } else if (view == "Spine" || view == "Neck") {
+        for (int i = 1; i <= 9; ++i) s << Spot{view + QString::number(i), .5, 1.30 - i * .12};
+    } else if (view.endsWith("Clavicle")) {
+        s << Spot{side + "Shoulder", mx(.42), .70} << Spot{side + "ShoulderExtra", mx(.66), .62};
+    } else if (view.endsWith("Roll")) {
+        const QString seg = view.mid(side.size()).chopped(4);
+        for (int k = 1; k <= 5; ++k) s << Spot{"Leaf" + side + seg + "Roll" + QString::number(k), mx(.40 + k * .05), .30 + k * .17};
+    }
+    return s;
+}
+
+// The joint sticks of the control rig figure.
+const char* const BONES[][2] = {
+    {"Hips", "Spine"}, {"Spine", "Neck"}, {"Neck", "Head"}, {"Spine", "LeftShoulder"}, {"LeftShoulder", "LeftArm"}, {"LeftArm", "LeftForeArm"}, {"LeftForeArm", "LeftHand"},
+    {"Spine", "RightShoulder"}, {"RightShoulder", "RightArm"}, {"RightArm", "RightForeArm"}, {"RightForeArm", "RightHand"}, {"Hips", "LeftUpLeg"}, {"LeftUpLeg", "LeftLeg"},
+    {"LeftLeg", "LeftFoot"}, {"LeftFoot", "LeftToeBase"}, {"Hips", "RightUpLeg"}, {"RightUpLeg", "RightLeg"}, {"RightLeg", "RightFoot"}, {"RightFoot", "RightToeBase"},
+};
+
+// The figure: a body, or a part of it, the joints to pick, the ways into the closer views, and a way back.
 class Figure : public QWidget {
 public:
-    std::function<void(const QString&)> clicked;
-    QHash<QString, QColor> colours;
-    QString picked;
-    explicit Figure(QWidget* parent = nullptr) : QWidget(parent) {
-        setMinimumSize(300, 420);
+    enum Mode { Definition, Controls };
+    std::function<void(const QString&)> picked_slot;
+    std::function<void(const QString&, const QPoint&)> slot_menu;
+    std::function<void()> view_changed;
+    QHash<QString, bool> filled;
+    QString picked, status = "green";
+    bool rig = false;
+
+    Figure(Mode m, QWidget* parent = nullptr) : QWidget(parent), mode_(m) {
+        setMinimumSize(250, 330);
         setMouseTracking(true);
-        for (const auto& s : SPOTS) spots_.append(s);
-        spots_.append(finger_spots());
+        setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(this, &QWidget::customContextMenuRequested, this, [this](const QPoint& at) {
+            if (const Spot* s = spot_at(at); s && slot_menu) slot_menu(s->slot, mapToGlobal(at));
+        });
     }
+    QString view() const { return view_; }
+    void set_view(const QString& v) {
+        view_ = v;
+        update();
+        if (view_changed) view_changed();
+    }
+    QSize sizeHint() const override { return {270, 380}; }
+
 protected:
-    QPointF at(const Spot& s) const {
-        const double scale = qMin(width(), height());
-        const double ox = (width() - scale) / 2, oy = (height() - scale) / 2;
-        return QPointF(ox + s.x * scale, oy + s.y * scale);
+    QRectF box() const {
+        const double h = height() - 8, w = width() - 8;
+        const double s = std::min(w, h / 1.5);
+        return QRectF((width() - s) / 2, (height() - s * 1.5) / 2, s, s * 1.5);
     }
-    double radius(const Spot& s) const {
-        return (s.small ? 0.011 : 0.018) * qMin(width(), height());
+    QPointF at(double x, double y) const {
+        const QRectF b = box();
+        return QPointF(b.left() + x * b.width(), b.top() + y * b.width());
     }
-    const Spot* find(const QString& n) const {
-        for (const auto& s : spots_)
-            if (n == s.slot) return &s;
-        return nullptr;
-    }
-    void paintEvent(QPaintEvent*) override {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        p.fillRect(rect(), QColor(52, 52, 52));
-        p.setPen(QPen(QColor(120, 120, 120), 2));
-        for (const auto& l : LINES) {
-            const Spot* a = find(l[0]);
-            const Spot* b = find(l[1]);
-            if (a && b) p.drawLine(at(*a), at(*b));
-        }
-        for (const auto& s : spots_) {
-            const QColor c = colours.value(s.slot, QColor(80, 80, 80));
-            p.setPen(picked == s.slot ? QPen(Qt::white, 2) : QPen(QColor(30, 30, 30), 1));
-            p.setBrush(c);
-            p.drawEllipse(at(s), radius(s), radius(s));
-        }
-        if (!picked.isEmpty()) {
-            p.setPen(Qt::white);
-            p.drawText(rect().adjusted(6, 6, -6, -6), Qt::AlignLeft | Qt::AlignTop, picked);
-        }
-    }
-    const Spot* under(const QPointF& pos) const {
+    double unit() const { return box().width(); }
+    QList<Spot> spots() const { return view_.isEmpty() ? body_spots() : view_spots(view_); }
+    const Spot* spot_at(const QPoint& p) const {
+        static QList<Spot> cache;
+        cache = spots();
         const Spot* best = nullptr;
-        double dist = 1e9;
-        for (const auto& s : spots_) {
-            const double d = QLineF(at(s), pos).length();
-            if (d < dist && d <= radius(s) + 5) {
+        double dist = unit() * .05;
+        for (const Spot& s : cache) {
+            const double d = QLineF(at(s.x, s.y), p).length();
+            if (d < dist) {
                 dist = d;
                 best = &s;
             }
         }
         return best;
     }
+    // The body, drawn as a glowing outline: Aztek's own simple figure.
+    void draw_body(QPainter& p) {
+        QPainterPath b;
+        const double u = unit();
+        auto limb = [&](double x0, double y0, double x1, double y1, double w) {
+            QPainterPath l;
+            QLineF line(at(x0, y0), at(x1, y1));
+            QLineF n = line.normalVector();
+            n.setLength(w * u / 2);
+            const QPointF o = n.p2() - n.p1();
+            l.moveTo(line.p1() + o);
+            l.lineTo(line.p2() + o);
+            l.lineTo(line.p2() - o);
+            l.lineTo(line.p1() - o);
+            l.closeSubpath();
+            l.addEllipse(line.p1(), w * u / 2, w * u / 2);
+            l.addEllipse(line.p2(), w * u / 2, w * u / 2);
+            b = b.united(l);
+        };
+        if (view_.isEmpty()) {
+            b.addEllipse(at(.5, .13), .075 * u, .095 * u);
+            limb(.5, .22, .5, .27, .08);
+            limb(.5, .33, .5, .62, .26);
+            for (double d : {1.0, -1.0}) {
+                limb(.5 + d * .1, .31, .5 + d * .17, .33, .09);
+                limb(.5 + d * .17, .33, .5 + d * .25, .53, .085);
+                limb(.5 + d * .25, .53, .5 + d * .31, .70, .07);
+                b.addEllipse(at(.5 + d * .33, .75), .04 * u, .06 * u);
+                limb(.5 + d * .08, .66, .5 + d * .10, .98, .12);
+                limb(.5 + d * .10, .98, .5 + d * .11, 1.30, .09);
+                limb(.5 + d * .11, 1.32, .5 + d * .14, 1.40, .06);
+            }
+        } else if (view_.endsWith("Hand") || view_.endsWith("Foot")) {
+            const bool hand = view_.endsWith("Hand");
+            const double d = view_.startsWith("Right") ? -1 : 1;
+            const auto mx = [d](double x) { return d > 0 ? x : 1 - x; };
+            limb(mx(.40), 1.0, mx(.36), 1.45, .36);
+            for (int k = 0; k < 5; ++k) {
+                const double x0 = hand ? (k == 0 ? .62 : .26 + k * .11) : .22 + k * .11;
+                const double y0 = hand ? (k == 0 ? .95 : .78) : .70;
+                const double dx = hand && k == 0 ? .07 : 0.0;
+                limb(mx(x0), y0 + .15, mx(x0 + dx * 3), y0 - 3 * (hand ? .13 : .10), .08);
+            }
+        } else if (view_ == "Spine") {
+            // The back, from the shoulders down to the waist.
+            QPolygonF back({at(.02, .05), at(.98, .05), at(.86, .55), at(.78, 1.1), at(.84, 1.5), at(.16, 1.5), at(.22, 1.1), at(.14, .55)});
+            b.addPolygon(back);
+            b.closeSubpath();
+        } else if (view_ == "Neck") {
+            // The neck between the head and the shoulders.
+            b.addEllipse(at(.5, .0), .38 * u, .32 * u);
+            QPolygonF neck({at(.34, .25), at(.66, .25), at(.68, 1.15), at(1.0, 1.35), at(1.0, 1.5), at(.0, 1.5), at(.0, 1.35), at(.32, 1.15)});
+            b.addPolygon(neck);
+            b.closeSubpath();
+        } else {
+            const double d = view_.startsWith("Right") ? -1 : 1;
+            const auto mx = [d](double x) { return d > 0 ? x : 1 - x; };
+            if (view_.endsWith("Clavicle")) {
+                limb(mx(.1), .75, mx(.9), .55, .3);
+            } else {
+                limb(mx(.35), .1, mx(.75), 1.4, .38);
+            }
+        }
+        p.setBrush(Qt::NoBrush);
+        for (int w = 9; w >= 1; w -= 2) {
+            QColor c = GLOW;
+            c.setAlpha(w == 1 ? 230 : 30);
+            p.setPen(QPen(c, w));
+            p.drawPath(b);
+        }
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QRadialGradient bg(rect().center(), std::max(width(), height()) * .7);
+        bg.setColorAt(0, QColor(48, 48, 48));
+        bg.setColorAt(1, QColor(14, 14, 14));
+        p.fillRect(rect(), bg);
+        const double u = unit();
+        if (mode_ == Definition || !rig) draw_body(p);
+        const QList<Spot> list = spots();
+        QHash<QString, QPointF> where;
+        for (const Spot& s : list) where[s.slot] = at(s.x, s.y);
+        if (mode_ == Controls && rig) {
+            // Sticks for the bones, which select their control; circles for the effectors.
+            p.setPen(QPen(QColor(200, 200, 200), .02 * u, Qt::SolidLine, Qt::RoundCap));
+            if (view_.isEmpty()) {
+                for (const auto& l : BONES)
+                    if (where.contains(l[0]) && where.contains(l[1])) p.drawLine(where[l[0]], where[l[1]]);
+            } else {
+                for (int i = 0; i + 1 < list.size(); ++i)
+                    if (list[i].slot.left(list[i].slot.size() - 1) == list[i + 1].slot.left(list[i + 1].slot.size() - 1) && filled.value(list[i + 1].slot)) p.drawLine(where[list[i].slot], where[list[i + 1].slot]);
+            }
+        }
+        for (const Spot& s : list) {
+            const bool on = filled.value(s.slot);
+            // Without a control rig driving it the Controls figure is the body alone, as the reference's.
+            if (mode_ == Controls && (!rig || (!view_.isEmpty() && !on))) continue;
+            const QPointF c = at(s.x, s.y);
+            const bool effector = mode_ == Controls && (s.slot.endsWith("Hand") || s.slot.endsWith("Foot") || s.slot == "Hips");
+            p.setPen(picked == s.slot ? QPen(Qt::white, 2) : QPen(QColor(20, 20, 20), 1));
+            p.setBrush(on ? (effector ? ASSIGNED : (mode_ == Controls ? QColor(205, 205, 205) : ASSIGNED)) : EMPTY);
+            const double r = (view_.isEmpty() ? .028 : .035) * u * (effector ? 1.4 : 1);
+            if (mode_ == Definition) {
+                // Diamonds, as the reference's bone markers.
+                QPolygonF d({c + QPointF(0, -r * 1.4), c + QPointF(r, 0), c + QPointF(0, r * 1.4), c + QPointF(-r, 0)});
+                p.drawPolygon(d);
+            } else {
+                p.drawEllipse(c, r, r);
+            }
+        }
+        // The ways in, and the way back.
+        if (view_.isEmpty()) {
+            for (const Door& d : body_doors(mode_ == Definition)) {
+                const QPointF c = at(d.x, d.y);
+                const double r = .03 * u;
+                p.setPen(QPen(d.square ? QColor(230, 40, 40) : QColor(200, 200, 200), 1.5));
+                p.setBrush(QColor(30, 30, 30));
+                if (d.square) p.drawRect(QRectF(c.x() - r, c.y() - r, 2 * r, 2 * r));
+                else {
+                    p.drawEllipse(c, r, r);
+                    p.drawLine(c + QPointF(-r * .45, -r * .15), c + QPointF(0, r * .35));
+                    p.drawLine(c + QPointF(r * .45, -r * .15), c + QPointF(0, r * .35));
+                }
+            }
+        } else {
+            const QPointF c(22, 22);
+            p.setPen(QPen(QColor(220, 220, 220), 2));
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(c, 13, 13);
+            p.setBrush(QColor(220, 220, 220));
+            p.drawPolygon(QPolygonF({c + QPointF(-6, 4), c + QPointF(6, 4), c + QPointF(0, -5)}));
+            // The other hand or foot, small, top right: a click there goes to it.
+            if (mode_ == Controls && (view_.endsWith("Hand") || view_.endsWith("Foot"))) {
+                p.setPen(QPen(QColor(160, 160, 160), 1.5));
+                p.setBrush(Qt::NoBrush);
+                const QRectF m(width() - 46, 8, 38, 38);
+                p.drawRoundedRect(m, 6, 6);
+                p.drawText(m, Qt::AlignCenter, view_.startsWith("Left") ? "R" : "L");
+            }
+        }
+        // The definition's state, top right: a tick when it's valid.
+        if (mode_ == Definition) {
+            const QPointF c(width() - 26, 26);
+            const QColor col = status == "red" ? QColor(214, 64, 58) : status == "yellow" ? QColor(232, 196, 60) : QColor(92, 190, 92);
+            p.setPen(Qt::NoPen);
+            p.setBrush(col);
+            p.drawEllipse(c, 15, 15);
+            p.setPen(QPen(Qt::white, 3, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            if (status == "red") {
+                p.drawLine(c + QPointF(-6, -6), c + QPointF(6, 6));
+                p.drawLine(c + QPointF(6, -6), c + QPointF(-6, 6));
+            } else {
+                p.drawPolyline(QPolygonF({c + QPointF(-7, 0), c + QPointF(-2, 5), c + QPointF(7, -6)}));
+            }
+        }
+        if (!picked.isEmpty()) {
+            p.setPen(QColor(200, 200, 200));
+            p.drawText(rect().adjusted(8, 0, -8, -6), Qt::AlignLeft | Qt::AlignBottom, picked);
+        }
+    }
     void mousePressEvent(QMouseEvent* e) override {
-        if (const Spot* s = under(e->position())) {
+        if (e->button() != Qt::LeftButton) return;
+        const QPointF pos = e->position();
+        if (!view_.isEmpty()) {
+            if (QLineF(pos, QPointF(22, 22)).length() < 16) {
+                set_view("");
+                return;
+            }
+            if (mode_ == Controls && (view_.endsWith("Hand") || view_.endsWith("Foot")) && QRectF(width() - 46, 8, 38, 38).contains(pos)) {
+                set_view((view_.startsWith("Left") ? "Right" : "Left") + view_.mid(view_.startsWith("Left") ? 4 : 5));
+                return;
+            }
+        } else {
+            for (const Door& d : body_doors(mode_ == Definition))
+                if (QLineF(pos, at(d.x, d.y)).length() < .045 * unit()) {
+                    set_view(d.view);
+                    return;
+                }
+        }
+        if (const Spot* s = spot_at(e->position().toPoint())) {
             picked = s->slot;
             update();
-            if (clicked) clicked(picked);
+            if (picked_slot) picked_slot(picked);
         }
     }
     void mouseMoveEvent(QMouseEvent* e) override {
-        const Spot* s = under(e->position());
-        setToolTip(s ? QString(s->slot) : QString());
+        const Spot* s = spot_at(e->position().toPoint());
+        setToolTip(s ? s->slot : QString());
     }
+
 private:
-    QList<Spot> spots_;
+    Mode mode_;
+    QString view_;
 };
+
+// A section that folds, as the reference's frames do: an arrow and a title over its rows.
+QWidget* section(const QString& title, QWidget* body) {
+    auto* w = new QWidget;
+    auto* v = new QVBoxLayout(w);
+    v->setContentsMargins(0, 0, 0, 0);
+    v->setSpacing(2);
+    auto* head = new QToolButton;
+    head->setText(title);
+    head->setCheckable(true);
+    head->setChecked(true);
+    head->setArrowType(Qt::DownArrow);
+    head->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    head->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    head->setStyleSheet("QToolButton { font-weight: bold; text-align: left; border: none; background: palette(mid); padding: 3px; }");
+    QObject::connect(head, &QToolButton::toggled, body, [head, body](bool on) {
+        body->setVisible(on);
+        head->setArrowType(on ? Qt::DownArrow : Qt::RightArrow);
+    });
+    v->addWidget(head);
+    v->addWidget(body);
+    return w;
+}
 
 class HumanIK : public Panel {
 public:
     explicit HumanIK(QWidget* parent) : Panel(parent) {
         auto* v = new QVBoxLayout(this);
-        auto* top = new QHBoxLayout;
-        top->addWidget(new QLabel("Character:"));
-        character_ = new QComboBox;
-        character_->setMinimumWidth(130);
-        top->addWidget(character_);
-        top->addWidget(new QLabel("Source:"));
-        source_ = new QComboBox;
-        source_->setMinimumWidth(130);
-        top->addWidget(source_);
-        top->addStretch(1);
+        v->setContentsMargins(4, 4, 4, 4);
+        v->setSpacing(4);
+        // The menu button, then Character and Source.
+        auto* top = new QGridLayout;
         auto* menu_button = new QToolButton;
-        menu_button->setText("Menu");
+        menu_button->setText("HIK");
+        menu_button->setToolTip("Humanoid IK menu");
+        menu_button->setFixedSize(40, 40);
         menu_button->setPopupMode(QToolButton::InstantPopup);
         menu_button->setMenu(build_menu());
-        top->addWidget(menu_button);
+        top->addWidget(menu_button, 0, 0, 2, 1);
+        top->addWidget(new QLabel("Character:"), 0, 1, Qt::AlignRight);
+        character_ = new QComboBox;
+        top->addWidget(character_, 0, 2);
+        top->addWidget(new QLabel("Source:"), 1, 1, Qt::AlignRight);
+        source_ = new QComboBox;
+        top->addWidget(source_, 1, 2);
+        top->setColumnStretch(2, 1);
         v->addLayout(top);
 
-        auto* row = new QHBoxLayout;
-        const auto button = [&](const QString& text, const QString& tip, std::function<void()> f) {
-            auto* b = new QPushButton(text);
-            b->setToolTip(tip);
-            connect(b, &QPushButton::clicked, this, f);
-            row->addWidget(b);
-            return b;
-        };
-        button("Create Character", "A new empty definition", [this] { create_character(); });
-        lock_ = button("Lock", "Lock the definition; its T-pose is where the joints are now", [] { exec("hikToggleLockDefinition"); });
-        button("Create Control Rig", "A control rig on this character", [] { exec("hikCreateControlRig"); });
-        button("Stance", "Hold the T-pose", [] { exec("hikSetCurrentSource", QJsonObject{{"args", QJsonArray{"Stance"}}}); });
-        row->addStretch(1);
-        v->addLayout(row);
+        // The tool buttons, changing with the tab as the reference's do.
+        tools_ = new QStackedWidget;
+        tools_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        v->addWidget(tools_);
 
         tabs_ = new QTabWidget;
+        tabs_->setDocumentMode(true);
         v->addWidget(tabs_, 1);
+        tabs_->addTab(build_skeleton(), "Skeleton");
         tabs_->addTab(build_definition(), "Definition");
         tabs_->addTab(build_controls(), "Controls");
-        tabs_->addTab(build_custom_rig(), "Custom Rig");
         tabs_->addTab(build_properties(), "Properties");
+        tools_->addWidget(tool_row({{"+", "Create Skeleton: a humanoid skeleton as set below, with its definition", [this] { create_skeleton(); }}}));
+        tools_->addWidget(tool_row({{"+", "Create Character Definition", [this] { create_character(); }},
+                                    {"Lock", "Lock or unlock the definition; its T-pose is where the joints are now", [] { exec("hikToggleLockDefinition"); }},
+                                    {"Mirror", "Mirror Matching: fill empty slots from their opposites", [this] { if (!name_.isEmpty()) exec("hikMirrorMatching", QJsonObject{{"args", QJsonArray{name_}}}); }},
+                                    {"Load", "Load Skeleton Definition...", [this] { load_template(); }},
+                                    {"Save", "Save Skeleton Definition...", [this] { save_template(); }},
+                                    {"Del", "Delete Character Definition", [this] { if (!name_.isEmpty()) exec("delete", QJsonObject{{"args", QJsonArray{name_}}}); }}}));
+        tools_->addWidget(tool_row({{"+", "Create Control Rig", [this] { exec("hikCreateControlRig", QJsonObject{{"args", QJsonArray{name_}}}); }},
+                                    {"Del", "Delete Control Rig", [this] { exec("hikDeleteControlRig", QJsonObject{{"args", QJsonArray{name_}}}); }},
+                                    {"Stance", "Stance pose", [] { exec("hikSetCurrentSource", QJsonObject{{"args", QJsonArray{"Stance"}}}); }}}));
+        tools_->addWidget(tool_row({}));
+        connect(tabs_, &QTabWidget::currentChanged, tools_, &QStackedWidget::setCurrentIndex);
+        tabs_->setCurrentIndex(1);
 
         connect(character_, &QComboBox::activated, this, [this](int) {
             exec("hikSetCurrentCharacter", QJsonObject{{"args", QJsonArray{character_->currentText()}}});
@@ -198,6 +450,7 @@ public:
         });
         schedule();
     }
+
 protected:
     void refresh() override {
         const QJsonObject info = ask("hikInfo").toObject();
@@ -212,25 +465,20 @@ protected:
         for (const auto& c : info["characters"].toArray())
             if (c.toString() != name_) source_->addItem(c.toString());
         source_->setCurrentText(me["source"].toString("None"));
-        lock_->setText(me["locked"].toBool() ? "Unlock" : "Lock");
-        const QJsonObject filled = me["slots"].toObject();
-        const QJsonObject status = me["status"].toObject()["status"].toObject();
-        QHash<QString, QColor> colours;
-        for (auto it = status.begin(); it != status.end(); ++it) {
-            const QString s = it.value().toString();
-            colours[it.key()] = s == "red" ? QColor(214, 64, 58) : s == "yellow" ? QColor(232, 196, 60) : QColor(80, 190, 90);
-        }
-        definition_->colours = colours;
+        slots_ = me["slots"].toObject();
+        QHash<QString, bool> filled;
+        for (auto it = slots_.begin(); it != slots_.end(); ++it) filled[it.key()] = !it.value().toString().isEmpty();
+        const QJsonObject st = me["status"].toObject();
+        definition_->filled = filled;
+        definition_->status = name_.isEmpty() || st["valid"].toBool() ? "green" : "red";
         definition_->update();
-        QHash<QString, QColor> controls;
-        if (me["controlRig"].toBool())
-            for (auto it = filled.begin(); it != filled.end(); ++it) controls[it.key()] = QColor(88, 150, 230);
-        controls_->colours = controls;
+        controls_->filled = filled;
+        controls_->rig = me["controlRig"].toBool() && me["source"].toString() == "Control Rig";
         controls_->update();
-        QString text = me["status"].toObject()["summary"].toString();
-        for (const auto& m : me["status"].toObject()["messages"].toArray()) text += "\n" + m.toString();
-        status_->setPlainText(name_.isEmpty() ? "No character: Create Character, or Quick Character from the menu." : text);
-        joint_->setText(filled[definition_->picked].toString());
+        QString text = st["summary"].toString();
+        for (const auto& m : st["messages"].toArray()) text += "\n" + m.toString();
+        status_->setPlainText(name_.isEmpty() ? "No character: + makes a definition, or the Skeleton tab a skeleton with one." : text);
+        show_joint();
         property_node_ = me["propertyNode"].toString();
         const QJsonObject props = me["properties"].toObject();
         updating_ = true;
@@ -239,62 +487,257 @@ protected:
         for (auto it = prop_modes_.begin(); it != prop_modes_.end(); ++it) it.value()->setCurrentIndex(int(props[it.key()].toDouble()));
         updating_ = false;
     }
+
 private:
-    QWidget* build_definition() {
+    struct Tool {
+        QString text, tip;
+        std::function<void()> fn;
+    };
+    QWidget* tool_row(const QList<Tool>& tools) {
         auto* w = new QWidget;
         auto* h = new QHBoxLayout(w);
-        definition_ = new Figure;
-        definition_->clicked = [this](const QString&) { schedule(); };
-        h->addWidget(definition_, 2);
-        auto* side = new QVBoxLayout;
-        side->addWidget(new QLabel("Joint in the slot:"));
-        joint_ = new QLineEdit;
-        joint_->setReadOnly(true);
-        side->addWidget(joint_);
-        auto* assign = new QPushButton("Assign Selected Bone");
-        connect(assign, &QPushButton::clicked, this, [this] { assign_selected(); });
-        side->addWidget(assign);
-        auto* clear = new QPushButton("Remove Assignment");
-        connect(clear, &QPushButton::clicked, this, [this] {
-            if (!name_.isEmpty() && !definition_->picked.isEmpty()) exec("hikRemoveCharacterObject", QJsonObject{{"args", QJsonArray{name_, definition_->picked}}});
-        });
-        side->addWidget(clear);
-        auto* mirror = new QPushButton("Mirror Matching");
-        mirror->setToolTip("Fill empty slots from their opposites");
-        connect(mirror, &QPushButton::clicked, this, [this] { if (!name_.isEmpty()) exec("hikMirrorMatching", QJsonObject{{"args", QJsonArray{name_}}}); });
-        side->addWidget(mirror);
-        auto* names = new QPushButton("Name Match from Selection...");
-        connect(names, &QPushButton::clicked, this, [this] { name_match(); });
-        side->addWidget(names);
-        status_ = new QPlainTextEdit;
-        status_->setReadOnly(true);
-        side->addWidget(status_, 1);
-        h->addLayout(side, 1);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(2);
+        for (const Tool& t : tools) {
+            auto* b = new QToolButton;
+            b->setText(t.text);
+            b->setToolTip(t.tip);
+            b->setAutoRaise(true);
+            connect(b, &QToolButton::clicked, this, t.fn);
+            h->addWidget(b);
+        }
+        h->addStretch(1);
         return w;
     }
+
+    // Skeleton: the reference's frames of a skeleton to make, Scale and Bones, Roll Bones, Finger Bones and Toe Bones.
+    QWidget* build_skeleton() {
+        auto* inner = new QWidget;
+        auto* v = new QVBoxLayout(inner);
+        v->setContentsMargins(2, 2, 2, 2);
+        auto form = [](QWidget* w) {
+            auto* f = new QFormLayout(w);
+            f->setLabelAlignment(Qt::AlignLeft);
+            return f;
+        };
+        auto spin = [this](const QString& key, int lo, int hi, int val) {
+            auto* s = new QSpinBox;
+            s->setRange(lo, hi);
+            s->setValue(val);
+            skel_ints_[key] = s;
+            return s;
+        };
+        auto check = [this](const QString& key, const QString& label, bool on) {
+            auto* c = new QCheckBox(label);
+            c->setChecked(on);
+            skel_checks_[key] = c;
+            return c;
+        };
+        auto* scale = new QWidget;
+        auto* f1 = form(scale);
+        scale_ = new QDoubleSpinBox;
+        scale_->setRange(.01, 100);
+        scale_->setValue(1);
+        f1->addRow("Character Scale", scale_);
+        f1->addRow("Spine", spin("spineCount", 1, 10, 3));
+        f1->addRow("Neck", spin("neckCount", 0, 10, 1));
+        f1->addRow("Shoulder / Clavicle", spin("shoulderCount", 0, 2, 1));
+        v->addWidget(section("Scale and Bones", scale));
+        auto* roll = new QWidget;
+        auto* f2 = form(roll);
+        f2->addRow("Upper-Arms", spin("upperArmRolls", 0, 5, 0));
+        f2->addRow("Lower-Arms", spin("lowerArmRolls", 0, 5, 0));
+        f2->addRow("Upper-Legs", spin("upperLegRolls", 0, 5, 0));
+        f2->addRow("Lower-Legs", spin("lowerLegRolls", 0, 5, 0));
+        v->addWidget(section("Roll Bones", roll));
+        auto digits = [&](const QString& title, const QStringList& keys, const QStringList& labels, const QList<bool>& on, const QString& bones, const QString& base,
+                          const QString& base_label, const QString& in, const QString& in_label) {
+            auto* w = new QWidget;
+            auto* g = new QGridLayout(w);
+            for (int i = 0; i < keys.size(); ++i) g->addWidget(check(keys[i], labels[i], on[i]), i / 2, i % 2);
+            const int r = (keys.size() + 1) / 2;
+            g->addWidget(new QLabel("Num Bones"), r, 0);
+            g->addWidget(spin(bones, 1, 4, 3), r, 1);
+            g->addWidget(check(base, base_label, false), r + 1, 0);
+            g->addWidget(check(in, in_label, false), r + 1, 1);
+            v->addWidget(section(title, w));
+        };
+        digits("Finger Bones", {"index", "middle", "ring", "pinky", "thumb", "extraFinger"}, {"Index", "Middle", "Ring", "Pinky", "Thumb", "Extra"}, {true, true, true, true, true, false},
+               "fingerBones", "fingerBase", "Finger-Base", "inHandBones", "In-Hand Bones");
+        digits("Toe Bones", {"toeIndex", "toeMiddle", "toeRing", "toePinky", "footThumb", "extraToe"}, {"Index", "Middle", "Ring", "Pinky", "Big Toe", "Foot-Thumb"},
+               {false, false, false, false, false, false}, "toeBones", "toeBase", "Toe-Base", "inFootBones", "In-Foot Bones");
+        skel_checks_["toeBase"]->setChecked(true);
+        auto* make = new QPushButton("Create Skeleton");
+        make->setToolTip("A humanoid skeleton in T-pose as set above, with a character definition for it");
+        connect(make, &QPushButton::clicked, this, [this] { create_skeleton(); });
+        v->addWidget(make);
+        v->addStretch(1);
+        auto* area = new QScrollArea;
+        area->setWidget(inner);
+        area->setWidgetResizable(true);
+        area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        return area;
+    }
+    void create_skeleton() {
+        bool ok = false;
+        const QString n = QInputDialog::getText(this, "Create Skeleton", "Name", QLineEdit::Normal, "Character1", &ok);
+        if (!ok || n.isEmpty()) return;
+        QJsonObject call{{"name", n}, {"character", true}, {"characterScale", scale_->value()}};
+        for (auto it = skel_ints_.begin(); it != skel_ints_.end(); ++it) call[it.key()] = it.value()->value();
+        for (auto it = skel_checks_.begin(); it != skel_checks_.end(); ++it) call[it.key()] = it.value()->isChecked();
+        exec("hikCreateSkeleton", call);
+    }
+
+    // Definition: the figure, the status, and the picked slot's joint with its values.
+    QWidget* build_definition() {
+        auto* inner = new QWidget;
+        auto* v = new QVBoxLayout(inner);
+        v->setContentsMargins(2, 2, 2, 2);
+        definition_ = new Figure(Figure::Definition);
+        definition_->picked_slot = [this](const QString& slot) {
+            // As the reference's: picking a slot selects its joint in the scene.
+            const QString j = slots_[slot].toString();
+            if (!j.isEmpty()) exec("select", QJsonObject{{"args", QJsonArray{j}}});
+            show_joint();
+        };
+        definition_->slot_menu = [this](const QString& slot, const QPoint& at) {
+            definition_->picked = slot;
+            QMenu m;
+            m.addAction("Assign Selected Bone", [this] { assign_selected(); });
+            m.addAction("Remove Assignment", [this, slot] {
+                if (!name_.isEmpty()) exec("hikRemoveCharacterObject", QJsonObject{{"args", QJsonArray{name_, slot}}});
+            });
+            m.addAction("Select Bone", [this, slot] {
+                if (!slots_[slot].toString().isEmpty()) exec("select", QJsonObject{{"args", QJsonArray{slots_[slot].toString()}}});
+            });
+            m.exec(at);
+        };
+        v->addWidget(definition_, 3);
+        v->addWidget(new QLabel("Status"));
+        status_ = new QPlainTextEdit;
+        status_->setReadOnly(true);
+        status_->setMaximumHeight(70);
+        v->addWidget(status_);
+        auto* grid = new QGridLayout;
+        grid->setVerticalSpacing(2);
+        int row = 0;
+        auto line = [&](const QString& label, int fields) {
+            grid->addWidget(new QLabel(label), row, 0, Qt::AlignRight);
+            QList<QLineEdit*> out;
+            for (int i = 0; i < fields; ++i) {
+                auto* e = new QLineEdit;
+                e->setReadOnly(true);
+                grid->addWidget(e, row, 1 + i * (3 / fields), 1, 3 / fields);
+                out << e;
+            }
+            ++row;
+            return out;
+        };
+        node_ = line("HumanIK node", 1)[0];
+        bone_ = line("Bone", 1)[0];
+        scene_sel_ = line("Scene Selection", 1)[0];
+        const QStringList three = {"Translate", "Rotate", "Scale", "Pre-rotate", "Post-rotate", "Min rot limit", "Max rot limit", "Parent offset R"};
+        for (const QString& t : three) vectors_[t] = line(t, 3);
+        order_ = line("Rotation order", 1)[0];
+        v->addLayout(grid);
+        auto* area = new QScrollArea;
+        area->setWidget(inner);
+        area->setWidgetResizable(true);
+        area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        return area;
+    }
+    // The picked slot's joint and its values, as the reference lists them under the figure.
+    void show_joint() {
+        const QString slot = definition_->picked;
+        const QString j = slots_[slot].toString();
+        node_->setText(slot.isEmpty() ? "No node selected." : slot);
+        bone_->setText(j);
+        const QJsonArray sel = ask("ls", QJsonObject{{"selection", true}}).toArray();
+        scene_sel_->setText(sel.isEmpty() ? QString() : sel.first().toString());
+        const QHash<QString, QString> attr = {{"Translate", "translate"}, {"Rotate", "rotate"}, {"Scale", "scale"}, {"Pre-rotate", "jointOrient"}, {"Post-rotate", "rotateAxis"},
+                                              {"Min rot limit", "minRotLimit"}, {"Max rot limit", "maxRotLimit"}, {"Parent offset R", "rotatePivot"}};
+        for (auto it = vectors_.begin(); it != vectors_.end(); ++it) {
+            const QJsonArray val = j.isEmpty() ? QJsonArray() : ask("getAttr", QJsonObject{{"args", QJsonArray{j + "." + attr[it.key()]}}}).toArray();
+            const QJsonArray xyz = !val.isEmpty() && val.first().isArray() ? val.first().toArray() : val;
+            for (int i = 0; i < 3; ++i) it.value()[i]->setText(i < xyz.size() ? QString::number(xyz[i].toDouble(), 'f', 2) : QString());
+        }
+        static const QStringList orders = {"xyz", "yzx", "zxy", "xzy", "yxz", "zyx"};
+        order_->setText(j.isEmpty() ? QString() : orders.value(ask("getAttr", QJsonObject{{"args", QJsonArray{j + ".rotateOrder"}}}).toInt()));
+    }
+
+    // Controls: the control rig's figure, sticks for the bones and circles for the effectors, and the HumanIK Controls frame.
     QWidget* build_controls() {
         auto* w = new QWidget;
         auto* v = new QVBoxLayout(w);
-        controls_ = new Figure;
-        controls_->clicked = [this](const QString& slot) {
-            if (name_.isEmpty()) return;
-            QString effector = slot;
-            if (slot.endsWith("Hand")) effector = slot + "Effector";
-            if (slot.endsWith("Foot")) effector = slot.chopped(4) + "AnkleEffector";
-            exec("select", QJsonObject{{"args", QJsonArray{QString("%1_Ctrl_%2").arg(name_, effector)}}});
-        };
+        v->setContentsMargins(2, 2, 2, 2);
+        controls_ = new Figure(Figure::Controls);
+        controls_->picked_slot = [this](const QString& slot) { select_control(slot); };
         v->addWidget(controls_, 1);
-        v->addWidget(new QLabel("Click a part to select its control. Create Control Rig makes them."));
+        auto* frame = new QWidget;
+        auto* f = new QFormLayout(frame);
+        auto slider = [&](const QString& label, bool works) {
+            auto* row = new QWidget;
+            auto* h = new QHBoxLayout(row);
+            h->setContentsMargins(0, 0, 0, 0);
+            auto* num = new QLabel("0.00");
+            auto* s = new QSlider(Qt::Horizontal);
+            s->setRange(0, 100);
+            s->setEnabled(works);
+            if (!works) s->setToolTip("Not in Aztek yet");
+            h->addWidget(num);
+            h->addWidget(s, 1);
+            f->addRow(label, row);
+            connect(s, &QSlider::valueChanged, num, [num](int x) { num->setText(QString::number(x / 100.0, 'f', 2)); });
+            return s;
+        };
+        blend_t_ = slider("IK Blend T", true);
+        slider("IK Blend R", false);
+        slider("IK Pull", false);
+        connect(blend_t_, &QSlider::sliderReleased, this, [this] {
+            if (!ik_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{ik_ + ".ikBlend", blend_t_->value() / 100.0}}});
+        });
+        v->addWidget(section("HumanIK Controls", frame));
         return w;
     }
-    QWidget* build_custom_rig() {
-        auto* w = new QWidget;
-        auto* v = new QVBoxLayout(w);
-        auto* note = new QLabel("Mapping a character to a rig's own controls is not here yet: the retarget drives joints. Bake to Skeleton leaves keys on them.");
-        note->setWordWrap(true);
-        v->addWidget(note);
-        v->addStretch(1);
-        return w;
+    // A click on the control rig figure: the effector for a hand or foot, else the bone's own control; a finger's stick
+    // its whole finger.
+    void select_control(const QString& slot) {
+        if (name_.isEmpty()) return;
+        QJsonArray pick;
+        ik_.clear();
+        auto ctrl = [this](const QString& s) { return QString("%1_Ctrl_%2").arg(name_, s); };
+        const bool exists_hand = slot == "LeftHand" || slot == "RightHand", exists_foot = slot == "LeftFoot" || slot == "RightFoot";
+        if (exists_hand || exists_foot) {
+            const QString side = slot.startsWith("Left") ? "Left" : "Right";
+            pick.append(ctrl(side + (exists_hand ? "HandEffector" : "AnkleEffector")));
+            ik_ = QString("%1_%2%3IK").arg(name_, side, exists_hand ? "Hand" : "Foot");
+        } else if (slot.contains("Hand") && slot.at(slot.size() - 1).isDigit()) {
+            const QString base = slot.chopped(1);
+            for (int b = 1; b <= 4; ++b) {
+                const QString s = base + QString::number(b);
+                if (slots_[s].toString().isEmpty()) continue;
+                const bool has_ctrl = ask("objExists", QJsonObject{{"args", QJsonArray{ctrl(s)}}}).toBool();
+                pick.append(has_ctrl ? ctrl(s) : slots_[s].toString());
+            }
+        } else {
+            const bool has_ctrl = ask("objExists", QJsonObject{{"args", QJsonArray{ctrl(slot)}}}).toBool();
+            pick.append(has_ctrl ? ctrl(slot) : slots_[slot].toString());
+        }
+        if (!ik_.isEmpty() && ask("objExists", QJsonObject{{"args", QJsonArray{ik_}}}).toBool()) {
+            const QSignalBlocker b(blend_t_);
+            blend_t_->setValue(int(ask("getAttr", QJsonObject{{"args", QJsonArray{ik_ + ".ikBlend"}}}).toDouble(1) * 100));
+        } else {
+            ik_.clear();
+        }
+        if (!pick.isEmpty()) exec("select", QJsonObject{{"args", pick}});
+    }
+    void load_template() {
+        const QString f = QFileDialog::getOpenFileName(this, "Load Skeleton Definition", QString(), "Templates (*.xml)");
+        if (!f.isEmpty()) exec("hikLoadTemplate", QJsonObject{{"args", QJsonArray{f, name_}}});
+    }
+    void save_template() {
+        const QString f = QFileDialog::getSaveFileName(this, "Save Skeleton Definition", QString(), "Templates (*.xml)");
+        if (!f.isEmpty()) exec("hikSaveTemplate", QJsonObject{{"args", QJsonArray{f, name_}}});
     }
     void set_prop(const QString& name, double v) {
         if (!updating_ && !property_node_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{property_node_ + "." + name, v}}});
@@ -411,19 +854,24 @@ private:
         }
         exec("setCharacterObject", QJsonObject{{"args", QJsonArray{sel.first().toString(), name_, definition_->picked, 0}}});
     }
-    void name_match() {
-        bool ok = false;
-        const QString p = QInputDialog::getText(this, "Name Match", "Prefix to ignore, such as mixamorig:", QLineEdit::Normal, "", &ok);
-        if (ok) exec("hikNameMatch", QJsonObject{{"character", name_}, {"prefix", p}});
-    }
     QComboBox* character_ = nullptr;
     QComboBox* source_ = nullptr;
-    QPushButton* lock_ = nullptr;
+    QStackedWidget* tools_ = nullptr;
     QTabWidget* tabs_ = nullptr;
     Figure* definition_ = nullptr;
     Figure* controls_ = nullptr;
-    QLineEdit* joint_ = nullptr;
     QPlainTextEdit* status_ = nullptr;
+    QLineEdit* node_ = nullptr;
+    QLineEdit* bone_ = nullptr;
+    QLineEdit* scene_sel_ = nullptr;
+    QLineEdit* order_ = nullptr;
+    QHash<QString, QList<QLineEdit*>> vectors_;
+    QDoubleSpinBox* scale_ = nullptr;
+    QHash<QString, QSpinBox*> skel_ints_;
+    QHash<QString, QCheckBox*> skel_checks_;
+    QSlider* blend_t_ = nullptr;
+    QString ik_;
+    QJsonObject slots_;
     QString name_, property_node_;
     QHash<QString, QDoubleSpinBox*> prop_spins_;
     QHash<QString, QCheckBox*> prop_checks_;

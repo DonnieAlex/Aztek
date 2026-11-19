@@ -94,3 +94,26 @@ fn retarget_and_bake() {
     run(&mut s, "currentTime", json!({"args": [10]}));
     assert!(pos(&mut s, "Dst_LeftHand")[1] > 150.0, "{:?}", pos(&mut s, "Dst_LeftHand"));
 }
+
+/// The Skeleton tab's choices (#168): neck and shoulder joints, roll bones, which fingers and toes and how many bones
+/// each, the base and in-hand bones; each in its slot of the definition.
+#[test]
+fn skeleton_tab_choices() {
+    let mut s = Session::new();
+    let call = json!({"name": "Hero", "character": true, "characterScale": 2.0, "spineCount": 4, "neckCount": 2, "shoulderCount": 2,
+        "upperArmRolls": 2, "lowerArmRolls": 1, "upperLegRolls": 3, "lowerLegRolls": 0, "thumb": true, "index": true, "middle": false,
+        "ring": false, "pinky": true, "fingerBones": 2, "fingerBase": true, "inHandBones": true, "footThumb": true, "toeBones": 1, "toeBase": true});
+    run(&mut s, "hikCreateSkeleton", call);
+    assert!((pos(&mut s, "Hero_Hips")[1] - 190.0).abs() < 1e-6);
+    for (slot, joint) in [
+        ("Spine3", "Hero_Spine3"), ("Neck1", "Hero_Neck1"), ("LeftShoulderExtra", "Hero_LeftShoulderExtra"),
+        ("LeafLeftArmRoll2", "Hero_LeafLeftArmRoll2"), ("LeafRightForeArmRoll1", "Hero_LeafRightForeArmRoll1"), ("LeafLeftUpLegRoll3", "Hero_LeafLeftUpLegRoll3"),
+        ("LeftHandPinky2", "Hero_LeftHandPinky2"), ("LeftFingerBase", "Hero_LeftFingerBase"), ("RightInHandThumb", "Hero_RightInHandThumb"),
+        ("LeftFootThumb1", "Hero_LeftFootThumb1"), ("RightToeBase", "Hero_RightToeBase"),
+    ] {
+        assert_eq!(run(&mut s, "hikGetSkNode", json!({"args": ["Hero", slot]})), json!(joint), "{slot}");
+    }
+    for missing in ["Hero_LeftHandMiddle1", "Hero_LeftHandPinky3", "Hero_LeafLeftLegRoll1", "Hero_LeftFootThumb2"] {
+        assert_eq!(run(&mut s, "objExists", json!({"args": [missing]})), json!(false), "{missing}");
+    }
+}

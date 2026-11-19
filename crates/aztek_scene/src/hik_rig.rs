@@ -282,8 +282,20 @@ fn read_template(text: &str) -> Vec<(String, String)> {
 
 fn make_skeleton(s: &mut Session, a: &Args) -> CmdResult {
     let name = a.string("name", "Character1");
-    let h = a.float("height", 170.0) / 170.0;
-    let spines = a.int("spineCount", 3).clamp(1, 6);
+    let h = a.float("height", 170.0) / 170.0 * a.float("characterScale", 1.0);
+    let spines = a.int("spineCount", 3).clamp(1, 10);
+    let necks = a.int("neckCount", 1).clamp(0, 10);
+    let shoulders = a.int("shoulderCount", 1).clamp(0, 2);
+    let rolls = |k: &str| a.int(k, 0).clamp(0, 5);
+    // Fingers and toes as the Skeleton tab picks them: which digits, how many bones each, and the base and in-hand ones.
+    let digits = ["Thumb", "Index", "Middle", "Ring", "Pinky", "ExtraFinger"];
+    let finger_flags = ["thumb", "index", "middle", "ring", "pinky", "extraFinger"];
+    let toe_flags = ["footThumb", "toeIndex", "toeMiddle", "toeRing", "toePinky", "extraToe"];
+    let any_finger = a.bool("fingers");
+    let fingers: Vec<bool> = finger_flags.iter().enumerate().map(|(k, f)| a.has(f).then(|| a.bool(f)).unwrap_or(any_finger && k < 5)).collect();
+    let toes: Vec<bool> = toe_flags.iter().map(|f| a.bool(f)).collect();
+    let finger_bones = a.int("fingerBones", 3).clamp(1, 4);
+    let toe_bones = a.int("toeBones", 3).clamp(1, 4);
     let mut out: Vec<String> = Vec::new();
     let mut slots: BTreeMap<String, String> = BTreeMap::new();
     let mut joint = |s: &mut Session, slot: &str, parent: Option<&str>, p: [f64; 3]| -> CmdResult<String> {
@@ -298,6 +310,7 @@ fn make_skeleton(s: &mut Session, a: &Args) -> CmdResult {
         out.push(made.clone());
         Ok(made)
     };
+    let lerp = |a: [f64; 3], b: [f64; 3], t: f64| [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     let hips = joint(s, "Hips", None, [0.0, 95.0, 0.0])?;
     let mut last = hips.clone();
     for i in 0..spines {
@@ -305,26 +318,73 @@ fn make_skeleton(s: &mut Session, a: &Args) -> CmdResult {
         last = joint(s, &slot, Some(&last), [0.0, 95.0 + 45.0 * (i + 1) as f64 / spines as f64, 0.0])?;
     }
     let chest = last.clone();
-    let neck = joint(s, "Neck", Some(&chest), [0.0, 148.0, 0.0])?;
-    joint(s, "Head", Some(&neck), [0.0, 158.0, 0.0])?;
+    let mut top = chest.clone();
+    for i in 0..necks {
+        let slot = if i == 0 { "Neck".to_string() } else { format!("Neck{i}") };
+        top = joint(s, &slot, Some(&top), [0.0, 146.0 + 9.0 * i as f64 / necks as f64, 0.0])?;
+    }
+    joint(s, "Head", Some(&top), [0.0, 158.0, 0.0])?;
     for (side, x) in [("Left", 1.0), ("Right", -1.0)] {
-        let sh = joint(s, &format!("{side}Shoulder"), Some(&chest), [x * 6.0, 142.0, 0.0])?;
-        let arm = joint(s, &format!("{side}Arm"), Some(&sh), [x * 18.0, 142.0, 0.0])?;
-        let fore = joint(s, &format!("{side}ForeArm"), Some(&arm), [x * 45.0, 142.0, -1.0])?;
-        let hand = joint(s, &format!("{side}Hand"), Some(&fore), [x * 70.0, 142.0, 0.0])?;
-        if a.bool("fingers") {
-            for (k, fname) in ["Thumb", "Index", "Middle", "Ring", "Pinky"].iter().enumerate() {
-                let z = 3.0 - k as f64 * 1.5;
-                let mut prev = hand.clone();
-                for seg in 1..=3 {
-                    prev = joint(s, &format!("{side}Hand{fname}{seg}"), Some(&prev), [x * (72.0 + seg as f64 * 2.5), 142.0, z])?;
-                }
+        let mut from = chest.clone();
+        for k in 0..shoulders {
+            let slot = if k == 0 { format!("{side}Shoulder") } else { format!("{side}ShoulderExtra") };
+            from = joint(s, &slot, Some(&from), [x * (4.0 + 7.0 * k as f64), 142.0, 0.0])?;
+        }
+        let (pa, pf, ph) = ([x * 18.0, 142.0, 0.0], [x * 45.0, 142.0, -1.0], [x * 70.0, 142.0, 0.0]);
+        let arm = joint(s, &format!("{side}Arm"), Some(&from), pa)?;
+        let fore = joint(s, &format!("{side}ForeArm"), Some(&arm), pf)?;
+        let hand = joint(s, &format!("{side}Hand"), Some(&fore), ph)?;
+        // Roll bones, children of the bone they twist with, along it.
+        for (seg, parent, a0, a1, flag) in [("Arm", &arm, pa, pf, "upperArmRolls"), ("ForeArm", &fore, pf, ph, "lowerArmRolls")] {
+            let n = rolls(flag);
+            for k in 1..=n {
+                joint(s, &format!("Leaf{side}{seg}Roll{k}"), Some(parent), lerp(a0, a1, k as f64 / (n + 1) as f64))?;
             }
         }
-        let up = joint(s, &format!("{side}UpLeg"), Some(&hips), [x * 9.0, 90.0, 0.0])?;
-        let leg = joint(s, &format!("{side}Leg"), Some(&up), [x * 9.0, 50.0, 1.0])?;
-        let foot = joint(s, &format!("{side}Foot"), Some(&leg), [x * 9.0, 8.0, 0.0])?;
-        joint(s, &format!("{side}ToeBase"), Some(&foot), [x * 9.0, 2.0, 12.0])?;
+        let mut base = hand.clone();
+        if a.bool("fingerBase") {
+            base = joint(s, &format!("{side}FingerBase"), Some(&hand), [x * 72.0, 142.0, 0.0])?;
+        }
+        for (k, d) in digits.iter().enumerate() {
+            if !fingers[k] {
+                continue;
+            }
+            let z = 3.0 - k as f64 * 1.5;
+            let mut prev = base.clone();
+            if a.bool("inHandBones") {
+                prev = joint(s, &format!("{side}InHand{d}"), Some(&prev), [x * 73.0, 142.0, z])?;
+            }
+            for b in 1..=finger_bones {
+                prev = joint(s, &format!("{side}Hand{d}{b}"), Some(&prev), [x * (74.0 + b as f64 * 2.5), 142.0, z])?;
+            }
+        }
+        let (pu, pl, pft) = ([x * 9.0, 90.0, 0.0], [x * 9.0, 50.0, 1.0], [x * 9.0, 8.0, 0.0]);
+        let up = joint(s, &format!("{side}UpLeg"), Some(&hips), pu)?;
+        let leg = joint(s, &format!("{side}Leg"), Some(&up), pl)?;
+        let foot = joint(s, &format!("{side}Foot"), Some(&leg), pft)?;
+        for (seg, parent, a0, a1, flag) in [("UpLeg", &up, pu, pl, "upperLegRolls"), ("Leg", &leg, pl, pft, "lowerLegRolls")] {
+            let n = rolls(flag);
+            for k in 1..=n {
+                joint(s, &format!("Leaf{side}{seg}Roll{k}"), Some(parent), lerp(a0, a1, k as f64 / (n + 1) as f64))?;
+            }
+        }
+        let mut toe_from = foot.clone();
+        if a.bool("toeBase") || toes.iter().all(|t| !t) {
+            toe_from = joint(s, &format!("{side}ToeBase"), Some(&foot), [x * 9.0, 2.0, 12.0])?;
+        }
+        for (k, d) in digits.iter().enumerate() {
+            if !toes[k] {
+                continue;
+            }
+            let off = x * (12.0 - k as f64 * 1.2);
+            let mut prev = toe_from.clone();
+            if a.bool("inFootBones") {
+                prev = joint(s, &format!("{side}InFoot{d}"), Some(&prev), [off, 2.0, 13.0])?;
+            }
+            for b in 1..=toe_bones {
+                prev = joint(s, &format!("{side}Foot{d}{b}"), Some(&prev), [off, 1.5, 13.0 + b as f64 * 2.0])?;
+            }
+        }
     }
     s.run("select", json!({"args": [hips]}))?;
     if a.bool("character") {

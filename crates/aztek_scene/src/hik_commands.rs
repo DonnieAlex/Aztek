@@ -40,7 +40,32 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("height", "h", ArgType::Float, "Height (170)."))
             .flag(f("spineCount", "sc", ArgType::Int, "Spine joints (3)."))
             .flag(f("fingers", "fg", ArgType::Bool, "Fingers too."))
-            .flag(f("character", "ch", ArgType::Bool, "Make the character definition too.")),
+            .flag(f("character", "ch", ArgType::Bool, "Make the character definition too."))
+            .flag(f("characterScale", "cs", ArgType::Float, "Scale of the whole skeleton (1)."))
+            .flag(f("neckCount", "nc", ArgType::Int, "Neck joints (1)."))
+            .flag(f("shoulderCount", "shc", ArgType::Int, "Shoulder joints each side, 0 to 2 (1)."))
+            .flag(f("upperArmRolls", "uar", ArgType::Int, "Roll bones in each upper arm, 0 to 5."))
+            .flag(f("lowerArmRolls", "lar", ArgType::Int, "Roll bones in each forearm, 0 to 5."))
+            .flag(f("upperLegRolls", "ulr", ArgType::Int, "Roll bones in each thigh, 0 to 5."))
+            .flag(f("lowerLegRolls", "llr", ArgType::Int, "Roll bones in each lower leg, 0 to 5."))
+            .flag(f("thumb", "th", ArgType::Bool, "A thumb on each hand."))
+            .flag(f("index", "ix", ArgType::Bool, "An index finger."))
+            .flag(f("middle", "md", ArgType::Bool, "A middle finger."))
+            .flag(f("ring", "rg", ArgType::Bool, "A ring finger."))
+            .flag(f("pinky", "pk", ArgType::Bool, "A pinky."))
+            .flag(f("extraFinger", "xf", ArgType::Bool, "An extra finger."))
+            .flag(f("fingerBones", "fb", ArgType::Int, "Bones in each finger, 1 to 4 (3)."))
+            .flag(f("fingerBase", "fbs", ArgType::Bool, "A finger base joint in each hand."))
+            .flag(f("inHandBones", "ihb", ArgType::Bool, "An in-hand bone before each finger."))
+            .flag(f("footThumb", "ft", ArgType::Bool, "A big toe (foot thumb) on each foot."))
+            .flag(f("toeIndex", "ti", ArgType::Bool, "An index toe."))
+            .flag(f("toeMiddle", "tm", ArgType::Bool, "A middle toe."))
+            .flag(f("toeRing", "tr", ArgType::Bool, "A ring toe."))
+            .flag(f("toePinky", "tp", ArgType::Bool, "A pinky toe."))
+            .flag(f("extraToe", "xt", ArgType::Bool, "An extra toe."))
+            .flag(f("toeBones", "tb", ArgType::Int, "Bones in each toe, 1 to 4 (3)."))
+            .flag(f("toeBase", "tbs", ArgType::Bool, "A toe base joint in each foot (made anyway when there are no toes)."))
+            .flag(f("inFootBones", "ifb", ArgType::Bool, "An in-foot bone before each toe.")),
     );
     let create = |s: &mut Session, a: &Args| -> CmdResult {
         let names = aztek_ops::objects(s, a);
