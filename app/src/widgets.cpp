@@ -23,6 +23,8 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
+#include <QHash>
 #include <QListWidget>
 #include <QMouseEvent>
 #include <QPainter>
@@ -137,7 +139,9 @@ void OptionsDialog::open(const QString& command, const QString& title, const QJs
 // Owned by the main window, whatever was active when it opened: it stays above the main window, also after Reset
 // Settings opens it again (#139).
 OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDialog(main_window_widget()), command_(command) {
-    setWindowTitle(title + " Options");
+    // Callers pass the window's name without "Options" (#181); one that already ends in it isn't doubled.
+    QString base = title.endsWith(" Options") ? title.chopped(8) : title;
+    setWindowTitle(base + " Options");
     // Edit holds Save and Reset Settings, as in every option window of the reference (#139).
     auto* bar = new QMenuBar(this);
     QMenu* edit = bar->addMenu("Edit");
@@ -354,7 +358,9 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
     lay->addLayout(form);
     lay->addStretch(1);
     auto* buttons = new QHBoxLayout();
-    auto* apply_close = new QPushButton(title, this);
+    // The first button names what the command does, as in the reference: Delete for Delete Non Deformer History.
+    static const QHash<QString, QString> action_labels = {{"bakePartialHistory", "Delete"}};
+    auto* apply_close = new QPushButton(action_labels.value(command, base), this);
     auto* apply = new QPushButton("Apply", this);
     auto* close_button = new QPushButton("Close", this);
     buttons->addWidget(apply_close);
@@ -383,6 +389,12 @@ OptionsDialog::OptionsDialog(const QString& command, const QString& title) : QDi
         const QPoint at = pos();
         close();
         OptionsDialog::open(cmd, title, fixed, at);
+    });
+    // Help, beside Edit, as every option window of the reference has (#181).
+    QMenu* help = bar->addMenu("Help");
+    const QString doc_text = def["doc"].toString();
+    help->addAction("Help on " + base + "...", this, [this, base, doc_text] {
+        QMessageBox::information(this, base, doc_text.isEmpty() ? base : doc_text);
     });
     resize(440, sizeHint().height());
 }

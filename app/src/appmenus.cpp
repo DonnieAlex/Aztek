@@ -483,7 +483,7 @@ QMenu* MainWindow::edit_menu() {
     QMenu* by_type = m->addMenu("Delete by Type");
     cmd(by_type, "History", "delete", QJsonObject{{"constructionHistory", true}}, "Alt+Shift+D");
     // As the reference's: the runtime command, which runs doBakeNonDefHistory with the option box's choice (#172).
-    by_type->addAction(new OptionRow("Non-Deformer History", "", [] { mel("BakeNonDefHistory;"); }, [] { OptionsDialog::open("bakePartialHistory", "Delete Non Deformer History Options"); }, by_type));
+    by_type->addAction(new OptionRow("Non-Deformer History", "", [] { mel("BakeNonDefHistory;"); }, [] { OptionsDialog::open("bakePartialHistory", "Delete Non Deformer History"); }, by_type));
     cmd(by_type, "Channels", "cutKey");
     cmd(by_type, "Static Channels", "delete", QJsonObject{{"staticChannels", true}});
     by_type->addAction("Constraints", [] {
@@ -500,7 +500,7 @@ QMenu* MainWindow::edit_menu() {
         c["constructionHistory"] = true;
         exec("delete", c);
     });
-    all_type->addAction(new OptionRow("Non-Deformer History", "", [] { mel("BakeAllNonDefHistory;"); }, [] { OptionsDialog::open("bakePartialHistory", "Delete Non Deformer History Options"); }, all_type));
+    all_type->addAction(new OptionRow("Non-Deformer History", "", [] { mel("BakeAllNonDefHistory;"); }, [] { OptionsDialog::open("bakePartialHistory", "Delete Non Deformer History"); }, all_type));
     for (const char* t : {"joint", "ikHandle", "nurbsCurve", "locator", "camera"}) {
         QString ty = t;
         QString label = ty.left(1).toUpper() + ty.mid(1) + "s";

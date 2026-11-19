@@ -1715,6 +1715,12 @@ buttons that changes with the tab, then Skeleton, Definition, Controls and Prope
 
 The figures are Aztek's own drawings.
 
+### Option windows name themselves once, and Delete Non Deformer History's button says Delete (19/11/2026, #181)
+
+The Delete Non Deformer History option window was titled "Delete Non Deformer History Options Options" and its first
+button carried the whole title. As in the reference, the title says "Options" once, the buttons are Delete, Apply and
+Close, and the window has Help beside Edit.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
