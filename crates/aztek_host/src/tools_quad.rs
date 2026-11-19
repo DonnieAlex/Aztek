@@ -272,6 +272,43 @@ fn vertex_at(core: &mut Core, shape: NodeId, w: DVec3) -> Option<Index> {
     (0..m.point_capacity()).filter(|&p| m.point_valid(p)).min_by(|&x, &y| (m.position(x) - local).length().total_cmp(&(m.position(y) - local).length())).filter(|&p| (m.position(p) - local).length() < 1e-5)
 }
 
+/// How many points a mesh shape has room for now: points numbered from here on are new.
+pub(crate) fn point_count(core: &mut Core, shape: NodeId) -> Index {
+    core.s.graph.evaluate();
+    mesh_of(&core.s.graph, shape).map(|m| m.point_capacity()).unwrap_or(0)
+}
+
+/// With a live surface, the points an edit just made on a mesh, numbered from `from` on, go onto it at their closest
+/// point (#163): Quad Draw's and Multi-Cut's new loops and cuts lie on the surface, not across its curve. Part of the
+/// edit's undo step when the caller opened one.
+pub(crate) fn snap_new_points_to_live(core: &mut Core, shape: NodeId, from: Index) {
+    let Some(&live) = core.s.live_surface.first() else { return };
+    if live == shape {
+        return;
+    }
+    let g = &mut core.s.graph;
+    g.evaluate();
+    let (Some(surface), Some(m)) = (mesh_of(g, live), mesh_of(g, shape)) else { return };
+    let live_world = { let xf = aztek_scene::dag::transform_of(g, live); aztek_scene::rig::world(g, xf) };
+    let world = { let xf = aztek_scene::dag::transform_of(g, shape); aztek_scene::rig::world(g, xf) };
+    let mut ws = (*surface).clone();
+    for p in 0..ws.point_capacity() {
+        if ws.point_valid(p) {
+            let at = live_world.transform_point3(ws.position(p));
+            ws.set_position(p, at);
+        }
+    }
+    let bvh = aztek_geo::bvh::MeshBvh::new(&ws);
+    let name = components::display_path(g, shape);
+    let moves: Vec<(Index, DVec3)> = (from..m.point_capacity())
+        .filter(|&p| m.point_valid(p))
+        .filter_map(|p| bvh.closest_point(world.transform_point3(m.position(p))).map(|c| (p, c.point)))
+        .collect();
+    for (p, at) in moves {
+        let _ = core.exec_silent("xform", json!({"args": [format!("{name}.vtx[{p}]")], "worldSpace": true, "translation": at.to_array()}));
+    }
+}
+
 impl View {
     /// A middle press in Quad Draw with no live surface: a dot or a vertex under the mouse starts moving along its
     /// normal, a dot's being the grid's up.
@@ -513,11 +550,19 @@ impl View {
                 call["insertWithEdgeFlow"] = json!(true);
                 call["adjustEdgeFlow"] = json!(c.edge_flow_amount);
             }
+            let from = point_count(core, shape);
+            let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
             let _ = core.exec("polySplitRing", call);
+            snap_new_points_to_live(core, shape, from);
+            let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
             let _ = core.exec_silent("select", json!({"clear": true}));
             return;
         }
+        let from = point_count(core, shape);
+        let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
         let _ = core.exec("polyKnife", json!({"mesh": name, "loopEdge": e, "fraction": t, "select": false}));
+        snap_new_points_to_live(core, shape, from);
+        let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
     }
 
     /// Multi-Cut's middle drag across the surface: the line drawn, Shift turning it in 45 degree steps.

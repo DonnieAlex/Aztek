@@ -1656,6 +1656,13 @@ built-in plug-ins now answer -dependNode. Of the reference plug-in's own command
 and hikGetNodeIdFromName are here; the rest of its list (HIKComputeReference, GetHIKChildId, hikBodyPart, the
 character state nodes and data types, and so on) is still to do.
 
+### New points from Quad Draw and Multi-Cut go onto the live surface (19/11/2026, #163)
+
+With a live surface, the points a cut or a new loop makes go onto it at their closest point, in the same undo step: Quad
+Draw's Ctrl loop, Multi-Cut's clicked cuts and its Ctrl loops (with or without edge flow or subdivisions), and the
+Insert Edge Loop tool. Before, they lay on the old edges, across the surface's curve. Quad Draw's own dots and strips
+already sat on it.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

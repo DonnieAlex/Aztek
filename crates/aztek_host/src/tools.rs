@@ -203,7 +203,13 @@ impl View {
                     let name = core.s.graph.path(mesh);
                     let eye = self.vp.cam.eye();
                     let call = json!({"mesh": name, "points": points, "eye": [eye.x, eye.y, eye.z], "select": false});
+                    // On a live surface the cut's new points go onto it (#163).
+                    let shape = aztek_scene::components::as_mesh(&core.s.graph, mesh).unwrap_or(mesh);
+                    let from = crate::tools_quad::point_count(core, shape);
+                    let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
                     let _ = core.exec("polyKnife", call);
+                    crate::tools_quad::snap_new_points_to_live(core, shape, from);
+                    let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
                 }
             }
             Tool::CreatePolygon => {
@@ -476,7 +482,11 @@ impl View {
                 let Some((mesh, e, t)) = self.ts.edge.take() else { return false };
                 let name = components::display_path(&core.s.graph, mesh);
                 let _ = core.exec("select", json!({"args": [format!("{name}.e[{e}]")]}));
+                let from = crate::tools_quad::point_count(core, mesh);
+                let _ = core.exec_silent("undoInfo", json!({"openChunk": true}));
                 let _ = core.exec("polyInsertLoop", json!({"fraction": t}));
+                crate::tools_quad::snap_new_points_to_live(core, mesh, from);
+                let _ = core.exec_silent("undoInfo", json!({"closeChunk": true}));
                 self.tool_preview_clear();
                 true
             }
