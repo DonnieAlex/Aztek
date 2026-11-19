@@ -37,6 +37,9 @@ sha2 = "0.10"
 libm = "0.2"
 # The viewport's text: glyphs drawn from a real font, readable on any screen.
 ab_glyph = "0.2"
+# The report window's short videos: H.264 in an MP4, small enough for a GitHub comment (#153).
+openh264 = "0.9"
+mp4 = "0.14"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

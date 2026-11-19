@@ -1803,6 +1803,13 @@ that panel's Undock Tab and Close Tab rather than the list of every panel and ba
 As in the reference, a second Outliner sits under the first, closed: drag the bottom edge of the Outliner up to bring
 it out and look at one part of a long hierarchy in each.
 
+### Short videos in the report window (19/11/2026, #153)
+
+This doesn't feel right! can include a video: tick Include a video, choose 3, 5 or 10 seconds and a delay, and press
+Record. The window steps aside, a count shows in the corner, and the windows of Aztek are recorded at 720p and 24
+frames a second as H.264 in an MP4 (about 3 MB for ten seconds, well under GitHub's 10 MB). Play shows it; Open on
+GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

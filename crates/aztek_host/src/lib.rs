@@ -40,6 +40,7 @@ pub mod ui_cmds;
 pub mod update;
 pub mod environment;
 pub mod user_folder;
+pub mod video;
 pub mod text;
 pub mod view;
 pub mod usd_view;

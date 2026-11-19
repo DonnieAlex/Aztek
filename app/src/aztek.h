@@ -63,6 +63,11 @@ void aztek_image_free(unsigned char* data, int width, int height);
 // kept snapshot (index >= 0) as RGBA after exposure and gamma (free with aztek_image_free), and batch rendering from
 // the command line with no display (`aztek -render ...`), returning the exit code.
 char* aztek_render_status(void);
+// The report window's videos (#153): begin gives a handle (null if it can't), frame takes width x height RGBA rows
+// stride bytes apart (0 on success), end writes the MP4 when keep is non-zero and returns its size, or -1.
+void* aztek_video_begin(const char* path, int width, int height, int fps, int bits_per_second);
+int aztek_video_frame(void* video, const unsigned char* rgba, int stride);
+long long aztek_video_end(void* video, int keep);
 unsigned char* aztek_render_image(const char* aov, int snapshot, double exposure, double gamma, int* width, int* height);
 int aztek_render_batch(int argc, const char* const* argv);
 int aztek_batch(int argc, const char* const* argv);

@@ -21,6 +21,7 @@
 #include <QMimeData>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QElapsedTimer>
 #include <QTabBar>
 #include <QHBoxLayout>
 #include <QImage>
@@ -69,7 +70,9 @@ const char* const kPublicWarning =
 const char* const kSceneWarning =
     "The scene file holds the names of everything in it and may hold file paths. Referenced files and textures are not included.";
 const qint64 kFileLimit = 25 * 1024 * 1024; // GitHub's limit for attached files.
-const qint64 kImageLimit = 10 * 1024 * 1024; // And for images.
+const qint64 kImageLimit = 10 * 1024 * 1024; // And for images, and videos.
+// A report's video (#153): 720p at 24 frames a second, 3, 5 or 10 seconds, at a rate that keeps 10 seconds near 3 MB.
+const int kVideoWidth = 1280, kVideoHeight = 720, kVideoFps = 24, kVideoBits = 2500000;
 const char* const kOwnWindow = "feedbackWindow";
 
 // Whichever windows of the app are showing, viewports included, on one picture at their places on the screen. Report
@@ -519,7 +522,7 @@ bool open_link(const QString& url) {
 class NextSteps : public QDialog {
 public:
     NextSteps(QWidget* parent, const QString& url, const QString& full_text, const QList<QImage>& pictures, const QString& folder, const QString& file_to_show,
-              const QString& picture_note, bool shortened, bool opened, bool has_zip) : QDialog(parent), pictures_(pictures) {
+              const QString& picture_note, bool shortened, bool opened, bool has_zip, bool has_video = false) : QDialog(parent), pictures_(pictures) {
         const QImage picture = pictures.isEmpty() ? QImage() : pictures.first();
         setAttribute(Qt::WA_DeleteOnClose);
         setProperty(kOwnWindow, true);
@@ -535,6 +538,7 @@ public:
         if (pictures.size() > 1)
             steps << QString("Click in the description box and press Ctrl+V to add the first picture; it is on the clipboard. Copy each of the others with its button below and paste it the same way, or drag the %1 PNGs in from the folder.").arg(pictures.size());
         if (!picture_note.isEmpty()) steps << picture_note;
+        if (has_video) steps << "Drag <b>aztek-video.mp4</b> from the folder onto the description box.";
         if (has_zip) steps << "Drag <b>aztek-scene.zip</b> from the folder onto the description box.";
         steps << "Read it through, then press <b>Submit new issue</b>. Nothing is public until you do.";
         QString html = "<ol style=\"margin-left: 0px; -qt-list-indent: 1;\">";
@@ -625,10 +629,49 @@ public:
         shot_tick_->setObjectName("feedbackScreenshot");
         scene_tick_ = new QCheckBox("Include my current scene file", this);
         scene_tick_->setObjectName("feedbackScene");
+        video_tick_ = new QCheckBox("Include a video", this);
+        video_tick_->setObjectName("feedbackVideo");
         ticks->addWidget(shot_tick_);
+        ticks->addWidget(video_tick_);
         ticks->addWidget(scene_tick_);
         ticks->addStretch(1);
         left->addLayout(ticks);
+
+        // The video: a few seconds of the windows, recorded after the delay with this window out of the way (#153).
+        video_box_ = new QWidget(this);
+        auto* video_row = new QHBoxLayout(video_box_);
+        video_row->setContentsMargins(0, 0, 0, 0);
+        video_length_ = new QComboBox(video_box_);
+        video_length_->setObjectName("feedbackVideoLength");
+        for (int sec : {3, 5, 10}) video_length_->addItem(QString("%1 seconds").arg(sec), sec);
+        video_length_->setCurrentIndex(qBound(0, QSettings().value("feedback/videoLength", 1).toInt(), 2));
+        connect(video_length_, &QComboBox::currentIndexChanged, this, [](int i) { QSettings().setValue("feedback/videoLength", i); });
+        video_delay_ = new QSpinBox(video_box_);
+        video_delay_->setObjectName("feedbackVideoDelay");
+        video_delay_->setRange(0, 30);
+        video_delay_->setSuffix(" s");
+        video_delay_->setPrefix("Delay ");
+        video_delay_->setToolTip("How long to wait before recording starts, with a count in the corner of the screen.");
+        video_delay_->setValue(QSettings().value("feedback/videoDelay", 3).toInt());
+        connect(video_delay_, &QSpinBox::valueChanged, this, [](int v) { QSettings().setValue("feedback/videoDelay", v); });
+        auto* record = new QPushButton("Record", video_box_);
+        record->setObjectName("feedbackRecord");
+        record->setAutoDefault(false);
+        record->setToolTip("Hides this window, waits the delay and records the windows of Aztek: 720p, 24 frames a second.");
+        connect(record, &QPushButton::clicked, this, &FeedbackDialog::record_later);
+        video_play_ = new QPushButton("Play", video_box_);
+        video_play_->setAutoDefault(false);
+        video_play_->setEnabled(false);
+        connect(video_play_, &QPushButton::clicked, this, [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(video_path_)); });
+        video_state_ = new QLabel("Not recorded yet.", video_box_);
+        video_state_->setObjectName("feedbackVideoState");
+        video_row->addWidget(video_length_);
+        video_row->addWidget(video_delay_);
+        video_row->addWidget(record);
+        video_row->addWidget(video_play_);
+        video_row->addWidget(video_state_, 1);
+        video_box_->hide();
+        left->addWidget(video_box_);
 
         warning_ = new QLabel(this);
         warning_->setObjectName("feedbackWarning");
@@ -751,6 +794,7 @@ public:
         // clicked and not toggled: only the person's own click asks, and declining unticks without asking again.
         connect(shot_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(shot_tick_, on, false); });
         connect(scene_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(scene_tick_, on, true); });
+        connect(video_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(video_tick_, on, false); });
         // The theme's placeholder colour is too dim to read here, and this text matters.
         QPalette hint = text_->palette();
         hint.setColor(QPalette::PlaceholderText, QColor(165, 165, 165));
@@ -784,7 +828,7 @@ private:
         if (on && !QSettings().value(skip, false).toBool()) {
             QMessageBox ask(this);
             ask.setIcon(QMessageBox::Warning);
-            ask.setWindowTitle(scene ? "Include Your Scene File?" : "Include a Screenshot?");
+            ask.setWindowTitle(scene ? "Include Your Scene File?" : box == video_tick_ ? "Include a Video?" : "Include a Screenshot?");
             ask.setText(QString("<b>%1</b>").arg(kPublicWarning));
             if (scene) ask.setInformativeText(kSceneWarning);
             QPushButton* yes = ask.addButton("I Understand, Include It", QMessageBox::AcceptRole);
@@ -797,6 +841,7 @@ private:
             if (ask.clickedButton() != yes) box->setChecked(false);
             else if (never->isChecked()) QSettings().setValue(skip, true);
         }
+        video_box_->setVisible(video_tick_->isChecked());
         const bool shot = shot_tick_->isChecked();
         if (shot != picture_box_->isVisible()) {
             if (shot) narrow_width_ = width();
@@ -828,6 +873,7 @@ private:
     QStringList ticked_attachments() const {
         QStringList out;
         if (shot_tick_->isChecked()) out << (doc_->count() > 1 ? QString("%1 pictures").arg(doc_->count()) : QString("screenshot"));
+        if (video_tick_->isChecked() && !video_path_.isEmpty()) out << "video";
         if (scene_tick_->isChecked()) out << "scene file (zip)";
         return out;
     }
@@ -840,7 +886,7 @@ private:
         preview_->setPlainText(has_text ? "Title: " + report_["title"].toString() + "\n\n" + report_["body"].toString() : QString());
         short_note_->setVisible(shortened);
         copy_full_->setVisible(shortened);
-        const bool warn = shot_tick_->isChecked() || scene_tick_->isChecked();
+        const bool warn = shot_tick_->isChecked() || video_tick_->isChecked() || scene_tick_->isChecked();
         if (warn) {
             QString text = kPublicWarning;
             if (scene_tick_->isChecked()) text += QString(" ") + kSceneWarning;
@@ -907,11 +953,116 @@ private:
         tick->start(1000);
     }
 
+    // A count in the corner of the main window, for the screenshot's and the video's delays.
+    QLabel* corner_label(const QString& colour) {
+        auto* l = new QLabel(nullptr, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
+        l->setAttribute(Qt::WA_ShowWithoutActivating);
+        l->setAttribute(Qt::WA_TransparentForMouseEvents);
+        l->setProperty(kOwnWindow, true);
+        l->setStyleSheet(QString("QLabel { background: %1; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px; }").arg(colour));
+        return l;
+    }
+    void place_corner(QLabel* l) const {
+        const QRect r = main_ ? main_->frameGeometry() : QApplication::primaryScreen()->geometry();
+        l->adjustSize();
+        l->move(r.right() - l->width() - 16, r.bottom() - l->height() - 40);
+    }
+
+    // Hides this window, counts the delay down and records: each frame the windows as the screenshot takes them, on a
+    // 1280x720 frame, encoded as it goes. A frame that takes longer than its 24th of a second is held, so the video
+    // runs as long as asked (#153).
+    void record_later() {
+        if (large_) large_->close();
+        const int seconds = video_length_->currentData().toInt();
+        const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback");
+        QDir().mkpath(dir);
+        const QString path = QDir(dir).filePath("recording-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".mp4");
+        hide();
+        auto* count = corner_label("#d85a1a");
+        auto left = std::make_shared<int>(video_delay_->value());
+        auto start = [this, count, seconds, path] {
+            void* video = aztek_video_begin(path.toUtf8().constData(), kVideoWidth, kVideoHeight, kVideoFps, kVideoBits);
+            if (!video) {
+                count->deleteLater();
+                show();
+                QMessageBox::warning(this, "Can't Record", "The video could not be started.");
+                return;
+            }
+            count->setStyleSheet("QLabel { background: #c0202a; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px; }");
+            const int frames = seconds * kVideoFps;
+            auto done = std::make_shared<int>(0);
+            auto clock = std::make_shared<QElapsedTimer>();
+            clock->start();
+            auto* timer = new QTimer(count);
+            timer->setTimerType(Qt::PreciseTimer);
+            auto frame = [this, count, video, frames, done, clock, timer, path, seconds] {
+                // The frames this moment stands for: one, or more when the last took long.
+                const int due = qMin(frames, int(clock->elapsed() * kVideoFps / 1000) + 1);
+                if (*done < due) {
+                    const QImage shot = capture_app(main_);
+                    QImage canvas(kVideoWidth, kVideoHeight, QImage::Format_RGBA8888);
+                    canvas.fill(QColor(43, 43, 43));
+                    const QImage fit = shot.scaled(kVideoWidth, kVideoHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QPainter p(&canvas);
+                    p.drawImage((kVideoWidth - fit.width()) / 2, (kVideoHeight - fit.height()) / 2, fit);
+                    p.end();
+                    while (*done < due) {
+                        aztek_video_frame(video, canvas.constBits(), int(canvas.bytesPerLine()));
+                        ++*done;
+                    }
+                }
+                count->setText(QString("Recording %1 s").arg(qMax(1, seconds - int(clock->elapsed() / 1000))));
+                place_corner(count);
+                if (*done < frames) return;
+                timer->stop();
+                const qint64 bytes = aztek_video_end(video, 1);
+                count->deleteLater();
+                if (bytes > 0) {
+                    if (!video_path_.isEmpty() && video_path_ != path) QFile::remove(video_path_);
+                    video_path_ = path;
+                    video_state_->setText(QString("%1 seconds, %2.").arg(seconds).arg(megabytes(bytes)));
+                    video_play_->setEnabled(true);
+                } else {
+                    video_state_->setText("The recording failed.");
+                }
+                show();
+                raise();
+                activateWindow();
+                refresh();
+            };
+            connect(timer, &QTimer::timeout, count, frame);
+            timer->start(1000 / kVideoFps);
+        };
+        if (*left <= 0) {
+            count->setText("Recording");
+            place_corner(count);
+            count->show();
+            // Long enough for this window to leave the screen.
+            QTimer::singleShot(250, this, start);
+            return;
+        }
+        count->setText(QString("Recording in %1").arg(*left));
+        place_corner(count);
+        count->show();
+        auto* tick = new QTimer(count);
+        connect(tick, &QTimer::timeout, count, [this, count, left, tick, start] {
+            if (--*left <= 0) {
+                tick->stop();
+                start();
+                return;
+            }
+            count->setText(QString("Recording in %1").arg(*left));
+            place_corner(count);
+        });
+        tick->start(1000);
+    }
+
     // Writes what was ticked, opens the browser and shows what is left to do.
     void go() {
         const bool want_shot = shot_tick_->isChecked(), want_scene = scene_tick_->isChecked();
+        const bool want_video = video_tick_->isChecked() && !video_path_.isEmpty() && QFileInfo::exists(video_path_);
         QString folder;
-        if (want_shot || want_scene) {
+        if (want_shot || want_scene || want_video) {
             folder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback/" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
             if (!QDir().mkpath(folder)) {
                 QMessageBox::warning(this, "Can't Save", "Could not make the folder for the attachments:\n" + folder);
@@ -952,6 +1103,17 @@ private:
                 zip_name = "aztek-scene.zip";
             }
         }
+        QString video_name;
+        if (want_video) {
+            if (folder.isEmpty()) {
+                folder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback/" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+                QDir().mkpath(folder);
+            }
+            const QString to = QDir(folder).filePath("aztek-video.mp4");
+            QFile::remove(to);
+            if (QFile::copy(video_path_, to)) video_name = "aztek-video.mp4";
+            else QMessageBox::warning(this, "Can't Save the Video", "The video could not be copied to:\n" + to);
+        }
         QList<QImage> pictures;
         QString picture_note, png_name;
         if (want_shot) {
@@ -974,10 +1136,11 @@ private:
         QStringList attachments;
         if (pictures.size() == 1) attachments << "screenshot";
         if (pictures.size() > 1) attachments << QString("%1 pictures").arg(pictures.size());
+        if (!video_name.isEmpty()) attachments << "video";
         if (!zip_name.isEmpty()) attachments << "scene file (zip)";
         const QJsonObject report = build_report(attachments);
         const QString url = report["url"].toString();
-        const QString show_file = zip_name.isEmpty() ? png_name : zip_name;
+        const QString show_file = !zip_name.isEmpty() ? zip_name : !video_name.isEmpty() ? video_name : png_name;
 
         const QString dry = dry_run_file();
         if (!dry.isEmpty()) {
@@ -991,7 +1154,7 @@ private:
             show_in_folder(folder, show_file);
         }
         const bool opened = open_link(url);
-        auto* steps = new NextSteps(main_, url, report["fullBody"].toString(), pictures, folder, show_file, picture_note, report["shortened"].toBool(), opened, !zip_name.isEmpty());
+        auto* steps = new NextSteps(main_, url, report["fullBody"].toString(), pictures, folder, show_file, picture_note, report["shortened"].toBool(), opened, !zip_name.isEmpty(), !video_name.isEmpty());
         steps->show();
         QDialog::accept();
     }
@@ -1003,6 +1166,14 @@ private:
     QPlainTextEdit* preview_;
     QCheckBox* shot_tick_;
     QCheckBox* scene_tick_;
+    QCheckBox* video_tick_;
+    QWidget* video_box_;
+    QComboBox* video_length_;
+    QSpinBox* video_delay_;
+    QPushButton* video_play_;
+    QLabel* video_state_;
+    // The last recording, in the app's folder until the report is opened.
+    QString video_path_;
     QLabel* warning_;
     QLabel* short_note_;
     QPushButton* copy_full_;
