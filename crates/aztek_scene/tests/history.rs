@@ -137,3 +137,25 @@ fn history_survives_save_and_load() {
     run(&mut s, "setAttr", json!({"args": ["polyExtrudeFace1.thickness", 2.0]}));
     assert!((max_y(&mut s, &cube) - 4.0).abs() < 1e-9);
 }
+
+/// Deleting a node in the middle of the history closes the chain up round it: the nodes before it stay, and the mesh
+/// is what they and the nodes after it make (#173). Undo puts it back.
+#[test]
+fn deleting_a_node_in_the_middle_keeps_the_rest_of_the_history() {
+    let mut s = Session::new();
+    let r = run(&mut s, "polyCube", json!({"width": 2, "height": 2, "depth": 2}));
+    let cube = r[0].as_str().unwrap().to_string();
+    for _ in 0..3 {
+        let top = top_face(&mut s, &cube);
+        run(&mut s, "selectComponents", json!({"args": [cube], "faces": [top]}));
+        run(&mut s, "polyExtrude", json!({"thickness": 1.0}));
+    }
+    assert_eq!(faces(&mut s, &cube), 18);
+    run(&mut s, "delete", json!({"args": ["polyExtrudeFace2"]}));
+    assert_eq!(names(&run(&mut s, "listHistory", json!({"args": [cube]}))), ["pCubeShape1", "polyExtrudeFace3", "polyExtrudeFace1", "polyCube1"]);
+    assert_eq!(faces(&mut s, &cube), 14);
+    assert!((max_y(&mut s, &cube) - 3.0).abs() < 1e-9);
+    run(&mut s, "undo", json!({}));
+    assert_eq!(names(&run(&mut s, "listHistory", json!({"args": [cube]}))), ["pCubeShape1", "polyExtrudeFace3", "polyExtrudeFace2", "polyExtrudeFace1", "polyCube1"]);
+    assert_eq!(faces(&mut s, &cube), 18);
+}

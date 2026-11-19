@@ -673,6 +673,9 @@ fn register_scene(c: &mut Commands<Session>) {
                     ghosts.push(WalkGhost { id, parent, siblings: walkable(g, &sibs) });
                 }
             }
+            for &id in &ids {
+                crate::history::splice_out(g, id)?;
+            }
             for id in ids {
                 g.delete_node(id)?;
             }

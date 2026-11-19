@@ -598,6 +598,28 @@ pub fn upstream_nodes(g: &Graph, from: &PlugRef) -> Vec<NodeId> {
     out
 }
 
+/// delete on a node in the middle of a mesh's history, as the reference's: the chain closes up round it, what fed it
+/// feeding what it fed, so the nodes before it stay in the history (#173). Nodes with no mesh in and out are left.
+pub(crate) fn splice_out(g: &mut Graph, n: NodeId) -> CmdResult<()> {
+    let Some(node) = g.node(n) else { return Ok(()) };
+    if node.ty().dag {
+        return Ok(());
+    }
+    let (Some(i), Some(o)) = (node.ty().attr_index("inputPolymesh"), node.ty().attr_index("output")) else { return Ok(()) };
+    let (input, output) = (PlugRef::new(n, i as i32), PlugRef::new(n, o as i32));
+    let Some(src) = g.source(&input) else { return Ok(()) };
+    let dst = g.destinations(&output);
+    if dst.is_empty() {
+        return Ok(());
+    }
+    g.disconnect(&input);
+    for d in dst {
+        g.disconnect(&d);
+        g.connect(&src, &d, false)?;
+    }
+    Ok(())
+}
+
 /// delete -ch: the mesh keeps what its history makes now, and the history nodes go.
 pub fn delete_history(g: &mut Graph, mesh: NodeId) -> CmdResult<bool> {
     g.evaluate();

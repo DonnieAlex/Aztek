@@ -1589,6 +1589,12 @@ The Channel Box and the Attribute Editor share a side but no longer a width: the
 Attribute Editor at twice that, and Ctrl+A between them changes the side's width with the tab. Each keeps the width it
 was last dragged to, from one session to the next.
 
+### Deleting a node in the middle of the history (19/11/2026, #173)
+
+Deleting a history node that sits between others, from the Channel Box's Delete Node or with `delete`, closes the chain
+up round it as the reference does: what fed it feeds what it fed, so the nodes before it stay in the history and the
+mesh is what they and the nodes after it make. Before, the nodes before it dropped out of the mesh's history.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
