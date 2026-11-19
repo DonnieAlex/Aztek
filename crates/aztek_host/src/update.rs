@@ -59,7 +59,8 @@ fn agent(url: &str) -> ureq::Agent {
 
 /// A JSON document fetched from a URL (the welcome screen's announcements, #85): its text, or {error} as JSON.
 pub fn get_json(url: &str) -> String {
-    let resp = match agent(url).get(url).set("Accept", "application/json").call() {
+    // Fresh each time: the welcome screen fetches again each time it opens (#157).
+    let resp = match agent(url).get(url).set("Accept", "application/json").set("Cache-Control", "no-cache").call() {
         Ok(r) => r,
         Err(ureq::Error::Status(code, _)) => return json!({ "error": format!("the server answered {code}") }).to_string(),
         Err(e) => return json!({ "error": format!("couldn't reach it: {e}") }).to_string(),

@@ -1571,6 +1571,12 @@ names the bar counted before. parity/README.md.
 File > Recent Files and the welcome screen's Recent list take a scene when it's saved, not only when it's opened: Save,
 Save As, Increment and Save, and a script's `file -save` all put it at the top.
 
+### The welcome screen fetches again when it opens (19/11/2026, #157)
+
+Help > Welcome Screen builds the screen afresh where it was, so the announcements and the names going by are fetched
+again rather than shown as they were at start, and the fetches ask past any cache. The release notes end at the version
+running: changes made after it aren't listed. A build whose commit isn't on GitHub's list shows them all, as before.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

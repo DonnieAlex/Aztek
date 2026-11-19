@@ -273,11 +273,11 @@ QPushButton* link_button(const QString& text, const QString& url, QWidget* paren
 void MainWindow::show_welcome(bool at_startup) {
     if (at_startup && !QSettings().value("welcome/atStartup", true).toBool()) return;
     static QPointer<QDialog> open;
+    // Opened again, it's made again where it was, so the announcements and the names going by are fetched afresh (#157).
+    QRect was;
     if (open) {
-        open->show();
-        open->raise();
-        open->activateWindow();
-        return;
+        was = open->geometry();
+        open->close();
     }
     auto* d = new QDialog(this, editor_window_flags());
     open = d;
@@ -285,6 +285,7 @@ void MainWindow::show_welcome(bool at_startup) {
     d->setObjectName("welcome");
     d->setWindowTitle("Welcome to Aztek");
     d->resize(980, 640);
+    if (!was.isNull()) d->setGeometry(was);
     auto* outer = new QVBoxLayout(d);
 
     // The mark and the version.
@@ -467,10 +468,27 @@ void MainWindow::show_welcome(bool at_startup) {
                 static const QRegularExpression issue("#(\\d+)");
                 QString md;
                 bool opened = false;
+                // The notes end at the version running: what came out after it is the update's to tell (#157). A build
+                // whose commit isn't in the list, one from a fork say, shows them all.
+                bool reached = mine.isEmpty();
+                if (!reached) {
+                    reached = true;
+                    for (const QJsonValue& v : commits.array())
+                        if (v.toObject()["sha"].toString().startsWith(mine)) reached = false;
+                }
                 for (const QJsonValue& v : commits.array()) {
                     const QJsonObject c = v.toObject();
                     const QString sha = c["sha"].toString();
                     const QJsonObject commit = c["commit"].toObject();
+                    if (!reached) {
+                        if (!sha.startsWith(mine)) continue;
+                        reached = true;
+                        // Its own release heading, or the version's when it went out with a later one.
+                        if (!by_commit.contains(sha)) {
+                            md += QString("\n### %1  (this version)\n\n").arg(QString(AZTEK_VERSION).toHtmlEscaped());
+                            opened = true;
+                        }
+                    }
                     // A release built from this commit starts its group; the commits before the newest release have none.
                     if (by_commit.contains(sha)) {
                         const QJsonObject r = by_commit[sha];
