@@ -2398,7 +2398,7 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
             QWidget* under = QApplication::widgetAt(QCursor::pos());
             QWidget* panel = nullptr;
             for (QWidget* w = under; w && w != this; w = w->parentWidget())
-                if (qobject_cast<ViewportWidget*>(w) || w->objectName() == "outliner" || w->objectName() == "uvCanvas" || w->objectName() == "graphCanvas") {
+                if (qobject_cast<ViewportWidget*>(w) || w->objectName() == "outliner" || w->objectName() == "uvCanvas" || w->objectName() == "graphCanvas" || w->objectName() == "renderImage") {
                     panel = w;
                     break;
                 }
@@ -2416,7 +2416,7 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e) {
         // Outliner's selection there, wherever the keyboard is.
         if (e->type() == QEvent::KeyPress && k->key() == Qt::Key_F && !(k->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
             for (QWidget* under = QApplication::widgetAt(QCursor::pos()); under; under = under->parentWidget())
-                if (under->objectName() == "outliner") {
+                if (under->objectName() == "outliner" || under->objectName() == "renderImage") {
                     QKeyEvent copy(QEvent::KeyPress, k->key(), k->modifiers(), k->text());
                     QApplication::sendEvent(under, &copy);
                     return true;

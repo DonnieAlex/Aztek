@@ -18,6 +18,7 @@
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
+#include <QEnterEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -42,6 +43,7 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QTemporaryDir>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -100,7 +102,9 @@ public:
     explicit ImageView(QWidget* parent) : QWidget(parent) {
         setMinimumSize(320, 200);
         setMouseTracking(true);
-        setFocusPolicy(Qt::ClickFocus);
+        // The pointer over it gives it the keys, as over a view: F frames the image (#158).
+        setFocusPolicy(Qt::StrongFocus);
+        setObjectName("renderImage");
     }
     QImage a, b;
     // How the image shows: its colour alone, opaque, as it was rendered (the default, so a background colour shows where
@@ -217,8 +221,13 @@ protected:
         }
     }
 
-    // R, G, B and A show that channel alone; the same key again goes back to the colour.
+    // R, G, B and A show that channel alone; the same key again goes back to the colour. F frames the image, as View >
+    // Frame Image does (#158).
     void keyPressEvent(QKeyEvent* e) override {
+        if (e->key() == Qt::Key_F && !(e->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
+            set_fit();
+            return;
+        }
         Channels want;
         switch (e->key()) {
         case Qt::Key_R: want = Red; break;
@@ -318,6 +327,13 @@ protected:
         update();
     }
     void mouseDoubleClickEvent(QMouseEvent*) override { set_fit(); }
+    // The keys follow the pointer into the image, unless a field is being typed in.
+    void enterEvent(QEnterEvent* e) override {
+        QWidget* f = QApplication::focusWidget();
+        if (window()->isActiveWindow() && !qobject_cast<QLineEdit*>(f) && !qobject_cast<QAbstractSpinBox*>(f) && !qobject_cast<QTextEdit*>(f) && !qobject_cast<QPlainTextEdit*>(f))
+            setFocus(Qt::MouseFocusReason);
+        QWidget::enterEvent(e);
+    }
 
 private:
     QPointF clamp_image(QPointF p) const {
@@ -358,7 +374,7 @@ public:
         render->addSeparator();
         render->addAction("Render Settings...", [this] { show_render_settings(parentWidget()); });
         QMenu* view = bar->addMenu("View");
-        view->addAction("Frame Image", [this] { view_->set_fit(); });
+        view->addAction("Frame Image\tF", [this] { view_->set_fit(); });
         view->addAction("Real Size", [this] { view_->set_one(); });
         view->addSeparator();
         // Which channels show. The colour alone is the default, so a background colour shows; the alpha is the

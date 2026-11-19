@@ -1577,6 +1577,12 @@ Help > Welcome Screen builds the screen afresh where it was, so the announcement
 again rather than shown as they were at start, and the fetches ask past any cache. The release notes end at the version
 running: changes made after it aren't listed. A build whose commit isn't on GitHub's list shows them all, as before.
 
+### F frames the render (19/11/2026, #158)
+
+In the Render View, F frames the image in the window, as View > Frame Image does, and the menu shows the key. The keys
+follow the pointer into the image, so F over it frames the image rather than the viewport behind it, docked or in its
+own window.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
