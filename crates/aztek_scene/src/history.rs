@@ -408,7 +408,9 @@ fn ensure_base_locked() {
                     short_name: "ics".into(),
                     ty: PlugType::String,
                     default_value: PlugValue::String(String::new()),
-                    flags: flags::INPUT | flags::STORABLE,
+                    // Kept in the file and in scripts, but not a field in the editors: which components an edit takes
+                    // is changed through the selection, as in the reference (#191).
+                    flags: flags::INPUT | flags::STORABLE | flags::HIDDEN,
                     doc: "The components the edit works on, as f[0:3] e[5]; empty for the whole mesh.".into(),
                     ..Default::default()
                 },

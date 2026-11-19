@@ -1750,6 +1750,13 @@ A panel brought back (its tab clicked, or shown after Modeling Toolkit took its 
 laid out, see nothing of itself on screen and wait for the next change in the scene: the Channel Box showed old INPUTS
 and the Outliner could be empty until a click in a view. It looks again a moment later now, until it is on screen.
 
+### No Input Components field on poly edits (19/11/2026, #191)
+
+Every poly edit's node showed Input Components, the components it works on as text, in the Attribute Editor and the
+Channel Box. The reference doesn't show it: which components an edit takes is changed through the selection. It is
+still in the node, the file and scripts. Average Vertices with an object selected averages all of its vertices, from
+Mesh > Average Vertices and its option window.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
