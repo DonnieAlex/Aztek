@@ -79,8 +79,12 @@ public:
     // Its toolkit options again from the saved settings, after Reset Settings.
     void reset_tool_panel(const QString& tool);
     ViewportWidget* active_view() const;
+    // An editor as a floating panel that docks into the main window when dragged onto it (#184).
+    Q_INVOKABLE QDockWidget* float_dockable(const QString& id, QWidget* editor, const QString& title);
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
+    // On a panel's title: that panel's Undock Tab and Close Tab, rather than the list of every panel and bar (#184).
+    QMenu* createPopupMenu() override;
     void closeEvent(QCloseEvent* e) override;
 private:
     // Menus.

@@ -571,8 +571,7 @@ void MainWindow::show_hypershade() {
         hypershade_window_ = new Hypershade(this);
         hypershade_window_->setWindowFlags(editor_window_flags());
     }
-    hypershade_window_->show();
-    hypershade_window_->raise();
+    float_dockable("hypershade", hypershade_window_, "Hypershade");
 }
 
 } // namespace az

@@ -2028,9 +2028,7 @@ void MainWindow::show_node_editor() {
         l->addWidget(ed, 1);
         node_window_->resize(1000, 640);
     }
-    node_window_->show();
-    node_window_->raise();
-    node_window_->activateWindow();
+    float_dockable("nodeEditor", node_window_, "Node Editor");
     if (auto* ed = node_window_->findChild<NodeEditor*>()) ed->graph_selection(1);
 }
 
@@ -2282,8 +2280,7 @@ void MainWindow::show_uv_editor() {
         QRect g = geometry();
         uv_window_->move(g.x() + g.width() - uv_window_->width() - 340, g.y() + 140);
     }
-    uv_window_->show();
-    uv_window_->raise();
+    float_dockable("uvEditor", uv_window_, "UV Editor");
     static_cast<UvEditor*>(uv_window_)->refresh();
 }
 

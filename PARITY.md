@@ -1792,6 +1792,12 @@ numbers its new points and edges as the reference does, so the file's later cuts
 mesh with edits after its skin lost the skin; it is written now as Delete Non-Deformer History would leave it, the
 edits in the original and the weights following, and the scene itself is left as it was.
 
+### The Render View, Hypershade, UV Editor and Node Editor dock into the main window (19/11/2026, #184)
+
+They opened as windows of their own. They open as floating panels now: dragged by the title onto an edge of the main
+window or onto another panel, they dock beside it or as a tab, as in the reference. Right-clicking a panel's title gives
+that panel's Undock Tab and Close Tab rather than the list of every panel and bar.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

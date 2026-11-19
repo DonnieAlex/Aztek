@@ -967,9 +967,46 @@ QDockWidget* MainWindow::dock_editor(const QString& id, QWidget* editor, const Q
     editor->setWindowFlags(Qt::Widget);
     d->setWidget(editor);
     editor->show();
+    d->setFloating(false);
     addDockWidget(area, d);
     d->show();
     return d;
+}
+
+// The Render View, Hypershade, UV Editor and Node Editor open as floating panels: dragged by the title onto an edge of
+// the main window or onto another panel, they dock there, beside it or as a tab, as the reference's do (#184).
+QDockWidget* MainWindow::float_dockable(const QString& id, QWidget* editor, const QString& title) {
+    if (!editor) return nullptr;
+    if (QDockWidget* d = ws_docks_.value(id); d && d->widget() == editor) {
+        d->show();
+        d->raise();
+        return d;
+    }
+    const QSize size = editor->size().expandedTo(QSize(420, 320));
+    QDockWidget* d = dock_editor(id, editor, title, Qt::RightDockWidgetArea);
+    d->setFloating(true);
+    d->resize(size);
+    const QRect g = geometry();
+    d->move(g.x() + (g.width() - d->width()) / 2, g.y() + 120);
+    d->show();
+    d->raise();
+    return d;
+}
+
+QMenu* MainWindow::createPopupMenu() {
+    QDockWidget* on = nullptr;
+    for (QDockWidget* d : findChildren<QDockWidget*>()) {
+        if (!d->isVisible()) continue;
+        const QPoint at = d->mapFromGlobal(QCursor::pos());
+        // The title bar: above the panel's own widget.
+        const int top = d->widget() ? d->widget()->geometry().top() : 24;
+        if (at.x() >= 0 && at.x() < d->width() && at.y() >= 0 && at.y() < top) on = d;
+    }
+    if (!on) return QMainWindow::createPopupMenu();
+    auto* m = new QMenu(this);
+    if (!on->isFloating()) m->addAction("Undock Tab", [on] { on->setFloating(true); });
+    m->addAction("Close Tab", [on] { on->close(); });
+    return m;
 }
 
 void MainWindow::release_docked_editors() {
@@ -1106,9 +1143,9 @@ void MainWindow::apply_workspace(const QString& name) {
         attr_dock_->raise();
         if (name == "Rendering - Expert") {
             show_render_view(this);
-            QWidget* rv = nullptr;
+            QWidget* rv = ws_docks_.contains("renderView") ? ws_docks_["renderView"]->widget() : nullptr;
             for (QWidget* w : findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
-                if (w->isWindow() && w->windowTitle().contains("RenderView")) rv = w;
+                if (!rv && w->isWindow() && w->windowTitle().contains("RenderView")) rv = w;
             dock_editor("renderView", rv, "Render View", Qt::LeftDockWidgetArea);
         }
         set_menus("Rendering");

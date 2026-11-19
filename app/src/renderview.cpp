@@ -2,6 +2,8 @@
 // exposure and gamma, and saving. Also Render Sequence, which runs `aztek -render` in its own process, the Render and
 // Harold menus, and Create > Harold. Nothing here waits: the view polls the renderer on a timer.
 #include "renderui.h"
+#include <QDockWidget>
+#include <QMetaObject>
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
@@ -774,8 +776,13 @@ QPointer<RenderView> g_view;
 
 RenderView* view(QWidget* parent) {
     if (!g_view) g_view = new RenderView(parent);
-    g_view->show();
-    g_view->raise();
+    // A floating panel that docks into the main window (#184); on its own without one.
+    QWidget* main = main_window_widget();
+    QDockWidget* dock = nullptr;
+    if (!main || !QMetaObject::invokeMethod(main, "float_dockable", Q_RETURN_ARG(QDockWidget*, dock), Q_ARG(QString, "renderView"), Q_ARG(QWidget*, g_view), Q_ARG(QString, "Render View")) || !dock) {
+        g_view->show();
+        g_view->raise();
+    }
     return g_view;
 }
 
