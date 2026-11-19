@@ -332,6 +332,9 @@ impl View {
         }
         self.ts.applied = false;
         self.ts.normal_drag = Some(NormalDrag { what: Dragged::Vertex(shape, p), from: world.transform_point3(m.position(p)), normal: n, press: px });
+        let weights = aztek_scene::mesh_edit::transform::soft_weights(&core.s.graph, &m, &world, &[p]);
+        let moving: Vec<(Index, f32)> = (0..m.point_capacity()).filter(|&q| m.point_valid(q) && weights[q as usize] > 0.0).map(|q| (q, weights[q as usize])).collect();
+        self.ts.normal_soft = (moving.len() > 1).then(|| ((0..m.point_capacity()).map(|q| if m.point_valid(q) { m.position(q) } else { DVec3::ZERO }).collect(), world, moving));
         true
     }
 
@@ -355,6 +358,25 @@ impl View {
             }
             Dragged::Vertex(mesh, v) => {
                 let name = components::display_path(&core.s.graph, mesh);
+                // With soft selection on, the points round it go the same way by its falloff (#166).
+                if let Some((lo, hi, vals)) = self.ts.normal_soft.as_ref().map(|(start, world, moving)| {
+                    let inv = world.inverse();
+                    let by = to - d.from;
+                    let lo = moving.iter().map(|x| x.0).min().unwrap_or(0);
+                    let hi = moving.iter().map(|x| x.0).max().unwrap_or(0);
+                    let mut vals = Vec::new();
+                    for p in lo..=hi {
+                        let w = moving.iter().find(|x| x.0 == p).map(|x| x.1).unwrap_or(0.0) as f64;
+                        let at = inv.transform_point3(world.transform_point3(start[p as usize]) + by * w);
+                        vals.extend([json!(at.x), json!(at.y), json!(at.z)]);
+                    }
+                    (lo, hi, vals)
+                }) {
+                    let mut args = vec![json!(format!("{name}.vtx[{lo}:{hi}]"))];
+                    args.extend(vals);
+                    self.apply_preview(core, "setAttr", json!({"args": args}));
+                    return;
+                }
                 self.apply_preview(core, "xform", json!({"args": [format!("{name}.vtx[{v}]")], "worldSpace": true, "translation": to.to_array()}));
             }
         }
@@ -672,8 +694,8 @@ impl View {
     }
 }
 
-/// A Quad Draw drag of a vertex, an edge or a face (#164): every point's place when the drag began, the points that
-/// move and by how much, and where on the surface it was grabbed.
+/// A Quad Draw drag of a vertex, an edge or a face (#164), soft selection carrying the points around it (#166): every
+/// point's place when the drag began, the points that move and by how much, and where on the surface it was grabbed.
 #[derive(Clone)]
 pub struct CompDrag {
     pub shape: NodeId,
@@ -782,10 +804,8 @@ impl View {
             None => return false,
         };
         let Some(grab) = (if picked.len() == 1 { Some(it.world.transform_point3(m.position(picked[0]))) } else { self.live_point(core, items, px) }) else { return false };
-        let mut weights = vec![0.0f32; m.point_capacity() as usize];
-        for &p in &picked {
-            weights[p as usize] = 1.0;
-        }
+        // Soft selection, when on, carries the points round what's dragged by its falloff (#166).
+        let weights = aztek_scene::mesh_edit::transform::soft_weights(&core.s.graph, &m, &it.world, &picked);
         let moving: Vec<(Index, f32)> = (0..m.point_capacity()).filter(|&p| m.point_valid(p) && weights[p as usize] > 0.0).map(|p| (p, weights[p as usize])).collect();
         let start = (0..m.point_capacity()).map(|p| if m.point_valid(p) { m.position(p) } else { DVec3::ZERO }).collect();
         self.ts.comp_drag = Some(CompDrag {

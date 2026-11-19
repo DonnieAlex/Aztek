@@ -51,6 +51,8 @@ pub struct ToolState {
     pub dragging_dot: Option<usize>,
     pub dragging_vertex: Option<(NodeId, Index)>,
     pub comp_drag: Option<crate::tools_quad::CompDrag>,
+    /// A middle drag along a normal with soft selection on: every point's place, the mesh's world, the points it moves.
+    pub normal_soft: Option<(Vec<DVec3>, glam::DMat4, Vec<(Index, f32)>)>,
     pub vertex_extrude: Option<crate::tools_quad::VertexExtrude>,
     pub tab: bool,
     pub append_edges: Vec<Index>,
@@ -982,7 +984,8 @@ impl View {
                     self.ts.dragging_dot = Some(i);
                     return true;
                 }
-                // A vertex, an edge or a face of the quad mesh: it moves over the surface (#164).
+                // A vertex, an edge or a face of the quad mesh: it moves over the surface (#164), soft selection
+                // carrying the points round it (#166).
                 if target.is_some() && self.quad_comp_press(core, items, px) {
                     return true;
                 }

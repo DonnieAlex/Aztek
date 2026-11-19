@@ -1682,6 +1682,12 @@ surface; a lone vertex dragged near another within the auto weld distance snaps 
 Auto Weld is on. Tab+drag on a border vertex pulls a quad out of its corner, from its two border neighbours to a new
 point on the surface. Before, only a vertex could be dragged, with the left button, and nothing lit up.
 
+### Quad Draw follows soft selection (19/11/2026, #166)
+
+With soft selection on, Quad Draw's drags carry the points round what's dragged by its falloff: a left or middle drag
+of a vertex, edge or face over the live surface (the points it carries staying on the surface too), and a middle drag
+of a vertex along its normal with nothing live. Before, only the vertex under the pointer moved.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
