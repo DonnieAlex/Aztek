@@ -1297,7 +1297,8 @@ impl Viewport {
             let checkered = !is_surface && (sel.contains(&it.xf) || sel.contains(&it.shape));
             let child_lit = !is_surface && self.disp.highlight && ds::select_state(g, it.shape, &sel) == ds::SelectState::Child;
             let wire_sel: &[NodeId] = if self.disp.highlight { &sel } else { &[] };
-            // The live surface: a dark green wire over it, as the reference draws it (#116).
+            // The live surface: shaded as anything else, with its dark green wire over it only when the view shows wires,
+            // Wireframe on Shaded say, as the reference draws it (#116, #162).
             let live = s.live_surface.contains(&it.shape);
             let wire = if live { LIVE_WIRE } else { ds::wire_color(g, it.shape, wire_sel, "polymesh", WIRE) };
             let comps: &[u32] = if hilited { components::selected(g, it.shape, mode) } else { &[] };
@@ -1352,7 +1353,7 @@ impl Viewport {
                         wire
                     }
                 };
-                let want_lines = !is_surface && (live || selected || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && smooth_cage));
+                let want_lines = !is_surface && ((selected && !live) || child_lit || !style.shaded || self.wireframe || self.wire_on_shaded || (entry.display.is_some() && smooth_cage));
                 if want_lines {
                     let mut lv = Vec::new();
                     // Smooth preview's wire: the cage's edges follow the smooth surface, and those the subdivision added

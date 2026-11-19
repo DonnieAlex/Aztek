@@ -1626,6 +1626,12 @@ In face mode a double-click on a face selects its whole shell, the polygon islan
 Shift+double-click adds the shell to what's picked. Double-click in edge mode is still the edge loop, and
 Shift+double-click after a pick the loop or ring between the two (or the shorter path) in any component mode.
 
+### The live surface's wire only with Wireframe on Shaded (19/11/2026, #162)
+
+The live surface is shaded as the view's settings say, as any other object, and its dark green wire shows only when
+the view shows wires: Wireframe on Shaded, or wireframe display. Before, the wire was always drawn over it. It still
+leaves the selection when made live.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
@@ -1938,8 +1944,8 @@ objects and components. The UV Editor's lasso added with Shift; it toggles now.
 
 ### Make Live (17/11/2026, #116)
 
-The live surface is drawn with a dark green wire, can't be picked or box selected, and leaves the selection when made
-live. With it set and no other snap on, moves snap the pivot onto it. The status line magnet makes the selected mesh
+The live surface is shaded as anything else, its dark green wire showing only when the view shows wires (Wireframe on
+Shaded, #162), can't be picked or box selected, and leaves the selection when made live. With it set and no other snap on, moves snap the pivot onto it. The status line magnet makes the selected mesh
 live when pressed and nothing live when released, and follows Modify > Make Live and Make Not Live.
 
 ### Constraints in the hierarchy, with their own attributes (17/11/2026, #120, #121)
