@@ -20,7 +20,7 @@
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022 and Qt (details below)
+    .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022 and Qt
 
 ## Build Mac
 
