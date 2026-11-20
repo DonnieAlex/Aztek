@@ -35,7 +35,7 @@ addCameraToStereoCameraSet		string $rigType, string $panel	addCameraToStereoCame
 addClipEditorPanel		string $whichPanel	clipEditorPanel.mel	missing	
 addCloseButton		string $windowName, string $formLayout, string $tabLayout	statusLine.mel	missing	
 addComponentEditorPanel		string $whichPanel	componentEditorPanel.mel	missing	
-addContextHelpProc		string $object, string $procName	ContextHelp.mel	missing	
+addContextHelpProc		string $object, string $procName	ContextHelp.mel	done	scripts/startup/ContextHelp.mel
 addControlAttribute		string $node, string $attr, float $value, float $min, float $max	lightning.mel	missing	
 addCurvesToHairSystem			addCurvesToHairSystem.mel	missing	
 addCustomOutlinerFilter		string $nodeTypeName, string $filterName, string $menuItemLabel, string $insertBelow	filterUIUpdateDefaultFilters.mel	missing	
@@ -79,10 +79,10 @@ addParticleOpacityCB		string $nodeName	AEparticleLayout.mel	missing
 addPassiveToNSystem	int	string $passive, string $nucleus	addPassiveToNSystem.mel	missing	
 addPerParticleGoalPointAttr		string $node, int $goalIndex, string $attrName, string $dataType	AEdynObjectGoalWeightNew.mel	missing	
 addPfxToHairSystem			addPfxToHairSystem.mel	missing	
-addPolySelConstraintWindow		string $whichPanel	polySelConstraintPanel.mel	missing	
+addPolySelConstraintWindow		string $whichPanel	polySelConstraintPanel.mel	done	scripts/others/polySelConstraintPanel.mel
 addPrefixToName	string	string $prefix, string $nodeName	addPrefixToName.mel	missing	
 addProfilerPanel		string $panelName	profilerPanel.mel	missing	
-addRecentFile		string $theFile, string $theType	addRecentFile.mel	missing	
+addRecentFile		string $theFile, string $theType	addRecentFile.mel	done	scripts/others/addRecentFile.mel
 addRecentProject		string $theProject	addRecentProject.mel	missing	
 addRefEdPanel		string $whichPanel	referenceEditorPanel.mel	missing	
 addRefEdPanelImp		string $whichPanel	referenceEditorPanel.mel	missing	
@@ -108,7 +108,7 @@ addShotPlaylistPanel		string $panel	shotPlaylistPanel.mel	missing
 addSkinRelatedToSelection			oneClickUtilities.mel	missing	
 AddSkToCharacter		string $pCharacter, string $pNode, int $pNodeId, int $doSelect	fbxWrapper.mel	missing	
 addSpriteHelpScriptNode			applySpriteWizard.mel	missing	
-addStandardButtons	string[]	string $commandName, string $applyTitle, string $formLayout, string $tabLayout, string $options	addStandardButtons.mel	missing	
+addStandardButtons	string[]	string $commandName, string $applyTitle, string $formLayout, string $tabLayout, string $options	addStandardButtons.mel	done	scripts/others/addStandardButtons.mel
 addSubstitution			fileOptions.mel	done	scripts/others/fileOptions.mel
 addTextureToShaderLayered		string $shader, string $thisTexture, int $blendMode, int $killColorLayer, int $connectAlpha	addTextureToShaderLayered.mel	missing	
 addTextureWindow		string $whichPanel	texturePanel.mel	missing	
@@ -116,7 +116,7 @@ addTimeEditor		string $whichPanel	teEditorPanel.mel	missing
 addToAEcustomFileTemplateParentLayoutList	int	string $layout	AEfileTemplate.mel	missing	
 addToContainerCallback		string $parent, int $doIt	performAddToContainer.mel	missing	
 addToContainerSetup		string $parent, int $forceFactorySettings	performAddToContainer.mel	missing	
-addToCustomSet		string $set, string $itemsToAdd	customChannelSets.mel	missing	
+addToCustomSet		string $set, string $itemsToAdd	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 addToKeyingGroups		string $node, int $isIkEffector, string $keyingGroups[]	fbxWrapper.mel	missing	
 addToLayeredTx	string	string $layeredTx, string $newTexture, int $blendMode, int $killColorLayer, int $connectAlpha	addToLayeredTx.mel	missing	
 addToRecentCommandQueue		string $cmd, string $label	initAuxiliary.mel	done	scripts/startup/initAuxiliary.mel
@@ -2686,7 +2686,7 @@ appendToCmdPlaceHoldersForSelectionItems	string	string $cmd, int $nargs	appendTo
 applicationName	string		applicationName.mel	missing	
 apply2DFluidAndEmitterCallback		string $parent, int $executeCmd	dynFluidCallbacks.mel	missing	
 apply3DFluidAndEmitterCallback		string $parent, int $executeCmd	dynFluidCallbacks.mel	missing	
-applyActionLegacyBooleanOpChange		int $useLegacy	polyPerformAction.mel	missing	
+applyActionLegacyBooleanOpChange		int $useLegacy	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 applyAirCallback		string $parent, int $executeCmd	dynApplyCallback.mel	missing	
 applyAndCloseMetadataEditWindow		string $componentArguments	editMetadataWindow.mel	missing	
 applyAttrPreset		string $node, string $presetName, float $blend	applyAttrPreset.mel	done	native command
@@ -2744,7 +2744,7 @@ applyUniformCallback		string $parent, int $executeCmd	dynApplyCallback.mel	missi
 applyVolumeAxisCallback		string $parent, int $executeCmd	dynApplyCallback.mel	missing	
 applyVortexCallback		string $parent, int $executeCmd	dynApplyCallback.mel	missing	
 applyWireframeColors		string $object	objectColorPaletteForObject.mel	missing	
-applyWorkspaceChanges			workspaceHelperProcs.mel	missing	
+applyWorkspaceChanges			workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 arc3Pt	float	float $p1[], float $p2[], float $p3[], // the 3 pts the arc will pass thru float $center[], float $normal[]	arc3Pt.mel	missing	
 archiveSceneCallback		string $parent, int $doIt	performArchiveScene.mel	missing	
 archiveSceneSetup		string $parent, int $forceFactorySettings	performArchiveScene.mel	missing	
@@ -2805,10 +2805,10 @@ art3dUpdatePFXPressureMap		string $whichMapping, int $mapping, float $minVal, fl
 art3dUpdatePressure		string $artCommand	art3dPaintCallback.mel	missing	
 art3dUpdateRadiusSliders		string $artCommand, string $brushType	art3dPaintCallback.mel	missing	
 art3dUpdateStampProfile		string $profile, string $artCmd	art3dPaintCallback.mel	missing	
-artActivateGlobalScreenSlider			artisanNamedCommandSetup.mel	missing	
-artActivateGlobalScreenSliderModeMarkingMenu			artisanNamedCommandSetup.mel	missing	
-artActivatePickColorMode			artisanNamedCommandSetup.mel	missing	
-artActivateScreenSlider		string $sliderName	artisanNamedCommandSetup.mel	missing	
+artActivateGlobalScreenSlider			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artActivateGlobalScreenSliderModeMarkingMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artActivatePickColorMode			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artActivateScreenSlider		string $sliderName	artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artAdjustMapSizeSlider		string $artCommand, string $whichSlider	artisanCallback.mel	missing	
 artAttrBlendShapeCallback		string $artCommand	artAttrBlendShapeCallback.mel	missing	
 artAttrBlendShapeProperties			artAttrBlendShapeProperties.mel	missing	
@@ -2820,7 +2820,7 @@ artAttrCacheFileMenu		string $artCommand	artAttrCacheFileMenu.mel	missing
 artAttrCacheProperties			artAttrCacheProperties.mel	missing	
 artAttrCacheToolScript	string	int $setToTool	artAttrCacheToolScript.mel	missing	
 artAttrCacheValues		string $toolName	artAttrCacheValues.mel	missing	
-artAttrCallback		string $artCommand	artAttrCallback.mel	missing	
+artAttrCallback		string $artCommand	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrColorPaintOperation		string $artCmd	artAttrColorPerVertexCallback.mel	missing	
 artAttrColorPerVertexCallback		string $artCommand	artAttrColorPerVertexCallback.mel	missing	
 artAttrColorPerVertexChannels		string $artCmd	artAttrColorPerVertexCallback.mel	missing	
@@ -2829,15 +2829,15 @@ artAttrColorPerVertexPaintCallback		string $artCommand	artAttrColorPerVertexCall
 artAttrColorPerVertexProperties			artAttrColorPerVertexProperties.mel	missing	
 artAttrColorPerVertexToolScript	string	int $setToTool	artAttrColorPerVertexToolScript.mel	missing	
 artAttrColorPerVertexValues		string $toolName	artAttrColorPerVertexValues.mel	missing	
-artAttrCommonCallback		string $artCommand, string $currTool	artAttrCallback.mel	missing	
+artAttrCommonCallback		string $artCommand, string $currTool	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrCommonValues		string $artCommand, string $currTool	artAttrValues.mel	missing	
 artAttrCreateCommonProperties			artAttrProperties.mel	missing	
 artAttrCreateMenuItems		string $parent, string $paintAttr, string $excludeTypes[]	artAttrCreateMenuItems.mel	missing	
 artAttrCreateOperFrame		string $parent, string $currTool	artAttrProperties.mel	missing	
 artAttrCreateSkinPaintWeightsProperties			artAttrSkinProperties.mel	missing	
-artAttrFilterLabel	string		artAttrFilterLabel.mel	missing	
+artAttrFilterLabel	string		artAttrFilterLabel.mel	done	scripts/others/artAttrFilterLabel.mel
 artAttrHammerVerts			artAttrSkinCallback.mel	missing	
-artAttrInitPaintableAttr	int		artAttrInitPaintableAttr.mel	missing	
+artAttrInitPaintableAttr	int		artAttrInitPaintableAttr.mel	done	scripts/others/artAttrInitPaintableAttr.mel
 artAttrMoveInfluence			artAttrSkinCallback.mel	missing	
 artAttrNClothCallback		string $artCommand	artAttrNClothCallback.mel	missing	
 artAttrNClothProperties			artAttrNClothProperties.mel	missing	
@@ -2848,18 +2848,18 @@ artAttrNComponentProperties			artAttrNComponentProperties.mel	missing
 artAttrNComponentToolScript	string	int $setToTool, string $attr	artAttrNComponentToolScript.mel	missing	
 artAttrNComponentValues		string $toolName	artAttrNComponentValues.mel	missing	
 artAttrOptionsPopup			artAttrOptionsPopup.mel	missing	
-artAttrPaintCallback		string $artCommand, string $currTool	artAttrCallback.mel	missing	
+artAttrPaintCallback		string $artCommand, string $currTool	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrPaintInstSelectAllDN		string $nodeType, // specify a paintable node type (e.g. "cluster", "skinCluster"	artAttrPaintInstSelectAllDN.mel	missing	
 artAttrPaintMenu		string $parent	artAttrPaintMenu.mel	missing	
-artAttrPaintOperation		string $artCommand, string $operation	artAttrCallback.mel	missing	
+artAttrPaintOperation		string $artCommand, string $operation	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrPaintValues		string $artCommand, string $currTool	artAttrValues.mel	missing	
 artAttrPaintVertexOrFace		string $artCmd	artAttrColorPerVertexCallback.mel	missing	
 artAttrProperties			artAttrProperties.mel	missing	
-artAttrSelected		string $artCommand, string $attribute	artAttrCallback.mel	missing	
+artAttrSelected		string $artCommand, string $attribute	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrSelectedColorChannel	int		artAttrColorPerVertexProperties.mel	missing	
 artAttrSelectSkinClusterForInfluence		string $influence	artAttrSkinJointMenu.mel	missing	
-artAttrSetFiler		string $node, string $artCommand	artAttrCallback.mel	missing	
-artAttrSetPaintableNode	int		artAttrInitPaintableAttr.mel	missing	
+artAttrSetFiler		string $node, string $artCommand	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrSetPaintableNode	int		artAttrInitPaintableAttr.mel	done	scripts/others/artAttrInitPaintableAttr.mel
 artAttrShowInfluences		string $artCommand	artAttrSkinCallback.mel	missing	
 artAttrShowSkinClusterForInfluence	int	string $influence	artAttrSkinJointMenu.mel	missing	
 artAttrSkinBuildPopupMenu	int	string $parentMenu, string $item	skinClusterInflMenu.mel	missing	
@@ -2881,23 +2881,23 @@ artAttrSkinValues		string $toolName	artAttrSkinValues.mel	missing
 artAttrSkinWeightCopy			artAttrSkinWeightCopy.mel	done	native command
 artAttrSkinWeightPaste			artAttrSkinWeightPaste.mel	done	native command
 artAttrSkinWeightTypeCallback		string $artCommand	artAttrSkinCallback.mel	missing	
-artAttrSyncCurrentAttribute			artAttrCallback.mel	missing	
+artAttrSyncCurrentAttribute			artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrToolScript	string	int $setToTool, string $attrFilter	artAttrToolScript.mel	done	scripts/others/artAttrToolScript.mel
-artAttrUpdateAlphaClampField		string $artCommand	artAttrCallback.mel	missing	
-artAttrUpdateAlphaClampLower		string $artCommand, int $clampLower	artAttrCallback.mel	missing	
-artAttrUpdateAlphaClampOptionsInPaintCtx		string $artCommand, int $clampLowerEnabled, int $clampUpperEnabled	artAttrCallback.mel	missing	
-artAttrUpdateAlphaClampUpper		string $artCommand, int $clampUpper	artAttrCallback.mel	missing	
-artAttrUpdateClampField		string $artCommand	artAttrCallback.mel	missing	
-artAttrUpdateClampLower		string $artCommand, int $clampLower	artAttrCallback.mel	missing	
-artAttrUpdateClampOptionsInPaintCtx		string $artCommand, int $clampLowerEnabled, int $clampUpperEnabled	artAttrCallback.mel	missing	
-artAttrUpdateClampUpper		string $artCommand, int $clampUpper	artAttrCallback.mel	missing	
-artAttrUpdatePaintValueSlider		string $artCommand, string $currTool	artAttrCallback.mel	missing	
-artAttrUpdateValueControls		int $enable	artAttrCallback.mel	missing	
+artAttrUpdateAlphaClampField		string $artCommand	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateAlphaClampLower		string $artCommand, int $clampLower	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateAlphaClampOptionsInPaintCtx		string $artCommand, int $clampLowerEnabled, int $clampUpperEnabled	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateAlphaClampUpper		string $artCommand, int $clampUpper	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateClampField		string $artCommand	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateClampLower		string $artCommand, int $clampLower	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateClampOptionsInPaintCtx		string $artCommand, int $clampLowerEnabled, int $clampUpperEnabled	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateClampUpper		string $artCommand, int $clampUpper	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdatePaintValueSlider		string $artCommand, string $currTool	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
+artAttrUpdateValueControls		int $enable	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artAttrUpdateVertexColorMaxRangeSlider		string $artCommand, float $maxRange	artisanCallback.mel	missing	
 artAttrUpdateVertexColorMinRangeSlider		string $artCommand, float $minRange	artisanCallback.mel	missing	
 artAttrUpdateVertexColorRangeChkBox		string $artCommand, int $bColorRangeEnabled	artisanCallback.mel	missing	
 artAttrValues		string $toolName	artAttrValues.mel	missing	
-artAttrVectorIdxCallback		string $artCommand	artAttrCallback.mel	missing	
+artAttrVectorIdxCallback		string $artCommand	artAttrCallback.mel	done	scripts/others/artAttrCallback.mel
 artBaseOptionsPopup			artBaseOptionsPopup.mel	missing	
 artBlendShapePaintValues		string $artCommand, string $currTool	artAttrBlendShapeValues.mel	missing	
 artBlendShapeSelectTarget		string $artCommand, string $target	artAttrBlendShapeCallback.mel	missing	
@@ -2905,17 +2905,17 @@ artBlendShapeTargetIndex	int[]		artAttrBlendShapeToolScript.mel	missing
 artCacheFileSelectNode		string $artCommand, string $node	artAttrCacheFileMenu.mel	missing	
 artCachePaintValues		string $artCommand, string $currTool	artAttrCacheValues.mel	missing	
 artColorPerVertexPaintValues		string $artCommand, string $currTool	artAttrColorPerVertexValues.mel	missing	
-artDeactivateGlobalScreenSlider			artisanNamedCommandSetup.mel	missing	
-artDeactivateGlobalScreenSliderModeMarkingMenu			artisanNamedCommandSetup.mel	missing	
-artDeactivatePickColorMode			artisanNamedCommandSetup.mel	missing	
-artDeactivateScreenSlider			artisanNamedCommandSetup.mel	missing	
-artDeletePopMenu			artisanNamedCommandSetup.mel	missing	
-artDeletePuttyReferenceVectorPopMenu			artisanNamedCommandSetup.mel	missing	
+artDeactivateGlobalScreenSlider			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artDeactivateGlobalScreenSliderModeMarkingMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artDeactivatePickColorMode			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artDeactivateScreenSlider			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artDeletePopMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artDeletePuttyReferenceVectorPopMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artExportAttrMapCB	int	string $artCommand, string $fileName, string $fileType	artisanCallback.mel	missing	
 artExportFileTypeValue		string $fileTypeValue, string $artCommand	artisanCallback.mel	missing	
 artExportMapDialog		string $artCommand	artisanCallback.mel	missing	
 artExportMapValue		string $exMapValue, string $artCommand	artisanCallback.mel	missing	
-artFloodSurfaces			artisanNamedCommandSetup.mel	missing	
+artFloodSurfaces			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artFluidAttrAttributeCallback		string $artCommand, string $currTool	artFluidAttrCallback.mel	missing	
 artFluidAttrAutoSave		string $artCommand	artFluidAttrCallback.mel	missing	
 artFluidAttrAutoSaveInitialState		string $tool	artFluidAttrAutoSaveInitialState.mel	missing	
@@ -2941,7 +2941,7 @@ artisanAttrMapCallback		string $artCommand, string $currTool	artisanCallback.mel
 artisanAttrMapValues		string $artCommand, string $currTool	artisanValues.mel	missing	
 artisanBrushCallback		string $artCommand, string $currTool	artisanCallback.mel	missing	
 artisanBrushValues		string $artCommand, string $currTool	artisanValues.mel	missing	
-artisanCommand	string		artisanNamedCommandSetup.mel	missing	
+artisanCommand	string		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artisanCreateAttrMapFrame		string $parent, string $currTool	artisanProperties.mel	missing	
 artisanCreateBrushFrame		string $parent, string $currTool	artisanProperties.mel	missing	
 artisanCreateDisplayFrame		string $parent, string $currTool	artisanProperties.mel	missing	
@@ -2950,27 +2950,27 @@ artisanCreateRamp		string $parent, int $addColorTabs	artisanRampCallback.mel	mis
 artisanCreateStrokeFrame		string $parent, string $currTool	artisanProperties.mel	missing	
 artisanDisplayCallback		string $artCommand, string $currTool	artisanCallback.mel	missing	
 artisanDisplayValues		string $artCommand, string $currTool	artisanValues.mel	missing	
-artisanInvertReferenceVectorMenu		string $artCmd	artisanNamedCommandSetup.mel	missing	
+artisanInvertReferenceVectorMenu		string $artCmd	artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artisanKeyFrameCallback		string $artCommand, string $target	artAttrBlendShapeCallback.mel	missing	
-artisanNamedCommandSetup			artisanNamedCommandSetup.mel	missing	
+artisanNamedCommandSetup			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artisanPressure_melToUI	string	string $mel	art3dPaintProperties.mel	missing	
 artisanPressureCallback		string $artCommand, string $currTool	artisanCallback.mel	missing	
 artisanPressureValue_uiToMel	string	string $ui	art3dPaintProperties.mel	missing	
 artisanPressureValues		string $artCommand, string $currTool	artisanValues.mel	missing	
 artisanRampCallback		string $artCommand	artisanRampCallback.mel	missing	
-artisanReflectionMenu			artisanNamedCommandSetup.mel	missing	
+artisanReflectionMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artisanSetColorRampKey		string $artCommand, string $parent	artisanRampCallback.mel	missing	
 artisanSetOperationValues		string $artCommand, string $currTool	artSetPaintValues.mel	missing	
 artisanStrokeCallback		string $artCommand, string $currTool	artisanCallback.mel	missing	
 artisanStrokeValues		string $artCommand, string $currTool	artisanValues.mel	missing	
-artisanToggleInverseReferenceVector		string $artCmd	artisanNamedCommandSetup.mel	missing	
-artisanToggleReflection			artisanNamedCommandSetup.mel	missing	
-artisanToggleScreenProjection			artisanNamedCommandSetup.mel	missing	
+artisanToggleInverseReferenceVector		string $artCmd	artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artisanToggleReflection			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artisanToggleScreenProjection			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artisanUpdateRampColorEnable			artisanRampCallback.mel	missing	
 artKeyFrameTargetWtsAttr		string $artCommand	artAttrBlendShapeCallback.mel	missing	
 artNClothPaintValues		string $artCommand, string $currTool	artAttrNClothValues.mel	missing	
 artNComponentPaintValues		string $artCommand, string $currTool	artAttrNComponentValues.mel	missing	
-artPaintOperationMenu			artisanNamedCommandSetup.mel	missing	
+artPaintOperationMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artPaintVertexInitPaintableAttr	int		artPaintVertexInitPaintableAttr.mel	missing	
 artPressureValue		string $pressureValue, string $artCommand	artisanCallback.mel	missing	
 artPuttyCallback		string $artCommand	artPuttyCallback.mel	missing	
@@ -2978,12 +2978,12 @@ artPuttyCreateOperationFrame		string $parent, string $currTool	artPuttyPropertie
 artPuttyOperationValues		string $artCommand, string $toolName	artPuttyValues.mel	missing	
 artPuttyOptionsPopup			artPuttyOptionsPopup.mel	missing	
 artPuttyProperties			artPuttyProperties.mel	missing	
-artPuttyReferenceVectorMarkingMenu			artisanNamedCommandSetup.mel	missing	
+artPuttyReferenceVectorMarkingMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artPuttySelChanged			artPuttyCallback.mel	missing	
-artPuttyToggleAutosmooth			artisanNamedCommandSetup.mel	missing	
-artPuttyToolScript	string	int $setToTool	artPuttyToolScript.mel	missing	
-artPuttyUpdateEraseSurface			artisanNamedCommandSetup.mel	missing	
-artPuttyUpdateReferenceSurface			artisanNamedCommandSetup.mel	missing	
+artPuttyToggleAutosmooth			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artPuttyToolScript	string	int $setToTool	artPuttyToolScript.mel	done	scripts/others/artPuttyToolScript.mel
+artPuttyUpdateEraseSurface			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artPuttyUpdateReferenceSurface			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artPuttyValues		string $toolName	artPuttyValues.mel	missing	
 artSelectCallback		string $artCommand	artSelectCallback.mel	missing	
 artSelectOptionsPopup			artSelectOptionsPopup.mel	missing	
@@ -3029,9 +3029,9 @@ artSkinUpdateSelectionStateAfterListRebuild			artAttrSkinJointMenu.mel	missing
 artSkinUpdateWeightFieldFromSelection		string $artCommand	artAttrSkinCallback.mel	missing	
 artStampProfileCB	int	string $artCmd, string $fileName, string $fileType	artisanCallback.mel	missing	
 artStampProfileDialog		string $artCommand	artisanCallback.mel	missing	
-artToggleColorFeedback			artisanNamedCommandSetup.mel	missing	
-artToggleMultiColorFeedback			artisanNamedCommandSetup.mel	missing	
-artToggleWireframeDisplay			artisanNamedCommandSetup.mel	missing	
+artToggleColorFeedback			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artToggleMultiColorFeedback			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+artToggleWireframeDisplay			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 artUpdateAutoSmoothSlider		string $artCommand	artPuttyValues.mel	missing	
 artUpdateDisplayValues		string $artCommand	artisanCallback.mel	missing	
 artUpdateInvertReferenceMode		string $artCommand	artisanCallback.mel	missing	
@@ -3094,7 +3094,7 @@ assemblyReferencePostCreateUIProc		string $assemblyRef	assemblyReferenceUtil.mel
 assemblyReferencePostCreateUIProcImp		string $assemblyNameWithNS, string $file	assemblyReferenceUtil.mel	missing	
 assemblyReferenceSetDefinitionDialog	string		assemblyReferenceUtil.mel	missing	
 assemblySceneStartingDirectory	string		assemblyDefinitionUtil.mel	missing	
-assertIsValidRenderer	int	string $renderer	supportRenderers.mel	missing	
+assertIsValidRenderer	int	string $renderer	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 assetEdBindingSetCmd		string $assetInfo, string $bindOp, int $action	assetWindow.mel	missing	
 assetWindow		int $newWindow	assetWindow.mel	missing	
 assignBakeSet		string $bakeSet, string $item	assignBakeSet.mel	missing	
@@ -3601,7 +3601,7 @@ buildComponentEditorTab		string $tabLayout, int $idx, string $label	componentEdi
 buildConfigurationPopupMenu		string $menu	toolbox.mel	missing	
 buildConnectContextHelpItems		string $nameRoot, string $menuParent	connectWindow.mel	missing	
 buildContainerMenu		string $parentMenu	OutlinerEdMenu.mel	missing	
-buildContainerTemplateFilterList	string		fileDialogFilterTypes.mel	missing	
+buildContainerTemplateFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildControlsForSelectedTab		string $rootLayout, string $activeNodeCallback, int $newPanel	propertyPanel.mel	missing	
 buildConvertMM		string $parent	buildConvertMM.mel	missing	
 buildCopyUVsToUVSetMenu		string $parentMenu, string $prefix, int $hasStaticItems, string $inputObj	buildCopyUVsToUVSetMenu.mel	missing	
@@ -3610,10 +3610,10 @@ buildCreatorMenu		string $parent	buildCreatorMenu.mel	missing
 buildCustomRigSchematicWidget			hikCustomRigUI.mel	missing	
 buildCWConfigureMenu		string $menu, string $outLinerName, string $idString	connectWindow.mel	missing	
 buildDefaultHotBoxMenu		string $region, string $parent	HotboxMenus.mel	missing	
-buildDefaultMayaOpenFilterList	string		fileDialogFilterTypes.mel	missing	
-buildDefaultMayaSaveFilterList	string		fileDialogFilterTypes.mel	missing	
+buildDefaultMayaOpenFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
+buildDefaultMayaSaveFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildDefaultMenuSets		string $menuSet	initMainMenuBar.mel	missing	
-buildDefaultReadWriteOfflineEditFilterList	string		fileDialogFilterTypes.mel	missing	
+buildDefaultReadWriteOfflineEditFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildDefaultSceneUI			buildDefaultSceneUI.mel	missing	
 buildDefaultTangentsMenuItems		int $outTangent	loadAnimMenuLibrary.mel	missing	
 buildDeferredMenus			initMainMenuBar.mel	missing	
@@ -3666,7 +3666,7 @@ buildHyperShowSubMenu		string $editor, string $parent, string $collectionName	Hy
 buildHyperTransitionsSubMenu		string $editor, string $parent, string $collectionName	HyperGraphEdMenu.mel	missing	
 buildHyperUpdateSubMenu		string $editor, string $parent, string $collectionName	HyperGraphEdMenu.mel	missing	
 buildHyperViewMenu		string $editor, string $parent	HyperGraphEdMenu.mel	missing	
-buildImageFileFilterList	string		fileDialogFilterTypes.mel	missing	
+buildImageFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildImageFormatsMenu		int $wantVector, int $wantMovie, int $wantSixteen, int $wantPSDLayered, int $wantQuantel	buildImageFormatsMenu.mel	missing	
 buildImagePlaneList		string $parent, string $cameraList[]	buildImagePlaneMenu.mel	missing	
 buildImagePlaneMenu		string $parent, string $modelPanel	buildImagePlaneMenu.mel	missing	
@@ -3699,7 +3699,7 @@ buildObjectEdMenu		string $parent	WindowMenu.mel	done	scripts/startup/WindowMenu
 buildObjectMenuItemsNow		string $parentName	buildObjectMenuItemsNow.mel	missing	
 buildOrthoLookthruMenu		string $parent, string $panel	buildOrthoLookthruMenu.mel	missing	
 buildOtherPanelSubItemsNow		string $subMenuName, string $panelName	buildPanelPopupMenu.mel	missing	
-buildOutlinerContextHelpItems		string $nameRoot, string $menuParent	createOutlinerPanelMenu.mel	missing	
+buildOutlinerContextHelpItems		string $nameRoot, string $menuParent	createOutlinerPanelMenu.mel	done	scripts/others/createOutlinerPanelMenu.mel
 buildOutlinerEdAnimMenu		string $outlineEd, string $animSource	OutlinerEdMenu.mel	missing	
 buildOutlinerEdAudioMenu		string $outlineEd, string $name	OutlinerEdMenu.mel	missing	
 buildOutlinerEdGeneralMenu		string $outlineEd, string $name	OutlinerEdMenu.mel	missing	
@@ -3716,9 +3716,9 @@ buildPerCameraVisibilitySubmenu		string $parent	buildDisplayMenu.mel	done	script
 buildPerspLookthruMenu		string $parent, string $panel	buildPerspLookthruMenu.mel	missing	
 buildPhotoshopEditTextureContextHelpItems		string $nameRoot, string $menuParent	photoshopEditTexture.mel	missing	
 buildPhotoshopPaintTexContextHelpItems		string $nameRoot, string $menuParent	photoShopPaintTex.mel	missing	
-buildPixmapFileFilterList	string		fileDialogFilterTypes.mel	missing	
-buildPlugInFileFilterList	string		fileDialogFilterTypes.mel	missing	
-buildPolyConstraintContextHelpItems		string $nameRoot, string $menuParent	polySelConstraintPanel.mel	missing	
+buildPixmapFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
+buildPlugInFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
+buildPolyConstraintContextHelpItems		string $nameRoot, string $menuParent	polySelConstraintPanel.mel	done	scripts/others/polySelConstraintPanel.mel
 buildPolygonsSubmenu		string $parent	buildDisplayMenu.mel	done	scripts/startup/buildDisplayMenu.mel
 buildPolyMM			buildPolyMM.mel	missing	
 buildPolyReduceButtonTitleHelp		string $applyBtn	performPolyReduce.mel	missing	
@@ -3731,7 +3731,7 @@ buildPreferencesTangentsMenus			loadAnimMenuLibrary.mel	missing
 buildProfilerHelpItems		string $nameRoot, string $menuParent	profilerPanel.mel	missing	
 buildQualityDisplayMM			buildQualityDisplayMM.mel	missing	
 buildQualityDisplayMM_release			buildQualityDisplayMM.mel	missing	
-buildReadableFileFilterList	string		fileDialogFilterTypes.mel	missing	
+buildReadableFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildRecentFileMenu		string $parentMenu	FileMenu.mel	done	scripts/startup/FileMenu.mel
 buildRecentProjectsMenu			FileMenu.mel	done	scripts/startup/FileMenu.mel
 buildREContextHelpItems		string $nameRoot, string $menuParent	relationshipEditor.mel	missing	
@@ -3852,8 +3852,8 @@ buildWeightCurve		string $node, int $weightCurve	doBlendClip.mel	missing
 buildWinOptions		string $parent	HotboxControlsMenu.mel	missing	
 buildWorkspaceMenuItems	int	string $layouts[], string $currentLayout, int $index	buildViewMenu.mel	missing	
 buildWorkspaceMenuItems2	int	string $layouts[], string $currentLayout, int $index, int $addCheckBoxesAndRadioButtons	buildViewMenu.mel	missing	
-buildWritableFileFilterList	string		fileDialogFilterTypes.mel	missing	
-buildWritableImageFileFilterList	string		fileDialogFilterTypes.mel	missing	
+buildWritableFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
+buildWritableImageFileFilterList	string		fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 buildXYZRotMM			buildXYZRotMM.mel	missing	
 buildXYZScaleMM			buildXYZScaleMM.mel	missing	
 buildXYZTransMM			buildXYZTransMM.mel	missing	
@@ -3928,7 +3928,7 @@ cameraSetup		string $parent, int $forceFactorySettings	performCamera.mel	missing
 cameraViewCheckOrthographic		string $nodeName	AEcameraViewTemplate.mel	missing	
 cameraViewCheckPanZoom		string $nodeName	AEcameraViewTemplate.mel	missing	
 canAddMultiSkinClustersDialog	int[]		canAddMultiSkinClustersDialog.mel	missing	
-canAddToChannelSet	int	string $selection[], string $targetSet	customChannelSets.mel	missing	
+canAddToChannelSet	int	string $selection[], string $targetSet	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 cancelBatchRender			cancelBatchRender.mel	missing	
 cancelPrefsChanges			preferencesWnd.mel	missing	
 canFilterCopySkinWeights	int		doCopySkinWeightsArgList.mel	missing	
@@ -4062,7 +4062,7 @@ channelBoxPublishAttr		int $optionBox	generateCBEditMenu.mel	missing
 channelBoxSettings		string $cmd, int $state	initChannelBox.mel	missing	
 channelBoxVisibilityStateChange	int	int $newState, string $layout	initChannelBox.mel	missing	
 channelNameSDK	string	string $node, string $attr	setDrivenKeyWindow.mel	missing	
-channelSetsMenuVersion	string	string $panel	customChannelSets.mel	missing	
+channelSetsMenuVersion	string	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 channelsLayersPaneSizeChanged		string $parent	initChannelsLayers.mel	missing	
 channelsLayersPrefChange		int $separate	initChannelsLayers.mel	missing	
 characterEditor		int $higlightCurrent	relationshipEditor.mel	missing	
@@ -4319,7 +4319,7 @@ clipEditorCurrentTimeValues		string $toolName	clipEditorCurrentTimeValues.mel	mi
 clipEditorDeleteCmd		string $editor	clipEditorRegisterActions.mel	missing	
 clipEditorExportClip	int	string $fileName, string $fileType	doExportClipArgList.mel	missing	
 clipEditorImportClip	int	string $fileName, string $fileType	doImportClipArgList.mel	missing	
-clipEditorNameFromPanel	string	string $panel	clipEditorNameFromPanel.mel	missing	
+clipEditorNameFromPanel	string	string $panel	clipEditorNameFromPanel.mel	done	scripts/others/clipEditorNameFromPanel.mel
 clipEditorPanel		string $panelName	clipEditorPanel.mel	missing	
 clipEditorRegisterActions		string $editor	clipEditorRegisterActions.mel	missing	
 ClipEdMenu		string $editor	ClipEdMenu.mel	missing	
@@ -5004,9 +5004,9 @@ createCreateShotMenu		string $editor, string $parent	sequenceEditorPanel.mel	mis
 createCurveField			createCurveField.mel	missing	
 createCustomAnimLayer	string	string $shot	sequencerUtils.mel	missing	
 createCustomPlaylistUI		string $parentForm	shotPlaylistPanel.mel	missing	
-createCustomSet			customChannelSets.mel	missing	
-createCustomSetFromPanel		string $panel	customChannelSets.mel	missing	
-createCustomSetsSubMenu		string $sets[], string $selectedAttributes[], int $add	customChannelSets.mel	missing	
+createCustomSet			customChannelSets.mel	done	scripts/others/customChannelSets.mel
+createCustomSetFromPanel		string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
+createCustomSetsSubMenu		string $sets[], string $selectedAttributes[], int $add	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 createCutCurveUI		string $parent, int $inTheTool, string $goToTool	performCutCurve.mel	missing	
 createCutViewClipMenu		string $menu, int $clip	cutView.mel	missing	
 createDagContainerCallback		string $parent, int $doIt	performCreateDagContainer.mel	missing	
@@ -5215,8 +5215,8 @@ createOffsetControls	string[]	float $pos[], float $scale, int $createRotateContr
 createOffsetSurfaceOutline		int $fixedWidth, int $innerLine, int $autoFlip	createOffsetSurfaceOutline.mel	missing	
 createOneClickSelectionDialog		int $hasPreviousSelection	createOneClickSelectionDialog.mel	missing	
 createOpenFlightMenu			openFlightCreateUI.mel	missing	
-createOutlinerDisplayMenu		string $ed, int $useDefaultRuntimeCommands, string $parent, int $subMenu	createOutlinerPanelMenu.mel	missing	
-createOutlinerPanelMenu		string $panel	createOutlinerPanelMenu.mel	missing	
+createOutlinerDisplayMenu		string $ed, int $useDefaultRuntimeCommands, string $parent, int $subMenu	createOutlinerPanelMenu.mel	done	scripts/others/createOutlinerPanelMenu.mel
+createOutlinerPanelMenu		string $panel	createOutlinerPanelMenu.mel	done	scripts/others/createOutlinerPanelMenu.mel
 createOutlinerSetsSubMenu		string $sets[], int $add	OutlinerEdMenu.mel	missing	
 createOutputTransformUI		string $outputTransformTypeMenu, string $outputTransformMenu, string $outputEnableCheckBox, int $outputTransformTarget	colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 createPaintingMenuItems	string[]	string $parent, string $item	createPaintingMenuItems.mel	missing	
@@ -5442,7 +5442,7 @@ currentCharacters	string[]		currentCharacters.mel	done	native command
 currentFileDialogSelection	string		fileOptions.mel	done	scripts/others/fileOptions.mel
 currentOperationMode	string		projectViewer.mel	done	scripts/others/projectViewer.mel
 currentProjectParentDir	string		currentProjectParentDir.mel	missing	
-currentRenderer	string		supportRenderers.mel	missing	
+currentRenderer	string		supportRenderers.mel	done	scripts/others/supportRenderers.mel
 currentRenderLayerLabel	string		currentRenderLayerLabel.mel	missing	
 currentSelectionMask	string		selectionMaskStackInit.mel	missing	
 currentTimeProperties			currentTimeProperties.mel	missing	
@@ -5485,8 +5485,8 @@ CUSShowUIOptionsExport	int	string $parent, string $action, string $settings, str
 CUSShowUIOptionsImport	int	string $parent, string $action, string $settings, string $callback	CUSShowUIOptionsImport.mel	missing	
 customCallbackNewAE		string $customKey	customCallbackNewAE.mel	missing	
 customCallbackReplaceAE		string $customKey	customCallbackReplaceAE.mel	missing	
-customChannelSets	string[]		customChannelSets.mel	missing	
-customChannelSetType	string		customChannelSets.mel	missing	
+customChannelSets	string[]		customChannelSets.mel	done	scripts/others/customChannelSets.mel
+customChannelSetType	string		customChannelSets.mel	done	scripts/others/customChannelSets.mel
 customCurveOnClick	int	string $currCmd, string $currContext, string $curveValue, int $index	falloffUtility.mel	missing	
 customPublishedName	string	string $plug, int $namingConvention, string $customName	doPublishAttribute.mel	missing	
 customShaderButtonCB		int $index	performSurfaceSampling.mel	missing	
@@ -5613,12 +5613,12 @@ deleteClipEditorPanel		string $whichPanel	clipEditorPanel.mel	missing
 deleteControlRig	int	string $pCharacter	fbxWrapper.mel	missing	
 deleteCurrentPassContMap			createMayaRenderPassTab.mel	missing	
 deleteCurrentViewportFilter		string $menu, string $editor, string $panel, string $playBlastMenu	viewportShowMenuPresets.mel	missing	
-deleteCurrentWorkspaceLayout			workspaceHelperProcs.mel	missing	
+deleteCurrentWorkspaceLayout			workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 deleteCustomAnimLayer		string $currentShot	sequencerUtils.mel	missing	
 deleteCustomOutlinerFilter		string $filterName	filterUIUpdateDefaultFilters.mel	missing	
 deleteCustomPrefsTab		string $createCmd	addCustomPrefsTab.mel	missing	
-deleteCustomSet			customChannelSets.mel	missing	
-deleteCustomSets		string $customSets[]	customChannelSets.mel	missing	
+deleteCustomSet			customChannelSets.mel	done	scripts/others/customChannelSets.mel
+deleteCustomSets		string $customSets[]	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 deleteDDA			dynDeleteAttrWin.mel	missing	
 deleteDopeSheetPanel		string $whichPanel	dopeSheetPanel.mel	missing	
 deleteEmitter		int $slot, int $index, float $val	emitterPaint.mel	missing	
@@ -5666,7 +5666,7 @@ deleteNormalSurfaceManip	int	string $manip	createNormalSurfaceManip.mel	missing
 deletePanel		string $whichPanel	deletePanel.mel	missing	
 deletePanelNoConfirm		string $whichPanel	deletePanel.mel	missing	
 deletePipelineSubMenu		string $subMenu	insertPipelineSubMenu.mel	missing	
-deletePopupMenu			artisanNamedCommandSetup.mel	missing	
+deletePopupMenu			artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 deletePoseInterpolatorGroup		string $directoryIndex	performInterpolatorDelete.mel	missing	
 deleteReferenceObject			deleteReferenceObject.mel	missing	
 deleteRelationshipPanel		string $panel	relationshipEditor.mel	missing	
@@ -5781,7 +5781,7 @@ disableRelationshipsChangedScript		string $panel, string $task	relationshipEdito
 disableRenderabilityAttrs		string $shapeName	disableRenderabilityAttrs.mel	missing	
 disableStackedCurves		string $graphEd	disableStackedCurves.mel	missing	
 disableTab		int $whichTab	preferencesWnd.mel	missing	
-disableVisorButtonsCB			performDuplicateClip.mel	missing	
+disableVisorButtonsCB			performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
 disconnectCallback		string $editor, string $srcAttr, string $dstAttr	hyperUserInit.mel	missing	
 disconnectMaterial		string $item	buildShaderMenus.mel	missing	
 DisplacementEnabled	int	string $nodeName	AEmeshTemplate.mel	missing	
@@ -5885,7 +5885,7 @@ doCombinationShapeCreate		int $createNewTarget, int $combineMethod, int $targetT
 doCombinationShapeModifyDrivers		int $addDriver	doCombinationShapeModifyDrivers.mel	missing	
 doCommonCutCopyKeyArgList	int	string $cmdName, string $areaOption, string $nothingToSelectErrorMsg, string $version, string $args[]	doCommonCutCopyKeyArgList.mel	missing	
 doConnectJointArgList		string $version, string $args[]	doConnectJointArgList.mel	missing	
-doContextHelpProc		string $object, string $menuParent	ContextHelp.mel	missing	
+doContextHelpProc		string $object, string $menuParent	ContextHelp.mel	done	scripts/startup/ContextHelp.mel
 doCopyClipArgList		string $version, string $args[]	doCopyClipArgList.mel	missing	
 doCopyKey	int	int $whichRange, string $timeRange, string $option, string $hierarchy, int $doControlPoints, int $doShapes, int $useChannelBox, string $selectionConnection	doCopyKey.mel	missing	
 doCopyKeyArgList	int	string $version, string $args[]	doCopyKeyArgList.mel	missing	
@@ -5930,7 +5930,7 @@ doDynEmitCallback		string $parent, int $executeCmd, int $createNParticle	dynAppl
 doEditCharacterArgList		string $version, string $args[]	doEditCharacterArgList.mel	missing	
 doEditDefaultTangent		int $outTangent, string $tanType	loadAnimMenuLibrary.mel	missing	
 doEnableClipArgList		string $version, string $args[]	doEnableClipArgList.mel	missing	
-doEnableNodeItems		int $state, string $name	doEnableNodeItems.mel	missing	
+doEnableNodeItems		int $state, string $name	doEnableNodeItems.mel	done	scripts/startup/doEnableNodeItems.mel
 doExportAsReference	int	string $theFile, string $fileType	fileListViewer.mel	missing	
 doExportAtom		int $version, string $options[]	doExportAtom.mel	missing	
 doExportCharacterMapArgList		string $version, string $args[]	doExportCharacterMapArgList.mel	missing	
@@ -5958,7 +5958,7 @@ doGroup		int $world, int $preserve, int $zeropiv	doGroup.mel	done	scripts/others
 doHairDiskCache		int $version, string $args[]	doHairDiskCache.mel	missing	
 doHammerWeightsArgList		int $version, string $args[]	doHammerWeightsArgList.mel	missing	
 doHeatMapUpdate		int $all	hyperGraphPanel.mel	missing	
-doHelpMenu		string $object, string $menuParent	doHelpMenu.mel	missing	
+doHelpMenu		string $object, string $menuParent	doHelpMenu.mel	done	scripts/startup/doHelpMenu.mel
 doHelpMenuItems		string $object, string $menuParent	doHelpMenuItems.mel	missing	
 doHelpSubMenu		string $object, string $menuParent	doHelpSubMenu.mel	missing	
 doHideInOutliner		int $hide	doHideInOutliner.mel	missing	
@@ -6033,7 +6033,7 @@ doPerformPolyRetopo		int $version, string $args[]	doPerformPolyRetopo.mel	missin
 doPerformSetupLod		string $version, string $args[]	doPerformSetupLod.mel	missing	
 DopeSheetEdMenu		string $dopeSheetEd	DopeSheetEdMenu.mel	missing	
 DopeSheetEdPopulateMenu		string $dopeSheetEd, string $popup	DopeSheetEdMenu.mel	missing	
-dopeSheetFromPanel	string	string $panel	customChannelSets.mel	missing	
+dopeSheetFromPanel	string	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 dopeSheetUpdateToolButtons		string $select, string $move, string $scale, string $insert, string $collection	dopeSheetPanel.mel	missing	
 doPinChannel		string $editor, string $selectionConnection, int $newState	loadAnimMenuLibrary.mel	missing	
 doPinHikEffectors		string $version, string $args[]	doPinHikEffectors.mel	missing	
@@ -6078,7 +6078,7 @@ doSetFluidAttrFromCurve		int $version, string $args[]	doSetFluidAttrFromCurve.me
 doSetFluidState		int $version, string $args[]	doSetFluidState.mel	missing	
 doSetFullBodyIKKeysArgList	int	string $version, string $args[]	doSetFullBodyIKKeysArgList.mel	missing	
 doSetInfinity		string $commandOptions, string $selectionConnection, string $options	loadAnimMenuLibrary.mel	missing	
-doSetKeyframeArgList	int	string $version, string $args[]	doSetKeyframeArgList.mel	missing	
+doSetKeyframeArgList	int	string $version, string $args[]	doSetKeyframeArgList.mel	done	scripts/others/doSetKeyframeArgList.mel
 doSetNClothRestShape		string $target	doSetNClothRestShape.mel	missing	
 doShadingMenuStyle		string $mode, int $isActiveOnly	buildShadingMM.mel	missing	
 doShowBufferCurvesArgList		string $version, string $args[]	doShowBufferCurvesArgList.mel	missing	
@@ -6272,7 +6272,7 @@ drawInfoObjRGBAlphaNew		string $alphaAttr	AEdrawInfo.mel	missing
 drawInfoObjRGBAlphaReplace		string $alphaAttr	AEdrawInfo.mel	missing	
 drawInfoObjRGBColorNew		string $layerColorAttr	AEdrawInfo.mel	missing	
 drawInfoObjRGBColorReplace		string $layerColorAttr	AEdrawInfo.mel	missing	
-drawPolyExtrudeOptions		int $operation, string $optionBox	performPolyExtrude.mel	missing	
+drawPolyExtrudeOptions		int $operation, string $optionBox	performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
 drBuildCustomMenus			drInit.mel	missing	
 DRBuildMenus			drInit.mel	missing	
 dropDeformersReorder		string $dragged, string $drop, string $msgs[], int $x, int $y, int $type	dropDeformersReorder.mel	missing	
@@ -6287,9 +6287,9 @@ dRShelfSizeChanged		string $parent	drInit.mel	missing
 DRUseModelingToolkitMM	int	string $parentName	drInit.mel	missing	
 duplicateAttr			duplicateAttr.mel	missing	
 duplicateAttrMain		string $objList[], string $attrList[]	duplicateAttr.mel	missing	
-duplicateClipCallback		string $parent, int $doIt	performDuplicateClip.mel	missing	
-duplicateClipOptions			performDuplicateClip.mel	missing	
-duplicateClipSetup		string $parent, int $forceFactorySettings	performDuplicateClip.mel	missing	
+duplicateClipCallback		string $parent, int $doIt	performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
+duplicateClipOptions			performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
+duplicateClipSetup		string $parent, int $forceFactorySettings	performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
 duplicateCurveCallback		string $parent, int $doIt, string $goToTool	performDuplicateCurve.mel	missing	
 duplicateCurvePreset		int $doHistory, int $curvePartial, int $local	duplicateCurvePreset.mel	missing	
 duplicateCurvePresetArgList		string $version, string $args[]	duplicateCurvePresetArgList.mel	missing	
@@ -6477,7 +6477,7 @@ editNormalizationGroups			editNormalizationGroups.mel	missing
 editNormalizationGroupsEditId		string $blendShape, int $multiIndex, string $attr, string $ctrl	editNormalizationGroups.mel	missing	
 editNormalizationGroupsRefreshGroups		string $blendShape, int $multiIndex	editNormalizationGroups.mel	missing	
 editorDependentMove		string $dir	editorDependentMove.mel	missing	
-editorNameFromPanel	string	string $panel	editorNameFromPanel.mel	missing	
+editorNameFromPanel	string	string $panel	editorNameFromPanel.mel	done	scripts/others/editorNameFromPanel.mel
 editorRenameTreeViewItem		string $itemName	namespaceEditor.mel	missing	
 editRampAttribute		string $nodeAttr	editRampAttribute.mel	missing	
 editRampAttributeDeleted		string $winName	editRampAttribute.mel	missing	
@@ -6624,18 +6624,18 @@ enableCreateLambertOptions			performCreateLambert.mel	missing
 enableCurveExtrusion			performPolyChipOff.mel	missing	
 enableDisableChannelMenu		string $parent	generateChannelMenu.mel	missing	
 enableDisableEditMenu		string $parent	generateCBEditMenu.mel	missing	
-enableFitToBoxOrPlane			performPolyProjectionArgList.mel	missing	
+enableFitToBoxOrPlane			performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
 enableHGContainerControls		string $editor, int $enable	checkHGControls.mel	missing	
 enableHGDepthControls		int $enable	checkHGControls.mel	missing	
 enableHGLayoutControls		string $editor, int $enable	checkHGControls.mel	missing	
 enableHGOrientationControls		string $editor, int $enable	HyperGraphEdMenu.mel	missing	
 enableIsolateSelect		string $editor, int $enable	createModelPanelMenu.mel	missing	
 enableLanguageItem	int	string $locale	createPrefWndUI.mel	missing	
-enableMappingDirection			performPolyProjectionArgList.mel	missing	
+enableMappingDirection			performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
 enablePerformPolyCutOffset			performPolyCut.mel	missing	
 enableTab		int $whichTab	preferencesWnd.mel	missing	
 enableTypeAEFilter		string $nodeType	typeUtilityScriptsMEL.mel	missing	
-enableVisorButtonsCB			performDuplicateClip.mel	missing	
+enableVisorButtonsCB			performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
 endAttrPreset			startAttrPreset.mel	missing	
 endManuallySetSelect			namespaceEditor.mel	missing	
 endString	string	string $s, int $count	endString.mel	done	native command
@@ -6666,7 +6666,7 @@ expandUniqueList	string[]	string $faceList[], int $shardIndex, int $shardIndexLi
 expClipCallback		string $parent, int $doIt	performCreateExpClip.mel	missing	
 expClipOptions			performCreateExpClip.mel	missing	
 expClipSetup		string $parent, int $forceFactorySettings	performCreateExpClip.mel	missing	
-exportAllChannelSets		string $filename	customChannelSets.mel	missing	
+exportAllChannelSets		string $filename	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 exportAllOptionsUIBuilder		string $parent	renderSetupImportExportCallbacks.mel	missing	
 exportAnimGetAnimLayers	int		exportAnimSharedOptions.mel	missing	
 exportAnimGetBaked	int		exportAnimSharedOptions.mel	missing	
@@ -6684,7 +6684,7 @@ exportAnimSharedOptionsCallback			exportAnimSharedOptions.mel	missing
 exportAnimTimeRange	int		exportAnimSharedOptions.mel	missing	
 exportAnimUpdateSharedOptions			exportAnimSharedOptions.mel	missing	
 exportAsReference			fileListViewer.mel	missing	
-exportChannelSets		string $filename, string $sets[]	customChannelSets.mel	missing	
+exportChannelSets		string $filename, string $sets[]	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 exportCharacterMap	int	string $fileName, string $fileType	doExportCharacterMapArgList.mel	missing	
 exportContainerProxy	int	string $fileName	doExportContainerProxy.mel	missing	
 exportContainerProxyCallback		string $parent, int $doIt	performExportContainerProxy.mel	missing	
@@ -6761,7 +6761,7 @@ ffBlendAutoDirControls		string $nodeName	AEffBlendSrfTemplate.mel	missing
 FFcancelBtnRW		string $win	glRenderWin.mel	missing	
 FFokBtnRW		string $win	glRenderWin.mel	missing	
 fileBrowser	int	string $callBack, string $action, string $type, int $mode	fileBrowser.mel	missing	
-fileBrowserActionSetup	string[]	string $type, int $fileMode	fileDialogFilterTypes.mel	missing	
+fileBrowserActionSetup	string[]	string $type, int $fileMode	fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 fileBrowserWithFilter	int	string $callBack, string $action, string $title, string $type, int $mode, string $filters[], string $dir	fileBrowser.mel	missing	
 fileCmdCallback			initAfter.mel	done	scripts/startup/initAfter.mel
 fileCmdRestoreCallback			initAfter.mel	done	scripts/startup/initAfter.mel
@@ -6794,7 +6794,7 @@ fileTextureBrowser			dynPaintMenus.mel	missing
 fileTextureNew			dynPaintMenus.mel	missing	
 fileTexturePlacementConnect		string $node, string $place2d	fileTexturePlacementConnect.mel	missing	
 fileTexturePlacementConnectNoEcho		string $node, string $place2d	fileTexturePlacementConnect.mel	missing	
-fileTypeToFilterDescription	string	string $type	fileDialogFilterTypes.mel	missing	
+fileTypeToFilterDescription	string	string $type	fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 fillEmptyPanes			fillEmptyPanes.mel	missing	
 filletCurveCallback		string $parent, int $doIt, string $goToTool	performFilletCurve.mel	missing	
 filletCurvePreset		int $history, int $replaceOriginal, int $trim, int $join, int $isCircular, float $radius, int $freeformStyle, int $blendControl, float $depth, float $bias	filletCurvePreset.mel	missing	
@@ -6812,7 +6812,7 @@ filterActionMenuCB		string $action	filterActionWindow.mel	missing
 filterActionWindow			filterActionWindow.mel	missing	
 filterBlackBoxNodes	string[]	string $array[], int $inPairs	filterBlackBoxNodes.mel	missing	
 filterButterworthTool	string		filterButterworthTool.mel	missing	
-filterDescriptionToFileType	string	string $filterDesc	fileDialogFilterTypes.mel	missing	
+filterDescriptionToFileType	string	string $filterDesc	fileDialogFilterTypes.mel	done	scripts/others/fileDialogFilterTypes.mel
 filteredCollection			filteredCollection.mel	missing	
 filteredCollection_InternalFromFilter	string	string $filter	filteredCollection.mel	missing	
 filteredCollection_InternalName	string	string $uiName	filteredCollection.mel	missing	
@@ -6824,7 +6824,7 @@ filterGraphTable		int $enable, string $dgProfileSheet	dgProfiler.mel	missing
 filterKeyReducerTool	string		filterKeyReducerTool.mel	missing	
 filterNucleusNodes	string[]	string $prefNode, // Node flagged as preferred, if // any. string $nNodes[], // List of nodes string $alwaysTypes[], // Types always displayed int $optional	filterNucleusNodes.mel	missing	
 filterPeakRemoverTool	string		filterPeakRemoverTool.mel	missing	
-filterSelectedAttributesAndCustomSets	string[]	string $selection[]	customChannelSets.mel	missing	
+filterSelectedAttributesAndCustomSets	string[]	string $selection[]	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 filterSingleBSD	string[]	string $items[]	getShapeEditorTreeviewSelection.mel	missing	
 filterUIAddDefaultAttributeFilters	int	string $filters[]	filterUIUpdateDefaultFilters.mel	missing	
 filterUIAddDefaultObjectFilters	int	string $filters[]	filterUIUpdateDefaultFilters.mel	missing	
@@ -7217,7 +7217,7 @@ getActiveFluidShapes	string[]		getFluidShape.mel	missing
 getActiveModelPanel			dagMenuProc.mel	missing	
 getActiveNucleusNode	string	int $selectExisting, int $createNew	getActiveNucleusNode.mel	missing	
 getActiveShot	string	string $group	sequencerUtils.mel	missing	
-getActiveSoftMod	string[]		artisanNamedCommandSetup.mel	missing	
+getActiveSoftMod	string[]		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 getAffectedLayers	string[]	string $selected[]	layerEditor.mel	missing	
 getAllChains	string[]		getAllChains.mel	done	native command
 getAllCharacterClips	string[]		addVisorFolders.mel	missing	
@@ -7300,7 +7300,7 @@ getCurrentOcean	string		getCurrentOcean.mel	missing
 getCurrentOceanFoam	string		getCurrentOceanFoam.mel	missing	
 getCurrentOceanOrPond	string		getCurrentOceanOrPond.mel	missing	
 getCurrentOceanWake	string		getCurrentOceanWake.mel	missing	
-getCurrentOutlinerPanel	string		createOutlinerPanelMenu.mel	missing	
+getCurrentOutlinerPanel	string		createOutlinerPanelMenu.mel	done	scripts/others/createOutlinerPanelMenu.mel
 getCurrentPond	string		getCurrentPond.mel	missing	
 getCurrentRGBAlpha	float	string $alphaAttr	AEdrawInfo.mel	missing	
 getCurrentRGBColor	float[]	string $layerColorAttr	AEdrawInfo.mel	missing	
@@ -7338,7 +7338,7 @@ getEmitterAttr	float	int $slot, int $index	emitterPaint.mel	missing
 getEntireSceneNoCameras	string[]		oneClickUtilities.mel	missing	
 getExecuterControl	string	int $idx	scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 getExrLayerOverride	string		getExrLayerOverride.mel	missing	
-getExtrudeElementsOperation	int		performPolyExtrude.mel	missing	
+getExtrudeElementsOperation	int		performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
 getFaceIndexList	int[]	string $object	includeShatterEffectsGlobals.mel	missing	
 getFaceList	string[]	string $object	includeShatterEffectsGlobals.mel	missing	
 getFaceNormal	vector	string $face	crackShatter.mel	missing	
@@ -7417,7 +7417,7 @@ getMatchingItem	string	string $list[], string $matchList[]	includeEffectsGlobals
 getMaxCurveFromNormalSurfaceManip	string	string $manip	createNormalSurfaceManip.mel	missing	
 getMayaPanelTypes	string[]	int $isScripted	getMayaPanelTypes.mel	missing	
 getMenuSetPrefix	string	string $menu	findMenuItem.mel	missing	
-getMergeElementsType	int		performPolyMerge.mel	missing	
+getMergeElementsType	int		performPolyMerge.mel	done	scripts/others/performPolyMerge.mel
 getMinCurveFromNormalSurfaceManip	string	string $manip	createNormalSurfaceManip.mel	missing	
 getModelEditorViewVars		string $modelEd	doPlayblastArgList.mel	missing	
 getMultiCameraChildren	string[]	string $camera	getMultiCameraRenderList.mel	missing	
@@ -7554,7 +7554,7 @@ getSortedRenderPassTypeList	string[]	string $renderer	getSortedRenderPassTypeLis
 getSphereArrayPaintValue	float	int $slot, int $index	sphereArrayPaint.mel	missing	
 getSpherePaintValue	float	int $slot, int $index	spherePaint.mel	missing	
 getSpriteBaseFile			spriteWizard.mel	missing	
-getStandardWindow	string[]	string $optionBoxTitle, int $numPages, string $options	getStandardWindow.mel	missing	
+getStandardWindow	string[]	string $optionBoxTitle, int $numPages, string $options	getStandardWindow.mel	done	scripts/others/getStandardWindow.mel
 getStrokes	string[]	int $filter	getStrokes.mel	missing	
 getStrokeUVFromPoly	string	string $polyObj	getStrokes.mel	missing	
 getSuitesInteractionModeSettings	string		createSuitesInteractionModeDialog.mel	missing	
@@ -7590,7 +7590,7 @@ getVertexList	string[]	string $object	includeShatterEffectsGlobals.mel	missing
 getVerts	string[]		getVerts.mel	missing	
 getViewportRenderer	string	string $modelEditor	getViewportRenderer.mel	missing	
 getVP2RendererDevice	string	string $modelEditor	getVP2RendererDevice.mel	missing	
-getWorkspaceLayoutOption	string	string $checkBoxName, string $optionMenuName	workspaceHelperProcs.mel	missing	
+getWorkspaceLayoutOption	string	string $checkBoxName, string $optionMenuName	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 getWorldCoordinatesForVertex	vector	string $object, int $index	includeShatterEffectsGlobals.mel	missing	
 getZeroLengthEdges	string[]	string $obj	getZeroLengthEdges.mel	missing	
 ghostAppendedClip		string $scheduler, string $newClips[], int $option	ghostAppendedClip.mel	missing	
@@ -7671,7 +7671,7 @@ graphEditorCreateKeyframeStats		string $whichPanel	graphEditorPanel.mel	missing
 graphEditorCreateKeyToolbarOptions		string $whichPanel, int $classicMode	graphEditorPanel.mel	missing	
 graphEditorCreateSuitesToolbar		string $whichPanel	graphEditorPanel.mel	missing	
 graphEditorCreateToolbar		string $whichPanel, string $flwLayout, string $frmLayout	graphEditorPanel.mel	missing	
-graphEditorFromPanel	string	string $panel	customChannelSets.mel	missing	
+graphEditorFromPanel	string	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 graphEditorPanel		string $panelName	graphEditorPanel.mel	missing	
 graphEditorSculptKeyToolButtonOnCommand		int $mode	graphEditorPanel.mel	missing	
 graphEditorSetToolbarType		int $simple, string $graphEd	graphEditorPanel.mel	missing	
@@ -7750,7 +7750,7 @@ hardwareBatchRender		string $option	hardwareBatchRender.mel	missing
 hardwareRenderingGlobalsRevertToDefault			createViewport20OptionsUI.mel	missing	
 hardwareSetDefaultQuality			createMayaHardwareGlobalsTab.mel	missing	
 hardwareTransparencySortingMenuChanged			createMayaHardwareGlobalsTab.mel	missing	
-hasContextHelpProc	int	string $object	ContextHelp.mel	missing	
+hasContextHelpProc	int	string $object	ContextHelp.mel	done	scripts/startup/ContextHelp.mel
 hasDefaultShelfFile	int	string $fileName	textureWindowShelf.mel	missing	
 hasIncrementalSaves	int		FileMenu.mel	done	scripts/startup/FileMenu.mel
 hasInGroupConnection	int	string $cnv, int $i	createTextureToGeom.mel	missing	
@@ -8874,7 +8874,7 @@ importAnimSharedOptionsCallback			importAnimSharedOptions.mel	missing
 importAnimUpdateSharedOptions			importAnimSharedOptions.mel	missing	
 importAOVsOptionsUIBuilder		string $parent	renderSetupImportExportCallbacks.mel	missing	
 importCacheFile	int	string $fileName, string $fileType	doImportCacheArgList.mel	missing	
-importChannelSets		string $filename	customChannelSets.mel	missing	
+importChannelSets		string $filename	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 ImportClipToCharCallback		string $parent, int $doIt	performImportClipToChar.mel	missing	
 ImportClipToCharOptions			performImportClipToChar.mel	missing	
 ImportClipToCharSetup		string $parent, int $forceFactorySettings	performImportClipToChar.mel	missing	
@@ -8900,7 +8900,7 @@ importSkinMapCallback		string $parent, int $doIt	performImportSkinMap.mel	missin
 importSkinMapOptions			performImportSkinMap.mel	missing	
 importSkinMapSetup		string $parent, int $forceFactorySettings	performImportSkinMap.mel	missing	
 importSkinWeightMap	int	int $filterSelected, string $fileName, string $fileType	importSkinMap.mel	missing	
-importWorkspaceFiles			workspaceHelperProcs.mel	missing	
+importWorkspaceFiles			workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 includeEffectsGlobals			includeEffectsGlobals.mel	missing	
 includeShatterEffectsGlobals			includeShatterEffectsGlobals.mel	missing	
 includeSurfaceFlowGlobals			includeSurfaceFlowGlobals.mel	missing	
@@ -8909,7 +8909,7 @@ incrementalSaveProcessPath	string[]		incrementalSaveProcessPath.mel	missing
 incrementalSaveScene			incrementalSaveScene.mel	missing	
 incrementalSaveUpdateControls			fileOptions.mel	done	scripts/others/fileOptions.mel
 incrementAndSaveScene		int $force	incrementAndSaveScene.mel	done	scripts/startup/incrementAndSaveScene.mel
-incrementDynamicPropertyField		string $nameOfView, string $nameOfProperty, string $nameOfFieldItem, float $deltaValue	colorManagementRenderViewUtilities.mel	missing	
+incrementDynamicPropertyField		string $nameOfView, string $nameOfProperty, string $nameOfFieldItem, float $deltaValue	colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 incrementSelectedShelf		int $increment	shelf.mel	missing	
 indexInIntegerList	int	int $item, int $list[]	includeEffectsGlobals.mel	missing	
 indexInList	int	string $item, string $list[]	includeEffectsGlobals.mel	missing	
@@ -8950,7 +8950,7 @@ initializeWizardFromParticleShape		string $particle, string $newImage	spriteWiza
 initialPluginLoad			initialPluginLoad.mel	missing	
 initialStatesCallback		string $parent, int $doIt	performInitialStates.mel	missing	
 initialStatesSetup		string $parent, int $forceFactorySettings	performInitialStates.mel	missing	
-initMeshSculptTool			setMeshSculptTool.mel	missing	
+initMeshSculptTool			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
 initMotionMakerEditorPanel		string $whichPanel	motionMakerEditorPanel.mel	missing	
 initNParticleForStyle		string $nParticle	setupNParticleConnections.mel	missing	
 initNParticleShader		string $nParticle, string $style	initNParticleShader.mel	missing	
@@ -9061,10 +9061,10 @@ isAffectedLayer	int	string $layer, string $affectedLayers[], int $recursive	laye
 isAnimCurve	int	string $object	isAnimCurve.mel	missing	
 IsApplyOfflineFileFromRefEdOperationMode	int		projectViewer.mel	done	scripts/others/projectViewer.mel
 IsApplyOfflineFileOperationMode	int		projectViewer.mel	done	scripts/others/projectViewer.mel
-isArtColorFeedbackCtx	int		artisanNamedCommandSetup.mel	missing	
-isArtColorPerVertexCtx	int		artisanNamedCommandSetup.mel	missing	
-isArtisanCtx	int		artisanNamedCommandSetup.mel	missing	
-isArtSkinCtx	int		artisanNamedCommandSetup.mel	missing	
+isArtColorFeedbackCtx	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+isArtColorPerVertexCtx	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+isArtisanCtx	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
+isArtSkinCtx	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 IsAssignTemplateOperationMode	int		projectViewer.mel	done	scripts/others/projectViewer.mel
 isAttributeEditorRaised	int		setAttributeEditorVisible.mel	missing	
 isAttributeEditorVisible	int		isAttributeEditorVisible.mel	missing	
@@ -9081,7 +9081,7 @@ isCommandLineVisible	int		isCommandLineVisible.mel	missing
 isCreateCombinationTargetEnalbed	int	int $createNewTarget	shapeEditorUtil.mel	missing	
 IsCreateReferenceOperationMode	int		projectViewer.mel	done	scripts/others/projectViewer.mel
 isCurve	string	string $itemName	doWireEdit.mel	missing	
-isCustomSet	int	string $obj	customChannelSets.mel	missing	
+isCustomSet	int	string $obj	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 isCutViewVisible	int		isCutViewVisible.mel	missing	
 isCutViewZoomedInCurrentShot	int		cutViewToggleCurrentShot.mel	missing	
 isDeleteSelectedBSDAndGroupEnabled	int		shapeEditorUtil.mel	missing	
@@ -9089,7 +9089,7 @@ isDeleteSelectedInBetweenTargetEnabled	int		shapeEditorUtil.mel	missing
 isDeleteSelectedTargetAndGroupEnabled	int		shapeEditorUtil.mel	missing	
 isDisplayingAllRendererTabs	int		unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 isDuplicateTargetEnabled	int		shapeEditorUtil.mel	missing	
-isDynPaint	int		artisanNamedCommandSetup.mel	missing	
+isDynPaint	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 isEvalModeDG	int		hyperGraphPanel.mel	missing	
 isEvaluatorActive	int	string $evaluatorName	initHUDScriptsEvaluationManager.mel	missing	
 isEvaluatorSupported	int	string $evaluatorName	initHUDScriptsEvaluationManager.mel	missing	
@@ -9178,7 +9178,7 @@ isShapeEditorRefItemSelected	int		getShapeEditorTreeviewSelection.mel	missing
 isShelfVisible	int		isShelfVisible.mel	missing	
 isShotActive	int	string $shot	sequencerUtils.mel	missing	
 isShotInactive	int	string $shot	sequencerUtils.mel	missing	
-isSmudgeCtx	int		artisanNamedCommandSetup.mel	missing	
+isSmudgeCtx	int		artisanNamedCommandSetup.mel	done	scripts/others/artisanNamedCommandSetup.mel
 isStatusLineVisible	int		isStatusLineVisible.mel	missing	
 isStringInArray	int	string $str, string $array[]	removeDuplicateNetworksUtils.mel	missing	
 isStringInList	int	string $str, string $list[]	setDrivenKeyWindow.mel	missing	
@@ -9280,7 +9280,7 @@ killEdgeColorScriptJob			performPolyAutoUnwrap.mel	missing
 killScriptJobAENotes			updateAE.mel	missing	
 killSculptScriptJobs		string $visualizer	AEsculptTemplate.mel	missing	
 killXpaint			launchXpaint.mel	missing	
-labelBaseAndSuffix	string[]	string $label	localizedPanelLabel.mel	missing	
+labelBaseAndSuffix	string[]	string $label	localizedPanelLabel.mel	done	scripts/startup/localizedPanelLabel.mel
 labelFromCommandSourceType	string	string $type	initCommandLine.mel	missing	
 labelJointsBasedOnNames			ChaSkeletonsMenu.mel	missing	
 labelLimb		string $selObj, string $limb	ChaSkeletonsMenu.mel	missing	
@@ -9475,10 +9475,10 @@ localizedFactoryWorkspaceLabel	string	string $wsNameEN	localizedFactoryWorkspace
 localizedFactoryWorkspaceLabels	string[]		localizedFactoryWorkspaceLabel.mel	missing	
 localizedHotboxMenuItem	string	string $menuItemEN	localizedHotboxMenuItem.mel	missing	
 localizedNodeClassificationLabel	string	string $name	localizedNodeClassificationLabel.mel	missing	
-localizedPanelLabel	string	string $panelLabelEN	localizedPanelLabel.mel	missing	
-localizedPanelLabels	string[]		localizedPanelLabel.mel	missing	
-localizedUIComponentLabel	string	string $nameEN	localizedUIComponentLabel.mel	missing	
-localizedUIComponentLabels	string[]		localizedUIComponentLabel.mel	missing	
+localizedPanelLabel	string	string $panelLabelEN	localizedPanelLabel.mel	done	scripts/startup/localizedPanelLabel.mel
+localizedPanelLabels	string[]		localizedPanelLabel.mel	done	scripts/startup/localizedPanelLabel.mel
+localizedUIComponentLabel	string	string $nameEN	localizedUIComponentLabel.mel	done	scripts/startup/localizedUIComponentLabel.mel
+localizedUIComponentLabels	string[]		localizedUIComponentLabel.mel	done	scripts/startup/localizedUIComponentLabel.mel
 localizedUIMisc	string	string $name	localizedUIMisc.mel	missing	
 lockContainer		int $val	lockContainer.mel	missing	
 lockingKeyableWnd			lockingKeyableWnd.mel	missing	
@@ -9502,7 +9502,7 @@ longNameOf	string	string $object	longNameOf.mel	done	native command
 lookdevKitInitStrings			lookdevKitInitStrings.mel	missing	
 lookdevNodeTypes	string[]	string $typesIn[]	hyperShadePanel.mel	missing	
 looksLikeAttr	int	string $nodeAttr	loadAnimMenuLibrary.mel	missing	
-lookThroughModelPanel		string $object, string $panelName	lookThroughModelPanel.mel	missing	
+lookThroughModelPanel		string $object, string $panelName	lookThroughModelPanel.mel	done	scripts/others/lookThroughModelPanel.mel
 lookThroughModelPanelClipped		string $object, string $panelName, float $nearClip, float $farClip	lookThroughModelPanelClipped.mel	missing	
 lookThroughModelPanelSetup	string	string $panelName	lookThroughModelPanelSetup.mel	missing	
 lookThroughNewStereoCamera		string $rigType, string $panel	buildStereoLookthruMenu.mel	missing	
@@ -9781,7 +9781,7 @@ meshReorderInitStrings			meshReorderInitStrings.mel	missing
 meshReorderToolProperties			meshReorderToolProperties.mel	missing	
 meshReorderToolValues		string $toolName	meshReorderToolValues.mel	missing	
 meshSculptBrushInfo		string $mode, string $brushInfo[]	sculptMeshCacheValues.mel	missing	
-meshSculptToolModes	string[]		setMeshSculptTool.mel	missing	
+meshSculptToolModes	string[]		setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
 minorNodesWindow			minorNodesWindow.mel	missing	
 minorNodesWindowAdd			minorNodesWindow.mel	missing	
 minorNodesWindowEnable		int $val	minorNodesWindow.mel	missing	
@@ -10067,9 +10067,9 @@ normalize	int	float $v[]	normalize.mel	done	native command
 normalizeCurve		string $curveName	normalizeCurve.mel	missing	
 normalizeCurves		string $animCurveEd	normalizeCurves.mel	missing	
 normalizeNormalValues			performPolySetNormal.mel	missing	
-normalizeSkinWeightsCallback		string $parent, int $mode, int $doIt	performNormalizeSkinWeights.mel	missing	
-normalizeSkinWeightsOptions		int $mode	performNormalizeSkinWeights.mel	missing	
-normalizeSkinWeightsSetup		string $parent, int $mode, int $forceFactorySettings	performNormalizeSkinWeights.mel	missing	
+normalizeSkinWeightsCallback		string $parent, int $mode, int $doIt	performNormalizeSkinWeights.mel	done	scripts/others/performNormalizeSkinWeights.mel
+normalizeSkinWeightsOptions		int $mode	performNormalizeSkinWeights.mel	done	scripts/others/performNormalizeSkinWeights.mel
+normalizeSkinWeightsSetup		string $parent, int $mode, int $forceFactorySettings	performNormalizeSkinWeights.mel	done	scripts/others/performNormalizeSkinWeights.mel
 noSymmetryAxis		string $item	axisOfSymmetryOptionsPopup.mel	missing	
 notInRenderLayers	string[]	string $objects[]	loadRenderLayerFilters.mel	missing	
 notInSelectedRenderLayers	string[]	string $objects[]	loadRenderLayerFilters.mel	missing	
@@ -10114,7 +10114,7 @@ nucleusSolverMenuChangeCmd		string $optMenu	nucleusSolverButton.mel	missing
 nullBatchRenderOptionsWindow			batchRenderWindow.mel	missing	
 numericalInput	int	string $value	numericalInput.mel	missing	
 numericalInputChangeCommand		string $mode	numericalInputChangeCommand.mel	missing	
-numSelectedObjects	int		numSelectedObjects.mel	missing	
+numSelectedObjects	int		numSelectedObjects.mel	done	scripts/others/numSelectedObjects.mel
 nurbsBooleanCallback		string $parent, int $doIt, int $whichOp, string $goToTool	performBoolean.mel	missing	
 nurbsBooleanIntersectProperties			nurbsBooleanIntersectProperties.mel	missing	
 nurbsBooleanIntersectValues		string $toolName	nurbsBooleanIntersectValues.mel	missing	
@@ -10152,7 +10152,7 @@ nurbsToggleEditUVMode			nurbsToggleEditUVMode.mel	missing
 nurbsToPolyAddOptions		string $parent	nurbsToPolyAddOptions.mel	missing	
 nurbsToPolyCallback		string $parent, int $doIt	nurbsToPolyCallback.mel	missing	
 nurbsToPolyPreset		int $doHistory, int $format, int $merge, int $mrt, int $type, int $count, float $chr, float $ft, float $mel, float $d, int $ut, int $un, int $vt, int $vn, int $uch, int $ucr, float $cht, int $es	nurbsToPolyPreset.mel	missing	
-nurbsToPolySetup		string $parent, int $forceFactorySettings	nurbsToPolySetup.mel	missing	
+nurbsToPolySetup		string $parent, int $forceFactorySettings	nurbsToPolySetup.mel	done	scripts/others/nurbsToPolySetup.mel
 nurbsToPolyVisibility		string $parent, int $format	nurbsToPolyVisibility.mel	missing	
 nurbsTorusCallback		string $parent, int $doIt	performNurbsTorus.mel	missing	
 nurbsTorusSetup		string $parent, int $forceFactorySettings	performNurbsTorus.mel	missing	
@@ -10279,7 +10279,7 @@ onPlaybackSpeedChanged		string $framerateListWidget	playbackRange.mel	missing
 onPreferredRendererChange			createPrefWndUI.mel	missing	
 onRVColorMgtEnableChange			colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 onRVViewTransformMenuChange			colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
-onscreenPlayblastSupported	int	string $editor	supportRenderers.mel	missing	
+onscreenPlayblastSupported	int	string $editor	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 onSetCurrentLayout		string $layoutName	statusLine.mel	missing	
 onTECancelRosterMappingWnd			teRosterMappingWindow.mel	missing	
 onTEMutedChanged			teEditorPanel.mel	missing	
@@ -10490,8 +10490,8 @@ PEparticleDiesCB		int $isOn	eventEdWin.mel	missing
 PEparticleExists	int	string $particle	eventEdWin.mel	missing	
 PEprocedureCB			eventEdWin.mel	missing	
 PErandomCB		int $isOn	eventEdWin.mel	missing	
-performActionBooleanPluginChange			polyPerformAction.mel	missing	
-performActionLegacyBooleanOpChange			polyPerformAction.mel	missing	
+performActionBooleanPluginChange			polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
+performActionLegacyBooleanOpChange			polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 performAddAnimationOffset	string	int $action	performAddAnimationOffset.mel	missing	
 performAddCombinationShape	string	int $action	performAddCombinationShape.mel	missing	
 performAddFullBodyIk	string	int $action	performAddFullBodyIk.mel	missing	
@@ -10691,7 +10691,7 @@ performDisplaySmoothnessMedium	string	int $action	performDisplaySmoothnessMedium
 performDisplaySmoothnessRough	string	int $action	performDisplaySmoothnessRough.mel	missing	
 performDropoffLocator	string	int $action	performDropoffLocator.mel	missing	
 performDuplicate	string	int $action	performDuplicate.mel	done	scripts/others/performDuplicate.mel
-performDuplicateClip	string	int $action, string $clip	performDuplicateClip.mel	missing	
+performDuplicateClip	string	int $action, string $clip	performDuplicateClip.mel	done	scripts/others/performDuplicateClip.mel
 performDuplicateCurve	string	int $action, string $goToTool	performDuplicateCurve.mel	missing	
 performDuplicatePoseShape		string $tpl, string $poseName, string $blendShape	performDuplicatePoseShape.mel	missing	
 performDuplicateSpecial	string	int $action	performDuplicateSpecial.mel	done	scripts/others/performDuplicateSpecial.mel
@@ -10700,9 +10700,9 @@ performDynamics	string	int $createFlag, string $type, int $flag	performDynamics.
 performDynamicsClipEffects	string	string $clipEffect, int $flag	performDynamicsClipEffects.mel	missing	
 performDynamicsConnect		int $whichConnection	performDynamicsConnect.mel	missing	
 performEulerFilter		string $selectionConnection	loadAnimMenuLibrary.mel	missing	
-performExportAllChannelSets			customChannelSets.mel	missing	
+performExportAllChannelSets			customChannelSets.mel	done	scripts/others/customChannelSets.mel
 performExportAnim	string	int $action	performExportAnim.mel	missing	
-performExportChannelSets		string $sets[]	customChannelSets.mel	missing	
+performExportChannelSets		string $sets[]	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 performExportCharacterMap	string	int $action	performExportCharacterMap.mel	missing	
 performExportContainerProxy	string	int $action	performExportContainerProxy.mel	missing	
 performExportDeformerWeights	string	int $action	performExportDeformerWeights.mel	missing	
@@ -10750,7 +10750,7 @@ performHWConvert	string	int $option	performHwConvert.mel	missing
 performHWConvertCallback		string $parent, int $doIt	performHwConvert.mel	missing	
 performHWConvertSetup		string $parent, int $forceFactorySettings	performHwConvert.mel	missing	
 performImportAnim	string	int $action	performImportAnim.mel	missing	
-performImportChannelSets			customChannelSets.mel	missing	
+performImportChannelSets			customChannelSets.mel	done	scripts/others/customChannelSets.mel
 performImportClipToChar	string	int $action	performImportClipToChar.mel	missing	
 performImportDeformerWeights	string	int $action	performImportDeformerWeights.mel	missing	
 performImportEDL	string	int $action	performImportEDL.mel	missing	
@@ -10813,7 +10813,7 @@ performNeutralPosesAdd	int		performNeutralPosesAdd.mel	missing
 performNewScene	string	int $option	performNewScene.mel	done	scripts/startup/performNewScene.mel
 performNormalBasedProjection	string	int $action	performNormalBasedProjection.mel	missing	
 performNormalConstraint	string	int $action	performNormalConstraint.mel	missing	
-performNormalizeSkinWeights	string	int $mode, int $action	performNormalizeSkinWeights.mel	missing	
+performNormalizeSkinWeights	string	int $mode, int $action	performNormalizeSkinWeights.mel	done	scripts/others/performNormalizeSkinWeights.mel
 performNucleusDisplayDynamicConstraintNodes			performNucleusDisplayDynamicConstraintNodes.mel	missing	
 performNucleusDisplayMaterialNodes			performNucleusDisplayMaterialNodes.mel	missing	
 performNucleusDisplayNComponentNodes			performNucleusDisplayNComponentNodes.mel	missing	
@@ -10907,9 +10907,9 @@ performPolyCollapseComponents	string	int $ret, string $comp	performPolyCollapseC
 performPolyConform	string	int $option	performPolyConform.mel	missing	
 performPolyConformCallback		string $parent, int $doIt	performPolyConform.mel	missing	
 performPolyConformSetup		string $parent, int $forceFactorySettings	performPolyConform.mel	missing	
-performPolyCopyPaste	string	int $option, int $action	performPolyCopyPaste.mel	missing	
-performPolyCopyPasteCallback		string $parent, int $doIt	performPolyCopyPaste.mel	missing	
-performPolyCopyPasteSetup		string $parent, int $forceFactorySettings	performPolyCopyPaste.mel	missing	
+performPolyCopyPaste	string	int $option, int $action	performPolyCopyPaste.mel	done	scripts/others/performPolyCopyPaste.mel
+performPolyCopyPasteCallback		string $parent, int $doIt	performPolyCopyPaste.mel	done	scripts/others/performPolyCopyPaste.mel
+performPolyCopyPasteSetup		string $parent, int $forceFactorySettings	performPolyCopyPaste.mel	done	scripts/others/performPolyCopyPaste.mel
 performPolyCopyUV	string	int $option	performPolyCopyUV.mel	missing	
 performPolyCopyUVCallback		string $parent, int $doIt	performPolyCopyUV.mel	missing	
 performPolyCopyUVSetup		string $parent, int $forceFactorySettings	performPolyCopyUV.mel	missing	
@@ -10932,7 +10932,7 @@ performPolyDuplicateEdgeSetup		string $parent, int $forceFactorySettings	perform
 performPolyEditEdgeFlow	string	int $option	performPolyEditEdgeFlow.mel	missing	
 performPolyEditEdgeFlowCallback		string $parent, int $doIt	performPolyEditEdgeFlow.mel	missing	
 performPolyEditEdgeFlowSetup		string $parent, int $forceFactorySettings	performPolyEditEdgeFlow.mel	missing	
-performPolyExtrude	string	int $option	performPolyExtrude.mel	missing	
+performPolyExtrude	string	int $option	performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
 performPolyExtrudeVertex	string	int $option	performPolyExtrudeVertex.mel	missing	
 performPolyExtrudeVertexCallback		string $parent, int $doIt	performPolyExtrudeVertex.mel	missing	
 performPolyExtrudeVertexSetup		string $parent, int $forceFactorySettings	performPolyExtrudeVertex.mel	missing	
@@ -10954,9 +10954,9 @@ performPolyMapSewMove	string	int $option	performPolyMapSewMove.mel	missing
 performPolyMapSewMoveCallback		string $parent, int $doIt	performPolyMapSewMove.mel	missing	
 performPolyMapSewMoveSetup		string $parent, int $forceFactorySettings	performPolyMapSewMove.mel	missing	
 performPolyMatchUVs	string	int $action	performPolyMatchUVs.mel	missing	
-performPolyMerge	string	int $option	performPolyMerge.mel	missing	
-performPolyMergeCallback		string $parent, int $doIt, int $mergeType	performPolyMerge.mel	missing	
-performPolyMergeSetup		string $parent, int $forceFactorySettings, int $mergeType	performPolyMerge.mel	missing	
+performPolyMerge	string	int $option	performPolyMerge.mel	done	scripts/others/performPolyMerge.mel
+performPolyMergeCallback		string $parent, int $doIt, int $mergeType	performPolyMerge.mel	done	scripts/others/performPolyMerge.mel
+performPolyMergeSetup		string $parent, int $forceFactorySettings, int $mergeType	performPolyMerge.mel	done	scripts/others/performPolyMerge.mel
 performPolyMergeUV	string	int $option	performPolyMergeUV.mel	missing	
 performPolyMergeUVCallback		string $parent, int $doIt	performPolyMergeUV.mel	missing	
 performPolyMergeUVSetup		string $parent, int $forceFactorySettings	performPolyMergeUV.mel	missing	
@@ -10981,13 +10981,13 @@ performPolyPlatonic	string	int $action	performPolyPlatonic.mel	missing
 performPolyPoke	string	int $option	performPolyPoke.mel	missing	
 performPolyPokeCallback		string $parent, int $doIt	performPolyPoke.mel	missing	
 performPolyPokeSetup		string $parent, int $forceFactorySettings	performPolyPoke.mel	missing	
-performPolyPrimitive	string	string $operation, int $option	performPolyPrimitive.mel	missing	
-performPolyPrimitiveCallback		string $op, string $parent, int $doIt	performPolyPrimitive.mel	missing	
-performPolyPrimitiveSetup		string $op, string $parent, int $forceFactorySettings	performPolyPrimitive.mel	missing	
+performPolyPrimitive	string	string $operation, int $option	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
+performPolyPrimitiveCallback		string $op, string $parent, int $doIt	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
+performPolyPrimitiveSetup		string $op, string $parent, int $forceFactorySettings	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 performPolyProjection	string	string $primitive, int $option	performPolyProjection.mel	missing	
-performPolyProjectionArgList	string	string $version, string $args[], string $uvSetName	performPolyProjectionArgList.mel	missing	
-performPolyProjectionCallback		string $primitive, string $args[], string $uvSetName, string $parent, int $doIt	performPolyProjectionArgList.mel	missing	
-performPolyProjectionSetup		string $primitive, string $parent, int $forceFactorySettings	performPolyProjectionArgList.mel	missing	
+performPolyProjectionArgList	string	string $version, string $args[], string $uvSetName	performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
+performPolyProjectionCallback		string $primitive, string $args[], string $uvSetName, string $parent, int $doIt	performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
+performPolyProjectionSetup		string $primitive, string $parent, int $forceFactorySettings	performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
 performPolyQuadrangulate	string	int $option	performPolyQuadrangulate.mel	missing	
 performPolyQuadrangulateCallback		string $parent, int $doIt	performPolyQuadrangulate.mel	missing	
 performPolyQuadrangulateSetup		string $parent, int $forceFactorySettings	performPolyQuadrangulate.mel	missing	
@@ -11038,9 +11038,9 @@ performPolyStraightenUV	string	int $option	performPolyStraightenUV.mel	missing
 performPolyStraightenUVCallback		string $parent, int $doIt	performPolyStraightenUV.mel	missing	
 performPolyStraightenUVs	string	int $action	performPolyStraightenUVs.mel	missing	
 performPolyStraightenUVSetup		string $parent, int $forceFactorySettings	performPolyStraightenUV.mel	missing	
-performPolySubdivide	string	string $comp, int $option	performPolySubdivide.mel	missing	
-performPolySubdivideCallback		string $comp, string $parent, int $doIt	performPolySubdivide.mel	missing	
-performPolySubdivideSetup		string $comp, string $parent, int $forceFactorySettings	performPolySubdivide.mel	missing	
+performPolySubdivide	string	string $comp, int $option	performPolySubdivide.mel	done	scripts/others/performPolySubdivide.mel
+performPolySubdivideCallback		string $comp, string $parent, int $doIt	performPolySubdivide.mel	done	scripts/others/performPolySubdivide.mel
+performPolySubdivideSetup		string $comp, string $parent, int $forceFactorySettings	performPolySubdivide.mel	done	scripts/others/performPolySubdivide.mel
 performPolySuperShape	string	string $type, int $action	performPolySuperShape.mel	missing	
 performPolyToCurve	string	int $option	performPolyToCurve.mel	missing	
 performPolyToCurveCallback		string $parent, int $doIt	performPolyToCurve.mel	missing	
@@ -11413,7 +11413,7 @@ polyAppendProperties			polyAppendProperties.mel	missing
 polyAppendValues		string $toolName	polyAppendValues.mel	missing	
 polyApplyColorMatchAlphaValues		int $which	performApplyColor.mel	missing	
 polyAutoSpacingPresets			performPolyAutoProj.mel	missing	
-polyAxisEnable			performPolyPrimitive.mel	missing	
+polyAxisEnable			performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 polyBackfaceCulling	string	int $option	polyBackfaceCulling.mel	missing	
 polyBackfaceCullingCallback		string $parent, int $doIt	polyBackfaceCulling.mel	missing	
 polyBackfaceCullingSetup		string $parent, int $forceFactorySettings	polyBackfaceCulling.mel	missing	
@@ -11423,8 +11423,8 @@ polyBestPlaneTexturingTool			polyBestPlaneTexturingTool.mel	missing
 polyBevel3OptionsPopup		string $node	polyBevel3OptionsPopup.mel	missing	
 polyBevelInvertCallback		string $node	polyBevelOptionsPopup.mel	missing	
 polyBevelOptionsPopup		string $node	polyBevelOptionsPopup.mel	missing	
-polyBooleanOptionsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	missing	
-polyBooleanOptionsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	missing	
+polyBooleanOptionsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
+polyBooleanOptionsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 polyBoolOpControl		string $nodeName	AEpolyBoolOpTemplate.mel	missing	
 polyBoolOpOptionsPopup		string $node	polyBoolOpOptionsPopup.mel	missing	
 polyBridgeEdgeOptionsPopup		string $node	polyBridgeEdgeOptionsPopup.mel	missing	
@@ -11438,8 +11438,8 @@ PolyBuildBakingMenus		string $item	PolygonsColorMenu.mel	missing
 polyBuildDummyInitialBakeSetMenuItem		string $type, string $item	PolygonsColorMenu.mel	missing	
 polyCBoolOpControl		string $nodeName	AEpolyCBoolOpTemplate.mel	missing	
 polyChamferVtx	string	int $doHistory, float $width, int $deleteFace	polyChamferVtx.mel	done	native command
-polyChangeColorMatChannel		int $opt	initPolygonsUI.mel	missing	
-polyChangeMaterialBlend		int $opt	initPolygonsUI.mel	missing	
+polyChangeColorMatChannel		int $opt	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+polyChangeMaterialBlend		int $opt	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 polyCheckSelection	string[]	string $fun, string $funtype, int $expandInstances	polyCheckSelection.mel	missing	
 polyCircularizeCallback		string $parent, int $doIt	performPolyCircularize.mel	missing	
 polyCircularizeSetup		string $parent, int $forceFactorySettings	performPolyCircularize.mel	missing	
@@ -11450,13 +11450,13 @@ polyCollapseFControls		string $nodeName	AEpolyCollapseFTemplate.mel	missing
 polyColorSelectSharedInstances	int		polyColorSelectSharedInstances.mel	missing	
 polyColorShareInstances			polyColorShareInstances.mel	missing	
 PolyColorsMenu		string $parent, int $creator, string $selectCmd	PolyColorsMenu.mel	missing	
-polyConnectComponentsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	missing	
+polyConnectComponentsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 polyConnectComponentsControls		string $nodeName	AEpolyConnectComponentsTemplate.mel	missing	
-polyConnectComponentsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	missing	
-polyContourProjSetAttr		string $sel[]	performPolyProjectionArgList.mel	missing	
-polyContourProjTool			performPolyProjectionArgList.mel	missing	
-polyContourProjToolFinish			performPolyProjectionArgList.mel	missing	
-polyContourProjToolStart			performPolyProjectionArgList.mel	missing	
+polyConnectComponentsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
+polyContourProjSetAttr		string $sel[]	performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
+polyContourProjTool			performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
+polyContourProjToolFinish			performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
+polyContourProjToolStart			performPolyProjectionArgList.mel	done	scripts/others/performPolyProjectionArgList.mel
 polyConvertMM		string $parent	polyConvertMM.mel	missing	
 polyConvertToLoopAndDelete			polyConvertToLoopAndDelete.mel	missing	
 polyConvertToLoopAndDuplicate			polyConvertToLoopAndDuplicate.mel	missing	
@@ -11503,10 +11503,10 @@ polyEditEdgeFlowControls		string $nodeName	AEpolyEditEdgeFlowTemplate.mel	missin
 polyEditFacetProperties		string $type, string $ctxCmd	polyEditFacetProperties.mel	missing	
 polyExtrudeEdgeOptionsPopup		string $node	polyExtrudeEdgeOptionsPopup.mel	missing	
 polyExtrudeFaceOptionsPopup		string $node	polyExtrudeFaceOptionsPopup.mel	missing	
-polyExtrudeOptions		int $operation	performPolyExtrude.mel	missing	
-polyExtrudeOptionsCallback		int $doIt, int $operation	performPolyExtrude.mel	missing	
-polyExtrudeOptionsSetup		int $forceFactorySettings	performPolyExtrude.mel	missing	
-polyFinalizeAction			polyPerformAction.mel	missing	
+polyExtrudeOptions		int $operation	performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
+polyExtrudeOptionsCallback		int $doIt, int $operation	performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
+polyExtrudeOptionsSetup		int $forceFactorySettings	performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
+polyFinalizeAction			polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 polyForceUVCallback		string $args[], string $uvSetName, string $parent, int $doIt, int $operation	performPolyForceUVArgList.mel	missing	
 polyForceUVSetup		string $parent, int $forceFactorySettings, int $operation	performPolyForceUVArgList.mel	missing	
 polyGearCallback		string $parent, int $doIt	performPolyGear.mel	missing	
@@ -11526,7 +11526,7 @@ PolygonsEditTextureMenu		string $parent, int $creator, string $selectCmd	Polygon
 PolygonsEditUVsMenu		string $parent	PolygonsEditUVsMenu.mel	missing	
 polygonSelectionPropagateSet			polygonConstraint.mel	missing	
 polygonSelectionPropagateSetAngle		float $angle	polygonConstraint.mel	missing	
-polygonsMenuItemToShelf	string	string $item	initPolygonsUI.mel	missing	
+polygonsMenuItemToShelf	string	string $item	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 PolygonsMeshMenu		string $parent	PolygonsMeshMenu.mel	missing	
 PolygonsNormalsMenu		string $parent	PolygonsNormalsMenu.mel	missing	
 PolygonsSelectMenu		string $parent	PolygonsSelectMenu.mel	missing	
@@ -11560,9 +11560,9 @@ polyNextSelectionBatch	int	string $in[], string $out[], int $start	polyNextSelec
 polyNonPlanarFaceDisplay			buildDisplayMenu.mel	done	scripts/startup/buildDisplayMenu.mel
 polyNormalSizeMenuUpdate			buildDisplayMenu.mel	done	scripts/startup/buildDisplayMenu.mel
 polyOctahedron	int	float $len	polyOctahedron.mel	missing	
-polyOpenBakeSetAE			initPolygonsUI.mel	missing	
-polyPerformAction	string	string $action, string $funtype, int $ret	polyPerformAction.mel	missing	
-polyPerformBooleanAction	string	int $op, string $funtype, int $ret	polyPerformAction.mel	missing	
+polyOpenBakeSetAE			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+polyPerformAction	string	string $action, string $funtype, int $ret	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
+polyPerformBooleanAction	string	int $op, string $funtype, int $ret	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 polyPinUVCallback		string $parent, int $doIt	performPolyPinSelectionUVOptions.mel	missing	
 polyPinUVSetup		string $parent, int $forceFactorySettings	performPolyPinSelectionUVOptions.mel	missing	
 polyPlatonicCallback		string $parent, int $doIt	performPolyPlatonic.mel	missing	
@@ -11570,7 +11570,7 @@ polyPlatonicSetup		string $parent, int $forceFactorySettings	performPolyPlatonic
 polyReduceStringControlGrpAttrChanged		string $plug, string $parent, string $controlName	AEpolyReduceTemplate.mel	missing	
 polyReduceStringControlGrpUIChanged		string $plug, string $parent, string $controlName	AEpolyReduceTemplate.mel	missing	
 polyReFormSetTool			polyReFormSetTool.mel	missing	
-PolyRequestUVSetName		string $title, string $cmd, string $version, string $args[]	PolyTextureMenu.mel	missing	
+PolyRequestUVSetName		string $title, string $cmd, string $version, string $args[]	PolyTextureMenu.mel	done	scripts/startup/initPolygonsUI.mel
 polyRetopoUpdatePreserveFeaturesState		string $parent	performPolyRetopo.mel	missing	
 polyRetopoUpdateSymmetryOptionsUI		string $parent	performPolyRetopo.mel	missing	
 polyRotateUVs		float $angle, int $usePivot	polyRotateUVs.mel	done	native command
@@ -11589,7 +11589,7 @@ polySelectEditOptionsPopup			polySelectEditOptionsPopup.mel	missing
 polySelectEditProperties			polySelectEditProperties.mel	missing	
 polySelectEditValues		string $toolName	polySelectEditValues.mel	missing	
 polySelectFacePerimeter			polySelectFacePerimeter.mel	missing	
-polySelectionConstraintPanel		string $panelName	polySelConstraintPanel.mel	missing	
+polySelectionConstraintPanel		string $panelName	polySelConstraintPanel.mel	done	scripts/others/polySelConstraintPanel.mel
 polySelectOptionsPopup			polySelectOptionsPopup.mel	missing	
 polySelectProperties			polySelectProperties.mel	missing	
 PolySelectTraverse		int $traversal	PolySelectTraverse.mel	missing	
@@ -11618,15 +11618,15 @@ polySplitControls		string $nodeName	AEpolySplitTemplate.mel	missing
 polySplitProperties			polySplitProperties.mel	missing	
 polySplitTextureUV			polySplitTextureUV.mel	missing	
 polySplitValues		string $toolName	polySplitValues.mel	missing	
-polySubdivideVisibility		string $comp	performPolySubdivide.mel	missing	
+polySubdivideVisibility		string $comp	performPolySubdivide.mel	done	scripts/others/performPolySubdivide.mel
 polySuperShapeCallback		string $parent, int $doIt	performPolySuperShape.mel	missing	
 polySuperShapeSetup		string $parent, int $forceFactorySettings	performPolySuperShape.mel	missing	
 polySuperShapeUpdateEnable		string $parent	performPolySuperShape.mel	missing	
 polySymmetrizeUVBrushSetCallbacks		string $parent	SymmetrizeUVBrushProperties.mel	missing	
 polyTetrahedron	int	float $side	polyTetrahedron.mel	missing	
 PolyTextureMenu		string $parent, int $creator, string $selectCmd	PolyTextureMenu.mel	missing	
-polyUniteOptionsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	missing	
-polyUniteOptionsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	missing	
+polyUniteOptionsCallback		string $action, string $funtype, string $parent, int $doIt	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
+polyUniteOptionsSetup		string $parent, int $forceFactorySettings	polyPerformAction.mel	done	scripts/others/polyPerformAction.mel
 polyUnmirrorSmoothProxy		int $x, int $y, int $z, int $stitch	polyUnmirrorSmoothProxy.mel	missing	
 polyUVBorderHard			polyUVBorderHard.mel	missing	
 polyUVBrushControl	int	int $operation, int $opMode	polyBrushControl.mel	missing	
@@ -11990,8 +11990,8 @@ proxyRemove		string $currentProxyName	proxyRemove.mel	missing
 proxyResetOptionVars			proxyResetOptionVars.mel	missing	
 proxySmoothSubdivisionTypeChanged			performSmoothProxy.mel	missing	
 proxySwitch		string $newRefNode	proxySwitch.mel	missing	
-proxyTags	string[]	int $excludeUsedTags	proxyTags.mel	missing	
-proxyUsedTags	string[]	string $refNode	proxyTags.mel	missing	
+proxyTags	string[]	int $excludeUsedTags	proxyTags.mel	done	scripts/others/proxyTags.mel
+proxyUsedTags	string[]	string $refNode	proxyTags.mel	done	scripts/others/proxyTags.mel
 pruneSearch	string[]	string $obj, int $doFuture, string $pruneTypes[]	pruneSearch.mel	missing	
 pruneWeightCallback		string $parent, int $doIt	performPruneWeights.mel	missing	
 pruneWeightOptions			performPruneWeights.mel	missing	
@@ -12105,8 +12105,8 @@ putCurrentNamedLayoutOnShelf			panelEditor.mel	missing
 pv_basename	string	string $fileName	pv_basename.mel	missing	
 pv_goDirectory	int	string $dirPath	fileBrowser.mel	missing	
 pv_performAction	int	string $theFile, string $fileType	pv_performAction.mel	missing	
-pythonRunTimeCommand	int	string $nodeType, int $openDialog	pythonRunTimeCommand.mel	missing	
-pythonRunTimeCommandWithArgs	int	string $nodeType, int $openDialog, string $commandArgs	pythonRunTimeCommand.mel	missing	
+pythonRunTimeCommand	int	string $nodeType, int $openDialog	pythonRunTimeCommand.mel	done	scripts/others/pythonRunTimeCommand.mel
+pythonRunTimeCommandWithArgs	int	string $nodeType, int $openDialog, string $commandArgs	pythonRunTimeCommand.mel	done	scripts/others/pythonRunTimeCommand.mel
 quadArea	float	float $v1[], float $v2[], float $v3[], float $v4[]	computePolysetVolume.mel	missing	
 quadDrawClearDots	int		initAfter.mel	done	scripts/startup/initAfter.mel
 quatBinaryTemplate			AEquatNodesCommonTemplate.mel	missing	
@@ -12276,7 +12276,7 @@ registerRepresentations			registerRepresentations.mel	missing
 registerReverseOption		string $collectionUI, string $reverseOption	collectionUI.mel	missing	
 registerSortOption		string $collectionUI, string $sortOption	collectionUI.mel	missing	
 registerSVGPath			typeInitPlugin.mel	missing	
-registerUpdateRendererUIProc		string $procName	supportRenderers.mel	missing	
+registerUpdateRendererUIProc		string $procName	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 registerViewOption		string $collectionUI, string $viewOption	collectionUI.mel	missing	
 registerVisorContentCallback		string $tab, string $visorContentCallback	visorPanel.mel	missing	
 relationshipDisplayCallback		string $editor, string $parent	HyperGraphEdMenu.mel	missing	
@@ -12313,7 +12313,7 @@ removeCallback			fileListViewer.mel	missing
 removeClickedExecuterTab		int $tabIndexUnderMouse	scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 removeClipEditorPanel		string $whichPanel	clipEditorPanel.mel	missing	
 removeComponentEditorPanel		string $whichPanel	componentEditorPanel.mel	missing	
-removeContextHelpProc		string $object	ContextHelp.mel	missing	
+removeContextHelpProc		string $object	ContextHelp.mel	done	scripts/startup/ContextHelp.mel
 removeCurrentExecuterTab			scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 removeCurrentExecuterTab2		int $force	scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 removeCurrentLayer			removeCurrentLayer.mel	missing	
@@ -12357,7 +12357,7 @@ removeParticleFromSurfaceFlow		string $flow, string $particleShape	removeParticl
 removeParticlesFromSurfaceFlow		string $flow	removeParticlesFromSurfaceFlow.mel	missing	
 removePerParticleGoalPointAttr		string $node, int $goalIndex, string $attrName	AEdynObjectGoalWeightNew.mel	missing	
 removePfxToonOutlines			removePfxToonOutlines.mel	missing	
-removePolySelConstraintWindow		string $whichPanel	polySelConstraintPanel.mel	missing	
+removePolySelConstraintWindow		string $whichPanel	polySelConstraintPanel.mel	done	scripts/others/polySelConstraintPanel.mel
 removePreferedPresets			unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 removePreferredHardwareRenderingGlobalsPresets			createViewport20OptionsUI.mel	missing	
 removePreloadRefEdPanel		string $dialogName	preloadReferenceEditorPanel.mel	missing	
@@ -12413,7 +12413,7 @@ renameSelectedMenuSet			menuSetEditor.mel	missing
 renameSelectionList	int	string $newName	renameSelectionList.mel	missing	
 renameShards		string $shardList[]	includeShatterEffectsGlobals.mel	missing	
 renameTextureViewPanel			renameTextureViewPanel.mel	missing	
-renameUVSet		string $currentUvSetName	uvSetEditCmd.mel	missing	
+renameUVSet		string $currentUvSetName	uvSetEditCmd.mel	done	scripts/others/uvSetEditCmd.mel
 renameWordInList	int	string $oldWord, string $newWord, string $list[]	hyperShadeBinsUI.mel	missing	
 renderChecker		int $numTri	renderChecker.mel	missing	
 renderCreateBarFavorites	string[]		renderCreateBarUI.mel	missing	
@@ -12423,13 +12423,13 @@ renderCreateBarUI	string	string $parentForm	renderCreateBarUI.mel	missing
 renderCreateBarUIIsManaged	int	string $renderCreateBarUI	renderCreateBarUI.mel	missing	
 renderCreateBarUIManage		string $renderCreateBarUI, int $manage	renderCreateBarUI.mel	missing	
 renderCreateNode	string	string $as, string $flag, string $type, string $command, int $projection, int $stencil, int $placement, int $shadingGroup, int $createAndDrop, string $editor	renderCreateNode.mel	missing	
-rendererChanged	int		supportRenderers.mel	missing	
+rendererChanged	int		supportRenderers.mel	done	scripts/others/supportRenderers.mel
 rendererControlName	string	string $renderer, string $control	unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
-rendererListRenderTargetSupport	string[]		supportRenderers.mel	missing	
+rendererListRenderTargetSupport	string[]		supportRenderers.mel	done	scripts/others/supportRenderers.mel
 rendererNew		string $rendererAttr	AErenderTargetTemplate.mel	missing	
-rendererRenderTargetSupport	int	string $renderer	supportRenderers.mel	missing	
+rendererRenderTargetSupport	int	string $renderer	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 rendererReplace		string $rendererAttr	AErenderTargetTemplate.mel	missing	
-rendererSceneOpenedCallback			supportRenderers.mel	missing	
+rendererSceneOpenedCallback			supportRenderers.mel	done	scripts/others/supportRenderers.mel
 rendererTabLayoutName	string	string $renderer	unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 rendererTabName	string	string $renderer, string $tabLabel	unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 renderFlagsWindow			renderFlagsWindow.mel	missing	
@@ -12504,8 +12504,8 @@ renderSequenceDefaultAlternateOutputFileLocation	string		renderSequenceDefaultAl
 renderSequenceOptionsWindow			renderSequenceOptionsWindow.mel	done	scripts/others/renderSequenceOptionsWindow.mel
 renderSequenceSelectAlternateOutputFileLocation			renderSequenceOptionsWindow.mel	done	scripts/others/renderSequenceOptionsWindow.mel
 renderSetupLayerMembers	string[]	int $index	renderSetupLayerMembers.mel	missing	
-renderTargetHasInput	int	string $rt	supportRenderers.mel	missing	
-renderTargetWarnIfNoInput		string $rt	supportRenderers.mel	missing	
+renderTargetHasInput	int	string $rt	supportRenderers.mel	done	scripts/others/supportRenderers.mel
+renderTargetWarnIfNoInput		string $rt	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 renderTessellationOptionChanged		string $parent	nurbsToPolyAddOptions.mel	missing	
 renderViewRenderTargetDeleted			renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
 renderViewRenderTargetNameChanged			renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
@@ -12583,7 +12583,7 @@ reSelectOriginalList		string $selectedList[]	fireEffect.mel	missing
 resetAE			resetAE.mel	missing	
 resetAEGlobalVariables			showEditor.mel	missing	
 resetBrush			resetBrush.mel	missing	
-resetColorManagementControlRange			colorManagementRenderViewUtilities.mel	missing	
+resetColorManagementControlRange			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 resetCurrentViewportFilter		string $menu, string $editor, string $panel, string $playBlastMenu	viewportShowMenuPresets.mel	missing	
 resetCurve		string $currCmd, string $currContext	falloffUtility.mel	missing	
 resetDAA			dynAddAttrWin.mel	missing	
@@ -12615,9 +12615,9 @@ resetPropertyPanel	string	string $parent, string $selectionCallback, string $act
 resetRenderAllLayersMode		string $parent	switchRenderAllLayersOptBox.mel	missing	
 resetRenderLayerCopyLayerMode		string $parent	layerEditor.mel	missing	
 resetRenderViewSaveMode		string $parent	saveImageOptBox.mel	missing	
-resetRVExposureTogleState			colorManagementRenderViewUtilities.mel	missing	
-resetRVGammaTogleState			colorManagementRenderViewUtilities.mel	missing	
-resetRVTogleStates			colorManagementRenderViewUtilities.mel	missing	
+resetRVExposureTogleState			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+resetRVGammaTogleState			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+resetRVTogleStates			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 resetSelectedTargetsWeight			createShapePanelMenu.mel	missing	
 resetSpriteSettings			spriteWizard.mel	missing	
 resetSubUIState		int $start, int $state	createObjectTypeFilters.mel	missing	
@@ -12754,7 +12754,7 @@ saveContentBrowserSettings			contentBrowserPanel.mel	missing
 saveCurrentAsNamedLayout			panelEditor.mel	missing	
 saveCurrentPanelLayout	string		saveCurrentPanelLayout.mel	missing	
 saveCurrentViewportFilter		string $menu, string $editor, string $panel, string $playBlastMenu	viewportShowMenuPresets.mel	missing	
-saveCurrentWorkspaceLayoutAs			workspaceHelperProcs.mel	missing	
+saveCurrentWorkspaceLayoutAs			workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 saveCustomCurve		string $currCmd	sculptMeshCacheProperties.mel	missing	
 saveCustomCurveType		string $nodeAttr	createTypeFalloffCurve.mel	missing	
 saveEffectStateToFile		string $fileName	includeEffectsGlobals.mel	missing	
@@ -12874,11 +12874,11 @@ sculptMeshCacheValues		string $toolName	sculptMeshCacheValues.mel	missing
 sculptMeshCacheValues_ResetTool		string $toolName	sculptMeshCacheValues_ResetTool.mel	missing	
 sculptMeshCacheValues_ResetToolUI		string $toolName	sculptMeshCacheValues_ResetTool.mel	missing	
 sculptMeshCacheViewImage			sculptMeshCacheProperties.mel	missing	
-sculptMeshFlood			setMeshSculptTool.mel	missing	
-sculptMeshInvertFreeze			setMeshSculptTool.mel	missing	
-sculptMeshInvertMask			setMeshSculptTool.mel	missing	
-sculptMeshUnFreeze			setMeshSculptTool.mel	missing	
-sculptMeshUnmaskAll			setMeshSculptTool.mel	missing	
+sculptMeshFlood			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
+sculptMeshInvertFreeze			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
+sculptMeshInvertMask			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
+sculptMeshUnFreeze			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
+sculptMeshUnmaskAll			setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
 sculptSetup		string $parent, int $forceFactorySettings, int $tabIndex	performSculpt.mel	missing	
 sculptTabUI		string $tabLayout	performSculpt.mel	missing	
 sculptTextureGetVisualize	int	string $node	AEsculptTemplate.mel	missing	
@@ -12929,14 +12929,14 @@ selectContentOfThisBin		string $binButton	hyperShadeBinPopupMenuUI.mel	missing
 selectCurrentExecuterControl			scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 selectCurrentExecuterControlWithoutFocus			scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 selectCurveCV		string $CVsToSelect	selectCurveCV.mel	missing	
-selectCustomSetMembers		string $sets[]	customChannelSets.mel	missing	
+selectCustomSetMembers		string $sets[]	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 selectDriven			setDrivenKeyWindow.mel	missing	
-selectedAttributesForCustomSets	string[]	string $panel	customChannelSets.mel	missing	
+selectedAttributesForCustomSets	string[]	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 selectedChannelBoxAttributes	string[]		selectedChannelBoxAttributes.mel	missing	
 selectedChannelBoxObjects	string[]		selectedChannelBoxObjects.mel	missing	
 selectedChannelBoxPlugs	string[]		selectedChannelBoxPlugs.mel	missing	
 selectedChannels	int		selectedChannels.mel	missing	
-selectedCustomSets	string[]	string $panel	customChannelSets.mel	missing	
+selectedCustomSets	string[]	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 selectedHairSystemIndices	int[]	string $hsysArray[]	selectedHairSystemIndices.mel	missing	
 selectedSurfaceFlows	string[]		selectedSurfaceFlows.mel	missing	
 selectedSurfaceFlowsAndSurfaces	string[]		selectedSurfaceFlowsAndSurfaces.mel	missing	
@@ -12977,7 +12977,7 @@ selectReferencesContents			OutlinerEdMenu.mel	missing
 selectShotsCam		string $shot	SequenceEdMenu.mel	missing	
 selectSimilarCallback		string $parent, int $doIt	performSelectSimilar.mel	missing	
 selectSimilarSetup		string $parent, int $forceFactorySettings	performSelectSimilar.mel	missing	
-selectSolidType			performPolyPrimitive.mel	missing	
+selectSolidType			performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 selectSolverItem			AEikSystemTemplate.mel	missing	
 selectSourceClip		string $selectedClips[]	ClipEdMenu.mel	missing	
 selectTextureToGeomFaces	string[]	string $textureToGeom, int $index	textureToGeomApplyColor.mel	missing	
@@ -13007,7 +13007,7 @@ seqPlayStoppedUpdateCallback	int		sequenceEditorPanel.mel	missing
 seqRestoreImagePlane		string $oldIP, string $camera, string $oldImage, float $oldVisibility, int $oldType	sequencerUtils.mel	missing	
 sequenceEditorDeleteCmd		string $editor	sequenceEditorRegisterActions.mel	missing	
 sequenceEditorIgnoreGapsCheckBoxCallback			sequenceEditorPanel.mel	missing	
-sequenceEditorNameFromPanel	string	string $panel	sequenceEditorNameFromPanel.mel	missing	
+sequenceEditorNameFromPanel	string	string $panel	sequenceEditorNameFromPanel.mel	done	scripts/others/sequenceEditorNameFromPanel.mel
 sequenceEditorPanel		string $panelName	sequenceEditorPanel.mel	missing	
 sequenceEditorRegisterActions		string $editor	sequenceEditorRegisterActions.mel	missing	
 sequenceEditorToggleRippleMode		string $editor	SequenceEdMenu.mel	missing	
@@ -13052,7 +13052,7 @@ setAirOptionVars		int $setFactorySettings	dynSetOptionVars.mel	missing
 setAllDynamicAttributeOptionMenuGrp			dynSetOptionControls.mel	missing	
 setAllMainWindowComponentsVisible		int $visible	setAllMainWindowComponentsVisible.mel	missing	
 setAnimationDetailsVisibility		int $visibility	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
-setArtAttrFilterLabel		string $label	setArtAttrFilterLabel.mel	missing	
+setArtAttrFilterLabel		string $label	setArtAttrFilterLabel.mel	done	scripts/others/setArtAttrFilterLabel.mel
 setAttrEdTextField		string $attrEdInfo, int $childIndex, string $val	AEcontainerMain.mel	missing	
 setAttrEnumResource		string $nodeType, string $attrShortName, int $enumIndex, string $str	setAttrEnumResource.mel	missing	
 setAttributeDimming		string $nodeName	AEpointEmitterTemplate.mel	missing	
@@ -13111,14 +13111,14 @@ setCreate3DFluidCmdString	string	int $flag	performFluids.mel	missing
 setCreate3DFluidControls		string $parent, int $setFactorySettings	dynSetFluidOptionControls.mel	missing	
 setCreate3DFluidOptionVars		int $setFactorySettings	dynSetFluidOptionVars.mel	missing	
 setCreateNurbsPrimitiveAsTool		int $state	initNurbsUI.mel	missing	
-setCreatePolyPrimitiveAsTool		int $state	initPolygonsUI.mel	missing	
+setCreatePolyPrimitiveAsTool		int $state	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 setCurrentCharacterList		string $editor, int $state	ClipEdMenu.mel	missing	
 setCurrentCharacters		string $characters[]	setCurrentCharacters.mel	missing	
 setCurrentContainerVisibility		int $visibility	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setCurrentFileTypeOption		string $action, string $parent, string $newType	fileOptions.mel	done	scripts/others/fileOptions.mel
 setCurrentFrameVisibility		int $visibility	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setCurrentNamespace		string $control	namespaceEditor.mel	missing	
-setCurrentRenderer	int	string $renderer	supportRenderers.mel	missing	
+setCurrentRenderer	int	string $renderer	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 setCurrentSelectedNamespaces		string $toSet	namespaceEditor.mel	missing	
 setCurrentTabInRenderGlobalsWindow		string $tabLabel	unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 setCurveLengthLock		int $doLock	setCurveLengthLock.mel	missing	
@@ -13155,7 +13155,7 @@ setDynPaintModeToolbox		int $mode	dynPaintToolbar.mel	missing
 setDynPaintOnlyToolbox		int $state	dynPaintToolbar.mel	missing	
 setDynPaintPanelState		string $whichPanel	dynPaintPanel.mel	missing	
 setDynPaintToolbar		int $state	dynPaintPanel.mel	missing	
-setEdgeCallback		float $value	performPolyPrimitive.mel	missing	
+setEdgeCallback		float $value	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 setEdgeWidth			initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setEditMode			statusLine.mel	missing	
 setEffectorRotatePinState		string $obj, int $pinRotate	loadFullBodyIKFunctions.mel	missing	
@@ -13284,13 +13284,13 @@ setMeltCmdString	string		performDynamicsClipEffects.mel	missing
 setMeltControls		string $parent, int $setFactorySettings	dynSetClipEffectsOptionControls.mel	missing	
 setMeltOptionVars		int $setFactorySettings	dynSetClipEffectsOptionVars.mel	missing	
 setMembershipEditor			relationshipEditor.mel	missing	
-setMeshSculptTool		string $brush	setMeshSculptTool.mel	missing	
-setMeshSculptToolOptVars		string $tool, int $forceSet	setMeshSculptTool.mel	missing	
+setMeshSculptTool		string $brush	setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
+setMeshSculptToolOptVars		string $tool, int $forceSet	setMeshSculptTool.mel	done	scripts/others/setMeshSculptTool.mel
 setMinMaxModeDAA		int $buttonId	dynAddAttrWin.mel	missing	
 setMinMaxPlayback		string $minField, string $maxField	playbackRange.mel	missing	
 setMinPlayback		string $field	playbackRange.mel	missing	
 setMuteAicState		int $mute	cutView.mel	missing	
-setNamedPanelLayout		string $whichNamedLayout	setNamedPanelLayout.mel	missing	
+setNamedPanelLayout		string $whichNamedLayout	setNamedPanelLayout.mel	done	scripts/startup/setNamedPanelLayout.mel
 setNclothCacheName			performCreateNclothCache.mel	missing	
 setNClothMapType		string $attr, string $meshParam, int $mapType	setNClothMapType.mel	missing	
 setNClothPlayObjects		float $damp, int $ignoreGravity	relaxInitialState.mel	missing	
@@ -13359,7 +13359,7 @@ setPolyCountVisibility		int $visibility	initHUDScripts.mel	done	scripts/startup/
 setPolyDisplayBackCulling		int $type	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setPolyDisplayLimitedToSelected			initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setPolygonDisplaySettings		string $option	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
-setPolyPrimitiveAsToolExitOnComplete		int $state	initPolygonsUI.mel	missing	
+setPolyPrimitiveAsToolExitOnComplete		int $state	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 setPolySoftEdge		float $fval	polySoftEdgeWin.mel	missing	
 setPolySoftEdgeCallback		string $fltSlider	polySoftEdgeWin.mel	missing	
 setPoseInterpolatorDirectoryChildren		string $directoryIndex, string $childItems[]	performInterpolatorCreateGroup.mel	missing	
@@ -13382,7 +13382,7 @@ setQuickFieldMode		string $mode	statusLine.mel	missing
 setRadialCmdString	string	int $isCreate	performDynamics.mel	missing	
 setRadialControls		string $parent, int $setFactorySettings	dynSetOptionControls.mel	missing	
 setRadialOptionVars		int $setFactorySettings	dynSetOptionVars.mel	missing	
-setRadiusCallback		float $value	performPolyPrimitive.mel	missing	
+setRadiusCallback		float $value	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 setRampAttributeFromOptionVar		string $node, string $rampAttr, string $optionVar	setRampAttributeFromOptionVar.mel	missing	
 setRampMaxColorCallback		string $currContext	artisanRampCallback.mel	missing	
 setRampMinColorCallback		string $currContext	artisanRampCallback.mel	missing	
@@ -13416,7 +13416,7 @@ setSelectDetailsVisibility		int $visibility	initHUDScripts.mel	done	scripts/star
 setSelectedForAllLayers		int $selected	layerEditor.mel	missing	
 setSelectedHairCurves		string $from, string $to	setSelectedHairCurves.mel	missing	
 setSelectedLayerRecursive		string $layer, int $selected, int $skipRoot	layerEditor.mel	missing	
-setSelectMode		string $mode, string $uiString	setSelectMode.mel	missing	
+setSelectMode		string $mode, string $uiString	setSelectMode.mel	done	scripts/startup/setSelectMode.mel
 setSelectModeOnObject		string $item, string $mask	artAttrSkinCallback.mel	missing	
 setSendToStatusDisplayCallback			buildSendToSubMenus.mel	missing	
 setShatterCmdString	string		performDynamicsClipEffects.mel	missing	
@@ -13543,7 +13543,7 @@ setupNoise		string $nodeName	AEparticleCloudTemplate.mel	missing
 setupNParticleConnections		string $nParticle	setupNParticleConnections.mel	missing	
 setupPfxToonOffsetMesh		string $pfxToon	setupPfxToonOffsetMesh.mel	missing	
 setupPrecompExportTreeViewDataLayerCameraPass		string $renderLayers[], string $cameras[], string $renderPasses[]	performExportToPrecompFile.mel	missing	
-setupRendererSceneOpenedCallback			supportRenderers.mel	missing	
+setupRendererSceneOpenedCallback			supportRenderers.mel	done	scripts/others/supportRenderers.mel
 setupScriptJobAENotes		string $fullNodeName, string $longAttrName	updateAE.mel	missing	
 setupShotImagePlane		string $shot, int $handles, float $start, float $end, string $image, float $opacity	sequencerUtils.mel	missing	
 setupSkinClusterTreeViewState		string $treeView, string $skinClusters[]	skinClusterInflMenu.mel	missing	
@@ -13564,7 +13564,7 @@ setVortexControls		string $parent, int $setFactorySettings	dynSetOptionControls.
 setVortexOptionVars		int $setFactorySettings	dynSetOptionVars.mel	missing	
 setWalkModeVisibility		int $walkModeHudState	initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 setWireframeOnShadedOption		int $val, string $editor	createModelPanelMenu.mel	missing	
-setWorkingDirectory	string	string $workspace, string $fileFormat, string $objectType	setWorkingDirectory.mel	missing	
+setWorkingDirectory	string	string $workspace, string $fileFormat, string $objectType	setWorkingDirectory.mel	done	scripts/others/setWorkingDirectory.mel
 setXformConstraint		string $value	setXformConstraint.mel	missing	
 setXformConstraintAlongNormal		int $value	setXformConstraintAlongNormal.mel	missing	
 setXrayOption		int $val, string $editor	createModelPanelMenu.mel	missing	
@@ -13680,12 +13680,12 @@ showAddAttrWin			showEditor.mel	missing
 showAllComponents			buildDisplayMenu.mel	done	scripts/startup/buildDisplayMenu.mel
 showAllPlayblastObjects		int $showThem	createModelPanelMenu.mel	missing	
 showAttributeEditor		int $show	initAttributeEditor.mel	missing	
-showAttributeExpansionOptions	int	string $panel	customChannelSets.mel	missing	
+showAttributeExpansionOptions	int	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 showBakeSetAE		string $bakeSet	showBakeSetAE.mel	missing	
 showBatchRender			showBatchRender.mel	missing	
 showChannelBox		int $show	initChannelBox.mel	missing	
 showChannels		int $visible	initChannels.mel	missing	
-showChannelSets	int	string $panel	customChannelSets.mel	missing	
+showChannelSets	int	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 showChannelsLayers		int $visible	initChannelsLayers.mel	missing	
 showCurrentComponent		string $componentBarName	UIComponents.mel	done	scripts/startup/UIComponents.mel
 showCurrentFilterBoxAndButton		string $panel, string $tab	hyperShadePanel.mel	missing	
@@ -13733,7 +13733,7 @@ showOptionBox			getOptionBox.mel	done	scripts/others/getOptionBox.mel
 showPanelCameraEditor		string $panel	showPanelCameraEditor.mel	missing	
 showPlayblastCutView		string $filename	cutView.mel	missing	
 showPreloadReferenceEditor			showPreloadReferenceEditor.mel	missing	
-showRegularSets	int	string $panel	customChannelSets.mel	missing	
+showRegularSets	int	string $panel	customChannelSets.mel	done	scripts/others/customChannelSets.mel
 showRenameAttrWin			showEditor.mel	missing	
 showRenderGlobals			renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
 showRenderView	string		renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
@@ -13857,7 +13857,7 @@ softModSetup		string $parent, int $forceFactorySettings	performSoftMod.mel	missi
 softModToolReset			softModValues.mel	missing	
 softModUI		string $layout	performSoftMod.mel	missing	
 softModValues		string $toolName	softModValues.mel	missing	
-SoftPolyEdgeElements		int $option	initPolygonsUI.mel	missing	
+SoftPolyEdgeElements		int $option	initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 softSelectColorKeyChanged		string $parent	softSelectValues.mel	missing	
 softSelectCurveKeyChanged		string $parent	softSelectValues.mel	missing	
 softSelectCustomCurveCB			softSelectProperties.mel	missing	
@@ -13865,11 +13865,11 @@ softSelectProperties		int $collapsed, int $uvToolProperties	softSelectProperties
 softSelectSetColorKey		string $parent	softSelectValues.mel	missing	
 softSelectToolReset		string $parent	softSelectValues.mel	missing	
 softSelectValues		string $parent	softSelectValues.mel	missing	
-solidNormalizeCallBack		string $op	performPolyPrimitive.mel	missing	
-solidNormalizeTypeCallBack		string $op	performPolyPrimitive.mel	missing	
-solidsCommand	string	string $res, string $op	performPolyPrimitive.mel	missing	
+solidNormalizeCallBack		string $op	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
+solidNormalizeTypeCallBack		string $op	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
+solidsCommand	string	string $res, string $op	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 solidShatter	string[]	string $name, int $shardCount, int $triangulate, int $applyMaterial, int $removeInterior, float $extrude, float $perturbFactor, int $seedValue, int $original, string $postOp, int $makeRigid, int $verbose	solidShatter.mel	missing	
-solidsUVCallBack		string $op	performPolyPrimitive.mel	missing	
+solidsUVCallBack		string $op	performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 soloMaterialNode	int	string $node, string $attribName	soloSelectedMaterial.mel	missing	
 soloSelectedMaterial			soloSelectedMaterial.mel	missing	
 sortHierarchically	string[]	string $character, string $mems[]	mapcharWindow.mel	missing	
@@ -13894,7 +13894,7 @@ sphereArrayPaint		string $context	sphereArrayPaint.mel	missing
 sphereCallback		string $parent, int $doIt	performNurbsSphere.mel	missing	
 spherePaint		string $context	spherePaint.mel	missing	
 sphereSetup		string $parent, int $forceFactorySettings	performNurbsSphere.mel	missing	
-sphereUVCallBack			performPolyPrimitive.mel	missing	
+sphereUVCallBack			performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 spiral	string	float $ht, float $radius, float $numRounds	spiral.mel	missing	
 spiralSurface	string	float $ht, float $radius, float $numRounds, float $tubeRadius	spiralSurface.mel	missing	
 splitClipCallback		string $parent, int $doIt	performSplitClip.mel	missing	
@@ -14184,7 +14184,7 @@ switchMemberInEditMetadataWindow			editMetadataWindow.mel	missing
 switchMetadataVisualization		string $streamName, string $memberNameAndType[]	editMetadataWindow.mel	missing	
 switchModelView		string $viewType	HotboxCenterMenu.mel	missing	
 switchPanelToType		string $panelType	HotboxSouthMenu.mel	missing	
-switchPanes		string $doWhat, int $usePointer	switchPanes.mel	missing	
+switchPanes		string $doWhat, int $usePointer	switchPanes.mel	done	scripts/startup/switchPanes.mel
 switchPrefTabs		int $whichTab	preferencesWnd.mel	missing	
 switchRenderAllLayers			switchRenderAllLayers.mel	missing	
 switchRenderAllLayersOptBox			switchRenderAllLayersOptBox.mel	missing	
@@ -14245,7 +14245,7 @@ teardownHotkeyForSymmetrizeUVContext			texturePanel.mel	missing
 teardownHotkeyForUnfold3DContext			texturePanel.mel	missing	
 tearOffCopyItemCmd		string $panelType, string $srcPanel	buildPanelPopupMenu.mel	missing	
 tearOffPanel	string	string $panelLabel, string $panelType, int $isScripted	tearOffPanel.mel	missing	
-tearOffRestorePanel	string	string $panelLabel, string $panelType, int $isScripted	tearOffRestorePanel.mel	missing	
+tearOffRestorePanel	string	string $panelLabel, string $panelType, int $isScripted	tearOffRestorePanel.mel	done	scripts/startup/tearOffRestorePanel.mel
 teBuildAnimSourcesMainMenu		string $editor, string $parent	teMainMenus.mel	missing	
 teBuildAnimSourceSubMenuList		string $parent, int $showNS, string $command	teMainMenus.mel	missing	
 teBuildBakeMainMenu		string $editor, string $parent	teMainMenus.mel	missing	
@@ -14760,7 +14760,7 @@ toggleAEFilter		string $nodeType, int $allTypes, int $action	toggleAEFilter.mel	
 toggleAllMainWindowComponentsVisible			toggleAllMainWindowComponentsVisible.mel	missing	
 toggleAutoLoad		string $editor, int $toggle	loadAnimMenuLibrary.mel	missing	
 toggleAutoSave		string $editor	dynPaintMenus.mel	missing	
-toggleAutoShowColorPerVertex			initPolygonsUI.mel	missing	
+toggleAutoShowColorPerVertex			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleBlendShapeEditHUD			createBlendShapePanelMenu.mel	missing	
 toggleBoundingBoxDisplay		string $parent	dagMenuProc.mel	missing	
 ToggleCacheHUDVisibility			initHUDScriptsEvaluationManager.mel	missing	
@@ -14784,10 +14784,10 @@ toggleConstrConn		string $editor	HyperGraphEdMenu.mel	missing
 toggleContainerHierarchyRadio		int $state	performAddToContainer.mel	missing	
 toggleCopyAttrInConnRadio		int $state	performTransferContainer.mel	missing	
 toggleCreateNurbsPrimitiveAsTool			initNurbsUI.mel	missing	
-toggleCreatePolyPrimitiveAsTool			initPolygonsUI.mel	missing	
+toggleCreatePolyPrimitiveAsTool			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleCurrentCharacterList		string $curMenuItem, string $editor	ClipEdMenu.mel	missing	
 toggleDeformConn		string $editor	HyperGraphEdMenu.mel	missing	
-toggleDisplayPolyCount			initPolygonsUI.mel	missing	
+toggleDisplayPolyCount			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleDynPaintToolbar		string $editor	dynPaintMenus.mel	missing	
 ToggleEvaluationManagerHUDVisibility			initHUDScriptsEvaluationManager.mel	missing	
 toggleEvaluationManagerManipulation			initHUDScriptsEvaluationManager.mel	missing	
@@ -14827,25 +14827,25 @@ togglePixelPaintMode		string $editor	dynPaintMenus.mel	missing
 togglePlayback			togglePlayback.mel	done	scripts/others/togglePlayback.mel
 togglePlaybackFieldVisibility			playbackRange.mel	missing	
 togglePlayblastMenuItem		string $filter, int $enable	createModelPanelMenu.mel	missing	
-togglePolyAutoConvertAction			initPolygonsUI.mel	missing	
-togglePolyAutoInstallAction			initPolygonsUI.mel	missing	
-togglePolyCreateShaderWithMapping			initPolygonsUI.mel	missing	
+togglePolyAutoConvertAction			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+togglePolyAutoInstallAction			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+togglePolyCreateShaderWithMapping			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 togglePolygonsOption			createModelPanelMenu.mel	missing	
-togglePolyMoveComponents			initPolygonsUI.mel	missing	
-togglePolyPlanarConstraints			initPolygonsUI.mel	missing	
-togglePolyPrimitiveAsToolExitOnComplete			initPolygonsUI.mel	missing	
-togglePolySingleSided			initPolygonsUI.mel	missing	
+togglePolyMoveComponents			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+togglePolyPlanarConstraints			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+togglePolyPrimitiveAsToolExitOnComplete			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
+togglePolySingleSided			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 togglePrimTransparencySorting		int $val, string $panel	createModelPanelMenu.mel	missing	
 toggleRenderIcons		int $arg	statusLine.mel	missing	
 toggleRenderTargetForceDependenciesRender			renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
-toggleRenderViewExposure			colorManagementRenderViewUtilities.mel	missing	
-toggleRenderViewGamma			colorManagementRenderViewUtilities.mel	missing	
+toggleRenderViewExposure			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+toggleRenderViewGamma			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 toggleRightClickMenuMetadataCheckbox			dagMenuProc.mel	missing	
 toggleSelectionSetIcons		int $arg	statusLine.mel	missing	
 toggleSelectMaskIcons		int $arg	statusLine.mel	missing	
 toggleSelectModeIcons		int $arg	statusLine.mel	missing	
 toggleSelMode			toggleSelMode.mel	missing	
-toggleShadeMode			initPolygonsUI.mel	missing	
+toggleShadeMode			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleShaderBallPauseButton			hyperShadePanel.mel	missing	
 toggleShapeEditHUD			createShapePanelMenu.mel	missing	
 toggleShelfTabs			shelf.mel	missing	
@@ -14858,9 +14858,9 @@ toggleTangentDisplay			buildDisplayMenu.mel	done	scripts/startup/buildDisplayMen
 ToggleTextureBorderDisplay			texturePanelCommon.mel	missing	
 toggleToleranceControls		int $value, string $name	AEstitchSrfTemplate.mel	missing	
 toggleUIComponentVisibility	int	string $name	UIComponents.mel	done	scripts/startup/UIComponents.mel
-toggleUseMikktspaceTangents			initPolygonsUI.mel	missing	
+toggleUseMikktspaceTangents			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleUsePressure		string $editor	dynPaintMenus.mel	missing	
-toggleUseTangentSpaceNormalsByDefault			initPolygonsUI.mel	missing	
+toggleUseTangentSpaceNormalsByDefault			initPolygonsUI.mel	done	scripts/startup/initPolygonsUI.mel
 toggleUVToolkit			texturePanelMenus.mel	missing	
 toggleViewLabels		int $showViewLabels	showEditor.mel	missing	
 toggleVisibilityAndKeepSelection		int $behaviour	toggleVisibilityAndKeepSelection.mel	missing	
@@ -14879,11 +14879,11 @@ toolboxCreateQuickLayoutPopupMenuItems		string $parent, int $buttonIndex	toolbox
 toolboxSaveCurrentLayout			toolbox.mel	missing	
 toolboxSaveQuickLayoutImage		int $buttonIndex	toolbox.mel	missing	
 toolboxVisibilityStateChange	int	int $newState, string $layout	toolbox.mel	missing	
-toolPropertySelect		string $whichPropSheet	toolPropertyWindow1.mel	missing	
-toolPropertySetCommon		string $name, string $icon, string $help	toolPropertyWindow1.mel	missing	
-toolPropertyShow			toolPropertyWindow1.mel	missing	
-toolPropertyWindow1		string $location	toolPropertyWindow1.mel	missing	
-toolPropertyWinSetCommon		string $toolName, string $icon	toolPropertyWindow1.mel	missing	
+toolPropertySelect		string $whichPropSheet	toolPropertyWindow1.mel	done	scripts/others/toolPropertyWindow1.mel
+toolPropertySetCommon		string $name, string $icon, string $help	toolPropertyWindow1.mel	done	scripts/others/toolPropertyWindow1.mel
+toolPropertyShow			toolPropertyWindow1.mel	done	scripts/others/toolPropertyWindow1.mel
+toolPropertyWindow1		string $location	toolPropertyWindow1.mel	done	scripts/others/toolPropertyWindow1.mel
+toolPropertyWinSetCommon		string $toolName, string $icon	toolPropertyWindow1.mel	done	scripts/others/toolPropertyWindow1.mel
 toolSettingsVisibilityStateChange	int	int $newState, string $layout	initToolSettings.mel	missing	
 ToonAssignFillShaderMenu		string $parent	buildCartoonMenu.mel	missing	
 ToonCreateBackgroundColorMenu		string $parent	buildCartoonMenu.mel	missing	
@@ -15000,7 +15000,7 @@ UIComponentExampleWindowToolboxStateChange	int	int $newState, string $layout	UIC
 UIComponentExampleWindowUpdateDisplayMenu			UIComponentsExample.mel	missing	
 UIComponentExists	int	string $name	UIComponents.mel	done	scripts/startup/UIComponents.mel
 uiPrefWnd			uiPrefWnd.mel	missing	
-uiRes	string	string $lookUpKey	uiRes.mel	missing	
+uiRes	string	string $lookUpKey	uiRes.mel	done	scripts/startup/uiRes.mel
 uiToMelMsg		string $procName, string $caseName, int $severity	uiToMelMsg.mel	missing	
 uiTreatmentCB		string $nodeName	AEcontainerMain.mel	missing	
 unassignEditedTemplate		string $assetInfo	assetWindow.mel	missing	
@@ -15154,7 +15154,7 @@ updateCullingOptions			initHUDScripts.mel	done	scripts/startup/initHUDScripts.me
 updateCurrentCharacterField		string $parent, string $delta[]	playbackRange.mel	missing	
 updateCurrentCharacterHUD			initHUDScripts.mel	done	scripts/startup/initHUDScripts.mel
 updateCurrentDisplayLayer		string $current	AEdisplayLayerManagerNoScroll.mel	missing	
-updateCurrentRendererSel		string $menu	supportRenderers.mel	missing	
+updateCurrentRendererSel		string $menu	supportRenderers.mel	done	scripts/others/supportRenderers.mel
 updateCurrentRenderLayerSel			unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 updateCurrentWorkingMode			menuSetEditor.mel	missing	
 updateCustomAnimLayerWeights		string $currentShot	sequencerUtils.mel	missing	
@@ -15262,7 +15262,7 @@ updateLockedPositionControls		string $lockedToCamera	AEimagePlaneTemplate.mel	mi
 updateLockSelectionIcon			statusLine.mel	missing	
 updateLODGenerateLevel		int $levelEnabled, int $level, string $parent	performLODGenerateMeshes.mel	missing	
 updateLODGenerateMeshesNumLevels		int $syncToOptVars, string $parent	performLODGenerateMeshes.mel	missing	
-updateMainWindowComponentState			updateMainWindowComponentState.mel	missing	
+updateMainWindowComponentState			updateMainWindowComponentState.mel	done	scripts/startup/updateMainWindowComponentState.mel
 updateMapButton			mapcharWindow.mel	missing	
 updateMasterLayerTabs			unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
 updateMaxTextureResolution		int $sz	createPrefWndUI.mel	missing	
@@ -15293,7 +15293,7 @@ updateMayaSoftwareUseCustomExtensionControl			createMayaSoftwareCommonGlobalsTab
 updateMB			createMayaHardware2GlobalsTab.mel	missing	
 updateMenuMappings			SelectMenu.mel	missing	
 updateMenuMode			statusLine.mel	missing	
-updateMenuModeAndHotkeyMenus		string $workspaceName	workspaceHelperProcs.mel	missing	
+updateMenuModeAndHotkeyMenus		string $workspaceName	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 updateMenuModeUI			initMainMenuBar.mel	missing	
 updateMenuSetsMenuItems			menuSetEditor.mel	missing	
 updateMenusMenuItems			menuSetEditor.mel	missing	
@@ -15330,7 +15330,7 @@ updateOPACITYColor		string $colorName	colorPrefWnd.mel	missing
 updateOptionMenu		string $menuName, string $values[], string $selection, int $customMenu	colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 updateOptionsAndUiBasedOnFileSettings		string $optionList[]	importAnimSharedOptions.mel	missing	
 updateOptionsState		string $editor	updateOptionsState.mel	missing	
-updateOutlinerPanelMenu		string $menu, string $ed	createOutlinerPanelMenu.mel	missing	
+updateOutlinerPanelMenu		string $menu, string $ed	createOutlinerPanelMenu.mel	done	scripts/others/createOutlinerPanelMenu.mel
 updateOutputTransformLabel		string $menu, string $selection, string $target	colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 updateOutputTransformOptionMenu		string $menuTypeName, string $menuName, int $outputTransformTarget	colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 updatePaintEffectsSetSizeWin		string $editor	dynPaintMenus.mel	missing	
@@ -15345,7 +15345,7 @@ updatePerformPolyCutOffset			performPolyCut.mel	missing
 updatePerformPolyCutTRS			performPolyCut.mel	missing	
 updatePerParticleGoalPointAttr		string $node, int $goalIndex, string $attrName, string $dataType, string $buttonName	AEdynObjectGoalWeightNew.mel	missing	
 updatePivotUVArea		int $enable	uvTkBuildTransformOptions.mel	missing	
-updatePlatonicSolidType			performPolyPrimitive.mel	missing	
+updatePlatonicSolidType			performPolyPrimitive.mel	done	scripts/others/performPolyPrimitive.mel
 UpdatePlaybackAndAnimationRanges			createPrefWndUI.mel	missing	
 updatePlaybackLoopingButtonState		string $button	playbackRange.mel	missing	
 updatePlaybackLoopingMenu			TimeSliderMenu.mel	missing	
@@ -15365,8 +15365,8 @@ updatePluginUI		int $i	pluginWin.mel	done	scripts/others/pluginWin.mel
 updatePluginWin			pluginWin.mel	done	scripts/others/pluginWin.mel
 updatePolyBridgeEdgeUI			performPolyBridgeEdge.mel	missing	
 updatePolyColorSwatch		int $fromColorSlider	performApplyColor.mel	missing	
-updatePolyExtrudeOptions			performPolyExtrude.mel	missing	
-updatePolyExtrudeWithCurveOptions			performPolyExtrude.mel	missing	
+updatePolyExtrudeOptions			performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
+updatePolyExtrudeWithCurveOptions			performPolyExtrude.mel	done	scripts/others/performPolyExtrude.mel
 updatePolyReduceTerminationCallback		string $parent	performPolyReduce.mel	missing	
 updatePrecompExportEditorUI		string $tabLayout, string $toolName, int $isAuto	performPrecompExport.mel	missing	
 updatePrecompExportTreeView		string $treeControl, string $layer1[], string $layer2[], string $layer3[]	performPrecompExport.mel	missing	
@@ -15388,7 +15388,7 @@ updateReferenceProxyMenu		string $parentMenu	referenceEditorPanel.mel	missing
 updateReferenceReferenceMenu		string $parentMenu	referenceEditorPanel.mel	missing	
 updateReferenceViewMenu		string $menu	buildReferenceViewMenu.mel	missing	
 updateRenameUI			dynRenameAttrWin.mel	missing	
-updateRendererUI			supportRenderers.mel	missing	
+updateRendererUI			supportRenderers.mel	done	scripts/others/supportRenderers.mel
 updateRenderLayerEnableUI		string $renderer	createRenderLayerOptionsUI.mel	missing	
 updateRenderLayerLayoutUI		string $renderer, int $doLayers, int $doPasses	createRenderLayerOptionsUI.mel	missing	
 updateRenderLayerOptionMenu			unifiedRenderGlobalsWindow.mel	done	scripts/others/unifiedRenderGlobalsWindow.mel
@@ -15405,15 +15405,15 @@ updateRenderSequenceOptionsWindow			renderSequenceOptionsWindow.mel	done	scripts
 updateRenderShelfRendererSpecificUI			shelf_Rendering.mel	missing	
 updateRenderViewCurrentRenderLayerLabel		string $panel	renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
 updateRenderViewCurrentRenderTarget		string $panel	renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
-updateRenderViewExposureControls		float $value	colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewExposureField			colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewExposureSlider			colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewExposureState			colorManagementRenderViewUtilities.mel	missing	
+updateRenderViewExposureControls		float $value	colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewExposureField			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewExposureSlider			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewExposureState			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 updateRenderViewForRenderLayerChange		string $panel	renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
-updateRenderViewGammaControls		float $value	colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewGammaField			colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewGammaSlider			colorManagementRenderViewUtilities.mel	missing	
-updateRenderViewGammaState			colorManagementRenderViewUtilities.mel	missing	
+updateRenderViewGammaControls		float $value	colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewGammaField			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewGammaSlider			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
+updateRenderViewGammaState			colorManagementRenderViewUtilities.mel	done	scripts/startup/colorManagementRenderViewUtilities.mel
 updateRenderViewTransformSelMenu			colorManagementUtilities.mel	done	scripts/startup/colorManagementUtilities.mel
 updateRenderWindowPanelRendererSpecificUI			renderWindowPanel.mel	done	scripts/others/renderWindowPanel.mel
 updateReRenderMenu		string $parent	RenRenderMenu.mel	missing	
@@ -15490,12 +15490,12 @@ updateUVSetMenuWithCopyUVsCmd		string $menuName, string $prefix, string $whichPa
 updateViewMenu		string $assetInfo	assetWindow.mel	missing	
 updateViewportFilterMenuStates		string $menu, string $editor	viewportShowMenuPresets.mel	missing	
 updateViewportRendererMenu		string $renderingEngine	updatePrefWndUI.mel	missing	
-updateVP2Preset		string $vp2PresetValue	workspaceHelperProcs.mel	missing	
+updateVP2Preset		string $vp2PresetValue	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 updateVP2RenderingEngine			createPrefWndUI.mel	missing	
 updateWinRW		string $win	glRenderWin.mel	missing	
-updateWorkspaceAutoSave		int $save	workspaceHelperProcs.mel	missing	
+updateWorkspaceAutoSave		int $save	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 updateWorkspaceDeleteMenu			buildViewMenu.mel	missing	
-updateWorkspaceDocking		int $lock	workspaceHelperProcs.mel	missing	
+updateWorkspaceDocking		int $lock	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 updateWorkspaceResetMenu		int $shorterWidth	buildViewMenu.mel	missing	
 updateWorkspacesList			statusLine.mel	missing	
 updateWorldViewEditors			updateWorldViewEditors.mel	missing	
@@ -15519,7 +15519,7 @@ userCleanUp_GetOptionVars	string[]		cleanUpScene.mel	missing
 userCleanUp_ListCleanUps			cleanUpScene.mel	missing	
 userCleanUp_PerformCleanUpScene	int		cleanUpScene.mel	missing	
 userCleanUp_SetOptionVars		int $forceFactorySettings	cleanUpScene.mel	missing	
-useRenderRegion	int		useRenderRegion.mel	missing	
+useRenderRegion	int		useRenderRegion.mel	done	scripts/others/useRenderRegion.mel
 useSameBrush	string		useSameBrush.mel	missing	
 useSelectedStamp		string $path	visorPanel.mel	missing	
 useSelectedStampForMode		string $path, string $mode	visorPanel.mel	missing	
@@ -15537,7 +15537,7 @@ uvsChangeUvSet		string $dynNode, string $dynReason, string $dynAttr, int $dynMul
 uvsControl	string	string $action, string $dynNode, string $dynReason, int $dynIndex, string $controlName	uvControlUtils.mel	missing	
 uvSculptToolModes	string[]		setUVSculptTool.mel	missing	
 uvsDimControl		string $dynNode, string $dynPurpose, int $val, string $controlName	uvControlUtils.mel	missing	
-uvSetEditCmd		string $cmd, string $uvSets[]	uvSetEditCmd.mel	missing	
+uvSetEditCmd		string $cmd, string $uvSets[]	uvSetEditCmd.mel	done	scripts/others/uvSetEditCmd.mel
 uvSetEditor			uvSetEditor.mel	done	scripts/others/uvSetEditor.mel
 uvSetMakeSelectCmd	string[]		uvSetMakeSelectCmd.mel	missing	
 uvsFindCurUvSet	string	string $node, string $attr, int $multi, int $index	uvControlUtils.mel	missing	
@@ -15690,7 +15690,7 @@ validPerspCamera	string	string $name	HotboxCenterMenu.mel	missing
 verifyClipsAreValid	int	string $character, string $offset	verifyClipsAreValid.mel	missing	
 verifyCommandPopupMenus			scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 verifyCrackEdges		string $crackList[]	crackShatter.mel	missing	
-verifyCurrentRenderer			supportRenderers.mel	missing	
+verifyCurrentRenderer			supportRenderers.mel	done	scripts/others/supportRenderers.mel
 verifyFluidResolution	int	string $fluid, int $newResX, int $newResY, int $newResZ	verifyFluidResolution.mel	missing	
 verifyTabPopupMenu		string $parent, int $tabIndexUnderMouse	scriptEditorPanel.mel	done	scripts/startup/scriptEditorPanel.mel
 verifyWorkspaceFileRule		string $fileRule, string $location	verifyWorkspaceFileRule.mel	missing	
@@ -15804,7 +15804,7 @@ wizardExampleWindowSelectImageSelection			spriteWizard.mel	missing
 wizardExampleWindowSelectSummary			spriteWizard.mel	missing	
 wizardWindow		string $particle, string $newImage	spriteWizard.mel	missing	
 workingMode		string $menuSet	statusLine.mel	missing	
-workspaceLayoutOptions		string $workspaceName, string $menuName	workspaceHelperProcs.mel	missing	
+workspaceLayoutOptions		string $workspaceName, string $menuName	workspaceHelperProcs.mel	done	scripts/others/workspaceHelperProcs.mel
 worldUpTypeDimUI		string $nodeName	AEikHandleTemplate.mel	missing	
 wrinkleProperties			wrinkleProperties.mel	missing	
 wrinkleValues		string $toolName	wrinkleValues.mel	missing	

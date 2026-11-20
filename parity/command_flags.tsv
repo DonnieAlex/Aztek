@@ -9699,12 +9699,12 @@ dgtimer	uhm	missing
 dgtimer	un	done	auto
 dgtimer	uniqueName	done	auto
 dgtimer	updateHeatMap	missing	
-dimWhen	c	missing	
-dimWhen	clear	missing	
-dimWhen	f	missing	
-dimWhen	false	missing	
-dimWhen	t	missing	
-dimWhen	true	missing	
+dimWhen	c	done	auto
+dimWhen	clear	done	auto
+dimWhen	f	done	auto
+dimWhen	false	done	auto
+dimWhen	t	done	auto
+dimWhen	true	done	auto
 directKeyCtx	ch	done	auto
 directKeyCtx	e	done	auto
 directKeyCtx	edit	done	auto
@@ -19071,16 +19071,16 @@ matrixUtil	t	done	auto
 matrixUtil	tp	done	auto
 matrixUtil	translation	done	auto
 matrixUtil	transpose	done	auto
-mayaDpiSetting	m	missing	
-mayaDpiSetting	mode	missing	
-mayaDpiSetting	q	missing	
-mayaDpiSetting	query	missing	
-mayaDpiSetting	realScaleValue	missing	
-mayaDpiSetting	rsv	missing	
-mayaDpiSetting	scaleValue	missing	
-mayaDpiSetting	sd	missing	
-mayaDpiSetting	sv	missing	
-mayaDpiSetting	systemDpi	missing	
+mayaDpiSetting	m	done	auto
+mayaDpiSetting	mode	done	auto
+mayaDpiSetting	q	done	auto
+mayaDpiSetting	query	done	auto
+mayaDpiSetting	realScaleValue	done	auto
+mayaDpiSetting	rsv	done	auto
+mayaDpiSetting	scaleValue	done	auto
+mayaDpiSetting	sd	done	auto
+mayaDpiSetting	sv	done	auto
+mayaDpiSetting	systemDpi	done	auto
 mayaHasRenderSetup	e	missing	
 mayaHasRenderSetup	ecs	missing	
 mayaHasRenderSetup	edit	missing	
@@ -19149,8 +19149,8 @@ menu	ex	done	auto
 menu	exists	done	auto
 menu	familyImage	done	auto
 menu	fi	done	auto
-menu	helpMenu	missing	
-menu	hm	missing	
+menu	helpMenu	done	auto
+menu	hm	done	auto
 menu	ia	done	auto
 menu	itemArray	done	auto
 menu	l	done	auto
@@ -19168,7 +19168,7 @@ menu	postMenuCommandOnce	done	auto
 menu	q	done	auto
 menu	query	done	auto
 menu	scrollable	done	auto
-menu	srb	missing	
+menu	srb	done	auto
 menu	tearOff	done	auto
 menu	to	done	auto
 menu	useTemplate	done	auto
@@ -19378,17 +19378,17 @@ menuItem	dtg	done	auto
 menuItem	e	done	auto
 menuItem	ec	done	auto
 menuItem	echoCommand	done	auto
-menuItem	ecr	missing	
+menuItem	ecr	done	auto
 menuItem	edit	done	auto
 menuItem	en	done	auto
 menuItem	enable	done	auto
-menuItem	enableCommandRepeat	missing	
+menuItem	enableCommandRepeat	done	auto
 menuItem	ex	done	auto
 menuItem	exists	done	auto
 menuItem	familyImage	done	auto
 menuItem	fi	done	auto
-menuItem	hdr	missing	
-menuItem	header	missing	
+menuItem	hdr	done	auto
+menuItem	header	done	auto
 menuItem	i	done	auto
 menuItem	ia	done	auto
 menuItem	icb	done	auto
@@ -19405,8 +19405,8 @@ menuItem	italicized	done	auto
 menuItem	itl	done	auto
 menuItem	l	done	auto
 menuItem	label	done	auto
-menuItem	ld	missing	
-menuItem	longDivider	missing	
+menuItem	ld	done	auto
+menuItem	longDivider	done	auto
 menuItem	ob	done	auto
 menuItem	obi	done	auto
 menuItem	optionBox	done	auto
@@ -19423,8 +19423,8 @@ menuItem	radialPosition	done	auto
 menuItem	radioButton	done	auto
 menuItem	rb	done	auto
 menuItem	rp	done	auto
-menuItem	rtc	missing	
-menuItem	runTimeCommand	missing	
+menuItem	rtc	done	auto
+menuItem	runTimeCommand	done	auto
 menuItem	sm	done	auto
 menuItem	sourceType	done	auto
 menuItem	stp	done	auto
@@ -33279,16 +33279,16 @@ shotTrack	tr	missing
 shotTrack	track	missing	
 shotTrack	unsolo	missing	
 shotTrack	uso	missing	
-showHelp	a	missing	
-showHelp	absolute	missing	
-showHelp	d	missing	
-showHelp	docs	missing	
-showHelp	helpTable	missing	
-showHelp	ht	missing	
-showHelp	q	missing	
-showHelp	query	missing	
-showHelp	v	missing	
-showHelp	version	missing	
+showHelp	a	done	auto
+showHelp	absolute	done	auto
+showHelp	d	done	auto
+showHelp	docs	done	auto
+showHelp	helpTable	done	auto
+showHelp	ht	done	auto
+showHelp	q	done	auto
+showHelp	query	done	auto
+showHelp	v	done	auto
+showHelp	version	done	auto
 showHidden	a	done	auto
 showHidden	above	done	auto
 showHidden	all	done	auto
@@ -39924,70 +39924,70 @@ wireContext	n	missing
 wireContext	name	missing	
 wireContext	q	missing	
 wireContext	query	missing	
-workspace	act	missing	
-workspace	active	missing	
-workspace	baseWorkspace	missing	
-workspace	bw	missing	
-workspace	cr	missing	
-workspace	create	missing	
+workspace	act	done	auto
+workspace	active	done	auto
+workspace	baseWorkspace	done	auto
+workspace	bw	done	auto
+workspace	cr	done	auto
+workspace	create	done	auto
 workspace	dir	done	auto
 workspace	directory	done	auto
-workspace	en	missing	
-workspace	expandName	missing	
-workspace	fileRule	missing	
-workspace	fileRuleEntry	missing	
-workspace	fileRuleList	missing	
+workspace	en	done	auto
+workspace	expandName	done	auto
+workspace	fileRule	done	auto
+workspace	fileRuleEntry	done	auto
+workspace	fileRuleList	done	auto
 workspace	fn	done	auto
-workspace	fr	missing	
-workspace	fre	missing	
-workspace	frl	missing	
+workspace	fr	done	auto
+workspace	fre	done	auto
+workspace	frl	done	auto
 workspace	fullName	done	auto
-workspace	l	missing	
-workspace	lfw	missing	
-workspace	list	missing	
-workspace	listFullWorkspaces	missing	
-workspace	listWorkspaces	missing	
-workspace	lw	missing	
-workspace	n	missing	
-workspace	newWorkspace	missing	
+workspace	l	done	auto
+workspace	lfw	done	auto
+workspace	list	done	auto
+workspace	listFullWorkspaces	done	auto
+workspace	listWorkspaces	done	auto
+workspace	lw	done	auto
+workspace	n	done	auto
+workspace	newWorkspace	done	auto
 workspace	o	done	auto
-workspace	objectType	missing	
-workspace	objectTypeEntry	missing	
-workspace	objectTypeList	missing	
+workspace	objectType	done	auto
+workspace	objectTypeEntry	done	auto
+workspace	objectTypeList	done	auto
 workspace	openWorkspace	done	auto
-workspace	ot	missing	
-workspace	ote	missing	
-workspace	otl	missing	
-workspace	pp	missing	
-workspace	projectPath	missing	
+workspace	ot	done	auto
+workspace	ote	done	auto
+workspace	otl	done	auto
+workspace	pp	done	auto
+workspace	projectPath	done	auto
 workspace	q	done	auto
 workspace	query	done	auto
 workspace	rd	done	auto
-workspace	removeFileRuleEntry	missing	
-workspace	removeVariableEntry	missing	
-workspace	renderType	missing	
-workspace	renderTypeEntry	missing	
-workspace	renderTypeList	missing	
-workspace	rfr	missing	
+workspace	removeFileRuleEntry	done	auto
+workspace	removeVariableEntry	done	auto
+workspace	renderType	done	auto
+workspace	renderTypeEntry	done	auto
+workspace	renderTypeList	done	auto
+workspace	rfr	done	auto
 workspace	rootDirectory	done	auto
-workspace	rt	missing	
-workspace	rte	missing	
-workspace	rtl	missing	
-workspace	rve	missing	
-workspace	s	missing	
-workspace	saveWorkspace	missing	
-workspace	shortName	missing	
-workspace	sn	missing	
-workspace	u	missing	
-workspace	ua	missing	
-workspace	update	missing	
-workspace	updateAll	missing	
-workspace	v	missing	
-workspace	variable	missing	
-workspace	variableEntry	missing	
-workspace	variableList	missing	
-workspace	ve	missing	
-workspace	vl	missing	
+workspace	rt	done	auto
+workspace	rte	done	auto
+workspace	rtl	done	auto
+workspace	rve	done	auto
+workspace	s	done	auto
+workspace	saveWorkspace	done	auto
+workspace	shortName	done	auto
+workspace	sn	done	auto
+workspace	u	done	auto
+workspace	ua	done	auto
+workspace	update	done	auto
+workspace	updateAll	done	auto
+workspace	v	done	auto
+workspace	variable	done	auto
+workspace	variableEntry	done	auto
+workspace	variableList	done	auto
+workspace	ve	done	auto
+workspace	vl	done	auto
 workspaceControl	actLikeMayaUIElement	done	auto
 workspaceControl	alm	missing	
 workspaceControl	cc	done	auto

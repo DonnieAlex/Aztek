@@ -258,7 +258,7 @@ dgeval	done	auto
 dgfilter	missing	
 dgmodified	missing	
 dgtimer	done	auto
-dimWhen	missing	
+dimWhen	done	auto
 directKeyCtx	done	auto
 directionalLight	done	auto
 dirmap	done	auto
@@ -551,7 +551,7 @@ manipScaleLimitsCtx	missing
 marker	missing	
 matchTransform	done	auto
 matrixUtil	done	auto
-mayaDpiSetting	missing	
+mayaDpiSetting	done	auto
 mayaHasRenderSetup	missing	
 melInfo	missing	
 melOptions	missing	
@@ -998,7 +998,7 @@ shelfTabLayout	done	auto
 shot	missing	
 shotRipple	missing	
 shotTrack	missing	
-showHelp	missing	
+showHelp	done	auto
 showHidden	done	auto
 showManipCtx	done	auto
 showMetadata	missing	
