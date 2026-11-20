@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds an AppImage: one file that runs on any x86_64 Linux desktop with a Vulkan driver, with Qt, Python and the
-# libraries a distribution may not have inside it.
+# Builds an AppImage: one file that runs on any Linux desktop of the machine's kind (x86_64 or aarch64) with a Vulkan
+# driver, with Qt, Python and the libraries a distribution may not have inside it.
 #   packaging/appimage/build-appimage.sh [build dir] [output dir]
 # Built on the oldest system it should run on: its C library is the newest the result needs (CI uses Rocky 8).
 # AZTEK_QT: a Qt kit to bundle (as packaging/linux/install-qt.sh makes); without it the system's Qt 6 is bundled.
@@ -14,7 +14,14 @@ OUT=$(cd "${2:-$SRC/dist}" && pwd)
 PY=${AZTEK_PYTHON:-$(command -v python3.12)}
 QT=${AZTEK_QT:-}
 VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$SRC/Cargo.toml" | head -n1)
-FILE="aztek-${VERSION}-x86_64.AppImage"
+# The kind of machine it is built on is the kind it runs on (#193).
+MACHINE=$(uname -m)
+case "$MACHINE" in
+  x86_64 | aarch64) ;;
+  arm64) MACHINE=aarch64 ;;
+  *) echo "no AppImage for $MACHINE" >&2; exit 1 ;;
+esac
+FILE="aztek-${VERSION}-${MACHINE}.AppImage"
 
 ARGS=(-DPython3_EXECUTABLE="$PY")
 [ -n "$QT" ] && ARGS+=(-DCMAKE_PREFIX_PATH="$QT")
@@ -133,10 +140,10 @@ fi
 
 TOOL=${APPIMAGETOOL:-}
 if [ -z "$TOOL" ]; then
-  TOOL=$BUILD/appimagetool-x86_64.AppImage
-  [ -x "$TOOL" ] || { curl -fsSL -o "$TOOL" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage && chmod 755 "$TOOL"; }
+  TOOL=$BUILD/appimagetool-${MACHINE}.AppImage
+  [ -x "$TOOL" ] || { curl -fsSL -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${MACHINE}.AppImage" && chmod 755 "$TOOL"; }
 fi
 # Run unpacked: a container has no FUSE to mount the tool with.
-ARCH=x86_64 "$TOOL" --appimage-extract-and-run --no-appstream "$APPDIR" "$OUT/$FILE"
+ARCH=$MACHINE "$TOOL" --appimage-extract-and-run --no-appstream "$APPDIR" "$OUT/$FILE"
 chmod 755 "$OUT/$FILE"
 ls -l "$OUT/$FILE"

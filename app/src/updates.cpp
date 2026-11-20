@@ -102,7 +102,9 @@ Kind this_install() {
     return {"macApp", QString("macos-%1.zip").arg(QSysInfo::currentCpuArchitecture() == "arm64" ? "arm64" : "x86_64")};
 #else
     // An AppImage says where its file is; the program itself runs from a read-only mount of it.
-    if (!qEnvironmentVariableIsEmpty("APPIMAGE")) return {"appimage", "x86_64.AppImage"};
+    // On 64-bit ARM, the ARM one (#193).
+    const QString appimage = QSysInfo::currentCpuArchitecture() == "arm64" ? "aarch64.AppImage" : "x86_64.AppImage";
+    if (!qEnvironmentVariableIsEmpty("APPIMAGE")) return {"appimage", appimage};
     // A Flatpak is read-only to the program in it, and is replaced from outside.
     if (!qEnvironmentVariableIsEmpty("FLATPAK_ID")) return {"flatpak", "x86_64.flatpak"};
     // Snaps are no longer made: one installed before is pointed at the AppImage.

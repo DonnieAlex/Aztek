@@ -25,6 +25,7 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8 bundled | 3.12 bundled |
 | `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system 3.12 |
 | `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `packaging/appimage/build-appimage.sh` | 6.8 bundled | 3.12 bundled |
+| `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.12 bundled |
 | `aztek-<version>-x86_64.flatpak` | flatpak-builder container | `packaging/flatpak/build-flatpak.sh` | the AppImage's | the AppImage's |
 
 ## Rocky Linux
@@ -70,6 +71,11 @@ Aztek runs through X11 only (`QT_QPA_PLATFORM=xcb`, XWayland on a Wayland sessio
 
     chmod +x aztek-*-x86_64.AppImage
     ./aztek-*-x86_64.AppImage
+
+On 64-bit ARM, `aztek-*-aarch64.AppImage`, built the same way on GitHub's ARM runner, but in Rocky 9 with its own Qt 6
+bundled: Qt's ARM kit needs a newer C library than Rocky 8's. So it needs glibc 2.34 or newer (Ubuntu 22.04, Debian 12,
+Raspberry Pi OS 12, Fedora 35 and later), and a Vulkan driver, as the viewport draws only with Vulkan. Its build and
+check can't fail a run or hold a release back.
 
 For any other x86_64 Linux, and Ubuntu releases the `.deb` files aren't built for. One file with Qt, Python and its
 standard library, and the libraries a distribution may not have, inside; built on Rocky 8 so that its C library

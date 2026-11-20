@@ -1815,6 +1815,13 @@ GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
 Top View and Perspective were the wrong way round in the camera marking menu over the hotbox's Aztek box. As in the
 reference, Perspective is at the top and Top View on the left.
 
+### An AppImage for 64-bit ARM Linux (20/11/2026, #193)
+
+Releases carry aztek-<version>-aarch64.AppImage beside the x86_64 one: built on GitHub's ARM runner in Rocky 9 with its
+Qt 6 bundled, and started in a clean Ubuntu 24.04 on ARM before it goes out. It needs glibc 2.34 or newer and a Vulkan
+driver; the viewport has no OpenGL ES path. Its build can't fail a run or hold a release back. Check for Updates in
+it fetches the ARM one, and the web page links it.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
