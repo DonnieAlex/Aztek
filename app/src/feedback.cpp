@@ -26,6 +26,8 @@
 #include <QHBoxLayout>
 #include <QImage>
 #include <QInputDialog>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -52,6 +54,7 @@
 #include <QtGlobal>
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <functional>
 #include <vector>
@@ -78,7 +81,7 @@ const char* const kOwnWindow = "feedbackWindow";
 
 // Whichever windows of the app are showing, viewports included, on one picture at their places on the screen. Report
 // windows are left out. In memory only: a viewport's pixels pass through a temporary file that goes straight away.
-QImage capture_app(QWidget* main_window) {
+QImage capture_app(QWidget* main_window, QPoint* origin = nullptr) {
     QList<QWidget*> windows{main_window};
     for (QWidget* w : QApplication::topLevelWidgets()) {
         if (w == main_window || !w->isVisible() || w->isMinimized() || w->property(kOwnWindow).toBool()) continue;
@@ -117,8 +120,124 @@ QImage capture_app(QWidget* main_window) {
     }
     p.end();
     out.setDevicePixelRatio(1.0);
+    // Where the picture's top left is on the screen, for drawing the pointer on it; none when the windows are stacked.
+    if (origin) *origin = stacked ? QPoint(INT_MIN, INT_MIN) : all.topLeft();
     return out;
 }
+
+// What the person recording does, drawn on a report's video (#201): the pointer, a ring where a button went down and
+// while it is held, and the keys pressed, at the bottom left for a moment.
+class InputTrail : public QObject {
+public:
+    explicit InputTrail(QObject* parent) : QObject(parent) {
+        clock_.start();
+        qApp->installEventFilter(this);
+    }
+    ~InputTrail() override { qApp->removeEventFilter(this); }
+
+    // Draws on a frame: `pic` is the windows' picture as captured, placed at `at` with `scale` in the frame.
+    void draw(QPainter& p, const QPoint& origin, qreal dpr, const QPointF& at, qreal scale) {
+        const qint64 now = clock_.elapsed();
+        if (origin.x() != INT_MIN) {
+            const QPointF c = at + QPointF(QCursor::pos() - origin) * dpr * scale;
+            p.setRenderHint(QPainter::Antialiasing);
+            // Rings for the clicks of the last half second, growing as they fade, and one while a button is held.
+            for (const Click& k : clicks_) {
+                const qreal age = (now - k.when) / 500.0;
+                if (age > 1.0) continue;
+                QColor col = button_colour(k.button);
+                col.setAlphaF(1.0 - age);
+                p.setPen(QPen(col, 3));
+                p.setBrush(Qt::NoBrush);
+                const qreal r = 10 + 18 * age;
+                p.drawEllipse(at + QPointF(k.where - origin) * dpr * scale, r, r);
+            }
+            for (Qt::MouseButton b : {Qt::LeftButton, Qt::MiddleButton, Qt::RightButton}) {
+                if (!(QGuiApplication::mouseButtons() & b)) continue;
+                QColor col = button_colour(b);
+                col.setAlpha(110);
+                p.setPen(QPen(button_colour(b), 2));
+                p.setBrush(col);
+                p.drawEllipse(c, 11, 11);
+            }
+            // The pointer: an arrow, white with a dark edge.
+            QPainterPath arrow;
+            arrow.moveTo(c);
+            arrow.lineTo(c + QPointF(0, 17));
+            arrow.lineTo(c + QPointF(4.5, 13));
+            arrow.lineTo(c + QPointF(7.5, 20));
+            arrow.lineTo(c + QPointF(10, 19));
+            arrow.lineTo(c + QPointF(7, 12));
+            arrow.lineTo(c + QPointF(12.5, 12));
+            arrow.closeSubpath();
+            p.setPen(QPen(QColor(20, 20, 20), 1.2));
+            p.setBrush(Qt::white);
+            p.drawPath(arrow);
+        }
+        // Keys of the last two seconds, oldest first, at the bottom left.
+        QStringList shown;
+        for (const Key& k : keys_)
+            if (now - k.when < 2000) shown << k.text;
+        if (!shown.isEmpty()) {
+            QFont f = p.font();
+            f.setPixelSize(22);
+            f.setBold(true);
+            p.setFont(f);
+            const QString text = shown.mid(qMax(0, int(shown.size()) - 6)).join("  ");
+            const QRectF box = QFontMetricsF(f).boundingRect(text).adjusted(-12, -8, 12, 8);
+            const QRectF place(16, p.device()->height() - box.height() - 16, box.width(), box.height());
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(0, 0, 0, 170));
+            p.drawRoundedRect(place, 6, 6);
+            p.setPen(Qt::white);
+            p.drawText(place, Qt::AlignCenter, text);
+        }
+    }
+
+protected:
+    bool eventFilter(QObject* o, QEvent* e) override {
+        // An event reaches the filter again for each widget it is passed up to: each is taken once, by its time stamp.
+        if (!o->isWidgetType()) return false;
+        if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonDblClick) {
+            auto* m = static_cast<QMouseEvent*>(e);
+            if (m->timestamp() == last_mouse_) return false;
+            last_mouse_ = m->timestamp();
+            clicks_.push_back({clock_.elapsed(), m->globalPosition().toPoint(), m->button()});
+            if (clicks_.size() > 16) clicks_.erase(clicks_.begin());
+        } else if (e->type() == QEvent::KeyPress) {
+            auto* k = static_cast<QKeyEvent*>(e);
+            if (k->timestamp() == last_key_ && k->key() == last_key_code_) return false;
+            last_key_ = k->timestamp();
+            last_key_code_ = k->key();
+            const int key = k->key();
+            const bool modifier = key == Qt::Key_Shift || key == Qt::Key_Control || key == Qt::Key_Alt || key == Qt::Key_Meta;
+            if (!k->isAutoRepeat() && !modifier && key != Qt::Key_unknown) {
+                keys_.push_back({clock_.elapsed(), QKeySequence(k->modifiers() | Qt::Key(key)).toString(QKeySequence::NativeText)});
+                if (keys_.size() > 16) keys_.erase(keys_.begin());
+            }
+        }
+        return false;
+    }
+
+private:
+    struct Click {
+        qint64 when;
+        QPoint where;
+        Qt::MouseButton button;
+    };
+    struct Key {
+        qint64 when;
+        QString text;
+    };
+    static QColor button_colour(Qt::MouseButton b) {
+        return b == Qt::RightButton ? QColor(70, 150, 255) : b == Qt::MiddleButton ? QColor(90, 210, 120) : QColor(255, 150, 40);
+    }
+    QElapsedTimer clock_;
+    quint64 last_mouse_ = 0, last_key_ = 0;
+    int last_key_code_ = 0;
+    std::vector<Click> clicks_;
+    std::vector<Key> keys_;
+};
 
 enum class Tool { Pen, Arrow, Rectangle, Text, Crop };
 
@@ -658,7 +777,7 @@ public:
         auto* record = new QPushButton("Record", video_box_);
         record->setObjectName("feedbackRecord");
         record->setAutoDefault(false);
-        record->setToolTip("Hides this window, waits the delay and records the windows of Aztek: 720p, 24 frames a second.");
+        record->setToolTip("Hides this window, waits the delay and records the windows of Aztek, with the pointer, clicks and keys: 720p, 24 frames a second.");
         connect(record, &QPushButton::clicked, this, &FeedbackDialog::record_later);
         video_play_ = new QPushButton("Play", video_box_);
         video_play_->setAutoDefault(false);
@@ -970,7 +1089,7 @@ private:
     }
 
     // Hides this window, counts the delay down and records: each frame the windows as the screenshot takes them, on a
-    // 1280x720 frame, encoded as it goes. A frame that takes longer than its 24th of a second is held, so the video
+    // 1280x720 frame, with the pointer, clicks and keys drawn on it (#201), encoded as it goes. A frame that takes longer than its 24th of a second is held, so the video
     // runs as long as asked (#153).
     void record_later() {
         if (large_) large_->close();
@@ -997,16 +1116,21 @@ private:
             auto* timer = new QTimer(count);
             timer->setTimerType(Qt::PreciseTimer);
             auto full = std::make_shared<int>(-1);
-            auto frame = [this, count, video, frames, done, clock, timer, path, seconds, full] {
+            // The pointer, clicks and keys, drawn on each frame; it goes with the corner label when recording ends.
+            auto* trail = new InputTrail(count);
+            auto frame = [this, count, video, frames, done, clock, timer, path, seconds, full, trail] {
                 // The frames this moment stands for: one, or more when the last took long.
                 const int due = qMin(frames, int(clock->elapsed() * kVideoFps / 1000) + 1);
                 if (*done < due) {
-                    const QImage shot = capture_app(main_);
+                    QPoint origin;
+                    const QImage shot = capture_app(main_, &origin);
                     QImage canvas(kVideoWidth, kVideoHeight, QImage::Format_RGBA8888);
                     canvas.fill(QColor(43, 43, 43));
                     const QImage fit = shot.scaled(kVideoWidth, kVideoHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    const QPointF at((kVideoWidth - fit.width()) / 2, (kVideoHeight - fit.height()) / 2);
                     QPainter p(&canvas);
-                    p.drawImage((kVideoWidth - fit.width()) / 2, (kVideoHeight - fit.height()) / 2, fit);
+                    p.drawImage(at, fit);
+                    trail->draw(p, origin, main_->devicePixelRatioF(), at, shot.width() > 0 ? qreal(fit.width()) / shot.width() : 1.0);
                     p.end();
                     while (*done < due) {
                         if (aztek_video_frame(video, canvas.constBits(), int(canvas.bytesPerLine())) == 2) {

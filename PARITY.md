@@ -1899,6 +1899,13 @@ A file of a megabyte or more is read in pieces at once. Faces written with relat
 back from the last vertex) that reached back into the piece before were read as other vertices, which scrambled the
 mesh. They now point where they say. Unverified against the reporter's own file, which we haven't had yet.
 
+### Report videos show the pointer, clicks and keys (20/11/2026, #201)
+
+A report's video showed only the windows. It now draws the pointer, a ring where a mouse button goes down (orange for
+the left button, green for the middle, blue for the right) and a filled one while it is held, and the keys pressed,
+with their modifiers, at the bottom left for two seconds. On Wayland, where windows don't say where they are, the
+pointer and rings are left out and the keys still show. Aztek's own; the reference has no report window.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
