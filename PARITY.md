@@ -1840,6 +1840,12 @@ Duplicate gave a driven attribute its default on the copy, so a copy of a brick 
 origin with no rotation. As in the reference, each driven attribute of the copy takes the value it has at the time of
 the duplicate, with no connection.
 
+### The report window's videos stay under GitHub's 10 MB (20/11/2026, #196)
+
+Ten seconds of a busy screen could pass 10 MB, which GitHub refuses. The encoder now aims at 2 Mbit/s and drops a
+frame when it must to keep to that, the frame before shown for longer. A recording that still reaches 10 MB stops
+there, and the report window says after how many seconds.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

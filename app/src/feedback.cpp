@@ -71,8 +71,9 @@ const char* const kSceneWarning =
     "The scene file holds the names of everything in it and may hold file paths. Referenced files and textures are not included.";
 const qint64 kFileLimit = 25 * 1024 * 1024; // GitHub's limit for attached files.
 const qint64 kImageLimit = 10 * 1024 * 1024; // And for images, and videos.
-// A report's video (#153): 720p at 24 frames a second, 3, 5 or 10 seconds, at a rate that keeps 10 seconds near 3 MB.
-const int kVideoWidth = 1280, kVideoHeight = 720, kVideoFps = 24, kVideoBits = 2500000;
+// A report's video (#153): 720p at 24 frames a second, 3, 5 or 10 seconds, at a rate that keeps 10 seconds near 2.5 MB.
+// The encoder drops frames to keep to it, and a recording that reaches GitHub's 10 MB anyway stops there (#196).
+const int kVideoWidth = 1280, kVideoHeight = 720, kVideoFps = 24, kVideoBits = 2000000;
 const char* const kOwnWindow = "feedbackWindow";
 
 // Whichever windows of the app are showing, viewports included, on one picture at their places on the screen. Report
@@ -995,7 +996,8 @@ private:
             clock->start();
             auto* timer = new QTimer(count);
             timer->setTimerType(Qt::PreciseTimer);
-            auto frame = [this, count, video, frames, done, clock, timer, path, seconds] {
+            auto full = std::make_shared<int>(-1);
+            auto frame = [this, count, video, frames, done, clock, timer, path, seconds, full] {
                 // The frames this moment stands for: one, or more when the last took long.
                 const int due = qMin(frames, int(clock->elapsed() * kVideoFps / 1000) + 1);
                 if (*done < due) {
@@ -1007,7 +1009,11 @@ private:
                     p.drawImage((kVideoWidth - fit.width()) / 2, (kVideoHeight - fit.height()) / 2, fit);
                     p.end();
                     while (*done < due) {
-                        aztek_video_frame(video, canvas.constBits(), int(canvas.bytesPerLine()));
+                        if (aztek_video_frame(video, canvas.constBits(), int(canvas.bytesPerLine())) == 2) {
+                            *full = int(clock->elapsed() / 1000);
+                            *done = frames;
+                            break;
+                        }
                         ++*done;
                     }
                 }
@@ -1020,7 +1026,10 @@ private:
                 if (bytes > 0) {
                     if (!video_path_.isEmpty() && video_path_ != path) QFile::remove(video_path_);
                     video_path_ = path;
-                    video_state_->setText(QString("%1 seconds, %2.").arg(seconds).arg(megabytes(bytes)));
+                    if (*full >= 0)
+                        video_state_->setText(QString("Stopped after %1 of %2 seconds to stay under GitHub's 10 MB, %3.").arg(qMax(1, *full)).arg(seconds).arg(megabytes(bytes)));
+                    else
+                        video_state_->setText(QString("%1 seconds, %2.").arg(seconds).arg(megabytes(bytes)));
                     video_play_->setEnabled(true);
                 } else {
                     video_state_->setText("The recording failed.");
