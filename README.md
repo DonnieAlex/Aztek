@@ -574,7 +574,7 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 | ![Gibson](docs/theme-graphite.jpg) | ![Shaq](docs/theme-shaq.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
 | **Gibson**: forest green and lime, humanist type, soft gradients | **Shaq**: after Unreal Engine 5's editor: near-black and charcoal panels, black fields, its bright blue, Roboto | **Springer**: Solarized dark with its yellow and orange: condensed type, single bevels, square edges |
 | ![Ozymok](docs/theme-slate.jpg) | ![Keating](docs/theme-dracula.jpg) | ![DonnieAlex](docs/theme-classic98.jpg) |
-| **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel | **Keating**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **DonnieAlex**: after Blender: mid-dark grey regions, darker panel headers, grey rounded widgets, its blue |
+| **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel | **Keating**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **DonnieAlex**: after Blender, in DonnieAlex's high-contrast take: mid-dark grey regions, its blue for panel headers and selection, grey rounded widgets, serif type |
 | ![Novacek](docs/theme-nord.jpg) | ![Alias](docs/theme-alias.jpg) | ![Tureski](docs/theme-pewter.jpg) |
 | **Novacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **Tureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars |
 

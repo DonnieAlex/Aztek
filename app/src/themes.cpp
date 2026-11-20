@@ -417,15 +417,16 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // DonnieAlex: the open source 3D suite of the 2020s: mid-dark grey regions with darker panel headers, grey widgets
-    // with soft round corners, near-black entry fields, its blue for what is on and picked, chevrons on the panels.
+    // DonnieAlex: the open source 3D suite of the 2020s, in DonnieAlex's high-contrast take: mid-dark grey regions, its
+    // blue for the panel headers and for what is on and picked, grey widgets with soft round corners, near-black entry
+    // fields, a serif face, chevrons on the panels.
     {
         Theme t = hand("classic98", "DonnieAlex",
-                       {{"window", "#303030"}, {"chrome", "#232323"}, {"base", "#1d1d1d"}, {"alt", "#2b2b2b"}, {"menu", "#181818"}, {"button", "#545454"}, {"hover", "#656565"},
+                       {{"window", "#2c2c2c"}, {"chrome", "#232323"}, {"base", "#1d1d1d"}, {"alt", "#2b2b2b"}, {"menu", "#181818"}, {"button", "#545454"}, {"hover", "#656565"},
                         {"hi", "#4772b3"}, {"hitext", "#ffffff"}, {"text", "#e6e6e6"}, {"bright", "#ffffff"}, {"dim", "#a5a5a5"}, {"disabled", "#737373"}, {"border", "#191919"},
-                        {"handle", "#545454"}, {"section", "#3d3d3d"}, {"sectiontext", "#e6e6e6"}, {"light", "#5e5e5e"}, {"shadow", "#141414"},
+                        {"handle", "#545454"}, {"section", "#4772b3"}, {"sectiontext", "#e6e6e6"}, {"light", "#5e5e5e"}, {"shadow", "#141414"},
                         {"field", "#1d1d1d"}, {"fieldtext", "#e6e6e6"}});
-        t.font = QStringList{"Inter", "DejaVu Sans", "Segoe UI", "Noto Sans", "Arial"};
+        t.font = QStringList{"Noto Serif"};
         t.point_size = 9;
         t.fill = "flat";
         t.radius = 5;
