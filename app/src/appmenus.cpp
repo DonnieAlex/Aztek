@@ -1606,8 +1606,8 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone) {
         break;
     }
     case 4:
-        // The Aztek box: the cameras, as the reference's.
-        items = {{"Top View", 0, cam("top")}, {"Right View", 2, cam("side")}, {"Front View", 4, cam("front")}, {"Perspective", 6, cam("persp")}};
+        // The Aztek box: the cameras, as the reference's, Perspective at the top and Top View on the left (#192).
+        items = {{"Perspective", 0, cam("persp")}, {"Right View", 2, cam("side")}, {"Front View", 4, cam("front")}, {"Top View", 6, cam("top")}};
         break;
     case 3:
         items = {{"All Objects On", 0, mask_all(true)}, {"All Objects Off", 4, mask_all(false)}, {"Vertex", 2, [this] { set_mode("vertex"); }}, {"Edge", 1, [this] { set_mode("edge"); }},

@@ -1810,6 +1810,11 @@ Record. The window steps aside, a count shows in the corner, and the windows of 
 frames a second as H.264 in an MP4 (about 3 MB for ten seconds, well under GitHub's 10 MB). Play shows it; Open on
 GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
 
+### The hotbox's Aztek box: Perspective at the top, Top View on the left (20/11/2026, #192)
+
+Top View and Perspective were the wrong way round in the camera marking menu over the hotbox's Aztek box. As in the
+reference, Perspective is at the top and Top View on the left.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
