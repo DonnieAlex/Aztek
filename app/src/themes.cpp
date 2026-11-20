@@ -115,7 +115,7 @@ QList<Theme> builtins() {
     QList<Theme> l;
     // The reference's own look.
     {
-        Theme t = hand("classic", "Aztek Classic",
+        Theme t = hand("classic", "Classic",
                        {{"window", "#444444"}, {"chrome", "#3a3a3a"}, {"base", "#2b2b2b"}, {"alt", "#393939"}, {"menu", "#525252"}, {"button", "#5d5d5d"}, {"hover", "#505050"},
                         {"hi", "#5285a6"}, {"text", "#c8c8c8"}, {"bright", "#dddddd"}, {"dim", "#a8a8a8"}, {"disabled", "#7a7a7a"}, {"border", "#222222"}, {"handle", "#5e5e5e"},
                         {"light", "#6a6a6a"}, {"shadow", "#1e1e1e"}});
