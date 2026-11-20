@@ -8002,8 +8002,8 @@ constrain	s	missing
 constrain	spring	missing	
 constrain	st	missing	
 constrain	stiffness	missing	
-constructionHistory	q	missing	
-constructionHistory	query	missing	
+constructionHistory	q	done	auto
+constructionHistory	query	done	auto
 constructionHistory	tgl	done	auto
 constructionHistory	toggle	done	auto
 container	a	done	auto
@@ -16830,10 +16830,10 @@ joint	al	missing
 joint	angleX	done	auto
 joint	angleY	done	auto
 joint	angleZ	done	auto
-joint	aos	missing	
+joint	aos	done	auto
 joint	apa	done	auto
 joint	assumePreferredAngles	done	auto
-joint	autoOrientSecondaryAxis	missing	
+joint	autoOrientSecondaryAxis	done	auto
 joint	automaticLimits	missing	
 joint	ax	done	auto
 joint	ay	done	auto
@@ -21789,71 +21789,71 @@ optionMenuGrp	visible	done	auto
 optionMenuGrp	visibleChangeCommand	done	auto
 optionMenuGrp	w	done	auto
 optionMenuGrp	width	done	auto
-optionVar	arraySize	missing	
+optionVar	arraySize	done	auto
 optionVar	ca	done	auto
-optionVar	cat	missing	
-optionVar	category	missing	
+optionVar	cat	done	auto
+optionVar	category	done	auto
 optionVar	clearArray	done	auto
-optionVar	clearStash	missing	
-optionVar	cs	missing	
-optionVar	d	missing	
-optionVar	default	missing	
+optionVar	clearStash	done	auto
+optionVar	cs	done	auto
+optionVar	d	done	auto
+optionVar	default	done	auto
 optionVar	ex	done	auto
 optionVar	exists	done	auto
-optionVar	fa	missing	
-optionVar	floatArray	missing	
+optionVar	fa	done	auto
+optionVar	floatArray	done	auto
 optionVar	floatValue	done	auto
-optionVar	floatValue2	missing	
-optionVar	floatValue3	missing	
-optionVar	floatValue4	missing	
+optionVar	floatValue2	done	auto
+optionVar	floatValue3	done	auto
+optionVar	floatValue4	done	auto
 optionVar	floatValueAppend	done	auto
 optionVar	fv	done	auto
-optionVar	fv2	missing	
-optionVar	fv3	missing	
-optionVar	fv4	missing	
+optionVar	fv2	done	auto
+optionVar	fv3	done	auto
+optionVar	fv4	done	auto
 optionVar	fva	done	auto
-optionVar	ia	missing	
-optionVar	ini	missing	
-optionVar	init	missing	
-optionVar	intArray	missing	
+optionVar	ia	done	auto
+optionVar	ini	done	auto
+optionVar	init	done	auto
+optionVar	intArray	done	auto
 optionVar	intValue	done	auto
-optionVar	intValue2	missing	
-optionVar	intValue3	missing	
-optionVar	intValue4	missing	
+optionVar	intValue2	done	auto
+optionVar	intValue3	done	auto
+optionVar	intValue4	done	auto
 optionVar	intValueAppend	done	auto
 optionVar	iv	done	auto
-optionVar	iv2	missing	
-optionVar	iv3	missing	
-optionVar	iv4	missing	
+optionVar	iv2	done	auto
+optionVar	iv3	done	auto
+optionVar	iv4	done	auto
 optionVar	iva	done	auto
 optionVar	l	done	auto
-optionVar	lc	missing	
+optionVar	lc	done	auto
 optionVar	list	done	auto
-optionVar	listCategories	missing	
-optionVar	listModified	missing	
-optionVar	lm	missing	
-optionVar	pf	missing	
-optionVar	prefFile	missing	
+optionVar	listCategories	done	auto
+optionVar	listModified	done	auto
+optionVar	lm	done	auto
+optionVar	pf	done	auto
+optionVar	prefFile	done	auto
 optionVar	q	done	auto
 optionVar	query	done	auto
 optionVar	remove	done	auto
-optionVar	removeFromArray	missing	
-optionVar	rfa	missing	
+optionVar	removeFromArray	done	auto
+optionVar	rfa	done	auto
 optionVar	rm	done	auto
-optionVar	sa	missing	
-optionVar	st	missing	
-optionVar	stash	missing	
-optionVar	stringArray	missing	
+optionVar	sa	done	auto
+optionVar	st	done	auto
+optionVar	stash	done	auto
+optionVar	stringArray	done	auto
 optionVar	stringValue	done	auto
 optionVar	stringValueAppend	done	auto
 optionVar	sv	done	auto
 optionVar	sva	done	auto
-optionVar	t	missing	
-optionVar	transient	missing	
-optionVar	unstash	missing	
-optionVar	us	missing	
-optionVar	v	missing	
-optionVar	version	missing	
+optionVar	t	done	auto
+optionVar	transient	done	auto
+optionVar	unstash	done	auto
+optionVar	us	done	auto
+optionVar	v	done	auto
+optionVar	version	done	auto
 orbit	ha	done	auto
 orbit	horizontalAngle	done	auto
 orbit	pivotPoint	done	auto
@@ -23012,8 +23012,8 @@ playbackOptions	aet	done	auto
 playbackOptions	animationEndTime	done	auto
 playbackOptions	animationStartTime	done	auto
 playbackOptions	ast	done	auto
-playbackOptions	ba	missing	
-playbackOptions	blockingAnim	missing	
+playbackOptions	ba	done	auto
+playbackOptions	blockingAnim	done	auto
 playbackOptions	by	done	auto
 playbackOptions	e	done	auto
 playbackOptions	edit	done	auto
@@ -23031,16 +23031,16 @@ playbackOptions	playbackSpeed	done	auto
 playbackOptions	ps	done	auto
 playbackOptions	q	done	auto
 playbackOptions	query	done	auto
-playbackOptions	selectionEndTime	missing	
-playbackOptions	selectionStartTime	missing	
-playbackOptions	selectionVisible	missing	
-playbackOptions	set	missing	
-playbackOptions	skl	missing	
-playbackOptions	slp	missing	
-playbackOptions	sst	missing	
-playbackOptions	stepKeyLoop	missing	
-playbackOptions	stepLoop	missing	
-playbackOptions	sv	missing	
+playbackOptions	selectionEndTime	done	auto
+playbackOptions	selectionStartTime	done	auto
+playbackOptions	selectionVisible	done	auto
+playbackOptions	set	done	auto
+playbackOptions	skl	done	auto
+playbackOptions	slp	done	auto
+playbackOptions	sst	done	auto
+playbackOptions	stepKeyLoop	done	auto
+playbackOptions	stepLoop	done	auto
+playbackOptions	sv	done	auto
 playbackOptions	v	done	auto
 playbackOptions	view	done	auto
 playblast	activeEditor	done	auto
@@ -30602,58 +30602,58 @@ scmh	q	missing
 scmh	quiet	missing	
 scmh	r	missing	
 scmh	relative	missing	
-scriptCtx	abd	missing	
-scriptCtx	ac	missing	
-scriptCtx	ait	missing	
-scriptCtx	ak	missing	
+scriptCtx	abd	done	auto
+scriptCtx	ac	done	auto
+scriptCtx	ait	done	auto
+scriptCtx	ak	done	auto
 scriptCtx	alc	done	auto
 scriptCtx	allComponents	done	auto
-scriptCtx	allObjects	missing	
-scriptCtx	alo	missing	
-scriptCtx	animBreakdown	missing	
-scriptCtx	animCurve	missing	
-scriptCtx	animInTangent	missing	
-scriptCtx	animKeyframe	missing	
-scriptCtx	animOutTangent	missing	
-scriptCtx	aot	missing	
+scriptCtx	allObjects	done	auto
+scriptCtx	alo	done	auto
+scriptCtx	animBreakdown	done	auto
+scriptCtx	animCurve	done	auto
+scriptCtx	animInTangent	done	auto
+scriptCtx	animKeyframe	done	auto
+scriptCtx	animOutTangent	done	auto
+scriptCtx	aot	done	auto
 scriptCtx	baseClassName	done	auto
 scriptCtx	bcn	done	auto
 scriptCtx	c	done	auto
-scriptCtx	ca	missing	
-scriptCtx	camera	missing	
+scriptCtx	ca	done	auto
+scriptCtx	camera	done	auto
 scriptCtx	ch	done	auto
-scriptCtx	ck	missing	
-scriptCtx	cl	missing	
-scriptCtx	clm	missing	
+scriptCtx	ck	done	auto
+scriptCtx	cl	done	auto
+scriptCtx	clm	done	auto
 scriptCtx	cls	done	auto
-scriptCtx	cluster	missing	
-scriptCtx	collisionModel	missing	
-scriptCtx	controlVertex	missing	
-scriptCtx	cos	missing	
-scriptCtx	cpp	missing	
+scriptCtx	cluster	done	auto
+scriptCtx	collisionModel	done	auto
+scriptCtx	controlVertex	done	auto
+scriptCtx	cos	done	auto
+scriptCtx	cpp	done	auto
 scriptCtx	cumulativeLists	done	auto
 scriptCtx	curve	done	auto
-scriptCtx	curveKnot	missing	
-scriptCtx	curveOnSurface	missing	
-scriptCtx	curveParameterPoint	missing	
-scriptCtx	cv	missing	
-scriptCtx	dc	missing	
-scriptCtx	dim	missing	
-scriptCtx	dimension	missing	
+scriptCtx	curveKnot	done	auto
+scriptCtx	curveOnSurface	done	auto
+scriptCtx	curveParameterPoint	done	auto
+scriptCtx	cv	done	auto
+scriptCtx	dc	done	auto
+scriptCtx	dim	done	auto
+scriptCtx	dimension	done	auto
 scriptCtx	dsp	done	auto
-scriptCtx	dynamicConstraint	missing	
+scriptCtx	dynamicConstraint	done	auto
 scriptCtx	e	done	auto
 scriptCtx	edge	done	auto
 scriptCtx	edit	done	auto
-scriptCtx	editPoint	missing	
+scriptCtx	editPoint	done	auto
 scriptCtx	eg	done	auto
-scriptCtx	em	missing	
-scriptCtx	emitter	missing	
+scriptCtx	em	done	auto
+scriptCtx	emitter	done	auto
 scriptCtx	enableRootSelection	done	auto
-scriptCtx	ep	missing	
+scriptCtx	ep	done	auto
 scriptCtx	ers	done	auto
-scriptCtx	esc	missing	
-scriptCtx	escToQuit	missing	
+scriptCtx	esc	done	auto
+scriptCtx	escToQuit	done	auto
 scriptCtx	esl	done	auto
 scriptCtx	euc	done	auto
 scriptCtx	ex	done	auto
@@ -30661,118 +30661,118 @@ scriptCtx	exists	done	auto
 scriptCtx	exitUponCompletion	done	auto
 scriptCtx	expandSelectionList	done	auto
 scriptCtx	facet	done	auto
-scriptCtx	fas	missing	
+scriptCtx	fas	done	auto
 scriptCtx	fc	done	auto
 scriptCtx	fcs	done	auto
-scriptCtx	fi	missing	
-scriptCtx	field	missing	
+scriptCtx	fi	done	auto
+scriptCtx	field	done	auto
 scriptCtx	finalCommandScript	done	auto
-scriptCtx	fl	missing	
-scriptCtx	fluid	missing	
-scriptCtx	fo	missing	
-scriptCtx	follicle	missing	
-scriptCtx	forceAddSelect	missing	
-scriptCtx	ha	missing	
-scriptCtx	hairSystem	missing	
-scriptCtx	handle	missing	
+scriptCtx	fl	done	auto
+scriptCtx	fluid	done	auto
+scriptCtx	fo	done	auto
+scriptCtx	follicle	done	auto
+scriptCtx	forceAddSelect	done	auto
+scriptCtx	ha	done	auto
+scriptCtx	hairSystem	done	auto
+scriptCtx	handle	done	auto
 scriptCtx	history	done	auto
-scriptCtx	hl	missing	
-scriptCtx	hs	missing	
-scriptCtx	hull	missing	
+scriptCtx	hl	done	auto
+scriptCtx	hs	done	auto
+scriptCtx	hull	done	auto
 scriptCtx	i1	done	auto
 scriptCtx	i2	done	auto
 scriptCtx	i3	done	auto
-scriptCtx	iee	missing	
-scriptCtx	ig	missing	
+scriptCtx	iee	done	auto
+scriptCtx	ig	done	auto
 scriptCtx	ignoreInvalidItems	done	auto
 scriptCtx	iii	done	auto
-scriptCtx	ikEndEffector	missing	
-scriptCtx	ikHandle	missing	
-scriptCtx	ikh	missing	
+scriptCtx	ikEndEffector	done	auto
+scriptCtx	ikHandle	done	auto
+scriptCtx	ikh	done	auto
 scriptCtx	image1	done	auto
 scriptCtx	image2	done	auto
 scriptCtx	image3	done	auto
-scriptCtx	imagePlane	missing	
-scriptCtx	implicitGeometry	missing	
-scriptCtx	ip	missing	
-scriptCtx	iso	missing	
-scriptCtx	isoparm	missing	
-scriptCtx	j	missing	
-scriptCtx	joint	missing	
-scriptCtx	jointPivot	missing	
-scriptCtx	jp	missing	
-scriptCtx	la	missing	
-scriptCtx	lac	missing	
-scriptCtx	lastAutoComplete	missing	
-scriptCtx	lattice	missing	
-scriptCtx	latticePoint	missing	
-scriptCtx	lc	missing	
-scriptCtx	light	missing	
-scriptCtx	localRotationAxis	missing	
-scriptCtx	locator	missing	
-scriptCtx	locatorUV	missing	
-scriptCtx	locatorXYZ	missing	
-scriptCtx	lp	missing	
-scriptCtx	lt	missing	
-scriptCtx	luv	missing	
+scriptCtx	imagePlane	done	auto
+scriptCtx	implicitGeometry	done	auto
+scriptCtx	ip	done	auto
+scriptCtx	iso	done	auto
+scriptCtx	isoparm	done	auto
+scriptCtx	j	done	auto
+scriptCtx	joint	done	auto
+scriptCtx	jointPivot	done	auto
+scriptCtx	jp	done	auto
+scriptCtx	la	done	auto
+scriptCtx	lac	done	auto
+scriptCtx	lastAutoComplete	done	auto
+scriptCtx	lattice	done	auto
+scriptCtx	latticePoint	done	auto
+scriptCtx	lc	done	auto
+scriptCtx	light	done	auto
+scriptCtx	localRotationAxis	done	auto
+scriptCtx	locator	done	auto
+scriptCtx	locatorUV	done	auto
+scriptCtx	locatorXYZ	done	auto
+scriptCtx	lp	done	auto
+scriptCtx	lt	done	auto
+scriptCtx	luv	done	auto
 scriptCtx	n	done	auto
-scriptCtx	nCloth	missing	
-scriptCtx	nParticle	missing	
-scriptCtx	nParticleShape	missing	
-scriptCtx	nRigid	missing	
+scriptCtx	nCloth	done	auto
+scriptCtx	nParticle	done	auto
+scriptCtx	nParticleShape	done	auto
+scriptCtx	nRigid	done	auto
 scriptCtx	name	done	auto
-scriptCtx	nc	missing	
-scriptCtx	ncl	missing	
-scriptCtx	nl	missing	
-scriptCtx	nonlinear	missing	
-scriptCtx	npr	missing	
-scriptCtx	nps	missing	
-scriptCtx	nr	missing	
-scriptCtx	ns	missing	
-scriptCtx	nurbsCurve	missing	
-scriptCtx	nurbsSurface	missing	
-scriptCtx	objectComponent	missing	
-scriptCtx	ocm	missing	
-scriptCtx	ol	missing	
-scriptCtx	orientationLocator	missing	
-scriptCtx	p	missing	
-scriptCtx	particle	missing	
-scriptCtx	particleShape	missing	
-scriptCtx	pe	missing	
-scriptCtx	pf	missing	
-scriptCtx	pfe	missing	
+scriptCtx	nc	done	auto
+scriptCtx	ncl	done	auto
+scriptCtx	nl	done	auto
+scriptCtx	nonlinear	done	auto
+scriptCtx	npr	done	auto
+scriptCtx	nps	done	auto
+scriptCtx	nr	done	auto
+scriptCtx	ns	done	auto
+scriptCtx	nurbsCurve	done	auto
+scriptCtx	nurbsSurface	done	auto
+scriptCtx	objectComponent	done	auto
+scriptCtx	ocm	done	auto
+scriptCtx	ol	done	auto
+scriptCtx	orientationLocator	done	auto
+scriptCtx	p	done	auto
+scriptCtx	particle	done	auto
+scriptCtx	particleShape	done	auto
+scriptCtx	pe	done	auto
+scriptCtx	pf	done	auto
+scriptCtx	pfe	done	auto
 scriptCtx	pl	done	auto
-scriptCtx	plane	missing	
+scriptCtx	plane	done	auto
 scriptCtx	polymesh	done	auto
-scriptCtx	polymeshEdge	missing	
-scriptCtx	polymeshFace	missing	
-scriptCtx	polymeshFreeEdge	missing	
-scriptCtx	polymeshUV	missing	
-scriptCtx	polymeshVertex	missing	
-scriptCtx	polymeshVtxFace	missing	
-scriptCtx	pr	missing	
-scriptCtx	ps	missing	
-scriptCtx	puv	missing	
-scriptCtx	pv	missing	
-scriptCtx	pvf	missing	
+scriptCtx	polymeshEdge	done	auto
+scriptCtx	polymeshFace	done	auto
+scriptCtx	polymeshFreeEdge	done	auto
+scriptCtx	polymeshUV	done	auto
+scriptCtx	polymeshVertex	done	auto
+scriptCtx	polymeshVtxFace	done	auto
+scriptCtx	pr	done	auto
+scriptCtx	ps	done	auto
+scriptCtx	puv	done	auto
+scriptCtx	pv	done	auto
+scriptCtx	pvf	done	auto
 scriptCtx	q	done	auto
 scriptCtx	query	done	auto
-scriptCtx	ra	missing	
-scriptCtx	rb	missing	
-scriptCtx	rc	missing	
-scriptCtx	rigidBody	missing	
-scriptCtx	rigidConstraint	missing	
-scriptCtx	rotatePivot	missing	
-scriptCtx	rp	missing	
+scriptCtx	ra	done	auto
+scriptCtx	rb	done	auto
+scriptCtx	rc	done	auto
+scriptCtx	rigidBody	done	auto
+scriptCtx	rigidConstraint	done	auto
+scriptCtx	rotatePivot	done	auto
+scriptCtx	rp	done	auto
 scriptCtx	sac	done	auto
 scriptCtx	sae	done	auto
 scriptCtx	sat	done	auto
-scriptCtx	sc	missing	
-scriptCtx	scalePivot	missing	
-scriptCtx	sculpt	missing	
-scriptCtx	sd	missing	
-scriptCtx	se	missing	
-scriptCtx	selectHandle	missing	
+scriptCtx	sc	done	auto
+scriptCtx	scalePivot	done	auto
+scriptCtx	sculpt	done	auto
+scriptCtx	sd	done	auto
+scriptCtx	se	done	auto
+scriptCtx	selectHandle	done	auto
 scriptCtx	setAllowExcessCount	done	auto
 scriptCtx	setAutoComplete	done	auto
 scriptCtx	setAutoToggleSelection	done	auto
@@ -30782,44 +30782,44 @@ scriptCtx	setNoSelectionPrompt	done	auto
 scriptCtx	setSelectionCount	done	auto
 scriptCtx	setSelectionHeadsUp	done	auto
 scriptCtx	setSelectionPrompt	done	auto
-scriptCtx	sf	missing	
-scriptCtx	sh	missing	
+scriptCtx	sf	done	auto
+scriptCtx	sh	done	auto
 scriptCtx	showManipulators	done	auto
-scriptCtx	sk	missing	
+scriptCtx	sk	done	auto
 scriptCtx	sm	done	auto
-scriptCtx	sme	missing	
-scriptCtx	smf	missing	
-scriptCtx	smp	missing	
-scriptCtx	smu	missing	
-scriptCtx	snh	missing	
-scriptCtx	snp	missing	
-scriptCtx	sp	missing	
-scriptCtx	spc	missing	
-scriptCtx	spp	missing	
-scriptCtx	spr	missing	
-scriptCtx	spring	missing	
-scriptCtx	springComponent	missing	
-scriptCtx	sr	missing	
+scriptCtx	sme	done	auto
+scriptCtx	smf	done	auto
+scriptCtx	smp	done	auto
+scriptCtx	smu	done	auto
+scriptCtx	snh	done	auto
+scriptCtx	snp	done	auto
+scriptCtx	sp	done	auto
+scriptCtx	spc	done	auto
+scriptCtx	spp	done	auto
+scriptCtx	spr	done	auto
+scriptCtx	spring	done	auto
+scriptCtx	springComponent	done	auto
+scriptCtx	sr	done	auto
 scriptCtx	ssc	done	auto
 scriptCtx	ssh	done	auto
 scriptCtx	ssp	done	auto
-scriptCtx	str	missing	
-scriptCtx	stroke	missing	
-scriptCtx	subdiv	missing	
-scriptCtx	subdivMeshEdge	missing	
-scriptCtx	subdivMeshFace	missing	
-scriptCtx	subdivMeshPoint	missing	
-scriptCtx	subdivMeshUV	missing	
-scriptCtx	surfaceEdge	missing	
-scriptCtx	surfaceFace	missing	
-scriptCtx	surfaceKnot	missing	
-scriptCtx	surfaceParameterPoint	missing	
-scriptCtx	surfaceRange	missing	
-scriptCtx	surfaceUV	missing	
-scriptCtx	suv	missing	
+scriptCtx	str	done	auto
+scriptCtx	stroke	done	auto
+scriptCtx	subdiv	done	auto
+scriptCtx	subdivMeshEdge	done	auto
+scriptCtx	subdivMeshFace	done	auto
+scriptCtx	subdivMeshPoint	done	auto
+scriptCtx	subdivMeshUV	done	auto
+scriptCtx	surfaceEdge	done	auto
+scriptCtx	surfaceFace	done	auto
+scriptCtx	surfaceKnot	done	auto
+scriptCtx	surfaceParameterPoint	done	auto
+scriptCtx	surfaceRange	done	auto
+scriptCtx	surfaceUV	done	auto
+scriptCtx	suv	done	auto
 scriptCtx	t	done	auto
 scriptCtx	tct	done	auto
-scriptCtx	texture	missing	
+scriptCtx	texture	done	auto
 scriptCtx	tf	done	auto
 scriptCtx	title	done	auto
 scriptCtx	toolCursorType	done	auto
@@ -30828,10 +30828,10 @@ scriptCtx	toolStart	done	auto
 scriptCtx	totalSelectionSets	done	auto
 scriptCtx	ts	done	auto
 scriptCtx	tss	done	auto
-scriptCtx	tx	missing	
+scriptCtx	tx	done	auto
 scriptCtx	v	done	auto
 scriptCtx	vertex	done	auto
-scriptCtx	xyz	missing	
+scriptCtx	xyz	done	auto
 scriptEditorInfo	ch	missing	
 scriptEditorInfo	chf	missing	
 scriptEditorInfo	clearHistory	missing	
@@ -38272,30 +38272,30 @@ toolCollection	select	done	auto
 toolCollection	sl	done	auto
 toolCollection	useTemplate	done	auto
 toolCollection	ut	done	auto
-toolPropertyWindow	e	missing	
-toolPropertyWindow	edit	missing	
-toolPropertyWindow	field	missing	
-toolPropertyWindow	fld	missing	
-toolPropertyWindow	hb	missing	
-toolPropertyWindow	helpButton	missing	
-toolPropertyWindow	icn	missing	
-toolPropertyWindow	icon	missing	
-toolPropertyWindow	imw	missing	
-toolPropertyWindow	inMainWindow	missing	
-toolPropertyWindow	loc	missing	
-toolPropertyWindow	location	missing	
-toolPropertyWindow	nm	missing	
-toolPropertyWindow	noviceMode	missing	
-toolPropertyWindow	q	missing	
-toolPropertyWindow	query	missing	
-toolPropertyWindow	rb	missing	
-toolPropertyWindow	resetButton	missing	
-toolPropertyWindow	restore	missing	
-toolPropertyWindow	rs	missing	
-toolPropertyWindow	sel	missing	
-toolPropertyWindow	selectCommand	missing	
-toolPropertyWindow	showCommand	missing	
-toolPropertyWindow	shw	missing	
+toolPropertyWindow	e	done	auto
+toolPropertyWindow	edit	done	auto
+toolPropertyWindow	field	done	auto
+toolPropertyWindow	fld	done	auto
+toolPropertyWindow	hb	done	auto
+toolPropertyWindow	helpButton	done	auto
+toolPropertyWindow	icn	done	auto
+toolPropertyWindow	icon	done	auto
+toolPropertyWindow	imw	done	auto
+toolPropertyWindow	inMainWindow	done	auto
+toolPropertyWindow	loc	done	auto
+toolPropertyWindow	location	done	auto
+toolPropertyWindow	nm	done	auto
+toolPropertyWindow	noviceMode	done	auto
+toolPropertyWindow	q	done	auto
+toolPropertyWindow	query	done	auto
+toolPropertyWindow	rb	done	auto
+toolPropertyWindow	resetButton	done	auto
+toolPropertyWindow	restore	done	auto
+toolPropertyWindow	rs	done	auto
+toolPropertyWindow	sel	done	auto
+toolPropertyWindow	selectCommand	done	auto
+toolPropertyWindow	showCommand	done	auto
+toolPropertyWindow	shw	done	auto
 torus	ax	done	auto
 torus	axis	done	auto
 torus	caching	missing	

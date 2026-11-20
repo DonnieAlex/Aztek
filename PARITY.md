@@ -1947,6 +1947,12 @@ Parent, Unparent, Set Key and New Scene open in the shared option box, Duplicate
 duplicatePreset, Orient Joint uses the joint orient controls, and the bevel and extrude tools are made as the
 reference makes them. docs/SCRIPT_GAPS.md is down from 150 lines to 139, the new scripts' own needs included.
 
+### The parity ledger counts the reference's global MEL procedures (20/11/2026)
+
+`parity/mel_procs.tsv` lists the 15,931 global procedures of the reference's scripts, with their return types,
+parameters and files. 626 are defined by Aztek's bundled scripts and 152 are commands Aztek has under the same name;
+the rest are missing. It is ticked by hand: the scripts' own rows say which file has them.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

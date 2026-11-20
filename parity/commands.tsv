@@ -870,7 +870,7 @@ refreshEditorTemplates	missing
 regionSelectKeyCtx	missing	
 relationship	done	auto
 reloadImage	missing	
-rememberCtxSettings	missing	
+rememberCtxSettings	done	auto
 removeJoint	done	auto
 removeMultiInstance	done	auto
 rename	done	auto
@@ -922,7 +922,7 @@ saveMenu	missing
 savePrefObjects	missing	
 savePrefs	missing	
 saveShelf	missing	
-saveToolSettings	missing	
+saveToolSettings	done	auto
 saveViewportSettings	missing	
 scale	done	auto
 scaleComponents	done	auto
@@ -1129,7 +1129,7 @@ toolButton	done	auto
 toolCollection	done	auto
 toolDropped	missing	
 toolHasOptions	done	auto
-toolPropertyWindow	missing	
+toolPropertyWindow	done	auto
 torus	done	auto
 track	done	auto
 trackCtx	done	auto
