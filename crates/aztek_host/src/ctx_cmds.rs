@@ -302,7 +302,8 @@ const TYPES: &[(&str, &str)] = &[
     ("showManipCtx", "currentNodeName:cnn:b incSnap:is:a incSnapRelative:isr:a incSnapUI:isu:b incSnapValue:isv:a lockSelection:ls:b toggleIncSnap:tis:b toolFinish:tf:a toolStart:ts:a"),
     ("setEditCtx", "setName:sn:a"),
     ("softSelectOptionsCtx", "buttonDown:btd:b buttonUp:btu:b"),
-    ("scriptCtx", "toolStart:ts:a toolFinish:tf:a finalCommandScript:fcs:a setSelectionCount:ssc:a setAllowExcessCount:sae:b setAutoToggleSelection:sat:b setAutoComplete:sac:b setDoneSelectionPrompt:dsp:a setNoSelectionPrompt:nsp:a setNoSelectionHeadsUp:nsh:a setSelectionPrompt:ssp:a setSelectionHeadsUp:ssh:a totalSelectionSets:tss:a exitUponCompletion:euc:b enableRootSelection:ers:b ignoreInvalidItems:iii:b cumulativeLists:cls:b expandSelectionList:esl:b showManipulators:sm:b baseClassName:bcn:a toolCursorType:tct:a allComponents:alc:b vertex:v:b edge:eg:b facet:fc:b curve:c:b polymesh:pl:b"),
+    // The selection-set flags are multi-use, one use per set (-tss): each holds a list, one entry per set.
+    ("scriptCtx", "baseClassName:bcn:a cumulativeLists:cls:b enableRootSelection:ers:b escToQuit:esc:b exitUponCompletion:euc:b expandSelectionList:esl:b finalCommandScript:fcs:a forceAddSelect:fas:b ignoreInvalidItems:iii:b lastAutoComplete:lac:b objectComponent:ocm:b showManipulators:sm:b toolCursorType:tct:a toolFinish:tf:a toolStart:ts:a totalSelectionSets:tss:a allComponents:alc:m allObjects:alo:m animBreakdown:abd:m animCurve:ac:m animInTangent:ait:m animKeyframe:ak:m animOutTangent:aot:m camera:ca:m cluster:cl:m collisionModel:clm:m controlVertex:cv:m curve:c:m curveKnot:ck:m curveOnSurface:cos:m curveParameterPoint:cpp:m dimension:dim:m dynamicConstraint:dc:m edge:eg:m editPoint:ep:m emitter:em:m facet:fc:m field:fi:m fluid:fl:m follicle:fo:m hairSystem:hs:m handle:ha:m hull:hl:m ikEndEffector:iee:m ikHandle:ikh:m imagePlane:ip:m implicitGeometry:ig:m isoparm:iso:m joint:j:m jointPivot:jp:m lattice:la:m latticePoint:lp:m light:lt:m localRotationAxis:ra:m locator:lc:m locatorUV:luv:m locatorXYZ:xyz:m nCloth:ncl:m nParticle:npr:m nParticleShape:nps:m nRigid:nr:m nonlinear:nl:m nurbsCurve:nc:m nurbsSurface:ns:m orientationLocator:ol:m particle:pr:m particleShape:ps:m plane:pl:m polymesh:p:m polymeshEdge:pe:m polymeshFace:pf:m polymeshFreeEdge:pfe:m polymeshUV:puv:m polymeshVertex:pv:m polymeshVtxFace:pvf:m rigidBody:rb:m rigidConstraint:rc:m rotatePivot:rp:m scalePivot:sp:m sculpt:sc:m selectHandle:sh:m setAllowExcessCount:sae:m setAutoComplete:sac:m setAutoToggleSelection:sat:m setDoneSelectionPrompt:dsp:m setNoSelectionHeadsUp:snh:m setNoSelectionPrompt:snp:m setSelectionCount:ssc:m setSelectionHeadsUp:ssh:m setSelectionPrompt:ssp:m spring:spr:m springComponent:spc:m stroke:str:m subdiv:sd:m subdivMeshEdge:sme:m subdivMeshFace:smf:m subdivMeshPoint:smp:m subdivMeshUV:smu:m surfaceEdge:se:m surfaceFace:sf:m surfaceKnot:sk:m surfaceParameterPoint:spp:m surfaceRange:sr:m surfaceUV:suv:m texture:tx:m vertex:v:m"),
     ("userCtx", "toolStart:ts:a toolFinish:tf:a finalCommandScript:fcs:a setSelectionCount:ssc:a setAllowExcessCount:sae:b setAutoToggleSelection:sat:b setAutoComplete:sac:b setDoneSelectionPrompt:dsp:a setNoSelectionPrompt:nsp:a setNoSelectionHeadsUp:nsh:a setSelectionPrompt:ssp:a setSelectionHeadsUp:ssh:a totalSelectionSets:tss:a exitUponCompletion:euc:b enableRootSelection:ers:b ignoreInvalidItems:iii:b cumulativeLists:cls:b expandSelectionList:esl:b showManipulators:sm:b baseClassName:bcn:a toolCursorType:tct:a allComponents:alc:b vertex:v:b edge:eg:b facet:fc:b curve:c:b polymesh:pl:b"),
     ("graphDollyCtx", ""),
     ("graphTrackCtx", ""),
@@ -346,7 +347,11 @@ fn parse_flags(mut c: Cmd, spec: &str) -> Cmd {
         if c.flags.iter().any(|x| x.name == long) {
             continue;
         }
-        c = c.flag(f(long, short, if ty == "b" { ArgType::Bool } else { ArgType::Any }));
+        c = c.flag(match ty {
+            "b" => f(long, short, ArgType::Bool),
+            "m" => f(long, short, ArgType::Any).multi(1),
+            _ => f(long, short, ArgType::Any),
+        });
     }
     c
 }
@@ -594,7 +599,7 @@ fn manip_position(s: &mut Session) -> CmdResult {
 }
 
 fn truthy(v: &Value) -> bool {
-    v.as_bool().unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0))
+    v.as_bool().or_else(|| v.as_str().map(|s| matches!(s, "true" | "on" | "yes" | "1"))).unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0))
 }
 
 fn set_tool_to(s: &mut Session, name: &str) -> CmdResult {
@@ -726,10 +731,18 @@ pub(crate) fn idle(core: &mut Core) {
     with_ctx(|c| c.completing = false);
 }
 
+/// A multi-use selection-set flag's value for the first set.
+fn first_set(v: Value) -> Value {
+    match v {
+        Value::Array(a) => a.into_iter().next().unwrap_or(Value::Null),
+        o => o,
+    }
+}
+
 fn script_ctx_step(core: &mut Core, cur: &str, selection: &[String]) {
     let completing = with_ctx(|c| c.completing);
-    let count = prop_of(cur, "setSelectionCount").and_then(|v| v.as_i64()).unwrap_or(0).max(0) as usize;
-    let auto = prop_of(cur, "setAutoComplete").is_some_and(|v| truthy(&v));
+    let count = prop_of(cur, "setSelectionCount").map(first_set).and_then(|v| v.as_f64()).unwrap_or(0.0).max(0.0) as usize;
+    let auto = prop_of(cur, "setAutoComplete").map(first_set).is_some_and(|v| truthy(&v));
     let enough = !selection.is_empty() && selection.len() >= count;
     if !(enough && (completing || (auto && count > 0))) {
         return;
@@ -1062,4 +1075,71 @@ pub fn register(s: &mut Session) {
         .flag(f("image2", "i2", ArgType::Bool))
         .flag(f("image3", "i3", ArgType::Bool)),
     );
+
+    s.register(
+        Cmd::new("saveToolSettings", "Saves every tool's settings with the preferences, for rememberCtxSettings to bring back next session.", |_s, _a| {
+            let all: Map<String, Value> = with_ctx(|c| c.all.iter().filter(|(_, x)| !x.props.is_empty()).map(|(n, x)| (n.clone(), Value::Object(x.props.clone()))).collect());
+            let p = tool_settings_file();
+            if let Some(d) = p.parent() {
+                let _ = std::fs::create_dir_all(d);
+            }
+            std::fs::write(&p, Value::Object(all).to_string()).map_err(|e| CommandError::new(format!("saveToolSettings: {e}")))?;
+            Ok(Value::Null)
+        })
+        .undoable(false),
+    );
+
+    s.register(
+        Cmd::new("rememberCtxSettings", "rememberCtxSettings context: gives a tool made just now the settings saved for it.", |_s, a| {
+            let Some(n) = a.pos_str(0).map(str::to_string) else { fail!("rememberCtxSettings: name a context.") };
+            let saved = std::fs::read_to_string(tool_settings_file()).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok());
+            if let Some(Value::Object(props)) = saved.as_ref().and_then(|v| v.get(&n)) {
+                with_ctx(|c| {
+                    if let Some(x) = c.all.get_mut(&n) {
+                        for (k, v) in props {
+                            x.props.entry(k.clone()).or_insert(v.clone());
+                        }
+                    }
+                });
+            }
+            Ok(Value::Null)
+        })
+        .positional("context")
+        .undoable(false),
+    );
+
+    s.register(
+        Cmd::new("toolPropertyWindow", "The Tool Settings window: on its own, or with -restore, opens it; -q and -e the names of its parts and its commands.", |_s, a| {
+            if a.bool("query") {
+                let key = asked(a).unwrap_or_default();
+                return Ok(with_ctx(|c| c.settings.get("toolPropertyWindow").and_then(|m| m.get(&key).cloned())).unwrap_or_else(|| if key == "noviceMode" { json!(false) } else { json!("") }));
+            }
+            let parts = ["field", "helpButton", "icon", "location", "noviceMode", "resetButton", "selectCommand", "showCommand"];
+            let given: Map<String, Value> = parts.iter().filter_map(|k| a.get(k).map(|v| (k.to_string(), v.clone()))).collect();
+            if a.bool("edit") || !given.is_empty() {
+                with_ctx(|c| c.settings.entry("toolPropertyWindow".into()).or_default().extend(given));
+                return Ok(Value::Null);
+            }
+            crate::core::push_ui_request("ToolSettingsWindow".into());
+            Ok(Value::Null)
+        })
+        .undoable(false)
+        .flag(f("query", "q", ArgType::Bool))
+        .flag(f("edit", "e", ArgType::Bool))
+        .flag(f("field", "fld", ArgType::Any))
+        .flag(f("helpButton", "hb", ArgType::Any))
+        .flag(f("icon", "icn", ArgType::Any))
+        .flag(f("inMainWindow", "imw", ArgType::Bool))
+        .flag(f("location", "loc", ArgType::Any))
+        .flag(f("noviceMode", "nm", ArgType::Any))
+        .flag(f("resetButton", "rb", ArgType::Any))
+        .flag(f("restore", "rs", ArgType::Bool))
+        .flag(f("selectCommand", "sel", ArgType::Any))
+        .flag(f("showCommand", "shw", ArgType::Any)),
+    );
+}
+
+/// Where saveToolSettings keeps the tools' settings.
+fn tool_settings_file() -> std::path::PathBuf {
+    crate::user_folder::prefs_base().join("toolSettings.json")
 }

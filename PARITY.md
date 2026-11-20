@@ -1916,6 +1916,14 @@ default, false only the default and the value of a name not yet set), `-category
 `-stash`, `-unstash`, `-clearStash`, `-transient` (not saved between sessions) and `-version`. Each flag can be given
 more than once in a call, and removals run before anything set in the same call, as the reference's do.
 
+### Tool settings and script tools: scriptCtx, toolPropertyWindow, rememberCtxSettings, saveToolSettings (20/11/2026)
+
+scriptCtx takes every flag the reference's has, the selection-type flags (polymeshEdge, nurbsCurve, isoparm and the
+rest) one use per selection set, `-lastAutoComplete`, `-escToQuit`, `-forceAddSelect` and `-objectComponent`; three
+short names that were wrong (`-snp`, `-snh`, `-p`) are right. toolPropertyWindow opens Tool Settings and keeps the
+names and commands scripts give it. saveToolSettings saves every tool's settings with the preferences and
+rememberCtxSettings gives a tool made later its saved ones back.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
