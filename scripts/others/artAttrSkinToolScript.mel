@@ -1,0 +1,25 @@
+// artAttrSkinToolScript: enters the Paint Skin Weights tool, as the reference's Skin > Paint Skin Weights does. $setToTool
+// 3 also opens the tool's settings, 4 only enters it; anything else still enters it but warns. Gives back the context's
+// name.
+global proc string artAttrSkinToolScript(int $setToTool)
+{
+    string $context = "artAttrSkinContext";
+
+    // Only skin weights are paintable while this tool is up.
+    makePaintable -activateAll false;
+    makePaintable -activate true "skinCluster" "*";
+
+    // Aztek has this context from the start; should it be gone, the shell's own tool stands in.
+    if (`contextInfo -exists $context`)
+        setToolTo $context;
+    else if (`exists ArtPaintSkinWeightsTool`)
+        ArtPaintSkinWeightsTool;
+
+    if ($setToTool == 3) {
+        if (`exists ToolSettingsWindow`)
+            ToolSettingsWindow;
+    } else if ($setToTool != 4) {
+        warning "artAttrSkinToolScript: the argument should be 3 or 4.";
+    }
+    return $context;
+}

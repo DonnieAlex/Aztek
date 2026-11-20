@@ -1,0 +1,221 @@
+// performDuplicateSpecial: Edit > Duplicate Special, as the reference's, its settings kept in optionVars. $action 0
+// duplicates and returns the command, 1 opens the options, 2 only returns the command; anything else returns "".
+// Aztek has its own Duplicate Special Options window, so $action 1 opens that rather than building a second one. The
+// setup and callback procedures below fill and read the reference's controls, for scripts that build them.
+
+// Each optionVar, its kind and its factory value.
+proc performDuplicateSpecial_options(int $force)
+{
+    string $ints[] = {"duplicateSpecialRenameChildren", "duplicateSpecialSmart", "duplicateSpecialCount", "duplicateSpecialCopy",
+        "duplicateSpecialGroup", "duplicateSpecialUpstream", "duplicateSpecialInputConn", "duplicateSpecialInstanceLeaf"};
+    int $intDefaults[] = {0, 0, 1, 1, 1, 0, 0, 0};
+    for ($i = 0; $i < size($ints); $i++) {
+        if ($force || !`optionVar -ex $ints[$i]`)
+            optionVar -iv $ints[$i] $intDefaults[$i];
+    }
+    string $axes[] = {"TX", "TY", "TZ", "RX", "RY", "RZ", "SX", "SY", "SZ"};
+    for ($i = 0; $i < 9; $i++) {
+        string $name = "duplicateSpecial" + $axes[$i];
+        if ($force || !`optionVar -ex $name`)
+            optionVar -fv $name ($i < 6 ? 0.0 : 1.0);
+    }
+}
+
+// As in performDuplicate: clips selected while working in the clip editor are duplicated as clips instead.
+proc int performDuplicateSpecial_inClipEditor()
+{
+    string $clips[];
+    if (catchQuiet($clips = `ls -sl -type animClip`))
+        return 0;
+    if (!size($clips))
+        return 0;
+    string $panel = `getPanel -up`;
+    if ($panel == "")
+        $panel = `getPanel -wf`;
+    if ($panel == "" || `getPanel -to $panel` != "scriptedPanel")
+        return 0;
+    return `scriptedPanel -q -type $panel` == "clipEditorPanel";
+}
+
+// What duplicatePreset does, for when Aztek has no global duplicatePreset: copies (or instances) of the selected objects,
+// each one made from the one before and moved, turned and scaled by the offsets, so several copies form a row. The
+// group mode puts the copies under the original's parent (1, or a legacy 0), under the world (2) or in one new group (3).
+proc string[] performDuplicateSpecial_preset(int $count, int $copy, int $groupMode, int $smart, int $upstream, int $inputConns,
+    int $renameChildren, int $instanceLeaf, float $t[], float $r[], float $s[])
+{
+    string $made[];
+    string $from[] = `ls -sl -l -type transform`;
+    if (!size($from)) {
+        warning "Select the objects to duplicate.";
+        return $made;
+    }
+    string $flags = "-rr";
+    if ($smart)
+        $flags += " -st";
+    if ($copy) {
+        if ($upstream)
+            $flags += " -un";
+        else if ($inputConns)
+            $flags += " -ic";
+        if ($instanceLeaf)
+            $flags += " -ilf";
+        if ($renameChildren)
+            $flags += " -rc";
+    }
+    // Smart transform repeats the last duplicate's own step, so the offsets only apply without it.
+    int $offset = !$smart && ($t[0] != 0 || $t[1] != 0 || $t[2] != 0 || $r[0] != 0 || $r[1] != 0 || $r[2] != 0
+        || $s[0] != 1 || $s[1] != 1 || $s[2] != 1);
+    for ($i = 0; $i < max(1, $count); $i++) {
+        select -r $from;
+        string $new[];
+        if ($copy)
+            $new = `eval ("duplicate " + $flags)`;
+        else if ($smart)
+            $new = `instance -st`;
+        else
+            $new = `instance`;
+        if ($offset) {
+            move -r $t[0] $t[1] $t[2] $new;
+            rotate -r -os $r[0] $r[1] $r[2] $new;
+            scale -r $s[0] $s[1] $s[2] $new;
+        }
+        $made = stringArrayCatenate($made, $new);
+        $from = $new;
+    }
+    if ($groupMode == 2) {
+        string $moved[];
+        for ($m in $made) {
+            if (size(`listRelatives -p $m`))
+                $moved = stringArrayCatenate($moved, `parent -w $m`);
+            else
+                $moved[size($moved)] = $m;
+        }
+        $made = $moved;
+    } else if ($groupMode == 3) {
+        string $g = `group $made`;
+        $made = {$g};
+    }
+    select -r $made;
+    return $made;
+}
+
+global proc string performDuplicateSpecial(int $action)
+{
+    if ($action == 0 && performDuplicateSpecial_inClipEditor() && `exists performDuplicateClip`)
+        return `performDuplicateClip 0 ""`;
+
+    if ($action == 1) {
+        if (`exists DuplicateSpecialOptions`)
+            DuplicateSpecialOptions;
+        else
+            warning "The Duplicate Special options are not available here.";
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    performDuplicateSpecial_options(0);
+    int $count = `optionVar -q duplicateSpecialCount`;
+    int $copy = `optionVar -q duplicateSpecialCopy`;
+    int $groupMode = `optionVar -q duplicateSpecialGroup`;
+    int $smart = `optionVar -q duplicateSpecialSmart`;
+    int $upstream = `optionVar -q duplicateSpecialUpstream`;
+    int $inputConns = `optionVar -q duplicateSpecialInputConn`;
+    int $renameChildren = `optionVar -q duplicateSpecialRenameChildren`;
+    int $instanceLeaf = `optionVar -q duplicateSpecialInstanceLeaf`;
+    float $t[] = {`optionVar -q duplicateSpecialTX`, `optionVar -q duplicateSpecialTY`, `optionVar -q duplicateSpecialTZ`};
+    float $r[] = {`optionVar -q duplicateSpecialRX`, `optionVar -q duplicateSpecialRY`, `optionVar -q duplicateSpecialRZ`};
+    float $s[] = {`optionVar -q duplicateSpecialSX`, `optionVar -q duplicateSpecialSY`, `optionVar -q duplicateSpecialSZ`};
+    string $cmd = "duplicatePreset(" + $count + "," + $copy + "," + $groupMode + "," + $smart + "," + $upstream + ","
+        + $inputConns + "," + $renameChildren + "," + $instanceLeaf + "," + $t[0] + "," + $t[1] + "," + $t[2] + ","
+        + $r[0] + "," + $r[1] + "," + $r[2] + "," + $s[0] + "," + $s[1] + "," + $s[2] + ")";
+
+    if ($action == 0) {
+        // duplicatePreset echoes itself, so a plain eval.
+        if (`exists duplicatePreset`)
+            eval $cmd;
+        else
+            performDuplicateSpecial_preset($count, $copy, $groupMode, $smart, $upstream, $inputConns, $renameChildren, $instanceLeaf, $t, $r, $s);
+    }
+    return $cmd;
+}
+
+global proc duplicateSpecialSetup(string $parent, int $forceFactorySettings)
+{
+    performDuplicateSpecial_options($forceFactorySettings);
+    setParent $parent;
+
+    checkBoxGrp -e -v1 `optionVar -q duplicateSpecialRenameChildren` renameChildrenField;
+    intSliderGrp -e -v `optionVar -q duplicateSpecialCount` numDuplicatesField;
+    checkBoxGrp -e -v1 `optionVar -q duplicateSpecialSmart` smartCheck;
+    if (`optionVar -q duplicateSpecialCopy` == 1)
+        radioButtonGrp -e -sl 1 geometryTypeGroup;
+    else if (`optionVar -q duplicateSpecialCopy` == 0)
+        radioButtonGrp -e -sl 2 geometryTypeGroup;
+    // A stored 0 is the old "false", shown as Parent; the optionVar keeps it until the box is applied or saved.
+    int $group = `optionVar -q duplicateSpecialGroup`;
+    radioButtonGrp -e -sl ($group == 0 ? 1 : $group) otherOptionsGroup;
+    checkBoxGrp -e -v1 `optionVar -q duplicateSpecialUpstream` upstreamCheck;
+    checkBoxGrp -e -v1 `optionVar -q duplicateSpecialInputConn` inputConnCheck;
+    checkBoxGrp -e -v1 `optionVar -q duplicateSpecialInstanceLeaf` instanceLeafCheck;
+    floatFieldGrp -e -v1 `optionVar -q duplicateSpecialTX` -v2 `optionVar -q duplicateSpecialTY` -v3 `optionVar -q duplicateSpecialTZ` transField;
+    floatFieldGrp -e -v1 `optionVar -q duplicateSpecialRX` -v2 `optionVar -q duplicateSpecialRY` -v3 `optionVar -q duplicateSpecialRZ` rotateField;
+    floatFieldGrp -e -v1 `optionVar -q duplicateSpecialSX` -v2 `optionVar -q duplicateSpecialSY` -v3 `optionVar -q duplicateSpecialSZ` scaleField;
+
+    duplicateSpecialOptionsUpdateEnableState($parent);
+}
+
+// Greys out what the current choices make meaningless, from the controls themselves rather than the optionVars.
+global proc duplicateSpecialOptionsUpdateEnableState(string $parent)
+{
+    setParent $parent;
+    int $count = `intSliderGrp -q -v numDuplicatesField`;
+    int $smart = `checkBoxGrp -q -v1 smartCheck`;
+    int $copyGeometry = `radioButtonGrp -q -sl geometryTypeGroup` != 2;
+    int $underParent = `radioButtonGrp -q -sl otherOptionsGroup` == 1;
+    int $upstream = `checkBoxGrp -q -v1 upstreamCheck`;
+    int $inputConns = `checkBoxGrp -q -v1 inputConnCheck`;
+    int $instanceLeaf = `checkBoxGrp -q -v1 instanceLeafCheck`;
+    // Copying inputs makes more than the objects, which the smart step and the offsets can't follow.
+    int $simpleCopy = !$upstream && !$inputConns;
+
+    checkBoxGrp -e -en ($count == 1 && $underParent && $simpleCopy) smartCheck;
+    int $offsets = !$smart && $simpleCopy;
+    floatFieldGrp -e -en $offsets transField;
+    floatFieldGrp -e -en $offsets rotateField;
+    floatFieldGrp -e -en $offsets scaleField;
+    // The two input choices exclude each other, and none of the three means anything for instances.
+    checkBoxGrp -e -en ($copyGeometry && !$inputConns) upstreamCheck;
+    checkBoxGrp -e -en ($copyGeometry && !$upstream) inputConnCheck;
+    checkBoxGrp -e -en $copyGeometry instanceLeafCheck;
+    radioButtonGrp -e -en ($simpleCopy && !$instanceLeaf) geometryTypeGroup;
+}
+
+global proc duplicateSpecialCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    // Every value is stored, the greyed out ones too, as duplicatePreset is given them as they are.
+    optionVar -iv duplicateSpecialSmart `checkBoxGrp -q -v1 smartCheck`;
+    optionVar -iv duplicateSpecialRenameChildren `checkBoxGrp -q -v1 renameChildrenField`;
+    optionVar -iv duplicateSpecialCount `intSliderGrp -q -v numDuplicatesField`;
+    optionVar -iv duplicateSpecialCopy (`radioButtonGrp -q -sl geometryTypeGroup` == 1);
+    optionVar -iv duplicateSpecialGroup `radioButtonGrp -q -sl otherOptionsGroup`;
+    optionVar -iv duplicateSpecialUpstream `checkBoxGrp -q -v1 upstreamCheck`;
+    optionVar -iv duplicateSpecialInputConn `checkBoxGrp -q -v1 inputConnCheck`;
+    optionVar -iv duplicateSpecialInstanceLeaf `checkBoxGrp -q -v1 instanceLeafCheck`;
+    optionVar -fv duplicateSpecialTX `floatFieldGrp -q -v1 transField`;
+    optionVar -fv duplicateSpecialTY `floatFieldGrp -q -v2 transField`;
+    optionVar -fv duplicateSpecialTZ `floatFieldGrp -q -v3 transField`;
+    optionVar -fv duplicateSpecialRX `floatFieldGrp -q -v1 rotateField`;
+    optionVar -fv duplicateSpecialRY `floatFieldGrp -q -v2 rotateField`;
+    optionVar -fv duplicateSpecialRZ `floatFieldGrp -q -v3 rotateField`;
+    optionVar -fv duplicateSpecialSX `floatFieldGrp -q -v1 scaleField`;
+    optionVar -fv duplicateSpecialSY `floatFieldGrp -q -v2 scaleField`;
+    optionVar -fv duplicateSpecialSZ `floatFieldGrp -q -v3 scaleField`;
+
+    if ($doIt) {
+        performDuplicateSpecial 0;
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue "performDuplicateSpecial 0" "DuplicateSpecial";
+    }
+}

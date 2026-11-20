@@ -1,0 +1,1115 @@
+// expressionEditor: the Expression Editor, as Windows > Animation Editors > Expression Editor and the Attribute Editor's
+// and Channel Box's Expressions... items open it. Aztek's Expression Editor is its own window, so expressionEditor and
+// EEcreateWin open that one, after checking the node and attribute asked for as the reference does. The other procedures
+// keep the reference's names for the scripts that call them: the lists of nodes, expressions and attributes and the
+// checks on names work on the scene as they do in the reference; those that drive the reference window's controls
+// (EEnodeList, EEexprNameT, EEmultiText and the rest) keep the editor's state in its global variables and touch a control
+// only where one of that name exists.
+
+global int $gEEcreateMode = 1;
+global int $gEEobjIsParticle = 0;
+// Particle rule: 1 runtime before dynamics, 2 runtime after dynamics, 3 creation.
+global int $gEEexpressionType = 1;
+// The Editor menu's item: 1 is the editor's own text field, others an outside text editor.
+global int $gEEcurrentEditor = 1;
+global int $gEEdoLaunchTextEd = 0;
+global int $gEEeditedInEditor = 0;
+global string $gEEcurrExpressionName;
+global string $gEEorigExpressionName;
+global string $gEEcurrSelectedNode;
+global string $gEEnodeMode = "object";
+global string $gEEcurrNodeFilter = "allSelected";
+global string $gEEcurrAttrFilter = "all";
+global string $gEEcurrParticleFiles[];
+global int $gEEpExpressionInEditor = -1;
+global int $gEEexpressionInEditor = -1;
+global int $gEEfilesLoaded = 0;
+global string $gEEMathFunction[];
+global string $gEEVectorFunction[];
+global string $gEEConversionFunction[];
+global string $gEERandomFunction[];
+global string $gEEArrayFunction[];
+global string $gEECurveFunction[];
+
+// Attribute lists leave out the reference's -multi: Aztek's listAttr takes it as a filter (multi attributes only) rather
+// than as asking for each element as well, which would leave the lists empty.
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Controls: each touched only if it's there.
+
+proc int eeHas(string $control)
+{
+    return ($control != "" && `control -exists $control`);
+}
+
+// The kinds come as objectTypeUI names them, the reference's and Aztek's.
+proc string eeText(string $control)
+{
+    if (!eeHas($control))
+        return "";
+    switch (`objectTypeUI $control`) {
+        case "textField":
+        case "field":
+            return `textField -query -text $control`;
+        case "textFieldGrp":
+        case "rowGroupLayout":
+            return `textFieldGrp -query -text $control`;
+        case "scrollField":
+            return `scrollField -query -text $control`;
+        case "text":
+        case "staticText":
+            return `text -query -label $control`;
+    }
+    return "";
+}
+
+proc eeSetText(string $control, string $value)
+{
+    if (!eeHas($control))
+        return;
+    switch (`objectTypeUI $control`) {
+        case "textField":
+        case "field":
+            textField -edit -text $value $control;
+            break;
+        case "textFieldGrp":
+        case "rowGroupLayout":
+            textFieldGrp -edit -text $value $control;
+            break;
+        case "scrollField":
+            scrollField -edit -text $value $control;
+            break;
+        case "text":
+        case "staticText":
+            text -edit -label $value $control;
+            break;
+        case "button":
+            button -edit -label $value $control;
+            break;
+    }
+}
+
+proc eeEnable(string $control, int $on)
+{
+    if (eeHas($control))
+        control -edit -enable $on $control;
+    else if (`menu -exists $control`)
+        menu -edit -enable $on $control;
+}
+
+proc string[] eeListItems(string $list)
+{
+    string $items[];
+    if (eeHas($list) && `textScrollList -query -numberOfItems $list` > 0)
+        $items = `textScrollList -query -allItems $list`;
+    return $items;
+}
+
+proc string eeListSelected(string $list)
+{
+    if (!eeHas($list))
+        return "";
+    string $sel[] = `textScrollList -query -selectItem $list`;
+    return size($sel) ? $sel[0] : "";
+}
+
+proc eeRadio(string $group, int $button)
+{
+    if (eeHas($group))
+        radioButtonGrp -edit -select $button $group;
+}
+
+proc eeOptionItem(string $menu, int $item)
+{
+    if (eeHas($menu))
+        optionMenu -edit -select $item $menu;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The editor's companion procedures, where they're there; plain versions otherwise.
+
+proc int eeIsParticle(string $node)
+{
+    if (`exists EEisParticle`)
+        return `eval ("EEisParticle \"" + $node + "\"")`;
+    if ($node == "" || !`objExists $node`)
+        return 0;
+    string $type = `nodeType $node`;
+    return ($type == "particle" || $type == "nParticle");
+}
+
+proc int eeIsScriptNode(string $node)
+{
+    if (`exists EEisScriptNode`)
+        return `eval ("EEisScriptNode \"" + $node + "\"")`;
+    return ($node != "" && `objExists $node` && `nodeType $node` == "script");
+}
+
+proc int eeScriptNameExists(string $name)
+{
+    if (`exists EEscriptNameExists`)
+        return `eval ("EEscriptNameExists \"" + $name + "\"")`;
+    return ($name != "" && `objExists $name` && `nodeType $name` == "script");
+}
+
+proc int eeIsDynExpression(string $objAttr)
+{
+    if (`exists EEisDynExpression`)
+        return `eval ("EEisDynExpression \"" + $objAttr + "\"")`;
+    return 0;
+}
+
+proc int eeIsValidDynAttr(string $attr)
+{
+    if (`exists EEisValidDynAttr`)
+        return `eval ("EEisValidDynAttr \"" + $attr + "\"")`;
+    return 1;
+}
+
+// A particle's expression, by the rule chosen, then the others in turn.
+proc string eeParticleExpression(string $node, string $attr)
+{
+    if (`exists EEgetParticleExpression`)
+        return `eval ("EEgetParticleExpression \"" + $node + "\" \"" + $attr + "\"")`;
+    string $text = "";
+    for ($rule in {"runtimeBeforeDynamics", "runtimeAfterDynamics", "creation"}) {
+        catchQuiet($text = `eval ("dynExpression -query -string -" + $rule + " \"" + $node + "\"")`);
+        if ($text != "")
+            break;
+    }
+    return $text;
+}
+
+proc eeResetExpressionName(string $name)
+{
+    if (`exists EEresetExpressionName`)
+        eval ("EEresetExpressionName \"" + $name + "\"");
+    else
+        eeSetText("EEexprNameT", $name);
+}
+
+proc eeDisplayExpression(string $expr)
+{
+    global string $gEEcurrExpressionName;
+    global string $gEEorigExpressionName;
+    if (`exists EEdisplayExpression`) {
+        eval ("EEdisplayExpression \"" + $expr + "\"");
+        return;
+    }
+    string $text = "";
+    catchQuiet($text = `expression -query -string $expr`);
+    eeSetText("EEmultiText", $text);
+    eeResetExpressionName($expr);
+    $gEEcurrExpressionName = $expr;
+    $gEEorigExpressionName = $expr;
+    EEsetEditMode("Editing Expression");
+}
+
+proc eeDisplayParticleExpression(string $node, string $expr)
+{
+    global string $gEEcurrExpressionName;
+    global string $gEEorigExpressionName;
+    if (`exists EEdisplayParticleExpression`) {
+        eval ("EEdisplayParticleExpression \"" + $node + "\" \"" + encodeString($expr) + "\"");
+        return;
+    }
+    eeSetText("EEmultiText", $expr);
+    eeResetExpressionName($node);
+    $gEEcurrExpressionName = $node;
+    $gEEorigExpressionName = $node;
+    EEsetEditMode("Editing Particle Expression");
+}
+
+// Runs one of the outside-editor procedures if it's there; Aztek has none of its own.
+proc eeLaunch(string $proc, string $args)
+{
+    if (`exists $proc`)
+        eval ($proc + " " + $args);
+    else
+        warning ("Expression Editor: editing in an outside text editor isn't available here (" + $proc + ").");
+}
+
+proc eeListen(string $flags)
+{
+    if (`exists expressionEditorListen`)
+        eval ("expressionEditorListen " + $flags);
+}
+
+// The scalar (and for particles, per-particle) attributes the editor lists for a node, long or short names.
+proc string[] eeNodeAttrs(string $node, int $short)
+{
+    string $attrs[];
+    if ($node == "" || !`objExists $node`)
+        return $attrs;
+    if ($short)
+        $attrs = `listAttr -shortNames -scalar -visible -connectable -unlocked -keyable $node`;
+    else
+        $attrs = `listAttr -scalar -visible -connectable -unlocked -keyable $node`;
+    if (eeIsParticle($node)) {
+        string $more[] = $short ? `listAttr -shortNames -array -visible -connectable -unlocked $node`
+                                : `listAttr -array -visible -connectable -unlocked $node`;
+        appendStringArray($attrs, $more, size($more));
+    }
+    return $attrs;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+global proc EEinitializeFunctionTables()
+{
+    global string $gEEMathFunction[];
+    global string $gEEVectorFunction[];
+    global string $gEEConversionFunction[];
+    global string $gEERandomFunction[];
+    global string $gEEArrayFunction[];
+    global string $gEECurveFunction[];
+    // Pairs: the text put in the expression, and what it does.
+    $gEEMathFunction = {
+        "abs()", "float abs(float) / int abs(int) / vector abs(vector)",
+        "acos()", "float acos(float): arc cosine, in radians",
+        "acosd()", "float acosd(float): arc cosine, in degrees",
+        "asin()", "float asin(float): arc sine, in radians",
+        "asind()", "float asind(float): arc sine, in degrees",
+        "atan()", "float atan(float): arc tangent, in radians",
+        "atand()", "float atand(float): arc tangent, in degrees",
+        "atan2()", "float atan2(float y, float x): arc tangent of y/x, in radians",
+        "atan2d()", "float atan2d(float y, float x): arc tangent of y/x, in degrees",
+        "clamp()", "float clamp(float min, float max, float value)",
+        "ceil()", "float ceil(float): the next whole number up",
+        "cos()", "float cos(float): cosine of radians",
+        "cosd()", "float cosd(float): cosine of degrees",
+        "exp()", "float exp(float): e to the power",
+        "floor()", "float floor(float): the next whole number down",
+        "hypot()", "float hypot(float, float): length of the hypotenuse",
+        "log()", "float log(float): natural logarithm",
+        "log10()", "float log10(float): base 10 logarithm",
+        "min()", "float min(float, float) / vector min(vector, vector)",
+        "max()", "float max(float, float) / vector max(vector, vector)",
+        "pow()", "float pow(float base, float exponent)",
+        "sign()", "float sign(float): -1, 0 or 1",
+        "sin()", "float sin(float): sine of radians",
+        "sind()", "float sind(float): sine of degrees",
+        "sqrt()", "float sqrt(float): square root",
+        "tan()", "float tan(float): tangent of radians",
+        "tand()", "float tand(float): tangent of degrees",
+        "trunc()", "float trunc(float): the whole part"};
+    $gEEVectorFunction = {
+        "angle()", "float angle(vector, vector): the angle between, in radians",
+        "cross()", "vector cross(vector, vector): cross product",
+        "dot()", "float dot(vector, vector): dot product",
+        "mag()", "float mag(vector): length",
+        "rot()", "vector rot(vector, vector axis, float radians): rotated about an axis",
+        "unit()", "vector unit(vector): of length one"};
+    $gEEConversionFunction = {
+        "deg_to_rad()", "float deg_to_rad(float) / vector deg_to_rad(vector)",
+        "rad_to_deg()", "float rad_to_deg(float) / vector rad_to_deg(vector)",
+        "hsv_to_rgb()", "vector hsv_to_rgb(vector)",
+        "rgb_to_hsv()", "vector rgb_to_hsv(vector)"};
+    $gEERandomFunction = {
+        "gauss()", "float gauss(float) / vector gauss(float, float) / vector gauss(vector)",
+        "noise()", "float noise(float) / float noise(float, float) / float noise(vector)",
+        "dnoise()", "vector dnoise(vector)",
+        "rand()", "float rand(float [,float]) / vector rand(vector [,vector])",
+        "sphrand()", "vector sphrand(float) / vector sphrand(vector)",
+        "seed()", "int seed(int)"};
+    $gEEArrayFunction = {
+        "clear()", "int clear(array)",
+        "size()", "int size(array) / int size(string)",
+        "sort()", "array sort(array)"};
+    // Threes: the menu label, the text put in, and what it does.
+    $gEECurveFunction = {
+        "linstep()", "linstep()", "float linstep(float start, float end, float value): 0 to 1 in a straight line",
+        "smoothstep()", "smoothstep()", "float smoothstep(float start, float end, float value): 0 to 1 eased",
+        "hermite() vector", "hermite()", "vector hermite(vector start, vector end, vector tan1, vector tan2, float t)",
+        "hermite() scalar", "hermite()", "float hermite(float start, float end, float tan1, float tan2, float t)"};
+}
+
+global proc EEmakeMenubar()
+{
+    // Aztek's Expression Editor has its own menus.
+    EEinitializeFunctionTables();
+}
+
+global proc EEmakeFilterPopup()
+{
+    // Aztek's Expression Editor has its own menus.
+}
+
+global proc EEcreateWin(string $winName)
+{
+    EEinitializeFunctionTables();
+    if (`exists ExpressionEditor`)
+        ExpressionEditor;
+    else
+        warning "expressionEditor: the Expression Editor is only there when Aztek runs with its interface.";
+}
+
+global proc EEpostConfirm(string $message)
+{
+    confirmDialog -title "Warning" -message $message -messageAlign "left" -button "Close" -cancelButton "Close";
+}
+
+global proc EEswitchSelectLayout(string $method)
+{
+    global string $gEEnodeMode;
+    if ($gEEnodeMode == "scriptNode" || $method == "scriptNode")
+        eeSetText("EEexprNameT", "");
+    $gEEnodeMode = $method;
+    string $filterMenus[] = {"EEobjFilterMenu", "EEattrFilterMenu", "EEobjFilterPopMenu", "EEattrFilterPopMenu"};
+    if ($method == "expression" || $method == "object") {
+        int $object = ($method == "object");
+        eeSetText("EEexprNameLabel", "Expression Name:");
+        eeSetText("EEnewExpButton", "New Expression");
+        eeSetText("EEselectNamesL", $object ? "Objects" : "Expressions");
+        eeEnable("EEattrNamesL", $object);
+        for ($m in $filterMenus)
+            eeEnable($m, $object);
+        if (!$object)
+            eeSetText("EEselNameT", "");
+        eeEnable("EEselNameT", $object);
+        eeSetText("EEtextLabel", "Expression:");
+        if (eeHas("EEoptionsTab"))
+            tabLayout -edit -selectTabIndex 1 EEoptionsTab;
+    } else {
+        eeSetText("EEexprNameLabel", "Script Node Name:");
+        eeSetText("EEnewExpButton", "New Script Node");
+        eeSetText("EEselectNamesL", "Script Nodes");
+        eeEnable("EEattrNamesL", 0);
+        for ($m in $filterMenus)
+            eeEnable($m, 0);
+        eeSetText("EEselNameT", "");
+        eeEnable("EEselNameT", 0);
+        eeEnable("EEselScriptNodeNameT", 1);
+        eeSetText("EEtextLabel", "Script:");
+        if (eeHas("EEoptionsTab"))
+            tabLayout -edit -selectTabIndex 2 EEoptionsTab;
+    }
+}
+
+global proc EEswitchRulesForm(int $enable)
+{
+    eeEnable("EErulesRBG", $enable);
+    eeEnable("EEunitsRBG", !$enable);
+    eeEnable("EEanimTypeOM", !$enable);
+}
+
+global proc string[] EEgetCurrTypeList(string $type)
+{
+    string $list[];
+    switch ($type) {
+        case "allSelected": $list = `ls -selection`; break;
+        case "dagObjects": $list = `ls -dagObjects`; break;
+        case "geometry": $list = `ls -geometry`; break;
+        case "transforms": $list = `ls -transforms`; break;
+        case "lights": $list = `ls -lights`; break;
+        case "cameras": $list = `ls -cameras`; break;
+        case "shaders": $list = `ls -materials`; break;
+        // Every dependency node: all nodes, where ls can't be asked for them by flag.
+        case "depNodes": if (catchQuiet($list = `ls -dependencyNodes`)) $list = `ls`; break;
+        case "joints": $list = `ls -type joint`; break;
+        case "handles": $list = `ls -type ikHandle`; break;
+        case "ikSystems": $list = `ls -type ikSystem`; break;
+        case "ikSolvers": $list = `ls -type ikSolver`; break;
+        case "jointLattice": $list = `ls -type jointLattice`; break;
+        case "blendShape": $list = `ls -type blendShape`; break;
+        case "boneLattice": $list = `ls -type boneLattice`; break;
+        case "cluster": $list = `ls -type cluster`; break;
+        case "lattice": $list = `ls -type ffd`; break;
+        case "sculpt": $list = `ls -type sculpt`; break;
+        case "wire": $list = `ls -type wire`; break;
+        case "scriptNode": $list = `ls -type script`; break;
+    }
+    if (size($list) || !`isTrue DynamicsUIExists`)
+        return $list;
+    string $dynamic = "";
+    switch ($type) {
+        case "particles": $dynamic = "particle"; break;
+        case "emitters": $dynamic = "pointEmitter"; break;
+        case "springs": $dynamic = "spring"; break;
+        case "gravity": $dynamic = "gravityField"; break;
+        case "drag": $dynamic = "dragField"; break;
+        case "air": $dynamic = "airField"; break;
+        case "newton": $dynamic = "newtonField"; break;
+        case "radial": $dynamic = "radialField"; break;
+        case "turbulence": $dynamic = "turbulenceField"; break;
+        case "uniform": $dynamic = "uniformField"; break;
+        case "vortex": $dynamic = "vortexField"; break;
+        case "rigidBody": $dynamic = "rigidBody"; break;
+        case "constraint": $dynamic = "rigidConstraint"; break;
+    }
+    if ($dynamic != "")
+        $list = `ls -type $dynamic`;
+    return $list;
+}
+
+global proc string[] EEgetExpressionList()
+{
+    string $list[] = `ls -type expression`;
+    if (`isTrue DynamicsUIExists`) {
+        string $particles[] = `ls -type particle`;
+        for ($p in $particles) {
+            if (eeParticleExpression(":" + $p, "") != "")
+                $list[size($list)] = $p;
+        }
+    }
+    return $list;
+}
+
+global proc int EEgetAttrFromNode(string $attrName)
+{
+    global int $gEEobjIsParticle;
+    string $node = eeListSelected("EEnodeList");
+    if ($node == "")
+        return -1;
+    string $found = "";
+    string $long[] = `listAttr -scalar -visible -connectable -unlocked $node`;
+    string $short[] = `listAttr -shortNames -scalar -visible -connectable -unlocked $node`;
+    for ($i = 0; $i < size($long); $i++)
+        if ($long[$i] == $attrName || ($i < size($short) && $short[$i] == $attrName)) {
+            $found = $long[$i];
+            break;
+        }
+    if ($found == "" && $gEEobjIsParticle) {
+        $long = `listAttr -array -visible -connectable -unlocked $node`;
+        $short = `listAttr -shortNames -array -visible -connectable -unlocked $node`;
+        for ($i = 0; $i < size($long); $i++)
+            if ($long[$i] == $attrName || ($i < size($short) && $short[$i] == $attrName)) {
+                $found = $long[$i];
+                break;
+            }
+    }
+    if ($found == "")
+        return -1;
+    textScrollList -edit -append $found EEattrList;
+    return `textScrollList -query -numberOfItems EEattrList`;
+}
+
+global proc string EEgetEditorMessage()
+{
+    return "To use an outside text editor, set the environment variable EDITOR (or VISUAL) to the command that starts "
+        + "it, for example \"gvim -f\", before starting the program. The editor must stay in the foreground until the "
+        + "file is closed, or the expression is read back before it's saved.";
+}
+
+global proc int EEisValidNodeName(string $nodeName)
+{
+    string $found[] = `ls $nodeName`;
+    if (!size($found)) {
+        warning ("There is no object named " + $nodeName + ".");
+        return 0;
+    }
+    if (size($found) > 1) {
+        warning ("More than one object matches " + $nodeName + ".");
+        return 0;
+    }
+    return 1;
+}
+
+global proc int EEexprNameExists(string $name)
+{
+    return stringArrayContains($name, EEgetExpressionList());
+}
+
+global proc int EEcheckValidExprName(string $name)
+{
+    global string $gEEcurrExpressionName;
+    // The name typed in the window's name field, or the name given when there's no field.
+    if (eeHas("EEexprNameT"))
+        $name = eeText("EEexprNameT");
+    if (EEexprNameExists($name)) {
+        warning ("The name " + $name + " is already used by another expression.");
+        eeSetText("EEexprNameT", $gEEcurrExpressionName);
+        return 0;
+    }
+    return 1;
+}
+
+global proc int EEnodeIsInList(string $nodeName)
+{
+    string $items[] = eeListItems("EEnodeList");
+    for ($i = 0; $i < size($items); $i++)
+        if ($items[$i] == $nodeName)
+            return $i;
+    return -1;
+}
+
+global proc int EEattrIsInList(string $attrName)
+{
+    string $items[] = eeListItems("EEattrList");
+    if (!size($items))
+        return -1;
+    string $short[] = eeNodeAttrs(eeListSelected("EEnodeList"), 1);
+    string $long[] = eeNodeAttrs(eeListSelected("EEnodeList"), 0);
+    for ($i = 0; $i < size($items); $i++) {
+        if ($items[$i] == $attrName)
+            return $i + 1;
+        // The short name of the same attribute.
+        for ($j = 0; $j < size($long); $j++)
+            if ($long[$j] == $items[$i] && $j < size($short) && $short[$j] == $attrName)
+                return $i + 1;
+    }
+    return -1;
+}
+
+global proc EEsetCreateMode(string $message)
+{
+    global int $gEEcreateMode;
+    global string $gEEnodeMode;
+    string $shown;
+    switch ($message) {
+        case "Creating Particle Expression": $shown = "Creating Particle Expression"; break;
+        case "Creating Expression": $shown = "Creating Expression"; break;
+        case "Creating Script Node": $shown = "Creating Script Node"; break;
+        default:
+            error ("Not a create mode: " + $message);
+    }
+    $gEEcreateMode = 1;
+    eeSetText("EEceModeT", $shown);
+    eeSetText("EEapplyButton", "Create");
+    eeEnable("EEdeleteButton", 0);
+    eeEnable("EErestoreButton", 0);
+    if ($gEEnodeMode == "scriptNode") {
+        eeEnable("EEscriptNodeTypeAOM", 0);
+        string $node = eeListSelected("EEnodeList");
+        if ($node != "" && `objExists ($node + ".ignoreReferenceEdits")`)
+            eeRadio("EEscriptNodeRefEditsRBG", `getAttr ($node + ".ignoreReferenceEdits")` ? 2 : 1);
+        eeEnable("EEscriptNodeRefEditsRBG", 0);
+    }
+}
+
+global proc EEsetEditMode(string $message)
+{
+    global int $gEEcreateMode;
+    global string $gEEnodeMode;
+    switch ($message) {
+        case "Editing ParticleExpression":
+        case "Editing Particle Expression":
+        case "Editing Script":
+        case "Editing Script Node":
+        case "Editing Expression":
+            break;
+        default:
+            error ("Not an edit mode: " + $message);
+    }
+    $gEEcreateMode = 0;
+    eeSetText("EEceModeT", $message);
+    eeEnable("EErestoreButton", 1);
+    eeSetText("EEapplyButton", "Edit");
+    eeEnable("EEdeleteButton", 1);
+    if ($gEEnodeMode == "scriptNode") {
+        eeEnable("EEscriptNodeTypeAOM", 1);
+        eeEnable("EEscriptNodeRefEditsRBG", 1);
+    }
+}
+
+global proc EEclearAllControls()
+{
+    global string $gEEnodeMode;
+    global int $gEEobjIsParticle;
+    global string $gEEcurrExpressionName;
+    global string $gEEorigExpressionName;
+    global int $gEEpExpressionInEditor;
+    global int $gEEexpressionInEditor;
+    // A name typed for a new expression stays; one belonging to an existing node goes.
+    string $name = eeText("EEexprNameT");
+    if (eeIsParticle($name) || ($name != "" && (EEexprNameExists($name) || eeScriptNameExists($name))))
+        eeResetExpressionName("");
+    eeSetText("EEselNameT", "");
+    eeSetText("EEdefNameT", "");
+    eeSetText("EEmultiText", "");
+    eeOptionItem("EEanimTypeOM", 2);
+    eeRadio("EEunitsRBG", 1);
+    if ($gEEnodeMode == "scriptNode")
+        EEsetCreateMode("Creating Script Node");
+    else
+        EEsetCreateMode($gEEobjIsParticle ? "Creating Particle Expression" : "Creating Expression");
+    $gEEcurrExpressionName = "";
+    $gEEorigExpressionName = "";
+    $gEEpExpressionInEditor = -1;
+    $gEEexpressionInEditor = -1;
+    eeSetText("EEselScriptNodeNameT", "");
+}
+
+global proc EEresetFilterToAll(string $nodeName)
+{
+    global string $gEEcurrNodeFilter;
+    global string $gEEnodeMode;
+    string $dag[] = `ls -dagObjects`;
+    if ($nodeName == "" || stringArrayContains($nodeName, $dag)) {
+        $gEEcurrNodeFilter = "dagObjects";
+        if (`menuItem -exists EEdagObjMenuItem`)
+            menuItem -edit -radioButton true EEdagObjMenuItem;
+    } else {
+        $gEEcurrNodeFilter = "depNodes";
+        if (`menuItem -exists EEdepNodeMenuItem`)
+            menuItem -edit -radioButton true EEdepNodeMenuItem;
+    }
+    $gEEnodeMode = "object";
+    EErebuildNodeList("object");
+}
+
+global proc EEresetNodeControls(string $nodeName)
+{
+    global int $gEEobjIsParticle;
+    global string $gEEnodeMode;
+    eeSetText("EEselNameT", $nodeName);
+    eeEnable("EEselNameT", 1);
+    if (eeIsParticle($nodeName)) {
+        $gEEobjIsParticle = 1;
+        EEswitchRulesForm(1);
+        eeSetText("EEdefNameT", "");
+        eeEnable("EEdefNameT", 0);
+        eeEnable("EEexprNameLabel", 0);
+        eeResetExpressionName("");
+        eeEnable("EEexprNameT", 0);
+        EEsetCreateMode("Creating Particle Expression");
+    } else {
+        $gEEobjIsParticle = 0;
+        EEswitchRulesForm(0);
+        eeEnable("EEexprNameLabel", 1);
+        string $name = eeText("EEexprNameT");
+        if ($gEEnodeMode == "scriptNode") {
+            eeSetText("EEdefNameT", "");
+            eeEnable("EEdefNameT", 0);
+            if ($name != "" && eeScriptNameExists($name)) {
+                eeResetExpressionName("");
+                EEsetCreateMode("Creating Script Node");
+            }
+        } else {
+            eeSetText("EEdefNameT", $nodeName);
+            eeEnable("EEdefNameT", 1);
+            if (EEexprNameExists($name)) {
+                eeResetExpressionName("");
+                EEsetCreateMode("Creating Expression");
+            }
+        }
+        eeEnable("EEexprNameT", 1);
+    }
+    if ($gEEnodeMode == "scriptNode") {
+        eeSetText("EEselScriptNodeNameT", $nodeName);
+        eeEnable("EEselScriptNodeNameT", 1);
+    } else {
+        eeSetText("EEselNameT", $nodeName);
+        eeEnable("EEselNameT", 1);
+        EErebuildAttrList($nodeName);
+    }
+}
+
+global proc EErebuildNodeList(string $which)
+{
+    global string $gEEcurrSelectedNode;
+    global string $gEEorigExpressionName;
+    global string $gEEcurrExpressionName;
+    global string $gEEcurrNodeFilter;
+    global int $gEEcreateMode;
+    string $current = eeText("EEexprNameT");
+    string $original = $gEEorigExpressionName;
+
+    for ($item in eeListItems("EEnodeList"))
+        EEremoveNodeFromList($item, 1);
+    $gEEcurrSelectedNode = "";
+    if (eeHas("EEattrList"))
+        textScrollList -edit -removeAll EEattrList;
+
+    string $list[];
+    if ($which == "expression")
+        $list = EEgetExpressionList();
+    else if ($which == "scriptNode")
+        $list = EEgetCurrTypeList("scriptNode");
+    else
+        $list = EEgetCurrTypeList($gEEcurrNodeFilter);
+    if (!size($list)) {
+        EEclearAllControls();
+        return;
+    }
+    // Components (selected CVs and the like) list as their node, once.
+    string $previous = "";
+    for ($entry in $list) {
+        string $node = $entry;
+        if (`gmatch $entry "*.*"`) {
+            string $parts[];
+            tokenize $entry "." $parts;
+            $node = $parts[0];
+            if ($node == $previous)
+                continue;
+        }
+        EEaddNodeToList($node);
+        $previous = $node;
+    }
+
+    if ($which == "expression") {
+        if ($current != "" && !$gEEcreateMode) {
+            string $drives = $current;
+            if (!eeIsParticle($current)) {
+                string $plugs[] = `listConnections -source false -destination true -shapes true -plugs true
+                    -skipConversionNodes true $current`;
+                $drives = size($plugs) ? $plugs[0] : "";
+            }
+            EEselectNodeInList($current);
+            eeSetText("EEselNameT", $drives);
+            $gEEorigExpressionName = $original;
+            $gEEcurrExpressionName = $current;
+        } else {
+            EEclearAllControls();
+        }
+    } else if ($which == "object") {
+        string $parts[];
+        tokenize (eeText("EEselNameT")) "." $parts;
+        string $object = size($parts) ? $parts[0] : "";
+        string $attr = size($parts) > 1 ? $parts[1] : "";
+        if ($object != "" && stringArrayContains($object, eeListItems("EEnodeList"))) {
+            EEnewSelectedNode($object);
+            if ($attr != "") {
+                int $index = EEattrIsInList($attr);
+                if ($index > 0)
+                    EEnewSelectedAttr($index);
+            }
+            return;
+        }
+        EEclearAllControls();
+        string $items[] = eeListItems("EEnodeList");
+        if (size($items)) {
+            textScrollList -edit -selectIndexedItem 1 EEnodeList;
+            EEnewSelectedNode($items[0]);
+        }
+    } else {
+        string $name = eeText("EEexprNameT");
+        if ($name != "") {
+            EEnewSelectedNode($name);
+            if (!$gEEcreateMode) {
+                eeSetText("EEselScriptNodeNameT", $name);
+                $gEEorigExpressionName = $original;
+                $gEEcurrExpressionName = $current;
+            }
+        } else {
+            EEclearAllControls();
+        }
+    }
+}
+
+global proc EErebuildAttrList(string $nodeName)
+{
+    global string $gEEcurrAttrFilter;
+    if ($nodeName == "")
+        return;
+    string $attrs[] = eeNodeAttrs($nodeName, 0);
+    if (!eeHas("EEattrList"))
+        return;
+    textScrollList -edit -removeAll EEattrList;
+    int $particle = eeIsParticle($nodeName);
+    if ($gEEcurrAttrFilter == "all") {
+        for ($a in $attrs)
+            if (!$particle || eeIsValidDynAttr($a))
+                textScrollList -edit -append $a EEattrList;
+    } else if ($gEEcurrAttrFilter == "expr") {
+        if ($particle) {
+            if (eeParticleExpression($nodeName, "") != "")
+                for ($a in $attrs)
+                    textScrollList -edit -append $a EEattrList;
+        } else {
+            for ($a in $attrs) {
+                string $from[] = `listConnections -source true -destination false -type expression
+                    -skipConversionNodes true ($nodeName + "." + $a)`;
+                if (size($from))
+                    textScrollList -edit -append $a EEattrList;
+            }
+        }
+    }
+}
+
+global proc EEupdateExprList()
+{
+    global string $gEEorigExpressionName;
+    global string $gEEcurrExpressionName;
+    global string $gEEnodeMode;
+    if ($gEEorigExpressionName == $gEEcurrExpressionName)
+        return;
+    if ($gEEnodeMode == "expression" || $gEEnodeMode == "scriptNode") {
+        EEremoveNodeFromList($gEEorigExpressionName, 0);
+        EEaddNodeToList($gEEcurrExpressionName);
+        EEselectNodeInList($gEEcurrExpressionName);
+    }
+    $gEEorigExpressionName = $gEEcurrExpressionName;
+}
+
+global proc EEaddNodeToList(string $nodeName)
+{
+    eeListen("-listenForName \"" + $nodeName + "\"");
+    if (eeHas("EEnodeList") && EEnodeIsInList($nodeName) < 0)
+        textScrollList -edit -append $nodeName EEnodeList;
+}
+
+global proc EEremoveNodeFromList(string $nodeName, int $removeExpr)
+{
+    global string $gEEcurrExpressionName;
+    global string $gEEorigExpressionName;
+    global string $gEEcurrSelectedNode;
+    eeListen("-stopListenForName \"" + $nodeName + "\"");
+    if (eeListSelected("EEnodeList") == $nodeName && $nodeName != "") {
+        eeListen("-stopListenForAttr \"" + $nodeName + "\"");
+        if ($removeExpr) {
+            eeResetExpressionName("");
+            $gEEcurrExpressionName = "";
+            $gEEorigExpressionName = "";
+            $gEEcurrSelectedNode = "";
+        }
+    }
+    if (EEnodeIsInList($nodeName) >= 0)
+        textScrollList -edit -removeItem $nodeName EEnodeList;
+}
+
+global proc EEselectNodeInList(string $nodeName)
+{
+    global string $gEEcurrSelectedNode;
+    global string $gEEnodeMode;
+    if ($gEEcurrSelectedNode != "")
+        eeListen("-stopListenForAttr \"" + $gEEcurrSelectedNode + "\"");
+    if (EEnodeIsInList($nodeName) >= 0)
+        textScrollList -edit -selectItem $nodeName EEnodeList;
+    if ($gEEnodeMode == "expression" || $gEEnodeMode == "scriptNode")
+        eeSetText("EEexprNameT", $nodeName);
+    $gEEcurrSelectedNode = $nodeName;
+    eeListen("-listenForAttr \"" + $nodeName + "\"");
+}
+
+global proc EEnewSelectedNode(string $nodeName)
+{
+    EEclearAllControls();
+    EEresetNodeControls($nodeName);
+    EEselectNodeInList($nodeName);
+    if (eeIsParticle($nodeName)) {
+        string $expr = eeParticleExpression($nodeName, "");
+        if ($expr == "")
+            EEdisplayNoExpression($nodeName);
+        else
+            eeDisplayParticleExpression($nodeName, $expr);
+    }
+}
+
+global proc EEnewSelectedAttr(int $index)
+{
+    if (!eeHas("EEattrList"))
+        return;
+    textScrollList -edit -selectIndexedItem $index -showIndexedItem $index EEattrList;
+    EEloadNewNodeAttr(eeListSelected("EEnodeList"), eeListSelected("EEattrList"));
+}
+
+global proc EEloadNewNodeAttr(string $nodeName, string $attrName)
+{
+    string $objAttr = $nodeName + "." + $attrName;
+    EEdisplayAttrExpr($objAttr);
+    eeSetText("EEselNameT", $objAttr);
+    int $index = EEattrIsInList($attrName);
+    if ($index > 0)
+        textScrollList -edit -selectIndexedItem $index -showIndexedItem $index EEattrList;
+}
+
+global proc EEdisplayAttrExpr(string $objAttr)
+{
+    string $parts[];
+    tokenize $objAttr "." $parts;
+    string $node = $parts[0];
+    string $attr = size($parts) > 1 ? $parts[1] : "";
+    if (!eeIsParticle($node)) {
+        string $from[];
+        if (`objExists $objAttr`)
+            $from = `listConnections -source true -destination false -type expression -skipConversionNodes true $objAttr`;
+        if (!size($from))
+            EEdisplayNoExpression($objAttr);
+        else
+            eeDisplayExpression($from[0]);
+        return;
+    }
+    string $expr = eeParticleExpression($node, $attr);
+    if ($expr == "") {
+        EEdisplayNoExpression($objAttr);
+        EEswitchRulesForm(1);
+    } else if (eeIsDynExpression($objAttr)) {
+        eeDisplayParticleExpression($node, $expr);
+        EEswitchRulesForm(1);
+    } else {
+        string $from[] = `listConnections -source true -destination false -type expression -skipConversionNodes true $objAttr`;
+        if (size($from))
+            eeDisplayExpression($from[0]);
+        EEswitchRulesForm(0);
+    }
+}
+
+global proc EEdisplayNoExpression(string $objAttr)
+{
+    global string $gEEnodeMode;
+    global int $gEEcurrentEditor;
+    global int $gEEdoLaunchTextEd;
+    global int $gEEpExpressionInEditor;
+    global int $gEEexpressionInEditor;
+    global string $gEEcurrExpressionName;
+    global string $gEEorigExpressionName;
+    string $parts[];
+    tokenize $objAttr "." $parts;
+    string $node = size($parts) ? $parts[0] : "";
+
+    string $name = eeText("EEexprNameT");
+    if ($gEEnodeMode == "scriptNode" || ($name != "" && (eeIsParticle($name) || EEexprNameExists($name))))
+        eeResetExpressionName("");
+    eeSetText("EEmultiText", "");
+    eeRadio("EEunitsRBG", 1);
+
+    int $launch = ($gEEcurrentEditor != 1 && $gEEdoLaunchTextEd);
+    if (eeIsParticle($node)) {
+        EEsetCreateMode("Creating Particle Expression");
+        if ($launch) {
+            eeLaunch("EElaunchParticleEditor", "\"\" \"" + $node + "\"");
+            eeEnable("EEmultiText", 0);
+        }
+        eeSetText("EEdefNameT", "");
+        eeEnable("EEdefNameT", 0);
+        // A particle's expression is named after the particle.
+        eeResetExpressionName($node);
+    } else {
+        if ($gEEnodeMode == "scriptNode") {
+            eeSetText("EEdefNameT", "");
+            eeEnable("EEdefNameT", 0);
+            EEsetCreateMode("Creating Script Node");
+        } else {
+            EEsetCreateMode("Creating Expression");
+            eeSetText("EEdefNameT", $node);
+            eeOptionItem("EEanimTypeOM", 2);
+        }
+        if ($launch) {
+            eeLaunch("EElaunchEditor", "\"" + $objAttr + "\" \"\" \"\"");
+            eeEnable("EEmultiText", 0);
+        } else {
+            eeEnable("EEmultiText", 1);
+        }
+    }
+    if ($gEEnodeMode == "scriptNode")
+        eeSetText("EEselScriptNodeNameT", "");
+    else
+        eeSetText("EEselNameT", $objAttr);
+    if (!$launch) {
+        $gEEpExpressionInEditor = -1;
+        $gEEexpressionInEditor = -1;
+    }
+    $gEEdoLaunchTextEd = 0;
+    $gEEcurrExpressionName = "";
+    $gEEorigExpressionName = "";
+}
+
+global proc EEregisterExpressions()
+{
+    if (!`exists expressionEditorListen`)
+        return;
+    string $nodes[] = `ls -type expression`;
+    if (`isTrue DynamicsUIExists`) {
+        string $particles[] = `ls -type particle`;
+        appendStringArray($nodes, $particles, size($particles));
+    }
+    for ($n in $nodes)
+        eeListen("-listenForExpression \"" + $n + "\"");
+}
+
+global proc EEupdateWindow(string $nodeName, string $attrName)
+{
+    global string $gEEnodeMode;
+    global string $gEEcurrNodeFilter;
+    if ($nodeName != "") {
+        if (eeIsScriptNode($nodeName)) {
+            $gEEnodeMode = "scriptNode";
+        } else {
+            $gEEnodeMode = "object";
+            $gEEcurrNodeFilter = "allSelected";
+            if (`menuItem -exists EEallSelectedMenuItem`)
+                menuItem -edit -radioButton true EEallSelectedMenuItem;
+        }
+    }
+    if ($gEEnodeMode == "scriptNode")
+        EEswitchSelectLayout("scriptNode");
+    eeEnable("EEnewExpButton", $gEEnodeMode != "object");
+    EErebuildNodeList($gEEnodeMode);
+    if ($nodeName != "") {
+        int $added = 0;
+        if (EEnodeIsInList($nodeName) < 0) {
+            EEaddNodeToList($nodeName);
+            $added = 1;
+        }
+        EEnewSelectedNode($nodeName);
+        if ($attrName != "" && (!$added || $gEEnodeMode != "scriptNode")) {
+            int $index = EEattrIsInList($attrName);
+            if ($index < 0 && eeHas("EEattrList")) {
+                // Listed for this once even where it isn't normally.
+                textScrollList -edit -append $attrName EEattrList;
+                $index = `textScrollList -query -numberOfItems EEattrList`;
+            }
+            if ($index > 0)
+                EEnewSelectedAttr($index);
+        }
+    }
+    EEregisterExpressions();
+}
+
+global proc expressionEditor(string $particleMode, string $nodeName, string $attrName)
+{
+    global int $gEEfilesLoaded;
+    global int $gEEexpressionType;
+    global int $gEEcurrentEditor;
+
+    // The companion files, where there are any, once.
+    if (!$gEEfilesLoaded) {
+        for ($f in {"expressions", "dynExpressions", "expressionEdCallbacks", "expressionEdTextEditor", "scriptNodes"})
+            catchQuiet(`eval ("source \"" + $f + ".mel\"")`);
+        $gEEfilesLoaded = 1;
+    }
+
+    if ($nodeName != "" && !`objExists $nodeName`) {
+        warning ("There is no object named " + $nodeName + ".");
+        $nodeName = "";
+        $attrName = "";
+    }
+    if ($nodeName == "")
+        $attrName = "";
+    if ($nodeName != "" && $attrName != "") {
+        string $plug[] = `ls ($nodeName + "." + $attrName)`;
+        if (!size($plug)) {
+            warning ("There is no attribute " + $attrName + " on " + $nodeName + ".");
+            $attrName = "";
+        } else if ($particleMode == "") {
+            string $usable[] = `listAttr -scalar -string $attrName $nodeName`;
+            if (!size($usable)) {
+                warning ("The attribute " + $attrName + " can't be driven by an expression.");
+                $attrName = "";
+            }
+        }
+    }
+
+    switch ($particleMode) {
+        case "runtimeBeforeDynamics": $gEEexpressionType = 1; break;
+        case "runtimeAfterDynamics": $gEEexpressionType = 2; break;
+        case "creation": $gEEexpressionType = 3; break;
+    }
+    if (`optionVar -exists EEexprEdTextEditor`) {
+        $gEEcurrentEditor = `optionVar -query EEexprEdTextEditor`;
+        if ($gEEcurrentEditor == 0)
+            $gEEcurrentEditor = 1;
+    }
+
+    // With an outside editor chosen, a node and attribute go straight to it.
+    if ($nodeName != "" && $attrName != "" && $gEEcurrentEditor != 1) {
+        string $args = "\"" + $nodeName + "\" \"" + $attrName + "\"";
+        if (eeIsParticle($nodeName) && eeIsDynExpression($nodeName + "." + $attrName))
+            eeLaunch("EEonlyLaunchParticleEditor", $args);
+        else if (eeIsScriptNode($nodeName) && `exists EEonlyLaunchScriptEditor`)
+            eeLaunch("EEonlyLaunchScriptEditor", $args);
+        else
+            eeLaunch("EEonlyLaunchEditor", $args);
+        return;
+    }
+
+    // A window of the reference's a script built is brought up to date; otherwise Aztek's own opens.
+    if (`window -exists expressionEditorWin`) {
+        EEupdateWindow($nodeName, $attrName);
+        eeRadio("EErulesRBG", $gEEexpressionType);
+        showWindow expressionEditorWin;
+        return;
+    }
+    EEcreateWin("expressionEditorWin");
+}

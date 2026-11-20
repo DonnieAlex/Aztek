@@ -1,0 +1,99 @@
+// artAttrToolScript: enters the Paint Attributes tool, either for every paintable attribute ($attrFilter empty) or as
+// the Paint Weights tool of one deformer type, as the reference's Deform > Paint Weights items do. $setToTool 3 also opens
+// the tool's settings, 4 only enters it; anything else still enters it but warns. Gives back the context's name.
+
+// The deformer types whose weights the Paint Weights items paint.
+proc int artAttrToolKnownFilter(string $type)
+{
+    string $known[] = {"cluster", "textureDeformer", "oceanDeformer", "jiggle", "polyReduce", "particle", "wire",
+        "transferAttributes", "shrinkWrap", "deltaMush", "tension", "proximityWrap", "ffd", "componentFalloff"};
+    for ($k in $known)
+        if ($k == $type)
+            return 1;
+    return 0;
+}
+
+// The label of the settings' filter button: kept here, and shown on the button when the settings have one.
+proc artAttrToolSetFilterLabel(string $label)
+{
+    global string $gArtAttrToolFilterLabel;
+    if (`exists setArtAttrFilterLabel`) {
+        eval("setArtAttrFilterLabel \"" + $label + "\"");
+        return;
+    }
+    $gArtAttrToolFilterLabel = $label;
+}
+
+proc string artAttrToolFilterLabel()
+{
+    global string $gArtAttrToolFilterLabel;
+    if (`exists artAttrFilterLabel`)
+        return eval("artAttrFilterLabel");
+    return $gArtAttrToolFilterLabel;
+}
+
+// Whether the selection offers anything to paint.
+proc int artAttrToolHasPaintable()
+{
+    if (`exists artAttrInitPaintableAttr`)
+        return eval("artAttrInitPaintableAttr");
+    return size(`artAttrCtx -query -paintableAttrs`) > 0;
+}
+
+// Aztek's Paint Attributes tool paints what artAttrCtx has picked rather than reading the paintable list, so for one
+// deformer type the first of its weights the selection offers is picked as well.
+proc artAttrToolPickType(string $type)
+{
+    string $offered[] = `artAttrCtx -query -paintableAttrs`;
+    for ($a in $offered) {
+        string $parts[];
+        tokenize $a "." $parts;
+        if ($parts[0] == $type) {
+            artAttrCtx -edit -attrSelected $a;
+            return;
+        }
+    }
+}
+
+global proc string artAttrToolScript(int $setToTool, string $attrFilter)
+{
+    string $context = "artAttrContext";
+
+    // The callbacks the settings use, when the installation has them.
+    if (`exists artAttrSyncCurrentAttribute`)
+        eval("artAttrSyncCurrentAttribute");
+
+    if ($attrFilter == "") {
+        // Everything paintable, except vertex colours and skin weights, which have tools of their own.
+        makePaintable -activateAll true;
+        makePaintable -activate false "mesh" "vertexColorRGB";
+        makePaintable -activate false "mesh" "vertexFaceColorRGB";
+        makePaintable -activate false "skinCluster" "*";
+        artAttrToolSetFilterLabel("Filter: All");
+    } else if (artAttrToolKnownFilter($attrFilter)) {
+        makePaintable -activateAll false;
+        makePaintable -activate true $attrFilter "weights";
+        artAttrToolSetFilterLabel(`format -stringArg $attrFilter "Filter: ^1s"`);
+        artAttrToolPickType($attrFilter);
+    }
+    // Any other filter leaves what's paintable as it was.
+
+    // Enter the tool: by its context when there is one by that name, else through the shell's own Paint Attribute tool.
+    if (`contextInfo -exists $context`)
+        setToolTo $context;
+    else if (`exists ArtPaintAttrTool`)
+        ArtPaintAttrTool;
+
+    if ($setToTool == 3) {
+        if (`exists ToolSettingsWindow`)
+            ToolSettingsWindow;
+        if (`button -exists artAttrFilterButton`)
+            button -edit -label (artAttrToolFilterLabel()) artAttrFilterButton;
+    } else {
+        if ($setToTool != 4)
+            warning "artAttrToolScript: the first argument should be 3 or 4.";
+        else if (!artAttrToolHasPaintable())
+            warning "Select an object with paintable attributes.";
+    }
+    return $context;
+}

@@ -1,0 +1,142 @@
+// fitPanel: frames one panel, the one under the pointer or else the one with focus, as the reference's frame all and
+// frame selected hotkeys do. $fitType "-all" frames everything; "-selected" and "-selectedNoChildren" frame the
+// selection, the second leaving out what's under it. Each kind of panel frames in its own way; others are left alone.
+
+// The scripted type of a panel, as one string.
+proc string fitPanelScriptType(string $panel)
+{
+    string $type[] = `getPanel -scriptType $panel`;
+    return $type[0];
+}
+
+// The editor inside a scripted panel: the installation's procedure for it when there is one, else the panel's name
+// with the editor's suffix, as Aztek names them.
+proc string fitPanelEditor(string $proc, string $panel, string $suffix)
+{
+    if (`exists $proc`)
+        return eval($proc + " \"" + $panel + "\"");
+    return $panel + $suffix;
+}
+
+// A camera view: the camera the panel looks through, framed on everything, the selection, or what the panel's filter
+// shows when it has one and there's nothing selected to frame.
+proc fitPanelCamera(string $panel, string $camera, int $all, int $animate, int $filtered)
+{
+    if ($camera == "")
+        return;
+    if ($filtered && ($all || size(`ls -selection`) == 0))
+        viewFit -panel $panel -animate $animate $camera;
+    else if ($all)
+        viewFit -all -animate $animate $camera;
+    else
+        // "-selectedNoChildren" with objects selected would add -noChildren, which viewFit doesn't have here yet, so
+        // the selection is framed with its children.
+        viewFit -animate $animate $camera;
+}
+
+global proc fitPanel(string $fitType)
+{
+    // From the hotbox nothing is under the pointer, so the focused panel stands in.
+    string $panel = `getPanel -underPointer`;
+    if ($panel == "")
+        $panel = `getPanel -withFocus`;
+    if ($panel == "")
+        return;
+
+    int $all = ($fitType == "-all");
+    string $what = $all ? "all" : "selected";
+    string $kind = `getPanel -typeOf $panel`;
+
+    if ($kind == "modelPanel") {
+        int $animate = `optionVar -query animateRoll`;
+        string $camera = `lookThru -query $panel`;
+        int $filtered = `modelEditor -query -isFiltered $panel`;
+        fitPanelCamera($panel, $camera, $all, $animate, $filtered);
+    } else if ($kind == "hyperPanel") {
+        if (`exists hyperGraph`) {
+            if ($all)
+                hyperGraph -edit -frameGraph $panel;
+            else
+                hyperGraph -edit -frame $panel;
+        }
+    } else if ($kind == "outlinerPanel") {
+        outlinerEditor -edit -showSelected true $panel;
+    } else if ($kind == "scriptedPanel") {
+        // The reference first asks whether the panel type is a camera view of its own (scriptedPanelType -q
+        // -customView); Aztek's scripted panel types are none, so those go by type below.
+        string $type = fitPanelScriptType($panel);
+        if ($type == "graphEditor") {
+            string $ed = $panel + "GraphEd";
+            if (`animCurveEditor -exists $ed`)
+                animCurveEditor -edit -lookAt $what $ed;
+        } else if ($type == "hyperGraphPanel") {
+            string $ed = $panel + "HyperGraphEd";
+            if (`exists hyperGraph`) {
+                if ($all)
+                    hyperGraph -edit -frameGraph $ed;
+                else
+                    hyperGraph -edit -frame $ed;
+            }
+        } else if ($type == "hyperShadePanel") {
+            string $proc = $all ? "hyperShadePanelFrameAll" : "hyperShadePanelFrameSelected";
+            if (`exists $proc`)
+                eval($proc + " \"" + $panel + "\"");
+        } else if ($type == "profilerPanel") {
+            if (`exists profilerTool` && `profilerTool -query -exists`) {
+                if ($all)
+                    profilerTool -edit -frameAll;
+                else
+                    profilerTool -edit -frameSelected;
+            }
+        } else if ($type == "nodeEditorPanel") {
+            string $ed = fitPanelEditor("editorNameFromPanel", $panel, "NodeEditorEd");
+            if (`nodeEditor -exists $ed`) {
+                if ($all)
+                    nodeEditor -edit -frameAll $ed;
+                else
+                    nodeEditor -edit -frameSelected $ed;
+            }
+        } else if ($type == "miInteractionEditorPanel") {
+            // Only there when the interaction editor's plug-in is loaded, which brings this procedure.
+            if (`exists miInteractionEditorPanelFrame`)
+                eval("miInteractionEditorPanelFrame \"" + $panel + "\" \"" + $fitType + "\"");
+        } else if ($type == "visorPanel") {
+            string $proc = $all ? "visorPanelFrameAll" : "visorPanelFrameSelected";
+            if (`exists $proc`)
+                eval($proc + " \"" + $panel + "\"");
+        } else if ($type == "dopeSheetPanel") {
+            string $ed = $panel + "DopeSheetEd";
+            if (`dopeSheetEditor -exists $ed`)
+                dopeSheetEditor -edit -lookAt $what $ed;
+        } else if ($type == "polyTexturePlacementPanel") {
+            if (`textureWindow -exists $panel`) {
+                if ($all)
+                    textureWindow -edit -frameAll $panel;
+                else
+                    textureWindow -edit -frameSelected $panel;
+            }
+        } else if ($type == "clipEditorPanel") {
+            if (`exists clipEditorNameFromPanel`) {
+                string $ed = eval("clipEditorNameFromPanel \"" + $panel + "\"");
+                clipEditor -edit -lookAt $what $ed;
+            }
+        } else if ($type == "sequenceEditorPanel") {
+            if (`exists sequenceEditorNameFromPanel`) {
+                string $ed = eval("sequenceEditorNameFromPanel \"" + $panel + "\"");
+                clipEditor -edit -lookAt $what $ed;
+            }
+        } else if ($type == "referenceEditorPanel") {
+            global string $gReferenceEditorModelEditor;
+            if ($gReferenceEditorModelEditor != "") {
+                int $animate = `optionVar -query animateRoll`;
+                string $camera = `lookThru -query $gReferenceEditorModelEditor`;
+                if ($camera != "") {
+                    if ($all)
+                        viewFit -all -animate $animate $camera;
+                    else
+                        viewFit -animate $animate $camera;
+                }
+            }
+        }
+    }
+}

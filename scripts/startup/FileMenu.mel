@@ -1,0 +1,522 @@
+// FileMenu: the File menu's procedures: Save Scene, the recent files, increments and projects, and the menu's items.
+// Aztek's own File menu is part of the program rather than a script menu, so nothing is added to it here; the procedures
+// fill a script menu when $gMainFileMenu names one, and the ones scripts call for their own sake (Save Scene, opening a
+// recent file, the recent lists) work as they are.
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+// The text a run-time command shows in the menu. Aztek's runTimeCommand has no -label to ask, so these are its own.
+proc string fmLabel(string $rtc)
+{
+    string $names[] = {
+        "NewScene", "New Scene", "OpenScene", "Open Scene...", "SaveScene", "Save Scene",
+        "SaveSceneAs", "Save Scene As...", "IncrementAndSave", "Increment and Save", "ArchiveScene", "Archive Scene",
+        "SavePreferences", "Save Preferences", "OptimizeScene", "Optimize Scene Size", "Import", "Import...",
+        "Export", "Export All...", "ExportSelection", "Export Selection...", "OpenAELiveLink", "After Effects Live Link",
+        "ExportOfflineFile", "Export Offline File...", "AssignOfflineFile", "Assign Offline File...",
+        "ExportAnim", "Export Animation...", "ImportAnim", "Import Animation...", "ATOMTemplate", "Create ATOM Template...",
+        "CreateReference", "Create Reference...", "ReferenceEditor", "Reference Editor", "ViewImage", "View Image...",
+        "ViewSequence", "View Sequence...", "ProjectWindow", "Project Window", "SetProject", "Set Project...",
+        "Quit", "Exit"
+    };
+    for ($i = 0; $i < size($names); $i += 2)
+        if ($names[$i] == $rtc)
+            return $names[$i + 1];
+    return $rtc;
+}
+
+proc string fmAnnotation(string $rtc)
+{
+    if (catchQuiet(`runTimeCommand -query -annotation $rtc`))
+        return "";
+    return `runTimeCommand -query -annotation $rtc`;
+}
+
+// One item for a run-time command, with the option box beside it when $box names one.
+proc fmItem(string $name, string $rtc, string $box, string $boxRtc)
+{
+    if ($name != "")
+        menuItem -label (fmLabel($rtc)) -annotation (fmAnnotation($rtc)) -command $rtc $name;
+    else
+        menuItem -label (fmLabel($rtc)) -annotation (fmAnnotation($rtc)) -command $rtc;
+    if ($box != "")
+        menuItem -optionBox true -annotation (fmAnnotation($boxRtc)) -command $boxRtc $box;
+}
+
+// The last crash file, where the installation keeps one, and only if it is still on disk.
+proc string fmCrashFile(int $mustExist)
+{
+    if (!`exists crashInfo`)
+        return "";
+    string $f = eval("crashInfo -query -crashFile");
+    if ($mustExist && ($f == "" || !`file -query -exists $f`))
+        return "";
+    return $f;
+}
+
+proc fmRunHook(string $hook)
+{
+    catchQuiet(`callbacks -executeCallbacks -hook $hook`);
+}
+
+proc fmSaveRecents()
+{
+    if (`exists savePrefs`)
+        eval("savePrefs -file \"recents\"");
+}
+
+// An optionVar's string array, rewritten from $list.
+proc fmWriteList(string $var, string $list[])
+{
+    optionVar -clearArray $var;
+    for ($x in $list)
+        optionVar -stringValueAppend $var $x;
+}
+
+// The first $count entries of an optionVar's array removed, the oldest being first.
+proc fmDropFront(string $var, int $count)
+{
+    string $list[] = `optionVar -query $var`;
+    string $kept[];
+    for ($i = $count; $i < size($list); $i++)
+        $kept[size($kept)] = $list[$i];
+    fmWriteList($var, $kept);
+}
+
+// The type list for the recent files: the installation's procedure, else each file's type by its name.
+proc fmInitRecentTypes(string $files[])
+{
+    if (`exists initRecentFilesTypeList`) {
+        string $q[];
+        for ($i = 0; $i < size($files); $i++)
+            $q[$i] = "\"" + encodeString($files[$i]) + "\"";
+        eval("initRecentFilesTypeList({" + stringArrayToString($q, ",") + "})");
+        return;
+    }
+    optionVar -clearArray RecentFilesTypeList;
+    for ($f in $files) {
+        string $t[] = `file -query -type $f`;
+        optionVar -stringValueAppend RecentFilesTypeList ((size($t) && $t[0] != "") ? $t[0] : "unknown");
+    }
+}
+
+// Where the increments of the scene are kept: the installation's procedure, else beside the scene in
+// incrementalSave/<scene file>/, as the reference keeps them. [0] the scene's folder, [2] its extension with the dot,
+// [3] its name without, [5] the increments' folder under [0].
+proc string[] fmIncrementPaths()
+{
+    if (`exists incrementalSaveProcessPath`)
+        return eval("incrementalSaveProcessPath");
+    string $scene = `file -query -sceneName`;
+    string $short = `file -query -sceneName -shortName`;
+    string $p[];
+    $p[0] = dirname($scene) + "/";
+    $p[1] = $short;
+    $p[2] = "." + fileExtension($scene);
+    $p[3] = basenameEx($scene);
+    $p[4] = "";
+    $p[5] = "incrementalSave/" + $short;
+    return $p;
+}
+
+proc string[] fmIncrementFiles()
+{
+    string $p[] = fmIncrementPaths();
+    string $dir = $p[0] + $p[5] + "/";
+    string $files[] = `getFileList -folder $dir -filespec ($p[3] + ".*" + $p[2])`;
+    return $files;
+}
+
+// A submenu is a menu item to Aztek's menu command, so both are asked.
+proc int fmMenuExists(string $menu)
+{
+    return `menu -exists $menu` || `menuItem -exists $menu`;
+}
+
+// Every item of a menu or submenu taken out.
+proc fmClearMenu(string $menu)
+{
+    string $items[] = `menu -query -itemArray $menu`;
+    for ($i in $items)
+        deleteUI -menuItem $i;
+}
+
+// Whether a submenu already shows $list, newest (last) first, so it needn't be built again.
+proc int fmMenuMatches(string $menu, string $list[])
+{
+    string $items[] = `menu -query -itemArray $menu`;
+    if (size($items) != size($list))
+        return 0;
+    int $n = size($list);
+    for ($i = 0; $i < $n; $i++)
+        if (`menuItem -query -label $items[$i]` != toNativePath($list[$n - 1 - $i]))
+            return 0;
+    return 1;
+}
+
+// Asks to save a changed scene before another is opened. 1 to go on.
+proc int fmSaveChanges()
+{
+    if (!`file -query -modified`)
+        return 1;
+    string $answer = `confirmDialog -title "Save Changes" -message "Save changes to the current scene?"
+        -button "Save" -button "Don't Save" -button "Cancel" -defaultButton "Save" -cancelButton "Cancel"
+        -dismissString "Cancel"`;
+    if ($answer == "Cancel")
+        return 0;
+    if ($answer == "Save") {
+        if (`file -query -sceneName` == "")
+            return projectViewer("SaveAs");
+        return !catch(`file -save`);
+    }
+    return 1;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+global proc forceSavePreferences()
+{
+    warning "forceSavePreferences is no longer used; preferences are saved as they change.";
+}
+
+global proc FileMenu_SaveItem()
+{
+    string $scene = `file -query -sceneName`;
+    int $thumbnail = 0;
+
+    if ($scene == "") {
+        int $processing = 0;
+        if (`exists thumbnailCaptureComponent`)
+            $processing = eval("thumbnailCaptureComponent -query -fileDialogProcessing");
+        // Its procedures live in projectViewer.mel, which is found by that name.
+        if (!`exists projectViewerInitSelectedFileName`)
+            catchQuiet(eval("source \"projectViewer.mel\""));
+        projectViewerInitSelectedFileName("SaveAs", "", $processing);
+    } else if (`file -query -modified` || !`file -query -exists`) {
+        if (`optionVar -exists isIncrementalSaveEnabled` && `optionVar -query isIncrementalSaveEnabled`
+            && `exists incrementalSaveScene`) {
+            eval("incrementalSaveScene");
+        } else {
+            if (`optionVar -exists isIncrementalSaveEnabled` && `optionVar -query isIncrementalSaveEnabled`)
+                warning "Incremental save isn't available here; the scene is saved as it is.";
+            string $cmd = "file -save";
+            // Aztek's file command writes no compressed scenes yet; the scene is saved plain rather than not at all.
+            if (`optionVar -exists isCompressedSaveEnabled` && `optionVar -query isCompressedSaveEnabled` == 1)
+                warning "Compressed save isn't available here; the scene is saved uncompressed.";
+            if (`optionVar -exists isCompressedPreserveNameEnabled` && `optionVar -query isCompressedPreserveNameEnabled` == 1)
+                warning "Keeping the name of a compressed save isn't available here.";
+            if (catch(evalEcho($cmd))) {
+                if (`exists thumbnailCaptureComponent`)
+                    eval("thumbnailCaptureComponent -closeCurrentSession");
+            }
+        }
+        $thumbnail = 1;
+    } else {
+        warning "No changes to save.";
+        $thumbnail = 1;
+    }
+
+    if ($thumbnail && `optionVar -exists useSavePlayblast` && `optionVar -query useSavePlayblast`
+        && `exists thumbnailCaptureComponent`)
+        eval("thumbnailCaptureComponent -save \"" + encodeString($scene) + "\"");
+}
+
+global proc loadRecentFiles()
+{
+    string $f = `internalVar -userPrefDir` + "userPrefs_recents.mel";
+    if (`file -query -exists $f`)
+        eval("source \"" + encodeString($f) + "\"");
+}
+
+global proc buildRecentProjectsMenu()
+{
+    if (!`optionVar -exists RecentProjectsList`)
+        return;
+    loadRecentFiles();
+
+    string $list[] = `optionVar -query RecentProjectsList`;
+    int $max = `optionVar -query RecentProjectsMaxSize`;
+    // The list itself is trimmed, the oldest (first) going.
+    if (size($list) > $max) {
+        fmDropFront("RecentProjectsList", size($list) - $max);
+        $list = `optionVar -query RecentProjectsList`;
+    }
+    if (!fmMenuExists("FileMenuRecentProjectItems"))
+        return;
+    if (fmMenuMatches("FileMenuRecentProjectItems", $list))
+        return;
+
+    fmClearMenu("FileMenuRecentProjectItems");
+    setParent -menu FileMenuRecentProjectItems;
+    for ($i = size($list) - 1; $i >= 0; $i--)
+        menuItem -label (toNativePath($list[$i])) -command ("setProject \"" + encodeString($list[$i]) + "\"");
+}
+
+global proc openRecentFile(string $file, string $fileType)
+{
+    if (`file -query -exists $file`) {
+        global string $gOperationMode;
+        $gOperationMode = "Open";
+        if (`exists pv_performAction`) {
+            eval("pv_performAction \"" + encodeString($file) + "\" \"" + encodeString($fileType) + "\"");
+        } else if (fmSaveChanges()) {
+            string $type = ($fileType != "" && $fileType != "unknown" && $fileType != "Best Guess")
+                ? (" -type \"" + $fileType + "\"") : "";
+            catch(evalEcho("file -force -open" + $type + " \"" + encodeString($file) + "\""));
+        }
+        if (`exists retainWorkingDirectory`)
+            eval("retainWorkingDirectory \"" + encodeString(dirname($file)) + "\"");
+        if (`exists checkColorManagementAllSettings`)
+            eval("checkColorManagementAllSettings");
+        return;
+    }
+
+    global string $gMainWindow;
+    string $title = "Missing File";
+    string $message = "The file can't be found. It may have been moved, renamed or deleted.\n";
+    string $remove = "Remove from Recent";
+    string $answer;
+    if (`exists framelessDialog`) {
+        $answer = eval("framelessDialog -parent \"" + $gMainWindow + "\" -title \"" + $title + "\" -message \""
+            + encodeString($message) + "\" -path \"" + encodeString($file) + "\" -button \"" + $remove
+            + "\" -button \"OK\" -primary \"OK\"");
+    } else {
+        $answer = `confirmDialog -parent $gMainWindow -title $title -message ($message + $file)
+            -button $remove -button "OK" -defaultButton "OK" -cancelButton "OK" -dismissString "OK"`;
+    }
+
+    if ($answer == $remove) {
+        loadRecentFiles();
+        if (`optionVar -exists RecentFilesList`) {
+            string $files[] = `optionVar -query RecentFilesList`;
+            int $at = stringArrayFind($file, 0, $files);
+            if ($at >= 0) {
+                stringArrayRemoveAtIndex($at, $files);
+                fmWriteList("RecentFilesList", $files);
+                if (!`optionVar -exists RecentFilesTypeList`) {
+                    fmInitRecentTypes($files);
+                } else {
+                    string $types[] = `optionVar -query RecentFilesTypeList`;
+                    if ($at < size($types))
+                        stringArrayRemoveAtIndex($at, $types);
+                    fmWriteList("RecentFilesTypeList", $types);
+                }
+                fmSaveRecents();
+            }
+        }
+    }
+    // The home screen's list follows.
+    if (`exists appHome`)
+        eval("appHome -updateRecentFiles");
+}
+
+global proc buildRecentFileMenu(string $parentMenu)
+{
+    string $crash = fmCrashFile(1);
+    if (!`optionVar -exists RecentFilesList` && $crash == "")
+        return;
+    loadRecentFiles();
+
+    // The list, with the crash file (if any) last so it shows first. It is never written into the optionVar.
+    string $list[];
+    if (!`optionVar -exists RecentFilesList` || size(`optionVar -query RecentFilesList`) == 0) {
+        $list = {$crash};
+    } else {
+        $list = `optionVar -query RecentFilesList`;
+        if ($crash != "")
+            $list[size($list)] = $crash;
+    }
+
+    int $max = `optionVar -query RecentFilesMaxSize`;
+    if (size($list) > $max) {
+        // The count includes the crash entry.
+        int $drop = size($list) - $max;
+        fmDropFront("RecentFilesList", $drop);
+        $list = `optionVar -query RecentFilesList`;
+        if ($crash != "")
+            $list[size($list)] = $crash;
+    }
+
+    string $types[];
+    if (size($list)) {
+        if ($crash == "") {
+            if (!`optionVar -exists RecentFilesTypeList`)
+                fmInitRecentTypes($list);
+            $types = `optionVar -query RecentFilesTypeList`;
+        } else {
+            if (`optionVar -exists RecentFilesList` && size(`optionVar -query RecentFilesList`)) {
+                if (!`optionVar -exists RecentFilesTypeList`)
+                    fmInitRecentTypes(`optionVar -query RecentFilesList`);
+                $types = `optionVar -query RecentFilesTypeList`;
+            }
+            string $t[] = `file -query -type $crash`;
+            string $crashType = (size($t) && $t[0] != "") ? $t[0] : "unknown";
+            $types[size($types)] = $crashType;
+        }
+        if (size($types) > $max) {
+            int $drop = size($types) - $max;
+            fmDropFront("RecentFilesTypeList", $drop);
+            $types = `optionVar -query RecentFilesTypeList`;
+            if ($crash != "") {
+                string $t[] = `file -query -type $crash`;
+                $types[size($types)] = (size($t) && $t[0] != "") ? $t[0] : "unknown";
+            }
+        }
+    }
+
+    if (!fmMenuExists($parentMenu))
+        return;
+    if (fmMenuMatches($parentMenu, $list))
+        return;
+
+    fmClearMenu($parentMenu);
+    setParent -menu $parentMenu;
+    for ($i = size($list) - 1; $i >= 0; $i--) {
+        string $type = ($i < size($types)) ? $types[$i] : "";
+        menuItem -label (toNativePath($list[$i]))
+            -command ("openRecentFile(\"" + encodeString($list[$i]) + "\", \"" + encodeString($type) + "\")");
+    }
+}
+
+global proc buildIncrementalSaveMenu()
+{
+    if (`file -query -sceneName` == "")
+        return;
+    string $p[] = fmIncrementPaths();
+    string $dir = $p[0] + $p[5] + "/";
+    string $files[] = sort(fmIncrementFiles());
+
+    int $n = `optionVar -query RecentBackupsMaxSize`;
+    int $first = (size($files) > $n) ? (size($files) - $n) : 0;
+    if (!fmMenuExists("FileMenuRecentBackupItems"))
+        return;
+    fmClearMenu("FileMenuRecentBackupItems");
+    setParent -menu FileMenuRecentBackupItems;
+    for ($i = $first; $i < size($files); $i++) {
+        string $name = `match "[^/]*$" $files[$i]`;
+        menuItem -label $name -command ("file -force -open \"" + encodeString($dir + $files[$i]) + "\"");
+    }
+}
+
+global proc int hasIncrementalSaves()
+{
+    if (`file -query -sceneName` == "")
+        return 0;
+    return size(fmIncrementFiles()) > 0;
+}
+
+global proc checkMainFileMenu()
+{
+    int $recent = (fmCrashFile(0) != "")
+        || (`optionVar -exists RecentFilesList` && size(`optionVar -query RecentFilesList`) > 0);
+    if (`menuItem -exists FileMenuRecentFileItems`)
+        menuItem -edit -enable $recent FileMenuRecentFileItems;
+    if (`menuItem -exists FileMenuRecentBackupItems`)
+        menuItem -edit -enable (hasIncrementalSaves()) FileMenuRecentBackupItems;
+    if (`menuItem -exists FileMenuRecentProjectItems`) {
+        int $projects = 0;
+        if (`optionVar -exists RecentProjectsList`) {
+            loadRecentFiles();
+            $projects = size(`optionVar -query RecentProjectsList`) > 0;
+        }
+        menuItem -edit -enable $projects FileMenuRecentProjectItems;
+    }
+    if (`exists buildSendToSubMenus`)
+        eval("buildSendToSubMenus");
+    fmRunHook("addItemToFileMenu");
+}
+
+global proc buildFileMenu()
+{
+    global string $gMainFileMenu;
+    // Only a script menu can be filled; Aztek's own File menu has its items already.
+    if ($gMainFileMenu == "" || !`menu -exists $gMainFileMenu`)
+        return;
+    if (`menu -query -numberOfItems $gMainFileMenu` > 0)
+        return;
+
+    menu -edit -postMenuCommand "checkMainFileMenu" $gMainFileMenu;
+    setParent -menu $gMainFileMenu;
+
+    fmItem("newProject", "NewScene", "newFileOptions", "NewSceneOptions");
+    fmItem("openProject", "OpenScene", "openFileOptions", "OpenSceneOptions");
+    menuItem -divider true;
+    fmItem("saveItem", "SaveScene", "saveOptions", "SaveSceneOptions");
+    fmItem("saveAsItem", "SaveSceneAs", "saveAsOptions", "SaveSceneAsOptions");
+    menuItem -label (fmLabel("IncrementAndSave")) -annotation (fmAnnotation("IncrementAndSave"))
+        -command "IncrementAndSave" -version "2014";
+    fmItem("archiveItem", "ArchiveScene", "archiveSceneOptions", "ArchiveSceneOptions");
+    // The reference also turns off Repeat Last for this one; Aztek's menuItem has no such flag yet.
+    fmItem("", "SavePreferences", "", "");
+    menuItem -divider true;
+    fmItem("cleanUpProject", "OptimizeScene", "cleanUpSceneOptions", "OptimizeSceneOptions");
+    menuItem -divider true -dividerLabel "Import and Export";
+    fmItem("importFileItem", "Import", "importFileOptions", "ImportOptions");
+    fmItem("exportAllFileItem", "Export", "exportAllFileOptions", "ExportOptions");
+    fmItem("exportActiveFileItem", "ExportSelection", "exportActiveFileOptions", "ExportSelectionOptions");
+    menuItem -divider true;
+    menuItem -label (fmLabel("OpenAELiveLink")) -annotation (fmAnnotation("OpenAELiveLink"))
+        -command "OpenAELiveLink" -version "2017" adobeAfterEffectsLiveLink;
+    menuItem -divider true;
+    fmItem("exportEditsFileItem", "ExportOfflineFile", "exportEditsFileOptions", "ExportOfflineFileOptions");
+    fmItem("assignOfflineFileItem", "AssignOfflineFile", "assignOfflineFileOptions", "AssignOfflineFileOptions");
+    menuItem -divider true;
+    menuItem -subMenu true -label "ATOM" -allowOptionBoxes true -tearOff true;
+        fmItem("exportAnimItem", "ExportAnim", "", "");
+        fmItem("importAnimItem", "ImportAnim", "", "");
+        fmItem("createAtomTemplateItem", "ATOMTemplate", "", "");
+    setParent -menu ..;
+    menuItem -divider true -dividerLabel "References";
+    fmItem("referenceFileItem", "CreateReference", "referenceFileOptions", "CreateReferenceOptions");
+    fmItem("residentFileItem", "ReferenceEditor", "", "");
+    menuItem -divider true -dividerLabel "View";
+    fmItem("viewFrameItem", "ViewImage", "", "");
+    fmItem("viewSequenceItem", "ViewSequence", "", "");
+    menuItem -divider true -dividerLabel "Project";
+    fmItem("projectWindowFileItem", "ProjectWindow", "", "");
+    fmItem("setProjectFileItem", "SetProject", "", "");
+    menuItem -divider true -dividerLabel "Recent";
+    menuItem -subMenu true -label "Recent Files" -postMenuCommand "buildRecentFileMenu FileMenuRecentFileItems"
+        FileMenuRecentFileItems;
+    setParent -menu ..;
+    menuItem -subMenu true -label "Recent Increments" -postMenuCommand "buildIncrementalSaveMenu"
+        FileMenuRecentBackupItems;
+    setParent -menu ..;
+    menuItem -subMenu true -label "Recent Projects" -postMenuCommand "buildRecentProjectsMenu"
+        FileMenuRecentProjectItems;
+    setParent -menu ..;
+    menuItem -divider true;
+    fmItem("quitItem", "Quit", "", "");
+
+    if (`about -nt`) {
+        menuItem -edit -mnemonic "O" openProject;
+        menuItem -edit -mnemonic "S" saveItem;
+        menuItem -edit -mnemonic "A" saveAsItem;
+        menuItem -edit -mnemonic "x" quitItem;
+    }
+
+    // checkMainFileMenu runs the addItemToFileMenu hook. The reference runs it a second time here, so items added by
+    // it came twice on the first build; once is enough.
+    checkMainFileMenu();
+}
+
+global proc int oneClickDefaultSendPreviousSelection()
+{
+    global int $gOneClickDefaultSendPreviousSelection;
+    return $gOneClickDefaultSendPreviousSelection;
+}
+
+global proc int oneClickDefaultSendEntireScene()
+{
+    global int $gOneClickDefaultSendEntireScene;
+    return $gOneClickDefaultSendEntireScene;
+}
+
+// As the file is sourced: the reference makes its File menu here, empty until first opened. Aztek's File menu is its
+// own, so a second one isn't made; a script menu already named by $gMainFileMenu is set to fill itself instead.
+{
+    global string $gMainFileMenu;
+    if ($gMainFileMenu != "" && `menu -exists $gMainFileMenu`)
+        menu -edit -postMenuCommand "buildFileMenu();" $gMainFileMenu;
+}

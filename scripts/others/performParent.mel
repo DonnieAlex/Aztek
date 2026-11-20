@@ -1,0 +1,106 @@
+// performParent: Edit > Parent, as the reference's, its settings kept in optionVars. $action 0 parents the selection
+// (the last selected object takes the others) and returns the command, 1 opens the option box, 2 only returns the
+// command; anything else returns "".
+
+proc performParent_options(int $force)
+{
+    if ($force || !`optionVar -ex parentAdd`)
+        optionVar -iv parentAdd 0;
+    if ($force || !`optionVar -ex parentPreserve`)
+        optionVar -iv parentPreserve 1;
+}
+
+// What parentPreset does, for when Aztek has no global parentPreset: the selection parented under its last object,
+// moved there or added there as an instance. Keeping the world position only means something for a move.
+proc performParent_preset(int $add, int $preserve)
+{
+    if ($add)
+        parent -add;
+    else if ($preserve)
+        parent;
+    else
+        parent -r;
+}
+
+// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
+// column, then Apply, Save, Reset and Close.
+proc string performParent_boxBegin(string $win, string $title)
+{
+    if (`window -ex $win`)
+        deleteUI -window $win;
+    window -t $title $win;
+    columnLayout -adj true boxFrame;
+    scrollLayout -cr true;
+    return `columnLayout -adj true`;
+}
+
+proc performParent_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
+{
+    setParent ($win + "|boxFrame");
+    rowLayout -nc 4;
+    button -l $applyLabel -c $apply;
+    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
+    button -l "Reset" -c $reset;
+    button -l "Close" -c ("deleteUI -window " + $win);
+    showWindow $win;
+}
+
+global proc string performParent(int $action)
+{
+    if ($action == 1) {
+        string $win = "performParentOptionBox";
+        string $parent = performParent_boxBegin($win, "Parent Options");
+        int $template = `uiTemplate -ex DefaultTemplate`;
+        if ($template)
+            setUITemplate -pst DefaultTemplate;
+        waitCursor -st 1;
+        // Preserve position has no meaning for an added instance, so it greys out while that is chosen.
+        string $check = $parent + "|parentCheck";
+        radioButtonGrp -nrb 2 -l "Parent method:" -la2 "Move objects" "Add instance"
+            -on2 ("checkBoxGrp -e -en1 false " + $check) -of2 ("checkBoxGrp -e -en1 true " + $check) parentMethod;
+        checkBoxGrp -ncb 1 -l1 "Preserve position" parentCheck;
+        waitCursor -st 0;
+        if ($template)
+            setUITemplate -ppt;
+        performParent_boxEnd($win, "Parent", "performParentCallback " + $parent + " 1", "performParentCallback " + $parent + " 0",
+            "performParentSetup " + $parent + " 1");
+        performParentSetup $parent 0;
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    performParent_options(0);
+    int $add = `optionVar -q parentAdd`;
+    int $preserve = `optionVar -q parentPreserve`;
+    string $cmd = "parentPreset(" + $add + "," + $preserve + ")";
+    if ($action == 0) {
+        if (`exists parentPreset`)
+            eval $cmd;
+        else
+            performParent_preset($add, $preserve);
+    }
+    return $cmd;
+}
+
+global proc performParentSetup(string $parent, int $forceFactorySettings)
+{
+    performParent_options($forceFactorySettings);
+    setParent $parent;
+    int $add = `optionVar -q parentAdd`;
+    radioButtonGrp -e -sl ($add ? 2 : 1) parentMethod;
+    checkBoxGrp -e -v1 `optionVar -q parentPreserve` -en1 (!$add) parentCheck;
+}
+
+global proc performParentCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -iv parentAdd (`radioButtonGrp -q -sl parentMethod` == 2);
+    // Kept even while greyed out, as the command is given it either way.
+    optionVar -iv parentPreserve `checkBoxGrp -q -v1 parentCheck`;
+    if ($doIt) {
+        performParent 0;
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue "performParent 0" "Parent";
+    }
+}

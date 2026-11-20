@@ -1,0 +1,10 @@
+// hotkeyEditorWindow: opens the Hotkey Editor, as Windows > Settings/Preferences > Hotkey Editor does. Aztek's editor is
+// its own window, so this raises that one rather than building a second; calling it again only brings it to the front.
+global proc hotkeyEditorWindow()
+{
+    if (`exists HotkeyPreferencesWindow`) {
+        HotkeyPreferencesWindow;
+    } else {
+        warning "hotkeyEditorWindow: the Hotkey Editor is only there when Aztek runs with its interface.";
+    }
+}

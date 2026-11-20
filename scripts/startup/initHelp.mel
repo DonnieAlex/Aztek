@@ -1,0 +1,284 @@
+// initHelp: sets up pop-up help as the program starts, and holds the questions asked when the help can't be shown where
+// the preferences say it lives (online, installed on this computer, or a custom location). Aztek's help is its online
+// documentation, opened by the Help command; the location preferences (optionVars helpMode, helpLanguage,
+// customPathHelpUrl<version>) are read as the reference reads them, so scripts that set them get the same questions.
+
+// The helpMode values. The online one is matched on its ending, so a value the reference wrote reads the same.
+proc string initHelpLocalMode() { return "Installed Local Help"; }
+proc string initHelpCustomMode() { return "Custom"; }
+proc string initHelpWebMode() { return "Web Site"; }
+proc int initHelpIsWebMode(string $mode) { return `gmatch $mode "*Web Site"`; }
+
+// The version the custom help path is kept under.
+proc string initHelpCustomPathVar()
+{
+    return ("customPathHelpUrl" + `about -version`);
+}
+
+// Whether there's a network connection. Where Aztek can't tell, it's taken as connected, so the browser has its say.
+proc int initHelpConnected()
+{
+    int $connected = 1;
+    catchQuiet($connected = `about -connected`);
+    return $connected;
+}
+
+// Where installed help is looked for by default, ending in a slash; "" when there's no such place.
+proc string initHelpDefaultDir()
+{
+    if (!`exists getDefaultLocalHelpLocationFromTextFile`)
+        return "";
+    string $dir = `eval "getDefaultLocalHelpLocationFromTextFile"`;
+    if ($dir != "" && !`gmatch $dir "*/"` && !`gmatch $dir "*\\\\"`)
+        $dir += "/";
+    return $dir;
+}
+
+proc int initHelpLocalAtDefault()
+{
+    string $dir = initHelpDefaultDir();
+    if ($dir == "")
+        return 0;
+    string $language = `optionVar -query helpLanguage`;
+    return `filetest -r ($dir + $language + "/index.html")`;
+}
+
+proc int initHelpLocalAtCustom(string $path)
+{
+    if (!`gmatch $path "*/"`)
+        $path += "/";
+    // As the reference builds it: the doubled slash is harmless to filetest.
+    return `filetest -r ($path + "/index.html")`;
+}
+
+// The modal question, with its body built by $body on a form layout. Without layoutDialog the body goes in a window of
+// its own, which the buttons close the same way.
+proc initHelpShowDialog(string $body)
+{
+    string $title = "Help Location";
+    if (`exists layoutDialog`) {
+        eval ("layoutDialog -title \"" + $title + "\" -ui \"" + encodeString($body) + "\"");
+        return;
+    }
+    if (`window -exists initHelpDialogWin`)
+        deleteUI -window initHelpDialogWin;
+    window -title $title -resizeToFitChildren true initHelpDialogWin;
+    formLayout initHelpDialogForm;
+    eval $body;
+    showWindow initHelpDialogWin;
+}
+
+proc initHelpDismissDialog(string $answer)
+{
+    if (`exists layoutDialog`) {
+        catchQuiet(`layoutDialog -dismiss $answer`);
+    } else if (`window -exists initHelpDialogWin`) {
+        deleteUI -window initHelpDialogWin;
+    }
+}
+
+// Lays the dialog's controls out in one column on the form being built: 20 round the edges, 10 between rows.
+proc initHelpColumn(string $controls[])
+{
+    string $form = `setParent -query`;
+    formLayout -edit -width 300 $form;
+    int $n = size($controls);
+    for ($i = 0; $i < $n; $i++) {
+        string $c = $controls[$i];
+        formLayout -edit -attachForm $c "left" 20 -attachForm $c "right" 20 $form;
+        if ($i == 0)
+            formLayout -edit -attachForm $c "top" 20 $form;
+        else
+            formLayout -edit -attachControl $c "top" 10 $controls[$i - 1] $form;
+        if ($i == $n - 1)
+            formLayout -edit -attachForm $c "bottom" 20 $form;
+    }
+}
+
+// The link to the help to download, when the help language is one of those known; empty otherwise.
+proc string initHelpDownloadText()
+{
+    global string $gAvailableLanguages[];
+    string $language = `optionVar -query helpLanguage`;
+    string $label = "";
+    for ($entry in $gAvailableLanguages) {
+        string $fields[];
+        tokenize $entry ":" $fields;
+        if (size($fields) > 2 && $fields[0] == $language) {
+            $label = "https://github.com/srlegrand/Aztek/tree/main/docs";
+            break;
+        }
+    }
+    if ($label == "")
+        return `text -label "" -align "left"`;
+    return `text -label $label -hyperlink true -align "left"`;
+}
+
+// The check box that makes the online help the default. Turned off, it goes back to Custom if that's what was set.
+proc string initHelpWebCheckBox()
+{
+    string $back = initHelpLocalMode();
+    if (`optionVar -query helpMode` == initHelpCustomMode())
+        $back = initHelpCustomMode();
+    return `checkBox -label "Use the online help from now on" -value 0
+        -onCommand ("optionVar -stringValue helpMode \"" + initHelpWebMode() + "\"")
+        -offCommand ("optionVar -stringValue helpMode \"" + $back + "\"")
+        setWebSiteHelpCb`;
+}
+
+proc string initHelpCannotConnect() { return "Aztek can't reach the online help."; }
+proc string initHelpCanInstallFrom() { return "The help can be downloaded and installed on this computer from:"; }
+proc string initHelpCanUseWebHelp() { return "Or the online help can be used instead:"; }
+
+global proc helpLocationErrorDialogDismissCmd(int $isYes, string $showHelpCmd)
+{
+    int $keep = 0;
+    if (`checkBox -exists setInstalledLocalHelpCb`)
+        $keep = `checkBox -query -value setInstalledLocalHelpCb`;
+    string $answer;
+    if ($isYes) {
+        $answer = `button -exists yesBtn` ? `button -query -label yesBtn` : "Yes";
+        // The installed help, this once unless the box asks for it from now on.
+        string $was = `optionVar -query helpMode`;
+        optionVar -stringValue helpMode (initHelpLocalMode());
+        if ($showHelpCmd != "")
+            eval $showHelpCmd;
+        if (!$keep)
+            optionVar -stringValue helpMode $was;
+    } else {
+        $answer = `button -exists noBtn` ? `button -query -label noBtn` : "No";
+        if ($keep)
+            optionVar -stringValue helpMode (initHelpLocalMode());
+    }
+    initHelpDismissDialog($answer);
+}
+
+global proc createNoConnectionNoLocalHelpPrompt(string $showHelpCmd)
+{
+    string $c[];
+    $c[0] = `text -align "left" -label (initHelpCannotConnect() + "\n\n" + initHelpCanInstallFrom())`;
+    $c[1] = initHelpDownloadText();
+    $c[2] = `text -align "left" -label "The online help needs a network connection."`;
+    initHelpColumn($c);
+}
+
+global proc createNoConnectionLocalHelpAvailablePrompt(string $showHelpCmd)
+{
+    string $c[];
+    $c[0] = `text -align "left" -label (initHelpCannotConnect() + "\n\nThe help is installed on this computer. Show that instead?")`;
+    string $quoted = encodeString($showHelpCmd);
+    $c[1] = `rowLayout -numberOfColumns 2 -columnAlign2 "left" "left" -columnOffset2 0 10`;
+        button -label "Yes" -command ("helpLocationErrorDialogDismissCmd 1 \"" + $quoted + "\"") yesBtn;
+        button -label "No" -command ("helpLocationErrorDialogDismissCmd 0 \"" + $quoted + "\"") noBtn;
+    setParent ..;
+    $c[2] = `text -align "left" -label "The installed help can be made the default in the Help section of the Preferences."`;
+    $c[3] = `checkBox -label "Use the installed help from now on" -value 0 setInstalledLocalHelpCb`;
+    initHelpColumn($c);
+}
+
+global proc createNoLocalHelpInDefaultLanguagePrompt(string $showHelpCmd)
+{
+    string $c[];
+    $c[0] = `text -align "left" -label ("No installed help was found on this computer.\n\n" + initHelpCanInstallFrom())`;
+    $c[1] = initHelpDownloadText();
+    $c[2] = `text -align "left" -label (initHelpCanUseWebHelp())`;
+    $c[3] = initHelpWebCheckBox();
+    initHelpColumn($c);
+}
+
+global proc createNoHelpFoundAtCustomPathPrompt(string $showHelpCmd)
+{
+    string $path = `optionVar -query (initHelpCustomPathVar())`;
+    if ($path == "" || $path == "0")
+        $path = "(no location is set)";
+    string $c[];
+    $c[0] = `text -align "left" -label ("No help was found at the custom location:\n\n" + $path
+        + "\n\nThe location is set in the Help section of the Preferences.")`;
+    $c[1] = initHelpDownloadText();
+    $c[2] = `text -align "left" -label (initHelpCanUseWebHelp())`;
+    $c[3] = initHelpWebCheckBox();
+    initHelpColumn($c);
+}
+
+global proc createNoLocalHelpInNonDefaultLanguagePrompt(string $showHelpCmd)
+{
+    string $c[];
+    $c[0] = `text -align "left" -label ("No installed help was found in the help language chosen.\n\n" + initHelpCanInstallFrom())`;
+    $c[1] = initHelpDownloadText();
+    $c[2] = `text -align "left" -label "The help language is set in the Help section of the Preferences."`;
+    $c[3] = `text -align "left" -label (initHelpCanUseWebHelp())`;
+    $c[4] = initHelpWebCheckBox();
+    initHelpColumn($c);
+}
+
+global proc int showHelpErrPromptIfRequired(string $showHelpCmd)
+{
+    string $mode = `optionVar -query helpMode`;
+    string $noConnection;
+    if (initHelpLocalAtDefault())
+        $noConnection = "createNoConnectionLocalHelpAvailablePrompt \"" + encodeString($showHelpCmd) + "\"";
+    else
+        $noConnection = "createNoConnectionNoLocalHelpPrompt \"\"";
+
+    if (initHelpIsWebMode($mode)) {
+        if (initHelpConnected())
+            return 0;
+        initHelpShowDialog($noConnection);
+        return 1;
+    }
+    if ($mode == initHelpLocalMode()) {
+        if (initHelpLocalAtDefault())
+            return 0;
+        if (`optionVar -query helpLanguage` == `about -uiLanguage`)
+            initHelpShowDialog("createNoLocalHelpInDefaultLanguagePrompt \"\"");
+        else
+            initHelpShowDialog("createNoLocalHelpInNonDefaultLanguagePrompt \"\"");
+        return 1;
+    }
+    // A custom location: a folder, or a web address.
+    string $path = `optionVar -query (initHelpCustomPathVar())`;
+    if ($path != "0" && $path != "" && initHelpLocalAtCustom($path))
+        return 0;
+    if (`gmatch $path "http://*"` || `gmatch $path "https://*"`) {
+        if (initHelpConnected())
+            return 0;
+        initHelpShowDialog($noConnection);
+        return 1;
+    }
+    initHelpShowDialog("createNoHelpFoundAtCustomPathPrompt \"\"");
+    return 1;
+}
+
+global proc int checkHelpLanguageMismatch()
+{
+    if (`about -uiLanguage` != `optionVar -query helpLanguage` && !`optionVar -exists helpLanguageMismatchConfirm`) {
+        // Asked once only: noted before the question.
+        optionVar -intValue helpLanguageMismatchConfirm 1;
+        string $change = "Change Help Language";
+        string $answer = `confirmDialog -title "Help Language"
+            -message "The help language isn't the language of the interface."
+            -button $change -button "Open Help" -defaultButton $change -cancelButton "Open Help"`;
+        if ($answer == $change) {
+            preferencesWnd "Help";
+            return 1;
+        }
+    }
+    return 0;
+}
+
+global proc checkHelpPrefs()
+{
+    // Aztek's documentation home page.
+    if (`exists showHelp`)
+        eval "showHelp -docs \"index.html\"";
+    else if (`exists Help`)
+        Help;
+    else
+        warning "checkHelpPrefs: the documentation is only opened when Aztek runs with its interface.";
+}
+
+// As the program starts: the context help procedures where there are any, then the pop-up help modes.
+catchQuiet(`eval "source \"ContextHelp.mel\""`);
+help -popupMode (`optionVar -query popUpHelpMode`);
+help -popupSimpleMode (`optionVar -query popUpSimpleHelpMode`);
+help -rolloverMode on;

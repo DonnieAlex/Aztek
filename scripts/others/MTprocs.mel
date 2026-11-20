@@ -1,0 +1,486 @@
+// MTprocs: the helpers the reference's hotkeys and modelling menus call: views through the standard and custom
+// cameras, display switches on the selection or the view, select all or invert, recent files, showing and hiding
+// windows, and the state of the Modeling Toolkit menu items. No window of its own.
+
+// A camera's kind is its name without its path and without the number it ends in: "|grp|top12" is "top".
+proc string MTcameraType(string $camera)
+{
+    string $leaf = match("[^|]*$", $camera);
+    return match("^[^0-9]*", $leaf);
+}
+
+// Every camera of one kind, in name order.
+proc string[] MTcamerasOfType(string $type)
+{
+    string $found[];
+    for ($c in `listCameras`) {
+        if (MTcameraType($c) == $type)
+            $found[size($found)] = $c;
+    }
+    return sort($found);
+}
+
+// Looks through a camera in a view: the reference's lookThroughModelPanel where Aztek has it, else the view's camera
+// set directly.
+proc MTlookThrough(string $camera, string $panel)
+{
+    if (`exists lookThroughModelPanel`)
+        lookThroughModelPanel($camera, $panel);
+    else if (`getPanel -to $panel` == "modelPanel")
+        modelPanel -e -cam $camera $panel;
+}
+
+// The selected objects (components counting as their objects), then the highlighted ones.
+proc string[] MTobjectList()
+{
+    return stringArrayCatenate(`ls -sl -o`, `ls -hl`);
+}
+
+// An object's first shape; a shape is its own.
+proc string MTfirstShape(string $object)
+{
+    string $shapes[] = `listRelatives -s -f $object`;
+    if (size($shapes))
+        return $shapes[0];
+    string $kind = `nodeType $object`;
+    if ($kind == "mesh" || $kind == "nurbsSurface" || $kind == "subdiv")
+        return $object;
+    return "";
+}
+
+// Whether a select type is on, false where Aztek doesn't know the type. With $objectComponent, the object component
+// mode setting, or the plain one where Aztek has no such flag.
+proc int MTselectTypeOn(string $flag, int $objectComponent)
+{
+    int $on = 0;
+    if ($objectComponent && !catchQuiet($on = `eval ("selectType -q -ocm -" + $flag)`))
+        return $on;
+    if (catchQuiet($on = `eval ("selectType -q -" + $flag)`))
+        return 0;
+    return $on;
+}
+
+// Whether "<object>.<suffix>[*]" names components the object has.
+proc int MTcomponentsExist(string $name)
+{
+    string $found[];
+    if (catchQuiet($found = `ls -fl $name`))
+        return 0;
+    // Aztek gives back the pattern itself for a kind of component the object doesn't have.
+    return size($found) && !gmatch($found[0], "*[*]*");
+}
+
+global proc MTcreateCameraFromView()
+{
+    string $panel = `getPanel -wf`;
+    if (`getPanel -to $panel` != "modelPanel")
+        return;
+    string $camera = `modelPanel -q -cam $panel`;
+    string $copy[] = `duplicate $camera`;
+    showHidden $copy[0];
+    MTlookThrough($copy[0], $panel);
+}
+
+global proc int MTstringArrayIdx(string $array[], string $text)
+{
+    for ($i = 0; $i < size($array); $i++) {
+        if ($array[$i] == $text)
+            return $i;
+    }
+    return -1;
+}
+
+// The camera after this one among the custom cameras (all of them when there are none), wrapping round. A camera not
+// in the list counts as the first. With no cameras at all, "".
+global proc string MTgetNextCustomCam(string $thisCamera)
+{
+    string $all[] = `listCameras`;
+    string $standard[] = {"persp", "left", "right", "bottom", "front", "top", "side"};
+    string $custom[];
+    for ($c in $all) {
+        if (MTstringArrayIdx($standard, MTcameraType($c)) < 0)
+            $custom[size($custom)] = $c;
+    }
+    if (!size($custom))
+        $custom = $all;
+    if (!size($custom))
+        return "";
+    int $i = max(0, MTstringArrayIdx($custom, $thisCamera));
+    return $custom[($i + 1) % size($custom)];
+}
+
+global proc MTcycleCustomCams()
+{
+    string $panel = `getPanel -wf`;
+    if (`getPanel -to $panel` != "modelPanel")
+        return;
+    string $next = MTgetNextCustomCam(`modelPanel -q -cam $panel`);
+    if ($next != "")
+        MTlookThrough($next, $panel);
+}
+
+// Looks through a camera of this kind in the view being worked in: the next one of the kind when the view already
+// looks through one, making the camera when there is none, without disturbing the selection or the tool.
+global proc MTviewChange(string $cameraType, string $viewSetArg)
+{
+    string $panel = `getPanel -wf`;
+    int $tornOff = 0;
+    catchQuiet($tornOff = `panel -q -to $panel`);
+    if ($tornOff)
+        return;
+
+    string $cameras[] = MTcamerasOfType($cameraType);
+    if (!size($cameras)) {
+        string $selection[] = `ls -sl`;
+        string $hilited[] = `ls -hl`;
+        string $objectComponentType = "";
+        if (`selectMode -q -o`) {
+            for ($t in {"meshComponents", "vertex", "polymeshEdge", "facet", "polymeshUV"}) {
+                if (MTselectTypeOn($t, 1)) {
+                    $objectComponentType = $t;
+                    break;
+                }
+            }
+        }
+        int $pinned = 0;
+        if (!`manipPivot -q -pin` && `manipPivot -q -valid`) {
+            manipPivot -pin true;
+            $pinned = 1;
+        }
+        int $editPivot = 0;
+        for ($ctx in {"Move", "Rotate", "Scale"}) {
+            int $on = 0;
+            catchQuiet($on = `eval ("manip" + $ctx + "Context -q -editPivotMode " + $ctx)`);
+            if ($on)
+                $editPivot = 1;
+        }
+
+        string $made[] = `camera -n $cameraType`;
+        // The home command brings the view back to this camera's standard angle; Aztek's camera may not take it.
+        catchQuiet(`camera -e -hc ("viewSet " + $viewSetArg + " %camera") $made[0]`);
+        hide $made[0];
+        eval ("viewSet " + $viewSetArg + " " + $made[0]);
+        // A camera that came out with a number on its name is given the plain one when that is free.
+        string $camera = $made[0];
+        if (!`objExists $cameraType`) {
+            select -r $made[0];
+            $camera = `rename $made[0] $cameraType`;
+        }
+        MTlookThrough($camera, $panel);
+
+        select -r $selection;
+        if (size($hilited))
+            hilite $hilited;
+        if ($objectComponentType != "")
+            catchQuiet(`eval ("selectType -ocm -" + $objectComponentType + " 1")`);
+        if ($pinned)
+            manipPivot -pin false;
+        if ($editPivot)
+            ctxEditMode;
+        return;
+    }
+
+    int $index = 0;
+    if (`getPanel -to $panel` == "modelPanel") {
+        string $current = `modelPanel -q -cam $panel`;
+        if (MTcameraType($current) == $cameraType)
+            $index = (max(0, MTstringArrayIdx($cameras, $current)) + 1) % size($cameras);
+    }
+    MTlookThrough($cameras[$index], $panel);
+}
+
+// X-ray on for the selected surfaces, or off for all of them when any already has it.
+global proc MTxrayObjTgl()
+{
+    string $objects[] = MTobjectList();
+    if (!size($objects)) {
+        warning "Select an object first.";
+        return;
+    }
+    int $surfaces = 0, $someOn = 0;
+    for ($o in $objects) {
+        string $shape = MTfirstShape($o);
+        if ($shape == "")
+            continue;
+        string $kind = `nodeType $shape`;
+        if ($kind == "mesh" || $kind == "nurbsSurface" || $kind == "subdiv") {
+            $surfaces++;
+            // Asked of the listed object, which is what the switch below sets.
+            int $xray[] = `displaySurface -q -xRay $o`;
+            if ($xray[0]) {
+                $someOn = 1;
+                break;
+            }
+        }
+    }
+    if ($surfaces)
+        displaySurface -xRay (!$someOn) $objects;
+}
+
+// Opens a file from the recent files list, 1 being the most recent.
+global proc MTloadRecentFile(int $fileOffset)
+{
+    if (!`optionVar -ex RecentFilesList`)
+        return;
+    string $files[] = `optionVar -q RecentFilesList`;
+    // Without a type list, each file's type is worked out from its name.
+    string $types[];
+    if (`optionVar -ex RecentFilesTypeList`)
+        $types = `optionVar -q RecentFilesTypeList`;
+    int $count = size($files);
+    // Offsets of 0 or less are past the end of the list.
+    if ($fileOffset < 1 || $count < $fileOffset)
+        return;
+    int $i = $count - $fileOffset;
+    string $file = $files[$i];
+    string $type = $i < size($types) ? $types[$i] : "";
+    if (`exists openRecentFile`)
+        openRecentFile($file, $type);
+    else if (`exists pv_performAction`) {
+        global string $gOperationMode;
+        $gOperationMode = "Open";
+        pv_performAction($file, $type);
+    } else
+        file -f -o $file;
+}
+
+// Backface culling on the selected meshes, or off when any already has it.
+global proc MTtglBackfaceCull()
+{
+    string $objects[] = MTobjectList();
+    if (!size($objects)) {
+        warning "Select an object first.";
+        return;
+    }
+    int $on = 0;
+    for ($o in $objects) {
+        string $shape = MTfirstShape($o);
+        if ($shape != "" && `nodeType $shape` == "mesh") {
+            // Asked of the selection, not the one mesh. Aztek's -bc is culling itself, on or off, where the
+            // reference's -bc means none and -fb full culling; the result is the same switch.
+            int $culling[] = `polyOptions -q -bc`;
+            if ($culling[0]) {
+                $on = 1;
+                break;
+            }
+        }
+    }
+    polyOptions -bc (!$on);
+}
+
+// The triangles' inner edges shown on the selected meshes, or hidden when any already shows them.
+global proc MTtglEdgesOnly()
+{
+    string $objects[] = MTobjectList();
+    if (!size($objects)) {
+        warning "Select an object first.";
+        return;
+    }
+    int $on = 0;
+    for ($o in $objects) {
+        string $shape = MTfirstShape($o);
+        if ($shape != "" && `nodeType $shape` == "mesh") {
+            int $triangles[] = `polyOptions -q -displayTriangle`;
+            if ($triangles[0]) {
+                $on = 1;
+                break;
+            }
+        }
+    }
+    polyOptions -dt (!$on);
+}
+
+// Hides the selected objects, or shows them when any is hidden; with nothing selected, shows everything.
+global proc MTtglObjHide()
+{
+    string $objects[] = MTobjectList();
+    if (!size($objects)) {
+        showHidden -all;
+        return;
+    }
+    int $someHidden = 0;
+    for ($o in $objects) {
+        if (!`getAttr ($o + ".visibility")`) {
+            $someHidden = 1;
+            break;
+        }
+    }
+    if ($someHidden)
+        showHidden $objects;
+    else
+        hide $objects;
+}
+
+// Templates the selected objects, or untemplates them when any is templated. Templates are drawn shaded either way.
+global proc MTtglObjTemplate()
+{
+    string $objects[] = MTobjectList();
+    displayPref -shadeTemplates true;
+    if (!size($objects)) {
+        warning "Select an object first.";
+        return;
+    }
+    int $someTemplated = 0;
+    for ($o in $objects) {
+        if (`getAttr ($o + ".template")`) {
+            $someTemplated = 1;
+            break;
+        }
+    }
+    for ($o in $objects)
+        setAttr ($o + ".template") (!$someTemplated);
+}
+
+global proc MTtglLockSel()
+{
+    if (`exists updateLockSelectionIcon`)
+        updateLockSelectionIcon;
+    if (`exists updateHighlightSelectIcon`)
+        updateHighlightSelectIcon;
+    if (`iconTextCheckBox -ex lockSelectionIcon`)
+        iconTextCheckBox -e -v `selectPref -q -xformNoSelect` lockSelectionIcon;
+}
+
+// Select all: every component of the kinds being picked on the highlighted objects, everything visible when nothing
+// is selected, otherwise the selection inverted.
+global proc MTselAll()
+{
+    string $selection[] = `ls -sl`;
+    string $hilited[] = `ls -hl`;
+    if (size($hilited)) {
+        // Select type, then the component names it picks, in the order they are tried.
+        string $types[] = {"polymeshVtxFace", "controlVertex", "vertex", "polymeshVertex", "editPoint", "edge",
+            "polymeshEdge", "subdivMeshEdge", "surfaceEdge", "polymeshFreeEdge", "facet", "subdivMeshFace", "surfaceFace",
+            "polymeshFace", "hull", "polymeshUV", "meshUVShell", "curveParameterPoint", "curveKnot",
+            "surfaceParameterPoint", "surfaceKnot", "surfaceRange", "isoparm", "subdivMeshPoint", "latticePoint",
+            "particle", "springComponent"};
+        string $suffixes[] = {"vtxFace", "cv", "vtx", "vtx", "ep", "e", "e", "sme", "u v", "e", "f", "smf", "u v e", "f",
+            "cv", "map", "f", "u e", "e u v", "e u v", "e", "u v e", "u v e", "smp", "pt", "pt", "sp"};
+        int $componentMode = `selectMode -q -co`;
+        int $objectMode = `selectMode -q -o`;
+        string $picked[];
+        for ($object in $hilited) {
+            for ($i = 0; $i < size($types); $i++) {
+                if (!(($componentMode && MTselectTypeOn($types[$i], 0)) || ($objectMode && MTselectTypeOn($types[$i], 1))))
+                    continue;
+                int $found = 0;
+                for ($suffix in stringToStringArray($suffixes[$i], " ")) {
+                    string $name = $object + "." + $suffix + "[*]";
+                    if (MTcomponentsExist($name)) {
+                        $picked[size($picked)] = $name;
+                        $found = 1;
+                    }
+                }
+                if ($found)
+                    break;
+            }
+        }
+        select -r $picked;
+        if (size($selection))
+            select -d $selection;
+    } else if (!size($selection))
+        select -ado -vis;
+    else
+        InvertSelection;
+}
+
+// The view under the pointer between wireframe and smooth shaded.
+global proc MTtglSmoothWire()
+{
+    string $panel = `getPanel -up`;
+    if ($panel == "")
+        $panel = `getPanel -wf`;
+    if ($panel == "" || `getPanel -to $panel` != "modelPanel")
+        return;
+    string $look = `modelEditor -q -da $panel`;
+    if ($look != "")
+        modelEditor -e -da ($look == "wireframe" ? "smoothShaded" : "wireframe") $panel;
+}
+
+// The view's lighting between the default light and the scene's lights, in a 3D view or, where there is one, the
+// Paint Effects editor.
+global proc MTtglDefaultLighting()
+{
+    string $panel = `getPanel -wf`;
+    if (`getPanel -to $panel` == "modelPanel") {
+        modelEditor -e -dl (`modelEditor -q -dl $panel` == "default" ? "all" : "default") $panel;
+    } else if (`exists dynPaintEditor` && `scriptedPanel -ex $panel`
+        && `scriptedPanel -q -type $panel` == "dynPaintScriptedPanelType") {
+        global string $gDynPaintEditorName;
+        string $lights = `eval ("dynPaintEditor -q -dl " + $gDynPaintEditorName)`;
+        eval ("dynPaintEditor -e -dl " + ($lights == "default" ? "all" : "default") + " " + $gDynPaintEditorName);
+    }
+}
+
+// Textures on or off in the view being worked in, or the image in the UV editor.
+global proc MTtglTextures()
+{
+    string $panel = `getPanel -wf`;
+    if (`getPanel -to $panel` == "modelPanel")
+        modelEditor -e -dtx (!`modelEditor -q -dtx $panel`) $panel;
+    else if ($panel == "polyTexturePlacementPanel1" && `exists textureWindowToggleTextureImage`) {
+        textureWindowToggleTextureImage("polyTexturePlacementPanel1", "textureWindow");
+        refresh;
+        if (`exists txtWndUpdateEditor`)
+            txtWndUpdateEditor("polyTexturePlacementPanel1", "textureWindow", "null", 101);
+    }
+}
+
+global proc int MTisWindowVis(string $window)
+{
+    if (!`window -ex $window` || !`window -q -vis $window`)
+        return 0;
+    int $iconified = 0;
+    catchQuiet($iconified = `window -q -i $window`);
+    return !$iconified;
+}
+
+// Opens the window with its command when it isn't showing, else minimises it and moves it out of the way. 1 when it
+// was opened.
+global proc int MTtoggleWindow(string $window, string $windowCmd)
+{
+    if (!MTisWindowVis($window)) {
+        eval $windowCmd;
+        return 1;
+    }
+    window -e -i true $window;
+    window -e -tlc 7500 7500 $window;
+    return 0;
+}
+
+global proc MTtoggleCmd()
+{
+    if (`pluginInfo -q -l modelingToolkit` && `exists dR_ToggleCommandPanel`)
+        dR_ToggleCommandPanel;
+}
+
+// The Modeling Toolkit menu item, its shelf button and its tools' menu items, available or not with its plug-in, the
+// item saying show or hide by whether the panel is showing.
+global proc MTsetToggleMenuItem()
+{
+    global string $gModelingToolkitButton;
+    int $enabled = `pluginInfo -q -l modelingToolkit`;
+    int $visible = $enabled && `workspaceControl -ex NEXDockControl` && `workspaceControl -q -vis NEXDockControl`;
+    string $show = "Show Modeling Toolkit", $hide = "Hide Modeling Toolkit";
+    int $hasItem = `menuItem -ex ToggleModelingToolkitMenuItem`;
+    int $hasButton = $gModelingToolkitButton != "" && `iconTextCheckBox -ex $gModelingToolkitButton`;
+    if (!$enabled) {
+        if ($hasItem)
+            menuItem -e -en false -l $show ToggleModelingToolkitMenuItem;
+        if ($hasButton)
+            iconTextCheckBox -e -en false $gModelingToolkitButton;
+    } else {
+        if ($hasItem)
+            menuItem -e -en true -l ($visible ? $hide : $show) ToggleModelingToolkitMenuItem;
+        if ($hasButton)
+            iconTextCheckBox -e -en true $gModelingToolkitButton;
+        // Later, once the panel has settled: the button is on while the panel is raised and open.
+        evalDeferred ("global string $gModelingToolkitButton; if (`iconTextCheckBox -ex $gModelingToolkitButton`)"
+            + " iconTextCheckBox -e -v (`workspaceControl -ex NEXDockControl` && `workspaceControl -q -r NEXDockControl`"
+            + " && !`workspaceControl -q -collapse NEXDockControl`) $gModelingToolkitButton;");
+    }
+    if (`menuItem -ex MTKBevelTool`) {
+        for ($item in {"MTKBevelTool", "MTKConnectTool", "MTKMultiCutTool", "MTKQuadDrawTool", "MTKTargetWeldTool"})
+            menuItem -e -en $enabled $item;
+    }
+}

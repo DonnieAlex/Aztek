@@ -1,0 +1,37 @@
+// performPolyDeleteElements: deletes the selected mesh vertices, edges or faces with the deletion each needs, as the
+// reference's. Whole meshes in the selection are let go first. Only one kind is acted on, vertices before edges before
+// faces.
+global proc performPolyDeleteElements()
+{
+    // The selection mask numbers: meshes, mesh vertices, mesh edges, mesh faces. All four lists are taken before
+    // anything changes, and ranges stay ranges.
+    string $meshes[] = `filterExpand -ex false -sm 12`;
+    string $verts[] = `filterExpand -ex false -sm 31`;
+    string $edges[] = `filterExpand -ex false -sm 32`;
+    string $faces[] = `filterExpand -ex false -sm 34`;
+
+    if (size($meshes))
+        select -d $meshes;
+
+    if (size($verts)) {
+        if (`exists DeleteVertex`)
+            DeleteVertex;
+        else
+            polyDelVertex;
+    } else if (size($edges)) {
+        // Cleaning the vertices left on a straight line, as the reference's Delete Edge does.
+        if (`exists DeleteEdge`)
+            DeleteEdge;
+        else
+            polyDelEdge -cv true;
+    } else if (size($faces)) {
+        // The faces' edges stay selected afterwards. They go through a set while the faces go, so their numbers follow
+        // the mesh's renumbering; the set has done its job then and is removed.
+        select -r `polyListComponentConversion -ff -te $faces`;
+        string $set = `sets`;
+        delete $faces;
+        select -r `sets -q $set`;
+        delete $set;
+    } else
+        warning "Select vertices, edges or faces to delete.";
+}

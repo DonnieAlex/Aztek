@@ -1,0 +1,95 @@
+// bevelToolScript: Surfaces > Bevel as an action or as a tool, as the reference's menu item and its option box run it.
+// bevelToolScript's argument says what to do: 0 run the bevel, 1 show its option box, 2 hand back its command, 3 show the
+// tool's option box, 4 enter the tool. With the modelWithToolBevel preference off, 3 and 4 fall back to 1 and 0.
+
+// The tool's own settings: whether it quits once it has bevelled, and whether it bevels as soon as enough is picked.
+// Zero for $forceFactorySettings only fills in those not yet set; non-zero puts them back to their defaults.
+global proc bevelToolSetup(int $forceFactorySettings, string $goToTool)
+{
+    global int $gStartWithAutoComplete;
+    if ($forceFactorySettings || !`optionVar -exists bevelEuc`)
+        optionVar -intValue bevelEuc 0;
+    if ($forceFactorySettings || !`optionVar -exists bevelLac`)
+        optionVar -intValue bevelLac $gStartWithAutoComplete;
+
+    // A context that already exists picks up the settings.
+    if ($goToTool != "") {
+        scriptCtx -edit -exitUponCompletion `optionVar -query bevelEuc` $goToTool;
+        // The last-auto-complete setting (-lac) has no edit flag here yet.
+    }
+}
+
+// The tool settings sheet asks for the values to show.
+global proc bevelValues(string $toolName)
+{
+    if (`exists performBevel`)
+        eval("performBevel 3 \"" + $toolName + "\"");
+    if (`exists scriptCtxCommonValues`)
+        eval("scriptCtxCommonValues \"" + $toolName + "\"");
+}
+
+// The tool settings sheet asks for the controls to build.
+global proc bevelProperties()
+{
+    if (`exists scriptCtxCommonProperties`)
+        eval("scriptCtxCommonProperties");
+}
+
+// The tool's context, made the first time it's needed; one that exists already is left as it is.
+proc bevelToolMakeContext(string $toolName)
+{
+    if (`scriptCtx -exists $toolName`)
+        return;
+    bevelToolSetup(0, "");
+    // One selection set of any number of curves or edges; the final script runs the bevel on them. The reference also
+    // limits the set to curves, isoparms, curves on surface, surface edges and mesh edges, which scriptCtx can't say yet.
+    scriptCtx
+        -image1 "bevel.png"
+        -title "Bevel Tool"
+        -baseClassName "bevel"
+        -exitUponCompletion `optionVar -query bevelEuc`
+        -totalSelectionSets 1
+        -expandSelectionList true
+        -finalCommandScript "bevelToolScript 0"
+        -setNoSelectionPrompt "Select curves, isoparms or trim edges to bevel."
+        -setSelectionPrompt "Select more, or press Enter to bevel."
+        -setAutoToggleSelection true
+        -setAutoComplete `optionVar -query bevelLac`
+        -setAllowExcessCount true
+        -showManipulators true
+        -setSelectionCount 0
+        $toolName;
+}
+
+// Runs the perform procedure in the mode asked, or enters the tool. Uses the shared scriptToolScript when there is one;
+// without it, a tool is entered (and its settings shown for mode 3) and the action modes go straight to performBevel.
+proc string bevelToolRun(string $perform, int $mode, string $toolName)
+{
+    if (`exists scriptToolScript`)
+        return eval("scriptToolScript \"" + $perform + "\" " + $mode + " \"" + $toolName + "\"");
+    if ($toolName != "") {
+        setToolTo $toolName;
+        if ($mode == 3 && `exists ToolSettingsWindow`)
+            ToolSettingsWindow;
+        return $toolName;
+    }
+    if (`exists $perform`)
+        return eval($perform + " " + $mode);
+    warning ("Bevel isn't available: " + $perform + " was not found.");
+    return "";
+}
+
+global proc string bevelToolScript(int $setToTool)
+{
+    string $toolName = "";
+    if ($setToTool > 2) {
+        if (!`optionVar -query modelWithToolBevel`) {
+            // The tool is turned off in the preferences: the tool modes become their action modes.
+            $setToTool = 4 - $setToTool;
+        } else {
+            $toolName = "bevelContext";
+            bevelToolMakeContext($toolName);
+        }
+    }
+    return bevelToolRun("performBevel", $setToTool, $toolName);
+}

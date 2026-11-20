@@ -1,0 +1,819 @@
+// colorManagementUtilities: colour management checks and the controls that show its settings: the Preferences page's
+// option menus and output transform rows, the Render View's and UV Editor's view transform menus, the policy file and
+// the warnings given when transforms or colour spaces a scene names aren't in the configuration.
+//
+// Aztek keeps the scene's colour management on the defaultColorMgtGlobals node (cmEnabled, configFileEnabled,
+// configFilePath, workingSpaceName, viewTransformName, viewName, displayName and the output transform attributes for
+// renders and playblasts), and these procedures read and write it there. It has no command that lists the transforms a
+// configuration offers, so each list holds the transform the node names. The policy file is a small XML file of those
+// attributes.
+
+global string $gColorMgtColorManagedNodes[];
+global string $gColorMgtNodesMissingColorSpaces[];
+
+// colorSpaceProcedures holds the transform settings controls; it is loaded with this file when it's there.
+if (!`exists onColorMgtTransformOptionMenuChange`)
+    catchQuiet(`eval "source \"colorSpaceProcedures.mel\""`);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The settings, as the node holds them.
+
+proc string cmuNode()
+{
+    return "defaultColorMgtGlobals";
+}
+
+proc string cmuGet(string $attr)
+{
+    string $plug = cmuNode() + "." + $attr;
+    if (!`objExists $plug`)
+        return "";
+    return `getAttr $plug`;
+}
+
+proc int cmuGetInt(string $attr)
+{
+    string $plug = cmuNode() + "." + $attr;
+    if (!`objExists $plug`)
+        return 0;
+    return `getAttr $plug`;
+}
+
+proc cmuSet(string $attr, string $value)
+{
+    string $plug = cmuNode() + "." + $attr;
+    if (`objExists $plug`)
+        setAttr -type "string" $plug $value;
+}
+
+proc cmuSetInt(string $attr, int $value)
+{
+    string $plug = cmuNode() + "." + $attr;
+    if (`objExists $plug`)
+        setAttr $plug $value;
+}
+
+// The output attributes for a target: 0 renders, 1 playblasts.
+proc string cmuOut(string $attr, int $target)
+{
+    if ($target == 1)
+        return "playblastO" + substring($attr, 2, size($attr));
+    return $attr;
+}
+
+proc int cmuEnabled()
+{
+    return cmuGetInt("cmEnabled");
+}
+
+proc int cmuConfigMode()
+{
+    return cmuGetInt("configFileEnabled");
+}
+
+// Aztek reads OCIO version 1 style configurations only: view transforms, not view and display pairs.
+proc int cmuOcioV2()
+{
+    return 0;
+}
+
+proc string[] cmuOne(string $value)
+{
+    string $out[];
+    if ($value != "")
+        $out[0] = $value;
+    return $out;
+}
+
+proc string[] cmuViewTransformNames()
+{
+    return cmuOne(cmuGet("viewTransformName"));
+}
+
+proc string[] cmuRenderingSpaceNames()
+{
+    return cmuOne(cmuGet("workingSpaceName"));
+}
+
+proc string[] cmuOutputTransformNames(int $target)
+{
+    return cmuOne(cmuGet(cmuOut("outputTransformName", $target)));
+}
+
+proc string cmuPolicyFile()
+{
+    return `optionVar -query colorManagementPolicyFileName`;
+}
+
+// Nodes that take a colour space: those with a colorSpace attribute.
+proc string[] cmuManagedNodes()
+{
+    string $out[];
+    string $all[] = `ls`;
+    for ($n in $all)
+        if (`attributeExists colorSpace $n`)
+            $out[size($out)] = $n;
+    return $out;
+}
+
+// Without the configuration's list of input spaces no colour space can be told to be missing.
+proc string[] cmuMissingNodes()
+{
+    string $none[];
+    return $none;
+}
+
+proc string[] cmuInputSpaceNames()
+{
+    string $none[];
+    return $none;
+}
+
+// The attributes a policy file holds, with the values Aztek starts a scene with.
+proc string[] cmuPolicyAttrs()
+{
+    return {"cmEnabled", "configFileEnabled", "configFilePath", "workingSpaceName", "viewTransformName", "viewName",
+            "displayName", "outputTransformEnabled", "outputTransformName", "outputTransformUseColorConversion",
+            "outputUseViewTransform", "playblastOutputTransformEnabled", "playblastOutputTransformName",
+            "playblastOutputTransformUseColorConversion", "playblastOutputUseViewTransform"};
+}
+
+// The policy as "attr=value" lines, in the order above.
+proc string[] cmuPolicyLines()
+{
+    string $out[];
+    for ($a in cmuPolicyAttrs())
+        $out[size($out)] = $a + "=" + cmuGet($a);
+    return $out;
+}
+
+proc int cmuExportPolicy(string $file)
+{
+    int $f = `fopen $file "w"`;
+    if ($f == 0)
+        return 0;
+    fprint $f "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ColorManagementPolicy>\n";
+    for ($line in cmuPolicyLines()) {
+        string $kv[];
+        tokenize $line "=" $kv;
+        string $value = size($kv) > 1 ? substring($line, size($kv[0]) + 2, size($line)) : "";
+        $value = substituteAllString($value, "&", "&amp;");
+        $value = substituteAllString($value, "\"", "&quot;");
+        $value = substituteAllString($value, "<", "&lt;");
+        fprint $f ("  <" + $kv[0] + " value=\"" + $value + "\"/>\n");
+    }
+    fprint $f "</ColorManagementPolicy>\n";
+    fclose $f;
+    return 1;
+}
+
+// A policy file's "attr=value" lines.
+proc string[] cmuReadPolicy(string $file)
+{
+    string $out[];
+    if (!`filetest -r $file`)
+        return $out;
+    int $f = `fopen $file "r"`;
+    if ($f == 0)
+        return $out;
+    string $line = `fgetline $f`;
+    while (size($line) > 0) {
+        string $m = match("<[A-Za-z]+ value=\"[^\"]*\"", $line);
+        if ($m != "") {
+            string $attr = match("[A-Za-z]+", $m);
+            string $value = match("\"[^\"]*\"", $m);
+            $value = substring($value, 2, size($value) - 1);
+            $value = substituteAllString($value, "&lt;", "<");
+            $value = substituteAllString($value, "&quot;", "\"");
+            $value = substituteAllString($value, "&amp;", "&");
+            $out[size($out)] = $attr + "=" + $value;
+        }
+        $line = `fgetline $f`;
+    }
+    fclose $f;
+    return $out;
+}
+
+proc cmuLoadPolicy(string $file)
+{
+    for ($line in cmuReadPolicy($file)) {
+        string $kv[];
+        tokenize $line "=" $kv;
+        string $value = substring($line, size($kv[0]) + 2, size($line));
+        string $plug = cmuNode() + "." + $kv[0];
+        if (!`objExists $plug`)
+            continue;
+        if (`getAttr -type $plug` == "string")
+            setAttr -type "string" $plug $value;
+        else
+            setAttr $plug ((int)$value);
+    }
+}
+
+proc cmuRestoreDefaults()
+{
+    cmuSetInt("cmEnabled", 1);
+    cmuSetInt("configFileEnabled", 1);
+    cmuSet("configFilePath", "<MAYA_RESOURCES>/OCIO-configs/Maya2022-default/config.ocio");
+    cmuSet("workingSpaceName", "ACEScg");
+    cmuSet("viewTransformName", "ACES 1.0 SDR-video (sRGB)");
+    cmuSet("viewName", "ACES 1.0 SDR-video");
+    cmuSet("displayName", "sRGB");
+    cmuSetInt("outputTransformEnabled", 0);
+    cmuSet("outputTransformName", "ACES 1.0 SDR-video (sRGB)");
+    cmuSetInt("outputTransformUseColorConversion", 0);
+    cmuSetInt("outputUseViewTransform", 1);
+    cmuSetInt("playblastOutputTransformEnabled", 1);
+    cmuSet("playblastOutputTransformName", "ACES 1.0 SDR-video (sRGB)");
+    cmuSetInt("playblastOutputTransformUseColorConversion", 0);
+    cmuSetInt("playblastOutputUseViewTransform", 1);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Dialogs.
+
+proc string cmuEnvPath(string $var)
+{
+    string $v = strip(`getenv $var`);
+    return substituteAllString($v, "\\", "/");
+}
+
+proc int cmuConfirm(string $message, string $confirm, string $cancel)
+{
+    string $answer = `confirmDialog -title "Colour Management" -icon "warning" -message $message
+        -button $confirm -button $cancel -defaultButton $confirm -cancelButton $cancel -dismissString $cancel`;
+    return $answer == $confirm;
+}
+
+proc cmuWarningBox(string $message)
+{
+    if (`getenv MAYA_CM_DISABLE_ERROR_POPUPS` == "1")
+        warning $message;
+    else
+        confirmDialog -title "Colour Management" -icon "warning" -message $message -button "OK" -defaultButton "OK";
+}
+
+proc string[] cmuUniqueSpaces(string $nodes[])
+{
+    string $out[];
+    for ($n in $nodes) {
+        if (!`attributeExists colorSpace $n`)
+            continue;
+        string $cs = `getAttr ($n + ".colorSpace")`;
+        if (!stringArrayContains($cs, $out))
+            $out = stringArrayCatenate({$cs}, $out);
+    }
+    return $out;
+}
+
+proc string cmuMissingLine1(int $missing, int $total)
+{
+    if ($missing == 1)
+        return "One colour space the scene uses isn't in the configuration.";
+    if ($missing == $total)
+        return "None of the colour spaces the scene uses are in the configuration.";
+    return ($missing + " colour spaces the scene uses aren't in the configuration.");
+}
+
+proc cmuNodeWarnings(string $missing[])
+{
+    for ($n in $missing) {
+        string $cs = `attributeExists colorSpace $n` ? `getAttr ($n + ".colorSpace")` : "";
+        warning ("The colour space \"" + $cs + "\" of " + $n + " isn't in the configuration.");
+    }
+}
+
+// The reference's image based light shape takes a colour space too, when its plug-in is there.
+proc cmuIblCheck(string $missing[], string $managed[])
+{
+    string $types[] = `ls -nodeTypes`;
+    if (!stringArrayContains("mentalrayIblShape", $types))
+        return;
+    string $inputs[] = cmuInputSpaceNames();
+    string $ibls[] = `ls -type mentalrayIblShape`;
+    for ($n in $ibls) {
+        if (!`getAttr ($n + ".colorManagementEnabled")`)
+            continue;
+        $managed[size($managed)] = $n;
+        if (!stringArrayContains(`getAttr ($n + ".colorSpace")`, $inputs))
+            $missing[size($missing)] = $n;
+    }
+}
+
+proc int cmuValidationDialog(string $missing[], string $managed[])
+{
+    string $missingSpaces[] = cmuUniqueSpaces($missing);
+    string $allSpaces[] = cmuUniqueSpaces($managed);
+    if (size($missingSpaces) == 0)
+        return 1;
+    string $message = cmuMissingLine1(size($missingSpaces), size($allSpaces)) + "\n\nThose nodes will be drawn without colour management. Go on?";
+    cmuNodeWarnings($missing);
+    return cmuConfirm($message, "Proceed", "Cancel");
+}
+
+proc cmuMessageBox(string $missing[], string $managed[])
+{
+    string $missingSpaces[] = cmuUniqueSpaces($missing);
+    string $allSpaces[] = cmuUniqueSpaces($managed);
+    if (size($missingSpaces) == 0)
+        return;
+    string $message = cmuMissingLine1(size($missingSpaces), size($allSpaces)) + "\n\nThose nodes are drawn without colour management; the Script Editor lists them.";
+    cmuNodeWarnings($missing);
+    if (cmuEnabled())
+        cmuWarningBox($message);
+}
+
+// Whether a transform the scene asked for is one the configuration has; if not, colour management may be turned off.
+proc int cmuValidateTransform(string $loaded, string $valid[], string $current, string $what)
+{
+    if (stringArrayContains($loaded, $valid))
+        return 1;
+    string $message = "The " + $what + " \"" + $loaded + "\" isn't in the configuration.\n\nUsing \"" + $current + "\" instead.";
+    if (`getenv MAYA_CM_DISABLE_ERROR_POPUPS` == "1") {
+        warning $message;
+        return 1;
+    }
+    if (!cmuConfirm($message, "Proceed", "Disable")) {
+        cmuSetInt("cmEnabled", 0);
+        return 0;
+    }
+    return 1;
+}
+
+// A view transform menu rebuilt from the transforms there are, showing the current one.
+proc cmuRebuildViewMenu(string $menu)
+{
+    if (!`optionMenu -exists $menu`)
+        return;
+    optionMenu -edit -deleteAllItems $menu;
+    string $names[] = cmuViewTransformNames();
+    for ($n in $names)
+        menuItem -label $n -parent $menu;
+    if (size($names))
+        optionMenu -edit -value (cmuGet("viewTransformName")) $menu;
+}
+
+// The control beside $control called "transformSettings", if there is one.
+proc string cmuSibling(string $control, string $name)
+{
+    string $path = `control -query -fullPathName $control`;
+    string $parts[];
+    int $n = tokenize($path, "|", $parts);
+    if ($n < 2)
+        return "";
+    string $parent = stringArrayToString(stringArrayRemove({$parts[$n - 1]}, $parts), "|");
+    string $sib = $parent + "|" + $name;
+    return `control -exists $sib` ? $sib : "";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Policy and preferences.
+
+global proc int colorManagementPolicyLocked()
+{
+    if (cmuEnvPath("MAYA_COLOR_MANAGEMENT_POLICY_FILE") == "")
+        return 0;
+    return strip(`getenv MAYA_COLOR_MANAGEMENT_POLICY_LOCK`) == "1";
+}
+
+global proc initializeColorManagementOptionVars()
+{
+    // Managing the colour pots goes back to on whenever the preferences are reset.
+    optionVar -intValue colorManagementManagePots 1;
+    if (!`optionVar -exists colorManagementPolicyFileName`)
+        optionVar -stringValue colorManagementPolicyFileName "";
+}
+
+global proc revertToColorManagementDefaults()
+{
+    if (colorManagementPolicyLocked())
+        return;
+    optionVar -stringValue colorManagementPolicyFileName "";
+    optionVar -intValue colorManagementManagePots 1;
+    cmuRestoreDefaults();
+}
+
+global proc colorManagementPrefsHoldCurrentState(string $mode)
+{
+    string $tmp = `internalVar -userTmpDir` + "tempPolicy.xml";
+    if ($mode == "save") {
+        optionVar -intValue colorManagementManagePotsHold `optionVar -query colorManagementManagePots`;
+        if (!colorManagementPolicyLocked()) {
+            optionVar -stringValue colorManagementPolicyFileNameHold (cmuPolicyFile());
+            cmuExportPolicy($tmp);
+        }
+    } else if ($mode == "restore") {
+        optionVar -intValue colorManagementManagePots `optionVar -query colorManagementManagePotsHold`;
+        if (!colorManagementPolicyLocked() && `filetest -f $tmp`) {
+            cmuLoadPolicy($tmp);
+            optionVar -stringValue colorManagementPolicyFileName `optionVar -query colorManagementPolicyFileNameHold`;
+        }
+    } else {
+        optionVar -remove colorManagementManagePotsHold;
+        optionVar -remove colorManagementPolicyFileNameHold;
+        if (`filetest -f $tmp`)
+            sysFile -delete $tmp;
+    }
+}
+
+global proc preCheckColorManagement()
+{
+    global string $gColorMgtColorManagedNodes[];
+    global string $gColorMgtNodesMissingColorSpaces[];
+    $gColorMgtColorManagedNodes = cmuManagedNodes();
+    $gColorMgtNodesMissingColorSpaces = cmuMissingNodes();
+}
+
+global proc checkColorManagementMissingColorSpaces()
+{
+    global string $gColorMgtColorManagedNodes[];
+    global string $gColorMgtNodesMissingColorSpaces[];
+    string $managed[] = stringArrayRemove($gColorMgtColorManagedNodes, cmuManagedNodes());
+    string $missing[] = stringArrayRemove($gColorMgtNodesMissingColorSpaces, cmuMissingNodes());
+    cmuMessageBox($missing, $managed);
+    clear $gColorMgtNodesMissingColorSpaces;
+}
+
+global proc checkColorManagementAllSettings()
+{
+    // The node holds what was asked for and what is used alike, so each is checked against the transforms there are.
+    if (cmuValidateTransform(cmuGet("workingSpaceName"), cmuRenderingSpaceNames(), cmuGet("workingSpaceName"), "rendering space"))
+        if (cmuValidateTransform(cmuGet("viewTransformName"), cmuViewTransformNames(), cmuGet("viewTransformName"), "view transform"))
+            cmuValidateTransform(cmuGet("outputTransformName"), cmuOutputTransformNames(0), cmuGet("outputTransformName"), "output transform");
+    checkColorManagementMissingColorSpaces();
+}
+
+global proc string browseConfigFilePathDialog(string $currentPath)
+{
+    string $files[] = `fileDialog2 -fileMode 1 -fileFilter "OCIO config (*.ocio);;All Files (*.*)" -selectFileFilter "All Color Transforms" -dir $currentPath`;
+    if (size($files) && $files[0] != "")
+        return $files[0];
+    return $currentPath;
+}
+
+global proc string browseUserTransformPathDialog()
+{
+    string $current = "";
+    if (`exists colorManagementCatalog`)
+        $current = eval("colorManagementCatalog -queryUserTransformPath");
+    string $dirs[] = `fileDialog2 -fileMode 3 -dir $current`;
+    if (size($dirs) && $dirs[0] != "")
+        return $dirs[0];
+    return $current;
+}
+
+global proc string browsePolicyFilePathDialog(int $isImport)
+{
+    string $start = cmuPolicyFile();
+    if ($start == "")
+        $start = `internalVar -userPrefDir`;
+    string $files[];
+    if ($isImport == 1)
+        $files = `fileDialog2 -fileMode 1 -fileFilter "xml (*.xml);;All Files (*.*)" -dir $start -caption "Import Policy"`;
+    else
+        $files = `fileDialog2 -fileMode 0 -fileFilter "xml (*.xml);;All Files (*.*)" -dir $start -caption "Export Policy"`;
+    return size($files) ? $files[0] : "";
+}
+
+global proc changeColorMgtPrefsConfigFileEnable(int $enabled)
+{
+    int $was = cmuConfigMode();
+    string $plug = cmuNode() + ".configFileEnabled";
+    if (!`objExists $plug`)
+        return;
+    setAttr $plug $enabled;
+    string $missing[] = cmuMissingNodes();
+    string $managed[] = cmuManagedNodes();
+    cmuIblCheck($missing, $managed);
+    if (!cmuValidationDialog($missing, $managed))
+        setAttr $plug $was;
+}
+
+global proc changeColorMgtPrefsConfigFilePath(string $path)
+{
+    string $previous = cmuGet("configFilePath");
+    // A path is taken when the file is there to read; else the user picks another, or goes back to native mode.
+    while (true) {
+        if ($path != "" && `filetest -r $path`) {
+            cmuSet("configFilePath", $path);
+            break;
+        }
+        if (!cmuOcioV2()) {
+            string $answer = `confirmDialog -title "Colour Management" -icon "warning"
+                -message ("The configuration file \"" + $path + "\" can't be read.\n\nUse the built-in colour management instead?")
+                -button "Yes" -button "No" -defaultButton "Yes" -cancelButton "No" -dismissString "No"`;
+            if ($answer == "Yes") {
+                changeColorMgtPrefsConfigFileEnable(0);
+                break;
+            }
+        }
+        string $picked = browseConfigFilePathDialog($previous);
+        // A cancelled dialog gives the old path back; that ends the loop rather than asking forever.
+        if ($picked == $path || $picked == $previous) {
+            if (!cmuOcioV2())
+                break;
+        }
+        $path = $picked;
+    }
+    if (cmuConfigMode()) {
+        string $managed[] = cmuManagedNodes();
+        string $missing[] = cmuMissingNodes();
+        cmuIblCheck($missing, $managed);
+        if (!cmuValidationDialog($missing, $managed))
+            cmuSet("configFilePath", $previous);
+    }
+    updateColorMgtPrefsOptionMenus();
+    updateRenderViewTransformSelMenu();
+}
+
+global proc changeColorMgtPrefsUserTransformPath(string $path)
+{
+    if (!`exists colorManagementCatalog`)
+        return;
+    string $previous = eval("colorManagementCatalog -queryUserTransformPath");
+    if (catch(eval("colorManagementCatalog -editUserTransformPath \"" + $path + "\"")))
+        eval("colorManagementCatalog -editUserTransformPath \"" + $previous + "\"");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Preferences page's menus.
+
+global proc updateOptionMenu(string $menuName, string $values[], string $selection, int $customMenu)
+{
+    if (!`optionMenuGrp -exists $menuName`)
+        return;
+    optionMenuGrp -edit -deleteAllItems $menuName;
+    for ($v in $values)
+        menuItem -label $v -parent $menuName;
+    int $enableAdd = !cmuConfigMode() && $customMenu == 1;
+    if ($customMenu != 2)
+        menuItem -label "Add Custom Transform..." -enable $enableAdd -parent $menuName;
+    if (stringArrayContains($selection, $values))
+        optionMenuGrp -edit -value $selection $menuName;
+    else if (`optionMenuGrp -query -numberOfItems $menuName` > 0)
+        optionMenuGrp -edit -select 1 $menuName;
+    string $settings = cmuSibling($menuName, "transformSettings");
+    if ($settings != "")
+        control -edit -enable $enableAdd $settings;
+}
+
+global proc updateColorMgtPrefsOptionMenus()
+{
+    updateOptionMenu("colorManagementRenderingSpaceOptionMenu", cmuRenderingSpaceNames(), cmuGet("workingSpaceName"), 0);
+    if (cmuOcioV2()) {
+        updateOptionMenu("colorManagementViewOptionMenu", cmuOne(cmuGet("viewName")), cmuGet("viewName"), 1);
+        updateOptionMenu("colorManagementDisplayOptionMenu", cmuOne(cmuGet("displayName")), cmuGet("displayName"), 1);
+    } else
+        updateOptionMenu("colorManagementViewTransformOptionMenu", cmuViewTransformNames(), cmuGet("viewTransformName"), 1);
+    updateOutputTransformOptionMenu("colorManagementOutputTransformOptionTypeMenu", "colorManagementOutputTransformOptionMenu", 0);
+    updateOutputTransformOptionMenu("colorManagementOutputTransformForPlayblastOptionTypeMenu", "colorManagementOutputTransformForPlayblastOptionMenu", 1);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Render View's and UV Editor's view transform controls.
+
+// The Render View's editor: the scripted panel of that type when a script made one, else Aztek's own.
+proc string cmuRenderView()
+{
+    string $panels[] = `getPanel -scriptType renderWindowPanel`;
+    return size($panels) ? $panels[0] : "renderView";
+}
+
+global proc onRVViewTransformMenuChange()
+{
+    if (!`optionMenu -exists renderViewViewTransformSelOptionMenu`)
+        return;
+    string $vt = `optionMenu -query -value renderViewViewTransformSelOptionMenu`;
+    // Aztek's Render View draws through the scene's view transform, so that is what the menu changes.
+    if ($vt != "")
+        cmuSet("viewTransformName", $vt);
+}
+
+global proc onRVColorMgtEnableChange()
+{
+    int $on = cmuEnabled();
+    if (`optionMenu -exists renderViewViewTransformSelOptionMenu`)
+        optionMenu -edit -enable $on renderViewViewTransformSelOptionMenu;
+    if (`symbolCheckBox -exists renderViewEnableButton`)
+        symbolCheckBox -edit -value $on -enable $on renderViewEnableButton;
+}
+
+global proc updateRenderViewTransformSelMenu()
+{
+    cmuRebuildViewMenu("renderViewViewTransformSelOptionMenu");
+}
+
+global proc onUVEditorColorMgtEnabledChanged()
+{
+    if (!`optionMenu -exists uvEditorViewTransformSelOptionMenu` || !`symbolCheckBox -exists uvEditorEnableButton`)
+        return;
+    int $on = cmuEnabled();
+    optionMenu -edit -enable $on uvEditorViewTransformSelOptionMenu;
+    symbolCheckBox -edit -value $on -enable $on uvEditorEnableButton;
+}
+
+global proc onUVEditorColorMgtViewTransformChanged()
+{
+    cmuRebuildViewMenu("uvEditorViewTransformSelOptionMenu");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Output transforms.
+
+global proc updateOutputTransformLabel(string $button, string $selection, string $target)
+{
+    int $t = ($target == "playblast" || $target == "1");
+    if (`button -exists $button`)
+        button -edit -label $selection $button;
+    if (!cmuGetInt(cmuOut("outputTransformUseColorConversion", $t)) && $selection == "Use View Transform") {
+        cmuSet(cmuOut("outputTransformName", $t), cmuGet("viewTransformName"));
+        cmuSetInt(cmuOut("outputUseViewTransform", $t), 1);
+        return;
+    }
+    cmuSet(cmuOut("outputTransformName", $t), $selection);
+    cmuSetInt(cmuOut("outputUseViewTransform", $t), 0);
+}
+
+// The hierarchical output menu of OCIO version 2 configurations; Aztek's have no families, so the items are flat.
+proc cmuOutputMenu(string $button, string $popup, string $values[], string $target)
+{
+    if (!`popupMenu -exists $popup`)
+        return;
+    popupMenu -edit -deleteAllItems $popup;
+    for ($v in $values)
+        menuItem -label $v -parent $popup -command ("updateOutputTransformLabel(\"" + $button + "\",\"" + $v + "\",\"" + $target + "\")");
+    menuItem -label "Add Custom Transform..." -enable (!cmuConfigMode()) -parent $popup;
+}
+
+global proc updateOutputTransformOptionMenu(string $typeMenu, string $nameMenu, int $target)
+{
+    int $enabled = cmuGetInt(cmuOut("outputTransformEnabled", $target));
+    int $useConv = cmuGetInt(cmuOut("outputTransformUseColorConversion", $target)) ? 1 : 0;
+
+    string $types[] = {"Use View Transform", "Use Colour Conversion"};
+    updateOptionMenu($typeMenu, $types, $types[$useConv], 2);
+    if (`optionMenuGrp -exists $typeMenu`)
+        optionMenuGrp -edit -enable $enabled $typeMenu;
+
+    string $names[] = cmuOutputTransformNames($target);
+    if (!$useConv)
+        $names[size($names)] = "Use View Transform";
+    int $nameExists = `optionMenuGrp -exists $nameMenu` || `rowLayout -exists $nameMenu`;
+    if (cmuOcioV2()) {
+        if (`rowLayout -exists $nameMenu`) {
+            string $button = $nameMenu + "|outputTransformMenuLabel";
+            string $t = $target ? "playblast" : "renderer";
+            cmuOutputMenu($button, $button + "|outputTransformMenuLabelPopup", $names, $t);
+            cmuOutputMenu($button, $nameMenu + "|outputTransformMenuIcon|outputTransformMenuIconPopup", $names, $t);
+            string $sel = cmuGet(cmuOut("outputTransformName", $target));
+            string $label = stringArrayContains($sel, $names) ? $sel : (size($names) ? $names[0] : "");
+            if (cmuGetInt(cmuOut("outputUseViewTransform", $target)))
+                $label = $names[size($names) - 1];
+            button -edit -label $label $button;
+        }
+    } else
+        updateOptionMenu($nameMenu, $names, cmuGet(cmuOut("outputTransformName", $target)), 1);
+
+    if (!$nameExists)
+        return;
+    control -edit -enable $enabled $nameMenu;
+    if (cmuGetInt(cmuOut("outputUseViewTransform", $target)) && !$useConv) {
+        if (cmuOcioV2())
+            button -edit -label $names[size($names) - 1] ($nameMenu + "|outputTransformMenuLabel");
+        else
+            optionMenuGrp -edit -select (size($names)) $nameMenu;
+    }
+    string $settings = cmuSibling($nameMenu, "transformSettings");
+    if ($settings != "")
+        control -edit -enable (!cmuConfigMode() && $enabled) $settings;
+}
+
+global proc onColorMgtOutputChanged(string $typeMenu, string $nameMenu, string $enableCheckBox, int $target)
+{
+    updateOutputTransformOptionMenu($typeMenu, $nameMenu, $target);
+    if (`checkBoxGrp -exists $enableCheckBox`)
+        checkBoxGrp -edit -value1 (cmuGetInt(cmuOut("outputTransformEnabled", $target))) $enableCheckBox;
+}
+
+global proc onColorMgtOutputEnabledCheckBoxChange(string $checkBox, int $target)
+{
+    if (`checkBoxGrp -exists $checkBox`)
+        cmuSetInt(cmuOut("outputTransformEnabled", $target), `checkBoxGrp -query -value1 $checkBox`);
+}
+
+global proc onColorMgtOutputTransformOptionMenuChange(string $typeMenu, string $nameMenu, int $target)
+{
+    if (!`optionMenuGrp -exists $typeMenu`)
+        return;
+    int $sel = `optionMenuGrp -query -select $typeMenu` - 1;
+    int $useConv = cmuGetInt(cmuOut("outputTransformUseColorConversion", $target)) ? 1 : 0;
+    if ($sel != $useConv) {
+        cmuSetInt(cmuOut("outputTransformUseColorConversion", $target), $sel);
+        updateOutputTransformOptionMenu($typeMenu, $nameMenu, $target);
+        return;
+    }
+    if (!$useConv) {
+        if (cmuOcioV2()) {
+            if (`button -query -label ($nameMenu + "|outputTransformMenuLabel")` == "Use View Transform") {
+                cmuSetInt(cmuOut("outputUseViewTransform", $target), 1);
+                return;
+            }
+        } else if (`optionMenuGrp -exists $nameMenu` && `optionMenuGrp -query -select $nameMenu` == `optionMenuGrp -query -numberOfItems $nameMenu` - 1) {
+            cmuSetInt(cmuOut("outputUseViewTransform", $target), 1);
+            return;
+        }
+    }
+    if (`exists onColorMgtTransformOptionMenuChange`)
+        eval("onColorMgtTransformOptionMenuChange \"" + $nameMenu + "\" " + $target + " \"updateOutputTransformOptionMenu " + $typeMenu + " " + $nameMenu + " " + $target + "\" \"outputTarget " + $target + " -outputTransformName\"");
+    else if (`optionMenuGrp -exists $nameMenu`) {
+        // Without the shared procedure, the chosen name is set directly, unless it is the add-transform item.
+        string $v = `optionMenuGrp -query -value $nameMenu`;
+        if ($v != "Add Custom Transform...") {
+            cmuSet(cmuOut("outputTransformName", $target), $v);
+            cmuSetInt(cmuOut("outputUseViewTransform", $target), 0);
+        }
+    }
+}
+
+global proc createOutputTransformUI(string $typeMenu, string $nameMenu, string $enableCheckBox, int $target)
+{
+    string $boxLabel = $target ? "Apply output transform to playblast" : "Apply output transform to renderer";
+    string $change = "onColorMgtOutputTransformOptionMenuChange " + $typeMenu + " " + $nameMenu + " " + $target;
+    checkBoxGrp -numberOfCheckBoxes 1 -columnWidth2 20 300 -label "" -label1 $boxLabel
+        -value1 (cmuGetInt(cmuOut("outputTransformEnabled", $target)))
+        -changeCommand ("onColorMgtOutputEnabledCheckBoxChange " + $enableCheckBox + " " + $target) $enableCheckBox;
+
+    string $form = `formLayout`;
+    optionMenuGrp -label "Output Transform Type" -changeCommand $change $typeMenu;
+    setParent ..;
+    if (cmuOcioV2()) {
+        rowLayout -numberOfColumns 6 $nameMenu;
+        text -label "           ";
+        text -label "Output Transform";
+        button -label "" -height 18 outputTransformMenuLabel;
+        popupMenu -button 1 outputTransformMenuLabelPopup;
+        setParent ..;
+        iconTextButton -image "popupMenuIcon.png" -width 18 -height 18 -backgroundColor 0.37109375 0.37109375 0.37109375 outputTransformMenuIcon;
+        popupMenu -button 1 outputTransformMenuIconPopup;
+        setParent ..;
+        setParent ..;
+    } else {
+        optionMenuGrp -label "Output Transform" -changeCommand $change $nameMenu;
+        setParent ..;
+    }
+    updateOutputTransformOptionMenu($typeMenu, $nameMenu, $target);
+    string $settings = "";
+    if (`exists createColorUserTransformSettings`)
+        $settings = eval("createColorUserTransformSettings \"outputTransformName\" \"" + ($target ? "playblastOutput" : "output") + "\"");
+    formLayout -edit -attachForm $typeMenu "top" 0 -attachForm $typeMenu "left" 0
+        -attachControl $nameMenu "top" 0 $typeMenu -attachForm $nameMenu "left" 0 $form;
+    if (`control -exists transformSettings`)
+        formLayout -edit -attachControl transformSettings "top" 0 $typeMenu -attachControl transformSettings "left" 0 $nameMenu $form;
+    setParent ..;
+
+    string $job = "onColorMgtOutputChanged " + $typeMenu + " " + $nameMenu + " " + $enableCheckBox + " " + $target;
+    for ($e in {"colorMgtOutputChanged", "colorMgtPlayblastOutputChanged", "colorMgtPrefsReloaded", "colorMgtConfigFileEnabledChanged"})
+        scriptJob -event $e $job;
+}
+
+global proc enableColorMgtControls(string $controls[])
+{
+    int $on = cmuEnabled();
+    for ($c in $controls)
+        if (`control -exists $c`)
+            control -edit -enable $on $c;
+}
+
+global proc disableColorMgtControls(string $controls[])
+{
+    for ($c in $controls)
+        if (`control -exists $c`)
+            control -edit -enable false $c;
+}
+
+global proc int policyMismatch()
+{
+    string $file = cmuPolicyFile();
+    if ($file == "" || !`filetest -f $file`)
+        return 0;
+    string $saved[] = cmuReadPolicy($file);
+    string $now[] = cmuPolicyLines();
+    return !(size($saved) == size($now) && stringArrayToString($saved, "\n") == stringArrayToString($now, "\n"));
+}
+
+global proc int colorManagementPolicyMismatchAction()
+{
+    string $answer = `confirmDialog -title "Colour Management" -icon "warning"
+        -message "The colour management settings differ from the policy file's. Update the policy file, export them to another file, or cancel?"
+        -button "Update" -button "Export" -button "Cancel" -defaultButton "Update" -cancelButton "Cancel" -dismissString "Cancel"`;
+    if ($answer == "Update")
+        return cmuExportPolicy(cmuPolicyFile());
+    if ($answer == "Export") {
+        string $file = browsePolicyFilePathDialog(0);
+        if ($file == "" || !cmuExportPolicy($file))
+            return 0;
+        optionVar -stringValue colorManagementPolicyFileName $file;
+        return 1;
+    }
+    return 0;
+}

@@ -1,0 +1,428 @@
+// performNewScene: File > New Scene and its option box. The settings are optionVars, so a script that changes them
+// changes what the next new scene starts with: the units, the view cube's compass, the time slider's ranges, colour
+// management, and a default scene to bring in each time.
+
+// The time-unit helpers, from the installation's script when it has one; the ones below stand in otherwise.
+catchQuiet(eval("source \"workingTimeUtil.mel\""));
+
+// The time units the menu offers, in order, as the time unit's name and the menu's text. Aztek's own list.
+proc string[] pnsTimeUnits()
+{
+    return {
+        "2fps", "2 fps", "3fps", "3 fps", "4fps", "4 fps", "5fps", "5 fps", "6fps", "6 fps", "8fps", "8 fps",
+        "10fps", "10 fps", "12fps", "12 fps", "game", "15 fps (Game)", "16fps", "16 fps", "20fps", "20 fps",
+        "23.976fps", "23.976 fps", "film", "24 fps (Film)", "pal", "25 fps (PAL)", "29.97fps", "29.97 fps",
+        "29.97df", "29.97 df (drop frame)", "ntsc", "30 fps (NTSC)", "40fps", "40 fps", "47.952fps", "47.952 fps",
+        "show", "48 fps (Show)", "palf", "50 fps (PAL Field)", "59.94fps", "59.94 fps", "ntscf", "60 fps (NTSC Field)",
+        "75fps", "75 fps", "80fps", "80 fps", "100fps", "100 fps", "120fps", "120 fps", "125fps", "125 fps",
+        "150fps", "150 fps", "200fps", "200 fps", "240fps", "240 fps", "250fps", "250 fps", "300fps", "300 fps",
+        "375fps", "375 fps", "400fps", "400 fps", "500fps", "500 fps", "600fps", "600 fps", "750fps", "750 fps",
+        "1200fps", "1200 fps", "1500fps", "1500 fps", "2000fps", "2000 fps", "3000fps", "3000 fps", "6000fps", "6000 fps"
+    };
+}
+
+proc int pnsTimeUnitCount()
+{
+    if (`exists getTimeUnitDisplayStringCount`)
+        return eval("getTimeUnitDisplayStringCount");
+    return size(pnsTimeUnits()) / 2;
+}
+
+// The menu's text for the unit at $index, counting from 0.
+proc string pnsTimeUnitLabel(int $index)
+{
+    if (`exists getTimeUnitDisplayString`)
+        return eval("getTimeUnitDisplayString " + $index);
+    string $u[] = pnsTimeUnits();
+    return $u[$index * 2 + 1];
+}
+
+// The unit's name for the menu item at $item, counting from 1.
+proc string pnsTimeUnitAt(int $item)
+{
+    if (`exists getCurrentUnitCmdValue`)
+        return eval("getCurrentUnitCmdValue " + $item);
+    string $u[] = pnsTimeUnits();
+    if ($item < 1 || $item * 2 > size($u))
+        return "film";
+    return $u[($item - 1) * 2];
+}
+
+// The menu item, counting from 1, for a unit's name; the first when the name isn't one of them.
+proc int pnsTimeUnitItem(string $unit)
+{
+    if (`exists getIndexFromCurrentUnitCmdValue`)
+        return eval("getIndexFromCurrentUnitCmdValue \"" + $unit + "\"");
+    string $u[] = pnsTimeUnits();
+    for ($i = 0; $i < size($u); $i += 2)
+        if ($u[$i] == $unit)
+            return $i / 2 + 1;
+    return 1;
+}
+
+// The linear menu's items, in order, as unit names.
+proc string pnsLinearUnitAt(int $item)
+{
+    string $u[] = {"mm", "cm", "m", "in", "ft", "yd"};
+    if ($item < 1 || $item > size($u))
+        return "cm";
+    return $u[$item - 1];
+}
+
+// optionVar -init as the reference has it: the value is written when the var is missing, or always when forced.
+proc pnsInitInt(int $force, string $name, int $value)
+{
+    if ($force || !`optionVar -exists $name`)
+        optionVar -intValue $name $value;
+}
+
+proc pnsInitFloat(int $force, string $name, float $value)
+{
+    if ($force || !`optionVar -exists $name`)
+        optionVar -floatValue $name $value;
+}
+
+proc pnsInitString(int $force, string $name, string $value)
+{
+    if ($force || !`optionVar -exists $name`)
+        optionVar -stringValue $name $value;
+}
+
+// Aztek's next new scene takes its units from what newSceneUnits last set, so the optionVars are passed on to it.
+proc pnsApplyUnits()
+{
+    if (!`exists newSceneUnits`)
+        return;
+    string $lin = `optionVar -query workingUnitLinearDefault`;
+    string $ang = `optionVar -query workingUnitAngularDefault`;
+    string $time = `optionVar -query workingUnitTimeDefault`;
+    catchQuiet(`newSceneUnits -linear $lin -angle $ang -time $time`);
+}
+
+// The settings' first values. Without $force, a few are taken from the scene as it is, so the defaults a first-time
+// user sees match the session they are in.
+proc pnsInitOptionVars(int $force)
+{
+    if (!$force) {
+        if (!`optionVar -exists workingUnitLinearDefault`)
+            optionVar -stringValue workingUnitLinearDefault `currentUnit -query -linear`;
+        if (!`optionVar -exists workingUnitAngularDefault`)
+            optionVar -stringValue workingUnitAngularDefault `currentUnit -query -angle`;
+        if (!`optionVar -exists workingUnitTimeDefault`)
+            optionVar -stringValue workingUnitTimeDefault `currentUnit -query -time`;
+        if (!`optionVar -exists viewCubeShowCompassDefault`)
+            optionVar -intValue viewCubeShowCompassDefault `viewManip -query -drawCompass`;
+        if (!`optionVar -exists viewCubeCompassAngleDefault`)
+            optionVar -floatValue viewCubeCompassAngleDefault `viewManip -query -compassAngle`;
+        if (!`optionVar -exists playbackMinDefault`)
+            optionVar -floatValue playbackMinDefault `playbackOptions -query -minTime`;
+        if (!`optionVar -exists playbackMaxDefault`)
+            optionVar -floatValue playbackMaxDefault `playbackOptions -query -maxTime`;
+        if (!`optionVar -exists playbackMinRangeDefault`)
+            optionVar -floatValue playbackMinRangeDefault `playbackOptions -query -animationStartTime`;
+        if (!`optionVar -exists playbackMaxRangeDefault`)
+            optionVar -floatValue playbackMaxRangeDefault `playbackOptions -query -animationEndTime`;
+    }
+
+    // File.NewScene
+    pnsInitInt($force, "newFileEnabled", 0);
+    pnsInitInt($force, "keepCurrentWorkingUnits", 0);
+    pnsInitString($force, "newFileName", "");
+    pnsInitInt($force, "viewCubeShowCompassDefault", 0);
+    pnsInitFloat($force, "viewCubeCompassAngleDefault", 0.0);
+    // Settings
+    pnsInitString($force, "workingUnitLinearDefault", "cm");
+    pnsInitString($force, "workingUnitAngularDefault", "deg");
+    pnsInitString($force, "workingUnitTimeDefault", "film");
+    // Colour management
+    pnsInitInt($force, "colorManagementEnabledByDefault", 1);
+    // Animation
+    pnsInitFloat($force, "playbackMinDefault", 1.0);
+    pnsInitFloat($force, "playbackMaxDefault", 120.0);
+    pnsInitFloat($force, "playbackMinRangeDefault", 1.0);
+    pnsInitFloat($force, "playbackMaxRangeDefault", 200.0);
+
+    if ($force) {
+        pnsApplyUnits();
+        // Reset also puts the box's controls back to how they first look.
+        if (`optionMenuGrp -exists linearOpts`) {
+            optionMenuGrp -edit -enable true linearOpts;
+            optionMenuGrp -edit -enable true angularOpts;
+            optionMenuGrp -edit -enable true timeOpts;
+        }
+        if (`text -exists newFileText`) {
+            text -edit -enable false newFileText;
+            textField -edit -enable false newFileName;
+            iconTextButton -edit -enable false newFileSymbolButton;
+        }
+        if (`frameLayout -exists workingUnitsLayout`) {
+            frameLayout -edit -enable true workingUnitsLayout;
+            frameLayout -edit -enable true timelineSettingsLayout;
+        }
+    }
+}
+
+// Whether the thumbnail capture tool has a session open. Aztek has no capture tool, so never there.
+proc int pnsCaptureSessionOpen()
+{
+    if (!`exists thumbnailCaptureComponent`)
+        return 0;
+    return eval("thumbnailCaptureComponent -query -isSessionOpened");
+}
+
+// The default scene's controls on with the check box, the units and time slider frames off, or the other way.
+proc pnsDefaultSceneEnable(int $on)
+{
+    text -edit -enable $on newFileText;
+    textField -edit -enable $on newFileName;
+    iconTextButton -edit -enable $on newFileSymbolButton;
+    frameLayout -edit -enable (!$on) workingUnitsLayout;
+    frameLayout -edit -enable (!$on) timelineSettingsLayout;
+}
+
+// The same as a command for the check box, which runs at global scope.
+proc string pnsDefaultSceneCmd(int $on)
+{
+    return "text -edit -enable " + $on + " newFileText; textField -edit -enable " + $on + " newFileName; "
+         + "iconTextButton -edit -enable " + $on + " newFileSymbolButton; "
+         + "frameLayout -edit -enable " + (!$on) + " workingUnitsLayout; "
+         + "frameLayout -edit -enable " + (!$on) + " timelineSettingsLayout;";
+}
+
+global proc setDefaultUnits(string $whichUnits)
+{
+    if ($whichUnits == "linear") {
+        string $unit;
+        if (`exists linearUnits_uiToMel`) {
+            string $shown = `optionMenuGrp -query -value linearOpts`;
+            $unit = eval("linearUnits_uiToMel \"" + $shown + "\"");
+        } else {
+            $unit = pnsLinearUnitAt(`optionMenuGrp -query -select linearOpts`);
+        }
+        optionVar -stringValue workingUnitLinearDefault $unit;
+    } else if ($whichUnits == "angular") {
+        if (`optionMenuGrp -query -select angularOpts` == 1)
+            optionVar -stringValue workingUnitAngularDefault "degree";
+        else
+            optionVar -stringValue workingUnitAngularDefault "radian";
+    } else {
+        optionVar -stringValue workingUnitTimeDefault (pnsTimeUnitAt(`optionMenuGrp -query -select timeOpts`));
+    }
+    pnsApplyUnits();
+}
+
+global proc newFileSetup(string $parent, int $forceFactorySettings)
+{
+    pnsInitOptionVars($forceFactorySettings);
+    setParent $parent;
+
+    checkBoxGrp -edit -value1 `optionVar -query newFileEnabled` newFileEnabled;
+    checkBoxGrp -edit -value1 `optionVar -query keepCurrentWorkingUnits` keepCurrentWorkingUnits;
+    textField -edit -text `optionVar -query newFileName` newFileName;
+
+    string $lin = `optionVar -query workingUnitLinearDefault`;
+    int $item = 1;
+    if ($lin == "mm" || $lin == "millimeter") $item = 1;
+    else if ($lin == "cm" || $lin == "centimeter") $item = 2;
+    else if ($lin == "m" || $lin == "meter") $item = 3;
+    else if ($lin == "in" || $lin == "inch") $item = 4;
+    else if ($lin == "ft" || $lin == "foot") $item = 5;
+    else if ($lin == "yd" || $lin == "yard") $item = 6;
+    optionMenuGrp -edit -select $item linearOpts;
+
+    string $ang = `optionVar -query workingUnitAngularDefault`;
+    optionMenuGrp -edit -select (($ang == "rad" || $ang == "radian") ? 2 : 1) angularOpts;
+
+    optionMenuGrp -edit -select (pnsTimeUnitItem(`optionVar -query workingUnitTimeDefault`)) timeOpts;
+
+    checkBoxGrp -edit -value1 `optionVar -query viewCubeShowCompassDefault` viewCubeShowCompassDefault;
+    floatSliderGrp -edit -value `optionVar -query viewCubeCompassAngleDefault`
+        -enable `checkBoxGrp -query -value1 viewCubeShowCompassDefault` viewCubeCompassAngleDefault;
+
+    floatFieldGrp -edit -value1 `optionVar -query playbackMinDefault` -value2 `optionVar -query playbackMaxDefault`
+        timeSliderBounds;
+    floatFieldGrp -edit -value1 `optionVar -query playbackMinRangeDefault`
+        -value2 `optionVar -query playbackMaxRangeDefault` rangeSliderBounds;
+
+    checkBoxGrp -edit -value1 `optionVar -query colorManagementEnabledByDefault` colorManagementEnabledByDefault;
+}
+
+global proc newFileCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    // The other controls write their optionVars as they change.
+    optionVar -intValue newFileEnabled `checkBoxGrp -query -value1 newFileEnabled`;
+    optionVar -stringValue newFileName `textField -query -text newFileName`;
+
+    if ($doIt) {
+        performNewScene 0;
+        if (`exists addToRecentCommandQueue`)
+            eval("addToRecentCommandQueue \"performNewScene 0 \" \"New Scene\"");
+    }
+}
+
+// The command: a procedure that asks to save the scene, starts a new one and brings in the default scene, then a call
+// to it. Wrapped in a procedure so it can be run again at global scope without redeclaring variables, and so callers get
+// its result.
+proc string pnsAssembleCmd()
+{
+    pnsInitOptionVars(0);
+
+    string $cmd = "global proc int performNewSceneAssembleCmd() {\n";
+    $cmd += "    int $result = 0;\n";
+    if (`exists saveChanges`) {
+        $cmd += "    $result = `saveChanges(\"file -f -new\")`;\n";
+    } else {
+        // Without the installation's saveChanges, the same question is asked here: save, don't save, or cancel.
+        $cmd += "    int $go = 1;\n";
+        $cmd += "    if (`file -query -modified`) {\n";
+        $cmd += "        string $answer = `confirmDialog -title \"Save Changes\" -message \"Save changes to the current scene?\" -button \"Save\" -button \"Don't Save\" -button \"Cancel\" -defaultButton \"Save\" -cancelButton \"Cancel\" -dismissString \"Cancel\"`;\n";
+        $cmd += "        if ($answer == \"Cancel\") $go = 0;\n";
+        $cmd += "        else if ($answer == \"Save\") {\n";
+        $cmd += "            if (`file -query -sceneName` == \"\") $go = `projectViewer \"SaveAs\"`;\n";
+        $cmd += "            else $go = !catch(`file -save`);\n";
+        $cmd += "        }\n";
+        $cmd += "    }\n";
+        $cmd += "    if ($go) $result = !catch(`file -f -new`);\n";
+    }
+    string $default = `optionVar -query newFileName`;
+    if (`optionVar -query newFileEnabled` == 1 && $default != "")
+        $cmd += "    if ($result) file -import \"" + encodeString($default) + "\";\n";
+    $cmd += "    return $result;\n";
+    $cmd += "}\n";
+    $cmd += "performNewSceneAssembleCmd();";
+    return $cmd;
+}
+
+proc pnsOptionBox()
+{
+    string $win = "performNewSceneOptions";
+    if (`window -exists $win`)
+        deleteUI -window $win;
+
+    waitCursor -state on;
+    window -title "New Scene Options" -widthHeight 520 560 $win;
+    string $form = `formLayout`;
+    string $scroll = `scrollLayout -childResizable true`;
+    string $parent = `columnLayout -adjustableColumn true -columnAttach "both" 5`;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Enable default scene"
+        -onCommand1 (pnsDefaultSceneCmd(1)) -offCommand1 (pnsDefaultSceneCmd(0)) newFileEnabled;
+    rowLayout -numberOfColumns 3 -columnWidth 2 212 -columnWidth 3 25;
+        text -label "Default scene" newFileText;
+        textField newFileName;
+        iconTextButton -style "iconOnly" -image "navButtonBrowse.png"
+            -command "{ string $f = `fileDialog -mode 0`; if ($f != \"\") textField -edit -text $f newFileName; }"
+            newFileSymbolButton;
+    setParent ..;
+    separator -style "none" -height 10;
+
+    frameLayout -label "Default Working Units" -collapsable false -labelIndent 5 -marginWidth 5 -marginHeight 5
+        workingUnitsLayout;
+    columnLayout -adjustableColumn true;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Keep the current scene's working units"
+            -onCommand1 "optionVar -intValue keepCurrentWorkingUnits 1; optionMenuGrp -edit -enable false linearOpts; optionMenuGrp -edit -enable false angularOpts; optionMenuGrp -edit -enable false timeOpts;"
+            -offCommand1 "optionVar -intValue keepCurrentWorkingUnits 0; optionMenuGrp -edit -enable true linearOpts; optionMenuGrp -edit -enable true angularOpts; optionMenuGrp -edit -enable true timeOpts;"
+            keepCurrentWorkingUnits;
+        separator -style "none" -height 10;
+        optionMenuGrp -label "Linear" -changeCommand "setDefaultUnits \"linear\"" linearOpts;
+            menuItem -label "Millimetre";
+            menuItem -label "Centimetre";
+            menuItem -label "Metre";
+            menuItem -label "Inch";
+            menuItem -label "Foot";
+            menuItem -label "Yard";
+        separator -style "none" -height 10;
+        optionMenuGrp -label "Angular" -changeCommand "setDefaultUnits \"angular\"" angularOpts;
+            menuItem -label "Degrees";
+            menuItem -label "Radians";
+        separator -style "none" -height 10;
+        optionMenuGrp -label "Time" -changeCommand "setDefaultUnits \"time\"" timeOpts;
+            int $n = pnsTimeUnitCount();
+            for ($i = 0; $i < $n; $i++)
+                menuItem -label (pnsTimeUnitLabel($i));
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Default View Cube Settings" -collapsable false -labelIndent 5 -marginWidth 5 -marginHeight 5
+        viewCubeDefaultsLayout;
+    columnLayout -adjustableColumn true;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Show compass"
+            -onCommand1 "optionVar -intValue viewCubeShowCompassDefault 1; floatSliderGrp -edit -enable true viewCubeCompassAngleDefault;"
+            -offCommand1 "optionVar -intValue viewCubeShowCompassDefault 0; floatSliderGrp -edit -enable false viewCubeCompassAngleDefault;"
+            viewCubeShowCompassDefault;
+        floatSliderGrp -field true -label "Compass angle" -extraLabel "degrees" -minValue 0 -maxValue 360
+            -columnWidth 1 118 -columnWidth 4 64
+            -changeCommand "optionVar -floatValue viewCubeCompassAngleDefault `floatSliderGrp -query -value viewCubeCompassAngleDefault`"
+            viewCubeCompassAngleDefault;
+        setParent ..;
+    setParent ..;
+
+    // Time fields stand in as plain number fields: Aztek has no timeFieldGrp yet.
+    frameLayout -label "Default Time Slider Settings" -collapsable false -labelIndent 5 -marginWidth 5 -marginHeight 5
+        timelineSettingsLayout;
+    columnLayout -adjustableColumn true;
+        floatFieldGrp -label "Playback start/end" -columnAlign 1 "right" -numberOfFields 2 -precision 2
+            -changeCommand "optionVar -floatValue playbackMinDefault `floatFieldGrp -query -value1 timeSliderBounds`; optionVar -floatValue playbackMaxDefault `floatFieldGrp -query -value2 timeSliderBounds`;"
+            timeSliderBounds;
+        floatFieldGrp -label "Animation start/end" -columnAlign 1 "right" -numberOfFields 2 -precision 2
+            -changeCommand "optionVar -floatValue playbackMinRangeDefault `floatFieldGrp -query -value1 rangeSliderBounds`; optionVar -floatValue playbackMaxRangeDefault `floatFieldGrp -query -value2 rangeSliderBounds`;"
+            rangeSliderBounds;
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Colour Management" -collapsable false -labelIndent 5 -marginWidth 5 -marginHeight 5
+        colorManagementSettingsLayout;
+    columnLayout -adjustableColumn true;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Colour management on"
+            -value1 `optionVar -query colorManagementEnabledByDefault`
+            -onCommand1 "optionVar -intValue colorManagementEnabledByDefault 1"
+            -offCommand1 "optionVar -intValue colorManagementEnabledByDefault 0"
+            colorManagementEnabledByDefault;
+        setParent ..;
+    setParent ..;
+
+    setParent $form;
+    string $buttons = `rowLayout -numberOfColumns 5`;
+        string $q = "\"" + $parent + "\"";
+        button -label "New" -command ("newFileCallback " + $q + " 1; deleteUI -window " + $win) pnsApplyAndClose;
+        button -label "Apply" -command ("newFileCallback " + $q + " 1") pnsApply;
+        button -label "Save" -command ("newFileCallback " + $q + " 0; deleteUI -window " + $win) pnsSave;
+        button -label "Reset" -command ("newFileSetup " + $q + " 1") pnsReset;
+        button -label "Close" -command ("deleteUI -window " + $win) pnsClose;
+    setParent ..;
+    formLayout -edit
+        -attachForm $scroll "top" 0 -attachForm $scroll "left" 0 -attachForm $scroll "right" 0
+        -attachControl $scroll "bottom" 5 $buttons
+        -attachForm $buttons "left" 5 -attachForm $buttons "right" 5 -attachForm $buttons "bottom" 5
+        $form;
+
+    newFileSetup $parent 0;
+    setParent $parent;
+    pnsDefaultSceneEnable(`optionVar -query newFileEnabled`);
+    int $keep = `optionVar -query keepCurrentWorkingUnits`;
+    optionMenuGrp -edit -enable (!$keep) linearOpts;
+    optionMenuGrp -edit -enable (!$keep) angularOpts;
+    optionMenuGrp -edit -enable (!$keep) timeOpts;
+
+    waitCursor -state off;
+    showWindow $win;
+}
+
+global proc string performNewScene(int $option)
+{
+    if (pnsCaptureSessionOpen()) {
+        confirmDialog -message "Close the thumbnail capture tool first." -button "OK" -icon "warning";
+        return "";
+    }
+    string $cmd = "";
+    if ($option == 0) {
+        $cmd = pnsAssembleCmd();
+        eval($cmd);
+    } else if ($option == 1) {
+        pnsOptionBox();
+    } else if ($option == 2) {
+        $cmd = pnsAssembleCmd();
+    }
+    return $cmd;
+}

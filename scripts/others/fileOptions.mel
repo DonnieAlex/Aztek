@@ -1,0 +1,2104 @@
+// fileOptions: the options of each file operation (Open, Import, Reference, Save, Save As, the Exports and the rest),
+// beside the file browser that projectViewer opens and as the option boxes of the File menu. Everything is kept in
+// optionVars, so scripts that set them before calling the operation get what they asked for.
+
+global string $gFileOptionsString;
+global string $gAllOptionStrings[];
+global int $gLastOptionSelectionIndex = -1;
+global string $gLastOptionSelection = "";
+global string $gCurrentOptionSelection = "";
+global string $gFileOptionTreeViewName = "";
+global string $gMergeOptionValue = "";
+global string $gActionProc = "";
+global string $gCurrentSelectedType = "";
+global string $gLastSelectedType = "";
+global string $gDefaultFileType = "";
+global int $gCurrentPlayblastCheckBoxState = -1;
+global string $gCurrentFileDialogSelection = "";
+global string $gOptBoxForm;
+
+// --------------------------------------------------------------------------------------------------------------------
+// Names and types
+
+proc string foBestGuess() { return "Best Guess"; }
+// The open browser's filter for every scene file, which stands for Best Guess.
+proc string foScenesFilter() { return "Scenes"; }
+proc string foAllFiles() { return "All Files"; }
+
+proc int foIsSceneType(string $t)
+{
+    return ($t == foBestGuess() || $t == "mayaAscii" || $t == "mayaPLE" || $t == "mayaBinary");
+}
+
+proc int foIsEditType(string $t)
+{
+    return ($t == "editMA" || $t == "editMB");
+}
+
+// Whether the Include options apply to a type: they don't for scripts, move files, edit files and the FBX readers of
+// other formats.
+proc int foIncludeAvailable(string $t)
+{
+    return !($t == "mel" || $t == "move" || foIsEditType($t) || $t == "DXF_FBX export" || $t == "DAE_FBX export");
+}
+
+// A filter's description as the file type it stands for: the installation's procedure, else the text before the
+// patterns.
+proc string foFilterToType(string $filter)
+{
+    if (`exists filterDescriptionToFileType`)
+        return eval("filterDescriptionToFileType \"" + encodeString($filter) + "\"");
+    string $type = $filter;
+    if (`gmatch $type "* (*)"`)
+        $type = `match "^[^(]*[^ (]" $type`;
+    return $type;
+}
+
+proc int foTranslatorLoaded(string $t)
+{
+    if ($t == "")
+        return 0;
+    string $all[] = `translator -query -list`;
+    if (stringArrayFind($t, 0, $all) < 0)
+        return 0;
+    return `translator -query -loaded $t`;
+}
+
+// A translator's options script. Aztek's translators have none yet; asked quietly so one is used once they do.
+proc string foOptionsScript(string $t)
+{
+    if (!foTranslatorLoaded($t) || catchQuiet(`translator -query -optionsScript $t`))
+        return "";
+    return `translator -query -optionsScript $t`;
+}
+
+// The thumbnail capture tool, where the installation has one. Aztek doesn't yet, so it's never open and has nothing.
+proc int foCaptureInt(string $flag)
+{
+    if (!`exists thumbnailCaptureComponent`)
+        return 0;
+    return eval("thumbnailCaptureComponent -query -" + $flag);
+}
+
+proc string foCaptureString(string $flag)
+{
+    if (!`exists thumbnailCaptureComponent`)
+        return "";
+    return eval("thumbnailCaptureComponent -query -" + $flag);
+}
+
+proc foCaptureDo(string $args)
+{
+    if (`exists thumbnailCaptureComponent`)
+        eval("thumbnailCaptureComponent " + $args);
+}
+
+proc int foSceneIsEmpty()
+{
+    if (!`exists sceneIsEmpty`)
+        catchQuiet(eval("source \"sceneIsEmpty.mel\""));
+    if (`exists sceneIsEmpty`)
+        return eval("sceneIsEmpty");
+    // Nothing in the scene but the four cameras every scene has.
+    string $top[] = `ls -assemblies`;
+    for ($t in $top)
+        if ($t != "persp" && $t != "top" && $t != "front" && $t != "side")
+            return 0;
+    return 1;
+}
+
+proc string[] foProxyTags(int $available)
+{
+    string $none[];
+    if (!`exists proxyTags`)
+        return $none;
+    return eval("proxyTags " + $available);
+}
+
+proc string[] foProxyUsedTags()
+{
+    string $none[];
+    if (!`exists proxyUsedTags`)
+        catchQuiet(eval("source \"proxyTags.mel\""));
+    if (!`exists proxyUsedTags`)
+        return $none;
+    return eval("proxyUsedTags \"\"");
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// The namespace tree. The installation's tree view when it has one; Aztek has no treeView control yet, so a list of
+// the scene's namespaces stands in, the root first.
+
+proc string foNamespaceTreeCreate()
+{
+    if (`exists namespaceTreeView`)
+        return eval("namespaceTreeView 0 \"\" \"\"");
+    return `textScrollList -allowMultiSelection false -width 200 -height 150`;
+}
+
+proc int foIsTreeView(string $tree)
+{
+    return `exists treeView` && `treeView -exists $tree`;
+}
+
+proc foNamespaceTreeUpdate(string $tree)
+{
+    if (`exists namespaceTreeView_update`) {
+        eval("namespaceTreeView_update \"" + $tree + "\" \"\"");
+        return;
+    }
+    if (foIsTreeView($tree) || !`textScrollList -exists $tree`)
+        return;
+    textScrollList -edit -removeAll $tree;
+    textScrollList -edit -append ":" $tree;
+    string $names[];
+    if (!catchQuiet(`namespaceInfo -listOnlyNamespaces -recurse`))
+        $names = `namespaceInfo -listOnlyNamespaces -recurse`;
+    for ($n in $names)
+        if ($n != "UI" && $n != "shared" && $n != ":")
+            textScrollList -edit -append (startsWith($n, ":") ? $n : (":" + $n)) $tree;
+}
+
+proc foNamespaceTreeSelect(string $tree, string $ns)
+{
+    if (`exists namespaceTreeView_select`) {
+        eval("namespaceTreeView_select \"" + $tree + "\" \"" + $ns + "\"");
+        return;
+    }
+    if (foIsTreeView($tree) || !`textScrollList -exists $tree`)
+        return;
+    textScrollList -edit -deselectAll $tree;
+    string $all[] = `textScrollList -query -allItems $tree`;
+    if (stringArrayFind($ns, 0, $all) >= 0)
+        textScrollList -edit -selectItem $ns $tree;
+}
+
+proc foNamespaceTreeEnable(string $tree, int $on)
+{
+    if ($tree != "" && `control -exists $tree`)
+        control -edit -enable $on $tree;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// optionVars
+
+// optionVar -init as the reference has it: written when the var is missing, or always when forced.
+proc foInitInt(int $force, string $name, int $value)
+{
+    if ($force || !`optionVar -exists $name`)
+        optionVar -intValue $name $value;
+}
+
+proc foInitString(int $force, string $name, string $value)
+{
+    if ($force || !`optionVar -exists $name`)
+        optionVar -stringValue $name $value;
+}
+
+proc foInitOptionVars(string $action, int $force)
+{
+    global string $gAllOptionStrings[];
+    global int $gLastOptionSelectionIndex;
+
+    if ($action == "Open") {
+        foInitString($force, "defaultFileOpenType", foScenesFilter());
+        foInitInt($force, "fileExecuteSN", 1);
+        foInitInt($force, "fileSelPreload", 0);
+        foInitString($force, "fileOpenRefLoadSetting", "default");
+        foInitInt($force, "fileOpenReserveNamespaces", 0);
+    } else if ($action == "Import") {
+        foInitString($force, "defaultFileImportType", foAllFiles());
+        foInitInt($force, "importKeepReferences", 1);
+        foInitInt($force, "fileOptionsGrouping", 0);
+        foInitInt($force, "removeDuplicateShadingNetworksOnImport", 0);
+        foInitInt($force, "mergeBaseAnimLayerOnImport", 0);
+        foInitInt($force, "fileOptionsRenameAll", 1);
+        foInitInt($force, "useNamespacesDuringFileIO", 1);
+        foInitInt($force, "fileOptionsUseRenamePrefix", 0);
+        foInitString($force, "fileOptionsRenamePrefix", "");
+        foInitInt($force, "importOptionsOverrideEmpty", 1);
+        foInitInt($force, "importOptionsImportFramerateDefault", 0);
+        foInitInt($force, "importOptionsImportFramerate", 0);
+        foInitInt($force, "animRangeOptDefault", 3);
+        foInitInt($force, "animRangeOpt", 3);
+        foInitString($force, "fileImportRefLoadSetting", "default");
+        foInitInt($force, "fileImportReserveNamespaces", 0);
+    } else if ($action == "Reference") {
+        foInitInt($force, "referenceOptionsGrouping", 0);
+        foInitInt($force, "referenceOptionsLocator", 1);
+        foInitString($force, "referenceOptionsGroupName", "");
+        foInitInt($force, "referenceUseNamespacesDuringFileIO", 1);
+        foInitInt($force, "referenceOptionsUseRenamePrefix", 0);
+        foInitString($force, "referenceOptionsRenamePrefix", "");
+        foInitInt($force, "referenceOptionsLockReference", 0);
+        foInitInt($force, "referenceOptionsDeferReference", 0);
+        foInitInt($force, "referenceOptionsShareDisplayLayers", 0);
+        foInitInt($force, "referenceOptionsShareShaders", 0);
+        foInitString($force, "referenceOptionsShareRenderLayers", "");
+        foInitInt($force, "referenceOptionsSharedReference", 1);
+        foInitString($force, "fileReferenceRefLoadSetting", "default");
+        foInitInt($force, "fileReferenceReserveNamespaces", 0);
+    } else if ($action == "Proxy") {
+        foInitInt($force, "proxyOptionsSharedEdits", 0);
+    }
+    if ($action == "Reference" || $action == "Proxy") {
+        foInitString($force, "defaultFileReferenceType", foAllFiles());
+        foInitInt($force, "proxyOptionsUseNew" + $action + "Tag", 0);
+        foInitString($force, "proxyOptions" + $action + "Tag", "");
+        foInitString($force, "proxyOptionsNew" + $action + "Tag", "");
+    }
+    if ($action == "ExportAll") {
+        foInitString($force, "defaultFileExportAllType", "mayaBinary");
+        foInitInt($force, "useDefaultFileExtensions", 1);
+    } else if ($action == "ExportActive") {
+        foInitInt($force, "exportOptionsGrouping", 0);
+        foInitInt($force, "exportUseNamespacesDuringFileIO", 1);
+        foInitString($force, "defaultFileExportActiveType", "mayaBinary");
+        foInitInt($force, "exportOptionsUseRenamePrefix", 0);
+        foInitString($force, "exportOptionsRenamePrefix", "");
+        foInitInt($force, "exportKeepOnlyRef", 0);
+        foInitInt($force, "exportIncludeInputs", 1);
+        foInitInt($force, "exportIncludeHistory", 1);
+        foInitInt($force, "exportIncludeChannels", 1);
+        foInitInt($force, "exportIncludeExpressions", 1);
+        foInitInt($force, "exportIncludeConstraints", 1);
+        foInitInt($force, "exportIncludeShaders", 1);
+        foInitInt($force, "useDefaultFileExtensions", 1);
+    } else if ($action == "ExportSelectionAsReference") {
+        foInitInt($force, "exportIncludeInputs", 1);
+        foInitInt($force, "exportIncludeHistory", 1);
+        foInitInt($force, "exportIncludeChannels", 1);
+        foInitInt($force, "exportIncludeExpressions", 1);
+        foInitInt($force, "exportIncludeConstraints", 1);
+        foInitInt($force, "exportIncludeShaders", 1);
+        foInitInt($force, "referenceOptionsLockReference", 0);
+        foInitInt($force, "referenceOptionsGrouping", 0);
+        foInitString($force, "referenceOptionsGroupName", "");
+        foInitInt($force, "referenceOptionsLocator", 1);
+        foInitInt($force, "referenceOptionsSharedReference", 1);
+        foInitInt($force, "referenceOptionsShareDisplayLayers", 0);
+        foInitInt($force, "referenceOptionsShareShaders", 0);
+        foInitString($force, "referenceOptionsShareRenderLayers", "");
+        foInitInt($force, "referenceUseNamespacesDuringFileIO", 1);
+        foInitInt($force, "referenceOptionsUseRenamePrefix", 0);
+        foInitString($force, "referenceOptionsRenamePrefix", "");
+        foInitString($force, "defaultFileExportSelectionAsReferenceType", "mayaBinary");
+    } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+        // Targets: 0 the selected nodes, 1 what's connected to them, 2 the file.
+        foInitInt($force, "exportEditsTarget", 1);
+        foInitInt($force, "exportEditsFromRefEdTarget", 2);
+        foInitInt($force, "useDefaultFileExtensions", 1);
+        foInitString($force, "defaultFileExportEditsType", "mayaAscii");
+        foInitInt($force, "exportEditsIncludeInputs", 1);
+        foInitInt($force, "exportEditsIncludeChannels", 1);
+        foInitInt($force, "exportEditsIncludeShaders", 1);
+        foInitInt($force, "exportEditsIncludeSetAttrs", 1);
+    } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+        foInitString($force, "applyEditsNamespaceName", "");
+        foInitString($force, "defaultFileApplyEditsType", "editMA");
+        foInitInt($force, "applyEditsImport", 0);
+        foInitInt($force, "applyOfflineFileToRoot", 1);
+        foInitString($force, "applyOfflineFileSubstitutions", "");
+    } else if ($action == "Save") {
+        foInitInt($force, "isIncrementalSaveEnabled", 0);
+        foInitInt($force, "incrementalSaveLimitBackups", 0);
+        foInitInt($force, "incrementalSaveMaxBackups", 20);
+        foInitInt($force, "isCompressedSaveEnabled", 0);
+        foInitInt($force, "isCompressedPreserveNameEnabled", 0);
+    } else if ($action == "SaveAs") {
+        foInitString($force, "defaultFileSaveType", "mayaBinary");
+        foInitInt($force, "useDefaultFileExtensions", 1);
+        foInitString($force, "defaultTextureSaveAsType", "unlessRef");
+        foInitString($force, "defaultDiskCacheSaveAsType", "always");
+        foInitInt($force, "defaultLockFile", 0);
+        foInitInt($force, "defaultLockContainerUnpublished", 0);
+    } else if ($action == "AssignTemplate") {
+        foInitInt($force, "assignTemplateFileAutobind", 1);
+        foInitInt($force, "assignTemplateFileStandins", 1);
+    }
+    if ($action == "ExportActive" || $action == "ExportAll") {
+        foInitInt($force, "exportKeepReferences", 1);
+        foInitInt($force, "exportUnloadedReferences", 0);
+    }
+    if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd" || $action == "Import"
+        || $action == "Reference" || $action == "ExportSelectionAsReference") {
+        // How a clashing namespace is resolved: new, rename, replace or reject.
+        foInitString($force, "namespaceClashNameMethod", "new");
+        foInitString($force, "fileWorkingNamespaceName", "");
+    }
+    if ($action != "Open" && $action != "Import")
+        foInitInt($force, "useSavePlayblast", 0);
+
+    // Each translator's own settings, kept in memory while the options are up.
+    string $list[] = `translator -query -list`;
+    for ($i = 0; $i < size($list); $i++) {
+        if ($list[$i] == "directory")
+            continue;
+        string $var = $list[$i] + "Options";
+        if ($force || !`optionVar -exists $var`)
+            optionVar -stringValue $var `translator -query -defaultOptions $list[$i]`;
+        $gAllOptionStrings[$i] = `optionVar -query $var`;
+    }
+    $gLastOptionSelectionIndex = -1;
+}
+
+// The six Include check boxes from their optionVars; the four under Inputs follow it.
+proc foSetIncludeFromOptionVars()
+{
+    int $inputs = `optionVar -query exportIncludeInputs`;
+    checkBoxGrp -edit -enable true -value1 $inputs exInInputsBox;
+    string $boxes[] = {"exInHistoryBox", "exInChannelsBox", "exInExpressionsBox", "exInConstraintsBox"};
+    string $vars[] = {"exportIncludeHistory", "exportIncludeChannels", "exportIncludeExpressions", "exportIncludeConstraints"};
+    for ($i = 0; $i < 4; $i++) {
+        if ($inputs)
+            checkBoxGrp -edit -enable true -value1 `optionVar -query $vars[$i]` $boxes[$i];
+        else
+            checkBoxGrp -edit -enable false -value1 false $boxes[$i];
+    }
+    checkBoxGrp -edit -enable true -value1 `optionVar -query exportIncludeShaders` exInShadersBox;
+}
+
+proc foRenderLayerSync()
+{
+    if (!`checkBoxGrp -exists referenceRenderLayerMergeEnable`)
+        return;
+    string $how = `optionVar -query referenceOptionsShareRenderLayers`;
+    if ($how == "name") {
+        checkBoxGrp -edit -value1 true referenceRenderLayerMergeEnable;
+        radioButtonGrp -edit -enable true -select 1 referenceRenderLayerMergeBy;
+    } else if ($how == "id") {
+        checkBoxGrp -edit -value1 true referenceRenderLayerMergeEnable;
+        radioButtonGrp -edit -enable true -select 2 referenceRenderLayerMergeBy;
+    } else {
+        checkBoxGrp -edit -value1 false referenceRenderLayerMergeEnable;
+        radioButtonGrp -edit -enable false -select 1 referenceRenderLayerMergeBy;
+    }
+}
+
+proc int foRenderSetupOn()
+{
+    return `optionVar -exists renderSetupEnable` ? `optionVar -query renderSetupEnable` : 0;
+}
+
+// The Group check box and the name and locator under it, as Reference and Export Selection as Reference show them.
+proc foSetGroupControls()
+{
+    int $grp = `optionVar -query referenceOptionsGrouping`;
+    checkBoxGrp -edit -value1 $grp importGroupGrp;
+    string $name = `optionVar -exists referenceOptionsGroupName` ? `optionVar -query referenceOptionsGroupName` : "";
+    textField -edit -enable $grp -text $name referenceGrpName;
+    checkBoxGrp -edit -enable $grp -value1 `optionVar -query referenceOptionsLocator` referenceLocatorGrp;
+}
+
+proc foSetSharedControls()
+{
+    checkBoxGrp -edit -value1 (`optionVar -query referenceOptionsSharedReference` == 1) referenceSharedReferenceCheckBox;
+    checkBoxGrp -edit -value1 `optionVar -query referenceOptionsShareDisplayLayers` referenceSharedDisplayLayers;
+    checkBoxGrp -edit -value1 `optionVar -query referenceOptionsShareShaders` referenceSharedShadingNetworks;
+    fo_changeSharedReferenceOption();
+    if (!foRenderSetupOn())
+        foRenderLayerSync();
+}
+
+proc foObsoleteLabel(int $useNS)
+{
+    if (`text -exists prefixesObsoleteLabel`)
+        text -edit -visible (!$useNS) prefixesObsoleteLabel;
+}
+
+// The prefix the options say to use, into the field that is showing.
+proc foSetPrefixFields(int $useNS, int $usePrefix, string $prefixVar)
+{
+    if (!$useNS && `optionMenu -exists nameClash2OptionMenu`)
+        optionMenu -edit -select ($usePrefix + 1) nameClash2OptionMenu;
+    if ($usePrefix) {
+        string $value = `optionVar -query $prefixVar`;
+        if ($useNS)
+            textField -edit -text $value nodeNamePrefixInNamespace;
+        else
+            textField -edit -text $value nodeNamePrefix;
+    }
+}
+
+proc int foCheck(string $box)
+{
+    return `checkBoxGrp -query -value1 $box`;
+}
+
+// The prefix choice and text of the namespace section into the optionVars named.
+proc foCommitPrefix(int $useNS, string $usePrefixVar, string $prefixVar)
+{
+    int $choice = 1;
+    string $text = "";
+    int $onString = `radioCollection -exists namespaceRadioCollection`
+        && `radioCollection -query -select namespaceRadioCollection` == "radioNamespaceOnString";
+    if ($useNS) {
+        if ($onString)
+            $choice = 2;
+    } else {
+        $choice = `optionMenu -query -select nameClash2OptionMenu`;
+    }
+    optionVar -intValue $usePrefixVar (($choice == 1) ? 0 : 1);
+
+    if ($useNS) {
+        if ($onString)
+            $text = `textField -query -text nodeNamePrefixInNamespace`;
+        optionVar -stringValue fileWorkingNamespaceName (getlFullNamespaceFromTreeView());
+    } else {
+        $text = `textField -query -text nodeNamePrefix`;
+    }
+    // An empty field leaves the prefix last used.
+    if ($text != "")
+        optionVar -stringValue $prefixVar $text;
+}
+
+// Default file extensions: the optionVar, and the file command told where it can be.
+proc foDefaultExtensions()
+{
+    int $on = foCheck("useDefFileExtensions");
+    optionVar -intValue useDefaultFileExtensions $on;
+    catchQuiet(`file -defaultExtensions $on`);
+}
+
+proc foCommitInclude()
+{
+    optionVar -intValue exportIncludeInputs (foCheck("exInInputsBox"));
+    optionVar -intValue exportIncludeHistory (foCheck("exInHistoryBox"));
+    optionVar -intValue exportIncludeChannels (foCheck("exInChannelsBox"));
+    optionVar -intValue exportIncludeExpressions (foCheck("exInExpressionsBox"));
+    optionVar -intValue exportIncludeConstraints (foCheck("exInConstraintsBox"));
+    optionVar -intValue exportIncludeShaders (foCheck("exInShadersBox"));
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Option box helpers. The file options box is a window of its own here, built as the installation's option boxes are.
+
+proc string foOptionWindowName()
+{
+    return "fileOptionsWindow";
+}
+
+proc foHideOptionBox()
+{
+    if (`exists hideOptionBox`) {
+        eval("hideOptionBox");
+        return;
+    }
+    if (`window -exists fileOptionsWindow`)
+        deleteUI -window fileOptionsWindow;
+}
+
+proc foHideOptionBoxNow()
+{
+    if (`exists hideOptionBoxNow`) {
+        eval("hideOptionBoxNow");
+        return;
+    }
+    if (`window -exists fileOptionsWindow`)
+        deleteUI -window fileOptionsWindow;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Part 1
+
+global proc string currentFileDialogSelection()
+{
+    global string $gCurrentFileDialogSelection;
+    return $gCurrentFileDialogSelection;
+}
+
+global proc initCurrentFileTypeOption(string $action, string $parent, string $newType)
+{
+    global int $gLastOptionSelectionIndex;
+    global string $gLastOptionSelection;
+    global string $gCurrentOptionSelection;
+    $gLastOptionSelectionIndex = -1;
+    $gLastOptionSelection = "";
+    $gCurrentOptionSelection = "";
+    setCurrentFileTypeOption($action, $parent, $newType);
+}
+
+global proc refreshCaptureOptionsFromFileType(string $type)
+{
+    int $show = ($type == "mayaBinary" || $type == "mayaAscii" || $type == "FBX export" || $type == "Fbx");
+    frameLayout -edit -visible $show playblastOptionsLayout;
+}
+
+global proc setCurrentFileTypeOption(string $action, string $parent, string $newType)
+{
+    global string $gCurrentSelectedType;
+    global string $gCurrentOptionSelection;
+
+    $gCurrentSelectedType = $newType;
+    if ($parent != "")
+        setParent $parent;
+    $gCurrentOptionSelection = "";
+    if ($newType == "")
+        return;
+
+    string $type = foFilterToType($newType);
+    // In the option box the type menu shows it, or keeps its own when it hasn't that type.
+    if (`optionMenuGrp -exists fo_fileTypePopList`) {
+        string $items[] = `optionMenuGrp -query -itemListLong fo_fileTypePopList`;
+        int $found = 0;
+        for ($i = 0; $i < size($items); $i++) {
+            if (`menuItem -query -label $items[$i]` == $type) {
+                optionMenuGrp -edit -select ($i + 1) fo_fileTypePopList;
+                $found = 1;
+                break;
+            }
+        }
+        if (!$found)
+            $type = `optionMenuGrp -query -value fo_fileTypePopList`;
+    }
+    $gCurrentOptionSelection = $type;
+    fo_newFileType($action);
+
+    // Copies of the thumbnail section can exist for a moment, so the one under $parent is the one changed.
+    if (`frameLayout -exists playblastOptionsLayout`) {
+        string $was = `setParent -query`;
+        if ($parent != "")
+            setParent $parent;
+        refreshCaptureOptionsFromFileType($type);
+        setParent $was;
+    }
+}
+
+global proc fo_prefixName(string $action)
+{
+    string $var = "fileOptionsRenamePrefix";
+    if ($action == "Reference" || $action == "ExportSelectionAsReference")
+        $var = "referenceOptionsRenamePrefix";
+    else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd")
+        $var = "applyEditsNamespaceName";
+    string $value = `optionVar -query $var`;
+
+    int $useNS = `checkBoxGrp -exists useNamespacesGrp` ? foCheck("useNamespacesGrp") : 0;
+    if ($useNS) {
+        textField -edit -text $value nodeNamePrefixInNamespace;
+    } else {
+        // "The file name" needs no text.
+        textField -edit -visible (`optionMenu -query -select nameClash2OptionMenu` != 1) -text $value nodeNamePrefix;
+    }
+}
+
+global proc fo_proxyTag(string $action)
+{
+    if (`optionMenu -query -select proxyTagOptionMenu` == 1)
+        textField -edit -visible true -text `optionVar -query ("proxyOptionsNew" + $action + "Tag")` newProxyTag;
+    else
+        textField -edit -visible false newProxyTag;
+}
+
+global proc fo_exportActiveNSMenuChange()
+{
+    if (`optionMenuGrp -query -select foExportActiveNSMenu` == 1)
+        textField -edit -visible false foExportActiveNSFld;
+    else
+        textField -edit -visible true -text `optionVar -query exportOptionsRenamePrefix` foExportActiveNSFld;
+}
+
+global proc fo_exportPreserveRefChanged()
+{
+    checkBoxGrp -edit -enable (foCheck("exKeepReferences")) exUnloadedReferences;
+}
+
+global proc fo_exportEditsExportOptionChanged()
+{
+    if (!`radioButtonGrp -exists exEditsTargetOperation`)
+        return;
+    int $option = `radioButtonGrp -query -select exEditsTargetOperation` - 1;
+    int $inputs = ($option != 0);
+    checkBoxGrp -edit -enable $inputs exInInputsBox;
+    checkBoxGrp -edit -enable $inputs exInShadersBox;
+    checkBoxGrp -edit -enable ($inputs && `optionVar -query exportEditsIncludeInputs` == 0) exInChannelsBox;
+}
+
+global proc fo_exportActiveKeepRefChanged()
+{
+    columnLayout -edit -enable (foCheck("exKeepRefBox")) foExportActiveReferenceLyt;
+}
+
+global proc fo_groupingOptionChanged()
+{
+    int $on = foCheck("importGroupGrp");
+    textField -edit -enable $on referenceGrpName;
+    checkBoxGrp -edit -enable $on referenceLocatorGrp;
+}
+
+global proc int fo_optionsCallback(string $newOptionsString)
+{
+    global string $gFileOptionsString;
+    $gFileOptionsString = $newOptionsString;
+    return 1;
+}
+
+global proc int fo_newFileType(string $action)
+{
+    global string $gFileOptionsString;
+    global string $gAllOptionStrings[];
+    global int $gLastOptionSelectionIndex;
+    global string $gLastOptionSelection;
+    global string $gCurrentOptionSelection;
+
+    if (!`columnLayout -exists fileOptionsScroll`)
+        return 0;
+    setParent fileOptionsScroll;
+    columnLayout -edit -columnAlign "left" fileOptionsScroll;
+
+    // What the panel being replaced was set to, kept for when the user comes back to that type.
+    if ($gLastOptionSelectionIndex >= 0 && $gLastOptionSelection != "") {
+        if (foTranslatorLoaded($gLastOptionSelection)) {
+            string $script = "";
+            if ($gLastOptionSelection != foBestGuess())
+                $script = foOptionsScript($gLastOptionSelection);
+            if ($script != "")
+                eval($script + " fileOptionsScroll \"query\" \"\" fo_optionsCallback");
+            else
+                $gFileOptionsString = "";
+            $gAllOptionStrings[$gLastOptionSelectionIndex] = $gFileOptionsString;
+        } else {
+            $gFileOptionsString = "";
+        }
+    }
+
+    string $item = $gCurrentOptionSelection;
+    if ($item == foScenesFilter())
+        $item = foBestGuess();
+    if ($item == "")
+        return 0;
+
+    string $kids[] = `columnLayout -query -childArray fileOptionsScroll`;
+    for ($k in $kids)
+        deleteUI $k;
+
+    string $type = foFilterToType($item);
+    string $script = "";
+    int $index = -1;
+    $gLastOptionSelectionIndex = -1;
+    $gLastOptionSelection = "";
+    if ($type != foBestGuess() && foTranslatorLoaded($type)) {
+        string $list[] = `translator -query -list`;
+        $index = stringArrayFind($type, 0, $list);
+        if ($index >= 0) {
+            $gLastOptionSelectionIndex = $index;
+            $gLastOptionSelection = $type;
+            $script = foOptionsScript($type);
+        }
+    }
+
+    if ($script != "") {
+        frameLayout -edit -collapse false FileSpecific_FL;
+        eval($script + " fileOptionsScroll \"post\" \"" + encodeString($gAllOptionStrings[$index]) + "\" fo_optionsCallback");
+    } else {
+        if (`frameLayout -exists FileSpecific_FL`)
+            frameLayout -edit -collapse true FileSpecific_FL;
+        setParent fileOptionsScroll;
+        text -label "No options for this file type." noSaveOptionsText;
+    }
+
+    if ($action == "ExportActive") {
+        frameLayout -edit -collapse false InclOptions_FL;
+        frameLayout -edit -collapse false RefOptions_FL;
+        if (foIsSceneType($type)) {
+            checkBoxGrp -edit -enable true -value1 `optionVar -query exportKeepReferences` exKeepReferences;
+            checkBoxGrp -edit -enable true -value1 `optionVar -query exportKeepOnlyRef` exKeepRefBox;
+        } else {
+            frameLayout -edit -collapse true RefOptions_FL;
+            checkBoxGrp -edit -enable false -value1 false exKeepReferences;
+            checkBoxGrp -edit -enable false -value1 false exUnloadedReferences;
+            checkBoxGrp -edit -enable false -value1 false exKeepRefBox;
+        }
+        if (foIncludeAvailable($type)) {
+            foSetIncludeFromOptionVars();
+        } else {
+            frameLayout -edit -collapse true InclOptions_FL;
+            string $boxes[] = {"exInInputsBox", "exInHistoryBox", "exInChannelsBox", "exInExpressionsBox",
+                               "exInConstraintsBox", "exInShadersBox"};
+            for ($b in $boxes)
+                checkBoxGrp -edit -enable false -value1 false $b;
+        }
+    } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+        string $targetVar = ($action == "ExportOfflineFile") ? "exportEditsTarget" : "exportEditsFromRefEdTarget";
+        radioButtonGrp -edit -select (`optionVar -query $targetVar` + 1) exEditsTargetOperation;
+        int $inputs = `optionVar -query exportEditsIncludeInputs`;
+        checkBoxGrp -edit -enable true -value1 $inputs exInInputsBox;
+        checkBoxGrp -edit -enable ($inputs == 0) -value1 `optionVar -query exportEditsIncludeChannels` exInChannelsBox;
+        checkBoxGrp -edit -enable true -value1 `optionVar -query exportEditsIncludeShaders` exInShadersBox;
+        checkBoxGrp -edit -enable true -value1 `optionVar -query exportEditsIncludeSetAttrs` exInSetAttrsBox;
+        fo_exportEditsExportOptionChanged();
+    }
+    return 1;
+}
+
+// "Manual" means the user's choices stand: the scene has something in it, or they turned the automatic case off.
+proc int foImportManualMode()
+{
+    return !foSceneIsEmpty() || `optionVar -query importOptionsOverrideEmpty` == 0;
+}
+
+global proc fo_changeImportFramerateRadioBtn(int $overrideFramerate)
+{
+    optionVar -intValue importOptionsImportFramerate $overrideFramerate;
+    if (foImportManualMode())
+        optionVar -intValue importOptionsImportFramerateDefault $overrideFramerate;
+}
+
+global proc fo_changeImportAnimRangeRadioBtn(int $animRangeOpt)
+{
+    optionVar -intValue animRangeOpt $animRangeOpt;
+    if (foImportManualMode())
+        optionVar -intValue animRangeOptDefault $animRangeOpt;
+}
+
+global proc fo_changeImportOverrideEmpty(int $overrideOnEmptyScene)
+{
+    optionVar -intValue importOptionsOverrideEmpty $overrideOnEmptyScene;
+    int $manual = !foSceneIsEmpty() || $overrideOnEmptyScene == 0;
+    int $rate = 1;
+    int $range = 2;
+    if ($manual) {
+        $rate = `optionVar -query importOptionsImportFramerateDefault`;
+        $range = `optionVar -query animRangeOptDefault`;
+    }
+    if ($rate)
+        radioButtonGrp -edit -select 1 radioFramerateImportOverride;
+    else
+        radioButtonGrp -edit -select 1 radioFramerateImportPreserve;
+    radioButtonGrp -edit -enable $manual radioFramerateImportOverride;
+    radioButtonGrp -edit -enable $manual radioFramerateImportPreserve;
+
+    if ($range == 1)
+        radioButtonGrp -edit -select 1 radioAnimRangeKeep;
+    else if ($range == 2)
+        radioButtonGrp -edit -select 1 radioAnimRangeOverride;
+    else
+        radioButtonGrp -edit -select 1 radioAnimRangeCombine;
+    radioButtonGrp -edit -enable $manual radioAnimRangeKeep;
+    radioButtonGrp -edit -enable $manual radioAnimRangeOverride;
+    radioButtonGrp -edit -enable $manual radioAnimRangeCombine;
+
+    fo_changeImportFramerateRadioBtn($rate);
+    fo_changeImportAnimRangeRadioBtn($range);
+}
+
+global proc fo_changeReferenceNamespaceOption(string $action)
+{
+    if (`formLayout -exists nameClashForm` && `formLayout -exists namespaceOptionLayout`)
+        refreshNamespaceOptions(foCheck("useNamespacesGrp"), $action);
+}
+
+// referenceOptionsSharedReference: 0 off, 1 shared by node (the check box on), 2 shared by file, which only scripts
+// set and which shows as off.
+global proc fo_changeSharedReferenceOption()
+{
+    int $shared = foCheck("referenceSharedReferenceCheckBox");
+    checkBoxGrp -edit -enable1 $shared referenceSharedDisplayLayers;
+    checkBoxGrp -edit -enable1 $shared referenceSharedShadingNetworks;
+    if (!foRenderSetupOn() && `checkBoxGrp -exists referenceRenderLayerMergeEnable`) {
+        checkBoxGrp -edit -enable $shared referenceRenderLayerMergeEnable;
+        string $how = `optionVar -query referenceOptionsShareRenderLayers`;
+        radioButtonGrp -edit -enable ($shared && ($how == "name" || $how == "id")) referenceRenderLayerMergeBy;
+    }
+}
+
+global proc fo_changeRenderLayerShareOption()
+{
+    if (foCheck("referenceRenderLayerMergeEnable")) {
+        radioButtonGrp -edit -enable true referenceRenderLayerMergeBy;
+        int $by = `radioButtonGrp -query -select referenceRenderLayerMergeBy`;
+        if ($by == 1)
+            optionVar -stringValue referenceOptionsShareRenderLayers "name";
+        else if ($by == 2)
+            optionVar -stringValue referenceOptionsShareRenderLayers "id";
+    } else {
+        radioButtonGrp -edit -enable false referenceRenderLayerMergeBy;
+        optionVar -stringValue referenceOptionsShareRenderLayers "";
+    }
+}
+
+global proc incrementalSaveUpdateControls()
+{
+    int $on = foCheck("incrementalSaveEnabled");
+    int $limit = foCheck("incrementalSaveLimit");
+    checkBoxGrp -edit -enable $on incrementalSaveLimit;
+    intSliderGrp -edit -enable ($on && $limit) incrementalSaveLimitNo;
+
+    // Stored at once: people expect these to hold without pressing Save.
+    optionVar -intValue isIncrementalSaveEnabled $on;
+    optionVar -intValue incrementalSaveLimitBackups $limit;
+    optionVar -intValue incrementalSaveMaxBackups `intSliderGrp -query -value incrementalSaveLimitNo`;
+    optionVar -intValue isCompressedSaveEnabled (foCheck("compressedSaveEnabled"));
+    optionVar -intValue isCompressedPreserveNameEnabled (foCheck("compressedPreserveNameEnabled"));
+}
+
+global proc fileOptionsSelectionChanged(string $parent, string $action, string $file)
+{
+    global string $gCurrentFileDialogSelection;
+    global string $gCurrentOptionSelection;
+
+    $gCurrentFileDialogSelection = $file;
+    if (`control -exists aiffOffsetVal` && `exists aiffFO_FileChange`)
+        eval("aiffFO_FileChange \"" + encodeString($file) + "\"");
+    if (!foTranslatorLoaded($gCurrentOptionSelection))
+        return;
+    string $script = foOptionsScript($gCurrentOptionSelection);
+    if ($script != "")
+        eval($script + " fileOptionsScroll \"fileselected\" \"\" fo_optionsCallback");
+}
+
+global proc fileOptionsSetup(string $parent, string $action, int $forceFactorySettings, string $chosenFileType)
+{
+    global int $gCurrentPlayblastCheckBoxState;
+
+    int $renderSetup = foRenderSetupOn();
+    foInitOptionVars($action, $forceFactorySettings);
+    setParent $parent;
+
+    if ($action == "Open") {
+        checkBoxGrp -edit -value1 `optionVar -query fileExecuteSN` foOpenExecuteSNGrp;
+        optionMenuGrp -edit -select (fo_getLoadSettingIndex(`optionVar -query fileOpenRefLoadSetting`))
+            Openfo_loadSettingsMenu;
+        checkBoxGrp -edit -value1 `optionVar -query fileOpenReserveNamespaces` Openfo_reserveNamespacesGrp;
+        checkBoxGrp -edit -value1 `optionVar -query fileSelPreload` foOpenSelPreloadGrp;
+    }
+
+    if ($action == "Import" || $action == "Reference") {
+        int $ref = ($action == "Reference");
+        checkBoxGrp -edit -value1 `optionVar -query ($ref ? "referenceOptionsGrouping" : "fileOptionsGrouping")`
+            importGroupGrp;
+        if ($ref) {
+            int $grp = foCheck("importGroupGrp");
+            string $name = `optionVar -exists referenceOptionsGroupName` ? `optionVar -query referenceOptionsGroupName` : "";
+            textField -edit -enable $grp -text $name referenceGrpName;
+            checkBoxGrp -edit -enable $grp -value1 `optionVar -query referenceOptionsLocator` referenceLocatorGrp;
+            checkBoxGrp -edit -value1 `optionVar -query referenceOptionsLockReference` referenceLockReferenceGrp;
+            checkBoxGrp -edit -value1 `optionVar -query referenceOptionsDeferReference` referenceDeferReferenceGrp;
+            foSetSharedControls();
+            optionMenuGrp -edit -select (fo_getLoadSettingIndex(`optionVar -query fileReferenceRefLoadSetting`))
+                Referencefo_loadSettingsMenu;
+            checkBoxGrp -edit -value1 `optionVar -query fileReferenceReserveNamespaces` Referencefo_reserveNamespacesGrp;
+        }
+        int $useNS = `optionVar -query ($ref ? "referenceUseNamespacesDuringFileIO" : "useNamespacesDuringFileIO")`;
+        checkBoxGrp -edit -value1 $useNS useNamespacesGrp;
+        fo_changeReferenceNamespaceOption($action);
+        foObsoleteLabel($useNS);
+        if (!$ref) {
+            checkBoxGrp -edit -value1 `optionVar -query removeDuplicateShadingNetworksOnImport`
+                removeDuplicateShadingNetworksGrp;
+            checkBoxGrp -edit -value1 `optionVar -query mergeBaseAnimLayerOnImport` mergeBaseAnimLayerGrp;
+            checkBoxGrp -edit -value1 `optionVar -query importKeepReferences` imKeepReferences;
+            optionMenu -edit -select (`optionVar -query fileOptionsRenameAll` ? 2 : 1) nameClashOptions;
+            optionMenuGrp -edit -select (fo_getLoadSettingIndex(`optionVar -query fileImportRefLoadSetting`))
+                Importfo_loadSettingsMenu;
+            checkBoxGrp -edit -value1 `optionVar -query fileImportReserveNamespaces` Importfo_reserveNamespacesGrp;
+            int $override = `optionVar -query importOptionsOverrideEmpty`;
+            checkBoxGrp -edit -value1 $override -enable (foSceneIsEmpty()) imInheritFramerateEmpty;
+            fo_changeImportOverrideEmpty($override);
+        }
+    }
+
+    if ($action == "ExportSelectionAsReference") {
+        foSetIncludeFromOptionVars();
+        checkBoxGrp -edit -value1 `optionVar -query referenceOptionsLockReference` referenceLockReferenceGrp;
+        foSetGroupControls();
+        foSetSharedControls();
+        int $useNS = `optionVar -query referenceUseNamespacesDuringFileIO`;
+        checkBoxGrp -edit -value1 $useNS useNamespacesGrp;
+        fo_changeReferenceNamespaceOption($action);
+        foObsoleteLabel($useNS);
+        foSetPrefixFields($useNS, `optionVar -query referenceOptionsUseRenamePrefix`, "referenceOptionsRenamePrefix");
+        fo_prefixName($action);
+    }
+
+    if ($action == "AssignTemplate") {
+        checkBoxGrp -edit -value1 `optionVar -query assignTemplateFileAutobind` autobindWidget;
+        checkBoxGrp -edit -value1 `optionVar -query assignTemplateFileStandins` standinWidget;
+    }
+
+    if ($action == "ExportActive")
+        checkBoxGrp -edit -value1 `optionVar -query exportUseNamespacesDuringFileIO` foExportActiveNSGrp;
+
+    if ($action == "Save") {
+        checkBoxGrp -edit -value1 `optionVar -query isIncrementalSaveEnabled` incrementalSaveEnabled;
+        checkBoxGrp -edit -value1 `optionVar -query incrementalSaveLimitBackups` incrementalSaveLimit;
+        intSliderGrp -edit -value `optionVar -query incrementalSaveMaxBackups` incrementalSaveLimitNo;
+        checkBoxGrp -edit -value1 `optionVar -query isCompressedSaveEnabled` compressedSaveEnabled;
+        checkBoxGrp -edit -value1 `optionVar -query isCompressedPreserveNameEnabled` compressedPreserveNameEnabled;
+        incrementalSaveUpdateControls();
+    } else if ($action == "SaveAs") {
+        string $tex = `optionVar -query defaultTextureSaveAsType`;
+        if ($tex == "always")
+            radioButtonGrp -edit -select 1 fo_saveAsTextureOption;
+        else if ($tex == "unlessRef")
+            radioButtonGrp -edit -select 2 fo_saveAsTextureOption;
+        else if ($tex == "never")
+            radioButtonGrp -edit -select 3 fo_saveAsTextureOption;
+        radioButtonGrp -edit -select ((`optionVar -query defaultDiskCacheSaveAsType` == "never") ? 2 : 1)
+            fo_saveAsDiskCacheOption;
+        checkBoxGrp -edit -value1 `optionVar -query defaultLockFile` fo_saveAsLockFileOption;
+        checkBoxGrp -edit -value1 `optionVar -query defaultLockContainerUnpublished` fo_saveAsLockContainerUnpublishedOption;
+        checkBoxGrp -edit -value1 `optionVar -query useDefaultFileExtensions` useDefFileExtensions;
+    } else if ($action == "ExportAll" || $action == "ExportActive") {
+        checkBoxGrp -edit -value1 `optionVar -query exportKeepReferences` exKeepReferences;
+        checkBoxGrp -edit -value1 `optionVar -query exportUnloadedReferences` exUnloadedReferences;
+        checkBoxGrp -edit -value1 `optionVar -query useDefaultFileExtensions` useDefFileExtensions;
+    } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+        checkBoxGrp -edit -value1 `optionVar -query useDefaultFileExtensions` useDefFileExtensions;
+    }
+
+    if (`checkBox -exists savePlayblastCheckBox`) {
+        int $save = ($gCurrentPlayblastCheckBoxState != -1) ? $gCurrentPlayblastCheckBoxState
+                                                             : `optionVar -query useSavePlayblast`;
+        checkBox -edit -value $save savePlayblastCheckBox;
+        button -edit -enable $save captureButton;
+    }
+
+    if ($action == "ExportActive") {
+        checkBoxGrp -edit -enable true -value1 `optionVar -query exportKeepOnlyRef` exKeepRefBox;
+        foSetIncludeFromOptionVars();
+    } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+        string $targetVar = ($action == "ExportOfflineFile") ? "exportEditsTarget" : "exportEditsFromRefEdTarget";
+        radioButtonGrp -edit -select (`optionVar -query $targetVar` + 1) exEditsTargetOperation;
+        int $inputs = `optionVar -query exportEditsIncludeInputs`;
+        checkBoxGrp -edit -enable true -value1 $inputs
+            -onCommand1 "checkBoxGrp -edit -enable false exInChannelsBox"
+            -offCommand1 "checkBoxGrp -edit -enable true exInChannelsBox" exInInputsBox;
+        checkBoxGrp -edit -enable ($inputs == 0) -value1 `optionVar -query exportEditsIncludeChannels` exInChannelsBox;
+        checkBoxGrp -edit -enable true -value1 `optionVar -query exportEditsIncludeShaders` exInShadersBox;
+        checkBoxGrp -edit -enable true -value1 `optionVar -query exportEditsIncludeSetAttrs` exInSetAttrsBox;
+        fo_exportEditsExportOptionChanged();
+    } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+        radioButtonGrp -edit -select ((`optionVar -query applyEditsImport` == 1) ? 2 : 1) importOrRefPrompt;
+        if ($action == "ApplyOfflineFile")
+            checkBoxGrp -edit -value1 `optionVar -query applyOfflineFileToRoot` imApplyToRoot;
+    }
+
+    if ($action == "Save" || $action == "AssignTemplate")
+        return;
+
+    string $type = $chosenFileType;
+    if ($type == "") {
+        string $var = "";
+        if ($action == "Import") $var = "defaultFileImportType";
+        else if ($action == "Proxy" || $action == "Reference") $var = "defaultFileReferenceType";
+        else if ($action == "Open") $var = "defaultFileOpenType";
+        else if ($action == "SaveAs") $var = "defaultFileSaveType";
+        else if ($action == "ExportAll") $var = "defaultFileExportAllType";
+        else if ($action == "ExportActive") $var = "defaultFileExportActiveType";
+        else if ($action == "ExportSelectionAsReference") $var = "defaultFileExportSelectionAsReferenceType";
+        else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") $var = "defaultFileExportEditsType";
+        else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") $var = "defaultFileApplyEditsType";
+        else if ($action == "CreateReference") $var = "defaultFileCreateReferenceType";
+        if ($var != "" && `optionVar -exists $var`)
+            $type = `optionVar -query $var`;
+    }
+
+    if ($action == "Import" || $action == "Reference" || $action == "ApplyOfflineFile"
+        || $action == "ApplyOfflineFileFromRefEd") {
+        int $offline = ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd");
+        int $useNS = 1;
+        int $usePrefix;
+        string $prefixVar;
+        if ($offline) {
+            $usePrefix = (`optionVar -query applyEditsNamespaceName` != "");
+            $prefixVar = "applyEditsNamespaceName";
+        } else {
+            int $ref = ($action == "Reference");
+            $usePrefix = `optionVar -query ($ref ? "referenceOptionsUseRenamePrefix" : "fileOptionsUseRenamePrefix")`;
+            $useNS = `optionVar -query ($ref ? "referenceUseNamespacesDuringFileIO" : "useNamespacesDuringFileIO")`;
+            $prefixVar = $ref ? "referenceOptionsRenamePrefix" : "fileOptionsRenamePrefix";
+        }
+        foSetPrefixFields($useNS, $usePrefix, $prefixVar);
+        fo_prefixName($action);
+    }
+
+    if ($action == "Proxy" || $action == "Reference") {
+        string $tags[] = foProxyTags(1);
+        if (size($tags) == 0) {
+            optionVar -intValue ("proxyOptionsUseNew" + $action + "Tag") 1;
+            optionVar -stringValue ("proxyOptionsNew" + $action + "Tag") "";
+        }
+        if (`optionVar -query ("proxyOptionsUseNew" + $action + "Tag")`) {
+            optionMenu -edit -select 1 proxyTagOptionMenu;
+            textField -edit -text `optionVar -query ("proxyOptionsNew" + $action + "Tag")` newProxyTag;
+            optionVar -intValue ("proxyOptionsNew" + $action + "TagSpecified") 1;
+        } else if (`optionVar -exists ("proxyOptions" + $action + "Tag")`) {
+            string $want = `optionVar -query ("proxyOptions" + $action + "Tag")`;
+            for ($i = size($tags) - 1; $i >= 0; $i--) {
+                if ($tags[$i] == $want) {
+                    optionMenu -edit -select ($i + 2) proxyTagOptionMenu;
+                    break;
+                }
+            }
+        }
+        fo_proxyTag($action);
+        if ($action == "Proxy")
+            checkBoxGrp -edit -value1 `optionVar -query proxyOptionsSharedEdits` proxySharedEditsGrp;
+    }
+
+    if ($action == "ExportActive") {
+        int $usePrefix = `optionVar -query exportOptionsUseRenamePrefix`;
+        optionMenuGrp -edit -select ($usePrefix + 1) foExportActiveNSMenu;
+        if ($usePrefix)
+            textField -edit -text `optionVar -query exportOptionsRenamePrefix` foExportActiveNSFld;
+        fo_exportActiveNSMenuChange();
+        fo_exportActiveKeepRefChanged();
+    }
+    if ($action == "ExportActive" || $action == "ExportAll")
+        fo_exportPreserveRefChanged();
+
+    initCurrentFileTypeOption($action, $parent, $type);
+}
+
+global proc fileOptionsCancel()
+{
+    global int $gCurrentPlayblastCheckBoxState;
+    global string $gLastSelectedType;
+    global string $gDefaultFileType;
+
+    $gCurrentPlayblastCheckBoxState = -1;
+    foCaptureDo("-closeCurrentSession");
+    // A capture changed the default type while the box was up; it goes back.
+    if ($gLastSelectedType != "" && $gDefaultFileType != "")
+        optionVar -stringValue $gDefaultFileType $gLastSelectedType;
+    foHideOptionBox();
+}
+
+global proc fileOptionsAction(string $parent, string $action, string $actionProc)
+{
+    fileOptionsCallback($parent, $action, "");
+    foHideOptionBoxNow();
+    eval($actionProc);
+}
+
+global proc fileOptionsSaveAndClose(string $parent, string $action)
+{
+    fileOptionsCallback($parent, $action, "");
+    foHideOptionBox();
+}
+
+global proc fileOptionsCallback(string $parent, string $action, string $actionProc)
+{
+    fileOptionsCallback2($parent, $action, $actionProc, "");
+}
+
+global proc fileOptionsCallback2(string $parent, string $action, string $actionProc, string $selectedFile)
+{
+    global string $gFileOptionsString;
+    global string $gAllOptionStrings[];
+    global int $gLastOptionSelectionIndex;
+    global string $gCurrentOptionSelection;
+
+    if ($action == "Open") {
+        optionVar -intValue fileExecuteSN (foCheck("foOpenExecuteSNGrp"));
+        optionVar -stringValue fileOpenRefLoadSetting
+            (fo_getLoadSettingString(`optionMenuGrp -query -select Openfo_loadSettingsMenu`));
+        optionVar -intValue fileOpenReserveNamespaces (foCheck("Openfo_reserveNamespacesGrp"));
+        optionVar -intValue fileSelPreload (foCheck("foOpenSelPreloadGrp"));
+    }
+
+    if ($action == "Import" || $action == "Reference") {
+        int $ref = ($action == "Reference");
+        optionVar -intValue ($ref ? "referenceOptionsGrouping" : "fileOptionsGrouping") (foCheck("importGroupGrp"));
+        int $useNS = foCheck("useNamespacesGrp");
+        optionVar -intValue ($ref ? "referenceUseNamespacesDuringFileIO" : "useNamespacesDuringFileIO") $useNS;
+        if ($ref) {
+            optionVar -intValue referenceOptionsLocator (foCheck("referenceLocatorGrp"));
+            optionVar -stringValue referenceOptionsGroupName `textField -query -text referenceGrpName`;
+            optionVar -intValue referenceOptionsLockReference (foCheck("referenceLockReferenceGrp"));
+            optionVar -intValue referenceOptionsDeferReference (foCheck("referenceDeferReferenceGrp"));
+            optionVar -intValue referenceOptionsSharedReference (foCheck("referenceSharedReferenceCheckBox"));
+            optionVar -intValue referenceOptionsShareDisplayLayers (foCheck("referenceSharedDisplayLayers"));
+            optionVar -intValue referenceOptionsShareShaders (foCheck("referenceSharedShadingNetworks"));
+            optionVar -stringValue fileReferenceRefLoadSetting
+                (fo_getLoadSettingString(`optionMenuGrp -query -select Referencefo_loadSettingsMenu`));
+            optionVar -intValue fileReferenceReserveNamespaces (foCheck("Referencefo_reserveNamespacesGrp"));
+        } else {
+            optionVar -intValue removeDuplicateShadingNetworksOnImport (foCheck("removeDuplicateShadingNetworksGrp"));
+            optionVar -intValue mergeBaseAnimLayerOnImport (foCheck("mergeBaseAnimLayerGrp"));
+            optionVar -stringValue fileImportRefLoadSetting
+                (fo_getLoadSettingString(`optionMenuGrp -query -select Importfo_loadSettingsMenu`));
+            optionVar -intValue fileImportReserveNamespaces (foCheck("Importfo_reserveNamespacesGrp"));
+        }
+        foCommitPrefix($useNS, $ref ? "referenceOptionsUseRenamePrefix" : "fileOptionsUseRenamePrefix",
+                       $ref ? "referenceOptionsRenamePrefix" : "fileOptionsRenamePrefix");
+        if (!$ref && !$useNS) {
+            optionVar -intValue importKeepReferences (foCheck("imKeepReferences"));
+            optionVar -intValue fileOptionsRenameAll ((`optionMenu -query -select nameClashOptions` == 1) ? 0 : 1);
+        }
+    }
+
+    if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+        string $ns = "";
+        if (`radioCollection -exists namespaceRadioCollection`
+            && `radioCollection -query -select namespaceRadioCollection` == "radioNamespaceOnString")
+            $ns = `textField -query -text nodeNamePrefixInNamespace`;
+        optionVar -stringValue applyEditsNamespaceName $ns;
+        optionVar -stringValue fileWorkingNamespaceName (getlFullNamespaceFromTreeView());
+        if ($action == "ApplyOfflineFile")
+            optionVar -intValue applyOfflineFileToRoot (foCheck("imApplyToRoot"));
+    }
+
+    if ($action == "ExportSelectionAsReference") {
+        optionVar -intValue referenceOptionsGrouping (foCheck("importGroupGrp"));
+        optionVar -intValue referenceOptionsLocator (foCheck("referenceLocatorGrp"));
+        optionVar -stringValue referenceOptionsGroupName `textField -query -text referenceGrpName`;
+        optionVar -intValue referenceOptionsLockReference (foCheck("referenceLockReferenceGrp"));
+        optionVar -intValue referenceOptionsSharedReference (foCheck("referenceSharedReferenceCheckBox"));
+        optionVar -intValue referenceOptionsShareDisplayLayers (foCheck("referenceSharedDisplayLayers"));
+        optionVar -intValue referenceOptionsShareShaders (foCheck("referenceSharedShadingNetworks"));
+        int $useNS = foCheck("useNamespacesGrp");
+        optionVar -intValue referenceUseNamespacesDuringFileIO $useNS;
+        foCommitPrefix($useNS, "referenceOptionsUseRenamePrefix", "referenceOptionsRenamePrefix");
+    }
+
+    if ($action == "Proxy" || $action == "Reference") {
+        if (`optionMenu -query -select proxyTagOptionMenu` == 1) {
+            optionVar -intValue ("proxyOptionsUseNew" + $action + "Tag") 1;
+            string $tag = `textField -query -text newProxyTag`;
+            if ($tag != "")
+                optionVar -stringValue ("proxyOptionsNew" + $action + "Tag") $tag;
+        } else {
+            optionVar -intValue ("proxyOptionsUseNew" + $action + "Tag") 0;
+            string $item = "proxyTagOptionMenu" + `optionMenu -query -select proxyTagOptionMenu`;
+            optionVar -stringValue ("proxyOptions" + $action + "Tag") `menuItem -query -label $item`;
+        }
+        if ($action == "Proxy") {
+            optionVar -intValue proxyOptionsSharedEdits (foCheck("proxySharedEditsGrp"));
+            // Shared edits only apply to the next proxy.
+            checkBoxGrp -edit -enable false proxySharedEditsGrp;
+        }
+    }
+
+    if ($action == "ExportActive") {
+        optionVar -intValue exportUseNamespacesDuringFileIO (foCheck("foExportActiveNSGrp"));
+        optionVar -intValue exportOptionsUseRenamePrefix ((`optionMenuGrp -query -select foExportActiveNSMenu` == 1) ? 0 : 1);
+        string $prefix = `textField -query -text foExportActiveNSFld`;
+        if ($prefix != "")
+            optionVar -stringValue exportOptionsRenamePrefix $prefix;
+    }
+
+    if ($action == "AssignTemplate") {
+        optionVar -intValue assignTemplateFileAutobind (foCheck("autobindWidget"));
+        optionVar -intValue assignTemplateFileStandins (foCheck("standinWidget"));
+    }
+
+    string $t = ($action == "Save" || $action == "AssignTemplate") ? "" : $gCurrentOptionSelection;
+    if ($action == "Import") {
+        optionVar -stringValue defaultFileImportType $t;
+    } else if ($action == "Proxy" || $action == "Reference") {
+        optionVar -stringValue defaultFileReferenceType $t;
+    } else if ($action == "Open") {
+        optionVar -stringValue defaultFileOpenType $t;
+    } else {
+        if ($t == foBestGuess())
+            $t = "mayaBinary";
+        if ($action == "Save") {
+            optionVar -intValue isIncrementalSaveEnabled (foCheck("incrementalSaveEnabled"));
+            optionVar -intValue incrementalSaveLimitBackups (foCheck("incrementalSaveLimit"));
+            optionVar -intValue incrementalSaveMaxBackups `intSliderGrp -query -value incrementalSaveLimitNo`;
+            optionVar -intValue isCompressedSaveEnabled (foCheck("compressedSaveEnabled"));
+            optionVar -intValue isCompressedPreserveNameEnabled (foCheck("compressedPreserveNameEnabled"));
+        } else if ($action == "SaveAs") {
+            optionVar -stringValue defaultFileSaveType $t;
+            foDefaultExtensions();
+            int $tex = `radioButtonGrp -query -select fo_saveAsTextureOption`;
+            string $texHow = ($tex == 1) ? "always" : (($tex == 2) ? "unlessRef" : (($tex == 3) ? "never" : ""));
+            optionVar -stringValue defaultTextureSaveAsType $texHow;
+            catchQuiet(`file -saveTextures $texHow`);
+            string $cache = (`radioButtonGrp -query -select fo_saveAsDiskCacheOption` == 2) ? "never" : "always";
+            optionVar -stringValue defaultDiskCacheSaveAsType $cache;
+            catchQuiet(`file -saveDiskCache $cache`);
+            optionVar -intValue defaultLockFile (foCheck("fo_saveAsLockFileOption"));
+            optionVar -intValue defaultLockContainerUnpublished (foCheck("fo_saveAsLockContainerUnpublishedOption"));
+        } else if ($action == "ExportAll") {
+            optionVar -stringValue defaultFileExportAllType $t;
+            foDefaultExtensions();
+        } else if ($action == "ExportActive") {
+            optionVar -stringValue defaultFileExportActiveType $t;
+            if (foIsSceneType($t))
+                optionVar -intValue exportKeepOnlyRef (foCheck("exKeepRefBox"));
+            if (foIncludeAvailable($t))
+                foCommitInclude();
+            foDefaultExtensions();
+        } else if ($action == "ExportSelectionAsReference") {
+            optionVar -stringValue defaultFileExportSelectionAsReferenceType $t;
+            foCommitInclude();
+        } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+            optionVar -intValue exportEditsIncludeInputs (foCheck("exInInputsBox"));
+            optionVar -intValue exportEditsIncludeChannels (foCheck("exInChannelsBox"));
+            optionVar -intValue exportEditsIncludeShaders (foCheck("exInShadersBox"));
+            optionVar -intValue exportEditsIncludeSetAttrs (foCheck("exInSetAttrsBox"));
+            optionVar -stringValue defaultFileExportEditsType $t;
+            string $targetVar = ($action == "ExportOfflineFile") ? "exportEditsTarget" : "exportEditsFromRefEdTarget";
+            optionVar -intValue $targetVar (`radioButtonGrp -query -select exEditsTargetOperation` - 1);
+            foDefaultExtensions();
+        } else if ($action == "CreateReference") {
+            optionVar -stringValue defaultFileCreateReferenceType $t;
+        } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+            optionVar -stringValue defaultFileApplyEditsType $t;
+            optionVar -intValue applyEditsImport ((`radioButtonGrp -query -select importOrRefPrompt` == 2) ? 1 : 0);
+        }
+        if (`checkBox -exists savePlayblastCheckBox`)
+            optionVar -intValue useSavePlayblast `checkBox -query -value savePlayblastCheckBox`;
+    }
+
+    if (($action == "ExportActive" || $action == "ExportAll") && ($t == "mayaAscii" || $t == "mayaBinary" || $t == foBestGuess())) {
+        optionVar -intValue exportKeepReferences (foCheck("exKeepReferences"));
+        optionVar -intValue exportUnloadedReferences (foCheck("exUnloadedReferences"));
+    }
+
+    // The translator's own panel, asked for its settings.
+    string $script = "";
+    if ($t != foBestGuess() && $t != foScenesFilter())
+        $script = foOptionsScript($t);
+    if ($script != "")
+        eval($script + " fileOptionsScroll \"query\" \"\" fo_optionsCallback");
+    else
+        $gFileOptionsString = "";
+
+    // Each translator's settings written back. Only those held in memory are written: a second commit with nothing
+    // held leaves the stored ones as they are rather than emptying them.
+    string $list[] = `translator -query -list`;
+    for ($i = 0; $i < size($list); $i++) {
+        if ($list[$i] == "directory")
+            continue;
+        if ($list[$i] == $t)
+            $gAllOptionStrings[$i] = $gFileOptionsString;
+        if ($i < size($gAllOptionStrings))
+            optionVar -stringValue ($list[$i] + "Options") $gAllOptionStrings[$i];
+    }
+    $gLastOptionSelectionIndex = -1;
+    clear $gAllOptionStrings;
+
+    if ($actionProc != "")
+        eval($actionProc);
+}
+
+global proc string fo_getLoadSettingString(int $index)
+{
+    if ($index == 1) return "default";
+    if ($index == 2) return "all";
+    if ($index == 3) return "topOnly";
+    if ($index == 4) return "none";
+    return "";
+}
+
+global proc int fo_getLoadSettingIndex(string $setting)
+{
+    if ($setting == "default") return 1;
+    if ($setting == "all") return 2;
+    if ($setting == "topOnly") return 3;
+    if ($setting == "none") return 4;
+    return -1;
+}
+
+global proc fileOptionsLoadSettingsMenu(string $action)
+{
+    optionMenuGrp -label "Load settings" -columnAlign 1 "right" ($action + "fo_loadSettingsMenu");
+        menuItem -label "Load default references" fo_loadDefaultRefsMenuItem;
+        menuItem -label "Load all references" fo_loadAllRefsMenuItem;
+        menuItem -label "Load top-level references only" fo_loadTopRefsMenuItem;
+        menuItem -label "Load no references" fo_loadNoRefsMenuItem;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Reserve namespaces for unloaded references"
+        -annotation "Keeps the namespaces of references that aren't loaded, so nothing else takes them."
+        -columnWidth 2 240 ($action + "fo_reserveNamespacesGrp");
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// The options UI
+
+// The File type menu of the option box: Best Guess and the readers, or the writers the operation can use.
+proc foFileTypeMenu(string $action, string $parent, int $read)
+{
+    optionMenuGrp -label "File type" -columnAlign 1 "right"
+        -changeCommand ("setCurrentFileTypeOption \"" + $action + "\" \"" + $parent + "\" \"#1\"") fo_fileTypePopList;
+    string $list[] = `translator -query -list`;
+    if ($read) {
+        menuItem -label (foBestGuess()) fo_AnyfileTypeMenu;
+        for ($t in $list)
+            if ($t != "directory" && `translator -query -readSupport $t`)
+                menuItem -label $t ($t + "fo_fileTypeMenu");
+    } else {
+        for ($t in $list) {
+            if ($t == "directory" || !`translator -query -writeSupport $t`)
+                continue;
+            if ($action == "SaveAs" && !($t == "mayaAscii" || $t == "mayaPLE" || $t == "mayaLT" || $t == "mayaBinary"))
+                continue;
+            if (($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") && !foIsEditType($t))
+                continue;
+            if ($action == "ExportSelectionAsReference" && !($t == "mayaAscii" || $t == "mayaBinary"))
+                continue;
+            menuItem -label $t ($t + "fo_fileTypeMenu");
+        }
+    }
+}
+
+proc foBox(string $name, string $label, int $width)
+{
+    if ($width > 0)
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 $label -columnWidth 2 $width $name;
+    else
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 $label $name;
+}
+
+// The Group name row of Reference and Export Selection as Reference.
+proc foGroupNameForm()
+{
+    string $form = `formLayout groupNameForm`;
+    text -label "Group name" -align "right" -width 160 groupNameLabel;
+    string $name = `optionVar -exists referenceOptionsGroupName` ? `optionVar -query referenceOptionsGroupName` : "";
+    textField -width 152 -text $name referenceGrpName;
+    formLayout -edit -attachForm groupNameLabel "left" 0 -attachControl referenceGrpName "left" 5 groupNameLabel $form;
+    setParent ..;
+}
+
+proc foIncludeControls()
+{
+    foBox("exInInputsBox", "Include these inputs", 240);
+    checkBoxGrp -edit
+        -onCommand1 "string $b[] = {\"exInHistoryBox\",\"exInChannelsBox\",\"exInExpressionsBox\",\"exInConstraintsBox\"}; for ($x in $b) checkBoxGrp -edit -enable true -value1 true $x;"
+        -offCommand1 "string $b[] = {\"exInHistoryBox\",\"exInChannelsBox\",\"exInExpressionsBox\",\"exInConstraintsBox\"}; for ($x in $b) checkBoxGrp -edit -enable false -value1 false $x;"
+        exInInputsBox;
+    columnLayout exportOptionColumn;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "History" -columnWidth 1 175 exInHistoryBox;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Channels" -columnWidth 1 175 exInChannelsBox;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Expressions" -columnWidth 1 175 exInExpressionsBox;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Constraints" -columnWidth 1 175 exInConstraintsBox;
+    setParent ..;
+    foBox("exInShadersBox", "Include texture info", 240);
+}
+
+proc foSharedReferenceControls()
+{
+    frameLayout -label "Shared Reference Options";
+    columnLayout sharedRefLayout;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Shared nodes" -columnWidth 2 180
+            -annotation "Shares nodes with references already in the scene."
+            -value1 (`optionVar -query referenceOptionsSharedReference` == 1)
+            -changeCommand "fo_changeSharedReferenceOption" referenceSharedReferenceCheckBox;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Display layers" -columnWidth 2 120
+            -annotation "Merges display layers of the same name." referenceSharedDisplayLayers;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Shading networks" -columnWidth 2 180
+            -annotation "Merges identical shading networks." referenceSharedShadingNetworks;
+        if (!foRenderSetupOn()) {
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Render layers"
+                -annotation "Merges render layers with those in the scene."
+                -changeCommand "fo_changeRenderLayerShareOption" referenceRenderLayerMergeEnable;
+            radioButtonGrp -numberOfRadioButtons 2 -label "" -labelArray2 "By name" "By number"
+                -changeCommand "fo_changeRenderLayerShareOption" referenceRenderLayerMergeBy;
+        }
+    setParent ..;
+    setParent ..;
+}
+
+proc foNamespaceSection(string $action)
+{
+    global string $gFileOptionTreeViewName;
+    global string $gMergeOptionValue;
+
+    int $apply = ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd");
+    int $refStyle = ($action == "Reference" || $apply);
+
+    frameLayout -label "Namespace Options" -expandCommand ("fo_NamespaceOptionExpand(\"" + $action + "\")")
+        namespaceOptionFrame;
+    columnLayout -adjustableColumn true;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Use namespaces" -columnWidth 2 200
+        -annotation "Namespaces keep the names of the nodes read in apart from those already in the scene."
+        -changeCommand ("fo_changeReferenceNamespaceOption(\"" + $action + "\")") useNamespacesGrp;
+    if ($apply)
+        checkBoxGrp -edit -value1 true -enable false useNamespacesGrp;
+
+    columnLayout -rowSpacing 5 nameClashLayout;
+    string $clashForm = `formLayout nameClashForm`;
+    string $withLabel;
+    if ($refStyle) {
+        text -label "" nameClashOptions;
+        $withLabel = "Resolve all nodes with";
+    } else {
+        optionMenu -label "Resolve" nameClashOptions;
+            menuItem -label "Clashing nodes" prefixOptionMenu1;
+            menuItem -label "All nodes" prefixOptionMenu2;
+        $withLabel = "with";
+    }
+    optionMenu -label $withLabel -changeCommand ("fo_prefixName(\"" + $action + "\")") nameClash2OptionMenu;
+        menuItem -label "the file name" prefixOptionMenu3;
+        menuItem -label "this string" prefixOptionMenu4;
+    textField -width 152 nodeNamePrefix;
+    formLayout -edit
+        -attachForm nameClashOptions "left" 40
+        -attachControl nameClash2OptionMenu "left" 0 nameClashOptions
+        -attachControl nodeNamePrefix "left" 3 nameClash2OptionMenu
+        $clashForm;
+    setParent ..;
+    setParent ..;
+
+    int $nsUsed = $apply ? 1 : `optionVar -query (($action == "Reference") ? "referenceUseNamespacesDuringFileIO"
+                                                                          : "useNamespacesDuringFileIO")`;
+    text -label ("Prefixes are kept for older scripts. "
+               + "Namespaces are the better way to keep names apart. "
+               + "Turn Use namespaces on to choose one.") -visible (!$nsUsed) prefixesObsoleteLabel;
+
+    string $nsForm = `formLayout namespaceOptionLayout`;
+    $gFileOptionTreeViewName = foNamespaceTreeCreate();
+    control -edit -width 200 -height 150 $gFileOptionTreeViewName;
+    string $radios = `columnLayout radioColumnLayout`;
+    // Reused by name, so the box being built is the one these buttons act on.
+    if (`radioCollection -exists namespaceRadioCollection`)
+        deleteUI namespaceRadioCollection;
+    radioCollection namespaceRadioCollection;
+    string $on = "fo_changeRadioCollection(\"" + $action + "\")";
+    radioButton -label "Make a namespace named after the file" -onCommand $on radioNamespaceOnFileName;
+    formLayout form1;
+        radioButton -label "Make a namespace named" -onCommand $on radioNamespaceOnString;
+        textField -width 100 -visible false nodeNamePrefixInNamespace;
+        formLayout -edit -attachControl nodeNamePrefixInNamespace "left" 2 radioNamespaceOnString form1;
+    setParent ..;
+    radioButton -label "Merge into the selected namespace, renaming what clashes" -onCommand $on
+        radioNamespaceMergeToRename;
+    setParent ..;
+    formLayout -edit
+        -attachForm $gFileOptionTreeViewName "top" 5 -attachForm $gFileOptionTreeViewName "left" 5
+        -attachForm $gFileOptionTreeViewName "right" 50
+        -attachControl $radios "top" 5 $gFileOptionTreeViewName -attachForm $radios "left" 5
+        -attachForm $radios "right" 5
+        $nsForm;
+    setParent ..;
+
+    $gMergeOptionValue = $action + "MergeOptionValue";
+    if (!`optionVar -exists $gMergeOptionValue`)
+        optionVar -stringValue $gMergeOptionValue "radioNamespaceOnFileName";
+    string $chosen = `optionVar -query $gMergeOptionValue`;
+    if (`radioButton -exists $chosen`)
+        radioCollection -edit -select $chosen namespaceRadioCollection;
+
+    setParent ..;
+    setParent ..;
+
+    foNamespaceTreeUpdate($gFileOptionTreeViewName);
+    refreshNamespaceOptions($nsUsed, $action);
+}
+
+proc foProxySection(string $action)
+{
+    frameLayout -label "Proxy Options";
+    columnLayout proxyTagLayout;
+    string $used[] = foProxyUsedTags();
+    if ($action == "Proxy") {
+        if (size($used) == 1)
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Share edits with the first proxy" proxySharedEditsGrp;
+        else
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Share edits (first proxy only)" -enable false
+                proxySharedEditsGrp;
+    }
+    string $form = `formLayout proxyTagForm`;
+    optionMenu -label "Set proxy tag to" -changeCommand ("fo_proxyTag(\"" + $action + "\")") proxyTagOptionMenu;
+        menuItem -label "this string" proxyTagOptionMenu1;
+        int $n = 2;
+        string $tags[] = foProxyTags(1);
+        for ($t in $tags) {
+            menuItem -label $t ("proxyTagOptionMenu" + $n);
+            $n++;
+        }
+        for ($t in $used) {
+            menuItem -label $t -enable false ("proxyTagOptionMenu" + $n);
+            $n++;
+        }
+    textField -width 152 newProxyTag;
+    formLayout -edit -attachForm proxyTagOptionMenu "left" 40 -attachControl newProxyTag "left" 3 proxyTagOptionMenu
+        $form;
+    setParent ..;
+    setParent ..;
+    setParent ..;
+}
+
+proc foPlayblastSection(string $action)
+{
+    frameLayout -label "Thumbnail Options" playblastOptionsLayout;
+    rowLayout -numberOfColumns 4 playblastOptions;
+        columnLayout playblastSpace;
+            text -label "" -width 140; text -label "" -width 140; text -label "" -width 140;
+        setParent ..;
+        columnLayout playblastControls;
+            text -label "";
+            checkBox -label "Save a thumbnail with the file" -changeCommand "fo_onSavePlayblastCheckboxClick"
+                savePlayblastCheckBox;
+            text -label "";
+            button -label "Capture" -command ("fo_onCapturePlayblastbuttonClick " + $action) captureButton;
+            text -label "";
+            button -label "Delete" -command "fo_onDeletePlayblastbuttonClick"
+                -enable (foCaptureInt("capturedFrameCount") > 0) deleteButton;
+        setParent ..;
+        columnLayout playblastSpace2;
+            text -label "" -width 10; text -label "" -width 10; text -label "" -width 10;
+        setParent ..;
+        columnLayout playblastImage;
+            string $preview = foCaptureString("previewPath");
+            image -width 100 -height 100 -image $preview previewImage;
+        setParent ..;
+    setParent ..;
+    setParent ..;
+}
+
+global proc string fileOptionsTabPage(string $action, string $tabLayout, int $addFileTypeMenu)
+{
+    global string $gOptBoxForm;
+
+    int $renderSetup = foRenderSetupOn();
+    if (!`uiTemplate -exists optionsTemplate`) {
+        uiTemplate optionsTemplate;
+        frameLayout -defineTemplate optionsTemplate -collapsable true -collapse false -labelVisible true
+            -labelIndent 5 -marginWidth 5 -marginHeight 5;
+        columnLayout -defineTemplate optionsTemplate -adjustableColumn true;
+    }
+    setUITemplate -pushTemplate optionsTemplate;
+    setParent $tabLayout;
+
+    // Plug-ins find the form by this name to hide parts of it for a while.
+    $gOptBoxForm = `formLayout optionsBoxForm`;
+    string $frame = `frameLayout -collapsable false -labelVisible false -marginWidth 10 -borderVisible false
+        optionsBoxFrame`;
+    formLayout -edit -attachForm $frame "top" 0 -attachForm $frame "left" 0 -attachForm $frame "right" 0
+        -attachForm $frame "bottom" 0 $gOptBoxForm;
+    string $top = `columnLayout -rowSpacing 5 actionOptionsForm`;
+
+    int $readGroup = ($action == "Import" || $action == "Reference" || $action == "Proxy" || $action == "ApplyOfflineFile"
+                      || $action == "ApplyOfflineFileFromRefEd" || $action == "ExportSelectionAsReference");
+
+    if ($readGroup) {
+        if (!($action == "ExportSelectionAsReference" && !$addFileTypeMenu)) {
+            frameLayout -label "General Options";
+            columnLayout genOptionsLayout;
+            if ($action == "Import") {
+                foBox("importGroupGrp", "Group", 0);
+                foBox("removeDuplicateShadingNetworksGrp", "Remove duplicate shading networks", 240);
+                foBox("mergeBaseAnimLayerGrp", "Merge into the base animation layer", 240);
+                checkBoxGrp -edit -annotation "Animation read in goes onto the base layer instead of a new one."
+                    mergeBaseAnimLayerGrp;
+            } else if ($action == "Reference") {
+                foBox("referenceDeferReferenceGrp", "Deferred", 0);
+                foBox("referenceLockReferenceGrp", "Lock", 0);
+                foBox("importGroupGrp", "Group", 0);
+                checkBoxGrp -edit -changeCommand "fo_groupingOptionChanged" importGroupGrp;
+                foGroupNameForm();
+                foBox("referenceLocatorGrp", "Locator", 0);
+            } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+                radioButtonGrp -numberOfRadioButtons 2 -columnWidth3 170 160 200 -label "Apply via"
+                    -labelArray2 "Reference edits" "Import edits" importOrRefPrompt;
+                if ($action == "ApplyOfflineFile")
+                    foBox("imApplyToRoot", "Apply to the top-level reference", 240);
+            }
+            if ($addFileTypeMenu)
+                foFileTypeMenu($action, $tabLayout, $action != "ExportSelectionAsReference");
+            setParent ..;
+            setParent ..;
+        }
+
+        if ($action == "Import") {
+            frameLayout -label "Referencing";
+            columnLayout -rowSpacing 5 nameClashLayout;
+                foBox("imKeepReferences", "Preserve references", 240);
+                fileOptionsLoadSettingsMenu("Import");
+            setParent ..;
+            setParent ..;
+        } else if ($action == "Reference") {
+            frameLayout -label "Load Settings";
+            columnLayout refLoadSettingsLayout;
+                fileOptionsLoadSettingsMenu("Reference");
+            setParent ..;
+            setParent ..;
+            foSharedReferenceControls();
+        } else if ($action == "ExportSelectionAsReference") {
+            frameLayout -label "Include Options" IncludeOptions_FL;
+            columnLayout exportSelectionAsReferenceIncludeLayout;
+                foIncludeControls();
+            setParent ..;
+            setParent ..;
+            frameLayout -label "Reference Options" ReferenceOptions_FL;
+            columnLayout exportSelectionAsReferenceLayout;
+                foBox("referenceLockReferenceGrp", "Lock", 0);
+                foBox("importGroupGrp", "Group", 0);
+                checkBoxGrp -edit -changeCommand "fo_groupingOptionChanged" importGroupGrp;
+                foGroupNameForm();
+                foBox("referenceLocatorGrp", "Locator", 0);
+            setParent ..;
+            setParent ..;
+            foSharedReferenceControls();
+        }
+
+        if ($action == "Import") {
+            frameLayout -label "Playback";
+            columnLayout -rowSpacing 5 playbackLayout;
+                foBox("imInheritFramerateEmpty", "Take the frame rate and range when the scene is empty", 240);
+                checkBoxGrp -edit -annotation "In an empty scene the file's frame rate and play range are used as they are."
+                    -changeCommand "fo_changeImportOverrideEmpty #1" imInheritFramerateEmpty;
+                columnLayout radioColumnLayout;
+                    radioButtonGrp -numberOfRadioButtons 1 -label "Frame rate" -label1 "Keep the scene's"
+                        -columnWidth 2 240 -annotation "The scene keeps its frame rate."
+                        -onCommand1 "fo_changeImportFramerateRadioBtn 0" radioFramerateImportPreserve;
+                    radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "Take the file's"
+                        -columnWidth 2 240 -annotation "The scene takes the file's frame rate."
+                        -shareCollection radioFramerateImportPreserve
+                        -onCommand1 "fo_changeImportFramerateRadioBtn 1" radioFramerateImportOverride;
+                    columnLayout radioColumnLayout;
+                        radioButtonGrp -numberOfRadioButtons 1 -label "Play range" -label1 "Keep the scene's"
+                            -columnWidth 2 240 -annotation "The play range stays as it is."
+                            -onCommand1 "fo_changeImportAnimRangeRadioBtn 1" radioAnimRangeKeep;
+                        radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "Take the file's"
+                            -columnWidth 2 240 -annotation "The play range becomes the file's."
+                            -shareCollection radioAnimRangeKeep
+                            -onCommand1 "fo_changeImportAnimRangeRadioBtn 2" radioAnimRangeOverride;
+                        radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "Combine both"
+                            -columnWidth 2 240 -annotation "The play range grows to take in both."
+                            -shareCollection radioAnimRangeKeep
+                            -onCommand1 "fo_changeImportAnimRangeRadioBtn 3" radioAnimRangeCombine;
+                        radioButtonGrp -edit -select 1 radioAnimRangeKeep;
+                    setParent ..;
+                setParent ..;
+            setParent ..;
+            setParent ..;
+        }
+
+        if ($action != "Proxy")
+            foNamespaceSection($action);
+
+        if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+            frameLayout -label "Substitutions";
+            columnLayout;
+                textFieldGrp -label "Search for" searchForField;
+                textFieldGrp -label "Replace with" replaceWithField;
+                button -label "Add" -command "addSubstitution" addSubstitutionBtn;
+                button -label "Remove" -command "removeSubstitution" removeSubstitutionBtn;
+                textScrollList -allowMultiSelection true substitutionTable;
+            setParent ..;
+            setParent ..;
+        }
+
+        if ($action == "Reference" || $action == "Proxy")
+            foProxySection($action);
+    } else if ($action == "AssignTemplate") {
+        frameLayout -label "General Options";
+        columnLayout;
+            foBox("autobindWidget", "Bind automatically", 0);
+            checkBoxGrp -edit -annotation "Binds the template's attributes to matching nodes." autobindWidget;
+            foBox("standinWidget", "Stand-ins", 0);
+            checkBoxGrp -edit -annotation "Makes stand-in nodes for what the template names but the scene lacks."
+                standinWidget;
+        setParent ..;
+        setParent ..;
+    } else if ($action == "Open") {
+        frameLayout -label "General Options";
+        columnLayout genOptionsLayout;
+            if ($addFileTypeMenu)
+                foFileTypeMenu($action, $tabLayout, 1);
+            foBox("foOpenExecuteSNGrp", "Run script nodes", 240);
+        setParent ..;
+        setParent ..;
+        frameLayout -label "Referencing";
+        columnLayout openReferencingOptionsColumn;
+            fileOptionsLoadSettingsMenu("Open");
+            foBox("foOpenSelPreloadGrp", "Choose which references to load", 240);
+            checkBoxGrp -edit -annotation "Opens a list of the references to pick from before loading."
+                foOpenSelPreloadGrp;
+        setParent ..;
+        setParent ..;
+    } else if ($action == "Save") {
+        frameLayout -label "General Options";
+        columnLayout genOptionsLayout;
+            foBox("incrementalSaveEnabled", "Incremental save", 240);
+            checkBoxGrp -edit -changeCommand "incrementalSaveUpdateControls" incrementalSaveEnabled;
+            foBox("incrementalSaveLimit", "Limit incremental saves", 240);
+            checkBoxGrp -edit -changeCommand "incrementalSaveUpdateControls" incrementalSaveLimit;
+            intSliderGrp -field true -label "Number of increments" -minValue 1 -maxValue 100
+                -changeCommand "incrementalSaveUpdateControls" incrementalSaveLimitNo;
+            foBox("compressedSaveEnabled", "Compressed save", 240);
+            checkBoxGrp -edit -changeCommand "incrementalSaveUpdateControls" compressedSaveEnabled;
+            foBox("compressedPreserveNameEnabled", "Keep the file name", 240);
+            checkBoxGrp -edit -changeCommand "incrementalSaveUpdateControls" compressedPreserveNameEnabled;
+        setParent ..;
+        setParent ..;
+    } else {
+        frameLayout -label "General Options";
+        columnLayout genOptionsLayout;
+        if ($addFileTypeMenu)
+            foFileTypeMenu($action, $tabLayout, 0);
+        if ($action == "SaveAs" || $action == "ExportAll") {
+            foBox("useDefFileExtensions", "Default file extensions", 240);
+            if ($action == "ExportAll") {
+                foBox("exKeepReferences", "Keep references", 240);
+                checkBoxGrp -edit -changeCommand "fo_exportPreserveRefChanged" exKeepReferences;
+                foBox("exUnloadedReferences", "Export unloaded references", 240);
+            }
+        } else if ($action == "ExportActive" || $action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+            foBox("useDefFileExtensions", "Default file extensions", 240);
+        }
+        setParent ..;
+        setParent ..;
+
+        if ($action == "SaveAs") {
+            frameLayout -label "3D Paint Texture Options";
+            columnLayout;
+                radioButtonGrp -numberOfRadioButtons 3 -label "Copy texture maps" -columnWidth 3 140
+                    -labelArray3 "Always" "Unless referenced" "Never" fo_saveAsTextureOption;
+            setParent ..;
+            setParent ..;
+            frameLayout -label "Disk Cache Options";
+            columnLayout;
+                radioButtonGrp -numberOfRadioButtons 2 -label "Copy cache files" -labelArray2 "Always" "Never"
+                    fo_saveAsDiskCacheOption;
+            setParent ..;
+            setParent ..;
+            frameLayout -label "Referencing Options";
+            columnLayout;
+                checkBoxGrp -numberOfCheckBoxes 1 -label "Lock file" -label1 "Lock the file" -columnWidth 2 240
+                    fo_saveAsLockFileOption;
+                checkBoxGrp -numberOfCheckBoxes 1 -label "Lock unpublished" -label1 "Lock the file" -columnWidth 2 240
+                    fo_saveAsLockContainerUnpublishedOption;
+            setParent ..;
+            setParent ..;
+        } else if ($action == "ExportActive") {
+            frameLayout -label "Reference Options" RefOptions_FL;
+            columnLayout exportActiveReferenceLayout;
+                foBox("exKeepReferences", "Keep references", 0);
+                checkBoxGrp -edit -changeCommand "fo_exportPreserveRefChanged" exKeepReferences;
+                foBox("exUnloadedReferences", "Export unloaded references", 0);
+                foBox("exKeepRefBox", "Keep only a reference", 0);
+                checkBoxGrp -edit -changeCommand "fo_exportActiveKeepRefChanged" exKeepRefBox;
+                columnLayout foExportActiveReferenceLyt;
+                    foBox("foExportActiveNSGrp", "Use namespaces", 0);
+                    rowLayout -numberOfColumns 2 -columnWidth2 280 200 foExportActiveNSLyt;
+                        optionMenuGrp -label "Prefix with" -columnAlign 1 "right" -columnWidth 2 160
+                            -changeCommand "fo_exportActiveNSMenuChange" foExportActiveNSMenu;
+                            menuItem -label "the file name";
+                            menuItem -label "this string";
+                        textField -width 200 foExportActiveNSFld;
+                    setParent ..;
+                setParent ..;
+            setParent ..;
+            setParent ..;
+            frameLayout -label "Include Options" InclOptions_FL;
+            columnLayout exportActiveIncludeLayout;
+                foIncludeControls();
+            setParent ..;
+            setParent ..;
+        } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+            frameLayout -label "Export From" exportEditsTargetFrame;
+            columnLayout exportEditsTargetLayout;
+                radioButtonGrp -numberOfRadioButtons 3 -vertical -label "Export"
+                    -labelArray3 "Selected nodes" "Nodes connected to the selection" "The reference file"
+                    -annotation "Which edits go: those on the selected nodes, on what is connected to them, or all of the file's."
+                    -changeCommand "fo_exportEditsExportOptionChanged" exEditsTargetOperation;
+                frameLayout -label "Include Options";
+                columnLayout exportEditsIncludeLayout;
+                    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "All inputs" -columnWidth 1 175
+                        -annotation "Edits on everything upstream of the nodes." exInInputsBox;
+                    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Channels" -columnWidth 1 175
+                        -annotation "Edits on the animation curves driving them." exInChannelsBox;
+                    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Include texture info" -columnWidth 1 175
+                        exInShadersBox;
+                setParent ..;
+                setParent ..;
+            setParent ..;
+            setParent ..;
+            frameLayout -label "Reference Options" exportEditsReferenceOptionsFrame;
+            columnLayout exportEditsReferenceLayout;
+                checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Include attribute values"
+                    -annotation "Edits that set attribute values." exInSetAttrsBox;
+            setParent ..;
+            setParent ..;
+        }
+    }
+
+    // Where a translator's own panel goes.
+    if ($action != "Save" && $action != "AssignTemplate") {
+        frameLayout -label "File Type Specific Options" FileSpecific_FL;
+        columnLayout fileOptionsScroll;
+        setParent ..;
+        setParent ..;
+    } else {
+        columnLayout fileOptionsScroll;
+        setParent ..;
+    }
+
+    if ($action != "Open" && $action != "Import")
+        foPlayblastSection($action);
+
+    if (`pluginInfo -query -loaded mayaUsdPlugin` && `exists UsdfileOptionsTabPage`)
+        eval("UsdfileOptionsTabPage \"" + $action + "\" \"" + $top + "\"");
+    if (`pluginInfo -query -loaded LookdevXMaya` && `exists MaterialXFileOptionsTabPage`)
+        eval("MaterialXFileOptionsTabPage \"" + $action + "\" \"" + $top + "\"");
+
+    setUITemplate -popTemplate;
+    return $gOptBoxForm;
+}
+
+global proc fo_onCapturePlayblastbuttonClick(string $action)
+{
+    global string $gDefaultFileType;
+    global string $gLastSelectedType;
+    global string $gCurrentSelectedType;
+
+    string $file = foCaptureString("selectedFileName");
+    string $callback = "";
+    if (foCaptureInt("launchedFromOptionsBox")) {
+        string $btn = `exists getOptionBoxApplyAndCloseBtn` ? eval("getOptionBoxApplyAndCloseBtn") : "fileOptionsApplyAndCloseBtn";
+        if (`button -exists $btn`) {
+            if ($action != "Save")
+                button -edit -command ("projectViewerInitSelectedFileName " + $action + " \"\" true") $btn;
+            else if (!catchQuiet(`button -query -command $btn`))
+                button -edit -command ("thumbnailCaptureComponent -fileDialogProcessing true; "
+                                       + `button -query -command $btn`) $btn;
+        }
+        if (`button -exists deleteButton`)
+            button -edit -enable true deleteButton;
+    } else {
+        $callback = "fileCmdCallback; projectViewerInitSelectedFileName " + $action + " \"" + $file
+                  + "\" true; fileCmdRestoreCallback;";
+    }
+
+    if ($action == "SaveAs") $gDefaultFileType = "defaultFileSaveType";
+    else if ($action == "ExportActive") $gDefaultFileType = "defaultFileExportActiveType";
+    else if ($action == "ExportAll") $gDefaultFileType = "defaultFileExportAllType";
+
+    if ($gDefaultFileType != "") {
+        if ($gLastSelectedType == "")
+            $gLastSelectedType = `optionVar -query $gDefaultFileType`;
+        // The browser comes back on the same type after the capture.
+        optionVar -stringValue $gDefaultFileType $gCurrentSelectedType;
+    }
+    foCaptureDo("-capture -fileDialogCallback \"" + encodeString($callback) + "\"");
+}
+
+global proc fo_onDeletePlayblastbuttonClick()
+{
+    foCaptureDo("-delete");
+    button -edit -enable false deleteButton;
+    image -edit -visible false previewImage;
+}
+
+global proc fo_onSavePlayblastCheckboxClick()
+{
+    global int $gCurrentPlayblastCheckBoxState;
+    int $on = `checkBox -query -value savePlayblastCheckBox`;
+    button -edit -enable $on captureButton;
+    $gCurrentPlayblastCheckBoxState = $on;
+}
+
+global proc refreshPreviewImage(string $previewPath)
+{
+    if (!`image -exists previewImage`)
+        return;
+    if ($previewPath != "" && `filetest -r $previewPath`) {
+        image -edit -image $previewPath -visible true previewImage;
+    } else {
+        button -edit -enable false deleteButton;
+        image -edit -visible false previewImage;
+    }
+}
+
+global proc fileOptions(string $action, string $actionProc)
+{
+    global string $gActionProc;
+    $gActionProc = $actionProc;
+    // Called with "Test" only to load this file.
+    if ($action == "Test")
+        return;
+
+    string $command = "", $doLabel = "", $title = "", $help = "";
+    if ($action == "Open") {
+        $command = "Open"; $doLabel = "Open"; $title = "Open Options"; $help = "OpenSceneOptions";
+    } else if ($action == "Import") {
+        $command = "Import"; $doLabel = "Import"; $title = "Import Options"; $help = "ImportOptions";
+    } else if ($action == "Reference") {
+        $command = "Reference"; $doLabel = "Reference"; $title = "Reference Options"; $help = "CreateReferenceOptions";
+    } else if ($action == "Proxy") {
+        $command = "Proxy"; $doLabel = "Proxy"; $title = "Proxy Options"; $help = "CreateProxyOptions";
+    } else if ($action == "Save") {
+        $command = "Save Scene"; $doLabel = "Save Scene"; $title = "Save Scene Options"; $help = "SaveSceneOptions";
+    } else if ($action == "SaveAs") {
+        $command = "Save Scene As"; $doLabel = "Save Scene As"; $title = "Save Scene As Options";
+        $help = "SaveSceneAsOptions";
+    } else if ($action == "ExportAll") {
+        $command = "Export All"; $doLabel = "Export All"; $title = "Export All Options"; $help = "ExportAllOptions";
+    } else if ($action == "ExportActive") {
+        $command = "Export Selection"; $doLabel = "Export Selection"; $title = "Export Selection Options";
+        $help = "ExportSelectionOptions";
+    } else if ($action == "ExportSelectionAsReference") {
+        $command = "Export Selection As Reference"; $doLabel = "Export Selection as Reference";
+        $title = "Export Selection as Reference Options"; $help = "ExportSelectionOptions";
+    } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
+        $command = "Export Offline File"; $doLabel = "Export Offline File"; $title = "Export Offline File Options";
+        $help = "ExportOfflineFileOptions";
+    } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
+        $command = "Assign Offline File"; $doLabel = "Assign Offline File"; $title = "Assign Offline File Options";
+        $help = "ApplyOfflineFileOptions";
+        // Substitutions are never kept from one use to the next.
+        optionVar -stringValue applyOfflineFileSubstitutions "";
+    } else if ($action == "AssignTemplate") {
+        $command = "AssignTemplate"; $doLabel = "Assign Template"; $title = "Assign Template Options";
+        $help = "AssignTemplateOptions";
+    }
+
+    if (!`uiTemplate -exists optionsTemplate`) {
+        uiTemplate optionsTemplate;
+        frameLayout -defineTemplate optionsTemplate -collapsable true -collapse false -labelVisible true
+            -labelIndent 5 -marginWidth 5 -marginHeight 5;
+        columnLayout -defineTemplate optionsTemplate -adjustableColumn true;
+    }
+    setUITemplate -pushTemplate optionsTemplate;
+
+    // The option box: a window with one tab, the options in it, and the row of buttons under it. Its command name
+    // ($command) is what the box's title bar and Repeat Last would show.
+    string $win = foOptionWindowName();
+    if (`window -exists $win`)
+        deleteUI -window $win;
+    window -title $title -widthHeight 560 640 $win;
+    string $form = `formLayout -visible false`;
+    string $tabs = `tabLayout`;
+    fileOptionsTabPage($action, $tabs, true);
+    tabLayout -edit -tabLabelIndex 1 "Basic" $tabs;
+    setParent $form;
+    string $row = `rowLayout -numberOfColumns 4`;
+        string $q = "\"" + $action + "\"";
+        button -label $doLabel
+            -command ("fileOptionsAction " + $win + " " + $q + " \"" + encodeString($actionProc) + "\"")
+            fileOptionsApplyAndCloseBtn;
+        button -label "Save and Close" -command ("fileOptionsSaveAndClose " + $win + " " + $q) fileOptionsApplyBtn;
+        button -label "Reset" -command ("fileOptionsSetup " + $win + " " + $q + " true \"\"") fileOptionsResetBtn;
+        button -label "Cancel" -command "fileOptionsCancel" fileOptionsCloseBtn;
+    setParent ..;
+    formLayout -edit
+        -attachForm $tabs "top" 0 -attachForm $tabs "left" 0 -attachForm $tabs "right" 0
+        -attachControl $tabs "bottom" 5 $row
+        -attachForm $row "left" 5 -attachForm $row "right" 5 -attachForm $row "bottom" 5
+        -visible true $form;
+    setUITemplate -popTemplate;
+
+    // The tab layout, not the window, so the controls of this box are the ones found.
+    fileOptionsSetup($tabs, $action, false, "");
+    showWindow $win;
+}
+
+global proc fileOptions2(string $action, string $actionProc, int $calledFromCaptureTool)
+{
+    if (!$calledFromCaptureTool && foCaptureInt("isSessionOpened")) {
+        confirmDialog -message "Close the thumbnail capture tool first." -button "OK" -icon "warning";
+        return;
+    }
+    fileOptions($action, $actionProc);
+}
+
+global proc addSubstitution()
+{
+    string $search = `textFieldGrp -query -text searchForField`;
+    string $replace = `textFieldGrp -query -text replaceWithField`;
+    textScrollList -edit -append (`format -stringArg $search -stringArg $replace "Replace ^1s with ^2s"`)
+        substitutionTable;
+    optionVar -stringValue applyOfflineFileSubstitutions
+        (`optionVar -query applyOfflineFileSubstitutions` + $search + ";" + $replace + ";");
+}
+
+global proc removeSubstitution()
+{
+    int $chosen[] = `textScrollList -query -selectIndexedItem substitutionTable`;
+    string $parts[] = stringToStringArray(`optionVar -query applyOfflineFileSubstitutions`, ";");
+    for ($i in $chosen) {
+        int $j = $i - 1;
+        if (2 * $j < size($parts)) $parts[2 * $j] = "";
+        if (2 * $j + 1 < size($parts)) $parts[2 * $j + 1] = "";
+    }
+    string $kept = "";
+    for ($p in $parts)
+        if ($p != "")
+            $kept += $p + ";";
+    optionVar -stringValue applyOfflineFileSubstitutions $kept;
+
+    $chosen = `textScrollList -query -selectIndexedItem substitutionTable`;
+    while (size($chosen)) {
+        textScrollList -edit -removeIndexedItem $chosen[0] substitutionTable;
+        $chosen = `textScrollList -query -selectIndexedItem substitutionTable`;
+    }
+}
+
+global proc fo_changeRadioCollection(string $action)
+{
+    global string $gMergeOptionValue;
+    global string $gFileOptionTreeViewName;
+    if (!`radioCollection -exists namespaceRadioCollection`)
+        return;
+
+    string $chosen = `radioCollection -query -select namespaceRadioCollection`;
+    $gMergeOptionValue = $action + "MergeOptionValue";
+    optionVar -stringValue $gMergeOptionValue $chosen;
+
+    if ($chosen == "radioNamespaceOnFileName") {
+        foNamespaceTreeSelect($gFileOptionTreeViewName, ":");
+        textField -edit -visible false nodeNamePrefixInNamespace;
+        optionVar -stringValue namespaceClashNameMethod "new";
+    } else if ($chosen == "radioNamespaceOnString") {
+        fo_prefixName($action);
+        foNamespaceTreeSelect($gFileOptionTreeViewName, ":");
+        textField -edit -visible true nodeNamePrefixInNamespace;
+        optionVar -stringValue namespaceClashNameMethod "new";
+    } else if ($chosen == "radioNamespaceMergeToRename") {
+        foNamespaceTreeEnable($gFileOptionTreeViewName, 1);
+        optionVar -stringValue namespaceClashNameMethod "rename";
+        textField -edit -visible false nodeNamePrefixInNamespace;
+    }
+}
+
+global proc refreshNamespaceOptions(int $useNS, string $action)
+{
+    if ($useNS) {
+        formLayout -edit -visible false nameClashForm;
+        formLayout -edit -visible true namespaceOptionLayout;
+        columnLayout -edit -visible true radioColumnLayout;
+        fo_changeRadioCollection($action);
+        if (`text -exists prefixesObsoleteLabel`)
+            text -edit -visible false prefixesObsoleteLabel;
+        if ($action == "Import") {
+            menuItem -edit -enable false prefixOptionMenu1;
+            optionMenu -edit -select 2 nameClashOptions;
+            optionVar -intValue fileOptionsRenameAll 1;
+        }
+    } else {
+        formLayout -edit -visible true nameClashForm;
+        formLayout -edit -visible false namespaceOptionLayout;
+        columnLayout -edit -visible false radioColumnLayout;
+        fo_prefixName($action);
+        if (`text -exists prefixesObsoleteLabel`)
+            text -edit -visible true prefixesObsoleteLabel;
+        if ($action == "Import")
+            menuItem -edit -enable true prefixOptionMenu1;
+    }
+}
+
+global proc fo_NamespaceOptionExpand(string $action)
+{
+    if (`checkBoxGrp -exists useNamespacesGrp` && `formLayout -exists nameClashForm`
+        && `formLayout -exists namespaceOptionLayout`)
+        refreshNamespaceOptions(foCheck("useNamespacesGrp"), $action);
+}
+
+// The working namespace picked in the tree: ":" (the root) when nothing is picked, "" when the options aren't up.
+global proc string getlFullNamespaceFromTreeView()
+{
+    global string $gFileOptionTreeViewName;
+    string $tree = $gFileOptionTreeViewName;
+    if ($tree == "" || !`control -exists $tree` || !`radioCollection -exists namespaceRadioCollection`)
+        return "";
+    string $picked[];
+    if (foIsTreeView($tree))
+        $picked = `treeView -query -selectItem $tree`;
+    else
+        $picked = `textScrollList -query -selectItem $tree`;
+    if (size($picked) == 0)
+        return ":";
+    if (size($picked) > 1)
+        warning "Only one namespace can be the working one; the first picked is used.";
+    string $ns = $picked[0];
+    if (!startsWith($ns, ":"))
+        $ns = ":" + $ns;
+    return $ns;
+}

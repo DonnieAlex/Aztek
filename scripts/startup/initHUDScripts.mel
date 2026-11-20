@@ -1,0 +1,734 @@
+// initHUDScripts: what the heads-up display's sections show (the procedures their -command flags name), the
+// procedures that show or hide each group of sections from Display > Heads Up Display, and the polygon display helpers
+// the Display menu and its size windows use. The sections themselves are made elsewhere.
+//
+// Aztek draws its own sections for poly count, object details, frame rate, current frame, camera names and the view
+// axis; those are shown or hidden by name with `headsUpDisplay -vis`. The setters below switch Aztek's own section and
+// any scripted section of the reference's name, so scripts that made their own get the same answer.
+
+// The selection mask numbers filterExpand takes, from the globals when something has set them.
+proc int hudMaskMeshes()
+{
+    global int $gSelectMeshesBit;
+    return $gSelectMeshesBit ? $gSelectMeshesBit : 12;
+}
+
+proc int hudMaskNurbs()
+{
+    global int $gSelectNurbsSurfacesBit;
+    return $gSelectNurbsSurfacesBit ? $gSelectNurbsSurfacesBit : 10;
+}
+
+proc int hudMaskSubdivs()
+{
+    global int $gSelectSubdivSurface;
+    return $gSelectSubdivSurface ? $gSelectSubdivSurface : 68;
+}
+
+// Shows or hides the named sections that exist, then Aztek's own section standing for them, if it has one.
+proc hudShow(string $huds[], string $native, int $visibility)
+{
+    for ($h in $huds)
+        if (`headsUpDisplay -exists $h`)
+            headsUpDisplay -visible $visibility $h;
+    if ($native != "")
+        headsUpDisplay -visible $visibility $native;
+}
+
+// The menu item's tick, when the Heads Up Display menu has been built, and the option variable either way.
+proc hudRecord(string $item, string $var, int $visibility)
+{
+    if ($item != "" && `menuItem -exists $item`)
+        menuItem -edit -checkBox $visibility $item;
+    optionVar -intValue $var $visibility;
+}
+
+// A section's text is worked out each time the views draw, so there is nothing to do but redraw them.
+proc hudRefresh(string $hud)
+{
+    if (`headsUpDisplay -exists $hud`)
+        refresh;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The main object: the last of the selected objects, and whether it is one of the kinds of surface a section reports.
+
+// Whether the lead object is of the kind $items lists: the lead's shape is in it when the lead has other children, or
+// the last item is the lead when it hasn't.
+proc int hudLeadIsIn(string $items[], string $lead, string $shape, int $hasChildren)
+{
+    int $n = size($items);
+    if ($n == 0)
+        return 0;
+    if ($hasChildren)
+        return stringArrayContains($shape, $items);
+    return $items[$n - 1] == $lead;
+}
+
+// Whether the lead has children other than its first shape.
+proc int hudLeadHasChildren(string $lead, string $shape)
+{
+    string $kids[] = `listRelatives -children $lead`;
+    return size($kids) > 1 || (size($kids) == 1 && $kids[0] != $shape);
+}
+
+global proc string objectDetailsBackfaces()
+{
+    string $objs[] = `ls -selection -objectsOnly`;
+    if (size($objs) == 0)
+        return "N/A";
+    string $lead = $objs[size($objs) - 1];
+    string $shapes[] = `listRelatives -shapes $lead`;
+    string $shape = size($shapes) ? $shapes[0] : "";
+    int $kids = hudLeadHasChildren($lead, $shape);
+
+    string $meshes[] = `filterExpand -selectionMask (hudMaskMeshes()) $objs`;
+    string $nurbs[] = `filterExpand -selectionMask (hudMaskNurbs()) $objs`;
+    int $valid = hudLeadIsIn($meshes, $lead, $shape, $kids);
+    if (size($meshes) && $valid) {
+        int $culled[] = `polyOptions -query -backCulling $lead`;
+        return (size($culled) && $culled[0]) ? "On" : "Off";
+    }
+    $valid = $valid || hudLeadIsIn($nurbs, $lead, $shape, $kids);
+    if (size($nurbs) && $valid) {
+        int $cull[] = `displayCull -query -backFaceCulling $lead`;
+        return (size($cull) && $cull[0]) ? "Off" : "On";
+    }
+    return "N/A";
+}
+
+global proc string objectDetailsSmoothness()
+{
+    string $objs[] = `ls -selection -objectsOnly`;
+    if (size($objs) == 0)
+        return "N/A";
+    string $lead = $objs[size($objs) - 1];
+    string $shapes[] = `listRelatives -shapes $lead`;
+    string $shape = size($shapes) ? $shapes[0] : "";
+    int $kids = hudLeadHasChildren($lead, $shape);
+
+    string $nurbs[] = `filterExpand -expand true -selectionMask (hudMaskNurbs()) $objs`;
+    string $subds[] = `filterExpand -expand true -selectionMask (hudMaskSubdivs()) $objs`;
+    int $valid = hudLeadIsIn($nurbs, $lead, $shape, $kids);
+    if (size($nurbs) && $valid) {
+        int $s[] = `displaySmoothness -query -divisionsU -divisionsV -pointsWire -pointsShaded $lead`;
+        int $full[] = `displaySmoothness -query -full $lead`;
+        int $hull[] = `displaySmoothness -query -hull $lead`;
+        if (size($s) < 4)
+            return "N/A";
+        if (size($hull) && $hull[0])
+            return "Hull";
+        int $isFull = size($full) && $full[0];
+        if ($isFull && $s[0] == 0 && $s[1] == 0 && $s[2] == 4 && $s[3] == 1)
+            return "Rough";
+        if ($isFull && $s[0] == 1 && $s[1] == 1 && $s[2] == 8 && $s[3] == 2)
+            return "Medium";
+        if ($isFull && $s[0] == 2 && $s[1] == 2 && $s[2] == 16 && $s[3] == 4)
+            return "Fine";
+        return "Custom";
+    }
+    $valid = $valid || hudLeadIsIn($subds, $lead, $shape, $kids);
+    if (size($subds) && $valid) {
+        // The reference always answers Custom here; this names the level the surface shows, as the NURBS case does.
+        if (`exists subdivDisplaySmoothness`) {
+            int $level[] = `subdivDisplaySmoothness -query $lead`;
+            if (size($level)) {
+                if ($level[0] == 0)
+                    return "Hull";
+                if ($level[0] == 1)
+                    return "Rough";
+                if ($level[0] == 2)
+                    return "Medium";
+                if ($level[0] == 3)
+                    return "Fine";
+            }
+        }
+        return "Custom";
+    }
+    return "N/A";
+}
+
+global proc string objectDetailsInstance()
+{
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        return "N/A";
+    string $lead = $sel[size($sel) - 1];
+    string $shapes[] = `listRelatives -fullPath -shapes $lead`;
+    if (size($shapes) == 0)
+        return "N/A";
+    string $parents[] = `listRelatives -allParents $shapes[0]`;
+    return size($parents) > 1 ? "Yes" : "No";
+}
+
+global proc string objectDetailsDisplayLayer()
+{
+    string $objs[] = `ls -selection -objectsOnly`;
+    if (size($objs) == 0)
+        return "N/A";
+    string $lead = $objs[size($objs) - 1];
+    if (!`attributeExists drawOverride $lead`)
+        return "N/A";
+    string $src = `connectionInfo -sourceFromDestination ($lead + ".drawOverride")`;
+    string $parts[];
+    tokenize $src "." $parts;
+    if (size($parts) && `objExists $parts[0]`)
+        return $parts[0];
+    return "Default";
+}
+
+global proc int objectDetailsNumberOfSelectedObjects()
+{
+    string $objs[] = `ls -selection -objectsOnly`;
+    return size($objs);
+}
+
+// The particle counts of the given nodes, left out nCloth and nRigid, which are particle nodes too.
+proc int hudParticleSum(string $nodes[])
+{
+    int $sum = 0;
+    for ($n in $nodes) {
+        string $type = `nodeType $n`;
+        if (($type == "particle" || $type == "nParticle") && `attributeExists count $n`)
+            $sum += `getAttr ($n + ".count")`;
+    }
+    return $sum;
+}
+
+global proc string getParticleCount()
+{
+    string $all[] = `ls -type particle`;
+    int $total = hudParticleSum($all);
+    int $picked = 0;
+    string $objs[] = `ls -selection -objectsOnly`;
+    for ($o in $objs) {
+        string $under[] = `listRelatives -allDescendents -type particle $o`;
+        $picked += hudParticleSum($under);
+    }
+    return ($total + "        " + $picked);
+}
+
+// The last selected subdivision surface, or "".
+proc string hudLastSubdiv()
+{
+    string $objs[] = `ls -selection -objectsOnly`;
+    if (size($objs) == 0)
+        return "";
+    string $subds[] = `filterExpand -expand true -selectionMask (hudMaskSubdivs()) $objs`;
+    return size($subds) ? $subds[size($subds) - 1] : "";
+}
+
+global proc string subdDetailsCurrentLevel()
+{
+    string $s = hudLastSubdiv();
+    if ($s != "" && `exists subdiv`) {
+        int $proxy = `subdiv -query -proxyMode $s`;
+        if ($proxy != 1) {
+            int $level = `subdiv -query -currentSubdLevel $s`;
+            return ("" + $level);
+        }
+    }
+    return "N/A";
+}
+
+global proc string subdDetailsCurrentMode()
+{
+    string $s = hudLastSubdiv();
+    if ($s == "")
+        return "N/A";
+    if (`exists subdiv` && `subdiv -query -proxyMode $s` == 1)
+        return "Polygon Proxy";
+    return "Standard";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Showing and hiding groups of sections.
+
+global proc setObjectDetailsVisibility(int $visibility)
+{
+    hudShow({"HUDObjDetBackfaces", "HUDObjDetSmoothness", "HUDObjDetInstance", "HUDObjDetDispLayer", "HUDObjDetDistFromCam", "HUDObjDetNumSelObjs"}, "objectDetails", $visibility);
+    hudRecord("objectDetailsItem", "objectDetailsVisibility", $visibility);
+}
+
+global proc setPolyCountVisibility(int $visibility)
+{
+    hudShow({"HUDPolyCountVerts", "HUDPolyCountEdges", "HUDPolyCountFaces", "HUDPolyCountTriangles", "HUDPolyCountUVs"}, "polyCount", $visibility);
+    hudRecord("polyCountItem", "polyCountVisibility", $visibility);
+}
+
+global proc setParticleCountVisibility(int $visibility)
+{
+    hudShow({"HUDParticleCount"}, "", $visibility);
+    hudRecord("particleCountItem", "particleCountVisibility", $visibility);
+}
+
+global proc setSubdDetailsVisibility(int $visibility)
+{
+    hudShow({"HUDSubdLevel", "HUDSubdMode"}, "", $visibility);
+    hudRecord("subdDetailsItem", "subdDetailsVisibility", $visibility);
+}
+
+global proc setViewportRendererVisibility(int $visibility)
+{
+    hudShow({"HUDViewportRenderer"}, "", $visibility);
+    hudRecord("viewportRendererItem", "viewportRendererVisibility", $visibility);
+}
+
+global proc setSymmetryVisibility(int $visibility)
+{
+    hudShow({"HUDSymmetry"}, "", $visibility);
+    hudRecord("symmetryItem", "symmetryVisibility", $visibility);
+}
+
+global proc setCapsLockVisibility(int $visibility)
+{
+    hudShow({"HUDCapsLock"}, "", $visibility);
+    hudRecord("capsLockItem", "capsLockVisibility", $visibility);
+}
+
+global proc setCameraNamesVisibility(int $visibility)
+{
+    hudShow({"HUDCameraNames"}, "cameraNames", $visibility);
+    hudRecord("cameraNamesItem", "cameraNamesVisibility", $visibility);
+}
+
+global proc setFocalLengthVisibility(int $visibility)
+{
+    hudShow({"HUDFocalLength"}, "", $visibility);
+    hudRecord("focalLengthItem", "focalLengthVisibility", $visibility);
+}
+
+global proc setFrameRateVisibility(int $visibility)
+{
+    hudShow({"HUDFrameRate"}, "frameRate", $visibility);
+    hudRecord("frameRateItem", "frameRateVisibility", $visibility);
+}
+
+global proc ToggleMaterialLoadingDetailsHUDVisibility(int $visibility)
+{
+    hudShow({"HUDLoadingMaterials", "HUDLoadingTextures"}, "", $visibility);
+    hudRecord("materialLoadingDetailsItem", "materialLoadingDetailsVisibility", $visibility);
+}
+
+global proc setCurrentFrameVisibility(int $visibility)
+{
+    hudShow({"HUDCurrentFrame"}, "currentFrame", $visibility);
+    hudRecord("currentFrameItem", "currentFrameVisibility", $visibility);
+}
+
+global proc setSceneTimecodeVisibility(int $visibility)
+{
+    hudShow({"HUDSceneTimecode"}, "", $visibility);
+    hudRecord("sceneTimecodeItem", "sceneTimecodeVisibility", $visibility);
+}
+
+global proc setCurrentContainerVisibility(int $visibility)
+{
+    hudShow({"HUDCurrentContainer"}, "", $visibility);
+    hudRecord("currentContainerItem", "currentContainerVisibility", $visibility);
+}
+
+global proc setViewAxisVisibility(int $visibility)
+{
+    hudShow({"HUDViewAxis"}, "viewAxis", $visibility);
+    hudRecord("viewAxisItem", "viewAxisVisibility", $visibility);
+}
+
+global proc setHikDetailsVisibility(int $visibility)
+{
+    hudShow({"HUDHikKeyingMode"}, "", $visibility);
+    optionVar -intValue hikDetailsVisibility $visibility;
+}
+
+global proc setSelectDetailsVisibility(int $visibility)
+{
+    hudShow({"HUDSoftSelectState"}, "", $visibility);
+    optionVar -intValue selectDetailsVisibility $visibility;
+    if (`menuItem -exists selectDetailsItem`)
+        menuItem -edit -checkBox $visibility selectDetailsItem;
+}
+
+global int $gHUDupdateIKScriptJobExists = 0;
+global int $gHUDupdateIKScriptJob = 0;
+
+global proc setAnimationDetailsVisibility(int $visibility)
+{
+    global int $gHUDupdateIKScriptJobExists;
+    global int $gHUDupdateIKScriptJob;
+
+    hudShow({"HUDIKSolverState", "HUDCurrentCharacter", "HUDPlaybackSpeed"}, "", $visibility);
+    if ($visibility) {
+        // The IK state changes with time, so its row is redrawn as time moves while it's shown.
+        if (!$gHUDupdateIKScriptJobExists && `headsUpDisplay -exists HUDIKSolverState`) {
+            $gHUDupdateIKScriptJob = `scriptJob -event timeChanged "refresh"`;
+            $gHUDupdateIKScriptJobExists = 1;
+        }
+    } else if ($gHUDupdateIKScriptJobExists) {
+        catch(`scriptJob -kill $gHUDupdateIKScriptJob -force`);
+        $gHUDupdateIKScriptJobExists = 0;
+        $gHUDupdateIKScriptJob = 0;
+    }
+    hudRecord("animationDetailsItem", "animationDetailsVisibility", $visibility);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Animation readouts.
+
+global proc string animationDetailsIKFK()
+{
+    int $last = `optionVar -query ikFKSwitchState`;
+    string $sel[] = `ls -selection`;
+    // 0 nothing selected, 1 on, 2 off, 3 no solver, 4 mixed.
+    int $state = 0;
+    if (`exists ikFKSolverState`)
+        $state = eval("ikFKSolverState({\"" + stringArrayToString($sel, "\",\"") + "\"})");
+    int $canSync = `exists updateIKFKCheckBox`;
+
+    if ($state == 1) {
+        float $blend = 0;
+        if (`exists ikFkBlendValue`)
+            $blend = eval("ikFkBlendValue({\"" + stringArrayToString($sel, "\",\"") + "\"})");
+        if ($last != 1 && $canSync)
+            eval("updateIKFKCheckBox 1");
+        return $blend > 0 ? ("" + $blend) : "Mixed";
+    }
+    if ($state == 2) {
+        if ($last != 0 && $canSync)
+            eval("updateIKFKCheckBox 0");
+        return "Off";
+    }
+    if ($state == 4) {
+        if ($last == 0 && $canSync)
+            eval("updateIKFKCheckBox 1");
+        return "Mixed";
+    }
+    return "No Solver";
+}
+
+global proc string animationDetailsCurrentCharacter()
+{
+    string $chars[];
+    if (`exists currentCharacters`)
+        $chars = eval("currentCharacters");
+    if (size($chars) == 0)
+        return "None";
+    if (size($chars) == 1)
+        return $chars[0];
+    return "Multiple";
+}
+
+global proc string fbikDetailsKeyType()
+{
+    int $k = `optionVar -query fbikKeyOption`;
+    if ($k == 1)
+        return "IK";
+    if ($k == 2)
+        return "FK";
+    return "Simple";
+}
+
+global proc string hikDetailsKeyingMode()
+{
+    if (!`optionVar -exists keyFullBody`)
+        optionVar -intValue keyFullBody 1;
+    int $k = `optionVar -query keyFullBody`;
+    if ($k == 1)
+        return "Full Body";
+    if ($k == 2)
+        return "Body Part";
+    return "Selected";
+}
+
+global proc string animationDetailsPlaybackSpeed()
+{
+    float $speed = `playbackOptions -query -playbackSpeed`;
+    string $unit = `currentUnit -query -time`;
+    int $fps = 0;
+    if ($unit == "game")
+        $fps = 15;
+    else if ($unit == "film")
+        $fps = 24;
+    else if ($unit == "pal")
+        $fps = 25;
+    else if ($unit == "ntsc")
+        $fps = 30;
+    else if ($unit == "show")
+        $fps = 48;
+    else if ($unit == "palf")
+        $fps = 50;
+    else if ($unit == "ntscf")
+        $fps = 60;
+
+    string $text;
+    if (equivalentTol($speed, 0.0, 0.0001))
+        $text = "Play Every Frame ";
+    else if (equivalentTol($speed, 0.5, 0.0001))
+        $text = "Half Speed ";
+    else if (equivalentTol($speed, 1.0, 0.0001))
+        $text = "Real-time";
+    else if (equivalentTol($speed, 2.0, 0.0001))
+        $text = "Twice Speed ";
+    else
+        $text = "Other Speed ";
+
+    float $rate = $fps * $speed;
+    if ($rate != 0)
+        $text += " [" + $rate + " fps]";
+    return $text;
+}
+
+global proc updateCurrentCharacterHUD()
+{
+    hudRefresh("HUDCurrentCharacter");
+}
+
+global proc updatePlaybackSpeedHUD()
+{
+    hudRefresh("HUDPlaybackSpeed");
+}
+
+global proc updateSubdHUD()
+{
+    hudRefresh("HUDSubdMode");
+    hudRefresh("HUDSubdLevel");
+}
+
+global proc updateParticleHUD()
+{
+    hudRefresh("HUDParticleCount");
+}
+
+global proc updateCapsLockHUD()
+{
+    hudRefresh("HUDCapsLock");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Polygon display.
+
+global proc setPolyDisplayLimitedToSelected()
+{
+    optionVar -intValue polyDisplayLimitedToSelectedOV (!`optionVar -query polyDisplayLimitedToSelectedOV`);
+}
+
+// The Display menu's own procedure, sourced here when the menu hasn't been built yet.
+proc hudToggleSurfaceCulling()
+{
+    if (!`exists toggleSurfaceBackfaceCulling`)
+        catchQuiet(`eval "source \"buildDisplayMenu.mel\""`);
+    if (`exists toggleSurfaceBackfaceCulling`)
+        eval("toggleSurfaceBackfaceCulling");
+}
+
+global proc setPolyDisplayBackCulling(int $type)
+{
+    if ($type == 1) {
+        optionVar -intValue polyDisplayVertexBackfaceCulling (!`optionVar -query polyDisplayVertexBackfaceCulling`);
+        hudToggleSurfaceCulling();
+    } else if ($type == 2) {
+        int $was = `optionVar -query polyDisplayWireBackfaceCulling`;
+        optionVar -intValue polyDisplayWireBackfaceCulling (!$was);
+        // Keeping wires and keeping hard edges are two ways of culling: one at a time.
+        if (!$was)
+            optionVar -intValue polyDisplayHardEdgeBackfaceCulling 0;
+        updateCullingOptions();
+        hudToggleSurfaceCulling();
+    } else {
+        int $was = `optionVar -query polyDisplayHardEdgeBackfaceCulling`;
+        optionVar -intValue polyDisplayHardEdgeBackfaceCulling (!$was);
+        if (!$was)
+            optionVar -intValue polyDisplayWireBackfaceCulling 0;
+        updateCullingOptions();
+        hudToggleSurfaceCulling();
+    }
+}
+
+global proc updateCullingOptions()
+{
+    if (`menuItem -exists toggleKeepWireBackCullingItem`)
+        menuItem -edit -checkBox `optionVar -query polyDisplayWireBackfaceCulling` toggleKeepWireBackCullingItem;
+    if (`menuItem -exists toggleKeepHardEdgesCullingItem`)
+        menuItem -edit -checkBox `optionVar -query polyDisplayHardEdgeBackfaceCulling` toggleKeepHardEdgesCullingItem;
+}
+
+// Runs a Display menu procedure, sourcing the menu's file the first time.
+proc hudDisplayMenuProc(string $call, string $proc)
+{
+    if (!`exists $proc`)
+        catchQuiet(`eval "source \"buildDisplayMenu.mel\""`);
+    if (`exists $proc`)
+        eval($call);
+}
+
+global proc setPolygonDisplaySettings(string $option)
+{
+    string $sel[] = `ls -selection`;
+    int $limited = `optionVar -query polyDisplayLimitedToSelectedOV`;
+    // Not limited to the selection: every mesh is selected for the change, then the selection is put back.
+    if (!$limited) {
+        select -clear;
+        string $meshes[] = `ls -type mesh`;
+        if (size($meshes))
+            select $meshes;
+    }
+
+    if ($option == "vertexCulling")
+        setPolyDisplayBackCulling(1);
+    else if ($option == "keepWire")
+        setPolyDisplayBackCulling(2);
+    else if ($option == "keepHardEdge")
+        setPolyDisplayBackCulling(3);
+    else if ($option == "culling")
+        hudToggleSurfaceCulling();
+    else if ($option == "fNormal")
+        hudDisplayMenuProc("toggleNormalDisplay \"face\"", "toggleNormalDisplay");
+    else if ($option == "vNormal")
+        hudDisplayMenuProc("toggleNormalDisplay \"vertex\"", "toggleNormalDisplay");
+    else if ($option == "vertexSize")
+        hudDisplayMenuProc("dispWindow \"VertSz\"", "dispWindow");
+    else if ($option == "uvSize")
+        hudDisplayMenuProc("dispWindow \"UVSz\"", "dispWindow");
+    else if ($option == "normalSize")
+        hudDisplayMenuProc("dispWindow \"NormSz\"", "dispWindow");
+    else if ($option == "edgeWidth")
+        hudDisplayMenuProc("dispWindow \"EdgeSz\"", "dispWindow");
+    else if ($option == "tangent")
+        hudDisplayMenuProc("toggleTangentDisplay", "toggleTangentDisplay");
+    else if ($option == "dispEdge")
+        polyOptions -allEdges -activeObjects;
+    else if ($option == "dispSoftEdge")
+        polyOptions -softEdge -activeObjects;
+    else if ($option == "dispHardEdge")
+        polyOptions -hardEdge -activeObjects;
+    else if ($option == "dispHardEdgeColor")
+        polyOptions -hardEdgeColor -activeObjects;
+    else if ($option == "reset")
+        polyOptions -activeObjects -allEdges -sizeBorder 3 -displayBorder 0 -displayCreaseEdge 0 -displayCreaseVertex 0
+            -displayTangent 0 -displayMapBorder 0 -displayVertex 0 -displayNormal 0 -facet -displayCenter 0
+            -displayTriangle 0 -displayWarp 0 -displayInvisibleFaces 1 -displayItemNumbers 0 0 0 0 -sizeNormal 0.4
+            -sizeVertex 3.0 -sizeUV 4.0 -backCulling -displayUVs 0 -displayUVTopology 0 -colorShadedDisplay 0
+            -colorMaterialChannel diffuse -backCullVertex 1;
+    else if ($option == "verts")
+        polyOptions -relative -activeObjects -displayVertex true;
+    else if ($option == "borderEdge")
+        polyOptions -relative -activeObjects -displayBorder true;
+    else if ($option == "creaseEdge")
+        polyOptions -relative -activeObjects -displayCreaseEdge 1;
+    else if ($option == "creaseVertex")
+        polyOptions -relative -activeObjects -displayCreaseVertex 1;
+    else if ($option == "textBorderEdge")
+        polyOptions -relative -activeObjects -displayMapBorder 1;
+    else if ($option == "faceCenter")
+        polyOptions -relative -activeObjects -displayCenter true;
+    else if ($option == "faceTriangles")
+        polyOptions -relative -activeObjects -displayTriangle 1;
+    else if ($option == "invisibleFaces")
+        polyOptions -relative -activeObjects -displayInvisibleFaces 1;
+    else if ($option == "UVs")
+        polyOptions -relative -activeObjects -displayUVs true;
+    else if ($option == "unsharedUVs")
+        polyOptions -relative -activeObjects -displayUVTopology true;
+    else if ($option == "vertIDs")
+        polyOptions -relative -activeObjects -displayItemNumbers 1 0 0 0;
+    else if ($option == "edgeIDs")
+        polyOptions -relative -activeObjects -displayItemNumbers 0 1 0 0;
+    else if ($option == "faceIDs")
+        polyOptions -relative -activeObjects -displayItemNumbers 0 0 1 0;
+    else if ($option == "compIDs")
+        polyOptions -relative -activeObjects -displayItemNumbers 0 0 0 1;
+    else if ($option == "vertMetadata")
+        polyOptions -relative -activeObjects -displayMetadata 1 0 0;
+    else if ($option == "edgeMetadata")
+        polyOptions -relative -activeObjects -displayMetadata 0 1 0;
+    else if ($option == "faceMetadata")
+        polyOptions -relative -activeObjects -displayMetadata 0 0 1;
+    else if ($option == "nonPlanar")
+        hudDisplayMenuProc("polyNonPlanarFaceDisplay", "polyNonPlanarFaceDisplay");
+
+    if (!$limited) {
+        select -clear;
+        if (size($sel))
+            select $sel;
+    }
+}
+
+// A size slider's value, applied to the selection or to every mesh, as Limit to Selected says.
+proc hudApplySize(string $slider, string $flag)
+{
+    if (!`floatSliderGrp -exists $slider`)
+        return;
+    float $v = `floatSliderGrp -query -value $slider`;
+    string $scope = `optionVar -query polyDisplayLimitedToSelectedOV` ? "-activeObjects" : "-global";
+    eval("polyOptions " + $scope + " " + $flag + " " + $v);
+}
+
+global proc setVertexSize()
+{
+    hudApplySize("vertexSizeSlider", "-sizeVertex");
+}
+
+global proc setUVSize()
+{
+    hudApplySize("uvSizeSlider", "-sizeUV");
+}
+
+global proc setNormalSize()
+{
+    hudApplySize("normalsSizeSlider", "-sizeNormal");
+}
+
+global proc setEdgeWidth()
+{
+    hudApplySize("edgeSizeSlider", "-sizeBorder");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Sections that come and go with a tool.
+
+global proc setWalkModeVisibility(int $state)
+{
+    if (!`headsUpDisplay -exists HUDWalkMode`)
+        return;
+    if ($state == 0)
+        headsUpDisplay -visible 0 HUDWalkMode;
+    else if ($state == 1)
+        headsUpDisplay -visible 1 -label "Walk Mode" HUDWalkMode;
+    else if ($state == 2)
+        headsUpDisplay -visible 1 -label "Walk Mode (Crouch)" HUDWalkMode;
+}
+
+global proc setHUDBlendShapeEdit(int $visible, string $name)
+{
+    // Made together with the sculpt mesh section, so that one's presence says this one is there too.
+    if (!`headsUpDisplay -exists HUDActiveSculptMesh`)
+        return;
+    if ($visible == 0)
+        headsUpDisplay -visible 0 HUDBlendShapeEdit;
+    else
+        headsUpDisplay -visible 1 -label ("Editing blend shape: " + $name) HUDBlendShapeEdit;
+}
+
+global proc setHUDActiveSculptMesh(int $visible, string $name)
+{
+    if (!`headsUpDisplay -exists HUDActiveSculptMesh`)
+        return;
+    if ($visible == 0)
+        headsUpDisplay -visible 0 HUDActiveSculptMesh;
+    else
+        headsUpDisplay -visible 1 -label ("Sculpting: " + $name) HUDActiveSculptMesh;
+}
+
+global proc setHUD3DCutSewUVActiveMesh(int $visible, string $name)
+{
+    if (!`headsUpDisplay -exists HUD3DCutSewUVActiveMesh`)
+        return;
+    if ($visible == 0)
+        headsUpDisplay -visible 0 HUD3DCutSewUVActiveMesh;
+    else
+        headsUpDisplay -visible 1 -label ("Cut and sew UVs: " + $name) HUD3DCutSewUVActiveMesh;
+}
+
+// So `exists initHUDScripts` says the file is loaded, as the Display menu checks before sourcing it.
+global proc initHUDScripts()
+{
+}

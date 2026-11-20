@@ -295,7 +295,17 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
         "source" => {
             need(1)?;
             let file = s(&a[0]);
-            let Some(path) = resolve_source(&file) else { return err(format!("Cannot find file \"{file}\" for source statement.")) };
+            let Some(path) = resolve_source(&file) else {
+                // A script that comes with Aztek, by its file name, after the user's own as for a call.
+                let stem = file.strip_suffix(".mel").unwrap_or(&file);
+                if !stem.contains(['/', '\\']) {
+                    if let Some((shown, text)) = super::bundled::file(stem) {
+                        it.run_quiet(text, Some(&shown))?;
+                        return Ok(Value::Void);
+                    }
+                }
+                return err(format!("Cannot find file \"{file}\" for source statement."));
+            };
             let text = std::fs::read_to_string(&path).map_err(|e| Flow::Error(format!("{file}: {e}")))?;
             it.run_quiet(&text, Some(&path.to_string_lossy()))?;
             Ok(Value::Void)

@@ -1,0 +1,99 @@
+// initOutliner: the Outliner docked beside the views, which the main window's Outliner button and Windows > Outliner
+// show and hide. Aztek's Outliner is its own docked editor (panel outlinerPanel1), there from the start, so nothing is
+// built here: these procedures point the reference's names at it and show or hide it through the UI component procedures.
+
+// True while the docked Outliner hasn't been set up yet.
+global int $gOutlinerPanelNeedsInit;
+// The label the reference gives its docked Outliner panel.
+global string $gToggledOutlinerLabel;
+// The Outliner's editor state as it first was, for putting it back across a workspace change.
+global string $gToggledOutlinerInitialState;
+// The form a scripted Outliner panel is attached into.
+global string $gOutlinerForm;
+
+// The panel holding the docked Outliner: one scripts labelled as the reference does, else Aztek's own.
+proc string initOutlinerPanelName()
+{
+    global string $gToggledOutlinerLabel;
+    string $panel = "";
+    if ($gToggledOutlinerLabel != "")
+        $panel = `getPanel -withLabel $gToggledOutlinerLabel`;
+    if ($panel == "" || `getPanel -typeOf $panel` != "outlinerPanel")
+        $panel = "outlinerPanel1";
+    return $panel;
+}
+
+global proc int outlinerVisibilityStateChange(int $newState, string $layout)
+{
+    // Once the change has settled: focus back where it was, the toggle buttons and the Outliner's own state brought up to date.
+    evalDeferred ("if (`exists restoreLastPanelWithFocus`) restoreLastPanelWithFocus();"
+        + " if (`exists updateEditorToggleCheckboxes`) updateEditorToggleCheckboxes();"
+        + " if (`exists updateDefaultOutlinerState`) updateDefaultOutlinerState();");
+    return true;
+}
+
+global proc setOutlinerVisible(int $visible)
+{
+    initOutlinerPanel();
+    string $control = getUIComponentDockControl("Outliner", false);
+    // Without a workspace control of that name the Outliner is Aztek's own, which goes by its component name.
+    if ($control == "")
+        $control = "Outliner";
+    setUIComponentVisibility($control, $visible);
+}
+
+global proc attachOutlinerToForm()
+{
+    global string $gToggledOutlinerLabel;
+    global string $gOutlinerForm;
+    string $panel = `getPanel -withLabel $gToggledOutlinerLabel`;
+    if ($panel == "" || !`outlinerPanel -exists $panel`)
+        return;
+    if ($gOutlinerForm == "")
+        $gOutlinerForm = "ToggledOutlinerLayout";
+    if (!`formLayout -exists $gOutlinerForm`)
+        formLayout $gOutlinerForm;
+    outlinerPanel -edit -parent $gOutlinerForm $panel;
+    formLayout -edit
+        -attachForm $panel "top" 0 -attachForm $panel "left" 0
+        -attachForm $panel "bottom" 0 -attachForm $panel "right" 0
+        $gOutlinerForm;
+}
+
+global proc initOutlinerPanel()
+{
+    global int $gOutlinerPanelNeedsInit;
+    global string $gToggledOutlinerLabel;
+    global string $gToggledOutlinerInitialState;
+    if (!$gOutlinerPanelNeedsInit)
+        return;
+    $gOutlinerPanelNeedsInit = false;
+    $gToggledOutlinerLabel = "ToggledOutliner";
+
+    // A panel a script labelled as the reference does is fitted into its form; Aztek's own needs no fitting.
+    attachOutlinerToForm();
+
+    // The state it starts in, where the editor can say.
+    string $panel = initOutlinerPanelName();
+    string $state = "";
+    catchQuiet($state = `outlinerEditor -query -stateString $panel`);
+    $gToggledOutlinerInitialState = $state;
+
+    // Shown or hidden as it was last time, where that was kept.
+    if (`optionVar -exists LastStateOutlinerVisibility`)
+        setOutlinerVisible(`optionVar -query LastStateOutlinerVisibility`);
+    setUIComponentStateCallback("Outliner", "outlinerVisibilityStateChange");
+}
+
+// As the program starts: the Outliner is still to be set up. A workspace control a script made for it gets the
+// reference's narrow-panel width, and is set up once the interface has settled.
+$gOutlinerPanelNeedsInit = true;
+if (`exists getUIComponentDockControl`) {
+    string $initOutlinerControl = getUIComponentDockControl("Outliner", false);
+    if ($initOutlinerControl != "") {
+        int $initOutlinerWidth = `optionVar -query workspacesNarrowPanelInitialWidth`;
+        workspaceControl -edit -initialWidth $initOutlinerWidth -minimumWidth $initOutlinerWidth
+            -widthProperty "preferred" -duplicatable true $initOutlinerControl;
+        evalDeferred "initOutlinerPanel()";
+    }
+}

@@ -1822,6 +1822,18 @@ Qt 6 bundled, and started in a clean Ubuntu 24.04 on ARM before it goes out. It 
 driver; the viewport has no OpenGL ES path. Its build can't fail a run or hold a release back. Check for Updates in
 it fetches the ARM one, and the web page links it.
 
+### The reference's scripts, first batch: 45 of them (20/11/2026)
+
+The procedures the reference's own runtime commands call were missing, so scripts calling them stopped. 45 scripts
+are now built in, each written from a description of what the reference's does: Duplicate, Duplicate Special, Group,
+Parent, Unparent, Orient Joint, Delete Non-Deformer History, delete and selection conversion, Set Key, the polygon
+hotkey procedures, the bevel and extrude tools, the paint attribute tools, frame stepping and playback, Frame
+Selected and All, subdiv display level, the selection constraint and UV set windows, Increment and Save, New Scene,
+the File menu and file options, the project file dialog, Playblast, the Expression Editor, Node Editor, Plug-in
+Manager, Hotkey Editor, the Windows menu, the Outliner, Help, UI components, the Render View, Render Sequence, Render
+Settings, colour management, the heads-up display, the Display menu and the Script Editor. Their procedures are
+known by name as the reference's are, and `source` finds them. What they still need is in docs/SCRIPT_GAPS.md.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

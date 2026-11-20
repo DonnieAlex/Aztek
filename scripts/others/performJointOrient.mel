@@ -1,0 +1,126 @@
+// performJointOrient: Skeleton > Orient Joint, as the reference's, running joint -e -oj on the selected joints with the
+// settings kept in optionVars. $action 0 orients and returns the command, 1 opens the options, 2 only returns the
+// command; anything else returns "". Aztek has its own Orient Joint Options window, so $action 1 opens that rather than
+// building a second one. The setup and callback procedures fill and read the reference's controls, for scripts that
+// build them; the axis controls come from jointOrientUtils, used only where Aztek has it.
+
+proc performJointOrient_options(int $force)
+{
+    if ($force || !`optionVar -ex orJntAxisName`)
+        optionVar -sv orJntAxisName "xyz";
+    if ($force || !`optionVar -ex orJntOrientName`)
+        optionVar -sv orJntOrientName "yup";
+    if ($force || !`optionVar -ex orJntAutoOrient`)
+        optionVar -iv orJntAutoOrient 1;
+    if ($force || !`optionVar -ex orientJntZSO`)
+        optionVar -iv orientJntZSO 1;
+    if ($force || !`optionVar -ex orientJntChildren`)
+        optionVar -iv orientJntChildren 1;
+}
+
+global proc string performJointOrient(int $action)
+{
+    if ($action == 1) {
+        if (`exists OrientJointOptions`)
+            OrientJointOptions;
+        else
+            warning "The Orient Joint options are not available here.";
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    performJointOrient_options(0);
+    string $cmd = "joint -e -oj " + `optionVar -q orJntAxisName`;
+    // The secondary axis "none" means it is left out, and auto orienting it goes with it.
+    string $secondary = `optionVar -q orJntOrientName`;
+    if ($secondary != "none") {
+        $cmd += " -sao " + $secondary;
+        if (`optionVar -q orJntAutoOrient`)
+            $cmd += " -aos";
+    }
+    if (`optionVar -q orientJntChildren`)
+        $cmd += " -ch";
+    if (`optionVar -q orientJntZSO`)
+        $cmd += " -zso";
+    if ($action == 0) {
+        // Aztek's joint command may not take -aos yet; then the joints are oriented without it, and the command
+        // returned still says what was asked for.
+        if (!gmatch($cmd, "* -aos*"))
+            evalEcho $cmd;
+        else if (catchQuiet(evalEcho($cmd)))
+            evalEcho(substitute(" -aos", $cmd, ""));
+    }
+    return $cmd;
+}
+
+global proc jointOrientSetup(string $parent, int $forceFactorySettings)
+{
+    if (`exists jointOrientUtils`)
+        jointOrientUtils;
+    performJointOrient_options($forceFactorySettings);
+    setParent $parent;
+    if (`exists jointOrientSetOrientAxes`) {
+        string $axes[] = {`optionVar -q orJntAxisName`, `optionVar -q orJntOrientName`, (string)`optionVar -q orJntAutoOrient`};
+        jointOrientSetOrientAxes($parent, $axes);
+    }
+    checkBoxGrp -e -v1 `optionVar -q orientJntChildren` ojChildrenChkBox;
+    checkBoxGrp -e -v1 `optionVar -q orientJntZSO` ojZSOChkBox;
+}
+
+global proc jointOrientCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    if (`exists jointOrientGetOrientAxes`) {
+        string $axes[];
+        jointOrientGetOrientAxes($parent, $axes);
+        optionVar -sv orJntAxisName $axes[0];
+        optionVar -sv orJntOrientName $axes[1];
+        optionVar -iv orJntAutoOrient ((int)$axes[2]);
+    }
+    optionVar -iv orientJntChildren `checkBoxGrp -q -v1 ojChildrenChkBox`;
+    optionVar -iv orientJntZSO `checkBoxGrp -q -v1 ojZSOChkBox`;
+    if ($doIt) {
+        performJointOrient 0;
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue "performJointOrient 0" "jointOrient";
+    }
+}
+
+// The selected joints, a selected joint component counting as its joint.
+proc string[] performJointOrient_selectedJoints()
+{
+    return `ls -sl -o -type joint`;
+}
+
+// Shows or hides each selected joint's local axes, each one switched on its own.
+global proc jointOrientToggleAxesVisibility()
+{
+    for ($j in performJointOrient_selectedJoints()) {
+        int $shown = `getAttr ($j + ".displayLocalAxis")`;
+        setAttr ($j + ".displayLocalAxis") (!$shown);
+    }
+}
+
+// Lines each selected joint's local scale axes up with its orientation again.
+global proc jointOrientFreezeLocalAxes()
+{
+    for ($j in performJointOrient_selectedJoints())
+        joint -e -zso $j;
+}
+
+// Selects the local axes of the selected joints and takes the rotate tool, to turn them by hand.
+global proc jointOrientSelectAndRotateLocalAxes()
+{
+    string $axes[];
+    for ($j in performJointOrient_selectedJoints())
+        $axes[size($axes)] = $j + ".rotateAxis";
+    if (!size($axes))
+        return;
+    // Aztek can't select a joint's local axis as a component yet; then nothing changes.
+    if (catchQuiet(`select -r $axes`)) {
+        warning "The joints' local axes can't be selected here.";
+        return;
+    }
+    setToolTo RotateSuperContext;
+}

@@ -1,0 +1,128 @@
+// initAfter: run once at start, after the first scene is open and the main window is built. It shows the main pane,
+// sets a few session-wide things, and defines the pair of procedures the file command calls around every read or write
+// so that a tool or playback left running doesn't act on a scene that is being replaced.
+
+global int $gFileCmdCallbackCount = 0;
+global int $gPreFileCmdCallbackPlayState = 0;
+global int $gQuadDrawClearDots = 0;
+global string $gPreFileCmdCallbackTool = "";
+
+// Back to the Select tool: the installation's procedure when there is one, else the select context itself.
+proc initAfterEscapeTool()
+{
+    if (`exists escapeCurrentTool`) {
+        eval("escapeCurrentTool");
+        return;
+    }
+    global string $gSelect;
+    string $ctx = ($gSelect != "") ? $gSelect : "selectSuperContext";
+    if (`contextInfo -exists $ctx`)
+        setToolTo $ctx;
+}
+
+// Before a file operation. Only the outermost of nested calls acts: a file command can start another through the
+// notifications it sends, and the tool and play state to put back are the ones from before the first.
+global proc fileCmdCallback()
+{
+    global int $gFileCmdCallbackCount;
+    global string $gSelect;
+    global string $gCurrentSacredTool;
+    global string $gPreFileCmdCallbackTool;
+    global int $gPreFileCmdCallbackPlayState;
+
+    int $depth = $gFileCmdCallbackCount;
+    $gFileCmdCallbackCount++;
+    if ($depth != 0)
+        return;
+
+    $gCurrentSacredTool = $gSelect;
+    $gPreFileCmdCallbackTool = `currentCtx`;
+    // Script paint tools need their own window set up again, so they aren't brought back afterwards.
+    if ($gPreFileCmdCallbackTool != "" && `contextInfo -exists $gPreFileCmdCallbackTool`) {
+        if (`contextInfo -class $gPreFileCmdCallbackTool` == "artUserPaint")
+            $gPreFileCmdCallbackTool = "";
+    }
+    initAfterEscapeTool();
+
+    if (`exists play`) {
+        $gPreFileCmdCallbackPlayState = `play -query -state`;
+        if ($gPreFileCmdCallbackPlayState)
+            play -state off;
+    }
+}
+
+// After a file operation: the tool and playback come back, again only on the outermost call. A restore with no
+// matching call before it takes the count below zero and does nothing, as the reference's does.
+global proc fileCmdRestoreCallback()
+{
+    global int $gFileCmdCallbackCount;
+    global string $gPreFileCmdCallbackTool;
+    global int $gPreFileCmdCallbackPlayState;
+
+    $gFileCmdCallbackCount--;
+    if ($gFileCmdCallbackCount != 0)
+        return;
+
+    if ($gPreFileCmdCallbackTool != "" && `contextInfo -exists $gPreFileCmdCallbackTool`)
+        setToolTo $gPreFileCmdCallbackTool;
+    if (`exists play` && $gPreFileCmdCallbackPlayState)
+        play -state $gPreFileCmdCallbackPlayState;
+}
+
+// A delete-all that isn't an autosave: the new scene shouldn't start playing.
+global proc clearPreFilePlayState()
+{
+    global int $gPreFileCmdCallbackPlayState;
+    $gPreFileCmdCallbackPlayState = 0;
+}
+
+// A file open or new: the restore leaves the Select tool on, and Quad Draw forgets its dots.
+global proc clearPreFileSetToolState()
+{
+    global string $gPreFileCmdCallbackTool;
+    global int $gQuadDrawClearDots;
+    $gPreFileCmdCallbackTool = "";
+    $gQuadDrawClearDots = 1;
+}
+
+global proc int quadDrawClearDots()
+{
+    global int $gQuadDrawClearDots;
+    return $gQuadDrawClearDots;
+}
+
+global proc setQuadDrawClearDots(int $clearDots)
+{
+    global int $gQuadDrawClearDots;
+    if ($gQuadDrawClearDots != $clearDots)
+        $gQuadDrawClearDots = $clearDots;
+}
+
+// What runs as the file is sourced.
+{
+    global string $gMainPane;
+    if ($gMainPane != "" && `paneLayout -exists $gMainPane`)
+        paneLayout -edit -manage true $gMainPane;
+
+    // Which procedure leaves the current tool. Aztek's contextInfo has no -escapeContext yet; tried quietly so it
+    // takes effect once it has.
+    catchQuiet(`contextInfo -escapeContext "escapeCurrentTool"`);
+
+    // The renderer check waits until everything else has started.
+    evalDeferred -lowestPriority "if (`exists setupRendererSceneOpenedCallback`) setupRendererSceneOpenedCallback;";
+
+    if (`exists linearPrecision`)
+        eval("linearPrecision 3");
+
+    // Kept out of the Script Editor's echo of every command. Aztek's -filter takes one name, so the others are added.
+    commandEcho -filter "setLastFocusedCommand";
+    commandEcho -addFilter "buildScriptEditor";
+    commandEcho -addFilter "handleScriptEditorAction";
+    commandEcho -addFilter "verifyCommandPopupMenus";
+
+    // The file browser's filter helpers, where the installation has them.
+    catchQuiet(eval("source \"fileDialogFilterTypes.mel\""));
+
+    // The pair above, called by the file command around its work. Tried quietly: Aztek's file has no -command yet.
+    catchQuiet(`file -command "fileCmdCallback" "fileCmdRestoreCallback"`);
+}

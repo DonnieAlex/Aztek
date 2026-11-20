@@ -1,0 +1,60 @@
+// setSubdivDisplayLevelAndFilter: sets the display level and display filter of the subdivision surfaces in $targets, as
+// the reference's subdiv display menu items do. $levelString is a level ("2"), or a step finer ("+1") or coarser ("-1")
+// than each surface shows now; $filter goes to displayFilter as given. Targets that aren't subdivision surfaces are
+// passed over. Gives back 1 when at least one surface took its new level; errors when none could.
+global proc int setSubdivDisplayLevelAndFilter(string $targets[], string $levelString, int $filter)
+{
+    // 0 sets the level, 1 adds to it, -1 takes from it. Text that isn't a number reads as 0.
+    int $relative = 0;
+    string $first = `substring $levelString 1 1`;
+    string $number = $levelString;
+    if ($first == "+" || $first == "-") {
+        $relative = ($first == "+") ? 1 : -1;
+        $number = ($levelString == $first) ? "" : `substring $levelString 2 (size($levelString))`;
+    }
+    int $amount = $number;
+
+    int $foundSubdiv = 0;
+    int $done = 0;
+    string $problem = "";
+    for ($target in $targets) {
+        // A subdivision surface has both attributes. listAttr reports one plug at a time here, so each is asked
+        // for on its own, and only when it's there, as listAttr fails on a missing one.
+        int $plugs = 0;
+        for ($attr in {".displayLevel", ".displayFilter"})
+            if (`objExists ($target + $attr)`)
+                $plugs += size(`listAttr ($target + $attr)`);
+        if ($plugs != 2)
+            continue;
+        $foundSubdiv = 1;
+
+        int $level = `getAttr ($target + ".displayLevel")`;
+        int $to = $amount;
+        if ($relative == 1)
+            $to = $level + $amount;
+        else if ($relative == -1)
+            $to = $level - $amount;
+
+        // The finest level the surface has. Without the subdiv command to ask, any level from 0 up is taken.
+        int $deepest = -1;
+        if (`exists subdiv`)
+            $deepest = `subdiv -query -deepestLevel $target`;
+
+        if ($to >= 0 && ($deepest < 0 || $to <= $deepest)) {
+            $done = 1;
+            // Echoed, as the menu item shows what it did; a failure on one surface doesn't stop the rest.
+            catch(evalEcho("setAttr \"" + $target + ".displayLevel\" " + $to + "; setAttr \"" + $target
+                + ".displayFilter\" " + $filter + ";"));
+        } else if ($to > $deepest && $deepest >= 0) {
+            $problem = `format -stringArg $deepest "Cannot display a level finer than ^1s."`;
+        } else {
+            $problem = "Cannot display a level coarser than 0.";
+        }
+    }
+
+    if (!$foundSubdiv)
+        error "Select one or more subdivision surfaces.";
+    else if (!$done)
+        error $problem;
+    return $done;
+}

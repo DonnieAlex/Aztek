@@ -1,0 +1,59 @@
+// nextOrPreviousFrame: steps the current time by the playback "by" value, forward for "next" and back for anything else,
+// as the reference's next and previous frame hotkeys do. With looping playback the step wraps round the playback range.
+// In the Sequencer it steps the sequence time by one frame instead.
+
+// The scripted type of a panel, as one string.
+proc string nextOrPreviousFrameScriptType(string $panel)
+{
+    string $type[] = `getPanel -scriptType $panel`;
+    return $type[0];
+}
+
+// Whether stepping loops round the playback range. Only asked when playbackOptions has -stepLoop: a query with a flag
+// it doesn't know answers with the range's start, which would read as looping on.
+proc int nextOrPreviousFrameStepLoop()
+{
+    string $syntax = `help playbackOptions`;
+    if (!`gmatch $syntax "*stepLoop*"`)
+        return 0;
+    return `playbackOptions -query -stepLoop`;
+}
+
+global proc nextOrPreviousFrame(string $advanceFlag)
+{
+    int $forward = ($advanceFlag == "next");
+
+    string $panel = `getPanel -withFocus`;
+    if ($panel != "" && `getPanel -typeOf $panel` == "scriptedPanel"
+        && nextOrPreviousFrameScriptType($panel) == "sequenceEditorPanel" && `exists sequenceManager`) {
+        float $now = `sequenceManager -query -currentTime`;
+        sequenceManager -currentTime ($forward ? $now + 1 : $now - 1);
+        return;
+    }
+
+    float $by = `playbackOptions -query -by`;
+    int $loop = nextOrPreviousFrameStepLoop();
+    float $now = `currentTime -query`;
+    float $step = $forward ? $by : -$by;
+
+    if (!$loop) {
+        currentTime -edit ($now + $step);
+        return;
+    }
+
+    float $min = `playbackOptions -query -min`;
+    float $max = `playbackOptions -query -max`;
+    // From outside the range the step lands on its near end in the direction of travel.
+    float $to;
+    if ($now >= $min && $now <= $max)
+        $to = $now + $step;
+    else
+        $to = $forward ? $min : $max;
+
+    // Past an end comes back in at the other, one frame on per frame over.
+    if ($to > $max)
+        $to = $min + ($to - $max) - 1;
+    else if ($to < $min)
+        $to = $max - ($min - $to) + 1;
+    currentTime -edit $to;
+}

@@ -1,0 +1,9 @@
+// openSelectionConstraintWindow: opens the Polygon Selection Constraints window, as the reference's Select > Selection
+// Constraints item does. Aztek has the window natively, so this opens that one rather than tearing off a panel.
+global proc openSelectionConstraintWindow()
+{
+    if (`exists PolygonSelectionConstraints`)
+        PolygonSelectionConstraints;
+    else
+        warning "The Polygon Selection Constraints window isn't available here.";
+}

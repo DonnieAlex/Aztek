@@ -1,0 +1,79 @@
+// incrementAndSaveScene: File > Increment & Save, as the reference's. The open scene is saved under the next version of
+// its name (MyFile.mb to MyFile.0001.mb, MyFile.0043.mb to MyFile.0044.mb) and carries on as that file; the file it
+// was opened from is left as it was. A scene never saved goes to Save As instead; one with no changes isn't saved.
+// $force non-zero overwrites a file already at the new name without asking.
+
+// The next version's path. The version is the run of digits after the last dot of the name, before its extension; an
+// extension that is only digits is that version, with no extension after it. The new version keeps the old one's
+// width, or is four digits wide when there was none, and grows wider rather than wrap.
+proc string incrementAndSaveSceneNext(string $path)
+{
+    string $dir = "";
+    string $name = $path;
+    string $tail = `match "[^/]*$" $path`;
+    if ($tail != $path) {
+        $dir = `substring $path 1 (size($path) - size($tail))`;
+        $name = $tail;
+    }
+
+    string $ext = `match "\\.[^.]*$" $name`;
+    if (`match "^\\.[0-9]+$" $ext` != "")
+        $ext = "";
+    string $base = `substring $name 1 (size($name) - size($ext))`;
+
+    string $digits = "";
+    string $versioned = `match "\\.[0-9]+$" $base`;
+    if ($versioned != "") {
+        $digits = `substring $versioned 2 (size($versioned))`;
+        $base = `substring $base 1 (size($base) - size($versioned))`;
+    }
+    int $version = $digits;
+
+    string $next = $version + 1;
+    int $width = ($digits == "") ? 4 : size($digits);
+    while (size($next) < $width)
+        $next = "0" + $next;
+    return $dir + $base + "." + $next + $ext;
+}
+
+global proc incrementAndSaveScene(int $force)
+{
+    string $scene = `file -query -sceneName`;
+    if ($scene == "") {
+        // Never saved: there is no version to go on from, so ask for a name.
+        if (`exists projectViewer`)
+            eval("projectViewer SaveAs");
+        else if (`exists SaveSceneAs`)
+            SaveSceneAs;
+        else
+            warning "Save the scene first: it has no name to increment.";
+        return;
+    }
+    if (!`file -query -modified`) {
+        warning "There are no changes to save, so no new version was made.";
+        return;
+    }
+
+    string $next = incrementAndSaveSceneNext($scene);
+    if (!$force && `file -query -exists $next`) {
+        string $message = `format -stringArg $next "^1s already exists. Overwrite it?"`;
+        string $answer = `confirmDialog -title "Increment and Save" -message $message -button "Yes" -button "Cancel"
+            -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+        if ($answer != "Yes")
+            return;
+    }
+
+    // The new name is taken exactly as built, without an extension added for the file type. file has no
+    // -defaultExtensions to turn off here, so the rename goes ahead as it is.
+    file -rename $next;
+
+    string $types[] = `file -query -type $next`;
+    string $type = (size($types) > 0) ? $types[0] : "unknown";
+    if (`exists addRecentFile`)
+        eval("addRecentFile \"" + $next + "\" \"" + $type + "\"");
+
+    print "Saving a new version of the scene.\n";
+    print ("Previous file: " + $scene + "\n");
+    print ("New file: " + $next + "\n");
+    evalEcho("file -force -save -options \"v=0\"");
+}

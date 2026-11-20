@@ -1,0 +1,112 @@
+// performGroup: Edit > Group, as the reference's, its settings kept in optionVars. $action 0 groups the selection and
+// returns the command (not the group), 1 opens the option box, 2 only returns the command; anything else returns "".
+
+proc performGroup_options(int $force)
+{
+    if ($force || !`optionVar -ex groupWorld`)
+        optionVar -iv groupWorld 0;
+    if ($force || !`optionVar -ex groupZeroPivot`)
+        optionVar -iv groupZeroPivot 1;
+    if ($force || !`optionVar -ex groupPreserve`)
+        optionVar -iv groupPreserve 1;
+}
+
+// What doGroup does, for when Aztek has no global doGroup: a group of the selection under its parent or the world,
+// the children keeping where they are or not, its pivot at the origin or at the centre of what it holds.
+proc string performGroup_doGroup(int $world, int $preserve, int $zeroPivot)
+{
+    string $flags = $world ? "-w" : "";
+    if (!$preserve)
+        $flags += " -r";
+    string $g = `eval ("group " + $flags)`;
+    if (!$zeroPivot)
+        xform -cp $g;
+    return $g;
+}
+
+// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
+// column, then Apply, Save, Reset and Close.
+proc string performGroup_boxBegin(string $win, string $title)
+{
+    if (`window -ex $win`)
+        deleteUI -window $win;
+    window -t $title $win;
+    columnLayout -adj true boxFrame;
+    scrollLayout -cr true;
+    return `columnLayout -adj true`;
+}
+
+proc performGroup_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
+{
+    setParent ($win + "|boxFrame");
+    rowLayout -nc 4;
+    button -l $applyLabel -c $apply;
+    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
+    button -l "Reset" -c $reset;
+    button -l "Close" -c ("deleteUI -window " + $win);
+    showWindow $win;
+}
+
+global proc string performGroup(int $action)
+{
+    if ($action == 1) {
+        string $win = "performGroupOptionBox";
+        string $parent = performGroup_boxBegin($win, "Group Options");
+        int $template = `uiTemplate -ex DefaultTemplate`;
+        if ($template)
+            setUITemplate -pst DefaultTemplate;
+        waitCursor -st 1;
+        radioButtonGrp -nrb 2 -l "Group under:" -la2 "Parent" "World" groupUnder;
+        radioButtonGrp -nrb 2 -l "Group pivot:" -la2 "Centre" "Origin" groupPivot;
+        checkBoxGrp -ncb 1 -l1 "Preserve position" groupCheck;
+        waitCursor -st 0;
+        if ($template)
+            setUITemplate -ppt;
+        performGroup_boxEnd($win, "Group", "groupCallback " + $parent + " 1", "groupCallback " + $parent + " 0",
+            "groupSetup " + $parent + " 1");
+        groupSetup $parent 0;
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    performGroup_options(0);
+    int $world = `optionVar -q groupWorld`;
+    int $preserve = `optionVar -q groupPreserve`;
+    int $zeroPivot = `optionVar -q groupZeroPivot`;
+    string $cmd = "doGroup " + $world + " " + $preserve + " " + $zeroPivot;
+    if ($action == 0) {
+        if (`exists doGroup`)
+            evalEcho $cmd;
+        else {
+            print ($cmd + ";\n");
+            performGroup_doGroup($world, $preserve, $zeroPivot);
+        }
+    }
+    return $cmd;
+}
+
+global proc groupSetup(string $parent, int $forceFactorySettings)
+{
+    performGroup_options($forceFactorySettings);
+    setParent $parent;
+    radioButtonGrp -e -sl (`optionVar -q groupWorld` ? 2 : 1) groupUnder;
+    radioButtonGrp -e -sl (`optionVar -q groupZeroPivot` ? 2 : 1) groupPivot;
+    checkBoxGrp -e -v1 `optionVar -q groupPreserve` groupCheck;
+}
+
+global proc string groupCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -iv groupWorld (`radioButtonGrp -q -sl groupUnder` == 2);
+    optionVar -iv groupZeroPivot (`radioButtonGrp -q -sl groupPivot` == 2);
+    optionVar -iv groupPreserve `checkBoxGrp -q -v1 groupCheck`;
+    string $result = "";
+    if ($doIt) {
+        $result = `performGroup 0`;
+        // "false" is 0, so repeating it groups again.
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue "performGroup false" "Group";
+    }
+    return $result;
+}

@@ -1,0 +1,461 @@
+// WindowMenu: the body of the Windows menu and its editor submenus, and the registry plug-ins use to add tasks to the
+// Relationship Editors. Aztek's own Windows menu is part of the program and already holds its editors, so these procedures
+// fill a menu scripts made (a menu, popup menu or submenu item): one item per editor Aztek has, each running Aztek's
+// command for it. Editors Aztek doesn't have are left out rather than shown doing nothing. Given anything other than a
+// script's menu, they do nothing.
+
+// Relationship Editors submenu, once built; and the plug-in task callbacks, kept by id (a removed one leaves "").
+global string $gRelationshipEditorPulldownMenu = "";
+global string $gRelationshipEditorRegisterCB[] = {};
+global string $gRelationshipEditorUnregisterCB[] = {};
+
+// The command Aztek runs for one of the reference's editor commands: the same name where Aztek has it, else Aztek's
+// equivalent, else "".
+proc string wmCommand(string $rtc)
+{
+    if (`exists $rtc`)
+        return $rtc;
+    switch ($rtc) {
+        case "OpenChannelsLayers":
+        case "OpenChannelBox":
+        case "OpenLayerEditor":
+            return "setUIComponentVisibility(\"Channel Box / Layer Editor\", 1)";
+        case "OpenModelingToolkit":
+            return `exists ModelingToolkitWindow` ? "ModelingToolkitWindow" : "";
+        case "TextureViewWindow":
+            return `exists UVEditor` ? "UVEditor" : "";
+        case "ShapeEditor":
+            return `exists BlendShapeEditor` ? "BlendShapeEditor" : "";
+        case "ComponentEditor":
+            return `exists ComponentEditorWindow` ? "ComponentEditorWindow" : "";
+    }
+    return "";
+}
+
+// The label each editor goes by in the menu.
+proc string wmLabel(string $rtc)
+{
+    switch ($rtc) {
+        case "AttributeEditor": return "Attribute Editor";
+        case "OpenChannelsLayers": return "Channel Box / Layer Editor";
+        case "OpenChannelBox": return "Channel Box";
+        case "OpenLayerEditor": return "Layer Editor";
+        case "ToolSettingsWindow": return "Tool Settings";
+        case "HypergraphHierarchyWindow": return "Hypergraph: Hierarchy";
+        case "HypergraphDGWindow": return "Hypergraph: Connections";
+        case "DisplayViewport": return "Viewport";
+        case "OpenAELiveLink": return "Compositing Live Link";
+        case "AssetEditor": return "Asset Editor";
+        case "SpreadSheetEditor": return "Attribute Spread Sheet";
+        case "ComponentEditor": return "Component Editor";
+        case "ConnectionEditor": return "Connection Editor";
+        case "ChannelControlEditor": return "Channel Control";
+        case "DisplayLayerEditorWindow": return "Display Layer Editor";
+        case "FilePathEditor": return "File Path Editor";
+        case "NamespaceEditor": return "Namespace Editor";
+        case "ScriptEditor": return "Script Editor";
+        case "CommandShell": return "Command Shell";
+        case "OpenDGProfiler": return "Dependency Graph Profiler";
+        case "ProfilerTool": return "Profiler";
+        case "EvaluationToolkit": return "Evaluation Toolkit";
+        case "OpenModelingToolkit": return "Modeling Toolkit";
+        case "PaintEffectsWindow": return "Paint Effects";
+        case "TextureViewWindow": return "UV Editor";
+        case "OpenXGenEditor": return "Interactive Groom Editor";
+        case "OpenCreaseEditor": return "Crease Sets";
+        case "RenderViewWindow": return "Render View";
+        case "RenderGlobalsWindow": return "Render Settings";
+        case "HypershadeWindow": return "Hypershade";
+        case "RenderLayerEditorWindow": return "Render Layer Editor";
+        case "RenderSetupWindow": return "Render Setup";
+        case "OpenLightEditor": return "Light Editor";
+        case "OpenStereoRigManager": return "Stereo Rig Manager";
+        case "RenderFlagsWindow": return "Rendering Flags";
+        case "ShadingGroupAttributeEditor": return "Shading Group Attributes";
+        case "HardwareRenderBuffer": return "Hardware Render Buffer";
+        case "GraphEditor": return "Graph Editor";
+        case "DopeSheetEditor": return "Dope Sheet";
+        case "TimeEditorWindow": return "Time Editor";
+        case "OpenMotionMaker": return "Motion Maker";
+        case "SequenceEditor": return "Camera Sequencer";
+        case "CharacterAnimationEditor": return "Trax Editor";
+        case "OpenMotionTrailEditor": return "Motion Trail Editor";
+        case "QuickRigEditor": return "Quick Rig";
+        case "HIKCharacterControlsTool": return "Humanoid IK";
+        case "ShapeEditor": return "Shape Editor";
+        case "PoseEditor": return "Pose Editor";
+        case "ExpressionEditor": return "Expression Editor";
+        case "LightCentricLightLinkingEditor": return "Light Centric";
+        case "ObjectCentricLightLinkingEditor": return "Object Centric";
+        case "TextureCentricUVLinkingEditor": return "Texture Centric";
+        case "UVCentricUVLinkingEditor": return "UV Centric";
+        case "PFXUVSetLinkingEditor": return "Paint Effects/UV Linking";
+        case "HairUVSetLinkingEditor": return "Hair/UV Linking";
+        case "FurUVSetLinkingEditor": return "Fur/UV Linking";
+        case "AnimLayerRelationshipEditor": return "Animation Layers";
+        case "CameraSetEditor": return "Camera Sets";
+        case "CharacterSetEditor": return "Character Sets";
+        case "DeformerSetEditor": return "Deformer Sets";
+        case "LayerRelationshipEditor": return "Display Layers";
+        case "DynamicRelationshipEditor": return "Dynamic Relationships";
+        case "HairFurRelationshipEditor": return "Fur/Hair Relationships";
+        case "PartitionEditor": return "Partitions";
+        case "RenderLayerRelationshipEditor": return "Render Layers";
+        case "RenderPassSetEditor": return "Render Pass Sets";
+        case "SetEditor": return "Sets";
+        case "PreferencesWindow": return "Preferences";
+        case "PerformanceSettingsWindow": return "Performance Settings";
+        case "HotkeyPreferencesWindow": return "Hotkey Editor";
+        case "ColorPreferencesWindow": return "Colour Settings";
+        case "MarkingMenuPreferencesWindow": return "Marking Menu Editor";
+        case "ShelfPreferencesWindow": return "Shelf Editor";
+        case "PanelPreferencesWindow": return "Panel Editor";
+        case "PluginManager": return "Plug-in Manager";
+        case "OutlinerWindow": return "Outliner";
+        case "NodeEditorWindow": return "Node Editor";
+        case "OpenContentBrowser": return "Content Browser";
+        case "PlayblastWindow": return "Playblast";
+    }
+    return $rtc;
+}
+
+// One editor's item under the current menu parent, named $name where that's given, after $after where that's given.
+// With $onlyIfMissing an item of that name already there is kept. Returns the item, or "" when Aztek lacks the editor.
+proc string wmItem(string $rtc, string $name, string $after, int $onlyIfMissing)
+{
+    if ($name != "" && $onlyIfMissing && `menuItem -exists $name`)
+        return $name;
+    string $cmd = wmCommand($rtc);
+    if ($cmd == "")
+        return "";
+    string $label = wmLabel($rtc);
+    string $make = "menuItem -label \"" + encodeString($label) + "\" -annotation \"" + encodeString($label)
+        + "\" -command \"" + encodeString($cmd) + "\"";
+    if ($after != "") {
+        // Placed by the full name of the item it follows, in the menu being filled.
+        string $full = `setParent -query -menu` + "|" + $after;
+        if (`menuItem -exists $full`)
+            $make += " -insertAfter \"" + $full + "\"";
+    }
+    if ($name != "")
+        $make += " \"" + $name + "\"";
+    return `eval $make`;
+}
+
+// Removes a named item if it's there.
+proc wmDrop(string $name)
+{
+    if (`menuItem -exists $name`)
+        catchQuiet(`deleteUI -menuItem $name`);
+}
+
+// Makes $parent the menu parent, if it's a menu scripts can fill. Aztek's own menus aren't, and are left alone.
+proc int wmUse(string $parent)
+{
+    if ($parent == "" || (!`menu -exists $parent` && !`menuItem -exists $parent`))
+        return 0;
+    setParent -menu $parent;
+    return 1;
+}
+
+proc int wmHasItems(string $parent)
+{
+    return (`menu -query -numberOfItems $parent` > 0);
+}
+
+// A tear-off submenu built by $builder each time it opens. The menu parent is the outer menu again afterwards.
+proc string wmSubMenu(string $label, string $builder, string $name)
+{
+    string $sub = ($name != "") ? `menuItem -subMenu true -tearOff true -label $label $name`
+                                : `menuItem -subMenu true -tearOff true -label $label`;
+    menu -edit -postMenuCommand ($builder + " \"" + $sub + "\"") $sub;
+    setParent -menu ..;
+    return $sub;
+}
+
+global proc string[] getRelationshipEdPopups()
+{
+    // The relationship editors' task popups are those named taskPopup.
+    string $found[];
+    if (!`exists lsUI`)
+        return $found;
+    string $controls[] = `lsUI -long -controls`;
+    for ($c in $controls) {
+        string $parts[];
+        int $n = `tokenize $c "|" $parts`;
+        if ($n > 0 && $parts[$n - 1] == "taskPopup")
+            $found[size($found)] = $c;
+    }
+    return $found;
+}
+
+global proc int relationshipEditorRegisterTask(string $registerCB, string $unregisterCB)
+{
+    global string $gRelationshipEditorPulldownMenu;
+    global string $gRelationshipEditorRegisterCB[];
+    global string $gRelationshipEditorUnregisterCB[];
+    int $id = size($gRelationshipEditorRegisterCB);
+    $gRelationshipEditorRegisterCB[$id] = $registerCB;
+    $gRelationshipEditorUnregisterCB[$id] = $unregisterCB;
+    // Menus already built get the task now; later ones get it as they're built.
+    if ($gRelationshipEditorPulldownMenu != "") {
+        eval ($registerCB + " foo");
+        for ($popup in getRelationshipEdPopups())
+            eval ($registerCB + " " + $popup);
+    }
+    return $id;
+}
+
+global proc relationshipEditorUnregisterTask(int $id)
+{
+    global string $gRelationshipEditorPulldownMenu;
+    global string $gRelationshipEditorRegisterCB[];
+    global string $gRelationshipEditorUnregisterCB[];
+    if ($id < 0 || $id >= size($gRelationshipEditorRegisterCB))
+        return;
+    string $cb = $gRelationshipEditorUnregisterCB[$id];
+    if ($gRelationshipEditorPulldownMenu != "" && $cb != "") {
+        eval ($cb + " foo");
+        for ($popup in getRelationshipEdPopups())
+            eval ($cb + " " + $popup);
+    }
+    // The slot stays, so the ids handed out keep meaning the same task.
+    $gRelationshipEditorRegisterCB[$id] = "";
+    $gRelationshipEditorUnregisterCB[$id] = "";
+}
+
+global proc addRelationshipEdPluginItems(string $popup)
+{
+    global string $gRelationshipEditorRegisterCB[];
+    for ($cb in $gRelationshipEditorRegisterCB)
+        if ($cb != "")
+            eval ($cb + " " + $popup);
+}
+
+global proc buildObjectEdMenu(string $parent)
+{
+    if (!wmUse($parent))
+        return;
+    wmItem("AttributeEditor", "wmAttributeEditor", "", 1);
+    if (!`optionVar -query channelsLayersSeparate`) {
+        wmDrop("wmChannels");
+        wmDrop("wmLayers");
+        wmItem("OpenChannelsLayers", "wmChannelsLayers", "wmAttributeEditor", 1);
+    } else {
+        wmDrop("wmChannelsLayers");
+        wmItem("OpenChannelBox", "wmChannels", "wmAttributeEditor", 1);
+        wmItem("OpenLayerEditor", "wmLayers", "wmChannels", 1);
+    }
+    wmItem("ToolSettingsWindow", "wmToolSettings", "", 1);
+    wmItem("HypergraphHierarchyWindow", "wmHGHierarchy", "", 1);
+    if (`exists hyperGraphOptions` && !`menuItem -exists wmHGHierarchyOptions`)
+        menuItem -optionBox true -annotation "Hypergraph options" -command "hyperGraphOptions DAG" wmHGHierarchyOptions;
+    wmItem("HypergraphDGWindow", "wmHGConnections", "", 1);
+    if (`exists hyperGraphOptions` && !`menuItem -exists wmHGConnectionsOptions`)
+        menuItem -optionBox true -annotation "Hypergraph options" -command "hyperGraphOptions DG" wmHGConnectionsOptions;
+    wmItem("DisplayViewport", "wmViewPort", "", 1);
+    if (!`menuItem -exists wmGEDivider1`)
+        menuItem -divider true wmGEDivider1;
+    wmItem("OpenAELiveLink", "wmAdobeAfterEffectsLiveLink", "", 1);
+    wmItem("AssetEditor", "wmAssetEditor", "", 1);
+    wmItem("SpreadSheetEditor", "wmSpreadsheetEditor", "", 1);
+    wmItem("ComponentEditor", "wmComponentEditor", "", 1);
+    wmItem("ConnectionEditor", "wmConnectionEditor", "", 1);
+    wmItem("ChannelControlEditor", "wmChannelControlEditor", "", 1);
+    wmItem("DisplayLayerEditorWindow", "wmDisplayLayerEditorWindow", "", 1);
+    wmItem("FilePathEditor", "wmFilePathEditor", "", 1);
+    wmItem("NamespaceEditor", "wmNamespaceEditor", "", 1);
+    if (!`menuItem -exists wmGEDivider2`)
+        menuItem -divider true wmGEDivider2;
+    wmItem("ScriptEditor", "wmScriptEditor", "", 1);
+    wmItem("CommandShell", "wmCommandShell", "", 1);
+    if (`pluginInfo -query -loaded dgProfiler`)
+        wmItem("OpenDGProfiler", "wmDGProfiler", "", 1);
+    else
+        wmDrop("wmDGProfiler");
+    wmItem("ProfilerTool", "wmProfiler", "", 1);
+    wmItem("EvaluationToolkit", "wmEvaluationToolkit", "", 1);
+}
+
+global proc buildModelingEdMenu(string $parent)
+{
+    global string $gMiInteractionEditorMenuParent;
+    global string $gMiInteractionEditorMenuAfter;
+    if (!wmUse($parent))
+        return;
+    $gMiInteractionEditorMenuParent = $parent;
+    // Aztek's Modeling Toolkit is always there, plug-in or not.
+    if (`pluginInfo -query -loaded modelingToolkit` || wmCommand("OpenModelingToolkit") != "")
+        wmItem("OpenModelingToolkit", "wmModelingToolkit", "", 1);
+    else
+        wmDrop("wmModelingToolkit");
+    wmItem("PaintEffectsWindow", "wmPaintEffects", "", 1);
+    if (!`menuItem -exists wmUVEditor`) {
+        string $uv = wmItem("TextureViewWindow", "wmUVEditor", "", 1);
+        if ($uv != "")
+            $gMiInteractionEditorMenuAfter = $uv;
+    }
+    if (`pluginInfo -query -loaded xgenToolkit` || `exists OpenXGenEditor`)
+        wmItem("OpenXGenEditor", "wmXGenEditor", "", 1);
+    else
+        wmDrop("wmXGenEditor");
+    wmItem("OpenCreaseEditor", "wmCreaseSets", "", 1);
+}
+
+global proc buildRenderingEdMenu(string $parent)
+{
+    if ($parent == "" || (!`menu -exists $parent` && !`menuItem -exists $parent`))
+        return;
+    // Built afresh each time it opens.
+    popupMenu -edit -deleteAllItems $parent;
+    setParent -menu $parent;
+    wmItem("RenderViewWindow", "", "", 0);
+    wmItem("RenderGlobalsWindow", "", "", 0);
+    wmItem("HypershadeWindow", "", "", 0);
+    // Each renderer's own editors, where the renderer gives a procedure for them.
+    if (`exists renderer`) {
+        string $renderers[] = `renderer -query -namesOfAvailableRenderers`;
+        for ($r in $renderers) {
+            string $proc = `renderer -query -renderingEditorsSubMenuProcedure $r`;
+            if ($proc == "")
+                continue;
+            string $label = `renderer -query -rendererUIName $r`;
+            string $sub = `menuItem -subMenu true -tearOff true -label $label
+                -annotation "Editors of this renderer" ("rendererOptionsItem" + $r)`;
+            menu -edit -postMenuCommand ("eval " + $proc + " " + $sub) $sub;
+            setParent -menu ..;
+        }
+    }
+    // Render Setup or the Render Layer Editor, by which Aztek has.
+    if (wmCommand("RenderSetupWindow") == "") {
+        wmItem("RenderLayerEditorWindow", "", "", 0);
+    } else {
+        wmItem("RenderSetupWindow", "", "", 0);
+        wmItem("OpenLightEditor", "", "", 0);
+    }
+    wmItem("OpenStereoRigManager", "", "", 0);
+    menuItem -divider true;
+    wmItem("RenderFlagsWindow", "", "", 0);
+    wmItem("ShadingGroupAttributeEditor", "", "", 0);
+    // Aztek's views have no legacy mode, so the hardware render buffer never applies.
+}
+
+global proc buildAnimationEdMenu(string $parent)
+{
+    if (!wmUse($parent) || wmHasItems($parent))
+        return;
+    wmItem("GraphEditor", "", "", 0);
+    wmItem("DopeSheetEditor", "", "", 0);
+    wmItem("TimeEditorWindow", "", "", 0);
+    wmItem("OpenMotionMaker", "", "", 0);
+    wmItem("SequenceEditor", "", "", 0);
+    wmItem("CharacterAnimationEditor", "", "", 0);
+    wmItem("OpenMotionTrailEditor", "", "", 0);
+    wmItem("QuickRigEditor", "", "", 0);
+    if (wmCommand("HIKCharacterControlsTool") != "" && !`menuItem -exists hikWindowItem`)
+        menuItem -label (wmLabel("HIKCharacterControlsTool")) -command (wmCommand("HIKCharacterControlsTool")) hikWindowItem;
+    wmItem("ShapeEditor", "", "", 0);
+    wmItem("PoseEditor", "", "", 0);
+    menuItem -divider true;
+    wmItem("ExpressionEditor", "expressionItem", "", 1);
+}
+
+global proc buildLightLinkingEdMenu(string $parent)
+{
+    if (!wmUse($parent) || wmHasItems($parent))
+        return;
+    wmItem("LightCentricLightLinkingEditor", "", "", 0);
+    wmItem("ObjectCentricLightLinkingEditor", "", "", 0);
+}
+
+global proc buildUvLinkingEdMenu(string $parent)
+{
+    global string $gUvMainLinkMenu;
+    global string $gFurUVLinkMenuItem;
+    $gUvMainLinkMenu = $parent;
+    if (!wmUse($parent) || wmHasItems($parent))
+        return;
+    wmItem("TextureCentricUVLinkingEditor", "", "", 0);
+    wmItem("UVCentricUVLinkingEditor", "", "", 0);
+    wmItem("PFXUVSetLinkingEditor", "", "", 0);
+    wmItem("HairUVSetLinkingEditor", "", "", 0);
+    if (`pluginInfo -query -loaded Fur`)
+        $gFurUVLinkMenuItem = wmItem("FurUVSetLinkingEditor", "", "", 0);
+}
+
+global proc buildRelationshipEdMenu(string $parent)
+{
+    global string $gRelationshipEditorPulldownMenu;
+    global string $gHairFurLinkMenuItem;
+    if (!wmUse($parent))
+        return;
+    $gRelationshipEditorPulldownMenu = $parent;
+    if (wmHasItems($parent))
+        return;
+    for ($rtc in {"AnimLayerRelationshipEditor", "CameraSetEditor", "CharacterSetEditor", "DeformerSetEditor",
+                  "LayerRelationshipEditor", "DynamicRelationshipEditor"})
+        wmItem($rtc, "", "", 0);
+    if (`pluginInfo -query -loaded Fur`)
+        $gHairFurLinkMenuItem = wmItem("HairFurRelationshipEditor", "", "", 0);
+    wmSubMenu("Light Linking", "buildLightLinkingEdMenu", "");
+    wmItem("PartitionEditor", "", "", 0);
+    if (wmCommand("RenderSetupWindow") == "")
+        wmItem("RenderLayerRelationshipEditor", "", "", 0);
+    wmItem("RenderPassSetEditor", "", "", 0);
+    wmItem("SetEditor", "", "", 0);
+    wmSubMenu("UV Linking", "buildUvLinkingEdMenu", "");
+    addRelationshipEdPluginItems("foo");
+}
+
+global proc buildSettingsMenu(string $parent)
+{
+    if (!wmUse($parent) || wmHasItems($parent))
+        return;
+    wmItem("PreferencesWindow", "", "", 0);
+    menuItem -divider true;
+    wmItem("HotkeyPreferencesWindow", "", "", 0);
+    wmItem("ColorPreferencesWindow", "", "", 0);
+    wmItem("MarkingMenuPreferencesWindow", "", "", 0);
+    wmItem("ShelfPreferencesWindow", "shelfOptionsItem", "", 1);
+    wmItem("PanelPreferencesWindow", "", "", 0);
+    menuItem -divider true;
+    wmItem("PluginManager", "", "", 0);
+}
+
+global proc openAEWindow()
+{
+    // The Attribute Editor, on the selection.
+    if (`exists editSelected`)
+        eval "editSelected";
+    else if (`exists AttributeEditor`)
+        AttributeEditor;
+}
+
+global proc WindowMenu(string $parent)
+{
+    global string $gMainOptionsMenu;
+    if (!wmUse($parent))
+        return;
+    menuItem -divider true -dividerLabel "Editors";
+    wmSubMenu("General Editors", "buildObjectEdMenu", "");
+    wmSubMenu("Modeling Editors", "buildModelingEdMenu", "");
+    wmSubMenu("Animation Editors", "buildAnimationEdMenu", "");
+    wmSubMenu("Rendering Editors", "buildRenderingEdMenu", "");
+    wmSubMenu("Relationship Editors", "buildRelationshipEdMenu", "");
+    if (`exists buildPreferenceMenu`) {
+        string $ui = ($gMainOptionsMenu != "") ? `menuItem -subMenu true -tearOff true -label "UI Elements" $gMainOptionsMenu`
+                                               : `menuItem -subMenu true -tearOff true -label "UI Elements"`;
+        menu -edit -postMenuCommand ("buildPreferenceMenu \"" + $ui + "\"") $ui;
+        setParent -menu ..;
+    }
+    wmSubMenu("Settings/Preferences", "buildSettingsMenu", "");
+    menuItem -divider true;
+    wmItem("OutlinerWindow", "wmOutliner", "", 1);
+    wmItem("NodeEditorWindow", "wmNodeEditor", "", 1);
+    wmItem("OpenContentBrowser", "wmContentBrowser", "", 1);
+    if (`isTrue AnimationExists`) {
+        wmItem("PlayblastWindow", "playblastItem", "", 1);
+        if (`exists PlayblastOptions`)
+            menuItem -optionBox true -annotation "Playblast options" -command "PlayblastOptions" playblastDialogItem;
+    }
+}

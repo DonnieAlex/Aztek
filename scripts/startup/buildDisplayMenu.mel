@@ -1,0 +1,1244 @@
+// buildDisplayMenu: the Display menu as a script builds it into a menu of its own (Aztek's main menu bar has its own
+// Display menu), its submenus, built the first time each opens, and the display procedures runtime commands and hotkeys
+// call: hiding and showing by kind, smoothness, normals, culling, bounding boxes and the polygon size windows.
+//
+// Items that stand for a runtime command run that command; their labels are the command's name in words.
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Helpers.
+
+// "ToggleKeepWireCulling" as "Keep Wire Culling": a runtime command's name in words, for its item's label.
+proc string bdmWords(string $name)
+{
+    string $s = $name;
+    if (startsWith($s, "Toggle") && size($s) > 6)
+        $s = substring($s, 7, size($s));
+    string $out = "";
+    int $n = size($s);
+    for ($i = 1; $i <= $n; $i++) {
+        string $c = substring($s, $i, $i);
+        string $prev = $i > 1 ? substring($s, $i - 1, $i - 1) : "";
+        int $upper = ($c != tolower($c));
+        int $prevLower = ($prev != "" && $prev == tolower($prev) && $prev != " ");
+        if ($i > 1 && $upper && $prevLower)
+            $out += " ";
+        $out += $c;
+    }
+    return $out;
+}
+
+// An item that runs a runtime command, named $item when that isn't "".
+proc string bdmItem(string $item, string $rtc)
+{
+    string $label = bdmWords($rtc);
+    if ($item != "")
+        return `menuItem -label $label -annotation $label -command $rtc $item`;
+    return `menuItem -label $label -annotation $label -command $rtc`;
+}
+
+// The same as a check item.
+proc string bdmCheck(string $item, string $rtc, int $value)
+{
+    string $label = bdmWords($rtc);
+    if ($item != "")
+        return `menuItem -label $label -annotation $label -command $rtc -checkBox $value $item`;
+    return `menuItem -label $label -annotation $label -command $rtc -checkBox $value`;
+}
+
+// A check item for a heads-up display group. It runs the runtime command when Aztek has it, else the setter in
+// initHUDScripts, so the item works either way.
+proc string bdmHudCheck(string $item, string $rtc, string $var, string $setter)
+{
+    string $label = bdmWords($rtc);
+    string $cmd = "if (`exists " + $rtc + "`) " + $rtc + "; else " + $setter + "(!`optionVar -query " + $var + "`);";
+    return `menuItem -label $label -annotation $label -command $cmd -checkBox (`optionVar -query $var`) $item`;
+}
+
+// An option box for the item before it, running a runtime command.
+proc bdmOptionBox(string $item, string $rtc)
+{
+    string $label = bdmWords($rtc);
+    if ($item != "")
+        menuItem -optionBox true -annotation $label -command $rtc $item;
+    else
+        menuItem -optionBox true -annotation $label -command $rtc;
+}
+
+// A submenu filled the first time it opens by $builder, which then clears the post-menu command.
+proc string bdmLazySubmenu(string $label, string $builder)
+{
+    string $sub = `menuItem -subMenu true -tearOff true -allowOptionBoxes true -label $label`;
+    menuItem -edit -postMenuCommand ($builder + " \"" + $sub + "\"") $sub;
+    setParent -menu ..;
+    return $sub;
+}
+
+// The "this part of the program is installed" checks the reference makes. Aztek has each part or doesn't name the check.
+proc int bdmHas(string $check)
+{
+    if (`exists $check`)
+        return eval($check);
+    return $check == "SurfaceUIExists" || $check == "RenderingExists";
+}
+
+// What the reference's hideKeepSelection does: hide the objects without the selection changing.
+proc bdmHideKeepSelection(string $objs[])
+{
+    string $sel[] = `ls -selection`;
+    hide $objs;
+    select -clear;
+    if (size($sel))
+        select $sel;
+}
+
+// Show the objects that still exist, echoing the command as the reference does.
+proc bdmShowEcho(string $objs[])
+{
+    string $cmd = "showHidden -all";
+    for ($o in $objs)
+        if (`objExists $o`)
+            $cmd += " \"" + $o + "\"";
+    evalEcho $cmd;
+}
+
+proc string[] bdmTransformsOf(string $type)
+{
+    return `listTransforms ("-type " + $type)`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Ticks kept in step with what they show.
+
+global proc gridMenuUpdate()
+{
+    if (`menuItem -exists dispGridItem`)
+        menuItem -edit -checkBox `grid -query -toggle` dispGridItem;
+}
+
+global proc originAxesMenuUpdate()
+{
+    if (`menuItem -exists originAxesItem`)
+        menuItem -edit -checkBox `toggleAxis -query -origin` originAxesItem;
+}
+
+global proc paintEffectsMeshDisplayMenuUpdate()
+{
+    if (!`menuItem -exists paintEffectsMeshDisplayItem`)
+        return;
+    if (!`optionVar -exists paintEffectsDisplayMesh`)
+        optionVar -intValue paintEffectsDisplayMesh 1;
+    int $v = `optionVar -query paintEffectsDisplayMesh`;
+    if (`exists paintEffectsDisplay`)
+        eval("paintEffectsDisplay -meshDrawEnable " + $v);
+    menuItem -edit -checkBox $v paintEffectsMeshDisplayItem;
+}
+
+global proc polyNormalSizeMenuUpdate()
+{
+    if (!`menuItem -exists polyNormalSizeItem` || !`floatSliderGrp -exists normalsSizeSlider`)
+        return;
+    float $sizes[] = `polyOptions -query -activeObjects -sizeNormal`;
+    if (size($sizes))
+        floatSliderGrp -edit -value $sizes[size($sizes) - 1] normalsSizeSlider;
+}
+
+global proc TogglePaintEffectsMeshDisplay()
+{
+    if (!`exists paintEffectsDisplay`)
+        return;
+    int $v = !eval("paintEffectsDisplay -query -meshDrawEnable");
+    optionVar -intValue paintEffectsDisplayMesh $v;
+    eval("paintEffectsDisplay -meshDrawEnable " + $v);
+    refresh -force;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Hiding and showing.
+
+// Aztek has showLastHidden as a command of its own, which remembers what was hidden; the procedure is only defined
+// where that command isn't, so it isn't hidden behind this one.
+if (!`exists showLastHidden`)
+    eval("global proc showLastHidden() { bdmShowLastHidden(); }");
+
+global proc bdmShowLastHidden()
+{
+    global string $gLastHiddenSelection[];
+    global string $gLastNonMayaHiddenSelection[];
+    if (size($gLastHiddenSelection) || size($gLastNonMayaHiddenSelection)) {
+        string $still[] = `ls -transforms -shapes $gLastHiddenSelection`;
+        int $hidden = 0;
+        for ($o in $still)
+            if (`attributeExists visibility $o` && !`getAttr ($o + ".visibility")`)
+                $hidden++;
+        if (size($still) && $hidden == 0) {
+            warning "Nothing that was hidden last is still hidden.";
+            return;
+        }
+        string $cmd = "showHidden -all";
+        for ($o in $gLastHiddenSelection)
+            $cmd += " \"" + $o + "\"";
+        for ($o in $gLastNonMayaHiddenSelection)
+            $cmd += " \"" + $o + "\"";
+        eval($cmd);
+        // The lists are kept, so an undo followed by this again shows the same objects.
+        return;
+    }
+    warning "Nothing that was hidden last is still hidden.";
+}
+
+global proc showAllComponents()
+{
+    string $meshes[] = `ls -type mesh`;
+    if (size($meshes))
+        showHidden $meshes;
+}
+
+global proc hideShowDeformingGeom(string $state)
+{
+    string $types[] = {"cluster", "jointCluster", "jointLattice", "boneLattice", "ffd", "jointFfd", "wire", "sculpt", "blendShape", "geometryFilter", "weightGeometryFilter"};
+    string $deformers[];
+    for ($t in $types) {
+        string $d[] = `ls -type $t`;
+        appendStringArray($deformers, $d, size($d));
+    }
+    $deformers = stringArrayRemoveDuplicates(sort($deformers));
+
+    string $members[];
+    for ($d in $deformers) {
+        string $sets[] = `listConnections -type objectSet ($d + ".message")`;
+        for ($s in $sets) {
+            string $m[] = `sets -query $s`;
+            appendStringArray($members, $m, size($m));
+        }
+    }
+    string $list[];
+    if (size($members)) {
+        string $parents[] = `listRelatives -parent -fullPath $members`;
+        for ($p in $parents) {
+            string $t = `nodeType $p`;
+            if ($t == "transform")
+                $list[size($list)] = $p;
+            else {
+                string $up[] = `listRelatives -parent -fullPath $p`;
+                appendStringArray($list, $up, size($up));
+            }
+        }
+        $list = stringArrayRemoveDuplicates($list);
+    }
+
+    if ($state == "hide") {
+        if (size($list))
+            bdmHideKeepSelection($list);
+        else
+            warning "There is no deforming geometry to hide.";
+    } else if (size($list))
+        bdmShowEcho($list);
+    else
+        warning "There is no deforming geometry to show.";
+}
+
+// The influence objects of every wrap deformer: every other connection of its driver points, from the first.
+proc string[] bdmWrapInfluences()
+{
+    string $out[];
+    string $wraps[] = `ls -type wrap`;
+    for ($w in $wraps) {
+        string $c[] = `listConnections ($w + ".driverPoints")`;
+        for ($i = 0; $i < size($c); $i += 2)
+            $out[size($out)] = $c[$i];
+    }
+    return $out;
+}
+
+proc string[] bdmWireCurves()
+{
+    string $out[];
+    string $wires[] = `ls -type wire`;
+    for ($w in $wires) {
+        string $c[] = `listConnections ($w + ".deformedWire")`;
+        appendStringArray($out, $c, size($c));
+    }
+    return $out;
+}
+
+proc string[] bdmSkinInfluences()
+{
+    string $out[];
+    string $skins[] = `ls -type skinCluster`;
+    for ($s in $skins) {
+        string $inf[] = `listConnections ($s + ".matrix")`;
+        for ($c in $inf)
+            if (`nodeType $c` != "joint")
+                $out[size($out)] = $c;
+    }
+    return $out;
+}
+
+// The mesh an nCloth or nRigid stands for: its input mesh when that is a real one, else its output mesh.
+proc string[] bdmRelatedMeshes(string $xforms[])
+{
+    string $out[];
+    for ($x in $xforms) {
+        string $kids[] = `listRelatives -children -fullPath $x`;
+        for ($k in $kids) {
+            if (!`objectType -isAType nBase $k`)
+                continue;
+            string $outMesh = "";
+            string $future[] = `listHistory -future true $k`;
+            for ($h in $future)
+                if (`nodeType $h` == "mesh") {
+                    $outMesh = $h;
+                    break;
+                }
+            string $inMesh = "";
+            if (`attributeExists inputMesh $k`) {
+                string $in[] = `listConnections -shapes true -type mesh ($k + ".inputMesh")`;
+                if (size($in))
+                    $inMesh = $in[0];
+            }
+            int $real = $inMesh != "" && !(`attributeExists intermediateObject $inMesh` && `getAttr ($inMesh + ".intermediateObject")`);
+            if ($real)
+                $out[size($out)] = $inMesh;
+            else if ($outMesh != "")
+                $out[size($out)] = $outMesh;
+            else if ($inMesh != "")
+                $out[size($out)] = $inMesh;
+        }
+    }
+    return $out;
+}
+
+proc string[] bdmTransformsOfTypes(string $types[])
+{
+    string $out[];
+    for ($t in $types) {
+        string $x[] = bdmTransformsOf($t);
+        appendStringArray($out, $x, size($x));
+    }
+    return $out;
+}
+
+global proc hideShow(string $type, string $state)
+{
+    string $list[];
+    string $nonlinear[] = {"deformBend", "deformFlare", "deformSine", "deformSquash", "deformTwist", "deformWave"};
+
+    if ($type == "-controllers")
+        $list = `controller -query -allControllers`;
+    else if ($type == "-cameras") {
+        string $cams[] = `ls -cameras`;
+        if (size($cams))
+            $list = `listRelatives -parent $cams`;
+    } else if ($type == "-geometry") {
+        string $kinds[] = {"nurbsSurface", "nurbsCurve", "mesh"};
+        if (bdmHas("SubdivUIExists"))
+            $kinds[size($kinds)] = "subdiv";
+        $list = bdmTransformsOfTypes($kinds);
+    } else if ($type == "-nurbsSurfaces")
+        $list = bdmTransformsOf("nurbsSurface");
+    else if ($type == "-nurbsCurves")
+        $list = bdmTransformsOf("nurbsCurve");
+    else if ($type == "-polySurfaces")
+        $list = bdmTransformsOf("mesh");
+    else if ($type == "-subdiv")
+        $list = bdmTransformsOf("subdiv");
+    else if ($type == "-planes")
+        $list = bdmTransformsOf("sketchPlane");
+    else if ($type == "-lights") {
+        string $lights[] = `ls -lights`;
+        if (size($lights))
+            $list = `listRelatives -parent $lights`;
+    }
+    else if ($type == "-strokes")
+        $list = bdmTransformsOf("stroke");
+    else if ($type == "-posMarker")
+        $list = bdmTransformsOf("positionMarker");
+    else if ($type == "-fluids")
+        $list = bdmTransformsOf("fluidShape");
+    else if ($type == "-fur")
+        $list = bdmTransformsOf("FurFeedback");
+    else if ($type == "-hairSystems")
+        $list = bdmTransformsOf("hairSystem");
+    else if ($type == "-follicles")
+        $list = bdmTransformsOf("follicle");
+    else if ($type == "-nParticle")
+        $list = bdmTransformsOf("nParticle");
+    else if ($type == "-dynamicConstraint")
+        $list = bdmTransformsOf("dynamicConstraint");
+    else if ($type == "-strokeCurves" || $type == "-strokeControlCurves") {
+        if (`exists listAllStrokeCurves`)
+            $list = eval("listAllStrokeCurves(" + ($type == "-strokeControlCurves") + ")");
+    } else if ($type == "-place3dTexture")
+        $list = `ls -type place3dTexture`;
+    else if ($type == "-kinematics")
+        $list = `ls -type joint -type hikEffector -type hikIKEffector -type ikHandle`;
+    else if ($type == "-joints")
+        $list = `ls -type joint`;
+    else if ($type == "-ikHandles")
+        $list = `ls -type ikHandle -type hikEffector -type hikIKEffector`;
+    else if ($type == "-ikEff")
+        $list = `ls -type ikEffector -type hikEffector -type hikIKEffector`;
+    else if ($type == "-deformers") {
+        string $kinds[] = {"lattice", "implicitSphere", "clusterHandle"};
+        appendStringArray($kinds, $nonlinear, size($nonlinear));
+        $list = bdmTransformsOfTypes($kinds);
+        string $more[] = bdmWrapInfluences();
+        appendStringArray($list, $more, size($more));
+        $more = bdmWireCurves();
+        appendStringArray($list, $more, size($more));
+        $more = bdmSkinInfluences();
+        appendStringArray($list, $more, size($more));
+    } else if ($type == "-lattices")
+        $list = bdmTransformsOf("lattice");
+    else if ($type == "-sculptObjects")
+        $list = bdmTransformsOf("implicitSphere");
+    else if ($type == "-clusters")
+        $list = bdmTransformsOf("clusterHandle");
+    else if ($type == "-nonlinears")
+        $list = bdmTransformsOfTypes($nonlinear);
+    else if ($type == "-wraps")
+        $list = bdmWrapInfluences();
+    else if ($type == "-skinClusters")
+        $list = bdmSkinInfluences();
+    else if ($type == "-nCloth" || $type == "-nRigid") {
+        $list = bdmTransformsOf($type == "-nCloth" ? "nCloth" : "nRigid");
+        string $meshes[] = bdmRelatedMeshes($list);
+        appendStringArray($list, $meshes, size($meshes));
+    } else
+        warning ("hideShow: there is no kind of object called " + $type + ".");
+
+    if ($state == "-hide") {
+        if (size($list))
+            bdmHideKeepSelection($list);
+        else
+            warning "There are no objects to hide.";
+    } else if (size($list))
+        bdmShowEcho($list);
+    else
+        warning "There are no objects to show.";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Smoothness, normals, culling and other display settings.
+
+global proc adjustSmoothness(string $level)
+{
+    // The reference sets the NURBS divisions and then the subdivision levels; Aztek's displaySmoothness has the
+    // divisions and point counts only.
+    if ($level == "Rough")
+        displaySmoothness -divisionsU 0 -divisionsV 0 -pointsWire 4 -pointsShaded 1;
+    else if ($level == "Fine")
+        displaySmoothness -divisionsU 2 -divisionsV 2 -pointsWire 16 -pointsShaded 4;
+    else
+        displaySmoothness -divisionsU 1 -divisionsV 1 -pointsWire 8 -pointsShaded 2;
+}
+
+global proc setNormalsSize(float $size)
+{
+    polyOptions -activeObjects -displayNormal true -sizeNormal $size;
+}
+
+global proc doFastInteractionItem(int $isFast)
+{
+    global int $gFastInteraction;
+    displayLevelOfDetail -levelOfDetail $isFast;
+    $gFastInteraction = $isFast;
+    if (`menuItem -exists dispLODItem`)
+        menuItem -edit -checkBox $isFast dispLODItem;
+}
+
+global proc doFastViewportTextures(int $slider)
+{
+    int $sizes[] = {32, 64, 128, 256, 512, 1024, 2048};
+    int $res = ($slider >= 0 && $slider <= 6) ? $sizes[$slider] : 32;
+    optionVar -intValue defaultTextureResolution $res;
+}
+
+// The culling flag for one mesh: keep wires, keep hard edges or plain full culling, as the preferences ask.
+proc string bdmCullFlag(int $wire, int $hard)
+{
+    if ($wire)
+        return "-wbc";
+    if ($hard)
+        return "-hb";
+    return "-fb";
+}
+
+global proc toggleSurfaceBackfaceCulling()
+{
+    global int $gSelectNurbsSurfacesBit;
+    global int $gSelectMeshesBit;
+    int $nurbsMask = $gSelectNurbsSurfacesBit ? $gSelectNurbsSurfacesBit : 10;
+    int $meshMask = $gSelectMeshesBit ? $gSelectMeshesBit : 12;
+
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        return;
+    string $surfaces[] = `filterExpand -expand true -selectionMask $nurbsMask $sel`;
+    for ($s in $surfaces) {
+        int $cur[] = `displayCull -query -backFaceCulling $s`;
+        displayCull -backFaceCulling (!(size($cur) && $cur[0])) $s;
+    }
+
+    int $V = `optionVar -query polyDisplayVertexBackfaceCulling`;
+    int $W = `optionVar -query polyDisplayWireBackfaceCulling`;
+    int $H = `optionVar -query polyDisplayHardEdgeBackfaceCulling`;
+    string $vertexFlag = $V ? "-bcv false" : "-bcv true";
+
+    string $meshes[] = `filterExpand -expand true -selectionMask $meshMask $sel`;
+    for ($m in $meshes) {
+        int $q[] = `polyOptions -query -activeObjects -backCulling $m`;
+        int $notCulled = size($q) && $q[0];
+        $q = `polyOptions -query -activeObjects -wbc $m`;
+        int $keepWire = size($q) && $q[0];
+        $q = `polyOptions -query -activeObjects -hb $m`;
+        int $keepHard = size($q) && $q[0];
+        $q = `polyOptions -query -activeObjects -backCullVertex $m`;
+        int $noVertex = size($q) && $q[0];
+
+        string $flag;
+        if ($notCulled)
+            $flag = bdmCullFlag($W, $H);
+        else if (!$W && $keepWire && $H)
+            $flag = "-hb";
+        else if (!$H && $keepHard && $W)
+            $flag = "-wbc";
+        else if (!$noVertex && !$V)
+            $flag = bdmCullFlag($W, $H);
+        else if ((!$H && $keepHard) || ($keepWire && !$W))
+            $flag = "-fb";
+        else if (!$keepWire && $W)
+            $flag = "-wbc";
+        else if (!$keepHard && $H)
+            $flag = "-hb";
+        else if ($noVertex && $V)
+            $flag = bdmCullFlag($W, $H);
+        else
+            $flag = "-bc";
+        // One command per mesh, run once. The reference runs every earlier mesh's command again with each new one.
+        eval("polyOptions -activeObjects " + $vertexFlag + " " + $flag + " \"" + $m + "\"");
+    }
+}
+
+global proc toggleNormalDisplay(string $type)
+{
+    global int $gSelectMeshesBit;
+    int $meshMask = $gSelectMeshesBit ? $gSelectMeshesBit : 12;
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        return;
+    string $meshes[] = `filterExpand -expand true -selectionMask $meshMask $sel`;
+    for ($m in $meshes) {
+        int $shown[] = `polyOptions -query -displayNormal $m`;
+        int $facet[] = `polyOptions -query -facet $m`;
+        int $point[] = `polyOptions -query -pt $m`;
+        int $both[] = `polyOptions -query -pointFacet $m`;
+        int $on = size($shown) && $shown[0];
+        int $face = $on && ((size($facet) && $facet[0]) || (size($both) && $both[0]));
+        int $vertex = $on && ((size($point) && $point[0]) || (size($both) && $both[0]));
+        if ($type == "face")
+            $face = !$face;
+        else
+            $vertex = !$vertex;
+        if ($face && $vertex)
+            polyOptions -displayNormal true -pointFacet $m;
+        else if ($face)
+            polyOptions -displayNormal true -facet $m;
+        else if ($vertex) {
+            // Aztek's polyOptions refuses -point when setting; normals at both then show the vertex ones.
+            if (catchQuiet(`polyOptions -displayNormal true -pt $m`))
+                polyOptions -displayNormal true -pointFacet $m;
+        }
+        else
+            polyOptions -displayNormal false $m;
+    }
+}
+
+global proc toggleTangentDisplay()
+{
+    global int $gSelectMeshesBit;
+    int $meshMask = $gSelectMeshesBit ? $gSelectMeshesBit : 12;
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        return;
+    string $meshes[] = `filterExpand -expand true -selectionMask $meshMask $sel`;
+    for ($m in $meshes) {
+        int $cur[] = `polyOptions -query -displayTangent $m`;
+        polyOptions -displayTangent (!(size($cur) && $cur[0])) $m;
+    }
+}
+
+global proc ignoreHardwareShader(int $value)
+{
+    global int $gSelectNurbsSurfacesBit;
+    global int $gSelectMeshesBit;
+    string $sel[] = `ls -selection -long`;
+    if (size($sel) == 0)
+        return;
+    string $surfaces[] = `filterExpand -fullPath true -expand true -selectionMask ($gSelectNurbsSurfacesBit ? $gSelectNurbsSurfacesBit : 10) -selectionMask ($gSelectMeshesBit ? $gSelectMeshesBit : 12) $sel`;
+    for ($s in $surfaces)
+        if (`attributeExists ignoreHwShader $s`)
+            setAttr ($s + ".ignoreHwShader") $value;
+}
+
+proc bdmBoxOverride(string $node, int $enabled)
+{
+    if (!`attributeExists overrideLevelOfDetail $node`)
+        return;
+    if ($enabled) {
+        setAttr ($node + ".overrideEnabled") 1;
+        setAttr ($node + ".overrideLevelOfDetail") 1;
+    } else
+        setAttr ($node + ".overrideLevelOfDetail") 0;
+}
+
+global proc boundingBoxDisplayCtrl(int $enabled, string $startNode)
+{
+    string $objs[];
+    if ($startNode == "")
+        $objs = `ls -selection -long`;
+    else
+        $objs[0] = $startNode;
+    for ($o in $objs) {
+        string $shapes[] = `listRelatives -shapes -fullPath $o`;
+        if (size($shapes) == 0) {
+            // A group: its transforms are gone through in turn, and every child gets the override itself too.
+            $shapes = `listRelatives -children -fullPath $o`;
+            for ($c in $shapes)
+                if (`nodeType $c` == "transform")
+                    boundingBoxDisplayCtrl($enabled, $c);
+        }
+        for ($s in $shapes)
+            bdmBoxOverride($s, $enabled);
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The Display menu.
+
+global proc refreshHeadsUpDisplayMenu(string $parent)
+{
+    if (`menuItem -exists inViewMessageToggle`)
+        menuItem -edit -checkBox `optionVar -query inViewMessageEnable` inViewMessageToggle;
+    if (`menuItem -exists viewCubeItem`)
+        menuItem -edit -checkBox `viewManip -query -visible` viewCubeItem;
+    if (`menuItem -exists inViewEditorToggle`)
+        menuItem -edit -checkBox `optionVar -query inViewEditorVisible` inViewEditorToggle;
+
+    int $xgen = `pluginInfo -query -loaded xgenToolkit`;
+    if (!$xgen && `menuItem -exists xgenInfoItem`)
+        deleteUI -menuItem xgenInfoItem;
+    else if ($xgen && !`menuItem -exists xgenInfoItem` && `menuItem -exists viewportRendererItem`) {
+        setParent -menu $parent;
+        menuItem -insertAfter viewportRendererItem -checkBox `optionVar -query xgenHUDVisibility` -label "XGen Info"
+            -annotation "XGen information: the primitives and their counts" -command "ToggleXGenDisplayHUD" xgenInfoItem;
+    }
+}
+
+global proc buildDisplayMenu(string $parent)
+{
+    global int $gShowGrid;
+    global int $gToggleOriginAxis;
+    global string $gHeadsUpDisplayMenu;
+    global string $gDisplayHideSubmenu;
+    global string $gDisplayShowSubmenu;
+    global string $gDisplayPerCameraVisibilitySubmenu;
+    global string $gDisplayPolygonsSubmenu;
+    global string $gDisplayNurbsSubmenu;
+    global string $gDisplaySubdivSubmenu;
+    global string $gDisplayAnimationSubmenu;
+    global string $gDisplayRenderingSubmenu;
+
+    setParent -menu $parent;
+    if (`menu -query -numberOfItems $parent` != 0) {
+        // Built already: only the tick that can change behind the menu's back.
+        if (`menuItem -exists dispLODItem`)
+            menuItem -edit -checkBox `displayLevelOfDetail -query -levelOfDetail` dispLODItem;
+        // The reference adds its lower section again on each call; once is enough.
+        return;
+    }
+
+    menuItem -divider true -dividerLabel "Viewport";
+    bdmCheck("dispGridItem", "ToggleGrid", $gShowGrid);
+    bdmOptionBox("dispGridSpacingItem", "GridOptions");
+
+    if (!`exists initHUDScripts`)
+        eval("source \"initHUDScripts.mel\"");
+
+    $gHeadsUpDisplayMenu = `menuItem -subMenu true -tearOff true -allowOptionBoxes true -label "Heads Up Display"`;
+    menuItem -edit -postMenuCommand ("refreshHeadsUpDisplayMenu \"" + $gHeadsUpDisplayMenu + "\"") $gHeadsUpDisplayMenu;
+    bdmHudCheck("animationDetailsItem", "ToggleAnimationDetails", "animationDetailsVisibility", "setAnimationDetailsVisibility");
+    // The reference adds its evaluation cache item after this one from Python; Aztek has no such item.
+    bdmHudCheck("cameraNamesItem", "ToggleCameraNames", "cameraNamesVisibility", "setCameraNamesVisibility");
+    bdmHudCheck("capsLockItem", "ToggleCapsLockDisplay", "capsLockVisibility", "setCapsLockVisibility");
+    bdmHudCheck("currentContainerItem", "ToggleCurrentContainerHud", "currentContainerVisibility", "setCurrentContainerVisibility");
+    bdmHudCheck("currentFrameItem", "ToggleCurrentFrame", "currentFrameVisibility", "setCurrentFrameVisibility");
+    bdmCheck("evaluationItem", "ToggleEvaluationManagerVisibility", `optionVar -query evaluationVisibility`);
+    bdmHudCheck("focalLengthItem", "ToggleFocalLength", "focalLengthVisibility", "setFocalLengthVisibility");
+    bdmHudCheck("frameRateItem", "ToggleFrameRate", "frameRateVisibility", "setFrameRateVisibility");
+    bdmHudCheck("hikDetailsItem", "ToggleHikDetails", "hikDetailsVisibility", "setHikDetailsVisibility");
+    bdmHudCheck("materialLoadingDetailsItem", "ToggleMaterialLoadingDetailsVisibility", "materialLoadingDetailsVisibility", "ToggleMaterialLoadingDetailsHUDVisibility");
+    bdmHudCheck("objectDetailsItem", "ToggleObjectDetails", "objectDetailsVisibility", "setObjectDetailsVisibility");
+    bdmCheck("originAxesItem", "ToggleOriginAxis", $gToggleOriginAxis);
+    bdmHudCheck("particleCountItem", "ToggleParticleCount", "particleCountVisibility", "setParticleCountVisibility");
+    bdmHudCheck("polyCountItem", "TogglePolyCount", "polyCountVisibility", "setPolyCountVisibility");
+    menuItem -optionBox true -annotation "Poly Count options" -command "performPolyCountOptions 1";
+    bdmHudCheck("sceneTimecodeItem", "ToggleSceneTimecode", "sceneTimecodeVisibility", "setSceneTimecodeVisibility");
+    bdmHudCheck("selectDetailsItem", "ToggleSelectDetails", "selectDetailsVisibility", "setSelectDetailsVisibility");
+    if (bdmHas("SubdivUIExists"))
+        bdmHudCheck("subdDetailsItem", "ToggleSubdDetails", "subdDetailsVisibility", "setSubdDetailsVisibility");
+    bdmHudCheck("symmetryItem", "ToggleSymmetryDisplay", "symmetryVisibility", "setSymmetryVisibility");
+    bdmHudCheck("viewAxisItem", "ToggleViewAxis", "viewAxisVisibility", "setViewAxisVisibility");
+    bdmCheck("viewCubeItem", "ToggleViewCube", `viewManip -query -visible`);
+    bdmHudCheck("viewportRendererItem", "ToggleViewportRenderer", "viewportRendererVisibility", "setViewportRendererVisibility");
+    menuItem -divider true;
+    bdmCheck("inViewMessageToggle", "ToggleInViewMessage", `optionVar -query inViewMessageEnable`);
+    bdmCheck("inViewEditorToggle", "ToggleInViewEditor", `optionVar -query inViewEditorVisible`);
+    setParent -menu ..;
+
+    menuItem -divider true -dividerLabel "Object";
+    $gDisplayHideSubmenu = bdmLazySubmenu("Hide", "buildHideSubmenu");
+    $gDisplayShowSubmenu = bdmLazySubmenu("Show", "buildShowSubmenu");
+    bdmItem("", "ToggleVisibilityAndKeepSelection");
+    bdmOptionBox("", "ToggleVisibilityAndKeepSelectionOptions");
+    $gDisplayPerCameraVisibilitySubmenu = bdmLazySubmenu("Per Camera Visibility", "buildPerCameraVisibilitySubmenu");
+
+    menuItem -divider true;
+    bdmItem("objectColorItem", "SetWireframeColor");
+
+    menuItem -subMenu true -tearOff true -label "Object Display";
+    bdmItem("templateOnItem", "TemplateObject");
+    bdmItem("templateOffItem", "UntemplateObject");
+    menuItem -divider true;
+    bdmItem("enableBoundingBoxDisplayItem", "ShowBoundingBox");
+    bdmItem("disableBoundingBoxDisplayItem", "HideBoundingBox");
+    menuItem -divider true;
+    bdmItem("", "ShowObjectGeometry");
+    bdmItem("", "HideObjectGeometry");
+    menuItem -divider true;
+    bdmItem("", "IgnoreHardwareShader");
+    bdmItem("", "UseHardwareShader");
+    menuItem -divider true;
+    bdmCheck("dispLODItem", "ToggleFastInteraction", `optionVar -query fastInteraction`);
+    setParent -menu ..;
+
+    menuItem -subMenu true -tearOff true -label "Transform Display" objectsCompItem;
+    bdmItem("toggleAxisItem", "ToggleLocalRotationAxes");
+    bdmItem("toggleRPItem", "ToggleRotationPivots");
+    bdmItem("toggleSPItem", "ToggleScalePivots");
+    bdmItem("toggleSHItem", "ToggleSelectionHandles");
+    setParent -menu ..;
+
+    originAxesMenuUpdate();
+    gridMenuUpdate();
+
+    menuItem -divider true;
+    $gDisplayPolygonsSubmenu = bdmLazySubmenu("Polygons", "buildPolygonsSubmenu");
+    $gDisplayNurbsSubmenu = bdmLazySubmenu("NURBS", "buildNurbsSubmenu");
+    if (bdmHas("SubdivUIExists"))
+        $gDisplaySubdivSubmenu = bdmLazySubmenu("Subdiv Surfaces", "buildSubdivSurfaces");
+    $gDisplayAnimationSubmenu = bdmLazySubmenu("Animation", "buildAnimationMenu");
+    $gDisplayRenderingSubmenu = bdmLazySubmenu("Rendering", "buildRenderingMenu");
+
+    menuItem -divider true;
+    bdmItem("", "FrameAllInAllViews");
+    bdmItem("", "FrameSelectedWithoutChildrenInAllViews");
+    bdmItem("", "FrameSelectedInAllViews");
+}
+
+global proc buildHideSubmenu(string $parent)
+{
+    global string $gHideFurItem;
+    setParent -menu $parent;
+    bdmItem("hideItem", "HideSelectedObjects");
+    bdmItem("hideUnselectedItem", "HideUnselectedObjects");
+    bdmItem("hideUnselectedCVsItem", "HideUnselectedCVs");
+    bdmItem("hideAllItems", "HideAll");
+    menuItem -divider true;
+    bdmItem("hideControllersItem", "HideControllers");
+
+    menuItem -subMenu true -tearOff true -label "Hide Geometry";
+    bdmItem("hideGeometryItem", "HideGeometry");
+    menuItem -divider true;
+    if (bdmHas("SurfaceUIExists"))
+        bdmItem("hideNurbsSurfacesItem", "HideNURBSSurfaces");
+    bdmItem("hideNurbsCurvesItem", "HideNURBSCurves");
+    bdmItem("hidePolySurfacesItem", "HidePolygonSurfaces");
+    bdmItem("", "HideDeformingGeometry");
+    if (bdmHas("SubdivUIExists"))
+        bdmItem("subdivToggleHideGeometryItem", "HideSubdivSurfaces");
+    if (bdmHas("MayaCreatorExists")) {
+        menuItem -divider true;
+        bdmItem("hideStrokesItem", "HideStrokes");
+        bdmItem("hideStrokeCurvesItems", "HideStrokePathCurves");
+        bdmItem("hideStrokeControlCurvesItems", "HideStrokeControlCurves");
+    }
+    setParent -menu ..;
+
+    menuItem -subMenu true -tearOff true -label "Hide Kinematics";
+    bdmItem("hideKinItem", "HideKinematics");
+    menuItem -divider true;
+    bdmItem("hideJointsItem", "HideJoints");
+    bdmItem("hideHandleItem", "HideIKHandles");
+    setParent -menu ..;
+
+    menuItem -subMenu true -tearOff true -label "Hide Deformers" hideDeformersItem;
+    bdmItem("hideDeformItem", "HideDeformers");
+    menuItem -divider true;
+    bdmItem("hideFFDItem", "HideLattices");
+    bdmItem("hideSculptItem", "HideSculptObjects");
+    bdmItem("hideClusterItem", "HideClusters");
+    bdmItem("hideNonlinearItem", "HideNonlinears");
+    bdmItem("hideWrapItem", "HideWrapInfluences");
+    bdmItem("hideSkinClusterItem", "HideSmoothSkinInfluences");
+    setParent -menu ..;
+
+    bdmItem("hideLightsItem", "HideLights");
+    bdmItem("hideCamerasItem", "HideCameras");
+    bdmItem("hidePlace3dTxItem", "HideTexturePlacements");
+    bdmItem("hidePlanesItem", "HidePlanes");
+    bdmItem("hideFluidsItem", "HideFluids");
+    bdmItem("hideHairSystemsItem", "HideHairSystems");
+    bdmItem("hideFolliclesItem", "HideFollicles");
+    if (`exists buildFurFiles`)
+        $gHideFurItem = bdmItem("hideFurItem", "HideFur");
+    bdmItem("hidNClothsItem", "HideNCloths");
+    bdmItem("hideNParticleItem", "HideNParticles");
+    bdmItem("hideNRigidsItem", "HideNRigids");
+    bdmItem("hideDynamicConstraintsItem", "HideDynamicConstraints");
+    menuItem -divider true;
+    bdmItem("hideMarkersItem", "HideMarkers");
+    if (bdmHas("RenderingExists")) {
+        bdmItem("hideLightManipItem", "HideLightManipulators");
+        bdmItem("hideCameraManipItem", "HideCameraManipulators");
+    }
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc buildShowSubmenu(string $parent)
+{
+    global string $gShowFurItem;
+    setParent -menu $parent;
+    bdmItem("showHiddenItem", "ShowSelectedObjects");
+    bdmItem("showLastHiddenItem", "ShowLastHidden");
+    bdmItem("showAllSurfaceCVsItem", "ShowSurfaceCVs");
+    bdmItem("showAllComponentsItem", "ShowAllPolyComponents");
+    bdmItem("visibilityShowAllItem2", "ShowAll");
+    menuItem -divider true;
+    bdmItem("showControllersItem", "ShowControllers");
+
+    menuItem -subMenu true -tearOff true -label "Show Geometry";
+    bdmItem("showGeometryItem", "ShowGeometry");
+    menuItem -divider true;
+    if (bdmHas("SurfaceUIExists"))
+        bdmItem("showNurbsSurfacesItem", "ShowNURBSSurfaces");
+    bdmItem("showNurbsCurvesItem", "ShowNURBSCurves");
+    bdmItem("showPolySurfacesItem", "ShowPolygonSurfaces");
+    bdmItem("", "ShowDeformingGeometry");
+    if (bdmHas("SubdivUIExists"))
+        bdmItem("subdivToggleShowGeometryItem", "ShowSubdivSurfaces");
+    if (bdmHas("MayaCreatorExists")) {
+        menuItem -divider true;
+        bdmItem("showStrokesItem", "ShowStrokes");
+        bdmItem("showStrokeCurvesItem", "ShowStrokePathCurves");
+        bdmItem("showStrokeControlCurvesItem", "ShowStrokeControlCurves");
+    }
+    setParent -menu ..;
+
+    menuItem -subMenu true -tearOff true -label "Show Kinematics";
+    bdmItem("showKinItem", "ShowKinematics");
+    menuItem -divider true;
+    bdmItem("showJointsItem", "ShowJoints");
+    bdmItem("showHandleItem", "ShowIKHandles");
+    setParent -menu ..;
+
+    menuItem -subMenu true -tearOff true -label "Show Deformers" showDeformersItem;
+    bdmItem("showDeformItem", "ShowDeformers");
+    menuItem -divider true;
+    bdmItem("showFFDItem", "ShowLattices");
+    bdmItem("showSculptItem", "ShowSculptObjects");
+    bdmItem("showClusterItem", "ShowClusters");
+    bdmItem("showNonlinearItem", "ShowNonlinears");
+    bdmItem("showWrapItem", "ShowWrapInfluences");
+    bdmItem("showSkinClusterItem", "ShowSmoothSkinInfluences");
+    setParent -menu ..;
+
+    bdmItem("showLightsItem", "ShowLights");
+    bdmItem("showCamerasItem", "ShowCameras");
+    bdmItem("showPlace3dTxItem", "ShowTexturePlacements");
+    bdmItem("showPlanesItem", "ShowPlanes");
+    bdmItem("showFluidsItem", "ShowFluids");
+    bdmItem("showHairSystemsItem", "ShowHairSystems");
+    bdmItem("showFolliclesItem", "ShowFollicles");
+    if (`exists buildFurFiles`)
+        $gShowFurItem = bdmItem("showFurItem", "ShowFur");
+    bdmItem("showNClothsItem", "ShowNCloths");
+    bdmItem("showNParticlesItem", "ShowNParticles");
+    bdmItem("showNRigidsItem", "ShowNRigids");
+    bdmItem("showDynamicConstraintsItem", "ShowDynamicConstraints");
+    menuItem -divider true;
+    bdmItem("showMarkersItem", "ShowMarkers");
+    if (bdmHas("RenderingExists")) {
+        bdmItem("showLightManipItem", "ShowLightManipulators");
+        bdmItem("showCameraManipItem", "ShowCameraManipulators");
+    }
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc doPerCameraVisibility(int $action)
+{
+    if (!`exists perCameraVisibility`) {
+        warning "Per camera visibility isn't available.";
+        return;
+    }
+    if ($action == 5) {
+        evalEcho "perCameraVisibility -removeAll";
+        return;
+    }
+    string $cameras[];
+    string $others = "";
+    string $picked[] = `ls -selection`;
+    for ($s in $picked) {
+        if (!catchQuiet(`camera -query -aspectRatio $s`))
+            $cameras[size($cameras)] = $s;
+        else
+            $others += " " + $s;
+    }
+    if (size($cameras) == 0) {
+        if (!`exists getSequencerViewCamera`)
+            catchQuiet(`eval "source \"sequenceEditorPanel.mel\""`);
+        if (`exists getSequencerViewCamera`)
+            $cameras[0] = eval("getSequencerViewCamera");
+    }
+    for ($c in $cameras) {
+        if ($c == "")
+            continue;
+        string $cmd = "perCameraVisibility -c " + $c;
+        if ($action == 0)
+            $cmd += " -exclusive" + $others;
+        else if ($action == 1)
+            $cmd += " -hide" + $others;
+        else if ($action == 2)
+            $cmd += " -exclusive -remove" + $others;
+        else if ($action == 3)
+            $cmd += " -hide -remove" + $others;
+        else if ($action == 4)
+            $cmd += " -removeCamera";
+        evalEcho $cmd;
+    }
+}
+
+global proc buildPerCameraVisibilitySubmenu(string $parent)
+{
+    setParent -menu $parent;
+    bdmItem("exclusiveToCameraItem", "SetExclusiveToCamera");
+    bdmItem("hiddenFromCameraItem", "SetHiddenFromCamera");
+    menuItem -divider true;
+    bdmItem("removeFromExclusiveItem", "CameraRemoveFromExclusive");
+    bdmItem("removeFromHiddenItem", "CameraRemoveFromHidden");
+    bdmItem("removeAllForCameraItem", "CameraRemoveAll");
+    menuItem -divider true;
+    bdmItem("removeAllItem", "CameraRemoveAllForAll");
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc polyNonPlanarFaceDisplay()
+{
+    int $warp[] = `polyOptions -query -displayWarp`;
+    if (size($warp) && $warp[0])
+        polyOptions -activeObjects -displayWarp 0;
+    else
+        polyOptions -activeObjects -displayWarp 1;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Metadata display. Aztek has no metadata streams yet, so these keep their option variable and do nothing more when
+// the commands for it aren't there.
+
+// "stream.member.dataType" split in three.
+proc string[] bdmStreamMember()
+{
+    string $parts[];
+    if (!`exists getCurrentStreamMember`)
+        catchQuiet(`eval "source \"performVisualizeMetadataOptions.mel\""`);
+    if (`exists getCurrentStreamMember`) {
+        string $sm = eval("getCurrentStreamMember");
+        tokenize $sm "." $parts;
+    }
+    return $parts;
+}
+
+global proc resetMetadataMenuOptions()
+{
+    optionVar -stringValue metadataVisualCurrentStreamMember "";
+    updateMetadataVisualMenu();
+}
+
+global proc updateMetadataVisualMenu()
+{
+    global string $gMetadataVisualCheckBox;
+    string $p[] = bdmStreamMember();
+    if (size($p) < 3 || !`exists showMetadata` || $gMetadataVisualCheckBox == "" || !`menuItem -exists $gMetadataVisualCheckBox`)
+        return;
+    int $on = eval("showMetadata -query -isActivated -stream \"" + $p[0] + "\" -member \"" + $p[1] + "\" -dataType \"" + $p[2] + "\"");
+    menuItem -edit -checkBox $on $gMetadataVisualCheckBox;
+}
+
+// Runs a procedure from another file, sourcing it when it isn't loaded.
+proc bdmCallFrom(string $proc, string $file)
+{
+    if (!`exists $proc`)
+        catchQuiet(`eval ("source \"" + $file + "\"")`);
+    if (`exists $proc`)
+        eval($proc);
+}
+
+global proc updateMetadataUI()
+{
+    updateMetadataVisualMenu();
+    bdmCallFrom("updateMetadataOptionBox", "performVisualizeMetadataOptions.mel");
+    bdmCallFrom("updateEditMetadataWindow", "editMetadataWindow.mel");
+}
+
+global proc resetMetadataUI()
+{
+    resetMetadataMenuOptions();
+    bdmCallFrom("resetMetadataOptionBox", "performVisualizeMetadataOptions.mel");
+    bdmCallFrom("resetEditMetadataWindow", "editMetadataWindow.mel");
+}
+
+global proc toggleMetadata()
+{
+    global string $gMetadataVisualCheckBox;
+    if ($gMetadataVisualCheckBox == "" || !`menuItem -exists $gMetadataVisualCheckBox` || !`exists showMetadata`)
+        return;
+    int $on = `menuItem -query -checkBox $gMetadataVisualCheckBox`;
+    string $p[] = bdmStreamMember();
+    if (size($p) < 3)
+        return;
+    string $shapes[] = `ls -shapes`;
+    string $cmd = "showMetadata -stream \"" + $p[0] + "\" -member \"" + $p[1] + "\" -dataType \"" + $p[2] + "\"";
+    if (!$on)
+        $cmd += " -off";
+    for ($s in $shapes)
+        $cmd += " \"" + $s + "\"";
+    eval($cmd);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The submenus built the first time they open.
+
+global proc buildPolygonsSubmenu(string $parent)
+{
+    global string $gMetadataVisualCheckBox;
+    setParent -menu $parent;
+    bdmItem("polyBackfaceCullingItem", "ToggleBackfaceGeometry");
+    menuItem -subMenu true -tearOff true -label "Culling Options";
+    bdmCheck("toggleKeepWireBackCullingItem", "ToggleKeepWireCulling", `optionVar -query polyDisplayWireBackfaceCulling`);
+    bdmCheck("toggleKeepHardEdgesCullingItem", "ToggleKeepHardEdgeCulling", `optionVar -query polyDisplayHardEdgeBackfaceCulling`);
+    bdmCheck("toggleCullingVerticesItem", "ToggleCullingVertices", `optionVar -query polyDisplayVertexBackfaceCulling`);
+    setParent -menu ..;
+    menuItem -divider true;
+    bdmItem("togglePolyvItem", "ToggleVertices");
+    bdmItem("polyVertexSizeItem", "ChangeVertexSize");
+    bdmItem("showCreaseVertex", "ToggleCreaseVertices");
+    bdmItem("", "ToggleUVs");
+    bdmItem("", "ToggleUnsharedUVs");
+    bdmItem("polyUVSizeItem", "ChangeUVSize");
+    menuItem -subMenu true -tearOff true -label "Component IDs";
+    bdmItem("togglePolyVItemNum", "ToggleVertIDs");
+    bdmItem("togglePolyEItemNum", "ToggleEdgeIDs");
+    bdmItem("togglePolyFItemNum", "ToggleFaceIDs");
+    bdmItem("", "ToggleCompIDs");
+    setParent -menu ..;
+    menuItem -divider true;
+    bdmItem("showFaceNormal", "ToggleFaceNormalDisplay");
+    bdmItem("showVertexNormal", "ToggleVertexNormalDisplay");
+    bdmItem("showTangents", "ToggleTangentDisplay");
+    bdmItem("polyNormalSizeItem", "ChangeNormalSize");
+    menuItem -divider true;
+    bdmItem("showEdge", "TogglePolyDisplayEdges");
+    bdmItem("togglePolySoftEdgesItem", "TogglePolyDisplaySoftEdges");
+    bdmItem("showHardEdgeColor", "TogglePolyDisplayHardEdgesColor");
+    bdmItem("showHardEdge", "TogglePolyDisplayHardEdges");
+    menuItem -divider true;
+    bdmItem("togglePolyBEItem", "ToggleBorderEdges");
+    bdmItem("showCreaseEdge", "ToggleCreaseEdges");
+    bdmItem("showPolyTextureBorderEdge", "ToggleTextureBorderEdges");
+    bdmItem("polyEdgeSizeItem", "ChangeEdgeWidth");
+    menuItem -divider true;
+    bdmItem("", "TogglePolygonFaceCenters");
+    bdmItem("showPolyFaceTriangle", "TogglePolygonFaceTrianglesDisplay");
+    bdmItem("showPolyNonplanarFace", "TogglePolyNonPlanarFaceDisplay");
+    bdmItem("showSubdivHoleFaces", "ToggleHoleFaces");
+    menuItem -divider true;
+    menuItem -subMenu true -tearOff true -label "Metadata";
+    int $streams = 0;
+    if (`exists showMetadata`) {
+        string $visible[] = eval("showMetadata -query -listVisibleStreams");
+        $streams = size($visible) > 0;
+    }
+    $gMetadataVisualCheckBox = bdmCheck("showMetadataItem", "ToggleMetadata", $streams);
+    bdmOptionBox("showMetadataOptionBoxItem", "VisualizeMetadataOptions");
+    setParent -menu ..;
+    menuItem -divider true;
+    bdmItem("", "ResetDisplay");
+    bdmCheck("PolyDisplayLimitedToSelectedMI", "TogglePolyDisplayLimitToSelected", `optionVar -query polyDisplayLimitedToSelectedOV`);
+    bdmItem("PolyDisplayItem", "CustomPolygonDisplay");
+    bdmOptionBox("PolyDisplayOptionBox", "CustomPolygonDisplayOptions");
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+// A smoothness item: dragging it runs $drag, and its option box runs the options command.
+proc bdmSmoothItem(string $item, string $rtc, string $drag, string $optItem, string $optRtc, string $ann)
+{
+    string $label = bdmWords($rtc);
+    menuItem -label $label -annotation $label -command $rtc -dragMenuCommand $drag $item;
+    menuItem -optionBox true -annotation $ann -command $optRtc $optItem;
+}
+
+global proc buildNurbsSubmenu(string $parent)
+{
+    setParent -menu $parent;
+    bdmItem("toggleCVItem", "ToggleCVs");
+    bdmItem("toggleEPItem", "ToggleEditPoints");
+    bdmItem("toggleHullItem", "ToggleHulls");
+    if (bdmHas("SurfaceUIExists"))
+        menuItem -label "Normals (Shaded Mode)" -annotation "Normals (Shaded Mode)" -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalItem;
+    bdmItem("toggleSurfaceFaceItem", "ToggleSurfaceFaceCenters");
+    bdmItem("toggleOriginItem", "ToggleSurfaceOrigin");
+    bdmSmoothItem("dispSmthnessCustomItem", "ToggleCustomNURBSComponents", "performDisplayControl 2", "dispSmthnessCustomOBItem", "CustomNURBSComponentsOptions", "Custom NURBS components options");
+    menuItem -divider true;
+    bdmSmoothItem("dispSmthnessHullItem", "NURBSSmoothnessHull", "performDisplaySmoothnessHull 2", "dispSmthnessHullOptionItem", "NURBSSmoothnessHullOptions", "Hull smoothness options");
+    bdmSmoothItem("dispSmthnessRoughItem", "NURBSSmoothnessRough", "performDisplaySmoothnessRough 2", "dispSmthnessRoughOptionItem", "NURBSSmoothnessRoughOptions", "Rough smoothness options");
+    bdmSmoothItem("dispSmthnessMediumItem", "NURBSSmoothnessMedium", "performDisplaySmoothnessMedium 2", "dispSmthnessMediumOptionItem", "NURBSSmoothnessMediumOptions", "Medium smoothness options");
+    bdmSmoothItem("dispSmthnessFineItem", "NURBSSmoothnessFine", "performDisplaySmoothnessFine 2", "dispSmthnessFineOptionItem", "NURBSSmoothnessFineOptions", "Fine smoothness options");
+    bdmSmoothItem("dispNurbsSmthnessCustomItem", "CustomNURBSSmoothness", "performDisplaySmoothnessCustom 2", "dispNurbsSmthnessCustomOptionItem", "CustomNURBSSmoothnessOptions", "Custom smoothness options");
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc buildSubdivSurfaces(string $parent)
+{
+    setParent -menu $parent;
+    bdmItem("subdivToggleMeshPointItem", "ToggleMeshPoints");
+    bdmItem("subdivToggleMeshEdgeItem", "ToggleMeshEdges");
+    bdmItem("subdivToggleMeshFaceItem", "ToggleMeshFaces");
+    bdmItem("subdivToggleMeshMapItem", "ToggleMeshMaps");
+    menuItem -label "Normals (Shaded Mode)" -annotation "Normals (Shaded Mode)" -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalSubdivItem;
+    bdmItem("subdivToggleMeshCreasesItem", "ToggleMeshUVBorders");
+    menuItem -divider true;
+    bdmSmoothItem("dispSmthnessHullItem", "SubdivSmoothnessHull", "performSubdivDisplaySmoothnessHull 2", "subdivSetHullOptionItem", "SubdivSmoothnessHullOptions", bdmWords("SubdivSmoothnessHullOptions"));
+    bdmSmoothItem("subdivSetRoughItem", "SubdivSmoothnessRough", "performSubdivDisplaySmoothnessRough 2", "subdivSetRoughOptionItem", "SubdivSmoothnessRoughOptions", bdmWords("SubdivSmoothnessRoughOptions"));
+    bdmSmoothItem("subdivSetMediumItem", "SubdivSmoothnessMedium", "performSubdivDisplaySmoothnessMedium 2", "subdivSetMediumOptionItem", "SubdivSmoothnessMediumOptions", bdmWords("SubdivSmoothnessMediumOptions"));
+    bdmSmoothItem("subdivSetFineItem", "SubdivSmoothnessFine", "performSubdivDisplaySmoothnessFine 2", "subdivSetFineOptionItem", "SubdivSmoothnessFineOptions", bdmWords("SubdivSmoothnessFineOptions"));
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc buildAnimationMenu(string $parent)
+{
+    setParent -menu $parent;
+    bdmItem("toggleLatticePtItem", "ToggleLatticePoints");
+    bdmItem("toggleLatticeShapeItem", "ToggleLatticeShape");
+    menuItem -divider true;
+    bdmItem("jdsItem5", "JdsWin");
+    bdmItem("ikfkjdsItem5", "IkfkjdsWin");
+    bdmItem("ikHdsItem5", "IkHdsWin");
+    menuItem -divider true;
+    bdmItem("toggleJointLabelsItem", "ToggleJointLabels");
+    menuItem -divider true;
+    menuItem -label "Highlight Affected" -checkBox `displayPref -query -displayAffected`
+        -command "displayPref -displayAffected `menuItem -query -checkBox highlightAffectedMenuItem`" highlightAffectedMenuItem;
+    // Kept in step when the preference changes elsewhere, for as long as the menu is there.
+    scriptJob -permanent -parent $parent -event DisplayPreferenceChanged
+        "if (`menuItem -exists highlightAffectedMenuItem`) menuItem -edit -checkBox `displayPref -query -displayAffected` highlightAffectedMenuItem;";
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+global proc buildRenderingMenu(string $parent)
+{
+    setParent -menu $parent;
+    string $manip = `menuItem -subMenu true -label "Camera / Light Manipulator"`;
+    menuItem -edit -postMenuCommand ("buildRenderManipMenu \"" + $manip + "\"") $manip;
+    setParent -menu ..;
+    if (bdmHas("MayaCreatorExists")) {
+        menuItem -divider true;
+        bdmCheck("paintEffectsMeshDisplayItem", "ToggleEffectsMeshDisplay", 0);
+        bdmLazySubmenu("Stroke Display Quality", "buildStrokeDisplayQualitySubmenu");
+        paintEffectsMeshDisplayMenuUpdate();
+    }
+    menuItem -edit -postMenuCommand "" $parent;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The small windows that size vertices, UVs, normals and edges.
+
+global proc winReset(string $op)
+{
+    if ($op == "VertSz") {
+        if (`floatSliderGrp -exists vertexSizeSlider`)
+            floatSliderGrp -edit -value 3.0 vertexSizeSlider;
+        polyOptions -sizeVertex 3.0;
+    } else if ($op == "UVSz") {
+        if (`floatSliderGrp -exists uvSizeSlider`)
+            floatSliderGrp -edit -value 4.0 uvSizeSlider;
+        polyOptions -sizeUV 4.0;
+    } else if ($op == "NormSz") {
+        if (`floatSliderGrp -exists normalsSizeSlider`)
+            floatSliderGrp -edit -value 0.4 normalsSizeSlider;
+        polyOptions -sizeNormal 0.4;
+    } else if ($op == "EdgeSz") {
+        if (`floatSliderGrp -exists edgeSizeSlider`)
+            floatSliderGrp -edit -value 2.0 edgeSizeSlider;
+        polyOptions -sizeBorder 2.0;
+    }
+}
+
+global proc dispWindow(string $op)
+{
+    string $win = $op + "wnd";
+    if (`window -exists $win`) {
+        showWindow $win;
+        return;
+    }
+    string $title = "Size";
+    string $slider = "";
+    float $value = 1.0;
+    string $change = "";
+    if ($op == "VertSz") {
+        $title = "Vertex Size";
+        $slider = "vertexSizeSlider";
+        $value = 3.0;
+        $change = "setVertexSize()";
+    } else if ($op == "UVSz") {
+        $title = "UV Size";
+        $slider = "uvSizeSlider";
+        $value = 4.0;
+        $change = "setUVSize()";
+    } else if ($op == "NormSz") {
+        $title = "Normal Size";
+        $slider = "normalsSizeSlider";
+        $value = 0.4;
+        $change = "setNormalSize()";
+    } else if ($op == "EdgeSz") {
+        $title = "Edge Width";
+        $slider = "edgeSizeSlider";
+        $value = 2.0;
+        $change = "setEdgeWidth()";
+    }
+    // The setters are in initHUDScripts.
+    if (!`exists setVertexSize`)
+        catchQuiet(`eval "source \"initHUDScripts.mel\""`);
+
+    window -resizeToFitChildren true -iconName $op -menuBar true -widthHeight 250 75 -sizeable false -title $title $win;
+    menu -label "Reset" -familyImage "menuIconReset.png" ($op + "ResetMenu");
+    menuItem -label "Reset Settings" -command ("winReset " + $op) ($op + "ResetToItem");
+    string $form = `formLayout`;
+    if ($slider != "") {
+        if ($op == "NormSz")
+            floatSliderGrp -field true -minValue 0.02 -maxValue 10 -fieldMaxValue 10000 -precision 2 -value $value -changeCommand $change $slider;
+        else
+            floatSliderGrp -field true -minValue 0.02 -maxValue 10 -precision 2 -value $value -changeCommand $change $slider;
+        formLayout -edit -attachForm $slider "top" 3 -attachForm $slider "left" 3 -attachForm $slider "right" 3 -attachForm $slider "bottom" 3 $form;
+    }
+    showWindow $win;
+}

@@ -1,0 +1,11 @@
+// togglePlayback: stops playback if it's running, else plays forward, as the reference's play hotkey does.
+global proc togglePlayback()
+{
+    if (`isTrue playingBack`) {
+        play -state off;
+    } else if (`exists playButtonForward`) {
+        eval("playButtonForward");
+    } else {
+        play -forward true;
+    }
+}

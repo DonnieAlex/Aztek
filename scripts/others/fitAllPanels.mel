@@ -1,0 +1,96 @@
+// fitAllPanels: frames every camera view, hypergraph and framing scripted panel at once, as the reference's frame all
+// and frame selected in all views do. $fitType "-all" frames everything; anything else frames the selection
+// ("-selectedNoChildren" leaving out what's under it). Animated framing follows animateRollFitAll, not fitPanel's
+// animateRoll.
+
+// The scripted type of a panel, as one string.
+proc string fitAllPanelsScriptType(string $panel)
+{
+    string $type[] = `getPanel -scriptType $panel`;
+    return $type[0];
+}
+
+global proc fitAllPanels(string $fitType)
+{
+    int $all = ($fitType == "-all");
+    string $what = $all ? "all" : "selected";
+    int $animate = `optionVar -query animateRollFitAll`;
+
+    // Camera views. Two views on one camera each frame it; the last one wins.
+    for ($panel in `getPanel -type modelPanel`) {
+        string $camera = `lookThru -query $panel`;
+        if ($camera == "")
+            continue;
+        int $filtered = `modelEditor -query -isFiltered $panel`;
+        if ($filtered && ($all || size(`ls -selection`) == 0))
+            viewFit -panel $panel -animate $animate $camera;
+        else if ($all)
+            viewFit -all -animate $animate $camera;
+        else
+            // "-selectedNoChildren" with objects selected would add -noChildren, which viewFit doesn't have here yet,
+            // so the selection is framed with its children.
+            viewFit -animate $animate $camera;
+    }
+
+    if (`exists hyperGraph`) {
+        for ($panel in `getPanel -type hyperPanel`) {
+            if ($all)
+                hyperGraph -edit -frameGraph $panel;
+            else
+                hyperGraph -edit -frame $panel;
+        }
+    }
+
+    // Scripted panels that frame; the Hypershade, Visor, Outliner and camera-view types are left as they are.
+    for ($panel in `getPanel -type scriptedPanel`) {
+        string $type = fitAllPanelsScriptType($panel);
+        if ($type == "graphEditor") {
+            string $ed = $panel + "GraphEd";
+            if (`animCurveEditor -exists $ed`)
+                animCurveEditor -edit -lookAt $what $ed;
+        } else if ($type == "hyperGraphPanel") {
+            string $ed = $panel + "HyperGraphEd";
+            if (`exists hyperGraph`) {
+                if ($all)
+                    hyperGraph -edit -frameGraph $ed;
+                else
+                    hyperGraph -edit -frame $ed;
+            }
+        } else if ($type == "profilerPanel") {
+            if (`exists profilerTool` && `profilerTool -query -exists`) {
+                if ($all)
+                    profilerTool -edit -frameAll;
+                else
+                    profilerTool -edit -frameSelected;
+            }
+        } else if ($type == "nodeEditorPanel") {
+            string $ed = $panel + "NodeEditorEd";
+            if (`exists editorNameFromPanel`)
+                $ed = eval("editorNameFromPanel \"" + $panel + "\"");
+            if (`nodeEditor -exists $ed`) {
+                // Here the selection is framed as the scene has it, which fitPanel doesn't do.
+                if ($all)
+                    nodeEditor -edit -frameAll $ed;
+                else
+                    nodeEditor -edit -frameModelSelection $ed;
+            }
+        } else if ($type == "dopeSheetPanel") {
+            string $ed = $panel + "DopeSheetEd";
+            if (`dopeSheetEditor -exists $ed`)
+                dopeSheetEditor -edit -lookAt $what $ed;
+        } else if ($type == "polyTexturePlacementPanel") {
+            if (`textureWindow -exists $panel`) {
+                if ($all)
+                    textureWindow -edit -frameAll $panel;
+                else
+                    textureWindow -edit -frameSelected $panel;
+            }
+        } else if ($type == "clipEditorPanel" || $type == "sequenceEditorPanel") {
+            // Both find their editor through the clip editor's procedure, the Sequencer included.
+            if (`exists clipEditorNameFromPanel`) {
+                string $ed = eval("clipEditorNameFromPanel \"" + $panel + "\"");
+                clipEditor -edit -lookAt $what $ed;
+            }
+        }
+    }
+}

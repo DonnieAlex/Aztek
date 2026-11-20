@@ -1,0 +1,900 @@
+// unifiedRenderGlobalsWindow: the Render Settings window's procedures: its renderer and layer menus, the tabs each
+// renderer adds, presets, putting the settings back to their defaults, and the checks scripts make on its values.
+//
+// Aztek's Render Settings window is its own (the RenderGlobalsWindow runtime command); unifiedRenderGlobalsWindow opens
+// it. Where that command isn't there the window below is made instead, in the workspace control the reference uses, so
+// scripts that add tabs to it still find it. Renderers register their tabs and settings nodes with the renderer
+// registry; Harold, Aztek's renderer, keeps its settings in the defaultArnold nodes the Render Settings window edits.
+
+global string $gMasterLayerRendererName = "masterLayer";
+global string $gRENDER_SETTINGS = "Render Settings";
+global string $gAOVS = "AOVs";
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Renderers.
+
+proc string urgCurrent()
+{
+    if (`exists currentRenderer`)
+        return eval("currentRenderer");
+    return `getAttr defaultRenderGlobals.currentRenderer`;
+}
+
+proc string[] urgAvailable()
+{
+    if (`exists renderer`)
+        return eval("renderer -query -namesOfAvailableRenderers");
+    return {urgCurrent()};
+}
+
+proc string urgUIName(string $r)
+{
+    if (`exists renderer`)
+        return eval("renderer -query -rendererUIName " + $r);
+    if ($r == "arnold" || $r == "harold")
+        return "Harold";
+    return $r;
+}
+
+// A list the renderer registry gives for a renderer, or none without the registry.
+proc string[] urgQuery(string $flag, string $r)
+{
+    string $none[];
+    if (!`exists renderer`)
+        return $none;
+    return eval("renderer -query " + $flag + " " + $r);
+}
+
+// The nodes a renderer keeps its settings in.
+proc string[] urgGlobalsNodes(string $r)
+{
+    if (`exists renderer`)
+        return eval("renderer -query -globalsNodes " + $r);
+    string $nodes[] = {"defaultRenderGlobals", "defaultResolution"};
+    if ($r == "arnold" || $r == "harold") {
+        string $more[] = `ls defaultArnoldRenderOptions defaultArnoldFilter defaultArnoldDriver defaultArnoldDisplayDriver`;
+        appendStringArray($nodes, $more, size($more));
+    }
+    return $nodes;
+}
+
+proc int urgHasRenderSetup()
+{
+    return `exists mayaHasRenderSetup` && eval("mayaHasRenderSetup");
+}
+
+proc string urgCurrentLayer()
+{
+    if (`exists editRenderLayerGlobals`)
+        return eval("editRenderLayerGlobals -query -currentRenderLayer");
+    return `objExists defaultRenderLayer` ? "defaultRenderLayer" : "";
+}
+
+proc string[] urgLayers()
+{
+    string $none[];
+    if (!`objExists renderLayerManager`)
+        return $none;
+    return `listConnections renderLayerManager.renderLayerId`;
+}
+
+// The renderers the layers use: the current one, and any a layer's override of the current renderer names.
+proc string[] urgUsedRenderers()
+{
+    string $used[] = {urgCurrent()};
+    string $available[] = urgAvailable();
+    string $plugs[] = `listConnections -plugs true -source false -type renderLayer defaultRenderGlobals.currentRenderer`;
+    for ($p in $plugs) {
+        string $index = match("\\[[0-9]+\\]\\.plug$", $p);
+        if ($index == "")
+            continue;
+        string $valuePlug = substring($p, 1, size($p) - 4) + "value";
+        string $r;
+        if (catchQuiet($r = `getAttr $valuePlug`))
+            continue;
+        if (stringArrayContains($r, $available) && !stringArrayContains($r, $used))
+            $used[size($used)] = $r;
+    }
+    return $used;
+}
+
+proc string urgTabLabelUI(string $label)
+{
+    if ($label == "Passes")
+        return "Passes";
+    if ($label == "Maya Software")
+        return "Software";
+    if ($label == "Maya Hardware")
+        return "Hardware";
+    if ($label == "Maya Vector")
+        return "Vector";
+    return $label;
+}
+
+proc string urgTitle()
+{
+    string $label = `exists currentRenderLayerLabel` ? eval("currentRenderLayerLabel") : "";
+    return $label == "" ? "Render Settings" : ("Render Settings: " + $label);
+}
+
+// The tab an update procedure looks after: the first tab whose middle part (between the prefix and "Tab") is in the
+// procedure's name, with the exceptions the reference makes.
+proc string urgTabForUpdateProc(string $proc, string $tabLayout, string $prefix)
+{
+    if ($prefix == "masterLayer") {
+        if ($proc == "updateMayaRenderPassTab")
+            return "masterLayerPassesTab";
+        if ($proc == "updateVectorGlobalsTab")
+            return "masterLayerMayaVectorTab";
+    } else if ($prefix == "mentalRay" && $proc == "updateMayaRenderPassTab")
+        return "mentalRayPassesTab";
+    string $tabs[] = `tabLayout -query -childArray $tabLayout`;
+    for ($t in $tabs) {
+        if (!startsWith($t, $prefix) || size($t) <= size($prefix) + 3)
+            continue;
+        string $middle = substring($t, size($prefix) + 1, size($t) - 3);
+        if (`gmatch $proc ("*" + $middle + "*")`)
+            return $t;
+    }
+    return "";
+}
+
+proc urgRunUpdateProcs(string $renderer, string $tabLayout, string $prefix)
+{
+    if (!`tabLayout -exists $tabLayout`)
+        return;
+    for ($proc in urgQuery("-globalsTabUpdateProcNames", $renderer)) {
+        if ($proc == "")
+            continue;
+        string $tab = urgTabForUpdateProc($proc, $tabLayout, $prefix);
+        if ($tab == "")
+            continue;
+        string $form = $tabLayout + "|" + $tab;
+        // Tabs are filled when first chosen; an empty one has nothing to update yet.
+        if (`layout -exists $form` && `layout -query -numberOfChildren $form` > 0)
+            eval($proc);
+    }
+}
+
+// Deletes the tab layouts in tabForm: all of them, or all but the master layer's (as the reference does off Windows).
+proc urgClearTabForm()
+{
+    if (!`formLayout -exists tabForm`)
+        return;
+    string $kids[] = `formLayout -query -childArray tabForm`;
+    for ($k in $kids)
+        if (`about -windows` || $k != "masterLayerTabLayout")
+            deleteUI ("tabForm|" + $k);
+}
+
+proc urgManageCurrentTabLayout()
+{
+    if (!`formLayout -exists tabForm`)
+        return;
+    string $kids[] = `formLayout -query -childArray tabForm`;
+    for ($k in $kids)
+        if (`tabLayout -exists ("tabForm|" + $k)`)
+            tabLayout -edit -manage false ("tabForm|" + $k);
+    if (isDisplayingAllRendererTabs()) {
+        if (!`tabLayout -exists masterLayerTabLayout`)
+            addMasterLayerTabsToGlobalsWindow();
+        if (`tabLayout -exists masterLayerTabLayout`)
+            tabLayout -edit -manage true masterLayerTabLayout;
+    } else {
+        string $layout = rendererTabLayoutName(urgCurrent());
+        if (!`tabLayout -exists $layout`)
+            addRendererTabsToGlobalsWindow(urgCurrent());
+        if (`tabLayout -exists $layout`)
+            tabLayout -edit -manage true $layout;
+    }
+}
+
+proc urgUpdateCurrentRendererTabs()
+{
+    int $suppressed = `workspaceControl -exists unifiedRenderGlobalsWindow` && !`workspaceControl -query -visible unifiedRenderGlobalsWindow`;
+    if (isDisplayingAllRendererTabs()) {
+        if (!`tabLayout -exists masterLayerTabLayout`) {
+            urgClearTabForm();
+            addMasterLayerTabsToGlobalsWindow();
+        } else if (!$suppressed)
+            updateMasterLayerTabs();
+    } else {
+        string $r = urgCurrent();
+        if (!`tabLayout -exists (rendererTabLayoutName($r))`) {
+            urgClearTabForm();
+            addRendererTabsToGlobalsWindow($r);
+        } else if (!$suppressed)
+            urgRunUpdateProcs($r, rendererTabLayoutName($r), $r);
+    }
+    urgManageCurrentTabLayout();
+}
+
+proc urgUpdateLogo()
+{
+    if (!`symbolButton -exists unifiedRenderGlobalsRendererLogoPicture`)
+        return;
+    string $r = urgCurrent();
+    string $image = "";
+    string $cb = "";
+    if (`exists renderer`) {
+        $image = eval("renderer -query -logoImageName " + $r);
+        $cb = eval("renderer -query -logoCallbackProcedure " + $r);
+    }
+    if ($image != "" && $cb != "")
+        symbolButton -edit -visible true -image $image -command $cb -annotation "About this renderer" unifiedRenderGlobalsRendererLogoPicture;
+    else
+        symbolButton -edit -visible false unifiedRenderGlobalsRendererLogoPicture;
+}
+
+proc urgFillRendererMenu(string $menu)
+{
+    string $current = urgCurrent();
+    string $renderers[] = urgAvailable();
+    setParent -menu $menu;
+    for ($i = 0; $i < size($renderers); $i++)
+        menuItem -label (urgUIName($renderers[$i])) ("unifiedRenderGlobalsRendererSelOptionMenuItem" + $i);
+    if (stringArrayContains($current, $renderers))
+        optionMenu -edit -value (urgUIName($current)) $menu;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Checks and the layer menu.
+
+global proc int isValidFileNamePrefix(string $prefix)
+{
+    if (match("[*?\"|!$]", $prefix) != "") {
+        catch(`error "The file name prefix has characters a file name can't hold: * ? \" | ! $"`);
+        return 0;
+    }
+    return 1;
+}
+
+global proc int isDisplayingAllRendererTabs()
+{
+    if (!`objExists renderLayerManager`)
+        return false;
+    string $layers[] = urgLayers();
+    if (size($layers) <= 1)
+        return false;
+    string $current = urgCurrentLayer();
+    if ($current == "" || !`attributeExists identification $current` || `getAttr ($current + ".identification")` != 0)
+        return false;
+    return size(urgUsedRenderers()) > 1;
+}
+
+global proc updateMasterLayerTabs()
+{
+    if (!`tabLayout -exists masterLayerTabLayout`)
+        return;
+    tabLayout -edit -manage false masterLayerTabLayout;
+    for ($r in urgAvailable())
+        urgRunUpdateProcs($r, "masterLayerTabLayout", "masterLayer");
+    int $sel = `tabLayout -query -selectTabIndex masterLayerTabLayout`;
+    if ($sel > 1) {
+        string $mine[];
+        for ($l in urgQuery("-globalsTabLabels", urgCurrent()))
+            $mine[size($mine)] = rendererTabName(urgCurrent(), $l);
+        string $tabs[] = `tabLayout -query -childArray masterLayerTabLayout`;
+        if (!stringArrayContains($tabs[$sel - 1], $mine))
+            for ($i = 1; $i < size($tabs); $i++)
+                if (stringArrayContains($tabs[$i], $mine)) {
+                    tabLayout -edit -selectTabIndex ($i + 1) masterLayerTabLayout;
+                    break;
+                }
+    }
+    tabLayout -edit -manage true masterLayerTabLayout;
+}
+
+global proc updateCurrentRenderLayerSel()
+{
+    if (!`optionMenu -exists unifiedRenderGlobalsRenderLayerOptionMenu`)
+        return;
+    string $items[] = `optionMenu -query -itemListLong unifiedRenderGlobalsRenderLayerOptionMenu`;
+    int $sel = `optionMenu -query -select unifiedRenderGlobalsRenderLayerOptionMenu`;
+    if ($sel < 1 || $sel > size($items))
+        return;
+    string $node = `menuItem -query -annotation $items[$sel - 1]`;
+    string $label = `menuItem -query -label $items[$sel - 1]`;
+    if ($node == urgCurrentLayer() || !`objExists $node` || `nodeType $node` != "renderLayer")
+        return;
+    if (!`exists editRenderLayerGlobals` || catch(eval("editRenderLayerGlobals -currentRenderLayer " + $node)))
+        optionMenu -edit -value $label unifiedRenderGlobalsRenderLayerOptionMenu;
+}
+
+global proc updateRenderLayerOptionMenu()
+{
+    if (!`objExists renderLayerManager` || !`optionMenu -exists unifiedRenderGlobalsRenderLayerOptionMenu`)
+        return;
+    string $layers[] = urgLayers();
+    if (`exists sortLayers`)
+        $layers = eval("sortLayers({\"" + stringArrayToString($layers, "\",\"") + "\"})");
+    string $menu = "unifiedRenderGlobalsRenderLayerOptionMenu";
+    string $items[] = `optionMenu -query -itemListLong $menu`;
+    setParent -menu $menu;
+    int $n = 0;
+    string $currentLabel = "";
+    string $current = urgCurrentLayer();
+    // Last first, as the Render Layer Editor lists them.
+    for ($i = size($layers) - 1; $i >= 0; $i--) {
+        string $layer = $layers[$i];
+        string $label = `exists renderLayerDisplayName` ? eval("renderLayerDisplayName " + $layer) : ($layer == "defaultRenderLayer" ? "masterLayer" : $layer);
+        if ($n < size($items))
+            menuItem -edit -label $label -annotation $layer $items[$n];
+        else
+            menuItem -label $label -annotation $layer;
+        if ($layer == $current)
+            $currentLabel = $label;
+        string $job = "evalDeferred -lowestPriority \"updateUnifiedRenderGlobalsWindowSpecifiedUI\"";
+        if ($n == 0)
+            scriptJob -replacePrevious -parent $menu -nodeNameChanged $layer $job;
+        else
+            scriptJob -parent $menu -nodeNameChanged $layer $job;
+        $n++;
+    }
+    for ($i = $n; $i < size($items); $i++)
+        deleteUI -menuItem $items[$i];
+    if ($currentLabel != "")
+        optionMenu -edit -value $currentLabel $menu;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Presets.
+
+global proc loadNodePresets(string $name)
+{
+    for ($n in urgGlobalsNodes(urgCurrent()))
+        if (`objExists $n` && `nodePreset -exists $n $name`)
+            nodePreset -load $n $name;
+    if (`exists updateObjTypeFilterToCheckBox`)
+        eval("updateObjTypeFilterToCheckBox");
+}
+
+global proc removePreferedPresets()
+{
+    string $r = urgCurrent();
+    for ($n in urgGlobalsNodes($r))
+        optionVar -remove ($r + $n + "PreferredPreset");
+}
+
+global proc setPreferedPreset(string $name)
+{
+    string $r = urgCurrent();
+    for ($n in urgGlobalsNodes($r)) {
+        if (`objExists $n` && `nodePreset -exists $n $name`)
+            optionVar -stringValue ($r + $n + "PreferredPreset") $name;
+        else
+            optionVar -remove ($r + $n + "PreferredPreset");
+    }
+}
+
+global proc removeRenderSetupPreferredPresets()
+{
+    string $r = urgCurrent();
+    optionVar -remove ($r + "PreferredRenderSetupPreset");
+    optionVar -remove ($r + "PreferredRenderSetupPresetType");
+}
+
+global proc setPreferredRenderSetupPreset(string $name, int $isUser)
+{
+    string $r = urgCurrent();
+    optionVar -stringValue ($r + "PreferredRenderSetupPreset") $name;
+    // The same words the Presets menu compares against, so its tick lands on the preferred preset.
+    optionVar -stringValue ($r + "PreferredRenderSetupPresetType") ($isUser ? "User Presets" : "Global Presets");
+}
+
+// Sets an attribute when the node has it; the reference's globals have some Aztek's don't.
+proc urgSet(string $plug, string $value)
+{
+    string $parts[];
+    tokenize $plug "." $parts;
+    if (!`objExists $parts[0]` || !`attributeExists $parts[1] $parts[0]`)
+        return;
+    if (`getAttr -type $plug` == "string")
+        setAttr -type "string" $plug $value;
+    else
+        setAttr $plug ((float)$value);
+}
+
+global proc unifiedRenderGlobalsRevertToDefault()
+{
+    string $sel[] = `ls -selection`;
+    string $r = urgCurrent();
+    for ($n in urgGlobalsNodes($r)) {
+        if (!`objExists $n`)
+            continue;
+        string $type = `nodeType $n`;
+        if (($type == "renderGlobals" || $type == "resolution") && $r != "mayaSoftware")
+            continue;
+        // A fresh node of the same kind holds the defaults; its values are copied over.
+        string $fresh = `createNode -skipSelect $type`;
+        string $attrs[] = `listAttr -write -scalar $fresh`;
+        for ($a in $attrs) {
+            if ($a == "message" || !`attributeExists $a $n`)
+                continue;
+            string $from = $fresh + "." + $a;
+            string $to = $n + "." + $a;
+            if (`getAttr -type $from` == "string") {
+                string $v = `getAttr $from`;
+                catchQuiet(`setAttr -type "string" $to $v`);
+            } else {
+                // Only single values; compound and array attributes keep what they have.
+                float $v;
+                if (!catchQuiet($v = `getAttr $from`))
+                    catchQuiet(`setAttr $to $v`);
+            }
+        }
+        delete $fresh;
+    }
+    if ($r != "mayaSoftware") {
+        for ($pair in {"width=960", "height=540", "pixelAspect=1", "deviceAspectRatio=1.7777778", "aspectLock=0",
+                       "imageSizeUnits=0", "dotsPerInch=72", "pixelDensityUnits=0", "lockDeviceAspectRatio=0"}) {
+            string $kv[];
+            tokenize $pair "=" $kv;
+            urgSet("defaultResolution." + $kv[0], $kv[1]);
+        }
+        for ($pair in {"renderAll=1", "imageFilePrefix=", "putFrameBeforeExt=0", "animation=0", "periodInExt=1",
+                       "imageFormat=32", "imfPluginKey=", "useMayaFileName=1", "useFrameExt=0", "startFrame=1",
+                       "endFrame=10", "byFrameStep=1", "extensionPadding=1", "multiCamNamingMode=0",
+                       "bufferName=<RenderPassType>:<RenderPass>.<Camera>", "outFormatControl=0", "outFormatExt=",
+                       "modifyExtension=0", "startExtension=1", "byExtension=1", "renderVersion=", "animationRange=1",
+                       "enableDefaultLight=1", "preMel=", "postMel=", "preRenderLayerMel=", "postRenderLayerMel=",
+                       "preRenderMel=", "postRenderMel=", "renderLayerEnable=0"}) {
+            int $eq = size(match("^[^=]*=", $pair));
+            urgSet("defaultRenderGlobals." + substring($pair, 1, $eq - 1), substring($pair, $eq + 1, size($pair)));
+        }
+    }
+    string $cams[] = `ls -cameras`;
+    for ($c in $cams) {
+        setAttr ($c + ".renderable") ($c == "perspShape");
+        if (`attributeExists mask $c`)
+            setAttr ($c + ".mask") 1;
+        if (`attributeExists depth $c`)
+            setAttr ($c + ".depth") 0;
+    }
+    if (`exists updateMayaSoftwareCameraControl`)
+        eval("updateMayaSoftwareCameraControl");
+    select -clear;
+    if (size($sel))
+        select -noExpand $sel;
+    if (`exists createObjectTypeFilters`)
+        eval("createObjectTypeFilters 0");
+    if (`exists resetObjFilterToDefault`)
+        eval("resetObjFilterToDefault");
+}
+
+global proc confirmDialogExportCurrentValues(string $label, string $typeName)
+{
+    // Render setup's overrides and preset files belong to the reference's Python modules; without render setup there
+    // is nothing to export from.
+    if (!urgHasRenderSetup()) {
+        warning ("There is no render setup to export " + $typeName + " from.");
+        return;
+    }
+    string $message = "";
+    if ($typeName == "Render Settings" && python("import maya.app.renderSetup.model.renderSettings as renderSettings; renderSettings.sceneHasRenderSettingsApplyOverrides()"))
+        $message = "The scene has render settings overrides; what is exported is the values without them.";
+    else if (python("import maya.app.renderSetup.model.aovs as aovs; aovs.sceneHasAOVsApplyOverrides()"))
+        $message = "The scene has AOV overrides; what is exported is the values without them.";
+    if ($message != "") {
+        string $answer = `confirmDialog -title $label -message ($message + "\nThese settings can be added back by hand after importing.")
+            -button "Continue" -button "Cancel" -defaultButton "Continue" -cancelButton "Cancel" -dismissString "Cancel"`;
+        if ($answer != "Continue")
+            return;
+    }
+    string $prefs = "import maya.app.renderSetup.views.renderSetupPreferences as renderSetupPreferences; ";
+    if ($typeName == "Render Settings")
+        python($prefs + "renderSetupPreferences.savePreset('" + $label + "')");
+    else
+        python($prefs + "renderSetupPreferences.exportAOVs('" + $label + "')");
+}
+
+// Render setup's presets menu, through the reference's Python modules for them.
+proc urgRenderSetupPresetsMenu(string $r)
+{
+    string $prefs = "import maya.app.renderSetup.views.renderSetupPreferences as prefs; ";
+    int $aovs = python("import maya.app.renderSetup.model.rendererCallbacks as rc; rc.getCallbacks(rc.CALLBACKS_TYPE_AOVS) is not None");
+    string $label = "Export Current Settings...";
+    menuItem -label $label -command ("confirmDialogExportCurrentValues \"" + $label + "\" \"Render Settings\"") URGSavePresetCtrl;
+    $label = "Export AOVs...";
+    menuItem -label $label -enable $aovs -command ("confirmDialogExportCurrentValues \"" + $label + "\" \"AOVs\"");
+    $label = "Import AOVs...";
+    menuItem -label $label -enable $aovs -command ("python(\"import maya.app.renderSetup.views.renderSetupWindow as w; w._importAOVs('" + $label + "')\")");
+    string $global[] = python($prefs + "prefs.getGlobalPresets('" + $r + "')");
+    string $user[] = python($prefs + "prefs.getUserPresets('" + $r + "')");
+    string $py = "python(\"" + $prefs;
+
+    menuItem -subMenu true -label "Import Settings" URGLoadPresetCtrl;
+    menuItem -label "Default Settings" -command ($py + "prefs.setDefaultPreset()\")");
+    menuItem -divider true;
+    menuItem -subMenu true -label "Global Presets" URGGlobalPresetCtrl;
+    for ($p in $global)
+        menuItem -label $p -command ($py + "prefs.loadGlobalPreset('" + $p + "')\")");
+    setParent -menu ..;
+    menuItem -subMenu true -label "User Presets" URGUserPresetCtrl;
+    for ($p in $user)
+        menuItem -label $p -command ($py + "prefs.loadUserPreset('" + $p + "')\")");
+    setParent -menu ..;
+    setParent -menu ..;
+
+    menuItem -subMenu true -label "Delete User Settings";
+    if (size($user) == 0)
+        menuItem -label "No user presets yet" -enable false;
+    for ($p in $user)
+        menuItem -label $p -command ($py + "prefs.deleteUserPreset('" + $p + "')\")");
+    setParent -menu ..;
+
+    string $preferred = "";
+    string $type = "";
+    if (`optionVar -exists ($r + "PreferredRenderSetupPreset")`) {
+        $preferred = `optionVar -query ($r + "PreferredRenderSetupPreset")`;
+        if (`optionVar -exists ($r + "PreferredRenderSetupPresetType")`)
+            $type = `optionVar -query ($r + "PreferredRenderSetupPresetType")`;
+    }
+    menuItem -subMenu true -label "Set Preferred Settings";
+    menuItem -label "Default Settings" -checkBox (!`optionVar -exists ($r + "PreferredRenderSetupPreset")`) -command "removeRenderSetupPreferredPresets";
+    menuItem -divider true;
+    menuItem -subMenu true -label "Global Presets" URGPreferredGlobalPresetCtrl;
+    for ($p in $global)
+        menuItem -label $p -checkBox ($type == "Global Presets" && $preferred == $p) -command ("setPreferredRenderSetupPreset \"" + $p + "\" false");
+    setParent -menu ..;
+    menuItem -subMenu true -label "User Presets" URGPreferredUserPresetCtrl;
+    for ($p in $user)
+        menuItem -label $p -checkBox ($type == "User Presets" && $preferred == $p) -command ("setPreferredRenderSetupPreset \"" + $p + "\" true");
+    setParent -menu ..;
+    setParent -menu ..;
+}
+
+global proc UNIFIED_buildRenderGlobalsPresetsMenu()
+{
+    if (!`menu -exists presetsMenu`)
+        return;
+    menu -edit -deleteAllItems presetsMenu;
+    setParent -menu presetsMenu;
+    string $r = urgCurrent();
+    if ($r == "mentalRay" && !`objExists mentalrayGlobals` && `exists miCreateDefaultNodes`)
+        eval("miCreateDefaultNodes");
+    if ($r == "mayaVector" && !`objExists vectorRenderGlobals` && `exists vrCreateGlobalsNode`)
+        eval("vrCreateGlobalsNode");
+    string $nodes[] = urgGlobalsNodes($r);
+    if (size($nodes) == 0)
+        return;
+
+    if (urgHasRenderSetup()) {
+        urgRenderSetupPresetsMenu($r);
+        return;
+    }
+
+    string $nodeArgs = "{\"" + stringArrayToString($nodes, "\",\"") + "\"}";
+    if (`exists saveNodePresetDialog`) {
+        string $args = `exists getRenderSettingPresetArgs` ? ("getRenderSettingPresetArgs(\"" + $r + "\")") : "{}";
+        menuItem -label "Save Preset..." -command ("saveNodePresetDialog(" + $nodeArgs + ", " + $args + ")") URGSavePresetCtrl;
+    } else
+        // Without the reference's dialog, a name is asked for and every settings node is saved under it.
+        menuItem -label "Save Preset..." -command ("if (`promptDialog -title \"Save Preset\" -message \"Preset name:\" -button \"Save\" -button \"Cancel\" -defaultButton \"Save\" -cancelButton \"Cancel\"` == \"Save\") { string $name = `promptDialog -query -text`; string $n[] = "
+            + $nodeArgs + "; if ($name != \"\") for ($x in $n) if (`objExists $x`) nodePreset -save $x $name; }") URGSavePresetCtrl;
+
+    string $presets[] = `nodePreset -list $nodes[0]`;
+    menuItem -subMenu true -label "Load Preset" URGLoadPresetCtrl;
+    menuItem -label "Default Settings" -command "unifiedRenderGlobalsRevertToDefault";
+    menuItem -divider true;
+    for ($p in $presets)
+        menuItem -label $p -command ("loadNodePresets \"" + $p + "\"");
+    setParent -menu ..;
+
+    menuItem -subMenu true -label "Delete Preset";
+    if (size($presets) == 0)
+        menuItem -label "No presets yet" -enable false;
+    else
+        for ($p in $presets)
+            menuItem -label $p -command ("if (`exists nodePresetConfirmDeleteDialog`) nodePresetConfirmDeleteDialog({\""
+                + stringArrayToString($nodes, "\",\"") + "\",\"" + $p + "\"}); else { string $n[] = "
+                + $nodeArgs + "; for ($x in $n) if (`nodePreset -exists $x \"" + $p + "\"`) nodePreset -delete $x \"" + $p + "\"; }");
+    setParent -menu ..;
+
+    string $preferred = "";
+    string $var = $r + $nodes[0] + "PreferredPreset";
+    if (`optionVar -exists $var`)
+        $preferred = `optionVar -query $var`;
+    menuItem -subMenu true -label "Set Preferred Preset";
+    menuItem -label "Default Settings" -checkBox ($preferred == "") -command "removePreferedPresets";
+    menuItem -divider true;
+    for ($p in $presets)
+        menuItem -label $p -checkBox ($preferred == $p) -command ("setPreferedPreset \"" + $p + "\"");
+    setParent -menu ..;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The window.
+
+global proc initRenderSettingsWindow()
+{
+    string $r = urgCurrent();
+    string $available[] = urgAvailable();
+    if (($r == "" || !stringArrayContains($r, $available)) && size($available) && `exists setCurrentRenderer`)
+        eval("setCurrentRenderer " + $available[0]);
+
+    menuBarLayout;
+    menu -label "Edit";
+    menuItem -label "Change Project Image Directory" -command "ProjectWindow";
+    menu -label "Presets" -postMenuCommand "UNIFIED_buildRenderGlobalsPresetsMenu" presetsMenu;
+    if (`exists addContextHelpProc`)
+        eval("addContextHelpProc \"unifiedRenderGlobalsWindow\" \"UNIFIED_buildRenderGlobalsContextHelpItems\"");
+    if (`exists doHelpMenu`)
+        eval("doHelpMenu \"unifiedRenderGlobalsWindow\" \"unifiedRenderGlobalsWindow\"");
+    setParent ..;
+
+    string $main = `formLayout rgMainForm`;
+    string $frame = `frameLayout -labelVisible false -collapsable false rendererPlusLayerLayout`;
+    string $top = `formLayout`;
+    string $layerRow = `rowLayout -numberOfColumns 2`;
+    text -label "Render Layer";
+    optionMenu -annotation "The render layer the settings are for" -changeCommand "updateCurrentRenderLayerSel" unifiedRenderGlobalsRenderLayerOptionMenu;
+    setParent $top;
+    string $rendererRow = `rowLayout -numberOfColumns 2`;
+    text -label "Render Using" unifiedRenderGlobalsRendererSelOptionMenuText;
+    optionMenu -annotation "The renderer" -changeCommand "updateCurrentRendererSel(\"unifiedRenderGlobalsRendererSelOptionMenu\")" unifiedRenderGlobalsRendererSelOptionMenu;
+    urgFillRendererMenu("unifiedRenderGlobalsRendererSelOptionMenu");
+    setParent $top;
+    symbolButton -visible false unifiedRenderGlobalsRendererLogoPicture;
+    formLayout -edit -attachForm $layerRow "top" 2 -attachForm $layerRow "left" 2
+        -attachControl $rendererRow "top" 4 $layerRow -attachForm $rendererRow "left" 2
+        -attachForm unifiedRenderGlobalsRendererLogoPicture "top" 2 -attachForm unifiedRenderGlobalsRendererLogoPicture "right" 2
+        -attachForm unifiedRenderGlobalsRendererLogoPicture "bottom" 2 $top;
+    urgUpdateLogo();
+    setParent $main;
+
+    formLayout tabForm;
+    setParent $main;
+    if (!`uiTemplate -exists renderGlobalsTemplate`) {
+        uiTemplate renderGlobalsTemplate;
+        scrollLayout -defineTemplate renderGlobalsTemplate -horizontalScrollBarThickness 0 -childResizable true -verticalScrollBarThickness 16;
+    }
+    button -label "Close" -height 26 -command "workspaceControl -edit -visible false unifiedRenderGlobalsWindow" rgCloseBtn;
+    formLayout -edit -attachForm $frame "top" 0 -attachForm $frame "left" 0 -attachForm $frame "right" 0
+        -attachControl tabForm "top" 5 $frame -attachForm tabForm "left" 0 -attachForm tabForm "right" 0
+        -attachControl tabForm "bottom" 5 rgCloseBtn
+        -attachForm rgCloseBtn "left" 5 -attachForm rgCloseBtn "right" 5 -attachForm rgCloseBtn "bottom" 5 $main;
+
+    if (`exists registerUpdateRendererUIProc`)
+        eval("registerUpdateRendererUIProc \"updateUnifiedRenderGlobalsWindowSpecifiedUI\"");
+    scriptJob -parent $main -event SceneOpened "unifiedRenderGlobalsWindowSceneOpenedCallback";
+    scriptJob -parent $main -event renderLayerManagerChange "updateUnifiedRenderGlobalsWindowSpecifiedUI";
+    scriptJob -parent $main -event renderLayerChange "updateUnifiedRenderGlobalsWindowSpecifiedUI";
+
+    updateUnifiedRenderGlobalsWindowSpecifiedUI();
+    urgUpdateCurrentRendererTabs();
+    if (`exists callbacks`)
+        eval("callbacks -executeCallbacks -hook \"renderSettingsBuilt\" " + urgCurrent());
+}
+
+global proc createRenderSettingsWindow()
+{
+    if (`workspaceControl -exists unifiedRenderGlobalsWindow`)
+        return;
+    workspaceControl -label "Render Settings" -initialWidth 456 -initialHeight 670 -checksPlugins true -retain true
+        -uiScript "initRenderSettingsWindow()" -loadImmediately true unifiedRenderGlobalsWindow;
+}
+
+global proc unifiedRenderGlobalsWindow()
+{
+    // Aztek's own Render Settings window, when the command for it is there.
+    if (`exists RenderGlobalsWindow`) {
+        eval("RenderGlobalsWindow");
+        return;
+    }
+    if (`workspaceControl -exists unifiedRenderGlobalsWindow`) {
+        workspaceControl -edit -restore true unifiedRenderGlobalsWindow;
+        urgUpdateCurrentRendererTabs();
+    } else {
+        createRenderSettingsWindow();
+        showWindow unifiedRenderGlobalsWindow;
+    }
+}
+
+global proc updateUnifiedRenderGlobalsWindowSpecifiedUI()
+{
+    updateRenderLayerOptionMenu();
+    string $menu = "unifiedRenderGlobalsRendererSelOptionMenu";
+    if (`optionMenu -exists $menu`) {
+        if (`optionMenu -query -numberOfItems $menu` != size(urgAvailable())) {
+            optionMenu -edit -deleteAllItems $menu;
+            urgFillRendererMenu($menu);
+        } else
+            optionMenu -edit -value (urgUIName(urgCurrent())) $menu;
+    }
+    urgUpdateLogo();
+    urgUpdateCurrentRendererTabs();
+    if (`exists updateMayaImageFormatControl`)
+        eval("updateMayaImageFormatControl");
+    if (`workspaceControl -exists unifiedRenderGlobalsWindow`)
+        workspaceControl -edit -label (urgTitle()) unifiedRenderGlobalsWindow;
+}
+
+global proc string rendererTabLayoutName(string $renderer)
+{
+    return $renderer + "TabLayout";
+}
+
+global proc string rendererTabName(string $renderer, string $tabLabel)
+{
+    string $name = substituteAllString(substituteAllString($tabLabel, " ", ""), ".", "");
+    string $prefix = isDisplayingAllRendererTabs() ? "masterLayer" : $renderer;
+    return $prefix + $name + "Tab";
+}
+
+global proc string rendererControlName(string $renderer, string $control)
+{
+    return $renderer + $control;
+}
+
+global proc fillSelectedTabForTabLayout(string $tabLayout)
+{
+    if (!`tabLayout -exists $tabLayout`)
+        return;
+    int $i = `tabLayout -query -selectTabIndex $tabLayout`;
+    string $tabs[] = `tabLayout -query -childArray $tabLayout`;
+    if ($i < 1 || $i > size($tabs))
+        return;
+    string $form = $tabLayout + "|" + $tabs[$i - 1];
+    if (`layout -query -numberOfChildren $form` > 0)
+        return;
+    string $procs[];
+    if (isDisplayingAllRendererTabs()) {
+        for ($r in urgAvailable()) {
+            string $p[] = urgQuery("-globalsTabCreateProcNames", $r);
+            appendStringArray($procs, $p, size($p));
+        }
+        $procs = stringArrayRemoveDuplicates($procs);
+    } else
+        $procs = urgQuery("-globalsTabCreateProcNames", urgCurrent());
+    if ($i > size($procs) || $procs[$i - 1] == "")
+        return;
+    string $proc = $procs[$i - 1];
+    if (`gmatch $proc "*MentalRay*"`) {
+        // Mental ray's tabs depend on one another, so they are all made together.
+        for ($k = 0; $k < size($procs); $k++)
+            if (`gmatch $procs[$k] "*MentalRay*"` && $k < size($tabs)) {
+                setParent ($tabLayout + "|" + $tabs[$k]);
+                eval($procs[$k]);
+            }
+    } else {
+        setParent $form;
+        eval($proc);
+    }
+}
+
+global proc fillSelectedTabForMasterLayerTabLayout()
+{
+    fillSelectedTabForTabLayout("masterLayerTabLayout");
+}
+
+global proc fillSelectedTabForCurrentRenderer()
+{
+    fillSelectedTabForTabLayout(rendererTabLayoutName(urgCurrent()));
+}
+
+global proc string getRendererTabLayout(string $renderer)
+{
+    string $layout = rendererTabLayoutName($renderer);
+    if (`tabLayout -exists $layout`)
+        return $layout;
+    if (!`formLayout -exists tabForm`)
+        return "";
+    setParent tabForm;
+    if (isDisplayingAllRendererTabs())
+        tabLayout -tabsVisible true -childResizable true -width 1 -manage true
+            -preSelectCommand "fillSelectedTabForMasterLayerTabLayout" $layout;
+    else
+        tabLayout -tabsVisible true -childResizable true -width 1 -manage ($renderer == urgCurrent())
+            -preSelectCommand "fillSelectedTabForCurrentRenderer" $layout;
+    formLayout -edit -attachForm $layout "top" 0 -attachForm $layout "left" 0 -attachForm $layout "right" 0
+        -attachForm $layout "bottom" 0 tabForm;
+    return $layout;
+}
+
+global proc addOneTabToGlobalsWindow(string $renderer, string $tabLabel, string $createProc)
+{
+    if (!`workspaceControl -exists unifiedRenderGlobalsWindow`) {
+        catch(`error "The Render Settings window isn't open, so no tabs can be added to it."`);
+        return;
+    }
+    if (!`formLayout -exists tabForm`)
+        return;
+    int $all = isDisplayingAllRendererTabs();
+    if (!$all && $renderer != urgCurrent())
+        return;
+    int $managed = `formLayout -query -manage tabForm`;
+    formLayout -edit -manage false tabForm;
+    string $layout = getRendererTabLayout($all ? "masterLayer" : $renderer);
+    string $tab = rendererTabName($renderer, $tabLabel);
+    if (!`layout -exists ($layout + "|" + $tab)`) {
+        setParent $layout;
+        string $form = `formLayout $tab`;
+        if ($createProc == "createMayaSoftwareCommonGlobalsTab" || $createProc == "createMayaSoftwareGlobalsTab") {
+            if (`exists $createProc`)
+                eval($createProc);
+        } else if (`exists callbacks`)
+            eval("callbacks -executeCallbacks -hook \"rendererAddOneTabToGlobalsWindowCreateProc\" \"" + $createProc + "\"");
+        tabLayout -edit -tabLabel $form (urgTabLabelUI($tabLabel)) $layout;
+    }
+    formLayout -edit -manage $managed tabForm;
+}
+
+global proc addMasterLayerTabsToGlobalsWindow()
+{
+    if (!`workspaceControl -exists unifiedRenderGlobalsWindow`) {
+        catch(`error "The Render Settings window isn't open, so no tabs can be added to it."`);
+        return;
+    }
+    if (!`formLayout -exists tabForm`)
+        return;
+    int $managed = `formLayout -query -manage tabForm`;
+    formLayout -edit -manage false tabForm;
+    getRendererTabLayout("masterLayer");
+    int $commonDone = 0;
+    for ($r in urgAvailable()) {
+        string $labels[] = urgQuery("-globalsTabLabels", $r);
+        string $procs[] = urgQuery("-globalsTabCreateProcNames", $r);
+        for ($i = 0; $i < size($labels) && $i < size($procs); $i++) {
+            // The common tab is shared, so only the first renderer's is added.
+            if ($procs[$i] == "createMayaSoftwareCommonGlobalsTab") {
+                if ($commonDone)
+                    continue;
+                $commonDone = 1;
+            }
+            addOneTabToGlobalsWindow($r, $labels[$i], $procs[$i]);
+        }
+    }
+    formLayout -edit -manage $managed tabForm;
+}
+
+global proc addRendererTabsToGlobalsWindow(string $renderer)
+{
+    if (!`workspaceControl -exists unifiedRenderGlobalsWindow` || !`formLayout -exists tabForm`)
+        return;
+    int $all = isDisplayingAllRendererTabs();
+    if (!$all && $renderer != urgCurrent())
+        return;
+    int $managed = `formLayout -query -manage tabForm`;
+    formLayout -edit -manage false tabForm;
+    getRendererTabLayout($all ? "masterLayer" : $renderer);
+    string $labels[] = urgQuery("-globalsTabLabels", $renderer);
+    string $procs[] = urgQuery("-globalsTabCreateProcNames", $renderer);
+    for ($i = 0; $i < size($labels) && $i < size($procs); $i++)
+        addOneTabToGlobalsWindow($renderer, $labels[$i], $procs[$i]);
+    formLayout -edit -manage $managed tabForm;
+}
+
+global proc setCurrentTabInRenderGlobalsWindow(string $tabLabel)
+{
+    string $layout = isDisplayingAllRendererTabs() ? "masterLayerTabLayout" : rendererTabLayoutName(urgCurrent());
+    if (!`tabLayout -exists $layout`)
+        return;
+    string $tab = rendererTabName(urgCurrent(), $tabLabel);
+    string $tabs[] = `tabLayout -query -childArray $layout`;
+    if (stringArrayContains($tab, $tabs))
+        tabLayout -edit -selectTab $tab $layout;
+}
+
+global proc UNIFIED_buildRenderGlobalsContextHelpItems(string $nameRoot, string $menuParent)
+{
+    setParent -menu $menuParent;
+    menuItem -label "Help on Render Settings..." -command "showHelp RenderGlobals";
+}
+
+global proc unifiedRenderGlobalsWindowSceneOpenedCallback()
+{
+    string $renderers[] = urgAvailable();
+    for ($r in $renderers)
+        if (`workspaceControl -exists unifiedRenderGlobalsWindow`) {
+            string $layout = getRendererTabLayout($r);
+            if ($layout != "" && `tabLayout -exists $layout`)
+                deleteUI $layout;
+        }
+    for ($r in $renderers)
+        addRendererTabsToGlobalsWindow($r);
+    if (`tabLayout -exists masterLayerTabLayout`)
+        deleteUI masterLayerTabLayout;
+    if (isDisplayingAllRendererTabs())
+        addMasterLayerTabsToGlobalsWindow();
+}

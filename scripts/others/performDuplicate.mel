@@ -1,0 +1,109 @@
+// performDuplicate: Edit > Duplicate, as the reference's. It always uses the factory settings: there is no option box
+// and no optionVar. $action 0 duplicates and returns the command, 2 only returns the command, 1 (once the option box)
+// and anything else do nothing and return "".
+
+// Whether the selection holds animation clips and the panel being worked in is the clip editor, in which case the clips
+// are what gets duplicated. Aztek has no clip editor yet, so this is false there; it is kept for scenes and plug-ins
+// that bring one.
+proc int performDuplicate_inClipEditor()
+{
+    string $clips[];
+    if (catchQuiet($clips = `ls -sl -type animClip`))
+        return 0;
+    if (!size($clips))
+        return 0;
+    string $panel = `getPanel -up`;
+    if ($panel == "")
+        $panel = `getPanel -wf`;
+    if ($panel == "" || `getPanel -to $panel` != "scriptedPanel")
+        return 0;
+    return `scriptedPanel -q -type $panel` == "clipEditorPanel";
+}
+
+// What duplicatePreset does, for when Aztek has no global duplicatePreset: copies (or instances) of the selected objects,
+// each one made from the one before and moved, turned and scaled by the offsets, so several copies form a row. The
+// group mode puts the copies under the original's parent (1), under the world (2) or in one new group (3).
+proc string[] performDuplicate_preset(int $count, int $copy, int $groupMode, int $smart, int $upstream, int $inputConns,
+    int $renameChildren, int $instanceLeaf, float $t[], float $r[], float $s[])
+{
+    string $made[];
+    string $from[] = `ls -sl -l -type transform`;
+    if (!size($from)) {
+        warning "Select the objects to duplicate.";
+        return $made;
+    }
+    string $flags = "-rr";
+    if ($smart)
+        $flags += " -st";
+    if ($copy) {
+        if ($upstream)
+            $flags += " -un";
+        else if ($inputConns)
+            $flags += " -ic";
+        if ($instanceLeaf)
+            $flags += " -ilf";
+        if ($renameChildren)
+            $flags += " -rc";
+    }
+    // Smart transform repeats the last duplicate's own step, so the offsets only apply without it.
+    int $offset = !$smart && ($t[0] != 0 || $t[1] != 0 || $t[2] != 0 || $r[0] != 0 || $r[1] != 0 || $r[2] != 0
+        || $s[0] != 1 || $s[1] != 1 || $s[2] != 1);
+    for ($i = 0; $i < max(1, $count); $i++) {
+        select -r $from;
+        string $new[];
+        if ($copy)
+            $new = `eval ("duplicate " + $flags)`;
+        else if ($smart)
+            $new = `instance -st`;
+        else
+            $new = `instance`;
+        if ($offset) {
+            move -r $t[0] $t[1] $t[2] $new;
+            rotate -r -os $r[0] $r[1] $r[2] $new;
+            scale -r $s[0] $s[1] $s[2] $new;
+        }
+        $made = stringArrayCatenate($made, $new);
+        $from = $new;
+    }
+    if ($groupMode == 2) {
+        string $moved[];
+        for ($m in $made) {
+            if (size(`listRelatives -p $m`))
+                $moved = stringArrayCatenate($moved, `parent -w $m`);
+            else
+                $moved[size($moved)] = $m;
+        }
+        $made = $moved;
+    } else if ($groupMode == 3) {
+        string $g = `group $made`;
+        $made = {$g};
+    }
+    select -r $made;
+    return $made;
+}
+
+global proc string performDuplicate(int $action)
+{
+    if ($action == 0 && performDuplicate_inClipEditor() && `exists performDuplicateClip`)
+        return `performDuplicateClip 0 ""`;
+    if ($action != 0 && $action != 2)
+        return "";
+
+    // Fixed values: one copy under the parent, nothing extra copied, no offsets.
+    int $count = 1, $copy = 1, $groupMode = 1, $smart = 0, $upstream = 0, $inputConns = 0, $renameChildren = 0, $instanceLeaf = 0;
+    float $t[] = {0.0, 0.0, 0.0};
+    float $r[] = {0.0, 0.0, 0.0};
+    float $s[] = {1.0, 1.0, 1.0};
+    string $cmd = "duplicatePreset(" + $count + "," + $copy + "," + $groupMode + "," + $smart + "," + $upstream + ","
+        + $inputConns + "," + $renameChildren + "," + $instanceLeaf + "," + $t[0] + "," + $t[1] + "," + $t[2] + ","
+        + $r[0] + "," + $r[1] + "," + $r[2] + "," + $s[0] + "," + $s[1] + "," + $s[2] + ")";
+
+    if ($action == 0) {
+        // duplicatePreset echoes itself, so a plain eval.
+        if (`exists duplicatePreset`)
+            eval $cmd;
+        else
+            performDuplicate_preset($count, $copy, $groupMode, $smart, $upstream, $inputConns, $renameChildren, $instanceLeaf, $t, $r, $s);
+    }
+    return $cmd;
+}

@@ -1,0 +1,125 @@
+// extrudeToolScript: Surfaces > Extrude as an action or as a tool, as the reference's menu item and its option box run it.
+// extrudeToolScript's argument says what to do: 0 run the extrude, 1 show its option box, 2 hand back its command, 3 show
+// the tool's option box, 4 enter the tool. With the modelWithToolExtrude preference off, 3 and 4 fall back to 1 and 0.
+// The tool comes in two kinds: one that takes profile curves only, and one (extrudeStyle on) that takes a profile then a
+// path.
+
+// The tool's own settings: whether it quits once it has extruded, and whether it extrudes as soon as enough is picked.
+// Zero for $forceFactorySettings only fills in those not yet set; non-zero puts them back to their defaults.
+global proc extrudeToolSetup(int $forceFactorySettings, string $goToTool)
+{
+    if ($forceFactorySettings || !`optionVar -exists extrudeEuc`)
+        optionVar -intValue extrudeEuc 0;
+    if ($forceFactorySettings || !`optionVar -exists extrudeLac`)
+        optionVar -intValue extrudeLac 1;
+
+    // A context that already exists picks up the settings.
+    if ($goToTool != "") {
+        scriptCtx -edit -exitUponCompletion `optionVar -query extrudeEuc` $goToTool;
+        // The last-auto-complete setting (-lac) has no edit flag here yet.
+    }
+}
+
+// The tool settings sheet asks for the values to show.
+global proc extrudeValues(string $toolName)
+{
+    if (`exists performExtrude`)
+        eval("performExtrude 3 \"" + $toolName + "\"");
+    if (`exists scriptCtxCommonValues`)
+        eval("scriptCtxCommonValues \"" + $toolName + "\"");
+}
+
+// The tool settings sheet asks for the controls to build.
+global proc extrudeProperties()
+{
+    if (`exists scriptCtxCommonProperties`)
+        eval("scriptCtxCommonProperties");
+}
+
+// The tool's context, made the first time it's needed; one that exists already is left as it is. The reference also
+// limits each selection set to curves, isoparms, curves on surface, surface edges and mesh edges, which scriptCtx can't
+// say yet.
+proc extrudeToolMakeContext(string $toolName, int $needsPath)
+{
+    if (`scriptCtx -exists $toolName`)
+        return;
+    extrudeToolSetup(0, "");
+    int $euc = `optionVar -query extrudeEuc`;
+    int $lac = `optionVar -query extrudeLac`;
+    if ($needsPath) {
+        // Two sets of one curve each: the profile, then the path along which it's swept.
+        scriptCtx
+            -image1 "extrude.png"
+            -title "Extrude Tool"
+            -baseClassName "extrude"
+            -exitUponCompletion $euc
+            -expandSelectionList true
+            -showManipulators true
+            -cumulativeLists true
+            -finalCommandScript "extrudeToolScript 0"
+            -totalSelectionSets 2
+            -setNoSelectionPrompt "Select the profile curve to extrude."
+            -setSelectionPrompt "Select the path curve."
+            -setAutoToggleSelection true
+            -setAutoComplete $lac
+            -setSelectionCount 1
+            -setNoSelectionPrompt "Select the profile curve to extrude."
+            -setSelectionPrompt "Select the path curve, or press Enter to extrude."
+            -setAutoToggleSelection true
+            -setAutoComplete $lac
+            -setSelectionCount 1
+            $toolName;
+    } else {
+        // One set of any number of profiles.
+        scriptCtx
+            -image1 "extrude.png"
+            -title "Extrude Tool"
+            -baseClassName "extrude"
+            -exitUponCompletion $euc
+            -expandSelectionList true
+            -showManipulators true
+            -cumulativeLists true
+            -finalCommandScript "extrudeToolScript 0"
+            -totalSelectionSets 1
+            -setNoSelectionPrompt "Select curve(s), isoparm(s) or trim edge(s) to be extruded."
+            -setSelectionPrompt "Select next curve, isoparm or trim edge or press ENTER to extrude."
+            -setAutoToggleSelection true
+            -setAutoComplete $lac
+            -setSelectionCount 0
+            $toolName;
+    }
+}
+
+// Runs the perform procedure in the mode asked, or enters the tool. Uses the shared scriptToolScript when there is one;
+// without it, a tool is entered (and its settings shown for mode 3) and the action modes go straight to performExtrude.
+proc string extrudeToolRun(string $perform, int $mode, string $toolName)
+{
+    if (`exists scriptToolScript`)
+        return eval("scriptToolScript \"" + $perform + "\" " + $mode + " \"" + $toolName + "\"");
+    if ($toolName != "") {
+        setToolTo $toolName;
+        if ($mode == 3 && `exists ToolSettingsWindow`)
+            ToolSettingsWindow;
+        return $toolName;
+    }
+    if (`exists $perform`)
+        return eval($perform + " " + $mode);
+    warning ("Extrude isn't available: " + $perform + " was not found.");
+    return "";
+}
+
+global proc string extrudeToolScript(int $setToTool)
+{
+    string $toolName = "";
+    if ($setToTool > 2) {
+        if (!`optionVar -query modelWithToolExtrude`) {
+            // The tool is turned off in the preferences: the tool modes become their action modes.
+            $setToTool = 4 - $setToTool;
+        } else {
+            int $needsPath = `optionVar -query extrudeStyle`;
+            $toolName = $needsPath ? "extrudeContextPath" : "extrudeContext";
+            extrudeToolMakeContext($toolName, $needsPath);
+        }
+    }
+    return extrudeToolRun("performExtrude", $setToTool, $toolName);
+}

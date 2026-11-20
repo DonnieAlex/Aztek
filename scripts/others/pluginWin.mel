@@ -1,0 +1,434 @@
+// pluginWin: the Plug-in Manager, as Windows > Settings/Preferences > Plug-in Manager opens it. Aztek's Plug-in Manager is
+// its own window (it lists the plug-in folders, loads, unloads, sets auto load, browses and refreshes), so pluginWin opens
+// that one. The rest keep the reference's names for scripts that call them: loading, unloading with the warning about
+// plug-ins still in use, browsing for one, and the information window are done here; the procedures that update the
+// reference's window rows act on that window only if a script has built one with the reference's names, and otherwise
+// do nothing, there being nothing of theirs to update.
+
+global int $gPluginListSize = 0;
+global string $gDefaultPluginBrowseDir = "";
+global string $gPluginWindowName = "pluginManagerWindow";
+global int $gIgnoreUpdateCallback = 0;
+global int $gPluginRefreshNeeded = 0;
+global string $gPluginSearch = "";
+global string $gPluginSearchField = "";
+// Four entries a row: the plug-in's path, its Loaded and Auto load check boxes, and its information button.
+global string $gPluginManagerList[] = {};
+global string $gPluginMiscFrame = "PluginFrameLytMisc";
+
+// The folders plug-ins are looked for in, existing ones only, each once, in order.
+proc string[] pluginWinSearchDirs()
+{
+    string $dirs[];
+    string $sep = `about -nt` ? ";" : ":";
+    string $entries[];
+    tokenize (`getenv "AZTEK_PLUG_IN_PATH"`) $sep $entries;
+    for ($e in $entries) {
+        if ($e == "" || !`filetest -d $e` || stringArrayContains($e, $dirs))
+            continue;
+        $dirs[size($dirs)] = $e;
+    }
+    return $dirs;
+}
+
+// The folder part of a path, without its last slash.
+proc string pluginWinDirOf(string $path)
+{
+    string $dir = `match "^.*/" $path`;
+    if (size($dir) > 1)
+        $dir = `substring $dir 1 (size($dir) - 1)`;
+    return $dir;
+}
+
+// The file part of a path.
+proc string pluginWinFileOf(string $path)
+{
+    return `match "[^/]*$" $path`;
+}
+
+// A plug-in's name, by its path or name.
+proc string pluginWinNameOf(string $path)
+{
+    string $name = "";
+    if (catchQuiet($name = `pluginInfo -query -name $path`) || $name == "")
+        $name = `basenameEx $path`;
+    return $name;
+}
+
+proc int pluginWinLoaded(string $path)
+{
+    int $loaded = 0;
+    catchQuiet($loaded = `pluginInfo -query -loaded $path`);
+    return $loaded;
+}
+
+proc int pluginWinAutoLoad(string $path)
+{
+    int $auto = 0;
+    catchQuiet($auto = `pluginInfo -query -autoload $path`);
+    return $auto;
+}
+
+// A plug-in query that gives a list, empty where Aztek can't answer it.
+proc string[] pluginWinList(string $flag, string $name)
+{
+    string $items[];
+    catchQuiet($items = `eval ("pluginInfo -query -" + $flag + " \"" + $name + "\"")`);
+    return $items;
+}
+
+// The rows of a row and column layout, four controls each.
+proc string[] pluginWinRowChildren(string $layout)
+{
+    string $children[];
+    if (`rowColumnLayout -exists $layout`)
+        $children = `rowColumnLayout -query -childArray $layout`;
+    return $children;
+}
+
+// Runs a check box's on or off command, as clicking it would.
+proc pluginWinRunCheckBox(string $box, int $on)
+{
+    string $cmd = $on ? `checkBox -query -onCommand $box` : `checkBox -query -offCommand $box`;
+    if ($cmd != "")
+        catch(`eval $cmd`);
+}
+
+global proc loadPluginCmd(string $path)
+{
+    if (!pluginWinLoaded($path))
+        catch(`loadPlugin $path`);
+}
+
+global proc pluginWinLoadAllInDir(string $rowColLayout, string $checkBoxGroup)
+{
+    int $target = `checkBoxGrp -query -value1 $checkBoxGroup`;
+    string $children[] = pluginWinRowChildren($rowColLayout);
+    for ($i = 1; $i < size($children); $i += 4) {
+        string $box = $children[$i];
+        if (`checkBox -query -value $box` != $target)
+            pluginWinRunCheckBox($box, $target);
+    }
+}
+
+global proc pluginWinAutoLoadAllInDir(string $rowColLayout, string $checkBoxGroup)
+{
+    int $target = `checkBoxGrp -query -value2 $checkBoxGroup`;
+    string $children[] = pluginWinRowChildren($rowColLayout);
+    for ($i = 2; $i < size($children); $i += 4) {
+        string $box = $children[$i];
+        if (`checkBox -query -value $box` != $target) {
+            pluginWinRunCheckBox($box, $target);
+            checkBox -edit -value $target $box;
+        }
+    }
+}
+
+global proc saveCollapseStatus()
+{
+    if (`optionVar -exists PluginManagerState`)
+        optionVar -clearArray PluginManagerState;
+    for ($i = 1; `frameLayout -exists ("PluginFrameLyt" + $i)`; $i++) {
+        string $frame = "PluginFrameLyt" + $i;
+        optionVar -stringValueAppend PluginManagerState `frameLayout -query -label $frame`;
+        optionVar -stringValueAppend PluginManagerState (`frameLayout -query -collapse $frame` ? "1" : "0");
+    }
+}
+
+global proc updatePluginWin()
+{
+    global string $gPluginWindowName;
+    global int $gPluginRefreshNeeded;
+    // Only a window of the reference's built by a script, and only while hidden, just before it's shown.
+    if (!`window -exists $gPluginWindowName` || `window -query -visible $gPluginWindowName`)
+        return;
+    if ($gPluginRefreshNeeded)
+        updatePluginList();
+}
+
+global proc updatePluginCallback()
+{
+    global string $gPluginWindowName;
+    global int $gIgnoreUpdateCallback;
+    global int $gPluginRefreshNeeded;
+    if (`window -exists $gPluginWindowName` && `window -query -visible $gPluginWindowName`) {
+        if (!$gIgnoreUpdateCallback)
+            updatePluginList();
+    } else {
+        $gPluginRefreshNeeded = true;
+    }
+}
+
+global proc updatePluginList()
+{
+    global int $gPluginListSize;
+    global int $gPluginRefreshNeeded;
+    for ($i = 0; $i < $gPluginListSize; $i++)
+        updatePluginUI($i);
+    $gPluginRefreshNeeded = false;
+}
+
+global proc updatePluginUI(int $index)
+{
+    global string $gPluginManagerList[];
+    int $k = $index * 4;
+    if ($k + 3 >= size($gPluginManagerList))
+        return;
+    string $path = $gPluginManagerList[$k];
+    string $loadedBox = $gPluginManagerList[$k + 1];
+    string $autoBox = $gPluginManagerList[$k + 2];
+    string $infoButton = $gPluginManagerList[$k + 3];
+    int $loaded = pluginWinLoaded($path);
+    if (`checkBox -exists $loadedBox` && `checkBox -query -value $loadedBox` != $loaded)
+        checkBox -edit -value $loaded $loadedBox;
+    if (`checkBox -exists $autoBox`)
+        checkBox -edit -value (pluginWinAutoLoad($path)) $autoBox;
+    // Information is there for a plug-in that has been loaded.
+    if (`control -exists $infoButton`)
+        control -edit -enable $loaded $infoButton;
+}
+
+global proc int loadPluginCallback(string $file, string $fileType)
+{
+    global string $gDefaultPluginBrowseDir;
+    $gDefaultPluginBrowseDir = pluginWinDirOf($file);
+    if (catch(`loadPlugin $file`)) {
+        warning ("Couldn't load the plug-in " + $file + ".");
+        return 0;
+    }
+    return 1;
+}
+
+global proc browsePlugin()
+{
+    global string $gDefaultPluginBrowseDir;
+    if ($gDefaultPluginBrowseDir == "") {
+        string $dirs[] = pluginWinSearchDirs();
+        $gDefaultPluginBrowseDir = size($dirs) ? $dirs[0] : `pwd`;
+    }
+    string $filter = "Plug-ins (*.so *.dll *.mll *.bundle *.py);;All Files (*.*)";
+    if (`exists buildPlugInFileFilterList`)
+        $filter = `eval "buildPlugInFileFilterList"`;
+    string $files[] = `fileDialog2 -caption "Load Plug-in" -fileMode 1 -fileFilter $filter
+        -startingDirectory $gDefaultPluginBrowseDir`;
+    if (size($files) && $files[0] != "")
+        loadPluginCallback(`fromNativePath $files[0]`, "");
+}
+
+global proc displayPluginInfo(string $path)
+{
+    global string $gPluginInfoWinName;
+    global string $gPluginInfoWinPath;
+    global string $gPluginInfoWinVendor;
+    global string $gPluginInfoWinVerson;
+    global string $gPluginInfoWinAPIVerson;
+    global string $gPluginInfoWinAutoLoad;
+    global string $gPluginInfoWinLoaded;
+    global string $gPluginInfoWinFeatures;
+    global string $gPluginWinFeatureStr;
+    global int $gPluginWinNumHtCount;
+
+    string $name = pluginWinNameOf($path);
+    string $known = "";
+    if (catchQuiet($known = `pluginInfo -query -path $name`) || $known == "")
+        warning ("The plug-in " + $name + " isn't known to the plug-in database.");
+    else
+        $path = $known;
+
+    if (!`window -exists PluginInfoWin`) {
+        window -title "Plug-in Information" -widthHeight 340 280 PluginInfoWin;
+        formLayout windowLyt;
+            scrollLayout -childResizable true scrollLayout;
+                formLayout scrollWindowLyt;
+                    columnLayout -adjustableColumn true infoLyt;
+                        string $labels[] = {"Name:", "Path:", "Vendor:", "Version:", "API Version:", "Auto Load:", "Loaded:"};
+                        string $labelNames[] = {"nameTxt", "pathTxt", "vendTxt", "versionTxt", "apiVersionTxt", "autoTxt", "isLoadedTxt"};
+                        string $valueNames[] = {"nameValTxt", "pathValTxt", "vendValTxt", "versValTxt", "apiVersValTxt", "autoValTxt", "isLoadedValTxt"};
+                        string $values[];
+                        for ($i = 0; $i < 7; $i++) {
+                            rowLayout -numberOfColumns 2 -columnWidth2 100 340 -adjustableColumn 2;
+                                text -label $labels[$i] -align "left" $labelNames[$i];
+                                $values[$i] = `text -label "" -align "left" $valueNames[$i]`;
+                            setParent ..;
+                        }
+                    setParent ..;
+                    frameLayout -label "Plug-in Features" -collapsable false pluginFeaturesLyt;
+                        $gPluginInfoWinFeatures = `text -label "" -align "left" featuresTxt`;
+                    setParent ..;
+                setParent ..;
+                formLayout -edit
+                    -attachForm infoLyt "top" 0 -attachForm infoLyt "left" 0 -attachForm infoLyt "right" 0
+                    -attachControl infoLyt "bottom" 0 pluginFeaturesLyt
+                    -attachForm pluginFeaturesLyt "left" 0 -attachForm pluginFeaturesLyt "right" 0
+                    -attachForm pluginFeaturesLyt "bottom" 0
+                    scrollWindowLyt;
+            setParent ..;
+            button -label "Close" -command "deleteUI PluginInfoWin" closeInfoBtn;
+        setParent ..;
+        formLayout -edit
+            -attachForm scrollLayout "top" 0 -attachForm scrollLayout "left" 0 -attachForm scrollLayout "right" 0
+            -attachControl scrollLayout "bottom" 5 closeInfoBtn
+            -attachForm closeInfoBtn "left" 5 -attachForm closeInfoBtn "right" 5 -attachForm closeInfoBtn "bottom" 5
+            windowLyt;
+        $gPluginInfoWinName = $values[0];
+        $gPluginInfoWinPath = $values[1];
+        $gPluginInfoWinVendor = $values[2];
+        $gPluginInfoWinVerson = $values[3];
+        $gPluginInfoWinAPIVerson = $values[4];
+        $gPluginInfoWinAutoLoad = $values[5];
+        $gPluginInfoWinLoaded = $values[6];
+    }
+
+    string $vendor = "";
+    string $version = "";
+    string $api = "";
+    catchQuiet($vendor = `pluginInfo -query -vendor $name`);
+    catchQuiet($version = `pluginInfo -query -version $name`);
+    catchQuiet($api = `pluginInfo -query -apiVersion $name`);
+    text -edit -label $name $gPluginInfoWinName;
+    text -edit -label $path $gPluginInfoWinPath;
+    text -edit -label $vendor $gPluginInfoWinVendor;
+    text -edit -label $version $gPluginInfoWinVerson;
+    text -edit -label $api $gPluginInfoWinAPIVerson;
+    text -edit -label (pluginWinAutoLoad($name) ? "Yes" : "No") $gPluginInfoWinAutoLoad;
+    text -edit -label (pluginWinLoaded($name) ? "Yes" : "No") $gPluginInfoWinLoaded;
+
+    // What the plug-in adds, by kind: a heading, then each item indented.
+    string $flags[] = {"command", "tool", "modelEditorCommand", "controlCommand", "constraintCommand", "dependNode",
+                       "data", "translator", "iksolver", "device", "dragAndDropBehavior", "animCurveInterp"};
+    string $headings[] = {"Commands", "Tools", "Model Editor Commands", "Control Commands", "Constraint Commands",
+                          "Dependency Nodes", "Dependency Graph Data", "File Translators", "IK Solvers", "Input Devices",
+                          "Drag and Drop Behaviours", "Anim Curve Interpolators"};
+    $gPluginWinFeatureStr = "";
+    $gPluginWinNumHtCount = 1;
+    for ($i = 0; $i < size($flags); $i++) {
+        string $items[] = pluginWinList($flags[$i], $name);
+        if (!size($items))
+            continue;
+        if ($gPluginWinFeatureStr != "") {
+            $gPluginWinFeatureStr += "\n\n";
+            $gPluginWinNumHtCount += 2;
+        }
+        $gPluginWinFeatureStr += $headings[$i] + "\n";
+        $gPluginWinNumHtCount++;
+        for ($j = 0; $j < size($items); $j++) {
+            $gPluginWinFeatureStr += "      " + $items[$j];
+            if ($j < size($items) - 1)
+                $gPluginWinFeatureStr += "\n";
+            $gPluginWinNumHtCount++;
+        }
+    }
+    $gPluginWinNumHtCount++;
+    text -edit -label $gPluginWinFeatureStr $gPluginInfoWinFeatures;
+    if (`about -mac`)
+        text -edit -height ($gPluginWinNumHtCount * 15) $gPluginInfoWinFeatures;
+    showWindow PluginInfoWin;
+}
+
+global proc updatePluginDirectories()
+{
+    global string $gPluginWindowName;
+    // Aztek's own Plug-in Manager refreshes with its Refresh button; this has rows of its own only in a reference
+    // window a script built.
+    if (!`window -exists $gPluginWindowName`)
+        return;
+    waitCursor -state on;
+    updatePluginList();
+    waitCursor -state off;
+}
+
+global proc updatePluginModule()
+{
+    updatePluginDirectories();
+}
+
+global proc closeAllDirectoryGroups(int $collapse)
+{
+    global string $gPluginWinParentWidget;
+    if ($gPluginWinParentWidget == "" || !`layout -exists $gPluginWinParentWidget`)
+        return;
+    string $frames[] = `layout -query -childArray $gPluginWinParentWidget`;
+    for ($f in $frames)
+        if (`frameLayout -exists $f`)
+            frameLayout -edit -collapse $collapse $f;
+}
+
+global proc showOnlyLoaded(int $onlyLoaded)
+{
+    global int $gShowOnlyLoadedPlugins;
+    global string $gPluginWindowName;
+    $gShowOnlyLoadedPlugins = $onlyLoaded;
+    if (`window -exists $gPluginWindowName`)
+        window -edit -title ($onlyLoaded ? "Plug-in Manager ( Loaded Only )" : "Plug-in Manager") $gPluginWindowName;
+    updatePluginDirectories();
+}
+
+global proc modifyPatternSearch()
+{
+    global string $gPluginSearch;
+    global string $gPluginSearchField;
+    global string $gPluginWindowName;
+    if ($gPluginSearchField != "" && `textField -exists $gPluginSearchField`)
+        $gPluginSearch = `textField -query -text $gPluginSearchField`;
+    if (`exists filterUIUpdateFilterStatus`)
+        eval ("filterUIUpdateFilterStatus \"" + $gPluginWindowName + "\" " + ($gPluginSearch != ""));
+    updatePluginDirectories();
+}
+
+global proc pluginWin()
+{
+    if (`exists PluginManager`)
+        PluginManager;
+    else
+        warning "pluginWin: the Plug-in Manager is only there when Aztek runs with its interface.";
+}
+
+global proc unloadPluginWithCheck(string $path, int $isMisc)
+{
+    if ($isMisc)
+        updatePluginList();
+    string $name = pluginWinNameOf($path);
+
+    // Where Aztek can't say beforehand whether it's safe, the plain unload says by failing.
+    int $ok = 1;
+    catchQuiet($ok = `pluginInfo -query -unloadOk $path`);
+    if ($ok) {
+        waitCursor -state on;
+        int $failed = catch(`unloadPlugin $name`);
+        waitCursor -state off;
+        if (!$failed)
+            return;
+    }
+
+    string $services = "";
+    for ($s in pluginWinList("serviceDescriptions", $path))
+        $services += "- " + $s + "\n";
+    int $sceneBound = ($name == "Fur" || $name == "CpClothPlugin" || $name == "stereoCamera");
+    string $message;
+    if ($sceneBound && `about -linux`)
+        $message = "The plug-in can't be unloaded while the scene uses it:\n" + $services
+            + "\nForcing it starts a new scene without saving this one.";
+    else if ($sceneBound)
+        $message = "The plug-in can't be unloaded while the scene uses it:\n" + $services
+            + "\nForcing it saves this scene under a new name first, then starts a new scene.";
+    else
+        $message = "Unloading the plug-in now may cause problems, as it is still in use:\n" + $services
+            + "\nUnload it anyway?";
+    string $answer = `confirmDialog -title "Plug-in Warning" -message $message -messageAlign "left"
+        -button "Force" -button "Cancel" -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+    if ($answer == "Force") {
+        if ($sceneBound) {
+            if (!`about -linux` && `exists SaveSceneAs`)
+                SaveSceneAs;
+            waitCursor -state on;
+            file -force -new;
+        } else {
+            waitCursor -state on;
+        }
+        catch(`unloadPlugin -force $name`);
+        waitCursor -state off;
+    } else {
+        // Puts the Loaded check box back on.
+        updatePluginList();
+    }
+}

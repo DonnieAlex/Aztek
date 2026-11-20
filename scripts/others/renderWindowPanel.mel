@@ -1,0 +1,1017 @@
+// renderWindowPanel: the Render View's procedures: rendering through a camera into it, IPR, kept images, test
+// resolutions, the render target, its menus and the option variables behind them.
+//
+// Aztek's Render View is its own window (the RenderViewWindow runtime command), and its editor is called renderView;
+// Harold renders into it through `hrender`, and `renderWindowEditor` keeps, removes and writes its images. So the panel
+// these procedures act on is renderView unless a script has made a scripted panel of the reference's kind, and the
+// panel callbacks open Aztek's window rather than build a second one. Where the reference's editor has a flag Aztek's
+// lacks, the procedure does the rest and leaves that part out.
+
+global int $gIprTuningPaused = false;
+global string $gRenderViewRenderTarget = "";
+global int $gRenderViewRenderTargetNameChangeJob = -1;
+global int $gRenderViewRenderTargetDeletedJob = -1;
+global int $gRenderViewRenderTargetNormal = 0;
+global int $gRenderViewRenderTargetInNameChange = 1;
+global int $gRenderViewRenderTargetInDelete = 2;
+global int $gMaterialViewSuspendedByIpr = 0;
+global string $gRenderPassLockUnlockImage[] = {"renderPassLock.png", "renderPassUnlock.png"};
+global int $gRenderViewRenderAborted = 0;
+global int $gRenderTargetForceDependenciesRender = 1;
+// These two turn shadows and glows off when set.
+global int $gRenderViewShadowsMode = 0;
+global int $gRenderViewGlowPassMode = 0;
+// The test resolutions as percentages of the render settings', by the menu's choice.
+global int $gRenderViewResolutions[] = {0, 100, 10, 25, 50, 75, 110, 125, 150};
+// The camera the Render View renders through. Aztek's editor reports the last one but can't be told one, so it is kept
+// here too.
+global string $gRenderViewCurrentCamera = "";
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Helpers.
+
+// The Render View's editor: the first scripted panel of the reference's kind when a script made one, else Aztek's.
+proc string rwpPanel()
+{
+    string $panels[] = `getPanel -scriptType renderWindowPanel`;
+    return size($panels) ? $panels[0] : "renderView";
+}
+
+proc string rwpCurrentRenderer()
+{
+    if (`exists currentRenderer`)
+        return eval("currentRenderer");
+    return `getAttr defaultRenderGlobals.currentRenderer`;
+}
+
+// The name the renderer goes by in menus. Aztek renders with Harold, which answers to the name "arnold" too.
+proc string rwpRendererUIName(string $r)
+{
+    if (`exists renderer`)
+        return eval("renderer -query -rendererUIName " + $r);
+    if ($r == "arnold" || $r == "harold")
+        return "Harold";
+    return $r;
+}
+
+// A renderer's procedure of the given kind, from the renderer registry when Aztek has one.
+proc string rwpRendererProc(string $flag)
+{
+    if (!`exists renderer`)
+        return "";
+    return eval("renderer -query " + $flag + " " + rwpCurrentRenderer());
+}
+
+// One value from the render view's status, which Aztek gives as a JSON object.
+proc string rwpStatus(string $key)
+{
+    string $st = `renderWindowEditor -query renderView`;
+    string $m = match("\"" + $key + "\":[^,}]*", $st);
+    if ($m == "")
+        return "";
+    string $v = substring($m, size($key) + 4, size($m));
+    return substituteAllString($v, "\"", "");
+}
+
+proc rwpStopIpr(string $editor)
+{
+    if (`exists stopIprRendering`)
+        eval("stopIprRendering " + $editor);
+    else
+        hrender -ipr "stop";
+}
+
+proc int rwpIprFileLoaded()
+{
+    return `exists isIprFileLoaded` ? eval("isIprFileLoaded") : 0;
+}
+
+proc int rwpImageCount()
+{
+    return `renderWindowEditor -query -nbImages renderView`;
+}
+
+proc rwpEnable(string $control, int $on)
+{
+    if (`control -exists $control`)
+        control -edit -enable $on $control;
+}
+
+proc rwpItem(string $item, int $enable)
+{
+    if (`menuItem -exists $item`)
+        menuItem -edit -enable $enable $item;
+}
+
+proc rwpCheck(string $item, int $value)
+{
+    if (`menuItem -exists $item`)
+        menuItem -edit -checkBox $value $item;
+}
+
+proc rwpInitInt(string $var, int $value)
+{
+    if (!`optionVar -exists $var`)
+        optionVar -intValue $var $value;
+}
+
+proc rwpToggleVar(string $var, int $missing)
+{
+    int $v = `optionVar -exists $var` ? !`optionVar -query $var` : $missing;
+    optionVar -intValue $var $v;
+}
+
+// The Render View's own window, if Aztek has the command for it here.
+proc rwpOpenNative()
+{
+    if (`exists RenderViewWindow`)
+        eval("RenderViewWindow");
+}
+
+// The renderer's IPR update switches, kept in option variables and handed to the IPR engine when there is one.
+proc rwpIprOptionVars(string $engine)
+{
+    rwpInitInt("updateShadingAndLighting", 1);
+    rwpInitInt("updateLightGlow", 1);
+    rwpInitInt("updateShaderGlow", 1);
+    rwpInitInt("updateMotionBlur", 1);
+    if (`exists iprEngine`)
+        eval("iprEngine -edit -updateShading " + `optionVar -query updateShadingAndLighting`
+            + " -updateLightGlow " + `optionVar -query updateLightGlow`
+            + " -updateShaderGlow " + `optionVar -query updateShaderGlow`
+            + " -updateMotionBlur " + `optionVar -query updateMotionBlur` + " " + $engine);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Option variables, IPR state and test resolution.
+
+global proc setRenderOptionVars()
+{
+    rwpInitInt("renderViewTestResolution", 1);
+    rwpInitInt("renderViewAutoResize", 1);
+    rwpInitInt("renderViewRenderSelectedObj", 0);
+    rwpInitInt("renderViewRenderAllLayers", 0);
+    rwpInitInt("renderViewRenderLayersMode", 0);
+    rwpInitInt("renderViewAutoRenderRegion", 0);
+    if (!`optionVar -exists renderedImageName`)
+        optionVar -stringValue renderedImageName "test";
+    rwpInitInt("iprRenderShading", 1);
+    rwpInitInt("iprRenderShadowMaps", 1);
+    rwpInitInt("iprRenderMotionBlur", 1);
+}
+
+global proc int isRunningIpr()
+{
+    string $proc = rwpRendererProc("-isRunningIprProcedure");
+    if ($proc != "")
+        return eval($proc) != 0;
+    return rwpStatus("ipr") == "true";
+}
+
+global proc updateIPRMemoryEstimate()
+{
+    string $mem = "0MB";
+    if (isRunningIpr()) {
+        string $mb = rwpStatus("memoryMB");
+        $mem = ((int)$mb) + "MB";
+    }
+    if (`text -exists iprMemEstText`)
+        text -edit -label ("IPR: " + $mem) iprMemEstText;
+}
+
+global proc int[] getTestResolution(string $panel)
+{
+    global int $gRenderViewResolutions[];
+    int $res[] = {640, 480};
+    if (!`optionVar -exists renderViewTestResolution`)
+        return $res;
+    int $choice = `optionVar -query renderViewTestResolution`;
+    if ($choice == 0) {
+        if ($panel == "")
+            return $res;
+        string $control = "";
+        if (`exists getCustomViewEditorFromPanel`)
+            $control = eval("getCustomViewEditorFromPanel \"" + $panel + "\"");
+        if ($control == "" && `getPanel -typeOf $panel` == "modelPanel")
+            $control = `modelEditor -query -control $panel`;
+        if ($control != "" && `control -exists $control`) {
+            $res[0] = `control -query -width $control`;
+            $res[1] = `control -query -height $control`;
+        }
+        return $res;
+    }
+    $res[0] = `getAttr defaultResolution.width`;
+    $res[1] = `getAttr defaultResolution.height`;
+    if ($choice > 1 && $choice < size($gRenderViewResolutions)) {
+        $res[0] = $res[0] * $gRenderViewResolutions[$choice] / 100;
+        $res[1] = $res[1] * $gRenderViewResolutions[$choice] / 100;
+    }
+    return $res;
+}
+
+global proc string getCurrentCameraRig()
+{
+    // Aztek has no multi-camera rigs, so the Render View never holds one.
+    return "";
+}
+
+global proc string getCurrentCamera()
+{
+    // The camera the Render View was last given or rendered through.
+    global string $gRenderViewCurrentCamera;
+    if ($gRenderViewCurrentCamera != "" && `objExists $gRenderViewCurrentCamera`)
+        return $gRenderViewCurrentCamera;
+    string $cam = `renderWindowEditor -query -currentCamera renderView`;
+    if ($cam != "")
+        return $cam;
+    string $focus = `getPanel -withFocus`;
+    if ($focus != "") {
+        string $custom = "";
+        if (`exists getCustomViewEditorFromPanel`)
+            $custom = eval("getCustomViewEditorFromPanel \"" + $focus + "\"");
+        if ($custom != "")
+            return `modelPanel -query -camera $custom`;
+        if (`getPanel -typeOf $focus` == "modelPanel")
+            return `modelPanel -query -camera $focus`;
+    }
+    string $persp[] = `ls "persp|perspShape"`;
+    if (size($persp) && `nodeType $persp[0]` == "camera")
+        return $persp[0];
+    string $cams[] = `listCameras`;
+    return size($cams) ? $cams[0] : "";
+}
+
+// A camera's transform, whether its transform or its shape is named.
+proc string rwpCameraTransform(string $cam)
+{
+    if ($cam != "" && `objExists $cam` && `nodeType $cam` == "camera") {
+        string $p[] = `listRelatives -parent $cam`;
+        if (size($p))
+            return $p[0];
+    }
+    return $cam;
+}
+
+global proc string getCameraPanel(string $camera)
+{
+    string $want = rwpCameraTransform($camera);
+    string $panels[] = `getPanel -type modelPanel`;
+    for ($p in $panels) {
+        string $c = `modelPanel -query -camera $p`;
+        if ($c == $camera || rwpCameraTransform($c) == $want)
+            return $p;
+    }
+    if (`exists getMultiCameraChildren` && `exists getCustomViewEditorFromPanel`) {
+        string $kids[] = eval("getMultiCameraChildren \"" + $camera + "\"");
+        if (size($kids) >= 2)
+            return eval("getCustomViewEditorFromPanel \"StereoPanel\"");
+    }
+    return "";
+}
+
+global proc string showRenderView()
+{
+    rwpOpenNative();
+    return rwpPanel();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Files.
+
+proc rwpRetainDir()
+{
+    if (`exists retainWorkingDirectory`)
+        eval("retainWorkingDirectory \"" + `workspace -query -directory` + "\"");
+}
+
+global proc int renderWindowLoadImageCallback(string $editor, string $fileName, string $fileType)
+{
+    rwpRetainDir();
+    // Aztek's Render View shows renders and kept images; it can't open an image file.
+    if ($fileName != "")
+        warning ("The Render View can't open image files: " + $fileName + " wasn't loaded.");
+    return 1;
+}
+
+global proc int renderWindowSaveImageCallback(string $editor, string $fileName, string $fileType)
+{
+    rwpRetainDir();
+    if ($fileName == "")
+        return 1;
+    optionVar -stringValue lastSaveImageAsFileType $fileType;
+    // Harold writes the image in the format its name's extension gives.
+    renderWindowEditor -edit -writeImage $fileName renderView;
+    return 1;
+}
+
+global proc int renderWindowLoadIprFileCallback(string $editor, string $fileName, string $fileType)
+{
+    rwpRetainDir();
+    if ($fileName != "")
+        warning "Harold's IPR keeps no files to load.";
+    return 1;
+}
+
+global proc int renderWindowSaveIprFileCallback(string $editor, string $fileName, string $fileType)
+{
+    rwpRetainDir();
+    if ($fileName != "" && rwpIprFileLoaded() && `exists iprEngine`)
+        eval("iprEngine -edit -copy \"" + $fileName + "\" defaultIprEngine");
+    return 1;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// IPR and render targets.
+
+global proc refreshIprRelatedUI(string $panel)
+{
+    global int $gIprTuningPaused;
+    if (isRunningIpr()) {
+        rwpEnable("iprMemEstText", 1);
+        if (`iconTextButton -exists closeIprButton`)
+            iconTextButton -edit -enable true -annotation "Close the IPR file and stop tuning" closeIprButton;
+        if (`iconTextCheckBox -exists pauseIprButton`)
+            iconTextCheckBox -edit -enable true -value $gIprTuningPaused -annotation "Pause IPR tuning and refresh" pauseIprButton;
+        if (`iconTextButton -exists refreshIprButton`)
+            iconTextButton -edit -enable (!$gIprTuningPaused)
+                -annotation ("Refresh the IPR image with " + rwpRendererUIName(rwpCurrentRenderer())) refreshIprButton;
+    } else {
+        rwpEnable("iprMemEstText", 0);
+        if (`iconTextButton -exists closeIprButton`)
+            iconTextButton -edit -enable false -annotation "" closeIprButton;
+        if (`iconTextButton -exists refreshIprButton`)
+            iconTextButton -edit -enable false -annotation "" refreshIprButton;
+        if (`iconTextCheckBox -exists pauseIprButton`)
+            iconTextCheckBox -edit -enable false -value false -annotation "" pauseIprButton;
+    }
+    renderWindowRefreshMenu("ipr", $panel);
+}
+
+global proc renderViewTogglePauseIpr(string $editor)
+{
+    global int $gIprTuningPaused;
+    int $new = !$gIprTuningPaused;
+    string $proc = rwpRendererProc("-pauseIprRenderProcedure");
+    if ($proc != "")
+        eval($proc + " \"" + $editor + "\" " + $new);
+    else if ($new)
+        hrender -ipr "pause";
+    else
+        hrender -ipr "refresh";
+    $gIprTuningPaused = $new;
+    refreshIprRelatedUI($editor);
+}
+
+global proc setRenderTargetForceDependenciesRender(int $value)
+{
+    global int $gRenderTargetForceDependenciesRender;
+    global string $gRenderPassLockUnlockImage[];
+    $gRenderTargetForceDependenciesRender = $value;
+    if (`iconTextButton -exists renderPassLockUnlockButton`)
+        iconTextButton -edit -image $gRenderPassLockUnlockImage[$value ? 1 : 0] renderPassLockUnlockButton;
+}
+
+global proc toggleRenderTargetForceDependenciesRender()
+{
+    global int $gRenderTargetForceDependenciesRender;
+    setRenderTargetForceDependenciesRender(!$gRenderTargetForceDependenciesRender);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Rendering.
+
+global proc renderWindowRenderCamera(string $renderMode, string $editor, string $camera)
+{
+    global int $gIprTuningPaused;
+    global int $gMaterialViewSuspendedByIpr;
+    global int $gRenderViewShadowsMode;
+    global int $gRenderViewGlowPassMode;
+
+    if ($editor == "")
+        $editor = showRenderView();
+    if (isRunningIpr())
+        rwpStopIpr($editor);
+    if ($camera == "")
+        $camera = getCurrentCamera();
+    global string $gRenderViewCurrentCamera;
+    $gRenderViewCurrentCamera = $camera;
+
+    string $panel = getCameraPanel($camera);
+    int $res[] = getTestResolution($panel);
+    string $result = "";
+
+    if ($renderMode == "snapshot")
+        renderWindowTakeSnapshot($res[0], $res[1], $camera);
+    else if ($renderMode == "iprRender" || $renderMode == "redoPreviousIprRender") {
+        string $start = rwpRendererProc("-startIprRenderProcedure");
+        $gMaterialViewSuspendedByIpr++;
+        if ($start != "")
+            eval($start + " \"" + $editor + "\" " + $res[0] + " " + $res[1] + " \"" + $camera + "\"");
+        else
+            hrender -ipr "start" -camera $camera -width $res[0] -height $res[1];
+        $gIprTuningPaused = false;
+        refreshIprRelatedUI($editor);
+    } else {
+        // Harold renders into the Render View as it refines, so the call comes back at once and the window fills in.
+        // Aztek's Render View keeps the region it renders to itself, so a region render from here renders the frame.
+        if (`exists mayaPreviewRender`)
+            $result = eval("mayaPreviewRender 0 \"" + $editor + "\" \"" + $camera + "\" {" + $res[0] + ", " + $res[1] + "} "
+                + (!$gRenderViewShadowsMode) + " " + (!$gRenderViewGlowPassMode) + " defaultRenderGlobals");
+        else
+            hrender -async -camera $camera -width $res[0] -height $res[1];
+    }
+    optionVar -stringValue renderedImageName $result;
+}
+
+global proc renderWindowRender(string $renderMode, string $editor)
+{
+    renderWindowRenderCamera($renderMode, $editor, "");
+}
+
+global proc int isActiveViewViewport20()
+{
+    global string $gViewport2;
+    string $vp2 = $gViewport2 != "" ? $gViewport2 : "vp2Renderer";
+    string $panels[] = `getPanel -type modelPanel`;
+    for ($p in $panels)
+        if (`modelEditor -query -activeView $p`)
+            return `modelEditor -query -rendererName $p` == $vp2;
+    return `optionVar -query viewportRenderer` == 2;
+}
+
+global proc renderWindowTakeSnapshot(int $resX, int $resY, string $camera)
+{
+    // The reference grabs the viewport into the Render View here; Aztek's Render View holds renders only.
+    warning "The Render View can't take viewport snapshots: render the camera instead.";
+}
+
+global proc showRenderGlobals()
+{
+    if (`exists showEditor`)
+        eval("showEditor defaultRenderGlobals");
+    else
+        unifiedRenderGlobalsWindow();
+}
+
+global proc switchAutoRenderRegionVar()
+{
+    rwpToggleVar("renderViewAutoRenderRegion", 0);
+}
+
+global proc switchSelectObj()
+{
+    rwpToggleVar("renderViewRenderSelectedObj", 0);
+}
+
+global proc switchAutoResizeVar(string $editor)
+{
+    rwpToggleVar("renderViewAutoResize", 1);
+}
+
+global proc switchShadowsVar(string $editor)
+{
+    global int $gRenderViewShadowsMode;
+    $gRenderViewShadowsMode = !$gRenderViewShadowsMode;
+}
+
+global proc switchGlowPassVar(string $editor)
+{
+    global int $gRenderViewGlowPassMode;
+    $gRenderViewGlowPassMode = !$gRenderViewGlowPassMode;
+}
+
+global proc setTestResolutionVar(int $choice)
+{
+    if (`optionVar -exists renderViewTestResolution` && $choice >= 0 && $choice < 9)
+        optionVar -intValue renderViewTestResolution $choice;
+    else
+        optionVar -intValue renderViewTestResolution 1;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Menu commands.
+
+proc rwpSaveImageFlow(string $editor)
+{
+    // The project's images folder, where renders go.
+    string $start = `workspace -query -rootDirectory` + "images";
+    if (!`filetest -d $start`)
+        $start = `workspace -query -directory`;
+    string $files[] = `fileDialog2 -caption "Save Image" -fileMode 0 -dir $start -returnFilter true
+        -fileFilter "PNG (*.png);;JPEG (*.jpg);;TIFF (*.tif);;OpenEXR (*.exr);;All Files (*.*)"`;
+    if (size($files) && $files[0] != "") {
+        string $type = size($files) > 1 ? $files[1] : "";
+        renderWindowSaveImageCallback($editor, fromNativePath($files[0]), $type);
+    }
+}
+
+global proc renderWindowMenuCommand(string $command, string $editor)
+{
+    if ($command == "loadImage") {
+        string $files[] = `fileDialog2 -caption "Open Image" -fileMode 1`;
+        renderWindowLoadImageCallback($editor, size($files) ? $files[0] : "", "image");
+        renderWindowRefreshMenu("file", $editor);
+        renderWindowRefreshLayout($editor);
+    } else if ($command == "saveImage")
+        rwpSaveImageFlow($editor);
+    else if ($command == "loadIprFile")
+        renderWindowLoadIprFileCallback($editor, "", "iff");
+    else if ($command == "saveIprFile")
+        renderWindowSaveIprFileCallback($editor, "", "iff");
+    else if ($command == "keepImageInRenderView") {
+        renderWindowEditor -edit -snapShot renderView;
+        renderWindowRefreshMenu("file", $editor);
+        renderWindowRefreshLayout($editor);
+    } else if ($command == "removeImageFromRenderView") {
+        // Aztek's editor doesn't say which kept image is shown, so the latest kept one goes.
+        int $n = rwpImageCount();
+        if ($n > 0) {
+            renderWindowEditor -edit -removeImage ($n - 1) renderView;
+            renderWindowRefreshMenu("file", $editor);
+            renderWindowRefreshLayout($editor);
+        } else
+            warning "There is no kept image to remove.";
+    } else if ($command == "removeAllImagesFromRenderView") {
+        renderWindowEditor -edit -removeAllImages renderView;
+        renderWindowRefreshMenu("file", $editor);
+        renderWindowRefreshLayout($editor);
+    } else if ($command == "updateShadowMaps") {
+        if (rwpIprFileLoaded() && `exists iprEngine`)
+            eval("iprEngine -edit -updateShadowMaps defaultIprEngine");
+    } else if ($command == "loadSamples") {
+        if (`exists loadSamples`)
+            eval("loadSamples \"" + $editor + "\"");
+    } else if ($command == "updateShadingAndLighting" || $command == "updateLightGlow" || $command == "updateShaderGlow" || $command == "updateMotionBlur") {
+        rwpToggleVar($command, 0);
+        if (`exists iprEngine` && `objExists defaultIprEngine`)
+            rwpIprOptionVars("defaultIprEngine");
+        renderWindowRefreshMenu("ipr", $editor);
+    } else if ($command == "showRegionMarquee") {
+        // Aztek's Render View draws the region it renders itself; there is no marquee to set from here.
+    } else if ($command == "ShowFrameNumber" || $command == "ShowRenderTime" || $command == "ShowCameraName" || $command == "ShowLayerName" || $command == "ShowRenderTargetName")
+        rwpToggleVar("renderView" + $command, 0);
+    else if ($command == "customComment")
+        warning "The Render View has no caption to put a comment in.";
+    else if ($command == "dithered") {
+        // Aztek's Render View always draws the image as it is.
+    } else if ($command == "toolbar") {
+        rwpToggleVar("renderViewDisplayToolbar", 1);
+        renderWindowRefreshLayout($editor);
+    } else if ($command == "grabSwatch") {
+        // Swatches are rendered by Harold for the Hypershade; there is nothing to grab here.
+    }
+}
+
+global proc renderWindowCreateRenderPassMenu(string $editor, string $menuType)
+{
+    global string $gRenderViewLastRenderCamera;
+    global string $gRenderViewLastRenderLayer;
+    global string $gRenderViewLastRenderTime;
+    string $menu = $editor + $menuType + "loadPassFileItem";
+    if (!`menuItem -exists $menu` && !`menu -exists $menu`)
+        return;
+    setParent -menu $menu;
+    string $items[] = `menu -query -itemArray $menu`;
+    for ($i in $items)
+        deleteUI -menuItem ($menu + "|" + $i);
+    if ($gRenderViewLastRenderCamera != "" && $gRenderViewLastRenderLayer != "" && `objExists $gRenderViewLastRenderLayer`) {
+        string $passes[];
+        if (`attributeExists renderPass $gRenderViewLastRenderLayer`) {
+            string $direct[] = `listConnections -type renderPass ($gRenderViewLastRenderLayer + ".renderPass")`;
+            appendStringArray($passes, $direct, size($direct));
+            string $sets[] = `listConnections -type renderPassSet ($gRenderViewLastRenderLayer + ".renderPass")`;
+            for ($s in $sets) {
+                string $in[] = `listConnections -type renderPass ($s + ".renderPass")`;
+                appendStringArray($passes, $in, size($in));
+            }
+        }
+        string $camXf = rwpCameraTransform($gRenderViewLastRenderCamera);
+        string $dir[] = `renderSettings -fullPathTemp`;
+        for ($p in $passes) {
+            if (`attributeExists renderable $p` && !`getAttr ($p + ".renderable")`)
+                continue;
+            string $file[] = `renderSettings -fullPath -camera $camXf -layer $gRenderViewLastRenderLayer`;
+            string $path = size($file) ? $file[0] : (size($dir) ? $dir[0] : "");
+            menuItem -label $p -command ("renderWindowRenderPassMenuCallback \"" + $path + "\" \"\"");
+        }
+    }
+    if (`exists callbacks`)
+        eval("callbacks -executeCallbacks -hook \"addItemsToRenderPassMenuOfRenderView\"");
+}
+
+global proc renderWindowRenderPassMenuCallback(string $fileName, string $channel)
+{
+    // The reference opens the pass in its image viewer; Aztek has none to hand it to.
+    warning ("There is no image viewer to open " + $fileName + " in.");
+}
+
+global proc populateRenderTargetMenu()
+{
+    global string $gRenderViewRenderTarget;
+    if (!`menu -exists renderTargetMenu`)
+        return;
+    menu -edit -deleteAllItems renderTargetMenu;
+    setParent -menu renderTargetMenu;
+    radioMenuItemCollection;
+    menuItem -label "None" -radioButton ($gRenderViewRenderTarget == "") -command "setRenderViewRenderTarget \"\" 0";
+    string $targets[] = `ls -type renderTarget`;
+    for ($t in $targets)
+        menuItem -label $t -radioButton ($gRenderViewRenderTarget == $t) -command ("setRenderViewRenderTarget \"" + $t + "\" 0");
+}
+
+global proc string getRenderViewRenderTarget()
+{
+    global string $gRenderViewRenderTarget;
+    return $gRenderViewRenderTarget;
+}
+
+global proc setRenderViewRenderTarget(string $rt, int $context)
+{
+    global string $gRenderViewRenderTarget;
+    global int $gRenderViewRenderTargetNameChangeJob;
+    global int $gRenderViewRenderTargetDeletedJob;
+    if ($rt == $gRenderViewRenderTarget)
+        return;
+    if ($gRenderViewRenderTarget != "") {
+        // A job that is running now (context 1 or 2) ends by itself; the other is killed.
+        if ($gRenderViewRenderTargetNameChangeJob != -1 && $context != 1)
+            catchQuiet(`scriptJob -kill $gRenderViewRenderTargetNameChangeJob -force`);
+        $gRenderViewRenderTargetNameChangeJob = -1;
+        if ($gRenderViewRenderTargetDeletedJob != -1 && $context != 2)
+            catchQuiet(`scriptJob -kill $gRenderViewRenderTargetDeletedJob -force`);
+        $gRenderViewRenderTargetDeletedJob = -1;
+    }
+    $gRenderViewRenderTarget = $rt;
+    if ($rt != "" && `objExists $rt`) {
+        if (`menu -exists renderTargetMenu`) {
+            $gRenderViewRenderTargetNameChangeJob = `scriptJob -runOnce true -parent renderTargetMenu -nodeNameChanged $rt "renderViewRenderTargetNameChanged"`;
+            $gRenderViewRenderTargetDeletedJob = `scriptJob -runOnce true -parent renderTargetMenu -nodeDeleted $rt "renderViewRenderTargetDeleted"`;
+        } else {
+            $gRenderViewRenderTargetNameChangeJob = `scriptJob -runOnce true -nodeNameChanged $rt "renderViewRenderTargetNameChanged"`;
+            $gRenderViewRenderTargetDeletedJob = `scriptJob -runOnce true -nodeDeleted $rt "renderViewRenderTargetDeleted"`;
+        }
+    }
+    updateRenderViewCurrentRenderTarget(rwpPanel());
+}
+
+global proc renderViewRenderTargetNameChanged()
+{
+    // The new name isn't known here, so the target is let go.
+    setRenderViewRenderTarget("", 1);
+}
+
+global proc renderViewRenderTargetDeleted()
+{
+    setRenderViewRenderTarget("", 2);
+}
+
+global proc iprUpdateOptionsSubMenu(string $menu, string $editor)
+{
+    if (`popupMenu -exists $menu`)
+        popupMenu -edit -deleteAllItems $menu;
+    else if (`menu -exists $menu`)
+        menu -edit -deleteAllItems $menu;
+    string $r = rwpCurrentRenderer();
+    if ($r != "mentalRay" && !isRunningIpr())
+        return;
+    string $proc = rwpRendererProc("-iprOptionsSubMenuProcedure");
+    if ($proc == "")
+        return;
+    string $cam = getCurrentCamera();
+    int $res[] = getTestResolution(getCameraPanel($cam));
+    eval($proc + " \"" + $editor + "\" " + $res[0] + " " + $res[1] + " \"" + $cam + "\"");
+}
+
+global proc iprUpdateRenderSubMenu(string $subMenu, string $editor)
+{
+    string $proc = rwpRendererProc("-iprRenderSubMenuProcedure");
+    if ($proc != "")
+        eval($proc + " \"" + $subMenu + "\" \"" + $editor + "\"");
+    else
+        renderWindowCreateCameraSubmenu($subMenu, "renderWindowRenderCamera iprRender " + $editor + " ", $editor);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The channel buttons and menus.
+
+global proc refreshRenderViewPlaneMenu(string $editor)
+{
+    if (!`menuItem -exists allPlanesMenuRed`)
+        return;
+    // Aztek's Render View shows one image at a time, never a stereo pair, so the channels are always there.
+    rwpItem("allPlanesMenuRed", 1);
+    rwpItem("allPlanesMenuGreen", 1);
+    rwpItem("allPlanesMenuBlue", 1);
+}
+
+global proc refreshRenderViewIcons(string $editor)
+{
+    // Aztek's editor doesn't report the channel it shows, so the buttons keep the all-channels look.
+    if (`iconTextButton -exists rvMaskButton`)
+        iconTextButton -edit -image "rvMaskPlaneDim.png" rvMaskButton;
+    if (`iconTextButton -exists rvAllPlanesButton`)
+        iconTextButton -edit -image "rvAllPlanes.png" rvAllPlanesButton;
+}
+
+global proc renderWindowCreateCameraSubmenu(string $subMenu, string $command, string $editor)
+{
+    if (`popupMenu -exists $subMenu`)
+        popupMenu -edit -deleteAllItems $subMenu;
+    else if (`menu -exists $subMenu`)
+        menu -edit -deleteAllItems $subMenu;
+    else if (`menuItem -exists $subMenu`) {
+        string $items[] = `menu -query -itemArray $subMenu`;
+        for ($i in $items)
+            deleteUI -menuItem ($subMenu + "|" + $i);
+    } else
+        return;
+    setParent -menu $subMenu;
+
+    string $cam = getCurrentCamera();
+    if ($cam != "") {
+        menuItem -label ("Current (" + $cam + ")") -command ($command + "\"" + $cam + "\"");
+        menuItem -divider true;
+    }
+    string $persp[] = `listCameras -perspective`;
+    for ($c in $persp)
+        menuItem -label $c -command ($command + "\"" + $c + "\"");
+    menuItem -divider true;
+    string $ortho[] = `listCameras -orthographic`;
+    for ($c in $ortho)
+        menuItem -label $c -command ($command + "\"" + $c + "\"");
+}
+
+global proc buildRenderViewContextHelpItems(string $nameRoot, string $menuParent)
+{
+    setParent -menu $menuParent;
+    menuItem -label "Help on Render View..." -command "showHelp RenderView";
+}
+
+// The items a menu's refresh looks after, named "<editor><menuType><suffix>" or "<editor><suffix>".
+proc string rwpMenuItem(string $editor, string $menuType, string $suffix)
+{
+    if (`menuItem -exists ($editor + $menuType + $suffix)`)
+        return $editor + $menuType + $suffix;
+    return $editor + $suffix;
+}
+
+proc rwpRefreshOne(string $menu, string $editor, string $type)
+{
+    global int $gIprTuningPaused;
+    global int $gRenderViewShadowsMode;
+    global int $gRenderViewGlowPassMode;
+    string $e = $editor;
+    if ($menu == "file") {
+        int $n = rwpImageCount();
+        rwpItem(rwpMenuItem($e, $type, "saveImageItem"), 1);
+        rwpItem(rwpMenuItem($e, $type, "keepImageInRenderViewItem"), 1);
+        // Harold keeps no IPR files.
+        rwpItem(rwpMenuItem($e, $type, "loadIprFileItem"), 0);
+        rwpItem(rwpMenuItem($e, $type, "saveIprFileItem"), 0);
+        rwpItem(rwpMenuItem($e, $type, "closeIprFileItem"), 0);
+        rwpItem(rwpMenuItem($e, $type, "renderDiagnosticsItem"), rwpRendererProc("-renderDiagnosticsProcedure") != "");
+        rwpItem(rwpMenuItem($e, $type, "removeImageFromRenderViewItem"), $n > 0);
+        rwpItem(rwpMenuItem($e, $type, "removeAllImagesFromRenderViewItem"), $n > 0);
+    } else if ($menu == "render") {
+        rwpCheck(rwpMenuItem($e, $type, "renderSelectedLayer"), `optionVar -query renderViewRenderAllLayers`);
+        rwpCheck(rwpMenuItem($e, $type, "renderSelectedObjItem"), `optionVar -query renderViewRenderSelectedObj`);
+    } else if ($menu == "ipr") {
+        int $running = isRunningIpr();
+        rwpItem(rwpMenuItem($e, $type, "redoPreviousIprRenderItem"), 1);
+        rwpItem(rwpMenuItem($e, $type, "updateShadowMapsItem"), rwpIprFileLoaded());
+        rwpItem(rwpMenuItem($e, $type, "loadSamplesItem"), rwpIprFileLoaded());
+        rwpItem(rwpMenuItem($e, $type, "refreshIprImage"), $running && !$gIprTuningPaused);
+        rwpItem(rwpMenuItem($e, $type, "iprUpdateOptionsItem"), $running);
+        string $pause = rwpMenuItem($e, $type, "pauseIprTuning");
+        rwpItem($pause, $running);
+        rwpCheck($pause, $gIprTuningPaused);
+    } else if ($menu == "options") {
+        rwpCheck(rwpMenuItem($e, $type, "autoResizeItem"), `optionVar -query renderViewAutoResize`);
+        rwpCheck(rwpMenuItem($e, $type, "shadowsItem"), $gRenderViewShadowsMode);
+        rwpCheck(rwpMenuItem($e, $type, "glowPassItem"), $gRenderViewGlowPassMode);
+        rwpCheck(rwpMenuItem($e, $type, "renderSelectedObjItem"), `optionVar -query renderViewRenderSelectedObj`);
+        string $auto = rwpMenuItem($e, $type, "autoRenderRegionItem");
+        rwpCheck($auto, `optionVar -query renderViewAutoRenderRegion`);
+        rwpItem($auto, !isRunningIpr());
+        int $soft = rwpCurrentRenderer() == "mayaSoftware" && !isRunningIpr();
+        rwpItem(rwpMenuItem($e, $type, "shadowsItem"), $soft);
+        rwpItem(rwpMenuItem($e, $type, "glowPassItem"), $soft);
+    } else if ($menu == "display") {
+        rwpCheck(rwpMenuItem($e, $type, "toolbarItem"), `optionVar -query renderViewDisplayToolbar`);
+        refreshRenderViewIcons($editor);
+    }
+}
+
+global proc renderWindowRefreshMenu(string $menu, string $editor)
+{
+    if (!stringArrayContains($menu, {"file", "render", "ipr", "options", "view", "display"}))
+        return;
+    rwpInitInt("renderViewDisplayToolbar", 1);
+    rwpRefreshOne($menu, $editor, "menubar");
+    rwpRefreshOne($menu, $editor, "popup");
+}
+
+global proc renderWindowRefreshLayout(string $editor)
+{
+    rwpInitInt("renderViewDisplayToolbar", 1);
+    if (`formLayout -exists renderViewToolbarForm`)
+        formLayout -edit -manage `optionVar -query renderViewDisplayToolbar` renderViewToolbarForm;
+    int $n = rwpImageCount();
+    if (`intScrollBar -exists scrollBar`) {
+        if ($n > 0)
+            intScrollBar -edit -manage true -minValue -1 -maxValue ($n - 1) scrollBar;
+        else
+            intScrollBar -edit -manage false scrollBar;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Entry points.
+
+global proc renderIntoNewWindow(string $renderMode)
+{
+    string $panel = `getPanel -withFocus`;
+    string $camera = "";
+    if ($panel != "" && `getPanel -typeOf $panel` == "modelPanel")
+        $camera = `modelPanel -query -camera $panel`;
+    else {
+        // Not a camera view: the one camera view on show, if there is just one.
+        string $views[];
+        string $visible[] = `getPanel -visiblePanels`;
+        for ($v in $visible)
+            if (`getPanel -typeOf $v` == "modelPanel")
+                $views[size($views)] = $v;
+        if (size($views) == 1) {
+            $panel = $views[0];
+            $camera = `modelPanel -query -camera $panel`;
+        }
+    }
+    if ($camera == "") {
+        confirmDialog -message "Select a camera view to render, or show only one." -button "OK";
+        return;
+    }
+    string $editor = showRenderView();
+    renderWindowRenderCamera($renderMode, $editor, $camera);
+}
+
+global proc redoPreviousRender(string $renderMode)
+{
+    string $editor = showRenderView();
+    renderWindowRender($renderMode, $editor);
+}
+
+global proc renderWindowScrollDisplayImage(string $editor)
+{
+    // Aztek's Render View picks the kept image to show itself; the menus are brought up to date.
+    renderWindowRefreshMenu("file", $editor);
+}
+
+global proc createRenderWindowPanel(string $panel)
+{
+    setRenderOptionVars();
+    if (`exists addContextHelpProc`)
+        eval("addContextHelpProc " + $panel + " \"buildRenderViewContextHelpItems\"");
+}
+
+global proc addRenderWindowPanel(string $editor)
+{
+    // Aztek's Render View is a window of its own, with these menus and this toolbar; that window is the one shown.
+    setRenderOptionVars();
+    rwpOpenNative();
+}
+
+global proc removeRenderWindowPanel(string $panel)
+{
+    if (isRunningIpr())
+        rwpStopIpr(rwpPanel());
+}
+
+global proc renderWindowPanel(string $panelName)
+{
+    // The reference makes its Render View panel here. Aztek's is built in, so there is nothing to make; the option
+    // variables it reads are set up.
+    setRenderOptionVars();
+}
+
+global proc renderWindowCheckAndRenderRegion(float $top, float $left, float $bottom, float $right)
+{
+    int $snapped = isRunningIpr() || `renderWindowEditor -query -currentCamera renderView` != "";
+    if ($snapped) {
+        if (`optionVar -exists renderViewAutoRenderRegion` && `optionVar -query renderViewAutoRenderRegion` && !isRunningIpr())
+            renderWindowRenderRegion(showRenderView());
+    }
+    if (isRunningIpr()) {
+        string $proc = rwpRendererProc("-changeIprRegionProcedure");
+        if ($proc != "")
+            eval($proc + " \"" + rwpPanel() + "\"");
+    }
+}
+
+global proc string mayaSoftwareRender(int $width, int $height, int $doShadows, int $doGlowPass, string $camera, string $option)
+{
+    // Aztek's render renders with Harold, which has no switches for shadows or glows.
+    return eval("render -width " + $width + " -height " + $height + " " + $option + " \"" + $camera + "\"");
+}
+
+global proc string mayaSoftwareIprRender(int $width, int $height, int $doShadows, int $doGlowPass, string $camera)
+{
+    return mayaSoftwareRender($width, $height, $doShadows, $doGlowPass, $camera, "");
+}
+
+global proc renderWindowRenderRegionCommon(string $editor)
+{
+    string $cmd = rwpRendererProc("-renderRegionProcedure");
+    if ($cmd == "")
+        $cmd = "mayaRenderRegion";
+    float $start = `timerX`;
+    if (catch(eval($cmd + " \"" + $editor + "\"")))
+        warning "The region render failed.";
+    float $seconds = `timerX -startTime $start`;
+    print ("Region rendered in " + $seconds + " seconds.\n");
+}
+
+global proc renderWindowRenderRegion(string $editor)
+{
+    renderWindowRenderRegionCommon($editor);
+}
+
+global proc mayaRenderRegion(string $editor)
+{
+    renderWindowRender("renderRegion", $editor);
+}
+
+global proc buildRenderUsingMenu(string $subMenu, string $panelName)
+{
+    if (`menu -exists $subMenu`)
+        menu -edit -deleteAllItems $subMenu;
+    else if (`popupMenu -exists $subMenu`)
+        popupMenu -edit -deleteAllItems $subMenu;
+    setParent -menu $subMenu;
+    string $parts[];
+    int $n = tokenize($subMenu, "|", $parts);
+    radioMenuItemCollection ("renderWindowRenderUsingCollection" + ($n ? $parts[$n - 1] : ""));
+    string $current = rwpCurrentRenderer();
+    string $renderers[] = {$current};
+    if (`exists renderer`)
+        $renderers = eval("renderer -query -namesOfAvailableRenderers");
+    for ($i = 0; $i < size($renderers); $i++)
+        menuItem -label (rwpRendererUIName($renderers[$i])) -radioButton ($renderers[$i] == $current)
+            -command ("setCurrentRenderer " + $renderers[$i]) ($panelName + "renderUsingItem" + $i);
+}
+
+global proc updateRenderWindowPanelRendererSpecificUI()
+{
+    global int $gIprTuningPaused;
+    string $panel = rwpPanel();
+    rwpStopIpr($panel);
+    string $r = rwpRendererUIName(rwpCurrentRenderer());
+    if (`iconTextButton -exists renderButton`)
+        iconTextButton -edit -annotation ("Redo the previous render with " + $r) renderButton;
+    if (`iconTextButton -exists renderRegionButton`)
+        iconTextButton -edit -annotation ("Render the region with " + $r) renderRegionButton;
+    if (`iconTextButton -exists renderGlobalsButton`)
+        iconTextButton -edit -annotation ("Open the render settings of " + $r) renderGlobalsButton;
+    if (`iconTextButton -exists iprRenderButton`)
+        iconTextButton -edit -enable true -annotation ("Redo the previous IPR render with " + $r) iprRenderButton;
+    $gIprTuningPaused = false;
+    if (`iconTextCheckBox -exists pauseIprButton`)
+        iconTextCheckBox -edit -enable false -value false pauseIprButton;
+    renderWindowRefreshMenu("ipr", $panel);
+}
+
+global proc updateRenderViewCurrentRenderLayerLabel(string $panel)
+{
+    string $label = `exists currentRenderLayerLabel` ? eval("currentRenderLayerLabel") : "";
+    if (`text -exists currentRenderLayerName`)
+        text -edit -align "left" -label $label currentRenderLayerName;
+    if (`control -exists $panel` && `exists editRenderLayerGlobals`) {
+        string $layer = eval("editRenderLayerGlobals -query -currentRenderLayer");
+        scriptJob -runOnce true -parent $panel -nodeNameChanged $layer ("updateRenderViewCurrentRenderLayerLabel " + $panel);
+    }
+}
+
+global proc updateRenderViewCurrentRenderTarget(string $panel)
+{
+    global string $gRenderViewRenderTarget;
+    string $layer = `exists currentRenderLayerLabel` ? eval("currentRenderLayerLabel") : "";
+    string $label = $gRenderViewRenderTarget;
+    if ($layer != "" && $label != "")
+        $label = ": " + $label;
+    if (`text -exists currentRenderTargetName`)
+        text -edit -align "left" -label $label currentRenderTargetName;
+    if (`iconTextButton -exists renderPassLockUnlockButton`) {
+        int $supported = `exists rendererRenderTargetSupport` ? eval("rendererRenderTargetSupport " + rwpCurrentRenderer()) : 0;
+        iconTextButton -edit -manage $supported -enable ($gRenderViewRenderTarget != "") renderPassLockUnlockButton;
+    }
+}
+
+global proc updateRenderViewForRenderLayerChange(string $panel)
+{
+    updateRenderViewCurrentRenderLayerLabel($panel);
+    rwpStopIpr($panel);
+}
+
+global proc setStereoMode(string $editor, string $mode)
+{
+    // Aztek's Render View shows one image at a time; there is no stereo pair to arrange.
+}

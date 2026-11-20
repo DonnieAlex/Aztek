@@ -1,0 +1,54 @@
+// uvSetEditor: the UV Set Editor, which lists the UV sets of the first selected mesh, as the reference's UV > UV Set
+// Editor shows it. Aztek has the window natively, so uvSetEditor opens that one; updateUvSetEditor still fills a list
+// named uvSetList for scripts that build their own.
+
+// The meshes the selection means: shapes under the selected objects, else selected shapes, else the meshes of selected
+// components.
+proc string[] uvSetEditorMeshes()
+{
+    string $meshes[] = `listRelatives -shapes -fullPath -type "mesh" -noIntermediate`;
+    if (size($meshes) == 0)
+        $meshes = `ls -selection -type "mesh"`;
+    if (size($meshes) == 0)
+        $meshes = `listRelatives -parent -fullPath -type "mesh"`;
+    return $meshes;
+}
+
+// Refills uvSetList with the first mesh's UV sets and selects its current one. Run on selection changes, undo and redo,
+// by the Update button and after each edit.
+global proc updateUvSetEditor()
+{
+    if (!`textScrollList -exists uvSetList`)
+        return;
+    string $meshes[] = uvSetEditorMeshes();
+    textScrollList -edit -removeAll uvSetList;
+    if (size($meshes) == 0)
+        return;
+    string $mesh = $meshes[0];
+
+    // The reference lists each set by its name for this instance and hides those with none. polyUVSet doesn't answer
+    // the per-instance queries here yet (it takes the flags but fails on them), so the sets' own names and the
+    // mesh's current set are used.
+    string $sets[] = `polyUVSet -perInstance 1 -query -allUVSets $mesh`;
+    for ($set in $sets)
+        if ($set != "")
+            textScrollList -edit -append $set uvSetList;
+
+    string $current[] = `polyUVSet -query -currentUVSet $mesh`;
+    if (size($current) > 0)
+        textScrollList -edit -selectItem $current[0] uvSetList;
+}
+
+// The window's help menu entry.
+global proc builduvSetEditorContextHelpItems(string $nameRoot, string $menuParent)
+{
+    menuItem -label "Help on UV Set Editor" -command "showHelp uvSetEditor";
+}
+
+global proc uvSetEditor()
+{
+    if (`exists UVSetEditor`)
+        UVSetEditor;
+    else
+        warning "The UV Set Editor isn't available here.";
+}

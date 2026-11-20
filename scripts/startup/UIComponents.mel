@@ -1,0 +1,667 @@
+// UIComponents: the named parts of the main window scripts show, hide and toggle by name. Three kinds are kept:
+//   tool bars and dock controls, workspace controls docked to the main window that scripts make with the two create procs;
+//   component bars, the older kind: form layouts with a close button, grouped into bars at the window's edges.
+// Aztek's own editors docked round the views (Outliner, Attribute Editor, Channel Box / Layer Editor, Tool Settings,
+// Modeling Toolkit) are part of the program rather than workspace controls, so the visibility procs show and hide those
+// through Aztek's commands for them, by the reference's names for them.
+
+// Records are kept flat: a tool bar or dock control is (name, control); a bar is (name, unused, count, work area,
+// position, current component); a component is (name, outer layout, state callback, close button).
+global string $gUIComponentToolBarArray[];
+global string $gUIComponentDockControlArray[];
+global string $gUIComponentBarArray[];
+global string $gUIComponentBarComponentArray[];
+
+// Other scripts index the records with these, so they're set here, as the reference sets them.
+global int $gNameIndex;
+global int $gControlIndex;
+global int $gComponentCountIndex;
+global int $gCallbackIndex;
+global int $gLayoutIndex;
+global int $gCloseButtonIndex;
+global int $gParentIndex;
+global int $gPositionIndex;
+global int $gCurrentIndex;
+global int $gToolBarElementSize;
+global int $gDockControlElementSize;
+global int $gComponentBarElementSize;
+global int $gComponentElementSize;
+$gNameIndex = 0;
+$gControlIndex = 1;
+$gComponentCountIndex = 2;
+$gCallbackIndex = 2;
+$gLayoutIndex = 3;
+$gCloseButtonIndex = 3;
+$gParentIndex = 1;
+$gPositionIndex = 4;
+$gCurrentIndex = 5;
+$gToolBarElementSize = 2;
+$gDockControlElementSize = 2;
+$gComponentBarElementSize = 6;
+$gComponentElementSize = 4;
+
+// Aztek's own docked editors that scripts can't see as workspace controls but have hidden, by key.
+global string $gUIComponentNativeHidden[];
+
+proc uicError(string $message)
+{
+    error -showLineNumber true $message;
+}
+
+proc uicNoName()
+{
+    uicError "A UI component name is needed.";
+}
+
+// Which of Aztek's own docked editors a component or control name means: a key, or "" for none.
+proc string uicNative(string $name)
+{
+    switch ($name) {
+        case "Outliner":
+            return "outliner";
+        case "Attribute Editor":
+        case "AttributeEditor":
+            return "attributeEditor";
+        case "Channel Box / Layer Editor":
+        case "ChannelBoxLayerEditor":
+        case "Channel Box":
+        case "ChannelBox":
+        case "Layer Editor":
+        case "LayerEditor":
+            return "channelBox";
+        case "Tool Settings":
+        case "ToolSettings":
+            return "toolSettings";
+        case "Modeling Toolkit":
+        case "ModelingToolkit":
+            return "modelingToolkit";
+    }
+    return "";
+}
+
+// Aztek's commands for one: [0] shows it, [1] shows or hides it.
+proc string[] uicNativeCommands(string $key)
+{
+    switch ($key) {
+        case "outliner":
+            return {"OutlinerWindow", "ToggleOutliner"};
+        case "attributeEditor":
+            return {"AttributeEditor", "ToggleAttributeEditor"};
+        case "channelBox":
+            return {"", "ToggleChannelsLayers"};
+        case "toolSettings":
+            return {"ToolSettingsWindow", "ToggleToolSettings"};
+        case "modelingToolkit":
+            return {"ModelingToolkitWindow", "ToggleModelingToolkit"};
+    }
+    return {"", ""};
+}
+
+// Whether one of Aztek's docked editors is showing, as last set through these procedures; shown to begin with.
+proc int uicNativeVisible(string $key)
+{
+    global string $gUIComponentNativeHidden[];
+    return !stringArrayContains($key, $gUIComponentNativeHidden);
+}
+
+proc uicNativeSetVisible(string $key, int $visible)
+{
+    global string $gUIComponentNativeHidden[];
+    string $cmd[] = uicNativeCommands($key);
+    int $was = uicNativeVisible($key);
+    if ($visible) {
+        if ($cmd[0] != "" && `exists $cmd[0]`)
+            eval $cmd[0];
+        else if (!$was && `exists $cmd[1]`)
+            eval $cmd[1];
+        $gUIComponentNativeHidden = stringArrayRemove({$key}, $gUIComponentNativeHidden);
+    } else {
+        if ($was && `exists $cmd[1]`)
+            eval $cmd[1];
+        if ($was)
+            $gUIComponentNativeHidden[size($gUIComponentNativeHidden)] = $key;
+    }
+}
+
+// The control registered under a name in a two-field registry, "" if none or if it has since been deleted.
+proc string uicLookup(string $registry[], string $name)
+{
+    for ($i = 0; $i + 1 < size($registry); $i += 2) {
+        if ($registry[$i] == $name) {
+            string $control = $registry[$i + 1];
+            if (`workspaceControl -exists $control`)
+                return $control;
+            return "";
+        }
+    }
+    return "";
+}
+
+// The workspace control for a name: a tool bar's, a dock control's, or a workspace control of that name.
+proc string uicControlFor(string $name)
+{
+    string $control = getUIComponentToolBar($name, false);
+    if ($control == "")
+        $control = getUIComponentDockControl($name, false);
+    if ($control == "" && `workspaceControl -exists $name`)
+        $control = $name;
+    return $control;
+}
+
+proc int uicRaised(string $control)
+{
+    // Where -raise can't be asked, a showing control counts as the front one.
+    string $syntax = `help workspaceControl`;
+    if (!`gmatch $syntax "*-raise *"`)
+        return `workspaceControl -query -visible $control`;
+    return `workspaceControl -query -raise $control`;
+}
+
+// Shows a control and brings it to the front, expanded. Restoring alone may leave a control hidden with -visible false.
+proc uicRestore(string $control)
+{
+    if (!`workspaceControl -query -visible $control`)
+        workspaceControl -edit -visible true $control;
+    workspaceControl -edit -restore $control;
+}
+
+proc int uicCollapsed(string $control)
+{
+    int $collapsed = 0;
+    catchQuiet($collapsed = `workspaceControl -query -collapse $control`);
+    return $collapsed;
+}
+
+// Index of a bar's record in the bar registry, or -1.
+proc int uicBarIndex(string $bar)
+{
+    global string $gUIComponentBarArray[];
+    for ($i = 0; $i < size($gUIComponentBarArray); $i += 6)
+        if ($gUIComponentBarArray[$i] == $bar)
+            return $i;
+    return -1;
+}
+
+// Index of an old-style component's record, or -1.
+proc int uicComponentIndex(string $name)
+{
+    global string $gUIComponentBarComponentArray[];
+    for ($i = 0; $i < size($gUIComponentBarComponentArray); $i += 4)
+        if ($gUIComponentBarComponentArray[$i] == $name)
+            return $i;
+    return -1;
+}
+
+proc string uicCreateControl(string $name, string $label, string $uiScript, string $area, int $tabbed, int $dock)
+{
+    string $control = `substituteAllString $name " " ""`;
+    $control = `substituteAllString $control "/" ""`;
+    string $made = `workspaceControl -uiScript $uiScript -loadImmediately true -label $label
+        -dockToMainWindow $area $tabbed $control`;
+    if ($dock)
+        workspaceControl -edit -visibleChangeCommand "evalDeferred(\"updateEditorToggleCheckboxes()\")" $made;
+    return $made;
+}
+
+global proc string createUIComponentToolBar(string $name, string $label, string $uiScript, string $area, int $tabbed)
+{
+    global string $gUIComponentToolBarArray[];
+    string $control = uicCreateControl($name, $label, $uiScript, $area, $tabbed, 0);
+    $gUIComponentToolBarArray[size($gUIComponentToolBarArray)] = $name;
+    $gUIComponentToolBarArray[size($gUIComponentToolBarArray)] = $control;
+    return $control;
+}
+
+global proc string getUIComponentToolBar(string $name, int $reportError)
+{
+    global string $gUIComponentToolBarArray[];
+    if ($name == "") {
+        uicNoName();
+        return "";
+    }
+    string $control = uicLookup($gUIComponentToolBarArray, $name);
+    if ($control == "" && $reportError)
+        uicError ("UI component \"" + $name + "\" not found.");
+    return $control;
+}
+
+global proc string createUIComponentDockControl(string $name, string $label, string $uiScript, string $area, int $tabbed)
+{
+    global string $gUIComponentDockControlArray[];
+    string $control = uicCreateControl($name, $label, $uiScript, $area, $tabbed, 1);
+    $gUIComponentDockControlArray[size($gUIComponentDockControlArray)] = $name;
+    $gUIComponentDockControlArray[size($gUIComponentDockControlArray)] = $control;
+    return $control;
+}
+
+global proc string getUIComponentDockControl(string $name, int $reportError)
+{
+    global string $gUIComponentDockControlArray[];
+    if ($name == "") {
+        uicNoName();
+        return "";
+    }
+    string $control = uicLookup($gUIComponentDockControlArray, $name);
+    if ($control == "" && $reportError)
+        uicError ("UI component \"" + $name + "\" not found.");
+    return $control;
+}
+
+global proc showCurrentComponent(string $barName)
+{
+    global string $gUIComponentBarArray[];
+    string $current = "";
+    if ($barName == "") {
+        uicNoName();
+    } else {
+        int $i = uicBarIndex($barName);
+        if ($i >= 0)
+            $current = $gUIComponentBarArray[$i + 5];
+    }
+    toggleUIComponentVisibility($current);
+}
+
+global proc createUIComponentBar(string $name, string $position)
+{
+    global string $gUIComponentBarArray[];
+    if ($name == "") {
+        uicNoName();
+        return;
+    }
+    if (uicBarIndex($name) >= 0) {
+        uicError ("A UI component bar named \"" + $name + "\" already exists.");
+        return;
+    }
+    if ($position != "top" && $position != "bottom" && $position != "left" && $position != "right") {
+        uicError ("\"" + $position + "\" isn't a position: use top, bottom, left or right.");
+        return;
+    }
+    int $n = size($gUIComponentBarArray);
+    $gUIComponentBarArray[$n] = $name;
+    $gUIComponentBarArray[$n + 1] = "";
+    $gUIComponentBarArray[$n + 2] = "0";
+    $gUIComponentBarArray[$n + 3] = "";
+    $gUIComponentBarArray[$n + 4] = $position;
+    $gUIComponentBarArray[$n + 5] = "";
+}
+
+global proc removeUIComponentBar(string $name)
+{
+    global string $gUIComponentBarArray[];
+    global string $gUIComponentBarComponentArray[];
+    if ($name == "") {
+        uicNoName();
+        return;
+    }
+    // The bar's components follow those of the bars before it.
+    int $start = 0;
+    int $count = -1;
+    for ($i = 0; $i < size($gUIComponentBarArray); $i += 6) {
+        if ($gUIComponentBarArray[$i] == $name) {
+            $count = (int)$gUIComponentBarArray[$i + 2];
+            break;
+        }
+        $start += (int)$gUIComponentBarArray[$i + 2];
+    }
+    if ($count >= 0) {
+        // Only this bar's components go; the others keep every field, close button included.
+        string $kept[];
+        for ($i = 0; $i < size($gUIComponentBarComponentArray); $i += 4) {
+            int $k = $i / 4;
+            if ($k >= $start && $k < $start + $count)
+                continue;
+            for ($f = 0; $f < 4; $f++)
+                $kept[size($kept)] = $gUIComponentBarComponentArray[$i + $f];
+        }
+        $gUIComponentBarComponentArray = $kept;
+    } else {
+        warning ("UI component bar \"" + $name + "\" not found.");
+    }
+    string $bars[];
+    for ($i = 0; $i < size($gUIComponentBarArray); $i += 6) {
+        if ($gUIComponentBarArray[$i] == $name)
+            continue;
+        for ($f = 0; $f < 6; $f++)
+            $bars[size($bars)] = $gUIComponentBarArray[$i + $f];
+    }
+    $gUIComponentBarArray = $bars;
+}
+
+global proc string createUIComponent(string $barName, string $name, string $parent)
+{
+    global string $gUIComponentBarArray[];
+    global string $gUIComponentBarComponentArray[];
+    if ($barName == "" || $name == "") {
+        uicNoName();
+        return "";
+    }
+    if (`objectTypeUI $parent` != "formLayout") {
+        uicError ("The parent must be a formLayout.");
+        return "";
+    }
+    int $b = uicBarIndex($barName);
+    if ($b < 0) {
+        uicError ("UI component bar \"" + $barName + "\" not found.");
+        return "";
+    }
+    int $count = (int)$gUIComponentBarArray[$b + 2] + 1;
+    $gUIComponentBarArray[$b + 2] = $count;
+    string $position = $gUIComponentBarArray[$b + 4];
+
+    setParent $parent;
+    string $outer = `formLayout -manage false`;
+    string $display = $name;
+    if (`exists localizedUIComponentLabel`)
+        $display = `eval ("localizedUIComponentLabel \"" + encodeString($name) + "\"")`;
+    string $annotation = "Hide the " + $display;
+    string $command = "toggleUIComponentVisibility \"" + encodeString($name) + "\"";
+
+    string $close;
+    string $inner;
+    if ($position == "top" || $position == "bottom") {
+        $close = `iconTextButton -image "verticalCloseBar.xpm" -width 9 -height 16 -annotation $annotation -command $command`;
+        $inner = `formLayout`;
+        setParent ..;
+        formLayout -edit
+            -attachForm $close "top" 0 -attachForm $close "left" 0
+            -attachForm $inner "top" 0 -attachControl $inner "left" 0 $close
+            -attachForm $inner "bottom" 0 -attachForm $inner "right" 0
+            $outer;
+    } else {
+        $close = `iconTextButton -image "horizontalCloseBar.xpm" -width 16 -height 9 -annotation $annotation -command $command`;
+        $inner = `formLayout`;
+        setParent ..;
+        if ($position == "left") {
+            formLayout -edit -attachForm $close "top" 0 -attachForm $close "left" 0 $outer;
+        } else if (`about -mac`) {
+            formLayout -edit -attachForm $close "top" 0 -attachForm $close "left" 2 -attachForm $close "right" 0 $outer;
+        } else {
+            formLayout -edit -attachForm $close "top" 0 -attachForm $close "right" 0 $outer;
+        }
+        formLayout -edit
+            -attachControl $inner "top" 0 $close -attachForm $inner "left" 0
+            -attachForm $inner "bottom" 0 -attachForm $inner "right" 0
+            $outer;
+        // The bar's first component is the one it shows; the rest wait unmanaged.
+        if ($count == 1)
+            $gUIComponentBarArray[$b + 5] = $name;
+        else
+            formLayout -edit -manage false $outer;
+    }
+    formLayout -edit
+        -attachForm $outer "top" 0 -attachForm $outer "left" 0
+        -attachForm $outer "bottom" 0 -attachForm $outer "right" 0
+        $parent;
+
+    int $n = size($gUIComponentBarComponentArray);
+    $gUIComponentBarComponentArray[$n] = $name;
+    $gUIComponentBarComponentArray[$n + 1] = $outer;
+    $gUIComponentBarComponentArray[$n + 2] = "";
+    $gUIComponentBarComponentArray[$n + 3] = $close;
+    setParent $inner;
+    return $inner;
+}
+
+global proc string getUIComponent(string $name)
+{
+    global string $gUIComponentBarComponentArray[];
+    if ($name == "") {
+        uicNoName();
+        return "";
+    }
+    int $i = uicComponentIndex($name);
+    if ($i < 0) {
+        uicError ("UI component \"" + $name + "\" not found.");
+        return "";
+    }
+    return $gUIComponentBarComponentArray[$i + 1];
+}
+
+global proc setUIComponentStateCallback(string $componentName, string $callback)
+{
+    global string $gUIComponentBarComponentArray[];
+    if ($componentName == "") {
+        uicNoName();
+        return;
+    }
+    string $control = getUIComponentToolBar($componentName, false);
+    if ($control == "")
+        $control = getUIComponentDockControl($componentName, false);
+    if ($control != "") {
+        // The callback hears the control's visibility at the time it changes.
+        workspaceControl -edit
+            -visibleChangeCommand ($callback + "(`workspaceControl -query -visible " + $control + "`, \"\")")
+            $control;
+        return;
+    }
+    int $i = uicComponentIndex($componentName);
+    if ($i >= 0) {
+        $gUIComponentBarComponentArray[$i + 2] = $callback;
+        return;
+    }
+    // Aztek's own docked editors have no change command to hang it on; nothing to do for them.
+    if (uicNative($componentName) != "")
+        return;
+    uicError ("UI component \"" + $componentName + "\" not found.");
+}
+
+global proc setUIComponentWorkArea(string $barName, string $workArea)
+{
+    global string $gUIComponentBarArray[];
+    if ($barName == "") {
+        uicNoName();
+        return;
+    }
+    int $b = uicBarIndex($barName);
+    if ($b < 0) {
+        uicError ("UI component bar \"" + $barName + "\" not found.");
+        return;
+    }
+    $gUIComponentBarArray[$b + 3] = $workArea;
+}
+
+global proc setUIComponentVisibility(string $controlName, int $visible)
+{
+    if (!`workspaceControl -exists $controlName`) {
+        string $key = uicNative($controlName);
+        if ($key != "")
+            uicNativeSetVisible($key, $visible);
+        return;
+    }
+    if ($visible)
+        uicRestore($controlName);
+    else if (`workspaceControl -query -visible $controlName`)
+        workspaceControl -edit -visible false $controlName;
+}
+
+global proc int toggleUIComponentVisibility(string $name)
+{
+    if ($name == "") {
+        uicNoName();
+        return 0;
+    }
+    string $control = getUIComponentToolBar($name, false);
+    if ($control != "") {
+        if (isUIComponentVisible($name)) {
+            workspaceControl -edit -visible false $control;
+            return 0;
+        }
+        workspaceControl -edit -visible true $control;
+        return 1;
+    }
+    $control = getUIComponentDockControl($name, false);
+    if ($control != "") {
+        if (`workspaceControl -query -visible $control`) {
+            if (uicCollapsed($control)) {
+                uicRestore($control);
+                return 1;
+            }
+            if (isUIComponentRaised($name)) {
+                workspaceControl -edit -visible false $control;
+                return 0;
+            }
+            uicRestore($control);
+            return 1;
+        }
+        // The Channel Box and Layer Editor show either together or apart, never both ways at once.
+        string $shared[] = {"Channel Box / Layer Editor", "Channel Box", "Layer Editor"};
+        for ($other in $shared) {
+            if ($other == $name)
+                continue;
+            string $otherControl = getUIComponentDockControl($other, false);
+            if ($otherControl == "" || !`workspaceControl -query -visible $otherControl`)
+                continue;
+            if (startsWith($other, $name) || endsWith($other, $name) || startsWith($name, $other) || endsWith($name, $other))
+                workspaceControl -edit -visible false $otherControl;
+        }
+        uicRestore($control);
+        return 1;
+    }
+    if (`workspaceControl -exists $name`) {
+        int $show = !uicRaised($name) || uicCollapsed($name);
+        setUIComponentVisibility($name, $show);
+        return $show;
+    }
+    string $key = uicNative($name);
+    if ($key != "") {
+        int $show = !uicNativeVisible($key);
+        uicNativeSetVisible($key, $show);
+        return $show;
+    }
+    return 0;
+}
+
+global proc int isUIComponentRaised(string $name)
+{
+    if ($name == "") {
+        uicNoName();
+        return 0;
+    }
+    string $control = uicControlFor($name);
+    if ($control != "")
+        return uicRaised($control);
+    string $key = uicNative($name);
+    if ($key != "")
+        return uicNativeVisible($key);
+    return 0;
+}
+
+global proc int isUIComponentVisible(string $name)
+{
+    if ($name == "") {
+        uicNoName();
+        return 0;
+    }
+    string $control = uicControlFor($name);
+    if ($control != "")
+        return `workspaceControl -query -visible $control`;
+    string $key = uicNative($name);
+    if ($key != "")
+        return uicNativeVisible($key);
+    return 0;
+}
+
+global proc string getUIComponentCloseButton(string $name)
+{
+    global string $gUIComponentBarComponentArray[];
+    if ($name == "") {
+        uicNoName();
+        return "";
+    }
+    int $i = uicComponentIndex($name);
+    if ($i < 0 || $gUIComponentBarComponentArray[$i + 3] == "") {
+        uicError ("UI component \"" + $name + "\" not found.");
+        return "";
+    }
+    return $gUIComponentBarComponentArray[$i + 3];
+}
+
+global proc int UIComponentExists(string $name)
+{
+    global string $gUIComponentToolBarArray[];
+    global string $gUIComponentDockControlArray[];
+    if ($name == "") {
+        uicNoName();
+        return 0;
+    }
+    // A registered name is there while its control is, whatever the control came to be called.
+    if (stringArrayContains($name, $gUIComponentToolBarArray))
+        return (uicLookup($gUIComponentToolBarArray, $name) != "");
+    if (stringArrayContains($name, $gUIComponentDockControlArray))
+        return (uicLookup($gUIComponentDockControlArray, $name) != "");
+    if (uicComponentIndex($name) >= 0)
+        return 1;
+    if (`workspaceControl -exists $name`)
+        return 1;
+    return (uicNative($name) != "");
+}
+
+global proc printUIComponentBarInfo()
+{
+    global string $gUIComponentBarArray[];
+    global string $gUIComponentBarComponentArray[];
+    print ("DEBUG: Number of component bars = " + (size($gUIComponentBarArray) / 6) + "\n");
+    for ($i = 0; $i < size($gUIComponentBarArray); $i += 6) {
+        print ("DEBUG: Name:       " + $gUIComponentBarArray[$i] + "\n");
+        print ("DEBUG: Components: " + $gUIComponentBarArray[$i + 2] + "\n");
+        print ("DEBUG: Work Area:  " + $gUIComponentBarArray[$i + 3] + "\n");
+        print ("DEBUG: Position:   " + $gUIComponentBarArray[$i + 4] + "\n");
+        print ("DEBUG: Current:    " + $gUIComponentBarArray[$i + 5] + "\n");
+        print "\n";
+    }
+    print ("DEBUG: Number of components = " + (size($gUIComponentBarComponentArray) / 4) + "\n");
+    for ($i = 0; $i < size($gUIComponentBarComponentArray); $i += 4)
+        print ("DEBUG: " + $gUIComponentBarComponentArray[$i] + "\t\t" + $gUIComponentBarComponentArray[$i + 2] + "\t\t("
+            + $gUIComponentBarComponentArray[$i + 1] + "\t\t(" + $gUIComponentBarComponentArray[$i + 3] + ")\n");
+}
+
+// Sets a toggle icon to whether its component is the front, open tab.
+proc uicUpdateIcon(string $icon, string $component)
+{
+    if ($icon == "" || !`iconTextCheckBox -exists $icon`)
+        return;
+    string $control = getUIComponentDockControl($component, false);
+    if ($control == "")
+        $control = getUIComponentToolBar($component, false);
+    int $on;
+    if ($control != "")
+        $on = uicRaised($control) && !uicCollapsed($control);
+    else if (uicNative($component) != "")
+        $on = uicNativeVisible(uicNative($component));
+    else
+        return;
+    iconTextCheckBox -edit -value $on $icon;
+}
+
+global proc updateEditorToggleCheckboxes()
+{
+    global string $gOutlinerToggleButton;
+    global string $gAttributeEditorButton;
+    global string $gToolSettingsButton;
+    global string $gChannelsOrChannelsLayersButton;
+    global string $gLayerEditorButton;
+    global int $gAEDeferredUpdate;
+
+    if ($gOutlinerToggleButton != "" && `iconTextCheckBox -exists $gOutlinerToggleButton`)
+        uicUpdateIcon($gOutlinerToggleButton, "Outliner");
+    if ($gAttributeEditorButton == "" || !`iconTextCheckBox -exists $gAttributeEditorButton`)
+        return;
+
+    int $aeRaised = isUIComponentRaised("Attribute Editor");
+    uicUpdateIcon($gAttributeEditorButton, "Attribute Editor");
+    if ($aeRaised && $gAEDeferredUpdate) {
+        // The Attribute Editor waited while hidden; it catches up with the selection now it's at the front.
+        string $sel[] = `ls -selection -long -objectsOnly`;
+        string $last = size($sel) ? $sel[size($sel) - 1] : "";
+        if (`exists updateAE`)
+            eval ("updateAE \"" + $last + "\"");
+        $gAEDeferredUpdate = false;
+    }
+    uicUpdateIcon($gToolSettingsButton, "Tool Settings");
+    if (`optionVar -query channelsLayersSeparate`) {
+        uicUpdateIcon($gChannelsOrChannelsLayersButton, "Channel Box");
+        uicUpdateIcon($gLayerEditorButton, "Layer Editor");
+    } else {
+        uicUpdateIcon($gChannelsOrChannelsLayersButton, "Channel Box / Layer Editor");
+    }
+}

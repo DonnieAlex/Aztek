@@ -1,0 +1,109 @@
+// PolySelectConvert: turns the selected mesh (and subdivision surface) components into another kind and switches the
+// selection type to match, as the reference's. $toType: 1 faces, 10 faces wholly inside, 2 edges, 20 edges wholly
+// inside, 3 vertices, 4 UVs, 5 vertex faces. Any other value converts nothing.
+
+// Whether a select type change also changes what is selected (the selection preference). Where Aztek can't say, it
+// is taken as on, as Aztek's own conversions switch the selection type with the selection.
+proc int PolySelectConvert_typeChangeAffectsActive()
+{
+    int $on = 1;
+    if (catchQuiet($on = `selectPref -q -selectTypeChangeAffectsActive`))
+        return 1;
+    return $on;
+}
+
+global proc PolySelectConvert(int $toType)
+{
+    // Subdivision surfaces selected as objects are swapped for all their faces at the current level, so they convert
+    // like the mesh components do.
+    if (`isTrue SubdivExists`) {
+        string $shapes[];
+        string $drop[];
+        for ($item in `ls -sl -l`) {
+            string $type = `nodeType $item`;
+            if ($type == "transform") {
+                for ($child in `listRelatives -c -f $item`) {
+                    if (`nodeType $child` == "subdiv" && !`getAttr ($child + ".intermediateObject")`) {
+                        $shapes[size($shapes)] = $child;
+                        $drop[size($drop)] = $item;
+                        break;
+                    }
+                }
+            } else if ($type == "subdiv") {
+                $shapes[size($shapes)] = $item;
+                $drop[size($drop)] = $item;
+            }
+        }
+        for ($d in $drop)
+            select -tgl $d;
+        if (`exists querySubdiv`) {
+            for ($shape in $shapes) {
+                string $before[] = `ls -sl`;
+                querySubdiv -a 4 $shape;
+                select -add $before;
+            }
+        }
+    }
+
+    string $polyFlags = "", $subdFlags = "", $typeKey = "";
+    switch ($toType) {
+        case 1:
+            $polyFlags = "-fv -fe -fuv -fvf -tf";
+            $subdFlags = "-fv -fe -fuv -ff -tf";
+            $typeKey = "pf";
+            break;
+        case 10:
+            $polyFlags = "-fv -fe -fuv -fvf -tf -in";
+            $subdFlags = "-fv -fe -fuv -ff -tf -in";
+            $typeKey = "pf";
+            break;
+        case 2:
+            $polyFlags = "-fv -ff -fuv -fvf -te -vfa";
+            $subdFlags = "-fv -ff -fuv -te";
+            $typeKey = "pe";
+            break;
+        case 20:
+            $polyFlags = "-fv -ff -fuv -fvf -te -in";
+            $subdFlags = "-fv -ff -fuv -te -in";
+            $typeKey = "pe";
+            break;
+        case 3:
+            $polyFlags = "-ff -fe -fuv -fvf -tv";
+            $subdFlags = "-ff -fe -fuv -tv";
+            $typeKey = "pv";
+            break;
+        case 4:
+            $polyFlags = "-fv -fe -ff -fvf -tuv";
+            $subdFlags = "-fv -fe -ff -tuv";
+            $typeKey = "puv";
+            break;
+        case 5:
+            // Subdivision surfaces have no vertex faces.
+            $polyFlags = "-fv -fe -ff -fuv -tvf";
+            $typeKey = "pvf";
+            break;
+    }
+    string $poly[], $subd[];
+    if ($polyFlags != "")
+        $poly = `eval ("polyListComponentConversion " + $polyFlags)`;
+    if ($subdFlags != "" && `exists subdListComponentConversion`)
+        $subd = `eval ("subdListComponentConversion " + $subdFlags)`;
+    if (!size($poly) && !size($subd))
+        return;
+
+    // Each name quoted, so names with odd characters survive the eval.
+    string $cmd = "select -r";
+    for ($c in $poly)
+        $cmd += " \"" + $c + "\"";
+    for ($c in $subd)
+        $cmd += " \"" + $c + "\"";
+    int $objectMode = `selectMode -q -o`;
+    if ($objectMode)
+        $cmd = "hilite; " + $cmd;
+    if ($typeKey != "" && PolySelectConvert_typeChangeAffectsActive()) {
+        // Aztek's selectType may not have the object component mode flag; then the plain flag is used.
+        string $ocm = ($objectMode && !catchQuiet(`selectType -q -ocm -pv`)) ? "-ocm " : "";
+        $cmd = "selectType " + $ocm + "-" + $typeKey + " true; " + $cmd;
+    }
+    eval $cmd;
+}

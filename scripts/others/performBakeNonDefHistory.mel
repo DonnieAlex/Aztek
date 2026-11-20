@@ -1,0 +1,53 @@
+// performBakeNonDefHistory: Edit > Delete by Type > Non-Deformer History, as the reference's, through
+// doBakeNonDefHistory, with the choice kept in the optionVar bakePreDefHistory. $action 0 deletes and returns the
+// command, 1 opens the options, 2 only returns the command; anything else returns "". Aztek has its own Delete Non
+// Deformer History options window, so $action 1 opens that rather than building a second one. The setup and callback
+// procedures fill and read the reference's controls, for scripts that build them.
+
+proc performBakeNonDefHistory_options(int $force)
+{
+    if ($force || !`optionVar -ex bakePreDefHistory`)
+        optionVar -iv bakePreDefHistory 0;
+}
+
+global proc string performBakeNonDefHistory(int $action)
+{
+    if ($action == 1) {
+        if (`exists BakeNonDefHistoryOptions`)
+            BakeNonDefHistoryOptions;
+        else
+            warning "The Delete Non Deformer History options are not available here.";
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    // Read as stored, a missing optionVar being 0: any value but 0 means only the history ahead of the deformers.
+    string $how = `optionVar -q bakePreDefHistory` ? "pre" : "prePost";
+    string $cmd = "doBakeNonDefHistory( 1, {\"" + $how + "\" })";
+    if ($action == 0)
+        evalEcho $cmd;
+    return $cmd;
+}
+
+global proc bakeNonDefSetup(string $parent, int $forceFactorySettings)
+{
+    performBakeNonDefHistory_options($forceFactorySettings);
+    setParent $parent;
+    // The two one-button groups share a collection, so only one is on; the other is turned off here too, for where
+    // the shared collection doesn't do it.
+    int $pre = `optionVar -q bakePreDefHistory` == 1;
+    radioButtonGrp -e -sl (!$pre) prePostDef;
+    radioButtonGrp -e -sl $pre preDefOnly;
+}
+
+global proc bakeNonDefCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -iv bakePreDefHistory `radioButtonGrp -q -sl preDefOnly`;
+    if ($doIt) {
+        performBakeNonDefHistory 0;
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue "performBakeNonDefHistory 0" "BakeNonDefHistory";
+    }
+}

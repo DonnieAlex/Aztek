@@ -1,0 +1,255 @@
+// renderSequence: Render > Render Sequence. Renders the frame range the render settings give (or the current frame),
+// for the current or every renderable layer and camera, writing the images to an alternate output folder for the
+// length of the render, with the options renderSequenceOptionsWindow sets.
+//
+// The current renderer's sequence procedure does the rendering when the renderer registry names one; otherwise Harold
+// renders it through `hrender -seq`, which is Aztek's own sequence render.
+
+if (!`exists createRenderSequenceOptionVars`)
+    eval("source \"renderSequenceOptionsWindow.mel\"");
+
+// The Render View's procedures (showRenderView, getCurrentCamera, getTestResolution) live in renderWindowPanel.
+proc rsLoadRenderView()
+{
+    if (!`exists getCurrentCamera`)
+        eval("source \"renderWindowPanel.mel\"");
+}
+
+proc string rsCurrentRenderer()
+{
+    if (`exists currentRenderer`)
+        return eval("currentRenderer");
+    return `getAttr defaultRenderGlobals.currentRenderer`;
+}
+
+proc string rsRendererUIName(string $r)
+{
+    if (`exists renderer`)
+        return eval("renderer -query -rendererUIName " + $r);
+    if ($r == "arnold" || $r == "harold")
+        return "Harold";
+    return $r;
+}
+
+// The renderer's sequence procedure, or "hrender" for Harold's own.
+proc string rsSequenceProc(string $r)
+{
+    if (`exists renderer`)
+        return eval("renderer -query -renderSequenceProcedure " + $r);
+    return "hrender";
+}
+
+proc string rsCurrentLayer()
+{
+    if (`exists editRenderLayerGlobals`)
+        return eval("editRenderLayerGlobals -query -currentRenderLayer");
+    return `objExists defaultRenderLayer` ? "defaultRenderLayer" : "masterLayer";
+}
+
+proc int rsMakeCurrent(string $layer)
+{
+    if ($layer == rsCurrentLayer())
+        return 1;
+    if (!`exists editRenderLayerGlobals`)
+        return 0;
+    return !catch(eval("editRenderLayerGlobals -currentRenderLayer " + $layer));
+}
+
+proc string rsLayerName(string $layer)
+{
+    if (`exists renderLayerDisplayName`)
+        return eval("renderLayerDisplayName " + $layer);
+    return $layer == "defaultRenderLayer" ? "masterLayer" : $layer;
+}
+
+// A render globals MEL attribute, run when it holds something.
+proc rsRunMel(string $attr)
+{
+    string $plug = "defaultRenderGlobals." + $attr;
+    if (!`objExists $plug`)
+        return;
+    string $mel = `getAttr $plug`;
+    if ($mel != "")
+        eval($mel);
+}
+
+proc rsPrepare(string $flag)
+{
+    if (`exists prepareRender`)
+        eval("prepareRender " + $flag);
+}
+
+// The cameras whose renderable attribute is on, by transform.
+proc string[] rsRenderableCameras()
+{
+    string $out[];
+    string $shapes[] = `ls -cameras`;
+    for ($s in $shapes)
+        if (`getAttr ($s + ".renderable")`) {
+            string $p[] = `listRelatives -parent $s`;
+            $out[size($out)] = size($p) ? $p[0] : $s;
+        }
+    return $out;
+}
+
+// Renders the frames through one camera with Harold.
+proc rsHarold(int $width, int $height, string $camera, float $start, float $end, float $by)
+{
+    string $seq = $start + " " + $end + " " + $by;
+    if ($camera != "")
+        hrender -seq $seq -camera $camera -width $width -height $height;
+    else
+        hrender -seq $seq -width $width -height $height;
+}
+
+proc rsRenderSequence()
+{
+    global string $gRenderViewCurrentCamera;
+    string $r = rsCurrentRenderer();
+    string $ui = rsRendererUIName($r);
+    string $seqProc = rsSequenceProc($r);
+    if ($seqProc == "") {
+        warning ($ui + " can't render a sequence into the Render View.");
+        return;
+    }
+    createRenderSequenceOptionVars();
+    int $region = `optionVar -query renderSequenceRegion`;
+    int $allLayers = `optionVar -query renderSequenceAllLayers`;
+    int $allCameras = `optionVar -query renderSequenceAllCameras`;
+    int $addToView = `optionVar -query renderSequenceAddToRenderView`;
+    int $addAllLayers = `optionVar -query renderSequenceAddAllLayers`;
+    int $addAllCameras = `optionVar -query renderSequenceAddAllCameras`;
+    int $ignoreOverrides = `optionVar -query renderSequenceIgnoreLocalOverrides`;
+
+    rsLoadRenderView();
+    string $editor = showRenderView();
+    if (isRunningIpr())
+        hrender -ipr "stop";
+
+    string $originalLayer = rsCurrentLayer();
+    float $originalTime = `currentTime -query`;
+
+    rsPrepare("-setup");
+    rsPrepare("-invokePreRender");
+    rsRunMel("preMel");
+
+    string $layers[];
+    if (!$allLayers)
+        $layers[0] = $originalLayer;
+    else if (`objExists renderLayerManager`) {
+        string $all[] = `listConnections renderLayerManager.renderLayerId`;
+        for ($l in $all)
+            if (`getAttr ($l + ".renderable")`)
+                $layers[size($layers)] = $l;
+        if (size($all) == 0 && `objExists defaultRenderLayer` && `getAttr defaultRenderLayer.renderable`)
+            $layers[0] = "defaultRenderLayer";
+    }
+    if (size($layers) == 0)
+        error "There is no renderable layer to render.";
+
+    float $start, $end, $by;
+    if (`getAttr defaultRenderGlobals.animation`) {
+        $start = `getAttr defaultRenderGlobals.startFrame`;
+        $end = `getAttr defaultRenderGlobals.endFrame`;
+        $by = `getAttr defaultRenderGlobals.byFrameStep`;
+    } else {
+        $start = $originalTime;
+        $end = $originalTime;
+        $by = 1;
+    }
+    if ($by <= 0)
+        error "The frame step must be more than 0.";
+    if ($start > $end)
+        error "The end frame comes before the start frame.";
+
+    string $currentCamera = getCurrentCamera();
+    string $cameraArg = $allCameras ? "" : $currentCamera;
+
+    if (`exists renderer`) {
+        eval("renderer -materialViewRendererSuspend true " + $r);
+        evalDeferred -lowestPriority ("renderer -materialViewRendererSuspend false " + $r);
+    }
+    int $overridesOff = $ignoreOverrides && `exists mayaHasRenderSetup` && eval("mayaHasRenderSetup");
+    if ($overridesOff)
+        eval("renderSetupLocalOverride -st off");
+
+    print ("Rendering the sequence with " + $ui + ".\n");
+    int $completed = 1;
+    for ($layer in $layers) {
+        string $name = rsLayerName($layer);
+        if (!rsMakeCurrent($layer)) {
+            warning ("The layer " + $name + " can't be made current, so it isn't rendered.");
+            continue;
+        }
+        rsPrepare("-invokePreRenderLayer");
+        rsRunMel("preRenderLayerMel");
+        if (`exists dynRunupForBatchRender`)
+            eval("dynRunupForBatchRender");
+        int $res[] = getTestResolution(getCameraPanel($currentCamera));
+
+        string $save = "";
+        if ($addToView && ($addAllLayers || $layer == $originalLayer))
+            $save = $addAllCameras ? "all" : $currentCamera;
+
+        print ("Rendering " + $name + " from frame " + $start + " to " + $end + ".\n");
+        int $failed;
+        if ($seqProc != "hrender")
+            $failed = catch(eval($seqProc + "(" + $res[0] + ", " + $res[1] + ", \"" + $cameraArg + "\", \"" + $save + "\")"));
+        else {
+            // Harold renders the frames into the images folder; every renderable camera in turn when all are asked for.
+            // The region option isn't used: Aztek's Render View keeps its region to itself.
+            string $cams[];
+            if ($cameraArg == "")
+                $cams = rsRenderableCameras();
+            else
+                $cams[0] = $cameraArg;
+            $failed = 0;
+            for ($c in $cams) {
+                if (catch(rsHarold($res[0], $res[1], $c, $start, $end, $by))) {
+                    $failed = 1;
+                    break;
+                }
+                // Keeping the Render View's image adds it to the images there, when Harold has left a frame in it.
+                if ($save == "all" || ($save != "" && $save == $c))
+                    renderWindowEditor -edit -snapShot renderView;
+            }
+        }
+
+        rsRunMel("postRenderLayerMel");
+        rsPrepare("-invokePostRenderLayer");
+        // A failed render is taken as the user cancelling it.
+        if ($failed) {
+            $completed = 0;
+            break;
+        }
+    }
+    print ($completed ? "The sequence render is done.\n" : "The sequence render was cancelled.\n");
+
+    if ($overridesOff)
+        eval("renderSetupLocalOverride -st on");
+    rsRunMel("postMel");
+    rsPrepare("-invokePostRender");
+    rsPrepare("-restore");
+
+    currentTime -edit $originalTime;
+    rsMakeCurrent($originalLayer);
+}
+
+global proc renderSequence()
+{
+    string $location = "";
+    if (`optionVar -exists RenderSequenceAlternateOutputFileLocation`)
+        $location = `optionVar -query RenderSequenceAlternateOutputFileLocation`;
+    if ($location == "") {
+        if (`exists renderSequenceDefaultAlternateOutputFileLocation`)
+            $location = eval("renderSequenceDefaultAlternateOutputFileLocation");
+        else {
+            string $tmp[] = `renderSettings -fullPathTemp`;
+            $location = size($tmp) ? $tmp[0] : "";
+        }
+    }
+    optionVar -stringValue OverrideFileOutputDirectory $location;
+    // The override goes whatever happens in the render.
+    catch(rsRenderSequence());
+    optionVar -remove OverrideFileOutputDirectory;
+}

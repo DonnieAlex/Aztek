@@ -1,0 +1,172 @@
+// nodeEditorWindow: opens the Node Editor and looks after torn-off node editor panels, as the reference's file of that
+// name does. Aztek's Node Editor is its own window (nodeEditorPanel1, editor nodeEditorPanel1NodeEditorEd), so the procs
+// that would make a new torn-off window open that one instead and hand back its editor. Panels scripts tear off
+// themselves are still tracked, and deleted when their window goes, as in the reference.
+
+// Torn-off node editor panels being tracked (never the primary), and beside each the run-once job that cleans up after
+// its window is deleted.
+global string $gNodeEditorWindowPanels[];
+global int $gNodeEditorWindowPanelsDeleteScriptJobs[];
+
+// The node editor control inside a node editor panel.
+proc string nodeEditorWindowEditorOf(string $panel)
+{
+    if (`exists editorNameFromPanel`)
+        return `eval ("editorNameFromPanel \"" + $panel + "\"")`;
+    return ($panel + "NodeEditorEd");
+}
+
+// The window an editor lives in: panel P's editor is PNodeEditorEd and its window PWindow.
+proc string nodeEditorWindowOfEditor(string $editor)
+{
+    if (`gmatch $editor "*NodeEditorEd"`)
+        return (`substring $editor 1 (size($editor) - size("NodeEditorEd"))` + "Window");
+    return $editor;
+}
+
+// Whether a scripted panel is torn off. A panel Aztek can't answer for counts as docked.
+proc int nodeEditorWindowTornOff(string $panel)
+{
+    int $torn = 0;
+    if (`scriptedPanel -exists $panel`)
+        catchQuiet($torn = `scriptedPanel -query -tearOff $panel`);
+    return $torn;
+}
+
+// Index of a panel in the tracking list, or -1.
+proc int nodeEditorWindowIndex(string $panel)
+{
+    global string $gNodeEditorWindowPanels[];
+    for ($i = 0; $i < size($gNodeEditorWindowPanels); $i++)
+        if ($gNodeEditorWindowPanels[$i] == $panel)
+            return $i;
+    return -1;
+}
+
+// Drop entry $index from both tracking arrays, keeping the rest in order.
+proc nodeEditorWindowForget(int $index)
+{
+    global string $gNodeEditorWindowPanels[];
+    global int $gNodeEditorWindowPanelsDeleteScriptJobs[];
+    string $panels[];
+    int $jobs[];
+    for ($i = 0; $i < size($gNodeEditorWindowPanels); $i++) {
+        if ($i == $index)
+            continue;
+        $panels[size($panels)] = $gNodeEditorWindowPanels[$i];
+        $jobs[size($jobs)] = $gNodeEditorWindowPanelsDeleteScriptJobs[$i];
+    }
+    $gNodeEditorWindowPanels = $panels;
+    $gNodeEditorWindowPanelsDeleteScriptJobs = $jobs;
+}
+
+// A run-once job that tidies up when the panel's window is deleted. -1 when there's no window to watch.
+proc int nodeEditorWindowWatch(string $panel)
+{
+    string $window = nodeEditorWindowOfEditor(nodeEditorWindowEditorOf($panel));
+    int $job = -1;
+    catchQuiet($job = `scriptJob -runOnce true -uiDeleted $window ("nodeEditorWindowClosed \"" + $panel + "\"")`);
+    return $job;
+}
+
+// Aztek has one Node Editor window: open it and give its editor focus. Used wherever the reference makes a new one.
+proc string nodeEditorWindowOpen()
+{
+    if (`exists NodeEditorWindow`)
+        NodeEditorWindow;
+    else
+        warning "nodeEditorWindow: the Node Editor is only there when Aztek runs with its interface.";
+    string $editor = nodeEditorWindowEditorOf("nodeEditorPanel1");
+    evalDeferred ("catchQuiet(`setFocus \"" + $editor + "\"`)");
+    return $editor;
+}
+
+global proc nodeEdWindowAddCallback(string $panel)
+{
+    global int $gNodeEditorWindowPanelsDeleteScriptJobs[];
+    if (!nodeEditorWindowTornOff($panel))
+        return;
+    // A job left from an earlier panel of this name must not delete the new one.
+    int $i = nodeEditorWindowIndex($panel);
+    if ($i >= 0) {
+        int $job = $gNodeEditorWindowPanelsDeleteScriptJobs[$i];
+        if ($job >= 0 && `scriptJob -exists $job`)
+            scriptJob -kill $job -force;
+        nodeEditorWindowForget($i);
+    }
+}
+
+global proc nodeEdWindowRemoveCallback(string $panel)
+{
+    global string $gNodeEditorWindowPanels[];
+    global int $gNodeEditorWindowPanelsDeleteScriptJobs[];
+    global int $gNodeEditorCreateNodePaneShown;
+
+    string $editor = $panel + "NodeEditorEd";
+    int $primary = 0;
+    if (`nodeEditor -exists $editor`)
+        catchQuiet($primary = `nodeEditor -query -primary $editor`);
+    if ($primary || $panel == "nodeEditorPanel1")
+        $gNodeEditorCreateNodePaneShown = false;
+
+    if (nodeEditorWindowIndex($panel) < 0 && `scriptedPanel -exists $panel` && nodeEditorWindowTornOff($panel)
+        && $panel != "nodeEditorPanel1") {
+        int $n = size($gNodeEditorWindowPanels);
+        $gNodeEditorWindowPanels[$n] = $panel;
+        $gNodeEditorWindowPanelsDeleteScriptJobs[$n] = nodeEditorWindowWatch($panel);
+    }
+}
+
+global proc string nodeEditorWindow()
+{
+    return nodeEditorWindowOpen();
+}
+
+global proc nodeEditorWindowClosed(string $panel)
+{
+    // The primary panel stays, whatever happens to its window.
+    if ($panel == "nodeEditorPanel1")
+        return;
+    int $i = nodeEditorWindowIndex($panel);
+    if ($i >= 0)
+        nodeEditorWindowForget($i);
+    if (`scriptedPanel -exists $panel`)
+        deleteUI -panel $panel;
+}
+
+global proc string createTearOffNodeEditorFrom(string $fromEditor, int $x, int $y)
+{
+    string $window = nodeEditorWindowOfEditor($fromEditor);
+    int $width = 0;
+    int $height = 0;
+    if (`window -exists $window`) {
+        $width = `window -query -width $window`;
+        $height = `window -query -height $window`;
+    }
+    return createTearOffNodeEditor($x, $y, $width, $height);
+}
+
+global proc string createTearOffNodeEditor(int $x, int $y, int $width, int $height)
+{
+    // Aztek keeps one Node Editor window, which places itself; the position and size asked for aren't applied.
+    return nodeEditorWindowOpen();
+}
+
+global proc closeNodeEditorEd(string $editor)
+{
+    if (!`nodeEditor -exists $editor`)
+        return;
+    string $window = nodeEditorWindowOfEditor($editor);
+    if (`window -exists $window`)
+        evalDeferred ("catchQuiet(`deleteUI -window \"" + $window + "\"`)");
+}
+
+global proc closeAllNodeEditors()
+{
+    // Every scripted node editor panel goes except the primary, which is Aztek's own Node Editor: deleting it would only
+    // leave the Node Editor menu item with nothing to open.
+    string $panels[] = `getPanel -scriptType nodeEditorPanel`;
+    for ($p in $panels)
+        if ($p != "nodeEditorPanel1" && `scriptedPanel -exists $p`)
+            deleteUI -panel $p;
+}

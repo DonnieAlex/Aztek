@@ -1,0 +1,199 @@
+// renderSequenceOptionsWindow: the options of Render > Render Sequence: which layers and cameras, a region, whether the
+// images go into the Render View, and where the images are written. The options are option variables, read by
+// renderSequence. Aztek has its own Render Sequence options window (the RenderSequenceOptions runtime command), which
+// renderSequenceOptionsWindow opens when it's there; the window below is made only where it isn't.
+
+global string $gRenderSequenceOptionsWindow = "";
+global string $gRenderSequenceOptionsLayout = "";
+
+// The Render View's procedures (getCurrentCamera and the rest) live in renderWindowPanel.
+proc rsoLoadRenderView()
+{
+    if (!`exists getCurrentCamera`)
+        eval("source \"renderWindowPanel.mel\"");
+}
+
+// Where images go when no other place is set: the reference's procedure for it, else the project's images/tmp folder,
+// which is where Aztek's Render View keeps its images.
+proc string rsoDefaultLocation()
+{
+    if (`exists renderSequenceDefaultAlternateOutputFileLocation`)
+        return eval("renderSequenceDefaultAlternateOutputFileLocation");
+    string $dir[] = `renderSettings -fullPathTemp`;
+    return size($dir) ? $dir[0] : "";
+}
+
+global proc createRenderSequenceOptionVars()
+{
+    for ($v in {"renderSequenceAllLayers", "renderSequenceAllCameras", "renderSequenceAddToRenderView",
+                "renderSequenceAddAllLayers", "renderSequenceAddAllCameras", "renderSequenceRegion"})
+        if (!`optionVar -exists $v`)
+            optionVar -intValue $v 0;
+}
+
+global proc updateRenderSequenceOptionsWindow()
+{
+    global string $gRenderSequenceOptionsWindow;
+    global string $gRenderSequenceOptionsLayout;
+    if ($gRenderSequenceOptionsLayout == "")
+        return;
+    // The layout outlives a closed window's name only; nothing to update once the window is gone.
+    if (!`window -exists $gRenderSequenceOptionsWindow`)
+        return;
+    int $anim = `getAttr defaultRenderGlobals.animation`;
+    int $start = `getAttr defaultRenderGlobals.startFrame`;
+    int $end = `getAttr defaultRenderGlobals.endFrame`;
+    string $title = "Render Sequence" + ($anim ? (" (Frame: " + $start + "-" + $end + ")") : " (Current Frame)");
+    window -edit -title $title $gRenderSequenceOptionsWindow;
+    int $add = `optionVar -query renderSequenceAddToRenderView`;
+    if (`checkBoxGrp -exists renderSequenceAddAllLayersCtrl`)
+        checkBoxGrp -edit -enable $add renderSequenceAddAllLayersCtrl;
+    if (`checkBoxGrp -exists renderSequenceAddAllCamerasCtrl`)
+        checkBoxGrp -edit -enable $add renderSequenceAddAllCamerasCtrl;
+}
+
+global proc renderSequenceCurrentCameraChanged()
+{
+    global string $gRenderViewCurrentCamera;
+    if (!`optionMenuGrp -exists renderSequenceCameraList`)
+        return;
+    // The camera the Render View renders through; Aztek's editor can't be told one, so the Render View's procedures
+    // keep it.
+    $gRenderViewCurrentCamera = `optionMenuGrp -query -value renderSequenceCameraList`;
+}
+
+global proc updateCameraList()
+{
+    if (!`optionMenuGrp -exists renderSequenceCameraList`)
+        return;
+    string $was = "";
+    if (`optionMenuGrp -query -numberOfItems renderSequenceCameraList` > 0) {
+        $was = `optionMenuGrp -query -value renderSequenceCameraList`;
+        optionMenuGrp -edit -deleteAllItems renderSequenceCameraList;
+    }
+    string $cams[] = `listCameras`;
+    for ($c in $cams)
+        menuItem -label $c -parent renderSequenceCameraList;
+    if ($was != "") {
+        if (stringArrayContains($was, $cams))
+            optionMenuGrp -edit -value $was renderSequenceCameraList;
+        else
+            renderSequenceCurrentCameraChanged();
+    }
+}
+
+global proc updateCameraListCurrentCamera()
+{
+    rsoLoadRenderView();
+    if (!`optionMenuGrp -exists renderSequenceCameraList`)
+        return;
+    string $cam = getCurrentCamera();
+    // The Render View may name the camera's shape; the list names transforms.
+    if ($cam != "" && `objExists $cam` && `nodeType $cam` == "camera") {
+        string $p[] = `listRelatives -parent $cam`;
+        if (size($p))
+            $cam = $p[0];
+    }
+    string $items[] = `listCameras`;
+    if (stringArrayContains($cam, $items))
+        optionMenuGrp -edit -value $cam renderSequenceCameraList;
+}
+
+global proc renderSequenceSelectAlternateOutputFileLocation()
+{
+    string $start = "";
+    if (`textField -exists renderSequenceAlternateOutputFileLocationCtrl`)
+        $start = `textField -query -text renderSequenceAlternateOutputFileLocationCtrl`;
+    if (!`filetest -d $start`)
+        $start = rsoDefaultLocation();
+    string $dirs[] = `fileDialog2 -fileMode 3 -dir $start -okCaption "Select"`;
+    if (size($dirs) && $dirs[0] != "" && `textField -exists renderSequenceAlternateOutputFileLocationCtrl`) {
+        textField -edit -text $dirs[0] renderSequenceAlternateOutputFileLocationCtrl;
+        renderSequenceAlternateOutputFileLocationChanged();
+    }
+}
+
+global proc renderSequenceAlternateOutputFileLocationChanged()
+{
+    if (`textField -exists renderSequenceAlternateOutputFileLocationCtrl`)
+        optionVar -stringValue RenderSequenceAlternateOutputFileLocation `textField -query -text renderSequenceAlternateOutputFileLocationCtrl`;
+}
+
+// A check box bound to an option variable.
+proc rsoBox(string $name, string $label, string $var, string $extra)
+{
+    string $on = "optionVar -intValue " + $var + " 1;" + $extra;
+    string $off = "optionVar -intValue " + $var + " 0;" + $extra;
+    checkBoxGrp -numberOfCheckBoxes 1 -columnWidth 1 175 -label1 $label -value1 `optionVar -query $var`
+        -onCommand1 $on -offCommand1 $off $name;
+}
+
+global proc renderSequenceOptionsWindow()
+{
+    global string $gRenderSequenceOptionsWindow;
+    global string $gRenderSequenceOptionsLayout;
+    createRenderSequenceOptionVars();
+    if (`exists RenderSequenceOptions`) {
+        eval("RenderSequenceOptions");
+        return;
+    }
+
+    $gRenderSequenceOptionsWindow = "renderSequenceOptionsWnd";
+    if (`window -exists $gRenderSequenceOptionsWindow`)
+        deleteUI $gRenderSequenceOptionsWindow;
+    window -title "Render Sequence" -resizeToFitChildren true $gRenderSequenceOptionsWindow;
+    string $form = `formLayout`;
+    $gRenderSequenceOptionsLayout = `columnLayout -adjustableColumn true`;
+
+    frameLayout -label "Render Options" -collapsable false -marginHeight 5;
+    string $col = `columnLayout -adjustableColumn true`;
+    scriptJob -parent $col -event cameraChange "updateCameraList";
+    // Not every build has this event; the list is still set from the Render View below.
+    catchQuiet(`scriptJob -parent $col -event RenderViewCameraChanged "updateCameraListCurrentCamera"`);
+    optionMenuGrp -label "Current Camera" -columnWidth 1 175 -adjustableColumn 2
+        -enable (!`optionVar -query renderSequenceAllCameras`) -changeCommand "renderSequenceCurrentCameraChanged" renderSequenceCameraList;
+    updateCameraList();
+    updateCameraListCurrentCamera();
+    setParent $col;
+    rsoBox("renderSequenceAllLayersCtrl", "Render all renderable layers", "renderSequenceAllLayers", "");
+    rsoBox("renderSequenceAllCamerasCtrl", "Render all renderable cameras", "renderSequenceAllCameras",
+        "optionMenuGrp -edit -enable (!`optionVar -query renderSequenceAllCameras`) renderSequenceCameraList;");
+    rsoBox("renderSequenceRegionCtrl", "Render the region", "renderSequenceRegion", "");
+    if (`exists mayaHasRenderSetup` && eval("mayaHasRenderSetup")) {
+        if (!`optionVar -exists renderSequenceIgnoreLocalOverrides`)
+            optionVar -intValue renderSequenceIgnoreLocalOverrides 0;
+        rsoBox("renderSequenceIgnoreLocalOverridesCtrl", "Ignore local overrides", "renderSequenceIgnoreLocalOverrides", "");
+    }
+    rowLayout -numberOfColumns 3 -columnWidth3 175 200 20 -adjustableColumn 2;
+    text -label "Alternate output file location" -annotation "Where the images are written instead of the project's images folder";
+    textField -textChangedCommand "renderSequenceAlternateOutputFileLocationChanged()" renderSequenceAlternateOutputFileLocationCtrl;
+    symbolButton -image "navButtonBrowse.xpm" -command "renderSequenceSelectAlternateOutputFileLocation()";
+    if (`optionVar -exists RenderSequenceAlternateOutputFileLocation`)
+        textField -edit -text `optionVar -query RenderSequenceAlternateOutputFileLocation` renderSequenceAlternateOutputFileLocationCtrl;
+    setParent $gRenderSequenceOptionsLayout;
+
+    frameLayout -label "Render View Options" -collapsable false -marginHeight 5;
+    columnLayout -adjustableColumn true;
+    rsoBox("renderSequenceSaveCtrl", "Add the images to the Render View", "renderSequenceAddToRenderView", "updateRenderSequenceOptionsWindow();");
+    rsoBox("renderSequenceAddAllLayersCtrl", "Add every layer", "renderSequenceAddAllLayers", "");
+    rsoBox("renderSequenceAddAllCamerasCtrl", "Add every camera", "renderSequenceAddAllCameras", "");
+    setParent $form;
+
+    string $andClose = `button -label "Render Sequence and Close"
+        -command ("renderSequenceCurrentCameraChanged(); RenderSequence; evalDeferred \"deleteUI " + $gRenderSequenceOptionsWindow + "\";")
+        renderSequenceAndCloseButton`;
+    string $render = `button -label "Render Sequence" -command "renderSequenceCurrentCameraChanged(); RenderSequence;" renderSequenceButton`;
+    string $close = `button -label "Close" -command ("evalDeferred \"deleteUI " + $gRenderSequenceOptionsWindow + "\";") renderSequenceCloseButton`;
+    formLayout -edit
+        -attachForm $gRenderSequenceOptionsLayout "top" 5 -attachForm $gRenderSequenceOptionsLayout "left" 5
+        -attachForm $gRenderSequenceOptionsLayout "right" 5 -attachControl $gRenderSequenceOptionsLayout "bottom" 5 $andClose
+        -attachForm $andClose "left" 5 -attachForm $andClose "bottom" 5 -attachPosition $andClose "right" 2 33
+        -attachForm $render "bottom" 5 -attachPosition $render "left" 3 33 -attachPosition $render "right" 2 67
+        -attachForm $close "bottom" 5 -attachPosition $close "left" 3 67 -attachForm $close "right" 5
+        $form;
+
+    for ($a in {"animation", "startFrame", "endFrame"})
+        scriptJob -parent $gRenderSequenceOptionsWindow -attributeChange ("defaultRenderGlobals." + $a) "updateRenderSequenceOptionsWindow";
+    updateRenderSequenceOptionsWindow();
+    showWindow $gRenderSequenceOptionsWindow;
+}

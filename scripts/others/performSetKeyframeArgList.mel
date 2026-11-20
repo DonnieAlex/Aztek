@@ -1,0 +1,199 @@
+// performSetKeyframeArgList: Animation > Key > Set Key, as the reference's, the keying done by doSetKeyframeArgList
+// with the settings kept in optionVars. $version 1 reads $args as {action, selection connection}; 2 and up add the
+// zero key for animation layers flag. The action is 0 to key, 1 for the option box, 2 to only return the command, 3 to
+// key as the Time Editor does; the command is returned for 0, 2 and 3, "" otherwise.
+
+proc performSetKeyframeArgList_options(int $force)
+{
+    string $names[] = {"setKeyframeWhich", "setKeyframePrompt", "keySetIKFK", "keySetPreserveCurveShape", "keySetFBIK",
+        "keyHierarchy", "keyUseChannelBox", "keyControlPoints", "keyShapes"};
+    int $defaults[] = {4, 0, 0, 0, 1, 0, 0, 0, 1};
+    for ($i = 0; $i < size($names); $i++) {
+        if ($force || !`optionVar -ex $names[$i]`)
+            optionVar -iv $names[$i] $defaults[$i];
+    }
+}
+
+// What doSetKeyframeArgList does, as far as Aztek's setKeyframe goes, for when Aztek has no global
+// doSetKeyframeArgList: keys on the selection at the current time, below it too when asked, with control points and
+// shapes as chosen. Prompting for a time, IK/FK and full body IK keys, the selection connection, layer zero keys and
+// keeping the curve's shape are not done here.
+proc performSetKeyframeArgList_key(int $hierarchy, int $controlPoints, int $shapes)
+{
+    setKeyframe -hi ($hierarchy ? "below" : "none") -cp $controlPoints -s $shapes;
+}
+
+// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
+// column, then Apply, Save, Reset and Close.
+proc string performSetKeyframeArgList_boxBegin(string $win, string $title)
+{
+    if (`window -ex $win`)
+        deleteUI -window $win;
+    window -t $title $win;
+    columnLayout -adj true boxFrame;
+    scrollLayout -cr true;
+    return `columnLayout -adj true`;
+}
+
+proc performSetKeyframeArgList_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
+{
+    setParent ($win + "|boxFrame");
+    rowLayout -nc 4;
+    button -l $applyLabel -c $apply;
+    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
+    button -l "Reset" -c $reset;
+    button -l "Close" -c ("deleteUI -window " + $win);
+    showWindow $win;
+}
+
+global proc string performSetKeyframeArgList(string $version, string $args[])
+{
+    int $ver = $version;
+    int $action = $args[0];
+    string $connection = $args[1];
+    int $zeroKey = $ver > 1 ? (int)$args[2] : 0;
+
+    if ($action == 1) {
+        setKeyframeOptions($connection);
+        return "";
+    }
+    if ($action != 0 && $action != 2 && $action != 3)
+        return "";
+
+    performSetKeyframeArgList_options(0);
+    // The seventh value is always 0; the Time Editor flag only comes from action 3.
+    string $values[] = {`optionVar -q setKeyframeWhich`, `optionVar -q keyHierarchy`, `optionVar -q keyUseChannelBox`,
+        `optionVar -q keyControlPoints`, `optionVar -q keyShapes`, `optionVar -q setKeyframePrompt`, "0", $connection,
+        `optionVar -q keySetIKFK`, `optionVar -q keySetFBIK`, $zeroKey, ($action == 3 ? "1" : "0"),
+        `optionVar -q keySetPreserveCurveShape`};
+    string $cmd = "doSetKeyframeArgList 7 { \"" + stringArrayToString($values, "\",\"") + "\" };";
+
+    if ($action == 0 || $action == 3) {
+        if (`exists doSetKeyframeArgList`)
+            eval $cmd;
+        else
+            performSetKeyframeArgList_key(`optionVar -q keyHierarchy`, `optionVar -q keyControlPoints`, `optionVar -q keyShapes`);
+    }
+    return $cmd;
+}
+
+global proc setKeyframeOptions(string $selectionConnection)
+{
+    string $win = "setKeyframeOptionBox";
+    string $parent = performSetKeyframeArgList_boxBegin($win, "Set Key Options");
+    int $template = `uiTemplate -ex DefaultTemplate`;
+    if ($template)
+        setUITemplate -pst DefaultTemplate;
+    waitCursor -st 1;
+
+    // Four one-button rows that work as one choice. Picking one also turns the others off by hand, for where the
+    // shared collection doesn't; the hierarchy and channel choices only apply to all keyable attributes.
+    string $rows[] = {"allManipOrAttrsRB", "allAttrsRB", "allManipAttrsRB", "curManipHandleRB"};
+    string $labels[] = {"All manipulator handles and keyable attributes", "All keyable attributes",
+        "All manipulator handles", "Current manipulator handle"};
+    string $first = "";
+    for ($i = 0; $i < 4; $i++) {
+        string $others = "";
+        for ($j = 0; $j < 4; $j++) {
+            if ($j != $i)
+                $others += "radioButtonGrp -e -sl 0 " + $rows[$j] + "; ";
+        }
+        string $on = $others + "keyEnabling " + $parent + " " + ($i == 1 ? 1 : 0);
+        string $off = $i == 1 ? "keyEnabling " + $parent + " 0" : "";
+        string $label = $i == 0 ? "Set keys on:" : "";
+        if ($first == "")
+            $first = `radioButtonGrp -nrb 1 -cw2 170 400 -l $label -l1 $labels[$i] -on1 $on -of1 $off $rows[$i]`;
+        else
+            radioButtonGrp -nrb 1 -cw2 170 400 -l $label -l1 $labels[$i] -scl $first -on1 $on -of1 $off $rows[$i];
+    }
+    // IK/FK keys only make sense keying at the current time.
+    radioButtonGrp -nrb 2 -cw3 170 160 200 -l "Set keys at:" -la2 "Current time" "Prompt"
+        -on1 ("keyIKFKEnabling " + $parent + " 1") -of1 ("keyIKFKEnabling " + $parent + " 0") setKeyframePrompt;
+    checkBoxGrp -ncb 1 -l "Set IK/FK keys:" -l1 "" setIKFKCB;
+    checkBoxGrp -ncb 1 -l "Set full body IK keys:" -l1 "" setFBIKCB;
+    checkBoxGrp -ncb 1 -l "Preserve curve shape:" -l1 "" -ann "Key without changing the shape of the curve around the new key."
+        setKeyPreserveCurveShape;
+    separator;
+    radioButtonGrp -nrb 2 -cw3 170 160 200 -l "Hierarchy:" -la2 "Selected" "Below" hierarchyRB;
+    radioButtonGrp -nrb 2 -cw3 170 160 200 -l "Channels:" -la2 "All keyable" "From channel box"
+        -on1 ("keyChannelsEnabling " + $parent + " 1") -of1 ("keyChannelsEnabling " + $parent + " 0") channelsRB;
+    checkBoxGrp -ncb 1 -l "Control points:" -l1 "" controlCB;
+    checkBoxGrp -ncb 1 -l "Shapes:" -l1 "" shapesCB;
+
+    waitCursor -st 0;
+    if ($template)
+        setUITemplate -ppt;
+    performSetKeyframeArgList_boxEnd($win, "Set Key", "setKeyframeCallback " + $parent + " 1 \"" + $selectionConnection + "\"",
+        "setKeyframeCallback " + $parent + " 0 \"" + $selectionConnection + "\"", "setKeyframeSetup " + $parent + " 1");
+    setKeyframeSetup $parent 0;
+}
+
+global proc setKeyframeSetup(string $parent, int $forceFactorySettings)
+{
+    performSetKeyframeArgList_options($forceFactorySettings);
+    setParent $parent;
+    int $which = `optionVar -q setKeyframeWhich`;
+    string $rows[] = {"allAttrsRB", "allManipAttrsRB", "curManipHandleRB", "allManipOrAttrsRB"};
+    // Any other stored value leaves the rows as they are.
+    if ($which >= 1 && $which <= 4) {
+        for ($i = 0; $i < 4; $i++)
+            radioButtonGrp -e -sl ($i == $which - 1) $rows[$i];
+    }
+    radioButtonGrp -e -sl (`optionVar -q setKeyframePrompt` == 1 ? 2 : 1) setKeyframePrompt;
+    checkBoxGrp -e -v1 `optionVar -q keySetIKFK` setIKFKCB;
+    checkBoxGrp -e -v1 `optionVar -q keySetFBIK` setFBIKCB;
+    checkBoxGrp -e -v1 `optionVar -q keySetPreserveCurveShape` setKeyPreserveCurveShape;
+    radioButtonGrp -e -sl (`optionVar -q keyHierarchy` == 1 ? 2 : 1) hierarchyRB;
+    radioButtonGrp -e -sl (`optionVar -q keyUseChannelBox` == 1 ? 2 : 1) channelsRB;
+    checkBoxGrp -e -v1 `optionVar -q keyControlPoints` controlCB;
+    checkBoxGrp -e -v1 `optionVar -q keyShapes` shapesCB;
+    keyEnabling($parent, $which == 1);
+}
+
+global proc setKeyframeCallback(string $parent, int $doIt, string $selectionConnection)
+{
+    setParent $parent;
+    int $which = 4;
+    if (`radioButtonGrp -q -sl allManipAttrsRB`)
+        $which = 2;
+    else if (`radioButtonGrp -q -sl curManipHandleRB`)
+        $which = 3;
+    else if (`radioButtonGrp -q -sl allAttrsRB`)
+        $which = 1;
+    optionVar -iv setKeyframeWhich $which;
+    optionVar -iv setKeyframePrompt (`radioButtonGrp -q -sl setKeyframePrompt` == 2);
+    optionVar -iv keySetIKFK `checkBoxGrp -q -v1 setIKFKCB`;
+    optionVar -iv keySetFBIK `checkBoxGrp -q -v1 setFBIKCB`;
+    optionVar -iv keySetPreserveCurveShape `checkBoxGrp -q -v1 setKeyPreserveCurveShape`;
+    optionVar -iv keyHierarchy (`radioButtonGrp -q -sl hierarchyRB` == 2);
+    optionVar -iv keyUseChannelBox (`radioButtonGrp -q -sl channelsRB` == 2);
+    optionVar -iv keyControlPoints `checkBoxGrp -q -v1 controlCB`;
+    optionVar -iv keyShapes `checkBoxGrp -q -v1 shapesCB`;
+    if ($doIt) {
+        performSetKeyframeArgList 1 {"0", $selectionConnection};
+        if (`exists addToRecentCommandQueue`)
+            addToRecentCommandQueue ("performSetKeyframeArgList 1 { \"0\", \"" + $selectionConnection + "\"}") "SetKeyframe";
+    }
+}
+
+global proc keyEnabling(string $parent, int $state)
+{
+    setParent $parent;
+    radioButtonGrp -e -en $state hierarchyRB;
+    radioButtonGrp -e -en $state channelsRB;
+    keyChannelsEnabling($parent, $state && `radioButtonGrp -q -sl channelsRB` == 1);
+}
+
+// Control points and shapes only apply when keying all keyable attributes, not the channel box's.
+global proc keyChannelsEnabling(string $parent, int $state)
+{
+    setParent $parent;
+    checkBoxGrp -e -en $state controlCB;
+    checkBoxGrp -e -en $state shapesCB;
+}
+
+global proc keyIKFKEnabling(string $parent, int $state)
+{
+    setParent $parent;
+    checkBoxGrp -e -en $state setIKFKCB;
+}
