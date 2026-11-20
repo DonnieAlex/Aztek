@@ -1987,6 +1987,14 @@ folders with their file rules, written to its workspace.mel. The project and opt
 new scene. `polyUVSet -q -perInstance` and `-currentPerInstanceUVSet` give each set's name and the current set, as for
 a mesh whose sets all its instances share.
 
+### Option boxes fill their window; the reference's start-up scripts run (20/11/2026)
+
+A control given `-height` or `-width` kept that size even when a form layout attached it on both sides, so the shared
+option box showed its page as a strip one pixel high. As in the reference, the size is where a control starts, and
+attachments on both sides now stretch it. Once the interface is up, Aztek now sources the reference's start-up
+scripts that come after the layout: setDefaultTemplates (the UI templates option boxes and windows are built with),
+initAuxiliary (with the polygon menus' defaults) and initAfter.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

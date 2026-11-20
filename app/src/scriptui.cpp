@@ -302,7 +302,18 @@ private:
         if (apply)
             for (auto it = kids.begin(); it != kids.end(); ++it) {
                 const Box& b = boxes[it.key()];
-                it.value()->setGeometry(QRect(int(b.l), int(b.t), qMax(1, int(b.r - b.l)), qMax(1, int(b.b - b.t))));
+                QWidget* kid = it.value();
+                const int bw = qMax(1, int(b.r - b.l)), bh = qMax(1, int(b.b - b.t));
+                // -width and -height are where a control starts: attached on both sides, the form's size wins.
+                if (kid->minimumHeight() == kid->maximumHeight() && kid->maximumHeight() != bh) {
+                    kid->setMinimumHeight(0);
+                    kid->setMaximumHeight(QWIDGETSIZE_MAX);
+                }
+                if (kid->minimumWidth() == kid->maximumWidth() && kid->maximumWidth() != bw) {
+                    kid->setMinimumWidth(0);
+                    kid->setMaximumWidth(QWIDGETSIZE_MAX);
+                }
+                kid->setGeometry(QRect(int(b.l), int(b.t), bw, bh));
             }
         return boxes;
     }

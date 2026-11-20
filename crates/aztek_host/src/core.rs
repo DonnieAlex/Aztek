@@ -212,6 +212,9 @@ impl Core {
         for e in crate::native_plugin::load_autoload(&mut self.s) {
             self.push(format!("// Warning: {e} //"), LineKind::Warning);
         }
+        // The reference's start-up scripts that set things up once the interface is there: the UI templates its
+        // windows build with, the auxiliary set-up (with the polygon menus' defaults) and initAfter.
+        self.mel("source \"setDefaultTemplates.mel\"; source \"initAuxiliary.mel\"; source \"initAfter.mel\";");
         if !crate::user_folder::load_choice().user_setup {
             return Vec::new();
         }
