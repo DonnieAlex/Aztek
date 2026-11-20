@@ -105,8 +105,8 @@ Kind this_install() {
     // On 64-bit ARM, the ARM one (#193).
     const QString appimage = QSysInfo::currentCpuArchitecture() == "arm64" ? "aarch64.AppImage" : "x86_64.AppImage";
     if (!qEnvironmentVariableIsEmpty("APPIMAGE")) return {"appimage", appimage};
-    // A Flatpak is read-only to the program in it, and is replaced from outside.
-    if (!qEnvironmentVariableIsEmpty("FLATPAK_ID")) return {"flatpak", "x86_64.flatpak"};
+    // Flatpaks are no longer made: one installed before is pointed at the AppImage.
+    if (!qEnvironmentVariableIsEmpty("FLATPAK_ID")) return {"flatpak", appimage};
     // Snaps are no longer made: one installed before is pointed at the AppImage.
     if (!qEnvironmentVariableIsEmpty("SNAP")) return {"snap", "x86_64.AppImage"};
     if (QCoreApplication::applicationFilePath().startsWith("/usr/")) {
@@ -333,7 +333,7 @@ void found(QWidget* w, bool manual, const QJsonObject& rel, const std::function<
     } else if (k.id == "deb" || k.id == "rpm") {
         how = "The package is installed with your password, then Aztek restarts.";
     } else if (k.id == "flatpak") {
-        how = "This copy is a Flatpak: the new one downloads in your browser, to install over it with flatpak install --user and the file's name.";
+        how = "This copy is a Flatpak, and Aztek no longer comes as one: the AppImage downloads in your browser. Remove the Flatpak with flatpak uninstall io.github.srlegrand.Aztek and run the AppImage instead.";
         install_label = "Download";
     } else if (k.id == "snap") {
         how = "This copy is a snap, and Aztek no longer comes as one: the AppImage downloads in your browser. Remove the snap with sudo snap remove aztek and run the AppImage instead.";

@@ -13,7 +13,7 @@ The workflow trades speed for builds that finish (from 14/11/2026):
   job at a time, the least memory there is. Windows does the same in its build step.
 - The Linux jobs first remove the runner's unused SDKs (`tools/ci/free-disk.sh`), about 25 GB, through volumes in the
   container jobs, so the two target directories, Qt and the packages fit.
-- Each job may take up to 340 minutes (Flatpak 120).
+- Each job may take up to 340 minutes.
 
 | Package | Built on | Script | Qt | Python |
 | --- | --- | --- | --- | --- |
@@ -26,7 +26,6 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system 3.12 |
 | `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `packaging/appimage/build-appimage.sh` | 6.8 bundled | 3.12 bundled |
 | `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.12 bundled |
-| `aztek-<version>-x86_64.flatpak` | flatpak-builder container | `packaging/flatpak/build-flatpak.sh` | the AppImage's | the AppImage's |
 
 ## Rocky Linux
 
@@ -153,23 +152,8 @@ release yet: when it fails, the other packages still go out.
 - `./build-macos.sh` builds it (`--deps` installs the dependencies with Homebrew); `--package` makes the same `Aztek.app` and zip as the release build, which runs that script.
 - Not checked yet: the viewport on a real Mac, and whether Ctrl and Alt in mouse and key handling should be Cmd and Option.
 
-## Flatpak
+## Flatpak and snap
 
-The AppImage repacked: the program, Qt and Python that already started in the clean containers, unpacked and put
-where Flatpak wants them, with a launcher that points Python and the loader at them. It doesn't build Aztek again, so
-it needs none of the source's dependencies inside its build.
-
-    flatpak install --user ./aztek-*-x86_64.flatpak
-    flatpak run io.github.srlegrand.Aztek
-
-- Application id `io.github.srlegrand.Aztek`, on `org.freedesktop.Platform` 25.08 (`packaging/flatpak`). It may use
-  X11, the GPU, the network (the update check) and the host's files, since scenes, textures and references are
-  wherever they are kept. Its build starts the program and runs a Python script inside the runtime, so a library the
-  runtime lacks fails the build. The file is a single-file bundle: installing it fetches the runtime from Flathub if
-  it is not there. It is not on Flathub.
-- Help > Check for Updates sees it as a Flatpak and downloads the new file, to install over the old one with the same
-  command. It doesn't update itself.
-- In CI it is built from the verified AppImage only (`flatpak` in `build.yml`). A failure leaves that release without
-  the file and does not fail the run.
-- `packaging/flatpak/build-flatpak.sh` builds it from an AppImage on a machine with the tools.
+- There is no Flatpak any more (from 20/11/2026). A Flatpak installed before is pointed at the AppImage by Check for
+  Updates.
 - There is no snap any more (from 14/11/2026). A snap installed before is pointed at the AppImage by Check for Updates.

@@ -520,53 +520,6 @@ jobs:
           name: ok-appimage-${{ matrix.ubuntu }}
           path: ok
 
-  # Flatpak: the AppImage that started in the clean systems, repacked. It can't fail the run or hold a release back:
-  # one that does not build or start is left out of that release.
-  flatpak:
-    needs: [gate, verify-appimage]
-    if: always() && needs.gate.outputs.go == 'true'
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v4
-
-      # Only an AppImage that started on Ubuntu 24.04: without one there's no Flatpak this time.
-      - id: ok
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: ok-appimage-24.04
-          path: ok
-
-      - if: steps.ok.outcome == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          name: aztek-appimage
-          path: pkg
-
-      - name: Unpack the AppImage
-        if: steps.ok.outcome == 'success'
-        run: packaging/flatpak/unpack-appimage.sh pkg/*.AppImage packaging/flatpak/AppDir
-
-      # The manifest's own build steps start the program and its Python inside the runtime.
-      - if: steps.ok.outcome == 'success'
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: aztek-${{ needs.gate.outputs.version }}-x86_64.flatpak
-          manifest-path: packaging/flatpak/io.github.srlegrand.Aztek.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-          upload-artifact: false
-
-      - if: steps.ok.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: aztek-flatpak
-          path: aztek-*.flatpak
-
   windows:
     needs: [gate, app]
     if: needs.gate.outputs.go == 'true'
@@ -737,7 +690,7 @@ jobs:
   # Every push to main makes a release of what built; a v* tag makes a versioned release. A platform that failed is
   # left out of that release and named in its notes: one platform failing holds back none of the others.
   release:
-    needs: [gate, linux, ubuntu-2604, rocky, verify-rpm, verify-deb, verify-appimage, appimage-arm64, verify-appimage-arm64, flatpak, windows, macos]
+    needs: [gate, linux, ubuntu-2604, rocky, verify-rpm, verify-deb, verify-appimage, appimage-arm64, verify-appimage-arm64, windows, macos]
     if: >-
       always() && needs.gate.outputs.go == 'true'
       && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -783,7 +736,6 @@ jobs:
           keep "aztek-*el9*.rpm" ok-rpm-el9 "Rocky 9 .rpm"
           keep "aztek-*-x86_64.AppImage" ok-appimage-24.04 "AppImage"
           keep "aztek-*-aarch64.AppImage" ok-appimage-arm64 "ARM AppImage"
-          keep "aztek-*.flatpak" "" "Flatpak"
           rm -f ok-*
           files=(aztek-* aztek_*)
           printf '%s\n' "${files[@]}" > files.txt
