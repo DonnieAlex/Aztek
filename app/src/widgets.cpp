@@ -29,6 +29,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QSet>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -121,7 +122,17 @@ QJsonObject OptionsDialog::saved(const QString& command) {
     QSettings s;
     QJsonObject call;
     s.beginGroup("options/" + command);
+    // Settings saved for a flag the command no longer has are dropped, else every run would fail on it.
+    QSet<QString> known;
+    for (const QJsonValue& fv : command_def(command)["flags"].toArray()) {
+        known.insert(fv.toObject()["name"].toString());
+        known.insert(fv.toObject()["short"].toString());
+    }
     for (const QString& k : s.childKeys()) {
+        if (!known.isEmpty() && !known.contains(k)) {
+            s.remove(k);
+            continue;
+        }
         QJsonValue v = parse(s.value(k).toString());
         if (!v.isUndefined() && !v.isNull()) call[k] = v;
     }
