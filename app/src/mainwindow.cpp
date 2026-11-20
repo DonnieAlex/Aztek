@@ -1147,18 +1147,12 @@ QMenu* MainWindow::playback_menu() {
     m->addAction("Play / Stop\tAlt+V", [this] { toggle_play(1); });
     m->addAction("Play Backwards", [this] { toggle_play(-1); });
     m->addSeparator();
-    m->addAction("Go to Start of Playback Range", [this] { time_slider_->set_time(time_slider_->start()); });
-    m->addAction("Go to End of Playback Range", [this] { time_slider_->set_time(time_slider_->end()); });
-    m->addAction("Next Frame\tAlt+.", [this] { time_slider_->set_time(time_slider_->time() + 1); });
-    m->addAction("Previous Frame\tAlt+,", [this] { time_slider_->set_time(time_slider_->time() - 1); });
-    m->addAction("Next Key\t.", [this] {
-        QJsonValue f = ask("findKeyframe", QJsonObject{{"which", "next"}});
-        if (f.isDouble()) time_slider_->set_time(f.toDouble());
-    });
-    m->addAction("Previous Key\t,", [this] {
-        QJsonValue f = ask("findKeyframe", QJsonObject{{"which", "previous"}});
-        if (f.isDouble()) time_slider_->set_time(f.toDouble());
-    });
+    m->addAction("Go to Start of Playback Range", [this] { go_to_time(time_slider_->start()); });
+    m->addAction("Go to End of Playback Range", [this] { go_to_time(time_slider_->end()); });
+    m->addAction("Next Frame\tAlt+.", [this] { step_time(1); });
+    m->addAction("Previous Frame\tAlt+,", [this] { step_time(-1); });
+    m->addAction("Next Key\t.", [this] { step_key("next"); });
+    m->addAction("Previous Key\t,", [this] { step_key("previous"); });
     return m;
 }
 
@@ -1521,20 +1515,17 @@ void MainWindow::build_bottom() {
         }
         time_slider_->set_time(t);
     });
-    auto key_step = [this](const QString& which) {
-        QJsonValue f = ask("findKeyframe", QJsonObject{{"which", which}});
-        if (f.isDouble()) time_slider_->set_time(f.toDouble());
-    };
-    play->addAction(icon("first"), "Go to start of playback range", [this] { time_slider_->set_time(time_slider_->start()); });
-    play->addAction(icon("prev"), "Step back one frame", [this] { time_slider_->set_time(time_slider_->time() - 1); });
-    play->addAction(icon("prevKey"), "Step back one key", [key_step] { key_step("previous"); });
+    // The step and range buttons stop playback first (#199).
+    play->addAction(icon("first"), "Go to start of playback range", [this] { go_to_time(time_slider_->start()); });
+    play->addAction(icon("prev"), "Step back one frame", [this] { step_time(-1); });
+    play->addAction(icon("prevKey"), "Step back one key", [this] { step_key("previous"); });
     play_back_ = play->addAction(icon("playBack"), "Play backwards", [this] { toggle_play(-1); });
     play_fwd_ = play->addAction(icon("play"), "Play forwards", [this] { toggle_play(1); });
     play_back_->setCheckable(true);
     play_fwd_->setCheckable(true);
-    play->addAction(icon("nextKey"), "Step forward one key", [key_step] { key_step("next"); });
-    play->addAction(icon("next"), "Step forward one frame", [this] { time_slider_->set_time(time_slider_->time() + 1); });
-    play->addAction(icon("last"), "Go to end of playback range", [this] { time_slider_->set_time(time_slider_->end()); });
+    play->addAction(icon("nextKey"), "Step forward one key", [this] { step_key("next"); });
+    play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
+    play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
     v->addLayout(row1);
     auto* row2 = new QHBoxLayout();

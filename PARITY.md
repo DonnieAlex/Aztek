@@ -1873,6 +1873,12 @@ preprocessing tolerances. docs/RETOPOLOGY.md has the details and measurements.
 Unchecking a modifier's On box, or a sculpt layer's, closed Aztek: the change rebuilt the editor's list while the list
 was still handling the click on a row it had just removed. The editor now runs the change once the click is handled.
 
+### The step and range buttons stop playback (20/11/2026, #199)
+
+Go to start or end, step a frame and step a key did nothing while playing: the next tick put the time back where the
+clock said it should be. They now stop playback and go where they say, from the playback buttons, the Playback menu
+and their hotkeys, as in the reference. Play forwards and Play backwards still switch direction while playing.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

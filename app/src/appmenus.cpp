@@ -1267,13 +1267,19 @@ void MainWindow::toggle_view_flag(const QString& key) {
     v->set("disp", QString("{\"%1\":%2}").arg(key, on ? "false" : "true"));
 }
 
+void MainWindow::go_to_time(double t) {
+    // Playing on, the next tick would put the time back where the clock says it should be.
+    if (play_timer_ && play_timer_->isActive()) stop_play();
+    time_slider_->set_time(t);
+}
+
 void MainWindow::step_time(int by) {
-    time_slider_->set_time(time_slider_->time() + by);
+    go_to_time(time_slider_->time() + by);
 }
 
 void MainWindow::step_key(const QString& which) {
     QJsonValue f = ask("findKeyframe", QJsonObject{{"which", which}});
-    if (f.isDouble()) time_slider_->set_time(f.toDouble());
+    if (f.isDouble()) go_to_time(f.toDouble());
 }
 
 void MainWindow::scale_manip(double by) {

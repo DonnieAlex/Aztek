@@ -181,6 +181,8 @@ private:
     void toggle_main_pane();
     void toggle_view_flag(const QString& key);
     void step_time(int by);
+    // Goes to a frame from the playback buttons, menus or hotkeys, stopping playback first (#199).
+    void go_to_time(double t);
     void step_key(const QString& which);
     void increment_save();
     void nudge(int dx, int dy);

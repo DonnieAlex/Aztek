@@ -269,7 +269,7 @@ void MainWindow::build_runtime() {
     r("TexturedView", "View", "Hardware texturing", [this] { view_key("wireframe", "false"); view_key("disp", "{\"textured\":true,\"displayLights\":\"default\"}"); });
     r("DisplayLight", "View", "Use all lights", [this] { view_key("wireframe", "false"); view_key("disp", "{\"displayLights\":\"all\"}"); });
     r("PlaybackToggle", "Animation", "Play or stop", [this] { toggle_play(1); });
-    r("GoToMinFrame", "Animation", "Go to the start of the playback range", [this] { time_slider_->set_time(time_slider_->start()); });
+    r("GoToMinFrame", "Animation", "Go to the start of the playback range", [this] { go_to_time(time_slider_->start()); });
     r("NextFrame", "Animation", "Next frame", [this] { step_time(1); });
     r("PreviousFrame", "Animation", "Previous frame", [this] { step_time(-1); });
     r("NextKey", "Animation", "Next key", [this] { step_key("next"); });
