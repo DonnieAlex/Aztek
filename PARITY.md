@@ -1906,6 +1906,16 @@ the left button, green for the middle, blue for the right) and a filled one whil
 with their modifiers, at the bottom left for two seconds. On Wayland, where windows don't say where they are, the
 pointer and rings are left out and the keys still show. Aztek's own; the reference has no report window.
 
+### optionVar takes every flag the reference's has (20/11/2026)
+
+optionVar knew only single values, appends and removal, so the reference's scripts that set up their options with
+`-init` and `-category` had to work round it. It now has all of them: `-default` and `-init` (true sets value and
+default, false only the default and the value of a name not yet set), `-category`, `-prefFile`, `-list` and
+`-listModified` narrowed by category, default or transient, `-listCategories`, `-arraySize`, `-intArray`,
+`-floatArray`, `-stringArray`, `-intValue2` to `-intValue4` and `-floatValue2` to `-floatValue4`, `-removeFromArray`,
+`-stash`, `-unstash`, `-clearStash`, `-transient` (not saved between sessions) and `-version`. Each flag can be given
+more than once in a call, and removals run before anything set in the same call, as the reference's do.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

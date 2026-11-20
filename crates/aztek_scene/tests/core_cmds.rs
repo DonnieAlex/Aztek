@@ -707,6 +707,42 @@ fn undo_info_and_friends() {
     run(&mut s, "optionVar", json!({"args": [9], "iv": "fromMel"}));
     assert_eq!(run(&mut s, "optionVar", json!({"args": ["fromMel"], "q": true})), 9);
 
+    // Defaults and -init: false sets only the default when the name is already set.
+    run(&mut s, "optionVar", json!({"iv": ["level", 2]}));
+    run(&mut s, "optionVar", json!({"init": false, "cat": "Modelling", "iv": ["level", 7]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["level"], "q": true})), 2);
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["level"], "q": true, "d": true})), 7);
+    assert_eq!(run(&mut s, "optionVar", json!({"lm": true, "d": true})), json!(["level"]));
+    run(&mut s, "optionVar", json!({"init": false, "cat": "Modelling", "fv": ["fresh", 0.5]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["fresh"], "q": true})), 0.5);
+    run(&mut s, "optionVar", json!({"init": true, "iv": ["level", 7]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"lm": true, "d": true})), json!([]));
+    assert_eq!(run(&mut s, "optionVar", json!({"l": true, "cat": "Modelling"})), json!(["fresh", "level"]));
+    assert_eq!(run(&mut s, "optionVar", json!({"lc": true})), json!(["Modelling"]));
+    // Several values, arrays, appends and removal from an array.
+    run(&mut s, "optionVar", json!({"iv": ["a", 1, "b", 2], "fv3": ["c", 1, 2, 3]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["b"], "q": true})), 2);
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["c"], "q": true})), json!([1.0, 2.0, 3.0]));
+    run(&mut s, "optionVar", json!({"sa": "list"}));
+    assert_eq!(run(&mut s, "optionVar", json!({"as": "list"})), 0);
+    run(&mut s, "optionVar", json!({"sva": ["list", "x", "list", "y", "list", "z"]}));
+    run(&mut s, "optionVar", json!({"rfa": ["list", 1]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["list"], "q": true})), json!(["x", "z"]));
+    assert_eq!(run(&mut s, "optionVar", json!({"as": "b"})), 1);
+    assert_eq!(run(&mut s, "optionVar", json!({"as": "nothing"})), 0);
+    // Stash and unstash; transient names.
+    run(&mut s, "optionVar", json!({"st": "b"}));
+    run(&mut s, "optionVar", json!({"iv": ["b", 40]}));
+    run(&mut s, "optionVar", json!({"us": "b"}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["b"], "q": true})), 2);
+    run(&mut s, "optionVar", json!({"t": true, "iv": ["temp", 1]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"ex": "temp", "t": true})), true);
+    assert_eq!(run(&mut s, "optionVar", json!({"ex": "b", "t": true})), false);
+    assert!(!s.extras.option_var_meta.saved("temp"));
+    // Removals run before what is set in the same command.
+    run(&mut s, "optionVar", json!({"rm": "a", "iv": ["a", 5]}));
+    assert_eq!(run(&mut s, "optionVar", json!({"args": ["a"], "q": true})), 5);
+
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["linear"]})), "cm");
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["angle"]})), "deg");
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["angle"], "f": true})), "degree");

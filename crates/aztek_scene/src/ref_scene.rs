@@ -1,7 +1,7 @@
 //! The reference's scene commands with their full flag sets: hierarchy, naming, selection, sets, namespaces, undo and the small
 //! commands scripts lean on. Older commands of the same name keep doing what they did; these add to them.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use aztek_ops::{fail, objects, run, ArgType, Args, CmdResult, CommandDef, Commands};
 use glam::DVec3;
@@ -1060,50 +1060,232 @@ fn namespace_info(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 /// `name value` for optionVar: MEL leaves the value positional, Python gives a pair.
-fn option_pair(a: &Args, flag: &str) -> Option<(String, Value)> {
-    match a.get(flag)? {
-        Value::Array(v) if v.len() == 2 => Some((v[0].as_str()?.to_string(), v[1].clone())),
-        Value::String(n) => Some((n.clone(), a.positional.first().cloned().unwrap_or(Value::Null))),
-        _ => None,
+/// What optionVar keeps beside each value.
+#[derive(Default, Clone, Debug)]
+pub struct OptionVarMeta {
+    /// Default values, set by -default or -init.
+    pub defaults: BTreeMap<String, Value>,
+    /// The category each name was given with -category.
+    pub category: BTreeMap<String, String>,
+    /// The preferences file each category saves to (-prefFile).
+    pub pref_file: BTreeMap<String, String>,
+    /// Copies made by -stash.
+    pub stash: BTreeMap<String, Value>,
+    /// Names not kept between sessions.
+    pub transient: BTreeSet<String>,
+    /// The element type of each array, so an empty one keeps its type: 0 int, 1 float, 2 string.
+    pub kind: BTreeMap<String, u8>,
+    /// The preferences version -version gave.
+    pub version: Option<i64>,
+}
+
+impl OptionVarMeta {
+    /// Whether this name is kept between sessions.
+    pub fn saved(&self, name: &str) -> bool {
+        !self.transient.contains(name) && !name.starts_with("__")
+    }
+}
+
+/// A flag's values, flat: a multi-use flag gathers every use into one list, and Python may pass a list per use.
+fn flat(v: Option<&Value>) -> Vec<Value> {
+    fn push(out: &mut Vec<Value>, v: &Value) {
+        match v {
+            Value::Array(a) => a.iter().for_each(|x| push(out, x)),
+            other => out.push(other.clone()),
+        }
+    }
+    let mut out = Vec::new();
+    if let Some(v) = v {
+        push(&mut out, v);
+    }
+    out
+}
+
+/// Names given to a flag taking one string per use.
+fn names_of(a: &Args, flag: &str) -> Vec<String> {
+    flat(a.get(flag)).iter().filter_map(|v| match v {
+        Value::String(s) => Some(s.clone()),
+        Value::Bool(_) | Value::Null => None,
+        other => Some(other.to_string()),
+    }).collect()
+}
+
+/// One value as the type a flag sets: 0 int, 1 float, 2 string.
+fn typed(v: &Value, kind: u8) -> Value {
+    let num = || v.as_f64().or_else(|| v.as_bool().map(|b| b as i64 as f64)).or_else(|| v.as_str().and_then(|s| s.trim().parse::<f64>().ok())).unwrap_or(0.0);
+    match kind {
+        0 => json!(num() as i64),
+        1 => json!(num()),
+        _ => match v {
+            Value::String(s) => json!(s),
+            other => json!(other.to_string()),
+        },
     }
 }
 
 fn option_var(s: &mut Session, a: &Args) -> CmdResult {
+    let is_default = a.bool("default");
+    let transient = a.bool("transient");
+    // Questions first: each answers on its own and ignores the other flags.
     if a.bool("query") {
-        let name = a.pos_str(0).unwrap_or_default();
-        return Ok(s.option_vars.get(name).cloned().unwrap_or(json!(0)));
+        let name = a.pos_str(0).map(str::to_string).or_else(|| names_of(a, "queried").into_iter().next()).unwrap_or_default();
+        let meta = &s.extras.option_var_meta;
+        let found = if is_default { meta.defaults.get(&name) } else { s.option_vars.get(&name) };
+        return Ok(found.cloned().unwrap_or(json!(0)));
     }
-    if let Some(n) = a.get("exists").and_then(Value::as_str) {
-        return Ok(json!(s.option_vars.contains_key(n)));
+    if let Some(n) = names_of(a, "exists").into_iter().next() {
+        let meta = &s.extras.option_var_meta;
+        let mut there = s.option_vars.contains_key(&n);
+        if is_default {
+            there = meta.defaults.contains_key(&n);
+        }
+        if transient {
+            there = there && meta.transient.contains(&n);
+        }
+        return Ok(json!(there));
     }
-    if let Some(n) = a.get("remove").and_then(Value::as_str) {
-        s.option_vars.remove(n);
-        return Ok(Value::Null);
+    if let Some(n) = names_of(a, "arraySize").into_iter().next() {
+        return Ok(json!(match s.option_vars.get(&n) {
+            None => 0,
+            Some(Value::Array(v)) => v.len(),
+            Some(_) => 1,
+        }));
     }
-    if let Some(n) = a.get("clearArray").and_then(Value::as_str) {
-        s.option_vars.insert(n.to_string(), json!([]));
-        return Ok(Value::Null);
+    let category = a.get("category").and_then(Value::as_str).map(str::to_string);
+    if a.bool("listCategories") {
+        let meta = &s.extras.option_var_meta;
+        let cats: BTreeSet<&String> = meta.category.values().chain(meta.pref_file.keys()).collect();
+        return Ok(json!(cats.into_iter().collect::<Vec<_>>()));
     }
-    if a.bool("list") {
-        return Ok(json!(s.option_vars.keys().collect::<Vec<_>>()));
+    if a.bool("list") || a.bool("listModified") {
+        let meta = &s.extras.option_var_meta;
+        let modified = a.bool("listModified");
+        let names: Vec<&String> = s
+            .option_vars
+            .iter()
+            .filter(|(n, _)| !n.starts_with("__"))
+            .filter(|(n, _)| category.as_ref().is_none_or(|c| meta.category.get(*n) == Some(c)))
+            .filter(|(n, _)| !transient || meta.transient.contains(*n))
+            .filter(|(n, v)| match (modified, meta.defaults.get(*n)) {
+                (false, d) => !is_default || d.is_some(),
+                (true, Some(d)) => d != *v,
+                (true, None) => !is_default,
+            })
+            .map(|(n, _)| n)
+            .collect();
+        return Ok(json!(names));
     }
-    for (flag, kind) in [("intValue", 0), ("floatValue", 1), ("stringValue", 2)] {
-        if let Some((n, v)) = option_pair(a, flag) {
-            let v = match kind {
-                0 => json!(v.as_f64().unwrap_or(0.0) as i64),
-                1 => json!(v.as_f64().unwrap_or(0.0)),
-                _ => v,
-            };
+
+    // Changes. Removals come before anything set in the same command.
+    for n in names_of(a, "remove") {
+        s.option_vars.remove(&n);
+        let meta = &mut s.extras.option_var_meta;
+        meta.defaults.remove(&n);
+        meta.category.remove(&n);
+        meta.transient.remove(&n);
+        meta.kind.remove(&n);
+    }
+    for n in names_of(a, "clearArray") {
+        // An array named so is emptied; empty arrays aren't saved with the preferences.
+        if let Some(Value::Array(v)) = s.option_vars.get_mut(&n) {
+            v.clear();
+        }
+    }
+    if let Some(v) = a.get("version").and_then(Value::as_i64) {
+        s.extras.option_var_meta.version = Some(v);
+    }
+    if let (Some(c), Some(file)) = (&category, a.get("prefFile").and_then(Value::as_str)) {
+        s.extras.option_var_meta.pref_file.insert(c.clone(), file.to_string());
+    }
+
+    // -init true, or a name not yet set: current and default both; -init false: only the default; -default: both.
+    let init = a.get("init").map(|v| v.as_bool().unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0)));
+    let mut touched: Vec<String> = Vec::new();
+    let mut set = |s: &mut Session, name: String, value: Value, kind: u8| {
+        let exists = s.option_vars.contains_key(&name);
+        let (current, default) = match init {
+            Some(true) => (true, true),
+            Some(false) => (!exists, true),
+            None => (true, is_default),
+        };
+        if current {
+            s.option_vars.insert(name.clone(), value.clone());
+        }
+        let meta = &mut s.extras.option_var_meta;
+        if default {
+            meta.defaults.insert(name.clone(), value);
+        }
+        meta.kind.insert(name.clone(), kind);
+        touched.push(name);
+    };
+    for (flag, kind, count) in [
+        ("intValue", 0u8, 1usize), ("intValue2", 0, 2), ("intValue3", 0, 3), ("intValue4", 0, 4),
+        ("floatValue", 1, 1), ("floatValue2", 1, 2), ("floatValue3", 1, 3), ("floatValue4", 1, 4),
+        ("stringValue", 2, 1),
+    ] {
+        let mut vals = flat(a.get(flag));
+        if vals.len() == 1 {
+            // The name alone in the flag, the values left positional.
+            vals.extend(a.positional.iter().take(count).cloned());
+        }
+        for chunk in vals.chunks(count + 1) {
+            if chunk.len() != count + 1 {
+                fail!("optionVar: -{flag} takes a name and {count} value(s)");
+            }
+            let Some(name) = chunk[0].as_str().map(str::to_string) else { fail!("optionVar: -{flag} needs a name first") };
+            let value = if count == 1 { typed(&chunk[1], kind) } else { Value::Array(chunk[1..].iter().map(|v| typed(v, kind)).collect()) };
+            set(s, name, value, kind);
+        }
+    }
+    for (flag, kind) in [("intArray", 0u8), ("floatArray", 1), ("stringArray", 2)] {
+        for name in names_of(a, flag) {
+            set(s, name, json!([]), kind);
+        }
+    }
+    for (flag, kind) in [("intValueAppend", 0u8), ("floatValueAppend", 1), ("stringValueAppend", 2)] {
+        let vals = flat(a.get(flag));
+        for chunk in vals.chunks(2) {
+            let (Some(name), Some(v)) = (chunk.first().and_then(Value::as_str), chunk.get(1)) else { fail!("optionVar: -{flag} takes a name and a value") };
+            let v = typed(v, kind);
+            let entry = s.option_vars.entry(name.to_string()).or_insert(json!([]));
+            if !entry.is_array() {
+                *entry = json!([entry.clone()]);
+            }
+            entry.as_array_mut().unwrap().push(v);
+            s.extras.option_var_meta.kind.insert(name.to_string(), kind);
+            touched.push(name.to_string());
+        }
+    }
+    let rfa = flat(a.get("removeFromArray"));
+    for chunk in rfa.chunks(2) {
+        let (Some(name), Some(i)) = (chunk.first().and_then(Value::as_str), chunk.get(1).and_then(Value::as_f64)) else { fail!("optionVar: -removeFromArray takes a name and an index") };
+        if let Some(Value::Array(v)) = s.option_vars.get_mut(name) {
+            let i = i as usize;
+            if i < v.len() {
+                v.remove(i);
+            }
+        }
+    }
+    for n in names_of(a, "stash") {
+        if let Some(v) = s.option_vars.get(&n).cloned() {
+            s.extras.option_var_meta.stash.insert(n, v);
+        }
+    }
+    for n in names_of(a, "unstash") {
+        if let Some(v) = s.extras.option_var_meta.stash.get(&n).cloned() {
             s.option_vars.insert(n, v);
         }
     }
-    for flag in ["intValueAppend", "floatValueAppend", "stringValueAppend"] {
-        if let Some((n, v)) = option_pair(a, flag) {
-            let e = s.option_vars.entry(n).or_insert(json!([]));
-            if !e.is_array() {
-                *e = json!([e.clone()]);
-            }
-            e.as_array_mut().unwrap().push(v);
+    for n in names_of(a, "clearStash") {
+        s.extras.option_var_meta.stash.remove(&n);
+    }
+    let meta = &mut s.extras.option_var_meta;
+    for n in touched {
+        if let Some(c) = &category {
+            meta.category.insert(n.clone(), c.clone());
+        }
+        if transient {
+            meta.transient.insert(n);
         }
     }
     Ok(Value::Null)
@@ -1610,10 +1792,30 @@ pub fn register(c: &mut Commands<Session>) {
         c.register(ab);
     }
     {
-        let mut ov = Cmd::new("optionVar", "Named values that last the session: -iv, -fv, -sv, -q, -ex, -rm.", option_var).positional("a name with -q; a value in MEL").undoable(false);
-        ov = ov.flag(f("query", "q", B, "The value of the name given.")).flag(f("exists", "ex", S, "Whether this name is set.")).flag(f("remove", "rm", S, "Unset this name.")).flag(f("clearArray", "ca", S, "Empty this array.")).flag(f("list", "l", B, "Every name."));
-        for (name, short) in [("intValue", "iv"), ("floatValue", "fv"), ("stringValue", "sv"), ("intValueAppend", "iva"), ("floatValueAppend", "fva"), ("stringValueAppend", "sva")] {
-            ov = ov.flag(f(name, short, A, "Name and value."));
+        let mut ov = Cmd::new("optionVar", "Named preference values kept between sessions, with defaults, categories and stashes.", option_var).positional("a name with -q").undoable(false);
+        ov = ov
+            .flag(f("query", "q", B, "The value of the name given; with -default, its default."))
+            .flag(f("default", "d", B, "Set the default as well as the value; with -q, -exists, -list or -listModified, work on defaults."))
+            .flag(f("transient", "t", B, "Not kept between sessions; with -exists or -list, only transient names."))
+            .flag(f("init", "ini", B, "true: set value and default; false: only the default (and the value if the name isn't set)."))
+            .flag(f("category", "cat", S, "The category the names set belong to; with -list or -listModified, only that category."))
+            .flag(f("prefFile", "pf", S, "With -category: the preferences file the category is saved to."))
+            .flag(f("list", "l", B, "Every name."))
+            .flag(f("listModified", "lm", B, "The names whose value differs from their default."))
+            .flag(f("listCategories", "lc", B, "Every category."))
+            .flag(f("exists", "ex", S, "Whether this name is set."))
+            .flag(f("arraySize", "as", S, "The array's size: 0 when unset, 1 when not an array."))
+            .flag(f("version", "v", ArgType::Int, "The preferences version."));
+        for (name, short) in [("remove", "rm"), ("clearArray", "ca"), ("intArray", "ia"), ("floatArray", "fa"), ("stringArray", "sa"), ("stash", "st"), ("unstash", "us"), ("clearStash", "cs")] {
+            ov = ov.flag(f(name, short, A, "A name.").multi(1));
+        }
+        for (name, short, n) in [
+            ("intValue", "iv", 2), ("intValue2", "iv2", 3), ("intValue3", "iv3", 4), ("intValue4", "iv4", 5),
+            ("floatValue", "fv", 2), ("floatValue2", "fv2", 3), ("floatValue3", "fv3", 4), ("floatValue4", "fv4", 5),
+            ("stringValue", "sv", 2), ("intValueAppend", "iva", 2), ("floatValueAppend", "fva", 2), ("stringValueAppend", "sva", 2),
+            ("removeFromArray", "rfa", 2),
+        ] {
+            ov = ov.flag(f(name, short, A, "A name and its values.").multi(n));
         }
         c.register(ov);
     }

@@ -239,7 +239,10 @@ impl Core {
     /// Saves the optionVars when a command changed them.
     fn save_option_vars(&mut self) {
         if crate::ui_cmds::keeps_prefs() && self.s.option_vars != self.saved_vars {
-            crate::ui_cmds::save_option_var_map(&self.s.option_vars);
+            // Transient names and empty arrays aren't kept between sessions.
+            let meta = &self.s.extras.option_var_meta;
+            let kept: std::collections::BTreeMap<String, Value> = self.s.option_vars.iter().filter(|(k, v)| meta.saved(k) && v.as_array().is_none_or(|a| !a.is_empty())).map(|(k, v)| (k.clone(), v.clone())).collect();
+            crate::ui_cmds::save_option_var_map(&kept);
             self.saved_vars = self.s.option_vars.clone();
         }
     }

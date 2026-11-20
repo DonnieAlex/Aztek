@@ -44,6 +44,8 @@ pub struct Extras {
     pub harold: crate::harold::commands::State,
     /// fileInfo's keyword and value pairs, in the order they were set.
     pub file_info: Vec<(String, String)>,
+    /// What optionVar keeps beside the values: defaults, categories, stashes, transient names.
+    pub option_var_meta: crate::ref_scene::OptionVarMeta,
 }
 
 /// What a query asks for: the first flag -q names.
