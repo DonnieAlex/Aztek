@@ -207,6 +207,13 @@ fn playback_options(a: &Args) -> CmdResult {
             json!(r.view)
         } else if queried(a, &["preroll"]) {
             json!(r.preroll)
+        } else if let Some(k) = ["stepLoop", "stepKeyLoop", "blockingAnim", "disable", "selectionStartTime", "selectionEndTime", "selectionVisible"].into_iter().find(|k| queried(a, &[k])) {
+            // Switches read false and times the playback range's ends until set.
+            r.more.get(k).cloned().unwrap_or_else(|| match k {
+                "selectionStartTime" => anim::frame_json(r.min),
+                "selectionEndTime" => anim::frame_json(r.max),
+                _ => json!(false),
+            })
         } else {
             anim::frame_json(r.min)
         });
@@ -242,6 +249,11 @@ fn playback_options(a: &Args) -> CmdResult {
         }
         if let Some(v) = a.get("view").and_then(Value::as_str) {
             r.view = v.to_string();
+        }
+        for k in ["stepLoop", "stepKeyLoop", "blockingAnim", "disable", "selectionStartTime", "selectionEndTime", "selectionVisible"] {
+            if let Some(v) = a.get(k) {
+                r.more.insert(k.to_string(), v.clone());
+            }
         }
         r.anim_start = r.anim_start.min(r.min);
         r.anim_end = r.anim_end.max(r.max);
@@ -455,6 +467,13 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("by", "by", ArgType::Float, "Frames between played frames."))
         .flag(f("view", "v", ArgType::String, "Which views update during playback: all or active.").choices(&["all", "active"]))
         .flag(f("preroll", "pp", ArgType::Float, "Stored for scripts that set it."))
+        .flag(f("stepLoop", "slp", ArgType::Bool, "Stepping a frame past either end of the range goes round to the other."))
+        .flag(f("stepKeyLoop", "skl", ArgType::Bool, "Stepping to the next or previous key goes round past the range's ends."))
+        .flag(f("blockingAnim", "ba", ArgType::Bool, "Plays every tangent as stepped, pose to pose."))
+        .flag(f("disable", "dsb", ArgType::Bool, "Turns the min, max and animation start and end off."))
+        .flag(f("selectionStartTime", "sst", ArgType::Float, "Start of the time selection."))
+        .flag(f("selectionEndTime", "set", ArgType::Float, "End of the time selection."))
+        .flag(f("selectionVisible", "sv", ArgType::Bool, "Whether the time selection shows."))
         .undoable(false),
     );
 

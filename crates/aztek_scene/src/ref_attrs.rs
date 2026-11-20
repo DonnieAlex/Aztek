@@ -821,16 +821,31 @@ pub(crate) fn nice(name: &str) -> String {
 
 fn list_attr(s: &mut Session, a: &Args) -> CmdResult {
     let objs = objects(s, a);
-    let Some(first) = objs.first() else { fail!("listAttr: no object") };
+    if objs.is_empty() {
+        fail!("listAttr: no object")
+    }
     let patterns: Vec<String> = match a.get("string") {
         Some(Value::String(t)) => vec![t.clone()],
         Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
         _ => Vec::new(),
     };
+    // Every object or plug given, its attributes in turn.
+    let mut out: Vec<String> = Vec::new();
+    for obj in &objs {
+        list_attr_of(s, a, obj, &patterns, &mut out)?;
+    }
+    Ok(json!(out))
+}
+
+fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &mut Vec<String>) -> CmdResult<()> {
     let g = &s.graph;
-    let (node_name, only) = match split_plug(first) {
-        Some((n, attr)) => (n.to_string(), Some(g.plug(first).map(|p| p.attr as usize).map_err(|_| aztek_ops::CommandError::new(format!("listAttr: no attribute {attr}")))?)),
-        None => (first.clone(), None),
+    // A plug narrows the list to its attribute; a child of a compound (translateX) to that child alone.
+    let (node_name, only, child) = match split_plug(first) {
+        Some((n, attr)) => {
+            let p = g.plug(first).map_err(|_| aztek_ops::CommandError::new(format!("listAttr: no attribute {attr}")))?;
+            (n.to_string(), Some(p.attr as usize), (p.component >= 0).then_some(p.component as usize))
+        }
+        None => (first.to_string(), None, None),
     };
     let Some(id) = g.find(&node_name)? else { fail!("listAttr: no object named {node_name}") };
     let n = g.node(id).unwrap();
@@ -839,7 +854,6 @@ fn list_attr(s: &mut Session, a: &Args) -> CmdResult {
         a.bool("keyable"), a.bool("locked"), a.bool("unlocked"), a.bool("userDefined"), a.bool("channelBox"), a.bool("settable"), a.bool("multi"), a.bool("write"), a.bool("visible"), a.bool("leaf"), a.bool("array"), a.bool("scalar"), a.bool("shortNames"),
     );
     let scalar_and_array = a.bool("scalarAndArray");
-    let mut out: Vec<String> = Vec::new();
     for (i, d) in n.ty().attrs.iter().enumerate() {
         if only.is_some_and(|o| o != i) {
             continue;
@@ -883,21 +897,21 @@ fn list_attr(s: &mut Session, a: &Args) -> CmdResult {
         if d.ty == PlugType::Vec3 {
             // Keyable and locked filters look at the children; a compound with all three children locked or keyable is
             // not named on its own, as the reference lists translateX for -k rather than translate.
-            if !keyable && !cb && !locked && !leaf {
-                consider(d.name.clone(), d.short_name.clone(), whole, false, &mut out);
+            if !keyable && !cb && !locked && !leaf && child.is_none() {
+                consider(d.name.clone(), d.short_name.clone(), whole, false, out);
             }
             if !d.is_array() {
                 for c in 0..3 {
-                    if d.child_names[c].is_empty() {
+                    if d.child_names[c].is_empty() || child.is_some_and(|k| k != c) {
                         continue;
                     }
-                    consider(d.child_names[c].clone(), d.child_short[c].clone(), PlugRef::component(id, i as i32, c as i32), true, &mut out);
+                    consider(d.child_names[c].clone(), d.child_short[c].clone(), PlugRef::component(id, i as i32, c as i32), true, out);
                 }
             }
         } else {
             // listAttr -m node.multi gives the elements alone, by their aliases where they have them.
             if !(multi && only.is_some()) {
-                consider(d.name.clone(), d.short_name.clone(), whole, !d.is_array(), &mut out);
+                consider(d.name.clone(), d.short_name.clone(), whole, !d.is_array(), out);
             }
         }
         if multi && d.is_array() {
@@ -906,7 +920,7 @@ fn list_attr(s: &mut Session, a: &Args) -> CmdResult {
             }
         }
     }
-    Ok(json!(out))
+    Ok(())
 }
 
 pub fn register(c: &mut Commands<Session>) {

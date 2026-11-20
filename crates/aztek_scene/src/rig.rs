@@ -301,7 +301,18 @@ fn zero_scale_orient(g: &mut Graph, j: NodeId) -> CmdResult<()> {
 /// to the parent joint. As the reference's, a joint with rotations, or with no child joint to aim at, is left as it is
 /// ("none" as the order zeroes jointOrient, whatever the joint). Returns whether the joint changed.
 pub fn orient_joint(g: &mut Graph, j: NodeId, order: &str, up: &str) -> CmdResult<bool> {
+    orient_joint_with(g, j, order, up, false)
+}
+
+/// orientJoint with -autoOrientSecondaryAxis: the second axis square to the plane of the joint, its parent and its child,
+/// turned to the side the world axis -sao names; where the three are in a line, the world axis alone.
+pub fn orient_joint_with(g: &mut Graph, j: NodeId, order: &str, up: &str, auto_secondary: bool) -> CmdResult<bool> {
     g.evaluate();
+    // A "Neg" suffix (xyzNeg) points the first axis back along the bone.
+    let (order, neg) = match order.strip_suffix("Neg") {
+        Some(o) => (o, true),
+        None => (order, false),
+    };
     if order == "none" {
         keeping_children(g, j, |g| set_vec3(g, j, Joint::JOINT_ORIENT, DVec3::ZERO))?;
         return Ok(true);
@@ -315,10 +326,11 @@ pub fn orient_joint(g: &mut Graph, j: NodeId, order: &str, up: &str) -> CmdResul
     }
     let Some(child) = g.children(j).iter().copied().find(|&c| is_joint(g, c)) else { return Ok(false) };
     let here = world(g, j).w_axis.truncate();
-    let aim = (world(g, child).w_axis.truncate() - here).normalize_or_zero();
-    if aim == DVec3::ZERO {
+    let bone = (world(g, child).w_axis.truncate() - here).normalize_or_zero();
+    if bone == DVec3::ZERO {
         return Ok(false);
     }
+    let aim = if neg { -bone } else { bone };
     let idx = |c: char| match c {
         'x' => 0,
         'y' => 1,
@@ -343,6 +355,12 @@ pub fn orient_joint(g: &mut Graph, j: NodeId, order: &str, up: &str) -> CmdResul
     let back = (p != NO_NODE && is_joint(g, p)).then(|| world(g, p).w_axis.truncate() - here);
     let plane = back.map(|v| aim.cross(v)).filter(|n| n.length() > 1e-9);
     match (world_up, plane) {
+        (Some(w), Some(n)) if auto_secondary => {
+            let n = if n.dot(w) < 0.0 { -n } else { n };
+            let second = (n - aim * n.dot(aim)).normalize();
+            cols[b] = second;
+            cols[c] = aim.cross(second) * sign;
+        }
         (None, Some(n)) => {
             cols[c] = n.normalize();
             cols[b] = (cols[c].cross(aim) * sign).normalize();
@@ -1051,7 +1069,7 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 for id in todo {
                     if !order.is_empty() && !a.has("orientation") && !a.has("scaleOrientation") {
-                        orient_joint(g, id, &order, &up)?;
+                        orient_joint_with(g, id, &order, &up, a.bool("autoOrientSecondaryAxis"))?;
                     }
                     if let Some(p) = a.vec3("position") {
                         g.evaluate();
@@ -1109,6 +1127,7 @@ pub fn register(c: &mut Commands<Session>) {
     .flag(f("assumePreferredAngles", "apa", ArgType::Bool, "Set rotate to the preferred angle."))
     .flag(f("setPreferredAngles", "spa", ArgType::Bool, "Set the preferred angle to rotate."))
     .flag(f("orientJoint", "oj", ArgType::String, "Aim axis order, xyz, yzx... or none."))
+    .flag(f("autoOrientSecondaryAxis", "aos", ArgType::Bool, "With -oj and -sao: the second axis square to the plane of the joint, its parent and child, on the side -sao names."))
     .flag(f("secondaryAxisOrient", "sao", ArgType::String, "Where the second axis points, yup, zup, xdown..."))
     .flag(f("children", "ch", ArgType::Bool, "Edit: the joints below too."))
     .flag(f("zeroScaleOrient", "zso", ArgType::Bool, "Set rotateAxis to zero; jointOrient takes the change."))

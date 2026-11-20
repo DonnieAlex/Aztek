@@ -450,7 +450,14 @@ pub(super) fn register(c: &mut Commands<Session>) {
                     if asked(a, "currentUVSet") {
                         return Ok(json!([uv_sets::current(&m)]));
                     }
-                    fail!("polyUVSet: ask -auv or -cuv");
+                    // Aztek's UV sets are shared by every instance: none is a per-instance family.
+                    if asked(a, "perInstance") {
+                        return Ok(json!(false));
+                    }
+                    if asked(a, "currentPerInstanceUVSet") {
+                        return Ok(json!([]));
+                    }
+                    fail!("polyUVSet: ask -auv, -cuv, -pi or -cpi");
                 }
                 // A new set's name is settled here, so the node makes that one each time it runs, and it is what comes back.
                 let (set, new) = (a.string("uvSet", ""), a.string("newUVSet", ""));

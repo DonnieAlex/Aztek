@@ -1924,6 +1924,18 @@ short names that were wrong (`-snp`, `-snh`, `-p`) are right. toolPropertyWindow
 names and commands scripts give it. saveToolSettings saves every tool's settings with the preferences and
 rememberCtxSettings gives a tool made later its saved ones back.
 
+### Commands the reference's scripts lean on (20/11/2026)
+
+- `joint -e -oj ... -sao ... -autoOrientSecondaryAxis`: the second axis square to the plane of the joint, its parent
+  and its child, on the side the world axis names; a `Neg` suffix on the order points the first axis back along the
+  bone.
+- `playbackOptions` has `-stepLoop`, `-stepKeyLoop`, `-blockingAnim`, `-disable` and the time selection's start, end
+  and visibility.
+- `listAttr` lists every object and plug it is given, and a child plug (`pCube1.tx`) names that child alone.
+- `parent` returns the names the objects have after the move.
+- `constructionHistory -q -tgl` says whether history is on.
+- `polyUVSet -q -perInstance` and `-q -currentPerInstanceUVSet` answer: Aztek's UV sets are shared by every instance.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

@@ -913,6 +913,10 @@ pub fn register(c: &mut Commands<Session>) {
             "constructionHistory",
             "Turn construction history on or off for later poly edits, or query it. Returns whether it is on.",
             |s, a| {
+                // -q -tgl or -q -st: whether it is on, changing nothing.
+                if a.bool("query") {
+                    return Ok(json!(s.graph.construction_history));
+                }
                 if a.bool("toggle") {
                     s.graph.construction_history = !s.graph.construction_history;
                 } else if let Some(v) = a.get("state").and_then(Value::as_bool) {
@@ -923,7 +927,8 @@ pub fn register(c: &mut Commands<Session>) {
         )
         .undoable(false)
         .flag(FlagDef::new("toggle", "tgl", ArgType::Bool, json!(false), "Turn it on if off, off if on."))
-        .flag(FlagDef::new("state", "st", ArgType::Bool, Value::Null, "Turn it on (True) or off (False).")),
+        .flag(FlagDef::new("state", "st", ArgType::Bool, Value::Null, "Turn it on (True) or off (False)."))
+        .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Query: whether it is on.")),
     );
     c.register(
         CommandDef::<Session>::new(

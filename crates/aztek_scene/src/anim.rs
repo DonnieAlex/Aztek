@@ -41,6 +41,9 @@ pub struct Range {
     pub max_speed: f64,
     /// playbackOptions -pp: stored for scripts that set it.
     pub preroll: f64,
+    /// The other flags the reference's playbackOptions has, as given: stepLoop, stepKeyLoop, blockingAnim, disable and
+    /// the selection's range and visibility.
+    pub more: std::collections::BTreeMap<String, Value>,
 }
 
 static RANGE: Mutex<Option<Range>> = Mutex::new(None);
@@ -60,6 +63,7 @@ fn default_range() -> Range {
         view: "all".into(),
         max_speed: 0.0,
         preroll: 0.0,
+        more: Default::default(),
     }
 }
 

@@ -738,7 +738,7 @@ fn register_scene(c: &mut Commands<Session>) {
                     for w in ids.windows(2) {
                         s.graph.set_parent(w[0], w[1], keep, usize::MAX)?;
                     }
-                    return Ok(json!(objs));
+                    return Ok(json!(ids.iter().map(|&i| s.graph.path(i)).collect::<Vec<_>>()));
                 }
                 let mut p = NO_NODE;
                 if !a.bool("world") {
@@ -755,7 +755,8 @@ fn register_scene(c: &mut Commands<Session>) {
                         g.set_parent(c, p, keep, usize::MAX)?;
                     }
                     g.select(&ids, SelectMode::Replace);
-                    return Ok(json!(objs));
+                    // The names they have now: a move can rename one whose name clashes where it lands.
+                    return Ok(json!(ids.iter().map(|&i| g.path(i)).collect::<Vec<_>>()));
                 }
                 let index = a.int("index", 0);
                 if index < 0 {
@@ -777,7 +778,7 @@ fn register_scene(c: &mut Commands<Session>) {
                     before = id;
                 }
                 g.select(&ids, SelectMode::Replace);
-                Ok(json!(objs))
+                Ok(json!(ids.iter().map(|&i| g.path(i)).collect::<Vec<_>>()))
             },
         )
         .positional("objects... parent")
