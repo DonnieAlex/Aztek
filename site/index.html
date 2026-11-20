@@ -43,10 +43,23 @@
       <h1>Model, rig, animate, simulate and render. One application, the way you already work.</h1>
       <p class="standfirst">Modelling, UVs, rigging, animation, cloth, particles, rigid bodies, a path tracer and USD, with the
         industry-standard commands, flags, hotkeys, menus and marking menus. MEL and Python scripts run, <code>.ma</code>
-        files open and save, <code>.mb</code> files open, production rigs pose. Over fifty example scenes to start from. MIT-0, for Linux, Windows and macOS.</p>
+        and <code>.mb</code> files open and save, production rigs pose. Over fifty example scenes to start from. MIT-0, for Linux, Windows and macOS.</p>
       <p class="hero-kofi"><a class="btn kofi big" href="https://ko-fi.com/turtleface">&#9749; Support Aztek on Ko-fi</a><span>Aztek is free and stays free. Chip in if it helps your work.</span></p>
     </div>
   </div>
+</section>
+
+<section class="build" id="build">
+  <h2>Build from source</h2>
+<pre><code>git clone https://github.com/srlegrand/Aztek.git
+cd Aztek
+./build.sh --deps --run        # Linux
+./build-macos.sh --deps --run  # macOS, with Homebrew
+.\build.bat -Run               # Windows, from PowerShell</code></pre>
+  <p class="small">Needs Rust, CMake, Ninja, Qt 6.4+, Python 3.12 (fetched by the build where the system has none) and, on Windows, Visual Studio 2022 with the C++ workload.
+    <code>--deps</code> installs what the build needs (apt, dnf or pacman on Linux, Homebrew on macOS) and only needs running once.
+    On macOS <code>--package</code> makes a self-contained Aztek.app. Prebuilt packages are under <a href="#download">Download</a>;
+    details in the <a href="https://github.com/srlegrand/Aztek#build">README</a>.</p>
 </section>
 
 <section class="feedback" id="feedback">
@@ -56,8 +69,8 @@
     <p>Aztek should feel like second nature to anyone who has spent years in a 3D package. If something doesn't work, or
       works but doesn't feel quite right (a hotkey, a drag, a default, a menu in the wrong place), press the orange button
       at the right of the shelf bar. The small arrow on its left folds it away; it stays in the Help menu.</p>
-    <p>Say what you did and what you expected; that's the whole report. Add a screenshot you can draw on, or a copy of the
-      scene, if it helps. It opens a filled-in GitHub issue in your browser, so every rough edge anyone notices ends up in
+    <p>Say what you did and what you expected; that's the whole report. Add a screenshot you can draw on, a few seconds of video of
+      Aztek's windows, or a copy of the scene, if it helps. It opens a filled-in GitHub issue in your browser, so every rough edge anyone notices ends up in
       one <a href="https://github.com/srlegrand/Aztek/issues">public list</a>. Nothing is sent until you press Submit there.</p>
   </div>
   <img src="img/feedback.png" alt="The This doesn't feel right! window over the main window" loading="lazy">
@@ -284,7 +297,7 @@ gh pr create --fill</code></pre>
     <a class="btn kofi" href="https://ko-fi.com/turtleface">&#9749; Support on Ko-fi</a>
   </div>
   <p class="small">Windows: run the installer, or unzip and run <code>aztek.exe</code>. Rocky Linux: <code>sudo dnf install ./aztek-*.rpm</code>
-    (Rocky 9 needs EPEL for Qt). Ubuntu: <code>sudo apt install ./aztek_*.deb</code>. Other Linux: <code>chmod +x aztek-*.AppImage</code> and run it. macOS: <code>brew install python@3.12</code>, unzip, then right-click Aztek.app and Open the first time (it isn't notarized). Linux and Windows need a Vulkan driver. Aztek can tell you when a new version is out and install it: it asks on first start, and asks GitHub for nothing but the latest release.</p>
+    (Rocky 9 needs EPEL for Qt). Ubuntu: <code>sudo apt install ./aztek_*.deb</code>. Other Linux, x86_64 or 64-bit ARM: <code>chmod +x aztek-*.AppImage</code> and run it. macOS: <code>brew install python@3.12</code>, unzip, then right-click Aztek.app and Open the first time (it isn't notarized). Linux and Windows need a Vulkan driver. Aztek can tell you when a new version is out and install it: it asks on first start, and asks GitHub for nothing but the latest release.</p>
 </section>
 
 <section class="why" id="why">
@@ -345,36 +358,41 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
 
 <section class="themes" id="themes">
   <h2>Themes</h2>
-  <p>Aztek Classic, the industry-standard look, is the default. The <b>Themes</b> box at the top right of the menu bar
-    changes the colours, fonts and the shapes of buttons, fields, tabs, arrows and scroll bars, live: nineteen of them,
-    darkest to lightest. The <b>Theme Editor</b> edits every part and saves themes of your own to share.</p>
+  <p>Classic, the reference's look, is the default. The <b>Themes</b> box at the top right of the menu bar
+    changes the colours, fonts and the shapes of buttons, fields, tabs, arrows and scroll bars, live: twenty-six of them,
+    darkest to lightest, and <b>Random!</b> for a new one each time. The <b>Theme Editor</b> edits every part and saves themes of your own to share.</p>
   <figure class="theme-editor"><a href="img/theme-editor.png"><img src="img/theme-editor.png" alt="The Theme Editor" loading="lazy"></a><figcaption><b>Theme Editor</b> Colours, fonts, bevels, corners, tabs, arrows and scroll bars.</figcaption></figure>
   <h3>Dark</h3>
   <div class="theme-grid">
-    <figure><a href="img/theme-classic.jpg"><img src="img/theme-classic.jpg" alt="Aztek in the Aztek Classic theme" loading="lazy"></a><figcaption><b>Aztek Classic</b> The industry-standard look, and the default.</figcaption></figure>
+    <figure><a href="img/theme-classic.jpg"><img src="img/theme-classic.jpg" alt="Aztek in the Classic theme" loading="lazy"></a><figcaption><b>Classic</b> The reference's look, and the default.</figcaption></figure>
     <figure><a href="img/theme-obsidian.jpg"><img src="img/theme-obsidian.jpg" alt="Aztek in the Brinsmead theme" loading="lazy"></a><figcaption><b>Brinsmead</b> Pure black and electric cyan, monospaced type, square corners, cyan section bars.</figcaption></figure>
-    <figure><a href="img/theme-carbon.jpg"><img src="img/theme-carbon.jpg" alt="Aztek in the Flav theme" loading="lazy"></a><figcaption><b>Flav</b> Charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners.</figcaption></figure>
-    <figure><a href="img/theme-midnight.jpg"><img src="img/theme-midnight.jpg" alt="Aztek in the KevinP theme" loading="lazy"></a><figcaption><b>KevinP</b> Deep navy and gold, serif type with italic menus, round-topped tabs.</figcaption></figure>
-    <figure><a href="img/theme-dracula.jpg"><img src="img/theme-dracula.jpg" alt="Aztek in the Boisvert theme" loading="lazy"></a><figcaption><b>Boisvert</b> The Dracula scheme: pink highlights, purple section bars, rounded type, very round corners.</figcaption></figure>
+    <figure><a href="img/theme-violet.jpg"><img src="img/theme-violet.jpg" alt="Aztek in the Nicolas theme" loading="lazy"></a><figcaption><b>Nicolas</b> Near-black with bold violet highlights and gold section bars.</figcaption></figure>
+    <figure><a href="img/theme-carbon.jpg"><img src="img/theme-carbon.jpg" alt="Aztek in the Flav theme" loading="lazy"></a><figcaption><b>Flav</b> Blue-grey charcoal and teal, round corners, pill tabs.</figcaption></figure>
+    <figure><a href="img/theme-tangerine.jpg"><img src="img/theme-tangerine.jpg" alt="Aztek in the Kurtenbach theme" loading="lazy"></a><figcaption><b>Kurtenbach</b> Charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners.</figcaption></figure>
+    <figure><a href="img/theme-midnight.jpg"><img src="img/theme-midnight.jpg" alt="Aztek in the Kovacs theme" loading="lazy"></a><figcaption><b>Kovacs</b> Deep navy and gold, serif type with italic menus, round-topped tabs.</figcaption></figure>
+    <figure><a href="img/theme-graphite.jpg"><img src="img/theme-graphite.jpg" alt="Aztek in the Gibson theme" loading="lazy"></a><figcaption><b>Gibson</b> Forest green and lime, humanist type, soft gradients.</figcaption></figure>
+    <figure><a href="img/theme-shaq.jpg"><img src="img/theme-shaq.jpg" alt="Aztek in the Shaq theme" loading="lazy"></a><figcaption><b>Shaq</b> After Unreal Engine 5's editor: near-black and charcoal panels, black fields, its bright blue, Roboto.</figcaption></figure>
     <figure><a href="img/theme-solarized-dark.jpg"><img src="img/theme-solarized-dark.jpg" alt="Aztek in the Springer theme" loading="lazy"></a><figcaption><b>Springer</b> Solarized dark with its yellow and orange: condensed type, single bevels, square edges.</figcaption></figure>
-    <figure><a href="img/theme-graphite.jpg"><img src="img/theme-graphite.jpg" alt="Aztek in the JGibson theme" loading="lazy"></a><figcaption><b>JGibson</b> Forest green and lime, humanist type, soft gradients.</figcaption></figure>
-    <figure><a href="img/theme-nord.jpg"><img src="img/theme-nord.jpg" alt="Aztek in the MNovacek theme" loading="lazy"></a><figcaption><b>MNovacek</b> The Nord scheme: frost blues, geometric type, borderless, round-topped tabs.</figcaption></figure>
     <figure><a href="img/theme-slate.jpg"><img src="img/theme-slate.jpg" alt="Aztek in the Ozymok theme" loading="lazy"></a><figcaption><b>Ozymok</b> Plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel.</figcaption></figure>
+    <figure><a href="img/theme-dracula.jpg"><img src="img/theme-dracula.jpg" alt="Aztek in the Keating theme" loading="lazy"></a><figcaption><b>Keating</b> The Dracula scheme: pink highlights, purple section bars, rounded type, very round corners.</figcaption></figure>
+    <figure><a href="img/theme-classic98.jpg"><img src="img/theme-classic98.jpg" alt="Aztek in the DonnieAlex theme" loading="lazy"></a><figcaption><b>DonnieAlex</b> After Blender: mid-dark grey regions, darker panel headers, grey rounded widgets, its blue.</figcaption></figure>
+    <figure><a href="img/theme-nord.jpg"><img src="img/theme-nord.jpg" alt="Aztek in the Novacek theme" loading="lazy"></a><figcaption><b>Novacek</b> The Nord scheme: frost blues, geometric type, borderless, round-topped tabs.</figcaption></figure>
     <figure><a href="img/theme-alias.jpg"><img src="img/theme-alias.jpg" alt="Aztek in the Alias theme" loading="lazy"></a><figcaption><b>Alias</b> The late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type.</figcaption></figure>
-    <figure><a href="img/theme-pewter.jpg"><img src="img/theme-pewter.jpg" alt="Aztek in the PewterTureski theme" loading="lazy"></a><figcaption><b>PewterTureski</b> Warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars.</figcaption></figure>
-    <figure><a href="img/theme-shaq.jpg"><img src="img/theme-shaq.jpg" alt="Aztek in the Shaq theme" loading="lazy"></a><figcaption><b>Shaq</b> Near-black with bold violet highlights and gold section bars.</figcaption></figure>
+    <figure><a href="img/theme-pewter.jpg"><img src="img/theme-pewter.jpg" alt="Aztek in the Tureski theme" loading="lazy"></a><figcaption><b>Tureski</b> Warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars.</figcaption></figure>
   </div>
   <h3>Light</h3>
   <div class="theme-grid">
-    <figure><a href="img/theme-studio96.jpg"><img src="img/theme-studio96.jpg" alt="Aztek in the sendvvv theme" loading="lazy"></a><figcaption><b>sendvvv</b> The mid-90s workstation animation packages: pink fields, bold italic menus, bevels.</figcaption></figure>
-    <figure><a href="img/theme-classic98.jpg"><img src="img/theme-classic98.jpg" alt="Aztek in the DonnieA theme" loading="lazy"></a><figcaption><b>DonnieA</b> Silver and navy, two-tone bevels, 1998.</figcaption></figure>
-    <figure><a href="img/theme-workstation.jpg"><img src="img/theme-workstation.jpg" alt="Aztek in the Cattingway theme" loading="lazy"></a><figcaption><b>Cattingway</b> The light grey workstation desktop the industry-standard package first ran on.</figcaption></figure>
+    <figure><a href="img/theme-studio96.jpg"><img src="img/theme-studio96.jpg" alt="Aztek in the Sebdvvv theme" loading="lazy"></a><figcaption><b>Sebdvvv</b> The mid-90s workstation animation packages: pink fields, bold italic menus, bevels.</figcaption></figure>
+    <figure><a href="img/theme-martino.jpg"><img src="img/theme-martino.jpg" alt="Aztek in the Martino theme" loading="lazy"></a><figcaption><b>Martino</b> After Softimage XSI: warm grey, soft rounded buttons, blue-grey section bars, dark rounded fields, white selection.</figcaption></figure>
+    <figure><a href="img/theme-desktop98.jpg"><img src="img/theme-desktop98.jpg" alt="Aztek in the Krieger theme" loading="lazy"></a><figcaption><b>Krieger</b> Silver and navy, two-tone bevels, 1998.</figcaption></figure>
+    <figure><a href="img/theme-workstation.jpg"><img src="img/theme-workstation.jpg" alt="Aztek in the Wavefront theme" loading="lazy"></a><figcaption><b>Wavefront</b> The light grey workstation desktop the reference first ran on.</figcaption></figure>
     <figure><a href="img/theme-poweranimator.jpg"><img src="img/theme-poweranimator.jpg" alt="Aztek in the Hourihan theme" loading="lazy"></a><figcaption><b>Hourihan</b> Light grey with mid grey fields and darker section bars, round-topped tabs.</figcaption></figure>
-    <figure><a href="img/theme-ash.jpg"><img src="img/theme-ash.jpg" alt="Aztek in the AshT theme" loading="lazy"></a><figcaption><b>AshT</b> Pale sky blue and navy, humanist type, navy section bars, round pills.</figcaption></figure>
-    <figure><a href="img/theme-solarized-light.jpg"><img src="img/theme-solarized-light.jpg" alt="Aztek in the Buffin theme" loading="lazy"></a><figcaption><b>Buffin</b> Solarized light with its cyan and magenta: serif type, round-topped tabs.</figcaption></figure>
-    <figure><a href="img/theme-paper.jpg"><img src="img/theme-paper.jpg" alt="Aztek in the Royhall theme" loading="lazy"></a><figcaption><b>Royhall</b> Cream paper and red ink, typewriter type, bold menus, square corners, black section bars.</figcaption></figure>
-    <figure><a href="img/theme-lilac.jpg"><img src="img/theme-lilac.jpg" alt="Aztek in the Jostam theme" loading="lazy"></a><figcaption><b>Jostam</b> Mint and teal, rounded type, gradients, the roundest corners.</figcaption></figure>
-    <figure><a href="img/theme-martino.jpg"><img src="img/theme-martino.jpg" alt="Aztek in the Martino theme" loading="lazy"></a><figcaption><b>Martino</b> After Softimage XSI: mid grey panels, pale fields, single bevels, square corners.</figcaption></figure>
+    <figure><a href="img/theme-sky.jpg"><img src="img/theme-sky.jpg" alt="Aztek in the Hourcade theme" loading="lazy"></a><figcaption><b>Hourcade</b> Pale sky blue and navy, humanist type, navy section bars, round pills.</figcaption></figure>
+    <figure><a href="img/theme-solarized-light.jpg"><img src="img/theme-solarized-light.jpg" alt="Aztek in the Buxton theme" loading="lazy"></a><figcaption><b>Buxton</b> Solarized light with its cyan and magenta: serif type, round-topped tabs.</figcaption></figure>
+    <figure><a href="img/theme-paper.jpg"><img src="img/theme-paper.jpg" alt="Aztek in the Hall theme" loading="lazy"></a><figcaption><b>Hall</b> Cream paper and red ink, typewriter type, bold menus, square corners, black section bars.</figcaption></figure>
+    <figure><a href="img/theme-ash.jpg"><img src="img/theme-ash.jpg" alt="Aztek in the AshT theme" loading="lazy"></a><figcaption><b>AshT</b> After Hello Kitty: candy pink and white, red highlights and section bars, black outlines, rounded type.</figcaption></figure>
+    <figure><a href="img/theme-macos.jpg"><img src="img/theme-macos.jpg" alt="Aztek in the Macintosh theme" loading="lazy"></a><figcaption><b>Macintosh</b> After macOS: pale grey windows, white controls and fields, its blue, SF Pro, soft round corners, segmented tabs.</figcaption></figure>
+    <figure><a href="img/theme-lilac.jpg"><img src="img/theme-lilac.jpg" alt="Aztek in the Stam theme" loading="lazy"></a><figcaption><b>Stam</b> Mint and teal, rounded type, gradients, the roundest corners.</figcaption></figure>
   </div>
 </section>
 
@@ -395,7 +413,7 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
         <figcaption><b>History</b> <code>polyExtrudeFace1</code> in the channel box's inputs, the move manipulator on the faces.</figcaption></figure>
       <figure><img src="img/quad-draw-view.png" alt="Quad Draw on a live surface" loading="lazy"><figcaption><b>Quad Draw</b> Retopology on a live surface.</figcaption></figure>
       <figure><img src="img/soft-select-view.png" alt="Soft selection falloff on a plane" loading="lazy"><figcaption><b>Soft selection</b> The falloff shown on the vertices.</figcaption></figure>
-      <figure class="wide"><img src="img/nurbs-view.png" alt="NURBS surfaces and curves" loading="lazy"><figcaption><b>NURBS</b> Surfaces and curves, with a drawing override on the control.</figcaption></figure>
+      <figure class="wide"><img src="img/nurbs-view.png" alt="NURBS surfaces and curves" loading="lazy"><figcaption><b>NURBS</b> A revolved vase, a loft, an extrusion along a path and a trimmed plane.</figcaption></figure>
     </div>
   </article>
 
@@ -404,10 +422,10 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
     <div class="spread-copy">
       <h3>The UV Editor, by UV, shell, edge or face</h3>
       <p class="lead">Planar, cylindrical, spherical and automatic projections, unfold, layout, cut and sew.</p>
-      <p>Move, rotate and scale in UV space, normalize and flip, several UV sets, and the texture behind the grid.</p>
+      <p>Move, rotate and scale in UV space, normalize and flip, straighten, align and snap, arrange shells, texel density, several UV sets, the UV Toolkit and its brushes, and the texture behind the grid.</p>
     </div>
     <div class="spread-media">
-      <figure class="wide"><img src="img/uv-editor.png" alt="The UV Editor after automatic projection and layout" loading="lazy"><figcaption><b>UV Editor</b> Automatic projection, then layout.</figcaption></figure>
+      <figure class="wide"><img src="img/uv-editor.png" alt="The UV Editor with a crate unfolded and laid out" loading="lazy"><figcaption><b>UV Editor</b> A crate unfolded and laid out, with the UV Toolkit beside it.</figcaption></figure>
     </div>
   </article>
 
@@ -424,7 +442,7 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
     <div class="spread-media">
       <figure class="wide"><video src="img/clip-rig-pose.mp4" poster="img/clip-rig-pose.jpg" autoplay muted loop playsinline preload="none"></video><figcaption><b>A production rig</b> Opened from its <code>.ma</code> file with its textures, and posed with its own controls.</figcaption></figure>
       <figure class="wide"><img src="img/quadruped-rig.png" alt="A quadruped skeleton posed with the rotate tool" loading="lazy"><figcaption><b>Skeleton</b> A quadruped posed with the rotate tool.</figcaption></figure>
-      <figure><img src="img/rigging.png" alt="Joints, smooth skin and an RP IK handle" loading="lazy"><figcaption><b>Skin and IK</b> Joints, smooth skin and an RP IK handle.</figcaption></figure>
+      <figure><img src="img/rigging.png" alt="Joints, smooth skin and an RP IK handle" loading="lazy"><figcaption><b>Skin and IK</b> A skinned arm with an RP IK handle and its controls.</figcaption></figure>
       <figure><img src="img/paint-weights.png" alt="Paint Skin Weights" loading="lazy"><figcaption><b>Paint Skin Weights</b> Influences and brush in Tool Settings.</figcaption></figure>
     </div>
   </article>
@@ -440,7 +458,7 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
     <div class="spread-media">
       <figure class="wide"><video src="img/clip-arm.mp4" poster="img/clip-arm.jpg" autoplay muted loop playsinline preload="metadata"></video><figcaption><b>Playback</b> A keyed IK arm with a pole vector and coloured controls.</figcaption></figure>
       <figure><img src="img/graph-editor.png" alt="Graph Editor" loading="lazy"><figcaption><b>Graph Editor</b> Keyed channels, key ticks on the time slider.</figcaption></figure>
-      <figure><img src="img/dope-sheet.png" alt="Dope Sheet with a breakdown" loading="lazy"><figcaption><b>Dope Sheet</b> A breakdown in green.</figcaption></figure>
+      <figure><img src="img/dope-sheet.png" alt="Dope Sheet" loading="lazy"><figcaption><b>Dope Sheet</b> The walking robot's keys.</figcaption></figure>
     </div>
   </article>
 
@@ -485,12 +503,13 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
     <div class="tab"><b>07</b>Pipeline</div>
     <div class="spread-copy">
       <h3><code>.ma</code> and <code>.mb</code> files, references and USD</h3>
-      <p class="lead">Files read and written in the standard layout. Binary <code>.mb</code> files are read too.</p>
+      <p class="lead">Files read and written in the standard layout. Binary <code>.mb</code> files are read and written too.</p>
       <p>Deformer chains, constraints, utility nodes, expressions, materials, NURBS, drawing overrides and references with
         their edits; namespaces, instances, locked nodes, Z up. USD (<code>.usd</code>, <code>.usda</code>,
         <code>.usdc</code>, <code>.usdz</code>) read and written with transforms, meshes, skeletons, blend shapes, materials
         and animation, or opened as a stage in the scene: prims to select and edit, variants, payloads, a Layer Editor, and a
-        <code>pxr</code> module for scripts.</p>
+        <code>pxr</code> module for scripts. FBX (binary) and glTF 2.0 imported and exported: hierarchy, joints, meshes
+        with UV sets, materials and textures, skins, and for glTF blend shapes and animation.</p>
     </div>
     <div class="spread-media">
       <figure class="wide"><img src="img/rig-file.png" alt="A character rig opened from a .ma file" loading="lazy"><figcaption><b>.ma</b> A character rig opened from its file with its textures.</figcaption></figure>
@@ -503,9 +522,11 @@ git push --mirror &lt;your repository's URL&gt;</code></pre>
       <h3>MEL, Python, the API and plug-ins</h3>
       <p class="lead">Existing scripts import unchanged.</p>
       <p>MEL (procedures, arrays, control flow, backticks, expressions) and Python with <code>aztek.cmds</code> and the
-        compatibility modules; an API 2.0 subset, Python plug-ins with <code>MPxCommand</code> and <code>MPxNode</code>,
+        compatibility modules; the Python API, 2.0 and 1.0, Python plug-ins with <code>MPxCommand</code> and <code>MPxNode</code>,
         <code>scriptJob</code>, <code>scriptNode</code>, <code>evalDeferred</code>. Windows, layouts and controls built from
-        scripts become Qt widgets, with <code>AE&lt;type&gt;Template</code> procedures and <code>workspaceControl</code> docking.</p>
+        scripts become Qt widgets, with <code>AE&lt;type&gt;Template</code> procedures and <code>workspaceControl</code> docking.
+        The global MEL procedures scripts expect to find come with Aztek, each written from a description of what the
+        reference's does. C++ plug-ins rebuilt against Aztek's headers load their commands, nodes and deformers.</p>
 <pre><code>from aztek import cmds
 cube = cmds.polyCube(w=2)[0]
 cmds.setKeyframe(cube, at='ty', t=1, v=0)
@@ -522,13 +543,15 @@ cmds.setKeyframe(cube, at='ty', t=24, v=5)</code></pre>
     <div class="spread-copy">
       <h3>Where your hands expect it</h3>
       <p class="lead">Menu sets, shelves, hotkeys, marking menus and the hotbox.</p>
-      <p>Channel box, outliner, Attribute Editor, Node Editor, Tool Settings, Hotkey Editor, panel layouts and workspaces.
-        Manipulators on history and deformer nodes (T), with in-view numbers.</p>
+      <p>Channel box, outliner, Attribute Editor, Node Editor, Tool Settings, Hotkey Editor, Modeling Toolkit, panel layouts and workspaces.
+        The Render View, Hypershade, UV Editor and Node Editor open as floating panels that dock into the main window when
+        dragged by their title. Manipulators on history and deformer nodes (T), with in-view numbers.</p>
     </div>
     <div class="spread-media">
       <figure><img src="img/marking-menu.png" alt="Marking menu" loading="lazy"><figcaption><b>Marking menus</b> On the right button.</figcaption></figure>
       <figure><img src="img/node-editor.png" alt="Node Editor" loading="lazy"><figcaption><b>Node Editor</b> Graph the selection, wire attributes.</figcaption></figure>
       <figure class="wide"><img src="img/four-view.png" alt="Four views" loading="lazy"><figcaption><b>Four views</b> Space to toggle.</figcaption></figure>
+      <figure class="wide"><img src="img/welcome-screen.png" alt="The welcome screen" loading="lazy"><figcaption><b>Welcome screen</b> New and recent scenes, the examples, what changed, and the parity bar.</figcaption></figure>
     </div>
   </article>
 
@@ -562,17 +585,6 @@ cmds.setKeyframe(cube, at='ty', t=24, v=5)</code></pre>
   </div>
 </section>
 
-<section class="build" id="build">
-  <h2>Build from source</h2>
-<pre><code>git clone https://github.com/srlegrand/Aztek.git
-cd Aztek
-./build.sh --deps --run        # Linux
-./build-macos.sh --deps --run  # macOS, with Homebrew
-build.bat -Run                 # Windows</code></pre>
-  <p class="small">Needs Rust, CMake, Ninja, Qt 6.4+, Python 3.12 (fetched by the build where the system has none) and, on Windows, Visual Studio 2022 with the C++ workload.
-    On macOS, <code>--deps</code> installs everything through Homebrew and <code>--package</code> makes a self-contained Aztek.app.
-    Details in the <a href="https://github.com/srlegrand/Aztek#build">README</a>.</p>
-</section>
 
 <section class="licence" id="discord">
   <h2>Discord</h2>
@@ -594,7 +606,7 @@ build.bat -Run                 # Windows</code></pre>
 </section>
 
 <section class="docs-links">
-  <a href="https://github.com/srlegrand/Aztek/blob/main/docs/COMMANDS.md"><strong>Command reference</strong><span>Every command and flag</span></a>
+  <a href="https://github.com/srlegrand/Aztek/blob/main/docs/COMMANDS.md"><strong>Command reference</strong><span>All 1328 commands and their flags</span></a>
   <a href="https://github.com/srlegrand/Aztek/blob/main/PARITY.md"><strong>Parity</strong><span>What matches the reference and what doesn't yet</span></a>
   <a href="https://github.com/srlegrand/Aztek/issues"><strong>Issues</strong><span>Report a difference or a bug</span></a>
 </section>

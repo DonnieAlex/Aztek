@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1324 commands.
+1328 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -234,6 +234,12 @@ Make a light, selected: Create > Lights.
 | `decayRate` | `d` | decayRate |
 | `softShadow` | `ss` | castSoftShadows |
 | `discRadius` | `drs` | lightRadius |
+
+## DeleteHistory
+
+The reference's runtime command for Edit > Delete by Type > History: delete -constructionHistory on the selection, or on the objects given. The objects stay (#130).
+
+Arguments: objects
 
 ## DetachComponent
 
@@ -3278,6 +3284,14 @@ Arguments: the light
 | --- | --- | --- |
 | `set` | `set` | In or out. |
 
+## aztekParity
+
+How far Aztek is towards the reference, from the parity ledger (parity/ in the source): the share done over all its areas, and each area's counts. Shown at the foot of the welcome screen.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Read it (the only mode). |
+
 ## aztekPluginCallback
 
 Runs a compiled plug-in's message callback by its id; scriptJobs the kit makes call it.
@@ -3375,6 +3389,7 @@ Arguments: objects
 | --- | --- | --- |
 | `prePostDeformers` | `ppt` | Before and after the deformers. |
 | `preDeformers` | `pre` | Before the deformers. |
+| `postSmooth` | `nps` | With -prePostDeformers: the weights of the points the edits after the deformers made are smoothed with their neighbours'. |
 | `query` | `q` | Query. |
 
 ## bakePivot
@@ -6611,7 +6626,8 @@ Arguments: objects
 | `renameChildren` | `rc` | Give the children new unique names. |
 | `smartTransform` | `st` | Repeat the last duplicate's step. |
 | `transformsOnly` | `to` | Leave out the shapes. |
-| `instanceLeaf` | `ilf` | Accepted for existing scripts. |
+| `instanceLeaf` | `ilf` | Copy the hierarchy, with its leaf shapes instances of the originals'. |
+| `groupUnder` | `gu` | Where the copies go: parent (beside their originals, the default), world, or group (a new group, as -group). |
 
 ## duplicateCurve
 
@@ -8545,6 +8561,31 @@ Make a standard humanoid skeleton in T-pose, joints named Character1_Hips and so
 | `spineCount` | `sc` | Spine joints (3). |
 | `fingers` | `fg` | Fingers too. |
 | `character` | `ch` | Make the character definition too. |
+| `characterScale` | `cs` | Scale of the whole skeleton (1). |
+| `neckCount` | `nc` | Neck joints (1). |
+| `shoulderCount` | `shc` | Shoulder joints each side, 0 to 2 (1). |
+| `upperArmRolls` | `uar` | Roll bones in each upper arm, 0 to 5. |
+| `lowerArmRolls` | `lar` | Roll bones in each forearm, 0 to 5. |
+| `upperLegRolls` | `ulr` | Roll bones in each thigh, 0 to 5. |
+| `lowerLegRolls` | `llr` | Roll bones in each lower leg, 0 to 5. |
+| `thumb` | `th` | A thumb on each hand. |
+| `index` | `ix` | An index finger. |
+| `middle` | `md` | A middle finger. |
+| `ring` | `rg` | A ring finger. |
+| `pinky` | `pk` | A pinky. |
+| `extraFinger` | `xf` | An extra finger. |
+| `fingerBones` | `fb` | Bones in each finger, 1 to 4 (3). |
+| `fingerBase` | `fbs` | A finger base joint in each hand. |
+| `inHandBones` | `ihb` | An in-hand bone before each finger. |
+| `footThumb` | `ft` | A big toe (foot thumb) on each foot. |
+| `toeIndex` | `ti` | An index toe. |
+| `toeMiddle` | `tm` | A middle toe. |
+| `toeRing` | `tr` | A ring toe. |
+| `toePinky` | `tp` | A pinky toe. |
+| `extraToe` | `xt` | An extra toe. |
+| `toeBones` | `tb` | Bones in each toe, 1 to 4 (3). |
+| `toeBase` | `tbs` | A toe base joint in each foot (made anyway when there are no toes). |
+| `inFootBones` | `ifb` | An in-foot bone before each toe. |
 
 ## hikDefinitionStatus
 
@@ -14700,6 +14741,15 @@ Conform the selected components to a fitted shape: line, circle, square or recta
 | `sides` |  | Circle: 3 or more makes it a regular polygon. |
 | `axis` |  | Cylinder: auto (fitted), x, y or z (object axes). |
 | `strength` |  | How far toward the shape, 0 to 1; soft selection fades it further. |
+
+## polyConformToLive
+
+Mesh > Conform, as the reference's (#165): the selected components onto the live surface, along their normals (the nearest hit either way along each point's normal) or to the closest point, then surfaceOffset along the surface's normal. Without a live surface it says so and changes nothing.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `projection` |  | normals: along each point's normal; closest: to the closest point. |
+| `surfaceOffset` |  | How far off the surface, along its normal, in world units. |
 
 ## polyConformToObject
 
@@ -22719,7 +22769,7 @@ Arguments: name
 
 ## textureDeformer
 
-Texture Deformer: displaces points by a procedural value plus whatever is connected to .texture. Returns [textureDeformer1].
+Texture Deformer: moves points by the texture connected to the deformer's .texture, with a handle whose up axis is the direction by default. Returns [textureDeformer1, textureDeformerHandle1].
 
 Arguments: what to deform, and any target last (the selection when none); the deformer with -e and -q
 
@@ -22733,14 +22783,13 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
-| `strength` | `str` | Multiplies the texture (1). |
-| `offset` | `off` | Added to the displacement. |
-| `direction` | `dir` | 0 normal, 1 vector. |
+| `strength` | `s` | How far a white texture moves points (1). |
+| `offset` | `o` | Added to the move, not scaled by strength. |
+| `direction` | `d` | 0 normal, 1 the handle's up axis (the default), 2 vector. |
+| `vectorSpace` | `vsp` | With direction vector: 0 object, 1 world, 2 tangent. |
 | `vectorStrength` | `vs` | With direction vector: on each axis. |
 | `vectorOffset` | `vo` | With direction vector: added on each axis. |
-| `noiseFrequency` | `nf` | How fine the procedural texture is (1). |
-| `noiseAmplitude` | `na` | How strong the procedural texture is (1). |
-| `pointSpace` | `ps` | 0 world, 1 local. |
+| `pointSpace` | `ps` | 0 world, 1 local, 2 UV (the default). |
 
 ## textureLassoContext
 
@@ -24487,6 +24536,18 @@ Arguments: name
 | `topLeftCorner` | `tlc` |  |
 | `widthHeight` | `wh` |  |
 | `widthProperty` | `wp` |  |
+
+## workspaceLayoutManager
+
+The window's workspaces, as the reference's: -setCurrent name switches to one, -q -current names the one shown, -listLayouts lists them, -reset puts the current one back as it ships (#134).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Read. |
+| `setCurrent` | `sc` | Switch to this workspace. |
+| `current` | `cu` | Query: the workspace shown. |
+| `listLayouts` | `ll` | The workspaces there are. |
+| `reset` | `rs` | The current workspace as it ships. |
 
 ## wrap
 

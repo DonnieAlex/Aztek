@@ -10,6 +10,55 @@
   <a href="https://ko-fi.com/turtleface"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
+## Build
+
+    git clone https://github.com/srlegrand/Aztek.git
+    cd Aztek
+    ./build.sh --deps --run          # Linux
+    ./build-macos.sh --deps --run    # macOS, with Homebrew
+    .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022 and Qt (details below)
+
+Prebuilt packages are under [Install](#install).
+
+<details>
+<summary>Build details for Linux, macOS and Windows</summary>
+
+**Linux.** `--deps` installs the build dependencies (apt, dnf or pacman) and only needs running once; `--run` starts Aztek
+afterwards; `--install` puts it in `~/.local` with a menu entry and icon; `--debug` builds into `build-debug/`. Rust comes from [rustup](https://rustup.rs). An active conda
+environment is fine: the script ignores conda's Python and libraries.
+
+Python 3.12 is the only version Aztek embeds, as the reference's is 3.12. The build uses the system's `python3.12` with
+its development files where the distribution has it (`--deps` installs it on Ubuntu 24.04 and Rocky), and elsewhere
+(Ubuntu 26.04, Arch and others with only newer versions) fetches a relocatable 3.12 from
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone) into `build/python` with
+`tools/python/fetch-python.sh`, checked against its SHA-256; the program links that one and installs it beside itself.
+A build against any other version stops with a message naming the one it found.
+
+**macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, Qt, Python 3.12, MoltenVK and Rust. The build is
+`build/aztek.app`. `--package` makes a self-contained `Aztek.app` and `dist/aztek-macos-<arch>.zip`, as the release
+build does; `--install` puts it in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked
+there yet.
+
+**Windows**, from PowerShell or a command prompt: `build.bat` needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", Rust from
+[rustup](https://rustup.rs) and CMake, Qt 6.4+ for MSVC from the [Qt online installer](https://www.qt.io/download-qt-installer-oss).
+Python 3.12 is used if installed (the `py` launcher's, else `python` on PATH); otherwise the script fetches one into
+`build\python` with `tools\python\fetch-python.ps1`. The script finds Visual Studio and the newest Qt
+under `C:\Qt` (or takes `-Qt C:\Qt\6.8.0\msvc2022_64`), builds, and makes a folder that runs by itself in `build\dist`:
+Qt's DLLs, the VC runtime and Python's standard library beside `aztek.exe`.
+
+**By hand**, on any of them: `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build`. The first build
+compiles the Rust core (a few minutes); later builds only rebuild what changed. `-DAZTEK_PYTHON=OFF` builds without
+Python.
+
+Options:
+
+    aztek [scene.ma|scene.mb] [--script file.mel|file.py] [--screenshot out.png]
+
+On KDE Plasma, Alt + drag moves windows by default: set System Settings > Window Management > Window Behavior >
+Window Actions > Modifier key to Meta.
+
+</details>
+
 ## This doesn't feel right!
 
 Aztek should feel like second nature to anyone who has spent years in a 3D package. If something doesn't work, or works but
@@ -23,15 +72,16 @@ It is also under Help > This doesn't feel right!, and the `AztekFeedback` runtim
 button's left folds it away, and brings it back; Aztek remembers which. Optionally add:
 
 - a screenshot of the app, which you can draw on with a pen, arrows, rectangles and text;
+- a video of Aztek's windows, 3, 5 or 10 seconds at 720p, recorded after a delay you set and kept under GitHub's 10 MB;
 - a zipped `.ma` copy of the current scene. Your scene stays as it is, and the copy has a generic name. It holds the names of everything in
   the scene and may hold file paths. Referenced files and textures are not included.
 
-Both are off by default and ask you to confirm. **Reports are public: never include work under NDA or anything confidential. If you do, it
+All are off by default and ask you to confirm. **Reports are public: never include work under NDA or anything confidential. If you do, it
 is at your own risk.**
 
 Sending a report makes no network request from the app. "Open on GitHub" opens a filled-in issue page in your browser, puts the picture on the clipboard (Ctrl+V
 in the description box) and shows the folder holding the attachments, under `feedback/` in the app's data location, so the zip can be dragged
-in. You need a GitHub account, and nothing is public until you press Submit on that page. The window shows exactly what the page will be
+in. GitHub plays the video in the issue. You need a GitHub account, and nothing is public until you press Submit on that page. The window shows exactly what the page will be
 filled in with. GitHub takes files up to 25 MB and images up to 10 MB.
 
 ## Fix it yourself
@@ -240,7 +290,7 @@ A 3D application for modelling, UVs, rigging, animation, dynamics and rendering,
 geometry, Vulkan viewport), Qt Widgets shell in C++, a MEL interpreter, and embedded Python with `aztek.cmds`,
 compatibility modules so existing scripts import unchanged, and the Python API, OpenAztek (`aztek.api.OpenAztek`, and 1.0 as
 `aztek.OpenAztek`), which those scripts reach as `maya.api.OpenMaya` and `maya.OpenMaya`. Reads and writes `.ma` and `.mb` files; USD and OBJ come as plug-ins (mayaUsdPlugin, objExport), as in the reference. [PARITY.md](PARITY.md) has the behaviour
-target and status, including known differences; [docs/COMMANDS.md](docs/COMMANDS.md) lists all 1236 commands;
+target and status, including known differences; [docs/COMMANDS.md](docs/COMMANDS.md) lists all 1328 commands;
 [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) lists the environment variables and which are read.
 
 Website: [srlegrand.github.io/Aztek](https://srlegrand.github.io/Aztek/). Licence: [MIT-0](LICENSE).
@@ -348,6 +398,9 @@ Every extra copy makes the project harder to lose.
 
 - **Scripting:** MEL (procedures, arrays, control flow, backticks), Python, the Python API OpenAztek, 2.0 and 1.0
   (`aztek.api.OpenAztek`, `aztek.OpenAztek`, `MScriptUtil` and all; the same modules as `maya.api.OpenMaya` and `maya.OpenMaya`), Python plug-ins of either API with `MPxCommand` and `MPxNode`; `scriptJob`, `scriptNode` and `evalDeferred`.
+  The global MEL procedures scripts expect to find (`performDuplicate`, `FileMenu_SaveItem`, `toggleUIComponentVisibility`
+  and the rest) come with Aztek in [scripts/](scripts/README.md), each written from a description of what the
+  reference's does; 47 files so far, with what they still need in [docs/SCRIPT_GAPS.md](docs/SCRIPT_GAPS.md).
 
   ![A MEL script in the Script Editor building cubes with expressions, then playing them](docs/scripting.gif)
 - **Script-built interface:** `window`, layouts, controls, menus and dialogs from MEL or Python become Qt widgets;
@@ -363,7 +416,9 @@ Every extra copy makes the project harder to lose.
 **Interface**
 
 - **Interface:** menu sets, shelves with an editor, hotkey editor, marking menus, hotbox, channel box, outliner, attribute
-  editor, node editor, tool settings, panel layouts, workspaces.
+  editor, node editor, tool settings, panel layouts, workspaces. The Render View, Hypershade, UV Editor and Node Editor
+  open as floating panels with the system's window border; dragged by their title onto the main window or another panel,
+  they dock there, beside it or as a tab.
 - **Units and up axis:** Y or Z up throughout (cameras, views, grid, primitives, files), and working units in every
   linear, angular and time unit, set in Preferences > Settings, with new scene defaults in File > New Scene's options.
 
@@ -435,7 +490,7 @@ Soft selection (B), falloff shown on the vertices:
 
 ![Soft selection](docs/soft-select.png)
 
-UV Editor: automatic projection and layout:
+UV Editor and its UV Toolkit, a crate unfolded and laid out:
 
 ![UV Editor](docs/uv-editor.png)
 
@@ -447,7 +502,7 @@ The production rig in another pose, its controls driving joints, skin and blend 
 
 ![Production rig posed](docs/rig-pose.png)
 
-Joints, smooth skin and an RP IK handle:
+A skinned arm with an RP IK handle and its controls:
 
 ![Rigging](docs/rigging.png)
 
@@ -455,7 +510,7 @@ Paint Skin Weights, with the influence list and brush settings in Tool Settings:
 
 ![Paint weights](docs/paint-weights.png)
 
-NURBS surfaces and curves, with a drawing override on the control:
+NURBS surfaces from curves: a revolved vase, a loft, an extrusion along a path and a trimmed plane:
 
 ![NURBS](docs/nurbs.png)
 
@@ -463,7 +518,7 @@ Quad Draw on a live surface:
 
 ![Quad Draw](docs/quad-draw.png)
 
-Dope Sheet, with a breakdown in green:
+Dope Sheet, with the walking robot's keys:
 
 ![Dope Sheet](docs/dope-sheet.png)
 
@@ -473,11 +528,11 @@ Node Editor:
 
 ## Themes
 
-The reference has one look, and Aztek Classic is it, the default. The **Themes** box at the top right of the menu bar
+The reference has one look, and Classic is it, the default. There are 26 built-in themes. The **Themes** box at the top right of the menu bar
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
 Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Keating,
 Novacek, Springer and Buxton are the Dracula, Nord and Solarized colour schemes as their authors publish them; Shaq
-follows Unreal Engine 5's editor, DonnieAlex Blender's, Martino Softimage XSI and Boisvert macOS. The timeline and the drawn editors (Graph,
+follows Unreal Engine 5's editor, DonnieAlex Blender's, Martino Softimage XSI and Macintosh macOS. The timeline and the drawn editors (Graph,
 Node and UV Editor, marking menus) keep their own colours.
 
 **Random!**, at the bottom of the box, makes a theme with every option at random, fonts included, and applies it: pick
@@ -499,8 +554,8 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 
 | | | |
 |---|---|---|
-| ![Aztek Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Nicolas](docs/theme-violet.jpg) |
-| **Aztek Classic**: the reference's look, and the default | **Brinsmead**: pure black and electric cyan, monospaced type, square corners, cyan section bars | **Nicolas**: near-black with bold violet highlights and gold section bars |
+| ![Classic](docs/theme-classic.jpg) | ![Brinsmead](docs/theme-obsidian.jpg) | ![Nicolas](docs/theme-violet.jpg) |
+| **Classic**: the reference's look, and the default | **Brinsmead**: pure black and electric cyan, monospaced type, square corners, cyan section bars | **Nicolas**: near-black with bold violet highlights and gold section bars |
 | ![Flav](docs/theme-carbon.jpg) | ![Kurtenbach](docs/theme-tangerine.jpg) | ![Kovacs](docs/theme-midnight.jpg) |
 | **Flav**: blue-grey charcoal and teal, round corners, pill tabs | **Kurtenbach**: charcoal and tangerine, geometric type, bold menus, borderless pills with big round corners | **Kovacs**: deep navy and gold, serif type with italic menus, round-topped tabs |
 | ![Gibson](docs/theme-graphite.jpg) | ![Shaq](docs/theme-shaq.jpg) | ![Springer](docs/theme-solarized-dark.jpg) |
@@ -520,8 +575,8 @@ copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pas
 | **Wavefront**: the light grey workstation desktop the reference first ran on | **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **Hourcade**: pale sky blue and navy, humanist type, navy section bars, round pills |
 | ![Buxton](docs/theme-solarized-light.jpg) | ![Hall](docs/theme-paper.jpg) | ![AshT](docs/theme-ash.jpg) |
 | **Buxton**: Solarized light with its cyan and magenta: serif type, round-topped tabs | **Hall**: cream paper and red ink, typewriter type, bold menus, square corners, black section bars | **AshT**: after Hello Kitty: candy pink and white, red highlights and section bars, black outlines, rounded type |
-| ![Boisvert](docs/theme-macos.jpg) | ![Stam](docs/theme-lilac.jpg) |  |
-| **Boisvert**: after macOS: pale grey windows, white controls and fields, its blue, SF Pro, soft round corners, segmented tabs | **Stam**: mint and teal, rounded type, gradients, the roundest corners |  |
+| ![Macintosh](docs/theme-macos.jpg) | ![Stam](docs/theme-lilac.jpg) |  |
+| **Macintosh**: after macOS: pale grey windows, white controls and fields, its blue, SF Pro, soft round corners, segmented tabs | **Stam**: mint and teal, rounded type, gradients, the roundest corners |  |
 
 ## Install
 
@@ -548,54 +603,6 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
 draws through MoltenVK, which comes inside Aztek.app.
 [docs/PACKAGING.md](docs/PACKAGING.md) has the details, and how the packages are built.
-
-## Build
-
-Linux:
-
-    ./build.sh --deps --run
-
-`--deps` installs the build dependencies (apt, dnf or pacman) and only needs running once; `--run` starts Aztek
-afterwards; `--install` puts it in `~/.local` with a menu entry and icon; `--debug` builds into `build-debug/`. Rust comes from [rustup](https://rustup.rs). An active conda
-environment is fine: the script ignores conda's Python and libraries.
-
-Python 3.12 is the only version Aztek embeds, as the reference's is 3.12. The build uses the system's `python3.12` with
-its development files where the distribution has it (`--deps` installs it on Ubuntu 24.04 and Rocky), and elsewhere
-(Ubuntu 26.04, Arch and others with only newer versions) fetches a relocatable 3.12 from
-[python-build-standalone](https://github.com/astral-sh/python-build-standalone) into `build/python` with
-`tools/python/fetch-python.sh`, checked against its SHA-256; the program links that one and installs it beside itself.
-A build against any other version stops with a message naming the one it found.
-
-macOS, with [Homebrew](https://brew.sh):
-
-    ./build-macos.sh --deps --run
-
-`--deps` installs Xcode's command line tools, CMake, Ninja, Qt, Python 3.12, MoltenVK and Rust. The build is
-`build/aztek.app`. `--package` makes a self-contained `Aztek.app` and `dist/aztek-macos-<arch>.zip`, as the release
-build does; `--install` puts it in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked
-there yet.
-
-Windows, from PowerShell or a command prompt:
-
-    build.bat -Run
-
-Needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", Rust from
-[rustup](https://rustup.rs) and CMake, Qt 6.4+ for MSVC from the [Qt online installer](https://www.qt.io/download-qt-installer-oss).
-Python 3.12 is used if installed (the `py` launcher's, else `python` on PATH); otherwise the script fetches one into
-`build\python` with `tools\python\fetch-python.ps1`. The script finds Visual Studio and the newest Qt
-under `C:\Qt` (or takes `-Qt C:\Qt\6.8.0\msvc2022_64`), builds, and makes a folder that runs by itself in `build\dist`:
-Qt's DLLs, the VC runtime and Python's standard library beside `aztek.exe`.
-
-By hand, on either: `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build`. The first build
-compiles the Rust core (a few minutes); later builds only rebuild what changed. `-DAZTEK_PYTHON=OFF` builds without
-Python.
-
-Options:
-
-    aztek [scene.ma|scene.mb] [--script file.mel|file.py] [--screenshot out.png]
-
-On KDE Plasma, Alt + drag moves windows by default: set System Settings > Window Management > Window Behavior >
-Window Actions > Modifier key to Meta.
 
 ## Hotkeys
 
@@ -639,7 +646,7 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
   Themes box keeps docked panels where they are.
 - Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, every change of the day
   in its commit's words and the newest announcements when update checks are on, a parity bar along the foot (the share of the
-  reference's commands and flags Aztek takes, `aztekParity -q`), and a greyhound under the links.
+  reference's commands and flags Aztek takes, `aztekParity -q`: 57.0% on 20/11/2026), and a greyhound under the links.
 
   ![Welcome screen](docs/welcome-screen.png)
 - Modeling Toolkit (Windows > Modeling Editors), docked beside the Attribute Editor: selection types (Ctrl converts,
