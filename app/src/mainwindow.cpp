@@ -44,6 +44,8 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QDockWidget>
+#include <QGuiApplication>
+#include <QChildEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -2358,10 +2360,41 @@ void MainWindow::show_attribute_editor() {
     attr_dock_->raise();
 }
 
+// A panel floated off the main window is a window of the system's own, with its border, title and buttons, as the
+// reference's are; its title bar inside still docks it when dragged onto the main window (#197). On X11 Qt draws a
+// floating panel with no border of its own, so the flags are set once the mouse is let go, not mid-drag.
+static void frame_floating(QPointer<QDockWidget> d) {
+    if (!d || !d->isFloating()) return;
+    if (QGuiApplication::mouseButtons() != Qt::NoButton) {
+        QTimer::singleShot(50, d, [d] { frame_floating(d); });
+        return;
+    }
+    const Qt::WindowFlags framed = Qt::Tool | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowSystemMenuHint |
+                                   Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint;
+    if ((d->windowFlags() & framed) == framed && !(d->windowFlags() & Qt::FramelessWindowHint)) return;
+    const QRect g = d->geometry();
+    d->setWindowFlags(framed);
+    d->setGeometry(g);
+    d->show();
+    d->raise();
+}
+
+static void framed_when_floating(QDockWidget* d) {
+    if (d->property("aztekFramed").toBool()) return;
+    d->setProperty("aztekFramed", true);
+    QObject::connect(d, &QDockWidget::topLevelChanged, d, [d](bool floating) {
+        if (floating) QTimer::singleShot(0, d, [p = QPointer<QDockWidget>(d)] { frame_floating(p); });
+    });
+    if (d->isFloating()) frame_floating(d);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Marking menus and hotkeys
 
 bool MainWindow::eventFilter(QObject* o, QEvent* e) {
+    if (e->type() == QEvent::ChildPolished && o == this) {
+        if (auto* d = qobject_cast<QDockWidget*>(static_cast<QChildEvent*>(e)->child())) framed_when_floating(d);
+    }
     // Text dragged with the middle button from any text field or editor, as the reference allows: dropped on a shelf
     // it makes a button (#117). Script Editor tabs carry their own language; elsewhere Python is told by its look.
     if (e->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent*>(e)->button() == Qt::MiddleButton) {

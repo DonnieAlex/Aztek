@@ -1846,6 +1846,12 @@ Ten seconds of a busy screen could pass 10 MB, which GitHub refuses. The encoder
 frame when it must to keep to that, the frame before shown for longer. A recording that still reaches 10 MB stops
 there, and the report window says after how many seconds.
 
+### Floating panels have the system's window border, title and buttons (20/11/2026, #197)
+
+On Linux, a floating panel (the UV Editor, Render View, Hypershade, Node Editor or any other one undocked) had no window
+border. It now gets the system's border, title bar and buttons once it is let go. Its own title bar inside still docks
+it when dragged onto the main window, as in the reference.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
