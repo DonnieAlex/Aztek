@@ -331,7 +331,7 @@ const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizonta
 pub(crate) const SLIDER_GRP: &str = "label:l:a field:f:b value:v:a minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderStep:ss:a step:s:a fieldStep:fs:a extraLabel:el:a changeCommand:cc:a dragCommand:dc:a";
 const FIELD: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a changeCommand:cc:a dragCommand:dc:a enterCommand:ec:a receiveFocusCommand:rfc:a editable:ed:b";
 pub(crate) const FIELD_GRP: &str = "label:l:a numberOfFields:nf:a value:v:a value1:v1:a value2:v2:a value3:v3:a value4:v4:a extraLabel:el:a changeCommand:cc:a changeCommand1:cc1:a changeCommand2:cc2:a changeCommand3:cc3:a changeCommand4:cc4:a dragCommand:dc:a dragCommand1:dc1:a dragCommand2:dc2:a dragCommand3:dc3:a dragCommand4:dc4:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b";
-const MENU: &str = "label:l:a tearOff:to:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b familyImage:fi:a mnemonic:mn:a ltVersion:lt:a version:ver:a scrollable:scr:b";
+const MENU: &str = "label:l:a tearOff:to:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b familyImage:fi:a mnemonic:mn:a ltVersion:lt:a version:ver:a scrollable:srb:b helpMenu:hm:b";
 
 /// (command, flags). `long:short:type`, type b a switch, a any value, aN N values per use.
 const KINDS: &[(&str, &str)] = &[
@@ -376,7 +376,7 @@ const KINDS: &[(&str, &str)] = &[
     ("radioButtonGrp", "label:l:a numberOfRadioButtons:nrb:a label1:l1:a label2:l2:a label3:l3:a label4:l4:a labelArray2:la2:a2 labelArray3:la3:a3 labelArray4:la4:a4 select:sl:a shareCollection:scl:a changeCommand:cc:a changeCommand1:cc1:a changeCommand2:cc2:a changeCommand3:cc3:a changeCommand4:cc4:a onCommand:onc:a onCommand1:on1:a onCommand2:on2:a onCommand3:on3:a onCommand4:on4:a offCommand:ofc:a offCommand1:of1:a offCommand2:of2:a offCommand3:of3:a offCommand4:of4:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b data1:da1:a data2:da2:a data3:da3:a data4:da4:a editable:ed:b vertical:vr:b"),
     ("optionMenu", "label:l:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b beforeShowPopup:bsp:a postMenuCommand:pmc:a"),
     ("optionMenuGrp", "label:l:a extraLabel:el:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b"),
-    ("menuItem", "label:l:a command:c:a subMenu:sm:b tearOff:to:b checkBox:cb:b radioButton:rb:b divider:d:b dividerLabel:dl:a optionBox:ob:b optionBoxIcon:obi:a boldFont:bld:b italicized:itl:b image:i:a imageOverlayLabel:iol:a insertAfter:ia:a collection:cl:a data:da:a dragMenuCommand:dmc:a dragDoubleClickCommand:ddc:a echoCommand:ec:b radialPosition:rp:a mnemonic:mn:a keyEquivalent:ke:a altModifier:alt:b ctrlModifier:ctl:b shiftModifier:sht:b commandModifier:cmd:b sourceType:stp:a isOptionBox:iob:b isCheckBox:icb:b isRadioButton:irb:b familyImage:fi:a version:ver:a ltVersion:lt:a allowOptionBoxes:aob:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
+    ("menuItem", "label:l:a command:c:a subMenu:sm:b tearOff:to:b checkBox:cb:b radioButton:rb:b divider:d:b dividerLabel:dl:a optionBox:ob:b optionBoxIcon:obi:a boldFont:bld:b italicized:itl:b image:i:a imageOverlayLabel:iol:a insertAfter:ia:a collection:cl:a data:da:a dragMenuCommand:dmc:a dragDoubleClickCommand:ddc:a echoCommand:ec:b radialPosition:rp:a mnemonic:mn:a keyEquivalent:ke:a altModifier:alt:b ctrlModifier:ctl:b shiftModifier:sht:b commandModifier:cmd:b sourceType:stp:a isOptionBox:iob:b isCheckBox:icb:b isRadioButton:irb:b familyImage:fi:a version:ver:a ltVersion:lt:a allowOptionBoxes:aob:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b enableCommandRepeat:ecr:b header:hdr:b longDivider:ld:b runTimeCommand:rtc:a"),
     ("menu", MENU),
     ("popupMenu", "button:b:a ctrlModifier:ctl:b altModifier:alt:b shiftModifier:sht:b markingMenu:mm:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
     ("separator", "style:st:a horizontal:hr:b"),
@@ -591,7 +591,13 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
                 set(m, id, &format!("label{}", i + 1), json!(text(v)), changed);
             }
         }
-        ("radioButtonGrp", "select") => set(m, id, key, json!(number(raw) as i64), changed),
+        ("radioButtonGrp", "select") => {
+            let n = number(raw) as i64;
+            set(m, id, key, json!(n), changed);
+            if n > 0 {
+                share_exclusive(m, id);
+            }
+        }
         ("optionMenu" | "optionMenuGrp", "value") => {
             let want = text(raw);
             let items = menu_items(m, id);
@@ -1022,6 +1028,27 @@ fn menu_items(m: &Model, id: Id) -> Vec<(String, String)> {
 fn collection_members(m: &Model, coll: Id) -> Vec<Id> {
     let path = m.get(coll).map(|c| c.path.clone()).unwrap_or_default();
     m.controls.iter().filter(|(_, c)| c.props.get("collection").and_then(Value::as_str) == Some(path.as_str())).map(|(i, _)| *i).collect()
+}
+
+/// radioButtonGrp -shareCollection: groups sharing one collection have one button on between them, so picking in one
+/// clears the others.
+fn share_exclusive(m: &mut Model, id: Id) {
+    let shared = |m: &Model, i: Id| m.get(i).and_then(|c| c.props.get("shareCollection")).map(text).filter(|s| !s.is_empty()).and_then(|s| m.find(&s));
+    // The group the set is named by: the first one, which the others point at.
+    let root = |m: &Model, i: Id| shared(m, i).unwrap_or(i);
+    let mine = root(m, id);
+    let others: Vec<Id> = m.controls.iter().filter(|(k, c)| **k != id && c.kind == "radioButtonGrp").map(|(k, _)| *k).filter(|&k| root(m, k) == mine).collect();
+    if others.is_empty() {
+        return;
+    }
+    for k in others {
+        if let Some(c) = m.controls.get_mut(&k) {
+            if c.props.get("select").is_some_and(|v| number(v) > 0.0) {
+                c.props.insert("select".into(), json!(0));
+                op(json!({"op": "edit", "path": c.path, "props": {"select": 0}}));
+            }
+        }
+    }
 }
 
 fn radio_exclusive(m: &mut Model, id: Id) {

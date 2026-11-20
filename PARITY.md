@@ -1963,6 +1963,18 @@ the rest are missing. It is ticked by hand: the scripts' own rows say which file
 - An `&` in a menu, menu item or button label shows as written instead of becoming a keyboard mnemonic.
 - Menus scripts add to the main window stay on the menu bar, after Help, when the menu set changes.
 
+### Commands the scripts' windows lean on: dimWhen, showHelp, mayaDpiSetting, shared radio groups (20/11/2026)
+
+- `dimWhen` dims a control or menu item while a named condition is true (`-t`, the default) or false (`-f`), and
+  follows the condition as it changes; `-c` stops it.
+- `showHelp` opens help in the browser: `-a` an address as given, otherwise Aztek's own documentation, by page or
+  topic; `-q` gives the address, `-v` the reference version followed; `-ht` is kept.
+- `mayaDpiSetting` sets the interface scaling Aztek starts with: by the system's DPI, a set 100%, 125%, 150% or
+  200%, or none; `-q` reads the mode, the scale, the scale in effect and the system's DPI.
+- `radioButtonGrp -shareCollection`: groups sharing a collection have one button on between them.
+- `menu -helpMenu` and `-scrollable` (short name `-srb`), and `menuItem -enableCommandRepeat`, `-header`,
+  `-longDivider` and `-runTimeCommand`, are taken.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

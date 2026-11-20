@@ -58,6 +58,8 @@ struct State {
 
 thread_local! {
     static STATE: RefCell<State> = RefCell::new(State::default());
+    /// showHelp -helpTable.
+    static HELP_TABLE: RefCell<String> = RefCell::new("helpTable".to_string());
 }
 
 fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
@@ -471,6 +473,85 @@ pub fn register(s: &mut Session) {
             .flag(f("rolloverMode", "rm", A, "Held only."))
             .flag(f("syntaxOnly", "so", B, "Only the synopsis."))
             .undoable(false),
+    );
+    s.register(
+        q_flags(Cmd::new("showHelp", "Opens help in the web browser: -a a full address as given; otherwise Aztek's documentation, -d a page under it, or a topic. -q gives the address it would open; -v the reference version it follows. -ht is held.", |_s, a| {
+            const DOCS: &str = "https://github.com/srlegrand/Aztek";
+            if a.bool("query") {
+                if a.bool("version") || a.get("queried").is_some_and(|q| q.to_string().contains("version")) {
+                    return Ok(json!(aztek_core::REFERENCE_VERSION));
+                }
+                if a.get("queried").is_some_and(|q| q.to_string().contains("helpTable")) {
+                    return Ok(json!(HELP_TABLE.with(|h| h.borrow().clone())));
+                }
+            }
+            if let Some(t) = a.get("helpTable").and_then(Value::as_str) {
+                HELP_TABLE.with(|h| *h.borrow_mut() = t.to_string());
+                return Ok(Value::Null);
+            }
+            let what = a.get("docs").and_then(Value::as_str).or_else(|| a.get("absolute").and_then(Value::as_str)).or_else(|| a.pos_str(0)).unwrap_or_default().to_string();
+            // Aztek's documentation is its README and docs folder: a page or topic opens the README, searched for it.
+            let url = if a.has("absolute") || what.contains("://") {
+                what
+            } else if what.is_empty() {
+                format!("{DOCS}#readme")
+            } else {
+                format!("{DOCS}/search?q={}&type=code", what.replace(' ', "+"))
+            };
+            if a.bool("query") {
+                return Ok(json!(url));
+            }
+            crate::core::push_ui_request(format!("openUrl|{url}"));
+            Ok(Value::Null)
+        }))
+        .positional("[topic]")
+        .flag(f("absolute", "a", A, "A full address, opened as given."))
+        .flag(f("docs", "d", A, "A page under the documentation."))
+        .flag(f("helpTable", "ht", A, "The table topics are looked up in (held)."))
+        .flag(f("version", "v", B, "The reference version followed."))
+        .undoable(false),
+    );
+    s.register(
+        q_flags(Cmd::new("mayaDpiSetting", "Interface scaling, from the next start: -m 0 by the system's DPI, 1 by -sv (1, 1.25, 1.5 or 2), 2 none. -q -m, -sv, -rsv (the scale in effect) and -sd (the system DPI).", |s, a| {
+            // Kept as optionVars, which the application reads before it opens its windows.
+            let mode = s.option_vars.get("aztekDpiMode").and_then(|v| v.as_i64()).unwrap_or(0);
+            let scale = s.option_vars.get("aztekDpiScale").and_then(|v| v.as_f64()).unwrap_or(1.0);
+            let sys = std::env::var("AZTEK_SYSTEM_DPI").ok().and_then(|v| v.parse::<f64>().ok()).unwrap_or(96.0);
+            if a.bool("query") {
+                let q = a.get("queried").map(|v| v.to_string()).unwrap_or_default();
+                return Ok(if q.contains("realScaleValue") {
+                    json!(match mode {
+                        0 => sys / 96.0,
+                        1 => scale * sys / 96.0,
+                        _ => 1.0,
+                    })
+                } else if q.contains("scaleValue") {
+                    json!(if mode == 1 { scale } else { 1.0 })
+                } else if q.contains("systemDpi") {
+                    json!(sys.round() as i64)
+                } else {
+                    json!(mode)
+                });
+            }
+            if let Some(m) = a.get("mode").and_then(Value::as_i64) {
+                if !(0..=2).contains(&m) {
+                    fail!("mayaDpiSetting: -mode takes 0, 1 or 2.");
+                }
+                s.option_vars.insert("aztekDpiMode".into(), json!(m));
+            }
+            if let Some(v) = a.get("scaleValue").and_then(Value::as_f64) {
+                if ![1.0, 1.25, 1.5, 2.0].contains(&v) {
+                    fail!("mayaDpiSetting: -scaleValue takes 1.0, 1.25, 1.5 or 2.0.");
+                }
+                s.option_vars.insert("aztekDpiScale".into(), json!(v));
+            }
+            Ok(Value::Null)
+        }))
+        .flag(f("mode", "m", I, "0 system DPI, 1 custom, 2 none."))
+        .flag(f("scaleValue", "sv", Fl, "The custom scale."))
+        .flag(f("realScaleValue", "rsv", B, "The scale in effect."))
+        .flag(f("systemDpi", "sd", B, "The system's DPI."))
+        .undoable(false),
     );
     s.register(
         q_flags(Cmd::new("jointDisplayScale", "How big joints draw in the views: the scale, -q reads it. -a takes it as the size, the same number here since the default size is 1. -ik is only held: joints of ik/fk skeletons draw at the common scale.", |_s, a| {

@@ -62,6 +62,8 @@ struct Jobs {
     last_error: String,
     warned: HashSet<String>,
     warnings: Vec<String>,
+    /// dimWhen's jobs, by the control they dim.
+    dims: HashMap<String, Value>,
 }
 
 thread_local! {
@@ -630,6 +632,41 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(Cmd::new("getLastError", "The text of the last error reported.", |_s, _a| Ok(with_jobs(|j| json!(j.last_error)))).undoable(false));
+
+    s.register(
+        Cmd::new("dimWhen", "dimWhen [-f] [-t] [-c] condition control: dims a control or menu item while a named condition is true (-t, the default) or false (-f); -c stops it.", |s, a| {
+            let (Some(cond), Some(obj)) = (a.pos_str(0).map(str::to_string), a.pos_str(1).map(str::to_string)) else { fail!("dimWhen: give a condition and a control.") };
+            let is_item = s.run("menuItem", json!({"args": [obj], "exists": true})).ok().and_then(|v| v.as_bool()).unwrap_or(false);
+            let is_control = is_item || s.run("control", json!({"args": [obj], "exists": true})).ok().and_then(|v| v.as_bool()).unwrap_or(false);
+            if !is_control {
+                fail!("dimWhen: Object '{obj}' not found.");
+            }
+            if let Some(job) = with_jobs(|j| j.dims.remove(&obj)) {
+                let _ = s.run("scriptJob", json!({"kill": job, "force": true}));
+            }
+            if a.bool("clear") {
+                return Ok(Value::Null);
+            }
+            let dim_when = !a.bool("false");
+            let cmd = if is_item { "menuItem" } else { "control" };
+            // Enabled while the condition is not in the dimming state; set now, then on each change. A condition not
+            // known yet reads false until it is.
+            let set = |s: &mut Session| {
+                let on = probe_condition(s, &cond);
+                let _ = s.run(cmd, json!({"args": [obj], "edit": true, "enable": on != dim_when}));
+            };
+            set(s);
+            let script = format!("if (`{cmd} -exists \"{obj}\"`) {cmd} -e -en (`isTrue \"{cond}\"` != {}) \"{obj}\";", dim_when as i32);
+            if let Ok(job) = s.run("scriptJob", json!({"conditionChange": [cond, script], "parent": obj})) {
+                with_jobs(|j| j.dims.insert(obj, job));
+            }
+            Ok(Value::Null)
+        })
+        .positional("condition control")
+        .flag(f("true", "t", ArgType::Bool))
+        .flag(f("false", "f", ArgType::Bool))
+        .flag(f("clear", "c", ArgType::Bool)),
+    );
 
     s.register(
         Cmd::new("isTrue", "Whether a named condition holds, as scriptJob -conditionTrue reads them.", |s, a| {

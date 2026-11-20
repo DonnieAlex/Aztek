@@ -843,6 +843,21 @@ fn menus_lists_and_radios() {
     ok(&mut c, "menuItem -l \"Sub\" -sm true; menuItem -l \"In\"; setParent -menu \"..\"; setParent -menu \"..\"; menuItem -l \"Still\" still;");
     assert_eq!(ok(&mut c, "control -q -fpn still;"), json!("MayaWindow|starMenu|still"));
     ok(&mut c, "deleteUI -menu starMenu;");
+    // Radio groups sharing one collection: one button on between them.
+    ok(&mut c, "radioButtonGrp -nrb 2 -la2 \"x\" \"y\" -sl 1 shareA; radioButtonGrp -nrb 2 -scl shareA -la2 \"p\" \"q\" shareB;");
+    ok(&mut c, "radioButtonGrp -e -sl 2 shareB;");
+    assert_eq!(ok(&mut c, "radioButtonGrp -q -sl shareA;"), json!(0));
+    ok(&mut c, "radioButtonGrp -e -sl 1 shareA;");
+    assert_eq!(ok(&mut c, "radioButtonGrp -q -sl shareB;"), json!(0));
+    // dimWhen: dimmed while nothing is selected, and back when something is.
+    ok(&mut c, "select -cl; button -l \"Delete\" delButton; dimWhen -false SomethingSelected delButton;");
+    assert_eq!(ok(&mut c, "control -q -en delButton;"), json!(false));
+    ok(&mut c, "polyCube -n dimCube;");
+    c.idle();
+    assert_eq!(ok(&mut c, "control -q -en delButton;"), json!(true));
+    ok(&mut c, "dimWhen -c SomethingSelected delButton; select -cl;");
+    c.idle();
+    assert_eq!(ok(&mut c, "control -q -en delButton;"), json!(true));
 
     ok(&mut c, "optionMenu -l \"Axis\" om; menuItem -l \"X\"; menuItem -l \"Y\"; menuItem -l \"Z\";");
     assert_eq!(ok(&mut c, "optionMenu -q -v om;"), json!("X"));

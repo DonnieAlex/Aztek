@@ -14,6 +14,10 @@
 #include "widgets.h"
 #include <QCommandLineParser>
 #include <QFile>
+#include <QDir>
+#include <QScreen>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <QPalette>
 #include <QStyleFactory>
 #ifdef Q_OS_WIN
@@ -79,7 +83,20 @@ int main(int argc, char** argv) {
     if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) qputenv("QT_QPA_PLATFORM", "xcb");
 #endif
     QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
+    // Interface scaling as mayaDpiSetting left it (optionVars aztekDpiMode, aztekDpiScale): 0 by the system's DPI,
+    // Qt's own; 1 a set scale; 2 none. The environment's own settings win.
+    if (qEnvironmentVariableIsEmpty("QT_SCALE_FACTOR") && qEnvironmentVariableIsEmpty("QT_ENABLE_HIGHDPI_SCALING")) {
+        const QString prefs = qEnvironmentVariableIsEmpty("AZTEK_PREFS") ? QDir::homePath() + "/.aztek" : qEnvironmentVariable("AZTEK_PREFS");
+        QFile f(prefs + "/optionVars.json");
+        if (f.open(QIODevice::ReadOnly)) {
+            const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+            const int mode = o["aztekDpiMode"].toInt(0);
+            if (mode == 1) qputenv("QT_SCALE_FACTOR", QByteArray::number(o["aztekDpiScale"].toDouble(1.0)));
+            if (mode == 2) qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+        }
+    }
     QApplication app(argc, argv);
+    if (QScreen* screen = QGuiApplication::primaryScreen()) qputenv("AZTEK_SYSTEM_DPI", QByteArray::number(screen->logicalDotsPerInch()));
     // The Qt this runs on, for about -qtVersion and the PySide check in Python.
     qputenv("AZTEK_QT_VERSION", qVersion());
     QApplication::setOrganizationName("Aztek");

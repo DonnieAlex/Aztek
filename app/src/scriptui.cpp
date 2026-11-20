@@ -2155,9 +2155,19 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             if (props.contains("enable" + slot)) r->setEnabled(as_bool(props["enable" + slot], true));
         }
         if (props.contains("select") && it->buttons) {
-            if (auto* b = it->buttons->button(int(as_number(props["select"])))) {
+            const int sel = int(as_number(props["select"]));
+            if (auto* b = it->buttons->button(sel)) {
                 QSignalBlocker block(b);
                 b->setChecked(true);
+            } else if (sel == 0) {
+                // None on: another group sharing the collection took it. An exclusive group won't let go of its
+                // checked button, so it is cleared with exclusivity off.
+                it->buttons->setExclusive(false);
+                for (QAbstractButton* b : it->buttons->buttons()) {
+                    QSignalBlocker block(b);
+                    b->setChecked(false);
+                }
+                it->buttons->setExclusive(true);
             }
         }
     } else if (k == "optionMenuGrp") {

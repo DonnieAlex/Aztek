@@ -966,6 +966,8 @@ void MainWindow::handle_ui_request(const QString& r) {
         });
     } else if (name == "setTool") {
         set_tool(payload);
+    } else if (name == "openUrl") {
+        QDesktopServices::openUrl(QUrl::fromUserInput(payload));
     } else if (name == "ctxCompleted") {
         for (ViewportWidget* v : panels_->views()) v->set("finishTool", "true");
     } else if (name == "uvTool") {
