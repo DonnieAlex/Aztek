@@ -19,6 +19,28 @@ pub struct LineVertex {
     pub color: [f32; 4],
 }
 
+/// A corner of a line drawn as a band of triangles (the grid, #203): both ends of the line, its colour, which end this
+/// corner is at (0 or 1) and which side (-1 or 1).
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct SmoothLineVertex {
+    pub p0: [f32; 3],
+    pub p1: [f32; 3],
+    pub color: [f32; 4],
+    pub tv: [f32; 2],
+}
+
+/// Line pairs as bands of two triangles each, for Kind::SmoothLines.
+pub fn smooth_lines(lines: &[LineVertex]) -> Vec<SmoothLineVertex> {
+    let mut out = Vec::with_capacity(lines.len() * 3);
+    for pair in lines.chunks_exact(2) {
+        let (a, b) = (pair[0], pair[1]);
+        let v = |t: f32, side: f32| SmoothLineVertex { p0: a.pos, p1: b.pos, color: if t < 0.5 { a.color } else { b.color }, tv: [t, side] };
+        out.extend([v(0.0, -1.0), v(1.0, -1.0), v(1.0, 1.0), v(0.0, -1.0), v(1.0, 1.0), v(0.0, 1.0)]);
+    }
+    out
+}
+
 /// 8-bit colour to the vertex's float colour.
 pub fn c8(c: [u8; 4]) -> [f32; 4] {
     c.map(|x| x as f32 / 255.0)
@@ -328,6 +350,60 @@ void main() {
 }
 "#;
 
+// Lines smoothed by their own coverage rather than the samples: each is a band a pixel wider than the line on each side,
+// widened on screen, its edge fading over a pixel. n2 carries the view's size in pixels and the line's half width.
+const SMOOTH_VS: &str = r#"#version 450
+layout(location = 0) in vec3 a_p0;
+layout(location = 1) in vec3 a_p1;
+layout(location = 2) in vec4 a_color;
+layout(location = 3) in vec2 a_tv;
+layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; } pc;
+layout(location = 0) out vec4 v_color;
+layout(location = 1) out float v_dist;
+void main() {
+    vec4 c0 = pc.mvp * vec4(a_p0, 1.0);
+    vec4 c1 = pc.mvp * vec4(a_p1, 1.0);
+    float near = 1e-5;
+    v_color = a_color * pc.color;
+    v_dist = 0.0;
+    if (c0.w < near && c1.w < near) {
+        gl_Position = vec4(4.0, 4.0, 0.0, 1.0);
+        return;
+    }
+    // An end behind the camera comes forward along the line to just in front of it.
+    if (c0.w < near) {
+        c0 = mix(c0, c1, (near - c0.w) / (c1.w - c0.w));
+    }
+    if (c1.w < near) {
+        c1 = mix(c1, c0, (near - c1.w) / (c0.w - c1.w));
+    }
+    vec2 half_vp = 0.5 * pc.n2.xy;
+    vec2 s0 = c0.xy / c0.w * half_vp;
+    vec2 s1 = c1.xy / c1.w * half_vp;
+    vec2 d = s1 - s0;
+    float len = length(d);
+    vec2 dir = len > 1e-6 ? d / len : vec2(1.0, 0.0);
+    vec2 nrm = vec2(-dir.y, dir.x);
+    float w = pc.n2.z + 1.0;
+    vec4 c = mix(c0, c1, a_tv.x);
+    c.xy += nrm * (a_tv.y * w) / half_vp * c.w;
+    gl_Position = c;
+    gl_Position.z *= 1.0 + pc.n0.w;
+    v_dist = a_tv.y * w;
+}
+"#;
+
+const SMOOTH_FS: &str = r#"#version 450
+layout(location = 0) in vec4 v_color;
+layout(location = 1) in float v_dist;
+layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; } pc;
+layout(location = 0) out vec4 out_color;
+void main() {
+    float cover = clamp(pc.n2.z + 0.5 - abs(v_dist), 0.0, 1.0);
+    out_color = vec4(v_color.rgb, v_color.a * cover);
+}
+"#;
+
 pub(crate) fn compile(src: &str, stage: naga::ShaderStage) -> Vec<u32> {
     let mut front = naga::front::glsl::Frontend::default();
     let module = front.parse(&naga::front::glsl::Options::from(stage), src).unwrap_or_else(|e| panic!("shader parse: {e:?}"));
@@ -364,6 +440,8 @@ pub enum Kind {
     /// A see-through material: blended, no depth write. Drawn after everything solid.
     MaterialBlend,
     MaterialBlendCull,
+    /// Lines as bands of triangles that fade at their edges: smooth at any sample count (#203). SmoothLineVertex.
+    SmoothLines,
 }
 
 pub struct Renderer {
@@ -562,6 +640,64 @@ impl Renderer {
                 d.destroy_shader_module(vs, None);
                 d.destroy_shader_module(fs, None);
             }
+            {
+                let vs = module(SMOOTH_VS, naga::ShaderStage::Vertex);
+                let fs = module(SMOOTH_FS, naga::ShaderStage::Fragment);
+                let stages = [
+                    vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::VERTEX).module(vs).name(c"main"),
+                    vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::FRAGMENT).module(fs).name(c"main"),
+                ];
+                let attrs = [
+                    vk::VertexInputAttributeDescription::default().location(0).format(vk::Format::R32G32B32_SFLOAT).offset(0),
+                    vk::VertexInputAttributeDescription::default().location(1).format(vk::Format::R32G32B32_SFLOAT).offset(12),
+                    vk::VertexInputAttributeDescription::default().location(2).format(vk::Format::R32G32B32A32_SFLOAT).offset(24),
+                    vk::VertexInputAttributeDescription::default().location(3).format(vk::Format::R32G32_SFLOAT).offset(40),
+                ];
+                let binding = [vk::VertexInputBindingDescription::default().stride(std::mem::size_of::<SmoothLineVertex>() as u32).input_rate(vk::VertexInputRate::VERTEX)];
+                let vin = vk::PipelineVertexInputStateCreateInfo::default().vertex_binding_descriptions(&binding).vertex_attribute_descriptions(&attrs);
+                let ia = vk::PipelineInputAssemblyStateCreateInfo::default().topology(vk::PrimitiveTopology::TRIANGLE_LIST);
+                let vp = vk::PipelineViewportStateCreateInfo::default().viewport_count(1).scissor_count(1);
+                let rs = vk::PipelineRasterizationStateCreateInfo::default()
+                    .polygon_mode(vk::PolygonMode::FILL)
+                    .cull_mode(vk::CullModeFlags::NONE)
+                    .front_face(vk::FrontFace::CLOCKWISE)
+                    .line_width(1.0);
+                let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(gpu.samples);
+                // Tested against what's drawn, written to nothing: the faded edges stay see-through.
+                let ds = vk::PipelineDepthStencilStateCreateInfo::default()
+                    .depth_test_enable(true)
+                    .depth_write_enable(false)
+                    .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
+                let blend = [vk::PipelineColorBlendAttachmentState::default()
+                    .blend_enable(true)
+                    .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                    .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .color_blend_op(vk::BlendOp::ADD)
+                    .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                    .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                    .alpha_blend_op(vk::BlendOp::ADD)
+                    .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
+                let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+                let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
+                let info = vk::GraphicsPipelineCreateInfo::default()
+                    .stages(&stages)
+                    .vertex_input_state(&vin)
+                    .input_assembly_state(&ia)
+                    .viewport_state(&vp)
+                    .rasterization_state(&rs)
+                    .multisample_state(&ms)
+                    .depth_stencil_state(&ds)
+                    .color_blend_state(&cb)
+                    .dynamic_state(&dy)
+                    .layout(layout)
+                    .render_pass(gpu.render_pass)
+                    .subpass(0);
+                let p = d.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None).map_err(|e| e.1).unwrap()[0];
+                pipelines.push((Kind::SmoothLines, p));
+                d.destroy_shader_module(vs, None);
+                d.destroy_shader_module(fs, None);
+            }
             Renderer { layout, pipelines, line_width: feats.wide_lines != 0, materials, material_layout, light_layout }
         }
     }
@@ -654,7 +790,7 @@ mod tests {
     /// A bad shader stops the whole viewport at start-up, and shows only with a device.
     #[test]
     fn every_shader_compiles() {
-        for (src, stage) in [(SHADED_VS, naga::ShaderStage::Vertex), (SHADED_FS, naga::ShaderStage::Fragment), (LINE_VS, naga::ShaderStage::Vertex), (LINE_FS, naga::ShaderStage::Fragment), (MATERIAL_VS, naga::ShaderStage::Vertex), (MATERIAL_FS, naga::ShaderStage::Fragment)] {
+        for (src, stage) in [(SHADED_VS, naga::ShaderStage::Vertex), (SHADED_FS, naga::ShaderStage::Fragment), (LINE_VS, naga::ShaderStage::Vertex), (LINE_FS, naga::ShaderStage::Fragment), (MATERIAL_VS, naga::ShaderStage::Vertex), (MATERIAL_FS, naga::ShaderStage::Fragment), (SMOOTH_VS, naga::ShaderStage::Vertex), (SMOOTH_FS, naga::ShaderStage::Fragment)] {
             assert!(!compile(src, stage).is_empty());
         }
     }
@@ -682,5 +818,26 @@ mod tests {
         ] {
             assert!(MATERIAL_FS.contains(line), "the viewport's lighting changed: {line}");
         }
+    }
+}
+
+#[cfg(test)]
+mod smooth_line_tests {
+    use super::*;
+
+    #[test]
+    fn each_line_becomes_a_band_of_two_triangles() {
+        // #203: the grid's lines are drawn as bands, both sides of each end.
+        let a = LineVertex { pos: [0.0, 0.0, 0.0], color: [1.0, 0.0, 0.0, 1.0] };
+        let b = LineVertex { pos: [1.0, 0.0, 0.0], color: [0.0, 1.0, 0.0, 1.0] };
+        let band = smooth_lines(&[a, b]);
+        assert_eq!(band.len(), 6);
+        for v in &band {
+            assert_eq!((v.p0, v.p1), (a.pos, b.pos));
+            assert_eq!(v.color, if v.tv[0] < 0.5 { a.color } else { b.color });
+        }
+        let corners: std::collections::BTreeSet<(i32, i32)> = band.iter().map(|v| (v.tv[0] as i32, v.tv[1] as i32)).collect();
+        assert_eq!(corners.len(), 4);
+        assert_eq!(std::mem::size_of::<SmoothLineVertex>(), 48);
     }
 }

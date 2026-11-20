@@ -1886,6 +1886,13 @@ it landed, so typing went in beside the old value. Either now takes the whole va
 typed replaces it; a further click in a value being edited places the cursor. The picked row's selection now shows,
 white on the highlight colour.
 
+### The grid smooths its own lines (20/11/2026, #203)
+
+The grid relied on the view's samples to smooth its lines, which left steps along the near-flat lines and uneven
+weight from cell to cell. Its lines are now bands drawn a pixel wider than the line on each side, fading over their
+edge by how far each pixel is from the line, so they are smooth with anti-aliasing on or off, and the thicker axes
+too. Wireframes, curves and manipulators still use the samples.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

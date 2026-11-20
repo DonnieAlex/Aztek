@@ -1148,21 +1148,24 @@ impl Viewport {
             self.grid_up_z = aztek_scene::world::up_z();
             self.grid_colors = colors;
             let (lines, bold) = self.grid_lines();
+            // Bands that fade at their edges, smooth whatever the samples (#203).
+            let (lines, bold) = (crate::render::smooth_lines(&lines), crate::render::smooth_lines(&bold));
             self.grid = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lines), lines.len() as u32));
             self.grid_bold = (!bold.is_empty()).then(|| (gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &bold), bold.len() as u32));
         }
         if self.show_grid {
-            r.bind(gpu, Kind::Lines);
-            r.set_line_width(gpu, 1.0);
-            r.push(gpu, &push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0));
+            r.bind(gpu, Kind::SmoothLines);
+            let mut p = push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0);
+            p.n2 = [w as f32, h as f32, 0.5, 0.0];
+            r.push(gpu, &p);
             let (gb, gn) = self.grid.as_ref().unwrap();
             if *gn > 0 {
                 r.draw(gpu, gb, None, *gn);
             }
             if let Some((bb, bn)) = &self.grid_bold {
-                r.set_line_width(gpu, 2.0);
+                p.n2[2] = 1.0;
+                r.push(gpu, &p);
                 r.draw(gpu, bb, None, *bn);
-                r.set_line_width(gpu, 1.0);
             }
         }
 
