@@ -40,11 +40,15 @@ public:
     // One of the application's own editors, for scripts to set up by the reference's name for it.
     void add_builtin_editor(const QString& name, const QString& kind, QWidget* w);
     void hook(const QString& kind, const QJsonObject& payload);
+    // The menus scripts put on the main window's menu bar, in the order they were made: the bar keeps them after the
+    // menu set's own when it is rebuilt for another menu set.
+    QList<QAction*> main_window_menus() const;
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
 private:
     struct Item;
     ScriptUi();
+    QList<QPointer<QMenu>> main_menus_;
     void apply_op(const QJsonObject& op);
     void create(const QJsonObject& op);
     void edit(Item* it, const QJsonObject& props);

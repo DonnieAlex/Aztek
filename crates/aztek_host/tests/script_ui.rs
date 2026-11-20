@@ -833,6 +833,16 @@ fn menus_lists_and_radios() {
     assert_eq!(ok(&mut c, "objectTypeUI MayaWindow;"), json!("floatingWindow"));
     assert!(c.mel_checked("deleteUI MayaWindow;").is_err());
     ok(&mut c, "deleteUI -menu toolsMenu;");
+    // #170: a flag straight after -command is read as that flag, so items sharing an annotation aren't given it as a
+    // name; and going up from the top menu stays on it.
+    ok(&mut c, "menu -p MayaWindow -l \"Star\" starMenu; menuItem -l \"A\" -command -ann (\"NOTE: the same note.\"); menuItem -l \"B\" -echoCommand true -command -ann (\"NOTE: the same note.\");");
+    assert_eq!(ok(&mut c, "menu -q -ni starMenu;"), json!(2));
+    let items = ok(&mut c, "menu -q -ia starMenu;");
+    let first = items[0].as_str().unwrap().to_string();
+    assert_eq!(ok(&mut c, &format!("menuItem -q -ann {first};")), json!("NOTE: the same note."));
+    ok(&mut c, "menuItem -l \"Sub\" -sm true; menuItem -l \"In\"; setParent -menu \"..\"; setParent -menu \"..\"; menuItem -l \"Still\" still;");
+    assert_eq!(ok(&mut c, "control -q -fpn still;"), json!("MayaWindow|starMenu|still"));
+    ok(&mut c, "deleteUI -menu starMenu;");
 
     ok(&mut c, "optionMenu -l \"Axis\" om; menuItem -l \"X\"; menuItem -l \"Y\"; menuItem -l \"Z\";");
     assert_eq!(ok(&mut c, "optionMenu -q -v om;"), json!("X"));

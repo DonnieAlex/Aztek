@@ -1264,6 +1264,8 @@ void MainWindow::build_menu_set(const QString& set) {
     help->addAction("About Aztek", [this] { show_about(this); });
     mb->addMenu(help);
     set_menus_.append(help);
+    // The menus scripts hung on the main window stay, after Help, whatever the menu set.
+    for (QAction* a : ScriptUi::get()->main_window_menus()) mb->addAction(a);
     if (hotbox_) hotbox_->deleteLater();
     hotbox_ = new Hotbox(set_menus_, 7, this);
     hotbox_->set_zones([this](int zone) { return hotbox_zone(zone); });

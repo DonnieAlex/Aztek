@@ -1953,6 +1953,16 @@ reference makes them. docs/SCRIPT_GAPS.md is down from 150 lines to 139, the new
 parameters and files. 626 are defined by Aztek's bundled scripts and 152 are commands Aztek has under the same name;
 the rest are missing. It is ticked by hand: the scripts' own rows say which file has them.
 
+### Menus from scripts: a flag straight after -command, a level up too many, ampersands, menu sets (20/11/2026, #170)
+
+- `menuItem -command -ann "..."`: a flag of the command straight after a flag that takes a value is read as that
+  flag, the first left empty, as the reference reads it. Aztek took the flag's name as the value, which left the
+  annotation as a name, so two items with the same note clashed.
+- `setParent -menu ".."` from a top-level menu stays on that menu, so a script that goes up once too often still puts
+  its next items there.
+- An `&` in a menu, menu item or button label shows as written instead of becoming a keyboard mnemonic.
+- Menus scripts add to the main window stay on the menu bar, after Help, when the menu set changes.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

@@ -200,8 +200,9 @@ pub fn parse(cmds: &Commands<Session>, stmt: &str) -> Result<(String, Value), St
     build(cmds, &typed, &toks[1..])
 }
 
-/// Reads the value of a flag at `toks[*i]` by its arity or type.
-fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize) -> Result<Value, String> {
+/// Reads the value of a flag at `toks[*i]` by its arity or type. `own` says whether a word is one of the command's
+/// flags.
+fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize, own: &dyn Fn(&str) -> bool) -> Result<Value, String> {
     let f = &fd.name;
     if fd.arity > 0 {
         let mut v = Vec::new();
@@ -266,6 +267,11 @@ fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize) -> Result<V
         _ => {
             if *i >= toks.len() {
                 return Err(format!("{name}: flag -{f} needs a value"));
+            }
+            // A flag of the same command straight after (menuItem -command -ann "..."): the reference reads it as that
+            // flag and leaves this one empty, rather than taking the flag's name as the value.
+            if flag_of(&toks[*i]).is_some_and(own) {
+                return Ok(json!(""));
             }
             *i += 1;
             scalar(&toks[*i - 1])
@@ -380,7 +386,8 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
             return Err(format!("{typed}: invalid flag -{f}"));
         };
         i += 1;
-        let v = flag_value(fd, &name, toks, &mut i)?;
+        let own = |w: &str| def.flags.iter().any(|d| d.name == w || d.short_name == w) || matches!(w, "q" | "query" | "e" | "edit");
+        let v = flag_value(fd, &name, toks, &mut i, &own)?;
         if fd.arity > 0 {
             // A multi-use flag gathers its uses into one flat list.
             if let (Some(Value::Array(have)), Value::Array(more)) = (flags.get_mut(&fd.name), &v) {

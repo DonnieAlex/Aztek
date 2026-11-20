@@ -1702,8 +1702,9 @@ fn set_parent(a: &Args) -> CmdResult {
             cur.and_then(|i| m.window_of(i))
         } else if a.bool("upLevel") || a.pos_str(0) == Some("..") {
             match cur {
-                // A menu's parent that isn't a menu ends the walk: menu items then have no menu to go in.
-                Some(i) if menu => m.get(i).and_then(|c| c.parent).filter(|p| matches!(m.cat(*p), Cat::Menu | Cat::MenuItem)),
+                // Up from a top-level menu stays on it, as the reference does: scripts that go up once too often
+                // (menus of several submenus) still put their next items in that menu.
+                Some(i) if menu => m.get(i).and_then(|c| c.parent).filter(|p| matches!(m.cat(*p), Cat::Menu | Cat::MenuItem)).or(Some(i)),
                 Some(i) => up(m, i),
                 None => None,
             }

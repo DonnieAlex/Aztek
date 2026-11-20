@@ -410,7 +410,17 @@ ScriptUi::ScriptUi() {
     pump_timer_.start();
 }
 
+// Labels are shown as given: Qt would take an ampersand as a keyboard mnemonic and hide it ("Copy & Paste").
+static QString amp(QString s) { return s.replace('&', "&&"); }
+
 void scriptui_sync() { ScriptUi::get()->sync(); }
+
+QList<QAction*> ScriptUi::main_window_menus() const {
+    QList<QAction*> out;
+    for (const QPointer<QMenu>& m : main_menus_)
+        if (m) out << m->menuAction();
+    return out;
+}
 
 void ScriptUi::set_main(QMainWindow* w, std::function<ViewportWidget*(const QString&)> view_for_panel, std::function<void()> take_requests) {
     main_ = w;
@@ -729,8 +739,9 @@ void ScriptUi::build_menu(Item* it, Item* parent, const QJsonObject& props) {
     } else {
         QMenuBar* bar = menu_bar_of(parent ? parent : it);
         if (!bar) return;
-        it->menu = bar->addMenu(label);
+        it->menu = bar->addMenu(amp(label));
         it->action = it->menu->menuAction();
+        if (main_ && bar == main_->menuBar()) main_menus_.append(it->menu);
     }
     QString path = it->path;
     connect(it->menu, &QMenu::aboutToShow, this, [this, path] {
@@ -755,7 +766,7 @@ void ScriptUi::build_menu_item(Item* it, Item* parent, const QJsonObject& props)
         return;
     }
     if (as_bool(props["subMenu"])) {
-        it->menu = m->addMenu(label);
+        it->menu = m->addMenu(amp(label));
         it->action = it->menu->menuAction();
         return;
     }
@@ -779,7 +790,7 @@ void ScriptUi::build_menu_item(Item* it, Item* parent, const QJsonObject& props)
         }
         label = "Options...";
     }
-    it->action = m->addAction(label);
+    it->action = m->addAction(amp(label));
     QString path = it->path;
     connect(it->action, &QAction::triggered, this, [this, path](bool checked) {
         auto* i = items_.value(path);
@@ -799,7 +810,7 @@ void ScriptUi::apply_menu_item(Item* it, const QJsonObject& props) {
     QAction* a = it->action;
     if (!a) return;
     QSignalBlocker block(a);
-    if (props.contains("label")) a->setText(props["label"].toString());
+    if (props.contains("label")) a->setText(amp(props["label"].toString()));
     if (props.contains("enable")) a->setEnabled(as_bool(props["enable"], true));
     if (props.contains("annotation")) {
         a->setToolTip(props["annotation"].toString());
@@ -1205,14 +1216,14 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         it->w = b;
     } else if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton") {
         auto* b = new QToolButton();
-        b->setText(k == "symbolButton" ? QString() : label);
+        b->setText(k == "symbolButton" ? QString() : amp(label));
         connect(b, &QToolButton::clicked, this, [this, path](bool) { fire(path, QJsonObject(), QJsonArray{"command"}, QJsonArray{false}); });
         b->installEventFilter(this);
         it->w = b;
     } else if (k == "iconTextCheckBox" || k == "symbolCheckBox") {
         auto* b = new QToolButton();
         b->setCheckable(true);
-        b->setText(k == "symbolCheckBox" ? QString() : label);
+        b->setText(k == "symbolCheckBox" ? QString() : amp(label));
         connect(b, &QToolButton::toggled, this, [this, path](bool on) {
             fire(path, QJsonObject{{"value", on}}, QJsonArray{"changeCommand", on ? "onCommand" : "offCommand"}, QJsonArray{on});
         });
@@ -1220,7 +1231,7 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
     } else if (k == "iconTextRadioButton") {
         auto* b = new QToolButton();
         b->setCheckable(true);
-        b->setText(label);
+        b->setText(amp(label));
         connect(b, &QToolButton::toggled, this, [this, path](bool on) {
             fire(path, QJsonObject{{"select", on}}, QJsonArray{"changeCommand", on ? "onCommand" : "offCommand"}, QJsonArray{on});
         });
@@ -1853,7 +1864,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     QWidget* w = it->w;
     if (k == "button" || k == "iconTextButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "iconTextRadioButton") {
         if (props.contains("label")) {
-            if (auto* b = qobject_cast<QAbstractButton*>(w)) b->setText(props["label"].toString());
+            if (auto* b = qobject_cast<QAbstractButton*>(w)) b->setText(amp(props["label"].toString()));
         }
     }
     if (k == "textureWindow") {
@@ -1997,12 +2008,12 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     } else if (k == "checkBox") {
         auto* c = static_cast<QCheckBox*>(w);
         QSignalBlocker block(c);
-        if (props.contains("label")) c->setText(props["label"].toString());
+        if (props.contains("label")) c->setText(amp(props["label"].toString()));
         if (props.contains("value")) c->setChecked(as_bool(props["value"]));
     } else if (k == "radioButton") {
         auto* r = static_cast<QRadioButton*>(w);
         QSignalBlocker block(r);
-        if (props.contains("label")) r->setText(props["label"].toString());
+        if (props.contains("label")) r->setText(amp(props["label"].toString()));
         if (props.contains("select")) r->setChecked(as_bool(props["select"]));
     } else if (k == "optionMenu") {
         if (props.contains("label")) {
@@ -2078,7 +2089,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         if (props.contains("placeholderText")) e->setPlaceholderText(props["placeholderText"].toString());
         if (props.contains("editable")) e->setReadOnly(!as_bool(props["editable"], true));
         if (auto* b = qobject_cast<QPushButton*>(it->parts.value("button"))) {
-            if (props.contains("buttonLabel")) b->setText(props["buttonLabel"].toString());
+            if (props.contains("buttonLabel")) b->setText(amp(props["buttonLabel"].toString()));
             if (props.contains("enableButton")) b->setEnabled(as_bool(props["enableButton"], true));
         }
     } else if (k == "intFieldGrp" || k == "floatFieldGrp") {
@@ -2095,7 +2106,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         }
     } else if (k == "intSliderGrp" || k == "floatSliderGrp" || k == "floatSliderButtonGrp" || k == "colorIndexSliderGrp") {
         if (auto* b = qobject_cast<QPushButton*>(it->parts.value("button"))) {
-            if (props.contains("buttonLabel")) b->setText(props["buttonLabel"].toString());
+            if (props.contains("buttonLabel")) b->setText(amp(props["buttonLabel"].toString()));
         }
         double lo = as_number(it->prop("minValue"), k == "colorIndexSliderGrp" ? 1 : 0), hi = as_number(it->prop("maxValue"), k == "colorIndexSliderGrp" ? 31 : 10);
         double v = as_number(it->prop("value"), lo);
@@ -2130,7 +2141,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             auto* c = qobject_cast<QCheckBox*>(it->parts.value("check" + slot));
             if (!c) continue;
             QSignalBlocker block(c);
-            if (props.contains("label" + slot)) c->setText(props["label" + slot].toString());
+            if (props.contains("label" + slot)) c->setText(amp(props["label" + slot].toString()));
             if (props.contains("value" + slot)) c->setChecked(as_bool(props["value" + slot]));
             if (props.contains("enable" + slot)) c->setEnabled(as_bool(props["enable" + slot], true));
         }
@@ -2140,7 +2151,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             auto* r = qobject_cast<QRadioButton*>(it->parts.value("radio" + slot));
             if (!r) continue;
             QSignalBlocker block(r);
-            if (props.contains("label" + slot)) r->setText(props["label" + slot].toString());
+            if (props.contains("label" + slot)) r->setText(amp(props["label" + slot].toString()));
             if (props.contains("enable" + slot)) r->setEnabled(as_bool(props["enable" + slot], true));
         }
         if (props.contains("select") && it->buttons) {
@@ -2238,7 +2249,7 @@ void ScriptUi::edit(Item* it, const QJsonObject& props) {
         return;
     }
     if (k == "menu" || k == "popupMenu") {
-        if (it->menu && props.contains("label")) it->menu->setTitle(props["label"].toString());
+        if (it->menu && props.contains("label")) it->menu->setTitle(amp(props["label"].toString()));
         if (props.contains("button")) it->popup_button = int(as_number(props["button"], 3));
         return;
     }
