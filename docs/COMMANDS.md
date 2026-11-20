@@ -16778,43 +16778,38 @@ Arguments: components or meshes (the selection when none)
 
 ## polyRetopo
 
-Automatic retopology: rebuilds meshes as quads laid along a smooth field, about -targetFaceCount of them (0: as dense as -targetEdgeDeviation needs). -method 0 Organic, 1 Hard Surface (follows hard and sharp edges and flat regions), 2 Character (loops along the curvature, denser where detailed), 3 Segmented (regions by shape and colour, each meshed to its border). Returns the node.
+Automatic retopology: rebuilds meshes as quads, every face a quad and closed where the mesh is closed, about -targetFaceCount of them (0: as dense as -targetEdgeDeviation needs). Returns the node.
 
 Arguments: components or meshes (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `targetFaceCount` | `tfc` | About how many faces; 0 lets targetEdgeDeviation set the density. |
-| `targetFaceCountTolerance` | `tft` | Percent the count may miss by before the edge length is corrected and the solve redone. |
+| `targetFaceCountTolerance` | `tft` | Percent the count may miss by. |
 | `preserveHardEdges` | `phe` | Edges follow the mesh's hard edges. |
 | `edgesByAngle` | `eba` | Edges follow edges whose faces bend more than -angle. |
-| `angle` | `ang` | Degrees, for -edgesByAngle and the Hard Surface method. |
+| `angle` | `ang` | Degrees, for -edgesByAngle. |
+| `useFeatureTags` | `uft` | Edges follow the component tags named by -featureTags. |
+| `featureTags` | `ft` | Component tag names, separated by spaces or commas. |
 | `symmetry` | `sym` | The result is mirrored across the -axis plane, exactly symmetric. |
 | `axis` | `an` | The symmetry plane's normal: 0 X, 1 Y, 2 Z. |
 | `axisPosition` | `ap` | 0: the plane through the object's origin, 1: through its middle; -axisOffset moves it. |
 | `axisOffset` | `ao` | Where the symmetry plane sits along its axis. |
 | `faceUniformity` | `fun` | 0 to 1: from faces sized to the curvature to faces all one size. |
 | `anisotropy` | `a` | 0 to 1: how much quads stretch along the direction the surface bends least. |
-| `topologyRegularity` | `trg` | 0 to 1: low for fewer irregular points and smoother flow, high to follow detail. |
+| `topologyRegularity` | `trg` | 0 to 1: higher for fewer irregular points and longer unbroken loops, lower to follow detail. |
 | `targetEdgeDeviation` | `ted` | With no face count: how far edges may stray from the surface, against its local radius. |
-| `preprocessMesh` | `pm` | Reduce a much denser input first. |
-| `method` | `mth` | Aztek: 0 Organic, 1 Hard Surface, 2 Character, 3 Segmented. |
-| `segmentByShape` | `sbs` | Aztek: split the surface into regions of one direction and lean the flow along their borders; -1 the method decides. |
-| `segmentByColor` | `sbc` | Aztek: split the surface by its colour set's colours and follow their borders; -1 the method decides. |
-| `followSeams` | `fsm` | Aztek: follow UV seams and material borders; -1 the method decides. |
-| `pureQuads` | `pq` | Aztek: every face a quad (-1 or 1), or quads with some triangles and pentagons (0). |
+| `preprocessMesh` | `pm` | Clean the input first (and reduce a much denser one). |
+| `shortEdgeTolerance` | `se` | With -preprocessMesh: edges shorter than this, against the mesh's size, are collapsed. |
+| `thinTriangleAngleTolerance` | `tt` | With -preprocessMesh: degrees; triangles with a smaller angle lose their shortest edge. |
 | `curveInfluenceDirection` | `cid` | See the command reference. |
 | `curveSingularitySeparation` | `css` | See the command reference. |
-| `featureTags` | `ft` | See the command reference. |
 | `interactiveMode` | `imd` | See the command reference. |
 | `pivot` | `p` | See the command reference. |
 | `pivotX` | `px` | See the command reference. |
 | `pivotY` | `py` | See the command reference. |
 | `pivotZ` | `pz` | See the command reference. |
-| `shortEdgeTolerance` | `se` | See the command reference. |
 | `symmetryEdges` | `sme` | See the command reference. |
-| `thinTriangleAngleTolerance` | `tt` | See the command reference. |
-| `useFeatureTags` | `uft` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
 | `caching` | `cch` | Accepted; see the command reference. |

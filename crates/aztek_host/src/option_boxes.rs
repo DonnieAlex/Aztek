@@ -274,8 +274,7 @@ pub fn rows(command: &str) -> Vec<Value> {
         "jiggle" => vec![b("enable", "Enable", true), f("stiffness", "Stiffness", 0.5), f("damping", "Damping", 0.5), f("jiggleWeight", "Jiggle weight", 1.0), f("motionMultiplier", "Motion multiplier", 1.0), f("envelope", "Envelope", 1.0)],
         // Mesh and Modify
         "polyRetopo" => vec![
-            e("method", "Method", &[("Organic", json!(0)), ("Hard Surface", json!(1)), ("Character", json!(2)), ("Segmented", json!(3))]),
-            after_line(b("preserveHardEdges", "Preserve hard edges", false)),
+            b("preserveHardEdges", "Preserve hard edges", false),
             b("edgesByAngle", "Preserve edges by angle", false),
             f("angle", "Angle", 30.0),
             after_line(b("symmetry", "Symmetry", false)),
@@ -285,11 +284,7 @@ pub fn rows(command: &str) -> Vec<Value> {
             after_line(f("topologyRegularity", "Topology regularity", 0.5)),
             f("faceUniformity", "Face uniformity", 0.0),
             f("anisotropy", "Anisotropy", 0.5),
-            after_line(e("segmentByShape", "Segment by shape", &[("As the method does", json!(-1)), ("On", json!(1)), ("Off", json!(0))])),
-            e("segmentByColor", "Segment by colour", &[("As the method does", json!(-1)), ("On", json!(1)), ("Off", json!(0))]),
-            e("followSeams", "Follow UV seams and materials", &[("As the method does", json!(-1)), ("On", json!(1)), ("Off", json!(0))]),
-            e("pureQuads", "Faces", &[("All quads", json!(-1)), ("Quads with some triangles", json!(0))]),
-            b("preprocessMesh", "Reduce a dense mesh first", true),
+            after_line(b("preprocessMesh", "Preprocess mesh", true)),
         ],
         "polyUnite" => vec![e("mergeUVSets", "Merge UV sets", &[("Merge by name", json!(1)), ("Do not merge", json!(0)), ("Merge by UV links", json!(2))]), b("centerPivot", "Center pivot", false), b("objectPivot", "Object pivot", false)],
         "freezeTransforms" => vec![b("translate", "Translate", true), b("rotate", "Rotate", true), b("scale", "Scale", true), b("jointOrient", "Joint orient", false), b("preserveNormals", "Preserve normals", false)],

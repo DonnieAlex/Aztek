@@ -1,100 +1,99 @@
 # Retopologize
 
-Mesh > Retopologize (`polyRetopo`) rebuilds a surface as quads laid along a smooth field, with four methods for
-different kinds of model. It takes the reference's flags and node attributes, so its scripts and files work, and adds
-a few of its own.
+Mesh > Retopologize (`polyRetopo`) rebuilds a surface as clean quads: every face a quad, closed wherever the source
+is closed, holes and thin parts kept, with long even loops and few irregular points. It has the reference's flags
+and node attributes and no others, so its scripts and files work unchanged.
 
-## Methods
+## Options
 
-| Method (`-method`) | For | What it does |
-| --- | --- | --- |
-| 0 Organic | Sculpts, scans, smooth shapes | Smooth flow, light pull toward the curvature directions, density following curvature. |
-| 1 Hard Surface | Machined and modelled parts | Follows hard edges and edges sharper than `-angle` exactly, a point on every feature corner, even density, flat regions found by shape segmentation steering the flow. |
-| 2 Character | Creatures, people, heads | Loops along the curvature, denser where the shape is detailed; with `-symmetry` exactly mirrored. |
-| 3 Segmented | Models whose parts differ in colour or shape | Splits the surface by the colour set's colours (followed exactly) and by shape (flow along the borders), and follows UV seams and material borders. |
+| Flag | What it does |
+| --- | --- |
+| `-targetFaceCount` (`tfc`) | About how many faces. 0 lets `-targetEdgeDeviation` set the density. |
+| `-targetFaceCountTolerance` (`tft`) | Percent the count may miss by (10). |
+| `-preserveHardEdges` (`phe`) | Edges follow the mesh's hard edges. |
+| `-edgesByAngle` (`eba`), `-angle` (`ang`) | Edges follow edges whose faces bend more than the angle (30 degrees). Runs too short or too ragged to be a real edge are left out. |
+| `-useFeatureTags` (`uft`), `-featureTags` (`ft`) | Edges follow the edges of the named component tags. |
+| `-symmetry` (`sym`), `-axis` (`an`), `-axisPosition` (`ap`), `-axisOffset` (`ao`) | The result is exactly symmetric across the plane. |
+| `-topologyRegularity` (`trg`) | 0 to 1 (0.5): higher for fewer irregular points and longer unbroken loops, lower to follow detail more closely. |
+| `-faceUniformity` (`fun`) | 0 to 1 (0): from faces sized to the curvature to faces all one size. |
+| `-anisotropy` (`a`) | 0 to 1 (0.5): how far quads stretch along the direction the surface bends least. |
+| `-targetEdgeDeviation` (`ted`) | With no face count: how far edges may stray from the surface, against its local radius. |
+| `-preprocessMesh` (`pm`), `-shortEdgeTolerance` (`se`), `-thinTriangleAngleTolerance` (`tt`) | Clean the input first: edges shorter than the tolerance (against the mesh's size) collapsed, triangles with a smaller angle losing their shortest edge, and a far denser mesh reduced. |
 
-`-segmentByShape`, `-segmentByColor`, `-followSeams` (each -1 for the method's choice, 0 off, 1 on) and `-pureQuads`
-(-1 or 1 all quads, 0 quads with some triangles and pentagons) change what a method does. The reference's
-`-targetFaceCount`, `-targetFaceCountTolerance`, `-preserveHardEdges`, `-edgesByAngle`, `-angle`, `-faceUniformity`,
-`-anisotropy`, `-topologyRegularity`, `-targetEdgeDeviation` (with no face count), `-symmetry` with `-axis`,
-`-axisPosition` and `-axisOffset`, and `-preprocessMesh` work as their names say. `featureTags`, `useFeatureTags`,
-`symmetryEdges`, `curveInfluenceDirection`, `curveSingularitySeparation`, `shortEdgeTolerance`,
-`thinTriangleAngleTolerance` and `interactiveMode` are accepted and stored.
+`symmetryEdges`, `curveInfluenceDirection`, `curveSingularitySeparation`, `interactiveMode` and the pivot are
+accepted and stored.
 
-A selection of faces is retopologized as a piece of its own in their place; its border is not joined to the rest.
+A selection of faces is retopologized as a piece of its own in their place; its border is kept where it is.
 
 ## How it works
 
-The code is in `crates/aztek_geo/src/retopo/`.
+The code is in `crates/aztek_geo/src/retopo/`. The idea: lay out a coarse mesh of large quads whose topology is
+right, then fill each coarse quad with a regular grid. Inside a grid every point has four neighbours, so irregular
+points only sit at the coarse layout's corners, and neighbouring grids share the points along their common edge, so
+the result is closed by construction.
 
-1. **Input.** The faces are triangulated; a mesh far denser than needed is reduced first; edges longer than a third of
-   a lattice cell are split. Features are collected: open borders, hard edges, edges sharper than the angle, UV seams,
-   material borders, the borders of colour regions (k-means in Lab, then connected parts), and the borders of shape
-   regions (Variational Shape Approximation with normal proxies). Shape-region borders are soft: the flow leans
-   along them but nothing is pinned to them.
-2. **Orientation field.** A 4-way direction field, smoothed extrinsically by Gauss-Seidel over a hierarchy of ever
-   coarser point sets, coarse to fine (Instant Field-Aligned Meshes). Feature points hold the feature's direction;
-   where the surface bends clearly more one way than the other across a cell, the principal curvature direction pulls
-   lightly, on the coarse levels only, so it sets the layout without each point's noise making singularities.
-3. **Position field.** A 4-way lattice of the wanted edge length, smoothed the same way. On a feature a lattice line is
-   held through it; at a feature corner a lattice point is. The edge length can follow curvature (`faceUniformity`
-   below 1), smoothed and rescaled so the count holds.
-4. **Extraction.** Points whose lattice points coincide merge into one vertex, closest pairs first and only while the
-   clusters agree; points one lattice step apart give an edge; the edges' cycles about the surface are the faces.
-   Non-manifold faces go, triangle pairs and triangle-pentagon pairs become quads, holes are filled, every face is
-   split into quads, the points are relaxed and put back on the surface, feature points onto their features and each
-   feature corner onto its nearest point, folded corners are untangled, and crumbs cut off from the rest are dropped.
-   When the count misses by more than the tolerance, the edge length is corrected and the solve runs again.
-5. **Symmetry.** The half on the positive side of the plane is retopologized with the cut as a border, its border
-   points put on the plane, then mirrored and welded.
+1. **Input** (`tri.rs`). The faces are triangulated and the features collected: open borders always, hard edges,
+   edges sharper than the angle and feature tags when asked, and a symmetry plane's cut. Angle features that are
+   short, or that turn back and forth at every point (following the triangulation rather than a real edge), are
+   dropped.
+2. **Even triangles** (`trimesh.rs`). The surface is remeshed into even triangles (split, collapse, flip, slide;
+   Botsch and Kobbelt 2004), finer where it bends tightly. Feature points slide only along their curves; points where
+   a curve turns sharply, or where curves meet, stay put. Every collapse keeps the mesh manifold and keeps the source
+   points it covers near its triangles, so thin parts such as ears and horns stay.
+3. **All quads** (`quad.rs`). Each triangle splits into three quads.
+4. **Coarse layout** (`quad.rs`). The quad mesh is simplified (after Tarini et al. 2010): quads collapse across their
+   shorter diagonal, smallest against the wanted size first; points with two faces are removed; edges turn when that
+   brings points nearer four neighbours; whole rows of narrow quads are removed, which is what lets the points along
+   a feature curve thin out; and points slide along the surface between. Every change is checked before it is made:
+   each point must keep a single fan of faces, no face may turn over, a collapse may not leave a point with more
+   than five edges, and the source points a quad covers must stay near it. A change that fails any of these is not
+   made, so the layout is always a closed, manifold all-quad mesh of the same shape and holes as the source.
+5. **Rows and grids** (`quad.rs`). The layout's rows of quads (chords) each get a whole number of new rows, from the
+   wanted edge length along them: smaller where the surface bends tightly (by `-faceUniformity`) and longer along the
+   direction it bends least (by `-anisotropy`). The numbers are scaled together and then adjusted row by row to meet
+   the count. When a layout's rows wind through all of it, every quad gets the same grid and only some counts can be
+   met; layouts kept at several stages of the simplification are tried, the coarsest that meets the count within
+   the tolerance used. Every coarse quad is filled with its grid (a Coons patch on its edges' points).
+6. **Relaxing**. The points go onto the surface along their normals, then slide toward their neighbours' middle and
+   back onto the surface; feature points along their curves; corners stay. Corners that turned over are untangled.
+7. **Symmetry**. Half the surface, cut at the plane, is done as above with the cut as a border. No edge may join two
+   points on the plane except along the cut. The half is then mirrored and joined along the cut's points only, so the
+   join can't give any edge four faces.
 
 ## Measured
 
-Five standard test models (from [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models)), the
-previous Retopologize ("old": an isotropic remesh with triangle pairs joined) against the new methods. Irregular: the
-share of inner points not of valence 4. Scaled Jacobian: the mean over quad corners, 1 for a square. Back error: the
-mean distance from the source's points to the result, against the model's size, which shows lost features and holes.
+Standard test models (from [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models)), the
+first Retopologize ("old": an isotropic remesh with triangle pairs joined) against this one at the default options
+(and with `-edgesByAngle` on the fandisk). Irregular: the share of inner points not of valence 4. Scaled Jacobian:
+the mean over quad corners, 1 for a square. Back error: the mean distance from the source's points to the result,
+against the model's size, which shows lost parts and holes. Open borders: edges with one face, against the source's.
 
-| Model, target | Method | Quads | Irregular | Scaled Jacobian | Back error |
-| --- | --- | --- | --- | --- | --- |
-| spot, 2000 | old | 75.5% | 37.3% | 0.913 | 0.18% |
-| | Organic | 100% | 8.9% | 0.978 | 0.165% |
-| fandisk, 2000 | old | 77.3% | 37.2% | 0.904 | 0.164% |
-| | Hard Surface | 100% | 10.1% | 0.964 | 0.026% |
-| rocker arm, 2000 | old | 77.3% | 36.2% | 0.905 | 0.239% |
-| | Organic | 100% | 8.5% | 0.978 | 0.254% |
-| | Hard Surface | 100% | 14.5% | 0.892 | 0.214% |
-| bunny, 3000 | old | 73.7% | 38.6% | 0.907 | 0.116% |
-| | Organic | 100% | 8.9% | 0.952 | 0.112% |
-| | Character | 100% | 10.8% | 0.950 | 0.098% |
-| armadillo, 4000 | old | 75.5% | 39.2% | 0.904 | 0.169% |
-| | Organic | 100% | 12.8% | 0.954 | 0.174% |
+| Model, target | Version | Faces | Quads | Irregular | Scaled Jacobian | Back error | Open borders |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| spot, 2000 | old | 1954 | 75.5% | 37.3% | 0.913 | 0.169% | 0 of 0 |
+| | new | 1854 | 100% | 2.9% | 0.976 | 0.170% | 0 of 0 |
+| fandisk, 2000 | old | 1855 | 77.3% | 37.2% | 0.904 | 0.164% | 0 of 0 |
+| | new, edges by angle | 1988 | 100% | 3.7% | 0.895 | 0.036% | 0 of 0 |
+| rocker arm, 2000 | old | 1887 | 77.3% | 36.2% | 0.905 | 0.239% | 0 of 0 |
+| | new | 1980 | 100% | 4.5% | 0.973 | 0.225% | 0 of 0 |
+| bunny (open base), 3000 | old | 2976 | 73.7% | 38.6% | 0.907 | 0.116% | 223 of 223 |
+| | new | 2992 | 100% | 2.7% | 0.947 | 0.097% | 98 of 223 (the same holes, fewer edges round them) |
+| armadillo, 4000 | old | 3617 | 75.5% | 39.2% | 0.904 | 0.169% | 0 of 0 |
+| | new | 3963 | 100% | 5.0% | 0.955 | 0.125% | 0 of 0 |
 
-The tests in `crates/aztek_geo/tests/retopo.rs` hold the rest: a sphere comes out closed, all quads, within a quarter of
-the count and on the surface; Hard Surface puts a point on every corner of a box and every face flat on one side;
-symmetry mirrors every point; the same input gives the same result; colour borders get a loop.
+A box at 300 faces with edges by angle comes out as an even grid on each side, its only irregular points the eight
+corners. Spot, fandisk, rocker arm and armadillo at 200, 800 and 4000 faces, each with the defaults, edges by angle,
+symmetry, full uniformity with full regularity, and no regularity with no anisotropy: every result closed.
 
-## Where it could go next
-
-Measured against the state of the art in 2026, the field and extraction are the Instant Meshes family. What would
-lower the irregular points further:
-
-- Quantizing the layout with a flow (QuadriFlow) or Bi-MDF on a T-mesh (QuadWild with Bi-MDF), which removes the
-  position-field singularities that make the remaining triangles and pentagons.
-- Integer-grid maps (MIQ) with QEx extraction, for the cleanest layouts at a higher cost.
-- Learned cross fields (NeurCross, 2025; CrossLift, 2026, which lifts quad wireframes drawn by an image model onto the
-  surface), and autoregressive quad mesh generators (QuadGPT, ICLR 2026; QuadLink; Q-MAGIC), which need trained
-  models Aztek doesn't ship.
+The tests in `crates/aztek_geo/tests/retopo.rs` hold the rest: a sphere and a thin torus come out closed and
+manifold, all quads, with the right Euler characteristic and every point on the surface; edges by angle put a point
+on every corner of a box and every face flat on one side; symmetry mirrors every point and stays closed; the same
+input gives the same result; a selection keeps its border where it was.
 
 ## Sources
 
-- Jakob, Tarini, Panozzo, Sorkine-Hornung: Instant Field-Aligned Meshes, SIGGRAPH Asia 2015.
-- Huang, Zhou, Tao, Guibas, Nießner: QuadriFlow, SGP 2018.
-- Pietroni, Nuvoli, Alderighi, Cignoni, Tarini: [Reliable feature-line driven quad-remeshing](https://www.researchgate.net/publication/355019897_Reliable_feature-line_driven_quad-remeshing), SIGGRAPH 2021 (QuadWild).
-- Cohen-Steiner, Alliez, Desbrun: Variational Shape Approximation, SIGGRAPH 2004.
-- Dong et al.: [NeurCross: A Neural Approach to Computing Cross Fields for Quad Mesh Generation](https://arxiv.org/abs/2405.13745), ACM TOG 2025.
-- [Look Both Ways Before You Cross: Lifting Cross Fields From 2D Visual Priors](https://arxiv.org/html/2605.26062v1), 2026.
-- [QuadGPT: Native Quadrilateral Mesh Generation with Autoregressive Models](https://arxiv.org/abs/2509.21420), ICLR 2026.
-- [QuadLink: Autoregressive Quad-Dominant Mesh Generation via Point-Relation Learning](https://arxiv.org/pdf/2605.16813), 2026.
-- [Q-MAGIC: Quad-only Mesh Autoregressive Generation](https://arxiv.org/pdf/2610.19777), 2026.
+- Botsch, Kobbelt: A remeshing approach to multiresolution modeling, SGP 2004.
+- Tarini, Pietroni, Cignoni, Panozzo, Puppo: Practical quad mesh simplification, Eurographics 2010.
+- Daniels, Silva, Shepherd, Cohen: Quadrilateral mesh simplification, SIGGRAPH Asia 2008 (removing rows of quads).
+- Bommes, Lévy, Pietroni, Puppo, Silva, Tarini, Zorin: Quad-mesh generation and processing: a survey, 2013.
 - The reference's [polyRetopo node](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Tech-Docs/Nodes/polyRetopo.html) for its attributes.

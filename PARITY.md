@@ -1858,14 +1858,15 @@ With anti-aliasing on, the grid looked dashed and stepped. It is drawn cell by c
 faded each piece's ends. Lines are now drawn as rectangles that the samples cover in part wherever the device has them,
 so the grid, wireframes, curves and manipulators are all smoothed the same way.
 
-### Retopologize: quads along a field, in four methods (20/11/2026)
+### Retopologize: clean, closed all-quad meshes (20/11/2026)
 
 Retopologize was an isotropic remesh with triangle pairs joined: a quarter of its faces triangles and over a third of
-its points irregular. It now solves a 4-way orientation and position field over a hierarchy (after Instant
-Field-Aligned Meshes), held to features, and reads all-quad meshes from it: Organic, Hard Surface (hard and sharp edges
-and their corners kept exactly), Character (loops along the curvature, exact symmetry) and Segmented (regions by colour
-set and shape). The reference's polyRetopo flags and node attributes are all taken. docs/RETOPOLOGY.md has the
-details and measurements.
+its points irregular. It now simplifies an all-quad mesh of the surface into a coarse layout, every step checked to
+keep it manifold, unfolded and near the surface, then fills each coarse quad with a regular grid: every face a quad,
+closed wherever the source is, thin parts and holes kept, and some 3% of points irregular. It takes the reference's
+polyRetopo flags and node attributes and no others: face count and tolerance, hard edges, edges by angle, feature
+tags, symmetry (exact, and joined so it stays closed), regularity, uniformity, anisotropy, edge deviation and the
+preprocessing tolerances. docs/RETOPOLOGY.md has the details and measurements.
 
 ### A selected group's children light up as it does (18/11/2026, #151)
 

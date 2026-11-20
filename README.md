@@ -333,9 +333,9 @@ Every extra copy makes the project harder to lose.
 
 - **Polygons:** the standard polygon commands with construction history; Quad Draw, Multi-Cut, Insert and Offset Edge
   Loop, Target Weld, Slide Edge, Crease, Create and Append Polygon, booleans; symmetry, soft selection; eighteen sculpting brushes.
-- **Retopologize:** quads laid along a smooth field, in four methods: Organic, Hard Surface (follows sharp edges and
-  corners exactly), Character (loops along the curvature, symmetric) and Segmented (regions by colour and shape). All
-  quads, a quarter of the irregular points the old remesh left; see [docs/RETOPOLOGY.md](docs/RETOPOLOGY.md).
+- **Retopologize:** clean all-quad meshes, closed wherever the source is, with even loops and few irregular points;
+  the reference's polyRetopo flags (face count, hard edges and edges by angle, feature tags, symmetry, uniformity,
+  anisotropy, regularity). See [docs/RETOPOLOGY.md](docs/RETOPOLOGY.md).
 - **NURBS:** curves (CV and EP tools, rebuild, attach, detach, offset) and surfaces (primitives, loft, revolve, extrude,
   boundary, birail, `nurbsToPoly`), with CVs as components.
 - **Manipulators** on history and deformer nodes (T), with in-view numbers: extrude, projections, primitives, nonlinears, soft

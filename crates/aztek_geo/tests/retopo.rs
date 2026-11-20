@@ -1,11 +1,12 @@
-//! Retopology: what each method must deliver on shapes whose answer is known.
+//! Retopology: what it must deliver on shapes whose answer is known.
 
-use aztek_geo::attribute::{names, Index};
+use aztek_geo::attribute::Index;
 use aztek_geo::mesh::Mesh;
 use aztek_geo::primitives::*;
 use aztek_geo::retopo::*;
 use aztek_geo::symmetry::axis_plane;
 use glam::DVec3;
+use std::collections::HashMap;
 
 fn all_faces(m: &Mesh) -> Vec<Index> {
     (0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect()
@@ -15,42 +16,84 @@ fn sphere() -> Mesh {
     make_sphere(&SphereOptions { radius: 1.0, subdiv_axis: 48, subdiv_height: 32, ..Default::default() })
 }
 
-fn border_edges(m: &Mesh) -> usize {
-    (0..m.edge_capacity()).filter(|&e| m.edge_valid(e) && m.is_boundary_edge(e)).count()
+fn run(m: &Mesh, faces: usize) -> Mesh {
+    let o = RetopoOptions { target_faces: faces, ..Default::default() };
+    retopologize(m, &all_faces(m), &o)
 }
 
-fn run(m: &Mesh, method: Method, faces: usize) -> Mesh {
-    let mut o = RetopoOptions::for_method(method);
-    o.target_faces = faces;
-    retopologize(m, &all_faces(m), &o)
+/// Every edge between exactly two faces, each running it once each way, and every face a quad.
+fn assert_closed_quads(m: &Mesh) {
+    let mut uses: HashMap<(Index, Index), usize> = HashMap::new();
+    for f in all_faces(m) {
+        let p = m.face_points(f);
+        assert_eq!(p.len(), 4, "face {f} has {} sides", p.len());
+        for i in 0..4 {
+            *uses.entry((p[i], p[(i + 1) % 4])).or_default() += 1;
+        }
+    }
+    for (&(a, b), &n) in &uses {
+        assert_eq!(n, 1, "edge {a}-{b} runs the same way {n} times");
+        assert_eq!(uses.get(&(b, a)), Some(&1), "edge {a}-{b} has one face");
+    }
+}
+
+fn euler(m: &Mesh) -> i64 {
+    let mut edges = std::collections::HashSet::new();
+    let mut pts = std::collections::HashSet::new();
+    for f in all_faces(m) {
+        let p = m.face_points(f);
+        for i in 0..p.len() {
+            pts.insert(p[i]);
+            let (a, b) = (p[i], p[(i + 1) % p.len()]);
+            edges.insert((a.min(b), a.max(b)));
+        }
+    }
+    pts.len() as i64 - edges.len() as i64 + m.num_faces() as i64
 }
 
 #[test]
 fn a_sphere_becomes_closed_even_quads_near_the_count() {
     let src = sphere();
-    let out = run(&src, Method::Organic, 600);
+    let out = run(&src, 600);
+    assert_closed_quads(&out);
+    assert_eq!(euler(&out), 2);
     let q = quality(&out, &src);
-    assert_eq!(q.quads, 1.0, "all quads");
-    assert_eq!(border_edges(&out), 0, "closed");
-    assert!((q.faces as f64 - 600.0).abs() < 600.0 * 0.25, "{} faces", q.faces);
-    assert!(q.irregular < 0.12, "irregular {}", q.irregular);
+    assert!((q.faces as f64 - 600.0).abs() < 600.0 * 0.1, "{} faces", q.faces);
+    assert!(q.irregular < 0.06, "irregular {}", q.irregular);
     assert!(q.scaled_jacobian > 0.95, "scaled jacobian {}", q.scaled_jacobian);
     for p in 0..out.point_capacity() {
         if out.point_valid(p) {
             let r = out.position(p).length();
-            assert!((r - 1.0).abs() < 0.02, "point {p} at radius {r}");
+            assert!((r - 1.0).abs() < 0.01, "point {p} at radius {r}");
         }
     }
 }
 
 #[test]
-fn hard_surface_keeps_a_boxs_corners_and_sides() {
+fn a_thin_torus_keeps_its_hole_and_stays_closed() {
+    let src = make_torus(&TorusOptions { radius: 2.0, section_radius: 0.15, subdiv_axis: 120, subdiv_height: 16, ..Default::default() });
+    for faces in [200, 800, 3000] {
+        let out = run(&src, faces);
+        assert_closed_quads(&out);
+        assert_eq!(euler(&out), 0, "at {faces} faces");
+        // Every point on the tube.
+        for p in 0..out.point_capacity() {
+            if out.point_valid(p) {
+                let v = out.position(p);
+                let ring = DVec3::new(v.x, 0.0, v.z).normalize() * 2.0;
+                let d = (v - ring).length();
+                assert!((d - 0.15).abs() < 0.03, "point {v} {d} from the tube's middle at {faces} faces");
+            }
+        }
+    }
+}
+
+#[test]
+fn hard_edges_keep_a_boxs_corners_and_sides() {
     let src = make_cube(&CubeOptions { width: 2.0, height: 2.0, depth: 2.0, ..Default::default() });
-    let out = run(&src, Method::HardSurface, 300);
-    let q = quality(&out, &src);
-    assert_eq!(q.quads, 1.0);
-    assert_eq!(border_edges(&out), 0);
-    // Every corner of the box is a point of the result.
+    let o = RetopoOptions { target_faces: 300, edges_by_angle: true, ..Default::default() };
+    let out = retopologize(&src, &all_faces(&src), &o);
+    assert_closed_quads(&out);
     for x in [-1.0, 1.0] {
         for y in [-1.0, 1.0] {
             for z in [-1.0, 1.0] {
@@ -60,12 +103,10 @@ fn hard_surface_keeps_a_boxs_corners_and_sides() {
             }
         }
     }
-    // Every point on the box, and every face flat on one side.
     for p in 0..out.point_capacity() {
         if out.point_valid(p) {
             let v = out.position(p);
-            let m = v.abs().max_element();
-            assert!((m - 1.0).abs() < 1e-6, "point {v} off the box");
+            assert!((v.abs().max_element() - 1.0).abs() < 1e-6, "point {v} off the box");
         }
     }
     for f in all_faces(&out) {
@@ -77,12 +118,10 @@ fn hard_surface_keeps_a_boxs_corners_and_sides() {
 #[test]
 fn symmetry_mirrors_every_point() {
     let src = make_torus(&TorusOptions { radius: 2.0, section_radius: 0.6, subdiv_axis: 60, subdiv_height: 24, ..Default::default() });
-    let mut o = RetopoOptions::for_method(Method::Character);
-    o.target_faces = 500;
-    o.symmetry = Some(axis_plane(0, 0.0));
+    let o = RetopoOptions { target_faces: 500, symmetry: Some(axis_plane(0, 0.0)), ..Default::default() };
     let out = retopologize(&src, &all_faces(&src), &o);
-    assert!(out.num_faces() > 200);
-    assert_eq!(border_edges(&out), 0, "the halves are joined");
+    assert!(out.num_faces() > 400);
+    assert_closed_quads(&out);
     let pts: Vec<DVec3> = (0..out.point_capacity()).filter(|&p| out.point_valid(p)).map(|p| out.position(p)).collect();
     for v in &pts {
         let m = DVec3::new(-v.x, v.y, v.z);
@@ -94,8 +133,8 @@ fn symmetry_mirrors_every_point() {
 #[test]
 fn the_same_input_gives_the_same_result() {
     let src = sphere();
-    let a = run(&src, Method::Character, 400);
-    let b = run(&src, Method::Character, 400);
+    let a = run(&src, 400);
+    let b = run(&src, 400);
     assert_eq!(a.num_faces(), b.num_faces());
     assert_eq!(a.positions(), b.positions());
 }
@@ -114,43 +153,21 @@ fn with_no_count_the_density_follows_the_deviation() {
 }
 
 #[test]
-fn segmenting_by_colour_puts_a_loop_on_the_colour_border() {
-    // A sphere red above y = 0.3 and blue below: the result has a ring of points on that line.
-    let mut src = sphere();
-    let n = src.corner_capacity() as usize;
-    let mut cols = vec![[0f32; 4]; n];
-    for c in 0..src.corner_capacity() {
-        if !src.corner_valid(c) {
-            continue;
-        }
-        let f = src.corner_face(c);
-        let y = src.face_centroid(f).y;
-        cols[c as usize] = if y > 0.3 { [1.0, 0.0, 0.0, 1.0] } else { [0.0, 0.0, 1.0, 1.0] };
-    }
-    src.corner_attrs_mut().get_or_add::<[f32; 4]>(names::COLOR).copy_from_slice(&cols);
-    let mut o = RetopoOptions::for_method(Method::Segmented);
-    o.target_faces = 500;
-    let out = retopologize(&src, &all_faces(&src), &o);
-    // The colour border runs along the source's edges nearest y = 0.3.
-    let border_y = {
-        let rings: Vec<f64> = (0..src.point_capacity()).filter(|&p| src.point_valid(p)).map(|p| src.position(p).y).collect();
-        rings.into_iter().filter(|y| *y > 0.3).fold(f64::MAX, f64::min)
-    };
-    let on_line = (0..out.point_capacity()).filter(|&p| out.point_valid(p) && (out.position(p).y - border_y).abs() < 0.01).count();
-    assert!(on_line >= 16, "{on_line} points on the colour border at y {border_y}");
-}
-
-#[test]
-fn a_selection_is_retopologized_as_a_piece() {
+fn a_selection_is_retopologized_as_a_piece_with_its_border_kept() {
     let src = sphere();
     let top: Vec<Index> = all_faces(&src).into_iter().filter(|&f| src.face_centroid(f).y > 0.0).collect();
-    let mut o = RetopoOptions::default();
-    o.target_faces = 200;
+    let o = RetopoOptions { target_faces: 200, ..Default::default() };
     let out = retopologize(&src, &top, &o);
-    assert!(out.num_faces() > 100);
+    assert!(out.num_faces() > 150);
+    let border: Vec<Index> = (0..out.point_capacity()).filter(|&p| out.point_valid(p) && out.is_boundary_point(p)).collect();
+    assert!(border.len() >= 12);
     for p in 0..out.point_capacity() {
         if out.point_valid(p) {
-            assert!(out.position(p).y > -0.05);
+            assert!(out.position(p).y > -1e-6);
         }
+    }
+    // The border stays on the sphere's equator.
+    for p in border {
+        assert!(out.position(p).y.abs() < 1e-6, "border point at {}", out.position(p));
     }
 }
