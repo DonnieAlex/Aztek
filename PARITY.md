@@ -1834,6 +1834,12 @@ Manager, Hotkey Editor, the Windows menu, the Outliner, Help, UI components, the
 Settings, colour management, the heads-up display, the Display menu and the Script Editor. Their procedures are
 known by name as the reference's are, and `source` finds them. What they still need is in docs/SCRIPT_GAPS.md.
 
+### Duplicate: a copy of an object driven by a rigid body, a constraint or another node stays where the object is (20/11/2026, #190)
+
+Duplicate gave a driven attribute its default on the copy, so a copy of a brick in the rigid wall example landed at the
+origin with no rotation. As in the reference, each driven attribute of the copy takes the value it has at the time of
+the duplicate, with no connection.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

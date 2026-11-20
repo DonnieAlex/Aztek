@@ -124,6 +124,12 @@ pub fn copy_values(g: &mut Graph, from: NodeId, to: NodeId) -> CmdResult<()> {
         } else if g.source(&plug(from, i)).is_none() {
             let v = g.node(from).unwrap().value(i).clone();
             g.set_value(plug(to, i), v)?;
+        } else if !ty.is_a("mesh") {
+            // A driven input (a rigid body's translate, a constraint's rotate) takes the value it has now, as the
+            // reference's copy does, rather than the attribute's default.
+            if let Ok(v) = g.value(&plug(from, i)) {
+                g.set_value(plug(to, i), v)?;
+            }
         }
     }
     for (i, def) in ty.attrs.iter().enumerate() {
