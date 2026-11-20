@@ -82,8 +82,16 @@ fi
 
 # Every library the program, the plugins and Python's modules load, and what those load, except what every desktop
 # has and what has to match the machine: the C library, the graphics drivers' side (GL, Vulkan, DRM), X11 and
-# Wayland's own, fontconfig and freetype, and the like. The list follows the AppImage project's excludelist.
-SKIP='^(ld-linux.*|libc|libm|libdl|libpthread|librt|libutil|libresolv|libnsl|libanl|libBrokenLocale|libnss_.*|libcrypt|libgcc_s|libstdc\+\+|libGL|libGLX|libGLdispatch|libEGL|libOpenGL|libGLESv2|libvulkan|libdrm|libgbm|libglapi|libX11|libX11-xcb|libxcb|libxcb-dri2|libxcb-dri3|libxcb-glx|libxcb-present|libxshmfence|libXau|libXdmcp|libXext|libXrender|libXfixes|libXi|libXcursor|libXrandr|libXdamage|libXxf86vm|libICE|libSM|libwayland-client|libwayland-cursor|libwayland-egl|libwayland-server|libfontconfig|libfreetype|libharfbuzz|libfribidi|libexpat|libz|libuuid|libcom_err|libgpg-error|libglib-2\.0|libgobject-2\.0|libgio-2\.0|libgmodule-2\.0|libgthread-2\.0|libdbus-1|libasound|libjack|libpipewire.*|libp11-kit|libusb-1\.0|libthai|libgmp|libselinux|libsystemd|libudev|libcap|libmount|libblkid)\.so'
+# Wayland's own, fontconfig and freetype, and the like. The list follows the AppImage project's excludelist. libtinfo
+# is every system's: a copy inside would be found by the shells Aztek starts, which then warn it doesn't match.
+SKIP='^(ld-linux.*|libc|libm|libdl|libpthread|librt|libutil|libresolv|libnsl|libanl|libBrokenLocale|libnss_.*|libcrypt|libgcc_s|libstdc\+\+|libGL|libGLX|libGLdispatch|libEGL|libOpenGL|libGLESv2|libvulkan|libdrm|libgbm|libglapi|libX11|libX11-xcb|libxcb|libxcb-dri2|libxcb-dri3|libxcb-glx|libxcb-present|libxshmfence|libXau|libXdmcp|libXext|libXrender|libXfixes|libXi|libXcursor|libXrandr|libXdamage|libXxf86vm|libICE|libSM|libwayland-client|libwayland-cursor|libwayland-egl|libwayland-server|libfontconfig|libfreetype|libharfbuzz|libfribidi|libexpat|libz|libuuid|libcom_err|libgpg-error|libglib-2\.0|libgobject-2\.0|libgio-2\.0|libgmodule-2\.0|libgthread-2\.0|libdbus-1|libasound|libjack|libpipewire.*|libp11-kit|libusb-1\.0|libthai|libgmp|libselinux|libsystemd|libudev|libcap|libmount|libblkid|libtinfo)\.so'
+# With the system's Qt (the ARM build, from EPEL), Qt Gui itself needs libOpenGL and HarfBuzz, which a desktop without
+# libopengl0 or libharfbuzz0b lacks; Qt's own kit (the x86_64 build) has HarfBuzz inside and needs neither. So with the
+# system's Qt both come along: libOpenGL.so.0 is only GLVND's front, the drivers behind it stay the system's.
+if [ -z "$QT" ]; then
+  SKIP=${SKIP//|libOpenGL|/|}
+  SKIP=${SKIP//|libharfbuzz|/|}
+fi
 copy_needed() {
   local lib name
   for lib in $(ldd "$1" 2>/dev/null | awk '/=> \// {print $3}'); do
