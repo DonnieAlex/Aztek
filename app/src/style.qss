@@ -40,7 +40,7 @@ QLineEdit#channelLocked { background: #5c6874; color: #e6eaee; border: none; }
 QLineEdit#channelHeader { background: transparent; border: none; font-weight: bold; }
 QLabel#channelName { color: @text; padding-right: 2px; }
 QLabel#channelName[picked="true"] { background: @hi; color: #ffffff; }
-QLineEdit#channelValue[picked="true"], QLineEdit#channelKeyed[picked="true"], QLineEdit#channelKeyOnFrame[picked="true"], QLineEdit#channelChanged[picked="true"], QLineEdit#channelLayered[picked="true"], QLineEdit#channelMuted[picked="true"], QLineEdit#channelLocked[picked="true"], QLineEdit#channelConnected[picked="true"] { background: @hi; color: #ffffff; border: none; }
+QLineEdit#channelValue[picked="true"], QLineEdit#channelKeyed[picked="true"], QLineEdit#channelKeyOnFrame[picked="true"], QLineEdit#channelChanged[picked="true"], QLineEdit#channelLayered[picked="true"], QLineEdit#channelMuted[picked="true"], QLineEdit#channelLocked[picked="true"], QLineEdit#channelConnected[picked="true"] { background: @hi; color: #ffffff; border: none; selection-background-color: #ffffff; selection-color: @hi; }
 QLabel#channelSection { color: @dim; font-weight: bold; padding-top: 4px; }
 QLabel#channelNode { color: @bright; padding-left: 6px; }
 QPushButton#channelNodeButton { text-align: left; padding: 2px 6px; color: @bright; border: none; }

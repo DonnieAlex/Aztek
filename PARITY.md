@@ -1879,6 +1879,13 @@ Go to start or end, step a frame and step a key did nothing while playing: the n
 clock said it should be. They now stop playback and go where they say, from the playback buttons, the Playback menu
 and their hotkeys, as in the reference. Play forwards and Play backwards still switch direction while playing.
 
+### A click or double-click on a Channel Box value takes the whole value (20/11/2026, #200)
+
+A double-click on a value took only the word under it (the digits after the point), and a click put the cursor where
+it landed, so typing went in beside the old value. Either now takes the whole value, as in the reference, so what's
+typed replaces it; a further click in a value being edited places the cursor. The picked row's selection now shows,
+white on the highlight colour.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

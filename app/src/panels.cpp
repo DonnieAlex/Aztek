@@ -34,6 +34,7 @@
 #include <tuple>
 #include <QInputDialog>
 #include <QGuiApplication>
+#include <QPointer>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -267,6 +268,18 @@ public:
     using QObject::QObject;
 protected:
     bool eventFilter(QObject* o, QEvent* e) override {
+        // A click into a value, or a double-click on it, takes the whole value, so what's typed replaces it, as in the
+        // reference; a double-click would otherwise take only the word under it (#200).
+        if (e->type() == QEvent::MouseButtonDblClick && static_cast<QMouseEvent*>(e)->button() == Qt::LeftButton) {
+            if (auto* f = qobject_cast<QLineEdit*>(o)) {
+                f->setFocus(Qt::MouseFocusReason);
+                f->selectAll();
+                return true;
+            }
+        }
+        // A click that brings the focus into a value takes the whole value once the click is over: the field puts
+        // its cursor where the press was.
+        if (e->type() == QEvent::FocusIn && static_cast<QFocusEvent*>(e)->reason() == Qt::MouseFocusReason) select_on_release_ = true;
         if (e->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent*>(e)->button() == Qt::LeftButton) {
             pick_channel(o->property("attr").toString(), static_cast<QMouseEvent*>(e)->modifiers(), true);
             restyle_channel_labels();
@@ -288,11 +301,16 @@ protected:
             }
             // The run, not the text under the drag.
             return true;
-        } else if (e->type() == QEvent::MouseButtonRelease && dragged_) {
+        } else if (e->type() == QEvent::MouseButtonRelease && (dragged_ || select_on_release_)) {
             dragged_ = false;
+            select_on_release_ = false;
             if (auto* f = qobject_cast<QLineEdit*>(o)) {
-                f->setFocus(Qt::MouseFocusReason);
-                f->selectAll();
+                QPointer<QLineEdit> keep(f);
+                QTimer::singleShot(0, f, [keep] {
+                    if (!keep) return;
+                    keep->setFocus(Qt::MouseFocusReason);
+                    keep->selectAll();
+                });
             }
         }
         return false;
@@ -300,6 +318,7 @@ protected:
 
 private:
     bool dragged_ = false;
+    bool select_on_release_ = false;
 };
 
 // A channel name: click picks it, Ctrl+click toggles, Shift+click or a drag down the names picks a run.
