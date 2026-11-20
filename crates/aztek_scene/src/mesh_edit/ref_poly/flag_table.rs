@@ -357,6 +357,14 @@ pub fn table(command: &str) -> &'static [Row] {
             ("smoothStrength", "smt", 'f'), ("tessellateBorders", "tsb", 'b'), ("useRelativeValues", "urv", 'b'),
         ],
         "polyRetopo" => &[
+            ("angle", "ang", 'f'), ("anisotropy", "a", 'f'), ("axis", "an", 'i'), ("axisOffset", "ao", 'f'),
+            ("axisPosition", "ap", 'i'), ("curveInfluenceDirection", "cid", 'f'), ("curveSingularitySeparation", "css", 'f'),
+            ("edgesByAngle", "eba", 'b'), ("faceUniformity", "fun", 'f'), ("featureTags", "ft", 's'),
+            ("interactiveMode", "imd", 'b'), ("pivot", "p", 'v'), ("pivotX", "px", 'f'), ("pivotY", "py", 'f'),
+            ("pivotZ", "pz", 'f'), ("preprocessMesh", "pm", 'b'), ("preserveHardEdges", "phe", 'b'),
+            ("shortEdgeTolerance", "se", 'f'), ("symmetry", "sym", 'b'), ("symmetryEdges", "sme", 'a'),
+            ("targetEdgeDeviation", "ted", 'f'), ("targetFaceCount", "tfc", 'i'), ("targetFaceCountTolerance", "tft", 'i'),
+            ("thinTriangleAngleTolerance", "tt", 'f'), ("topologyRegularity", "trg", 'f'), ("useFeatureTags", "uft", 'b'),
         ],
         "polySelect" => &[
             ("add", "add", 'b'), ("addFirst", "af", 'b'), ("asSelectString", "ass", 'b'), ("deselect", "d", 'b'),

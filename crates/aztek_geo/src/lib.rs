@@ -25,6 +25,7 @@ pub mod ply;
 pub mod point_weld;
 pub mod primitives;
 pub mod reduce;
+pub mod retopo;
 pub mod render_mesh;
 pub mod smart_join;
 pub mod stl;

@@ -129,9 +129,81 @@ fn remesh_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> C
     Ok(faces(remesh(m, &list, &o)))
 }
 
+/// The reference's node attributes and Aztek's own read into retopology options. The method sets what is followed and
+/// how density and flow are weighed; the reference's attributes then adjust it.
+fn retopo_options(a: &Args, m: &Mesh) -> aztek_geo::retopo::RetopoOptions {
+    use aztek_geo::retopo::{Method, RetopoOptions};
+    let method = Method::from_index(a.int("method", 0));
+    let mut o = RetopoOptions::for_method(method);
+    let flag = |name: &str| a.get(name).and_then(|v| v.as_bool().or_else(|| v.as_i64().map(|i| i != 0)));
+    // A tri-state of Aztek's own: -1 (the default) leaves it to the method.
+    let tri = |name: &str, fallback: bool| match a.get(name).and_then(Value::as_i64) {
+        Some(x) if x >= 0 => x != 0,
+        _ => a.get(name).and_then(Value::as_bool).unwrap_or(fallback),
+    };
+    o.target_faces = a.int("targetFaceCount", 0).max(0) as usize;
+    o.tolerance = a.float("targetFaceCountTolerance", 10.0).max(1.0);
+    o.preserve_hard_edges |= flag("preserveHardEdges").unwrap_or(false);
+    o.edges_by_angle |= flag("edgesByAngle").unwrap_or(false);
+    o.angle = a.float("angle", 30.0).clamp(1.0, 179.0).to_radians();
+    // The reference's 0 is fully adaptive; Aztek's methods start from their own and the attribute raises it.
+    let fun = a.float("faceUniformity", 0.0).clamp(0.0, 1.0);
+    o.face_uniformity = o.face_uniformity.max(fun);
+    o.anisotropy = a.float("anisotropy", 0.5).clamp(0.0, 1.0);
+    o.topology_regularity = a.float("topologyRegularity", 0.5).clamp(0.0, 1.0);
+    o.target_edge_deviation = a.float("targetEdgeDeviation", 0.2929).clamp(1e-3, 1.0);
+    o.preprocess = flag("preprocessMesh").unwrap_or(true);
+    o.segment_by_shape = tri("segmentByShape", o.segment_by_shape);
+    o.segment_by_color = tri("segmentByColor", o.segment_by_color);
+    o.follow_seams = tri("followSeams", o.follow_seams);
+    o.pure_quads = tri("pureQuads", true);
+    if flag("symmetry").unwrap_or(false) {
+        let axis = a.int("axis", 0).clamp(0, 2) as usize;
+        let mut offset = a.float("axisOffset", 0.0);
+        // axisPosition 1: the object's middle along the axis rather than its origin.
+        if a.int("axisPosition", 0) == 1 {
+            let c = m.bounds().center();
+            offset += c[axis];
+        }
+        let mut normal = DVec3::ZERO;
+        normal[axis] = 1.0;
+        o.symmetry = Some(SymmetryPlane { normal, offset });
+    }
+    o
+}
+
 fn retopo_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let list = if sel.is_empty() { components::all_ids(m, K::Face) } else { sel.clone() };
-    Ok(faces(retopo(m, &list, a.int("targetFaceCount", 1000), 60.0)))
+    let o = retopo_options(a, m);
+    let all = list.len() as Index >= m.num_faces();
+    let mut out = aztek_geo::retopo::retopologize(m, &list, &o);
+    if out.num_faces() == 0 {
+        return Ok(faces((0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect()));
+    }
+    if !all {
+        // A selection: its faces go and the new ones take their place, as a piece of their own.
+        let mut rest = m.clone();
+        for &f in &list {
+            if rest.face_valid(f) {
+                rest.remove_face(f);
+            }
+        }
+        rest.remove_all_loose();
+        rest.compact(None);
+        let pts: Vec<Index> = (0..out.point_capacity()).map(|p| if out.point_valid(p) { rest.add_point(out.position(p)) } else { INVALID }).collect();
+        let mut made = Vec::new();
+        for f in 0..out.face_capacity() {
+            if out.face_valid(f) {
+                let fp: Vec<Index> = out.face_points(f).iter().map(|&p| pts[p as usize]).collect();
+                made.push(rest.add_face(&fp));
+            }
+        }
+        *m = rest;
+        return Ok(faces(made));
+    }
+    out.compact(None);
+    *m = out;
+    Ok(faces((0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect()))
 }
 
 fn mirror_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
@@ -217,7 +289,7 @@ pub(super) fn register_ops() {
     op("polyUnsmooth", "polyUnsmooth", "Unsmooth", K::Face, unsmooth_op, "Undoes levels of Catmull-Clark smoothing.");
     op("polyReduce", "polyReduce", "Reduce", K::Face, reduce_op, "Lowers the polygon count, keeping the shape.");
     op("polyRemesh", "polyRemesh", "Remesh", K::Face, remesh_op, "Rebuilds faces as even triangles.");
-    op("polyRetopo", "polyRetopo", "Retopologize", K::Face, retopo_op, "Rebuilds the surface as even, quad-dominant faces.");
+    op("polyRetopo", "polyRetopo", "Retopologize", K::Face, retopo_op, "Rebuilds the surface as quads laid along a smooth field.");
     op("polyMirror", "polyMirrorFace", "Mirror", K::Face, mirror_op, "Adds a mirrored copy, welded along the plane.");
     op("polySeparate", "polySeparate", "Separate", K::Face, shell_op, "Keeps one shell of its input mesh.");
     op("polyEditEdgeFlow", "polyEditEdgeFlow", "Edit Edge Flow", K::Edge, edge_flow_op, "Moves edge loops onto the curvature of the surface around them.");
@@ -1221,13 +1293,31 @@ pub(super) fn register(c: &mut Commands<Session>) {
     c.register(with_table(
         Cmd::new(
             "polyRetopo",
-            "Automatic retopology: rebuilds meshes as even quad-dominant faces, about -targetFaceCount of them. Returns the node.",
+            "Automatic retopology: rebuilds meshes as quads laid along a smooth field, about -targetFaceCount of them (0: as dense as \
+             -targetEdgeDeviation needs). -method 0 Organic, 1 Hard Surface (follows hard and sharp edges and flat regions), 2 Character \
+             (loops along the curvature, denser where detailed), 3 Segmented (regions by shape and colour, each meshed to its border). \
+             Returns the node.",
             |s, a| run_op(s, "polyRetopo", a),
         )
-        .flag(fl("targetFaceCount", "tfc", T::Int, json!(1000), "About how many faces."))
-        .flag(fl("targetFaceCountTolerance", "tft", T::Float, json!(10.0), "Accepted."))
-        .flag(fl("preserveHardEdges", "phe", T::Bool, json!(false), "Accepted."))
-        .flag(fl("symmetry", "sym", T::Bool, json!(false), "Accepted.")),
+        .flag(fl("targetFaceCount", "tfc", T::Int, json!(0), "About how many faces; 0 lets targetEdgeDeviation set the density."))
+        .flag(fl("targetFaceCountTolerance", "tft", T::Int, json!(10), "Percent the count may miss by before the edge length is corrected and the solve redone."))
+        .flag(fl("preserveHardEdges", "phe", T::Bool, json!(false), "Edges follow the mesh's hard edges."))
+        .flag(fl("edgesByAngle", "eba", T::Bool, json!(false), "Edges follow edges whose faces bend more than -angle."))
+        .flag(fl("angle", "ang", T::Float, json!(30.0), "Degrees, for -edgesByAngle and the Hard Surface method."))
+        .flag(fl("symmetry", "sym", T::Bool, json!(false), "The result is mirrored across the -axis plane, exactly symmetric."))
+        .flag(fl("axis", "an", T::Int, json!(0), "The symmetry plane's normal: 0 X, 1 Y, 2 Z."))
+        .flag(fl("axisPosition", "ap", T::Int, json!(0), "0: the plane through the object's origin, 1: through its middle; -axisOffset moves it."))
+        .flag(fl("axisOffset", "ao", T::Float, json!(0.0), "Where the symmetry plane sits along its axis."))
+        .flag(fl("faceUniformity", "fun", T::Float, json!(0.0), "0 to 1: from faces sized to the curvature to faces all one size."))
+        .flag(fl("anisotropy", "a", T::Float, json!(0.5), "0 to 1: how much quads stretch along the direction the surface bends least."))
+        .flag(fl("topologyRegularity", "trg", T::Float, json!(0.5), "0 to 1: low for fewer irregular points and smoother flow, high to follow detail."))
+        .flag(fl("targetEdgeDeviation", "ted", T::Float, json!(0.2929), "With no face count: how far edges may stray from the surface, against its local radius."))
+        .flag(fl("preprocessMesh", "pm", T::Bool, json!(true), "Reduce a much denser input first."))
+        .flag(fl("method", "mth", T::Int, json!(0), "Aztek: 0 Organic, 1 Hard Surface, 2 Character, 3 Segmented."))
+        .flag(fl("segmentByShape", "sbs", T::Int, json!(-1), "Aztek: split the surface into regions of one direction and lean the flow along their borders; -1 the method decides."))
+        .flag(fl("segmentByColor", "sbc", T::Int, json!(-1), "Aztek: split the surface by its colour set's colours and follow their borders; -1 the method decides."))
+        .flag(fl("followSeams", "fsm", T::Int, json!(-1), "Aztek: follow UV seams and material borders; -1 the method decides."))
+        .flag(fl("pureQuads", "pq", T::Int, json!(-1), "Aztek: every face a quad (-1 or 1), or quads with some triangles and pentagons (0).")),
         "polyRetopo",
         &[],
     ));

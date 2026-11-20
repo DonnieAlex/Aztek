@@ -1858,6 +1858,15 @@ With anti-aliasing on, the grid looked dashed and stepped. It is drawn cell by c
 faded each piece's ends. Lines are now drawn as rectangles that the samples cover in part wherever the device has them,
 so the grid, wireframes, curves and manipulators are all smoothed the same way.
 
+### Retopologize: quads along a field, in four methods (20/11/2026)
+
+Retopologize was an isotropic remesh with triangle pairs joined: a quarter of its faces triangles and over a third of
+its points irregular. It now solves a 4-way orientation and position field over a hierarchy (after Instant
+Field-Aligned Meshes), held to features, and reads all-quad meshes from it: Organic, Hard Surface (hard and sharp edges
+and their corners kept exactly), Character (loops along the curvature, exact symmetry) and Segmented (regions by colour
+set and shape). The reference's polyRetopo flags and node attributes are all taken. docs/RETOPOLOGY.md has the
+details and measurements.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
