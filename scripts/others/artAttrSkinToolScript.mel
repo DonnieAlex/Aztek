@@ -16,8 +16,7 @@ global proc string artAttrSkinToolScript(int $setToTool)
         ArtPaintSkinWeightsTool;
 
     if ($setToTool == 3) {
-        if (`exists ToolSettingsWindow`)
-            ToolSettingsWindow;
+        toolPropertyWindow;
     } else if ($setToTool != 4) {
         warning "artAttrSkinToolScript: the argument should be 3 or 4.";
     }

@@ -1,23 +1,20 @@
 // performPlayblast: Windows > Playblast, its option box and the Time Slider's Playblast. The settings are optionVars,
 // read each time a playblast is made, so scripts can set them and then call performPlayblast.
 
-// optionVar -init as the reference has it: written when the var is missing, or always when forced.
+// One value under the category "Animation.Playback.Playblast", written when the var is missing, or always when forced.
 proc pbInitInt(int $force, string $name, int $value)
 {
-    if ($force || !`optionVar -exists $name`)
-        optionVar -intValue $name $value;
+    optionVar -init $force -category "Animation.Playback.Playblast" -intValue $name $value;
 }
 
 proc pbInitFloat(int $force, string $name, float $value)
 {
-    if ($force || !`optionVar -exists $name`)
-        optionVar -floatValue $name $value;
+    optionVar -init $force -category "Animation.Playback.Playblast" -floatValue $name $value;
 }
 
 proc pbInitString(int $force, string $name, string $value)
 {
-    if ($force || !`optionVar -exists $name`)
-        optionVar -stringValue $name $value;
+    optionVar -init $force -category "Animation.Playback.Playblast" -stringValue $name $value;
 }
 
 global proc setPlayblastOptionVars(int $forceFactorySettings)
@@ -146,8 +143,8 @@ global proc playblastCallback(string $parent, int $doIt)
         performPlayblast 3;
         $again = "performPlayblast 3";
     }
-    if ($again != "" && `exists addToRecentCommandQueue`)
-        eval("addToRecentCommandQueue \"" + $again + "\" \"PlayBlast\"");
+    if ($again != "")
+        addToRecentCommandQueue($again, "PlayBlast");
 }
 
 global proc int playblastUpdateMovieName(string $filename, string $fileType)

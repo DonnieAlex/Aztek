@@ -20,68 +20,6 @@ proc int performDuplicate_inClipEditor()
     return `scriptedPanel -q -type $panel` == "clipEditorPanel";
 }
 
-// What duplicatePreset does, for when Aztek has no global duplicatePreset: copies (or instances) of the selected objects,
-// each one made from the one before and moved, turned and scaled by the offsets, so several copies form a row. The
-// group mode puts the copies under the original's parent (1), under the world (2) or in one new group (3).
-proc string[] performDuplicate_preset(int $count, int $copy, int $groupMode, int $smart, int $upstream, int $inputConns,
-    int $renameChildren, int $instanceLeaf, float $t[], float $r[], float $s[])
-{
-    string $made[];
-    string $from[] = `ls -sl -l -type transform`;
-    if (!size($from)) {
-        warning "Select the objects to duplicate.";
-        return $made;
-    }
-    string $flags = "-rr";
-    if ($smart)
-        $flags += " -st";
-    if ($copy) {
-        if ($upstream)
-            $flags += " -un";
-        else if ($inputConns)
-            $flags += " -ic";
-        if ($instanceLeaf)
-            $flags += " -ilf";
-        if ($renameChildren)
-            $flags += " -rc";
-    }
-    // Smart transform repeats the last duplicate's own step, so the offsets only apply without it.
-    int $offset = !$smart && ($t[0] != 0 || $t[1] != 0 || $t[2] != 0 || $r[0] != 0 || $r[1] != 0 || $r[2] != 0
-        || $s[0] != 1 || $s[1] != 1 || $s[2] != 1);
-    for ($i = 0; $i < max(1, $count); $i++) {
-        select -r $from;
-        string $new[];
-        if ($copy)
-            $new = `eval ("duplicate " + $flags)`;
-        else if ($smart)
-            $new = `instance -st`;
-        else
-            $new = `instance`;
-        if ($offset) {
-            move -r $t[0] $t[1] $t[2] $new;
-            rotate -r -os $r[0] $r[1] $r[2] $new;
-            scale -r $s[0] $s[1] $s[2] $new;
-        }
-        $made = stringArrayCatenate($made, $new);
-        $from = $new;
-    }
-    if ($groupMode == 2) {
-        string $moved[];
-        for ($m in $made) {
-            if (size(`listRelatives -p $m`))
-                $moved = stringArrayCatenate($moved, `parent -w $m`);
-            else
-                $moved[size($moved)] = $m;
-        }
-        $made = $moved;
-    } else if ($groupMode == 3) {
-        string $g = `group $made`;
-        $made = {$g};
-    }
-    select -r $made;
-    return $made;
-}
-
 global proc string performDuplicate(int $action)
 {
     if ($action == 0 && performDuplicate_inClipEditor() && `exists performDuplicateClip`)
@@ -99,11 +37,8 @@ global proc string performDuplicate(int $action)
         + $r[0] + "," + $r[1] + "," + $r[2] + "," + $s[0] + "," + $s[1] + "," + $s[2] + ")";
 
     if ($action == 0) {
-        // duplicatePreset echoes itself, so a plain eval.
-        if (`exists duplicatePreset`)
-            eval $cmd;
-        else
-            performDuplicate_preset($count, $copy, $groupMode, $smart, $upstream, $inputConns, $renameChildren, $instanceLeaf, $t, $r, $s);
+        // duplicatePreset prints what it does itself, so a plain eval.
+        eval $cmd;
     }
     return $cmd;
 }

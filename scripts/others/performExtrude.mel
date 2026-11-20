@@ -1,0 +1,358 @@
+// performExtrude: Surfaces > Extrude, a profile swept along a path, run with its saved settings, or its command handed
+// back, or its option box (as an action, or as the Extrude Tool's settings). The settings live in the extrude*
+// optionVars, which extrudeSetOptionVars creates; the extrude itself is performSweepPreset's work.
+
+// Creates the extrude optionVars that are missing, or puts them all back to their defaults when forced. Aztek doesn't
+// have extrudeSetOptionVars yet, so without it the settings stay as they are (missing ones read as 0).
+proc extrudeInitOptions(int $force)
+{
+    if (`exists extrudeSetOptionVars`)
+        eval ("extrudeSetOptionVars " + $force);
+}
+
+proc int extrudeSurfaceUI()
+{
+    return `isTrue SurfaceUIExists`;
+}
+
+proc int extrudeSubdivUI()
+{
+    return `isTrue SubdivUIExists`;
+}
+
+// Construction history on or off. Aztek's constructionHistory answers this with no flags: its -query wants an object.
+proc int extrudeHistoryOn()
+{
+    return `constructionHistory`;
+}
+
+// The call that extrudes the selection with the saved settings.
+proc string extrudeCommand()
+{
+    extrudeInitOptions(0);
+    int $output = extrudeSurfaceUI() ? `optionVar -query extrudeOutputPolygons` : 1;
+    string $dir;
+    switch (`optionVar -query extrudeDirectionType`) {
+        case 0: $dir = "1,0,0"; break;
+        case 1: $dir = "0,1,0"; break;
+        case 2: $dir = "0,0,1"; break;
+        default:
+            $dir = `optionVar -query extrudeDirectionX` + "," + `optionVar -query extrudeDirectionY` + ","
+                + `optionVar -query extrudeDirectionZ`;
+            break;
+    }
+    return "performSweepPreset(" + extrudeHistoryOn()
+        + "," + `optionVar -query extrudeCurveRangePartial`
+        + "," + $output
+        + "," + `optionVar -query extrudeStyle`
+        + "," + `optionVar -query extrudeUseComponentPivot`
+        + "," + `optionVar -query extrudePathFixed`
+        + "," + `optionVar -query extrudeUseProfileNormal`
+        + "," + $dir
+        + "," + `optionVar -query extrudeLength`
+        + "," + `optionVar -query extrudeRotation`
+        + "," + `optionVar -query extrudeScale`
+        + "," + `optionVar -query extrudeDegreeAlongLength` + ")";
+}
+
+// Greys out what the chosen style and direction don't use. A negative argument is read from the option box instead.
+global proc extrudeVisibility(string $parent, int $vector, int $style, int $direction)
+{
+    setParent $parent;
+    if ($style < 0)
+        $style = `radioButtonGrp -query -select style_B`;
+    if ($style == 1) {
+        // Distance: its own page of settings.
+        tabLayout -edit -selectTab distOptions_C swapOptions_T;
+        radioButtonGrp -edit -enable true degreeAlongLen_B;
+    } else if ($style == 2) {
+        // Flat.
+        tabLayout -edit -selectTab extrudeTubeOptions_C swapOptions_T;
+        radioButtonGrp -edit -enable false pivot_B;
+        radioButtonGrp -edit -enable false dirType_RX;
+        radioButtonGrp -edit -enable false degreeAlongLen_B;
+    } else {
+        // Tube.
+        tabLayout -edit -selectTab extrudeTubeOptions_C swapOptions_T;
+        radioButtonGrp -edit -enable true pivot_B;
+        radioButtonGrp -edit -enable true dirType_RX;
+        radioButtonGrp -edit -enable false degreeAlongLen_B;
+    }
+
+    if ($direction < 0)
+        $direction = `radioButtonGrp -query -select dirType_R`;
+    if ($direction == 1) {
+        // A direction given: an axis fills the vector in; Free leaves it to be typed.
+        radioButtonGrp -edit -enable true direction_R;
+        if ($vector < 0)
+            $vector = `radioButtonGrp -query -select direction_R`;
+        if ($vector == 1)
+            floatFieldGrp -edit -value1 1 -value2 0 -value3 0 -enable false userDir_F;
+        else if ($vector == 2)
+            floatFieldGrp -edit -value1 0 -value2 1 -value3 0 -enable false userDir_F;
+        else if ($vector == 3)
+            floatFieldGrp -edit -value1 0 -value2 0 -value3 1 -enable false userDir_F;
+        else
+            floatFieldGrp -edit -enable true userDir_F;
+    } else {
+        // The profile's normal: no direction to give.
+        radioButtonGrp -edit -enable false direction_R;
+        floatFieldGrp -edit -enable false userDir_F;
+    }
+}
+
+// Shows the saved settings in the option box under $parent; forced, puts the defaults back first.
+global proc extrudeSetup(string $parent, int $forceFactorySettings, string $goToTool)
+{
+    extrudeInitOptions($forceFactorySettings);
+    // The tool's own settings live with extrudeToolScript, which may not have been loaded yet.
+    if (!`exists extrudeToolSetup`)
+        eval "source extrudeToolScript";
+    extrudeToolSetup($forceFactorySettings, $goToTool);
+    setParent $parent;
+
+    int $output = extrudeSurfaceUI() ? `optionVar -query extrudeOutputPolygons` : 1;
+    radioButtonGrp -edit -select (`optionVar -query extrudeStyle` + 1) style_B;
+    radioButtonGrp -edit -select (`optionVar -query extrudePathFixed` + 1) path_B;
+    radioButtonGrp -edit -select (`optionVar -query extrudeCurveRangePartial` + 1) range_R;
+    if (extrudeSurfaceUI()) {
+        // Without the subdivision button, Bezier is the third.
+        if ($output == 3 && !extrudeSubdivUI())
+            $output = 2;
+        radioButtonGrp -edit -select ($output + 1) poly_B;
+    }
+    radioButtonGrp -edit -select (`optionVar -query extrudeUseComponentPivot` + 1) pivot_B;
+    int $normal = `optionVar -query extrudeUseProfileNormal`;
+    radioButtonGrp -edit -select ($normal + 1) dirType_R;
+    radioButtonGrp -edit -select ($normal + 1) dirType_RX;
+    radioButtonGrp -edit -select (`optionVar -query extrudeDirectionType` + 1) direction_R;
+    floatFieldGrp -edit -value1 `optionVar -query extrudeDirectionX` -value2 `optionVar -query extrudeDirectionY`
+        -value3 `optionVar -query extrudeDirectionZ` userDir_F;
+    floatSliderGrp -edit -value `optionVar -query extrudeLength` length_F;
+    floatSliderGrp -edit -value `optionVar -query extrudeRotation` extrudeRotateField;
+    floatSliderGrp -edit -value `optionVar -query extrudeScale` extrudeScaleField;
+    // Linear is button 1, cubic button 2; anything else stored is taken as the button.
+    int $degree = `optionVar -query extrudeDegreeAlongLength`;
+    if ($degree == 1)
+        radioButtonGrp -edit -select 1 degreeAlongLen_B;
+    else if ($degree == 3)
+        radioButtonGrp -edit -select 2 degreeAlongLen_B;
+    else
+        radioButtonGrp -edit -select $degree degreeAlongLen_B;
+
+    extrudeVisibility($parent, -1, -1, -1);
+
+    tabLayout -edit -visible ($output == 1) polyOptions;
+
+    if ($goToTool != "") {
+        checkBoxGrp -edit -value1 `scriptCtx -query -exitUponCompletion $goToTool`
+            -value2 `scriptCtx -query -lastAutoComplete $goToTool` scriptToolExtraWidget;
+    }
+
+    // The polygon and subdivision output settings, from their own scripts. Aztek has neither yet.
+    if (`exists nurbsToPolySetup`)
+        eval ("nurbsToPolySetup \"" + $parent + "\" " + $forceFactorySettings);
+    if (`exists nurbsToSubdivSetup`)
+        eval ("nurbsToSubdivSetup \"" + $parent + "\" " + $forceFactorySettings);
+}
+
+// Saves the option box's settings; $doIt 1 then extrudes, 3 enters the tool, 0 only saves. Settings the chosen style
+// doesn't show aren't saved.
+global proc extrudeCallback(string $parent, int $doIt, string $goToTool)
+{
+    if ($goToTool != "") {
+        optionVar -intValue extrudeEuc `scriptCtx -query -exitUponCompletion $goToTool`;
+        optionVar -intValue extrudeLac `scriptCtx -query -lastAutoComplete $goToTool`;
+    }
+    setParent $parent;
+    int $range = `radioButtonGrp -query -select range_R` - 1;
+    int $style = `radioButtonGrp -query -select style_B` - 1;
+    int $pathFixed = `radioButtonGrp -query -select path_B` - 1;
+    int $pivot = `radioButtonGrp -query -select pivot_B` - 1;
+
+    if (extrudeSurfaceUI()) {
+        int $b = `radioButtonGrp -query -select poly_B`;
+        if ($b == 3 && !extrudeSubdivUI())
+            $b = 4;
+        optionVar -intValue extrudeOutputPolygons ($b - 1);
+    }
+    int $normal = `radioButtonGrp -query -select dirType_R` - 1;
+    optionVar -intValue extrudeUseProfileNormal $normal;
+
+    if ($style == 0) {
+        if ($normal == 0) {
+            int $dirType = `radioButtonGrp -query -select direction_R` - 1;
+            optionVar -intValue extrudeDirectionType $dirType;
+            if ($dirType == 3) {
+                optionVar -floatValue extrudeDirectionX `floatFieldGrp -query -value1 userDir_F`;
+                optionVar -floatValue extrudeDirectionY `floatFieldGrp -query -value2 userDir_F`;
+                optionVar -floatValue extrudeDirectionZ `floatFieldGrp -query -value3 userDir_F`;
+            }
+        }
+        optionVar -floatValue extrudeLength `floatSliderGrp -query -value length_F`;
+    }
+    optionVar -floatValue extrudeRotation `floatSliderGrp -query -value extrudeRotateField`;
+    optionVar -floatValue extrudeScale `floatSliderGrp -query -value extrudeScaleField`;
+    optionVar -intValue extrudeStyle $style;
+    optionVar -intValue extrudePathFixed $pathFixed;
+    optionVar -intValue extrudeCurveRangePartial $range;
+    if ($style == 2)
+        optionVar -intValue extrudeUseComponentPivot $pivot;
+    optionVar -intValue extrudeDegreeAlongLength (`radioButtonGrp -query -select degreeAlongLen_B` == 1 ? 1 : 3);
+
+    if (`exists nurbsToPolyCallback`)
+        eval ("nurbsToPolyCallback \"" + $parent + "\" 0");
+    if (`exists nurbsToSubdivCallback`)
+        eval ("nurbsToSubdivCallback \"" + $parent + "\" 0");
+
+    if ($doIt == 1) {
+        performExtrude(0, $goToTool);
+        addToRecentCommandQueue("performExtrude( 0, \"" + $goToTool + "\")", "Extrude");
+    } else if ($doIt != 0) {
+        // The tool for the style just saved, made if needed.
+        extrudeToolScript(4);
+    }
+}
+
+// The option box; $inTool makes it the Extrude Tool's.
+proc extrudeOptionBox(int $inTool, string $goToTool)
+{
+    global string $gOptionBoxActionToolItem;
+    global string $gOptionBoxActionToolItemCB;
+
+    // Edit > As Tool / As Action follow the modelWithToolExtrude preference.
+    $gOptionBoxActionToolItem = "modelWithToolExtrude";
+    $gOptionBoxActionToolItemCB = "extrudeToolScript 3";
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("extrude");
+
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+
+    radioButtonGrp -numberOfRadioButtons 3 -label "Style" -labelArray3 "Distance" "Flat" "Tube" -select 3
+        -onCommand1 ("extrudeVisibility " + $parent + " -1 1 -1")
+        -onCommand2 ("extrudeVisibility " + $parent + " -1 2 -1")
+        -onCommand3 ("extrudeVisibility " + $parent + " -1 3 -1")
+        style_B;
+    tabLayout -tabsVisible false swapOptions_T;
+        columnLayout -adjustableColumn true distOptions_C;
+            floatSliderGrp -label "Extrude length" -field true -minValue 0 -maxValue 10
+                -fieldMinValue -1e8 -fieldMaxValue 1e8 length_F;
+            // The two direction rows, here and on the tube page, are kept in step.
+            radioButtonGrp -numberOfRadioButtons 2 -label "Direction" -labelArray2 "Specify" "Profile normal" -select 2
+                -onCommand1 ("radioButtonGrp -edit -select 1 dirType_RX; extrudeVisibility " + $parent + " -1 -1 1")
+                -onCommand2 ("radioButtonGrp -edit -select 2 dirType_RX; extrudeVisibility " + $parent + " -1 -1 2")
+                dirType_R;
+            radioButtonGrp -numberOfRadioButtons 4 -label "Direction vector"
+                -labelArray4 "X axis" "Y axis" "Z axis" "Free"
+                -onCommand1 ("extrudeVisibility " + $parent + " 1 -1 -1")
+                -onCommand2 ("extrudeVisibility " + $parent + " 2 -1 -1")
+                -onCommand3 ("extrudeVisibility " + $parent + " 3 -1 -1")
+                -onCommand4 ("extrudeVisibility " + $parent + " 0 -1 -1")
+                direction_R;
+            floatFieldGrp -numberOfFields 3 -label "" userDir_F;
+            radioButtonGrp -numberOfRadioButtons 2 -label "Surface degree" -labelArray2 "Linear" "Cubic"
+                degreeAlongLen_B;
+        setParent ..;
+        columnLayout -adjustableColumn true extrudeTubeOptions_C;
+            radioButtonGrp -numberOfRadioButtons 2 -label "Result position" -labelArray2 "At profile" "At path"
+                -select 1 path_B;
+            radioButtonGrp -numberOfRadioButtons 2 -label "Pivot" -labelArray2 "Closest end point" "Component"
+                -select 1 pivot_B;
+            radioButtonGrp -numberOfRadioButtons 2 -label "Orientation" -labelArray2 "Path direction" "Profile normal"
+                -select 2
+                -onCommand1 ("radioButtonGrp -edit -select 1 dirType_R; extrudeVisibility " + $parent + " -1 -1 1")
+                -onCommand2 ("radioButtonGrp -edit -select 2 dirType_R; extrudeVisibility " + $parent + " -1 -1 2")
+                dirType_RX;
+        setParent ..;
+    setParent ..;
+    floatSliderGrp -label "Rotation" -field true -minValue 0 -maxValue 360
+        -fieldMinValue -1000000 -fieldMaxValue 1000000 extrudeRotateField;
+    floatSliderGrp -label "Scale" -field true -minValue 0 -maxValue 10
+        -fieldMinValue -1000 -fieldMaxValue 1000 extrudeScaleField;
+    separator;
+    radioButtonGrp -numberOfRadioButtons 2 -label "Curve range" -labelArray2 "Complete" "Partial" range_R;
+    // Picking Polygons shows the polygon output settings; any other output hides them.
+    string $show = "tabLayout -edit -visible true polyOptions";
+    string $hide = "tabLayout -edit -visible false polyOptions";
+    if (extrudeSubdivUI()) {
+        radioButtonGrp -numberOfRadioButtons 4 -label "Output geometry"
+            -labelArray4 "NURBS" "Polygons" "Subdiv" "Bezier"
+            -onCommand1 $hide -onCommand2 $show -onCommand3 $hide -onCommand4 $hide
+            poly_B;
+    } else if (extrudeSurfaceUI()) {
+        radioButtonGrp -numberOfRadioButtons 3 -label "Output geometry"
+            -labelArray3 "NURBS" "Polygons" "Bezier"
+            -onCommand1 $hide -onCommand2 $show -onCommand3 $hide
+            poly_B;
+    }
+    separator;
+    tabLayout -tabsVisible false polyOptions;
+        string $polyCol = `columnLayout -adjustableColumn true polyOptionsOK`;
+        // The polygon output settings come from nurbsToPolyAddOptions, which Aztek doesn't have yet.
+        if (`exists nurbsToPolyAddOptions`)
+            eval ("nurbsToPolyAddOptions \"" + $polyCol + "\"");
+        setParent ..;
+    setParent ..;
+
+    if ($inTool) {
+        separator;
+        checkBoxGrp -numberOfCheckBoxes 2 -label "Tool behavior"
+            -label1 "Exit on completion" -value1 false
+            -label2 "Auto completion" -value2 true
+            -onCommand1 ("scriptCtx -e -euc true " + $goToTool)
+            -offCommand1 ("scriptCtx -e -euc false " + $goToTool)
+            -onCommand2 ("scriptCtx -e -lac true " + $goToTool)
+            -offCommand2 ("scriptCtx -e -lac false " + $goToTool)
+            scriptToolExtraWidget;
+    }
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $apply = getOptionBoxApplyBtn();
+    if ($inTool)
+        button -edit -label "Extrude Tool" -command ("extrudeCallback " + $parent + " 3 \"" + $goToTool + "\"") $apply;
+    else
+        button -edit -label "Extrude" -command ("extrudeCallback " + $parent + " 1 \"" + $goToTool + "\"") $apply;
+    button -edit -command ("extrudeCallback " + $parent + " 0 \"" + $goToTool + "\"; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("extrudeSetup " + $parent + " 1 \"" + $goToTool + "\"") (getOptionBoxResetBtn());
+
+    setOptionBoxTitle($inTool ? "Extrude Tool Options" : "Extrude Options");
+    setOptionBoxHelpTag("Extrude");
+
+    eval ("extrudeSetup " + $parent + " 0 \"" + $goToTool + "\"");
+    showOptionBox();
+}
+
+// $action: 0 extrude (returns the command), 1 option box, 2 the command only, 3 the tool's option box; any other
+// value is taken as 2.
+global proc string performExtrude(int $action, string $goToTool)
+{
+    int $inTool = 0;
+    if ($action == 3) {
+        $action = 1;
+        $inTool = 1;
+    }
+    if ($action == 1) {
+        extrudeOptionBox($inTool, $goToTool);
+        return "";
+    }
+    string $cmd = extrudeCommand();
+    if ($action == 0) {
+        // The extrude itself is performSweepPreset's, which Aztek doesn't have yet.
+        if (`exists performSweepPreset`)
+            eval $cmd;
+        else
+            warning "Extrude isn't available yet: performSweepPreset was not found.";
+    }
+    return $cmd;
+}

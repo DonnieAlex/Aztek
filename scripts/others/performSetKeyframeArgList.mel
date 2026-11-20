@@ -5,13 +5,16 @@
 
 proc performSetKeyframeArgList_options(int $force)
 {
-    string $names[] = {"setKeyframeWhich", "setKeyframePrompt", "keySetIKFK", "keySetPreserveCurveShape", "keySetFBIK",
-        "keyHierarchy", "keyUseChannelBox", "keyControlPoints", "keyShapes"};
-    int $defaults[] = {4, 0, 0, 0, 1, 0, 0, 0, 1};
-    for ($i = 0; $i < size($names); $i++) {
-        if ($force || !`optionVar -ex $names[$i]`)
-            optionVar -iv $names[$i] $defaults[$i];
-    }
+    optionVar -init $force -category "Animation.Key.Set Key"
+        -iv setKeyframeWhich 4
+        -iv setKeyframePrompt 0
+        -iv keySetIKFK 0
+        -iv keySetPreserveCurveShape 0
+        -iv keySetFBIK 1
+        -iv keyHierarchy 0
+        -iv keyUseChannelBox 0
+        -iv keyControlPoints 0
+        -iv keyShapes 1;
 }
 
 // What doSetKeyframeArgList does, as far as Aztek's setKeyframe goes, for when Aztek has no global
@@ -21,29 +24,6 @@ proc performSetKeyframeArgList_options(int $force)
 proc performSetKeyframeArgList_key(int $hierarchy, int $controlPoints, int $shapes)
 {
     setKeyframe -hi ($hierarchy ? "below" : "none") -cp $controlPoints -s $shapes;
-}
-
-// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
-// column, then Apply, Save, Reset and Close.
-proc string performSetKeyframeArgList_boxBegin(string $win, string $title)
-{
-    if (`window -ex $win`)
-        deleteUI -window $win;
-    window -t $title $win;
-    columnLayout -adj true boxFrame;
-    scrollLayout -cr true;
-    return `columnLayout -adj true`;
-}
-
-proc performSetKeyframeArgList_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
-{
-    setParent ($win + "|boxFrame");
-    rowLayout -nc 4;
-    button -l $applyLabel -c $apply;
-    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
-    button -l "Reset" -c $reset;
-    button -l "Close" -c ("deleteUI -window " + $win);
-    showWindow $win;
 }
 
 global proc string performSetKeyframeArgList(string $version, string $args[])
@@ -79,12 +59,17 @@ global proc string performSetKeyframeArgList(string $version, string $args[])
 
 global proc setKeyframeOptions(string $selectionConnection)
 {
-    string $win = "setKeyframeOptionBox";
-    string $parent = performSetKeyframeArgList_boxBegin($win, "Set Key Options");
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("setKeyframe");
+    // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
     int $template = `uiTemplate -ex DefaultTemplate`;
     if ($template)
         setUITemplate -pst DefaultTemplate;
     waitCursor -st 1;
+    tabLayout -scr true -tv false;
+    string $parent = `columnLayout -adj true`;
+    columnLayout -adj true;
 
     // Four one-button rows that work as one choice. Picking one also turns the others off by hand, for where the
     // shared collection doesn't; the hierarchy and channel choices only apply to all keyable attributes.
@@ -123,9 +108,16 @@ global proc setKeyframeOptions(string $selectionConnection)
     waitCursor -st 0;
     if ($template)
         setUITemplate -ppt;
-    performSetKeyframeArgList_boxEnd($win, "Set Key", "setKeyframeCallback " + $parent + " 1 \"" + $selectionConnection + "\"",
-        "setKeyframeCallback " + $parent + " 0 \"" + $selectionConnection + "\"", "setKeyframeSetup " + $parent + " 1");
+
+    button -e -l "Set Key" -c ("setKeyframeCallback " + $parent + " 1 \"" + $selectionConnection + "\"")
+        (getOptionBoxApplyBtn());
+    button -e -c ("setKeyframeCallback " + $parent + " 0 \"" + $selectionConnection + "\"; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -e -c ("setKeyframeSetup " + $parent + " 1") (getOptionBoxResetBtn());
+    setOptionBoxTitle("Set Key Options");
+    setOptionBoxHelpTag("SetKey");
     setKeyframeSetup $parent 0;
+    showOptionBox();
 }
 
 global proc setKeyframeSetup(string $parent, int $forceFactorySettings)
@@ -171,8 +163,7 @@ global proc setKeyframeCallback(string $parent, int $doIt, string $selectionConn
     optionVar -iv keyShapes `checkBoxGrp -q -v1 shapesCB`;
     if ($doIt) {
         performSetKeyframeArgList 1 {"0", $selectionConnection};
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue ("performSetKeyframeArgList 1 { \"0\", \"" + $selectionConnection + "\"}") "SetKeyframe";
+        addToRecentCommandQueue ("performSetKeyframeArgList 1 { \"0\", \"" + $selectionConnection + "\"}") "SetKeyframe";
     }
 }
 

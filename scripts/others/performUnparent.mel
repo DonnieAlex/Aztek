@@ -3,44 +3,24 @@
 
 proc performUnparent_options(int $force)
 {
-    if ($force || !`optionVar -ex unparentRemove`)
-        optionVar -iv unparentRemove 0;
-    if ($force || !`optionVar -ex unparentPreserve`)
-        optionVar -iv unparentPreserve 1;
-}
-
-// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
-// column, then Apply, Save, Reset and Close.
-proc string performUnparent_boxBegin(string $win, string $title)
-{
-    if (`window -ex $win`)
-        deleteUI -window $win;
-    window -t $title $win;
-    columnLayout -adj true boxFrame;
-    scrollLayout -cr true;
-    return `columnLayout -adj true`;
-}
-
-proc performUnparent_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
-{
-    setParent ($win + "|boxFrame");
-    rowLayout -nc 4;
-    button -l $applyLabel -c $apply;
-    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
-    button -l "Reset" -c $reset;
-    button -l "Close" -c ("deleteUI -window " + $win);
-    showWindow $win;
+    optionVar -init $force -category "Edit.Unparent"
+        -iv unparentRemove 0
+        -iv unparentPreserve 1;
 }
 
 global proc string performUnparent(int $action)
 {
     if ($action == 1) {
-        string $win = "performUnparentOptionBox";
-        string $parent = performUnparent_boxBegin($win, "Unparent Options");
+        // This box sets no command name for its Help item.
+        string $layout = getOptionBox();
+        setParent $layout;
+        // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
         int $template = `uiTemplate -ex DefaultTemplate`;
         if ($template)
             setUITemplate -pst DefaultTemplate;
         waitCursor -st 1;
+        tabLayout -scr true -tv false;
+        string $parent = `columnLayout -adj true`;
         // Preserve position greys out while removing the instance is chosen.
         string $check = $parent + "|unparentCheck";
         radioButtonGrp -nrb 2 -l "Unparent method:" -la2 "Parent to world" "Remove instance"
@@ -49,9 +29,14 @@ global proc string performUnparent(int $action)
         waitCursor -st 0;
         if ($template)
             setUITemplate -ppt;
-        performUnparent_boxEnd($win, "Unparent", "unparentCallback " + $parent + " 1", "unparentCallback " + $parent + " 0",
-            "unparentSetup " + $parent + " 1");
+
+        button -e -l "Unparent" -c ("unparentCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+        button -e -c ("unparentCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+        button -e -c ("unparentSetup " + $parent + " 1") (getOptionBoxResetBtn());
+        setOptionBoxTitle("Unparent Options");
+        setOptionBoxHelpTag("Unparent");
         unparentSetup $parent 0;
+        showOptionBox();
         return "";
     }
     if ($action != 0 && $action != 2)
@@ -84,7 +69,6 @@ global proc unparentCallback(string $parent, int $doIt)
     optionVar -iv unparentPreserve `checkBoxGrp -q -v1 unparentCheck`;
     if ($doIt) {
         performUnparent 0;
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue "performUnparent 0" "UnParent";
+        addToRecentCommandQueue "performUnparent 0" "UnParent";
     }
 }

@@ -6,8 +6,7 @@
 
 proc performBakeNonDefHistory_options(int $force)
 {
-    if ($force || !`optionVar -ex bakePreDefHistory`)
-        optionVar -iv bakePreDefHistory 0;
+    optionVar -init $force -category "Edit.Delete by Type.Non-Deformer History" -iv bakePreDefHistory 0;
 }
 
 global proc string performBakeNonDefHistory(int $action)
@@ -47,7 +46,6 @@ global proc bakeNonDefCallback(string $parent, int $doIt)
     optionVar -iv bakePreDefHistory `radioButtonGrp -q -sl preDefOnly`;
     if ($doIt) {
         performBakeNonDefHistory 0;
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue "performBakeNonDefHistory 0" "BakeNonDefHistory";
+        addToRecentCommandQueue "performBakeNonDefHistory 0" "BakeNonDefHistory";
     }
 }

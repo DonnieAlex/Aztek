@@ -1,0 +1,30 @@
+// scriptCtxCommonProperties: a stand-in tool settings sheet for script tools that have none of their own. Its partner,
+// scriptCtxCommonValues, fills in the header and shows it.
+
+global proc scriptCtxCommonProperties()
+{
+    string $location = `toolPropertyWindow -query -location`;
+    // Aztek's Tool Settings window has no layout for scripts to build in unless one was given to toolPropertyWindow;
+    // without one there is nowhere to put the sheet.
+    if ($location == "")
+        return;
+    string $current = `currentCtx`;
+    // The reference's option sheet look. Aztek doesn't define that template yet, so without it the controls keep their
+    // plain look.
+    int $template = `uiTemplate -exists OptionsTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionsTemplate;
+    setParent $location;
+    // Named after the current tool, so each tool gets one sheet however often this runs.
+    string $sheet = "notThere" + $current;
+    if (`columnLayout -exists $sheet`) {
+        setParent $sheet;
+    } else {
+        columnLayout -adjustableColumn true $sheet;
+        separator -style "none";
+        text -label "Settings for this tool";
+        setParent ..;
+    }
+    if ($template)
+        setUITemplate -popTemplate;
+}

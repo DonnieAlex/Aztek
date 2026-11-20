@@ -8,37 +8,32 @@
 // Zero for $forceFactorySettings only fills in those not yet set; non-zero puts them back to their defaults.
 global proc extrudeToolSetup(int $forceFactorySettings, string $goToTool)
 {
-    if ($forceFactorySettings || !`optionVar -exists extrudeEuc`)
-        optionVar -intValue extrudeEuc 0;
-    if ($forceFactorySettings || !`optionVar -exists extrudeLac`)
-        optionVar -intValue extrudeLac 1;
+    optionVar -init $forceFactorySettings -category "Modeling.Surfaces.Extrude"
+        -intValue extrudeEuc 0
+        -intValue extrudeLac 1;
 
     // A context that already exists picks up the settings.
     if ($goToTool != "") {
         scriptCtx -edit -exitUponCompletion `optionVar -query extrudeEuc` $goToTool;
-        // The last-auto-complete setting (-lac) has no edit flag here yet.
+        scriptCtx -edit -lastAutoComplete `optionVar -query extrudeLac` $goToTool;
     }
 }
 
 // The tool settings sheet asks for the values to show.
 global proc extrudeValues(string $toolName)
 {
-    if (`exists performExtrude`)
-        eval("performExtrude 3 \"" + $toolName + "\"");
-    if (`exists scriptCtxCommonValues`)
-        eval("scriptCtxCommonValues \"" + $toolName + "\"");
+    performExtrude(3, $toolName);
+    scriptCtxCommonValues($toolName);
 }
 
 // The tool settings sheet asks for the controls to build.
 global proc extrudeProperties()
 {
-    if (`exists scriptCtxCommonProperties`)
-        eval("scriptCtxCommonProperties");
+    scriptCtxCommonProperties();
 }
 
-// The tool's context, made the first time it's needed; one that exists already is left as it is. The reference also
-// limits each selection set to curves, isoparms, curves on surface, surface edges and mesh edges, which scriptCtx can't
-// say yet.
+// The tool's context, made the first time it's needed; one that exists already is left as it is. Each selection set
+// takes curves, isoparms, curves on surface, surface edges and mesh edges.
 proc extrudeToolMakeContext(string $toolName, int $needsPath)
 {
     if (`scriptCtx -exists $toolName`)
@@ -63,11 +58,21 @@ proc extrudeToolMakeContext(string $toolName, int $needsPath)
             -setAutoToggleSelection true
             -setAutoComplete $lac
             -setSelectionCount 1
+            -nurbsCurve true
+            -isoparm true
+            -curveOnSurface true
+            -surfaceEdge true
+            -polymeshEdge true
             -setNoSelectionPrompt "Select the profile curve to extrude."
             -setSelectionPrompt "Select the path curve, or press Enter to extrude."
             -setAutoToggleSelection true
             -setAutoComplete $lac
             -setSelectionCount 1
+            -nurbsCurve true
+            -isoparm true
+            -curveOnSurface true
+            -surfaceEdge true
+            -polymeshEdge true
             $toolName;
     } else {
         // One set of any number of profiles.
@@ -86,26 +91,13 @@ proc extrudeToolMakeContext(string $toolName, int $needsPath)
             -setAutoToggleSelection true
             -setAutoComplete $lac
             -setSelectionCount 0
+            -nurbsCurve true
+            -isoparm true
+            -curveOnSurface true
+            -surfaceEdge true
+            -polymeshEdge true
             $toolName;
     }
-}
-
-// Runs the perform procedure in the mode asked, or enters the tool. Uses the shared scriptToolScript when there is one;
-// without it, a tool is entered (and its settings shown for mode 3) and the action modes go straight to performExtrude.
-proc string extrudeToolRun(string $perform, int $mode, string $toolName)
-{
-    if (`exists scriptToolScript`)
-        return eval("scriptToolScript \"" + $perform + "\" " + $mode + " \"" + $toolName + "\"");
-    if ($toolName != "") {
-        setToolTo $toolName;
-        if ($mode == 3 && `exists ToolSettingsWindow`)
-            ToolSettingsWindow;
-        return $toolName;
-    }
-    if (`exists $perform`)
-        return eval($perform + " " + $mode);
-    warning ("Extrude isn't available: " + $perform + " was not found.");
-    return "";
 }
 
 global proc string extrudeToolScript(int $setToTool)
@@ -121,5 +113,5 @@ global proc string extrudeToolScript(int $setToTool)
             extrudeToolMakeContext($toolName, $needsPath);
         }
     }
-    return extrudeToolRun("performExtrude", $setToTool, $toolName);
+    return scriptToolScript("performExtrude", $setToTool, $toolName);
 }

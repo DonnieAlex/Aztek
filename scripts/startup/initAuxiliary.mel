@@ -1,0 +1,36 @@
+// initAuxiliary: odds and ends set up as the interface starts, and addToRecentCommandQueue. There is no procedure of
+// the file's own name: the work below runs each time the file is sourced.
+
+// Field limits the dynamics editors use. Only the first declaration in a session sets them.
+global float $gDynMaxFloatField = 500000;
+global float $gDynMinFloatField = -500000;
+
+// The outliner panel shows the world and drives the selection, once the main window is up. Aztek's Outliner is its own
+// window rather than a scripted panel, so this only touches an outliner panel a script made under that name.
+{
+    global string $gMainWindow;
+    if (`isTrue AnimationExists` && $gMainWindow != "" && `window -exists $gMainWindow`
+        && `outlinerPanel -exists outliner`) {
+        string $ed = `outlinerPanel -query -outlinerEditor outliner`;
+        outlinerEditor -edit -mainListConnection worldList -selectionConnection modelList -setFilter defaultSetFilter
+            $ed;
+    }
+}
+
+// The polygon, NURBS and subdivision menus' own start-up scripts, where they exist. The reference always has the
+// first two and warns only when one is missing from its installation; Aztek doesn't ship them yet, and sources this
+// file the first time addToRecentCommandQueue is called, so it stays quiet rather than warn on every first Apply.
+if (`isTrue PolygonsExists` && `exists initPolygonsUI`)
+    eval "source initPolygonsUI";
+if (`exists initNurbsUI`)
+    eval "source initNurbsUI";
+if (`isTrue SubdivUIExists` && `exists initSubdivUI`)
+    eval "source initSubdivUI";
+
+// Puts a command on the list behind Edit > Repeat (G) and Recent Commands, as the last one run, shown by its label.
+global proc addToRecentCommandQueue(string $cmd, string $label)
+{
+    // Aztek's repeatLast has no -addCommand yet: its Repeat menu item repeats what the program itself ran last.
+    if (`exists repeatLast`)
+        eval ("repeatLast -addCommand \"" + encodeString($cmd) + "\" -addCommandLabel \"" + encodeString($label) + "\"");
+}

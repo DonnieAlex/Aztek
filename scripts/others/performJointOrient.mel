@@ -2,20 +2,16 @@
 // settings kept in optionVars. $action 0 orients and returns the command, 1 opens the options, 2 only returns the
 // command; anything else returns "". Aztek has its own Orient Joint Options window, so $action 1 opens that rather than
 // building a second one. The setup and callback procedures fill and read the reference's controls, for scripts that
-// build them; the axis controls come from jointOrientUtils, used only where Aztek has it.
+// build them; the axis controls come from jointOrientUtils.
 
 proc performJointOrient_options(int $force)
 {
-    if ($force || !`optionVar -ex orJntAxisName`)
-        optionVar -sv orJntAxisName "xyz";
-    if ($force || !`optionVar -ex orJntOrientName`)
-        optionVar -sv orJntOrientName "yup";
-    if ($force || !`optionVar -ex orJntAutoOrient`)
-        optionVar -iv orJntAutoOrient 1;
-    if ($force || !`optionVar -ex orientJntZSO`)
-        optionVar -iv orientJntZSO 1;
-    if ($force || !`optionVar -ex orientJntChildren`)
-        optionVar -iv orientJntChildren 1;
+    optionVar -init $force -category "Rigging.Skeleton.Orient Joint"
+        -sv orJntAxisName "xyz"
+        -sv orJntOrientName "yup"
+        -iv orJntAutoOrient 1
+        -iv orientJntZSO 1
+        -iv orientJntChildren 1;
 }
 
 global proc string performJointOrient(int $action)
@@ -43,27 +39,18 @@ global proc string performJointOrient(int $action)
         $cmd += " -ch";
     if (`optionVar -q orientJntZSO`)
         $cmd += " -zso";
-    if ($action == 0) {
-        // Aztek's joint command may not take -aos yet; then the joints are oriented without it, and the command
-        // returned still says what was asked for.
-        if (!gmatch($cmd, "* -aos*"))
-            evalEcho $cmd;
-        else if (catchQuiet(evalEcho($cmd)))
-            evalEcho(substitute(" -aos", $cmd, ""));
-    }
+    if ($action == 0)
+        evalEcho $cmd;
     return $cmd;
 }
 
 global proc jointOrientSetup(string $parent, int $forceFactorySettings)
 {
-    if (`exists jointOrientUtils`)
-        jointOrientUtils;
+    jointOrientUtils;
     performJointOrient_options($forceFactorySettings);
     setParent $parent;
-    if (`exists jointOrientSetOrientAxes`) {
-        string $axes[] = {`optionVar -q orJntAxisName`, `optionVar -q orJntOrientName`, (string)`optionVar -q orJntAutoOrient`};
-        jointOrientSetOrientAxes($parent, $axes);
-    }
+    string $axes[] = {`optionVar -q orJntAxisName`, `optionVar -q orJntOrientName`, (string)`optionVar -q orJntAutoOrient`};
+    jointOrientSetOrientAxes($parent, $axes);
     checkBoxGrp -e -v1 `optionVar -q orientJntChildren` ojChildrenChkBox;
     checkBoxGrp -e -v1 `optionVar -q orientJntZSO` ojZSOChkBox;
 }
@@ -71,19 +58,14 @@ global proc jointOrientSetup(string $parent, int $forceFactorySettings)
 global proc jointOrientCallback(string $parent, int $doIt)
 {
     setParent $parent;
-    if (`exists jointOrientGetOrientAxes`) {
-        string $axes[];
-        jointOrientGetOrientAxes($parent, $axes);
-        optionVar -sv orJntAxisName $axes[0];
-        optionVar -sv orJntOrientName $axes[1];
-        optionVar -iv orJntAutoOrient ((int)$axes[2]);
-    }
+    string $axes[];
+    jointOrientGetOrientAxes($parent, $axes);
+    optionVar -sv orJntAxisName $axes[0] -sv orJntOrientName $axes[1] -iv orJntAutoOrient ((int)$axes[2]);
     optionVar -iv orientJntChildren `checkBoxGrp -q -v1 ojChildrenChkBox`;
     optionVar -iv orientJntZSO `checkBoxGrp -q -v1 ojZSOChkBox`;
     if ($doIt) {
         performJointOrient 0;
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue "performJointOrient 0" "jointOrient";
+        addToRecentCommandQueue "performJointOrient 0" "jointOrient";
     }
 }
 

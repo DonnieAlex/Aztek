@@ -85,8 +85,7 @@ global proc string artAttrToolScript(int $setToTool, string $attrFilter)
         ArtPaintAttrTool;
 
     if ($setToTool == 3) {
-        if (`exists ToolSettingsWindow`)
-            ToolSettingsWindow;
+        toolPropertyWindow;
         if (`button -exists artAttrFilterButton`)
             button -edit -label (artAttrToolFilterLabel()) artAttrFilterButton;
     } else {

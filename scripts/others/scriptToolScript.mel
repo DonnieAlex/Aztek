@@ -1,0 +1,16 @@
+// scriptToolScript: shared by the modelling commands that run either as a one-off action or as a script tool. It
+// hands the action code to the command's perform procedure, except "enter the tool", which it does itself.
+
+// $command is a perform procedure taking (int action, string goToTool), such as performBevel. $setToTool: 0 do it,
+// 1 option box, 2 return the command, 3 the tool's option box, 4 enter the tool $goToTool.
+global proc string scriptToolScript(string $command, int $setToTool, string $goToTool)
+{
+    if ($setToTool == 4) {
+        setToolTo $goToTool;
+        return "";
+    }
+    // The tool name goes in unquoted, so an empty one is written as a pair of quotes.
+    if ($goToTool == "")
+        $goToTool = "\"\"";
+    return `eval ($command + " " + $setToTool + " " + $goToTool)`;
+}

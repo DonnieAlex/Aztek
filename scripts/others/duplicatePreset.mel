@@ -1,0 +1,129 @@
+// duplicatePreset: what Edit > Duplicate and Duplicate Special run. Copies (or instances) the selection $count times,
+// with an optional transform on the first copy and the results grouped, put under the world or left where they are.
+// The commands aren't echoed the usual way: it prints its own lines describing what it did, then a "Result:" line.
+
+global proc duplicatePreset(int $count, int $copy, int $group, int $smart, int $upstream, int $inputConn,
+    int $renameChild, int $instanceLeaf, float $tx, float $ty, float $tz, float $rx, float $ry, float $rz,
+    float $sx, float $sy, float $sz)
+{
+    string $cmd = "duplicate -rr";
+    if ($renameChild)
+        $cmd += " -renameChildren";
+    if (!$upstream && !$inputConn && !$copy)
+        // Instancing: the rename-children flag is not carried over.
+        $cmd = "instance";
+    else if ($instanceLeaf)
+        $cmd += " -instanceLeaf";
+
+    string $results[];
+    string $last[];
+    int $i;
+    if ($upstream || $inputConn) {
+        $cmd += $upstream ? " -un" : " -ic";
+        for ($i = 0; $i < $count; ++$i) {
+            $last = `eval $cmd`;
+            appendStringArray($results, $last, size($last));
+        }
+        if ($count == 1)
+            print ($cmd + ";");
+        else
+            print ("for ($i=0; $i<" + $count + "; ++$i) " + $cmd + ";");
+    } else if ($smart) {
+        // A smart duplicate is always one copy; $count only matters for the select below.
+        $cmd += " -st";
+        $last = `eval $cmd`;
+        appendStringArray($results, $last, size($last));
+        print ($cmd + ";");
+    } else if ($count > 0) {
+        // Selecting what is already selected clears the smart transform's memory before a run of copies.
+        if ($count > 1)
+            select -r `ls -sl`;
+        $last = `eval $cmd`;
+        appendStringArray($results, $last, size($last));
+        print ($cmd + ";");
+        if (size($results)) {
+            // The first copy's offset: scale, then rotate, then move, each relative.
+            if ($sx != 1.0 || $sy != 1.0 || $sz != 1.0) {
+                scale -r $sx $sy $sz;
+                print (" scale -r " + $sx + " " + $sy + " " + $sz + ";");
+            }
+            if ($rx != 0.0 || $ry != 0.0 || $rz != 0.0) {
+                rotate -r $rx $ry $rz;
+                print (" rotate -r " + $rx + " " + $ry + " " + $rz + ";");
+            }
+            if ($tx != 0.0 || $ty != 0.0 || $tz != 0.0) {
+                move -r $tx $ty $tz;
+                print (" move -r " + $tx + " " + $ty + " " + $tz + ";");
+            }
+            // The other copies repeat that offset through the smart transform.
+            $cmd += " -st";
+            for ($i = 1; $i < $count; ++$i) {
+                $last = `eval $cmd`;
+                appendStringArray($results, $last, size($last));
+            }
+            if ($count > 1)
+                print (" for ($i=1; $i<" + $count + "; ++$i) " + $cmd + ";");
+        }
+    }
+
+    if (!size($results))
+        return;
+
+    string $r;
+    if ($group == 3) {
+        string $g = `group $results`;
+        print " group";
+        for ($r in $results)
+            print (" " + $r);
+        print ";\n";
+        print ("Result: " + $g + "\n");
+    } else if ($group == 2) {
+        string $atWorld[];
+        string $parented[];
+        for ($r in $results) {
+            if (size(`listRelatives -parent $r`))
+                $parented[size($parented)] = $r;
+            else
+                $atWorld[size($atWorld)] = $r;
+        }
+        // As the reference does, the list starts from the last command's results when nothing needed moving, so those
+        // can be listed twice.
+        string $final[] = $last;
+        if (size($parented))
+            $final = `parent -w $parented`;
+        appendStringArray($final, $atWorld, size($atWorld));
+        if (size($parented)) {
+            print " parent -w";
+            for ($r in $parented)
+                print (" " + $r);
+            print ";\n";
+        }
+        if ($count > 1) {
+            select -r $final;
+            if (size($final)) {
+                print " select";
+                for ($r in $final)
+                    print (" " + $r);
+                print ";";
+            }
+        }
+        print "\n";
+        string $names = "";
+        for ($r in $final)
+            $names += " " + $r;
+        print ("Result:" + $names + "\n");
+    } else {
+        if ($count > 1) {
+            select -r $results;
+            print " select";
+            for ($r in $results)
+                print (" " + $r);
+            print ";";
+        }
+        print "\n";
+        string $names = "";
+        for ($r in $results)
+            $names += " " + $r;
+        print ("Result:" + $names + "\n");
+    }
+}

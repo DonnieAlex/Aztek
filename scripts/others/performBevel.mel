@@ -1,0 +1,325 @@
+// performBevel: Surfaces > Bevel on curves and isoparms, run with its saved settings, or its command handed back, or
+// its option box (as an action, or as the Bevel Tool's settings). The settings live in the bevel* optionVars, which
+// bevelSetOptionVars creates; the bevel itself is bevelPreset's work.
+
+// Creates the bevel optionVars that are missing, or puts them all back to their defaults when forced. Aztek doesn't
+// have bevelSetOptionVars yet, so without it the settings stay as they are (missing ones read as 0).
+proc bevelInitOptions(int $force)
+{
+    if (`exists bevelSetOptionVars`)
+        eval ("bevelSetOptionVars " + $force);
+}
+
+// Whether the NURBS surface and subdivision surface menus are there; they decide what output geometry can be picked.
+proc int bevelSurfaceUI()
+{
+    return `isTrue SurfaceUIExists`;
+}
+
+proc int bevelSubdivUI()
+{
+    return `isTrue SubdivUIExists`;
+}
+
+// Construction history on or off. Aztek's constructionHistory answers this with no flags: its -query wants an object.
+proc int bevelHistoryOn()
+{
+    return `constructionHistory`;
+}
+
+// The call that bevels the selection with the saved settings.
+proc string bevelCommand()
+{
+    bevelInitOptions(0);
+    int $output = bevelSurfaceUI() ? `optionVar -query bevelOutputPolygons` : 1;
+    float $tolerance = `optionVar -query bevelUseGlobalTol` ? `optionVar -query positionalTolerance`
+        : `optionVar -query bevelTolerance`;
+    return "bevelPreset(" + bevelHistoryOn()
+        + "," + `optionVar -query bevelCurveRangePartial`
+        + "," + $output
+        + "," + $tolerance
+        + "," + `optionVar -query bevelAttachSurfaces`
+        + "," + `optionVar -query bevelNSides`
+        + "," + `optionVar -query bevelWidth`
+        + "," + `optionVar -query bevelDepth`
+        + "," + `optionVar -query bevelExtrudeHeight`
+        + "," + `optionVar -query bevelCorner`
+        + "," + `optionVar -query bevelCapEdge` + ")";
+}
+
+// Which sides are bevelled, from the two radio rows that share one choice: 2 top, 3 bottom, 4 both, 1 off (extrude
+// only).
+proc int bevelSidesFromUI()
+{
+    int $topBottom = `radioButtonGrp -query -select bevelTopBottomRadioOptions`;
+    if ($topBottom == 1)
+        return 2;
+    if ($topBottom == 2)
+        return 3;
+    if ($topBottom == 0)
+        return `radioButtonGrp -query -select bevelBothOffRadioOptions` == 1 ? 4 : 1;
+    return 4;
+}
+
+// Callback of the two Bevel rows: with no sides bevelled, the bevel's own settings grey out (extrude height stays).
+global proc bevelVisibility()
+{
+    int $on = bevelSidesFromUI() != 1;
+    checkBoxGrp -edit -enable $on bevelJoinSrfBox;
+    floatSliderGrp -edit -enable $on bevelWidthFloatField;
+    floatSliderGrp -edit -enable $on bevelDepthFloatField;
+    radioButtonGrp -edit -enable $on bevelCornerRadioButtonGrp;
+    radioButtonGrp -edit -enable $on bevelEdgesRadio;
+}
+
+// Shows the saved settings in the option box under $parent; forced, puts the defaults back first.
+global proc bevelSetup(string $parent, int $forceFactorySettings, string $goToTool)
+{
+    bevelInitOptions($forceFactorySettings);
+    // The tool's own settings live with bevelToolScript, which may not have been loaded yet.
+    if (!`exists bevelToolSetup`)
+        eval "source bevelToolScript";
+    bevelToolSetup($forceFactorySettings, $goToTool);
+    setParent $parent;
+
+    floatSliderGrp -edit -value `optionVar -query bevelWidth` bevelWidthFloatField;
+    floatSliderGrp -edit -value `optionVar -query bevelDepth` bevelDepthFloatField;
+    floatSliderGrp -edit -value `optionVar -query bevelExtrudeHeight` extrudeDepthFloatField;
+    if ($forceFactorySettings) {
+        string $sliders[] = {"bevelWidthFloatField", "bevelDepthFloatField", "extrudeDepthFloatField"};
+        for ($f in $sliders)
+            floatSliderGrp -edit -minValue 0.00001 -maxValue 1.0 -fieldMinValue -10000 -fieldMaxValue 10000 $f;
+    }
+
+    int $global = `optionVar -query bevelUseGlobalTol`;
+    radioButtonGrp -edit -select (2 - $global) useGlobalTol;
+    floatSliderGrp -edit -value `optionVar -query bevelTolerance` bevelToleranceFloatField;
+    if ($forceFactorySettings)
+        floatSliderGrp -edit -minValue 0.00001 -maxValue 1.0 -fieldMinValue 0.00001 -fieldMaxValue 1000
+            bevelToleranceFloatField;
+    tabLayout -edit -visible ($global != 1) useGlobalTolTab;
+
+    checkBoxGrp -edit -value1 (`optionVar -query bevelAttachSurfaces` == 1) bevelJoinSrfBox;
+    radioButtonGrp -edit -select `optionVar -query bevelCorner` bevelCornerRadioButtonGrp;
+    // The cap edge row lists Convex, Concave, Straight; the stored values are 1 straight, 2 convex, 3 concave.
+    int $cap = `optionVar -query bevelCapEdge`;
+    radioButtonGrp -edit -select ($cap == 1 ? 3 : $cap - 1) bevelEdgesRadio;
+    radioButtonGrp -edit -select (`optionVar -query bevelCurveRangePartial` + 1) curveRangeRadioButtonGrp;
+
+    int $output = 1;
+    if (bevelSurfaceUI()) {
+        $output = `optionVar -query bevelOutputPolygons`;
+        // As the reference does: without the subdivision row the third button (Bezier) shows whatever is stored.
+        if (bevelSubdivUI() && $output != 3)
+            radioButtonGrp -edit -select ($output + 1) outputPolyRadioButtonGrp;
+        else
+            radioButtonGrp -edit -select 3 outputPolyRadioButtonGrp;
+    }
+
+    // The two side rows are one choice. Aztek's radioButtonGrp doesn't yet share a collection between rows, so the row
+    // not used is turned off here.
+    int $sides = `optionVar -query bevelNSides`;
+    if ($sides == 1) {
+        radioButtonGrp -edit -select 0 bevelTopBottomRadioOptions;
+        radioButtonGrp -edit -select 2 bevelBothOffRadioOptions;
+    } else if ($sides == 4) {
+        radioButtonGrp -edit -select 0 bevelTopBottomRadioOptions;
+        radioButtonGrp -edit -select 1 bevelBothOffRadioOptions;
+    } else if ($sides == 3) {
+        radioButtonGrp -edit -select 0 bevelBothOffRadioOptions;
+        radioButtonGrp -edit -select 2 bevelTopBottomRadioOptions;
+    } else if ($sides == 2) {
+        radioButtonGrp -edit -select 0 bevelBothOffRadioOptions;
+        radioButtonGrp -edit -select 1 bevelTopBottomRadioOptions;
+    }
+    bevelVisibility();
+
+    tabLayout -edit -visible ($output == 1) bevelPolyOptions;
+
+    if ($goToTool != "") {
+        checkBoxGrp -edit -value1 `scriptCtx -query -exitUponCompletion $goToTool`
+            -value2 `scriptCtx -query -lastAutoComplete $goToTool` scriptToolExtraWidget;
+    }
+
+    // The polygon and subdivision output settings, from their own scripts. Aztek has neither yet.
+    if (`exists nurbsToPolySetup`)
+        eval ("nurbsToPolySetup \"" + $parent + "\" " + $forceFactorySettings);
+    if (`exists nurbsToSubdivSetup`)
+        eval ("nurbsToSubdivSetup \"" + $parent + "\" " + $forceFactorySettings);
+}
+
+// Saves the option box's settings; $doIt 1 then bevels, 3 enters the tool, 0 only saves.
+global proc bevelCallback(string $parent, int $doIt, string $goToTool)
+{
+    if ($goToTool != "") {
+        optionVar -intValue bevelEuc `scriptCtx -query -exitUponCompletion $goToTool`;
+        optionVar -intValue bevelLac `scriptCtx -query -lastAutoComplete $goToTool`;
+    }
+    setParent $parent;
+
+    optionVar -intValue bevelCurveRangePartial (`radioButtonGrp -query -select curveRangeRadioButtonGrp` - 1);
+    if (bevelSurfaceUI()) {
+        int $b = `radioButtonGrp -query -select outputPolyRadioButtonGrp`;
+        // Without the subdivision button the third one is Bezier.
+        if ($b == 3 && !bevelSubdivUI())
+            $b = 4;
+        optionVar -intValue bevelOutputPolygons ($b - 1);
+    }
+    optionVar -intValue bevelUseGlobalTol (2 - `radioButtonGrp -query -select useGlobalTol`);
+    optionVar -floatValue bevelTolerance `floatSliderGrp -query -value bevelToleranceFloatField`;
+    optionVar -floatValue bevelWidth `floatSliderGrp -query -value bevelWidthFloatField`;
+    optionVar -floatValue bevelDepth `floatSliderGrp -query -value bevelDepthFloatField`;
+    optionVar -floatValue bevelExtrudeHeight `floatSliderGrp -query -value extrudeDepthFloatField`;
+    optionVar -intValue bevelAttachSurfaces `checkBoxGrp -query -value1 bevelJoinSrfBox`;
+    optionVar -intValue bevelCorner `radioButtonGrp -query -select bevelCornerRadioButtonGrp`;
+    optionVar -intValue bevelNSides (bevelSidesFromUI());
+    int $edge = `radioButtonGrp -query -select bevelEdgesRadio`;
+    optionVar -intValue bevelCapEdge ($edge < 3 ? $edge + 1 : 1);
+
+    if (`exists nurbsToPolyCallback`)
+        eval ("nurbsToPolyCallback \"" + $parent + "\" 0");
+    if (`exists nurbsToSubdivCallback`)
+        eval ("nurbsToSubdivCallback \"" + $parent + "\" 0");
+
+    if ($doIt == 1) {
+        performBevel(0, $goToTool);
+        addToRecentCommandQueue("performBevel(0, \"" + $goToTool + "\")", "Bevel");
+    } else if ($doIt != 0) {
+        setToolTo $goToTool;
+    }
+}
+
+// The option box; $inTool makes it the Bevel Tool's.
+proc bevelOptionBox(int $inTool, string $goToTool)
+{
+    global string $gOptionBoxActionToolItem;
+    global string $gOptionBoxActionToolItemCB;
+
+    // Edit > As Tool / As Action follow the modelWithToolBevel preference.
+    $gOptionBoxActionToolItem = "modelWithToolBevel";
+    $gOptionBoxActionToolItemCB = "bevelToolScript 3";
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("bevel");
+
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Attach surfaces" -value1 true bevelJoinSrfBox;
+    // Top/Bottom and Both/Off are one choice over two rows. Each row turns the other off when used, as the shared
+    // collection would.
+    radioButtonGrp -numberOfRadioButtons 2 -label "Bevel" -labelArray2 "Top side" "Bottom side"
+        -changeCommand "radioButtonGrp -edit -select 0 bevelBothOffRadioOptions; bevelVisibility"
+        bevelTopBottomRadioOptions;
+    radioButtonGrp -numberOfRadioButtons 2 -label "" -labelArray2 "Both" "Off"
+        -shareCollection bevelTopBottomRadioOptions
+        -changeCommand "radioButtonGrp -edit -select 0 bevelTopBottomRadioOptions; bevelVisibility"
+        bevelBothOffRadioOptions;
+    separator;
+    floatSliderGrp -label "Bevel width" -field true -minValue 0.00001 -maxValue 1.0
+        -fieldMinValue -10000 -fieldMaxValue 10000 bevelWidthFloatField;
+    floatSliderGrp -label "Bevel depth" -field true -minValue 0.00001 -maxValue 1.0
+        -fieldMinValue -10000 -fieldMaxValue 10000 bevelDepthFloatField;
+    floatSliderGrp -label "Extrude height" -field true -minValue 0.00001 -maxValue 1.0
+        -fieldMinValue -10000 -fieldMaxValue 10000 extrudeDepthFloatField;
+    radioButtonGrp -numberOfRadioButtons 2 -label "Bevel corners" -labelArray2 "Straight" "Circular arcs" -select 1
+        bevelCornerRadioButtonGrp;
+    radioButtonGrp -numberOfRadioButtons 3 -label "Bevel cap edge" -labelArray3 "Convex" "Concave" "Straight"
+        bevelEdgesRadio;
+    separator;
+    radioButtonGrp -numberOfRadioButtons 2 -label "Use tolerance" -labelArray2 "Global" "Local"
+        -onCommand1 "tabLayout -edit -visible false useGlobalTolTab"
+        -onCommand2 "tabLayout -edit -visible true useGlobalTolTab"
+        useGlobalTol;
+    tabLayout -tabsVisible false useGlobalTolTab;
+        columnLayout -adjustableColumn true showSlider;
+            floatSliderGrp -label "Tolerance" -field true -minValue 0.00001 -maxValue 1.0
+                -fieldMinValue 0.00001 -fieldMaxValue 1000 bevelToleranceFloatField;
+        setParent ..;
+    setParent ..;
+    separator;
+    radioButtonGrp -numberOfRadioButtons 2 -label "Curve range" -labelArray2 "Complete" "Partial" -select 1
+        curveRangeRadioButtonGrp;
+    // Picking Polygons shows the polygon output settings; any other output hides them.
+    string $showPoly = "tabLayout -edit -visible true bevelPolyOptions";
+    string $hidePoly = "tabLayout -edit -visible false bevelPolyOptions";
+    if (bevelSubdivUI() && bevelSurfaceUI()) {
+        radioButtonGrp -numberOfRadioButtons 4 -label "Output geometry"
+            -labelArray4 "NURBS" "Polygons" "Subdiv" "Bezier" -select 1
+            -onCommand1 $hidePoly -onCommand2 $showPoly -onCommand3 $hidePoly -onCommand4 $hidePoly
+            outputPolyRadioButtonGrp;
+    } else if (bevelSurfaceUI()) {
+        radioButtonGrp -numberOfRadioButtons 3 -label "Output geometry"
+            -labelArray3 "NURBS" "Polygons" "Bezier" -select 1
+            -onCommand1 $hidePoly -onCommand2 $showPoly -onCommand3 $hidePoly
+            outputPolyRadioButtonGrp;
+    }
+    separator;
+    tabLayout -tabsVisible false bevelPolyOptions;
+        string $polyCol = `columnLayout -adjustableColumn true bevelPolyOptionsOK`;
+        // The polygon output settings come from nurbsToPolyAddOptions, which Aztek doesn't have yet.
+        if (`exists nurbsToPolyAddOptions`)
+            eval ("nurbsToPolyAddOptions \"" + $polyCol + "\"");
+        setParent ..;
+    setParent ..;
+
+    if ($inTool) {
+        separator;
+        checkBoxGrp -numberOfCheckBoxes 2 -label "Tool behavior"
+            -label1 "Exit on completion" -value1 false
+            -label2 "Auto completion" -value2 true
+            -onCommand1 ("scriptCtx -e -euc true " + $goToTool)
+            -offCommand1 ("scriptCtx -e -euc false " + $goToTool)
+            -onCommand2 ("scriptCtx -e -lac true " + $goToTool)
+            -offCommand2 ("scriptCtx -e -lac false " + $goToTool)
+            scriptToolExtraWidget;
+    }
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $apply = getOptionBoxApplyBtn();
+    if ($inTool)
+        button -edit -label "Bevel Tool" -command ("bevelCallback " + $parent + " 3 \"" + $goToTool + "\"") $apply;
+    else
+        button -edit -label "Bevel" -command ("bevelCallback " + $parent + " 1 \"" + $goToTool + "\"") $apply;
+    button -edit -command ("bevelCallback " + $parent + " 0 \"" + $goToTool + "\"; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("bevelSetup " + $parent + " 1 \"" + $goToTool + "\"") (getOptionBoxResetBtn());
+
+    setOptionBoxTitle($inTool ? "Bevel Tool Options" : "Bevel Options");
+    setOptionBoxHelpTag("Bevel");
+
+    eval ("bevelSetup " + $parent + " 0 \"" + $goToTool + "\"");
+    showOptionBox();
+}
+
+// $action: 0 bevel (returns the command), 1 option box, 2 the command only, 3 the tool's option box; any other value
+// is taken as 2.
+global proc string performBevel(int $action, string $goToTool)
+{
+    int $inTool = 0;
+    if ($action == 3) {
+        $action = 1;
+        $inTool = 1;
+    }
+    if ($action == 1) {
+        bevelOptionBox($inTool, $goToTool);
+        return "";
+    }
+    string $cmd = bevelCommand();
+    if ($action == 0) {
+        // The bevel itself is bevelPreset's, which Aztek doesn't have yet.
+        if (`exists bevelPreset`)
+            eval $cmd;
+        else
+            warning "Bevel isn't available yet: bevelPreset was not found.";
+    }
+    return $cmd;
+}

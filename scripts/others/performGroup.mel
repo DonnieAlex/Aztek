@@ -3,86 +3,49 @@
 
 proc performGroup_options(int $force)
 {
-    if ($force || !`optionVar -ex groupWorld`)
-        optionVar -iv groupWorld 0;
-    if ($force || !`optionVar -ex groupZeroPivot`)
-        optionVar -iv groupZeroPivot 1;
-    if ($force || !`optionVar -ex groupPreserve`)
-        optionVar -iv groupPreserve 1;
-}
-
-// What doGroup does, for when Aztek has no global doGroup: a group of the selection under its parent or the world,
-// the children keeping where they are or not, its pivot at the origin or at the centre of what it holds.
-proc string performGroup_doGroup(int $world, int $preserve, int $zeroPivot)
-{
-    string $flags = $world ? "-w" : "";
-    if (!$preserve)
-        $flags += " -r";
-    string $g = `eval ("group " + $flags)`;
-    if (!$zeroPivot)
-        xform -cp $g;
-    return $g;
-}
-
-// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
-// column, then Apply, Save, Reset and Close.
-proc string performGroup_boxBegin(string $win, string $title)
-{
-    if (`window -ex $win`)
-        deleteUI -window $win;
-    window -t $title $win;
-    columnLayout -adj true boxFrame;
-    scrollLayout -cr true;
-    return `columnLayout -adj true`;
-}
-
-proc performGroup_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
-{
-    setParent ($win + "|boxFrame");
-    rowLayout -nc 4;
-    button -l $applyLabel -c $apply;
-    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
-    button -l "Reset" -c $reset;
-    button -l "Close" -c ("deleteUI -window " + $win);
-    showWindow $win;
+    optionVar -init $force -category "Edit.Group"
+        -iv groupWorld 0
+        -iv groupZeroPivot 1
+        -iv groupPreserve 1;
 }
 
 global proc string performGroup(int $action)
 {
     if ($action == 1) {
-        string $win = "performGroupOptionBox";
-        string $parent = performGroup_boxBegin($win, "Group Options");
+        string $layout = getOptionBox();
+        setParent $layout;
+        setOptionBoxCommandName("group");
+        // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
         int $template = `uiTemplate -ex DefaultTemplate`;
         if ($template)
             setUITemplate -pst DefaultTemplate;
         waitCursor -st 1;
+        tabLayout -scr true -tv false;
+        string $parent = `columnLayout -adj true`;
         radioButtonGrp -nrb 2 -l "Group under:" -la2 "Parent" "World" groupUnder;
         radioButtonGrp -nrb 2 -l "Group pivot:" -la2 "Centre" "Origin" groupPivot;
         checkBoxGrp -ncb 1 -l1 "Preserve position" groupCheck;
         waitCursor -st 0;
         if ($template)
             setUITemplate -ppt;
-        performGroup_boxEnd($win, "Group", "groupCallback " + $parent + " 1", "groupCallback " + $parent + " 0",
-            "groupSetup " + $parent + " 1");
+
+        button -e -l "Group" -c ("groupCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+        button -e -c ("groupCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+        button -e -c ("groupSetup " + $parent + " 1") (getOptionBoxResetBtn());
+        setOptionBoxTitle("Group Options");
+        setOptionBoxHelpTag("Group");
         groupSetup $parent 0;
+        showOptionBox();
         return "";
     }
     if ($action != 0 && $action != 2)
         return "";
 
     performGroup_options(0);
-    int $world = `optionVar -q groupWorld`;
-    int $preserve = `optionVar -q groupPreserve`;
-    int $zeroPivot = `optionVar -q groupZeroPivot`;
-    string $cmd = "doGroup " + $world + " " + $preserve + " " + $zeroPivot;
-    if ($action == 0) {
-        if (`exists doGroup`)
-            evalEcho $cmd;
-        else {
-            print ($cmd + ";\n");
-            performGroup_doGroup($world, $preserve, $zeroPivot);
-        }
-    }
+    string $cmd = "doGroup " + `optionVar -q groupWorld` + " " + `optionVar -q groupPreserve` + " "
+        + `optionVar -q groupZeroPivot`;
+    if ($action == 0)
+        evalEcho $cmd;
     return $cmd;
 }
 
@@ -105,8 +68,7 @@ global proc string groupCallback(string $parent, int $doIt)
     if ($doIt) {
         $result = `performGroup 0`;
         // "false" is 0, so repeating it groups again.
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue "performGroup false" "Group";
+        addToRecentCommandQueue "performGroup false" "Group";
     }
     return $result;
 }

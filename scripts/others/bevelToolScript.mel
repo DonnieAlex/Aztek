@@ -7,32 +7,28 @@
 global proc bevelToolSetup(int $forceFactorySettings, string $goToTool)
 {
     global int $gStartWithAutoComplete;
-    if ($forceFactorySettings || !`optionVar -exists bevelEuc`)
-        optionVar -intValue bevelEuc 0;
-    if ($forceFactorySettings || !`optionVar -exists bevelLac`)
-        optionVar -intValue bevelLac $gStartWithAutoComplete;
+    optionVar -init $forceFactorySettings -category "Modeling.Surfaces.Bevel"
+        -intValue bevelEuc 0
+        -intValue bevelLac $gStartWithAutoComplete;
 
     // A context that already exists picks up the settings.
     if ($goToTool != "") {
         scriptCtx -edit -exitUponCompletion `optionVar -query bevelEuc` $goToTool;
-        // The last-auto-complete setting (-lac) has no edit flag here yet.
+        scriptCtx -edit -lastAutoComplete `optionVar -query bevelLac` $goToTool;
     }
 }
 
 // The tool settings sheet asks for the values to show.
 global proc bevelValues(string $toolName)
 {
-    if (`exists performBevel`)
-        eval("performBevel 3 \"" + $toolName + "\"");
-    if (`exists scriptCtxCommonValues`)
-        eval("scriptCtxCommonValues \"" + $toolName + "\"");
+    performBevel(3, $toolName);
+    scriptCtxCommonValues($toolName);
 }
 
 // The tool settings sheet asks for the controls to build.
 global proc bevelProperties()
 {
-    if (`exists scriptCtxCommonProperties`)
-        eval("scriptCtxCommonProperties");
+    scriptCtxCommonProperties();
 }
 
 // The tool's context, made the first time it's needed; one that exists already is left as it is.
@@ -41,8 +37,8 @@ proc bevelToolMakeContext(string $toolName)
     if (`scriptCtx -exists $toolName`)
         return;
     bevelToolSetup(0, "");
-    // One selection set of any number of curves or edges; the final script runs the bevel on them. The reference also
-    // limits the set to curves, isoparms, curves on surface, surface edges and mesh edges, which scriptCtx can't say yet.
+    // One selection set of any number of curves, isoparms, curves on surface, surface edges or mesh edges; the final
+    // script runs the bevel on them.
     scriptCtx
         -image1 "bevel.png"
         -title "Bevel Tool"
@@ -58,25 +54,12 @@ proc bevelToolMakeContext(string $toolName)
         -setAllowExcessCount true
         -showManipulators true
         -setSelectionCount 0
+        -nurbsCurve true
+        -isoparm true
+        -curveOnSurface true
+        -surfaceEdge true
+        -polymeshEdge true
         $toolName;
-}
-
-// Runs the perform procedure in the mode asked, or enters the tool. Uses the shared scriptToolScript when there is one;
-// without it, a tool is entered (and its settings shown for mode 3) and the action modes go straight to performBevel.
-proc string bevelToolRun(string $perform, int $mode, string $toolName)
-{
-    if (`exists scriptToolScript`)
-        return eval("scriptToolScript \"" + $perform + "\" " + $mode + " \"" + $toolName + "\"");
-    if ($toolName != "") {
-        setToolTo $toolName;
-        if ($mode == 3 && `exists ToolSettingsWindow`)
-            ToolSettingsWindow;
-        return $toolName;
-    }
-    if (`exists $perform`)
-        return eval($perform + " " + $mode);
-    warning ("Bevel isn't available: " + $perform + " was not found.");
-    return "";
 }
 
 global proc string bevelToolScript(int $setToTool)
@@ -91,5 +74,5 @@ global proc string bevelToolScript(int $setToTool)
             bevelToolMakeContext($toolName);
         }
     }
-    return bevelToolRun("performBevel", $setToTool, $toolName);
+    return scriptToolScript("performBevel", $setToTool, $toolName);
 }

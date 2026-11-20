@@ -1,0 +1,35 @@
+// doGroup: what Edit > Group runs (performGroup builds the call). Groups the selection, or makes an empty group when
+// nothing is selected, and says which in the view.
+
+// How many objects are selected. The reference asks its numSelectedObjects; Aztek doesn't have that yet, so the
+// selected objects are counted here when it is missing.
+proc int doGroupSelectedCount()
+{
+    if (`exists numSelectedObjects`)
+        return `eval "numSelectedObjects"`;
+    return size(`ls -sl -objectsOnly`);
+}
+
+// $world groups under the world, $preserve keeps the children where they are, $zeroPivot puts the group's pivot at the
+// origin.
+global proc doGroup(int $world, int $preserve, int $zeroPivot)
+{
+    string $cmd = "group";
+    if ($world)
+        $cmd += " -w";
+    if (!$preserve)
+        $cmd += " -r";
+    int $any = doGroupSelectedCount() > 0;
+    if (!$any)
+        $cmd += " -em";
+    // The group command leaves the new group selected, so xform acts on it.
+    if ($zeroPivot)
+        $cmd += "; xform -os -piv 0 0 0";
+    $cmd += ";";
+    eval $cmd;
+
+    if ($any)
+        eval ("inViewMessage -smg \"Grouped the selected objects.\" -fade");
+    else
+        eval ("inViewMessage -amg \"Nothing was selected: made an empty group.\" -fade");
+}

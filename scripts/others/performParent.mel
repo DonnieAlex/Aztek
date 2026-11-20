@@ -4,56 +4,24 @@
 
 proc performParent_options(int $force)
 {
-    if ($force || !`optionVar -ex parentAdd`)
-        optionVar -iv parentAdd 0;
-    if ($force || !`optionVar -ex parentPreserve`)
-        optionVar -iv parentPreserve 1;
-}
-
-// What parentPreset does, for when Aztek has no global parentPreset: the selection parented under its last object,
-// moved there or added there as an instance. Keeping the world position only means something for a move.
-proc performParent_preset(int $add, int $preserve)
-{
-    if ($add)
-        parent -add;
-    else if ($preserve)
-        parent;
-    else
-        parent -r;
-}
-
-// Aztek has no shared option box frame yet, so the box is a small window of its own: the controls in a scrolling
-// column, then Apply, Save, Reset and Close.
-proc string performParent_boxBegin(string $win, string $title)
-{
-    if (`window -ex $win`)
-        deleteUI -window $win;
-    window -t $title $win;
-    columnLayout -adj true boxFrame;
-    scrollLayout -cr true;
-    return `columnLayout -adj true`;
-}
-
-proc performParent_boxEnd(string $win, string $applyLabel, string $apply, string $save, string $reset)
-{
-    setParent ($win + "|boxFrame");
-    rowLayout -nc 4;
-    button -l $applyLabel -c $apply;
-    button -l "Save" -c ($save + "; deleteUI -window " + $win + ";");
-    button -l "Reset" -c $reset;
-    button -l "Close" -c ("deleteUI -window " + $win);
-    showWindow $win;
+    optionVar -init $force -category "Edit.Parent"
+        -iv parentAdd 0
+        -iv parentPreserve 1;
 }
 
 global proc string performParent(int $action)
 {
     if ($action == 1) {
-        string $win = "performParentOptionBox";
-        string $parent = performParent_boxBegin($win, "Parent Options");
+        // This box sets no command name for its Help item.
+        string $layout = getOptionBox();
+        setParent $layout;
+        // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
         int $template = `uiTemplate -ex DefaultTemplate`;
         if ($template)
             setUITemplate -pst DefaultTemplate;
         waitCursor -st 1;
+        tabLayout -scr true -tv false;
+        string $parent = `columnLayout -adj true`;
         // Preserve position has no meaning for an added instance, so it greys out while that is chosen.
         string $check = $parent + "|parentCheck";
         radioButtonGrp -nrb 2 -l "Parent method:" -la2 "Move objects" "Add instance"
@@ -62,24 +30,23 @@ global proc string performParent(int $action)
         waitCursor -st 0;
         if ($template)
             setUITemplate -ppt;
-        performParent_boxEnd($win, "Parent", "performParentCallback " + $parent + " 1", "performParentCallback " + $parent + " 0",
-            "performParentSetup " + $parent + " 1");
+
+        button -e -l "Parent" -c ("performParentCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+        button -e -c ("performParentCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+        button -e -c ("performParentSetup " + $parent + " 1") (getOptionBoxResetBtn());
+        setOptionBoxTitle("Parent Options");
+        setOptionBoxHelpTag("Parent");
         performParentSetup $parent 0;
+        showOptionBox();
         return "";
     }
     if ($action != 0 && $action != 2)
         return "";
 
     performParent_options(0);
-    int $add = `optionVar -q parentAdd`;
-    int $preserve = `optionVar -q parentPreserve`;
-    string $cmd = "parentPreset(" + $add + "," + $preserve + ")";
-    if ($action == 0) {
-        if (`exists parentPreset`)
-            eval $cmd;
-        else
-            performParent_preset($add, $preserve);
-    }
+    string $cmd = "parentPreset(" + `optionVar -q parentAdd` + "," + `optionVar -q parentPreserve` + ")";
+    if ($action == 0)
+        eval $cmd;
     return $cmd;
 }
 
@@ -100,7 +67,6 @@ global proc performParentCallback(string $parent, int $doIt)
     optionVar -iv parentPreserve `checkBoxGrp -q -v1 parentCheck`;
     if ($doIt) {
         performParent 0;
-        if (`exists addToRecentCommandQueue`)
-            addToRecentCommandQueue "performParent 0" "Parent";
+        addToRecentCommandQueue "performParent 0" "Parent";
     }
 }

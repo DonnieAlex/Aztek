@@ -69,25 +69,6 @@ proc string pnsLinearUnitAt(int $item)
     return $u[$item - 1];
 }
 
-// optionVar -init as the reference has it: the value is written when the var is missing, or always when forced.
-proc pnsInitInt(int $force, string $name, int $value)
-{
-    if ($force || !`optionVar -exists $name`)
-        optionVar -intValue $name $value;
-}
-
-proc pnsInitFloat(int $force, string $name, float $value)
-{
-    if ($force || !`optionVar -exists $name`)
-        optionVar -floatValue $name $value;
-}
-
-proc pnsInitString(int $force, string $name, string $value)
-{
-    if ($force || !`optionVar -exists $name`)
-        optionVar -stringValue $name $value;
-}
-
 // Aztek's next new scene takes its units from what newSceneUnits last set, so the optionVars are passed on to it.
 proc pnsApplyUnits()
 {
@@ -124,23 +105,24 @@ proc pnsInitOptionVars(int $force)
             optionVar -floatValue playbackMaxRangeDefault `playbackOptions -query -animationEndTime`;
     }
 
-    // File.NewScene
-    pnsInitInt($force, "newFileEnabled", 0);
-    pnsInitInt($force, "keepCurrentWorkingUnits", 0);
-    pnsInitString($force, "newFileName", "");
-    pnsInitInt($force, "viewCubeShowCompassDefault", 0);
-    pnsInitFloat($force, "viewCubeCompassAngleDefault", 0.0);
-    // Settings
-    pnsInitString($force, "workingUnitLinearDefault", "cm");
-    pnsInitString($force, "workingUnitAngularDefault", "deg");
-    pnsInitString($force, "workingUnitTimeDefault", "film");
-    // Colour management
-    pnsInitInt($force, "colorManagementEnabledByDefault", 1);
-    // Animation
-    pnsInitFloat($force, "playbackMinDefault", 1.0);
-    pnsInitFloat($force, "playbackMaxDefault", 120.0);
-    pnsInitFloat($force, "playbackMinRangeDefault", 1.0);
-    pnsInitFloat($force, "playbackMaxRangeDefault", 200.0);
+    // Each value is written when its optionVar is missing, or always when forced.
+    optionVar -init $force -category "File.NewScene"
+        -intValue newFileEnabled 0
+        -intValue keepCurrentWorkingUnits 0
+        -stringValue newFileName ""
+        -intValue viewCubeShowCompassDefault 0
+        -floatValue viewCubeCompassAngleDefault 0.0;
+    optionVar -init $force -category "Settings"
+        -stringValue workingUnitLinearDefault "cm"
+        -stringValue workingUnitAngularDefault "deg"
+        -stringValue workingUnitTimeDefault "film";
+    optionVar -init $force -category "Color Management"
+        -intValue colorManagementEnabledByDefault 1;
+    optionVar -init $force -category "Animation"
+        -floatValue playbackMinDefault 1.0
+        -floatValue playbackMaxDefault 120.0
+        -floatValue playbackMinRangeDefault 1.0
+        -floatValue playbackMaxRangeDefault 200.0;
 
     if ($force) {
         pnsApplyUnits();
@@ -256,8 +238,7 @@ global proc newFileCallback(string $parent, int $doIt)
 
     if ($doIt) {
         performNewScene 0;
-        if (`exists addToRecentCommandQueue`)
-            eval("addToRecentCommandQueue \"performNewScene 0 \" \"New Scene\"");
+        addToRecentCommandQueue "performNewScene 0 " "New Scene";
     }
 }
 
@@ -296,14 +277,15 @@ proc string pnsAssembleCmd()
 
 proc pnsOptionBox()
 {
-    string $win = "performNewSceneOptions";
-    if (`window -exists $win`)
-        deleteUI -window $win;
-
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("New Scene Options");
+    // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
     waitCursor -state on;
-    window -title "New Scene Options" -widthHeight 520 560 $win;
-    string $form = `formLayout`;
-    string $scroll = `scrollLayout -childResizable true`;
+    tabLayout -scrollable true -tabsVisible false;
     string $parent = `columnLayout -adjustableColumn true -columnAttach "both" 5`;
 
     checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Enable default scene"
@@ -382,20 +364,17 @@ proc pnsOptionBox()
         setParent ..;
     setParent ..;
 
-    setParent $form;
-    string $buttons = `rowLayout -numberOfColumns 5`;
-        string $q = "\"" + $parent + "\"";
-        button -label "New" -command ("newFileCallback " + $q + " 1; deleteUI -window " + $win) pnsApplyAndClose;
-        button -label "Apply" -command ("newFileCallback " + $q + " 1") pnsApply;
-        button -label "Save" -command ("newFileCallback " + $q + " 0; deleteUI -window " + $win) pnsSave;
-        button -label "Reset" -command ("newFileSetup " + $q + " 1") pnsReset;
-        button -label "Close" -command ("deleteUI -window " + $win) pnsClose;
-    setParent ..;
-    formLayout -edit
-        -attachForm $scroll "top" 0 -attachForm $scroll "left" 0 -attachForm $scroll "right" 0
-        -attachControl $scroll "bottom" 5 $buttons
-        -attachForm $buttons "left" 5 -attachForm $buttons "right" 5 -attachForm $buttons "bottom" 5
-        $form;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    // Apply and Close keeps its default command (Apply, then close), under the label New.
+    string $q = "\"" + $parent + "\"";
+    button -edit -label "Apply" -command ("newFileCallback " + $q + " 1") (getOptionBoxApplyBtn());
+    button -edit -label "New" (getOptionBoxApplyAndCloseBtn());
+    button -edit -command ("newFileCallback " + $q + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("newFileSetup " + $q + " 1") (getOptionBoxResetBtn());
+    setOptionBoxTitle("New Scene Options");
+    setOptionBoxHelpTag("NewSceneOptions");
 
     newFileSetup $parent 0;
     setParent $parent;
@@ -406,7 +385,7 @@ proc pnsOptionBox()
     optionMenuGrp -edit -enable (!$keep) timeOpts;
 
     waitCursor -state off;
-    showWindow $win;
+    showOptionBox();
 }
 
 global proc string performNewScene(int $option)

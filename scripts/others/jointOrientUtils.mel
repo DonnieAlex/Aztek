@@ -1,0 +1,216 @@
+// jointOrientUtils: the "Orientation Settings" block shared by the joint tool's settings and the Orient Joint option
+// box (orient to world, primary and secondary axes, the secondary axis's world direction and sign, auto orient), and
+// the procedures that read and write it as joint -orientJoint / -secondaryAxisOrient strings. Saving the values is the
+// caller's job. Callers load the file by calling jointOrientUtils().
+//
+// Every procedure taking $parent works inside it: the column layout jointOrientOptionsSetup makes.
+
+// Axis letters x, y, z are buttons 1, 2, 3. Any other letter counts as x.
+proc int joAxisIndex(string $letter)
+{
+    string $l = tolower($letter);
+    if ($l == "y")
+        return 2;
+    if ($l == "z")
+        return 3;
+    return 1;
+}
+
+proc string joAxisLetter(int $index)
+{
+    if ($index == 2)
+        return "y";
+    if ($index == 3)
+        return "z";
+    return "x";
+}
+
+// The sign menu: 1 is up (+), 2 down (-).
+proc int joSignIndex(string $word)
+{
+    return tolower($word) == "down" ? 2 : 1;
+}
+
+proc string joSignWord(int $index)
+{
+    return $index == 2 ? "down" : "up";
+}
+
+// The primary and secondary letters with the remaining axis after them. Two equal letters get no third.
+proc string joCompleteAxes(string $primary, string $secondary)
+{
+    string $axes = $primary + $secondary;
+    if ($primary == $secondary)
+        return $axes;
+    string $all[] = {"x", "y", "z"};
+    for ($c in $all) {
+        if ($c != $primary && $c != $secondary)
+            $axes += $c;
+    }
+    return $axes;
+}
+
+global proc jointOrientUtils()
+{
+}
+
+// The block's column widths: the label column, a button column, and the label plus three buttons.
+global proc int jointOrientColumnWidth(int $column)
+{
+    int $first = `about -windows` ? 190 : 200;
+    int $button = 50;
+    if ($column == 1)
+        return $first;
+    if ($column == 2)
+        return $button;
+    if ($column == 3)
+        return (int)($first + 3.2 * $button);
+    return 0;
+}
+
+global proc jointOrientOptionsSetup(string $parent)
+{
+    setParent $parent;
+    int $w1 = jointOrientColumnWidth(1);
+    int $w2 = jointOrientColumnWidth(2);
+    int $w3 = jointOrientColumnWidth(3);
+
+    frameLayout -collapsable true -collapse false -label "Orientation Settings" orientationSettingsFrame;
+    // The reference gives the column 10 pixels of space above and below; Aztek's columnLayout has no margins, so empty
+    // separators of that height stand in.
+    string $col = `columnLayout -adjustableColumn true`;
+    separator -style "none" -height 10;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "Orient joint to world"
+        -annotation "Orient the joints to the world axes rather than along the chain."
+        -columnWidth 1 $w1
+        -changeCommand ("jointOrientWorldSelected " + $col + ";")
+        ojWorldAxisGrp;
+    radioButtonGrp -numberOfRadioButtons 3 -labelArray3 "X" "Y" "Z" -label "Primary axis"
+        -annotation "The axis that points down the bone, towards the child joint."
+        -columnWidth4 $w1 $w2 $w2 $w2 -select 1
+        -changeCommand ("jointOrientPrimarySelected " + $col + ";")
+        ojPrimaryAxisGrp;
+    radioButtonGrp -numberOfRadioButtons 4 -labelArray4 "X" "Y" "Z" "None" -label "Secondary axis"
+        -annotation "The axis that points along the secondary world orientation below."
+        -columnWidth5 $w1 $w2 $w2 $w2 $w2 -select 2
+        -changeCommand ("jointOrientSecondarySelected " + $col + ";")
+        ojSecondaryAxisGrp;
+    rowLayout -numberOfColumns 3 -width ($w3 + $w2 + 1)
+        -columnWidth3 $w3 $w2 1 -columnOffset3 0 0 0 -columnAlign3 "left" "left" "left"
+        rowLayout1;
+        radioButtonGrp -numberOfRadioButtons 3 -labelArray3 "X" "Y" "Z" -label "Secondary axis world orientation"
+            -annotation "The world axis the secondary axis points towards."
+            -width $w3 -columnWidth4 $w1 $w2 $w2 $w2 -select 1
+            ojSecondaryOrientGrp;
+        optionMenu -width $w2 ojSecondaryOrientSignGrp;
+            menuItem -label "+";
+            menuItem -label "-";
+        setParent ..;
+    checkBoxGrp -numberOfCheckBoxes 1 -columnWidth 1 $w1 -label1 "Guess the secondary axis world orientation"
+        -annotation "Work out the secondary axis's world orientation from each joint's position."
+        ojSecondaryAutoOrientGrp;
+
+    separator -style "none" -height 10;
+}
+
+global proc jointOrientEnablePrimaryOptions(string $parent, int $state)
+{
+    setParent $parent;
+    radioButtonGrp -edit -enable $state ojPrimaryAxisGrp;
+    radioButtonGrp -edit -enable $state ojSecondaryAxisGrp;
+}
+
+global proc jointOrientEnableSecondaryOptions(string $parent, int $state)
+{
+    setParent $parent;
+    radioButtonGrp -edit -enable $state ojSecondaryOrientGrp;
+    optionMenu -edit -enable $state ojSecondaryOrientSignGrp;
+    checkBoxGrp -edit -enable $state ojSecondaryAutoOrientGrp;
+}
+
+// $axes: orient-joint string (none, or three letters such as xyz), secondary axis orient (none, or a letter and
+// up/down such as yup), and optionally the auto-orient flag.
+global proc jointOrientSetOrientAxes(string $parent, string $axes[])
+{
+    setParent $parent;
+    int $auto = size($axes) > 2 ? (int)$axes[2] : 0;
+    checkBoxGrp -edit -value1 $auto ojSecondaryAutoOrientGrp;
+
+    if ($axes[0] == "none") {
+        checkBoxGrp -edit -value1 true ojWorldAxisGrp;
+        jointOrientWorldSelected($parent);
+        return;
+    }
+    jointOrientEnablePrimaryOptions($parent, 1);
+    checkBoxGrp -edit -value1 false ojWorldAxisGrp;
+    if (size($axes[0]) != 3)
+        return;
+    radioButtonGrp -edit -select (joAxisIndex(substring($axes[0], 1, 1))) ojPrimaryAxisGrp;
+    radioButtonGrp -edit -select (joAxisIndex(substring($axes[0], 2, 2))) ojSecondaryAxisGrp;
+
+    if ($axes[1] == "none") {
+        radioButtonGrp -edit -select 4 ojSecondaryAxisGrp;
+        jointOrientEnableSecondaryOptions($parent, 0);
+    } else {
+        jointOrientEnableSecondaryOptions($parent, 1);
+        radioButtonGrp -edit -select (joAxisIndex(substring($axes[1], 1, 1))) ojSecondaryOrientGrp;
+        string $sign = size($axes[1]) > 1 ? substring($axes[1], 2, size($axes[1])) : "";
+        optionMenu -edit -select (joSignIndex($sign)) ojSecondaryOrientSignGrp;
+    }
+}
+
+// Reads the block into $axes, replacing what was there: { orient joint, secondary axis orient, auto flag }.
+global proc jointOrientGetOrientAxes(string $parent, string $axes[])
+{
+    setParent $parent;
+    string $auto = `checkBoxGrp -query -value1 ojSecondaryAutoOrientGrp`;
+    string $orient = "none";
+    string $secondaryOrient = "none";
+    if (!`checkBoxGrp -query -value1 ojWorldAxisGrp`) {
+        int $p = `radioButtonGrp -query -select ojPrimaryAxisGrp`;
+        int $s = `radioButtonGrp -query -select ojSecondaryAxisGrp`;
+        if ($s != 4) {
+            $secondaryOrient = joAxisLetter(`radioButtonGrp -query -select ojSecondaryOrientGrp`)
+                + joSignWord(`optionMenu -query -select ojSecondaryOrientSignGrp`);
+        } else {
+            // No secondary axis chosen: the next axis round from the primary is used.
+            $s = ($p % 3) + 1;
+        }
+        $orient = joCompleteAxes(joAxisLetter($p), joAxisLetter($s));
+    }
+    clear $axes;
+    $axes[0] = $orient;
+    $axes[1] = $secondaryOrient;
+    $axes[2] = $auto;
+}
+
+global proc jointOrientWorldSelected(string $parent)
+{
+    setParent $parent;
+    int $notWorld = !`checkBoxGrp -query -value1 ojWorldAxisGrp`;
+    jointOrientEnablePrimaryOptions($parent, $notWorld);
+    int $secondary = $notWorld;
+    if (`radioButtonGrp -query -select ojSecondaryAxisGrp` == 4)
+        $secondary = 0;
+    jointOrientEnableSecondaryOptions($parent, $secondary);
+    jointOrientPrimarySelected($parent);
+}
+
+// The two axes can't be the same: picking the secondary's axis as primary moves the secondary on one.
+global proc jointOrientPrimarySelected(string $parent)
+{
+    setParent $parent;
+    int $p = `radioButtonGrp -query -select ojPrimaryAxisGrp`;
+    if ($p == `radioButtonGrp -query -select ojSecondaryAxisGrp`)
+        radioButtonGrp -edit -select (($p % 3) + 1) ojSecondaryAxisGrp;
+}
+
+global proc jointOrientSecondarySelected(string $parent)
+{
+    setParent $parent;
+    int $s = `radioButtonGrp -query -select ojSecondaryAxisGrp`;
+    jointOrientEnableSecondaryOptions($parent, $s != 4);
+    if ($s != 4 && $s == `radioButtonGrp -query -select ojPrimaryAxisGrp`)
+        radioButtonGrp -edit -select (($s % 3) + 1) ojPrimaryAxisGrp;
+}

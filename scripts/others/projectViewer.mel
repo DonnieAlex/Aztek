@@ -391,14 +391,13 @@ proc int pvRunDialog(string $v[], string $start, int $fromCaptureTool)
     // An option box left open would show the same controls twice.
     global string $gOptBoxForm;
     if ($gOptBoxForm != "" && `layout -exists $gOptBoxForm`) {
-        if (`exists hideOptionBoxNow`) {
-            eval("hideOptionBoxNow");
-        } else {
-            string $parts[];
-            tokenize $gOptBoxForm "|" $parts;
-            if (size($parts) && `window -exists $parts[0]`)
-                deleteUI -window $parts[0];
-        }
+        hideOptionBoxNow();
+        // The file options box is a window of its own in Aztek (it has no getStandardWindow yet), so the window
+        // holding that form is closed too.
+        string $parts[];
+        tokenize $gOptBoxForm "|" $parts;
+        if (size($parts) && `window -exists $parts[0]`)
+            deleteUI -window $parts[0];
     }
 
     string $result[] = eval($cmd);

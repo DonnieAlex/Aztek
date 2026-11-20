@@ -1936,6 +1936,17 @@ rememberCtxSettings gives a tool made later its saved ones back.
 - `constructionHistory -q -tgl` says whether history is on.
 - `polyUVSet -q -perInstance` and `-q -currentPerInstanceUVSet` answer: Aztek's UV sets are shared by every instance.
 
+### The reference's scripts, second batch: the option box and the helpers behind the first (20/11/2026)
+
+Eleven more scripts, each written from a description of what the reference's does: the shared option box window
+(getOptionBox and its procedures: the window, its Apply, Apply and Close, Save and Reset buttons, the Edit and Help
+menus, the size each option box was last left at), initAuxiliary with addToRecentCommandQueue, duplicatePreset,
+doGroup, parentPreset, performBevel, performExtrude, scriptToolScript, jointOrientUtils, scriptCtxCommonProperties
+and scriptCtxCommonValues. The first batch's scripts call them now in place of the stand-ins they carried: Group,
+Parent, Unparent, Set Key and New Scene open in the shared option box, Duplicate and Duplicate Special run
+duplicatePreset, Orient Joint uses the joint orient controls, and the bevel and extrude tools are made as the
+reference makes them. docs/SCRIPT_GAPS.md is down from 150 lines to 139, the new scripts' own needs included.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

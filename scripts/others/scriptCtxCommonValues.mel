@@ -1,0 +1,32 @@
+// scriptCtxCommonValues: fills in the header of the stand-in tool settings sheet scriptCtxCommonProperties built (the
+// tool's icon, no help) and shows the sheet.
+
+global proc scriptCtxCommonValues(string $toolName)
+{
+    string $sheet = "notThere" + $toolName;
+    string $location = `toolPropertyWindow -query -location`;
+    // No script layout in Aztek's Tool Settings window (see scriptCtxCommonProperties): no sheet to fill.
+    if ($location == "")
+        return;
+    setParent ($location + "|" + $sheet);
+
+    // The icon is the current tool's own; for a tool inside a super context, the one on its selected tool button.
+    string $icon = "vacantCell.png";
+    string $current = `currentCtx`;
+    if (`exists superCtx` && `eval ("superCtx -exists " + $current)`) {
+        if (`toolCollection -exists toolCluster`) {
+            string $button = `toolCollection -query -select toolCluster`;
+            if (`toolButton -exists $button`)
+                $icon = `toolButton -query -image1 $button`;
+        }
+    } else if (`contextInfo -exists $current`) {
+        $icon = `contextInfo -image1 $current`;
+    }
+
+    // The tool settings window's own header and page switching. Aztek's Tool Settings window does both itself and has
+    // neither procedure yet, so these steps are skipped without them.
+    if (`exists toolPropertySetCommon`)
+        eval ("toolPropertySetCommon \"" + $toolName + "\" \"" + $icon + "\" \"\"");
+    if (`exists toolPropertySelect`)
+        eval ("toolPropertySelect \"" + $sheet + "\"");
+}

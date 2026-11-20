@@ -182,17 +182,15 @@ proc foNamespaceTreeEnable(string $tree, int $on)
 // --------------------------------------------------------------------------------------------------------------------
 // optionVars
 
-// optionVar -init as the reference has it: written when the var is missing, or always when forced.
+// One value under the category "Files/Projects", written when the var is missing, or always when forced.
 proc foInitInt(int $force, string $name, int $value)
 {
-    if ($force || !`optionVar -exists $name`)
-        optionVar -intValue $name $value;
+    optionVar -init $force -category "Files/Projects" -intValue $name $value;
 }
 
 proc foInitString(int $force, string $name, string $value)
 {
-    if ($force || !`optionVar -exists $name`)
-        optionVar -stringValue $name $value;
+    optionVar -init $force -category "Files/Projects" -stringValue $name $value;
 }
 
 proc foInitOptionVars(string $action, int $force)
@@ -478,24 +476,21 @@ proc string foOptionWindowName()
     return "fileOptionsWindow";
 }
 
+// The reference's file options box comes from getStandardWindow and addStandardButtons, which Aztek doesn't have, so
+// it is a window of its own here rather than the shared option box: closing it is closing that window, not
+// hideOptionBox (which closes the shared one).
 proc foHideOptionBox()
 {
-    if (`exists hideOptionBox`) {
-        eval("hideOptionBox");
-        return;
-    }
-    if (`window -exists fileOptionsWindow`)
-        deleteUI -window fileOptionsWindow;
+    string $win = foOptionWindowName();
+    if (`window -exists $win`)
+        evalDeferred ("if (`window -exists " + $win + "`) deleteUI -window " + $win + ";");
 }
 
 proc foHideOptionBoxNow()
 {
-    if (`exists hideOptionBoxNow`) {
-        eval("hideOptionBoxNow");
-        return;
-    }
-    if (`window -exists fileOptionsWindow`)
-        deleteUI -window fileOptionsWindow;
+    string $win = foOptionWindowName();
+    if (`window -exists $win`)
+        deleteUI -window $win;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -1842,7 +1837,8 @@ global proc fo_onCapturePlayblastbuttonClick(string $action)
     string $file = foCaptureString("selectedFileName");
     string $callback = "";
     if (foCaptureInt("launchedFromOptionsBox")) {
-        string $btn = `exists getOptionBoxApplyAndCloseBtn` ? eval("getOptionBoxApplyAndCloseBtn") : "fileOptionsApplyAndCloseBtn";
+        // This box's own action button, which stands where the shared box's Apply and Close would be.
+        string $btn = "fileOptionsApplyAndCloseBtn";
         if (`button -exists $btn`) {
             if ($action != "Save")
                 button -edit -command ("projectViewerInitSelectedFileName " + $action + " \"\" true") $btn;

@@ -5,20 +5,9 @@ Aztek's commands. Where Aztek lacks a command, a flag or another procedure they 
 gap is listed here, one line each: the script, the procedure, and what it needs. Clear a line when Aztek gains it and
 the script uses it.
 
-- bevelToolScript: bevelToolSetup: needs optionVar -init and -category (emulated with -exists then -intValue)
-- bevelToolScript: bevelToolSetup: needs scriptCtx -lastAutoComplete/-lac (edit) flag
-- bevelToolScript: bevelToolScript: needs scriptCtx -nurbsCurve, -isoparm, -curveOnSurface, -surfaceEdge, -polymeshEdge selection-type flags (context made without them)
-- bevelToolScript: bevelToolScript: needs performBevel (NURBS bevel perform proc) and scriptToolScript (local fallback enters the tool for modes 3/4; modes 0-2 warn)
-- bevelToolScript: bevelValues/bevelProperties: needs performBevel, scriptCtxCommonValues, scriptCtxCommonProperties (skipped when missing)
-- extrudeToolScript: extrudeToolSetup: needs optionVar -init and -category (emulated with -exists then -intValue)
-- extrudeToolScript: extrudeToolSetup: needs scriptCtx -lastAutoComplete/-lac (edit) flag
-- extrudeToolScript: extrudeToolScript: needs scriptCtx -nurbsCurve, -isoparm, -curveOnSurface, -surfaceEdge, -polymeshEdge selection-type flags (contexts made without them)
-- extrudeToolScript: extrudeToolScript: needs performExtrude and scriptToolScript (local fallback enters the tool for modes 3/4; modes 0-2 warn)
-- extrudeToolScript: extrudeValues/extrudeProperties: needs performExtrude, scriptCtxCommonValues, scriptCtxCommonProperties (skipped when missing)
-- artAttrToolScript: artAttrToolScript: needs artAttrCallback.mel, artAttrSyncCurrentAttribute, setArtAttrFilterLabel, artAttrFilterLabel, artAttrInitPaintableAttr, rememberCtxSettings (local stand-ins for the label and the paintable check; the rest skipped)
+- artAttrToolScript: artAttrToolScript: needs artAttrCallback.mel, artAttrSyncCurrentAttribute, setArtAttrFilterLabel, artAttrFilterLabel, artAttrInitPaintableAttr (local stand-ins for the label and the paintable check; the rest skipped); rememberCtxSettings is not called because the context is never made here (see next line)
 - artAttrToolScript: artAttrToolScript: needs artAttrCtx -exists/-image1/-whichTool to make a named artAttrContext (enters the shell's ArtPaintAttrTool instead; Aztek's paint tool doesn't read makePaintable, so the filter also picks the type's weights with artAttrCtx -e -attrSelected)
-- artAttrToolScript: artAttrToolScript: needs toolPropertyWindow (uses ToolSettingsWindow)
-- artAttrSkinToolScript: artAttrSkinToolScript: needs artAttrSkinPaintCtx -exists/-image1/-whichTool and rememberCtxSettings (context is built in, so creation skipped); toolPropertyWindow (uses ToolSettingsWindow)
+- artAttrSkinToolScript: artAttrSkinToolScript: needs artAttrSkinPaintCtx -exists/-image1/-whichTool (context is built in, so creation and its rememberCtxSettings call are skipped)
 - nextOrPreviousFrame: nextOrPreviousFrame: needs playbackOptions -stepLoop (and playbackOptions -q with an unknown flag returns -min instead of failing); sequenceManager -currentTime for the Sequencer branch
 - togglePlayback: togglePlayback: needs playButtonForward (falls back to play -forward true)
 - fitPanel: fitPanel: needs ls -ufe (uses ls -sl), viewFit -noChildren (frames with children), hyperGraph, profilerTool, hyperShadePanelFrameAll/Selected, visorPanelFrameAll/Selected, editorNameFromPanel (uses panel + "NodeEditorEd"), clipEditorNameFromPanel, sequenceEditorNameFromPanel, miInteractionEditorPanelFrame, numSelectedObjects
@@ -33,18 +22,10 @@ the script uses it.
 - uvSetEditor: builduvSetEditorContextHelpItems: needs menuItem -enableCommandRepeat and showHelp
 - uvSetEditor: uvSetEditor: native window opened via UVSetEditor; SelectSharedUVInstances, ShareUVInstances, SelectUnmappedFaces, RenameCurrentUVSet, DeleteCurrentUVSet, uvSetEditCmd, addContextHelpProc, getRunTimeCommandAnnotation, doHelpMenu not in Aztek
 - incrementAndSaveScene: incrementAndSaveScene: needs projectViewer (falls back to SaveSceneAs), file -defaultExtensions edit (query returns the scene name), addRecentFile (skipped when missing)
-- all: these 12 scripts are not yet listed in crates/aztek_host/src/mel/bundled.rs, so they are only found through the script path until added there
-- performDuplicate: performDuplicate: needs global duplicatePreset (others/duplicatePreset.mel); a local stand-in on duplicate/instance runs until it exists
 - performDuplicate: performDuplicate: needs global performDuplicateClip and an animClip node type / clip editor panel (clip path skipped)
-- performDuplicateSpecial: performDuplicateSpecial: needs global duplicatePreset (local stand-in used) and performDuplicateClip (skipped)
+- performDuplicateSpecial: performDuplicateSpecial: needs global performDuplicateClip (skipped)
 - performDuplicateSpecial: performDuplicateSpecial: needs Aztek's Duplicate Special Options window to read/write the duplicateSpecial* optionVars (it keeps its own settings, so action 1 and action 0 don't share values)
-- performDuplicateSpecial, performGroup, performParent, performUnparent, performJointOrient, performBakeNonDefHistory, performSetKeyframeArgList: *Callback: needs global addToRecentCommandQueue (skipped when missing)
-- performGroup, performParent, performUnparent, performSetKeyframeArgList: performX(1): needs the shared option box procs (getOptionBox, setOptionBoxCommandName, getOptionBoxApplyBtn/SaveBtn/ResetBtn, setOptionBoxTitle, setOptionBoxHelpTag, showOptionBox, hideOptionBox); each builds a small window of its own meanwhile
-- performGroup, performParent, performUnparent, performSetKeyframeArgList, performDuplicateSpecial: options: needs optionVar -category (skipped) and uiTemplate DefaultTemplate (pushed only when it exists)
-- performGroup: performGroup: needs global doGroup (others/doGroup.mel); a local stand-in on group/xform -cp runs until it exists
-- performParent: performParent: needs global parentPreset (others/parentPreset.mel); a local stand-in on parent runs until it exists
-- performJointOrient: performJointOrient: needs joint -e -autoOrientSecondaryAxis (-aos); the joints are oriented without it when it is refused
-- performJointOrient: jointOrientSetup/jointOrientCallback: needs jointOrientUtils, jointOrientSetOrientAxes, jointOrientGetOrientAxes (axis values skipped when missing); option box UI also needs jointOrientOptionsSetup, jointOrientColumnWidth (action 1 opens Aztek's OrientJointOptions instead)
+- performGroup, performParent, performUnparent, performSetKeyframeArgList, performNewScene, performBevel, performExtrude: option box: needs uiTemplate DefaultTemplate (pushed only when it exists)
 - performJointOrient: jointOrientSelectAndRotateLocalAxes: needs selecting <joint>.rotateAxis as a component (warns and does nothing)
 - performBakeNonDefHistory, performSetKeyframeArgList: setup: needs radioButtonGrp -shareCollection to turn the other buttons off (setup turns them off explicitly)
 - performPolyDeleteElements: performPolyDeleteElements: needs runtime commands DeleteVertex, DeleteEdge (falls back to polyDelVertex, polyDelEdge -cv true)
@@ -60,7 +41,6 @@ the script uses it.
 - MTprocs: MTtglTextures: needs textureWindowToggleTextureImage, txtWndUpdateEditor, polyTexturePlacementPanel1
 - MTprocs: MTtglDefaultLighting: needs dynPaintEditor
 - MTprocs: MTselAll: needs objExists on wildcard components ("obj.vtx[*]" gives 0); ls -fl used instead
-- any: optionVar: setting several values in one call (-iv a 1 -sv b "x") gives every name the first value; one optionVar call per value used
 - expressionEditor: expressionEditor/EEcreateWin: needs a way to open Aztek's Expression Editor on a given node and attribute (and particle rule); it opens empty
 - expressionEditor: EEmakeMenubar/EEmakeFilterPopup: no-ops (Aztek's Expression Editor has its own menus); the reference's EE*CB callback files (expressionEdCallbacks.mel, expressions.mel, dynExpressions.mel, expressionEdTextEditor.mel, scriptNodes.mel) aren't in Aztek; plain local stand-ins are used where needed
 - expressionEditor: expressionEditor/EEdisplayNoExpression: needs EEonlyLaunchEditor/EEonlyLaunchParticleEditor/EEonlyLaunchScriptEditor/EElaunchEditor/EElaunchParticleEditor (outside text editor); warns instead
@@ -102,10 +82,10 @@ the script uses it.
 - FileMenu.mel: openRecentFile: needs pv_performAction (local open with a save-changes prompt), framelessDialog (confirmDialog used), retainWorkingDirectory, checkColorManagementAllSettings, appHome -updateRecentFiles, savePrefs -file "recents"
 - FileMenu.mel: buildRecentFileMenu/checkMainFileMenu: needs crashInfo -query -crashFile, initRecentFilesTypeList (local), incrementalSaveProcessPath (local), buildSendToSubMenus, callbacks -executeCallbacks
 - FileMenu.mel: recents: Aztek keeps its recent files in its own settings, not in RecentFilesList/RecentProjectsList optionVars, so the recent submenus only show what scripts put there
-- performNewScene.mel: performNewScene: needs saveChanges (the command text asks save/don't save/cancel itself when it is missing), thumbnailCaptureComponent, addToRecentCommandQueue
+- performNewScene.mel: performNewScene: needs saveChanges (the command text asks save/don't save/cancel itself when it is missing), thumbnailCaptureComponent
 - performNewScene.mel: setDefaultUnits/newFileSetup: needs workingTimeUtil.mel (local time-unit table), linearUnits_uiToMel (local), timeFieldGrp (floatFieldGrp used for timeSliderBounds/rangeSliderBounds)
-- performNewScene.mel: performNewScene 1: needs a run-time command for Aztek's native New Scene Options (MainWindow::new_scene_options); a script option box is built instead, and getOptionBox/showOptionBox/setOptionBoxCommandName helpers
-- fileOptions.mel: fileOptions/fileOptionsTabPage: needs getOptionBox, getStandardWindow, addStandardButtons, getOptionBoxApplyAndCloseBtn, hideOptionBox, hideOptionBoxNow, showOptionBox (a plain window is used); Aztek's native file options windows (fileoptions.cpp, QSettings) have no run-time command and don't read these optionVars
+- performNewScene.mel: performNewScene 1: needs a run-time command for Aztek's native New Scene Options (MainWindow::new_scene_options); the shared script option box is used instead
+- fileOptions.mel: fileOptions/fileOptionsTabPage: needs getStandardWindow and addStandardButtons (a plain window fileOptionsWindow is used, so its own buttons stand in for getOptionBoxApplyAndCloseBtn and closing it stands in for hideOptionBox/hideOptionBoxNow/showOptionBox); Aztek's native file options windows (fileoptions.cpp, QSettings) have no run-time command and don't read these optionVars
 - fileOptions.mel: fo_newFileType/fileOptionsCallback2/fileOptionsSelectionChanged: needs translator -query -optionsScript (no translator option panels)
 - fileOptions.mel: fileOptionsCallback2: needs file -defaultExtensions, -saveTextures, -saveDiskCache
 - fileOptions.mel: namespace section/getlFullNamespaceFromTreeView: needs treeView, namespaceTreeView, namespaceTreeView_select, namespaceTreeView_update (a textScrollList of namespaces stands in)
@@ -116,7 +96,7 @@ the script uses it.
 - performPlayblast.mel: performPlayblast: needs doPlayblastArgList (a local runner passes the values to playblast; save depth, partial save and camera setups dropped), stereoCameraView, modelEditor -cameraSetup/-stereoDrawMode returning real values
 - performPlayblast.mel: performPlayblast: needs playblast -activeEditor to be a query without -query (it makes a playblast now; -query used)
 - performPlayblast.mel: playblastOptions: Aztek's native PlayblastOptions window keeps its own settings, not the playblast* optionVars that performPlayblast 0 reads
-- performPlayblast.mel: playblastFileBrowser/playblastCallback: needs fileBrowser (fileDialog2 used), setWorkingDirectory, addToRecentCommandQueue, localizedUIComponentLabel, getStandardWindow/addStandardButtons
+- performPlayblast.mel: playblastFileBrowser/playblastCallback: needs fileBrowser (fileDialog2 used), setWorkingDirectory, localizedUIComponentLabel, getStandardWindow/addStandardButtons
 - initHUDScripts: updateCurrentCharacterHUD/updatePlaybackSpeedHUD/updateSubdHUD/updateParticleHUD/updateCapsLockHUD, setAnimationDetailsVisibility: needs headsUpDisplay -refresh (redraws the views instead) and headsUpDisplay -edit (sets -visible without it)
 - initHUDScripts: animationDetailsIKFK, animationDetailsCurrentCharacter: needs ikFKSolverState, ikFkBlendValue, currentCharacters (answers No Solver / None without them)
 - initHUDScripts: objectDetailsSmoothness, subdDetailsCurrentLevel, subdDetailsCurrentMode: needs subdivDisplaySmoothness and subdiv -q -proxyMode/-currentSubdLevel (no subdivision surfaces in Aztek)
@@ -149,3 +129,18 @@ the script uses it.
 - renderSequenceOptionsWindow: renderSequenceOptionsWindow: opens RenderSequenceOptions when it exists; scriptJob event RenderViewCameraChanged not in Aztek
 - unifiedRenderGlobalsWindow: needs renderer -globalsNodes/-globalsTabLabels/-globalsTabCreateProcNames/-globalsTabUpdateProcNames/-logoImageName (Harold's settings nodes listed by hand, no tabs), copyNode (attributes copied from a fresh node), mayaHasRenderSetup and the render setup Python modules, saveNodePresetDialog/nodePresetConfirmDeleteDialog (simple fallbacks), registerUpdateRendererUIProc, callbacks, addContextHelpProc/doHelpMenu
 - unifiedRenderGlobalsWindow: unifiedRenderGlobalsWindow: opens RenderGlobalsWindow when it exists; otherwise builds the reference's workspace control
+- getOptionBox: getOptionBox/showOptionBox: needs menu -helpMenu and menuItem -enableCommandRepeat (Help is a plain last menu), the dimWhen command (nothing to clear)
+- getOptionBox: saveOptionBoxSize: needs mayaDpiSetting -realScaleValue (sizes stored unscaled); scriptJob -uiDeleted doesn't fire headless (run_mel), so sizes are only saved there when a box is reused
+- getOptionBox: setOptionBoxHelpTag: needs showHelp (the Help item's command calls it)
+- getOptionBox: onCloseCommand: needs thumbnailCaptureComponent (does nothing)
+- initAuxiliary: (sourced): needs initPolygonsUI, initNurbsUI, initSubdivUI (sourced when present; the warnings the reference gives for a missing one are left out, since Aztek has none yet and sources the file on first use); the top-level block only runs when the file is sourced (Aztek finds startup procs by name and sources the file on first use, e.g. the first addToRecentCommandQueue call)
+- initAuxiliary: addToRecentCommandQueue: needs repeatLast -addCommand/-addCommandLabel (repeatLast is not a command in Aztek; does nothing without it)
+- doGroup: doGroup: needs numSelectedObjects (local count of ls -sl -objectsOnly used)
+- duplicatePreset: duplicatePreset: parent -w returns the old path when the object is renamed on the way to the world (name clash), so the printed/selected names can be stale
+- performBevel: performBevel/bevelSetup/bevelCallback: needs bevelSetOptionVars, bevelPreset (action 0 warns), nurbsToPolySetup/Callback/AddOptions, nurbsToSubdivSetup/Callback (skipped when missing)
+- performBevel: option box: needs radioButtonGrp -shareCollection between the two Bevel rows (each row clears the other itself)
+- performExtrude: performExtrude/extrudeSetup/extrudeCallback: needs extrudeSetOptionVars, performSweepPreset (action 0 warns), nurbsToPolySetup/Callback/AddOptions, nurbsToSubdivSetup/Callback (skipped when missing)
+- performBevel, performExtrude: command: constructionHistory -query -toggle fails ("no object given or selected"); the bare command's result is used
+- scriptCtxCommonProperties, scriptCtxCommonValues: needs toolPropertyWindow -query -location to name a layout in Aztek's Tool Settings window (empty unless a script sets it; the sheet is skipped then), uiTemplate OptionsTemplate (pushed only when it exists), superCtx, toolPropertySetCommon, toolPropertySelect (skipped when missing)
+- jointOrientUtils: jointOrientOptionsSetup: needs columnLayout margins (10 pixel blank separators used)
+- performJointOrient: performJointOrient 1: opens Aztek's OrientJointOptions, so jointOrientSetup/jointOrientCallback only work on a script-built box with the reference's control names

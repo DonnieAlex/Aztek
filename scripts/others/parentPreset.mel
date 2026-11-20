@@ -1,0 +1,49 @@
+// parentPreset: what Edit > Parent runs (performParent builds the call). Parents the selection under the last selected
+// object. When positions are kept, objects that drive a cluster are first put in a group of their own, so moving them
+// under the new parent doesn't deform the clustered geometry.
+
+// $add adds an extra parent (an instance) instead of moving; $preserve keeps world positions.
+global proc parentPreset(int $add, int $preserve)
+{
+    string $cmd = "parent";
+    if ($add)
+        $cmd += " -add";
+    if (!$preserve)
+        $cmd += " -r";
+
+    if (!$preserve) {
+        evalEcho $cmd;
+        return;
+    }
+
+    string $objs[] = `ls -sl -type transform`;
+    int $grouped = 0;
+    int $i;
+    for ($i = 0; $i < size($objs) - 1; ++$i) {
+        string $t = $objs[$i];
+        string $driven[] = `listConnections -s false -d true ($t + ".wm")`;
+        int $drivesCluster = 0;
+        for ($d in $driven) {
+            if (`nodeType $d` == "cluster")
+                $drivesCluster = 1;
+        }
+        if ($drivesCluster) {
+            print ("group " + $t + "; ");
+            $objs[$i] = `group $t`;
+            $grouped = 1;
+        }
+    }
+
+    if (!$grouped) {
+        evalEcho $cmd;
+        return;
+    }
+    print "select";
+    for ($o in $objs)
+        print (" " + $o);
+    print "; ";
+    select -r $objs;
+    print ($cmd + ";\n");
+    eval $cmd;
+    warning "Objects driving clusters were grouped before parenting, so the clusters keep their shape.";
+}

@@ -1,0 +1,492 @@
+// getOptionBox: the one option box window every command and tool option box shares. A caller asks getOptionBox for a
+// fresh layout to build into, fills it, gives the shared buttons their labels and commands, sets the title and help
+// item, then calls showOptionBox. The window is a plain floating one named OptionBoxWindow; the only preferences it
+// keeps are each box's size, under optionBoxDimensions<help tag>.
+//
+// The globals below are how other scripts talk to it, so their names stay as they are. Before getOptionBox a caller may
+// set $gOptionBoxOptions (any of noToolAndAction, noApplyBtn, noApplyAndClose), $gOptionBoxActionToolItem (an int
+// optionVar meaning "use as a tool") and $gOptionBoxActionToolItemCB (run after Edit > As Tool or As Action is picked).
+
+global string $gOptionBox;
+global string $gOptionBoxTabLayout;
+global string $gOptionBoxApplyAndCloseBtn;
+global string $gOptionBoxApplyBtn;
+global string $gOptionBoxResetBtn;
+global string $gOptionBoxSaveBtn;
+global string $gOptionBoxCloseBtn;
+global string $gOptionBoxEditMenu;
+global string $gOptionBoxEditMenuSaveItem;
+global string $gOptionBoxEditMenuResetItem;
+global string $gOptionBoxEditMenuToolItem;
+global string $gOptionBoxEditMenuActionItem;
+global string $gOptionBoxHelpItem;
+global string $gOptionBoxHelpTag;
+global string $gOptionBoxOptions;
+global string $gLastUsedOptionBoxOptions;
+global string $gOptionBoxActionToolItem;
+global string $gOptionBoxActionToolItemCB;
+
+// The size a box opens at when it has none remembered.
+proc int optionBoxDefaultWidth() { return 546; }
+proc int optionBoxDefaultHeight() { return 350; }
+
+// Edit > As Tool / As Action follow the optionVar the caller named for this box, and are greyed out when it named none.
+// The name is used once: it is cleared here so the next box starts without one (its callback is left set).
+proc optionBoxRefreshEditMenu()
+{
+    global string $gOptionBoxEditMenu;
+    global string $gOptionBoxEditMenuToolItem;
+    global string $gOptionBoxEditMenuActionItem;
+    global string $gOptionBoxActionToolItem;
+    global string $gOptionBoxActionToolItemCB;
+
+    // Without the menu or its two radio items there is nothing to refresh, and the optionVar name stays set.
+    if (!`menu -exists $gOptionBoxEditMenu` || !`menuItem -exists $gOptionBoxEditMenuToolItem`
+        || !`menuItem -exists $gOptionBoxEditMenuActionItem`)
+        return;
+
+    if ($gOptionBoxActionToolItem != "") {
+        string $var = $gOptionBoxActionToolItem;
+        int $asTool = `optionVar -query $var`;
+        menuItem -edit -enable true -radioButton $asTool
+            -command ("optionVar -iv " + $var + " 1; " + $gOptionBoxActionToolItemCB)
+            $gOptionBoxEditMenuToolItem;
+        menuItem -edit -enable true -radioButton (!$asTool)
+            -command ("optionVar -iv " + $var + " 0; " + $gOptionBoxActionToolItemCB)
+            $gOptionBoxEditMenuActionItem;
+        $gOptionBoxActionToolItem = "";
+    } else {
+        menuItem -edit -enable false $gOptionBoxEditMenuToolItem;
+        menuItem -edit -enable false $gOptionBoxEditMenuActionItem;
+    }
+}
+
+// The Edit and Help menus along the window's menu bar.
+proc optionBoxBuildMenus(string $options)
+{
+    global string $gOptionBoxEditMenu;
+    global string $gOptionBoxEditMenuSaveItem;
+    global string $gOptionBoxEditMenuResetItem;
+    global string $gOptionBoxEditMenuToolItem;
+    global string $gOptionBoxEditMenuActionItem;
+    global string $gOptionBoxHelpItem;
+
+    $gOptionBoxEditMenu = `menu -label "Edit"`;
+    $gOptionBoxEditMenuSaveItem = `menuItem -label "Save Settings" -command ""`;
+    $gOptionBoxEditMenuResetItem = `menuItem -label "Reset Settings" -command ""`;
+    if (`gmatch $options "*noToolAndAction*"`) {
+        $gOptionBoxEditMenuToolItem = "";
+        $gOptionBoxEditMenuActionItem = "";
+    } else {
+        menuItem -divider true;
+        radioMenuItemCollection;
+        $gOptionBoxEditMenuToolItem = `menuItem -label "As Tool" -radioButton false -command ""`;
+        $gOptionBoxEditMenuActionItem = `menuItem -label "As Action" -radioButton false -command ""`;
+    }
+    optionBoxRefreshEditMenu();
+
+    // The reference marks this one as the help menu (right-aligned where the platform does that) and keeps its item
+    // out of Repeat Last; Aztek's menu and menuItem have neither flag, so it is an ordinary last menu.
+    menu -label "Help";
+    $gOptionBoxHelpItem = `menuItem -label "No Help Currently Available" -command ""`;
+}
+
+// Builds the window from scratch, removing any earlier one first (which saves that box's size through its job).
+proc string optionBoxCreate(string $options)
+{
+    global string $gOptionBox;
+    global string $gOptionBoxTabLayout;
+    global string $gOptionBoxApplyAndCloseBtn;
+    global string $gOptionBoxApplyBtn;
+    global string $gOptionBoxResetBtn;
+    global string $gOptionBoxSaveBtn;
+    global string $gOptionBoxCloseBtn;
+
+    if ($gOptionBox != "" && `window -exists $gOptionBox`)
+        deleteUI -window $gOptionBox;
+
+    $gOptionBox = `window -menuBar true -iconName "Options"
+        -widthHeight (optionBoxDefaultWidth()) (optionBoxDefaultHeight())
+        -closeCommand "onCloseCommand" OptionBoxWindow`;
+    scriptJob -uiDeleted $gOptionBox "saveOptionBoxSize()";
+
+    optionBoxBuildMenus($options);
+
+    string $form = `formLayout`;
+
+    // Two empty pages behind hidden tabs: one holds the box on show, the other is filled for the next one. Its height is
+    // forced down so it can shrink and never runs over the buttons.
+    $gOptionBoxTabLayout = `tabLayout -tabsVisible false -height 1`;
+    formLayout;
+    setParent ..;
+    formLayout;
+    setParent ..;
+    setParent ..;
+
+    string $row = `formLayout -numberOfDivisions 100`;
+    // Commands start empty rather than unset, so asking for them always gives a string.
+    $gOptionBoxResetBtn = `button -height 26 -recomputeSize false -command ""`;
+    $gOptionBoxCloseBtn = `button -height 26 -recomputeSize false -command ""`;
+    $gOptionBoxSaveBtn = `button -height 26 -recomputeSize false -command ""`;
+    $gOptionBoxApplyBtn = "";
+    if (!`gmatch $options "*noApplyBtn*"`)
+        $gOptionBoxApplyBtn = `button -height 26 -recomputeSize false -command ""`;
+    $gOptionBoxApplyAndCloseBtn = "";
+    if (!`gmatch $options "*noApplyAndClose*"`)
+        $gOptionBoxApplyAndCloseBtn = `button -height 26 -recomputeSize false -command ""`;
+    setParent ..;
+
+    // Left to right: [Apply and Close] [Apply] [Close], whichever of the first two there are. Reset and Save stay
+    // hidden, so they get no place.
+    string $close = $gOptionBoxCloseBtn;
+    string $apply = $gOptionBoxApplyBtn;
+    string $applyClose = $gOptionBoxApplyAndCloseBtn;
+    string $all[] = {$close, $apply, $applyClose};
+    for ($b in $all) {
+        if ($b != "")
+            formLayout -edit -attachForm $b "top" 0 -attachForm $b "bottom" 0 $row;
+    }
+    if ($apply != "" && $applyClose != "") {
+        formLayout -edit
+            -attachForm $applyClose "left" 0 -attachPosition $applyClose "right" 2 33
+            -attachPosition $apply "left" 2 33 -attachPosition $apply "right" 2 67
+            -attachPosition $close "left" 2 67 -attachForm $close "right" 0
+            $row;
+    } else if ($applyClose != "") {
+        formLayout -edit
+            -attachForm $applyClose "left" 0 -attachPosition $applyClose "right" 2 50
+            -attachPosition $close "left" 2 50 -attachForm $close "right" 0
+            $row;
+    } else if ($apply != "") {
+        formLayout -edit
+            -attachForm $apply "left" 0 -attachPosition $apply "right" 2 50
+            -attachPosition $close "left" 2 50 -attachForm $close "right" 0
+            $row;
+    } else {
+        formLayout -edit -attachForm $close "left" 0 -attachForm $close "right" 0 $row;
+    }
+
+    formLayout -edit
+        -attachForm $gOptionBoxTabLayout "top" 0
+        -attachForm $gOptionBoxTabLayout "left" 0
+        -attachForm $gOptionBoxTabLayout "right" 0
+        -attachControl $gOptionBoxTabLayout "bottom" 5 $row
+        -attachForm $row "left" 5
+        -attachForm $row "bottom" 5
+        -attachForm $row "right" 5
+        -attachNone $row "top"
+        $form;
+
+    return $gOptionBox;
+}
+
+// The full path of one of the two pages: 1 or 2.
+proc string optionBoxPage(int $index)
+{
+    global string $gOptionBoxTabLayout;
+    string $pages[] = `tabLayout -query -childArray $gOptionBoxTabLayout`;
+    return $gOptionBoxTabLayout + "|" + $pages[$index - 1];
+}
+
+// A fresh layout for the caller to build its box in: the page not showing. The window is reused when the options
+// asked for are the same as last time, else rebuilt.
+global proc string getOptionBox()
+{
+    global string $gOptionBox;
+    global string $gOptionBoxTabLayout;
+    global string $gOptionBoxApplyAndCloseBtn;
+    global string $gOptionBoxApplyBtn;
+    global string $gOptionBoxResetBtn;
+    global string $gOptionBoxSaveBtn;
+    global string $gOptionBoxCloseBtn;
+    global string $gOptionBoxEditMenuSaveItem;
+    global string $gOptionBoxEditMenuResetItem;
+    global string $gOptionBoxHelpTag;
+    global string $gOptionBoxOptions;
+    global string $gLastUsedOptionBoxOptions;
+
+    if ($gOptionBox != "" && `window -exists $gOptionBox` && $gLastUsedOptionBoxOptions == $gOptionBoxOptions) {
+        // The box being replaced keeps its size, under the help tag still current.
+        saveOptionBoxSize();
+        optionBoxRefreshEditMenu();
+    } else {
+        optionBoxCreate($gOptionBoxOptions);
+    }
+
+    // The shared buttons go back to their plain state. Apply, Save and Reset keep the commands they had: the caller
+    // sets new ones.
+    button -edit -enable true -visible false -label "Reset" $gOptionBoxResetBtn;
+    button -edit -enable true -visible true -label "Close" -command "hideOptionBox" $gOptionBoxCloseBtn;
+    button -edit -enable true -visible false -label "Save" $gOptionBoxSaveBtn;
+    menuItem -edit -command "" $gOptionBoxEditMenuResetItem;
+    menuItem -edit -command "" $gOptionBoxEditMenuSaveItem;
+    // The reference also clears any dimWhen conditions on the buttons here; Aztek has no dimWhen, so there are none.
+    if ($gOptionBoxApplyBtn != "")
+        button -edit -enable true -visible true -label "Apply" $gOptionBoxApplyBtn;
+    // An empty label and command mean "fill in at show time" (see showOptionBox).
+    if ($gOptionBoxApplyAndCloseBtn != "")
+        button -edit -enable true -visible true -label "" -command "" $gOptionBoxApplyAndCloseBtn;
+
+    $gOptionBoxHelpTag = "";
+
+    string $layout = optionBoxPage(`tabLayout -query -selectTabIndex $gOptionBoxTabLayout` == 1 ? 2 : 1);
+
+    $gLastUsedOptionBoxOptions = $gOptionBoxOptions;
+    $gOptionBoxOptions = "";
+    return $layout;
+}
+
+// Shows the box the caller built: its page comes to the front, the page before it is emptied, and the Apply and Close
+// button and the Edit menu items take their defaults from the buttons where the caller left them empty.
+global proc showOptionBox()
+{
+    global string $gOptionBox;
+    global string $gOptionBoxTabLayout;
+    global string $gOptionBoxApplyAndCloseBtn;
+    global string $gOptionBoxApplyBtn;
+    global string $gOptionBoxResetBtn;
+    global string $gOptionBoxSaveBtn;
+    global string $gOptionBoxEditMenuSaveItem;
+    global string $gOptionBoxEditMenuResetItem;
+    global string $gOptionBoxHelpTag;
+
+    if ($gOptionBox == "" || !`window -exists $gOptionBox`) {
+        error "There is no option box window to show.";
+        return;
+    }
+
+    int $shown = `tabLayout -query -selectTabIndex $gOptionBoxTabLayout`;
+    string $oldPage = optionBoxPage($shown == 1 ? 1 : 2);
+    string $newPage = optionBoxPage($shown == 1 ? 2 : 1);
+
+    // The caller's top layout fills its page.
+    string $top[] = `layout -query -childArray $newPage`;
+    string $content = $newPage + "|" + $top[0];
+    formLayout -edit
+        -attachForm $content "top" 0 -attachForm $content "left" 0
+        -attachForm $content "bottom" 0 -attachForm $content "right" 0
+        $newPage;
+    tabLayout -edit -selectTabIndex ($shown == 1 ? 2 : 1) $gOptionBoxTabLayout;
+
+    string $old[] = `layout -query -childArray $oldPage`;
+    for ($o in $old)
+        deleteUI ($oldPage + "|" + $o);
+
+    if ($gOptionBoxApplyAndCloseBtn != "") {
+        if (`button -query -label $gOptionBoxApplyAndCloseBtn` == "") {
+            if ($gOptionBoxApplyBtn != "") {
+                // A caller that renamed Apply (to "Bevel", say) gets that name on the apply-and-close button and a
+                // plain Apply beside it.
+                string $label = `button -query -label $gOptionBoxApplyBtn`;
+                if ($label == "Apply") {
+                    button -edit -label "Apply and Close" $gOptionBoxApplyAndCloseBtn;
+                } else {
+                    button -edit -label "Apply" $gOptionBoxApplyBtn;
+                    button -edit -label $label $gOptionBoxApplyAndCloseBtn;
+                }
+            } else {
+                button -edit -label "Apply and Close" $gOptionBoxApplyAndCloseBtn;
+            }
+        }
+        if (`button -query -command $gOptionBoxApplyAndCloseBtn` == "") {
+            string $applyCmd = $gOptionBoxApplyBtn != "" ? `button -query -command $gOptionBoxApplyBtn` : "";
+            button -edit -command ($applyCmd + "; hideOptionBox") $gOptionBoxApplyAndCloseBtn;
+        }
+    }
+
+    // Saving from the menu keeps the window open: the first hideOptionBox in the Save button's command becomes one
+    // that does nothing.
+    if (`menuItem -query -command $gOptionBoxEditMenuSaveItem` == "") {
+        string $save = `button -query -command $gOptionBoxSaveBtn`;
+        menuItem -edit -command `substitute "hideOptionBox" $save "fauxHideOptionBox"` $gOptionBoxEditMenuSaveItem;
+    }
+    if (`menuItem -query -command $gOptionBoxEditMenuResetItem` == "")
+        menuItem -edit -command `button -query -command $gOptionBoxResetBtn` $gOptionBoxEditMenuResetItem;
+
+    showWindow $gOptionBox;
+
+    // The size this box had last time, when it has a help tag to remember it by.
+    if (`window -exists $gOptionBox`) {
+        int $w = optionBoxDefaultWidth();
+        int $h = optionBoxDefaultHeight();
+        string $var = "optionBoxDimensions" + $gOptionBoxHelpTag;
+        if ($gOptionBoxHelpTag != "" && `optionVar -exists $var`) {
+            int $size[] = `optionVar -query $var`;
+            $w = $size[0];
+            $h = $size[1];
+        }
+        window -edit -width $w -height $h $gOptionBox;
+    }
+}
+
+// Closes the box once the current command has finished: the window is deleted, never just hidden.
+global proc hideOptionBox()
+{
+    global string $gOptionBox;
+    if ($gOptionBox != "" && `window -exists $gOptionBox`)
+        evalDeferred ("if (`window -exists " + $gOptionBox + "`) deleteUI -window " + $gOptionBox + ";");
+}
+
+// Closes the box straight away.
+global proc hideOptionBoxNow()
+{
+    global string $gOptionBox;
+    if ($gOptionBox != "" && `window -exists $gOptionBox`)
+        deleteUI -window $gOptionBox;
+}
+
+// Stands in for hideOptionBox in Edit > Save Settings, so saving from the menu leaves the box open.
+global proc fauxHideOptionBox()
+{
+}
+
+global proc setOptionBoxTitle(string $title)
+{
+    global string $gOptionBox;
+    if ($gOptionBox != "" && `window -exists $gOptionBox`)
+        window -edit -title $title $gOptionBox;
+    else
+        error "Can't set the option box title: the option box window doesn't exist.";
+}
+
+global proc string getOptionBoxHelpItem()
+{
+    global string $gOptionBoxHelpItem;
+    if ($gOptionBoxHelpItem != "" && `menuItem -exists $gOptionBoxHelpItem`) {
+        // One option box adds an extra help item of its own; it goes when the box is reused.
+        if (`menuItem -exists aboutBakeNormalMapping`)
+            deleteUI -menuItem aboutBakeNormalMapping;
+    } else {
+        error "Can't get the option box help item: the option box window doesn't exist.";
+    }
+    return $gOptionBoxHelpItem;
+}
+
+// The Help item opens the command's documentation. A later setOptionBoxHelpTag replaces it.
+global proc setOptionBoxCommandName(string $commandName)
+{
+    string $item = getOptionBoxHelpItem();
+    menuItem -edit -label ("Help with " + $commandName) -command ("help -doc " + $commandName) $item;
+}
+
+// The Help item opens the help page for the tag, and the box remembers its size under it. The title is read for the
+// label, so it is set first.
+global proc setOptionBoxHelpTag(string $helpTag)
+{
+    global string $gOptionBox;
+    global string $gOptionBoxHelpTag;
+
+    if ($gOptionBox == "" || !`window -exists $gOptionBox`) {
+        error "Can't set the option box help: the option box window doesn't exist.";
+        return;
+    }
+    string $title = `window -query -title $gOptionBox`;
+    string $item = getOptionBoxHelpItem();
+    if ($helpTag != "") {
+        menuItem -edit -label ("Help on " + $title) -command ("showHelp " + $helpTag) $item;
+        $gOptionBoxHelpTag = $helpTag;
+    } else {
+        menuItem -edit -label "No Help Available" -command "" $item;
+        $gOptionBoxHelpTag = "";
+    }
+}
+
+global proc string getOptionBoxApplyAndCloseBtn()
+{
+    global string $gOptionBoxApplyAndCloseBtn;
+    if ($gOptionBoxApplyAndCloseBtn == "" || !`button -exists $gOptionBoxApplyAndCloseBtn`)
+        error "Can't get the Apply and Close button: the option box window doesn't exist or has none.";
+    return $gOptionBoxApplyAndCloseBtn;
+}
+
+global proc string getOptionBoxApplyBtn()
+{
+    global string $gOptionBoxApplyBtn;
+    if ($gOptionBoxApplyBtn == "" || !`button -exists $gOptionBoxApplyBtn`)
+        error "Can't get the Apply button: the option box window doesn't exist or has none.";
+    return $gOptionBoxApplyBtn;
+}
+
+global proc string getOptionBoxResetBtn()
+{
+    global string $gOptionBoxResetBtn;
+    if ($gOptionBoxResetBtn == "" || !`button -exists $gOptionBoxResetBtn`)
+        error "Can't get the Reset button: the option box window doesn't exist.";
+    return $gOptionBoxResetBtn;
+}
+
+global proc string getOptionBoxCloseBtn()
+{
+    global string $gOptionBoxCloseBtn;
+    if ($gOptionBoxCloseBtn == "" || !`button -exists $gOptionBoxCloseBtn`)
+        error "Can't get the Close button: the option box window doesn't exist.";
+    return $gOptionBoxCloseBtn;
+}
+
+global proc string getOptionBoxSaveBtn()
+{
+    global string $gOptionBoxSaveBtn;
+    if ($gOptionBoxSaveBtn == "" || !`button -exists $gOptionBoxSaveBtn`)
+        error "Can't get the Save button: the option box window doesn't exist.";
+    return $gOptionBoxSaveBtn;
+}
+
+global proc string getOptionBoxEditMenuSaveItem()
+{
+    global string $gOptionBoxEditMenuSaveItem;
+    if ($gOptionBoxEditMenuSaveItem == "" || !`menuItem -exists $gOptionBoxEditMenuSaveItem`)
+        error "Can't get Edit > Save Settings: the option box window doesn't exist.";
+    return $gOptionBoxEditMenuSaveItem;
+}
+
+global proc string getOptionBoxEditMenuResetItem()
+{
+    global string $gOptionBoxEditMenuResetItem;
+    if ($gOptionBoxEditMenuResetItem == "" || !`menuItem -exists $gOptionBoxEditMenuResetItem`)
+        error "Can't get Edit > Reset Settings: the option box window doesn't exist.";
+    return $gOptionBoxEditMenuResetItem;
+}
+
+// "cmd version { "a", "b" };", for callers that store an option box's values as one command. Values aren't escaped.
+global proc string assembleArgListCmd(string $cmd, int $version, string $values[])
+{
+    string $quoted[];
+    for ($v in $values)
+        $quoted[size($quoted)] = "\"" + $v + "\"";
+    return $cmd + " " + $version + " { " + stringArrayToString($quoted, ", ") + " };";
+}
+
+// Remembers the size of the box now showing, under its help tag. Boxes without a tag aren't remembered.
+global proc saveOptionBoxSize()
+{
+    global string $gOptionBox;
+    global string $gOptionBoxHelpTag;
+
+    if ($gOptionBoxHelpTag == "")
+        return;
+    string $var = "optionBoxDimensions" + $gOptionBoxHelpTag;
+    // A default a caller registered first is kept.
+    if (!`optionVar -default -exists $var`)
+        optionVar -init false -default -category "UI Elements"
+            -iv2 $var (optionBoxDefaultWidth()) (optionBoxDefaultHeight());
+
+    int $w = 0;
+    int $h = 0;
+    if ($gOptionBox != "" && `window -exists $gOptionBox`) {
+        $w = `window -query -width $gOptionBox`;
+        $h = `window -query -height $gOptionBox`;
+    } else if ($gOptionBox != "" && `windowPref -exists $gOptionBox`) {
+        $w = `windowPref -query -width $gOptionBox`;
+        $h = `windowPref -query -height $gOptionBox`;
+    }
+    // The reference stores the size free of the display's scaling (except on macOS). Aztek's window sizes are already
+    // in unscaled units, and it has no command giving the scale, so they are stored as they are.
+    if ($w > 0 && $h > 0)
+        optionVar -iv2 $var $w $h;
+}
+
+// The window's close callback: ends any thumbnail capture the box started. Aztek has no thumbnail capture, so there is
+// none to end.
+global proc onCloseCommand()
+{
+}
