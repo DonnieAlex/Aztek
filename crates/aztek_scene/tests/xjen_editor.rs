@@ -85,3 +85,23 @@ fn transfer_moves_a_description_to_another_mesh() {
     run(&mut s, "xjenTransfer", json!({"args": ["fur"], "mesh": "skin2"}));
     assert!(splines(&mut s, "fur").iter().all(|x| (x.root().y - 3.0).abs() < 1e-9));
 }
+
+#[test]
+fn muting_a_modifier_from_the_editor_evaluates() {
+    // #202: the editor's On box sets the modifier's mute.
+    let mut s = session();
+    run(&mut s, "xjenAddModifier", json!({"args": ["fur"], "type": "clump"}));
+    let info = run(&mut s, "xjenGroomInfo", json!({}));
+    for m in info[0]["stack"].as_array().unwrap() {
+        let node = m["node"].as_str().unwrap();
+        if m["type"] == json!("xgmSplineBase") {
+            continue;
+        }
+        run(&mut s, "setAttr", json!({"args": [format!("{node}.mute"), true]}));
+        let _ = splines(&mut s, "fur");
+        let info = run(&mut s, "xjenGroomInfo", json!({}));
+        assert!(info[0]["stack"].as_array().unwrap().iter().any(|x| x["node"] == json!(node) && x["mute"] == json!(true)));
+        run(&mut s, "setAttr", json!({"args": [format!("{node}.mute"), false]}));
+        let _ = splines(&mut s, "fur");
+    }
+}

@@ -40,6 +40,7 @@ extern "C" {
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QToolBar>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -1131,27 +1132,36 @@ QWidget* groom_editor(QWidget* parent) {
         }
         *updating = false;
     };
-    QObject::connect(tree, &QTreeWidget::itemChanged, win, [updating, NODE, KIND, INDEX](QTreeWidgetItem* it, int col) {
+    // The command runs once the tree's own handling is over: the scene change it makes rebuilds the tree, which
+    // deletes the item the signal is still about (#202).
+    QObject::connect(tree, &QTreeWidget::itemChanged, win, [win, updating, NODE, KIND, INDEX](QTreeWidgetItem* it, int col) {
         if (*updating) return;
-        QString node = it->data(0, NODE).toString();
-        QString kind = it->data(0, KIND).toString();
-        if (kind == "modifier" && col == 2) {
-            exec("setAttr", QJsonObject{{"args", QJsonArray{node + ".mute", it->checkState(2) != Qt::Checked}}});
-        } else if (kind == "layer") {
-            int k = it->data(0, INDEX).toInt();
-            if (col == 2) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerVisibility").arg(node).arg(k), it->checkState(2) == Qt::Checked}}});
-            if (col == 1) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerWeight").arg(node).arg(k), it->text(1).toDouble()}}});
-            if (col == 0) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerName").arg(node).arg(k), it->text(0).trimmed().remove(QString::fromUtf8("●")).trimmed()}}, {"type", "string"}});
-        }
+        const QString node = it->data(0, NODE).toString();
+        const QString kind = it->data(0, KIND).toString();
+        const int k = it->data(0, INDEX).toInt();
+        const bool on = it->checkState(2) == Qt::Checked;
+        const double weight = it->text(1).toDouble();
+        const QString name = it->text(0).trimmed().remove(QString::fromUtf8("●")).trimmed();
+        QTimer::singleShot(0, win, [=] {
+            if (kind == "modifier" && col == 2) {
+                exec("setAttr", QJsonObject{{"args", QJsonArray{node + ".mute", !on}}});
+            } else if (kind == "layer") {
+                if (col == 2) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerVisibility").arg(node).arg(k), on}}});
+                if (col == 1) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerWeight").arg(node).arg(k), weight}}});
+                if (col == 0) exec("setAttr", QJsonObject{{"args", QJsonArray{QString("%1.layer[%2].layerName").arg(node).arg(k), name}}, {"type", "string"}});
+            }
+        });
     });
-    QObject::connect(tree, &QTreeWidget::itemClicked, win, [updating, NODE](QTreeWidgetItem* it, int) {
+    QObject::connect(tree, &QTreeWidget::itemClicked, win, [win, updating, NODE](QTreeWidgetItem* it, int) {
         if (*updating) return;
-        exec("select", QJsonObject{{"args", QJsonArray{it->data(0, NODE).toString()}}, {"replace", true}});
+        const QString node = it->data(0, NODE).toString();
+        QTimer::singleShot(0, win, [node] { exec("select", QJsonObject{{"args", QJsonArray{node}}, {"replace", true}}); });
     });
-    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, win, [NODE, KIND, INDEX, DESC](QTreeWidgetItem* it, int col) {
-        if (it->data(0, KIND).toString() == "layer" && col == 0)
-            exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{it->data(0, DESC).toString()}}, {"active", it->data(0, INDEX).toInt()}});
-        (void)NODE;
+    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, win, [win, KIND, INDEX, DESC](QTreeWidgetItem* it, int col) {
+        if (it->data(0, KIND).toString() != "layer" || col != 0) return;
+        const QString desc = it->data(0, DESC).toString();
+        const int k = it->data(0, INDEX).toInt();
+        QTimer::singleShot(0, win, [desc, k] { exec("xjenSculptLayer", QJsonObject{{"args", QJsonArray{desc}}, {"active", k}}); });
     });
     auto desc_of = [tree, DESC]() -> QString {
         if (tree->currentItem()) return tree->currentItem()->data(0, DESC).toString();

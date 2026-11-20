@@ -1868,6 +1868,11 @@ polyRetopo flags and node attributes and no others: face count and tolerance, ha
 tags, symmetry (exact, and joined so it stays closed), regularity, uniformity, anisotropy, edge deviation and the
 preprocessing tolerances. docs/RETOPOLOGY.md has the details and measurements.
 
+### Unchecking a modifier in the Interactive Groom Editor (20/11/2026, #202)
+
+Unchecking a modifier's On box, or a sculpt layer's, closed Aztek: the change rebuilt the editor's list while the list
+was still handling the click on a row it had just removed. The editor now runs the change once the click is handled.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
