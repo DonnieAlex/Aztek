@@ -161,12 +161,16 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// OBJ index to 0-based global, or a negative value encoding an index local to the chunk.
+/// A relative OBJ index (-1 the last vertex so far) is kept as LOCAL plus its index counted from the chunk's first
+/// vertex, which is below 0 when it points back into an earlier chunk (#152).
+const LOCAL: i64 = i64::MIN / 2;
+
+/// OBJ index to 0-based global, or LOCAL plus an index local to the chunk.
 fn encode_ref(raw: i64, local_count: usize) -> i64 {
     if raw > 0 {
         raw - 1
     } else if raw < 0 {
-        -(local_count as i64 + raw) - 1
+        LOCAL + local_count as i64 + raw
     } else {
         NO_REF
     }
@@ -405,7 +409,7 @@ pub fn read_obj(text: &[u8], opts: &ObjReadOptions) -> ObjReadResult {
                 if r == NO_REF {
                     return -1;
                 }
-                let g = if r >= 0 { r } else { base[ci] as i64 + (-r - 1) };
+                let g = if r >= 0 { r } else { base[ci] as i64 + (r - LOCAL) };
                 if g >= 0 && (g as usize) < count {
                     g
                 } else {

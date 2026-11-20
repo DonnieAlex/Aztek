@@ -218,3 +218,32 @@ fn perf_obj_1m_faces() {
     assert_eq!(r.objects[0].mesh.num_faces(), 1_000_000);
     println!("obj 1M quads ({} MB): write {t_write}s, read {t_read}s", text.len() >> 20);
 }
+
+#[test]
+fn relative_indices_reaching_into_an_earlier_chunk_read_as_the_absolute_ones() {
+    // #152: a file of several megabytes is read in pieces; relative indices (f -3 -2 -1) near the start of a piece
+    // point at vertices of the piece before, and were read as other vertices.
+    let (mut abs, mut rel) = (String::new(), String::new());
+    let mut n = 0usize;
+    for i in 0..60_000 {
+        let (x, y) = ((i % 300) as f64 * 0.01, (i / 300) as f64 * 0.01);
+        for (dx, dy) in [(0.0, 0.0), (0.01, 0.0), (0.01, 0.01), (0.0, 0.01)] {
+            let line = format!("v {:.6} {:.6} {:.6}\n", x + dx, y + dy, (i % 7) as f64 * 0.001);
+            abs.push_str(&line);
+            rel.push_str(&line);
+        }
+        n += 4;
+        abs.push_str(&format!("f {} {} {} {}\n", n - 3, n - 2, n - 1, n));
+        rel.push_str("f -4 -3 -2 -1\n");
+    }
+    assert!(rel.len() > 3 << 20, "big enough to be read in pieces: {}", rel.len());
+    let a = read_obj(abs.as_bytes(), &ObjReadOptions::default());
+    let r = read_obj(rel.as_bytes(), &ObjReadOptions::default());
+    let (ma, mr) = (&a.objects[0].mesh, &r.objects[0].mesh);
+    assert_eq!(mr.num_faces(), ma.num_faces());
+    for f in 0..ma.face_capacity() {
+        let pa: Vec<_> = ma.face_points(f).iter().map(|&p| ma.position(p)).collect();
+        let pr: Vec<_> = mr.face_points(f).iter().map(|&p| mr.position(p)).collect();
+        assert_eq!(pa, pr, "face {f}");
+    }
+}

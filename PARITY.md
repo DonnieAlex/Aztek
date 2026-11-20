@@ -1893,6 +1893,12 @@ weight from cell to cell. Its lines are now bands drawn a pixel wider than the l
 edge by how far each pixel is from the line, so they are smooth with anti-aliasing on or off, and the thicker axes
 too. Wireframes, curves and manipulators still use the samples.
 
+### OBJ files with relative indices read right at any size (20/11/2026, #152)
+
+A file of a megabyte or more is read in pieces at once. Faces written with relative indices (`f -3 -2 -1`, counted
+back from the last vertex) that reached back into the piece before were read as other vertices, which scrambled the
+mesh. They now point where they say. Unverified against the reporter's own file, which we haven't had yet.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green
