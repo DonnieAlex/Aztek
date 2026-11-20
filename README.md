@@ -10,13 +10,23 @@
   <a href="https://ko-fi.com/turtleface"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
-## Build
+## Build Linux
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
     ./build.sh --deps --run          # Linux
-    ./build-macos.sh --deps --run    # macOS, with Homebrew
+
+## Build Windows
+
+    git clone https://github.com/srlegrand/Aztek.git
+    cd Aztek
     .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022 and Qt (details below)
+
+## Build Mac
+
+    git clone https://github.com/srlegrand/Aztek.git
+    cd Aztek
+    ./build-macos.sh --deps --run    # macOS, with Homebrew
 
 Prebuilt packages are under [Install](#install).
 
