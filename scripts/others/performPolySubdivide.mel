@@ -1,0 +1,250 @@
+// performPolySubdivide: Edit Mesh > Add Divisions on faces or edges, run with its saved settings, or its command handed
+// back, or its option box (one for faces, one for edges). $comp is "f" for faces, "e" for edges, or "" to go by the
+// selection. The settings live in the polySubd* optionVars; the edge ones carry the component code on their names.
+
+// Creates the settings for faces or edges when missing, or puts them back to their defaults when forced.
+proc performPolySubdivideInitOptions(string $comp, int $force)
+{
+    optionVar -init $force -category "Modeling.Edit Mesh.Add Divisions" -iv ("polySubdSubd" + $comp) 1;
+    if ($comp == "f") {
+        optionVar -init $force -category "Modeling.Edit Mesh.Add Divisions"
+            -iv polySubdivideMethod 1
+            -iv polySubdFacetModef 1
+            -iv polySubdSubdUf 1
+            -iv polySubdSubdVf 1;
+    } else {
+        optionVar -init $force -category "Modeling.Edit Mesh.Add Divisions"
+            -fv ("polySubdLen" + $comp) 0
+            -iv ("polySubdWS" + $comp) 0;
+    }
+}
+
+// Faces or edges from the selection: what is selected first, then what the select mode is set to pick, else faces.
+// Anything in the selection that isn't a mesh or a mesh component is dropped from it first.
+proc string performPolySubdivideResolve()
+{
+    // One mask at a time: Aztek's filterExpand matches nothing when given several.
+    string $keep[];
+    int $masks[] = {12, 31, 32, 34};
+    for ($m in $masks) {
+        string $found[] = `filterExpand -expand false -selectionMask $m`;
+        appendStringArray($keep, $found, size($found));
+    }
+    select -replace $keep;
+    // Kept in variables: inline, Aztek's filterExpand gives no list at all when nothing matches.
+    string $faces[] = `filterExpand -expand false -selectionMask 34`;
+    if (size($faces))
+        return "f";
+    string $edges[] = `filterExpand -expand false -selectionMask 32`;
+    if (size($edges))
+        return "e";
+    // In object mode the reference asks which components object-component mode would pick. Aztek's selectType has no
+    // -objectCompMask, so the component types are asked either way.
+    if (`selectType -query -polymeshFace`)
+        return "f";
+    if (`selectType -query -polymeshEdge`)
+        return "e";
+    return "f";
+}
+
+// Enables the frames the chosen method uses.
+global proc polySubdivideVisibility(string $comp)
+{
+    if ($comp == "f") {
+        int $linear = `radioButtonGrp -query -select polySubdivideMethod` - 1;
+        frameLayout -edit -enable (!$linear) polyAddDivisionsExponentialFrame;
+        frameLayout -edit -enable $linear polyAddDivisionsLinearFrameFace;
+    } else {
+        frameLayout -edit -enable true polyAddEdgeDivisionsLinearFrame;
+    }
+}
+
+// Shows the saved settings in the option box; forced, puts the defaults back first.
+global proc performPolySubdivideSetup(string $comp, string $parentLayout, int $forceFactorySettings)
+{
+    performPolySubdivideInitOptions($comp, $forceFactorySettings);
+    setParent $parentLayout;
+    if ($comp == "f") {
+        radioButtonGrp -edit -select `optionVar -query polySubdivideMethod` polySubdivideMethod;
+        intSliderGrp -edit -value `optionVar -query polySubdSubdf` polySubdSubd;
+        optionMenuGrp -edit -select `optionVar -query polySubdFacetModef` polySubdFacetMode;
+        intSliderGrp -edit -value `optionVar -query polySubdSubdUf` polySubdSubdU;
+        intSliderGrp -edit -value `optionVar -query polySubdSubdVf` polySubdSubdV;
+    } else {
+        floatSliderGrp -edit -value `optionVar -query ("polySubdLen" + $comp)` polySubdLen;
+        checkBoxGrp -edit -value1 `optionVar -query ("polySubdWS" + $comp)` polySubdWS;
+        intSliderGrp -edit -value `optionVar -query ("polySubdSubd" + $comp)` polySubdSubdL;
+    }
+    polySubdivideVisibility($comp);
+}
+
+// Saves the option box's settings and, with $doIt, adds the divisions.
+global proc performPolySubdivideCallback(string $comp, string $parentLayout, int $doIt)
+{
+    setParent $parentLayout;
+    if ($comp == "f") {
+        optionVar -intValue polySubdivideMethod `radioButtonGrp -query -select polySubdivideMethod`;
+        optionVar -intValue polySubdSubdf `intSliderGrp -query -value polySubdSubd`;
+        optionVar -intValue polySubdFacetModef `optionMenuGrp -query -select polySubdFacetMode`;
+        optionVar -intValue polySubdSubdUf `intSliderGrp -query -value polySubdSubdU`;
+        optionVar -intValue polySubdSubdVf `intSliderGrp -query -value polySubdSubdV`;
+    } else {
+        optionVar -intValue ("polySubdSubd" + $comp) `intSliderGrp -query -value polySubdSubdL`;
+        optionVar -floatValue ("polySubdLen" + $comp) `floatSliderGrp -query -value polySubdLen`;
+        optionVar -intValue ("polySubdWS" + $comp) `checkBoxGrp -query -value1 polySubdWS`;
+    }
+    if ($doIt) {
+        performPolySubdivide($comp, 0);
+        addToRecentCommandQueue("performPolySubdivide \"" + $comp + "\" 0",
+            $comp == "f" ? "PolySubdivideFacet" : "PolySubdivideEdge");
+    }
+}
+
+// The face box: method, then the exponential and the linear settings, each in its own frame.
+proc string performPolySubdivideFaceBox(string $box)
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+    int $gap = $gOptionBoxTemplateFrameSpacing > 0 ? $gOptionBoxTemplateFrameSpacing : 5;
+    setParent $box;
+    string $form = `formLayout polyAddFaceDivisionsOptions`;
+
+    string $settings = `frameLayout -label "Settings"`;
+        columnLayout -adjustableColumn true;
+            radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Add divisions"
+                -labelArray2 "Exponentially" "Linearly"
+                -changeCommand "polySubdivideVisibility(\"f\")" polySubdivideMethod;
+        setParent ..;
+    setParent ..;
+
+    string $exp = `frameLayout -label "Exponential controls" polyAddDivisionsExponentialFrame`;
+        columnLayout -adjustableColumn true;
+            intSliderGrp -label "Division levels" -field true -minValue 1 -maxValue 4 -fieldMaxValue 8 polySubdSubd;
+            optionMenuGrp -label "Mode" polySubdFacetMode;
+                menuItem -label "Quads" SubdFacetQuadsMenuItem;
+                menuItem -label "Triangles" SubdFacetTrgsMenuItem;
+            optionMenuGrp -edit -select 1 polySubdFacetMode;
+        setParent ..;
+    setParent ..;
+
+    string $lin = `frameLayout -label "Linear controls" polyAddDivisionsLinearFrameFace`;
+        columnLayout -adjustableColumn true;
+            intSliderGrp -label "U divisions" -field true -minValue 1 -maxValue 8 -fieldMaxValue 250 polySubdSubdU;
+            intSliderGrp -label "V divisions" -field true -minValue 1 -maxValue 8 -fieldMaxValue 250 polySubdSubdV;
+        setParent ..;
+    setParent ..;
+
+    formLayout -edit
+        -attachForm $settings "top" $gap -attachForm $settings "left" $gap -attachForm $settings "right" $gap
+        -attachNone $settings "bottom"
+        -attachControl $exp "top" $gap $settings -attachForm $exp "left" $gap -attachForm $exp "right" $gap
+        -attachNone $exp "bottom"
+        -attachControl $lin "top" $gap $exp -attachForm $lin "left" $gap -attachForm $lin "right" $gap
+        -attachNone $lin "bottom"
+        $form;
+    return $form;
+}
+
+proc string performPolySubdivideEdgeBox(string $box)
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+    int $gap = $gOptionBoxTemplateFrameSpacing > 0 ? $gOptionBoxTemplateFrameSpacing : 5;
+    setParent $box;
+    // The layout's name is the reference's, odd digit and all, so scripts that look for it still find it.
+    string $form = `formLayout polyAddEdge7DivisionsOptions`;
+    string $lin = `frameLayout -label "Settings" polyAddEdgeDivisionsLinearFrame`;
+        columnLayout -adjustableColumn true;
+            intSliderGrp -label "Division levels" -field true -minValue 1 -maxValue 4 -fieldMaxValue 1000
+                polySubdSubdL;
+            floatSliderGrp -label "Minimum length" -field true -minValue 0 -maxValue 10 -fieldMinValue 0
+                -fieldMaxValue 1000 polySubdLen;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "World space" polySubdWS;
+        setParent ..;
+    setParent ..;
+    formLayout -edit
+        -attachForm $lin "top" $gap -attachForm $lin "left" $gap -attachForm $lin "right" $gap
+        -attachNone $lin "bottom"
+        $form;
+    return $form;
+}
+
+proc performPolySubdivideOptionBox(string $comp)
+{
+    string $box = getOptionBox();
+    setParent $box;
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+    string $form = $comp == "f" ? performPolySubdivideFaceBox($box) : performPolySubdivideEdgeBox($box);
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Add Divisions" -command ("performPolySubdivideCallback " + $comp + " " + $form + " 1")
+        (getOptionBoxApplyBtn());
+    button -edit -command ("performPolySubdivideCallback " + $comp + " " + $form + " 0; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("performPolySubdivideSetup " + $comp + " " + $form + " 1") (getOptionBoxResetBtn());
+    if ($comp == "f") {
+        setOptionBoxTitle("Add Divisions to Face Options");
+        setOptionBoxHelpTag("EditPolygonsSubdivide");
+    } else {
+        setOptionBoxTitle("Add Divisions to Edge Options");
+        setOptionBoxHelpTag("EditPolygonsSubdivideEdges");
+    }
+
+    performPolySubdivideSetup($comp, $form, 0);
+    // Switching between face and edge selection rebuilds the box for the other kind.
+    scriptJob -protected -parent $form -event "SelectTypeChanged" "evalDeferred \"performPolySubdivide \\\"\\\" 1\"";
+    showOptionBox();
+}
+
+// $option: 0 adds the divisions, 1 opens the option box, 2 returns the call that would run it.
+global proc string performPolySubdivide(string $comp, int $option)
+{
+    if ($comp == "") {
+        $comp = performPolySubdivideResolve();
+    } else if ($comp != "f" && $comp != "e" && $option < 2) {
+        warning "Only polygon edges and faces can be subdivided.";
+        return "";
+    }
+
+    if ($option == 0) {
+        performPolySubdivideInitOptions($comp, 0);
+        string $cmd;
+        if ($comp == "f") {
+            if (`optionVar -query polySubdivideMethod` == 1)
+                $cmd = "polySubdivideFacet -dv " + `optionVar -query polySubdSubdf`
+                    + " -m " + (`optionVar -query polySubdFacetModef` - 1);
+            else
+                $cmd = "polySubdivideFacet -duv " + `optionVar -query polySubdSubdUf`
+                    + " -dvv " + `optionVar -query polySubdSubdVf`
+                    + " -sbm " + (`optionVar -query polySubdivideMethod` - 1);
+        } else {
+            $cmd = "polySubdivideEdge -ws " + `optionVar -query polySubdWSe` + " -s " + `optionVar -query polySubdLene`
+                + " -dv " + `optionVar -query polySubdSubde`;
+        }
+        polyPerformAction($cmd, $comp, 0);
+
+        // The new node joins the selection so its handles show.
+        if (size(`ls -sl`) || size(`ls -hilite`)) {
+            string $history[] = `listHistory`;
+            for ($h in $history) {
+                string $type = `nodeType $h`;
+                if ($type == "polySubdFace" || $type == "polySubdEdge") {
+                    select -add $h;
+                    break;
+                }
+            }
+        }
+        setToolTo ShowManips;
+        return "";
+    }
+    if ($option == 1) {
+        performPolySubdivideOptionBox($comp);
+        return "";
+    }
+    if ($option == 2)
+        return "performPolySubdivide \"\" 0";
+    return "";
+}

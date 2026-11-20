@@ -1,0 +1,25 @@
+// switchPanes: the hotkey and menu way to change the main pane's panel layout: to the configuration $target names, or
+// back to the one before it when $target is "goBack". For the single-pane layout, $usePointer non-zero keeps the panel
+// under the pointer, zero the one with the keyboard focus. doSwitchPanes does the switching.
+//
+// Aztek's window lays its views out itself and has no doSwitchPanes yet, so without it the layout is applied through
+// setNamedPanelLayout (Aztek's single and four views), and "goBack" returns from the single view to the four.
+global proc switchPanes(string $target, int $usePointer)
+{
+    string $args[];
+    $args[0] = $target == "goBack" ? "@goBack" : $target;
+    $args[1] = $usePointer ? "@pointer" : "@focus";
+
+    if (`exists doSwitchPanes`) {
+        eval("doSwitchPanes 1 {\"" + encodeString($args[0]) + "\", \"" + $args[1] + "\"}");
+        return;
+    }
+
+    if ($target == "goBack") {
+        string $shown[] = `getPanel -visiblePanels`;
+        if (size($shown) == 1 && `exists FourViewLayout`)
+            FourViewLayout;
+        return;
+    }
+    setNamedPanelLayout($target);
+}

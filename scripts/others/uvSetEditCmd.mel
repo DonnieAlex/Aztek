@@ -1,0 +1,144 @@
+// uvSetEditCmd: what the UV Set Editor's buttons and list do, and the UV set menu items: making, renaming, deleting,
+// copying, propagating and picking the current UV set of the selected meshes.
+
+// A set's name without the "(n)" an instance's sets are shown with: "map1(1)" is map1.
+proc string uvsBaseName(string $setName)
+{
+    string $pieces[];
+    int $n = `tokenize $setName "()" $pieces`;
+    return ($n > 1) ? $pieces[0] : $setName;
+}
+
+proc int uvsHasInstanceSuffix(string $setName)
+{
+    string $pieces[];
+    return `tokenize $setName "()" $pieces` > 1;
+}
+
+// The meshes the selection means: shapes under selected objects, else selected shapes, else the meshes of selected
+// components.
+proc string[] uvsMeshes()
+{
+    string $meshes[] = `listRelatives -shapes -noIntermediate -fullPath -type "mesh"`;
+    if (size($meshes) == 0)
+        $meshes = `ls -selection -type "mesh"`;
+    if (size($meshes) == 0)
+        $meshes = `listRelatives -parent -noIntermediate -fullPath -type "mesh"`;
+    return $meshes;
+}
+
+// Refills the editor's list when the editor is open. Aztek's UV Set Editor is its own window and refreshes itself; the
+// list procedure is still run for scripts that built one of their own.
+proc uvsRefreshEditor()
+{
+    if (!`window -exists uvSetEditor`)
+        return;
+    if (!`exists updateUvSetEditor`)
+        eval("source \"uvSetEditor.mel\"");
+    eval "updateUvSetEditor";
+}
+
+global proc renameUVSet(string $setName)
+{
+    string $base = uvsBaseName($setName);
+    string $parent = `window -exists uvSetEditor` ? "uvSetEditor" : "";
+    string $result;
+    if ($parent != "")
+        $result = `promptDialog -title "Rename UV Set" -message "New UV set name:" -text $base
+            -button "OK" -button "Cancel" -defaultButton "OK" -cancelButton "Cancel" -dismissString "Cancel"
+            -parent $parent`;
+    else
+        $result = `promptDialog -title "Rename UV Set" -message "New UV set name:" -text $base
+            -button "OK" -button "Cancel" -defaultButton "OK" -cancelButton "Cancel" -dismissString "Cancel"`;
+    if ($result != "OK")
+        return;
+    // Taken as typed: polyUVSet says so if the name won't do.
+    string $newName = `promptDialog -query -text`;
+    polyUVSet -rename -uvSet $base -newUVSet $newName;
+}
+
+// Copies the sets to every target mesh that lacks them, so they all share the same sets.
+proc uvsPropagate(string $sets[], string $meshes[])
+{
+    for ($set in $sets) {
+        if (size($meshes) < 2)
+            error "Propagating a UV set needs at least two meshes selected.";
+
+        int $assigned = 0;
+        string $base = uvsBaseName($set);
+        int $perInstance = uvsHasInstanceSuffix($set);
+        for ($mesh in $meshes) {
+            string $onMesh[] = `polyUVSet -perInstance 1 -query -allUVSets $mesh`;
+            int $exists = stringArrayContains($base, $onMesh);
+            if ($perInstance) {
+                if ($exists) {
+                    // The mesh has the set, but this instance may not have its own copy of it yet.
+                    string $mine[] = `polyUVSet -uvSet $base -query -perInstance $mesh`;
+                    if (size($mine) == 0 || $mine[0] == "" || $mine[0] == "0") {
+                        string $made[] = `polyUVSet -create -uvSet $base -perInstance 1 $mesh`;
+                        string $parents[] = `listRelatives -parent -fullPath $mesh`;
+                        if (size($made) && size($parents))
+                            polyUVSet -currentUVSet -uvSet $made[0] $parents[0];
+                        $assigned++;
+                    }
+                } else {
+                    polyUVSet -create -perInstance 1 -uvSet $base $mesh;
+                    polyUVSet -currentUVSet -uvSet $base $mesh;
+                    $assigned++;
+                }
+            } else if (!$exists) {
+                polyUVSet -create -uvSet $set $mesh;
+                polyUVSet -currentUVSet -uvSet $set $mesh;
+                $assigned++;
+            }
+        }
+        if ($assigned == 0)
+            warning "Every selected mesh already has these UV sets.";
+        else
+            print (`format -stringArg $assigned "UV sets added to ^1s meshes.\n"`);
+    }
+}
+
+global proc uvSetEditCmd(string $action, string $uvSets[])
+{
+    string $meshes[] = uvsMeshes();
+    if (size($meshes) == 0)
+        return;
+
+    // The sets to act on: those given, else the current one.
+    string $sets[] = $uvSets;
+    if (size($sets) == 0)
+        $sets = `polyUVSet -query -currentUVSet`;
+    string $first = size($sets) ? $sets[0] : "";
+
+    if ($action == "new") {
+        // polyUVSet makes the name unique on each mesh.
+        polyUVSet -create -uvSet "uvSet";
+        uvsRefreshEditor();
+    } else if ($action == "rename") {
+        renameUVSet($first);
+        uvsRefreshEditor();
+    } else if ($action == "delete") {
+        for ($set in $sets)
+            for ($mesh in $meshes)
+                polyUVSet -delete -uvSet $set $mesh;
+        uvsRefreshEditor();
+    } else if ($action == "copy") {
+        if (size(`ls -selection`) == 0) {
+            warning (`format -stringArg $first "Select something to copy the UV set ^1s on."`);
+            return;
+        }
+        for ($set in $sets)
+            polyUVSet -copy -uvSet $set;
+        uvsRefreshEditor();
+    } else if ($action == "propagate") {
+        if (size(`ls -selection`) == 0) {
+            warning (`format -stringArg $first "Select the meshes to propagate the UV set ^1s to."`);
+            return;
+        }
+        uvsPropagate($sets, $meshes);
+        uvsRefreshEditor();
+    } else if ($action == "setCurrent") {
+        polyUVSet -currentUVSet -uvSet $first;
+    }
+}

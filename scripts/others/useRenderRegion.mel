@@ -1,0 +1,15 @@
+// useRenderRegion: whether the scene's render globals have the render region turned on (1) or off (0).
+
+global proc int useRenderRegion()
+{
+    // Aztek's ls has no -renderGlobals, so the render globals are found by their node type.
+    string $globals[] = `ls -type renderGlobals`;
+    string $node = (size($globals) > 0) ? $globals[0] : "";
+
+    // Aztek's render globals don't carry a render region switch yet, so without one the region counts as off.
+    if ($node != "" && !`attributeQuery -exists -node $node "useRenderRegion"`)
+        return 0;
+
+    // With no render globals at all this fails on ".useRenderRegion", as it does in the reference.
+    return `getAttr ($node + ".useRenderRegion")`;
+}

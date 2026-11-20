@@ -7,6 +7,15 @@
 // panel callbacks open Aztek's window rather than build a second one. Where the reference's editor has a flag Aztek's
 // lacks, the procedure does the rest and leaves that part out.
 
+// currentRenderer and the other renderer procedures live in supportRenderers, which start-up loads; loaded here too for
+// when this file is used before that.
+if (!`exists currentRenderer`)
+    eval("source \"supportRenderers.mel\"");
+
+// The file browser's filter helpers, which start-up loads too.
+if (!`exists fileBrowserActionSetup`)
+    eval("source \"fileDialogFilterTypes.mel\"");
+
 global int $gIprTuningPaused = false;
 global string $gRenderViewRenderTarget = "";
 global int $gRenderViewRenderTargetNameChangeJob = -1;
@@ -39,9 +48,7 @@ proc string rwpPanel()
 
 proc string rwpCurrentRenderer()
 {
-    if (`exists currentRenderer`)
-        return eval("currentRenderer");
-    return `getAttr defaultRenderGlobals.currentRenderer`;
+    return currentRenderer();
 }
 
 // The name the renderer goes by in menus. Aztek renders with Harold, which answers to the name "arnold" too.
@@ -412,6 +419,7 @@ global proc renderWindowRenderCamera(string $renderMode, string $editor, string 
         $gIprTuningPaused = false;
         refreshIprRelatedUI($editor);
     } else {
+        renderTargetWarnIfNoInput(getRenderViewRenderTarget());
         // Harold renders into the Render View as it refines, so the call comes back at once and the window fills in.
         // Aztek's Render View keeps the region it renders to itself, so a region render from here renders the frame.
         if (`exists mayaPreviewRender`)
@@ -497,10 +505,13 @@ proc rwpSaveImageFlow(string $editor)
     string $start = `workspace -query -rootDirectory` + "images";
     if (!`filetest -d $start`)
         $start = `workspace -query -directory`;
-    string $files[] = `fileDialog2 -caption "Save Image" -fileMode 0 -dir $start -returnFilter true
-        -fileFilter "PNG (*.png);;JPEG (*.jpg);;TIFF (*.tif);;OpenEXR (*.exr);;All Files (*.*)"`;
+    // The accept label, the filter to start on and the image formats that can be written, with OpenEXR added.
+    string $setup[] = fileBrowserActionSetup("image", 0);
+    string $filters = $setup[2] + ";;OpenEXR (*.exr)";
+    string $files[] = `fileDialog2 -caption "Save Image" -okCaption $setup[0] -fileMode 0 -dir $start -returnFilter true
+        -fileFilter $filters -selectFileFilter $setup[1]`;
     if (size($files) && $files[0] != "") {
-        string $type = size($files) > 1 ? $files[1] : "";
+        string $type = size($files) > 1 ? filterDescriptionToFileType($files[1]) : "";
         renderWindowSaveImageCallback($editor, fromNativePath($files[0]), $type);
     }
 }
@@ -869,8 +880,7 @@ global proc renderWindowScrollDisplayImage(string $editor)
 global proc createRenderWindowPanel(string $panel)
 {
     setRenderOptionVars();
-    if (`exists addContextHelpProc`)
-        eval("addContextHelpProc " + $panel + " \"buildRenderViewContextHelpItems\"");
+    addContextHelpProc($panel, "buildRenderViewContextHelpItems");
 }
 
 global proc addRenderWindowPanel(string $editor)
@@ -1000,7 +1010,7 @@ global proc updateRenderViewCurrentRenderTarget(string $panel)
     if (`text -exists currentRenderTargetName`)
         text -edit -align "left" -label $label currentRenderTargetName;
     if (`iconTextButton -exists renderPassLockUnlockButton`) {
-        int $supported = `exists rendererRenderTargetSupport` ? eval("rendererRenderTargetSupport " + rwpCurrentRenderer()) : 0;
+        int $supported = rendererRenderTargetSupport(rwpCurrentRenderer());
         iconTextButton -edit -manage $supported -enable ($gRenderViewRenderTarget != "") renderPassLockUnlockButton;
     }
 }
@@ -1015,3 +1025,6 @@ global proc setStereoMode(string $editor, string $mode)
 {
     // Aztek's Render View shows one image at a time; there is no stereo pair to arrange.
 }
+
+// The renderer-specific parts of the panel follow the current renderer.
+registerUpdateRendererUIProc("updateRenderWindowPanelRendererSpecificUI");

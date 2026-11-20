@@ -277,8 +277,8 @@ global proc checkHelpPrefs()
         warning "checkHelpPrefs: the documentation is only opened when Aztek runs with its interface.";
 }
 
-// As the program starts: the context help procedures where there are any, then the pop-up help modes.
-catchQuiet(`eval "source \"ContextHelp.mel\""`);
+// As the program starts: the context help procedures, then the pop-up help modes.
+source "ContextHelp.mel";
 help -popupMode (`optionVar -query popUpHelpMode`);
 help -popupSimpleMode (`optionVar -query popUpSimpleHelpMode`);
 help -rolloverMode on;

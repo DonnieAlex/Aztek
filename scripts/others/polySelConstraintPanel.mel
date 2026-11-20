@@ -1,0 +1,62 @@
+// polySelConstraintPanel: the Polygon Selection Constraint panel's type and callbacks. The file is named
+// polySelConstraintPanel but its main procedure is polySelectionConstraintPanel. The panel is opened with
+// tearOffRestorePanel("Polygon Selection Constraints", "polySelectionConstraintPanel", true).
+
+// Registers the panel type when it isn't yet and makes one unparented panel of it named $panelName. Once the type is
+// registered (the usual case after start-up) this does nothing, and no panel is made.
+global proc polySelectionConstraintPanel(string $panelName)
+{
+    global string $gMainPane;
+
+    if (`scriptedPanelType -exists polySelectionConstraintPanel`)
+        return;
+
+    scriptedPanelType -unique true
+        -addCallback "addPolySelConstraintWindow"
+        -removeCallback "removePolySelConstraintWindow"
+        -label "Polygon Selection Constraints"
+        polySelectionConstraintPanel;
+
+    // Without the interface there is no main pane to parent to.
+    if ($gMainPane != "")
+        setParent $gMainPane;
+    scriptedPanel -unParent -type polySelectionConstraintPanel $panelName;
+}
+
+// The panel's entry in its Help menu. Both arguments are part of the context help calling convention and unused.
+global proc buildPolyConstraintContextHelpItems(string $nameRoot, string $menuParent)
+{
+    menuItem -label "Help on Polygon Selection Constraints" -command "showHelp SelectionConstraints";
+}
+
+// Fills a new panel: its menu bar, its context help, the constraint monitor and the panel's controls.
+global proc addPolySelConstraintWindow(string $whichPanel)
+{
+    int $menus = `optionVar -query allowMenusInPanels`;
+    panel -edit -menuBarVisible $menus $whichPanel;
+
+    menu -label "Reset" ($whichPanel + "resetMenu");
+    menuItem -label "Disable All Constraints"
+        -command ("resetPolySelectConstraint; polygonConstraintUpdate \"" + $whichPanel + "\"")
+        ($whichPanel + "resetMenuDisable");
+
+    addContextHelpProc($whichPanel, "buildPolyConstraintContextHelpItems");
+
+    // The monitor keeps the panel in step with the constraints; Aztek has none to start yet.
+    if (`exists polySelectConstraintMonitor`)
+        eval("polySelectConstraintMonitor -create");
+
+    // The panel's body comes from polygonConstraint. Aztek has no such builder, but it has the Polygon Selection
+    // Constraints window natively, so that is opened instead.
+    if (`exists polygonConstraint`)
+        eval("polygonConstraint \"" + $whichPanel + "\"");
+    else if (`exists PolygonSelectionConstraints`)
+        PolygonSelectionConstraints;
+}
+
+// Called when a panel of this type goes: the monitor goes with it. The argument isn't used.
+global proc removePolySelConstraintWindow(string $whichPanel)
+{
+    if (`exists polySelectConstraintMonitor`)
+        eval("polySelectConstraintMonitor -delete");
+}

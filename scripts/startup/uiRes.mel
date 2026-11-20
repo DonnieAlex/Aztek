@@ -1,0 +1,87 @@
+// uiRes: looks up a display string by its resource key, "[prefix_]set.name" (m_ for a script's own strings, which are
+// registered by sourcing <set>.res.mel the first time one is asked for). Scripts written for the reference call it for
+// every label and message they show.
+//
+// Aztek keeps no display-string catalog and ships no .res.mel files: its scripts use plain English. So when there is no
+// displayString command, or the catalog doesn't have the key, the text is made from the key's own name ("kBakeSimulation"
+// gives "Bake Simulation"), which reads well enough for the keys scripts use, rather than stopping the script.
+
+// The catalog, when Aztek has one.
+proc int uiResHasCatalog()
+{
+    return `exists displayString`;
+}
+
+proc int uiResInCatalog(string $key)
+{
+    if (!uiResHasCatalog())
+        return 0;
+    int $there = 0;
+    catchQuiet($there = eval("displayString -exists \"" + encodeString($key) + "\""));
+    return $there;
+}
+
+// Plain English from a key's resource name: the leading "k" goes and the words of the camel-case name are spaced out.
+// A run of capitals stays together ("kUVEditor" gives "UV Editor").
+proc string uiResTextFromKey(string $key)
+{
+    string $parts[];
+    tokenize $key "." $parts;
+    string $name = size($parts) ? $parts[size($parts) - 1] : $key;
+    if (size($name) > 1 && `substring $name 1 1` == "k" && `match "^[A-Z]" (substring($name, 2, 2))` != "")
+        $name = substring($name, 2, size($name));
+
+    string $out = "";
+    int $n = size($name);
+    for ($i = 1; $i <= $n; $i++) {
+        string $c = `substring $name $i $i`;
+        int $upper = `match "[A-Z]" $c` != "";
+        int $digit = `match "[0-9]" $c` != "";
+        if ($i > 1 && ($upper || $digit)) {
+            string $prev = `substring $name ($i - 1) ($i - 1)`;
+            int $prevUpper = `match "[A-Z]" $prev` != "";
+            int $prevDigit = `match "[0-9]" $prev` != "";
+            string $next = $i < $n ? `substring $name ($i + 1) ($i + 1)` : "";
+            int $nextLower = `match "[a-z]" $next` != "";
+            if ($digit) {
+                // A number after a word is spaced off; after capitals ("VP2") it stays with them.
+                if (!$prevDigit && !$prevUpper)
+                    $out += " ";
+            }
+            else if ($upper && (!$prevUpper || $nextLower) && !$prevDigit)
+                $out += " ";
+            else if ($upper && $prevDigit)
+                $out += " ";
+        }
+        $out += $c;
+    }
+    return $out;
+}
+
+global proc string uiRes(string $key)
+{
+    if (!uiResInCatalog($key)) {
+        string $parts[];
+        tokenize $key "." $parts;
+        if (size($parts) != 2) {
+            warning (`format -s $key (uiRes("m_uiRes.kKey"))`);
+        } else {
+            string $set = $parts[0];
+            // A script's own strings are registered by its .res.mel file, sourced on first use. A missing file or
+            // initResources is not an error here: the lookup below has the last word.
+            if (size($set) >= 2 && `substring $set 1 2` == "m_" && `exists initResources`) {
+                string $file = substring($set, 3, size($set)) + ".res.mel";
+                catchQuiet(eval("initResources \"" + encodeString($file) + "\""));
+            }
+        }
+    }
+
+    // This one message is needed by the lookup itself, so it has its text here when the catalog lacks it.
+    if ($key == "m_uiRes.kKey" && !uiResInCatalog($key))
+        return "The resource key ^1s is not of the form set.name.";
+
+    // With a catalog, as the reference does: a key still missing makes the catalog itself report it.
+    if (uiResHasCatalog())
+        return eval("displayString -query -value \"" + encodeString($key) + "\"");
+    return uiResTextFromKey($key);
+}

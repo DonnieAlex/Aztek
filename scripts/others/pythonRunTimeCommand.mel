@@ -1,0 +1,50 @@
+// pythonRunTimeCommand: runs a command whose implementation is in Python, either straight away or by opening its
+// option dialog. Runtime commands written for the reference call it with the command's key.
+//
+// The two Python statement beginnings are kept in globals exactly as the reference has them, since other scripts read
+// them. They name the reference's Python command module, which Aztek's Python doesn't have yet, so for now the call
+// fails with Python's own error, as it would for any command the module doesn't know.
+
+global string $gOpenCommandDialogPrelude = "import maya.internal.common.cmd.base; maya.internal.common.cmd.base.openCommandDialog";
+global string $gExecuteCommandPrelude = "import maya.internal.common.cmd.base; maya.internal.common.cmd.base.executeCommand";
+
+proc string pythonRunTimeCommandPrelude(int $openDialog)
+{
+    global string $gOpenCommandDialogPrelude;
+    global string $gExecuteCommandPrelude;
+    return $openDialog ? $gOpenCommandDialogPrelude : $gExecuteCommandPrelude;
+}
+
+// Runs prelude + call. Aztek's python gives back a value only for a lone expression, so the import part before the
+// first "; " runs on its own and the call is evaluated after it; the result is the same as running the whole line.
+proc int pythonRunTimeCommandRun(string $statement)
+{
+    int $split = 0;
+    int $n = size($statement);
+    for ($i = 1; $i < $n; $i++) {
+        if (`substring $statement $i ($i + 1)` == "; ") {
+            $split = $i;
+            break;
+        }
+    }
+    if ($split == 0)
+        return python($statement);
+    python(substring($statement, 1, $split - 1));
+    return python(substring($statement, $split + 2, $n));
+}
+
+// Returns what the Python call returns, which is meant as a success flag.
+global proc int pythonRunTimeCommand(string $commandName, int $openDialog)
+{
+    // The name goes in single quotes as it is: no escaping, as in the reference.
+    string $statement = pythonRunTimeCommandPrelude($openDialog) + "('" + $commandName + "')";
+    return pythonRunTimeCommandRun($statement);
+}
+
+// The same, with $extraArgs (Python argument text, keyword arguments say) put after the name as written. An empty
+// $extraArgs leaves a trailing ", )", which Python accepts.
+global proc int pythonRunTimeCommandWithArgs(string $commandName, int $openDialog, string $extraArgs)
+{
+    string $statement = pythonRunTimeCommandPrelude($openDialog) + "('" + $commandName + "', " + $extraArgs + ")";
+    return pythonRunTimeCommandRun($statement);
+}

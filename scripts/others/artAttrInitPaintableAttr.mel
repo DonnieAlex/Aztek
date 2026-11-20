@@ -1,0 +1,139 @@
+// artAttrInitPaintableAttr: picks what the Paint Attributes tool paints, keeping the attribute chosen before
+// ($gArtAttrCurrentAttr, as nodeType.nodeName.attributeName) when it can still be painted. Picking goes through
+// artAttrSelected, which is also what keeps $gArtAttrCurrentAttr; here it is only ever cleared.
+
+global string $gArtAttrCurrentAttr = "";
+
+// Picks one attribute through artAttrCallback's artAttrSelected.
+proc artAttrInitSelect(string $attr)
+{
+    artAttrSelected("artAttrCtx", $attr);
+}
+
+// What the tool offers to paint, each as nodeType.nodeName.attributeName. The reference reads them from the current
+// context's -objattrArray; Aztek's artAttrCtx lists them with -paintableAttrs.
+proc string[] artAttrInitOffered()
+{
+    string $offered[] = `artAttrCtx -query -paintableAttrs`;
+    return $offered;
+}
+
+// Asks makePaintable about a node type's attribute: -1 when it can't be painted, else 1 when painting it is turned on
+// and 0 when it is off. The reference's query gives the on/off flag first. Aztek's gives the type, attribute, kind and
+// label instead, with no flag, and knows only what was registered with it, so there an attribute it knows, or one
+// the tool itself offers ($offered), counts as on.
+proc int artAttrInitState(string $nodeType, string $attr, string $offered[])
+{
+    string $answer[] = `makePaintable -query $nodeType $attr`;
+    if (size($answer) > 0) {
+        if ($answer[0] == "0")
+            return 0;
+        return 1;
+    }
+    for ($o in $offered) {
+        string $parts[];
+        if (`tokenize $o "." $parts` >= 3 && $parts[0] == $nodeType && $parts[2] == $attr)
+            return 1;
+    }
+    return -1;
+}
+
+// Whether an attribute, as nodeType.nodeName.attributeName, is one that can be painted.
+proc int artAttrInitValid(string $attr)
+{
+    string $parts[];
+    if (`tokenize $attr "." $parts` < 3)
+        return 0;
+    return artAttrInitState($parts[0], $parts[2], artAttrInitOffered()) >= 0;
+}
+
+// Picks the first attribute worth painting, preferring the current one. Returns whether anything was picked.
+proc int artAttrInitFindFirst()
+{
+    global string $gArtAttrCurrentAttr;
+
+    string $items[] = artAttrInitOffered();
+    if (size($items) == 0)
+        return 0;
+
+    for ($item in $items) {
+        string $parts[];
+        if (`tokenize $item "." $parts` < 3)
+            continue;
+        if ($parts[0] + "." + $parts[1] + "." + $parts[2] == $gArtAttrCurrentAttr) {
+            artAttrInitSelect($gArtAttrCurrentAttr);
+            return 1;
+        }
+    }
+
+    // The same words artAttrFilterLabel gives when no filter is set.
+    string $allLabel = "Filter: All";
+    int $picked = 0;
+    string $pickedType = "";
+    for ($item in $items) {
+        string $parts[];
+        if (`tokenize $item "." $parts` < 3)
+            continue;
+        // Colours have a tool of their own.
+        if ($parts[2] == "vertexColorRGB" || $parts[2] == "vertexFaceColorRGB")
+            continue;
+        int $state = artAttrInitState($parts[0], $parts[2], $items);
+        if ($state < 0)
+            continue;
+
+        // A filter label reads "Filter: <node type>"; its second word is the type to keep to.
+        string $label = artAttrFilterLabel();
+        string $filterType = "";
+        if ($label != "" && $label != $allLabel) {
+            string $words[];
+            tokenize $label " " $words;
+            $filterType = $words[1];
+        }
+
+        if ($state != 0) {
+            string $attr = $parts[0] + "." + $parts[1] + "." + $parts[2];
+            if (!$picked && ($filterType == $parts[0] || $label == $allLabel)) {
+                $pickedType = $parts[0];
+                artAttrInitSelect($attr);
+                $picked = 1;
+            } else if ($pickedType == $parts[0]) {
+                // Later attributes of the same node type are passed on too, the last one picked winning.
+                artAttrInitSelect($attr);
+            }
+        }
+    }
+    return $picked;
+}
+
+proc artAttrInitLoadCallbacks()
+{
+    // artAttrSelected and the tool's other callbacks, sourced on every call as in the reference.
+    source "artAttrCallback.mel";
+}
+
+// Picks the current attribute directly while it can still be painted, without asking whether the tool lists it;
+// otherwise the first one worth painting. Returns whether anything was picked.
+global proc int artAttrSetPaintableNode()
+{
+    global string $gArtAttrCurrentAttr;
+    artAttrInitLoadCallbacks();
+    if ($gArtAttrCurrentAttr != "") {
+        if (artAttrInitValid($gArtAttrCurrentAttr)) {
+            artAttrInitSelect($gArtAttrCurrentAttr);
+            return 1;
+        }
+        $gArtAttrCurrentAttr = "";
+    }
+    return artAttrInitFindFirst();
+}
+
+// Always goes through what the tool lists, which picks the current attribute again if it is still there. Returns
+// whether anything was picked.
+global proc int artAttrInitPaintableAttr()
+{
+    global string $gArtAttrCurrentAttr;
+    artAttrInitLoadCallbacks();
+    if ($gArtAttrCurrentAttr != "" && !artAttrInitValid($gArtAttrCurrentAttr))
+        $gArtAttrCurrentAttr = "";
+    return artAttrInitFindFirst();
+}

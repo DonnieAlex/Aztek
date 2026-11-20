@@ -1,0 +1,139 @@
+// performNormalizeSkinWeights: Skin > Normalize Weights and its neighbours (Disable Weight Normalization, Enable Weight
+// Normalization, Enable Weight Post Normalization), run with their saved settings, their command handed back, or their
+// option box. The only settings are which skin clusters to act on, kept by the shared skin cluster list under the key
+// "normalize" (setSkinClusterOptionVars, skinClusterList and the rest); doNormalizeWeightsArgList does the work.
+//
+// $mode: 1 disable normalization, 2 enable it, 3 enable post normalization, anything else normalize now.
+
+// What each mode is called: in the recent commands list, on the Apply button and as the box's title.
+proc string pnswRecentLabel(int $mode)
+{
+    if ($mode == 1) return "DisableWeightNormalization";
+    if ($mode == 2) return "EnableWeightsNormalization";
+    if ($mode == 3) return "EnableWeightPostNormalization";
+    return "NormalizeWeights";
+}
+
+proc string pnswApplyLabel(int $mode)
+{
+    if ($mode == 1) return "Disable";
+    if ($mode == 2) return "Enable";
+    if ($mode == 3) return "Enable Post";
+    return "Normalize";
+}
+
+proc string pnswTitle(int $mode)
+{
+    if ($mode == 1) return "Disable Weight Normalization Options";
+    if ($mode == 2) return "Enable Weight Normalization Options";
+    if ($mode == 3) return "Enable Weight Post Normalization Options";
+    return "Normalize Weights Options";
+}
+
+// The shared skin cluster list's procedures. Aztek doesn't have them yet; without them the option box has no list and
+// the settings stay as they are.
+proc pnswOptionVars(int $force)
+{
+    if (`exists setSkinClusterOptionVars`)
+        eval("setSkinClusterOptionVars \"normalize\" " + $force);
+}
+
+proc pnswList()
+{
+    if (`exists skinClusterList`)
+        eval("skinClusterList \"normalize\"");
+}
+
+proc pnswListRefresh(int $force)
+{
+    if (`exists skinClusterListRefresh`)
+        eval("skinClusterListRefresh \"normalize\" " + $force);
+}
+
+proc pnswListStore()
+{
+    if (`exists skinClusterListUpdateOptionVars`)
+        eval("skinClusterListUpdateOptionVars \"normalize\"");
+}
+
+// The command for $mode with the saved settings: doNormalizeWeightsArgList, version 2, with the mode and "act on the
+// selection's skin clusters".
+proc string pnswCommand(int $mode)
+{
+    pnswOptionVars(0);
+    if (!`exists assembleArgListCmd`)
+        eval("source \"getOptionBox.mel\"");
+    return assembleArgListCmd("doNormalizeWeightsArgList", 2, {(string)$mode, "1"});
+}
+
+// $action: 0 runs the command and gives it back, 1 shows the option box, 2 gives the command back only; anything else
+// does nothing.
+global proc string performNormalizeSkinWeights(int $mode, int $action)
+{
+    if ($action == 0) {
+        string $cmd = pnswCommand($mode);
+        if (`exists doNormalizeWeightsArgList`)
+            evalEcho($cmd);
+        else
+            warning "Normalizing skin weights isn't available yet: doNormalizeWeightsArgList was not found.";
+        return $cmd;
+    }
+    if ($action == 1) {
+        normalizeSkinWeightsOptions($mode);
+        return "";
+    }
+    if ($action == 2)
+        return pnswCommand($mode);
+    return "";
+}
+
+global proc normalizeSkinWeightsOptions(int $mode)
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+
+    waitCursor -state 1;
+    tabLayout -tabsVisible 0 -scrollable 1;
+    string $parent = `columnLayout -adjustableColumn 1 -rowSpacing 3`;
+    pnswList();
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $apply = getOptionBoxApplyBtn();
+    button -edit -label (pnswApplyLabel($mode))
+        -command ("normalizeSkinWeightsCallback " + $parent + " " + $mode + " 1") $apply;
+    string $save = getOptionBoxSaveBtn();
+    button -edit -command ("normalizeSkinWeightsCallback " + $parent + " " + $mode + " 0; hideOptionBox") $save;
+    string $reset = getOptionBoxResetBtn();
+    button -edit -command ("normalizeSkinWeightsSetup " + $parent + " " + $mode + " 1") $reset;
+
+    setOptionBoxTitle(pnswTitle($mode));
+    setOptionBoxHelpTag("MultipleSkinClusterOptions");
+
+    eval("normalizeSkinWeightsSetup " + $parent + " " + $mode + " 0");
+    showOptionBox();
+}
+
+// Shows the saved settings in the box under $parent; forced, puts the defaults back first. $mode isn't needed.
+global proc normalizeSkinWeightsSetup(string $parent, int $mode, int $forceFactory)
+{
+    pnswOptionVars($forceFactory);
+    setParent $parent;
+    pnswListRefresh($forceFactory);
+}
+
+// Stores the box's settings; with $doIt, also runs the command and lists it with the recent commands.
+global proc normalizeSkinWeightsCallback(string $parent, int $mode, int $doIt)
+{
+    setParent $parent;
+    pnswListStore();
+    if ($doIt) {
+        performNormalizeSkinWeights($mode, 0);
+        addToRecentCommandQueue ("performNormalizeSkinWeights " + $mode + " 0") (pnswRecentLabel($mode));
+    }
+}

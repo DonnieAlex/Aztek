@@ -1,0 +1,30 @@
+// editorNameFromPanel: the name of the editor that lives inside a scripted panel, which is the panel's name with a
+// suffix that depends on the kind of panel. Only the name is worked out; whether the editor exists isn't checked.
+
+global proc string editorNameFromPanel(string $panel)
+{
+    // Model panels and the other built-in kinds hold no editor named this way.
+    if (`getPanel -typeOf $panel` != "scriptedPanel")
+        return "";
+
+    string $type = `scriptedPanel -query -type $panel`;
+    string $suffix = "";
+    if ($type == "graphEditor")
+        $suffix = "GraphEd";
+    else if ($type == "hyperGraphPanel")
+        $suffix = "HyperGraphEd";
+    else if ($type == "nodeEditorPanel")
+        $suffix = "NodeEditorEd";
+    else if ($type == "createNodePanel")
+        $suffix = "CreateNodeEd";
+    else if ($type == "dopeSheetPanel")
+        $suffix = "DopeSheetEd";
+    else if ($type == "clipEditorPanel")
+        $suffix = "ClipEditor";
+    else if ($type == "sequenceEditorPanel")
+        $suffix = "SequenceEditor";
+    else
+        return "";
+
+    return $panel + $suffix;
+}

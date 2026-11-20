@@ -1,0 +1,8 @@
+// setArtAttrFilterLabel: stores the Paint Attributes tool's filter label, which artAttrFilterLabel hands back. An empty
+// label is allowed: the next artAttrFilterLabel turns it into the "all" label.
+
+global proc setArtAttrFilterLabel(string $label)
+{
+    global string $gArtAttrFilterLabel;
+    $gArtAttrFilterLabel = $label;
+}

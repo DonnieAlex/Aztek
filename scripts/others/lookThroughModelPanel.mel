@@ -1,0 +1,21 @@
+// lookThroughModelPanel: makes a panel look through an object (a camera, a light or any transform), first making sure
+// the panel is a model panel. Errors come from the two steps themselves; nothing is checked beforehand.
+
+// Makes sure the panel can look through something. The reference's lookThroughModelPanelSetup turns any panel into a
+// model panel; Aztek doesn't have it, so here a panel that is already a model panel is used as it is and any other
+// stops with an error.
+proc lookThroughModelPanelPrepare(string $panelName)
+{
+    if (`exists lookThroughModelPanelSetup`) {
+        eval("lookThroughModelPanelSetup \"" + $panelName + "\"");
+        return;
+    }
+    if (`getPanel -typeOf $panelName` != "modelPanel")
+        error ("lookThroughModelPanel: " + $panelName + " isn't a model panel.");
+}
+
+global proc lookThroughModelPanel(string $object, string $panelName)
+{
+    lookThroughModelPanelPrepare($panelName);
+    lookThru $object $panelName;
+}

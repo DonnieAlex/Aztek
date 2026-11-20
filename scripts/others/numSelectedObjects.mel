@@ -1,0 +1,8 @@
+// numSelectedObjects: how many items are selected. The reference counts its scene's objects and items from other
+// data (USD prims and the like) together through its UFE selection. Aztek keeps one selection for everything it shows,
+// so that selection is counted.
+
+global proc int numSelectedObjects()
+{
+    return size(`ls -selection`);
+}

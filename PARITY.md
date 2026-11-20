@@ -1995,6 +1995,28 @@ attachments on both sides now stretch it. Once the interface is up, Aztek now so
 scripts that come after the layout: setDefaultTemplates (the UI templates option boxes and windows are built with),
 initAuxiliary (with the polygon menus' defaults) and initAfter.
 
+### The reference's scripts, third and fourth batches: 52 more (20/11/2026)
+
+Each written from a description of what the reference's does, and the earlier scripts changed to call them in place
+of their stand-ins:
+
+- Panels and editors: editorNameFromPanel, clipEditorNameFromPanel, sequenceEditorNameFromPanel,
+  lookThroughModelPanel, tearOffRestorePanel, polySelConstraintPanel, setNamedPanelLayout, switchPanes,
+  createOutlinerPanelMenu, localizedPanelLabel, localizedUIComponentLabel, updateMainWindowComponentState.
+- Windows and help: getStandardWindow, addStandardButtons, ContextHelp, doHelpMenu, toolPropertyWindow1,
+  setDefaultTemplates (every template the reference defines), uiRes, workspaceHelperProcs.
+- Files and projects: fileDialogFilterTypes, setWorkingDirectory, addRecentFile, proxyTags.
+- Rendering: supportRenderers, useRenderRegion, colorManagementRenderViewUtilities.
+- Polygons: initPolygonsUI, polyPerformAction, performPolyPrimitive (every primitive's option box),
+  performPolyExtrude, performPolySubdivide, performPolyMerge, performPolyProjectionArgList, performPolyCopyPaste,
+  nurbsToPolySetup, uvSetEditCmd.
+- Selection and tools: setSelectMode, numSelectedObjects, setMeshSculptTool, artPuttyToolScript, artAttrCallback,
+  artAttrFilterLabel, setArtAttrFilterLabel, artAttrInitPaintableAttr, artisanNamedCommandSetup.
+- Animation and rigging: doSetKeyframeArgList, performDuplicateClip, performNormalizeSkinWeights, customChannelSets.
+- Other: pythonRunTimeCommand, doEnableNodeItems.
+
+What each still needs from Aztek is in docs/SCRIPT_GAPS.md, now covering 110 scripts.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

@@ -1,0 +1,548 @@
+// artisanNamedCommandSetup: the named commands the paint tools' hotkeys run, and what those commands call: which kind of
+// paint tool is current, the reflection, screen projection, wireframe and colour feedback toggles, the brush resize
+// sliders and the marking menus. Nothing here is saved; the toggles change the current tool's own settings.
+
+// The slider the global screen slider drives, picked from its marking menu: upper_radius, lower_radius, opacity, value,
+// displacement or stamp_depth. "none" until one is picked.
+global string $gGlobalScreenSliderMode = "none";
+
+// The current tool's class, as currentToolClass gives it where there is one. Aztek's contextInfo -class answers with
+// the context's type, so the type is turned into the class name here.
+proc string artisanToolClass()
+{
+    if (`exists currentToolClass`) {
+        string $class = eval("currentToolClass");
+        return $class;
+    }
+    string $type = `contextInfo -class (currentCtx())`;
+    if ($type == "artAttrSkinPaintCtx" || $type == "artAttrSkinContext")
+        return "artAttrSkin";
+    if ($type == "artAttrPaintVertexCtx")
+        return "artAttrColorPerVertex";
+    if ($type == "texSmudgeUVContext")
+        return "textureSmudgeUV";
+    if ($type == "dynWireCtx" || $type == "dynPaintCtx")
+        return "paintEffects";
+    if (`gmatch $type "*Context"`)
+        return `substring $type 1 (size($type) - 7)`;
+    if (`gmatch $type "*Ctx"`)
+        return `substring $type 1 (size($type) - 3)`;
+    return $type;
+}
+
+proc int artisanPaintEffectsCtx()
+{
+    return artisanToolClass() == "paintEffects";
+}
+
+proc int artisanPaintEffectsPanelByName()
+{
+    return `getPanel -withFocus` == "dynPaintScriptedPanel";
+}
+
+proc int artisanPaintEffectsPanelByType()
+{
+    string $panel = `getPanel -withFocus`;
+    if ($panel == "" || `getPanel -typeOf $panel` != "scriptedPanel")
+        return 0;
+    return `scriptedPanel -query -type $panel` == "dynPaintScriptedPanelType";
+}
+
+// Flips a boolean setting of the paint tool's context. Aztek's paint contexts don't have every setting yet; a setting
+// one lacks is left alone, quietly, as these hotkeys are outside a paint tool.
+proc artisanToggleFlag(string $cmd, string $flag)
+{
+    string $ctx = `currentCtx`;
+    int $value;
+    if (catchQuiet($value = eval($cmd + " -query -" + $flag + " " + $ctx)))
+        return;
+    catchQuiet(`eval ($cmd + " -edit -" + $flag + " " + ($value ? "false" : "true") + " " + $ctx)`);
+}
+
+proc int artisanQueryFlag(string $cmd, string $flag)
+{
+    int $value = 0;
+    catchQuiet($value = eval($cmd + " -query -" + $flag + " " + currentCtx()));
+    return $value;
+}
+
+// Paint Effects' brush resize, for the context or the Paint Effects panel's canvas.
+proc artisanPaintEffectsBrushSlider(string $slider)
+{
+    global string $gDynPaintEditorName;
+    if (artisanPaintEffectsCtx() && `exists dynWireCtx`)
+        eval ("dynWireCtx -edit -dbs " + $slider + " " + currentCtx());
+    if (artisanPaintEffectsPanelByType() && `exists dynPaintCtx` && `exists dynPaintEditor`) {
+        string $draw = eval("dynPaintEditor -query -drawContext " + $gDynPaintEditorName);
+        eval ("dynPaintCtx -edit -dbs " + $slider + " " + $draw);
+    }
+}
+
+// The parent a viewport marking menu hangs from: findPanelPopupParent where there is one, else the focused panel.
+proc string artisanPopupParent()
+{
+    if (`exists findPanelPopupParent`) {
+        string $parent = eval("findPanelPopupParent");
+        return $parent;
+    }
+    return `getPanel -withFocus`;
+}
+
+proc artisanDeletePopup(string $name)
+{
+    if (`popupMenu -exists $name`)
+        deleteUI $name;
+}
+
+global proc int isSmudgeCtx()
+{
+    return artisanToolClass() == "textureSmudgeUV";
+}
+
+// The soft modification deformers acting on the selection, while the soft mod or show manipulator tool is current.
+global proc string[] getActiveSoftMod()
+{
+    string $result[];
+    string $class = artisanToolClass();
+    if ($class != "softMod" && $class != "showManip")
+        return $result;
+    string $sel[] = `ls -sl`;
+    if (size($sel))
+        $result = `listConnections -source false -destination true -type softMod $sel`;
+    return $result;
+}
+
+global proc int isArtisanCtx()
+{
+    if (isSmudgeCtx())
+        return 0;
+    string $soft[] = getActiveSoftMod();
+    if (size($soft))
+        return 0;
+    if (artisanPaintEffectsCtx() || artisanPaintEffectsPanelByName())
+        return 0;
+    return `startsWith (artisanToolClass()) "art"`;
+}
+
+// The context command of the current paint tool.
+global proc string artisanCommand()
+{
+    string $class = artisanToolClass();
+    if ($class == "art3dPaint")
+        return "art3dPaintCtx";
+    if ($class == "artSelect")
+        return "artSelectCtx";
+    if ($class == "artAttrSkin")
+        return "artAttrSkinPaintCtx";
+    if ($class == "artFluidAttr")
+        return "artFluidAttrCtx";
+    if ($class == "artAttrColorPerVertex")
+        return "artAttrPaintVertexCtx";
+    if ($class == "artUserPaint")
+        return "artUserPaintCtx";
+    if ($class == "artSetPaint")
+        return "artSetPaintCtx";
+    if ($class == "artPutty")
+        return "artPuttyCtx";
+    return "artAttrCtx";
+}
+
+// Whether the current paint tool can show its values as colours on the surface.
+global proc int isArtColorFeedbackCtx()
+{
+    string $class = artisanToolClass();
+    string $yes[] = {"artAttr", "artAttrSkin", "artUserPaint", "artAttrBlendShape", "artClothPaint",
+        "artClothCollPaint"};
+    string $no[] = {"art3dPaint", "artSelect", "artSetPaint", "artPutty", "artAttrColorPerVertex", "artFluidAttr"};
+    if (stringArrayContains($class, $yes))
+        return 1;
+    if (stringArrayContains($class, $no))
+        return 0;
+    return artisanQueryFlag("artAttrCtx", "colorfeedback");
+}
+
+global proc int isArtColorPerVertexCtx()
+{
+    return artisanToolClass() == "artAttrColorPerVertex";
+}
+
+global proc int isArtSkinCtx()
+{
+    return artisanToolClass() == "artAttrSkin";
+}
+
+global proc int isDynPaint()
+{
+    return artisanPaintEffectsCtx() || artisanPaintEffectsPanelByType();
+}
+
+global proc artisanToggleInverseReferenceVector(string $artCmd)
+{
+    if (isArtisanCtx() && $artCmd != "")
+        artisanToggleFlag($artCmd, "invertrefvector");
+}
+
+// Fills the current menu with the reflection settings of the paint tool.
+global proc artisanReflectionMenu()
+{
+    string $cmd = artisanCommand();
+    string $ctx = `currentCtx`;
+    int $projective = artisanQueryFlag($cmd, "projective");
+    int $reflection = artisanQueryFlag($cmd, "reflection");
+    string $axis = "";
+    catchQuiet($axis = eval($cmd + " -query -reflectionaxis " + $ctx));
+
+    menuItem -label "Screen projection" -checkBox $projective -command "artisanToggleScreenProjection";
+    menuItem -label "Reflection" -checkBox $reflection -enable ($ctx != "artAttrSkinContext")
+        -command "artisanToggleReflection";
+    menuItem -label "Reflection axis" -subMenu true -enable $reflection;
+        radioMenuItemCollection;
+        menuItem -label "X" -radioButton ($axis == "x")
+            -command ("catchQuiet(`" + $cmd + " -edit -reflectionaxis \"x\" " + $ctx + "`)");
+        menuItem -label "Y" -radioButton ($axis == "y")
+            -command ("catchQuiet(`" + $cmd + " -edit -reflectionaxis \"y\" " + $ctx + "`)");
+        menuItem -label "Z" -radioButton ($axis == "z") -enable (!$projective)
+            -command ("catchQuiet(`" + $cmd + " -edit -reflectionaxis \"z\" " + $ctx + "`)");
+    setParent -menu ..;
+}
+
+global proc artisanToggleReflection()
+{
+    if (`currentCtx` == "artAttrSkinContext") {
+        warning "Reflection isn't available while painting skin weights.";
+        return;
+    }
+    if (isArtisanCtx()) {
+        string $cmd = artisanCommand();
+        if ($cmd != "")
+            artisanToggleFlag($cmd, "reflection");
+    } else if (artisanToolClass() == "manipMove") {
+        // The move tool mirrors its moves across the reflection plane too.
+        int $on = `manipMoveContext -query -reflection Move`;
+        manipMoveContext -edit -reflection (!$on) Move;
+    }
+}
+
+global proc artisanToggleScreenProjection()
+{
+    if (isArtisanCtx())
+        artisanToggleFlag(artisanCommand(), "projective");
+}
+
+global proc artisanInvertReferenceVectorMenu(string $artCmd)
+{
+    int $on = 0;
+    catchQuiet($on = eval($artCmd + " -query -invertrefvector " + currentCtx()));
+    int $usable = artisanQueryFlag($artCmd, "reflection") && !artisanQueryFlag($artCmd, "projective");
+    menuItem -label "Invert reference vector" -checkBox $on -enable $usable
+        -command ("artisanToggleInverseReferenceVector " + $artCmd) artInvertRefVect;
+}
+
+// The soft modification context the brush sliders talk to: the current one if it is a soft mod tool.
+proc string artisanSoftModCtx()
+{
+    string $ctx = `currentCtx`;
+    if (artisanToolClass() == "softMod")
+        return $ctx;
+    return "softModContext";
+}
+
+// Starts dragging a brush setting on screen ($sliderName: upper_radius, lower_radius, opacity, value, stamp_depth,
+// displacement, uv_vector). Paint tools first, then UV smudge, soft mod, Paint Effects, and soft select's falloff.
+global proc artActivateScreenSlider(string $sliderName)
+{
+    global string $gSoftSelectOptionsCtx;
+    if (isArtisanCtx()) {
+        string $map[] = {"upper_radius", "radius", "lower_radius", "lowradius", "opacity", "opacity", "value",
+            "value", "stamp_depth", "depth", "displacement", "displacement", "uv_vector", "uvvector"};
+        for ($i = 0; $i < size($map); $i += 2) {
+            // Aztek has no artBaseCtx yet, so the paint tools' sliders can't be dragged on screen.
+            if ($map[$i] == $sliderName && `exists artBaseCtx`)
+                eval ("artBaseCtx -edit -dragSlider " + $map[$i + 1] + " " + currentCtx());
+        }
+        return;
+    }
+    if (isSmudgeCtx()) {
+        texSmudgeUVContext -edit -dragSlider "radius" texSmudgeUVCtx;
+        return;
+    }
+    string $soft[] = getActiveSoftMod();
+    if (size($soft)) {
+        if (`exists softModCtx`)
+            eval ("softModCtx -edit -dragSlider \"radius\" " + artisanSoftModCtx());
+        return;
+    }
+    // The reference also asks whether its Paint Effects component is installed; Aztek's isn't, which the missing
+    // brush commands already show.
+    if (isDynPaint()) {
+        if ($sliderName == "displacement")
+            artisanPaintEffectsBrushSlider("offset");
+        else if ($sliderName == "lower_radius")
+            artisanPaintEffectsBrushSlider("width");
+        else
+            artisanPaintEffectsBrushSlider("size");
+        return;
+    }
+    // The soft select context is made by the interface's start-up; without it there is nothing to drive.
+    if ($sliderName == "upper_radius" && $gSoftSelectOptionsCtx != "")
+        softSelectOptionsCtx -edit -buttonDown $gSoftSelectOptionsCtx;
+}
+
+global proc artDeactivateScreenSlider()
+{
+    global string $gSoftSelectOptionsCtx;
+    if (isArtisanCtx()) {
+        if (`exists artBaseCtx`)
+            eval ("artBaseCtx -edit -dragSlider \"none\" " + currentCtx());
+        return;
+    }
+    if (isSmudgeCtx()) {
+        texSmudgeUVContext -edit -dragSlider "none" texSmudgeUVCtx;
+        return;
+    }
+    string $soft[] = getActiveSoftMod();
+    if (size($soft)) {
+        if (`exists softModCtx`)
+            eval ("softModCtx -edit -dragSlider \"none\" " + artisanSoftModCtx());
+        return;
+    }
+    if (isDynPaint()) {
+        artisanPaintEffectsBrushSlider("none");
+        return;
+    }
+    if ($gSoftSelectOptionsCtx != "")
+        softSelectOptionsCtx -edit -buttonUp $gSoftSelectOptionsCtx;
+}
+
+// The paint tool's operation marking menu, filled by the tool's own popup script.
+global proc artPaintOperationMenu()
+{
+    artDeletePopMenu();
+    if (!isArtisanCtx())
+        return;
+    popupMenu -markingMenu true -button 1 -parent (artisanPopupParent()) artOperationPopupMenu;
+    string $class = artisanToolClass();
+    string $fill = "";
+    if ($class == "art3dPaint")
+        $fill = "art3dPaintOptionsPopup";
+    else if ($class == "artSelect")
+        $fill = "artSelectOptionsPopup";
+    else if ($class == "artAttr" || $class == "artUserPaint" || $class == "artFluidAttr" || $class == "artClothPaint"
+        || $class == "artClothCollPaint" || $class == "artAttrSkin" || $class == "artAttrBlendShape")
+        $fill = "artBaseOptionsPopup";
+    else if ($class == "artSetPaint")
+        $fill = "artSetPaintOptionsPopup";
+    else if ($class == "artPutty")
+        $fill = "artPuttyOptionsPopup";
+    // Any other tool: the menu stays empty, and the current menu stays this one, as the reference leaves it.
+    if ($fill == "")
+        return;
+    if (`exists $fill`)
+        eval $fill;
+    setParent -menu ..;
+}
+
+global proc artDeletePopMenu()
+{
+    if (isArtisanCtx())
+        artisanDeletePopup("artOperationPopupMenu");
+}
+
+// Floods the surfaces with the current value.
+global proc artFloodSurfaces()
+{
+    if (!isArtisanCtx())
+        return;
+    string $cmd = artisanCommand();
+    if ($cmd != "")
+        catchQuiet(`eval ($cmd + " -edit -clear " + currentCtx())`);
+}
+
+global proc artToggleWireframeDisplay()
+{
+    if (!isArtisanCtx())
+        return;
+    string $cmd = artisanCommand();
+    artisanToggleFlag($cmd, "showactive");
+    int $on = artisanQueryFlag($cmd, "showactive");
+    if (`checkBoxGrp -exists artShowActiveLinesChkBox`)
+        checkBoxGrp -edit -value1 $on artShowActiveLinesChkBox;
+    if (`checkBoxGrp -exists art3dShowActiveLinesChkBox`)
+        checkBoxGrp -edit -value1 $on art3dShowActiveLinesChkBox;
+}
+
+global proc artToggleColorFeedback()
+{
+    if (!isArtColorFeedbackCtx())
+        return;
+    string $cmd = artisanCommand();
+    artisanToggleFlag($cmd, "colorfeedback");
+    if (`checkBoxGrp -exists artColorFeedbackChkBox`)
+        checkBoxGrp -edit -value1 (artisanQueryFlag($cmd, "colorfeedback")) artColorFeedbackChkBox;
+}
+
+global proc artToggleMultiColorFeedback()
+{
+    if (!isArtSkinCtx())
+        return;
+    string $cmd = artisanCommand();
+    artisanToggleFlag($cmd, "colorfeedbackOverride");
+    if (`checkBoxGrp -exists artMultiColorFeedbackChkBox`)
+        checkBoxGrp -edit -value1 (artisanQueryFlag($cmd, "colorfeedbackOverride")) artMultiColorFeedbackChkBox;
+}
+
+global proc artActivatePickColorMode()
+{
+    if (isArtisanCtx())
+        catchQuiet(`eval (artisanCommand() + " -edit -pickColor true " + currentCtx())`);
+}
+
+global proc artDeactivatePickColorMode()
+{
+    if (isArtisanCtx())
+        catchQuiet(`eval (artisanCommand() + " -edit -pickColor false " + currentCtx())`);
+}
+
+// The hotkey commands of the paint tools, under their own heading in the Hotkey Editor.
+global proc artisanNamedCommandSetup()
+{
+    // Aztek's hotkey editor has no assignCommand yet, so the heading is left out.
+    if (`exists assignCommand`)
+        eval "assignCommand -edit -addDivider \"Artisan Tools\"";
+
+    string $cmds[] = {
+        "artisanPaintOperation_Tool", "PaintOperationMarkingMenuPress", "Show the paint operation marking menu",
+        "artisanPaintOperation_Tool_revert", "PaintOperationMarkingMenuRelease", "Hide the paint operation marking menu",
+        "artisanToggleFlood_press", "FloodSurfaces", "Flood the surfaces with the current value",
+        "artisanToggleReflection_press", "ToggleReflection", "Turn reflection on or off",
+        "artisanToggleWireframe_press", "ToggleWireframeInArtisan", "Turn the wireframe on or off while painting",
+        "artisanPickColorMode_press", "PickColorActivate", "Start picking a colour or value",
+        "artisanPickColorMode_release", "PickColorDeactivate", "Stop picking a colour or value",
+        "artisanModifyLowerRadius_press", "ModifyLowerRadiusPress", "Start changing the brush's lower radius",
+        "artisanModifyLowerRadius_release", "ModifyLowerRadiusRelease", "Stop changing the brush's lower radius",
+        "artisanModifyUpperRadius_press", "ModifyUpperRadiusPress", "Start changing the brush's upper radius",
+        "artisanModifyUpperRadius_release", "ModifyUpperRadiusRelease", "Stop changing the brush's upper radius",
+        "artisanModifyOpacity_press", "ModifyOpacityPress", "Start changing the brush's opacity",
+        "artisanModifyOpacity_release", "ModifyOpacityRelease", "Stop changing the brush's opacity",
+        "artisanModifyValue_press", "ModifyPaintValuePress", "Start changing the paint value",
+        "artisanModifyValue_release", "ModifyPaintValueRelease", "Stop changing the paint value",
+        "artisanModifyStampDepth_press", "ModifyStampDepthPress", "Start changing the stamp depth",
+        "artisanModifyStampDepth_release", "ModifyStampDepthRelease", "Stop changing the stamp depth",
+        "artisanModifyUVVector_press", "ModifyUVVectorPress", "Start changing the UV vector",
+        "artisanModifyUVVector_release", "ModifyUVVectorRelease", "Stop changing the UV vector",
+        "artisanColorFeedback_press", "ToggleColorFeedback", "Turn colour feedback on or off",
+        "artisanMultiColorFeedback_press", "ToggleMultiColorFeedback", "Turn multi-colour feedback on or off",
+        "artisanCopyVertexSkinWeights", "CopyVertexSkinWeights", "Copy the vertex's skin weights",
+        "artisanPasteVertexSkinWeights", "PasteVertexSkinWeights", "Paste the copied skin weights",
+        "artisanNextSkinPaintMode", "NextSkinPaintMode", "Next skin weights paint mode",
+        "artisanPrevSkinPaintMode", "PrevSkinPaintMode", "Previous skin weights paint mode",
+        "PolyBrushMarkingMenuNameCommand", "PolyBrushMarkingMenu", "Show the polygon brush operation marking menu",
+        "PolyBrushMarkingMenuPopDownNameCommand", "PolyBrushMarkingMenuPopDown",
+            "Hide the polygon brush operation marking menu",
+        "artisanModifyMaxDisplacement_press", "ModifyDisplacementPress", "Start changing the maximum displacement",
+        "artisanModifyMaxDisplacement_release", "ModifyDisplacementRelease", "Stop changing the maximum displacement",
+        "artisanUpdateEraseSurface", "UpdateEraseSurface", "Update the erase surface",
+        "artisanUpdateReferenceSurface", "UpdateReferenceSurface", "Update the reference surface",
+        "artisanToggleAutosmooth", "ToggleAutoSmooth", "Turn auto smooth on or off",
+        "sculptReferenceVector_Tool", "SculptReferenceVectorMarkingMenuPress",
+            "Show the sculpt reference vector marking menu",
+        "sculptReferenceVector_Tool_revert", "SculptReferenceVectorMarkingMenuRelease",
+            "Hide the sculpt reference vector marking menu",
+        "artisanGlobalScreenSlider_press", "ActivateGlobalScreenSlider", "Start dragging the chosen brush setting",
+        "artisanGlobalScreenSlider_release", "DeactivateGlobalScreenSlider", "Stop dragging the chosen brush setting",
+        "artisanSetGlobalScreenSliderMode_press", "ActivateGlobalScreenSliderModeMarkingMenu",
+            "Show the marking menu that picks the brush setting to drag",
+        "artisanSetGlobalScreenSliderMode_release", "DeactivateGlobalScreenSliderModeMarkingMenu",
+            "Hide the marking menu that picks the brush setting to drag"};
+    for ($i = 0; $i < size($cmds); $i += 3)
+        nameCommand -annotation $cmds[$i + 2] -command $cmds[$i + 1] -sourceType "mel" $cmds[$i];
+}
+
+global proc deletePopupMenu()
+{
+    artisanDeletePopup("tempMM");
+    artisanDeletePopup("tempMM2");
+}
+
+global proc artPuttyUpdateReferenceSurface()
+{
+    string $cmd = artisanCommand();
+    if (artisanToolClass() == "artPutty" && $cmd != "")
+        eval ($cmd + " -edit -updaterefsrf " + currentCtx());
+}
+
+global proc artPuttyUpdateEraseSurface()
+{
+    string $cmd = artisanCommand();
+    if (artisanToolClass() == "artPutty" && $cmd != "")
+        eval ($cmd + " -edit -updateerasesrf " + currentCtx());
+}
+
+global proc artPuttyToggleAutosmooth()
+{
+    if (artisanToolClass() != "artPutty")
+        return;
+    string $cmd = artisanCommand();
+    artisanToggleFlag($cmd, "autosmooth");
+    if (`checkBoxGrp -exists autoSmooth`)
+        checkBoxGrp -edit -value1 (artisanQueryFlag($cmd, "autosmooth")) autoSmooth;
+}
+
+// The sculpt tool's reference vector, picked from a marking menu.
+global proc artPuttyReferenceVectorMarkingMenu()
+{
+    artisanDeletePopup("artPuttyReferenceVectorPopupMenu");
+    if (!isArtisanCtx() || artisanToolClass() != "artPutty" || artisanCommand() == "")
+        return;
+    string $ctx = `currentCtx`;
+    popupMenu -markingMenu true -button 1 -parent (artisanPopupParent()) artPuttyReferenceVectorPopupMenu;
+    string $items[] = {"N", "Normal", "normal", "NW", "First normal", "firstnormal", "NE", "View", "view",
+        "W", "U direction", "uisoparm", "E", "V direction", "visoparm",
+        "SW", "X axis", "xaxis", "S", "Y axis", "yaxis", "SE", "Z axis", "zaxis"};
+    for ($i = 0; $i < size($items); $i += 3)
+        menuItem -radialPosition $items[$i] -label $items[$i + 1]
+            -command ("artPuttyCtx -edit -refvector \"" + $items[$i + 2] + "\" " + $ctx);
+    setParent -menu ..;
+}
+
+global proc artDeletePuttyReferenceVectorPopMenu()
+{
+    if (isArtisanCtx())
+        artisanDeletePopup("artPuttyReferenceVectorPopupMenu");
+}
+
+// The marking menu that picks which brush setting the global screen slider drags.
+global proc artActivateGlobalScreenSliderModeMarkingMenu()
+{
+    artisanDeletePopup("artGlobalScreenSliderModePopupMenu");
+    if (!isArtisanCtx() || artisanCommand() == "")
+        return;
+    popupMenu -markingMenu true -button 1 -parent (artisanPopupParent()) artGlobalScreenSliderModePopupMenu;
+    string $set = "global string $gGlobalScreenSliderMode; $gGlobalScreenSliderMode = ";
+    menuItem -radialPosition "N" -label "Upper radius" -command ($set + "\"upper_radius\"");
+    menuItem -radialPosition "S" -label "Lower radius" -command ($set + "\"lower_radius\"");
+    menuItem -radialPosition "W" -label "Opacity" -command ($set + "\"opacity\"");
+    if (artisanToolClass() == "artPutty")
+        menuItem -radialPosition "E" -label "Displacement" -command ($set + "\"displacement\"");
+    else
+        menuItem -radialPosition "E" -label "Value" -command ($set + "\"value\"");
+    menuItem -radialPosition "SW" -label "Stamp depth" -command ($set + "\"stamp_depth\"");
+    setParent -menu ..;
+}
+
+global proc artDeactivateGlobalScreenSliderModeMarkingMenu()
+{
+    if (isArtisanCtx())
+        artisanDeletePopup("artGlobalScreenSliderModePopupMenu");
+}
+
+global proc artActivateGlobalScreenSlider()
+{
+    global string $gGlobalScreenSliderMode;
+    artActivateScreenSlider($gGlobalScreenSliderMode);
+}
+
+global proc artDeactivateGlobalScreenSlider()
+{
+    artDeactivateScreenSlider();
+}

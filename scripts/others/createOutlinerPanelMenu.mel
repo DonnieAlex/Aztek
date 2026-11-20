@@ -1,0 +1,335 @@
+// createOutlinerPanelMenu: the Display menu of an outliner panel, as the reference's: what the outliner shows, how it
+// names, sorts and groups things, kept in step with the editor each time the menu opens, plus the Outliner's context
+// help item. The same menu serves as a submenu of the outliner's right-click menu.
+//
+// Aztek's own Outliner is a native editor with its own menus, and nothing here builds on it: the menus go only on a
+// menu bar a script made for an outliner panel.
+
+// ---- Local helpers ----
+
+// A check box item toggling one of the editor's display flags. With the shared run-time commands chosen, the item runs
+// $runTime; otherwise, or where Aztek doesn't have that command yet, it sets the flag on $ed itself. The choice is made
+// when the item runs, from the 1 or 0 written into its command.
+proc createOutlinerPanelMenu_toggle(string $item, string $label, int $checked, string $runTime, string $flag,
+    string $ed, int $useDefaultRuntimeCommands)
+{
+    string $cmd = "if (" + $useDefaultRuntimeCommands + " && `exists " + $runTime + "`) " + $runTime + "; "
+        + "else outlinerEditor -edit -" + $flag + " #1 " + $ed + ";";
+    menuItem -label $label -checkBox $checked -command $cmd $item;
+}
+
+// Sets a check box item by path, from one of the editor's flags.
+proc createOutlinerPanelMenu_check(string $path, string $flag, string $ed)
+{
+    if ($path == "" || !`menuItem -exists $path`)
+        return;
+    int $on = `eval ("outlinerEditor -query -" + $flag + " " + $ed)`;
+    menuItem -edit -checkBox $on $path;
+}
+
+// The channel name mode: 1 nice, 2 long, 0 short.
+proc int createOutlinerPanelMenu_nameMode(string $ed)
+{
+    int $nice = `outlinerEditor -query -niceNames $ed`;
+    int $long = `outlinerEditor -query -longNames $ed`;
+    if ($nice)
+        return 1;
+    return $long ? 2 : 0;
+}
+
+// The command a channel name item runs. Aztek doesn't have setOutlinerLongName yet; until it does, the editor's own
+// name flags are set to the same effect.
+proc string createOutlinerPanelMenu_nameCommand(int $mode, string $ed)
+{
+    string $direct = "outlinerEditor -edit -niceNames " + ($mode == 1) + " -longNames " + ($mode == 2) + " " + $ed;
+    return "if (`exists setOutlinerLongName`) setOutlinerLongName " + $mode + " " + $ed + "; else " + $direct + ";";
+}
+
+// Render Setup's filter item belongs only to editors whose names start "outlinerPanel".
+proc int createOutlinerPanelMenu_renderSetup(string $ed)
+{
+    if (!`exists mayaHasRenderSetup`)
+        return 0;
+    int $has = `eval "mayaHasRenderSetup"`;
+    int $named = `gmatch $ed "outlinerPanel*"`;
+    return $has && $named;
+}
+
+// ---- Global procedures ----
+
+// The panel's context help: a single item. Both arguments are unused.
+global proc buildOutlinerContextHelpItems(string $nameRoot, string $menuParent)
+{
+    menuItem -label "Help on Outliner" -enableCommandRepeat false -command "showHelp Outliner";
+}
+
+// The outliner panel in focus, the Dynamic Relationships editor's outliner, or "".
+global proc string getCurrentOutlinerPanel()
+{
+    string $panel = `getPanel -withFocus`;
+    if ($panel == "")
+        return "";
+    string $type = `getPanel -typeOf $panel`;
+    if ($type == "outlinerPanel")
+        return $panel;
+    if ($type == "scriptedPanel" && `scriptedPanel -query -type $panel` == "dynRelEdPanel")
+        return $panel + "dynRelOutlinerEditor";
+    return "";
+}
+
+// Builds the Display menu for outliner editor $ed: a tear-off menu in the current menu bar ($subMenu 0), or a cascading
+// item in the popup menu $parent ($subMenu 1), which provides the DAG Objects Only and Shapes items itself.
+global proc createOutlinerDisplayMenu(string $ed, int $useDefaultRuntimeCommands, string $parent, int $subMenu)
+{
+    int $popup = 0;
+    string $savedMenu = "";
+    if ($subMenu && `popupMenu -exists $parent`) {
+        $popup = 1;
+        $savedMenu = `setParent -query -menu`;
+        setParent -menu $parent;
+    }
+
+    // As in the reference, $subMenu 1 without a popup menu makes no container, and the edit below fails on it.
+    string $container = "";
+    if (!$subMenu)
+        $container = `menu -tearOff true -label "Display" -familyImage "menuIconShow.png" Show`;
+    else if ($popup)
+        $container = `menuItem -subMenu true -label "Display" -familyImage "menuIconShow.png" Show`;
+    string $post = "updateOutlinerPanelMenu " + $container + " " + $ed;
+    if ($subMenu)
+        menuItem -edit -postMenuCommand $post $container;
+    else
+        menu -edit -postMenuCommand $post $container;
+
+    int $rt = $useDefaultRuntimeCommands;
+    if (!$subMenu) {
+        createOutlinerPanelMenu_toggle("dagOnlyItem", "DAG Objects Only", 0, "OutlinerToggleDAGOnly", "showDagOnly",
+            $ed, $rt);
+        createOutlinerPanelMenu_toggle("shapesItem", "Shapes", 0, "OutlinerToggleShapes", "showShapes", $ed, $rt);
+    }
+    createOutlinerPanelMenu_toggle("assignedMaterialsItem", "Assigned Materials", 0,
+        "OutlinerToggleAssignedMaterials", "showAssignedMaterials", $ed, $rt);
+    menuItem -edit -version "2017" assignedMaterialsItem;
+    createOutlinerPanelMenu_toggle("timeEditorItem", "Time Editor", 0, "OutlinerToggleTimeEditor", "showTimeEditor",
+        $ed, $rt);
+    createOutlinerPanelMenu_toggle("referenceNodesItem", "Reference Nodes", 0, "OutlinerToggleReferenceNodes",
+        "showReferenceNodes", $ed, $rt);
+    createOutlinerPanelMenu_toggle("referenceMembersItem", "Reference Members", 0, "OutlinerToggleReferenceMembers",
+        "showReferenceMembers", $ed, $rt);
+    createOutlinerPanelMenu_toggle("attributesItem", "Attributes (Channels)", 0, "OutlinerToggleAttributes",
+        "showAttributes", $ed, $rt);
+    createOutlinerPanelMenu_toggle("setMembersItem", "Set Members", 0, "OutlinerToggleSetMembers", "showSetMembers",
+        $ed, $rt);
+    createOutlinerPanelMenu_toggle("connectionsItem", "Connected to Selection", 0, "OutlinerToggleConnected",
+        "showConnected", $ed, $rt);
+    createOutlinerPanelMenu_toggle("showNamespaceItem", "Namespaces", 1, "OutlinerToggleNamespace", "showNamespace",
+        $ed, $rt);
+    createOutlinerPanelMenu_toggle("ignoreHiddenAttributeItem", "Ignore Hidden in Outliner", 0,
+        "OutlinerToggleIgnoreHidden", "ignoreHiddenAttribute", $ed, $rt);
+    createOutlinerPanelMenu_toggle("ignoreOutlinerColorItem", "Ignore Outliner Colour", 0,
+        "OutlinerToggleIgnoreUseColor", "ignoreOutlinerColor", $ed, $rt);
+    createOutlinerPanelMenu_toggle("showMuteItem", "Mute Information", 1, "OutlinerToggleShowMuteInformation",
+        "showMuteInfo", $ed, $rt);
+
+    // Hidden markers between which the external data model's items are rebuilt each time the menu opens.
+    menuItem -label "UFE start" -visible false startUFESectionItem;
+    menuItem -label "UFE end" -visible false endUFESectionItem;
+    menuItem -divider true;
+
+    createOutlinerPanelMenu_toggle("organizeByLayerItem", "Organise by Layer", 1, "OutlinerToggleOrganizeByLayer",
+        "organizeByLayer", $ed, $rt);
+    createOutlinerPanelMenu_toggle("organizeByClipItem", "Organise by Clip", 1, "OutlinerToggleOrganizeByClip",
+        "organizeByClip", $ed, $rt);
+    createOutlinerPanelMenu_toggle("autoExpandLayersItem", "Auto Expand Layers", 1, "OutlinerToggleAutoExpandLayers",
+        "autoExpandLayers", $ed, $rt);
+
+    // Only the main outliner, whose panel shares its name without "Secondary", splits into two.
+    string $panel = substituteAllString($ed, "Secondary", "");
+    if (`outlinerPanel -exists $panel`) {
+        // Aztek's outlinerPanel has no divider setting yet; asking may fail, which reads as side by side (0).
+        int $div = 0;
+        catchQuiet($div = `outlinerPanel -query -div $panel`);
+        menuItem -subMenu true -label "Window Layout" -version "2022"
+            -annotation "Split the outliner in two, side by side or one above the other";
+        radioMenuItemCollection;
+        menuItem -label "Horizontal Split" -radioButton ($div == 0) -command ("outlinerPanel -edit -div 0 " + $panel)
+            horizDivItem;
+        menuItem -label "Vertical Split" -radioButton ($div == 1) -command ("outlinerPanel -edit -div 1 " + $panel)
+            vertDivItem;
+        setParent -menu ..;
+    }
+    menuItem -divider true;
+
+    // Where a container's members show.
+    int $contents = `outlinerEditor -query -showContainerContents $ed`;
+    int $containedOnly = `outlinerEditor -query -showContainedOnly $ed`;
+    menuItem -subMenu true -label "Container Contents";
+    radioMenuItemCollection;
+    menuItem -label "Under Container" -radioButton ($contents && $containedOnly)
+        -command ("outlinerEditor -edit -showContainerContents 1 " + $ed
+            + "; outlinerEditor -edit -showContainedOnly 1 " + $ed) containerContentsItem;
+    menuItem -label "Under Parent" -radioButton (!$contents && !$containedOnly)
+        -command ("outlinerEditor -edit -showContainerContents 0 " + $ed
+            + "; outlinerEditor -edit -showContainedOnly 0 " + $ed) containedOnlyItem;
+    menuItem -label "Both" -radioButton ($contents && !$containedOnly)
+        -command ("outlinerEditor -edit -showContainerContents 1 " + $ed
+            + "; outlinerEditor -edit -showContainedOnly 0 " + $ed) bothItem;
+    menuItem -label "None" -radioButton (!$contents && $containedOnly)
+        -command ("outlinerEditor -edit -showContainerContents 0 " + $ed
+            + "; outlinerEditor -edit -showContainedOnly 1 " + $ed) noneItem;
+    setParent -menu ..;
+
+    int $nameMode = createOutlinerPanelMenu_nameMode($ed);
+    menuItem -subMenu true -label "Channel Names";
+    radioMenuItemCollection;
+    menuItem -label "Nice" -radioButton ($nameMode == 1) -command (createOutlinerPanelMenu_nameCommand(1, $ed))
+        niceNameItem;
+    menuItem -label "Long" -radioButton ($nameMode == 2) -command (createOutlinerPanelMenu_nameCommand(2, $ed))
+        longNameItem;
+    menuItem -label "Short" -radioButton ($nameMode == 0) -command (createOutlinerPanelMenu_nameCommand(0, $ed))
+        shortNameItem;
+    setParent -menu ..;
+
+    string $sortOrder = `outlinerEditor -query -sortOrder $ed`;
+    menuItem -subMenu true -label "Sort Order";
+    radioMenuItemCollection;
+    menuItem -label "Scene Hierarchy" -radioButton ($sortOrder == "none")
+        -command ("outlinerEditor -edit -sortOrder none " + $ed) noneSortOrderItem;
+    menuItem -label "Alphabetical within Type" -radioButton ($sortOrder == "dagName")
+        -command ("outlinerEditor -edit -sortOrder dagName " + $ed) dagNameSortOrderItem;
+    setParent -menu ..;
+    menuItem -divider true;
+
+    // The attribute order is asked for, but, as in the reference, the items start from the sort order instead, so
+    // normally none is chosen until the menu first opens and the update puts it right.
+    string $attrOrder = `outlinerEditor -query -attrAlphaOrder $ed`;
+    menuItem -subMenu true -label "Attribute Order";
+    radioMenuItemCollection;
+    menuItem -label "Default" -radioButton ($sortOrder == "default")
+        -command ("outlinerEditor -edit -attrAlphaOrder \"default\" " + $ed) defaultAttrAlphaSortOrderItem;
+    menuItem -label "Alphabetical, Ascending" -radioButton ($sortOrder == "ascend")
+        -command ("outlinerEditor -edit -attrAlphaOrder ascend " + $ed) ascendAttrAlphaSortOrderItem;
+    menuItem -label "Alphabetical, Descending" -radioButton ($sortOrder == "descend")
+        -command ("outlinerEditor -edit -attrAlphaOrder descend " + $ed) descendAttrAlphaSortOrderItem;
+    setParent -menu ..;
+    menuItem -divider true;
+
+    // Which animation layers' attributes show. These aren't brought up to date when the menu opens.
+    string $layerFilter = `outlinerEditor -query -animLayerFilterOptions $ed`;
+    string $values[] = {"animLayerEditor", "allAffecting", "active", "selected", "activeAndSelected"};
+    string $labels[] = {"From Layer Editor", "All Affecting", "Active", "Selected", "Active and Selected"};
+    string $names[] = {"animLayerFilterAnimLayerEditorItem", "animLayerFilterAllAffectingItem",
+        "animLayerFilterAllActiveItem", "animLayerFilterSelectedItem", "animLayerFilterActiveAndSelectedItem"};
+    menuItem -subMenu true -label "Animation Layer Filter";
+    radioMenuItemCollection;
+    for ($i = 0; $i < size($values); $i++)
+        menuItem -label $labels[$i] -radioButton ($layerFilter == $values[$i])
+            -command ("outlinerEditor -edit -animLayerFilterOptions " + $values[$i] + " " + $ed) $names[$i];
+    menuItem -divider true;
+    int $weight = `outlinerEditor -query -showAnimLayerWeight $ed`;
+    menuItem -label "Show Layer Weight" -checkBox ($weight == 1)
+        -command ("outlinerEditor -edit -showAnimLayerWeight #1 " + $ed) showAnimLayerWeightItem;
+    setParent -menu ..;
+
+    if (createOutlinerPanelMenu_renderSetup($ed))
+        menuItem -label "Render Setup Filter" -checkBox false -version "2017"
+            -command ("outlinerEditor -edit -renderFilterVisible #1 " + $ed) renderSetupFilter;
+
+    if ($popup)
+        setParent -menu $savedMenu;
+}
+
+// Builds an outliner panel's menu bar once: the Display menu, the filter menu and the panel's popup menu.
+global proc createOutlinerPanelMenu(string $panel)
+{
+    // The menu bar: the panel's control where that is one, else the one the caller has made current. Aztek's own
+    // Outliner has neither, and is left alone.
+    string $bar = `outlinerPanel -query -control $panel`;
+    if ($bar == "" || !`menuBarLayout -exists $bar`) {
+        $bar = `setParent -query`;
+        if (!`menuBarLayout -exists $bar`)
+            return;
+    }
+    setParent $bar;
+    string $menus[] = `menuBarLayout -query -menuArray $bar`;
+    string $menu;
+    for ($menu in $menus)
+        if (`match "[^|]*$" $menu` == "Show")
+            return;
+
+    // Aztek doesn't have OutlinerEdMenu, filterUICreateMenu or buildPanelPopupMenu yet; their parts wait for them.
+    if (`exists OutlinerEdMenu`)
+        eval "source OutlinerEdMenu.mel";
+    string $ed = `outlinerPanel -query -outlinerEditor $panel`;
+    string $parent = `setParent -query`;
+    createOutlinerDisplayMenu($ed, true, $parent, 0);
+    if (`exists filterUICreateMenu`)
+        eval ("filterUICreateMenu \"" + $ed + "\" \"" + $parent + "\"");
+    addContextHelpProc $panel "buildOutlinerContextHelpItems";
+    if (`exists buildPanelPopupMenu`)
+        eval ("buildPanelPopupMenu \"" + $panel + "\"");
+}
+
+// The Display menu's post-menu command: its items brought up to date from editor $ed.
+global proc updateOutlinerPanelMenu(string $menu, string $ed)
+{
+    setParent -menu $menu;
+    string $m = `setParent -query -menu`;
+
+    // DAG Objects Only and Shapes are only in the menu bar's version, not the cascading one.
+    int $cascade = 0;
+    if (`menuItem -exists $m`)
+        catchQuiet($cascade = `menuItem -query -subMenu $m`);
+    string $dagOnly = $cascade ? "" : $m + "|dagOnlyItem";
+    string $shapes = $cascade ? "" : $m + "|shapesItem";
+    string $renderSetup = createOutlinerPanelMenu_renderSetup($ed) ? $m + "|renderSetupFilter" : "";
+
+    if (!`outlinerEditor -exists $ed`)
+        return;
+
+    createOutlinerPanelMenu_check($dagOnly, "showDagOnly", $ed);
+    createOutlinerPanelMenu_check($shapes, "showShapes", $ed);
+    createOutlinerPanelMenu_check($m + "|assignedMaterialsItem", "showAssignedMaterials", $ed);
+    createOutlinerPanelMenu_check($m + "|timeEditorItem", "showTimeEditor", $ed);
+    createOutlinerPanelMenu_check($m + "|referenceNodesItem", "showReferenceNodes", $ed);
+    createOutlinerPanelMenu_check($m + "|referenceMembersItem", "showReferenceMembers", $ed);
+    createOutlinerPanelMenu_check($m + "|attributesItem", "showAttributes", $ed);
+    createOutlinerPanelMenu_check($m + "|connectionsItem", "showConnected", $ed);
+    createOutlinerPanelMenu_check($m + "|showNamespaceItem", "showNamespace", $ed);
+    createOutlinerPanelMenu_check($m + "|setMembersItem", "showSetMembers", $ed);
+    createOutlinerPanelMenu_check($m + "|ignoreHiddenAttributeItem", "ignoreHiddenAttribute", $ed);
+    createOutlinerPanelMenu_check($m + "|ignoreOutlinerColorItem", "ignoreOutlinerColor", $ed);
+    createOutlinerPanelMenu_check($m + "|showMuteItem", "showMuteInfo", $ed);
+    createOutlinerPanelMenu_check($m + "|organizeByLayerItem", "organizeByLayer", $ed);
+    createOutlinerPanelMenu_check($m + "|organizeByClipItem", "organizeByClip", $ed);
+    createOutlinerPanelMenu_check($m + "|autoExpandLayersItem", "autoExpandLayers", $ed);
+    createOutlinerPanelMenu_check($renderSetup, "renderFilterVisible", $ed);
+
+    // The radio items go by their short names.
+    int $contents = `outlinerEditor -query -showContainerContents $ed`;
+    int $containedOnly = `outlinerEditor -query -showContainedOnly $ed`;
+    menuItem -edit -radioButton ($contents && $containedOnly) containerContentsItem;
+    menuItem -edit -radioButton (!$contents && !$containedOnly) containedOnlyItem;
+    menuItem -edit -radioButton ($contents && !$containedOnly) bothItem;
+    menuItem -edit -radioButton (!$contents && $containedOnly) noneItem;
+
+    int $nameMode = createOutlinerPanelMenu_nameMode($ed);
+    menuItem -edit -radioButton ($nameMode == 1) niceNameItem;
+    menuItem -edit -radioButton ($nameMode == 2) longNameItem;
+    menuItem -edit -radioButton ($nameMode == 0) shortNameItem;
+
+    string $sortOrder = `outlinerEditor -query -sortOrder $ed`;
+    menuItem -edit -radioButton ($sortOrder == "none") noneSortOrderItem;
+    menuItem -edit -radioButton ($sortOrder == "dagName") dagNameSortOrderItem;
+
+    string $attrOrder = `outlinerEditor -query -attrAlphaOrder $ed`;
+    menuItem -edit -radioButton ($attrOrder == "default") defaultAttrAlphaSortOrderItem;
+    menuItem -edit -radioButton ($attrOrder == "ascend") ascendAttrAlphaSortOrderItem;
+    menuItem -edit -radioButton ($attrOrder == "descend") descendAttrAlphaSortOrderItem;
+
+    menuItem -edit -visible false ($m + "|startUFESectionItem");
+    menuItem -edit -visible false ($m + "|endUFESectionItem");
+    // The external data model's items go between the markers. Aztek doesn't ship that Python support yet.
+    catchQuiet(`python ("import maya.app.ufe.outlinerSupport\nmaya.app.ufe.outlinerSupport.buildOutlinerDisplayMenu('"
+        + $ed + "', '" + $m + "', 'startUFESectionItem', 'endUFESectionItem')")`);
+}

@@ -9,15 +9,6 @@ proc string fitPanelScriptType(string $panel)
     return $type[0];
 }
 
-// The editor inside a scripted panel: the installation's procedure for it when there is one, else the panel's name
-// with the editor's suffix, as Aztek names them.
-proc string fitPanelEditor(string $proc, string $panel, string $suffix)
-{
-    if (`exists $proc`)
-        return eval($proc + " \"" + $panel + "\"");
-    return $panel + $suffix;
-}
-
 // A camera view: the camera the panel looks through, framed on everything, the selection, or what the panel's filter
 // shows when it has one and there's nothing selected to frame.
 proc fitPanelCamera(string $panel, string $camera, int $all, int $animate, int $filtered)
@@ -89,7 +80,7 @@ global proc fitPanel(string $fitType)
                     profilerTool -edit -frameSelected;
             }
         } else if ($type == "nodeEditorPanel") {
-            string $ed = fitPanelEditor("editorNameFromPanel", $panel, "NodeEditorEd");
+            string $ed = editorNameFromPanel($panel);
             if (`nodeEditor -exists $ed`) {
                 if ($all)
                     nodeEditor -edit -frameAll $ed;
@@ -116,15 +107,11 @@ global proc fitPanel(string $fitType)
                     textureWindow -edit -frameSelected $panel;
             }
         } else if ($type == "clipEditorPanel") {
-            if (`exists clipEditorNameFromPanel`) {
-                string $ed = eval("clipEditorNameFromPanel \"" + $panel + "\"");
-                clipEditor -edit -lookAt $what $ed;
-            }
+            string $ed = clipEditorNameFromPanel($panel);
+            clipEditor -edit -lookAt $what $ed;
         } else if ($type == "sequenceEditorPanel") {
-            if (`exists sequenceEditorNameFromPanel`) {
-                string $ed = eval("sequenceEditorNameFromPanel \"" + $panel + "\"");
-                clipEditor -edit -lookAt $what $ed;
-            }
+            string $ed = sequenceEditorNameFromPanel($panel);
+            clipEditor -edit -lookAt $what $ed;
         } else if ($type == "referenceEditorPanel") {
             global string $gReferenceEditorModelEditor;
             if ($gReferenceEditorModelEditor != "") {

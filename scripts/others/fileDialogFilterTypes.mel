@@ -1,0 +1,293 @@
+// fileDialogFilterTypes: the filter lists the file browsers offer, and the mapping between file types and the
+// descriptions those filters show. Each filter is "<description> (<patterns>)", and a list of them is joined with ";;".
+// Sourced once at startup (initAfter), which fills the table below; the procedures read it from then on.
+
+global string $gFileDialogFilterTypes[];
+
+// The description each table entry starts with. Entry 20 has none and is never used.
+proc string fdftLabel(int $i)
+{
+    string $labels[] = {"All Files", "Scenes", "mayaAscii", "mayaBinary", "Image Files", "Plug-in Files",
+        "Template Files", "Pixmap Files", "PSD Files", "XML Cache Files", "EDL Files", "Movie Files",
+        "From Tool Settings", "Offline Edit ASCII", "Offline Edit Binary", "MEL Files", "EDL Export Files",
+        "Render Proxy", "Light Profile", "Weight Map", "", "mayaLT", "JSON Files", "Weight Files"};
+    return $labels[$i];
+}
+
+// The type the browsers use to mean "work it out from the file".
+proc string fdftBestGuess()
+{
+    return "Best Guess";
+}
+
+// Filling the table, as the file is sourced.
+{
+    global string $gFileDialogFilterTypes[];
+    string $patterns[] = {
+        "*",
+        "*.ma *.mb *.mlt",
+        "*.ma",
+        "*.mb",
+        ("*.map *.pix *.als *.ALS *.jpeg *.JPEG *.jpg *.JPG *.pntg *.PNTG *.ps *.PS *.png *.PNG *.psd *.PSD *.pict "
+            + "*.PICT *.tx *.TX *.tex *.TEX *.ptx *.qt *.QT *.qtif *.QTIF *.sgi *.SGI *.tga *.TGA *.tif *.TIF *.bmp *.BMP "
+            + "*.tiff *.TIFF *.iff *.IFF *.rgb *.RGB *.tdi *.TDI *.gif *.GIF *.exr *.EXR *.xpm *.XPM *.hdr *.HDR *.dds "
+            + "*.DDS"),
+        "*.mll *.so *.py *.nll.dll *.pyc *.MLL *.SO *.PY *.PYC *.NLL.DLL *.bundle *.BUNDLE",
+        "*.template",
+        "*.bmp *.gif *.ico *.jpeg *.jpg *.mng *.pbm *.pgm *.png *.ppm *.svg *.tif *.tiff *.xbm *.xpm",
+        "*.psd",
+        "*.xml",
+        "*.xml",
+        "*.avi *.AVI *.webm *.WEBM *.mov *.MOV *.qt *.QT *.mpeg *.MPEG",
+        "*",
+        "*.editMA",
+        "*.editMB",
+        "*.mel",
+        "*.xml",
+        "*.mi *.mi.gz",
+        "*.ies *.ldt",
+        "*.weightMap",
+        "",
+        "*.mlt",
+        "*.json",
+        "*.xml *.json"};
+    for ($i = 0; $i < 24; $i++)
+        $gFileDialogFilterTypes[$i] = ($i == 20) ? "" : (fdftLabel($i) + " (" + $patterns[$i] + ")");
+}
+
+proc string fdftEntry(int $i)
+{
+    global string $gFileDialogFilterTypes[];
+    return $gFileDialogFilterTypes[$i];
+}
+
+// An entry with All Files after it, as most single-type lists end.
+proc string fdftWithAll(int $i)
+{
+    return fdftEntry($i) + ";;" + fdftEntry(0);
+}
+
+global proc string fileTypeToFilterDescription(string $type)
+{
+    if ($type == "mayaBinary") return fdftLabel(3);
+    if ($type == "mayaLT") return fdftLabel(21);
+    if ($type == "mayaAscii") return fdftLabel(2);
+    if ($type == fdftBestGuess()) return fdftLabel(0);
+    if ($type == "image") return fdftLabel(4);
+    if ($type == "movie") return fdftLabel(11);
+    if ($type == "edl") return fdftLabel(10);
+    if ($type == "editMA") return fdftLabel(13);
+    if ($type == "editMB") return fdftLabel(14);
+    if ($type == "MIRenderProxy") return fdftLabel(17);
+    if ($type == "ies") return fdftLabel(18);
+    return $type;
+}
+
+global proc string filterDescriptionToFileType(string $filterDesc)
+{
+    // Drop the last "(...)" part, keeping any parentheses that belong to the description itself.
+    string $pieces[];
+    int $n = `tokenize $filterDesc "(" $pieces`;
+    string $label = ($n > 0) ? $pieces[0] : "";
+    if ($n > 2) {
+        for ($i = 1; $i < $n - 1; $i++)
+            $label += "(" + $pieces[$i];
+    }
+    $label = strip($label);
+
+    if ($label == fdftLabel(3)) return "mayaBinary";
+    if ($label == fdftLabel(21)) return "mayaLT";
+    if ($label == fdftLabel(2)) return "mayaAscii";
+    if ($label == fdftLabel(0)) return fdftBestGuess();
+    if ($label == fdftLabel(4)) return "image";
+    if ($label == fdftLabel(11)) return "movie";
+    if ($label == fdftLabel(10) || $label == fdftLabel(16)) return "edl";
+    if ($label == fdftLabel(13)) return "editMA";
+    if ($label == fdftLabel(14)) return "editMB";
+    if ($label == fdftLabel(17)) return "mentalRay";
+    if ($label == fdftLabel(18)) return "ies";
+    // Anything else is a translator's own name.
+    return $label;
+}
+
+global proc string buildDefaultMayaOpenFilterList()
+{
+    return fdftEntry(1) + ";;" + fdftEntry(2) + ";;" + fdftEntry(3) + ";;" + fdftEntry(21) + ";;" + fdftEntry(0);
+}
+
+global proc string buildDefaultMayaSaveFilterList()
+{
+    return fdftEntry(2) + ";;" + fdftEntry(3);
+}
+
+global proc string buildDefaultReadWriteOfflineEditFilterList()
+{
+    return fdftEntry(13) + ";;" + fdftEntry(14);
+}
+
+// A translator as a filter entry: its name, then each of its ";"-separated patterns followed by a space, in brackets.
+// Empty when it has no patterns, so it adds nothing to a list.
+proc string fdftTranslatorEntry(string $name)
+{
+    string $filter = `translator -query -filter $name`;
+    if ($filter == "")
+        return "";
+    string $parts[];
+    tokenize $filter ";" $parts;
+    string $entry = $name + " ( ";
+    for ($p in $parts)
+        $entry += $p + " ";
+    return $entry + ")";
+}
+
+global proc string buildReadableFileFilterList()
+{
+    string $list = fdftEntry(1);
+    string $all[] = `translator -query -list`;
+    for ($t in $all) {
+        if (!`translator -query -readSupport $t`)
+            continue;
+        string $entry;
+        if ($t == "mayaAscii")
+            $entry = fdftEntry(2);
+        else if ($t == "mayaBinary")
+            $entry = fdftEntry(3);
+        else if ($t == "mayaLT")
+            $entry = fdftEntry(21);
+        else
+            $entry = fdftTranslatorEntry($t);
+        if ($entry != "")
+            $list += ";;" + $entry;
+    }
+    return $list + ";;" + fdftLabel(0) + " (*)";
+}
+
+global proc string buildWritableFileFilterList()
+{
+    string $list = "";
+    string $all[] = `translator -query -list`;
+    for ($t in $all) {
+        // The separator is decided before this translator's entry is known, as the list stood at its turn.
+        string $sep = ($list != "") ? ";;" : "";
+        if ($t == "mayaLT" || !`translator -query -writeSupport $t`)
+            continue;
+        string $entry;
+        if ($t == "mayaAscii")
+            $entry = fdftEntry(2);
+        else if ($t == "mayaBinary")
+            $entry = fdftEntry(3);
+        else
+            $entry = fdftTranslatorEntry($t);
+        if ($entry != "")
+            $list += $sep + $entry;
+    }
+    return $list;
+}
+
+// The image formats Aztek can write, one filter each. The reference asks its image format manager for these; Aztek has
+// no such manager, so the formats its Render View saves are listed here (the Render View adds OpenEXR itself).
+global proc string buildWritableImageFileFilterList()
+{
+    string $formats[] = {"PNG (*.png)", "JPEG (*.jpg)", "TIFF (*.tif)"};
+    return stringArrayToString($formats, ";;");
+}
+
+global proc string buildImageFileFilterList()
+{
+    return fdftWithAll(4);
+}
+
+global proc string buildPlugInFileFilterList()
+{
+    return fdftWithAll(5);
+}
+
+global proc string buildContainerTemplateFilterList()
+{
+    return fdftWithAll(6);
+}
+
+global proc string buildPixmapFileFilterList()
+{
+    return fdftWithAll(7);
+}
+
+// What a file browser needs for a type: [0] the accept button's label, [1] the filter to start on (its description
+// only), [2] the filter list, [3] left empty. $fileMode 0 is saving, anything else opening.
+global proc string[] fileBrowserActionSetup(string $type, int $fileMode)
+{
+    int $saving = ($fileMode == 0);
+    string $result[] = {"", "", "", ""};
+    $result[0] = $saving ? "Save" : "Open";
+
+    // The filter list. Single-type lists get All Files after them only when opening.
+    string $all = $saving ? "" : (";;" + fdftEntry(0));
+    if ($type == "image")
+        $result[2] = $saving ? buildWritableImageFileFilterList() : buildImageFileFilterList();
+    else if ($type == "movie")
+        $result[2] = fdftEntry(11) + $all;
+    else if ($type == "Photoshop")
+        $result[2] = fdftEntry(8) + $all;
+    else if ($type == "xmlcache")
+        $result[2] = fdftEntry(9) + $all;
+    else if ($type == "mel")
+        $result[2] = fdftEntry(15) + $all;
+    else if ($type == "edl")
+        $result[2] = $saving ? fdftEntry(16) : fdftWithAll(10);
+    else if ($type == "map")
+        $result[2] = $saving ? fdftEntry(12) : (fdftEntry(19) + ";;" + buildImageFileFilterList());
+    else if ($type == "MIRenderProxy")
+        $result[2] = fdftEntry(17) + $all;
+    else if ($type == "ies")
+        $result[2] = fdftWithAll(18);
+    else if ($type == "json")
+        $result[2] = fdftEntry(22) + $all;
+    else if ($type == "weights")
+        $result[2] = fdftEntry(23) + $all;
+    else
+        $result[2] = $saving ? buildWritableFileFilterList() : buildReadableFileFilterList();
+
+    // The filter to start on.
+    if ($type == "mayaBinary")
+        $result[1] = fdftLabel(3);
+    else if ($type == "mayaAscii")
+        $result[1] = fdftLabel(2);
+    else if ($type == "mayaLT")
+        $result[1] = $saving ? "" : fdftLabel(21);
+    else if ($type == fdftBestGuess())
+        $result[1] = fdftLabel(0);
+    else if ($type == "image") {
+        if ($saving && `optionVar -exists lastSaveImageAsFileType`)
+            $result[1] = `optionVar -query lastSaveImageAsFileType`;
+        else
+            $result[1] = fdftLabel(4);
+    }
+    else if ($type == "movie")
+        $result[1] = fdftLabel(11);
+    else if ($type == "Photoshop")
+        $result[1] = fdftLabel(8);
+    else if ($type == "xmlcache")
+        $result[1] = fdftLabel(9);
+    else if ($type == "mel")
+        $result[1] = fdftLabel(15);
+    else if ($type == "edl")
+        $result[1] = $saving ? fdftLabel(16) : fdftLabel(10);
+    else if ($type == "iff") {
+        // The one type that also brings its own list.
+        $result[2] = "iff (*.iff);;" + fdftLabel(0) + " (*)";
+        $result[1] = "iff";
+    }
+    else if ($type == "MIRenderProxy")
+        $result[1] = fdftLabel(17);
+    else if ($type == "ies")
+        $result[1] = fdftLabel(18);
+    else if ($type == "json")
+        $result[1] = fdftLabel(22);
+    else if ($type == "weights")
+        $result[1] = fdftLabel(23);
+    else if ($type != "")
+        $result[1] = $type;
+    else
+        $result[1] = fdftLabel(0);
+    return $result;
+}

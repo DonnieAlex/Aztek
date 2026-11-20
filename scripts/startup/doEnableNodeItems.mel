@@ -1,0 +1,39 @@
+// doEnableNodeItems: the Enable/Disable Nodes menu items. Each node type has a check box item named <type>OnOff; picking
+// one turns evaluation of that type on or off to match its tick, and "all" turns every type on or off and ticks the
+// items to suit. The switching itself is the setState command's.
+
+// The node types that have an item, in menu order.
+proc string[] deniTypes()
+{
+    return {"constraint", "expression", "fluid", "globalstitch", "nCloth", "nParticle", "nRigid", "dynamicConstraint",
+        "nucleus", "iksolver", "particle", "rigidbody", "snapshot"};
+}
+
+// setState turns a type's evaluation on or off. Aztek doesn't have it yet, so the menu ticks still follow but nothing
+// is switched; a warning says so once per call.
+proc deniSetState(string $type, int $state)
+{
+    if (`exists setState`) {
+        eval("setState \"" + $type + "\" " + $state);
+        return;
+    }
+    warning ("Turning " + $type + " nodes " + ($state ? "on" : "off") + " isn't available yet: there is no setState command.");
+}
+
+// $state is used only with "all" (1 on, 0 off); for one type the item's own tick, already changed by the menu, decides.
+global proc doEnableNodeItems(int $state, string $nodeType)
+{
+    if ($nodeType == "all") {
+        deniSetState("all", $state);
+        for ($type in deniTypes()) {
+            string $item = $type + "OnOff";
+            if (`menuItem -exists $item`)
+                menuItem -edit -checkBox $state $item;
+        }
+        return;
+    }
+
+    string $item = $nodeType + "OnOff";
+    if (`menuItem -exists $item`)
+        deniSetState($nodeType, `menuItem -query -checkBox $item`);
+}

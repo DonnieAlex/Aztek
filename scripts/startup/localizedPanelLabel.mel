@@ -1,0 +1,213 @@
+// localizedPanelLabel: turns the English label of a panel, editor or panel layout into the one the interface shows.
+// Layout and panel scripts call it before looking panels up by label.
+//
+// Aztek's interface is English, and it has no string catalog, so each label's text is plain English: where several
+// English labels share one entry (the reference keeps "Hyper Shade Panel" and "Hypershade" as one), the text is that of
+// the first label listed for it. When a catalog is there (displayString), its text is used instead.
+
+global string $gPanelLabels[];
+
+// The table: English label, then the entry it shares with labels of the same meaning. Order counts only in that the
+// first label of an entry gives its text.
+proc string[] lplTable()
+{
+    return {
+        "Top View", "kTopView",
+        "Side View", "kSideView",
+        "Front View", "kFrontView",
+        "Persp View", "kPerspView",
+        "Top Panel", "kTopPanel",
+        "Front Panel", "kFrontPanel",
+        "Side Panel", "kSidePanel",
+        "Persp Panel", "kPerspPanel",
+        "Model Panel", "kModelPanel",
+        "Perspective", "kPerspective",
+        "Single Perspective", "kSinglePerspective",
+        "viewPanes", "kViewPanes",
+        "Left View", "kLeftView",
+        "Right View", "kRightView",
+        "Back View", "kBackView",
+        "Bottom View", "kBottomView",
+        "Relationship Editor", "kRelationshipEditor",
+        "Relationship Panel", "kRelationshipEditor",
+        "Hypershade", "kHypershade",
+        "Hyper Shade Panel", "kHypershade",
+        "Visor", "kVisor",
+        "Visor Panel", "kVisor",
+        "Time Editor", "kTimeEditor",
+        "Time Editor Panel", "kTimeEditor",
+        "Trax Editor", "kTraxEditor",
+        "Clip Editor Panel", "kTraxEditor",
+        "Camera Sequencer", "kSequencer",
+        "Shot Playlist", "kShotPlaylist",
+        "Shot Playlist Panel", "kShotPlaylist",
+        "Sequence Editor Panel", "kSequencer",
+        "Reference Editor", "kRefEd",
+        "Reference Editor Panel", "kRefEd",
+        "Web Browser", "kWebBrowser",
+        "Web Browser Panel", "kWebBrowser",
+        "Paint Effects", "kPaintEffects",
+        "Dyn Paint Scripted Panel Type", "kPaintEffects",
+        "Outliner", "kOutliner",
+        "Outliner Panel", "kOutliner",
+        "Content Browser", "kContentBrowser",
+        "Content Browser Panel", "kContentBrowser",
+        "Graph Editor", "kGraphEditor",
+        "Profiler Tool", "kProfilerTool",
+        "Profiler Panel", "kProfilerPanel",
+        "Dope Sheet", "kDopeSheet",
+        "Dope Sheet Panel", "kDopeSheet",
+        "Hypergraph", "kHypergraph",
+        "Hyper Graph Panel", "kHypergraph",
+        "Hypergraph Hierarchy", "kHypergraphHierarchy",
+        "Hypergraph InputOutput", "kHypergraphInputOutput",
+        "Node Editor", "kNodeEditor",
+        "Node Editor Panel", "kNodeEditor",
+        "Node Editor InputOutput", "kNodeEditorInputOutput",
+        "Create Node", "kCreateNode",
+        "Create Node Panel", "kCreateNode",
+        "Dynamic Relationships", "kDynamicRelationships",
+        "Dyn Rel Ed Panel", "kDynamicRelationships",
+        "Render View", "kRenderView",
+        "Render Window Panel", "kRenderView",
+        "UV Editor", "kUVEditor",
+        "UV Texture Editor", "kUVEditor",
+        "Poly Texture Placement Panel", "kUVEditor",
+        "UV Toolkit", "kUVToolkit",
+        "Multilister", "kMultilister",
+        "Multi Lister Panel", "kMultilister",
+        "Blend Shape", "kBlendShape",
+        "Blend Shape Panel", "kBlendShape",
+        "Shape Editor", "kShapeEditor",
+        "Shape Panel", "kShapeEditor",
+        "Pose Editor", "kPoseEditor",
+        "Pose Panel", "kPoseEditor",
+        "Devices", "kDevices",
+        "Device Panel", "kDevices",
+        "Component Editor", "kComponentEd",
+        "Component Editor Panel", "kComponentEd",
+        "Script Editor", "kScriptEditor",
+        "Script Editor Panel", "kScriptEditor",
+        "Polygon Selection Constraints", "kPolySelectionConstraints",
+        "Poly Selection Constraint Panel", "kPolySelectionConstraintPanel",
+        "Shading Group Editor", "kShadingGroupEditor",
+        "Set Editor", "kSetEditor",
+        "Blind Data Editor", "kBlindDataEditor",
+        "Front/Persp", "kFrontPerspView",
+        "Persp/Graph", "kPerspGraph",
+        "Hypershade/Persp", "kHypershadePersp",
+        "Persp/Graph/Hypergraph", "kPerspGraphHypergraph",
+        "Persp/UV Editor", "kPerspUVEditor",
+        "Persp/UV Texture Editor", "kPerspUVEditor",
+        "Hypershade/Render/Persp", "kHypershadeRenderPersp",
+        "Hypershade/Outliner/Persp", "kHypershadeOutlinerPersp",
+        "Persp/Graph/Outliner", "kPerspGraphOutliner",
+        "Persp/Relationship Editor", "kPerspRelationshipEditor",
+        "Persp/Hypergraph", "kPerspHypergraph",
+        "Web Browser/Persp", "kWebBrowserPersp",
+        "Persp/Trax", "kPerspTrax",
+        "Persp/Camera Sequencer", "kPerspSequencer",
+        "Persp/Trax/Outliner", "kPerspTraxOutliner",
+        "Hypershade/Render/Persp Vertical", "kHypershadeRenderPerspVertical",
+        "Perspective View", "kPerspectiveView",
+        "Script Editor/Persp", "kScriptEditorPersp",
+        "Stereo", "kStereoCameraName",
+        "Stereo Persp", "kStereoPanelStereoPersp",
+        "Stereo Persp/Outliner", "kStereoPanelStereoPerspOutliner",
+        "Current Layout", "kCurrentLayout",
+        "Single Perspective View", "kSinglePerspectiveView",
+        "Four View", "kFourView",
+        "Single Pane", "kSinglePane",
+        "Two Panes Side by Side", "kTwoPanesSidebySide",
+        "Two Panes Stacked", "kTwoPanesStacked",
+        "Three Panes Split Top", "kThreePanesSplitTop",
+        "Three Panes Split Left", "kThreePanesSplitLeft",
+        "Three Panes Split Bottom", "kThreePanesSplitBottom",
+        "Three Panes Split Right", "kThreePanesSplitRight",
+        "Four Panes", "kFourPanes",
+        "Three Panes Stacked", "kThreePanesStacked",
+        "Three Panes Side by Side", "kThreePanesSidebySide",
+        "Four Panes Split Top", "kFourPanesSplitTop",
+        "Four Panes Split Left", "kFourPanesSplitLeft",
+        "Four Panes Split Bottom", "kFourPanesSplitBottom",
+        "Four Panes Split Right", "kFourPanesSplitRight",
+        "Four Panes Stacked", "kFourPanesStacked",
+        "Four Panes Side by Side", "kFourPanesSidebySide",
+        "Panel Configuration", "kPanelConfig"
+    };
+}
+
+// The shown text of one entry: the catalog's when it has the entry, else the English of the first label for it.
+proc string lplText(string $table[], string $key)
+{
+    string $full = "m_localizedPanelLabel." + $key;
+    if (`exists displayString`) {
+        int $there = 0;
+        catchQuiet($there = eval("displayString -exists \"" + $full + "\""));
+        if ($there)
+            return uiRes($full);
+    }
+    for ($i = 0; $i < size($table); $i += 2) {
+        if ($table[$i + 1] == $key)
+            return $table[$i];
+    }
+    return $key;
+}
+
+// Every label as [English, shown, English, shown, ...]. Made once and kept.
+global proc string[] localizedPanelLabels()
+{
+    global string $gPanelLabels[];
+    if (size($gPanelLabels))
+        return $gPanelLabels;
+
+    string $table[] = lplTable();
+    string $labels[];
+    for ($i = 0; $i < size($table); $i += 2) {
+        $labels[$i] = $table[$i];
+        $labels[$i + 1] = lplText($table, $table[$i + 1]);
+    }
+    $gPanelLabels = $labels;
+    return $gPanelLabels;
+}
+
+// A label split into its words and the number a copied or torn-off panel carries at its end: "Model Panel 3" gives
+// {"Model Panel", "3"}, "Hypergraph Hierarchy2" gives {"Hypergraph Hierarchy", "2"}. Without a number the label comes
+// back whole (not trimmed) with an empty suffix.
+global proc string[] labelBaseAndSuffix(string $label)
+{
+    string $base = `match "^.*[^0-9]" $label`;
+    string $suffix = "";
+    if ($base != $label) {
+        $suffix = `match "[0-9]+$" $label`;
+        $base = strip($base);
+    }
+    return {$base, $suffix};
+}
+
+global proc string localizedPanelLabel(string $englishLabel)
+{
+    string $parts[] = labelBaseAndSuffix($englishLabel);
+    string $labels[] = localizedPanelLabels();
+
+    string $result = "";
+    int $found = 0;
+    for ($i = 0; $i < size($labels); $i += 2) {
+        if ($labels[$i] == $parts[0]) {
+            $result = $labels[$i + 1];
+            $found = 1;
+            break;
+        }
+    }
+    // The number goes straight after the text, with no space, as in the reference.
+    if ($parts[1] != "")
+        $result += $parts[1];
+
+    if (!$found) {
+        $result = $englishLabel;
+        // The reference notes labels it can't translate; Aztek has no such log unless a script provides one.
+        if (`exists uiToMelMsg`)
+            eval("uiToMelMsg \"localizedPanelLabel\" \"" + encodeString($englishLabel) + "\" 0");
+    }
+    return $result;
+}

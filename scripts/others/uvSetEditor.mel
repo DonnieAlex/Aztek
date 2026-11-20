@@ -26,15 +26,15 @@ global proc updateUvSetEditor()
         return;
     string $mesh = $meshes[0];
 
-    // The reference lists each set by its name for this instance and hides those with none. polyUVSet doesn't answer
-    // the per-instance queries here yet (it takes the flags but fails on them), so the sets' own names and the
-    // mesh's current set are used.
+    // Each set by its name for this instance; one with no name here is left out.
     string $sets[] = `polyUVSet -perInstance 1 -query -allUVSets $mesh`;
-    for ($set in $sets)
-        if ($set != "")
-            textScrollList -edit -append $set uvSetList;
+    for ($set in $sets) {
+        string $named[] = `polyUVSet -uvSet $set -query -perInstance $mesh`;
+        if (size($named) > 0 && $named[0] != "")
+            textScrollList -edit -append $named[0] uvSetList;
+    }
 
-    string $current[] = `polyUVSet -query -currentUVSet $mesh`;
+    string $current[] = `polyUVSet -query -currentPerInstanceUVSet $mesh`;
     if (size($current) > 0)
         textScrollList -edit -selectItem $current[0] uvSetList;
 }
@@ -42,7 +42,7 @@ global proc updateUvSetEditor()
 // The window's help menu entry.
 global proc builduvSetEditorContextHelpItems(string $nameRoot, string $menuParent)
 {
-    menuItem -label "Help on UV Set Editor" -command "showHelp uvSetEditor";
+    menuItem -label "Help on UV Set Editor" -enableCommandRepeat false -command "showHelp uvSetEditor";
 }
 
 global proc uvSetEditor()

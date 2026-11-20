@@ -22,8 +22,8 @@ proc int performDuplicate_inClipEditor()
 
 global proc string performDuplicate(int $action)
 {
-    if ($action == 0 && performDuplicate_inClipEditor() && `exists performDuplicateClip`)
-        return `performDuplicateClip 0 ""`;
+    if ($action == 0 && performDuplicate_inClipEditor())
+        return performDuplicateClip(0, "");
     if ($action != 0 && $action != 2)
         return "";
 

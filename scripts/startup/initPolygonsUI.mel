@@ -1,0 +1,341 @@
+// initPolygonsUI: what the polygon menus, shelf buttons and hotkeys call before those menus are built, and the user's
+// saved polygon display preferences pushed into the defaults new meshes get. Sourcing it (initAuxiliary does, at start
+// up) also runs the block near the end, then sources MTprocs and polyPerformAction. Sourcing it again is harmless: the
+// procedures are defined again and the same settings applied again.
+
+// ---- Local helpers ----
+
+// Flips an int optionVar (missing reads as 0) and returns its new value.
+proc int initPolygonsUI_toggle(string $var)
+{
+    int $value = `optionVar -query $var` ? 0 : 1;
+    optionVar -intValue $var $value;
+    return $value;
+}
+
+// Puts a menu item's check box in step with an optionVar. The item only exists once its menu has been built, so from a
+// shelf button or hotkey there may be nothing to do.
+proc initPolygonsUI_sync(string $item, string $var)
+{
+    if (`menuItem -exists $item`)
+        menuItem -edit -checkBox `optionVar -query $var` $item;
+}
+
+// Runs a polygon command on the selection through polyPerformAction.
+proc initPolygonsUI_performAction(string $cmd, string $selType, int $objCount)
+{
+    polyPerformAction($cmd, $selType, $objCount);
+}
+
+// ---- Global procedures ----
+
+global proc string polygonsMenuItemToShelf(string $item)
+{
+    return $item;
+}
+
+// Asks for a UV set name, then runs $cmd with $version, $args and that name. Nothing is escaped, as in the reference:
+// a quote in the name or an argument breaks the command.
+global proc PolyRequestUVSetName(string $title, string $cmd, string $version, string $args[])
+{
+    string $ok = "OK";
+    string $cancel = "Cancel";
+    string $answer = `promptDialog -title $title -message "UV set name:" -text "uvSet"
+        -button $ok -button $cancel -defaultButton $ok -cancelButton $cancel -dismissString $cancel`;
+    if ($answer != $ok)
+        return;
+
+    string $name = `promptDialog -query -text`;
+    string $list = "";
+    for ($i = 0; $i < size($args); $i++) {
+        if ($i > 0)
+            $list += ", ";
+        $list += "\"" + $args[$i] + "\"";
+    }
+    eval ($cmd + " \"" + $version + "\" {" + $list + "} \"" + $name + "\"");
+}
+
+// Softens (0) or hardens (anything else) the selected edges.
+global proc SoftPolyEdgeElements(int $option)
+{
+    string $cmd = ($option == 0) ? "polySoftEdge -a 0" : "polySoftEdge -a 180";
+    initPolygonsUI_performAction($cmd, "e", 0);
+}
+
+// Shows the vertex bake set of the scene's only mesh in the Attribute Editor. The scene's meshes count, not the
+// selection: with two or more it can't tell which one is meant.
+global proc polyOpenBakeSetAE()
+{
+    string $meshes[] = `ls -type mesh`;
+    if (size($meshes) > 1) {
+        warning "More than one mesh in the scene: the bake set to show can't be told apart.";
+        return;
+    }
+    if (size($meshes) != 1)
+        return;
+
+    string $node;
+    for ($node in `listConnections ($meshes[0] + ".iog[0]")`) {
+        if (`nodeType $node` == "vertexBakeSet") {
+            // Aztek doesn't have showBakeSetAE yet.
+            if (`exists showBakeSetAE`)
+                eval ("showBakeSetAE \"" + $node + "\"");
+            return;
+        }
+    }
+}
+
+// Which material channel vertex colours stand in for: 0 none, 1 ambient, 2 ambient and diffuse, 3 diffuse,
+// 4 specular, anything else emission.
+global proc polyChangeColorMatChannel(int $opt)
+{
+    string $channel;
+    switch ($opt) {
+        case 0: $channel = "none"; break;
+        case 1: $channel = "ambient"; break;
+        case 2: $channel = "ambientDiffuse"; break;
+        case 3: $channel = "diffuse"; break;
+        case 4: $channel = "specular"; break;
+        default: $channel = "emission"; break;
+    }
+    evalEcho ("polyOptions -colorMaterialChannel " + $channel);
+}
+
+// How vertex colours blend with the material: 0 overwrite to 6 modulate2x. Any other value leaves the mode out, and
+// the command then fails on its own, as the reference's does.
+global proc polyChangeMaterialBlend(int $opt)
+{
+    string $mode = "";
+    switch ($opt) {
+        case 0: $mode = "overwrite"; break;
+        case 1: $mode = "add"; break;
+        case 2: $mode = "subtract"; break;
+        case 3: $mode = "multiply"; break;
+        case 4: $mode = "divide"; break;
+        case 5: $mode = "average"; break;
+        case 6: $mode = "modulate2x"; break;
+    }
+    evalEcho ("polyOptions -materialBlend " + $mode);
+}
+
+// Flips the vertex colour display of each selected mesh on its own.
+global proc toggleShadeMode()
+{
+    global int $gSelectMeshesBit;
+    // The polygon mesh selection mask, should nothing have set the global yet.
+    int $bit = $gSelectMeshesBit ? $gSelectMeshesBit : 12;
+    string $meshes[] = `filterExpand -ex true -sm $bit`;
+    string $mesh;
+    for ($mesh in $meshes) {
+        // Asked one mesh at a time: Aztek answers a query on several meshes with one value.
+        int $shaded[] = `polyOptions -query -colorShadedDisplay $mesh`;
+        if ($shaded[0])
+            polyOptions -colorShadedDisplay false $mesh;
+        else
+            polyOptions -colorShadedDisplay true $mesh;
+    }
+}
+
+global proc toggleAutoShowColorPerVertex()
+{
+    initPolygonsUI_toggle("polyAutoShowColorPerVertex");
+    initPolygonsUI_sync("toggleAutoShowColorPerVertexItem", "polyAutoShowColorPerVertex");
+}
+
+global proc togglePolyMoveComponents()
+{
+    initPolygonsUI_toggle("polyKeepFacetsGrouped");
+    initPolygonsUI_sync("toggleGroupItem", "polyKeepFacetsGrouped");
+}
+
+global proc toggleUseTangentSpaceNormalsByDefault()
+{
+    initPolygonsUI_toggle("bump2dUseTangentSpaceNormalsByDefault");
+}
+
+global proc toggleUseMikktspaceTangents()
+{
+    initPolygonsUI_toggle("polyUseMikkTSpaceTangents");
+}
+
+// Primitives made by dragging them out as a tool; the exit-on-complete item only means something while that is on.
+global proc setCreatePolyPrimitiveAsTool(int $state)
+{
+    optionVar -intValue createPolyPrimitiveAsTool $state;
+    if (`menuItem -exists toggleCreatePolyPrimitivesAsToolItem`)
+        menuItem -edit -checkBox $state toggleCreatePolyPrimitivesAsToolItem;
+    if (`menuItem -exists togglePolyPrimitivesAsToolItemExitOnComplete`)
+        menuItem -edit -enable $state togglePolyPrimitivesAsToolItemExitOnComplete;
+}
+
+global proc toggleCreatePolyPrimitiveAsTool()
+{
+    setCreatePolyPrimitiveAsTool(!`optionVar -query createPolyPrimitiveAsTool`);
+}
+
+global proc setPolyPrimitiveAsToolExitOnComplete(int $state)
+{
+    optionVar -intValue polyPrimitiveAsToolExitOnComplete $state;
+    if (`menuItem -exists togglePolyPrimitivesAsToolItemExitOnComplete`)
+        menuItem -edit -checkBox $state togglePolyPrimitivesAsToolItemExitOnComplete;
+}
+
+global proc togglePolyPrimitiveAsToolExitOnComplete()
+{
+    setPolyPrimitiveAsToolExitOnComplete(!`optionVar -query polyPrimitiveAsToolExitOnComplete`);
+}
+
+global proc togglePolySingleSided()
+{
+    initPolygonsUI_toggle("polyCreateMeshesSingleSided");
+    initPolygonsUI_sync("toggleSingleSided", "polyCreateMeshesSingleSided");
+}
+
+global proc togglePolyAutoInstallAction()
+{
+    initPolygonsUI_toggle("polyAutoInstallAction");
+    initPolygonsUI_sync("toggleAutoInstallItem", "polyAutoInstallAction");
+}
+
+// The poly count heads-up display, refreshed straight away.
+global proc toggleDisplayPolyCount()
+{
+    initPolygonsUI_toggle("polyCount");
+    eval "polyEvaluate -ds";
+    initPolygonsUI_sync("toggleDisplayPolyCountItem", "polyCount");
+}
+
+global proc togglePolyAutoConvertAction()
+{
+    initPolygonsUI_toggle("polyAutoConvertAction");
+    initPolygonsUI_sync("toggleAutoConvertItem", "polyAutoConvertAction");
+}
+
+// Keeps new faces planar in both face tools, and the optionVar on only when both tools took it.
+global proc togglePolyPlanarConstraints()
+{
+    int $v = `optionVar -query polyKeepFacetsPlanar` ? 0 : 1;
+    string $edit = "polyCreateFacetCtx -e -pc " + $v + " polyCreateFacetContext; "
+        + "polyAppendFacetCtx -e -pc " + $v + " polyAppendFacetContext";
+    if (catch(`eval $edit`))
+        warning "The face tools couldn't be set to keep new faces planar.";
+
+    int $sum = `polyAppendFacetCtx -q -pc polyAppendFacetContext` + `polyCreateFacetCtx -q -pc polyCreateFacetContext`;
+    if ($sum == 2)
+        $v = 1;
+    else {
+        $v = 0;
+        // Only one tool took it: both are turned off again, so they agree.
+        if ($sum == 1)
+            catchQuiet(`eval "polyCreateFacetCtx -e -pc 0 polyCreateFacetContext; polyAppendFacetCtx -e -pc 0 polyAppendFacetContext"`);
+    }
+    optionVar -intValue polyKeepFacetsPlanar $v;
+    initPolygonsUI_sync("togglePlanarItem", "polyKeepFacetsPlanar");
+}
+
+global proc togglePolyCreateShaderWithMapping()
+{
+    initPolygonsUI_toggle("polyCreateShaderWithMapping");
+    initPolygonsUI_sync("toggleCreateShaderItem", "polyCreateShaderWithMapping");
+}
+
+// ---- Run on every source ----
+
+// Kept for scripts that track the shader made for texture colours.
+global string $gPolyTextureColorShader = "";
+
+{
+    // The display defaults go to both kinds of target the display setup knows (objects affected off, then on), and the
+    // user's choice is put back afterwards.
+    if (`exists polysDisplaySetup`) {
+        int $affected = `optionVar -query displayPolyObjsAffected`;
+        optionVar -intValue displayPolyObjsAffected 0;
+        catch(`eval "polysDisplaySetup 0"`);
+        optionVar -intValue displayPolyObjsAffected 1;
+        catch(`eval "polysDisplaySetup 0"`);
+        optionVar -intValue displayPolyObjsAffected $affected;
+    }
+
+    polySelectConstraint -ws `optionVar -query polyFaceSensitive`;
+
+    // The poly count display always starts off.
+    optionVar -intValue polyCount 0;
+
+    // What a new mesh shows: sizes, vertices, normals, edges and the highlights.
+    polyOptions -np -sv `optionVar -query newPolyVertexSize`;
+    polyOptions -np -sn `optionVar -query newPolyNormalSize`;
+    polyOptions -np -suv `optionVar -query newPolyUVSize`;
+    polyOptions -np -sb `optionVar -query newPolyBorderEdgeSize`;
+    polyOptions -np -dv `optionVar -query newPolyVtxDisp`;
+    polyOptions -np -bcv `optionVar -query newPolyVtxBackCull`;
+
+    int $vertexNormals = `optionVar -query newPolyVertexNormals`;
+    int $faceNormals = `optionVar -query newPolyFacetNormalDisp`;
+    polyOptions -np -dn ($vertexNormals || $faceNormals);
+    if ($vertexNormals && $faceNormals)
+        polyOptions -np -pf;
+    else if ($vertexNormals)
+        // Aztek's polyOptions reads -pt as a point with three values yet, so vertex normals alone may not take.
+        catchQuiet(`eval "polyOptions -np -pt"`);
+    else if ($faceNormals)
+        polyOptions -np -f;
+
+    switch (`optionVar -query newPolyEdgeDisp`) {
+        case 0: polyOptions -np -ae; break;
+        case 1: polyOptions -np -se; break;
+        case 2: polyOptions -np -he; break;
+    }
+
+    polyOptions -np -db `optionVar -query newPolyBorderEdgeHilite`;
+    polyOptions -np -dmb `optionVar -query newPolyBorderMapHilite`;
+    polyOptions -np -dce `optionVar -query newPolyCreaseEdgeHilite`;
+    polyOptions -np -dcv `optionVar -query newPolyCreaseVertexHilite`;
+    polyOptions -np -dc `optionVar -query newPolyFacetCentreDisp`;
+    polyOptions -np -dt `optionVar -query newPolyFacetTrngleDisp`;
+    polyOptions -np -dw `optionVar -query newPolyFacetWarpDisp`;
+    polyOptions -np -dif `optionVar -query newPolyHoleFacesHilite`;
+    polyOptions -np -din `optionVar -query newPolyNumVertexDisp` `optionVar -query newPolyNumEdgeDisp`
+        `optionVar -query newPolyNumFacetDisp` `optionVar -query newPolyNumUvDisp`;
+    polyOptions -np -smoothDrawType `optionVar -query newPolyDefaultSmoothDrawType`;
+
+    // The smooth mesh draw type for meshes already there.
+    polyOptions -smoothDrawType `optionVar -query globalPolyDefaultSmoothDrawType`;
+
+    switch (`optionVar -query newPolyBackFaceCull`) {
+        case 0: polyOptions -np -bc; break;
+        case 1: polyOptions -np -fb; break;
+        case 2: polyOptions -np -wbc; break;
+        case 3: polyOptions -np -hb; break;
+    }
+
+    // Vertex colours. These optionVars count from 1, where the menu procedures above count from 0.
+    polyOptions -np -cs `optionVar -query newPolyColorShaded`;
+    switch (`optionVar -query newPolyColorChannel`) {
+        case 1: polyOptions -np -cm "none"; break;
+        case 2: polyOptions -np -cm "ambient"; break;
+        case 3: polyOptions -np -cm "ambientDiffuse"; break;
+        case 4: polyOptions -np -cm "diffuse"; break;
+        case 5: polyOptions -np -cm "specular"; break;
+        case 6: polyOptions -np -cm "emission"; break;
+    }
+    // The reference never sets modulate2x here: its branch looks for 6 a second time, which average has taken.
+    switch (`optionVar -query newPolyMaterialBlend`) {
+        case 1: polyOptions -np -mb "overwrite"; break;
+        case 2: polyOptions -np -mb "add"; break;
+        case 3: polyOptions -np -mb "subtract"; break;
+        case 4: polyOptions -np -mb "multiply"; break;
+        case 5: polyOptions -np -mb "divide"; break;
+        case 6: polyOptions -np -mb "average"; break;
+    }
+
+    polyOptions -np -drc `optionVar -query newPolyRedColorChannel`;
+    polyOptions -np -dgc `optionVar -query newPolyGreenColorChannel`;
+    polyOptions -np -dbc `optionVar -query newPolyBlueColorChannel`;
+    // Aztek's polyOptions has no -dcl yet.
+    int $greyscale = `optionVar -query newPolyColorAsGreyscale`;
+    catchQuiet(`eval ("polyOptions -np -dcl " + $greyscale)`);
+    polyOptions -np -dal `optionVar -query newPolyAlphaAsGreyscale`;
+}
+
+eval "source MTprocs";
+source polyPerformAction;

@@ -1,0 +1,159 @@
+// performDuplicateClip: the Trax Editor's Duplicate Clip and its option box, the settings kept in optionVars. $action 0
+// duplicates and returns the command, 1 opens the options and returns "", 2 only returns the command; anything else
+// returns "". $clip names the clip to copy, or is empty to copy the selected clips.
+
+// The clip the last call was given; the option box's Apply button copies that one.
+global string $clipDupClipToDuplicate = "";
+
+proc performDuplicateClip_options(int $force)
+{
+    optionVar -init $force -category "Trax Editor.Duplicate Clip"
+        -iv duplicateClipSchedule 1
+        -iv duplicateClipTimeWarp 1
+        -iv duplicateUpstream 0;
+}
+
+proc int performDuplicateClip_int(string $name, int $fallback)
+{
+    return `optionVar -exists $name` ? `optionVar -query $name` : $fallback;
+}
+
+proc string performDuplicateClip_command()
+{
+    global string $clipDupClipToDuplicate;
+    performDuplicateClip_options(0);
+    string $values[] = {("" + performDuplicateClip_int("duplicateClipSchedule", 1)),
+        ("" + performDuplicateClip_int("duplicateClipTimeWarp", 1)),
+        ("" + performDuplicateClip_int("duplicateUpstream", 0))};
+    if ($clipDupClipToDuplicate != "")
+        $values[3] = $clipDupClipToDuplicate;
+    return "doDuplicateClipArgList 2 { \"" + stringArrayToString($values, "\",\"") + "\" };";
+}
+
+global proc string performDuplicateClip(int $action, string $clip)
+{
+    global string $clipDupClipToDuplicate;
+    $clipDupClipToDuplicate = $clip;
+
+    if ($action == 0) {
+        performDuplicateClip_options(0);
+        string $cmd = performDuplicateClip_command();
+        if ($cmd != "") {
+            // The copying itself lives in doDuplicateClipArgList, which Aztek doesn't have yet.
+            if (`exists doDuplicateClipArgList`)
+                eval $cmd;
+            else
+                warning "Duplicating clips isn't available yet.";
+        }
+        return $cmd;
+    }
+    if ($action == 1) {
+        duplicateClipOptions();
+        return "";
+    }
+    if ($action == 2)
+        return performDuplicateClip_command();
+    return "";
+}
+
+global proc duplicateClipSetup(string $parent, int $forceFactory)
+{
+    performDuplicateClip_options($forceFactory);
+    setParent $parent;
+
+    if (`optionVar -query duplicateClipSchedule` == 1)
+        radioButtonGrp -edit -select 1 dupToScheduleMethod;
+    else
+        radioButtonGrp -edit -select 1 dupToLibraryMethod;
+
+    int $warp = `optionVar -query duplicateClipTimeWarp`;
+    if ($warp == 1)
+        radioButtonGrp -edit -select 1 dupTimeWarpRadioBoxGrp;
+    else if ($warp == 2)
+        radioButtonGrp -edit -select 1 instanceTimeWarpRadioBoxGrp;
+    else
+        radioButtonGrp -edit -select 1 noTimeWarpRadioBoxGrp;
+
+    int $upstream = `optionVar -query duplicateUpstream`;
+    checkBoxGrp -edit -value1 $upstream dupInputConnections;
+    if ($upstream)
+        enableVisorButtonsCB();
+    else
+        disableVisorButtonsCB();
+}
+
+global proc duplicateClipCallback(string $parent, int $doIt)
+{
+    global string $clipDupClipToDuplicate;
+    setParent $parent;
+
+    optionVar -intValue duplicateClipSchedule (`radioButtonGrp -query -select dupToLibraryMethod` ? 0 : 1);
+    int $warp = 0;
+    if (`radioButtonGrp -query -select dupTimeWarpRadioBoxGrp`)
+        $warp = 1;
+    else if (`radioButtonGrp -query -select instanceTimeWarpRadioBoxGrp`)
+        $warp = 2;
+    optionVar -intValue duplicateClipTimeWarp $warp;
+    optionVar -intValue duplicateUpstream `checkBoxGrp -query -value1 dupInputConnections`;
+
+    if ($doIt)
+        performDuplicateClip(0, $clipDupClipToDuplicate);
+}
+
+// Where the copy goes only matters while input connections are duplicated.
+global proc enableVisorButtonsCB()
+{
+    radioButtonGrp -edit -enable true dupToLibraryMethod;
+    radioButtonGrp -edit -enable true dupToScheduleMethod;
+}
+
+global proc disableVisorButtonsCB()
+{
+    radioButtonGrp -edit -enable false dupToLibraryMethod;
+    radioButtonGrp -edit -enable false dupToScheduleMethod;
+}
+
+global proc duplicateClipOptions()
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("clip");
+
+    // Aztek may not define the reference's DefaultTemplate; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn true`;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Duplicate input connections"
+        -onCommand1 "enableVisorButtonsCB" -offCommand1 "disableVisorButtonsCB" dupInputConnections;
+
+    // Two one-button rows that make one choice, and three more for the time warp.
+    string $copyRow = `radioButtonGrp -numberOfRadioButtons 1 -label "Copy:" -label1 "Put copy in Visor only"
+        dupToLibraryMethod`;
+    radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "Put copy in Trax Editor and Visor"
+        -shareCollection $copyRow dupToScheduleMethod;
+
+    string $warpRow = `radioButtonGrp -numberOfRadioButtons 1 -label "Time warp:" -label1 "Duplicate time warp curve"
+        dupTimeWarpRadioBoxGrp`;
+    radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "Instance time warp curve"
+        -shareCollection $warpRow instanceTimeWarpRadioBoxGrp;
+    radioButtonGrp -numberOfRadioButtons 1 -label "" -label1 "No time warp curve"
+        -shareCollection $warpRow noTimeWarpRadioBoxGrp;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Duplicate Clip" -command ("duplicateClipCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+    button -edit -command ("duplicateClipCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("duplicateClipSetup " + $parent + " 1") (getOptionBoxResetBtn());
+    setOptionBoxTitle("Duplicate Clip Options");
+    setOptionBoxHelpTag("DuplicateClip");
+
+    duplicateClipSetup($parent, 0);
+    showOptionBox();
+}

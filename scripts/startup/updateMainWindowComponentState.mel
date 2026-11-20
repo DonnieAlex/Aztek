@@ -1,0 +1,18 @@
+// updateMainWindowComponentState: notes which parts of the main window are showing, so restoreMainWindowComponents can
+// put them back after a mode that hides them (full screen, all interface hidden). Each goes in an int optionVar, 1
+// shown and 0 hidden, rewritten every time.
+global proc updateMainWindowComponentState()
+{
+    // optionVar, then the part's name as UIComponents knows it.
+    string $parts[] = {
+        "LastStateStatusLineVisibility", "Status Line",
+        "LastStateShelfVisibility", "Shelf",
+        "LastStateTimeSliderVisibility", "Time Slider",
+        "LastStatePlaybackRangeVisibility", "Range Slider",
+        "LastStateCommandLineVisibility", "Command Line",
+        "LastStateHelpLineVisibility", "Help Line",
+        "LastStateToolboxVisibility", "Tool Box"
+    };
+    for ($i = 0; $i < size($parts); $i += 2)
+        optionVar -intValue $parts[$i] (isUIComponentVisible($parts[$i + 1]));
+}

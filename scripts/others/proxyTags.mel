@@ -1,0 +1,80 @@
+// proxyTags: the proxy tags of file references. References that stand in for one another are a proxy set: each has a
+// proxyTag naming it, and their proxyMsg plugs all feed the proxyList of one proxyManager node.
+// $gAddProxyNode is the reference a proxy is being added to just now (set by the proxy options).
+
+global string $gAddProxyNode;
+
+// Whether a node is a reference that can be worked with: proxyUtils' isValidReference where the installation has
+// it, else a reference node that exists.
+proc int proxyTagsValidReference(string $node)
+{
+    if (!`exists isValidReference`)
+        catchQuiet(`eval "source \"proxyUtils.mel\""`);
+    if (`exists isValidReference`)
+        return eval("isValidReference \"" + $node + "\"");
+    return $node != "" && `objExists $node` && `nodeType $node` == "reference";
+}
+
+// The reference nodes connected to a proxy manager's list.
+proc string[] proxyTagsMembers(string $manager)
+{
+    string $members[] = `listConnections -type reference ($manager + ".proxyList")`;
+    return $members;
+}
+
+// The tags used in the proxy set that $refNode belongs to, its own included, sorted and each once. With "" (or any
+// name that isn't a reference) the set of $gAddProxyNode is used.
+global proc string[] proxyUsedTags(string $refNode)
+{
+    global string $gAddProxyNode;
+    string $tags[];
+
+    if (!proxyTagsValidReference($refNode)) {
+        // A forced new scene can leave the remembered node behind; it is forgotten then.
+        if (!proxyTagsValidReference($gAddProxyNode))
+            $gAddProxyNode = "";
+        $refNode = $gAddProxyNode;
+    }
+
+    if (proxyTagsValidReference($refNode)) {
+        string $own = `getAttr ($refNode + ".proxyTag")`;
+        // A reference with no tag is the set's original.
+        $tags[size($tags)] = ($own == "") ? "original" : $own;
+
+        // Aztek's reference nodes have no proxyMsg yet; without it a reference is in no proxy set.
+        string $source = "";
+        if (`attributeQuery -exists -node $refNode "proxyMsg"`)
+            $source = `connectionInfo -sourceFromDestination ($refNode + ".proxyMsg")`;
+        if ($source != "") {
+            string $parts[];
+            tokenize $source "." $parts;
+            string $manager = $parts[0];
+            if (`nodeType $manager` == "proxyManager") {
+                // The others' tags are taken as they are, empty ones included.
+                for ($member in proxyTagsMembers($manager))
+                    $tags[size($tags)] = `getAttr ($member + ".proxyTag")`;
+            }
+        }
+    }
+
+    if (size($tags) > 0)
+        $tags = sort(stringArrayRemoveDuplicates($tags));
+    return $tags;
+}
+
+// Every proxy tag in use across the scene's proxy sets, sorted and each once, leaving out those of the set a proxy is
+// being added to. $excludeUsedTags is meant to choose that, but those tags are always left out, as in the reference.
+global proc string[] proxyTags(int $excludeUsedTags)
+{
+    string $excluded[] = proxyUsedTags("");
+    string $tags[];
+
+    for ($manager in `ls -type proxyManager`) {
+        for ($member in proxyTagsMembers($manager)) {
+            string $tag = `getAttr ($member + ".proxyTag")`;
+            if (!stringArrayContains($tag, $excluded))
+                $tags[size($tags)] = $tag;
+        }
+    }
+    return sort(stringArrayRemoveDuplicates($tags));
+}

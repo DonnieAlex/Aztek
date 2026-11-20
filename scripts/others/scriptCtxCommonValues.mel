@@ -23,10 +23,9 @@ global proc scriptCtxCommonValues(string $toolName)
         $icon = `contextInfo -image1 $current`;
     }
 
-    // The tool settings window's own header and page switching. Aztek's Tool Settings window does both itself and has
-    // neither procedure yet, so these steps are skipped without them.
-    if (`exists toolPropertySetCommon`)
-        eval ("toolPropertySetCommon \"" + $toolName + "\" \"" + $icon + "\" \"\"");
-    if (`exists toolPropertySelect`)
-        eval ("toolPropertySelect \"" + $sheet + "\"");
+    // The tool settings' header and the page to show, from toolPropertyWindow1.
+    if (!`exists toolPropertySetCommon`)
+        eval("source \"toolPropertyWindow1.mel\"");
+    toolPropertySetCommon($toolName, $icon, "");
+    toolPropertySelect($sheet);
 }

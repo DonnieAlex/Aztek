@@ -1,0 +1,205 @@
+// supportRenderers: keeps track of the current renderer (defaultRenderGlobals.currentRenderer), checks it is one that
+// is registered, keeps it valid as scenes open, and lets renderer UI register procedures to run when it changes.
+//
+// The reference keeps a registry of renderers behind the `renderer` command. Aztek has no such command yet; until it
+// does, the renderer it has is Harold, stored under the name "arnold" (it answers to "harold" too), and the procedures
+// here fall back to that.
+
+global string $gUpdateUIProcs[];
+global string $gVerifyRenderFirstTimeCalled = "Yes";
+global string $gDeviceDirectX11 = "VirtualDeviceDx11";
+
+proc int srHasRegistry()
+{
+    return `exists renderer`;
+}
+
+proc int srRendererExists(string $name)
+{
+    if (srHasRegistry())
+        return eval("renderer -exists \"" + encodeString($name) + "\"");
+    return $name == "arnold" || $name == "harold";
+}
+
+proc string[] srAvailable()
+{
+    if (srHasRegistry())
+        return eval("renderer -query -namesOfAvailableRenderers");
+    return {"arnold"};
+}
+
+proc string srUIName(string $name)
+{
+    if (srHasRegistry())
+        return eval("renderer -query -rendererUIName \"" + encodeString($name) + "\"");
+    return ($name == "arnold" || $name == "harold") ? "Harold" : $name;
+}
+
+// The renderer the preferences ask for, from Aztek's preferredRenderer command once it has one, else the first it has.
+proc string srPreferred()
+{
+    if (`exists preferredRenderer`)
+        return eval("preferredRenderer -query");
+    string $available[] = srAvailable();
+    return size($available) ? $available[0] : "";
+}
+
+global proc string currentRenderer()
+{
+    return `getAttr defaultRenderGlobals.currentRenderer`;
+}
+
+global proc int setCurrentRenderer(string $renderer)
+{
+    if (!assertIsValidRenderer($renderer))
+        return 0;
+    setAttr defaultRenderGlobals.currentRenderer -type "string" $renderer;
+    return 1;
+}
+
+global proc verifyCurrentRenderer()
+{
+    global string $gVerifyRenderFirstTimeCalled;
+    global string $gDeviceDirectX11;
+
+    string $current = currentRenderer();
+    string $preferred = srPreferred();
+
+    if (!srRendererExists($current)) {
+        if (`getenv "MAYA_NO_WARNING_FOR_MISSING_DEFAULT_RENDERER"` != "1") {
+            if ($current == "arnold")
+                warning -noContext "The scene's renderer, arnold, isn't available, so the preferred renderer is used.";
+            else
+                warning (`format -stringArg $current -stringArg $preferred
+                    "The renderer ^1s isn't available; switching to ^2s."`);
+        }
+        // Swapping the renderer isn't a change the user made, so an unchanged scene stays unchanged.
+        int $modified = `file -query -modified`;
+        setAttr defaultRenderGlobals.currentRenderer -type "string" $preferred;
+        if (!$modified)
+            file -modified false;
+    }
+
+    // Working over a remote session, once: suggest the DirectX device where OpenGL isn't allowed remotely. Aztek has
+    // no ogs command to ask, so this is skipped until it does.
+    if (!`exists ogs`)
+        return;
+    if (eval("ogs -irs") && `getenv "MAYA_ALLOW_OPENGL_REMOTE_SESSION"` != "1") {
+        if ($gVerifyRenderFirstTimeCalled == "Yes") {
+            if (!eval("ogs -isRemoteGLSessionEnabled")) {
+                string $engine = `optionVar -exists vp2RenderingEngine` ? `optionVar -query vp2RenderingEngine` : "";
+                string $override = `getenv "MAYA_VP2_DEVICE_OVERRIDE"`;
+                if ($engine != "DirectX11" || ($override != "" && $override != $gDeviceDirectX11))
+                    print "OpenGL isn't available in a remote session; switch the viewport to DirectX 11 in the preferences.\n";
+            }
+            $gVerifyRenderFirstTimeCalled = "No";
+        }
+    }
+}
+
+global proc int rendererChanged()
+{
+    if (!`about -batch`) {
+        if (currentRenderer() == "mayaHardware" && `exists hwRender`
+            && !eval("hwRender -query -limitedRenderSupport"))
+            warning "This graphics card isn't good enough for the hardware renderer.";
+        updateRendererUI();
+    }
+    return 1;
+}
+
+global proc registerUpdateRendererUIProc(string $procName)
+{
+    global string $gUpdateUIProcs[];
+    $gUpdateUIProcs[size($gUpdateUIProcs)] = $procName;
+}
+
+global proc updateRendererUI()
+{
+    global string $gUpdateUIProcs[];
+    if (`about -batch`)
+        return;
+    for ($proc in $gUpdateUIProcs)
+        eval $proc;
+}
+
+global proc int assertIsValidRenderer(string $renderer)
+{
+    if (!srRendererExists($renderer))
+        error -showLineNumber true (`format -stringArg $renderer "^1s isn't a renderer Aztek knows."`);
+    return 1;
+}
+
+// Run on every scene opened, File > New included.
+global proc rendererSceneOpenedCallback()
+{
+    int $modified = `file -query -modified`;
+    verifyCurrentRenderer();
+    scriptJob -killWithScene -attributeChange defaultRenderGlobals.currentRenderer "rendererChanged;";
+    rendererChanged();
+    if (`exists mentalrayCompatibility`)
+        eval "mentalrayCompatibility";
+    if (!$modified)
+        file -modified false;
+}
+
+// A current renderer menu's change command: the renderer whose name the menu shows becomes current.
+global proc updateCurrentRendererSel(string $menu)
+{
+    string $label = `optionMenu -query -value $menu`;
+    string $uiName = "";
+    string $match = "";
+    for ($r in srAvailable()) {
+        $uiName = srUIName($r);
+        if ($uiName == $label) {
+            $match = $r;
+            break;
+        }
+    }
+    if ($match == "")
+        error -showLineNumber true ($uiName + " does not exist ");
+
+    setCurrentRenderer($match);
+    // The renderer's preset loads once the menu has settled.
+    evalDeferred ("if (`exists loadPreferredRenderGlobalsPreset`) loadPreferredRenderGlobalsPreset(\"" + $match + "\");");
+}
+
+// Run at startup, after the first scene has opened, and set up for every scene opened after.
+global proc setupRendererSceneOpenedCallback()
+{
+    verifyCurrentRenderer();
+    evalDeferred "rendererSceneOpenedCallback";
+    evalDeferred "scriptJob -event SceneOpened rendererSceneOpenedCallback";
+}
+
+global proc string[] rendererListRenderTargetSupport()
+{
+    return {"mentalRay"};
+}
+
+global proc int rendererRenderTargetSupport(string $renderer)
+{
+    return stringArrayContains($renderer, rendererListRenderTargetSupport());
+}
+
+global proc int renderTargetHasInput(string $renderTarget)
+{
+    if ($renderTarget == "")
+        error "No render target was given.";
+    return `connectionInfo -sfd ($renderTarget + ".color")` != "" || `connectionInfo -sfd ($renderTarget + ".alpha")` != "";
+}
+
+global proc renderTargetWarnIfNoInput(string $renderTarget)
+{
+    if ($renderTarget != "" && !renderTargetHasInput($renderTarget))
+        warning (`format -stringArg $renderTarget "The render target ^1s has nothing connected to it."`);
+}
+
+global proc int onscreenPlayblastSupported(string $editor)
+{
+    global string $gDeviceDirectX11;
+    if (!`exists getVP2RendererDevice`)
+        return 1;
+    string $device = eval("getVP2RendererDevice \"" + encodeString($editor) + "\"");
+    return $device == $gDeviceDirectX11 ? 0 : 1;
+}

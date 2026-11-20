@@ -1,0 +1,260 @@
+// colorManagementRenderViewUtilities: the Render View's gamma and exposure controls: the field and slider pairs on its
+// toolbar, the toggles that flip each to its default and back, and the hotkeys that step them. The slider ranges grow
+// to take in values typed past them.
+//
+// Aztek's Render View is its own window with its own exposure and gamma controls, and renderWindowEditor sets both on
+// its editor, renderView. So the editor these procedures drive is the first scripted panel of the reference's kind when
+// a script has made one, else Aztek's; and where the reference's toolbar fields aren't there, the values are read from
+// and written to the editor directly.
+
+// The slider mappings live in colorManagementNonLinearSliderUtilities; Aztek doesn't have that script yet, in which
+// case the sliders show the values as they are (see the cmrv*Slider* procedures below).
+catchQuiet(eval("source \"colorManagementNonLinearSliderUtilities.mel\""));
+
+global int $gRvToggleGamma = 0;
+global int $gRvToggleExposure = 0;
+global float $gRvSavedGammaValue = 0.0;
+global float $gRvSavedExposureValue = 0.0;
+global float $gRvGammaMinRange;
+global float $gRvGammaMaxRange;
+global float $gRvExposureMinRange;
+global float $gRvExposureMaxRange;
+// Sourcing the file again starts the toggles afresh; the ranges are kept.
+$gRvToggleGamma = 0;
+$gRvToggleExposure = 0;
+$gRvSavedGammaValue = 0.0;
+$gRvSavedExposureValue = 0.0;
+
+// The Render View's editor.
+proc string cmrvEditor()
+{
+    string $panels[] = `getPanel -scriptType renderWindowPanel`;
+    return size($panels) ? $panels[0] : "renderView";
+}
+
+// A value from the toolbar field when there is one, else from the editor ($property is gamma or exposure).
+proc float cmrvValue(string $field, string $property)
+{
+    if (`floatField -exists $field`)
+        return `floatField -query -value $field`;
+    float $v = $property == "gamma" ? 1.0 : 0.0;
+    catchQuiet($v = eval("renderWindowEditor -query -" + $property + " \"" + cmrvEditor() + "\""));
+    return $v;
+}
+
+// Shows a value in the toolbar field; without the field it goes straight to the editor.
+proc cmrvShow(string $field, string $property, float $value)
+{
+    if (`floatField -exists $field`)
+        floatField -edit -value $value $field;
+    else
+        eval("renderWindowEditor -edit -" + $property + " " + $value + " \"" + cmrvEditor() + "\"");
+}
+
+// Slider position to value and back. Linear when the mapping script isn't there.
+proc float cmrvGammaFromSlider(float $position, float $max)
+{
+    if (`exists getGammaNonLinearFromLinear`)
+        return eval("getGammaNonLinearFromLinear " + $position + " " + $max);
+    return $position;
+}
+
+proc float cmrvGammaToSlider(float $value, float $max)
+{
+    if (`exists getGammaLinearFromNonLinear`)
+        return eval("getGammaLinearFromNonLinear " + $value + " " + $max);
+    return $value;
+}
+
+proc float cmrvFromSlider(float $position, float $min, float $max)
+{
+    if (`exists getNonLinearFromLinear`)
+        return eval("getNonLinearFromLinear " + $position + " " + $min + " " + $max);
+    return $position;
+}
+
+proc float cmrvToSlider(float $value, float $min, float $max)
+{
+    if (`exists getLinearFromNonLinear`)
+        return eval("getLinearFromNonLinear " + $value + " " + $min + " " + $max);
+    return $value;
+}
+
+global proc resetRVGammaTogleState()
+{
+    global int $gRvToggleGamma;
+    $gRvToggleGamma = 0;
+}
+
+global proc resetRVExposureTogleState()
+{
+    global int $gRvToggleExposure;
+    $gRvToggleExposure = 0;
+}
+
+global proc resetRVTogleStates()
+{
+    resetRVGammaTogleState();
+    resetRVExposureTogleState();
+}
+
+global proc updateRenderViewGammaControls(float $value)
+{
+    cmrvShow("gammaRenderViewFieldItem", "gamma", $value);
+    updateRenderViewGammaSlider();
+}
+
+global proc updateRenderViewExposureControls(float $value)
+{
+    cmrvShow("exposureRenderViewFieldItem", "exposure", $value);
+    updateRenderViewExposureSlider();
+}
+
+global proc resetColorManagementControlRange()
+{
+    global float $gRvGammaMinRange;
+    global float $gRvGammaMaxRange;
+    global float $gRvExposureMinRange;
+    global float $gRvExposureMaxRange;
+    // Gamma must stay above zero.
+    $gRvGammaMinRange = 0.000001;
+    $gRvGammaMaxRange = 4.0;
+    $gRvExposureMinRange = -5.0;
+    $gRvExposureMaxRange = 5.0;
+}
+
+// Flips gamma to 1 and back to the value it had.
+global proc toggleRenderViewGamma()
+{
+    global int $gRvToggleGamma;
+    global float $gRvSavedGammaValue;
+    global float $gRvGammaMaxRange;
+
+    float $value;
+    if ($gRvToggleGamma == 0) {
+        $gRvSavedGammaValue = cmrvValue("gammaRenderViewFieldItem", "gamma");
+        $gRvToggleGamma = 1;
+        $value = 1.0;
+        $gRvGammaMaxRange = clamp(4.0, $gRvGammaMaxRange, $gRvSavedGammaValue);
+    } else {
+        $value = $gRvSavedGammaValue;
+        $gRvToggleGamma = 0;
+    }
+    updateRenderViewGammaControls($value);
+    updateRenderViewGammaState();
+}
+
+// Flips exposure to 0 and back to the value it had.
+global proc toggleRenderViewExposure()
+{
+    global int $gRvToggleExposure;
+    global float $gRvSavedExposureValue;
+    global float $gRvExposureMinRange;
+    global float $gRvExposureMaxRange;
+
+    float $value;
+    if ($gRvToggleExposure == 0) {
+        $gRvSavedExposureValue = cmrvValue("exposureRenderViewFieldItem", "exposure");
+        $value = 0.0;
+        $gRvToggleExposure = 1;
+        if ($gRvSavedExposureValue > 0)
+            $gRvExposureMaxRange = clamp(5.0, $gRvExposureMaxRange, $gRvSavedExposureValue);
+        else
+            $gRvExposureMinRange = clamp($gRvExposureMinRange, -5.0, $gRvSavedExposureValue);
+    } else {
+        $value = $gRvSavedExposureValue;
+        $gRvToggleExposure = 0;
+    }
+    updateRenderViewExposureControls($value);
+    updateRenderViewExposureState();
+}
+
+global proc updateRenderViewExposureState()
+{
+    float $value = cmrvValue("exposureRenderViewFieldItem", "exposure");
+    eval("renderWindowEditor -edit -exposure " + $value + " \"" + cmrvEditor() + "\"");
+}
+
+global proc updateRenderViewGammaState()
+{
+    float $value = cmrvValue("gammaRenderViewFieldItem", "gamma");
+    eval("renderWindowEditor -edit -gamma " + $value + " \"" + cmrvEditor() + "\"");
+}
+
+// The gamma slider moved: the field follows.
+global proc updateRenderViewGammaField()
+{
+    global float $gRvGammaMaxRange;
+    if (!`floatField -exists gammaRenderViewFieldItem`)
+        return;
+    float $position = `floatSlider -query -value gammaRenderViewSliderItem`;
+    floatField -edit -value (cmrvGammaFromSlider($position, $gRvGammaMaxRange)) gammaRenderViewFieldItem;
+    updateRenderViewGammaState();
+}
+
+// The gamma field changed: the slider follows, its range growing to take the value in.
+global proc updateRenderViewGammaSlider()
+{
+    global float $gRvGammaMinRange;
+    global float $gRvGammaMaxRange;
+    if (!`floatSlider -exists gammaRenderViewSliderItem`)
+        return;
+    float $value = cmrvValue("gammaRenderViewFieldItem", "gamma");
+    if ($value > $gRvGammaMaxRange)
+        $gRvGammaMaxRange = $value;
+    else if ($value < $gRvGammaMinRange)
+        $gRvGammaMinRange = max($value, 0.000001);
+    floatSlider -edit -value (cmrvGammaToSlider($value, $gRvGammaMaxRange)) gammaRenderViewSliderItem;
+    updateRenderViewGammaState();
+}
+
+global proc updateRenderViewExposureField()
+{
+    global float $gRvExposureMinRange;
+    global float $gRvExposureMaxRange;
+    if (!`floatField -exists exposureRenderViewFieldItem`)
+        return;
+    float $position = `floatSlider -query -value exposureRenderViewSliderItem`;
+    floatField -edit -value (cmrvFromSlider($position, $gRvExposureMinRange, $gRvExposureMaxRange))
+        exposureRenderViewFieldItem;
+    updateRenderViewExposureState();
+}
+
+global proc updateRenderViewExposureSlider()
+{
+    global float $gRvExposureMinRange;
+    global float $gRvExposureMaxRange;
+    if (!`floatSlider -exists exposureRenderViewSliderItem`)
+        return;
+    float $value = cmrvValue("exposureRenderViewFieldItem", "exposure");
+    if ($value > $gRvExposureMaxRange)
+        $gRvExposureMaxRange = $value;
+    else if ($value < $gRvExposureMinRange)
+        $gRvExposureMinRange = $value;
+    floatSlider -edit -value (cmrvToSlider($value, $gRvExposureMinRange, $gRvExposureMaxRange))
+        exposureRenderViewSliderItem;
+    updateRenderViewExposureState();
+}
+
+// A hotkey's step of $delta on gamma or exposure: the field and the editor change, the ranges widen to suit (gamma
+// can't go below its range); the slider is left to its own callback.
+global proc incrementDynamicPropertyField(string $editorName, string $property, string $fieldName, float $delta)
+{
+    global float $gRvGammaMinRange;
+    global float $gRvGammaMaxRange;
+    global float $gRvExposureMinRange;
+    global float $gRvExposureMaxRange;
+
+    if (!`floatField -exists $fieldName`)
+        return;
+    float $value = `floatField -query -value $fieldName` + $delta;
+    if ($property == "exposure") {
+        $gRvExposureMinRange = min($gRvExposureMinRange, $value);
+        $gRvExposureMaxRange = max($gRvExposureMaxRange, $value);
+    } else if ($property == "gamma") {
+        $gRvGammaMaxRange = max($gRvGammaMaxRange, $value);
+        $value = clamp($gRvGammaMinRange, $gRvGammaMaxRange, $value);
+    }
+    floatField -edit -value $value $fieldName;
+    eval("renderWindowEditor -edit -" + $property + " " + $value + " " + $editorName);
+}

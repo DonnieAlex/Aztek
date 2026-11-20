@@ -11,9 +11,7 @@ global int $gNodeEditorWindowPanelsDeleteScriptJobs[];
 // The node editor control inside a node editor panel.
 proc string nodeEditorWindowEditorOf(string $panel)
 {
-    if (`exists editorNameFromPanel`)
-        return `eval ("editorNameFromPanel \"" + $panel + "\"")`;
-    return ($panel + "NodeEditorEd");
+    return editorNameFromPanel($panel);
 }
 
 // The window an editor lives in: panel P's editor is PNodeEditorEd and its window PWindow.

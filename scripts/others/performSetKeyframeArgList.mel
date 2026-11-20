@@ -17,15 +17,6 @@ proc performSetKeyframeArgList_options(int $force)
         -iv keyShapes 1;
 }
 
-// What doSetKeyframeArgList does, as far as Aztek's setKeyframe goes, for when Aztek has no global
-// doSetKeyframeArgList: keys on the selection at the current time, below it too when asked, with control points and
-// shapes as chosen. Prompting for a time, IK/FK and full body IK keys, the selection connection, layer zero keys and
-// keeping the curve's shape are not done here.
-proc performSetKeyframeArgList_key(int $hierarchy, int $controlPoints, int $shapes)
-{
-    setKeyframe -hi ($hierarchy ? "below" : "none") -cp $controlPoints -s $shapes;
-}
-
 global proc string performSetKeyframeArgList(string $version, string $args[])
 {
     int $ver = $version;
@@ -48,12 +39,8 @@ global proc string performSetKeyframeArgList(string $version, string $args[])
         `optionVar -q keySetPreserveCurveShape`};
     string $cmd = "doSetKeyframeArgList 7 { \"" + stringArrayToString($values, "\",\"") + "\" };";
 
-    if ($action == 0 || $action == 3) {
-        if (`exists doSetKeyframeArgList`)
-            eval $cmd;
-        else
-            performSetKeyframeArgList_key(`optionVar -q keyHierarchy`, `optionVar -q keyControlPoints`, `optionVar -q keyShapes`);
-    }
+    if ($action == 0 || $action == 3)
+        eval $cmd;
     return $cmd;
 }
 

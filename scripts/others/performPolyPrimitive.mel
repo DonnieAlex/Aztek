@@ -1,0 +1,676 @@
+// performPolyPrimitive: Create > Polygon Primitives, made at once with the saved settings or through an interactive
+// creation tool (the createPolyPrimitiveAsTool preference), or their command handed back, or each one's option box.
+// $op names the primitive: Sphere, Cube, Cone, Cylinder, Plane, Torus, Axis, Prism, Pyramid, Pipe, Helix,
+// PlatonicSolid, or Misc for the soccer ball. Every setting is an optionVar named polyPrimitive<op><setting>, and the
+// option box control showing it carries the same name.
+
+// The solid the Platonic Solid or Soccer Ball box is editing, and the edge length to radius ratio of each kind, so that
+// changing one of the two sizes can update the other.
+global string $gPlatonicSolidName = "polyPrimitivePlatonicSolid";
+global string $gPlatonicSolidType = "Dodecahedron";
+global float $gSoccerBallRatio = 0.4036;
+global float $gDodecahedronRatio = 0.7137;
+global float $gIcosahedronRatio = 1.0515;
+global float $gOctahedronRatio = 1.4143;
+global float $gTetrahedronRatio = 1.7321;
+
+// Each primitive's settings: name suffix, kind of control (f float slider, i int slider, c check box, r radio group,
+// m option menu, t text field), default. Listed in the order the option box shows them.
+proc string[] polyPrimitiveSettings(string $op)
+{
+    string $s[];
+    if ($op == "Sphere")
+        $s = {"Radius f 1.0", "SX i 20", "SY i 20", "Axis r 2", "CreateUVs c 1", "UVType r 2"};
+    else if ($op == "Cube")
+        $s = {"Width f 1.0", "Height f 1.0", "Depth f 1.0", "SX i 1", "SY i 1", "SZ i 1", "Axis r 2",
+            "CreateUVs c 1", "Normalize c 1", "NormalizeType r 1", "PreserveAspectRatio c 1"};
+    else if ($op == "Cone")
+        $s = {"Radius f 1.0", "Height f 2.0", "SX i 20", "SY i 1", "SZ i 0", "RoundCap c 0", "Axis r 2",
+            "CreateUVs c 1", "Normalize c 1", "PreserveAspectRatio c 1"};
+    else if ($op == "Cylinder")
+        $s = {"Radius f 1.0", "Height f 2.0", "SX i 20", "SY i 1", "SZ i 1", "RoundCap c 0", "Axis r 2",
+            "CreateUVs c 1", "Normalize c 1", "PreserveAspectRatio c 1"};
+    else if ($op == "Plane")
+        $s = {"Width f 1.0", "Height f 1.0", "SX i 10", "SY i 10", "Axis r 2", "CreateUVs c 1",
+            "PreserveAspectRatio c 1"};
+    else if ($op == "Torus")
+        $s = {"Radius f 1.0", "SectionRadius f 0.5", "Twist f 0.0", "SX i 20", "SY i 20", "Axis r 2",
+            "CreateUVs c 1"};
+    else if ($op == "Axis")
+        $s = {"FrameType m 0", "Scale f 1.0", "LengthX f 1.0", "LengthY f 1.0", "LengthZ f 1.0", "RightHanded c 1",
+            "Radius f 0.05", "SX i 10", "ArrowType m 2", "MaterialTemplate t polyAxisMaterialTemplate", "Axis r 2"};
+    else if ($op == "Prism")
+        $s = {"Length f 2.0", "SideLength f 1.0", "NS i 3", "SH i 1", "SC i 0", "Axis r 2", "CreateUVs c 1",
+            "Normalize c 1", "PreserveAspectRatio c 1"};
+    else if ($op == "Pyramid")
+        $s = {"SideLength f 1.0", "NS r 2", "SH i 1", "SC i 0", "Axis r 2", "CreateUVs c 1", "Normalize c 1",
+            "PreserveAspectRatio c 1"};
+    else if ($op == "Pipe")
+        $s = {"Radius f 1.0", "Height f 2.0", "Thickness f 0.5", "SA i 20", "SH i 1", "SC i 0", "RoundCap c 0",
+            "Axis r 2", "CreateUVs c 1"};
+    else if ($op == "Helix")
+        $s = {"Coils f 3", "Height f 2.0", "Width f 2.0", "Radius f 0.4", "SA i 8", "SCO i 50", "SC i 0",
+            "RoundCap c 0", "Direction m 1", "Axis r 2", "CreateUVs c 1", "Normalize c 1",
+            "PreserveAspectRatio c 1"};
+    else if ($op == "PlatonicSolid")
+        $s = {"Radius f 1.0", "SideLength f 0.7137", "Axis r 2", "SolidType m 0", "CreateUVs c 1", "Normalize c 1",
+            "NormalizeType r 1", "PreserveAspectRatio c 1"};
+    else if ($op == "Misc")
+        $s = {"Radius f 1.0", "SideLength f 0.4036", "Axis r 2", "CreateUVs c 1", "Normalize c 1",
+            "NormalizeType r 1", "PreserveAspectRatio c 1"};
+    return $s;
+}
+
+proc string polyPrimitiveCategory(string $op)
+{
+    if ($op == "PlatonicSolid")
+        return "Create.Polygon Primitives.Platonic Solid";
+    if ($op == "Misc")
+        return "Create.Polygon Primitives.Soccer Ball";
+    return "Create.Polygon Primitives." + $op;
+}
+
+// Creates the primitive's settings when missing, or puts them back to their defaults when forced.
+proc polyPrimitiveInitOptions(string $op, int $force)
+{
+    string $cat = polyPrimitiveCategory($op);
+    string $settings[] = polyPrimitiveSettings($op);
+    for ($entry in $settings) {
+        string $w[];
+        tokenize $entry $w;
+        string $name = "polyPrimitive" + $op + $w[0];
+        if ($w[1] == "f")
+            optionVar -init $force -category $cat -floatValue $name ((float)$w[2]);
+        else if ($w[1] == "t")
+            optionVar -init $force -category $cat -stringValue $name $w[2];
+        else
+            optionVar -init $force -category $cat -intValue $name ((int)$w[2]);
+    }
+    // Kept for scripts that read it; nothing here uses it.
+    if ($op != "Helix" && $op != "Prism")
+        optionVar -init $force -category $cat -intValue ("polyPrimitive" + $op + "Texture") 1;
+}
+
+proc string polyPrimitiveOV(string $op, string $suffix)
+{
+    return `optionVar -query ("polyPrimitive" + $op + $suffix)`;
+}
+
+proc int polyPrimitiveIntOV(string $op, string $suffix)
+{
+    return `optionVar -query ("polyPrimitive" + $op + $suffix)`;
+}
+
+// " -f value" from the saved setting.
+proc string polyPrimitiveFlag(string $flag, string $op, string $suffix)
+{
+    return " " + $flag + " " + polyPrimitiveOV($op, $suffix);
+}
+
+proc string polyPrimitiveAxisFlag(string $op)
+{
+    int $axis = polyPrimitiveIntOV($op, "Axis");
+    if ($axis == 1)
+        return " -ax 1 0 0";
+    if ($axis == 2)
+        return " -ax 0 1 0";
+    if ($axis == 3)
+        return " -ax 0 0 1";
+    return "";
+}
+
+// $cmd with the UV flag the primitive's texture settings give.
+global proc string solidsCommand(string $cmd, string $op)
+{
+    int $n;
+    if (!polyPrimitiveIntOV($op, "CreateUVs")) {
+        $n = 0;
+    } else if ($op == "Plane") {
+        $n = polyPrimitiveIntOV($op, "PreserveAspectRatio") ? 2 : 1;
+    } else if ($op == "Cone" || $op == "Cylinder" || $op == "Pyramid" || $op == "Prism" || $op == "Helix") {
+        if (!polyPrimitiveIntOV($op, "Normalize"))
+            $n = 1;
+        else
+            $n = polyPrimitiveIntOV($op, "PreserveAspectRatio") ? 3 : 2;
+    } else {
+        if (!polyPrimitiveIntOV($op, "Normalize"))
+            $n = 1;
+        else if (polyPrimitiveIntOV($op, "NormalizeType") == 1)
+            $n = polyPrimitiveIntOV($op, "PreserveAspectRatio") ? 4 : 3;
+        else
+            $n = 2;
+    }
+    return $cmd + " -cuv " + $n;
+}
+
+// The command that makes the primitive with its saved settings.
+proc string polyPrimitiveActionCommand(string $op)
+{
+    polyPrimitiveInitOptions($op, 0);
+    string $base = "poly" + $op;
+    if ($op == "PlatonicSolid")
+        $base = "polyPlatonicSolid";
+    else if ($op == "Misc")
+        $base = "polyPrimitive";
+    string $c = $base;
+    if ($op == "Sphere") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-sx", $op, "SX")
+            + polyPrimitiveFlag("-sy", $op, "SY") + polyPrimitiveAxisFlag($op);
+        $c += " -cuv " + (polyPrimitiveIntOV($op, "CreateUVs") ? polyPrimitiveOV($op, "UVType") : "0");
+    } else if ($op == "Cube") {
+        $c += polyPrimitiveFlag("-w", $op, "Width") + polyPrimitiveFlag("-h", $op, "Height")
+            + polyPrimitiveFlag("-d", $op, "Depth") + polyPrimitiveFlag("-sx", $op, "SX")
+            + polyPrimitiveFlag("-sy", $op, "SY") + polyPrimitiveFlag("-sz", $op, "SZ") + polyPrimitiveAxisFlag($op);
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Cone" || $op == "Cylinder") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-h", $op, "Height")
+            + polyPrimitiveFlag("-sx", $op, "SX") + polyPrimitiveFlag("-sy", $op, "SY")
+            + polyPrimitiveFlag("-sz", $op, "SZ") + polyPrimitiveAxisFlag($op)
+            + polyPrimitiveFlag("-rcp", $op, "RoundCap");
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Plane") {
+        $c += polyPrimitiveFlag("-w", $op, "Width") + polyPrimitiveFlag("-h", $op, "Height")
+            + polyPrimitiveFlag("-sx", $op, "SX") + polyPrimitiveFlag("-sy", $op, "SY") + polyPrimitiveAxisFlag($op);
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Torus") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-sr", $op, "SectionRadius")
+            + polyPrimitiveFlag("-tw", $op, "Twist") + polyPrimitiveFlag("-sx", $op, "SX")
+            + polyPrimitiveFlag("-sy", $op, "SY") + polyPrimitiveAxisFlag($op)
+            + polyPrimitiveFlag("-cuv", $op, "CreateUVs");
+    } else if ($op == "Axis") {
+        $c += polyPrimitiveFlag("-ftp", $op, "FrameType") + polyPrimitiveFlag("-arw", $op, "ArrowType")
+            + polyPrimitiveFlag("-sca", $op, "Scale") + polyPrimitiveFlag("-r", $op, "Radius")
+            + polyPrimitiveFlag("-lx", $op, "LengthX") + polyPrimitiveFlag("-ly", $op, "LengthY")
+            + polyPrimitiveFlag("-lz", $op, "LengthZ") + polyPrimitiveFlag("-sa", $op, "SX")
+            + polyPrimitiveAxisFlag($op) + polyPrimitiveFlag("-rhd", $op, "RightHanded")
+            + " -mt \"" + polyPrimitiveOV($op, "MaterialTemplate") + "\"";
+    } else if ($op == "Prism") {
+        $c += polyPrimitiveFlag("-l", $op, "Length") + polyPrimitiveFlag("-w", $op, "SideLength")
+            + polyPrimitiveFlag("-ns", $op, "NS") + polyPrimitiveFlag("-sh", $op, "SH")
+            + polyPrimitiveFlag("-sc", $op, "SC") + polyPrimitiveAxisFlag($op);
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Pyramid") {
+        $c += polyPrimitiveFlag("-w", $op, "SideLength");
+        // The stored value is the button picked: 3, 4 or 5 sides.
+        int $ns = polyPrimitiveIntOV($op, "NS");
+        if ($ns >= 1 && $ns <= 3)
+            $c += " -ns " + ($ns + 2);
+        $c += polyPrimitiveFlag("-sh", $op, "SH") + polyPrimitiveFlag("-sc", $op, "SC") + polyPrimitiveAxisFlag($op);
+        $c = solidsCommand($c, $op);
+    } else if ($op == "PlatonicSolid") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-l", $op, "SideLength")
+            + polyPrimitiveAxisFlag($op) + " -st " + polyPrimitiveOV($op, "SolidType") + " ";
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Pipe") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-h", $op, "Height")
+            + polyPrimitiveFlag("-t", $op, "Thickness") + polyPrimitiveFlag("-sa", $op, "SA")
+            + polyPrimitiveFlag("-sh", $op, "SH") + polyPrimitiveFlag("-sc", $op, "SC") + polyPrimitiveAxisFlag($op)
+            + polyPrimitiveFlag("-cuv", $op, "CreateUVs") + polyPrimitiveFlag("-rcp", $op, "RoundCap");
+    } else if ($op == "Helix") {
+        $c += polyPrimitiveFlag("-c", $op, "Coils") + polyPrimitiveFlag("-h", $op, "Height")
+            + polyPrimitiveFlag("-w", $op, "Width") + polyPrimitiveFlag("-r", $op, "Radius")
+            + polyPrimitiveFlag("-sa", $op, "SA") + polyPrimitiveFlag("-sco", $op, "SCO")
+            + polyPrimitiveFlag("-sc", $op, "SC") + polyPrimitiveFlag("-d", $op, "Direction")
+            + polyPrimitiveAxisFlag($op) + polyPrimitiveFlag("-rcp", $op, "RoundCap");
+        $c = solidsCommand($c, $op);
+    } else if ($op == "Misc") {
+        $c += polyPrimitiveFlag("-r", $op, "Radius") + polyPrimitiveFlag("-l", $op, "SideLength")
+            + polyPrimitiveAxisFlag($op) + " -pt 0 ";
+        $c = solidsCommand($c, $op);
+    }
+    return $c + " -ch " + `constructionHistory`;
+}
+
+// The creation tool's context for the primitive. Aztek has creation tools for the cube and plane only so far; their
+// contexts are made here when missing.
+proc string polyPrimitiveToolContext(string $op)
+{
+    string $ctx = "CreatePoly" + $op + "Ctx";
+    if ($op == "Misc")
+        $ctx = "CreatePolySoccerBallCtx";
+    string $maker = "createPoly" + ($op == "Misc" ? "SoccerBall" : $op) + "Ctx";
+    if (!`contextInfo -exists $ctx` && `exists $maker`)
+        eval ($maker + " " + $ctx);
+    return $ctx;
+}
+
+// The command with the saved settings: the primitive made at once, or, with the preference set, its creation tool.
+proc string polyPrimitiveCommand(string $op)
+{
+    string $cmd = polyPrimitiveActionCommand($op);
+    if (!`optionVar -query createPolyPrimitiveAsTool`)
+        return $cmd;
+    string $tools[] = {"Sphere", "Cube", "Cone", "Cylinder", "Plane", "Torus", "Prism", "Pyramid", "PlatonicSolid",
+        "Pipe", "Helix", "Misc"};
+    if (stringArrayContains($op, $tools))
+        return "setToolTo " + polyPrimitiveToolContext($op);
+    return "createPrimitiveToolWithIcon(\"" + $cmd + "\", \"vacantCell.png\"); setToolTo createPrimitiveContext";
+}
+
+// What Aztek runs for the reference's command. Its polyPlatonicSolid and polyPrimitive take the edge length as
+// -sideLength, not -l.
+proc string polyPrimitiveRunnable(string $op, string $cmd)
+{
+    if ($op == "PlatonicSolid" || $op == "Misc")
+        return substituteAllString($cmd, " -l ", " -sideLength ");
+    return $cmd;
+}
+
+proc polyPrimitiveRun(string $op, string $cmd)
+{
+    if ($op == "Axis" && !`exists polyAxis` && !`optionVar -query createPolyPrimitiveAsTool`) {
+        warning "Aztek can't make a polygon axis yet: polyAxis is missing.";
+        return;
+    }
+    evalEcho (polyPrimitiveRunnable($op, $cmd));
+}
+
+// $option: 0 makes the primitive (or enters its tool) and returns the command, 1 opens the option box (in tool mode it
+// enters the tool, opens the tool settings and returns the command), anything else returns the command.
+global proc string performPolyPrimitive(string $op, int $option)
+{
+    int $asTool = `optionVar -query createPolyPrimitiveAsTool`;
+    if ($option == 0) {
+        polyPrimitiveInitOptions($op, 0);
+        string $cmd = polyPrimitiveCommand($op);
+        if ($asTool) {
+            polyPrimitiveRun($op, $cmd);
+        } else {
+            // Made with the select tool current, then the tool the user had is put back.
+            string $was = `currentCtx`;
+            setToolTo selectSuperContext;
+            polyPrimitiveRun($op, $cmd);
+            if (`exists setupNewMesh`)
+                eval "setupNewMesh";
+            if (`exists objectMoveCommand`)
+                eval "objectMoveCommand";
+            if (`contextInfo -exists $was`)
+                setToolTo $was;
+        }
+        return $cmd;
+    }
+    if ($option == 1) {
+        if (!$asTool) {
+            polyPrimitiveOptionBox($op);
+            return "";
+        }
+        polyPrimitiveRun($op, polyPrimitiveCommand($op));
+        toolPropertyWindow;
+    }
+    polyPrimitiveInitOptions($op, 0);
+    string $cmd = polyPrimitiveCommand($op);
+    if (!$asTool && `exists objectMoveCommand`)
+        $cmd += "; objectMoveCommand;";
+    return $cmd;
+}
+
+// Which solid the Platonic Solid box is set to; the soccer ball box is always the soccer ball.
+global proc updatePlatonicSolidType()
+{
+    global string $gPlatonicSolidName;
+    global string $gPlatonicSolidType;
+    if ($gPlatonicSolidName == "polyPrimitiveMisc") {
+        $gPlatonicSolidType = "SoccerBall";
+        return;
+    }
+    string $types[] = {"Dodecahedron", "Icosahedron", "Octahedron", "Tetrahedron"};
+    int $item = `optionMenuGrp -query -select ($gPlatonicSolidName + "SolidType")`;
+    if ($item >= 1 && $item <= 4)
+        $gPlatonicSolidType = $types[$item - 1];
+}
+
+proc float polyPrimitiveSolidRatio()
+{
+    global string $gPlatonicSolidType;
+    global float $gSoccerBallRatio;
+    global float $gDodecahedronRatio;
+    global float $gIcosahedronRatio;
+    global float $gOctahedronRatio;
+    global float $gTetrahedronRatio;
+    if ($gPlatonicSolidType == "SoccerBall")
+        return $gSoccerBallRatio;
+    if ($gPlatonicSolidType == "Icosahedron")
+        return $gIcosahedronRatio;
+    if ($gPlatonicSolidType == "Octahedron")
+        return $gOctahedronRatio;
+    if ($gPlatonicSolidType == "Tetrahedron")
+        return $gTetrahedronRatio;
+    return $gDodecahedronRatio;
+}
+
+// Radius and edge length follow each other. Both are saved straight away, without Save, as the reference does.
+global proc setRadiusCallback(float $radius)
+{
+    global string $gPlatonicSolidName;
+    updatePlatonicSolidType();
+    float $edge = $radius * polyPrimitiveSolidRatio();
+    optionVar -floatValue ($gPlatonicSolidName + "SideLength") $edge;
+    floatSliderGrp -edit -value $edge ($gPlatonicSolidName + "SideLength");
+}
+
+global proc setEdgeCallback(float $length)
+{
+    global string $gPlatonicSolidName;
+    updatePlatonicSolidType();
+    float $radius = $length / polyPrimitiveSolidRatio();
+    optionVar -floatValue ($gPlatonicSolidName + "Radius") $radius;
+    floatSliderGrp -edit -value $radius ($gPlatonicSolidName + "Radius");
+}
+
+// A new kind of solid keeps its radius; the edge length is worked out again.
+global proc selectSolidType()
+{
+    updatePlatonicSolidType();
+    setRadiusCallback(`floatSliderGrp -query -value polyPrimitivePlatonicSolidRadius`);
+}
+
+// The axis frame's settings that its type uses: radius for axes and locators, divisions and arrows for axes only.
+global proc polyAxisEnable()
+{
+    int $type = `optionMenuGrp -query -select polyPrimitiveAxisFrameType` - 1;
+    floatSliderGrp -edit -enable ($type == 0 || $type == 2) polyPrimitiveAxisRadius;
+    intSliderGrp -edit -enable ($type == 0) polyPrimitiveAxisSX;
+    optionMenuGrp -edit -enable ($type == 0) polyPrimitiveAxisArrowType;
+}
+
+global proc sphereUVCallBack()
+{
+    radioButtonGrp -edit -enable `checkBoxGrp -query -value1 polyPrimitiveSphereCreateUVs` polyPrimitiveSphereUVType;
+}
+
+proc int polyPrimitiveSimpleNormalize(string $op)
+{
+    return $op == "Cone" || $op == "Pyramid" || $op == "Cylinder" || $op == "Prism" || $op == "Helix";
+}
+
+// Preserve aspect ratio applies to collective normalising only.
+proc polyPrimitiveAspectFromType(string $op)
+{
+    string $p = "polyPrimitive" + $op;
+    int $collective = `radioButtonGrp -query -select ($p + "NormalizeType")` == 1;
+    checkBoxGrp -edit -enable $collective -value1 $collective ($p + "PreserveAspectRatio");
+}
+
+global proc solidsUVCallBack(string $op)
+{
+    string $p = "polyPrimitive" + $op;
+    int $on = `checkBoxGrp -query -value1 ($p + "CreateUVs")`;
+    if ($op == "Plane") {
+        checkBoxGrp -edit -enable $on -value1 $on ($p + "PreserveAspectRatio");
+    } else if (polyPrimitiveSimpleNormalize($op)) {
+        checkBoxGrp -edit -enable $on -value1 $on ($p + "Normalize");
+        checkBoxGrp -edit -enable $on -value1 $on ($p + "PreserveAspectRatio");
+    } else {
+        checkBoxGrp -edit -enable $on -value1 $on ($p + "Normalize");
+        radioButtonGrp -edit -enable $on ($p + "NormalizeType");
+        if ($on)
+            polyPrimitiveAspectFromType($op);
+        else
+            checkBoxGrp -edit -enable false -value1 false ($p + "PreserveAspectRatio");
+    }
+}
+
+global proc solidNormalizeCallBack(string $op)
+{
+    string $p = "polyPrimitive" + $op;
+    int $on = `checkBoxGrp -query -value1 ($p + "Normalize")`;
+    if (polyPrimitiveSimpleNormalize($op)) {
+        checkBoxGrp -edit -enable $on -value1 $on ($p + "PreserveAspectRatio");
+    } else {
+        radioButtonGrp -edit -enable $on ($p + "NormalizeType");
+        if ($on)
+            polyPrimitiveAspectFromType($op);
+        else
+            checkBoxGrp -edit -enable false -value1 false ($p + "PreserveAspectRatio");
+    }
+}
+
+global proc solidNormalizeTypeCallBack(string $op)
+{
+    polyPrimitiveAspectFromType($op);
+}
+
+// Shows the saved settings in the option box; forced, puts the defaults back first. The enable states of the texture
+// settings aren't brought in line here, as the reference's aren't.
+global proc performPolyPrimitiveSetup(string $op, string $parentLayout, int $forceFactorySettings)
+{
+    global string $gPlatonicSolidName;
+    global string $gPlatonicSolidType;
+    polyPrimitiveInitOptions($op, $forceFactorySettings);
+    setParent $parentLayout;
+    int $solid = $op == "PlatonicSolid" || $op == "Misc";
+    string $settings[] = polyPrimitiveSettings($op);
+    for ($entry in $settings) {
+        string $w[];
+        tokenize $entry $w;
+        string $name = "polyPrimitive" + $op + $w[0];
+        string $kind = $w[1];
+        if ($kind == "f") {
+            floatSliderGrp -edit -value `optionVar -query $name` $name;
+        } else if ($kind == "i") {
+            intSliderGrp -edit -value `optionVar -query $name` $name;
+        } else if ($kind == "c") {
+            checkBoxGrp -edit -value1 `optionVar -query $name` $name;
+        } else if ($kind == "m") {
+            optionMenuGrp -edit -select (`optionVar -query $name` + 1) $name;
+        } else if ($kind == "t") {
+            textFieldGrp -edit -text `optionVar -query $name` $name;
+        } else if ($op == "Pyramid" && $w[0] == "NS") {
+            // As the reference: a stored 3 shows the first button, 5 the third, anything else the second. Save stores
+            // the button number, so after a save this shows 4 sides unless 3 sides were picked.
+            int $ns = `optionVar -query $name`;
+            radioButtonGrp -edit -select ($ns == 3 ? 1 : ($ns == 5 ? 3 : 2)) $name;
+        } else {
+            radioButtonGrp -edit -select `optionVar -query $name` $name;
+        }
+        // The solid's sizes follow each other once the box knows which solid it is.
+        if ($solid && $w[0] == "SideLength") {
+            $gPlatonicSolidName = "polyPrimitive" + $op;
+            $gPlatonicSolidType = $op;
+            updatePlatonicSolidType();
+            string $radius = $gPlatonicSolidName + "Radius";
+            string $side = $gPlatonicSolidName + "SideLength";
+            floatSliderGrp -edit -dragCommand "setRadiusCallback #1" -changeCommand "setRadiusCallback #1" $radius;
+            floatSliderGrp -edit -dragCommand "setEdgeCallback #1" -changeCommand "setEdgeCallback #1" $side;
+        }
+    }
+    if ($op == "Sphere" && $forceFactorySettings)
+        radioButtonGrp -edit -enable true polyPrimitiveSphereUVType;
+    if ($op == "Axis")
+        polyAxisEnable();
+}
+
+// Saves the option box's settings and, with $doIt, makes the primitive.
+global proc performPolyPrimitiveCallback(string $op, string $parentLayout, int $doIt)
+{
+    setParent $parentLayout;
+    string $settings[] = polyPrimitiveSettings($op);
+    for ($entry in $settings) {
+        string $w[];
+        tokenize $entry $w;
+        string $name = "polyPrimitive" + $op + $w[0];
+        string $kind = $w[1];
+        if ($kind == "f")
+            optionVar -floatValue $name `floatSliderGrp -query -value $name`;
+        else if ($kind == "i")
+            optionVar -intValue $name `intSliderGrp -query -value $name`;
+        else if ($kind == "c")
+            optionVar -intValue $name `checkBoxGrp -query -value1 $name`;
+        else if ($kind == "r")
+            optionVar -intValue $name `radioButtonGrp -query -select $name`;
+        else if ($kind == "m")
+            optionVar -intValue $name (`optionMenuGrp -query -select $name` - 1);
+        else if ($kind == "t")
+            optionVar -stringValue $name `textFieldGrp -query -text $name`;
+    }
+    if ($doIt) {
+        performPolyPrimitive($op, 0);
+        addToRecentCommandQueue("performPolyPrimitive \"" + $op + "\" 0", "PolyPrimitive");
+    }
+}
+
+// The label of a divisions slider, from its role in the primitive.
+proc string polyPrimitiveDivisionsLabel(string $op, string $suffix)
+{
+    if ($suffix == "SX" && ($op == "Plane" || $op == "Cube"))
+        return "Width divisions";
+    if ($suffix == "NS")
+        return "Number of sides";
+    if ($suffix == "SX" || $suffix == "SA")
+        return "Axis divisions";
+    if ($suffix == "SCO")
+        return "Coil divisions";
+    if ($suffix == "SY" || $suffix == "SH")
+        return "Height divisions";
+    if ($suffix == "SZ" && $op == "Cube")
+        return "Depth divisions";
+    if ($suffix == "SC" && $op == "Helix")
+        return "End cap divisions";
+    return "Cap divisions";
+}
+
+// Slider and field ranges of a divisions slider: slider min, slider max, field min, field max.
+proc int[] polyPrimitiveDivisionsRange(string $op, string $suffix)
+{
+    if ($op == "Sphere")
+        return {3, 50, 3, 1000};
+    if ($suffix == "SCO")
+        return {50, 500, 2, 1000};
+    if ($suffix == "SC" || ($suffix == "SZ" && ($op == "Cone" || $op == "Cylinder")))
+        return {0, 50, 0, 1000};
+    if ($op == "Plane")
+        return {1, 50, 1, 2048};
+    if ($op == "Torus")
+        return {3, 50, 1, 1000};
+    if ($op == "Cube" || $suffix == "SY" || $suffix == "SH")
+        return {1, 50, 1, 1000};
+    return {3, 50, 3, 1000};
+}
+
+proc string polyPrimitiveFloatLabel(string $suffix)
+{
+    string $labels[] = {"Radius", "Radius", "Width", "Width", "Height", "Height", "Depth", "Depth",
+        "SectionRadius", "Section radius", "Twist", "Twist", "Scale", "Scale", "LengthX", "Length X",
+        "LengthY", "Length Y", "LengthZ", "Length Z", "Length", "Length", "SideLength", "Side length",
+        "Thickness", "Thickness", "Coils", "Coils"};
+    for ($i = 0; $i < size($labels); $i += 2) {
+        if ($labels[$i] == $suffix)
+            return $labels[$i + 1];
+    }
+    return $suffix;
+}
+
+// One control of the option box, named as its optionVar.
+proc polyPrimitiveControl(string $op, string $suffix, string $kind)
+{
+    string $name = "polyPrimitive" + $op + $suffix;
+    if ($kind == "f") {
+        if ($suffix == "Twist")
+            floatSliderGrp -label "Twist" -field true -minValue 0 -maxValue 360 -fieldMinValue 0 -fieldMaxValue 360
+                $name;
+        else
+            floatSliderGrp -label (polyPrimitiveFloatLabel($suffix)) -field true -minValue 0 -maxValue 10
+                -fieldMinValue 0 -fieldMaxValue 1000000000 $name;
+    } else if ($kind == "i") {
+        int $r[] = polyPrimitiveDivisionsRange($op, $suffix);
+        intSliderGrp -label (polyPrimitiveDivisionsLabel($op, $suffix)) -field true -minValue $r[0] -maxValue $r[1]
+            -fieldMinValue $r[2] -fieldMaxValue $r[3] $name;
+    } else if ($suffix == "Axis") {
+        radioButtonGrp -numberOfRadioButtons 3 -label "Axis" -labelArray3 "X" "Y" "Z" $name;
+    } else if ($suffix == "CreateUVs") {
+        string $cb = "";
+        if ($op == "Sphere")
+            $cb = "sphereUVCallBack";
+        else if ($op != "Torus" && $op != "Pipe")
+            $cb = "solidsUVCallBack " + $op;
+        if ($cb != "")
+            checkBoxGrp -numberOfCheckBoxes 1 -label "Texture mapping" -label1 "Create UVs" -changeCommand $cb $name;
+        else
+            checkBoxGrp -numberOfCheckBoxes 1 -label "Texture mapping" -label1 "Create UVs" $name;
+    } else if ($suffix == "Normalize") {
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Normalize"
+            -changeCommand ("solidNormalizeCallBack " + $op) $name;
+    } else if ($suffix == "PreserveAspectRatio") {
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Preserve aspect ratio" $name;
+    } else if ($suffix == "NormalizeType") {
+        radioButtonGrp -numberOfRadioButtons 2 -vertical -label "" -labelArray2 "Collectively" "Each face separately"
+            -changeCommand ("solidNormalizeTypeCallBack " + $op) $name;
+    } else if ($suffix == "UVType") {
+        radioButtonGrp -numberOfRadioButtons 2 -vertical -label "" -labelArray2 "Pinched at poles"
+            "Sawtooth at poles" $name;
+    } else if ($suffix == "RoundCap") {
+        // A round cap needs cap divisions to round.
+        string $cmd;
+        if ($op == "Pipe")
+            $cmd = "if (`intSliderGrp -q -v polyPrimitivePipeSC` < 2) intSliderGrp -e -v 2 polyPrimitivePipeSC";
+        else {
+            string $caps = "polyPrimitive" + $op + ($op == "Helix" ? "SC" : "SZ");
+            $cmd = "if (`intSliderGrp -q -v " + $caps + "` == 0) intSliderGrp -e -v 1 " + $caps;
+        }
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Round cap" -onCommand1 $cmd $name;
+    } else if ($suffix == "RightHanded") {
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Right handed" $name;
+    } else if ($suffix == "NS") {
+        radioButtonGrp -numberOfRadioButtons 3 -label "Number of sides in base" -labelArray3 "3" "4" "5" $name;
+    } else if ($suffix == "FrameType") {
+        optionMenuGrp -label "Frame type" -changeCommand "polyAxisEnable" $name;
+            menuItem -label "Coordinate axes";
+            menuItem -label "Wedge";
+            menuItem -label "Locator";
+    } else if ($suffix == "ArrowType") {
+        optionMenuGrp -label "Arrow type" $name;
+            menuItem -label "None";
+            menuItem -label "Rounded";
+            menuItem -label "Cone";
+    } else if ($suffix == "SolidType") {
+        optionMenuGrp -label "Type" -changeCommand "selectSolidType" $name;
+            menuItem -label "Dodecahedron";
+            menuItem -label "Icosahedron";
+            menuItem -label "Octahedron";
+            menuItem -label "Tetrahedron";
+    } else if ($suffix == "Direction") {
+        optionMenuGrp -label "Direction" $name;
+            menuItem -label "Clockwise";
+            menuItem -label "Counterclockwise";
+    } else if ($suffix == "MaterialTemplate") {
+        textFieldGrp -label "Material template" $name;
+    }
+}
+
+proc polyPrimitiveOptionBox(string $op)
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+    string $parent = `columnLayout -adjustableColumn true`;
+    string $settings[] = polyPrimitiveSettings($op);
+    for ($entry in $settings) {
+        string $w[];
+        tokenize $entry $w;
+        polyPrimitiveControl($op, $w[0], $w[1]);
+    }
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Create" -command ("performPolyPrimitiveCallback " + $op + " " + $parent + " 1")
+        (getOptionBoxApplyBtn());
+    button -edit -command ("performPolyPrimitiveCallback " + $op + " " + $parent + " 0; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("performPolyPrimitiveSetup " + $op + " " + $parent + " 1") (getOptionBoxResetBtn());
+
+    string $titles[] = {"Sphere", "Sphere", "Cube", "Cube", "Cone", "Cone", "Cylinder", "Cylinder", "Plane", "Plane",
+        "Torus", "Torus", "Axis", "Axis", "Prism", "Prism", "Pyramid", "Pyramid", "Pipe", "Pipe",
+        "PlatonicSolid", "Platonic Solid", "Helix", "Helix", "Misc", "Soccer Ball"};
+    for ($i = 0; $i < size($titles); $i += 2) {
+        if ($titles[$i] == $op) {
+            setOptionBoxTitle("Polygon " + $titles[$i + 1] + " Options");
+            setOptionBoxHelpTag($op == "Misc" ? "PolyPrimitiveMisc" : "Poly" + $op);
+        }
+    }
+    performPolyPrimitiveSetup($op, $parent, 0);
+    showOptionBox();
+}

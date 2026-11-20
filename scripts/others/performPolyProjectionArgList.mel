@@ -1,0 +1,485 @@
+// performPolyProjectionArgList: UV > Planar, Cylindrical, Spherical and Contour mapping on polygon faces, run with the
+// saved settings, or the command handed back, or the option box, plus the tool that picks a contour projection's
+// corners. performPolyProjection forwards here. The settings live in optionVars named after the projection
+// (polyProjectionMappingDirectionPlanar and so on).
+
+// The projection's settings, created when missing or put back to their defaults when forced. Keep image ratio is a
+// planar setting only.
+proc polyProjectionInitOptions(string $p, int $force)
+{
+    string $cat = "UV Editor." + $p;
+    if ($p == "Planar")
+        optionVar -init $force -category $cat -iv ("polyProjectionSquareImage" + $p) 0;
+    optionVar -init $force -category $cat
+        -iv ("polyProjectionFitToBoxOrPlane" + $p) 2
+        -iv ("polyProjectionMappingDirection" + $p) 1
+        -iv ("polyProjectionInsertionPoint" + $p) 1
+        -iv ("polyProjectionCreateMap" + $p) 0
+        -sv ("polyProjectionUvSetName" + $p) "uvSet1"
+        -iv ("polyProjectionMethod" + $p) 1
+        -fv ("polyProjectionSmoothness0" + $p) 0
+        -fv ("polyProjectionSmoothness1" + $p) 0
+        -fv ("polyProjectionSmoothness2" + $p) 0
+        -fv ("polyProjectionSmoothness3" + $p) 0
+        -fv ("polyProjectionOffset0" + $p) 0
+        -fv ("polyProjectionOffset1" + $p) 0
+        -fv ("polyProjectionOffset2" + $p) 0
+        -fv ("polyProjectionOffset3" + $p) 0
+        -iv ("polyProjectionUserDefinedCorners" + $p) 0;
+}
+
+// The UV set a new set goes into, or "" when none is made.
+proc string polyProjectionNewSetName(string $p, int $forceCreate, string $uvSetName)
+{
+    if (!(`optionVar -query ("polyProjectionCreateMap" + $p)` || $forceCreate))
+        return "";
+    return $forceCreate ? $uvSetName : `optionVar -query ("polyProjectionUvSetName" + $p)`;
+}
+
+// The projection command with the saved settings, as the reference writes it. With $runnable, the flags Aztek's
+// polyProjection doesn't take yet (-ibd, -cm, -uvSetName, -sf, -kir) are left out; the new UV set is then made and made
+// current before the projection instead.
+proc string polyProjectionCommand(string $p, int $forceCreate, string $uvSetName, int $runnable)
+{
+    polyProjectionInitOptions($p, 0);
+    int $contour = $p == "Contour";
+    int $reduced = $runnable && !$contour;
+    string $cmd = $contour ? ("polyContourProjection -ch " + `constructionHistory`)
+        : ("polyProjection -ch " + `constructionHistory` + " -type " + $p);
+    if (!$reduced)
+        $cmd += `optionVar -query ("polyProjectionInsertionPoint" + $p)` ? " -ibd on" : " -ibd off";
+
+    string $set = polyProjectionNewSetName($p, $forceCreate, $uvSetName);
+    if ($set != "" && !$reduced)
+        $cmd += " -cm on -uvSetName " + $set;
+
+    if ($contour) {
+        $cmd += " -m " + (`optionVar -query ("polyProjectionMethod" + $p)` - 1);
+        for ($i = 0; $i < 4; $i++)
+            $cmd += " -s" + $i + " " + `optionVar -query ("polyProjectionSmoothness" + $i + $p)`;
+        for ($i = 0; $i < 4; $i++)
+            $cmd += " -o" + $i + " " + `optionVar -query ("polyProjectionOffset" + $i + $p)`;
+        // Corners are always off as the projection is made; the corner tool turns them on afterwards.
+        $cmd += " -udc off";
+        return $cmd;
+    }
+    if ($p == "Cylindrical" || $p == "Spherical") {
+        if (!$reduced)
+            $cmd += " -sf on ";
+        return $cmd;
+    }
+    if ($p == "Planar") {
+        if (`optionVar -query ("polyProjectionSquareImage" + $p)` && !$reduced)
+            $cmd += " -kir ";
+        int $fit = `optionVar -query ("polyProjectionFitToBoxOrPlane" + $p)`;
+        if ($fit == 1) {
+            $cmd += " -md b";
+        } else if ($fit == 2) {
+            int $dir = `optionVar -query ("polyProjectionMappingDirection" + $p)`;
+            if ($dir == 1)
+                $cmd += " -md x ";
+            else if ($dir == 2)
+                $cmd += " -md y ";
+            else if ($dir == 3)
+                $cmd += " -md z ";
+            else if ($dir == 4)
+                $cmd += " -md c ";
+        }
+    }
+    return $cmd;
+}
+
+// Makes the new UV set the current one on every mesh the faces belong to, for Aztek's polyProjection, which has no -cm.
+proc polyProjectionPrepareSet(string $set, string $targets[])
+{
+    string $done[];
+    for ($t in $targets) {
+        string $parts[];
+        tokenize $t "." $parts;
+        string $obj = $parts[0];
+        if (stringArrayContains($obj, $done))
+            continue;
+        $done[size($done)] = $obj;
+        string $sets[] = `polyUVSet -query -allUVSets $obj`;
+        if (!stringArrayContains($set, $sets))
+            polyUVSet -create -uvSet $set $obj;
+        polyUVSet -currentUVSet -uvSet $set $obj;
+    }
+}
+
+// The faces to project when the list given has none: polyCheckSelection's answer where there is one, else the
+// selection turned into faces and selected.
+proc string[] polyProjectionCheckSelection(string $p)
+{
+    string $result[];
+    if (`exists polyCheckSelection`) {
+        $result = eval ("polyCheckSelection \"poly" + $p + "Projection\" \"f\" 1");
+        return $result;
+    }
+    string $sel[] = `ls -sl`;
+    if (size($sel)) {
+        $result = `polyListComponentConversion -tf $sel`;
+        select -replace $result;
+    }
+    return $result;
+}
+
+// Puts the faces in a new set shaded with the default polygon texture. Returns the sets -e -fe command run, or "".
+proc string polyProjectionShade(string $targets[])
+{
+    global string $gPolyTextureColorShader;
+    string $made[] = `evalEcho "sets -n texturedFacets -em -r true -nss true"`;
+    string $set = size($made) ? $made[0] : "";
+    if ($set == "") {
+        warning "A new set for the textured faces could not be made.";
+        return "";
+    }
+    // Aztek has no partition command yet; the set is then left out of the render partition.
+    if (`exists partition`)
+        evalEcho ("partition -e -addSet renderPartition " + $set);
+    if ($gPolyTextureColorShader == "" || !`objExists $gPolyTextureColorShader`) {
+        string $tex = "defaultPolygonTexture";
+        if (!`objExists $tex`) {
+            string $texMade[] = `evalEcho "shadingNode -asTexture checker -n defaultPolygonTexture"`;
+            $tex = $texMade[0];
+        }
+        string $shaderMade[] = `evalEcho "shadingNode -asShader lambert -n defaultPolygonShader"`;
+        $gPolyTextureColorShader = $shaderMade[0];
+        evalEcho ("connectAttr " + $tex + ".outColor " + $gPolyTextureColorShader + ".color");
+        evalEcho ("select -deselect " + $tex + " " + $gPolyTextureColorShader);
+    }
+    if (`objExists $gPolyTextureColorShader`)
+        evalEcho ("connectAttr -f " + $gPolyTextureColorShader + ".outColor " + $set + ".surfaceShader");
+    else
+        warning "The default polygon shader could not be found or made.";
+
+    string $cmd = "sets -e -fe " + $set;
+    for ($t in $targets)
+        $cmd += " " + $t;
+    evalEcho $cmd;
+    return $cmd;
+}
+
+proc polyProjectionDeselectDependNodes()
+{
+    string $sel[] = `ls -sl`;
+    for ($s in $sel) {
+        if (`gmatch $s "*.*"`)
+            continue;
+        string $dag[] = `ls -dag $s`;
+        if (!size($dag))
+            select -deselect $s;
+    }
+}
+
+// Projects the faces. Returns the shading command when one ran, else "".
+proc string polyProjectionExecute(string $args[], string $uvSetName)
+{
+    global string $gPolyLastTool;
+    global string $polyProjectionRes[];
+
+    string $p = $args[1];
+    int $forceCreate = (int)$args[3];
+    string $listed[] = eval($args[2]);
+    string $targets[];
+    if (size($listed))
+        $targets = `filterExpand -expand false -selectionMask 34 $listed`;
+    if (!size($targets)) {
+        $targets = polyProjectionCheckSelection($p);
+        string $selFaces[] = `filterExpand -expand false -selectionMask 34`;
+        if (!size($selFaces)) {
+            warning -noContext "Select polygonal faces.";
+            return "";
+        }
+    }
+    if (!size($targets)) {
+        warning "Select faces to project.";
+        return "";
+    }
+
+    polyProjectionInitOptions($p, 0);
+    polyProjectionDeselectDependNodes();
+    string $total[] = `ls -sl`;
+
+    string $shadeCmd = "";
+    if (`optionVar -query polyCreateShaderWithMapping`)
+        $shadeCmd = polyProjectionShade($targets);
+
+    string $set = polyProjectionNewSetName($p, $forceCreate, $uvSetName);
+    if ($set != "" && $p != "Contour")
+        polyProjectionPrepareSet($set, $targets);
+    string $cmd = polyProjectionCommand($p, $forceCreate, $uvSetName, 1);
+    for ($t in $targets)
+        $cmd += " " + $t;
+    string $made[] = `evalEcho $cmd`;
+    appendStringArray($total, $made, size($made));
+
+    if (`optionVar -query ("polyProjectionCreateMap" + $p)` || $forceCreate) {
+        string $setCmd = "polyUVSet -luv";
+        for ($t in $targets)
+            $setCmd += " " + $t;
+        evalEcho $setCmd;
+    }
+
+    select -replace $total;
+    $gPolyLastTool = "";
+    setToolTo ShowManips;
+
+    if ($p == "Contour" && `optionVar -query polyProjectionUserDefinedCornersContour` && size($made)) {
+        $polyProjectionRes = $made;
+        polyContourProjTool();
+    }
+    return $shadeCmd;
+}
+
+// Turns a string array into the MEL literal a button command can carry.
+proc string polyProjectionArgsLiteral(string $args[])
+{
+    string $lit = "{";
+    for ($i = 0; $i < size($args); $i++)
+        $lit += ($i ? ", " : "") + "\"" + encodeString($args[$i]) + "\"";
+    return $lit + "}";
+}
+
+global proc enableMappingDirection()
+{
+    radioButtonGrp -edit -enable true polyProjectionMappingDirection;
+}
+
+global proc enableFitToBoxOrPlane()
+{
+    radioButtonGrp -edit -enable true polyProjectionFitToBoxOrPlane;
+}
+
+// Shows the saved settings; forced, puts the defaults back first. The direction row's enabled state is left as it is.
+global proc performPolyProjectionSetup(string $primitive, string $parentLayout, int $forceFactorySettings)
+{
+    string $p = $primitive;
+    polyProjectionInitOptions($p, $forceFactorySettings);
+    setParent $parentLayout;
+    checkBoxGrp -edit -value1 `optionVar -query ("polyProjectionInsertionPoint" + $p)` polyProjectionInsertionPoint;
+    if ($p == "Planar") {
+        radioButtonGrp -edit -select `optionVar -query ("polyProjectionFitToBoxOrPlane" + $p)`
+            polyProjectionFitToBoxOrPlane;
+        radioButtonGrp -edit -select `optionVar -query ("polyProjectionMappingDirection" + $p)`
+            polyProjectionMappingDirection;
+        checkBoxGrp -edit -value1 `optionVar -query ("polyProjectionSquareImage" + $p)` polyProjectionSquareImage;
+    } else if ($p == "Contour") {
+        radioButtonGrp -edit -select `optionVar -query ("polyProjectionMethod" + $p)` polyProjectionMethod;
+        for ($i = 0; $i < 4; $i++) {
+            floatFieldGrp -edit -value1 `optionVar -query ("polyProjectionSmoothness" + $i + $p)`
+                ("polyProjectionSmoothness" + $i);
+            floatFieldGrp -edit -value1 `optionVar -query ("polyProjectionOffset" + $i + $p)`
+                ("polyProjectionOffset" + $i);
+        }
+        checkBoxGrp -edit -value1 `optionVar -query ("polyProjectionUserDefinedCorners" + $p)`
+            polyProjectionUserDefinedCorners;
+    }
+    int $create = `optionVar -query ("polyProjectionCreateMap" + $p)`;
+    checkBoxGrp -edit -value1 $create polyProjectionCreateMap;
+    textFieldGrp -edit -enable ($create == 1) -text `optionVar -query ("polyProjectionUvSetName" + $p)`
+        polyProjectionUvSetName;
+}
+
+// Saves the box's settings and, with $doIt, projects.
+global proc performPolyProjectionCallback(string $primitive, string $args[], string $uvSetName, string $parentLayout,
+    int $doIt)
+{
+    string $p = $primitive;
+    setParent $parentLayout;
+    if ($p == "Planar") {
+        optionVar -intValue ("polyProjectionFitToBoxOrPlane" + $p)
+            `radioButtonGrp -query -select polyProjectionFitToBoxOrPlane`;
+        optionVar -intValue ("polyProjectionMappingDirection" + $p)
+            `radioButtonGrp -query -select polyProjectionMappingDirection`;
+    } else if ($p == "Contour") {
+        optionVar -intValue ("polyProjectionMethod" + $p) `radioButtonGrp -query -select polyProjectionMethod`;
+        for ($i = 0; $i < 4; $i++) {
+            optionVar -floatValue ("polyProjectionSmoothness" + $i + $p)
+                `floatFieldGrp -query -value1 ("polyProjectionSmoothness" + $i)`;
+            optionVar -floatValue ("polyProjectionOffset" + $i + $p)
+                `floatFieldGrp -query -value1 ("polyProjectionOffset" + $i)`;
+        }
+    }
+    optionVar -intValue ("polyProjectionInsertionPoint" + $p) `checkBoxGrp -query -value1 polyProjectionInsertionPoint`;
+    if ($p == "Planar")
+        optionVar -intValue ("polyProjectionSquareImage" + $p) `checkBoxGrp -query -value1 polyProjectionSquareImage`;
+    else if ($p == "Contour")
+        optionVar -intValue ("polyProjectionUserDefinedCorners" + $p)
+            `checkBoxGrp -query -value1 polyProjectionUserDefinedCorners`;
+    optionVar -intValue ("polyProjectionCreateMap" + $p) `checkBoxGrp -query -value1 polyProjectionCreateMap`;
+    optionVar -stringValue ("polyProjectionUvSetName" + $p) `textFieldGrp -query -text polyProjectionUvSetName`;
+
+    if ($doIt) {
+        $args[0] = "0";
+        performPolyProjectionArgList("1", $args, $uvSetName);
+        string $label = "PolyProjection";
+        if ($p == "Planar" || $p == "Cylindrical" || $p == "Spherical" || $p == "Contour")
+            $label = "Poly" + $p + "Projection";
+        addToRecentCommandQueue("performPolyProjection \"" + $p + "\" 0", $label);
+    }
+}
+
+proc polyProjectionOptionBox(string $args[], string $uvSetName)
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+    int $gap = $gOptionBoxTemplateFrameSpacing > 0 ? $gOptionBoxTemplateFrameSpacing : 5;
+    string $p = $args[1];
+    int $known = $p == "Planar" || $p == "Cylindrical" || $p == "Spherical" || $p == "Contour";
+
+    string $box = getOptionBox();
+    setParent $box;
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+
+    // An unknown projection gets no layout name of its own, as the reference's.
+    string $form = $known ? `formLayout ("polyProjectionOptions" + $p)` : `formLayout`;
+    string $manip = `frameLayout -label "Projection manipulator"`;
+        columnLayout -adjustableColumn true;
+        if ($p == "Planar") {
+            radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Fit projection to"
+                -labelArray2 "Best plane" "Bounding box"
+                -onCommand1 "radioButtonGrp -edit -enable false polyProjectionMappingDirection"
+                -offCommand1 "enableMappingDirection"
+                polyProjectionFitToBoxOrPlane;
+            separator -style "none";
+            radioButtonGrp -numberOfRadioButtons 4 -vertical -label "Projection source"
+                -labelArray4 "X axis" "Y axis" "Z axis" "Camera" polyProjectionMappingDirection;
+            separator -style "none";
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Keep image width/height ratio"
+                polyProjectionSquareImage;
+        } else if ($p == "Contour") {
+            radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Method"
+                -labelArray2 "Walk contours" "NURBS projection" polyProjectionMethod;
+            separator -style "none";
+            for ($i = 0; $i < 4; $i++)
+                floatFieldGrp -numberOfFields 1 -label ("Smoothness " + $i) ("polyProjectionSmoothness" + $i);
+            for ($i = 0; $i < 4; $i++)
+                floatFieldGrp -numberOfFields 1 -label ("Offset " + $i) ("polyProjectionOffset" + $i);
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "User defined corners"
+                polyProjectionUserDefinedCorners;
+        }
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Insert projection before deformers"
+            polyProjectionInsertionPoint;
+        setParent ..;
+    setParent ..;
+
+    string $uv = `frameLayout -label "UV Set"`;
+        columnLayout -adjustableColumn true;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Create new UV set"
+                -onCommand1 "textFieldGrp -edit -enable true polyProjectionUvSetName"
+                -offCommand1 "textFieldGrp -edit -enable false polyProjectionUvSetName"
+                polyProjectionCreateMap;
+            textFieldGrp -label "UV set name" polyProjectionUvSetName;
+        setParent ..;
+    setParent ..;
+
+    formLayout -edit
+        -attachForm $manip "top" $gap -attachForm $manip "left" $gap -attachForm $manip "right" $gap
+        -attachNone $manip "bottom"
+        -attachControl $uv "top" $gap $manip -attachForm $uv "left" $gap -attachForm $uv "right" $gap
+        -attachNone $uv "bottom"
+        $form;
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $call = "performPolyProjectionCallback " + $p + " " + polyProjectionArgsLiteral($args) + " \""
+        + encodeString($uvSetName) + "\" " + $form;
+    button -edit -label "Project" -command ($call + " 1") (getOptionBoxApplyBtn());
+    button -edit -command ($call + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("performPolyProjectionSetup " + $p + " " + $form + " 1") (getOptionBoxResetBtn());
+
+    if ($known) {
+        setOptionBoxTitle($p + " Projection Options");
+        setOptionBoxHelpTag($p + "Mapping");
+    }
+    performPolyProjectionSetup($p, $form, 0);
+    showOptionBox();
+}
+
+// $args (version "1"): [0] 0 project, 1 option box, 2 the command, anything else the menu's call; [1] Planar,
+// Cylindrical, Spherical or Contour; [2] MEL whose result lists what to project; [3] 1 to make a new UV set named
+// $uvSetName.
+global proc string performPolyProjectionArgList(string $version, string $args[], string $uvSetName)
+{
+    // Version 1 is the only layout of $args there is; the version doesn't change anything.
+    int $action = (int)$args[0];
+    string $p = $args[1];
+    if ($action == 0)
+        return polyProjectionExecute($args, $uvSetName);
+    if ($action == 1) {
+        polyProjectionOptionBox($args, $uvSetName);
+        return "";
+    }
+    if ($action == 2) {
+        string $cmd = polyProjectionCommand($p, (int)$args[3], $uvSetName, 0);
+        string $setCmd = (`optionVar -query ("polyProjectionCreateMap" + $p)` || (int)$args[3]) ? "polyUVSet -luv" : "";
+        return $cmd + "; " + $setCmd;
+    }
+    return "performPolyProjection " + $p + " 0";
+}
+
+// The tool that picks a contour projection's corner vertices, made the first time it is asked for.
+global proc polyContourProjTool()
+{
+    if (!`scriptCtx -exists polyContourProjCtx`) {
+        // Aztek's scriptCtx has no -xyzHandle, so manipulator handles keep their default.
+        scriptCtx
+            -title "Contour Projection Corners"
+            -totalSelectionSets 1
+            -cumulativeLists false
+            -expandSelectionList false
+            -exitUponCompletion true
+            -finalCommandScript "polyContourProjSetAttr $Selection1"
+            -toolStart "polyContourProjToolStart"
+            -toolFinish "polyContourProjToolFinish"
+            -setNoSelectionPrompt "Select the four corner vertices of the contour projection."
+            -setNoSelectionHeadsUp "Select vertices"
+            -setAutoToggleSelection true
+            -setAutoComplete false
+            -setSelectionCount 0
+            -polymeshVertex true
+            -controlVertex true
+            -polymeshFace false
+            polyContourProjCtx;
+    }
+    setToolTo polyContourProjCtx;
+}
+
+// Picking corners needs the order they were picked in; the setting is put back when the tool ends.
+global proc polyContourProjToolStart()
+{
+    global int $prevTrackSelectionOrder;
+    global string $polyProjectionTotalSel[];
+    $prevTrackSelectionOrder = `selectPref -query -trackSelectionOrder`;
+    selectPref -trackSelectionOrder true;
+    $polyProjectionTotalSel = `ls -sl`;
+    select -clear;
+}
+
+global proc polyContourProjToolFinish()
+{
+    global int $prevTrackSelectionOrder;
+    global string $polyProjectionTotalSel[];
+    selectPref -trackSelectionOrder $prevTrackSelectionOrder;
+    select -replace $polyProjectionTotalSel;
+}
+
+// Gives the projection made last the corners picked, in the order they were picked.
+global proc polyContourProjSetAttr(string $picked[])
+{
+    global string $polyProjectionRes[];
+    string $node = $polyProjectionRes[0];
+    setAttr ($node + ".userDefinedCorners") true;
+    string $cmd = "setAttr " + $node + ".cornerVertices -type componentList " + size($picked);
+    for ($item in $picked) {
+        // The component without its object: pPlane1.vtx[3] gives vtx[3].
+        string $parts[];
+        tokenize $item "." $parts;
+        $cmd += " " + $parts[size($parts) - 1];
+    }
+    evalEcho $cmd;
+}

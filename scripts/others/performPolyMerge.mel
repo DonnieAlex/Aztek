@@ -1,0 +1,202 @@
+// performPolyMerge: Edit Mesh > Merge, as the reference's. Selected vertices are merged (polyMergeVertex) or selected
+// border edges sewn (polySewEdge), whichever the selection holds, with the settings kept in optionVars; the one option
+// box serves both and rebuilds itself when the component type changes.
+
+// The saved settings for one kind of merge (0 vertices, 1 edges). Forced, they all go back to their defaults;
+// otherwise only missing ones are made.
+proc performPolyMerge_options(int $mode, int $force)
+{
+    if ($mode == 0)
+        optionVar -init $force -category "Modeling.Edit Mesh.Merge Vertices"
+            -fv polyMergeVertexDistance 0.0100
+            -iv polyMergeVertexAlwaysMergeTwoVertices 1;
+    else
+        optionVar -init $force -category "Modeling.Edit Mesh.Merge Edges"
+            -iv polyMergeEdgeMap 1
+            -fv polyMergeEdge 0.0
+            -iv polyMergeEdgeWorldSpace 1;
+}
+
+// The merge command for a mode, from the saved settings. $gap is what goes between the vertex command's name and its
+// flags: the reference has two spaces where it runs it and one where it only writes it out.
+proc string performPolyMerge_command(int $mode, string $gap)
+{
+    if ($mode == 0)
+        return "polyMergeVertex" + $gap + "-d " + `optionVar -query polyMergeVertexDistance`
+            + " -am " + `optionVar -query polyMergeVertexAlwaysMergeTwoVertices`;
+    return "polySewEdge -t " + `optionVar -query polyMergeEdge` + " -tx " + `optionVar -query polyMergeEdgeMap`
+        + " -ws " + `optionVar -query polyMergeEdgeWorldSpace`;
+}
+
+// Runs a polygon command on the selection through polyPerformAction.
+proc performPolyMerge_performAction(string $cmd, string $selType, int $objCount)
+{
+    polyPerformAction($cmd, $selType, $objCount);
+}
+
+// The option box for one kind of merge, built afresh each time.
+proc performPolyMerge_optionBox(int $mode)
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    // Aztek has OptionBoxTemplate once setDefaultTemplates has run; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+
+    string $parent = `formLayout polyMergeOptions`;
+    string $frame = `frameLayout -label "Settings"`;
+    columnLayout;
+    if ($mode == 0) {
+        floatSliderGrp -label "Threshold:" -minValue 0 -maxValue 10 -fieldMaxValue 10000000 polyMergeVertexDistance;
+        checkBoxGrp -numberOfCheckBoxes 1 -label1 "Always merge for two vertices"
+            polyMergeVertexAlwaysMergeTwoVertices;
+    } else {
+        checkBoxGrp -numberOfCheckBoxes 1 -label1 "Merge UVs as well" polyMergeEdgeMap;
+        floatSliderGrp -label "Threshold:" -minValue 0 -maxValue 10 -fieldMaxValue 10000000 polyMergeEdge;
+        radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Threshold measured in:"
+            -labelArray2 "World space" "Local space" polyMergeEdgeWorldSpace;
+    }
+    setParent $parent;
+    int $space = $gOptionBoxTemplateFrameSpacing;
+    formLayout -edit
+        -attachForm $frame "top" $space -attachForm $frame "left" $space -attachForm $frame "right" $space
+        -attachNone $frame "bottom"
+        $parent;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Merge" -command ("performPolyMergeCallback " + $parent + " 1 " + $mode) (getOptionBoxApplyBtn());
+    button -edit -command ("performPolyMergeCallback " + $parent + " 0 " + $mode + "; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("performPolyMergeSetup " + $parent + " 1 " + $mode) (getOptionBoxResetBtn());
+    if ($mode == 0) {
+        setOptionBoxTitle("Merge Vertices Options");
+        setOptionBoxHelpTag("MergeVertices");
+    } else {
+        setOptionBoxTitle("Merge Edges Options");
+        setOptionBoxHelpTag("MergeMultipleEdges");
+    }
+
+    eval ("performPolyMergeSetup " + $parent + " 0 " + $mode);
+    // A new component type rebuilds the box for it; the job goes when the form does.
+    scriptJob -protected -parent $parent -event "SelectTypeChanged" "evalDeferred \"performPolyMerge 1\"";
+    showOptionBox();
+}
+
+// 1 when the selection holds mesh edges, otherwise 0 (vertices, or nothing to go on).
+global proc int getMergeElementsType()
+{
+    string $selected[] = `ls -selection`;
+    if (size($selected) == 0)
+        warning "Nothing is selected: select vertices or border edges to merge.";
+    string $edges[] = `filterExpand -expand false -selectionMask 32`;
+    if (size($edges))
+        return 1;
+    string $vertices[] = `filterExpand -expand false -selectionMask 31`;
+    if (size($vertices))
+        return 0;
+    return 0;
+}
+
+// $option: 0 merges, 1 opens the option box, 2 only works the command out; 3 to 5 do the same for vertices whatever
+// is selected. 6 to 8 were meant to do it for edges but, as in the reference, do nothing. Always returns the call a
+// shelf button repeats the merge with.
+global proc string performPolyMerge(int $option)
+{
+    int $mode = getMergeElementsType();
+    if ($option >= 0 && $option <= 2) {
+        // The selection is looked at a second time, so nothing selected warns twice, as in the reference.
+        $mode = getMergeElementsType();
+    } else if ($option >= 3 && $option <= 5) {
+        $mode = 0;
+        $option -= 3;
+    }
+    // 6, 7 and 8 are left as they are: the mode stays as found and they fall through to the last branch.
+
+    if ($option == 0) {
+        performPolyMerge_options($mode, 0);
+        if ($mode == 0)
+            performPolyMerge_performAction(performPolyMerge_command(0, "  "), "v", 0);
+        else
+            performPolyMerge_performAction(performPolyMerge_command(1, " "), "e", 0);
+
+        // The new merge node joins the selection, so its settings show in the Channel Box.
+        string $sl[] = `ls -sl`;
+        string $hl[] = `ls -hl`;
+        if (size($sl) || size($hl)) {
+            string $found[];
+            string $node;
+            for ($node in `listHistory`) {
+                string $type = `nodeType $node`;
+                if ($type == "polyMergeVert" || $type == "polySewEdge")
+                    $found[size($found)] = $node;
+            }
+            if (size($found))
+                select -add $found[0];
+        }
+        setToolTo ShowManips;
+    } else if ($option == 1) {
+        performPolyMerge_optionBox($mode);
+    } else {
+        // Only the missing settings are made; the command is written out but nothing runs.
+        performPolyMerge_options($mode, 0);
+        string $cmd;
+        if ($mode == 0)
+            $cmd = "polyPerformAction \"" + performPolyMerge_command(0, " ") + "\" v 0";
+        else
+            $cmd = "polyPerformAction \"" + performPolyMerge_command(1, " ") + "\" e 0";
+    }
+    return "performPolyMerge 0";
+}
+
+// Shows the saved settings in the option box under $parent; forced, puts the defaults back first.
+global proc performPolyMergeSetup(string $parent, int $forceFactorySettings, int $mergeType)
+{
+    performPolyMerge_options($mergeType, $forceFactorySettings);
+    setParent $parent;
+    if ($mergeType == 0) {
+        floatSliderGrp -edit -value `optionVar -query polyMergeVertexDistance` polyMergeVertexDistance;
+        checkBoxGrp -edit -value1 `optionVar -query polyMergeVertexAlwaysMergeTwoVertices`
+            polyMergeVertexAlwaysMergeTwoVertices;
+    } else if ($mergeType == 1) {
+        checkBoxGrp -edit -value1 `optionVar -query polyMergeEdgeMap` polyMergeEdgeMap;
+        floatSliderGrp -edit -value `optionVar -query polyMergeEdge` polyMergeEdge;
+        // Button 1 is world space, button 2 local.
+        radioButtonGrp -edit -select (`optionVar -query polyMergeEdgeWorldSpace` ? 1 : 2) polyMergeEdgeWorldSpace;
+    }
+}
+
+// Keeps what the option box under $parent shows, and merges when $doIt.
+global proc performPolyMergeCallback(string $parent, int $doIt, int $mergeType)
+{
+    setParent $parent;
+    if ($mergeType == 0) {
+        optionVar -floatValue polyMergeVertexDistance `floatSliderGrp -query -value polyMergeVertexDistance`;
+        optionVar -intValue polyMergeVertexAlwaysMergeTwoVertices
+            `checkBoxGrp -query -value1 polyMergeVertexAlwaysMergeTwoVertices`;
+        if ($doIt) {
+            if (`exists performPolyMergeVertex`) {
+                eval "performPolyMergeVertex 0";
+                addToRecentCommandQueue "performPolyMergeVertex 0" "PolyMergeVertex";
+            } else {
+                // Aztek doesn't have performPolyMergeVertex yet: the vertex merge here does the same work.
+                performPolyMerge 3;
+                addToRecentCommandQueue "performPolyMerge 3" "PolyMergeVertex";
+            }
+        }
+    } else if ($mergeType == 1) {
+        optionVar -intValue polyMergeEdgeMap `checkBoxGrp -query -value1 polyMergeEdgeMap`;
+        optionVar -floatValue polyMergeEdge `floatSliderGrp -query -value polyMergeEdge`;
+        optionVar -intValue polyMergeEdgeWorldSpace (`radioButtonGrp -query -select polyMergeEdgeWorldSpace` == 2 ? 0 : 1);
+        if ($doIt) {
+            performPolyMerge 0;
+            addToRecentCommandQueue "performPolyMerge 0" "PolySewEdge";
+        }
+    }
+}

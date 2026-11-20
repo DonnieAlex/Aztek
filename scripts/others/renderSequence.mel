@@ -8,6 +8,11 @@
 if (!`exists createRenderSequenceOptionVars`)
     eval("source \"renderSequenceOptionsWindow.mel\"");
 
+// currentRenderer and the other renderer procedures live in supportRenderers, which start-up loads; loaded here too for
+// when this file is used before that.
+if (!`exists currentRenderer`)
+    eval("source \"supportRenderers.mel\"");
+
 // The Render View's procedures (showRenderView, getCurrentCamera, getTestResolution) live in renderWindowPanel.
 proc rsLoadRenderView()
 {
@@ -17,9 +22,7 @@ proc rsLoadRenderView()
 
 proc string rsCurrentRenderer()
 {
-    if (`exists currentRenderer`)
-        return eval("currentRenderer");
-    return `getAttr defaultRenderGlobals.currentRenderer`;
+    return currentRenderer();
 }
 
 proc string rsRendererUIName(string $r)

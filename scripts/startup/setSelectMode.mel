@@ -1,0 +1,180 @@
+// setSelectMode: the selection modes of the status line's mask menu and their hotkeys. The standard modes (hierarchy,
+// objects, components and so on) only change selectMode; the task modes (animation, polygon modelling, dynamics and the
+// rest) set selectMode, the selection masks and priorities together. getSelectMode reads the mode back, so the two
+// must agree. The selection itself is left as it is.
+//
+// Aztek's own status line and select modes are what selectMode, selectType, selectPriority and selectPref drive. Masks,
+// priorities and preferences Aztek doesn't have yet are skipped one by one, so the rest of a mode still applies.
+
+// Runs `$cmd -<flag> <value>` for each flag/value pair on its own, skipping the ones Aztek's command doesn't take.
+proc ssmEach(string $cmd, string $pairs[])
+{
+    for ($i = 0; $i + 1 < size($pairs); $i += 2)
+        catchQuiet(eval($cmd + " -" + $pairs[$i] + " " + $pairs[$i + 1]));
+}
+
+// Turns on every mask named in $masks.
+proc ssmMasksOn(string $masks[])
+{
+    for ($m in $masks)
+        catchQuiet(eval("selectType -" + $m + " true"));
+}
+
+// Leaving a task mode for a standard one, and the other way, saves or brings back the mode, masks and preferences
+// once; selectionMaskStackInit holds the two procedures. Aztek doesn't have that script yet, so nothing is saved.
+proc ssmRestoreOnce()
+{
+    if (!`exists selectionMaskRestoreOnce` && !`exists selectionMaskSaveOnce`)
+        catchQuiet(eval("source \"selectionMaskStackInit\""));
+    if (`exists selectionMaskRestoreOnce`)
+        eval("selectionMaskRestoreOnce");
+}
+
+proc ssmSaveOnce()
+{
+    if (!`exists selectionMaskRestoreOnce` && !`exists selectionMaskSaveOnce`)
+        catchQuiet(eval("source \"selectionMaskStackInit\""));
+    if (`exists selectionMaskSaveOnce`)
+        eval("selectionMaskSaveOnce");
+}
+
+// Every mask off, objects and components alike.
+proc ssmAllOff()
+{
+    ssmEach("selectType", {"allObjects", "false", "allComponents", "false"});
+}
+
+global proc setSelectMode(string $mode, string $uiLabel)
+{
+    global string $gAnimationSelectionMasksOn[];
+    global string $gNURBSelectionMasksObjects[];
+    global string $gNURBSelectionMasksComponents[];
+    global string $gDeformersSelectionMasksObjects[];
+    global string $gDeformersSelectionMasksComponents[];
+    global string $gRenderingSelectionMasksObjects[];
+    global string $gRenderingSelectionMasksComponents[];
+
+    if ($mode == "hierarchy" || $mode == "root" || $mode == "leaf" || $mode == "template" || $mode == "objects"
+        || $mode == "components") {
+        ssmRestoreOnce();
+        if ($mode == "hierarchy")
+            selectMode -hierarchical;
+        else if ($mode == "root")
+            selectMode -root;
+        else if ($mode == "leaf")
+            selectMode -leaf;
+        else if ($mode == "template")
+            selectMode -template;
+        else if ($mode == "objects")
+            selectMode -object;
+        else
+            selectMode -component;
+    } else if ($mode == "animation") {
+        ssmSaveOnce();
+        selectMode -object;
+        ssmEach("selectPriority", {"allObjects", "1"});
+        ssmEach("selectPref", {"ignoreSelectionPriority", "false"});
+        ssmEach("selectPriority", {"handle", "5", "ikHandle", "5", "joint", "4"});
+        ssmAllOff();
+        ssmMasksOn($gAnimationSelectionMasksOn);
+    } else if ($mode == "nurbsModeling") {
+        ssmSaveOnce();
+        selectMode -preset;
+        ssmEach("selectPref", {"ignoreSelectionPriority", "false", "allowHiliteSelection", "false"});
+        ssmEach("selectPriority", {"allComponents", "1", "isoparm", "2"});
+        ssmAllOff();
+        ssmMasksOn($gNURBSelectionMasksObjects);
+        ssmMasksOn($gNURBSelectionMasksComponents);
+    } else if ($mode == "polyModeling") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmEach("selectPref", {"ignoreSelectionPriority", "true", "allowHiliteSelection", "true"});
+        ssmMasksOn({"polymesh", "subdiv", "plane", "facet"});
+    } else if ($mode == "deformations") {
+        ssmSaveOnce();
+        selectMode -preset;
+        ssmEach("selectPref", {"ignoreSelectionPriority", "false", "allowHiliteSelection", "false"});
+        ssmEach("selectPriority", {"allObjects", "1", "allComponents", "1"});
+        ssmEach("selectPriority", {"sculpt", "5", "nonlinear", "5", "lattice", "5", "cluster", "5", "locator", "5"});
+        ssmAllOff();
+        ssmMasksOn($gDeformersSelectionMasksObjects);
+        ssmMasksOn($gDeformersSelectionMasksComponents);
+    } else if ($mode == "dynamics") {
+        ssmSaveOnce();
+        selectMode -preset;
+        ssmAllOff();
+        ssmMasksOn({"particleShape", "emitter", "field", "fluid", "hairSystem", "follicle", "collisionModel", "spring",
+            "rigidBody", "rigidConstraint", "particle", "springComponent", "nCloth", "nRigid", "dynamicConstraint"});
+        ssmEach("selectPref", {"allowHiliteSelection", "true"});
+    } else if ($mode == "rendering") {
+        ssmSaveOnce();
+        selectMode -preset;
+        ssmAllOff();
+        ssmMasksOn($gRenderingSelectionMasksObjects);
+        ssmMasksOn($gRenderingSelectionMasksComponents);
+        ssmEach("selectPref", {"allowHiliteSelection", "false"});
+    } else if ($mode == "vertices") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmMasksOn({"controlVertex", "subdivMeshPoint", "vertex", "latticePoint", "particle"});
+    } else if ($mode == "hulls") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmMasksOn({"hull"});
+    } else if ($mode == "lines") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmMasksOn({"isoparm", "polymeshEdge", "subdivMeshEdge", "surfaceEdge", "springComponent"});
+    } else if ($mode == "points") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmEach("selectType", {"editPoint", "true", "curveParameterPoint", "false", "surfaceParameterPoint", "false",
+            "polymeshUV", "true", "subdivMeshUV", "true"});
+    } else if ($mode == "surfacePoints") {
+        ssmSaveOnce();
+        selectMode -component;
+        ssmAllOff();
+        ssmEach("selectType", {"editPoint", "false", "curveParameterPoint", "true", "surfaceParameterPoint", "true",
+            "polymeshUV", "true", "subdivMeshUV", "true"});
+    } else if ($mode == "allComponents") {
+        ssmRestoreOnce();
+        ssmSaveOnce();
+        selectMode -component;
+        ssmEach("selectType", {"allObjects", "false", "allComponents", "true"});
+    } else if ($mode == "allObjects") {
+        ssmRestoreOnce();
+        ssmSaveOnce();
+        selectMode -object;
+        ssmEach("selectType", {"allObjects", "true", "allComponents", "false"});
+        ssmEach("selectPref", {"ignoreSelectionPriority", "true"});
+    } else {
+        ssmRestoreOnce();
+        selectMode -object;
+        ssmEach("selectType", {"allObjects", "true", "allComponents", "false"});
+        ssmEach("selectPref", {"ignoreSelectionPriority", "false"});
+    }
+
+    if ($uiLabel == "")
+        return;
+
+    // The labels the mask field knows show as they are (Aztek's interface is English); any other is shown unchanged
+    // too, after being noted for translation where a script keeps such notes.
+    string $known[] = {"NURBS", "Hierarchy", "Animation", "Deformations", "Deform", "Dynamics", "Polygons", "Rendering",
+        "Objects", "Components", "All Objects", "All Components"};
+    int $isKnown = 0;
+    for ($k in $known) {
+        if ($k == $uiLabel)
+            $isKnown = 1;
+    }
+    if (!$isKnown && `exists uiToMelMsg`)
+        eval("uiToMelMsg \"maskFieldText_melToUI\" \"" + encodeString($uiLabel) + "\" 1");
+
+    // Aztek's status line shows the mode itself; the field is there only when a script has built the reference's.
+    if (`textField -exists maskField`)
+        textField -edit -text $uiLabel maskField;
+}

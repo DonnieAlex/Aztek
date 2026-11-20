@@ -1,0 +1,11 @@
+// artAttrFilterLabel: the Paint Attributes tool's filter label, as setArtAttrFilterLabel left it. It is never empty:
+// with no label yet, the "all" label is stored and given back.
+
+global proc string artAttrFilterLabel()
+{
+    global string $gArtAttrFilterLabel;
+    // The same words artAttrToolScript uses for the general tool, so the two can be compared.
+    if ($gArtAttrFilterLabel == "")
+        $gArtAttrFilterLabel = "Filter: All";
+    return $gArtAttrFilterLabel;
+}

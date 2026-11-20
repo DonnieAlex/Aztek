@@ -1,0 +1,43 @@
+// getStandardWindow: readies the shared option box for a new box. It sets the title, makes a fresh form (BoxLayout)
+// in the box's content area with a tab layout filling it, relabels the Help item, and hands back
+// [0] the window, [1] the form, [2] the tab layout and [3] the Help item. The buttons are addStandardButtons' part.
+// $options: "noOptions" does nothing; "noScroll" makes the tab layout one that doesn't scroll.
+
+global proc string[] getStandardWindow(string $optionBoxTitle, int $numPages, string $options)
+{
+    global string $gOptionBox;
+    global string $gOptionBoxOptions;
+
+    $gOptionBoxOptions = $options;
+    // Makes sure the shared window is there and gives the empty layout this box is built in.
+    string $content = getOptionBox();
+
+    string $result[4];
+    if ($gOptionBox != "" && `window -exists $gOptionBox`) {
+        $result[0] = $gOptionBox;
+        setOptionBoxTitle($optionBoxTitle);
+        setParent $gOptionBox;
+        setParent $content;
+        $result[1] = `formLayout BoxLayout`;
+        setParent $result[1];
+    } else {
+        error -showLineNumber true "The option box window doesn't exist.";
+    }
+
+    int $scroll = !`gmatch $options "*noScroll*"`;
+    $result[2] = `tabLayout -scrollable $scroll -minChildWidth 100 -childResizable true`;
+    // One page needs no tab to pick it.
+    if ($numPages < 2)
+        tabLayout -edit -tabsVisible false $result[2];
+
+    formLayout -edit
+        -attachForm $result[2] "top" 0
+        -attachForm $result[2] "left" 0
+        -attachForm $result[2] "bottom" 0
+        -attachForm $result[2] "right" 0
+        $result[1];
+
+    $result[3] = getOptionBoxHelpItem();
+    menuItem -edit -label "Help on These Options" $result[3];
+    return $result;
+}

@@ -1,0 +1,96 @@
+// toolPropertyWindow1: shows the Tool Settings, docked in the main window or floating, and fills in the shared header of
+// a tool's settings sheet (its name, icon, Reset Tool and Tool Help buttons). Aztek's Tool Settings is its own docked
+// editor, so these procedures act on it through UIComponents and toolPropertyWindow rather than building a window; the
+// reference's standalone Tool Settings window isn't reached from any procedure here and isn't built.
+
+global proc toolPropertyWinSetCommon(string $toolName, string $icon)
+{
+    print "toolPropertyWinSetCommon is no longer used.\n";
+    error "toolPropertyWinSetCommon is obsolete: call toolPropertySetCommon instead.";
+}
+
+global proc toolPropertySetCommon(string $contextName, string $icon, string $helpTag)
+{
+    string $picture = `toolPropertyWindow -query -icon`;
+    if ($picture != "")
+        image -edit -image $icon $picture;
+
+    string $nameText = `toolPropertyWindow -query -field`;
+    string $resetButton = `toolPropertyWindow -query -resetButton`;
+    string $helpButton = `toolPropertyWindow -query -helpButton`;
+
+    // Aztek's own header has none of these controls unless a script gave them to toolPropertyWindow, so each is only
+    // edited when named.
+    if ($helpButton != "") {
+        if ($helpTag != "")
+            button -edit -enable true -command ("showHelp " + $helpTag) $helpButton;
+        else
+            button -edit -enable false $helpButton;
+    }
+
+    string $label;
+    int $canReset;
+    if (`contextInfo -exists $contextName`) {
+        $label = `contextInfo -title $contextName`;
+        $canReset = 1;
+    } else {
+        $label = "Channel Box Manipulator";
+        $canReset = 0;
+    }
+    if ($nameText != "")
+        text -edit -label $label $nameText;
+    if ($resetButton != "")
+        button -edit -enable $canReset -command ("resetTool " + $contextName) $resetButton;
+}
+
+// Shows the separate window when it exists but is hidden; one already showing is left alone, so the main window keeps
+// the keyboard.
+global proc toolPropertyShow()
+{
+    if (`window -exists toolProperties` && !`window -query -visible toolProperties`)
+        showWindow toolProperties;
+}
+
+global proc toolPropertySelect(string $sheetName)
+{
+    string $tabs = `toolPropertyWindow -query -location`;
+    // Aztek's Tool Settings has no tab layout for scripts' sheets unless one was given to toolPropertyWindow.
+    if ($tabs != "") {
+        setParent $tabs;
+        tabLayout -edit -selectTab $sheetName $tabs;
+    }
+    toolPropertyShow();
+}
+
+// Brings the Tool Settings up and raises it.
+proc tpwRaise()
+{
+    if (`exists raiseToolSettings`)
+        eval "raiseToolSettings";
+    else if (`exists ToolSettingsWindow`)
+        ToolSettingsWindow;
+}
+
+// $location is "Main Window", "Separate Window", or "" to keep it docked or floating as it is.
+global proc toolPropertyWindow1(string $location)
+{
+    string $dock = getUIComponentDockControl("Tool Settings", false);
+    int $hasDock = ($dock != "" && `workspaceControl -exists $dock`);
+
+    if ($location == "")
+        $location = ($hasDock && `workspaceControl -query -floating $dock`) ? "Separate Window" : "Main Window";
+
+    int $wasFloating = $hasDock ? `workspaceControl -query -floating $dock` : 0;
+
+    if (!isUIComponentVisible("Tool Settings"))
+        toggleUIComponentVisibility("Tool Settings");
+    else
+        tpwRaise();
+
+    if ($hasDock) {
+        if (`workspaceControl -query -collapse $dock`)
+            workspaceControl -edit -collapse false $dock;
+        if (($location == "Separate Window" && !$wasFloating) || ($location == "Main Window" && $wasFloating))
+            workspaceControl -edit -floating (!$wasFloating) $dock;
+    }
+}

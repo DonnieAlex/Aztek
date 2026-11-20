@@ -1,0 +1,57 @@
+// ContextHelp: which procedure adds the context help items to the Help menu of each panel or window. The names are
+// kept in $gHelpObjectArray and the procedures beside them, at the same index, in $gHelpProcNameArray. A removed entry
+// isn't taken out: both its slots become "xxxx", so the indices of the others never change.
+
+global string $gHelpObjectArray[];
+global string $gHelpProcNameArray[];
+
+// The index of the first entry for $object, or -1.
+proc int contextHelpIndex(string $object)
+{
+    global string $gHelpObjectArray[];
+    for ($i = 0; $i < size($gHelpObjectArray); $i++)
+        if ($gHelpObjectArray[$i] == $object)
+            return $i;
+    return -1;
+}
+
+// Registers $procName, a procedure taking (string object, string menuParent), for $object. The first registration
+// stands: a second one for the same object is ignored.
+global proc addContextHelpProc(string $object, string $procName)
+{
+    global string $gHelpObjectArray[];
+    global string $gHelpProcNameArray[];
+    if (contextHelpIndex($object) >= 0)
+        return;
+    int $n = size($gHelpObjectArray);
+    $gHelpObjectArray[$n] = $object;
+    $gHelpProcNameArray[$n] = $procName;
+}
+
+global proc removeContextHelpProc(string $object)
+{
+    global string $gHelpObjectArray[];
+    global string $gHelpProcNameArray[];
+    int $i = contextHelpIndex($object);
+    if ($i < 0)
+        return;
+    $gHelpObjectArray[$i] = "xxxx";
+    $gHelpProcNameArray[$i] = "xxxx";
+}
+
+// Runs the procedure registered for $object, which adds its items to the current menu. Errors from it aren't caught.
+global proc doContextHelpProc(string $object, string $menuParent)
+{
+    global string $gHelpProcNameArray[];
+    if ($object == "" || $menuParent == "")
+        return;
+    int $i = contextHelpIndex($object);
+    if ($i < 0)
+        return;
+    eval($gHelpProcNameArray[$i] + " \"" + $object + "\" \"" + $menuParent + "\"");
+}
+
+global proc int hasContextHelpProc(string $object)
+{
+    return contextHelpIndex($object) >= 0;
+}

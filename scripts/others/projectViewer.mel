@@ -10,83 +10,19 @@ proc string pvBestGuess()
     return "Best Guess";
 }
 
-// A filter's description ("mayaAscii (*.ma)") as the file type it stands for: the installation's procedure when there
-// is one, else the text before the patterns. The lists that stand for any type give Best Guess.
+// The file browser's filter helpers and setWorkingDirectory. Start-up loads the helpers; loaded here too for when this
+// file is used before that.
+if (!`exists filterDescriptionToFileType`)
+    eval("source \"fileDialogFilterTypes.mel\"");
+
+// A filter's description ("mayaAscii (*.ma)") as the file type it stands for. The scene filter stands for any scene,
+// which the operations below read as Best Guess.
 proc string pvFilterToType(string $filter)
 {
-    if (`exists filterDescriptionToFileType`)
-        return eval("filterDescriptionToFileType \"" + encodeString($filter) + "\"");
-    string $type = $filter;
-    int $at = `gmatch $type "* (*)"`;
-    if ($at)
-        $type = `match "^[^(]*[^ (]" $type`;
-    if ($type == "Scenes" || $type == "All Files" || $type == "Scenes and meshes")
+    string $type = filterDescriptionToFileType($filter);
+    if ($type == "Scenes" || $type == "Scenes and meshes")
         return pvBestGuess();
     return $type;
-}
-
-// A file type as the filter description the browser shows for it.
-proc string pvTypeToFilter(string $type)
-{
-    if (`exists fileTypeToFilterDescription`)
-        return eval("fileTypeToFilterDescription \"" + encodeString($type) + "\"");
-    if ($type == "" || $type == pvBestGuess())
-        return "";
-    string $known[] = `translator -query -list`;
-    if (stringArrayFind($type, 0, $known) < 0)
-        return "";
-    return $type + " (" + `translator -query -filter $type` + ")";
-}
-
-// Every translator that reads (or writes) as filter entries.
-proc string pvTranslatorFilters(int $write)
-{
-    string $out = "";
-    string $list[] = `translator -query -list`;
-    for ($t in $list) {
-        if ($t == "directory")
-            continue;
-        int $ok = $write ? `translator -query -writeSupport $t` : `translator -query -readSupport $t`;
-        if ($ok)
-            $out += ";;" + $t + " (" + `translator -query -filter $t` + ")";
-    }
-    return $out;
-}
-
-// The browser's filter lists, from the installation's procedures when it has them.
-proc string pvFilterList(string $which)
-{
-    if (`exists $which`)
-        return eval($which);
-    if ($which == "buildDefaultMayaOpenFilterList")
-        return "Scenes (*.ma *.mb);;mayaAscii (*.ma);;mayaBinary (*.mb);;All Files (*.*)";
-    if ($which == "buildReadableFileFilterList")
-        return "All Files (*.*)" + pvTranslatorFilters(0);
-    if ($which == "buildDefaultMayaSaveFilterList")
-        return "mayaAscii (*.ma);;mayaBinary (*.mb)";
-    if ($which == "buildWritableFileFilterList")
-        return substring(pvTranslatorFilters(1), 3, size(pvTranslatorFilters(1)));
-    if ($which == "buildDefaultReadWriteOfflineEditFilterList")
-        return "editMA (*.editMA);;editMB (*.editMB)";
-    if ($which == "buildContainerTemplateFilterList")
-        return "Container Template (*.template)";
-    return "";
-}
-
-// Where the browser starts for a file rule: the installation's procedure, else the rule's folder in the project.
-proc string pvWorkingDirectory(string $root, string $type, string $rule)
-{
-    if (`exists setWorkingDirectory`)
-        return eval("setWorkingDirectory \"" + encodeString($root) + "\" \"" + encodeString($type) + "\" \""
-            + encodeString($rule) + "\"");
-    string $dir = `workspace -query -fileRuleEntry $rule`;
-    if ($dir == "")
-        $dir = $root;
-    else if (!startsWith($dir, "/") && !`gmatch $dir "?:*"`)
-        $dir = $root + "/" + $dir;
-    if (!endsWith($dir, "/"))
-        $dir += "/";
-    return $dir;
 }
 
 // Whether the thumbnail capture tool has a session open; Aztek has no capture tool yet.
@@ -257,13 +193,13 @@ proc string[] pvSetUpOperation(string $action)
     if ($action == "Open") {
         $type = `optionVar -exists defaultFileOpenType` ? `optionVar -query defaultFileOpenType` : $readType;
         $v[0] = "Open"; $v[1] = $type; $v[2] = "1"; $standard = 1;
-        $v[8] = pvFilterList("buildDefaultMayaOpenFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "scene");
+        $v[8] = buildDefaultMayaOpenFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "scene");
     } else if ($action == "Reference") {
         $type = `optionVar -exists defaultFileReferenceType` ? `optionVar -query defaultFileReferenceType` : $readType;
         $v[0] = "Reference"; $v[1] = $type; $v[2] = "1"; $standard = 1;
-        $v[8] = pvFilterList("buildReadableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "reference");
+        $v[8] = buildReadableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "reference");
     } else if ($action == "AlembicReference") {
         // The project gets an Alembic cache rule if it has none. Aztek's workspace can't add rules or expand names
         // yet, so those are tried quietly and the folder is put together from the project's root otherwise.
@@ -290,67 +226,67 @@ proc string[] pvSetUpOperation(string $action)
         $type = `optionVar -exists defaultFileImportType` ? `optionVar -query defaultFileImportType` : $readType;
         $v[0] = "Import"; $v[1] = $type; $v[2] = "1";
         $action = "Import"; $standard = 1;
-        $v[8] = pvFilterList("buildReadableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "import");
+        $v[8] = buildReadableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "import");
     } else if ($action == "ReplaceReference") {
         $type = `optionVar -exists defaultFileReferenceType` ? `optionVar -query defaultFileReferenceType` : $readType;
         $v[0] = "Reference"; $v[1] = $type; $v[2] = "1";
-        $v[8] = pvFilterList("buildReadableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "reference");
+        $v[8] = buildReadableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "reference");
     } else if ($action == "Proxy") {
         $type = `optionVar -exists defaultFileReferenceType` ? `optionVar -query defaultFileReferenceType` : $readType;
         $v[0] = "Proxy"; $v[1] = $type; $v[2] = "1"; $standard = 1;
-        $v[8] = pvFilterList("buildReadableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "proxy");
+        $v[8] = buildReadableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "proxy");
     } else if ($action == "Save") {
         // Save asks for a name as Save As does, without the options beside it.
         $gOperationMode = "SaveAs";
         $type = `optionVar -exists defaultFileSaveType` ? `optionVar -query defaultFileSaveType` : $saveType;
         $v[0] = "Save"; $v[1] = $type; $v[2] = "0";
-        $v[8] = pvFilterList("buildDefaultMayaSaveFilterList");
-        $v[9] = pvWorkingDirectory($root, $readType, "scene");
+        $v[8] = buildDefaultMayaSaveFilterList();
+        $v[9] = setWorkingDirectory($root, $readType, "scene");
     } else if ($action == "SaveAs") {
         $type = `optionVar -exists defaultFileSaveType` ? `optionVar -query defaultFileSaveType` : $saveType;
         $v[0] = "Save As"; $v[1] = $type; $v[2] = "0"; $standard = 1;
-        $v[8] = pvFilterList("buildDefaultMayaSaveFilterList");
-        $v[9] = pvWorkingDirectory($root, $readType, "scene");
+        $v[8] = buildDefaultMayaSaveFilterList();
+        $v[9] = setWorkingDirectory($root, $readType, "scene");
         if (`file -query -sceneName` != "")
             $v[9] += $short;
     } else if ($action == "ExportAll") {
         $type = `optionVar -exists defaultFileExportAllType` ? `optionVar -query defaultFileExportAllType` : $saveType;
         $v[0] = "Export All"; $v[1] = $type; $v[2] = "0"; $standard = 1;
-        $v[8] = pvFilterList("buildWritableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $readType, "export");
+        $v[8] = buildWritableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $readType, "export");
     } else if ($action == "ExportActive") {
         $type = `optionVar -exists defaultFileExportActiveType` ? `optionVar -query defaultFileExportActiveType` : $saveType;
         $v[0] = "Export Selection"; $v[1] = $type; $v[2] = "0"; $standard = 1;
-        $v[8] = pvFilterList("buildWritableFileFilterList");
-        $v[9] = pvWorkingDirectory($root, $readType, "export");
+        $v[8] = buildWritableFileFilterList();
+        $v[9] = setWorkingDirectory($root, $readType, "export");
     } else if ($action == "ExportSelectionAsReference") {
         $type = `optionVar -exists defaultFileExportSelectionAsReferenceType`
             ? `optionVar -query defaultFileExportSelectionAsReferenceType` : $saveType;
         $v[0] = "Export Selection as Reference"; $v[1] = $type; $v[2] = "0"; $standard = 1;
         $v[8] = "mayaAscii (*.ma);;mayaBinary (*.mb)";
-        $v[9] = pvWorkingDirectory($root, $readType, "export");
+        $v[9] = setWorkingDirectory($root, $readType, "export");
     } else if ($action == "ExportOfflineFile" || $action == "ExportOfflineFileFromRefEd") {
         $type = `optionVar -exists defaultFileExportEditsType` ? `optionVar -query defaultFileExportEditsType` : $saveType;
         $v[0] = "Export Offline File"; $v[1] = $type; $v[2] = "0"; $standard = 1;
-        $v[8] = pvFilterList("buildDefaultReadWriteOfflineEditFilterList");
-        $v[9] = pvWorkingDirectory($root, $readType, "offlineEdit");
+        $v[8] = buildDefaultReadWriteOfflineEditFilterList();
+        $v[9] = setWorkingDirectory($root, $readType, "offlineEdit");
     } else if ($action == "ApplyOfflineFile" || $action == "ApplyOfflineFileFromRefEd") {
         $type = `optionVar -exists defaultFileApplyEditsType` ? `optionVar -query defaultFileApplyEditsType` : $readType;
         $v[0] = "Assign Offline File"; $v[1] = $type; $v[2] = "1"; $standard = 1;
-        $v[8] = pvFilterList("buildDefaultReadWriteOfflineEditFilterList");
-        $v[9] = pvWorkingDirectory($root, $type, "offlineEdit");
+        $v[8] = buildDefaultReadWriteOfflineEditFilterList();
+        $v[9] = setWorkingDirectory($root, $type, "offlineEdit");
     } else if ($action == "CreateReference") {
         $type = `optionVar -exists defaultFileCreateReferenceType`
             ? `optionVar -query defaultFileCreateReferenceType` : $saveType;
         $v[0] = "Reference"; $v[1] = $type; $v[2] = "1";
-        $v[9] = pvWorkingDirectory($root, $readType, "reference");
+        $v[9] = setWorkingDirectory($root, $readType, "reference");
     } else if ($action == "AssignTemplate") {
         $v[0] = "Assign Template"; $v[1] = ""; $v[2] = "1"; $standard = 1;
-        $v[8] = pvFilterList("buildContainerTemplateFilterList");
-        $v[9] = pvWorkingDirectory($root, "templates", "template");
+        $v[8] = buildContainerTemplateFilterList();
+        $v[9] = setWorkingDirectory($root, "templates", "template");
     }
 
     if ($standard) {
@@ -373,7 +309,7 @@ proc int pvRunDialog(string $v[], string $start, int $fromCaptureTool)
     // An operation it doesn't know has nothing to show the browser with.
     if ($v[2] == "")
         return 0;
-    string $filter = pvTypeToFilter($v[1]);
+    string $filter = fileTypeToFilterDescription($v[1]);
 
     string $cmd = "fileDialog2 -returnFilter 1 -caption \"" + encodeString($v[0]) + "\" -fileMode " + $v[2]
         + " -okCaption \"" + encodeString($v[0]) + "\"";
@@ -390,15 +326,8 @@ proc int pvRunDialog(string $v[], string $start, int $fromCaptureTool)
 
     // An option box left open would show the same controls twice.
     global string $gOptBoxForm;
-    if ($gOptBoxForm != "" && `layout -exists $gOptBoxForm`) {
+    if ($gOptBoxForm != "" && `layout -exists $gOptBoxForm`)
         hideOptionBoxNow();
-        // The file options box is a window of its own in Aztek (it has no getStandardWindow yet), so the window
-        // holding that form is closed too.
-        string $parts[];
-        tokenize $gOptBoxForm "|" $parts;
-        if (size($parts) && `window -exists $parts[0]`)
-            deleteUI -window $parts[0];
-    }
 
     string $result[] = eval($cmd);
     if (size($result) == 0 || $result[0] == "")
@@ -477,7 +406,7 @@ global proc int projectViewerInitSelectedFileName(string $startUpAction, string 
     // An untitled scene's Save starts in the scenes folder, or wherever the last one was.
     if ($selectedFileName == "") {
         string $type = `optionVar -exists defaultFileOpenType` ? `optionVar -query defaultFileOpenType` : pvBestGuess();
-        $selectedFileName = pvWorkingDirectory(`workspace -query -fullName`, $type, "scene");
+        $selectedFileName = setWorkingDirectory(`workspace -query -fullName`, $type, "scene");
     }
     pvCaptureProcessing(1);
     fileOptions("Test", "None");

@@ -64,9 +64,7 @@ global proc fitAllPanels(string $fitType)
                     profilerTool -edit -frameSelected;
             }
         } else if ($type == "nodeEditorPanel") {
-            string $ed = $panel + "NodeEditorEd";
-            if (`exists editorNameFromPanel`)
-                $ed = eval("editorNameFromPanel \"" + $panel + "\"");
+            string $ed = editorNameFromPanel($panel);
             if (`nodeEditor -exists $ed`) {
                 // Here the selection is framed as the scene has it, which fitPanel doesn't do.
                 if ($all)
@@ -87,10 +85,8 @@ global proc fitAllPanels(string $fitType)
             }
         } else if ($type == "clipEditorPanel" || $type == "sequenceEditorPanel") {
             // Both find their editor through the clip editor's procedure, the Sequencer included.
-            if (`exists clipEditorNameFromPanel`) {
-                string $ed = eval("clipEditorNameFromPanel \"" + $panel + "\"");
-                clipEditor -edit -lookAt $what $ed;
-            }
+            string $ed = clipEditorNameFromPanel($panel);
+            clipEditor -edit -lookAt $what $ed;
         }
     }
 }

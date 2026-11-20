@@ -1,0 +1,94 @@
+// addRecentFile: puts a file at the end (newest) of the recent files list, kept in optionVars RecentFilesList and
+// RecentFilesTypeList (the file type of each, in step), with no repeats and at most RecentFilesMaxSize entries. The
+// list is then saved to the "recents" preferences and melCallbackAddRecentFile is told.
+
+// Gives each file in the list a type, for a list saved before types were kept: the installation's
+// initRecentFilesTypeList where there is one, else each file's type as Aztek reads it from the name.
+proc addRecentFileInitTypes(string $files[])
+{
+    if (`exists initRecentFilesTypeList`) {
+        string $quoted[];
+        for ($i = 0; $i < size($files); $i++)
+            $quoted[$i] = "\"" + encodeString($files[$i]) + "\"";
+        eval("initRecentFilesTypeList({" + stringArrayToString($quoted, ",") + "})");
+        return;
+    }
+    optionVar -clearArray RecentFilesTypeList;
+    for ($f in $files) {
+        string $t[] = `file -query -type $f`;
+        optionVar -stringValueAppend RecentFilesTypeList ((size($t) > 0 && $t[0] != "") ? $t[0] : "unknown");
+    }
+}
+
+// The file Aztek last saved when it crashed, if it keeps one.
+proc string addRecentFileCrashFile()
+{
+    if (!`exists crashInfo`)
+        return "";
+    return eval("crashInfo -query -crashFile");
+}
+
+// Saves the list for the next session (never in batch mode) and runs the callback, a failure of which is only a
+// warning.
+proc addRecentFileFinish(string $theFile)
+{
+    if (!`about -batch` && `exists savePrefs`)
+        eval("savePrefs -file \"recents\"");
+    if (`exists melCallbackAddRecentFile`) {
+        if (catch(eval("melCallbackAddRecentFile \"" + encodeString($theFile) + "\"")))
+            warning "The procedure run when a recent file is added (melCallbackAddRecentFile) failed.";
+    }
+}
+
+global proc addRecentFile(string $theFile, string $theType)
+{
+    int $maxSize = `optionVar -query RecentFilesMaxSize`;
+
+    // Another session may have changed the list since this one read it.
+    string $recents = `internalVar -userPrefDir` + "userPrefs_recents.mel";
+    if (`filetest -f $recents`)
+        eval("source \"" + encodeString($recents) + "\"");
+
+    // A file saved as the program crashed is never one to come back to.
+    string $crash = addRecentFileCrashFile();
+    if ($crash != "" && $crash == $theFile)
+        return;
+
+    if (!`optionVar -exists RecentFilesList`) {
+        if ($maxSize > 0) {
+            optionVar -stringValueAppend RecentFilesList $theFile;
+            optionVar -stringValueAppend RecentFilesTypeList $theType;
+        }
+        addRecentFileFinish($theFile);
+        return;
+    }
+
+    string $files[] = `optionVar -query RecentFilesList`;
+    if (size($files) > 0) {
+        if (!`optionVar -exists RecentFilesTypeList`)
+            addRecentFileInitTypes($files);
+        for ($i = 0; $i < size($files); $i++) {
+            if ($files[$i] == $theFile) {
+                // Already listed: it moves to the newest place. The list doesn't grow, so nothing is trimmed.
+                optionVar -removeFromArray RecentFilesList $i;
+                optionVar -removeFromArray RecentFilesTypeList $i;
+                optionVar -stringValueAppend RecentFilesList $theFile;
+                optionVar -stringValueAppend RecentFilesTypeList $theType;
+                addRecentFileFinish($theFile);
+                return;
+            }
+        }
+    }
+
+    optionVar -stringValueAppend RecentFilesList $theFile;
+    optionVar -stringValueAppend RecentFilesTypeList $theType;
+
+    // The oldest go first once the list is over its size.
+    int $count = `optionVar -arraySize RecentFilesList`;
+    int $keep = ($maxSize > 0) ? $maxSize : 0;
+    for ($i = $keep; $i < $count; $i++) {
+        optionVar -removeFromArray RecentFilesList 0;
+        optionVar -removeFromArray RecentFilesTypeList 0;
+    }
+    addRecentFileFinish($theFile);
+}

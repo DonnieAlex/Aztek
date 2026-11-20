@@ -1,0 +1,165 @@
+// setWorkingDirectory: before a file browser opens, moves the workspace's current folder to the best one for the file
+// type and the kind of file (a file rule such as scene or images), preferring the folder last used for that pair. The
+// optionVar that remembers it is named in $gDirRetainingOptionVar; whoever browses writes the chosen folder back there.
+
+global string $gDirRetainingOptionVar;
+
+// Aztek's workspace has a single folder: -dir moves the project root along with the current folder. So that browsing
+// never moves the project, a change that would is undone and the folder kept here instead, and given back as the
+// current one by swdCurrentDir.
+global string $gSetWorkingDirectoryFolder;
+
+// Changes the current folder, 1 when that worked.
+proc int swdChangeDir(string $dir)
+{
+    global string $gSetWorkingDirectoryFolder;
+    string $root = `workspace -query -rootDirectory`;
+    if (catchQuiet(`workspace -directory $dir`))
+        return 0;
+    if (`workspace -query -rootDirectory` != $root) {
+        workspace -openWorkspace $root;
+        $gSetWorkingDirectoryFolder = $dir;
+    } else {
+        $gSetWorkingDirectoryFolder = "";
+    }
+    return 1;
+}
+
+proc string swdCurrentDir(string $workspace)
+{
+    global string $gSetWorkingDirectoryFolder;
+    if ($gSetWorkingDirectoryFolder != "")
+        return endsWith($gSetWorkingDirectoryFolder, "/") ? $gSetWorkingDirectoryFolder : ($gSetWorkingDirectoryFolder + "/");
+    return `workspace -query -directory $workspace`;
+}
+
+proc int swdIsDir(string $path)
+{
+    return $path != "" && `file -query -exists $path`;
+}
+
+// The folder above $path, keeping a leading slash and a trailing one; "." when nothing is left.
+proc string swdParent(string $path)
+{
+    if (`about -nt`)
+        $path = substituteAllString($path, "\\", "/");
+    int $absolute = startsWith($path, "/");
+    string $parts[];
+    int $n = `tokenize $path "/" $parts`;
+    string $up = $absolute ? "/" : "";
+    for ($i = 0; $i < $n - 1; $i++)
+        $up += $parts[$i] + "/";
+    if ($up == "")
+        $up = ".";
+    return $up;
+}
+
+// The first folder of a file rule's value, for the rule a file type and kind call for; empty when none matches. The
+// rules come as name/value pairs.
+proc string swdRuleLocation(string $workspace, string $fileFormat, string $objectType, string $separator)
+{
+    string $rules[];
+    if (catchQuiet($rules = `workspace -query -fileRule $workspace`))
+        return "";
+    int $count = size($rules);
+    // Anything but a list of pairs is no list of rules.
+    if ($count < 2 || $count % 2)
+        return "";
+
+    string $value = "";
+    int $found = 0;
+    if ($fileFormat == "mayaAscii" || $fileFormat == "mayaBinary") {
+        string $rule = $objectType;
+        if ($rule == "" || $rule == "import" || $rule == "export" || $rule == "reference")
+            $rule = "scene";
+        for ($i = 0; $i < $count && !$found; $i += 2) {
+            if ($rules[$i] == $rule) {
+                $value = $rules[$i + 1];
+                $found = 1;
+            }
+        }
+    } else if ($fileFormat == "image") {
+        // The last matching rule wins here.
+        for ($i = 0; $i < $count; $i += 2)
+            if ($rules[$i] == $objectType)
+                $value = $rules[$i + 1];
+    } else {
+        for ($i = 0; $i < $count && !$found; $i += 2) {
+            if ($rules[$i] == $fileFormat) {
+                $value = $rules[$i + 1];
+                $found = 1;
+            }
+        }
+    }
+    if ($value == "")
+        return "";
+    string $paths[];
+    tokenize $value $separator $paths;
+    return size($paths) ? $paths[0] : "";
+}
+
+global proc string setWorkingDirectory(string $workspace, string $fileFormat, string $objectType)
+{
+    global string $gDirRetainingOptionVar;
+
+    string $separator = `about -nt` ? ";" : ":";
+    string $rootDir = `workspace -query -rootDirectory $workspace`;
+    string $defaultDir = `workspace -query -rootDirectory`;
+
+    if (swdIsDir($rootDir) && swdChangeDir($rootDir)) {
+        // The descriptions that stand for any scene are read as a binary scene.
+        if ($fileFormat == "Best Guess" || $fileFormat == "Scenes" || $fileFormat == "All Files")
+            $fileFormat = "mayaBinary";
+        else if ($fileFormat == "image" && ($objectType == "" || $objectType == "scene"))
+            $objectType = "images";
+
+        $gDirRetainingOptionVar = "browserLocation" + $fileFormat + $objectType;
+
+        if ($fileFormat != "") {
+            string $location = swdRuleLocation($workspace, $fileFormat, $objectType, $separator);
+            if ($location != "") {
+                int $absolute = startsWith($location, "/") || (`about -nt` && `gmatch $location "[A-Za-z]:*"`);
+                if ($absolute)
+                    $defaultDir = $location;
+                else
+                    $defaultDir += (endsWith($defaultDir, "/") ? "" : "/") + $location;
+            }
+        }
+    }
+
+    // The folder used last time for this pair comes first, when it is still there.
+    string $currentDir = $defaultDir;
+    int $set = 0;
+    if (`optionVar -exists $gDirRetainingOptionVar`) {
+        $currentDir = `optionVar -query $gDirRetainingOptionVar`;
+        if (swdIsDir($currentDir) && swdChangeDir($currentDir)) {
+            $set = 1;
+            $defaultDir = $currentDir;
+        }
+    }
+
+    // Otherwise the nearest folder that exists, walking up from the rule's.
+    while (!$set) {
+        int $exists = swdIsDir($defaultDir);
+        if ($exists && swdChangeDir($defaultDir)) {
+            $set = 1;
+            break;
+        }
+        if ($exists && $defaultDir == ".")
+            break;
+        string $up = swdParent($defaultDir);
+        // Nothing further up to try.
+        if ($up == $defaultDir)
+            break;
+        $defaultDir = $up;
+    }
+
+    if ($currentDir != $defaultDir)
+        warning (`format -stringArg $currentDir -stringArg $defaultDir
+            "The folder ^1s isn't available, so ^2s is used instead."`);
+
+    optionVar -category "Files/Projects" -stringValue $gDirRetainingOptionVar $defaultDir;
+    if (!swdChangeDir($defaultDir))
+        error (`format -stringArg $defaultDir "Can't change the working folder to ^1s."`);
+    return swdCurrentDir($workspace);
+}

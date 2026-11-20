@@ -1,0 +1,335 @@
+// artAttrCallback: ties the Paint Attributes tool settings' controls to the paint tool, and the callbacks behind them:
+// the paint operation, the value and its range, clamping, which component of a vector attribute is painted, the
+// attribute filter and the attribute picked. $artCommand is the paint tool's command (artAttrCtx and its kind); each
+// command is "<artCommand> -e <flag> <value> `currentCtx`", so it acts on whichever tool is current when it runs.
+// The other attribute paint scripts source this file for these procedures.
+
+// The attribute being painted, as nodeType.nodeName.attributeName.
+global string $gArtAttrCurrentAttr;
+
+// The context part every command ends with, left unevaluated until the command runs.
+proc string aacCtx()
+{
+    return " `currentCtx`";
+}
+
+// The common brush, stroke, pressure, attribute map and display callbacks come from artisanCallback.mel, which Aztek
+// doesn't have yet: each is run when present.
+proc aacArtisan(string $procName, string $artCommand, string $currTool)
+{
+    if (`exists $procName`)
+        eval($procName + " \"" + $artCommand + "\" \"" + $currTool + "\"");
+}
+
+global proc artAttrCallback(string $artCommand)
+{
+    catchQuiet(eval("source \"artisanCallback.mel\""));
+    string $currTool = `contextInfo -class `currentCtx``;
+
+    aacArtisan("artisanBrushCallback", $artCommand, $currTool);
+    artAttrPaintCallback($artCommand, $currTool);
+    aacArtisan("artisanStrokeCallback", $artCommand, $currTool);
+    aacArtisan("artisanPressureCallback", $artCommand, $currTool);
+    aacArtisan("artisanAttrMapCallback", $artCommand, $currTool);
+    aacArtisan("artisanDisplayCallback", $artCommand, $currTool);
+}
+
+global proc artAttrPaintCallback(string $artCommand, string $currTool)
+{
+    artAttrCommonCallback($artCommand, $currTool);
+
+    string $filters[] = {"cluster", "jiggle", "particle", "polyReduce", "wire", "transferAttributes", "shrinkWrap", "all"};
+    for ($i = 0; $i < size($filters); $i++)
+        menuItem -edit -command ("artAttrSetFiler \"" + $filters[$i] + "\" " + $artCommand) ("artAttrFilterMenu" + ($i + 1));
+
+    optionMenuGrp -edit -changeCommand ("artAttrVectorIdxCallback " + $artCommand) artAttrVectorIdxOptionMenu;
+}
+
+global proc artAttrCommonCallback(string $artCommand, string $currTool)
+{
+    radioButtonGrp -edit
+        -onCommand1 ("artAttrPaintOperation " + $artCommand + " Replace")
+        -onCommand2 ("artAttrPaintOperation " + $artCommand + " Add")
+        artAttrOperRadioButton0;
+    radioButtonGrp -edit
+        -onCommand1 ("artAttrPaintOperation " + $artCommand + " Scale")
+        -onCommand2 ("artAttrPaintOperation " + $artCommand + " Smooth")
+        artAttrOperRadioButton1;
+
+    floatSliderGrp -edit -changeCommand ($artCommand + " -e -value #1" + aacCtx()) artAttrValueSlider;
+    symbolButton -edit -command ($artCommand + " -e -pickValue" + aacCtx()) artAttrValuePick;
+
+    if (`floatFieldGrp -exists artAttrMinMaxValue`)
+        floatFieldGrp -edit -changeCommand ("artAttrUpdatePaintValueSlider " + $artCommand + " " + $currTool)
+            artAttrMinMaxValue;
+    if (`checkBoxGrp -exists artAttrClampChkBox`)
+        checkBoxGrp -edit
+            -changeCommand1 ("artAttrUpdateClampLower " + $artCommand + " #1")
+            -changeCommand2 ("artAttrUpdateClampUpper " + $artCommand + " #1")
+            artAttrClampChkBox;
+    if (`floatFieldGrp -exists artAttrClampField`)
+        floatFieldGrp -edit -changeCommand ("artAttrUpdateClampField " + $artCommand) artAttrClampField;
+
+    button -edit -command ($artCommand + " -e -clear" + aacCtx()) artAttrFloodButton;
+}
+
+global proc artAttrPaintOperation(string $artCommand, string $operation)
+{
+    string $mode = "";
+    if ($operation == "Replace") $mode = "absolute";
+    else if ($operation == "Add") $mode = "additive";
+    else if ($operation == "Scale") $mode = "scale";
+    else if ($operation == "Smooth") $mode = "smooth";
+    else if ($operation == "Remove") $mode = "remove";
+    if ($mode != "")
+        eval($artCommand + " -e -selectedattroper \"" + $mode + "\"" + aacCtx());
+
+    // Only the lower-case name turns the value controls off; the settings' own buttons pass "Smooth", which leaves them
+    // on, as the reference does.
+    artAttrUpdateValueControls($operation != "smooth");
+}
+
+global proc artAttrUpdateValueControls(int $enable)
+{
+    if (!`floatSliderGrp -exists artAttrValueSlider`)
+        return;
+    floatSliderGrp -edit -enable $enable artAttrValueSlider;
+    symbolButton -edit -enable $enable artAttrValuePick;
+    if (`floatFieldGrp -exists artAttrMinMaxValue`)
+        floatFieldGrp -edit -enable $enable artAttrMinMaxValue;
+}
+
+// The value's range changed: the value is kept inside it, and the slider follows.
+global proc artAttrUpdatePaintValueSlider(string $artCommand, string $currTool)
+{
+    setParent $currTool;
+    float $value = `floatSliderGrp -query -value artAttrValueSlider`;
+    float $min = 0.0, $max = 1.0;
+    if (`floatFieldGrp -exists artAttrMinMaxValue`) {
+        $min = `floatFieldGrp -query -value1 artAttrMinMaxValue`;
+        $max = `floatFieldGrp -query -value2 artAttrMinMaxValue`;
+    }
+    if ($value < $min)
+        $value = $min;
+    if ($value > $max)
+        $value = $max;
+
+    eval($artCommand + " -e -minvalue " + $min + aacCtx());
+    eval($artCommand + " -e -maxvalue " + $max + aacCtx());
+    eval($artCommand + " -e -value " + $value + aacCtx());
+    floatSliderGrp -edit -minValue $min -maxValue $max -value $value artAttrValueSlider;
+}
+
+// The clamp mode a tool has: none, lower, upper or both.
+proc string aacClampMode(string $artCommand, string $flag)
+{
+    string $mode;
+    if (catch($mode = eval($artCommand + " -q " + $flag + aacCtx())))
+        return "none";
+    return $mode;
+}
+
+proc string aacClampModeFor(int $lowerOn, int $upperOn)
+{
+    if ($lowerOn && $upperOn) return "both";
+    if ($lowerOn) return "lower";
+    if ($upperOn) return "upper";
+    return "none";
+}
+
+global proc artAttrUpdateClampLower(string $artCommand, int $lowerOn)
+{
+    string $mode = aacClampMode($artCommand, "-clamp");
+    artAttrUpdateClampOptionsInPaintCtx($artCommand, $lowerOn, $mode == "both" || $mode == "upper");
+}
+
+global proc artAttrUpdateClampUpper(string $artCommand, int $upperOn)
+{
+    string $mode = aacClampMode($artCommand, "-clamp");
+    artAttrUpdateClampOptionsInPaintCtx($artCommand, $mode == "both" || $mode == "lower", $upperOn);
+}
+
+global proc artAttrUpdateClampOptionsInPaintCtx(string $artCommand, int $lowerOn, int $upperOn)
+{
+    eval($artCommand + " -e -clamp \"" + aacClampModeFor($lowerOn, $upperOn) + "\"" + aacCtx());
+    artAttrUpdateClampField($artCommand);
+}
+
+global proc artAttrUpdateClampField(string $artCommand)
+{
+    int $lowerOn = 0, $upperOn = 0;
+    if (`checkBoxGrp -exists artAttrClampChkBox`) {
+        $lowerOn = `checkBoxGrp -query -value1 artAttrClampChkBox`;
+        $upperOn = `checkBoxGrp -query -value2 artAttrClampChkBox`;
+    }
+    int $hasFields = `floatFieldGrp -exists artAttrClampField`;
+    float $lower = 0.0, $upper = 1.0;
+    if ($hasFields) {
+        $lower = `floatFieldGrp -query -value1 artAttrClampField`;
+        $upper = `floatFieldGrp -query -value2 artAttrClampField`;
+    }
+
+    if ($lowerOn && $upperOn && $lower > $upper) {
+        warning "The lower clamp value can't be more than the upper one; it has been set to the upper value.";
+        $lower = $upper;
+        if ($hasFields)
+            floatFieldGrp -edit -value1 $lower -value2 $upper artAttrClampField;
+    }
+    if ($lowerOn)
+        eval($artCommand + " -e -clamplower " + $lower + aacCtx());
+    if ($upperOn)
+        eval($artCommand + " -e -clampupper " + $upper + aacCtx());
+}
+
+global proc artAttrUpdateAlphaClampLower(string $artCommand, int $lowerOn)
+{
+    string $mode = aacClampMode($artCommand, "-alphaclamp");
+    artAttrUpdateAlphaClampOptionsInPaintCtx($artCommand, $lowerOn, $mode == "both" || $mode == "upper");
+}
+
+global proc artAttrUpdateAlphaClampUpper(string $artCommand, int $upperOn)
+{
+    string $mode = aacClampMode($artCommand, "-alphaclamp");
+    artAttrUpdateAlphaClampOptionsInPaintCtx($artCommand, $mode == "both" || $mode == "lower", $upperOn);
+}
+
+global proc artAttrUpdateAlphaClampOptionsInPaintCtx(string $artCommand, int $lowerOn, int $upperOn)
+{
+    eval($artCommand + " -e -alphaclamp \"" + aacClampModeFor($lowerOn, $upperOn) + "\"" + aacCtx());
+    artAttrUpdateAlphaClampField($artCommand);
+    floatFieldGrp -edit -enable1 $lowerOn -enable2 $upperOn artAttrAlphaClampField;
+}
+
+// The alpha controls are expected to be there whenever these run.
+global proc artAttrUpdateAlphaClampField(string $artCommand)
+{
+    int $lowerOn = `checkBoxGrp -query -value1 artAttrAlphaClampChkBox`;
+    int $upperOn = `checkBoxGrp -query -value2 artAttrAlphaClampChkBox`;
+    float $lower = `floatFieldGrp -query -value1 artAttrAlphaClampField`;
+    float $upper = `floatFieldGrp -query -value2 artAttrAlphaClampField`;
+
+    if ($lowerOn && $upperOn && $lower > $upper) {
+        warning "The lower alpha clamp value can't be more than the upper one; it has been set to the upper value.";
+        $lower = $upper;
+        floatFieldGrp -edit -value1 $lower -value2 $upper artAttrAlphaClampField;
+    }
+    if ($lowerOn)
+        eval($artCommand + " -e -alphaclamplower " + $lower + aacCtx());
+    if ($upperOn)
+        eval($artCommand + " -e -alphaclampupper " + $upper + aacCtx());
+}
+
+// Which part of a vector attribute is painted: 1 for X (or R), 2 for Y (G), 3 for Z (B).
+global proc artAttrVectorIdxCallback(string $artCommand)
+{
+    string $value = `optionMenuGrp -query -value artAttrVectorIdxOptionMenu`;
+    int $index = 0;
+    if ($value == "X/R") $index = 1;
+    else if ($value == "Y/G") $index = 2;
+    else if ($value == "Z/B") $index = 3;
+    eval($artCommand + " -e -dti " + $index + aacCtx());
+}
+
+// Which node types' attributes can be painted. $artCommand isn't used.
+global proc artAttrSetFiler(string $node, string $artCommand)
+{
+    if ($node == "all") {
+        makePaintable -activateAll true;
+        makePaintable -activate false "mesh" "vertexColorRGB";
+        makePaintable -activate false "mesh" "vertexFaceColorRGB";
+        setArtAttrFilterLabel("Filter: All");
+    } else {
+        makePaintable -activateAll false;
+        string $attr = "";
+        if ($node == "cluster" || $node == "jiggle" || $node == "wire" || $node == "transferAttributes"
+            || $node == "shrinkWrap")
+            $attr = "weights";
+        else if ($node == "polyReduce")
+            $attr = "vertexWeights";
+        else if ($node == "particle")
+            $attr = "*";
+        if ($attr != "") {
+            makePaintable -activate true $node $attr;
+            setArtAttrFilterLabel(`format -stringArg $node "Filter: ^1s"`);
+        }
+    }
+
+    if (`exists artAttrPaintMenu`)
+        eval("artAttrPaintMenu \"artAttrListPopupMenu\"");
+    if (`button -exists artAttrListButton`)
+        button -edit -label "No attribute selected" artAttrListButton;
+    if (`button -exists artAttrFilterButton`)
+        button -edit -label (artAttrFilterLabel()) artAttrFilterButton;
+}
+
+// Forgets the current attribute when its node or the attribute itself has gone.
+global proc artAttrSyncCurrentAttribute()
+{
+    global string $gArtAttrCurrentAttr;
+    string $parts[];
+    tokenize $gArtAttrCurrentAttr "." $parts;
+    string $node = (size($parts) > 1) ? $parts[1] : "";
+    string $attr = (size($parts) > 2) ? $parts[2] : "";
+    if ($node == "" || !`objExists $node` || $attr == "" || !`attributeQuery -node $node -exists $attr`)
+        $gArtAttrCurrentAttr = "";
+}
+
+// The short name of a node from its full path.
+proc string aacShortName(string $path)
+{
+    if (`exists getNodeNameFromAbsolutePath`)
+        return eval("getNodeNameFromAbsolutePath \"" + $path + "\"");
+    string $parts[];
+    int $n = `tokenize $path "|" $parts`;
+    return $n ? $parts[$n - 1] : $path;
+}
+
+// A new attribute to paint was picked, as nodeType.nodeName.attributeName.
+global proc artAttrSelected(string $artCommand, string $attribute)
+{
+    global string $gArtAttrCurrentAttr;
+    catchQuiet(eval("source \"artisanUtilities.mel\""));
+    $gArtAttrCurrentAttr = $attribute;
+    string $parts[];
+    tokenize $attribute "." $parts;
+    string $nodeType = (size($parts) > 0) ? $parts[0] : "";
+    string $nodeName = (size($parts) > 1) ? $parts[1] : "";
+    string $attrName = (size($parts) > 2) ? $parts[2] : "";
+
+    // The first time a polyReduce attribute is picked, the tool stops updating as it paints, since reducing again on
+    // every dab is slow.
+    string $extra = "";
+    if ($nodeType == "polyReduce") {
+        if (!`optionVar -exists artAttrturnOffUpdate`) {
+            optionVar -category "Artisan" -intValue artAttrturnOffUpdate 1;
+            $extra = " -interactiveUpdate false ";
+            if (`checkBoxGrp -exists artAttrInteractiveUpdate`)
+                checkBoxGrp -edit -value1 0 artAttrInteractiveUpdate;
+        }
+    } else {
+        optionVar -remove artAttrturnOffUpdate;
+    }
+
+    // Aztek's artAttrCtx takes the attribute as -attrSelected, in the same form, and has no -interactiveUpdate yet:
+    // that is used when -pas isn't taken.
+    if (catchQuiet(eval($artCommand + $extra + " -e -pas \"" + $attribute + "\"" + aacCtx())))
+        eval($artCommand + " -e -attrSelected \"" + $attribute + "\"" + aacCtx());
+
+    if (!`button -exists artAttrListButton`)
+        return;
+    string $label = aacShortName($nodeName) + "." + $attrName;
+    if (size(`ls ($nodeName + "." + $attrName)`) == 0) {
+        string $message = "";
+        if ($attrName == "rgbPP" || $attrName == "opacityPP")
+            $message = `format -stringArg $attrName -stringArg $nodeName
+                "Add the per-particle attribute ^1s to ^2s before painting it."`;
+        else if ($attrName == "goalPP")
+            $message = "Create the particles with a goal before painting goalPP.";
+        else if (!stringArrayContains($attrName, `listAttr -leaf $nodeName`))
+            $message = `format -stringArg $nodeName -stringArg $attrName "^1s has no attribute ^2s."`;
+        if ($message != "")
+            warning $message;
+    }
+    if ($label != "")
+        button -edit -label $label artAttrListButton;
+}

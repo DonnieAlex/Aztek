@@ -257,9 +257,7 @@ global proc playblastFileBrowser()
     if (!$absolute) {
         string $dir = `workspace -query -fileRuleEntry $rule`;
         if ($dir != "") {
-            if (`exists setWorkingDirectory`)
-                eval("setWorkingDirectory \"" + encodeString(`workspace -query -fullName`) + "\" \"" + $type + "\" \""
-                     + encodeString($dir) + "\"");
+            setWorkingDirectory(`workspace -query -fullName`, $type, $dir);
             $start = startsWith($dir, "/") ? $dir : (`workspace -query -fullName` + "/" + $dir);
         }
     }
@@ -278,15 +276,18 @@ global proc playblastFileBrowser()
         playblastUpdateMovieName(fromNativePath($picked[0]), $type);
 }
 
-// The option box, built here when Aztek's own Playblast Options window isn't there (as with no interface).
+// The option box, built in the shared one when Aztek's own Playblast Options window isn't there (as with no
+// interface).
 proc pbOptionBox(int $hideTimeRange)
 {
-    string $win = "playblastOptionsWindow";
-    if (`window -exists $win`)
-        deleteUI -window $win;
-    window -title "Playblast Options" -widthHeight 520 640 $win;
-    string $form = `formLayout -visible false`;
-    string $content = `scrollLayout -childResizable true`;
+    // One page, so no tabs; the tab layout scrolls.
+    string $box[] = getStandardWindow("Playblast Options", 0, "noOptions");
+    setOptionBoxCommandName("playblast");
+    string $win = $box[0];
+    string $form = $box[1];
+    string $content = $box[2];
+    formLayout -edit -visible false $form;
+    setParent $content;
     string $tab = `columnLayout -adjustableColumn true`;
     string $q = "\"" + $tab + "\"";
 
@@ -348,23 +349,20 @@ proc pbOptionBox(int $hideTimeRange)
     setParent ..;
     setParent ..;
 
-    setParent $form;
-    string $buttons = `rowLayout -numberOfColumns 4`;
-        // Hidden first: the playblast brings the main window forward to capture it.
-        button -label "Playblast"
-            -command ("window -edit -visible false " + $win + "; playblastCallback " + $q + " " + (1 + $hideTimeRange)
-                      + "; deleteUI -window " + $win) playblastDoItBtn;
-        button -label "Save" -command ("playblastCallback " + $q + " false; deleteUI -window " + $win) playblastSaveBtn;
-        button -label "Reset" -command ("playblastSetup " + $q + " true") playblastResetBtn;
-        button -label "Close" -command ("deleteUI -window " + $win) playblastCloseBtn;
-    setParent ..;
-    formLayout -edit
-        -attachForm $content "top" 0 -attachForm $content "left" 0 -attachForm $content "right" 0
-        -attachControl $content "bottom" 5 $buttons
-        -attachForm $buttons "left" 5 -attachForm $buttons "right" 5 -attachForm $buttons "bottom" 5
-        -visible true $form;
+    string $buttons[] = addStandardButtons("playblast", "Playblast", $form, $content, "noOptions");
+    button -edit -command ("playblastCallback " + $q + " false; hideOptionBox") $buttons[3];
+    button -edit -command "hideOptionBox" $buttons[2];
+    button -edit -command ("playblastSetup " + $q + " true") $buttons[1];
+    // Hidden first: the playblast brings the main window forward to capture it.
+    button -edit
+        -command ("window -edit -visible false " + $win + "; playblastCallback " + $q + " " + (1 + $hideTimeRange)
+                  + "; hideOptionBox")
+        $buttons[0];
+    formLayout -edit -visible true $form;
 
+    setOptionBoxHelpTag("Playblast");
     playblastSetup($tab, false);
+    showOptionBox();
     showWindow $win;
 }
 

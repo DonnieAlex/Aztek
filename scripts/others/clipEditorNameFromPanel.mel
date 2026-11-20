@@ -1,0 +1,7 @@
+// clipEditorNameFromPanel: the clip editor (Trax) inside a clip editor panel. Panels name their editors the same way
+// whatever their kind, so this is editorNameFromPanel under the name callers know.
+
+global proc string clipEditorNameFromPanel(string $panel)
+{
+    return editorNameFromPanel($panel);
+}

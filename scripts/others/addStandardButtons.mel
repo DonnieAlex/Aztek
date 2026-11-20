@@ -1,0 +1,27 @@
+// addStandardButtons: hands back the buttons along the bottom of the shared option box, after giving the apply button
+// the caller's label. The buttons already exist (getOptionBox makes them); nothing is created here.
+// $commandName and $tabLayout are kept for callers that pass them but aren't used.
+// $options: "noOptions" does nothing; "needSelection" is recognised, but greying out Apply when nothing is selected
+// is switched off, as it is in the reference, so Apply is never dimmed.
+// Gives back [0] apply, [1] reset, [2] close, [3] save and [4] an empty slot where a help button once was.
+
+global proc string[] addStandardButtons(string $commandName, string $applyTitle, string $formLayout,
+    string $tabLayout, string $options)
+{
+    setParent $formLayout;
+
+    // "needSelection" would dim Apply with nothing selected; that is switched off, so the option is not acted on.
+
+    // The button procedures live with the shared option box; they are loaded here if no box has been made yet.
+    if (!`exists getOptionBoxApplyBtn`)
+        source "getOptionBox.mel";
+
+    string $buttons[5];
+    $buttons[0] = getOptionBoxApplyBtn();
+    button -edit -label $applyTitle $buttons[0];
+    $buttons[1] = getOptionBoxResetBtn();
+    $buttons[2] = getOptionBoxCloseBtn();
+    $buttons[3] = getOptionBoxSaveBtn();
+    $buttons[4] = "";
+    return $buttons;
+}

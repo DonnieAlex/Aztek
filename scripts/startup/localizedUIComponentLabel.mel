@@ -1,0 +1,86 @@
+// localizedUIComponentLabel: the label the interface shows for one of the main window's parts (status line, shelf,
+// time slider, the docked editors and so on), from its English name. Aztek's interface is English and it has no
+// string catalog, so each one shows as its English name unless a catalog (displayString) has the entry.
+
+global string $gUIComponentLabels[];
+
+// English name, then its catalog entry.
+proc string[] luclTable()
+{
+    return {
+        "Status Line", "kStatusLine",
+        "Shelf", "kShelf",
+        "Time Slider", "kTimeSlider",
+        "Range Slider", "kRangeSlider",
+        "Cut View", "kContextView",
+        "Command Line", "kCommandLine",
+        "Help Line", "kHelpLine",
+        "Tool Box", "kToolBox",
+        "Attribute Editor", "kAttributeEditor",
+        "Tool Settings", "kToolSettings",
+        "Channel Box / Layer Editor", "kChannelBoxLayerEditor",
+        "Channel Box", "kChannelBox",
+        "Layer Editor", "kLayerEditor",
+        "Viewport", "kViewport",
+        "Attribute Spread Sheet", "kAttributeSpreadSheet",
+        "Modeling Toolkit", "kModelingToolkit",
+        "XGen", "kXgen",
+        "XGen Interactive Groom Editor", "kIgSplineEditorDockTitle",
+        "Quick Rig", "kQuickRig",
+        "Human IK", "kHumanIK",
+        "Render Settings", "kRenderSettings",
+        "Render Settings (masterLayer)", "kRenderSettingsMasterLayer",
+        "Render Setup", "kRenderSetup",
+        "Light Editor", "kLightEditor",
+        "Light Editor (Global Mode)", "kLightEditorGlobalMode",
+        "Light Editor (Layer Mode)", "kLightEditorLayerMode",
+        "Property Editor", "kPropertyEditor",
+        "Property Editor - Render Setup", "kPropertyEditorRenderSetup",
+        "Property Editor - Light Editor", "kPropertyEditorLightEditor",
+        "Looking through: Select_Light", "kLookingThroughSelectLight",
+        "MASH Editor", "kMASHOutliner"
+    };
+}
+
+// The shown text: the catalog's when it has the entry, else the English name.
+proc string luclText(string $english, string $key)
+{
+    string $full = "m_localizedUIComponentLabel." + $key;
+    if (`exists displayString`) {
+        int $there = 0;
+        catchQuiet($there = eval("displayString -exists \"" + $full + "\""));
+        if ($there)
+            return uiRes($full);
+    }
+    return $english;
+}
+
+// Every name as [English, shown, English, shown, ...]. Made once and kept.
+global proc string[] localizedUIComponentLabels()
+{
+    global string $gUIComponentLabels[];
+    if (size($gUIComponentLabels))
+        return $gUIComponentLabels;
+
+    string $table[] = luclTable();
+    string $labels[];
+    for ($i = 0; $i < size($table); $i += 2) {
+        $labels[$i] = $table[$i];
+        $labels[$i + 1] = luclText($table[$i], $table[$i + 1]);
+    }
+    $gUIComponentLabels = $labels;
+    return $gUIComponentLabels;
+}
+
+// An exact match only: a trailing number ("Shelf2") is not looked through, unlike panel labels.
+global proc string localizedUIComponentLabel(string $englishLabel)
+{
+    string $labels[] = localizedUIComponentLabels();
+    for ($i = 0; $i < size($labels); $i += 2) {
+        if ($labels[$i] == $englishLabel)
+            return $labels[$i + 1];
+    }
+    if (`exists uiToMelMsg`)
+        eval("uiToMelMsg \"UIComponents_melToUI\" \"" + encodeString($englishLabel) + "\" 0");
+    return $englishLabel;
+}

@@ -1,0 +1,149 @@
+// performPolyCopyPaste: the mesh clipboard actions, Copy Attributes, Paste Attributes and Clear Clipboard, run with
+// their saved settings, their command handed back, or their option box. They are polyClipboard with a choice of what
+// travels: UVs, shaders, vertex colours.
+//
+// Settings (int optionVars, category "Modeling.Mesh.Clipboard Actions"): polyCopyPasteUV (on), polyCopyPasteShader (on),
+// polyCopyPasteColor (off). polyCopyPasteAction remembers the last action asked for (1 copy, 2 paste, 3 clear), so the
+// option box knows which one it is for.
+
+proc ppcpInitOptions(int $force)
+{
+    string $category = "Modeling.Mesh.Clipboard Actions";
+    optionVar -init $force $category -intValue polyCopyPasteUV 1;
+    optionVar -init $force $category -intValue polyCopyPasteShader 1;
+    optionVar -init $force $category -intValue polyCopyPasteColor 0;
+}
+
+// Copying or pasting colours shows them: colour display on, in smooth shading. Aztek's views are told directly when
+// the DisplaySmoothShaded command isn't there.
+proc ppcpShowColours()
+{
+    optionVar -intValue colorShadedDisplay 1 -intValueAppend colorShadedDisplay 1;
+    if (`exists DisplaySmoothShaded`) {
+        eval("DisplaySmoothShaded");
+    } else {
+        string $panel = `getPanel -withFocus`;
+        if ($panel != "" && `getPanel -typeOf $panel` == "modelPanel")
+            modelEditor -edit -displayAppearance "smoothShaded" $panel;
+    }
+    polyOptions -colorShadedDisplay 1;
+}
+
+proc ppcpOptionBox()
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("performPolyCopyPaste");
+    // Aztek doesn't define the reference's OptionBoxTemplate everywhere; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+
+    // The form and the check boxes share a name; the boxes are found with the form as the current parent.
+    string $parent = `formLayout polyCopyPasteOptions`;
+    string $frame = `frameLayout -label "Settings"`;
+    columnLayout;
+    checkBoxGrp -numberOfCheckBoxes 3 -vertical -label "Attributes:"
+        -label1 "UVs" -label2 "Shaders" -label3 "Colours"
+        polyCopyPasteOptions;
+    setParent $parent;
+    formLayout -edit
+        -attachForm $frame "top" $gOptionBoxTemplateFrameSpacing
+        -attachForm $frame "left" $gOptionBoxTemplateFrameSpacing
+        -attachForm $frame "right" $gOptionBoxTemplateFrameSpacing
+        -attachNone $frame "bottom"
+        $parent;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -command ("performPolyCopyPasteCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+    button -edit -command ("performPolyCopyPasteCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("performPolyCopyPasteSetup " + $parent + " 1") (getOptionBoxResetBtn());
+
+    int $action = `optionVar -query polyCopyPasteAction`;
+    if ($action == 1) {
+        setOptionBoxTitle("Copy Attributes Options");
+        setOptionBoxHelpTag("ClipboardActionsCopy");
+    } else if ($action == 2) {
+        setOptionBoxTitle("Paste Attributes Options");
+        setOptionBoxHelpTag("ClipboardActionsPaste");
+    } else if ($action == 3) {
+        setOptionBoxTitle("Clear Clipboard Options");
+        setOptionBoxHelpTag("ClipboardActionsClearClipboard");
+    }
+
+    eval("performPolyCopyPasteSetup " + $parent + " 0");
+    showOptionBox();
+}
+
+// $option: 0 runs the command, 1 shows the option box, 2 gives the command back only. $action: 1 copy, 2 paste,
+// 3 clear. Gives back the command ("" for the option box).
+global proc string performPolyCopyPaste(int $option, int $action)
+{
+    optionVar -intValue polyCopyPasteAction $action;
+
+    if ($option == 1) {
+        ppcpOptionBox();
+        return "";
+    }
+
+    ppcpInitOptions(0);
+    int $color = `optionVar -query polyCopyPasteColor`;
+    int $uv = `optionVar -query polyCopyPasteUV`;
+    int $shader = `optionVar -query polyCopyPasteShader`;
+
+    string $cmd = "polyClipboard";
+    if ($uv)
+        $cmd += " -uv";
+    if ($shader)
+        $cmd += " -shader";
+    if ($color)
+        $cmd += " -color";
+
+    // As the reference does, this happens even when the command is only being asked for.
+    if ($color && ($action == 1 || $action == 2) && `optionVar -query polyAutoShowColorPerVertex`)
+        ppcpShowColours();
+
+    if ($action == 1)
+        $cmd += " -cp";
+    else if ($action == 2)
+        $cmd += " -ps";
+    else if ($action == 3)
+        $cmd += " -cl";
+
+    if ($option == 0)
+        evalEcho($cmd);
+    return $cmd;
+}
+
+// Shows the saved settings in the box under $parent; forced, puts the defaults back first.
+global proc performPolyCopyPasteSetup(string $parent, int $forceFactory)
+{
+    ppcpInitOptions($forceFactory);
+    setParent $parent;
+    checkBoxGrp -edit
+        -value1 `optionVar -query polyCopyPasteUV`
+        -value2 `optionVar -query polyCopyPasteShader`
+        -value3 `optionVar -query polyCopyPasteColor`
+        polyCopyPasteOptions;
+}
+
+// Stores the box's settings; with $doIt, also runs the action last asked for and lists it with the recent commands.
+global proc performPolyCopyPasteCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -intValue polyCopyPasteUV `checkBoxGrp -query -value1 polyCopyPasteOptions`;
+    optionVar -intValue polyCopyPasteShader `checkBoxGrp -query -value2 polyCopyPasteOptions`;
+    optionVar -intValue polyCopyPasteColor `checkBoxGrp -query -value3 polyCopyPasteOptions`;
+
+    int $action = `optionVar -query polyCopyPasteAction`;
+    if ($doIt) {
+        performPolyCopyPaste(0, $action);
+        addToRecentCommandQueue ("performPolyCopyPaste 0 " + $action) "polyCopyPaste";
+    }
+}

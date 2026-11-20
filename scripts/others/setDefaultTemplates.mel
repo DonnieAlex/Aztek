@@ -1,0 +1,772 @@
+// setDefaultTemplates: the standard widths, offsets and flag defaults of the controls in windows, the Attribute Editor,
+// option boxes and tool settings, as the reference's. There is no procedure here: sourcing the file defines the UI
+// templates (each made only when missing, its definitions written again every time) and sets the global sizes other
+// scripts lay their controls out with. The start-up layout script sources it by name.
+
+// The sizes older scripts read, declared with the values they start a session with.
+global int $gSingleWidgetWidthIndex = 62;
+global int $gTextColumnWidthIndex = 120;
+global int $gStandardIdent;
+global int $gStandardFrameLayoutMarginWidth;
+global int $gStandardWindowWidthIndex;
+global int $gStandardWidgetAreaIndex;
+global int $gOptionBoxTextColumnWidthIndex;
+global int $gChannelBoxWidgetWidthIndex;
+global int $gChannelBoxWidgetHeightIndex;
+global int $gAENameTextFieldIndex;
+global int $gAESingleWidgetWidthIndex;
+global int $gAEMapButtonIndex;
+
+// The sizes scripts are meant to use.
+global int $gDefaultTemplateLabelWidth;
+global int $gDefaultTemplateLabelOffset;
+global int $gDefaultTemplateSingleWidgetWidth;
+global int $gDefaultTemplateExtraWidth;
+global int $gAttributeEditorTemplateLabelWidth;
+global int $gAttributeEditorTemplateLabelOffset;
+global int $gAttributeEditorTemplateSingleWidgetWidth;
+global int $gAttributeEditorTemplateExtraWidth;
+global int $gTemplateColorSwatchOffset;
+global int $gTemplateOptionMenuOffset;
+global int $gTemplateCheckBoxOffset;
+global int $gOptionsTemplateLabelWidth;
+global int $gOptionsTemplateLabelOffset;
+global int $gOptionsTemplateControlAreaWidth;
+global int $gOptionsTemplateExtraWidth;
+global int $gOptionsTemplateExtraLabelOffset;
+global int $gOptionBoxTemplateDescriptionMarginWidth;
+global int $gOptionBoxTemplateFrameSpacing;
+global int $gOptionBoxTemplateFrameMarginHeight;
+global int $gOptionBoxTemplateFrameMarginWidth;
+global int $gOptionBoxTemplateInnerFrameMarginHeight;
+global int $gOptionBoxTemplateInnerFrameMarginWidth;
+global int $gOptionBoxTemplateTextColumnWidth;
+global int $gOptionBoxTemplateSingleWidgetWidth;
+global int $gOptionBoxTemplateSliderWidgetWidth;
+global int $gOptionBoxTemplateOffsetText;
+global int $gToolOptionBoxTemplateDescriptionMarginWidth;
+global int $gToolOptionBoxTemplateFrameSpacing;
+global int $gToolOptionBoxTemplateFrameMarginHeight;
+global int $gToolOptionBoxTemplateFrameMarginWidth;
+global int $gToolOptionBoxTemplateInnerFrameMarginHeight;
+global int $gToolOptionBoxTemplateInnerFrameMarginWidth;
+global int $gToolOptionBoxTemplateLabelWidth;
+global int $gToolOptionBoxTemplateLabelOffset;
+global int $gToolOptionBoxTemplateControlAreaWidth;
+global int $gToolOptionBoxTemplateExtraWidth;
+global int $gToolOptionBoxTemplateExtraLabelOffset;
+
+{
+    // ---- What depends on the platform and the interface language ----
+
+    // Windows draws swatches, option menus and check boxes a pixel off from the others, and indents Attribute Editor
+    // labels by 5.
+    int $nt = `about -nt`;
+    int $cs = $nt ? 1 : 2;
+    int $om = $nt ? 1 : 0;
+    int $cb = $nt ? 1 : 0;
+    int $aeo = $nt ? 5 : 0;
+    // macOS needs a little more room before the slider of an attribute slider group.
+    int $mf = `about -mac` ? 9 : 0;
+    // A translated interface needs a wider control area in the option templates. Aztek's interface is English; where
+    // `about` can't say, it is taken as untranslated.
+    int $localized = 0;
+    if (catchQuiet($localized = `about -uiLanguageIsLocalized`))
+        $localized = 0;
+    int $oca = 240;
+    if (!$localized)
+        $oca = 186;
+
+    string $idx = "Index";
+    string $notMapped = "Not mapped";
+    string $map = "Map";
+    string $mapping = "Map";
+
+    $gTemplateColorSwatchOffset = $cs;
+    $gTemplateOptionMenuOffset = $om;
+    $gTemplateCheckBoxOffset = $cb;
+
+    // Option boxes once took their text column from the small size set, before the larger one below replaced it.
+    // That value is kept whether or not this is the first time the file runs.
+    $gOptionBoxTextColumnWidthIndex = 120;
+
+    $gStandardIdent = 5;
+    $gStandardFrameLayoutMarginWidth = 3;
+    $gChannelBoxWidgetHeightIndex = 200;
+
+    // ---- DefaultTemplate: the larger sizes, which are always the ones used ----
+    // Label 170, one field 80, slider 160, long-word extra 12, text offset 5, map arrow 26, map button 54.
+    $gSingleWidgetWidthIndex = 80;
+    $gTextColumnWidthIndex = 170;
+    $gStandardWindowWidthIndex = 498;
+    $gStandardWidgetAreaIndex = 300;
+    $gChannelBoxWidgetWidthIndex = 410;
+    $gDefaultTemplateLabelWidth = 170;
+    $gDefaultTemplateLabelOffset = 5;
+    $gDefaultTemplateSingleWidgetWidth = 80;
+    $gDefaultTemplateExtraWidth = 54;
+
+    if (!`uiTemplate -exists DefaultTemplate`)
+        uiTemplate DefaultTemplate;
+
+    columnLayout -defineTemplate DefaultTemplate -adjustableColumn false -columnAttach "left" 0;
+    scrollLayout -defineTemplate DefaultTemplate -verticalScrollBarThickness 18;
+    separator -defineTemplate DefaultTemplate -height 5;
+    rowLayout -defineTemplate DefaultTemplate
+        -columnAlign1 "left" -columnAttach1 "left" -columnOffset1 170 -columnWidth1 410
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 170 240
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 170 80 80
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 170 80 80 80
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 170 80 80 80 80
+        -columnAlign6 "right" "left" "left" "left" "left" "left"
+        -columnAttach6 "both" "both" "both" "both" "both" "both" -columnOffset6 5 0 0 0 0 0
+        -columnWidth6 170 80 80 80 54 26;
+    frameLayout -defineTemplate DefaultTemplate -marginWidth 3 -collapsable true -collapse true
+        -labelIndent 5 -font "boldLabelFont";
+    // Aztek's frameLayout has no -backgroundShade (nor its scrollLayout -borderVisible) yet: those are set on their
+    // own, quietly, so they take once Aztek has them and change nothing until then.
+    catchQuiet(`frameLayout -defineTemplate DefaultTemplate -backgroundShade true`);
+    tabLayout -defineTemplate DefaultTemplate -childResizable true;
+    optionMenuGrp -defineTemplate DefaultTemplate -label ""
+        -columnAlign 1 "right" -columnAttach 1 "both" 5 -columnAlign 2 "left" -columnAttach 2 "both" $om
+        -columnWidth 1 170 -columnWidth 3 80;
+    floatSliderGrp -defineTemplate DefaultTemplate -label "" -minValue 0.0 -maxValue 1.0 -precision 4
+        -sliderStep 0.01 -value 0.0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 170 80 160
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 170 80 160 80;
+    attrFieldGrp -defineTemplate DefaultTemplate -label "" -precision 4
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth3 170 80 80 -columnWidth4 170 80 80 80 -columnWidth5 170 80 80 80 80
+        -columnWidth6 170 80 80 80 54 20;
+    attrFieldSliderGrp -defineTemplate DefaultTemplate -precision 4 -sliderStep 0.001 -label ""
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth1 170 -columnWidth2 170 80 -columnWidth3 170 80 160 -columnWidth4 170 80 160 54;
+    attrColorSliderGrp -defineTemplate DefaultTemplate -label ""
+        -columnAlign4 "right" "left" "left" "center" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 170 80 160 54;
+    attrEnumOptionMenuGrp -defineTemplate DefaultTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 $om -columnWidth 1 170;
+    intSliderGrp -defineTemplate DefaultTemplate -minValue 0 -maxValue 100 -step 1 -value 0 -field true -label ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 170 80 160
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 170 80 160 80;
+    intFieldGrp -defineTemplate DefaultTemplate -label "" -numberOfFields 1
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth1 170 -columnWidth2 170 80 -columnWidth3 170 80 80 -columnWidth4 170 80 80 80
+        -columnWidth5 170 80 80 80 80;
+    floatFieldGrp -defineTemplate DefaultTemplate -label "" -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -precision 4
+        -columnWidth1 170 -columnWidth2 170 80 -columnWidth3 170 80 80 -columnWidth4 170 80 80 80
+        -columnWidth5 170 80 80 80 80;
+    colorSliderGrp -defineTemplate DefaultTemplate -label "" -rgbValue 0 0 0
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 170 80 160;
+    colorIndexSliderGrp -defineTemplate DefaultTemplate -label "" -extraLabel $idx -value 1
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 170 80 160 80;
+    // Aztek has no colorSliderButtonGrp yet; its definitions wait for it.
+    if (`exists colorSliderButtonGrp`)
+        colorSliderButtonGrp -defineTemplate DefaultTemplate -label "" -rgbValue 0 0 0 -buttonLabel $map
+            -symbolButtonDisplay true -image "navButtonConnected.png"
+            -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+            -columnOffset5 5 $cs 0 0 0 -columnWidth5 170 80 160 54 26;
+    radioButtonGrp -defineTemplate DefaultTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 5 0 -columnOffset3 5 0 0 -columnOffset4 5 0 0 0 -columnOffset5 5 0 0 0 0
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 170 -columnWidth3 170 160 172 -columnWidth4 170 80 80 202 -columnWidth5 170 80 80 80 172;
+    checkBoxGrp -defineTemplate DefaultTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 5 $cb -columnOffset3 5 $cb $cb -columnOffset4 5 $cb $cb $cb
+        -columnOffset5 5 $cb $cb $cb $cb
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 170 -columnWidth3 170 160 172 -columnWidth4 170 80 80 172 -columnWidth5 170 80 80 80 172;
+    textFieldGrp -defineTemplate DefaultTemplate -label "" -adjustableColumn 2
+        -columnAlign 1 "right" -columnAttach 1 "right" 5 -columnAttach 2 "both" 0
+        -columnWidth1 170 -columnWidth2 170 240;
+    textFieldButtonGrp -defineTemplate DefaultTemplate -label "" -adjustableColumn 2 -text $notMapped
+        -buttonLabel $mapping
+        -columnAlign 1 "right" -columnAttach 1 "right" 5 -columnAttach 2 "both" 0 -columnAttach 3 "both" 0
+        -columnWidth1 170 -columnWidth2 170 240 -columnWidth3 170 240 54;
+    attrNavigationControlGrp -defineTemplate DefaultTemplate -label "" -adjustableColumn 2
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 170 240 54;
+
+    // Two templates other scripts fill in themselves.
+    if (!`uiTemplate -exists ShaderTemplateItems`)
+        uiTemplate ShaderTemplateItems;
+    if (!`uiTemplate -exists propertyPanelUITemplate`)
+        uiTemplate propertyPanelUITemplate;
+
+    // ---- The Attribute Editor family ----
+    // Label 145, one field 70, slider 100, text offset $aeo, map arrow 44, map button 26, scroll bar 16.
+    $gSingleWidgetWidthIndex = 70;
+    $gTextColumnWidthIndex = 145;
+    $gStandardWindowWidthIndex = 441;
+    $gStandardWidgetAreaIndex = 270;
+    $gChannelBoxWidgetWidthIndex = 355;
+    $gAENameTextFieldIndex = 161;
+    $gAESingleWidgetWidthIndex = 70;
+    $gAEMapButtonIndex = 26;
+    $gAttributeEditorTemplateLabelWidth = 145;
+    $gAttributeEditorTemplateLabelOffset = $aeo;
+    $gAttributeEditorTemplateSingleWidgetWidth = 70;
+    $gAttributeEditorTemplateExtraWidth = 26;
+
+    if (!`uiTemplate -exists attributeEditorTemplate`)
+        uiTemplate attributeEditorTemplate;
+
+    columnLayout -defineTemplate attributeEditorTemplate -adjustableColumn true -columnAttach "both" 0;
+    scrollLayout -defineTemplate attributeEditorTemplate -verticalScrollBarThickness 16
+        -childResizable true;
+    catchQuiet(`scrollLayout -defineTemplate attributeEditorTemplate -borderVisible false`);
+    separator -defineTemplate attributeEditorTemplate -style "none" -height 2;
+    frameLayout -defineTemplate attributeEditorTemplate -marginWidth 3 -collapsable true
+        -collapse true -labelIndent 5 -font "boldLabelFont";
+    catchQuiet(`frameLayout -defineTemplate attributeEditorTemplate -backgroundShade true`);
+    tabLayout -defineTemplate attributeEditorTemplate -childResizable true;
+    floatFieldGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnAttach4 "both" "both" "both" "both" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0 -columnOffset5 $aeo 0 0 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center" -columnAlign5 "right" "center" "center" "center" "center"
+        -precision 3
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 70 -columnWidth4 145 70 70 70
+        -columnWidth5 145 70 70 70 20;
+    intSliderGrp -defineTemplate attributeEditorTemplate -minValue 0 -maxValue 100 -step 1 -value 0 -field true
+        -label ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 $aeo 0 0
+        -columnWidth3 145 70 100
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 $aeo 0 0 0 -columnWidth4 145 70 100 70;
+    intFieldGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnAttach4 "both" "both" "both" "both" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0 -columnOffset5 $aeo 0 0 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center" -columnAlign5 "right" "center" "center" "center" "center"
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 70 -columnWidth4 145 70 70 70
+        -columnWidth5 145 70 70 70 20;
+    attrFieldGrp -defineTemplate attributeEditorTemplate -label "" -precision 3
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnAttach4 "both" "both" "both" "both" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnAttach6 "both" "both" "both" "both" "both" "both"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0 -columnOffset5 $aeo 0 0 0 0
+        -columnOffset6 $aeo 0 0 0 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center" -columnAlign5 "right" "center" "center" "center" "center"
+        -columnAlign6 "right" "center" "center" "center" "center" "center"
+        -columnWidth3 145 70 70 -columnWidth4 145 70 70 70 -columnWidth5 145 70 70 70 26
+        -columnWidth6 145 70 70 70 26 20;
+    attrFieldSliderGrp -defineTemplate attributeEditorTemplate -precision 3 -sliderStep 0.001 -label ""
+        -columnAlign 1 "right" -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center"
+        -columnAttach 1 "both" $aeo -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnAttach4 "both" "both" "both" "both"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 $mf -columnOffset4 $aeo 0 $mf 0
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 100 -columnWidth4 145 70 100 26;
+    checkBoxGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 $aeo $cb -columnOffset3 $aeo $cb $cb -columnOffset4 $aeo $cb $cb $cb
+        -columnOffset5 $aeo $cb $cb $cb $cb
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 145 -columnWidth3 145 140 150 -columnWidth4 145 70 70 150 -columnWidth5 145 70 70 70 150;
+    textFieldButtonGrp -defineTemplate attributeEditorTemplate -label "" -adjustableColumn 2 -text $notMapped
+        -buttonLabel $mapping
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "left"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnWidth1 145 -columnWidth2 145 210 -columnWidth3 145 70 52;
+    optionMenuGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "center" -columnAttach 1 "both" $aeo
+        -columnWidth 1 145 -columnWidth 3 26;
+    rowLayout -defineTemplate attributeEditorTemplate
+        -columnAlign1 "left" -columnAttach1 "left" -columnOffset1 145 -columnWidth1 355
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center"
+        -columnWidth2 145 210 -columnWidth3 145 210 26 -columnWidth4 145 210 26 44
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset5 $aeo 0 0 0 0 -columnWidth5 145 70 70 70 70
+        -columnAlign6 "right" "left" "left" "left" "left" "left"
+        -columnAttach6 "both" "both" "both" "both" "both" "left" -columnOffset6 $aeo 0 0 0 0 0
+        -columnWidth6 145 70 70 70 26 44;
+    attrNavigationControlGrp -defineTemplate attributeEditorTemplate -label "" -adjustableColumn 2
+        -columnAttach3 "both" "both" "both" -columnOffset3 $aeo 0 0 -columnAlign3 "right" "left" "left"
+        -columnWidth3 145 140 26;
+    colorSliderGrp -defineTemplate attributeEditorTemplate -label "" -rgbValue 0 0 0
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 $aeo $cs 0
+        -columnWidth3 145 70 100;
+    // The arrow's width comes before the button's here, as the reference has it.
+    if (`exists colorSliderButtonGrp`)
+        colorSliderButtonGrp -defineTemplate attributeEditorTemplate -label "" -rgbValue 0 0 0 -buttonLabel $map
+            -symbolButtonDisplay true -image "navButtonConnected.png"
+            -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+            -columnOffset5 $aeo $cs 0 0 0 -columnWidth5 145 70 100 44 26;
+    attrColorSliderGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAlign4 "right" "left" "left" "center" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 $aeo $cs 0 0 -columnWidth4 145 70 100 26;
+    colorIndexSliderGrp -defineTemplate attributeEditorTemplate -label "" -extraLabel $idx
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 $aeo $cs 0 0 -columnWidth4 145 70 100 70;
+    floatSliderGrp -defineTemplate attributeEditorTemplate -minValue 0.0 -maxValue 1.0 -precision 3
+        -sliderStep 0.01 -value 0.0 -field true -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "left" -columnOffset3 $aeo 0 0
+        -columnWidth3 145 100 70
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 $aeo 0 0 0 -columnWidth4 145 70 100 70;
+    radioButtonGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0 -columnOffset5 $aeo 0 0 0 0
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 145 -columnWidth3 145 140 150 -columnWidth4 145 70 70 182 -columnWidth5 145 70 70 70 150;
+    textFieldGrp -defineTemplate attributeEditorTemplate -label "" -adjustableColumn 2
+        -columnAttach2 "both" "both" -columnOffset2 $aeo 0 -columnAlign2 "right" "center"
+        -columnWidth1 145 -columnWidth2 145 210;
+    button -defineTemplate attributeEditorTemplate -height 26;
+    symbolButton -defineTemplate attributeEditorTemplate -height 26;
+    attrEnumOptionMenuGrp -defineTemplate attributeEditorTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach 1 "both" $aeo -columnWidth 1 145;
+
+    if (!`uiTemplate -exists attributeEditorPresetsTemplate`)
+        uiTemplate attributeEditorPresetsTemplate;
+    // Five columns are the camera row of the render settings.
+    rowLayout -defineTemplate attributeEditorPresetsTemplate
+        -columnAttach1 "both" -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnAttach4 "both" "both" "both" "both"
+        -columnOffset1 $aeo -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0 -columnOffset4 $aeo 0 0 0
+        -columnAlign1 "right" -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnAlign4 "right" "center" "center" "center"
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 23 23 23 -columnWidth4 145 70 70 70
+        -columnWidth5 145 70 70 70 80 -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 $aeo 0 0 0 0 -columnAlign5 "right" "left" "left" "left" "left";
+    button -defineTemplate attributeEditorPresetsTemplate -height 26;
+
+    if (!`uiTemplate -exists attributeEditorLimitsTemplate`)
+        uiTemplate attributeEditorLimitsTemplate;
+    // The limit change buttons are 20 wide, the limit check boxes 15.
+    rowLayout -defineTemplate attributeEditorLimitsTemplate
+        -columnAttach3 "both" "both" "both" -columnOffset3 0 0 0 -columnAlign3 "center" "center" "center"
+        -columnWidth3 20 60 20
+        -columnAlign6 "right" "center" "center" "center" "center" "left" -columnOffset6 $aeo 0 0 0 0 2
+        -columnAttach6 "both" "both" "both" "both" "both" "left" -columnWidth6 115 15 60 105 60 15;
+    button -defineTemplate attributeEditorLimitsTemplate -height 26;
+
+    if (!`uiTemplate -exists attributeEditorNewTemplate`)
+        uiTemplate attributeEditorNewTemplate;
+    // The control width split three ways after a doubled label offset.
+    rowLayout -defineTemplate attributeEditorNewTemplate
+        -columnAttach4 "both" "both" "both" "both" -columnOffset4 $aeo 0 0 0
+        -columnAlign4 "right" "center" "center" "center" -columnWidth4 (2 * $aeo) 118 118 118;
+
+    if (!`uiTemplate -exists attributeEditorMultiTemplate`)
+        uiTemplate attributeEditorMultiTemplate;
+    // The colour wheel narrows by half a map button: 57.
+    int $wheel = 70 - 26 / 2.0;
+    rowLayout -defineTemplate attributeEditorMultiTemplate
+        -columnOffset2 0 $aeo -columnAlign2 "right" "center" -columnAttach2 "both" "both" -columnWidth2 355 70
+        -columnOffset3 0 0 0 -columnAlign3 "right" "left" "center" -columnAttach3 "both" "both" "both"
+        -columnWidth3 355 26 44;
+    attrColorSliderGrp -defineTemplate attributeEditorMultiTemplate -label ""
+        -columnAlign4 "right" "left" "left" "center" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 $aeo $cs 0 0 -columnWidth4 145 $wheel 127 26;
+    textFieldGrp -defineTemplate attributeEditorMultiTemplate -label "" -adjustableColumn 2
+        -columnAttach2 "both" "both" -columnOffset2 $aeo 0 -columnAlign2 "right" "center"
+        -columnWidth1 145 -columnWidth2 145 210;
+    textFieldButtonGrp -defineTemplate attributeEditorMultiTemplate -label "" -adjustableColumn 2 -text $notMapped
+        -buttonLabel $mapping
+        -columnAttach2 "both" "both" -columnAttach3 "both" "both" "both"
+        -columnOffset2 $aeo 0 -columnOffset3 $aeo 0 0
+        -columnAlign2 "right" "center" -columnAlign3 "right" "center" "center"
+        -columnWidth1 145 -columnWidth2 145 210 -columnWidth3 145 184 52;
+
+    // Matrix fields share what is left of the control width four ways, worked out in floating point and truncated.
+    if (!`uiTemplate -exists attributeEditorMatrixTemplate`)
+        uiTemplate attributeEditorMatrixTemplate;
+    int $matrixField = (355 - 145 + 26) / 4.0;
+    floatFieldGrp -defineTemplate attributeEditorMatrixTemplate -label ""
+        -columnAttach5 "both" "both" "both" "both" "both" -columnOffset5 $aeo 0 0 0 0
+        -columnAlign5 "right" "center" "center" "center" "center" -precision 3
+        -columnWidth5 145 $matrixField $matrixField $matrixField $matrixField;
+
+    if (!`uiTemplate -exists attributeEditorMatrixMultiTemplate`)
+        uiTemplate attributeEditorMatrixMultiTemplate;
+    int $matrixMultiField = (355 - 145) / 4.0;
+    floatFieldGrp -defineTemplate attributeEditorMatrixMultiTemplate -label ""
+        -columnAttach5 "both" "both" "both" "both" "both" -columnOffset5 $aeo 0 0 0 0
+        -columnAlign5 "right" "center" "center" "center" "center" -precision 3
+        -columnWidth5 145 $matrixMultiField $matrixMultiField $matrixMultiField $matrixMultiField;
+
+    // ---- OptionsTemplate: the older option box and tool settings look ----
+    // Label 132, label offset 5, control area $oca, extra 63, text button 38, image button 25.
+    $gOptionsTemplateLabelWidth = 132;
+    $gOptionsTemplateLabelOffset = 5;
+    $gOptionsTemplateControlAreaWidth = $oca;
+    $gOptionsTemplateExtraWidth = 63;
+    $gOptionsTemplateExtraLabelOffset = 0;
+    int $field = $oca / 3;
+    int $slider = 2 * $field;
+    int $half = ($oca + 63) / 2;
+    int $third = ($oca + 63) / 3;
+    int $quarter = ($oca + 63) / 4;
+
+    if (!`uiTemplate -exists OptionsTemplate`)
+        uiTemplate OptionsTemplate;
+
+    separator -defineTemplate OptionsTemplate -style "none" -height 2 -horizontal true;
+    frameLayout -defineTemplate OptionsTemplate -marginWidth 3 -collapsable true -collapse true
+        -labelIndent 5 -font "boldLabelFont";
+    catchQuiet(`frameLayout -defineTemplate OptionsTemplate -backgroundShade true`);
+    columnLayout -defineTemplate OptionsTemplate -adjustableColumn true -columnAttach "left" 0;
+    rowLayout -defineTemplate OptionsTemplate
+        -columnAlign1 "left" -columnAttach1 "left" -columnOffset1 132 -columnWidth1 (132 + $oca)
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 132 $oca
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $field $slider
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $field $field
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 $field $field $field 63
+        -columnAlign6 "right" "left" "left" "left" "left" "left"
+        -columnAttach6 "both" "both" "both" "both" "both" "both" -columnOffset6 5 0 0 0 0 0
+        -columnWidth6 132 $field $field $field 38 25;
+    intFieldGrp -defineTemplate OptionsTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $field 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $field 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 $field $field $field 63;
+    floatFieldGrp -defineTemplate OptionsTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $field 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $field 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 $field $field $field 63
+        -precision 4;
+    intSliderGrp -defineTemplate OptionsTemplate -label "" -extraLabel "" -minValue 0 -maxValue 100 -step 1
+        -value 0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $slider 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $slider 63;
+    floatSliderGrp -defineTemplate OptionsTemplate -label "" -extraLabel "" -minValue 0.0 -maxValue 1.0
+        -precision 4 -sliderStep 0.01 -value 0.0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $slider 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $slider 63;
+    radioButtonGrp -defineTemplate OptionsTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "left" -columnOffset2 5 0 -columnWidth 1 132
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "left" -columnOffset3 5 0 0
+        -columnWidth3 132 $half $half
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $third $third $half
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 $quarter $quarter $quarter $half;
+    checkBoxGrp -defineTemplate OptionsTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "left" -columnOffset2 5 $cb -columnWidth 1 132
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "left" -columnOffset3 5 $cb $cb
+        -columnWidth3 132 $half $half
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 5 $cb $cb $cb -columnWidth4 132 $third $third $half
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset5 5 $cb $cb $cb $cb -columnWidth5 132 $quarter $quarter $quarter $half;
+    textFieldGrp -defineTemplate OptionsTemplate -label "" -adjustableColumn 2
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 132 $oca;
+    textFieldButtonGrp -defineTemplate OptionsTemplate -label "" -adjustableColumn 2 -buttonLabel $map
+        -text $notMapped
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $oca 38;
+    optionMenuGrp -defineTemplate OptionsTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $om 0
+        -columnWidth 1 132 -columnWidth 3 63;
+    attrFieldGrp -defineTemplate OptionsTemplate -label "" -extraLabel "" -precision 4
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 $field $field 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 $field $field $field 63;
+    // An attribute slider group always has four columns.
+    attrFieldSliderGrp -defineTemplate OptionsTemplate -label "" -precision 4 -sliderStep 0.001
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 $mf 0 -columnWidth4 132 $field $slider 63;
+    attrNavigationControlGrp -defineTemplate OptionsTemplate -label "" -adjustableColumn 2
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 $oca 25;
+    attrEnumOptionMenuGrp -defineTemplate OptionsTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 $om -columnWidth 1 132;
+    attrColorSliderGrp -defineTemplate OptionsTemplate -label ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 132 $field $slider
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 132 $field $slider 25;
+    colorIndexSliderGrp -defineTemplate OptionsTemplate -label "" -extraLabel $idx -value 1
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 132 $field $slider 63;
+    colorSliderGrp -defineTemplate OptionsTemplate -label "" -rgbValue 0 0 0
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 132 $field $slider;
+    if (`exists colorSliderButtonGrp`)
+        colorSliderButtonGrp -defineTemplate OptionsTemplate -label "" -buttonLabel $map
+            -image "navButtonConnected.png" -rgbValue 0 0 0 -symbolButtonDisplay true
+            -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+            -columnOffset5 5 $cs 0 0 0 -columnWidth5 132 $field $slider 38 25;
+
+    // ---- OptionBoxTemplate: the Attribute Editor sizes with a wider slider and a text offset of 5 ----
+    $gOptionBoxTemplateDescriptionMarginWidth = 20;
+    $gOptionBoxTemplateFrameSpacing = 4;
+    $gOptionBoxTemplateFrameMarginHeight = 4;
+    $gOptionBoxTemplateFrameMarginWidth = 0;
+    // What is left of the frame spacing once the frame's own margins are taken, never below nothing.
+    $gOptionBoxTemplateInnerFrameMarginHeight = `max 0 ($gOptionBoxTemplateFrameSpacing
+        - $gOptionBoxTemplateFrameMarginHeight)`;
+    $gOptionBoxTemplateInnerFrameMarginWidth = `max 0 ($gOptionBoxTemplateFrameSpacing
+        - $gOptionBoxTemplateFrameMarginWidth)`;
+    $gOptionBoxTemplateTextColumnWidth = 145;
+    $gOptionBoxTemplateSingleWidgetWidth = 70;
+    $gOptionBoxTemplateSliderWidgetWidth = 140;
+    $gOptionBoxTemplateOffsetText = 5;
+
+    if (!`uiTemplate -exists OptionBoxTemplate`)
+        uiTemplate OptionBoxTemplate;
+
+    columnLayout -defineTemplate OptionBoxTemplate -adjustableColumn true -columnAttach "left" 0;
+    scrollLayout -defineTemplate OptionBoxTemplate -verticalScrollBarThickness 16 -horizontalScrollBarThickness 0
+        -childResizable 1;
+    separator -defineTemplate OptionBoxTemplate -style "none" -height 2;
+    rowLayout -defineTemplate OptionBoxTemplate
+        -columnAlign1 "left" -columnAttach1 "left" -columnOffset1 145 -columnWidth1 355
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 145 210
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 145 70 70
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 145 70 70 70
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 145 70 70 70 70
+        -columnAlign6 "right" "left" "left" "left" "left" "left"
+        -columnAttach6 "both" "both" "both" "both" "both" "both" -columnOffset6 5 0 0 0 0 0
+        -columnWidth6 145 70 70 70 26 44;
+    frameLayout -defineTemplate OptionBoxTemplate -collapsable false -collapse false -label ""
+        -labelIndent 5 -font "boldLabelFont" -marginHeight $gOptionBoxTemplateFrameMarginHeight
+        -marginWidth $gOptionBoxTemplateFrameMarginWidth;
+    catchQuiet(`frameLayout -defineTemplate OptionBoxTemplate -backgroundShade true`);
+    text -defineTemplate OptionBoxTemplate -align "left";
+    tabLayout -defineTemplate OptionBoxTemplate -childResizable true -scrollable false
+        -verticalScrollBarThickness 16 -horizontalScrollBarThickness 0;
+    optionMenuGrp -defineTemplate OptionBoxTemplate -label ""
+        -columnAlign 1 "right" -columnAttach 1 "both" 5 -columnAlign 2 "left" -columnAttach 2 "both" $om
+        -columnWidth 1 145 -columnWidth 3 70;
+    floatSliderGrp -defineTemplate OptionBoxTemplate -label "" -minValue 0.0 -maxValue 1.0 -precision 4
+        -sliderStep 0.01 -value 0.0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 145 70 140
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 145 70 140 70;
+    attrFieldGrp -defineTemplate OptionBoxTemplate -label "" -precision 4
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth3 145 70 70 -columnWidth4 145 70 70 70 -columnWidth5 145 70 70 70 70
+        -columnWidth6 145 70 70 70 26 20;
+    attrFieldSliderGrp -defineTemplate OptionBoxTemplate -precision 4 -sliderStep 0.001 -label ""
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 140 -columnWidth4 145 70 140 26;
+    attrColorSliderGrp -defineTemplate OptionBoxTemplate -label ""
+        -columnAlign4 "right" "left" "left" "center" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 145 70 140 26;
+    attrEnumOptionMenuGrp -defineTemplate OptionBoxTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 $om -columnWidth 1 145;
+    intSliderGrp -defineTemplate OptionBoxTemplate -minValue 0 -maxValue 100 -step 1 -value 0 -field true -label ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 145 70 140
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 145 70 140 70;
+    intFieldGrp -defineTemplate OptionBoxTemplate -label "" -numberOfFields 1
+        -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 70 -columnWidth4 145 70 70 70
+        -columnWidth5 145 70 70 70 70;
+    floatFieldGrp -defineTemplate OptionBoxTemplate -label "" -columnAlign 1 "right" -columnAttach 1 "right" 5
+        -precision 4
+        -columnWidth1 145 -columnWidth2 145 70 -columnWidth3 145 70 70 -columnWidth4 145 70 70 70
+        -columnWidth5 145 70 70 70 70;
+    colorSliderGrp -defineTemplate OptionBoxTemplate -label "" -rgbValue 0 0 0
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 145 70 140;
+    colorIndexSliderGrp -defineTemplate OptionBoxTemplate -label "" -extraLabel $idx -value 1
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 145 70 140 70;
+    if (`exists colorSliderButtonGrp`)
+        colorSliderButtonGrp -defineTemplate OptionBoxTemplate -label "" -rgbValue 0 0 0 -buttonLabel $map
+            -symbolButtonDisplay true -image "navButtonConnected.png"
+            -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+            -columnOffset5 5 $cs 0 0 0 -columnWidth5 145 70 140 26 44;
+    radioButtonGrp -defineTemplate OptionBoxTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 5 0 -columnOffset3 5 0 0 -columnOffset4 5 0 0 0 -columnOffset5 5 0 0 0 0
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 145 -columnWidth3 145 140 150 -columnWidth4 145 70 70 182 -columnWidth5 145 70 70 70 150;
+    checkBoxGrp -defineTemplate OptionBoxTemplate -label ""
+        -columnAttach2 "both" "left" -columnAttach3 "both" "both" "left"
+        -columnAttach4 "both" "both" "both" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset2 5 $cb -columnOffset3 5 $cb $cb -columnOffset4 5 $cb $cb $cb
+        -columnOffset5 5 $cb $cb $cb $cb
+        -columnAlign2 "right" "left" -columnAlign3 "right" "left" "left"
+        -columnAlign4 "right" "left" "left" "left" -columnAlign5 "right" "left" "left" "left" "left"
+        -columnWidth 1 145 -columnWidth3 145 140 150 -columnWidth4 145 70 70 150 -columnWidth5 145 70 70 70 150;
+    textFieldGrp -defineTemplate OptionBoxTemplate -label "" -adjustableColumn 2
+        -columnAlign 1 "right" -columnAttach 1 "right" 5 -columnAttach 2 "both" 0
+        -columnWidth1 145 -columnWidth2 145 210;
+    textFieldButtonGrp -defineTemplate OptionBoxTemplate -label "" -adjustableColumn 2 -text $notMapped
+        -buttonLabel $mapping
+        -columnAlign 1 "right" -columnAttach 1 "right" 5 -columnAttach 2 "both" 0 -columnAttach 3 "both" 0
+        -columnWidth1 145 -columnWidth2 145 210 -columnWidth3 145 210 52;
+    attrNavigationControlGrp -defineTemplate OptionBoxTemplate -label "" -adjustableColumn 2
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 145 210 26;
+
+    // ---- ToolOptionBoxTemplate: the tool settings, always at the untranslated control area ----
+    $gToolOptionBoxTemplateDescriptionMarginWidth = 20;
+    $gToolOptionBoxTemplateFrameSpacing = 4;
+    $gToolOptionBoxTemplateFrameMarginHeight = 4;
+    $gToolOptionBoxTemplateFrameMarginWidth = 0;
+    $gToolOptionBoxTemplateInnerFrameMarginHeight = `max 0 ($gToolOptionBoxTemplateFrameSpacing
+        - $gToolOptionBoxTemplateFrameMarginHeight)`;
+    $gToolOptionBoxTemplateInnerFrameMarginWidth = `max 0 ($gToolOptionBoxTemplateFrameSpacing
+        - $gToolOptionBoxTemplateFrameMarginWidth)`;
+    $gToolOptionBoxTemplateLabelWidth = 132;
+    $gToolOptionBoxTemplateLabelOffset = 5;
+    $gToolOptionBoxTemplateControlAreaWidth = 186;
+    $gToolOptionBoxTemplateExtraWidth = 63;
+    $gToolOptionBoxTemplateExtraLabelOffset = 0;
+
+    if (!`uiTemplate -exists ToolOptionBoxTemplate`)
+        uiTemplate ToolOptionBoxTemplate;
+
+    columnLayout -defineTemplate ToolOptionBoxTemplate -adjustableColumn true -columnAttach "left" 0;
+    scrollLayout -defineTemplate ToolOptionBoxTemplate -verticalScrollBarThickness 16
+        -horizontalScrollBarThickness 0 -childResizable 1;
+    separator -defineTemplate ToolOptionBoxTemplate -style "none" -height 2 -horizontal true;
+    frameLayout -defineTemplate ToolOptionBoxTemplate -collapsable false -collapse false
+        -label "" -labelIndent 5 -font "boldLabelFont" -marginHeight $gToolOptionBoxTemplateFrameMarginHeight
+        -marginWidth $gToolOptionBoxTemplateFrameMarginWidth;
+    catchQuiet(`frameLayout -defineTemplate ToolOptionBoxTemplate -backgroundShade true`);
+    text -defineTemplate ToolOptionBoxTemplate -align "left";
+    rowLayout -defineTemplate ToolOptionBoxTemplate
+        -columnAlign1 "left" -columnAttach1 "left" -columnOffset1 132 -columnWidth1 318
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 132 186
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 62 124
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 62 62
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 62 62 62 63
+        -columnAlign6 "right" "left" "left" "left" "left" "left"
+        -columnAttach6 "both" "both" "both" "both" "both" "both" -columnOffset6 5 0 0 0 0 0
+        -columnWidth6 132 62 62 62 38 25;
+    intFieldGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 62 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 62 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 62 62 62 63;
+    floatFieldGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 62 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 62 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 62 62 62 63
+        -precision 4;
+    intSliderGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel "" -minValue 0 -maxValue 100 -step 1
+        -value 0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 124 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 124 63;
+    floatSliderGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel "" -minValue 0.0 -maxValue 1.0
+        -precision 4 -sliderStep 0.01 -value 0.0 -field true
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 124 63
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 124 63;
+    // Unlike OptionsTemplate, the last radio and check box column is the whole control area.
+    radioButtonGrp -defineTemplate ToolOptionBoxTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "left" -columnOffset2 5 0 -columnWidth 1 132
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "left" -columnOffset3 5 0 0
+        -columnWidth3 132 124 186
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 83 83 186
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 62 62 62 186;
+    checkBoxGrp -defineTemplate ToolOptionBoxTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "left" -columnOffset2 5 $cb -columnWidth 1 132
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "left" -columnOffset3 5 $cb $cb
+        -columnWidth3 132 124 186
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "left"
+        -columnOffset4 5 $cb $cb $cb -columnWidth4 132 83 83 186
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "left"
+        -columnOffset5 5 $cb $cb $cb $cb -columnWidth5 132 62 62 62 186;
+    textFieldGrp -defineTemplate ToolOptionBoxTemplate -label "" -adjustableColumn 2
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 0 -columnWidth2 132 186;
+    textFieldButtonGrp -defineTemplate ToolOptionBoxTemplate -label "" -adjustableColumn 2 -buttonLabel $map
+        -text $notMapped
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 186 38;
+    optionMenuGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $om 0
+        -columnWidth 1 132 -columnWidth 3 63;
+    attrFieldGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel "" -precision 4
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 0 0 -columnWidth4 132 62 62 63
+        -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+        -columnOffset5 5 0 0 0 0 -columnWidth5 132 62 62 62 63;
+    attrFieldSliderGrp -defineTemplate ToolOptionBoxTemplate -label "" -precision 4 -sliderStep 0.001
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 0 $mf 0 -columnWidth4 132 62 124 63;
+    attrNavigationControlGrp -defineTemplate ToolOptionBoxTemplate -label "" -adjustableColumn 2
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 0 0
+        -columnWidth3 132 186 25;
+    attrEnumOptionMenuGrp -defineTemplate ToolOptionBoxTemplate -label ""
+        -columnAlign2 "right" "left" -columnAttach2 "both" "both" -columnOffset2 5 $om -columnWidth 1 132;
+    attrColorSliderGrp -defineTemplate ToolOptionBoxTemplate -label ""
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 132 62 124
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 132 62 124 25;
+    colorIndexSliderGrp -defineTemplate ToolOptionBoxTemplate -label "" -extraLabel $idx -value 1
+        -columnAlign4 "right" "left" "left" "left" -columnAttach4 "both" "both" "both" "both"
+        -columnOffset4 5 $cs 0 0 -columnWidth4 132 62 124 63;
+    colorSliderGrp -defineTemplate ToolOptionBoxTemplate -label "" -rgbValue 0 0 0
+        -columnAlign3 "right" "left" "left" -columnAttach3 "both" "both" "both" -columnOffset3 5 $cs 0
+        -columnWidth3 132 62 124;
+    if (`exists colorSliderButtonGrp`)
+        colorSliderButtonGrp -defineTemplate ToolOptionBoxTemplate -label "" -buttonLabel $map
+            -image "navButtonConnected.png" -rgbValue 0 0 0 -symbolButtonDisplay true
+            -columnAlign5 "right" "left" "left" "left" "left" -columnAttach5 "both" "both" "both" "both" "both"
+            -columnOffset5 5 $cs 0 0 0 -columnWidth5 132 62 124 38 25;
+
+    // ---- ModelingToolkitTemplate ----
+    if (!`uiTemplate -exists ModelingToolkitTemplate`)
+        uiTemplate ModelingToolkitTemplate;
+    frameLayout -defineTemplate ModelingToolkitTemplate -marginWidth 3 -font "boldLabelFont";
+    catchQuiet(`frameLayout -defineTemplate ModelingToolkitTemplate -backgroundShade true`);
+    separator -defineTemplate ModelingToolkitTemplate -style "none" -height 2;
+}

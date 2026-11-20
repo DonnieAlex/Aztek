@@ -206,9 +206,9 @@ global proc browsePlugin()
         string $dirs[] = pluginWinSearchDirs();
         $gDefaultPluginBrowseDir = size($dirs) ? $dirs[0] : `pwd`;
     }
-    string $filter = "Plug-ins (*.so *.dll *.mll *.bundle *.py);;All Files (*.*)";
-    if (`exists buildPlugInFileFilterList`)
-        $filter = `eval "buildPlugInFileFilterList"`;
+    if (!`exists buildPlugInFileFilterList`)
+        eval("source \"fileDialogFilterTypes.mel\"");
+    string $filter = buildPlugInFileFilterList();
     string $files[] = `fileDialog2 -caption "Load Plug-in" -fileMode 1 -fileFilter $filter
         -startingDirectory $gDefaultPluginBrowseDir`;
     if (size($files) && $files[0] != "")

@@ -2,6 +2,10 @@
 // beside the file browser that projectViewer opens and as the option boxes of the File menu. Everything is kept in
 // optionVars, so scripts that set them before calling the operation get what they asked for.
 
+// The file browser's filter helpers, which start-up loads; loaded here too for when this file is used before that.
+if (!`exists filterDescriptionToFileType`)
+    eval("source \"fileDialogFilterTypes.mel\"");
+
 global string $gFileOptionsString;
 global string $gAllOptionStrings[];
 global int $gLastOptionSelectionIndex = -1;
@@ -42,16 +46,10 @@ proc int foIncludeAvailable(string $t)
     return !($t == "mel" || $t == "move" || foIsEditType($t) || $t == "DXF_FBX export" || $t == "DAE_FBX export");
 }
 
-// A filter's description as the file type it stands for: the installation's procedure, else the text before the
-// patterns.
+// A filter's description as the file type it stands for.
 proc string foFilterToType(string $filter)
 {
-    if (`exists filterDescriptionToFileType`)
-        return eval("filterDescriptionToFileType \"" + encodeString($filter) + "\"");
-    string $type = $filter;
-    if (`gmatch $type "* (*)"`)
-        $type = `match "^[^(]*[^ (]" $type`;
-    return $type;
+    return filterDescriptionToFileType($filter);
 }
 
 proc int foTranslatorLoaded(string $t)
@@ -105,24 +103,6 @@ proc int foSceneIsEmpty()
         if ($t != "persp" && $t != "top" && $t != "front" && $t != "side")
             return 0;
     return 1;
-}
-
-proc string[] foProxyTags(int $available)
-{
-    string $none[];
-    if (!`exists proxyTags`)
-        return $none;
-    return eval("proxyTags " + $available);
-}
-
-proc string[] foProxyUsedTags()
-{
-    string $none[];
-    if (!`exists proxyUsedTags`)
-        catchQuiet(eval("source \"proxyTags.mel\""));
-    if (!`exists proxyUsedTags`)
-        return $none;
-    return eval("proxyUsedTags \"\"");
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -466,31 +446,6 @@ proc foCommitInclude()
     optionVar -intValue exportIncludeExpressions (foCheck("exInExpressionsBox"));
     optionVar -intValue exportIncludeConstraints (foCheck("exInConstraintsBox"));
     optionVar -intValue exportIncludeShaders (foCheck("exInShadersBox"));
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-// Option box helpers. The file options box is a window of its own here, built as the installation's option boxes are.
-
-proc string foOptionWindowName()
-{
-    return "fileOptionsWindow";
-}
-
-// The reference's file options box comes from getStandardWindow and addStandardButtons, which Aztek doesn't have, so
-// it is a window of its own here rather than the shared option box: closing it is closing that window, not
-// hideOptionBox (which closes the shared one).
-proc foHideOptionBox()
-{
-    string $win = foOptionWindowName();
-    if (`window -exists $win`)
-        evalDeferred ("if (`window -exists " + $win + "`) deleteUI -window " + $win + ";");
-}
-
-proc foHideOptionBoxNow()
-{
-    string $win = foOptionWindowName();
-    if (`window -exists $win`)
-        deleteUI -window $win;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -1009,7 +964,7 @@ global proc fileOptionsSetup(string $parent, string $action, int $forceFactorySe
     }
 
     if ($action == "Proxy" || $action == "Reference") {
-        string $tags[] = foProxyTags(1);
+        string $tags[] = proxyTags(1);
         if (size($tags) == 0) {
             optionVar -intValue ("proxyOptionsUseNew" + $action + "Tag") 1;
             optionVar -stringValue ("proxyOptionsNew" + $action + "Tag") "";
@@ -1057,20 +1012,20 @@ global proc fileOptionsCancel()
     // A capture changed the default type while the box was up; it goes back.
     if ($gLastSelectedType != "" && $gDefaultFileType != "")
         optionVar -stringValue $gDefaultFileType $gLastSelectedType;
-    foHideOptionBox();
+    hideOptionBox();
 }
 
 global proc fileOptionsAction(string $parent, string $action, string $actionProc)
 {
     fileOptionsCallback($parent, $action, "");
-    foHideOptionBoxNow();
+    hideOptionBoxNow();
     eval($actionProc);
 }
 
 global proc fileOptionsSaveAndClose(string $parent, string $action)
 {
     fileOptionsCallback($parent, $action, "");
-    foHideOptionBox();
+    hideOptionBox();
 }
 
 global proc fileOptionsCallback(string $parent, string $action, string $actionProc)
@@ -1479,7 +1434,10 @@ proc foProxySection(string $action)
 {
     frameLayout -label "Proxy Options";
     columnLayout proxyTagLayout;
-    string $used[] = foProxyUsedTags();
+    // proxyUsedTags lives in proxyTags.mel, under another name, so the file is loaded first.
+    if (!`exists proxyUsedTags`)
+        source "proxyTags.mel";
+    string $used[] = proxyUsedTags("");
     if ($action == "Proxy") {
         if (size($used) == 1)
             checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Share edits with the first proxy" proxySharedEditsGrp;
@@ -1491,7 +1449,7 @@ proc foProxySection(string $action)
     optionMenu -label "Set proxy tag to" -changeCommand ("fo_proxyTag(\"" + $action + "\")") proxyTagOptionMenu;
         menuItem -label "this string" proxyTagOptionMenu1;
         int $n = 2;
-        string $tags[] = foProxyTags(1);
+        string $tags[] = proxyTags(1);
         for ($t in $tags) {
             menuItem -label $t ("proxyTagOptionMenu" + $n);
             $n++;
@@ -1944,35 +1902,34 @@ global proc fileOptions(string $action, string $actionProc)
     }
     setUITemplate -pushTemplate optionsTemplate;
 
-    // The option box: a window with one tab, the options in it, and the row of buttons under it. Its command name
-    // ($command) is what the box's title bar and Repeat Last would show.
-    string $win = foOptionWindowName();
-    if (`window -exists $win`)
-        deleteUI -window $win;
-    window -title $title -widthHeight 560 640 $win;
-    string $form = `formLayout -visible false`;
-    string $tabs = `tabLayout`;
+    // The shared option box, with one tab holding the options. Its command name ($command) is what the box's Help
+    // item and Repeat Last show.
+    string $box[] = getStandardWindow($title, 1, "");
+    string $win = $box[0];
+    string $form = $box[1];
+    string $tabs = $box[2];
+    setOptionBoxCommandName($command);
+    formLayout -edit -visible false $form;
     fileOptionsTabPage($action, $tabs, true);
     tabLayout -edit -tabLabelIndex 1 "Basic" $tabs;
-    setParent $form;
-    string $row = `rowLayout -numberOfColumns 4`;
-        string $q = "\"" + $action + "\"";
-        button -label $doLabel
-            -command ("fileOptionsAction " + $win + " " + $q + " \"" + encodeString($actionProc) + "\"")
-            fileOptionsApplyAndCloseBtn;
-        button -label "Save and Close" -command ("fileOptionsSaveAndClose " + $win + " " + $q) fileOptionsApplyBtn;
-        button -label "Reset" -command ("fileOptionsSetup " + $win + " " + $q + " true \"\"") fileOptionsResetBtn;
-        button -label "Cancel" -command "fileOptionsCancel" fileOptionsCloseBtn;
-    setParent ..;
-    formLayout -edit
-        -attachForm $tabs "top" 0 -attachForm $tabs "left" 0 -attachForm $tabs "right" 0
-        -attachControl $tabs "bottom" 5 $row
-        -attachForm $row "left" 5 -attachForm $row "right" 5 -attachForm $row "bottom" 5
-        -visible true $form;
+
+    string $buttons[] = addStandardButtons("fileOptions", $doLabel, $form, $tabs, "noOptions");
+    string $applyAndClose = getOptionBoxApplyAndCloseBtn();
+    string $q = "\"" + $action + "\"";
+    button -edit -label "Cancel" -command "fileOptionsCancel" $buttons[2];
+    button -edit -command ("fileOptionsSetup " + $win + " " + $q + " true \"\"") $buttons[1];
+    button -edit -label $doLabel
+        -command ("fileOptionsAction " + $win + " " + $q + " \"" + encodeString($actionProc) + "\"") $applyAndClose;
+    button -edit -label "Save and Close" -command ("fileOptionsSaveAndClose " + $win + " " + $q) $buttons[0];
+    formLayout -edit -visible true $form;
     setUITemplate -popTemplate;
+
+    button -edit -command ("fileOptionsCallback " + $win + " " + $q + " \"\"") $buttons[3];
+    setOptionBoxHelpTag($help);
 
     // The tab layout, not the window, so the controls of this box are the ones found.
     fileOptionsSetup($tabs, $action, false, "");
+    showOptionBox();
     showWindow $win;
 }
 

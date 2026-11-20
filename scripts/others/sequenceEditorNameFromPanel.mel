@@ -1,0 +1,7 @@
+// sequenceEditorNameFromPanel: the editor inside a Camera Sequencer panel. Panels name their editors the same way
+// whatever their kind, so this is editorNameFromPanel under the name callers know.
+
+global proc string sequenceEditorNameFromPanel(string $panel)
+{
+    return editorNameFromPanel($panel);
+}

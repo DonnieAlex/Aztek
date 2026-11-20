@@ -108,8 +108,9 @@ global proc setQuadDrawClearDots(int $clearDots)
     // takes effect once it has.
     catchQuiet(`contextInfo -escapeContext "escapeCurrentTool"`);
 
-    // The renderer check waits until everything else has started.
-    evalDeferred -lowestPriority "if (`exists setupRendererSceneOpenedCallback`) setupRendererSceneOpenedCallback;";
+    // The renderer check waits until everything else has started. The reference's renderer start-up sources
+    // supportRenderers before this; Aztek has no such step, so it is sourced here when not yet loaded.
+    evalDeferred -lowestPriority "if (!`exists setupRendererSceneOpenedCallback`) source \"supportRenderers.mel\"; setupRendererSceneOpenedCallback;";
 
     if (`exists linearPrecision`)
         eval("linearPrecision 3");
@@ -120,8 +121,8 @@ global proc setQuadDrawClearDots(int $clearDots)
     commandEcho -addFilter "handleScriptEditorAction";
     commandEcho -addFilter "verifyCommandPopupMenus";
 
-    // The file browser's filter helpers, where the installation has them.
-    catchQuiet(eval("source \"fileDialogFilterTypes.mel\""));
+    // The file browser's filter helpers.
+    eval("source \"fileDialogFilterTypes.mel\"");
 
     // The pair above, called by the file command around its work. Tried quietly: Aztek's file has no -command yet.
     catchQuiet(`file -command "fileCmdCallback" "fileCmdRestoreCallback"`);

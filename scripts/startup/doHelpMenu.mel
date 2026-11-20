@@ -1,0 +1,24 @@
+// doHelpMenu: adds the standard Help menu to the menu bar being built, for the panel or window $object whose menu
+// bar is $menuParent. It must be called while that menu bar is the current parent.
+
+// The menu's items. The reference's doHelpMenuItems adds its general help items and then the context help ones;
+// Aztek doesn't have it, so here the menu gets the context help items registered for $object. Those procedures may
+// make their menu parent current, so they are handed the Help menu itself.
+proc doHelpMenuFill(string $object, string $menuParent, string $helpMenu)
+{
+    if (`exists doHelpMenuItems`) {
+        eval("doHelpMenuItems \"" + $object + "\" \"" + $menuParent + "\"");
+        return;
+    }
+    doContextHelpProc($object, $helpMenu);
+}
+
+global proc doHelpMenu(string $object, string $menuParent)
+{
+    // The reference marks this as the menu bar's help menu (placed at the right where the platform does that);
+    // Aztek's menu has no such flag, so it is an ordinary last menu.
+    string $helpMenu = `menu -tearOff true -label "Help" -familyImage "menuIconHelp.png" -postMenuCommandOnce false
+        HelpMenu`;
+    doHelpMenuFill($object, $menuParent, $helpMenu);
+    setParent -menu ..;
+}

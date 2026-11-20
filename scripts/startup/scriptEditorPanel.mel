@@ -2046,10 +2046,8 @@ global proc addScriptEditorPanel(string $panel)
     toggleCmdQuickHelp($gCommandExecuterShowQuickHelp, 1);
 
     buildScriptEditorMenus($control, "scriptEditor", false, false);
-    if (`exists addContextHelpProc`)
-        eval("addContextHelpProc " + $panel + " \"buildScriptEditorContextHelpItems\"");
-    if (`exists doHelpMenu`)
-        eval("doHelpMenu " + $panel + " " + $panel);
+    addContextHelpProc($panel, "buildScriptEditorContextHelpItems");
+    doHelpMenu($panel, $panel);
 
     if ($gScriptEditorSelectedTabIndex >= 1 && $gScriptEditorSelectedTabIndex <= sepTabCount())
         tabLayout -edit -selectTabIndex $gScriptEditorSelectedTabIndex $gCommandExecuterTabs;

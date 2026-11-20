@@ -69,8 +69,7 @@ global proc incrementAndSaveScene(int $force)
 
     string $types[] = `file -query -type $next`;
     string $type = (size($types) > 0) ? $types[0] : "unknown";
-    if (`exists addRecentFile`)
-        eval("addRecentFile \"" + $next + "\" \"" + $type + "\"");
+    addRecentFile($next, $type);
 
     print "Saving a new version of the scene.\n";
     print ("Previous file: " + $scene + "\n");

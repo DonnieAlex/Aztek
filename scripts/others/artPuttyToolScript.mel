@@ -1,0 +1,24 @@
+// artPuttyToolScript: enters the Sculpt Geometry Tool (the putty brush), making its context, artPuttyContext, the first
+// time. $action 4 enters the tool, 3 also opens its settings; anything else still enters it but warns. Gives back the
+// context's name. In Aztek the putty context drives the same built-in sculpting tool as the mesh sculpting brushes.
+global proc string artPuttyToolScript(int $action)
+{
+    string $context = "artPuttyContext";
+
+    if (!`artPuttyCtx -exists $context`) {
+        string $made = `artPuttyCtx -image1 "putty.png" $context`;
+        // The reference also tells the context which paint tool it is (-whichTool putty); Aztek's putty context is
+        // only ever that, and its command doesn't take the flag yet.
+        catchQuiet(eval("artPuttyCtx -edit -whichTool \"putty\" " + $made));
+        rememberCtxSettings $made;
+    }
+
+    setToolTo $context;
+
+    if ($action == 3) {
+        toolPropertyWindow;
+    } else if ($action != 4) {
+        warning "artPuttyToolScript: the argument should be 3 or 4.";
+    }
+    return $context;
+}

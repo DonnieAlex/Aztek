@@ -1,0 +1,49 @@
+// tearOffRestorePanel: opens an editor panel by its label. A panel with that label already there is brought forward;
+// otherwise a new one is made floating. Gives back "<panel>Window" for a panel that was there, or "" for a new one.
+// $panelType is the scripted panel type when $isScripted is non-zero, else the panel's own command (outlinerPanel,
+// say). tearOffPanel is the one for tearing a panel off.
+
+// The panel's English label. Aztek's labels are always English, so the label is its own.
+proc string tearOffRestoreEnglishLabel(string $panelLabel)
+{
+    if (`exists unlocalizedPanelLabel`)
+        return eval("unlocalizedPanelLabel \"" + encodeString($panelLabel) + "\"");
+    return $panelLabel;
+}
+
+// Brings a panel forward. The reference does it with -tearOffRestore, which shows the panel wherever it is, docked or
+// floating, or floats it when it is shown nowhere. Aztek's panels have only -tearOff, so a panel that is shown
+// somewhere gets the focus, and one that isn't is torn off.
+proc tearOffRestoreShow(string $cmd, string $panel)
+{
+    string $control = "";
+    catchQuiet($control = eval($cmd + " -query -control " + $panel));
+    if ($control != "")
+        setFocus $panel;
+    else
+        eval($cmd + " -edit -tearOff " + $panel);
+}
+
+global proc string tearOffRestorePanel(string $panelLabel, string $panelType, int $isScripted)
+{
+    string $result = "";
+
+    string $panel = `getPanel -withLabel $panelLabel`;
+    if ($panel == "") {
+        // Panels in scenes saved by an English session keep English labels.
+        string $english = tearOffRestoreEnglishLabel($panelLabel);
+        if ($english != $panelLabel)
+            $panel = `getPanel -withLabel $english`;
+    }
+
+    if ($panel != "") {
+        $result = $panel + "Window";
+        tearOffRestoreShow($isScripted ? "scriptedPanel" : $panelType, $panel);
+    } else if ($isScripted) {
+        // A failure to make a scripted panel is passed over without a word.
+        catchQuiet(`scriptedPanel -label $panelLabel -type $panelType -tearOff`);
+    } else {
+        eval($panelType + " -label \"" + $panelLabel + "\" -tearOff;");
+    }
+    return $result;
+}

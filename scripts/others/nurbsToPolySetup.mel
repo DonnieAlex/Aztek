@@ -1,0 +1,124 @@
+// nurbsToPolySetup: fills the NURBS to Polygons part of an option box from its preferences, after putting them back to
+// their factory values when asked. The controls are made by the option box's own script; here they are only set, by
+// their short names under $parent. The preferences live in the nurbsToPolygonsPref command, not in optionVars.
+
+// The factory values, by the flag each is kept under.
+proc float nurbsToPolyFactory(string $flag)
+{
+    if ($flag == "format") return 1;
+    if ($flag == "matchRenderTessellation") return 0;
+    if ($flag == "merge") return 0;
+    if ($flag == "mergeTolerance") return 0.1;
+    if ($flag == "polyType") return 0;
+    if ($flag == "polyCount") return 200;
+    if ($flag == "chr") return 0.1;
+    if ($flag == "ft") return 0.01;
+    if ($flag == "mel") return 0.001;
+    if ($flag == "d") return 0.1;
+    if ($flag == "uType") return 1;
+    if ($flag == "uNumber") return 3;
+    if ($flag == "vType") return 1;
+    if ($flag == "vNumber") return 3;
+    if ($flag == "useChordHeight") return 0;
+    if ($flag == "chordHeight") return 1;
+    if ($flag == "useChordHeightRatio") return 0;
+    if ($flag == "edgeSwap") return 0;
+    return 0;
+}
+
+// Aztek has no nurbsToPolygonsPref yet. Until it does, the controls show the factory values and nothing is kept.
+proc int nurbsToPolyHasPrefs()
+{
+    return `exists nurbsToPolygonsPref`;
+}
+
+proc float nurbsToPolyPref(string $flag)
+{
+    if (nurbsToPolyHasPrefs())
+        return eval("nurbsToPolygonsPref -query -" + $flag);
+    return nurbsToPolyFactory($flag);
+}
+
+proc nurbsToPolyResetPrefs()
+{
+    if (!nurbsToPolyHasPrefs())
+        return;
+    string $flags[] = {"format", "matchRenderTessellation", "merge", "mergeTolerance", "polyType", "polyCount", "chr",
+        "ft", "mel", "d", "uType", "uNumber", "vType", "vNumber", "useChordHeight", "chordHeight",
+        "useChordHeightRatio", "edgeSwap"};
+    string $cmd = "nurbsToPolygonsPref";
+    for ($f in $flags)
+        $cmd += " -" + $f + " " + nurbsToPolyFactory($f);
+    eval($cmd);
+}
+
+global proc nurbsToPolySetup(string $parent, int $forceFactorySettings)
+{
+    setParent $parent;
+
+    if ($forceFactorySettings)
+        nurbsToPolyResetPrefs();
+
+    // The tessellation methods are spread over two radio groups of two buttons each.
+    int $format = nurbsToPolyPref("format");
+    if ($format == 0)
+        radioButtonGrp -edit -select 2 format;
+    else if ($format == 2)
+        radioButtonGrp -edit -select 1 format;
+    else if ($format == 3)
+        radioButtonGrp -edit -select 2 format2;
+    else
+        radioButtonGrp -edit -select 1 format2;
+
+    // Attach can't go with the control points method; the preference itself is left as it is.
+    int $merge = nurbsToPolyPref("merge");
+    if ($merge < 0 || $merge > 1)
+        $merge = 0;
+    if ($merge == 1 && $format == 3)
+        $merge = 0;
+    checkBoxGrp -edit -value1 $merge mergeBox;
+
+    float $tolerance = nurbsToPolyPref("mergeTolerance");
+    if ($tolerance < 0)
+        $tolerance = 0.1;
+    floatSliderGrp -edit -value $tolerance -enable ($merge == 1) mergeTolerance;
+
+    int $match = nurbsToPolyPref("matchRenderTessellation");
+    if ($match < 0 || $match > 1)
+        $match = 0;
+    checkBoxGrp -edit -value1 $match matchRenderTessellationBox;
+
+    int $polyType = nurbsToPolyPref("polyType");
+    if ($polyType < 0 || $polyType > 1)
+        $polyType = 0;
+    radioButtonGrp -edit -select ($polyType + 1) type;
+
+    // The rest go to their controls unchecked.
+    int $count = nurbsToPolyPref("polyCount");
+    intSliderGrp -edit -value $count count;
+    float $ratio = nurbsToPolyPref("chr");
+    floatSliderGrp -edit -value $ratio ratioG;
+    floatSliderGrp -edit -value $ratio ratioS;
+    floatSliderGrp -edit -value (nurbsToPolyPref("ft")) fractional;
+    floatSliderGrp -edit -value (nurbsToPolyPref("mel")) minEdgeLength;
+    floatSliderGrp -edit -value (nurbsToPolyPref("d")) delta;
+    int $uType = nurbsToPolyPref("uType");
+    optionMenuGrp -edit -select $uType uType;
+    int $uNumber = nurbsToPolyPref("uNumber");
+    intSliderGrp -edit -value $uNumber uNumber;
+    int $vType = nurbsToPolyPref("vType");
+    optionMenuGrp -edit -select $vType vType;
+    int $vNumber = nurbsToPolyPref("vNumber");
+    intSliderGrp -edit -value $vNumber vNumber;
+    int $useChordHeight = nurbsToPolyPref("useChordHeight");
+    checkBoxGrp -edit -value1 $useChordHeight useChordHeight;
+    floatSliderGrp -edit -value (nurbsToPolyPref("chordHeight")) chordHeight;
+    int $useRatio = nurbsToPolyPref("useChordHeightRatio");
+    checkBoxGrp -edit -value1 $useRatio useChordHeightRatio;
+    int $edgeSwap = nurbsToPolyPref("edgeSwap");
+    checkBoxGrp -edit -value1 $edgeSwap edgeSwap;
+
+    // Shows the controls that go with the method, the raw value passed on even when it was out of range.
+    if (`exists nurbsToPolyVisibility`)
+        eval("nurbsToPolyVisibility \"" + $parent + "\" " + $format);
+}

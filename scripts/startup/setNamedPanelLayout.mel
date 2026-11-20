@@ -1,0 +1,248 @@
+// setNamedPanelLayout: puts the panels of a named panel configuration (Panels > Layouts, Saved Layouts, the toolbox's
+// layout buttons) into the main pane. Panels the configuration names are found by label, made from its create string
+// when missing, and set back to its stored state when it says so; a panel torn off or docked elsewhere stays where it is
+// and a model panel stands in for it.
+//
+// Aztek's own window lays its views out natively, as one view or four (the SingleViewLayout and FourViewLayout
+// commands), and has no $gMainPane. So unless a script has built a main pane of the reference's kind, the layout is
+// applied by those commands: one-panel layouts as a single view, the rest as four views.
+
+// Runs a configuration's stored create or edit string in a scope of its own, with the variables such strings expect.
+proc snplRunStored(string $stored, string $panel)
+{
+    string $code = "{ int $menusOkayInPanels = `optionVar -query allowMenusInPanels`; string $editorName = \"\"; "
+        + "string $panelName = \"" + encodeString($panel) + "\"; " + $stored + "; }";
+    eval($code);
+}
+
+// The panel labelled $label, or "".
+proc string snplPanelWithLabel(string $label)
+{
+    return `getPanel -withLabel $label`;
+}
+
+// Moves $panel into the pane layout with its own panel command (modelPanel -e -p, say).
+proc snplParent(string $panel, string $pane)
+{
+    string $type = `getPanel -typeOf $panel`;
+    eval($type + " -edit -parent \"" + $pane + "\" " + $panel);
+}
+
+// Whether a panel lives somewhere other than the main pane: torn off into its own window (not the docked viewport's),
+// or held by a <panel>Window workspace control.
+proc int snplElsewhere(string $panel)
+{
+    global string $gViewportWorkspaceControl;
+    if (`workspaceControl -exists ($panel + "Window")`)
+        return 1;
+    int $tornOff = 0;
+    catchQuiet($tornOff = `panel -query -tearOff $panel`);
+    if (!$tornOff)
+        return 0;
+    string $control = "";
+    catchQuiet($control = `panel -query -control $panel`);
+    return $gViewportWorkspaceControl == "" || !startsWith($control, $gViewportWorkspaceControl);
+}
+
+proc int snplListHas(string $list[], string $item)
+{
+    for ($x in $list) {
+        if ($x == $item)
+            return 1;
+    }
+    return 0;
+}
+
+// Aztek's own layouts. A layout that is one panel becomes the single view, any other the four views; returns 0 when
+// Aztek has neither command.
+proc int snplNative(int $panels)
+{
+    string $cmd = $panels == 1 ? "SingleViewLayout" : "FourViewLayout";
+    if (!`exists $cmd`)
+        return 0;
+    eval($cmd);
+    return 1;
+}
+
+// How many panels the layouts Aztek knows by label have, for when no configuration of that label exists: 0 when the
+// label isn't one of them.
+proc int snplKnownLayout(string $label)
+{
+    string $single[] = {"Single Perspective View", "Single Pane", "Single Perspective", "Perspective View"};
+    string $four[] = {"Four View", "Four Panes"};
+    for ($l in $single) {
+        if ($label == localizedPanelLabel($l))
+            return 1;
+    }
+    for ($l in $four) {
+        if ($label == localizedPanelLabel($l))
+            return 4;
+    }
+    return 0;
+}
+
+proc snplUpdateToolbox()
+{
+    if (`exists updateToolbox`)
+        eval("updateToolbox");
+}
+
+// Arranges the panels of $config in the main pane: steps 6 to 9 of the layout.
+proc snplArrange(string $config, string $layoutLabel)
+{
+    global string $gMainPane;
+
+    int $fixed[] = `panelConfiguration -query -isFixedState $config`;
+    string $labels[] = `panelConfiguration -query -labelStrings $config`;
+    string $types[] = `panelConfiguration -query -typeStrings $config`;
+    string $creates[] = `panelConfiguration -query -createStrings $config`;
+    string $edits[] = `panelConfiguration -query -editStrings $config`;
+    int $count = `panelConfiguration -query -numberOfPanels $config`;
+
+    string $visible[] = {"", "", "", ""};
+    string $toReplace[] = {"", "", "", ""};
+
+    for ($i = 0; $i < $count; $i++) {
+        string $panel = snplPanelWithLabel($labels[$i]);
+        if ($panel != "") {
+            string $control = "";
+            catchQuiet($control = `panel -query -control $panel`);
+            if ($control == "")
+                snplParent($panel, $gMainPane);
+            if (snplElsewhere($panel))
+                $toReplace[$i] = $panel;
+            else
+                $visible[$i] = $panel;
+            // Put back the stored state, except on a model panel standing elsewhere, which keeps its own.
+            if ($fixed[$i] && ($visible[$i] != "" || `getPanel -typeOf $panel` != "modelPanel"))
+                snplRunStored($edits[$i], $panel);
+        } else {
+            snplRunStored($creates[$i], "");
+            $panel = snplPanelWithLabel($labels[$i]);
+            if ($panel == "") {
+                warning ("There was a problem making a panel for the layout " + $layoutLabel + ".");
+            } else {
+                snplParent($panel, $gMainPane);
+                $visible[$i] = $panel;
+                // The panel's label may differ from the stored one (a number added, say): the entry takes it.
+                int $at = $i + 1;
+                string $label = `panel -query -label $panel`;
+                panelConfiguration -edit -replaceFixedState $at $fixed[$i] -replaceLabel $at $label
+                    -replaceTypeString $at $types[$i] -replaceCreateString $at $creates[$i]
+                    -replaceEditString $at $edits[$i] $config;
+            }
+        }
+    }
+
+    // Model panels free to stand in for those kept elsewhere.
+    string $models[] = `getPanel -type modelPanel`;
+    string $pool[];
+    for ($m in $models) {
+        if (!snplListHas($visible, $m) && !snplElsewhere($m))
+            $pool[size($pool)] = $m;
+    }
+    for ($i = 0; $i < $count; $i++) {
+        string $old = $toReplace[$i];
+        if ($old == "")
+            continue;
+        string $type = `getPanel -typeOf $old`;
+        string $label = `panel -query -label $old`;
+        string $pick = "";
+        for ($p in $pool) {
+            if ($type != "modelPanel" || `panel -query -label $p` == $label) {
+                $pick = $p;
+                break;
+            }
+        }
+        if ($pick != "") {
+            $pool = stringArrayRemove({$pick}, $pool);
+        } else if ($type == "modelPanel") {
+            $pick = `modelPanel -unParent -copy $old -label $label`;
+        } else {
+            for ($m in $models) {
+                if (!snplListHas($visible, $m)) {
+                    string $mLabel = `panel -query -label $m`;
+                    $pick = `modelPanel -unParent -copy $m -label $mLabel`;
+                    break;
+                }
+            }
+        }
+        if ($pick != "")
+            modelPanel -edit -parent $gMainPane $pick;
+        if ($pick == "" || $type != "modelPanel")
+            warning ("The panel " + $label + " is in use elsewhere, so it can't be placed in this layout.");
+        else if ($fixed[$i])
+            snplRunStored($edits[$i], $pick);
+        $visible[$i] = $pick;
+    }
+
+    // Whether the panes change: a different count, or a different panel in any of the first four.
+    // A query Aztek can't answer counts as a change, so the panes are set.
+    int $changes = 1;
+    int $shown = -1;
+    catchQuiet($shown = `paneLayout -query -numberOfVisiblePanes $gMainPane`);
+    if ($shown == $count) {
+        $changes = 0;
+        for ($i = 0; $i < $count && $i < 4; $i++) {
+            string $now = "";
+            catchQuiet($now = eval("paneLayout -query -pane" + ($i + 1) + " \"" + $gMainPane + "\""));
+            if ($visible[$i] != $now)
+                $changes = 1;
+        }
+    }
+
+    string $layout = `panelConfiguration -query -configString $config`;
+    paneLayout -edit -manage false $gMainPane;
+    if ($changes) {
+        for ($i = 0; $i < $count && $i < 4; $i++) {
+            if ($visible[$i] != "")
+                paneLayout -edit -setPane $visible[$i] ($i + 1) $gMainPane;
+        }
+    }
+    eval($layout);
+    paneLayout -edit -manage true $gMainPane;
+    if ($changes) {
+        string $first = `paneLayout -query -pane1 $gMainPane`;
+        if ($first != "")
+            setFocus $first;
+    }
+}
+
+global proc setNamedPanelLayout(string $layoutLabel)
+{
+    global string $gMainPane;
+    global string $gLookdevPropertyPanel;
+
+    string $config = `getPanel -configWithLabel $layoutLabel`;
+
+    // The stereo layouts need the stereo camera plug-in, which Aztek doesn't have.
+    if ($layoutLabel == localizedPanelLabel("Stereo Persp") || $layoutLabel == localizedPanelLabel("Stereo Persp/Outliner")) {
+        if (catchQuiet(python("from maya.app.stereo import stereoCameraUtil")) || catchQuiet(python("stereoCameraUtil.loadPlugin()")))
+            warning "Stereo cameras aren't available yet.";
+    }
+
+    if ($config == "") {
+        // Aztek's own one- and four-view layouts answer to their labels even without a configuration.
+        int $known = snplKnownLayout($layoutLabel);
+        if (!$known || !snplNative($known))
+            warning ("Can't find the panel layout " + $layoutLabel + ".");
+        snplUpdateToolbox();
+        return;
+    }
+
+    int $history = `exists panelHistory` && eval("panelHistory -exists mainPanelHistory");
+    if ($history)
+        eval("panelHistory -edit -suspend true mainPanelHistory");
+
+    if ($gMainPane != "" && `paneLayout -exists $gMainPane`)
+        snplArrange($config, $layoutLabel);
+    else
+        snplNative(`panelConfiguration -query -numberOfPanels $config`);
+
+    if ($history)
+        eval("panelHistory -edit -suspend false mainPanelHistory");
+    if ($layoutLabel == localizedPanelLabel("Hypershade/Persp") && `exists hideHypershadeWindow`)
+        eval("hideHypershadeWindow \"" + $gLookdevPropertyPanel + "\"");
+
+    snplUpdateToolbox();
+}

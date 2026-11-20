@@ -1,0 +1,194 @@
+// setMeshSculptTool: the mesh sculpting tool and its brushes, as the shelf, the Mesh Tools menu, hotkeys and the tool's
+// settings call them. Each brush's settings are kept between sessions in a mesh<Brush>ToolSettings optionVar, written as
+// the flags of sculptMeshCacheCtx so they can be given straight back to it.
+//
+// Aztek's sculpting tool is built in: sculptMeshCacheCtx edits its settings (-sculptTool the brush, -size, -strength,
+// -invert) and the SculptMeshActivateBrushSculpt command enters it. So the context named sculptMeshCacheContext here is
+// that tool, ready once initMeshSculptTool has run; the stored flags are the ones Aztek's command takes. Aztek's brushes
+// share one size and strength, so the brush picked last decides them. Brushes Aztek doesn't have yet (UV, Erase, Mask,
+// SmoothTarget, Clone) are kept in the list but can't be switched to.
+
+global int $gMeshSculptToolReady = 0;
+
+global proc string[] meshSculptToolModes()
+{
+    return {"Sculpt", "Smooth", "Grab", "Pinch", "Flatten", "Foamy", "Spray", "Repeat", "Imprint", "Wax", "Scrape",
+        "Fill", "Knife", "Smear", "Bulge", "Amplify", "Freeze", "UV", "Relax", "Erase", "Mask", "SmoothTarget", "Clone"};
+}
+
+// The brush name Aztek's tool takes for a mode, or "" when it has no such brush.
+proc string smstBrush(string $mode)
+{
+    string $brush = tolower($mode);
+    string $have[] = {"sculpt", "smooth", "relax", "grab", "pinch", "flatten", "foamy", "spray", "repeat", "imprint", "wax",
+        "scrape", "fill", "knife", "smear", "bulge", "amplify", "freeze"};
+    for ($b in $have) {
+        if ($b == $brush)
+            return $brush;
+    }
+    return "";
+}
+
+// Whether $context names the sculpting tool: Aztek's built-in one once it has been set up, or one a script made.
+proc int smstExists(string $context)
+{
+    global int $gMeshSculptToolReady;
+    if ($context == "sculptMeshCacheContext" && $gMeshSculptToolReady)
+        return 1;
+    return `contextInfo -exists $context` && `contextInfo -class $context` == "sculptMeshCacheCtx";
+}
+
+// The current brush, written as the mode list writes it ("smooth" gives "Smooth").
+proc string smstMode(string $context)
+{
+    string $brush = `sculptMeshCacheCtx -query -sculptTool $context`;
+    for ($m in meshSculptToolModes()) {
+        if (tolower($m) == $brush)
+            return $m;
+    }
+    return $brush;
+}
+
+proc smstSetMode(string $context, string $mode)
+{
+    string $brush = smstBrush($mode);
+    if ($brush != "")
+        sculptMeshCacheCtx -edit -sculptTool $brush $context;
+}
+
+// The brush's settings as flags for sculptMeshCacheCtx -edit.
+proc string smstSettings(string $context)
+{
+    float $strength = `sculptMeshCacheCtx -query -strength $context`;
+    float $size = `sculptMeshCacheCtx -query -size $context`;
+    int $invert = `sculptMeshCacheCtx -query -invert $context`;
+    return "-strength " + $strength + " -size " + $size + " -invert " + $invert;
+}
+
+proc smstSave(string $context, string $var)
+{
+    optionVar -category "Modeling.Mesh Tools.Sculpting Tools" -stringValue $var (smstSettings($context));
+}
+
+// Gives a brush its stored flags. Flags Aztek's tool doesn't take (a value the reference wrote, say) can't be given
+// back, so those settings are saved afresh from the tool instead.
+proc smstRestore(string $context, string $var)
+{
+    string $flags = `optionVar -query $var`;
+    if (catchQuiet(eval("sculptMeshCacheCtx -edit " + $flags + " " + $context))) {
+        warning ("The saved settings in " + $var + " don't suit this sculpting tool; they have been replaced.");
+        smstSave($context, $var);
+    }
+}
+
+// Saves every brush's settings ($forceSave non-zero), or gives each brush its saved ones (saving those that have none).
+global proc setMeshSculptToolOptVars(string $context, int $forceSave)
+{
+    if (!smstExists($context))
+        return;
+
+    string $mode = smstMode($context);
+    for ($m in meshSculptToolModes()) {
+        string $var = "mesh" + $m + "ToolSettings";
+        smstSetMode($context, $m);
+        if (!`optionVar -exists $var` || $forceSave)
+            smstSave($context, $var);
+        else
+            smstRestore($context, $var);
+    }
+    smstSetMode($context, $mode);
+    // The brushes share their settings in Aztek, so the current brush's are given back last.
+    string $current = "mesh" + $mode + "ToolSettings";
+    if (!$forceSave && `optionVar -exists $current`)
+        smstRestore($context, $current);
+}
+
+// Sets the tool up: every brush back to its defaults, then the saved settings over them. The custom falloff curve list
+// is kept as it was, since resetting the brushes could change it.
+global proc initMeshSculptTool()
+{
+    global int $gMeshSculptToolReady;
+    string $context = "sculptMeshCacheContext";
+    $gMeshSculptToolReady = 1;
+    if (`exists rememberCtxSettings`)
+        catchQuiet(`rememberCtxSettings $context`);
+
+    int $hasCurves = `optionVar -exists optionvarCustomCurves`;
+    string $curves[];
+    if ($hasCurves)
+        $curves = `optionVar -query optionvarCustomCurves`;
+
+    // The per-brush defaults are the tool settings script's (sculptMeshCacheValues_ResetTool); without it the brushes
+    // keep the values they have.
+    if (`exists sculptMeshCacheValues_ResetTool`) {
+        for ($m in meshSculptToolModes()) {
+            smstSetMode($context, $m);
+            eval("sculptMeshCacheValues_ResetTool \"" + $context + "\"");
+        }
+    }
+
+    setMeshSculptToolOptVars($context, 0);
+
+    if ($hasCurves) {
+        optionVar -clearArray optionvarCustomCurves;
+        for ($c in $curves)
+            optionVar -stringValueAppend optionvarCustomCurves $c;
+    }
+}
+
+// Enters the sculpting tool on brush $brush.
+global proc setMeshSculptTool(string $brush)
+{
+    string $context = "sculptMeshCacheContext";
+    if (!smstExists($context))
+        initMeshSculptTool();
+
+    if (smstBrush($brush) == "")
+        warning ("The " + $brush + " sculpting brush isn't available yet.");
+    smstSetMode($context, $brush);
+    // The reference also shows the brush's icon on the tool; Aztek's tool shows its brush itself.
+
+    if (`currentCtx` != $context) {
+        if (`contextInfo -exists $context`)
+            setToolTo $context;
+        else
+            SculptMeshActivateBrushSculpt;
+    }
+}
+
+// Clears all freezing, whichever brush is current.
+global proc sculptMeshUnFreeze()
+{
+    sculptMeshCacheCtx -edit -clearFreeze true sculptMeshCacheContext;
+}
+
+// Inverts the freezing. Aztek's tool can only clear it so far.
+global proc sculptMeshInvertFreeze()
+{
+    warning "Inverting the freeze isn't available yet.";
+}
+
+// Floods the current sculpting tool with $value: the mask brushes' Flood, Unmask All and Invert buttons. Aztek's tool
+// has no flood yet, so this says so rather than fail.
+proc smstFlood(float $value)
+{
+    string $context = `currentCtx`;
+    string $class = `contextInfo -exists $context` ? `contextInfo -class $context` : "sculptMeshCacheCtx";
+    if (catchQuiet(eval($class + " -edit -flood " + $value + " " + $context)))
+        warning "Flooding the sculpting brush isn't available yet.";
+}
+
+global proc sculptMeshFlood()
+{
+    smstFlood(`floatSliderGrp -query -value sculptMeshFalloffStrength_FSG`);
+}
+
+global proc sculptMeshUnmaskAll()
+{
+    smstFlood(0);
+}
+
+global proc sculptMeshInvertMask()
+{
+    smstFlood(-1);
+}

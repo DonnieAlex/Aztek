@@ -1,0 +1,486 @@
+// customChannelSets: channel sets for the Graph Editor and Dope Sheet, as the reference's. A channel set is an
+// ordinary objectSet whose annotation text is "customChannelSet"; its members are attribute plugs or other channel
+// sets, and a set has at most one parent set, joined through its message plug. These procedures make and delete
+// them, nest them, add and remove members, select the nodes behind them, and write them to and read them from JSON.
+
+// ---- Local helpers ----
+
+// True for an existing objectSet carrying the channel set text. Anything that goes wrong while asking means no.
+proc int customChannelSets_isSet(string $obj)
+{
+    if ($obj == "" || !`objExists $obj`)
+        return 0;
+    string $isSet[] = `ls -type objectSet $obj`;
+    if (!size($isSet))
+        return 0;
+    string $text = "";
+    if (catchQuiet($text = `sets -query -text $obj`))
+        return 0;
+    return $text == "customChannelSet";
+}
+
+proc string[] customChannelSets_filter(string $list[])
+{
+    string $result[];
+    string $item;
+    for ($item in $list)
+        if (customChannelSets_isSet($item))
+            $result[size($result)] = $item;
+    return $result;
+}
+
+// Whether $child is in $set, directly or inside channel sets nested in it.
+proc int customChannelSets_contains(string $child, string $set)
+{
+    string $members[] = `sets -query $set`;
+    string $member;
+    for ($member in $members) {
+        if ($member == $child)
+            return 1;
+        if (customChannelSets_isSet($member) && customChannelSets_contains($child, $member))
+            return 1;
+    }
+    return 0;
+}
+
+// The channel sets $set belongs to.
+proc string[] customChannelSets_parents(string $set)
+{
+    string $connected[] = `listConnections ($set + ".message")`;
+    return customChannelSets_filter($connected);
+}
+
+// The node a plug belongs to: everything before the first dot.
+proc string customChannelSets_plugNode(string $plug)
+{
+    if (`exists plugNode`) {
+        string $node = "";
+        if (!catchQuiet($node = `plugNode $plug`))
+            return $node;
+    }
+    return `match "^[^.]*" $plug`;
+}
+
+proc string customChannelSets_join(string $items[], string $separator)
+{
+    string $text = "";
+    for ($i = 0; $i < size($items); $i++)
+        $text += ($i ? $separator : "") + $items[$i];
+    return $text;
+}
+
+// The editor's channel set display. Aztek's editors have no -showChannelSets yet, which reads as off.
+proc int customChannelSets_editorQuery(string $cmd, string $flag, string $editor)
+{
+    int $value = 0;
+    if (catchQuiet($value = `eval ($cmd + " -query " + $flag + " " + $editor)`))
+        return 0;
+    return $value;
+}
+
+proc string[] customChannelSets_editorList(string $cmd, string $flag, string $editor)
+{
+    string $value[];
+    if (catchQuiet($value = `eval ($cmd + " -query " + $flag + " " + $editor)`))
+        clear $value;
+    return $value;
+}
+
+// Deletes one channel set and, once they have no other parent, the channel sets nested in it. Attribute members are
+// only let go, never deleted.
+proc customChannelSets_delete(string $set)
+{
+    if (!`objExists $set`)
+        return;
+    string $plugs[] = `listConnections -plugs 1 ($set + ".message")`;
+    string $members[] = `sets -query $set`;
+    string $plug;
+    for ($plug in $plugs)
+        catchQuiet(`disconnectAttr ($set + ".message") $plug`);
+    if (size($members)) {
+        sets -remove $set $members;
+        string $member;
+        for ($member in $members) {
+            if (customChannelSets_isSet($member)) {
+                string $parents[] = customChannelSets_parents($member);
+                if (!size($parents))
+                    customChannelSets_delete($member);
+            }
+        }
+    }
+    delete $set;
+}
+
+// The JSON file filter for the browser. Aztek doesn't have fileBrowserActionSetup yet.
+proc string[] customChannelSets_filters(int $mode)
+{
+    if (`exists fileBrowserActionSetup`) {
+        string $setup[] = `eval ("fileBrowserActionSetup \"json\" " + $mode)`;
+        if (size($setup) > 2)
+            return {$setup[2], $setup[1]};
+    }
+    return {"JSON Files (*.json)", "JSON Files (*.json)"};
+}
+
+// Asks for a file, starting in the channelSets folder of the project or where the last one was picked in this project.
+// $mode 0 saves, 1 opens an existing file. Returns "" when cancelled.
+proc string customChannelSets_browse(int $mode)
+{
+    global string $gChannelSetLastDirectory;
+    global string $gChannelSetLastWorkspace;
+
+    if (`workspace -fileRuleEntry channelSets` == "") {
+        workspace -fileRule channelSets channelSets;
+        workspace -saveWorkspace;
+    }
+    string $rule = `workspace -fileRuleEntry channelSets`;
+    string $dir = `workspace -expandName $rule`;
+    if (!`filetest -d $dir`)
+        sysFile -makeDir $dir;
+    string $root = `workspace -query -rootDirectory`;
+    if ($gChannelSetLastDirectory != "" && $gChannelSetLastWorkspace == $root)
+        $dir = $gChannelSetLastDirectory;
+
+    string $filters[] = customChannelSets_filters($mode);
+    string $caption = $mode ? "Import Channel Sets" : "Export Channel Sets";
+    string $ok = $mode ? "Import" : "Export";
+    string $picked[] = `fileDialog2 -caption $caption -okCaption $ok -fileMode $mode -startingDirectory $dir
+        -fileFilter $filters[0] -selectFileFilter $filters[1]`;
+    if (size($picked) != 1)
+        return "";
+    $gChannelSetLastDirectory = dirname($picked[0]);
+    $gChannelSetLastWorkspace = $root;
+    return $picked[0];
+}
+
+// Adds the nodes behind $set's members to $nodes, in order and once each, opening nested channel sets where they sit.
+// Arrays are passed by reference, so $nodes fills in place.
+proc customChannelSets_collect(string $set, string $nodes[])
+{
+    string $members[] = `sets -query $set`;
+    string $member;
+    for ($member in $members) {
+        if (customChannelSets_isSet($member))
+            customChannelSets_collect($member, $nodes);
+        else {
+            string $node = customChannelSets_plugNode($member);
+            if (`objExists $node` && !stringArrayContains($node, $nodes))
+                $nodes[size($nodes)] = $node;
+        }
+    }
+}
+
+// Whether any of $items is in $set. Aztek's sets has no -anyMember yet, so each is asked on its own.
+proc int customChannelSets_anyMember(string $set, string $items[])
+{
+    string $item;
+    for ($item in $items) {
+        int $member = 0;
+        if (!catchQuiet($member = `sets -isMember $set $item`) && $member)
+            return 1;
+    }
+    return 0;
+}
+
+// 'a','b' for a Python list.
+proc string customChannelSets_quoted(string $items[])
+{
+    string $text = "";
+    for ($i = 0; $i < size($items); $i++)
+        $text += ($i ? "," : "") + "'" + $items[$i] + "'";
+    return $text;
+}
+
+// ---- Global procedures ----
+
+global proc string customChannelSetType()
+{
+    return "customChannelSet";
+}
+
+global proc string[] customChannelSets()
+{
+    string $sets[] = `ls -sets`;
+    return customChannelSets_filter($sets);
+}
+
+global proc int isCustomSet(string $obj)
+{
+    return customChannelSets_isSet($obj);
+}
+
+// Only the top-most items: what a selected channel set already holds is left out.
+global proc string[] filterSelectedAttributesAndCustomSets(string $selection[])
+{
+    string $sets[] = customChannelSets_filter($selection);
+    string $result[];
+    string $item;
+    for ($item in $selection) {
+        int $inside = 0;
+        string $set;
+        for ($set in $sets) {
+            if ($set != $item && customChannelSets_contains($item, $set)) {
+                $inside = 1;
+                break;
+            }
+        }
+        if (!$inside)
+            $result[size($result)] = $item;
+    }
+    return $result;
+}
+
+global proc string dopeSheetFromPanel(string $panel)
+{
+    return $panel + "DopeSheetEd";
+}
+
+global proc string graphEditorFromPanel(string $panel)
+{
+    return $panel + "GraphEd";
+}
+
+global proc int showAttributeExpansionOptions(string $panel)
+{
+    if (`animCurveEditor -query -exists (graphEditorFromPanel($panel))`)
+        return 1;
+    return `dopeSheetEditor -query -exists (dopeSheetFromPanel($panel))`;
+}
+
+global proc int showChannelSets(string $panel)
+{
+    string $graph = graphEditorFromPanel($panel);
+    if (`animCurveEditor -query -exists $graph`)
+        return customChannelSets_editorQuery("animCurveEditor", "-showChannelSets", $graph);
+    string $dope = dopeSheetFromPanel($panel);
+    if (`dopeSheetEditor -query -exists $dope`)
+        return customChannelSets_editorQuery("dopeSheetEditor", "-showChannelSets", $dope);
+    return 0;
+}
+
+// The version tag the panel's channel set menu items carry.
+global proc string channelSetsMenuVersion(string $panel)
+{
+    if (`animCurveEditor -query -exists (graphEditorFromPanel($panel))`)
+        return "2026";
+    return "2025";
+}
+
+global proc int showRegularSets(string $panel)
+{
+    if (`dopeSheetEditor -query -exists (dopeSheetFromPanel($panel))`)
+        return 0;
+    if (`animCurveEditor -query -exists (graphEditorFromPanel($panel))`)
+        return 0;
+    return 1;
+}
+
+// A new channel set holding the attributes selected in the panel's editor; none selected makes an empty one.
+global proc createCustomSetFromPanel(string $panel)
+{
+    string $attrs[] = selectedAttributesForCustomSets($panel);
+    if (size($attrs))
+        sets -name "channelSet#" -text "customChannelSet" $attrs;
+    else
+        // Named outright as empty, so the scene selection doesn't end up in it.
+        sets -empty -name "channelSet#" -text "customChannelSet";
+}
+
+global proc deleteCustomSets(string $customSets[])
+{
+    undoInfo -openChunk;
+    string $sets[] = customChannelSets_filter($customSets);
+    string $set;
+    for ($set in $sets)
+        if (`objExists $set`)
+            customChannelSets_delete($set);
+    undoInfo -closeChunk;
+}
+
+global proc createCustomSet()
+{
+    createCustomSetFromPanel(`getPanel -withFocus`);
+}
+
+global proc deleteCustomSet()
+{
+    deleteCustomSets(selectedCustomSets(`getPanel -withFocus`));
+}
+
+// Selected attributes in the Graph Editor, highlighted ones in the Dope Sheet. Aztek's editors can't say yet, which
+// reads as none.
+global proc string[] selectedAttributesForCustomSets(string $panel)
+{
+    string $none[];
+    string $graph = graphEditorFromPanel($panel);
+    if (`animCurveEditor -query -exists $graph`)
+        return customChannelSets_editorList("animCurveEditor", "-selectedAttributes", $graph);
+    string $dope = dopeSheetFromPanel($panel);
+    if (`dopeSheetEditor -query -exists $dope`)
+        return customChannelSets_editorList("dopeSheetEditor", "-highlightedAttributes", $dope);
+    return $none;
+}
+
+// The channel sets selected in the panel's editor list.
+global proc string[] selectedCustomSets(string $panel)
+{
+    string $connection = "";
+    string $graph = graphEditorFromPanel($panel);
+    string $dope = dopeSheetFromPanel($panel);
+    if (`animCurveEditor -query -exists $graph`)
+        $connection = `animCurveEditor -query -mainListConnection $graph`;
+    else if (`dopeSheetEditor -query -exists $dope`)
+        $connection = `dopeSheetEditor -query -highlightConnection $dope`;
+
+    string $items[];
+    if ($connection != "") {
+        // Aztek doesn't have expandSelectionConnectionAsArray yet; the connection's objects stand in.
+        if (`exists expandSelectionConnectionAsArray`)
+            $items = `eval ("expandSelectionConnectionAsArray \"" + $connection + "\"")`;
+        else
+            catchQuiet($items = `selectionConnection -query -object $connection`);
+    }
+    return customChannelSets_filter($items);
+}
+
+// Selects the nodes the sets' attributes belong to, through nested sets, each node once. Nothing to show for it
+// clears the selection; no sets given leaves it alone.
+global proc selectCustomSetMembers(string $sets[])
+{
+    if (!size($sets))
+        return;
+    string $nodes[];
+    string $set;
+    for ($set in $sets)
+        customChannelSets_collect($set, $nodes);
+    if (size($nodes))
+        select -replace $nodes;
+    else
+        select -clear;
+}
+
+// Adds space-separated plugs and channel sets to $set in their order. A channel set leaves its old parent first:
+// it can have only one.
+global proc addToCustomSet(string $set, string $itemsToAdd)
+{
+    string $items[] = stringToStringArray($itemsToAdd, " ");
+    string $item;
+    for ($item in $items) {
+        if (customChannelSets_isSet($item)) {
+            string $parents[] = customChannelSets_parents($item);
+            string $parent;
+            for ($parent in $parents)
+                sets -remove $parent $item;
+        }
+    }
+    // One at a time, so the order is kept.
+    for ($item in $items)
+        sets -add $set $item;
+}
+
+// No when any item is in $targetSet already, is $targetSet, or is a channel set holding it (which would make a loop).
+global proc int canAddToChannelSet(string $selection[], string $targetSet)
+{
+    string $item;
+    for ($item in $selection) {
+        if ($item == $targetSet)
+            return 0;
+        if (`sets -isMember $targetSet $item`)
+            return 0;
+        if (customChannelSets_isSet($item) && customChannelSets_contains($targetSet, $item))
+            return 0;
+    }
+    return 1;
+}
+
+// Fills the current submenu with the channel sets the selection can go into ($add 1) or come out of ($add 0), from a
+// menu's post-menu command. With nothing selected it adds nothing at all.
+global proc createCustomSetsSubMenu(string $sets[], string $selectedAttributes[], int $add)
+{
+    string $selection[] = filterSelectedAttributesAndCustomSets($selectedAttributes);
+    if (size($selection)) {
+        string $names[];
+        string $commands[];
+        string $plain[];
+        string $joined = customChannelSets_join($selection, " ");
+        string $set;
+        for ($set in $sets) {
+            if (stringArrayContains($set, $selectedAttributes))
+                continue;
+            string $cmd = "";
+            if ($add && canAddToChannelSet($selection, $set))
+                $cmd = "addToCustomSet " + $set + " \"" + $joined + "\"";
+            else if (!$add && customChannelSets_anyMember($set, $selection))
+                $cmd = "sets -rm " + $set + " " + $joined;
+            if ($cmd != "") {
+                $names[size($names)] = $set;
+                $commands[size($commands)] = encodeString($cmd);
+                $plain[size($plain)] = $cmd;
+            }
+        }
+
+        if (!size($names))
+            menuItem -label "No channel sets" -enable false;
+        else {
+            // The reference's Python helper lays the items out; Aztek doesn't ship it, so plain items stand in.
+            string $py = "from maya.app.general.customChannelSets import buildCustomSetsMenu; buildCustomSetsMenu(["
+                + customChannelSets_quoted($names) + "], [" + customChannelSets_quoted($commands) + "])";
+            if (catchQuiet(`python $py`)) {
+                for ($i = 0; $i < size($names); $i++)
+                    menuItem -label $names[$i] -command $plain[$i];
+            }
+        }
+    }
+    setParent -menu ..;
+}
+
+global proc performExportAllChannelSets()
+{
+    performExportChannelSets(customChannelSets());
+}
+
+global proc performExportChannelSets(string $sets[])
+{
+    string $top[] = filterSelectedAttributesAndCustomSets($sets);
+    if (!size($top))
+        error -noContext "There are no channel sets to export.";
+    string $file = customChannelSets_browse(0);
+    if ($file != "")
+        exportChannelSets($file, $sets);
+}
+
+global proc exportAllChannelSets(string $filename)
+{
+    exportChannelSets($filename, customChannelSets());
+}
+
+// Writes the top-most of $sets to a JSON file. Names go into the Python call unescaped, as in the reference.
+global proc exportChannelSets(string $filename, string $sets[])
+{
+    string $top[] = filterSelectedAttributesAndCustomSets($sets);
+    if (!size($top))
+        error -noContext "There are no channel sets to export.";
+    if ($filename == "")
+        error -noContext "Give a file name to export the channel sets to.";
+    int $ok = python("from maya.app.general.customChannelSets import exportChannelSets;exportChannelSets('"
+        + $filename + "', [" + customChannelSets_quoted($top) + "])");
+    if (!$ok)
+        error -noContext `format -stringArg $filename "The channel sets couldn't be exported to ^1s."`;
+}
+
+global proc performImportChannelSets()
+{
+    string $file = customChannelSets_browse(1);
+    if ($file != "")
+        importChannelSets($file);
+}
+
+global proc importChannelSets(string $filename)
+{
+    if ($filename == "")
+        error -noContext "Give a file name to import the channel sets from.";
+    int $ok = python("from maya.app.general.customChannelSets import importChannelSets;importChannelSets('"
+        + $filename + "')");
+    if (!$ok)
+        error -noContext `format -stringArg $filename "The channel sets couldn't be imported from ^1s."`;
+}

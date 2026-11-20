@@ -20,16 +20,6 @@ proc string[] MTcamerasOfType(string $type)
     return sort($found);
 }
 
-// Looks through a camera in a view: the reference's lookThroughModelPanel where Aztek has it, else the view's camera
-// set directly.
-proc MTlookThrough(string $camera, string $panel)
-{
-    if (`exists lookThroughModelPanel`)
-        lookThroughModelPanel($camera, $panel);
-    else if (`getPanel -to $panel` == "modelPanel")
-        modelPanel -e -cam $camera $panel;
-}
-
 // The selected objects (components counting as their objects), then the highlighted ones.
 proc string[] MTobjectList()
 {
@@ -78,7 +68,7 @@ global proc MTcreateCameraFromView()
     string $camera = `modelPanel -q -cam $panel`;
     string $copy[] = `duplicate $camera`;
     showHidden $copy[0];
-    MTlookThrough($copy[0], $panel);
+    lookThroughModelPanel($copy[0], $panel);
 }
 
 global proc int MTstringArrayIdx(string $array[], string $text)
@@ -116,7 +106,7 @@ global proc MTcycleCustomCams()
         return;
     string $next = MTgetNextCustomCam(`modelPanel -q -cam $panel`);
     if ($next != "")
-        MTlookThrough($next, $panel);
+        lookThroughModelPanel($next, $panel);
 }
 
 // Looks through a camera of this kind in the view being worked in: the next one of the kind when the view already
@@ -166,7 +156,7 @@ global proc MTviewChange(string $cameraType, string $viewSetArg)
             select -r $made[0];
             $camera = `rename $made[0] $cameraType`;
         }
-        MTlookThrough($camera, $panel);
+        lookThroughModelPanel($camera, $panel);
 
         select -r $selection;
         if (size($hilited))
@@ -186,7 +176,7 @@ global proc MTviewChange(string $cameraType, string $viewSetArg)
         if (MTcameraType($current) == $cameraType)
             $index = (max(0, MTstringArrayIdx($cameras, $current)) + 1) % size($cameras);
     }
-    MTlookThrough($cameras[$index], $panel);
+    lookThroughModelPanel($cameras[$index], $panel);
 }
 
 // X-ray on for the selected surfaces, or off for all of them when any already has it.

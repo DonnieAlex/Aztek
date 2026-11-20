@@ -1,0 +1,639 @@
+// polyPerformAction: runs a polygon command on the selection, one mesh at a time, or on every selected mesh at once for
+// Combine and the Booleans; hands the command back as a string; or opens the option box of Booleans, Combine or
+// Connect Components. Their settings live in the optionVars set up by polyPerformActionInitOptions, all three groups
+// together, whichever one is asked for.
+
+// The settings of all three boxes, created when missing or put back to their defaults when forced.
+proc polyPerformActionInitOptions(int $force)
+{
+    optionVar -init $force -category "Modeling.Mesh.Booleans"
+        -iv booleansUseBoolPlugin 1
+        -iv booleansObjectDisplay 0
+        -iv booleansNewInputOperation 1
+        -iv booleanOpUseLegacy 0
+        -iv booleanOpTagIntersection 1
+        -iv booleanOpInteractiveUpdate 1
+        -iv booleanOpClassification 3
+        -iv booleanGeometryMode 0
+        -fv booleanVoxelSize 1.0
+        -iv booleanOpPreserveColor 0;
+    optionVar -init $force -category "Modeling.Mesh.Combine"
+        -iv uniteMergeUVSets 1
+        -iv uniteCombineSkinning 0
+        -iv unitePivotPosition 0;
+    optionVar -init $force -category "Modeling.Edit Mesh.Connect"
+        -iv polyConnectComponentsInsertWithEdgeFlow 0
+        -fv polyConnectComponentsAdjustEdgeFlow 1.0;
+}
+
+// The classification buttons run Auto, Edge, Normal; the stored value is 1 edge, 2 normal, 3 auto.
+proc int polyPerformActionClassFromButton(int $button)
+{
+    if ($button == 2)
+        return 1;
+    if ($button == 3)
+        return 2;
+    return 3;
+}
+
+proc int polyPerformActionButtonFromClass(int $value)
+{
+    if ($value == 3)
+        return 1;
+    if ($value == 1)
+        return 2;
+    if ($value == 2)
+        return 3;
+    return 1;
+}
+
+// The object part of a name: pCube1.f[2] gives pCube1.
+proc string polyPerformActionObjectOf(string $item)
+{
+    string $parts[];
+    tokenize $item "." $parts;
+    return $parts[0];
+}
+
+// The node type the batching goes by. A component counts as its mesh, and a transform over a mesh stays a transform.
+// Aztek's nodeType doesn't take components, so the mesh is looked up through the object part.
+proc string polyPerformActionNodeType(string $item)
+{
+    if (`gmatch $item "*.*"`) {
+        string $obj = polyPerformActionObjectOf($item);
+        if (!`objExists $obj`)
+            return "";
+        if (`nodeType $obj` == "mesh")
+            return "mesh";
+        string $shapes[] = `listRelatives -shapes -type mesh $obj`;
+        return size($shapes) ? "mesh" : `nodeType $obj`;
+    }
+    if (!`objExists $item`)
+        return "";
+    return `nodeType $item`;
+}
+
+// The selection checked and converted for the command: what polyCheckSelection gives when there is one. Without it,
+// whole objects for "o", or the selection turned into the named kind of component.
+proc string[] polyPerformActionCheckSelection(string $base, string $funtype)
+{
+    string $result[];
+    if (`exists polyCheckSelection`) {
+        $result = eval ("polyCheckSelection \"" + $base + "\" \"" + $funtype + "\" 0");
+        return $result;
+    }
+    if ($funtype == "o") {
+        $result = `ls -sl -o`;
+        return $result;
+    }
+    string $sel[] = `ls -sl`;
+    if (!size($sel))
+        return $result;
+    if ($funtype == "f")
+        $result = `polyListComponentConversion -tf $sel`;
+    else if ($funtype == "e")
+        $result = `polyListComponentConversion -te $sel`;
+    else if ($funtype == "v")
+        $result = `polyListComponentConversion -tv $sel`;
+    else if ($funtype == "uv" || $funtype == "puv")
+        $result = `polyListComponentConversion -tuv $sel`;
+    else
+        $result = $sel;
+    return $result;
+}
+
+// The items of $list that belong to the same object as its first one, in their order. The caller takes them off the
+// front of what is left and asks again, so every object gets its own command.
+proc string[] polyPerformActionBatch(string $list[])
+{
+    string $batch[];
+    if (!size($list))
+        return $batch;
+    string $obj = polyPerformActionObjectOf($list[0]);
+    for ($item in $list) {
+        if (polyPerformActionObjectOf($item) == $obj)
+            $batch[size($batch)] = $item;
+    }
+    return $batch;
+}
+
+proc string[] polyPerformActionRest(string $list[], string $batch[])
+{
+    string $rest[];
+    for ($item in $list) {
+        if (!stringArrayContains($item, $batch))
+            $rest[size($rest)] = $item;
+    }
+    return $rest;
+}
+
+// After a command that makes new meshes: the reference sets them up for display through setupNewMesh.
+proc polyPerformActionSetupNewMesh()
+{
+    if (`exists setupNewMesh`)
+        eval "setupNewMesh";
+}
+
+// Back to object selection, as setSelectMode("objects", "Objects") does where it exists.
+proc polyPerformActionObjectMode()
+{
+    if (`exists setSelectMode`)
+        eval "setSelectMode \"objects\" \"Objects\"";
+    else
+        selectMode -object;
+}
+
+// The name of the script that shows a node's option box in the viewport, or "" when it has none.
+proc string polyPerformActionOptionsPopup(string $node)
+{
+    if (`exists optionsPopupFile`) {
+        string $file = eval ("optionsPopupFile \"" + $node + "\"");
+        return $file;
+    }
+    return "";
+}
+
+// Puts the tool back to the one a polygon command left behind, unless that is the plain select tool.
+global proc polyFinalizeAction()
+{
+    global string $gPolyLastTool;
+    global string $gSelect;
+    if ($gPolyLastTool != "" && $gPolyLastTool != $gSelect)
+        setToolTo $gPolyLastTool;
+    $gPolyLastTool = "";
+}
+
+// Runs one command on everything at once: Combine and the Booleans. Returns the command run, after checking the count.
+proc string polyPerformActionAll(string $action, string $base, string $targets[], int $history, string $result[])
+{
+    string $cmd = $action + " -ch " + $history;
+    if ($base == "polyBoolOp")
+        $cmd += " -useThresholds 1";
+    if ($base == "polyBoolOp" || $base == "polyCBoolOp")
+        $cmd += " -preserveColor " + `optionVar -query booleanOpPreserveColor`;
+    if ($base == "polyCBoolOp")
+        $cmd += " -classification " + `optionVar -query booleanOpClassification`;
+    int $skinned = 0;
+    if ($base == "polyUnite") {
+        $cmd += " -mergeUVSets " + `optionVar -query uniteMergeUVSets`;
+        int $pivot = `optionVar -query unitePivotPosition`;
+        if ($pivot == 0)
+            $cmd += " -centerPivot";
+        else if ($pivot == 1)
+            $cmd += " -objectPivot";
+        $skinned = `optionVar -query uniteCombineSkinning`;
+        if ($skinned)
+            $cmd = "polyUniteSkinned" + `substring $cmd 10 (size($cmd))`;
+    }
+
+    int $count = 0;
+    for ($t in $targets) {
+        string $type = polyPerformActionNodeType($t);
+        if ($type != "transform" && $type != "mesh")
+            continue;
+        // The result takes the first object's name, except for a skinned combine, which names its own.
+        if ($count == 0 && !($base == "polyUnite" && $skinned))
+            $cmd += " -name " + $t;
+        $cmd += " " + $t;
+        $count++;
+    }
+
+    // As the reference: the error stops the script where it stands, wait cursor and all.
+    if ($base == "polyBoolOp" && $count != 2)
+        error "Select exactly two meshes for this Boolean operation.";
+    if ($base == "polyCBoolOp" && $count < 2)
+        error "Select at least two meshes for this Boolean operation.";
+
+    clear $result;
+    $result = `evalEcho $cmd`;
+    return $cmd;
+}
+
+// Runs the command once per object. The last batch's result is the one kept.
+proc string polyPerformActionEach(string $action, string $base, string $targets[], int $history, string $result[])
+{
+    string $list[];
+    for ($t in $targets) {
+        string $type = polyPerformActionNodeType($t);
+        if ($type == "transform" || $type == "mesh")
+            $list[size($list)] = $t;
+    }
+
+    string $cmd = "";
+    while (size($list)) {
+        string $batch[] = polyPerformActionBatch($list);
+        $list = polyPerformActionRest($list, $batch);
+        $cmd = $action + " -ch " + $history;
+        if ($base == "polyConnectComponents")
+            $cmd += " -insertWithEdgeFlow " + `optionVar -query polyConnectComponentsInsertWithEdgeFlow`
+                + " -adjustEdgeFlow " + `optionVar -query polyConnectComponentsAdjustEdgeFlow`;
+        if (size($batch)) {
+            for ($b in $batch)
+                $cmd += " " + $b;
+            // The reference quotes a whole-range index so it survives being run as text.
+            $cmd = substituteAllString($cmd, "[*]", "[\"*\"]");
+            clear $result;
+            $result = `evalEcho $cmd`;
+        }
+    }
+    return $cmd;
+}
+
+// $ret: 0 runs $action on the selection and returns the command run, 1 opens the command's option box, 2 returns the
+// call that would run it.
+global proc string polyPerformAction(string $action, string $funtype, int $ret)
+{
+    global string $gPolyLastTool;
+
+    string $words[];
+    tokenize $action $words;
+    string $base = $words[0];
+    int $history = `constructionHistory`;
+    polyPerformActionInitOptions(0);
+
+    if ($ret == 1) {
+        if ($base == "polyBoolOp" || $base == "polyCBoolOp" || $base == "booltool")
+            polyBooleanOptionBox($action, $funtype);
+        else if ($base == "polyUnite")
+            polyUniteOptionBox($action, $funtype);
+        else if ($base == "polyConnectComponents")
+            polyConnectComponentsOptionBox($action, $funtype);
+        return "";
+    }
+    if ($ret == 2)
+        return "polyPerformAction \"" + $action + "\" " + $funtype + " 0";
+    if ($ret != 0)
+        return "";
+
+    waitCursor -state 1;
+    if (`exists expandPolyGroupSelection`)
+        eval "expandPolyGroupSelection";
+
+    string $objects[] = `ls -sl -type transform`;
+    string $shapes[] = `ls -sl -shapes`;
+    int $objectMode = size($objects) || size($shapes);
+
+    string $targets[];
+    int $clearAfter = 0;
+    if ($base == "polySeparate") {
+        $targets = polyPerformActionCheckSelection($base, $funtype);
+    } else {
+        // Shared instances: act on one copy of each shape. Aztek has no filterInstances, so this step is skipped.
+        if ($funtype != "o" && `exists filterInstances`) {
+            string $shared[] = eval("filterInstances -shapes");
+            if (size($shared))
+                select -r $shared;
+        }
+        $targets = `ls -sl`;
+        // The UV cutting and layout commands also act on what the pointer highlights when nothing is selected.
+        if (!size($targets) && ($base == "polyMapCut" || $base == "polyMapSew" || $base == "polyMapDel"
+            || $base == "polyLayoutUV")) {
+            // Aztek's ls has no -preSelectHilite yet; then there is nothing to act on.
+            if (!catchQuiet($targets = `ls -preSelectHilite`))
+                $clearAfter = size($targets) > 0;
+            else
+                clear $targets;
+        }
+    }
+
+    string $cmd = "";
+    string $result[];
+    int $ran = 0;
+    if ($base == "booltool") {
+        // The Boolean tool comes from a plug-in Aztek doesn't have. The nearest it can do is the same operation as a
+        // polyCBoolOp on the selected meshes.
+        if (`exists booltool`) {
+            string $made[] = eval($action);
+            if (size($made) >= 2) {
+                select -r $made[0];
+                if (`exists showEditorExactHistoryNode`)
+                    eval ("showEditorExactHistoryNode \"" + $made[0] + "\" \"" + $made[1] + "\"");
+            }
+        } else if (size($targets)) {
+            string $op = size($words) > 2 ? $words[2] : "1";
+            $base = "polyCBoolOp";
+            $cmd = polyPerformActionAll("polyCBoolOp -op " + $op, $base, $targets, $history, $result);
+            $ran = 1;
+        }
+    } else if (size($targets)) {
+        if ($base == "polyUnite" || $base == "polyBoolOp" || $base == "polyCBoolOp")
+            $cmd = polyPerformActionAll($action, $base, $targets, $history, $result);
+        else
+            $cmd = polyPerformActionEach($action, $base, $targets, $history, $result);
+        $ran = 1;
+    }
+
+    if ($ran) {
+        if ($base == "polyUnite" || $base == "polyBoolOp" || $base == "polySeparate" || $base == "polyCBoolOp")
+            polyPerformActionSetupNewMesh();
+        if ($base == "polyCBoolOp" && (size(`ls -sl`) || size(`ls -hl`))) {
+            string $history[] = `listHistory`;
+            for ($h in $history) {
+                if (`nodeType $h` == "polyCBoolOp") {
+                    select -add $h;
+                    break;
+                }
+            }
+            $gPolyLastTool = "";
+            setToolTo ShowManips;
+        }
+        if ($objectMode)
+            polyPerformActionObjectMode();
+        if (size($result) && $result[0] != "" && polyPerformActionOptionsPopup($result[0]) != "") {
+            $gPolyLastTool = "";
+            setToolTo ShowManips;
+        } else {
+            polyFinalizeAction();
+        }
+        if ($clearAfter || $base == "polyMapDel")
+            select -clear;
+    }
+
+    waitCursor -state 0;
+    return $cmd;
+}
+
+// Booleans through the plug-in's tool when it can be loaded, else polyBoolOp (legacy, by preference) or polyCBoolOp.
+// $op: 1 union, 2 difference, 3 intersection, 4 B minus A, 5 slice, 6 hole punch, 7 cut out, 8 split edges.
+global proc string polyPerformBooleanAction(int $op, string $funtype, int $ret)
+{
+    polyPerformActionInitOptions(0);
+    int $plugin = `pluginInfo -query -loaded polyBoolean`;
+    if (!$plugin) {
+        string $loaded[];
+        catchQuiet($loaded = `loadPlugin polyBoolean`);
+        if (size($loaded))
+            $plugin = 1;
+        else
+            warning "The Boolean plug-in could not be loaded.";
+    }
+    string $action;
+    if ($plugin)
+        $action = "booltool -op " + $op;
+    else if (`optionVar -query booleanOpUseLegacy` == 1)
+        $action = "polyBoolOp -op " + $op;
+    else
+        $action = "polyCBoolOp -op " + $op;
+    return polyPerformAction($action, $funtype, $ret);
+}
+
+// The legacy check box and plug-in check box aren't built in this file's box; these keep their callers working when
+// another box does build them.
+global proc performActionBooleanPluginChange()
+{
+    if (`checkBox -exists booleansUseBoolPlugin`) {
+        int $on = !`checkBox -query -value booleansUseBoolPlugin`;
+        columnLayout -edit -enable $on LegacyAlgorithms_CL;
+        columnLayout -edit -enable $on BoolPluginLegacyOptions_CL;
+    }
+}
+
+global proc applyActionLegacyBooleanOpChange(int $useLegacy)
+{
+    if (`checkBox -exists booleanOpUseLegacy`) {
+        checkBoxGrp -edit -enable (!$useLegacy) booleanOpTagIntersection;
+        checkBoxGrp -edit -enable (!$useLegacy) booleanOpInteractiveUpdate;
+        radioButtonGrp -edit -enable (!$useLegacy) booleansClassification_RBGrp;
+        checkBoxGrp -edit -enable $useLegacy booleanOpPreserveColor;
+    }
+}
+
+global proc performActionLegacyBooleanOpChange()
+{
+    if (`checkBox -exists booleanOpUseLegacy`)
+        applyActionLegacyBooleanOpChange(`checkBox -query -value booleanOpUseLegacy`);
+}
+
+// Saves the Boolean box and, with $doIt, runs it. Applying always goes through the Boolean tool, as the reference's does.
+global proc polyBooleanOptionsCallback(string $action, string $funtype, string $parentLayout, int $doIt)
+{
+    setParent $parentLayout;
+    optionVar -intValue booleanOpTagIntersection `checkBoxGrp -query -value1 booleanOpTagIntersection`;
+    optionVar -intValue booleanOpInteractiveUpdate `checkBoxGrp -query -value1 booleanOpInteractiveUpdate`;
+
+    string $words[];
+    tokenize $action $words;
+    if ($words[0] != "booltool") {
+        $words[0] = "booltool";
+        $action = stringArrayToString($words, " ");
+    }
+
+    if (`optionMenuGrp -exists booleanOpObjDisplay`)
+        optionVar -intValue booleansObjectDisplay (`optionMenuGrp -query -select booleanOpObjDisplay` - 1);
+    if (`optionMenuGrp -exists booleansNewInputOperation`)
+        optionVar -intValue booleansNewInputOperation `optionMenuGrp -query -select booleansNewInputOperation`;
+    if (`optionMenuGrp -exists booleanGeometryMode`)
+        optionVar -intValue booleanGeometryMode (`optionMenuGrp -query -select booleanGeometryMode` - 1);
+    if (`floatSliderGrp -exists booleanVoxelSize`)
+        optionVar -floatValue booleanVoxelSize `floatSliderGrp -query -value booleanVoxelSize`;
+
+    int $button = 0;
+    if (`radioButtonGrp -exists booleansClassification_RBGrp`)
+        $button = `radioButtonGrp -query -select booleansClassification_RBGrp`;
+    optionVar -intValue booleanOpClassification (polyPerformActionClassFromButton($button));
+
+    if ($doIt)
+        eval ("polyPerformAction \"" + $action + "\" " + $funtype + " 0");
+}
+
+// Shows the saved Boolean settings. The classification row is set only when the box is built, so Reset leaves it.
+global proc polyBooleanOptionsSetup(string $parentLayout, int $forceFactorySettings)
+{
+    polyPerformActionInitOptions($forceFactorySettings);
+    setParent $parentLayout;
+    checkBoxGrp -edit -value1 `optionVar -query booleanOpTagIntersection` booleanOpTagIntersection;
+    checkBoxGrp -edit -value1 `optionVar -query booleanOpInteractiveUpdate` booleanOpInteractiveUpdate;
+    performActionLegacyBooleanOpChange();
+    applyActionLegacyBooleanOpChange(0);
+    optionMenuGrp -edit -select (`optionVar -query booleansObjectDisplay` + 1) booleanOpObjDisplay;
+    optionMenuGrp -edit -select `optionVar -query booleansNewInputOperation` booleansNewInputOperation;
+    optionMenuGrp -edit -select (`optionVar -query booleanGeometryMode` + 1) booleanGeometryMode;
+    floatSliderGrp -edit -value `optionVar -query booleanVoxelSize` booleanVoxelSize;
+}
+
+global proc polyUniteOptionsCallback(string $action, string $funtype, string $parentLayout, int $doIt)
+{
+    setParent $parentLayout;
+    optionVar -intValue uniteMergeUVSets (`radioButtonGrp -query -select uniteMergeUVSets` - 1);
+    optionVar -intValue uniteCombineSkinning `checkBoxGrp -query -value1 uniteCombineSkinning`;
+    optionVar -intValue unitePivotPosition (`radioButtonGrp -query -select unitePivotPosition` - 1);
+    if ($doIt)
+        eval ("polyPerformAction \"" + $action + "\" " + $funtype + " 0");
+}
+
+global proc polyUniteOptionsSetup(string $parentLayout, int $forceFactorySettings)
+{
+    polyPerformActionInitOptions($forceFactorySettings);
+    setParent $parentLayout;
+    radioButtonGrp -edit -select (`optionVar -query uniteMergeUVSets` + 1) uniteMergeUVSets;
+    checkBoxGrp -edit -value1 `optionVar -query uniteCombineSkinning` uniteCombineSkinning;
+    radioButtonGrp -edit -select (`optionVar -query unitePivotPosition` + 1) unitePivotPosition;
+}
+
+global proc polyConnectComponentsCallback(string $action, string $funtype, string $parentLayout, int $doIt)
+{
+    setParent $parentLayout;
+    optionVar -intValue polyConnectComponentsInsertWithEdgeFlow `checkBoxGrp -query -value1 insertWithEdgeFlow`;
+    optionVar -floatValue polyConnectComponentsAdjustEdgeFlow `floatSliderGrp -query -value adjustEdgeFlow`;
+    if ($doIt)
+        polyPerformAction($action, $funtype, 0);
+}
+
+global proc polyConnectComponentsSetup(string $parentLayout, int $forceFactorySettings)
+{
+    polyPerformActionInitOptions($forceFactorySettings);
+    setParent $parentLayout;
+    int $flow = `optionVar -query polyConnectComponentsInsertWithEdgeFlow`;
+    checkBoxGrp -edit -value1 $flow insertWithEdgeFlow;
+    floatSliderGrp -edit -value `optionVar -query polyConnectComponentsAdjustEdgeFlow` -enable $flow adjustEdgeFlow;
+}
+
+// The start of every box: the shared window's layout, the default template when Aztek has it, the wait cursor.
+proc int polyPerformActionBeginBox(string $commandName)
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName($commandName);
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+    return $template;
+}
+
+proc polyPerformActionEndBox(int $template)
+{
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+}
+
+// The three shared buttons. Save only saves here; the box stays open.
+proc polyPerformActionButtons(string $applyLabel, string $apply, string $save, string $reset)
+{
+    string $applyBtn = getOptionBoxApplyBtn();
+    if ($applyLabel != "")
+        button -edit -label $applyLabel $applyBtn;
+    button -edit -command $apply $applyBtn;
+    button -edit -command $save (getOptionBoxSaveBtn());
+    button -edit -command $reset (getOptionBoxResetBtn());
+}
+
+proc polyBooleanOptionBox(string $action, string $funtype)
+{
+    int $template = polyPerformActionBeginBox("polyBooleanOptions");
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+    frameLayout -label "Settings" -collapsable false;
+        columnLayout -rowSpacing 5 LegacyAlgorithms_CL;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Tag intersection components"
+                booleanOpTagIntersection;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Interactive update"
+                -annotation "Update the result while the inputs are edited." booleanOpInteractiveUpdate;
+            optionMenuGrp -label "New input operation"
+                -annotation "The operation given to inputs added to the Boolean later." booleansNewInputOperation;
+                menuItem -label "Union";
+                menuItem -label "Difference";
+                menuItem -label "B-A Difference";
+                menuItem -label "Intersection";
+                menuItem -label "Slice";
+                menuItem -label "Hole Punch";
+                menuItem -label "Cut Out";
+                menuItem -label "Split Edges";
+            optionMenuGrp -label "Input object display" -annotation "How the input objects are drawn."
+                booleanOpObjDisplay;
+                menuItem -label "Wireframe";
+                menuItem -label "Shaded";
+                menuItem -label "Bounding box";
+                menuItem -label "X-Ray";
+                menuItem -label "Hidden";
+            optionMenuGrp -label "Geometry mode" -annotation "The kind of geometry the Boolean works on."
+                booleanGeometryMode;
+                menuItem -label "Mesh";
+                menuItem -label "Legacy Mesh";
+                menuItem -label "OpenVDB";
+            floatSliderGrp -label "Voxel size" -field true -precision 3 -minValue 0.001 -maxValue 10
+                -fieldMinValue 0.001 -fieldMaxValue 1000000 -annotation "Voxel size for volume geometry."
+                booleanVoxelSize;
+            radioButtonGrp -numberOfRadioButtons 3 -vertical -label "Classification"
+                -labelArray3 "Auto" "Edge" "Normal"
+                -annotation "How inside and outside are told apart."
+                booleansClassification_RBGrp;
+        setParent ..;
+    setParent ..;
+    polyPerformActionEndBox($template);
+
+    string $call = "\"" + $action + "\" " + $funtype + " " + $parent;
+    polyPerformActionButtons("", "polyBooleanOptionsCallback " + $call + " 1",
+        "polyBooleanOptionsCallback " + $call + " 0", "polyBooleanOptionsSetup " + $parent + " 1");
+
+    string $words[];
+    tokenize $action $words;
+    string $titles[] = {"Union Options", "Difference Options", "Intersection Options", "B-A Difference Options",
+        "Slice Options", "Hole Punch Options", "Cut Out Options", "Split Edges Options"};
+    int $op = size($words) > 2 ? (int)$words[2] : 0;
+    if ($op >= 1 && $op <= 8)
+        setOptionBoxTitle($titles[$op - 1]);
+
+    polyBooleanOptionsSetup($parent, 0);
+    // Out-of-range stored values leave the row as it was built.
+    int $class = `optionVar -query booleanOpClassification`;
+    if ($class >= 1 && $class <= 3)
+        radioButtonGrp -edit -select (polyPerformActionButtonFromClass($class)) booleansClassification_RBGrp;
+    setOptionBoxHelpTag("PolyBoolean");
+    showOptionBox();
+}
+
+proc polyUniteOptionBox(string $action, string $funtype)
+{
+    int $template = polyPerformActionBeginBox("polyUniteOptions");
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+    frameLayout -label "Settings" -collapse false;
+        columnLayout;
+            radioButtonGrp -numberOfRadioButtons 3 -label "Merge UV sets"
+                -labelArray3 "Do not merge" "Merge by name" "Merge by UV links"
+                -columnWidth4 100 120 120 120 uniteMergeUVSets;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Combine skinning" uniteCombineSkinning;
+            radioButtonGrp -numberOfRadioButtons 3 -label "Pivot location"
+                -labelArray3 "Centre of selection" "Last selected object" "Origin"
+                -columnWidth4 100 120 120 120 unitePivotPosition;
+        setParent ..;
+    setParent ..;
+    polyPerformActionEndBox($template);
+
+    string $call = "\"" + $action + "\" " + $funtype + " " + $parent;
+    polyPerformActionButtons("", "polyUniteOptionsCallback " + $call + " 1",
+        "polyUniteOptionsCallback " + $call + " 0", "polyUniteOptionsSetup " + $parent + " 1");
+    setOptionBoxTitle("Combine Options");
+    setOptionBoxHelpTag("polyUniteOptions");
+    polyUniteOptionsSetup($parent, 0);
+    showOptionBox();
+}
+
+proc polyConnectComponentsOptionBox(string $action, string $funtype)
+{
+    int $template = polyPerformActionBeginBox("polyConnectComponents");
+    string $parent = `scrollLayout -childResizable true`;
+    columnLayout -adjustableColumn 1;
+    frameLayout -label "Settings" -collapse false;
+        columnLayout;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Insert with edge flow"
+                -onCommand1 "floatSliderGrp -edit -enable true adjustEdgeFlow"
+                -offCommand1 "floatSliderGrp -edit -enable false adjustEdgeFlow"
+                insertWithEdgeFlow;
+            floatSliderGrp -label "Adjust edge flow" -field true -minValue 0 -maxValue 1
+                -fieldMinValue -1000000 -fieldMaxValue 1000000 adjustEdgeFlow;
+        setParent ..;
+    setParent ..;
+    setParent ..;
+    polyPerformActionEndBox($template);
+
+    string $call = "\"" + $action + "\" " + $funtype + " " + $parent;
+    polyPerformActionButtons("Connect", "polyConnectComponentsCallback " + $call + " 1",
+        "polyConnectComponentsCallback " + $call + " 0", "polyConnectComponentsSetup " + $parent + " 1");
+    setOptionBoxTitle("Connect Components Options");
+    polyConnectComponentsSetup($parent, 0);
+    setOptionBoxHelpTag("Connect_Components");
+    showOptionBox();
+}

@@ -1,0 +1,347 @@
+// workspaceHelperProcs: the Windows > Workspaces menu's actions: saving the current workspace under a new name,
+// deleting it, importing workspace files, and each workspace's options (the menu set, hotkey set and viewport preset
+// that come with it, and whether workspaces save themselves). Also the docking lock and auto-save toggles.
+//
+// Aztek's workspaces are its own window layouts, switched with workspaceLayoutManager -setCurrent, which these
+// procedures use. Saving, deleting and importing by script need workspaceLayoutManager flags Aztek doesn't have yet
+// (-saveAs, -delete, -import, -type): the dialogs still ask, and a warning says the step couldn't be done.
+//
+// Settings (category "Workspaces"): workspaceLink{MenuSet,HotKeySet,VP2Preset}Enabled (int) and ...Value (string),
+// backupWorkspaceLinkHotKeySetValue, workspacesLockDocking, workspacesAutoSave; and, in "Hardware Render",
+// mayaHardware2hardwareRenderingGlobalsPreferredPreset, the viewport preset last chosen.
+
+// The name a workspace shows under: factory workspaces may have a translated label, user ones are as named.
+proc string whpLabel(string $name)
+{
+    if (`exists localizedFactoryWorkspaceLabel`)
+        return eval("localizedFactoryWorkspaceLabel \"" + encodeString($name) + "\"");
+    return $name;
+}
+
+// Rebuilds the menu that lists the workspaces.
+proc whpRebuildMenu()
+{
+    global string $gMainWindowMenu;
+    if (`exists buildViewMenu`)
+        eval("buildViewMenu \"" + encodeString($gMainWindowMenu) + "\"");
+}
+
+// "USER" or "FACTORY". Aztek's listed workspaces are all its own, so without -type they count as factory ones.
+proc string whpType(string $name)
+{
+    string $type = "FACTORY";
+    catchQuiet($type = eval("workspaceLayoutManager -type \"" + encodeString($name) + "\""));
+    return $type;
+}
+
+// Runs a workspaceLayoutManager call with echo; where Aztek's command lacks the flag, says what couldn't be done.
+proc whpRun(string $cmd, string $what)
+{
+    if (catchQuiet(evalEcho($cmd)))
+        warning ($what + " isn't available from scripts yet.");
+}
+
+global proc saveCurrentWorkspaceLayoutAs()
+{
+    global string $gMainWindow;
+    string $current = `workspaceLayoutManager -query -current`;
+    string $default = whpLabel($current);
+
+    string $ok = "OK";
+    string $cancel = "Cancel";
+    string $answer = `promptDialog -title "Save Workspace" -message "Enter a name for the workspace:" -text $default
+        -button $ok -button $cancel -defaultButton $ok -cancelButton $cancel -dismissString $cancel
+        -parent $gMainWindow`;
+    if ($answer != $ok)
+        return;
+
+    string $name = substituteAllString(`promptDialog -query -text`, "_", " ");
+    string $layouts[] = `workspaceLayoutManager -listLayouts`;
+    for ($l in $layouts) {
+        if (tolower($l) != tolower($name))
+            continue;
+        if (whpType($l) == "USER") {
+            string $yes = "Yes, Save";
+            string $no = "No";
+            string $choice = `confirmDialog -title "Warning"
+                -message ("A workspace called \"" + $l + "\" already exists. Do you want to overwrite it?")
+                -button $yes -button $no -defaultButton $yes -cancelButton $no -dismissString $no -parent $gMainWindow`;
+            if ($choice != $yes)
+                return;
+        } else {
+            string $okay = "OK";
+            confirmDialog -title "Can't Overwrite Workspace"
+                -message ("\"" + $l + "\" is one of the workspaces that come with the program and can't be overwritten. "
+                    + "Choose another name.")
+                -button $okay -defaultButton $okay -dismissString $okay -parent $gMainWindow;
+            return;
+        }
+    }
+
+    whpRun("workspaceLayoutManager -saveAs \"" + encodeString($name) + "\"", "Saving a workspace");
+    whpRebuildMenu();
+}
+
+global proc deleteCurrentWorkspaceLayout()
+{
+    global string $gMainWindow;
+    string $current = `workspaceLayoutManager -query -current`;
+    string $shown = whpLabel($current);
+
+    string $yes = "Yes, Delete";
+    string $no = "No";
+    string $choice = `confirmDialog -title "Delete Workspace"
+        -message ("Are you sure you want to delete the workspace \"" + $shown + "\"?")
+        -button $yes -button $no -defaultButton $no -cancelButton $no -dismissString $no -parent $gMainWindow`;
+    if ($choice == $yes)
+        whpRun("workspaceLayoutManager -delete \"" + encodeString($current) + "\"", "Deleting a workspace");
+}
+
+global proc importWorkspaceFiles()
+{
+    global string $gMainWindow;
+    string $title = "Import Workspace";
+    string $files[] = `fileDialog2 -caption $title -okCaption $title -fileMode 4 -fileFilter "*.json"`;
+    string $layouts[] = `workspaceLayoutManager -listLayouts`;
+
+    int $changed = 0;
+    for ($path in $files) {
+        if (fileExtension($path) != "json")
+            continue;
+        string $name = substituteAllString(basenameEx($path), "_", " ");
+        int $skip = 0;
+        for ($l in $layouts) {
+            if (tolower($l) != tolower($name))
+                continue;
+            string $yes = "Yes, Import";
+            string $no = "No";
+            string $choice = `confirmDialog -title "Warning"
+                -message ("A workspace called \"" + $l + "\" already exists. Do you want to replace it with the one "
+                    + "being imported?")
+                -button $yes -button $no -defaultButton $yes -cancelButton $no -dismissString $no -parent $gMainWindow`;
+            if ($choice != $yes) {
+                $skip = 1;
+                break;
+            }
+        }
+        if ($skip)
+            continue;
+        whpRun("workspaceLayoutManager -import \"" + encodeString($path) + "\"", "Importing a workspace");
+        $changed = 1;
+    }
+    if ($changed)
+        whpRebuildMenu();
+}
+
+// The option menu group's value when the check box group's box is ticked, else "".
+global proc string getWorkspaceLayoutOption(string $checkBoxGroup, string $optionMenuGroup)
+{
+    if (`checkBoxGrp -query -value1 $checkBoxGroup`)
+        return `optionMenuGrp -query -value $optionMenuGroup`;
+    return "";
+}
+
+// Applies a viewport preset to the hardware rendering globals. "Default Settings" (in English only, as in the
+// reference) puts every value back to its default instead.
+global proc updateVP2Preset(string $preset)
+{
+    if ($preset == "")
+        return;
+
+    string $node = "hardwareRenderingGlobals";
+    if ($preset == "Default Settings") {
+        string $selection[] = `ls -selection`;
+        // A fresh node of the same type holds the defaults; its values are copied over and it goes again.
+        if (`objExists $node` && `exists copyNode`) {
+            string $fresh = `createNode (nodeType($node))`;
+            eval("copyNode \"" + $fresh + "\" \"" + $node + "\"");
+            delete $fresh;
+        } else {
+            warning "Resetting the viewport's settings isn't available yet.";
+        }
+        select -replace -noExpand $selection;
+        if (`exists createObjectTypeFilters`)
+            eval("createObjectTypeFilters 0");
+        if (`exists resetObjFilterToDefault`)
+            eval("resetObjFilterToDefault");
+        optionVar -remove mayaHardware2hardwareRenderingGlobalsPreferredPreset;
+        return;
+    }
+
+    if (`exists nodePreset`)
+        eval("nodePreset -load " + $node + " \"" + encodeString($preset) + "\"");
+    else
+        warning ("Viewport presets aren't available yet, so " + $preset + " couldn't be loaded.");
+    if (`exists updateObjTypeFilterToCheckBox`)
+        eval("updateObjTypeFilterToCheckBox");
+    optionVar -category "Hardware Render" -stringValue mayaHardware2hardwareRenderingGlobalsPreferredPreset $preset;
+}
+
+// The menu set node a menu set label belongs to.
+proc string whpMenuSetFromLabel(string $label)
+{
+    if (`exists findMenuSetFromLabel`)
+        return eval("findMenuSetFromLabel \"" + encodeString($label) + "\"");
+    return $label;
+}
+
+// Brings in the menu set, hotkey set and viewport preset the workspace options ask for. $workspaceName isn't needed.
+global proc updateMenuModeAndHotkeyMenus(string $workspaceName)
+{
+    string $menuSet = getWorkspaceLayoutOption("workspaceLinkMenuSet", "menuSets");
+    string $hotkeys = getWorkspaceLayoutOption("workspaceLinkHotKeySet", "hotKeySets");
+    string $preset = getWorkspaceLayoutOption("workspaceLinkVP2Preset", "vp2Presets");
+
+    if ($menuSet != "") {
+        if (`exists workingMode`)
+            eval("workingMode \"" + encodeString(whpMenuSetFromLabel($menuSet)) + "\"");
+        if (`optionMenu -exists menuMode`)
+            optionMenu -edit -value $menuSet menuMode;
+    }
+
+    if ($hotkeys != "") {
+        // The set in use before is kept so it can come back when the workspace is left. Making a set current clears
+        // the backup, so it is written again after.
+        string $backup = `optionVar -exists backupWorkspaceLinkHotKeySetValue`
+            ? `optionVar -query backupWorkspaceLinkHotKeySetValue` : `hotkeySet -query -current`;
+        hotkeySet -edit -current $hotkeys;
+        optionVar -category "Workspaces" -stringValue backupWorkspaceLinkHotKeySetValue $backup;
+    }
+
+    if ($preset != "")
+        updateVP2Preset($preset);
+}
+
+// The options box's Apply (and Apply and Close): stores the choices, saves the workspace as it is, brings them in.
+global proc applyWorkspaceChanges()
+{
+    string $category = "Workspaces";
+    optionVar -category $category -intValue workspaceLinkMenuSetEnabled `checkBoxGrp -query -value1 workspaceLinkMenuSet`;
+    optionVar -category $category -intValue workspaceLinkHotKeySetEnabled `checkBoxGrp -query -value1 workspaceLinkHotKeySet`;
+    optionVar -category $category -intValue workspaceLinkVP2PresetEnabled `checkBoxGrp -query -value1 workspaceLinkVP2Preset`;
+    optionVar -category $category -stringValue workspaceLinkMenuSetValue
+        (whpMenuSetFromLabel(`optionMenuGrp -query -value menuSets`));
+    optionVar -category $category -stringValue workspaceLinkHotKeySetValue `optionMenuGrp -query -value hotKeySets`;
+    optionVar -category $category -stringValue workspaceLinkVP2PresetValue `optionMenuGrp -query -value vp2Presets`;
+
+    string $current = `workspaceLayoutManager -query -current`;
+    whpRun("workspaceLayoutManager -saveAs \"" + encodeString($current) + "\"", "Saving a workspace");
+    updateMenuModeAndHotkeyMenus($current);
+
+    button -edit -enable false (getOptionBoxApplyBtn());
+}
+
+// The options of one workspace, which becomes the current one. $menuName isn't needed.
+global proc workspaceLayoutOptions(string $workspaceName, string $menuName)
+{
+    global string $gFactoryWorkspaces[];
+    global string $gOptionBoxEditMenuSaveItem;
+    global string $gOptionBoxEditMenuResetItem;
+
+    workspaceLayoutManager -setCurrent $workspaceName;
+
+    // The workspace's tick in the menu: user workspaces are listed first, then the factory ones.
+    string $all[];
+    for ($l in `workspaceLayoutManager -listLayouts`) {
+        if (whpType($l) == "USER")
+            $all[size($all)] = $l;
+    }
+    appendStringArray($all, $gFactoryWorkspaces, size($gFactoryWorkspaces));
+    int $index = -1;
+    for ($i = 0; $i < size($all); $i++) {
+        if ($all[$i] == $workspaceName) {
+            $index = $i;
+            break;
+        }
+    }
+    string $item = "WorkspaceMenuID_" + $index;
+    if (`menuItem -exists $item`)
+        menuItem -edit -radioButton true $item;
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+
+    string $apply = getOptionBoxApplyBtn();
+    string $enableApply = "button -edit -enable true " + $apply;
+
+    columnLayout -adjustableColumn true;
+
+    int $menuLinked = `optionVar -query workspaceLinkMenuSetEnabled`;
+    checkBoxGrp -numberOfCheckBoxes 1 -label1 "Link a menu set" -value1 $menuLinked
+        -changeCommand ("optionMenuGrp -edit -enable #1 menuSets; " + $enableApply) workspaceLinkMenuSet;
+    optionMenuGrp -label "Menu set:" -enable $menuLinked -changeCommand $enableApply menuSets;
+    if (`exists updateDropDownMenu2`)
+        eval("updateDropDownMenu2 \"menuSets\" true false");
+    if ($menuLinked && `exists menuSet`) {
+        string $label = "";
+        catchQuiet($label = eval("menuSet -query -label \"" + `optionVar -query workspaceLinkMenuSetValue` + "\""));
+        if ($label != "")
+            catchQuiet(`optionMenuGrp -edit -value $label menuSets`);
+    }
+
+    int $hotkeysLinked = `optionVar -query workspaceLinkHotKeySetEnabled`;
+    checkBoxGrp -numberOfCheckBoxes 1 -label1 "Link a hotkey set" -value1 $hotkeysLinked
+        -changeCommand ("optionMenuGrp -edit -enable #1 hotKeySets; " + $enableApply) workspaceLinkHotKeySet;
+    optionMenuGrp -label "Hotkey set:" -enable $hotkeysLinked -changeCommand $enableApply hotKeySets;
+    for ($set in `hotkeySet -query -hotkeySetArray`)
+        menuItem -label $set;
+    if ($hotkeysLinked) {
+        string $linked = `optionVar -query workspaceLinkHotKeySetValue`;
+        catchQuiet(`optionMenuGrp -edit -value $linked hotKeySets`);
+    }
+
+    int $presetLinked = `optionVar -query workspaceLinkVP2PresetEnabled`;
+    checkBoxGrp -numberOfCheckBoxes 1 -label1 "Link a viewport preset" -value1 $presetLinked
+        -changeCommand ("optionMenuGrp -edit -enable #1 vp2Presets; " + $enableApply) workspaceLinkVP2Preset;
+    optionMenuGrp -label "Viewport preset:" -enable $presetLinked -changeCommand $enableApply vp2Presets;
+    menuItem -label "Default Settings";
+    if (`exists nodePreset`) {
+        string $presets[] = eval("nodePreset -list hardwareRenderingGlobals");
+        for ($p in $presets)
+            menuItem -label $p;
+    }
+    if ($presetLinked) {
+        string $preset = `optionVar -exists mayaHardware2hardwareRenderingGlobalsPreferredPreset`
+            ? `optionVar -query mayaHardware2hardwareRenderingGlobalsPreferredPreset` : "Default Settings";
+        catchQuiet(`optionMenuGrp -edit -value $preset vp2Presets`);
+    }
+
+    separator -style "none";
+
+    // Auto-save takes effect at once, without Apply.
+    checkBoxGrp -numberOfCheckBoxes 1 -label1 "Save workspace changes automatically"
+        -value1 `optionVar -query workspacesAutoSave`
+        -changeCommand ("updateWorkspaceAutoSave (!`optionVar -query workspacesAutoSave`); " + $enableApply)
+        workspacesAutoSaveCheckBox;
+
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Apply and Close" -command "applyWorkspaceChanges; hideOptionBox;" (getOptionBoxApplyAndCloseBtn());
+    button -edit -enable false -command "applyWorkspaceChanges" $apply;
+    button -edit -enable false (getOptionBoxSaveBtn());
+    button -edit -enable false (getOptionBoxResetBtn());
+    if ($gOptionBoxEditMenuSaveItem != "" && `menuItem -exists $gOptionBoxEditMenuSaveItem`)
+        menuItem -edit -enable false $gOptionBoxEditMenuSaveItem;
+    if ($gOptionBoxEditMenuResetItem != "" && `menuItem -exists $gOptionBoxEditMenuResetItem`)
+        menuItem -edit -enable false $gOptionBoxEditMenuResetItem;
+
+    setOptionBoxTitle("Workspace Options: " + whpLabel($workspaceName));
+    setOptionBoxHelpTag("WorkspaceOptions");
+    showOptionBox();
+}
+
+global proc updateWorkspaceDocking(int $lock)
+{
+    optionVar -category "Workspaces" -intValue workspacesLockDocking $lock;
+    if (`symbolCheckBox -exists lockDockingButton`)
+        symbolCheckBox -edit -value $lock lockDockingButton;
+}
+
+global proc updateWorkspaceAutoSave(int $save)
+{
+    optionVar -category "Workspaces" -intValue workspacesAutoSave $save;
+}

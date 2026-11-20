@@ -44,8 +44,8 @@ proc int performDuplicateSpecial_inClipEditor()
 
 global proc string performDuplicateSpecial(int $action)
 {
-    if ($action == 0 && performDuplicateSpecial_inClipEditor() && `exists performDuplicateClip`)
-        return `performDuplicateClip 0 ""`;
+    if ($action == 0 && performDuplicateSpecial_inClipEditor())
+        return performDuplicateClip(0, "");
 
     if ($action == 1) {
         if (`exists DuplicateSpecialOptions`)

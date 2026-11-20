@@ -6,6 +6,11 @@
 // scripts that add tabs to it still find it. Renderers register their tabs and settings nodes with the renderer
 // registry; Harold, Aztek's renderer, keeps its settings in the defaultArnold nodes the Render Settings window edits.
 
+// currentRenderer and the other renderer procedures live in supportRenderers, which start-up loads; loaded here too for
+// when this file is used before that.
+if (!`exists currentRenderer`)
+    eval("source \"supportRenderers.mel\"");
+
 global string $gMasterLayerRendererName = "masterLayer";
 global string $gRENDER_SETTINGS = "Render Settings";
 global string $gAOVS = "AOVs";
@@ -15,9 +20,7 @@ global string $gAOVS = "AOVs";
 
 proc string urgCurrent()
 {
-    if (`exists currentRenderer`)
-        return eval("currentRenderer");
-    return `getAttr defaultRenderGlobals.currentRenderer`;
+    return currentRenderer();
 }
 
 proc string[] urgAvailable()
@@ -610,17 +613,15 @@ global proc initRenderSettingsWindow()
 {
     string $r = urgCurrent();
     string $available[] = urgAvailable();
-    if (($r == "" || !stringArrayContains($r, $available)) && size($available) && `exists setCurrentRenderer`)
-        eval("setCurrentRenderer " + $available[0]);
+    if (($r == "" || !stringArrayContains($r, $available)) && size($available))
+        setCurrentRenderer($available[0]);
 
     menuBarLayout;
     menu -label "Edit";
     menuItem -label "Change Project Image Directory" -command "ProjectWindow";
     menu -label "Presets" -postMenuCommand "UNIFIED_buildRenderGlobalsPresetsMenu" presetsMenu;
-    if (`exists addContextHelpProc`)
-        eval("addContextHelpProc \"unifiedRenderGlobalsWindow\" \"UNIFIED_buildRenderGlobalsContextHelpItems\"");
-    if (`exists doHelpMenu`)
-        eval("doHelpMenu \"unifiedRenderGlobalsWindow\" \"unifiedRenderGlobalsWindow\"");
+    addContextHelpProc("unifiedRenderGlobalsWindow", "UNIFIED_buildRenderGlobalsContextHelpItems");
+    doHelpMenu("unifiedRenderGlobalsWindow", "unifiedRenderGlobalsWindow");
     setParent ..;
 
     string $main = `formLayout rgMainForm`;
@@ -655,8 +656,7 @@ global proc initRenderSettingsWindow()
         -attachControl tabForm "bottom" 5 rgCloseBtn
         -attachForm rgCloseBtn "left" 5 -attachForm rgCloseBtn "right" 5 -attachForm rgCloseBtn "bottom" 5 $main;
 
-    if (`exists registerUpdateRendererUIProc`)
-        eval("registerUpdateRendererUIProc \"updateUnifiedRenderGlobalsWindowSpecifiedUI\"");
+    registerUpdateRendererUIProc("updateUnifiedRenderGlobalsWindowSpecifiedUI");
     scriptJob -parent $main -event SceneOpened "unifiedRenderGlobalsWindowSceneOpenedCallback";
     scriptJob -parent $main -event renderLayerManagerChange "updateUnifiedRenderGlobalsWindowSpecifiedUI";
     scriptJob -parent $main -event renderLayerChange "updateUnifiedRenderGlobalsWindowSpecifiedUI";
