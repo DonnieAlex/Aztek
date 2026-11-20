@@ -1060,6 +1060,325 @@ fn namespace_info(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 /// `name value` for optionVar: MEL leaves the value positional, Python gives a pair.
+/// The project: its root, the folder file browsers start in, its file rules and variables, as `workspace` keeps them.
+#[derive(Default, Clone, Debug)]
+pub struct Workspace {
+    /// The project's root; None until one is opened, when the working folder stands in.
+    pub root: Option<String>,
+    /// -directory: where file browsers start.
+    pub directory: Option<String>,
+    /// File rules and variables, in the order they were set.
+    pub rules: Vec<(String, String)>,
+    pub variables: Vec<(String, String)>,
+    /// Names given with -shortName and -fullName, and -baseWorkspace.
+    pub short_name: Option<String>,
+    pub full_name: Option<String>,
+    pub base: String,
+}
+
+fn slash(p: &str) -> String {
+    p.replace('\\', "/")
+}
+
+impl Workspace {
+    pub fn root(&self) -> String {
+        self.root.clone().or_else(|| aztek_core::env::get("MAYA_PROJECT")).map(|r| slash(&r)).unwrap_or_else(|| std::env::current_dir().map(|d| slash(&d.display().to_string())).unwrap_or_default())
+    }
+    fn set(list: &mut Vec<(String, String)>, k: &str, v: &str) {
+        match list.iter_mut().find(|(n, _)| n == k) {
+            Some(e) => e.1 = v.to_string(),
+            None => list.push((k.to_string(), v.to_string())),
+        }
+    }
+    fn get<'a>(list: &'a [(String, String)], k: &str) -> Option<&'a str> {
+        list.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str())
+    }
+    /// Reads the project's workspace.mel, if it has one: its `workspace -fr` and `-v` lines are taken as data.
+    fn read(&mut self) {
+        self.rules.clear();
+        self.variables.clear();
+        let Ok(text) = std::fs::read_to_string(std::path::Path::new(&self.root()).join("workspace.mel")) else { return };
+        // Comments off each line first (none of the reference's rule paths hold "//").
+        let text: String = text.lines().map(|l| l.split("//").next().unwrap_or("")).collect::<Vec<_>>().join("\n");
+        for stmt in text.split(';') {
+            let words = mel_words(stmt);
+            if words.first().map(String::as_str) != Some("workspace") {
+                continue;
+            }
+            let mut k = 1;
+            while k + 2 < words.len() + 1 {
+                match words.get(k).map(String::as_str) {
+                    Some("-fr" | "-fileRule" | "-ot" | "-objectType" | "-rt" | "-renderType") if k + 2 < words.len() => {
+                        Self::set(&mut self.rules, &words[k + 1], &words[k + 2]);
+                        k += 3;
+                    }
+                    Some("-v" | "-variable") if k + 2 < words.len() => {
+                        Self::set(&mut self.variables, &words[k + 1], &words[k + 2]);
+                        k += 3;
+                    }
+                    Some(_) => k += 1,
+                    None => break,
+                }
+            }
+        }
+    }
+    /// Writes the rules and variables to the project's workspace.mel.
+    fn save(&self) -> std::io::Result<()> {
+        let mut out = String::from("//Aztek project definition file\n");
+        for (k, v) in &self.rules {
+            out.push_str(&format!("workspace -fr \"{k}\" \"{v}\";\n"));
+        }
+        for (k, v) in &self.variables {
+            out.push_str(&format!("workspace -v \"{k}\" \"{v}\";\n"));
+        }
+        std::fs::write(std::path::Path::new(&self.root()).join("workspace.mel"), out)
+    }
+    /// A name with the project's variables and the environment's put in, and made full under the root when relative.
+    pub fn expand(&self, name: &str) -> String {
+        let root = self.root();
+        if name.is_empty() {
+            return format!("{}/", root.trim_end_matches('/'));
+        }
+        let env_only = name.starts_with('~');
+        let look = |v: &str| -> Option<String> { if env_only { None } else { Self::get(&self.variables, v).map(str::to_string) }.or_else(|| std::env::var(v).ok()) };
+        let mut out = String::new();
+        let chars: Vec<char> = name.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            let c = chars[i];
+            if c == '%' {
+                if let Some(end) = chars[i + 1..].iter().position(|&x| x == '%') {
+                    let v: String = chars[i + 1..i + 1 + end].iter().collect();
+                    if let Some(val) = look(&v) {
+                        out.push_str(&val);
+                        i += end + 2;
+                        continue;
+                    }
+                }
+            } else if c == '$' {
+                let (v, used) = if chars.get(i + 1) == Some(&'{') {
+                    match chars[i + 2..].iter().position(|&x| x == '}') {
+                        Some(end) => (chars[i + 2..i + 2 + end].iter().collect::<String>(), end + 3),
+                        None => (String::new(), 0),
+                    }
+                } else {
+                    let n = chars[i + 1..].iter().take_while(|x| x.is_alphanumeric() || **x == '_').count();
+                    (chars[i + 1..i + 1 + n].iter().collect::<String>(), n + 1)
+                };
+                if !v.is_empty() {
+                    if let Some(val) = look(&v) {
+                        out.push_str(&val);
+                        i += used;
+                        continue;
+                    }
+                }
+            }
+            out.push(c);
+            i += 1;
+        }
+        // ~, ~/ and ~user at the start: home folders.
+        if let Some(rest) = out.strip_prefix('~') {
+            let home = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")).unwrap_or_default();
+            out = if rest.is_empty() || rest.starts_with('/') { format!("{home}{rest}") } else { format!("{}/{rest}", std::path::Path::new(&home).parent().map(|p| p.display().to_string()).unwrap_or_default()) };
+        }
+        let out = slash(&out);
+        let absolute = out.starts_with('/') || (out.len() > 1 && out.as_bytes()[1] == b':');
+        if absolute { out } else { format!("{}/{}", root.trim_end_matches('/'), out) }
+    }
+}
+
+/// The words of a MEL statement, quotes taken off: enough to read workspace.mel as data.
+fn mel_words(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let (mut quoted, mut any) = (false, false);
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                quoted = !quoted;
+                any = true;
+            }
+            '\\' if quoted => {
+                if let Some(n) = chars.next() {
+                    cur.push(n);
+                }
+            }
+            c if c.is_whitespace() && !quoted => {
+                if any || !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+                any = false;
+            }
+            c => cur.push(c),
+        }
+    }
+    if any || !cur.is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+fn workspace_cmd() -> Cmd {
+    let mut c = Cmd::new(
+        "workspace",
+        "The project: -o opens one, -q -rd its root, -fr and -fre its file rules, -v and -ve its variables, -en expands a name under it, -pp makes a path relative to it, -dir where file browsers start, -cr makes a folder, -s saves workspace.mel.",
+        workspace_run,
+    )
+    .positional("[path]")
+    .undoable(false)
+    .flag(f("query", "q", B, "Query."))
+    .flag(f("queried", "", ArgType::List, "What -q asks for."));
+    for (name, short) in [("active", "act"), ("fileRuleList", "frl"), ("objectTypeList", "otl"), ("renderTypeList", "rtl"), ("variableList", "vl"), ("listWorkspaces", "lw"), ("listFullWorkspaces", "lfw"), ("rootDirectory", "rd"), ("saveWorkspace", "s"), ("update", "u"), ("updateAll", "ua"), ("filter", "f")] {
+        c = c.flag(f(name, short, B, "See the description."));
+    }
+    for (name, short) in [("baseWorkspace", "bw"), ("create", "cr"), ("directory", "dir"), ("expandName", "en"), ("fileRuleEntry", "fre"), ("objectTypeEntry", "ote"), ("renderTypeEntry", "rte"), ("fullName", "fn"), ("list", "l"), ("newWorkspace", "n"), ("openWorkspace", "o"), ("projectPath", "pp"), ("removeFileRuleEntry", "rfr"), ("removeVariableEntry", "rve"), ("shortName", "sn"), ("variableEntry", "ve")] {
+        c = c.flag(f(name, short, A, "See the description."));
+    }
+    for (name, short) in [("fileRule", "fr"), ("objectType", "ot"), ("renderType", "rt"), ("variable", "v")] {
+        c = c.flag(f(name, short, A, "A name and a value.").multi(2));
+    }
+    c
+}
+
+fn workspace_run(s: &mut Session, a: &Args) -> CmdResult {
+    let str_of = |k: &str| a.get(k).and_then(|v| match v {
+        Value::String(t) => Some(t.clone()),
+        Value::Bool(_) | Value::Null => None,
+        o => Some(o.to_string()),
+    });
+    let queried: Vec<String> = a.get("queried").and_then(Value::as_array).map(|q| q.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let ws = &mut s.extras.workspace;
+    let pairs = |v: Option<&Value>| -> Vec<(String, String)> {
+        let flat: Vec<String> = match v {
+            Some(Value::Array(x)) => x.iter().flat_map(|e| match e {
+                Value::Array(y) => y.iter().map(|z| z.as_str().map(str::to_string).unwrap_or_else(|| z.to_string())).collect::<Vec<_>>(),
+                z => vec![z.as_str().map(str::to_string).unwrap_or_else(|| z.to_string())],
+            }).collect(),
+            _ => Vec::new(),
+        };
+        flat.chunks(2).filter(|c| c.len() == 2).map(|c| (c[0].clone(), c[1].clone())).collect()
+    };
+    if a.bool("query") {
+        let q = queried.first().cloned().unwrap_or_default();
+        let entry = |list: &[(String, String)], k: &str| json!(Workspace::get(list, k).unwrap_or(""));
+        return Ok(match q.as_str() {
+            "rootDirectory" => json!(format!("{}/", ws.root().trim_end_matches('/'))),
+            "fullName" => json!(ws.full_name.clone().unwrap_or_else(|| ws.root().trim_end_matches('/').to_string())),
+            "shortName" => json!(ws.short_name.clone().unwrap_or_else(|| ws.root().trim_end_matches('/').rsplit('/').next().unwrap_or("").to_string())),
+            "directory" => json!(format!("{}/", ws.directory.clone().unwrap_or_else(|| ws.root()).trim_end_matches('/'))),
+            "baseWorkspace" => json!(if ws.base.is_empty() { "default" } else { ws.base.as_str() }),
+            "fileRule" | "objectType" | "renderType" => json!(ws.rules.iter().flat_map(|(k, v)| [k.clone(), v.clone()]).collect::<Vec<_>>()),
+            "fileRuleList" | "objectTypeList" | "renderTypeList" => json!(ws.rules.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>()),
+            "fileRuleEntry" | "objectTypeEntry" | "renderTypeEntry" => entry(&ws.rules, &a.pos_str(0).map(str::to_string).or_else(|| str_of(&q)).unwrap_or_default()),
+            "variable" => json!(ws.variables.iter().flat_map(|(k, v)| [k.clone(), v.clone()]).collect::<Vec<_>>()),
+            "variableList" => json!(ws.variables.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>()),
+            "variableEntry" => entry(&ws.variables, &a.pos_str(0).map(str::to_string).or_else(|| str_of(&q)).unwrap_or_default()),
+            "expandName" => json!(ws.expand(&a.pos_str(0).map(str::to_string).or_else(|| str_of(&q)).unwrap_or_default())),
+            "projectPath" => json!(project_path(ws, &a.pos_str(0).map(str::to_string).or_else(|| str_of(&q)).unwrap_or_default())),
+            "listWorkspaces" => json!([ws.root().trim_end_matches('/').rsplit('/').next().unwrap_or("")]),
+            "listFullWorkspaces" => json!([ws.root()]),
+            "list" => json!(list_dir(&ws.directory.clone().unwrap_or_else(|| ws.root()))),
+            "active" | "openWorkspace" => json!(ws.root()),
+            _ => json!(ws.root()),
+        });
+    }
+    // Removals first, then what is set.
+    if let Some(k) = str_of("removeFileRuleEntry") {
+        ws.rules.retain(|(n, _)| *n != k);
+    }
+    if let Some(k) = str_of("removeVariableEntry") {
+        ws.variables.retain(|(n, _)| *n != k);
+    }
+    for flag in ["fileRule", "objectType", "renderType"] {
+        for (k, v) in pairs(a.get(flag)) {
+            Workspace::set(&mut ws.rules, &k, &v);
+        }
+    }
+    for (k, v) in pairs(a.get("variable")) {
+        Workspace::set(&mut ws.variables, &k, &v);
+    }
+    if let Some(n) = str_of("shortName") {
+        ws.short_name = Some(n);
+    }
+    if let Some(n) = str_of("fullName") {
+        ws.full_name = Some(n);
+    }
+    if let Some(n) = str_of("baseWorkspace") {
+        ws.base = n;
+    }
+    if let Some(d) = str_of("directory") {
+        let full = if std::path::Path::new(&d).is_absolute() { slash(&d) } else { ws.expand(&d) };
+        ws.directory = Some(full.clone());
+        return Ok(json!(full));
+    }
+    if let Some(d) = str_of("openWorkspace").or_else(|| a.bool("active").then(|| a.pos_str(0).map(str::to_string)).flatten()) {
+        ws.root = Some(slash(&d).trim_end_matches('/').to_string());
+        ws.directory = None;
+        ws.read();
+        return Ok(json!(ws.root()));
+    }
+    if let Some(d) = str_of("newWorkspace") {
+        let full = if std::path::Path::new(&d).is_absolute() { slash(&d) } else { format!("{}/{}", ws.directory.clone().unwrap_or_else(|| ws.root()).trim_end_matches('/'), d) };
+        if std::path::Path::new(&full).join("workspace.mel").exists() {
+            fail!("workspace: a workspace already exists at {full}");
+        }
+        return Ok(json!(full));
+    }
+    if let Some(d) = str_of("create") {
+        let full = if std::path::Path::new(&d).is_absolute() { slash(&d) } else { format!("{}/{}", ws.directory.clone().unwrap_or_else(|| ws.root()).trim_end_matches('/'), d) };
+        std::fs::create_dir_all(&full).map_err(|e| aztek_ops::CommandError::new(format!("workspace: {full}: {e}")))?;
+        return Ok(json!(full));
+    }
+    if let Some(n) = str_of("fileRuleEntry").or_else(|| str_of("objectTypeEntry")).or_else(|| str_of("renderTypeEntry")) {
+        return Ok(json!(Workspace::get(&ws.rules, &n).unwrap_or("")));
+    }
+    if let Some(n) = str_of("variableEntry") {
+        return Ok(json!(Workspace::get(&ws.variables, &n).unwrap_or("")));
+    }
+    if let Some(n) = str_of("expandName") {
+        return Ok(json!(ws.expand(&n)));
+    }
+    if let Some(n) = str_of("projectPath") {
+        return Ok(json!(project_path(ws, &n)));
+    }
+    if a.bool("fileRuleList") || a.bool("objectTypeList") || a.bool("renderTypeList") {
+        return Ok(json!(ws.rules.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>()));
+    }
+    if a.bool("variableList") {
+        return Ok(json!(ws.variables.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>()));
+    }
+    if a.has("list") {
+        let d = str_of("list").map(|d| ws.expand(&d)).unwrap_or_else(|| ws.directory.clone().unwrap_or_else(|| ws.root()));
+        return Ok(json!(list_dir(&d)));
+    }
+    if a.bool("saveWorkspace") {
+        ws.save().map_err(|e| aztek_ops::CommandError::new(format!("workspace: {e}")))?;
+        return Ok(Value::Null);
+    }
+    if a.bool("update") || a.bool("updateAll") {
+        ws.read();
+        return Ok(Value::Null);
+    }
+    if a.bool("rootDirectory") {
+        return Ok(json!(format!("{}/", ws.root().trim_end_matches('/'))));
+    }
+    Ok(Value::Null)
+}
+
+/// A path relative to the project's root where it lies under it, else as given.
+fn project_path(ws: &Workspace, p: &str) -> String {
+    let root = format!("{}/", ws.root().trim_end_matches('/'));
+    let full = slash(p);
+    full.strip_prefix(&root).map(str::to_string).unwrap_or(full)
+}
+
+fn list_dir(d: &str) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(d).map(|r| r.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().to_string()).collect()).unwrap_or_default();
+    v.sort();
+    v
+}
+
 /// What optionVar keeps beside each value.
 #[derive(Default, Clone, Debug)]
 pub struct OptionVarMeta {
@@ -1840,26 +2159,7 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new("env", "Every environment variable, as NAME=value lines.", |_s, _a| Ok(json!(std::env::vars().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>()))).undoable(false),
     );
-    c.register(
-        Cmd::new("workspace", "The project: -q -rd or -fn gives its folder, -o and -dir change to one.", |s, a| {
-            if a.has("openWorkspace") || a.has("directory") {
-                let d = a.string(if a.has("openWorkspace") { "openWorkspace" } else { "directory" }, "");
-                s.option_vars.insert("__workspace".into(), json!(d));
-                return Ok(json!(d));
-            }
-            let root = s.option_vars.get("__workspace").and_then(Value::as_str).map(str::to_string).or_else(|| aztek_core::env::get("MAYA_PROJECT")).unwrap_or_else(|| std::env::current_dir().map(|d| d.display().to_string()).unwrap_or_default());
-            let with_slash = if root.ends_with('/') { root.clone() } else { format!("{root}/") };
-            Ok(if asked(a, "rootDirectory") || asked(a, "directory") { json!(with_slash) } else { json!(root.trim_end_matches('/')) })
-        })
-        .positional("[path]")
-        .flag(f("query", "q", B, "Query."))
-        .flag(f("queried", "", ArgType::List, "What -q asks for."))
-        .flag(f("rootDirectory", "rd", S, "The project folder, with a slash."))
-        .flag(f("fullName", "fn", S, "The project folder."))
-        .flag(f("directory", "dir", S, "Change to this folder."))
-        .flag(f("openWorkspace", "o", S, "Open this project."))
-        .undoable(false),
-    );
+    c.register(workspace_cmd());
     {
         let mut tg = Cmd::new("toggle", "Turns display switches on the objects on and off: -la, -rp, -sp, -sh, -te; -st for a value, -q to ask.", toggle_cmd).positional("objects");
         for (name, short) in [("localAxis", "la"), ("rotatePivot", "rp"), ("scalePivot", "sp"), ("selectHandle", "sh"), ("template", "te")] {

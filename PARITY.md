@@ -1975,6 +1975,18 @@ the rest are missing. It is ticked by hand: the scripts' own rows say which file
 - `menu -helpMenu` and `-scrollable` (short name `-srb`), and `menuItem -enableCommandRepeat`, `-header`,
   `-longDivider` and `-runTimeCommand`, are taken.
 
+### The project's file rules, variables and names: workspace as the reference has it (20/11/2026)
+
+`workspace` knew only the project's folder. It now reads the project's workspace.mel when the project is opened and
+keeps its file rules and variables: `-fr`, `-fre`, `-frl` and `-rfr` (with the old `-ot` and `-rt` spellings),
+`-v`, `-ve`, `-vl` and `-rve`; `-en` expands a name under the project, with `%var%`, `$var` and `${var}` from the
+project's variables then the environment, and `~`; `-pp` makes a path relative to the project; `-dir` sets where file
+browsers start without moving the project; `-cr` makes a folder; `-l` lists one; `-s` writes workspace.mel; `-u`
+reads it again; `-sn`, `-fn` and `-bw` are kept. A new project made from File > Project Window gets its standard
+folders with their file rules, written to its workspace.mel. The project and optionVars' defaults now stay through a
+new scene. `polyUVSet -q -perInstance` and `-currentPerInstanceUVSet` give each set's name and the current set, as for
+a mesh whose sets all its instances share.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

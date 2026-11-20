@@ -743,6 +743,25 @@ fn undo_info_and_friends() {
     run(&mut s, "optionVar", json!({"rm": "a", "iv": ["a", 5]}));
     assert_eq!(run(&mut s, "optionVar", json!({"args": ["a"], "q": true})), 5);
 
+    // The project: its workspace.mel's file rules and variables, read on opening, and names expanded under it.
+    let dir = std::env::temp_dir().join(format!("aztek_ws_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("workspace.mel"), "//Project Definition\nworkspace -fr \"images\" \"renders\";\nworkspace -v \"TEX\" \"/tex\";\n").unwrap();
+    let root = dir.display().to_string().replace('\\', "/");
+    run(&mut s, "workspace", json!({"o": root}));
+    assert_eq!(run(&mut s, "workspace", json!({"q": true, "queried": ["rootDirectory"]})), json!(format!("{root}/")));
+    assert_eq!(run(&mut s, "workspace", json!({"fre": "images"})), "renders");
+    run(&mut s, "workspace", json!({"fr": ["scene", "scenes"]}));
+    assert_eq!(run(&mut s, "workspace", json!({"frl": true})), json!(["images", "scene"]));
+    assert_eq!(run(&mut s, "workspace", json!({"en": "%TEX%/a.png"})), "/tex/a.png");
+    assert_eq!(run(&mut s, "workspace", json!({"en": "scenes/a.ma"})), json!(format!("{root}/scenes/a.ma")));
+    assert_eq!(run(&mut s, "workspace", json!({"pp": format!("{root}/scenes/a.ma")})), "scenes/a.ma");
+    run(&mut s, "workspace", json!({"rfr": "scene"}));
+    assert_eq!(run(&mut s, "workspace", json!({"fre": "scene"})), "");
+    run(&mut s, "workspace", json!({"s": true}));
+    assert!(std::fs::read_to_string(dir.join("workspace.mel")).unwrap().contains("workspace -fr \"images\" \"renders\";"));
+    let _ = std::fs::remove_dir_all(&dir);
+
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["linear"]})), "cm");
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["angle"]})), "deg");
     assert_eq!(run(&mut s, "currentUnit", json!({"q": true, "queried": ["angle"], "f": true})), "degree");

@@ -450,12 +450,15 @@ pub(super) fn register(c: &mut Commands<Session>) {
                     if asked(a, "currentUVSet") {
                         return Ok(json!([uv_sets::current(&m)]));
                     }
-                    // Aztek's UV sets are shared by every instance: none is a per-instance family.
+                    // Aztek's UV sets are shared by every instance, so each set's name for this instance is its own
+                    // name, and the current one for this instance is the mesh's current set.
                     if asked(a, "perInstance") {
-                        return Ok(json!(false));
+                        let set = a.string("uvSet", "");
+                        let all = uv_sets::all(&m);
+                        return Ok(json!(if set.is_empty() { all } else if all.contains(&set) { vec![set] } else { Vec::new() }));
                     }
                     if asked(a, "currentPerInstanceUVSet") {
-                        return Ok(json!([]));
+                        return Ok(json!([uv_sets::current(&m)]));
                     }
                     fail!("polyUVSet: ask -auv, -cuv, -pi or -cpi");
                 }

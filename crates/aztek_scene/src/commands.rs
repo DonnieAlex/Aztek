@@ -794,9 +794,14 @@ fn register_scene(c: &mut Commands<Session>) {
             crate::anim_time::set_time_unit(&crate::anim_time::default_time_unit());
             s.graph.clear();
             // Display preferences belong to the app, not the scene.
+            // Display preferences, optionVars' defaults and the project belong to the app, not the scene.
             let display = std::mem::take(&mut s.extras.display_pref);
+            let meta = std::mem::take(&mut s.extras.option_var_meta);
+            let workspace = std::mem::take(&mut s.extras.workspace);
             s.extras = Default::default();
             s.extras.display_pref = display;
+            s.extras.option_var_meta = meta;
+            s.extras.workspace = workspace;
             crate::anim::set_frame(&mut s.graph, crate::anim::range().min);
             s.mark_saved();
             Ok(Value::Null)

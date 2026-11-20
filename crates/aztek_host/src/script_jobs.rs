@@ -99,6 +99,7 @@ fn probe_event(s: &mut Session, event: &str) -> Option<Value> {
             json!([q(s, "minTime"), q(s, "maxTime")])
         }
         "DagObjectCreated" => json!(s.graph.nodes().len()),
+        "workspaceChanged" => json!([s.extras.workspace.root(), s.extras.workspace.rules]),
         _ => return None,
     })
 }

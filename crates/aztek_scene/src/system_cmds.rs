@@ -46,6 +46,8 @@ pub struct Extras {
     pub file_info: Vec<(String, String)>,
     /// What optionVar keeps beside the values: defaults, categories, stashes, transient names.
     pub option_var_meta: crate::ref_scene::OptionVarMeta,
+    /// The project, as `workspace` keeps it.
+    pub workspace: crate::ref_scene::Workspace,
 }
 
 /// What a query asks for: the first flag -q names.

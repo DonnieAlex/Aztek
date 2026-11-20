@@ -368,8 +368,15 @@ QMenu* MainWindow::file_menu() {
         form->addRow("", ok);
         connect(ok, &QPushButton::clicked, &d, &QDialog::accept);
         if (d.exec() != QDialog::Accepted || where->text().isEmpty()) return;
+        // The project's folder and its standard folders, each with its file rule, saved in its workspace.mel.
         exec("workspace", QJsonObject{{"create", where->text()}});
         exec("workspace", QJsonObject{{"openWorkspace", where->text()}});
+        const QList<QPair<QString, QString>> rules{{"scene", "scenes"}, {"scripts", "scripts"}, {"images", "images"}, {"sourceImages", "sourceimages"}, {"diskCache", "data"}};
+        for (const auto& r : rules) {
+            exec("workspace", QJsonObject{{"create", r.second}});
+            exec("workspace", QJsonObject{{"fileRule", QJsonArray{r.first, r.second}}});
+        }
+        exec("workspace", QJsonObject{{"saveWorkspace", true}});
         add_recent_project(where->text());
     });
     project->addAction("Set Project...", [this] { set_project(); });
