@@ -435,12 +435,14 @@ impl Renderer {
                     .front_face(vk::FrontFace::CLOCKWISE)
                     .line_width(1.0);
                 // With anti-aliasing on, lines are smoothed too: wireframes, curves, the grid and the manipulators.
-                // Smoothed edges where the device has them, else rectangles the samples can cover in part.
+                // Rectangles the samples cover in part where the device has them: the pieces of a line (the grid's run
+                // cell by cell) meet with nothing doubled or missed. A device's own smoothed edges fade each piece's
+                // ends, which drew the grid dashed (#198), so they are only used when it has no rectangles.
                 let (rect, smooth) = gpu.shared.line_modes;
-                let mut line_state = vk::PipelineRasterizationLineStateCreateInfoKHR::default().line_rasterization_mode(if smooth {
-                    vk::LineRasterizationModeKHR::RECTANGULAR_SMOOTH
-                } else {
+                let mut line_state = vk::PipelineRasterizationLineStateCreateInfoKHR::default().line_rasterization_mode(if rect {
                     vk::LineRasterizationModeKHR::RECTANGULAR
+                } else {
+                    vk::LineRasterizationModeKHR::RECTANGULAR_SMOOTH
                 });
                 let rs = if matches!(kind, Kind::Lines | Kind::LinesOnTop) && gpu.samples != vk::SampleCountFlags::TYPE_1 && (rect || smooth) { rs.push_next(&mut line_state) } else { rs };
                 let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(gpu.samples);
