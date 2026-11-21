@@ -376,4 +376,11 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "offsetCurve", &["offsetCurve"], &[], Vec::new());
     crate::history_qe::extend(c, "offsetCurveOnSurface", &["offsetCurveOnSurface"], &[], Vec::new());
     crate::history_qe::extend(c, "pointCurveConstraint", &["pointCurveConstraint"], &[], Vec::new());
+    crate::history_qe::extend(c, "projectCurve", &["projectCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "projectTangent", &["projectTangent"], &[], Vec::new());
+    crate::history_qe::extend(c, "rebuildCurve", &["rebuildCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "rebuildSurface", &["rebuildSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "reverseCurve", &["reverseCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "reverseSurface", &["reverseSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "revolve", &["revolve"], &[], Vec::new());
 }

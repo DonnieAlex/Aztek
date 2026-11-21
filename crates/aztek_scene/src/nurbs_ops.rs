@@ -370,6 +370,77 @@ const IN: usize = 0;
 const OUT: usize = 1;
 const P: usize = 2;
 
+/// The surface's normal curvature at a point along a direction: signed, positive bending toward the normal.
+fn normal_curvature(s: &NurbsSurface, p: DVec3, dir: DVec3) -> (f64, DVec3) {
+    let (u, v) = s.closest_point(p);
+    let ((u0, u1), (v0, v1)) = (s.domain_u(), s.domain_v());
+    let (hu, hv) = ((u1 - u0) * 1e-4, (v1 - v0) * 1e-4);
+    let (_, su, sv) = s.eval_ders(u, v);
+    let n = s.normal(u, v).normalize_or_zero();
+    let du_at = |a: f64, b: f64| s.eval_ders(a.clamp(u0, u1), b.clamp(v0, v1));
+    let (_, su_p, sv_p) = du_at(u + hu, v);
+    let (_, su_m, sv_m) = du_at(u - hu, v);
+    let (_, _, sv_vp) = du_at(u, v + hv);
+    let (_, _, sv_vm) = du_at(u, v - hv);
+    let suu = (su_p - su_m) / (2.0 * hu);
+    let suv = (sv_p - sv_m) / (2.0 * hu);
+    let svv = (sv_vp - sv_vm) / (2.0 * hv);
+    // The direction in the surface's own terms: a su + b sv.
+    let (e, f, g) = (su.dot(su), su.dot(sv), sv.dot(sv));
+    let det = e * g - f * f;
+    if det.abs() < 1e-14 {
+        return (0.0, n);
+    }
+    let (x, y) = (dir.dot(su), dir.dot(sv));
+    let a = (g * x - f * y) / det;
+    let b = (e * y - f * x) / det;
+    let (l, m, nn) = (suu.dot(n), suv.dot(n), svv.dot(n));
+    let top = l * a * a + 2.0 * m * a * b + nn * b * b;
+    let bottom = e * a * a + 2.0 * f * a * b + g * b * b;
+    (if bottom.abs() < 1e-14 { 0.0 } else { top / bottom }, n)
+}
+
+/// The curve's signed curvature at an end, toward `n`.
+fn end_curvature(c: &NurbsCurve, at_end: bool, n: DVec3) -> f64 {
+    let (lo, hi) = c.domain();
+    let h = (hi - lo) * 1e-3;
+    let (t0, t1, t2) = if at_end { (hi, hi - h, hi - 2.0 * h) } else { (lo, lo + h, lo + 2.0 * h) };
+    let (p0, p1, p2) = (c.eval(t0), c.eval(t1), c.eval(t2));
+    let (a, b, ab) = (p1 - p0, p2 - p1, p2 - p0);
+    let den = a.length() * b.length() * ab.length();
+    if den < 1e-18 {
+        return 0.0;
+    }
+    let k = 2.0 * a.cross(b).length() / den;
+    if (p0 - 2.0 * p1 + p2).dot(n) < 0.0 {
+        -k
+    } else {
+        k
+    }
+}
+
+/// Curvature continuity at a curve's end with a surface: the CV after the tangent's moves off the tangent line, toward
+/// the surface's normal, until the curve bends as the surface does along it (times `scale`).
+fn match_curvature(c: &mut NurbsCurve, s: &NurbsSurface, end: DVec3, dir: DVec3, at_end: bool, third: usize, scale: f64) {
+    let (k, n) = normal_curvature(s, end, dir);
+    let target = k * scale;
+    // Off the tangent line, square to it, in the plane of the tangent and the normal.
+    let up = (n - dir * dir.dot(n)).normalize_or_zero();
+    if up == DVec3::ZERO {
+        return;
+    }
+    let tip = if at_end { c.cvs.len() - 1 } else { 0 };
+    let q = c.cvs[third] - c.cvs[tip];
+    let base = c.cvs[tip] + dir * q.dot(dir) + (q - dir * q.dot(dir) - up * q.dot(up));
+    let probe = c.cvs[tip].distance(c.cvs[third]).max(1e-6);
+    c.cvs[third] = base;
+    let flat = end_curvature(c, at_end, up);
+    c.cvs[third] = base + up * probe;
+    let bent = end_curvature(c, at_end, up);
+    let per = (bent - flat) / probe;
+    c.cvs[third] = if per.abs() < 1e-12 { base } else { base + up * ((target - flat) / per) };
+}
+
 /// projectCurve: the curve's samples along a direction onto the surface, as a curve in (u, v).
 fn project_samples(c: &NurbsCurve, s: &NurbsSurface, dir: Option<DVec3>, samples: usize) -> Vec<DVec2> {
     let m = surface_mesh(s, 16);
@@ -1043,8 +1114,30 @@ fn register_types() {
         reg(node_type(
             "projectTangent",
             "Turns a curve's end to follow another curve or surface where it meets it.",
-            vec![cin("inputCurve", "ic"), cout("outputCurve", "oc"), cin("tangentCurve", "tc"), sin("tangentSurface", "ts"), f_in("tangentScale", "tsc", 1.0, "How far the next CV goes."), f_in("rotate", "ro", 0.0, "Degrees about the end."), bin("reverseTangent", "rt", false), int_in("tangentDirection", "td", 1, "1 U or 2 V on a surface.")],
+            vec![
+                cin("inputCurve", "ic"),
+                cout("outputCurve", "oc"),
+                cin("tangentCurve", "tc"),
+                sin("tangentSurface", "ts"),
+                f_in("tangentScale", "tsc", 1.0, "How far the next CV goes."),
+                f_in("rotate", "ro", 0.0, "Degrees about the end."),
+                bin("reverseTangent", "rt", false),
+                int_in("tangentDirection", "td", 1, "1 U (or the first curve), 2 V (or the second curve), 3 the normal where they meet."),
+                bin("curvature", "c", false),
+                f_in("curvatureScale", "cs", 0.0, "With curvature: the surface's curvature scaled by one more than this."),
+                bin("ignoreEdges", "ie", false),
+                cin("tangentCurve2", "tc2"),
+            ],
             |d| {
+                match crate::history_qe::node_state(d) {
+                    2 | 5 => return,
+                    1 | 4 => {
+                        let c = crv(d, IN);
+                        put_curve(d, OUT, c);
+                        return;
+                    }
+                    _ => {}
+                }
                 let Some(mut c) = crv(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
@@ -1068,12 +1161,29 @@ fn register_types() {
                     };
                     if near(p1) <= near(p0) { (true, p1) } else { (false, p0) }
                 };
+                let td = d.int(P + 5);
                 let dir = if let Some(t) = crv(d, P) {
-                    t.tangent(t.closest_param(end))
+                    let t1 = t.tangent(t.closest_param(end));
+                    match crv(d, P + 9) {
+                        Some(t2) => {
+                            let t2 = t2.tangent(t2.closest_param(end));
+                            match td {
+                                2 => t2,
+                                3 => t1.cross(t2),
+                                _ => t1,
+                            }
+                        }
+                        None if td == 3 => t1.cross(c.tangent(if at_end { hi } else { lo })).cross(t1),
+                        None => t1,
+                    }
                 } else if let Some(s) = srf(d, P + 1) {
                     let (u, v) = s.closest_point(end);
                     let (_, du, dv) = s.eval_ders(u, v);
-                    if d.int(P + 5) == 2 { dv } else { du }
+                    match td {
+                        2 => dv,
+                        3 => s.normal(u, v),
+                        _ => du,
+                    }
                 } else {
                     DVec3::ZERO
                 };
@@ -1087,11 +1197,18 @@ fn register_types() {
                 if dir.dot(along) < 0.0 {
                     dir = -dir;
                 }
+                // The turn and curvature don't apply along the normal.
                 let axis = dir.cross(along).normalize_or_zero();
-                if axis != DVec3::ZERO {
+                if axis != DVec3::ZERO && td != 3 {
                     dir = glam::DQuat::from_axis_angle(axis, d.float(P + 3).to_radians()) * dir;
                 }
                 c.cvs[next] = c.cvs[tip] + dir * along.length() * d.float(P + 2);
+                if d.bool(P + 6) && td != 3 && n >= 3 {
+                    if let Some(s) = srf(d, P + 1) {
+                        let third = if at_end { n - 3 } else { 2 };
+                        match_curvature(&mut c, &s, end, dir, at_end, third, 1.0 + d.float(P + 7));
+                    }
+                }
                 put_curve(d, OUT, Some(c));
             },
         ));
@@ -3044,15 +3161,21 @@ pub fn register(c: &mut Commands<Session>) {
             let names = objects(s, a);
             let [x, y] = names.as_slice() else { fail!("projectCurve: name a curve and a surface") };
             let g = &mut s.graph;
+            // In either order.
+            let (x, y) = if curves::curve_arg(g, x, "projectCurve").is_ok() { (x, y) } else { (y, x) };
             let (c1, s1) = (curves::curve_arg(g, x, "projectCurve")?, surfaces::surface_arg(g, y, "projectCurve")?);
             g.open_chunk("Project Curve");
             let r = (|| -> CmdResult {
                 let n = new_node(g, "projectCurve", "projectCurve1")?;
                 connect_world_curve(g, c1, n, IN)?;
                 connect_world_surface(g, s1, n, P)?;
-                if let Some(d) = a.vec3("direction") {
-                    set_v(g, n, "direction", DVec3::from_array(d))?;
+                let mut dir = a.vec3("direction").map(DVec3::from_array).unwrap_or(DVec3::Z);
+                for (k, part) in ["directionX", "directionY", "directionZ"].into_iter().enumerate() {
+                    if let Some(x) = a.get(part).and_then(Value::as_f64) {
+                        dir[k] = x;
+                    }
                 }
+                set_v(g, n, "direction", dir)?;
                 set_b(g, n, "useNormal", a.bool("useNormal"))?;
                 set_i(g, n, "curveSamples", a.int("curveSamples", 50))?;
                 let cos = new_node(g, "curveFromSurfaceCoS", "curveFromSurfaceCoS1")?;
@@ -3066,18 +3189,30 @@ pub fn register(c: &mut Commands<Session>) {
             g.close_chunk();
             r
         })
-        .positional("a curve and a surface")
-        .flag(f("direction", "d", ArgType::Vec3, "Which way."))
-        .flag(f("useNormal", "un", B, "Along the surface's normal."))
+        .positional("a curve and a surface, in either order")
+        .flag(f("direction", "d", ArgType::Vec3, "Which way, when not along the normal (0 0 1)."))
+        .flag(f("directionX", "dx", Fl, "The direction's X (0)."))
+        .flag(f("directionY", "dy", Fl, "The direction's Y (0)."))
+        .flag(f("directionZ", "dz", Fl, "The direction's Z (1)."))
+        .flag(f("useNormal", "un", B, "Along the surface's normal rather than the direction (off)."))
         .flag(f("curveSamples", "cs", I, "How many samples (50).")),
     ));
     c.register(curves::with_common(
         Cmd::new("projectTangent", "Turn a curve's end to follow what it meets: another curve or a surface. -ts scale, -ro rotate, -rt reverse, -td 1 U or 2 V. Returns [curve, node].", |s, a| {
             let names = objects(s, a);
-            let [x, y] = names.as_slice() else { fail!("projectTangent: name a curve and what to follow") };
+            let (x, y, z) = match names.as_slice() {
+                [x, y] => (x.clone(), y.clone(), None),
+                [x, y, z] => (x.clone(), y.clone(), Some(z.clone())),
+                _ => fail!("projectTangent: name a curve and what to follow"),
+            };
+            let (x, y) = (&x, &y);
             let g = &mut s.graph;
             let shape = curves::curve_arg(g, x, "projectTangent")?;
             let target = find(g, y.split('.').next().unwrap_or(y), "projectTangent")?;
+            let second = match &z {
+                Some(z) => Some(curves::curve_arg(g, z, "projectTangent")?),
+                None => None,
+            };
             g.open_chunk("Project Tangent");
             let r = (|| -> CmdResult {
                 let node = curves::insert_op(g, shape, "projectTangent", &[])?;
@@ -3088,10 +3223,16 @@ pub fn register(c: &mut Commands<Session>) {
                 } else {
                     fail!("projectTangent: {y} isn't a curve or surface");
                 }
+                if let Some(t2) = second {
+                    connect_world_curve(g, t2, node, P + 9)?;
+                }
                 set_f(g, node, "tangentScale", a.float("tangentScale", 1.0))?;
                 set_f(g, node, "rotate", a.float("rotate", 0.0))?;
                 set_b(g, node, "reverseTangent", a.bool("reverseTangent"))?;
                 set_i(g, node, "tangentDirection", a.int("tangentDirection", 1))?;
+                set_b(g, node, "curvature", a.bool("curvature"))?;
+                set_f(g, node, "curvatureScale", a.float("curvatureScale", 0.0))?;
+                set_b(g, node, "ignoreEdges", a.bool("ignoreEdges"))?;
                 g.evaluate();
                 if !surfaces::wants_history(g, a) {
                     curves::bake_history(g, shape)?;
@@ -3102,13 +3243,14 @@ pub fn register(c: &mut Commands<Session>) {
             g.close_chunk();
             r
         })
-        .positional("a curve and what to follow")
-        .flag(f("tangentScale", "tsc", Fl, "How far the next CV goes (1)."))
-        .flag(f("rotate", "ro", Fl, "Degrees."))
-        .flag(f("reverseTangent", "rt", B, "The other way."))
-        .flag(f("tangentDirection", "td", I, "1 U or 2 V."))
-        .flag(f("curvature", "cvt", B, "Accepted for existing scripts."))
-        .flag(f("ignoreEdges", "ie", B, "Accepted for existing scripts.")),
+        .positional("a curve and what to follow: a surface (or an isoparm of one), or two curves")
+        .flag(f("tangentScale", "ts", Fl, "How far the next CV goes, a share of where it was (1)."))
+        .flag(f("rotate", "ro", Fl, "Turn the tangent by this many degrees about the end; not with -td 3 (0)."))
+        .flag(f("reverseTangent", "rt", B, "The tangent the other way (off)."))
+        .flag(f("tangentDirection", "td", I, "1 U (or the first curve), 2 V (or the second curve), 3 the normal where they meet (1)."))
+        .flag(f("curvature", "c", B, "Curvature continuity with a surface as well (off)."))
+        .flag(f("curvatureScale", "cs", Fl, "With -c: the surface's curvature is matched times one more than this (0)."))
+        .flag(f("ignoreEdges", "ie", B, "On a trimmed surface, the surface's own U and V tangents rather than its trim edges'; surfaces here follow their own (off).")),
     ));
     c.register(
         Cmd::new("curveOnSurface", "A curve on a surface: -d degree, -uv u v for each point, -k knots, -per periodic. Returns surface->curve.", curve_on_surface)

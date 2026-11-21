@@ -54,6 +54,8 @@
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSet>
+#include <QShortcut>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
@@ -1022,6 +1024,9 @@ void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
         QJsonArray m4 = flat(props["margins4"]);
         if (m4.size() >= 4) it->layout->setContentsMargins(int(as_number(m4[0])), int(as_number(m4[1])), int(as_number(m4[2])), int(as_number(m4[3])));
     }
+    if (k == "scrollLayout" && props.contains("borderVisible")) {
+        if (auto* area = qobject_cast<QScrollArea*>(it->w)) area->setFrameShape(as_bool(props["borderVisible"]) ? QFrame::StyledPanel : QFrame::NoFrame);
+    }
     if (k == "formLayout") {
         auto* f = static_cast<FormWidget*>(it->w);
         if (props.contains("numberOfDivisions")) f->divisions = int(as_number(props["numberOfDivisions"], 100));
@@ -1129,6 +1134,8 @@ void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
             }
         int nc = int(as_number(it->prop("numberOfColumns"), 0));
         int adj = int(as_number(it->prop("adjustableColumn"), 0));
+        // -adjustableColumn1: a row of one column stretches it.
+        if (nc == 1 && as_number(it->prop("adjustableColumn1"), 0) != 0) adj = 1;
         for (int n = 2; n <= 6; ++n)
             if (it->props.contains("adjustableColumn" + QString::number(n))) adj = int(as_number(it->prop("adjustableColumn" + QString::number(n))));
         for (int i = 0; i <= qMax(nc, 6); ++i) it->grid->setColumnStretch(i, 0);
@@ -1586,6 +1593,26 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             Host::get()->poke();
             sync();
         });
+        // Delete or Backspace takes the selected rows out, as -rowsToBeRemovedCmd allows.
+        for (QKeySequence key : {QKeySequence(Qt::Key_Delete), QKeySequence(Qt::Key_Backspace)}) {
+            auto* sc = new QShortcut(key, t);
+            // The table's own: a cell being edited takes the key itself.
+            sc->setContext(Qt::WidgetShortcut);
+            connect(sc, &QShortcut::activated, this, [path, t] {
+                QJsonArray rows;
+                QSet<int> seen;
+                for (const QModelIndex& i : t->selectionModel()->selectedIndexes())
+                    if (!seen.contains(i.row())) {
+                        seen.insert(i.row());
+                        rows.append(i.row() + 1);
+                    }
+                if (rows.isEmpty()) return;
+                QJsonObject ev{{"path", path}, {"rowsRemove", rows}};
+                QByteArray text = QJsonDocument(ev).toJson(QJsonDocument::Compact);
+                aztek_ui_event(text.constData());
+                Host::get()->poke();
+            });
+        }
         connect(t, &QTableWidget::itemSelectionChanged, this, [this, path, t] {
             QJsonArray sel;
             for (const QModelIndex& i : t->selectionModel()->selectedIndexes()) {
@@ -2007,8 +2034,21 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         QJsonArray widths = flat(it->prop("columnWidth"));
         for (int i = 0; i + 1 < widths.size(); i += 2) t->setColumnWidth(int(as_number(widths[i])) - 1, int(as_number(widths[i + 1])));
         if (props.contains("rowHeight")) t->verticalHeader()->setDefaultSectionSize(int(as_number(props["rowHeight"])));
-        if (props.contains("useDoubleClickEdit")) t->setEditTriggers(as_bool(props["useDoubleClickEdit"]) ? QAbstractItemView::DoubleClicked : QAbstractItemView::AllEditTriggers);
-        if (props.contains("multiEditEnabled") || props.contains("selectionMode")) t->setSelectionMode(as_bool(it->prop("multiEditEnabled")) ? QAbstractItemView::ExtendedSelection : QAbstractItemView::ContiguousSelection);
+        if (props.contains("useDoubleClickEdit") || props.contains("editable")) {
+            if (!as_bool(it->prop("editable"), true)) t->setEditTriggers(QAbstractItemView::NoEditTriggers);
+            else t->setEditTriggers(as_bool(it->prop("useDoubleClickEdit")) ? QAbstractItemView::DoubleClicked : QAbstractItemView::AllEditTriggers);
+        }
+        if (props.contains("selectionMode")) {
+            // 0 none, 1 single, 2 click toggles, 3 Ctrl and Shift as a list's, 4 Shift for a range.
+            static const QAbstractItemView::SelectionMode modes[] = {QAbstractItemView::NoSelection, QAbstractItemView::SingleSelection, QAbstractItemView::MultiSelection, QAbstractItemView::ExtendedSelection, QAbstractItemView::ContiguousSelection};
+            t->setSelectionMode(modes[qBound(0, int(as_number(props["selectionMode"], 3)), 4)]);
+        } else if (props.contains("multiEditEnabled")) {
+            t->setSelectionMode(as_bool(it->prop("multiEditEnabled")) ? QAbstractItemView::ExtendedSelection : QAbstractItemView::ContiguousSelection);
+        }
+        if (props.contains("selectionBehavior")) {
+            int b = int(as_number(props["selectionBehavior"]));
+            t->setSelectionBehavior(b == 1 ? QAbstractItemView::SelectRows : b == 2 ? QAbstractItemView::SelectColumns : QAbstractItemView::SelectItems);
+        }
         if (props.contains("cells") || props.contains("rows") || props.contains("columns")) {
             QJsonArray cells = it->prop("cells").toArray();
             for (int r = 0; r < rows; ++r) {
@@ -2019,6 +2059,29 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
                     else t->setItem(r, c, new QTableWidgetItem(v));
                 }
             }
+        }
+        // The colours from -cellBackgroundColorCommand and -cellForegroundColorCommand, 0 to 255.
+        for (const char* key : {"cellBackground", "cellForeground"}) {
+            if (!props.contains(key) && !props.contains("cells")) continue;
+            QJsonArray grid = it->prop(key).toArray();
+            bool bg = QString(key) == "cellBackground";
+            for (int r = 0; r < grid.size() && r < rows; ++r) {
+                QJsonArray row = grid[r].toArray();
+                for (int c = 0; c < row.size() && c < cols; ++c) {
+                    QTableWidgetItem* cell = t->item(r, c);
+                    QJsonArray rgb = row[c].toArray();
+                    if (!cell || rgb.size() < 3) continue;
+                    QColor col(qBound(0, rgb[0].toInt(), 255), qBound(0, rgb[1].toInt(), 255), qBound(0, rgb[2].toInt(), 255));
+                    if (bg) cell->setBackground(col);
+                    else cell->setForeground(col);
+                }
+            }
+        }
+        // Rows the column filters leave out.
+        if (props.contains("hiddenRows") || props.contains("cells")) {
+            QSet<int> hidden;
+            for (const QJsonValue& v : it->prop("hiddenRows").toArray()) hidden.insert(int(as_number(v)) - 1);
+            for (int r = 0; r < rows; ++r) t->setRowHidden(r, hidden.contains(r));
         }
     }
     if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "symbolCheckBox" || k == "iconTextRadioButton") {
@@ -2302,6 +2365,11 @@ void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
         int v = int(as_number(props["height"]));
         if (it->kind == "window" || it->kind == "workspaceControl") w->resize(w->width(), v);
         else w->setFixedHeight(v);
+    }
+    // -widthHeight on a control (rangeControl): both sizes at once.
+    if (props.contains("widthHeight") && it->kind != "window") {
+        QJsonArray wh = flat(props["widthHeight"]);
+        if (wh.size() >= 2) w->setFixedSize(int(as_number(wh[0])), int(as_number(wh[1])));
     }
     if (props.contains("enable")) w->setEnabled(as_bool(props["enable"], true));
     if (it->kind != "window" && it->kind != "workspaceControl") {

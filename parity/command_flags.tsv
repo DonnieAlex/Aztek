@@ -27204,14 +27204,14 @@ polySoftEdge	caching	done	auto
 polySoftEdge	cch	done	auto
 polySoftEdge	ch	done	auto
 polySoftEdge	constructionHistory	done	auto
-polySoftEdge	e	missing	
-polySoftEdge	edit	missing	
+polySoftEdge	e	done	auto
+polySoftEdge	edit	done	auto
 polySoftEdge	n	done	auto
 polySoftEdge	name	done	auto
 polySoftEdge	nds	done	auto
 polySoftEdge	nodeState	done	auto
-polySoftEdge	q	missing	
-polySoftEdge	query	missing	
+polySoftEdge	q	done	auto
+polySoftEdge	query	done	auto
 polySoftEdge	worldSpace	done	auto
 polySoftEdge	ws	done	auto
 polySphere	ax	done	auto
@@ -27222,16 +27222,16 @@ polySphere	ch	done	auto
 polySphere	constructionHistory	done	auto
 polySphere	createUVs	done	auto
 polySphere	cuv	done	auto
-polySphere	e	missing	
-polySphere	edit	missing	
+polySphere	e	done	auto
+polySphere	edit	done	auto
 polySphere	n	done	auto
 polySphere	name	done	auto
 polySphere	nds	done	auto
 polySphere	nodeState	done	auto
 polySphere	o	done	auto
 polySphere	object	done	auto
-polySphere	q	missing	
-polySphere	query	missing	
+polySphere	q	done	auto
+polySphere	query	done	auto
 polySphere	r	done	auto
 polySphere	radius	done	auto
 polySphere	sa	done	auto
@@ -27244,22 +27244,22 @@ polySphere	sx	done	auto
 polySphere	sy	done	auto
 polySphere	texture	done	auto
 polySphere	tx	done	auto
-polySphericalProjection	caching	missing	
-polySphericalProjection	cch	missing	
+polySphericalProjection	caching	done	auto
+polySphericalProjection	cch	done	auto
 polySphericalProjection	ch	done	auto
 polySphericalProjection	cm	done	auto
 polySphericalProjection	constructionHistory	done	auto
 polySphericalProjection	createNewMap	done	auto
-polySphericalProjection	e	missing	
-polySphericalProjection	edit	missing	
+polySphericalProjection	e	done	auto
+polySphericalProjection	edit	done	auto
 polySphericalProjection	ibd	done	auto
-polySphericalProjection	ic	missing	
+polySphericalProjection	ic	done	auto
 polySphericalProjection	icx	done	auto
 polySphericalProjection	icy	done	auto
-polySphericalProjection	imageCenter	missing	
+polySphericalProjection	imageCenter	done	auto
 polySphericalProjection	imageCenterX	done	auto
 polySphericalProjection	imageCenterY	done	auto
-polySphericalProjection	imageScale	missing	
+polySphericalProjection	imageScale	done	auto
 polySphericalProjection	imageScaleU	done	auto
 polySphericalProjection	imageScaleV	done	auto
 polySphericalProjection	insertBeforeDeformers	done	auto
@@ -27269,35 +27269,35 @@ polySphericalProjection	keepImageRatio	done	auto
 polySphericalProjection	kir	done	auto
 polySphericalProjection	mapDirection	done	auto
 polySphericalProjection	md	done	auto
-polySphericalProjection	n	missing	
-polySphericalProjection	name	missing	
-polySphericalProjection	nds	missing	
-polySphericalProjection	nodeState	missing	
-polySphericalProjection	pc	missing	
+polySphericalProjection	n	done	auto
+polySphericalProjection	name	done	auto
+polySphericalProjection	nds	done	auto
+polySphericalProjection	nodeState	done	auto
+polySphericalProjection	pc	done	auto
 polySphericalProjection	pcx	done	auto
 polySphericalProjection	pcy	done	auto
 polySphericalProjection	pcz	done	auto
-polySphericalProjection	perInstance	missing	
-polySphericalProjection	phs	missing	
-polySphericalProjection	pi	missing	
-polySphericalProjection	projectionCenter	missing	
+polySphericalProjection	perInstance	done	auto
+polySphericalProjection	phs	done	auto
+polySphericalProjection	pi	done	auto
+polySphericalProjection	projectionCenter	done	auto
 polySphericalProjection	projectionCenterX	done	auto
 polySphericalProjection	projectionCenterY	done	auto
 polySphericalProjection	projectionCenterZ	done	auto
-polySphericalProjection	projectionHorizontalSweep	missing	
-polySphericalProjection	projectionScale	missing	
+polySphericalProjection	projectionHorizontalSweep	done	auto
+polySphericalProjection	projectionScale	done	auto
 polySphericalProjection	projectionScaleU	done	auto
 polySphericalProjection	projectionScaleV	done	auto
-polySphericalProjection	ps	missing	
+polySphericalProjection	ps	done	auto
 polySphericalProjection	psu	done	auto
 polySphericalProjection	psv	done	auto
-polySphericalProjection	q	missing	
-polySphericalProjection	query	missing	
-polySphericalProjection	r	missing	
+polySphericalProjection	q	done	auto
+polySphericalProjection	query	done	auto
+polySphericalProjection	r	done	auto
 polySphericalProjection	ra	done	auto
-polySphericalProjection	radius	missing	
-polySphericalProjection	ro	missing	
-polySphericalProjection	rotate	missing	
+polySphericalProjection	radius	done	auto
+polySphericalProjection	ro	done	auto
+polySphericalProjection	rotate	done	auto
 polySphericalProjection	rotateX	done	auto
 polySphericalProjection	rotateY	done	auto
 polySphericalProjection	rotateZ	done	auto
@@ -27309,17 +27309,17 @@ polySphericalProjection	sc	done	auto
 polySphericalProjection	seamCorrect	done	auto
 polySphericalProjection	sf	done	auto
 polySphericalProjection	smartFit	done	auto
-polySphericalProjection	worldSpace	missing	
-polySphericalProjection	ws	missing	
+polySphericalProjection	worldSpace	done	auto
+polySphericalProjection	ws	done	auto
 polySplit	adjustEdgeFlow	done	auto
 polySplit	aef	done	auto
 polySplit	ch	done	auto
 polySplit	constructionHistory	done	auto
 polySplit	de	done	auto
 polySplit	detachEdges	done	auto
-polySplit	e	missing	
+polySplit	e	done	auto
 polySplit	edgepoint	done	auto
-polySplit	edit	missing	
+polySplit	edit	done	auto
 polySplit	ep	done	auto
 polySplit	facepoint	done	auto
 polySplit	fp	done	auto
@@ -27333,8 +27333,8 @@ polySplit	pc	done	auto
 polySplit	pct	done	auto
 polySplit	projectedCurve	done	auto
 polySplit	projectedCurveTolerance	done	auto
-polySplit	q	missing	
-polySplit	query	missing	
+polySplit	q	done	auto
+polySplit	query	done	auto
 polySplit	s	done	auto
 polySplit	sma	done	auto
 polySplit	smoothingangle	done	auto
@@ -27363,50 +27363,50 @@ polySplitCtx	smoothingangle	done	auto
 polySplitCtx	snaptoedge	done	auto
 polySplitCtx	ste	done	auto
 polySplitCtx	subdivision	done	auto
-polySplitCtx2	adjustEdgeFlow	missing	
-polySplitCtx2	aef	missing	
-polySplitCtx2	constrainToEdges	missing	
-polySplitCtx2	cte	missing	
-polySplitCtx2	e	missing	
-polySplitCtx2	edgeMagnets	missing	
-polySplitCtx2	edit	missing	
-polySplitCtx2	em	missing	
-polySplitCtx2	ex	missing	
-polySplitCtx2	exists	missing	
-polySplitCtx2	i1	missing	
-polySplitCtx2	i2	missing	
-polySplitCtx2	i3	missing	
-polySplitCtx2	ief	missing	
-polySplitCtx2	image1	missing	
-polySplitCtx2	image2	missing	
-polySplitCtx2	image3	missing	
-polySplitCtx2	insertWithEdgeFlow	missing	
-polySplitCtx2	q	missing	
-polySplitCtx2	query	missing	
-polySplitCtx2	sec	missing	
-polySplitCtx2	sfc	missing	
-polySplitCtx2	smc	missing	
-polySplitCtx2	snapTolerance	missing	
-polySplitCtx2	snappedToEdgeColor	missing	
-polySplitCtx2	snappedToFaceColor	missing	
-polySplitCtx2	snappedToMagnetColor	missing	
-polySplitCtx2	snappedToVertexColor	missing	
-polySplitCtx2	st	missing	
-polySplitCtx2	svc	missing	
+polySplitCtx2	adjustEdgeFlow	done	auto
+polySplitCtx2	aef	done	auto
+polySplitCtx2	constrainToEdges	done	auto
+polySplitCtx2	cte	done	auto
+polySplitCtx2	e	done	auto
+polySplitCtx2	edgeMagnets	done	auto
+polySplitCtx2	edit	done	auto
+polySplitCtx2	em	done	auto
+polySplitCtx2	ex	done	auto
+polySplitCtx2	exists	done	auto
+polySplitCtx2	i1	done	auto
+polySplitCtx2	i2	done	auto
+polySplitCtx2	i3	done	auto
+polySplitCtx2	ief	done	auto
+polySplitCtx2	image1	done	auto
+polySplitCtx2	image2	done	auto
+polySplitCtx2	image3	done	auto
+polySplitCtx2	insertWithEdgeFlow	done	auto
+polySplitCtx2	q	done	auto
+polySplitCtx2	query	done	auto
+polySplitCtx2	sec	done	auto
+polySplitCtx2	sfc	done	auto
+polySplitCtx2	smc	done	auto
+polySplitCtx2	snapTolerance	done	auto
+polySplitCtx2	snappedToEdgeColor	done	auto
+polySplitCtx2	snappedToFaceColor	done	auto
+polySplitCtx2	snappedToMagnetColor	done	auto
+polySplitCtx2	snappedToVertexColor	done	auto
+polySplitCtx2	st	done	auto
+polySplitCtx2	svc	done	auto
 polySplitEdge	caching	done	auto
 polySplitEdge	cch	done	auto
 polySplitEdge	ch	done	auto
 polySplitEdge	constructionHistory	done	auto
-polySplitEdge	e	missing	
-polySplitEdge	edit	missing	
+polySplitEdge	e	done	auto
+polySplitEdge	edit	done	auto
 polySplitEdge	n	done	auto
 polySplitEdge	name	done	auto
 polySplitEdge	nds	done	auto
 polySplitEdge	nodeState	done	auto
 polySplitEdge	op	done	auto
 polySplitEdge	operation	done	auto
-polySplitEdge	q	missing	
-polySplitEdge	query	missing	
+polySplitEdge	q	done	auto
+polySplitEdge	query	done	auto
 polySplitRing	adjustEdgeFlow	done	auto
 polySplitRing	aef	done	auto
 polySplitRing	caching	done	auto
@@ -27417,8 +27417,8 @@ polySplitRing	direction	done	auto
 polySplitRing	div	done	auto
 polySplitRing	divisions	done	auto
 polySplitRing	dr	done	auto
-polySplitRing	e	missing	
-polySplitRing	edit	missing	
+polySplitRing	e	done	auto
+polySplitRing	edit	done	auto
 polySplitRing	enableProfileCurve	done	auto
 polySplitRing	epc	done	auto
 polySplitRing	fixQuads	done	auto
@@ -27440,8 +27440,8 @@ polySplitRing	profileCurveInputScale	done	auto
 polySplitRing	profileCurve_FloatValue	done	auto
 polySplitRing	profileCurve_Interp	done	auto
 polySplitRing	profileCurve_Position	done	auto
-polySplitRing	q	missing	
-polySplitRing	query	missing	
+polySplitRing	q	done	auto
+polySplitRing	query	done	auto
 polySplitRing	re	done	auto
 polySplitRing	rootEdge	done	auto
 polySplitRing	sma	done	auto
@@ -27459,14 +27459,14 @@ polySplitVertex	caching	done	auto
 polySplitVertex	cch	done	auto
 polySplitVertex	ch	done	auto
 polySplitVertex	constructionHistory	done	auto
-polySplitVertex	e	missing	
-polySplitVertex	edit	missing	
+polySplitVertex	e	done	auto
+polySplitVertex	edit	done	auto
 polySplitVertex	n	done	auto
 polySplitVertex	name	done	auto
 polySplitVertex	nds	done	auto
 polySplitVertex	nodeState	done	auto
-polySplitVertex	q	missing	
-polySplitVertex	query	missing	
+polySplitVertex	q	done	auto
+polySplitVertex	query	done	auto
 polySplitVertex	worldSpace	done	auto
 polySplitVertex	ws	done	auto
 polyStraightenUVBorder	blendOriginal	done	auto
@@ -27477,8 +27477,8 @@ polyStraightenUVBorder	cch	done	auto
 polyStraightenUVBorder	ch	done	auto
 polyStraightenUVBorder	constructionHistory	done	auto
 polyStraightenUVBorder	curvature	done	auto
-polyStraightenUVBorder	e	missing	
-polyStraightenUVBorder	edit	missing	
+polyStraightenUVBorder	e	done	auto
+polyStraightenUVBorder	edit	done	auto
 polyStraightenUVBorder	gapTolerance	done	auto
 polyStraightenUVBorder	gt	done	auto
 polyStraightenUVBorder	n	done	auto
@@ -27487,12 +27487,12 @@ polyStraightenUVBorder	nds	done	auto
 polyStraightenUVBorder	nodeState	done	auto
 polyStraightenUVBorder	pl	done	auto
 polyStraightenUVBorder	preserveLength	done	auto
-polyStraightenUVBorder	q	missing	
-polyStraightenUVBorder	query	missing	
-polyStraightenUVBorder	uvSetName	missing	
-polyStraightenUVBorder	uvs	missing	
-polyStraightenUVBorder	worldSpace	missing	
-polyStraightenUVBorder	ws	missing	
+polyStraightenUVBorder	q	done	auto
+polyStraightenUVBorder	query	done	auto
+polyStraightenUVBorder	uvSetName	done	auto
+polyStraightenUVBorder	uvs	done	auto
+polyStraightenUVBorder	worldSpace	done	auto
+polyStraightenUVBorder	ws	done	auto
 polySubdivideEdge	caching	done	auto
 polySubdivideEdge	cch	done	auto
 polySubdivideEdge	ch	done	auto
@@ -27577,16 +27577,16 @@ polyTorus	ch	done	auto
 polyTorus	constructionHistory	done	auto
 polyTorus	createUVs	done	auto
 polyTorus	cuv	done	auto
-polyTorus	e	missing	
-polyTorus	edit	missing	
+polyTorus	e	done	auto
+polyTorus	edit	done	auto
 polyTorus	n	done	auto
 polyTorus	name	done	auto
 polyTorus	nds	done	auto
 polyTorus	nodeState	done	auto
 polyTorus	o	done	auto
 polyTorus	object	done	auto
-polyTorus	q	missing	
-polyTorus	query	missing	
+polyTorus	q	done	auto
+polyTorus	query	done	auto
 polyTorus	r	done	auto
 polyTorus	radius	done	auto
 polyTorus	sa	done	auto
@@ -27609,14 +27609,14 @@ polyTransfer	caching	done	auto
 polyTransfer	cch	done	auto
 polyTransfer	ch	done	auto
 polyTransfer	constructionHistory	done	auto
-polyTransfer	e	missing	
-polyTransfer	edit	missing	
+polyTransfer	e	done	auto
+polyTransfer	edit	done	auto
 polyTransfer	n	done	auto
 polyTransfer	name	done	auto
 polyTransfer	nds	done	auto
 polyTransfer	nodeState	done	auto
-polyTransfer	q	missing	
-polyTransfer	query	missing	
+polyTransfer	q	done	auto
+polyTransfer	query	done	auto
 polyTransfer	uv	done	auto
 polyTransfer	uvSets	done	auto
 polyTransfer	v	done	auto
@@ -27627,14 +27627,14 @@ polyTriangulate	caching	done	auto
 polyTriangulate	cch	done	auto
 polyTriangulate	ch	done	auto
 polyTriangulate	constructionHistory	done	auto
-polyTriangulate	e	missing	
-polyTriangulate	edit	missing	
+polyTriangulate	e	done	auto
+polyTriangulate	edit	done	auto
 polyTriangulate	n	done	auto
 polyTriangulate	name	done	auto
 polyTriangulate	nds	done	auto
 polyTriangulate	nodeState	done	auto
-polyTriangulate	q	missing	
-polyTriangulate	query	missing	
+polyTriangulate	q	done	auto
+polyTriangulate	query	done	auto
 polyUVCoverage	ur	done	auto
 polyUVCoverage	uvRange	done	auto
 polyUVOverlap	noc	done	auto
@@ -27645,14 +27645,14 @@ polyUVRectangle	caching	done	auto
 polyUVRectangle	cch	done	auto
 polyUVRectangle	ch	done	auto
 polyUVRectangle	constructionHistory	done	auto
-polyUVRectangle	e	missing	
-polyUVRectangle	edit	missing	
+polyUVRectangle	e	done	auto
+polyUVRectangle	edit	done	auto
 polyUVRectangle	n	done	auto
 polyUVRectangle	name	done	auto
 polyUVRectangle	nds	done	auto
 polyUVRectangle	nodeState	done	auto
-polyUVRectangle	q	missing	
-polyUVRectangle	query	missing	
+polyUVRectangle	q	done	auto
+polyUVRectangle	query	done	auto
 polyUVSet	allUVSets	done	auto
 polyUVSet	allUVSetsIndices	done	auto
 polyUVSet	allUVSetsWithCount	done	auto
@@ -27695,52 +27695,52 @@ polyUVSet	uvn	done	auto
 polyUVSet	uvs	done	auto
 polyUVStackSimilarShells	om	done	auto
 polyUVStackSimilarShells	onlyMatch	done	auto
-polyUVStackSimilarShells	to	missing	
+polyUVStackSimilarShells	to	done	auto
 polyUVStackSimilarShells	tolerance	done	auto
 polyUnite	caching	done	auto
 polyUnite	cch	done	auto
 polyUnite	centerPivot	done	auto
 polyUnite	cp	done	auto
-polyUnite	e	missing	
-polyUnite	edit	missing	
+polyUnite	e	done	auto
+polyUnite	edit	done	auto
 polyUnite	mergeUVSets	done	auto
 polyUnite	muv	done	auto
 polyUnite	nds	done	auto
 polyUnite	nodeState	done	auto
 polyUnite	objectPivot	done	auto
 polyUnite	op	done	auto
-polyUnite	q	missing	
-polyUnite	query	missing	
-polyUniteSkinned	centerPivot	missing	
-polyUniteSkinned	ch	missing	
-polyUniteSkinned	constructionHistory	missing	
-polyUniteSkinned	cp	missing	
-polyUniteSkinned	e	missing	
-polyUniteSkinned	edit	missing	
-polyUniteSkinned	mergeUVSets	missing	
-polyUniteSkinned	muv	missing	
-polyUniteSkinned	objectPivot	missing	
-polyUniteSkinned	op	missing	
-polyUniteSkinned	q	missing	
-polyUniteSkinned	query	missing	
+polyUnite	q	done	auto
+polyUnite	query	done	auto
+polyUniteSkinned	centerPivot	done	auto
+polyUniteSkinned	ch	done	auto
+polyUniteSkinned	constructionHistory	done	auto
+polyUniteSkinned	cp	done	auto
+polyUniteSkinned	e	done	auto
+polyUniteSkinned	edit	done	auto
+polyUniteSkinned	mergeUVSets	done	auto
+polyUniteSkinned	muv	done	auto
+polyUniteSkinned	objectPivot	done	auto
+polyUniteSkinned	op	done	auto
+polyUniteSkinned	q	done	auto
+polyUniteSkinned	query	done	auto
 polyUnsmooth	caching	done	auto
 polyUnsmooth	cch	done	auto
 polyUnsmooth	ch	done	auto
 polyUnsmooth	constructionHistory	done	auto
 polyUnsmooth	divisionLevels	done	auto
 polyUnsmooth	dlv	done	auto
-polyUnsmooth	e	missing	
-polyUnsmooth	edit	missing	
+polyUnsmooth	e	done	auto
+polyUnsmooth	edit	done	auto
 polyUnsmooth	frozen	done	auto
 polyUnsmooth	fzn	done	auto
 polyUnsmooth	n	done	auto
 polyUnsmooth	name	done	auto
 polyUnsmooth	nds	done	auto
 polyUnsmooth	nodeState	done	auto
-polyUnsmooth	q	missing	
-polyUnsmooth	query	missing	
-polyUnsmooth	replaceOriginal	missing	
-polyUnsmooth	rpo	missing	
+polyUnsmooth	q	done	auto
+polyUnsmooth	query	done	auto
+polyUnsmooth	replaceOriginal	done	auto
+polyUnsmooth	rpo	done	auto
 polyWedgeFace	ax	done	auto
 polyWedgeFace	axis	done	auto
 polyWedgeFace	caching	done	auto
@@ -27751,16 +27751,16 @@ polyWedgeFace	ch	done	auto
 polyWedgeFace	constructionHistory	done	auto
 polyWedgeFace	d	done	auto
 polyWedgeFace	divisions	done	auto
-polyWedgeFace	e	missing	
+polyWedgeFace	e	done	auto
 polyWedgeFace	ed	done	auto
 polyWedgeFace	edge	done	auto
-polyWedgeFace	edit	missing	
+polyWedgeFace	edit	done	auto
 polyWedgeFace	n	done	auto
 polyWedgeFace	name	done	auto
 polyWedgeFace	nds	done	auto
 polyWedgeFace	nodeState	done	auto
-polyWedgeFace	q	missing	
-polyWedgeFace	query	missing	
+polyWedgeFace	q	done	auto
+polyWedgeFace	query	done	auto
 polyWedgeFace	wa	done	auto
 polyWedgeFace	wedgeAngle	done	auto
 polyWedgeFace	worldSpace	done	auto
@@ -27795,7 +27795,7 @@ popupMenu	postMenuCommand	done	auto
 popupMenu	postMenuCommandOnce	done	auto
 popupMenu	q	done	auto
 popupMenu	query	done	auto
-popupMenu	sh	missing	
+popupMenu	sh	done	auto
 popupMenu	shiftModifier	done	auto
 popupMenu	useTemplate	done	auto
 popupMenu	ut	done	auto
@@ -28208,48 +28208,48 @@ projectCurve	ch	done	auto
 projectCurve	constructionHistory	done	auto
 projectCurve	d	done	auto
 projectCurve	direction	done	auto
-projectCurve	directionX	missing	
-projectCurve	directionY	missing	
-projectCurve	directionZ	missing	
-projectCurve	dx	missing	
-projectCurve	dy	missing	
-projectCurve	dz	missing	
-projectCurve	e	missing	
-projectCurve	edit	missing	
+projectCurve	directionX	done	auto
+projectCurve	directionY	done	auto
+projectCurve	directionZ	done	auto
+projectCurve	dx	done	auto
+projectCurve	dy	done	auto
+projectCurve	dz	done	auto
+projectCurve	e	done	auto
+projectCurve	edit	done	auto
 projectCurve	n	done	auto
 projectCurve	name	done	auto
 projectCurve	nds	done	auto
 projectCurve	nodeState	done	auto
 projectCurve	o	done	auto
 projectCurve	object	done	auto
-projectCurve	q	missing	
-projectCurve	query	missing	
+projectCurve	q	done	auto
+projectCurve	query	done	auto
 projectCurve	range	done	auto
 projectCurve	rn	done	auto
 projectCurve	tol	done	auto
 projectCurve	tolerance	done	auto
 projectCurve	un	done	auto
 projectCurve	useNormal	done	auto
-projectTangent	c	missing	
-projectTangent	caching	missing	
-projectTangent	cch	missing	
+projectTangent	c	done	auto
+projectTangent	caching	done	auto
+projectTangent	cch	done	auto
 projectTangent	ch	done	auto
 projectTangent	constructionHistory	done	auto
-projectTangent	cs	missing	
+projectTangent	cs	done	auto
 projectTangent	curvature	done	auto
-projectTangent	curvatureScale	missing	
-projectTangent	e	missing	
-projectTangent	edit	missing	
+projectTangent	curvatureScale	done	auto
+projectTangent	e	done	auto
+projectTangent	edit	done	auto
 projectTangent	ie	done	auto
 projectTangent	ignoreEdges	done	auto
 projectTangent	n	done	auto
 projectTangent	name	done	auto
-projectTangent	nds	missing	
-projectTangent	nodeState	missing	
+projectTangent	nds	done	auto
+projectTangent	nodeState	done	auto
 projectTangent	o	done	auto
 projectTangent	object	done	auto
-projectTangent	q	missing	
-projectTangent	query	missing	
+projectTangent	q	done	auto
+projectTangent	query	done	auto
 projectTangent	replaceOriginal	done	auto
 projectTangent	reverseTangent	done	auto
 projectTangent	ro	done	auto
@@ -28259,7 +28259,7 @@ projectTangent	rt	done	auto
 projectTangent	tangentDirection	done	auto
 projectTangent	tangentScale	done	auto
 projectTangent	td	done	auto
-projectTangent	ts	missing	
+projectTangent	ts	done	auto
 projectionContext	ch	missing	
 projectionContext	e	missing	
 projectionContext	edit	missing	
@@ -28370,22 +28370,22 @@ propMove	worldSpace	missing
 propMove	ws	missing	
 proximityWrap	ad	done	auto
 proximityWrap	addDrivers	done	auto
-proximityWrap	applyUserDefaults	missing	
-proximityWrap	aud	missing	
-proximityWrap	canBeAdded	missing	
-proximityWrap	cba	missing	
-proximityWrap	di	missing	
-proximityWrap	driverIndices	missing	
-proximityWrap	dui	missing	
-proximityWrap	dumpInfo	missing	
+proximityWrap	applyUserDefaults	done	auto
+proximityWrap	aud	done	auto
+proximityWrap	canBeAdded	done	auto
+proximityWrap	cba	done	auto
+proximityWrap	di	done	auto
+proximityWrap	driverIndices	done	auto
+proximityWrap	dui	done	auto
+proximityWrap	dumpInfo	done	auto
 proximityWrap	e	done	auto
 proximityWrap	edit	done	auto
-proximityWrap	fdi	missing	
-proximityWrap	freeDriverIndex	missing	
+proximityWrap	fdi	done	auto
+proximityWrap	freeDriverIndex	done	auto
 proximityWrap	q	done	auto
 proximityWrap	query	done	auto
-proximityWrap	rd	missing	
-proximityWrap	removeDrivers	missing	
+proximityWrap	rd	done	auto
+proximityWrap	removeDrivers	done	auto
 psdChannelOutliner	ach	missing	
 psdChannelOutliner	addChild	missing	
 psdChannelOutliner	all	missing	
@@ -28973,9 +28973,9 @@ rangeControl	vis	done	auto
 rangeControl	visible	done	auto
 rangeControl	visibleChangeCommand	done	auto
 rangeControl	w	done	auto
-rangeControl	wh	missing	
+rangeControl	wh	done	auto
 rangeControl	width	done	auto
-rangeControl	widthHeight	missing	
+rangeControl	widthHeight	done	auto
 readTake	a	missing	
 readTake	angle	missing	
 readTake	d	missing	
@@ -28988,18 +28988,18 @@ readTake	noTime	missing
 readTake	nt	missing	
 readTake	t	missing	
 readTake	take	missing	
-rebuildCurve	caching	missing	
-rebuildCurve	cch	missing	
+rebuildCurve	caching	done	auto
+rebuildCurve	cch	done	auto
 rebuildCurve	ch	done	auto
 rebuildCurve	constructionHistory	done	auto
 rebuildCurve	d	done	auto
 rebuildCurve	degree	done	auto
-rebuildCurve	e	missing	
-rebuildCurve	edit	missing	
+rebuildCurve	e	done	auto
+rebuildCurve	edit	done	auto
 rebuildCurve	end	done	auto
 rebuildCurve	endKnots	done	auto
-rebuildCurve	fitRebuild	missing	
-rebuildCurve	fr	missing	
+rebuildCurve	fitRebuild	done	auto
+rebuildCurve	fr	done	auto
 rebuildCurve	kcp	done	auto
 rebuildCurve	keepControlPoints	done	auto
 rebuildCurve	keepEndPoints	done	auto
@@ -29010,26 +29010,26 @@ rebuildCurve	kr	done	auto
 rebuildCurve	kt	done	auto
 rebuildCurve	n	done	auto
 rebuildCurve	name	done	auto
-rebuildCurve	nds	missing	
-rebuildCurve	nodeState	missing	
+rebuildCurve	nds	done	auto
+rebuildCurve	nodeState	done	auto
 rebuildCurve	o	done	auto
 rebuildCurve	object	done	auto
-rebuildCurve	q	missing	
-rebuildCurve	query	missing	
-rebuildCurve	range	missing	
+rebuildCurve	q	done	auto
+rebuildCurve	query	done	auto
+rebuildCurve	range	done	auto
 rebuildCurve	rebuildType	done	auto
 rebuildCurve	replaceOriginal	done	auto
-rebuildCurve	rn	missing	
+rebuildCurve	rn	done	auto
 rebuildCurve	rpo	done	auto
 rebuildCurve	rt	done	auto
 rebuildCurve	s	done	auto
-rebuildCurve	scr	missing	
-rebuildCurve	smartSurfaceCurveRebuild	missing	
+rebuildCurve	scr	done	auto
+rebuildCurve	smartSurfaceCurveRebuild	done	auto
 rebuildCurve	spans	done	auto
 rebuildCurve	tol	done	auto
 rebuildCurve	tolerance	done	auto
-rebuildSurface	caching	missing	
-rebuildSurface	cch	missing	
+rebuildSurface	caching	done	auto
+rebuildSurface	cch	done	auto
 rebuildSurface	ch	done	auto
 rebuildSurface	constructionHistory	done	auto
 rebuildSurface	degreeU	done	auto
@@ -29038,8 +29038,8 @@ rebuildSurface	dir	done	auto
 rebuildSurface	direction	done	auto
 rebuildSurface	du	done	auto
 rebuildSurface	dv	done	auto
-rebuildSurface	e	missing	
-rebuildSurface	edit	missing	
+rebuildSurface	e	done	auto
+rebuildSurface	edit	done	auto
 rebuildSurface	end	done	auto
 rebuildSurface	endKnots	done	auto
 rebuildSurface	fitRebuild	done	auto
@@ -29052,14 +29052,14 @@ rebuildSurface	keepRange	done	auto
 rebuildSurface	kr	done	auto
 rebuildSurface	n	done	auto
 rebuildSurface	name	done	auto
-rebuildSurface	nds	missing	
-rebuildSurface	nodeState	missing	
+rebuildSurface	nds	done	auto
+rebuildSurface	nodeState	done	auto
 rebuildSurface	o	done	auto
 rebuildSurface	object	done	auto
 rebuildSurface	po	done	auto
 rebuildSurface	polygon	done	auto
-rebuildSurface	q	missing	
-rebuildSurface	query	missing	
+rebuildSurface	q	done	auto
+rebuildSurface	query	done	auto
 rebuildSurface	rebuildType	done	auto
 rebuildSurface	replaceOriginal	done	auto
 rebuildSurface	rpo	done	auto
@@ -29161,10 +29161,10 @@ referenceQuery	withoutCopyNumber	done	auto
 refresh	currentView	done	auto
 refresh	cv	done	auto
 refresh	f	done	auto
-refresh	fe	missing	
-refresh	fileExtension	missing	
-refresh	filename	missing	
-refresh	fn	missing	
+refresh	fe	done	auto
+refresh	fileExtension	done	auto
+refresh	filename	done	auto
+refresh	fn	done	auto
 refresh	force	done	auto
 refresh	su	done	auto
 refresh	suspend	done	auto
@@ -29199,9 +29199,9 @@ relationship	q	done	auto
 relationship	query	done	auto
 relationship	rd	done	auto
 relationship	relationshipData	done	auto
-removeMultiInstance	all	missing	
-removeMultiInstance	allChildren	missing	
-removeMultiInstance	b	missing	
+removeMultiInstance	all	done	auto
+removeMultiInstance	allChildren	done	auto
+removeMultiInstance	b	done	auto
 rename	ignoreShape	done	auto
 rename	uid	done	auto
 rename	uuid	done	auto
@@ -29593,8 +29593,8 @@ reorderContainer	q	missing
 reorderContainer	query	missing	
 reorderContainer	r	missing	
 reorderContainer	relative	missing	
-reorderDeformers	n	missing	
-reorderDeformers	name	missing	
+reorderDeformers	n	done	auto
+reorderDeformers	name	done	auto
 requires	dataType	done	auto
 requires	dt	done	auto
 requires	nodeType	done	auto
@@ -29609,14 +29609,14 @@ resampleFluid	resampleHeight	missing
 resampleFluid	resampleWidth	missing	
 resampleFluid	rh	missing	
 resampleFluid	rw	missing	
-resolutionNode	n	missing	
-resolutionNode	name	missing	
-resolutionNode	p	missing	
-resolutionNode	parent	missing	
-resolutionNode	s	missing	
-resolutionNode	shared	missing	
-resolutionNode	skipSelect	missing	
-resolutionNode	ss	missing	
+resolutionNode	n	done	auto
+resolutionNode	name	done	auto
+resolutionNode	p	done	auto
+resolutionNode	parent	done	auto
+resolutionNode	s	done	auto
+resolutionNode	shared	done	auto
+resolutionNode	skipSelect	done	auto
+resolutionNode	ss	done	auto
 resourceManager	nameFilter	missing	
 resourceManager	nf	missing	
 resourceManager	s	missing	
@@ -29641,95 +29641,95 @@ retimeKeyCtx	q	missing
 retimeKeyCtx	query	missing	
 retimeKeyCtx	snapOnFrame	missing	
 retimeKeyCtx	sof	missing	
-reverseCurve	caching	missing	
-reverseCurve	cch	missing	
+reverseCurve	caching	done	auto
+reverseCurve	cch	done	auto
 reverseCurve	ch	done	auto
 reverseCurve	constructionHistory	done	auto
-reverseCurve	cos	missing	
-reverseCurve	curveOnSurface	missing	
-reverseCurve	e	missing	
-reverseCurve	edit	missing	
+reverseCurve	cos	done	auto
+reverseCurve	curveOnSurface	done	auto
+reverseCurve	e	done	auto
+reverseCurve	edit	done	auto
 reverseCurve	n	done	auto
 reverseCurve	name	done	auto
-reverseCurve	nds	missing	
-reverseCurve	nodeState	missing	
+reverseCurve	nds	done	auto
+reverseCurve	nodeState	done	auto
 reverseCurve	o	done	auto
 reverseCurve	object	done	auto
-reverseCurve	q	missing	
-reverseCurve	query	missing	
-reverseCurve	range	missing	
+reverseCurve	q	done	auto
+reverseCurve	query	done	auto
+reverseCurve	range	done	auto
 reverseCurve	replaceOriginal	done	auto
-reverseCurve	rn	missing	
+reverseCurve	rn	done	auto
 reverseCurve	rpo	done	auto
-reverseSurface	caching	missing	
-reverseSurface	cch	missing	
+reverseSurface	caching	done	auto
+reverseSurface	cch	done	auto
 reverseSurface	ch	done	auto
 reverseSurface	constructionHistory	done	auto
 reverseSurface	d	done	auto
 reverseSurface	direction	done	auto
-reverseSurface	e	missing	
-reverseSurface	edit	missing	
+reverseSurface	e	done	auto
+reverseSurface	edit	done	auto
 reverseSurface	n	done	auto
 reverseSurface	name	done	auto
-reverseSurface	nds	missing	
-reverseSurface	nodeState	missing	
+reverseSurface	nds	done	auto
+reverseSurface	nodeState	done	auto
 reverseSurface	o	done	auto
 reverseSurface	object	done	auto
-reverseSurface	q	missing	
-reverseSurface	query	missing	
+reverseSurface	q	done	auto
+reverseSurface	query	done	auto
 reverseSurface	replaceOriginal	done	auto
 reverseSurface	rpo	done	auto
-revolve	acn	missing	
-revolve	aco	missing	
-revolve	autoCorrectNormal	missing	
+revolve	acn	done	auto
+revolve	aco	done	auto
+revolve	autoCorrectNormal	done	auto
 revolve	ax	done	auto
 revolve	axis	done	auto
-revolve	axisChoice	missing	
-revolve	axisX	missing	
-revolve	axisY	missing	
-revolve	axisZ	missing	
-revolve	axx	missing	
-revolve	axy	missing	
-revolve	axz	missing	
-revolve	br	missing	
-revolve	bridge	missing	
-revolve	caching	missing	
-revolve	cch	missing	
+revolve	axisChoice	done	auto
+revolve	axisX	done	auto
+revolve	axisY	done	auto
+revolve	axisZ	done	auto
+revolve	axx	done	auto
+revolve	axy	done	auto
+revolve	axz	done	auto
+revolve	br	done	auto
+revolve	bridge	done	auto
+revolve	caching	done	auto
+revolve	cch	done	auto
 revolve	ch	done	auto
-revolve	computePivotAndAxis	missing	
+revolve	computePivotAndAxis	done	auto
 revolve	constructionHistory	done	auto
-revolve	cpa	missing	
+revolve	cpa	done	auto
 revolve	d	done	auto
 revolve	degree	done	auto
-revolve	e	missing	
-revolve	edit	missing	
+revolve	e	done	auto
+revolve	edit	done	auto
 revolve	endSweep	done	auto
 revolve	esw	done	auto
 revolve	n	done	auto
 revolve	name	done	auto
-revolve	nds	missing	
-revolve	nodeState	missing	
-revolve	o	missing	
-revolve	object	missing	
+revolve	nds	done	auto
+revolve	nodeState	done	auto
+revolve	o	done	auto
+revolve	object	done	auto
 revolve	p	done	auto
 revolve	pivot	done	auto
-revolve	pivotX	missing	
-revolve	pivotY	missing	
-revolve	pivotZ	missing	
+revolve	pivotX	done	auto
+revolve	pivotY	done	auto
+revolve	pivotZ	done	auto
 revolve	po	done	auto
 revolve	polygon	done	auto
-revolve	px	missing	
-revolve	py	missing	
-revolve	pz	missing	
-revolve	q	missing	
-revolve	query	missing	
-revolve	r	missing	
-revolve	ra	missing	
-revolve	radius	missing	
-revolve	radiusAnchor	missing	
+revolve	px	done	auto
+revolve	py	done	auto
+revolve	pz	done	auto
+revolve	q	done	auto
+revolve	query	done	auto
+revolve	r	done	auto
+revolve	ra	done	auto
+revolve	radius	done	auto
+revolve	radiusAnchor	done	auto
 revolve	range	done	auto
-revolve	rb	missing	
-revolve	rebuild	missing	
+revolve	rb	done	auto
+revolve	rebuild	done	auto
 revolve	rn	done	auto
 revolve	s	done	auto
 revolve	sections	done	auto
@@ -29737,8 +29737,8 @@ revolve	ssw	done	auto
 revolve	startSweep	done	auto
 revolve	tol	done	auto
 revolve	tolerance	done	auto
-revolve	ulp	missing	
-revolve	useLocalPivot	missing	
+revolve	ulp	done	auto
+revolve	useLocalPivot	done	auto
 revolve	useTolerance	done	auto
 revolve	ut	done	auto
 rigidBody	act	done	auto
@@ -29900,10 +29900,10 @@ rollCtx	tn	missing
 rollCtx	toolName	missing	
 rotate	a	done	auto
 rotate	absolute	done	auto
-rotate	centerPivot	missing	
+rotate	centerPivot	done	auto
 rotate	componentSpace	done	auto
 rotate	constrainAlongNormal	done	auto
-rotate	cp	missing	
+rotate	cp	done	auto
 rotate	cs	done	auto
 rotate	deletePriorHistory	done	auto
 rotate	dph	done	auto
@@ -29911,11 +29911,11 @@ rotate	eu	done	auto
 rotate	euler	done	auto
 rotate	fo	done	auto
 rotate	forceOrderXYZ	done	auto
-rotate	oa	missing	
+rotate	oa	done	auto
 rotate	objectCenterPivot	done	auto
 rotate	objectSpace	done	auto
 rotate	ocp	done	auto
-rotate	orientAxes	missing	
+rotate	orientAxes	done	auto
 rotate	os	done	auto
 rotate	p	done	auto
 rotate	pcp	done	auto
@@ -29923,24 +29923,24 @@ rotate	pgp	done	auto
 rotate	pivot	done	auto
 rotate	preserveChildPosition	done	auto
 rotate	preserveGeometryPosition	done	auto
-rotate	preserveUV	missing	
-rotate	puv	missing	
+rotate	preserveUV	done	auto
+rotate	puv	done	auto
 rotate	r	done	auto
-rotate	rab	missing	
-rotate	rao	missing	
-rotate	rax	missing	
-rotate	ray	missing	
-rotate	raz	missing	
-rotate	reflection	missing	
-rotate	reflectionAboutBBox	missing	
-rotate	reflectionAboutOrigin	missing	
-rotate	reflectionAboutX	missing	
-rotate	reflectionAboutY	missing	
-rotate	reflectionAboutZ	missing	
-rotate	reflectionTolerance	missing	
+rotate	rab	done	auto
+rotate	rao	done	auto
+rotate	rax	done	auto
+rotate	ray	done	auto
+rotate	raz	done	auto
+rotate	reflection	done	auto
+rotate	reflectionAboutBBox	done	auto
+rotate	reflectionAboutOrigin	done	auto
+rotate	reflectionAboutX	done	auto
+rotate	reflectionAboutY	done	auto
+rotate	reflectionAboutZ	done	auto
+rotate	reflectionTolerance	done	auto
 rotate	relative	done	auto
-rotate	rfl	missing	
-rotate	rft	missing	
+rotate	rfl	done	auto
+rotate	rft	done	auto
 rotate	rotateX	done	auto
 rotate	rotateXY	done	auto
 rotate	rotateXYZ	done	auto
@@ -29948,10 +29948,10 @@ rotate	rotateXZ	done	auto
 rotate	rotateY	done	auto
 rotate	rotateYZ	done	auto
 rotate	rotateZ	done	auto
-rotate	smn	missing	
-rotate	symNegative	missing	
-rotate	t	missing	
-rotate	translate	missing	
+rotate	smn	done	auto
+rotate	symNegative	done	auto
+rotate	t	done	auto
+rotate	translate	done	auto
 rotate	worldSpace	done	auto
 rotate	ws	done	auto
 rotate	x	done	auto
@@ -30022,8 +30022,8 @@ rowColumnLayout	ex	done	auto
 rowColumnLayout	exists	done	auto
 rowColumnLayout	fpn	done	auto
 rowColumnLayout	fullPathName	done	auto
-rowColumnLayout	generalSpacing	missing	
-rowColumnLayout	gsp	missing	
+rowColumnLayout	generalSpacing	done	auto
+rowColumnLayout	gsp	done	auto
 rowColumnLayout	h	done	auto
 rowColumnLayout	height	done	auto
 rowColumnLayout	highlightColor	done	auto
@@ -30032,10 +30032,10 @@ rowColumnLayout	io	done	auto
 rowColumnLayout	isObscured	done	auto
 rowColumnLayout	m	done	auto
 rowColumnLayout	manage	done	auto
-rowColumnLayout	mar	missing	
-rowColumnLayout	margins	missing	
-rowColumnLayout	margins4	missing	
-rowColumnLayout	mr4	missing	
+rowColumnLayout	mar	done	auto
+rowColumnLayout	margins	done	auto
+rowColumnLayout	margins4	done	auto
+rowColumnLayout	mr4	done	auto
 rowColumnLayout	nbg	done	auto
 rowColumnLayout	nc	done	auto
 rowColumnLayout	nch	done	auto
@@ -30074,7 +30074,7 @@ rowColumnLayout	visible	done	auto
 rowColumnLayout	visibleChangeCommand	done	auto
 rowColumnLayout	w	done	auto
 rowColumnLayout	width	done	auto
-rowLayout	ad1	missing	
+rowLayout	ad1	done	auto
 rowLayout	ad2	done	auto
 rowLayout	ad3	done	auto
 rowLayout	ad4	done	auto
@@ -30082,7 +30082,7 @@ rowLayout	ad5	done	auto
 rowLayout	ad6	done	auto
 rowLayout	adj	done	auto
 rowLayout	adjustableColumn	done	auto
-rowLayout	adjustableColumn1	missing	
+rowLayout	adjustableColumn1	done	auto
 rowLayout	adjustableColumn2	done	auto
 rowLayout	adjustableColumn3	done	auto
 rowLayout	adjustableColumn4	done	auto
@@ -30168,8 +30168,8 @@ rowLayout	ex	done	auto
 rowLayout	exists	done	auto
 rowLayout	fpn	done	auto
 rowLayout	fullPathName	done	auto
-rowLayout	generalSpacing	missing	
-rowLayout	gsp	missing	
+rowLayout	generalSpacing	done	auto
+rowLayout	gsp	done	auto
 rowLayout	h	done	auto
 rowLayout	height	done	auto
 rowLayout	highlightColor	done	auto
@@ -30178,10 +30178,10 @@ rowLayout	io	done	auto
 rowLayout	isObscured	done	auto
 rowLayout	m	done	auto
 rowLayout	manage	done	auto
-rowLayout	mar	missing	
-rowLayout	margins	missing	
-rowLayout	margins4	missing	
-rowLayout	mr4	missing	
+rowLayout	mar	done	auto
+rowLayout	margins	done	auto
+rowLayout	margins4	done	auto
+rowLayout	mr4	done	auto
 rowLayout	nbg	done	auto
 rowLayout	nc	done	auto
 rowLayout	nch	done	auto
@@ -30371,10 +30371,10 @@ savePrefs	ui	missing
 savePrefs	uiLayout	missing	
 scale	a	done	auto
 scale	absolute	done	auto
-scale	centerPivot	missing	
+scale	centerPivot	done	auto
 scale	componentSpace	done	auto
 scale	constrainAlongNormal	done	auto
-scale	cp	missing	
+scale	cp	done	auto
 scale	cs	done	auto
 scale	deletePriorHistory	done	auto
 scale	distanceOnly	done	auto
@@ -30382,11 +30382,11 @@ scale	dph	done	auto
 scale	dso	done	auto
 scale	localSpace	done	auto
 scale	ls	done	auto
-scale	oa	missing	
+scale	oa	done	auto
 scale	objectCenterPivot	done	auto
 scale	objectSpace	done	auto
 scale	ocp	done	auto
-scale	orientAxes	missing	
+scale	orientAxes	done	auto
 scale	os	done	auto
 scale	p	done	auto
 scale	pcp	done	auto
@@ -30394,24 +30394,24 @@ scale	pgp	done	auto
 scale	pivot	done	auto
 scale	preserveChildPosition	done	auto
 scale	preserveGeometryPosition	done	auto
-scale	preserveUV	missing	
-scale	puv	missing	
+scale	preserveUV	done	auto
+scale	puv	done	auto
 scale	r	done	auto
-scale	rab	missing	
-scale	rao	missing	
-scale	rax	missing	
-scale	ray	missing	
-scale	raz	missing	
-scale	reflection	missing	
-scale	reflectionAboutBBox	missing	
-scale	reflectionAboutOrigin	missing	
-scale	reflectionAboutX	missing	
-scale	reflectionAboutY	missing	
-scale	reflectionAboutZ	missing	
-scale	reflectionTolerance	missing	
+scale	rab	done	auto
+scale	rao	done	auto
+scale	rax	done	auto
+scale	ray	done	auto
+scale	raz	done	auto
+scale	reflection	done	auto
+scale	reflectionAboutBBox	done	auto
+scale	reflectionAboutOrigin	done	auto
+scale	reflectionAboutX	done	auto
+scale	reflectionAboutY	done	auto
+scale	reflectionAboutZ	done	auto
+scale	reflectionTolerance	done	auto
 scale	relative	done	auto
-scale	rfl	missing	
-scale	rft	missing	
+scale	rfl	done	auto
+scale	rft	done	auto
 scale	scaleX	done	auto
 scale	scaleXY	done	auto
 scale	scaleXYZ	done	auto
@@ -30419,8 +30419,8 @@ scale	scaleXZ	done	auto
 scale	scaleY	done	auto
 scale	scaleYZ	done	auto
 scale	scaleZ	done	auto
-scale	smn	missing	
-scale	symNegative	missing	
+scale	smn	done	auto
+scale	symNegative	done	auto
 scale	worldSpace	done	auto
 scale	ws	done	auto
 scale	x	done	auto
@@ -30433,10 +30433,10 @@ scale	xz	done	auto
 scale	y	done	auto
 scale	yz	done	auto
 scale	z	done	auto
-scaleComponents	p	missing	
+scaleComponents	p	done	auto
 scaleComponents	pivot	done	auto
-scaleComponents	ro	missing	
-scaleComponents	rotation	missing	
+scaleComponents	ro	done	auto
+scaleComponents	rotation	done	auto
 scaleConstraint	e	done	auto
 scaleConstraint	edit	done	auto
 scaleConstraint	l	done	auto
@@ -30451,8 +30451,8 @@ scaleConstraint	q	done	auto
 scaleConstraint	query	done	auto
 scaleConstraint	remove	done	auto
 scaleConstraint	rm	done	auto
-scaleConstraint	sc	missing	
-scaleConstraint	scaleCompensate	missing	
+scaleConstraint	sc	done	auto
+scaleConstraint	scaleCompensate	done	auto
 scaleConstraint	sk	done	auto
 scaleConstraint	skip	done	auto
 scaleConstraint	targetList	done	auto
@@ -30875,7 +30875,7 @@ scriptJob	connectionChange	done	auto
 scriptJob	ct	done	auto
 scriptJob	cu	done	auto
 scriptJob	disregardIndex	done	auto
-scriptJob	dri	missing	
+scriptJob	dri	done	auto
 scriptJob	e	done	auto
 scriptJob	event	done	auto
 scriptJob	ex	done	auto
@@ -30900,8 +30900,8 @@ scriptJob	nd	done	auto
 scriptJob	nnc	done	auto
 scriptJob	nodeDeleted	done	auto
 scriptJob	nodeNameChanged	done	auto
-scriptJob	optionVarChanged	missing	
-scriptJob	ovc	missing	
+scriptJob	optionVarChanged	done	auto
+scriptJob	ovc	done	auto
 scriptJob	p	done	auto
 scriptJob	parent	done	auto
 scriptJob	per	done	auto
@@ -30925,7 +30925,7 @@ scriptNode	eb	done	auto
 scriptNode	edit	done	auto
 scriptNode	executeAfter	done	auto
 scriptNode	executeBefore	done	auto
-scriptNode	ignoreReferenceEdits	missing	
+scriptNode	ignoreReferenceEdits	done	auto
 scriptNode	ire	done	auto
 scriptNode	n	done	auto
 scriptNode	name	done	auto
@@ -30944,21 +30944,21 @@ scriptTable	bgc	done	auto
 scriptTable	c	done	auto
 scriptTable	cbc	done	auto
 scriptTable	ccc	done	auto
-scriptTable	cellBackgroundColorCommand	missing	
+scriptTable	cellBackgroundColorCommand	done	auto
 scriptTable	cellChangedCmd	done	auto
-scriptTable	cellForegroundColorCommand	missing	
+scriptTable	cellForegroundColorCommand	done	auto
 scriptTable	cellIndex	done	auto
 scriptTable	cellValue	done	auto
-scriptTable	cf	missing	
+scriptTable	cf	done	auto
 scriptTable	cfc	done	auto
 scriptTable	ci	done	auto
 scriptTable	clearRow	done	auto
 scriptTable	clearTable	done	auto
-scriptTable	columnFilter	missing	
+scriptTable	columnFilter	done	auto
 scriptTable	columnWidth	done	auto
 scriptTable	columns	done	auto
 scriptTable	cr	done	auto
-scriptTable	ct	missing	
+scriptTable	ct	done	auto
 scriptTable	cv	done	auto
 scriptTable	cw	done	auto
 scriptTable	defineTemplate	done	auto
@@ -30973,9 +30973,9 @@ scriptTable	dt	done	auto
 scriptTable	dtg	done	auto
 scriptTable	e	done	auto
 scriptTable	ebg	done	auto
-scriptTable	ed	missing	
+scriptTable	ed	done	auto
 scriptTable	edit	done	auto
-scriptTable	editable	missing	
+scriptTable	editable	done	auto
 scriptTable	eh	done	auto
 scriptTable	ekf	done	auto
 scriptTable	en	done	auto
@@ -31019,11 +31019,11 @@ scriptTable	r	done	auto
 scriptTable	rh	done	auto
 scriptTable	rowHeight	done	auto
 scriptTable	rows	done	auto
-scriptTable	rowsRemovedCmd	missing	
-scriptTable	rowsToBeRemovedCmd	missing	
-scriptTable	rrc	missing	
-scriptTable	rtc	missing	
-scriptTable	sb	missing	
+scriptTable	rowsRemovedCmd	done	auto
+scriptTable	rowsToBeRemovedCmd	done	auto
+scriptTable	rrc	done	auto
+scriptTable	rtc	done	auto
+scriptTable	sb	done	auto
 scriptTable	sbm	done	auto
 scriptTable	sc	done	auto
 scriptTable	scc	done	auto
@@ -31033,15 +31033,15 @@ scriptTable	selectedCells	done	auto
 scriptTable	selectedColumns	done	auto
 scriptTable	selectedRow	done	auto
 scriptTable	selectedRows	done	auto
-scriptTable	selectionBehavior	missing	
+scriptTable	selectionBehavior	done	auto
 scriptTable	selectionChangedCmd	done	auto
-scriptTable	selectionMode	missing	
-scriptTable	sm	missing	
+scriptTable	selectionMode	done	auto
+scriptTable	sm	done	auto
 scriptTable	sortEnabled	done	auto
 scriptTable	sr	done	auto
 scriptTable	srs	done	auto
 scriptTable	statusBarMessage	done	auto
-scriptTable	udc	missing	
+scriptTable	udc	done	auto
 scriptTable	underPointerColumn	done	auto
 scriptTable	underPointerRow	done	auto
 scriptTable	upc	done	auto
@@ -31105,7 +31105,7 @@ scriptedPanel	ut	done	auto
 scriptedPanelType	acb	done	auto
 scriptedPanelType	addCallback	done	auto
 scriptedPanelType	ccb	done	auto
-scriptedPanelType	copyStateCallback	missing	
+scriptedPanelType	copyStateCallback	done	auto
 scriptedPanelType	createCallback	done	auto
 scriptedPanelType	customView	done	auto
 scriptedPanelType	cv	done	auto
@@ -31117,15 +31117,15 @@ scriptedPanelType	e	done	auto
 scriptedPanelType	edit	done	auto
 scriptedPanelType	ex	done	auto
 scriptedPanelType	exists	done	auto
-scriptedPanelType	hkc	missing	
-scriptedPanelType	hotkeyCtxClient	missing	
+scriptedPanelType	hkc	done	auto
+scriptedPanelType	hotkeyCtxClient	done	auto
 scriptedPanelType	icb	done	auto
 scriptedPanelType	initCallback	done	auto
 scriptedPanelType	l	done	auto
 scriptedPanelType	label	done	auto
 scriptedPanelType	o	done	auto
 scriptedPanelType	obsolete	done	auto
-scriptedPanelType	ocb	missing	
+scriptedPanelType	ocb	done	auto
 scriptedPanelType	q	done	auto
 scriptedPanelType	query	done	auto
 scriptedPanelType	rcb	done	auto
@@ -31224,8 +31224,8 @@ scrollLayout	ann	done	auto
 scrollLayout	annotation	done	auto
 scrollLayout	backgroundColor	done	auto
 scrollLayout	bgc	done	auto
-scrollLayout	borderVisible	missing	
-scrollLayout	bv	missing	
+scrollLayout	borderVisible	done	auto
+scrollLayout	bv	done	auto
 scrollLayout	ca	done	auto
 scrollLayout	childArray	done	auto
 scrollLayout	childResizable	done	auto
@@ -31250,8 +31250,8 @@ scrollLayout	ex	done	auto
 scrollLayout	exists	done	auto
 scrollLayout	fpn	done	auto
 scrollLayout	fullPathName	done	auto
-scrollLayout	generalSpacing	missing	
-scrollLayout	gsp	missing	
+scrollLayout	generalSpacing	done	auto
+scrollLayout	gsp	done	auto
 scrollLayout	h	done	auto
 scrollLayout	height	done	auto
 scrollLayout	highlightColor	done	auto
@@ -31262,12 +31262,12 @@ scrollLayout	io	done	auto
 scrollLayout	isObscured	done	auto
 scrollLayout	m	done	auto
 scrollLayout	manage	done	auto
-scrollLayout	mar	missing	
-scrollLayout	margins	missing	
-scrollLayout	margins4	missing	
+scrollLayout	mar	done	auto
+scrollLayout	margins	done	auto
+scrollLayout	margins4	done	auto
 scrollLayout	mcw	done	auto
 scrollLayout	minChildWidth	done	auto
-scrollLayout	mr4	missing	
+scrollLayout	mr4	done	auto
 scrollLayout	nbg	done	auto
 scrollLayout	nch	done	auto
 scrollLayout	noBackground	done	auto
@@ -31628,10 +31628,10 @@ select	af	done	auto
 select	all	done	auto
 select	allDagObjects	done	auto
 select	allDependencyNodes	done	auto
-select	cc	missing	
+select	cc	done	auto
 select	cl	done	auto
 select	clear	done	auto
-select	containerCentric	missing	
+select	containerCentric	done	auto
 select	d	done	auto
 select	deselect	done	auto
 select	hi	done	auto

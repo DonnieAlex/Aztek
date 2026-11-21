@@ -29,6 +29,8 @@ enum Watch {
     NodeDeleted(NodeId),
     NodeName(NodeId),
     UiDeleted(String),
+    /// An optionVar by name: fires as its value changes, and the job ends when it is removed.
+    OptionVar(String),
     Time,
     Idle,
 }
@@ -127,6 +129,7 @@ fn job_state(s: &mut Session, w: &Watch) -> Value {
         Watch::NodeDeleted(id) => json!(s.graph.node(*id).is_some()),
         Watch::NodeName(id) => json!(s.graph.node(*id).map(|_| s.graph.path(*id))),
         Watch::Time => json!(aztek_scene::anim::frame(&s.graph)),
+        Watch::OptionVar(n) => s.option_vars.get(n).map_or(Value::Null, |v| json!({ "value": v })),
         _ => Value::Null,
     }
 }
@@ -275,6 +278,8 @@ pub fn scan(s: &mut Session) -> Vec<Value> {
             Watch::AttrDeleted(_) => (now == json!(false) && job.last == json!(true), false),
             Watch::NodeDeleted(_) => (now == json!(false), now == json!(false)),
             Watch::UiDeleted(p) => (gone.iter().any(|g| g == p), gone.iter().any(|g| g == p)),
+            // Removed: the job ends with it.
+            Watch::OptionVar(_) => (now != job.last && !now.is_null(), now.is_null() && !job.last.is_null()),
         };
         job.last = now;
         if fire {
@@ -400,6 +405,8 @@ fn script_job(s: &mut Session, a: &Args) -> CmdResult {
                     fail!("scriptJob: No object matches name: {what}");
                 }
                 match flag {
+                    // -disregardIndex: any element of the multi changing counts.
+                    "attributeChange" if a.bool("disregardIndex") && what.ends_with(']') => Watch::Attribute(what[..what.rfind('[').unwrap_or(what.len())].to_string()),
                     "attributeChange" => Watch::Attribute(what),
                     "attributeDeleted" => Watch::AttrDeleted(what),
                     "attributeAdded" => Watch::AttrAdded(what),
@@ -417,6 +424,13 @@ fn script_job(s: &mut Session, a: &Args) -> CmdResult {
             _ => Watch::UiDeleted(with_ui_path(&what)),
         };
         put(w, l[1].clone(), listing);
+    }
+    if let Some(l) = pair("optionVarChanged", 2) {
+        let what = text(&l[0]);
+        let listing = format!("-optionVarChanged \"{what}\" \"{}\"", text(&l[1]));
+        put(Watch::OptionVar(what), l[1].clone(), listing);
+    } else if a.has("optionVarChanged") {
+        fail!("scriptJob: -ovc takes an optionVar name and a script.");
     }
     if let Some(sc) = a.get("timeChange") {
         put(Watch::Time, sc.clone(), format!("-timeChange \"{}\"", text(sc)));
@@ -493,6 +507,10 @@ fn script_node(s: &mut Session, a: &Args) -> CmdResult {
             _ => fail!("scriptNode: name what to ask about."),
         };
     }
+    // -ignoreReferenceEdits: only as the node is made.
+    if !a.bool("edit") && a.bool("ignoreReferenceEdits") {
+        set_attr(s, &path, "ignoreReferenceEdits", PlugValue::Bool(true))?;
+    }
     if let Some(v) = a.get("beforeScript") {
         set_attr(s, &path, "before", PlugValue::String(v.as_str().unwrap_or("").to_string()))?;
     }
@@ -531,13 +549,13 @@ pub fn register(s: &mut Session) {
         script_job,
     )
     .undoable(false);
-    for (n, sh, t) in [("event", "e", 2), ("conditionTrue", "ct", 2), ("conditionFalse", "cf", 2), ("conditionChange", "cc", 2), ("attributeChange", "ac", 2), ("attributeDeleted", "ad", 2), ("attributeAdded", "aa", 2), ("connectionChange", "con", 2), ("nodeDeleted", "nd", 2), ("nodeNameChanged", "nnc", 2), ("uiDeleted", "uid", 2)] {
+    for (n, sh, t) in [("event", "e", 2), ("conditionTrue", "ct", 2), ("conditionFalse", "cf", 2), ("conditionChange", "cc", 2), ("attributeChange", "ac", 2), ("attributeDeleted", "ad", 2), ("attributeAdded", "aa", 2), ("connectionChange", "con", 2), ("nodeDeleted", "nd", 2), ("nodeNameChanged", "nnc", 2), ("uiDeleted", "uid", 2), ("optionVarChanged", "ovc", 2)] {
         job = job.flag(f(n, sh, ArgType::Any).multi(t));
     }
     for (n, sh) in [("timeChange", "tc"), ("idleEvent", "ie"), ("kill", "k"), ("exists", "ex"), ("parent", "p")] {
         job = job.flag(f(n, sh, ArgType::Any));
     }
-    for (n, sh) in [("killAll", "ka"), ("force", "f"), ("listJobs", "lj"), ("list", "l"), ("listEvents", "le"), ("listConditions", "lc"), ("runOnce", "ro"), ("killWithScene", "kws"), ("protected", "pro"), ("permanent", "per"), ("replacePrevious", "rp"), ("compressUndo", "cu"), ("disregardIndex", "di"), ("allChildren", "alc")] {
+    for (n, sh) in [("killAll", "ka"), ("force", "f"), ("listJobs", "lj"), ("list", "l"), ("listEvents", "le"), ("listConditions", "lc"), ("runOnce", "ro"), ("killWithScene", "kws"), ("protected", "pro"), ("permanent", "per"), ("replacePrevious", "rp"), ("compressUndo", "cu"), ("disregardIndex", "dri"), ("allChildren", "alc")] {
         job = job.flag(f(n, sh, ArgType::Bool));
     }
     s.register(job);
@@ -556,7 +574,7 @@ pub fn register(s: &mut Session) {
             .flag(f("sourceType", "stp", ArgType::Any))
             .flag(f("executeBefore", "eb", ArgType::Bool))
             .flag(f("executeAfter", "ea", ArgType::Bool))
-            .flag(f("ignoreReferenceEdit", "ire", ArgType::Bool)),
+            .flag(f("ignoreReferenceEdits", "ire", ArgType::Bool)),
     );
 
     s.register(

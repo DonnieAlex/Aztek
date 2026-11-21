@@ -475,20 +475,12 @@ fn is_component_call(a: &Args) -> bool {
     a.named().iter().any(|n| crate::components::is_component_string(n))
 }
 
-/// move with the reference's component options around the move itself: -preserveUV, -reflection (with -reflectionAbout*,
-/// -reflectionTolerance and -symNegative), -parameter, and -orientJoint for joints moved.
-fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
-    if a.bool("parameter") {
-        return move_parametric(s, a);
-    }
-    let reflect = a.bool("reflection");
-    let keep_uv = s.graph.move_opts.preserve_uv;
-    if a.bool("preserveUV") {
-        s.graph.move_opts.preserve_uv = true;
-    }
-    // -reflection: the meshes named or picked take the symmetry asked for, for this move only.
+/// -reflection on move, rotate and scale: the meshes named or picked take the symmetry asked for (-reflectionAboutX, Y or Z
+/// through the origin or the bounding box, -reflectionTolerance, -symNegative) for this one edit. Returns what to put
+/// back.
+fn reflection_on(s: &mut Session, a: &Args) -> CmdResult<Vec<(NodeId, i64, i64, f64)>> {
     let mut saved: Vec<(NodeId, i64, i64, f64)> = Vec::new();
-    if reflect {
+    if a.bool("reflection") {
         use crate::mesh_nodes::MeshNode;
         let axis = if a.bool("reflectionAboutY") {
             1
@@ -535,6 +527,98 @@ fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             crate::mesh_edit::set_symmetry_tolerance(Some(t));
         }
     }
+    Ok(saved)
+}
+
+/// The meshes' own symmetry back after a -reflection edit.
+fn reflection_off(s: &mut Session, saved: Vec<(NodeId, i64, i64, f64)>) -> CmdResult<()> {
+    crate::mesh_edit::set_symmetry_tolerance(None);
+    for (m, sym, plane, offset) in saved {
+        use crate::mesh_nodes::MeshNode;
+        let g = &mut s.graph;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY as i32), PlugValue::Int(sym))?;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_PLANE as i32), PlugValue::Int(plane))?;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_OFFSET as i32), PlugValue::Float(offset))?;
+    }
+    Ok(())
+}
+
+/// The middle of the world bounding box of some objects.
+fn box_centre(s: &mut Session, ids: &[NodeId]) -> CmdResult<DVec3> {
+    let paths: Vec<Value> = ids.iter().map(|&i| json!(s.graph.path(i))).collect();
+    let b = s.run("exactWorldBoundingBox", json!({"args": paths}))?;
+    let v: Vec<f64> = b.as_array().into_iter().flatten().filter_map(Value::as_f64).collect();
+    if v.len() < 6 {
+        return Ok(DVec3::ZERO);
+    }
+    Ok(DVec3::new(v[0] + v[3], v[1] + v[4], v[2] + v[5]) * 0.5)
+}
+
+/// The axes -orientAxes names, as a turn from the world's.
+fn orient_of(a: &Args) -> Option<DMat3> {
+    a.vec3("orientAxes").map(|o| DMat3::from_mat4(euler_to_matrix(DVec3::from_array(o), RotateOrder::Xyz)))
+}
+
+/// An object moved round a pivot by `delta` (world): into translate with -translate, else into the rotate pivot's
+/// translation, as the reference's rotate does.
+fn pivot_offset(g: &mut Graph, id: NodeId, delta: DVec3, into_translate: bool) -> CmdResult<()> {
+    if into_translate {
+        xf::move_by(g, &[id], delta, Space::World)?;
+        return Ok(());
+    }
+    g.evaluate();
+    let n = g.node(id).unwrap();
+    let local = (n.matrix(Transform::PARENT_MATRIX).inverse() * glam::DVec4::from((delta, 0.0))).truncate();
+    let rpt = n.vec3(Transform::ROTATE_PIVOT_TRANSLATE) + local;
+    put(g, id, Transform::ROTATE_PIVOT_TRANSLATE, rpt)
+}
+
+/// rotate and scale on components named, with their component options: -reflection, -preserveUV, -pivot (or the
+/// components' middle) and -orientAxes. The components named are picked for the edit and the selection put back.
+fn component_motion(s: &mut Session, a: &Args, cmd: &str, values: DVec3) -> CmdResult {
+    let saved = reflection_on(s, a)?;
+    let keep_uv = s.graph.move_opts.preserve_uv;
+    if a.bool("preserveUV") {
+        s.graph.move_opts.preserve_uv = true;
+    }
+    let named: Vec<String> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).collect();
+    let before: Vec<String> = s.graph.selection().iter().map(|&id| s.graph.path(id)).collect();
+    let before_components = crate::components::component_strings(&s.graph, false);
+    let r = (|| -> CmdResult {
+        if !named.is_empty() {
+            s.run("select", json!({"args": named}))?;
+        }
+        let mut call = json!({"by": j3(values)});
+        if let Some(p) = a.vec3("pivot") {
+            call["pivot"] = json!(p);
+        }
+        if let Some(o) = a.vec3("orientAxes") {
+            call["orient"] = json!(o);
+        }
+        s.run(if cmd == "rotate" { "rotateComponents" } else { "scaleComponents" }, call)?;
+        Ok(Value::Null)
+    })();
+    if !named.is_empty() {
+        let back: Vec<String> = if before_components.is_empty() { before } else { before_components };
+        let _ = if back.is_empty() { s.run("select", json!({"clear": true})) } else { s.run("select", json!({"args": back})) };
+    }
+    s.graph.move_opts.preserve_uv = keep_uv;
+    reflection_off(s, saved)?;
+    r
+}
+
+/// move with the reference's component options around the move itself: -preserveUV, -reflection (with -reflectionAbout*,
+/// -reflectionTolerance and -symNegative), -parameter, and -orientJoint for joints moved.
+fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
+    if a.bool("parameter") {
+        return move_parametric(s, a);
+    }
+    let reflect = a.bool("reflection");
+    let keep_uv = s.graph.move_opts.preserve_uv;
+    if a.bool("preserveUV") {
+        s.graph.move_opts.preserve_uv = true;
+    }
+    let saved = reflection_on(s, a)?;
     // Symmetry follows a move of the components picked: those named are picked for it, and the selection put back after.
     let named_components: Vec<String> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).collect();
     let r = if reflect && !named_components.is_empty() {
@@ -558,14 +642,7 @@ fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
         run_move_inner(s, a, prev)
     };
     s.graph.move_opts.preserve_uv = keep_uv;
-    crate::mesh_edit::set_symmetry_tolerance(None);
-    for (m, sym, plane, offset) in saved {
-        use crate::mesh_nodes::MeshNode;
-        let g = &mut s.graph;
-        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY as i32), PlugValue::Int(sym))?;
-        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_PLANE as i32), PlugValue::Int(plane))?;
-        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_OFFSET as i32), PlugValue::Float(offset))?;
-    }
+    reflection_off(s, saved)?;
     let r = r?;
     // -orientJoint: joints moved turn to aim along the order given, and so does the joint above each.
     if let Some(order) = a.get("orientJoint").and_then(Value::as_str).map(str::to_string) {
@@ -741,26 +818,43 @@ fn soft_followers(s: &mut Session, moved: &[NodeId]) -> Vec<(NodeId, f64, DVec3)
 
 fn run_rotate(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let Some(m) = read_motion(a, "rotate", 0.0)? else { return prev(s, a) };
+    let orient = orient_of(a);
     if is_component_call(a) {
+        if ["reflection", "preserveUV", "orientAxes"].iter().any(|k| a.has(k)) {
+            let values = DVec3::new(if m.mask[0] { m.values.x } else { 0.0 }, if m.mask[1] { m.values.y } else { 0.0 }, if m.mask[2] { m.values.z } else { 0.0 });
+            return component_motion(s, a, "rotate", values);
+        }
         return prev(s, &plain_args(a, json!({"by": j3(m.values)})));
     }
     let ids = transforms_named(s, a, "rotate")?;
     let saved = if a.bool("preserveChildPosition") { child_worlds(&mut s.graph, &ids) } else { Vec::new() };
-    let pivot = a.vec3("pivot").map(DVec3::from_array);
+    // -pivot, or -centerPivot the middle of everything's bounding box; -objectCenterPivot each object's own middle.
+    let mut pivot = a.vec3("pivot").map(DVec3::from_array);
+    if a.bool("centerPivot") {
+        pivot = Some(box_centre(s, &ids)?);
+    }
+    let per_object = a.bool("objectCenterPivot");
+    let into_translate = a.bool("translate");
     let values = DVec3::new(if m.mask[0] { m.values.x } else { 0.0 }, if m.mask[1] { m.values.y } else { 0.0 }, if m.mask[2] { m.values.z } else { 0.0 });
     if m.relative {
-        // About a point: the object's place turns around it too.
-        let turn = DMat3::from_mat4(euler_to_matrix(values, RotateOrder::Xyz));
+        // About a point: the object's place turns around it too. -orientAxes: the angles are about those axes.
+        let own = DMat3::from_mat4(euler_to_matrix(values, RotateOrder::Xyz));
+        let turn = orient.map_or(own, |o| o * own * o.transpose());
         // Only the tops of what is picked travel round the point; those under them go with them.
         for id in xf::top_level(&s.graph, &ids) {
-            if let Some(p) = pivot {
+            let p = if per_object { Some(box_centre(s, &[id])?) } else { pivot };
+            if let Some(p) = p {
                 let at = xf::world_pivot(&mut s.graph, id);
                 let moved = turn * (at - p) + p - at;
-                xf::move_by(&mut s.graph, &[id], moved, Space::World)?;
+                pivot_offset(&mut s.graph, id, moved, into_translate)?;
             }
         }
         let followers = soft_followers(s, &ids);
-        prev(s, &plain_args(a, json!({"by": j3(values), "space": space_name(space_of(a))})))?;
+        if orient.is_some() {
+            xf::rotate_by(&mut s.graph, &ids, &turn, Space::World)?;
+        } else {
+            prev(s, &plain_args(a, json!({"by": j3(values), "space": space_name(space_of(a))})))?;
+        }
         for (id, w, near) in followers {
             let share = DMat3::from_mat4(euler_to_matrix(values * w, RotateOrder::Xyz));
             let at = xf::world_pivot(&mut s.graph, id);
@@ -805,16 +899,43 @@ fn run_rotate(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
 
 fn run_scale(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let Some(m) = read_motion(a, "scale", 1.0)? else { return prev(s, a) };
+    let orient = orient_of(a);
     if is_component_call(a) {
+        if ["reflection", "preserveUV", "orientAxes"].iter().any(|k| a.has(k)) {
+            let by = DVec3::new(if m.mask[0] { m.values.x } else { 1.0 }, if m.mask[1] { m.values.y } else { 1.0 }, if m.mask[2] { m.values.z } else { 1.0 });
+            return component_motion(s, a, "scale", by);
+        }
         return prev(s, &plain_args(a, json!({"by": j3(m.values)})));
     }
     let ids = transforms_named(s, a, "scale")?;
     let saved = if a.bool("preserveChildPosition") { child_worlds(&mut s.graph, &ids) } else { Vec::new() };
-    let pivot = a.vec3("pivot").map(DVec3::from_array);
+    let mut pivot = a.vec3("pivot").map(DVec3::from_array);
+    if a.bool("centerPivot") {
+        pivot = Some(box_centre(s, &ids)?);
+    }
+    let per_object = a.bool("objectCenterPivot");
     if m.relative {
         let by = DVec3::new(if m.mask[0] { m.values.x } else { 1.0 }, if m.mask[1] { m.values.y } else { 1.0 }, if m.mask[2] { m.values.z } else { 1.0 });
+        // -orientAxes: a scale along other axes than the objects' own, set as each object's whole world matrix.
+        if let Some(o) = orient {
+            let sc = o * DMat3::from_diagonal(by) * o.transpose();
+            for id in xf::top_level(&s.graph, &ids) {
+                let p = if per_object { box_centre(s, &[id])? } else { pivot.unwrap_or_else(|| xf::world_pivot(&mut s.graph, id)) };
+                s.graph.evaluate();
+                let w = s.graph.node(id).unwrap().matrix(Transform::WORLD_MATRIX);
+                let change = DMat4::from_translation(p) * DMat4::from_mat3(sc) * DMat4::from_translation(-p);
+                let next = change * w;
+                let path = s.graph.path(id);
+                s.run("xform", json!({"args": [path], "worldSpace": true, "matrix": next.to_cols_array().to_vec()}))?;
+            }
+            if !saved.is_empty() {
+                restore_worlds(&mut s.graph, saved)?;
+            }
+            return Ok(Value::Null);
+        }
         for id in xf::top_level(&s.graph, &ids) {
-            if let Some(p) = pivot {
+            let p = if per_object { Some(box_centre(s, &[id])?) } else { pivot };
+            if let Some(p) = p {
                 let at = xf::world_pivot(&mut s.graph, id);
                 xf::move_by(&mut s.graph, &[id], (at - p) * (by - DVec3::ONE), Space::World)?;
             }
@@ -1002,17 +1123,35 @@ pub fn register(c: &mut Commands<Session>) {
     ]);
     extend(c, "move", mv, run_move);
 
+    // The component and pivot options rotate and scale share with move.
+    let shared = || {
+        vec![
+            f("centerPivot", "cp", ArgType::Bool, "Turn or scale about the middle of the bounding box of everything named."),
+            f("objectCenterPivot", "ocp", ArgType::Bool, "Each object about the middle of its own bounding box."),
+            f("orientAxes", "oa", ArgType::Vec3, "The axes the values are about, as Euler angles from the world's."),
+            f("preserveUV", "puv", ArgType::Bool, "UVs of the components changed follow, projected across the change."),
+            f("reflection", "rfl", ArgType::Bool, "Change the symmetric components too."),
+            f("reflectionAboutBBox", "rab", ArgType::Bool, "With -rfl: the mirror plane at the middle of the object's bounding box."),
+            f("reflectionAboutOrigin", "rao", ArgType::Bool, "With -rfl: the mirror plane through the origin (the default)."),
+            f("reflectionAboutX", "rax", ArgType::Bool, "With -rfl: mirror across X = 0 (the default)."),
+            f("reflectionAboutY", "ray", ArgType::Bool, "With -rfl: mirror across Y = 0."),
+            f("reflectionAboutZ", "raz", ArgType::Bool, "With -rfl: mirror across Z = 0."),
+            f("reflectionTolerance", "rft", ArgType::Float, "With -rfl: how far a point and its mirror image may be apart to pair."),
+            f("symNegative", "smn", ArgType::Bool, "With -rfl: the change is relative to the negative side of the plane."),
+        ]
+    };
     let mut rot = motion_flags("rotate");
     rot.push(f("pivot", "p", ArgType::Vec3, "The world point to turn about."));
     rot.push(f("euler", "eu", ArgType::Bool, "Accepted for existing scripts."));
     rot.push(f("forceOrderXYZ", "fo", ArgType::Bool, "Accepted for existing scripts."));
-    rot.push(f("objectCenterPivot", "ocp", ArgType::Bool, "Accepted for existing scripts."));
+    rot.push(f("translate", "t", ArgType::Bool, "About a pivot other than the object's: the move goes into translate rather than the rotate pivot's translation."));
+    rot.extend(shared());
     extend(c, "rotate", rot, run_rotate);
 
     let mut sc = motion_flags("scale");
     sc.push(f("pivot", "p", ArgType::Vec3, "The world point to scale about."));
     sc.push(f("distanceOnly", "dso", ArgType::Bool, "Accepted for existing scripts."));
-    sc.push(f("objectCenterPivot", "ocp", ArgType::Bool, "Accepted for existing scripts."));
+    sc.extend(shared());
     extend(c, "scale", sc, run_scale);
 
     // Named channels alone: makeIdentity -a 1 -t 1 freezes translation and nothing else.

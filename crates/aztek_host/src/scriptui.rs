@@ -337,13 +337,13 @@ const MENU: &str = "label:l:a tearOff:to:b allowOptionBoxes:aob:b deleteAllItems
 const KINDS: &[(&str, &str)] = &[
     ("window", WINDOW),
     ("columnLayout", "adjustableColumn:adj:b columnAlign:cal:a columnAttach:cat:a2 columnOffset:co:a2 columnWidth:cw:a rowSpacing:rs:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
-    ("rowLayout", "numberOfColumns:nc:a adjustableColumn:adj:a rowAttach:rat:a3 columnAlign:cal:a2 columnAttach:cat:a3 columnWidth:cw:a2 columnOffset:co:a2"),
-    ("rowColumnLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a adjustableColumn:adj:a adjustableRow:ar:a columnAlign:cal:a2 columnAttach:cat:a3 columnOffset:co:a3 columnSpacing:cs:a2 columnWidth:cw:a2 rowAlign:ral:a2 rowAttach:rat:a3 rowHeight:rh:a2 rowOffset:ro:a3 rowSpacing:rs:a2"),
+    ("rowLayout", "numberOfColumns:nc:a adjustableColumn:adj:a adjustableColumn1:ad1:a rowAttach:rat:a3 columnAlign:cal:a2 columnAttach:cat:a3 columnWidth:cw:a2 columnOffset:co:a2 generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
+    ("rowColumnLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a adjustableColumn:adj:a adjustableRow:ar:a columnAlign:cal:a2 columnAttach:cat:a3 columnOffset:co:a3 columnSpacing:cs:a2 columnWidth:cw:a2 rowAlign:ral:a2 rowAttach:rat:a3 rowHeight:rh:a2 rowOffset:ro:a3 rowSpacing:rs:a2 generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("gridLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a cellWidth:cw:a cellHeight:ch:a cellWidthHeight:cwh:a autoGrow:ag:b allowEmptyCells:aec:b columnsResizable:cr:b position:pos:a2 gridOrder:go:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("flowLayout", "vertical:v:b horizontal:hr:b wrap:wr:b columnSpacing:cs:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("formLayout", "numberOfDivisions:nd:a attachForm:af:a3 attachControl:ac:a4 attachPosition:ap:a4 attachNone:an:a2 attachOppositeForm:aof:a3 attachOppositeControl:aoc:a4 generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("frameLayout", "label:l:a collapsable:cll:b collapse:cl:b marginHeight:mh:a marginWidth:mw:a borderVisible:bv:b borderStyle:bs:a labelVisible:lv:b labelIndent:li:a labelWidth:lw:a labelAlign:la:a font:fn:a collapseCommand:cc:a expandCommand:ec:a preCollapseCommand:pcc:a preExpandCommand:pec:a backgroundShade:bgs:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
-    ("scrollLayout", "horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a childResizable:cr:b resizeCommand:rc:a scrollAreaHeight:sah:b scrollAreaWidth:saw:b scrollAreaValue:sav:b scrollByPixel:sbp:a2 scrollPage:sp:a minChildWidth:mcw:a verticalScrollBarAlwaysVisible:vsb:b panEnabled:pe:b"),
+    ("scrollLayout", "horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a childResizable:cr:b resizeCommand:rc:a scrollAreaHeight:sah:b scrollAreaWidth:saw:b scrollAreaValue:sav:b scrollByPixel:sbp:a2 scrollPage:sp:a minChildWidth:mcw:a verticalScrollBarAlwaysVisible:vsb:b panEnabled:pe:b borderVisible:bv:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a"),
     ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b activeFrameThickness:aft:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("shelfLayout", "cellWidth:cwd:a cellHeight:ch:a cellWidthHeight:cwh:a spacing:spa:a alignment:aln:a position:pos:a2 style:st:a version:ver:a"),
@@ -378,7 +378,7 @@ const KINDS: &[(&str, &str)] = &[
     ("optionMenuGrp", "label:l:a extraLabel:el:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b"),
     ("menuItem", "label:l:a command:c:a subMenu:sm:b tearOff:to:b checkBox:cb:b radioButton:rb:b divider:d:b dividerLabel:dl:a optionBox:ob:b optionBoxIcon:obi:a boldFont:bld:b italicized:itl:b image:i:a imageOverlayLabel:iol:a insertAfter:ia:a collection:cl:a data:da:a dragMenuCommand:dmc:a dragDoubleClickCommand:ddc:a echoCommand:ec:b radialPosition:rp:a mnemonic:mn:a keyEquivalent:ke:a altModifier:alt:b ctrlModifier:ctl:b shiftModifier:sht:b commandModifier:cmd:b sourceType:stp:a isOptionBox:iob:b isCheckBox:icb:b isRadioButton:irb:b familyImage:fi:a version:ver:a ltVersion:lt:a allowOptionBoxes:aob:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b enableCommandRepeat:ecr:b header:hdr:b longDivider:ld:b runTimeCommand:rtc:a"),
     ("menu", MENU),
-    ("popupMenu", "button:b:a ctrlModifier:ctl:b altModifier:alt:b shiftModifier:sht:b markingMenu:mm:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
+    ("popupMenu", "button:b:a ctrlModifier:ctl:b altModifier:alt:b shiftModifier:sh:b markingMenu:mm:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
     ("separator", "style:st:a horizontal:hr:b"),
     ("textScrollList", "append:a:a1 appendPosition:ap:a2 removeItem:ri:a1 removeIndexedItem:rii:a1 removeAll:ra:b selectItem:si:a1 selectIndexedItem:sii:a1 deselectAll:da:b deselectItem:di:a1 deselectIndexedItem:dii:a1 allowMultiSelection:ams:b numberOfRows:nr:a allItems:ai:b numberOfItems:ni:b numberOfSelectedItems:nsi:b showIndexedItem:shi:a selectCommand:sc:a doubleClickCommand:dcc:a deleteKeyCommand:dkc:a lineFont:lf:a2 font:fn:a allowAutomaticSelection:aas:b uniqueTag:utg:a1 selectUniqueTagItem:sut:a1"),
     ("colorSliderGrp", "label:l:a rgbValue:rgb:a hsvValue:hsv:a forceDragRefresh:fdr:b changeCommand:cc:a dragCommand:dc:a"),
@@ -391,7 +391,7 @@ const KINDS: &[(&str, &str)] = &[
     ("dockControl", "area:a:a content:con:a allowedArea:aa:a label:l:a floating:fl:b retain:ret:b raise:r:b moveable:mov:b sizeable:s:b fixedWidth:fw:b fixedHeight:fh:b enablePopupOption:epo:b dockStation:ds:a splitLayout:sl:a state:st:a closeCommand:cc:a floatChangeCommand:fcc:a"),
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
     ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b"),
-    ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:clr:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:dce:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColor:cbc:a cellForegroundColor:cfc:a"),
+    ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:ct:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:udc:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColorCommand:cbc:a cellForegroundColorCommand:cfc:a columnFilter:cf:a2 editable:ed:b rowsRemovedCmd:rrc:a rowsToBeRemovedCmd:rtc:a selectionBehavior:sb:a selectionMode:sm:a"),
     ("layerButton", "label:l:a name:n:a changeCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:hp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
     ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:pin:b toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
     ("outlinerEditor", "alwaysToggleSelect:ats:b animLayerFilterOptions:alf:a attrAlphaOrder:aao:a attrFilter:af:a autoExpand:xpd:b autoExpandLayers:ael:b autoSelectNewObjects:aso:b containersIgnoreFilters:cif:b directSelect:ds:b displayMode:dm:a doNotSelectNewObjects:dns:b dropIsParent:dip:b editAttrName:ean:b expandAllItems:eai:b expandAllSelectedItems:eas:b expandAttribute:xta:b expandConnections:xc:b expandObjects:eo:b feedbackItemName:fbn:b feedbackRowNumber:fbr:b getCurrentSetOfItem:gcs:a highlightActive:ha:b highlightSecondary:hs:b ignoreDagHierarchy:hir:b ignoreHiddenAttribute:iha:b ignoreOutlinerColor:ioc:b isChildSelected:ics:a isSet:isSet:a isSetMember:ism:a lineHeight:lh:a longNames:ln:b niceNames:nn:b object:obj:a organizeByClip:obc:b organizeByLayer:obl:b parentObject:po:b pinPlug:pin:a refresh:rfs:b removeFromCurrentSet:rcs:a renameItem:rni:a renameSelectedItem:rsi:b renderFilterActive:rfa:b renderFilterIndex:rfi:a renderFilterVisible:rfv:b selectCommand:sec:a setDefaultFilter:sdf:b setFilter:sf:a setsIgnoreFilters:sif:b showAnimCurvesOnly:aco:b showAnimLayerWeight:salw:b showAssets:a:b showAssignedMaterials:am:b showAttrValues:av:b showAttributes:sat:b showCompounds:cmp:b showConnected:sc:b showContainedOnly:sco:b showContainerContents:scc:b showDagOnly:dag:b showLeafs:laf:b showMuteInfo:smi:b showNamespace:sn:b showNumericAttrsOnly:num:b showParentContainers:spc:b showPinIcons:spi:b showPublishedAsConnected:spu:b showReferenceMembers:srm:b showReferenceNodes:rn:b showSelected:ssd:b showSetMembers:ssm:b showShapes:shp:b showTextureNodesOnly:tno:b showTimeEditor:ste:b showUVAttrsOnly:uv:b showUnitlessCurves:su:b showUpstreamCurves:suc:b sortOrder:so:a transmitFilters:tf:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
@@ -405,7 +405,7 @@ const KINDS: &[(&str, &str)] = &[
     ("keyframeOutliner", "animCurve:an:a display:dsp:a"),
     ("textureWindow", "capture:cpt:a changeCommand:cc:a checkerColor1:cc1:a checkerColor2:cc2:a checkerDensity:cd:a clearImage:ci:b cmEnabled:cme:b displayAxes:dax:b displayCheckered:dc:b displayDistortion:dcd:b displayDivisionLines:ddl:b displayGridLines:dgl:b displayImage:di:a displayLabels:dl:b displayPreselection:dpr:b displaySolidMap:dsm:b displayStyle:dst:a displayUVShaded:dus:b displayUVWireframe:duw:b distortionAlpha:dal:a distortionPerObject:dpo:b divisions:d:a doubleBuffer:dbf:b drawAxis:da:b drawSubregions:dsr:b exposure:exp:a frameAll:fa:b frameSelected:fs:b frontFacingColor:ffc:a gamma:ga:a gridLinesColor:glc:a gridNumbersColor:gnc:a imageBaseColor:ibc:a imageDim:imd:b imageDisplay:id:b imageNames:imn:b imageNumber:in:a imagePixelSnap:ip:b imageRatio:imr:b imageRatioValue:irv:a imageSize:is:b imageTileRange:itr:a imageUnfiltered:iuf:b internalFaces:if:b labelPosition:lp:a loadImage:li:a maxResolution:mrs:a multiColorAlpha:mca:a nbImages:nim:b nextView:nv:b numUvSets:nuv:b numberOfImages:ni:a numberOfTextures:nt:a previousView:pv:b realSize:rs:b refresh:rf:b relativeHandleSize:rhs:b removeAllImages:rai:b removeImage:ri:b rendererString:rst:a reset:r:b saveImage:si:b selectInternalFaces:sif:b selectRelated:sr:b setUvSet:suv:a singleBuffer:sbf:b size:s:a solidMap3dView:sm3:b solidMapColorSeed:smc:a solidMapPerShell:smp:b spacing:sp:a style:st:a subdivisionLinesColor:slc:a textureBorder:tb:b textureBorderColor:tbc:a textureBorderWidth:tbw:a textureNames:tn:b textureNumber:tx:a tileLabels:tlb:b tileLinesColor:tlc:a toggle:tgl:b toggleExposure:txp:b toggleGamma:tgm:b useFaceGroup:ufg:b usedPercentageHUD:upp:b uvSets:uvs:b viewPortImage:vpi:b viewTransformName:vtn:a wireframeComponentColor:wcc:a wireframeObjectColor:woc:a writeImage:wi:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("timePort", "globalTime:gt:b snap:sn:b"),
-    ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a"),
+    ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a widthHeight:wh:a2"),
     ("timeRangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a"),
 ];
 
@@ -723,6 +723,24 @@ fn table_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<S
     let row = (number(raw) as usize).max(1) - 1;
     match key {
         "rows" | "columns" | "rowHeight" => set(m, id, key, json!(number(raw) as i64), changed),
+        "cells" => {
+            set(m, id, key, raw.clone(), changed);
+            filter_rows(m, id, changed);
+        }
+        "columnFilter" => {
+            // Each column's filter, kept by column: 0 filters on every column.
+            let v = flat(raw);
+            let (col, pat) = (v.first().map(number).unwrap_or(0.0) as i64, v.get(1).map(text).unwrap_or_default());
+            let mut filters = m.get(id).and_then(|c| c.props.get("columnFilters")).and_then(Value::as_object).cloned().unwrap_or_default();
+            if pat.is_empty() {
+                filters.remove(&col.to_string());
+            } else {
+                filters.insert(col.to_string(), json!(pat));
+            }
+            set(m, id, "columnFilters", Value::Object(filters), changed);
+            set(m, id, key, raw.clone(), changed);
+            filter_rows(m, id, changed);
+        }
         "clearTable" => {
             if truth(raw) {
                 set(m, id, "cells", json!(Vec::<Vec<String>>::new()), changed);
@@ -769,6 +787,63 @@ fn table_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<S
             set(m, id, key, v, changed);
         }
     }
+}
+
+/// The reference's column filter match: case does not count, `*` any run, `?` any one character, `[...]` one of a set.
+pub(crate) fn wildcard_match(pat: &str, s: &str) -> bool {
+    let p: Vec<char> = pat.to_lowercase().chars().collect();
+    let t: Vec<char> = s.to_lowercase().chars().collect();
+    fn at(p: &[char], t: &[char]) -> bool {
+        match p.first() {
+            None => t.is_empty(),
+            Some('*') => (0..=t.len()).any(|k| at(&p[1..], &t[k..])),
+            Some('?') => !t.is_empty() && at(&p[1..], &t[1..]),
+            Some('[') => {
+                let Some(end) = p.iter().position(|&c| c == ']') else { return !t.is_empty() && t[0] == '[' && at(&p[1..], &t[1..]) };
+                let set = &p[1..end];
+                let Some(&c) = t.first() else { return false };
+                let mut hit = false;
+                let mut i = 0;
+                while i < set.len() {
+                    if i + 2 < set.len() && set[i + 1] == '-' {
+                        hit |= set[i] <= c && c <= set[i + 2];
+                        i += 3;
+                    } else {
+                        hit |= set[i] == c;
+                        i += 1;
+                    }
+                }
+                hit && at(&p[end + 1..], &t[1..])
+            }
+            Some(&c) => t.first() == Some(&c) && at(&p[1..], &t[1..]),
+        }
+    }
+    at(&p, &t)
+}
+
+/// The rows the column filters hide, 1-based, for the shell.
+fn filter_rows(m: &mut Model, id: Id, changed: &mut Map<String, Value>) {
+    let cells = table_cells(m, id);
+    let filters: Vec<(i64, String)> = m
+        .get(id)
+        .and_then(|c| c.props.get("columnFilters"))
+        .and_then(Value::as_object)
+        .map(|o| o.iter().map(|(k, v)| (k.parse().unwrap_or(0), text(v))).collect())
+        .unwrap_or_default();
+    let mut hidden = Vec::new();
+    for (r, row) in cells.iter().enumerate() {
+        let shows = filters.iter().all(|(col, pat)| {
+            if *col <= 0 {
+                row.iter().any(|x| wildcard_match(pat, x))
+            } else {
+                row.get(*col as usize - 1).is_some_and(|x| wildcard_match(pat, x))
+            }
+        });
+        if !shows {
+            hidden.push(json!(r + 1));
+        }
+    }
+    set(m, id, "hiddenRows", Value::Array(hidden), changed);
 }
 
 /// Cells from the core's -getCellCmd calls, or one the user changed, as an edit the shell hears about.
@@ -1100,7 +1175,9 @@ fn default_value(c: &Control, key: &str) -> Value {
         (_, "enable" | "visible" | "manage" | "editable" | "sizeable" | "minimizeButton" | "maximizeButton" | "titleBar" | "titleBarMenu" | "enableKeyboardFocus" | "enableButton") => json!(true),
         ("floatSliderGrp" | "intSliderGrp" | "colorIndexSliderGrp" | "floatSliderButtonGrp", "minValue") => zero(&c.kind),
         ("floatSliderGrp" | "intSliderGrp" | "floatSliderButtonGrp", "maxValue") => ten(&c.kind),
-        ("scriptTable", "rows" | "columns") => json!(0),
+        ("scriptTable", "rows" | "columns" | "selectionBehavior") => json!(0),
+        // Click, Ctrl and Shift as a list's: what the table shows when no mode is given.
+        ("scriptTable", "selectionMode") => json!(3),
         ("outlinerEditor", "mainListConnection") => json!("worldList"),
         ("dopeSheetEditor" | "animCurveEditor", "mainListConnection") => json!("animationList"),
         ("nodeEditor", "mainListConnection") => json!(""),
@@ -1388,7 +1465,7 @@ fn run_edit(cmd: &str, a: &Args) -> CmdResult {
             op(json!({"op": "edit", "path": c.path, "props": changed}));
         }
         // New rows, columns or a new script: the cells are asked for again.
-        if is_table && (a.has("rows") || a.has("columns") || a.has("getCellCmd")) {
+        if is_table && (a.has("rows") || a.has("columns") || a.has("getCellCmd") || a.has("cellBackgroundColorCommand") || a.has("cellForegroundColorCommand")) {
             m.dirty_tables.push(id);
         }
         Ok(json!(path))

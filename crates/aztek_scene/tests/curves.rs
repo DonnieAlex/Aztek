@@ -161,7 +161,7 @@ fn meshes_from_curves() {
     assert!((i["worldBoundsMax"][1].as_f64().unwrap() - 6.0).abs() < 1e-6, "{i}");
 
     run(&mut s, "curve", json!({"degree": 1, "point": [[1, 0, 0], [1, 2, 0]], "name": "edge"}));
-    let r = run(&mut s, "revolve", json!({"args": ["edge"], "sections": 12, "polygon": 1}));
+    let r = run(&mut s, "revolve", json!({"args": ["edge"], "axis": [0, 1, 0], "sections": 12, "polygon": 1}));
     assert_eq!(r, json!(["revolvedSurface1", "revolve1"]));
     assert_eq!(faces(&mut s, "revolvedSurface1"), 12);
     run(&mut s, "setAttr", json!({"args": ["revolve1.sections", 6]}));

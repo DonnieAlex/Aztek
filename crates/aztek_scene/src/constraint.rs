@@ -352,7 +352,9 @@ impl NodeBehavior for ConstraintNode {
                 e = rotate_for(d, &with_rest(qs));
             }
             SCALE => {
-                let ps = scale_of(&pm);
+                // A joint compensating for its parent's scale doesn't take it on, so it isn't taken out here.
+                let compensate = d.ty.attr_index("constraintScaleCompensate").is_some_and(|i| d.bool(i));
+                let ps = if compensate { DVec3::ONE } else { scale_of(&pm) };
                 let ps = DVec3::new(if ps.x.abs() < 1e-12 { 1e-12 } else { ps.x }, if ps.y.abs() < 1e-12 { 1e-12 } else { ps.y }, if ps.z.abs() < 1e-12 { 1e-12 } else { ps.z });
                 let mut sum = rest_s * rest;
                 for (x, &w) in ts.iter().zip(&share) {
@@ -590,6 +592,7 @@ pub(crate) fn register_types() {
                 vec3_attr("constraintVector", "cv", DVec3::ZERO, flags::OUTPUT, "Aim constraint: from the object to its targets, in its parent's space."),
                 vec3_attr("interpCache", "ich", DVec3::ZERO, store | flags::HIDDEN, "With interpType Cache: the rotation -createCache baked, fed by its curves."),
                 AttrDef { short_name: "hic".into(), flags: store | flags::HIDDEN, ..crate::attr_defs::bool_attr("hasInterpCache", false, "Whether -createCache made a cache.") },
+                AttrDef { short_name: "csc".into(), ..crate::attr_defs::bool_attr("constraintScaleCompensate", false, "Scale constraint: the driven joint ignores its parent's scale, so the parent's isn't taken out.") },
             ];
         for a in &mut own {
             if !kind_has(k, &a.name) {
@@ -1333,6 +1336,22 @@ fn constraint_cache(s: &mut Session, a: &Args, names: &[String], cmd: &str, kind
     r
 }
 
+/// scaleConstraint -scaleCompensate: a driven joint's segmentScaleCompensate feeds the constraint's
+/// constraintScaleCompensate (on), or the connection goes (off).
+fn scale_compensate(g: &mut Graph, c: NodeId, driven: NodeId, a: &Args) -> CmdResult<()> {
+    let Some(v) = a.get("scaleCompensate") else { return Ok(()) };
+    let on = v.as_bool().unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0));
+    let Some(i) = g.node(c).and_then(|n| n.ty().attr_index("constraintScaleCompensate")) else { return Ok(()) };
+    let to = PlugRef::new(c, i as i32);
+    if on && crate::rig::is_joint(g, driven) {
+        g.connect(&plug(driven, crate::rig::Joint::SEGMENT_SCALE_COMPENSATE), &to, true)?;
+    } else {
+        g.disconnect(&to);
+        g.set_value(to, PlugValue::Bool(false))?;
+    }
+    Ok(())
+}
+
 fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     let names = objects(s, a);
     if matches!(kind, PARENT | ORIENT) && (a.has("createCache") || a.bool("deleteCache")) {
@@ -1347,6 +1366,9 @@ fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
         let (c, targets) = resolve(g, &names, cmd, kind)?;
         let driven = driven_of(g, c).unwrap_or(NO_NODE);
         let r = edit(g, c, &targets, a, cmd, kind, driven)?;
+        if kind == SCALE && g.node(c).is_some() && driven != NO_NODE {
+            scale_compensate(g, c, driven, a)?;
+        }
         if let Some(layer) = a.get("layer").and_then(Value::as_str) {
             if g.node(c).is_some() && driven != NO_NODE {
                 to_layer(g, c, driven, layer, cmd)?;
@@ -1463,6 +1485,9 @@ fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     if let Some(layer) = a.get("layer").and_then(Value::as_str) {
         to_layer(g, c, driven, layer, cmd)?;
     }
+    if kind == SCALE {
+        scale_compensate(g, c, driven, a)?;
+    }
     Ok(json!([g.path(c)]))
 }
 
@@ -1497,6 +1522,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("skip", "sk", ArgType::Any, "Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once.").multi(1))
             .flag(f("skipScale", "", ArgType::Any, "Scale axes to leave alone: x, y, z or none.").multi(1))
             .flag(f("layer", "l", ArgType::String, "The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under."))
+            .flag(f("scaleCompensate", "sc", ArgType::Bool, "Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate."))
             .flag(f("createCache", "cc", ArgType::Any, "Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced.").multi(2))
             .flag(f("deleteCache", "dc", ArgType::Bool, "Parent and orient constraints, with -e: take the cache away."))
             .flag(f("decompRotationToChild", "dr", ArgType::Bool, "Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here."))

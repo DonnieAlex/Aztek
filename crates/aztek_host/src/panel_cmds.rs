@@ -481,6 +481,84 @@ fn panel_common(kind: &'static str, a: &Args) -> CmdResult {
     Ok(json!(n))
 }
 
+/// The settings a scripted panel type keeps: everything but the mode flags.
+const TYPE_META: &[&str] = &["query", "edit", "queried", "exists", "defineTemplate", "useTemplate", "args"];
+
+fn scripted_panel_type(a: &Args) -> CmdResult {
+    let Some(n) = a.pos_str(0).map(str::to_string) else { fail!("scriptedPanelType: give a name.") };
+    if a.bool("exists") {
+        return Ok(json!(with_panels(|p| p.types.iter().any(|(t, _)| *t == n))));
+    }
+    if a.bool("query") {
+        let Some(q) = asked(a) else { fail!("scriptedPanelType: name what to ask about.") };
+        let Some(m) = with_panels(|p| p.types.iter().find(|(t, _)| *t == n).map(|(_, m)| m.clone())) else { fail!("scriptedPanelType: Object '{n}' not found.") };
+        return Ok(match m.get(&q) {
+            Some(v) => v.clone(),
+            // The hotkey context is the type's own name unless one is given.
+            None if q == "hotkeyCtxClient" => json!(n),
+            None if matches!(q.as_str(), "customView" | "obsolete" | "retainOnFileOpen" | "unique") => json!(false),
+            None => json!(""),
+        });
+    }
+    let mut m: Map<String, Value> = a.flags.iter().filter(|(k, _)| !TYPE_META.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect();
+    with_panels(|p| {
+        if a.bool("edit") {
+            match p.types.iter_mut().find(|(t, _)| *t == n) {
+                Some((_, old)) => {
+                    old.append(&mut m);
+                    return Ok(());
+                }
+                None => fail!("scriptedPanelType: Object '{n}' not found."),
+            }
+        }
+        p.types.retain(|(t, _)| *t != n);
+        p.types.push((n.clone(), m));
+        Ok(())
+    })?;
+    Ok(json!(n))
+}
+
+/// refresh with -filename: a snapshot of the current view (with -currentView, or the view in focus standing for all of
+/// them) written as an image, of the type -fileExtension names.
+fn refresh_cmd(s: &mut Session) {
+    let Some(old) = s.commands.find("refresh").cloned() else { return };
+    let run = old.run.clone();
+    let mut cmd = add_spec(old, "fileExtension:fe:a filename:fn:a");
+    cmd.doc = "Bring the scene up to date and redraw the views; -fn writes a snapshot of the view to a file (-fe its type, -cv the current view only).".into();
+    cmd.run = std::sync::Arc::new(move |s: &mut Session, a: &Args| {
+        let r = run(s, a)?;
+        let Some(file) = a.get("filename").map(text).filter(|f| !f.is_empty()) else { return Ok(r) };
+        let ext = a.get("fileExtension").map(text).filter(|e| !e.is_empty());
+        let has_ext = std::path::Path::new(&file).extension().is_some();
+        let file = match (&ext, has_ext) {
+            (Some(e), false) => format!("{file}.{e}"),
+            _ => file,
+        };
+        let time = aztek_scene::anim::frame(&s.graph);
+        let payload = json!({
+            "frames": [time], "files": [file.clone()], "passes": [{"setup": "", "files": [file.clone()]}], "width": 0, "height": 0, "percent": 100.0,
+            "quality": 90, "panel": focus_model_panel(), "viewer": false, "ornaments": true, "exposure": 0.0, "gamma": 1.0, "format": ext,
+        });
+        if crate::scriptui::call_hook("playblast", &payload).is_none() {
+            crate::script_jobs::warn("refresh: no view to capture without the interface; nothing was written.");
+        }
+        aztek_scene::anim::set_frame(&mut s.graph, time);
+        Ok(r)
+    });
+    s.register(cmd);
+}
+
+/// saveViewportSettings: each model panel's camera and model editor settings, one optionVar a panel holding them.
+fn save_viewport_settings(s: &mut Session) -> CmdResult {
+    let panels: Vec<(String, String, Map<String, Value>)> = with_panels(|p| p.all.iter().filter(|x| x.kind == "modelPanel").map(|x| (x.name.clone(), x.camera.clone(), x.editor.clone())).collect());
+    for (name, camera, editor) in panels {
+        let mut state = editor;
+        state.insert("camera".into(), json!(camera));
+        s.run("optionVar", json!({"stringValue": [format!("{name}ViewportSettings"), Value::Object(state).to_string()]}))?;
+    }
+    Ok(Value::Null)
+}
+
 fn scripted_panel(a: &Args) -> CmdResult {
     if a.bool("query") || a.bool("exists") {
         return panel_common("scriptedPanel", a);
@@ -488,7 +566,14 @@ fn scripted_panel(a: &Args) -> CmdResult {
     if a.bool("edit") {
         return panel_common("scriptedPanel", a);
     }
-    let ty = a.string("type", "");
+    // A torn off copy is of its original's type.
+    let original = a.get("tearOffCopy").or_else(|| a.get("copy")).map(text).filter(|t| !t.is_empty());
+    let mut ty = a.string("type", "");
+    if ty.is_empty() {
+        if let Some(o) = &original {
+            ty = with_panels(|p| p.all.iter().find(|x| x.name == *o).map(|x| x.scripted_type.clone())).unwrap_or_default();
+        }
+    }
     let script = with_panels(|p| p.types.iter().find(|(n, _)| *n == ty).map(|(_, m)| m.clone()));
     if script.is_none() {
         fail!("scriptedPanel: Object '{ty}' not found: declare it with scriptedPanelType.");
@@ -501,6 +586,10 @@ fn scripted_panel(a: &Args) -> CmdResult {
             if let Some(proc_name) = m.get(flag).and_then(Value::as_str).filter(|t| !t.is_empty()) {
                 crate::scriptui::run_soon(json!(format!("{proc_name}(\"{name}\");")), Vec::new());
             }
+        }
+        // A copy: once the add callback has run, the copy callback gives it the original's state.
+        if let (Some(o), Some(proc_name)) = (&original, m.get("copyStateCallback").and_then(Value::as_str).filter(|t| !t.is_empty())) {
+            crate::scriptui::run_soon(json!(format!("{proc_name}(\"{o}\", \"{name}\");")), Vec::new());
         }
     }
     Ok(made)
@@ -995,23 +1084,26 @@ pub fn register(s: &mut Session) {
         "type:typ:a label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a tearOffRestore:tor:b menuBarRepeatLast:mrl:b unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a",
     ));
     s.register(add_spec(
-        Cmd::new("scriptedPanelType", "Declare a scripted panel type: -ccb -icb -acb -rcb -dcb -scb the procedures that build and keep it.", |_s, a| {
-            let Some(n) = a.pos_str(0).map(str::to_string) else { fail!("scriptedPanelType: give a name.") };
-            if a.bool("exists") {
-                return Ok(json!(with_panels(|p| p.types.iter().any(|(t, _)| *t == n))));
-            }
-            let mut m = a.flags.clone();
-            m.retain(|k, _| k.ends_with("Callback"));
-            with_panels(|p| {
-                p.types.retain(|(t, _)| *t != n);
-                p.types.push((n.clone(), m));
-            });
-            Ok(json!(n))
-        })
+        Cmd::new(
+            "scriptedPanelType",
+            "Declare a scripted panel type: -ccb -icb -acb -rcb -dcb -scb -ocb the procedures that build, keep and copy it, -hkc its hotkey \
+             context. -q and -e read and change a type.",
+            |_s, a| scripted_panel_type(a),
+        )
         .positional("name")
         .undoable(false),
-        "createCallback:ccb:a initCallback:icb:a addCallback:acb:a removeCallback:rcb:a deleteCallback:dcb:a saveStateCallback:scb:a hotkeyCtxCallback:hcb:a customView:cv:b defineTemplate:dt:a exists:ex:b label:l:a obsolete:o:b retainOnFileOpen:rfo:b unique:u:b useTemplate:ut:a query:q:b edit:e:b",
+        "createCallback:ccb:a initCallback:icb:a addCallback:acb:a removeCallback:rcb:a deleteCallback:dcb:a saveStateCallback:scb:a copyStateCallback:ocb:a hotkeyCtxClient:hkc:a customView:cv:b defineTemplate:dt:a exists:ex:b label:l:a obsolete:o:b retainOnFileOpen:rfo:b unique:u:b useTemplate:ut:a query:q:b edit:e:b queried::a",
     ));
+
+    refresh_cmd(s);
+    s.register(
+        Cmd::new(
+            "saveViewportSettings",
+            "Every 3D view keeps its settings as optionVars, as the reference does when it quits: its camera and what its model editor shows.",
+            |s, _a| save_viewport_settings(s),
+        )
+        .undoable(false),
+    );
 
     s.register(add_spec(Cmd::new("modelEditor", "What a model panel shows: -cam, -da, -wos, -grid, -joints, -nurbsCurves, -polymeshes, -locators, -deformers, -ikHandles, -cameras, -manipulators, -dtx and more; -q and -e.", |_s, a| model_editor(a)).positional("panel").undoable(false), EDITOR_FLAGS));
 

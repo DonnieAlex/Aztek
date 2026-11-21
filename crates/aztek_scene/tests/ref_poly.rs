@@ -1088,7 +1088,7 @@ fn uv_sets_and_uv_commands() {
     run(&mut s, "polyCube", json!({"n": "b"}));
     run(&mut s, "polyMoveUV", json!({"args": ["b"], "tu": 0.5, "tv": 0.0}));
     run(&mut s, "polyCube", json!({"n": "c", "w": 2}));
-    assert_eq!(run(&mut s, "polyTransfer", json!({"args": ["c"], "ao": "b", "uv": true, "v": true})), json!(["polyTransfer1"]));
+    assert_eq!(run(&mut s, "polyTransfer", json!({"args": ["c"], "ao": "b", "uv": true, "v": true})), json!("polyTransfer1"));
     assert!((run(&mut s, "meshInfo", json!({"args": ["c"]}))["boundsMax"][0].as_f64().unwrap() - 0.5).abs() < 1e-6);
 }
 

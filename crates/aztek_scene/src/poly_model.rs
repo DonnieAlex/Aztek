@@ -63,7 +63,7 @@ pub fn register(c: &mut Commands<Session>) {
     geo_sampler(c);
     multi_layout(c);
     project_curve_cmd(c);
-    for name in ["polyFlipUV", "polyLayoutUV", "polyMergeUV", "polyMoveUV", "polyMoveFacetUV", "polyNormalizeUV", "polyMapCut", "polyMapSew", "polyMapSewMove", "polyOptUvs", "polyMultiLayoutUV", "polyPinUV"] {
+    for name in ["polyFlipUV", "polyLayoutUV", "polyMergeUV", "polyMoveUV", "polyMoveFacetUV", "polyNormalizeUV", "polyMapCut", "polyMapSew", "polyMapSewMove", "polyOptUvs", "polyMultiLayoutUV", "polyPinUV", "polyStraightenUVBorder"] {
         crate::poly_extra::uv_set_wrapped(c, name);
     }
 }
@@ -123,6 +123,13 @@ const NORMALIZE: &[Setting] = &[
     ("centerOnTile", "cot", 'b', 0.0, "Centre on the tile the UVs are mostly over, rather than on 0 to 1."),
     ("worldSpace", "ws", 'b', 0.0, "World-space values rather than the object's; UVs are the same either way."),
 ];
+const STRAIGHTEN: &[Setting] = &[
+    ("blendOriginal", "bo", 'f', 0.0, "0 fits the UVs to the line, 1 leaves them where they were."),
+    ("curvature", "c", 'f', 0.0, "How far the line bows: at 1 its middle stands half the run's length off the straight line."),
+    ("preserveLength", "pl", 'f', 1.0, "1 keeps the UVs' spacing along the line, 0 spaces them evenly."),
+    ("gapTolerance", "gt", 'i', 0.0, "Gaps of up to this many UVs between the UVs picked are filled."),
+    ("worldSpace", "ws", 'b', 0.0, "World-space values rather than the object's; UVs are the same either way."),
+];
 const MAP_CUT: &[Setting] = &[("moveratio", "mvr", 'f', 0.0, "How far the cut opens: a share of the way from each cut edge to the middle of its face.")];
 const MAP_SEW: &[Setting] = &[];
 const SEW_MOVE: &[Setting] = &[
@@ -156,6 +163,7 @@ const LIVE: &[(&str, &[Setting], LiveFn)] = &[
     ("polyMapSew", MAP_SEW, map_sew),
     ("polyMapSewMove", SEW_MOVE, map_sew_move),
     ("polyOptUvs", OPT, opt_uvs),
+    ("polyStraightenUVBorder", STRAIGHTEN, crate::uv_misc::straighten_uvs),
 ];
 
 /// Commands, the node type each makes, and the undo label.
@@ -170,6 +178,7 @@ const LIVE_CMDS: &[(&str, &str, &str)] = &[
     ("polyMapSew", "polyMapSew", "Sew UV Edges"),
     ("polyMapSewMove", "polyMapSewMove", "Move and Sew UVs"),
     ("polyOptUvs", "polyOptUvs", "Optimize UVs"),
+    ("polyStraightenUVBorder", "polyStraightenUVBorder", "Straighten UV Border"),
 ];
 
 /// Flags of two values and the settings they stand for.
@@ -369,6 +378,7 @@ fn live_qe(s: &mut Session, a: &Args, cmd: &str, node_type: &'static str) -> Opt
             "polyMapCut" => &["polyMapCut"],
             "polyMapSew" => &["polyMapSew"],
             "polyMapSewMove" => &["polyMapSewMove"],
+            "polyStraightenUVBorder" => &["polyStraightenUVBorder"],
             _ => &["polyOptUvs"],
         };
         let names = a.named();

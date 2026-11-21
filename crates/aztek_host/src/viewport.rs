@@ -3929,7 +3929,8 @@ impl Viewport {
                 Some(if comps {
                     ("rotateComponents".into(), serde_json::json!({ "by": by, "pivot": d.pivot.to_array() }))
                 } else if self.use_manip_pivot {
-                    let mut call = serde_json::json!({ "args": targets, "by": by, "pivot": d.pivot.to_array() });
+                    // The manipulator's pivot moves the objects themselves, by translate.
+                    let mut call = serde_json::json!({ "args": targets, "by": by, "pivot": d.pivot.to_array(), "translate": true });
                     if self.preserve_children {
                         call["preserveChildPosition"] = serde_json::json!(true);
                     }

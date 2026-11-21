@@ -12,7 +12,7 @@ use aztek_geo::{names, Index, Mesh};
 use aztek_ops::{fail, ArgType, CmdResult, CommandDef, Commands, FlagDef};
 use glam::{DMat3, DMat4, DVec2, DVec3};
 use rayon::prelude::*;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::*;
 use crate::components::{self, ComponentMode, Ids, PointProvider};
@@ -1252,12 +1252,21 @@ pub fn register(c: &mut Commands<Session>) {
                     None => symmetric_selection_center(g),
                 };
                 let r = euler_to_matrix(DVec3::from_array(by), RotateOrder::Xyz);
+                // About other axes: the turn in those axes' terms.
+                let r = match a.vec3("orient") {
+                    Some(o) => {
+                        let o = euler_to_matrix(DVec3::from_array(o), RotateOrder::Xyz);
+                        o * r * o.transpose()
+                    }
+                    None => r,
+                };
                 transform_selected_components(g, "Rotate Components", translate(pivot) * r * translate(-pivot))?;
                 Ok(Value::Null)
             },
         )
         .flag(flag("by", T::Vec3, "Rotation, degrees."))
-        .flag(flag("pivot", T::Vec3, "World pivot.")),
+        .flag(flag("pivot", T::Vec3, "World pivot."))
+        .flag(flag("orient", T::Vec3, "The axes the rotation is about, as Euler angles from the world's.")),
     );
 
     c.register(
@@ -1266,13 +1275,32 @@ pub fn register(c: &mut Commands<Session>) {
             "Scale the selected components about a world pivot (default: their centre; with symmetry, a pair clear of the \
              mirror plane scales about each side's own centre).",
             |s, a| {
-                let Some(by) = a.vec3("by") else { fail!("scaleComponents: give by=") };
+                // The reference's form: three factors before the objects.
+                let by = match a.vec3("by") {
+                    Some(b) => b,
+                    None => {
+                        let v: Vec<f64> = a.positional.iter().filter_map(Value::as_f64).collect();
+                        let [x, y, z, ..] = v.as_slice() else { fail!("scaleComponents: give three scale factors") };
+                        [*x, *y, *z]
+                    }
+                };
+                // Components named are what it scales; the selection otherwise.
+                let named: Vec<String> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).collect();
+                if !named.is_empty() {
+                    let before = crate::components::component_strings(&s.graph, false);
+                    s.run("select", json!({"args": named}))?;
+                    let r = s.run("scaleComponents", json!({"by": by, "pivot": a.vec3("pivot"), "orient": a.vec3("rotation").or(a.vec3("orient"))}));
+                    let _ = if before.is_empty() { s.run("select", json!({"clear": true})) } else { s.run("select", json!({"args": before})) };
+                    return r;
+                }
                 let g = &mut s.graph;
                 let pivot = match a.vec3("pivot") {
                     Some(p) => DVec3::from_array(p),
+                    // Without a pivot: the components' middle, as scale on components and the manipulator use (the
+                    // reference's own default is the origin).
                     None => symmetric_selection_center(g),
                 };
-                let r = match a.vec3("orient") {
+                let r = match a.vec3("rotation").or(a.vec3("orient")) {
                     Some(o) => euler_to_matrix(DVec3::from_array(o), RotateOrder::Xyz),
                     None => DMat4::IDENTITY,
                 };
@@ -1282,7 +1310,9 @@ pub fn register(c: &mut Commands<Session>) {
             },
         )
         .flag(flag("by", T::Vec3, "Factor per axis: the world axes, or the axes orient= turns them to."))
-        .flag(flag("pivot", T::Vec3, "World pivot."))
-        .flag(flag("orient", T::Vec3, "Rotation of the scale axes from the world axes, degrees, XYZ order.")),
+        .positional("three scale factors, then components (the selection when none)")
+        .flag(FlagDef { short_name: "p".into(), ..flag("pivot", T::Vec3, "World pivot.") })
+        .flag(flag("orient", T::Vec3, "Rotation of the scale axes from the world axes, degrees, XYZ order."))
+        .flag(FlagDef { short_name: "ro".into(), ..flag("rotation", T::Vec3, "The rotational offset of the scale axes from the world's, degrees, XYZ order (none).") }),
     );
 }

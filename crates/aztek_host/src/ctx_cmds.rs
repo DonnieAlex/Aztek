@@ -263,6 +263,7 @@ const TYPES: &[(&str, &str)] = &[
     ("insertJointCtx", ""),
     ("polyCutCtx", "deleteFaces:df:b extractFaces:ef:a extractOffset:eo:a"),
     ("polySplitCtx", "precsnap:ps:a enablesnap:es:b magnetsnap:ms:a snaptoedge:ste:b smoothingangle:sma:a subdivision:s:a"),
+    ("polySplitCtx2", "adjustEdgeFlow:aef:a constrainToEdges:cte:b edgeMagnets:em:a insertWithEdgeFlow:ief:b snapTolerance:st:a snappedToEdgeColor:sec:a3 snappedToFaceColor:sfc:a3 snappedToMagnetColor:smc:a3 snappedToVertexColor:svc:a3"),
     ("polyCreateFacetCtx", "append:ap:b exists2:ex2:b maximumNumberOfPoints:mnp:a planarConstraint:pc:b subdivision:s:a texture:tx:a autoUV? "),
     ("polyAppendFacetCtx", "append:ap:b maximumNumberOfPoints:mnp:a planarConstraint:pc:b rotate:ro:a subdivision:s:a texture:tx:a twist:tw:b"),
     ("targetWeldCtx", "mergeToCenter:mtc:b preserveUV:puv:b"),
@@ -389,7 +390,45 @@ fn view_all(key: &str, value: Value) {
     crate::core::push_ui_request(format!("viewAll|{}", json!({"key": key, "value": value})));
 }
 
+/// A colour of three 0 to 1 values as the views read it, #rrggbb.
+fn hex_of(v: &Value) -> Option<String> {
+    let l: Vec<f64> = match v {
+        Value::Array(a) => a.iter().flat_map(|x| x.as_array().cloned().unwrap_or_else(|| vec![x.clone()])).filter_map(|x| x.as_f64()).collect(),
+        _ => Vec::new(),
+    };
+    let [r, g, b, ..] = l.as_slice() else { return None };
+    let c = |x: f64| (x.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(format!("#{:02x}{:02x}{:02x}", c(*r), c(*g), c(*b)))
+}
+
+/// polySplitCtx2's settings as the views' Multi-Cut reads them: edge flow, the magnets along an edge (a snap step of
+/// 100 / (magnets + 1) percent) and the colours of a point on a vertex, an edge or a face.
+fn split_ctx_to_views(flags: &Map<String, Value>) {
+    let mut o = Map::new();
+    if let Some(v) = flags.get("insertWithEdgeFlow") {
+        o.insert("edgeFlow".into(), json!(truthy(v)));
+    }
+    if let Some(v) = flags.get("adjustEdgeFlow").and_then(Value::as_f64) {
+        o.insert("edgeFlowAmount".into(), json!(v));
+    }
+    if let Some(n) = flags.get("edgeMagnets").and_then(Value::as_f64) {
+        o.insert("snapStep".into(), json!(100.0 / (n.max(0.0) + 1.0)));
+    }
+    for (flag, key) in [("snappedToVertexColor", "vertexColor"), ("snappedToEdgeColor", "edgeColor"), ("snappedToFaceColor", "faceColor")] {
+        if let Some(h) = flags.get(flag).and_then(hex_of) {
+            o.insert(key.into(), json!(h));
+        }
+    }
+    if !o.is_empty() {
+        view_all("multiCut", Value::Object(o));
+    }
+}
+
 fn apply_to_views(s: &mut Session, kind: &str, flags: &Map<String, Value>) {
+    if kind == "polySplitCtx2" {
+        split_ctx_to_views(flags);
+        return;
+    }
     if kind == "softSelectOptionsCtx" {
         if flags.get("buttonDown").is_some_and(truthy) {
             view_all("brushAdjust", json!(true));
@@ -511,6 +550,15 @@ fn default_prop(kind: &str, key: &str) -> Value {
         (_, "position") => json!([0.0, 0.0, 0.0]),
         (_, "degree") => json!(3),
         (_, "title" | "image1" | "image2" | "image3") => json!(""),
+        // polySplitCtx2's: Multi-Cut's own defaults.
+        ("polySplitCtx2", "insertWithEdgeFlow" | "constrainToEdges") => json!(false),
+        ("polySplitCtx2", "adjustEdgeFlow") => json!(1.0),
+        ("polySplitCtx2", "edgeMagnets") => json!(9),
+        ("polySplitCtx2", "snapTolerance") => json!(1.0),
+        ("polySplitCtx2", "snappedToVertexColor") => json!([0.9, 0.86, 0.0]),
+        ("polySplitCtx2", "snappedToEdgeColor") => json!([0.0, 0.0, 0.86]),
+        ("polySplitCtx2", "snappedToFaceColor") => json!([0.86, 0.86, 0.86]),
+        ("polySplitCtx2", "snappedToMagnetColor") => json!([0.9, 0.63, 0.0]),
         // The joint tool's, as the reference's.
         ("jointCtx", "autoJointOrient") => json!("xyz"),
         ("jointCtx", "secondaryAxisOrient") => json!("yup"),
@@ -626,7 +674,7 @@ fn set_tool_to(s: &mut Session, name: &str) -> CmdResult {
                 _ => {}
             }
             let props = with_ctx(|c| c.all.get(name).map(|x| x.props.clone())).unwrap_or_default();
-            if kind == "artPuttyCtx" {
+            if kind == "artPuttyCtx" || kind == "polySplitCtx2" {
                 apply_to_views(s, &kind, &props);
             }
             // The tool's own state of a manip context applies as it comes in.

@@ -713,7 +713,7 @@ fn cyl_apply(s: &mut Session, a: &Args, node: &str, only_given: bool, tables: Pr
     Ok(())
 }
 
-fn cyl_flags(mut c: Cmd) -> Cmd {
+pub(crate) fn cyl_flags(mut c: Cmd) -> Cmd {
     let lin = aztek_ops::units::Unit::Linear;
     let ang = aztek_ops::units::Unit::Angle;
     let fl = |n: &str, sh: &str, t: ArgType, unit: aztek_ops::units::Unit, doc: &str| {

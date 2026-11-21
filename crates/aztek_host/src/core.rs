@@ -542,6 +542,10 @@ impl Core {
         if name == "move" && ["reflection", "preserveUV", "parameter"].iter().any(|k| call.get(*k).is_some_and(|v| v.as_bool() != Some(false))) {
             return (name, call);
         }
+        // And rotate's and scale's (-reflection, -preserveUV, -orientAxes).
+        if matches!(name.as_str(), "rotate" | "scale") && ["reflection", "preserveUV", "orientAxes"].iter().any(|k| call.get(*k).is_some_and(|v| v.as_bool() != Some(false))) {
+            return (name, call);
+        }
         let renamed = match name.as_str() {
             "move" => Some("moveComponents"),
             "rotate" => Some("rotateComponents"),

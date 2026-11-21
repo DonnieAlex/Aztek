@@ -238,7 +238,7 @@ fn script_table_asks_its_scripts() {
     c.ui_event(&json!({"path": "w|col|t", "set": {"selectedCells": [2, 1, 2, 2]}}));
     assert_eq!(ok(&mut c, "scriptTable -q -sr t;"), json!(2));
     assert_eq!(ok(&mut c, "scriptTable -q -scs t;"), json!([1, 2]));
-    ok(&mut c, "scriptTable -e -clr t;");
+    ok(&mut c, "scriptTable -e -ct t;");
     assert_eq!(ok(&mut c, "scriptTable -q -rows t;"), json!(0));
     errors(&mut c);
 }

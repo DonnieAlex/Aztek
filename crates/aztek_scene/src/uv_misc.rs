@@ -298,69 +298,141 @@ fn untangle_uv(s: &mut Session, a: &Args) -> CmdResult {
     })
 }
 
-fn stack_shells(s: &mut Session, a: &Args) -> CmdResult {
-    let tolerance = a.float("tolerance", 0.01).max(1e-6);
-    each(s, a, "polyUVStackSimilarShells", "Stack Shells", "polyTweakUV", |m, t, tp| {
-        let shells = shells_of(m, t, tp);
-        // Alike: the same counts of faces and points, and the same 3D area.
-        let key = |m: &Mesh, sh: &[Index]| -> (usize, usize, f64) {
-            let area: f64 = sh.iter().map(|&f| m.face_area(f)).sum();
-            let corners = corners_of_faces(m, sh).len();
-            (sh.len(), corners, area)
-        };
-        let mut groups: Vec<(usize, usize, f64, DVec2)> = Vec::new();
-        for shell in shells {
-            let (fc, cc, area) = key(m, &shell);
-            let corners = corners_of_faces(m, &shell);
-            let (lo, hi) = bounds_of(m, &corners);
-            let centre = (lo + hi) * 0.5;
-            if let Some(g) = groups.iter().find(|g| g.0 == fc && g.1 == cc && (g.2 - area).abs() <= tolerance * area.max(1e-9)) {
-                uv_ops::transform(m, &corners, g.3 - centre, DVec2::ONE, 0.0, DVec2::ZERO);
-            } else {
-                groups.push((fc, cc, area, centre));
-            }
+/// Shells alike (the same counts of faces and points, the same 3D area within the tolerance), grouped: the first of
+/// each group is the target the others stack on.
+fn similar_shells(m: &Mesh, t: &Target, tp: &UvTopo, tolerance: f64) -> Vec<Vec<Vec<Index>>> {
+    let mut groups: Vec<(usize, usize, f64, Vec<Vec<Index>>)> = Vec::new();
+    for shell in shells_of(m, t, tp) {
+        let area: f64 = shell.iter().map(|&f| m.face_area(f)).sum();
+        let (fc, cc) = (shell.len(), corners_of_faces(m, &shell).len());
+        match groups.iter_mut().find(|g| g.0 == fc && g.1 == cc && (g.2 - area).abs() <= tolerance * area.max(1e-9)) {
+            Some(g) => g.3.push(shell),
+            None => groups.push((fc, cc, area, vec![shell])),
         }
-    })
+    }
+    groups.into_iter().map(|g| g.3).collect()
 }
 
+/// The UVs (map ids) of some faces.
+fn maps_of_faces(m: &Mesh, tp: &UvTopo, faces: &[Index]) -> Vec<Index> {
+    let mut out: BTreeSet<Index> = BTreeSet::new();
+    for c in corners_of_faces(m, faces) {
+        if let Some(&mp) = tp.corner_map.get(c as usize).filter(|&&mp| mp != INVALID) {
+            out.insert(mp);
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// polyUVStackSimilarShells: shells alike are moved onto the first of their kind, by their middles. Returns the UVs of
+/// the shells stacked, or with -onlyMatch the UVs of the target shells, moving nothing.
+fn stack_shells(s: &mut Session, a: &Args) -> CmdResult {
+    let tolerance = a.float("tolerance", 0.01).max(1e-6);
+    let only_match = a.bool("onlyMatch");
+    let targets = uv_ops::targets(s, a, "polyUVStackSimilarShells")?;
+    let names: Vec<String> = targets.keys().map(|&n| crate::components::display_path(&s.graph, n)).collect();
+    let mut found: Vec<Vec<Index>> = Vec::new();
+    if only_match {
+        s.graph.evaluate();
+        for (&mesh, t) in &targets {
+            let Some(m) = crate::modifiers::cage(&mut s.graph, mesh) else { found.push(Vec::new()); continue };
+            let tp = uv_ops::topo(&m);
+            let mut list = Vec::new();
+            for g in similar_shells(&m, t, &tp, tolerance).into_iter().filter(|g| g.len() > 1) {
+                list.extend(maps_of_faces(&m, &tp, &g[0]));
+            }
+            found.push(list);
+        }
+    } else {
+        each(s, a, "polyUVStackSimilarShells", "Stack Shells", "polyTweakUV", |m, t, tp| {
+            let mut list = Vec::new();
+            for g in similar_shells(m, t, tp, tolerance) {
+                let Some(first) = g.first() else { continue };
+                let (lo, hi) = bounds_of(m, &corners_of_faces(m, first));
+                let target = (lo + hi) * 0.5;
+                for shell in g.iter().skip(1) {
+                    let corners = corners_of_faces(m, shell);
+                    let (lo, hi) = bounds_of(m, &corners);
+                    uv_ops::transform(m, &corners, target - (lo + hi) * 0.5, DVec2::ONE, 0.0, DVec2::ZERO);
+                    list.extend(maps_of_faces(m, tp, shell));
+                }
+            }
+            found.push(list);
+        })?;
+    }
+    let mut out = Vec::new();
+    for (name, list) in names.iter().zip(found) {
+        out.extend(list.into_iter().map(|mp| json!(format!("{name}.map[{mp}]"))));
+    }
+    Ok(Value::Array(out))
+}
+
+/// The settings polyStraightenUVBorder reads: blendOriginal, curvature, preserveLength and gapTolerance.
 fn straighten_border(s: &mut Session, a: &Args) -> CmdResult {
+    let a2 = a.clone();
+    each(s, a, "polyStraightenUVBorder", "Straighten UV Border", "polyTweakUV", move |m, t, tp| straighten_uvs(&a2, m, t, tp))
+}
+
+/// polyStraightenUVBorder's edit: each run of border UVs picked (gaps of up to gapTolerance UVs between picked ones
+/// filled), or each whole border when no UVs are picked, laid along the line between its ends, bowed by curvature,
+/// spaced as before (preserveLength 1) or evenly (0), and blended back toward where they were by blendOriginal.
+pub(crate) fn straighten_uvs(a: &Args, m: &mut Mesh, t: &Target, tp: &UvTopo) {
     let blend = a.float("blendOriginal", 0.0).clamp(0.0, 1.0);
     let curvature = a.float("curvature", 0.0);
     let keep_length = a.get("preserveLength").and_then(Value::as_f64).unwrap_or(1.0).clamp(0.0, 1.0);
-    each(s, a, "polyStraightenUVBorder", "Straighten UV Border", "polyTweakUV", |m, t, tp| {
-        let shells = shells_of(m, t, tp);
-        let picked: BTreeSet<Index> = t.maps.iter().copied().collect();
-        for shell in shells {
-            for border in border_loops(m, tp, &shell) {
-                // The run asked for: picked maps on this border in order, or the whole border's longest side.
-                let n = border.len();
-                let run: Vec<Index> = if picked.is_empty() {
-                    border.clone()
-                } else {
-                    let Some(start) = (0..n).find(|&i| picked.contains(&border[i]) && !picked.contains(&border[(i + n - 1) % n])).or_else(|| (0..n).find(|&i| picked.contains(&border[i]))) else { continue };
-                    (0..n).map(|k| border[(start + k) % n]).take_while(|x| picked.contains(x)).collect()
-                };
-                if run.len() < 3 {
-                    continue;
-                }
-                let pts: Vec<DVec2> = run.iter().map(|&x| map_uv(m, tp, x)).collect();
-                let (p0, p1) = (pts[0], pts[pts.len() - 1]);
-                let chord = p1 - p0;
-                let mut lens = vec![0.0];
-                for w in pts.windows(2) {
-                    lens.push(lens.last().unwrap() + w[0].distance(w[1]));
-                }
-                let total = lens.last().copied().unwrap_or(1.0).max(1e-12);
-                let side = DVec2::new(-chord.y, chord.x);
-                for (i, &mp) in run.iter().enumerate() {
-                    let along = if keep_length > 0.5 { lens[i] / total } else { i as f64 / (run.len() - 1) as f64 };
-                    let bow = curvature * (along * std::f64::consts::PI).sin() * 0.25;
-                    let q = p0 + chord * along + side * bow;
-                    set_map_uv(m, tp, mp, q.lerp(pts[i], blend));
+    let gap = a.int("gapTolerance", 0).max(0) as usize;
+    let shells = shells_of(m, t, tp);
+    let picked: BTreeSet<Index> = t.maps.iter().copied().collect();
+    for shell in shells {
+        for border in border_loops(m, tp, &shell) {
+            let n = border.len();
+            // Gaps of unpicked UVs between picked ones, no longer than the tolerance, count as picked.
+            let mut on: Vec<bool> = border.iter().map(|x| picked.contains(x)).collect();
+            if gap > 0 && on.iter().any(|&x| x) {
+                let mut i = 0;
+                while i < n {
+                    if on[i] && !on[(i + 1) % n] {
+                        let mut j = 1;
+                        while j <= gap + 1 && !on[(i + j) % n] {
+                            j += 1;
+                        }
+                        if j <= gap + 1 && j < n {
+                            for k in 1..j {
+                                on[(i + k) % n] = true;
+                            }
+                        }
+                    }
+                    i += 1;
                 }
             }
+            let run: Vec<Index> = if picked.is_empty() {
+                border.clone()
+            } else {
+                let Some(start) = (0..n).find(|&i| on[i] && !on[(i + n - 1) % n]).or_else(|| (0..n).find(|&i| on[i])) else { continue };
+                (0..n).map(|k| (start + k) % n).take_while(|&i| on[i]).map(|i| border[i]).collect()
+            };
+            if run.len() < 3 {
+                continue;
+            }
+            let pts: Vec<DVec2> = run.iter().map(|&x| map_uv(m, tp, x)).collect();
+            let (p0, p1) = (pts[0], pts[pts.len() - 1]);
+            let chord = p1 - p0;
+            let mut lens = vec![0.0];
+            for w in pts.windows(2) {
+                lens.push(lens.last().unwrap() + w[0].distance(w[1]));
+            }
+            let total = lens.last().copied().unwrap_or(1.0).max(1e-12);
+            // At curvature 1 the middle of the curve stands half the run's length off the line.
+            let side = DVec2::new(-chord.y, chord.x).normalize_or_zero() * chord.length();
+            for (i, &mp) in run.iter().enumerate() {
+                let even = i as f64 / (run.len() - 1) as f64;
+                let along = lens[i] / total * keep_length + even * (1.0 - keep_length);
+                let bow = curvature * (along * std::f64::consts::PI).sin() * 0.5;
+                let q = p0 + chord * along + side * bow;
+                set_map_uv(m, tp, mp, q.lerp(pts[i], blend));
+            }
         }
-    })
+    }
 }
 
 /// Cuts seams where faces meet sharply. -s (0 to 1) lowers the angle that counts, from 90 down to 30 degrees.
@@ -664,13 +736,13 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("uvRange", "ur", ArgType::List, "The range."))
             .undoable(false),
     );
-    c.register(poly_flag(Cmd::new("polyUVStackSimilarShells", "Stack shells that are alike (same counts, same 3D area within -tol) on the first of each kind, by their middles. Returns the node.", stack_shells)).flag(f("tolerance", "tol", Fl, "How close the areas must be, as a fraction.")).flag(f("onlyMatch", "om", B, "Accepted for existing scripts.")));
+    c.register(poly_flag(Cmd::new("polyUVStackSimilarShells", "Stack shells that are alike (same counts, same 3D area within -to) on the first of each kind, by their middles. Returns the UVs of the shells stacked.", stack_shells)).flag(f("tolerance", "to", Fl, "How close the shells' areas must be, as a fraction (0.01).")).flag(f("onlyMatch", "om", B, "Only find the matches: return the UVs of the target shells and move nothing.")));
     c.register(
         poly_flag(Cmd::new("polyStraightenUVBorder", "Straighten a run of border UVs between its ends: -bo blends back to where they were, -cur bows the line, -pl keeps their spacing. Whole borders without maps picked. Returns the node.", straighten_border))
             .flag(f("blendOriginal", "bo", Fl, "0 straight, 1 as it was."))
             .flag(f("curvature", "c", Fl, "How much to bow."))
             .flag(f("preserveLength", "pl", Fl, "1 keeps spacing, 0 evens it."))
-            .flag(f("gapTolerance", "gt", I, "Accepted for existing scripts.")),
+            .flag(f("gapTolerance", "gt", I, "Fill gaps of up to this many UVs between the UVs picked (0).")),
     );
     c.register(poly_flag(Cmd::new("u3dAutoSeam", "Cut seams where faces meet sharply: -s 0 to 1 how readily (90 to 30 degrees). Returns the node.", auto_seam)).flag(f("splitShells", "s", Fl, "How readily.")).flag(f("cutPipes", "p", I, "Accepted for existing scripts.")));
     c.register(

@@ -392,14 +392,16 @@ impl NodeBehavior for CurveNode {
                 Some(NurbsCurve::open(1, pts))
             }
             Kind::Rebuild => input.map(|c| {
-                let spans = d.int(P0);
-                let deg = d.int(P0 + 1).max(1) as usize;
-                let keep_cvs = d.bool(P0 + 2);
-                if keep_cvs {
-                    NurbsCurve::open(deg, c.distinct_cvs().to_vec())
-                } else {
-                    c.rebuilt(if spans <= 0 { c.spans() } else { spans as usize }, deg)
-                }
+                let o = RebuildOptions {
+                    spans: d.int(P0),
+                    degree: d.int(P0 + 1).max(1) as usize,
+                    keep_cvs: d.bool(P0 + 2),
+                    kind: d.int(P0 + 3),
+                    keep_range: d.int(P0 + 5),
+                    tolerance: d.float(P0 + 8),
+                    fit: d.bool(P0 + 9),
+                };
+                rebuild_curve(&c, &o, curve_value(d.value(P0 + 11)))
             }),
             Kind::Reverse => input.map(|c| c.reversed()),
             Kind::Close => input.map(|c| close_curve(&c, d.int(P0), d.float(P0 + 1), d.bool(P0 + 2), d.float(P0 + 3))),
@@ -450,6 +452,72 @@ impl NodeBehavior for CurveNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+/// rebuildCurve's settings.
+pub(crate) struct RebuildOptions {
+    pub spans: i64,
+    pub degree: usize,
+    pub keep_cvs: bool,
+    pub kind: i64,
+    pub keep_range: i64,
+    pub tolerance: f64,
+    pub fit: bool,
+}
+
+/// Whether every sample of `c` lies within `tol` of `r`.
+fn within(c: &NurbsCurve, r: &NurbsCurve, tol: f64) -> bool {
+    let (lo, hi) = c.domain();
+    (0..=64).all(|k| {
+        let p = c.eval(lo + (hi - lo) * k as f64 / 64.0);
+        r.eval(r.closest_param(p)).distance(p) <= tol.max(1e-9)
+    })
+}
+
+/// The reference's rebuildCurve: by rebuildType, a uniform curve of `spans` spans, the fewest spans within the
+/// tolerance (1 and 6), the spans of a curve to match (2), the curve's own span count (3, 4), or its end conditions
+/// (5, which leaves the shape); then its parameter range by keepRange.
+pub(crate) fn rebuild_curve(c: &NurbsCurve, o: &RebuildOptions, reference: Option<&NurbsCurve>) -> NurbsCurve {
+    let deg = o.degree.max(1);
+    let (lo, hi) = c.domain();
+    let fit = |spans: usize| -> NurbsCurve {
+        let spans = spans.max(1);
+        if o.fit {
+            return c.rebuilt(spans, deg);
+        }
+        // Convert: the curve's points at even parameters are the CVs.
+        let n = spans + deg;
+        let pts: Vec<DVec3> = (0..n).map(|i| c.eval(lo + (hi - lo) * i as f64 / (n - 1) as f64)).collect();
+        NurbsCurve::open(deg, pts)
+    };
+    let own = if o.spans <= 0 { c.spans() } else { o.spans as usize };
+    let mut out = if o.keep_cvs {
+        NurbsCurve::open(deg, c.distinct_cvs().to_vec())
+    } else {
+        match o.kind {
+            1 | 6 => {
+                let most = c.spans().max(1);
+                (1..=most).map(fit).find(|r| within(c, r, o.tolerance)).unwrap_or_else(|| fit(most))
+            }
+            2 => reference.map_or_else(|| fit(own), |r| fit(r.spans())),
+            3 | 4 => fit(c.spans()),
+            5 => c.clone(),
+            _ => fit(own),
+        }
+    };
+    let n = out.spans() as f64;
+    out = match (o.kind, reference) {
+        (2, Some(r)) => {
+            let (a, b) = r.domain();
+            out.with_domain(a, b)
+        }
+        _ => match o.keep_range {
+            0 => out.with_domain(0.0, 1.0),
+            2 => out.with_domain(0.0, n),
+            _ => out.with_domain(lo, hi),
+        },
+    };
+    out
 }
 
 /// The reference's closeCurve: `ps` 0 makes the curve periodic on its own CVs (the shape moves), 1 keeps the shape, the
@@ -1054,6 +1122,124 @@ fn open_points(c: &NurbsCurve, per_span: usize) -> (Vec<DVec3>, bool) {
     (pts, closed)
 }
 
+/// revolve's axis, pivot and section count as its settings work them out for a profile: computePivotAndAxis,
+/// axisChoice, radius, radiusAnchor, useLocalPivot and useTolerance.
+fn revolve_frame(d: &NodeData, c: &NurbsCurve) -> (DVec3, DVec3, usize) {
+    let given = d.vec3(S_P).normalize_or_zero();
+    let mut axis = if given == DVec3::ZERO { DVec3::Y } else { given };
+    let mut pivot = if d.bool(S_P + 15) { d.vec3(S_P + 16) } else { d.vec3(S_P + 1) };
+    let cpa = d.int(S_P + 10);
+    let pts = c.tessellate(8);
+    if cpa >= 1 && pts.len() >= 2 {
+        let (first, last) = (pts[0], pts[pts.len() - 1]);
+        let mut e = (last - first).normalize_or_zero();
+        if e == DVec3::ZERO {
+            e = pts.iter().map(|p| *p - first).max_by(|a, b| a.length().total_cmp(&b.length())).unwrap_or(DVec3::X).normalize_or_zero();
+        }
+        let far = pts.iter().map(|p| (*p - first) - e * e.dot(*p - first)).max_by(|a, b| a.length().total_cmp(&b.length())).unwrap_or(DVec3::ZERO);
+        // The curve's plane; a straight curve takes the plane holding the axis given.
+        let mut n = e.cross(far).normalize_or_zero();
+        if n == DVec3::ZERO {
+            n = e.cross(axis).normalize_or_zero();
+        }
+        if n == DVec3::ZERO {
+            n = e.any_orthonormal_vector();
+        }
+        let b1 = e;
+        let b2 = n.cross(e).normalize_or_zero();
+        if cpa == 2 {
+            let span = |b: DVec3| {
+                let v: Vec<f64> = pts.iter().map(|p| p.dot(b)).collect();
+                v.iter().cloned().fold(f64::MIN, f64::max) - v.iter().cloned().fold(f64::MAX, f64::min)
+            };
+            axis = match d.int(S_P + 8) {
+                1 => b1,
+                2 => b2,
+                _ if span(b1) >= span(b2) => b1,
+                _ => b2,
+            };
+        }
+        // The pivot: radius away from the side of the curve's bounding box toward the axis, or from the anchor.
+        let side = n.cross(axis).normalize_or_zero();
+        let centre = pts.iter().copied().sum::<DVec3>() / pts.len() as f64;
+        let anchor = d.float(S_P + 12);
+        let r = d.float(S_P + 11);
+        let base = if (0.0..=1.0).contains(&anchor) {
+            let (lo, hi) = c.domain();
+            c.eval(lo + (hi - lo) * anchor)
+        } else {
+            let low = pts.iter().map(|p| p.dot(side)).fold(f64::MAX, f64::min);
+            centre + side * (low - centre.dot(side))
+        };
+        pivot = base - side * r;
+        // Along the axis the pivot sits level with the curve's middle.
+        pivot += axis * (centre - pivot).dot(axis);
+    }
+    let mut sections = d.int(S_P + 2).max(1) as usize;
+    if d.bool(S_P + 13) {
+        let tol = d.float(S_P + 14).max(1e-9);
+        let (start, end) = (d.float(S_P + 4).to_degrees(), d.float(S_P + 5).to_degrees());
+        let reach = c.cvs.iter().map(|p| {
+            let q = *p - pivot;
+            (q - axis * axis.dot(q)).length()
+        }).fold(0.0, f64::max);
+        let deg = d.int(S_P + 6).clamp(1, 3) as usize;
+        sections = (1..=256)
+            .find(|&k| {
+                let arc = nurbs::unit_arc(start, end, k.max(if ((end - start).abs() - 360.0).abs() < 1e-6 { 3 } else { 1 }), deg);
+                let (lo, hi) = arc.domain();
+                (0..=96).all(|i| (arc.eval(lo + (hi - lo) * i as f64 / 96.0).length() - 1.0).abs() * reach <= tol)
+            })
+            .unwrap_or(256);
+    }
+    let full = ((d.float(S_P + 5) - d.float(S_P + 4)).abs() - std::f64::consts::TAU).abs() < 1e-6;
+    (axis, pivot, if full { sections.max(3) } else { sections })
+}
+
+/// The surface revolve makes: the profile turned about the axis, a pie with bridge, the axis turned round with
+/// autoCorrectNormal when that makes the normals face out.
+fn revolve_surface(d: &NodeData, c: &NurbsCurve) -> nurbs::NurbsSurface {
+    let (axis, pivot, sections) = revolve_frame(d, c);
+    let (start, end) = (d.float(S_P + 4).to_degrees(), d.float(S_P + 5).to_degrees());
+    let degree = d.int(S_P + 6).clamp(1, 3) as usize;
+    let partial = ((end - start).abs() - 360.0).abs() > 1e-6;
+    let build = |axis: DVec3| -> nurbs::NurbsSurface {
+        if !(d.bool(S_P + 9) && partial) {
+            return nurbs::revolved(c, axis, pivot, start, end, sections, degree);
+        }
+        // The arc, then straight back from its end to its start: one curve, closed with a corner at each join.
+        let arc = nurbs::unit_arc(start, end, sections, degree);
+        let (a, b) = (arc.cvs[arc.cvs.len() - 1], arc.cvs[0]);
+        let mut cvs = arc.cvs.clone();
+        for k in 1..=arc.degree {
+            cvs.push(a.lerp(b, k as f64 / arc.degree as f64));
+        }
+        let mut knots = arc.knots.clone();
+        let top = knots.last().copied().unwrap_or(0.0);
+        knots.extend(std::iter::repeat_n(top + 1.0, arc.degree));
+        let lap = NurbsCurve { degree: arc.degree, form: Form::Closed, cvs, knots };
+        nurbs::NurbsSurface::from_curves(c, &lap, |i, j| {
+            let p = c.cvs[i] - pivot;
+            let foot = axis * axis.dot(p);
+            let r = p - foot;
+            let w = (-axis).cross(r);
+            pivot + foot + r * lap.cvs[j].x + w * lap.cvs[j].y
+        })
+    };
+    let surface = build(axis);
+    if d.bool(S_P + 7) {
+        let ((u0, u1), (v0, v1)) = (surface.domain_u(), surface.domain_v());
+        let (u, v) = ((u0 + u1) * 0.5, (v0 + v1) * 0.5);
+        let p = surface.eval(u, v);
+        let q = p - pivot;
+        let out = q - axis * axis.dot(q);
+        if surface.normal(u, v).dot(out) < 0.0 {
+            return build(-axis);
+        }
+    }
+    surface
+}
+
 impl NodeBehavior for SurfNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         if matches!(crate::history_qe::node_state(d), 2 | 5) {
@@ -1078,10 +1264,7 @@ impl NodeBehavior for SurfNode {
                     };
                     crate::surfaces::extrude_surface(profile, curves.get(1), o)
                 }),
-                SurfKind::Revolve => curves.first().filter(|c| c.is_valid()).map(|c| {
-                    let (start, end) = (d.float(S_P + 4), d.float(S_P + 5));
-                    nurbs::revolved(c, d.vec3(S_P), d.vec3(S_P + 1), start.to_degrees(), end.to_degrees(), d.int(S_P + 2).max(3) as usize, d.int(S_P + 6).clamp(1, 3) as usize)
-                }),
+                SurfKind::Revolve => curves.first().filter(|c| c.is_valid()).map(|c| revolve_surface(d, c)),
                 SurfKind::Loft => {
                     // Per curve, by the curve's place: reverse it (with autoReverse off) and break the tangent there.
                     let per = |attr: usize| -> Vec<bool> {
@@ -1162,10 +1345,7 @@ impl NodeBehavior for SurfNode {
             SurfKind::Revolve => (|| {
                 let c = curves.first()?;
                 let (pts, closed_u) = open_points(c, d.int(S_P + 3).max(1) as usize);
-                let axis = d.vec3(S_P).normalize_or_zero();
-                let axis = if axis == DVec3::ZERO { DVec3::Y } else { axis };
-                let pivot = d.vec3(S_P + 1);
-                let sections = d.int(S_P + 2).max(3) as usize;
+                let (axis, pivot, sections) = revolve_frame(d, c);
                 let (start, end) = (d.float(S_P + 4), d.float(S_P + 5));
                 let full = ((end - start).abs() - std::f64::consts::TAU).abs() < 1e-6;
                 let rows_n = if full { sections } else { sections + 1 };
@@ -1348,7 +1528,20 @@ pub fn register_types() {
                 "rebuildCurve",
                 Kind::Rebuild,
                 "Rebuilt with even spans.",
-                vec![int_in("spans", "s", 4, "Spans; 0 keeps the count."), int_in("degree", "d", 3, "The degree."), store_bool("keepControlPoints", false, "Keep the CVs as they are.")],
+                vec![
+                    int_in("spans", "s", 4, "Spans; 0 keeps the count."),
+                    int_in("degree", "d", 3, "The degree."),
+                    store_bool("keepControlPoints", false, "Keep the CVs as they are."),
+                    int_in("rebuildType", "rt", 0, "0 uniform, 1 reduce spans, 2 match knots, 3 no multiple knots, 4 curvature, 5 end conditions, 6 clean."),
+                    int_in("endKnots", "end", 0, "0 uniform end knots, 1 multiple end knots."),
+                    int_in("keepRange", "kr", 1, "The parameter range: 0 from 0 to 1, 1 the original's, 2 from 0 to the number of spans."),
+                    AttrDef { short_name: "kep".into(), ..store_bool("keepEndPoints", true, "The ends stay where they are.") },
+                    AttrDef { short_name: "kt".into(), ..store_bool("keepTangents", true, "The end tangents stay as they are.") },
+                    f_in("tolerance", "tol", 0.01, "How far the result may stray from the curve, reducing spans or cleaning."),
+                    AttrDef { short_name: "fr".into(), ..store_bool("fitRebuild", true, "A least squares fit; off, the curve's points at even parameters become the CVs.") },
+                    AttrDef { short_name: "scr".into(), ..store_bool("smartSurfaceCurveRebuild", false, "A curve on a surface is rebuilt in 3D, keeping what it is on the surface.") },
+                    curve_attr("matchCurve", "mc", flags::INPUT | flags::HIDDEN, "The curve whose knots match knots copies."),
+                ],
             ),
             curve_op_type("reverseCurve", Kind::Reverse, "Direction reversed.", vec![]),
             curve_op_type(
@@ -1480,13 +1673,23 @@ pub fn register_types() {
                 SurfKind::Revolve,
                 "A profile turned about an axis.",
                 vec![
-                    v_in("axis", "ax", DVec3::Y, "The axis."),
+                    v_in("axis", "ax", DVec3::X, "The axis."),
                     v_in("pivot", "p", DVec3::ZERO, "A point on the axis."),
                     int_in("sections", "s", 8, "Sections around."),
                     int_in("divisions", "dv", 4, "Mesh points per span of the profile."),
                     f_in("startSweep", "ssw", 0.0, "Start, degrees."),
                     f_in("endSweep", "esw", 360.0, "End, degrees."),
                     int_in("degree", "d", 3, "Degree around."),
+                    AttrDef { short_name: "acn".into(), ..store_bool("autoCorrectNormal", false, "Turn the axis round where that makes the normals face out.") },
+                    int_in("axisChoice", "aco", 0, "The axis worked out of a flat curve: 0 along its longer side, 1 its first, 2 its second."),
+                    AttrDef { short_name: "br".into(), ..store_bool("bridge", false, "Close a partial revolve with straight sides, a pie shape: closed but not periodic.") },
+                    int_in("computePivotAndAxis", "cpa", 0, "0 the axis and pivot given, 1 the axis given and the pivot worked out, 2 both worked out from the curve."),
+                    f_in("radius", "r", 1.0, "How far a pivot worked out stands from the curve's bounding box."),
+                    f_in("radiusAnchor", "ra", -1.0, "Where on the curve (0 to 1) that distance is measured from; outside that range, from the bounding box."),
+                    AttrDef { short_name: "ut".into(), ..store_bool("useTolerance", false, "Take the sections from the tolerance rather than the count.") },
+                    f_in("tolerance", "tol", 0.01, "How far the surface may stray from the true revolve, with useTolerance."),
+                    AttrDef { short_name: "ulp".into(), ..store_bool("useLocalPivot", false, "The axis starts at the profile curve's own pivot.") },
+                    AttrDef { flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, ..v_in("localPivot", "lp", DVec3::ZERO, "The profile curve's pivot in world space, for useLocalPivot.") },
                 ],
             ),
             surf_type(
@@ -2035,26 +2238,62 @@ pub fn register(c: &mut Commands<Session>) {
     )));
 
     c.register(with_common(
-        Cmd::new("rebuildCurve", "Rebuild with even spans: -s spans (0 keeps the count), -d degree, -kcp keeps the CVs. Returns [curve, node].", |s, a| {
-            let set = vec![
-                (P0, PlugValue::Int(a.int("spans", 4))),
-                (P0 + 1, PlugValue::Int(a.int("degree", 3))),
-                (P0 + 2, PlugValue::Bool(a.bool("keepControlPoints"))),
-            ];
-            run_op(s, a, "rebuildCurve", "rebuildCurve", &set)
-        })
-        .positional("curves (the selection when none)")
-        .flag(f("spans", "s", ArgType::Int, "Spans."))
-        .flag(f("degree", "d", ArgType::Int, "Degree."))
-        .flag(f("keepControlPoints", "kcp", ArgType::Bool, "Keep the CVs."))
-        .flag(f("rebuildType", "rt", ArgType::Int, "Accepted for existing scripts (uniform)."))
-        .flag(f("endKnots", "end", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("keepRange", "kr", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("keepEndPoints", "kep", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("keepTangents", "kt", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts.")),
+        Cmd::new(
+            "rebuildCurve",
+            "Rebuild a curve: -rt 0 uniform with -s spans (0 keeps the count), 1 the fewest spans within -tol, 2 matching the knots of a second curve \
+             named, 3 without multiple knots, 4 by curvature, 5 its end conditions, 6 clean; -d degree, -kcp keeps the CVs, -kr the range. Returns \
+             [curve, node].",
+            |s, a| {
+                let on = |k: &str, def: bool| a.get(k).map_or(def, |v| v.as_bool().unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0)));
+                let set = vec![
+                    (P0, PlugValue::Int(a.int("spans", 4))),
+                    (P0 + 1, PlugValue::Int(a.int("degree", 3))),
+                    (P0 + 2, PlugValue::Bool(a.bool("keepControlPoints"))),
+                    (P0 + 3, PlugValue::Int(a.int("rebuildType", 0))),
+                    (P0 + 4, PlugValue::Int(a.int("endKnots", 0))),
+                    (P0 + 5, PlugValue::Int(a.int("keepRange", 1))),
+                    (P0 + 6, PlugValue::Bool(on("keepEndPoints", true))),
+                    (P0 + 7, PlugValue::Bool(on("keepTangents", true))),
+                    (P0 + 8, PlugValue::Float(a.float("tolerance", 0.01))),
+                    (P0 + 9, PlugValue::Bool(on("fitRebuild", true))),
+                    (P0 + 10, PlugValue::Bool(on("smartSurfaceCurveRebuild", false))),
+                ];
+                // Match knots: the first curve is rebuilt on the second's parameterization, which stays as it is.
+                let names = objects(s, a);
+                if a.int("rebuildType", 0) == 2 && names.len() == 2 {
+                    let reference = curve_arg(&s.graph, &names[1], "rebuildCurve")?;
+                    let mut b = a.clone();
+                    b.positional = vec![json!(names[0])];
+                    let out = run_op(s, &b, "rebuildCurve", "rebuildCurve", &set)?;
+                    if let Some(node) = out.get(1).and_then(Value::as_str).and_then(|n| s.graph.find(n).ok().flatten()) {
+                        s.graph.connect(&plug(reference, CurveShape::WORLD_SPACE), &plug(node, P0 + 11), true)?;
+                        s.graph.evaluate();
+                    }
+                    return Ok(out);
+                }
+                run_op(s, a, "rebuildCurve", "rebuildCurve", &set)
+            },
+        )
+        .positional("curves (the selection when none); with -rt 2, the curve and the curve to match")
+        .flag(f("spans", "s", ArgType::Int, "Spans of a uniform rebuild (4); 0 keeps the count."))
+        .flag(f("degree", "d", ArgType::Int, "Degree: 1, 2, 3, 5 or 7 (3)."))
+        .flag(f("keepControlPoints", "kcp", ArgType::Bool, "Keep the CVs as they are (off)."))
+        .flag(f("rebuildType", "rt", ArgType::Int, "0 uniform, 1 reduce spans, 2 match knots, 3 no multiple knots, 4 curvature, 5 end conditions, 6 clean (0)."))
+        .flag(f("endKnots", "end", ArgType::Int, "0 uniform end knots, 1 multiple end knots (0); the ends are always clamped here."))
+        .flag(f("keepRange", "kr", ArgType::Int, "0 range 0 to 1, 1 the original's (the default), 2 0 to the number of spans."))
+        .flag(f("keepEndPoints", "kep", ArgType::Bool, "The ends stay where they are (on)."))
+        .flag(f("keepTangents", "kt", ArgType::Bool, "The end tangents stay as they are (on)."))
+        .flag(f("tolerance", "tol", ArgType::Float, "How far a reduced or cleaned curve may stray (0.01)."))
+        .flag(f("fitRebuild", "fr", ArgType::Bool, "A least squares fit (on); off, the curve's points at even parameters become the CVs."))
+        .flag(f("smartSurfaceCurveRebuild", "scr", ArgType::Bool, "Rebuild a curve on a surface in 3D, keeping what it is on the surface (off)."))
+        .flag(f("range", "rn", ArgType::Bool, "Work on the whole curve: here the whole input curve always is.")),
     ));
-    c.register(with_common(Cmd::new("reverseCurve", "Reverse the direction. Returns [curve, node].", |s, a| run_op(s, a, "reverseCurve", "reverseCurve", &[])).positional("curves (the selection when none)")));
+    c.register(with_common(
+        Cmd::new("reverseCurve", "Reverse the direction, keeping the parameter range. Returns [curve, node].", |s, a| run_op(s, a, "reverseCurve", "reverseCurve", &[]))
+            .positional("curves (the selection when none)")
+            .flag(f("curveOnSurface", "cos", ArgType::Bool, "Make the result a curve on the surface where it can; curves here are reversed as 3D curves."))
+            .flag(f("range", "rn", ArgType::Bool, "Work on the whole curve: here the whole input curve always is.")),
+    ));
     c.register(with_common(
         Cmd::new("closeCurve", "Close a curve, making it periodic: -ps 0 on its CVs, 1 keeping its shape (the default), 2 blending the ends at -bb. Returns [curve, node].", |s, a| {
             let set = vec![
@@ -2378,16 +2617,63 @@ pub fn register(c: &mut Commands<Session>) {
                 let g = &mut s.graph;
                 let Some(n) = names.first() else { fail!("revolve: name or select a curve") };
                 let shape = curve_arg(g, n, "revolve")?;
+                let on = |k: &str| a.get(k).is_some_and(|v| v.as_bool().unwrap_or_else(|| v.as_f64().is_some_and(|x| x != 0.0)));
+                // The axis and pivot by their parts too.
+                let mut axis = v3(a, "axis", DVec3::new(1.0, 0.0, 0.0));
+                let mut pivot = v3(a, "pivot", DVec3::ZERO);
+                for (k, n) in ["axisX", "axisY", "axisZ"].into_iter().enumerate() {
+                    if let Some(x) = a.get(n).and_then(Value::as_f64) {
+                        axis[k] = x;
+                    }
+                }
+                for (k, n) in ["pivotX", "pivotY", "pivotZ"].into_iter().enumerate() {
+                    if let Some(x) = a.get(n).and_then(Value::as_f64) {
+                        pivot[k] = x;
+                    }
+                }
+                let tr_of = crate::dag::transform_of(g, shape);
+                let rp = g.node(tr_of).map_or(DVec3::ZERO, |n| n.data().vec3(crate::transform::Transform::ROTATE_PIVOT));
+                let local_pivot = crate::rig::world(g, tr_of).transform_point3(rp);
                 let set = vec![
-                    (S_P, PlugValue::Vec3(v3(a, "axis", DVec3::Y))),
-                    (S_P + 1, PlugValue::Vec3(v3(a, "pivot", DVec3::ZERO))),
+                    (S_P, PlugValue::Vec3(axis)),
+                    (S_P + 1, PlugValue::Vec3(pivot)),
                     (S_P + 2, PlugValue::Int(a.int("sections", 8))),
                     (S_P + 3, PlugValue::Int(a.int("divisions", 4))),
                     (S_P + 4, PlugValue::Float(a.float("startSweep", 0.0))),
                     (S_P + 5, PlugValue::Float(a.float("endSweep", std::f64::consts::TAU))),
                     (S_P + 6, PlugValue::Int(a.int("degree", 3))),
+                    (S_P + 7, PlugValue::Bool(on("autoCorrectNormal"))),
+                    (S_P + 8, PlugValue::Int(a.int("axisChoice", 0))),
+                    (S_P + 9, PlugValue::Bool(on("bridge"))),
+                    (S_P + 10, PlugValue::Int(a.int("computePivotAndAxis", 0))),
+                    (S_P + 11, PlugValue::Float(a.float("radius", 1.0))),
+                    (S_P + 12, PlugValue::Float(a.float("radiusAnchor", -1.0))),
+                    (S_P + 13, PlugValue::Bool(on("useTolerance"))),
+                    (S_P + 14, PlugValue::Float(a.float("tolerance", 0.01))),
+                    (S_P + 15, PlugValue::Bool(on("useLocalPivot"))),
+                    (S_P + 16, PlugValue::Vec3(local_pivot)),
                 ];
-                let (tr, node) = surf_output(g, "revolve", &a.string("name", "revolvedSurface1"), "revolve1", &[shape], &set, a.int("polygon", 0) == 1)?;
+                // -rebuild: the profile goes through a rebuildCurve node first.
+                let mut input = shape;
+                let mut rebuilt = None;
+                if on("rebuild") {
+                    let t = types::find("rebuildCurve").expect("rebuildCurve");
+                    let rb = g.create_node(&t, "rebuildCurve1", NO_NODE, true)?;
+                    g.connect(&plug(shape, CurveShape::WORLD_SPACE), &plug(rb, IN), false)?;
+                    rebuilt = Some(rb);
+                    input = rb;
+                }
+                let (tr, node) = surf_output(g, "revolve", &a.string("name", "revolvedSurface1"), "revolve1", &[if rebuilt.is_some() { shape } else { input }], &set, a.int("polygon", 0) == 1)?;
+                if let Some(rb) = rebuilt {
+                    g.connect(&plug(rb, OUT), &PlugRef::element(node, S_CURVES as i32, 0), true)?;
+                }
+                // -object off: only the node.
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    let path = g.path(node);
+                    g.delete_node(tr)?;
+                    g.evaluate();
+                    return Ok(json!([path]));
+                }
                 finish_surf(g, a, tr, node)
             },
         )
@@ -2399,8 +2685,23 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("startSweep", "ssw", ArgType::Float, "Start, degrees."))
         .flag(f("endSweep", "esw", ArgType::Float, "End, degrees."))
         .flag(f("degree", "d", ArgType::Int, "Degree around (3)."))
-        .flag(f("useTolerance", "ut", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts.")),
+        .flag(f("useTolerance", "ut", ArgType::Bool, "Take the sections from -tol rather than -s (off)."))
+        .flag(f("tolerance", "tol", ArgType::Float, "How far the surface may stray from the true revolve, with -ut (0.01)."))
+        .flag(f("autoCorrectNormal", "acn", ArgType::Bool, "Turn the axis round where that makes the normals face out (off)."))
+        .flag(f("axisChoice", "aco", ArgType::Int, "With -cpa 2: the axis along the flat curve's longer side (0), its first (1) or its second (2)."))
+        .flag(f("axisX", "axx", ArgType::Float, "The axis's X (1)."))
+        .flag(f("axisY", "axy", ArgType::Float, "The axis's Y (0)."))
+        .flag(f("axisZ", "axz", ArgType::Float, "The axis's Z (0)."))
+        .flag(f("bridge", "br", ArgType::Bool, "Close a partial revolve with straight sides, a pie shape (off)."))
+        .flag(f("computePivotAndAxis", "cpa", ArgType::Int, "0 the axis and pivot given, 1 the pivot worked out, 2 both worked out from the curve (0)."))
+        .flag(f("pivotX", "px", ArgType::Float, "The pivot's X (0)."))
+        .flag(f("pivotY", "py", ArgType::Float, "The pivot's Y (0)."))
+        .flag(f("pivotZ", "pz", ArgType::Float, "The pivot's Z (0)."))
+        .flag(f("radius", "r", ArgType::Float, "How far a pivot worked out stands from the curve's bounding box (1)."))
+        .flag(f("radiusAnchor", "ra", ArgType::Float, "Where on the curve, 0 to 1, that distance is measured from; outside that, the bounding box (-1)."))
+        .flag(f("rebuild", "rb", ArgType::Bool, "Rebuild the profile first, through a rebuildCurve node (off)."))
+        .flag(f("useLocalPivot", "ulp", ArgType::Bool, "Start the axis at the profile curve's own pivot (off)."))
+        .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
     ));
 
     c.register(surf_flags(

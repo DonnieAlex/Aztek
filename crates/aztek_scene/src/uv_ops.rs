@@ -698,6 +698,7 @@ pub const NODE_TYPES: &[(&str, &str)] = &[
     ("polyMapDel", "UVs of faces cleared."),
     ("polyOptUvs", "UVs relaxed."),
     ("polyUVRectangle", "A shell's UVs squared onto its bounding box."),
+    ("polyStraightenUVBorder", "Border UVs moved along a line or a gentle curve."),
 ];
 
 pub struct UvEditNode {
@@ -725,6 +726,10 @@ fn projection_state(d: &NodeData) -> String {
     if ra != 0.0 {
         out.push_str(&format!(" {ra:.6}"));
     }
+    let psv = d.ty.attr_index("projectionScaleV").map_or(std::f64::consts::FRAC_PI_2, |i| d.float(i));
+    if (psv - std::f64::consts::FRAC_PI_2).abs() > 1e-12 {
+        out.push_str(&format!(" v{psv:.6}"));
+    }
     out
 }
 
@@ -742,6 +747,8 @@ fn reproject(d: &NodeData, ty: Projection, m: &mut Mesh) {
     let (ic, is) = (d.vec3(PJ_IMAGE_CENTER), d.vec3(PJ_IMAGE_SCALE));
     let sweep = d.float(PJ_SWEEP).abs().max(1e-3f64.to_radians());
     let ra = d.ty.attr_index("rotationAngle").map_or(0.0, |i| d.float(i));
+    // A sphere's height: half the angle it covers up and down (a quarter turn covers it all).
+    let vsweep = d.ty.attr_index("projectionScaleV").map_or(sweep * 0.5, |i| d.float(i).abs().max(1e-3f64.to_radians()) * 2.0);
     let faces = crate::history::parse_components(d.string(PJ_FACES));
     let mut edit = UvEdit::default();
     for f in faces {
@@ -752,7 +759,7 @@ fn reproject(d: &NodeData, ty: Projection, m: &mut Mesh) {
             let p = inv * (m.position(m.corner_point(corner)) - c);
             let (u, v) = match ty {
                 Projection::Cylindrical => (p.x.atan2(p.z) / sweep + 0.5, p.y / h + 0.5),
-                Projection::Spherical => (p.x.atan2(p.z) / sweep + 0.5, (p.y / p.length().max(1e-9)).asin() / (sweep * 0.5) + 0.5),
+                Projection::Spherical => (p.x.atan2(p.z) / sweep + 0.5, (p.y / p.length().max(1e-9)).asin() / vsweep + 0.5),
                 _ => (p.x / w + 0.5, p.y / h + 0.5),
             };
             // Scaled about the middle of the 0 to 1 square, turned, then centred on imageCenter, as the reference does.
@@ -826,6 +833,11 @@ impl NodeBehavior for UvEditNode {
         // HasNoEffect: the mesh passes through.
         if crate::history_qe::node_state(d) == 1 {
             d.set_output(OUT, PlugValue::Mesh(Some(input)));
+            return;
+        }
+        // polyTransfer: what it copies, taken from the other mesh as it is now.
+        if let Some(m) = crate::poly_tail::uv_node_live(d, &input) {
+            d.set_output(OUT, PlugValue::Mesh(Some(Arc::new(m))));
             return;
         }
         // Settings changed since the edit was made: made again from them.
@@ -1274,6 +1286,9 @@ fn register_types_now() {
                         own.push(AttrDef { name: nm.into(), short_name: sh.into(), ty: PlugType::Bool, default_value: PlugValue::Bool(false), flags: flags::INPUT | flags::STORABLE, doc: doc.into(), ..Default::default() });
                     }
                 }
+                // After the projection's attributes, whose places are fixed.
+                own.extend(crate::poly_tail::uv_node_attrs(name));
+                own.extend(crate::poly_tail::sph_attrs(name));
                 own
             },
             create: Some(if *name == "polyAutoProj" { Arc::new(|| Box::new(AutoProjNode) as Box<dyn NodeBehavior>) } else { Arc::new(move || Box::new(UvEditNode { projection }) as Box<dyn NodeBehavior>) }),

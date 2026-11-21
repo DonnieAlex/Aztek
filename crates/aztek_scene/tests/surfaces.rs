@@ -247,14 +247,14 @@ fn loft_shape_and_options() {
 fn revolve_extrude_planar() {
     let mut s = Session::new();
     run(&mut s, "curve", json!({"degree": 1, "point": [[1, 0, 0], [1, 2, 0]], "name": "edge"}));
-    assert_eq!(run(&mut s, "revolve", json!({"args": ["edge"], "sections": 12})), json!(["revolvedSurface1", "revolve1"]));
+    assert_eq!(run(&mut s, "revolve", json!({"args": ["edge"], "axis": [0, 1, 0], "sections": 12})), json!(["revolvedSurface1", "revolve1"]));
     assert_eq!(attr(&mut s, "revolvedSurface1.formV"), 2.0);
     assert_eq!(attr(&mut s, "revolvedSurface1.spansV"), 12.0);
     assert_eq!(cvs(&mut s, "revolvedSurface1"), 2 * 12);
     assert!(near(point(&mut s, "revolvedSurface1", 1.0, 0.0), [1.0, 2.0, 0.0], 0.001));
     run(&mut s, "setAttr", json!({"args": ["revolve1.sections", 6]}));
     assert_eq!(attr(&mut s, "revolvedSurface1.spansV"), 6.0);
-    run(&mut s, "revolve", json!({"args": ["edge"], "startSweep": 0.0, "endSweep": 180.0, "sections": 4, "name": "half"}));
+    run(&mut s, "revolve", json!({"args": ["edge"], "axis": [0, 1, 0], "startSweep": 0.0, "endSweep": 180.0, "sections": 4, "name": "half"}));
     assert_eq!(attr(&mut s, "half.formV"), 0.0);
     assert!(near(point(&mut s, "half", 0.0, 4.0), [-1.0, 0.0, 0.0], 1e-9));
     assert!(near(point(&mut s, "half", 0.0, 2.0), [0.0, 0.0, 1.0], 1e-9));

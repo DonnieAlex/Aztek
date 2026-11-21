@@ -656,6 +656,78 @@ fn pw_add_driver(g: &mut Graph, n: NodeId, name: &str) -> CmdResult<()> {
     Ok(())
 }
 
+/// A flag's names, one use or many.
+fn list_of(v: Option<&Value>) -> Vec<String> {
+    match v {
+        Some(Value::String(d)) => vec![d.clone()],
+        Some(Value::Array(l)) => l.iter().flat_map(|x| x.as_array().cloned().unwrap_or_else(|| vec![x.clone()])).filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The driver mesh a name stands for.
+fn pw_driver_mesh(g: &Graph, name: &str) -> Option<NodeId> {
+    let id = g.find(name).ok()??;
+    components::as_mesh(g, id)
+}
+
+/// Takes a driver's connections and elements away.
+fn pw_remove_driver(g: &mut Graph, n: NodeId, name: &str) -> CmdResult<()> {
+    let Some(m) = pw_driver_mesh(g, name) else { fail!("proximityWrap: {name} is not a mesh") };
+    let hit: Vec<i32> = g.elements(&plug(n, PW_DRIVER)).iter().filter(|e| g.source(e).is_some_and(|p| p.node == m)).map(|e| e.element).collect();
+    if hit.is_empty() {
+        fail!("proximityWrap: {name} is not a driver of {}", g.path(n));
+    }
+    for e in hit {
+        for attr in [PW_DRIVER, PW_MATRIX] {
+            let p = PlugRef::element(n, attr as i32, e);
+            g.disconnect(&p);
+            g.remove_element(&p)?;
+        }
+    }
+    Ok(())
+}
+
+/// proximityWrap's queries of its drivers: -driverIndices, -freeDriverIndex, -canBeAdded and -dumpInfo.
+fn pw_query(s: &mut Session, a: &Args) -> CmdResult {
+    let names = a.named();
+    let Some(name) = names.last() else { fail!("proximityWrap: name the deformer") };
+    let n = named(&s.graph, name, "proximityWrap")?;
+    let g = &s.graph;
+    let connected: Vec<(i32, NodeId)> = g.elements(&plug(n, PW_DRIVER)).iter().filter_map(|e| g.source(e).map(|p| (e.element, p.node))).collect();
+    if asked(a, "driverIndices") {
+        return Ok(json!(connected.iter().map(|x| x.0).collect::<Vec<_>>()));
+    }
+    if asked(a, "freeDriverIndex") {
+        let free = (0..).find(|i| !connected.iter().any(|x| x.0 == *i)).unwrap_or(0);
+        return Ok(json!(free));
+    }
+    let deformed: Vec<NodeId> = crate::deform::group(g, n).into_iter().filter_map(|x| crate::deform::mesh_fed_by(g, x)).collect();
+    if a.has("canBeAdded") {
+        // The shapes named with the flag, or before the deformer's name.
+        let mut shapes = list_of(a.get("canBeAdded"));
+        shapes.extend(names.iter().take(names.len().saturating_sub(1)).cloned());
+        let ok = !shapes.is_empty()
+            && shapes.iter().all(|x| match pw_driver_mesh(g, x) {
+                Some(m) => !connected.iter().any(|c| c.1 == m) && !deformed.contains(&m),
+                None => false,
+            });
+        return Ok(json!(ok));
+    }
+    // -dumpInfo: a dictionary for Python.
+    let drivers: serde_json::Map<String, Value> = connected.iter().map(|(e, m)| (e.to_string(), json!(g.path(*m)))).collect();
+    let d = g.node(n).unwrap().data();
+    Ok(json!({
+        "name": g.path(n),
+        "drivers": drivers,
+        "geometry": deformed.iter().map(|&m| g.path(m)).collect::<Vec<_>>(),
+        "wrapMode": d.int(PW_MODE),
+        "maxDrivers": d.int(PW_MAX),
+        "falloffScale": d.float(PW_FALLOFF),
+        "dropoffRateScale": d.float(PW_DROPOFF),
+    }))
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // solidify
 
@@ -1742,11 +1814,21 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                     let list: Vec<String> = g.elements(&plug(n, PW_DRIVER)).iter().filter_map(|e| g.source(e)).map(|p| g.path(p.node)).collect();
                     return Ok(json!(list));
                 }
+                if a.bool("query") && ["driverIndices", "freeDriverIndex", "dumpInfo", "canBeAdded"].iter().any(|k| asked(a, k) || a.get(k).is_some_and(Value::is_string)) {
+                    return pw_query(s, a);
+                }
                 if a.bool("edit") {
                     let Some(name) = a.named().into_iter().next() else { fail!("proximityWrap: name the deformer") };
                     let n = named(&s.graph, &name, "proximityWrap")?;
-                    if let Some(d) = a.get("addDrivers").and_then(Value::as_str) {
+                    let removed = list_of(a.get("removeDrivers"));
+                    for d in &removed {
+                        pw_remove_driver(&mut s.graph, n, d)?;
+                    }
+                    let added = list_of(a.get("addDrivers"));
+                    for d in &added {
                         pw_add_driver(&mut s.graph, n, d)?;
+                    }
+                    if !added.is_empty() || !removed.is_empty() {
                         pw_bind(&mut s.graph, n)?;
                     }
                 }
@@ -1776,7 +1858,13 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         ))),
         vec![
             f("drivers", "drv", ArgType::Any, "The driver meshes. Query: them."),
-            f("addDrivers", "ad", ArgType::String, "With -e: a driver to add."),
+            f("addDrivers", "ad", ArgType::Any, "With -e: a driver to add and connect; repeat it for more.").multi(1),
+            f("removeDrivers", "rd", ArgType::Any, "With -e: a connected driver to take away; repeat it for more.").multi(1),
+            f("applyUserDefaults", "aud", ArgType::Bool, "With -addDrivers: new drivers take the user's default driver settings (on); drivers here have no settings of their own."),
+            f("canBeAdded", "cba", ArgType::Any, "Query: whether the shapes named could all be added as drivers: none a driver already, the deformed geometry or not a mesh.").multi(1),
+            f("driverIndices", "di", ArgType::Bool, "Query: the indices of the drivers connected."),
+            f("dumpInfo", "dui", ArgType::Bool, "Query: what the node holds, as a dictionary: its drivers by index, the geometry and its settings."),
+            f("freeDriverIndex", "fdi", ArgType::Bool, "Query: the first index with no driver connected."),
             f("wrapMode", "wm", ArgType::Int, "0 offset, 1 surface, 2 snap."),
             f("maxDrivers", "md", ArgType::Int, "How many driver points each point follows (4)."),
             fx("falloffScale", "fsc", "How far each binding reaches (1)."),

@@ -37,6 +37,8 @@ fn register_type() {
             attr("scriptType", "st", PlugType::Int, PlugValue::Int(0)),
             // 0 MEL, 1 Python.
             attr("sourceType", "stp", PlugType::Int, PlugValue::Int(0)),
+            // Set as the node is made: changes its scripts make to referenced nodes are not to count as reference edits.
+            attr("ignoreReferenceEdits", "ire", PlugType::Bool, PlugValue::Bool(false)),
         ],
         create: Some(Arc::new(|| Box::new(ScriptNode))),
         ..Default::default()

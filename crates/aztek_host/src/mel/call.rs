@@ -152,6 +152,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("dgdirty", "list")
             | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
+            | ("proximityWrap", "canBeAdded")
             | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
             | (
                 "polySelect",

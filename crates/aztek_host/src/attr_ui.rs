@@ -292,7 +292,56 @@ fn fill_tables(core: &mut Core) {
             }
             cells.push(row);
         }
+        // The colours the table's scripts give each cell, 0 to 255 a channel.
+        let mut colours = Map::new();
+        for (flag, prop) in [("cellBackgroundColorCommand", "cellBackground"), ("cellForegroundColorCommand", "cellForeground")] {
+            let Some(cb) = control_prop(&path, flag).filter(|v| !text(v).is_empty()) else { continue };
+            let mut grid = Vec::with_capacity(rows);
+            for r in 1..=rows {
+                let mut row = Vec::with_capacity(cols);
+                for c in 1..=cols {
+                    let v = call_for_value(core, &cb, &[json!(r), json!(c)]).unwrap_or(Value::Null);
+                    let rgb: Vec<i64> = flat(&v).iter().map(|x| number(x) as i64).collect();
+                    row.push(if rgb.len() >= 3 { json!([rgb[0], rgb[1], rgb[2]]) } else { Value::Null });
+                }
+                grid.push(Value::Array(row));
+            }
+            colours.insert(prop.to_string(), Value::Array(grid));
+        }
         crate::scriptui::table_set_cells(&path, cells);
+        if !colours.is_empty() {
+            let _ = model_edit(&path, &colours);
+        }
+    }
+}
+
+/// Delete or Backspace in a table: -rowsToBeRemovedCmd may keep the rows; those that go are taken out and
+/// -rowsRemovedCmd hears which.
+fn rows_remove(core: &mut Core, path: &str, list: &Value) {
+    let mut rows: Vec<i64> = flat(list).iter().map(|x| number(x) as i64).filter(|&r| r >= 1).collect();
+    rows.sort_unstable();
+    rows.dedup();
+    if rows.is_empty() {
+        return;
+    }
+    let arg = json!(rows);
+    if let Some(cb) = control_prop(path, "rowsToBeRemovedCmd").filter(|v| !text(v).is_empty()) {
+        let answer = call_for_value(core, &cb, &[arg.clone()]).unwrap_or(Value::Null);
+        if !(number(&answer) != 0.0 || answer.as_bool() == Some(true)) {
+            return;
+        }
+    }
+    let mut cells: Vec<Vec<String>> = control_prop(path, "cells").and_then(|x| serde_json::from_value(x).ok()).unwrap_or_default();
+    for &r in rows.iter().rev() {
+        if (r as usize) <= cells.len() {
+            cells.remove(r as usize - 1);
+        }
+    }
+    let count = control_prop(path, "rows").map(|v| number(&v) as i64).unwrap_or(0);
+    let _ = model_edit(path, &Map::from_iter([("rows".to_string(), json!((count - rows.len() as i64).max(0)))]));
+    crate::scriptui::table_set_cells(path, cells);
+    if let Some(cb) = control_prop(path, "rowsRemovedCmd").filter(|v| !text(v).is_empty()) {
+        let _ = call_for_value(core, &cb, &[arg]);
     }
 }
 
@@ -328,6 +377,9 @@ pub(crate) fn shell_changed(core: &mut Core, ev: &Value) {
     let path = ev["path"].as_str().unwrap_or("").to_string();
     if let Some(e) = ev.get("cellEdit") {
         cell_edit(core, &path, e);
+    }
+    if let Some(r) = ev.get("rowsRemove") {
+        rows_remove(core, &path, r);
     }
     if ev.get("dropFrom").is_some() {
         drop_on(core, &path, ev);

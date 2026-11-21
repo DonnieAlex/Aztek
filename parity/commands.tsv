@@ -804,7 +804,7 @@ polySphere	done	auto
 polySphericalProjection	done	auto
 polySplit	done	auto
 polySplitCtx	done	auto
-polySplitCtx2	missing	
+polySplitCtx2	done	auto
 polySplitEdge	done	auto
 polySplitRing	done	auto
 polySplitVertex	done	auto
@@ -821,7 +821,7 @@ polyUVRectangle	done	auto
 polyUVSet	done	auto
 polyUVStackSimilarShells	done	auto
 polyUnite	done	auto
-polyUniteSkinned	missing	
+polyUniteSkinned	done	auto
 polyUnsmooth	done	auto
 polyWedgeFace	done	auto
 popupMenu	done	auto
@@ -896,7 +896,7 @@ requires	done	auto
 reroot	done	auto
 resampleFluid	missing	
 resetTool	done	auto
-resolutionNode	missing	
+resolutionNode	done	auto
 resourceManager	missing	
 retimeKeyCtx	missing	
 reverseCurve	done	auto
@@ -923,7 +923,7 @@ savePrefObjects	missing
 savePrefs	missing	
 saveShelf	missing	
 saveToolSettings	done	auto
-saveViewportSettings	missing	
+saveViewportSettings	done	auto
 scale	done	auto
 scaleComponents	done	auto
 scaleConstraint	done	auto

@@ -152,7 +152,7 @@ pub fn register_types() {
             ..Default::default()
         });
         for (name, doc, attrs) in [
-            ("container", "Groups nodes so they read as one thing.", vec![attr("member", "mb", PlugType::String, PlugValue::String(String::new()), IN_STORE | flags::ARRAY, "Each node in it."), attr("isAsset", "isa", PlugType::Bool, PlugValue::Bool(false), IN_STORE, "Made with -asset.")]),
+            ("container", "Groups nodes so they read as one thing.", vec![attr("member", "mb", PlugType::String, PlugValue::String(String::new()), IN_STORE | flags::ARRAY, "Each node in it."), attr("isAsset", "isa", PlugType::Bool, PlugValue::Bool(false), IN_STORE, "Made with -asset."), attr("blackBox", "bbx", PlugType::Bool, PlugValue::Bool(false), IN_STORE, "Its members are hidden from selection: picking one picks the container."), attr("publishedNode", "pnod", PlugType::String, PlugValue::String(String::new()), IN_STORE | flags::ARRAY, "Members published: they can be picked through a black box.")]),
             ("controller", "Tags an object as an animation control, with its place among the controls.", {
                 let link = |name: &str, short: &str, array: u32, doc: &str| attr(name, short, PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::MESSAGE | flags::HIDDEN | array, doc);
                 vec![
@@ -738,6 +738,29 @@ const CT_MEMBER: usize = 0;
 
 fn is_type(g: &Graph, id: NodeId, ty: &str) -> bool {
     g.node(id).is_some_and(|n| n.ty().name == ty)
+}
+
+/// What select -containerCentric picks for a node: the black-boxed container holding it, unless the node is published,
+/// or the node itself.
+pub(crate) fn container_centric(g: &Graph, id: NodeId) -> NodeId {
+    let mut out = id;
+    for c in g.nodes() {
+        if !is_type(g, c, "container") {
+            continue;
+        }
+        let n = g.node(c).unwrap();
+        let black = n.ty().attr_index("blackBox").is_some_and(|i| n.data().bool(i));
+        if !black || !container_members(g, c).iter().any(|(_, m)| *m == id) {
+            continue;
+        }
+        let published = n.ty().attr_index("publishedNode").is_some_and(|i| {
+            n.elements(i).iter().any(|(_, v)| matches!(v, PlugValue::String(t) if resolve_ref(g, t) == Some(id)))
+        });
+        if !published {
+            out = c;
+        }
+    }
+    out
 }
 
 fn container_members(g: &Graph, c: NodeId) -> Vec<(i32, NodeId)> {

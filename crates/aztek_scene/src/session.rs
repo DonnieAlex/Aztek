@@ -198,6 +198,8 @@ impl Session {
         crate::do_blur::register(&mut s.commands);
         crate::poly_extra::register(&mut s.commands);
         crate::poly_model::register(&mut s.commands);
+        crate::poly_tail::register(&mut s.commands);
+        crate::misc_tail::register(&mut s.commands);
         // Last: history node types take their attributes from the commands registered above.
         crate::history::register(&mut s.commands);
         crate::unit_tables::tag_commands(&mut s.commands);
