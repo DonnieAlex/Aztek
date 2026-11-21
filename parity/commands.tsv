@@ -563,10 +563,10 @@ menuItem	done	auto
 menuSet	missing	
 menuSetPref	missing	
 messageLine	missing	
-mimicManipulation	missing	
+mimicManipulation	done	auto
 minimizeApp	missing	
 mirrorJoint	done	auto
-mlDeformer	missing	
+mlDeformer	done	auto
 modelCurrentTimeCtx	done	auto
 modelEditor	done	auto
 modelPanel	done	auto
@@ -578,7 +578,7 @@ move	done	auto
 moveKeyCtx	done	auto
 moveVertexAlongDirection	done	auto
 movieInfo	missing	
-multiProfileBirailSurface	missing	
+multiProfileBirailSurface	done	auto
 multiTouch	missing	
 mute	done	auto
 nBase	missing	

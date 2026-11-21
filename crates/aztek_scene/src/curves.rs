@@ -827,17 +827,33 @@ impl NodeBehavior for SurfNode {
                     let (start, end) = (d.float(S_P + 4), d.float(S_P + 5));
                     nurbs::revolved(c, d.vec3(S_P), d.vec3(S_P + 1), start.to_degrees(), end.to_degrees(), d.int(S_P + 2).max(3) as usize, d.int(S_P + 6).clamp(1, 3) as usize)
                 }),
-                SurfKind::Loft => crate::surfaces::loft_surface(
-                    &curves,
-                    crate::surfaces::LoftOptions {
-                        close: d.bool(S_P),
-                        uniform: d.bool(S_P + 2),
-                        degree: d.int(S_P + 3).max(1) as usize,
-                        section_spans: d.int(S_P + 4).max(1) as usize,
-                        auto_reverse: d.bool(S_P + 5),
-                        reverse_normals: d.bool(S_P + 6),
-                    },
-                ),
+                SurfKind::Loft => {
+                    // Per curve, by the curve's place: reverse it (with autoReverse off) and break the tangent there.
+                    let per = |attr: usize| -> Vec<bool> {
+                        let mut v = vec![false; curves.len()];
+                        for (k, x) in d.elements(attr) {
+                            if let (Some(slot), PlugValue::Bool(b)) = (v.get_mut(*k as usize), x) {
+                                *slot = *b;
+                            }
+                        }
+                        v
+                    };
+                    let (rev, cusp) = (per(S_P + 7), per(S_P + 8));
+                    let auto = d.bool(S_P + 5);
+                    let list: Vec<NurbsCurve> = curves.iter().enumerate().map(|(k, c)| if !auto && rev[k] { c.reversed() } else { c.clone() }).collect();
+                    crate::surfaces::loft_surface_cusps(
+                        &list,
+                        crate::surfaces::LoftOptions {
+                            close: d.bool(S_P),
+                            uniform: d.bool(S_P + 2),
+                            degree: d.int(S_P + 3).max(1) as usize,
+                            section_spans: d.int(S_P + 4).max(1) as usize,
+                            auto_reverse: auto,
+                            reverse_normals: d.bool(S_P + 6),
+                        },
+                        &cusp,
+                    )
+                }
                 SurfKind::Planar => curves.first().and_then(|c| crate::surfaces::rectangle_surface(c).or_else(|| crate::nurbs_ops::trimmed_plane(c))),
                 SurfKind::Sweep => None,
             };
@@ -1210,6 +1226,8 @@ pub fn register_types() {
                     int_in("sectionSpans", "ss", 1, "Spans between each pair of curves."),
                     store_bool("autoReverse", true, "Turn curves round to run alike."),
                     store_bool("reverseSurfaceNormals", false, "Flip the normals."),
+                    AttrDef { short_name: "r".into(), flags: flags::INPUT | flags::STORABLE | flags::ARRAY, ..bool_attr("reverse", false, "Per curve: turn it round first, when autoReverse is off.") },
+                    AttrDef { short_name: "cc".into(), flags: flags::INPUT | flags::STORABLE | flags::ARRAY, ..bool_attr("createCusp", false, "Per curve: a tangent break in the surface at that section.") },
                 ],
             ),
             surf_type("planarTrim", SurfKind::Planar, "A face inside a closed curve.", vec![]),
@@ -2021,6 +2039,14 @@ pub fn register(c: &mut Commands<Session>) {
                     fail!("loft: name or select two curves or more");
                 }
                 let inputs: Vec<NodeId> = names.iter().map(|n| curve_arg(g, n, "loft")).collect::<CmdResult<_>>()?;
+                let bools = |flag: &str| -> Vec<bool> {
+                    match a.get(flag) {
+                        Some(Value::Array(v)) => v.iter().map(|x| x.as_bool().unwrap_or(x.as_i64().unwrap_or(0) != 0)).collect(),
+                        Some(x) => vec![x.as_bool().unwrap_or(x.as_i64().unwrap_or(0) != 0)],
+                        None => Vec::new(),
+                    }
+                };
+                let (rev, cusp) = (bools("reverse"), bools("createCusp"));
                 let set = vec![
                     (S_P, PlugValue::Bool(a.bool("close"))),
                     (S_P + 1, PlugValue::Int(a.int("divisions", 8))),
@@ -2031,6 +2057,30 @@ pub fn register(c: &mut Commands<Session>) {
                     (S_P + 6, PlugValue::Bool(a.bool("reverseSurfaceNormals"))),
                 ];
                 let (tr, node) = surf_output(g, "loft", &a.string("name", "loftedSurface1"), "loft1", &inputs, &set, a.int("polygon", 0) == 1)?;
+                for (k, (r, c)) in rev.iter().chain(std::iter::repeat(&false)).zip(cusp.iter().chain(std::iter::repeat(&false))).take(inputs.len()).enumerate() {
+                    if *r {
+                        g.set_value(PlugRef::element(node, (S_P + 7) as i32, k as i32), PlugValue::Bool(true))?;
+                    }
+                    if *c {
+                        g.set_value(PlugRef::element(node, (S_P + 8) as i32, k as i32), PlugValue::Bool(true))?;
+                    }
+                }
+                // -rebuild: each curve goes through a rebuildCurve node first.
+                if a.bool("rebuild") {
+                    let t = types::find("rebuildCurve").expect("rebuildCurve");
+                    for (k, &shape) in inputs.iter().enumerate() {
+                        let rb = g.create_node(&t, "rebuildCurve1", NO_NODE, true)?;
+                        g.connect(&plug(shape, CurveShape::WORLD_SPACE), &plug(rb, IN), false)?;
+                        g.connect(&plug(rb, OUT), &PlugRef::element(node, S_CURVES as i32, k as i32), true)?;
+                    }
+                }
+                // -object off: only the node, its output going nowhere.
+                if a.get("object").and_then(Value::as_bool) == Some(false) {
+                    let path = g.path(node);
+                    g.delete_node(tr)?;
+                    g.evaluate();
+                    return Ok(json!([path]));
+                }
                 finish_surf(g, a, tr, node)
             },
         )
@@ -2041,7 +2091,11 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("autoReverse", "ar", ArgType::Bool, "Turn curves round to run alike (on)."))
         .flag(f("degree", "d", ArgType::Int, "Degree across the curves, 1 to 3 (3)."))
         .flag(f("sectionSpans", "ss", ArgType::Int, "Spans between each pair of curves (1)."))
-        .flag(f("reverseSurfaceNormals", "rsn", ArgType::Bool, "Flip the normals.")),
+        .flag(f("reverseSurfaceNormals", "rsn", ArgType::Bool, "Flip the normals."))
+        .flag(f("reverse", "r", ArgType::Any, "Per curve, in order: turn it round first, when -ar is off. Repeat it.").multi(1))
+        .flag(f("createCusp", "cc", ArgType::Any, "Per curve, in order: a tangent break in the surface at that section. Repeat it.").multi(1))
+        .flag(f("rebuild", "rb", ArgType::Bool, "Rebuild the curves first, each through a rebuildCurve node."))
+        .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
     ));
 
     c.register(surf_flags(

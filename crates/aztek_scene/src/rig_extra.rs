@@ -397,7 +397,7 @@ fn flexor_node_def(ty: &'static str, doc: &'static str) -> Cmd {
         .flag(f("lengthOut", "lo", F, "Moves the points on the lower half along the bone."))
         .flag(f("widthLeft", "wl", F, "Bulge on the left of the bend."))
         .flag(f("widthRight", "wr", F, "Bulge on the right of the bend."));
-    if ty == "jointLattice" {
+    let c = if ty == "jointLattice" {
         c.flag(f("creasing", "cr", F, "Bulge on the inside of the bend."))
             .flag(f("rounding", "ro", F, "Bulge on the outside of the bend."))
             .flag(f("upperTransform", "ut", S, "The transform of the upper part: the joint's parent by default."))
@@ -408,7 +408,9 @@ fn flexor_node_def(ty: &'static str, doc: &'static str) -> Cmd {
         c.flag(f("bicep", "bi", F, "Bulge on the inside of the bend."))
             .flag(f("tricep", "tr", F, "Bulge on the outside of the bend."))
             .flag(f("transform", "t", S, "The transform the bend is measured against: the joint's parent by default."))
-            .flag(f("after", "af", B, "Go after the other flexors on the lattice's points (the default)."))
+    };
+    {
+        c.flag(f("after", "af", B, "Go after the other flexors on the lattice's points (the default)."))
             .flag(f("before", "bf", B, "Go before the other flexors on the lattice's points."))
             .flag(f("frontOfChain", "foc", B, "Go at the start of the flexors on the lattice's points."))
             .flag(f("afterReference", "ar", B, "Go after the others on a referenced lattice, else before them."))

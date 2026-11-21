@@ -391,21 +391,101 @@ fn python_started() -> bool {
     false
 }
 
+thread_local! {
+    /// loadPlugin -addCallback: scripts run with the name of each plug-in loaded after.
+    static LOAD_CALLBACKS: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The callbacks -addCallback gave, each due with the plug-in's name: a MEL global proc by name, a Python string with %s
+/// for the name, or a Python callable.
+fn queue_load_callbacks(name: &str) {
+    let list = LOAD_CALLBACKS.with(|c| c.borrow().clone());
+    for cb in list {
+        let call = match &cb {
+            Value::String(src) if src.contains("%s") => json!({ "__pysrc__": src.replace("%s", name) }),
+            Value::String(src) => json!(format!("{src} \"{}\"", name.replace('\\', "\\\\").replace('"', "\\\""))),
+            Value::Object(o) if o.contains_key("__pysrc__") => json!({ "__pysrc__": o["__pysrc__"].as_str().unwrap_or("").replace("%s", name) }),
+            other => json!({ "__cb__": other, "__args__": [name] }),
+        };
+        crate::script_jobs::defer(call);
+    }
+}
+
+/// Every plug-in file on the plug-in path that can load here and isn't loaded, for -allPlugins.
+fn all_plugin_files(s: &mut Session) -> Vec<Value> {
+    let rows = list_plugins(s);
+    rows.as_array()
+        .into_iter()
+        .flatten()
+        .filter(|r| matches!(r["kind"].as_str(), Some("aztek") | Some("python")) && !r["loaded"].as_bool().unwrap_or(false))
+        .filter_map(|r| r["path"].as_str().filter(|p| !p.is_empty()).map(|p| json!(p)))
+        .collect()
+}
+
 fn load_plugin(s: &mut Session, a: &Args) -> CmdResult {
     let quiet = a.bool("quiet");
+    if let Some(cb) = a.get("addCallback") {
+        LOAD_CALLBACKS.with(|c| {
+            let mut c = c.borrow_mut();
+            if !c.contains(cb) {
+                c.push(cb.clone());
+            }
+        });
+    }
+    if let Some(cb) = a.get("removeCallback") {
+        LOAD_CALLBACKS.with(|c| c.borrow_mut().retain(|x| x != cb));
+    }
+    let names: Vec<Value> = if a.bool("allPlugins") { all_plugin_files(s) } else { a.positional.clone() };
     let mut out = Vec::new();
-    for v in &a.positional {
+    for v in &names {
         let Some(name) = v.as_str() else { continue };
-        let key = key_of(name);
+        // -name: the plug-in registers under this name, numbered when it is taken.
+        let key = match a.get("name").and_then(Value::as_str) {
+            Some(n) if !n.is_empty() => {
+                let mut k = n.to_string();
+                let mut i = 1;
+                while plugin_named(&k).is_some() {
+                    k = format!("{n}{i}");
+                    i += 1;
+                }
+                k
+            }
+            _ => key_of(name),
+        };
+        // -pluginPath: only where the file is.
+        if a.bool("pluginPath") {
+            let path = find_native(name).map(|p| p.to_string_lossy().into_owned()).or_else(|| {
+                let p = Path::new(name);
+                if p.is_file() {
+                    return Some(std::fs::canonicalize(p).unwrap_or(p.to_path_buf()).to_string_lossy().into_owned());
+                }
+                let file = if name.ends_with(".py") { name.to_string() } else { format!("{name}.py") };
+                search_path().into_iter().map(|d| d.join(&file)).find(|f| f.is_file()).map(|f| f.to_string_lossy().into_owned())
+            });
+            out.push(json!(path.unwrap_or_default()));
+            continue;
+        }
+        let before = out.len();
+        load_one(s, a, name, &key, quiet, &mut out)?;
+        for loaded in out[before..].iter().filter_map(Value::as_str).map(str::to_string).collect::<Vec<_>>() {
+            queue_load_callbacks(&loaded);
+        }
+    }
+    Ok(Value::Array(out))
+}
+
+fn load_one(s: &mut Session, a: &Args, name: &str, key: &str, quiet: bool, out: &mut Vec<Value>) -> CmdResult<()> {
+    let key = key.to_string();
+    {
         // One that comes with Aztek.
         if let Some(b) = crate::builtin_plugins::find(name) {
             crate::builtin_plugins::load(s, b);
             out.push(json!(b.name));
-            continue;
+            return Ok(());
         }
         if plugin_named(&key).is_some() {
             out.push(json!(key));
-            continue;
+            return Ok(());
         }
         if let Some(path) = find_native(name) {
             if kind_of(&path) == Kind::Foreign {
@@ -416,23 +496,27 @@ fn load_plugin(s: &mut Session, a: &Args) -> CmdResult {
             load_native(s, &key, &path).map_err(CommandError::new)?;
             messages::scene(s, messages::AFTER_PLUGIN_LOAD, json!({ "strings": [file, key] }));
             out.push(json!(key));
-            continue;
+            return Ok(());
         }
         if python_file(name) {
             let mut f = Map::new();
             f.insert("quiet".into(), json!(quiet));
+            if let Some(n) = a.get("name") {
+                f.insert("name".into(), n.clone());
+            }
             messages::scene(s, messages::BEFORE_PLUGIN_LOAD, json!({ "strings": [name] }));
             if let Value::Array(l) = python_call(s, "load_plugin", Some(name), &f)? {
                 messages::scene(s, messages::AFTER_PLUGIN_LOAD, json!({ "strings": [name, key] }));
                 out.extend(l);
             }
-            continue;
+            return Ok(());
         }
+        // Not found anywhere.
         if !quiet {
             return Err(CommandError::new(format!("Plug-in \"{name}\" was not found on the plug-in path.")));
         }
     }
-    Ok(Value::Array(out))
+    Ok(())
 }
 
 fn unload_plugin(s: &mut Session, a: &Args) -> CmdResult {
@@ -563,6 +647,11 @@ pub fn register_commands(s: &mut Session) {
         )
         .positional("plug-in file or name")
         .flag(b("quiet", "qt", "Don't complain when it can't be found."))
+        .flag(b("allPlugins", "a", "Load every plug-in on the plug-in path."))
+        .flag(FlagDef::new("name", "n", ArgType::String, Value::Null, "The name the plug-in registers under, numbered when it is taken."))
+        .flag(b("pluginPath", "pp", "The full path of the plug-in file found, or \"\" when there is none; nothing loads."))
+        .flag(FlagDef::new("addCallback", "ac", ArgType::Any, Value::Null, "A script run after each plug-in loads, given its name: a MEL global proc taking string $pluginName, or Python (a string with %s, or a callable)."))
+        .flag(FlagDef::new("removeCallback", "rc", ArgType::Any, Value::Null, "Take back a script -addCallback gave."))
         .undoable(false),
     );
     s.register(

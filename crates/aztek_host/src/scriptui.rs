@@ -347,7 +347,7 @@ const KINDS: &[(&str, &str)] = &[
     ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a"),
     ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b"),
     ("shelfLayout", "cellWidth:cwd:a cellHeight:ch:a cellWidthHeight:cwh:a spacing:spa:a alignment:aln:a position:pos:a2 style:st:a version:ver:a"),
-    ("menuBarLayout", "menuBarVisible:mbv:b menuArray:ma:b menuIndex:mi:a2 numberOfMenus:nm:b"),
+    ("menuBarLayout", "menuBarVisible:mbv:b menuArray:ma:b menuIndex:mi:a2 numberOfMenus:nm:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("button", "label:l:a align:al:a command:c:a recomputeSize:rs:b actOnPress:aop:b actionIsSubstitute:ais:b"),
     ("iconTextButton", BUTTON_ICON),
     ("shelfButton", BUTTON_ICON),
@@ -366,7 +366,7 @@ const KINDS: &[(&str, &str)] = &[
     ("floatFieldGrp", "precision:pre:a showTrailingZeros:tze:b step:s:a"),
     ("intSlider", SLIDER),
     ("floatSlider", SLIDER),
-    ("intScrollBar", SLIDER),
+    ("intScrollBar", "value:v:a minValue:min:a maxValue:max:a step:s:a largeStep:ls:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a"),
     ("floatScrollBar", "value:v:a minValue:min:a maxValue:max:a step:s:a largeStep:ls:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a"),
     ("intSliderGrp", SLIDER_GRP),
     ("floatSliderGrp", "precision:pre:a showTrailingZeros:tze:b"),
@@ -392,7 +392,7 @@ const KINDS: &[(&str, &str)] = &[
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
     ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b"),
     ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:clr:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:dce:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColor:cbc:a cellForegroundColor:cfc:a"),
-    ("layerButton", "label:l:a name:n:a changedCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:lhp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
+    ("layerButton", "label:l:a name:n:a changeCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:hp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
     ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:pin:b toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
     ("outlinerEditor", "alwaysToggleSelect:ats:b animLayerFilterOptions:alf:a attrAlphaOrder:aao:a attrFilter:af:a autoExpand:xpd:b autoExpandLayers:ael:b autoSelectNewObjects:aso:b containersIgnoreFilters:cif:b directSelect:ds:b displayMode:dm:a doNotSelectNewObjects:dns:b dropIsParent:dip:b editAttrName:ean:b expandAllItems:eai:b expandAllSelectedItems:eas:b expandAttribute:xta:b expandConnections:xc:b expandObjects:eo:b feedbackItemName:fbn:b feedbackRowNumber:fbr:b getCurrentSetOfItem:gcs:a highlightActive:ha:b highlightSecondary:hs:b ignoreDagHierarchy:hir:b ignoreHiddenAttribute:iha:b ignoreOutlinerColor:ioc:b isChildSelected:ics:a isSet:isSet:a isSetMember:ism:a lineHeight:lh:a longNames:ln:b niceNames:nn:b object:obj:a organizeByClip:obc:b organizeByLayer:obl:b parentObject:po:b pinPlug:pin:a refresh:rfs:b removeFromCurrentSet:rcs:a renameItem:rni:a renameSelectedItem:rsi:b renderFilterActive:rfa:b renderFilterIndex:rfi:a renderFilterVisible:rfv:b selectCommand:sec:a setDefaultFilter:sdf:b setFilter:sf:a setsIgnoreFilters:sif:b showAnimCurvesOnly:aco:b showAnimLayerWeight:salw:b showAssets:a:b showAssignedMaterials:am:b showAttrValues:av:b showAttributes:sat:b showCompounds:cmp:b showConnected:sc:b showContainedOnly:sco:b showContainerContents:scc:b showDagOnly:dag:b showLeafs:laf:b showMuteInfo:smi:b showNamespace:sn:b showNumericAttrsOnly:num:b showParentContainers:spc:b showPinIcons:spi:b showPublishedAsConnected:spu:b showReferenceMembers:srm:b showReferenceNodes:rn:b showSelected:ssd:b showSetMembers:ssm:b showShapes:shp:b showTextureNodesOnly:tno:b showTimeEditor:ste:b showUVAttrsOnly:uv:b showUnitlessCurves:su:b showUpstreamCurves:suc:b sortOrder:so:a transmitFilters:tf:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("nodeEditor", "addNewNodes:ann:b addNode:an:a1 additiveGraphingMode:agm:b allAttributes:ala:b allNodes:aln:b autoSizeNodes:asn:b beginCreateNode:bcn:b consistentNameSize:cns:b createNodeCommand:cnc:a customAttributeListEdit:cal:a cycleHUD:ch:b defaultPinnedState:dps:b deleteSelected:dsl:b downstream:ds:b dotFormat:dot:a duplicateSelected:dup:b errorCallback:ecb:a extendToShapes:ets:b feedbackConnection:fbc:b feedbackNode:fbn:b feedbackPlug:fbp:b feedbackTabIndex:fbi:b feedbackType:fbt:b filterCreateNodeTypes:fcn:a focusCommand:fc:a frameAll:fa:b frameModelSelection:fms:b frameSelected:fs:b getNodeList:gnl:b graphSelectedConnections:gsc:b graphSelection:gs:b gridSnap:gsn:b gridVisibility:gv:b hasWatchpoint:hw:b hudMessage:hm:a ignoreAssets:ia:b island:isl:b keyPressCommand:kp:a keyReleaseCommand:kr:a layout:lay:b layoutCommand:lc:a nodeSwatchSize:nss:a nodeTitleMode:ntm:a nodeViewMode:nvm:a panView:pv:a pinSelectedNodes:psn:b popupMenuScript:pms:a redockSelectedNodes:rsn:b removeDownstream:rd:b removeNode:rem:a1 removeUnselected:run:b removeUpstream:ru:b rootNode:rn:a1 rootsFromSelection:rfs:b scaleView:sv:a selectAll:sa:b selectConnectionNodes:scn:b selectDownstream:sdn:b selectFeedbackConnection:sfc:b selectNode:sln:a1 selectUpstream:su:b setWatchpoint:sw:b settingsChangedCallback:scc:a shaderNetworks:sn:b showAllNodeAttributes:saa:a showNamespace:sns:b showSGShapes:ssg:b showShapes:ss:b showTransforms:st:b showUnitConversions:suc:b syncedSelection:ssl:b toggleAttrFilter:taf:b toggleSelectedPins:tsp:b toggleSwatchSize:tss:b toolTipCommand:ttc:a traversalDepthLimit:tdl:a updateNodeAdded:una:b upstream:ups:b useAssets:ua:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
@@ -1885,8 +1885,65 @@ fn progress_window(a: &Args) -> CmdResult {
     Ok(v)
 }
 
-fn in_view(msg: &str, time: f64, pos: &str) {
-    crate::core::push_ui_request(format!("inViewMessage|{}", json!({"message": msg, "time": time, "position": pos})));
+/// The positions -position and -clear take.
+const IN_VIEW_POSITIONS: &[&str] = &["topLeft", "topCenter", "topRight", "midLeft", "midCenter", "midCenterTop", "midCenterBot", "midRight", "botLeft", "botCenter", "botRight"];
+
+/// inViewMessage: one request to the UI per call, carrying what the reference's flags set. The UI keeps one message per
+/// position, so a new message replaces the one where it goes.
+fn in_view_message(a: &Args) -> CmdResult {
+    for k in ["hide", "show", "minimize", "restore"] {
+        if a.bool(k) {
+            crate::core::push_ui_request(format!("inViewMessage|{}", json!({ "all": k })));
+            return Ok(Value::Null);
+        }
+    }
+    if let Some(p) = a.get("clear") {
+        let p = text(p);
+        if !IN_VIEW_POSITIONS.contains(&p.as_str()) {
+            fail!("inViewMessage: -clear takes one of {}", IN_VIEW_POSITIONS.join(", "));
+        }
+        crate::core::push_ui_request(format!("inViewMessage|{}", json!({ "clear": true, "position": p })));
+        return Ok(Value::Null);
+    }
+    let pos = a.string("position", "topCenter");
+    if !IN_VIEW_POSITIONS.contains(&pos.as_str()) {
+        fail!("inViewMessage: -position takes one of {}", IN_VIEW_POSITIONS.join(", "));
+    }
+    // -message is the general text; -assistMessage and -statusMessage take it over and say which kind it is.
+    let (kind, msg) = if let Some(m) = a.get("assistMessage") {
+        ("assist", text(m))
+    } else if let Some(m) = a.get("statusMessage") {
+        ("status", text(m))
+    } else {
+        ("general", a.get("message").map(text).unwrap_or_default())
+    };
+    let (fade_in, stay, fade_out) = (a.int("fadeInTime", 100), a.int("fadeStayTime", 1000), a.int("fadeOutTime", 400));
+    let fade = a.bool("fade");
+    // Without -fade the message stays until it is cleared, clicked or dragged away.
+    let time = if fade { (fade_in + stay + fade_out) as f64 / 1000.0 } else { 0.0 };
+    let back = a.get("backColor").and_then(Value::as_i64).unwrap_or(0) as u32 & 0x00ff_ffff;
+    let req = json!({
+        "message": msg,
+        "kind": kind,
+        "position": pos,
+        "fade": fade,
+        "time": time,
+        "fadeInTime": fade_in,
+        "fadeStayTime": stay,
+        "fadeOutTime": fade_out,
+        "alpha": a.float("alpha", 0.8).clamp(0.0, 1.0),
+        "textAlpha": a.float("textAlpha", 1.0).clamp(0.0, 1.0),
+        "backColor": format!("#{back:06x}"),
+        "font": a.string("font", ""),
+        "fontSize": a.int("fontSize", 0),
+        "frameOffset": a.int("frameOffset", 20),
+        "textOffset": a.int("textOffset", 10),
+        "clickKill": a.bool("clickKill"),
+        "dragKill": a.bool("dragKill"),
+        "uvEditor": a.bool("uvEditor"),
+    });
+    crate::core::push_ui_request(format!("inViewMessage|{req}"));
+    Ok(Value::Null)
 }
 
 pub fn register(s: &mut Session) {
@@ -1940,6 +1997,7 @@ pub fn register(s: &mut Session) {
         })
         .positional("name")
         .undoable(false);
+        let c = if cmd == "layout" { add_flags(c, "generalSpacing:gsp:a margins:mar:a margins4:mr4:a4") } else { c };
         s.register(add_flags(add_flags(c, LAYOUT), COMMON));
     }
 
@@ -2298,21 +2356,34 @@ pub fn register(s: &mut Session) {
         .flag(f("viewport", "vp", ArgType::Bool)),
     );
 
-    let mut iv = Cmd::new("inViewMessage", "A message that fades in the view: -amg assist message, -msg, -pos, -fade.", |_s, a| {
-        if a.has("clear") {
-            crate::core::push_ui_request("inViewMessage|{\"clear\":true}".to_string());
-            return Ok(Value::Null);
-        }
-        let m = a.get("assistMessage").or(a.get("message")).or(a.get("statusMessage")).map(text).unwrap_or_default();
-        let time = a.float("fadeStayTime", 1000.0) / 1000.0 + a.float("fadeInTime", 100.0) / 1000.0 + a.float("fadeOutTime", 400.0) / 1000.0;
-        in_view(&m, time, &a.string("position", "topCenter"));
-        Ok(Value::Null)
-    })
+    let mut iv = Cmd::new(
+        "inViewMessage",
+        "A message over the active view: -amg, -msg or -smg the text (HTML allowed), -pos where, -fade to fade after -fit, -fst and -fot \
+         milliseconds; -ck and -dk delete it on a click or a drag. -cl position clears the message there; -hd, -sh, -min and -res hide, \
+         show, minimize and restore every message.",
+        |_s, a| in_view_message(a),
+    )
     .undoable(false);
-    for (n, sh) in [("message", "msg"), ("assistMessage", "amg"), ("statusMessage", "smg"), ("position", "pos"), ("fadeInTime", "fit"), ("fadeOutTime", "fot"), ("fadeStayTime", "fst"), ("alpha", "a"), ("backColor", "bkc"), ("textAlpha", "ta"), ("textOffset", "to"), ("frameOffset", "fo"), ("font", "fn"), ("clear", "clr")] {
-        iv = iv.flag(f(n, sh, ArgType::Any));
+    for (n, sh, ty) in [
+        ("message", "msg", ArgType::String),
+        ("assistMessage", "amg", ArgType::String),
+        ("statusMessage", "smg", ArgType::String),
+        ("position", "pos", ArgType::String),
+        ("fadeInTime", "fit", ArgType::Int),
+        ("fadeOutTime", "fot", ArgType::Int),
+        ("fadeStayTime", "fst", ArgType::Int),
+        ("alpha", "a", ArgType::Float),
+        ("backColor", "bkc", ArgType::Int),
+        ("textAlpha", "ta", ArgType::Float),
+        ("textOffset", "tof", ArgType::Int),
+        ("frameOffset", "fof", ArgType::Int),
+        ("font", "ft", ArgType::String),
+        ("fontSize", "fts", ArgType::Int),
+        ("clear", "cl", ArgType::String),
+    ] {
+        iv = iv.flag(f(n, sh, ty));
     }
-    for (n, sh) in [("fade", "f"), ("dragKill", "dk"), ("minimize", "min"), ("restore", "rst"), ("uvEditor", "uv"), ("query", "q"), ("edit", "e")] {
+    for (n, sh) in [("fade", "f"), ("clickKill", "ck"), ("dragKill", "dk"), ("hide", "hd"), ("show", "sh"), ("minimize", "min"), ("restore", "res"), ("uvEditor", "uv")] {
         iv = iv.flag(f(n, sh, ArgType::Bool));
     }
     s.register(iv);

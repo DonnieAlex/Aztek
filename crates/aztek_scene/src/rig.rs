@@ -922,6 +922,9 @@ fn apply_joint_flags(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult<()> {
             g.set_value(plug(id, Joint::MAX_LIMIT_ENABLE + k), PlugValue::Bool(hi))?;
         }
     }
+    if a.bool("automaticLimits") {
+        automatic_limits(g, id)?;
+    }
     if a.bool("setPreferredAngles") {
         let r = rotate_now(g, id);
         set_vec3(g, id, Joint::PREFERRED_ANGLE, r)?;
@@ -930,6 +933,48 @@ fn apply_joint_flags(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult<()> {
         let pa = vec3_of(g, id, Joint::PREFERRED_ANGLE);
         set_vec3(g, id, Transform::ROTATE, pa)?;
     }
+    Ok(())
+}
+
+/// joint -automaticLimits: a joint with one parent joint and one child joint, off the line between them, whose plane with them
+/// is square to one of its rotation axes, becomes a hinge on that axis. It may bend from straight, toward the side it bends
+/// now, up to folded back; the other axes are locked. Any other joint is left as it is.
+fn automatic_limits(g: &mut Graph, id: NodeId) -> CmdResult<()> {
+    let parent = g.parent(id);
+    let kids = child_joints(g, id);
+    if parent == NO_NODE || !is_joint(g, parent) || kids.len() != 1 {
+        return Ok(());
+    }
+    g.evaluate();
+    let (wp, wj, wc) = (world(g, parent), world(g, id), world(g, kids[0]));
+    let (p, j, c) = (wp.w_axis.truncate(), wj.w_axis.truncate(), wc.w_axis.truncate());
+    let (up, down) = (j - p, c - j);
+    let normal = up.cross(down);
+    if up.length() < 1e-9 || down.length() < 1e-9 || normal.length() < 1e-6 * up.length() * down.length() {
+        return Ok(());
+    }
+    let n = normal.normalize();
+    // The rotation axis the plane is square to.
+    let Some(k) = (0..3).find(|&k| {
+        let axis = [wj.x_axis, wj.y_axis, wj.z_axis][k].truncate().normalize_or_zero();
+        axis.dot(n).abs() > 1.0 - 1e-4
+    }) else {
+        return Ok(());
+    };
+    let axis = [wj.x_axis, wj.y_axis, wj.z_axis][k].truncate().normalize();
+    // The bend now, signed about the axis: rotating by minus it makes the bones straight.
+    let bend = up.normalize().angle_between(down.normalize()) * axis.dot(n).signum();
+    let now = rotate_now(g, id)[k];
+    let straight = now - bend;
+    let folded = straight + std::f64::consts::PI * bend.signum();
+    let (lo, hi) = if straight <= folded { (straight, folded) } else { (folded, straight) };
+    for i in 0..3 {
+        g.set_value(plug(id, Joint::JOINT_TYPE + i), PlugValue::Bool(i == k))?;
+    }
+    g.set_value(PlugRef::component(id, Joint::MIN_ROT_LIMIT as i32, k as i32), PlugValue::Float(lo))?;
+    g.set_value(PlugRef::component(id, Joint::MAX_ROT_LIMIT as i32, k as i32), PlugValue::Float(hi))?;
+    g.set_value(plug(id, Joint::MIN_LIMIT_ENABLE + k), PlugValue::Bool(true))?;
+    g.set_value(plug(id, Joint::MAX_LIMIT_ENABLE + k), PlugValue::Bool(true))?;
     Ok(())
 }
 
@@ -1130,6 +1175,7 @@ pub fn register(c: &mut Commands<Session>) {
     .flag(f("autoOrientSecondaryAxis", "aos", ArgType::Bool, "With -oj and -sao: the second axis square to the plane of the joint, its parent and child, on the side -sao names."))
     .flag(f("secondaryAxisOrient", "sao", ArgType::String, "Where the second axis points, yup, zup, xdown..."))
     .flag(f("children", "ch", ArgType::Bool, "Edit: the joints below too."))
+    .flag(f("automaticLimits", "al", ArgType::Bool, "Make a joint between one parent and one child joint, off the line between them and square to one of its rotation axes, a hinge with limits."))
     .flag(f("zeroScaleOrient", "zso", ArgType::Bool, "Set rotateAxis to zero; jointOrient takes the change."))
     .flag(f("symmetry", "sym", ArgType::Bool, "Also make the joint's mirrored twin, kept mirrored by a symmetryConstraint."))
     .flag(f("symmetryAxis", "sa", ArgType::String, "The axes -sym mirrors across: any of x, y and z (x)."))

@@ -290,4 +290,15 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "fitBspline", &["fitBspline"], &[], Vec::new());
     crate::history_qe::extend(c, "freeFormFillet", &["ffFilletSrf"], &[], Vec::new());
     crate::history_qe::extend(c, "hardenPointCurve", &["hardenPointCurve"], &[], Vec::new());
+    crate::history_qe::extend(
+        c,
+        "insertKnotCurve",
+        &["insertKnotCurve"],
+        &[],
+        vec![f("curveOnSurface", "cos", ArgType::Bool, "Make a curve on a surface where the input is one; curves here are 3D, so the result is too.")],
+    );
+    crate::history_qe::extend(c, "insertKnotSurface", &["insertKnotSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "intersect", &["intersectSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "loft", &["loft"], &[], Vec::new());
+    crate::history_qe::extend(c, "nurbsCube", &["makeNurbCube"], &[], Vec::new());
 }

@@ -1770,6 +1770,15 @@ impl Graph {
         chain.iter().rev().map(|n| format!("|{n}")).collect()
     }
 
+    /// The full name the reference gives a node: the DAG path from the root for DAG nodes, the name for the rest.
+    pub fn full_name(&self, id: NodeId) -> String {
+        if self.nodes.get(&id).is_some_and(|n| n.ty().dag) {
+            self.full_path(id)
+        } else {
+            self.path(id)
+        }
+    }
+
     /// The shortest path that resolves back to this node alone: its name when that is unique. "" for no node.
     pub fn path(&self, id: NodeId) -> String {
         let Some(n) = self.nodes.get(&id) else {

@@ -89,7 +89,8 @@ private:
     QElapsedTimer pump_timer_;
     bool wait_cursor_ = false;
     QHash<QString, QActionGroup*> radio_groups_;
-    QPointer<QLabel> in_view_;
+    // inViewMessage: one message per position.
+    QHash<QString, QPointer<QLabel>> in_view_;
     QPoint drag_from_;
 };
 

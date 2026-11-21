@@ -263,7 +263,8 @@ fn particle_settings(g: &Graph, id: NodeId, m: f64) -> BodySettings {
         self_thickness: r,
         friction: num(g, id, "friction", 0.1),
         bounce: num(g, id, "bounce", 0.0),
-        damping: num(g, id, "damp", 0.0),
+        // conserve keeps that much of the motion each frame: what it loses adds to the damping, per second.
+        damping: num(g, id, "damp", 0.0) + (1.0 - num(g, id, "conserve", 1.0).clamp(0.0, 1.0)) * crate::anim::fps(),
         drag: num(g, id, "drag", 0.0) * 20.0,
         collide: flag(g, id, "collide", true),
         self_collide: flag(g, id, "selfCollide", false),
@@ -400,7 +401,9 @@ fn update_emitters(g: &mut Graph, node: NodeId, old: &[Emitter], mpu: f64) -> Ve
         e.spread = num(g, em, "spread", 0.0);
         e.direction = vec(g, em, "direction", DVec3::X);
         e.sphere = num(g, em, "volumeShape", 0.0) as i64 == 1;
-        e.inherit_velocity = num(g, em, "inheritVelocity", 0.0);
+        // The particles' inheritFactor, when set, says how much of a moving emitter's velocity they take.
+        let factor = num(g, node, "inheritFactor", 0.0);
+        e.inherit_velocity = if factor > 0.0 { factor } else { num(g, em, "inheritVelocity", 0.0) };
         // Seeded by name, which a file keeps, so a saved scene emits the same particles.
         e.seed = num(g, em, "seed", 0.0) as u64 ^ e.name.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, c| (h ^ c as u64).wrapping_mul(0x100_0000_01b3));
         let m = to_metres(m, mpu);
@@ -775,7 +778,10 @@ fn run(g: &mut Graph, s: NodeId) {
         let mut f = outputs(g, &st, false, mpu);
         from_disk(g, &mut st, frame_no, &mut f);
         let f = Arc::new(f);
-        st.cache.insert(key(frame_no), f.clone());
+        // Particles with cacheData off keep no frames: going back solves again from the start.
+        if st.bodies.iter().filter(|b| b.kind == Kind::Particles).all(|b| flag(g, b.node, "cacheData", true)) {
+            st.cache.insert(key(frame_no), f.clone());
+        }
         Some(f)
     } else {
         None
@@ -812,4 +818,15 @@ pub fn with_state<R>(g: &Graph, s: NodeId, f: impl FnOnce(&State) -> R) -> Optio
     let n = g.node(s)?.behavior().as_any().downcast_ref::<SolverNode>()?;
     let st = n.state.lock().unwrap();
     Some(f(&st))
+}
+
+/// Throws away the frames a body's solver keeps, so they are solved again (particle -deleteCache).
+pub fn clear_cache(g: &mut Graph, body: NodeId) {
+    let Some(sv) = crate::dyn_cmds::solver_of(g, body) else { return };
+    if let Some(n) = g.node(sv).and_then(|n| n.behavior().as_any().downcast_ref::<dy::SolverNode>()) {
+        let mut st = n.state.lock().unwrap();
+        let start = st.cache.keys().next().copied();
+        st.cache.retain(|k, _| Some(*k) == start);
+    }
+    g.touch(sv);
 }

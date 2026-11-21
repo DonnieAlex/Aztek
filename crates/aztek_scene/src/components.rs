@@ -796,6 +796,11 @@ pub fn mirrored_side(g: &Graph, node: NodeId, kind: ComponentMode, ids: &[u32]) 
         .collect()
 }
 
+/// Sets the side a symmetric edit on this node is driven from (0 the positive side, 1 the negative).
+pub(crate) fn set_picked_wedge(g: &mut Graph, node: NodeId, wedge: i32) {
+    g.components.picked_wedge.insert(node, wedge);
+}
+
 /// The symmetry wedge (side) the ids last given to with_symmetry on this node mostly sat in, -1 when none.
 pub fn picked_wedge(g: &Graph, node: NodeId) -> i32 {
     g.components.picked_wedge.get(&node).copied().unwrap_or(-1)

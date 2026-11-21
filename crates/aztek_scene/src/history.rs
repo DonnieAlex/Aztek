@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 
 use aztek_geo::symmetry::{clear_symmetry_keys, SymmetryMap, SymmetrySpec};
 use aztek_geo::{Index, Mesh, MeshRemap};
-use aztek_ops::{ArgType, Args, CmdResult, CommandError, Commands};
+use aztek_ops::{objects, ArgType, Args, CmdResult, CommandError, Commands};
 use glam::DVec3;
 use serde_json::{json, Map, Value};
 
@@ -859,8 +859,188 @@ fn walk(g: &Graph, id: NodeId, future: bool, all: bool, levels: usize) -> Vec<No
 // ---------------------------------------------------------------------------------------------------------------------
 // Commands
 
+/// A shape's geometry attributes: (history, local future, world future), as the reference names them.
+fn geometry_attrs(ty: &crate::node::NodeType) -> Option<(&'static str, &'static str, &'static str)> {
+    for (base, x) in [
+        ("mesh", ("inMesh", "outMesh", "worldMesh")),
+        ("nurbsCurve", ("create", "local", "worldSpace")),
+        ("nurbsSurface", ("create", "local", "worldSpace")),
+        ("lattice", ("latticeInput", "latticeOutput", "worldLattice")),
+        ("subdiv", ("create", "outSubdiv", "worldSubdiv")),
+    ] {
+        if ty.is_a(base) {
+            return Some(x);
+        }
+    }
+    None
+}
+
+/// The same walk as `walk`, depth first: each branch to its end before the next.
+fn walk_depth(g: &Graph, id: NodeId, future: bool, all: bool, levels: usize) -> Vec<NodeId> {
+    let is_transform = |n: NodeId| g.node(n).is_some_and(|x| x.ty().is_a("transform"));
+    let start: Vec<NodeId> = if is_transform(id) && !all {
+        let shapes = crate::dag::shapes(g, id, false);
+        if shapes.is_empty() { vec![id] } else { shapes }
+    } else {
+        vec![id]
+    };
+    let mut next: BTreeMap<NodeId, Vec<NodeId>> = BTreeMap::new();
+    for (dst, src) in g.connections() {
+        if src.node != dst.node {
+            let (from, to) = if future { (src.node, dst.node) } else { (dst.node, src.node) };
+            let l = next.entry(from).or_default();
+            if !l.contains(&to) {
+                l.push(to);
+            }
+        }
+    }
+    let mut out: Vec<NodeId> = Vec::new();
+    let mut stack: Vec<(NodeId, usize)> = start.into_iter().rev().map(|n| (n, 0)).collect();
+    while let Some((n, depth)) = stack.pop() {
+        if out.contains(&n) {
+            continue;
+        }
+        out.push(n);
+        if (is_transform(n) && n != id && !all) || (levels > 0 && depth >= levels) {
+            continue;
+        }
+        for &m in next.get(&n).into_iter().flatten().rev() {
+            if !out.contains(&m) {
+                stack.push((m, depth + 1));
+            }
+        }
+    }
+    out
+}
+
+/// What a shape's future is without -allFuture: when its output geometry is connected, only what is downstream of that.
+fn future_from_output(g: &Graph, id: NodeId, depth_first: bool, levels: usize) -> Option<Vec<NodeId>> {
+    let shape = if g.node(id).is_some_and(|n| n.ty().is_a("transform")) { crate::dag::shapes(g, id, false).into_iter().next()? } else { id };
+    let ty = g.node(shape)?.type_arc().clone();
+    let (_, local, world) = geometry_attrs(&ty)?;
+    let outs: Vec<i32> = [local, world].iter().filter_map(|a| ty.attr_index(a)).map(|i| i as i32).collect();
+    let mut firsts: Vec<NodeId> = Vec::new();
+    for (dst, src) in g.connections() {
+        if src.node == shape && outs.contains(&src.attr) && dst.node != shape && !firsts.contains(&dst.node) {
+            firsts.push(dst.node);
+        }
+    }
+    if firsts.is_empty() {
+        return None;
+    }
+    let mut out = vec![shape];
+    let lv = if levels > 0 { levels - 1 } else { 0 };
+    if levels == 1 {
+        out.extend(firsts);
+        return Some(out);
+    }
+    for f in firsts {
+        let more = if depth_first { walk_depth(g, f, true, false, lv) } else { walk(g, f, true, false, lv) };
+        for m in more {
+            if !out.contains(&m) {
+                out.push(m);
+            }
+        }
+    }
+    Some(out)
+}
+
+fn list_history(s: &mut Session, a: &Args) -> CmdResult {
+    let g = &s.graph;
+    if a.bool("query") {
+        let Some(name) = objects(s, a).into_iter().next() else { aztek_ops::fail!("listHistory: name a shape") };
+        let Some(id) = g.find(&name)? else { aztek_ops::fail!("listHistory: no object named {name}") };
+        let shape = if g.node(id).is_some_and(|n| n.ty().is_a("transform")) { crate::dag::shapes(g, id, false).into_iter().next().unwrap_or(id) } else { id };
+        let attrs = g.node(shape).and_then(|n| geometry_attrs(&n.type_arc().clone()));
+        let pick = |x: (&'static str, &'static str, &'static str)| {
+            if crate::skin::asked(a, "historyAttr") {
+                Some(x.0)
+            } else if crate::skin::asked(a, "futureLocalAttr") {
+                Some(x.1)
+            } else if crate::skin::asked(a, "futureWorldAttr") {
+                Some(x.2)
+            } else {
+                None
+            }
+        };
+        if !["historyAttr", "futureLocalAttr", "futureWorldAttr"].iter().any(|k| crate::skin::asked(a, k)) {
+            aztek_ops::fail!("listHistory: -q takes -historyAttr, -futureLocalAttr or -futureWorldAttr");
+        }
+        return Ok(json!(attrs.and_then(pick).map(|x| vec![x.to_string()]).unwrap_or_default()));
+    }
+    let ty = a.get("type").and_then(Value::as_str);
+    let prune = a.bool("pruneDagObjects");
+    let interest = a.get("interestLevel").and_then(Value::as_i64);
+    let wanted = |id: NodeId| {
+        ty.is_none_or(|t| g.node(id).is_some_and(|n| n.ty().is_a(t)))
+            && !(prune && g.node(id).is_some_and(|n| n.ty().dag))
+            && interest.is_none_or(|lv| g.node(id).is_some_and(|n| n.ty().attr_index("isHistoricallyInteresting").is_none_or(|i| n.data().int(i) >= lv)))
+    };
+    let name_of = |id: NodeId| if a.bool("fullNodeName") { json!(g.full_name(id)) } else { json!(g.path(id)) };
+    let mut out = Vec::new();
+    let (future, all, levels) = (a.bool("future"), a.bool("allConnections"), a.get("levels").and_then(Value::as_u64).unwrap_or(0) as usize);
+    let breadth = a.bool("breadthFirst") || a.bool("groupLevels");
+    let leaf = a.get("leaf").and_then(Value::as_bool).unwrap_or(true);
+    for name in objects(s, a) {
+        let Some(id) = g.find(&name)? else { aztek_ops::fail!("listHistory: no object named {name}") };
+        let is_transform = g.node(id).is_some_and(|n| n.ty().is_a("transform"));
+        // -leaf off on a transform: the transform's own history, what drives it.
+        if is_transform && !leaf {
+            let mut list = if breadth { walk(g, id, future, true, levels.max(1)) } else { walk_depth(g, id, future, true, levels.max(1)) };
+            if levels == 0 {
+                list = if breadth { walk(g, id, future, true, 0) } else { walk_depth(g, id, future, true, 0) };
+            }
+            for h in list {
+                if wanted(h) && !out.contains(&name_of(h)) {
+                    out.push(name_of(h));
+                }
+            }
+            continue;
+        }
+        if future && !all && !a.bool("allFuture") {
+            if let Some(list) = future_from_output(g, id, !breadth, levels) {
+                for h in list {
+                    if wanted(h) && !out.contains(&name_of(h)) {
+                        out.push(name_of(h));
+                    }
+                }
+                continue;
+            }
+        }
+        if future || all || levels > 0 {
+            let list = if breadth { walk(g, id, future, all, levels) } else { walk_depth(g, id, future, all, levels) };
+            for h in list {
+                if wanted(h) && !out.contains(&name_of(h)) {
+                    out.push(name_of(h));
+                }
+            }
+            continue;
+        }
+        let Some(m) = components::as_mesh(g, id) else {
+            // Anything else, as the reference walks it: the object's shapes (or the node), then every node
+            // upstream of them through their inputs, nearest first. Transforms are listed but not walked
+            // through, so a parent's place doesn't drag the scene in.
+            for h in upstream_of(g, id) {
+                if wanted(h) && !out.contains(&name_of(h)) {
+                    out.push(name_of(h));
+                }
+            }
+            continue;
+        };
+        if wanted(m) {
+            out.push(name_of(m));
+        }
+        for h in history_of(g, m) {
+            if wanted(h) {
+                out.push(name_of(h));
+            }
+        }
+    }
+    Ok(Value::Array(out))
+}
+
 pub fn register(c: &mut Commands<Session>) {
-    use aztek_ops::{objects, CommandDef, FlagDef};
+    use aztek_ops::{CommandDef, FlagDef};
     c.register(
         CommandDef::<Session>::new(
             "bakePartialHistory",
@@ -936,45 +1116,7 @@ pub fn register(c: &mut Commands<Session>) {
             "listHistory",
             "The nodes feeding an object's mesh, nearest first: history nodes, then the generator or intermediate shape \
              at the bottom.",
-            |s, a| {
-                let g = &s.graph;
-                let ty = a.get("type").and_then(Value::as_str);
-                let prune = a.bool("pruneDagObjects");
-                let wanted = |id: NodeId| ty.is_none_or(|t| g.node(id).is_some_and(|n| n.ty().is_a(t))) && !(prune && g.node(id).is_some_and(|n| n.ty().dag));
-                let mut out = Vec::new();
-                let (future, all, levels) = (a.bool("future"), a.bool("allConnections"), a.get("levels").and_then(Value::as_u64).unwrap_or(0) as usize);
-                for name in objects(s, a) {
-                    let Some(id) = g.find(&name)? else { aztek_ops::fail!("listHistory: no object named {name}") };
-                    if future || all || levels > 0 {
-                        for h in walk(g, id, future, all, levels) {
-                            if wanted(h) && !out.contains(&json!(g.path(h))) {
-                                out.push(json!(g.path(h)));
-                            }
-                        }
-                        continue;
-                    }
-                    let Some(m) = components::as_mesh(g, id) else {
-                        // Anything else, as the reference walks it: the object's shapes (or the node), then every node
-                        // upstream of them through their inputs, nearest first. Transforms are listed but not walked
-                        // through, so a parent's place doesn't drag the scene in.
-                        for h in upstream_of(g, id) {
-                            if wanted(h) && !out.contains(&json!(g.path(h))) {
-                                out.push(json!(g.path(h)));
-                            }
-                        }
-                        continue;
-                    };
-                    if wanted(m) {
-                        out.push(json!(g.path(m)));
-                    }
-                    for h in history_of(g, m) {
-                        if wanted(h) {
-                            out.push(json!(g.path(h)));
-                        }
-                    }
-                }
-                Ok(Value::Array(out))
-            },
+            list_history,
         )
         .undoable(false)
         .positional("objects")
@@ -982,6 +1124,19 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("pruneDagObjects", "pdo", ArgType::Bool, json!(false), "Leave out shapes and transforms: only the history nodes."))
         .flag(FlagDef::new("future", "f", ArgType::Bool, json!(false), "The nodes downstream instead: what the object feeds."))
         .flag(FlagDef::new("allConnections", "ac", ArgType::Bool, json!(false), "Walk every connection, through transforms as well."))
+        .flag(FlagDef::new("allFuture", "af", ArgType::Bool, json!(false), "With -f: all of the future; otherwise a shape whose output geometry is connected gives only what is downstream of that."))
+        .flag(FlagDef::new("allGraphs", "ag", ArgType::Bool, Value::Null, "Obsolete in the reference: no effect."))
+        .flag(FlagDef::new("breadthFirst", "bf", ArgType::Bool, json!(false), "Nearest nodes first; otherwise each branch is followed to its end first."))
+        .flag(FlagDef::new("fastIteration", "fi", ArgType::Bool, Value::Null, "The faster walk for nodes with many connections: the same results here."))
+        .flag(FlagDef::new("fullNodeName", "fnn", ArgType::Bool, Value::Null, "Nodes by their full DAG paths."))
+        .flag(FlagDef::new("groupLevels", "gl", ArgType::Bool, Value::Null, "The nodes level by level: each level's nodes together, nearest level first."))
+        .flag(FlagDef::new("interestLevel", "il", ArgType::Int, Value::Null, "Only nodes whose isHistoricallyInteresting is at least this: 0 for everyone, 1 for TDs, 2 for users."))
+        .flag(FlagDef::new("leaf", "lf", ArgType::Bool, json!(true), "For a transform, the history of its shape (on); off, of the transform itself."))
+        .flag(FlagDef::new("futureLocalAttr", "fl", ArgType::Bool, Value::Null, "With -q: the shape's attribute its local-space future comes from."))
+        .flag(FlagDef::new("futureWorldAttr", "fw", ArgType::Bool, Value::Null, "With -q: the shape's attribute its world-space future comes from."))
+        .flag(FlagDef::new("historyAttr", "ha", ArgType::Bool, Value::Null, "With -q: the shape's attribute its history connects to."))
+        .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Query mode."))
+        .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "Flags asked about in query mode."))
         .flag(FlagDef::new("levels", "lv", ArgType::Int, json!(0), "How many connections out to go; 0 for no limit.")),
     );
     register_types(c);

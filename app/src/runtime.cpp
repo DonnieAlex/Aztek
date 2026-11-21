@@ -912,6 +912,8 @@ void MainWindow::show_hotkey_editor() {
 
 // The four views' panel names, as the reference has them: top, side, front, persp. views() runs top, persp, front, side.
 ViewportWidget* MainWindow::view_for_panel(const QString& panel) const {
+    // The view with focus, for what goes over the active view (inViewMessage).
+    if (panel == "<active>") return active_view();
     if (ViewportWidget* v = ScriptUi::get()->embedded_view(panel)) return v;
     static const QStringList names{"modelPanel1", "modelPanel4", "modelPanel3", "modelPanel2"};
     int i = names.indexOf(panel);

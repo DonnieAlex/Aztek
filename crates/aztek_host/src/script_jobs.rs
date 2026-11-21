@@ -195,6 +195,11 @@ pub fn deferred_pending() -> bool {
     with_jobs(|j| !j.deferred.is_empty())
 }
 
+/// Queues a script to run when the core is next idle, as evalDeferred does.
+pub fn defer(cb: Value) {
+    with_jobs(|j| j.deferred.push(cb));
+}
+
 pub fn take_deferred() -> Vec<Value> {
     with_jobs(|j| std::mem::take(&mut j.deferred))
 }

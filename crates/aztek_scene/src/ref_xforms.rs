@@ -387,6 +387,54 @@ fn plain_args(a: &Args, flags: Value) -> Args {
     out
 }
 
+/// makeIdentity -jointOrient: each joint named and below, parents first, turns to line up with world space (rotate,
+/// rotateAxis and jointOrient set so), its children kept where they are.
+fn joint_orient_to_world(s: &mut Session, a: &Args) -> CmdResult<()> {
+    let mut joints: Vec<NodeId> = Vec::new();
+    for id in transforms_named(s, a, "makeIdentity")? {
+        for n in std::iter::once(id).chain(s.graph.descendants(id)) {
+            if crate::rig::is_joint(&s.graph, n) && !joints.contains(&n) {
+                joints.push(n);
+            }
+        }
+    }
+    // Where everything was, before any joint turns.
+    s.graph.evaluate();
+    let mut was: std::collections::HashMap<NodeId, DMat4> = std::collections::HashMap::new();
+    for &j in &joints {
+        for c in s.graph.children(j).to_vec() {
+            if s.graph.node(c).is_some_and(|n| n.ty().is_a("transform")) {
+                let w = crate::rig::world(&mut s.graph, c);
+                was.insert(c, w);
+            }
+        }
+    }
+    for j in joints {
+        s.graph.evaluate();
+        let kids: Vec<(NodeId, DMat4)> = s.graph.children(j).iter().filter_map(|c| was.get(c).map(|w| (*c, *w))).collect();
+        let parent = crate::rig::parent_world(&mut s.graph, j);
+        let (_, prot, _) = parent.to_scale_rotation_translation();
+        let orient = matrix_to_euler(&DMat3::from_quat(prot.inverse()), RotateOrder::from_index(0));
+        put(&mut s.graph, j, Transform::ROTATE, DVec3::ZERO)?;
+        put(&mut s.graph, j, Transform::ROTATE_AXIS, DVec3::ZERO)?;
+        put(&mut s.graph, j, crate::rig::Joint::JOINT_ORIENT, orient)?;
+        s.graph.evaluate();
+        let inv = crate::rig::world(&mut s.graph, j).inverse();
+        for (c, w) in kids {
+            if crate::rig::is_joint(&s.graph, c) {
+                let t = inv.transform_point3(w.w_axis.truncate());
+                put(&mut s.graph, c, Transform::TRANSLATE, t)?;
+            } else {
+                let path = s.graph.path(c);
+                let m: Vec<f64> = w.to_cols_array().to_vec();
+                s.run("xform", json!({"args": [path], "worldSpace": true, "matrix": m}))?;
+            }
+        }
+    }
+    s.graph.evaluate();
+    Ok(())
+}
+
 fn transforms_named(s: &Session, a: &Args, cmd: &str) -> CmdResult<Vec<NodeId>> {
     let mut ids = Vec::new();
     for name in objects(s, a) {
@@ -427,7 +475,170 @@ fn is_component_call(a: &Args) -> bool {
     a.named().iter().any(|n| crate::components::is_component_string(n))
 }
 
+/// move with the reference's component options around the move itself: -preserveUV, -reflection (with -reflectionAbout*,
+/// -reflectionTolerance and -symNegative), -parameter, and -orientJoint for joints moved.
 fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
+    if a.bool("parameter") {
+        return move_parametric(s, a);
+    }
+    let reflect = a.bool("reflection");
+    let keep_uv = s.graph.move_opts.preserve_uv;
+    if a.bool("preserveUV") {
+        s.graph.move_opts.preserve_uv = true;
+    }
+    // -reflection: the meshes named or picked take the symmetry asked for, for this move only.
+    let mut saved: Vec<(NodeId, i64, i64, f64)> = Vec::new();
+    if reflect {
+        use crate::mesh_nodes::MeshNode;
+        let axis = if a.bool("reflectionAboutY") {
+            1
+        } else if a.bool("reflectionAboutZ") {
+            2
+        } else {
+            0
+        };
+        let about_box = a.bool("reflectionAboutBBox") && !a.bool("reflectionAboutOrigin");
+        let mut meshes: Vec<NodeId> = Vec::new();
+        for n in a.named() {
+            if let Some(m) = s.graph.find(n.split('.').next().unwrap_or(&n)).ok().flatten().and_then(|id| crate::components::as_mesh(&s.graph, id)) {
+                meshes.push(m);
+            }
+        }
+        if a.named().is_empty() {
+            for (&node, _) in crate::components::selected_all(&s.graph, crate::components::ComponentMode::Vertex) {
+                meshes.push(node);
+            }
+            for &id in s.graph.selection() {
+                if let Some(m) = crate::components::as_mesh(&s.graph, id) {
+                    meshes.push(m);
+                }
+            }
+        }
+        meshes.sort_unstable();
+        meshes.dedup();
+        for m in meshes {
+            let g = &mut s.graph;
+            let n = g.node(m).unwrap();
+            saved.push((m, n.int(MeshNode::SYMMETRY), n.int(MeshNode::SYMMETRY_PLANE), n.float(MeshNode::SYMMETRY_OFFSET)));
+            let (plane, offset) = if about_box {
+                let b = crate::modifiers::cage(g, m).map(|x| x.bounds()).unwrap_or_default();
+                (1, b.center()[axis])
+            } else {
+                (crate::mesh_nodes::SYMMETRY_PLANE_WORLD, 0.0)
+            };
+            g.set_value(PlugRef::new(m, MeshNode::SYMMETRY as i32), PlugValue::Int(axis as i64 + 1))?;
+            g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_PLANE as i32), PlugValue::Int(plane))?;
+            g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_OFFSET as i32), PlugValue::Float(offset))?;
+            crate::components::set_picked_wedge(g, m, a.bool("symNegative") as i32);
+        }
+        if let Some(t) = a.get("reflectionTolerance").and_then(Value::as_f64) {
+            crate::mesh_edit::set_symmetry_tolerance(Some(t));
+        }
+    }
+    // Symmetry follows a move of the components picked: those named are picked for it, and the selection put back after.
+    let named_components: Vec<String> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).collect();
+    let r = if reflect && !named_components.is_empty() {
+        let before: Vec<String> = s.graph.selection().iter().map(|&id| s.graph.path(id)).collect();
+        let before_components = crate::components::component_strings(&s.graph, false);
+        s.run("select", json!({"args": named_components}))?;
+        let mut b = a.clone();
+        let is_comp = |v: &Value| v.as_str().is_some_and(crate::components::is_component_string);
+        b.positional.retain(|v| !is_comp(v));
+        for v in b.positional.iter_mut() {
+            if let Value::Array(list) = v {
+                list.retain(|x| !is_comp(x));
+            }
+        }
+        b.positional.retain(|v| !v.as_array().is_some_and(Vec::is_empty));
+        let r = run_move_inner(s, &b, prev);
+        let back: Vec<String> = if before_components.is_empty() { before } else { before_components };
+        let _ = if back.is_empty() { s.run("select", json!({"clear": true})) } else { s.run("select", json!({"args": back})) };
+        r
+    } else {
+        run_move_inner(s, a, prev)
+    };
+    s.graph.move_opts.preserve_uv = keep_uv;
+    crate::mesh_edit::set_symmetry_tolerance(None);
+    for (m, sym, plane, offset) in saved {
+        use crate::mesh_nodes::MeshNode;
+        let g = &mut s.graph;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY as i32), PlugValue::Int(sym))?;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_PLANE as i32), PlugValue::Int(plane))?;
+        g.set_value(PlugRef::new(m, MeshNode::SYMMETRY_OFFSET as i32), PlugValue::Float(offset))?;
+    }
+    let r = r?;
+    // -orientJoint: joints moved turn to aim along the order given, and so does the joint above each.
+    if let Some(order) = a.get("orientJoint").and_then(Value::as_str).map(str::to_string) {
+        let joints: Vec<NodeId> = transforms_named(s, a, "move").unwrap_or_default().into_iter().filter(|&j| crate::rig::is_joint(&s.graph, j)).collect();
+        let mut done: Vec<NodeId> = Vec::new();
+        for j in joints {
+            let p = s.graph.parent(j);
+            for x in [p, j] {
+                if x == crate::plug::NO_NODE || !crate::rig::is_joint(&s.graph, x) || done.contains(&x) {
+                    continue;
+                }
+                done.push(x);
+                let mut call = json!({"args": [s.graph.path(x)], "edit": true, "orientJoint": order, "children": false});
+                if let Some(sao) = a.get("secondaryAxisOrient") {
+                    call["secondaryAxisOrient"] = sao.clone();
+                }
+                if a.bool("autoOrientSecondaryAxis") {
+                    call["autoOrientSecondaryAxis"] = json!(true);
+                }
+                s.run("joint", call)?;
+            }
+        }
+    }
+    Ok(r)
+}
+
+/// move -parameter: curve points moved along the curve in parameter space. Each CV or edit point named moves by the
+/// first value in parameter (along the curve, the distance a parameter step covers there), keeping on the curve.
+fn move_parametric(s: &mut Session, a: &Args) -> CmdResult {
+    let Some(m) = read_motion(a, "move", 0.0)? else { fail!("move: -parameter takes the amount to move by") };
+    let names: Vec<String> = if a.named().is_empty() { crate::components::component_strings(&s.graph, false) } else { a.named() };
+    s.graph.open_chunk("move -parameter");
+    let r = (|| -> CmdResult<()> {
+        for n in names {
+            let Some((obj, rest)) = n.split_once('.') else { continue };
+            // curve.u[p] or curve.ep[i] / curve.cv[i]: the point slides by the value along the curve.
+            let Some(id) = s.graph.find(obj)? else { continue };
+            let Some(shape) = crate::curves::as_curve(&s.graph, id) else { fail!("move: -parameter works on curve points; {n} isn't one") };
+            let Some(c) = crate::curves::local_curve(&mut s.graph, shape) else { continue };
+            let (lo, hi) = c.domain();
+            let idx = |t: &str| t.trim_end_matches(']').split('[').nth(1).and_then(|x| x.parse::<f64>().ok());
+            let Some(i) = idx(rest) else { continue };
+            let path = format!("{obj}.{rest}");
+            // A CV slides by how far its place on the curve (the mean of its knots) moves; an edit point or curve point
+            // moves to the curve at its new parameter.
+            let (at, cv) = if rest.starts_with("cv[") {
+                let k = &c.knots;
+                let d = c.degree.max(1);
+                let i = i as usize;
+                let g = if i + d <= k.len() { k[i..i + d].iter().sum::<f64>() / d as f64 } else { hi };
+                (g, true)
+            } else if rest.starts_with("ep[") {
+                (c.distinct_params().get(i as usize).copied().unwrap_or(lo), false)
+            } else {
+                (i, false)
+            };
+            let to = (at + m.values.x).clamp(lo, hi);
+            if cv {
+                let d = c.eval(to) - c.eval(at);
+                s.run("move", json!({"args": [path], "relative": true, "objectSpace": true, "x": d.x, "y": d.y, "z": d.z}))?;
+            } else {
+                let p = c.eval(to);
+                s.run("move", json!({"args": [path], "absolute": true, "objectSpace": true, "x": p.x, "y": p.y, "z": p.z}))?;
+            }
+        }
+        Ok(())
+    })();
+    s.graph.close_chunk();
+    r?;
+    Ok(Value::Null)
+}
+
+fn run_move_inner(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let Some(m) = read_motion(a, "move", 0.0)? else { return prev(s, a) };
     // -componentOffset with -localSpace: each component in its own space, the first value along its normal, as the
     // reference's Ctrl+middle drag echoes it (#102).
@@ -772,7 +983,24 @@ pub fn register(c: &mut Commands<Session>) {
     }
     extend(c, "xform", xf_flags, xform);
 
-    extend(c, "move", motion_flags("move"), run_move);
+    let mut mv = motion_flags("move");
+    mv.retain(|x| !matches!(x.name.as_str(), "orientJoint" | "secondaryAxisOrient"));
+    mv.extend([
+        f("orientJoint", "oj", ArgType::String, "Joints moved, and the joint above each, aim along this axis order (xyz...)."),
+        f("secondaryAxisOrient", "sao", ArgType::String, "With -oj: where the second axis points (yup, zdown...)."),
+        f("autoOrientSecondaryAxis", "aos", ArgType::Bool, "With -oj and -sao: the second axis from the plane of the joints around, else -sao alone."),
+        f("parameter", "p", ArgType::Bool, "Move curve points along the curve, in parameter space."),
+        f("preserveUV", "puv", ArgType::Bool, "UVs of the components moved follow, projected along the move."),
+        f("reflection", "rfl", ArgType::Bool, "Move the symmetric components too."),
+        f("reflectionAboutBBox", "rab", ArgType::Bool, "With -rfl: the mirror plane at the middle of the object's bounding box."),
+        f("reflectionAboutOrigin", "rao", ArgType::Bool, "With -rfl: the mirror plane through the origin (the default)."),
+        f("reflectionAboutX", "rax", ArgType::Bool, "With -rfl: mirror across X = 0 (the default)."),
+        f("reflectionAboutY", "ray", ArgType::Bool, "With -rfl: mirror across Y = 0."),
+        f("reflectionAboutZ", "raz", ArgType::Bool, "With -rfl: mirror across Z = 0."),
+        f("reflectionTolerance", "rft", ArgType::Float, "With -rfl: how far a point and its mirror image may be apart to pair."),
+        f("symNegative", "smn", ArgType::Bool, "With -rfl: the move is relative to the negative side of the plane."),
+    ]);
+    extend(c, "move", mv, run_move);
 
     let mut rot = motion_flags("rotate");
     rot.push(f("pivot", "p", ArgType::Vec3, "The world point to turn about."));
@@ -796,8 +1024,18 @@ pub fn register(c: &mut Commands<Session>) {
             f("translate", "t", ArgType::Bool, "Freeze translation."),
             f("rotate", "r", ArgType::Bool, "Freeze rotation."),
             f("scale", "s", ArgType::Bool, "Freeze scale."),
+            f("jointOrient", "jo", ArgType::Bool, "Joints: their jointOrient is reset so they line up with world space."),
         ],
         |s, a, prev| {
+            let r = freeze_channels(s, a, prev)?;
+            if a.bool("jointOrient") {
+                joint_orient_to_world(s, a)?;
+            }
+            Ok(r)
+        },
+    );
+    fn freeze_channels(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
+        {
             if a.has("apply") && !a.bool("apply") {
                 let channels: Vec<&str> = ["translate", "rotate", "scale"].into_iter().filter(|c| a.has(c)).collect();
                 for id in transforms_named(s, a, "makeIdentity")? {
@@ -817,8 +1055,8 @@ pub fn register(c: &mut Commands<Session>) {
                 }
             }
             prev(s, &b)
-        },
-    );
+        }
+    }
     let freeze = c.find("freezeTransforms").unwrap().clone();
     let mut identity = freeze.clone();
     identity.name = "makeIdentity".into();

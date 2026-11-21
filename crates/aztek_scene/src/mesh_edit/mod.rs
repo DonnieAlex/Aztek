@@ -48,7 +48,20 @@ pub fn symmetry_axis(g: &Graph, n: NodeId) -> i32 {
 
 /// Only for matching points that have no stored partner; stored pairs survive any drift.
 pub fn symmetry_tolerance(mesh: &Mesh) -> f64 {
+    if let Some(t) = TOLERANCE.with(|c| c.get()) {
+        return t;
+    }
     (mesh.bounds().size().length() * 1e-5).max(1e-4)
+}
+
+thread_local! {
+    /// move -reflectionTolerance: how far apart a point and its mirror image may be, for the call.
+    static TOLERANCE: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Sets (or with None clears) the tolerance symmetric moves pair points with.
+pub fn set_symmetry_tolerance(t: Option<f64>) {
+    TOLERANCE.with(|c| c.set(t));
 }
 
 pub fn symmetry_layer(spec: &SymmetrySpec) -> String {

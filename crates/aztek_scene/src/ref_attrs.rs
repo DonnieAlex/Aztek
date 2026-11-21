@@ -881,12 +881,71 @@ fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &m
         a.bool("keyable"), a.bool("locked"), a.bool("unlocked"), a.bool("userDefined"), a.bool("channelBox"), a.bool("settable"), a.bool("multi"), a.bool("write"), a.bool("visible"), a.bool("leaf"), a.bool("array"), a.bool("scalar"), a.bool("shortNames"),
     );
     let scalar_and_array = a.bool("scalarAndArray");
+    // -fullNodeName: each name with the node's full name before it.
+    let prefix = if a.bool("fullNodeName") { format!("{}.", g.full_name(id)) } else { String::new() };
+    let start = out.len();
+    // -ramp: the ramp attributes, compounds of entries with a position, a value and an interpolation.
+    if a.bool("ramp") {
+        let mut seen: Vec<String> = Vec::new();
+        for d in n.ty().attrs.iter() {
+            let Some((root, leaf)) = d.name.split_once('.') else { continue };
+            if leaf == format!("{root}_Interp") && n.ty().attr_index(&format!("{root}.{root}_Position")).is_some() && !seen.iter().any(|x| x == root) {
+                if patterns.is_empty() || patterns.iter().any(|p| glob(p, root)) {
+                    seen.push(root.to_string());
+                }
+            }
+        }
+        out.extend(seen.into_iter().map(|r| format!("{prefix}{r}")));
+        return Ok(());
+    }
+    // -extension: attributes added to every node of a type; there are none here.
+    if a.bool("extension") {
+        return Ok(());
+    }
+    let types: Vec<String> = match a.get("attributeType") {
+        Some(Value::String(t)) => vec![t.clone()],
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    };
+    let plugin_own: Option<Vec<String>> =
+        a.bool("fromPlugin").then(|| if crate::scripted::plugin_of_type(&n.ty().name).is_some() { n.ty().own_attrs.iter().map(|x| x.name.clone()).collect() } else { Vec::new() });
     for (i, d) in n.ty().attrs.iter().enumerate() {
         if only.is_some_and(|o| o != i) {
             continue;
         }
         if d.has(flags::HIDDEN) && !d.has(flags::MESSAGE) && patterns.is_empty() && only.is_none() {
             continue;
+        }
+        // -readOnly: read but not written, the outputs.
+        if a.bool("readOnly") && d.has(flags::INPUT) {
+            continue;
+        }
+        if a.bool("usedAsFilename") && !d.has(flags::FILE) {
+            continue;
+        }
+        // -attributeType: a compound's children go by their own type.
+        let type_ok = |child: bool| types.is_empty() || types.iter().any(|t| t == ref_type(d, child));
+        if !type_ok(false) && !(d.ty == PlugType::Vec3 && type_ok(true)) {
+            continue;
+        }
+        // -caching: cached unless setAttr -caching turned it off.
+        if a.bool("caching") && !s.extras.plug_caching.get(&(id, i as i32)).copied().unwrap_or(true) {
+            continue;
+        }
+        if plugin_own.as_ref().is_some_and(|own| !own.contains(&d.name)) {
+            continue;
+        }
+        // -hasNullData: data never given a value, a string with none or data not yet made.
+        if a.bool("hasNullData") {
+            let null = match n.data().value(i) {
+                PlugValue::String(t) => t.is_empty(),
+                PlugValue::Data(x) => x.is_none(),
+                PlugValue::Mesh(x) => x.is_none(),
+                _ => false,
+            };
+            if !null || d.is_array() {
+                continue;
+            }
         }
         if (user && !d.has(flags::USER)) || (write && !d.has(flags::INPUT)) || (settable && !d.has(flags::INPUT)) || false {
             continue;
@@ -924,10 +983,10 @@ fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &m
         if d.ty == PlugType::Vec3 {
             // Keyable and locked filters look at the children; a compound with all three children locked or keyable is
             // not named on its own, as the reference lists translateX for -k rather than translate.
-            if !keyable && !cb && !locked && !leaf && child.is_none() {
+            if !keyable && !cb && !locked && !leaf && child.is_none() && type_ok(false) {
                 consider(d.name.clone(), d.short_name.clone(), whole, false, out);
             }
-            if !d.is_array() {
+            if !d.is_array() && type_ok(true) {
                 for c in 0..3 {
                     if d.child_names[c].is_empty() || child.is_some_and(|k| k != c) {
                         continue;
@@ -945,6 +1004,11 @@ fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &m
             for (k, _) in n.elements(i) {
                 out.push(g.alias_of(&PlugRef::element(id, i as i32, *k)).unwrap_or_else(|| format!("{}[{k}]", d.name)));
             }
+        }
+    }
+    if !prefix.is_empty() {
+        for x in &mut out[start..] {
+            *x = format!("{prefix}{x}");
         }
     }
     Ok(())
@@ -1207,12 +1271,25 @@ pub fn register(c: &mut Commands<Session>) {
     extend(c, "listAttr", {
         let mut v = Vec::new();
         for (name, short, doc) in [
-            ("keyable", "k", "Only keyable."), ("unlocked", "u", "Only unlocked."), ("connectable", "c", "Only connectable."), ("settable", "s", "Only settable."), ("multi", "m", "Only multi attributes, with their elements."),
+            ("keyable", "k", "Only keyable."), ("unlocked", "u", "Only unlocked."), ("connectable", "c", "Only connectable."), ("settable", "se", "Only settable."), ("multi", "m", "Only multi attributes, with their elements."),
             ("userDefined", "ud", "Only added ones."), ("locked", "l", "Only locked."), ("channelBox", "cb", "Only those in the channel box without being keyable."), ("read", "r", "Only readable."), ("write", "w", "Only writable."),
-            ("visible", "v", "Only visible."), ("leaf", "lf", "Only leaves of compounds."), ("scalarAndArray", "sa", "Only scalars and arrays of them."), ("scalar", "sc", "Only scalars."), ("shortNames", "sn", "Short names."), ("array", "a", "Only arrays."), ("output", "o", "Only outputs."), ("hasData", "hd", "Accepted for existing scripts."), ("inUse", "iu", "Accepted for existing scripts."), ("changedSinceFileOpen", "cfo", "Accepted for existing scripts."), ("nodeName", "nn", "Accepted for existing scripts."),
+            ("visible", "v", "Only visible."), ("leaf", "lf", "Only leaves of compounds."), ("scalarAndArray", "sa", "Only scalars and arrays of them."), ("scalar", "s", "Only scalars."), ("shortNames", "sn", "Short names."), ("array", "a", "Only arrays."), ("output", "o", "Only outputs."), ("hasData", "hd", "Accepted for existing scripts."), ("inUse", "iu", "Accepted for existing scripts."), ("changedSinceFileOpen", "cfo", "Accepted for existing scripts."), ("nodeName", "nn", "Accepted for existing scripts."),
         ] {
             v.push(f(name, short, ArgType::Bool, doc));
         }
+        for (name, short, doc) in [
+            ("caching", "ca", "Only attributes cached internally."),
+            ("extension", "ex", "Only extension attributes, shared by every node of the type."),
+            ("fromPlugin", "fp", "Only attributes a plug-in made."),
+            ("hasNullData", "hnd", "Only attributes whose data was never given: a string with no value, data not yet made."),
+            ("ramp", "ra", "Only ramp attributes."),
+            ("readOnly", "ro", "Only attributes that read but can't be written."),
+            ("usedAsFilename", "uf", "Only attributes that hold file names."),
+            ("fullNodeName", "fnn", "Each name with the node's full name before it."),
+        ] {
+            v.push(f(name, short, ArgType::Bool, doc));
+        }
+        v.push(f("attributeType", "at", ArgType::Any, "Only attributes of this type (double, float3, message...), or these.").multi(1));
         v.push(f("string", "st", ArgType::Any, "Only names matching this pattern, or these."));
         v.push(f("category", "ct", ArgType::String, "Accepted for existing scripts."));
         v

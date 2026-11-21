@@ -197,6 +197,103 @@ fn parse_items(a: &Args) -> CmdResult<Vec<FaceItem>> {
     Ok(items)
 }
 
+/// The registry's size when nothing has set it.
+const REGISTRY_DEFAULT: usize = 10;
+
+thread_local! {
+    /// makeLive's registry: the sets of objects made live, newest first, and how many it keeps.
+    static REGISTRY: std::cell::RefCell<(Vec<Vec<String>>, usize)> = const { std::cell::RefCell::new((Vec::new(), REGISTRY_DEFAULT)) };
+}
+
+fn set_live(s: &mut Session, list: Vec<crate::NodeId>) {
+    // The live surface can't be selected: it leaves the selection, as in the reference (#116).
+    let drop: Vec<crate::NodeId> = list.iter().flat_map(|&m| [m, crate::dag::transform_of(&s.graph, m)]).collect();
+    s.graph.select(&drop, crate::graph::SelectMode::Remove);
+    s.graph.live = list.clone();
+    s.live_surface = list;
+}
+
+fn live_meshes(s: &Session, names: &[String]) -> CmdResult<Vec<crate::NodeId>> {
+    let mut list = Vec::new();
+    for n in names {
+        let Some(id) = s.graph.find(n)? else { fail!("makeLive: no object named {n}") };
+        let Some(m) = components::as_mesh(&s.graph, id) else { fail!("makeLive: {n} can't be made live: only meshes can") };
+        if !list.contains(&m) {
+            list.push(m);
+        }
+    }
+    Ok(list)
+}
+
+fn make_live(s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("query") {
+        if a.bool("registryCount") {
+            return Ok(json!(REGISTRY.with(|r| r.borrow().0.len())));
+        }
+        if a.has("registrySize") && a.get("registrySize").and_then(Value::as_i64).is_none() || a.bool("registrySize") {
+            return Ok(json!(REGISTRY.with(|r| r.borrow().1)));
+        }
+        if a.has("registry") {
+            // In query mode the entry's number may come after the flag as an argument.
+            let given = a.positional.iter().find_map(|v| v.as_i64().or_else(|| v.as_str().and_then(|t| t.parse().ok())));
+            let Some(i) = given.or_else(|| a.get("registry").and_then(Value::as_i64)) else { fail!("makeLive: -q -registry takes the entry's number") };
+            return Ok(json!(REGISTRY.with(|r| r.borrow().0.get(i.max(0) as usize).cloned().unwrap_or_default())));
+        }
+        return Ok(json!(s.live_surface.iter().map(|&n| s.graph.path(n)).collect::<Vec<_>>()));
+    }
+    if a.bool("registryReset") {
+        REGISTRY.with(|r| *r.borrow_mut() = (Vec::new(), REGISTRY_DEFAULT));
+        return Ok(Value::Null);
+    }
+    if let Some(n) = a.get("registrySize").and_then(Value::as_i64) {
+        REGISTRY.with(|r| {
+            let mut r = r.borrow_mut();
+            r.1 = n.max(0) as usize;
+            let keep = r.1;
+            r.0.truncate(keep);
+        });
+        if a.named().is_empty() && !a.has("registry") {
+            return Ok(Value::Null);
+        }
+    }
+    if a.bool("none") {
+        s.live_surface.clear();
+        s.graph.live.clear();
+        return Ok(Value::Null);
+    }
+    if let Some(i) = a.get("registry").and_then(Value::as_i64) {
+        let Some(names) = REGISTRY.with(|r| r.borrow().0.get(i.max(0) as usize).cloned()) else { fail!("makeLive: the registry has no entry {i}") };
+        let list = live_meshes(s, &names)?;
+        set_live(s, list);
+        return Ok(Value::Null);
+    }
+    let names: Vec<String> = if a.named().is_empty() { s.graph.selection().iter().map(|&i| s.graph.path(i)).collect() } else { a.named() };
+    if a.bool("edit") && (a.bool("addObjects") || a.bool("removeObjects")) {
+        let given = live_meshes(s, &names)?;
+        let mut list = s.live_surface.clone();
+        if a.bool("addObjects") {
+            list.extend(given.into_iter().filter(|m| !s.live_surface.contains(m)));
+        } else {
+            list.retain(|m| !given.contains(m));
+        }
+        set_live(s, list);
+        return Ok(Value::Null);
+    }
+    let list = live_meshes(s, &names)?;
+    if !list.is_empty() {
+        let paths: Vec<String> = list.iter().map(|&m| s.graph.path(crate::dag::transform_of(&s.graph, m))).collect();
+        REGISTRY.with(|r| {
+            let mut r = r.borrow_mut();
+            r.0.retain(|x| *x != paths);
+            r.0.insert(0, paths);
+            let keep = r.1;
+            r.0.truncate(keep);
+        });
+    }
+    set_live(s, list);
+    Ok(Value::Null)
+}
+
 pub fn register(c: &mut Commands<Session>) {
     crate::history::register_op(crate::history::HistoryOp {
         node_type: "polySlideEdge",
@@ -353,34 +450,20 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "makeLive",
-            "Make a mesh the live surface: Quad Draw and the snap to live draw on it. -none clears it. -q asks.",
-            |s, a| {
-                if a.bool("query") {
-                    return Ok(json!(s.live_surface.iter().map(|&n| s.graph.path(n)).collect::<Vec<_>>()));
-                }
-                if a.bool("none") {
-                    s.live_surface.clear();
-                    s.graph.live.clear();
-                    return Ok(Value::Null);
-                }
-                let names = if a.named().is_empty() { s.graph.selection().iter().map(|&i| s.graph.path(i)).collect() } else { a.named() };
-                let mut list = Vec::new();
-                for n in names {
-                    let Some(id) = s.graph.find(&n)? else { fail!("makeLive: no object named {n}") };
-                    let Some(m) = components::as_mesh(&s.graph, id) else { fail!("makeLive: {n} is not a mesh") };
-                    list.push(m);
-                }
-                // The live surface can't be selected: it leaves the selection, as in the reference (#116).
-                let drop: Vec<crate::NodeId> = list.iter().flat_map(|&m| [m, crate::dag::transform_of(&s.graph, m)]).collect();
-                s.graph.select(&drop, crate::graph::SelectMode::Remove);
-                s.graph.live = list.clone();
-                s.live_surface = list;
-                Ok(Value::Null)
-            },
+            "Make meshes the live surface: Quad Draw and the snap to live draw on it. -none clears it; -e -ao adds, -e -ro takes off. \
+             Each set made live is remembered in a registry of -registrySize entries, newest first; -registry n makes one live again.",
+            make_live,
         )
         .undoable(false)
         .positional("meshes (the selection when none)")
-        .flag(f("none", "n", ArgType::Bool, "Clear the live surface."))
-        .flag(f("query", "q", ArgType::Bool, "Query mode.")),
+        .flag(f("none", "n", ArgType::Bool, "Make the live objects dormant."))
+        .flag(f("addObjects", "ao", ArgType::Bool, "With -e: add the objects named to the live ones."))
+        .flag(f("removeObjects", "ro", ArgType::Bool, "With -e: take the objects named off the live ones."))
+        .flag(f("registry", "r", ArgType::Int, "Make the objects of this registry entry live; with -q, the objects in it."))
+        .flag(f("registryCount", "rc", ArgType::Bool, "With -q: how many entries the registry holds."))
+        .flag(f("registryReset", "rr", ArgType::Bool, "Empty the registry and put its size back to the default."))
+        .flag(f("registrySize", "rs", ArgType::Int, "The most entries the registry remembers; with -q, that number."))
+        .flag(f("query", "q", ArgType::Bool, "Query mode."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode.")),
     );
 }

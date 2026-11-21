@@ -94,7 +94,7 @@ fn create_plugin(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
 
 fn create(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
     // A plug-in's deformer, and tweak, which has no command of its own: one node inserted on each mesh.
-    if crate::scripted::is_plugin_deformer(ty) || ty == "tweak" {
+    if crate::scripted::is_plugin_deformer(ty) || ty == "tweak" || ty == "mlDeformer" {
         return create_plugin(s, a, ty);
     }
     let Some((cmd, kind)) = maker(ty) else {

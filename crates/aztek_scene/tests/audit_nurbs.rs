@@ -325,8 +325,10 @@ fn single_surface_and_smooth_tangent() {
     run(&mut s, "nurbsPlane", json!({"name": "a", "axis": [0, 1, 0], "w": 2.0, "lr": 1.0, "u": 1, "v": 1, "d": 1}));
     run(&mut s, "nurbsPlane", json!({"name": "b", "axis": [0, 1, 0], "w": 2.0, "lr": 1.0, "u": 1, "v": 1, "d": 1}));
     run(&mut s, "setAttr", json!({"args": ["b.tx", 2.0]}));
+    // The reference's stitch and tessellate: one polygon surface.
     let j = run(&mut s, "makeSingleSurface", json!({"args": ["a", "b"]}));
-    close(&json!(mesh_area(&mut s, j[0].as_str().unwrap())), 8.0, 1e-3);
+    close(&run(&mut s, "polyEvaluate", json!({"args": [j[0].clone()], "wa": true})), 8.0, 1e-3);
+    assert_eq!(run(&mut s, "polyEvaluate", json!({"args": [j[0].clone()], "v": true})), json!(6));
     // Kink at the middle of a three-span row, then smooth it.
     let mut s = Session::new();
     run(&mut s, "nurbsPlane", json!({"name": "p", "axis": [0, 1, 0], "w": 4.0, "lr": 1.0, "u": 4, "v": 1, "d": 1}));

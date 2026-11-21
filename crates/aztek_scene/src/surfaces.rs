@@ -463,6 +463,44 @@ pub(crate) struct LoftOptions {
 }
 
 pub(crate) fn loft_surface(curves: &[NurbsCurve], o: LoftOptions) -> Option<NurbsSurface> {
+    loft_surface_cusps(curves, o, &[])
+}
+
+/// One column of a loft through the points at the parameters, with a tangent break at each point `cusp` marks: the run
+/// between breaks is interpolated on its own and the pieces joined with the knot repeated to the degree there.
+fn cusped_column(pts: &[DVec3], ts: &[f64], degree: usize, cusp: &[bool]) -> NurbsCurve {
+    let n = pts.len();
+    let mut cuts: Vec<usize> = (1..n - 1).filter(|&k| cusp.get(k).copied().unwrap_or(false)).collect();
+    cuts.insert(0, 0);
+    cuts.push(n - 1);
+    let mut out: Option<NurbsCurve> = None;
+    for w in cuts.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let (p, t) = (&pts[a..=b], &ts[a..=b]);
+        let mut piece = if p.len() == 2 {
+            NurbsCurve::line(p[0], p[1], 1, degree)
+        } else {
+            let (d0, d1) = end_derivatives(p, t);
+            NurbsCurve::interpolated(degree, p, t, d0, d1)
+        };
+        if piece.degree != degree {
+            piece = piece.rebuilt(piece.spans().max(1), degree);
+        }
+        let piece = piece.with_domain(t[0], t[t.len() - 1]);
+        out = Some(match out {
+            None => piece,
+            Some(mut c) => {
+                c.cvs.extend(piece.cvs.iter().skip(1).copied());
+                c.knots.extend(piece.knots.iter().skip(degree).copied());
+                c
+            }
+        });
+    }
+    out.unwrap()
+}
+
+/// loft_surface with tangent breaks at the sections `cusp` marks (createCusp), on an open loft.
+pub(crate) fn loft_surface_cusps(curves: &[NurbsCurve], o: LoftOptions, cusp: &[bool]) -> Option<NurbsSurface> {
     let n = curves.len();
     if n < 2 || curves.iter().any(|c| !c.is_valid()) {
         return None;
@@ -505,6 +543,8 @@ pub(crate) fn loft_surface(curves: &[NurbsCurve], o: LoftOptions) -> Option<Nurb
         let pts: Vec<DVec3> = sections.iter().map(|c| c.cvs[j]).collect();
         let mut col = if o.close {
             NurbsCurve::interpolated_periodic(degree, &pts)
+        } else if degree > 1 && cusp.iter().skip(1).take(n.saturating_sub(2)).any(|&c| c) {
+            cusped_column(&pts, &ts, degree, cusp)
         } else {
             let (d0, d1) = end_derivatives(&pts, &ts);
             NurbsCurve::interpolated(degree, &pts, &ts, d0, d1)
@@ -1159,6 +1199,117 @@ fn double_birail_surface(p1: &NurbsCurve, p2: &NurbsCurve, r1: &NurbsCurve, r2: 
     Some(srf)
 }
 
+/// multiProfileBirailSurface: inputProfile (0, one per profile), outputSurface (1), inputRail1 (2), inputRail2 (3),
+/// tangentContinuityProfile1 and 2 (4, 5), transformMode (6), inputSurface1 and 2 (7, 8) for the first and last profile.
+struct MultiBirailNode;
+
+impl NodeBehavior for MultiBirailNode {
+    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
+        let profiles: Vec<NurbsCurve> = d.elements(0).iter().filter_map(|(_, v)| crate::curves::curve_value(v).cloned()).filter(NurbsCurve::is_valid).collect();
+        let c = |i: usize| crate::curves::curve_value(d.value(i)).cloned().filter(NurbsCurve::is_valid);
+        let out = match (c(2), c(3)) {
+            (Some(r1), Some(r2)) if profiles.len() >= 2 => {
+                let tangent = [(d.bool(4), surface_value(d.value(7)).cloned()), (d.bool(5), surface_value(d.value(8)).cloned())];
+                multi_birail_surface(&profiles, &r1, &r2, d.int(6) == 1, &tangent)
+            }
+            _ => None,
+        };
+        d.set_output(1, out.map(to_value).unwrap_or(PlugValue::Data(None)));
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// The reference's multiProfileBirailSurface: U along the profiles, V along the rails from the first profile to the last.
+/// Between two profiles in turn the surface turns from one into the next, each laid between the rails where it is.
+fn multi_birail_surface(profiles: &[NurbsCurve], r1: &NurbsCurve, r2: &NurbsCurve, proportional: bool, tangent: &[(bool, Option<NurbsSurface>); 2]) -> Option<NurbsSurface> {
+    let ends = |c: &NurbsCurve| {
+        let (lo, hi) = c.domain();
+        (c.eval(lo), c.eval(hi))
+    };
+    let (a0, a1) = ends(&profiles[0]);
+    let orient = |r: &NurbsCurve, from: DVec3| {
+        let (s, e) = ends(r);
+        if e.distance(from) < s.distance(from) { r.reversed() } else { r.clone() }
+    };
+    let (mut ra, mut rb) = (orient(r1, a0), orient(r2, a1));
+    if ends(&ra).0.distance(a0) + ends(&rb).0.distance(a1) > ends(&rb).0.distance(a0) + ends(&ra).0.distance(a1) {
+        std::mem::swap(&mut ra, &mut rb);
+        ra = orient(&ra, a0);
+        rb = orient(&rb, a1);
+    }
+    let (lo, hi) = ra.domain();
+    // Each profile runs from the first rail to the second, and sits at a fraction along the first rail.
+    let mut placed: Vec<(f64, NurbsCurve)> = profiles
+        .iter()
+        .map(|p| {
+            let (s, e) = ends(p);
+            let (ts, te) = (ra.closest_param(s), ra.closest_param(e));
+            let (ds, de) = (ra.eval(ts).distance(s), ra.eval(te).distance(e));
+            let (p, t) = if de < ds { (p.reversed(), te) } else { (p.clone(), ts) };
+            (((t - lo) / (hi - lo).max(1e-12)).clamp(0.0, 1.0), p.clamped())
+        })
+        .collect();
+    placed.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let (f0, f1) = (placed[0].0, placed[placed.len() - 1].0);
+    if f1 - f0 < 1e-9 {
+        return None;
+    }
+    let unit = |c: &NurbsCurve, t: f64| {
+        let (lo, hi) = c.domain();
+        c.eval(lo + (hi - lo) * t)
+    };
+    let segments = placed.len() - 1;
+    let degree = ra.degree.max(rb.degree).clamp(1, 3);
+    let spans = ra.spans().max(rb.spans()).max(2 * segments);
+    let v_knots: Vec<f64> = nurbs::open_knots(spans + degree, degree).into_iter().map(|k| k / spans as f64).collect();
+    let u_deg = placed.iter().map(|p| p.1.degree).max().unwrap_or(1).clamp(1, 3);
+    let u_spans = placed.iter().map(|p| p.1.spans()).max().unwrap_or(1).max(1);
+    let u_knots: Vec<f64> = nurbs::open_knots(u_spans + u_deg, u_deg).into_iter().map(|k| k / u_spans as f64).collect();
+    let mut srf = NurbsSurface::fitted((u_deg, Form::Open, u_knots), (degree, Form::Open, v_knots), |u, v| {
+        let f = f0 + (f1 - f0) * v;
+        let (x, y) = (unit(&ra, f), unit(&rb, f));
+        let k = placed.windows(2).position(|w| f <= w[1].0 + 1e-12).unwrap_or(segments - 1);
+        let (ta, pa) = (&placed[k].0, &placed[k].1);
+        let (tb, pb) = (&placed[k + 1].0, &placed[k + 1].1);
+        let t = if tb - ta > 1e-12 { ((f - ta) / (tb - ta)).clamp(0.0, 1.0) } else { 0.0 };
+        let (pa0, pa1) = ends(pa);
+        let (pb0, pb1) = ends(pb);
+        let q1 = place_profile(unit(pa, u), pa0, pa1, x, y, proportional);
+        let q2 = place_profile(unit(pb, u), pb0, pb1, x, y, proportional);
+        // Smooth from one into the next, so the surface leaves each profile along the rails.
+        q1.lerp(q2, t * t * (3.0 - 2.0 * t))
+    });
+    for (k, (on, surface)) in tangent.iter().enumerate() {
+        let (true, Some(base)) = (*on, surface) else { continue };
+        if srf.nv < 3 {
+            continue;
+        }
+        let (edge, inner) = if k == 0 { (0, 1) } else { (srf.nv - 1, srf.nv - 2) };
+        for i in 0..srf.nu {
+            let p = srf.cvs[i * srf.nv + edge];
+            let q = srf.cvs[i * srf.nv + inner];
+            let (u, v) = base.closest_point(p);
+            let (_, du, dv) = base.eval_ders(u, v);
+            let n = du.cross(dv).normalize_or_zero();
+            if n == DVec3::ZERO {
+                continue;
+            }
+            let off = q - p;
+            let flat = off - n * off.dot(n);
+            if flat.length() > 1e-9 {
+                srf.cvs[i * srf.nv + inner] = p + flat.normalize() * off.length();
+            }
+        }
+        srf.rewrap();
+    }
+    Some(srf)
+}
+
 /// curveFromSurfaceIso: an isoparm as a curve. Direction 0 is U, 1 is V.
 struct IsoNode;
 
@@ -1529,6 +1680,24 @@ pub fn register_types() {
                 surface_attr("inputSurface2", "is2", flags::INPUT | flags::HIDDEN, "The surface the second profile lies on, for tangent continuity."),
             ],
             create: Some(Arc::new(|| Box::new(DoubleBirailNode))),
+            ..Default::default()
+        });
+        register_one(NodeType {
+            name: "multiProfileBirailSurface".into(),
+            icon: "chart-line".into(),
+            doc: "Profiles swept along two rails, turning from each into the next.".into(),
+            own_attrs: vec![
+                crate::curves::curve_attr("inputProfile", "ip", flags::INPUT | flags::HIDDEN | flags::ARRAY, "The profiles, in order along the rails."),
+                surface_attr("outputSurface", "os", flags::OUTPUT | flags::HIDDEN, "The surface."),
+                crate::curves::curve_attr("inputRail1", "ir1", flags::INPUT | flags::HIDDEN, "The first rail."),
+                crate::curves::curve_attr("inputRail2", "ir2", flags::INPUT | flags::HIDDEN, "The second rail."),
+                AttrDef { short_name: "tp1".into(), ..crate::curves::store_bool("tangentContinuityProfile1", false, "Tangent continuous across the first profile when it lies on a surface.") },
+                AttrDef { short_name: "tp2".into(), ..crate::curves::store_bool("tangentContinuityProfile2", false, "Tangent continuous across the last profile when it lies on a surface.") },
+                int_in("transformMode", "tm", 0, "0 non-proportional: the profiles stretch only between the rails; 1 proportional: they scale whole."),
+                surface_attr("inputSurface1", "is1", flags::INPUT | flags::HIDDEN, "The surface the first profile lies on, for tangent continuity."),
+                surface_attr("inputSurface2", "is2", flags::INPUT | flags::HIDDEN, "The surface the last profile lies on, for tangent continuity."),
+            ],
+            create: Some(Arc::new(|| Box::new(MultiBirailNode))),
             ..Default::default()
         });
         register_one(NodeType {
@@ -1966,6 +2135,71 @@ fn double_birail_cmd(s: &mut Session, a: &Args) -> CmdResult {
     r
 }
 
+fn multi_birail_cmd(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(r) = crate::history_qe::qe(s, a, "multiProfileBirailSurface", &["multiProfileBirailSurface"], &[]) {
+        return r;
+    }
+    let names = objects(s, a);
+    if names.len() < 5 {
+        fail!("multiProfileBirailSurface: name three profiles or more, then the two rails");
+    }
+    let (profiles, rails) = names.split_at(names.len() - 2);
+    let g = &mut s.graph;
+    g.open_chunk("Multi Profile Birail");
+    let r = (|| -> CmdResult {
+        let t = types::find("multiProfileBirailSurface").expect("multiProfileBirailSurface");
+        let node = g.create_node(&t, &a.string("name", "multiProfileBirailSurface1"), NO_NODE, true)?;
+        let last = profiles.len() - 1;
+        for (k, p) in profiles.iter().enumerate() {
+            let (src, on) = curve_or_isoparm(g, p, "multiProfileBirailSurface")?;
+            g.connect(&src, &crate::plug::PlugRef::element(node, 0, k as i32), false)?;
+            // The first and last profile's surface, for tangent continuity.
+            if let Some(sh) = on {
+                if k == 0 {
+                    g.connect(&plug(sh, SurfaceShape::WORLD_SPACE), &plug(node, 7), false)?;
+                } else if k == last {
+                    g.connect(&plug(sh, SurfaceShape::WORLD_SPACE), &plug(node, 8), false)?;
+                }
+            }
+        }
+        for (k, r) in rails.iter().enumerate() {
+            let (src, _) = curve_or_isoparm(g, r, "multiProfileBirailSurface")?;
+            g.connect(&src, &plug(node, 2 + k), false)?;
+        }
+        g.set_value(plug(node, 4), PlugValue::Bool(a.bool("tangentContinuityProfile1")))?;
+        g.set_value(plug(node, 5), PlugValue::Bool(a.bool("tangentContinuityProfile2")))?;
+        g.set_value(plug(node, 6), PlugValue::Int(a.int("transformMode", 0)))?;
+        crate::history_qe::apply_common(g, node, a)?;
+        if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+            g.evaluate();
+            return Ok(json!([g.path(node)]));
+        }
+        let polygon = a.int("polygon", 0) == 1;
+        let (tr, sh) = if polygon {
+            tessellate_plug(g, &plug(node, 1), "multiBirailSurface1", &per_span_settings())?
+        } else {
+            let (tr, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, "multiBirailSurface1", NO_NODE)?;
+            g.connect(&plug(node, 1), &plug(sh, SurfaceShape::CREATE), false)?;
+            (tr, sh)
+        };
+        g.select(&[tr], SelectMode::Replace);
+        g.evaluate();
+        if !wants_history(g, a) {
+            if polygon {
+                if let Some(m) = components::as_mesh(g, tr) {
+                    crate::history::delete_history(g, m)?;
+                }
+            } else {
+                bake_history(g, sh)?;
+            }
+            return Ok(json!([g.path(tr)]));
+        }
+        Ok(json!([g.path(tr), g.path(node)]))
+    })();
+    g.close_chunk();
+    r
+}
+
 fn curve_surface_flags(c: Cmd) -> Cmd {
     c.flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
         .flag(f("polygon", "po", ArgType::Int, "0 NURBS, 1 polygons."))
@@ -2305,6 +2539,19 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("tangentContinuityProfile2", "tp2", ArgType::Bool, "Tangent continuous across the second profile, on its surface (off)."))
         .flag(f("transformMode", "tm", ArgType::Int, "0 non-proportional (0), 1 proportional."))
         .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
+    ))));
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(curve_surface_flags(
+        Cmd::new(
+            "multiProfileBirailSurface",
+            "Sweep profiles along two rails, turning from each into the next: profile1 profile2 profile3 ... rail1 rail2, curves or \
+             isoparms (surface.u[0.5]). -tp1 -tp2 keep the result tangent to the first and last profile's surface, -tm 1 scales the \
+             profiles whole. Returns [surface, node]; -q and -e on the node or the surface.",
+            multi_birail_cmd,
+        )
+        .positional("three profiles or more, then two rails (the selection when none)")
+        .flag(f("tangentContinuityProfile1", "tp1", ArgType::Bool, "Tangent continuous across the first profile, on its surface (off)."))
+        .flag(f("tangentContinuityProfile2", "tp2", ArgType::Bool, "Tangent continuous across the last profile, on its surface (off)."))
+        .flag(f("transformMode", "tm", ArgType::Int, "0 non-proportional (0), 1 proportional.")),
     ))));
     for name in ["singleProfileBirailSurface", "birail"] {
         c.register(curve_surface_flags(

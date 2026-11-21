@@ -469,8 +469,10 @@ fn apply_settings(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
     if a.has("outsideLattice") {
         g.set_value(plug(n, OUTSIDE), PlugValue::Int(a.int("outsideLattice", 0).clamp(0, 2)))?;
     }
-    if a.has("outsideFalloffDist") {
-        g.set_value(plug(n, OFD), PlugValue::Float(a.float("outsideFalloffDist", 1.0)))?;
+    for k in ["outsideFalloffDistance", "outsideFalloffDist"] {
+        if a.has(k) {
+            g.set_value(plug(n, OFD), PlugValue::Float(a.float(k, 1.0)))?;
+        }
     }
     if a.has("envelope") {
         g.set_value(plug(n, ENVELOPE), PlugValue::Float(a.float("envelope", 1.0)))?;
@@ -499,8 +501,9 @@ fn query(s: &mut Session, a: &Args) -> CmdResult {
     let Some(name) = a.named().into_iter().next() else { fail!("lattice: name a lattice to query") };
     let g = &mut s.graph;
     let n = ffd_named(g, &name)?;
-    if asked(a, "geometry") {
-        return Ok(json!(deform::geometry_names(g, n)));
+    let tools: Vec<NodeId> = parts(g, n).map(|(_, lat, base)| vec![lat, base]).unwrap_or_default();
+    if let Some(v) = crate::deform_common::shared_query(g, n, a, &tools) {
+        return Ok(v);
     }
     if asked(a, "divisions") {
         let Some((shape, _, _)) = parts(g, n) else { fail!("lattice: {name} has no lattice") };
@@ -514,7 +517,7 @@ fn query(s: &mut Session, a: &Args) -> CmdResult {
     if asked(a, "outsideLattice") {
         return Ok(json!(d.int(OUTSIDE)));
     }
-    if asked(a, "outsideFalloffDist") {
+    if asked(a, "outsideFalloffDistance") || asked(a, "outsideFalloffDist") {
         return Ok(json!(d.float(OFD)));
     }
     if asked(a, "freezeMapping") {
@@ -525,8 +528,13 @@ fn query(s: &mut Session, a: &Args) -> CmdResult {
 
 fn edit(s: &mut Session, a: &Args) -> CmdResult {
     let Some(name) = a.named().into_iter().next() else { fail!("lattice: name a lattice to edit") };
+    let n = ffd_named(&s.graph, &name)?;
+    let path = s.graph.path(n);
+    if let Some(r) = crate::deform_common::shared_edit(s, a, &path, "lattice") {
+        r?;
+        return Ok(json!([path]));
+    }
     let g = &mut s.graph;
-    let n = ffd_named(g, &name)?;
     let Some((shape, lat, base)) = parts(g, n) else { fail!("lattice: {name} has no lattice") };
     if let Some(d) = a.vec3("divisions") {
         set_divisions(g, shape, d)?;
@@ -540,6 +548,13 @@ fn edit(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("resetLattice") || a.bool("latticeReset") || a.bool("removeTweaks") {
         g.set_value(plug(shape, CONTROL_POINTS), PlugValue::Data(None))?;
     }
+    // -latticeReset also puts the lattice back where its base is; -removeTweaks keeps its moves, turns and scale.
+    if a.bool("latticeReset") || a.bool("resetLattice") {
+        for attr in [Transform::TRANSLATE, Transform::ROTATE, Transform::SCALE] {
+            let v = g.node(base).unwrap().vec3(attr);
+            g.set_value(plug(lat, attr), PlugValue::Vec3(v))?;
+        }
+    }
     if a.has("freezeMapping") {
         set_freeze(g, n, a.bool("freezeMapping"))?;
     }
@@ -552,6 +567,7 @@ fn edit(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 fn create(s: &mut Session, a: &Args) -> CmdResult {
+    let a = &crate::deform_common::creation_args(s, a, "lattice")?;
     let meshes = deform::targets(s, a)?;
     if meshes.is_empty() {
         fail!("lattice: select meshes or vertices");
@@ -565,7 +581,9 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
         hi = hi.max(h);
     }
     let centred = !a.has("objectCentered") || a.bool("objectCentered");
-    let (centre, size) = if centred { ((lo + hi) * 0.5, (hi - lo).max(DVec3::splat(1e-3))) } else { (DVec3::ZERO, DVec3::ONE) };
+    // -minimumSize keeps a flat object's lattice from having a side of no size.
+    let least = a.float("minimumSize", 1e-3).max(1e-6);
+    let (centre, size) = if centred { ((lo + hi) * 0.5, (hi - lo).max(DVec3::splat(least))) } else { (DVec3::ZERO, DVec3::ONE) };
     let divisions = a.vec3("divisions").unwrap_or([2.0, 2.0, 2.0]);
     let name = a.string("name", "ffd1");
     g.open_chunk("Lattice");
@@ -594,6 +612,24 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
         if a.bool("freezeMapping") {
             set_freeze(g, n, true)?;
         }
+        // -dualBase: a second base lattice beside the first, placed alike, for a flexor to blend between.
+        if a.bool("dualBase") {
+            let (base2, _) = crate::dag::create_with_shape(g, "baseLattice", &format!("{stem}Base"), NO_NODE)?;
+            for attr in [Transform::TRANSLATE, Transform::ROTATE, Transform::SCALE] {
+                let v = g.node(base).unwrap().vec3(attr);
+                g.set_value(plug(base2, attr), PlugValue::Vec3(v))?;
+            }
+        }
+        // -commonParent: the lattice and its base under one transform, so scaling that leaves the deformation alone.
+        if a.bool("commonParent") {
+            let grp = g.create_node(&types::find("transform").expect("transform"), &format!("{stem}LatticeGroup"), NO_NODE, true)?;
+            let mut kids = vec![lat, base];
+            kids.extend(g.nodes().into_iter().filter(|&x| x != base && g.parent(x) == NO_NODE && g.node(x).is_some_and(|t| t.name().starts_with(&format!("{stem}Base"))) && crate::dag::shapes(g, x, false).iter().any(|&sh| g.node(sh).is_some_and(|y| y.ty().name == "baseLattice"))));
+            for k in kids {
+                g.set_parent(k, grp, true, usize::MAX)?;
+            }
+        }
+        crate::deform_common::after_create(g, n, a)?;
         components::set_mode_undoable(g, ComponentMode::Object);
         g.select(&[lat], SelectMode::Replace);
         Ok((n, lat, base))
@@ -605,7 +641,7 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
 
 pub(crate) fn register(c: &mut Commands<Session>) {
     c.register(
-        modes(deform::common_flags(Cmd::new(
+        crate::deform_common::geometry_flags(crate::deform_common::creation_flags(modes(deform::common_flags(Cmd::new(
             "lattice",
             "Add a lattice to the selected meshes or vertices: lattice -dv 2 5 2 -oc true. Returns [ffd1, ffd1Lattice, ffd1Base]. \
              Move ffd1Lattice.pt[s][t][u] to deform. With -e on the ffd or lattice: -dv, -ldv, -ol, -ofd, -fm, -remap, -resetLattice. \
@@ -622,21 +658,24 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                 }
                 create(s, a)
             },
-        )))
+        )))))
         .positional("meshes or vertices (the selection when none); the ffd or lattice with -e and -q")
         .flag(f("divisions", "dv", ArgType::Vec3, "Control points in S, T and U (2 2 2)."))
         .flag(f("ldivisions", "ldv", ArgType::Vec3, "Local influence in S, T and U: how many control points move a point (2 2 2)."))
         .flag(f("objectCentered", "oc", ArgType::Bool, "Fit the lattice round the geometry (on). Off, a unit lattice at the origin."))
         .flag(f("outsideLattice", "ol", ArgType::Int, "0 only points inside deform, 1 all of them, 2 falling off with distance."))
-        .flag(f("outsideFalloffDist", "ofd", ArgType::Float, "With -ol 2: how far the effect reaches, in lattice widths."))
+        .flag(f("outsideFalloffDistance", "ofd", ArgType::Float, "With -ol 2: how far the effect reaches, in lattice widths."))
+        .flag(f("outsideFalloffDist", "", ArgType::Float, "The same as -outsideFalloffDistance."))
+        .flag(f("minimumSize", "mns", ArgType::Float, "With -oc: the least length of a side, so flat geometry gets a lattice with depth."))
+        .flag(f("commonParent", "cp", ArgType::Bool, "Group the lattice and its base under one transform."))
+        .flag(f("dualBase", "db", ArgType::Bool, "Make a second base lattice beside the first, as flexors use (off)."))
         .flag(f("freezeMapping", "fm", ArgType::Bool, "Hold each point's place in the lattice from now on, wherever it goes."))
         .flag(f("position", "pos", ArgType::Vec3, "Where to put the lattice."))
         .flag(f("rotation", "ro", ArgType::Vec3, "Rotation of the lattice, degrees."))
         .flag(f("scale", "s", ArgType::Vec3, "Size of the lattice."))
         .flag(f("remap", "rmp", ArgType::Bool, "With -e: take the frozen mapping again from where the points are now."))
         .flag(f("resetLattice", "rl", ArgType::Bool, "With -e: put the control points back on the regular grid."))
-        .flag(f("latticeReset", "ltr", ArgType::Bool, "With -e: the same as -resetLattice."))
-        .flag(f("removeTweaks", "rt", ArgType::Bool, "With -e: the same as -resetLattice."))
-        .flag(f("geometry", "g", ArgType::Any, "Query: the deformed shapes.")),
+        .flag(f("latticeReset", "lr", ArgType::Bool, "With -e: the lattice back on its base, points and placement, undoing its deformation."))
+        .flag(f("removeTweaks", "rt", ArgType::Bool, "With -e: the control points back on the grid; the lattice's move, turn and scale stay.")),
     );
 }

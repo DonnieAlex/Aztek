@@ -45,24 +45,105 @@ fn n_particle(s: &mut Session, a: &Args) -> CmdResult {
     make_particles(s, a, "nParticle1")
 }
 
+/// The place in the particle array a call names: -order, or the particle of -particleId.
+fn particle_index(st: &dy::ParticleState, a: &Args) -> Option<usize> {
+    if let Some(o) = a.get("order").and_then(Value::as_i64) {
+        return (o >= 0 && (o as usize) < st.position.len()).then_some(o as usize);
+    }
+    let id = a.get("particleId").and_then(Value::as_i64).unwrap_or(-1);
+    st.id.iter().position(|&x| x as i64 == id).or((id < 0 && !st.position.is_empty()).then_some(0))
+}
+
 fn make_particles(s: &mut Session, a: &Args, default_name: &str) -> CmdResult {
+    let cmd = if default_name.starts_with('n') { "nParticle" } else { "particle" };
+    let names = a.named();
+    let names = if names.is_empty() && (a.bool("query") || a.bool("edit")) { s.graph.selection().iter().map(|&i| s.graph.path(i)).collect() } else { names };
     let g = &mut s.graph;
     if a.bool("query") {
-        let Some(name) = a.named().into_iter().next() else { fail!("particle: name the particles") };
+        let Some(name) = names.into_iter().next() else { fail!("{cmd}: name the particles") };
         let p = particles_named(g, &name)?;
         g.evaluate();
         let st = dy::particle_state(g, p).unwrap_or_default();
-        if a.bool("count") {
+        if crate::skin::asked(a, "count") {
             return Ok(json!(st.position.len()));
         }
-        if a.has("attribute") {
+        if a.get("attribute").is_some_and(Value::is_string) && !crate::skin::asked(a, "dynamicAttrList") {
             let at = a.string("attribute", "");
-            let id = a.int("id", -1);
-            let idx = st.id.iter().position(|&x| x as i64 == id).or((id < 0).then_some(0));
-            let Some(i) = idx.filter(|&i| i < st.position.len()) else { fail!("particle: no particle {id}") };
+            let Some(i) = particle_index(&st, a) else { fail!("{cmd}: no such particle") };
             return Ok(particle_value(&st, &at, i));
         }
-        fail!("particle: query what?");
+        let ty = g.node(p).unwrap().type_arc().clone();
+        if crate::skin::asked(a, "dynamicAttrList") {
+            return Ok(json!(ty.attrs.iter().filter(|x| x.flags & crate::plug::flags::USER != 0).map(|x| x.name.clone()).collect::<Vec<_>>()));
+        }
+        if crate::skin::asked(a, "perParticleDouble") {
+            return Ok(json!(PER_PARTICLE_DOUBLE));
+        }
+        if crate::skin::asked(a, "perParticleVector") {
+            return Ok(json!(PER_PARTICLE_VECTOR));
+        }
+        if crate::skin::asked(a, "conserve") {
+            return Ok(json!(crate::dyn_solve::num(g, p, "conserve", 1.0)));
+        }
+        if crate::skin::asked(a, "inherit") {
+            return Ok(json!(crate::dyn_solve::num(g, p, "inheritFactor", 0.0)));
+        }
+        if crate::skin::asked(a, "cache") {
+            return Ok(json!(crate::dyn_solve::num(g, p, "cacheData", 1.0) != 0.0));
+        }
+        if crate::skin::asked(a, "name") {
+            return Ok(json!(g.path(crate::dag::transform_of(g, p))));
+        }
+        if crate::skin::asked(a, "shapeName") {
+            return Ok(json!(g.node(p).unwrap().name()));
+        }
+        fail!("{cmd}: query what?");
+    }
+    if a.bool("edit") {
+        let Some(name) = names.into_iter().next() else { fail!("{cmd}: name the particles") };
+        let p = particles_named(g, &name)?;
+        // A per particle value: -attribute with -particleId or -order, and -floatValue or -vectorValue.
+        if a.has("attribute") {
+            let at = a.string("attribute", "");
+            g.evaluate();
+            let st = dy::particle_state(g, p).unwrap_or_default();
+            let Some(i) = particle_index(&st, a) else { fail!("{cmd}: no such particle") };
+            let value = match (a.vec3("vectorValue"), a.get("floatValue").and_then(Value::as_f64)) {
+                (Some(v), _) => DVec3::from(v),
+                (None, Some(x)) => DVec3::splat(x),
+                _ => fail!("{cmd}: give -floatValue or -vectorValue"),
+            };
+            write_particles(g, p, &at, value, Some(vec![i]), cmd)?;
+            return Ok(Value::Null);
+        }
+        if let Some(c) = a.get("conserve").and_then(Value::as_f64) {
+            set(g, p, "conserve", c.clamp(0.0, 1.0))?;
+        }
+        if let Some(c) = a.get("inherit").and_then(Value::as_f64) {
+            set(g, p, "inheritFactor", c.clamp(0.0, 1.0))?;
+        }
+        if a.has("cache") {
+            set(g, p, "cacheData", a.bool("cache"))?;
+        }
+        if let Some(n) = a.get("shapeName").and_then(Value::as_str) {
+            g.rename(p, n)?;
+        }
+        if let Some(n) = a.get("name").and_then(Value::as_str) {
+            let xf = crate::dag::transform_of(g, p);
+            g.rename(xf, n)?;
+        }
+        if a.bool("deleteCache") {
+            crate::dyn_solve::clear_cache(g, p);
+        }
+        return Ok(Value::Null);
+    }
+    if a.bool("deleteCache") {
+        // On its own it acts on the particles named.
+        if let Some(name) = names.first() {
+            let p = particles_named(g, name)?;
+            crate::dyn_solve::clear_cache(g, p);
+            return Ok(Value::Null);
+        }
     }
     let mut pts: Vec<f64> = Vec::new();
     if let Some(Value::Array(list)) = a.get("position") {
@@ -88,6 +169,7 @@ fn make_particles(s: &mut Session, a: &Args, default_name: &str) -> CmdResult {
             }
         }
     }
+    pts.extend(jitter_points(a));
     pts.truncate(pts.len() / 3 * 3);
     let solver = solver_for(g, a)?;
     let name = a.string("name", default_name);
@@ -95,8 +177,17 @@ fn make_particles(s: &mut Session, a: &Args, default_name: &str) -> CmdResult {
     if !pts.is_empty() {
         crate::deform::set_floats(g, shape, attr_plug(g, shape, "startPositions")?.attr as usize, pts)?;
     }
-    if a.has("conserve") {
-        let _ = a.float("conserve", 1.0);
+    if let Some(c) = a.get("conserve").and_then(Value::as_f64) {
+        set(g, shape, "conserve", c.clamp(0.0, 1.0))?;
+    }
+    if let Some(c) = a.get("inherit").and_then(Value::as_f64) {
+        set(g, shape, "inheritFactor", c.clamp(0.0, 1.0))?;
+    }
+    if a.has("cache") {
+        set(g, shape, "cacheData", a.bool("cache"))?;
+    }
+    if let Some(n) = a.get("shapeName").and_then(Value::as_str) {
+        g.rename(shape, n)?;
     }
     join(g, shape, solver)?;
     Ok(json!([g.path(xf), g.path(shape)]))
@@ -164,15 +255,24 @@ fn set_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
     let Some(name) = a.named().into_iter().next() else { fail!("setParticleAttr: name particles") };
     let g = &mut s.graph;
     let p = particles_named(g, &name)?;
-    let Some(sv) = solver_of(g, p) else { fail!("setParticleAttr: {name} is in no solver") };
     let at = a.string("attribute", "position");
     let value = a.vec3("vectorValue").map(DVec3::from).unwrap_or_else(|| DVec3::splat(a.float("floatValue", 0.0)));
-    let ids = particle_ids(&name);
+    let changed = write_particles(g, p, &at, value, particle_ids(&name), "setParticleAttr")?;
+    Ok(json!(changed))
+}
+
+/// Sets a per particle value on the particles at these places in the array (all when None), in the solver now.
+fn write_particles(g: &mut Graph, p: NodeId, at: &str, value: DVec3, ids: Option<Vec<usize>>, cmd: &str) -> CmdResult<usize> {
+    let name = g.path(p);
+    let Some(sv) = solver_of(g, p) else { fail!("{cmd}: {name} is in no solver") };
+    // The solver works in metres: lengths and speeds given in the scene's units go in as such.
+    let mpu = crate::dyn_solve::metres(g, sv);
+    let value = if matches!(at, "position" | "velocity" | "radiusPP") { value * mpu } else { value };
     let n = g.node(sv).and_then(|n| n.behavior().as_any().downcast_ref::<dy::SolverNode>());
-    let Some(n) = n else { fail!("setParticleAttr: no solver") };
+    let Some(n) = n else { fail!("{cmd}: no solver") };
     let mut st = n.state.lock().unwrap();
     let body = st.bodies.iter().find(|b| b.node == p).map(|b| b.index);
-    let (Some(b), Some(solver)) = (body, st.solver.as_mut()) else { fail!("setParticleAttr: {name} has not been solved yet") };
+    let (Some(b), Some(solver)) = (body, st.solver.as_mut()) else { fail!("{cmd}: {name} has not been solved yet") };
     let range = solver.bodies[b].start..solver.bodies[b].start + solver.bodies[b].count;
     let mut changed = 0;
     for (k, i) in range.enumerate() {
@@ -180,7 +280,7 @@ fn set_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
             continue;
         }
         let pt = &mut solver.pt;
-        match at.as_str() {
+        match at {
             "position" => {
                 pt.x[i] = value;
                 pt.p[i] = value;
@@ -190,7 +290,7 @@ fn set_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
             "opacityPP" => pt.opacity[i] = value.x,
             "lifespanPP" => pt.life[i] = value.x,
             "radiusPP" => pt.radius[i] = value.x,
-            other => fail!("setParticleAttr: {other} is not a particle attribute here"),
+            other => fail!("{cmd}: {other} is not a particle attribute here"),
         }
         changed += 1;
     }
@@ -199,7 +299,57 @@ fn set_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
         st.cache.retain(|&k, _| (k as f64) < l * 1000.0);
     }
     drop(st);
-    Ok(json!(changed))
+    Ok(changed)
+}
+
+/// Per particle attributes the reference lists for -perParticleDouble and -perParticleVector, those this solver keeps.
+const PER_PARTICLE_DOUBLE: &[&str] = &["mass", "age", "lifespanPP", "opacityPP", "radiusPP"];
+const PER_PARTICLE_VECTOR: &[&str] = &["position", "velocity", "rgbPP"];
+
+/// The values of a multi-use flag, one per use.
+fn uses(a: &Args, flag: &str, width: usize) -> Vec<Vec<f64>> {
+    let mut flat: Vec<f64> = Vec::new();
+    let mut out = Vec::new();
+    let mut walk = |v: &Value| match v {
+        Value::Array(x) if width > 1 && x.len() == width && x.iter().all(Value::is_number) => out.push(x.iter().filter_map(Value::as_f64).collect()),
+        Value::Number(n) => flat.push(n.as_f64().unwrap_or(0.0)),
+        _ => {}
+    };
+    match a.get(flag) {
+        Some(Value::Array(list)) if width > 1 && list.len() == width && list.iter().all(Value::is_number) => return vec![list.iter().filter_map(Value::as_f64).collect()],
+        Some(Value::Array(list)) => list.iter().for_each(&mut walk),
+        Some(v) => walk(v),
+        None => {}
+    }
+    out.extend(flat.chunks_exact(width.max(1)).map(|c| c.to_vec()));
+    out
+}
+
+/// -jitterBasePoint, -jitterRadius, -numJitters: for each base point, that many particles at random within the radius.
+/// The radius and count pair with the base points in order; when there are fewer, the last is used again.
+fn jitter_points(a: &Args) -> Vec<f64> {
+    let bases = uses(a, "jitterBasePoint", 3);
+    let radii: Vec<f64> = uses(a, "jitterRadius", 1).into_iter().map(|v| v[0]).collect();
+    let counts: Vec<f64> = uses(a, "numJitters", 1).into_iter().map(|v| v[0]).collect();
+    let mut seed: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut next = || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut out = Vec::new();
+    for (k, b) in bases.iter().enumerate() {
+        let r = radii.get(k).or(radii.last()).copied().unwrap_or(0.0);
+        let n = counts.get(k).or(counts.last()).copied().unwrap_or(1.0).max(0.0) as usize;
+        for _ in 0..n {
+            // Uniform in the ball: a direction, and a distance by the cube root.
+            let (u, v, w) = (next() * 2.0 - 1.0, next() * std::f64::consts::TAU, next().cbrt() * r);
+            let s = (1.0 - u * u).max(0.0).sqrt();
+            out.extend([b[0] + w * s * v.cos(), b[1] + w * s * v.sin(), b[2] + w * u]);
+        }
+    }
+    out
 }
 
 fn emitter(s: &mut Session, a: &Args) -> CmdResult {
@@ -564,14 +714,28 @@ pub fn register(c: &mut Commands<Session>) {
         c.register(
             q(Cmd::new(name, "Make particles: -p x y z for each one, or a grid with -ll, -ur and -grs. -q -ct counts them; -q -at position -id 3 reads one. Returns [transform, shape].", run))
                 .positional("particles (query)")
+                .flag(f("queried", "", ArgType::List, "Flags asked about in query mode."))
                 .flag(f("position", "p", ArgType::List, "A particle there: x y z. Repeat it.").multi(3))
                 .flag(f("lowerLeft", "ll", ArgType::Vec3, "Grid: one corner."))
                 .flag(f("upperRight", "ur", ArgType::Vec3, "Grid: the other corner."))
                 .flag(f("gridSpacing", "grs", ArgType::Float, "Grid: spacing."))
-                .flag(f("conserve", "c", ArgType::Float, "Accepted for old scripts."))
+                .flag(f("conserve", "c", ArgType::Float, "How much momentum is kept from frame to frame, 0 to 1 (1)."))
+                .flag(f("inherit", "i", ArgType::Float, "How much of an emitter's velocity new particles take, 0 to 1."))
+                .flag(f("cache", "ch", ArgType::Bool, "Keep solved frames for scrubbing back (on); off, going back solves again from the start."))
+                .flag(f("deleteCache", "dc", ArgType::Bool, "Throw away the frames kept."))
+                .flag(f("dynamicAttrList", "dal", ArgType::Bool, "Query: the attributes added to the particles."))
+                .flag(f("perParticleDouble", "ppd", ArgType::Bool, "Query: the per particle number attributes."))
+                .flag(f("perParticleVector", "ppv", ArgType::Bool, "Query: the per particle vector attributes."))
                 .flag(f("count", "ct", ArgType::Bool, "Query: how many."))
-                .flag(f("attribute", "at", ArgType::String, "Query: a per particle value."))
-                .flag(f("id", "id", ArgType::Int, "Query: which particle."))
+                .flag(f("attribute", "at", ArgType::String, "A per particle attribute, queried or with -e set."))
+                .flag(f("particleId", "id", ArgType::Int, "The particle by its id, for -attribute."))
+                .flag(f("order", "or", ArgType::Int, "The particle by its place in the array, from 0, for -attribute."))
+                .flag(f("floatValue", "fv", ArgType::Float, "With -e -attribute: a number."))
+                .flag(f("vectorValue", "vv", ArgType::Vec3, "With -e -attribute: a vector."))
+                .flag(f("shapeName", "sn", ArgType::String, "The particle shape's name."))
+                .flag(f("jitterBasePoint", "jbp", ArgType::List, "A centre to scatter particles round: x y z. Repeat it.").multi(3))
+                .flag(f("jitterRadius", "jr", ArgType::Any, "How far from the centre they scatter, for each -jbp in turn.").multi(1))
+                .flag(f("numJitters", "nj", ArgType::Any, "How many particles round each -jbp in turn.").multi(1))
                 .flag(f("solver", "sv", ArgType::String, "The solver to join.")),
         );
     }

@@ -492,7 +492,74 @@ fn freeze_options(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!(true))
 }
 
+/// mimicManipulation: what a manipulator does to the plugs, transaction by transaction, as testing and benchmarking for the
+/// evaluation manager do. Each transaction sets its plugs (double or double3 only), then, with -refresh, the scene
+/// evaluates. A transaction counts as the evaluation manager's when a mode other than off is set and every plug in it is
+/// one it can take (a double or double3 that can be set); -prevalidation checks that before the first.
+fn mimic_manipulation(s: &mut Session, a: &Args) -> CmdResult {
+    let text = a.string("manipulations", "");
+    let parsed: Value = serde_json::from_str(&text).map_err(|e| aztek_ops::CommandError::new(format!("mimicManipulation: the manipulations aren't JSON: {e}")))?;
+    let Some(session) = parsed.get("session").and_then(Value::as_array) else { fail!("mimicManipulation: the JSON needs a \"session\" array of transactions") };
+    let em = s.extras.evaluation_mode.as_deref().is_some_and(|m| m != "off");
+    let refresh = a.get("refresh").and_then(Value::as_bool).unwrap_or(true);
+    let prevalidate = a.get("prevalidation").and_then(Value::as_bool).unwrap_or(true);
+    // Each change: the plug and the numbers it takes.
+    let mut plan: Vec<Vec<(PlugRef, Vec<f64>, bool)>> = Vec::new();
+    for t in session {
+        let Some(list) = t.as_array() else { fail!("mimicManipulation: each transaction is an array of {{plug, value}}") };
+        let mut changes = Vec::new();
+        for c in list {
+            let Some(name) = c.get("plug").and_then(Value::as_str) else { fail!("mimicManipulation: a change has no plug") };
+            let p = s.graph.plug(name).map_err(|_| aztek_ops::CommandError::new(format!("mimicManipulation: no plug {name}")))?;
+            let values: Vec<f64> = match c.get("value") {
+                Some(Value::Array(v)) if v.len() == 3 => v.iter().filter_map(Value::as_f64).collect(),
+                Some(v) if v.is_number() => vec![v.as_f64().unwrap_or(0.0)],
+                _ => fail!("mimicManipulation: {name}'s value must be a number or 3 numbers"),
+            };
+            let ty = s.graph.attr(&p).ty;
+            let double = ty == PlugType::Float || (ty == PlugType::Vec3 && p.component >= 0);
+            let double3 = ty == PlugType::Vec3 && p.component < 0;
+            if !(double && values.len() == 1 || double3 && values.len() == 3) {
+                fail!("mimicManipulation: {name} is not a double or double3 plug for that value");
+            }
+            let settable = !s.graph.is_locked(&p) && s.graph.source(&p).is_none();
+            changes.push((p, values, settable));
+        }
+        plan.push(changes);
+    }
+    let mut out = Vec::new();
+    for (i, changes) in plan.into_iter().enumerate() {
+        let supported = changes.iter().all(|c| c.2);
+        // Without prevalidation the first frame goes through the ordinary evaluation.
+        let accelerated = em && refresh && supported && (prevalidate || i > 0);
+        for (p, v, settable) in changes {
+            if !settable {
+                continue;
+            }
+            let value = if v.len() == 3 { PlugValue::Vec3(glam::DVec3::new(v[0], v[1], v[2])) } else { PlugValue::Float(v[0]) };
+            s.graph.set_value(p, value)?;
+        }
+        if refresh {
+            s.graph.evaluate();
+        }
+        out.push(json!(accelerated));
+    }
+    Ok(Value::Array(out))
+}
+
 pub fn register(c: &mut Commands<Session>) {
+    c.register(
+        Cmd::new(
+            "mimicManipulation",
+            "Do what a manipulator does to plugs, for testing the evaluation manager: -m a JSON {\"session\": [[{\"plug\": \"node.tx\", \
+             \"value\": 1.0}], ...]}, each inner array a transaction. Returns per transaction whether the evaluation manager took it.",
+            mimic_manipulation,
+        )
+        .undoable(false)
+        .flag(f("manipulations", "m", S, "The manipulations as JSON: a session of transactions, each a list of plug and value."))
+        .flag(f("prevalidation", "p", B, "Check the plugs can go through the evaluation manager before the first transaction (on)."))
+        .flag(f("refresh", "r", B, "Evaluate after each transaction (on); evaluation needs it.")),
+    );
     c.register(
         Cmd::new(
             "freeze",

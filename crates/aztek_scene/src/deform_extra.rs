@@ -25,7 +25,7 @@ use crate::session::Session;
 use crate::skin::{asked, modes};
 use crate::transform::Transform;
 
-pub const TYPES: &[&str] = &["sculpt", "jiggle", "shrinkWrap", "morph", "wrinkle", "proximityWrap", "solidify", "pointOnCurve", "textureDeformer", "curveWarp"];
+pub const TYPES: &[&str] = &["sculpt", "jiggle", "shrinkWrap", "morph", "wrinkle", "proximityWrap", "solidify", "pointOnCurve", "textureDeformer", "curveWarp", "mlDeformer"];
 
 fn short(a: AttrDef, s: &str) -> AttrDef {
     AttrDef { short_name: s.into(), ..a }
@@ -981,6 +981,212 @@ impl NodeBehavior for CurveWarp {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+// mlDeformer
+//
+// The reference's machine learning deformer learns how a costly deformation (the target) differs from a cheap one (the
+// base it deforms) and replays that. Here the model is what -reloadModel takes from the target: each point's delta in its
+// own frame on the base surface, so the correction follows the base as it moves. With exportActive on it passes the base
+// through, as the reference does while it exports training data.
+
+const ML_EXPORT: usize = BASE_COUNT;
+const ML_TARGET: usize = BASE_COUNT + 1;
+const ML_MODEL: usize = BASE_COUNT + 2;
+const ML_CONTROL_MIN: usize = BASE_COUNT + 3;
+const ML_CONTROL_MAX: usize = BASE_COUNT + 4;
+
+/// A frame per point: tangent (toward its first neighbour, square to the normal), binormal, normal and its place.
+pub(crate) fn vertex_frames(m: &Mesh) -> Vec<(DMat3, DVec3)> {
+    let normals = point_normals(m);
+    let mut out = vec![(DMat3::IDENTITY, DVec3::ZERO); m.point_capacity() as usize];
+    for p in 0..m.point_capacity() {
+        if !m.point_valid(p) {
+            continue;
+        }
+        let n = normals[p as usize];
+        let at = m.position(p);
+        let mut first = None;
+        m.for_each_point_edge(p, |e| {
+            if first.is_none() {
+                first = Some(m.edge_other_point(e, p));
+            }
+        });
+        let towards = first.map(|q| m.position(q) - at).unwrap_or(DVec3::X);
+        let mut t = (towards - n * towards.dot(n)).normalize_or_zero();
+        if t == DVec3::ZERO {
+            t = n.any_orthonormal_vector();
+        }
+        let n = if n == DVec3::ZERO { t.any_orthonormal_vector() } else { n };
+        let b = n.cross(t).normalize_or_zero();
+        out[p as usize] = (DMat3::from_cols(t, b, n), at);
+    }
+    out
+}
+
+struct MlDeformer;
+
+impl NodeBehavior for MlDeformer {
+    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        let Some(input) = pass(d) else { return };
+        let model = floats_of(d, ML_MODEL).map(|x| unflat(&x.0)).unwrap_or_default();
+        if d.bool(ML_EXPORT) || model.is_empty() {
+            d.set_output(OUT, PlugValue::Mesh(Some(input)));
+            return;
+        }
+        let env = d.float(ENVELOPE);
+        let weights_owned = crate::deform::weights_of(d, &input);
+        let weights = weights_owned.as_deref();
+        let frames = vertex_frames(&input);
+        let mut m = (*input).clone();
+        for p in 0..m.point_capacity() {
+            let (Some(delta), true) = (model.get(p as usize), m.point_valid(p)) else { continue };
+            let w = weight_at(weights, p, env);
+            if w == 0.0 {
+                continue;
+            }
+            let (f, at) = frames[p as usize];
+            m.set_position(p, at + f * *delta * w);
+        }
+        d.set_output(OUT, PlugValue::Mesh(Some(Arc::new(m))));
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// The meshes an mlDeformer node deforms and is told to match: (base, target, original), object space.
+fn ml_meshes(g: &mut Graph, n: NodeId) -> (Option<Arc<Mesh>>, Option<Arc<Mesh>>, Option<Arc<Mesh>>) {
+    g.evaluate();
+    let base = input_mesh(g, n);
+    let target = g.node(n).and_then(|x| x.data().mesh(ML_TARGET).cloned());
+    let original = deform::mesh_fed_by(g, n).and_then(|m| crate::history::upstream(g, m).ok()).and_then(|(_, src)| match g.value(&src) {
+        Ok(PlugValue::Mesh(Some(x))) => Some(x),
+        _ => None,
+    });
+    (base, target, original.or_else(|| input_mesh(g, n)))
+}
+
+/// mlDeformer -vertexDeltas: what the target is from the base (or the original), each mode as the reference names it.
+fn ml_vertex_deltas(g: &mut Graph, n: NodeId, mode: &str) -> CmdResult<Vec<f64>> {
+    let (Some(base), target, Some(orig)) = ml_meshes(g, n) else { fail!("mlDeformer: {} has no geometry", g.path(n)) };
+    let Some(target) = target else { fail!("mlDeformer: {} has no target geometry to measure against", g.path(n)) };
+    let mode = if mode == "auto" { "dbs" } else { mode };
+    let (bf, of) = (vertex_frames(&base), vertex_frames(&orig));
+    let mut out = Vec::new();
+    for p in 0..base.point_capacity().min(target.point_capacity()) {
+        if !base.point_valid(p) || !target.point_valid(p) {
+            continue;
+        }
+        let delta = target.position(p) - base.position(p);
+        let local = bf[p as usize].0.transpose() * delta;
+        let v = match mode {
+            "dbp" => delta,
+            "dbs" => local,
+            "dop" => target.position(p) - orig.position(p),
+            "dos" => of.get(p as usize).map_or(local, |o| o.0 * local),
+            "pos" => of.get(p as usize).map_or(orig.position(p), |o| o.1 + o.0 * local),
+            other => fail!("mlDeformer: -vertexDeltas takes dbs, pos, dos, dbp, dop or auto, not {other}"),
+        };
+        out.extend([v.x, v.y, v.z]);
+    }
+    Ok(out)
+}
+
+fn ml_deformer_cmd(s: &mut Session, a: &Args) -> CmdResult {
+    let names = objects(s, a);
+    let Some(name) = names.first() else { fail!("mlDeformer: name the mlDeformer") };
+    let g = &mut s.graph;
+    let id = crate::rig::find(g, name, "mlDeformer")?;
+    let node = if g.node(id).is_some_and(|x| x.ty().name == "mlDeformer") {
+        deform::leader_of(g, id)
+    } else {
+        match deform::driven_deformers(g, id).into_iter().chain(crate::history::history_of(g, crate::components::as_mesh(g, id).unwrap_or(id))).find(|&d| g.node(d).is_some_and(|x| x.ty().name == "mlDeformer")) {
+            Some(d) => deform::leader_of(g, d),
+            None => fail!("mlDeformer: {name} is not an mlDeformer"),
+        }
+    };
+    let group = deform::group(g, node);
+    // -multiIndex: which of its geometries; all when none.
+    let picked: Vec<NodeId> = match a.get("multiIndex") {
+        None => group.clone(),
+        Some(v) => {
+            let list: Vec<i64> = match v {
+                Value::Array(x) => x.iter().filter_map(Value::as_i64).collect(),
+                x => x.as_i64().into_iter().collect(),
+            };
+            let mut out = Vec::new();
+            for i in list {
+                let Some(&x) = group.get(i.max(0) as usize) else { fail!("mlDeformer: {} has no multi index {i}", g.path(node)) };
+                out.push(x);
+            }
+            out
+        }
+    };
+    if let Some(v) = a.get("exportActive") {
+        let on = v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0);
+        for &x in &group {
+            g.set_value(plug(x, ML_EXPORT), PlugValue::Bool(on))?;
+        }
+    }
+    if a.bool("reloadModel") {
+        // The model again from the target as it is now: each point's delta in its frame on the base.
+        for &x in &picked {
+            let (base, target, _) = ml_meshes(g, x);
+            let (Some(base), Some(target)) = (base, target) else { continue };
+            let frames = vertex_frames(&base);
+            let deltas: Vec<DVec3> = (0..base.point_capacity())
+                .map(|p| {
+                    if base.point_valid(p) && p < target.point_capacity() && target.point_valid(p) {
+                        frames[p as usize].0.transpose() * (target.position(p) - base.position(p))
+                    } else {
+                        DVec3::ZERO
+                    }
+                })
+                .collect();
+            set_floats(g, x, ML_MODEL, flat(&deltas))?;
+        }
+        g.evaluate();
+    }
+    if let Some(mode) = a.get("vertexDeltas").and_then(Value::as_str) {
+        let mut out = Vec::new();
+        for &x in &picked {
+            out.extend(ml_vertex_deltas(g, x, mode)?);
+        }
+        return Ok(json!(out));
+    }
+    if a.bool("vertexFrames") {
+        let mut out = Vec::new();
+        for &x in &picked {
+            let Some(base) = input_mesh(g, x) else { continue };
+            for (p, (f, at)) in vertex_frames(&base).into_iter().enumerate() {
+                if !base.point_valid(p as u32) {
+                    continue;
+                }
+                out.extend([f.x_axis.x, f.x_axis.y, f.x_axis.z, 0.0, f.y_axis.x, f.y_axis.y, f.y_axis.z, 0.0, f.z_axis.x, f.z_axis.y, f.z_axis.z, 0.0, at.x, at.y, at.z, 1.0]);
+            }
+        }
+        return Ok(json!(out));
+    }
+    // The models' control ranges: with several, the most restrictive, the highest minimum and the lowest maximum.
+    for (flag, attr, max) in [("controlMinimums", ML_CONTROL_MIN, false), ("controlMaximums", ML_CONTROL_MAX, true)] {
+        if a.bool(flag) {
+            let mut out: Vec<f64> = Vec::new();
+            for &x in &picked {
+                let v = g.node(x).and_then(|n| floats_of(n.data(), attr).map(|f| f.0.clone())).unwrap_or_default();
+                if out.is_empty() {
+                    out = v;
+                } else {
+                    for (o, n) in out.iter_mut().zip(v) {
+                        *o = if max { o.min(n) } else { o.max(n) };
+                    }
+                }
+            }
+            return Ok(json!(out));
+        }
+    }
+    Ok(Value::Null)
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // Types
 
 pub(crate) fn register_types(gf: Arc<NodeType>) {
@@ -1056,6 +1262,20 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
             fl("tangentScale", "tsc", 1.0, "How much of the morph across the surface applies."),
         ],
         Arc::new(|| Box::new(Morph)),
+    );
+    reg(
+        "mlDeformer",
+        "shape",
+        "Replays the difference a target deformation makes over the base it deforms, learned as each point's delta in its frame.",
+        false,
+        vec![
+            short(bool_attr("exportActive", false, "Export: pass the base through, as while training data is exported."), "exa"),
+            mesh_attr("targetGeometry", "tgt", flags::INPUT | flags::HIDDEN, "The deformation the model is to match."),
+            data_attr("modelDeltas", "mdd", "The model: each point's delta in its frame on the base, from -reloadModel."),
+            data_attr("controlMinimums", "cmn", "The least each control of the model takes."),
+            data_attr("controlMaximums", "cmx", "The most each control of the model takes."),
+        ],
+        Arc::new(|| Box::new(MlDeformer)),
     );
     reg(
         "wrinkle",
@@ -1294,6 +1514,24 @@ fn connect_curve(g: &mut Graph, n: NodeId, at: usize, name: &str) -> CmdResult<(
 }
 
 pub(crate) fn register(c: &mut Commands<Session>) {
+    c.register(
+        Cmd::new(
+            "mlDeformer",
+            "The machine learning deformer's utility command, on the mlDeformer named: -reloadModel takes the model again, -exportActive \
+             turns export on or off, -vertexDeltas and -vertexFrames give the base's deltas to the target and its point frames, \
+             -controlMinimums and -controlMaximums the models' control ranges. -multiIndex picks the geometries.",
+            ml_deformer_cmd,
+        )
+        .positional("the mlDeformer")
+        .undoable(false)
+        .flag(f("exportActive", "exp", ArgType::Bool, "On: pass the base through while exporting; off, deform with the model."))
+        .flag(f("multiIndex", "mi", ArgType::Any, "A geometry of the deformer by its index; repeat it; all when none.").multi(1))
+        .flag(f("reloadModel", "rm", ArgType::Bool, "Take the model again, from the target as it is now."))
+        .flag(f("vertexDeltas", "vd", ArgType::String, "The deltas from base to target, x y z a point: dbs in the base's point frames, pos, dos, dbp, dop, or auto."))
+        .flag(f("vertexFrames", "vf", ArgType::Bool, "The base's point frames now, a 4x4 matrix each, flattened."))
+        .flag(f("controlMinimums", "cmn", ArgType::Bool, "The least of each control of the models."))
+        .flag(f("controlMaximums", "cmx", ArgType::Bool, "The most of each control of the models.")),
+    );
     c.register(setting_flags(
         modes(deform::common_flags(Cmd::new(
             "sculpt",

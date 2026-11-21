@@ -1255,6 +1255,135 @@ pub(crate) fn world_bounds_of(g: &mut Graph, mesh: NodeId, pts: Option<&[u32]>) 
     (lo, hi)
 }
 
+/// The nonLinear deformer a name stands for: the node, or the handle that drives it.
+fn nonlinear_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
+    let id = crate::rig::find(g, name, "nonLinear")?;
+    if g.node(id).is_some_and(|n| n.ty().is_a("nonLinear")) {
+        return Ok(leader_of(g, id));
+    }
+    let xf = if g.node(id).is_some_and(|n| n.ty().is_a("transform")) { id } else { g.parent(id) };
+    let found = g.nodes().into_iter().find(|&n| g.node(n).is_some_and(|x| x.ty().is_a("nonLinear")) && g.source(&plug(n, HANDLE)).is_some_and(|p| p.node == xf));
+    match found {
+        Some(n) => Ok(leader_of(g, n)),
+        None => fail!("nonLinear: {name} is not a nonlinear deformer or its handle"),
+    }
+}
+
+/// nonLinear: makes the deformer, or with -q and -e works on one named (the node or its handle): the shared deformer
+/// queries and edits, and its type's settings (-curvature, -lowBound and the rest) by their names.
+fn nonlinear_cmd(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
+    if a.bool("query") || a.bool("edit") {
+        let Some(name) = a.named().into_iter().next() else { fail!("nonLinear: name the deformer or its handle") };
+        let n = nonlinear_named(&s.graph, &name)?;
+        let kind = nonlinear_kind(&s.graph, n).unwrap_or("bend");
+        let names: Vec<&str> = params_of(kind).map(|(_, _, ps)| ps.iter().map(|p| p.0).collect()).unwrap_or_default();
+        let handle = s.graph.source(&plug(n, HANDLE)).map(|p| p.node);
+        if a.bool("query") {
+            let tools: Vec<NodeId> = handle.into_iter().collect();
+            if let Some(v) = crate::deform_common::shared_query(&mut s.graph, n, a, &tools) {
+                return Ok(v);
+            }
+            if crate::skin::asked(a, "type") {
+                return Ok(json!(kind));
+            }
+            let mut all = names.clone();
+            all.push("envelope");
+            return query_flags(&mut s.graph, n, a, &all).map_err(|_| aztek_ops::CommandError::new("nonLinear: nothing to query"));
+        }
+        let path = s.graph.path(n);
+        if let Some(r) = crate::deform_common::shared_edit(s, a, &path, "nonLinear") {
+            r?;
+            return Ok(json!([path]));
+        }
+        let g = &mut s.graph;
+        g.open_chunk("nonLinear");
+        let r = (|| -> CmdResult<()> {
+            for x in group(g, n) {
+                apply_flags(g, x, a, &names)?;
+                apply_flags(g, x, a, &["envelope"])?;
+            }
+            Ok(())
+        })();
+        g.close_chunk();
+        r?;
+        return Ok(json!([path]));
+    }
+    nonlinear_create(s, a)
+}
+
+fn nonlinear_create(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
+    let kind = a.string("type", "bend");
+    if !NONLINEAR.contains(&kind.as_str()) {
+        fail!("nonLinear: type must be one of {}", NONLINEAR.join(", "));
+    }
+    let a = &crate::deform_common::creation_args(s, a, "nonLinear")?;
+    let meshes = targets(s, a)?;
+    if meshes.is_empty() {
+        fail!("nonLinear: select meshes");
+    }
+    let single = (meshes.len() == 1).then(|| crate::dag::transform_of(&s.graph, meshes[0].0));
+    if (a.bool("autoParent") || a.bool("commonParent")) && single.is_none() {
+        fail!("nonLinear: -autoParent and -commonParent take one object");
+    }
+    let g = &mut s.graph;
+    g.evaluate();
+    let mut lo = DVec3::splat(f64::MAX);
+    let mut hi = DVec3::splat(f64::MIN);
+    for (m, _) in &meshes {
+        let (l, h) = world_bounds(g, *m);
+        lo = lo.min(l);
+        hi = hi.max(h);
+    }
+    let centre = (lo + hi) * 0.5;
+    let half = ((hi - lo) * 0.5).max(DVec3::splat(1e-3));
+    // -defaultScale: a handle of scale 1, rather than one the size of the objects.
+    let sc = if a.bool("defaultScale") {
+        DVec3::ONE
+    } else if kind == "wave" {
+        DVec3::splat(half.x.max(half.z))
+    } else {
+        DVec3::splat(half.y)
+    };
+    let name = a.string("name", &format!("{kind}1"));
+    g.open_chunk("Nonlinear");
+    let r = (|| -> CmdResult<(NodeId, NodeId)> {
+        let h = make_handle(g, &format!("{name}Handle"), &kind, centre, sc)?;
+        let mut first = NO_NODE;
+        for (m, _) in &meshes {
+            let geom = world(g, crate::dag::transform_of(g, *m));
+            let n = insert_at(g, *m, "nonLinear", &name, Place::from_args(a))?;
+            add_nonlinear_attrs(g, n, &kind)?;
+            set_data(g, n, json!({"geom": mat_json(&geom)}))?;
+            g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
+            let names: Vec<&str> = params_of(&kind).map(|(_, _, ps)| ps.iter().map(|p| p.0).collect()).unwrap_or_default();
+            apply_flags(g, n, a, &names)?;
+            if first == NO_NODE {
+                first = n;
+            } else {
+                link_follower(g, first, n)?;
+            }
+        }
+        link_handle_shape(g, first)?;
+        crate::deform_common::after_create(g, first, a)?;
+        if let Some(obj) = single {
+            // -autoParent: the handle under the object; -commonParent: both under a new transform.
+            if a.bool("commonParent") {
+                let t = types::find("transform").expect("transform");
+                let grp = g.create_node(&t, &format!("{name}Group"), NO_NODE, true)?;
+                g.set_parent(obj, grp, true, usize::MAX)?;
+                g.set_parent(h, grp, true, usize::MAX)?;
+            } else if a.bool("autoParent") {
+                g.set_parent(h, obj, true, usize::MAX)?;
+            }
+        }
+        g.select(&[h], SelectMode::Replace);
+        Ok((first, h))
+    })();
+    g.close_chunk();
+    let (n, h) = r?;
+    Ok(json!([g.path(n), g.path(h)]))
+}
+
 pub(crate) type Cmd = CommandDef<Session>;
 
 pub(crate) fn f(name: &str, short: &str, ty: ArgType, doc: &str) -> FlagDef {
@@ -1263,75 +1392,26 @@ pub(crate) fn f(name: &str, short: &str, ty: ArgType, doc: &str) -> FlagDef {
 
 pub fn register(c: &mut Commands<Session>) {
     register_types();
-    c.register(
-        Cmd::new(
+    let nl = Cmd::new(
             "nonLinear",
             "Add a nonlinear deformer (-type bend, twist, squash, flare, sine or wave) to the selected meshes, with a handle \
              fitted to them. Returns [deformer, handle].",
-            |s, a| {
-                let kind = a.string("type", "bend");
-                if !NONLINEAR.contains(&kind.as_str()) {
-                    fail!("nonLinear: type must be one of {}", NONLINEAR.join(", "));
-                }
-                let meshes = targets(s, a)?;
-                if meshes.is_empty() {
-                    fail!("nonLinear: select meshes");
-                }
-                let g = &mut s.graph;
-                g.evaluate();
-                let mut lo = DVec3::splat(f64::MAX);
-                let mut hi = DVec3::splat(f64::MIN);
-                for (m, _) in &meshes {
-                    let (l, h) = world_bounds(g, *m);
-                    lo = lo.min(l);
-                    hi = hi.max(h);
-                }
-                let centre = (lo + hi) * 0.5;
-                let half = ((hi - lo) * 0.5).max(DVec3::splat(1e-3));
-                let sc = if kind == "wave" { DVec3::splat(half.x.max(half.z)) } else { DVec3::splat(half.y) };
-                let name = a.string("name", &format!("{kind}1"));
-                g.open_chunk("Nonlinear");
-                let r = (|| -> CmdResult<(NodeId, NodeId)> {
-                    let h = make_handle(g, &format!("{name}Handle"), &kind, centre, sc)?;
-                    let mut first = NO_NODE;
-                    for (m, _) in &meshes {
-                        let geom = world(g, crate::dag::transform_of(g, *m));
-                        let n = insert(g, *m, "nonLinear", &name)?;
-                        add_nonlinear_attrs(g, n, &kind)?;
-                        set_data(g, n, json!({"geom": mat_json(&geom)}))?;
-                        g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
-                        for (k, v) in [("curvature", "curvature"), ("startAngle", "startAngle"), ("endAngle", "endAngle"), ("factor", "factor"), ("amplitude", "amplitude"), ("wavelength", "wavelength")] {
-                            if let Some(x) = a.get(k).and_then(Value::as_f64) {
-                                if let Some(i) = g.node(n).unwrap().ty().attr_index(v) {
-                                    g.set_value(plug(n, i), PlugValue::Float(x))?;
-                                }
-                            }
-                        }
-                        if first == NO_NODE {
-                            first = n;
-                        } else {
-                            link_follower(g, first, n)?;
-                        }
-                    }
-                    link_handle_shape(g, first)?;
-                    g.select(&[h], SelectMode::Replace);
-                    Ok((first, h))
-                })();
-                g.close_chunk();
-                let (n, h) = r?;
-                Ok(json!([g.path(n), g.path(h)]))
-            },
+            nonlinear_cmd,
         )
         .positional("meshes (the selection when none)")
-        .flag(f("name", "n", ArgType::String, "Name of the deformer; its handle takes the name plus Handle."))
         .flag(f("type", "typ", ArgType::String, "bend, twist, squash, flare, sine or wave.").choices(NONLINEAR))
         .flag(f("curvature", "cur", ArgType::Float, "bend: how far it bends."))
         .flag(f("startAngle", "sa", ArgType::Float, "twist: degrees at the low bound."))
         .flag(f("endAngle", "ea", ArgType::Float, "twist: degrees at the high bound."))
         .flag(f("factor", "f", ArgType::Float, "squash: stretch (positive) or squash (negative)."))
         .flag(f("amplitude", "amp", ArgType::Float, "sine, wave: height of the waves."))
-        .flag(f("wavelength", "wav", ArgType::Float, "sine, wave: length of the waves.")),
-    );
+        .flag(f("wavelength", "wav", ArgType::Float, "sine, wave: length of the waves."))
+        .flag(f("lowBound", "lb", ArgType::Float, "bend, twist, squash, flare, sine: where along the handle the deformation starts (-1)."))
+        .flag(f("highBound", "hb", ArgType::Float, "bend, twist, squash, flare, sine: where along the handle it ends (1)."))
+        .flag(f("autoParent", "ap", ArgType::Bool, "Parent the handle under the one object deformed."))
+        .flag(f("commonParent", "cp", ArgType::Bool, "A new transform over the one object deformed and the handle."))
+        .flag(f("defaultScale", "ds", ArgType::Bool, "A handle of scale 1, rather than as large as the objects."));
+    c.register(crate::deform_common::geometry_flags(crate::deform_common::creation_flags(crate::skin::modes(common_flags(nl)))));
 
     crate::deform_cluster::register(c);
 

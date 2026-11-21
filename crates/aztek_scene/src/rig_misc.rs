@@ -171,8 +171,10 @@ pub fn register_types() {
                 vec![
                     float_in("aboveBound", "ab", 10.0),
                     float_in("belowBound", "bb", 10.0),
-                    float_in("aboveValue", "av", 0.5),
-                    float_in("belowValue", "bv", 0.5),
+                    float_in("aboveValue", "av", 50.0),
+                    float_in("belowValue", "bv", 50.0),
+                    str_in("aboveDropoffType", "adt"),
+                    str_in("belowDropoffType", "bdt"),
                     str_in("joint", "jt"),
                 ],
             ),
@@ -375,7 +377,86 @@ fn geom_bind(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+const JC_FLOATS: [&str; 4] = ["aboveBound", "belowBound", "aboveValue", "belowValue"];
+const JC_DROPOFFS: [&str; 4] = ["linear", "exponential", "sine", "none"];
+
+/// The jointCluster acting about a joint.
+fn joint_cluster_of(g: &Graph, joint: NodeId) -> Option<NodeId> {
+    let path = g.path(joint);
+    let t = types::find("jointCluster")?;
+    let at = t.attr_index("joint")?;
+    g.nodes().into_iter().find(|&n| g.node(n).is_some_and(|x| x.ty().name == "jointCluster" && x.data().string(at) == path))
+}
+
+/// The jointCluster a name stands for: the node, or the joint it acts about.
+fn joint_cluster_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
+    let id = find(g, name, "jointCluster")?;
+    if g.node(id).is_some_and(|x| x.ty().name == "jointCluster") {
+        return Ok(id);
+    }
+    match joint_cluster_of(g, id) {
+        Some(n) => Ok(n),
+        None => fail!("jointCluster: {name} has no jointCluster"),
+    }
+}
+
+fn set_joint_cluster(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
+    let t = g.node(n).unwrap().type_arc().clone();
+    let at = |k: &str| PlugRef::new(n, t.attr_index(k).unwrap() as i32);
+    for flag in JC_FLOATS {
+        if a.has(flag) {
+            g.set_value(at(flag), PlugValue::Float(a.float(flag, 0.0)))?;
+        }
+    }
+    for flag in ["aboveDropoffType", "belowDropoffType"] {
+        if let Some(v) = a.get(flag).and_then(Value::as_str) {
+            if !JC_DROPOFFS.contains(&v) {
+                fail!("jointCluster: -{flag} takes linear, exponential, sine or none");
+            }
+            g.set_value(at(flag), PlugValue::String(v.to_string()))?;
+        }
+    }
+    Ok(())
+}
+
 fn joint_cluster(s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("query") || a.bool("edit") {
+        let names = objects(s, a);
+        let Some(name) = names.first() else { fail!("jointCluster: name the jointCluster or its joint") };
+        let g = &mut s.graph;
+        let n = joint_cluster_named(g, name)?;
+        if a.bool("edit") {
+            g.open_chunk("jointCluster");
+            let r = set_joint_cluster(g, n, a);
+            g.close_chunk();
+            r?;
+            return Ok(json!(g.path(n)));
+        }
+        let t = g.node(n).unwrap().type_arc().clone();
+        let joint = g.find(&g.node(n).unwrap().data().string(t.attr_index("joint").unwrap()).to_string())?;
+        for flag in JC_FLOATS {
+            if asked(a, flag) {
+                return Ok(json!(g.node(n).unwrap().float(t.attr_index(flag).unwrap())));
+            }
+        }
+        for flag in ["aboveDropoffType", "belowDropoffType"] {
+            if asked(a, flag) {
+                return Ok(json!(g.node(n).unwrap().data().string(t.attr_index(flag).unwrap())));
+            }
+        }
+        // The cluster of the bone above is the parent joint's; the one of this joint is its own.
+        if asked(a, "aboveCluster") {
+            let parent = joint.map(|j| g.parent(j)).filter(|&p| p != NO_NODE && crate::rig::is_joint(g, p));
+            return Ok(json!(parent.and_then(|p| joint_cluster_of(g, p)).map(|c| g.path(c)).unwrap_or_default()));
+        }
+        if asked(a, "belowCluster") {
+            return Ok(json!(g.path(n)));
+        }
+        if asked(a, "deformerTools") {
+            return Ok(json!(joint.map(|j| vec![g.path(j)]).unwrap_or_default()));
+        }
+        fail!("jointCluster: name a flag to query");
+    }
     let joint = a.get("joint").and_then(Value::as_str).map(str::to_string).or_else(|| objects(s, a).into_iter().next());
     let Some(joint) = joint else { fail!("jointCluster: give -j, or select a joint") };
     let g = &mut s.graph;
@@ -384,15 +465,20 @@ fn joint_cluster(s: &mut Session, a: &Args) -> CmdResult {
         fail!("jointCluster: {joint} is not a joint");
     }
     let t = types::find("jointCluster").unwrap();
-    let n = g.create_node(&t, &a.string("name", "jointCluster1"), NO_NODE, true)?;
-    let at = |k: &str| PlugRef::new(n, t.attr_index(k).unwrap() as i32);
-    for flag in ["aboveBound", "belowBound", "aboveValue", "belowValue"] {
-        if a.has(flag) {
-            g.set_value(at(flag), PlugValue::Float(a.float(flag, 0.0)))?;
+    g.open_chunk("jointCluster");
+    let r = (|| -> CmdResult<NodeId> {
+        let n = g.create_node(&t, &a.string("name", "jointCluster1"), NO_NODE, true)?;
+        let at = |k: &str| PlugRef::new(n, t.attr_index(k).unwrap() as i32);
+        for k in ["aboveDropoffType", "belowDropoffType"] {
+            g.set_value(at(k), PlugValue::String("linear".into()))?;
         }
-    }
-    let path = g.path(j);
-    g.set_value(at("joint"), PlugValue::String(path))?;
+        set_joint_cluster(g, n, a)?;
+        let path = g.path(j);
+        g.set_value(at("joint"), PlugValue::String(path))?;
+        Ok(n)
+    })();
+    g.close_chunk();
+    let n = r?;
     Ok(json!(g.path(n)))
 }
 
@@ -498,34 +584,77 @@ fn xq(s: &mut Session, name: &str, flag: &str) -> CmdResult<DVec3> {
     Ok(DVec3::new(list[0], list[1], list[2]))
 }
 
+/// The size of an object's bounding box with its children, in world space.
+fn box_size(s: &mut Session, name: &str) -> CmdResult<DVec3> {
+    let v = s.run("exactWorldBoundingBox", json!({"args": [name]}))?;
+    let b: Vec<f64> = v.as_array().map(|x| x.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+    if b.len() < 6 {
+        fail!("matchTransform: {name} has no bounding box");
+    }
+    Ok(DVec3::new(b[3] - b[0], b[4] - b[1], b[5] - b[2]))
+}
+
+/// Which of X, Y and Z a family of flags asks for: the whole flag (-pos) all three, else the axis flags.
+fn axes(a: &Args, whole: &str, each: [&str; 3]) -> [bool; 3] {
+    let all = a.bool(whole);
+    [all || a.bool(each[0]), all || a.bool(each[1]), all || a.bool(each[2])]
+}
+
+/// The components of `want` on the axes asked for, the rest from `have`.
+fn pick(have: DVec3, want: DVec3, on: [bool; 3]) -> DVec3 {
+    DVec3::new(if on[0] { want.x } else { have.x }, if on[1] { want.y } else { have.y }, if on[2] { want.z } else { have.z })
+}
+
 fn match_transform(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     if names.len() < 2 {
         fail!("matchTransform: name or select the objects, then the target");
     }
     let target = names.last().unwrap().clone();
-    let (pos, rot, scl, piv) = (a.bool("position"), a.bool("rotation"), a.bool("scale"), a.bool("pivots"));
-    let none = !(pos || rot || scl || piv);
+    let mut pos = axes(a, "position", ["positionX", "positionY", "positionZ"]);
+    let mut rot = axes(a, "rotation", ["rotationX", "rotationY", "rotationZ"]);
+    let mut scl = axes(a, "scale", ["scaleX", "scaleY", "scaleZ"]);
+    let (piv, rp, sp) = (a.bool("pivots"), a.bool("rotatePivot") || a.bool("pivots"), a.bool("scalePivot") || a.bool("pivots"));
+    let any = |v: [bool; 3]| v.iter().any(|&x| x);
+    // No flags: position, rotation and scale.
+    if !(any(pos) || any(rot) || any(scl) || piv || rp || sp) {
+        pos = [true; 3];
+        rot = [true; 3];
+        scl = [true; 3];
+    }
     s.graph.open_chunk("Match Transform");
     let r = (|| -> CmdResult<()> {
         for name in &names[..names.len() - 1] {
-            if rot || none {
-                let ro = xq(s, &target, "rotation")?;
+            if any(rot) {
+                let (want, have) = (xq(s, &target, "rotation")?, xq(s, name, "rotation")?);
+                let ro = pick(have, want, rot);
                 s.run("xform", json!({"args": [name], "worldSpace": true, "rotation": [ro.x, ro.y, ro.z]}))?;
             }
-            if scl || none {
-                let sc = xq(s, &target, "scale")?;
+            if any(scl) {
+                let have = xq(s, name, "scale")?;
+                // -scaleBox: the source's scale times how much bigger the target's box is than its own.
+                let want = if a.bool("scaleBox") {
+                    let (tb, sb) = (box_size(s, &target)?, box_size(s, name)?);
+                    let ratio = |t: f64, o: f64| if o.abs() > 1e-12 { t / o } else { 1.0 };
+                    DVec3::new(have.x * ratio(tb.x, sb.x), have.y * ratio(tb.y, sb.y), have.z * ratio(tb.z, sb.z))
+                } else {
+                    xq(s, &target, "scale")?
+                };
+                let sc = pick(have, want, scl);
                 s.run("xform", json!({"args": [name], "worldSpace": true, "scale": [sc.x, sc.y, sc.z]}))?;
             }
-            if piv {
-                let rp = xq(s, &target, "rotatePivot")?;
-                let sp = xq(s, &target, "scalePivot")?;
-                s.run("xform", json!({"args": [name], "worldSpace": true, "rotatePivot": [rp.x, rp.y, rp.z], "scalePivot": [sp.x, sp.y, sp.z]}))?;
+            if rp {
+                let p = xq(s, &target, "rotatePivot")?;
+                s.run("xform", json!({"args": [name], "worldSpace": true, "rotatePivot": [p.x, p.y, p.z]}))?;
             }
-            if pos || none {
-                // The pivots line up, as Match Translation does.
+            if sp {
+                let p = xq(s, &target, "scalePivot")?;
+                s.run("xform", json!({"args": [name], "worldSpace": true, "scalePivot": [p.x, p.y, p.z]}))?;
+            }
+            if any(pos) {
+                // The pivots line up, as Match Translation does, on the axes asked for.
                 let (want, have) = (xq(s, &target, "rotatePivot")?, xq(s, name, "rotatePivot")?);
-                let d = want - have;
+                let d = pick(DVec3::ZERO, want - have, pos);
                 s.run("xform", json!({"args": [name], "worldSpace": true, "relative": true, "translation": [d.x, d.y, d.z]}))?;
             }
         }
@@ -561,7 +690,13 @@ fn inherit_transform(s: &mut Session, a: &Args) -> CmdResult {
                 Some(v) if !v.is_boolean() || !v.as_bool().unwrap_or(false) => v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0) ^ true,
                 _ => !was,
             };
-            let on = if a.has("on") { a.bool("on") } else { on };
+            let on = if a.bool("off") {
+                false
+            } else if a.has("on") {
+                a.bool("on")
+            } else {
+                on
+            };
             g.set_value(plug(id, Transform::INHERITS_TRANSFORM), PlugValue::Bool(on))?;
             if a.bool("preserve") {
                 g.evaluate();
@@ -1181,18 +1316,23 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("postVoxelSmooth", "pvs", I, "Smoothing passes after voxelising, held for existing scripts.")),
     );
     c.register(
-        Cmd::new("jointCluster", "Record a joint's rigid bind settings on a jointCluster node: -j, -ab, -bb, -av, -bv. Returns the node. It softens nothing here.", joint_cluster)
-            .positional("joint")
-            .flag(f("joint", "j", S, "The joint."))
-            .flag(f("aboveBound", "ab", F, "How far above, percent."))
-            .flag(f("belowBound", "bb", F, "How far below, percent."))
-            .flag(f("aboveValue", "av", F, "Weight above."))
-            .flag(f("belowValue", "bv", F, "Weight below."))
-            .flag(f("aboveDropoffType", "adt", S, "Accepted for existing scripts."))
-            .flag(f("belowDropoffType", "bdt", S, "Accepted for existing scripts."))
-            .flag(f("aboveCluster", "ac", B, "Accepted for existing scripts."))
-            .flag(f("belowCluster", "bc", B, "Accepted for existing scripts."))
-            .flag(f("deformerTools", "dt", B, "Accepted for existing scripts."))
+        q_flags(Cmd::new(
+            "jointCluster",
+            "Record a joint's rigid bind settings on a jointCluster node: -j, -ab, -bb, -av, -bv, -adt, -bdt. Returns the node. -q and -e \
+             take the node or its joint. It softens nothing here.",
+            joint_cluster,
+        ))
+            .positional("joint, or with -q and -e the jointCluster")
+            .flag(f("joint", "j", S, "The joint the cluster acts about."))
+            .flag(f("aboveBound", "ab", F, "Where the drop-off starts along the bone above, percent of its length (10)."))
+            .flag(f("belowBound", "bb", F, "Where the drop-off ends along the bone below, percent of its length (10)."))
+            .flag(f("aboveValue", "av", F, "The drop-off percentage toward the bone above (50)."))
+            .flag(f("belowValue", "bv", F, "The drop-off percentage toward the joint below (50)."))
+            .flag(f("aboveDropoffType", "adt", S, "The drop-off curve above: linear, exponential, sine or none (linear)."))
+            .flag(f("belowDropoffType", "bdt", S, "The drop-off curve below: linear, exponential, sine or none (linear)."))
+            .flag(f("aboveCluster", "ac", B, "With -q: the cluster of the bone above, the parent joint's jointCluster."))
+            .flag(f("belowCluster", "bc", B, "With -q: this joint's cluster."))
+            .flag(f("deformerTools", "dt", B, "With -q: the helper nodes, the joint it acts about."))
             .flag(f("name", "n", S, "The node's name.")),
     );
     c.register(
@@ -1208,16 +1348,29 @@ pub fn register(c: &mut Commands<Session>) {
         Cmd::new("matchTransform", "Match objects to the last one: -pos, -rot, -scl, -piv; all three transforms when none.", match_transform)
             .positional("objects, then the target")
             .flag(f("position", "pos", B, "Line the pivots up."))
+            .flag(f("positionX", "px", B, "Match the X position."))
+            .flag(f("positionY", "py", B, "Match the Y position."))
+            .flag(f("positionZ", "pz", B, "Match the Z position."))
             .flag(f("rotation", "rot", B, "Match rotation."))
+            .flag(f("rotationX", "rx", B, "Match the X rotation."))
+            .flag(f("rotationY", "ry", B, "Match the Y rotation."))
+            .flag(f("rotationZ", "rz", B, "Match the Z rotation."))
             .flag(f("scale", "scl", B, "Match scale."))
-            .flag(f("pivots", "piv", B, "Match the pivots."))
+            .flag(f("scaleX", "sx", B, "Match the X scale."))
+            .flag(f("scaleY", "sy", B, "Match the Y scale."))
+            .flag(f("scaleZ", "sz", B, "Match the Z scale."))
+            .flag(f("scaleBox", "box", B, "Match scaling by the bounding boxes of the objects and their children."))
+            .flag(f("pivots", "piv", B, "Match the rotate and scale pivots to the target's."))
+            .flag(f("rotatePivot", "rp", B, "Match the rotate pivot to the target's."))
+            .flag(f("scalePivot", "sp", B, "Match the scale pivot to the target's."))
             .flag(f("positionConstraint", "pcp", B, "Accepted for existing scripts.")),
     );
     c.register(
         q_flags(Cmd::new("inheritTransform", "Whether objects follow their parent's transform: toggles, -on sets, -p keeps them where they are; -q reads each.", inherit_transform))
             .positional("objects")
             .flag(f("toggle", "tgl", ArgType::Any, "Toggle (what it does anyway)."))
-            .flag(f("on", "on", B, "Set on or off."))
+            .flag(f("on", "on", B, "Turn inheriting on."))
+            .flag(f("off", "off", B, "Turn inheriting off: the object acts as if under the world."))
             .flag(f("preserve", "p", B, "Keep the world position.")),
     );
     c.register(

@@ -66,7 +66,9 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QValidator>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <cmath>
 
 namespace az {
@@ -1536,7 +1538,7 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         it->parts["visible"] = vis;
         it->parts["type"] = type;
         it->parts["name"] = name;
-        connect(vis, &QToolButton::clicked, this, [this, path](bool on) { fire(path, QJsonObject{{"layerVisible", on}}, QJsonArray{"visibleCommand"}, QJsonArray{on}); });
+        connect(vis, &QToolButton::clicked, this, [this, path](bool on) { fire(path, QJsonObject{{"layerVisible", on}}, QJsonArray{"visibleCommand", "changeCommand"}, QJsonArray{on}); });
         connect(type, &QToolButton::clicked, this, [this, path](bool) {
             auto* i = items_.value(path);
             if (!i) return;
@@ -1545,9 +1547,9 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             QJsonObject set{{"layerState", next}};
             i->props.insert("layerState", next);
             apply_control(i, set);
-            fire(path, set, QJsonArray{"typeCommand"}, QJsonArray{next});
+            fire(path, set, QJsonArray{"typeCommand", "changeCommand"}, QJsonArray{next});
         });
-        connect(name, &QToolButton::clicked, this, [this, path](bool on) { fire(path, QJsonObject{{"select", on}}, QJsonArray{"command", "changedCommand"}, QJsonArray{on}); });
+        connect(name, &QToolButton::clicked, this, [this, path](bool on) { fire(path, QJsonObject{{"select", on}}, QJsonArray{"command", "changeCommand"}, QJsonArray{on}); });
         name->installEventFilter(this);
         it->w = box;
     } else if (k == "scriptTable") {
@@ -2447,35 +2449,123 @@ bool ScriptUi::eventFilter(QObject* o, QEvent* e) {
     return false;
 }
 
+namespace {
+// A message over the view. -clickKill and -dragKill delete it on a click or a drag.
+class InViewLabel : public QLabel {
+public:
+    InViewLabel(QWidget* parent, bool click_kill, bool drag_kill)
+        : QLabel(parent, Qt::ToolTip | Qt::FramelessWindowHint), click_kill_(click_kill), drag_kill_(drag_kill) {
+        if (!click_kill && !drag_kill) setAttribute(Qt::WA_TransparentForMouseEvents);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent* e) override {
+        pressed_ = true;
+        if (click_kill_) deleteLater();
+        QLabel::mousePressEvent(e);
+    }
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if (pressed_ && drag_kill_) deleteLater();
+        QLabel::mouseMoveEvent(e);
+    }
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        pressed_ = false;
+        QLabel::mouseReleaseEvent(e);
+    }
+
+private:
+    bool click_kill_, drag_kill_, pressed_ = false;
+};
+} // namespace
+
 void ScriptUi::show_in_view_message(const QJsonObject& o) {
+    // -hide, -show, -minimize and -restore act on every message.
+    const QString all = o["all"].toString();
+    if (!all.isEmpty()) {
+        for (QPointer<QLabel>& l : in_view_) {
+            if (!l) continue;
+            if (all == "hide") l->hide();
+            else if (all == "show") l->show();
+            else if (all == "minimize") l->setVisible(false), l->setProperty("minimized", true);
+            else if (all == "restore" && l->property("minimized").toBool()) l->setProperty("minimized", false), l->show();
+        }
+        return;
+    }
+    const QString pos = o["position"].toString("topCenter");
     if (o["clear"].toBool()) {
-        if (in_view_) in_view_->deleteLater();
+        if (QPointer<QLabel> l = in_view_.value(pos)) l->deleteLater();
+        in_view_.remove(pos);
         return;
     }
     if (!main_) return;
-    if (in_view_) in_view_->deleteLater();
+    if (QPointer<QLabel> old = in_view_.value(pos)) old->deleteLater();
     // Its own small window: a child of the main window would sit under the views, which are native.
-    auto* l = new QLabel(main_, Qt::ToolTip | Qt::FramelessWindowHint);
+    auto* l = new InViewLabel(main_, o["clickKill"].toBool(), o["dragKill"].toBool());
     l->setAttribute(Qt::WA_ShowWithoutActivating);
+    l->setAttribute(Qt::WA_TranslucentBackground);
+    l->setTextFormat(Qt::AutoText);
     l->setText(o["message"].toString());
-    l->setStyleSheet("background: rgba(30, 30, 30, 200); color: #e6e6e6; padding: 8px 14px; border-radius: 4px;");
-    l->setAttribute(Qt::WA_TransparentForMouseEvents);
+    QColor back(o["backColor"].toString("#1e1e1e"));
+    back.setAlphaF(o["alpha"].toDouble(0.8));
+    QColor fore(0xe6, 0xe6, 0xe6);
+    fore.setAlphaF(o["textAlpha"].toDouble(1.0));
+    const int pad = o["textOffset"].toInt(10);
+    l->setStyleSheet(QString("background: rgba(%1, %2, %3, %4); color: rgba(%5, %6, %7, %8); padding: %9px; border-radius: 4px;")
+                         .arg(back.red()).arg(back.green()).arg(back.blue()).arg(back.alpha())
+                         .arg(fore.red()).arg(fore.green()).arg(fore.blue()).arg(fore.alpha()).arg(pad));
+    QFont font = l->font();
+    if (!o["font"].toString().isEmpty()) font.setFamily(o["font"].toString());
+    if (o["fontSize"].toInt() > 0) font.setPointSize(o["fontSize"].toInt());
+    l->setFont(font);
     l->adjustSize();
-    QString pos = o["position"].toString("topCenter");
-    int x = (main_->width() - l->width()) / 2, y = main_->height() / 2 - l->height() / 2;
-    if (pos.startsWith("top")) y = 110;
-    if (pos.startsWith("bot")) y = main_->height() - 150;
-    if (pos.endsWith("Left")) x = 60;
-    if (pos.endsWith("Right")) x = main_->width() - l->width() - 60;
+    // Placed in the active view, -frameOffset pixels in from its edge; the main window when there is none.
+    QRect area = main_->rect();
+    QWidget* within = main_;
+    if (view_for_panel_) {
+        if (ViewportWidget* v = view_for_panel_("<active>")) {
+            within = v;
+            area = v->rect();
+        }
+    }
+    const int off = o["frameOffset"].toInt(20);
+    int x = area.center().x() - l->width() / 2, y = area.center().y() - l->height() / 2;
+    if (pos.startsWith("top")) y = area.top() + off;
+    if (pos.startsWith("bot")) y = area.bottom() - l->height() - off;
+    if (pos == "midCenterTop") y = area.top() + area.height() / 4 - l->height() / 2;
+    if (pos == "midCenterBot") y = area.top() + area.height() * 3 / 4 - l->height() / 2;
+    if (pos.endsWith("Left")) x = area.left() + off;
+    if (pos.endsWith("Right")) x = area.right() - l->width() - off;
     // headsUpMessage's offsets: right and up, in pixels.
     x += int(o["horizontalOffset"].toDouble(0));
     y -= int(o["verticalOffset"].toDouble(0));
-    l->move(main_->mapToGlobal(QPoint(x, y)));
-    l->show();
+    l->move(within->mapToGlobal(QPoint(x, y)));
+    in_view_[pos] = l;
+    // -fade: in over -fadeInTime, held -fadeStayTime, out over -fadeOutTime (milliseconds). Without it the message stays.
+    if (o["fade"].toBool()) {
+        const int fin = o["fadeInTime"].toInt(100), stay = o["fadeStayTime"].toInt(1000), fout = o["fadeOutTime"].toInt(400);
+        l->setWindowOpacity(0.0);
+        l->show();
+        auto* anim = new QVariantAnimation(l);
+        anim->setDuration(std::max(1, fin + stay + fout));
+        anim->setStartValue(0.0);
+        anim->setEndValue(1.0);
+        const double total = std::max(1, fin + stay + fout);
+        QObject::connect(anim, &QVariantAnimation::valueChanged, l, [l, fin, stay, fout, total](const QVariant& v) {
+            const double t = v.toDouble() * total;
+            double a = 1.0;
+            if (t < fin) a = t / std::max(1, fin);
+            else if (t > fin + stay) a = 1.0 - (t - fin - stay) / std::max(1, fout);
+            l->setWindowOpacity(std::clamp(a, 0.0, 1.0));
+        });
+        QObject::connect(anim, &QVariantAnimation::finished, l, [l] { l->deleteLater(); });
+        anim->start();
+    } else {
+        l->show();
+        // headsUpMessage gives a time to stay.
+        const double time = o["time"].toDouble(0.0);
+        if (time > 0) QTimer::singleShot(int(time * 1000), l, [l] { l->deleteLater(); });
+    }
     l->raise();
-    in_view_ = l;
-    double time = o["time"].toDouble(1.0);
-    QTimer::singleShot(int(time * 1000), l, [l] { l->deleteLater(); });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

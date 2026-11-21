@@ -378,7 +378,7 @@ fn export_hotkeys(set: &str) -> String {
             }
         }
         for n in &used {
-            if let Some(e) = u.name_commands.get(n) {
+            if let Some(e) = u.name_commands.get(n).filter(|e| !e["default"].as_bool().unwrap_or(false)) {
                 out += &format!(
                     "nameCommand -annotation {} -sourceType {} -command ({}) {};\n",
                     q(e["annotation"].as_str().unwrap_or("")),
@@ -512,7 +512,16 @@ pub fn register(s: &mut Session) {
         s,
         Cmd::new("nameCommand", "Create a name a hotkey can run: -c the command, -ann its annotation.", |_s, a| {
             let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("nameCommand: give a name") };
-            let e = json!({"name": name, "command": a.string("command", ""), "annotation": a.string("annotation", ""), "language": a.string("sourceType", "mel")});
+            let e = json!({
+                "name": name,
+                "command": a.string("command", ""),
+                "annotation": a.string("annotation", ""),
+                "language": a.string("sourceType", "mel"),
+                "data1": a.string("data1", ""),
+                "data2": a.string("data2", ""),
+                "data3": a.string("data3", ""),
+                "default": a.bool("default"),
+            });
             with_ui(|u| u.name_commands.insert(name.clone(), e));
             Ok(json!(name))
         })
@@ -520,7 +529,11 @@ pub fn register(s: &mut Session) {
         .undoable(false)
         .flag(f("command", "c", ArgType::String, "The command."))
         .flag(f("annotation", "ann", ArgType::String, "What it does."))
-        .flag(f("sourceType", "stp", ArgType::String, "mel or python.")),
+        .flag(f("sourceType", "stp", ArgType::String, "mel or python."))
+        .flag(f("data1", "da1", ArgType::String, "A string of the user's own kept with it."))
+        .flag(f("data2", "da2", ArgType::String, "A second one."))
+        .flag(f("data3", "da3", ArgType::String, "A third one."))
+        .flag(f("default", "d", ArgType::Bool, "A default name command: not saved with the hotkey set.")),
     );
 
     reg(

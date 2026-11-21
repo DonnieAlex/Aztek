@@ -281,6 +281,12 @@ impl Core {
 
     fn run_callbacks(&mut self, scripts: Vec<Value>) {
         for s in scripts {
+            // A callback queued with what it is to be given.
+            if let (Some(cb), Some(args)) = (s.get("__cb__"), s.get("__args__").and_then(Value::as_array)) {
+                let (cb, args) = (cb.clone(), args.clone());
+                self.run_callback(&cb, &args);
+                continue;
+            }
             self.run_callback(&s, &[]);
         }
     }
@@ -530,6 +536,10 @@ impl Core {
         let Some(args) = call.get("args").and_then(Value::as_array).cloned() else { return (name, call) };
         let (comps, rest): (Vec<Value>, Vec<Value>) = args.into_iter().partition(|a| a.as_str().is_some_and(mel::is_component));
         if comps.is_empty() {
+            return (name, call);
+        }
+        // move's own component options (-reflection, -preserveUV, -parameter) are worked by move itself.
+        if name == "move" && ["reflection", "preserveUV", "parameter"].iter().any(|k| call.get(*k).is_some_and(|v| v.as_bool() != Some(false))) {
             return (name, call);
         }
         let renamed = match name.as_str() {

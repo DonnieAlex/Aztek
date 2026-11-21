@@ -1087,13 +1087,21 @@ fn register_types() {
         reg(node_type(
             "intersectSurface",
             "Where two surfaces cross, as curves.",
-            vec![sin("inputSurface1", "is1"), AttrDef { flags: flags::OUTPUT | flags::ARRAY | flags::HIDDEN, ..cout("outputCurve", "oc") }, sin("inputSurface2", "is2")],
+            vec![
+                sin("inputSurface1", "is1"),
+                AttrDef { flags: flags::OUTPUT | flags::ARRAY | flags::HIDDEN, ..cout("outputCurve", "oc") },
+                sin("inputSurface2", "is2"),
+                f_in("tolerance", "tol", 0.01, "How closely the curves fit where the surfaces cross: smaller samples the surfaces finer."),
+                AttrDef { doc: "Curves on the first surface only, rather than on all of them.".into(), ..bin("firstSurface", "fs", false) },
+            ],
             |d| {
                 let (Some(a), Some(b)) = (srf(d, IN), srf(d, P)) else {
                     d.set_output_elements(OUT, Vec::new());
                     return;
                 };
-                let list = mesh_intersection(&surface_mesh(&a, 16), &surface_mesh(&b, 16));
+                // The sampling follows the tolerance: 16 to a side at 0.01.
+                let res = (16.0 * (0.01 / d.float(P + 1).max(1e-6)).sqrt()).clamp(4.0, 96.0) as usize;
+                let list = mesh_intersection(&surface_mesh(&a, res), &surface_mesh(&b, res));
                 d.set_output_elements(OUT, list.iter().enumerate().map(|(i, l)| (i as i32, curves::to_value(polyline_curve(l)))).collect());
             },
         ));
@@ -2086,29 +2094,76 @@ fn truthy(v: &Value) -> bool {
     }
 }
 
+/// makeSingleSurface: the reference's stitch and tessellate. Each surface is tessellated, the pieces combined into one
+/// mesh and the points closer than -stitchTolerance merged, so the surfaces become one polygon surface. With history the
+/// nodes follow the surfaces; -q and -e take the result or its polyMergeVert: -st, -cch, -nds.
 fn make_single_surface(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
-    if names.len() < 2 {
-        fail!("makeSingleSurface: name two or more surfaces");
-    }
-    let g = &mut s.graph;
-    let mut joined: Option<NurbsSurface> = None;
-    for n in &names {
-        let sh = surfaces::surface_arg(g, n, "makeSingleSurface")?;
-        let Some(w) = surfaces::world_surface(g, sh) else { fail!("makeSingleSurface: {n} has no surface") };
-        joined = Some(match joined {
-            None => w,
-            Some(j) => {
-                // Lay the second along whichever side of the first it meets.
-                let (e, _) = nearest_boundary(&j, &w);
-                if e == 0 { j.attached_u(&w, false, 0.5) } else { j.attached_v(&w, false, 0.5) }
+    if a.bool("query") || a.bool("edit") {
+        let Some(name) = names.first() else { fail!("makeSingleSurface: name the result or its node") };
+        let Some(node) = crate::history_qe::find_hist(&s.graph, name, &["polyMergeVert"]) else { fail!("makeSingleSurface: {name} has no stitch node") };
+        let g = &mut s.graph;
+        let at = |g: &Graph, k: &str| g.node(node).and_then(|x| x.ty().attr_index(k)).map(|i| PlugRef::new(node, i as i32));
+        if a.bool("query") {
+            if asked(a, "stitchTolerance") {
+                return Ok(json!(g.value(&at(g, "distance").unwrap())?.as_float()));
             }
-        });
+            for k in ["caching", "nodeState"] {
+                if asked(a, k) {
+                    let v = g.value(&at(g, k).unwrap())?;
+                    return Ok(if k == "caching" { json!(v.as_int() != 0) } else { json!(v.as_int()) });
+                }
+            }
+            fail!("makeSingleSurface: name a flag to query");
+        }
+        g.open_chunk("makeSingleSurface");
+        let r = (|| -> CmdResult<()> {
+            if let Some(t) = a.get("stitchTolerance").and_then(Value::as_f64) {
+                g.set_value(at(g, "distance").unwrap(), PlugValue::Float(t.max(0.0)))?;
+            }
+            crate::history_qe::apply_common(g, node, a)
+        })();
+        g.close_chunk();
+        r?;
+        g.evaluate();
+        return Ok(json!([g.path(node)]));
     }
-    let (tr, _) = surfaces::create_surface(g, &a.string("name", "surface1"), joined.unwrap())?;
-    g.select(&[tr], SelectMode::Replace);
-    g.evaluate();
-    Ok(json!([g.path(tr)]))
+    if names.is_empty() {
+        fail!("makeSingleSurface: name or select surfaces");
+    }
+    for n in &names {
+        surfaces::surface_arg(&s.graph, n, "makeSingleSurface")?;
+    }
+    let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(s.graph.construction_history);
+    s.graph.open_chunk("makeSingleSurface");
+    let r = (|| -> CmdResult<Value> {
+        let mut parts = Vec::new();
+        for n in &names {
+            let made = s.run("nurbsToPoly", json!({"args": [n], "constructionHistory": ch, "polygonType": 1}))?;
+            parts.push(made[0].clone());
+        }
+        let one = if parts.len() > 1 { s.run("polyUnite", json!({"args": parts, "constructionHistory": ch}))?[0].clone() } else { parts[0].clone() };
+        let one = one.as_str().unwrap_or_default().to_string();
+        let merged = s.run("polyMergeVertex", json!({"args": [format!("{one}.vtx[*]")], "distance": a.float("stitchTolerance", 0.1), "constructionHistory": ch}))?;
+        let mut out = one.clone();
+        if let Some(n) = a.get("name").and_then(Value::as_str) {
+            out = s.run("rename", json!({"args": [one, n]}))?.as_str().unwrap_or(n).to_string();
+        }
+        let node = merged.as_array().and_then(|v| v.iter().filter_map(Value::as_str).find(|x| x.starts_with("polyMergeVert")).map(str::to_string)).or_else(|| merged.as_str().map(str::to_string));
+        if let Some(id) = node.as_deref().and_then(|n| s.graph.find(n).ok().flatten()) {
+            crate::history_qe::apply_common(&mut s.graph, id, a)?;
+        }
+        let tr = s.graph.find(&out)?;
+        if let Some(t) = tr {
+            s.graph.select(&[t], SelectMode::Replace);
+        }
+        Ok(match node {
+            Some(n) if ch => json!([out, n]),
+            _ => json!([out]),
+        })
+    })();
+    s.graph.close_chunk();
+    r
 }
 
 fn nurbs_select(s: &mut Session, a: &Args) -> CmdResult {
@@ -2188,18 +2243,142 @@ fn nurbs_select(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// The nodes of these types upstream of a node, nearest first.
+fn upstream_of_type(g: &Graph, from: NodeId, ty: &str) -> Vec<NodeId> {
+    let mut out = Vec::new();
+    let mut seen = vec![from];
+    let mut queue = std::collections::VecDeque::from([from]);
+    let conns = g.connections();
+    while let Some(n) = queue.pop_front() {
+        if seen.len() > 200 {
+            break;
+        }
+        for (d, sr) in &conns {
+            if d.node == n && !seen.contains(&sr.node) {
+                seen.push(sr.node);
+                if g.node(sr.node).is_some_and(|x| x.ty().is_a(ty)) {
+                    out.push(sr.node);
+                }
+                queue.push_back(sr.node);
+            }
+        }
+    }
+    out
+}
+
+/// nurbsBoolean: each surface tessellated live to -tlb, and a polyCBoolOp of the two; with history both follow the
+/// surfaces. -q and -e take the result or the polyCBoolOp: -op, -tlb, -cch, -nds.
 fn nurbs_boolean(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
-    let [x, y] = names.as_slice() else { fail!("nurbsBoolean: name two surfaces") };
+    if a.bool("query") || a.bool("edit") {
+        let Some(name) = names.first() else { fail!("nurbsBoolean: name the result or its node") };
+        let Some(op) = crate::history_qe::find_hist(&s.graph, name, &["polyCBoolOp"]) else { fail!("nurbsBoolean: {name} has no boolean node") };
+        let g = &mut s.graph;
+        let tess = upstream_of_type(g, op, "nurbsTessellate");
+        let at = |g: &Graph, n: NodeId, k: &str| g.node(n).and_then(|x| x.ty().attr_index(k)).map(|i| PlugRef::new(n, i as i32));
+        if a.bool("query") {
+            if asked(a, "operation") {
+                let p = at(g, op, "operation").unwrap();
+                return Ok(json!(g.value(&p)?.as_int() - 1));
+            }
+            if asked(a, "tolerance") {
+                let Some(t) = tess.first().and_then(|&t| at(g, t, "fractionalTolerance")) else { return Ok(json!(0.01)) };
+                return Ok(json!(g.value(&t)?.as_float()));
+            }
+            for k in ["caching", "nodeState"] {
+                if asked(a, k) {
+                    let p = at(g, op, k).unwrap();
+                    let v = g.value(&p)?;
+                    return Ok(if k == "caching" { json!(v.as_int() != 0) } else { json!(v.as_int()) });
+                }
+            }
+            fail!("nurbsBoolean: name a flag to query");
+        }
+        g.open_chunk("nurbsBoolean");
+        let r = (|| -> CmdResult<()> {
+            if let Some(o) = a.get("operation").and_then(Value::as_i64) {
+                g.set_value(at(g, op, "operation").unwrap(), PlugValue::Int(o.clamp(0, 2) + 1))?;
+            }
+            if let Some(t) = a.get("tolerance").and_then(Value::as_f64) {
+                for &x in &tess {
+                    if let Some(p) = at(g, x, "fractionalTolerance") {
+                        g.set_value(p, PlugValue::Float(t.max(1e-6)))?;
+                    }
+                }
+            }
+            crate::history_qe::apply_common(g, op, a)?;
+            Ok(())
+        })();
+        g.close_chunk();
+        r?;
+        g.evaluate();
+        return Ok(json!([g.path(op)]));
+    }
+    // -nsrfsInFirstShell: how many of the names make the first shell; the rest the second. A group stands for the
+    // surfaces under it, as nurbsCube's does.
+    let first_named = a.get("nsrfsInFirstShell").and_then(Value::as_i64).unwrap_or(1).max(1) as usize;
+    let mut first = 0;
+    let mut expanded = Vec::new();
+    for (k, n) in names.iter().enumerate() {
+        let Some(id) = s.graph.find(n)? else { fail!("nurbsBoolean: no object named {n}") };
+        let mut list: Vec<String> = Vec::new();
+        if surfaces::as_surface(&s.graph, id).is_some() {
+            list.push(n.clone());
+        } else {
+            for d in s.graph.descendants(id) {
+                if s.graph.node(d).is_some_and(|x| x.ty().is_a("transform")) && surfaces::as_surface(&s.graph, d).is_some() {
+                    list.push(s.graph.path(d));
+                }
+            }
+        }
+        if list.is_empty() {
+            fail!("nurbsBoolean: {n} has no NURBS surface");
+        }
+        if k < first_named {
+            first += list.len();
+        }
+        expanded.extend(list);
+    }
+    let names = expanded;
+    if names.len() < 2 || first >= names.len() {
+        fail!("nurbsBoolean: name the surfaces of two shells");
+    }
+    let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(s.graph.construction_history);
+    let tol = a.float("tolerance", 0.01).max(1e-6);
     let mut meshes = Vec::new();
     s.graph.open_chunk("NURBS Boolean");
     let r = (|| -> CmdResult<Value> {
-        for n in [x, y] {
-            let made = s.run("nurbsToPoly", json!({"args": [n], "constructionHistory": false, "polygonType": 1, "format": 3, "uNumber": 12, "vNumber": 12, "uType": 3, "vType": 3}))?;
-            meshes.push(made[0].clone());
+        let mut shells = Vec::new();
+        for group in [&names[..first], &names[first..]] {
+            let mut parts = Vec::new();
+            for n in group {
+                let made = s.run("nurbsToPoly", json!({"args": [n], "constructionHistory": ch, "polygonType": 1, "format": 1, "fractionalTolerance": tol}))?;
+                parts.push(made[0].clone());
+            }
+            // Several surfaces make one closed shell, their edges merged where they meet.
+            let shell = if parts.len() > 1 {
+                let one = s.run("polyUnite", json!({"args": parts, "constructionHistory": ch}))?[0].clone();
+                let name = one.as_str().unwrap_or_default().to_string();
+                s.run("polyMergeVertex", json!({"args": [format!("{name}.vtx[*]")], "distance": tol.max(1e-4) * 10.0, "constructionHistory": ch}))?;
+                one
+            } else {
+                parts[0].clone()
+            };
+            shells.push(shell);
         }
+        meshes.extend(shells);
         // The reference's -op 0 union, 1 difference, 2 intersection; polyCBoolOp counts from 1.
-        s.run("polyCBoolOp", json!({"args": meshes, "op": a.int("operation", 0) + 1, "constructionHistory": false}))
+        let mut call = json!({"args": meshes, "op": a.int("operation", 0).clamp(0, 2) + 1, "constructionHistory": ch});
+        if let Some(n) = a.get("name") {
+            call["name"] = n.clone();
+        }
+        let made = s.run("polyCBoolOp", call)?;
+        if ch {
+            if let Some(node) = made.get(1).and_then(Value::as_str).and_then(|n| s.graph.find(n).ok().flatten()) {
+                crate::history_qe::apply_common(&mut s.graph, node, a)?;
+            }
+        }
+        Ok(made)
     })();
     s.graph.close_chunk();
     r
@@ -2675,6 +2854,8 @@ pub fn register(c: &mut Commands<Session>) {
                 let n = new_node(g, "intersectSurface", "intersectSurface1")?;
                 connect_world_surface(g, s1, n, IN)?;
                 connect_world_surface(g, s2, n, P)?;
+                set_f(g, n, "tolerance", a.float("tolerance", 0.01))?;
+                set_b(g, n, "firstSurface", a.bool("firstSurface"))?;
                 g.evaluate();
                 let count = g.node(n).unwrap().elements(OUT).len();
                 if count == 0 {
@@ -2682,6 +2863,8 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 let mut out = Vec::new();
                 let cos = a.bool("curveOnSurface");
+                // Curves on both surfaces unless -firstSurface.
+                let both = cos && !a.bool("firstSurface");
                 for i in 0..count {
                     let el = PlugRef::element(n, OUT as i32, i as i32);
                     if cos {
@@ -2690,6 +2873,13 @@ pub fn register(c: &mut Commands<Session>) {
                         let uv: Vec<DVec2> = w.cvs.iter().map(|p| { let (u, v) = surf.closest_point(*p); DVec2::new(u, v) }).collect();
                         let (tr, _) = make_cos(g, s1, uv_curve(&uv), a)?;
                         out.push(json!(cos_name(g, s1, tr)));
+                        if both {
+                            if let Some(surf2) = surfaces::world_surface(g, s2) {
+                                let uv2: Vec<DVec2> = w.cvs.iter().map(|p| { let (u, v) = surf2.closest_point(*p); DVec2::new(u, v) }).collect();
+                                let (tr2, _) = make_cos(g, s2, uv_curve(&uv2), a)?;
+                                out.push(json!(cos_name(g, s2, tr2)));
+                            }
+                        }
                     } else {
                         let (tr, sh) = crate::dag::create_with_shape(g, curves::SHAPE_TYPE, &a.string("name", "intersectionCurve1"), NO_NODE)?;
                         g.connect(&el, &plug(sh, CurveShape::CREATE), false)?;
@@ -2706,8 +2896,8 @@ pub fn register(c: &mut Commands<Session>) {
             r
         })
         .positional("two surfaces")
-        .flag(f("curveOnSurface", "cos", B, "As curves on the first surface."))
-        .flag(f("firstSurface", "fs", B, "Accepted for existing scripts.")),
+        .flag(f("curveOnSurface", "cos", B, "As curves on the surfaces."))
+        .flag(f("firstSurface", "fs", B, "With -cos: on the first surface only (off: on both).")),
     ));
     c.register(make_flags(
         Cmd::new("projectCurve", "A curve's shadow on a surface as a curve on it: -d the way (0 0 1), -un along the normal. Returns [surface->curve, node].", |s, a| {
@@ -3016,7 +3206,16 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("a curve on a surface")
         .flag(f("distance", "d", Fl, "How far.")),
     ));
-    c.register(make_flags(Cmd::new("makeSingleSurface", "Join surfaces meeting edge to edge into one. Returns [surface].", make_single_surface).positional("surfaces").flag(f("stitchTolerance", "st", Fl, "Accepted for existing scripts."))));
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(make_flags(
+        Cmd::new(
+            "makeSingleSurface",
+            "Stitch and tessellate: the surfaces as one polygon surface, their edges merged where they meet within -st. Returns [mesh, \
+             polyMergeVert node]; -q and -e on either.",
+            make_single_surface,
+        )
+        .positional("surfaces")
+        .flag(f("stitchTolerance", "st", Fl, "How close the edges' points must be to be stitched together (0.1).")),
+    ))));
     c.register(
         Cmd::new("nurbsSelect", "Pick a surface's CVs: -bs the border, -lb -rb -tb -bb one side, -gs -ss grow or shrink what's picked.", nurbs_select)
             .positional("surfaces (the selection when none)")
@@ -3028,15 +3227,22 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("growSelection", "gs", I, "Rings to add."))
             .flag(f("shrinkSelection", "ss", I, "Rings to take off.")),
     );
-    c.register(
-        Cmd::new("nurbsBoolean", "A boolean of two surfaces, as a polygon mesh: there are no NURBS solids to trim back. -op 0 union, 1 difference, 2 intersection.", nurbs_boolean)
-            .positional("two surfaces")
-            .flag(f("operation", "op", I, "0 union, 1 difference, 2 intersection."))
-            .flag(f("smartConnection", "sc", B, "Accepted for existing scripts."))
-            .flag(f("constructionHistory", "ch", B, "Accepted for existing scripts."))
-            .flag(f("nsrfsInFirstShell", "nsf", I, "Accepted for existing scripts."))
-            .flag(f("name", "n", S, "Accepted for existing scripts.")),
-    );
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
+        Cmd::new(
+            "nurbsBoolean",
+            "A boolean of two shells of surfaces, as a polygon mesh: there are no NURBS solids to trim back. -op 0 union, 1 difference, 2 \
+             intersection; -nsf how many of the surfaces make the first shell. Returns [mesh, polyCBoolOp node]; -q and -e on either.",
+            nurbs_boolean,
+        )
+        .positional("the surfaces of the two shells")
+        .flag(f("operation", "op", I, "0 union, 1 difference, 2 intersection (0)."))
+        .flag(f("tolerance", "tlb", Fl, "How closely the surfaces are tessellated to work out the boolean (0.01)."))
+        .flag(f("smartConnection", "sc", B, "Look for a boolean already in the surfaces' history (on): this one is made anew."))
+        .flag(f("constructionHistory", "ch", B, "Keep the nodes, so the result follows the surfaces."))
+        .flag(f("object", "o", B, "Make the result (on)."))
+        .flag(f("nsrfsInFirstShell", "nsf", I, "How many of the surfaces named make the first shell (1)."))
+        .flag(f("name", "n", S, "The result's name.")),
+    )));
     c.register(Cmd::new("textCurves", "Text as curves: -t words, -f font accepted (one stroke font). A group, a transform per letter, a curve per stroke. Returns [group, node].", text_curves).flag(f("text", "t", S, "The words.")).flag(f("font", "f", S, "Accepted: one stroke font here.")).flag(f("name", "n", S, "The group's name.")).flag(f("object", "o", B, "Accepted for existing scripts.")));
     c.register(sec(
         q_flags(Cmd::new("threePointArc", "A circular arc through -p1 -p2 -p3: -d degree, -s sections. Returns [curve, node]. -q -c, -q -r on the node read centre and radius.", |s, a| {

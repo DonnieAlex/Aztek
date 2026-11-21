@@ -135,11 +135,30 @@ fn list_connections(s: &mut Session, a: &Args) -> CmdResult {
                 if (!ty.is_empty() && !ty.iter().any(|t| on.ty().is_a(t))) || (!exact.is_empty() && !exact.iter().any(|t| on.ty().name == *t)) {
                     continue;
                 }
+                // -fullNodeName: nodes by their full DAG path.
+                let full = a.bool("fullNodeName");
+                let plug_text = |p: &PlugRef| {
+                    let name = g.plug_name(p);
+                    if !full {
+                        return name;
+                    }
+                    let short = g.path(p.node);
+                    match name.strip_prefix(&short) {
+                        Some(rest) => format!("{}{rest}", g.full_name(p.node)),
+                        None => name,
+                    }
+                };
                 if pairs {
-                    out.push(json!(g.plug_name(&mine)));
+                    out.push(json!(plug_text(&mine)));
                 }
                 let shown = if !shapes && crate::dag::is_shape(g, other.node) { crate::dag::transform_of(g, other.node) } else { other.node };
-                let v = if plugs { json!(g.plug_name(&other)) } else { json!(g.path(shown)) };
+                let v = if plugs {
+                    json!(plug_text(&other))
+                } else if full {
+                    json!(g.full_name(shown))
+                } else {
+                    json!(g.path(shown))
+                };
                 if pairs || !out.contains(&v) {
                     out.push(v);
                 }
@@ -1114,6 +1133,22 @@ fn namespace_cmd(s: &mut Session, a: &Args) -> CmdResult {
         g.current_namespace = full.clone();
         return Ok(json!(if full.is_empty() { ":".to_string() } else { full }));
     }
+    if let Some(name) = a.get("collapseAncestors").and_then(Value::as_str).map(str::to_string) {
+        // Each empty namespace above the one named goes, nearest first, up to the first that holds something.
+        let full = absolute_namespace(g, &name);
+        let mut at = full.rsplit_once(':').map(|x| x.0.to_string());
+        while let Some(ns) = at {
+            if ns.is_empty() || !nodes_in(g, &ns).is_empty() || child_namespaces(g, &ns, false).iter().any(|c| namespace_exists(g, c)) {
+                break;
+            }
+            g.set_namespace_known(&ns, false);
+            if g.current_namespace == ns {
+                g.current_namespace = String::new();
+            }
+            at = ns.rsplit_once(':').map(|x| x.0.to_string());
+        }
+        return Ok(Value::Null);
+    }
     if a.has("removeNamespace") {
         let name = a.string("removeNamespace", "");
         let full = absolute_namespace(g, &name);
@@ -1124,7 +1159,26 @@ fn namespace_cmd(s: &mut Session, a: &Args) -> CmdResult {
         order.reverse();
         order.push(full.clone());
         let content = a.bool("deleteNamespaceContent");
-        if a.bool("mergeNamespaceWithRoot") || a.bool("mergeNamespaceWithParent") {
+        let other = a.get("mergeNamespaceWithOther").and_then(Value::as_str).map(str::to_string);
+        if [a.bool("mergeNamespaceWithRoot"), a.bool("mergeNamespaceWithParent"), other.is_some()].iter().filter(|x| **x).count() > 1 {
+            fail!("namespace: -mergeNamespaceWithRoot, -mergeNamespaceWithParent and -mergeNamespaceWithOther go one at a time");
+        }
+        if let Some(o) = &other {
+            // What is left moves to the namespace named first, child namespaces with it.
+            let to = if o == ":" { String::new() } else { absolute_namespace(g, o) };
+            if !to.is_empty() && !namespace_exists(g, &to) {
+                fail!("namespace: namespace {to} doesn't exist");
+            }
+            if to == full || to.starts_with(&format!("{full}:")) {
+                fail!("namespace: can't merge {full} into itself");
+            }
+            for child in child_namespaces(g, &full, true) {
+                let new = format!("{}{}", if to.is_empty() { String::new() } else { format!("{to}:") }, &child[full.len() + 1..]);
+                move_namespace_nodes(g, &child, &new)?;
+                g.set_namespace_known(&new, true);
+            }
+            move_namespace_nodes(g, &full, &to)?;
+        } else if a.bool("mergeNamespaceWithRoot") || a.bool("mergeNamespaceWithParent") {
             let to = if a.bool("mergeNamespaceWithRoot") { String::new() } else { full.rsplit_once(':').map(|x| x.0.to_string()).unwrap_or_default() };
             move_namespace_nodes(g, &full, &to)?;
         } else if content {
@@ -1166,6 +1220,9 @@ fn namespace_cmd(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// The internal nodes the interface keeps outside the scene (item filters), for namespaceInfo -internal. The host sets it.
+pub static INTERNAL_NODES: std::sync::RwLock<Option<fn() -> Vec<String>>> = std::sync::RwLock::new(None);
+
 fn namespace_info(s: &mut Session, a: &Args) -> CmdResult {
     let g = &s.graph;
     let target = match a.pos_str(0) {
@@ -1206,7 +1263,14 @@ fn namespace_info(s: &mut Session, a: &Args) -> CmdResult {
         return Ok(json!(spaces));
     }
     if a.bool("listOnlyDependencyNodes") {
-        return Ok(json!(nodes(g)));
+        let mut list = nodes(g);
+        // -internal: the interface's own nodes too (item filters and the like), which live in the root namespace.
+        if a.bool("internal") && target.is_empty() {
+            if let Some(more) = *INTERNAL_NODES.read().unwrap() {
+                list.extend(more());
+            }
+        }
+        return Ok(json!(list));
     }
     if a.bool("listNamespace") {
         let mut out = spaces;
@@ -2001,6 +2065,7 @@ pub fn register(c: &mut Commands<Session>) {
             f("shapes", "sh", B, "A connected shape is named, not its transform."),
             f("skipConversionNodes", "scn", B, "Report what is beyond unitConversion nodes."),
             f("type", "t", A, "Only nodes of this type."),
+            f("fullNodeName", "fnn", B, "Nodes by their full DAG paths."),
         ],
         |s, a, _| list_connections(s, a),
     );
@@ -2020,10 +2085,19 @@ pub fn register(c: &mut Commands<Session>) {
             f("apiType", "api", B, "The API type name."),
             f("derived", "d", B, "Types derived from it."),
             f("isTypeName", "itn", B, "The argument is a type, not a node."),
+            f("ufeRuntimeName", "urn", B, "The runtime the object belongs to: Maya-DG for the scene's own nodes, USD for prims of a USD stage."),
         ],
         |s, a, prev| {
             let name = a.pos_str(0).map(str::to_string).or_else(|| objects(s, a).first().cloned());
             let Some(name) = name else { fail!("nodeType: no object") };
+            if a.bool("ufeRuntimeName") {
+                // A prim is named proxyShape,/path.
+                if name.contains(",/") {
+                    return Ok(json!("USD"));
+                }
+                node_of(&s.graph, &name, "nodeType")?;
+                return Ok(json!("Maya-DG"));
+            }
             let ty = if a.bool("isTypeName") {
                 let Some(t) = types::find(&name) else { fail!("nodeType: unknown type {name}") };
                 t
@@ -2834,7 +2908,7 @@ pub fn register(c: &mut Commands<Session>) {
         ns = ns.flag(f("query", "q", B, "Query.")).flag(f("queried", "", ArgType::List, "What -q asks for."));
         for (name, short, ty) in [
             ("addNamespace", "add", S), ("setNamespace", "set", S), ("removeNamespace", "rm", S), ("parent", "p", S), ("exists", "ex", A), ("relativeNames", "rel", B), ("isRootNamespace", "ir", A), ("validateName", "vn", S),
-            ("mergeNamespaceWithRoot", "mnr", B), ("mergeNamespaceWithParent", "mnp", B), ("deleteNamespaceContent", "dnc", B), ("rename", "ren", A), ("moveNamespace", "mv", A), ("force", "f", B), ("recurse", "r", B), ("absoluteName", "an", B),
+            ("mergeNamespaceWithRoot", "mnr", B), ("mergeNamespaceWithParent", "mnp", B), ("mergeNamespaceWithOther", "mno", S), ("collapseAncestors", "ch", S), ("deleteNamespaceContent", "dnc", B), ("rename", "ren", A), ("moveNamespace", "mv", A), ("force", "f", B), ("recurse", "r", B), ("absoluteName", "an", B),
         ] {
             ns = ns.flag(f(name, short, ty, "As in the reference."));
         }
@@ -2842,7 +2916,7 @@ pub fn register(c: &mut Commands<Session>) {
     }
     {
         let mut ni = Cmd::new("namespaceInfo", "What a namespace holds: -cur, -lon, -lod, -ls, -r, -dp, -bn, -p.", namespace_info).positional("[namespace]").undoable(false);
-        for (name, short) in [("currentNamespace", "cur"), ("listOnlyNamespaces", "lon"), ("listOnlyDependencyNodes", "lod"), ("listNamespace", "ls"), ("recurse", "r"), ("dagPath", "dp"), ("fullName", "fn"), ("absoluteName", "an"), ("baseName", "bn"), ("parent", "p"), ("isRootNamespace", "ir"), ("shortName", "sn")] {
+        for (name, short) in [("currentNamespace", "cur"), ("listOnlyNamespaces", "lon"), ("listOnlyDependencyNodes", "lod"), ("listNamespace", "ls"), ("recurse", "r"), ("dagPath", "dp"), ("fullName", "fn"), ("absoluteName", "an"), ("baseName", "bn"), ("parent", "p"), ("isRootNamespace", "ir"), ("shortName", "sn"), ("internal", "int")] {
             ni = ni.flag(f(name, short, B, "As in the reference."));
         }
         c.register(ni);

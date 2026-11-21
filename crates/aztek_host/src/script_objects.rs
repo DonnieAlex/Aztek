@@ -565,6 +565,7 @@ fn base_template(a: &Args) -> CmdResult {
 }
 
 pub fn register(s: &mut Session) {
+    *aztek_scene::ref_scene::INTERNAL_NODES.write().unwrap() = Some(|| with(|o| o.filters.keys().cloned().collect()));
     s.register(add(
         Cmd::new("itemFilter", "A named test of nodes for editors and lsThroughFilter: -byName, -byType, -union, -intersect, -difference, -negate.", |_s, a| item_filter(a)).positional("[name]").undoable(false),
         "byName:bn:a byType:bt:a1 byBin:bk:a1 byScript:bs:a secondScript:ss:a classification:cls:a clearByBin:cbk:b clearByType:cbt:b category:cat:a1 customCategory:ctg:a difference:di:a2 intersect:in:a2 union:un:a2 negate:neg:b listBuiltInFilters:lbf:b listOtherFilters:lof:b listUserFilters:luf:b parent:p:a text:t:a uniqueNodeNames:unn:b exists:ex:b query:q:b edit:e:b queried::a",
