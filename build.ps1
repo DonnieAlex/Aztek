@@ -44,7 +44,9 @@ Write-Host "Qt: $Qt"
 if ($LASTEXITCODE) { throw "PySide6 and shiboken6 $AztekQtVersion could not be installed" }
 
 $env:PYO3_PYTHON = $py
-cmake -B $dir -G Ninja "-DCMAKE_BUILD_TYPE=$type" "-DCMAKE_PREFIX_PATH=$Qt" "-DPython3_EXECUTABLE=$py"
+cmake -B $dir -G Ninja "-DCMAKE_BUILD_TYPE=$type" "-DCMAKE_PREFIX_PATH=$Qt" "-DPython3_EXECUTABLE=$py" `
+    "-DPython3_ROOT_DIR=$bundle" "-DPython3_FIND_REGISTRY=NEVER" `
+    "-DPython3_INCLUDE_DIR=$bundle\include" "-DPython3_LIBRARY=$bundle\libs\python312.lib"
 if ($LASTEXITCODE) { throw "configure failed" }
 cmake --build $dir
 if ($LASTEXITCODE) { throw "build failed" }

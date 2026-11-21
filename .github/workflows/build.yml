@@ -336,7 +336,7 @@ jobs:
         run: sed -i 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
 
       - name: Dependencies
-        run: tools/ci/retry.sh 5 packaging/rpm/install-build-deps.sh
+        run: tools/ci/retry.sh 5 packaging/rpm/install-build-deps.sh --system-qt
 
       - uses: dtolnay/rust-toolchain@stable
 
