@@ -62,6 +62,8 @@ pub struct State {
     /// so edits elsewhere do not recompute the bodies.
     pub shown: Option<(i64, usize)>,
     pub results: usize,
+    /// Collisions each particle has had since the start, by particles node and particle id, for collision events.
+    pub collisions: HashMap<(NodeId, u64), u32>,
 }
 
 /// A hash of which points each face uses: the same for a mesh rebuilt the same way, as a smooth under a skin is
@@ -760,6 +762,7 @@ fn run(g: &mut Graph, s: NodeId) {
             }
         }
         st.cache.clear();
+        st.collisions.clear();
         st.last = Some(frame_no);
         st.results += 1;
         let f = Arc::new(outputs(g, &st, true, mpu));
@@ -772,6 +775,7 @@ fn run(g: &mut Graph, s: NodeId) {
         let fps = crate::anim::fps().max(1e-6);
         let dt = (frame_no - st.last.unwrap()).min(1.0) / fps * num(g, s, "timeScale", 1.0);
         st.solver.as_mut().unwrap().step(dt);
+        crate::dyn_events::after_step(g, &mut st, mpu);
         stepped = true;
         st.results += 1;
         st.last = Some(frame_no);

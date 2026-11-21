@@ -766,6 +766,13 @@ impl Doc {
             }
             k += 1;
         }
+        // A name the reference would not take: said, unless disableIncorrectNameWarning has turned that off.
+        if !name.is_empty() && crate::db_cmds::name_warning_on() {
+            let leaf = name.rsplit('|').next().unwrap_or(&name);
+            if !crate::graph::Graph::valid_name(leaf) {
+                self.warnings.push(format!("Incorrect node name \"{name}\": it is read as \"{}\"", crate::graph::Graph::legal_name(leaf)));
+            }
+        }
         if name.is_empty() {
             let n = self.nodes.iter().filter(|n| n.ty == ty).count() + 1;
             name = format!("{ty}{n}");
@@ -6039,6 +6046,10 @@ pub fn import_scene(s: &mut Session, path: &str) -> Result<Vec<String>, String> 
     crate::references::note_scene_folder(s, path);
     let mut w = binary_warnings(&binary);
     w.extend(read_text(s, &text, true));
+    // An edits file (exportEdits): its reference edits go onto the nodes they name.
+    if text.contains("\n//edit ") {
+        crate::references::apply_edit_lines(s, &text);
+    }
     Ok(w)
 }
 

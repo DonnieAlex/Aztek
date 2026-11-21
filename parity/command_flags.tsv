@@ -8987,47 +8987,47 @@ dbfootprint	q	done	auto
 dbfootprint	query	done	auto
 dbfootprint	t	done	auto
 dbfootprint	type	done	auto
-dbmessage	f	missing	
-dbmessage	file	missing	
-dbmessage	l	missing	
-dbmessage	list	missing	
-dbmessage	m	missing	
-dbmessage	monitor	missing	
-dbmessage	t	missing	
-dbmessage	type	missing	
-dbpeek	a	missing	
-dbpeek	all	missing	
-dbpeek	allObjects	missing	
-dbpeek	argument	missing	
-dbpeek	c	missing	
-dbpeek	count	missing	
-dbpeek	eg	missing	
-dbpeek	evaluationGraph	missing	
-dbpeek	of	missing	
-dbpeek	op	missing	
-dbpeek	operation	missing	
-dbpeek	outputFile	missing	
-dbpeek	q	missing	
-dbpeek	query	missing	
-dbtrace	f	missing	
-dbtrace	filter	missing	
-dbtrace	i	missing	
-dbtrace	info	missing	
-dbtrace	k	missing	
-dbtrace	keyword	missing	
-dbtrace	m	missing	
-dbtrace	mark	missing	
-dbtrace	o	missing	
-dbtrace	off	missing	
-dbtrace	output	missing	
-dbtrace	q	missing	
-dbtrace	query	missing	
-dbtrace	t	missing	
-dbtrace	timed	missing	
-dbtrace	title	missing	
-dbtrace	tm	missing	
-dbtrace	v	missing	
-dbtrace	verbose	missing	
+dbmessage	f	done	auto
+dbmessage	file	done	auto
+dbmessage	l	done	auto
+dbmessage	list	done	auto
+dbmessage	m	done	auto
+dbmessage	monitor	done	auto
+dbmessage	t	done	auto
+dbmessage	type	done	auto
+dbpeek	a	done	auto
+dbpeek	all	done	auto
+dbpeek	allObjects	done	auto
+dbpeek	argument	done	auto
+dbpeek	c	done	auto
+dbpeek	count	done	auto
+dbpeek	eg	done	auto
+dbpeek	evaluationGraph	done	auto
+dbpeek	of	done	auto
+dbpeek	op	done	auto
+dbpeek	operation	done	auto
+dbpeek	outputFile	done	auto
+dbpeek	q	done	auto
+dbpeek	query	done	auto
+dbtrace	f	done	auto
+dbtrace	filter	done	auto
+dbtrace	i	done	auto
+dbtrace	info	done	auto
+dbtrace	k	done	auto
+dbtrace	keyword	done	auto
+dbtrace	m	done	auto
+dbtrace	mark	done	auto
+dbtrace	o	done	auto
+dbtrace	off	done	auto
+dbtrace	output	done	auto
+dbtrace	q	done	auto
+dbtrace	query	done	auto
+dbtrace	t	done	auto
+dbtrace	timed	done	auto
+dbtrace	title	done	auto
+dbtrace	tm	done	auto
+dbtrace	v	done	auto
+dbtrace	verbose	done	auto
 defaultLightListCheckBox	ann	missing	
 defaultLightListCheckBox	annotation	missing	
 defaultLightListCheckBox	backgroundColor	missing	
@@ -9115,12 +9115,12 @@ defaultNavigation	s	done	auto
 defaultNavigation	source	done	auto
 defaultNavigation	u	done	auto
 defaultNavigation	unignore	done	auto
-defineDataServer	d	missing	
-defineDataServer	device	missing	
-defineDataServer	s	missing	
-defineDataServer	server	missing	
-defineDataServer	u	missing	
-defineDataServer	undefine	missing	
+defineDataServer	d	done	auto
+defineDataServer	device	done	auto
+defineDataServer	s	done	auto
+defineDataServer	server	done	auto
+defineDataServer	u	done	auto
+defineDataServer	undefine	done	auto
 defineVirtualDevice	ax	missing	
 defineVirtualDevice	axis	missing	
 defineVirtualDevice	c	missing	
@@ -9222,58 +9222,58 @@ deformer	typ	done	auto
 deformer	type	done	auto
 deformer	uct	done	auto
 deformer	useComponentTags	done	auto
-deformerEvaluator	act	missing	
-deformerEvaluator	active	missing	
-deformerEvaluator	adl	missing	
-deformerEvaluator	adr	missing	
-deformerEvaluator	allowDownloadRejections	missing	
-deformerEvaluator	allowDownloads	missing	
-deformerEvaluator	asNodeName	missing	
-deformerEvaluator	asText	missing	
-deformerEvaluator	clv	missing	
-deformerEvaluator	d	missing	
-deformerEvaluator	dch	missing	
-deformerEvaluator	deformerChain	missing	
-deformerEvaluator	deformers	missing	
-deformerEvaluator	di	missing	
-deformerEvaluator	dol	missing	
-deformerEvaluator	dumpInfo	missing	
-deformerEvaluator	dumpOutliner	missing	
-deformerEvaluator	gbp	missing	
-deformerEvaluator	gpuBlockPolicy	missing	
-deformerEvaluator	isOpenCLValid	missing	
-deformerEvaluator	limitMinimumVerts	missing	
-deformerEvaluator	list	missing	
-deformerEvaluator	lmv	missing	
-deformerEvaluator	ls	missing	
-deformerEvaluator	m	missing	
-deformerEvaluator	mbr	missing	
-deformerEvaluator	members	missing	
-deformerEvaluator	meshes	missing	
-deformerEvaluator	message	missing	
-deformerEvaluator	minimumVerts	missing	
-deformerEvaluator	mnv	missing	
-deformerEvaluator	msg	missing	
-deformerEvaluator	ni	missing	
-deformerEvaluator	nm	missing	
-deformerEvaluator	nodeInfo	missing	
-deformerEvaluator	nodeStatus	missing	
-deformerEvaluator	ns	missing	
-deformerEvaluator	olh	missing	
-deformerEvaluator	omitPassthroughs	missing	
-deformerEvaluator	opt	missing	
-deformerEvaluator	outlinerHash	missing	
-deformerEvaluator	partition	missing	
-deformerEvaluator	prg	missing	
-deformerEvaluator	prt	missing	
-deformerEvaluator	purge	missing	
-deformerEvaluator	q	missing	
-deformerEvaluator	query	missing	
-deformerEvaluator	reuseMode	missing	
-deformerEvaluator	ru	missing	
-deformerEvaluator	txt	missing	
-deformerEvaluator	v	missing	
-deformerEvaluator	verbose	missing	
+deformerEvaluator	act	done	auto
+deformerEvaluator	active	done	auto
+deformerEvaluator	adl	done	auto
+deformerEvaluator	adr	done	auto
+deformerEvaluator	allowDownloadRejections	done	auto
+deformerEvaluator	allowDownloads	done	auto
+deformerEvaluator	asNodeName	done	auto
+deformerEvaluator	asText	done	auto
+deformerEvaluator	clv	done	auto
+deformerEvaluator	d	done	auto
+deformerEvaluator	dch	done	auto
+deformerEvaluator	deformerChain	done	auto
+deformerEvaluator	deformers	done	auto
+deformerEvaluator	di	done	auto
+deformerEvaluator	dol	done	auto
+deformerEvaluator	dumpInfo	done	auto
+deformerEvaluator	dumpOutliner	done	auto
+deformerEvaluator	gbp	done	auto
+deformerEvaluator	gpuBlockPolicy	done	auto
+deformerEvaluator	isOpenCLValid	done	auto
+deformerEvaluator	limitMinimumVerts	done	auto
+deformerEvaluator	list	done	auto
+deformerEvaluator	lmv	done	auto
+deformerEvaluator	ls	done	auto
+deformerEvaluator	m	done	auto
+deformerEvaluator	mbr	done	auto
+deformerEvaluator	members	done	auto
+deformerEvaluator	meshes	done	auto
+deformerEvaluator	message	done	auto
+deformerEvaluator	minimumVerts	done	auto
+deformerEvaluator	mnv	done	auto
+deformerEvaluator	msg	done	auto
+deformerEvaluator	ni	done	auto
+deformerEvaluator	nm	done	auto
+deformerEvaluator	nodeInfo	done	auto
+deformerEvaluator	nodeStatus	done	auto
+deformerEvaluator	ns	done	auto
+deformerEvaluator	olh	done	auto
+deformerEvaluator	omitPassthroughs	done	auto
+deformerEvaluator	opt	done	auto
+deformerEvaluator	outlinerHash	done	auto
+deformerEvaluator	partition	done	auto
+deformerEvaluator	prg	done	auto
+deformerEvaluator	prt	done	auto
+deformerEvaluator	purge	done	auto
+deformerEvaluator	q	done	auto
+deformerEvaluator	query	done	auto
+deformerEvaluator	reuseMode	done	auto
+deformerEvaluator	ru	done	auto
+deformerEvaluator	txt	done	auto
+deformerEvaluator	v	done	auto
+deformerEvaluator	verbose	done	auto
 deformerWeights	at	done	auto
 deformerWeights	attribute	done	auto
 deformerWeights	defaultValue	done	auto
@@ -9346,12 +9346,12 @@ deleteAttrPattern	patternName	missing
 deleteAttrPattern	patternType	missing	
 deleteAttrPattern	pn	missing	
 deleteAttrPattern	pt	missing	
-deleteExtension	at	missing	
-deleteExtension	attribute	missing	
-deleteExtension	fd	missing	
-deleteExtension	forceDelete	missing	
-deleteExtension	nodeType	missing	
-deleteExtension	nt	missing	
+deleteExtension	at	done	auto
+deleteExtension	attribute	done	auto
+deleteExtension	fd	done	auto
+deleteExtension	forceDelete	done	auto
+deleteExtension	nodeType	done	auto
+deleteExtension	nt	done	auto
 deleteUI	cl	done	auto
 deleteUI	collection	done	auto
 deleteUI	control	done	auto
@@ -9613,10 +9613,10 @@ dgInfo	sub	done	auto
 dgInfo	subgraph	done	auto
 dgInfo	sz	done	auto
 dgInfo	type	done	auto
-dgValidateCurve	a	missing	
-dgValidateCurve	allCurves	missing	
-dgValidateCurve	v	missing	
-dgValidateCurve	verbose	missing	
+dgValidateCurve	a	done	auto
+dgValidateCurve	allCurves	done	auto
+dgValidateCurve	v	done	auto
+dgValidateCurve	verbose	done	auto
 dgdirty	a	done	auto
 dgdirty	allPlugs	done	auto
 dgdirty	c	done	auto
@@ -9636,21 +9636,21 @@ dgdirty	verbose	done	auto
 dgeval	src	done	auto
 dgeval	v	done	auto
 dgeval	verbose	done	auto
-dgfilter	atr	missing	
-dgfilter	attribute	missing	
-dgfilter	l	missing	
-dgfilter	list	missing	
-dgfilter	logicalAnd	missing	
-dgfilter	logicalNot	missing	
-dgfilter	logicalOr	missing	
-dgfilter	n	missing	
-dgfilter	name	missing	
-dgfilter	nd	missing	
-dgfilter	node	missing	
-dgfilter	nodeType	missing	
-dgfilter	nt	missing	
-dgfilter	p	missing	
-dgfilter	plug	missing	
+dgfilter	atr	done	auto
+dgfilter	attribute	done	auto
+dgfilter	l	done	auto
+dgfilter	list	done	auto
+dgfilter	logicalAnd	done	auto
+dgfilter	logicalNot	done	auto
+dgfilter	logicalOr	done	auto
+dgfilter	n	done	auto
+dgfilter	name	done	auto
+dgfilter	nd	done	auto
+dgfilter	node	done	auto
+dgfilter	nodeType	done	auto
+dgfilter	nt	done	auto
+dgfilter	p	done	auto
+dgfilter	plug	done	auto
 dgtimer	combineType	done	auto
 dgtimer	ct	done	auto
 dgtimer	h	done	auto
@@ -9840,12 +9840,12 @@ displayPref	displayAffected	done	auto
 displayPref	displayGradient	done	auto
 displayPref	fm	done	auto
 displayPref	fontSettingMode	done	auto
-displayPref	gf	missing	
-displayPref	ghostFrames	missing	
+displayPref	gf	done	auto
+displayPref	ghostFrames	done	auto
 displayPref	materialLoadingMode	done	auto
 displayPref	maxHardwareTextureResolution	done	auto
 displayPref	maxTextureResolution	done	auto
-displayPref	mhr	missing	
+displayPref	mhr	done	auto
 displayPref	mld	done	auto
 displayPref	mtr	done	auto
 displayPref	pet	done	auto
@@ -9903,18 +9903,18 @@ displaySmoothness	simplifyU	done	auto
 displaySmoothness	simplifyV	done	auto
 displaySmoothness	su	done	auto
 displaySmoothness	sv	done	auto
-displayString	d	missing	
-displayString	delete	missing	
-displayString	ex	missing	
-displayString	exists	missing	
-displayString	k	missing	
-displayString	keys	missing	
-displayString	q	missing	
-displayString	query	missing	
-displayString	r	missing	
-displayString	replace	missing	
-displayString	v	missing	
-displayString	value	missing	
+displayString	d	done	auto
+displayString	delete	done	auto
+displayString	ex	done	auto
+displayString	exists	done	auto
+displayString	k	done	auto
+displayString	keys	done	auto
+displayString	q	done	auto
+displayString	query	done	auto
+displayString	r	done	auto
+displayString	replace	done	auto
+displayString	v	done	auto
+displayString	value	done	auto
 displaySurface	flipNormals	done	auto
 displaySurface	flp	done	auto
 displaySurface	q	done	auto
@@ -10906,54 +10906,54 @@ evaluationManager	safeMode	done	auto
 evaluationManager	sfm	done	auto
 evaluationManager	upstreamFrom	done	auto
 evaluationManager	ust	done	auto
-evaluator	c	missing	
-evaluator	cl	missing	
-evaluator	clusters	missing	
-evaluator	configuration	missing	
-evaluator	en	missing	
-evaluator	enable	missing	
-evaluator	i	missing	
-evaluator	info	missing	
-evaluator	n	missing	
-evaluator	name	missing	
-evaluator	nodeType	missing	
-evaluator	nodeTypeChildren	missing	
-evaluator	nt	missing	
-evaluator	ntc	missing	
-evaluator	p	missing	
-evaluator	priority	missing	
-evaluator	q	missing	
-evaluator	query	missing	
-evaluator	valueName	missing	
-evaluator	vn	missing	
-event	count	missing	
-event	ct	missing	
-event	d	missing	
-event	delete	missing	
-event	die	missing	
-event	dieAtCollision	missing	
-event	e	missing	
-event	edit	missing	
-event	em	missing	
-event	emit	missing	
-event	list	missing	
-event	ls	missing	
-event	n	missing	
-event	name	missing	
-event	pr	missing	
-event	proc	missing	
-event	q	missing	
-event	query	missing	
-event	r	missing	
-event	random	missing	
-event	re	missing	
-event	rename	missing	
-event	sp	missing	
-event	spl	missing	
-event	split	missing	
-event	spread	missing	
-event	t	missing	
-event	target	missing	
+evaluator	c	done	auto
+evaluator	cl	done	auto
+evaluator	clusters	done	auto
+evaluator	configuration	done	auto
+evaluator	en	done	auto
+evaluator	enable	done	auto
+evaluator	i	done	auto
+evaluator	info	done	auto
+evaluator	n	done	auto
+evaluator	name	done	auto
+evaluator	nodeType	done	auto
+evaluator	nodeTypeChildren	done	auto
+evaluator	nt	done	auto
+evaluator	ntc	done	auto
+evaluator	p	done	auto
+evaluator	priority	done	auto
+evaluator	q	done	auto
+evaluator	query	done	auto
+evaluator	valueName	done	auto
+evaluator	vn	done	auto
+event	count	done	auto
+event	ct	done	auto
+event	d	done	auto
+event	delete	done	auto
+event	die	done	auto
+event	dieAtCollision	done	auto
+event	e	done	auto
+event	edit	done	auto
+event	em	done	auto
+event	emit	done	auto
+event	list	done	auto
+event	ls	done	auto
+event	n	done	auto
+event	name	done	auto
+event	pr	done	auto
+event	proc	done	auto
+event	q	done	auto
+event	query	done	auto
+event	r	done	auto
+event	random	done	auto
+event	re	done	auto
+event	rename	done	auto
+event	sp	done	auto
+event	spl	done	auto
+event	split	done	auto
+event	spread	done	auto
+event	t	done	auto
+event	target	done	auto
 exactWorldBoundingBox	calculateExactly	done	auto
 exactWorldBoundingBox	ce	done	auto
 exactWorldBoundingBox	ignoreInvisible	done	auto
@@ -11020,39 +11020,39 @@ expandedSelection	d	done	auto
 expandedSelection	depth	done	auto
 expandedSelection	et	done	auto
 expandedSelection	expansionType	done	auto
-exportEdits	ec	missing	
-exportEdits	editCommand	missing	
-exportEdits	ehr	missing	
-exportEdits	en	missing	
-exportEdits	excludeHierarchy	missing	
-exportEdits	excludeNode	missing	
-exportEdits	exportSelected	missing	
-exportEdits	exs	missing	
-exportEdits	f	missing	
-exportEdits	force	missing	
-exportEdits	ian	missing	
-exportEdits	ic	missing	
-exportEdits	idf	missing	
-exportEdits	includeAnimation	missing	
-exportEdits	includeConstraints	missing	
-exportEdits	includeDeformers	missing	
-exportEdits	includeNetwork	missing	
-exportEdits	includeNode	missing	
-exportEdits	includeSetAttrs	missing	
-exportEdits	includeSetDrivenKeys	missing	
-exportEdits	includeShaders	missing	
-exportEdits	inw	missing	
-exportEdits	isa	missing	
-exportEdits	ish	missing	
-exportEdits	onReferenceNode	missing	
-exportEdits	orn	missing	
-exportEdits	q	missing	
-exportEdits	query	missing	
-exportEdits	sdk	missing	
-exportEdits	sel	missing	
-exportEdits	selected	missing	
-exportEdits	typ	missing	
-exportEdits	type	missing	
+exportEdits	ec	done	auto
+exportEdits	editCommand	done	auto
+exportEdits	ehr	done	auto
+exportEdits	en	done	auto
+exportEdits	excludeHierarchy	done	auto
+exportEdits	excludeNode	done	auto
+exportEdits	exportSelected	done	auto
+exportEdits	exs	done	auto
+exportEdits	f	done	auto
+exportEdits	force	done	auto
+exportEdits	ian	done	auto
+exportEdits	ic	done	auto
+exportEdits	idf	done	auto
+exportEdits	includeAnimation	done	auto
+exportEdits	includeConstraints	done	auto
+exportEdits	includeDeformers	done	auto
+exportEdits	includeNetwork	done	auto
+exportEdits	includeNode	done	auto
+exportEdits	includeSetAttrs	done	auto
+exportEdits	includeSetDrivenKeys	done	auto
+exportEdits	includeShaders	done	auto
+exportEdits	inw	done	auto
+exportEdits	isa	done	auto
+exportEdits	ish	done	auto
+exportEdits	onReferenceNode	done	auto
+exportEdits	orn	done	auto
+exportEdits	q	done	auto
+exportEdits	query	done	auto
+exportEdits	sdk	done	auto
+exportEdits	sel	done	auto
+exportEdits	selected	done	auto
+exportEdits	typ	done	auto
+exportEdits	type	done	auto
 expression	a	done	auto
 expression	ae	done	auto
 expression	alwaysEvaluate	done	auto

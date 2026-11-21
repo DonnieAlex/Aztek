@@ -135,7 +135,12 @@ pub struct Signal {
     pub anim_bad: bool,
     /// Contact normal this substep, for bounce.
     pub normal: DVec3,
+    /// What that contact was with: a collider's body plus one, `HIT_GROUND` for the ground plane, 0 for nothing.
+    pub hit: u32,
 }
+
+/// `Signal::hit` for the ground plane.
+pub const HIT_GROUND: u32 = u32::MAX;
 
 /// Which side of each nearby collider a particle belongs on: (collider body, +1 or -1). Four at most.
 #[derive(Clone, Copy, Debug, Default)]
@@ -279,6 +284,10 @@ pub struct Solver {
     pub(crate) blend_ws: Vec<f64>,
     /// With DYN_JUMP: the largest move each phase made this frame, and by which particle.
     pub jumps: std::collections::BTreeMap<&'static str, (usize, f64)>,
+    /// What each particle first hit this frame, as `Signal::hit`: 0 for nothing. Collision events read it.
+    pub frame_hits: Vec<u32>,
+    /// Particles to remove at the next frame, by id: those a collision event kills.
+    pub doomed: std::collections::HashSet<u64>,
 }
 
 impl Default for Solver {
@@ -309,6 +318,8 @@ impl Solver {
             rest_now: Vec::new(),
             blend_ws: Vec::new(),
             jumps: Default::default(),
+            frame_hits: Vec::new(),
+            doomed: Default::default(),
         }
     }
 
@@ -628,7 +639,7 @@ impl Solver {
                             if i >= old.len() {
                                 break;
                             }
-                            let dead = s.lifespan_mode != crate::body::Lifespan::Forever && old.age[i] >= old.life[i];
+                            let dead = (s.lifespan_mode != crate::body::Lifespan::Forever && old.age[i] >= old.life[i]) || self.doomed.contains(&old.id[i]);
                             if !dead {
                                 push(&mut pt, Some((&old, i)), old.x[i], old.v[i], old.inv_mass[i], old.radius[i], bi as u32, 0, Phase::Particle);
                             }
@@ -702,6 +713,8 @@ impl Solver {
             }
         }
         let n = self.pt.len();
+        self.doomed.clear();
+        self.frame_hits = vec![0; n];
         self.pt.x0.clone_from(&self.pt.x);
         self.rest_now = self.bodies.iter().map(|b| crate::constraints::rest_from_input(b)).collect();
         self.has_anim = (0..n).map(|i| matches!(self.pt.phase[i], Phase::Cloth)).collect();
@@ -725,6 +738,11 @@ impl Solver {
                 self.stats.ms_prepare += t.elapsed().as_secs_f64() * 1e3;
             }
             self.substep(h, a0, a1, s + 1 == substeps);
+            for (i, sig) in self.pt.sig.iter().enumerate() {
+                if sig.hit != 0 && self.frame_hits.get(i) == Some(&0) {
+                    self.frame_hits[i] = sig.hit;
+                }
+            }
         }
         let t1 = std::time::Instant::now();
         crate::constraints::tear(self);

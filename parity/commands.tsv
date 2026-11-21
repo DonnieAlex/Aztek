@@ -228,21 +228,21 @@ dataStructure	done	auto
 date	done	auto
 dbcount	done	auto
 dbfootprint	done	auto
-dbmessage	missing	
-dbpeek	missing	
-dbtrace	missing	
+dbmessage	done	auto
+dbpeek	done	auto
+dbtrace	done	auto
 defaultLightListCheckBox	missing	
 defaultNavigation	done	auto
-defineDataServer	missing	
+defineDataServer	done	auto
 defineVirtualDevice	missing	
 deformableShape	done	auto
 deformer	done	auto
-deformerEvaluator	missing	
+deformerEvaluator	done	auto
 deformerWeights	done	auto
 delete	done	auto
 deleteAttr	done	auto
 deleteAttrPattern	missing	
-deleteExtension	missing	
+deleteExtension	done	auto
 deleteUI	done	auto
 deltaMush	done	auto
 detachCurve	done	auto
@@ -252,18 +252,18 @@ deviceEditor	missing
 deviceManager	missing	
 devicePanel	missing	
 dgInfo	done	auto
-dgValidateCurve	missing	
+dgValidateCurve	done	auto
 dgdirty	done	auto
 dgeval	done	auto
-dgfilter	missing	
-dgmodified	missing	
+dgfilter	done	auto
+dgmodified	done	auto
 dgtimer	done	auto
 dimWhen	done	auto
 directKeyCtx	done	auto
 directionalLight	done	auto
 dirmap	done	auto
 disable	done	auto
-disableIncorrectNameWarning	missing	
+disableIncorrectNameWarning	done	auto
 disconnectAttr	done	auto
 disconnectJoint	done	auto
 diskCache	missing	
@@ -275,7 +275,7 @@ displayLevelOfDetail	done	auto
 displayPref	done	auto
 displayRGBColor	done	auto
 displaySmoothness	done	auto
-displayString	missing	
+displayString	done	auto
 displaySurface	done	auto
 distanceDimContext	missing	
 distanceDimension	done	auto
@@ -316,13 +316,13 @@ encodeString	done	auto
 error	done	auto
 evalDeferred	done	auto
 evaluationManager	done	auto
-evaluator	missing	
-event	missing	
+evaluator	done	auto
+event	done	auto
 exactWorldBoundingBox	done	auto
 excludeObjectDisplayPreset	done	auto
 exclusiveLightCheckBox	missing	
 expandedSelection	done	auto
-exportEdits	missing	
+exportEdits	done	auto
 expression	done	auto
 expressionEditorListen	done	auto
 extendCurve	done	auto
@@ -330,7 +330,7 @@ extendSurface	done	auto
 extrude	done	auto
 falloffCurve	missing	
 falloffCurveAttr	missing	
-fcheck	missing	
+fcheck	done	auto
 file	done	auto
 fileBrowserDialog	missing	
 fileDialog	done	auto

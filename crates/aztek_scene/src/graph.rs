@@ -832,6 +832,9 @@ impl EvalView<'_> {
         let ctx = self.ctx;
         n.behavior.set_node_name(&n.name);
         crate::sys_misc::count("compute", &n.data.ty.name);
+        if crate::db_cmds::active() {
+            crate::db_cmds::hook(self.serial, crate::db_cmds::Ev::Compute, &n.name, &n.data.ty.name, None, None);
+        }
         if crate::dg_timer::active() {
             let t0 = std::time::Instant::now();
             n.behavior.compute(&ctx, &mut n.data);
@@ -965,6 +968,8 @@ pub struct Graph {
     /// addExtension's attributes: (node type, definition). Every node of the type or one derived from it gets them as
     /// it is made. Kept across new scenes, as the reference keeps them for the session.
     pub extensions: Vec<(String, AttrDef)>,
+    /// The nodes changed since the scene was last opened, saved or made new (dgmodified).
+    modified: HashSet<NodeId>,
 }
 
 impl Default for Graph {
@@ -1075,6 +1080,7 @@ impl Graph {
             live: Vec::new(),
             default_lines: BTreeMap::new(),
             extensions: Vec::new(),
+            modified: HashSet::new(),
         }
     }
 
@@ -1142,7 +1148,7 @@ impl Graph {
         r
     }
 
-    fn record(
+    pub(crate) fn record(
         &mut self,
         undo: impl FnMut(&mut Graph) + 'static,
         redo: impl FnMut(&mut Graph) + 'static,
@@ -1583,6 +1589,8 @@ impl Graph {
             inverted: true,
         });
         crate::sys_misc::count("createNode", &ty.name);
+        self.modified.insert(id);
+        self.db_note(crate::db_cmds::Ev::NodeAdded, id, None, None);
         // addExtension's attributes for its type: a copy already has them.
         if !self.extensions.is_empty() {
             let wanted: Vec<AttrDef> = self.extensions.iter().filter(|(t, _)| ty.is_a(t)).map(|(_, d)| d.clone()).collect();
@@ -1636,6 +1644,8 @@ impl Graph {
         if self.node(id).is_none() {
             return Ok(());
         }
+        self.db_note(crate::db_cmds::Ev::NodeRemoved, id, None, None);
+        self.modified.remove(&id);
         if self.delete_depth == 0 {
             if let Some(hook) = self.delete_hook.clone() {
                 let mut doomed = vec![id];
@@ -1864,6 +1874,8 @@ impl Graph {
             return Ok(new_name);
         }
         self.rename_raw(id, &new_name);
+        self.modified.insert(id);
+        self.db_note(crate::db_cmds::Ev::Renamed, id, None, Some(old_name.clone()));
         let (o, nn) = (old_name, new_name.clone());
         self.record(
             move |g| g.rename_raw(id, &o),
@@ -2616,6 +2628,8 @@ impl Graph {
                 return Ok(());
             }
             self.set_raw(&p, &v);
+            self.modified.insert(p.node);
+            self.db_note(crate::db_cmds::Ev::Set, p.node, Some(&p), None);
             self.record(
                 move |g| match &was {
                     Some(old) => g.set_raw(&p, old),
@@ -2635,6 +2649,8 @@ impl Graph {
             return Ok(());
         }
         self.set_raw(&p, &v);
+        self.modified.insert(p.node);
+        self.db_note(crate::db_cmds::Ev::Set, p.node, Some(&p), None);
         let held = if matches!(
             v,
             PlugValue::Mesh(_) | PlugValue::Data(_) | PlugValue::String(_)
@@ -2974,6 +2990,11 @@ impl Graph {
         if let Some(n) = self.nodes.get(&dst.node) {
             crate::sys_misc::count("connect", &n.data.ty.name);
         }
+        self.modified.insert(dst.node);
+        if crate::db_cmds::active() {
+            let from = self.plug_name(src);
+            self.db_note(crate::db_cmds::Ev::Connected, dst.node, Some(&dst), Some(from));
+        }
 
         let mut clashing = Vec::new();
         if dst.component >= 0 {
@@ -3059,6 +3080,11 @@ impl Graph {
     pub fn disconnect(&mut self, dst: &PlugRef) {
         let Some(s) = self.source(dst) else { return };
         let d = *dst;
+        self.modified.insert(d.node);
+        if crate::db_cmds::active() {
+            let from = self.plug_name(&s);
+            self.db_note(crate::db_cmds::Ev::Disconnected, d.node, Some(&d), Some(from));
+        }
         self.disconnect_raw(&d);
         self.record(
             move |g| g.connect_raw(&s, &d),
@@ -3330,6 +3356,7 @@ impl Graph {
     /// Adds an attr to one node, after its type's, flagged USER (plus INPUT and STORABLE). A Vec3 without child names
     /// gets <name>X/Y/Z. Errors when the name or short name is taken. Returns its index.
     pub fn add_attr(&mut self, id: NodeId, mut def: AttrDef) -> Result<usize> {
+        self.modified.insert(id);
         let n = self
             .node(id)
             .ok_or_else(|| GraphError::invalid("no such node"))?;
@@ -3396,6 +3423,7 @@ impl Graph {
 
     /// Removes a user attr with its connections and value. Later user attrs move down one index.
     pub fn delete_attr(&mut self, p: &PlugRef) -> Result<()> {
+        self.modified.insert(p.node);
         let n = self
             .node(p.node)
             .ok_or_else(|| GraphError::invalid("no such node"))?;
@@ -3640,6 +3668,9 @@ impl Graph {
             n.dirty = true;
             if let Some(n) = self.nodes.get(&cur) {
                 crate::sys_misc::count("dirty", &n.data.ty.name);
+                if crate::db_cmds::active() {
+                    crate::db_cmds::hook(self.serial, crate::db_cmds::Ev::Dirty, &n.name, &n.data.ty.name, None, None);
+                }
             }
             if crate::dg_timer::active() {
                 crate::dg_timer::record_dirty(self.serial, cur);
@@ -4069,6 +4100,26 @@ impl Graph {
     // Listeners
 
     /// Which graph this is, for the message notes.
+    /// What dbmessage and dbtrace hear: an event on a node, and on one of its plugs where there is one.
+    fn db_note(&self, ev: crate::db_cmds::Ev, id: NodeId, p: Option<&PlugRef>, other: Option<String>) {
+        if !crate::db_cmds::active() {
+            return;
+        }
+        let Some(n) = self.nodes.get(&id) else { return };
+        let names = p.and_then(|p| crate::db_cmds::plug_names(self, p));
+        crate::db_cmds::hook(self.serial, ev, &n.name, &n.data.ty.name, names.as_ref().map(|(a, b)| (a.as_str(), b.as_str())), other.as_deref());
+    }
+
+    /// The nodes changed since the scene was last opened, saved or made new.
+    pub fn modified_nodes(&self) -> Vec<NodeId> {
+        self.modified.iter().copied().collect()
+    }
+
+    /// The scene is what is on disk, or new: nothing is changed.
+    pub fn clear_modified(&mut self) {
+        self.modified.clear();
+    }
+
     pub fn serial(&self) -> u64 {
         self.serial
     }

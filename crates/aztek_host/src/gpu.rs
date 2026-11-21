@@ -895,6 +895,8 @@ fn wanted_samples() -> u32 {
 /// The sample count the device gives for the one asked for: that, or the next it allows below it.
 fn sample_count(shared: &Shared, want: u32) -> vk::SampleCountFlags {
     let limits = unsafe { shared.instance.get_physical_device_properties(shared.phys) }.limits;
+    // displayPref -q -mhr answers with the card's own largest texture.
+    aztek_scene::system_cmds::MAX_HW_TEXTURE.store(limits.max_image_dimension2_d as i64, std::sync::atomic::Ordering::Relaxed);
     let allowed = limits.framebuffer_color_sample_counts & limits.framebuffer_depth_sample_counts;
     for (n, flag) in [(8, vk::SampleCountFlags::TYPE_8), (4, vk::SampleCountFlags::TYPE_4), (2, vk::SampleCountFlags::TYPE_2)] {
         if want >= n && allowed.contains(flag) {

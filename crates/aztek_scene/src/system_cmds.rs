@@ -58,9 +58,16 @@ pub struct Extras {
     pub extensions: crate::extensions::ExtensionMeta,
     /// What sys_misc's commands hold: backgroundEvaluationManager's settings.
     pub sys: crate::sys_misc::SysState,
+    /// What db_cmds' commands hold: curves' static tags, displayString's strings.
+    pub db: crate::db_cmds::DbState,
+    /// The custom evaluators and the deformer evaluator's settings.
+    pub eval: crate::eval_cmds::EvalState,
 }
 
 /// What a query asks for: the first flag -q names.
+/// The largest texture the viewport's graphics card takes, set by the viewport when it starts.
+pub static MAX_HW_TEXTURE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(16384);
+
 pub(crate) fn q_one(a: &Args) -> Option<String> {
     a.get("queried").and_then(Value::as_array).and_then(|v| v.first()).and_then(Value::as_str).map(str::to_string)
 }
@@ -622,7 +629,6 @@ const DISPLAY_PREF: &[Setting] = &[
     ("fontSettingMode", "fm", I, Def::I(0)),
     ("lineWidth", "lw", F, Def::F(1.0)),
     ("materialLoadingMode", "mld", S, Def::S("immediate")),
-    ("maxHardwareTextureResolution", "mhl", B, Def::B(false)),
     ("maxTextureResolution", "mtr", I, Def::I(4096)),
     ("purgeExistingTextures", "pet", B, Def::B(false)),
     ("regionOfEffect", "roe", B, Def::B(false)),
@@ -1290,6 +1296,39 @@ pub fn register(c: &mut Commands<Session>) {
         .undoable(false),
     );
     setting_store(c, "displayPref", "Viewport display preferences, kept for scripts: each flag sets, -q reads.", DISPLAY_PREF, |s| &mut s.extras.display_pref);
+    // -ghostFrames sets the ghosting options as the ghosting command does; -maxHardwareTextureResolution asks the viewport.
+    crate::ref_core::extend(
+        c,
+        "displayPref",
+        vec![
+            f("ghostFrames", "gf", ArgType::List, "Obsolete: the ghosting command's frames before, frames after and step, as three numbers.").multi(3),
+            f("maxHardwareTextureResolution", "mhr", B, "Query: the largest texture the viewport's graphics card takes."),
+        ],
+        |s, a, prev| {
+            let q = a.bool("query");
+            if q && q_one(a).as_deref() == Some("maxHardwareTextureResolution") || (q && a.bool("maxHardwareTextureResolution")) {
+                return Ok(json!(MAX_HW_TEXTURE.load(std::sync::atomic::Ordering::Relaxed)));
+            }
+            if q && (q_one(a).as_deref() == Some("ghostFrames") || a.has("ghostFrames")) {
+                return Ok(json!(["preFrames", "postFrames", "ghostsStep"].iter().map(|k| crate::anim_extra::ghost_option(s, k).as_i64().unwrap_or(1)).collect::<Vec<_>>()));
+            }
+            if !q {
+                if let Some(Value::Array(v)) = a.get("ghostFrames") {
+                    let n: Vec<i64> = v.iter().filter_map(|x| x.as_i64().or_else(|| x.as_f64().map(|f| f as i64))).collect();
+                    if n.len() != 3 {
+                        fail!("displayPref: -ghostFrames takes three numbers: frames before, frames after, step");
+                    }
+                    for (k, x) in ["preFrames", "postFrames", "ghostsStep"].iter().zip(n) {
+                        s.extras.more.ghosting.insert(k.to_string(), json!(x));
+                    }
+                }
+                if a.bool("maxHardwareTextureResolution") {
+                    fail!("displayPref: -maxHardwareTextureResolution can only be queried");
+                }
+            }
+            prev(s, a)
+        },
+    );
     setting_store(c, "displayStats", "Which statistics a viewport shows, kept for scripts: each flag sets, -q reads.", DISPLAY_STATS, |s| &mut s.extras.display_stats);
     c.register(
         q_flags(Cmd::new("displaySurface", "How the named or selected surfaces draw: -x X-ray (see-through), -two two-sided (off culls the back faces, and the shape renders single sided), -flp flips the normals drawn. -q reads the first.", |s, a| {

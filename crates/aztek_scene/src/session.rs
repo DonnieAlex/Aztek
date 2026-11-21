@@ -178,6 +178,11 @@ impl Session {
         crate::system_cmds::register(&mut s.commands);
         crate::extensions::register(&mut s.commands);
         crate::sys_misc::register(&mut s.commands);
+        crate::db_cmds::register(&mut s.commands);
+        crate::eval_cmds::register(&mut s.commands);
+        crate::dyn_events::register(&mut s.commands);
+        crate::export_edits::register(&mut s.commands);
+        crate::input_devices::register(&mut s.commands);
         crate::references::register(&mut s.commands);
         crate::rig_misc::register(&mut s.commands);
         crate::anim_misc::register(&mut s.commands);
@@ -216,6 +221,7 @@ impl Session {
         crate::rig::install(&mut s.graph);
         crate::dyn_solve::install(&mut s.graph);
         s.load_naming_policy();
+        s.graph.clear_modified();
         s
     }
 
@@ -342,5 +348,6 @@ impl Session {
     /// What's in the scene now is what's on disk, or a new scene.
     pub fn mark_saved(&mut self) {
         self.saved_state = Some(self.graph.undo_stack().newest_id());
+        self.graph.clear_modified();
     }
 }

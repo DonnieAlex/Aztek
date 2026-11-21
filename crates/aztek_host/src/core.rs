@@ -361,7 +361,18 @@ impl Core {
         self.drain_captured();
         self.run_callbacks(scripts);
         self.run_callbacks(deferred);
+        self.run_event_procs();
         self.in_idle = false;
+    }
+
+    /// The procedures particle collision events asked for, called as proc("object", id, "objectHit").
+    fn run_event_procs(&mut self) {
+        for (name, obj, id, hit) in aztek_scene::dyn_events::take_calls() {
+            let call = format!("{name}(\"{obj}\", {id}, \"{hit}\");");
+            if let Err(e) = self.mel_checked(&call) {
+                self.push(format!("// Error: event procedure {name}: {e} //"), LineKind::Error);
+            }
+        }
     }
 
     /// Runs the scripts of named conditions that are due, and keeps their answers.

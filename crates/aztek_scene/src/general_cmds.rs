@@ -115,6 +115,11 @@ fn expanded_selection(s: &mut Session, a: &Args) -> CmdResult {
 
 const META_ATTR: &str = "aztekMetadata";
 
+/// A node's metadata streams, as JSON: stream name to structure, channel, index type and values.
+pub(crate) fn meta_value(g: &mut Graph, n: NodeId) -> Value {
+    meta_of(g, n)
+}
+
 fn meta_of(g: &mut Graph, n: NodeId) -> Value {
     let Some(i) = g.node(n).and_then(|x| x.ty().attr_index(META_ATTR)) else { return json!({}) };
     match g.value(&plug(n, i)) {

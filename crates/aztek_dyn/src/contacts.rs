@@ -786,6 +786,7 @@ pub(crate) fn solve_colliders(s: &mut Solver, h: f64, a0: f64, a1: f64, last: bo
             let th_p = s.pt.radius[i];
             let mut contacts = 0;
             let mut normals: Vec<DVec3> = Vec::new();
+            let mut hits: Vec<u32> = Vec::new();
             if let Some((gh, gf)) = ground {
                 let target = zone_target(pp.y - gh, xs.y - gh, th_p);
                 let d = pp.y - gh - target;
@@ -798,6 +799,7 @@ pub(crate) fn solve_colliders(s: &mut Solver, h: f64, a0: f64, a1: f64, last: bo
                         pp -= tang * (gf * -d / tl).min(1.0);
                     }
                     normals.push(DVec3::Y);
+                    hits.push(crate::solver::HIT_GROUND);
                     contacts += 1;
                 }
             }
@@ -872,6 +874,7 @@ pub(crate) fn solve_colliders(s: &mut Solver, h: f64, a0: f64, a1: f64, last: bo
                 };
                 contacts += 1;
                 normals.push(nn);
+                hits.push(cb + 1);
                 if w <= 0.0 || move_by <= 0.0 {
                     continue;
                 }
@@ -889,6 +892,7 @@ pub(crate) fn solve_colliders(s: &mut Solver, h: f64, a0: f64, a1: f64, last: bo
             if last {
                 if let Some(nrm) = normals.first() {
                     sig.normal = *nrm;
+                    sig.hit = hits[0];
                 }
                 // What is left after the solve, and whether the animated place is itself inside something.
                 let out = s.pt.rs[i].w < 1.0 || s.pt.rs[i].mode != crate::solver::Mode::Sim;
@@ -936,6 +940,7 @@ pub(crate) fn solve_colliders(s: &mut Solver, h: f64, a0: f64, a1: f64, last: bo
                 }
             } else if let Some(nrm) = normals.first() {
                 sig.normal = *nrm;
+                sig.hit = hits[0];
             }
             if !finite(pp) {
                 pp = s.pt.p[i];

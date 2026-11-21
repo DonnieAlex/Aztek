@@ -108,6 +108,7 @@ pub(crate) fn integrate(s: &mut Solver, h: f64) {
         s.pt.p[i] = p;
         s.v_int.push(v);
         s.pt.sig[i].normal = DVec3::ZERO;
+        s.pt.sig[i].hit = 0;
     }
 }
 

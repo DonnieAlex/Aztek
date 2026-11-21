@@ -161,7 +161,7 @@ fn ghost_default(name: &str) -> Value {
 
 const GHOST_OPTIONS: &[&str] = &["allInRange", "customFrames", "enable", "farOpacity", "geometryFilter", "ghostsStep", "hierarchy", "jointFilter", "locatorFilter", "mode", "nearOpacity", "postColor", "postFrames", "preColor", "preFrames", "preset", "useDriver"];
 
-fn ghost_option(s: &Session, name: &str) -> Value {
+pub(crate) fn ghost_option(s: &Session, name: &str) -> Value {
     s.extras.more.ghosting.get(name).cloned().unwrap_or_else(|| ghost_default(name))
 }
 

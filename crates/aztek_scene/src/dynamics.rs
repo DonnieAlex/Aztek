@@ -241,6 +241,16 @@ pub(crate) fn register_types() {
             data_attr("startPositions", "spns", "Particles made with the particle command, there from the start: x y z each."),
             out_int("count", "cnt", "How many particles there are."),
         ]);
+        // Collision events (the event command): one element of each array per event.
+        for (name, short, _) in crate::dyn_events::ATTRS {
+            let (ty, v) = match *name {
+                "eventName" | "eventTarget" | "eventProc" => (PlugType::String, PlugValue::String(String::new())),
+                "eventDie" | "eventRandom" => (PlugType::Bool, PlugValue::Bool(false)),
+                "eventSpread" => (PlugType::Float, PlugValue::Float(0.0)),
+                _ => (PlugType::Int, PlugValue::Int(0)),
+            };
+            own.push(AttrDef { name: name.to_string(), short_name: short.to_string(), ty, default_value: v, flags: STORED_FLAGS | flags::ARRAY | flags::HIDDEN, doc: "A collision event's setting, one element per event (see the event command).".into(), ..Default::default() });
+        }
         own.extend(resolve_attrs());
         own.extend(body_file());
         register(NodeType {

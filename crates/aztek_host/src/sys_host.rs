@@ -454,7 +454,81 @@ pub fn app_home_instrument() -> String {
     HOME.lock().map(|h| h.instrument.clone()).unwrap_or_default()
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// fcheck
+
+/// The images a name stands for: a file, every file a wildcard matches, or with a trailing dot the numbered images of a
+/// sequence (name.1.png, name.0002.png, ...) in frame order. Relative names are looked for here, then in the project's
+/// images folder.
+pub(crate) fn fcheck_files(s: &mut Session, name: &str) -> (Vec<PathBuf>, bool) {
+    let mut bases: Vec<PathBuf> = vec![std::env::current_dir().unwrap_or_default()];
+    if let Some(p) = aztek_scene::shading::project_dir(s) {
+        bases.push(PathBuf::from(&p).join("images"));
+        bases.push(PathBuf::from(p));
+    }
+    let full = PathBuf::from(name);
+    let candidates: Vec<PathBuf> = if full.is_absolute() { vec![full] } else { bases.iter().map(|b| b.join(name)).collect() };
+    let sequence = name.ends_with('.');
+    let wild = name.contains(['*', '?']);
+    for c in candidates {
+        let dir = c.parent().map(PathBuf::from).unwrap_or_default();
+        let leaf = c.file_name().and_then(|x| x.to_str()).unwrap_or("").to_string();
+        if sequence || wild {
+            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            let mut found: Vec<(i64, PathBuf)> = Vec::new();
+            for e in rd.flatten() {
+                let n = e.file_name().to_string_lossy().to_string();
+                if !e.path().is_file() {
+                    continue;
+                }
+                if sequence {
+                    // stem. then digits, then the extension.
+                    let Some(rest) = n.strip_prefix(&leaf) else { continue };
+                    let digits: String = rest.chars().take_while(|ch| ch.is_ascii_digit()).collect();
+                    if digits.is_empty() || !rest[digits.len()..].starts_with('.') {
+                        continue;
+                    }
+                    found.push((digits.parse().unwrap_or(0), e.path()));
+                } else if aztek_scene::ref_core::glob(&leaf, &n) {
+                    found.push((0, e.path()));
+                }
+            }
+            if !found.is_empty() {
+                found.sort();
+                return (found.into_iter().map(|x| x.1).collect(), sequence);
+            }
+        } else if c.is_file() {
+            return (vec![c], false);
+        }
+    }
+    (Vec::new(), sequence)
+}
+
+/// fcheck: shows images in their own windows; a name ending in a dot plays its numbered sequence.
+fn fcheck(s: &mut Session, a: &Args) -> CmdResult {
+    let names = a.named();
+    if names.is_empty() {
+        fail!("fcheck: give an image file, a pattern, or a sequence name ending in a dot");
+    }
+    for n in names {
+        let (files, sequence) = fcheck_files(s, &n);
+        if files.is_empty() {
+            fail!("fcheck: no image found for {n}");
+        }
+        let list: Vec<String> = files.iter().map(|p| p.to_string_lossy().to_string()).collect();
+        if sequence {
+            push_ui_request(format!("fcheck|{}", json!({"files": list, "sequence": true, "title": n})));
+        } else {
+            for f in list {
+                push_ui_request(format!("fcheck|{}", json!({"files": [f], "sequence": false, "title": f})));
+            }
+        }
+    }
+    Ok(Value::Null)
+}
+
 pub fn register(s: &mut Session) {
+    s.register(Cmd::new("fcheck", "Show images in their own windows: a file, every file a wildcard matches (a window each), or with a trailing dot (mySequence.) the numbered images of a sequence, played.", fcheck).positional("images").undoable(false));
     s.register(
         Cmd::new(
             "callbacks",

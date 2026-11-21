@@ -209,6 +209,15 @@ fn turn_rotation(r: DVec3) -> DVec3 {
 
 /// Makes persp, top, front and side, hidden as the reference's are, plus the default sets. None of it goes on the undo stack.
 pub fn make_defaults(g: &mut Graph) {
+    // Making what every scene has does not change a scene nothing has changed yet (dgmodified).
+    let clean = g.modified_nodes().is_empty();
+    make_defaults_now(g);
+    if clean {
+        g.clear_modified();
+    }
+}
+
+fn make_defaults_now(g: &mut Graph) {
     crate::shading::make_defaults(g);
     if g.find("persp").ok().flatten().is_some() {
         crate::defaults::make(g);

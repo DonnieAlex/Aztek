@@ -22,6 +22,12 @@
 #include "widgets.h"
 
 #include <QApplication>
+#include <QFileInfo>
+#include <QImage>
+#include <QPixmap>
+#include <QTimer>
+#include <QVBoxLayout>
+#include <memory>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
@@ -967,6 +973,49 @@ void MainWindow::handle_ui_request(const QString& r) {
         QTimer::singleShot(0, this, [this, code] {
             if (close()) QCoreApplication::exit(code);
         });
+    } else if (name == "fcheck") {
+        // fcheck: an image in its own window, or a numbered sequence played at the scene's rate.
+        QJsonObject o = parse(payload).toObject();
+        QStringList files;
+        for (const QJsonValue& v : o["files"].toArray()) files << v.toString();
+        if (files.isEmpty()) return;
+        auto* w = new QWidget(nullptr, Qt::Window);
+        w->setAttribute(Qt::WA_DeleteOnClose);
+        w->setWindowTitle("fcheck: " + o["title"].toString());
+        auto* lay = new QVBoxLayout(w);
+        lay->setContentsMargins(0, 0, 0, 0);
+        lay->setSpacing(0);
+        auto* picture = new QLabel;
+        picture->setAlignment(Qt::AlignCenter);
+        picture->setStyleSheet("background: #000;");
+        auto* status = new QLabel;
+        status->setContentsMargins(6, 3, 6, 3);
+        lay->addWidget(picture, 1);
+        lay->addWidget(status);
+        auto show = [picture, status, files](int i) {
+            QImage img(files[i]);
+            if (img.isNull()) {
+                picture->setText("can't read this image");
+            } else {
+                picture->setPixmap(QPixmap::fromImage(img));
+            }
+            status->setText(QString("%1   %2 of %3   %4 x %5").arg(QFileInfo(files[i]).fileName()).arg(i + 1).arg(files.size()).arg(img.width()).arg(img.height()));
+        };
+        show(0);
+        QImage first(files[0]);
+        w->resize(std::max(first.width(), 240), std::max(first.height(), 120) + 24);
+        if (o["sequence"].toBool() && files.size() > 1) {
+            double fps = ask("playbackOptions", QJsonObject{{"query", true}, {"queried", QJsonArray{"framesPerSecond"}}}).toDouble(24);
+            if (fps <= 0) fps = 24.0;
+            auto* timer = new QTimer(w);
+            auto at = std::make_shared<int>(0);
+            QObject::connect(timer, &QTimer::timeout, w, [at, show, n = int(files.size())] {
+                *at = (*at + 1) % n;
+                show(*at);
+            });
+            timer->start(int(1000.0 / fps));
+        }
+        w->show();
     } else if (name == "setTool") {
         set_tool(payload);
     } else if (name == "repeatAdd") {

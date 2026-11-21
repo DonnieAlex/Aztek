@@ -352,7 +352,88 @@ fn edit(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// Whether a node holds other than the default for an attribute: a value set, or array elements.
+fn holds_data(s: &Session, id: crate::plug::NodeId, def: &AttrDef) -> bool {
+    let Some(n) = s.graph.node(id) else { return false };
+    let Some(i) = n.ty().attr_index(&def.name) else { return false };
+    if def.is_array() {
+        return !n.elements(i).is_empty();
+    }
+    *n.value(i) != def.default_value
+}
+
+/// deleteExtension: removes an extension attribute from a node type and its nodes. Nodes holding values for it keep it
+/// unless -forceDelete is on; returns how many nodes lost data.
+fn delete_extension(s: &mut Session, a: &Args) -> CmdResult {
+    let ty = a.string("nodeType", "");
+    let name = a.string("attribute", "");
+    if ty.is_empty() || name.is_empty() {
+        fail!("deleteExtension: -nodeType and -attribute are required");
+    }
+    // A compound: the compound and its children. A child of a compound on its own: refused.
+    let compound = s.extras.extensions.compounds.keys().find(|(t, n)| *t == ty && (*n == name || s.extras.extensions.attrs.get(&(t.clone(), n.clone())).and_then(|m| m.get("shortName")).and_then(Value::as_str) == Some(name.as_str()))).map(|(_, n)| n.clone());
+    let defs: Vec<AttrDef> = match &compound {
+        Some(group) => s.graph.extensions.iter().filter(|(t, d)| *t == ty && d.name.starts_with(&format!("{group}."))).map(|(_, d)| d.clone()).collect(),
+        None => {
+            let Some((_, d)) = find_def(s, &ty, &name) else { fail!("deleteExtension: {ty} has no extension attribute '{name}'") };
+            if d.name.contains('.') {
+                fail!("deleteExtension: '{name}' is a child of a compound: delete the compound");
+            }
+            vec![d.clone()]
+        }
+    };
+    let long = compound.clone().unwrap_or_else(|| defs[0].name.clone());
+    if compound.is_none() && s.extras.extensions.attrs.get(&(ty.clone(), long.clone())).and_then(|m| m.get("parent")).is_some() {
+        fail!("deleteExtension: '{name}' is a child of a compound: delete the compound");
+    }
+    let nodes = nodes_of(s, &ty);
+    let holding: Vec<crate::plug::NodeId> = nodes.iter().copied().filter(|&id| defs.iter().any(|d| holds_data(s, id, d))).collect();
+    let force = match a.get("forceDelete") {
+        Some(v) => on(v),
+        None => {
+            if !holding.is_empty() {
+                log::warn!("deleteExtension: {} nodes hold values for {ty}.{long}; kept. Use -forceDelete on to delete them", holding.len());
+            }
+            false
+        }
+    };
+    if !force && !holding.is_empty() {
+        return Ok(json!(0));
+    }
+    for &id in &nodes {
+        for d in &defs {
+            if let Some(i) = s.graph.node(id).and_then(|n| n.ty().attr_index(&d.name)) {
+                let p = PlugRef::new(id, i as i32);
+                for (dst, src) in s.graph.connections() {
+                    if (dst.node == id && dst.attr == i as i32) || (src.node == id && src.attr == i as i32) {
+                        s.graph.disconnect(&dst);
+                    }
+                }
+                s.graph.without_undo(|g| g.delete_attr(&p))?;
+            }
+        }
+    }
+    s.graph.extensions.retain(|(t, d)| !(*t == ty && defs.iter().any(|x| x.name == d.name)));
+    s.extras.extensions.attrs.retain(|(t, n), m| !(*t == ty && (*n == long || m.get("parent").and_then(Value::as_str) == Some(long.as_str()))));
+    if compound.is_some() {
+        s.extras.extensions.compounds.remove(&(ty.clone(), long.clone()));
+    }
+    Ok(json!(holding.len()))
+}
+
 pub fn register(c: &mut Commands<Session>) {
+    c.register(
+        Cmd::new(
+            "deleteExtension",
+            "Delete an extension attribute from a node type and its nodes, by long or short name; a compound goes with its \
+             children. Nodes holding values for it keep it unless -forceDelete is on. Returns how many nodes lost data.",
+            delete_extension,
+        )
+        .undoable(false)
+        .flag(f("attribute", "at", S, "The extension attribute, by long or short name."))
+        .flag(f("forceDelete", "fd", A, "On: delete it with every node's values. Off: keep it while any node holds a value for it."))
+        .flag(f("nodeType", "nt", S, "The node type it was added to.")),
+    );
     let mut cmd = crate::system_cmds::q_flags(Cmd::new(
         "addExtension",
         "Add an attribute to every node of a type, those there now and those made later: addExtension -nt mesh -ln mass -at double. \

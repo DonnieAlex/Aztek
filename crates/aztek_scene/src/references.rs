@@ -1333,6 +1333,90 @@ fn edits_for_query(s: &mut Session, at: usize) -> Vec<RefEdit> {
     list
 }
 
+/// One edit as exportEdits writes it.
+pub(crate) struct ExportEdit {
+    pub kind: i32,
+    pub args: Vec<String>,
+    /// The edit's command: setAttr, connectAttr, parent and the rest.
+    pub command: &'static str,
+    /// The nodes it is about, each with its attribute where it has one.
+    pub sides: Vec<(String, Option<String>)>,
+}
+
+/// A reference's edits that succeeded, for exportEdits.
+pub(crate) fn export_list(s: &mut Session, at: usize) -> Vec<ExportEdit> {
+    edits_for_query(s, at)
+        .into_iter()
+        .filter(|e| !e.failed)
+        .map(|e| {
+            let sides = if e.kind == 5 { e.args.iter().take(2).map(|p| p.rsplit_once('.').map_or((p.clone(), None), |(n, at)| (n.to_string(), Some(at.to_string())))).collect() } else { e.targets() };
+            ExportEdit { kind: e.kind, command: if e.kind == 5 { "connectAttr" } else { e.command() }, sides, args: e.args.clone() }
+        })
+        .collect()
+}
+
+/// An edits file's edits (exportEdits writes them as `//edit kind "arg" ...` lines): each applied to the scene's nodes
+/// now, a connection (kind 5) made. Returns how many took.
+pub(crate) fn apply_edit_lines(s: &mut Session, text: &str) -> usize {
+    let mut done = 0;
+    for line in text.lines() {
+        let Some(rest) = line.strip_prefix("//edit ") else { continue };
+        let (kind, rest) = rest.split_once(' ').unwrap_or((rest, ""));
+        let Ok(kind) = kind.parse::<i32>() else { continue };
+        // Quoted arguments, with \" and \\ inside.
+        let mut args = Vec::new();
+        let mut cur: Option<String> = None;
+        let mut esc = false;
+        for ch in rest.chars() {
+            match (&mut cur, ch) {
+                (None, '"') => cur = Some(String::new()),
+                (None, _) => {}
+                (Some(t), c) if esc => {
+                    t.push(c);
+                    esc = false;
+                }
+                (Some(_), '\\') => esc = true,
+                (Some(_), '"') => args.push(cur.take().unwrap()),
+                (Some(t), c) => t.push(c),
+            }
+        }
+        let ok = if kind == 5 {
+            let g = &mut s.graph;
+            match (args.first().and_then(|a| find_plug(g, a)), args.get(1).and_then(|b| find_plug(g, b))) {
+                (Some(a), Some(b)) => g.source(&b) == Some(a) || g.connect(&a, &b, true).is_ok(),
+                _ => false,
+            }
+        } else {
+            apply_one(s, &mut RefEdit::new(kind, args))
+        };
+        if ok {
+            done += 1;
+        } else {
+            log::warn!("an edit could not be applied: {line}");
+        }
+    }
+    done
+}
+
+/// An edit as an edits file's line: `//edit kind "arg" ...`.
+pub(crate) fn edit_file_line(kind: i32, args: &[String]) -> String {
+    let mut out = format!("//edit {kind}");
+    for a in args {
+        out.push_str(&format!(" \"{}\"", a.replace('\\', "\\\\").replace('"', "\\\"")));
+    }
+    out
+}
+
+/// The reference a reference node, file or namespace names.
+pub(crate) fn entry_named(s: &Session, name: &str) -> Option<usize> {
+    entry_of(s, name)
+}
+
+/// The reference a node belongs to.
+pub(crate) fn entry_holding(s: &Session, name: &str) -> Option<usize> {
+    entry_of_node(s, name)
+}
+
 fn conn_text(e: &RefEdit) -> String {
     if e.kind == 5 {
         format!("connectAttr \"{}\" \"{}\"", e.args[0], e.args[1])
@@ -1677,6 +1761,17 @@ pub(crate) fn file_connection(s: &mut Session, a: &str, b: &str, src_ref: bool, 
         .and_then(|o| t.entries.iter().find(|e| e.rfn == o).map(|e| e.id))
         .or_else(|| by_ns(t, &src))
         .or_else(|| by_ns(t, &dst));
+    // A reference the scene had before this file and has loaded (an import into it, as of an edits file): connect now.
+    if let Some(i) = id.filter(|i| !nested && !t.fresh.contains(i) && t.entries.iter().any(|e| e.id == *i && e.loaded)) {
+        let _ = i;
+        let g = &mut s.graph;
+        if let (Some(a), Some(b)) = (find_plug(g, &src), find_plug(g, &dst)) {
+            if g.source(&b) == Some(a) || g.connect(&a, &b, true).is_ok() {
+                return;
+            }
+        }
+    }
+    let t = &mut s.extras.references;
     let Some(e) = id.and_then(|i| t.entries.iter_mut().find(|e| e.id == i)) else { return };
     let c = RefConn { src, dst, src_ref, dst_ref, failed: false };
     if nested {
