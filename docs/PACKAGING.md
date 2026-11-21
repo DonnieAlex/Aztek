@@ -18,23 +18,24 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | Package | Built on | Script | Qt | Python |
 | --- | --- | --- | --- | --- |
 | `aztek-<version>-1.el8.x86_64.rpm` | `rockylinux:8` container | `packaging/rpm/build-rpm.sh` | 6.8.3 bundled | 3.12 bundled |
-| `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | 6.8.3 bundled | 3.12 bundled |
-| `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | 6.8.3 bundled | 3.12 bundled |
-| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | 6.8.3 bundled | 3.12 bundled |
-| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.8.3 bundled | 3.12 bundled |
-| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8.3 bundled | 3.12 bundled |
-| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | 6.8.3 bundled | 3.12 bundled |
+| `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | 6.12.0 bundled | 3.12 bundled |
+| `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | 6.12.0 bundled | 3.12 bundled |
+| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | 6.12.0 bundled | 3.12 bundled |
+| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.12.0 bundled | 3.12 bundled |
+| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.12.0 bundled | 3.12 bundled |
+| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | 6.12.0 bundled | 3.12 bundled |
 | `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `build.sh`, `packaging/appimage/pack-appimage.sh` | 6.8.3 bundled | 3.12 bundled |
 | `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.12 bundled |
 
-Every package except the ARM AppImage carries Qt 6.8.3, Python 3.12 and PySide6/shiboken6 6.8.3. The ARM AppImage is
-the one exception: aqtinstall has no Linux arm64 kit for 6.8.3 and PySide6 has no arm64 Linux wheel, so it uses Rocky 9's
-Qt and goes without PySide6 until a Qt with an arm64 kit is pinned.
+Every package except the ARM AppImage carries Python 3.12 and PySide6/shiboken6 at its Qt version: 6.12.0, or 6.8.3 on
+Rocky 8 and the AppImage built there, whose C library is older than 6.12's Linux wheels need. The ARM AppImage is the
+other exception: it uses Rocky 9's Qt and goes without PySide6, as there is no arm64 Linux kit or wheel.
 
 ## Rocky Linux
 
-Both Rocky 8 and 9 install the same self-contained build. The RPM carries Qt 6.8.3, Python 3.12 and PySide6/shiboken6
-6.8.3 in `/opt/aztek`, and `/usr/bin/aztek` starts it. Nothing else has to be installed.
+Both Rocky 8 and 9 install the same self-contained build. The RPM carries Python 3.12 and PySide6/shiboken6 at its Qt
+version, 6.12.0 (6.8.3 on Rocky 8, whose C library is older than 6.12's Linux wheels need), in `/opt/aztek`, and
+`/usr/bin/aztek` starts it. Nothing else has to be installed.
 
     dnf install ./aztek-*.rpm
 
@@ -105,9 +106,9 @@ libraries the bundle still takes (X11, fontconfig, glib, freetype) come from the
 
 ## Windows
 
-`build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt 6.8.3 from `windeployqt`, the
+`build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt 6.12.0 from `windeployqt`, the
 VC runtime copied beside the exe, Python 3.12's DLL with its standard library in `Lib` and its extension modules in
-`DLLs`, and PySide6/shiboken6 6.8.3 in `Lib\site-packages`. Qt and Python are fetched into `build\` by
+`DLLs`, and PySide6/shiboken6 6.12.0 in `Lib\site-packages`. Qt and Python are fetched into `build\` by
 `tools\qt\fetch-qt.ps1` and `tools\python\fetch-python.ps1`, and PySide6 by `tools\python\fetch-pyside.ps1`; none is
 taken from the machine. The installer carries the folder, so it needs no Qt or Python where it installs.
 
@@ -139,7 +140,7 @@ release yet: when it fails, the other packages still go out.
 - `Aztek.app` carries Qt (`macdeployqt`), `libpython3.12.dylib` and `libMoltenVK.dylib` in `Contents/Frameworks`, and
   Python's standard library with PySide6/shiboken6 in `Contents/Resources/python`, with an ad-hoc signature. It isn't
   notarized: the first start is a right-click and Open.
-- Every build fetches Qt 6.8.3, Python 3.12 and PySide6 6.8.3 into `build/`; nothing comes from Homebrew but the build
+- Every build fetches Qt 6.12.0, Python 3.12 and PySide6 6.12.0 into `build/`; nothing comes from Homebrew but the build
   tools.
 - `gpu.rs` loads MoltenVK from the bundle first, then a Vulkan loader on the library path, then Homebrew's folders.
   The viewport draws through `AZTEK_APPKIT`: the widget's `NSView`, with a Metal layer from `ash_window`.
