@@ -1,0 +1,695 @@
+// TimeSliderMenu: the right-click menu the reference puts on its time slider, built under whatever control a caller
+// gives, and the key editing and playback range procedures its items run. Aztek's own time slider is native and has
+// its own menu; this is for scripts that build the reference's. The menu's items are made the first time it opens and
+// brought up to date every time after.
+//
+// The key procedures work on the keys inside the slider's range, on the objects it shows ticks for: the active ones,
+// or the curves of the Channel Box's attributes. With ticks turned off they do nothing.
+
+// ---- Local helpers ----
+
+// The time slider these procedures work on.
+proc string TimeSliderMenu_slider()
+{
+    global string $gPlayBackSlider;
+    return $gPlayBackSlider;
+}
+
+// What the slider shows ticks for: active, none, or a Channel Box's name.
+proc string TimeSliderMenu_showKeys()
+{
+    return `timeControl -query -showKeys (TimeSliderMenu_slider())`;
+}
+
+// The slider's range as "start:end", quotes included.
+proc string TimeSliderMenu_range()
+{
+    return `timeControl -query -range (TimeSliderMenu_slider())`;
+}
+
+// Whether the slider shows the Channel Box's keys together with the object's. Aztek's timeControl can't say, which
+// counts as off.
+proc int TimeSliderMenu_showKeysCombined()
+{
+    int $on = 0;
+    if (catchQuiet($on = `timeControl -query -showKeysCombined (TimeSliderMenu_slider())`))
+        return 0;
+    return $on;
+}
+
+// Whether the slider shows animation layer weights. Aztek's timeControl gives nothing back for it, which counts as off.
+proc int TimeSliderMenu_showWeight()
+{
+    int $on = 0;
+    if (catchQuiet($on = `timeControl -query -animLayerShowWeight (TimeSliderMenu_slider())`))
+        return 0;
+    return $on;
+}
+
+// The objects animation is shown for, as a list and as one string. expandSelectionConnection holds both procedures.
+proc TimeSliderMenu_loadExpand()
+{
+    if (!`exists expandSelectionConnectionAsArray`)
+        eval "source expandSelectionConnection";
+}
+
+proc string[] TimeSliderMenu_animationTargets()
+{
+    TimeSliderMenu_loadExpand();
+    return eval("expandSelectionConnectionAsArray \"animationList\"");
+}
+
+proc string TimeSliderMenu_animationList()
+{
+    TimeSliderMenu_loadExpand();
+    return eval("expandSelectionConnection \"animationList\"");
+}
+
+// $items without the grease pencil sequences, which have no keys of this kind.
+proc string[] TimeSliderMenu_filter(string $items[])
+{
+    string $kept[];
+    for ($item in $items) {
+        if (`objExists $item` && `nodeType $item` == "greasePencilSequence")
+            continue;
+        $kept[size($kept)] = $item;
+    }
+    return $kept;
+}
+
+// The Channel Box's selected attributes (main, shape, then history), when there is a way to ask for them.
+proc string[] TimeSliderMenu_channelBoxAttrs()
+{
+    global string $gChannelBoxName;
+    string $attrs[];
+    if (`exists selectedChannelBoxAttributes`)
+        return eval("selectedChannelBoxAttributes");
+    if (`exists channelBox` && $gChannelBoxName != "") {
+        string $main[] = `channelBox -query -selectedMainAttributes $gChannelBoxName`;
+        string $shape[] = `channelBox -query -selectedShapeAttributes $gChannelBoxName`;
+        string $history[] = `channelBox -query -selectedHistoryAttributes $gChannelBoxName`;
+        $attrs = stringArrayCatenate($main, $shape);
+        $attrs = stringArrayCatenate($attrs, $history);
+    }
+    return $attrs;
+}
+
+// Appends each name to a command, ready to eval.
+proc string TimeSliderMenu_append(string $cmd, string $items[])
+{
+    for ($item in $items)
+        $cmd += " " + $item;
+    return $cmd;
+}
+
+// Runs a key command on the slider's curves when ticks come from the Channel Box, or on the active list otherwise,
+// warning with $empty when the active list is empty. Snap, the key conversions and tangents share this.
+proc TimeSliderMenu_runOnTargets(string $cmd, string $empty)
+{
+    if (TimeSliderMenu_showKeys() != "active") {
+        string $curves[] = `timeControl -query -animCurveNames (TimeSliderMenu_slider())`;
+        if (size($curves))
+            eval (TimeSliderMenu_append($cmd, $curves));
+        return;
+    }
+    string $list = TimeSliderMenu_animationList();
+    if ($list == "" || $list == "{}") {
+        warning $empty;
+        return;
+    }
+    eval ($cmd + " " + $list);
+}
+
+// Aztek's pasteKey has no -animation or -includeUpperBound flag and no scaleReplace option, so the copy that runs
+// leaves the first two out and replaces instead.
+proc TimeSliderMenu_runPaste(string $cmd)
+{
+    $cmd = `substitute "-animation objects " $cmd ""`;
+    $cmd = `substitute " -includeUpperBound false" $cmd ""`;
+    $cmd = `substitute "scaleReplace" $cmd "replace"`;
+    eval $cmd;
+}
+
+// The time display the slider uses: frame, fulltimecode or timecode. Aztek's animDisplay only knows whether time
+// code is on, so on is taken as full time code.
+proc string TimeSliderMenu_timeCode()
+{
+    string $value = `animDisplay -query -timeCode`;
+    if ($value == "0")
+        return "frame";
+    if ($value == "1")
+        return "fulltimecode";
+    return $value;
+}
+
+// The playback speed items follow playbackOptions.
+proc TimeSliderMenu_updateSpeed()
+{
+    float $speed = `playbackOptions -query -playbackSpeed`;
+    float $max = `playbackOptions -query -maxPlaybackSpeed`;
+    menuItem -edit -radioButton ($speed == 1) playbackRealtimeItem;
+    menuItem -edit -radioButton ($speed == 0 && $max == 0) playbackFreeItem;
+    menuItem -edit -radioButton ($speed == 0 && $max == 1) playbackPefRealtimeItem;
+}
+
+// A menu item for a runtime command, when Aztek has that command.
+proc TimeSliderMenu_runTimeItem(string $name)
+{
+    if (`runTimeCommand -exists $name`)
+        menuItem -runTimeCommand $name;
+}
+
+// The menu's items, made once.
+proc TimeSliderMenu_build(string $parent)
+{
+    string $slider = TimeSliderMenu_slider();
+    global string $gChannelBoxName;
+    setParent -menu $parent;
+
+    menuItem -label "Cut" -annotation "Cut the keys in the range" -command "evalEcho timeSliderCutKey"
+        timeSliderCutKeyItem;
+    menuItem -label "Copy" -annotation "Copy the keys in the range" -command "evalEcho timeSliderCopyKey"
+        timeSliderCopyKeyItem;
+    menuItem -label "Paste" -subMenu true -tearOff true timeSliderPasteKeyItem;
+        menuItem -label "Paste" -annotation "Paste the copied keys at the current time or into the range"
+            -command "evalEcho \"timeSliderPasteKey false\"" timeSliderPasteItem;
+        menuItem -label "Paste Connect" -annotation "Paste the copied keys, offset to join the existing curve"
+            -command "evalEcho \"timeSliderPasteKey true\"" timeSliderPasteConnectItem;
+    setParent -menu ..;
+    menuItem -label "Delete" -annotation "Delete the keys in the range" -command "evalEcho timeSliderClearKey"
+        timeSliderClearKeyItem;
+    menuItem -label "Snap" -annotation "Move the keys in the range onto whole frames"
+        -command "evalEcho timeSliderSnapKey" timeSliderSnapKeyItem;
+
+    menuItem -label "Keys" -subMenu true -tearOff true timeSliderKeysItem;
+        menuItem -label "Convert to Key" -annotation "Make the breakdowns in the range keys"
+            -command "evalEcho \"timeSliderEditKeys makeKey\"" timeSliderMakeKeyItem;
+        menuItem -label "Convert to Breakdown" -annotation "Make the keys in the range breakdowns"
+            -command "evalEcho \"timeSliderEditKeys makeBreakdown\"" timeSliderMakeBreakdownItem;
+        menuItem -label "Add Inbetween" -annotation "Push the keys after the current time a frame later"
+            -command "evalEcho \"timeSliderEditKeys addInbetween\"" timeSliderAddInbetweenItem;
+        menuItem -label "Remove Inbetween" -annotation "Pull the keys after the current time a frame earlier"
+            -command "evalEcho \"timeSliderEditKeys removeInbetween\"" timeSliderRemoveInbetweenItem;
+        if (`exists buildRemoveKeysSubMenu`)
+            eval "buildRemoveKeysSubMenu \"timeline\"";
+    setParent -menu ..;
+
+    menuItem -label "Tangents" -subMenu true -tearOff true timeSliderTangentsItem;
+        string $tangents[] = {"Spline", "Linear", "Clamped", "Stepped", "Flat", "Plateau", "Auto"};
+        string $types[] = {"spline", "linear", "clamped", "step", "flat", "plateau", "auto"};
+        for ($i = 0; $i < size($types); $i++)
+            menuItem -label $tangents[$i]
+                -annotation ("Give the keys in the range " + tolower($tangents[$i]) + " tangents")
+                -command ("evalEcho \"timeSliderSetTangent " + $types[$i] + "\"")
+                ("timeSlider" + $tangents[$i] + "Item");
+    setParent -menu ..;
+
+    // The blue pencil frame commands are only listed where Aztek has them.
+    menuItem -label "Blue Pencil" -subMenu true -tearOff true bluePencilItems;
+        TimeSliderMenu_runTimeItem("InsertBluePencilFrame");
+        TimeSliderMenu_runTimeItem("DuplicateBluePencilFrame");
+        TimeSliderMenu_runTimeItem("DeleteBluePencilFrame");
+        menuItem -divider true;
+        TimeSliderMenu_runTimeItem("CutBluePencilFrame");
+        TimeSliderMenu_runTimeItem("CopyBluePencilFrame");
+        TimeSliderMenu_runTimeItem("PasteBluePencilFrame");
+        menuItem -divider true;
+        TimeSliderMenu_runTimeItem("ClearBluePencilFrame");
+        menuItem -divider true;
+        menuItem -label "Display Frames" -subMenu true -tearOff true bluePencilDisplayFramesItems;
+            radioMenuItemCollection;
+            menuItem -label "Always" -radioButton false
+                -command "optionVar -intValue bluePencilTimelineFrameDisplay 0" bluePencilFramesAlwaysItem;
+            menuItem -label "Active Selection" -radioButton false
+                -command "optionVar -intValue bluePencilTimelineFrameDisplay 1" bluePencilFramesSelectionItem;
+            menuItem -label "Off" -radioButton false
+                -command "optionVar -intValue bluePencilTimelineFrameDisplay 2" bluePencilFramesOffItem;
+        setParent -menu ..;
+    setParent -menu ..;
+
+    menuItem -label "Create Shot" -command "createShotViaTimelineSelection;";
+
+    // The reference adds its bookmark items here from Python; Aztek has no such module, so there are none.
+
+    menuItem -label "Show Key Channels" -checkBox `optionVar -query timeSliderShowKeyChannels`
+        -command "optionVar -intValue timeSliderShowKeyChannels #1" tlShowKeyChannelsItem;
+    menuItem -divider true;
+
+    // The reference's cache items also come from Python, and are left out for the same reason.
+
+    menuItem -label "Playback Speed" -subMenu true -tearOff true playbackSpeedItem;
+        radioMenuItemCollection;
+        menuItem -label "Real-time" -annotation "Play back at the scene's frame rate, skipping frames to keep up"
+            -radioButton false
+            -command "evalEcho \"playbackOptions -e -playbackSpeed 1 -maxPlaybackSpeed 0\"; updatePlaybackSpeedHUD();"
+            playbackRealtimeItem;
+        menuItem -label "Play Every Frame, Free" -annotation "Play every frame as fast as it can be drawn"
+            -radioButton false
+            -command "evalEcho \"playbackOptions -e -playbackSpeed 0 -maxPlaybackSpeed 0\"; updatePlaybackSpeedHUD();"
+            playbackFreeItem;
+        menuItem -label "Play Every Frame, Max Real-time"
+            -annotation "Play every frame, never faster than the scene's frame rate"
+            -radioButton false
+            -command "evalEcho \"playbackOptions -e -playbackSpeed 0 -maxPlaybackSpeed 1\"; updatePlaybackSpeedHUD();"
+            playbackPefRealtimeItem;
+        TimeSliderMenu_updateSpeed();
+    setParent -menu ..;
+
+    string $mode = TimeSliderMenu_showKeys();
+    menuItem -label "Display Key Ticks" -subMenu true -tearOff true keyDisplayItem;
+        radioMenuItemCollection;
+        menuItem -label "Active" -annotation "Show ticks for the keys of the active objects"
+            -radioButton ($mode == "active")
+            -command ("timeControl -edit -showKeys \"active\" " + $slider) keyDisplayActiveItem;
+        menuItem -label "Channel Box" -annotation "Show ticks for the keys of the Channel Box's attributes"
+            -radioButton ($mode == $gChannelBoxName)
+            -command ("timeControl -edit -showKeys \"" + $gChannelBoxName + "\" " + $slider)
+            keyDisplayChannelBoxItem;
+        menuItem -label "None" -annotation "Show no key ticks"
+            -radioButton ($mode == "none")
+            -command ("timeControl -edit -showKeys \"none\" " + $slider) keyDisplayNoneItem;
+        menuItem -divider true;
+        radioMenuItemCollection;
+        string $filter = `timeControl -query -animLayerFilterOptions $slider`;
+        string $filterLabels[] = {"From Anim Layer Editor", "All Affecting", "Active", "Selected",
+            "Active and Selected"};
+        string $filterValues[] = {"animLayerEditor", "allAffecting", "active", "selected", "activeAndSelected"};
+        string $filterItems[] = {"animLayerFilterAnimLayerEditorItem", "animLayerFilterAllAffectingItem",
+            "animLayerFilterAllActiveItem", "animLayerFilterSelectedItem", "animLayerFilterActiveAndSelectedItem"};
+        for ($i = 0; $i < size($filterValues); $i++)
+            menuItem -label $filterLabels[$i] -radioButton ($filter == $filterValues[$i])
+                -command ("timeControl -edit -animLayerFilterOptions " + $filterValues[$i] + " " + $slider)
+                $filterItems[$i];
+        menuItem -divider true;
+        menuItem -label "Show Anim Layer Weight"
+            -checkBox (TimeSliderMenu_showWeight() == 1)
+            -command ("timeControl -edit -animLayerShowWeight #1 " + $slider) tlShowAnimLayerWeightItem;
+    setParent -menu ..;
+
+    // Check boxes rather than radio items, kept in step with playbackOptions by a job.
+    string $loop = `playbackOptions -query -loop`;
+    menuItem -label "Playback Looping" -subMenu true -tearOff true playbackLoopItem;
+        menuItem -label "Once" -annotation "Play the range once" -checkBox ($loop == "once")
+            -command "evalEcho \"playbackOptions -loop \\\"once\\\"\"" playbackLoopOnceItem;
+        menuItem -label "Oscillate" -annotation "Play the range forwards then backwards"
+            -checkBox ($loop == "oscillate")
+            -command "evalEcho \"playbackOptions -loop \\\"oscillate\\\"\"" playbackLoopOscillateItem;
+        menuItem -label "Continuous" -annotation "Play the range over and over" -checkBox ($loop == "continuous")
+            -command "evalEcho \"playbackOptions -loop \\\"continuous\\\"\"" playbackLoopContinuousItem;
+    setParent -menu ..;
+    scriptJob -permanent -parent playbackLoopItem -event "playbackModeChanged" "updatePlaybackLoopingMenu";
+
+    menuItem -label "Set Range To" -subMenu true -tearOff true playbackRangeItem;
+        menuItem -label "Start/End" -annotation "The range the scene was saved with"
+            -command "evalEcho setPlaybackRangeToStartEnd" playbackRangeStartEndItem;
+        menuItem -label "Min/Max" -annotation "The first and last keys in the scene"
+            -command "evalEcho setPlaybackRangeToMinMax" playbackRangeMinMaxItem;
+        menuItem -label "Selected" -annotation "The range highlighted on the time slider"
+            -command "evalEcho setPlaybackRangeToHighlight" playbackRangeHighlightItem;
+        menuItem -label "Enabled Clips" -annotation "The enabled clips and sounds"
+            -command "evalEcho setPlaybackRangeToEnabledClips" playbackRangeEnabledClipsItem;
+        menuItem -label "Sound" -annotation "The sound shown on the time slider"
+            -command "evalEcho setPlaybackRangeToSound" playbackRangeSoundItem;
+        menuItem -label "Preferences" -annotation "The range set in the preferences"
+            -command "evalEcho setPlaybackRangeToPrefs" playbackRangePrefsItem;
+    setParent -menu ..;
+
+    string $timeCode = TimeSliderMenu_timeCode();
+    menuItem -label "Time Display" -subMenu true -tearOff true timeDisplayItem;
+        radioMenuItemCollection;
+        menuItem -label "Frame" -radioButton ($timeCode == "frame")
+            -command "animDisplay -e -timeCode frame" timeDisplayFrameItem;
+        menuItem -label "Time Code" -radioButton ($timeCode == "fulltimecode")
+            -command "animDisplay -e -timeCode fulltimecode" timeDisplayTimeCodeItem;
+        menuItem -label "Time Code on Slider and Playback Range" -radioButton ($timeCode == "timecode")
+            -command "animDisplay -e -timeCode timecode" timeDisplayTimeCodeOnSliderAndPlayRangeItem;
+    setParent -menu ..;
+    scriptJob -permanent -parent timeDisplayItem -event "timeUnitChanged" "timeSliderUpdateTimeDisplayMenu";
+
+    menuItem -label "Stepped Preview" -annotation "Play back as if every key had stepped tangents"
+        -checkBox `playbackOptions -query -blockingAnim`
+        -command "playbackOptions -edit -blockingAnim #1" steppedPreviewItem;
+    menuItem -label "Auto Snap" -annotation "Snap keys to whole frames when they are scaled" -version "2020"
+        -checkBox `optionVar -query scaleKeyAutoSnap`
+        -command "optionVar -intValue scaleKeyAutoSnap #1" autoSnapItem;
+
+    string $sound = `menuItem -label "Sound" -subMenu true -allowOptionBoxes true -tearOff true -version "2020"`;
+        createSoundPopupMenu($sound);
+    setParent -menu ..;
+
+    menuItem -label "Playblast" -annotation "Make a quick preview movie of the playback range"
+        -command "performPlayblast 3" timeSliderPlayblastItem;
+    menuItem -optionBox true -annotation "Playblast options" -command "performPlayblast 4"
+        timeSliderPlayblastOptionItem;
+}
+
+// ---- Global procedures ----
+
+// Puts the menu on $parent: right button, option boxes allowed.
+global proc TimeSliderMenu(string $parent)
+{
+    string $menu = `popupMenu -button 3 -allowOptionBoxes true -markingMenu false -parent $parent TimeSliderMenu`;
+    popupMenu -edit -postMenuCommand ("updateTimeSliderMenu " + $menu) $menu;
+    setParent -menu ..;
+}
+
+// Run as the menu opens: makes its items the first time, then brings their states up to date.
+global proc updateTimeSliderMenu(string $parent)
+{
+    if (`popupMenu -query -numberOfItems $parent` == 0)
+        TimeSliderMenu_build($parent);
+    setParent -menu $parent;
+
+    // With no ticks shown there are no keys to work on.
+    int $keys = TimeSliderMenu_showKeys() != "none";
+    string $keyItems[] = {"timeSliderCutKeyItem", "timeSliderCopyKeyItem", "timeSliderPasteKeyItem",
+        "timeSliderClearKeyItem", "timeSliderSnapKeyItem", "timeSliderKeysItem", "timeSliderTangentsItem"};
+    for ($item in $keyItems)
+        menuItem -edit -enable $keys $item;
+
+    menuItem -edit -checkBox `playbackOptions -query -blockingAnim` steppedPreviewItem;
+    menuItem -edit -checkBox `optionVar -query scaleKeyAutoSnap` autoSnapItem;
+
+    TimeSliderMenu_updateSpeed();
+
+    global string $gChannelBoxName;
+    string $mode = TimeSliderMenu_showKeys();
+    menuItem -edit -radioButton ($mode == "active") keyDisplayActiveItem;
+    menuItem -edit -radioButton ($mode == $gChannelBoxName) keyDisplayChannelBoxItem;
+    menuItem -edit -radioButton ($mode == "none") keyDisplayNoneItem;
+
+    int $frames = 0;
+    if (`optionVar -exists bluePencilTimelineFrameDisplay`)
+        $frames = `optionVar -query bluePencilTimelineFrameDisplay`;
+    menuItem -edit -radioButton ($frames == 0) bluePencilFramesAlwaysItem;
+    menuItem -edit -radioButton ($frames == 1) bluePencilFramesSelectionItem;
+    menuItem -edit -radioButton ($frames == 2) bluePencilFramesOffItem;
+}
+
+global proc timeSliderUpdateTimeDisplayMenu()
+{
+    string $timeCode = TimeSliderMenu_timeCode();
+    menuItem -edit -radioButton ($timeCode == "frame") timeDisplayFrameItem;
+    menuItem -edit -radioButton ($timeCode == "fulltimecode") timeDisplayTimeCodeItem;
+    menuItem -edit -radioButton ($timeCode == "timecode") timeDisplayTimeCodeOnSliderAndPlayRangeItem;
+}
+
+global proc updatePlaybackLoopingMenu()
+{
+    string $loop = `playbackOptions -query -loop`;
+    menuItem -edit -checkBox ($loop == "once") playbackLoopOnceItem;
+    menuItem -edit -checkBox ($loop == "oscillate") playbackLoopOscillateItem;
+    menuItem -edit -checkBox ($loop == "continuous") playbackLoopContinuousItem;
+}
+
+// The audio items under $parent. The reference builds them in Python; Aztek has no such menu yet, so it stays empty.
+global proc createSoundPopupMenu(string $parent)
+{
+}
+
+// The playback range the scene was saved with: the playbackOptions call in the scene's configuration script.
+global proc setPlaybackRangeToStartEnd()
+{
+    string $node = "sceneConfigurationScriptNode";
+    if (`objExists animationScriptNode`)
+        $node = "animationScriptNode";
+    if (!`objExists $node`)
+        error "The scene has no saved start and end to go back to.";
+
+    string $script = `scriptNode -query -beforeScript $node`;
+    string $pieces[];
+    tokenize $script ";" $pieces;
+    for ($piece in $pieces) {
+        if (`gmatch $piece "*playbackOptions*"`) {
+            evalEcho $piece;
+            return;
+        }
+    }
+}
+
+// The range from the earliest to the latest key on any time-based curve.
+global proc setPlaybackRangeToMinMax()
+{
+    float $first = 100000;
+    float $last = -100000;
+    int $seen = 0;
+    string $curves[] = `ls -type animCurveTL -type animCurveTA -type animCurveTU -type animCurveTT`;
+    for ($curve in $curves) {
+        // Every key's time, of which the first and last are the ones wanted.
+        float $times[] = `keyframe -query -timeChange $curve`;
+        int $count = size($times);
+        if ($count == 0)
+            continue;
+        float $ends[] = {$times[0], $times[$count - 1]};
+        for ($t in $ends) {
+            if ($t < $first)
+                $first = $t;
+            if ($t > $last)
+                $last = $t;
+            $seen++;
+        }
+    }
+    if ($seen == 0)
+        error "There are no keys to set the range from.";
+    playbackOptions -min ((int)$first) -max ((int)$last);
+}
+
+// The range highlighted on the slider.
+global proc setPlaybackRangeToHighlight()
+{
+    string $slider = TimeSliderMenu_slider();
+    if (!`timeControl -query -rangeVisible $slider`)
+        error "No range is highlighted on the time slider.";
+    float $range[] = `timeControl -query -rangeArray $slider`;
+    playbackOptions -min $range[0] -max $range[1];
+}
+
+// The range the enabled animation clips and the sounds cover.
+global proc setPlaybackRangeToEnabledClips()
+{
+    string $schedulers[] = `ls -type clipScheduler`;
+    string $audio[] = `ls -type audio`;
+    if (size($schedulers) == 0 && size($audio) == 0)
+        error "There are no clips or sounds to set the range from.";
+
+    float $first = 100000;
+    float $last = -100000;
+    int $count = 0;
+    for ($scheduler in $schedulers) {
+        string $entries[] = `clipSchedule -query $scheduler`;
+        for ($entry in $entries) {
+            string $fields[];
+            tokenize $entry "," $fields;
+            string $clip = $fields[0];
+            int $index = $fields[1];
+            if (!`clipSchedule -clipIndex $index -query -enable $scheduler`)
+                continue;
+            float $startFrame = `getAttr ($clip + ".startFrame")`;
+            float $sourceStart = `getAttr ($clip + ".sourceStart")`;
+            float $sourceEnd = `getAttr ($clip + ".sourceEnd")`;
+            float $scale = `getAttr ($clip + ".scale")`;
+            float $preCycle = `getAttr ($clip + ".preCycle")`;
+            float $postCycle = `getAttr ($clip + ".postCycle")`;
+            float $hold = `getAttr ($clip + ".hold")`;
+            float $duration = $sourceEnd - $sourceStart;
+            float $start = $startFrame - $duration * $preCycle * $scale;
+            float $end = $startFrame + $duration * ($postCycle + 1) * $scale + $hold;
+            if ($start < $first)
+                $first = $start;
+            if ($end > $last)
+                $last = $end;
+            $count++;
+        }
+    }
+    for ($node in $audio) {
+        float $start = `getAttr ($node + ".offset")`;
+        float $end = $start + `sound -query -length $node`;
+        if ($start < $first)
+            $first = $start;
+        if ($end > $last)
+            $last = $end;
+    }
+    $count += size($audio);
+    if ($count == 0)
+        error "None of the clips is enabled.";
+
+    // A part frame at the end rounds up, so the last of it is played.
+    if ($last > (int)$last)
+        $last += 1;
+    playbackOptions -min ((int)$first) -max ((int)$last);
+}
+
+// The range the slider's sound covers.
+global proc setPlaybackRangeToSound()
+{
+    string $sound = `timeControl -query -sound (TimeSliderMenu_slider())`;
+    if ($sound == "")
+        error "The time slider has no sound to set the range from.";
+    int $min = `getAttr ($sound + ".offset")`;
+    int $max = $min + `sound -query -length $sound`;
+    playbackOptions -min $min -max $max;
+}
+
+// The ranges saved in the preferences, when all four are there.
+global proc setPlaybackRangeToPrefs()
+{
+    if (`optionVar -exists playbackMin` && `optionVar -exists playbackMax`
+        && `optionVar -exists playbackMinRange` && `optionVar -exists playbackMaxRange`)
+        playbackOptions -min `optionVar -query playbackMin` -max `optionVar -query playbackMax`
+            -ast `optionVar -query playbackMinRange` -aet `optionVar -query playbackMaxRange`;
+}
+
+global proc timeSliderCutKey()
+{
+    string $mode = TimeSliderMenu_showKeys();
+    if ($mode == "none")
+        return;
+    string $members[];
+    if ($mode != "active")
+        $members = `timeControl -query -animCurveNames (TimeSliderMenu_slider())`;
+    else
+        $members = TimeSliderMenu_animationTargets();
+    string $targets[] = TimeSliderMenu_filter($members);
+    if (size($targets) == 0) {
+        warning "Nothing to cut keys from.";
+        return;
+    }
+    eval (TimeSliderMenu_append("cutKey -animation objects -includeUpperBound false -time " + TimeSliderMenu_range()
+        + " -option keys", $targets));
+}
+
+global proc timeSliderCopyKey()
+{
+    string $mode = TimeSliderMenu_showKeys();
+    if ($mode == "none")
+        return;
+    // The active objects' keys are copied when ticks show for them, or when the Channel Box shows its keys with the
+    // objects' and has no attribute picked.
+    global string $gChannelBoxName;
+    int $useActive = ($mode == "active");
+    if (!$useActive && $mode == $gChannelBoxName && TimeSliderMenu_showKeysCombined()
+        && size(TimeSliderMenu_channelBoxAttrs()) == 0)
+        $useActive = 1;
+    string $members[];
+    if ($useActive)
+        $members = TimeSliderMenu_animationTargets();
+    else
+        $members = `timeControl -query -animCurveNames (TimeSliderMenu_slider())`;
+    string $targets[] = TimeSliderMenu_filter($members);
+    if (size($targets) == 0) {
+        warning "Nothing to copy keys from.";
+        return;
+    }
+    eval (TimeSliderMenu_append("copyKey -animation objects -includeUpperBound false -time " + TimeSliderMenu_range()
+        + " -option keys", $targets));
+}
+
+global proc timeSliderClearKey()
+{
+    string $mode = TimeSliderMenu_showKeys();
+    if ($mode == "none")
+        return;
+    string $members[];
+    if ($mode != "active")
+        $members = `timeControl -query -animCurveNames (TimeSliderMenu_slider())`;
+    else
+        $members = TimeSliderMenu_animationTargets();
+    string $targets[] = TimeSliderMenu_filter($members);
+    if (size($targets) == 0) {
+        warning "Nothing to delete keys from.";
+        return;
+    }
+    eval (TimeSliderMenu_append("cutKey -clear -includeUpperBound false -animation objects -time "
+        + TimeSliderMenu_range() + " -option keys", $targets));
+}
+
+global proc timeSliderSnapKey()
+{
+    if (TimeSliderMenu_showKeys() == "none")
+        return;
+    TimeSliderMenu_runOnTargets("snapKey -includeUpperBound false -animation objects -time " + TimeSliderMenu_range(),
+        "Nothing to snap keys on.");
+}
+
+// Pastes into the highlighted range, or at the current frame when none is highlighted. $connect offsets the pasted
+// keys to join the curve. Picked Channel Box attributes are pasted to first.
+global proc timeSliderPasteKey(int $connect)
+{
+    string $mode = TimeSliderMenu_showKeys();
+    if ($mode == "none")
+        return;
+    string $slider = TimeSliderMenu_slider();
+    string $cmd;
+    if (`timeControl -query -rangeVisible $slider`) {
+        $cmd = "pasteKey -animation objects -connect " + $connect + " -time " + TimeSliderMenu_range()
+            + " -includeUpperBound false -option scaleReplace";
+    } else {
+        float $now = `currentTime -query`;
+        $cmd = "pasteKey -animation objects -option replace -connect " + $connect + " -time \"" + $now + ":"
+            + ($now + 0.99) + "\"";
+    }
+
+    int $showActive = ($mode == "active");
+    string $targets[];
+    if (!$showActive) {
+        string $attrs[] = TimeSliderMenu_channelBoxAttrs();
+        if (size($attrs)) {
+            string $run = $cmd;
+            for ($attr in $attrs)
+                $run += " ." + $attr;
+            TimeSliderMenu_runPaste($run);
+        } else if (TimeSliderMenu_showKeysCombined()) {
+            $showActive = 1;
+        }
+    }
+    if ($showActive)
+        $targets = TimeSliderMenu_filter(TimeSliderMenu_animationTargets());
+    // As in the reference this also warns after pasting to Channel Box attributes, since no objects were gathered.
+    if (size($targets) == 0) {
+        warning "Nothing to paste keys to.";
+        return;
+    }
+    TimeSliderMenu_runPaste(TimeSliderMenu_append($cmd, $targets));
+}
+
+// makeKey, makeBreakdown, addInbetween or removeInbetween.
+global proc timeSliderEditKeys(string $type)
+{
+    if (TimeSliderMenu_showKeys() == "none")
+        return;
+    string $range = TimeSliderMenu_range();
+    string $cmd = "keyframe";
+    if ($type == "makeKey")
+        $cmd = "keyframe -breakdown false -animation objects -includeUpperBound false -time " + $range;
+    else if ($type == "makeBreakdown")
+        $cmd = "keyframe -breakdown true -animation objects -includeUpperBound false -time " + $range;
+    else if ($type == "addInbetween")
+        $cmd = "keyframe -time \"" + `currentTime -query` + ":\" -relative -timeChange 1 -option over";
+    else if ($type == "removeInbetween")
+        $cmd = "keyframe -time \"" + `currentTime -query` + ":\" -relative -timeChange -1 -option over";
+    TimeSliderMenu_runOnTargets($cmd, "Nothing to edit keys on.");
+}
+
+// Gives the keys in the range $type tangents; stepped only applies going out of a key.
+global proc timeSliderSetTangent(string $type)
+{
+    if (TimeSliderMenu_showKeys() == "none")
+        return;
+    string $cmd = "keyTangent";
+    if ($type != "step")
+        $cmd += " -inTangentType " + $type;
+    $cmd += " -outTangentType " + $type + " -animation objects -includeUpperBound false -time "
+        + TimeSliderMenu_range();
+    TimeSliderMenu_runOnTargets($cmd, "Nothing to set tangents on.");
+}
+
+// A Camera Sequencer shot over the range highlighted on the slider.
+global proc createShotViaTimelineSelection()
+{
+    if (!`playbackOptions -query -selectionVisible`)
+        return;
+    float $start = `playbackOptions -query -sst`;
+    float $end = `playbackOptions -query -set`;
+    if (`exists sequencerCreateShot`)
+        eval ("sequencerCreateShot " + $start + " " + $end);
+}

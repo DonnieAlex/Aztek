@@ -2040,6 +2040,28 @@ What each still needs from Aztek is in docs/SCRIPT_GAPS.md, now covering 110 scr
   holds.
 - A selection connection made with no name no longer crashes.
 
+### The reference's scripts, fifth and sixth batches (21/11/2026)
+
+Each written from a description of what the reference's does, and the earlier scripts changed to call the new
+commands and scripts in place of their stand-ins:
+
+- Files and scenes: retainWorkingDirectory, initRecentFilesTypeList, sceneIsEmpty, aiffFileOptions, fileBrowser,
+  proxyUtils, pv_performAction, performCreateGeometryCache, expressionEdTextEditor.
+- Presets and messages: saveNodePresetDialog, nodePresetConfirmDeleteDialog, uiToMelMsg.
+- Polygons and NURBS: polyCheckSelection, polyNextSelectionBatch, setupNewMesh, expandPolyGroupSelection,
+  polygonConstraint, performPolySuperShape, performPolyForceUVArgList, performPolyAutoUnwrap, polysDisplaySetup,
+  nurbsToPolyCallback, nurbsToPolyAddOptions, nurbsToSubdivSetup, birailToolScript, nurbsBooleanToolScript.
+- Selection and display: expandSelectionConnection, hideKeepSelection, createObjectTypeFilters,
+  colorManagementNonLinearSliderUtilities.
+- Animation and rigging: loadAnimMenuLibrary (the Graph Editor and Dope Sheet menus), TimeSliderMenu, ikFK,
+  doSetFullBodyIKKeysArgList, hikKeyingModeOperation, skinClusterList, ChaSkeletonsMenu.
+- Dynamics: performDynamics, performCreateDynamicConstraint, convertHairSelection.
+- Editors: OutlinerEdMenu, namespaceTreeView, texturePanelCommon, artisanCallback.
+- The Window, File, Display and skeleton menus take their labels from runTimeCommand, and the render scripts read the
+  renderer registry.
+
+What each still lacks is listed in docs/SCRIPT_GAPS.md.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

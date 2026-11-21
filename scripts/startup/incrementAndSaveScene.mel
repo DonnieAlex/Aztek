@@ -41,12 +41,7 @@ global proc incrementAndSaveScene(int $force)
     string $scene = `file -query -sceneName`;
     if ($scene == "") {
         // Never saved: there is no version to go on from, so ask for a name.
-        if (`exists projectViewer`)
-            eval("projectViewer SaveAs");
-        else if (`exists SaveSceneAs`)
-            SaveSceneAs;
-        else
-            warning "Save the scene first: it has no name to increment.";
+        projectViewer("SaveAs");
         return;
     }
     if (!`file -query -modified`) {

@@ -27,7 +27,7 @@ global proc int outlinerVisibilityStateChange(int $newState, string $layout)
 {
     // Once the change has settled: focus back where it was, the toggle buttons and the Outliner's own state brought up to date.
     evalDeferred ("if (`exists restoreLastPanelWithFocus`) restoreLastPanelWithFocus();"
-        + " if (`exists updateEditorToggleCheckboxes`) updateEditorToggleCheckboxes();"
+        + " updateEditorToggleCheckboxes();"
         + " if (`exists updateDefaultOutlinerState`) updateDefaultOutlinerState();");
     return true;
 }
@@ -88,7 +88,7 @@ global proc initOutlinerPanel()
 // As the program starts: the Outliner is still to be set up. A workspace control a script made for it gets the
 // reference's narrow-panel width, and is set up once the interface has settled.
 $gOutlinerPanelNeedsInit = true;
-if (`exists getUIComponentDockControl`) {
+{
     string $initOutlinerControl = getUIComponentDockControl("Outliner", false);
     if ($initOutlinerControl != "") {
         int $initOutlinerWidth = `optionVar -query workspacesNarrowPanelInitialWidth`;

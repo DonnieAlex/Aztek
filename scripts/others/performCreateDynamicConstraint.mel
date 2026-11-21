@@ -1,0 +1,98 @@
+// performCreateDynamicConstraint: nConstraint > (Transform, Point to Surface, Weld Adjacent Borders and the rest), as
+// the reference's menu items and their option boxes run them. The constraint is made by doCreateNConstraint.
+
+proc performCreateDynamicConstraint_options(int $force)
+{
+    optionVar -init $force -category "Dynamics.nConstraint.Dynamic Constraint"
+        -intValue createDynamicConstraintUseSets 0;
+}
+
+// The option box's title for each kind of constraint; the type itself goes to the command unchanged.
+proc string performCreateDynamicConstraint_title(string $type)
+{
+    string $titles[] = {
+        "transform", "Transform Constraint Options",
+        "pointToPoint", "Component to Component Options",
+        "pointToSurface", "Point to Surface Options",
+        "slideOnSurface", "Slide on Surface Options",
+        "weldBorders", "Weld Adjacent Borders Options",
+        "force", "Force Field Options",
+        "match", "Attract to Matching Mesh Options",
+        "tearableSurface", "Tearable Surface Options",
+        "disableCollision", "Disable Collision Options",
+        "collisionExclusion", "Exclude Collide Pairs Options"
+    };
+    for ($i = 0; $i < size($titles); $i += 2)
+        if ($titles[$i] == $type)
+            return $titles[$i + 1];
+    return "Create Constraint Options";
+}
+
+global proc performCreateDynamicConstraintSetup(string $parent, int $forceFactorySettings)
+{
+    performCreateDynamicConstraint_options($forceFactorySettings);
+    setParent $parent;
+    checkBoxGrp -edit -value1 `optionVar -query createDynamicConstraintUseSets` createDynamicConstraintUseSets;
+}
+
+global proc performCreateDynamicConstraintCallback(string $parent, int $doIt, string $type)
+{
+    setParent $parent;
+    optionVar -intValue createDynamicConstraintUseSets `checkBoxGrp -query -value1 createDynamicConstraintUseSets`;
+    if ($doIt)
+        performCreateDynamicConstraint(0, $type);
+}
+
+proc performCreateDynamicConstraint_optionBox(string $type)
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    // Aztek doesn't define the reference's DefaultTemplate yet; the controls keep their plain look without it.
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn true`;
+    // Nothing happens on change: the box is only read by Apply and Save.
+    checkBoxGrp -numberOfCheckBoxes 1 -label1 "Use component sets" createDynamicConstraintUseSets;
+
+    if ($template)
+        setUITemplate -popTemplate;
+
+    // The type goes into the commands unquoted, as the menu items pass it.
+    button -edit -label "Create" -command ("performCreateDynamicConstraintCallback " + $parent + " 1 " + $type)
+        (getOptionBoxApplyBtn());
+    button -edit -command ("performCreateDynamicConstraintCallback " + $parent + " 0 " + $type + "; hideOptionBox")
+        (getOptionBoxSaveBtn());
+    button -edit -command ("performCreateDynamicConstraintSetup " + $parent + " 1") (getOptionBoxResetBtn());
+
+    setOptionBoxTitle(performCreateDynamicConstraint_title($type));
+    setOptionBoxCommandName("performCreateDynamicConstraint");
+    setOptionBoxHelpTag("CreateDynamicConstraint");
+
+    performCreateDynamicConstraintSetup($parent, 0);
+    showOptionBox();
+}
+
+// $action 0 builds the command and runs it, 1 opens the option box for $type, 2 only builds the command. The command
+// is returned for 0 and 2; anything else returns "".
+global proc string performCreateDynamicConstraint(int $action, string $type)
+{
+    if ($action == 1) {
+        performCreateDynamicConstraint_optionBox($type);
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+
+    performCreateDynamicConstraint_options(0);
+    string $cmd = "doCreateNConstraint " + $type + " " + `optionVar -query createDynamicConstraintUseSets`;
+    if ($action == 0) {
+        if (`exists doCreateNConstraint`)
+            eval $cmd;
+        else
+            warning "nConstraints can't be made: doCreateNConstraint is missing.";
+    }
+    return $cmd;
+}

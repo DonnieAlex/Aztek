@@ -3,6 +3,10 @@
 // sets, and a set has at most one parent set, joined through its message plug. These procedures make and delete
 // them, nest them, add and remove members, select the nodes behind them, and write them to and read them from JSON.
 
+// expandSelectionConnectionAsArray lives in expandSelectionConnection.mel, which isn't named after it.
+if (!`exists expandSelectionConnectionAsArray`)
+    eval("source \"expandSelectionConnection.mel\"");
+
 // ---- Local helpers ----
 
 // True for an existing objectSet carrying the channel set text. Anything that goes wrong while asking means no.
@@ -170,18 +174,6 @@ proc customChannelSets_collect(string $set, string $nodes[])
     }
 }
 
-// Whether any of $items is in $set. Aztek's sets has no -anyMember yet, so each is asked on its own.
-proc int customChannelSets_anyMember(string $set, string $items[])
-{
-    string $item;
-    for ($item in $items) {
-        int $member = 0;
-        if (!catchQuiet($member = `sets -isMember $set $item`) && $member)
-            return 1;
-    }
-    return 0;
-}
-
 // 'a','b' for a Python list.
 proc string customChannelSets_quoted(string $items[])
 {
@@ -334,11 +326,7 @@ global proc string[] selectedCustomSets(string $panel)
 
     string $items[];
     if ($connection != "") {
-        // Aztek doesn't have expandSelectionConnectionAsArray yet; the connection's objects stand in.
-        if (`exists expandSelectionConnectionAsArray`)
-            $items = `eval ("expandSelectionConnectionAsArray \"" + $connection + "\"")`;
-        else
-            catchQuiet($items = `selectionConnection -query -object $connection`);
+        $items = expandSelectionConnectionAsArray($connection);
     }
     return customChannelSets_filter($items);
 }
@@ -410,7 +398,7 @@ global proc createCustomSetsSubMenu(string $sets[], string $selectedAttributes[]
             string $cmd = "";
             if ($add && canAddToChannelSet($selection, $set))
                 $cmd = "addToCustomSet " + $set + " \"" + $joined + "\"";
-            else if (!$add && customChannelSets_anyMember($set, $selection))
+            else if (!$add && `sets -anyMember $set $selection`)
                 $cmd = "sets -rm " + $set + " " + $joined;
             if ($cmd != "") {
                 $names[size($names)] = $set;

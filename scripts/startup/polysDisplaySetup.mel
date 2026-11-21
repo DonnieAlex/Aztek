@@ -1,0 +1,563 @@
+// polysDisplaySetup: Display > Polygons > Custom Polygon Display and its option box, as the reference's. The settings
+// live in optionVars that each hold two values, one used when the box applies to the selected meshes and one when it
+// applies to all of them (displayPolyObjsAffected picks which, 0 selected, 1 all). Applying builds a polyOptions command
+// from them and sets the Smooth Mesh Preview attributes through updateSMPAttrs.
+
+// ---- Local helpers ----
+
+// The saved settings. Forced, every one goes back to its default; otherwise only missing ones are made.
+proc polysDisplaySetup_options(int $force)
+{
+    optionVar -init $force -category "Display.Custom Polygon Display"
+        -iv displayPolyObjsAffected 0
+        -iv2 displayPolyVtxDisp 0 0
+        -fv2 displayPolyVertexSize 3.0 3.0
+        -iv2 displayPolyVtxBackCull 1 1
+        -iv2 displayPolyVertexNormals 0 0
+        -iv2 displayPolyEdgeDisp 0 0
+        -fv2 displayPolyBorderEdgeSize 3.0 3.0
+        -iv2 displayPolyBorderEdgeHilite 0 0
+        -iv2 displayPolyBorderMapHilite 0 0
+        -iv2 displayPolyCreaseEdgeHilite 0 0
+        -iv2 displayPolyCreaseVertexHilite 0 0
+        -iv2 displayPolyUV 0 0
+        -iv2 displayPolyUVTopology 0 0
+        -fv2 displayPolyUVSize 4.0 4.0
+        -fv2 displayPolyNormalSize 0.4 0.4
+        -iv2 displayPolyFacetCentreDisp 0 0
+        -iv2 displayPolyFacetNormalDisp 0 0
+        -iv2 displayPolyFacetTrngleDisp 0 0
+        -iv2 displayPolyFacetWarpDisp 0 0
+        -iv2 displayPolyHoleFacesHilite 1 1
+        -iv2 displayPolyNumVertex 0 0
+        -iv2 displayPolyNumEdge 0 0
+        -iv2 displayPolyNumFacet 0 0
+        -iv2 displayPolyNumUv 0 0
+        -iv2 displayAlphaAsGrey 0 0
+        -iv2 displayColorAsGrey 0 0
+        -iv2 displayRedColorChannel 1 1
+        -iv2 displayGreenColorChannel 1 1
+        -iv2 displayBlueColorChannel 1 1
+        -iv2 displayPolyBackFaceCull 0 0
+        -iv2 colorShadedDisplay 0 0
+        -iv2 colorMaterialChannel 2 2
+        -iv2 colorMaterialBlend 0 0
+        -iv2 smpDisplaySmoothMesh 0 0
+        -iv2 smpSmoothMeshSelectionMode 0 0
+        -iv2 smpSmoothLevel 2 2
+        -iv2 smpDisplaySubdComps 0 0
+        -fv2 smpContinuity 1.0 1.0
+        -iv2 smpSmoothUVs 1 1
+        -iv2 smpPropagateEdgeHardness 0 0
+        -iv2 smpKeepMapBorders 1 1
+        -iv2 smpKeepBorder 0 0
+        -iv2 smpKeepHardEdge 0 0;
+}
+
+// Which of the two values is in use: 0 for the selected meshes, 1 for all of them.
+proc int polysDisplaySetup_slot()
+{
+    return `optionVar -query displayPolyObjsAffected`;
+}
+
+// One slot of a two-value optionVar. A value saved as a single number reads as 0 in the second slot.
+proc int polysDisplaySetup_int(string $var, int $slot)
+{
+    int $values[] = `optionVar -query $var`;
+    return $values[$slot];
+}
+
+proc float polysDisplaySetup_float(string $var, int $slot)
+{
+    float $values[] = `optionVar -query $var`;
+    return $values[$slot];
+}
+
+// Replaces one slot of a two-value optionVar, leaving the other as it was.
+proc polysDisplaySetup_setInt(string $var, int $slot, int $value)
+{
+    int $values[] = `optionVar -query $var`;
+    $values[$slot] = $value;
+    optionVar -iv2 $var $values[0] $values[1];
+}
+
+proc polysDisplaySetup_setFloat(string $var, int $slot, float $value)
+{
+    float $values[] = `optionVar -query $var`;
+    $values[$slot] = $value;
+    optionVar -fv2 $var $values[0] $values[1];
+}
+
+// The command the settings make, from the slot in use (section "command string" of the reference's behaviour).
+proc string polysDisplaySetup_command()
+{
+    polysDisplaySetup_options(0);
+    int $o = polysDisplaySetup_slot();
+
+    // Normals: either kind on turns them on, and the type flag says which.
+    int $vtxNormals = polysDisplaySetup_int("displayPolyVertexNormals", $o);
+    int $faceNormals = polysDisplaySetup_int("displayPolyFacetNormalDisp", $o);
+    int $showNormals = 0;
+    string $normalType = "-facet";
+    if ($vtxNormals || $faceNormals) {
+        $showNormals = 1;
+        if ($vtxNormals && $faceNormals)
+            $normalType = "-pointFacet";
+        else if ($vtxNormals)
+            $normalType = "-point";
+    }
+
+    // UV topology needs UVs shown, so it turns them on; with UVs off it can't be on either. This is only for the
+    // command: the saved settings stay as they are.
+    int $uv = polysDisplaySetup_int("displayPolyUV", $o);
+    int $uvTopology = polysDisplaySetup_int("displayPolyUVTopology", $o);
+    if ($uvTopology)
+        $uv = 1;
+    if (!$uv)
+        $uvTopology = 0;
+
+    string $edgeFlags[] = {"-ae", "-se", "-hec", "-he"};
+    string $backFlags[] = {"-bc", "-fb", "-wbc", "-hb"};
+    string $channels[] = {"none", "ambient", "ambientDiffuse", "diffuse", "specular", "emission"};
+    string $blends[] = {"overwrite", "add", "subtract", "multiply", "divide", "average", "modulate2x"};
+
+    string $cmd = "polyOptions";
+    $cmd += ($o == 0) ? " -activeObjects" : " -global";
+    $cmd += " " + $edgeFlags[polysDisplaySetup_int("displayPolyEdgeDisp", $o)];
+    $cmd += " -sb " + polysDisplaySetup_float("displayPolyBorderEdgeSize", $o);
+    $cmd += " -sv " + polysDisplaySetup_float("displayPolyVertexSize", $o);
+    $cmd += " -db " + polysDisplaySetup_int("displayPolyBorderEdgeHilite", $o);
+    $cmd += " -dmb " + polysDisplaySetup_int("displayPolyBorderMapHilite", $o);
+    $cmd += " -dce " + polysDisplaySetup_int("displayPolyCreaseEdgeHilite", $o);
+    $cmd += " -dcv " + polysDisplaySetup_int("displayPolyCreaseVertexHilite", $o);
+    $cmd += " -dv " + polysDisplaySetup_int("displayPolyVtxDisp", $o);
+    $cmd += " -dn " + $showNormals + " " + $normalType;
+    $cmd += " -dc " + polysDisplaySetup_int("displayPolyFacetCentreDisp", $o);
+    $cmd += " -dt " + polysDisplaySetup_int("displayPolyFacetTrngleDisp", $o);
+    $cmd += " -dw " + polysDisplaySetup_int("displayPolyFacetWarpDisp", $o);
+    $cmd += " -dif " + polysDisplaySetup_int("displayPolyHoleFacesHilite", $o);
+    $cmd += " -din " + polysDisplaySetup_int("displayPolyNumVertex", $o)
+        + " " + polysDisplaySetup_int("displayPolyNumEdge", $o)
+        + " " + polysDisplaySetup_int("displayPolyNumFacet", $o)
+        + " " + polysDisplaySetup_int("displayPolyNumUv", $o);
+    $cmd += " -sn " + polysDisplaySetup_float("displayPolyNormalSize", $o);
+    $cmd += " " + $backFlags[polysDisplaySetup_int("displayPolyBackFaceCull", $o)];
+    $cmd += " -duv " + $uv;
+    $cmd += " -uvt " + $uvTopology;
+    $cmd += " -suv " + polysDisplaySetup_float("displayPolyUVSize", $o);
+    $cmd += " -cs " + polysDisplaySetup_int("colorShadedDisplay", $o);
+    $cmd += " -cm " + $channels[polysDisplaySetup_int("colorMaterialChannel", $o)];
+    $cmd += " -mb " + $blends[polysDisplaySetup_int("colorMaterialBlend", $o)];
+    $cmd += " -drc " + polysDisplaySetup_int("displayRedColorChannel", $o);
+    $cmd += " -dgc " + polysDisplaySetup_int("displayGreenColorChannel", $o);
+    $cmd += " -dbc " + polysDisplaySetup_int("displayBlueColorChannel", $o);
+    $cmd += " -dcl " + polysDisplaySetup_int("displayColorAsGrey", $o);
+    $cmd += " -dal " + polysDisplaySetup_int("displayAlphaAsGrey", $o);
+    $cmd += " -bcv " + polysDisplaySetup_int("displayPolyVtxBackCull", $o);
+    $cmd += ";";
+
+    // The Smooth Mesh Preview part; a slot past 1 counts as 1.
+    if ($o > 1)
+        $o = 1;
+    $cmd += "updateSMPAttrs("
+        + polysDisplaySetup_int("smpDisplaySmoothMesh", $o) + ", "
+        + polysDisplaySetup_int("smpSmoothMeshSelectionMode", $o) + ", "
+        + polysDisplaySetup_int("smpSmoothLevel", $o) + ", "
+        + polysDisplaySetup_int("smpDisplaySubdComps", $o) + ", "
+        + polysDisplaySetup_float("smpContinuity", $o) + ", "
+        + polysDisplaySetup_int("smpSmoothUVs", $o) + ", "
+        + polysDisplaySetup_int("smpPropagateEdgeHardness", $o) + ", "
+        + polysDisplaySetup_int("smpKeepMapBorders", $o) + ", "
+        + polysDisplaySetup_int("smpKeepBorder", $o) + ", "
+        + polysDisplaySetup_int("smpKeepHardEdge", $o) + ", "
+        + ($o == 1 ? 1 : 0) + ");";
+    return $cmd;
+}
+
+// Runs the command. Aztek's polyOptions has no colour-as-greyscale flag and no vertex-only normals flag, so those
+// two are taken out of the copy that runs (the command returned keeps them); normals still show, as face normals.
+proc polysDisplaySetup_run(string $cmd)
+{
+    string $run = $cmd;
+    $run = `substitute " -dcl [01]" $run ""`;
+    $run = `substitute " -point " $run " "`;
+    eval $run;
+}
+
+// The option box, built afresh each time.
+proc polysDisplaySetup_optionBox()
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxTitle("Custom Polygon Display Options");
+    setOptionBoxCommandName("polysDisplaySetup");
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -tabsVisible 0 -scrollable 1;
+    string $parent = `columnLayout -adjustableColumn 1`;
+
+    // Changing what is affected reloads every control from the other slot; edits to this one are not kept. It is
+    // given the option box layout, not the column, as in the reference: the controls are found by name either way.
+    radioButtonGrp -numberOfRadioButtons 2 -label "Objects affected:" -labelArray2 "Selected" "All"
+        -changeCommand ("{ int $s = `radioButtonGrp -query -select polyObjsAffectedRadio`; if ($s > 0) { "
+            + "optionVar -intValue displayPolyObjsAffected ($s - 1); polysDisplaySetupSetup \"" + $layout
+            + "\" 0; } }")
+        polyObjsAffectedRadio;
+    separator;
+
+    checkBoxGrp -numberOfCheckBoxes 3 -label "Vertices:" -labelArray3 "Display" "Normals" "Backculling"
+        -columnWidth 4 100 polyVerticesDisplayCheck;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "Highlight:" -label1 "Crease vertices" vertexHiliteDisplayCheck;
+    floatSliderGrp -label "Vertex size:" -field true -minValue 1 -maxValue 10 vertexSizeSlider;
+    separator;
+
+    radioButtonGrp -numberOfRadioButtons 4 -label "Edges:" -labelArray4 "Standard" "Soft/Hard" "Hard color" "Only hard"
+        -columnWidth 3 95 polyEdgeDisplayRadio;
+    checkBoxGrp -numberOfCheckBoxes 3 -label "Highlight:" -labelArray3 "Border edges" "Texture borders" "Crease edges"
+        -columnWidth 2 110 -columnWidth 3 120 edgeHiliteDisplayCheck;
+    floatSliderGrp -label "Border width:" -field true -minValue 1 -maxValue 10 borderEdgeSizeSlider;
+    separator;
+
+    checkBoxGrp -numberOfCheckBoxes 4 -label "Face:" -labelArray4 "Centers" "Normals" "Triangles" "Non-planar"
+        polyFacetDisplayCheck;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Highlight holes" polyFacetDisplayCheck2;
+    separator;
+
+    checkBoxGrp -numberOfCheckBoxes 4 -label "Show item numbers:" -labelArray4 "Vertices" "Edges" "Faces" "UVs"
+        polyItemDisplayCheck;
+    floatSliderGrp -label "Normals size:" -field true -minValue 0.02 -maxValue 10 normalSizeSlider;
+    floatSliderGrp -label "UV size:" -field true -minValue 1 -maxValue 10 uvSizeSlider;
+    checkBoxGrp -numberOfCheckBoxes 2 -label "Texture coordinates:" -labelArray2 "UV" "UV topology" polyUVDisplayCheck;
+    separator;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "Color:" -label1 "Color in shaded display" colorShadedDisplayCheck;
+    optionMenuGrp -label "Color material channel:" colorMaterialPopup;
+        menuItem -label "None";
+        menuItem -label "Ambient";
+        menuItem -label "Ambient + Diffuse";
+        menuItem -label "Diffuse";
+        menuItem -label "Specular";
+        menuItem -label "Emission";
+    optionMenuGrp -label "Material blend setting:" materialBlendPopup;
+        menuItem -label "Overwrite";
+        menuItem -label "Add";
+        menuItem -label "Subtract";
+        menuItem -label "Multiply";
+        menuItem -label "Divide";
+        menuItem -label "Average";
+        menuItem -label "Modulate 2x";
+    checkBoxGrp -numberOfCheckBoxes 3 -label "Display channels:" -labelArray3 "R" "G" "B"
+        displayRGBColorChannelCheckBox;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Display color as greyscale" displayColorAsGreyscaleCheckBox;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Display alpha as greyscale" displayAlphaAsGreyscaleCheckBox;
+    separator;
+
+    optionMenuGrp -label "Backface culling:" -changeCommand ("polysDisplayUpdateCulling " + $parent)
+        backfaceCullPopup;
+        menuItem -label "Off";
+        menuItem -label "On";
+        menuItem -label "Keep wire";
+        menuItem -label "Keep hard edges";
+    separator;
+
+    checkBoxGrp -numberOfCheckBoxes 1 -label "Smooth Mesh Preview:" -changeCommand "toggleSMPState" SMPCheck;
+    radioButtonGrp -numberOfRadioButtons 1 -label "Display:" -label1 "Cage + smooth mesh"
+        -changeCommand "toggleSMPState" Display1_RBG;
+    radioButtonGrp -numberOfRadioButtons 3 -vertical -columnWidth 1 200 -label "Selection on:"
+        -labelArray3 "Cage" "Smooth mesh" "Both" -changeCommand "toggleSMPState" SMPSelectType_RBG;
+    radioButtonGrp -numberOfRadioButtons 1 -shareCollection Display1_RBG -label "" -label1 "Smooth mesh"
+        -changeCommand "toggleSMPState" Display2_RBG;
+    intSliderGrp -label "Division levels:" -field true -minValue 0 -maxValue 4 -fieldMinValue 0 -fieldMaxValue 4
+        -step 1 SMPDivisionLevels_ISG;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Display subdivisions" SMPDisplaySubdCheck;
+
+    rowLayout -numberOfColumns 1 -columnAttach 1 "both" 50;
+    frameLayout -label "Extra controls" -collapsable true -collapse true -font "plainLabelFont" SMPExtraControls_FL;
+    columnLayout -adjustableColumn 1;
+    floatSliderGrp -label "Continuity:" -field true -minValue 0 -maxValue 1 -fieldMinValue 0 -fieldMaxValue 1
+        -columnWidth 1 120 SMPContinuity_FSG;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Smooth UVs" -columnWidth 1 120 SMPSmoothUVsCheck;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Propagate edge hardness" -columnWidth 1 120
+        SMPEdgeHardnessCheck;
+    radioButtonGrp -numberOfRadioButtons 3 -vertical -columnWidth 1 120 -label "Map borders:"
+        -labelArray3 "Smooth all" "Smooth internal" "No smoothing" SMPMapBorders_RBG;
+    checkBoxGrp -numberOfCheckBoxes 2 -vertical -columnWidth 1 120 -label "Preserve:"
+        -labelArray2 "Geometry borders" "Hard edges" SMPPreserveCheck;
+    setParent $parent;
+    separator;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -command ("polysDisplaySetupCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+    button -edit -command ("polysDisplaySetupCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("polysDisplaySetupSetup " + $parent + " 1") (getOptionBoxResetBtn());
+
+    setOptionBoxTitle("Custom Polygon Display Options");
+    setOptionBoxHelpTag("CustomPolygonDisplay");
+    eval ("polysDisplaySetupSetup " + $parent + " 0");
+    showOptionBox();
+}
+
+// ---- Global procedures ----
+
+// $action: 0 applies the settings and returns the command, 1 opens the option box, 2 only returns the command.
+global proc string polysDisplaySetup(int $action)
+{
+    if ($action == 0) {
+        polysDisplaySetup_options(0);
+        string $cmd = polysDisplaySetup_command();
+        polysDisplaySetup_run($cmd);
+        return $cmd;
+    }
+    if ($action == 1) {
+        polysDisplaySetup_optionBox();
+        return "";
+    }
+    if ($action == 2) {
+        polysDisplaySetup_options(0);
+        return polysDisplaySetup_command();
+    }
+    return "";
+}
+
+// Shows the saved settings (the slot in use) in the option box under $parent; Reset forces the defaults first.
+global proc polysDisplaySetupSetup(string $parent, int $forceFactorySettings)
+{
+    polysDisplaySetup_options($forceFactorySettings);
+    setParent $parent;
+
+    int $o = polysDisplaySetup_slot();
+    radioButtonGrp -edit -select ($o + 1) polyObjsAffectedRadio;
+
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayPolyVtxDisp", $o))
+        -value2 (polysDisplaySetup_int("displayPolyVertexNormals", $o))
+        -value3 (polysDisplaySetup_int("displayPolyVtxBackCull", $o))
+        polyVerticesDisplayCheck;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("displayPolyCreaseVertexHilite", $o)) vertexHiliteDisplayCheck;
+    floatSliderGrp -edit -value (polysDisplaySetup_float("displayPolyVertexSize", $o)) vertexSizeSlider;
+
+    radioButtonGrp -edit -select (polysDisplaySetup_int("displayPolyEdgeDisp", $o) + 1) polyEdgeDisplayRadio;
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayPolyBorderEdgeHilite", $o))
+        -value2 (polysDisplaySetup_int("displayPolyBorderMapHilite", $o))
+        -value3 (polysDisplaySetup_int("displayPolyCreaseEdgeHilite", $o))
+        edgeHiliteDisplayCheck;
+    floatSliderGrp -edit -value (polysDisplaySetup_float("displayPolyBorderEdgeSize", $o)) borderEdgeSizeSlider;
+
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayPolyFacetCentreDisp", $o))
+        -value2 (polysDisplaySetup_int("displayPolyFacetNormalDisp", $o))
+        -value3 (polysDisplaySetup_int("displayPolyFacetTrngleDisp", $o))
+        -value4 (polysDisplaySetup_int("displayPolyFacetWarpDisp", $o))
+        polyFacetDisplayCheck;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("displayPolyHoleFacesHilite", $o)) polyFacetDisplayCheck2;
+
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayPolyNumVertex", $o))
+        -value2 (polysDisplaySetup_int("displayPolyNumEdge", $o))
+        -value3 (polysDisplaySetup_int("displayPolyNumFacet", $o))
+        -value4 (polysDisplaySetup_int("displayPolyNumUv", $o))
+        polyItemDisplayCheck;
+    floatSliderGrp -edit -value (polysDisplaySetup_float("displayPolyNormalSize", $o)) normalSizeSlider;
+    floatSliderGrp -edit -value (polysDisplaySetup_float("displayPolyUVSize", $o)) uvSizeSlider;
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayPolyUV", $o))
+        -value2 (polysDisplaySetup_int("displayPolyUVTopology", $o))
+        polyUVDisplayCheck;
+
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("colorShadedDisplay", $o)) colorShadedDisplayCheck;
+    optionMenuGrp -edit -select (polysDisplaySetup_int("colorMaterialChannel", $o) + 1) colorMaterialPopup;
+    optionMenuGrp -edit -select (polysDisplaySetup_int("colorMaterialBlend", $o) + 1) materialBlendPopup;
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("displayRedColorChannel", $o))
+        -value2 (polysDisplaySetup_int("displayGreenColorChannel", $o))
+        -value3 (polysDisplaySetup_int("displayBlueColorChannel", $o))
+        displayRGBColorChannelCheckBox;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("displayColorAsGrey", $o)) displayColorAsGreyscaleCheckBox;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("displayAlphaAsGrey", $o)) displayAlphaAsGreyscaleCheckBox;
+
+    optionMenuGrp -edit -select (polysDisplaySetup_int("displayPolyBackFaceCull", $o) + 1) backfaceCullPopup;
+
+    // Smooth Mesh Preview: 0 off, 1 cage and smooth mesh, 2 smooth mesh only. Off leaves the two radios as they are.
+    int $smooth = polysDisplaySetup_int("smpDisplaySmoothMesh", $o);
+    checkBoxGrp -edit -value1 ($smooth != 0) SMPCheck;
+    if ($smooth == 1)
+        radioButtonGrp -edit -select 1 Display1_RBG;
+    else if ($smooth == 2)
+        radioButtonGrp -edit -select 1 Display2_RBG;
+    toggleSMPState;
+
+    radioButtonGrp -edit -select (polysDisplaySetup_int("smpSmoothMeshSelectionMode", $o) + 1) SMPSelectType_RBG;
+    intSliderGrp -edit -value (polysDisplaySetup_int("smpSmoothLevel", $o)) SMPDivisionLevels_ISG;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("smpDisplaySubdComps", $o)) SMPDisplaySubdCheck;
+    floatSliderGrp -edit -value (polysDisplaySetup_float("smpContinuity", $o)) SMPContinuity_FSG;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("smpSmoothUVs", $o)) SMPSmoothUVsCheck;
+    checkBoxGrp -edit -value1 (polysDisplaySetup_int("smpPropagateEdgeHardness", $o)) SMPEdgeHardnessCheck;
+
+    // The buttons run smooth all, smooth internal, no smoothing; the value is the other way round. Anything out of
+    // range shows as no smoothing.
+    int $borders = polysDisplaySetup_int("smpKeepMapBorders", $o);
+    int $button = 1;
+    if ($borders == 0)
+        $button = 3;
+    else if ($borders == 1)
+        $button = 2;
+    radioButtonGrp -edit -select $button SMPMapBorders_RBG;
+    checkBoxGrp -edit
+        -value1 (polysDisplaySetup_int("smpKeepBorder", $o))
+        -value2 (polysDisplaySetup_int("smpKeepHardEdge", $o))
+        SMPPreserveCheck;
+
+    polysDisplayUpdateCulling($parent);
+}
+
+// Keeps what the option box under $parent shows in the slot it is set to, and applies when $doIt.
+global proc polysDisplaySetupCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+
+    int $o = `radioButtonGrp -query -select polyObjsAffectedRadio` - 1;
+    if ($o < 0)
+        $o = 0;
+    optionVar -intValue displayPolyObjsAffected $o;
+
+    polysDisplaySetup_setInt("displayPolyVtxDisp", $o, `checkBoxGrp -query -value1 polyVerticesDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyVertexNormals", $o, `checkBoxGrp -query -value2 polyVerticesDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyVtxBackCull", $o, `checkBoxGrp -query -value3 polyVerticesDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyCreaseVertexHilite", $o,
+        `checkBoxGrp -query -value1 vertexHiliteDisplayCheck`);
+    polysDisplaySetup_setFloat("displayPolyVertexSize", $o, `floatSliderGrp -query -value vertexSizeSlider`);
+
+    polysDisplaySetup_setInt("displayPolyEdgeDisp", $o, `radioButtonGrp -query -select polyEdgeDisplayRadio` - 1);
+    polysDisplaySetup_setInt("displayPolyBorderEdgeHilite", $o, `checkBoxGrp -query -value1 edgeHiliteDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyBorderMapHilite", $o, `checkBoxGrp -query -value2 edgeHiliteDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyCreaseEdgeHilite", $o, `checkBoxGrp -query -value3 edgeHiliteDisplayCheck`);
+    polysDisplaySetup_setFloat("displayPolyBorderEdgeSize", $o, `floatSliderGrp -query -value borderEdgeSizeSlider`);
+
+    polysDisplaySetup_setInt("displayPolyFacetCentreDisp", $o, `checkBoxGrp -query -value1 polyFacetDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyFacetNormalDisp", $o, `checkBoxGrp -query -value2 polyFacetDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyFacetTrngleDisp", $o, `checkBoxGrp -query -value3 polyFacetDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyFacetWarpDisp", $o, `checkBoxGrp -query -value4 polyFacetDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyHoleFacesHilite", $o, `checkBoxGrp -query -value1 polyFacetDisplayCheck2`);
+
+    polysDisplaySetup_setInt("displayPolyNumVertex", $o, `checkBoxGrp -query -value1 polyItemDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyNumEdge", $o, `checkBoxGrp -query -value2 polyItemDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyNumFacet", $o, `checkBoxGrp -query -value3 polyItemDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyNumUv", $o, `checkBoxGrp -query -value4 polyItemDisplayCheck`);
+    polysDisplaySetup_setFloat("displayPolyNormalSize", $o, `floatSliderGrp -query -value normalSizeSlider`);
+    polysDisplaySetup_setFloat("displayPolyUVSize", $o, `floatSliderGrp -query -value uvSizeSlider`);
+    polysDisplaySetup_setInt("displayPolyUV", $o, `checkBoxGrp -query -value1 polyUVDisplayCheck`);
+    polysDisplaySetup_setInt("displayPolyUVTopology", $o, `checkBoxGrp -query -value2 polyUVDisplayCheck`);
+
+    polysDisplaySetup_setInt("colorShadedDisplay", $o, `checkBoxGrp -query -value1 colorShadedDisplayCheck`);
+    polysDisplaySetup_setInt("colorMaterialChannel", $o, `optionMenuGrp -query -select colorMaterialPopup` - 1);
+    polysDisplaySetup_setInt("colorMaterialBlend", $o, `optionMenuGrp -query -select materialBlendPopup` - 1);
+    polysDisplaySetup_setInt("displayRedColorChannel", $o,
+        `checkBoxGrp -query -value1 displayRGBColorChannelCheckBox`);
+    polysDisplaySetup_setInt("displayGreenColorChannel", $o,
+        `checkBoxGrp -query -value2 displayRGBColorChannelCheckBox`);
+    polysDisplaySetup_setInt("displayBlueColorChannel", $o,
+        `checkBoxGrp -query -value3 displayRGBColorChannelCheckBox`);
+    polysDisplaySetup_setInt("displayColorAsGrey", $o, `checkBoxGrp -query -value1 displayColorAsGreyscaleCheckBox`);
+    polysDisplaySetup_setInt("displayAlphaAsGrey", $o, `checkBoxGrp -query -value1 displayAlphaAsGreyscaleCheckBox`);
+
+    polysDisplaySetup_setInt("displayPolyBackFaceCull", $o, `optionMenuGrp -query -select backfaceCullPopup` - 1);
+
+    int $smooth = 0;
+    if (`checkBoxGrp -query -value1 SMPCheck`)
+        $smooth = (`radioButtonGrp -query -select Display1_RBG` == 1) ? 1 : 2;
+    polysDisplaySetup_setInt("smpDisplaySmoothMesh", $o, $smooth);
+
+    // Only a selection type in range is kept.
+    int $selMode = `radioButtonGrp -query -select SMPSelectType_RBG` - 1;
+    if ($selMode >= 0 && $selMode <= 2)
+        polysDisplaySetup_setInt("smpSmoothMeshSelectionMode", $o, $selMode);
+
+    polysDisplaySetup_setInt("smpSmoothLevel", $o, `intSliderGrp -query -value SMPDivisionLevels_ISG`);
+    polysDisplaySetup_setInt("smpDisplaySubdComps", $o, `checkBoxGrp -query -value1 SMPDisplaySubdCheck`);
+    polysDisplaySetup_setFloat("smpContinuity", $o, `floatSliderGrp -query -value SMPContinuity_FSG`);
+    polysDisplaySetup_setInt("smpSmoothUVs", $o, `checkBoxGrp -query -value1 SMPSmoothUVsCheck`);
+    polysDisplaySetup_setInt("smpPropagateEdgeHardness", $o, `checkBoxGrp -query -value1 SMPEdgeHardnessCheck`);
+
+    // Buttons 1 to 3 are smooth all, smooth internal, no smoothing: stored as 2, 1, 0. Anything else is stored as is.
+    int $borders = `radioButtonGrp -query -select SMPMapBorders_RBG`;
+    if ($borders == 1)
+        $borders = 2;
+    else if ($borders == 3)
+        $borders = 0;
+    else if ($borders == 2)
+        $borders = 1;
+    polysDisplaySetup_setInt("smpKeepMapBorders", $o, $borders);
+    polysDisplaySetup_setInt("smpKeepBorder", $o, `checkBoxGrp -query -value1 SMPPreserveCheck`);
+    polysDisplaySetup_setInt("smpKeepHardEdge", $o, `checkBoxGrp -query -value2 SMPPreserveCheck`);
+
+    if ($doIt)
+        polysDisplaySetup 0;
+}
+
+// Vertex backculling means nothing with backface culling off, so its box is greyed out then.
+global proc polysDisplayUpdateCulling(string $parent)
+{
+    setParent $parent;
+    int $culling = `optionMenuGrp -query -select backfaceCullPopup`;
+    checkBoxGrp -edit -enable3 ($culling != 1) polyVerticesDisplayCheck;
+}
+
+// The Smooth Mesh Preview controls follow its check box; the selection type also needs the cage shown.
+global proc toggleSMPState()
+{
+    int $on = `checkBoxGrp -query -value1 SMPCheck`;
+    radioButtonGrp -edit -enable $on Display1_RBG;
+    radioButtonGrp -edit -enable $on Display2_RBG;
+    intSliderGrp -edit -enable $on SMPDivisionLevels_ISG;
+    checkBoxGrp -edit -enable $on SMPDisplaySubdCheck;
+    floatSliderGrp -edit -enable $on SMPContinuity_FSG;
+    checkBoxGrp -edit -enable $on SMPSmoothUVsCheck;
+    checkBoxGrp -edit -enable $on SMPEdgeHardnessCheck;
+    radioButtonGrp -edit -enable $on SMPMapBorders_RBG;
+    checkBoxGrp -edit -enable $on SMPPreserveCheck;
+    int $cage = `radioButtonGrp -query -select Display1_RBG` == 1;
+    radioButtonGrp -edit -enable ($on && $cage) SMPSelectType_RBG;
+}
+
+// Sets the Smooth Mesh Preview attributes on every mesh ($affectsAll) or the selected ones. With none, nothing happens
+// (which is what happens at start up). Aztek's meshes don't have every one of these attributes yet: those they lack
+// are passed over.
+global proc updateSMPAttrs(int $smoothMesh, int $selMode, int $level, int $subdComps, float $continuity,
+    int $smoothUVs, int $propEdgeHardness, int $mapBorders, int $keepBorder, int $keepHardEdge, int $affectsAll)
+{
+    string $meshes[];
+    if ($affectsAll)
+        $meshes = `ls -type mesh`;
+    else
+        $meshes = `filterExpand -selectionMask 12`;
+    if (size($meshes) == 0)
+        return;
+
+    string $attrs[] = {"displaySmoothMesh", "smoothMeshSelectionMode", "smoothLevel", "displaySubdComps",
+        "continuity", "smoothUVs", "propagateEdgeHardness", "keepMapBorders", "keepBorder", "keepHardEdge"};
+    float $values[] = {$smoothMesh, $selMode, $level, $subdComps, $continuity, $smoothUVs, $propEdgeHardness,
+        $mapBorders, $keepBorder, $keepHardEdge};
+    for ($mesh in $meshes) {
+        // The selection gives transforms. The reference's setAttr passes a shape's attribute on from its transform;
+        // Aztek's doesn't, so the transform's mesh shapes are set instead.
+        string $nodes[] = {$mesh};
+        if (`nodeType $mesh` != "mesh") {
+            string $shapes[] = `listRelatives -shapes -noIntermediate -type mesh -fullPath $mesh`;
+            if (size($shapes))
+                $nodes = $shapes;
+        }
+        for ($node in $nodes) {
+            for ($i = 0; $i < size($attrs); $i++) {
+                if (`attributeQuery -exists -node $node $attrs[$i]`)
+                    setAttr ($node + "." + $attrs[$i]) $values[$i];
+            }
+        }
+    }
+}

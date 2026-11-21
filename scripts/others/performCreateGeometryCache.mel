@@ -1,0 +1,503 @@
+// performCreateGeometryCache: the option box and command behind Cache > Geometry Cache (Create, Replace, Merge and
+// Export), as the reference's. The settings are kept in optionVars and turned into a call to doCreateGeometryCache,
+// which does the caching. The cache directory and name are only meant to last while one scene is open, so they are
+// dropped whenever a different scene is.
+
+// "Use the project's cache directory" and "name it after the selection", as kept in the directory and name settings.
+global string $gGeomCacheCurrentProject = "CurrentProject";
+global string $gGeomCacheAutomaticName = "Automatic";
+// The scene that was open when the user last set the directory or name.
+global string $gGeomCacheSceneNameForPrefs = "";
+
+// ---- Local helpers ----
+
+// Makes sure the project has a fileCache rule, cache/nCache unless it already says otherwise.
+proc performCreateGeometryCache_verifyRule()
+{
+    if (`exists verifyWorkspaceFileRule`) {
+        eval "verifyWorkspaceFileRule \"fileCache\" \"cache/nCache\"";
+        return;
+    }
+    // Aztek doesn't have verifyWorkspaceFileRule: the same check, done here.
+    if (`workspace -fileRuleEntry fileCache` == "")
+        workspace -fileRule fileCache "cache/nCache";
+}
+
+// The project's cache directory as a full path ending in a slash.
+proc string performCreateGeometryCache_projectDir()
+{
+    string $rule = `workspace -fileRuleEntry fileCache`;
+    return (`workspace -expandName $rule` + "/");
+}
+
+// The directory the box shows: the one saved, or the project's when the setting says so.
+proc string performCreateGeometryCache_currentDir()
+{
+    if (`exists cacheGetCurrentDir`)
+        return eval("cacheGetCurrentDir \"fileCache\" \"geomCacheDirName\" \"CurrentProject\" 0");
+    // Aztek doesn't have cacheGetCurrentDir: the saved directory, or the project's cache directory.
+    string $dir = "";
+    if (`optionVar -exists geomCacheDirName`)
+        $dir = `optionVar -query geomCacheDirName`;
+    if ($dir == "" || $dir == "CurrentProject")
+        $dir = performCreateGeometryCache_projectDir();
+    return $dir;
+}
+
+// The geometry the cache would be made for.
+proc string[] performCreateGeometryCache_geometries()
+{
+    if (`exists getGeometriesToCache`)
+        return eval("getGeometriesToCache");
+    // Aztek doesn't have getGeometriesToCache: the selected shapes that can be cached.
+    return `ls -selection -dag -long -noIntermediate -type mesh -type nurbsSurface -type nurbsCurve`;
+}
+
+// The name a cache gets when the user hasn't given one.
+proc string performCreateGeometryCache_automaticName()
+{
+    if (`exists getAutomaticCacheName`)
+        return eval("getAutomaticCacheName");
+    // Aztek doesn't have getAutomaticCacheName: the first geometry's short name, namespaces flattened.
+    string $geometries[] = performCreateGeometryCache_geometries();
+    if (size($geometries) == 0)
+        return "";
+    string $parts[];
+    int $count = `tokenize $geometries[0] "|" $parts`;
+    return `substituteAllString $parts[$count - 1] ":" "_"`;
+}
+
+// The saved settings. Forced, they go back to their defaults; otherwise only missing ones are made. The directory and
+// name are dropped first when a different scene is open, and get their "project" and "automatic" values back,
+// kept for this session only.
+proc performCreateGeometryCache_options(int $force)
+{
+    global string $gGeomCacheSceneNameForPrefs;
+
+    if (`file -query -location` != $gGeomCacheSceneNameForPrefs) {
+        optionVar -remove geomCacheDirName;
+        optionVar -remove geomCacheName;
+    }
+    int $setName = $force || !`optionVar -exists geomCacheName`;
+    int $setDir = $force || !`optionVar -exists geomCacheDirName`;
+
+    optionVar -init $force -category "Cache.Geometry Cache.Create"
+        -iv geomRefresh 1
+        -iv geomCacheDistrib 1
+        -iv geomCacheTimeRange 2
+        -fv geomCacheStartTime 1
+        -fv geomCacheEndTime 10
+        -sv geomCacheFormat "mcx"
+        -sv geomCacheDirName ""
+        -sv geomCacheName ""
+        -iv geomCachePerGeometry 1
+        -iv cacheAsFloats 1
+        -iv cacheInWorld 0
+        -fv geomCacheSimulationRate 1
+        -iv geomCacheMergeDelete 0
+        -iv geomCacheSampleMultiplier 1
+        -iv geomCacheInheritModifications 0;
+
+    if ($setName)
+        optionVar -transient -stringValue geomCacheName "Automatic";
+    if ($setDir)
+        optionVar -transient -stringValue geomCacheDirName "CurrentProject";
+}
+
+// The doCreateGeometryCache call the settings make for $mode (add, replace, merge or export).
+proc string performCreateGeometryCache_command(string $mode)
+{
+    string $distribution = (`optionVar -query geomCacheDistrib` == 2) ? "OneFile" : "OneFilePerFrame";
+    string $dir = `optionVar -query geomCacheDirName`;
+    if ($dir == "CurrentProject")
+        $dir = "";
+
+    // A name typed but not yet committed is taken first.
+    geomCacheNameChanged;
+    string $name = `optionVar -query geomCacheName`;
+    if ($name == "Automatic")
+        $name = "";
+
+    string $prefix = "0";
+    if (`checkBoxGrp -exists useAsPrefix`)
+        $prefix = `checkBoxGrp -query -value1 useAsPrefix`;
+
+    if ($mode == "merge" && `optionVar -query geomCacheMergeDelete`)
+        $mode = "mergeDelete";
+    int $inherit = 0;
+    if ($mode == "replace")
+        $inherit = `optionVar -query geomCacheInheritModifications`;
+
+    // The spacing is the reference's, kept as is since the command is echoed.
+    return "doCreateGeometryCache 6 { "
+        + "\"" + `optionVar -query geomCacheTimeRange` + "\", "
+        + "\"" + `optionVar -query geomCacheStartTime` + "\", "
+        + "\"" + `optionVar -query geomCacheEndTime` + "\", "
+        + "\"" + $distribution + "\", "
+        + "\"" + `optionVar -query geomRefresh` + "\", "
+        + "\"" + $dir + "\","
+        + "\"" + `optionVar -query geomCachePerGeometry` + "\","
+        + "\"" + $name + "\","
+        + "\"" + $prefix + "\", "
+        + "\"" + $mode + "\", "
+        + "\"0\", "
+        + "\"" + `optionVar -query geomCacheSimulationRate` + "\", "
+        + "\"" + `optionVar -query geomCacheSampleMultiplier` + "\","
+        + "\"" + $inherit + "\","
+        + "\"" + `optionVar -query cacheAsFloats` + "\","
+        + "\"" + `optionVar -query geomCacheFormat` + "\","
+        + "\"" + `optionVar -query cacheInWorld` + "\""
+        + " } ";
+}
+
+// The cache formats on offer: the two built in, then those of the loaded plug-ins in plug-in order.
+proc string[] performCreateGeometryCache_formats()
+{
+    string $formats[] = {"mcx", "mcc"};
+    string $plugins[] = `pluginInfo -query -listPlugins`;
+    for ($plugin in $plugins) {
+        // Aztek's pluginInfo can't say which cache formats a plug-in adds, so none are added that way.
+        string $more[];
+        if (catchQuiet($more = `pluginInfo -query -cacheFormat $plugin`))
+            continue;
+        for ($format in $more)
+            $formats[size($formats)] = $format;
+    }
+    return $formats;
+}
+
+// The option box for $mode, built afresh each time.
+proc performCreateGeometryCache_optionBox(string $mode)
+{
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("geomCache");
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -tabsVisible 0 -scrollable 1;
+    string $parent = `columnLayout -adjustableColumn 1`;
+
+    performCreateGeometryCache_verifyRule();
+    rowLayout -numberOfColumns 3 -columnWidth3 400 5 50 -adjustableColumn 1;
+        textFieldGrp -label "Cache directory:" -text (performCreateGeometryCache_currentDir())
+            -changeCommand "cacheSetDirOptionVar" -adjustableColumn 2 cacheDir;
+        separator -width 5 -style "none";
+        symbolButton -image "navButtonBrowse.png" -command "cacheBrowseForFolder" cacheDirBrowser;
+    setParent ..;
+
+    textFieldGrp -label "Cache name:" -enable true -changeCommand "geomCacheNameChanged" cacheName;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Use name as prefix" -value1 0 -enable true
+        -changeCommand "geomDistributionChanged" useAsPrefix;
+    setCacheName;
+
+    // A format no plug-in offers any more falls back to mcx as the default.
+    string $formats[] = performCreateGeometryCache_formats();
+    string $current = "";
+    if (`optionVar -exists geomCacheFormat`)
+        $current = `optionVar -query geomCacheFormat`;
+    int $known = 0;
+    for ($format in $formats) {
+        if ($format == $current)
+            $known = 1;
+    }
+    if (!`optionVar -exists geomCacheFormat` || !$known)
+        optionVar -init 0 -category "Cache.Geometry Cache.Create" -sv geomCacheFormat "mcx";
+    columnLayout -adjustableColumn 1;
+        optionMenuGrp -label "Cache format:" -changeCommand "geomFormatChanged" formatMenu;
+        for ($format in $formats)
+            menuItem -label $format;
+        string $wanted = `optionVar -query geomCacheFormat`;
+        int $item = 0;
+        for ($i = 0; $i < size($formats); $i++) {
+            if ($formats[$i] == $wanted) {
+                $item = $i + 1;
+                break;
+            }
+        }
+        if ($item == 0) {
+            warning ("The cache format " + $wanted + " isn't available: its plug-in may not be loaded.");
+            $item = 1;
+        }
+        optionMenuGrp -edit -select $item formatMenu;
+    setParent $parent;
+
+    radioButtonGrp -numberOfRadioButtons 1 -label "File distribution:" -label1 "One file per frame"
+        -changeCommand "geomDistributionChanged" geomCacheDist1;
+    radioButtonGrp -numberOfRadioButtons 1 -shareCollection geomCacheDist1 -label "" -label1 "One file"
+        -changeCommand "geomDistributionChanged" geomCacheDist2;
+    checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "One file per geometry"
+        -value1 `optionVar -query geomCachePerGeometry` -changeCommand "geomDistributionChanged" cachePerGeometry;
+    radioButtonGrp -numberOfRadioButtons 2 -label "Store points as:" -labelArray2 "Double" "Float"
+        -onCommand1 "optionVar -intValue cacheAsFloats 0" -onCommand2 "optionVar -intValue cacheAsFloats 1"
+        -select 1 doubleOrFloat;
+    if ($mode == "export")
+        radioButtonGrp -numberOfRadioButtons 2 -label "Store points in:" -labelArray2 "Local space" "World space"
+            -onCommand1 "optionVar -intValue cacheInWorld 0" -onCommand2 "optionVar -intValue cacheInWorld 1"
+            localOrWorld;
+    separator -style "none" -height 5;
+
+    string $rangeCmd = "disableGeomDiskCacheAttrs " + $parent;
+    radioButtonGrp -numberOfRadioButtons 1 -label "Cache time range:" -label1 "Render settings"
+        -changeCommand $rangeCmd geomCacheTimeRange1;
+    radioButtonGrp -numberOfRadioButtons 1 -shareCollection geomCacheTimeRange1 -label ""
+        -label1 (localizedUIComponentLabel("Time Slider")) -changeCommand $rangeCmd geomCacheTimeRange2;
+    radioButtonGrp -numberOfRadioButtons 1 -shareCollection geomCacheTimeRange1 -label "" -label1 "Start/End"
+        -changeCommand $rangeCmd geomCacheTimeRange3;
+    floatFieldGrp -numberOfFields 2 -label "Start/End:" geomCacheStartEndTime;
+    floatFieldGrp -numberOfFields 1 -label "Evaluate every:" -extraLabel "frame(s)" geomCacheSimulationRate;
+    intFieldGrp -numberOfFields 1 -label "Save every:" -extraLabel "evaluation(s)" geomCacheSampleMultiplier;
+    separator -style "none" -height 5;
+
+    if ($mode == "merge")
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Delete existing caches" -value1 0 mergeDeleteBox;
+    if ($mode == "replace")
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Inherit modifications" -value1 0 replaceInheritMods;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $applyLabel = "Merge";
+    if ($mode == "replace")
+        $applyLabel = "Replace";
+    else if ($mode == "add")
+        $applyLabel = "Create";
+    else if ($mode == "export")
+        $applyLabel = "Export";
+    button -edit -label $applyLabel -command ("geomCacheCallback " + $parent + " 1 " + $mode)
+        (getOptionBoxApplyBtn());
+    button -edit -command ("geomCacheCallback " + $parent + " 0 " + $mode + "; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("geomCacheSetup " + $parent + " 1") (getOptionBoxResetBtn());
+
+    if ($mode == "replace") {
+        setOptionBoxTitle("Replace Geometry Cache Options");
+        setOptionBoxHelpTag("ReplaceGeomCache");
+    } else if ($mode == "add") {
+        setOptionBoxTitle("Create Geometry Cache Options");
+        setOptionBoxHelpTag("CreateGeomCache");
+    } else if ($mode == "merge") {
+        setOptionBoxTitle("Merge Geometry Cache Options");
+        setOptionBoxHelpTag("MergeGeomCache");
+    } else if ($mode == "export") {
+        setOptionBoxTitle("Export Geometry Cache Options");
+        setOptionBoxHelpTag("ExportGeomCache");
+    }
+
+    eval ("geomCacheSetup " + $parent + " 0");
+    // The geometry count changes what can be ticked, so the box follows the selection; the job goes with the box.
+    scriptJob -parent $parent -event "SelectionChanged" "geomDistributionChanged";
+    showOptionBox();
+}
+
+// ---- Global procedures ----
+
+// $action: 0 caches and returns the command, 1 opens the option box for $createMode, 2 only returns the command.
+// $createMode is add, replace, merge or export.
+global proc string performCreateGeometryCache(int $action, string $createMode)
+{
+    if ($action == 0) {
+        performCreateGeometryCache_options(0);
+        string $cmd = performCreateGeometryCache_command($createMode);
+        if (`exists doCreateGeometryCache`)
+            evalEcho $cmd;
+        else
+            warning "Geometry caching isn't available here yet: nothing was cached.";
+        return $cmd;
+    }
+    if ($action == 1) {
+        performCreateGeometryCache_optionBox($createMode);
+        return "";
+    }
+    if ($action == 2) {
+        performCreateGeometryCache_options(0);
+        return performCreateGeometryCache_command($createMode);
+    }
+    return "";
+}
+
+// Shows the saved settings in the option box under $parent; Reset forces the defaults first.
+global proc geomCacheSetup(string $parent, int $forceFactorySettings)
+{
+    performCreateGeometryCache_options($forceFactorySettings);
+    setParent $parent;
+
+    string $format = `optionVar -query geomCacheFormat`;
+    string $items[] = `optionMenuGrp -query -itemListLong formatMenu`;
+    for ($i = 0; $i < size($items); $i++) {
+        if (`menuItem -query -label $items[$i]` == $format) {
+            optionMenuGrp -edit -select ($i + 1) formatMenu;
+            break;
+        }
+    }
+
+    int $distrib = `optionVar -query geomCacheDistrib`;
+    if ($distrib == 1)
+        radioButtonGrp -edit -select 1 geomCacheDist1;
+    else if ($distrib == 2)
+        radioButtonGrp -edit -select 1 geomCacheDist2;
+    geomDistributionChanged;
+
+    int $range = `optionVar -query geomCacheTimeRange`;
+    if ($range == 1)
+        radioButtonGrp -edit -select 1 geomCacheTimeRange1;
+    else if ($range == 2)
+        radioButtonGrp -edit -select 1 geomCacheTimeRange2;
+    else
+        radioButtonGrp -edit -select 1 geomCacheTimeRange3;
+
+    performCreateGeometryCache_verifyRule();
+    textFieldGrp -edit -text (performCreateGeometryCache_currentDir()) cacheDir;
+    setCacheName;
+
+    checkBoxGrp -edit -value1 `optionVar -query geomCachePerGeometry` cachePerGeometry;
+    floatFieldGrp -edit -value1 `optionVar -query geomCacheStartTime` -value2 `optionVar -query geomCacheEndTime`
+        geomCacheStartEndTime;
+    floatFieldGrp -edit -value1 `optionVar -query geomCacheSimulationRate` geomCacheSimulationRate;
+    intFieldGrp -edit -value1 `optionVar -query geomCacheSampleMultiplier` geomCacheSampleMultiplier;
+
+    if (`checkBoxGrp -exists mergeDeleteBox`)
+        checkBoxGrp -edit -value1 `optionVar -query geomCacheMergeDelete` mergeDeleteBox;
+    if (`checkBoxGrp -exists replaceInheritMods`)
+        checkBoxGrp -edit -value1 `optionVar -query geomCacheInheritModifications` replaceInheritMods;
+    if (`radioButtonGrp -exists doubleOrFloat`)
+        radioButtonGrp -edit -select (`optionVar -query cacheAsFloats` ? 2 : 1) doubleOrFloat;
+    if (`radioButtonGrp -exists localOrWorld`)
+        radioButtonGrp -edit -select (`optionVar -query cacheInWorld` ? 2 : 1) localOrWorld;
+
+    disableGeomDiskCacheAttrs($parent);
+}
+
+// Keeps the distribution, time range and number settings the option box under $parent shows (the others are kept
+// as they change), and caches when $doIt.
+global proc geomCacheCallback(string $parent, int $doIt, string $action)
+{
+    setParent $parent;
+
+    int $distrib = 1;
+    if (`radioButtonGrp -query -select geomCacheDist1`)
+        $distrib = 1;
+    else if (`radioButtonGrp -query -select geomCacheDist2`)
+        $distrib = 2;
+    optionVar -intValue geomCacheDistrib $distrib;
+
+    int $range = 1;
+    if (`radioButtonGrp -query -select geomCacheTimeRange1`)
+        $range = 1;
+    else if (`radioButtonGrp -query -select geomCacheTimeRange2`)
+        $range = 2;
+    else if (`radioButtonGrp -query -select geomCacheTimeRange3`)
+        $range = 3;
+    optionVar -intValue geomCacheTimeRange $range;
+
+    if (`checkBoxGrp -exists mergeDeleteBox`)
+        optionVar -intValue geomCacheMergeDelete `checkBoxGrp -query -value1 mergeDeleteBox`;
+    if (`checkBoxGrp -exists replaceInheritMods`)
+        optionVar -intValue geomCacheInheritModifications `checkBoxGrp -query -value1 replaceInheritMods`;
+
+    optionVar -floatValue geomCacheStartTime `floatFieldGrp -query -value1 geomCacheStartEndTime`;
+    optionVar -floatValue geomCacheEndTime `floatFieldGrp -query -value2 geomCacheStartEndTime`;
+    optionVar -floatValue geomCacheSimulationRate `floatFieldGrp -query -value1 geomCacheSimulationRate`;
+    // Kept as a float, as the reference does, though it is shown as a whole number.
+    float $multiplier = `intFieldGrp -query -value1 geomCacheSampleMultiplier`;
+    optionVar -floatValue geomCacheSampleMultiplier $multiplier;
+
+    if ($doIt)
+        performCreateGeometryCache 0 $action;
+}
+
+// Keeps the directory typed in the box, while the field is enabled. The project's own cache directory is kept as
+// "use the project's", so it follows the project.
+global proc cacheSetDirOptionVar()
+{
+    global string $gGeomCacheSceneNameForPrefs;
+
+    if (!`textFieldGrp -query -enable cacheDir`)
+        return;
+    string $dir = `textFieldGrp -query -text cacheDir`;
+    if ($dir != "") {
+        performCreateGeometryCache_verifyRule();
+        if ($dir == performCreateGeometryCache_projectDir())
+            $dir = "CurrentProject";
+        optionVar -stringValue geomCacheDirName $dir;
+        $gGeomCacheSceneNameForPrefs = `file -query -location`;
+    } else {
+        optionVar -stringValue geomCacheDirName "CurrentProject";
+    }
+}
+
+// The file browser's callback: the chosen directory goes in the box and is kept.
+global proc int cacheSetDirectory(string $dir, string $type)
+{
+    textFieldGrp -edit -text $dir cacheDir;
+    cacheSetDirOptionVar;
+    return 1;
+}
+
+// Opens a directory browser at the directory shown, or the user's projects directory.
+global proc cacheBrowseForFolder()
+{
+    string $start = `textFieldGrp -query -text cacheDir`;
+    if ($start == "")
+        $start = `internalVar -userWorkspaceDir`;
+    if (`filetest -d $start`)
+        workspace -dir $start;
+    fileBrowser("cacheSetDirectory ", "Set Directory", "", 4);
+}
+
+// The start and end fields only mean something with the Start/End range.
+global proc disableGeomDiskCacheAttrs(string $parent)
+{
+    setParent $parent;
+    int $startEnd = `radioButtonGrp -query -select geomCacheTimeRange3`;
+    floatFieldGrp -edit -enable $startEnd geomCacheStartEndTime;
+}
+
+global proc geomFormatChanged()
+{
+    optionVar -stringValue geomCacheFormat `optionMenuGrp -query -value formatMenu`;
+}
+
+// One file per geometry only means something for more than one geometry; the name is used as a prefix when there
+// are several files, and the name field is needed unless each geometry is named for itself.
+global proc geomDistributionChanged()
+{
+    string $geometries[] = performCreateGeometryCache_geometries();
+    int $count = size($geometries);
+    int $perGeom = ($count > 1) && `checkBoxGrp -query -value1 cachePerGeometry`;
+    optionVar -intValue geomCachePerGeometry $perGeom;
+    checkBoxGrp -edit -enable ($count > 1) cachePerGeometry;
+
+    int $perFrame = `radioButtonGrp -query -select geomCacheDist1`;
+    checkBoxGrp -edit -enable ($perFrame || $perGeom) useAsPrefix;
+    int $prefix = `checkBoxGrp -query -value1 useAsPrefix`;
+    textFieldGrp -edit -enable (!$perGeom || $prefix) cacheName;
+    setCacheName;
+}
+
+// Keeps the name typed in the box, unless it is still the automatic one.
+global proc geomCacheNameChanged()
+{
+    global string $gGeomCacheSceneNameForPrefs;
+
+    if (!`textFieldGrp -exists cacheName`)
+        return;
+    string $name = `textFieldGrp -query -text cacheName`;
+    if ($name == "")
+        return;
+    if (`optionVar -query geomCacheName` == "Automatic" && $name == performCreateGeometryCache_automaticName())
+        return;
+    optionVar -stringValue geomCacheName $name;
+    $gGeomCacheSceneNameForPrefs = `file -query -location`;
+}
+
+// Shows the saved name, or the automatic one, in the box.
+global proc setCacheName()
+{
+    string $name = `optionVar -query geomCacheName`;
+    if ($name == "Automatic")
+        $name = performCreateGeometryCache_automaticName();
+    textFieldGrp -edit -text $name cacheName;
+}

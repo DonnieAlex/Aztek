@@ -32,40 +32,26 @@ proc string wmCommand(string $rtc)
     return "";
 }
 
-// The label each editor goes by in the menu.
-proc string wmLabel(string $rtc)
+// Text for editors whose runtime command Aztek doesn't have, so there is no label to ask for.
+proc string wmFallbackLabel(string $rtc)
 {
     switch ($rtc) {
-        case "AttributeEditor": return "Attribute Editor";
         case "OpenChannelsLayers": return "Channel Box / Layer Editor";
         case "OpenChannelBox": return "Channel Box";
         case "OpenLayerEditor": return "Layer Editor";
-        case "ToolSettingsWindow": return "Tool Settings";
-        case "HypergraphHierarchyWindow": return "Hypergraph: Hierarchy";
-        case "HypergraphDGWindow": return "Hypergraph: Connections";
         case "DisplayViewport": return "Viewport";
         case "OpenAELiveLink": return "Compositing Live Link";
         case "AssetEditor": return "Asset Editor";
-        case "SpreadSheetEditor": return "Attribute Spread Sheet";
-        case "ComponentEditor": return "Component Editor";
-        case "ConnectionEditor": return "Connection Editor";
-        case "ChannelControlEditor": return "Channel Control";
         case "DisplayLayerEditorWindow": return "Display Layer Editor";
         case "FilePathEditor": return "File Path Editor";
-        case "NamespaceEditor": return "Namespace Editor";
-        case "ScriptEditor": return "Script Editor";
         case "CommandShell": return "Command Shell";
         case "OpenDGProfiler": return "Dependency Graph Profiler";
         case "ProfilerTool": return "Profiler";
         case "EvaluationToolkit": return "Evaluation Toolkit";
         case "OpenModelingToolkit": return "Modeling Toolkit";
         case "PaintEffectsWindow": return "Paint Effects";
-        case "TextureViewWindow": return "UV Editor";
         case "OpenXGenEditor": return "Interactive Groom Editor";
         case "OpenCreaseEditor": return "Crease Sets";
-        case "RenderViewWindow": return "Render View";
-        case "RenderGlobalsWindow": return "Render Settings";
-        case "HypershadeWindow": return "Hypershade";
         case "RenderLayerEditorWindow": return "Render Layer Editor";
         case "RenderSetupWindow": return "Render Setup";
         case "OpenLightEditor": return "Light Editor";
@@ -73,18 +59,13 @@ proc string wmLabel(string $rtc)
         case "RenderFlagsWindow": return "Rendering Flags";
         case "ShadingGroupAttributeEditor": return "Shading Group Attributes";
         case "HardwareRenderBuffer": return "Hardware Render Buffer";
-        case "GraphEditor": return "Graph Editor";
-        case "DopeSheetEditor": return "Dope Sheet";
         case "TimeEditorWindow": return "Time Editor";
         case "OpenMotionMaker": return "Motion Maker";
         case "SequenceEditor": return "Camera Sequencer";
         case "CharacterAnimationEditor": return "Trax Editor";
         case "OpenMotionTrailEditor": return "Motion Trail Editor";
         case "QuickRigEditor": return "Quick Rig";
-        case "HIKCharacterControlsTool": return "Humanoid IK";
-        case "ShapeEditor": return "Shape Editor";
         case "PoseEditor": return "Pose Editor";
-        case "ExpressionEditor": return "Expression Editor";
         case "LightCentricLightLinkingEditor": return "Light Centric";
         case "ObjectCentricLightLinkingEditor": return "Object Centric";
         case "TextureCentricUVLinkingEditor": return "Texture Centric";
@@ -103,20 +84,43 @@ proc string wmLabel(string $rtc)
         case "RenderLayerRelationshipEditor": return "Render Layers";
         case "RenderPassSetEditor": return "Render Pass Sets";
         case "SetEditor": return "Sets";
-        case "PreferencesWindow": return "Preferences";
         case "PerformanceSettingsWindow": return "Performance Settings";
-        case "HotkeyPreferencesWindow": return "Hotkey Editor";
         case "ColorPreferencesWindow": return "Colour Settings";
         case "MarkingMenuPreferencesWindow": return "Marking Menu Editor";
         case "ShelfPreferencesWindow": return "Shelf Editor";
         case "PanelPreferencesWindow": return "Panel Editor";
-        case "PluginManager": return "Plug-in Manager";
-        case "OutlinerWindow": return "Outliner";
-        case "NodeEditorWindow": return "Node Editor";
         case "OpenContentBrowser": return "Content Browser";
         case "PlayblastWindow": return "Playblast";
     }
     return $rtc;
+}
+
+// The label an editor's item shows: the runtime command's own. Aztek's factory runtime commands carry their name as the
+// label and their menu text as the annotation, so for those the annotation is the text.
+proc string wmLabel(string $rtc)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $label = `runTimeCommand -query -label $rtc`;
+        if ($label != "" && $label != $rtc)
+            return $label;
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if (`runTimeCommand -query -default $rtc` && $ann != "")
+            return $ann;
+        if ($label != "")
+            return $label;
+    }
+    return wmFallbackLabel($rtc);
+}
+
+// The tooltip: the runtime command's annotation, else the label.
+proc string wmAnnotation(string $rtc)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if ($ann != "")
+            return $ann;
+    }
+    return wmLabel($rtc);
 }
 
 // One editor's item under the current menu parent, named $name where that's given, after $after where that's given.
@@ -129,7 +133,7 @@ proc string wmItem(string $rtc, string $name, string $after, int $onlyIfMissing)
     if ($cmd == "")
         return "";
     string $label = wmLabel($rtc);
-    string $make = "menuItem -label \"" + encodeString($label) + "\" -annotation \"" + encodeString($label)
+    string $make = "menuItem -label \"" + encodeString($label) + "\" -annotation \"" + encodeString(wmAnnotation($rtc))
         + "\" -command \"" + encodeString($cmd) + "\"";
     if ($after != "") {
         // Placed by the full name of the item it follows, in the menu being filled.
@@ -313,18 +317,16 @@ global proc buildRenderingEdMenu(string $parent)
     wmItem("RenderGlobalsWindow", "", "", 0);
     wmItem("HypershadeWindow", "", "", 0);
     // Each renderer's own editors, where the renderer gives a procedure for them.
-    if (`exists renderer`) {
-        string $renderers[] = `renderer -query -namesOfAvailableRenderers`;
-        for ($r in $renderers) {
-            string $proc = `renderer -query -renderingEditorsSubMenuProcedure $r`;
-            if ($proc == "")
-                continue;
-            string $label = `renderer -query -rendererUIName $r`;
-            string $sub = `menuItem -subMenu true -tearOff true -label $label
-                -annotation "Editors of this renderer" ("rendererOptionsItem" + $r)`;
-            menu -edit -postMenuCommand ("eval " + $proc + " " + $sub) $sub;
-            setParent -menu ..;
-        }
+    string $renderers[] = `renderer -query -namesOfAvailableRenderers`;
+    for ($r in $renderers) {
+        string $proc = `renderer -query -renderingEditorsSubMenuProcedure $r`;
+        if ($proc == "")
+            continue;
+        string $label = `renderer -query -rendererUIName $r`;
+        string $sub = `menuItem -subMenu true -tearOff true -label $label
+            -annotation "Editors of this renderer" ("rendererOptionsItem" + $r)`;
+        menu -edit -postMenuCommand ("eval " + $proc + " " + $sub) $sub;
+        setParent -menu ..;
     }
     // Render Setup or the Render Layer Editor, by which Aztek has.
     if (wmCommand("RenderSetupWindow") == "") {

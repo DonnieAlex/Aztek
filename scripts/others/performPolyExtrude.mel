@@ -36,25 +36,6 @@ proc polyExtrudeInitEdge(int $force)
         -fv polyExtrudeEdgeThickness 0.0;
 }
 
-// The selection checked and turned into faces ("f") or edges ("e"): polyCheckSelection's work where there is one, else
-// the selection converted.
-proc string[] polyExtrudeCheckSelection(string $label, string $type)
-{
-    string $result[];
-    if (`exists polyCheckSelection`) {
-        $result = eval ("polyCheckSelection \"" + $label + "\" \"" + $type + "\" 0");
-        return $result;
-    }
-    string $sel[] = `ls -sl`;
-    if (!size($sel))
-        return $result;
-    if ($type == "f")
-        $result = `polyListComponentConversion -ff -fe -fv -fuv -tf $sel`;
-    else
-        $result = `polyListComponentConversion -ff -fe -fv -fuv -te $sel`;
-    return $result;
-}
-
 // Drops nodes that aren't in the DAG (history nodes, sets and the like) from the selection.
 proc polyExtrudeDeselectDependNodes()
 {
@@ -66,37 +47,6 @@ proc polyExtrudeDeselectDependNodes()
         if (!size($dag))
             select -deselect $s;
     }
-}
-
-proc string polyExtrudeObjectOf(string $item)
-{
-    string $parts[];
-    tokenize $item "." $parts;
-    return $parts[0];
-}
-
-// The components of $list that share the first one's object; one command is run per object.
-proc string[] polyExtrudeBatch(string $list[])
-{
-    string $batch[];
-    if (!size($list))
-        return $batch;
-    string $obj = polyExtrudeObjectOf($list[0]);
-    for ($item in $list) {
-        if (polyExtrudeObjectOf($item) == $obj)
-            $batch[size($batch)] = $item;
-    }
-    return $batch;
-}
-
-proc string[] polyExtrudeRest(string $list[], string $batch[])
-{
-    string $rest[];
-    for ($item in $list) {
-        if (!stringArrayContains($item, $batch))
-            $rest[size($rest)] = $item;
-    }
-    return $rest;
 }
 
 // What the selection holds, faces first, then edges, vertices, whole objects.
@@ -334,18 +284,6 @@ proc string polyExtrudeFacesOrEdges(int $operation)
     // Aztek doesn't define the selection-mask globals yet; 9 is the NURBS curve mask.
     int $curveMask = $gSelectNurbsCurvesBit > 0 ? $gSelectNurbsCurvesBit : 9;
     string $curves[] = `filterExpand -expand true -selectionMask $curveMask`;
-    // Aztek's filterExpand skips whole objects while components are selected too, so the curves are looked for by
-    // their shapes as well.
-    if (!size($curves)) {
-        string $sel[] = `ls -sl`;
-        for ($s in $sel) {
-            if (`gmatch $s "*.*"`)
-                continue;
-            string $shapes[] = `listRelatives -shapes -type nurbsCurve $s`;
-            if (size($shapes) || `nodeType $s` == "nurbsCurve")
-                $curves[size($curves)] = $s;
-        }
-    }
 
     int $face = $operation == 2;
     string $label = $face ? "polyExtrudeFacet" : "polyExtrudeEdge";
@@ -362,7 +300,7 @@ proc string polyExtrudeFacesOrEdges(int $operation)
 
     string $cmd = "";
     waitCursor -state 1;
-    string $checked[] = polyExtrudeCheckSelection($label, $type);
+    string $checked[] = polyCheckSelection($label, $type, 0);
     if (size($checked)) {
         select -replace $checked;
         polyExtrudeDeselectDependNodes();
@@ -390,9 +328,13 @@ proc string polyExtrudeFacesOrEdges(int $operation)
                 $ov = "polyExtrudeEdge";
             }
 
+            string $batch[];
+            int $next = 0;
             while (size($list)) {
-                string $batch[] = polyExtrudeBatch($list);
-                $list = polyExtrudeRest($list, $batch);
+                $next = polyNextSelectionBatch($list, $batch, $next);
+                // The list runs out on the call after the last batch.
+                if (!size($list))
+                    break;
                 $cmd = $label + " -constructionHistory " + `constructionHistory`
                     + " -keepFacesTogether " + `optionVar -query polyKeepFacetsGrouped`
                     + " -pvx " + $px + " -pvy " + $py + " -pvz " + $pz

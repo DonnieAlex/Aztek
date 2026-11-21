@@ -2,24 +2,6 @@
 // RecentFilesTypeList (the file type of each, in step), with no repeats and at most RecentFilesMaxSize entries. The
 // list is then saved to the "recents" preferences and melCallbackAddRecentFile is told.
 
-// Gives each file in the list a type, for a list saved before types were kept: the installation's
-// initRecentFilesTypeList where there is one, else each file's type as Aztek reads it from the name.
-proc addRecentFileInitTypes(string $files[])
-{
-    if (`exists initRecentFilesTypeList`) {
-        string $quoted[];
-        for ($i = 0; $i < size($files); $i++)
-            $quoted[$i] = "\"" + encodeString($files[$i]) + "\"";
-        eval("initRecentFilesTypeList({" + stringArrayToString($quoted, ",") + "})");
-        return;
-    }
-    optionVar -clearArray RecentFilesTypeList;
-    for ($f in $files) {
-        string $t[] = `file -query -type $f`;
-        optionVar -stringValueAppend RecentFilesTypeList ((size($t) > 0 && $t[0] != "") ? $t[0] : "unknown");
-    }
-}
-
 // The file Aztek last saved when it crashed, if it keeps one.
 proc string addRecentFileCrashFile()
 {
@@ -66,7 +48,7 @@ global proc addRecentFile(string $theFile, string $theType)
     string $files[] = `optionVar -query RecentFilesList`;
     if (size($files) > 0) {
         if (!`optionVar -exists RecentFilesTypeList`)
-            addRecentFileInitTypes($files);
+            initRecentFilesTypeList($files);
         for ($i = 0; $i < size($files); $i++) {
             if ($files[$i] == $theFile) {
                 // Already listed: it moves to the newest place. The list doesn't grow, so nothing is trimmed.

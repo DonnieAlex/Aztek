@@ -1,0 +1,10 @@
+// nurbsToSubdivSetup: fills the NURBS to Subdiv part of an option box. There are no settings to read or put back to
+// their factory values, so all it does is show the right controls.
+
+global proc nurbsToSubdivSetup(string $parent, int $forceFactorySettings)
+{
+    setParent $parent;
+    // Aztek doesn't have nurbsToSubdivVisibility yet.
+    if (`exists nurbsToSubdivVisibility`)
+        eval("nurbsToSubdivVisibility \"" + $parent + "\"");
+}

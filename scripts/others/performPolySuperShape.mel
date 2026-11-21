@@ -1,0 +1,294 @@
+// performPolySuperShape: Create > Polygon Primitives > Super Shape, made with the saved settings, or its command handed
+// back, or its option box. $type is SuperEllipse, SphericalHarmonics or UltraShape and goes into the command's -shape
+// as it is. Every setting is an optionVar named polySuperShape<setting>; the option box control showing it carries
+// the same name (except the vertical offset, whose control is polySuperShapeVOff and optionVar polySuperShapeVertOff).
+
+// Each setting: optionVar suffix, kind (f float, i int), default, command flag. In command order; the shape flag goes
+// in after the radius and the Shape setting itself is not a flag (it only picks the box's shape).
+proc string[] superShapeSettings()
+{
+    return {"Radius f 1.0 -radius", "HDiv i 16 -horizontalDivisions", "VDiv i 16 -verticalDivisions",
+        "UVMode i 2 -createUV", "MergeVerts i 1 -mergeVertices", "HRev f 1.0 -horizontalRevolutions",
+        "VRev f 1.0 -verticalRevolutions", "VertOff f 0.0 -verticalOffset", "IntRad f 0.0 -internalRadius",
+        "XOff f 0.0 -xOffset", "ZOff f 0.0 -zOffset", "E0 f 1.0 -ve", "E1 f 1.0 -he", "EMirror i 1 -em",
+        "H0 f 0.0 -vm1", "H1 f 1.0 -ve1", "H2 f 0.0 -vm2", "H3 f 1.0 -ve2", "H4 f 0.0 -hm1", "H5 f 1.0 -he1",
+        "H6 f 0.0 -hm2", "H7 f 1.0 -he2",
+        "U0 f 0.0 -u0", "U1 f 1.0 -u1", "U2 f 1.0 -u2", "U3 f 0.5 -u3", "U4 f 0.0 -u4", "U5 f 1.0 -u5",
+        "U6 f 1.0 -u6", "U7 f 1.0 -u7", "U8 f 0.0 -u8", "U9 f 1.0 -u9", "U10 f 1.0 -u10", "U11 f 0.5 -u11",
+        "U12 f 0.0 -u12", "U13 f 1.0 -u13", "U14 f 1.0 -u14", "U15 f 1.0 -u15", "UMirror i 0 -um"};
+}
+
+proc superShapeInitOptions(int $force)
+{
+    string $cat = "Create.Polygon Primitives.Super Shape";
+    optionVar -init $force -category $cat -intValue polySuperShapeShape 1;
+    string $settings[] = superShapeSettings();
+    for ($s in $settings) {
+        string $p[];
+        tokenize $s " " $p;
+        string $name = "polySuperShape" + $p[0];
+        if ($p[1] == "f")
+            optionVar -init $force -category $cat -floatValue $name ((float)$p[2]);
+        else
+            optionVar -init $force -category $cat -intValue $name ((int)$p[2]);
+    }
+}
+
+// The reference's full command: every setting is passed whatever the shape.
+proc string superShapeCommand(string $type)
+{
+    superShapeInitOptions(0);
+    string $cmd = "polySuperShape";
+    string $settings[] = superShapeSettings();
+    for ($s in $settings) {
+        string $p[];
+        tokenize $s " " $p;
+        $cmd += " " + $p[3] + " " + `optionVar -query ("polySuperShape" + $p[0])`;
+        if ($p[0] == "Radius")
+            $cmd += " -shape \"" + $type + "\"";
+    }
+    return $cmd + ";";
+}
+
+// What Aztek's polySuperShape takes of it: the radius and the two division counts. The shape and its parameters have
+// no flags there yet (its -um, for one, is a lobe count, not the mirror switch), so they are left out.
+proc string superShapeRunnableCommand()
+{
+    return "polySuperShape -radius " + `optionVar -query polySuperShapeRadius`
+        + " -horizontalDivisions " + `optionVar -query polySuperShapeHDiv`
+        + " -verticalDivisions " + `optionVar -query polySuperShapeVDiv` + ";";
+}
+
+// Which controls can be used: each shape's own, the mirrored halves only when not mirrored, and the helix settings
+// only when vertices are not merged.
+global proc polySuperShapeUpdateEnable(string $parent)
+{
+    setParent $parent;
+    int $shape = `optionVar -query polySuperShapeShape`;
+    int $e = $shape == 1;
+    int $ev = $e && `optionVar -query polySuperShapeEMirror` == 0;
+    int $s = $shape == 2;
+    int $u = $shape == 3;
+    int $uv = $u && `optionVar -query polySuperShapeUMirror` == 0;
+    int $m = `optionVar -query polySuperShapeMergeVerts` == 0;
+
+    floatSliderGrp -edit -enable $e polySuperShapeE0;
+    checkBoxGrp -edit -enable $e polySuperShapeEMirror;
+    floatSliderGrp -edit -enable $ev polySuperShapeE1;
+    for ($i = 0; $i < 8; $i++)
+        floatSliderGrp -edit -enable $s ("polySuperShapeH" + $i);
+    for ($i = 0; $i < 8; $i++)
+        floatSliderGrp -edit -enable $u ("polySuperShapeU" + $i);
+    checkBoxGrp -edit -enable $u polySuperShapeUMirror;
+    for ($i = 8; $i < 16; $i++)
+        floatSliderGrp -edit -enable $uv ("polySuperShapeU" + $i);
+    string $helix[] = {"HRev", "VRev", "VOff", "IntRad", "XOff", "ZOff"};
+    for ($h in $helix)
+        floatSliderGrp -edit -enable $m ("polySuperShape" + $h);
+}
+
+// The control showing a setting: its own name, but for the vertical offset.
+proc string superShapeControl(string $setting)
+{
+    return "polySuperShape" + ($setting == "VertOff" ? "VOff" : $setting);
+}
+
+proc int superShapeIsCheckBox(string $setting)
+{
+    return $setting == "MergeVerts" || $setting == "EMirror" || $setting == "UMirror";
+}
+
+global proc polySuperShapeSetup(string $parent, int $forceFactory)
+{
+    superShapeInitOptions($forceFactory);
+    polySuperShapeUpdateEnable($parent);
+    setParent $parent;
+    optionMenuGrp -edit -select `optionVar -query polySuperShapeShape` polySuperShapeShape;
+    string $settings[] = superShapeSettings();
+    for ($s in $settings) {
+        string $p[];
+        tokenize $s " " $p;
+        string $ctl = superShapeControl($p[0]);
+        string $var = "polySuperShape" + $p[0];
+        if ($p[0] == "UVMode")
+            optionMenuGrp -edit -select (`optionVar -query $var` + 1) $ctl;
+        else if (superShapeIsCheckBox($p[0]))
+            checkBoxGrp -edit -value1 `optionVar -query $var` $ctl;
+        else if ($p[1] == "i")
+            intSliderGrp -edit -value `optionVar -query $var` $ctl;
+        else
+            floatSliderGrp -edit -value `optionVar -query $var` $ctl;
+    }
+}
+
+global proc polySuperShapeCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -intValue polySuperShapeShape `optionMenuGrp -query -select polySuperShapeShape`;
+    string $settings[] = superShapeSettings();
+    for ($s in $settings) {
+        string $p[];
+        tokenize $s " " $p;
+        string $ctl = superShapeControl($p[0]);
+        string $var = "polySuperShape" + $p[0];
+        if ($p[0] == "UVMode")
+            optionVar -intValue $var (`optionMenuGrp -query -select $ctl` - 1);
+        else if (superShapeIsCheckBox($p[0]))
+            optionVar -intValue $var `checkBoxGrp -query -value1 $ctl`;
+        else if ($p[1] == "i")
+            optionVar -intValue $var `intSliderGrp -query -value $ctl`;
+        else
+            optionVar -floatValue $var `floatSliderGrp -query -value $ctl`;
+    }
+    polySuperShapeUpdateEnable($parent);
+
+    if ($doIt) {
+        // The shape in the menu now, not the one the box was opened with.
+        string $types[] = {"SuperEllipse", "SphericalHarmonics", "UltraShape"};
+        string $type = $types[`optionMenuGrp -query -select polySuperShapeShape` - 1];
+        performPolySuperShape($type, 0);
+        // As the reference queues it: the text $type is kept as it is, not replaced by the shape.
+        addToRecentCommandQueue("performPolySuperShape $type 0", "Polygon Super Shape");
+    }
+}
+
+proc superShapeFloat(string $name, string $label, int $ranged, float $min, float $max, string $cmd)
+{
+    floatSliderGrp -label $label -field true -changeCommand $cmd $name;
+    if ($ranged)
+        floatSliderGrp -edit -minValue $min -maxValue $max $name;
+}
+
+proc superShapeOptionBox(string $type)
+{
+    int $ellipse = 1;
+    int $harmonics = 1;
+    int $ultra = 1;
+    if ($type == "SuperEllipse") {
+        $ellipse = 0;
+        optionVar -intValue polySuperShapeShape 1;
+    } else if ($type == "SphericalHarmonics") {
+        $harmonics = 0;
+        optionVar -intValue polySuperShapeShape 2;
+    } else if ($type == "UltraShape") {
+        $ultra = 0;
+        optionVar -intValue polySuperShapeShape 3;
+    }
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    setOptionBoxCommandName("polySuperShape");
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state 1;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn 1`;
+    string $cmd = "polySuperShapeCallback " + $parent + " 0";
+
+    frameLayout -label "General" -collapsable true -collapse false;
+        columnLayout -adjustableColumn true;
+            optionMenuGrp -label "Shape" -changeCommand $cmd polySuperShapeShape;
+                menuItem -label "Super ellipse";
+                menuItem -label "Spherical harmonics";
+                menuItem -label "Ultra shape";
+            floatSliderGrp -label "Radius" -field true -minValue 0.001 -maxValue 100 -fieldMinValue 0.001
+                -changeCommand $cmd polySuperShapeRadius;
+            intSliderGrp -label "Horizontal divisions" -field true -minValue 1 -maxValue 100 -changeCommand $cmd
+                polySuperShapeHDiv;
+            intSliderGrp -label "Vertical divisions" -field true -minValue 1 -maxValue 100 -changeCommand $cmd
+                polySuperShapeVDiv;
+            optionMenuGrp -label "UV mode" -changeCommand $cmd polySuperShapeUVMode;
+                menuItem -label "None";
+                menuItem -label "Pinched";
+                menuItem -label "Sawtooth";
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Helix" -collapsable true -collapse true;
+        columnLayout -adjustableColumn true;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Merge vertices" -changeCommand $cmd
+                polySuperShapeMergeVerts;
+            superShapeFloat("polySuperShapeHRev", "Horizontal revolutions", 0, 0, 0, $cmd);
+            superShapeFloat("polySuperShapeVRev", "Vertical revolutions", 0, 0, 0, $cmd);
+            superShapeFloat("polySuperShapeVOff", "Vertical offset", 0, 0, 0, $cmd);
+            superShapeFloat("polySuperShapeIntRad", "Internal radius", 0, 0, 0, $cmd);
+            superShapeFloat("polySuperShapeXOff", "X offset", 0, 0, 0, $cmd);
+            superShapeFloat("polySuperShapeZOff", "Z offset", 0, 0, 0, $cmd);
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Super Ellipse" -collapsable true -collapse $ellipse;
+        columnLayout -adjustableColumn true;
+            superShapeFloat("polySuperShapeE0", "Vertical exponent", 1, 0, 5, $cmd);
+            superShapeFloat("polySuperShapeE1", "Horizontal exponent", 1, 0, 5, $cmd);
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Mirror" -changeCommand $cmd polySuperShapeEMirror;
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Spherical Harmonics" -collapsable true -collapse $harmonics;
+        columnLayout -adjustableColumn true;
+            string $shLabels[] = {"Vertical multiplier 1", "Vertical exponent 1", "Vertical multiplier 2",
+                "Vertical exponent 2", "Horizontal multiplier 1", "Horizontal exponent 1",
+                "Horizontal multiplier 2", "Horizontal exponent 2"};
+            for ($i = 0; $i < 8; $i++) {
+                // Even entries are multipliers (-20 to 20), odd ones exponents (0 to 5).
+                if ($i % 2 == 0)
+                    superShapeFloat("polySuperShapeH" + $i, $shLabels[$i], 1, -20, 20, $cmd);
+                else
+                    superShapeFloat("polySuperShapeH" + $i, $shLabels[$i], 1, 0, 5, $cmd);
+            }
+        setParent ..;
+    setParent ..;
+
+    frameLayout -label "Ultra Shape" -collapsable true -collapse $ultra;
+        columnLayout -adjustableColumn true;
+            // Each half, in order: multiplier, two exponents, mixer, multiplier, three exponents.
+            string $halfLabels[] = {"Multiplier 1", "Exponent 1", "Exponent 2", "Mixer", "Multiplier 2",
+                "Exponent 3", "Exponent 4", "Exponent 5"};
+            float $halfMin[] = {-30, 0, 0, 0, -30, 0, 0, 0};
+            float $halfMax[] = {30, 4, 4, 1, 30, 4, 4, 4};
+            string $halves[] = {"Horizontal", "Vertical"};
+            for ($h = 0; $h < 2; $h++) {
+                frameLayout -label $halves[$h] -collapsable true -collapse false;
+                    columnLayout -adjustableColumn true;
+                        for ($i = 0; $i < 8; $i++)
+                            superShapeFloat("polySuperShapeU" + ($h * 8 + $i), $halfLabels[$i], 1, $halfMin[$i],
+                                $halfMax[$i], $cmd);
+                    setParent ..;
+                setParent ..;
+            }
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Mirror" -changeCommand $cmd polySuperShapeUMirror;
+        setParent ..;
+    setParent ..;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Create" -command ("polySuperShapeCallback " + $parent + " 1") (getOptionBoxApplyBtn());
+    button -edit -command ("polySuperShapeCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("polySuperShapeSetup " + $parent + " 1") (getOptionBoxResetBtn());
+    setOptionBoxTitle("Polygon Super Shape Options");
+    setOptionBoxHelpTag("PolygonSuperShape");
+
+    polySuperShapeSetup($parent, 0);
+    showOptionBox();
+}
+
+// $action: 0 makes the shape, 1 opens the option box, 2 hands back the command. 0 and 2 return the command; anything
+// else does nothing and returns "".
+global proc string performPolySuperShape(string $type, int $action)
+{
+    if ($action == 1) {
+        superShapeOptionBox($type);
+        return "";
+    }
+    if ($action != 0 && $action != 2)
+        return "";
+    string $cmd = superShapeCommand($type);
+    if ($action == 0)
+        evalEcho(superShapeRunnableCommand());
+    return $cmd;
+}

@@ -1,0 +1,112 @@
+// nurbsToPolyAddOptions: makes the NURBS to Polygons controls of an option box under $parent. Their values are filled
+// by nurbsToPolySetup and read back by nurbsToPolyCallback, by the short names given here. The tessellation methods
+// are four buttons over two radio groups sharing one choice; each shows its own page of controls through
+// nurbsToPolyVisibility.
+
+// The tessellation format the preferences hold, 1 (standard fit) while Aztek doesn't have nurbsToPolygonsPref.
+proc int ntpaPrefFormat()
+{
+    if (!`exists nurbsToPolygonsPref`)
+        return 1;
+    return eval("nurbsToPolygonsPref -query -format");
+}
+
+global proc mergeMeshesOptionChanged(string $parent)
+{
+    int $merge = `checkBoxGrp -query -value1 mergeBox`;
+    // Attaching can't go with the control points method, so the general method takes its place.
+    if ($merge && `radioButtonGrp -query -select format2` == 2) {
+        radioButtonGrp -edit -select 1 format;
+        if (`exists nurbsToPolyVisibility`)
+            eval("nurbsToPolyVisibility \"" + $parent + "\" 2");
+    }
+    checkBoxGrp -edit -enable (!$merge) matchRenderTessellationBox;
+    radioButtonGrp -edit -enable2 (!$merge) format2;
+    floatSliderGrp -edit -enable $merge mergeTolerance;
+}
+
+global proc renderTessellationOptionChanged(string $parent)
+{
+    // Matching the render tessellation decides everything else.
+    int $own = !`checkBoxGrp -query -value1 matchRenderTessellationBox`;
+    radioButtonGrp -edit -enable $own type;
+    radioButtonGrp -edit -enable $own format;
+    radioButtonGrp -edit -enable $own format2;
+    tabLayout -edit -enable $own formatTabs;
+}
+
+global proc nurbsToPolyAddOptions(string $parent)
+{
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    setParent $parent;
+
+    // Aztek doesn't have nurbsToPolyVisibility yet; the buttons call it only once it's there.
+    string $visibility = "if (`exists nurbsToPolyVisibility`) nurbsToPolyVisibility \"" + $parent + "\" ";
+
+    checkBoxGrp -label "" -numberOfCheckBoxes 1 -label1 "Attach multiple output meshes"
+        -changeCommand ("mergeMeshesOptionChanged \"" + $parent + "\"") mergeBox;
+    floatSliderGrp -label "Merge tolerance" -field true -minValue 0.0 -maxValue 1.0 mergeTolerance;
+    separator;
+    checkBoxGrp -label "" -numberOfCheckBoxes 1 -label1 "Match render tessellation"
+        -changeCommand ("renderTessellationOptionChanged \"" + $parent + "\"") matchRenderTessellationBox;
+    separator;
+
+    // Control points make their own faces, so the face type means nothing with them.
+    radioButtonGrp -label "Type" -numberOfRadioButtons 2 -labelArray2 "Triangles" "Quads"
+        -enable (ntpaPrefFormat() != 3) type;
+    radioButtonGrp -label "Tessellation method" -numberOfRadioButtons 2 -labelArray2 "General" "Count"
+        -onCommand1 ($visibility + "2") -onCommand2 ($visibility + "0") format;
+    radioButtonGrp -label "" -numberOfRadioButtons 2 -labelArray2 "Standard fit" "Control points"
+        -shareCollection format
+        -onCommand1 ($visibility + "1") -onCommand2 ($visibility + "3") format2;
+    separator;
+
+    // One page per method; the tabs themselves stay hidden and the page is switched by nurbsToPolyVisibility.
+    tabLayout -tabsVisible false formatTabs;
+
+        columnLayout tabGeneral;
+            text -label "Initial tessellation controls";
+            optionMenuGrp -label "U type" uType;
+                menuItem -label "Per surface # of isoparms in 3D";
+                menuItem -label "Per surface # of isoparms";
+                menuItem -label "Per span # of isoparms";
+            intSliderGrp -label "Number U" -field true -minValue 1 -maxValue 32 -fieldMaxValue 10000 uNumber;
+            optionMenuGrp -label "V type" vType;
+                menuItem -label "Per surface # of isoparms in 3D";
+                menuItem -label "Per surface # of isoparms";
+                menuItem -label "Per span # of isoparms";
+            intSliderGrp -label "Number V" -field true -minValue 1 -maxValue 32 -fieldMaxValue 10000 vNumber;
+            columnLayout secondary;
+                separator;
+                text -label "Secondary tessellation controls";
+                checkBoxGrp -label "" -numberOfCheckBoxes 1 -label1 "Use chord height" useChordHeight;
+                floatSliderGrp -label "Chord height" -field true -minValue 0.01 -maxValue 0.2
+                    -fieldMinValue 0.01 -fieldMaxValue 0.2 chordHeight;
+                checkBoxGrp -label "" -numberOfCheckBoxes 1 -label1 "Use chord height ratio" useChordHeightRatio;
+                floatSliderGrp -label "Chord height ratio" -field true -minValue 0.9 -maxValue 0.99
+                    -fieldMinValue 0.01 -fieldMaxValue 0.999 ratioG;
+                checkBoxGrp -label "" -numberOfCheckBoxes 1 -label1 "Edge swap" edgeSwap;
+            setParent ..;
+        setParent ..;
+
+        columnLayout tabStandard;
+            floatSliderGrp -label "Chord height ratio" -field true -minValue 0.9 -maxValue 0.99
+                -fieldMinValue 0.01 -fieldMaxValue 0.999 ratioS;
+            floatSliderGrp -label "Fractional tolerance" -field true -minValue 0.001 -maxValue 1.0
+                -fieldMinValue 0.000001 -fieldMaxValue 1000 fractional;
+            floatSliderGrp -label "Minimal edge length" -field true -minValue 0.0001 -maxValue 1.0
+                -fieldMinValue 0.0001 -fieldMaxValue 1000 minEdgeLength;
+            floatSliderGrp -label "3D delta" -field true -minValue 0.01 -maxValue 1.0 -fieldMaxValue 1000 delta;
+        setParent ..;
+
+        columnLayout tabCount;
+            intSliderGrp -label "Count" -field true -minValue 1 -maxValue 1000 -fieldMaxValue 1000000 count;
+        setParent ..;
+
+    setParent $parent;
+
+    if ($template)
+        setUITemplate -popTemplate;
+}

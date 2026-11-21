@@ -205,9 +205,8 @@ global proc string localizedPanelLabel(string $englishLabel)
 
     if (!$found) {
         $result = $englishLabel;
-        // The reference notes labels it can't translate; Aztek has no such log unless a script provides one.
-        if (`exists uiToMelMsg`)
-            eval("uiToMelMsg \"localizedPanelLabel\" \"" + encodeString($englishLabel) + "\" 0");
+        // Noted as a label that can't be translated (quietly, at this severity).
+        uiToMelMsg("localizedPanelLabel", $englishLabel, 0);
     }
     return $result;
 }

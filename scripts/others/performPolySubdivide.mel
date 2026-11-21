@@ -23,20 +23,11 @@ proc performPolySubdivideInitOptions(string $comp, int $force)
 // Anything in the selection that isn't a mesh or a mesh component is dropped from it first.
 proc string performPolySubdivideResolve()
 {
-    // One mask at a time: Aztek's filterExpand matches nothing when given several.
-    string $keep[];
-    int $masks[] = {12, 31, 32, 34};
-    for ($m in $masks) {
-        string $found[] = `filterExpand -expand false -selectionMask $m`;
-        appendStringArray($keep, $found, size($found));
-    }
-    select -replace $keep;
-    // Kept in variables: inline, Aztek's filterExpand gives no list at all when nothing matches.
-    string $faces[] = `filterExpand -expand false -selectionMask 34`;
-    if (size($faces))
+    select -replace `filterExpand -expand false -selectionMask 12 -selectionMask 31 -selectionMask 32
+        -selectionMask 34`;
+    if (size(`filterExpand -expand false -selectionMask 34`))
         return "f";
-    string $edges[] = `filterExpand -expand false -selectionMask 32`;
-    if (size($edges))
+    if (size(`filterExpand -expand false -selectionMask 32`))
         return "e";
     // In object mode the reference asks which components object-component mode would pick. Aztek's selectType has no
     // -objectCompMask, so the component types are asked either way.

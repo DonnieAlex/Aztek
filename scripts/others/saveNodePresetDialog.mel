@@ -1,0 +1,109 @@
+// saveNodePresetDialog: the window that saves the settings of one or more nodes as a preset under a name the user
+// types. Each node can have flags of its own for nodePreset (to pick its attributes, say), in $args beside it.
+
+global string $gSaveNodePresetNodes[];
+global string $gSaveNodePresetArgs[];
+
+global proc invalidNodePresetNameDialog(string $name)
+{
+    string $ok = "OK";
+    confirmDialog -title "Invalid Preset Name"
+        -message (`format -stringArg $name "\"^1s\" can't be used as a preset name."`)
+        -messageAlign "left" -button $ok -defaultButton $ok -parent saveNodePresetDialogWindow;
+}
+
+global proc int confirmOverwriteDialog(string $presetName)
+{
+    string $overwrite = "Overwrite";
+    string $cancel = "Cancel";
+    string $answer = `confirmDialog -title "Overwrite Existing Preset"
+        -message (`format -stringArg $presetName "A preset named \"^1s\" already exists. Overwrite it?"`)
+        -messageAlign "left" -button $overwrite -button $cancel -defaultButton $overwrite -cancelButton $cancel
+        -dismissString $cancel -parent saveNodePresetDialogWindow`;
+    return $answer == $overwrite;
+}
+
+global proc saveNodePresetDialogValidateName(string $presetNameGrp, int $performOperationIfValid)
+{
+    global string $gSaveNodePresetNodes[];
+    global string $gSaveNodePresetArgs[];
+
+    string $name = `textFieldGrp -query -text $presetNameGrp`;
+    if (!`nodePreset -isValidName $name`) {
+        invalidNodePresetNameDialog($name);
+        return;
+    }
+    if (!$performOperationIfValid)
+        return;
+
+    // Whether the preset exists is asked of the first node only; every node's is then written.
+    int $save = 1;
+    if (size($gSaveNodePresetNodes) > 0 && `nodePreset -exists $gSaveNodePresetNodes[0] $name`)
+        $save = confirmOverwriteDialog($name);
+    if ($save) {
+        for ($i = 0; $i < size($gSaveNodePresetNodes); $i++)
+            evalEcho("nodePreset " + $gSaveNodePresetArgs[$i] + " -save " + $gSaveNodePresetNodes[$i]
+                + " \"" + $name + "\"");
+    }
+    // The window closes after the button's command has finished, saved or not (unless it has gone already).
+    evalDeferred "if (`window -exists saveNodePresetDialogWindow`) deleteUI -window saveNodePresetDialogWindow";
+}
+
+global proc saveNodePresetDialog(string $nodes[], string $args[])
+{
+    global string $gSaveNodePresetNodes[];
+    global string $gSaveNodePresetArgs[];
+
+    clear $gSaveNodePresetNodes;
+    clear $gSaveNodePresetArgs;
+    if (size($nodes) != size($args))
+        return;
+    for ($i = 0; $i < size($nodes); $i++) {
+        $gSaveNodePresetNodes[$i] = $nodes[$i];
+        $gSaveNodePresetArgs[$i] = $args[$i];
+    }
+
+    // Opened fresh each time, at its default size and place.
+    if (`window -exists saveNodePresetDialogWindow`)
+        deleteUI -window saveNodePresetDialogWindow;
+    if (`windowPref -exists saveNodePresetDialogWindow`)
+        windowPref -remove saveNodePresetDialogWindow;
+
+    window -title "Save Settings as Preset" -iconName "Save Preset" saveNodePresetDialogWindow;
+    string $form = `formLayout mainLayout`;
+    string $field = `textFieldGrp -label "Preset name" -editable true -text ""`;
+    string $help = `text -align "center" -label "Use letters, numbers and underscores only; the name can't start with a number." helpText`;
+
+    string $buttons = `formLayout -numberOfDivisions 2 buttonLayout`;
+    // 1 rather than true: Aztek reads a bare true as 0 when a command-style call passes it to an int.
+    string $saveButton = `button -label "Save Preset"
+        -command ("saveNodePresetDialogValidateName \"" + $field + "\" 1") saveButton`;
+    string $cancelButton = `button -label "Cancel" -command "deleteUI -window saveNodePresetDialogWindow" cancelButton`;
+    formLayout -edit
+        -attachForm $saveButton "top" 0
+        -attachForm $saveButton "bottom" 0
+        -attachForm $saveButton "left" 0
+        -attachPosition $saveButton "right" 3 1
+        -attachForm $cancelButton "top" 0
+        -attachForm $cancelButton "bottom" 0
+        -attachPosition $cancelButton "left" 3 1
+        -attachForm $cancelButton "right" 0
+        $buttons;
+    setParent ..;
+
+    formLayout -edit
+        -attachForm $field "top" 5
+        -attachForm $field "left" 5
+        -attachForm $field "right" 5
+        -attachControl $help "top" 5 $field
+        -attachForm $help "left" 5
+        -attachForm $help "right" 5
+        -attachControl $help "bottom" 5 $buttons
+        -attachNone $buttons "top"
+        -attachForm $buttons "left" 5
+        -attachForm $buttons "right" 5
+        -attachForm $buttons "bottom" 5
+        $form;
+
+    showWindow saveNodePresetDialogWindow;
+}

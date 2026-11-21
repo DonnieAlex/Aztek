@@ -2,8 +2,8 @@
 // for the current or every renderable layer and camera, writing the images to an alternate output folder for the
 // length of the render, with the options renderSequenceOptionsWindow sets.
 //
-// The current renderer's sequence procedure does the rendering when the renderer registry names one; otherwise Harold
-// renders it through `hrender -seq`, which is Aztek's own sequence render.
+// The current renderer's sequence procedure, from the renderer registry, does the rendering. Harold registers none, so
+// it renders through `hrender -seq`, which is Aztek's own sequence render.
 
 if (!`exists createRenderSequenceOptionVars`)
     eval("source \"renderSequenceOptionsWindow.mel\"");
@@ -25,21 +25,14 @@ proc string rsCurrentRenderer()
     return currentRenderer();
 }
 
-proc string rsRendererUIName(string $r)
-{
-    if (`exists renderer`)
-        return eval("renderer -query -rendererUIName " + $r);
-    if ($r == "arnold" || $r == "harold")
-        return "Harold";
-    return $r;
-}
-
-// The renderer's sequence procedure, or "hrender" for Harold's own.
+// The renderer's sequence procedure from the registry. Harold registers none, so for it the answer is "hrender",
+// Aztek's own sequence render; any other renderer without one gets the warning in rsRenderSequence.
 proc string rsSequenceProc(string $r)
 {
-    if (`exists renderer`)
-        return eval("renderer -query -renderSequenceProcedure " + $r);
-    return "hrender";
+    string $proc = `renderer -query -renderSequenceProcedure $r`;
+    if ($proc == "" && `renderer -query -rendererUIName $r` == "Harold")
+        return "hrender";
+    return $proc;
 }
 
 proc string rsCurrentLayer()
@@ -109,7 +102,7 @@ proc rsRenderSequence()
 {
     global string $gRenderViewCurrentCamera;
     string $r = rsCurrentRenderer();
-    string $ui = rsRendererUIName($r);
+    string $ui = `renderer -query -rendererUIName $r`;
     string $seqProc = rsSequenceProc($r);
     if ($seqProc == "") {
         warning ($ui + " can't render a sequence into the Render View.");
@@ -168,10 +161,8 @@ proc rsRenderSequence()
     string $currentCamera = getCurrentCamera();
     string $cameraArg = $allCameras ? "" : $currentCamera;
 
-    if (`exists renderer`) {
-        eval("renderer -materialViewRendererSuspend true " + $r);
-        evalDeferred -lowestPriority ("renderer -materialViewRendererSuspend false " + $r);
-    }
+    renderer -edit -materialViewRendererSuspend true $r;
+    evalDeferred -lowestPriority ("renderer -edit -materialViewRendererSuspend false " + $r);
     int $overridesOff = $ignoreOverrides && `exists mayaHasRenderSetup` && eval("mayaHasRenderSetup");
     if ($overridesOff)
         eval("renderSetupLocalOverride -st off");

@@ -25,40 +25,33 @@ proc string urgCurrent()
 
 proc string[] urgAvailable()
 {
-    if (`exists renderer`)
-        return eval("renderer -query -namesOfAvailableRenderers");
-    return {urgCurrent()};
+    return `renderer -query -namesOfAvailableRenderers`;
 }
 
 proc string urgUIName(string $r)
 {
-    if (`exists renderer`)
-        return eval("renderer -query -rendererUIName " + $r);
-    if ($r == "arnold" || $r == "harold")
-        return "Harold";
-    return $r;
+    return `renderer -query -rendererUIName $r`;
 }
 
-// A list the renderer registry gives for a renderer, or none without the registry.
+// One of the lists the renderer registry keeps for a renderer's Render Settings tabs.
 proc string[] urgQuery(string $flag, string $r)
 {
     string $none[];
-    if (!`exists renderer`)
-        return $none;
-    return eval("renderer -query " + $flag + " " + $r);
+    switch ($flag) {
+        case "-globalsTabLabels":
+            return `renderer -query -globalsTabLabels $r`;
+        case "-globalsTabCreateProcNames":
+            return `renderer -query -globalsTabCreateProcNames $r`;
+        case "-globalsTabUpdateProcNames":
+            return `renderer -query -globalsTabUpdateProcNames $r`;
+    }
+    return $none;
 }
 
 // The nodes a renderer keeps its settings in.
 proc string[] urgGlobalsNodes(string $r)
 {
-    if (`exists renderer`)
-        return eval("renderer -query -globalsNodes " + $r);
-    string $nodes[] = {"defaultRenderGlobals", "defaultResolution"};
-    if ($r == "arnold" || $r == "harold") {
-        string $more[] = `ls defaultArnoldRenderOptions defaultArnoldFilter defaultArnoldDriver defaultArnoldDisplayDriver`;
-        appendStringArray($nodes, $more, size($more));
-    }
-    return $nodes;
+    return `renderer -query -globalsNodes $r`;
 }
 
 proc int urgHasRenderSetup()
@@ -219,10 +212,8 @@ proc urgUpdateLogo()
     string $r = urgCurrent();
     string $image = "";
     string $cb = "";
-    if (`exists renderer`) {
-        $image = eval("renderer -query -logoImageName " + $r);
-        $cb = eval("renderer -query -logoCallbackProcedure " + $r);
-    }
+    $image = `renderer -query -logoImageName $r`;
+    $cb = `renderer -query -logoCallbackProcedure $r`;
     if ($image != "" && $cb != "")
         symbolButton -edit -visible true -image $image -command $cb -annotation "About this renderer" unifiedRenderGlobalsRendererLogoPicture;
     else
@@ -348,8 +339,10 @@ global proc loadNodePresets(string $name)
     for ($n in urgGlobalsNodes(urgCurrent()))
         if (`objExists $n` && `nodePreset -exists $n $name`)
             nodePreset -load $n $name;
-    if (`exists updateObjTypeFilterToCheckBox`)
-        eval("updateObjTypeFilterToCheckBox");
+    // It lives in createObjectTypeFilters.mel, found by that name.
+    if (!`exists updateObjTypeFilterToCheckBox`)
+        eval("source \"createObjectTypeFilters.mel\"");
+    updateObjTypeFilterToCheckBox();
 }
 
 global proc removePreferedPresets()
@@ -459,10 +452,8 @@ global proc unifiedRenderGlobalsRevertToDefault()
     select -clear;
     if (size($sel))
         select -noExpand $sel;
-    if (`exists createObjectTypeFilters`)
-        eval("createObjectTypeFilters 0");
-    if (`exists resetObjFilterToDefault`)
-        eval("resetObjFilterToDefault");
+    createObjectTypeFilters(0);
+    resetObjFilterToDefault();
 }
 
 global proc confirmDialogExportCurrentValues(string $label, string $typeName)
@@ -568,13 +559,17 @@ global proc UNIFIED_buildRenderGlobalsPresetsMenu()
     }
 
     string $nodeArgs = "{\"" + stringArrayToString($nodes, "\",\"") + "\"}";
-    if (`exists saveNodePresetDialog`) {
-        string $args = `exists getRenderSettingPresetArgs` ? ("getRenderSettingPresetArgs(\"" + $r + "\")") : "{}";
-        menuItem -label "Save Preset..." -command ("saveNodePresetDialog(" + $nodeArgs + ", " + $args + ")") URGSavePresetCtrl;
-    } else
-        // Without the reference's dialog, a name is asked for and every settings node is saved under it.
-        menuItem -label "Save Preset..." -command ("if (`promptDialog -title \"Save Preset\" -message \"Preset name:\" -button \"Save\" -button \"Cancel\" -defaultButton \"Save\" -cancelButton \"Cancel\"` == \"Save\") { string $name = `promptDialog -query -text`; string $n[] = "
-            + $nodeArgs + "; if ($name != \"\") for ($x in $n) if (`objExists $x`) nodePreset -save $x $name; }") URGSavePresetCtrl;
+    // Aztek doesn't have getRenderSettingPresetArgs yet; without it each node is saved with no extra flags.
+    string $args;
+    if (`exists getRenderSettingPresetArgs`) {
+        $args = "getRenderSettingPresetArgs(\"" + $r + "\")";
+    } else {
+        string $none[];
+        for ($i = 0; $i < size($nodes); $i++)
+            $none[$i] = "\"\"";
+        $args = "{" + stringArrayToString($none, ",") + "}";
+    }
+    menuItem -label "Save Preset..." -command ("saveNodePresetDialog(" + $nodeArgs + ", " + $args + ")") URGSavePresetCtrl;
 
     string $presets[] = `nodePreset -list $nodes[0]`;
     menuItem -subMenu true -label "Load Preset" URGLoadPresetCtrl;
@@ -589,9 +584,8 @@ global proc UNIFIED_buildRenderGlobalsPresetsMenu()
         menuItem -label "No presets yet" -enable false;
     else
         for ($p in $presets)
-            menuItem -label $p -command ("if (`exists nodePresetConfirmDeleteDialog`) nodePresetConfirmDeleteDialog({\""
-                + stringArrayToString($nodes, "\",\"") + "\",\"" + $p + "\"}); else { string $n[] = "
-                + $nodeArgs + "; for ($x in $n) if (`nodePreset -exists $x \"" + $p + "\"`) nodePreset -delete $x \"" + $p + "\"; }");
+            menuItem -label $p -command ("nodePresetConfirmDeleteDialog({\""
+                + stringArrayToString($nodes, "\",\"") + "\",\"" + $p + "\"})");
     setParent -menu ..;
 
     string $preferred = "";

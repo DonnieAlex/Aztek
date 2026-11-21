@@ -1,0 +1,444 @@
+// createObjectTypeFilters: the viewport object type filters kept on hardwareRenderingGlobals, and the check boxes that
+// edit them. Four attributes hold the data: objectTypeFilterNameArray and objectTypeFilterValueArray (one entry per
+// built-in filter, in the fixed order below), and pluginObjectTypeFilterNameArray and
+// pluginObjectTypeFilterValueArray (one entry per plug-in display filter).
+//
+// The built-in filters are 9 standard ones (indices 0 to 8), a "UI" master (index 9) and 12 UI sub-filters (10 to
+// 21). The sub-filters' check boxes are enabled only while the master is on; turning the master off keeps their
+// values. The check boxes can be built twice (the panel menu copy and the batch render tab copy); the caller keeps the
+// paths this file returns in gEditorCheckBoxPaths or gTabCheckBoxPaths, and both copies are kept in step.
+
+global string $gTotalObjTypeFilters[];
+global int $gTotalObjTypeFiltersVisibility[];
+global string $gObjTypeFiltersLocalized[];
+global string $gUIFiltersLocalized;
+global string $gUIObjTypeFiltersLocalized[];
+global string $gTotalObjTypeFiltersLocalized[];
+global int $gObjTypeFilterValuePreset1[] = {0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+global int $gObjTypeFilterValuePresetAll[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+global int $gObjTypeFilterValuePresetNone[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+global string $gEditorCheckBoxPaths[];
+global string $gTabCheckBoxPaths[];
+global string $gPluginObjectTypeFilterParents[];
+
+// The UI master's index: the number of standard filters.
+proc int otfUIIndex()
+{
+    return 9;
+}
+
+// The filter names written to the node and the labels shown, in index order.
+proc otfSetupNames()
+{
+    global string $gTotalObjTypeFilters[];
+    global int $gTotalObjTypeFiltersVisibility[];
+    global string $gObjTypeFiltersLocalized[];
+    global string $gUIFiltersLocalized;
+    global string $gUIObjTypeFiltersLocalized[];
+    global string $gTotalObjTypeFiltersLocalized[];
+
+    $gTotalObjTypeFilters = {"NURBS Curves", "NURBS Surfaces", "Polygons", "Subdiv Surface", "Particles",
+        "Particle Instance", "Fluids", "Strokes", "Image Planes", "UI", "Lights", "Cameras", "Locators", "Joints",
+        "IK Handles", "Deformers", "Motion Trails", "Components", "Hair Systems", "Follicles", "Misc. UI",
+        "Ornaments"};
+
+    // Every check box is shown; the dynamics entries hang on a "dynamics shown" switch that is always on.
+    int $dynamics = 1;
+    $gTotalObjTypeFiltersVisibility = {1, 1, 1, 1, $dynamics, $dynamics, $dynamics, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        $dynamics, $dynamics, 1, 1};
+
+    $gObjTypeFiltersLocalized = {"NURBS curves", "NURBS surfaces", "Polygons", "Subdiv surfaces", "Particles",
+        "Particle instancers", "Fluids", "Strokes", "Image planes"};
+    $gUIFiltersLocalized = "UI";
+    $gUIObjTypeFiltersLocalized = {"Lights", "Cameras", "Locators", "Joints", "IK handles", "Deformers",
+        "Motion trails", "Components", "Hair systems", "Follicles", "Misc. UI", "Ornaments"};
+
+    string $master[] = {$gUIFiltersLocalized};
+    $gTotalObjTypeFiltersLocalized = linkedStringArray(linkedStringArray($gObjTypeFiltersLocalized, $master),
+        $gUIObjTypeFiltersLocalized);
+}
+
+proc int[] otfPreset(int $id)
+{
+    global int $gObjTypeFilterValuePreset1[];
+    global int $gObjTypeFilterValuePresetAll[];
+    global int $gObjTypeFilterValuePresetNone[];
+    if ($id == 0)
+        return $gObjTypeFilterValuePreset1;
+    if ($id == 1)
+        return $gObjTypeFilterValuePresetAll;
+    if ($id == 2)
+        return $gObjTypeFilterValuePresetNone;
+    error ("There is no object type filter preset " + $id + ".");
+    int $none[];
+    return $none;
+}
+
+// Aztek's hardwareRenderingGlobals doesn't have the filter attributes yet, so they are added the first time they are
+// needed.
+proc otfEnsureAttrs()
+{
+    string $node = "hardwareRenderingGlobals";
+    if (!`objExists $node`)
+        return;
+    string $strings[] = {"objectTypeFilterNameArray", "pluginObjectTypeFilterNameArray"};
+    string $ints[] = {"objectTypeFilterValueArray", "pluginObjectTypeFilterValueArray"};
+    for ($a in $strings)
+        if (!`attributeQuery -exists -node $node $a`)
+            addAttr -longName $a -dataType "stringArray" $node;
+    for ($a in $ints)
+        if (!`attributeQuery -exists -node $node $a`)
+            addAttr -longName $a -dataType "Int32Array" $node;
+}
+
+proc string[] otfNames()
+{
+    otfEnsureAttrs();
+    string $names[] = `getAttr hardwareRenderingGlobals.objectTypeFilterNameArray`;
+    return $names;
+}
+
+proc int[] otfValues()
+{
+    otfEnsureAttrs();
+    int $values[] = `getAttr hardwareRenderingGlobals.objectTypeFilterValueArray`;
+    return $values;
+}
+
+// The plug-in display filters, when Aztek has the command to list them; it doesn't yet, so there are none.
+proc string[] otfPluginFilters(int $sorted)
+{
+    string $filters[];
+    if (`exists pluginDisplayFilter`) {
+        $filters = eval("pluginDisplayFilter -query -listFilters");
+        if ($sorted)
+            $filters = sort($filters);
+    }
+    return $filters;
+}
+
+proc string otfPluginLabel(string $filter)
+{
+    string $label = $filter;
+    if (`exists pluginDisplayFilter`)
+        $label = eval("pluginDisplayFilter -query -label \"" + $filter + "\"");
+    return $label;
+}
+
+// Writes both built-in arrays. Names are quoted but not escaped, as the reference writes them.
+global proc resetObjectTypeFilterArrays(int $values[], string $names[])
+{
+    int $n = size($values);
+    if ($n != size($names))
+        error "The object type filter names and values are not the same size.";
+    otfEnsureAttrs();
+    string $cmd = "setAttr hardwareRenderingGlobals.objectTypeFilterNameArray -type stringArray " + $n;
+    for ($name in $names)
+        $cmd += " \"" + $name + "\"";
+    eval $cmd;
+    $cmd = "setAttr hardwareRenderingGlobals.objectTypeFilterValueArray -type Int32Array " + $n;
+    for ($v in $values)
+        $cmd += " " + $v;
+    eval $cmd;
+}
+
+// Brings the stored filters into line with the canonical list: stored values are kept for known names, unknown names
+// are dropped, missing ones take the preset's value. Mismatched stored arrays are replaced by the preset.
+global proc createObjectTypeFilters(int $presetId)
+{
+    global string $gTotalObjTypeFilters[];
+    otfSetupNames();
+
+    string $storedNames[] = otfNames();
+    int $storedValues[] = otfValues();
+
+    int $values[] = otfPreset($presetId);
+    string $names[] = $gTotalObjTypeFilters;
+    if (size($storedNames) == size($storedValues)) {
+        for ($i = 0; $i < size($storedNames); $i++) {
+            int $at = stringArrayFind($storedNames[$i], 0, $names);
+            if ($at >= 0)
+                $values[$at] = $storedValues[$i];
+        }
+    }
+    resetObjectTypeFilterArrays($values, $names);
+}
+
+proc string otfCheckBox(string $label, int $value, int $visible, int $enable, string $on, string $off)
+{
+    return `checkBox -label $label -value $value -visible $visible -enable $enable -onCommand $on -offCommand $off`;
+}
+
+// Builds the check boxes under the current parent and returns their paths by filter index. Relies on the names and
+// labels an earlier createObjectTypeFilters call set up. $nameAttr is accepted and not used.
+global proc string[] createObjTypeFilterCheckBoxes(string $valueAttr, string $nameAttr)
+{
+    global string $gTotalObjTypeFilters[];
+    global int $gTotalObjTypeFiltersVisibility[];
+    global string $gTotalObjTypeFiltersLocalized[];
+    global string $gPluginObjectTypeFilterParents[];
+
+    string $entry = `setParent -query`;
+    otfEnsureAttrs();
+    int $v[] = `getAttr $valueAttr`;
+    int $count = size($gTotalObjTypeFilters);
+    // Values missing from a short array read as 0.
+    for ($i = size($v); $i < $count; $i++)
+        $v[$i] = 0;
+    int $ui = otfUIIndex();
+    string $paths[];
+
+    rowLayout -numberOfColumns 3 -columnWidth3 70 120 120
+        -rowAttach 1 "top" 0 -rowAttach 2 "top" 0 -rowAttach 3 "top" 0;
+
+        columnLayout -adjustableColumn true -rowSpacing 3;
+            $paths[$ui] = otfCheckBox($gTotalObjTypeFiltersLocalized[$ui], $v[$ui],
+                $gTotalObjTypeFiltersVisibility[$ui], 1, ("OnUICallback " + $ui), ("OffUICallback " + $ui));
+        setParent ..;
+
+        columnLayout -adjustableColumn true -rowSpacing 3;
+            for ($i = $ui + 1; $i < $count; $i++)
+                $paths[$i] = otfCheckBox($gTotalObjTypeFiltersLocalized[$i], $v[$i],
+                    $gTotalObjTypeFiltersVisibility[$i], $v[$ui] != 0, ("objectTypeFilterOnCallback " + $i),
+                    ("objectTypeFilterOffCallback " + $i));
+        setParent ..;
+
+        string $pluginColumn = `columnLayout -adjustableColumn true -rowSpacing 3`;
+            for ($i = 0; $i < $ui; $i++)
+                $paths[$i] = otfCheckBox($gTotalObjTypeFiltersLocalized[$i], $v[$i],
+                    $gTotalObjTypeFiltersVisibility[$i], 1, ("objectTypeFilterOnCallback " + $i),
+                    ("objectTypeFilterOffCallback " + $i));
+            $gPluginObjectTypeFilterParents[size($gPluginObjectTypeFilterParents)] = $pluginColumn;
+            string $filters[] = otfPluginFilters(1);
+            for ($f in $filters)
+                checkBox -label (otfPluginLabel($f))
+                    -changeCommand ("pluginObjectTypeFilterCallback \"" + $f + "\" #1")
+                    ("pluginObjectTypeFilter_" + $f);
+            pluginObjectTypeFilterSetup();
+        setParent ..;
+    setParent ..;
+
+    rowLayout -numberOfColumns 2 -columnWidth 1 200 -columnAttach 1 "right" 0 -columnAttach 2 "left" 0;
+        button -width 70 -label "All" -command "objectTypeFilterAllCallback";
+        button -width 70 -label "None" -command "objectTypeFilterNoneCallback";
+    setParent ..;
+
+    setParent $entry;
+    return $paths;
+}
+
+// Checks the copies of the check boxes against the stored values: 0 when there are no copies, 1 when they match,
+// an error when a copy's size differs.
+proc int otfCheckLists(int $nValues, string $message)
+{
+    global string $gEditorCheckBoxPaths[];
+    global string $gTabCheckBoxPaths[];
+    if (!size($gEditorCheckBoxPaths) && !size($gTabCheckBoxPaths))
+        return 0;
+    if ((size($gEditorCheckBoxPaths) && size($gEditorCheckBoxPaths) != $nValues)
+        || (size($gTabCheckBoxPaths) && size($gTabCheckBoxPaths) != $nValues))
+        error $message;
+    return 1;
+}
+
+// Data to check box values, on both copies.
+proc otfValueSync()
+{
+    global string $gEditorCheckBoxPaths[];
+    global string $gTabCheckBoxPaths[];
+    int $v[] = otfValues();
+    if (!otfCheckLists(size($v), "The object type filter check boxes don't match the stored filters."))
+        return;
+    for ($i = 0; $i < size($gEditorCheckBoxPaths); $i++)
+        if (`checkBox -exists $gEditorCheckBoxPaths[$i]`)
+            checkBox -edit -value ($v[$i] != 0) $gEditorCheckBoxPaths[$i];
+    for ($i = 0; $i < size($gTabCheckBoxPaths); $i++)
+        if (`checkBox -exists $gTabCheckBoxPaths[$i]`)
+            checkBox -edit -value ($v[$i] != 0) $gTabCheckBoxPaths[$i];
+}
+
+// The sub-filters' enabled state from the UI master's value.
+proc otfStateSync()
+{
+    global string $gEditorCheckBoxPaths[];
+    global string $gTabCheckBoxPaths[];
+    int $v[] = otfValues();
+    if (!otfCheckLists(size($v), "The object type filter check boxes and stored filters differ in size."))
+        return;
+    int $ui = otfUIIndex();
+    int $state = $v[$ui];
+    for ($i = $ui + 1; $i < size($gEditorCheckBoxPaths); $i++)
+        if (`checkBox -exists $gEditorCheckBoxPaths[$i]`)
+            checkBox -edit -enable $state $gEditorCheckBoxPaths[$i];
+    for ($i = $ui + 1; $i < size($gTabCheckBoxPaths); $i++)
+        if (`checkBox -exists $gTabCheckBoxPaths[$i]`)
+            checkBox -edit -enable $state $gTabCheckBoxPaths[$i];
+}
+
+// Stores one filter's value, leaving the names as they are.
+proc otfSetValue(int $index, int $value)
+{
+    string $names[] = otfNames();
+    int $values[] = otfValues();
+    $values[$index] = $value;
+    resetObjectTypeFilterArrays($values, $names);
+}
+
+global proc objectTypeFilterOnCallback(int $index)
+{
+    otfSetValue($index, 1);
+    otfValueSync();
+}
+
+global proc objectTypeFilterOffCallback(int $index)
+{
+    otfSetValue($index, 0);
+    otfValueSync();
+}
+
+// The UI master enables or disables the sub-filters' check boxes; their values stay as they are.
+global proc OnUICallback(int $index)
+{
+    resetSubUIState($index, 1);
+    otfSetValue($index, 1);
+    otfValueSync();
+}
+
+global proc OffUICallback(int $index)
+{
+    resetSubUIState($index, 0);
+    otfSetValue($index, 0);
+    otfValueSync();
+}
+
+// Enables or disables every check box after $start, on both copies.
+global proc resetSubUIState(int $start, int $state)
+{
+    global string $gEditorCheckBoxPaths[];
+    global string $gTabCheckBoxPaths[];
+    int $v[] = otfValues();
+    if (!otfCheckLists(size($v), "The object type filter check boxes don't match the number of stored filters."))
+        return;
+    for ($i = $start + 1; $i < size($gEditorCheckBoxPaths); $i++)
+        if (`checkBox -exists $gEditorCheckBoxPaths[$i]`)
+            checkBox -edit -enable $state $gEditorCheckBoxPaths[$i];
+    for ($i = $start + 1; $i < size($gTabCheckBoxPaths); $i++)
+        if (`checkBox -exists $gTabCheckBoxPaths[$i]`)
+            checkBox -edit -enable $state $gTabCheckBoxPaths[$i];
+}
+
+// Values first: the enabled states follow from them.
+global proc updateObjTypeFilterToCheckBox()
+{
+    otfValueSync();
+    otfStateSync();
+}
+
+// Re-enables the sub-filters and shows the stored values; the stored data is not changed.
+global proc resetObjFilterToDefault()
+{
+    resetSubUIState(otfUIIndex(), 1);
+    otfValueSync();
+}
+
+proc otfApplyPreset(int $id, int $on)
+{
+    global string $gTotalObjTypeFilters[];
+    if (!size($gTotalObjTypeFilters))
+        otfSetupNames();
+    resetObjectTypeFilterArrays(otfPreset($id), $gTotalObjTypeFilters);
+    resetSubUIState(otfUIIndex(), $on);
+    otfValueSync();
+    string $filters[] = otfPluginFilters(0);
+    for ($f in $filters)
+        pluginObjectTypeFilterCallback($f, $on);
+    pluginObjectTypeFilterSetup();
+}
+
+global proc objectTypeFilterAllCallback()
+{
+    otfApplyPreset(1, 1);
+}
+
+global proc objectTypeFilterNoneCallback()
+{
+    otfApplyPreset(2, 0);
+}
+
+// Plug-in filter data to every copy of their check boxes. A filter with no stored value shows as on; copies whose
+// layout has gone are skipped because their check boxes no longer exist.
+global proc pluginObjectTypeFilterSetup()
+{
+    global string $gPluginObjectTypeFilterParents[];
+    otfEnsureAttrs();
+    string $names[] = `getAttr hardwareRenderingGlobals.pluginObjectTypeFilterNameArray`;
+    int $values[] = `getAttr hardwareRenderingGlobals.pluginObjectTypeFilterValueArray`;
+    string $filters[] = otfPluginFilters(0);
+    for ($layout in $gPluginObjectTypeFilterParents) {
+        for ($f in $filters) {
+            string $box = $layout + "|pluginObjectTypeFilter_" + $f;
+            if (!`checkBox -exists $box`)
+                continue;
+            int $value = 1;
+            int $at = stringArrayFind($f, 0, $names);
+            if ($at >= 0 && $at < size($values))
+                $value = $values[$at];
+            checkBox -edit -value $value $box;
+        }
+    }
+}
+
+// One plug-in filter's check box to the data. The stored lists are first brought into line with the filters there now
+// (gone ones dropped, new ones added as on).
+global proc pluginObjectTypeFilterCallback(string $filter, int $value)
+{
+    otfEnsureAttrs();
+    string $current[] = otfPluginFilters(1);
+    string $names[] = `getAttr hardwareRenderingGlobals.pluginObjectTypeFilterNameArray`;
+    int $values[] = `getAttr hardwareRenderingGlobals.pluginObjectTypeFilterValueArray`;
+    if (size($names) != size($values)) {
+        clear $names;
+        clear $values;
+    }
+
+    for ($i = size($names) - 1; $i >= 0; $i--) {
+        if (stringArrayContains($names[$i], $current))
+            continue;
+        stringArrayRemoveAtIndex($i, $names);
+        int $kept[];
+        clear $kept;
+        for ($j = 0; $j < size($values); $j++)
+            if ($j != $i)
+                $kept[size($kept)] = $values[$j];
+        $values = $kept;
+    }
+    for ($f in $current) {
+        if (!stringArrayContains($f, $names)) {
+            $names[size($names)] = $f;
+            $values[size($values)] = 1;
+        }
+    }
+    int $at = stringArrayFind($filter, 0, $names);
+    if ($at >= 0)
+        $values[$at] = $value;
+
+    int $n = size($names);
+    string $cmd = "setAttr hardwareRenderingGlobals.pluginObjectTypeFilterNameArray -type stringArray " + $n;
+    for ($name in $names)
+        $cmd += " \"" + encodeString($name) + "\"";
+    eval $cmd;
+    $cmd = "setAttr hardwareRenderingGlobals.pluginObjectTypeFilterValueArray -type Int32Array " + $n;
+    for ($v in $values)
+        $cmd += " " + $v;
+    eval $cmd;
+
+    pluginObjectTypeFilterSetup();
+}
+
+global proc string[] linkedStringArray(string $a[], string $b[])
+{
+    string $result[] = $a;
+    for ($s in $b)
+        $result[size($result)] = $s;
+    return $result;
+}

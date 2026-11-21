@@ -1,0 +1,1048 @@
+// OutlinerEdMenu: the right-click menu of an outliner editor made by script, rebuilt each time it opens to suit the row
+// clicked (a set member, a set, an animation source, a material, a sound or anything else), with its Reference, Asset
+// and Render Setup submenus and what their items run. Aztek's own Outliner window has its own menu and doesn't use
+// this one.
+
+// The first outliner's popup menu, so other scripts can add to it.
+global string $gOutlinerPopupMenu;
+// The references the Reference submenu was last built for, and their files, at the same indices. The reference items
+// act on these, not on whatever is selected when they're picked.
+global string $gLstRefNode[];
+global string $gLstRefFile[];
+
+// The annotation of a runtime command, or "" when it has none or doesn't exist.
+proc string OutlinerEdMenu_annotation(string $command)
+{
+    if (`exists getRunTimeCommandAnnotation`)
+        return eval("getRunTimeCommandAnnotation \"" + $command + "\"");
+    string $annotation = "";
+    if (`runTimeCommand -exists $command`)
+        catchQuiet($annotation = `runTimeCommand -query -annotation $command`);
+    return $annotation;
+}
+
+// Runs the scripts registered for a hook point, when Aztek has the callbacks command.
+proc OutlinerEdMenu_hook(string $name)
+{
+    if (`exists callbacks`)
+        catchQuiet(eval("callbacks -executeCallbacks -hook \"addItemsToOutlinerNodePopupMenu\" \"" + $name + "\""));
+}
+
+// The external data model's Python support. Aztek doesn't ship it yet, so these quietly do nothing.
+proc int OutlinerEdMenu_ufeCall(string $function, string $name)
+{
+    int $result = 0;
+    catchQuiet($result = python("import maya.app.ufe.outlinerSupport\nmaya.app.ufe.outlinerSupport." + $function
+        + "('" + $name + "')"));
+    return $result;
+}
+
+// A node type that fails quietly, for names that aren't nodes (the data model's paths).
+proc string OutlinerEdMenu_nodeType(string $name)
+{
+    string $type = "";
+    catchQuiet($type = `nodeType $name`);
+    return $type;
+}
+
+// The panel an outliner editor belongs to.
+proc string OutlinerEdMenu_panel(string $outlineEd)
+{
+    string $panel = "";
+    catchQuiet($panel = `outlinerEditor -query -panel $outlineEd`);
+    return $panel;
+}
+
+proc OutlinerEdMenu_needSets()
+{
+    if (!`exists showRegularSets`)
+        eval("source \"customChannelSets.mel\"");
+}
+
+// The editor's popup menu, named after it. An editor given by its full path names it from the last part.
+proc string OutlinerEdMenu_popup(string $outlineEd)
+{
+    return `match "[^|]*$" $outlineEd` + "Popup";
+}
+
+// Makes the editor's popup menu current and empties it, as every builder starts.
+proc OutlinerEdMenu_clear(string $outlineEd)
+{
+    string $menu = OutlinerEdMenu_popup($outlineEd);
+    setParent -menu $menu;
+    popupMenu -edit -deleteAllItems $menu;
+}
+
+// "Select Members": the selection grows when the set is already selected, else the set's members replace it.
+proc string OutlinerEdMenu_selectMembers(string $setName)
+{
+    string $selected[] = `ls -long -selection`;
+    string $long[] = `ls -long $setName`;
+    if (size($long) && stringArrayContains($long[0], $selected))
+        return "select -r -add " + stringArrayToString($selected, " ");
+    return "select -r " + $setName;
+}
+
+// { "a", "b" } as MEL text for a string array argument.
+proc string OutlinerEdMenu_array(string $items[])
+{
+    if (size($items) == 0)
+        return "{}";
+    return "{ \"" + stringArrayToString($items, "\", \"") + "\" }";
+}
+
+// A file's name without its folder.
+proc string OutlinerEdMenu_fileName(string $path)
+{
+    return `match "[^/\\\\]*$" $path`;
+}
+
+// Empties a menu or submenu. Aztek's menu -deleteAllItems leaves a cascading item's items, so those go one by one.
+proc OutlinerEdMenu_empty(string $menu)
+{
+    catchQuiet(`menu -edit -deleteAllItems $menu`);
+    string $items[] = `menu -query -itemArray $menu`;
+    for ($item in $items)
+        deleteUI -menuItem ($menu + "|" + $item);
+}
+
+global proc OutlinerEdMenu(string $outlineEd)
+{
+    global string $gOutlinerPopupMenu;
+    string $menu = OutlinerEdMenu_popup($outlineEd);
+    if ($gOutlinerPopupMenu == "")
+        $gOutlinerPopupMenu = $menu;
+    popupMenu -parent $outlineEd -button 3 -ctrlModifier false -postMenuCommand ("OutlinerEdMenuCommand " + $outlineEd)
+        $menu;
+}
+
+// Picks the menu for the row under the pointer.
+global proc OutlinerEdMenuCommand(string $outlineEd)
+{
+    int $row = `outlinerEditor -query -feedbackRowNumber $outlineEd`;
+    string $name = `outlinerEditor -query -feedbackItemName $outlineEd`;
+    int $hasAnimSource = OutlinerEdMenu_nodeType($name) == "timeEditorAnimSource";
+    // Row queries Aztek's editor can't answer yet count as no, so the general menu is shown.
+    int $isUfe = 0, $isSetMember = 0, $isSet = 0;
+    catchQuiet($isUfe = `outlinerEditor -query -isUfeItem $row $outlineEd`);
+    catchQuiet($isSetMember = `outlinerEditor -query -isSetMember $row $outlineEd`);
+    catchQuiet($isSet = `outlinerEditor -query -isSet $row $outlineEd`);
+
+    if ($isSetMember) {
+        string $setName = $name;
+        if (!$isSet)
+            $setName = `outlinerEditor -query -getCurrentSetOfItem $row $outlineEd`;
+        outlinerEdSetMemberMenu($outlineEd, $setName, $row);
+    } else if ($isSet)
+        outlinerEdSetMenu($outlineEd, $name);
+    else if ($isUfe)
+        outlinerEdGeneralMenu($outlineEd, $name);
+    else if ($hasAnimSource)
+        outlinerEdAnimMenu($outlineEd, $name);
+    else if ($name != "") {
+        int $shader = 0;
+        if (`exists isClassified`)
+            catchQuiet($shader = eval("isClassified \"" + $name + "\" \"shader\""));
+        if ($shader)
+            outlinerEdShaderMenu($outlineEd, $name, $row);
+        else if (OutlinerEdMenu_nodeType($name) == "audio")
+            outlinerEdAudioMenu($outlineEd, $name);
+        else
+            outlinerEdGeneralMenu($outlineEd, $name);
+    } else
+        outlinerEdGeneralMenu($outlineEd, "");
+}
+
+global proc outlinerEdSetMemberMenu(string $outlineEd, string $setName, int $row)
+{
+    buildOutlinerEdSetMemberMenu($outlineEd, $setName, $row);
+    updateSceneAssemblyMenu();
+}
+
+global proc outlinerEdSetMenu(string $outlineEd, string $setName)
+{
+    buildOutlinerEdSetMenu($outlineEd, $setName);
+    updateSceneAssemblyMenu();
+}
+
+global proc outlinerEdAnimMenu(string $outlineEd, string $animSource)
+{
+    buildOutlinerEdAnimMenu($outlineEd, $animSource);
+    updateSceneAssemblyMenu();
+}
+
+global proc outlinerEdAudioMenu(string $outlineEd, string $name)
+{
+    buildOutlinerEdAudioMenu($outlineEd, $name);
+    updateSceneAssemblyMenu();
+}
+
+global proc outlinerEdShaderMenu(string $outlineEd, string $name, int $row)
+{
+    buildOutlinerEdShaderMenu($outlineEd, $name, $row);
+    updateSceneAssemblyMenu();
+}
+
+global proc outlinerEdGeneralMenu(string $outlineEd, string $name)
+{
+    buildOutlinerEdGeneralMenu($outlineEd, $name);
+    updateSceneAssemblyMenu();
+}
+
+// The Scene Assembly submenu only works with an assembly type loaded.
+global proc updateSceneAssemblyMenu()
+{
+    if (!`menuItem -exists outlinerSceneAssemblyMenu`)
+        return;
+    string $types[];
+    if (`exists assembly`)
+        catchQuiet($types = eval("assembly -query -listTypes"));
+    int $any = size($types) > 0;
+    menuItem -edit -enable $any -annotation ($any ? "" : "No scene assembly plug-ins are loaded.")
+        outlinerSceneAssemblyMenu;
+}
+
+global proc buildOutlinerEdSetMemberMenu(string $outlineEd, string $setName, int $row)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    OutlinerEdMenu_needSets();
+    if (showRegularSets(OutlinerEdMenu_panel($outlineEd))) {
+        menuItem -label "Select Set Members" -command (OutlinerEdMenu_selectMembers($setName)) selectSetMembers;
+        menuItem -label "Remove from Set" -version "2017"
+            -command ("outlinerEditor -edit -removeFromCurrentSet " + $row + " " + $outlineEd) removeItemFromCurrentSet;
+        menuItem -label "Show Set Members" -checkBox `outlinerEditor -query -showSetMembers $outlineEd`
+            -command ("outlinerEditor -edit -showSetMembers #1 " + $outlineEd) showSetMembersItem;
+        menuItem -divider true;
+    }
+    buildOutlinerEdGeneralMenuItems($outlineEd, $setName);
+}
+
+global proc buildOutlinerEdSetMenu(string $outlineEd, string $setName)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    OutlinerEdMenu_needSets();
+    string $panel = OutlinerEdMenu_panel($outlineEd);
+    if (showRegularSets($panel)) {
+        // Clicking a set selects its members unless the preference selects the set itself: then the set is offered.
+        int $autoSelect = 0;
+        catchQuiet($autoSelect = `selectPref -query -autoSelectOutlinerSetMembers`);
+        int $isOutlinerPanel = 0;
+        catchQuiet($isOutlinerPanel = `outlinerPanel -exists $outlineEd`);
+        int $size = 0;
+        if ($setName != "")
+            catchQuiet($size = `sets -query -size $setName`);
+        if (!$autoSelect || !$isOutlinerPanel || $setName == "" || $size == 0)
+            menuItem -label "Select Set Members" -command (OutlinerEdMenu_selectMembers($setName)) selectSetMembers2;
+        else
+            menuItem -label "Select Set" -command ("select -r -noExpand " + $setName) selectSet;
+        menuItem -label "Show Set Members" -checkBox `outlinerEditor -query -showSetMembers $outlineEd`
+            -command ("outlinerEditor -edit -showSetMembers #1 " + $outlineEd) showSetMembersItem2;
+        menuItem -divider true;
+    }
+    buildOutlinerEdGeneralMenuItems($outlineEd, $setName);
+}
+
+global proc buildOutlinerEdAnimMenu(string $outlineEd, string $animSource)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    string $remap = `menuItem -subMenu true -label "Remap to Namespace" -version "2017" cteRemapToNamespaceItem`;
+    menuItem -edit -postMenuCommand ("buildRemapAnimSourceMenu " + $remap + " " + $outlineEd + " " + $animSource) $remap;
+    setParent -menu ..;
+    menuItem -label "Apply Animation Source" -command ("timeEditorAnimSource -e -apply " + $animSource)
+        cteApplyAnimSourceItem;
+    menuItem -label "Export Animation Source..." -command ("timeEditorExportAnimSource " + $animSource)
+        cteExportAnimSourceItem;
+    menuItem -divider true;
+    buildOutlinerEdGeneralMenuItems($outlineEd, $animSource);
+}
+
+global proc buildOutlinerEdAudioMenu(string $outlineEd, string $name)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    menuItem -label "Make Active Sound" -command ("source \"updateSoundMenu.mel\"; setSoundDisplay " + $name + " 1;")
+        makeActiveSoundItem;
+    int $mute = 0;
+    catchQuiet($mute = `getAttr ($name + ".mute")`);
+    menuItem -label "Mute" -checkBox $mute -command ("setAttr " + $name + ".mute #1") muteSoundItem;
+    menuItem -divider true;
+    buildOutlinerEdGeneralMenuItems($outlineEd, $name);
+}
+
+global proc buildOutlinerEdShaderMenu(string $outlineEd, string $name, int $row)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    // A node type can give its materials their own items with build<type>OutlinerEdMenu.
+    string $override = "build" + OutlinerEdMenu_nodeType($name) + "OutlinerEdMenu";
+    if (`exists $override`)
+        eval($override + " \"" + $outlineEd + "\" \"" + $name + "\" \"" + $row + "\"");
+    else {
+        menuItem -label "Assign Material to Selection" -version "2017" -command ("hyperShade -assign " + $name)
+            assignShader;
+        menuItem -label "Select Objects with Material" -version "2017" -command ("hyperShade -objects " + $name)
+            selObjectsWithShader;
+        menuItem -label "Frame Objects with Material" -version "2017"
+            -command ("hyperShade -objects " + $name + ";fitAllPanels -selected") frameObjectsWithShader;
+        menuItem -label "Open in Hypershade" -version "2017" -command "HypershadeWindow" openInHypershade;
+        menuItem -label "Paint Assign Material" -version "2017" -command ("shaderPaintTool " + $name) paintAssignShader;
+        menuItem -label "Rename" -version "2017"
+            -command ("outlinerEditor -edit -renameItem " + $row + " " + $outlineEd) renameShaderItem;
+    }
+    menuItem -divider true;
+    buildOutlinerEdGeneralMenuItems($outlineEd, $name);
+}
+
+global proc buildOutlinerEdGeneralMenu(string $outlineEd, string $name)
+{
+    OutlinerEdMenu_clear($outlineEd);
+    buildOutlinerEdGeneralMenuItems($outlineEd, $name);
+}
+
+global proc buildOutlinerEdGeneralMenuItems(string $outlineEd, string $name)
+{
+    // An item of an outside data model builds its own menu.
+    if (OutlinerEdMenu_ufeCall("buildNonMayaContextMenu", $name)) {
+        OutlinerEdMenu_hook($name);
+        return;
+    }
+    buildOutlinerEdUFEMenuItems($outlineEd, $name);
+
+    string $panel = OutlinerEdMenu_panel($outlineEd);
+    string $menu = OutlinerEdMenu_popup($outlineEd);
+    menuItem -label "DAG Objects Only" -checkBox `outlinerEditor -query -showDagOnly $outlineEd`
+        -command ("outlinerEditor -edit -showDagOnly #1 " + $outlineEd) dagItem;
+    menuItem -label "Shapes" -checkBox `outlinerEditor -query -showShapes $outlineEd`
+        -command ("outlinerEditor -edit -showShapes #1 " + $outlineEd) showShapesItem;
+
+    if (!`exists showAttributeExpansionOptions`)
+        eval("source \"customChannelSets.mel\"");
+    if (showAttributeExpansionOptions($panel)) {
+        menuItem -divider true;
+        menuItem -label "Collapse All Attributes" -command ("outlinerEditor -edit -expandAllAttributes 0 " + $outlineEd)
+            collapseAllAttrsItem;
+        menuItem -label "Expand All Attributes" -command ("outlinerEditor -edit -expandAllAttributes 1 " + $outlineEd)
+            expandAllAttrsItem;
+    }
+
+    menuItem -divider true;
+    menuItem -label "Reveal Selected" -command ("outlinerEditor -edit -showSelected  1 " + $outlineEd) showSelectedItem;
+    menuItem -subMenu true -label "Hide in Outliner";
+        menuItem -label "Hide" -command "doHideInOutliner 1" hideInOutlinerHideItem;
+        menuItem -label "Unhide" -command "doHideInOutliner 0" hideInOutlinerUnhideItem;
+    setParent -menu ..;
+
+    menuItem -divider true;
+    string $reference = `menuItem -subMenu true -allowOptionBoxes true -label "Reference"`;
+    menuItem -edit -postMenuCommand ("buildReferenceMenu " + $reference) $reference;
+    setParent -menu ..;
+
+    if (!`exists buildSceneAssemblyMenu` && `exists OutlinerEdRepMenu`)
+        eval("source \"OutlinerEdRepMenu.mel\"");
+    string $assembly = `menuItem -subMenu true -label "Scene Assembly" outlinerSceneAssemblyMenu`;
+    menuItem -edit -postMenuCommand ("buildSceneAssemblyMenu " + $assembly) $assembly;
+    setParent -menu ..;
+
+    if (!`exists ModSetsSubMenuItems` && `exists ModCreateMenu`)
+        eval("source \"ModCreateMenu.mel\"");
+    if (showRegularSets($panel)) {
+        menuItem -subMenu true -label "Sets" -version "2022" -allowOptionBoxes true;
+            menuItem -label "Create Set" -annotation (OutlinerEdMenu_annotation("CreateSet")) -command "CreateSet"
+                -dragDoubleClickCommand "CreateSetOptions";
+            menuItem -optionBox true -annotation (OutlinerEdMenu_annotation("CreateSetOptions"))
+                -command "CreateSetOptions";
+            menuItem -label "Create Partition" -annotation (OutlinerEdMenu_annotation("CreatePartition"))
+                -command "CreatePartition" -dragDoubleClickCommand "CreatePartitionOptions";
+            menuItem -optionBox true -annotation (OutlinerEdMenu_annotation("CreatePartitionOptions"))
+                -command "CreatePartitionOptions";
+            menuItem -label "Create Quick Select Set" -annotation (OutlinerEdMenu_annotation("CreateQuickSelectSet"))
+                -command "CreateQuickSelectSet";
+
+            // Adding to and taking from sets, when there are objects selected and sets to put them in.
+            string $objects[] = `ls -selection -transforms`;
+            string $shapes[] = `ls -selection -shapes`;
+            string $sets[];
+            string $all[] = `ls -sets`;
+            for ($set in $all) {
+                int $pass = 1;
+                if (`exists setFilterScript`)
+                    catchQuiet($pass = eval("setFilterScript \"" + $set + "\""));
+                if ($pass)
+                    $sets[size($sets)] = $set;
+            }
+            if ((size($objects) || size($shapes)) && size($sets)) {
+                menuItem -divider true;
+                menuItem -subMenu true -label "Add Selected to Set";
+                createOutlinerSetsSubMenu($sets, 1);
+                menuItem -subMenu true -label "Remove Selected from Set";
+                createOutlinerSetsSubMenu($sets, 0);
+            }
+        setParent -menu ..;
+    }
+
+    if (showChannelSets($panel)) {
+        menuItem -divider true;
+        menuItem -subMenu true -label "Channel Sets" -version (channelSetsMenuVersion($panel)) -allowOptionBoxes true;
+            menuItem -label "Create Channel Set" -annotation (OutlinerEdMenu_annotation("CreateCustomSet"))
+                -command ("createCustomSetFromPanel(\"" + $panel + "\")");
+            string $selected[] = selectedCustomSets($panel);
+            int $anySelected = size($selected) > 0;
+            menuItem -label ((size($selected) > 1) ? "Delete Channel Sets" : "Delete Channel Set")
+                -enable $anySelected -annotation (OutlinerEdMenu_annotation("DeleteCustomSet"))
+                -command ("deleteCustomSets(" + OutlinerEdMenu_array($selected) + ")");
+
+            string $customSets[] = customChannelSets();
+            string $attrs[] = selectedAttributesForCustomSets($panel);
+            $attrs = stringArrayCatenate($attrs, $selected);
+            if (size($customSets) && size($attrs)) {
+                menuItem -divider true;
+                menuItem -subMenu true -label "Add to Channel Set";
+                createCustomSetsSubMenu($customSets, $attrs, true);
+                menuItem -subMenu true -label "Remove from Channel Set";
+                createCustomSetsSubMenu($customSets, $attrs, false);
+            }
+
+            menuItem -divider true;
+            menuItem -label "Select Channel Set Members" -enable $anySelected
+                -annotation "Select the attributes in the selected channel sets."
+                -command ("selectCustomSetMembers(" + OutlinerEdMenu_array($selected) + ")");
+
+            menuItem -divider true;
+            string $resetLabel = "";
+            if (`runTimeCommand -exists ResetChannelSetColors`)
+                catchQuiet($resetLabel = `runTimeCommand -query -label ResetChannelSetColors`);
+            if ($resetLabel == "")
+                $resetLabel = "Reset Channel Set Colours";
+            menuItem -label $resetLabel -annotation (OutlinerEdMenu_annotation("ResetChannelSetColors"))
+                -command "ResetChannelSetColors";
+
+            menuItem -divider true;
+            menuItem -label "Import Channel Sets..." -annotation (OutlinerEdMenu_annotation("ImportChannelSets"))
+                -command "performImportChannelSets";
+            menuItem -label "Export All Channel Sets..." -enable (size($customSets) > 0)
+                -annotation (OutlinerEdMenu_annotation("ExportAllChannelSets")) -command "performExportAllChannelSets";
+            menuItem -label "Export Selected Channel Sets..." -enable $anySelected
+                -annotation (OutlinerEdMenu_annotation("ExportChannelSets"))
+                -command ("performExportChannelSets(" + OutlinerEdMenu_array($selected) + ")");
+        setParent -menu ..;
+        menuItem -divider true;
+    }
+
+    string $asset = `menuItem -subMenu true -label "Asset"`;
+    menuItem -edit -postMenuCommand ("buildContainerMenu " + $asset) $asset;
+    setParent -menu ..;
+
+    // The Display and Show submenus, as in the panel's menu bar.
+    menuItem -divider true;
+    if (!`exists createOutlinerDisplayMenu`)
+        eval("source \"createOutlinerPanelMenu.mel\"");
+    createOutlinerDisplayMenu($outlineEd, false, $menu, 1);
+    if (`exists filterUICreateMenuSub`)
+        eval("filterUICreateMenuSub \"" + $outlineEd + "\" \"" + $menu + "\" 1 0");
+    setParent -menu $menu;
+
+    int $renderSetup = 0;
+    if (`exists mayaHasRenderSetup`)
+        $renderSetup = eval("mayaHasRenderSetup");
+    if ($renderSetup) {
+        menuItem -divider true;
+        menuItem -subMenu true -label "Render Setup" -version "2017";
+            menuItem -label "Find in All Render Layers" -command "findInAllRenderLayers" findInAllRenderLayersItem;
+            menuItem -label "Find in Selected Render Layers" -command "findInSelectedRenderLayers"
+                findInSelectedRenderLayersItem;
+            string $find = `menuItem -subMenu true -label "Find in Render Layer"`;
+            menuItem -edit -postMenuCommand ("createFindInRenderLayerMenu " + $find) $find;
+            setParent -menu ..;
+        setParent -menu ..;
+    }
+
+    OutlinerEdMenu_hook($name);
+    if (`exists outlinerEdMenuUserCallback`)
+        catchQuiet(eval("source \"outlinerEdMenuUserCallback\""));
+}
+
+// The data model's own items for the node, at the top, with a divider when it added any.
+global proc buildOutlinerEdUFEMenuItems(string $outlineEd, string $name)
+{
+    string $menu = `setParent -query -menu`;
+    int $before = `popupMenu -exists $menu` ? `popupMenu -query -numberOfItems $menu` : 0;
+    OutlinerEdMenu_ufeCall("buildMayaContextMenu", $name);
+    int $after = `popupMenu -exists $menu` ? `popupMenu -query -numberOfItems $menu` : 0;
+    if ($after > $before)
+        menuItem -divider true;
+}
+
+// Fills the current submenu with the sets the selection can be added to ($add 1) or taken from (0), quick select sets
+// first, then steps back out of it.
+global proc createOutlinerSetsSubMenu(string $sets[], int $add)
+{
+    int $any = 0;
+    for ($pass = 0; $pass < 2; $pass++) {
+        int $first = 1;
+        for ($set in $sets) {
+            string $text = "";
+            catchQuiet($text = `sets -query -text $set`);
+            if (($text == "gCharacterSet") != ($pass == 0))
+                continue;
+            int $include = 0;
+            if ($add)
+                $include = !`sets -isMember $set`;
+            else
+                $include = `sets -anyMember $set`;
+            if (!$include)
+                continue;
+            if ($first) {
+                menuItem -divider true -dividerLabel (($pass == 0) ? "Quick Select Sets" : "Other Sets");
+                $first = 0;
+            }
+            menuItem -label $set -command (($add ? "sets -add " : "sets -rm ") + $set);
+            $any = 1;
+        }
+    }
+    if (!$any)
+        menuItem -label "No Sets" -enable false;
+    setParent -menu ..;
+}
+
+global proc buildRemapAnimSourceMenu(string $parentMenu, string $outlineEd, string $animSource)
+{
+    setParent -menu $parentMenu;
+    OutlinerEdMenu_empty($parentMenu);
+    string $namespaces[] = `namespaceInfo -listOnlyNamespaces -recurse -absoluteName ":"`;
+    int $added = 0;
+    for ($ns in $namespaces) {
+        // Aztek's namespace list can include the root, which is no place to remap to.
+        if ($ns == ":shared" || $ns == ":UI" || $ns == ":")
+            continue;
+        menuItem -label $ns -command ("if (!`exists teRemapAnimSourceToNamespace`) source \"teRemapToNamespace.mel\"; "
+            + "teRemapAnimSourceToNamespace " + $animSource + " " + $ns);
+        $added = 1;
+    }
+    if (!$added)
+        menuItem -label "No Namespaces" -enable false;
+}
+
+// Bakes the animation source to a copy, exports the copy to the file chosen, and deletes it.
+global proc timeEditorExportAnimSource(string $animSource)
+{
+    string $files[] = `fileDialog2 -fileMode 0 -caption "Export Animation Source"
+        -fileFilter "Scene files (*.ma *.mb)" -okCaption "Export"`;
+    if (size($files) != 1)
+        return;
+    string $baked = `timeEditorAnimSource -edit -bakeToAnimSource ($animSource + "_Export") $animSource`;
+    if ($baked != "") {
+        timeEditorAnimSource -edit -export $files[0] $baked;
+        delete $baked;
+    }
+}
+
+global proc buildContainerMenu(string $parentMenu)
+{
+    setParent -menu $parentMenu;
+    OutlinerEdMenu_empty($parentMenu);
+    string $containers[] = `ls -selection -type container`;
+    menuItem -label "Select Asset Contents" -annotation (OutlinerEdMenu_annotation("SelectContainerContents"))
+        -enable (size($containers) > 0) -command "SelectContainerContents" selectContainerContentsItem;
+
+    // Nothing but objects selected: the asset they belong to.
+    string $target = "";
+    if (size($containers) == 0) {
+        string $selection[] = `ls -selection`;
+        if (size($selection)) {
+            string $owner = "";
+            catchQuiet($owner = `container -query -findContainer $selection`);
+            if ($owner != "")
+                $containers[0] = $owner;
+            $target = $selection[0];
+        }
+    }
+
+    // An asset can add items of its own through the procedure named in its rmbCommand.
+    for ($c in $containers) {
+        string $procName = "";
+        catchQuiet($procName = `getAttr ($c + ".rmbCommand")`);
+        if ($procName == "")
+            continue;
+        if (!`exists $procName`) {
+            warning ("The asset's right-click procedure " + $procName + " doesn't exist, so its items were left out.");
+            continue;
+        }
+        string $pairs[] = eval($procName);
+        int $count = size($pairs) / 2;
+        if ($count == 0)
+            continue;
+        menuItem -divider true;
+        string $on = ($target != "") ? $target : $c;
+        for ($i = 0; $i < $count; $i++)
+            menuItem -label $pairs[$i * 2] -command ($pairs[$i * 2 + 1] + " " + $on);
+    }
+}
+
+// The reference node of a selected node: the reference it comes from, the reference node itself, or the reference
+// its group or locator stands for. "" when none; $isAssembly is set for a scene assembly.
+proc string OutlinerEdMenu_referenceOf(string $node, int $isAssembly[])
+{
+    int $referenced = 0;
+    catchQuiet($referenced = `referenceQuery -isNodeReferenced $node`);
+    if ($referenced) {
+        string $refNode = "";
+        catchQuiet($refNode = `referenceQuery -referenceNode $node`);
+        return $refNode;
+    }
+    string $owner = "";
+    catchQuiet($owner = `container -query -findContainer $node`);
+    if (`objectType -isAType "assembly" $node` || ($owner != "" && `objectType -isAType "assembly" $owner`)) {
+        $isAssembly[0] = 1;
+        return "";
+    }
+    if (OutlinerEdMenu_nodeType($node) == "reference" && !catchQuiet(`referenceQuery -filename $node`))
+        return $node;
+    string $downstream[];
+    catchQuiet($downstream = `listConnections -source false -destination true -type reference ($node + ".message")`);
+    if (size($downstream))
+        return $downstream[0];
+    return "";
+}
+
+global proc buildReferenceMenu(string $parentMenu)
+{
+    global string $gLstRefNode[];
+    global string $gLstRefFile[];
+    setParent -menu $parentMenu;
+    OutlinerEdMenu_empty($parentMenu);
+
+    string $selections[] = `ls -selection`;
+    if (size($selections) == 0) {
+        menuItem -label "Create Reference..." -annotation (OutlinerEdMenu_annotation("CreateReference"))
+            -command "CreateReference";
+        menuItem -optionBox true -annotation (OutlinerEdMenu_annotation("CreateReferenceOptions"))
+            -command "CreateReferenceOptions";
+        return;
+    }
+
+    clear $gLstRefNode;
+    clear $gLstRefFile;
+    int $isAssembly[] = {0};
+    for ($node in $selections) {
+        string $refNode = OutlinerEdMenu_referenceOf($node, $isAssembly);
+        if ($refNode == "" || stringArrayContains($refNode, $gLstRefNode))
+            continue;
+        string $file = "";
+        catchQuiet($file = `referenceQuery -filename $refNode`);
+        $gLstRefNode[size($gLstRefNode)] = $refNode;
+        $gLstRefFile[size($gLstRefFile)] = $file;
+    }
+
+    if (size($gLstRefNode) == 0) {
+        if ($isAssembly[0])
+            menuItem -label "No Reference for the Selected Assembly" -enable false;
+        else {
+            menuItem -label "Export Selection as Reference..." -annotation "Export the selection to a file and reference it back in."
+                -command "projectViewer ExportSelectionAsReference";
+            menuItem -optionBox true -annotation "Options for exporting the selection as a reference."
+                -command "fileOptions \"ExportSelectionAsReference\" \"projectViewer ExportSelectionAsReference\"";
+        }
+        return;
+    }
+
+    int $multi = size($gLstRefNode) > 1;
+    string $node = $gLstRefNode[0];
+    string $resolvedPath = $gLstRefFile[0];
+    string $fname = OutlinerEdMenu_fileName($resolvedPath);
+    int $loaded = 1;
+    if (!$multi)
+        $loaded = `referenceQuery -isLoaded $node`;
+
+    if ($multi) {
+        menuItem -label "Load References" -command "loadUnloadReference(1, 0)";
+        menuItem -label "Unload References" -command "loadUnloadReference(0, 0)";
+    } else if ($loaded)
+        menuItem -label ("Unload " + $fname) -command "loadUnloadReference(0, 0)";
+    else
+        menuItem -label ("Load " + $fname) -command "loadUnloadReference(1, 0)";
+    menuItem -divider true;
+    menuItem -label "Reload Reference" -annotation "Reload the selected references from their files."
+        -command "loadUnloadReference(1,1)";
+
+    if (!$multi) {
+        if (!$loaded) {
+            menuItem -divider true;
+            string $children[];
+            catchQuiet($children = `referenceQuery -child -referenceNode $node`);
+            if (size($children)) {
+                menuItem -label "Hide Unloaded Content" -annotation "Hide the preview of the unloaded reference's content."
+                    -command ("file -unloadReference " + $node);
+                menuItem -label "Show Preview Content" -annotation "Show a preview of the unloaded reference's content."
+                    -command ("file -loadReferencePreview " + $node);
+            } else
+                menuItem -label "Preview Content" -annotation "Show a preview of the unloaded reference's content."
+                    -command ("file -loadReferencePreview " + $node);
+        }
+        // A reference with proxies can switch to any of the others.
+        string $managers[];
+        catchQuiet($managers = `listConnections -type proxyManager $node`);
+        if (size($managers)) {
+            menuItem -subMenu true -label "Reload Proxy As" -annotation "Switch the reference to one of its proxies.";
+            if (!`exists isActiveProxy`)
+                eval("source \"proxyUtils.mel\"");
+            string $proxies[];
+            if (`exists getRelatedProxies`)
+                $proxies = eval("getRelatedProxies " + $node);
+            for ($proxy in $proxies) {
+                string $tag = "";
+                catchQuiet($tag = `getAttr ($proxy + ".proxyTag")`);
+                string $proxyFile = "";
+                catchQuiet($proxyFile = `referenceQuery -filename -shortName $proxy`);
+                menuItem -label ($tag + " (" + $proxyFile + ")") -enable (!isActiveProxy($proxy))
+                    -command ("proxySwitch " + $proxy);
+            }
+            setParent -menu ..;
+        }
+    }
+
+    menuItem -divider true;
+    menuItem -label "Select Reference Contents" -annotation "Select all the nodes in the reference." -enable $loaded
+        -command "selectReferencesContents()";
+    menuItem -divider true;
+    menuItem -label "Duplicate Reference" -annotation "Reference the same file again." -command "duplicateReferences()";
+    menuItem -label "Import Objects from Reference" -annotation "Bring all the reference's nodes into the scene."
+        -command "importReferences()";
+    menuItem -label "Remove Reference" -annotation "Remove the selected references from the scene."
+        -command "removeRefFile()";
+
+    if (!$multi) {
+        menuItem -label "Replace Reference..." -annotation "Load another file in place of this reference."
+            -command ("replaceReference \"" + $resolvedPath + "\" \"" + $node + "\"");
+        // As the reference builds it, with no space before the node's name.
+        string $recent = `menuItem -subMenu true -label "Recent Replacements"
+            -annotation "Files this reference was replaced with before." referenceRecentFilesReplacedItem`;
+        menuItem -edit -postMenuCommand ("buildMenuReferenceReplaced " + $parentMenu + "\"" + $node + "\" \""
+            + $resolvedPath + "\"") $recent;
+        setParent -menu ..;
+        menuItem -divider true;
+        menuItem -label "Save Reference Edits" -annotation "Write the changes made to the reference into its file."
+            -enable $loaded -command ("saveRefEdits \"" + $resolvedPath + "\"");
+        menuItem -label "Export Offline File..." -annotation (OutlinerEdMenu_annotation("ExportOfflineFile"))
+            -enable $loaded -command "ExportOfflineFileFromRefEd";
+        menuItem -optionBox true -annotation (OutlinerEdMenu_annotation("ExportOfflineFileOptions"))
+            -command "ExportOfflineFileFromRefEdOptions";
+        menuItem -label "Assign Offline File..." -annotation (OutlinerEdMenu_annotation("ApplyOfflineFileFromRefEd"))
+            -command "AssignOfflineFileFromRefEd";
+        menuItem -optionBox true -annotation (OutlinerEdMenu_annotation("AssignOfflineFileOptions"))
+            -command "AssignOfflineFileFromRefEdOptions";
+        menuItem -label "List Reference Edits" -annotation "List the changes made to the reference."
+            -command ("referenceEditsWindow \"" + $resolvedPath + "\" false");
+    }
+
+    menuItem -divider true;
+    if (!$multi) {
+        int $locked = 0;
+        catchQuiet($locked = `getAttr ($node + ".locked")`);
+        int $fileLocked = 0;
+        catchQuiet($fileLocked = `file -query -lockFile $fname`);
+        int $attrLocked = 0;
+        catchQuiet($attrLocked = `getAttr -lock ($node + ".locked")`);
+        $fileLocked = $fileLocked || $attrLocked;
+        int $canUnlock = !$locked || !$fileLocked;
+        // A loaded reference is unloaded around the change and loaded again after.
+        int $newState = !$locked;
+        string $change = "setAttr " + $node + ".locked " + $newState + "; select -clear;";
+        string $cmd = $change;
+        if ($loaded)
+            $cmd = "file -force -unloadReference " + $node + "; " + $change + " file -loadReferenceDepth \"asPrefs\" "
+                + "-loadReference " + $node + ";";
+        menuItem -label ($locked ? "Unlock Reference" : "Lock Reference")
+            -annotation ($locked ? "Allow changes to the reference again." : "Stop changes being made to the reference.")
+            -enable $canUnlock -command $cmd;
+    } else {
+        menuItem -label "Lock References" -annotation "Stop changes being made to the selected references."
+            -command "lockUnlockReferences 1";
+        menuItem -label "Unlock References" -annotation "Allow changes to the selected references again."
+            -command "lockUnlockReferences 0";
+    }
+}
+
+global proc loadUnloadReference(int $load, int $force)
+{
+    global string $gLstRefNode[];
+    for ($node in $gLstRefNode) {
+        if (!$load)
+            // A parent unloaded first takes its children with it.
+            catchQuiet(`file -unloadReference $node`);
+        else if ($force || !`referenceQuery -isLoaded $node`)
+            file -loadReferenceDepth "asPrefs" -loadReference $node;
+    }
+}
+
+// Aztek's file command can't select a reference's contents yet; its nodes are selected from referenceQuery then.
+global proc selectReferencesContents()
+{
+    global string $gLstRefNode[];
+    string $help = `help file`;
+    int $selectAll = `gmatch $help "* -selectAll *"`;
+    for ($i = 0; $i < size($gLstRefNode); $i++) {
+        string $node = $gLstRefNode[$i];
+        if (!`referenceQuery -isLoaded $node`)
+            continue;
+        if ($selectAll) {
+            string $before[] = `ls -selection`;
+            eval("file -selectAll -referenceNode " + $node);
+            if ($i > 0)
+                select -add $before;
+        } else {
+            string $nodes[] = `referenceQuery -nodes $node`;
+            if ($i == 0)
+                select -replace $nodes;
+            else
+                select -add $nodes;
+        }
+    }
+}
+
+global proc duplicateReferences()
+{
+    global string $gLstRefNode[];
+    for ($node in $gLstRefNode) {
+        select -replace $node;
+        duplicateReference(0, " ");
+    }
+}
+
+global proc importReferences()
+{
+    global string $gLstRefNode[];
+    for ($node in $gLstRefNode)
+        if (`referenceQuery -isLoaded $node`)
+            file -importReference -referenceNode $node;
+}
+
+global proc lockUnlockReferences(int $lock)
+{
+    global string $gLstRefNode[];
+    global string $gLstRefFile[];
+    for ($i = 0; $i < size($gLstRefNode); $i++) {
+        string $node = $gLstRefNode[$i];
+        string $fname = OutlinerEdMenu_fileName($gLstRefFile[$i]);
+        int $fileLocked = 0;
+        catchQuiet($fileLocked = `file -query -lockFile $fname`);
+        int $attrLocked = 0;
+        catchQuiet($attrLocked = `getAttr -lock ($node + ".locked")`);
+        if (!$fileLocked && !$attrLocked) {
+            if (`referenceQuery -isLoaded $node`) {
+                file -force -unloadReference $node;
+                setAttr ($node + ".locked") $lock;
+                file -loadReferenceDepth "asPrefs" -loadReference $node;
+            } else
+                setAttr ($node + ".locked") $lock;
+        } else if (!$lock)
+            warning ($node + " can't be unlocked while its file is locked.");
+    }
+    select -clear;
+}
+
+global proc removeRefFile()
+{
+    global string $gLstRefNode[];
+    global string $gLstRefFile[];
+    for ($i = 0; $i < size($gLstRefNode); $i++) {
+        string $node = $gLstRefNode[$i];
+        // A reference removed along with its parent has gone: stop here.
+        if (catchQuiet(`referenceQuery -filename $gLstRefFile[$i]`))
+            break;
+
+        string $namespace = "";
+        int $usesNamespaces = 0;
+        catchQuiet($usesNamespaces = `file -query -usingNamespaces $gLstRefFile[$i]`);
+        if ($usesNamespaces)
+            catchQuiet($namespace = `file -query -namespace $gLstRefFile[$i]`);
+        // The namespace only matters when it holds nodes that aren't the reference's.
+        int $notEmpty = 0;
+        if ($namespace != "" && $namespace != ":") {
+            string $members[];
+            catchQuiet($members = `namespaceInfo -listNamespace -dagPath $namespace`);
+            for ($m in $members) {
+                int $referenced = 1;
+                catchQuiet($referenced = `referenceQuery -isNodeReferenced $m`);
+                if (!$referenced) {
+                    $notEmpty = 1;
+                    break;
+                }
+            }
+        }
+        if (!$notEmpty)
+            $namespace = "";
+
+        string $message = "Remove the reference " + $node + "?";
+        if ($namespace != "")
+            $message += "\nIts namespace still holds nodes that aren't from the reference: what should happen to them?";
+        string $answer;
+        if ($namespace == "")
+            $answer = `confirmDialog -title "Remove Reference" -message $message -button "Remove" -button "Cancel"
+                -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+        else
+            $answer = `confirmDialog -title "Remove Reference" -message $message -button "Merge with Root"
+                -button "Merge with Parent" -button "Delete Content" -button "Keep Namespace" -button "Cancel"
+                -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+
+        if ($answer == "Merge with Root")
+            file -removeReference -mergeNamespaceWithRoot -referenceNode $node;
+        else if ($answer == "Merge with Parent")
+            file -removeReference -mergeNamespaceWithParent -referenceNode $node;
+        else if ($answer == "Delete Content")
+            file -removeReference -force -referenceNode $node;
+        else if ($answer == "Keep Namespace" || $answer == "Remove")
+            file -removeReference -referenceNode $node;
+    }
+    if (`window -exists namespaceEditor`)
+        updateNamespaceEditor();
+}
+
+global proc saveRefEdits(string $refFile)
+{
+    string $answer = `confirmDialog -title "Save Reference Edits"
+        -message ("Save the changes made to the reference into " + $refFile + "?") -button "Save Edits" -button "Cancel"
+        -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+    if ($answer == "Save Edits")
+        file -force -saveReference $refFile;
+}
+
+// Keeps the last five files a reference was replaced with in its fileNames attribute, newest first.
+global proc referenceReplacedList(string $fileToReplace, string $refNode)
+{
+    int $n = `getAttr -size ($refNode + ".fileNames")`;
+    if ($n > 5)
+        $n = 5;
+    int $found = -1;
+    for ($i = 0; $i < $n; $i++) {
+        if (`getAttr ($refNode + ".fileNames[" + $i + "]")` == $fileToReplace) {
+            // Left over from the reference, which prints this too.
+            print "0";
+            $found = $i;
+            break;
+        }
+    }
+    if ($found < 0 && $n < 5)
+        $n++;
+
+    // Each entry moves down one; a file already there just moves to the top.
+    string $carry = $fileToReplace;
+    for ($i = 0; $i < $n; $i++) {
+        string $old = "";
+        catchQuiet($old = `getAttr ($refNode + ".fileNames[" + $i + "]")`);
+        setAttr -type "string" ($refNode + ".fileNames[" + $i + "]") $carry;
+        if ($i == $found)
+            break;
+        $carry = $old;
+    }
+}
+
+global proc buildMenuReferenceReplaced(string $parentMenu, string $refNode, string $selectedFile)
+{
+    string $menu = $parentMenu + "|referenceRecentFilesReplacedItem";
+    int $size = `getAttr -size ($refNode + ".fileNames")`;
+    string $files[];
+    int $hadEmpty = 0;
+    for ($i = 0; $i < $size; $i++) {
+        string $f = `getAttr ($refNode + ".fileNames[" + $i + "]")`;
+        if ($f == "")
+            $hadEmpty = 1;
+        else
+            $files[size($files)] = $f;
+    }
+    // Gaps are closed up, the empty entries moving to the end.
+    if ($hadEmpty)
+        for ($i = 0; $i < $size; $i++)
+            setAttr -type "string" ($refNode + ".fileNames[" + $i + "]") (($i < size($files)) ? $files[$i] : "");
+
+    string $items[] = `menu -query -itemArray $menu`;
+    if (size($items) == size($files)) {
+        int $same = 1;
+        for ($i = 0; $i < size($files); $i++)
+            if ($items[$i] != $files[$i])
+                $same = 0;
+        if ($same)
+            return;
+    }
+
+    string $previous = `setParent -query -menu`;
+    OutlinerEdMenu_empty($menu);
+    setParent -menu $menu;
+    for ($f in $files)
+        menuItem -label $f -command ("referenceReplacedList \"" + $selectedFile + "\" \"" + $refNode + "\";"
+            + "file -lr \"" + $refNode + "\" \"" + $f + "\";");
+    setParent -menu $previous;
+}
+
+global proc replaceReference(string $file, string $refNode)
+{
+    global string $gReplaceReferenceNode;
+    $gReplaceReferenceNode = $refNode;
+    referenceReplacedList($file, $refNode);
+    if ($refNode != "")
+        projectViewer("ReplaceReference");
+}
+
+global proc findInRenderLayers(string $renderLayers[])
+{
+    RenderSetupWindow;
+    string $objects = stringArrayToString(`ls -long -selection`, " ");
+    // No space before -includeLayers, as the reference builds it.
+    string $collections[] = eval("renderSetupFind " + $objects + " -inRenderLayers "
+        + stringArrayToString($renderLayers, " ") + "-includeLayers");
+    renderSetupSelect $collections;
+    eval("renderSetupHighlight " + $objects);
+    if (size($collections) == 0)
+        warning "The selected objects aren't in any collection.";
+}
+
+global proc findInAllRenderLayers()
+{
+    string $layers[] = `renderSetup -query -renderLayers`;
+    findInRenderLayers($layers);
+}
+
+global proc findInSelectedRenderLayers()
+{
+    string $layers[] = `renderSetupSelect -query -renderLayers`;
+    findInRenderLayers($layers);
+}
+
+global proc createFindInRenderLayerMenu(string $parentMenu)
+{
+    string $previous = `setParent -query -menu`;
+    setParent -menu $parentMenu;
+    OutlinerEdMenu_empty($parentMenu);
+    string $layers[] = `renderSetup -query -renderLayers`;
+    for ($layer in $layers)
+        menuItem -label $layer -command ("findInRenderLayers({\"" + $layer + "\"});");
+    setParent -menu $previous;
+}
+
+// 0 short names, 1 nice names, 2 long names.
+global proc setOutlinerLongName(int $state, string $outlineEd)
+{
+    int $nice = `outlinerEditor -query -niceNames $outlineEd`;
+    int $long = `outlinerEditor -query -longNames $outlineEd`;
+    if (($state == 1 && $nice) || ($state == 2 && !$nice && $long) || ($state == 0 && !$nice && !$long))
+        return;
+    if ($state == 2)
+        outlinerEditor -edit -longNames true -niceNames false $outlineEd;
+    else if ($state == 1)
+        outlinerEditor -edit -longNames true -niceNames true $outlineEd;
+    else
+        outlinerEditor -edit -longNames false -niceNames false $outlineEd;
+}
+
+// Swaps each set selected in the outliner for its members.
+global proc selectAllSetMembers(string $outliner)
+{
+    string $connection = `outlinerEditor -query -selectionConnection $outliner`;
+    string $objects[] = `selectionConnection -query -object $connection`;
+    for ($object in $objects) {
+        int $isSet = `objectType -isAType "objectSet" $object`;
+        if (!$isSet)
+            catchQuiet($isSet = `nodeType -apiType $object` == "kPluginObjectSet");
+        if ($isSet) {
+            select -deselect -noExpand $object;
+            select -add $object;
+        }
+    }
+}

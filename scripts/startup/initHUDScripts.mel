@@ -511,13 +511,10 @@ global proc setPolyDisplayLimitedToSelected()
     optionVar -intValue polyDisplayLimitedToSelectedOV (!`optionVar -query polyDisplayLimitedToSelectedOV`);
 }
 
-// The Display menu's own procedure, sourced here when the menu hasn't been built yet.
+// The Display menu's own procedure, known from start-up.
 proc hudToggleSurfaceCulling()
 {
-    if (!`exists toggleSurfaceBackfaceCulling`)
-        catchQuiet(`eval "source \"buildDisplayMenu.mel\""`);
-    if (`exists toggleSurfaceBackfaceCulling`)
-        eval("toggleSurfaceBackfaceCulling");
+    toggleSurfaceBackfaceCulling();
 }
 
 global proc setPolyDisplayBackCulling(int $type)

@@ -1,0 +1,282 @@
+// texturePanelCommon: helpers shared by the UV Editor's scripts, as the reference's texture panel uses them: keeping
+// the editor's menu items and toolbar buttons in step with its state, finding which kinds of geometry are selected,
+// finding the image of the active shader, and the texture border display.
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+// The state the UV Editor's toggle procedures report when called with (0, 0). Those that Aztek doesn't have yet read
+// as off, so the items they drive are simply left unticked.
+proc int tpcState(string $procName)
+{
+    if (!`exists $procName`)
+        return 0;
+    int $value = `eval ($procName + " 0 0")`;
+    return $value;
+}
+
+// The same tick on the editor's popup menu item and its menu bar item.
+proc tpcCheckBoth(string $popupPrefix, string $menubarPrefix, string $item, int $value)
+{
+    menuItem -edit -checkBox $value ($popupPrefix + $item);
+    menuItem -edit -checkBox $value ($menubarPrefix + $item);
+}
+
+proc tpcRadioBoth(string $popupPrefix, string $menubarPrefix, string $item, int $value)
+{
+    menuItem -edit -radioButton $value ($popupPrefix + $item);
+    menuItem -edit -radioButton $value ($menubarPrefix + $item);
+}
+
+// A toolbar icon's value, only when the icon is there.
+proc tpcButtonIfThere(string $button, int $value)
+{
+    if (`iconTextCheckBox -exists $button`)
+        iconTextCheckBox -edit -value $value $button;
+}
+
+// An editor flag Aztek's textureWindow may not know yet; such a flag reads as off.
+proc int tpcEditorQuery(string $editorCmd, string $flag, string $editor)
+{
+    int $value = 0;
+    if (catchQuiet($value = `eval ($editorCmd + " -query " + $flag + " " + $editor)`))
+        return 0;
+    return $value;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+// Brings one UV Editor's ticks and toolbar icons up to date. $reason 6 is "the display style changed", 101 a full
+// refresh; $updateFunc "addTextureWindow" also counts as a display style change.
+global proc txtWndUpdateEditor(string $editor, string $editorCmd, string $updateFunc, int $reason)
+{
+    global string $gTextureEditorMenubarPrefix;
+    string $popup = $editor;
+    string $menubar = $gTextureEditorMenubarPrefix + $editor;
+
+    if ($updateFunc == "addTextureWindow" || $reason == 6) {
+        if (`exists setChannelButtonImage`)
+            eval ("setChannelButtonImage \"" + $editor + "\"");
+        string $style = `eval ($editorCmd + " -query -displayStyle " + $editor)`;
+        tpcRadioBoth($popup, $menubar, "ImageRGB", $style == "color");
+        tpcRadioBoth($popup, $menubar, "ImageRGBA", $style == "colorWithMask");
+        tpcRadioBoth($popup, $menubar, "ImageAlpha", $style == "mask");
+    }
+
+    if ($reason != 101)
+        return;
+
+    int $v = tpcState("textureWindowTextureImage");
+    tpcCheckBoth($popup, $menubar, "ImageDisplay", $v);
+    tpcButtonIfThere("imageDisplayButton", $v);
+
+    $v = tpcState("textureWindowImageDimming");
+    tpcCheckBoth($popup, $menubar, "DimImage", $v);
+    iconTextCheckBox -edit -value $v dimmerButton;
+
+    optionVar -init 0 -category "UV Editor.Dim Image" -floatValue tvImageDimming 0.5;
+    floatSliderGrp -edit -value `optionVar -query tvImageDimming` uvTbImageDimmingSlider;
+
+    $v = `optionVar -query displayEditorImage`;
+    tpcCheckBoth($popup, $menubar, "BakeTexture", $v);
+    tpcButtonIfThere("editorImageDisplayButton", $v);
+
+    // The checker pattern has a toolbar icon only.
+    tpcButtonIfThere("checkeredButton", tpcState("textureWindowDisplayCheckered"));
+
+    $v = tpcState("textureWindowImageUnfiltered");
+    tpcCheckBoth($popup, $menubar, "ImageUnfiltered", $v);
+    iconTextCheckBox -edit -value $v filteredButton;
+
+    $v = tpcState("textureWindowImageRatio");
+    tpcCheckBoth($popup, $menubar, "ImageRatio", $v);
+    iconTextCheckBox -edit -value $v ratioButton;
+
+    $v = tpcState("snapModePixelSnap");
+    tpcCheckBoth($popup, $menubar, "ImageSnap", $v);
+    tpcButtonIfThere("pixelSnapButton", $v);
+
+    $v = tpcState("textureWindowDisplayGrid");
+    tpcCheckBoth($popup, $menubar, "toggleGrid", $v);
+    tpcButtonIfThere("gridDisplayButton", $v);
+
+    int $shaded = tpcState("textureWindowSolidMap");
+    tpcRadioBoth($popup, $menubar, "ShadedUV", $shaded);
+    tpcRadioBoth($popup, $menubar, "Wireframe", !$shaded);
+
+    $v = tpcState("textureWindowDistortion");
+    tpcCheckBoth($popup, $menubar, "UVDistortion", $v);
+    tpcButtonIfThere("distortionButton", $v);
+
+    // These optionVars hold "hidden", so the ticks are their opposite.
+    tpcCheckBoth($popup, $menubar, "toggleToolbar", !`optionVar -query textureEditorToolbarState`);
+    tpcCheckBoth($popup, $menubar, "toggleCustomShelf", !`optionVar -query textureEditorCustomShelfState`);
+
+    // Showing contained or connected faces takes the editor out of shader-faces mode.
+    $v = tpcEditorQuery($editorCmd, "-internalFaces", $editor);
+    tpcCheckBoth($popup, $menubar, "containedFacesItem", $v);
+    if ($v)
+        optionVar -intValue textureWindowShaderFacesMode 0;
+    $v = tpcEditorQuery($editorCmd, "-relatedFaces", $editor);
+    tpcCheckBoth($popup, $menubar, "connectedFacesItem", $v);
+    if ($v)
+        optionVar -intValue textureWindowShaderFacesMode 0;
+
+    // Face groups with mode 1 show the active shader's faces (and its image), with mode 2 isolate the selection.
+    int $useFaceGroup = tpcEditorQuery($editorCmd, "-useFaceGroup", $editor);
+    int $mode = `optionVar -query textureWindowShaderFacesMode`;
+    int $shaderFaces = 0;
+    int $isolate = 0;
+    if ($useFaceGroup && $mode == 1) {
+        $shaderFaces = 1;
+        int $active = textureWindowFindActiveShader($editor);
+        if ($active != 0 && `exists textureWindowSelectImage`)
+            eval ("textureWindowSelectImage " + ($active - 1) + " \"" + $editor + "\"");
+    } else if ($useFaceGroup && $mode == 2) {
+        $isolate = 1;
+    }
+    tpcCheckBoth($popup, $menubar, "shaderFacesItem", $shaderFaces);
+    tpcCheckBoth($popup, $menubar, "isolateViewSelected", $isolate);
+
+    // The heads-up display items live in the menu bar only.
+    menuItem -edit -checkBox (tpcState("textureWindowUVEditorUVPositionHUD")) ($menubar + "UVPositionHUDItem");
+    menuItem -edit -checkBox (tpcState("textureWindowUVEditorIsolateSelectHUD")) ($menubar + "isolateSelectHUDItem");
+    menuItem -edit -checkBox (tpcState("textureWindowUVEditorDisplayUVStatisticsHUD")) ($menubar + "UVStatisticsHUDItem");
+
+    int $texBorder = tpcState("textureWindowTexBorder");
+    tpcCheckBoth($popup, $menubar, "toggleTextureBorder", $texBorder);
+
+    int $shellBorders[] = `polyOptions -query -displayShellBorder`;
+    int $shellBorder = size($shellBorders) ? $shellBorders[0] : 0;
+
+    iconTextCheckBox -edit -value (!$shaded) viewUVWireframeButton;
+    iconTextCheckBox -edit -value $shaded viewShadeUVButton;
+    iconTextCheckBox -edit -value $texBorder toggleTextureBorderButton;
+    iconTextCheckBox -edit -value $shellBorder toggleShellBorderButton;
+    iconTextCheckBox -edit -value $isolate isolateViewSelectButton;
+}
+
+// The shapes of the selection and the hilite list: a transform stands for every shape under it. They are written into
+// $shapes from the start without clearing it first, so a longer array keeps its old tail.
+global proc txtWndShapesFromSelList(string $shapes[])
+{
+    string $objects[] = `ls -selection -long`;
+    string $hilited[] = `ls -hilite -long`;
+    appendStringArray($objects, $hilited, size($hilited));
+    $objects = stringArrayRemoveDuplicates($objects);
+
+    int $n = 0;
+    for ($obj in $objects) {
+        if (`nodeType $obj` == "transform") {
+            string $below[] = `listRelatives -fullPath -allDescendents -type shape $obj`;
+            for ($s in $below)
+                $shapes[$n++] = $s;
+        } else {
+            $shapes[$n++] = $obj;
+        }
+    }
+}
+
+// Which kinds of geometry are among those shapes: [0] meshes, [1] NURBS surfaces, [2] subdivision surfaces.
+global proc txtWndSelectedTypes(int $types[])
+{
+    string $shapes[];
+    txtWndShapesFromSelList($shapes);
+    $types[0] = 0;
+    $types[1] = 0;
+    $types[2] = 0;
+    for ($s in $shapes) {
+        string $type = `nodeType $s`;
+        if ($type == "mesh")
+            $types[0] = 1;
+        else if ($type == "nurbsSurface")
+            $types[1] = 1;
+        else if ($type == "subdiv")
+            $types[2] = 1;
+    }
+}
+
+// Whether the first selected NURBS surface that edits its UVs does so; 0 when none does.
+global proc int queryNurbsEditUVMode()
+{
+    string $shapes[];
+    txtWndShapesFromSelList($shapes);
+    int $mode = 0;
+    for ($s in $shapes) {
+        if (`nodeType $s` != "nurbsSurface")
+            continue;
+        int $ue[] = `nurbsUVSet -query -ue $s`;
+        $mode = size($ue) ? $ue[0] : 0;
+        if ($mode)
+            break;
+    }
+    return $mode;
+}
+
+// The 1-based number of the editor image whose shader is the one shown on its object's faces. With no match the
+// count of images is returned, as the reference does, so callers checking for non-zero land on the last image.
+global proc int textureWindowFindActiveShader(string $panel)
+{
+    string $names[] = `textureWindow -query -imageNames $panel`;
+    int $i = 0;
+    for ($entry in $names) {
+        $i++;
+        string $tokens[];
+        tokenize $entry " " $tokens;
+        string $object = size($tokens) > 0 ? $tokens[0] : "";
+        string $shader = size($tokens) > 2 ? $tokens[2] : "";
+        if ($object == "")
+            continue;
+        string $faces[] = `polyListComponentConversion -toFace $object`;
+        if (!size($faces))
+            continue;
+
+        int $activeGroup = `getAttr ($object + ".dfgi")`;
+        string $plugs[];
+        catchQuiet($plugs = `listConnections -plugs true ($shader + ".dsm")`);
+        for ($plug in $plugs) {
+            if (!`objExists ($plug + ".gid")`)
+                continue;
+            int $gid;
+            if (catchQuiet($gid = `getAttr ($plug + ".gid")`)) {
+                int $ids[] = `getAttr ($plug + ".gid")`;
+                $gid = size($ids) ? $ids[0] : -99;
+            }
+            if ($gid == $activeGroup)
+                return $i;
+        }
+    }
+    return $i;
+}
+
+// The texture number of the active shader's image.
+global proc int textureWindowFindActiveShaderTexture(string $panel)
+{
+    int $i = textureWindowFindActiveShader($panel) - 1;
+    int $texture = `textureWindow -edit -imageToTextureNumber $i $panel`;
+    return $texture;
+}
+
+// Whether the editor shows texture borders; with no editor given, the first UV Editor's.
+global proc int textureWindowIsTextureBorderDisplay(string $editor)
+{
+    if ($editor == "") {
+        string $panels[] = `getPanel -scriptType polyTexturePlacementPanel`;
+        $editor = size($panels) ? $panels[0] : "";
+    }
+    int $shown;
+    // Aztek's textureWindow names this -textureBorder; the reference's name is tried first.
+    if (catchQuiet($shown = `textureWindow -query -displayTextureBorder $editor`))
+        $shown = `textureWindow -query -textureBorder $editor`;
+    return $shown;
+}
+
+global proc ToggleTextureBorderDisplay()
+{
+    if (!`exists textureWindowTexBorder`) {
+        warning "Texture borders can't be toggled: textureWindowTexBorder is missing.";
+        return;
+    }
+    int $shown = `textureWindowTexBorder 0 0`;
+    textureWindowTexBorder 1 (!$shown);
+}

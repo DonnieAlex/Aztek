@@ -1,0 +1,10 @@
+// retainWorkingDirectory: remembers the folder a file browser ended in, under the optionVar setWorkingDirectory named
+// for this kind of file, so the next browse for it starts there.
+
+global string $gDirRetainingOptionVar;
+
+global proc retainWorkingDirectory(string $workspaceDir)
+{
+    global string $gDirRetainingOptionVar;
+    optionVar -category "Files/Projects" -stringValue $gDirRetainingOptionVar $workspaceDir;
+}

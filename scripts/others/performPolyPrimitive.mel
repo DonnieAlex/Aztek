@@ -247,22 +247,13 @@ proc string polyPrimitiveCommand(string $op)
     return "createPrimitiveToolWithIcon(\"" + $cmd + "\", \"vacantCell.png\"); setToolTo createPrimitiveContext";
 }
 
-// What Aztek runs for the reference's command. Its polyPlatonicSolid and polyPrimitive take the edge length as
-// -sideLength, not -l.
-proc string polyPrimitiveRunnable(string $op, string $cmd)
-{
-    if ($op == "PlatonicSolid" || $op == "Misc")
-        return substituteAllString($cmd, " -l ", " -sideLength ");
-    return $cmd;
-}
-
 proc polyPrimitiveRun(string $op, string $cmd)
 {
     if ($op == "Axis" && !`exists polyAxis` && !`optionVar -query createPolyPrimitiveAsTool`) {
         warning "Aztek can't make a polygon axis yet: polyAxis is missing.";
         return;
     }
-    evalEcho (polyPrimitiveRunnable($op, $cmd));
+    evalEcho $cmd;
 }
 
 // $option: 0 makes the primitive (or enters its tool) and returns the command, 1 opens the option box (in tool mode it
@@ -280,8 +271,7 @@ global proc string performPolyPrimitive(string $op, int $option)
             string $was = `currentCtx`;
             setToolTo selectSuperContext;
             polyPrimitiveRun($op, $cmd);
-            if (`exists setupNewMesh`)
-                eval "setupNewMesh";
+            setupNewMesh();
             if (`exists objectMoveCommand`)
                 eval "objectMoveCommand";
             if (`contextInfo -exists $was`)

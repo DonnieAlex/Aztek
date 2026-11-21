@@ -4,17 +4,6 @@
 
 global string $gAddProxyNode;
 
-// Whether a node is a reference that can be worked with: proxyUtils' isValidReference where the installation has
-// it, else a reference node that exists.
-proc int proxyTagsValidReference(string $node)
-{
-    if (!`exists isValidReference`)
-        catchQuiet(`eval "source \"proxyUtils.mel\""`);
-    if (`exists isValidReference`)
-        return eval("isValidReference \"" + $node + "\"");
-    return $node != "" && `objExists $node` && `nodeType $node` == "reference";
-}
-
 // The reference nodes connected to a proxy manager's list.
 proc string[] proxyTagsMembers(string $manager)
 {
@@ -29,14 +18,18 @@ global proc string[] proxyUsedTags(string $refNode)
     global string $gAddProxyNode;
     string $tags[];
 
-    if (!proxyTagsValidReference($refNode)) {
+    // isValidReference lives in proxyUtils.mel, which isn't named after it.
+    if (!`exists isValidReference`)
+        eval("source \"proxyUtils.mel\"");
+
+    if (!isValidReference($refNode)) {
         // A forced new scene can leave the remembered node behind; it is forgotten then.
-        if (!proxyTagsValidReference($gAddProxyNode))
+        if (!isValidReference($gAddProxyNode))
             $gAddProxyNode = "";
         $refNode = $gAddProxyNode;
     }
 
-    if (proxyTagsValidReference($refNode)) {
+    if (isValidReference($refNode)) {
         string $own = `getAttr ($refNode + ".proxyTag")`;
         // A reference with no tag is the set's original.
         $tags[size($tags)] = ($own == "") ? "original" : $own;

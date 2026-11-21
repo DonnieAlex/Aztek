@@ -1,0 +1,131 @@
+// birailToolScript: Surfaces > Birail 1, 2 and 3+ as actions or as tools, as the reference's menu items, option boxes
+// and tool commands run them. The surfaces themselves are made by performBirail.
+
+// The tool's own settings: whether it quits once it has made the surface, and whether the rail set completes itself
+// once two rails are picked. Zero for $forceFactorySettings only fills in those not yet set; non-zero puts them back.
+global proc birailToolSetup(int $forceFactorySettings, string $toolContext)
+{
+    optionVar -init $forceFactorySettings -category "Modeling.Surfaces.Birail"
+        -intValue birailEuc 1
+        -intValue birailLac 1;
+
+    // A context that exists already picks the settings up; it isn't rebuilt.
+    if ($toolContext != "") {
+        scriptCtx -edit -exitUponCompletion `optionVar -query birailEuc` $toolContext;
+        scriptCtx -edit -lastAutoComplete `optionVar -query birailLac` $toolContext;
+    }
+}
+
+// One of the three contexts, made the first time it's needed. Each has a profile set and a rail set of curves,
+// isoparms, curves on surface, surface edges or mesh edges.
+proc birailMakeContext(string $ctx, int $which)
+{
+    if (`scriptCtx -exists $ctx`)
+        return;
+    birailToolSetup(0, "");
+
+    // Birail 3+ by default; 1 and 2 change what differs.
+    string $image = "birail3Gen.png";
+    string $class = "birail3";
+    string $title = "Birail 3+ Tool";
+    int $kind = 3;
+    string $p1None = "Select any number of profile curves.";
+    string $p1Sel = "Select more profile curves, or press Enter to pick the rails.";
+    string $p1Done = "Select more profile curves, or press Enter to pick the rails.";
+    int $p1Auto = 0;
+    int $p1Count = 0;
+    string $p2None = "Select the two rail curves.";
+    string $p2Sel = "Select the second rail curve.";
+    string $p2Done = "Making the birail surface.";
+    if ($which == 1) {
+        $image = "birail1Gen.png";
+        $class = "birail1";
+        $title = "Birail 1 Tool";
+        $kind = 1;
+        $p1None = "Select the profile curve.";
+        $p1Sel = "Now select the rail curves.";
+        $p1Done = "Now select the rail curves.";
+        $p1Auto = 1;
+        $p1Count = 1;
+        $p2None = "Select the rail curves.";
+        $p2Sel = "Select the second rail curve.";
+        $p2Done = "Making the birail surface.";
+    } else if ($which == 2) {
+        $image = "birail2Gen.png";
+        $class = "birail2";
+        $title = "Birail 2 Tool";
+        $kind = 2;
+        $p1None = "Select the two profile curves.";
+        $p1Sel = "Select the second profile curve.";
+        $p1Done = "Now select the two rail curves.";
+        $p1Auto = 1;
+        $p1Count = 2;
+        $p2None = "Select the two rail curves.";
+        $p2Sel = "Select the second rail curve.";
+        $p2Done = "Making the birail surface.";
+    }
+
+    int $lac = `optionVar -query birailLac`;
+    // currentCtx stays in back quotes so it is asked when the tool completes.
+    scriptCtx
+        -image1 $image
+        -title $title
+        -baseClassName $class
+        -toolCursorType "edit"
+        -totalSelectionSets 2
+        -cumulativeLists true
+        -expandSelectionList true
+        -exitUponCompletion `optionVar -query birailEuc`
+        -finalCommandScript ("performBirail 0 " + $kind + " `currentCtx`")
+        -setNoSelectionPrompt $p1None
+        -setSelectionPrompt $p1Sel
+        -setDoneSelectionPrompt $p1Done
+        -setAutoToggleSelection true
+        -setAutoComplete $p1Auto
+        -setSelectionCount $p1Count
+        -nurbsCurve true
+        -isoparm true
+        -curveOnSurface true
+        -surfaceEdge true
+        -polymeshEdge true
+        -setNoSelectionPrompt $p2None
+        -setSelectionPrompt $p2Sel
+        -setDoneSelectionPrompt $p2Done
+        -setAutoToggleSelection true
+        -setAutoComplete $lac
+        -setSelectionCount 2
+        -nurbsCurve true
+        -isoparm true
+        -curveOnSurface true
+        -surfaceEdge true
+        -polymeshEdge true
+        $ctx;
+}
+
+// $action: 0 do it, 1 option box, 2 return the command, 3 the tool's option box, 4 enter the tool.
+// $which: 1 one profile, 2 two profiles, anything else three or more.
+global proc string birailToolScript(int $action, int $which)
+{
+    string $ctx = "";
+    if ($action > 2) {
+        if ($which == 1)
+            $ctx = "birailOneProfileContext";
+        else if ($which == 2)
+            $ctx = "birailTwoProfileContext";
+        else
+            $ctx = "birailThreePlusProfileContext";
+        birailMakeContext($ctx, $which);
+    }
+
+    if ($action == 4) {
+        setToolTo $ctx;
+        return "";
+    }
+
+    if (!`exists performBirail`) {
+        warning "Birail isn't available: performBirail is missing.";
+        return "";
+    }
+    string $result = `eval ("performBirail " + $action + " " + $which + " \"" + $ctx + "\"")`;
+    return $result;
+}

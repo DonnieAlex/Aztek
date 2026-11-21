@@ -1,0 +1,534 @@
+// artisanCallback: the change callbacks shared by the paint tools' settings, as the reference's paint tool scripts use
+// them. The controls are built elsewhere under fixed names; this file gives them their commands and keeps them in
+// step with the current paint tool. $artCmd is the paint tool's command (artAttrCtx, artSelectCtx, artPuttyCtx and the
+// rest); every command it is given ends in `currentCtx`, so it acts on whichever tool is current when it runs.
+// The paint tool scripts source this file before they wire their settings up.
+
+// The folder the attribute map browsers last used, and whether the next browser should first move the workspace to
+// the image folder. Sourcing the file again starts both afresh.
+global string $gArtWorkdirectory;
+global int $gArtSetAttrMapWorkspace;
+$gArtWorkdirectory = "";
+$gArtSetAttrMapWorkspace = 1;
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+// "<artCmd> -edit <flag> #1 `currentCtx`": a control's command setting a tool value to the control's new value.
+// With $quoted the value goes in as a string.
+proc string acSetCmd(string $artCmd, string $flag, int $quoted)
+{
+    string $value = $quoted ? "\"#1\"" : "#1";
+    return ($artCmd + " -edit " + $flag + " " + $value + " `currentCtx`");
+}
+
+// Sets one value on the current tool now.
+proc acSet(string $artCmd, string $flag, string $value)
+{
+    eval ($artCmd + " -edit " + $flag + " " + $value + " `currentCtx`");
+}
+
+proc int acQueryInt(string $artCmd, string $flag)
+{
+    int $v = `eval ($artCmd + " -query " + $flag + " `currentCtx`")`;
+    return $v;
+}
+
+proc float acQueryFloat(string $artCmd, string $flag)
+{
+    float $v = `eval ($artCmd + " -query " + $flag + " `currentCtx`")`;
+    return $v;
+}
+
+proc string acQueryString(string $artCmd, string $flag)
+{
+    string $v = `eval ($artCmd + " -query " + $flag + " `currentCtx`")`;
+    return $v;
+}
+
+// A yes/no question asked of a procedure another paint script defines; a missing one answers no.
+proc int acAsk(string $procName)
+{
+    if (!`exists $procName`)
+        return 0;
+    int $yes = `eval $procName`;
+    return $yes;
+}
+
+// The platform's path separator, as the reference's paint scripts build their folders.
+proc string acSep()
+{
+    return (`about -nt` ? "\\" : "/");
+}
+
+// The file browser the attribute map and brush shape buttons open. $callback gets the file name and type appended,
+// as the reference's file browser calls it. $mode 0 reads an existing file, 1 writes one.
+proc acFileBrowser(string $callback, string $action, string $type, int $mode)
+{
+    fileBrowser($callback, $action, $type, $mode);
+}
+
+// The folder the attribute map browsers start in: the last one used, or the project's sourceimages.
+proc string acImageDir()
+{
+    global string $gArtWorkdirectory;
+    if ($gArtWorkdirectory != "")
+        return $gArtWorkdirectory;
+    return (`workspace -query -rootDirectory` + "sourceimages/");
+}
+
+// Moves the workspace to the image folder, once per sourcing of this file.
+proc acUseImageDir(string $dir)
+{
+    global int $gArtSetAttrMapWorkspace;
+    if (`file -query -exists $dir` && $gArtSetAttrMapWorkspace == 1) {
+        workspace -dir $dir;
+        $gArtSetAttrMapWorkspace = 0;
+    }
+}
+
+// The option labels the settings' menus show, each with the value it sets.
+proc string acLookup(string $label, string $table[])
+{
+    for ($i = 0; $i < size($table); $i += 2)
+        if ($table[$i] == $label)
+            return $table[$i + 1];
+    return "";
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Brush radius and profile
+
+// Dragging the upper radius below the lower one pulls it back up to the lower.
+global proc artSetUpperRadius(string $artCmd)
+{
+    float $upper = `floatSliderGrp -query -value upperRadiusSlider`;
+    float $lower = `floatSliderGrp -query -value lowerRadiusSlider`;
+    if ($lower > $upper)
+        floatSliderGrp -edit -value $lower upperRadiusSlider;
+}
+
+// Dragging the lower radius above the upper one holds it at the upper.
+global proc artSetLowerRadius(string $artCmd)
+{
+    float $upper = `floatSliderGrp -query -value upperRadiusSlider`;
+    float $lower = `floatSliderGrp -query -value lowerRadiusSlider`;
+    if ($lower > $upper)
+        floatSliderGrp -edit -value $upper lowerRadiusSlider;
+}
+
+// Ticks the one brush profile icon that matches $profile and gives the profile to the tool.
+global proc artUpdateStampProfile(string $profile, string $artCmd)
+{
+    string $boxes[] = {"spGaussianChBx", "spPolyBrushChBx", "spSolidChBx", "spRectBrushChBx", "artFileBrushChBx"};
+    for ($b in $boxes)
+        symbolCheckBox -edit -value 0 $b;
+
+    if ($profile == "gaussian")
+        symbolCheckBox -edit -value 1 spGaussianChBx;
+    else if ($profile == "poly")
+        symbolCheckBox -edit -value 1 spPolyBrushChBx;
+    else if ($profile == "solid")
+        symbolCheckBox -edit -value 1 spSolidChBx;
+    else if ($profile == "square")
+        symbolCheckBox -edit -value 1 spRectBrushChBx;
+    else if ($profile == "lastFile" || $profile == "shape")
+        symbolCheckBox -edit -value 1 artFileBrushChBx;
+
+    acSet($artCmd, "-stampProfile", ("\"" + $profile + "\""));
+    artUpdateLastBrushIcon($artCmd);
+}
+
+// The file brush icon shows the last brush shape file, when the installation has an icon for it.
+global proc artUpdateLastBrushIcon(string $artCmd)
+{
+    string $last = acQueryString($artCmd, "-lastStampName");
+    string $parts[];
+    if (!`tokenize $last "/" $parts`)
+        return;
+
+    string $iconDir = "";
+    string $location = `getenv "MAYA_LOCATION"`;
+    if ($location != "") {
+        string $sep = acSep();
+        $iconDir = $location + $sep + "brushShapes" + $sep + "BrushIcons" + $sep;
+    }
+
+    string $fileName = $parts[size($parts) - 1];
+    if ($fileName == "")
+        return;
+    string $base[];
+    if (!`tokenize $fileName "." $base`)
+        return;
+    string $icon = $iconDir + $base[0] + ".xpm";
+
+    if (`file -query -exists $icon`)
+        symbolCheckBox -edit -image $icon artFileBrushChBx;
+    else
+        symbolCheckBox -edit -image "file.png" artFileBrushChBx;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Stroke
+
+// The reflection axis controls follow reflection; screen projection can't reflect across Z.
+global proc artUpdatePaintMode(string $artCmd)
+{
+    int $reflect = acQueryInt($artCmd, "-reflection");
+    radioButtonGrp -edit -enable $reflect artReflectionRadBtn;
+    checkBoxGrp -edit -enable $reflect artReflectionModeAboutOriginChkBox;
+
+    if (acQueryInt($artCmd, "-projective")) {
+        if (`radioButtonGrp -query -enable3 artReflectionRadBtn`)
+            radioButtonGrp -edit -enable3 0 artReflectionRadBtn;
+    } else if (acQueryInt($artCmd, "-reflection")) {
+        if (!`radioButtonGrp -query -enable3 artReflectionRadBtn`)
+            radioButtonGrp -edit -enable3 1 artReflectionRadBtn;
+    }
+}
+
+// Inverting the reference vector only means something while reflecting without projection.
+global proc artUpdateInvertReferenceMode(string $artCmd)
+{
+    if (acQueryInt($artCmd, "-projective")) {
+        checkBoxGrp -edit -enable 0 -value1 0 invertVectorChkBox;
+        acSet($artCmd, "-irv", "false");
+    } else if (!acQueryInt($artCmd, "-reflection")) {
+        checkBoxGrp -edit -enable 0 -value1 0 invertVectorChkBox;
+    } else {
+        checkBoxGrp -edit -enable 1 invertVectorChkBox;
+    }
+    // The tool's own value is applied again as it stands.
+    acSet($artCmd, "-irv", acQueryInt($artCmd, "-irv"));
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Pressure
+
+// The stylus pressure settings are usable only with a tablet, and the mapping only with pressure on.
+global proc artUpdateTabletPressure(string $artCmd)
+{
+    if (!`columnLayout -exists artPressureMappingLayout`)
+        return;
+    if (acQueryInt($artCmd, "-tablet")) {
+        columnLayout -edit -enable 1 artStylusPressureLayout;
+        optionMenuGrp -edit -enable (acQueryInt($artCmd, "-usepressure")) artStylusPressureOpMenu;
+    } else {
+        columnLayout -edit -enable 0 artStylusPressureLayout;
+    }
+}
+
+global proc artPressureValue(string $label, string $artCmd)
+{
+    string $table[] = {"Opacity", "Opacity", "Radius", "Radius", "Both", "Both"};
+    string $value = acLookup($label, $table);
+    if ($value != "")
+        acSet($artCmd, "-mappressure", ("\"" + $value + "\""));
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Display
+
+// The outline's own options only apply while the outline is drawn.
+global proc artUpdateDisplayValues(string $artCmd)
+{
+    if (`checkBoxGrp -exists artBrushFeedbackChkBox`)
+        checkBoxGrp -edit -enable (acQueryInt($artCmd, "-outline")) artBrushFeedbackChkBox;
+    if (`checkBoxGrp -exists artBrushWhilePaintingChkBox`)
+        checkBoxGrp -edit -enable (acQueryInt($artCmd, "-outline")) artBrushWhilePaintingChkBox;
+    if (`checkBoxGrp -exists artDrawTangentOutlineChkBox`)
+        checkBoxGrp -edit -enable (acQueryInt($artCmd, "-outline")) artDrawTangentOutlineChkBox;
+    if (`checkBoxGrp -exists surfaceConformedVtxChkBox`) {
+        if (acQueryInt($artCmd, "-outline")) {
+            checkBoxGrp -edit -enable 1 surfaceConformedVtxChkBox;
+        } else {
+            // Only the box is cleared; the tool keeps its value.
+            checkBoxGrp -edit -value1 0 surfaceConformedVtxChkBox;
+            checkBoxGrp -edit -enable 0 surfaceConformedVtxChkBox;
+        }
+    }
+}
+
+global proc artAttrUpdateVertexColorRangeChkBox(string $artCmd, int $enabled)
+{
+    acSet($artCmd, "-vertexColorRange", $enabled);
+    checkBoxGrp -edit -value1 $enabled artVertexColorRangeChkBox;
+    floatSliderGrp -edit -enable $enabled artVertexColorMinSlider;
+    floatSliderGrp -edit -enable $enabled artVertexColorMaxSlider;
+}
+
+// The colour range's lower end can't go above its upper end.
+global proc artAttrUpdateVertexColorMinRangeSlider(string $artCmd, float $minRange)
+{
+    float $max = acQueryFloat($artCmd, "-vertexColorRangeUpper");
+    if ($minRange > $max) {
+        warning "The colour range's minimum can't be above its maximum.";
+        $minRange = $max;
+        floatSliderGrp -edit -value $minRange artVertexColorMinSlider;
+    }
+    acSet($artCmd, "-vertexColorRangeLower", $minRange);
+}
+
+// The colour range's upper end can't go below its lower end.
+global proc artAttrUpdateVertexColorMaxRangeSlider(string $artCmd, float $maxRange)
+{
+    float $min = acQueryFloat($artCmd, "-vertexColorRangeLower");
+    if ($maxRange < $min) {
+        warning "The colour range's maximum can't be below its minimum.";
+        $maxRange = $min;
+        floatSliderGrp -edit -value $maxRange artVertexColorMaxSlider;
+    }
+    acSet($artCmd, "-vertexColorRangeUpper", $maxRange);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Attribute maps
+
+// With "keep aspect" on, changing one export size changes the other to keep the tool's aspect ratio.
+global proc artAdjustMapSizeSlider(string $artCmd, string $whichSlider)
+{
+    if (!`checkBoxGrp -query -value1 exportKeepAspectChkBox`)
+        return;
+    float $ratio = acQueryFloat($artCmd, "-exportaspectratio");
+    if ($whichSlider == "xSlider") {
+        float $x = `intSliderGrp -query -value exportMapSizeXSlider`;
+        float $newY = $x / $ratio;
+        intSliderGrp -edit -value ((int)$newY) exportMapSizeYSlider;
+        acSet($artCmd, "-exportfilesizey", $newY);
+    } else {
+        float $y = `intSliderGrp -query -value exportMapSizeYSlider`;
+        float $newX = $y * $ratio;
+        intSliderGrp -edit -value ((int)$newX) exportMapSizeXSlider;
+        acSet($artCmd, "-exportfilesizex", $newX);
+    }
+}
+
+// The brush shape browser's answer; 1 lets the browser close.
+global proc int artStampProfileCB(string $artCmd, string $fileName, string $fileType)
+{
+    acSet($artCmd, "-profileShapeFile", ("\"" + $fileName + "\""));
+    return 1;
+}
+
+// Opens a browser on the installation's brush shapes, or on the project's images without one.
+global proc artStampProfileDialog(string $artCmd)
+{
+    global int $gArtSetAttrMapWorkspace;
+    string $dir;
+    string $location = `getenv "MAYA_LOCATION"`;
+    if ($location != "")
+        $dir = $location + acSep() + "brushShapes";
+    else
+        $dir = `workspace -query -rootDirectory` + "sourceimages/";
+    if (`file -query -exists $dir`) {
+        workspace -dir $dir;
+        $gArtSetAttrMapWorkspace = 1;
+    }
+    acFileBrowser(("artStampProfileCB " + $artCmd + " "), "Open", "", 0);
+}
+
+global proc int artImportAttrMapCB(string $artCmd, string $fileName, string $fileType)
+{
+    acSet($artCmd, "-importfileload", ("\"" + $fileName + "\""));
+    return 1;
+}
+
+global proc artImportMapDialog(string $artCmd)
+{
+    global string $gArtWorkdirectory;
+    acUseImageDir(acImageDir());
+    acFileBrowser(("artImportAttrMapCB " + $artCmd + " "), "Import", "image", 0);
+    $gArtWorkdirectory = `workspace -query -dir`;
+}
+
+global proc int artExportAttrMapCB(string $artCmd, string $fileName, string $fileType)
+{
+    acSet($artCmd, "-exportfilesave", ("\"" + $fileName + "\""));
+    return 1;
+}
+
+global proc artExportMapDialog(string $artCmd)
+{
+    global string $gArtWorkdirectory;
+    acUseImageDir(acImageDir());
+    acFileBrowser(("artExportAttrMapCB " + $artCmd + " "), "Export", "map", 1);
+    $gArtWorkdirectory = `workspace -query -dir`;
+}
+
+// With "keep aspect" on, the tool keeps the current X to Y ratio of the export sizes.
+global proc artSetAspectRatio(string $artCmd)
+{
+    if (!`checkBoxGrp -query -value1 exportKeepAspectChkBox`)
+        return;
+    float $x = `intSliderGrp -query -value exportMapSizeXSlider`;
+    float $y = `intSliderGrp -query -value exportMapSizeYSlider`;
+    float $ratio = $x / $y;
+    acSet($artCmd, "-exportaspectratio", $ratio);
+}
+
+global proc artImportMapValue(string $label, string $artCmd)
+{
+    string $table[] = {
+        "Luminance", "luminance", "Alpha", "alpha", "Red", "red", "Green", "green", "Blue", "blue",
+        "RGB", "rgb", "RGBA", "rgba"
+    };
+    string $value = acLookup($label, $table);
+    if ($value != "")
+        acSet($artCmd, "-importfilemode", ("\"" + $value + "\""));
+}
+
+global proc artExportMapValue(string $label, string $artCmd)
+{
+    string $table[] = {"Luminance", "luminance", "Alpha", "alpha", "RGB", "rgb", "RGBA", "rgba"};
+    string $value = acLookup($label, $table);
+    if ($value != "")
+        acSet($artCmd, "-exportfilemode", ("\"" + $value + "\""));
+}
+
+global proc artExportFileTypeValue(string $label, string $artCmd)
+{
+    string $table[] = {
+        "TIFF", "TIFF", "SGI", "SGI", "IFF", "IFF", "JPEG", "JPEG", "Targa", "Targa",
+        "Windows Bitmap", "WindowsBitmap", "QuickTime Image", "QuickTime Image", "QuickDraw", "QuickDraw",
+        "Photoshop", "Photoshop", "PNG", "PNG", "MacPaint", "MacPaint", "GIF", "GIF", "SoftImage", "SoftImage",
+        "RLA", "RLA", "Alias", "Alias", "EPS", "EPS"
+    };
+    string $value = acLookup($label, $table);
+    if ($value != "")
+        acSet($artCmd, "-exportfiletype", ("\"" + $value + "\""));
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// Wiring the settings sections. $currTool is the tool's type name (artSelect, artPutty, artAttr, artSetPaint...).
+
+global proc artisanBrushCallback(string $artCmd, string $currTool)
+{
+    floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-radius", 0))
+        -dragCommand ("artSetUpperRadius " + $artCmd) upperRadiusSlider;
+    floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-lowerradius", 0))
+        -dragCommand ("artSetLowerRadius " + $artCmd) lowerRadiusSlider;
+
+    if ($currTool != "artSelect") {
+        floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-opacity", 0)) opacitySlider;
+        if (acAsk("isOpacityAccumulationRequired"))
+            checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-accopacity", 0)) accOpacityChkBox;
+        if (`checkBoxGrp -exists artDrawTangentOutlineChkBox`)
+            checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-tangentOutline", 0)) artDrawTangentOutlineChkBox;
+        if (acAsk("isSurfaceConformedBrushAvailable"))
+            checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-surfaceConformedBrushVertices", 0))
+                surfaceConformedVtxChkBox;
+    }
+
+    symbolCheckBox -edit -changeCommand ("artUpdateStampProfile gaussian " + $artCmd) spGaussianChBx;
+    symbolCheckBox -edit -changeCommand ("artUpdateStampProfile poly " + $artCmd) spPolyBrushChBx;
+    symbolCheckBox -edit -changeCommand ("artUpdateStampProfile solid " + $artCmd) spSolidChBx;
+    symbolCheckBox -edit -changeCommand ("artUpdateStampProfile square " + $artCmd) spRectBrushChBx;
+    symbolCheckBox -edit -changeCommand ("artUpdateStampProfile lastFile " + $artCmd) artFileBrushChBx;
+
+    // The profile switches to "shape" straight after the browser is opened.
+    button -edit -command ("artStampProfileDialog \"" + $artCmd + "\"; artUpdateStampProfile shape " + $artCmd)
+        spShapeButton;
+
+    if (`checkBoxGrp -exists artBrushAlignmentChkBox`)
+        checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-brushalignment", 0)) artBrushAlignmentChkBox;
+}
+
+global proc artisanStrokeCallback(string $artCmd, string $currTool)
+{
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-projective", 0)) artProjectionModeChkBox;
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-reflection", 0)) artReflectionModeChkBox;
+    artUpdatePaintMode($artCmd);
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-reflectionaboutorigin", 0)) artReflectionModeAboutOriginChkBox;
+    artUpdatePaintMode($artCmd);
+
+    radioButtonGrp -edit
+        -onCommand1 ($artCmd + " -edit -ra \"x\" `currentCtx`")
+        -onCommand2 ($artCmd + " -edit -ra \"y\" `currentCtx`")
+        -onCommand3 ($artCmd + " -edit -ra \"z\" `currentCtx`")
+        artReflectionRadBtn;
+
+    if ($currTool == "artPutty") {
+        checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-irv", 0)) invertVectorChkBox;
+        artUpdateInvertReferenceMode($artCmd);
+    }
+
+    floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-stampSpacing", 0)) artStampSpacingSlider;
+    floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-stampDepth", 0)) artStampDepthSlider;
+
+    if ($currTool == "artSelect" || $currTool == "artPutty") {
+        textFieldGrp -edit -changeCommand (acSetCmd($artCmd, "-bsc", 1)) artPreStrokeTextField;
+        textFieldGrp -edit -changeCommand (acSetCmd($artCmd, "-asc", 1)) artPostStrokeTextField;
+    }
+
+    if ($currTool == "artAttr")
+        checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-interactiveUpdate", 0)) artAttrInteractiveUpdate;
+}
+
+global proc artisanPressureCallback(string $artCmd, string $currTool)
+{
+    checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-usepressure", 0)) artStylusPressureChkBox;
+    artUpdateTabletPressure($artCmd);
+    optionMenuGrp -edit -changeCommand ("artPressureValue \"#1\" " + $artCmd) artStylusPressureOpMenu;
+}
+
+global proc artisanAttrMapCallback(string $artCmd, string $currTool)
+{
+    // The tool configuration procedures (isExportPanelUsed and the rest) live there when the file exists.
+    catchQuiet(eval("source \"artisanToolConfigurations.mel\""));
+
+    button -edit -command ("artImportMapDialog \"" + $artCmd + "\"") importMapBrowseButton;
+    checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-importreassign", 0)) reassignMapsChkBox;
+    optionMenuGrp -edit -changeCommand ("artImportMapValue \"#1\" " + $artCmd) ($currTool + "importMapValueMenu");
+
+    if ($currTool == "artSelect")
+        floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-importthreshold", 0)) importThresholdSlider;
+
+    if (acAsk("isExportPanelUsed")) {
+        button -edit -command ("artExportMapDialog \"" + $artCmd + "\"") exportMapBrowseButton;
+        optionMenuGrp -edit -changeCommand ("artExportMapValue \"#1\" " + $artCmd) ($currTool + "exportMapValueMenu");
+        intSliderGrp -edit
+            -changeCommand (acSetCmd($artCmd, "-exportfilesizex", 0) + "; artAdjustMapSizeSlider " + $artCmd + " xSlider")
+            exportMapSizeXSlider;
+        intSliderGrp -edit
+            -changeCommand (acSetCmd($artCmd, "-exportfilesizey", 0) + "; artAdjustMapSizeSlider " + $artCmd + " ySlider")
+            exportMapSizeYSlider;
+        checkBoxGrp -edit -changeCommand1 ("artSetAspectRatio " + $artCmd) exportKeepAspectChkBox;
+        optionMenuGrp -edit -changeCommand ("artExportFileTypeValue \"#1\" " + $artCmd) exportImageFormat;
+    }
+}
+
+global proc artisanDisplayCallback(string $artCmd, string $currTool)
+{
+    catchQuiet(eval("source \"artisanNamedCommandSetup.mel\""));
+
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-outline", 0)) artDrawOutlineChkBox;
+    artUpdateDisplayValues($artCmd);
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-outwhilepaint", 0)) artBrushWhilePaintingChkBox;
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-brushfeedback", 0)) artBrushFeedbackChkBox;
+    checkBoxGrp -edit -changeCommand (acSetCmd($artCmd, "-showactive", 0)) artShowActiveLinesChkBox;
+
+    if (acAsk("isArtColorPerVertexCtx")) {
+        checkBoxGrp -edit -changeCommand1 "toggleAutoShowColorPerVertex" artAutoShowColorChkBox;
+        checkBoxGrp -edit -changeCommand1 ("artAttrUpdateVertexColorRangeChkBox " + $artCmd + " #1")
+            artVertexColorRangeChkBox;
+        floatSliderGrp -edit
+            -changeCommand ("artAttrUpdateVertexColorMinRangeSlider " + $artCmd + " #1")
+            -dragCommand ("artAttrUpdateVertexColorMinRangeSlider " + $artCmd + " #1")
+            artVertexColorMinSlider;
+        floatSliderGrp -edit
+            -changeCommand ("artAttrUpdateVertexColorMaxRangeSlider " + $artCmd + " #1")
+            -dragCommand ("artAttrUpdateVertexColorMaxRangeSlider " + $artCmd + " #1")
+            artVertexColorMaxSlider;
+    } else if (acAsk("isArtColorFeedbackCtx")) {
+        checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-colorfeedback", 0)) artColorFeedbackChkBox;
+        if (acAsk("isArtSkinCtx")) {
+            checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-colorfeedbackOverride", 0)) artMultiColorFeedbackChkBox;
+            checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-xrayJoints", 0)) artXrayJointsChkBox;
+        }
+        floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-colorrangelower", 0)) artColorFeedbackMinSlider;
+        floatSliderGrp -edit -changeCommand (acSetCmd($artCmd, "-colorrangeupper", 0)) artColorFeedbackMaxSlider;
+    } else if ($currTool == "artSetPaint") {
+        checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-setcolorfeedback", 0)) artColorFeedbackChkBox;
+        checkBoxGrp -edit -changeCommand1 (acSetCmd($artCmd, "-setdisplaycvs", 0)) artDisplayActiveCVsChkBox;
+    }
+}

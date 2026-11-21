@@ -1,0 +1,58 @@
+// nurbsToPolyCallback: stores what the NURBS to Polygons controls of an option box say (made by
+// nurbsToPolyAddOptions) in the nurbsToPolygonsPref settings, and with $doIt runs the conversion.
+
+global proc nurbsToPolyCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+
+    // The four methods share one choice over two groups; the group without it reads 0. 2 general, 0 count,
+    // 1 standard fit, 3 control points.
+    int $format = 1;
+    int $first = `radioButtonGrp -query -select format`;
+    if ($first == 1)
+        $format = 2;
+    else if ($first == 2)
+        $format = 0;
+    int $second = `radioButtonGrp -query -select format2`;
+    if ($second == 1)
+        $format = 1;
+    else if ($second == 2)
+        $format = 3;
+
+    // The standard fit page has a chord height ratio of its own.
+    float $ratio = ($format == 1) ? `floatSliderGrp -query -value ratioS` : `floatSliderGrp -query -value ratioG`;
+
+    string $settings[] = {
+        ("-format " + $format),
+        ("-matchRenderTessellation " + `checkBoxGrp -query -value1 matchRenderTessellationBox`),
+        ("-merge " + `checkBoxGrp -query -value1 mergeBox`),
+        ("-mergeTolerance " + `floatSliderGrp -query -value mergeTolerance`),
+        ("-polyType " + (`radioButtonGrp -query -select type` - 1)),
+        ("-polyCount " + `intSliderGrp -query -value count`),
+        ("-chr " + $ratio),
+        ("-ft " + `floatSliderGrp -query -value fractional`),
+        ("-mel " + `floatSliderGrp -query -value minEdgeLength`),
+        ("-d " + `floatSliderGrp -query -value delta`),
+        ("-uType " + `optionMenuGrp -query -select uType`),
+        ("-uNumber " + `intSliderGrp -query -value uNumber`),
+        ("-vType " + `optionMenuGrp -query -select vType`),
+        ("-vNumber " + `intSliderGrp -query -value vNumber`),
+        ("-useChordHeight " + `checkBoxGrp -query -value1 useChordHeight`),
+        ("-chordHeight " + `floatSliderGrp -query -value chordHeight`),
+        ("-useChordHeightRatio " + `checkBoxGrp -query -value1 useChordHeightRatio`),
+        ("-edgeSwap " + `checkBoxGrp -query -value1 edgeSwap`)
+    };
+    // Aztek doesn't have nurbsToPolygonsPref yet; until it does the settings aren't kept.
+    if (`exists nurbsToPolygonsPref`)
+        for ($setting in $settings)
+            eval("nurbsToPolygonsPref " + $setting);
+
+    if ($doIt) {
+        // Aztek doesn't have performnurbsToPoly yet.
+        if (`exists performnurbsToPoly`)
+            eval "performnurbsToPoly 0";
+        else
+            warning "Aztek can't convert NURBS to polygons from here yet.";
+        addToRecentCommandQueue "performnurbsToPoly 0" "Nurbs To Polygons";
+    }
+}

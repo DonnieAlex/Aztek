@@ -36,21 +36,17 @@ proc string polyProjectionNewSetName(string $p, int $forceCreate, string $uvSetN
     return $forceCreate ? $uvSetName : `optionVar -query ("polyProjectionUvSetName" + $p)`;
 }
 
-// The projection command with the saved settings, as the reference writes it. With $runnable, the flags Aztek's
-// polyProjection doesn't take yet (-ibd, -cm, -uvSetName, -sf, -kir) are left out; the new UV set is then made and made
-// current before the projection instead.
-proc string polyProjectionCommand(string $p, int $forceCreate, string $uvSetName, int $runnable)
+// The projection command with the saved settings, as the reference writes it.
+proc string polyProjectionCommand(string $p, int $forceCreate, string $uvSetName)
 {
     polyProjectionInitOptions($p, 0);
     int $contour = $p == "Contour";
-    int $reduced = $runnable && !$contour;
     string $cmd = $contour ? ("polyContourProjection -ch " + `constructionHistory`)
         : ("polyProjection -ch " + `constructionHistory` + " -type " + $p);
-    if (!$reduced)
-        $cmd += `optionVar -query ("polyProjectionInsertionPoint" + $p)` ? " -ibd on" : " -ibd off";
+    $cmd += `optionVar -query ("polyProjectionInsertionPoint" + $p)` ? " -ibd on" : " -ibd off";
 
     string $set = polyProjectionNewSetName($p, $forceCreate, $uvSetName);
-    if ($set != "" && !$reduced)
+    if ($set != "")
         $cmd += " -cm on -uvSetName " + $set;
 
     if ($contour) {
@@ -64,12 +60,11 @@ proc string polyProjectionCommand(string $p, int $forceCreate, string $uvSetName
         return $cmd;
     }
     if ($p == "Cylindrical" || $p == "Spherical") {
-        if (!$reduced)
-            $cmd += " -sf on ";
+        $cmd += " -sf on ";
         return $cmd;
     }
     if ($p == "Planar") {
-        if (`optionVar -query ("polyProjectionSquareImage" + $p)` && !$reduced)
+        if (`optionVar -query ("polyProjectionSquareImage" + $p)`)
             $cmd += " -kir ";
         int $fit = `optionVar -query ("polyProjectionFitToBoxOrPlane" + $p)`;
         if ($fit == 1) {
@@ -87,41 +82,6 @@ proc string polyProjectionCommand(string $p, int $forceCreate, string $uvSetName
         }
     }
     return $cmd;
-}
-
-// Makes the new UV set the current one on every mesh the faces belong to, for Aztek's polyProjection, which has no -cm.
-proc polyProjectionPrepareSet(string $set, string $targets[])
-{
-    string $done[];
-    for ($t in $targets) {
-        string $parts[];
-        tokenize $t "." $parts;
-        string $obj = $parts[0];
-        if (stringArrayContains($obj, $done))
-            continue;
-        $done[size($done)] = $obj;
-        string $sets[] = `polyUVSet -query -allUVSets $obj`;
-        if (!stringArrayContains($set, $sets))
-            polyUVSet -create -uvSet $set $obj;
-        polyUVSet -currentUVSet -uvSet $set $obj;
-    }
-}
-
-// The faces to project when the list given has none: polyCheckSelection's answer where there is one, else the
-// selection turned into faces and selected.
-proc string[] polyProjectionCheckSelection(string $p)
-{
-    string $result[];
-    if (`exists polyCheckSelection`) {
-        $result = eval ("polyCheckSelection \"poly" + $p + "Projection\" \"f\" 1");
-        return $result;
-    }
-    string $sel[] = `ls -sl`;
-    if (size($sel)) {
-        $result = `polyListComponentConversion -tf $sel`;
-        select -replace $result;
-    }
-    return $result;
 }
 
 // Puts the faces in a new set shaded with the default polygon texture. Returns the sets -e -fe command run, or "".
@@ -185,7 +145,7 @@ proc string polyProjectionExecute(string $args[], string $uvSetName)
     if (size($listed))
         $targets = `filterExpand -expand false -selectionMask 34 $listed`;
     if (!size($targets)) {
-        $targets = polyProjectionCheckSelection($p);
+        $targets = polyCheckSelection("poly" + $p + "Projection", "f", 1);
         string $selFaces[] = `filterExpand -expand false -selectionMask 34`;
         if (!size($selFaces)) {
             warning -noContext "Select polygonal faces.";
@@ -205,10 +165,7 @@ proc string polyProjectionExecute(string $args[], string $uvSetName)
     if (`optionVar -query polyCreateShaderWithMapping`)
         $shadeCmd = polyProjectionShade($targets);
 
-    string $set = polyProjectionNewSetName($p, $forceCreate, $uvSetName);
-    if ($set != "" && $p != "Contour")
-        polyProjectionPrepareSet($set, $targets);
-    string $cmd = polyProjectionCommand($p, $forceCreate, $uvSetName, 1);
+    string $cmd = polyProjectionCommand($p, $forceCreate, $uvSetName);
     for ($t in $targets)
         $cmd += " " + $t;
     string $made[] = `evalEcho $cmd`;
@@ -415,7 +372,7 @@ global proc string performPolyProjectionArgList(string $version, string $args[],
         return "";
     }
     if ($action == 2) {
-        string $cmd = polyProjectionCommand($p, (int)$args[3], $uvSetName, 0);
+        string $cmd = polyProjectionCommand($p, (int)$args[3], $uvSetName);
         string $setCmd = (`optionVar -query ("polyProjectionCreateMap" + $p)` || (int)$args[3]) ? "polyUVSet -luv" : "";
         return $cmd + "; " + $setCmd;
     }

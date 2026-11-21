@@ -13,25 +13,19 @@ proc string aacCtx()
     return " `currentCtx`";
 }
 
-// The common brush, stroke, pressure, attribute map and display callbacks come from artisanCallback.mel, which Aztek
-// doesn't have yet: each is run when present.
-proc aacArtisan(string $procName, string $artCommand, string $currTool)
-{
-    if (`exists $procName`)
-        eval($procName + " \"" + $artCommand + "\" \"" + $currTool + "\"");
-}
-
+// The common brush, stroke, pressure, attribute map and display callbacks come from artisanCallback.mel, sourced
+// first so its procedures are the current ones.
 global proc artAttrCallback(string $artCommand)
 {
-    catchQuiet(eval("source \"artisanCallback.mel\""));
+    eval("source \"artisanCallback.mel\"");
     string $currTool = `contextInfo -class `currentCtx``;
 
-    aacArtisan("artisanBrushCallback", $artCommand, $currTool);
+    artisanBrushCallback($artCommand, $currTool);
     artAttrPaintCallback($artCommand, $currTool);
-    aacArtisan("artisanStrokeCallback", $artCommand, $currTool);
-    aacArtisan("artisanPressureCallback", $artCommand, $currTool);
-    aacArtisan("artisanAttrMapCallback", $artCommand, $currTool);
-    aacArtisan("artisanDisplayCallback", $artCommand, $currTool);
+    artisanStrokeCallback($artCommand, $currTool);
+    artisanPressureCallback($artCommand, $currTool);
+    artisanAttrMapCallback($artCommand, $currTool);
+    artisanDisplayCallback($artCommand, $currTool);
 }
 
 global proc artAttrPaintCallback(string $artCommand, string $currTool)

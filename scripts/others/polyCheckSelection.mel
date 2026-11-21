@@ -1,0 +1,134 @@
+// polyCheckSelection: works out what a polygon command should act on before it runs, and leaves the select tool
+// current. Commands on whole objects ("o") get the visible mesh shapes in and under the selection. Component commands
+// go through polyInstallAction, which, depending on the preferences, converts the selection to the components the
+// command takes and keeps the command waiting for the user to pick some when there are none.
+
+global string $gPolyLastTool;
+global string $gSelect;
+
+// The visible, non-intermediate mesh shapes among $items and below them, by full path. A hidden node keeps everything
+// under it out, and a node without visibility isn't looked into.
+proc string[] pcsVisibleMeshes(string $items[])
+{
+    string $meshes[];
+    for ($item in $items) {
+        string $vis[] = `listAttr -scalar -string visibility $item`;
+        if (size($vis) == 0)
+            continue;
+        if (`getAttr ($item + ".visibility")` != 1)
+            continue;
+        if (`attributeQuery -exists -node $item intermediateObject`
+                && `getAttr ($item + ".intermediateObject")` != 0)
+            continue;
+        if (`nodeType $item` == "mesh") {
+            $meshes[size($meshes)] = $item;
+        } else {
+            string $children[] = `listRelatives -children -path $item`;
+            if (size($children) > 0)
+                appendStringArray($meshes, pcsVisibleMeshes($children), size(pcsVisibleMeshes($children)));
+        }
+    }
+    return $meshes;
+}
+
+// Aztek's polyInstallAction only knows some of the poly commands and refuses the rest. For those, converting the
+// selection is done here: it is turned into the component kind $funtype names and selected, as -convertSelection
+// would. Anything else is left as it is.
+proc string[] pcsConvertSelection(string $funtype)
+{
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        return $sel;
+    string $converted[];
+    if ($funtype == "f")
+        $converted = `polyListComponentConversion -toFace $sel`;
+    else if ($funtype == "e")
+        $converted = `polyListComponentConversion -toEdge $sel`;
+    else if ($funtype == "v")
+        $converted = `polyListComponentConversion -toVertex $sel`;
+    else if ($funtype == "uv" || $funtype == "puv")
+        $converted = `polyListComponentConversion -toUV $sel`;
+    else
+        return $sel;
+    if (size($converted) > 0)
+        select -replace $converted;
+    return `ls -selection`;
+}
+
+proc int pcsKnownAction(string $fun)
+{
+    // Whether polyInstallAction knows the command: installing only its display is tried, then taken off again.
+    return !catchQuiet(eval("polyInstallAction -installDisplay " + $fun)) && !catchQuiet(`polyInstallAction -uninstallDisplay`);
+}
+
+global proc string[] polyCheckSelection(string $fun, string $funtype, int $expandInstances)
+{
+    global string $gPolyLastTool;
+    global string $gSelect;
+
+    // Only the command's name counts, not any arguments after it.
+    string $words[];
+    tokenize $fun $words;
+    $fun = size($words) ? $words[0] : "";
+
+    string $result[];
+    int $installed = 0;
+    string $keep = $expandInstances ? " -keepInstances" : "";
+
+    if ($funtype == "o") {
+        polyInstallAction -uninstallConstraint -uninstallDisplay;
+        string $items[] = `ls -selection`;
+        string $hilited[] = `ls -hilite`;
+        appendStringArray($items, $hilited, size($hilited));
+        $result = pcsVisibleMeshes($items);
+        if (size($result) == 0)
+            warning (`format -stringArg $fun "^1s works on polygon objects only."`);
+    } else {
+        int $known = pcsKnownAction($fun);
+        if (`optionVar -query polyAutoConvertAction`) {
+            if ($known) {
+                $result = eval("polyInstallAction -convertSelection" + $keep + " " + $fun);
+                // Aztek's -convertSelection converts the selection but gives nothing back; the selection is the
+                // answer.
+                if (size($result) == 0)
+                    $result = `ls -selection`;
+            } else {
+                $result = pcsConvertSelection($funtype);
+            }
+            if (!`optionVar -query polyAutoInstallAction`)
+                polyInstallAction;
+        } else if (`optionVar -query polyAutoInstallAction` && $known) {
+            $result = eval("polyInstallAction" + $keep + " " + $fun);
+        } else {
+            polyInstallAction;
+            $result = `ls -selection`;
+        }
+        // A command polyInstallAction refused was never installed. Aztek's polyInstallAction with no flags doesn't
+        // clear the command name it reports, so an earlier command's name can still be there.
+        $installed = $known && `polyInstallAction -query -commandName` != "";
+    }
+
+    int $autoInstall = `optionVar -query polyAutoInstallAction`;
+    if (size($result) == 0) {
+        if (!$autoInstall) {
+            if ($installed)
+                polyInstallAction -uninstallConstraint $fun;
+            $gPolyLastTool = "";
+        } else {
+            // The command stays waiting so the user can pick the components with the select tool.
+            $gPolyLastTool = `currentCtx`;
+            setToolTo $gSelect;
+        }
+    } else {
+        // With Shift held, automatic install only sets the command up; nothing runs.
+        if ($autoInstall && `getModifiers` % 2) {
+            warning (`format -stringArg $fun "^1s is set up: pick the components to work on."`);
+            clear $result;
+        } else if ($installed) {
+            polyInstallAction -uninstallConstraint $fun;
+        }
+        $gPolyLastTool = `currentCtx`;
+        setToolTo $gSelect;
+    }
+    return $result;
+}

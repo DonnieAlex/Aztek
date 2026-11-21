@@ -1,0 +1,81 @@
+// nurbsBooleanToolScript: Surfaces > Booleans (Union, Difference, Intersection) as an action or as a tool, as the
+// reference's menu items, option boxes and tool commands run them. The work itself is performBoolean's.
+// $action: 0 do it, 1 option box, 2 return the command, 3 the tool's option box, 4 enter the tool.
+// $which: 0 union, 1 difference, anything else intersection.
+
+// The tool's context for one kind of boolean, made the first time it's needed; one that exists is reused as it is.
+proc nurbsBooleanMakeContext(string $ctx, int $which)
+{
+    if (`scriptCtx -exists $ctx`)
+        return;
+
+    string $image = "nurbsShellIntersect.png";
+    string $class = "nurbsBooleanIntersect";
+    string $title = "Intersection Tool";
+    string $secondPrompt = "Select more surfaces for the second set, or press Enter to intersect.";
+    if ($which == 0) {
+        $image = "nurbsShellUnion.png";
+        $class = "nurbsBooleanUnion";
+        $title = "Union Tool";
+        $secondPrompt = "Select more surfaces for the second set, or press Enter to join them.";
+    } else if ($which == 1) {
+        $image = "nurbsShellSubtract.png";
+        $class = "nurbsBooleanSubtract";
+        $title = "Difference Tool";
+        $secondPrompt = "Select more surfaces for the second set, or press Enter to subtract them.";
+    }
+
+    // Two sets of any number of NURBS surfaces, each finished with Enter. The final script gets the first set and
+    // the context's name when the tool completes, so currentCtx is left in back quotes to run then.
+    scriptCtx
+        -image1 $image
+        -title $title
+        -baseClassName $class
+        -toolCursorType "edit"
+        -totalSelectionSets 2
+        -cumulativeLists true
+        -expandSelectionList true
+        -enableRootSelection true
+        -exitUponCompletion true
+        -finalCommandScript ("performBoolean 0 " + $which + " $Selection1 `currentCtx`")
+        -setNoSelectionPrompt "Select NURBS surfaces for the first set."
+        -setSelectionPrompt "Select more for the first set, or press Enter to start the second."
+        -setAutoToggleSelection true
+        -setAutoComplete false
+        -setSelectionCount 0
+        -nurbsSurface true
+        -setNoSelectionPrompt "Select NURBS surfaces for the second set."
+        -setSelectionPrompt $secondPrompt
+        -setAutoToggleSelection true
+        -setAutoComplete false
+        -setSelectionCount 0
+        -nurbsSurface true
+        $ctx;
+}
+
+global proc string nurbsBooleanToolScript(int $action, int $which)
+{
+    string $ctx = "";
+    if ($action > 2) {
+        if ($which == 0)
+            $ctx = "nurbsBooleanUnionContext";
+        else if ($which == 1)
+            $ctx = "nurbsBooleanSubtractContext";
+        else
+            $ctx = "nurbsBooleanIntersectContext";
+        nurbsBooleanMakeContext($ctx, $which);
+    }
+
+    if ($action == 4) {
+        setToolTo $ctx;
+        return "";
+    }
+
+    if (!`exists performBoolean`) {
+        warning "NURBS booleans aren't available: performBoolean is missing.";
+        return "";
+    }
+    // performBoolean's third argument is the selection to work on; two blanks stand for "use the selection".
+    string $result = `eval ("performBoolean " + $action + " " + $which + " {\" \", \" \"} \"" + $ctx + "\"")`;
+    return $result;
+}

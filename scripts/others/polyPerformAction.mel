@@ -73,74 +73,10 @@ proc string polyPerformActionNodeType(string $item)
     return `nodeType $item`;
 }
 
-// The selection checked and converted for the command: what polyCheckSelection gives when there is one. Without it,
-// whole objects for "o", or the selection turned into the named kind of component.
-proc string[] polyPerformActionCheckSelection(string $base, string $funtype)
-{
-    string $result[];
-    if (`exists polyCheckSelection`) {
-        $result = eval ("polyCheckSelection \"" + $base + "\" \"" + $funtype + "\" 0");
-        return $result;
-    }
-    if ($funtype == "o") {
-        $result = `ls -sl -o`;
-        return $result;
-    }
-    string $sel[] = `ls -sl`;
-    if (!size($sel))
-        return $result;
-    if ($funtype == "f")
-        $result = `polyListComponentConversion -tf $sel`;
-    else if ($funtype == "e")
-        $result = `polyListComponentConversion -te $sel`;
-    else if ($funtype == "v")
-        $result = `polyListComponentConversion -tv $sel`;
-    else if ($funtype == "uv" || $funtype == "puv")
-        $result = `polyListComponentConversion -tuv $sel`;
-    else
-        $result = $sel;
-    return $result;
-}
-
-// The items of $list that belong to the same object as its first one, in their order. The caller takes them off the
-// front of what is left and asks again, so every object gets its own command.
-proc string[] polyPerformActionBatch(string $list[])
-{
-    string $batch[];
-    if (!size($list))
-        return $batch;
-    string $obj = polyPerformActionObjectOf($list[0]);
-    for ($item in $list) {
-        if (polyPerformActionObjectOf($item) == $obj)
-            $batch[size($batch)] = $item;
-    }
-    return $batch;
-}
-
-proc string[] polyPerformActionRest(string $list[], string $batch[])
-{
-    string $rest[];
-    for ($item in $list) {
-        if (!stringArrayContains($item, $batch))
-            $rest[size($rest)] = $item;
-    }
-    return $rest;
-}
-
-// After a command that makes new meshes: the reference sets them up for display through setupNewMesh.
-proc polyPerformActionSetupNewMesh()
-{
-    if (`exists setupNewMesh`)
-        eval "setupNewMesh";
-}
-
-// Back to object selection, as setSelectMode("objects", "Objects") does where it exists.
+// Back to object selection.
 proc polyPerformActionObjectMode()
 {
-    if (`exists setSelectMode`)
-        eval "setSelectMode \"objects\" \"Objects\"";
-    else
-        selectMode -object;
+    setSelectMode("objects", "Objects");
 }
 
 // The name of the script that shows a node's option box in the viewport, or "" when it has none.
@@ -220,9 +156,13 @@ proc string polyPerformActionEach(string $action, string $base, string $targets[
     }
 
     string $cmd = "";
+    string $batch[];
+    int $next = 0;
     while (size($list)) {
-        string $batch[] = polyPerformActionBatch($list);
-        $list = polyPerformActionRest($list, $batch);
+        $next = polyNextSelectionBatch($list, $batch, $next);
+        // The list runs out on the call after the last batch, which leaves $batch as it was.
+        if (!size($list))
+            break;
         $cmd = $action + " -ch " + $history;
         if ($base == "polyConnectComponents")
             $cmd += " -insertWithEdgeFlow " + `optionVar -query polyConnectComponentsInsertWithEdgeFlow`
@@ -266,8 +206,7 @@ global proc string polyPerformAction(string $action, string $funtype, int $ret)
         return "";
 
     waitCursor -state 1;
-    if (`exists expandPolyGroupSelection`)
-        eval "expandPolyGroupSelection";
+    expandPolyGroupSelection();
 
     string $objects[] = `ls -sl -type transform`;
     string $shapes[] = `ls -sl -shapes`;
@@ -276,7 +215,7 @@ global proc string polyPerformAction(string $action, string $funtype, int $ret)
     string $targets[];
     int $clearAfter = 0;
     if ($base == "polySeparate") {
-        $targets = polyPerformActionCheckSelection($base, $funtype);
+        $targets = polyCheckSelection($base, $funtype, 0);
     } else {
         // Shared instances: act on one copy of each shape. Aztek has no filterInstances, so this step is skipped.
         if ($funtype != "o" && `exists filterInstances`) {
@@ -325,7 +264,7 @@ global proc string polyPerformAction(string $action, string $funtype, int $ret)
 
     if ($ran) {
         if ($base == "polyUnite" || $base == "polyBoolOp" || $base == "polySeparate" || $base == "polyCBoolOp")
-            polyPerformActionSetupNewMesh();
+            setupNewMesh();
         if ($base == "polyCBoolOp" && (size(`ls -sl`) || size(`ls -hl`))) {
             string $history[] = `listHistory`;
             for ($h in $history) {

@@ -1,0 +1,22 @@
+// nodePresetConfirmDeleteDialog: asks before deleting a preset. $argv holds the nodes, then the preset's name last;
+// the preset is deleted from each node that has it.
+
+global proc nodePresetConfirmDeleteDialog(string $argv[])
+{
+    int $last = size($argv) - 1;
+    string $presetName = $argv[$last];
+
+    string $delete = "Delete";
+    string $cancel = "Cancel";
+    string $answer = `confirmDialog -title "Delete Preset"
+        -message (`format -stringArg $presetName "Delete the preset \"^1s\"?"`)
+        -button $delete -button $cancel -defaultButton $delete -cancelButton $cancel -dismissString $cancel`;
+    if ($answer != $delete)
+        return;
+
+    for ($i = 0; $i < $last; $i++) {
+        string $node = $argv[$i];
+        if (`nodePreset -exists $node $presetName`)
+            evalEcho("nodePreset -delete " + $node + " " + $presetName);
+    }
+}

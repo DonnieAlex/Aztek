@@ -1,0 +1,26 @@
+// polyNextSelectionBatch: hands out a selection one object at a time. From $start, the items that belong to the same
+// object (the same text before the first ".") and follow one another go into $out; the index after them comes back
+// for the next call. Once the list is used up, $in is emptied, which is how callers know to stop.
+
+proc string pnsbObjectOf(string $item)
+{
+    return `match "^[^.]*" $item`;
+}
+
+global proc int polyNextSelectionBatch(string $in[], string $out[], int $start)
+{
+    int $count = size($in);
+    if ($start >= $count) {
+        clear $in;
+        return 1;
+    }
+    clear $out;
+    string $key = pnsbObjectOf($in[$start]);
+    $out[0] = $in[$start];
+    int $i = $start + 1;
+    while ($i < $count && pnsbObjectOf($in[$i]) == $key) {
+        $out[size($out)] = $in[$i];
+        $i++;
+    }
+    return $i;
+}

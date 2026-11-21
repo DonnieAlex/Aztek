@@ -37,12 +37,10 @@ proc int createOutlinerPanelMenu_nameMode(string $ed)
     return $long ? 2 : 0;
 }
 
-// The command a channel name item runs. Aztek doesn't have setOutlinerLongName yet; until it does, the editor's own
-// name flags are set to the same effect.
+// The command a channel name item runs. setOutlinerLongName lives in OutlinerEdMenu.mel, sourced with the menu.
 proc string createOutlinerPanelMenu_nameCommand(int $mode, string $ed)
 {
-    string $direct = "outlinerEditor -edit -niceNames " + ($mode == 1) + " -longNames " + ($mode == 2) + " " + $ed;
-    return "if (`exists setOutlinerLongName`) setOutlinerLongName " + $mode + " " + $ed + "; else " + $direct + ";";
+    return "setOutlinerLongName " + $mode + " " + $ed + ";";
 }
 
 // Render Setup's filter item belongs only to editors whose names start "outlinerPanel".
@@ -257,9 +255,8 @@ global proc createOutlinerPanelMenu(string $panel)
         if (`match "[^|]*$" $menu` == "Show")
             return;
 
-    // Aztek doesn't have OutlinerEdMenu, filterUICreateMenu or buildPanelPopupMenu yet; their parts wait for them.
-    if (`exists OutlinerEdMenu`)
-        eval "source OutlinerEdMenu.mel";
+    // Aztek doesn't have filterUICreateMenu or buildPanelPopupMenu yet; their parts wait for them.
+    eval "source OutlinerEdMenu.mel";
     string $ed = `outlinerPanel -query -outlinerEditor $panel`;
     string $parent = `setParent -query`;
     createOutlinerDisplayMenu($ed, true, $parent, 0);

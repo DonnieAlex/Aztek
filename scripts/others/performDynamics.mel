@@ -1,0 +1,891 @@
+// performDynamics: the Fields, Emitter, Collision, Goal, Rigid Body, Soft Body, Constraint, Spring, Instancer and
+// Particle Disk Cache items of the Dynamics menus. Each item's options are kept in optionVars; this file turns them
+// into the command string, runs it, or hands it back for a shelf button, and shows the shared option box for each.
+// The controls inside that box are laid out by dynCreateLayout, given their defaults by dynSetOptionVars, filled by
+// dynSetOptionControls and written back by dynApplyCallback, each in its own file.
+//
+// The strings built here are the reference's, flag for flag, so a shelf button made from one reads the same. When one
+// is run, the flags Aztek's command doesn't take yet are left out (see performDynamics_run), along with those whose
+// optionVar was never set, so Aztek's own default stands for them rather than a zero.
+
+// The apply callbacks, when Aztek has them.
+if (`exists dynApplyCallback`)
+    eval("source \"dynApplyCallback.mel\"");
+
+// Flags whose optionVar didn't exist while the last command was built, as " -m  -att " and so on.
+global string $gPerformDynamicsUnset;
+
+// "-flag value " from an optionVar, as MEL prints the number. A flag whose optionVar isn't set is remembered.
+proc string performDynamics_flag(string $flag, string $var)
+{
+    global string $gPerformDynamicsUnset;
+    if (!`optionVar -exists $var`)
+        $gPerformDynamicsUnset += " " + $flag + " ";
+    return $flag + " " + `optionVar -query $var` + " ";
+}
+
+// "-flag x y z " from three optionVars.
+proc string performDynamics_flag3(string $flag, string $x, string $y, string $z)
+{
+    global string $gPerformDynamicsUnset;
+    if (!`optionVar -exists $x` || !`optionVar -exists $y` || !`optionVar -exists $z`)
+        $gPerformDynamicsUnset += " " + $flag + " ";
+    return $flag + " " + `optionVar -query $x` + " " + `optionVar -query $y` + " " + `optionVar -query $z` + " ";
+}
+
+proc int performDynamics_int(string $var)
+{
+    return `optionVar -query $var`;
+}
+
+// Whether a token is a flag rather than a value: a dash then a letter, so "-1" stays a value.
+proc int performDynamics_isFlag(string $token)
+{
+    return `gmatch $token "-[a-zA-Z]*"`;
+}
+
+// What a command's help says of one of its flags: "" when it doesn't take it, else "bool", "any" or the number of
+// values it takes.
+proc string performDynamics_flagArgs(string $help[], string $flag)
+{
+    for ($line in $help) {
+        string $t[];
+        int $n = `tokenize $line " ()" $t`;
+        if ($n < 3 || !startsWith($t[0], "-") || !startsWith($t[1], "-"))
+            continue;
+        if ($t[0] != $flag && $t[1] != $flag)
+            continue;
+        if ($t[2] == "on|off")
+            return "bool";
+        if ($t[2] == "Any")
+            return "any";
+        return ($n - 2);
+    }
+    return "";
+}
+
+// Runs a command string built here with Aztek's command of that name: flags it doesn't take, those given the wrong
+// number of values (the same short name meaning something else) and those never set are dropped. A negative maximum
+// distance means "no limit" in the reference; Aztek turns its limit off for that instead. Returns what the command
+// gave, or nothing when it is missing or failed.
+proc string[] performDynamics_run(string $cmd, int $echo)
+{
+    global string $gPerformDynamicsUnset;
+    string $result[];
+    string $tokens[];
+    int $count = `tokenize $cmd " " $tokens`;
+    if ($count == 0)
+        return $result;
+    string $name = $tokens[0];
+    if (!`exists $name`) {
+        warning ("Aztek has no " + $name + " command yet, so nothing was made.");
+        return $result;
+    }
+    string $help[];
+    tokenize `help $name` "\n" $help;
+
+    string $run = $name;
+    int $i = 1;
+    while ($i < $count) {
+        string $token = $tokens[$i];
+        $i++;
+        if (!performDynamics_isFlag($token)) {
+            // A value with no flag before it: the objects the command acts on.
+            $run += " " + $token;
+            continue;
+        }
+        string $values[];
+        clear $values;
+        while ($i < $count && !performDynamics_isFlag($tokens[$i]))
+            $values[size($values)] = $tokens[$i++];
+
+        if (`gmatch $gPerformDynamicsUnset ("* " + $token + " *")`)
+            continue;
+        string $args = performDynamics_flagArgs($help, $token);
+        if (($token == "-mxd" || $token == "-maxDistance") && size($values) == 1 && startsWith($values[0], "-")
+            && performDynamics_flagArgs($help, "-umd") == "bool") {
+            $run += " -umd off";
+            continue;
+        }
+        int $keep = 0;
+        if ($args == "any")
+            $keep = 1;
+        else if ($args == "bool")
+            $keep = size($values) <= 1;
+        else if ($args != "")
+            $keep = size($values) == (int)$args;
+        if ($keep)
+            $run += " " + $token + " " + stringArrayToString($values, " ");
+    }
+
+    if ($echo) {
+        if (catch($result = evalEcho($run)))
+            clear $result;
+    } else if (catch($result = eval($run)))
+        clear $result;
+    return $result;
+}
+
+// The particles an emitter feeds: classic particles, or nParticles for the nParticles menu.
+proc string[] performDynamics_newParticles(int $nParticle)
+{
+    string $made[];
+    if ($nParticle)
+        $made = `nParticle`;
+    else
+        $made = `particle`;
+    return $made;
+}
+
+// The reference's dynExecuteFieldCommands, until Aztek has it: Aztek's field commands act on the bodies selected
+// themselves. Adding a field to each selected object as its owner isn't there yet, so the add form makes one field.
+proc performDynamics_executeField(int $isCreate, string $cmd)
+{
+    if (`exists dynExecuteFieldCommands`) {
+        dynExecuteFieldCommands($isCreate, $cmd);
+        return;
+    }
+    performDynamics_run($cmd, 1);
+}
+
+// The reference's dynExecuteEmitterCommands, until Aztek has it: Aztek's emitter command makes only the emitter, so
+// particles are made for it and connected, as Aztek's own Create Emitter does. The add form emits from each selected
+// object in turn, all into one set of particles.
+proc performDynamics_executeEmitter(int $isCreate, string $cmd, int $nParticle)
+{
+    if (`exists dynExecuteEmitterCommands`) {
+        dynExecuteEmitterCommands($isCreate, $cmd, $nParticle);
+        return;
+    }
+    string $emitters[];
+    if ($isCreate) {
+        string $made[] = performDynamics_run($cmd, 1);
+        if (size($made))
+            $emitters[0] = $made[0];
+    } else {
+        string $objects[] = `ls -selection`;
+        if (size($objects) == 0) {
+            warning "Select the objects to emit from.";
+            return;
+        }
+        for ($object in $objects) {
+            string $made[] = performDynamics_run($cmd + " " + $object, 1);
+            if (size($made))
+                $emitters[size($emitters)] = $made[size($made) - 1];
+        }
+    }
+    if (size($emitters) == 0)
+        return;
+    string $particles[] = performDynamics_newParticles($nParticle);
+    for ($e in $emitters)
+        connectDynamic -emitters $e $particles[0];
+    select -replace $emitters;
+}
+
+// The reference's dynExecuteCollisionCommand and dynExecuteGoalCommand, until Aztek has them: the command is run on the
+// selection as it stands.
+proc performDynamics_executeCollision(string $cmd)
+{
+    if (`exists dynExecuteCollisionCommand`)
+        dynExecuteCollisionCommand($cmd);
+    else
+        performDynamics_run($cmd, 1);
+}
+
+proc performDynamics_executeGoal(string $cmd)
+{
+    if (`exists dynExecuteGoalCommand`)
+        dynExecuteGoalCommand($cmd);
+    else
+        performDynamics_run($cmd, 1);
+}
+
+// The name an untitled scene goes by.
+proc string performDynamics_untitled()
+{
+    if (`exists untitledFileName`)
+        return eval("untitledFileName");
+    return "untitled";
+}
+
+// The option box's title for each type; emitters differ between making one and adding one to objects.
+proc string performDynamics_title(string $type, int $createFlag)
+{
+    string $titles[] = {
+        "ActiveRigid", "Rigid Body Options",
+        "PassiveRigid", "Rigid Body Options",
+        "ParticleRenderCache", "Particle Disk Cache Options",
+        "ParticleInstancer", "Particle Instancer Options",
+        "VolumeAxis", "Volume Axis Options",
+        "Constrain", "Constraint Options",
+        "Spring", "Spring Options",
+        "Soft", "Soft Options",
+        "NSoft", "nSoft Options",
+        "Goal", "Goal Options",
+        "Air", "Air Options",
+        "Drag", "Drag Options",
+        "Gravity", "Gravity Options",
+        "Newton", "Newton Options",
+        "Radial", "Radial Options",
+        "Turbulence", "Turbulence Options",
+        "Uniform", "Uniform Options",
+        "Vortex", "Vortex Options",
+        "Collision", "Collision Options"
+    };
+    for ($i = 0; $i < size($titles); $i += 2)
+        if ($titles[$i] == $type)
+            return $titles[$i + 1];
+    if ($type == "Emitter" || $type == "nEmitter") {
+        if ($createFlag == 1)
+            return "Emitter Options (Create)";
+        if ($createFlag == 0)
+            return "Emitter Options (Emit from Object)";
+    }
+    return "";
+}
+
+// The help tag for each type; "" sets none.
+proc string performDynamics_helpTag(string $type, int $createFlag)
+{
+    string $tags[] = {
+        "Air", "Air", "Drag", "Drag", "Gravity", "Gravity", "Newton", "Newton", "Radial", "Radial",
+        "Turbulence", "Turbulence", "Uniform", "Uniform", "Vortex", "Vortex", "VolumeAxis", "VolumeAxis",
+        "Collision", "MakeCollide", "Goal", "Goal", "ActiveRigid", "CreateActiveRigidBody",
+        "PassiveRigid", "CreatePassiveRigidBody", "Soft", "CreateSoftBody", "NSoft", "CreateNSoftBody",
+        "Constrain", "CreateConstraint", "Spring", "CreateSprings", "ParticleInstancer", "Instancer",
+        "ParticleRenderCache", "CreateParticleDiskCache"
+    };
+    for ($i = 0; $i < size($tags); $i += 2)
+        if ($tags[$i] == $type)
+            return $tags[$i + 1];
+    if ($type == "Emitter")
+        return ($createFlag == 1) ? "CreateEmitter" : (($createFlag == 0) ? "EmitfromObject" : "");
+    if ($type == "nEmitter")
+        return ($createFlag == 1) ? "nCreateEmitter" : (($createFlag == 0) ? "nEmitfromObject" : "");
+    return "";
+}
+
+global proc createDynamicsOptions(string $type, int $createFlag)
+{
+    // Both kinds of rigid body share one set of controls; which kind is kept in rigidCollisionType.
+    string $controls = $type;
+    if ($type == "ActiveRigid" || $type == "PassiveRigid") {
+        $controls = "Rigid";
+        optionVar -intValue rigidCollisionType ($type == "ActiveRigid");
+    }
+    string $title = performDynamics_title($type, $createFlag);
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+    waitCursor -state on;
+
+    tabLayout -scrollable true -tabsVisible false;
+    string $parent = `columnLayout -adjustableColumn true -columnAttach "both" 5`;
+    int $haveLayout = `exists dynCreateLayout`;
+    if ($haveLayout)
+        dynCreateLayout($parent, $controls, $createFlag);
+    else
+        text -label "The controls for these options aren't available in Aztek yet. Create uses the saved options.";
+
+    waitCursor -state off;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    // Without the callbacks there is nothing to write back: Create runs with the options as saved.
+    if (`exists dynApplyCallback`) {
+        button -edit -label "Create" -command ("dynApplyCallback " + $controls + " " + $parent + " 1")
+            (getOptionBoxApplyBtn());
+        button -edit -command ("dynApplyCallback " + $controls + " " + $parent + " 0; hideOptionBox")
+            (getOptionBoxSaveBtn());
+    } else {
+        button -edit -label "Create" -command ("performDynamics " + $createFlag + " " + $type + " 0")
+            (getOptionBoxApplyBtn());
+        button -edit -command "hideOptionBox" (getOptionBoxSaveBtn());
+    }
+    if (`exists dynSetOptionControls`)
+        button -edit -command ("dynSetOptionControls " + $controls + " " + $parent + " 1") (getOptionBoxResetBtn());
+    else
+        button -edit -enable false (getOptionBoxResetBtn());
+
+    setOptionBoxTitle($title);
+    string $tag = performDynamics_helpTag($type, $createFlag);
+    if ($tag != "")
+        setOptionBoxHelpTag($tag);
+
+    if ($haveLayout && `exists dynSetOptionControls`)
+        eval("dynSetOptionControls " + $controls + " " + $parent + " 0");
+    showOptionBox();
+}
+
+global proc string dynSetCollisionShelfCommand(string $cmd)
+{
+    return "dynExecuteCollisionCommand \"" + $cmd + "\"";
+}
+
+// Always 1: a shelf button made from the add form makes a free field too.
+global proc string dynSetCreateFieldShelfCommand(string $cmd)
+{
+    return "dynExecuteFieldCommands 1 \"" + $cmd + "\"";
+}
+
+global proc string dynSetEmitterShelfCommand(int $isCreate, string $cmd, int $createNParticle)
+{
+    return "dynExecuteEmitterCommands " + $isCreate + " \"" + $cmd + "\" " + $createNParticle;
+}
+
+global proc string dynSetGoalShelfCommand(string $cmd)
+{
+    return "dynExecuteGoalCommand \"" + $cmd + "\"";
+}
+
+// The name typed for a node, with "#" so each new one is numbered. Leading spaces go; a name of one character is
+// dropped, as the reference drops it.
+global proc string dynSetName(string $prefix)
+{
+    string $name = `optionVar -query ($prefix + "Name")`;
+    int $length = size($name);
+    int $first = 1;
+    while ($first <= $length && substring($name, $first, $first) == " ")
+        $first++;
+    string $trimmed = "";
+    if ($first < $length)
+        $trimmed = substring($name, $first, $length);
+    if ($trimmed == "")
+        return "";
+    return " -name \"" + $trimmed + "#\" ";
+}
+
+global proc string dynSetMaxDist(string $prefix, string $args)
+{
+    if (!performDynamics_int($prefix + "MaxDistCBox"))
+        return $args + " -mxd -1 ";
+    return $args + " " + performDynamics_flag("-mxd", $prefix + "MaxDistance");
+}
+
+// The volume a field acts in, for the field whose optionVars start with $prefix.
+proc string performDynamics_volume(string $prefix)
+{
+    string $shapes[] = {"none", "cube", "sphere", "cylinder", "cone", "torus"};
+    string $s = " ";
+    int $shape = performDynamics_int($prefix + "VolumeFieldTypesOM");
+    if ($shape >= 1 && $shape <= 6)
+        $s += "-vsh " + $shapes[$shape - 1] + " ";
+    if ($prefix != "volumeAxis")
+        $s += performDynamics_flag("-vex", $prefix + "VolumeExclusion");
+    $s += performDynamics_flag3("-vof", $prefix + "VolumeOffsetX", $prefix + "VolumeOffsetY", $prefix + "VolumeOffsetZ");
+    $s += performDynamics_flag("-vsw", $prefix + "VolumeSweep");
+    $s += performDynamics_flag("-tsr", $prefix + "TorusSectionRadius");
+    return $s;
+}
+
+// The start of a field command: made at the origin, or added to the selected objects.
+proc string performDynamics_fieldBase(string $cmd, int $isCreate)
+{
+    return $isCreate ? ($cmd + " -pos 0 0 0 ") : ($cmd + " ");
+}
+
+// Flags read from optionVars named after them: {"-m", "Magnitude", ...} gives "-m <prefix>Magnitude".
+proc string performDynamics_flags(string $prefix, string $pairs[])
+{
+    string $s = "";
+    for ($i = 0; $i < size($pairs); $i += 2)
+        $s += performDynamics_flag($pairs[$i], $prefix + $pairs[$i + 1]);
+    return $s;
+}
+
+proc string performDynamics_finishField(string $prefix, string $cmd)
+{
+    return dynSetMaxDist($prefix, $cmd) + performDynamics_volume($prefix);
+}
+
+global proc string setAirCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("air", $isCreate) + dynSetName("air");
+    $cmd += performDynamics_flags("air", {"-m", "Magnitude", "-att", "Attenuation", "-dx", "DirectionX",
+        "-dy", "DirectionY", "-dz", "DirectionZ", "-s", "Speed", "-iv", "InheritVelocity", "-iro", "InheritRotation",
+        "-vco", "Component", "-es", "EnableSpread"});
+    if (performDynamics_int("airEnableSpread"))
+        $cmd += performDynamics_flag("-sp", "airSpread");
+    return performDynamics_finishField("air", $cmd);
+}
+
+// Drag and gravity share their flags. Added to objects, the command has no space after it, so with no name it reads
+// "drag-m ..." as the reference builds it.
+global proc string setDragGravityCmdString(string $which, int $isCreate)
+{
+    string $cmd = $isCreate ? ($which + " -pos 0 0 0 ") : $which;
+    $cmd += dynSetName($which);
+    $cmd += performDynamics_flags($which, {"-m", "Magnitude", "-att", "Attenuation", "-dx", "DirectionX",
+        "-dy", "DirectionY", "-dz", "DirectionZ"});
+    if ($which == "drag")
+        $cmd += performDynamics_flag("-ud", "dragUseDirection");
+    return performDynamics_finishField($which, $cmd);
+}
+
+global proc string setNewtonCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("newton", $isCreate) + dynSetName("newton");
+    $cmd += performDynamics_flags("newton", {"-m", "Magnitude", "-att", "Attenuation", "-mnd", "MinDistance"});
+    return performDynamics_finishField("newton", $cmd);
+}
+
+global proc string setRadialCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("radial", $isCreate) + dynSetName("radial");
+    $cmd += performDynamics_flags("radial", {"-m", "Magnitude", "-att", "Attenuation", "-typ", "Type"});
+    return performDynamics_finishField("radial", $cmd);
+}
+
+global proc string setTurbulenceCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("turbulence", $isCreate) + dynSetName("turbulence");
+    $cmd += performDynamics_flags("turbulence", {"-m", "Magnitude", "-att", "Attenuation", "-f", "Frequency",
+        "-phaseX", "PhaseX", "-phaseY", "PhaseY", "-phaseZ", "PhaseZ", "-noiseLevel", "NoiseLevel",
+        "-noiseRatio", "NoiseRatio"});
+    return performDynamics_finishField("turbulence", $cmd);
+}
+
+global proc string setUniformCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("uniform", $isCreate) + dynSetName("uniform");
+    $cmd += performDynamics_flags("uniform", {"-m", "Magnitude", "-att", "Attenuation", "-dx", "DirectionX",
+        "-dy", "DirectionY", "-dz", "DirectionZ"});
+    return performDynamics_finishField("uniform", $cmd);
+}
+
+global proc string setVortexCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("vortex", $isCreate) + dynSetName("vortex");
+    $cmd += performDynamics_flags("vortex", {"-m", "Magnitude", "-att", "Attenuation", "-ax", "AxisX",
+        "-ay", "AxisY", "-az", "AxisZ"});
+    return performDynamics_finishField("vortex", $cmd);
+}
+
+// The volume axis field always acts in a volume, so it has no exclusion flag; its random spread isn't sent.
+global proc string setVolumeAxisCmdString(int $isCreate)
+{
+    string $cmd = performDynamics_fieldBase("volumeAxis", $isCreate) + dynSetName("volumeAxis");
+    $cmd += performDynamics_flags("volumeAxis", {"-m", "Magnitude", "-att", "Attenuation",
+        "-ia", "InvertAttenuation", "-afc", "AwayFromCenter", "-afx", "AwayFromAxis", "-arx", "AroundAxis",
+        "-alx", "AlongAxis", "-drs", "DirectionalSpeed", "-dx", "DirectionX", "-dy", "DirectionY", "-dz", "DirectionZ",
+        "-trb", "Turbulence", "-trs", "TurbulenceSpeed", "-tfx", "TurbulenceFrequencyX", "-tfy", "TurbulenceFrequencyY",
+        "-tfz", "TurbulenceFrequencyZ", "-tox", "TurbulenceOffsetX", "-toy", "TurbulenceOffsetY",
+        "-toz", "TurbulenceOffsetZ", "-dtr", "DetailTurbulence"});
+    return performDynamics_finishField("volumeAxis", $cmd);
+}
+
+global proc string setConstrainCmdString(int $numSelectedItems)
+{
+    string $kinds[] = {"nail", "pin", "hinge", "spring", "barrier"};
+    int $kind = performDynamics_int("constrainTypesOM");
+    string $cmd = "";
+    if ($kind >= 1 && $kind <= 5)
+        $cmd = "constrain -" + $kinds[$kind - 1] + " ";
+    $cmd += dynSetName("constrain");
+    if (performDynamics_int("constrainPosCBox") == 1)
+        $cmd += performDynamics_flag3("-p", "constrainPosX", "constrainPosY", "constrainPosZ");
+    if ($kind == 3 || $kind == 5)
+        $cmd += performDynamics_flag3("-o", "constrainOrientX", "constrainOrientY", "constrainOrientZ");
+    if ($kind == 4) {
+        $cmd += performDynamics_flag("-st", "constrainSpringStiffness");
+        $cmd += performDynamics_flag("-d", "constrainSpringDamping");
+        if (performDynamics_int("constrainSpringRestLengthCBox") == 1)
+            $cmd += performDynamics_flag("-rl", "constrainSpringRestLength");
+    }
+    // Interpenetration only matters between two objects.
+    if ($kind == 2 || (($kind == 3 || $kind == 4) && $numSelectedItems > 1))
+        $cmd += performDynamics_flag("-i", "constrainInterCB");
+    return $cmd;
+}
+
+global proc string setEmitterCmdString(int $isCreate)
+{
+    string $cmd = $isCreate ? "emitter -pos 0 0 0 " : "emitter ";
+
+    // The create menu lists omni, directional and volume, so its third entry is volume; curve and surface need an
+    // object to emit from. The add menu has no volume. A choice that doesn't fit is put back to omni.
+    int $choice = performDynamics_int("emitterTypesOM");
+    if ($isCreate) {
+        if ($choice == 3)
+            $choice = 5;
+        if ($choice == 3 || $choice == 4) {
+            optionVar -intValue emitterTypesOM 1;
+            $choice = 1;
+        }
+    } else if ($choice == 5) {
+        optionVar -intValue emitterTypesOM 1;
+        $choice = 1;
+    }
+    string $types[] = {"omni", "direction", "surface", "curve", "volume"};
+    if ($choice >= 1 && $choice <= 5)
+        $cmd += "-type " + $types[$choice - 1] + " ";
+
+    $cmd += dynSetName("emitter");
+    $cmd += performDynamics_flags("emitter", {"-r", "Rate", "-sro", "ScaleRateByObjectSize", "-nuv", "NeedParentUV"});
+    $cmd += "-cye " + ((performDynamics_int("emitterCycleOM") == 2) ? "frame" : "none") + " ";
+    $cmd += performDynamics_flags("emitter", {"-cyi", "CycleInterval", "-spd", "Speed", "-srn", "SpeedRandomRange",
+        "-nsp", "NormalSpeed", "-tsp", "TangentSpeed", "-mxd", "MaxDistance", "-mnd", "MinDistance",
+        "-dx", "DirectionX", "-dy", "DirectionY", "-dz", "DirectionZ", "-sp", "Spread"});
+
+    if ($choice == 5) {
+        string $shapes[] = {"cube", "sphere", "cylinder", "cone", "torus"};
+        int $shape = performDynamics_int("emitterVolumeShapeOM");
+        if ($shape >= 1 && $shape <= 5)
+            $cmd += "-vsh " + $shapes[$shape - 1] + " ";
+        $cmd += performDynamics_flag3("-vof", "emitterVolumeOffsetX", "emitterVolumeOffsetY", "emitterVolumeOffsetZ");
+        $cmd += performDynamics_flags("emitter", {"-vsw", "VolumeSweep", "-tsr", "TorusSectionRadius",
+            "-afc", "AwayFromCenter", "-afx", "AwayFromAxis", "-arx", "AroundAxis", "-alx", "AlongAxis",
+            "-rnd", "RandomSpread", "-drs", "DirectionalSpeed", "-ssz", "ScaleSpeedBySize"});
+    }
+    return $cmd;
+}
+
+global proc string setRigidCmdString()
+{
+    string $cmd = (performDynamics_int("rigidCollisionType") == 1) ? "rigidBody -active " : "rigidBody -passive ";
+    $cmd += dynSetName("rigid");
+    $cmd += performDynamics_flags("rigid", {"-m", "Mass", "-dp", "Damping", "-sf", "StatFriction",
+        "-df", "DynFriction", "-b", "Bounciness", "-l", "Layer", "-tf", "Tesselation"});
+    $cmd += performDynamics_flag3("-iv", "rigidInitVelocityX", "rigidInitVelocityY", "rigidInitVelocityZ");
+    $cmd += performDynamics_flag3("-iav", "rigidAngVelocityX", "rigidAngVelocityY", "rigidAngVelocityZ");
+    if (performDynamics_int("rigidPosCBox") == 1)
+        $cmd += performDynamics_flag3("-p", "rigidPosX", "rigidPosY", "rigidPosZ");
+    if (performDynamics_int("rigidOrCBox") == 1)
+        $cmd += performDynamics_flag3("-o", "rigidOrX", "rigidOrY", "rigidOrZ");
+    if (performDynamics_int("rigidComCBox") == 1)
+        $cmd += performDynamics_flag3("-com", "rigidComX", "rigidComY", "rigidComZ");
+    $cmd += performDynamics_flag("-c", "rigidCacheCBox");
+    $cmd += performDynamics_flag("-pc", "rigidCollide");
+    $cmd += performDynamics_flag3("-i", "rigidImpulseX", "rigidImpulseY", "rigidImpulseZ");
+    $cmd += performDynamics_flag3("-imp", "rigidImpulsePosX", "rigidImpulsePosY", "rigidImpulsePosZ");
+    $cmd += performDynamics_flag3("-si", "rigidSpinImpulseX", "rigidSpinImpulseY", "rigidSpinImpulseZ");
+    string $standIns[] = {"none", "cube", "sphere"};
+    int $standIn = performDynamics_int("rigidStandInType");
+    if ($standIn >= 1 && $standIn <= 3)
+        $cmd += "-sio " + $standIns[$standIn - 1] + " ";
+    return $cmd;
+}
+
+global proc string setSpringCmdString()
+{
+    string $cmd = "spring " + dynSetName("spring");
+    int $adding = performDynamics_int("springAdd");
+    if ($adding)
+        $cmd += "-add ";
+    $cmd += "-noDuplicate " + (performDynamics_int("springNoDuplicate") ? "true " : "false ");
+    if (performDynamics_int("springExclusive"))
+        $cmd += "-exclusive true ";
+    int $method = performDynamics_int("springMethodsOM");
+    if ($method == 1) {
+        $cmd += "-minMax true ";
+        $cmd += performDynamics_flag("-mnd", "springMinDistance");
+        $cmd += performDynamics_flag("-mxd", "springMaxDistance");
+    } else if ($method == 2)
+        $cmd += "-all true ";
+    else if ($method == 3) {
+        $cmd += "-wireframe true ";
+        $cmd += performDynamics_flag("-wl", "springWireWalkLength");
+    }
+    // Springs added to an existing object keep that object's rest length, stiffness and damping.
+    if (!$adding) {
+        if (performDynamics_int("springUseRestLengthPS"))
+            $cmd += "-useRestLengthPS true ";
+        else
+            $cmd += "-useRestLengthPS false " + performDynamics_flag("-rl", "springRestLength");
+        if (performDynamics_int("springUseStiffnessPS"))
+            $cmd += "-useStiffnessPS true ";
+        else
+            $cmd += performDynamics_flag("-s", "springStiffness");
+        if (performDynamics_int("springUseDampingPS"))
+            $cmd += "-useDampingPS true ";
+        else
+            $cmd += performDynamics_flag("-d", "springDamp");
+        $cmd += performDynamics_flag("-sfw", "springStartForceWeight");
+        $cmd += performDynamics_flag("-efw", "springEndForceWeight");
+    }
+    return $cmd;
+}
+
+// $flag 0 runs it, so the checks that ask or warn only happen then; otherwise the string is being built for a shelf.
+global proc string setParticleRenderCacheCmdString(int $flag)
+{
+    string $path = "";
+    if (`exists dynGlobals`)
+        catchQuiet($path = eval("getAttr (`dynGlobals -query -active` + \".cacheDirectory\")"));
+
+    string $scene = `file -query -renamingPrefix`;
+    if ($path == "") {
+        $path = $scene;
+        if ($flag == 0) {
+            warning ("No particle cache folder is set; the cache goes in " + $path + ".");
+            if (`exists dynCheckOverwriteCacheDirectory` && !eval("dynCheckOverwriteCacheDirectory \""
+                + encodeString($path) + "\""))
+                return "";
+        }
+    } else if ($flag == 0 && $path != $scene) {
+        if (`exists dynVerifyPath` && !eval("dynVerifyPath \"" + encodeString($path) + "\""))
+            return "";
+    }
+
+    if ($flag == 0 && $path == performDynamics_untitled()) {
+        string $answer = `confirmDialog -title "Confirm"
+            -message "The scene hasn't been saved, so the cache will go in a folder named after an untitled scene. Saving the scene first is recommended."
+            -button "Continue" -button "Cancel" -defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+        if ($answer == "Cancel")
+            return "";
+    }
+    if ($flag == 0 && `exists dynCleanCacheDirectory`)
+        eval("dynCleanCacheDirectory \"" + encodeString($path) + "\"");
+
+    int $min, $max;
+    if (performDynamics_int("cacheForRenderGlobalsRange") == 0) {
+        $min = `playbackOptions -query -min`;
+        $max = `playbackOptions -query -max`;
+    } else {
+        $min = `getAttr defaultRenderGlobals.startFrame`;
+        $max = `getAttr defaultRenderGlobals.endFrame`;
+    }
+
+    string $rule = "";
+    catchQuiet($rule = `workspace -fileRuleEntry particles`);
+    if ($rule == "")
+        catchQuiet(`workspace -fileRule particles particles`);
+
+    int $onlyUpdate = performDynamics_int("onlyUpdateParticles");
+    int $all = performDynamics_int("cacheAllParticleSystems");
+    return "dynExport -path \"" + $path + "\" -f cache -mnf " + $min + " -mxf " + $max + " -oup " + $onlyUpdate
+        + " -all " + $all;
+}
+
+// instancerOptionsValues_uiToMel and _melToUI live with the instancer's controls in dynCreateLayout.mel.
+proc string performDynamics_uiToMel(string $value)
+{
+    if (!`exists instancerOptionsValues_uiToMel` && `exists dynCreateLayout`)
+        eval("source \"dynCreateLayout.mel\"");
+    if (`exists instancerOptionsValues_uiToMel`)
+        return eval("instancerOptionsValues_uiToMel \"" + encodeString($value) + "\"");
+    return $value;
+}
+
+proc string performDynamics_melToUI(string $value)
+{
+    if (!`exists instancerOptionsValues_melToUI` && `exists dynCreateLayout`)
+        eval("source \"dynCreateLayout.mel\"");
+    if (`exists instancerOptionsValues_melToUI`)
+        return eval("instancerOptionsValues_melToUI \"" + encodeString($value) + "\"");
+    return $value;
+}
+
+global proc string setParticleInstancerCmdString()
+{
+    string $cmd = "particleInstancer " + dynSetName("particleInstancer");
+    string $particle;
+    string $objects[];
+    int $fromBox = `textScrollList -exists PIselectObjectList`;
+
+    if ($fromBox) {
+        // The option box is open: the particles and objects are the ones picked in it.
+        $particle = `optionMenuGrp -query -value PIparticleObjectOM`;
+        if ($particle == "" || $particle == "No particle shapes found") {
+            warning "Pick the particles to instance onto.";
+            return "";
+        }
+        string $items[] = `textScrollList -query -allItems PIselectObjectList`;
+        $objects = $items;
+    } else {
+        // Otherwise the last selected is the particles, the rest the objects.
+        string $selection[] = `ls -selection`;
+        int $count = size($selection);
+        if ($count == 0) {
+            warning "Select the objects to instance, then the particles.";
+            return "";
+        }
+        $particle = getParticleShape($selection[$count - 1]);
+        if ($particle == "") {
+            warning ($selection[$count - 1] + " isn't particles: select the particles last.");
+            return "";
+        }
+        for ($i = 0; $i < $count - 1; $i++) {
+            if (isValidInstancedObject($selection[$i]))
+                $objects[size($objects)] = $selection[$i];
+            else
+                warning ($selection[$i] + " can't be instanced and is left out.");
+        }
+    }
+
+    if (size($objects) > 0) {
+        $cmd += " -addObject";
+        for ($object in $objects) {
+            if ($fromBox) {
+                // The list shows "index: name".
+                string $parts[];
+                if (`tokenize $object ":" $parts` < 2)
+                    continue;
+                $object = $parts[1];
+            }
+            $cmd += " -object " + $object;
+        }
+    } else
+        warning "No objects to instance were given.";
+
+    $cmd += " -cycle " + performDynamics_uiToMel(`optionVar -query PIautoCycleOM`);
+    $cmd += " -cycleStep " + `optionVar -query PIautoCycleStepSize`;
+    $cmd += " -cycleStepUnits " + performDynamics_uiToMel(`optionVar -query PIautoCycleStepUnitsOM`);
+    $cmd += " -levelOfDetail " + performDynamics_uiToMel(`optionVar -query PIlevelOfDetailOM`);
+    $cmd += " -rotationUnits " + performDynamics_uiToMel(`optionVar -query PIrotationUnitsOM`);
+    $cmd += " -rotationOrder " + performDynamics_uiToMel(`optionVar -query PIrotationOrderOM`);
+
+    // The per particle attributes mapped to instancer inputs; those left at None aren't sent.
+    string $none = performDynamics_melToUI("None");
+    string $mappings[] = {"PositionOM", "position", "RotationOM", "rotation", "ScaleOM", "scale", "ShearOM", "shear",
+        "AimDirectionOM", "aimDirection", "AimPositionOM", "aimPosition", "AimAxisOM", "aimAxis",
+        "AimWorldUpOM", "aimWorldUp", "RotationTypeOM", "rotationType", "ObjectIndexOM", "objectIndex",
+        "CycleStartObjectOM", "cycleStartObject", "AgeOM", "age", "VisibilityOM", "visibility"};
+    for ($i = 0; $i < size($mappings); $i += 2) {
+        string $value = `optionVar -query $mappings[$i]`;
+        if ($value != $none)
+            $cmd += " -" + $mappings[$i + 1] + " " + performDynamics_uiToMel($value);
+    }
+    return $cmd + " " + $particle;
+}
+
+// $flag 0 runs the command, 1 opens the option box, 2 builds the command for a shelf. The command is returned.
+global proc string performDynamics(int $createFlag, string $type, int $flag)
+{
+    global string $gPerformDynamicsUnset;
+    if ($flag == 1) {
+        createDynamicsOptions($type, $createFlag);
+        return "";
+    }
+
+    if (`exists dynSetOptionVars`)
+        dynSetOptionVars(($type == "nEmitter") ? "Emitter" : $type, 0);
+    $gPerformDynamicsUnset = "";
+    string $selection[] = `ls -selection`;
+    string $cmd = "";
+
+    if ($type == "Air" || $type == "Newton" || $type == "Radial" || $type == "Turbulence" || $type == "Uniform"
+        || $type == "Vortex" || $type == "VolumeAxis") {
+        if ($type == "Air") $cmd = setAirCmdString($createFlag);
+        else if ($type == "Newton") $cmd = setNewtonCmdString($createFlag);
+        else if ($type == "Radial") $cmd = setRadialCmdString($createFlag);
+        else if ($type == "Turbulence") $cmd = setTurbulenceCmdString($createFlag);
+        else if ($type == "Uniform") $cmd = setUniformCmdString($createFlag);
+        else if ($type == "Vortex") $cmd = setVortexCmdString($createFlag);
+        else $cmd = setVolumeAxisCmdString($createFlag);
+        if ($flag == 0) {
+            performDynamics_executeField($createFlag, $cmd);
+            // The volume axis field's turbulence moves with time.
+            if ($type == "VolumeAxis") {
+                string $made[] = `ls -selection`;
+                if (size($made))
+                    catch(evalEcho("connectAttr time1.outTime " + $made[0] + ".time"));
+            }
+        } else if ($createFlag)
+            $cmd = dynSetCreateFieldShelfCommand($cmd);
+    } else if ($type == "Drag" || $type == "Gravity") {
+        $cmd = setDragGravityCmdString(($type == "Drag") ? "drag" : "gravity", $createFlag);
+        if ($flag == 0)
+            performDynamics_executeField($createFlag, $cmd);
+        else
+            $cmd = dynSetCreateFieldShelfCommand($cmd);
+    } else if ($type == "Emitter" || $type == "nEmitter") {
+        int $n = ($type == "nEmitter");
+        $cmd = setEmitterCmdString($createFlag);
+        if ($flag == 0)
+            performDynamics_executeEmitter($createFlag, $cmd, $n);
+        else
+            $cmd = dynSetEmitterShelfCommand($createFlag, $cmd, $n);
+    } else if ($type == "Collision") {
+        $cmd = "collision " + dynSetName("collision") + performDynamics_flag("-r", "collisionResilience")
+            + performDynamics_flag("-f", "collisionFriction") + performDynamics_flag("-o", "collisionOffset");
+        if ($flag == 0)
+            performDynamics_executeCollision($cmd);
+        else
+            $cmd = dynSetCollisionShelfCommand($cmd);
+    } else if ($type == "Goal") {
+        $cmd = "goal -w " + `optionVar -query goalWeight` + " -utr " + `optionVar -query goalUseTransform` + "  ";
+        if ($flag == 0)
+            performDynamics_executeGoal($cmd);
+        else
+            $cmd = dynSetGoalShelfCommand($cmd);
+    } else if ($type == "ActiveRigid" || $type == "PassiveRigid") {
+        optionVar -intValue rigidCollisionType ($type == "ActiveRigid");
+        $cmd = setRigidCmdString();
+        if ($flag == 0)
+            performDynamics_run($cmd, 1);
+    } else if ($type == "Soft" || $type == "NSoft") {
+        int $hide = performDynamics_int("softHide");
+        int $history = performDynamics_int("softHistory");
+        int $goal = performDynamics_int("softGoal");
+        float $weight = `optionVar -query softWeight`;
+        int $option = performDynamics_int("softCreationOption");
+        string $args = " " + $hide + " " + $history + " " + $goal + " " + $weight;
+        if ($option == 1)
+            $cmd = (($type == "Soft") ? "soft " : "nSoft ") + dynSetName(($type == "Soft") ? "soft" : "nSoft") + "-c ";
+        else if ($option == 2 || $option == 3)
+            $cmd = (($type == "Soft") ? "dynCreateSoft" : "dynCreateNSoft") + $args + (($option == 2) ? " 1" : " 0");
+        if ($flag == 0 && $cmd != "")
+            performDynamics_run($cmd, 1);
+    } else if ($type == "Constrain") {
+        $cmd = setConstrainCmdString(size($selection));
+        if ($flag == 0 && $cmd != "")
+            performDynamics_run($cmd, 1);
+    } else if ($type == "Spring") {
+        $cmd = setSpringCmdString();
+        if ($flag == 0)
+            performDynamics_run($cmd, 1);
+    } else if ($type == "ParticleInstancer") {
+        // A shelf button works out the instancer from the selection when it is clicked.
+        if ($flag == 2)
+            $cmd = "evalEcho `setParticleInstancerCmdString`";
+        else {
+            $cmd = setParticleInstancerCmdString();
+            if ($flag == 0 && $cmd != "")
+                performDynamics_run($cmd, 1);
+        }
+    } else if ($type == "ParticleRenderCache") {
+        $cmd = setParticleRenderCacheCmdString($flag);
+        if ($flag == 0 && $cmd != "")
+            performDynamics_run($cmd, 1);
+    }
+    return $cmd;
+}
+
+// The particle shape of an object: the object itself, or the first particle shape under a transform. Asked by kind,
+// as Aztek's particle node type has its own name.
+global proc string getParticleShape(string $object)
+{
+    if ($object == "" || !`objExists $object`)
+        return "";
+    if (`objectType -isAType "particle" $object`)
+        return $object;
+    if (`nodeType $object` == "transform") {
+        string $shapes[] = `listRelatives -shapes -path $object`;
+        for ($shape in $shapes)
+            if (`objectType -isAType "particle" $shape`)
+                return $shape;
+    }
+    return "";
+}
+
+// Whether an object can be instanced onto particles: a transform that isn't an emitter, field, IK node, joint or
+// instancer itself. Aztek's emitters and fields are shapes under a transform, so the shapes are asked too.
+global proc int isValidInstancedObject(string $objectName)
+{
+    if ($objectName == "" || !`objExists $objectName`)
+        return 0;
+    if (!`objectType -isAType "transform" $objectName`)
+        return 0;
+    string $nodes[] = `listRelatives -shapes -path $objectName`;
+    $nodes[size($nodes)] = $objectName;
+    string $excluded[] = {"pointEmitter", "field", "ikHandle", "ikEffector", "joint", "instancer"};
+    for ($node in $nodes)
+        for ($type in $excluded)
+            if (`objectType -isAType $type $node`)
+                return 0;
+    return 1;
+}

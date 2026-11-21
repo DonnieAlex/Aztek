@@ -30,7 +30,5 @@ if (`isTrue SubdivUIExists` && `exists initSubdivUI`)
 // Puts a command on the list behind Edit > Repeat (G) and Recent Commands, as the last one run, shown by its label.
 global proc addToRecentCommandQueue(string $cmd, string $label)
 {
-    // Aztek's repeatLast has no -addCommand yet: its Repeat menu item repeats what the program itself ran last.
-    if (`exists repeatLast`)
-        eval ("repeatLast -addCommand \"" + encodeString($cmd) + "\" -addCommandLabel \"" + encodeString($label) + "\"");
+    repeatLast -addCommand $cmd -addCommandLabel $label;
 }

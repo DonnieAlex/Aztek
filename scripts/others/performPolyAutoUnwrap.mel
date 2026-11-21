@@ -1,0 +1,859 @@
+// performPolyAutoUnwrap: UV > Auto Unwrap and its option box, as the reference's. It is a workflow in steps, each in a
+// small floating window: pick a mesh or its faces, mark the border edges to cut along, then (with the advanced
+// method) the anchor vertices, and the UVs are unfolded and laid out. What has been picked so far is kept in four
+// sets (wrapMapOrigSelection, wrapMapFaces, wrapMapBorderEdges, wrapMapAnchors), so a step can be gone back to.
+//
+// The reference keeps the border edges and anchors on a polyAutoUnwrap node too. Aztek doesn't have that node yet, so
+// the steps that would read or edit it are passed over, and the unfold and layout run on the faces alone.
+
+global int $edgeColorScriptJobID = -1;
+
+// ---- Local helpers ----
+
+// The saved settings. Forced, they go back to their defaults; otherwise only missing ones are made.
+proc performPolyAutoUnwrap_options(int $force)
+{
+    optionVar -init $force -category "UV Editor.Auto Unwrap"
+        -iv polyAutoUnwrapc 0
+        -iv polyAutoUnwrapi 2
+        -iv polyAutoUnwrapl 0
+        -iv polyAutoUnwraput 0
+        -iv polyAutoUnwrapis 0
+        -iv polyAutoUnwrapcm 0
+        -fv3 polyAutoUnwrapborderColor 1.0 0.0 0.0
+        -fv3 polyAutoUnwrapanchorColor 1.0 1.0 0.0
+        -sv polyAutoUnwrapuvSetName "uvSet1";
+}
+
+// The select tool, or Aztek's own select context where the shell hasn't named one.
+proc performPolyAutoUnwrap_selectTool()
+{
+    global string $gSelect;
+    if ($gSelect != "")
+        setToolTo $gSelect;
+    else
+        setToolTo selectSuperContext;
+}
+
+// Turns the selection into faces (1), vertices (3), UVs (4) or edges wholly inside it (20), through the runtime
+// command where Aztek has it and PolySelectConvert otherwise.
+proc performPolyAutoUnwrap_convert(int $toType)
+{
+    string $command = "";
+    if ($toType == 1)
+        $command = "ConvertSelectionToFaces";
+    else if ($toType == 3)
+        $command = "ConvertSelectionToVertices";
+    else if ($toType == 4)
+        $command = "ConvertSelectionToUVs";
+    else if ($toType == 20)
+        $command = "ConvertSelectionToContainedEdges";
+    if ($command != "" && `exists $command`)
+        eval $command;
+    else
+        PolySelectConvert $toType;
+}
+
+// Switches component selection to edges or vertices.
+proc performPolyAutoUnwrap_mask(string $command, string $type)
+{
+    if (`exists $command`) {
+        eval $command;
+        return;
+    }
+    selectMode -component;
+    if ($type == "edge")
+        selectType -polymeshEdge true;
+    else
+        selectType -polymeshVertex true;
+}
+
+// A set's members made the selection.
+proc performPolyAutoUnwrap_selectSet(string $set)
+{
+    select -replace `sets -query $set`;
+}
+
+// Makes $set from the selection, or adds the selection to it.
+proc performPolyAutoUnwrap_addToSet(string $set)
+{
+    string $selection[] = `ls -selection`;
+    if (`objExists $set`)
+        sets -add $set $selection;
+    else
+        sets -name $set $selection;
+}
+
+proc performPolyAutoUnwrap_deleteSet(string $set)
+{
+    if (`objExists $set`)
+        delete $set;
+}
+
+// The editable node, from the optionVar. Empty when there is none.
+proc string performPolyAutoUnwrap_node()
+{
+    if (!`optionVar -exists polyAutoUnwrapNode`)
+        return "";
+    return `optionVar -query polyAutoUnwrapNode`;
+}
+
+// Whether Aztek has the polyAutoUnwrap command; the node steps are passed over when it doesn't.
+proc int performPolyAutoUnwrap_hasNode()
+{
+    return `exists polyAutoUnwrap`;
+}
+
+// The colour the active polygon edges are drawn in, and setting it. Aztek has no polyEdge display colour yet, so the
+// first gives -1 and the second does nothing.
+proc int performPolyAutoUnwrap_edgeColor()
+{
+    int $index = -1;
+    if (catchQuiet($index = `displayColor -query -active polyEdge`))
+        return -1;
+    return $index;
+}
+
+proc performPolyAutoUnwrap_setEdgeColor(int $index)
+{
+    if ($index >= 0)
+        catchQuiet(`displayColor -active polyEdge $index`);
+}
+
+// Isolate select off in every model panel.
+proc performPolyAutoUnwrap_isolateOff()
+{
+    string $panels[] = `getPanel -type modelPanel`;
+    for ($panel in $panels)
+        isolateSelect -state 0 $panel;
+}
+
+// The first UV editor panel, with its image shown.
+proc performPolyAutoUnwrap_showTextureImage()
+{
+    string $panels[] = `getPanel -scriptType polyTexturePlacementPanel`;
+    if (size($panels))
+        catchQuiet(`textureWindow -edit -viewPortImage 1 $panels[0]`);
+}
+
+proc performPolyAutoUnwrap_bakeEditorImage()
+{
+    if (`exists textureWindowBakeEditorImage`)
+        eval "textureWindowBakeEditorImage";
+}
+
+// Adds a resolution attribute to $node (it may already have one) and sets it.
+proc performPolyAutoUnwrap_setResolution(string $node, int $resolution)
+{
+    catchQuiet(`addAttr -longName resolution -attributeType long $node`);
+    setAttr ($node + ".resolution") $resolution;
+}
+
+// One cell of a step window's grid: a form holding a single control.
+proc string performPolyAutoUnwrap_cell()
+{
+    return `formLayout -width 130 -height 40`;
+}
+
+// The step windows open at the left of the screen, keeping their height.
+proc performPolyAutoUnwrap_placeWindow(string $window)
+{
+    int $corner[] = `window -query -topLeftCorner $window`;
+    window -edit -topLeftCorner $corner[0] 100 $window;
+}
+
+// The option box, built afresh each time.
+proc performPolyAutoUnwrap_optionBox()
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+
+    // Made for the reference's look; none of the controls below use it.
+    if (!`uiTemplate -exists LoadButtonTemplate`) {
+        uiTemplate LoadButtonTemplate;
+        int $offset = `about -mac` ? 8 : 5;
+        rowLayout -defineTemplate LoadButtonTemplate -numberOfColumns 2 -columnAlign2 "left" "center"
+            -columnAttach2 "both" "both" -columnOffset2 $offset 0 -columnWidth2 170 186;
+    }
+
+    string $layout = getOptionBox();
+    setParent $layout;
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+
+    scrollLayout -childResizable true;
+    string $parent = `formLayout polyAutoUnwrapOptions`;
+
+    string $mapping = `frameLayout -label "Mapping"`;
+    columnLayout;
+        radioButtonGrp -numberOfRadioButtons 2 -label "UV shell creation method:"
+            -labelArray2 "Basic unfold" "Advanced unfold" -select 1
+            -onCommand1 "radioButtonGrp -edit -enable false polyAutoUnwrapi"
+            -onCommand2 "radioButtonGrp -edit -enable true polyAutoUnwrapi"
+            polyAutoUnwrapc;
+        separator -style "none";
+        radioButtonGrp -numberOfRadioButtons 3 -label "Initial projection:"
+            -labelArray3 "Facing X" "Facing Y" "Facing Z" -select 3 -enable false polyAutoUnwrapi;
+        separator -style "none";
+        radioButtonGrp -numberOfRadioButtons 4 -label "UV shell layout:"
+            -labelArray4 "Uniform" "Stretch" "Proportional" "None" -select 1 polyAutoUnwrapl;
+        separator -style "none";
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Use test pattern shader" -value1 0 polyAutoUnwraput;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Isolate selection in 3D views" -value1 0
+            polyAutoUnwrapis;
+    setParent $parent;
+
+    string $uvSet = `frameLayout -label "UV Set"`;
+    columnLayout;
+        checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Create new UV set" -value1 0
+            -changeCommand1 "textFieldGrp -edit -enable #1 polyAutoUnwrapuvSetName" polyAutoUnwrapcm;
+        textFieldGrp -label "UV set name:" -text "uvSet1" polyAutoUnwrapuvSetName;
+    setParent $parent;
+
+    int $space = $gOptionBoxTemplateFrameSpacing;
+    formLayout -edit
+        -attachForm $mapping "top" $space -attachForm $mapping "left" $space -attachForm $mapping "right" $space
+        -attachNone $mapping "bottom"
+        -attachControl $uvSet "top" $space $mapping -attachForm $uvSet "left" $space
+        -attachForm $uvSet "right" $space -attachNone $uvSet "bottom"
+        $parent;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    button -edit -label "Enter Tool" -command ("performPolyAutoUnwrapCallback " + $parent + " 1")
+        (getOptionBoxApplyBtn());
+    button -edit -label "Enter Tool and Close"
+        -command ("performPolyAutoUnwrapCallback " + $parent + " 1; hideOptionBox")
+        (getOptionBoxApplyAndCloseBtn());
+    button -edit -command ("performPolyAutoUnwrapCallback " + $parent + " 0; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("performPolyAutoUnwrapSetup " + $parent + " 1") (getOptionBoxResetBtn());
+
+    setOptionBoxTitle("Auto Unwrap Options");
+    setOptionBoxHelpTag("AutoUnwrapMapping");
+    eval ("performPolyAutoUnwrapSetup " + $parent + " 0");
+    showOptionBox();
+}
+
+// ---- Global procedures ----
+
+// $option: 0 starts the workflow, 1 opens the option box, 2 gives the command a shelf button repeats it with.
+global proc string performPolyAutoUnwrap(int $option)
+{
+    if ($option == 0) {
+        performPolyAutoUnwrap_options(0);
+        cleanUpAfterUnwrap;
+        defineWrapMapFaces;
+    } else if ($option == 1) {
+        performPolyAutoUnwrap_optionBox();
+    } else if ($option == 2) {
+        return "performPolyAutoUnwrap 0";
+    }
+    return "";
+}
+
+// Shows the saved settings in the option box under $parent; Reset forces the defaults first.
+global proc performPolyAutoUnwrapSetup(string $parent, int $forceFactorySettings)
+{
+    performPolyAutoUnwrap_options($forceFactorySettings);
+    setParent $parent;
+
+    radioButtonGrp -edit -select (`optionVar -query polyAutoUnwrapc` + 1) polyAutoUnwrapc;
+    // The initial projection only applies to the advanced method.
+    radioButtonGrp -edit -select (`optionVar -query polyAutoUnwrapi` + 1)
+        -enable (`radioButtonGrp -query -select polyAutoUnwrapc` == 2) polyAutoUnwrapi;
+    radioButtonGrp -edit -select (`optionVar -query polyAutoUnwrapl` + 1) polyAutoUnwrapl;
+    checkBoxGrp -edit -value1 `optionVar -query polyAutoUnwraput` polyAutoUnwraput;
+    checkBoxGrp -edit -value1 `optionVar -query polyAutoUnwrapis` polyAutoUnwrapis;
+    checkBoxGrp -edit -value1 `optionVar -query polyAutoUnwrapcm` polyAutoUnwrapcm;
+    textFieldGrp -edit -text `optionVar -query polyAutoUnwrapuvSetName`
+        -enable `optionVar -query polyAutoUnwrapcm` polyAutoUnwrapuvSetName;
+}
+
+// Keeps what the option box under $parent shows (not the colours), and starts the workflow when $doIt.
+global proc performPolyAutoUnwrapCallback(string $parent, int $doIt)
+{
+    setParent $parent;
+    optionVar -intValue polyAutoUnwrapc (`radioButtonGrp -query -select polyAutoUnwrapc` - 1);
+    optionVar -intValue polyAutoUnwrapi (`radioButtonGrp -query -select polyAutoUnwrapi` - 1);
+    optionVar -intValue polyAutoUnwrapl (`radioButtonGrp -query -select polyAutoUnwrapl` - 1);
+    optionVar -intValue polyAutoUnwraput `checkBoxGrp -query -value1 polyAutoUnwraput`;
+    optionVar -intValue polyAutoUnwrapis `checkBoxGrp -query -value1 polyAutoUnwrapis`;
+    optionVar -intValue polyAutoUnwrapcm `checkBoxGrp -query -value1 polyAutoUnwrapcm`;
+    optionVar -stringValue polyAutoUnwrapuvSetName `textFieldGrp -query -text polyAutoUnwrapuvSetName`;
+    if ($doIt) {
+        performPolyAutoUnwrap 0;
+        addToRecentCommandQueue "performPolyAutoUnwrap 0" "PolyAutoUnwrap";
+    }
+}
+
+// Step 1: the faces to map, from one mesh or some of its faces (not both), then on to the border edges.
+global proc defineWrapMapFaces()
+{
+    string $selection[] = `ls -selection`;
+    string $meshes[] = `filterExpand -selectionMask 12`;
+    string $faces[] = `filterExpand -selectionMask 34`;
+
+    performPolyAutoUnwrap_deleteSet("wrapMapOrigSelection");
+    sets -name wrapMapOrigSelection $selection;
+
+    if (size($meshes) && size($faces)) {
+        select -replace $selection;
+        error ("Select either a mesh or some of its faces, not both. "
+            + "Select one mesh, or faces of one mesh, and try again.");
+    }
+
+    select -replace $meshes $faces;
+    performPolyAutoUnwrap_convert(1);
+    string $parents[] = `listRelatives -parent`;
+    // Aztek's listRelatives gives no parent for components; the objects they belong to stand in for them.
+    if (size($parents) == 0)
+        $parents = `ls -selection -objectsOnly`;
+    if (size($parents) > 1) {
+        select -replace $selection;
+        error "Select faces of one object only.";
+    }
+
+    if (size($meshes) == 0 && size($faces) == 0) {
+        select -replace $selection;
+        createSelectMeshOrFacesWindow;
+    }
+
+    string $mapFaces[] = `ls -selection -flatten`;
+    performPolyAutoUnwrap_addToSet("wrapMapFaces");
+    performPolyAutoUnwrap_selectTool();
+
+    if (`optionVar -query polyAutoUnwrapis`) {
+        string $panels[] = `getPanel -type modelPanel`;
+        for ($panel in $panels) {
+            isolateSelect -state 1 $panel;
+            select -replace $mapFaces;
+            isolateSelect -addSelected $panel;
+        }
+    }
+    if (`optionVar -query polyAutoUnwraput`) {
+        select -replace $mapFaces;
+        assignBaseShader;
+    }
+
+    createSelectBorderEdgesWindow;
+    checkEdgeColorSetting;
+}
+
+// There is no window: this cleans up and stops whatever called it with an error.
+global proc createSelectMeshOrFacesWindow()
+{
+    cleanUpAfterUnwrap;
+    error "Select a mesh or some of its faces to unwrap.";
+}
+
+// Finds or makes the node the unwrap is edited on and brings its border edges into wrapMapBorderEdges.
+global proc getBorderEdgesInfoFromAutoUnwrapNode()
+{
+    if (!performPolyAutoUnwrap_hasNode())
+        return;
+    string $node = "";
+    string $found[] = `polyAutoUnwrap -query -een`;
+    if (size($found))
+        $node = $found[0];
+    if ($node == "") {
+        string $made[] = `polyAutoUnwrap -ch on`;
+        if (size($made))
+            $node = $made[0];
+    }
+    if ($node == "")
+        createSelectMeshOrFacesWindow;
+
+    polyAutoUnwrap -edit -scm -1 $node;
+    optionVar -remove polyAutoUnwrapNode;
+    optionVar -stringValue polyAutoUnwrapNode $node;
+
+    string $edges[] = `polyAutoUnwrap -query -be $node`;
+    if (size($edges)) {
+        select -clear;
+        select $edges;
+        performPolyAutoUnwrap_addToSet("wrapMapBorderEdges");
+    }
+}
+
+// Brings the node's anchors into wrapMapAnchors. The test is the reference's, the wrong way round: only an empty
+// result is acted on, so nothing gets selected and the set is made from (or added to by) an empty selection.
+global proc getAnchorsInfoFromAutoUnwrapNode()
+{
+    if (!performPolyAutoUnwrap_hasNode())
+        return;
+    string $node = performPolyAutoUnwrap_node();
+    if ($node == "")
+        createSelectMeshOrFacesWindow;
+    string $anchors = `polyAutoUnwrap -query -av $node`;
+    if ($anchors == "") {
+        select -clear;
+        performPolyAutoUnwrap_addToSet("wrapMapAnchors");
+    }
+}
+
+// Passes wrapMapBorderEdges on to the node.
+global proc updateAutoUnwrapNodeBorderEdges()
+{
+    if (!performPolyAutoUnwrap_hasNode())
+        return;
+    performPolyAutoUnwrap_selectSet("wrapMapBorderEdges");
+    string $edges = stringArrayToString(`filterExpand -selectionMask 32`, ",");
+    string $node = performPolyAutoUnwrap_node();
+    if ($node == "")
+        createSelectMeshOrFacesWindow;
+    if ($edges != "")
+        polyAutoUnwrap -edit -be $edges $node;
+}
+
+// Passes wrapMapAnchors on to the node.
+global proc updateAutoUnwrapNodeAnchorVertices()
+{
+    if (!performPolyAutoUnwrap_hasNode())
+        return;
+    performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+    string $vertices = stringArrayToString(`filterExpand -selectionMask 31`, ",");
+    string $node = performPolyAutoUnwrap_node();
+    if ($node == "")
+        createSelectMeshOrFacesWindow;
+    if ($vertices != "")
+        polyAutoUnwrap -edit -av $vertices $node;
+}
+
+// Passes the method and initial projection on to the node.
+global proc updateAutoUnwrapMethodAndInitProjection()
+{
+    if (!performPolyAutoUnwrap_hasNode())
+        return;
+    int $method = `optionVar -query polyAutoUnwrapc`;
+    int $projection = `optionVar -query polyAutoUnwrapi`;
+    string $node = performPolyAutoUnwrap_node();
+    if ($node == "")
+        createSelectMeshOrFacesWindow;
+    polyAutoUnwrap -edit -scm $method -ip $projection $node;
+}
+
+// Step 2: the window for marking border edges.
+global proc createSelectBorderEdgesWindow()
+{
+    getBorderEdgesInfoFromAutoUnwrapNode;
+    select -clear;
+    performPolyAutoUnwrap_mask("SelectEdgeMask", "edge");
+
+    if (`window -exists autoUnwrapSBEWindow`)
+        deleteUI -window autoUnwrapSBEWindow;
+    window -title "Select Border Edges" -widthHeight 260 200 -titleBar true -titleBarMenu true -sizeable false
+        -minimizeButton false -maximizeButton false autoUnwrapSBEWindow;
+    performPolyAutoUnwrap_placeWindow("autoUnwrapSBEWindow");
+
+    rowColumnLayout -numberOfRows 5 -width 260 -rowHeight 1 50 -rowHeight 2 50 -rowHeight 3 50 -rowHeight 4 50
+        -rowHeight 5 50 -rowSpacing 1 10 -rowSpacing 2 10 -rowSpacing 3 10 -rowSpacing 4 10 -rowSpacing 5 10;
+    performPolyAutoUnwrap_cell();
+        button -label "Add Borders" -width 130 -height 40 -command "defineWrapMapEdges" AutoUnwrapAddBordersButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Remove Borders" -width 130 -height 40 -command "removeWrapMapEdges"
+            AutoUnwrapRemoveBordersButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Continue" -width 130 -height 40
+            -command ("deleteUI -window autoUnwrapSBEWindow; defineWrapMapEdges; "
+                + "if (`optionVar -query polyAutoUnwrapc` == 1) { createAddAnchorsWindow; "
+                + "if (`objExists wrapMapAnchors`) defineWrapMapAnchors; } "
+                + "else { autoUnwrapMapImp; createCheckUVResultWindow; cleanUpAfterUnwrap; "
+                + "if (`exists textureWindowBakeEditorImage`) textureWindowBakeEditorImage; }")
+            AutoUnwrapBorderContinueButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        text -label " " -width 130 -height 40;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Cancel" -width 130 -height 40
+            -command "cleanUpAfterUnwrap; warning \"Auto unwrap cancelled.\";" AutoUnwrapBorderCancelButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        // The colour is kept but the swatch always starts red, as in the reference.
+        optionVar -init 0 -category "UV Editor.Auto Unwrap" -fv3 polyAutoUnwrapborderColor 1.0 0.0 0.0;
+        colorSliderGrp -label "Border color" -annotation "The colour the border edges are drawn in"
+            -width 160 -height 40 -columnWidth3 80 80 0 -rgb 1 0 0 -changeCommand "borderColorCallback"
+            AutoUnwrapBorderColorButton;
+    setParent ..;
+
+    showWindow autoUnwrapSBEWindow;
+    headsUpMessage -time 4 "Select the edges to cut the UVs along, then click Add Borders.";
+}
+
+// Step 3 (advanced method only): the window for marking anchor vertices.
+global proc createAddAnchorsWindow()
+{
+    getAnchorsInfoFromAutoUnwrapNode;
+    select -clear;
+    performPolyAutoUnwrap_mask("SelectVertexMask", "vertex");
+
+    if (`window -exists autoUnwrapAAWindow`)
+        deleteUI -window autoUnwrapAAWindow;
+    window -title "Add Anchors" -widthHeight 260 250 -titleBar true -titleBarMenu true -sizeable false
+        -minimizeButton false -maximizeButton false autoUnwrapAAWindow;
+    performPolyAutoUnwrap_placeWindow("autoUnwrapAAWindow");
+
+    rowColumnLayout -numberOfRows 5 -width 260 -rowHeight 1 50 -rowHeight 2 50 -rowHeight 3 50 -rowHeight 4 50
+        -rowHeight 5 50 -rowSpacing 1 10 -rowSpacing 2 10 -rowSpacing 3 10 -rowSpacing 4 10 -rowSpacing 5 10;
+    performPolyAutoUnwrap_cell();
+        button -label "Add Anchors" -width 130 -height 40 -command "defineWrapMapAnchors" AutoUnwrapAddAnchorsButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Remove Anchors" -width 130 -height 40 -command "removeWrapMapAnchors"
+            AutoUnwrapRemoveAnchorsButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Continue" -width 130 -height 40
+            -command ("deleteUI -window autoUnwrapAAWindow; defineWrapMapAnchors; autoUnwrapMapImp; "
+                + "createCheckUVResultWindow; if (`exists textureWindowBakeEditorImage`) textureWindowBakeEditorImage;")
+            AutoUnwrapAnchorContinueButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Go Back" -width 130 -height 40
+            -command ("deleteUI -window autoUnwrapAAWindow; if (`objExists wrapMapAnchors`) delete wrapMapAnchors; "
+                + "goBack;")
+            AutoUnwrapGoBackButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        button -label "Cancel" -width 130 -height 40
+            -command "cleanUpAfterUnwrap; warning \"Auto unwrap cancelled.\";" AutoUnwrapAnchorCancelButton;
+    setParent ..;
+    performPolyAutoUnwrap_cell();
+        // Its colour isn't kept anywhere.
+        colorSliderGrp -label "Anchor color" -annotation "The colour the anchor vertices are drawn in"
+            -width 160 -height 40 -columnWidth3 80 80 0 -rgb 1 1 0 -changeCommand "" AutoUnwrapAnchorColorButton;
+    setParent ..;
+
+    showWindow autoUnwrapAAWindow;
+    headsUpMessage -time 4 "Select vertices to pin in place, then click Add Anchors.";
+}
+
+// The last step shows no window: the original selection comes back and a message says to check the UVs.
+global proc createCheckUVResultWindow()
+{
+    if (`objExists wrapMapOrigSelection`)
+        performPolyAutoUnwrap_selectSet("wrapMapOrigSelection");
+    headsUpMessage -time 4 "Check the result in the UV Editor.";
+}
+
+global proc borderColorCallback()
+{
+    float $rgb[] = `colorSliderGrp -query -rgb AutoUnwrapBorderColorButton`;
+    optionVar -fv3 polyAutoUnwrapborderColor $rgb[0] $rgb[1] $rgb[2];
+}
+
+// Adds the selected edges to the border edges. Edges hidden by isolate select are left out.
+global proc defineWrapMapEdges()
+{
+    string $edges[] = `filterExpand -selectionMask 32`;
+    if (!`objExists wrapMapFaces`)
+        createSelectMeshOrFacesWindow;
+    if (size($edges) == 0) {
+        warning "Select some edges to add as borders.";
+        if (`objExists wrapMapBorderEdges`)
+            performPolyAutoUnwrap_selectSet("wrapMapBorderEdges");
+        return;
+    }
+
+    string $hidden[];
+    if (`optionVar -query polyAutoUnwrapis`) {
+        select -replace `ls "*ViewSelectedSet"`;
+        InvertSelection;
+        performPolyAutoUnwrap_convert(20);
+        $hidden = `ls -selection`;
+    }
+
+    select -replace $edges;
+    if (size($hidden))
+        select -deselect $hidden;
+    performPolyAutoUnwrap_addToSet("wrapMapBorderEdges");
+    updateAutoUnwrapNodeBorderEdges;
+
+    select -replace $edges;
+    if (size($hidden))
+        select -deselect $hidden;
+    performPolyAutoUnwrap_selectTool();
+}
+
+// Takes the selected edges out of the border edges.
+global proc removeWrapMapEdges()
+{
+    string $edges[] = `filterExpand -selectionMask 32`;
+    if (!`objExists wrapMapFaces`)
+        createSelectMeshOrFacesWindow;
+    if (size($edges) == 0) {
+        warning "Select some border edges to remove.";
+        return;
+    }
+    select -replace $edges;
+    if (!`objExists wrapMapBorderEdges`)
+        warning "There are no border edges to remove yet.";
+    else
+        sets -remove wrapMapBorderEdges $edges;
+    updateAutoUnwrapNodeBorderEdges;
+    select -replace $edges;
+    performPolyAutoUnwrap_selectTool();
+}
+
+// Adds the selected vertices (or the vertices of what is selected) to the anchors.
+global proc defineWrapMapAnchors()
+{
+    performPolyAutoUnwrap_convert(3);
+    string $vertices[] = `filterExpand -selectionMask 31`;
+    if (!`objExists wrapMapFaces`)
+        createSelectMeshOrFacesWindow;
+    if (size($vertices) == 0) {
+        warning "Select some vertices to add as anchors.";
+        if (`objExists wrapMapAnchors`)
+            performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+    } else {
+        select -replace $vertices;
+        performPolyAutoUnwrap_addToSet("wrapMapAnchors");
+        updateAutoUnwrapNodeAnchorVertices;
+        performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+    }
+    performPolyAutoUnwrap_selectTool();
+}
+
+// Takes the selected vertices out of the anchors.
+global proc removeWrapMapAnchors()
+{
+    if (!`objExists wrapMapFaces`)
+        createSelectMeshOrFacesWindow;
+    performPolyAutoUnwrap_convert(3);
+    string $vertices[] = `filterExpand -selectionMask 31`;
+    if (size($vertices) == 0) {
+        warning "Select some anchor vertices to remove.";
+    } else {
+        select -replace $vertices;
+        if (!`objExists wrapMapAnchors`)
+            warning "There are no anchors to remove yet.";
+        else
+            sets -remove wrapMapAnchors $vertices;
+        updateAutoUnwrapNodeAnchorVertices;
+        if (`objExists wrapMapAnchors`)
+            performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+    }
+    performPolyAutoUnwrap_selectTool();
+}
+
+// Ends the workflow: views, sets, edge colour and windows back as they were, the original selection restored.
+global proc cleanUpAfterUnwrap()
+{
+    if (`optionVar -query polyAutoUnwrapis`)
+        performPolyAutoUnwrap_isolateOff();
+
+    performPolyAutoUnwrap_deleteSet("wrapMapFaces");
+    performPolyAutoUnwrap_deleteSet("wrapMapBorderEdges");
+    performPolyAutoUnwrap_deleteSet("wrapMapAnchors");
+    if (`objExists wrapMapOrigSelection`) {
+        performPolyAutoUnwrap_selectSet("wrapMapOrigSelection");
+        delete wrapMapOrigSelection;
+    }
+
+    if (`optionVar -exists autoWrapUserEdgeColor`) {
+        performPolyAutoUnwrap_setEdgeColor(`optionVar -query autoWrapUserEdgeColor`);
+        optionVar -remove autoWrapUserEdgeColor;
+    }
+    killEdgeColorScriptJob;
+
+    string $windows[] = {"autoUnwrapSBEWindow", "autoUnwrapAAWindow", "autoUnwrapCUVRWindow"};
+    for ($window in $windows) {
+        if (`window -exists $window`)
+            deleteUI -window $window;
+    }
+}
+
+// Back to the last step that has something in it.
+global proc goBack()
+{
+    if (`objExists wrapMapAnchors`) {
+        createAddAnchorsWindow;
+        if (`objExists wrapMapFaces`) {
+            performPolyAutoUnwrap_selectSet("wrapMapFaces");
+            if (`optionVar -query polyAutoUnwraput`)
+                assignBaseShader;
+        }
+        performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+    } else if (`objExists wrapMapBorderEdges`) {
+        createSelectBorderEdgesWindow;
+        if (`objExists wrapMapFaces`) {
+            performPolyAutoUnwrap_selectSet("wrapMapFaces");
+            if (`optionVar -query polyAutoUnwraput`)
+                assignBaseShader;
+        }
+        performPolyAutoUnwrap_selectSet("wrapMapBorderEdges");
+    } else if (`objExists wrapMapFaces`) {
+        performPolyAutoUnwrap_selectSet("wrapMapFaces");
+        createSelectMeshOrFacesWindow;
+    } else {
+        createSelectMeshOrFacesWindow;
+    }
+}
+
+global proc setTextureResolution(int $resolution)
+{
+    string $selection[] = `ls -selection`;
+    for ($node in $selection)
+        performPolyAutoUnwrap_setResolution($node, $resolution);
+}
+
+// A checker shader on the selection, to judge the UVs by. The node names keep the reference's spelling.
+global proc assignCheckerShader()
+{
+    string $selection[] = `ls -selection`;
+    if (size($selection) == 0) {
+        warning "Select something to put the checker shader on.";
+        return;
+    }
+    performPolyAutoUnwrap_showTextureImage();
+
+    if (`objExists unwrapChekcerShader`) {
+        // With no layout the texture's resolution is switched off or back on; otherwise it is left alone.
+        if (`optionVar -query polyAutoUnwrapl` == 3 && `objExists unwrapTestPattern`) {
+            if (`attributeQuery -exists -node unwrapTestPattern resolution`)
+                deleteAttr unwrapTestPattern.resolution;
+            else
+                performPolyAutoUnwrap_setResolution("unwrapTestPattern", 512);
+        }
+    } else {
+        shadingNode -asShader lambert -name unwrapChekcerShader;
+        shadingNode -asTexture checker -name unwrapTestPattern;
+        setAttr unwrapTestPattern.color1 -type double3 0.3 0.3 0.3;
+        setAttr unwrapTestPattern.color2 -type double3 0.7 0.7 0.7;
+        if (`optionVar -query polyAutoUnwrapl` != 3)
+            performPolyAutoUnwrap_setResolution("unwrapTestPattern", 512);
+        string $place = `shadingNode -asUtility place2dTexture`;
+        connectAttr -force ($place + ".outUV") unwrapTestPattern.uvCoord;
+        // Aztek's checker has no filter size input yet; the link is made where there is one.
+        if (`attributeQuery -exists -node unwrapTestPattern uvFilterSize`)
+            connectAttr -force ($place + ".outUvFilterSize") unwrapTestPattern.uvFilterSize;
+        setAttr ($place + ".repeatU") 13.5;
+        setAttr ($place + ".repeatV") 13.5;
+        connectAttr -force unwrapTestPattern.outColor unwrapChekcerShader.color;
+    }
+
+    select -replace $selection;
+    hyperShade -assign unwrapChekcerShader;
+}
+
+// A plain green shader on the selection, so the faces being unwrapped stand out.
+global proc assignBaseShader()
+{
+    string $selection[] = `ls -selection`;
+    if (size($selection) == 0) {
+        warning "Select something to put the shader on.";
+        return;
+    }
+    performPolyAutoUnwrap_showTextureImage();
+    if (!`objExists unwrapBaseShader`) {
+        shadingNode -asShader lambert -name unwrapBaseShader;
+        setAttr unwrapBaseShader.color -type double3 0 0.6 0.4;
+        setAttr unwrapBaseShader.diffuse 1;
+    }
+    select -replace $selection;
+    hyperShade -assign unwrapBaseShader;
+}
+
+// Draws active polygon edges red while the workflow runs, remembering the user's colour; opening a scene puts it
+// back. Aztek has no polyEdge display colour yet, so only the warning shows there.
+global proc checkEdgeColorSetting()
+{
+    global int $edgeColorScriptJobID;
+
+    warning "Active edges are drawn red while unwrapping; your colour comes back afterwards.";
+    if (!`optionVar -exists autoWrapUserEdgeColor`) {
+        int $current = performPolyAutoUnwrap_edgeColor();
+        if ($current >= 0)
+            optionVar -transient -intValue autoWrapUserEdgeColor $current;
+    }
+    performPolyAutoUnwrap_setEdgeColor(13);
+    $edgeColorScriptJobID = `scriptJob -runOnce true -event "SceneOpened"
+        ("if (`optionVar -exists autoWrapUserEdgeColor`) { catchQuiet(`displayColor -active polyEdge "
+            + "(`optionVar -query autoWrapUserEdgeColor`)`); optionVar -remove autoWrapUserEdgeColor; }")`;
+}
+
+global proc killEdgeColorScriptJob()
+{
+    global int $edgeColorScriptJobID;
+    if ($edgeColorScriptJobID != -1)
+        catchQuiet(`scriptJob -kill $edgeColorScriptJobID`);
+    $edgeColorScriptJobID = -1;
+}
+
+// The last step: unfolds the faces, cut along the border edges and pinned at the anchors, and lays them out.
+global proc autoUnwrapMapImp()
+{
+    int $method = `optionVar -query polyAutoUnwrapc`;
+    int $layout = `optionVar -query polyAutoUnwrapl`;
+
+    if (`objExists wrapMapFaces`) {
+        performPolyAutoUnwrap_selectSet("wrapMapFaces");
+    } else {
+        cleanUpAfterUnwrap;
+        createSelectMeshOrFacesWindow;
+    }
+    string $faces[] = `ls -selection -flatten`;
+    if (size($faces) == 0)
+        createSelectMeshOrFacesWindow;
+
+    // The warning can show twice, as in the reference: once for no set and once for an empty selection.
+    if (`objExists wrapMapBorderEdges`) {
+        performPolyAutoUnwrap_selectSet("wrapMapBorderEdges");
+    } else {
+        select -clear;
+        warning "No border edges were picked: the faces are unfolded as they are.";
+    }
+    string $borders[] = `ls -selection -flatten`;
+    if (size($borders) == 0)
+        warning "No border edges were picked: the faces are unfolded as they are.";
+
+    select -replace $faces;
+    updateAutoUnwrapMethodAndInitProjection;
+
+    string $anchorUVs[];
+    if (`objExists wrapMapAnchors`) {
+        performPolyAutoUnwrap_selectSet("wrapMapAnchors");
+        performPolyAutoUnwrap_selectTool();
+        performPolyAutoUnwrap_convert(4);
+        $anchorUVs = `ls -selection -flatten`;
+    } else {
+        warning "No anchors were picked.";
+        select -clear;
+    }
+
+    select -replace $faces;
+    performPolyAutoUnwrap_selectTool();
+    performPolyAutoUnwrap_convert(4);
+    if ($method == 0 || $method == 1) {
+        if ($method == 1 && size($anchorUVs))
+            select -deselect $anchorUVs;
+        // Aztek's u3dUnfold has no -mapsize or -roomspace; it is run without them.
+        u3dUnfold -iterations 1 -pack 1 -borderintersection 1 -triangleflip 1;
+    }
+
+    // The basic method lets shells rotate to fit; the advanced one keeps them as unfolded.
+    select -replace $faces;
+    if ($method == 0 || $method == 1) {
+        int $rotate = ($method == 0) ? 2 : 0;
+        if ($layout == 0)
+            polyLayoutUV -lm 1 -sc 1 -se 0 -rbf $rotate -fr 1 -ps 0.2 -l 2 -ch 1;
+        else if ($layout == 1)
+            polyLayoutUV -lm 1 -sc 2 -se 0 -rbf $rotate -fr 1 -ps 0.2 -l 2 -ch 1;
+        else if ($layout == 2)
+            // Aztek's polyMultiLayoutUV only takes the spacing; the rest of the reference's flags are left out.
+            polyMultiLayoutUV -ps 0.2;
+        else
+            polyLayoutUV -lm 1 -sc 0 -se 0 -rbf 0 -fr 1 -ps 0.2 -l 2 -ch 1;
+    }
+
+    if (`optionVar -query polyAutoUnwraput`)
+        assignCheckerShader;
+    performPolyAutoUnwrap_bakeEditorImage();
+    select -clear;
+}

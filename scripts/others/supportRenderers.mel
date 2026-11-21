@@ -1,48 +1,12 @@
 // supportRenderers: keeps track of the current renderer (defaultRenderGlobals.currentRenderer), checks it is one that
 // is registered, keeps it valid as scenes open, and lets renderer UI register procedures to run when it changes.
 //
-// The reference keeps a registry of renderers behind the `renderer` command. Aztek has no such command yet; until it
-// does, the renderer it has is Harold, stored under the name "arnold" (it answers to "harold" too), and the procedures
-// here fall back to that.
+// Renderers are registered with the `renderer` command; Aztek registers Harold under the name "arnold", so scenes and
+// scripts written for the reference find it.
 
 global string $gUpdateUIProcs[];
 global string $gVerifyRenderFirstTimeCalled = "Yes";
 global string $gDeviceDirectX11 = "VirtualDeviceDx11";
-
-proc int srHasRegistry()
-{
-    return `exists renderer`;
-}
-
-proc int srRendererExists(string $name)
-{
-    if (srHasRegistry())
-        return eval("renderer -exists \"" + encodeString($name) + "\"");
-    return $name == "arnold" || $name == "harold";
-}
-
-proc string[] srAvailable()
-{
-    if (srHasRegistry())
-        return eval("renderer -query -namesOfAvailableRenderers");
-    return {"arnold"};
-}
-
-proc string srUIName(string $name)
-{
-    if (srHasRegistry())
-        return eval("renderer -query -rendererUIName \"" + encodeString($name) + "\"");
-    return ($name == "arnold" || $name == "harold") ? "Harold" : $name;
-}
-
-// The renderer the preferences ask for, from Aztek's preferredRenderer command once it has one, else the first it has.
-proc string srPreferred()
-{
-    if (`exists preferredRenderer`)
-        return eval("preferredRenderer -query");
-    string $available[] = srAvailable();
-    return size($available) ? $available[0] : "";
-}
 
 global proc string currentRenderer()
 {
@@ -63,9 +27,9 @@ global proc verifyCurrentRenderer()
     global string $gDeviceDirectX11;
 
     string $current = currentRenderer();
-    string $preferred = srPreferred();
+    string $preferred = `preferredRenderer -query`;
 
-    if (!srRendererExists($current)) {
+    if (!`renderer -exists $current`) {
         if (`getenv "MAYA_NO_WARNING_FOR_MISSING_DEFAULT_RENDERER"` != "1") {
             if ($current == "arnold")
                 warning -noContext "The scene's renderer, arnold, isn't available, so the preferred renderer is used.";
@@ -125,7 +89,7 @@ global proc updateRendererUI()
 
 global proc int assertIsValidRenderer(string $renderer)
 {
-    if (!srRendererExists($renderer))
+    if (!`renderer -exists $renderer`)
         error -showLineNumber true (`format -stringArg $renderer "^1s isn't a renderer Aztek knows."`);
     return 1;
 }
@@ -149,8 +113,9 @@ global proc updateCurrentRendererSel(string $menu)
     string $label = `optionMenu -query -value $menu`;
     string $uiName = "";
     string $match = "";
-    for ($r in srAvailable()) {
-        $uiName = srUIName($r);
+    string $available[] = `renderer -query -namesOfAvailableRenderers`;
+    for ($r in $available) {
+        $uiName = `renderer -query -rendererUIName $r`;
         if ($uiName == $label) {
             $match = $r;
             break;

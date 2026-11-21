@@ -1,0 +1,254 @@
+// namespaceTreeView: a tree control showing the scene's namespaces, with the current one marked, as the reference's
+// namespace pickers use it. A read-only tree only shows; a read-write one lets the user pick several and rename.
+
+// Every tree made here, and its mode (0 read-only, 1 read-write), kept side by side.
+global string $gRegisteredTreeViewNames[];
+global int $gRegisteredTreeViewModes[];
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+proc ntvRegister(string $control, int $mode)
+{
+    global string $gRegisteredTreeViewNames[];
+    global int $gRegisteredTreeViewModes[];
+    for ($i = 0; $i < size($gRegisteredTreeViewNames); $i++) {
+        if ($gRegisteredTreeViewNames[$i] == $control) {
+            $gRegisteredTreeViewModes[$i] = $mode;
+            return;
+        }
+    }
+    int $n = size($gRegisteredTreeViewNames);
+    $gRegisteredTreeViewNames[$n] = $control;
+    $gRegisteredTreeViewModes[$n] = $mode;
+}
+
+// The registered mode, or -1 for a control not made here.
+proc int ntvMode(string $control)
+{
+    global string $gRegisteredTreeViewNames[];
+    global int $gRegisteredTreeViewModes[];
+    for ($i = 0; $i < size($gRegisteredTreeViewNames); $i++)
+        if ($gRegisteredTreeViewNames[$i] == $control)
+            return $gRegisteredTreeViewModes[$i];
+    return -1;
+}
+
+proc int ntvTreeExists(string $control)
+{
+    if (!`exists treeView`)
+        return 0;
+    int $there = `treeView -exists $control`;
+    return $there;
+}
+
+// A namespace tree is one made here that still exists. With $withError a bad one stops the caller.
+proc int ntvValid(string $control, int $withError)
+{
+    int $ok = ntvMode($control) >= 0 && ntvTreeExists($control);
+    if (!$ok && $withError)
+        error ("\"" + $control + "\" isn't a namespace tree view.");
+    return $ok;
+}
+
+// The scene's namespaces as absolute names. Aztek's namespaceInfo gives them relative to the root, so the leading
+// colon is added here.
+proc string[] ntvAllNamespaces()
+{
+    string $names[] = `namespaceInfo -recurse -listOnlyNamespaces ":"`;
+    string $result[];
+    for ($n in $names) {
+        if ($n == "" || $n == ":")
+            continue;
+        $result[size($result)] = (`gmatch $n ":*"` ? $n : (":" + $n));
+    }
+    return $result;
+}
+
+// The parent of the current namespace, absolute.
+proc string ntvParentOfCurrent()
+{
+    string $parent = `namespaceInfo -parent`;
+    if ($parent == "")
+        return ":";
+    return (`gmatch $parent ":*"` ? $parent : (":" + $parent));
+}
+
+// The plain look of a namespace item: no button, and the tree's own selection colour.
+proc ntvPlainItem(string $control, string $item)
+{
+    treeView -edit
+        -enableButton $item 1 0
+        -buttonVisible $item 1 0
+        -ignoreButtonClick $item 1 1
+        -buttonErase $item 1 0
+        -selectionColor $item 0.255 0.302 0.353
+        $control;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+// Makes a namespace tree under the current parent. $mode 0 is read-only, 1 read-write (and then several can be
+// picked). Returns the new control's name.
+global proc string namespaceTreeView(int $mode, string $doubleClickCallback, string $selectionChangedCallback)
+{
+    string $control = `treeView
+        -numberOfButtons 1
+        -attachButtonRight true
+        -flatButton true
+        -allowDragAndDrop false
+        -allowMultiSelection $mode`;
+    ntvRegister($control, $mode);
+
+    // A read-only tree swallows double clicks, so its labels can't be edited that way.
+    if ($mode == 0)
+        treeView -edit -itemDblClickCommand "namespaceTreeView_ReadOnlyDoubleClick" $control;
+    else if ($doubleClickCallback != "")
+        treeView -edit -itemDblClickCommand $doubleClickCallback $control;
+
+    if ($selectionChangedCallback != "")
+        treeView -edit -selectionChangedCommand $selectionChangedCallback $control;
+    return $control;
+}
+
+// Fills the tree from the scene, then marks the current namespace and the namespaces above it.
+global proc namespaceTreeView_update(string $control, string $updateCallback)
+{
+    ntvValid($control, 1);
+
+    string $namespaces[] = ntvAllNamespaces();
+    if (size($namespaces)) {
+        treeView -edit -removeAll $control;
+        treeView -edit -addItem ":" "" $control;
+        ntvPlainItem($control, ":");
+        treeView -edit -displayLabel ":" ":(root)" $control;
+
+        for ($ns in $namespaces) {
+            if (isInternalNamespace($ns))
+                continue;
+            string $parts[];
+            tokenize $ns ":" $parts;
+            string $parent = ":";
+            string $item = "";
+            for ($p in $parts) {
+                $item = ($parent == ":") ? (":" + $p) : ($parent + ":" + $p);
+                if (!`treeView -query -itemExists $item $control`) {
+                    treeView -edit -addItem $item $parent $control;
+                    ntvPlainItem($control, $item);
+                    treeView -edit -displayLabel $item $p $control;
+                }
+                $parent = $item;
+            }
+        }
+    }
+
+    string $current = `namespaceInfo -currentNamespace -absoluteName`;
+    if (`treeView -query -itemExists $current $control`) {
+        treeView -edit
+            -buttonVisible $current 1 1
+            -enableButton $current 1 1
+            -buttonTransparencyColor $current 1 0.18 0.18 0.18
+            -ignoreButtonClick $current 1 1
+            -buttonErase $current 1 0
+            -image $current 1 "currentNamespace.png"
+            -buttonTooltip $current 1 "The current namespace"
+            $control;
+        // The namespaces above it get a lighter mark; their buttons stay as they were enabled.
+        string $up = `treeView -query -itemParent $current $control`;
+        while ($up != "" && $up != ":") {
+            treeView -edit
+                -buttonVisible $up 1 1
+                -buttonTooltip $up 1 "The current namespace is below this one"
+                -buttonTransparencyColor $up 1 0.18 0.18 0.18
+                -image $up 1 "currentNamespaceParent.png"
+                -ignoreButtonClick $up 1 1
+                -buttonErase $up 1 0
+                $control;
+            $up = `treeView -query -itemParent $up $control`;
+        }
+    }
+
+    if ($updateCallback != "")
+        eval ($updateCallback + " " + $control);
+}
+
+// The tree's rename command. It renames the namespace itself and always returns "", so the tree doesn't relabel the
+// item on its own; the caller's $renameCallback refreshes it.
+global proc string namespaceTreeView_rename(string $oldName, string $newName, string $treeViewName, string $renameCallback)
+{
+    if (!ntvValid($treeViewName, 0) || $oldName == $newName)
+        return "";
+    if (ntvMode($treeViewName) == 0)
+        error "Namespaces can't be renamed in a read-only tree.";
+
+    string $selected[] = `treeView -query -selectItem $treeViewName`;
+    string $message = "";
+    if (`containsMultibyte $newName`) {
+        $message = "A namespace name can't contain multibyte characters.";
+    } else if (!isValidString($newName, "([a-zA-Z]+)([a-zA-Z0-9_]*)")) {
+        $message = "A namespace name must start with a letter and hold only letters, digits and underscores.";
+    } else if (size($selected) && $selected[0] == ":") {
+        $message = "The root namespace can't be renamed.";
+    } else if (size($selected) > 1) {
+        $message = "Only one namespace can be renamed at a time.";
+    } else {
+        if (size($selected) && $selected[0] != "") {
+            string $item = $selected[0];
+            string $current = `namespaceInfo -currentNamespace -absoluteName`;
+            namespace -set $item;
+            string $parent = ntvParentOfCurrent();
+
+            // When the current namespace is the renamed one or lies below it, it follows the new name.
+            int $inside = size($item) <= size($current) && startsWith($current, $item);
+            string $rest = "";
+            if ($inside && size($item) < size($current))
+                $rest = substring($current, size($item) + 1, size($current));
+
+            namespace -set $parent;
+            if (catch(`namespace -rename $oldName $newName`))
+                $message = "The namespace couldn't be renamed.";
+
+            if ($inside)
+                namespace -set ($newName + $rest);
+            else
+                namespace -set $current;
+        }
+        if ($renameCallback != "")
+            eval $renameCallback;
+    }
+
+    if ($message != "")
+        confirmDialog -title "Rename Namespace" -message $message -button "OK"
+            -defaultButton "OK" -cancelButton "OK" -dismissString "OK";
+    return "";
+}
+
+// Selects the named namespaces in the tree; names it doesn't hold are passed over.
+global proc namespaceTreeView_select(string $control, string $namespaces[])
+{
+    ntvValid($control, 1);
+    if (ntvMode($control) >= 0 && ntvTreeExists($control)) {
+        treeView -edit -clearSelection $control;
+        for ($ns in $namespaces)
+            if (`treeView -query -itemExists $ns $control`)
+                treeView -edit -selectItem $ns 1 $control;
+    }
+}
+
+// The namespaces the scene keeps for itself, which the tree doesn't show.
+global proc int isInternalNamespace(string $namespace)
+{
+    return ($namespace == ":shared" || $namespace == ":UI");
+}
+
+// A read-only tree's double click: nothing, so the label can't be edited.
+global proc namespaceTreeView_ReadOnlyDoubleClick(string $itemName)
+{
+}
+
+global proc string[] namespaceTreeView_getSelectedItems(string $treeViewName)
+{
+    ntvValid($treeViewName, 1);
+    string $selected[] = `treeView -query -selectItem $treeViewName`;
+    return $selected;
+}

@@ -1337,7 +1337,7 @@ global proc createSearchAndReplaceWindow()
         showWindow commandSearchAndReplaceWnd;
         return;
     }
-    window -title "Search and Replace" -sizeable false -minimizeBox false -maximizeBox false -toolbox true
+    window -title "Search and Replace" -sizeable false -minimizeButton false -maximizeButton false -toolbox true
         -widthHeight 440 160 commandSearchAndReplaceWnd;
     string $form = `formLayout`;
     string $findLabel = `text -label "Find what:" -align "right" -width 80`;

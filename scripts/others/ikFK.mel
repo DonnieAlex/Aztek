@@ -1,0 +1,388 @@
+// ikFK: Set IK/FK Key. Keys IK handles and their joint chains together (joint rotations, the root's translate,
+// preferred angles, the handle's own attributes, the targets and weights of constraints driving it, and its ikBlend),
+// wires the stipple display between the ikBlend curve and the other curves, and can also fix the previous ikBlend
+// key. Attributes that must get stepped tangents are added to gSetIKFKStepTangentList, which
+// doSetKeyframeArgList reads; this file only appends to it. No undo chunk is opened.
+
+global string $gSetIKFKStepTangentList[];
+
+proc int ikfkIsAnimCurve(string $node)
+{
+    string $types[] = `nodeType -inherited $node`;
+    return stringArrayContains("animCurve", $types);
+}
+
+// The node's animatable plugs, as node.attribute.
+proc string[] ikfkAnimatable(string $node)
+{
+    string $plugs[] = `listAnimatable $node`;
+    return $plugs;
+}
+
+// A plug and, for a compound, its children: what keying it actually touches.
+proc string[] ikfkExpand(string $plug)
+{
+    string $parts[];
+    tokenize $plug "." $parts;
+    string $result[];
+    if (size($parts) == 2) {
+        string $children[] = `attributeQuery -listChildren -node $parts[0] $parts[1]`;
+        for ($c in $children)
+            $result[size($result)] = $parts[0] + "." + $c;
+    }
+    if (!size($result))
+        $result[0] = $plug;
+    return $result;
+}
+
+// Keeps a character's value in step with what was just keyed on the plug it drives.
+proc ikfkCharacterSync(string $plug)
+{
+    string $expanded[] = ikfkExpand($plug);
+    for ($p in $expanded) {
+        if (!`objExists $p`)
+            continue;
+        string $sources[] = `listConnections -source true -destination false -plugs true $p`;
+        for ($s in $sources) {
+            string $parts[];
+            tokenize $s "." $parts;
+            if (`nodeType $parts[0]` == "character")
+                setAttr $s `getAttr $p`;
+        }
+    }
+}
+
+proc ikfkKeyTarget(string $plug, string $keyed[])
+{
+    setKeyframe $plug;
+    ikfkCharacterSync($plug);
+    $keyed[size($keyed)] = $plug;
+}
+
+// Keys plugs that are driven directly (or not at all), and the targets and weights of the constraints that drive the
+// others. Returns the constraint target plugs keyed.
+proc string[] ikfkConstraintKeying(string $plugs[])
+{
+    global string $gSetIKFKStepTangentList[];
+    string $pole[], $point[], $scale[], $orient[], $keyed[];
+
+    for ($plug in $plugs) {
+        string $sources[] = `listConnections -source true -destination false $plug`;
+        $sources = sort(stringArrayRemoveDuplicates($sources));
+        string $first = size($sources) ? $sources[0] : "";
+        string $type = $first != "" ? `nodeType $first` : "";
+        if ($first == "" || ikfkIsAnimCurve($first) || $type == "character") {
+            string $attr = `substitute "^[^.]*\\." $plug ""`;
+            if ($attr == "ikBlend" || $attr == "ikb") {
+                $gSetIKFKStepTangentList[size($gSetIKFKStepTangentList)] = $plug;
+                setKeyframe -outTangentType clamped $plug;
+            } else {
+                setKeyframe $plug;
+            }
+            ikfkCharacterSync($plug);
+        } else if ($type == "poleVectorConstraint") {
+            $pole[size($pole)] = $first;
+        } else if ($type == "pointConstraint") {
+            $point[size($point)] = $first;
+        } else if ($type == "scaleConstraint") {
+            $scale[size($scale)] = $first;
+        } else if ($type == "orientConstraint") {
+            $orient[size($orient)] = $first;
+        }
+    }
+
+    string $kinds[] = {"pole", "point", "orient", "scale"};
+    for ($kind in $kinds) {
+        string $nodes[];
+        if ($kind == "pole")
+            $nodes = stringArrayRemoveDuplicates($pole);
+        else if ($kind == "point")
+            $nodes = stringArrayRemoveDuplicates($point);
+        else if ($kind == "orient")
+            $nodes = stringArrayRemoveDuplicates($orient);
+        else
+            $nodes = stringArrayRemoveDuplicates($scale);
+        for ($node in $nodes) {
+            string $pairs[] = `listConnections -source true -destination false -connections true -plugs true $node`;
+            for ($i = 0; $i + 1 < size($pairs); $i += 2) {
+                string $mine = $pairs[$i];
+                string $source = $pairs[$i + 1];
+                int $key = 0;
+                if ($kind == "pole" || $kind == "point")
+                    $key = `gmatch $mine "*targetTranslate*"`;
+                else if ($kind == "orient")
+                    $key = `gmatch $mine "*targetRotate*"` && !`gmatch $mine "*targetRotateOrder*"`;
+                else
+                    $key = `gmatch $mine "*targetScale*"`;
+                if (`gmatch $mine "*targetWeight*"`)
+                    $key = 1;
+                if ($key)
+                    ikfkKeyTarget($source, $keyed);
+            }
+        }
+    }
+    return $keyed;
+}
+
+// The anim curves driving $plug, directly or through a character.
+proc string[] ikfkCurvesOn(string $plug)
+{
+    string $curves[] = `listConnections -source true -destination false -type animCurve $plug`;
+    if (size($curves))
+        return $curves;
+    string $sources[] = `listConnections -source true -destination false -plugs true $plug`;
+    for ($s in $sources) {
+        string $parts[];
+        tokenize $s "." $parts;
+        if (`nodeType $parts[0]` == "character") {
+            $curves = `listConnections -source true -destination false -type animCurve $s`;
+            if (size($curves))
+                return $curves;
+        }
+    }
+    return $curves;
+}
+
+// The anim curves on $node (directly or through its character) whose output's first destination matches one of the
+// patterns, taken as regular expressions (so a leading . matches any character).
+proc string[] ikfkCurvesFor(string $node, string $patterns[])
+{
+    string $curves[] = `listConnections -source true -destination false -type animCurve $node`;
+    string $chars[] = `listConnections -source true -destination false -type character $node`;
+    $chars = stringArrayRemoveDuplicates($chars);
+    for ($c in $chars) {
+        string $more[] = `listConnections -source true -destination false -type animCurve $c`;
+        appendStringArray($curves, $more, size($more));
+    }
+    string $result[];
+    $curves = stringArrayRemoveDuplicates($curves);
+    for ($curve in $curves) {
+        string $dest[] = `listConnections -source false -destination true -plugs true $curve`;
+        if (!size($dest))
+            continue;
+        for ($p in $patterns) {
+            if (`match $p $dest[0]` != "") {
+                $result[size($result)] = $curve;
+                break;
+            }
+        }
+    }
+    return $result;
+}
+
+// Hooks a curve's stipple input to the ikBlend curve. Aztek's anim curves don't have the stipple attributes yet
+// (.osr, .isr, .stippleReverse), so curves without them are left alone.
+proc ikfkStipple(string $out, string $curve, int $reverse)
+{
+    if (!`attributeExists isr $curve` || !`objExists $out`)
+        return;
+    string $in[] = `listConnections -source true -destination false ($curve + ".isr")`;
+    if (size($in))
+        return;
+    connectAttr $out ($curve + ".isr");
+    if (`attributeExists stippleReverse $curve`)
+        setAttr ($curve + ".stippleReverse") $reverse;
+}
+
+// Gives $node an ikBlend fed by the handle's, unless it already has one fed by something.
+proc ikfkLinkBlend(string $handle, string $node)
+{
+    if (!`attributeExists ikBlend $node`) {
+        addAttr -longName ikBlend -attributeType double $node;
+        setAttr -keyable true ($node + ".ikBlend");
+    }
+    string $in[] = `listConnections -source true -destination false ($node + ".ikBlend")`;
+    if (!size($in))
+        connectAttr ($handle + ".ikBlend") ($node + ".ikBlend");
+}
+
+proc ikfkStippleWiring(string $handle, string $joints[], string $keyed[])
+{
+    string $enable[] = ikfkCurvesOn($handle + ".ikBlend");
+    if (!size($enable)) {
+        warning ("No IK/FK keys could be found on " + $handle + ".");
+        return;
+    }
+    string $out = $enable[0] + ".osr";
+
+    string $handlePatterns[] = {".rotate", ".translate", ".scale", ".poleVector", ".offset", ".roll", ".twist"};
+    string $found[] = ikfkCurvesFor($handle, $handlePatterns);
+    for ($c in $found)
+        ikfkStipple($out, $c, 0);
+
+    string $jointPatterns[] = {".rotate", ".translate", ".scale", ".preferredAngle"};
+    for ($j in $joints) {
+        if (`attributeExists solverEnable $j`) {
+            if (`isConnected ($handle + ".ikBlend") ($j + ".solverEnable")`)
+                disconnectAttr ($handle + ".ikBlend") ($j + ".solverEnable");
+            setAttr -keyable false ($j + ".solverEnable");
+        }
+        ikfkLinkBlend($handle, $j);
+        $found = ikfkCurvesFor($j, $jointPatterns);
+        for ($c in $found)
+            ikfkStipple($out, $c, 1);
+    }
+
+    for ($plug in $keyed) {
+        string $parts[];
+        tokenize $plug "." $parts;
+        if (size($parts) < 2)
+            continue;
+        ikfkLinkBlend($handle, $parts[0]);
+        string $pattern[] = {$parts[1]};
+        $found = ikfkCurvesFor($parts[0], $pattern);
+        for ($c in $found)
+            ikfkStipple($out, $c, 0);
+    }
+
+    if (`objExists $out`)
+        dgdirty $out;
+}
+
+// Keys the previous ikBlend key with $value. The time check guards against findKeyframe wrapping round when there is
+// no earlier key.
+proc ikfkPreviousKey(string $handle, int $value)
+{
+    if (!`attributeExists ikBlend $handle`)
+        return;
+    string $curves[] = ikfkCurvesOn($handle + ".ikBlend");
+    if (!size($curves))
+        return;
+    float $now = `currentTime -query`;
+    float $previous = `findKeyframe -which previous ($handle + ".ikBlend")`;
+    if ($previous < $now)
+        setKeyframe -time $previous -value $value ($handle + ".ikBlend");
+}
+
+proc ikfkKeyHandle(string $handle, int $mode)
+{
+    global string $gSetIKFKStepTangentList[];
+
+    // Read as a whole number: a fractional blend below 1 counts as FK.
+    int $blend = `getAttr ($handle + ".ikBlend")`;
+    string $plugs[] = ikfkAnimatable($handle);
+
+    string $joints[] = `ikHandle -query -jointList $handle`;
+    if (size($joints)) {
+        setKeyframe -attribute rotate $joints;
+        for ($j in $joints)
+            ikfkCharacterSync($j + ".r");
+        setKeyframe -attribute translate $joints[0];
+        ikfkCharacterSync($joints[0] + ".t");
+        for ($j in $joints) {
+            string $pa = $j + ".preferredAngle";
+            // Referenced joints keep their keyability as it is, but are still keyed. Aztek reports a compound's
+            // keyability on its children, so the X child is asked too.
+            if (!`referenceQuery -isNodeReferenced $j` && !`getAttr -keyable $pa` && !`getAttr -keyable ($pa + "X")`)
+                setAttr -keyable true $pa;
+            setKeyframe -outTangentType step $pa;
+            ikfkCharacterSync($pa);
+            $gSetIKFKStepTangentList[size($gSetIKFKStepTangentList)] = $j + ".preferredAngleX";
+            $gSetIKFKStepTangentList[size($gSetIKFKStepTangentList)] = $j + ".preferredAngleY";
+            $gSetIKFKStepTangentList[size($gSetIKFKStepTangentList)] = $j + ".preferredAngleZ";
+        }
+    }
+
+    setAttr ($handle + ".ikBlend") $blend;
+
+    string $pv[], $trs[], $ctrl[];
+    for ($p in $plugs) {
+        if (`gmatch $p "*poleVector*"`)
+            $pv[size($pv)] = $p;
+        else if (`gmatch $p "*translate*"` || `gmatch $p "*rotate*"` || `gmatch $p "*scale*"`)
+            $trs[size($trs)] = $p;
+        else
+            $ctrl[size($ctrl)] = $p;
+    }
+
+    string $keyed[] = ikfkConstraintKeying($trs);
+    string $more[] = ikfkConstraintKeying($ctrl);
+    appendStringArray($keyed, $more, size($more));
+    for ($p in $trs)
+        ikfkCharacterSync($p);
+    $more = ikfkConstraintKeying($pv);
+    appendStringArray($keyed, $more, size($more));
+    // Last, because with a character this can make the IK evaluate.
+    for ($p in $ctrl)
+        ikfkCharacterSync($p);
+
+    if (size($joints))
+        ikfkStippleWiring($handle, $joints, $keyed);
+
+    if (($mode == 1 && $blend == 0) || ($mode == 2 && $blend != 0) || $mode == 3)
+        ikfkPreviousKey($handle, $blend);
+}
+
+// $mode: 0 keys only; 1 also sets the previous ikBlend key to 0 when the handle is in FK; 2 also sets it to the
+// handle's value when in IK; 3 always sets it to the current value. $items are the nodes to work on, normally the
+// selection: IK handles, joints (keyed through the first handle whose chain they are in) and controls whose ikBlend or
+// solverEnable is driven by a handle.
+global proc ikFK(int $mode, string $items[])
+{
+    if ($mode < 0 || $mode > 3) {
+        print "Set IK/FK Key modes: 0 sets keys, 1 also keys the previous FK blend, 2 the previous IK blend, 3 both.\n";
+        error ($mode + " is not a valid Set IK/FK Key mode.");
+    }
+
+    // Controls that drive a handle's blend bring the handle in, and get their translate keyed.
+    string $list[] = $items;
+    for ($item in $items) {
+        string $type = `nodeType $item`;
+        if ($type == "joint" || $type == "ikHandle")
+            continue;
+        string $attr = "";
+        if (`attributeExists ikBlend $item`)
+            $attr = "ikBlend";
+        else if (`attributeExists solverEnable $item`)
+            $attr = "solverEnable";
+        else
+            continue;
+        string $sources[] = `listConnections -source true -destination false ($item + "." + $attr)`;
+        if (!size($sources))
+            continue;
+        for ($s in $sources)
+            if (`nodeType $s` == "ikHandle")
+                $list[size($list)] = $s;
+        setKeyframe -attribute translate $item;
+    }
+    $list = sort(stringArrayRemoveDuplicates($list));
+
+    int $count = 0;
+    int $foundJoints = 0;
+    for ($item in $list) {
+        string $type = `nodeType $item`;
+        if ($type == "ikHandle") {
+            ikfkKeyHandle($item, $mode);
+            $count++;
+        } else if ($type == "joint") {
+            $foundJoints = 1;
+            // The joint's name is matched as a regular expression against each chain's joints, so a short name can
+            // match a longer one in another chain. A chain joint under the item's path (item|...) doesn't count.
+            string $handles[] = `ls -type ikHandle`;
+            string $chosen = "";
+            for ($h in $handles) {
+                string $chain[] = `ikHandle -query -jointList $h`;
+                $chain[size($chain)] = `ikHandle -query -startJoint $h`;
+                for ($j in $chain) {
+                    if (`match $item $j` != "" && !`gmatch $j ("*" + $item + "|*")`) {
+                        $chosen = $h;
+                        break;
+                    }
+                }
+                if ($chosen != "")
+                    break;
+            }
+            if ($chosen != "") {
+                ikfkKeyHandle($chosen, $mode);
+                $count++;
+            }
+        }
+    }
+
+    if (!$count) {
+        if ($foundJoints)
+            warning "None of the joints given are in an IK chain.";
+        else
+            error "Select a joint or an IK handle.";
+    }
+}

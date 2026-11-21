@@ -1,0 +1,803 @@
+// polygonConstraint: the body of the Polygon Selection Constraint panel. It edits the one global polygon selection
+// constraint (polySelectConstraint) for the component type in force (vertices, edges, faces or UVs), with propagation
+// and grow, shrink and boundary buttons under it, and keeps the constraint across sessions in the
+// polySelectConstraintState optionVar (the constraint's own state string, a command that puts it back).
+//
+// Each control sends one polySelectConstraint call as it changes; no undo chunks are opened. polygonConstraintUpdate
+// reads the constraint back into every frame that has been built, so frames for other component types stay built
+// (hidden) and keep being refreshed.
+
+// Component type codes as polySelectConstraint -query -type answers them.
+proc int pcVertexType() { return 1; }
+proc int pcEdgeType() { return 32768; }
+proc int pcFaceType() { return 8; }
+proc int pcUVType() { return 16; }
+
+// Angles go out in the scene's angle unit. In radians the angle sliders show multiples of pi.
+proc int pcRadians()
+{
+    return `currentUnit -query -angle` == "rad";
+}
+
+proc float pcPi()
+{
+    return 3.14159265;
+}
+
+proc float pcAngleMax()
+{
+    return pcRadians() ? 2.0 : 360.0;
+}
+
+proc string pcAngleUnitLabel()
+{
+    return pcRadians() ? "x pi rad" : "degrees";
+}
+
+// The window holding the panel: the first part of its control's path. Empty when the panel has none.
+proc string pcPanelWindow(string $panel)
+{
+    string $ctl = "";
+    catchQuiet($ctl = `panel -query -control $panel`);
+    string $parts[];
+    tokenize $ctl "|" $parts;
+    return size($parts) ? $parts[0] : "";
+}
+
+proc int pcTornOff(string $panel)
+{
+    int $torn = 0;
+    catchQuiet($torn = `panel -query -tearOff $panel`);
+    return $torn;
+}
+
+// Forgets the saved constraint and turns every constraint off.
+global proc resetPolySelectConstraint()
+{
+    if (`optionVar -exists polySelectConstraintState`)
+        optionVar -stringValue polySelectConstraintState "";
+    polySelectConstraint -disable;
+}
+
+// Saves the constraint as it stands, as the command that recreates it.
+global proc rememberPolySelectConstraint()
+{
+    optionVar -stringValue polySelectConstraintState `polySelectConstraint -query -stateString`;
+}
+
+// Puts back the saved constraint. A saved command that no longer runs is ignored, as the reference does.
+global proc restorePolySelectConstraint()
+{
+    if (!`optionVar -exists polySelectConstraintState`)
+        return;
+    string $state = `optionVar -query polySelectConstraintState`;
+    if ($state != "")
+        catchQuiet(eval($state));
+}
+
+// Sends an angle range from a pair of sliders found under $parent. $flag is anglebound or orientbound.
+global proc updateAngleSelectConstraint(string $flag, string $parent, string $minSlider, string $maxSlider)
+{
+    string $previous = `setParent -query`;
+    setParent $parent;
+    float $min = `floatSliderGrp -query -value $minSlider`;
+    float $max = `floatSliderGrp -query -value $maxSlider`;
+    if (pcRadians()) {
+        $min *= pcPi();
+        $max *= pcPi();
+    }
+    eval("polySelectConstraint -" + $flag + " " + $min + " " + $max);
+    setParent $previous;
+}
+
+// The propagation angle goes out as it is, with no unit conversion (as the reference does).
+global proc polygonSelectionPropagateSetAngle(float $angle)
+{
+    polySelectConstraint -angleTolerance $angle;
+}
+
+// The Propagation menu: one item, one propagation flag on, the rest off. Only Angle uses the Max angle slider.
+global proc polygonSelectionPropagateSet()
+{
+    int $i = `optionMenuGrp -query -select PolyPropSelect`;
+    polySelectConstraint -border false -borderPropagation ($i == 3) -shell ($i == 2) -crease ($i == 4)
+        -anglePropagation ($i == 5) -loopPropagation ($i == 6) -ringPropagation ($i == 7);
+    floatSliderGrp -edit -enable ($i == 5) PolyPropAngle;
+}
+
+// The face Topology boxes. As in the reference, Nontriangulable counts 1 and Lamina 2, the opposite of how the
+// update reads them back, so the two boxes swap after a refresh.
+global proc getPolyFacetTopoValue()
+{
+    int $value = (`checkBoxGrp -query -value2 PolyFTopCheck` ? 1 : 0)
+        + (`checkBoxGrp -query -value1 PolyFTopCheck` ? 2 : 0);
+    polySelectConstraint -topology $value;
+}
+
+// ---- Control builders shared by the component frames ----
+
+proc pcLocation(string $name)
+{
+    radioButtonGrp -numberOfRadioButtons 3 -label "Location" -columnWidth 1 80 -columnWidth 2 70
+        -labelArray3 "Off" "On border" "Inside"
+        -onCommand1 "polySelectConstraint -where 0"
+        -onCommand2 "polySelectConstraint -where 1"
+        -onCommand3 "polySelectConstraint -where 2"
+        $name;
+}
+
+proc pcActivate(string $name, string $flag)
+{
+    checkBox -label "Activate"
+        -onCommand ("polySelectConstraint -" + $flag + " true")
+        -offCommand ("polySelectConstraint -" + $flag + " false")
+        $name;
+}
+
+// The command a pair slider runs: the pair is read back and sent with one end replaced.
+proc string pcPairCommand(string $flag, string $kind, string $slider, int $index)
+{
+    string $type = $kind == "int" ? "int" : "float";
+    string $grp = $kind == "int" ? "intSliderGrp" : "floatSliderGrp";
+    return "{" + $type + " $b[] = `polySelectConstraint -query -" + $flag + "`; $b[" + $index + "] = `" + $grp
+        + " -query -value " + $slider + "`; polySelectConstraint -" + $flag + " $b[0] $b[1];}";
+}
+
+proc pcFloatPair(string $minName, string $maxName, string $flag, float $smin, float $smax, int $fieldRange,
+    float $fmin, float $fmax, int $precision)
+{
+    string $names[] = {$minName, $maxName};
+    string $labels[] = {"Min", "Max"};
+    for ($i = 0; $i < 2; $i++) {
+        string $s = `floatSliderGrp -label $labels[$i] -field true -columnWidth 1 90 -minValue $smin -maxValue $smax
+            -changeCommand (pcPairCommand($flag, "float", $names[$i], $i)) $names[$i]`;
+        if ($fieldRange)
+            floatSliderGrp -edit -fieldMinValue $fmin -fieldMaxValue $fmax $s;
+        if ($precision > 0)
+            floatSliderGrp -edit -precision $precision $s;
+    }
+}
+
+proc pcIntPair(string $minName, string $maxName, string $flag)
+{
+    string $names[] = {$minName, $maxName};
+    string $labels[] = {"Min", "Max"};
+    for ($i = 0; $i < 2; $i++)
+        intSliderGrp -label $labels[$i] -field true -columnWidth 1 90 -minValue 0 -maxValue 10 -fieldMaxValue 255
+            -changeCommand (pcPairCommand($flag, "int", $names[$i], $i)) $names[$i];
+}
+
+proc pcAnglePair(string $minName, string $maxName, string $flag, string $scrollForm)
+{
+    string $cmd = "updateAngleSelectConstraint " + $flag + " " + $scrollForm + " " + $minName + " " + $maxName;
+    floatSliderGrp -label "Min" -field true -annotation "Angle range, in the scene's angle unit"
+        -extraLabel (pcAngleUnitLabel()) -minValue 0 -maxValue (pcAngleMax()) -changeCommand $cmd $minName;
+    floatSliderGrp -label "Max" -field true -annotation "Angle range, in the scene's angle unit"
+        -extraLabel (pcAngleUnitLabel()) -minValue 0 -maxValue (pcAngleMax()) -changeCommand $cmd $maxName;
+}
+
+// Three sliders on one vector flag; each sends the vector with its own element replaced. $point picks the point
+// labels and ranges over the vector ones; $fmin/$fmax are the point fields' range.
+proc pcTriple(string $prefix, string $flag, int $point, float $fmin, float $fmax)
+{
+    string $axes[] = {"x", "y", "z"};
+    for ($i = 0; $i < 3; $i++) {
+        string $name = $prefix + ($point ? "P" : "V") + $axes[$i] + "Sld";
+        string $label = ($point ? "P" : "V") + $axes[$i];
+        string $cmd = "{float $b[] = `polySelectConstraint -query -" + $flag + "`; $b[" + $i
+            + "] = `floatSliderGrp -query -value " + $name + "`; polySelectConstraint -" + $flag
+            + " $b[0] $b[1] $b[2];}";
+        if ($point)
+            floatSliderGrp -label $label -field true -columnWidth 1 90 -precision 2 -minValue -1000 -maxValue 1000
+                -fieldMinValue $fmin -fieldMaxValue $fmax -changeCommand $cmd $name;
+        else
+            floatSliderGrp -label $label -field true -columnWidth 1 90 -precision 2 -minValue -100 -maxValue 100
+                -changeCommand $cmd $name;
+    }
+}
+
+proc pcMappedArea(string $L)
+{
+    radioButtonGrp -numberOfRadioButtons 3 -label "" -columnWidth3 1 89 100
+        -labelArray3 "Off" "Unsigned" "Signed"
+        -onCommand1 "polySelectConstraint -texturedarea 0"
+        -onCommand2 "polySelectConstraint -texturedarea 1"
+        -onCommand3 "polySelectConstraint -texturedarea 2"
+        ("poly" + $L + "Area2Radio");
+    pcFloatPair("min" + $L + "Area2Sld", "max" + $L + "Area2Sld", "texturedareabound", 0, 10, 1, -999, 999, 0);
+}
+
+proc pcDistance(string $L)
+{
+    radioButtonGrp -numberOfRadioButtons 4 -label "" -columnWidth4 1 89 100 100
+        -labelArray4 "Off" "Point" "Axis" "Plane"
+        -onCommand1 "polySelectConstraint -dist 0"
+        -onCommand2 "polySelectConstraint -dist 1"
+        -onCommand3 "polySelectConstraint -dist 2"
+        -onCommand4 "polySelectConstraint -dist 3"
+        ("Poly" + $L + "DistRadio");
+    pcFloatPair("min" + $L + "DistSld", "max" + $L + "DistSld", "distbound", 0, 100, 0, 0, 0, 0);
+    pcTriple("pnt" + $L + "Dist", "distpoint", 1, -100000, 100000);
+    pcTriple("pnt" + $L + "Dist", "distaxis", 0, 0, 0);
+}
+
+proc pcOrientation(string $L, string $scrollForm)
+{
+    radioButtonGrp -numberOfRadioButtons 3 -label "" -columnWidth3 1 89 100
+        -labelArray3 "Off" "Orientation" "Direction"
+        -onCommand1 "polySelectConstraint -orient 0"
+        -onCommand2 "polySelectConstraint -orient 1"
+        -onCommand3 "polySelectConstraint -orient 2"
+        ("Poly" + $L + "OriRadio");
+    pcAnglePair("min" + $L + "OriSld", "max" + $L + "OriSld", "orientbound", $scrollForm);
+    pcTriple("pnt" + $L + "Ori", "orientaxis", 0, 0, 0);
+}
+
+// The vertex frame's point fields get the reference's degenerate range (100000 to 100000), so $fmin is passed in.
+proc pcVisibility(string $L, float $fmin)
+{
+    pcActivate("poly" + $L + "VisiCheck", "visibility");
+    string $ang = "visi" + $L + "AngSld";
+    floatSliderGrp -label "Angle" -field true -minValue 0 -maxValue 360
+        -changeCommand ("{float $a = `floatSliderGrp -query -value " + $ang + "`; polySelectConstraint "
+            + "-visibilityangle $a;}")
+        $ang;
+    pcTriple("pnt" + $L + "Visi", "visibilitypoint", 1, $fmin, 100000);
+}
+
+proc pcRandom(string $L)
+{
+    pcActivate("poly" + $L + "RdmCheck", "random");
+    string $ratio = "rdm" + $L + "RatSld";
+    floatSliderGrp -label "Ratio" -field true -minValue 0 -maxValue 1
+        -changeCommand ("{float $r = `floatSliderGrp -query -value " + $ratio + "`; polySelectConstraint "
+            + "-randomratio $r;}")
+        $ratio;
+}
+
+// Neighbours: Aztek's polySelectConstraint knows the flag by its long name only, so -order is sent for -or.
+proc pcNeighbors(string $L)
+{
+    pcActivate("poly" + $L + "OrderCheck", "order");
+    pcIntPair("min" + $L + "OrderSld", "max" + $L + "OrderSld", "orderbound");
+}
+
+proc pcSubFrame(string $name, string $label, int $collapsed)
+{
+    frameLayout -label $label -collapsable true -collapse $collapsed $name;
+    columnLayout -adjustableColumn true;
+}
+
+proc pcEndSubFrame()
+{
+    setParent ..;
+    setParent ..;
+}
+
+// Starts a component frame: invisible, filling the scroll form, holding a left-aligned column. The scroll form is
+// hidden while the frame is filled.
+proc pcBeginComponent(string $frameName, string $scrollForm)
+{
+    setParent $scrollForm;
+    control -edit -manage false $scrollForm;
+    frameLayout -collapsable false -labelVisible false -borderVisible false -visible false $frameName;
+    formLayout -edit -attachForm $frameName "top" 0 -attachForm $frameName "left" 0
+        -attachForm $frameName "right" 0 -attachForm $frameName "bottom" 0 $scrollForm;
+    columnLayout -adjustableColumn true -columnAlign "left";
+}
+
+proc pcEndComponent(string $scrollForm)
+{
+    setParent $scrollForm;
+    control -edit -manage true $scrollForm;
+}
+
+global proc polygonConstraintVtx(string $frameName, string $scrollForm)
+{
+    pcBeginComponent($frameName, $scrollForm);
+
+    pcSubFrame("polyVPropGrp", "Properties", 0);
+        pcLocation("PolyVLocRadio");
+    pcEndSubFrame();
+
+    pcSubFrame("polyVGeomGrp", "Geometry", 1);
+        pcSubFrame("polyVOrdGrp", "Neighbours", 0);
+            pcNeighbors("V");
+        pcEndSubFrame();
+        pcSubFrame("polyVAngGrp", "Angle", 1);
+            pcActivate("polyVAngCheck", "angle");
+            pcAnglePair("minVAngSld", "maxVAngSld", "anglebound", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyV2dAreaGrp", "Mapped Area", 1);
+            pcMappedArea("V");
+        pcEndSubFrame();
+        pcSubFrame("polyVDistGrp", "Distance", 1);
+            pcDistance("V");
+        pcEndSubFrame();
+        pcSubFrame("polyVOriGrp", "Orientation", 1);
+            pcOrientation("V", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyVVisiGrp", "Visibility", 1);
+            pcVisibility("V", 100000);
+        pcEndSubFrame();
+    pcEndSubFrame();
+
+    pcSubFrame("polyVRdmGrp", "Random", 0);
+        pcRandom("V");
+    pcEndSubFrame();
+
+    pcEndComponent($scrollForm);
+}
+
+global proc polygonConstraintEdg(string $frameName, string $scrollForm)
+{
+    pcBeginComponent($frameName, $scrollForm);
+
+    pcSubFrame("polyEPropGrp", "Properties", 0);
+        pcLocation("PolyELocRadio");
+        radioButtonGrp -numberOfRadioButtons 3 -label "Smoothing" -columnWidth 1 80 -columnWidth 2 70
+            -labelArray3 "Off" "Hard" "Smooth"
+            -onCommand1 "polySelectConstraint -smoothness 0"
+            -onCommand2 "polySelectConstraint -smoothness 1"
+            -onCommand3 "polySelectConstraint -smoothness 2"
+            PolyESmtRadio;
+    pcEndSubFrame();
+
+    pcSubFrame("polyEGeomGrp", "Geometry", 1);
+        pcSubFrame("polyELenGrp", "Length", 0);
+            pcActivate("polyELenCheck", "length");
+            pcFloatPair("minELenSld", "maxELenSld", "lengthbound", 0, 100, 0, 0, 0, 0);
+        pcEndSubFrame();
+        pcSubFrame("polyEAngGrp", "Angle", 1);
+            pcActivate("polyEAngCheck", "angle");
+            pcAnglePair("minEAngSld", "maxEAngSld", "anglebound", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyE2dAreaGrp", "Mapped Area", 1);
+            pcMappedArea("E");
+        pcEndSubFrame();
+        pcSubFrame("polyEDistGrp", "Distance", 1);
+            pcDistance("E");
+        pcEndSubFrame();
+        pcSubFrame("polyEOriGrp", "Orientation", 1);
+            pcOrientation("E", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyEVisiGrp", "Visibility", 1);
+            pcVisibility("E", -100000);
+        pcEndSubFrame();
+    pcEndSubFrame();
+
+    pcSubFrame("polyERdmGrp", "Random", 0);
+        pcRandom("E");
+    pcEndSubFrame();
+
+    pcEndComponent($scrollForm);
+}
+
+// A face property row: a label 80 wide, first button 70.
+proc pcFaceRadio(string $name, string $label, string $flag, string $labels[], int $values[])
+{
+    int $n = size($labels);
+    string $grp = `radioButtonGrp -numberOfRadioButtons $n -label $label -columnWidth 1 80 -columnWidth 2 70 $name`;
+    for ($i = 0; $i < $n; $i++)
+        eval("radioButtonGrp -edit -label" + ($i + 1) + " \"" + $labels[$i] + "\" -onCommand" + ($i + 1)
+            + " \"polySelectConstraint -" + $flag + " " + $values[$i] + "\" " + $grp);
+}
+
+global proc polygonConstraintFac(string $frameName, string $scrollForm)
+{
+    pcBeginComponent($frameName, $scrollForm);
+
+    pcSubFrame("polyFPropGrp", "Properties", 0);
+        pcLocation("PolyFLocRadio");
+        pcFaceRadio("PolyFSizRadio", "Order", "size", {"Off", "Triangles", "Quads", "N-sided"}, {0, 1, 2, 3});
+        // Planar sends 2 and Nonplanar 1, so the buttons are not in value order.
+        pcFaceRadio("PolyFPlnRadio", "Planarity", "planarity", {"Off", "Planar", "Nonplanar"}, {0, 2, 1});
+        pcFaceRadio("PolyFCvxRadio", "Convexity", "convexity", {"Off", "Concave", "Convex"}, {0, 1, 2});
+        pcFaceRadio("PolyFHolRadio", "Domains", "holes", {"Off", "Holed", "Non-holed"}, {0, 1, 2});
+        pcFaceRadio("PolyFMapRadio", "Mapping", "textured", {"Off", "Mapped", "Unmapped"}, {0, 1, 2});
+        checkBoxGrp -numberOfCheckBoxes 2 -label "Topology" -columnWidth3 80 70 130
+            -labelArray2 "Lamina" "Nontriangulable" -changeCommand "getPolyFacetTopoValue" PolyFTopCheck;
+    pcEndSubFrame();
+
+    pcSubFrame("polyFGeomGrp", "Geometry", 1);
+        pcSubFrame("polyFAreaGrp", "Area", 0);
+            pcActivate("polyFAreaCheck", "geometricarea");
+            pcFloatPair("minFAreaSld", "maxFAreaSld", "geometricareabound", 0, 1000, 1, 0, 10000, 3);
+        pcEndSubFrame();
+        pcSubFrame("polyF2dAreaGrp", "Mapped Area", 1);
+            pcMappedArea("F");
+        pcEndSubFrame();
+        pcSubFrame("polyFDistGrp", "Distance", 1);
+            pcDistance("F");
+        pcEndSubFrame();
+        pcSubFrame("polyFOriGrp", "Orientation", 1);
+            pcOrientation("F", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyFVisiGrp", "Visibility", 1);
+            pcVisibility("F", -100000);
+        pcEndSubFrame();
+    pcEndSubFrame();
+
+    pcSubFrame("polyFRdmGrp", "Random", 0);
+        pcRandom("F");
+    pcEndSubFrame();
+
+    pcEndComponent($scrollForm);
+}
+
+// UVs: no orientation or visibility.
+global proc polygonConstraintMap(string $frameName, string $scrollForm)
+{
+    pcBeginComponent($frameName, $scrollForm);
+
+    pcSubFrame("polyMPropGrp", "Properties", 0);
+        pcLocation("PolyMLocRadio");
+    pcEndSubFrame();
+
+    pcSubFrame("polyMGeomGrp", "Geometry", 1);
+        pcSubFrame("polyMOrdGrp", "Neighbouring UVs", 0);
+            pcNeighbors("M");
+        pcEndSubFrame();
+        pcSubFrame("polyMAngGrp", "Angle", 1);
+            pcActivate("polyMAngCheck", "angle");
+            pcAnglePair("minMAngSld", "maxMAngSld", "anglebound", $scrollForm);
+        pcEndSubFrame();
+        pcSubFrame("polyM2dAreaGrp", "Mapped Area", 1);
+            pcMappedArea("M");
+        pcEndSubFrame();
+        pcSubFrame("polyMDistGrp", "Distance", 1);
+            pcDistance("M");
+        pcEndSubFrame();
+    pcEndSubFrame();
+
+    pcSubFrame("polyMRdmGrp", "Random", 0);
+        pcRandom("M");
+    pcEndSubFrame();
+
+    pcEndComponent($scrollForm);
+}
+
+// Builds the panel's body under the panel's current parent.
+global proc polygonConstraint(string $panel)
+{
+    string $win = pcPanelWindow($panel);
+    int $torn = pcTornOff($panel);
+    if ($torn && $win != "" && `window -exists $win`)
+        window -edit -resizeToFitChildren true -iconName "Selection Constraints" $win;
+
+    int $template = `uiTemplate -exists DefaultTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate DefaultTemplate;
+
+    string $form = `formLayout polyConstraintForm`;
+
+    // Two rows, one choice: each row clears the other, as a shared collection would.
+    radioButtonGrp -numberOfRadioButtons 2 -label "Constrain" -columnWidth3 95 130 115
+        -labelArray2 "Nothing" "Next selection"
+        -onCommand1 "polySelectConstraint -mode 0; radioButtonGrp -edit -select 0 PolyModRadio2"
+        -onCommand2 "polySelectConstraint -mode 1; radioButtonGrp -edit -select 0 PolyModRadio2"
+        PolyModRadio;
+    radioButtonGrp -numberOfRadioButtons 2 -label "" -columnWidth3 95 130 115 -shareCollection PolyModRadio
+        -labelArray2 "Current and next" "All and next"
+        -onCommand1 "polySelectConstraint -mode 2; radioButtonGrp -edit -select 0 PolyModRadio"
+        -onCommand2 "polySelectConstraint -mode 3; radioButtonGrp -edit -select 0 PolyModRadio"
+        PolyModRadio2;
+
+    scrollLayout -childResizable true -height 300 polyConstraintScroll;
+        formLayout polyConstraintScrollForm;
+        setParent ..;
+    setParent ..;
+
+    frameLayout -collapsable false -borderVisible false -label "" polyExtendGrp;
+        string $propF = `formLayout propF`;
+            string $propForm = `formLayout propagationForm`;
+                optionMenuGrp -label "Propagation" -changeCommand "polygonSelectionPropagateSet" PolyPropSelect;
+                    menuItem -label "Off";
+                    menuItem -label "Shell";
+                    menuItem -label "Border";
+                    menuItem -label "Crease";
+                    menuItem -label "Angle";
+                    menuItem -label "Edge loop" PolyPropEdgeLoop;
+                    menuItem -label "Edge ring" PolyPropEdgeRing;
+                floatSliderGrp -label "Max angle" -field true -minValue 0 -maxValue 180 -enable false
+                    -changeCommand "polygonSelectionPropagateSetAngle(`floatSliderGrp -query -value PolyPropAngle`)"
+                    PolyPropAngle;
+                formLayout -edit
+                    -attachForm PolyPropSelect "top" 0 -attachForm PolyPropSelect "left" 0
+                    -attachForm PolyPropAngle "top" 0 -attachControl PolyPropAngle "left" 4 PolyPropSelect
+                    -attachForm PolyPropAngle "right" 0
+                    $propForm;
+            setParent ..;
+
+            string $selForm = `formLayout -numberOfDivisions 100 selectButtonForm`;
+                button -label "Grow selection region" -width 150 -command "polySelectConstraint -propagate 1"
+                    buttonMore;
+                button -label "Shrink selection region" -width 150 -command "polySelectConstraint -propagate 2"
+                    buttonLess;
+                button -label "Select selection boundary" -width 165 -command "polySelectConstraint -propagate 3"
+                    buttonBorder;
+                formLayout -edit
+                    -attachPosition buttonLess "left" 0 33 -attachPosition buttonLess "right" 0 66
+                    -attachForm buttonMore "left" 0 -attachControl buttonMore "right" 4 buttonLess
+                    -attachControl buttonBorder "left" 4 buttonLess -attachForm buttonBorder "right" 0
+                    $selForm;
+            setParent ..;
+
+            string $closeForm = `formLayout closeButtonForm`;
+                if ($torn && $win != "") {
+                    button -label "Close and reset" -width 200
+                        -command ("resetPolySelectConstraint; evalDeferred \"deleteUI -window " + $win + "\"")
+                        buttonCloseReset;
+                    button -label "Close and remember" -width 250
+                        -command ("rememberPolySelectConstraint; evalDeferred \"deleteUI -window " + $win + "\"")
+                        buttonCloseRemember;
+                    formLayout -edit
+                        -attachForm buttonCloseReset "left" 0
+                        -attachControl buttonCloseRemember "left" 4 buttonCloseReset
+                        -attachForm buttonCloseRemember "right" 0
+                        $closeForm;
+                }
+            setParent ..;
+
+            formLayout -edit
+                -attachForm $propForm "top" 0 -attachForm $propForm "left" 0 -attachForm $propForm "right" 0
+                -attachControl $selForm "top" 0 $propForm -attachForm $selForm "left" 0
+                -attachForm $selForm "right" 0
+                -attachControl $closeForm "top" 5 $selForm -attachForm $closeForm "left" 0
+                -attachForm $closeForm "right" 0
+                $propF;
+        setParent ..;
+    setParent ..;
+
+    formLayout -edit
+        -attachForm PolyModRadio "top" 0 -attachForm PolyModRadio "left" 0 -attachForm PolyModRadio "right" 0
+        -attachControl PolyModRadio2 "top" 0 PolyModRadio -attachForm PolyModRadio2 "left" 0
+        -attachForm PolyModRadio2 "right" 0
+        -attachControl polyConstraintScroll "top" 0 PolyModRadio2
+        -attachControl polyConstraintScroll "bottom" 0 polyExtendGrp
+        -attachForm polyConstraintScroll "left" 0 -attachForm polyConstraintScroll "right" 0
+        -attachNone polyExtendGrp "top" -attachForm polyExtendGrp "bottom" 0
+        -attachForm polyExtendGrp "left" 0 -attachForm polyExtendGrp "right" 0
+        $form;
+
+    if ($template)
+        setUITemplate -popTemplate;
+
+    restorePolySelectConstraint();
+    polygonConstraintUpdate($panel);
+
+    // Keep the panel in step with the constraint. Aztek has neither the constraint monitor nor the
+    // selectionConstraintsChanged event yet, so each is set up only where it exists.
+    if (`exists polySelectConstraintMonitor`)
+        catchQuiet(eval("polySelectConstraintMonitor -changeCommand \"polygonConstraintUpdate\" \"" + $panel + "\""));
+    catchQuiet(eval("scriptJob -parent PolyPropSelect -event selectionConstraintsChanged "
+        + "\"polygonConstraintUpdate " + $panel + "\""));
+}
+
+// ---- Reading the constraint back into the controls ----
+
+proc pcRadio(string $name, int $select)
+{
+    if (`control -exists $name`)
+        radioButtonGrp -edit -select $select $name;
+}
+
+proc pcCheck(string $name, int $value)
+{
+    if (`control -exists $name`)
+        checkBox -edit -value $value $name;
+}
+
+proc pcFloat(string $name, float $value)
+{
+    if (`control -exists $name`)
+        floatSliderGrp -edit -value $value $name;
+}
+
+proc pcInt(string $name, int $value)
+{
+    if (`control -exists $name`)
+        intSliderGrp -edit -value $value $name;
+}
+
+proc pcTripleValues(string $prefix, int $point, float $v[])
+{
+    string $axes[] = {"x", "y", "z"};
+    for ($i = 0; $i < 3; $i++)
+        pcFloat($prefix + ($point ? "P" : "V") + $axes[$i] + "Sld", $v[$i]);
+}
+
+proc pcFrameTitle(string $win, int $type)
+{
+    string $title = "Polygon Selection Constraint";
+    if ($type == pcVertexType())
+        $title = "Polygon Selection Constraint on Vertices";
+    else if ($type == pcEdgeType())
+        $title = "Polygon Selection Constraint on Edges";
+    else if ($type == pcFaceType())
+        $title = "Polygon Selection Constraint on Faces";
+    else if ($type == pcUVType())
+        $title = "Polygon Selection Constraint on UVs";
+    window -edit -title $title $win;
+}
+
+global proc polygonConstraintUpdate(string $panel)
+{
+    string $scrollForm = "polyConstraintScrollForm";
+    if (!`control -exists $scrollForm`)
+        return;
+    waitCursor -state 1;
+
+    string $frames[] = {"polyConstraintVtx", "polyConstraintEdg", "polyConstraintFac", "polyConstraintOff"};
+    for ($f in $frames)
+        if (`control -exists $f`)
+            frameLayout -edit -visible false $f;
+
+    int $t = `polySelectConstraint -query -type`;
+
+    // Loop and ring propagation only make sense on edges.
+    int $edges = (`selectMode -query -component` && `selectType -query -polymeshEdge`) || $t == pcEdgeType();
+    if (`menuItem -exists PolyPropEdgeLoop`)
+        menuItem -edit -enable $edges PolyPropEdgeLoop;
+    if (`menuItem -exists PolyPropEdgeRing`)
+        menuItem -edit -enable $edges PolyPropEdgeRing;
+    if (!$edges && (`polySelectConstraint -query -loopPropagation` || `polySelectConstraint -query -ringPropagation`))
+        polySelectConstraint -border false -borderPropagation false -shell false -crease false
+            -anglePropagation false -loopPropagation false -ringPropagation false;
+
+    string $show = "";
+    if ($t == pcVertexType()) {
+        $show = $frames[0];
+        if (!`control -exists $show`)
+            polygonConstraintVtx($show, $scrollForm);
+    } else if ($t == pcEdgeType()) {
+        $show = $frames[1];
+        if (!`control -exists $show`)
+            polygonConstraintEdg($show, $scrollForm);
+    } else if ($t == pcFaceType()) {
+        $show = $frames[2];
+        if (!`control -exists $show`)
+            polygonConstraintFac($show, $scrollForm);
+    } else if ($t == pcUVType()) {
+        $show = $frames[3];
+        if (!`control -exists $show`)
+            polygonConstraintMap($show, $scrollForm);
+    }
+
+    // Mode: the two rows are one choice.
+    int $m = `polySelectConstraint -query -mode` + 1;
+    if ($m < 3) {
+        pcRadio("PolyModRadio", $m);
+        pcRadio("PolyModRadio2", 0);
+    } else {
+        pcRadio("PolyModRadio2", $m - 2);
+        pcRadio("PolyModRadio", 0);
+    }
+
+    // Propagation: the first flag on wins, in the reference's order.
+    floatSliderGrp -edit -enable false PolyPropAngle;
+    int $item = 1;
+    if (`polySelectConstraint -query -borderPropagation`)
+        $item = 3;
+    else if (`polySelectConstraint -query -shell`)
+        $item = 2;
+    else if (`polySelectConstraint -query -crease`)
+        $item = 4;
+    else if (`polySelectConstraint -query -loopPropagation`)
+        $item = 6;
+    else if (`polySelectConstraint -query -ringPropagation`)
+        $item = 7;
+    else if (`polySelectConstraint -query -anglePropagation`) {
+        $item = 5;
+        floatSliderGrp -edit -enable true PolyPropAngle;
+    }
+    optionMenuGrp -edit -select $item PolyPropSelect;
+    floatSliderGrp -edit -value `polySelectConstraint -query -angleTolerance` PolyPropAngle;
+
+    string $all[] = {"V", "E", "F", "M"};
+    string $vef[] = {"V", "E", "F"};
+    string $vem[] = {"V", "E", "M"};
+    string $vm[] = {"V", "M"};
+    float $piDiv = pcRadians() ? pcPi() : 1.0;
+
+    int $where = `polySelectConstraint -query -where` + 1;
+    for ($L in $all)
+        pcRadio("Poly" + $L + "LocRadio", $where);
+
+    pcRadio("PolyESmtRadio", `polySelectConstraint -query -smoothness` + 1);
+
+    pcRadio("PolyFSizRadio", `polySelectConstraint -query -size` + 1);
+    int $planar = `polySelectConstraint -query -planarity`;
+    pcRadio("PolyFPlnRadio", $planar == 0 ? 1 : ($planar == 1 ? 3 : 2));
+    pcRadio("PolyFCvxRadio", `polySelectConstraint -query -convexity` + 1);
+    pcRadio("PolyFHolRadio", `polySelectConstraint -query -holes` + 1);
+    pcRadio("PolyFMapRadio", `polySelectConstraint -query -textured` + 1);
+    if (`control -exists PolyFTopCheck`) {
+        // 1 reads as Lamina and 2 as Nontriangulable: the reverse of what the boxes send (see getPolyFacetTopoValue).
+        int $tp = `polySelectConstraint -query -topology`;
+        checkBoxGrp -edit -value1 ($tp == 1 || $tp == 3) -value2 ($tp == 2 || $tp == 3) PolyFTopCheck;
+    }
+
+    pcCheck("polyELenCheck", `polySelectConstraint -query -length`);
+    float $lb[] = `polySelectConstraint -query -lengthbound`;
+    pcFloat("minELenSld", $lb[0]);
+    pcFloat("maxELenSld", $lb[1]);
+
+    int $angleOn = `polySelectConstraint -query -angle`;
+    float $ab[] = `polySelectConstraint -query -anglebound`;
+    for ($L in $vem) {
+        pcCheck("poly" + $L + "AngCheck", $angleOn);
+        pcFloat("min" + $L + "AngSld", $ab[0] / $piDiv);
+        pcFloat("max" + $L + "AngSld", $ab[1] / $piDiv);
+    }
+
+    pcCheck("polyFAreaCheck", `polySelectConstraint -query -geometricarea`);
+    float $gab[] = `polySelectConstraint -query -geometricareabound`;
+    pcFloat("minFAreaSld", $gab[0]);
+    pcFloat("maxFAreaSld", $gab[1]);
+
+    int $ta = `polySelectConstraint -query -texturedarea` + 1;
+    float $tab[] = `polySelectConstraint -query -texturedareabound`;
+    for ($L in $all) {
+        pcRadio("poly" + $L + "Area2Radio", $ta);
+        pcFloat("min" + $L + "Area2Sld", $tab[0]);
+        pcFloat("max" + $L + "Area2Sld", $tab[1]);
+    }
+
+    int $d = `polySelectConstraint -query -dist` + 1;
+    float $db[] = `polySelectConstraint -query -distbound`;
+    float $dp[] = `polySelectConstraint -query -distpoint`;
+    float $da[] = `polySelectConstraint -query -distaxis`;
+    for ($L in $all) {
+        pcRadio("Poly" + $L + "DistRadio", $d);
+        pcFloat("min" + $L + "DistSld", $db[0]);
+        pcFloat("max" + $L + "DistSld", $db[1]);
+        pcTripleValues("pnt" + $L + "Dist", 1, $dp);
+        pcTripleValues("pnt" + $L + "Dist", 0, $da);
+    }
+
+    // Orientation bounds are shown as they come back, without dividing by pi (the reference's drift in radians).
+    int $o = `polySelectConstraint -query -orient` + 1;
+    float $ob[] = `polySelectConstraint -query -orientbound`;
+    float $oa[] = `polySelectConstraint -query -orientaxis`;
+    for ($L in $vef) {
+        pcRadio("Poly" + $L + "OriRadio", $o);
+        pcFloat("min" + $L + "OriSld", $ob[0]);
+        pcFloat("max" + $L + "OriSld", $ob[1]);
+        pcTripleValues("pnt" + $L + "Ori", 0, $oa);
+    }
+
+    int $orderOn = `polySelectConstraint -query -order`;
+    int $orb[] = `polySelectConstraint -query -orderbound`;
+    for ($L in $vm) {
+        pcCheck("poly" + $L + "OrderCheck", $orderOn);
+        pcInt("min" + $L + "OrderSld", $orb[0]);
+        pcInt("max" + $L + "OrderSld", $orb[1]);
+    }
+
+    int $v = `polySelectConstraint -query -visibility`;
+    float $va = `polySelectConstraint -query -visibilityangle`;
+    float $vp[] = `polySelectConstraint -query -visibilitypoint`;
+    for ($L in $vef) {
+        pcCheck("poly" + $L + "VisiCheck", $v);
+        pcFloat("visi" + $L + "AngSld", $va);
+        pcTripleValues("pnt" + $L + "Visi", 1, $vp);
+    }
+
+    int $r = `polySelectConstraint -query -random`;
+    float $rr = `polySelectConstraint -query -randomratio`;
+    for ($L in $all) {
+        pcCheck("poly" + $L + "RdmCheck", $r);
+        pcFloat("rdm" + $L + "RatSld", $rr);
+    }
+
+    if (pcTornOff($panel)) {
+        string $win = pcPanelWindow($panel);
+        if ($win != "" && `window -exists $win`)
+            pcFrameTitle($win, $t);
+    }
+
+    if ($show != "")
+        frameLayout -edit -visible true $show;
+    waitCursor -state 0;
+}

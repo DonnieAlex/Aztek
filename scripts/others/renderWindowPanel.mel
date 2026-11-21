@@ -51,22 +51,21 @@ proc string rwpCurrentRenderer()
     return currentRenderer();
 }
 
-// The name the renderer goes by in menus. Aztek renders with Harold, which answers to the name "arnold" too.
+// The name the renderer goes by in menus, from the renderer registry.
 proc string rwpRendererUIName(string $r)
 {
-    if (`exists renderer`)
-        return eval("renderer -query -rendererUIName " + $r);
-    if ($r == "arnold" || $r == "harold")
-        return "Harold";
-    return $r;
+    return `renderer -query -rendererUIName $r`;
 }
 
-// A renderer's procedure of the given kind, from the renderer registry when Aztek has one.
+// The current renderer's procedure of the given kind (a renderer flag such as "-renderRegionProcedure"), from the
+// renderer registry; "" when the renderer isn't registered or gives none. Harold registers none, so for it the callers
+// fall back to hrender.
 proc string rwpRendererProc(string $flag)
 {
-    if (!`exists renderer`)
+    string $r = rwpCurrentRenderer();
+    if (!`renderer -exists $r`)
         return "";
-    return eval("renderer -query " + $flag + " " + rwpCurrentRenderer());
+    return eval("renderer -query " + $flag + " \"" + encodeString($r) + "\"");
 }
 
 // One value from the render view's status, which Aztek gives as a JSON object.
@@ -169,6 +168,8 @@ global proc setRenderOptionVars()
 
 global proc int isRunningIpr()
 {
+    if (!`renderer -exists (rwpCurrentRenderer())`)
+        return 0;
     string $proc = rwpRendererProc("-isRunningIprProcedure");
     if ($proc != "")
         return eval($proc) != 0;
@@ -287,8 +288,7 @@ global proc string showRenderView()
 
 proc rwpRetainDir()
 {
-    if (`exists retainWorkingDirectory`)
-        eval("retainWorkingDirectory \"" + `workspace -query -directory` + "\"");
+    retainWorkingDirectory(`workspace -query -directory`);
 }
 
 global proc int renderWindowLoadImageCallback(string $editor, string $fileName, string $fileType)
@@ -519,8 +519,7 @@ proc rwpSaveImageFlow(string $editor)
 global proc renderWindowMenuCommand(string $command, string $editor)
 {
     if ($command == "loadImage") {
-        string $files[] = `fileDialog2 -caption "Open Image" -fileMode 1`;
-        renderWindowLoadImageCallback($editor, size($files) ? $files[0] : "", "image");
+        fileBrowser("renderWindowLoadImageCallback \"" + $editor + "\"", "Open Image", "image", 0);
         renderWindowRefreshMenu("file", $editor);
         renderWindowRefreshLayout($editor);
     } else if ($command == "saveImage")
@@ -933,10 +932,17 @@ global proc renderWindowRenderRegionCommon(string $editor)
     string $cmd = rwpRendererProc("-renderRegionProcedure");
     if ($cmd == "")
         $cmd = "mayaRenderRegion";
+    // The Hypershade's material view waits while the region renders.
+    string $r = rwpCurrentRenderer();
+    int $known = `renderer -exists $r`;
+    if ($known)
+        renderer -edit -materialViewRendererSuspend true $r;
     float $start = `timerX`;
     if (catch(eval($cmd + " \"" + $editor + "\"")))
         warning "The region render failed.";
     float $seconds = `timerX -startTime $start`;
+    if ($known)
+        renderer -edit -materialViewRendererSuspend false $r;
     print ("Region rendered in " + $seconds + " seconds.\n");
 }
 
@@ -961,9 +967,7 @@ global proc buildRenderUsingMenu(string $subMenu, string $panelName)
     int $n = tokenize($subMenu, "|", $parts);
     radioMenuItemCollection ("renderWindowRenderUsingCollection" + ($n ? $parts[$n - 1] : ""));
     string $current = rwpCurrentRenderer();
-    string $renderers[] = {$current};
-    if (`exists renderer`)
-        $renderers = eval("renderer -query -namesOfAvailableRenderers");
+    string $renderers[] = `renderer -query -namesOfAvailableRenderers`;
     for ($i = 0; $i < size($renderers); $i++)
         menuItem -label (rwpRendererUIName($renderers[$i])) -radioButton ($renderers[$i] == $current)
             -command ("setCurrentRenderer " + $renderers[$i]) ($panelName + "renderUsingItem" + $i);

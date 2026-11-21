@@ -1,0 +1,1800 @@
+// loadAnimMenuLibrary: the menus the animation editors share (Edit, List, Curves or Channels, Tangents) and the
+// helpers behind their items: tangents, infinity, muting, locking curves, auto-load of the editor's list and the rest.
+// Callers make sure it's loaded by calling loadAnimMenuLibrary, which does nothing else.
+//
+// Aztek's Graph Editor and Dope Sheet are native windows with menus of their own. These procedures build the
+// reference's menus under whatever parent menu a caller passes, as a script-made animation editor's menu bar would,
+// and every action runs Aztek's own commands (keyTangent, setInfinity, filterCurve, mute and so on).
+//
+// Where an item calls a procedure from another script that Aztek doesn't have yet, the item checks for it when it
+// runs and says so rather than failing with an unknown procedure; the key editing ones (cut, copy, paste, delete,
+// snap, bake and the curve filters) fall back to the plain commands.
+
+source "pythonRunTimeCommand.mel";
+// expandSelectionConnectionAsArray lives in a file of another name, so it isn't found on first call.
+source "expandSelectionConnection.mel";
+
+// Editors registered with registerEditor and the selection connection each one loads by default, side by side.
+global string $gEditorList[];
+global string $gDefaultConnection[];
+
+// What the last Tangents menu was built for, so plug-in tangent types can be added to it later.
+global string $gTangentParentEditor = "";
+global string $gTangentAnimEditor = "";
+global string $gTangentParentMenu = "";
+global string $gTangentInParentMenu = "";
+global string $gTangentOutParentMenu = "";
+global string $gTangentMenuOptions = "";
+global string $gTangentPluginItemList[];
+global string $gTangentInPluginItemList[];
+global string $gTangentOutPluginItemList[];
+
+// The Default In Tangent and Default Out Tangent submenus, in that order.
+global string $gGraphEditorDefaultTanMenuItemNames[] = {"graphEdDefaultTanInMenuItem", "graphEdDefaultTanOutMenuItem"};
+
+// ---- Local helpers ----
+
+// Options are space-separated words, looked for anywhere in the string, as the reference does.
+proc int lamHas(string $options, string $word)
+{
+    return `gmatch $options ("*" + $word + "*")`;
+}
+
+// The editor command that owns $editor. Aztek has no generic editor command, so the kinds the animation editors use
+// are tried in turn.
+proc string lamEditorType(string $editor)
+{
+    if ($editor == "")
+        return "";
+    for ($type in {"outlinerEditor", "animCurveEditor", "dopeSheetEditor", "clipEditor", "modelEditor", "nodeEditor"}) {
+        int $there = 0;
+        if (!catchQuiet($there = `eval ($type + " -exists \"" + $editor + "\"")`) && $there)
+            return $type;
+    }
+    return "";
+}
+
+// A string query of one of the editor's flags, "" when the editor or the flag isn't there.
+proc string lamEditorQuery(string $editor, string $flag)
+{
+    string $type = lamEditorType($editor);
+    if ($type == "")
+        return "";
+    string $value = "";
+    catchQuiet($value = `eval ($type + " -query -" + $flag + " \"" + $editor + "\"")`);
+    return $value;
+}
+
+// Edits the editor with $flags (flag and value text).
+proc lamEditorEdit(string $editor, string $flags)
+{
+    string $type = lamEditorType($editor);
+    if ($type != "")
+        catch(`eval ($type + " -edit " + $flags + " \"" + $editor + "\"")`);
+}
+
+proc int lamSomethingSelected()
+{
+    int $on = 0;
+    catchQuiet($on = `isTrue "SomethingSelected"`);
+    return $on;
+}
+
+// How many keys are active, 0 when nothing is selected or the query fails.
+proc int lamActiveKeyCount()
+{
+    if (!lamSomethingSelected())
+        return 0;
+    int $count = 0;
+    if (catchQuiet($count = `keyframe -animation keys -query -keyframeCount`))
+        return 0;
+    return $count;
+}
+
+// The curves holding active keys.
+proc string[] lamActiveKeyCurves()
+{
+    string $curves[];
+    if (lamSomethingSelected())
+        catchQuiet($curves = `keyframe -animation keys -query -name`);
+    return $curves;
+}
+
+// The members of a selection connection, or nothing when there's no such connection.
+proc string[] lamConnectionObjects(string $connection)
+{
+    string $objects[];
+    if ($connection != "" && `selectionConnection -exists $connection`)
+        catchQuiet($objects = `selectionConnection -query -object $connection`);
+    return $objects;
+}
+
+// Object text for -animation objects. The reference takes a selection connection's name there; Aztek's commands want
+// the objects, so the connection is written out. A connection that's empty or unknown here gives the selection.
+proc string lamConnectionTarget(string $connection)
+{
+    string $objects[];
+    if ($connection != "" && `selectionConnection -exists $connection`)
+        $objects = lamConnectionObjects($connection);
+    else if ($connection != "" && `objExists $connection`)
+        $objects = {$connection};
+    if (size($objects) == 0)
+        $objects = `ls -selection`;
+    string $quoted[];
+    for ($o in $objects)
+        $quoted[size($quoted)] = "\"" + $o + "\"";
+    return stringArrayToString($quoted, " ");
+}
+
+// The text that makes a command act on the connection's objects when no keys are active.
+proc string lamAnimObjects(string $connection)
+{
+    string $target = lamConnectionTarget($connection);
+    return $target == "" ? "" : (" -animation objects " + $target);
+}
+
+// With the editor showing buffer curves, a snapshot goes first so both run in one evaluation.
+proc string lamBufferPrefix(string $animEditor)
+{
+    string $shown = lamEditorQuery($animEditor, "showBufferCurves");
+    if ($shown == "on" || $shown == "1" || $shown == "true")
+        return "bufferCurve -animation keys -overwrite false; ";
+    return "";
+}
+
+proc int lamIsAnimCurve(string $node)
+{
+    if ($node == "" || !`objExists $node`)
+        return 0;
+    int $is = 0;
+    catchQuiet($is = `objectType -isAType animCurve $node`);
+    return $is;
+}
+
+// The anim curves behind a selection connection: its members that are curves, and the curves driving the others.
+// Calls the shared findAnimCurves when Aztek has it.
+proc string[] lamFindAnimCurves(string $connection)
+{
+    string $curves[];
+    if (`exists findAnimCurves`) {
+        catch($curves = `eval ("findAnimCurves \"" + $connection + "\"")`);
+        return $curves;
+    }
+    string $members[] = lamConnectionObjects($connection);
+    for ($m in $members) {
+        if (lamIsAnimCurve($m)) {
+            $curves[size($curves)] = $m;
+            continue;
+        }
+        string $driving[];
+        catchQuiet($driving = `keyframe -query -name $m`);
+        for ($c in $driving)
+            $curves[size($curves)] = $c;
+    }
+    return stringArrayRemoveDuplicates($curves);
+}
+
+proc string[] lamExpandConnection(string $connection)
+{
+    return expandSelectionConnectionAsArray($connection);
+}
+
+// A runtime command's annotation, the shared getRunTimeCommandAnnotation when there is one.
+proc string lamRunTimeAnnotation(string $command)
+{
+    string $annotation = "";
+    if (`exists getRunTimeCommandAnnotation`)
+        catchQuiet($annotation = `eval ("getRunTimeCommandAnnotation \"" + $command + "\"")`);
+    else if (`runTimeCommand -exists $command`)
+        catchQuiet($annotation = `runTimeCommand -query -annotation $command`);
+    return $annotation;
+}
+
+// Item command text for a call to $procName (a procedure or runtime command another script provides): runs $call
+// when it's there, else says it isn't.
+proc string lamGuard(string $procName, string $call)
+{
+    return "if (`exists " + $procName + "`) " + $call + "; else warning \"" + $procName
+        + " isn't available in Aztek yet.\";";
+}
+
+// Item command text for one of the shared perform procedures that take an argument list. When it's missing, a click
+// runs the plain command through loadAnimMenuLibraryKeyAction; its options can't be shown.
+proc string lamPerform(string $procName, string $version, string $args, string $fallback, string $connection)
+{
+    string $call = $procName + " " + $version + " " + $args;
+    string $else = $fallback == ""
+        ? ("warning \"" + $procName + " isn't available in Aztek yet.\";")
+        : ("loadAnimMenuLibraryKeyAction " + $fallback + " \"" + $connection + "\";");
+    return "if (`exists " + $procName + "`) " + $call + "; else " + $else;
+}
+
+// The same for the perform procedures that take an action number and the connection as plain arguments.
+proc string lamPerformPlain(string $procName, int $action, string $connection, string $fallback, int $quote)
+{
+    string $conn = $quote ? ("\"" + $connection + "\"") : $connection;
+    return lamPerform($procName, (string)$action, $conn, $fallback, $connection);
+}
+
+proc string lamArgList(string $items[])
+{
+    string $quoted[];
+    for ($i in $items)
+        $quoted[size($quoted)] = "\"" + $i + "\"";
+    return "{" + stringArrayToString($quoted, ", ") + "}";
+}
+
+// A tool item (with its option box when $optionsCommand is given), annotated from the runtime commands.
+proc lamToolItem(string $label, string $image, string $command, string $doubleClick, string $optionsCommand)
+{
+    string $annotation = lamRunTimeAnnotation($command);
+    if ($doubleClick != "")
+        menuItem -label $label -image $image -annotation $annotation -command (lamGuard($command, $command))
+            -dragDoubleClickCommand (lamGuard($doubleClick, $doubleClick));
+    else
+        menuItem -label $label -image $image -annotation $annotation -command (lamGuard($command, $command));
+    if ($optionsCommand != "")
+        menuItem -optionBox true -image $image -annotation (lamRunTimeAnnotation($optionsCommand))
+            -command (lamGuard($optionsCommand, $optionsCommand));
+}
+
+// The labels of the tangent types.
+proc string lamTangentLabel(string $type)
+{
+    switch ($type) {
+        case "auto":       return "Auto";
+        case "autoease":   return "Auto Ease";
+        case "automix":    return "Auto Mix";
+        case "autocustom": return "Auto Custom";
+        case "spline":     return "Spline";
+        case "linear":     return "Linear";
+        case "clamped":    return "Clamped";
+        case "step":       return "Stepped";
+        case "stepnext":   return "Stepped Next";
+        case "flat":       return "Flat";
+        case "fixed":      return "Fixed";
+        case "plateau":    return "Plateau";
+    }
+    return $type;
+}
+
+// The runtime command base name for each tangent type.
+proc string lamTangentRunTime(string $type)
+{
+    switch ($type) {
+        case "auto":       return "TangentAuto";
+        case "autoease":   return "TangentAutoEase";
+        case "automix":    return "TangentAutoMix";
+        case "autocustom": return "TangentAutoCustom";
+        case "spline":     return "TangentSpline";
+        case "linear":     return "TangentLinear";
+        case "clamped":    return "TangentClamped";
+        case "step":       return "TangentStepped";
+        case "stepnext":   return "TangentStepNext";
+        case "flat":       return "TangentFlat";
+        case "fixed":      return "TangentFixed";
+        case "plateau":    return "TangentPlateau";
+    }
+    return "";
+}
+
+// In (1) and Out (2) commands carry a prefix; both (0) don't.
+proc string lamSidePrefix(int $applyOptions)
+{
+    if ($applyOptions == 1)
+        return "In";
+    if ($applyOptions == 2)
+        return "Out";
+    return "";
+}
+
+// The keyTangent flags for one type on the chosen side(s). The reference runs the two together with no space; Aztek's
+// keyTangent reads "auto-ott" as one value, so they are spaced.
+proc string lamTangentFlags(int $applyOptions, string $type)
+{
+    string $flags = "";
+    if ($applyOptions != 2)
+        $flags = "-itt " + $type;
+    if ($applyOptions != 1)
+        $flags += ($flags == "" ? "" : " ") + "-ott " + $type;
+    return $flags;
+}
+
+proc string lamDoKeyTangentCommand(string $flags, string $connection, string $options)
+{
+    return "doKeyTangent \"" + $flags + "\" " + $connection + " \"" + $options + "\"";
+}
+
+// One tangent type item. With $useRunTimeCommand the runtime command runs, or the plain keyTangent call while Aztek
+// doesn't have that runtime command.
+proc lamTangentItem(int $applyOptions, string $type, string $connection, string $options, int $useRunTimeCommand)
+{
+    string $runTime = lamSidePrefix($applyOptions) + lamTangentRunTime($type);
+    string $direct = lamDoKeyTangentCommand(lamTangentFlags($applyOptions, $type), $connection, $options);
+    string $command = $direct;
+    if ($useRunTimeCommand)
+        $command = "if (`exists " + $runTime + "`) " + $runTime + "; else " + $direct + ";";
+    menuItem -label (lamTangentLabel($type)) -annotation (lamRunTimeAnnotation($runTime)) -command $command;
+}
+
+// The tangent types plug-ins have registered. Aztek's keyTangent doesn't know -ptt yet and answers with the
+// selected keys' in tangents instead, so the built-in type names are left out of what comes back.
+proc string[] lamPluginTangentTypes()
+{
+    string $found[];
+    string $plugins[];
+    catchQuiet($found = `keyTangent -query -ptt`);
+    string $builtIn[] = {"auto", "autoease", "automix", "autocustom", "spline", "linear", "clamped", "step",
+        "stepnext", "flat", "fixed", "plateau", "slow", "fast"};
+    for ($f in stringArrayRemoveDuplicates($found))
+        if (!stringArrayContains($f, $builtIn))
+            $plugins[size($plugins)] = $f;
+    return $plugins;
+}
+
+// The value of a keyTangent flag shared by every active key, "-1" when they differ, "" with no keys.
+proc string lamCommonTangentValue(string $flag)
+{
+    string $values[];
+    if ($flag == "itt" || $flag == "ott" || $flag == "inTangentType" || $flag == "outTangentType") {
+        catchQuiet($values = `eval ("keyTangent -animation keys -query -" + $flag)`);
+    } else if ($flag == "l" || $flag == "lock" || $flag == "wl" || $flag == "weightLock" || $flag == "wt"
+        || $flag == "weightedTangents") {
+        int $ints[];
+        catchQuiet($ints = `eval ("keyTangent -animation keys -query -" + $flag)`);
+        for ($i in $ints)
+            $values[size($values)] = $i;
+    } else {
+        float $floats[];
+        catchQuiet($floats = `eval ("keyTangent -animation keys -query -" + $flag)`);
+        for ($f in $floats)
+            $values[size($values)] = $f;
+    }
+    string $first = $values[0];
+    for ($v in $values)
+        if ($v != $first)
+            return "-1";
+    return $first;
+}
+
+// Adds or enables one plug-in tangent type in a Tangents menu and its item list. The reference enables with an edit
+// naming no item; here the found item is the one enabled.
+proc doUpdateTangentsMenu(string $plugin, int $isAdded, string $connection, string $itemList[])
+{
+    global string $gTangentMenuOptions;
+    for ($item in $itemList) {
+        if (`menuItem -exists $item` && `menuItem -query -label $item` == $plugin) {
+            menuItem -edit -enable $isAdded $item;
+            return;
+        }
+    }
+    if ($isAdded) {
+        string $item = `menuItem -label $plugin -annotation "Set the selected keys' tangents to this plug-in type"
+            -command (lamDoKeyTangentCommand("-e -itt " + $plugin + " -ott " + $plugin, $connection, $gTangentMenuOptions))`;
+        $itemList[size($itemList)] = $item;
+        setParent -menu ..;
+    }
+}
+
+// ---- Global procedures ----
+
+// Loading the file is the point; calling this makes sure it's loaded.
+global proc loadAnimMenuLibrary()
+{
+}
+
+global proc performEulerFilter(string $selectionConnection)
+{
+    string $curves[] = lamFindAnimCurves($selectionConnection);
+    if (size($curves) > 0)
+        evalEcho("filterCurve " + stringArrayToString($curves, " "));
+}
+
+// $mode: none, euler, quaternionSlerp, quaternionSquad or quaternion.
+global proc performRotationInterpolation(string $mode, string $selectionConnection)
+{
+    string $curves[] = lamActiveKeyCurves();
+    string $objects[] = lamConnectionObjects($selectionConnection);
+    string $cmd = "rotationInterpolation -c " + $mode;
+    for ($c in $curves)
+        $cmd += " " + $c;
+    for ($o in $objects)
+        $cmd += " " + $o;
+    if (size($curves) > 0 || size($objects) > 0)
+        evalEcho($cmd);
+    // The Graph Editor's name is fixed, as in the reference.
+    if (`animCurveEditor -exists graphEditor1GraphEd`)
+        animCurveEditor -edit -upd graphEditor1GraphEd;
+}
+
+global proc string getDefaultConnection(string $editor)
+{
+    global string $gEditorList[];
+    global string $gDefaultConnection[];
+    for ($i = 0; $i < size($gEditorList); $i++)
+        if ($gEditorList[$i] == $editor)
+            return $gDefaultConnection[$i];
+    return "animationList";
+}
+
+// The first registration stands; registering again changes nothing.
+global proc registerEditor(string $editor, string $defaultConnection)
+{
+    global string $gEditorList[];
+    global string $gDefaultConnection[];
+    for ($e in $gEditorList)
+        if ($e == $editor)
+            return;
+    int $n = size($gEditorList);
+    $gEditorList[$n] = $editor;
+    $gDefaultConnection[$n] = $defaultConnection;
+}
+
+global proc string[] findActiveAnimCurves(string $editor)
+{
+    return lamFindAnimCurves(lamEditorQuery($editor, "highlightConnection"));
+}
+
+// Plain-command stand-ins for the shared key perform procedures, used while Aztek doesn't have them: active keys when
+// there are any, else the connection's objects.
+global proc loadAnimMenuLibraryKeyAction(string $action, string $connection)
+{
+    int $keys = lamActiveKeyCount() > 0;
+    string $target = $keys ? " -animation keys" : lamAnimObjects($connection);
+    string $curves[] = $keys ? lamActiveKeyCurves() : lamFindAnimCurves($connection);
+    string $curveText = stringArrayToString($curves, " ");
+    switch ($action) {
+        case "cut":
+            evalEcho("cutKey" + $target);
+            break;
+        case "copy":
+            evalEcho("copyKey" + $target);
+            break;
+        case "paste":
+            // pasteKey takes the objects to paste onto, without -animation.
+            evalEcho("pasteKey" + ($keys ? "" : (" " + lamConnectionTarget($connection))));
+            break;
+        case "clear":
+            evalEcho("cutKey -clear" + $target);
+            break;
+        case "snap":
+            evalEcho("snapKey" + $target);
+            break;
+        case "bake": {
+            string $range = `playbackOptions -query -minTime` + ":" + `playbackOptions -query -maxTime`;
+            string $objects = lamConnectionTarget($connection);
+            if ($objects != "")
+                evalEcho("bakeResults -t \"" + $range + "\" " + $objects);
+            break;
+        }
+        case "butterworth":
+        case "keyReducer":
+        case "peakRemover":
+        case "keySync":
+        case "resample":
+            if ($curveText != "")
+                evalEcho("filterCurve -filter " + $action + " " + $curveText);
+            break;
+        case "simplify":
+            if ($curveText != "")
+                evalEcho("simplify " + $curveText);
+            break;
+        default:
+            warning ("The " + $action + " action needs its options window, which isn't available in Aztek yet.");
+    }
+}
+
+// Cut, Copy, Paste and Delete for the current menu.
+global proc buildAnimEditCommonMenuItems(int $performBase, string $selectionConnection)
+{
+    // A base of 0 is taken as the Dope Sheet's, as in the reference (which is also the Graph Editor without buffer
+    // curves).
+    int $base = $performBase;
+    int $pasteBase = $performBase;
+    string $pasteFrom = "1";
+    if ($performBase == 0) {
+        $base = 6;
+        $pasteFrom = "2";
+    }
+    string $c = $selectionConnection;
+
+    menuItem -label "Cut" -annotation "Cut the selected keys"
+        -command (lamPerform("performCutKeyArgList", "1", lamArgList({$base, $c, "1"}), "cut", $c))
+        -dragMenuCommand (lamPerform("performCutKeyArgList", "1", lamArgList({($base + 2), $c, "1"}), "cut", $c))
+        cutItem;
+    menuItem -optionBox true -annotation "Cut Keys Options"
+        -command (lamPerform("performCutKeyArgList", "1", lamArgList({($base + 1), $c, "1"}), "", $c))
+        cutKeyDialogItem;
+
+    menuItem -label "Copy" -annotation "Copy the selected keys"
+        -command (lamPerform("performCopyKeyArgList", "1", lamArgList({$base, $c, "1"}), "copy", $c))
+        -dragMenuCommand (lamPerform("performCopyKeyArgList", "1", lamArgList({($base + 2), $c, "1"}), "copy", $c))
+        copyItem;
+    menuItem -optionBox true -annotation "Copy Keys Options"
+        -command (lamPerform("performCopyKeyArgList", "1", lamArgList({($base + 1), $c, "1"}), "", $c))
+        copyKeyDialogItem;
+
+    menuItem -label "Paste" -annotation "Paste the copied keys"
+        -command (lamPerform("performPasteKeyArgList", "1", lamArgList({$pasteBase, $c, $pasteFrom}), "paste", $c))
+        -dragMenuCommand (lamPerform("performPasteKeyArgList", "1", lamArgList({($pasteBase + 2), $c, $pasteFrom}),
+            "paste", $c))
+        pasteItem;
+    menuItem -optionBox true -annotation "Paste Keys Options"
+        -command (lamPerform("performPasteKeyArgList", "1", lamArgList({($pasteBase + 1), $c, $pasteFrom}), "", $c))
+        pasteKeyDialogItem;
+
+    // The reference's drag command here is malformed (a missing quote); it is written correctly.
+    menuItem -label "Delete" -annotation "Delete the selected keys"
+        -command (lamPerform("performClearKeyArgList", "1", lamArgList({$base, $c, "0", "1"}), "clear", $c))
+        -dragMenuCommand (lamPerform("performClearKeyArgList", "1", lamArgList({($base + 2), $c, "0", "1"}), "clear", $c))
+        clearItem;
+    menuItem -optionBox true -annotation "Delete Keys Options"
+        -command (lamPerform("performClearKeyArgList", "1", lamArgList({($base + 1), $c, "0", "1"}), "", $c))
+        clearKeyDialogItem;
+}
+
+global proc buildAnimEditSnapMenuItems(int $performBase, string $selectionConnection, int $applyToChannelSets)
+{
+    int $snapBase = $performBase;
+    int $selectBase = 6;
+    if ($performBase == 0) {
+        $snapBase = 9;
+        $selectBase = 12;
+    }
+    string $c = $selectionConnection;
+    string $sets = $applyToChannelSets;
+
+    menuItem -label "Snap" -annotation "Snap the selected keys to whole frames and values"
+        -command (lamPerform("performSnapKeyArgList", "2", lamArgList({$snapBase, $c, "1", $sets}), "snap", $c))
+        -dragMenuCommand (lamPerform("performSnapKeyArgList", "2", lamArgList({($snapBase + 2), $c, "1", $sets}),
+            "snap", $c))
+        snapItem;
+    menuItem -optionBox true -annotation "Snap Keys Options"
+        -command (lamPerform("performSnapKeyArgList", "2", lamArgList({($snapBase + 1), $c, "1", $sets}), "", $c))
+        snapKeyDialogItem;
+    // The drag command uses base + 1 here, as in the reference.
+    menuItem -label "Select Unsnapped" -annotation "Select the keys that aren't on whole frames"
+        -command (lamPerform("performSnapKeyArgList", "2", lamArgList({$selectBase, $c, "1", $sets}), "", $c))
+        -dragMenuCommand (lamPerform("performSnapKeyArgList", "2", lamArgList({($selectBase + 1), $c, "1", $sets}),
+            "", $c))
+        selectUnsnappedItem;
+}
+
+global proc buildAnimEditUndoRedoMenuItems()
+{
+    menuItem -label "Undo" -annotation "Undo the last action"
+        -command "if (`exists Undo`) Undo; else undo;" animUndoItem;
+    dimWhen -false UndoAvailable animUndoItem;
+    menuItem -label "Redo" -annotation "Redo the last undone action"
+        -command "if (`exists Redo`) Redo; else redo;" animRedoItem;
+    dimWhen -false RedoAvailable animRedoItem;
+}
+
+// The Edit menu, built the first time it opens.
+global proc buildAnimEditMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    setParent -menu $parentMenu;
+    if (`menu -query -numberOfItems $parentMenu` > 0)
+        return;
+
+    int $bufferCurve = lamHas($options, "bufferCurve");
+    int $performBase = $bufferCurve ? 3 : 0;
+    int $dopeSheetMenu = lamHas($options, "dopeSheetMenu");
+    int $dopeSheetRightClick = lamHas($options, "dopeSheetRightClickMenu");
+    int $regionTool = lamHas($options, "regionTool");
+    int $retimeTool = lamHas($options, "retimeTool");
+    int $latticeTool = lamHas($options, "latticeTool");
+
+    if (!$dopeSheetRightClick) {
+        buildAnimEditUndoRedoMenuItems();
+        menuItem -divider true;
+    }
+
+    string $connection = lamEditorQuery($editor, "selectionConnection");
+    if ($bufferCurve)
+        $connection = $animEditor;
+
+    if (!$dopeSheetRightClick)
+        buildAnimEditCommonMenuItems($performBase, $connection);
+
+    int $scaleBase = $dopeSheetMenu ? 6 : $performBase;
+    menuItem -label "Scale" -annotation "Scale the selected keys"
+        -command (lamPerform("performScaleKeyArgList", "1", lamArgList({$scaleBase, $connection, "1"}), "", $connection))
+        -dragMenuCommand (lamPerform("performScaleKeyArgList", "1", lamArgList({($scaleBase + 2), $connection, "1"}),
+            "", $connection))
+        scaleItem;
+    menuItem -optionBox true -annotation "Scale Keys Options"
+        -command (lamPerform("performScaleKeyArgList", "1", lamArgList({($scaleBase + 1), $connection, "1"}), "",
+            $connection))
+        scaleKeyDialogItem;
+
+    menuItem -subMenu true -label "Transformation Tools" -tearOff true -allowOptionBoxes true transAnimItem;
+        if ($dopeSheetMenu) {
+            lamToolItem("Select Tool", "aselect.png", "SelectTool", "", "");
+            lamToolItem("Select Keys Tool", "dopeSheetSelect.png", "DopeSheetSelectKeys", "", "");
+            lamToolItem("Insert Keys Tool", "setKeySmall.png", "DopeSheetInsertKeysTool", "",
+                "DopeSheetInsertKeysToolOptions");
+            lamToolItem("Move Nearest Picked Key Tool", "directKeySmall.png", "DopeSheetMoveNearestPickedKey",
+                "DopeSheetMoveNearestPickedKeyOptions", "DopeSheetMoveNearestPickedKeyOptions");
+        }
+        lamToolItem("Move Keys Tool", "move_M.png", "MoveTool", "MoveToolOptions", "MoveToolOptions");
+        lamToolItem("Scale Keys Tool", "scale_M.png", "ScaleTool", "ScaleToolOptions", "ScaleToolOptions");
+        if ($latticeTool)
+            lamToolItem("Lattice Deform Keys Tool", "latticeDeformKeySmall.png", "LatticeDeformKeysTool", "",
+                "LatticeDeformKeysToolOptions");
+        if ($regionTool)
+            lamToolItem("Region Keys Tool", "regionSelectKeySmall.png", "RegionKeysTool", "", "");
+        if ($retimeTool)
+            lamToolItem("Retime Keys Tool", "retimeKeySmall.png", "RetimeKeysTool", "", "RetimeKeysToolOptions");
+        if (!$dopeSheetMenu) {
+            menuItem -divider true;
+            menuItem -subMenu true -label "Sculpting Tools" -annotation "Tools that sculpt curves with a brush"
+                -version "2024" -tearOff true -allowOptionBoxes true transAnimItem;
+                lamToolItem("Grab Keys Tool", "brushGrab.png", "SculptKeysGrabTool", "", "SculptKeysGrabToolOptions");
+                lamToolItem("Smooth Keys Tool", "brushSmooth.png", "SculptKeysSmoothTool", "",
+                    "SculptKeysSmoothToolOptions");
+                lamToolItem("Smear Keys Tool", "brushSmear.png", "SculptKeysSmearTool", "", "SculptKeysSmearToolOptions");
+                lamToolItem("Reduce Keys Tool", "brushKeyReducer.png", "SculptKeysReduceTool", "",
+                    "SculptKeysReduceToolOptions");
+            setParent -menu ..;
+        }
+    setParent -menu ..;
+
+    if (!$dopeSheetRightClick) {
+        menuItem -divider true;
+        buildAnimEditSnapMenuItems($performBase, $connection, $dopeSheetMenu);
+    }
+
+    if (!$dopeSheetMenu && !$dopeSheetRightClick) {
+        menuItem -divider true;
+        menuItem -label "Select Curves" -annotation "Select the curves highlighted in the editor"
+            -command ("select -replace (findActiveAnimCurves(\"" + $editor + "\"));")
+            selectCurveNodesItem;
+        menuItem -label "Change Curve Color" -annotation "Give the highlighted curves a colour of their own"
+            -command (lamGuard("performChangeAnimCurveColor", "performChangeAnimCurveColor 0 " + $editor))
+            changeCurveColorItem;
+        menuItem -optionBox true -annotation "Change Curve Color Options"
+            -command (lamGuard("performChangeAnimCurveColor", "performChangeAnimCurveColor 1 " + $editor))
+            changeCurveColorOptionsItem;
+        menuItem -label "Remove Curve Color" -annotation "Go back to the default colour for the highlighted curves"
+            -command ("for ($c in findActiveAnimCurves(\"" + $editor + "\")) setAttr ($c + \".useCurveColor\") 0;")
+            removeCurveColorItem;
+        menuItem -label "Set Curve Colors" -annotation "Set the colours of curves by attribute name"
+            -command (lamGuard("showCurveColorWindow", "showCurveColorWindow " + $editor))
+            setCurveColorsItem;
+        menuItem -divider true;
+
+        string $timeWarp = `menuItem -subMenu true -label "Time Warp" -tearOff true -allowOptionBoxes true
+            timeWarpSubMenu`;
+            menuItem -label "Add Time Warp" -annotation "Add a time warp to the selected animation"
+                -command (lamGuard("AddTimeWarp", "AddTimeWarp")) addTimeWarpItem;
+            menuItem -label "Select Time Warp" -annotation "Select the scene's time warp curve"
+                -command (lamGuard("SelectTimeWarp", "SelectTimeWarp")) selectTimeWarpItem;
+            menuItem -label "Delete Time Warp" -annotation "Delete the scene's time warp"
+                -command (lamGuard("DeleteTimeWarp", "DeleteTimeWarp")) deleteTimeWarpItem;
+            // Setting the time again makes the scene evaluate with the new state.
+            string $enable = `menuItem -label "Enable Time Warp" -annotation "Turn the scene's time warp on or off"
+                -checkBox true
+                -command "setAttr time1.enableTimewarp (!`getAttr time1.enableTimewarp`); currentTime `currentTime -query`;"
+                enableTimeWarpItem`;
+        setParent -menu ..;
+        menuItem -edit
+            -postMenuCommand ("menuItem -edit -checkBox `getAttr time1.enableTimewarp` \"" + $enable + "\";")
+            $timeWarp;
+
+        menuItem -divider true;
+        menuItem -label "Animation Preferences..." -annotation "Open the Preferences at the Animation settings"
+            -command "preferencesWnd Animation" openAnimPrefs;
+    }
+
+    if ($buildMenuCommand != "")
+        eval($buildMenuCommand + " " + $animEditor + " " + $parentMenu);
+}
+
+// Sets the Edit menu to build itself the first time it opens.
+global proc defineEditMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    setParent -menu $parentMenu;
+    menu -edit -postMenuCommand ("buildAnimEditMenu " + $editor + " " + $animEditor + " \"" + $parentMenu + "\" \""
+        + $options + "\" \"" + $buildMenuCommand + "\"") $parentMenu;
+}
+
+// Names the action Undo and Redo would act on, for callers that want it on the items.
+global proc handleEditMenuCmd(string $parentMenu)
+{
+    setParent -menu $parentMenu;
+    string $undoWords[];
+    tokenize(`undoInfo -query -undoName`, $undoWords);
+    if (`menuItem -exists animUndoItem`)
+        menuItem -edit -label ("Undo " + $undoWords[0]) animUndoItem;
+    string $redoWords[];
+    tokenize(`undoInfo -query -redoName`, $redoWords);
+    if (`menuItem -exists animRedoItem`)
+        menuItem -edit -label ("Redo " + $redoWords[0]) animRedoItem;
+}
+
+// Whether the editor follows the selection: it shows the active list or its default connection, unlocked.
+global proc int isAutoLoad(string $editor)
+{
+    string $main = lamEditorQuery($editor, "mainListConnection");
+    if ($main != "activeList" && $main != getDefaultConnection($editor))
+        return 0;
+    if ((int)lamEditorQuery($editor, "lockMainConnection"))
+        return 0;
+    return 1;
+}
+
+global proc toggleAutoLoad(string $editor, int $toggle)
+{
+    string $main = lamEditorQuery($editor, "mainListConnection");
+    string $default = getDefaultConnection($editor);
+    if ($main != "activeList" && $main != $default) {
+        lamEditorEdit($editor, "-unlockMainConnection");
+        lamEditorEdit($editor, "-mainListConnection \"" + $default + "\"");
+    } else if ($toggle) {
+        lamEditorEdit($editor, "-unlockMainConnection");
+    } else {
+        lamEditorEdit($editor, "-lockMainConnection");
+    }
+
+    if (`iconTextCheckBox -exists ($editor + "loadToggleButton")`)
+        iconTextCheckBox -edit -value (isAutoLoad($editor)) ($editor + "loadToggleButton");
+    if (`iconTextButton -exists ($editor + "reloadButton")`)
+        iconTextButton -edit -enable (!isAutoLoad($editor)) ($editor + "reloadButton");
+}
+
+global proc doReload(string $editor)
+{
+    string $main = lamEditorQuery($editor, "mainListConnection");
+    string $default = getDefaultConnection($editor);
+    if (($main != "activeList" && $main != $default) || (int)lamEditorQuery($editor, "lockMainConnection"))
+        lamEditorEdit($editor, "-forceMainConnection \"" + $default + "\"");
+}
+
+// The List menu: built the first time it opens, its states refreshed every time.
+global proc handleListMenuCmd(string $options, string $editor, string $animEditor, string $parentMenu,
+    string $buildMenuCommand, string $toolbarLayout)
+{
+    setParent -menu $parentMenu;
+
+    string $objectsWord = "Objects";
+    string $bookmarkType = "bookmarkAnimCurves";
+    string $autoLoadCommand = "toggleAutoLoad " + $editor + " #1";
+    int $autoLoadOn = 1;
+    string $editorName = "Graph Editor";
+    if (lamHas($options, "useCharacters")) {
+        $objectsWord = "Characters";
+        $bookmarkType = "bookmarkClips";
+        $autoLoadCommand += "; optionVar -intValue traxAutoLoadSel #1";
+        $editorName = "Trax Editor";
+        if (`optionVar -exists traxAutoLoadSel`)
+            $autoLoadOn = `optionVar -query traxAutoLoadSel`;
+    }
+    int $useHier = lamHas($options, "useHier");
+    int $useSUC = lamHas($options, "useSUC");
+    int $useExpand = lamHas($options, "useAutoExpandAnimShapes");
+
+    if (`menu -query -numberOfItems $parentMenu` == 0) {
+        if ($useHier)
+            menuItem -label "Hierarchy Below" -annotation "Show the keys of the objects below the loaded ones too"
+                -checkBox false
+                -command ("if (`exists setHierarchyBelow`) setHierarchyBelow #1 " + $animEditor + " \"" + $toolbarLayout
+                    + "\"; else warning \"setHierarchyBelow isn't available in Aztek yet.\";")
+                hierItem;
+        menuItem -checkBox $autoLoadOn -label (`format -stringArg $objectsWord "Auto-Load Selected ^1s"`)
+            -annotation (`format -stringArg $editorName "Load the selection into the ^1s as it changes"`)
+            -command $autoLoadCommand autoLoadItem;
+        menuItem -label (`format -stringArg $objectsWord "Load Selected ^1s"`)
+            -annotation (`format -stringArg $editorName "Load the selection into the ^1s"`)
+            -command ("doReload " + $editor) reloadItem;
+        menuItem -label (`format -stringArg $objectsWord "Add Selected ^1s"`)
+            -annotation (`format -stringArg $editorName "Add the selection to what the ^1s shows"`)
+            -command (lamGuard("addSelectedToEditorWithOptions",
+                "addSelectedToEditorWithOptions \"" + $options + "\" " + $editor))
+            addToListItem;
+
+        if (!lamHas($options, "dopeSheetMenu")) {
+            string $bookmarks = `menuItem -subMenu true -label "Bookmarks" -allowOptionBoxes true bookMarkHierItem`;
+            menuItem -edit -postMenuCommand (lamGuard("buildBookmarkMenu", "buildBookmarkMenu -type " + $bookmarkType
+                + " -editor " + $editor + " \"" + $bookmarks + "\"")) $bookmarks;
+                menuItem -label (`format -stringArg $objectsWord "Bookmark Current ^1s"`)
+                    -annotation "Bookmark what the editor shows"
+                    -command (lamGuard("createBookmark", "createBookmark " + $editor + " " + $bookmarkType + " false"))
+                    bookAnimMarkObjectsItem;
+                menuItem -optionBox true -annotation "Bookmark Options"
+                    -command (lamGuard("createBookmark", "createBookmark " + $editor + " " + $bookmarkType + " true"))
+                    bookAnimMarkObjectsDialog;
+                if (!`gmatch $editor "*clip*"`) {
+                    // The highlighted curves are selected just for the bookmark, then the selection goes back.
+                    string $around = "{ string $lamKept[] = `ls -selection`; select -replace (findActiveAnimCurves(\""
+                        + $editor + "\")); ^1s; if (size($lamKept)) select -replace $lamKept; else select -clear; }";
+                    menuItem -label "Bookmark Selected Curves" -annotation "Bookmark the highlighted curves"
+                        -command (`format -stringArg (lamGuard("createBookmark", "createBookmark " + $editor + " "
+                            + $bookmarkType + " false")) $around`)
+                        bookAnimMarkCurvesItem;
+                    menuItem -optionBox true -annotation "Bookmark Selected Curves Options"
+                        -command (`format -stringArg (lamGuard("createBookmark", "createBookmark " + $editor + " "
+                            + $bookmarkType + " true")) $around`)
+                        bookAnimMarkCurvesDialog;
+                }
+                menuItem -label "Remove All Bookmarks" -annotation "Delete every bookmark of this kind"
+                    -command (lamGuard("removeBookmark", "removeBookmark {} " + $bookmarkType))
+                    removeAllBookmarksItem;
+            setParent -menu ..;
+        }
+
+        if ($useSUC || $useExpand)
+            menuItem -divider true;
+        if ($useSUC)
+            menuItem -checkBox true -label "Show Upstream Curves"
+                -annotation "Show the curves that drive the loaded ones through other nodes too"
+                -command ("outlinerEditor -edit -showUpstreamCurves #1 " + $editor
+                    + "; animCurveEditor -edit -showUpstreamCurves #1 " + $animEditor
+                    + "; optionVar -intValue graphEditorShowUpstreamCurves #1;")
+                showUpstreamCurvesItem;
+        if ($useExpand) {
+            menuItem -subMenu true -label "Expand Animated Shapes" -version "2025" -tearOff false
+                -postMenuCommand ("updateShowAnimatedShapesMenu " + $editor) expandAnimatedShapesSubMenuItem;
+                radioMenuItemCollection;
+                menuItem -label "All" -radioButton true -annotation "Expand every animated shape"
+                    -command "optionVar -intValue graphEditorAutoExpandAnimatedShapes 1 -intValue graphEditorAutoExpandAllAnimatedShapes 1;"
+                    expandAnimatedShapesAllItem;
+                menuItem -label "One" -radioButton false -annotation "Expand only the directly animated shapes"
+                    -command "optionVar -intValue graphEditorAutoExpandAnimatedShapes 1 -intValue graphEditorAutoExpandAllAnimatedShapes 0;"
+                    expandAnimatedShapesOneItem;
+                menuItem -label "None" -radioButton false -annotation "Don't expand animated shapes"
+                    -command "optionVar -intValue graphEditorAutoExpandAnimatedShapes 0;"
+                    expandAnimatedShapesNoneItem;
+            setParent -menu ..;
+        }
+
+        if ($buildMenuCommand != "")
+            eval($buildMenuCommand + " " + $editor + " " + $animEditor + " " + $parentMenu);
+    }
+
+    // Every time it opens.
+    if ($useHier && `menuItem -exists hierItem`)
+        menuItem -edit -checkBox ((int)lamEditorQuery($animEditor, "hierarchyBelow")) hierItem;
+    if ($useSUC && `menuItem -exists showUpstreamCurvesItem`)
+        menuItem -edit -checkBox ((int)lamEditorQuery($editor, "showUpstreamCurves")) showUpstreamCurvesItem;
+
+    string $main = lamEditorQuery($editor, "mainListConnection");
+    if ($main == "" && `modelEditor -exists $editor`)
+        $main = "activeList";
+    int $manual = ($main != "activeList" && $main != getDefaultConnection($editor))
+        || (int)lamEditorQuery($editor, "lockMainConnection");
+    if (`menuItem -exists autoLoadItem`)
+        menuItem -edit -checkBox (!$manual) autoLoadItem;
+    if (`menuItem -exists reloadItem`)
+        menuItem -edit -enable $manual reloadItem;
+    if (`menuItem -exists addToListItem`)
+        menuItem -edit -enable $manual addToListItem;
+}
+
+global proc updateShowAnimatedShapesMenu(string $outlinerEditor)
+{
+    int $expand = (int)lamEditorQuery($outlinerEditor, "autoExpandAnimatedShapes");
+    int $expandAll = (int)lamEditorQuery($outlinerEditor, "autoExpandAllAnimatedShapes");
+    string $item = "expandAnimatedShapesAllItem";
+    if (!$expand)
+        $item = "expandAnimatedShapesNoneItem";
+    else if (!$expandAll)
+        $item = "expandAnimatedShapesOneItem";
+    if (`menuItem -exists $item`)
+        menuItem -edit -radioButton true $item;
+}
+
+global proc defineListMenu(string $options, string $editor, string $animEditor, string $parentMenu,
+    string $buildMenuCommand, string $toolbarLayout)
+{
+    setParent -menu $parentMenu;
+    menu -edit -postMenuCommand ("handleListMenuCmd \"" + $options + "\" " + $editor + " " + $animEditor + " \""
+        + $parentMenu + "\" \"" + $buildMenuCommand + "\" \"" + $toolbarLayout + "\"") $parentMenu;
+}
+
+// Runs keyTangent on the active keys, or on the connection's objects when there are none. With buffer curves,
+// $selectionConnection is the anim curve editor's name and its main list is the target.
+global proc doKeyTangent(string $commandOptions, string $selectionConnection, string $options)
+{
+    string $cmd = "keyTangent " + $commandOptions;
+    string $target = $selectionConnection;
+    if (lamHas($options, "bufferCurve")) {
+        $target = lamEditorQuery($selectionConnection, "mainListConnection");
+        $cmd = lamBufferPrefix($selectionConnection) + $cmd;
+    }
+    if (lamActiveKeyCount() == 0)
+        $cmd += lamAnimObjects($target);
+    catch(evalEcho($cmd));
+    doUpdateTangentFeedback();
+}
+
+global proc string gePerformAutoCustomTangents(int $action, int $applyOptions)
+{
+    if (!`exists performAutoCustomTangents`) {
+        warning "performAutoCustomTangents isn't available in Aztek yet.";
+        return "";
+    }
+    string $result = `eval ("performAutoCustomTangents " + $action + " " + $applyOptions
+        + " \"graphEditor1GraphEd\" \"useSmoothness bufferCurve\"")`;
+    return $result;
+}
+
+global proc geDoKeyTangent(string $commandOptions)
+{
+    doKeyTangent($commandOptions, "graphEditor1GraphEd", "useSmoothness bufferCurve");
+}
+
+global proc geDoKeyTangentNoOptions(string $commandOptions)
+{
+    doKeyTangent($commandOptions, "graphEditor1GraphEd", "noOptions");
+}
+
+// Sets the default tangent type for new keys, remembering it in the preferences.
+global proc doEditDefaultTangent(int $outTangent, string $tanType)
+{
+    string $side = $outTangent ? "-ott" : "-itt";
+    optionVar -stringValue ($outTangent ? "outTangentType" : "inTangentType") $tanType;
+    string $current[] = `eval ("keyTangent -query -global " + $side)`;
+    if ($current[0] != $tanType)
+        catch(evalEcho("keyTangent -e -global " + $side + " " + $tanType));
+    doUpdateDefaultTangentFeedback();
+}
+
+global proc doBreakdownKeyEdit(int $breakdown, string $connection)
+{
+    string $cmd = "keyframe -breakdown " + $breakdown;
+    if (lamActiveKeyCount() == 0)
+        $cmd += lamAnimObjects($connection);
+    evalEcho($cmd);
+}
+
+global proc int getChannelSetsVisible()
+{
+    return `optionVar -exists dopeSheetShowChannelSets` && `optionVar -query dopeSheetShowChannelSets` != 0;
+}
+
+// Adds (or takes away) a frame at the current time: every key from now on moves one frame later (or earlier).
+global proc doInbetweenKeyEdit(int $inbetween, string $editor, int $bufferCurve, int $selectedKeys,
+    int $applyToChannelSets)
+{
+    string $main = lamEditorQuery($editor, "mainListConnection");
+    string $cmd = "keyframe -time \"" + `currentTime -query` + ":\" -relative -option over -timeChange "
+        + ($inbetween ? "1" : "-1") + " -animation objects";
+
+    int $useKeys = $selectedKeys;
+    if ($useKeys) {
+        string $curves[];
+        catchQuiet($curves = `keyframe -query -selected -name`);
+        if (size($curves) > 0)
+            $cmd += " " + stringArrayToString($curves, " ");
+        else
+            $useKeys = 0;
+    }
+    if (!$useKeys) {
+        string $members[] = lamConnectionObjects($main);
+        string $target = lamConnectionTarget($main);
+        if ($target != "")
+            $cmd += " " + $target;
+        if ($applyToChannelSets && size($members) == 0 && getChannelSetsVisible()) {
+            // The channel sets' curves come from Python, when Aztek's Python has the module.
+            string $setCurves[];
+            if (!catchQuiet(python("from maya.app.general import customChannelSets")))
+                catch($setCurves = python("customChannelSets.getAllChannelSetCurves()"));
+            for ($c in $setCurves)
+                $cmd += " " + $c;
+        }
+    }
+    if ($bufferCurve)
+        $cmd = lamBufferPrefix($editor) + $cmd;
+    evalEcho($cmd);
+}
+
+global proc int looksLikeAttr(string $nodeAttr)
+{
+    string $parts[];
+    return `tokenize $nodeAttr "." $parts` > 1;
+}
+
+// The plug an anim curve drives, looking through mute nodes, characters and clip libraries.
+global proc string getAnimAttr(string $selectedItem)
+{
+    if (looksLikeAttr($selectedItem))
+        return $selectedItem;
+    string $result = $selectedItem;
+    string $nodes[] = `listConnections -source false -destination true $selectedItem`;
+    if (size($nodes) == 0)
+        return $selectedItem;
+    string $plugs[] = `listConnections -source false -destination true -plugs true $selectedItem`;
+    string $type = `nodeType $nodes[0]`;
+    switch ($type) {
+        case "mute": {
+            string $driven[] = `listConnections -source false -destination true -plugs true -type transform $nodes[0]`;
+            if (size($driven) == 0)
+                catchQuiet($driven = `listConnections -source false -destination true -plugs true
+                    -type animBlendNodeBase $nodes[0]`);
+            $result = $driven[0];
+            break;
+        }
+        case "character": {
+            string $character = $nodes[0];
+            int $index = -1;
+            if (!catch($index = `character -query -memberIndex $plugs[0] $character`)) {
+                string $sources[] = `listConnections -source true -destination false -plugs true
+                    ($character + ".dnSetMembers[" + $index + "]")`;
+                $result = $sources[0];
+            }
+            break;
+        }
+        case "clipLibrary": {
+            string $characters[] = `listConnections -source true -destination false -type character $nodes[0]`;
+            string $parts[];
+            tokenize $plugs[0] "." $parts;
+            // The third part reads like clipEval_Raw[N]: N is between the tenth character and the closing bracket.
+            string $index = `substring $parts[2] 11 (size($parts[2]) - 1)`;
+            string $sources[] = `listConnections -source true -destination false -plugs true
+                ($characters[0] + ".dnSetMembers[" + $index + "]")`;
+            $result = $sources[0];
+            break;
+        }
+        default:
+            $result = $plugs[0];
+    }
+    return $result;
+}
+
+global proc int isChannelFromClip(string $channel)
+{
+    string $parts[];
+    tokenize $channel "." $parts;
+    if (!`objExists $parts[0]`)
+        return 0;
+    return `nodeType $parts[0]` == "clipLibrary";
+}
+
+// Locks (or unlocks) a curve's key times, values and tangents, which is how the editors lock a channel.
+global proc int doTemplateAttributes(string $channel, int $newState)
+{
+    for ($attr in {"ktv", "kix", "kiy", "kox", "koy"})
+        if (`attributeExists $attr $channel`)
+            setAttr -lock $newState ($channel + "." + $attr);
+    return 1;
+}
+
+global proc int doTemplateSingleChannel(string $channel, int $newState)
+{
+    string $curve = $channel;
+    if (!lamIsAnimCurve($channel)) {
+        string $curves[];
+        catchQuiet($curves = `listConnections -source true -destination false -type animCurve $channel`);
+        if (size($curves) != 1)
+            catchQuiet($curves = `keyframe -query -name $channel`);
+        if (size($curves) != 1)
+            return 0;
+        $curve = $curves[0];
+    }
+    return doTemplateAttributes($curve, $newState);
+}
+
+global proc doTemplateChannel(string $selectionConnection, int $newState)
+{
+    int $done = 0;
+    string $curves[];
+    catchQuiet($curves = `keyframe -query -selected -name`);
+    if (size($curves) == 0) {
+        for ($item in lamExpandConnection($selectionConnection))
+            $done += doTemplateSingleChannel($item, $newState);
+    } else {
+        for ($c in $curves)
+            $done += doTemplateAttributes($c, $newState);
+    }
+    if ($done == 0)
+        error "No channels are selected.";
+}
+
+global proc doPinChannel(string $editor, string $selectionConnection, int $newState)
+{
+    string $items[] = lamExpandConnection($selectionConnection);
+    if (size($items) == 0)
+        error "No channels are selected to pin.";
+    for ($item in $items) {
+        if ($newState)
+            outlinerEditor -edit -pin $item $editor;
+        else
+            outlinerEditor -edit -unp $item $editor;
+    }
+}
+
+global proc string[] getMuteOperationChannelsFromCurve(string $curve, int $makeMute)
+{
+    string $channels[];
+    if (looksLikeAttr($curve) || !lamIsAnimCurve($curve))
+        return $channels;
+    string $plugs[] = `listConnections -source false -destination true -plugs true ($curve + ".output")`;
+    for ($plug in $plugs) {
+        string $parts[];
+        tokenize $plug "." $parts;
+        int $isMute = `nodeType $parts[0]` == "mute";
+        if ($isMute == $makeMute)
+            continue;
+        if ($makeMute) {
+            $channels[size($channels)] = $plug;
+        } else {
+            string $muted[] = `listConnections -source false -destination true -plugs true ($parts[0] + ".output")`;
+            $channels = stringArrayCatenate($channels, $muted);
+        }
+    }
+    return $channels;
+}
+
+global proc string[] getMuteOperationChannelsFromPlug(string $plug, int $makeMute)
+{
+    string $none[];
+    string $sources[] = `listConnections -source true -destination false -plugs true $plug`;
+    if (size($sources) == 0)
+        return $none;
+    int $hasMute = 0;
+    for ($s in $sources) {
+        string $parts[];
+        tokenize $s "." $parts;
+        if (`nodeType $parts[0]` == "mute")
+            $hasMute = 1;
+    }
+    if ($hasMute != $makeMute)
+        return {$plug};
+    return $none;
+}
+
+global proc string[] getMuteOperationChannels(string $selectionItem, int $makeMute)
+{
+    if (looksLikeAttr($selectionItem))
+        return getMuteOperationChannelsFromPlug($selectionItem, $makeMute);
+    return getMuteOperationChannelsFromCurve($selectionItem, $makeMute);
+}
+
+global proc int doMuteSingleChannel(string $channel, int $makeMute)
+{
+    string $channels[] = getMuteOperationChannels($channel, $makeMute);
+    if (size($channels) == 0)
+        return 0;
+    if ($makeMute)
+        mute $channels;
+    else
+        mute -disable -force $channels;
+    return 1;
+}
+
+// $flag: -true mutes, anything else unmutes.
+global proc doMuteChannel(string $selectionConnection, string $flag)
+{
+    int $makeMute = $flag == "-true";
+    string $members[];
+    catchQuiet($members = `keyframe -query -selected -name`);
+    if (size($members) == 0)
+        $members = lamExpandConnection($selectionConnection);
+    int $done = 0;
+    for ($m in $members)
+        $done += doMuteSingleChannel($m, $makeMute);
+    if ($done == 0)
+        error ($makeMute ? "There's no channel to mute." : "There's no channel to unmute.");
+}
+
+// Mutes (or unmutes) a channel between $start and $end by keying its mute node.
+global proc doMuteRegion(string $channel, string $flag, float $start, float $end)
+{
+    int $value = $flag == "-true";
+    string $chan = getAnimAttr($channel);
+    if ($chan == "")
+        $chan = $channel;
+    if (`gmatch $chan "*mute*"`)
+        return;
+
+    string $muteNodes[] = `mute $chan`;
+    for ($node in $muteNodes) {
+        string $plug = $node + ".mute";
+        float $times[] = `keyframe -query -timeChange $plug`;
+        float $endValue = `getAttr -time ($end - 1) $plug`;
+        if (size($times) > 0)
+            cutKey -time ($start + ":" + $end) -option keys $plug;
+        int $inverse = 1 - $value;
+        float $min = `playbackOptions -query -minTime`;
+        float $max = `playbackOptions -query -maxTime`;
+        float $left[] = `keyframe -query -timeChange $plug`;
+        if (size($left) == 0) {
+            setKeyframe -time $min -value 0 $plug;
+            setKeyframe -time $max -value 0 $plug;
+        }
+        float $keyValue = `getAttr -time ($start + 0.001) $plug`;
+        $endValue = $endValue > 0.5 ? 1.0 : 0.0;
+        $keyValue = $keyValue > 0.5 ? 1.0 : 0.0;
+        if ($keyValue != $value) {
+            setKeyframe -time $start -value $value $plug;
+            if ($endValue != $value)
+                setKeyframe -time $end -value $inverse $plug;
+        } else if ($keyValue != $endValue) {
+            setKeyframe -time $end -value $inverse $plug;
+        }
+    }
+}
+
+// Mutes (or unmutes) at each selected key by keying the channel's mute node.
+global proc doMuteKey(string $flag)
+{
+    int $value = $flag == "-true";
+    int $done = 0;
+    string $curves[];
+    catchQuiet($curves = `keyframe -query -selected -name`);
+    for ($curve in $curves) {
+        if (`gmatch $curve "*mute*"`)
+            continue;
+        string $chan = getAnimAttr($curve);
+        string $muteNodes[] = `mute $chan`;
+        string $plug = $muteNodes[0] + ".mute";
+        float $muteTimes[] = `keyframe -query -timeChange $plug`;
+        float $curveTimes[] = `keyframe -query -timeChange $curve`;
+        if (size($muteTimes) == 0) {
+            setKeyframe -time $curveTimes[0] -value 0 $plug;
+            setKeyframe -time $curveTimes[size($curveTimes) - 1] -value 0 $plug;
+        }
+        int $selected[] = `keyframe -query -selected -indexValue $curve`;
+        int $count = `keyframe -query -keyframeCount $curve`;
+        for ($i = 0; $i < size($selected); $i++) {
+            int $index = $selected[$i];
+            float $time[] = `keyframe -index $index -query -timeChange $curve`;
+            setKeyframe -time $time[0] -value $value $plug;
+            $done = 1;
+            // Where the muted run ends, the mute goes back off at the next key.
+            int $last = $i == size($selected) - 1;
+            int $nextUnselected = $last ? ($index < $count - 1) : ($selected[$i + 1] != $index + 1);
+            if ($value == 1 && $nextUnselected) {
+                float $next[] = `keyframe -index ($index + 1) -query -timeChange $curve`;
+                if (`getAttr -time $next[0] $plug` > 0)
+                    setKeyframe -time $next[0] -value 0 $plug;
+            }
+        }
+    }
+    if (!$done)
+        error (size($curves) == 0 ? "There's no object to mute." : "There's no object to unmute.");
+}
+
+// As doKeyTangent, for setInfinity: the connection's objects go on the end, and errors aren't caught.
+global proc doSetInfinity(string $commandOptions, string $selectionConnection, string $options)
+{
+    string $cmd = "setInfinity " + $commandOptions;
+    string $target = $selectionConnection;
+    if (lamHas($options, "bufferCurve")) {
+        $target = lamEditorQuery($selectionConnection, "mainListConnection");
+        $cmd = lamBufferPrefix($selectionConnection) + $cmd;
+    }
+    if (lamActiveKeyCount() == 0) {
+        string $objects = lamConnectionTarget($target);
+        if ($objects != "")
+            $cmd += " " + $objects;
+    }
+    evalEcho($cmd);
+}
+
+// $applyOptions: 0 both sides, 1 in only, 2 out only. The caller sets the parent menu.
+global proc buildTangentTypeMenuItems(int $applyOptions, string $selectionConnection, string $options,
+    int $useRunTimeCommand)
+{
+    menuItem -subMenu true -label "Auto" -tearOff true -version "2022" -allowOptionBoxes true AutoSubMenuItem;
+        for ($type in {"auto", "autoease", "automix", "autocustom"})
+            lamTangentItem($applyOptions, $type, $selectionConnection, $options, $useRunTimeCommand);
+        string $customOptions = lamSidePrefix($applyOptions) + "TangentAutoCustomOptions";
+        menuItem -optionBox true -annotation (lamRunTimeAnnotation($customOptions))
+            -command (lamGuard($customOptions, $customOptions));
+    setParent -menu ..;
+    for ($type in {"spline", "linear", "clamped", "step", "stepnext", "flat", "fixed", "plateau"})
+        lamTangentItem($applyOptions, $type, $selectionConnection, $options, 0);
+}
+
+global proc buildInOutTangentsMenu(string $selectionConnection, string $options)
+{
+    global string $gTangentInPluginItemList[];
+    string $plugins[] = lamPluginTangentTypes();
+
+    menuItem -subMenu true -label "In Tangent" -tearOff true inTanHierItem;
+        buildTangentTypeMenuItems(1, $selectionConnection, $options, false);
+        for ($p in $plugins)
+            $gTangentInPluginItemList[size($gTangentInPluginItemList)] = `menuItem -label $p
+                -annotation "Set the selected keys' in tangents to this plug-in type"
+                -command (lamDoKeyTangentCommand("-e -itt " + $p, $selectionConnection, $options))`;
+    setParent -menu ..;
+
+    // As in the reference, the Out Tangent menu's plug-in items set the in tangent and join the In list.
+    menuItem -subMenu true -label "Out Tangent" -tearOff true outTanHierItem;
+        buildTangentTypeMenuItems(2, $selectionConnection, $options, false);
+        for ($p in $plugins)
+            $gTangentInPluginItemList[size($gTangentInPluginItemList)] = `menuItem -label $p
+                -annotation "Set the selected keys' out tangents to this plug-in type"
+                -command (lamDoKeyTangentCommand("-e -itt " + $p, $selectionConnection, $options))`;
+    setParent -menu ..;
+
+    menuItem -divider true;
+}
+
+// Ticks the type the default (in or out) tangent is now set to.
+global proc updateDefaultInOutTangentsMenu(int $outTangent)
+{
+    global string $gGraphEditorDefaultTanMenuItemNames[];
+    string $types[] = `eval ("keyTangent -query -global " + ($outTangent ? "-ott" : "-itt"))`;
+    string $submenu = $gGraphEditorDefaultTanMenuItemNames[$outTangent];
+    if (!`menuItem -exists $submenu` && !`menu -exists $submenu`)
+        return;
+    string $items[] = `menu -query -itemArray $submenu`;
+    for ($item in $items)
+        catchQuiet(`menuItem -edit -radioButton ($item == $types[0]) ($submenu + "|" + $item)`);
+}
+
+global proc buildDefaultTangentsMenuItems(int $outTangent)
+{
+    radioMenuItemCollection;
+    int $n = 0;
+    for ($type in {"auto", "autoease", "automix", "autocustom", "spline", "linear", "clamped", "flat", "plateau", "step"}) {
+        $n++;
+        if (!$outTangent && $type == "step")
+            continue;
+        menuItem -label (lamTangentLabel($type)) -radioButton ($n == 2)
+            -annotation ($outTangent ? "Set the out tangent type new keys get" : "Set the in tangent type new keys get")
+            -command ("doEditDefaultTangent " + $outTangent + " " + $type)
+            $type;
+    }
+}
+
+global proc buildPreferencesTangentsMenus()
+{
+    menuItem -subMenu true -label "Default In Tangent" -version "2020" -postMenuCommand "updateDefaultInOutTangentsMenu 0"
+        graphEdDefaultTanInMenuItem;
+        buildDefaultTangentsMenuItems(0);
+    setParent -menu ..;
+    menuItem -subMenu true -label "Default Out Tangent" -version "2020" -postMenuCommand "updateDefaultInOutTangentsMenu 1"
+        graphEdDefaultTanOutMenuItem;
+        buildDefaultTangentsMenuItems(1);
+    setParent -menu ..;
+    menuItem -divider true;
+}
+
+// The Tangents menu, built the first time it opens. What it's for is remembered every time, so plug-in tangent
+// types registered later can be added to it.
+global proc buildTangentsMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    global string $gTangentParentEditor;
+    global string $gTangentAnimEditor;
+    global string $gTangentParentMenu;
+    global string $gTangentMenuOptions;
+    global string $gTangentPluginItemList[];
+    $gTangentParentEditor = $editor;
+    $gTangentAnimEditor = $animEditor;
+    $gTangentParentMenu = $parentMenu;
+    $gTangentMenuOptions = $options;
+
+    setParent -menu $parentMenu;
+    if (`menu -query -numberOfItems $parentMenu` > 0)
+        return;
+
+    string $connection = lamHas($options, "bufferCurve") ? $animEditor : lamEditorQuery($editor, "selectionConnection");
+
+    buildTangentTypeMenuItems(0, $connection, $options, true);
+    string $plugins[] = lamPluginTangentTypes();
+    for ($p in $plugins)
+        $gTangentPluginItemList[size($gTangentPluginItemList)] = `menuItem -label $p
+            -annotation "Set the selected keys' tangents to this plug-in type"
+            -command (lamDoKeyTangentCommand("-e -itt " + $p + " -ott " + $p, $connection, $options))`;
+    menuItem -divider true;
+
+    buildInOutTangentsMenu($connection, $options);
+    buildPreferencesTangentsMenus();
+
+    if (!lamHas($options, "noBreakUnify")) {
+        menuItem -label "Break Tangents" -annotation "Let the in and out tangents of the selected keys move apart"
+            -command (lamDoKeyTangentCommand("-lock off", $connection, "noOptions")) breakTanItem;
+        menuItem -label "Unify Tangents" -annotation "Make the in and out tangents of the selected keys move together"
+            -command (lamDoKeyTangentCommand("-lock on", $connection, "noOptions")) unifyTanItem;
+        menuItem -divider true;
+    }
+    menuItem -label "Lock Tangent Weight" -annotation "Keep the selected keys' tangent weights from changing"
+        -command (lamDoKeyTangentCommand("-weightLock on", $connection, "noOptions")) tanWeightLockItem;
+    menuItem -label "Free Tangent Weight" -annotation "Let the selected keys' tangent weights change"
+        -command (lamDoKeyTangentCommand("-weightLock off", $connection, "noOptions")) tanWeightFreeItem;
+
+    if ($buildMenuCommand != "")
+        eval($buildMenuCommand + " " + $editor + " " + $animEditor + " " + $parentMenu);
+}
+
+global proc defineTangentsMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    menu -edit -postMenuCommand ("buildTangentsMenu " + $editor + " " + $animEditor + " \"" + $parentMenu + "\" \""
+        + $options + "\" \"" + $buildMenuCommand + "\"") $parentMenu;
+}
+
+// A tangent plug-in was registered ($isAdded) or deregistered: adds or enables its items in the Tangents menu.
+global proc updateTangentsMenu(string $plugin, int $isAdded)
+{
+    global string $gTangentParentEditor;
+    global string $gTangentAnimEditor;
+    global string $gTangentParentMenu;
+    global string $gTangentInParentMenu;
+    global string $gTangentOutParentMenu;
+    global string $gTangentMenuOptions;
+    global string $gTangentPluginItemList[];
+    global string $gTangentInPluginItemList[];
+    global string $gTangentOutPluginItemList[];
+
+    if ($gTangentParentEditor == "")
+        return;
+    string $connection = lamHas($gTangentMenuOptions, "bufferCurve")
+        ? $gTangentAnimEditor : lamEditorQuery($gTangentParentEditor, "selectionConnection");
+
+    // The In and Out parents are never set, as in the reference, so those passes are skipped here.
+    if ($gTangentParentMenu != "" && `menu -exists $gTangentParentMenu`) {
+        setParent -menu $gTangentParentMenu;
+        doUpdateTangentsMenu($plugin, $isAdded, $connection, $gTangentPluginItemList);
+    }
+    if ($gTangentInParentMenu != "" && `menu -exists $gTangentInParentMenu`) {
+        setParent -menu $gTangentInParentMenu;
+        doUpdateTangentsMenu($plugin, $isAdded, $connection, $gTangentInPluginItemList);
+    }
+    if ($gTangentOutParentMenu != "" && `menu -exists $gTangentOutParentMenu`) {
+        setParent -menu $gTangentOutParentMenu;
+        doUpdateTangentsMenu($plugin, $isAdded, $connection, $gTangentOutPluginItemList);
+    }
+}
+
+global proc makeReferenceBufferCurve(string $animEditor)
+{
+    int $made = 0;
+    catch($made = `bufferCurve -animation keys -overwrite true -useReferencedCurve`);
+    if ($made)
+        lamEditorEdit($animEditor, "-showBufferCurves on");
+}
+
+global proc updatePreferencesWeighting()
+{
+    int $weighted = `keyTangent -query -global -weightedTangents`;
+    if (`menuItem -exists "graphEdDefaultTangentWeightsItem|nonWeighted"`)
+        menuItem -edit -radioButton ($weighted == 0) "graphEdDefaultTangentWeightsItem|nonWeighted";
+    if (`menuItem -exists "graphEdDefaultTangentWeightsItem|weighted"`)
+        menuItem -edit -radioButton ($weighted == 1) "graphEdDefaultTangentWeightsItem|weighted";
+}
+
+global proc buildRemoveKeysSubMenu(string $editorName)
+{
+    string $prefix = "pythonRunTimeCommand animcurve_tools.cmd." + $editorName + ".";
+    int $timeline = $editorName == "timeline";
+    menuItem -subMenu true -label "Remove Keys" -annotation "Remove keys by where they sit" -version "2024"
+        -tearOff true removeKeyHierItem;
+        menuItem -label "Remove Unsnapped Keys" -annotation "Remove the keys that aren't on whole frames" -version "2024"
+            -command ($prefix + "deletesubframes 0") removeUnsnappedKeysItem;
+        if (!$timeline)
+            menuItem -optionBox true -annotation "Remove Unsnapped Keys Options" -version "2024"
+                -command ($prefix + "deletesubframes 1") removeUnsnappedKeysOptionsItem;
+        menuItem -label "Remove Before Current Time" -annotation "Remove the keys before the current time"
+            -version "2024" -command ($prefix + "rmv_beforecurrent 0") removeBeforeCurItem;
+        menuItem -optionBox true -annotation "Remove Before Current Time Options" -version "2024"
+            -command ($prefix + "rmv_beforecurrent 1") removeBeforeCurOptionsItem;
+        menuItem -label "Remove After Current Time" -annotation "Remove the keys after the current time"
+            -version "2024" -command ($prefix + "rmv_aftercurrent 0") removeAfterCurItem;
+        menuItem -optionBox true -annotation "Remove After Current Time Options" -version "2024"
+            -command ($prefix + "rmv_aftercurrent 1") removeAfterCurOptionsItem;
+        menuItem -label "Remove Outside Selected Range" -annotation "Remove the keys outside the selected time range"
+            -version "2024" -command ($prefix + "rmv_outsideselected 0") removeOutsideSelectedRangeItem;
+        menuItem -optionBox true -annotation "Remove Outside Selected Range Options" -version "2024"
+            -command ($prefix + "rmv_outsideselected 1") removeOutsideSelectedRangeOptionsItem;
+        menuItem -label "Ripple Delete" -annotation "Remove keys and close the gap they leave" -version "2024"
+            -command ($prefix + "rippledelete 0") rippleDeleteItem;
+        menuItem -optionBox true -annotation "Ripple Delete Options" -version "2024"
+            -command ($prefix + "rippledelete 1") rippleDeleteOptionsItem;
+        menuItem -label "Remove Redundant Keys" -annotation "Remove keys that don't change the curve" -version "2024"
+            -command ($prefix + "removeredundantkeys 0") removeRedundantKeysItem;
+        if (!$timeline)
+            menuItem -optionBox true -annotation "Remove Redundant Keys Options" -version "2024"
+                -command ($prefix + "removeredundantkeys 1") removeRedundantKeysOptionsItem;
+    setParent -menu ..;
+}
+
+// A filter item and its option box, for the perform procedures that take an action and the connection.
+proc lamFilterItems(string $item, string $label, string $annotation, string $procName, string $fallback,
+    string $optionsItem, string $optionsAnnotation, int $performBase, string $connection, string $version)
+{
+    if ($version != "")
+        menuItem -label $label -annotation $annotation -version $version
+            -command (lamPerformPlain($procName, $performBase, $connection, $fallback, 0))
+            -dragMenuCommand (lamPerformPlain($procName, $performBase + 2, $connection, $fallback, 1))
+            $item;
+    else
+        menuItem -label $label -annotation $annotation
+            -command (lamPerformPlain($procName, $performBase, $connection, $fallback, 0))
+            -dragMenuCommand (lamPerformPlain($procName, $performBase + 2, $connection, $fallback, 1))
+            $item;
+    menuItem -optionBox true -annotation $optionsAnnotation
+        -command (lamPerformPlain($procName, $performBase + 1, $connection, "", 0))
+        $optionsItem;
+}
+
+// The Graph Editor's Curves menu: built the first time it opens, its states refreshed after that.
+global proc buildGraphEditorCurvesMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    global string $gUnisolatedCurves[];
+    setParent -menu $parentMenu;
+    int $useSmoothness = lamHas($options, "useSmoothness");
+
+    if (`menu -query -numberOfItems $parentMenu` > 0) {
+        if ($useSmoothness) {
+            string $smoothness = lamEditorQuery($animEditor, "smoothness");
+            for ($level in {"coarse", "rough", "medium", "fine"})
+                if (`menuItem -exists ($level + "CurveItem")`)
+                    menuItem -edit -radioButton ($smoothness == $level) ($level + "CurveItem");
+        }
+        if (`menuItem -exists isolateCurveItem`)
+            menuItem -edit -checkBox (size($gUnisolatedCurves) > 0) isolateCurveItem;
+        return;
+    }
+
+    int $bufferCurve = lamHas($options, "bufferCurve");
+    string $realConnection = lamEditorQuery($editor, "selectionConnection");
+    string $connection = $bufferCurve ? $animEditor : $realConnection;
+    int $performBase = $bufferCurve ? 3 : 0;
+
+    string $infinity[] = {"cycle", "cycleRelative", "oscillate", "linear", "constant"};
+    string $infinityLabels[] = {"Cycle", "Cycle with Offset", "Oscillate", "Linear", "Constant"};
+    menuItem -subMenu true -label "Pre Infinity" -tearOff true preInfinityHierItem;
+        for ($i = 0; $i < 5; $i++)
+            menuItem -label $infinityLabels[$i]
+                -annotation ("Set what the curves do before their first key: " + tolower($infinityLabels[$i]))
+                -command ("doSetInfinity \"-pri " + $infinity[$i] + "\" " + $connection + " \"" + $options + "\"");
+    setParent -menu ..;
+    menuItem -subMenu true -label "Post Infinity" -tearOff true postInfinityHierItem;
+        for ($i = 0; $i < 5; $i++)
+            menuItem -label $infinityLabels[$i]
+                -annotation ("Set what the curves do after their last key: " + tolower($infinityLabels[$i]))
+                -command ("doSetInfinity \"-poi " + $infinity[$i] + "\" " + $connection + " \"" + $options + "\"");
+    setParent -menu ..;
+    menuItem -divider true;
+
+    menuItem -checkBox false -label "Isolate Curve Display" -annotation "Show only the selected curves"
+        -command ("if (`exists isolateAnimCurve`) isolateAnimCurve #1 " + $realConnection + " " + $animEditor
+            + "; else warning \"isolateAnimCurve isn't available in Aztek yet.\";")
+        isolateCurveItem;
+
+    if ($useSmoothness) {
+        menuItem -subMenu true -label "Curve Smoothness" -tearOff true curveSmoothHierItem;
+            radioMenuItemCollection;
+            string $levels[] = {"coarse", "rough", "medium", "fine"};
+            string $levelLabels[] = {"Coarse", "Rough", "Medium", "Fine"};
+            for ($i = 0; $i < 4; $i++)
+                menuItem -label $levelLabels[$i] -radioButton ($i == 0)
+                    -annotation ("Draw curves with " + tolower($levelLabels[$i]) + " detail")
+                    -command ("animCurveEditor -edit -smoothness " + $levels[$i] + " " + $animEditor)
+                    ($levels[$i] + "CurveItem");
+        setParent -menu ..;
+    }
+
+    menuItem -label "Bake Channel" -annotation "Bake the channels' animation into keys on every frame"
+        -command (lamPerformPlain("performBakeResults", $performBase, $connection, "bake", 0))
+        -dragMenuCommand (lamPerformPlain("performBakeResults", $performBase + 2, $connection, "bake", 1))
+        bakeResultsItem;
+    menuItem -optionBox true -annotation "Bake Channel Options"
+        -command (lamPerformPlain("performBakeResults", $performBase + 1, $connection, "", 0))
+        bakeResultsOptionsItem;
+
+    menuItem -label "Mute Channel" -annotation "Mute the selected channels"
+        -command ("doMuteChannel " + $realConnection + " -true") muteChannelItem;
+    menuItem -label "Unmute Channel" -annotation "Unmute the selected channels"
+        -command ("doMuteChannel " + $realConnection + " -false") unmuteChannelItem;
+    menuItem -label "Lock Channel" -annotation "Lock the selected channels' keys against editing"
+        -command ("if (`exists GraphEditorLockChannel`) GraphEditorLockChannel; else doTemplateChannel " + $realConnection
+            + " 1;")
+        templateChannelItem;
+    menuItem -label "Unlock Channel" -annotation "Let the selected channels' keys be edited again"
+        -command ("if (`exists GraphEditorUnlockChannel`) GraphEditorUnlockChannel; else doTemplateChannel "
+            + $realConnection + " 0;")
+        untemplateChannelItem;
+    if (lamHas($options, "usePin")) {
+        menuItem -label "Pin Channel" -annotation "Keep the selected channels shown whatever is selected"
+            -command ("doPinChannel " + $editor + " " + $realConnection + " 1") pinChannelItem;
+        menuItem -label "Unpin Channel" -annotation "Let the selected channels follow the selection again"
+            -command ("doPinChannel " + $editor + " " + $realConnection + " 0") unpinChannelItem;
+    }
+
+    menuItem -divider true -dividerLabel "Curve Filters";
+    lamFilterItems("butterworthFilterItem", "Butterworth", "Smooth the curves with a Butterworth filter",
+        "performButterworth", "butterworth", "butterworthFilterOptionsItem", "Butterworth Options",
+        $performBase, $connection, "");
+    menuItem -label "Euler Filter" -annotation "Remove flips in rotation curves"
+        -command ("performEulerFilter " + $realConnection) eulerFilterItem;
+    lamFilterItems("keyReducerFilterItem", "Key Reducer", "Remove keys the curve's shape doesn't need",
+        "performKeyReducer", "keyReducer", "keyReducerFilterOptionsItem", "Key Reducer Options",
+        $performBase, $connection, "");
+    menuItem -label "Gaussian" -annotation "Smooth the curves with a Gaussian filter" -version "2022"
+        -command "pythonRunTimeCommandWithArgs gaussiansmooth.cmd_create 0 \"forceNoPreview=True\""
+        gaussianSmoothFilterItem;
+    menuItem -optionBox true -annotation "Gaussian Options"
+        -command "pythonRunTimeCommand gaussiansmooth.cmd_create 1" gaussianSmoothFilterOptionsItem;
+    lamFilterItems("peakRemoverFilterItem", "Peak Remover", "Remove spikes from the curves",
+        "performPeakRemover", "peakRemover", "peakRemoverFilterOptionsItem", "Peak Remover Options",
+        $performBase, $connection, "2022");
+    lamFilterItems("keySyncFilterItem", "Key Sync", "Put keys on every curve where any curve has one",
+        "performKeySync", "keySync", "keySyncFilterOptionsItem", "Key Sync Options",
+        $performBase, $connection, "");
+    lamFilterItems("resampleItem", "Resample Curve", "Key the curves at even steps",
+        "performResample", "resample", "resampleOptionsItem", "Resample Curve Options",
+        $performBase, $connection, "");
+    lamFilterItems("simplifyItem", "Simplify Curve", "Remove keys within a tolerance of the curve",
+        "performSimplify", "simplify", "simplifyOptionsItem", "Simplify Curve Options",
+        $performBase, $connection, "");
+    menuItem -label "Clamp Curves" -annotation "Keep the curves between a lowest and highest value" -version "2024"
+        -command "pythonRunTimeCommand animcurve_tools.cmd.clampcurves 0" clampCurvesItem;
+    menuItem -optionBox true -annotation "Clamp Curves Options"
+        -command "pythonRunTimeCommand animcurve_tools.cmd.clampcurves 1" clampCurvesOptionsItem;
+    // The offset command names its mode through this module, when Aztek's Python has it.
+    catchQuiet(python("import maya.internal.nodes.animcurve_tools.animcurve_utilities as animcurve_utilities"));
+    menuItem -label "Offset Curves" -annotation "Shift the curves in time against each other" -version "2024"
+        -command "pythonRunTimeCommandWithArgs animcurve_tools.cmd.offsetcurves 0 \"commandMode=animcurve_utilities.eCommandMode.kGraphEditor\""
+        offsetCurvesItem;
+    menuItem -optionBox true -annotation "Offset Curves Options"
+        -command "pythonRunTimeCommandWithArgs animcurve_tools.cmd.offsetcurves 1 \"commandMode=animcurve_utilities.eCommandMode.kGraphEditor\""
+        offsetCurvesOptionsItem;
+
+    menuItem -divider true -dividerLabel "Rotate Order";
+    menuItem -label "Reorder Rotation..." -annotation "Change the rotate order and keep the motion"
+        -command "pythonRunTimeCommand reorder_rotation.ui 1" reorderRotationItem;
+    menuItem -subMenu true -label "Change Rotation Interp" -tearOff true rotationInterpolationHierItem;
+        string $modes[] = {"none", "euler", "quaternionSlerp", "quaternionSquad", "quaternion"};
+        string $modeLabels[] = {"Independent Euler-Angle Curves", "Synchronized Euler-Angle Curves",
+            "Quaternion Slerp", "Quaternion Cubic", "Quaternion Tangent Dependent"};
+        for ($i = 0; $i < 5; $i++)
+            menuItem -label $modeLabels[$i] -annotation ("Interpolate rotation as " + $modeLabels[$i])
+                -command ("performRotationInterpolation " + $modes[$i] + " " + $realConnection);
+    setParent -menu ..;
+    menuItem -divider true;
+
+    menuItem -label "Spreadsheet..." -annotation "Show the first selected curve in the Attribute Editor"
+        -command ("OpenAnimSpreadsheet " + $realConnection) spreadSheetItem;
+
+    if ($bufferCurve) {
+        menuItem -subMenu true -label "Buffer Curve" bufferCurveMenuItem;
+            menuItem -label "Buffer Curve Snapshot" -annotation "Keep a copy of the curves to compare against"
+                -command ("animCurveEditor -edit -showBufferCurves on " + $animEditor
+                    + "; bufferCurve -animation keys -overwrite true;")
+                bufferSnapItem;
+            menuItem -label "Reference Curve Snapshot" -annotation "Use the referenced curves as the buffer"
+                -command ("makeReferenceBufferCurve " + $animEditor) bufferReferenceItem;
+        setParent -menu ..;
+        menuItem -label "Swap Buffer Curve" -annotation "Swap the curves with their buffer copies"
+            -command "bufferCurve -animation keys -swap" bufferSwapItem;
+    }
+    menuItem -divider true;
+
+    menuItem -subMenu true -label "Default Tangent Weighting" -version "2020"
+        -postMenuCommand "updatePreferencesWeighting" graphEdDefaultTangentWeightsItem;
+        radioMenuItemCollection;
+        menuItem -label "Non-Weighted Tangents" -annotation "New curves get non-weighted tangents" -radioButton false
+            -echoCommand true -command "keyTangent -global -weightedTangents 0" nonWeighted;
+        menuItem -label "Weighted Tangents" -annotation "New curves get weighted tangents" -radioButton true
+            -echoCommand true -command "keyTangent -global -weightedTangents 1" weighted;
+    setParent -menu ..;
+    menuItem -label "Non-Weighted Tangents" -annotation "Make the selected curves' tangents non-weighted"
+        -command (lamDoKeyTangentCommand("-edit -weightedTangents false", $connection, $options));
+    menuItem -label "Weighted Tangents" -annotation "Make the selected curves' tangents weighted"
+        -command (lamDoKeyTangentCommand("-edit -weightedTangents true", $connection, $options));
+
+    if ($buildMenuCommand != "")
+        eval($buildMenuCommand + " " + $editor + " " + $animEditor + " " + $parentMenu);
+}
+
+// The Dope Sheet's Channels menu, built the first time it opens.
+global proc buildDopeSheetChannelsMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    setParent -menu $parentMenu;
+    if (`menu -query -numberOfItems $parentMenu` > 0)
+        return;
+    string $connection = lamEditorQuery($editor, "selectionConnection");
+
+    menuItem -label "Mute Channel" -annotation "Mute the selected channels"
+        -command ("doMuteChannel " + $connection + " -true");
+    menuItem -label "Unmute Channel" -annotation "Unmute the selected channels"
+        -command ("doMuteChannel " + $connection + " -false");
+    menuItem -label "Lock Channel" -annotation "Lock the selected channels' keys against editing"
+        -command ("if (`exists DopeSheetLockChannel`) DopeSheetLockChannel; else doTemplateChannel " + $connection + " 1;");
+    menuItem -label "Unlock Channel" -annotation "Let the selected channels' keys be edited again"
+        -command ("if (`exists DopeSheetUnlockChannel`) DopeSheetUnlockChannel; else doTemplateChannel " + $connection
+            + " 0;");
+    menuItem -label "Bake Channel" -annotation "Bake the channels' animation into keys on every frame"
+        -command (lamPerformPlain("performBakeResults", 6, $connection, "bake", 0))
+        -dragMenuCommand (lamPerformPlain("performBakeResults", 8, $connection, "bake", 1));
+    menuItem -optionBox true -annotation "Bake Channel Options"
+        -command (lamPerformPlain("performBakeResults", 7, $connection, "", 0));
+
+    menuItem -divider true;
+    catchQuiet(python("import maya.internal.nodes.animcurve_tools.animcurve_utilities as animcurve_utilities"));
+    menuItem -label "Offset Keys" -annotation "Shift the channels' keys in time against each other" -version "2024"
+        -command "pythonRunTimeCommandWithArgs animcurve_tools.cmd.offsetcurves 0 \"commandMode=animcurve_utilities.eCommandMode.kDopeSheet\"";
+    menuItem -optionBox true -annotation "Offset Keys Options"
+        -command "pythonRunTimeCommandWithArgs animcurve_tools.cmd.offsetcurves 1 \"commandMode=animcurve_utilities.eCommandMode.kDopeSheet\"";
+
+    menuItem -divider true;
+    menuItem -label "Spreadsheet..." -annotation "Show the first selected curve in the Attribute Editor"
+        -command ("OpenAnimSpreadsheet " + $connection);
+
+    if ($buildMenuCommand != "")
+        eval($buildMenuCommand + " " + $editor + " " + $animEditor + " " + $parentMenu);
+}
+
+global proc defineCurvesMenu(string $editor, string $animEditor, string $parentMenu, string $options,
+    string $buildMenuCommand)
+{
+    string $builder = lamHas($options, "dopeSheetMenu") ? "buildDopeSheetChannelsMenu" : "buildGraphEditorCurvesMenu";
+    menu -edit -postMenuCommand ($builder + " " + $editor + " " + $animEditor + " \"" + $parentMenu + "\" \""
+        + $options + "\" \"" + $buildMenuCommand + "\"") $parentMenu;
+}
+
+// Shows the first curve with active keys, or of the connection, in the Attribute Editor.
+global proc OpenAnimSpreadsheet(string $selectionConnection)
+{
+    string $curves[] = lamActiveKeyCurves();
+    if (size($curves) == 0)
+        $curves = lamFindAnimCurves($selectionConnection);
+    if (size($curves) == 0) {
+        warning "No keys are selected.";
+        return;
+    }
+    if (`exists showEditor`) {
+        eval ("showEditor \"" + $curves[0] + "\"");
+    } else {
+        // Aztek's Attribute Editor shows what's selected, so the curve is selected for it.
+        select -replace $curves[0];
+        if (`exists AttributeEditor`)
+            eval "AttributeEditor";
+    }
+}
+
+// Sets the Graph Editor's tangent buttons from the selected keys.
+global proc doUpdateTangentFeedback()
+{
+    global string $gGraphEditorTanButtonNames[];
+    for ($b in $gGraphEditorTanButtonNames)
+        if (!`iconTextCheckBox -exists $b`)
+            return;
+    for ($b in $gGraphEditorTanButtonNames)
+        iconTextCheckBox -edit -value false $b;
+
+    if (!`animCurveEditor -exists graphEditor1GraphEd`)
+        return;
+    if (!(int)lamEditorQuery("graphEditor1GraphEd", "areCurvesSelected"))
+        return;
+
+    for ($side in {"itt", "ott"}) {
+        string $type = lamCommonTangentValue($side);
+        if ($type == "-1" || $type == "" || $type == "fixed")
+            continue;
+        if (`iconTextCheckBox -exists ($type + "TanButton")`)
+            catchQuiet(`iconTextCheckBox -edit -value true ($type + "TanButton")`);
+    }
+    string $lock = lamCommonTangentValue("l");
+    if ($lock != "-1" && $lock != "" && size($gGraphEditorTanButtonNames) > 11)
+        iconTextCheckBox -edit -value true $gGraphEditorTanButtonNames[$lock == "0" ? 10 : 11];
+    string $weightLock = lamCommonTangentValue("wl");
+    if ($weightLock != "-1" && $weightLock != "" && size($gGraphEditorTanButtonNames) > 13)
+        iconTextCheckBox -edit -value true $gGraphEditorTanButtonNames[$weightLock == "0" ? 12 : 13];
+}
+
+// Shows the default in and out tangent types on the Graph Editor's two default tangent buttons.
+global proc doUpdateDefaultTangentFeedback()
+{
+    global string $gGraphEditorDefaultTanButtonNames[];
+    if (size($gGraphEditorDefaultTanButtonNames) < 2)
+        return;
+    if (!`iconTextButton -exists $gGraphEditorDefaultTanButtonNames[0]`
+        || !`iconTextButton -exists $gGraphEditorDefaultTanButtonNames[1]`)
+        return;
+    string $in[] = `keyTangent -query -global -itt`;
+    string $out[] = `keyTangent -query -global -ott`;
+    iconTextButton -edit -image ($in[0] + "TangentIn.png") $gGraphEditorDefaultTanButtonNames[0];
+    iconTextButton -edit -image ($out[0] + "TangentOut.png") $gGraphEditorDefaultTanButtonNames[1];
+}

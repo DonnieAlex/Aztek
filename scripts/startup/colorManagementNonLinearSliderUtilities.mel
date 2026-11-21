@@ -1,0 +1,48 @@
+// colorManagementNonLinearSliderUtilities: the curves colour management sliders use between where the slider sits (0
+// to 1, linear) and the value shown. Squaring one way and taking the square root the other gives fine control near
+// the neutral value and quick travel towards the ends. Nothing is checked or clamped: out of range input gives
+// whatever the formulas give.
+
+// Gamma: the first half of the slider covers 0 to 1, the second half 1 to $max.
+global proc float getGammaNonLinearFromLinear(float $x, float $max)
+{
+    float $d = 2.0 * $x - 1.0;
+    if ($x < 0.5)
+        return 1.0 - $d * $d;
+    return $d * $d * ($max - 1.0) + 1.0;
+}
+
+global proc float getGammaLinearFromNonLinear(float $y, float $max)
+{
+    if ($y < 1.0)
+        return 1.0 - (sqrt(1.0 - $y) + 1.0) / 2.0;
+    return (sqrt(($y - 1.0) / ($max - 1.0)) + 1.0) / 2.0;
+}
+
+// A range either side of zero ($min below, $max above). Zero sits on the slider at the share of the range below it,
+// and each side is a square curve of its own.
+global proc float getNonLinearFromLinear(float $x, float $min, float $max)
+{
+    float $total = $max - $min;
+    float $zero = abs($min) / $total;
+    float $above = $max / $total;
+    if ($x > $zero) {
+        float $t = ($x - $zero) / $above;
+        return $t * $t * $max;
+    }
+    float $t = ($zero - $x) / $zero;
+    return $t * $t * $min;
+}
+
+global proc float getLinearFromNonLinear(float $y, float $min, float $max)
+{
+    float $total = $max - $min;
+    float $zero = abs($min) / $total;
+    float $above = $max / $total;
+    if ($y > 0) {
+        float $t = sqrt($y / $max);
+        return $t * $above + $zero;
+    }
+    float $t = sqrt($y / $min);
+    return (1.0 - $t) * $zero;
+}

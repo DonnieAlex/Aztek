@@ -46,12 +46,8 @@ global proc addPolySelConstraintWindow(string $whichPanel)
     if (`exists polySelectConstraintMonitor`)
         eval("polySelectConstraintMonitor -create");
 
-    // The panel's body comes from polygonConstraint. Aztek has no such builder, but it has the Polygon Selection
-    // Constraints window natively, so that is opened instead.
-    if (`exists polygonConstraint`)
-        eval("polygonConstraint \"" + $whichPanel + "\"");
-    else if (`exists PolygonSelectionConstraints`)
-        PolygonSelectionConstraints;
+    // The panel's body comes from polygonConstraint.
+    polygonConstraint($whichPanel);
 }
 
 // Called when a panel of this type goes: the monitor goes with it. The argument isn't used.

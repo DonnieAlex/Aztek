@@ -1,0 +1,317 @@
+// convertHairSelection: Hair > Convert Selection, as the reference's menu items run it. The selection is turned into the
+// related hair nodes named by the keyword: follicles, hair systems, output hair, start, rest or current curves, their
+// end CVs, or the hair constraints on the selected hair.
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers. The hair scripts' own procedures are used where they exist; otherwise these small stand-ins do the same job.
+
+// The node at the other end of a plug's incoming connection, or "".
+proc string chsSourceNode(string $plug)
+{
+    if (`exists sourceNodeNameFromConnection`)
+        return `eval ("sourceNodeNameFromConnection \"" + $plug + "\"")`;
+    string $nodes[];
+    if (catchQuiet($nodes = `listConnections -source true -destination false $plug`))
+        return "";
+    return (size($nodes) ? $nodes[0] : "");
+}
+
+// The node at the other end of a plug's first outgoing connection, or "".
+proc string chsDestinationNode(string $plug)
+{
+    if (`exists destinationNodeNameFromConnection`)
+        return `eval ("destinationNodeNameFromConnection \"" + $plug + "\"")`;
+    string $nodes[];
+    if (catchQuiet($nodes = `listConnections -source false -destination true $plug`))
+        return "";
+    return (size($nodes) ? $nodes[0] : "");
+}
+
+// The first transform above a shape (the node itself when it is one).
+proc string chsTransform(string $node)
+{
+    string $xf[] = `listTransforms $node`;
+    return (size($xf) ? $xf[0] : $node);
+}
+
+// The follicles feeding a hair system.
+proc string[] chsFolliclesOfSystem(string $hairSystem)
+{
+    if (`exists hairCurvesFromSystem`)
+        return `eval ("hairCurvesFromSystem \"" + $hairSystem + "\"")`;
+    string $result[];
+    string $nodes[];
+    if (!catchQuiet($nodes = `listConnections -source true -destination false -shapes true ($hairSystem + ".inputHair")`))
+        for ($n in $nodes)
+            if (`nodeType $n` == "follicle")
+                $result[size($result)] = $n;
+    return stringArrayRemoveDuplicates($result);
+}
+
+// The selected follicles: those picked, those under picked transforms, and those driving picked curves.
+proc string[] chsSelectedFollicles()
+{
+    if (`exists getSelectedHairCurves`)
+        return `eval "getSelectedHairCurves"`;
+    string $result[] = `ls -selection -dag -type follicle`;
+    string $curves[] = `ls -selection -dag -type nurbsCurve`;
+    for ($c in $curves) {
+        string $f = chsSourceNode($c + ".create");
+        if ($f != "" && `nodeType $f` == "follicle")
+            $result[size($result)] = $f;
+    }
+    return stringArrayRemoveDuplicates($result);
+}
+
+// The selected hair systems, and those the selected follicles feed.
+proc string[] chsSelectedHairSystems()
+{
+    if (`exists getSelectedHairSystems`)
+        return `eval "getSelectedHairSystems"`;
+    string $result[] = `ls -selection -dag -type hairSystem`;
+    for ($f in chsSelectedFollicles()) {
+        string $outs[];
+        if (!catchQuiet($outs = `listConnections -source false -destination true -shapes true ($f + ".outHair")`))
+            for ($o in $outs)
+                if (`nodeType $o` == "hairSystem")
+                    $result[size($result)] = $o;
+    }
+    return stringArrayRemoveDuplicates($result);
+}
+
+proc chsAddToSelection(string $nodes[])
+{
+    // Adding nothing changes nothing, so the command is only run when there is something to add.
+    if (size($nodes))
+        select -add $nodes;
+}
+
+proc chsShowCurves(string $type)
+{
+    if (`exists displayHairCurves`)
+        eval ("displayHairCurves \"" + $type + "\" 1");
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// The steps that grow the selection before it is converted.
+
+// A: follicles attached to the selected NURBS surfaces and meshes.
+proc chsFolliclesFromSurfaces()
+{
+    string $found[];
+    string $shapes[] = `ls -selection -dag -type nurbsSurface`;
+    string $plug = "local";
+    for ($pass = 0; $pass < 2; $pass++) {
+        if ($pass == 1) {
+            $shapes = `ls -selection -dag -type mesh`;
+            $plug = "outMesh";
+        }
+        for ($s in $shapes) {
+            if (!`connectionInfo -isSource ($s + "." + $plug)`)
+                continue;
+            string $dests[] = `connectionInfo -destinationFromSource ($s + "." + $plug)`;
+            for ($d in $dests) {
+                if (`gmatch $d "*.*"`) {
+                    string $parts[];
+                    tokenize $d "." $parts;
+                    if (`nodeType $parts[0]` == "follicle")
+                        $found[size($found)] = $parts[0];
+                }
+            }
+        }
+    }
+    chsAddToSelection($found);
+}
+
+// B: hair systems behind the selected output hair.
+proc chsSystemsFromPfxHair()
+{
+    string $found[];
+    string $pfx[];
+    catchQuiet($pfx = `ls -selection -dag -type pfxHair`);
+    for ($p in $pfx) {
+        string $hs = chsSourceNode($p + ".renderHairs");
+        if ($hs != "")
+            $found[size($found)] = $hs;
+    }
+    chsAddToSelection($found);
+}
+
+// C: follicles of the selected hair systems.
+proc chsFolliclesFromSystems()
+{
+    string $found[];
+    string $systems[] = `ls -selection -dag -type hairSystem`;
+    for ($h in $systems) {
+        string $follicles[] = chsFolliclesOfSystem($h);
+        appendStringArray($found, $follicles, size($follicles));
+    }
+    chsAddToSelection($found);
+}
+
+// D: follicles held by the selected hair constraints, found through the hair system's input indices.
+proc chsFolliclesFromConstraints()
+{
+    string $found[];
+    string $constraints[];
+    catchQuiet($constraints = `ls -selection -dag -type hairConstraint`);
+    for ($c in $constraints) {
+        float $indices[] = `getAttr ($c + ".curveIndices")`;
+        if (!size($indices))
+            continue;
+        string $hs = chsDestinationNode($c + ".outPin");
+        if ($hs == "")
+            continue;
+        for ($n in $indices) {
+            string $f = chsSourceNode($hs + ".inputHair[" + $n + "]");
+            if ($f != "")
+                $found[size($found)] = $f;
+        }
+    }
+    chsAddToSelection($found);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// What each keyword turns the follicles or hair systems into.
+
+proc string[] chsCurvesFrom(string $plug, int $outgoing)
+{
+    string $result[];
+    for ($f in chsSelectedFollicles()) {
+        string $c = $outgoing ? chsDestinationNode($f + "." + $plug) : chsSourceNode($f + "." + $plug);
+        if ($c != "")
+            $result[size($result)] = chsTransform($c);
+    }
+    return $result;
+}
+
+// The end CV of the curve behind $plug, made visible and real first. The index is the control point count, as the
+// reference's script writes it.
+proc string chsEndCv(string $follicle, string $plug)
+{
+    string $curve = chsSourceNode($follicle + "." + $plug);
+    if ($curve == "")
+        return "";
+    setAttr ($curve + ".intermediateObject") 0;
+    setAttr ($curve + ".visibility") 1;
+    int $n = `getAttr -size ($curve + ".controlPoints")`;
+    if ($n > 1)
+        return ($curve + ".cv[" + $n + "]");
+    return "";
+}
+
+proc string[] chsEndCvs(string $plugs[])
+{
+    string $result[];
+    for ($f in chsSelectedFollicles()) {
+        for ($p in $plugs) {
+            string $cv = chsEndCv($f, $p);
+            if ($cv != "")
+                $result[size($result)] = $cv;
+        }
+    }
+    return $result;
+}
+
+proc string[] chsPfxHair()
+{
+    string $result[];
+    for ($h in chsSelectedHairSystems()) {
+        string $p = chsDestinationNode($h + ".outputRenderHairs");
+        if ($p != "")
+            $result[size($result)] = chsTransform($p);
+    }
+    return $result;
+}
+
+proc string[] chsConstraints()
+{
+    string $result[];
+    for ($f in chsSelectedFollicles()) {
+        string $plugs[] = `listConnections -source false -destination true -plugs true ($f + ".outHair")`;
+        if (!size($plugs))
+            continue;
+        string $parts[];
+        if (`tokenize $plugs[0] ".[]" $parts` != 3)
+            continue;
+        string $hs = $parts[0];
+        int $index = $parts[2];
+        string $pins[];
+        catchQuiet($pins = `listConnections -source true -destination false -shapes true ($hs + ".inputHairPin")`);
+        for ($pin in $pins) {
+            float $indices[] = `getAttr ($pin + ".curveIndices")`;
+            for ($i in $indices)
+                if ($i == $index)
+                    $result[size($result)] = chsTransform($pin);
+        }
+    }
+    return $result;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+global proc convertHairSelection(string $to)
+{
+    chsFolliclesFromSurfaces();
+
+    string $result[];
+    string $show = "";
+    if ($to == "follicles") {
+        chsFolliclesFromConstraints();
+        chsSystemsFromPfxHair();
+        chsFolliclesFromSystems();
+        for ($f in chsSelectedFollicles())
+            $result[size($result)] = chsTransform($f);
+    } else if ($to == "hairSystems") {
+        chsFolliclesFromConstraints();
+        $result = chsSelectedHairSystems();
+    } else if ($to == "pfxHair") {
+        chsFolliclesFromConstraints();
+        $result = chsPfxHair();
+        $show = "current";
+    } else if ($to == "startCurves" || $to == "restCurves" || $to == "currentCurves") {
+        chsFolliclesFromConstraints();
+        chsSystemsFromPfxHair();
+        chsFolliclesFromSystems();
+        if ($to == "startCurves") {
+            $result = chsCurvesFrom("startPosition", 0);
+            $show = "start";
+        } else if ($to == "restCurves") {
+            $result = chsCurvesFrom("restPosition", 0);
+            $show = "rest";
+        } else {
+            $result = chsCurvesFrom("outCurve", 1);
+            $show = "current";
+        }
+    } else if ($to == "startCurveEndCvs" || $to == "restCurveEndCvs" || $to == "startAndRestEndCvs") {
+        chsFolliclesFromConstraints();
+        chsSystemsFromPfxHair();
+        chsFolliclesFromSystems();
+        string $plugs[] = {"startPosition"};
+        if ($to == "restCurveEndCvs")
+            $plugs = {"restPosition"};
+        else if ($to == "startAndRestEndCvs")
+            $plugs = {"restPosition", "startPosition"};
+        $result = chsEndCvs($plugs);
+    } else if ($to == "current") {
+        chsSystemsFromPfxHair();
+        chsFolliclesFromConstraints();
+        chsFolliclesFromSystems();
+        $result = chsCurvesFrom("outCurve", 1);
+        string $pfx[] = chsPfxHair();
+        appendStringArray($result, $pfx, size($pfx));
+        $show = "current";
+    } else if ($to == "constraints") {
+        chsSystemsFromPfxHair();
+        chsFolliclesFromSystems();
+        $result = chsConstraints();
+    } else {
+        warning `format -stringArg $to "Can't convert the hair selection to ^1s."`;
+        return;
+    }
+
+    if ($show != "" && size($result))
+        chsShowCurves($show);
+    // An empty result replaces the selection with nothing.
+    select -replace $result;
+}

@@ -2,12 +2,14 @@
 // Display menu), its submenus, built the first time each opens, and the display procedures runtime commands and hotkeys
 // call: hiding and showing by kind, smoothness, normals, culling, bounding boxes and the polygon size windows.
 //
-// Items that stand for a runtime command run that command; their labels are the command's name in words.
+// Items that stand for a runtime command run that command and take its label and annotation; where Aztek doesn't have
+// the command, the label is its name in words.
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Helpers.
 
-// "ToggleKeepWireCulling" as "Keep Wire Culling": a runtime command's name in words, for its item's label.
+// "ToggleKeepWireCulling" as "Keep Wire Culling": a runtime command's name in words, the label of an item whose command
+// Aztek doesn't have.
 proc string bdmWords(string $name)
 {
     string $s = $name;
@@ -27,41 +29,76 @@ proc string bdmWords(string $name)
     return $out;
 }
 
+// A runtime command's label, or $fallback where Aztek doesn't have the command. Aztek's factory runtime commands carry
+// their name as the label and their menu text as the annotation, so for those the annotation is the text.
+proc string bdmLabelOr(string $rtc, string $fallback)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $label = `runTimeCommand -query -label $rtc`;
+        if ($label != "" && $label != $rtc)
+            return $label;
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if (`runTimeCommand -query -default $rtc` && $ann != "")
+            return $ann;
+    }
+    return $fallback;
+}
+
+proc string bdmLabel(string $rtc)
+{
+    return bdmLabelOr($rtc, bdmWords($rtc));
+}
+
+// A runtime command's annotation, or its label when it has none.
+proc string bdmAnnotation(string $rtc)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if ($ann != "")
+            return $ann;
+    }
+    return bdmLabel($rtc);
+}
+
 // An item that runs a runtime command, named $item when that isn't "".
 proc string bdmItem(string $item, string $rtc)
 {
-    string $label = bdmWords($rtc);
+    string $label = bdmLabel($rtc);
+    string $ann = bdmAnnotation($rtc);
     if ($item != "")
-        return `menuItem -label $label -annotation $label -command $rtc $item`;
-    return `menuItem -label $label -annotation $label -command $rtc`;
+        return `menuItem -label $label -annotation $ann -command $rtc $item`;
+    return `menuItem -label $label -annotation $ann -command $rtc`;
 }
 
 // The same as a check item.
 proc string bdmCheck(string $item, string $rtc, int $value)
 {
-    string $label = bdmWords($rtc);
+    string $label = bdmLabel($rtc);
+    string $ann = bdmAnnotation($rtc);
     if ($item != "")
-        return `menuItem -label $label -annotation $label -command $rtc -checkBox $value $item`;
-    return `menuItem -label $label -annotation $label -command $rtc -checkBox $value`;
+        return `menuItem -label $label -annotation $ann -command $rtc -checkBox $value $item`;
+    return `menuItem -label $label -annotation $ann -command $rtc -checkBox $value`;
 }
 
 // A check item for a heads-up display group. It runs the runtime command when Aztek has it, else the setter in
 // initHUDScripts, so the item works either way.
 proc string bdmHudCheck(string $item, string $rtc, string $var, string $setter)
 {
-    string $label = bdmWords($rtc);
+    string $label = bdmLabel($rtc);
+    string $ann = bdmAnnotation($rtc);
     string $cmd = "if (`exists " + $rtc + "`) " + $rtc + "; else " + $setter + "(!`optionVar -query " + $var + "`);";
-    return `menuItem -label $label -annotation $label -command $cmd -checkBox (`optionVar -query $var`) $item`;
+    return `menuItem -label $label -annotation $ann -command $cmd -checkBox (`optionVar -query $var`) $item`;
 }
 
 // An option box for the item before it, running a runtime command.
 proc bdmOptionBox(string $item, string $rtc)
 {
-    string $label = bdmWords($rtc);
+    string $label = bdmLabel($rtc);
+    string $ann = bdmAnnotation($rtc);
     if ($item != "")
-        menuItem -optionBox true -annotation $label -command $rtc $item;
+        menuItem -optionBox true -annotation $ann -command $rtc $item;
     else
-        menuItem -optionBox true -annotation $label -command $rtc;
+        menuItem -optionBox true -annotation $ann -command $rtc;
 }
 
 // A submenu filled the first time it opens by $builder, which then clears the post-menu command.
@@ -79,16 +116,6 @@ proc int bdmHas(string $check)
     if (`exists $check`)
         return eval($check);
     return $check == "SurfaceUIExists" || $check == "RenderingExists";
-}
-
-// What the reference's hideKeepSelection does: hide the objects without the selection changing.
-proc bdmHideKeepSelection(string $objs[])
-{
-    string $sel[] = `ls -selection`;
-    hide $objs;
-    select -clear;
-    if (size($sel))
-        select $sel;
 }
 
 // Show the objects that still exist, echoing the command as the reference does.
@@ -165,6 +192,8 @@ global proc bdmShowLastHidden()
     global string $gLastHiddenSelection[];
     global string $gLastNonMayaHiddenSelection[];
     if (size($gLastHiddenSelection) || size($gLastNonMayaHiddenSelection)) {
+        // Transforms and shapes both. Aztek's ls -transforms -shapes keeps only what is both, so the types are asked
+        // for instead.
         string $still[] = `ls -transforms -shapes $gLastHiddenSelection`;
         int $hidden = 0;
         for ($o in $still)
@@ -180,9 +209,13 @@ global proc bdmShowLastHidden()
         for ($o in $gLastNonMayaHiddenSelection)
             $cmd += " \"" + $o + "\"";
         eval($cmd);
-        // The lists are kept, so an undo followed by this again shows the same objects.
+        // The hide command's own record is cleared, but the lists are kept, so an undo followed by this again shows
+        // the same objects.
+        hide -clearLastHidden -testVisibility;
         return;
     }
+    // The reference then asks showHidden -lastHidden; Aztek's showHidden has no such flag, so there is nothing more
+    // to show.
     warning "Nothing that was hidden last is still hidden.";
 }
 
@@ -228,7 +261,7 @@ global proc hideShowDeformingGeom(string $state)
 
     if ($state == "hide") {
         if (size($list))
-            bdmHideKeepSelection($list);
+            hideKeepSelection($list, 0);
         else
             warning "There is no deforming geometry to hide.";
     } else if (size($list))
@@ -409,7 +442,7 @@ global proc hideShow(string $type, string $state)
 
     if ($state == "-hide") {
         if (size($list))
-            bdmHideKeepSelection($list);
+            hideKeepSelection($list, 0);
         else
             warning "There are no objects to hide.";
     } else if (size($list))
@@ -1089,12 +1122,15 @@ global proc buildPolygonsSubmenu(string $parent)
     menuItem -edit -postMenuCommand "" $parent;
 }
 
-// A smoothness item: dragging it runs $drag, and its option box runs the options command.
+// A smoothness item: dragging it runs $drag, and its option box runs the options command. The option box's tooltip is
+// the options command's annotation, or $ann where Aztek doesn't have that command.
 proc bdmSmoothItem(string $item, string $rtc, string $drag, string $optItem, string $optRtc, string $ann)
 {
-    string $label = bdmWords($rtc);
-    menuItem -label $label -annotation $label -command $rtc -dragMenuCommand $drag $item;
-    menuItem -optionBox true -annotation $ann -command $optRtc $optItem;
+    menuItem -label (bdmLabel($rtc)) -annotation (bdmAnnotation($rtc)) -command $rtc -dragMenuCommand $drag $item;
+    string $boxAnn = $ann;
+    if (`runTimeCommand -exists $optRtc` && `runTimeCommand -query -annotation $optRtc` != "")
+        $boxAnn = `runTimeCommand -query -annotation $optRtc`;
+    menuItem -optionBox true -annotation $boxAnn -command $optRtc $optItem;
 }
 
 global proc buildNurbsSubmenu(string $parent)
@@ -1104,7 +1140,7 @@ global proc buildNurbsSubmenu(string $parent)
     bdmItem("toggleEPItem", "ToggleEditPoints");
     bdmItem("toggleHullItem", "ToggleHulls");
     if (bdmHas("SurfaceUIExists"))
-        menuItem -label "Normals (Shaded Mode)" -annotation "Normals (Shaded Mode)" -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalItem;
+        menuItem -label (bdmLabelOr("ToggleNormals", "Normals (Shaded Mode)")) -annotation (bdmAnnotation("ToggleNormals")) -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalItem;
     bdmItem("toggleSurfaceFaceItem", "ToggleSurfaceFaceCenters");
     bdmItem("toggleOriginItem", "ToggleSurfaceOrigin");
     bdmSmoothItem("dispSmthnessCustomItem", "ToggleCustomNURBSComponents", "performDisplayControl 2", "dispSmthnessCustomOBItem", "CustomNURBSComponentsOptions", "Custom NURBS components options");
@@ -1124,7 +1160,7 @@ global proc buildSubdivSurfaces(string $parent)
     bdmItem("subdivToggleMeshEdgeItem", "ToggleMeshEdges");
     bdmItem("subdivToggleMeshFaceItem", "ToggleMeshFaces");
     bdmItem("subdivToggleMeshMapItem", "ToggleMeshMaps");
-    menuItem -label "Normals (Shaded Mode)" -annotation "Normals (Shaded Mode)" -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalSubdivItem;
+    menuItem -label (bdmLabelOr("ToggleNormals", "Normals (Shaded Mode)")) -annotation (bdmAnnotation("ToggleNormals")) -imageOverlayLabel "Nrm" -command "ToggleNormals" toggleNormalSubdivItem;
     bdmItem("subdivToggleMeshCreasesItem", "ToggleMeshUVBorders");
     menuItem -divider true;
     bdmSmoothItem("dispSmthnessHullItem", "SubdivSmoothnessHull", "performSubdivDisplaySmoothnessHull 2", "subdivSetHullOptionItem", "SubdivSmoothnessHullOptions", bdmWords("SubdivSmoothnessHullOptions"));
@@ -1225,9 +1261,7 @@ global proc dispWindow(string $op)
         $value = 2.0;
         $change = "setEdgeWidth()";
     }
-    // The setters are in initHUDScripts.
-    if (!`exists setVertexSize`)
-        catchQuiet(`eval "source \"initHUDScripts.mel\""`);
+    // The setters are in initHUDScripts, which is sourced at start-up.
 
     window -resizeToFitChildren true -iconName $op -menuBar true -widthHeight 250 75 -sizeable false -title $title $win;
     menu -label "Reset" -familyImage "menuIconReset.png" ($op + "ResetMenu");

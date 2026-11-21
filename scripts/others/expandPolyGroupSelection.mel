@@ -1,0 +1,13 @@
+// expandPolyGroupSelection: in object mode, swaps the selection for the polygon objects and components in it, a
+// selected group giving the meshes beneath it, so a polygon command acts on every mesh in the group. Anything that
+// isn't polygonal drops out. In component mode the selection stays as it is.
+
+global proc expandPolyGroupSelection()
+{
+    if (!`selectMode -query -object`)
+        return;
+    // Meshes, vertices, edges, faces, UVs and vertex faces.
+    string $items[] = `filterExpand -expand false -selectionMask 12 -selectionMask 31 -selectionMask 32
+        -selectionMask 34 -selectionMask 35 -selectionMask 70`;
+    select -replace $items;
+}

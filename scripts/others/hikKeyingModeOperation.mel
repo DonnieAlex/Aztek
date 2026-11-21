@@ -1,0 +1,143 @@
+// hikKeyingModeOperation: the keying groups of a full body IK character and the keying mode that picks which of them
+// a key goes to. A character has one full body group and one group per body part under it; each effector or joint
+// adds its keyable attributes to its body part's group and switches both groups on when it is keyed.
+
+// Aztek's keyingGroup doesn't have -category, -activator or -setActiveFilter yet. Each is tried as the reference
+// writes it; while it isn't there, the category is dropped, activators aren't set, and the active filter is kept in
+// this variable so the procedures below still agree with one another.
+global string $gHikKeyingActiveFilter = "FullBody";
+
+proc string hkmMakeGroup(string $name, string $category)
+{
+    string $group;
+    if (catchQuiet($group = eval("keyingGroup -empty -name \"" + $name + "\" -category \"" + $category
+            + "\" -minimizeRotation true")))
+        $group = `keyingGroup -empty -name $name -minimizeRotation true`;
+    setAttr ($group + ".isHistoricallyInteresting") 0;
+    return $group;
+}
+
+proc string hkmActiveFilter()
+{
+    global string $gHikKeyingActiveFilter;
+    string $filter;
+    if (catchQuiet($filter = eval("keyingGroup -query -setActiveFilter")))
+        return $gHikKeyingActiveFilter;
+    return $filter;
+}
+
+proc hkmSetActiveFilter(string $filter)
+{
+    global string $gHikKeyingActiveFilter;
+    $gHikKeyingActiveFilter = $filter;
+    catchQuiet(eval("keyingGroup -setActiveFilter \"" + $filter + "\""));
+}
+
+// Adds plugs to a group. Aztek's sets don't take plugs as members yet, so this may do nothing.
+proc hkmAddPlugs(string $group, string $plugs[])
+{
+    for ($plug in $plugs)
+        catchQuiet(`keyingGroup -edit -addElement $group $plug`);
+}
+
+// The number of body parts, 0 while Aztek doesn't have hikBodyPart.
+proc int hkmBodyPartCount()
+{
+    if (!`exists hikBodyPart`)
+        return 0;
+    return eval("hikBodyPart -count");
+}
+
+global proc hikCreateKeyingGroups(string $character, string $keyingGroups[])
+{
+    $keyingGroups[size($keyingGroups)] = hkmMakeGroup($character + "_FullBodyKG", "FullBody");
+
+    int $count = hkmBodyPartCount();
+    for ($i = 0; $i < $count; $i++) {
+        string $part = eval("hikBodyPart -getName " + $i);
+        string $group = hkmMakeGroup($character + "_" + $part + "BPKG", "BodyPart");
+        $keyingGroups[size($keyingGroups)] = $group;
+        // Under the first group given, so keying the full body keys each part too.
+        keyingGroup -edit -addElement $keyingGroups[0] $group;
+    }
+}
+
+global proc hikAddToKeyingGroups(string $node, int $isIkEffector, string $keyingGroups[])
+{
+    // No groups: keying groups aren't in use.
+    if (size($keyingGroups) == 0)
+        return;
+
+    int $index = -1;
+    if ($isIkEffector) {
+        if (`exists hikGetEffectorID` && `exists hikBodyPart`) {
+            int $id = eval("hikGetEffectorID \"" + $node + "\"");
+            $index = eval("hikBodyPart -forEffector " + $id) + 1;
+        }
+        string $plugs[] = {($node + ".translate"), ($node + ".rotate")};
+        hkmAddPlugs($index >= 0 ? $keyingGroups[$index] : $keyingGroups[0], $plugs);
+    } else {
+        string $nodes[] = `listConnections -source false -destination true ($node + ".ControlSet")`;
+        string $plugs[] = `listConnections -source false -destination true -plugs true ($node + ".ControlSet")`;
+        if (size($nodes) == 0 || size($plugs) == 0)
+            return;
+        string $fkName = stringRemovePrefix($plugs[0], $nodes[0] + ".");
+        int $id = hikGetNodeIdFromName($fkName);
+        // The Reference node isn't keyed.
+        if ($id == 0)
+            return;
+        if (`exists hikBodyPart`)
+            $index = eval("hikBodyPart -forNode " + $id) + 1;
+        string $toAdd[] = {($node + ".rotate")};
+        // The hips carry the character's position as well.
+        if ($id == 1)
+            $toAdd[1] = $node + ".translate";
+        hkmAddPlugs($index >= 0 ? $keyingGroups[$index] : $keyingGroups[0], $toAdd);
+    }
+
+    // Keying the node switches on the full body group and its body part's.
+    catchQuiet(eval("keyingGroup -edit -activator \"" + $keyingGroups[0] + "\" \"" + $node + "\""));
+    if ($index > 0)
+        catchQuiet(eval("keyingGroup -edit -activator \"" + $keyingGroups[$index] + "\" \"" + $node + "\""));
+}
+
+// Sets a key with the given keying mode, whatever mode is current, and puts the current one back afterwards.
+global proc hikSetModalKey(string $keyType)
+{
+    string $filter = ($keyType == "Selection") ? "NoKeyingGroups" : $keyType;
+    string $previous = hkmActiveFilter();
+    int $changed = $previous != $filter;
+    if ($changed)
+        hkmSetActiveFilter($filter);
+
+    string $sel[] = `ls -selection`;
+    if (size($sel) == 0)
+        warning "Select something to key first.";
+    else
+        setKeyframe;
+
+    if ($changed)
+        hkmSetActiveFilter($previous);
+}
+
+// Follows the keyFullBody preference: 1 full body, 2 body part, 3 the selection only.
+global proc hikSetKeyingMode()
+{
+    int $mode = `optionVar -query keyFullBody`;
+    if ($mode == 1)
+        hkmSetActiveFilter("FullBody");
+    else if ($mode == 2)
+        hkmSetActiveFilter("BodyPart");
+    else if ($mode == 3)
+        hkmSetActiveFilter("NoKeyingGroups");
+
+    // Aztek doesn't have fbikDoSelectionChanged yet.
+    if (`exists fbikDoSelectionChanged`)
+        eval "fbikDoSelectionChanged";
+
+    // Aztek's headsUpDisplay doesn't have -refresh yet.
+    if (`headsUpDisplay -exists HUDHikKeyingMode`)
+        catchQuiet(eval("headsUpDisplay -refresh HUDHikKeyingMode"));
+    if (`headsUpDisplay -exists HUDFbikKeyingMode`)
+        catchQuiet(eval("headsUpDisplay -refresh HUDFbikKeyingMode"));
+}

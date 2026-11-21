@@ -141,12 +141,9 @@ global proc bevelSetup(string $parent, int $forceFactorySettings, string $goToTo
             -value2 `scriptCtx -query -lastAutoComplete $goToTool` scriptToolExtraWidget;
     }
 
-    // The polygon and subdivision output settings, from their own scripts. Aztek has neither yet.
-    // The polygon output controls come from nurbsToPolyAddOptions; without them there is nothing to fill.
-    if (`exists nurbsToPolyAddOptions`)
-        nurbsToPolySetup($parent, $forceFactorySettings);
-    if (`exists nurbsToSubdivSetup`)
-        eval ("nurbsToSubdivSetup \"" + $parent + "\" " + $forceFactorySettings);
+    // The polygon and subdivision output settings, from their own scripts.
+    nurbsToPolySetup($parent, $forceFactorySettings);
+    nurbsToSubdivSetup($parent, $forceFactorySettings);
 }
 
 // Saves the option box's settings; $doIt 1 then bevels, 3 enters the tool, 0 only saves.
@@ -177,8 +174,8 @@ global proc bevelCallback(string $parent, int $doIt, string $goToTool)
     int $edge = `radioButtonGrp -query -select bevelEdgesRadio`;
     optionVar -intValue bevelCapEdge ($edge < 3 ? $edge + 1 : 1);
 
-    if (`exists nurbsToPolyCallback`)
-        eval ("nurbsToPolyCallback \"" + $parent + "\" 0");
+    nurbsToPolyCallback($parent, 0);
+    // Aztek doesn't have nurbsToSubdivCallback yet.
     if (`exists nurbsToSubdivCallback`)
         eval ("nurbsToSubdivCallback \"" + $parent + "\" 0");
 
@@ -263,9 +260,7 @@ proc bevelOptionBox(int $inTool, string $goToTool)
     separator;
     tabLayout -tabsVisible false bevelPolyOptions;
         string $polyCol = `columnLayout -adjustableColumn true bevelPolyOptionsOK`;
-        // The polygon output settings come from nurbsToPolyAddOptions, which Aztek doesn't have yet.
-        if (`exists nurbsToPolyAddOptions`)
-            eval ("nurbsToPolyAddOptions \"" + $polyCol + "\"");
+        nurbsToPolyAddOptions($polyCol);
         setParent ..;
     setParent ..;
 

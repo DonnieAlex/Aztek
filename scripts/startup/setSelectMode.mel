@@ -171,8 +171,8 @@ global proc setSelectMode(string $mode, string $uiLabel)
         if ($k == $uiLabel)
             $isKnown = 1;
     }
-    if (!$isKnown && `exists uiToMelMsg`)
-        eval("uiToMelMsg \"maskFieldText_melToUI\" \"" + encodeString($uiLabel) + "\" 1");
+    if (!$isKnown)
+        uiToMelMsg("maskFieldText_melToUI", $uiLabel, 1);
 
     // Aztek's status line shows the mode itself; the field is there only when a script has built the reference's.
     if (`textField -exists maskField`)

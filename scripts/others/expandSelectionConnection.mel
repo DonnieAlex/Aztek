@@ -1,0 +1,61 @@
+// expandSelectionConnection: a selection connection's members, as an array or written out as a MEL array literal for
+// building commands, without the Dope Sheet's summary rows.
+
+// The labels of the Dope Sheet's summary rows, which are rows of the editor rather than objects.
+proc string[] escSummaryLabels()
+{
+    return {"Dope Sheet Summary", "Scene Summary"};
+}
+
+proc string escLiteral(string $items[])
+{
+    string $quoted[];
+    for ($item in $items)
+        $quoted[size($quoted)] = "\"" + $item + "\"";
+    return "{" + stringArrayToString($quoted, ", ") + "}";
+}
+
+global proc string[] expandSelectionConnectionAsArray(string $selectionConnection)
+{
+    string $members[];
+    if ($selectionConnection != "" && `selectionConnection -exists $selectionConnection`)
+        $members = `selectionConnection -query -object $selectionConnection`;
+
+    string $labels[] = escSummaryLabels();
+    string $kept[];
+    for ($member in $members) {
+        int $summary = 0;
+        for ($label in $labels)
+            if (`match $label $member` != "")
+                $summary = 1;
+        if (!$summary)
+            $kept[size($kept)] = $member;
+    }
+    return $kept;
+}
+
+global proc string expandSelectionConnection(string $selectionConnection)
+{
+    if ($selectionConnection == "" || !`selectionConnection -exists $selectionConnection`)
+        return "";
+    string $members[] = expandSelectionConnectionAsArray($selectionConnection);
+    return escLiteral($members);
+}
+
+// For the Dope Sheet's commands when its connection may be empty: the objects whose keys are selected, else the
+// Dope Sheet's outliner connection, else an empty literal. The connection's own members aren't looked at.
+global proc string expandSelectionConnectionFallback(string $selectionConnection)
+{
+    string $result = "{}";
+    if (`match "dopeSheet" $selectionConnection` != "") {
+        string $keyed[];
+        catch($keyed = `keyframe -query -selected -name`);
+        if (size($keyed) > 0) {
+            $result = escLiteral($keyed);
+        } else if (`gmatch $selectionConnection "dopeSheet*OutlinerSelection"`) {
+            string $other = substituteAllString($selectionConnection, "OutlinerSelection", "FromOutliner");
+            return expandSelectionConnection($other);
+        }
+    }
+    return $result;
+}

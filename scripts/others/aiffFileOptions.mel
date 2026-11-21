@@ -1,0 +1,118 @@
+// aiffFileOptions: the options panel the file browser shows for audio files: where the sound starts on the timeline.
+// The options string has one option, "o": "fromFile" for the offset stored in the file, "animStart" for the start
+// of the animation range, or a number for an offset of the user's own (in the current time unit).
+
+// The offset stored in the last chosen file, 0 when it has none.
+global float $aiffFO_referenceTime = 0.0;
+
+// Aztek doesn't have timeFieldGrp yet; a float field group with two decimals stands in for it.
+proc aiffFOSetOffset(float $value)
+{
+    floatFieldGrp -edit -value1 $value aiffOffsetVal;
+}
+
+global proc aiffFO_changeInheritFileAudioOffset(int $on)
+{
+    global float $aiffFO_referenceTime;
+    if (!$on)
+        return;
+    if ($aiffFO_referenceTime > 0)
+        aiffFOSetOffset($aiffFO_referenceTime);
+    else
+        aiffFOSetOffset(`playbackOptions -query -animationStartTime`);
+}
+
+global proc aiffFO_changeImportAudioAtStart(int $on)
+{
+    if ($on)
+        aiffFOSetOffset(`playbackOptions -query -animationStartTime`);
+}
+
+global proc aiffFO_changeImportAudioAtSpecifiedOffset(int $on)
+{
+    floatFieldGrp -edit -enable $on aiffOffsetVal;
+}
+
+// When the chosen file changes: its stored offset, if any, makes the "from the file" choice available.
+global proc aiffFO_FileChange(string $file)
+{
+    global float $aiffFO_referenceTime;
+    // Aztek's file command can't read audio metadata yet; the offset then reads as 0.
+    float $offset = 0.0;
+    catchQuiet($offset = eval("file -fileMetaData -type \"audio\" \"" + $file + "\""));
+    $aiffFO_referenceTime = $offset;
+
+    radioButtonGrp -edit -enable1 ($aiffFO_referenceTime > 0) imFileAudioOffset;
+    // A selected choice that has just become unavailable stays selected.
+    if (`radioButtonGrp -query -select imFileAudioOffset` == 1) {
+        if ($aiffFO_referenceTime > 0)
+            aiffFOSetOffset($aiffFO_referenceTime);
+        else
+            aiffFOSetOffset(`playbackOptions -query -animationStartTime`);
+    }
+}
+
+global proc int aiffFileOptions(string $parent, string $action, string $initialOptions, string $resultCallback)
+{
+    if ($action == "post") {
+        int $template = `uiTemplate -exists DefaultTemplate`;
+        if ($template)
+            setUITemplate -pushTemplate DefaultTemplate;
+        setParent $parent;
+
+        frameLayout -label "Audio Offset";
+        columnLayout -rowSpacing 5 audioOffsetLayout;
+
+        // 1 from the file, 2 at the animation start, 3 at the offset given.
+        float $offset = `playbackOptions -query -animationStartTime`;
+        int $choice = 3;
+        if ($initialOptions != "") {
+            string $options[];
+            tokenize $initialOptions ";" $options;
+            for ($option in $options) {
+                string $pair[];
+                tokenize $option "=" $pair;
+                if (size($pair) == 0 || $pair[0] != "o")
+                    continue;
+                string $value = size($pair) > 1 ? $pair[1] : "";
+                if ($value == "fromFile")
+                    $choice = 1;
+                else if ($value == "animStart")
+                    $choice = 2;
+                else
+                    $offset = $value;
+            }
+        }
+
+        // The file's own offset is only offered once a file that has one is chosen (aiffFO_FileChange).
+        radioButtonGrp -vertical -numberOfRadioButtons 3 -label "" -columnWidth2 0 240
+            -label1 "Use the offset stored in the file"
+            -label2 "Start at the beginning of the animation"
+            -label3 "Start at this offset"
+            -enable1 false
+            -changeCommand1 "aiffFO_changeInheritFileAudioOffset #1"
+            -changeCommand2 "aiffFO_changeImportAudioAtStart #1"
+            -changeCommand3 "aiffFO_changeImportAudioAtSpecifiedOffset #1"
+            -select $choice
+            imFileAudioOffset;
+        floatFieldGrp -label "Sound offset" -numberOfFields 1 -value1 $offset -precision 2 aiffOffsetVal;
+
+        if ($template)
+            setUITemplate -popTemplate;
+        return 1;
+    }
+
+    if ($action == "query") {
+        int $choice = `radioButtonGrp -query -select imFileAudioOffset`;
+        string $options;
+        if ($choice == 1)
+            $options = "o=fromFile";
+        else if ($choice == 2)
+            $options = "o=animStart";
+        else
+            $options = "o=" + `floatFieldGrp -query -value1 aiffOffsetVal`;
+        eval($resultCallback + " \"" + $options + "\"");
+        return 1;
+    }
+    return 0;
+}

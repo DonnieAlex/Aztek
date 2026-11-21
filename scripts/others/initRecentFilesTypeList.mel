@@ -1,0 +1,16 @@
+// initRecentFilesTypeList: builds the file type list that goes beside the recent files list, one type per file in the
+// same order, for when the type list is missing. A file that isn't there or whose type can't be told is "unknown".
+// The list is only added to, never cleared first.
+
+global proc initRecentFilesTypeList(string $recentFiles[])
+{
+    for ($path in $recentFiles) {
+        string $type = "unknown";
+        if (`file -query -exists $path`) {
+            string $types[] = `file -query -type $path`;
+            if (size($types) > 0)
+                $type = $types[0];
+        }
+        optionVar -stringValueAppend RecentFilesTypeList $type;
+    }
+}

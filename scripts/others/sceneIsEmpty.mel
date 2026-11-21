@@ -1,0 +1,9 @@
+// sceneIsEmpty: 1 when the scene holds nothing but its cameras, as a new scene does. Only the counts are compared: as
+// many transforms as cameras reads as empty, whichever transforms they are.
+
+global proc int sceneIsEmpty()
+{
+    string $cameras[] = `listCameras`;
+    string $transforms[] = `ls -transforms`;
+    return size($cameras) == size($transforms);
+}

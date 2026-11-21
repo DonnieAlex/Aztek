@@ -38,22 +38,28 @@ proc pnswOptionVars(int $force)
         eval("setSkinClusterOptionVars \"normalize\" " + $force);
 }
 
+// The list procedures live in skinClusterList.mel, found by that name.
+proc pnswLoadList()
+{
+    if (!`exists skinClusterListRefresh`)
+        eval("source \"skinClusterList.mel\"");
+}
+
 proc pnswList()
 {
-    if (`exists skinClusterList`)
-        eval("skinClusterList \"normalize\"");
+    skinClusterList("normalize");
 }
 
 proc pnswListRefresh(int $force)
 {
-    if (`exists skinClusterListRefresh`)
-        eval("skinClusterListRefresh \"normalize\" " + $force);
+    pnswLoadList();
+    skinClusterListRefresh("normalize", $force);
 }
 
 proc pnswListStore()
 {
-    if (`exists skinClusterListUpdateOptionVars`)
-        eval("skinClusterListUpdateOptionVars \"normalize\"");
+    pnswLoadList();
+    skinClusterListUpdateOptionVars("normalize");
 }
 
 // The command for $mode with the saved settings: doNormalizeWeightsArgList, version 2, with the mode and "act on the

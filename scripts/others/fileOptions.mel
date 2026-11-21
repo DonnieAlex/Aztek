@@ -91,28 +91,14 @@ proc foCaptureDo(string $args)
         eval("thumbnailCaptureComponent " + $args);
 }
 
-proc int foSceneIsEmpty()
-{
-    if (!`exists sceneIsEmpty`)
-        catchQuiet(eval("source \"sceneIsEmpty.mel\""));
-    if (`exists sceneIsEmpty`)
-        return eval("sceneIsEmpty");
-    // Nothing in the scene but the four cameras every scene has.
-    string $top[] = `ls -assemblies`;
-    for ($t in $top)
-        if ($t != "persp" && $t != "top" && $t != "front" && $t != "side")
-            return 0;
-    return 1;
-}
-
 // --------------------------------------------------------------------------------------------------------------------
 // The namespace tree. The installation's tree view when it has one; Aztek has no treeView control yet, so a list of
 // the scene's namespaces stands in, the root first.
 
 proc string foNamespaceTreeCreate()
 {
-    if (`exists namespaceTreeView`)
-        return eval("namespaceTreeView 0 \"\" \"\"");
+    if (`exists treeView`)
+        return namespaceTreeView(0, "", "");
     return `textScrollList -allowMultiSelection false -width 200 -height 150`;
 }
 
@@ -123,11 +109,11 @@ proc int foIsTreeView(string $tree)
 
 proc foNamespaceTreeUpdate(string $tree)
 {
-    if (`exists namespaceTreeView_update`) {
-        eval("namespaceTreeView_update \"" + $tree + "\" \"\"");
+    if (foIsTreeView($tree)) {
+        namespaceTreeView_update($tree, "");
         return;
     }
-    if (foIsTreeView($tree) || !`textScrollList -exists $tree`)
+    if (!`textScrollList -exists $tree`)
         return;
     textScrollList -edit -removeAll $tree;
     textScrollList -edit -append ":" $tree;
@@ -141,11 +127,11 @@ proc foNamespaceTreeUpdate(string $tree)
 
 proc foNamespaceTreeSelect(string $tree, string $ns)
 {
-    if (`exists namespaceTreeView_select`) {
-        eval("namespaceTreeView_select \"" + $tree + "\" \"" + $ns + "\"");
+    if (foIsTreeView($tree)) {
+        namespaceTreeView_select($tree, {$ns});
         return;
     }
-    if (foIsTreeView($tree) || !`textScrollList -exists $tree`)
+    if (!`textScrollList -exists $tree`)
         return;
     textScrollList -edit -deselectAll $tree;
     string $all[] = `textScrollList -query -allItems $tree`;
@@ -684,7 +670,7 @@ global proc int fo_newFileType(string $action)
 // "Manual" means the user's choices stand: the scene has something in it, or they turned the automatic case off.
 proc int foImportManualMode()
 {
-    return !foSceneIsEmpty() || `optionVar -query importOptionsOverrideEmpty` == 0;
+    return !sceneIsEmpty() || `optionVar -query importOptionsOverrideEmpty` == 0;
 }
 
 global proc fo_changeImportFramerateRadioBtn(int $overrideFramerate)
@@ -704,7 +690,7 @@ global proc fo_changeImportAnimRangeRadioBtn(int $animRangeOpt)
 global proc fo_changeImportOverrideEmpty(int $overrideOnEmptyScene)
 {
     optionVar -intValue importOptionsOverrideEmpty $overrideOnEmptyScene;
-    int $manual = !foSceneIsEmpty() || $overrideOnEmptyScene == 0;
+    int $manual = !sceneIsEmpty() || $overrideOnEmptyScene == 0;
     int $rate = 1;
     int $range = 2;
     if ($manual) {
@@ -788,8 +774,8 @@ global proc fileOptionsSelectionChanged(string $parent, string $action, string $
     global string $gCurrentOptionSelection;
 
     $gCurrentFileDialogSelection = $file;
-    if (`control -exists aiffOffsetVal` && `exists aiffFO_FileChange`)
-        eval("aiffFO_FileChange \"" + encodeString($file) + "\"");
+    if (`control -exists aiffOffsetVal`)
+        aiffFO_FileChange($file);
     if (!foTranslatorLoaded($gCurrentOptionSelection))
         return;
     string $script = foOptionsScript($gCurrentOptionSelection);
@@ -843,7 +829,7 @@ global proc fileOptionsSetup(string $parent, string $action, int $forceFactorySe
                 Importfo_loadSettingsMenu;
             checkBoxGrp -edit -value1 `optionVar -query fileImportReserveNamespaces` Importfo_reserveNamespacesGrp;
             int $override = `optionVar -query importOptionsOverrideEmpty`;
-            checkBoxGrp -edit -value1 $override -enable (foSceneIsEmpty()) imInheritFramerateEmpty;
+            checkBoxGrp -edit -value1 $override -enable (sceneIsEmpty()) imInheritFramerateEmpty;
             fo_changeImportOverrideEmpty($override);
         }
     }

@@ -1,0 +1,126 @@
+// fileBrowser: shows a file browser and runs a callback for each file (or folder) chosen, as
+// "<callBack> "<path>" "<fileType>"", so a callback can carry arguments of its own ahead of those two.
+//
+// Modes: 0 open one existing file, 1 write (export), 2 write (save), 4 choose a folder, 5 open several files. Older
+// callers added 100 for short names; the hundreds are ignored.
+
+global string $gDefaultFileBrowserDir = "";
+global string $gOperationMode;
+global int $gBrowserMode;
+global string $gFileDialogShortCutTip;
+
+// The browser's filter helpers, which start-up loads too.
+if (!`exists fileBrowserActionSetup`)
+    eval("source \"fileDialogFilterTypes.mel\"");
+
+// Shared with setWorkingDirectory: the current folder when it differs from the project's root.
+global string $gSetWorkingDirectoryFolder;
+
+proc int fbNormaliseMode(int $mode)
+{
+    return $mode - 100 * ($mode / 100);
+}
+
+// Makes $dir the current folder. In Aztek, workspace -dir moves the project's root too, so as setWorkingDirectory
+// does, the root is put back and the folder kept aside for the browser to start in.
+proc fbChangeDir(string $dir)
+{
+    global string $gSetWorkingDirectoryFolder;
+    string $root = `workspace -query -rootDirectory`;
+    workspace -directory $dir;
+    if (`workspace -query -rootDirectory` != $root) {
+        workspace -openWorkspace $root;
+        $gSetWorkingDirectoryFolder = $dir;
+    } else {
+        $gSetWorkingDirectoryFolder = "";
+    }
+}
+
+proc string fbCurrentDir()
+{
+    global string $gSetWorkingDirectoryFolder;
+    if ($gSetWorkingDirectoryFolder != "")
+        return $gSetWorkingDirectoryFolder;
+    return `workspace -query -directory`;
+}
+
+global proc int pv_goDirectory(string $dirPath)
+{
+    if ($dirPath == "") {
+        error "The folder path is empty.";
+        return 0;
+    }
+    fbChangeDir($dirPath);
+    return 1;
+}
+
+// The system's own file dialog, with the filters given. Only Windows and macOS have it; elsewhere nothing happens
+// and 0 comes back.
+global proc int fileBrowserWithFilter(string $callBack, string $action, string $title, string $type, int $mode,
+    string $filters[], string $dir)
+{
+    global string $gOperationMode;
+    global int $gBrowserMode;
+
+    $mode = fbNormaliseMode($mode);
+    $gBrowserMode = $mode;
+    if (!`about -nt` && !`about -mac`)
+        return 0;
+
+    // Aztek doesn't have fileBrowserDialog yet; the call is made as written so it works once it does.
+    string $cmd = "fileBrowserDialog -fileCommand \"" + $callBack + "\" -mode " + $mode + " -windowTitle \"" + $title
+        + "\" -dialogStyle 1 -fileType \"" + $type + "\" -actionName \"" + $action + "\" -operationMode \""
+        + $gOperationMode + "\" -includeName \"" + $dir + "\"";
+    for ($filter in $filters)
+        $cmd += " -filterList \"" + $filter + "\"";
+    eval($cmd);
+    $gOperationMode = "";
+    return 1;
+}
+
+global proc int fileBrowser(string $callBack, string $action, string $type, int $mode)
+{
+    global string $gDefaultFileBrowserDir;
+
+    $mode = fbNormaliseMode($mode);
+    if ($gDefaultFileBrowserDir != "")
+        fbChangeDir($gDefaultFileBrowserDir);
+    string $startDir = fbCurrentDir();
+
+    // The dialog's own modes: 3 a folder, 4 several existing files, 1 one existing file, 0 any file to write.
+    int $fileMode = 0;
+    if ($mode == 4)
+        $fileMode = 3;
+    else if ($mode == 5)
+        $fileMode = 4;
+    else if ($mode == 0)
+        $fileMode = 1;
+
+    string $setup[] = fileBrowserActionSetup($type, $fileMode);
+    string $cmd = "fileDialog2 -caption \"" + $action + "\" -okCaption \"" + $setup[0] + "\" -fileMode " + $fileMode
+        + " -startingDirectory \"" + $startDir + "\" -returnFilter 1 -fileFilter \"" + $setup[2]
+        + "\" -selectFileFilter \"" + $setup[1] + "\"";
+    string $chosen[] = eval($cmd);
+
+    // The chosen paths come first and the chosen filter last. Aztek's fileDialog2 doesn't add the filter yet, so the
+    // last entry only counts as one when it reads like a filter ("Description (*.ext)").
+    int $count = size($chosen);
+    string $fileType = "";
+    if ($count > 0 && `gmatch $chosen[$count - 1] "*(*)"`) {
+        $count--;
+        if ($chosen[$count] != "")
+            $fileType = filterDescriptionToFileType($chosen[$count]);
+    }
+
+    for ($i = 0; $i < $count; $i++) {
+        string $path = $chosen[$i];
+        if ($path == "")
+            continue;
+        // Opening one file, a name typed with a wildcard extension loses it.
+        if ($fileMode == 0 && endsWith($path, ".*"))
+            $path = substring($path, 1, size($path) - 2);
+        $path = fromNativePath($path);
+        eval($callBack + " \"" + $path + "\" \"" + $fileType + "\"");
+    }
+    return 1;
+}

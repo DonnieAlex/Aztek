@@ -1,0 +1,457 @@
+// expressionEdTextEditor: editing an expression in an outside text editor, for the Expression Editor, as the
+// reference's. The expression is written to a temporary file with a small launcher script beside it; the launcher
+// starts the editor, waits for it, then deletes itself. The file listener reports the text file being saved
+// (EEgetFileExpression reads it back and applies it) and the launcher going (EEdeleteEditorFile tidies up).
+//
+// One editor file per expression is kept in four parallel lists: the file, the expression's name ("" until it is
+// made), whether it is being created (1) or edited (0), and the object a new expression defaults to. Particle
+// expressions have a list of their own. It builds no window; it touches the Expression Editor's controls by name
+// (expressionEditorWin, EEmultiText, EEdefNameT) when that window is open.
+
+global string $gEEcurrFiles[];
+global string $gEEcurrFileExprName[];
+global int $gEEcurrFileCreateMode[];
+global string $gEEcurrFileDefObj[];
+global int $gEEdefFilenameCount = 0;
+
+// Kept by the Expression Editor's other scripts.
+global string $gEEcurrParticleFiles[];
+global int $gEEcurrentEditor;
+global int $gEEcreateMode;
+global int $gEEexpressionInEditor;
+global int $gEEpExpressionInEditor;
+global int $gEEexpressionType;
+global string $gEEnodeMode;
+global int $gEEeditedInEditor;
+
+// ---- Local helpers ----
+
+// The name a file is written under: | and : can't go in file names, so they become # and +. On Windows a drive
+// letter's colon is kept.
+proc string expressionEdTextEditor_diskName(string $fileName)
+{
+    string $name = `substituteAllString $fileName "|" "#"`;
+    string $drive = "";
+    if (`about -windows` && `match "^[A-Za-z]:[/\\]" $name` != "") {
+        $drive = `substring $name 1 2`;
+        $name = `substring $name 3 (size($name))`;
+    }
+    return $drive + `substituteAllString $name ":" "+"`;
+}
+
+// Where temporary files go.
+proc string expressionEdTextEditor_tmpDir()
+{
+    if (`about -windows` || `about -mac`)
+        return `getenv "TMPDIR"`;
+    return "/tmp";
+}
+
+// The full name of a script node when script nodes are being edited, otherwise the name as given.
+proc string expressionEdTextEditor_fullName(string $name)
+{
+    global string $gEEnodeMode;
+    if ($gEEnodeMode == "scriptNode" && `exists EEgetFullScriptName`)
+        return eval("EEgetFullScriptName \"" + encodeString($name) + "\"");
+    return $name;
+}
+
+// The suffix a particle expression's file gets for the expression type being edited.
+proc string expressionEdTextEditor_particleSuffix()
+{
+    global int $gEEexpressionType;
+    if ($gEEexpressionType == 1)
+        return ".runtimeBeforeDynamics";
+    if ($gEEexpressionType == 2)
+        return ".runtimeAfterDynamics";
+    return ".creation";
+}
+
+// The index of $item in $list, or -1.
+proc int expressionEdTextEditor_find(string $list[], string $item)
+{
+    for ($i = 0; $i < size($list); $i++) {
+        if ($list[$i] == $item)
+            return $i;
+    }
+    return -1;
+}
+
+// Lets the Expression Editor's text be typed in again, when its window is open.
+proc expressionEdTextEditor_enableText()
+{
+    if (`window -exists expressionEditorWin`)
+        scrollField -edit -enable true EEmultiText;
+}
+
+// ---- Global procedures ----
+
+// The reverse of the name a file is written under: # back to |, + back to :.
+global proc string EEgetInternalFileName(string $fileName)
+{
+    string $name = `substituteAllString $fileName "#" "|"`;
+    return `substituteAllString $name "+" ":"`;
+}
+
+// Writes $expression to the file, writes its launcher and starts the editor in the background.
+global proc EEdoLaunch(string $exprFile, string $expression)
+{
+    global int $gEEcurrentEditor;
+
+    string $file = expressionEdTextEditor_diskName($exprFile);
+
+    int $fd = `fopen $file "w"`;
+    if ($expression != "") {
+        if (`about -windows`)
+            $expression = `substituteAllString $expression "\r" ""`;
+        fprint $fd ($expression + "\n");
+    }
+    fclose $fd;
+
+    // The editor to run, by the one picked in the Expression Editor (Linux only).
+    string $editor = "";
+    if (`about -linux`) {
+        if ($gEEcurrentEditor == 2)
+            $editor = "emacs";
+        else if ($gEEcurrentEditor == 3)
+            $editor = "gvim -f";
+        else if ($gEEcurrentEditor == 4)
+            $editor = "xterm -geometry 60x24+0+0 -name " + $file + " -e vi";
+        else if ($gEEcurrentEditor == 5)
+            $editor = "xterm -geometry 60x24+0+0 -name " + $file + " -e vim";
+        else if ($gEEcurrentEditor == 6)
+            $editor = "xedit";
+        else if ($gEEcurrentEditor == 7)
+            $editor = "xemacs";
+        else if ($gEEcurrentEditor == 8)
+            $editor = `getenv "WINEDITOR"`;
+    }
+
+    // The launcher waits for the editor, then deletes itself; that deletion is how the editor closing is noticed.
+    string $launcher = $file + ".BAT";
+    string $script;
+    if (`about -windows`) {
+        $launcher = toNativePath($launcher);
+        $script = "start /WAIT " + $file + "\n" + "del " + $launcher + "\n";
+    } else if (`about -mac`) {
+        $script = "open -W -a TextEdit " + $file + ";\n" + "rm " + $launcher + "\n";
+    } else {
+        $script = $editor + " " + $file + ";\n" + "rm " + $launcher + ";\n";
+    }
+    $fd = `fopen $launcher "w"`;
+    fprint $fd $script;
+    fclose $fd;
+    if (!`about -windows`)
+        system("chmod +x " + $launcher);
+
+    // Aztek has no file listener yet, so saving in the editor isn't picked up by itself.
+    if (`exists expressionEditorListen`) {
+        eval ("expressionEditorListen -listenFile \"" + encodeString($launcher) + "\"");
+        eval ("expressionEditorListen -listenFile \"" + encodeString($file) + "\"");
+    }
+
+    if (`about -windows`)
+        system("shell " + $launcher + ">nul: 2>&1");
+    else
+        system($launcher + ">/dev/null 2>&1 &");
+}
+
+// Opens an expression in the outside editor. $fileName names the temporary file ("" picks one); $expressionName is
+// the expression's node, "" for one not made yet. An expression already open in the editor isn't opened twice.
+global proc EElaunchEditor(string $fileName, string $expression, string $expressionName)
+{
+    global string $gEEcurrFiles[];
+    global string $gEEcurrFileExprName[];
+    global int $gEEcurrFileCreateMode[];
+    global string $gEEcurrFileDefObj[];
+    global int $gEEdefFilenameCount;
+    global int $gEEcreateMode;
+    global int $gEEexpressionInEditor;
+    global int $gEEpExpressionInEditor;
+    global string $gEEnodeMode;
+
+    int $slot = size($gEEcurrFiles);
+    if ($gEEnodeMode == "scriptNode")
+        $expressionName = expressionEdTextEditor_fullName($expressionName);
+
+    if ($expressionName != "") {
+        int $open = EEexpressionIsInTextEditor($expressionName, 0);
+        if ($open >= 0) {
+            $gEEexpressionInEditor = $open;
+            $gEEpExpressionInEditor = -1;
+            warning "This expression is already open in a text editor.";
+            return;
+        }
+    }
+    $gEEcurrFileExprName[$slot] = $expressionName;
+
+    string $tmp = expressionEdTextEditor_tmpDir();
+    string $path;
+    if ($fileName != "") {
+        $path = $tmp + "/" + $fileName;
+    } else {
+        $gEEdefFilenameCount++;
+        $path = $tmp + "/exprFile" + $gEEdefFilenameCount;
+    }
+    // A name already in use gets .2, .3 and so on after it.
+    string $candidate = $path;
+    int $suffix = 2;
+    while (expressionEdTextEditor_find($gEEcurrFiles, $candidate) >= 0) {
+        $candidate = $path + "." + $suffix;
+        $suffix++;
+    }
+    $path = $candidate;
+    if (`about -windows`)
+        $path += ".TXT";
+
+    $gEEexpressionInEditor = $slot;
+    $gEEpExpressionInEditor = -1;
+    $gEEcurrFileCreateMode[$slot] = $gEEcreateMode;
+    $gEEcurrFiles[$slot] = $path;
+
+    if (`window -exists expressionEditorWin`) {
+        $gEEcurrFileDefObj[$slot] = `textFieldGrp -query -text EEdefNameT`;
+    } else {
+        // Without the window there is no default object; an unnamed expression is a new one.
+        int $creating = ($expressionName == "") ? 1 : 0;
+        $gEEcurrFileCreateMode[$slot] = $creating;
+        $gEEcreateMode = $creating;
+    }
+
+    EEdoLaunch($path, $expression);
+}
+
+// Opens a particle object's expression of the type being edited in the outside editor.
+global proc EElaunchParticleEditor(string $expression, string $particleName)
+{
+    global string $gEEcurrParticleFiles[];
+    global int $gEEexpressionInEditor;
+    global int $gEEpExpressionInEditor;
+
+    int $open = EEexpressionIsInTextEditor($particleName, 1);
+    if ($open >= 0) {
+        $gEEexpressionInEditor = -1;
+        $gEEpExpressionInEditor = $open;
+        warning "This expression is already open in a text editor.";
+        return;
+    }
+
+    string $path = expressionEdTextEditor_tmpDir() + "/" + $particleName + expressionEdTextEditor_particleSuffix();
+    if (`about -windows` || `about -mac`)
+        $path += ".TXT";
+
+    $gEEpExpressionInEditor = size($gEEcurrParticleFiles);
+    $gEEexpressionInEditor = -1;
+    $gEEcurrParticleFiles[size($gEEcurrParticleFiles)] = $path;
+
+    EEdoLaunch($path, $expression);
+}
+
+// Where the expression sits in the editor lists, or -1 when it isn't open. The particle check always looks under
+// /tmp without .TXT, as the reference does, so on Windows and macOS it never finds one.
+global proc int EEexpressionIsInTextEditor(string $expressionName, int $isParticle)
+{
+    global string $gEEcurrParticleFiles[];
+    global string $gEEcurrFileExprName[];
+    global string $gEEnodeMode;
+
+    if ($gEEnodeMode == "scriptNode")
+        $expressionName = expressionEdTextEditor_fullName($expressionName);
+    if ($isParticle)
+        return expressionEdTextEditor_find($gEEcurrParticleFiles,
+            "/tmp/" + $expressionName + expressionEdTextEditor_particleSuffix());
+    return expressionEdTextEditor_find($gEEcurrFileExprName, $expressionName);
+}
+
+// The listener's call when an editor file has been saved: reads it back and applies it.
+global proc EEgetFileExpression(string $fileName)
+{
+    global int $gEEcurrentEditor;
+    global int $gEEexpressionInEditor;
+    global int $gEEpExpressionInEditor;
+    global string $gEEcurrFiles[];
+    global string $gEEcurrParticleFiles[];
+    global string $gEEnodeMode;
+
+    int $fd = `fopen $fileName "r"`;
+    if ($fd == 0) {
+        warning (`format -stringArg $fileName "Can't open ^1s."`);
+        return;
+    }
+    string $expression = "";
+    while (!`feof $fd`)
+        $expression += `fgetline $fd`;
+    fclose $fd;
+
+    // These editors add a newline of their own at the end.
+    int $trims = ($gEEcurrentEditor == 3 || $gEEcurrentEditor == 4 || (`about -linux` && $gEEcurrentEditor == 5));
+    if ($trims && size($expression) > 2)
+        $expression = `substring $expression 1 (size($expression) - 1)`;
+
+    string $name = EEgetInternalFileName($fileName);
+
+    int $current = 0;
+    int $particle = 0;
+    if (`window -exists expressionEditorWin`) {
+        if ($gEEpExpressionInEditor >= 0 && $gEEcurrParticleFiles[$gEEpExpressionInEditor] == $name) {
+            $current = 1;
+            $particle = 1;
+        } else if ($gEEexpressionInEditor >= 0 && $gEEcurrFiles[$gEEexpressionInEditor] == $name) {
+            $current = 1;
+        }
+        if ($current)
+            scrollField -edit -text $expression EEmultiText;
+    }
+    if (!$particle && expressionEdTextEditor_find($gEEcurrParticleFiles, $name) >= 0)
+        $particle = 1;
+
+    if ($particle)
+        EEupdateParticleFileExpression($name, $expression, $current);
+    else if ($gEEnodeMode == "scriptNode" && `exists EEupdateFileScript`)
+        eval ("EEupdateFileScript \"" + encodeString($name) + "\" \"" + encodeString($expression) + "\" "
+            + $current);
+    else
+        EEupdateFileExpression($name, $expression, $current);
+}
+
+// Applies a saved editor file: makes the expression the first time, edits it after.
+global proc EEupdateFileExpression(string $fileName, string $expression, int $isCurrent)
+{
+    global string $gEEcurrFiles[];
+    global string $gEEcurrFileExprName[];
+    global int $gEEcurrFileCreateMode[];
+    global string $gEEcurrFileDefObj[];
+    global int $gEEeditedInEditor;
+
+    int $slot = expressionEdTextEditor_find($gEEcurrFiles, $fileName);
+    if ($slot < 0)
+        return;
+
+    if ($gEEcurrFileCreateMode[$slot] == 1) {
+        if ($expression == "")
+            return;
+        // The one shown in the Expression Editor is applied through it, when Aztek has its procedures.
+        if ($isCurrent && `exists EEapplyExpression`) {
+            string $name = eval("EEapplyExpression \"" + encodeString($expression) + "\"");
+            $gEEcurrFileExprName[$slot] = $name;
+            if (`exists EEdisplayExpression`)
+                eval ("EEdisplayExpression \"" + encodeString($name) + "\"");
+        } else {
+            string $cmd;
+            if ($gEEcurrFileDefObj[$slot] != "")
+                $cmd = "expression -string \"" + encodeString($expression) + "\" -o " + $gEEcurrFileDefObj[$slot]
+                    + ";";
+            else
+                $cmd = "expression -string \"" + encodeString($expression) + "\";";
+            $gEEcurrFileExprName[$slot] = evalEcho($cmd);
+        }
+        $gEEcurrFileCreateMode[$slot] = 0;
+        return;
+    }
+
+    evalEcho("expression -edit -string \"" + encodeString($expression) + "\" " + $gEEcurrFileExprName[$slot] + ";");
+    if ($isCurrent) {
+        $gEEeditedInEditor = 1;
+        if (`scrollField -exists EEmultiText`)
+            scrollField -edit -text $expression EEmultiText;
+    }
+}
+
+// Applies a saved particle expression file. The file name is <path>/<particle>.<kind>.
+global proc EEupdateParticleFileExpression(string $fileName, string $expression, int $isCurrent)
+{
+    string $parts[];
+    tokenize $fileName "." $parts;
+    string $dirs[];
+    int $count = `tokenize $parts[0] "/" $dirs`;
+    string $node = $dirs[$count - 1];
+    string $kind = $parts[1];
+
+    if ($isCurrent) {
+        if (`exists EEapplyParticleExpression`)
+            eval ("EEapplyParticleExpression \"" + encodeString($expression) + "\"");
+        return;
+    }
+
+    int $type = 3;
+    // The old "runtime" kind is first worked out from the node, then overridden below, as in the reference.
+    if ($kind == "runtime") {
+        int $after = 0;
+        catchQuiet($after = `getAttr ($node + ".expressionsAfterDynamics")`);
+        $type = $after ? 2 : 1;
+    }
+    if ($kind == "runtimeBeforeDynamics")
+        $type = 1;
+    else if ($kind == "runtimeAfterDynamics")
+        $type = 2;
+    else
+        $type = 3;
+    if (`exists EEdynExpressionCmd`)
+        eval ("EEdynExpressionCmd " + $type + " \"" + encodeString($expression) + "\" \"" + encodeString($node) + "\"");
+}
+
+// $array without element $i.
+global proc string[] EEdeleteStringElement(string $array[], int $i)
+{
+    string $result[];
+    for ($j = 0; $j < size($array); $j++) {
+        if ($j != $i)
+            $result[size($result)] = $array[$j];
+    }
+    return $result;
+}
+
+global proc int[] EEdeleteIntElement(int $array[], int $i)
+{
+    int $result[];
+    for ($j = 0; $j < size($array); $j++) {
+        if ($j != $i)
+            $result[size($result)] = $array[$j];
+    }
+    return $result;
+}
+
+// The listener's call when an editor has closed (its launcher is gone): deletes the file and forgets it.
+global proc EEdeleteEditorFile(string $fileName)
+{
+    global string $gEEcurrParticleFiles[];
+    global string $gEEcurrFiles[];
+    global string $gEEcurrFileExprName[];
+    global int $gEEcurrFileCreateMode[];
+    global string $gEEcurrFileDefObj[];
+    global int $gEEexpressionInEditor;
+    global int $gEEpExpressionInEditor;
+    global int $gEEcurrentEditor;
+
+    sysFile -delete $fileName;
+    string $name = EEgetInternalFileName($fileName);
+
+    int $i = expressionEdTextEditor_find($gEEcurrParticleFiles, $name);
+    if ($i >= 0) {
+        $gEEcurrParticleFiles = EEdeleteStringElement($gEEcurrParticleFiles, $i);
+        if ($gEEpExpressionInEditor == $i) {
+            $gEEpExpressionInEditor = -1;
+            expressionEdTextEditor_enableText();
+        } else if ($gEEpExpressionInEditor > $i) {
+            $gEEpExpressionInEditor--;
+        }
+    } else {
+        $i = expressionEdTextEditor_find($gEEcurrFiles, $name);
+        if ($i >= 0) {
+            $gEEcurrFiles = EEdeleteStringElement($gEEcurrFiles, $i);
+            $gEEcurrFileExprName = EEdeleteStringElement($gEEcurrFileExprName, $i);
+            $gEEcurrFileCreateMode = EEdeleteIntElement($gEEcurrFileCreateMode, $i);
+            $gEEcurrFileDefObj = EEdeleteStringElement($gEEcurrFileDefObj, $i);
+            if ($gEEexpressionInEditor == $i) {
+                expressionEdTextEditor_enableText();
+                $gEEexpressionInEditor = -1;
+            } else if ($gEEexpressionInEditor > $i) {
+                $gEEexpressionInEditor--;
+            }
+        }
+    }
+
+    // With the internal editor in use and no files left, the Expression Editor's text is free to type in.
+    if (`window -exists expressionEditorWin` && $gEEcurrentEditor == 1 && size($gEEcurrFiles) == 0)
+        scrollField -edit -enable true EEmultiText;
+}

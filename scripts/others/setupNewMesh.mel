@@ -1,0 +1,21 @@
+// setupNewMesh: gives meshes just made (the selection) the display settings new meshes should have: sidedness,
+// tangent space and tangent smoothing angle, from their preferences.
+
+global proc setupNewMesh()
+{
+    int $doubleSided = `optionVar -query polyCreateMeshesSingleSided` ? 0 : 1;
+    int $tangentSpace = `optionVar -query polyDefaultTangentSpace`;
+    // The angle is kept in degrees; the attribute takes the current angle unit.
+    string $degrees = `optionVar -query polyDefaultTangentSmoothingAngle`;
+    float $angle = `convertUnit -fromUnit "deg" $degrees`;
+
+    string $meshes[] = `ls -selection -dag -type mesh`;
+    for ($mesh in $meshes) {
+        setAttr ($mesh + ".doubleSided") $doubleSided;
+        // Aztek's meshes don't have the tangent attributes yet; they're set where they exist.
+        if (`attributeQuery -exists -node $mesh tangentSpace`)
+            setAttr ($mesh + ".tangentSpace") $tangentSpace;
+        if (`attributeQuery -exists -node $mesh tangentSmoothingAngle`)
+            setAttr ($mesh + ".tangentSmoothingAngle") $angle;
+    }
+}

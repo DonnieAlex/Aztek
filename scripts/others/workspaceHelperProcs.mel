@@ -160,10 +160,8 @@ global proc updateVP2Preset(string $preset)
             warning "Resetting the viewport's settings isn't available yet.";
         }
         select -replace -noExpand $selection;
-        if (`exists createObjectTypeFilters`)
-            eval("createObjectTypeFilters 0");
-        if (`exists resetObjFilterToDefault`)
-            eval("resetObjFilterToDefault");
+        createObjectTypeFilters(0);
+        resetObjFilterToDefault();
         optionVar -remove mayaHardware2hardwareRenderingGlobalsPreferredPreset;
         return;
     }
@@ -172,8 +170,10 @@ global proc updateVP2Preset(string $preset)
         eval("nodePreset -load " + $node + " \"" + encodeString($preset) + "\"");
     else
         warning ("Viewport presets aren't available yet, so " + $preset + " couldn't be loaded.");
-    if (`exists updateObjTypeFilterToCheckBox`)
-        eval("updateObjTypeFilterToCheckBox");
+    // It lives in createObjectTypeFilters.mel, found by that name.
+    if (!`exists updateObjTypeFilterToCheckBox`)
+        eval("source \"createObjectTypeFilters.mel\"");
+    updateObjTypeFilterToCheckBox();
     optionVar -category "Hardware Render" -stringValue mayaHardware2hardwareRenderingGlobalsPreferredPreset $preset;
 }
 

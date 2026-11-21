@@ -80,7 +80,6 @@ global proc string localizedUIComponentLabel(string $englishLabel)
         if ($labels[$i] == $englishLabel)
             return $labels[$i + 1];
     }
-    if (`exists uiToMelMsg`)
-        eval("uiToMelMsg \"UIComponents_melToUI\" \"" + encodeString($englishLabel) + "\" 0");
+    uiToMelMsg("UIComponents_melToUI", $englishLabel, 0);
     return $englishLabel;
 }

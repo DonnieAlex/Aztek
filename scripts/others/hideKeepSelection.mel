@@ -1,0 +1,43 @@
+// hideKeepSelection: hides the items given without touching the selection, and remembers what was hidden so it can be
+// shown again: scene objects (transforms and shapes) in $gLastHiddenSelection, items from other data (path strings
+// such as USD prims) in $gLastNonMayaHiddenSelection.
+
+global string $gLastHiddenSelection[];
+global string $gLastNonMayaHiddenSelection[];
+
+global proc hideKeepSelection(string $items[], int $invertComponents)
+{
+    global string $gLastHiddenSelection[];
+    global string $gLastNonMayaHiddenSelection[];
+
+    if (size($items) == 0) {
+        warning "Nothing to hide: no objects were given.";
+        return;
+    }
+
+    // Each item goes in as an argument of its own, quoted, rather than as one array: several path strings in one
+    // array argument don't read back reliably. -clearLastHidden starts a fresh record of what was hidden.
+    string $cmd = "hide -returnHidden -clearLastHidden";
+    if ($invertComponents)
+        $cmd += " -invertComponents";
+    for ($item in $items)
+        $cmd += " \"" + $item + "\"";
+    string $hidden[] = eval($cmd);
+
+    // The reference asks its Python path helpers whether each item is one of its own objects. Aztek keeps one scene
+    // for everything it shows, so an item is a scene object when a node of that name exists.
+    string $sceneItems[];
+    clear $gLastNonMayaHiddenSelection;
+    for ($item in $hidden) {
+        if (`objExists $item`)
+            $sceneItems[size($sceneItems)] = $item;
+        else
+            $gLastNonMayaHiddenSelection[size($gLastNonMayaHiddenSelection)] = $item;
+    }
+
+    // Only transforms and shapes are kept.
+    clear $gLastHiddenSelection;
+    if (size($sceneItems) == 0)
+        return;
+    $gLastHiddenSelection = `ls -transforms -shapes $sceneItems`;
+}

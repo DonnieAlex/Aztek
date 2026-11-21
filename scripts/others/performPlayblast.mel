@@ -253,27 +253,12 @@ global proc playblastFileBrowser()
     string $type = ($format == "image") ? "image" : "movie";
     string $rule = ($format == "image") ? "images" : "movie";
 
-    string $start = "";
     if (!$absolute) {
         string $dir = `workspace -query -fileRuleEntry $rule`;
-        if ($dir != "") {
+        if ($dir != "")
             setWorkingDirectory(`workspace -query -fullName`, $type, $dir);
-            $start = startsWith($dir, "/") ? $dir : (`workspace -query -fullName` + "/" + $dir);
-        }
     }
-
-    if (`exists fileBrowser`) {
-        eval("fileBrowser \"playblastUpdateMovieName\" \"Browse\" \"" + $type + "\" 1");
-        return;
-    }
-    // Without the installation's file browser procedure, the browser itself, for a file to write.
-    string $picked[];
-    if ($start != "")
-        $picked = `fileDialog2 -fileMode 0 -caption "Browse" -okCaption "Browse" -startingDirectory $start`;
-    else
-        $picked = `fileDialog2 -fileMode 0 -caption "Browse" -okCaption "Browse"`;
-    if (size($picked) && $picked[0] != "")
-        playblastUpdateMovieName(fromNativePath($picked[0]), $type);
+    fileBrowser("playblastUpdateMovieName", "Browse", $type, 1);
 }
 
 // The option box, built in the shared one when Aztek's own Playblast Options window isn't there (as with no
@@ -293,8 +278,7 @@ proc pbOptionBox(int $hideTimeRange)
 
     frameLayout -borderVisible false -labelVisible false -collapsable true -collapse $hideTimeRange startEndFrame;
     columnLayout -adjustableColumn true;
-        string $timeSlider = `exists localizedUIComponentLabel` ? eval("localizedUIComponentLabel \"Time Slider\"")
-                                                                  : "Time Slider";
+        string $timeSlider = localizedUIComponentLabel("Time Slider");
         radioButtonGrp -numberOfRadioButtons 2 -label "Time range" -label1 $timeSlider -label2 "Start/End" -select 1
             -onCommand2 "floatFieldGrp -edit -enable true startTime; floatFieldGrp -edit -enable true endTime;"
             -onCommand1 "floatFieldGrp -edit -enable false startTime; floatFieldGrp -edit -enable false endTime;"

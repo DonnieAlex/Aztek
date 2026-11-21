@@ -6,19 +6,16 @@
 // --------------------------------------------------------------------------------------------------------------------
 // Helpers
 
-// The text a run-time command shows in the menu. Aztek's runTimeCommand has no -label to ask, so these are its own.
-proc string fmLabel(string $rtc)
+// Text for the run-time commands Aztek doesn't have, so there is no label to ask for.
+proc string fmFallbackLabel(string $rtc)
 {
     string $names[] = {
-        "NewScene", "New Scene", "OpenScene", "Open Scene...", "SaveScene", "Save Scene",
-        "SaveSceneAs", "Save Scene As...", "IncrementAndSave", "Increment and Save", "ArchiveScene", "Archive Scene",
-        "SavePreferences", "Save Preferences", "OptimizeScene", "Optimize Scene Size", "Import", "Import...",
-        "Export", "Export All...", "ExportSelection", "Export Selection...", "OpenAELiveLink", "After Effects Live Link",
+        "SavePreferences", "Save Preferences", "Import", "Import...", "Export", "Export All...",
+        "ExportSelection", "Export Selection...", "OpenAELiveLink", "After Effects Live Link",
         "ExportOfflineFile", "Export Offline File...", "AssignOfflineFile", "Assign Offline File...",
         "ExportAnim", "Export Animation...", "ImportAnim", "Import Animation...", "ATOMTemplate", "Create ATOM Template...",
-        "CreateReference", "Create Reference...", "ReferenceEditor", "Reference Editor", "ViewImage", "View Image...",
-        "ViewSequence", "View Sequence...", "ProjectWindow", "Project Window", "SetProject", "Set Project...",
-        "Quit", "Exit"
+        "ViewImage", "View Image...", "ViewSequence", "View Sequence...", "ProjectWindow", "Project Window",
+        "SetProject", "Set Project...", "Quit", "Exit"
     };
     for ($i = 0; $i < size($names); $i += 2)
         if ($names[$i] == $rtc)
@@ -26,9 +23,26 @@ proc string fmLabel(string $rtc)
     return $rtc;
 }
 
+// The text a run-time command shows in the menu: its label. Aztek's factory run-time commands carry their name as the
+// label and their menu text as the annotation, so for those the annotation is the text.
+proc string fmLabel(string $rtc)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $label = `runTimeCommand -query -label $rtc`;
+        if ($label != "" && $label != $rtc)
+            return $label;
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if (`runTimeCommand -query -default $rtc` && $ann != "")
+            return $ann;
+        if ($label != "")
+            return $label;
+    }
+    return fmFallbackLabel($rtc);
+}
+
 proc string fmAnnotation(string $rtc)
 {
-    if (catchQuiet(`runTimeCommand -query -annotation $rtc`))
+    if (!`runTimeCommand -exists $rtc`)
         return "";
     return `runTimeCommand -query -annotation $rtc`;
 }
@@ -82,23 +96,6 @@ proc fmDropFront(string $var, int $count)
     for ($i = $count; $i < size($list); $i++)
         $kept[size($kept)] = $list[$i];
     fmWriteList($var, $kept);
-}
-
-// The type list for the recent files: the installation's procedure, else each file's type by its name.
-proc fmInitRecentTypes(string $files[])
-{
-    if (`exists initRecentFilesTypeList`) {
-        string $q[];
-        for ($i = 0; $i < size($files); $i++)
-            $q[$i] = "\"" + encodeString($files[$i]) + "\"";
-        eval("initRecentFilesTypeList({" + stringArrayToString($q, ",") + "})");
-        return;
-    }
-    optionVar -clearArray RecentFilesTypeList;
-    for ($f in $files) {
-        string $t[] = `file -query -type $f`;
-        optionVar -stringValueAppend RecentFilesTypeList ((size($t) && $t[0] != "") ? $t[0] : "unknown");
-    }
 }
 
 // Where the increments of the scene are kept: the installation's procedure, else beside the scene in
@@ -265,10 +262,8 @@ global proc openRecentFile(string $file, string $fileType)
                 ? (" -type \"" + $fileType + "\"") : "";
             catch(evalEcho("file -force -open" + $type + " \"" + encodeString($file) + "\""));
         }
-        if (`exists retainWorkingDirectory`)
-            eval("retainWorkingDirectory \"" + encodeString(dirname($file)) + "\"");
-        if (`exists checkColorManagementAllSettings`)
-            eval("checkColorManagementAllSettings");
+        retainWorkingDirectory(dirname($file));
+        checkColorManagementAllSettings();
         return;
     }
 
@@ -295,7 +290,7 @@ global proc openRecentFile(string $file, string $fileType)
                 stringArrayRemoveAtIndex($at, $files);
                 fmWriteList("RecentFilesList", $files);
                 if (!`optionVar -exists RecentFilesTypeList`) {
-                    fmInitRecentTypes($files);
+                    initRecentFilesTypeList($files);
                 } else {
                     string $types[] = `optionVar -query RecentFilesTypeList`;
                     if ($at < size($types))
@@ -342,12 +337,12 @@ global proc buildRecentFileMenu(string $parentMenu)
     if (size($list)) {
         if ($crash == "") {
             if (!`optionVar -exists RecentFilesTypeList`)
-                fmInitRecentTypes($list);
+                initRecentFilesTypeList($list);
             $types = `optionVar -query RecentFilesTypeList`;
         } else {
             if (`optionVar -exists RecentFilesList` && size(`optionVar -query RecentFilesList`)) {
                 if (!`optionVar -exists RecentFilesTypeList`)
-                    fmInitRecentTypes(`optionVar -query RecentFilesList`);
+                    initRecentFilesTypeList(`optionVar -query RecentFilesList`);
                 $types = `optionVar -query RecentFilesTypeList`;
             }
             string $t[] = `file -query -type $crash`;
@@ -447,8 +442,9 @@ global proc buildFileMenu()
     menuItem -label (fmLabel("IncrementAndSave")) -annotation (fmAnnotation("IncrementAndSave"))
         -command "IncrementAndSave" -version "2014";
     fmItem("archiveItem", "ArchiveScene", "archiveSceneOptions", "ArchiveSceneOptions");
-    // The reference also turns off Repeat Last for this one; Aztek's menuItem has no such flag yet.
-    fmItem("", "SavePreferences", "", "");
+    // Saving the preferences isn't something to repeat with Repeat Last.
+    menuItem -label (fmLabel("SavePreferences")) -annotation (fmAnnotation("SavePreferences"))
+        -command "SavePreferences" -enableCommandRepeat false;
     menuItem -divider true;
     fmItem("cleanUpProject", "OptimizeScene", "cleanUpSceneOptions", "OptimizeSceneOptions");
     menuItem -divider true -dividerLabel "Import and Export";

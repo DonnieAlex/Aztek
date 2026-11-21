@@ -1,0 +1,393 @@
+// performPolyForceUVArgList: four UV editor operations run with their saved settings, or their command handed back,
+// or their option boxes: Normalize (polyNormalizeUV), Flip (polyFlipUV), Create UVs Based on Camera (a planar
+// polyProjection from the camera) and Unitize (polyForceUV -unitize). performPolyForceUV forwards here. No undo
+// chunk is opened; each command is its own undo step.
+
+// The operation's index from its name: normalize 0, flip 1, camera 2, unitize 3. Anything else is taken as Normalize.
+proc int forceUVOperation(string $name)
+{
+    if ($name == "flip")
+        return 1;
+    if ($name == "camera")
+        return 2;
+    if ($name == "unitize")
+        return 3;
+    return 0;
+}
+
+proc string forceUVFunction(int $op)
+{
+    string $names[] = {"normalize", "flip", "camera", "unitize"};
+    return $names[$op];
+}
+
+proc forceUVInitOptions(int $op, int $force)
+{
+    if ($op == 0)
+        optionVar -init $force -category "UV Editor.Normalize"
+            -intValue PolyForceUVNormalizeCollectiveOrSeparate 1
+            -intValue PolyForceUVPreserveAspectRatio 0
+            -intValue PolyNormalizeCenterOnClosestTile 1
+            -intValue PolyNormalizeDirection 0;
+    else if ($op == 1)
+        optionVar -init $force -category "UV Editor.Flip"
+            -intValue PolyForceUVFlipDirection 1
+            -intValue PolyForceUVSpace 1
+            -intValue PolyForceUVFlipCutUVPerimeter 1;
+    else if ($op == 2)
+        optionVar -init $force -category "UV Editor.Camera-based"
+            -intValue PolyForceUVCreateMapcamera 0
+            -stringValue PolyForceUVSetNamecamera "uvSet1";
+    else if ($op == 3)
+        optionVar -init $force -category "UV Editor.Unitize"
+            -intValue PolyForceUVCreateMapunitize 0
+            -stringValue PolyForceUVSetNameunitize "uvSet1";
+}
+
+proc string forceUVHistory()
+{
+    return " -constructionHistory " + `constructionHistory` + " ";
+}
+
+// The new UV set the camera or unitize command makes, or "" when it makes none.
+proc string forceUVNewSet(int $op, int $forceCreate, string $uvSetName)
+{
+    if ($op != 2 && $op != 3)
+        return "";
+    string $suffix = forceUVFunction($op);
+    if (!(`optionVar -query ("PolyForceUVCreateMap" + $suffix)` || $forceCreate))
+        return "";
+    return $forceCreate ? $uvSetName : `optionVar -query ("PolyForceUVSetName" + $suffix)`;
+}
+
+// The UV pivot of the UV editor's manipulator. Aztek doesn't have uvTkGetUVPivot yet, so there is none.
+proc float[] forceUVPivot()
+{
+    float $pivot[];
+    if (`exists uvTkGetUVPivot`)
+        $pivot = eval("uvTkGetUVPivot");
+    return $pivot;
+}
+
+// The command as the reference writes it. With $runnable, the flag Aztek doesn't take yet is left out: polyNormalizeUV's
+// -centerOnTile. Flip from the pivot needs the UV editor's pivot; without it the selection centre is used.
+proc string forceUVCommand(int $op, int $forceCreate, string $uvSetName, int $runnable)
+{
+    forceUVInitOptions($op, 0);
+    string $cmd;
+    if ($op == 0) {
+        $cmd = "polyNormalizeUV ";
+        $cmd += `optionVar -query PolyForceUVNormalizeCollectiveOrSeparate` == 1 ? "-normalizeType 1 "
+            : "-normalizeType 0 ";
+        $cmd += `optionVar -query PolyForceUVPreserveAspectRatio` ? "-preserveAspectRatio on "
+            : "-preserveAspectRatio off ";
+        if (!$runnable)
+            $cmd += `optionVar -query PolyNormalizeCenterOnClosestTile` ? "-centerOnTile on " : "-centerOnTile off ";
+        $cmd += "-normalizeDirection " + `optionVar -query PolyNormalizeDirection` + " ";
+        $cmd += forceUVHistory();
+    } else if ($op == 1) {
+        $cmd = "polyFlipUV ";
+        $cmd += `optionVar -query PolyForceUVFlipDirection` == 1 ? "-flipType 0 " : "-flipType 1 ";
+        int $space = `optionVar -query PolyForceUVSpace`;
+        if ($space == 1 || $space == 2) {
+            $cmd += "-local on ";
+            float $pivot[] = forceUVPivot();
+            if ($space == 1 && size($pivot) >= 2)
+                $cmd += "-usePivot true -pivotU " + $pivot[0] + " -pivotV " + $pivot[1] + " ";
+            else
+                $cmd += "-usePivot false  ";
+        } else if ($space == 3) {
+            $cmd += "-local off ";
+        }
+        $cmd += `optionVar -query PolyForceUVFlipCutUVPerimeter` ? "-cutUV 1 " : "-cutUV 0 ";
+        $cmd += forceUVHistory();
+    } else if ($op == 2) {
+        $cmd = "polyProjection -type Planar -md p ";
+        string $set = forceUVNewSet($op, $forceCreate, $uvSetName);
+        if ($set != "")
+            $cmd += "-cm on -uvSetName " + $set;
+        $cmd += forceUVHistory();
+    } else {
+        $cmd = "polyForceUV -unitize ";
+        string $set = forceUVNewSet($op, $forceCreate, $uvSetName);
+        // No space after the name, as the reference: the object name is then run onto it.
+        if ($set != "")
+            $cmd += "-cm on -uvSetName " + $set;
+    }
+    return $cmd;
+}
+
+proc string forceUVSetCurrentText(int $op, int $forceCreate, string $uvSetName)
+{
+    return forceUVNewSet($op, $forceCreate, $uvSetName) != "" ? "polyUVSet -luv;" : "";
+}
+
+// The flip's pivot is stored on the mesh so that undoing the flip puts it back. Aztek's meshes have no uvPivot yet,
+// so nothing is stored there.
+proc forceUVStorePivot(string $mesh, float $pivot[])
+{
+    if ($mesh != "" && `attributeExists uvPivot $mesh`)
+        setAttr ($mesh + ".uvPivot") -type double2 $pivot[0] $pivot[1];
+}
+
+proc string forceUVExecuteCamera(string $args[], string $uvSetName)
+{
+    int $forceCreate = (int)$args[3];
+    string $listed[] = eval($args[2]);
+    string $faces[];
+    if (size($listed))
+        $faces = `filterExpand -expand false -selectionMask 34 $listed`;
+    if (!size($faces)) {
+        $faces = polyCheckSelection("polyPlanarProjection", "f", 0);
+        string $selFaces[] = `filterExpand -expand false -selectionMask 34`;
+        if (!size($selFaces)) {
+            warning -noContext "Select polygonal faces.";
+            return "";
+        }
+    }
+    if (!size($faces)) {
+        warning "Select faces to create UVs from the camera.";
+        return "";
+    }
+
+    forceUVInitOptions(2, 0);
+    // Dependency nodes that aren't in the DAG come off the selection before it is remembered. Aztek's ls has no -dep
+    // yet, so the selection is walked and components are skipped.
+    string $deps[] = `ls -sl`;
+    for ($d in $deps) {
+        if (`gmatch $d "*.*"`)
+            continue;
+        string $dag[] = `ls -dag $d`;
+        if (!size($dag))
+            select -deselect $d;
+    }
+    string $kept[] = `ls -sl`;
+
+    string $cmd = forceUVCommand(2, $forceCreate, $uvSetName, 1);
+    for ($f in $faces)
+        $cmd += " " + $f;
+    evalEcho $cmd;
+    string $setCurrent = forceUVSetCurrentText(2, $forceCreate, $uvSetName);
+    if ($setCurrent != "")
+        evalEcho $setCurrent;
+    select -replace $kept;
+    return forceUVCommand(2, $forceCreate, $uvSetName, 0);
+}
+
+proc forceUVExecute(int $op, string $args[], string $uvSetName)
+{
+    int $forceCreate = (int)$args[3];
+    forceUVInitOptions($op, 0);
+    string $kept[] = `ls -sl`;
+
+    // Flip: the pivot is put on the first selected item's mesh.
+    float $pivot[];
+    string $mesh = "";
+    if ($op == 1) {
+        $pivot = forceUVPivot();
+        if (size($pivot) == 2 && size($kept)) {
+            string $parts[];
+            tokenize $kept[0] "." $parts;
+            $mesh = $parts[0];
+            forceUVStorePivot($mesh, $pivot);
+        }
+    }
+
+    string $assembled = forceUVCommand($op, $forceCreate, $uvSetName, 1);
+    string $items[] = eval($args[2]);
+    // rearrangeSelection orders the items for the command; Aztek doesn't have it yet, so they go as listed.
+    if (`exists rearrangeSelection`)
+        $items = eval("rearrangeSelection({\"" + stringArrayToString($items, "\", \"") + "\"})");
+
+    int $convert = $op == 3 && `optionVar -exists polyAutoConvertAction` && `optionVar -query polyAutoConvertAction`;
+    for ($item in $items) {
+        string $cmd = "";
+        if ($convert) {
+            string $meshes[] = `filterExpand -expand false -selectionMask 12 $item`;
+            string $isFaces[] = `filterExpand -expand false -selectionMask 34 $item`;
+            if (!size($meshes) && !size($isFaces)) {
+                string $faces[] =
+                    `polyListComponentConversion -fromVertex -fromEdge -fromUV -fromVertexFace -toFace $item`;
+                if (size($faces)) {
+                    $cmd = $assembled;
+                    for ($f in $faces)
+                        $cmd += " " + $f;
+                }
+            } else {
+                $cmd = $assembled + $item;
+            }
+        } else {
+            $cmd = $assembled + $item;
+        }
+        if ($cmd != "")
+            evalEcho $cmd;
+    }
+
+    string $setCurrent = forceUVSetCurrentText($op, $forceCreate, $uvSetName);
+    if ($setCurrent != "")
+        evalEcho $setCurrent;
+
+    if (size($kept))
+        select -replace $kept;
+    else
+        select -clear;
+
+    // Reselecting recentres the pivot, so the remembered one goes back on.
+    if ($op == 1 && size($pivot) == 2)
+        forceUVStorePivot($mesh, $pivot);
+}
+
+// Shows the saved settings in the box; forced, puts the defaults back first.
+global proc polyForceUVSetup(string $parent, int $forceFactory, int $operation)
+{
+    forceUVInitOptions($operation, $forceFactory);
+    setParent $parent;
+    if ($operation == 0) {
+        radioButtonGrp -edit -select `optionVar -query PolyForceUVNormalizeCollectiveOrSeparate`
+            PolyForceUVNormalizeCollectiveOrSeparate;
+        checkBoxGrp -edit -value1 `optionVar -query PolyForceUVPreserveAspectRatio` PolyForceUVPreserveAspectRatio;
+        checkBoxGrp -edit -value1 `optionVar -query PolyNormalizeCenterOnClosestTile` CenterOnClosestTile;
+        radioButtonGrp -edit -select (`optionVar -query PolyNormalizeDirection` + 1) PolyForceUVNormalizeDirection;
+    } else if ($operation == 1) {
+        radioButtonGrp -edit -select `optionVar -query PolyForceUVFlipDirection` PolyForceUVFlipDirection;
+        radioButtonGrp -edit -select `optionVar -query PolyForceUVSpace` PolyForceUVSpace;
+        checkBoxGrp -edit -value1 `optionVar -query PolyForceUVFlipCutUVPerimeter` PolyForceUVFlipCutUVPerimeter;
+    } else {
+        string $suffix = forceUVFunction($operation);
+        int $create = `optionVar -query ("PolyForceUVCreateMap" + $suffix)`;
+        checkBoxGrp -edit -value1 $create ("PolyForceUVCreateMap" + $suffix);
+        textFieldGrp -edit -enable ($create == 1) -text `optionVar -query ("PolyForceUVSetName" + $suffix)`
+            ("PolyForceUVSetName" + $suffix);
+    }
+}
+
+// Saves the box's settings and, with $doIt, runs the operation.
+global proc polyForceUVCallback(string $args[], string $uvSetName, string $parent, int $doIt, int $operation)
+{
+    setParent $parent;
+    if ($operation == 0) {
+        optionVar -intValue PolyNormalizeDirection (`radioButtonGrp -query -select PolyForceUVNormalizeDirection` - 1);
+        optionVar -intValue PolyForceUVNormalizeCollectiveOrSeparate
+            `radioButtonGrp -query -select PolyForceUVNormalizeCollectiveOrSeparate`;
+        optionVar -intValue PolyForceUVPreserveAspectRatio `checkBoxGrp -query -value1 PolyForceUVPreserveAspectRatio`;
+        optionVar -intValue PolyNormalizeCenterOnClosestTile `checkBoxGrp -query -value1 CenterOnClosestTile`;
+    } else if ($operation == 1) {
+        optionVar -intValue PolyForceUVFlipDirection `radioButtonGrp -query -select PolyForceUVFlipDirection`;
+        optionVar -intValue PolyForceUVSpace `radioButtonGrp -query -select PolyForceUVSpace`;
+        optionVar -intValue PolyForceUVFlipCutUVPerimeter `checkBoxGrp -query -value1 PolyForceUVFlipCutUVPerimeter`;
+    } else {
+        string $suffix = forceUVFunction($operation);
+        optionVar -intValue ("PolyForceUVCreateMap" + $suffix)
+            `checkBoxGrp -query -value1 ("PolyForceUVCreateMap" + $suffix)`;
+        optionVar -stringValue ("PolyForceUVSetName" + $suffix)
+            `textFieldGrp -query -text ("PolyForceUVSetName" + $suffix)`;
+    }
+
+    if ($doIt) {
+        string $function = forceUVFunction($operation);
+        $args[0] = "0";
+        $args[1] = $function;
+        performPolyForceUVArgList("1", $args, $uvSetName);
+        addToRecentCommandQueue("performPolyForceUV \"" + $function + "\" 0", "UV " + $function);
+    }
+}
+
+// The args array as a string array literal a button command can carry.
+proc string forceUVArgsLiteral(string $args[])
+{
+    string $lit = "{";
+    for ($i = 0; $i < size($args); $i++)
+        $lit += ($i ? ", " : "") + "\"" + encodeString($args[$i]) + "\"";
+    return $lit + "}";
+}
+
+proc forceUVOptionBox(int $op, string $args[], string $uvSetName)
+{
+    global int $gOptionBoxTemplateFrameSpacing;
+    int $gap = $gOptionBoxTemplateFrameSpacing > 0 ? $gOptionBoxTemplateFrameSpacing : 5;
+
+    string $box = getOptionBox();
+    setParent $box;
+    setOptionBoxCommandName("polyForceUV");
+    int $template = `uiTemplate -exists OptionBoxTemplate`;
+    if ($template)
+        setUITemplate -pushTemplate OptionBoxTemplate;
+    waitCursor -state 1;
+
+    string $parent = `formLayout`;
+    string $frame = `frameLayout -label "Settings"`;
+        columnLayout -adjustableColumn true;
+        if ($op == 0) {
+            radioButtonGrp -numberOfRadioButtons 3 -vertical -label "Direction" -labelArray3 "U and V" "U" "V"
+                -select 1 PolyForceUVNormalizeDirection;
+            separator -style "none";
+            radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Normalise"
+                -labelArray2 "Collectively" "Each face separately" PolyForceUVNormalizeCollectiveOrSeparate;
+            separator -style "none";
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Preserve aspect ratio" PolyForceUVPreserveAspectRatio;
+            separator -style "none";
+            checkBoxGrp -numberOfCheckBoxes 1 -label "" -label1 "Centre on closest tile" CenterOnClosestTile;
+        } else if ($op == 1) {
+            radioButtonGrp -numberOfRadioButtons 2 -vertical -label "Direction" -labelArray2 "Horizontal" "Vertical"
+                PolyForceUVFlipDirection;
+            separator -style "none";
+            radioButtonGrp -numberOfRadioButtons 3 -vertical -label "Coordinates"
+                -labelArray3 "Pivot" "Selection centre" "Global" PolyForceUVSpace;
+            checkBoxGrp -numberOfCheckBoxes 1 -label "Cut UV perimeter" -label1 "" PolyForceUVFlipCutUVPerimeter;
+        } else {
+            string $suffix = forceUVFunction($op);
+            string $field = "PolyForceUVSetName" + $suffix;
+            checkBoxGrp -numberOfCheckBoxes 1 -label ""
+                -label1 ($op == 2 ? "Create new UV set" : "Create new UV set for unitized UVs")
+                -onCommand1 ("textFieldGrp -edit -enable true " + $field)
+                -offCommand1 ("textFieldGrp -edit -enable false " + $field)
+                ("PolyForceUVCreateMap" + $suffix);
+            textFieldGrp -label ($op == 2 ? "UV set name" : "Unitized UV set name") $field;
+        }
+        setParent ..;
+    setParent ..;
+    formLayout -edit -attachForm $frame "top" $gap -attachForm $frame "left" $gap -attachForm $frame "right" $gap
+        -attachNone $frame "bottom" $parent;
+
+    waitCursor -state 0;
+    if ($template)
+        setUITemplate -popTemplate;
+
+    string $call = "polyForceUVCallback " + forceUVArgsLiteral($args) + " \"" + encodeString($uvSetName) + "\" ";
+    button -edit -label "Apply" -command ($call + $parent + " 1 " + $op) (getOptionBoxApplyBtn());
+    button -edit -command ($call + $parent + " 0 " + $op + "; hideOptionBox") (getOptionBoxSaveBtn());
+    button -edit -command ("polyForceUVSetup " + $parent + " 1 " + $op) (getOptionBoxResetBtn());
+
+    string $titles[] = {"Normalize UVs Options", "Flip UVs Options", "Create UVs Based on Camera Options",
+        "Unitize UVs Options"};
+    string $tags[] = {"NormalizeUVs", "FlipUVs", "CreateUVsBasedonCamera", "UnitizeUVs"};
+    setOptionBoxTitle($titles[$op]);
+    setOptionBoxHelpTag($tags[$op]);
+
+    polyForceUVSetup($parent, 0, $op);
+    showOptionBox();
+}
+
+// $args (version "1", the only one): [0] 0 run, 1 option box, 2 the command; [1] normalize, flip, camera or unitize;
+// [2] MEL whose result lists what to affect; [3] 1 to make a new UV set named $uvSetName.
+global proc string performPolyForceUVArgList(string $version, string $args[], string $uvSetName)
+{
+    int $action = (int)$args[0];
+    int $op = forceUVOperation($args[1]);
+    int $forceCreate = (int)$args[3];
+    if ($action == 0) {
+        if ($op == 2)
+            return forceUVExecuteCamera($args, $uvSetName);
+        forceUVExecute($op, $args, $uvSetName);
+        return "";
+    }
+    if ($action == 1) {
+        forceUVOptionBox($op, $args, $uvSetName);
+        return "";
+    }
+    if ($action == 2) {
+        forceUVInitOptions($op, 0);
+        return forceUVCommand($op, $forceCreate, $uvSetName, 0) + forceUVSetCurrentText($op, $forceCreate, $uvSetName);
+    }
+    return "";
+}

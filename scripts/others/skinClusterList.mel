@@ -1,0 +1,428 @@
+// skinClusterList: the list (or source and target pair of lists) of skin clusters for the selection that the skinning
+// option boxes and the paint skin weights tool show, as the reference's skinning scripts use it. The list follows the
+// selection, and which clusters were picked is kept in optionVars so the next opening picks them again.
+//
+// An operation names the client: copy, mirror, paint, copyVertexWeights, pasteVertexWeights, detach, or any other.
+// A filter names one list: copySource, copyTarget, mirrorSource, mirrorTarget, paint or source. The list control is
+// "skinCluster<Filter>List" and its optionVars "skinCluster<Filter>Selected" and "skinCluster<Filter>Unselected", each
+// a space-separated list of cluster names. Each item's unique tag is the cluster's name.
+
+// The script jobs made here, so they can be killed together.
+global int $gSkinClusterItemJobs[];
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+proc string sclPrefix(string $filter)
+{
+    return ("skinCluster" + capitalizeString($filter));
+}
+
+proc string sclListName(string $filter)
+{
+    return (sclPrefix($filter) + "List");
+}
+
+// The optionVar prefix an operation saves to: copy and mirror their source lists, paint its own, the rest one pair.
+proc string sclOperationPrefix(string $operation)
+{
+    if ($operation == "copy")
+        return sclPrefix("copySource");
+    if ($operation == "mirror")
+        return sclPrefix("mirrorSource");
+    if ($operation == "paint")
+        return sclPrefix("paint");
+    return sclPrefix("source");
+}
+
+proc string sclArrow()
+{
+    // Aztek's MEL strings are Unicode, so the arrow goes in directly rather than through Python.
+    return " → ";
+}
+
+// Every item's tag. Aztek's textScrollList can't hand its tags back, so they are read off the item text: the cluster
+// is what follows the arrow, or the whole text in a paint list.
+proc string[] sclAllTags(string $list)
+{
+    string $tags[];
+    string $items[] = `textScrollList -query -allItems $list`;
+    string $arrow = sclArrow();
+    for ($item in $items) {
+        string $tag = $item;
+        int $at = size($item) - size($arrow);
+        // The arrow is looked for from the end, since a cluster's name never holds one.
+        while ($at >= 0) {
+            if (substring($item, $at + 1, $at + size($arrow)) == $arrow) {
+                $tag = substring($item, $at + size($arrow) + 1, size($item));
+                break;
+            }
+            $at--;
+        }
+        $tags[size($tags)] = $tag;
+    }
+    return $tags;
+}
+
+proc string[] sclSelectedTags(string $list)
+{
+    string $tags[] = `textScrollList -query -selectUniqueTagItem $list`;
+    return $tags;
+}
+
+// Selects items by tag, leaving $exclude alone. A single-select list, or $all off, stops at the first that takes.
+proc sclSelectTags(string $tags[], string $exclude, int $all, string $list)
+{
+    int $single = !$all || !`textScrollList -query -allowMultiSelection $list`;
+    for ($tag in $tags) {
+        if ($tag == $exclude || $tag == "")
+            continue;
+        catchQuiet(`textScrollList -edit -selectUniqueTagItem $tag $list`);
+        if ($single && stringArrayContains($tag, sclSelectedTags($list)))
+            break;
+    }
+}
+
+// Greys one item out. Aztek's textScrollList can't disable single items yet, so this does nothing there; the
+// selection steps skip the excluded tag themselves.
+proc sclEnableItem(string $list, string $tag, int $enable)
+{
+}
+
+// The clusters deforming a node, nearest the geometry first.
+proc string[] sclChain(string $node)
+{
+    if (`exists skinClusterChain`)
+        return `eval ("skinClusterChain \"" + $node + "\"")`;
+    string $history[] = `listHistory -pruneDagObjects true $node`;
+    string $clusters[];
+    if (size($history))
+        $clusters = `ls -type skinCluster $history`;
+    return $clusters;
+}
+
+proc string sclStripComponents(string $name)
+{
+    return `match "^[^.]*" $name`;
+}
+
+// The geometry an item stands for: a shape is shown by its transform.
+proc string sclGeometry(string $name)
+{
+    string $node = sclStripComponents($name);
+    int $isShape = `objectType -isAType controlPoint $node`;
+    // Aztek doesn't yet place shapes under controlPoint, so any shape counts.
+    if (!$isShape)
+        $isShape = size(`ls -shapes $node`) > 0;
+    if ($isShape) {
+        string $parents[] = `listRelatives -parent -path $node`;
+        if (size($parents))
+            return $parents[0];
+    }
+    return $node;
+}
+
+proc sclSaveFilter(string $filter)
+{
+    string $list = sclListName($filter);
+    if (!`textScrollList -exists $list`)
+        return;
+    string $all[] = sclAllTags($list);
+    if (!size($all))
+        return;
+    string $selected[] = sclSelectedTags($list);
+    string $unselected[] = stringArrayRemove($selected, $all);
+    string $prefix = sclPrefix($filter);
+    optionVar -stringValue ($prefix + "Selected") (stringArrayToString($selected, " "));
+    optionVar -stringValue ($prefix + "Unselected") (stringArrayToString($unselected, " "));
+}
+
+// Whether the copy list may take its clusters from the selection.
+proc int sclCanFilter(string $operation)
+{
+    if ($operation != "copy")
+        return 1;
+    if (!`exists canFilterCopySkinWeights`)
+        catchQuiet(eval("source \"doCopySkinWeightsArgList.mel\""));
+    if (!`exists canFilterCopySkinWeights`)
+        return 1;
+    int $can = `eval "canFilterCopySkinWeights"`;
+    return $can;
+}
+
+// Fills one list from the selection names (or from $command's clusters), then picks its selection back.
+proc sclRefreshList(string $selection[], int $reset, string $operation, string $filter, string $exclude,
+    string $command)
+{
+    global int $gSkinClusterItemJobs[];
+    string $list = sclListName($filter);
+    if (!`textScrollList -exists $list`)
+        return;
+
+    int $paint = ($filter == "paint");
+    if (!$paint && !endsWith($filter, "Target"))
+        skinClusterListClearScriptJobs();
+
+    // Items as pairs of geometry and cluster, and the geometries in the order met.
+    string $itemGeo[];
+    string $itemCluster[];
+    string $geometries[];
+    if ($command == "") {
+        for ($name in $selection) {
+            string $node = sclStripComponents($name);
+            string $clusters[] = sclChain($node);
+            if (size($clusters)) {
+                string $geo = sclGeometry($name);
+                $geometries[size($geometries)] = $geo;
+                for ($c in $clusters) {
+                    $itemGeo[size($itemGeo)] = $geo;
+                    $itemCluster[size($itemCluster)] = $c;
+                }
+            } else if ($paint) {
+                string $found[] = stringArrayRemoveDuplicates(
+                    `listConnections -source false -destination true -type skinCluster $node`);
+                for ($c in $found) {
+                    string $geoms[] = `skinCluster -query -geometry $c`;
+                    if (size($geoms)) {
+                        string $geo = sclGeometry($geoms[0]);
+                        $geometries[size($geometries)] = $geo;
+                        $itemGeo[size($itemGeo)] = $geo;
+                        $itemCluster[size($itemCluster)] = $c;
+                    }
+                }
+            }
+        }
+    } else {
+        string $clusters[] = `eval $command`;
+        for ($c in $clusters) {
+            string $geoms[] = `skinCluster -query -geometry $c`;
+            if (size($geoms)) {
+                string $geo = sclGeometry($geoms[0]);
+                $geometries[size($geometries)] = $geo;
+                $itemGeo[size($itemGeo)] = $geo;
+                $itemCluster[size($itemCluster)] = $c;
+            }
+        }
+    }
+
+    // Repeats go, the first of each kept.
+    string $seen[];
+    string $geoKept[];
+    string $clusterKept[];
+    for ($i = 0; $i < size($itemGeo); $i++) {
+        string $key = $itemGeo[$i] + "|" + $itemCluster[$i];
+        if (stringArrayContains($key, $seen))
+            continue;
+        $seen[size($seen)] = $key;
+        $geoKept[size($geoKept)] = $itemGeo[$i];
+        $clusterKept[size($clusterKept)] = $itemCluster[$i];
+    }
+    $geometries = stringArrayRemoveDuplicates($geometries);
+
+    string $remembered[];
+    if (!$reset)
+        $remembered = sclSelectedTags($list);
+    int $multi = `textScrollList -query -allowMultiSelection $list`;
+
+    textScrollList -edit -removeAll $list;
+    for ($i = 0; $i < size($clusterKept); $i++) {
+        string $label = $paint ? $clusterKept[$i] : ($geoKept[$i] + sclArrow() + $clusterKept[$i]);
+        textScrollList -edit -append $label -uniqueTag $clusterKept[$i] $list;
+    }
+
+    if ($exclude != "")
+        sclEnableItem($list, $exclude, 0);
+
+    // The selection comes back from the first of these that picks anything: what was picked before, what the
+    // optionVar remembers, each geometry's cluster that is being painted, then each geometry's first cluster.
+    sclSelectTags($remembered, $exclude, 1, $list);
+    if (!size(sclSelectedTags($list))) {
+        string $saved[] = stringToStringArray(`optionVar -query (sclPrefix($filter) + "Selected")`, " ");
+        sclSelectTags($saved, "", 1, $list);
+    }
+    if (!size(sclSelectedTags($list))) {
+        for ($geo in $geometries) {
+            for ($c in sclChain($geo)) {
+                string $painted[];
+                if (catchQuiet($painted = `listConnections ($c + ".ptt")`))
+                    continue;
+                if (size($painted) && $painted[0] != "") {
+                    string $one[] = {$c};
+                    sclSelectTags($one, $exclude, 0, $list);
+                    break;
+                }
+            }
+        }
+    }
+    if (!size(sclSelectedTags($list))) {
+        for ($geo in $geometries) {
+            string $chain[] = sclChain($geo);
+            sclSelectTags($chain, "", 0, $list);
+            if (!$multi && size(sclSelectedTags($list)))
+                break;
+        }
+    }
+
+    // The list refreshes itself when a geometry or cluster it shows is deleted or renamed. The paint list doesn't.
+    if (!$paint) {
+        string $watch[] = $geometries;
+        string $tags[] = sclAllTags($list);
+        appendStringArray($watch, $tags, size($tags));
+        string $cmd = "skinClusterListRefresh " + $operation + " 0";
+        for ($name in $watch) {
+            int $job;
+            if (!catchQuiet($job = `scriptJob -nodeDeleted $name $cmd`))
+                $gSkinClusterItemJobs[size($gSkinClusterItemJobs)] = $job;
+            if (!catchQuiet($job = `scriptJob -nodeNameChanged $name $cmd`))
+                $gSkinClusterItemJobs[size($gSkinClusterItemJobs)] = $job;
+        }
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+global proc skinClusterListClearScriptJobs()
+{
+    global int $gSkinClusterItemJobs[];
+    for ($job in $gSkinClusterItemJobs)
+        catchQuiet(`scriptJob -kill $job`);
+    clear $gSkinClusterItemJobs;
+}
+
+// Saves which clusters are picked in the operation's list or lists.
+global proc skinClusterListUpdateOptionVars(string $operation)
+{
+    if ($operation == "copy" || $operation == "mirror") {
+        sclSaveFilter($operation + "Source");
+        sclSaveFilter($operation + "Target");
+    } else if ($operation == "paint") {
+        sclSaveFilter("paint");
+    } else {
+        sclSaveFilter("source");
+    }
+}
+
+// Copies one operation's remembered clusters to another's.
+global proc skinClusterListCopyOptionVars(string $srcOperation, string $dstOperation)
+{
+    if (`exists setSkinClusterOptionVars`) {
+        eval ("setSkinClusterOptionVars \"" + $srcOperation + "\" 0");
+        eval ("setSkinClusterOptionVars \"" + $dstOperation + "\" 0");
+    }
+    string $src = sclOperationPrefix($srcOperation);
+    string $dst = sclOperationPrefix($dstOperation);
+    optionVar -stringValue ($dst + "Selected") (`optionVar -query ($src + "Selected")`);
+    optionVar -stringValue ($dst + "Unselected") (`optionVar -query ($src + "Unselected")`);
+}
+
+// Fills the operation's list or lists from the selection. $reset 1 doesn't try to keep what the list had picked.
+global proc skinClusterListRefresh(string $operation, int $reset)
+{
+    int $filter = sclCanFilter($operation);
+    string $selection[];
+    if ($filter)
+        $selection = `ls -selection`;
+    string $none[];
+
+    if ($operation == "copy") {
+        // The last picked is the target; the source is the first picked, or the target itself when alone.
+        string $source[];
+        string $target[];
+        if (size($selection)) {
+            $target[0] = $selection[size($selection) - 1];
+            $source[0] = (size($selection) == 1) ? $target[0] : $selection[0];
+        }
+        sclRefreshList($source, $reset, $operation, "copySource", "", "");
+        string $picked[] = `textScrollList -query -selectUniqueTagItem (sclListName("copySource"))`;
+        string $exclude = size($picked) ? $picked[0] : "";
+        sclRefreshList($target, $reset, $operation, "copyTarget", $exclude, "");
+    } else if ($operation == "mirror") {
+        // The first picked is the source; the rest, without it, the targets (or the source alone).
+        string $source[];
+        string $target[];
+        if (size($selection)) {
+            $source[0] = $selection[0];
+            if (size($selection) == 1) {
+                $target = $source;
+            } else {
+                string $first[] = {$selection[0]};
+                $target = stringArrayRemove($first, $selection);
+            }
+        }
+        sclRefreshList($source, $reset, $operation, "mirrorSource", "", "");
+        sclRefreshList($target, $reset, $operation, "mirrorTarget", "", "");
+    } else if ($operation == "paint") {
+        if (!`exists artSkinFindSkinClusterNodesFiltered`)
+            catchQuiet(eval("source \"artAttrSkinJointMenu.mel\""));
+        if (`exists artSkinFindSkinClusterNodesFiltered`)
+            sclRefreshList($none, $reset, $operation, "paint", "", "artSkinFindSkinClusterNodesFiltered false");
+        else
+            sclRefreshList($none, $reset, $operation, "paint", "", "");
+    } else {
+        if ($filter)
+            $selection = `ls -selection -objectsOnly`;
+        sclRefreshList($selection, $reset, $operation, "source", "", "");
+    }
+}
+
+// The copy source list's select command: the picked source can't also be a target.
+global proc skinClusterListSelectCopySource()
+{
+    string $sourceList = sclListName("copySource");
+    string $targetList = sclListName("copyTarget");
+    string $picked[] = sclSelectedTags($sourceList);
+    if (!size($picked))
+        return;
+    string $source = $picked[0];
+
+    string $targets[] = sclAllTags($targetList);
+    if (!stringArrayContains($source, $targets))
+        return;
+
+    string $kept[] = sclSelectedTags($targetList);
+    for ($t in $targets)
+        sclEnableItem($targetList, $t, 1);
+    sclEnableItem($targetList, $source, 0);
+    string $drop[] = {$source};
+    $kept = stringArrayRemove($drop, $kept);
+
+    textScrollList -edit -deselectAll $targetList;
+    if (size($kept))
+        sclSelectTags($kept, "", 1, $targetList);
+    else
+        sclSelectTags($targets, $source, 0, $targetList);
+}
+
+// Builds the list or lists under the current layout. Callers fill them with skinClusterListRefresh.
+global proc skinClusterList(string $operation)
+{
+    int $height = 150;
+    string $parent;
+    if ($operation == "copy" || $operation == "mirror") {
+        string $source = sclListName($operation + "Source");
+        string $target = sclListName($operation + "Target");
+        rowLayout -numberOfColumns 3 -adjustableColumn 2 -adjustableColumn 3
+            -columnAlign 1 "right" -columnAlign 2 "left" -columnAlign 3 "left";
+            text -label "Skin cluster";
+            text -label "Source";
+            text -label "Target";
+        setParent ..;
+        $parent = `rowLayout -numberOfColumns 3 -adjustableColumn 2 -adjustableColumn 3`;
+            text -label "";
+            textScrollList -height $height -allowMultiSelection false $source;
+            textScrollList -height $height -allowMultiSelection true $target;
+        setParent ..;
+        if ($operation == "copy")
+            textScrollList -edit -selectCommand "skinClusterListSelectCopySource" $source;
+    } else {
+        int $multi = !($operation == "copyVertexWeights" || $operation == "pasteVertexWeights");
+        string $label = ($operation == "detach") ? "" : "Skin cluster";
+        $parent = `rowLayout -numberOfColumns 2 -adjustableColumn 2 -rowAttach 1 "top" 0`;
+            text -label $label;
+            textScrollList -height $height -allowMultiSelection $multi (sclListName("source"));
+        setParent ..;
+    }
+
+    scriptJob -runOnce true -uiDeleted $parent "skinClusterListClearScriptJobs";
+    scriptJob -parent $parent -event "SelectionChanged" ("skinClusterListRefresh " + $operation + " 0");
+}

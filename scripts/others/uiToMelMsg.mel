@@ -1,0 +1,11 @@
+// uiToMelMsg: what the conversions between interface labels and script values say when a value isn't in their table.
+// Severity 2 stops the caller with an error, 1 warns, anything else stays quiet.
+
+global proc uiToMelMsg(string $procName, string $caseName, int $severity)
+{
+    string $msg = `format -stringArg $procName -stringArg $caseName "^1s: no entry found for \"^2s\"."`;
+    if ($severity == 2)
+        error $msg;
+    else if ($severity == 1)
+        warning $msg;
+}

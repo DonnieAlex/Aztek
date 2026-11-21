@@ -1,0 +1,423 @@
+// ChaSkeletonsMenu: the reference's Rigging > Skeleton menu, filled into whatever menu the caller gives (its post-menu
+// command), and the joint labelling procedures its labelling items and run-time commands use. Aztek's own Skeleton
+// menu is part of the program; this fills a script menu only.
+
+// --------------------------------------------------------------------------------------------------------------------
+// Joint labels
+
+// 1 when either regular expression matches anywhere in $name.
+global proc int MCmatch(string $name, string $pattern1, string $pattern2)
+{
+    if (`match $pattern1 $name` != "")
+        return 1;
+    if (`match $pattern2 $name` != "")
+        return 1;
+    return 0;
+}
+
+// A joint side or type as the attribute shows it, turned into the fixed English word used in joint names. The shown
+// names are the joint's enum names as Aztek gives them.
+global proc string jointLabel_uiToMel(string $uiName)
+{
+    string $table[] = {
+        // Sides.
+        "Left", "Left", "Right", "Right", "Center", "Center", "None", "None",
+        // Types.
+        "Root", "Root", "Hip", "Hip", "Knee", "Knee", "Foot", "Foot", "Toe", "Toe", "Spine", "Spine",
+        "Neck", "Neck", "Head", "Head", "Collar", "Collar", "Shoulder", "Shoulder", "Elbow", "Elbow",
+        "Hand", "Hand", "Finger", "Finger", "Thumb", "Thumb",
+        "Index Finger", "IndexFinger", "Middle Finger", "MiddleFinger", "Ring Finger", "RingFinger",
+        "Pinky Finger", "PinkyFinger", "Extra Finger", "ExtraFinger",
+        "Big Toe", "BigToe", "Index Toe", "IndexToe", "Middle Toe", "MiddleToe", "Ring Toe", "RingToe",
+        "Pinky Toe", "PinkyToe", "Foot Thumb", "FootThumb",
+        "Other", "Other", "PropA", "PropA", "PropB", "PropB", "PropC", "PropC"
+    };
+    for ($i = 0; $i < size($table); $i += 2)
+        if ($table[$i] == $uiName)
+            return $table[$i + 1];
+    uiToMelMsg("jointLabel_uiToMel", $uiName, 1);
+    return $uiName;
+}
+
+// The type and side a joint's name suggests, -1 for each not found. The reference's own procedure is used where it
+// exists; this smaller stand-in reads the usual words of joint names.
+proc int[] csmLabelInfoForName(string $name)
+{
+    if (`exists jointLabelInfoForString`)
+        return `eval ("jointLabelInfoForString \"" + $name + "\"")`;
+
+    int $side = -1;
+    if (MCmatch($name, "[Ll]eft", "(^[Ll]_)|(_[Ll]$)|(^[Ll][A-Z])"))
+        $side = 1;
+    else if (MCmatch($name, "[Rr]ight", "(^[Rr]_)|(_[Rr]$)|(^[Rr][A-Z])"))
+        $side = 2;
+
+    // More particular words come before the ones they contain ("ForeArm" before "Arm", "UpLeg" before "Leg").
+    string $types[] = {
+        "[Tt]humb", "14", "[Ii]ndex", "19", "[Mm]iddle", "20", "[Rr]ing", "21", "[Pp]inky", "22", "[Ff]inger", "13",
+        "[Tt]oe", "5", "[Ff]oot|[Aa]nkle", "4", "[Hh]ips$|[Pp]elvis|[Rr]oot", "1", "[Uu]p[Ll]eg|[Tt]high|[Hh]ip", "2",
+        "[Kk]nee|[Ll]eg", "3", "[Hh]and|[Ww]rist", "12", "[Ff]ore[Aa]rm|[Ee]lbow", "11", "[Ss]houlder|[Aa]rm", "10",
+        "[Cc]lav|[Cc]ollar", "9", "[Hh]ead", "8", "[Nn]eck", "7", "[Ss]pine|[Bb]ack|[Cc]hest", "6"
+    };
+    int $type = -1;
+    for ($i = 0; $i < size($types); $i += 2) {
+        if (`match $types[$i] $name` != "") {
+            $type = $types[$i + 1];
+            break;
+        }
+    }
+    return {$type, $side};
+}
+
+proc string csmShortName(string $path)
+{
+    string $parts[];
+    tokenize $path "|" $parts;
+    return (size($parts) ? $parts[size($parts) - 1] : $path);
+}
+
+// Sets type and side on the selected joints and those below them, from their names.
+global proc labelJointsBasedOnNames()
+{
+    string $joints[] = `ls -selection -dag -type joint`;
+    if (!size($joints))
+        error "Select the joints to label.";
+    for ($j in $joints) {
+        int $info[] = csmLabelInfoForName(csmShortName($j));
+        if ($info[0] != -1)
+            evalEcho ("setAttr " + $j + ".type " + $info[0]);
+        if ($info[1] != -1)
+            evalEcho ("setAttr " + $j + ".side " + $info[1]);
+    }
+}
+
+// Renames the selected joints and those below them after their side and type labels, as LeftHip, RightHand1 and so
+// on. Joints without a side or a type are left as they are.
+global proc renameJointsFromLabels()
+{
+    string $joints[] = `ls -selection -dag -type joint`;
+    if (!size($joints))
+        error "Select labelled joints to rename.";
+    for ($j in $joints) {
+        string $side = `getAttr -asString ($j + ".side")`;
+        string $label = `getAttr -asString ($j + ".type")`;
+        if ($side == "None" || $label == "None")
+            continue;
+        if ($label == "Other")
+            $label = `getAttr ($j + ".otherType")`;
+        else
+            $label = jointLabel_uiToMel($label);
+
+        string $base = jointLabel_uiToMel($side) + $label;
+        string $name = $base;
+        int $n = 1;
+        while (`objExists $name`)
+            $name = $base + ($n++);
+        rename $j $name;
+    }
+}
+
+// Labels the side of the selected joints. Centre is set on the picked joints only; the other sides reach the joints
+// below them too.
+global proc retargetingSideLabel(string $side)
+{
+    string $joints[];
+    int $value = 0;
+    if ($side == "Center") {
+        $joints = `ls -selection -type joint`;
+    } else {
+        $value = ($side == "Left") ? 1 : (($side == "Right") ? 2 : 3);
+        $joints = `ls -selection -dag -type joint`;
+    }
+    for ($j in $joints)
+        setAttr ($j + ".side") $value;
+    if (!size($joints))
+        error "Select the joints to label.";
+}
+
+// Labels the type of the selected joints (and those below them with $dag). Body-centre types also set the side to
+// centre.
+global proc retargetLabelType(string $type, int $dag)
+{
+    string $table[] = {
+        "Root", "1", "1", "Hip", "2", "0", "Knee", "3", "0", "Foot", "4", "0", "Toe", "5", "0",
+        "Spine", "6", "1", "Neck", "7", "1", "Head", "8", "1", "Collar", "9", "0", "Shoulder", "10", "0",
+        "Elbow", "11", "0", "Hand", "12", "0", "Finger", "13", "0", "Thumb", "14", "0", "None", "0", "1",
+        "Index", "19", "0", "Middle", "20", "0", "Ring", "21", "0", "Pinky", "22", "0", "ExtraFinger", "23", "0",
+        "BigToe", "24", "0", "IndexToe", "25", "0", "MiddleToe", "26", "0", "RingToe", "27", "0",
+        "PinkyToe", "28", "0", "ExtraToe", "29", "0", "FootThumb", "29", "0"
+    };
+    int $value = -1;
+    int $centre = 0;
+    for ($i = 0; $i < size($table); $i += 3) {
+        if ($table[$i] == $type) {
+            $value = $table[$i + 1];
+            $centre = $table[$i + 2];
+            break;
+        }
+    }
+    if ($value < 0)
+        error ("\"" + $type + "\" isn't a joint type that can be labelled.");
+
+    if ($centre)
+        retargetingSideLabel("Center");
+
+    string $joints[];
+    if ($dag)
+        $joints = `ls -selection -dag -type joint`;
+    else
+        $joints = `ls -selection -type joint`;
+    for ($j in $joints)
+        setAttr ($j + ".type") $value;
+}
+
+// Labels a whole leg or arm from its top joint down. Roll joints take the label of the joint before them.
+global proc labelLimb(string $joint, string $limb)
+{
+    int $top;
+    int $mid;
+    int $end;
+    int $digit;
+    if ($limb == "Leg") {
+        $top = 2; $mid = 3; $end = 4; $digit = 5;
+    } else if ($limb == "Arm") {
+        $top = 10; $mid = 11; $end = 12; $digit = 13;
+    } else {
+        error `format -stringArg $limb "\"^1s\" isn't a limb that can be labelled."`;
+    }
+
+    setAttr ($joint + ".type") $top;
+    string $list[] = `ls -selection -dag -type joint $joint`;
+    int $current = $top;
+
+    if ($limb == "Leg") {
+        for ($i = 1; $i < size($list); $i++) {
+            if (!MCmatch(csmShortName($list[$i]), "Roll", "roll") && $current != $digit)
+                $current++;
+            setAttr ($list[$i] + ".type") $current;
+        }
+        return;
+    }
+
+    for ($i = 1; $i < size($list); $i++) {
+        string $short = csmShortName($list[$i]);
+        if (MCmatch($short, "Roll", "roll")) {
+            setAttr ($list[$i] + ".type") $current;
+            continue;
+        }
+        if ($current == $mid) {
+            string $kids[] = `listRelatives -children -type joint $list[$i]`;
+            if (size($kids) > 1 || MCmatch($short, "Hand", "hand") || MCmatch($short, "Wrist", "wrist"))
+                $current++;
+        } else if ($current != $digit) {
+            $current++;
+        }
+        setAttr ($list[$i] + ".type") $current;
+    }
+
+    // A second look settles the hand: the first joint after the elbow joints is the hand, the rest fingers.
+    if (size($list) == 3) {
+        setAttr ($list[2] + ".type") $end;
+    } else if (size($list) > 3) {
+        int $onElbow = 1;
+        for ($i = 2; $i < size($list); $i++) {
+            if ($onElbow) {
+                if (!`gmatch $list[$i] "*lbow*"`) {
+                    $onElbow = 0;
+                    setAttr ($list[$i] + ".type") $end;
+                }
+            } else {
+                setAttr ($list[$i] + ".type") $digit;
+            }
+        }
+    }
+}
+
+// Labels the selected limbs, or with a finger or toe name the selected joints and those below them.
+global proc retargetingLimbLabel(string $limb)
+{
+    string $joints[] = `ls -selection -type joint`;
+    if (!size($joints)) {
+        if ($limb == "Leg")
+            error "Select the hip joint of the leg.";
+        else if ($limb == "Arm")
+            error "Select the shoulder joint of the arm.";
+        else
+            error "No joints are selected.";
+    }
+
+    if ($limb == "Leg" || $limb == "Arm") {
+        for ($j in $joints)
+            labelLimb($j, $limb);
+        return;
+    }
+    string $digits[] = {
+        "Thumb", "Index", "Middle", "Ring", "Pinky", "ExtraFinger", "BigToe", "IndexToe", "MiddleToe", "RingToe",
+        "PinkyToe", "FootThumb", "ExtraToe"
+    };
+    retargetLabelType($limb, stringArrayContains($limb, $digits));
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+// The menu
+
+// Text for the run-time commands Aztek doesn't have, so there is no label to ask for.
+proc string csmFallbackLabel(string $rtc)
+{
+    string $names[] = {
+        "MirrorJoint", "Mirror Joints", "RemoveJoint", "Remove Joints", "ConnectJoint", "Connect Joints",
+        "DisconnectJoint", "Disconnect Joints", "RerootSkeleton", "Reroot Skeleton",
+        "FBIKLabelLeft", "Left", "FBIKLabelRight", "Right", "FBIKLabelCenter", "Centre", "FBIKLabelNone", "None",
+        "FBIKLabelArm", "Arm", "FBIKLabelLeg", "Leg", "FBIKLabelCollar", "Collar", "FBIKLabelElbow", "Elbow",
+        "FBIKLabelFoot", "Foot", "FBIKLabelHand", "Hand", "FBIKLabelHead", "Head", "FBIKLabelHip", "Hip",
+        "FBIKLabelKnee", "Knee", "FBIKLabelNeck", "Neck", "FBIKLabelRoot", "Root", "FBIKLabelShoulder", "Shoulder",
+        "FBIKLabelSpine", "Spine", "FBIKLabelThumb", "Thumb", "FBIKLabelIndex", "Index Finger",
+        "FBIKLabelMiddleFinger", "Middle Finger", "FBIKLabelRingFinger", "Ring Finger", "FBIKLabelPinky", "Pinky Finger",
+        "FBIKLabelExtraFinger", "Extra Finger", "FBIKLabelFingerBase", "Finger Base", "FBIKLabelBigToe", "Big Toe",
+        "FBIKLabelIndexToe", "Index Toe", "FBIKLabelMiddleToe", "Middle Toe", "FBIKLabelRingToe", "Ring Toe",
+        "FBIKLabelPinkyToe", "Pinky Toe", "FBIKLabelFootThumb", "Foot Thumb", "FBIKLabelToeBase", "Toe Base",
+        "ToggleSelectedLabels", "Show/Hide Selected Labels", "ShowAllLabels", "Show All Labels",
+        "HideAllLabels", "Hide All Labels", "RenameJointsFromLabels", "Rename Joints from Labels",
+        "LabelBasedOnJointNames", "Label Based on Joint Names",
+        "IKHandleTool", "Create IK Handle", "IKSplineHandleTool", "Create IK Spline Handle",
+        "SetPreferredAngle", "Set Preferred Angle", "AssumePreferredAngle", "Assume Preferred Angle",
+        "ToggleIKHandleSnap", "IK Handle Snapping", "ToggleIKAllowRotation", "Allow IK Rotation",
+        "EnableSelectedIKHandles", "Enable Selected IK Handles", "DisableSelectedIKHandles", "Disable Selected IK Handles",
+        "QuickRigEditor", "Quick Rig"
+    };
+    for ($i = 0; $i < size($names); $i += 2)
+        if ($names[$i] == $rtc)
+            return $names[$i + 1];
+    return $rtc;
+}
+
+// The text a run-time command shows in the menu: its label. Aztek's factory run-time commands carry their name as the
+// label and their menu text as the annotation, so for those the annotation is the text.
+proc string csmLabel(string $rtc)
+{
+    if (`runTimeCommand -exists $rtc`) {
+        string $label = `runTimeCommand -query -label $rtc`;
+        if ($label != "" && $label != $rtc)
+            return $label;
+        string $ann = `runTimeCommand -query -annotation $rtc`;
+        if (`runTimeCommand -query -default $rtc` && $ann != "")
+            return $ann;
+        if ($label != "")
+            return $label;
+    }
+    return csmFallbackLabel($rtc);
+}
+
+proc string csmAnnotation(string $rtc)
+{
+    if (!`runTimeCommand -exists $rtc`)
+        return "";
+    return `runTimeCommand -query -annotation $rtc`;
+}
+
+// One item for a run-time command, named when $name is given.
+proc string csmItem(string $name, string $rtc)
+{
+    if ($name != "")
+        return `menuItem -label (csmLabel($rtc)) -annotation (csmAnnotation($rtc)) -command $rtc $name`;
+    return `menuItem -label (csmLabel($rtc)) -annotation (csmAnnotation($rtc)) -command $rtc`;
+}
+
+// The option box beside the last item.
+proc csmOptionBox(string $name, string $image, string $rtc)
+{
+    if ($image != "")
+        menuItem -optionBox true -image $image -annotation (csmAnnotation($rtc)) -command $rtc $name;
+    else
+        menuItem -optionBox true -annotation (csmAnnotation($rtc)) -command $rtc $name;
+}
+
+// Whether IK handles may rotate. Aztek's ikSystem can't be asked yet, so it reads as no there.
+proc int csmAllowRotation()
+{
+    int $allow = 0;
+    if (catchQuiet($allow = `ikSystem -query -allowRotation`))
+        return 0;
+    return $allow;
+}
+
+proc csmBuild()
+{
+    menuItem -divider true -dividerLabel "Joints";
+    csmItem("createSkeletonItem", "JointTool");
+    csmOptionBox("skeletonDialogItem", "kinJoint.png", "JointToolOptions");
+    csmItem("insertJointItem", "InsertJointTool");
+    menuItem -edit -dragMenuCommand "performMirrorJoint 2" (csmItem("mirrorJointItem", "MirrorJoint"));
+    csmOptionBox("mirrorJointOptionItem", "kinMirrorJoint_S.png", "MirrorJointOptions");
+    menuItem -edit -dragMenuCommand "performJointOrient 2" (csmItem("orientJointItem", "OrientJoint"));
+    csmOptionBox("orientJointOptionItem", "orientJoint.png", "OrientJointOptions");
+    menuItem -edit -echoCommand true (csmItem("removeJointItem", "RemoveJoint"));
+    menuItem -edit -dragMenuCommand "performConnectJoint 2" (csmItem("connectJointItem", "ConnectJoint"));
+    csmOptionBox("connectJointOptionItem", "kinConnect.png", "ConnectJointOptions");
+    menuItem -edit -echoCommand true (csmItem("disconnectJointItem", "DisconnectJoint"));
+    menuItem -edit -echoCommand true (csmItem("rerootSkeleton", "RerootSkeleton"));
+
+    menuItem -subMenu true -tearOff true -allowOptionBoxes true -label "Joint Labelling";
+        menuItem -subMenu true -tearOff true -label "Add Joint Labels" fbikLabelItem;
+            // An empty entry is a divider.
+            string $labels[] = {
+                "FBIKLabelLeft", "FBIKLabelRight", "FBIKLabelCenter", "",
+                "FBIKLabelNone", "FBIKLabelArm", "FBIKLabelLeg", "",
+                "FBIKLabelCollar", "FBIKLabelElbow", "FBIKLabelFoot", "FBIKLabelHand", "FBIKLabelHead", "FBIKLabelHip",
+                "FBIKLabelKnee", "FBIKLabelNeck", "FBIKLabelRoot", "FBIKLabelShoulder", "FBIKLabelSpine", "",
+                "FBIKLabelThumb", "FBIKLabelIndex", "FBIKLabelMiddleFinger", "FBIKLabelRingFinger", "FBIKLabelPinky",
+                "FBIKLabelExtraFinger", "FBIKLabelFingerBase", "",
+                "FBIKLabelBigToe", "FBIKLabelIndexToe", "FBIKLabelMiddleToe", "FBIKLabelRingToe", "FBIKLabelPinkyToe",
+                "FBIKLabelFootThumb", "FBIKLabelToeBase"
+            };
+            for ($l in $labels) {
+                if ($l == "")
+                    menuItem -divider true;
+                else
+                    menuItem -edit -echoCommand true (csmItem("", $l));
+            }
+        setParent -menu ..;
+        csmItem("", "ToggleSelectedLabels");
+        csmItem("", "ShowAllLabels");
+        csmItem("", "HideAllLabels");
+        csmItem("renameJointsMenu", "RenameJointsFromLabels");
+        csmItem("labelJointsMenu", "LabelBasedOnJointNames");
+    setParent -menu ..;
+
+    menuItem -divider true -dividerLabel "Inverse Kinematics";
+    csmItem("createHandleItem", "IKHandleTool");
+    csmOptionBox("handleDialogItem", "kinHandle.png", "IKHandleToolOptions");
+    csmItem("createSplineHandleItem", "IKSplineHandleTool");
+    csmOptionBox("handleSplineDialogItem", "kinSplineHandle.png", "IKSplineHandleToolOptions");
+    menuItem -edit -dragMenuCommand "performSetPrefAngle 2" (csmItem("setPrefAngleItem", "SetPreferredAngle"));
+    csmOptionBox("setPrefAngleOptionItem", "", "SetPreferredAngleOptions");
+    menuItem -edit -dragMenuCommand "performAssumePrefAngle 2" (csmItem("assumePrefAngleItem", "AssumePreferredAngle"));
+    csmOptionBox("assumePrefAngleOptionItem", "", "AssumePreferredAngleOptions");
+
+    menuItem -divider true -longDivider false;
+    // Snapping can't be used while handles may rotate.
+    menuItem -edit -checkBox `ikSystem -query -snap` -enable (!csmAllowRotation()) -echoCommand true
+        (csmItem("globalSnapEnableItem", "ToggleIKHandleSnap"));
+    menuItem -edit -checkBox (csmAllowRotation()) -echoCommand true (csmItem("", "ToggleIKAllowRotation"));
+    menuItem -edit -echoCommand true (csmItem("enableIKHandlesItem", "EnableSelectedIKHandles"));
+    menuItem -edit -echoCommand true (csmItem("disableIKHandlesItem", "DisableSelectedIKHandles"));
+
+    menuItem -divider true -longDivider false;
+    menuItem -edit -version "2017" (csmItem("quickRigWindowItem", "QuickRigEditor"));
+    menuItem -edit -tearOff true (csmItem("hikWindowItem", "HIKCharacterControlsTool"));
+}
+
+// The Skeleton menu's post-menu command: filled the first time it opens, its snapping tick refreshed after that.
+global proc ChaSkeletonsMenu(string $parent)
+{
+    setParent -menu $parent;
+    if (`menu -query -numberOfItems $parent`) {
+        menuItem -edit -checkBox `ikSystem -query -snap` -enable (!csmAllowRotation()) globalSnapEnableItem;
+        return;
+    }
+    // Until the rigging interface is up the menu stays empty, and is tried again when it next opens.
+    if (!`isTrue "KinematicsUIExists"`)
+        return;
+    csmBuild();
+    setParent -menu ..;
+}

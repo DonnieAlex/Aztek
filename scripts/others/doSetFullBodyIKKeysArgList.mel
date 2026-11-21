@@ -1,0 +1,41 @@
+// doSetFullBodyIKKeysArgList: keys a full body IK character's effectors (and joints) from the Set Full Body IK Keys
+// option box's values. $args[0] says what to key: 1 everything, 2 the body part, 3 up to a pinned ancestor, 4 the
+// selected effector. $args[1] says how reach is keyed and $args[2] names an extra item to key; what they mean depends
+// on the option box version. Returns how many attributes were keyed.
+
+global proc int doSetFullBodyIKKeysArgList(string $version, string $args[])
+{
+    int $ver = $version;
+    int $what = $args[0];
+    // Reach keying: 1 IK, 2 FK, 3 simple (no reach keys). The preference wins over the default when it's set.
+    int $keyOption = 3;
+    string $item = "";
+    if (`optionVar -exists fbikKeyOption`)
+        $keyOption = `optionVar -query fbikKeyOption`;
+    if ($ver > 1)
+        $item = $args[2];
+    // Version 2 used 0 for FK, 1 for IK and 2 for the preference.
+    if ($ver == 2 && $args[1] != "2")
+        $keyOption = ($args[1] == "1") ? 1 : 2;
+    // From version 3 on the values are the reach keying ones, 4 meaning the preference.
+    if ($ver > 2 && $args[1] != "4")
+        $keyOption = $args[1];
+
+    // The full body IK helpers live in other scripts Aztek doesn't have yet.
+    if (!`exists loadFullBodyIKFunctions` || !`exists findHikEffectors`
+            || !`exists setKeysOnAllJointsAndHikEffectors`) {
+        error "Full body IK keying isn't available: its helper procedures are missing.";
+        return 0;
+    }
+    loadFullBodyIKFunctions();
+
+    string $effectors[];
+    findHikEffectors($item, $effectors);
+
+    int $total = 0;
+    if (size($effectors) > 0)
+        $total = setKeysOnAllJointsAndHikEffectors($effectors, $what, $keyOption);
+    else
+        error "There are no full body IK effectors to key.";
+    return $total;
+}

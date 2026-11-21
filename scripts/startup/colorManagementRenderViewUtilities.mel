@@ -7,9 +7,8 @@
 // a script has made one, else Aztek's; and where the reference's toolbar fields aren't there, the values are read from
 // and written to the editor directly.
 
-// The slider mappings live in colorManagementNonLinearSliderUtilities; Aztek doesn't have that script yet, in which
-// case the sliders show the values as they are (see the cmrv*Slider* procedures below).
-catchQuiet(eval("source \"colorManagementNonLinearSliderUtilities.mel\""));
+// The curves between slider positions and values.
+source "colorManagementNonLinearSliderUtilities.mel";
 
 global int $gRvToggleGamma = 0;
 global int $gRvToggleExposure = 0;
@@ -49,35 +48,6 @@ proc cmrvShow(string $field, string $property, float $value)
         floatField -edit -value $value $field;
     else
         eval("renderWindowEditor -edit -" + $property + " " + $value + " \"" + cmrvEditor() + "\"");
-}
-
-// Slider position to value and back. Linear when the mapping script isn't there.
-proc float cmrvGammaFromSlider(float $position, float $max)
-{
-    if (`exists getGammaNonLinearFromLinear`)
-        return eval("getGammaNonLinearFromLinear " + $position + " " + $max);
-    return $position;
-}
-
-proc float cmrvGammaToSlider(float $value, float $max)
-{
-    if (`exists getGammaLinearFromNonLinear`)
-        return eval("getGammaLinearFromNonLinear " + $value + " " + $max);
-    return $value;
-}
-
-proc float cmrvFromSlider(float $position, float $min, float $max)
-{
-    if (`exists getNonLinearFromLinear`)
-        return eval("getNonLinearFromLinear " + $position + " " + $min + " " + $max);
-    return $position;
-}
-
-proc float cmrvToSlider(float $value, float $min, float $max)
-{
-    if (`exists getLinearFromNonLinear`)
-        return eval("getLinearFromNonLinear " + $value + " " + $min + " " + $max);
-    return $value;
 }
 
 global proc resetRVGammaTogleState()
@@ -188,7 +158,7 @@ global proc updateRenderViewGammaField()
     if (!`floatField -exists gammaRenderViewFieldItem`)
         return;
     float $position = `floatSlider -query -value gammaRenderViewSliderItem`;
-    floatField -edit -value (cmrvGammaFromSlider($position, $gRvGammaMaxRange)) gammaRenderViewFieldItem;
+    floatField -edit -value (getGammaNonLinearFromLinear($position, $gRvGammaMaxRange)) gammaRenderViewFieldItem;
     updateRenderViewGammaState();
 }
 
@@ -204,7 +174,7 @@ global proc updateRenderViewGammaSlider()
         $gRvGammaMaxRange = $value;
     else if ($value < $gRvGammaMinRange)
         $gRvGammaMinRange = max($value, 0.000001);
-    floatSlider -edit -value (cmrvGammaToSlider($value, $gRvGammaMaxRange)) gammaRenderViewSliderItem;
+    floatSlider -edit -value (getGammaLinearFromNonLinear($value, $gRvGammaMaxRange)) gammaRenderViewSliderItem;
     updateRenderViewGammaState();
 }
 
@@ -215,7 +185,7 @@ global proc updateRenderViewExposureField()
     if (!`floatField -exists exposureRenderViewFieldItem`)
         return;
     float $position = `floatSlider -query -value exposureRenderViewSliderItem`;
-    floatField -edit -value (cmrvFromSlider($position, $gRvExposureMinRange, $gRvExposureMaxRange))
+    floatField -edit -value (getNonLinearFromLinear($position, $gRvExposureMinRange, $gRvExposureMaxRange))
         exposureRenderViewFieldItem;
     updateRenderViewExposureState();
 }
@@ -231,7 +201,7 @@ global proc updateRenderViewExposureSlider()
         $gRvExposureMaxRange = $value;
     else if ($value < $gRvExposureMinRange)
         $gRvExposureMinRange = $value;
-    floatSlider -edit -value (cmrvToSlider($value, $gRvExposureMinRange, $gRvExposureMaxRange))
+    floatSlider -edit -value (getLinearFromNonLinear($value, $gRvExposureMinRange, $gRvExposureMaxRange))
         exposureRenderViewSliderItem;
     updateRenderViewExposureState();
 }

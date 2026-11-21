@@ -350,9 +350,7 @@ global proc string createUIComponent(string $barName, string $name, string $pare
 
     setParent $parent;
     string $outer = `formLayout -manage false`;
-    string $display = $name;
-    if (`exists localizedUIComponentLabel`)
-        $display = `eval ("localizedUIComponentLabel \"" + encodeString($name) + "\"")`;
+    string $display = localizedUIComponentLabel($name);
     string $annotation = "Hide the " + $display;
     string $command = "toggleUIComponentVisibility \"" + encodeString($name) + "\"";
 
