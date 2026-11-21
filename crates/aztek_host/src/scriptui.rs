@@ -110,6 +110,7 @@ fn ensure_built_in(m: &mut Model) {
     for (kind, name) in [
         ("mainWindow", MAIN_WINDOW),
         ("progressBar", MAIN_PROGRESS),
+        ("timeControl", TIME_SLIDER),
         ("outlinerEditor", "outlinerPanel1"),
         ("animCurveEditor", "graphEditor1GraphEd"),
         ("outlinerEditor", "graphEditor1OutlineEd"),
@@ -125,6 +126,8 @@ fn ensure_built_in(m: &mut Model) {
 /// The names scripts know these by, and read from `$gMainWindow` and `$gMainProgressBar`.
 pub const MAIN_WINDOW: &str = "MayaWindow";
 pub const MAIN_PROGRESS: &str = "MainProgressBar";
+/// The time slider: the one timeControl, which scripts read from `$gPlayBackSlider`.
+pub const TIME_SLIDER: &str = "timeControl1";
 
 pub fn set_from_python(on: bool) -> bool {
     FROM_PYTHON.with(|f| f.replace(on))
@@ -327,6 +330,10 @@ pub fn cat_of(kind: &str) -> Cat {
 
 pub(crate) const COMMON: &str = "annotation:ann:a backgroundColor:bgc:a defineTemplate:dt:a docTag:dtg:a dragCallback:dgc:a dropCallback:dpc:a enable:en:b enableBackground:ebg:b enableKeyboardFocus:ekf:b exists:ex:b fullPathName:fpn:b height:h:a highlightColor:hlc:a isObscured:io:b manage:m:b noBackground:nbg:b numberOfPopupMenus:npm:b parent:p:a popupMenuArray:pma:b preventOverride:po:b statusBarMessage:sbm:a useTemplate:ut:a visible:vis:b visibleChangeCommand:vcc:a width:w:a query:q:b edit:e:b queried::a";
 const LAYOUT: &str = "childArray:ca:b numberOfChildren:nch:b";
+/// What soundControl and timeControl share: the sound they draw and how, scrubbing, and the mouse scripts.
+pub(crate) const SOUND_FLAGS: &str = "sound:s:a soundSource:ss:a displaySound:ds:b waveform:wf:a minTime:min:a maxTime:max:a pressCommand:pc:a releaseCommand:rc:a repeatChunkSize:rcs:a repeatOnHold:roh:b resample:r:b beginScrub:bs:b endScrub:es:b";
+/// timeControl's own, beside SOUND_FLAGS; the range, key display and snapping flags are the scene's.
+pub(crate) const TIME_CONTROL_FLAGS: &str = "animCurveNames:acn:b animLayerFilterOptions:alf:a currentFrameColor:cfc:a foregroundColor:fgc:a globalTime:gt:b mainListConnection:mlc:a tickSpan:tsp:a forceRefresh:fr:b forceRedraw:fd:b";
 const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:ds:b dockingLayout:dl:a state:st:a menuArray:ma:b mainMenuBar:mm:b menuBarCornerWidget:mcw:a2 menuBarResize:mbr:b menuIndex:mi:a2 numberOfMenus:nm:b";
 const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a";
 const SHELF_BUTTON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a enableCommandRepeat:ecr:b flipX:fx:b flipY:fy:b handleNodeDropCallback:hnd:a labelEditingCallback:lec:a menuItem:mi:a2 menuItemPython:mip:a1 menuItemWithOptionBox:mio:a3 noDefaultPopup:ndp:b";
@@ -409,6 +416,8 @@ const KINDS: &[(&str, &str)] = &[
     ("keyframeStats", "animEditor:ae:a precision:pre:a autoUnitWidth:auw:a timeAnnotation:tan:a valueAnnotation:van:a"),
     ("textureWindow", "capture:cpt:a changeCommand:cc:a checkerColor1:cc1:a checkerColor2:cc2:a checkerDensity:cd:a clearImage:ci:b cmEnabled:cme:b displayAxes:dax:b displayCheckered:dc:b displayDistortion:dcd:b displayDivisionLines:ddl:b displayGridLines:dgl:b displayImage:di:a displayLabels:dl:b displayPreselection:dpr:b displaySolidMap:dsm:b displayStyle:dst:a displayUVShaded:dus:b displayUVWireframe:duw:b distortionAlpha:dal:a distortionPerObject:dpo:b divisions:d:a doubleBuffer:dbf:b drawAxis:da:b drawSubregions:dsr:b exposure:exp:a frameAll:fa:b frameSelected:fs:b frontFacingColor:ffc:a gamma:ga:a gridLinesColor:glc:a gridNumbersColor:gnc:a imageBaseColor:ibc:a imageDim:imd:b imageDisplay:id:b imageNames:imn:b imageNumber:in:a imagePixelSnap:ip:b imageRatio:imr:b imageRatioValue:irv:a imageSize:is:b imageTileRange:itr:a imageUnfiltered:iuf:b internalFaces:if:b labelPosition:lp:a loadImage:li:a maxResolution:mrs:a multiColorAlpha:mca:a nbImages:nim:b nextView:nv:b numUvSets:nuv:b numberOfImages:ni:a numberOfTextures:nt:a previousView:pv:b realSize:rs:b refresh:rf:b relativeHandleSize:rhs:b removeAllImages:rai:b removeImage:ri:b rendererString:rst:a reset:r:b saveImage:si:b selectInternalFaces:sif:b selectRelated:sr:b setUvSet:suv:a singleBuffer:sbf:b size:s:a solidMap3dView:sm3:b solidMapColorSeed:smc:a solidMapPerShell:smp:b spacing:sp:a style:st:a subdivisionLinesColor:slc:a textureBorder:tb:b textureBorderColor:tbc:a textureBorderWidth:tbw:a textureNames:tn:b textureNumber:tx:a tileLabels:tlb:b tileLinesColor:tlc:a toggle:tgl:b toggleExposure:txp:b toggleGamma:tgm:b useFaceGroup:ufg:b usedPercentageHUD:upp:b uvSets:uvs:b viewPortImage:vpi:b viewTransformName:vtn:a wireframeComponentColor:wcc:a wireframeObjectColor:woc:a writeImage:wi:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("timePort", "globalTime:gt:b snap:sn:b"),
+    ("soundControl", SOUND_FLAGS),
+    ("soundPopup", ""),
     ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a widthHeight:wh:a2"),
     ("timeRangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a"),
 ];
@@ -877,6 +886,60 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
         }
         ("textField" | "textFieldGrp" | "textFieldButtonGrp" | "scrollField", "text") => set(m, id, key, json!(text(raw)), changed),
         ("progressBar", "progress" | "minValue" | "maxValue" | "step") => progress_flag(m, id, key, raw, changed),
+        // Scrubbing: time changes play the sound under the mouse until -endScrub.
+        ("soundControl" | "timeControl", "beginScrub" | "endScrub") => {
+            if truth(raw) {
+                set(m, id, "scrubbing", json!(key == "beginScrub"), changed);
+            }
+        }
+        // Draw again: the sound's waveform resampled to the width, or the keys read again.
+        ("soundControl" | "timeControl", "resample" | "forceRefresh" | "forceRedraw") => {
+            if truth(raw) {
+                let n = m.get(id).and_then(|c| c.props.get("redraws")).and_then(Value::as_i64).unwrap_or(0) + 1;
+                set(m, id, "redraws", json!(n), changed);
+            }
+        }
+        ("soundControl" | "timeControl", "waveform") => {
+            let t = text(raw);
+            if !matches!(t.as_str(), "top" | "bottom" | "both") {
+                return Err(format!("{kind}: -waveform is top, bottom or both, not {t}."));
+            }
+            set(m, id, key, json!(t), changed);
+        }
+        ("soundControl" | "timeControl", "soundSource") => {
+            // The sound shown: an audio node, or "", "<sequencer>" or "<trax>"; -sound names the node alone.
+            let t = text(raw);
+            set(m, id, key, json!(t), changed);
+            if !t.starts_with('<') {
+                set(m, id, "sound", json!(t), changed);
+            }
+        }
+        ("soundControl" | "timeControl", "sound") => {
+            let t = text(raw);
+            set(m, id, key, json!(t), changed);
+            set(m, id, "soundSource", json!(t), changed);
+        }
+        ("soundControl" | "timeControl", "minTime" | "maxTime" | "repeatChunkSize") => set(m, id, key, json!(number(raw)), changed),
+        ("timeControl", "tickSpan") => set(m, id, key, json!((number(raw) as i64).max(1)), changed),
+        ("timeControl", "currentFrameColor") => {
+            if vals.len() != 4 {
+                return Err("timeControl: -currentFrameColor takes red, green, blue and alpha.".into());
+            }
+            set(m, id, key, json!(vals.iter().map(number).collect::<Vec<_>>()), changed);
+        }
+        ("timeControl", "foregroundColor") => {
+            if vals.len() != 3 {
+                return Err("timeControl: -foregroundColor takes red, green and blue.".into());
+            }
+            set(m, id, key, json!(vals.iter().map(number).collect::<Vec<_>>()), changed);
+        }
+        ("timeControl", "animLayerFilterOptions") => {
+            let t = text(raw);
+            if !matches!(t.as_str(), "allAffecting" | "active" | "animLayerEditor") {
+                return Err(format!("timeControl: -animLayerFilterOptions is allAffecting, active or animLayerEditor, not {t}."));
+            }
+            set(m, id, key, json!(t), changed);
+        }
         ("progressBar", "beginProgress") => {
             if truth(raw) {
                 set(m, id, "progress", json!(0), changed);
@@ -1443,6 +1506,19 @@ fn default_value(c: &Control, key: &str) -> Value {
         // Click, Ctrl and Shift as a list's: what the table shows when no mode is given.
         ("scriptTable", "selectionMode") => json!(3),
         ("outlinerEditor", "mainListConnection") => json!("worldList"),
+        ("timeControl", "mainListConnection") => json!(""),
+        ("soundControl" | "timeControl", "waveform") => json!("top"),
+        ("soundControl" | "timeControl", "sound" | "soundSource") => json!(""),
+        ("soundControl" | "timeControl", "displaySound") => json!(c.kind == "soundControl"),
+        ("soundControl" | "timeControl", "repeatChunkSize") => json!(1.0),
+        ("soundControl" | "timeControl", "repeatOnHold" | "scrubbing") => json!(false),
+        ("soundControl", "minTime") => json!(aztek_scene::anim::range().min),
+        ("soundControl", "maxTime") => json!(aztek_scene::anim::range().max),
+        ("timeControl", "globalTime") => json!(true),
+        ("timeControl", "tickSpan") => json!(1),
+        ("timeControl", "animLayerFilterOptions") => json!("allAffecting"),
+        ("timeControl", "currentFrameColor") => json!([0.82, 0.82, 0.82, 0.47]),
+        ("timeControl", "foregroundColor") => json!([0.59, 0.59, 0.59]),
         ("dopeSheetEditor" | "animCurveEditor", "mainListConnection") => json!("animationList"),
         ("nodeEditor", "mainListConnection") => json!(""),
         (k, "selectionConnection") if is_editor(k) => json!("modelList"),
@@ -2474,7 +2550,158 @@ pub(crate) fn parent_workspace_control(name: &str) -> String {
     })
 }
 
+/// The scene's timeControl flags: the range picked on the slider, its key display and snapping, and the sound it shows.
+const TIME_SCENE_FLAGS: &[&str] = &["rangeArray", "range", "rangeVisible", "showKeys", "snap", "showKeysCombined", "animLayerShowWeight", "tickSize", "minTime", "maxTime", "sound", "displaySound"];
+
+/// timeControl: the one time slider. The scene keeps its range, key display and sound; the model keeps it as a control,
+/// with its colours, mouse scripts and the rest. Create mode edits it, as there is only ever the one.
+fn time_control(s: &mut Session, a: &Args, scene: &aztek_ops::RunFn<Session>) -> CmdResult {
+    let name = a.pos_str(0).map(str::to_string);
+    if a.bool("exists") && !a.bool("query") {
+        return Ok(json!(name.as_deref().is_some_and(|n| with_model(|m| m.find(n).is_some_and(|i| m.get(i).is_some_and(|c| c.kind == "timeControl"))))));
+    }
+    let id = with_model(|m| m.find(TIME_SLIDER)).ok_or_else(|| aztek_ops::CommandError::new("timeControl: the time slider is missing"))?;
+    if a.bool("query") {
+        let mut asked: Vec<String> = a.get("queried").and_then(Value::as_array).map(|q| q.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+        for k in a.flags.keys() {
+            if !matches!(k.as_str(), "query" | "queried") && !asked.contains(k) {
+                asked.push(k.clone());
+            }
+        }
+        let Some(first) = asked.first().cloned() else { fail!("timeControl: name what to ask about.") };
+        if TIME_SCENE_FLAGS.contains(&first.as_str()) {
+            return scene(s, a);
+        }
+        if first == "animCurveNames" {
+            return time_control_curves(s, id, scene);
+        }
+        if first == "exists" {
+            return Ok(json!(true));
+        }
+        return Ok(with_model(|m| query(m, id, &first)));
+    }
+    // Edit, or create, which edits the one there is.
+    let mut scene_args = Args { positional: a.positional.clone(), flags: Map::new() };
+    let mut own = Map::new();
+    for (k, v) in &a.flags {
+        if TIME_SCENE_FLAGS.contains(&k.as_str()) {
+            scene_args.flags.insert(k.clone(), v.clone());
+        } else if !matches!(k.as_str(), "edit" | "query" | "queried") {
+            own.insert(k.clone(), v.clone());
+        }
+    }
+    // The sound shown is the scene's; the control keeps it too, for -soundSource.
+    for k in ["sound", "displaySound"] {
+        if let Some(v) = a.get(k) {
+            own.insert(k.to_string(), v.clone());
+        }
+    }
+    if let Some(v) = a.get("soundSource").and_then(Value::as_str) {
+        if !v.starts_with('<') {
+            scene_args.flags.insert("sound".into(), json!(v));
+        }
+    }
+    if !scene_args.flags.is_empty() {
+        scene_args.flags.insert("edit".into(), json!(true));
+        scene(s, &scene_args)?;
+    }
+    let path = with_model(|m| -> Result<String, String> {
+        let changed = apply(m, id, &own)?;
+        let c = m.get(id).unwrap();
+        if !changed.is_empty() {
+            op(json!({"op": "edit", "path": c.path, "props": changed}));
+        }
+        Ok(c.path.clone())
+    })
+    .map_err(aztek_ops::CommandError::new)?;
+    Ok(json!(path))
+}
+
+/// timeControl -q -animCurveNames: the curves whose keys the slider shows, from its main list connection, or the
+/// selection; none when -showKeys is none.
+fn time_control_curves(s: &mut Session, id: Id, scene: &aztek_ops::RunFn<Session>) -> CmdResult {
+    let shown = scene(s, &Args { positional: Vec::new(), flags: [("query".to_string(), json!(true)), ("queried".to_string(), json!(["showKeys"]))].into_iter().collect() })?;
+    if shown.as_str() == Some("none") {
+        return Ok(json!([]));
+    }
+    let conn = with_model(|m| m.get(id).and_then(|c| c.props.get("mainListConnection")).map(text)).unwrap_or_default();
+    let objects: Vec<String> = if conn.is_empty() { s.graph.selection().iter().map(|&i| s.graph.path(i)).collect() } else { crate::script_objects::connection_objects(&conn).unwrap_or_default() };
+    if objects.is_empty() {
+        return Ok(json!([]));
+    }
+    let r = s.run("keyframe", json!({"args": objects, "query": true, "name": true})).unwrap_or(json!([]));
+    Ok(r)
+}
+
+fn register_time_control(s: &mut Session) {
+    let Some(base) = s.commands.find("timeControl").cloned() else { return };
+    let scene = base.run.clone();
+    let mut c = Cmd::new(
+        "timeControl",
+        "The time slider, the one timeControl ($gPlayBackSlider): the range picked on it (-q -ra, -q -rng, -q -rv), its key display and \
+         snapping, the sound it shows and how, its colours, and scripts run on mouse down and up. -q -acn lists the curves whose keys it shows.",
+        move |s, a| time_control(s, a, &scene),
+    )
+    .positional("the slider's name ($gPlayBackSlider)")
+    .undoable(false);
+    for fl in &base.flags {
+        // The scene's flags, but with the reference's short names where they differ.
+        let mut fl = fl.clone();
+        match fl.name.as_str() {
+            "snap" => fl.short_name = "sn".into(),
+            "forceRedraw" | "beginScrub" | "endScrub" | "minTime" | "maxTime" => continue,
+            _ => {}
+        }
+        if fl.name == "tickSize" {
+            fl.ty = ArgType::Int;
+        }
+        c = c.flag(fl);
+    }
+    c = add_flags(c, TIME_CONTROL_FLAGS);
+    c = add_flags(c, SOUND_FLAGS);
+    c = add_flags(c, COMMON);
+    s.register(c);
+}
+
 pub fn register(s: &mut Session) {
+    register_time_control(s);
+    s.register(
+        Cmd::new(
+            "aztekTimeControlState",
+            "For the main window's time slider: what timeControl set on it, as one object (colours 0 to 1, the waveform part, \
+             whether it drives the scene's time, snapping, tick span and width, shown and enabled).",
+            |s, _a| {
+                let q = |s: &mut Session, flag: &str| s.run("timeControl", json!({"query": true, "queried": [flag]})).unwrap_or(Value::Null);
+                let (snap, tick, ds) = (q(s, "snap"), q(s, "tickSize"), q(s, "displaySound"));
+                Ok(with_model(|m| {
+                    let Some(id) = m.find(TIME_SLIDER) else { return Value::Null };
+                    let mut o = Map::new();
+                    for k in ["currentFrameColor", "foregroundColor", "backgroundColor", "waveform", "globalTime", "tickSpan", "enable", "visible", "manage", "repeatOnHold", "repeatChunkSize", "scrubbing", "redraws", "annotation"] {
+                        o.insert(k.to_string(), query(m, id, k));
+                    }
+                    let c = m.get(id).unwrap();
+                    o.insert("enableBackground".into(), json!(c.props.contains_key("backgroundColor") && c.props.get("enableBackground").is_none_or(truth) && !c.props.get("noBackground").is_some_and(truth)));
+                    o.insert("path".into(), json!(c.path));
+                    o.insert("snap".into(), snap);
+                    o.insert("tickSize".into(), tick);
+                    o.insert("displaySound".into(), ds);
+                    Value::Object(o)
+                }))
+            },
+        )
+        .undoable(false),
+    );
+    s.register(
+        Cmd::new("pause", "Wait the given number of seconds before the script goes on: for demos and tests, to see what it did.", |_s, a| {
+            let secs = a.get("seconds").and_then(Value::as_f64).unwrap_or(0.0);
+            if secs > 0.0 {
+                std::thread::sleep(std::time::Duration::from_secs_f64(secs.min(86_400.0)));
+            }
+            Ok(Value::Null)
+        })
+        .flag(FlagDef::new("seconds", "sec", ArgType::Int, Value::Null, "How many seconds to wait."))
+        .undoable(true),
+    );
     for (name, spec) in KINDS {
         let cmd: &'static str = name;
         let mut c = Cmd::new(cmd, &format!("Script UI: {cmd}, with create, edit and query as in the reference's command."), move |s, a| {

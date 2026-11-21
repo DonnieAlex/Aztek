@@ -93,6 +93,9 @@ public:
     bool bookmarks_shown = true;
     // The range picked with Shift-drag, or the current frame when there is none.
     std::pair<double, double> picked_range() const;
+    // What timeControl set on it: colours, waveform part, snapping, tick span, whether it drives the scene's time, and
+    // whether it shows; read again when the scene changes.
+    void refresh_state();
 signals:
     void timeChanged(double t);
     // A bookmark Ctrl-dragged: its node, new first and last frame.
@@ -122,9 +125,43 @@ private:
     int bm_drag_ = -1, bm_part_ = 0;
     double bm_from_ = 0, bm_by_ = 0;
     int bookmark_at(double x, int* part) const;
+    // timeControl's settings (refresh_state).
+    QColor cur_color_{210, 210, 210, 120}, fg_color_{150, 150, 150}, bg_color_{45, 45, 45};
+    QString waveform_ = "top", path_ = "timeControl1";
+    int tick_span_ = 1;
+    bool global_time_ = true, snap_ = true, enabled_ = true;
+    void fire(const char* flag);
 protected:
     bool event(QEvent* e) override;
 };
+
+// The waveform of one sound over a range of frames, with the current time: soundControl's widget. A press or drag
+// moves the time; press and release report through the signals.
+class SoundStrip : public QWidget {
+    Q_OBJECT
+public:
+    explicit SoundStrip(QWidget* parent = nullptr);
+    QString sound, waveform = "top";
+    bool shown = true;
+    double min_time = 1, max_time = 120;
+    bool range_set = false;
+signals:
+    void pressed(double frame);
+    void dragged(double frame);
+    void released(double frame);
+protected:
+    void paintEvent(QPaintEvent*) override;
+    void mousePressEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
+private:
+    double frame_at(int x) const;
+    std::pair<double, double> span() const;
+};
+
+// Draws a waveform's columns, each bucket's lowest and highest sample, in a band: part is top (the samples above
+// zero, up from the bottom), bottom (those below, down from the top) or both (round the middle).
+void draw_waveform(QPainter& p, const QJsonArray& peaks, const QRectF& band, const QString& part, const QColor& c);
 
 // The bar under the time slider: the playback range inside the animation range, dragged by its ends or middle.
 class RangeSlider : public QWidget {

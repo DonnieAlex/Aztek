@@ -399,7 +399,7 @@ fn time_control(s: &Session, a: &Args) -> CmdResult {
         } else if queried(a, &["animLayerShowWeight"]) {
             json!(st.layer_weight)
         } else if queried(a, &["tickSize"]) {
-            json!(st.tick_size)
+            json!(st.tick_size as i64)
         } else if queried(a, &["minTime"]) {
             anim::frame_json(r.min)
         } else if queried(a, &["maxTime"]) {
@@ -433,7 +433,8 @@ fn time_control(s: &Session, a: &Args) -> CmdResult {
         st.layer_weight = v;
     }
     if let Some(v) = a.get("tickSize").and_then(Value::as_f64) {
-        st.tick_size = v;
+        // Ticks are 1 to 63 wide.
+        st.tick_size = v.round().clamp(1.0, 63.0);
     }
     *SLIDER.lock().unwrap() = Some(st);
     Ok(Value::Null)
@@ -540,17 +541,17 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("range", "rng", ArgType::Bool, "Query: the selected range as a string."))
         .flag(f("rangeVisible", "rv", ArgType::Bool, "Query: whether a range is selected."))
         .flag(f("showKeys", "sk", ArgType::String, "Whose keys show: active, none or a selection connection."))
-        .flag(f("snap", "snp", ArgType::Bool, "Snap to whole frames."))
+        .flag(f("snap", "sn", ArgType::Bool, "Snap to whole frames."))
         .flag(f("showKeysCombined", "skc", ArgType::Bool, "Show the keys of all the attributes as one row."))
         .flag(f("animLayerShowWeight", "asw", ArgType::Bool, "Show the current animation layer's weight keys."))
-        .flag(f("tickSize", "ts", ArgType::Float, "How wide ticks are drawn."))
+        .flag(f("tickSize", "ts", ArgType::Int, "How wide ticks are drawn, 1 to 63."))
         .flag(f("minTime", "min", ArgType::Bool, "Query: the playback start."))
         .flag(f("maxTime", "max", ArgType::Bool, "Query: the playback end."))
         .flag(f("sound", "s", ArgType::String, "The sound (audio node) the slider shows the waveform of; empty for none."))
         .flag(f("displaySound", "ds", ArgType::Bool, "Show the sound's waveform."))
         .flag(f("beginScrub", "bs", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("endScrub", "es", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("forceRedraw", "fr", ArgType::Bool, "Accepted for existing scripts."))
+        .flag(f("forceRedraw", "fd", ArgType::Bool, "Draw it again."))
         .undoable(false),
     );
 

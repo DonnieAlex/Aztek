@@ -265,10 +265,14 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         CommandDef::<Session>::new(
             "aztekSoundPeaks",
-            "For the time slider: the waveform of the sound timeControl shows, from -start to -end frame in -count buckets, \
-             each bucket's lowest and highest sample. Empty when no sound is shown.",
+            "For the time slider: the waveform of the sound timeControl shows (or -sound's), from -start to -end frame in -count \
+             buckets, each bucket's lowest and highest sample. Empty when no sound is shown.",
             |s, a| {
-                let (name, shown) = displayed();
+                // -sound: that sound, as a soundControl shows it; else the time slider's.
+                let (name, shown) = match a.get("sound").and_then(Value::as_str) {
+                    Some(n) => (n.to_string(), true),
+                    None => displayed(),
+                };
                 if !shown || name.is_empty() {
                     return Ok(json!([]));
                 }
@@ -280,6 +284,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("start", "s", ArgType::Float, Value::Null, "First frame."))
         .flag(FlagDef::new("end", "e", ArgType::Float, Value::Null, "Last frame."))
         .flag(FlagDef::new("count", "c", ArgType::Int, Value::Null, "Buckets."))
+        .flag(FlagDef::new("sound", "snd", ArgType::String, Value::Null, "The sound (audio node) to read, instead of the time slider's."))
         .undoable(false),
     );
 }

@@ -108,6 +108,7 @@ impl Core {
         crate::ee_listen::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
+        c.mel_state.set_global_string("gPlayBackSlider", crate::scriptui::TIME_SLIDER);
         c.ensure_defaults();
         #[cfg(feature = "python")]
         crate::python::register_commands(&mut c.s);

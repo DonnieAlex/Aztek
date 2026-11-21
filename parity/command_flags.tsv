@@ -22742,10 +22742,10 @@ partition	re	done	auto
 partition	removeSet	done	auto
 partition	render	done	auto
 partition	rm	done	auto
-pasteKey	al	missing	
-pasteKey	an	missing	
-pasteKey	animLayer	missing	
-pasteKey	animation	missing	
+pasteKey	al	done	auto
+pasteKey	an	done	auto
+pasteKey	animLayer	done	auto
+pasteKey	animation	done	auto
 pasteKey	at	done	auto
 pasteKey	attribute	done	auto
 pasteKey	c	done	auto
@@ -22754,19 +22754,19 @@ pasteKey	clipboard	done	auto
 pasteKey	connect	done	auto
 pasteKey	copies	done	auto
 pasteKey	cp	done	auto
-pasteKey	f	missing	
-pasteKey	float	missing	
-pasteKey	floatOffset	missing	
-pasteKey	fo	missing	
-pasteKey	includeUpperBound	missing	
-pasteKey	index	missing	
-pasteKey	iub	missing	
-pasteKey	matchByName	missing	
-pasteKey	mn	missing	
+pasteKey	f	done	auto
+pasteKey	float	done	auto
+pasteKey	floatOffset	done	auto
+pasteKey	fo	done	auto
+pasteKey	includeUpperBound	done	auto
+pasteKey	index	done	auto
+pasteKey	iub	done	auto
+pasteKey	matchByName	done	auto
+pasteKey	mn	done	auto
 pasteKey	o	done	auto
 pasteKey	option	done	auto
-pasteKey	selectPasted	missing	
-pasteKey	sp	missing	
+pasteKey	selectPasted	done	auto
+pasteKey	sp	done	auto
 pasteKey	t	done	auto
 pasteKey	time	done	auto
 pasteKey	timeOffset	done	auto
@@ -22814,8 +22814,8 @@ pathAnimation	worldUpVector	done	auto
 pathAnimation	wu	done	auto
 pathAnimation	wuo	done	auto
 pathAnimation	wut	done	auto
-pause	sec	missing	
-pause	seconds	missing	
+pause	sec	done	auto
+pause	seconds	done	auto
 perCameraVisibility	c	missing	
 perCameraVisibility	camera	missing	
 perCameraVisibility	ex	missing	
@@ -30463,35 +30463,35 @@ scaleConstraint	weight	done	auto
 scaleConstraint	weightAliasList	done	auto
 scaleKey	an	done	auto
 scaleKey	animation	done	auto
-scaleKey	asp	missing	
+scaleKey	asp	done	auto
 scaleKey	at	done	auto
 scaleKey	attribute	done	auto
-scaleKey	autoSnap	missing	
+scaleKey	autoSnap	done	auto
 scaleKey	controlPoints	done	auto
 scaleKey	cp	done	auto
 scaleKey	f	done	auto
 scaleKey	float	done	auto
-scaleKey	floatPivot	missing	
-scaleKey	floatScale	missing	
-scaleKey	fp	missing	
-scaleKey	fs	missing	
+scaleKey	floatPivot	done	auto
+scaleKey	floatScale	done	auto
+scaleKey	fp	done	auto
+scaleKey	fs	done	auto
 scaleKey	hi	done	auto
 scaleKey	hierarchy	done	auto
 scaleKey	includeUpperBound	done	auto
 scaleKey	index	done	auto
 scaleKey	iub	done	auto
-scaleKey	nef	missing	
-scaleKey	net	missing	
-scaleKey	newEndFloat	missing	
-scaleKey	newEndTime	missing	
-scaleKey	newStartFloat	missing	
-scaleKey	newStartTime	missing	
-scaleKey	nsf	missing	
-scaleKey	nst	missing	
+scaleKey	nef	done	auto
+scaleKey	net	done	auto
+scaleKey	newEndFloat	done	auto
+scaleKey	newEndTime	done	auto
+scaleKey	newStartFloat	done	auto
+scaleKey	newStartTime	done	auto
+scaleKey	nsf	done	auto
+scaleKey	nst	done	auto
 scaleKey	s	done	auto
-scaleKey	scaleSpecifiedKeys	missing	
+scaleKey	scaleSpecifiedKeys	done	auto
 scaleKey	shape	done	auto
-scaleKey	ssk	missing	
+scaleKey	ssk	done	auto
 scaleKey	t	done	auto
 scaleKey	time	done	auto
 scaleKey	timePivot	done	auto
@@ -32330,10 +32330,10 @@ setAttrMapping	sl	done	auto
 setDrivenKeyframe	at	done	auto
 setDrivenKeyframe	attribute	done	auto
 setDrivenKeyframe	cd	done	auto
-setDrivenKeyframe	cnt	missing	
-setDrivenKeyframe	controlPoints	missing	
-setDrivenKeyframe	count	missing	
-setDrivenKeyframe	cp	missing	
+setDrivenKeyframe	cnt	done	auto
+setDrivenKeyframe	controlPoints	done	auto
+setDrivenKeyframe	count	done	auto
+setDrivenKeyframe	cp	done	auto
 setDrivenKeyframe	currentDriver	done	auto
 setDrivenKeyframe	dn	done	auto
 setDrivenKeyframe	dr	done	auto
@@ -32341,20 +32341,20 @@ setDrivenKeyframe	driven	done	auto
 setDrivenKeyframe	driver	done	auto
 setDrivenKeyframe	driverValue	done	auto
 setDrivenKeyframe	dv	done	auto
-setDrivenKeyframe	hi	missing	
-setDrivenKeyframe	hierarchy	missing	
-setDrivenKeyframe	i	missing	
-setDrivenKeyframe	ib	missing	
+setDrivenKeyframe	hi	done	auto
+setDrivenKeyframe	hierarchy	done	auto
+setDrivenKeyframe	i	done	auto
+setDrivenKeyframe	ib	done	auto
 setDrivenKeyframe	inTangentType	done	auto
-setDrivenKeyframe	insert	missing	
-setDrivenKeyframe	insertBlend	missing	
+setDrivenKeyframe	insert	done	auto
+setDrivenKeyframe	insertBlend	done	auto
 setDrivenKeyframe	itt	done	auto
 setDrivenKeyframe	ott	done	auto
 setDrivenKeyframe	outTangentType	done	auto
 setDrivenKeyframe	q	done	auto
 setDrivenKeyframe	query	done	auto
-setDrivenKeyframe	s	missing	
-setDrivenKeyframe	shape	missing	
+setDrivenKeyframe	s	done	auto
+setDrivenKeyframe	shape	done	auto
 setDrivenKeyframe	v	done	auto
 setDrivenKeyframe	value	done	auto
 setDynamic	all	missing	
@@ -32443,54 +32443,54 @@ setKeyCtx	preserveTangent	missing
 setKeyCtx	pt	missing	
 setKeyCtx	q	done	auto
 setKeyCtx	query	done	auto
-setKeyframe	adjustTangent	missing	
-setKeyframe	adt	missing	
+setKeyframe	adjustTangent	done	auto
+setKeyframe	adt	done	auto
 setKeyframe	al	done	auto
-setKeyframe	an	missing	
+setKeyframe	an	done	auto
 setKeyframe	animLayer	done	auto
-setKeyframe	animated	missing	
+setKeyframe	animated	done	auto
 setKeyframe	at	done	auto
 setKeyframe	attribute	done	auto
 setKeyframe	bd	done	auto
 setKeyframe	breakdown	done	auto
-setKeyframe	c	missing	
-setKeyframe	clip	missing	
+setKeyframe	c	done	auto
+setKeyframe	clip	done	auto
 setKeyframe	controlPoints	done	auto
 setKeyframe	cp	done	auto
 setKeyframe	dd	done	auto
 setKeyframe	dirtyDG	done	auto
-setKeyframe	e	missing	
-setKeyframe	edit	missing	
+setKeyframe	e	done	auto
+setKeyframe	edit	done	auto
 setKeyframe	f	done	auto
 setKeyframe	float	done	auto
 setKeyframe	hi	done	auto
 setKeyframe	hierarchy	done	auto
 setKeyframe	i	done	auto
-setKeyframe	ib	missing	
+setKeyframe	ib	done	auto
 setKeyframe	id	done	auto
 setKeyframe	identity	done	auto
 setKeyframe	inTangentType	done	auto
 setKeyframe	insert	done	auto
-setKeyframe	insertBlend	missing	
+setKeyframe	insertBlend	done	auto
 setKeyframe	itt	done	auto
-setKeyframe	lw	missing	
+setKeyframe	lw	done	auto
 setKeyframe	minimizeRotation	done	auto
 setKeyframe	mr	done	auto
 setKeyframe	noResolve	done	auto
 setKeyframe	nr	done	auto
 setKeyframe	ott	done	auto
 setKeyframe	outTangentType	done	auto
-setKeyframe	pcs	missing	
-setKeyframe	preserveCurveShape	missing	
-setKeyframe	q	missing	
-setKeyframe	query	missing	
+setKeyframe	pcs	done	auto
+setKeyframe	preserveCurveShape	done	auto
+setKeyframe	q	done	auto
+setKeyframe	query	done	auto
 setKeyframe	respectKeyable	done	auto
 setKeyframe	rk	done	auto
 setKeyframe	s	done	auto
 setKeyframe	shape	done	auto
 setKeyframe	t	done	auto
 setKeyframe	time	done	auto
-setKeyframe	useCurrentLockedWeights	missing	
+setKeyframe	useCurrentLockedWeights	done	auto
 setKeyframe	v	done	auto
 setKeyframe	value	done	auto
 setNodeTypeFlag	display	missing	
@@ -33654,8 +33654,8 @@ snapKey	hierarchy	done	auto
 snapKey	includeUpperBound	done	auto
 snapKey	index	done	auto
 snapKey	iub	done	auto
-snapKey	md	missing	
-snapKey	mergeDuplicate	missing	
+snapKey	md	done	auto
+snapKey	mergeDuplicate	done	auto
 snapKey	s	done	auto
 snapKey	shape	done	auto
 snapKey	t	done	auto
@@ -33718,12 +33718,12 @@ snapTogetherCtx	setOrientation	done	auto
 snapTogetherCtx	snapPolygonFace	done	auto
 snapTogetherCtx	so	done	auto
 snapTogetherCtx	spf	done	auto
-snapshot	anchorTransform	missing	
-snapshot	at	missing	
+snapshot	anchorTransform	done	auto
+snapshot	at	done	auto
 snapshot	ch	done	auto
 snapshot	constructionHistory	done	auto
-snapshot	e	missing	
-snapshot	edit	missing	
+snapshot	e	done	auto
+snapshot	edit	done	auto
 snapshot	endTime	done	auto
 snapshot	et	done	auto
 snapshot	i	done	auto
@@ -33732,10 +33732,10 @@ snapshot	motionTrail	done	auto
 snapshot	mt	done	auto
 snapshot	n	done	auto
 snapshot	name	done	auto
-snapshot	offsetParentMatrix	missing	
-snapshot	opm	missing	
-snapshot	q	missing	
-snapshot	query	missing	
+snapshot	offsetParentMatrix	done	auto
+snapshot	opm	done	auto
+snapshot	q	done	auto
+snapshot	query	done	auto
 snapshot	st	done	auto
 snapshot	startTime	done	auto
 snapshot	u	done	auto
@@ -33929,134 +33929,134 @@ sound	se	done	auto
 sound	sourceEnd	done	auto
 sound	sourceStart	done	auto
 sound	ss	done	auto
-soundControl	ann	missing	
-soundControl	annotation	missing	
-soundControl	backgroundColor	missing	
-soundControl	beginScrub	missing	
-soundControl	bgc	missing	
-soundControl	bs	missing	
-soundControl	defineTemplate	missing	
-soundControl	dgc	missing	
-soundControl	displaySound	missing	
-soundControl	docTag	missing	
-soundControl	dpc	missing	
-soundControl	dragCallback	missing	
-soundControl	dropCallback	missing	
-soundControl	ds	missing	
-soundControl	dt	missing	
-soundControl	dtg	missing	
-soundControl	e	missing	
-soundControl	ebg	missing	
-soundControl	edit	missing	
-soundControl	ekf	missing	
-soundControl	en	missing	
-soundControl	enable	missing	
-soundControl	enableBackground	missing	
-soundControl	enableKeyboardFocus	missing	
-soundControl	endScrub	missing	
-soundControl	es	missing	
-soundControl	ex	missing	
-soundControl	exists	missing	
-soundControl	fpn	missing	
-soundControl	fullPathName	missing	
-soundControl	h	missing	
-soundControl	height	missing	
-soundControl	highlightColor	missing	
-soundControl	hlc	missing	
-soundControl	io	missing	
-soundControl	isObscured	missing	
-soundControl	m	missing	
-soundControl	manage	missing	
-soundControl	max	missing	
-soundControl	maxTime	missing	
-soundControl	min	missing	
-soundControl	minTime	missing	
-soundControl	nbg	missing	
-soundControl	noBackground	missing	
-soundControl	npm	missing	
-soundControl	numberOfPopupMenus	missing	
-soundControl	p	missing	
-soundControl	parent	missing	
-soundControl	pc	missing	
-soundControl	pma	missing	
-soundControl	po	missing	
-soundControl	popupMenuArray	missing	
-soundControl	pressCommand	missing	
-soundControl	preventOverride	missing	
-soundControl	q	missing	
-soundControl	query	missing	
-soundControl	r	missing	
-soundControl	rc	missing	
-soundControl	rcs	missing	
-soundControl	releaseCommand	missing	
-soundControl	repeatChunkSize	missing	
-soundControl	repeatOnHold	missing	
-soundControl	resample	missing	
-soundControl	roh	missing	
-soundControl	s	missing	
-soundControl	sbm	missing	
-soundControl	sound	missing	
-soundControl	statusBarMessage	missing	
-soundControl	useTemplate	missing	
-soundControl	ut	missing	
-soundControl	vcc	missing	
-soundControl	vis	missing	
-soundControl	visible	missing	
-soundControl	visibleChangeCommand	missing	
-soundControl	w	missing	
-soundControl	waveform	missing	
-soundControl	wf	missing	
-soundControl	width	missing	
-soundPopup	ann	missing	
-soundPopup	annotation	missing	
-soundPopup	backgroundColor	missing	
-soundPopup	bgc	missing	
-soundPopup	defineTemplate	missing	
-soundPopup	dgc	missing	
-soundPopup	docTag	missing	
-soundPopup	dpc	missing	
-soundPopup	dragCallback	missing	
-soundPopup	dropCallback	missing	
-soundPopup	dt	missing	
-soundPopup	dtg	missing	
-soundPopup	ebg	missing	
-soundPopup	ekf	missing	
-soundPopup	en	missing	
-soundPopup	enable	missing	
-soundPopup	enableBackground	missing	
-soundPopup	enableKeyboardFocus	missing	
-soundPopup	ex	missing	
-soundPopup	exists	missing	
-soundPopup	fpn	missing	
-soundPopup	fullPathName	missing	
-soundPopup	h	missing	
-soundPopup	height	missing	
-soundPopup	highlightColor	missing	
-soundPopup	hlc	missing	
-soundPopup	io	missing	
-soundPopup	isObscured	missing	
-soundPopup	m	missing	
-soundPopup	manage	missing	
-soundPopup	nbg	missing	
-soundPopup	noBackground	missing	
-soundPopup	npm	missing	
-soundPopup	numberOfPopupMenus	missing	
-soundPopup	p	missing	
-soundPopup	parent	missing	
-soundPopup	pma	missing	
-soundPopup	po	missing	
-soundPopup	popupMenuArray	missing	
-soundPopup	preventOverride	missing	
-soundPopup	sbm	missing	
-soundPopup	statusBarMessage	missing	
-soundPopup	useTemplate	missing	
-soundPopup	ut	missing	
-soundPopup	vcc	missing	
-soundPopup	vis	missing	
-soundPopup	visible	missing	
-soundPopup	visibleChangeCommand	missing	
-soundPopup	w	missing	
-soundPopup	width	missing	
+soundControl	ann	done	auto
+soundControl	annotation	done	auto
+soundControl	backgroundColor	done	auto
+soundControl	beginScrub	done	auto
+soundControl	bgc	done	auto
+soundControl	bs	done	auto
+soundControl	defineTemplate	done	auto
+soundControl	dgc	done	auto
+soundControl	displaySound	done	auto
+soundControl	docTag	done	auto
+soundControl	dpc	done	auto
+soundControl	dragCallback	done	auto
+soundControl	dropCallback	done	auto
+soundControl	ds	done	auto
+soundControl	dt	done	auto
+soundControl	dtg	done	auto
+soundControl	e	done	auto
+soundControl	ebg	done	auto
+soundControl	edit	done	auto
+soundControl	ekf	done	auto
+soundControl	en	done	auto
+soundControl	enable	done	auto
+soundControl	enableBackground	done	auto
+soundControl	enableKeyboardFocus	done	auto
+soundControl	endScrub	done	auto
+soundControl	es	done	auto
+soundControl	ex	done	auto
+soundControl	exists	done	auto
+soundControl	fpn	done	auto
+soundControl	fullPathName	done	auto
+soundControl	h	done	auto
+soundControl	height	done	auto
+soundControl	highlightColor	done	auto
+soundControl	hlc	done	auto
+soundControl	io	done	auto
+soundControl	isObscured	done	auto
+soundControl	m	done	auto
+soundControl	manage	done	auto
+soundControl	max	done	auto
+soundControl	maxTime	done	auto
+soundControl	min	done	auto
+soundControl	minTime	done	auto
+soundControl	nbg	done	auto
+soundControl	noBackground	done	auto
+soundControl	npm	done	auto
+soundControl	numberOfPopupMenus	done	auto
+soundControl	p	done	auto
+soundControl	parent	done	auto
+soundControl	pc	done	auto
+soundControl	pma	done	auto
+soundControl	po	done	auto
+soundControl	popupMenuArray	done	auto
+soundControl	pressCommand	done	auto
+soundControl	preventOverride	done	auto
+soundControl	q	done	auto
+soundControl	query	done	auto
+soundControl	r	done	auto
+soundControl	rc	done	auto
+soundControl	rcs	done	auto
+soundControl	releaseCommand	done	auto
+soundControl	repeatChunkSize	done	auto
+soundControl	repeatOnHold	done	auto
+soundControl	resample	done	auto
+soundControl	roh	done	auto
+soundControl	s	done	auto
+soundControl	sbm	done	auto
+soundControl	sound	done	auto
+soundControl	statusBarMessage	done	auto
+soundControl	useTemplate	done	auto
+soundControl	ut	done	auto
+soundControl	vcc	done	auto
+soundControl	vis	done	auto
+soundControl	visible	done	auto
+soundControl	visibleChangeCommand	done	auto
+soundControl	w	done	auto
+soundControl	waveform	done	auto
+soundControl	wf	done	auto
+soundControl	width	done	auto
+soundPopup	ann	done	auto
+soundPopup	annotation	done	auto
+soundPopup	backgroundColor	done	auto
+soundPopup	bgc	done	auto
+soundPopup	defineTemplate	done	auto
+soundPopup	dgc	done	auto
+soundPopup	docTag	done	auto
+soundPopup	dpc	done	auto
+soundPopup	dragCallback	done	auto
+soundPopup	dropCallback	done	auto
+soundPopup	dt	done	auto
+soundPopup	dtg	done	auto
+soundPopup	ebg	done	auto
+soundPopup	ekf	done	auto
+soundPopup	en	done	auto
+soundPopup	enable	done	auto
+soundPopup	enableBackground	done	auto
+soundPopup	enableKeyboardFocus	done	auto
+soundPopup	ex	done	auto
+soundPopup	exists	done	auto
+soundPopup	fpn	done	auto
+soundPopup	fullPathName	done	auto
+soundPopup	h	done	auto
+soundPopup	height	done	auto
+soundPopup	highlightColor	done	auto
+soundPopup	hlc	done	auto
+soundPopup	io	done	auto
+soundPopup	isObscured	done	auto
+soundPopup	m	done	auto
+soundPopup	manage	done	auto
+soundPopup	nbg	done	auto
+soundPopup	noBackground	done	auto
+soundPopup	npm	done	auto
+soundPopup	numberOfPopupMenus	done	auto
+soundPopup	p	done	auto
+soundPopup	parent	done	auto
+soundPopup	pma	done	auto
+soundPopup	po	done	auto
+soundPopup	popupMenuArray	done	auto
+soundPopup	preventOverride	done	auto
+soundPopup	sbm	done	auto
+soundPopup	statusBarMessage	done	auto
+soundPopup	useTemplate	done	auto
+soundPopup	ut	done	auto
+soundPopup	vcc	done	auto
+soundPopup	vis	done	auto
+soundPopup	visible	done	auto
+soundPopup	visibleChangeCommand	done	auto
+soundPopup	w	done	auto
+soundPopup	width	done	auto
 spaceLocator	a	done	auto
 spaceLocator	absolute	done	auto
 spaceLocator	e	done	auto
@@ -37024,114 +37024,114 @@ timeCode	psm	done	auto
 timeCode	pss	done	auto
 timeCode	q	done	auto
 timeCode	query	done	auto
-timeControl	acn	missing	
-timeControl	alf	missing	
-timeControl	animCurveNames	missing	
-timeControl	animLayerFilterOptions	missing	
+timeControl	acn	done	auto
+timeControl	alf	done	auto
+timeControl	animCurveNames	done	auto
+timeControl	animLayerFilterOptions	done	auto
 timeControl	animLayerShowWeight	done	auto
-timeControl	ann	missing	
-timeControl	annotation	missing	
+timeControl	ann	done	auto
+timeControl	annotation	done	auto
 timeControl	asw	done	auto
-timeControl	backgroundColor	missing	
+timeControl	backgroundColor	done	auto
 timeControl	beginScrub	done	auto
-timeControl	bgc	missing	
+timeControl	bgc	done	auto
 timeControl	bs	done	auto
-timeControl	cfc	missing	
-timeControl	currentFrameColor	missing	
-timeControl	defineTemplate	missing	
-timeControl	dgc	missing	
+timeControl	cfc	done	auto
+timeControl	currentFrameColor	done	auto
+timeControl	defineTemplate	done	auto
+timeControl	dgc	done	auto
 timeControl	displaySound	done	auto
-timeControl	docTag	missing	
-timeControl	dpc	missing	
-timeControl	dragCallback	missing	
-timeControl	dropCallback	missing	
+timeControl	docTag	done	auto
+timeControl	dpc	done	auto
+timeControl	dragCallback	done	auto
+timeControl	dropCallback	done	auto
 timeControl	ds	done	auto
-timeControl	dt	missing	
-timeControl	dtg	missing	
+timeControl	dt	done	auto
+timeControl	dtg	done	auto
 timeControl	e	done	auto
-timeControl	ebg	missing	
+timeControl	ebg	done	auto
 timeControl	edit	done	auto
-timeControl	ekf	missing	
-timeControl	en	missing	
-timeControl	enable	missing	
-timeControl	enableBackground	missing	
-timeControl	enableKeyboardFocus	missing	
+timeControl	ekf	done	auto
+timeControl	en	done	auto
+timeControl	enable	done	auto
+timeControl	enableBackground	done	auto
+timeControl	enableKeyboardFocus	done	auto
 timeControl	endScrub	done	auto
 timeControl	es	done	auto
-timeControl	ex	missing	
-timeControl	exists	missing	
-timeControl	fd	missing	
-timeControl	fgc	missing	
+timeControl	ex	done	auto
+timeControl	exists	done	auto
+timeControl	fd	done	auto
+timeControl	fgc	done	auto
 timeControl	forceRedraw	done	auto
-timeControl	forceRefresh	missing	
-timeControl	foregroundColor	missing	
-timeControl	fpn	missing	
+timeControl	forceRefresh	done	auto
+timeControl	foregroundColor	done	auto
+timeControl	fpn	done	auto
 timeControl	fr	done	auto
-timeControl	fullPathName	missing	
-timeControl	globalTime	missing	
-timeControl	gt	missing	
-timeControl	h	missing	
-timeControl	height	missing	
-timeControl	highlightColor	missing	
-timeControl	hlc	missing	
-timeControl	io	missing	
-timeControl	isObscured	missing	
-timeControl	m	missing	
-timeControl	mainListConnection	missing	
-timeControl	manage	missing	
-timeControl	mlc	missing	
-timeControl	nbg	missing	
-timeControl	noBackground	missing	
-timeControl	npm	missing	
-timeControl	numberOfPopupMenus	missing	
-timeControl	p	missing	
-timeControl	parent	missing	
-timeControl	pc	missing	
-timeControl	pma	missing	
-timeControl	po	missing	
-timeControl	popupMenuArray	missing	
-timeControl	pressCommand	missing	
-timeControl	preventOverride	missing	
+timeControl	fullPathName	done	auto
+timeControl	globalTime	done	auto
+timeControl	gt	done	auto
+timeControl	h	done	auto
+timeControl	height	done	auto
+timeControl	highlightColor	done	auto
+timeControl	hlc	done	auto
+timeControl	io	done	auto
+timeControl	isObscured	done	auto
+timeControl	m	done	auto
+timeControl	mainListConnection	done	auto
+timeControl	manage	done	auto
+timeControl	mlc	done	auto
+timeControl	nbg	done	auto
+timeControl	noBackground	done	auto
+timeControl	npm	done	auto
+timeControl	numberOfPopupMenus	done	auto
+timeControl	p	done	auto
+timeControl	parent	done	auto
+timeControl	pc	done	auto
+timeControl	pma	done	auto
+timeControl	po	done	auto
+timeControl	popupMenuArray	done	auto
+timeControl	pressCommand	done	auto
+timeControl	preventOverride	done	auto
 timeControl	q	done	auto
 timeControl	query	done	auto
-timeControl	r	missing	
+timeControl	r	done	auto
 timeControl	ra	done	auto
 timeControl	range	done	auto
 timeControl	rangeArray	done	auto
 timeControl	rangeVisible	done	auto
-timeControl	rc	missing	
-timeControl	rcs	missing	
-timeControl	releaseCommand	missing	
-timeControl	repeatChunkSize	missing	
-timeControl	repeatOnHold	missing	
-timeControl	resample	missing	
+timeControl	rc	done	auto
+timeControl	rcs	done	auto
+timeControl	releaseCommand	done	auto
+timeControl	repeatChunkSize	done	auto
+timeControl	repeatOnHold	done	auto
+timeControl	resample	done	auto
 timeControl	rng	done	auto
-timeControl	roh	missing	
+timeControl	roh	done	auto
 timeControl	rv	done	auto
 timeControl	s	done	auto
-timeControl	sbm	missing	
+timeControl	sbm	done	auto
 timeControl	showKeys	done	auto
 timeControl	showKeysCombined	done	auto
 timeControl	sk	done	auto
 timeControl	skc	done	auto
-timeControl	sn	missing	
+timeControl	sn	done	auto
 timeControl	snap	done	auto
 timeControl	sound	done	auto
-timeControl	statusBarMessage	missing	
+timeControl	statusBarMessage	done	auto
 timeControl	tickSize	done	auto
-timeControl	tickSpan	missing	
+timeControl	tickSpan	done	auto
 timeControl	ts	done	auto
-timeControl	tsp	missing	
-timeControl	useTemplate	missing	
-timeControl	ut	missing	
-timeControl	vcc	missing	
-timeControl	vis	missing	
-timeControl	visible	missing	
-timeControl	visibleChangeCommand	missing	
-timeControl	w	missing	
-timeControl	waveform	missing	
-timeControl	wf	missing	
-timeControl	width	missing	
+timeControl	tsp	done	auto
+timeControl	useTemplate	done	auto
+timeControl	ut	done	auto
+timeControl	vcc	done	auto
+timeControl	vis	done	auto
+timeControl	visible	done	auto
+timeControl	visibleChangeCommand	done	auto
+timeControl	w	done	auto
+timeControl	waveform	done	auto
+timeControl	wf	done	auto
+timeControl	width	done	auto
 timeEditor	alc	missing	
 timeEditor	allClips	missing	
 timeEditor	clipId	missing	

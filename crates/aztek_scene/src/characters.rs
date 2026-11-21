@@ -856,6 +856,36 @@ fn member_curve(g: &Graph, p: &PlugRef) -> Option<NodeId> {
     })
 }
 
+/// setKeyframe -clip: a key on a member channel goes into the named clip's source curve, at the clip's own time for
+/// the frame. False when the channel is in no character with that clip, so the key goes on the channel as usual.
+pub(crate) fn key_in_clip(g: &mut Graph, p: &PlugRef, clip_name: &str, t: f64, value: Option<f64>, itt: anim::Tangent, ott: anim::Tangent) -> CmdResult<bool> {
+    let chars: Vec<NodeId> = g.nodes().into_iter().filter(|&n| is_character(g, n)).collect();
+    for c in chars {
+        let Some(m) = member_list(g, c).into_iter().find(|m| member_plug(g, c, m) == Some(*p)) else { continue };
+        let (Some(lib), Some(sched)) = (library_of(g, c), scheduler_of(g, c)) else { continue };
+        let clips = node_json(g, sched, SCHED_CLIPS);
+        let Some(clip) = clips.as_array().and_then(|v| v.iter().find(|x| x.get("name").and_then(Value::as_str) == Some(clip_name)).cloned()) else { continue };
+        let n = |k: &str, d: f64| clip.get(k).and_then(Value::as_f64).unwrap_or(d);
+        let local = n("sourceStart", 1.0) + (t - n("start", 1.0)) / n("scale", 1.0).abs().max(1e-6);
+        let source = clip.get("source").and_then(Value::as_str).unwrap_or("").to_string();
+        let mut sources = node_json(g, lib, LIB_SOURCES);
+        let Some(entry) = sources.get_mut(&source).and_then(|x| x.get_mut("curves")).and_then(Value::as_object_mut) else { continue };
+        let mut keys = entry.get(&m.0.to_string()).map(Keys::from_json).unwrap_or_default();
+        let v = match value {
+            Some(v) => v,
+            None => anim::plug_scalar(g, p) / n("weight", 1.0).max(1e-9),
+        };
+        match keys.keys.iter_mut().find(|k| (k.t - local).abs() < 1e-6) {
+            Some(k) => k.v = v,
+            None => keys.set(anim::Key::new(local, v, itt, ott)),
+        }
+        entry.insert(m.0.to_string(), crate::plug::Data::to_json(&keys));
+        set_json(g, lib, LIB_SOURCES, sources)?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 fn clip(s: &mut Session, a: &Args) -> CmdResult {
     let names = a.named();
     let char_name = a.get("character").and_then(Value::as_str).map(str::to_string).or_else(|| names.iter().find(|n| s.graph.find(n).ok().flatten().is_some_and(|id| is_character(&s.graph, id))).cloned());

@@ -1,4 +1,6 @@
 #include "widgets.h"
+#include "aztek.h"
+#include <algorithm>
 #include <QHelpEvent>
 #include <QToolTip>
 #include "host.h"
@@ -535,14 +537,68 @@ TimeSlider::TimeSlider(QWidget* parent) : QWidget(parent) {
     setMinimumHeight(30);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setObjectName("timeSlider");
+    connect(Host::get(), &Host::sceneChanged, this, &TimeSlider::refresh_state);
+}
+
+static QColor color_from(const QJsonValue& v, const QColor& fallback) {
+    QJsonArray a = v.toArray();
+    if (a.size() < 3) return fallback;
+    auto c = [&](int i) { return int(std::clamp(a[i].toDouble(), 0.0, 1.0) * 255.0 + 0.5); };
+    return QColor(c(0), c(1), c(2), a.size() > 3 ? c(3) : 255);
+}
+
+void TimeSlider::refresh_state() {
+    QJsonObject st = ask("aztekTimeControlState", QJsonObject{}).toObject();
+    if (st.isEmpty()) return;
+    path_ = st["path"].toString(path_);
+    cur_color_ = color_from(st["currentFrameColor"], cur_color_);
+    fg_color_ = color_from(st["foregroundColor"], fg_color_);
+    bg_color_ = st["enableBackground"].toBool() ? color_from(st["backgroundColor"], QColor(45, 45, 45)) : QColor(45, 45, 45);
+    waveform_ = st["waveform"].toString("top");
+    tick_span_ = std::max(1, st["tickSpan"].toInt(1));
+    global_time_ = st["globalTime"].toBool(true);
+    snap_ = st["snap"].toBool(true);
+    tick_width_ = std::max(1, st["tickSize"].toInt(tick_width_));
+    enabled_ = st["enable"].toBool(true);
+    setToolTip(st["annotation"].toString());
+    setVisible(st["visible"].toBool(true) && st["manage"].toBool(true));
+    update();
+}
+
+// The mouse scripts timeControl -pressCommand and -releaseCommand gave.
+void TimeSlider::fire(const char* flag) {
+    QJsonObject ev{{"path", path_}, {"fire", QJsonArray{flag}}};
+    aztek_ui_event(QJsonDocument(ev).toJson(QJsonDocument::Compact).constData());
+    Host::get()->poke();
+}
+
+void draw_waveform(QPainter& p, const QJsonArray& peaks, const QRectF& band, const QString& part, const QColor& c) {
+    if (peaks.isEmpty()) return;
+    p.setPen(c);
+    const double w = band.width();
+    for (int i = 0; i < peaks.size(); ++i) {
+        QJsonArray b = peaks[i].toArray();
+        double lo = b.size() > 0 ? b[0].toDouble() : 0.0, hi = b.size() > 1 ? b[1].toDouble() : 0.0;
+        if (lo == 0.0 && hi == 0.0) continue;
+        double x = band.left() + i * w / peaks.size();
+        if (part == "both") {
+            const double mid = band.center().y(), half = band.height() * 0.5;
+            p.drawLine(QPointF(x, mid - hi * half), QPointF(x, mid - lo * half));
+        } else if (part == "bottom") {
+            p.drawLine(QPointF(x, band.top()), QPointF(x, band.top() - lo * band.height()));
+        } else {
+            p.drawLine(QPointF(x, band.bottom()), QPointF(x, band.bottom() - hi * band.height()));
+        }
+    }
 }
 
 void TimeSlider::set_time(double t) {
-    t = qBound(start_, std::round(t), end_);
+    t = qBound(start_, snap_ ? std::round(t) : t, end_);
     if (t == time_) return;
     time_ = t;
     update();
-    emit timeChanged(t);
+    // With -globalTime off the slider keeps its own time and leaves the scene's alone.
+    if (global_time_ || signalsBlocked()) emit timeChanged(t);
 }
 
 void TimeSlider::set_range(double a, double b) {
@@ -622,32 +678,23 @@ double TimeSlider::frame_at(int x) const {
 
 void TimeSlider::paintEvent(QPaintEvent*) {
     QPainter p(this);
-    p.fillRect(rect(), QColor(45, 45, 45));
+    p.fillRect(rect(), bg_color_);
     double w = width() - 16;
     double span = end_ - start_;
-    // The sound timeControl shows: its waveform behind the ticks, a column per pixel.
+    // The sound timeControl shows: its waveform behind the ticks, a column per pixel, the part -waveform asks for.
     {
         QJsonArray peaks = ask("aztekSoundPeaks", QJsonObject{{"start", start_}, {"end", end_}, {"count", int(std::max(1.0, w))}}).toArray();
-        if (!peaks.isEmpty()) {
-            p.setPen(QColor(90, 150, 125));
-            const double mid = height() * 0.5, half = height() * 0.45;
-            for (int i = 0; i < peaks.size(); ++i) {
-                QJsonArray b = peaks[i].toArray();
-                double lo = b.size() > 0 ? b[0].toDouble() : 0.0, hi = b.size() > 1 ? b[1].toDouble() : 0.0;
-                if (lo == 0.0 && hi == 0.0) continue;
-                double x = 8 + i * w / peaks.size();
-                p.drawLine(QPointF(x, mid - hi * half), QPointF(x, mid - lo * half));
-            }
-        }
+        draw_waveform(p, peaks, QRectF(8, height() * 0.05, w, height() * 0.9), waveform_, QColor(90, 150, 125));
     }
-    // A tick per frame when there's room, labels every few.
+    // A tick per frame when there's room, labels every few; -tickSpan sets the spacing.
     int step = 1;
     for (int s : {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000})
         if (w / (span / s) >= 40) {
             step = s;
             break;
         }
-    p.setPen(QColor(150, 150, 150));
+    if (tick_span_ > 1) step = tick_span_ * std::max(1, int(std::ceil(double(step) / tick_span_)));
+    p.setPen(fg_color_);
     QFont f = font();
     f.setPointSizeF(qMax(6.5, f.pointSizeF() - 1));
     p.setFont(f);
@@ -686,17 +733,20 @@ void TimeSlider::paintEvent(QPaintEvent*) {
             p.fillRect(QRectF(a, 6, z - a, height() - 6), c);
         }
     double x = 8 + (time_ - start_) / span * w;
-    p.fillRect(QRectF(x - fw / 2, 0, fw, height()), QColor(210, 210, 210, 120));
+    p.fillRect(QRectF(x - fw / 2, 0, fw, height()), cur_color_);
     p.setPen(QColor(230, 230, 230));
     p.drawText(QRectF(x + fw / 2 + 2, 0, 60, 14), Qt::AlignLeft | Qt::AlignTop, QString::number(time_));
 }
 
 void TimeSlider::mousePressEvent(QMouseEvent* e) {
-    double fr = std::round(frame_at(int(e->position().x())));
+    if (!enabled_) return;
+    double fr = frame_at(int(e->position().x()));
+    if (snap_) fr = std::round(fr);
     if (e->button() == Qt::RightButton) {
         emit contextMenuAt(e->globalPosition().toPoint());
         return;
     }
+    fire("pressCommand");
     if ((e->modifiers() & Qt::ControlModifier) && bookmarks_shown) {
         // Ctrl-drag moves a bookmark, by its edges resizes it.
         int part = 0;
@@ -728,8 +778,9 @@ void TimeSlider::mousePressEvent(QMouseEvent* e) {
 }
 
 void TimeSlider::mouseMoveEvent(QMouseEvent* e) {
-    if (!e->buttons()) return;
-    double fr = std::round(frame_at(int(e->position().x())));
+    if (!e->buttons() || !enabled_) return;
+    double fr = frame_at(int(e->position().x()));
+    if (snap_) fr = std::round(fr);
     if (bm_drag_ >= 0) {
         bm_by_ = fr - bm_from_;
         update();
@@ -746,7 +797,9 @@ void TimeSlider::mouseMoveEvent(QMouseEvent* e) {
     }
 }
 
-void TimeSlider::mouseReleaseEvent(QMouseEvent*) {
+void TimeSlider::mouseReleaseEvent(QMouseEvent* e) {
+    if (!enabled_) return;
+    if (e->button() != Qt::RightButton) fire("releaseCommand");
     if (bm_drag_ >= 0) {
         if (bm_by_ != 0 && bm_drag_ < bookmarks_.size()) {
             const Bookmark& b = bookmarks_[bm_drag_];
@@ -771,6 +824,55 @@ void TimeSlider::mouseReleaseEvent(QMouseEvent*) {
     double lo = qMin(range_a_, range_b_), hi = qMax(range_a_, range_b_);
     ask("timeControl", QJsonObject{{"edit", true}, {"rangeArray", lo != hi ? QJsonArray{lo, hi} : QJsonArray{}}});
     update();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Sound strip (soundControl)
+
+SoundStrip::SoundStrip(QWidget* parent) : QWidget(parent) {
+    setMinimumHeight(24);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    connect(Host::get(), &Host::sceneChanged, this, qOverload<>(&QWidget::update));
+}
+
+std::pair<double, double> SoundStrip::span() const {
+    if (range_set) return {min_time, std::max(min_time + 1, max_time)};
+    auto q = [](const char* flag) { return ask("playbackOptions", QJsonObject{{"query", true}, {"queried", QJsonArray{flag}}}).toDouble(); };
+    double a = q("minTime"), b = q("maxTime");
+    return {a, std::max(a + 1, b)};
+}
+
+double SoundStrip::frame_at(int x) const {
+    auto [a, b] = span();
+    return a + double(x - 4) / std::max(1, width() - 8) * (b - a);
+}
+
+void SoundStrip::paintEvent(QPaintEvent*) {
+    QPainter p(this);
+    p.fillRect(rect(), palette().color(QPalette::Window).darker(130));
+    auto [a, b] = span();
+    const double w = width() - 8;
+    if (shown && !sound.isEmpty()) {
+        QJsonArray peaks = ask("aztekSoundPeaks", QJsonObject{{"start", a}, {"end", b}, {"count", int(std::max(1.0, w))}, {"sound", sound}}).toArray();
+        draw_waveform(p, peaks, QRectF(4, 2, w, height() - 4), waveform, QColor(90, 150, 125));
+    }
+    double t = state()["time"].toDouble(a);
+    if (t >= a && t <= b) {
+        double x = 4 + (t - a) / (b - a) * w;
+        p.fillRect(QRectF(x - 1, 0, 2, height()), QColor(210, 210, 210, 160));
+    }
+}
+
+void SoundStrip::mousePressEvent(QMouseEvent* e) {
+    emit pressed(frame_at(int(e->position().x())));
+}
+
+void SoundStrip::mouseMoveEvent(QMouseEvent* e) {
+    if (e->buttons()) emit dragged(frame_at(int(e->position().x())));
+}
+
+void SoundStrip::mouseReleaseEvent(QMouseEvent* e) {
+    emit released(frame_at(int(e->position().x())));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

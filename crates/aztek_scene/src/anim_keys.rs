@@ -80,6 +80,14 @@ impl KeyPick {
     pub(crate) fn range(&self) -> Option<(f64, f64)> {
         self.time.or(self.float)
     }
+
+    pub(crate) fn time_range(&self) -> Option<(f64, f64)> {
+        self.time
+    }
+
+    pub(crate) fn float_range(&self) -> Option<(f64, f64)> {
+        self.float
+    }
 }
 
 fn delete_curve(s: &mut Session, curve: NodeId, plug: PlugRef) -> CmdResult<()> {
@@ -128,18 +136,83 @@ fn set_keyframe(s: &mut Session, a: &Args) -> CmdResult {
         None => None,
     };
     let breakdown = a.get("breakdown").and_then(Value::as_bool);
+    // -q -bd: whether the channels' keys at the time are breakdowns; -e -bd makes them so, or not, setting no keys.
+    if a.bool("query") || a.bool("edit") {
+        let mut out = Vec::new();
+        for p in &plugs {
+            let Some(c) = anim::curve_of(&s.graph, p) else { continue };
+            let mut k = anim::keys_of(&s.graph, c);
+            let mut changed = false;
+            for &t in &times {
+                if let Some(e) = k.keys.iter_mut().find(|e| (e.t - t).abs() < 1e-6) {
+                    if a.bool("query") {
+                        out.push(json!(e.breakdown));
+                    } else if let Some(b) = breakdown {
+                        e.breakdown = b;
+                        changed = true;
+                        out.push(json!(b));
+                    }
+                }
+            }
+            if changed {
+                anim::set_keys(&mut s.graph, c, k)?;
+            }
+        }
+        return Ok(if a.bool("query") { Value::Array(out) } else { json!(out.len()) });
+    }
+    let animated = a.bool("animated");
+    let insert_blend = a.get("insertBlend").and_then(Value::as_bool);
+    let adjust = a.get("adjustTangent").and_then(Value::as_bool).unwrap_or(true);
+    let locked_weights = a.bool("useCurrentLockedWeights");
+    let clip = a.get("clip").and_then(Value::as_str).map(str::to_string);
+    let opt_on = |s: &Session, n: &str| s.option_vars.get(n).is_some_and(|v| v.as_f64().is_some_and(|x| x != 0.0) || v.as_bool() == Some(true));
+    let preserve = a.get("preserveCurveShape").and_then(Value::as_bool).unwrap_or_else(|| opt_on(s, "keySetPreserveCurveShape"));
     let mut n = 0;
     let mut solved: std::collections::HashMap<(NodeId, i32, u64), glam::DVec3> = Default::default();
     for p in plugs {
         if respect && !anim::is_keyable(&s.graph, &p) {
             continue;
         }
+        // -animated: only channels that already have keys.
+        if animated && anim::curve_of(&s.graph, &p).is_none() {
+            continue;
+        }
+        // -insertBlend: a channel something else drives gets a pairBlend for its keys.
+        if insert_blend == Some(true) && anim::curve_of(&s.graph, &p).is_none() {
+            anim::insert_pair_blend(&mut s.graph, &p)?;
+        }
         for &t in &times {
-            if insert {
+            // -clip: the key goes into that clip of the channel's character, when it is in one.
+            if let Some(cn) = &clip {
+                let v = value.map(|x| if aztek_ops::units::user_call() { aztek_ops::units::to_stored(s.graph.attr(&p).unit, x) } else { x });
+                let r = anim::range();
+                if crate::characters::key_in_clip(&mut s.graph, &p, cn, t, v, itt.unwrap_or(r.default_in), ott.unwrap_or(r.default_out))? {
+                    n += 1;
+                    continue;
+                }
+            }
+            // A key added between keys with its current value keeps the curve's shape when asked to.
+            let shape_insert = insert
+                || (preserve
+                    && value.is_none()
+                    && anim::curve_of(&s.graph, &p).is_some_and(|c| {
+                        let k = anim::keys_of(&s.graph, c);
+                        k.keys.len() >= 2 && !k.keys.iter().any(|e| (e.t - t).abs() < 1e-6) && t > k.keys[0].t && t < k.keys[k.keys.len() - 1].t
+                    }));
+            if shape_insert {
                 // Keeps the curve as it is; a channel with no curve has nothing to insert into.
                 if let Some(c) = anim::curve_of(&s.graph, &p) {
                     let mut k = anim::keys_of(&s.graph, c);
+                    let before = k.clone();
                     if k.insert(t) {
+                        if !adjust {
+                            // -adt off: the keys either side keep their tangents.
+                            for e in k.keys.iter_mut() {
+                                if let Some(b) = before.keys.iter().find(|b| (b.t - e.t).abs() < 1e-9) {
+                                    *e = *b;
+                                }
+                            }
+                        }
                         if let (Some(b), Some(e)) = (breakdown, k.keys.iter_mut().find(|e| (e.t - t).abs() < 1e-6)) {
                             e.breakdown = b;
                         }
@@ -186,8 +259,22 @@ fn set_keyframe(s: &mut Session, a: &Args) -> CmdResult {
             } else {
                 (v, no_resolve)
             };
+            // The key being keyed over, if any: its weights stay only with -lw.
+            let over = anim::curve_of(&s.graph, &p).and_then(|c| anim::keys_of(&s.graph, c).keys.iter().find(|e| (e.t - t).abs() < 1e-6).copied());
             // A held (changed but unkeyed) value is what gets keyed at the current frame.
             if anim::key_plug_in(&mut s.graph, &p, t, v, itt, ott, layer, no_resolve)? {
+                if let (Some(old), Some(c)) = (over, anim::curve_of(&s.graph, &p)) {
+                    let mut k = anim::keys_of(&s.graph, c);
+                    if k.weighted {
+                        if let Some(e) = k.keys.iter_mut().find(|e| (e.t - t).abs() < 1e-6) {
+                            let fresh = anim::Key::new(t, 0.0, e.itt, e.ott);
+                            let (iw, ow) = if locked_weights && old.weight_lock { (old.in_weight, old.out_weight) } else { (fresh.in_weight, fresh.out_weight) };
+                            e.in_weight = iw;
+                            e.out_weight = ow;
+                        }
+                        anim::set_keys(&mut s.graph, c, k)?;
+                    }
+                }
                 if let Some(bd) = breakdown {
                     if let Some(c) = anim::curve_of(&s.graph, &p) {
                         let mut k = anim::keys_of(&s.graph, c);
@@ -429,7 +516,7 @@ fn cut_key(s: &mut Session, a: &Args) -> CmdResult {
             }
             let g = &s.graph;
             let (pre, post) = g.node(*c).map(|n| (n.data().int(PRE), n.data().int(POST))).unwrap_or((0, 0));
-            clip.entries.push(crate::anim_edit::ClipEntry { attr: anim::channel_name(g, p), keys, pre, post, rot_interp: g.node(*c).map(|x| x.data().int(anim::ROT_INTERP)).unwrap_or(0) });
+            clip.entries.push(crate::anim_edit::ClipEntry { node: crate::anim_edit::short_name(g, p.node), attr: anim::channel_name(g, p), keys, pre, post, rot_interp: g.node(*c).map(|x| x.data().int(anim::ROT_INTERP)).unwrap_or(0) });
         }
         if !clip.entries.is_empty() {
             clip.start = lo;
@@ -772,7 +859,16 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("shape", "s", ArgType::Bool, "Key the shapes' keyable channels too."))
         .flag(f("animLayer", "al", ArgType::String, "The layer to key. Ignored for channels not in it, as in the reference."))
         .flag(f("dirtyDG", "dd", ArgType::Bool, "Accepted for existing scripts: keying always dirties what it drives."))
-        .flag(f("identity", "id", ArgType::Bool, "An identity key: one that nullifies the layer here. Only on channels driven by layers.")),
+        .flag(f("identity", "id", ArgType::Bool, "An identity key: one that nullifies the layer here. Only on channels driven by layers."))
+        .flag(f("animated", "an", ArgType::Bool, "Key only channels that already have keys (off)."))
+        .flag(f("adjustTangent", "adt", ArgType::Bool, "With -i: the keys either side change their tangents to keep the curve's shape (on)."))
+        .flag(f("preserveCurveShape", "pcs", ArgType::Bool, "A key added between keys at the curve's value keeps the curve's shape, as -i does (the keySetPreserveCurveShape option var by default)."))
+        .flag(f("insertBlend", "ib", ArgType::Bool, "A translate or rotate channel driven by something other than keys gets a pairBlend between that driver and its keys."))
+        .flag(f("clip", "c", ArgType::String, "Put the key in this clip of the channel's character; ignored when the channel isn't in it."))
+        .flag(f("useCurrentLockedWeights", "lw", ArgType::Bool, "Keying over a key with locked weights keeps those weights (off: they go back to the default)."))
+        .flag(f("query", "q", ArgType::Bool, "With -bd: whether the keys at the time are breakdowns."))
+        .flag(f("edit", "e", ArgType::Bool, "With -bd: make the keys at the time breakdowns, or not, without setting keys."))
+        .flag(f("queried", "", ArgType::List, "The flags asked about in query mode.")),
     );
 
     c.register(pick_flags(query_flags(Cmd::new(

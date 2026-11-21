@@ -655,7 +655,7 @@ particleRenderInfo	missing
 partition	done	auto
 pasteKey	done	auto
 pathAnimation	done	auto
-pause	missing	
+pause	done	auto
 perCameraVisibility	missing	
 percent	done	auto
 performanceOptions	missing	
@@ -1026,8 +1026,8 @@ softSelect	done	auto
 soloMaterial	missing	
 sortCaseInsensitive	done	auto
 sound	done	auto
-soundControl	missing	
-soundPopup	missing	
+soundControl	done	auto
+soundPopup	done	auto
 spaceLocator	done	auto
 sphere	done	auto
 spotLight	done	auto

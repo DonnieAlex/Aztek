@@ -174,6 +174,8 @@ const TRAIL_INCREMENT: usize = 2;
 const TRAIL_TARGET: usize = 3;
 const TRAIL_POINTS: usize = 4;
 const TRAIL_KEYS: usize = 5;
+/// The anchor transform's world matrix (snapshot -anchorTransform): the trail's points are in its space.
+const TRAIL_ANCHOR: usize = 6;
 
 struct PlainNode;
 
@@ -208,9 +210,11 @@ fn points_of(v: &Value) -> Vec<DVec3> {
 /// What the viewport draws for a motionTrailShape, world space: the path, and a cross at each key.
 pub fn trail_lines(n: &crate::node::Node) -> Vec<(DVec3, DVec3)> {
     let d = n.data();
-    let pts = points_of(&json_of(d, TrailShape::POINTS));
+    // The points are in the handle's space: the world, or the anchor's under it.
+    let m = d.matrix(DagNode::WORLD_MATRIX);
+    let pts: Vec<DVec3> = points_of(&json_of(d, TrailShape::POINTS)).into_iter().map(|p| m.transform_point3(p)).collect();
     let mut out: Vec<(DVec3, DVec3)> = pts.windows(2).map(|w| (w[0], w[1])).collect();
-    for k in points_of(&json_of(d, TrailShape::KEYS)) {
+    for k in points_of(&json_of(d, TrailShape::KEYS)).into_iter().map(|p| m.transform_point3(p)) {
         let r = 0.1;
         for ax in [DVec3::X, DVec3::Y, DVec3::Z] {
             out.push((k - ax * r, k + ax * r));
@@ -241,9 +245,15 @@ pub fn refresh_trail(g: &mut Graph, trail: NodeId) -> CmdResult<()> {
     let Some(n) = g.node(trail) else { return Ok(()) };
     let (start, end, by) = (n.data().float(TRAIL_START), n.data().float(TRAIL_END), n.data().float(TRAIL_INCREMENT).abs().max(1e-3));
     let Some(target) = g.source(&PlugRef::new(trail, TRAIL_TARGET as i32)).map(|s| s.node) else { return Ok(()) };
+    let anchor = g.source(&PlugRef::new(trail, TRAIL_ANCHOR as i32)).map(|s| s.node);
     let now = anim::frame(g);
     let at = |g: &mut Graph, t: f64| {
-        let p = world_at(g, target, t).w_axis;
+        let p = world_at(g, target, t).w_axis.truncate();
+        // Anchored: where the object is seen from the anchor at that time.
+        let p = match anchor {
+            Some(an) => g.node(an).map(|n| n.data().matrix(DagNode::WORLD_MATRIX)).unwrap_or(DMat4::IDENTITY).inverse().transform_point3(p),
+            None => p,
+        };
         json!([p.x, p.y, p.z])
     };
     let points: Vec<Value> = frames(start, end, by).into_iter().map(|t| at(g, t)).collect();
@@ -280,6 +290,38 @@ pub fn after_command(s: &mut Session, name: &str, ok: bool) {
 }
 
 fn create_trail(g: &mut Graph, object: NodeId, name: Option<&str>, start: f64, end: f64, by: f64) -> CmdResult<Value> {
+    create_trail_in(g, object, name, start, end, by, None, false)
+}
+
+/// The trail's handle, from its motionTrail node.
+fn trail_handle(g: &Graph, trail: NodeId) -> Option<NodeId> {
+    let shape = g.destinations(&PlugRef::new(trail, TRAIL_POINTS as i32)).into_iter().map(|d| d.node).find(|&s| g.node(s).is_some_and(|x| x.ty().name == "motionTrailShape"))?;
+    Some(g.parent(shape)).filter(|&h| h != NO_NODE)
+}
+
+/// Puts a trail's handle in its anchor's space: under it, or with -opm through its offsetParentMatrix.
+fn place_trail_handle(g: &mut Graph, trail: NodeId, opm: bool) -> CmdResult<()> {
+    let (Some(handle), Some(anchor)) = (trail_handle(g, trail), g.source(&PlugRef::new(trail, TRAIL_ANCHOR as i32)).map(|s| s.node)) else { return Ok(()) };
+    let opm_plug = PlugRef::new(handle, Transform::OFFSET_PARENT_MATRIX as i32);
+    if opm {
+        if g.parent(handle) != NO_NODE {
+            g.set_parent(handle, NO_NODE, false, usize::MAX)?;
+        }
+        g.connect(&PlugRef::new(anchor, DagNode::WORLD_MATRIX as i32), &opm_plug, true)?;
+    } else {
+        if g.source(&opm_plug).is_some() {
+            g.disconnect(&opm_plug);
+            g.set_value(opm_plug, PlugValue::Matrix(DMat4::IDENTITY))?;
+        }
+        if g.parent(handle) != anchor {
+            g.set_parent(handle, anchor, false, usize::MAX)?;
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_trail_in(g: &mut Graph, object: NodeId, name: Option<&str>, start: f64, end: f64, by: f64, anchor: Option<NodeId>, opm: bool) -> CmdResult<Value> {
     let node_ty = types::find("motionTrail").unwrap();
     let node = g.create_node(&node_ty, name.unwrap_or("motionTrail1"), NO_NODE, true)?;
     let base = g.node(node).map(|n| n.name.clone()).unwrap_or_default();
@@ -293,6 +335,10 @@ fn create_trail(g: &mut Graph, object: NodeId, name: Option<&str>, start: f64, e
     let st = types::find("motionTrailShape").unwrap();
     let shape = g.create_node(&st, &format!("{hname}Shape"), handle, true)?;
     g.connect(&PlugRef::new(node, TRAIL_POINTS as i32), &PlugRef::new(shape, TrailShape::POINTS as i32), false)?;
+    if let Some(an) = anchor {
+        g.connect(&PlugRef::new(an, DagNode::WORLD_MATRIX as i32), &PlugRef::new(node, TRAIL_ANCHOR as i32), false)?;
+        place_trail_handle(g, node, opm)?;
+    }
     refresh_trail(g, node)?;
     Ok(json!([g.path(handle), g.path(node)]))
 }
@@ -512,29 +558,30 @@ fn path_animation(s: &mut Session, a: &Args) -> CmdResult {
 // ---------------------------------------------------------------------------------------------------------------------
 // snapshot and flow
 
-fn snapshot(s: &mut Session, a: &Args) -> CmdResult {
-    let (start, end, by) = range_of(a);
-    let names = objects(s, a);
-    if names.is_empty() {
-        fail!("snapshot: name or select an object");
+/// snapshot's own defaults: frames 1 to 10, every frame.
+fn snapshot_range(a: &Args) -> (f64, f64, f64) {
+    (a.get("startTime").and_then(Value::as_f64).unwrap_or(1.0), a.get("endTime").and_then(Value::as_f64).unwrap_or(10.0), a.get("increment").and_then(Value::as_f64).unwrap_or(1.0).abs().max(1e-3))
+}
+
+/// Makes a snapshot's copies again from what its node holds: the objects at each of its frames, in its group.
+fn rebuild_snapshot(s: &mut Session, node: NodeId) -> CmdResult<()> {
+    let (start, end, by) = {
+        let n = s.graph.node(node).unwrap().data();
+        (n.float(0), n.float(1), n.float(2).abs().max(1e-3))
+    };
+    let info = s.graph.node(node).map(|n| json_of(n.data(), SNAP_INPUTS)).unwrap_or(Value::Null);
+    let names: Vec<String> = info.get("objects").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+    let Some(group_name) = info.get("group").and_then(Value::as_str) else { return Ok(()) };
+    let Some(group) = s.graph.find(group_name)? else { return Ok(()) };
+    for k in s.graph.children(group).to_vec() {
+        s.graph.delete_node(k)?;
     }
-    let wanted = a.get("name").and_then(Value::as_str).map(str::to_string);
-    if a.bool("motionTrail") {
-        let id = object_id(&s.graph, &names[0], "snapshot")?;
-        return create_trail(&mut s.graph, id, wanted.as_deref(), start, end, by);
-    }
-    let ty = types::find("snapshot").unwrap();
-    let node = s.graph.create_node(&ty, wanted.as_deref().unwrap_or("snapshot1"), NO_NODE, true)?;
-    let base = s.graph.node(node).map(|n| n.name.clone()).unwrap_or_default();
-    s.graph.set_value(PlugRef::new(node, 0), PlugValue::Float(start))?;
-    s.graph.set_value(PlugRef::new(node, 1), PlugValue::Float(end))?;
-    s.graph.set_value(PlugRef::new(node, 2), PlugValue::Float(by))?;
-    let update = a.string("update", "always");
-    s.graph.set_value(PlugRef::new(node, 3), PlugValue::Int(i64::from(update == "animCurve")))?;
-    let tt = types::find("transform").unwrap();
-    let group = s.graph.create_node(&tt, &format!("{base}Group"), NO_NODE, true)?;
+    fill_snapshot(s, &names, group, start, end, by)
+}
+
+fn fill_snapshot(s: &mut Session, names: &[String], group: NodeId, start: f64, end: f64, by: f64) -> CmdResult<()> {
     let now = anim::frame(&s.graph);
-    for name in &names {
+    for name in names {
         let id = object_id(&s.graph, name, "snapshot")?;
         for t in frames(start, end, by) {
             let world = world_at(&mut s.graph, id, t);
@@ -550,7 +597,123 @@ fn snapshot(s: &mut Session, a: &Args) -> CmdResult {
     }
     anim::set_frame(&mut s.graph, now);
     s.graph.evaluate();
+    Ok(())
+}
+
+const SNAP_INPUTS: usize = 4;
+const SNAP_HISTORY: usize = 5;
+const UPDATE_NAMES: [&str; 3] = ["always", "animCurve", "demand"];
+
+fn snapshot(s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("query") || a.bool("edit") {
+        return snapshot_edit(s, a);
+    }
+    let (start, end, by) = snapshot_range(a);
+    let names = objects(s, a);
+    if names.is_empty() {
+        fail!("snapshot: name or select an object");
+    }
+    let wanted = a.get("name").and_then(Value::as_str).map(str::to_string);
+    if a.bool("motionTrail") {
+        let id = object_id(&s.graph, &names[0], "snapshot")?;
+        let anchor = match a.get("anchorTransform").and_then(Value::as_str) {
+            Some(n) => Some(object_id(&s.graph, n, "snapshot")?),
+            None => None,
+        };
+        return create_trail_in(&mut s.graph, id, wanted.as_deref(), start, end, by, anchor, a.bool("offsetParentMatrix"));
+    }
+    let ty = types::find("snapshot").unwrap();
+    let node = s.graph.create_node(&ty, wanted.as_deref().unwrap_or("snapshot1"), NO_NODE, true)?;
+    let base = s.graph.node(node).map(|n| n.name.clone()).unwrap_or_default();
+    s.graph.set_value(PlugRef::new(node, 0), PlugValue::Float(start))?;
+    s.graph.set_value(PlugRef::new(node, 1), PlugValue::Float(end))?;
+    s.graph.set_value(PlugRef::new(node, 2), PlugValue::Float(by))?;
+    let update = a.string("update", "always");
+    let Some(ui) = UPDATE_NAMES.iter().position(|x| *x == update) else { fail!("snapshot: -update is always, animCurve or demand") };
+    s.graph.set_value(PlugRef::new(node, 3), PlugValue::Int(ui as i64))?;
+    s.graph.set_value(PlugRef::new(node, SNAP_HISTORY as i32), PlugValue::Bool(a.bool("constructionHistory") || a.bool("c")))?;
+    let tt = types::find("transform").unwrap();
+    let group = s.graph.create_node(&tt, &format!("{base}Group"), NO_NODE, true)?;
+    let full: Vec<String> = names.iter().map(|n| object_id(&s.graph, n, "snapshot").map(|id| s.graph.path(id))).collect::<CmdResult<_>>()?;
+    let info = json!({"objects": full, "group": s.graph.path(group)});
+    set_json(&mut s.graph, node, SNAP_INPUTS, info)?;
+    fill_snapshot(s, &full, group, start, end, by)?;
     Ok(json!([s.graph.path(group), s.graph.path(node)]))
+}
+
+/// snapshot -q and -e, on a snapshot node, its group, or a motion trail made by snapshot -mt.
+fn snapshot_edit(s: &mut Session, a: &Args) -> CmdResult {
+    let Some(n) = a.named().first().cloned() else { fail!("snapshot: name the snapshot") };
+    let g = &s.graph;
+    let Some(id) = g.find(&n)? else { fail!("snapshot: no object named {n}") };
+    // The node: a snapshot, a motion trail, or found from a group or trail handle.
+    let node = if g.node(id).is_some_and(|x| matches!(x.ty().name.as_str(), "snapshot" | "motionTrail")) {
+        id
+    } else {
+        let path = g.path(id);
+        let found = g.nodes().into_iter().find(|&k| {
+            g.node(k).is_some_and(|x| x.ty().name == "snapshot" && json_of(x.data(), SNAP_INPUTS).get("group").and_then(Value::as_str) == Some(path.as_str()))
+                || g.node(k).is_some_and(|x| x.ty().name == "motionTrail") && trail_handle(g, k) == Some(id)
+        });
+        match found {
+            Some(k) => k,
+            None => fail!("snapshot: {n} is not a snapshot"),
+        }
+    };
+    let trail = g.node(node).is_some_and(|x| x.ty().name == "motionTrail");
+    let (st, et, inc) = if trail { (TRAIL_START, TRAIL_END, TRAIL_INCREMENT) } else { (0, 1, 2) };
+    if a.bool("query") {
+        let d = g.node(node).unwrap().data();
+        return Ok(if queried(a, &["startTime"]) {
+            json!(d.float(st))
+        } else if queried(a, &["endTime"]) {
+            json!(d.float(et))
+        } else if queried(a, &["increment"]) {
+            json!(d.float(inc))
+        } else if queried(a, &["update"]) {
+            json!(if trail { "always" } else { UPDATE_NAMES.get(d.int(3) as usize).copied().unwrap_or("always") })
+        } else if queried(a, &["constructionHistory"]) {
+            json!(!trail && d.bool(SNAP_HISTORY))
+        } else if queried(a, &["anchorTransform"]) {
+            json!(if trail { g.source(&PlugRef::new(node, TRAIL_ANCHOR as i32)).map(|x| g.path(x.node)).unwrap_or_default() } else { String::new() })
+        } else {
+            json!(g.path(node))
+        });
+    }
+    // Edit.
+    let mut changed = false;
+    for (flag, at) in [("startTime", st), ("endTime", et), ("increment", inc)] {
+        if let Some(v) = a.get(flag).and_then(Value::as_f64) {
+            s.graph.set_value(PlugRef::new(node, at as i32), PlugValue::Float(if flag == "increment" { v.abs().max(1e-3) } else { v }))?;
+            changed = true;
+        }
+    }
+    if let Some(u) = a.get("update").and_then(Value::as_str) {
+        let Some(ui) = UPDATE_NAMES.iter().position(|x| *x == u) else { fail!("snapshot: -update is always, animCurve or demand") };
+        if !trail {
+            s.graph.set_value(PlugRef::new(node, 3), PlugValue::Int(ui as i64))?;
+        }
+    }
+    if trail {
+        if let Some(opm) = a.get("offsetParentMatrix").and_then(Value::as_bool) {
+            place_trail_handle(&mut s.graph, node, opm)?;
+        }
+        if changed {
+            refresh_trail(&mut s.graph, node)?;
+        }
+    } else if changed {
+        rebuild_snapshot(s, node)?;
+    }
+    if let Some(name) = a.get("name").and_then(Value::as_str) {
+        s.graph.rename(node, name)?;
+    }
+    let g = &s.graph;
+    Ok(if trail {
+        json!([trail_handle(g, node).map(|h| g.path(h)).unwrap_or_default(), g.path(node)])
+    } else {
+        let grp = g.node(node).map(|x| json_of(x.data(), SNAP_INPUTS)).and_then(|v| v.get("group").and_then(Value::as_str).map(str::to_string)).unwrap_or_default();
+        json!([grp, g.path(node)])
+    })
 }
 
 fn three(v: Option<&Value>, def: [f64; 3]) -> [f64; 3] {
@@ -809,7 +972,9 @@ pub fn register_types() {
                 float("startTime", "st", 1.0, false, "First frame."),
                 float("endTime", "et", 10.0, false, "Last frame."),
                 float("increment", "i", 1.0, false, "Frames between copies."),
-                AttrDef { name: "update".into(), short_name: "up".into(), ty: PlugType::Enum, default_value: PlugValue::Int(0), flags: store, enum_names: vec!["always".into(), "animCurve".into()], doc: "When copies would update.".into(), ..Default::default() },
+                AttrDef { name: "update".into(), short_name: "up".into(), ty: PlugType::Enum, default_value: PlugValue::Int(0), flags: store, enum_names: vec!["always".into(), "animCurve".into(), "demand".into()], doc: "When copies update: always, animCurve or demand.".into(), ..Default::default() },
+                data_attr("inputObjects", "iob", "The objects copied and the group holding the copies, by name."),
+                boolean("constructionHistory", "ch", false, "Made with construction history."),
             ],
             create: Some(Arc::new(|| Box::new(PlainNode))),
             ..Default::default()
@@ -827,6 +992,7 @@ pub fn register_types() {
                 hidden_matrix("inputMatrix", "im", "The object followed."),
                 data_attr("points", "pts", "World positions, one per sample."),
                 data_attr("keyframeTimes", "kt", "The frames with keys."),
+                hidden_matrix("anchorMatrix", "anm", "The anchor transform's world matrix: the points are in its space."),
             ],
             create: Some(Arc::new(|| Box::new(PlainNode))),
             ..Default::default()
@@ -1160,15 +1326,20 @@ pub fn register(c: &mut Commands<Session>) {
             "Copies of objects at every -i frames from -st to -et, in a group. Returns the group and the snapshot node. With -mt, makes a motion trail instead.",
             snapshot,
         )
-        .positional("objects (the selection when none)")
-        .flag(f("startTime", "st", ArgType::Float, "First frame (the playback start)."))
-        .flag(f("endTime", "et", ArgType::Float, "Last frame (the playback end)."))
+        .positional("objects (the selection when none); with -q or -e the snapshot node, its group, or a trail")
+        .flag(f("startTime", "st", ArgType::Float, "First frame (1)."))
+        .flag(f("endTime", "et", ArgType::Float, "Last frame (10)."))
         .flag(f("increment", "i", ArgType::Float, "Frames between copies (1)."))
-        .flag(f("constructionHistory", "ch", ArgType::Bool, "Accepted for existing scripts: copies are made once."))
+        .flag(f("constructionHistory", "ch", ArgType::Bool, "Recorded on the node; -e with new times makes the copies again."))
         .flag(f("c", "c", ArgType::Bool, "As -ch."))
         .flag(f("name", "n", ArgType::String, "The snapshot's name."))
-        .flag(f("update", "u", ArgType::String, "always or animCurve: recorded on the node."))
-        .flag(f("motionTrail", "mt", ArgType::Bool, "Make a motion trail.")),
+        .flag(f("update", "u", ArgType::String, "always (the default), animCurve or demand: recorded on the node.").choices(&["always", "animCurve", "demand"]))
+        .flag(f("motionTrail", "mt", ArgType::Bool, "Make a motion trail."))
+        .flag(f("anchorTransform", "at", ArgType::String, "With -mt: the trail is drawn in this transform's space, its handle under it."))
+        .flag(f("offsetParentMatrix", "opm", ArgType::Bool, "With -at: the handle follows the anchor through its offsetParentMatrix instead of being parented under it."))
+        .flag(f("query", "q", ArgType::Bool, "Query mode."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode: new times make the copies, or the trail, again."))
+        .flag(f("queried", "", ArgType::List, "The flags asked about in query mode.")),
     );
 
     c.register(

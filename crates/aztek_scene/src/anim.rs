@@ -798,6 +798,11 @@ pub fn curve_of(g: &Graph, p: &PlugRef) -> Option<NodeId> {
     if let Some(fk) = crate::ik::fk_plug_for(g, p) {
         return curve_of(g, &fk);
     }
+    // A channel blended through a pairBlend keeps its own keys on the blend's first input.
+    if let Some(slot) = pair_blend_slot(g, p) {
+        let s = g.source(&slot)?;
+        return (is_curve(g, s.node) && s.attr == OUTPUT as i32).then_some(s.node);
+    }
     let s = crate::anim_layers::driver(g, p)?;
     if is_curve(g, s.node) && s.attr == OUTPUT as i32 {
         return Some(s.node);
@@ -985,7 +990,18 @@ pub fn key_plug_in(g: &mut Graph, p: &PlugRef, t: f64, value: Option<f64>, itt: 
     let new_itt = itt.unwrap_or(if stepped { Tangent::Step } else { r.default_in });
     let new_ott = ott.unwrap_or(if stepped { Tangent::Step } else { r.default_out });
     let driver = crate::anim_layers::driver(g, p);
-    let (curve, v) = if driver.is_some_and(|s| crate::anim_layers::is_blend(g, s.node)) {
+    let blend_slot = pair_blend_slot(g, p);
+    let (curve, v) = if let Some(slot) = blend_slot {
+        // Blended through a pairBlend: the keys go on its first input.
+        match g.source(&slot) {
+            Some(s) if is_curve(g, s.node) && s.attr == OUTPUT as i32 => (s.node, v),
+            Some(_) => return Ok(false),
+            None => {
+                let name = format!("{}_{}", g.node(p.node).map(|n| n.name.rsplit(':').next().unwrap_or("").to_string()).unwrap_or_default(), channel_name(g, p));
+                (new_curve(g, curve_type_for(g, p), &name, &slot)?, v)
+            }
+        }
+    } else if driver.is_some_and(|s| crate::anim_layers::is_blend(g, s.node)) {
         let Some((c, v)) = crate::anim_layers::layer_curve_for_key(g, p, t, layer, v, value.is_some() && no_resolve)? else { return Ok(false) };
         (c, v)
     } else {
@@ -1014,6 +1030,63 @@ pub fn key_plug_in(g: &mut Graph, p: &PlugRef, t: f64, value: Option<f64>, itt: 
     }
     set_keys(g, curve, k)?;
     Ok(true)
+}
+
+/// A translate or rotate channel a pairBlend drives: the blend's first input for that axis, where the channel's own
+/// keys go (the reference's blend of keys with a constraint or other driver).
+pub(crate) fn pair_blend_slot(g: &Graph, p: &PlugRef) -> Option<PlugRef> {
+    if p.component < 0 {
+        return None;
+    }
+    let s = g.source(p).or_else(|| g.source(&p.whole()).map(|w| PlugRef::component(w.node, w.attr, p.component)))?;
+    let n = g.node(s.node)?;
+    if n.ty().name != "pairBlend" || s.component < 0 {
+        return None;
+    }
+    let input = match g.attr(&s).name.as_str() {
+        "outTranslate" => "inTranslate1",
+        "outRotate" => "inRotate1",
+        _ => return None,
+    };
+    Some(PlugRef::component(s.node, n.ty().attr_index(input)? as i32, s.component))
+}
+
+/// -insertBlend: a translate or rotate channel driven by something other than a curve gets a pairBlend between that
+/// driver and it, as the reference makes when keying a constrained channel. The driver goes on the blend's second
+/// input, at weight 1 so the channel still follows it; the first input is left for keys. Returns that input, or None
+/// when the channel can't be blended this way.
+pub(crate) fn insert_pair_blend(g: &mut Graph, p: &PlugRef) -> CmdResult<Option<PlugRef>> {
+    if p.component < 0 || pair_blend_slot(g, p).is_some() {
+        return Ok(pair_blend_slot(g, p));
+    }
+    let (in1, in2, out) = match g.attr(p).name.as_str() {
+        "translate" => ("inTranslate1", "inTranslate2", "outTranslate"),
+        "rotate" => ("inRotate1", "inRotate2", "outRotate"),
+        _ => return Ok(None),
+    };
+    let (src, whole) = match g.source(p) {
+        Some(s) => (s, false),
+        None => match g.source(&p.whole()) {
+            Some(s) => (s, true),
+            None => return Ok(None),
+        },
+    };
+    if is_curve(g, src.node) || crate::anim_layers::is_blend(g, src.node) || g.node(src.node).is_some_and(|n| n.ty().name == "pairBlend") {
+        return Ok(None);
+    }
+    let t = crate::node::types::find("pairBlend").expect("pairBlend");
+    let pb = g.create_node(&t, "pairBlend1", crate::plug::NO_NODE, true)?;
+    let at = |n: &str| t.attr_index(n).unwrap() as i32;
+    // Weight 1: the second input, the driver the channel had.
+    g.set_value(PlugRef::new(pb, at("weight")), PlugValue::Float(1.0))?;
+    if whole {
+        g.connect(&src, &PlugRef::new(pb, at(in2)), true)?;
+        g.connect(&PlugRef::new(pb, at(out)), &p.whole(), true)?;
+    } else {
+        g.connect(&src, &PlugRef::component(pb, at(in2), p.component), true)?;
+        g.connect(&PlugRef::component(pb, at(out), p.component), p, true)?;
+    }
+    Ok(Some(PlugRef::component(pb, at(in1), p.component)))
 }
 
 /// A new curve connected to a plug, weighted if that is the default.

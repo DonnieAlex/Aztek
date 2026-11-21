@@ -109,7 +109,8 @@ fn copy_and_paste_keys() {
     run(&mut s, "polyCube", json!({}));
     // Pasted at the current time.
     run(&mut s, "currentTime", json!({"args": [5]}));
-    assert_eq!(run(&mut s, "pasteKey", json!({"args": ["pCube2.tx"]})), json!(2));
+    // The reference returns how many curves were pasted onto.
+    assert_eq!(run(&mut s, "pasteKey", json!({"args": ["pCube2.tx"]})), json!(1));
     assert_eq!(times(&mut s, "pCube2.tx"), vec![5.0, 15.0]);
     // Merge overlays; insert moves later keys along.
     run(&mut s, "pasteKey", json!({"args": ["pCube2.tx"], "time": 30, "option": "merge"}));

@@ -1826,6 +1826,38 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         connect(Host::get(), &Host::sceneChanged, t, update);
         connect(t, &TimeSlider::timeChanged, this, [](double f) { exec_quiet("currentTime", QJsonObject{{"args", QJsonArray{f}}}); });
         it->w = t;
+    } else if (k == "soundControl") {
+        // A sound's waveform over a range of frames: pressing or dragging moves the time, scrubbing the sound.
+        auto* strip = new SoundStrip();
+        strip->setMinimumHeight(24);
+        connect(strip, &SoundStrip::pressed, this, [this, path](double f) {
+            fire(path, QJsonObject(), QJsonArray{"pressCommand"}, QJsonArray());
+            exec_quiet("currentTime", QJsonObject{{"args", QJsonArray{std::round(f)}}});
+        });
+        connect(strip, &SoundStrip::dragged, this, [](double f) { exec_quiet("currentTime", QJsonObject{{"args", QJsonArray{std::round(f)}}}); });
+        connect(strip, &SoundStrip::released, this, [this, path](double) { fire(path, QJsonObject(), QJsonArray{"releaseCommand"}, QJsonArray()); });
+        it->w = strip;
+    } else if (k == "soundPopup") {
+        // A button whose popup picks the sound the time slider shows: the scene's audio nodes, or none.
+        auto* b = new QToolButton();
+        b->setText("Sound");
+        b->setPopupMode(QToolButton::InstantPopup);
+        auto* menu = new QMenu(b);
+        b->setMenu(menu);
+        connect(menu, &QMenu::aboutToShow, this, [menu] {
+            menu->clear();
+            QString now = ask("timeControl", QJsonObject{{"query", true}, {"queried", QJsonArray{"sound"}}}).toString();
+            QAction* none = menu->addAction("None", [] { exec("timeControl", QJsonObject{{"edit", true}, {"sound", ""}}); });
+            none->setCheckable(true);
+            none->setChecked(now.isEmpty());
+            for (const QJsonValue& v : ask("ls", QJsonObject{{"type", "audio"}}).toArray()) {
+                QString n = v.toString();
+                QAction* a = menu->addAction(n, [n] { exec("timeControl", QJsonObject{{"edit", true}, {"sound", n}, {"displaySound", true}}); });
+                a->setCheckable(true);
+                a->setChecked(n == now);
+            }
+        });
+        it->w = b;
     } else if (k == "rangeControl") {
         auto* r = new RangeSlider();
         r->setMinimumHeight(20);
@@ -2163,6 +2195,16 @@ static void set_number(QWidget* w, const QJsonValue& v) {
 void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     const QString& k = it->kind;
     QWidget* w = it->w;
+    if (k == "soundControl") {
+        if (auto* strip = qobject_cast<SoundStrip*>(w)) {
+            if (props.contains("sound")) strip->sound = props["sound"].toString();
+            if (props.contains("waveform")) strip->waveform = props["waveform"].toString("top");
+            if (props.contains("displaySound")) strip->shown = as_bool(props["displaySound"], true);
+            if (props.contains("minTime")) strip->min_time = as_number(props["minTime"]), strip->range_set = true;
+            if (props.contains("maxTime")) strip->max_time = as_number(props["maxTime"]), strip->range_set = true;
+            strip->update();
+        }
+    }
     if (k == "button" || k == "iconTextButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "iconTextRadioButton") {
         if (props.contains("label")) {
             if (auto* b = qobject_cast<QAbstractButton*>(w)) b->setText(amp(props["label"].toString()));
