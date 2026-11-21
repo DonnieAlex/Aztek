@@ -3,6 +3,9 @@
 # tree in build/Aztek, which is installed under /opt/aztek. Nothing comes from a Qt, Python or PySide6 package.
 
 %global debug_package %{nil}
+# PySide6's wheel carries templates ending in .py (its Android deploy recipes), which byte-compiling rejects. The bundle's
+# Python compiles what it needs when it first runs.
+%global __brp_python_bytecompile %{nil}
 # The bundle's libraries are private: nothing else may resolve against them, and rpm must not look for them elsewhere.
 %global _build_id_links none
 %global __provides_exclude_from ^/opt/aztek/.*$

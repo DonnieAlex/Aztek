@@ -19,7 +19,7 @@ fi
 
 # The tools, and Python 3.12 for `cargo test` on the checkout. The build itself uses the Python it fetches.
 BASE="git-core tar gzip xz findutils which file rpm-build cmake ninja-build desktop-file-utils
-      gcc gcc-c++ make curl vulkan-loader-devel python3.12 python3.12-devel"
+      gcc gcc-c++ make vulkan-loader-devel python3.12 python3.12-devel"
 # What Qt's own kit asks for when CMake looks at it.
 AQT="libglvnd-devel libxkbcommon-devel libxkbcommon-x11 fontconfig freetype dbus-libs glib2
      xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm"
