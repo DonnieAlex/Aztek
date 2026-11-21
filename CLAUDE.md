@@ -79,8 +79,8 @@ command once on release so the history shows one reference-style line.
 
 ## Build and test
 
-    ./build.sh                 # Linux: fetches Qt 6.8.3, Python 3.12 and PySide6 6.8.3 into build/ the first time,
-                               # builds, and stages the self-contained build/Aztek; --run starts it, --install puts it in ~/.local
+    ./build.sh                 # Linux: fetches Qt 6.12.0 (6.8.3 where glibc is older than 2.34), Python 3.12 and
+                               # PySide6 into build/ the first time, builds, and stages build/Aztek; --run starts it
     build.bat                  # Windows (PowerShell script build.ps1), which fetches them into build\ and makes build\dist
     cargo test --workspace     # all Rust tests; keep them green
 
