@@ -28,6 +28,8 @@ pub const QUICK_SELECT: usize = 0;
 pub const MEMBERS: usize = 1;
 /// Connected into a deformer's deformerSet when this is its set.
 pub const USED_BY: usize = 2;
+/// `sets -text`: a note kept with the set (the reference's channel sets are marked by it).
+pub const ANNOTATION: usize = 3;
 
 /// One member: a whole node (kind Object) or some of a mesh's components (ids sorted, unique).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -807,6 +809,15 @@ pub fn register_types() {
                 default_value: PlugValue::Float(0.0),
                 flags: flags::INPUT | flags::HIDDEN,
                 doc: "Tells the deformer this is the set of: connected into its deformerSet.".into(),
+                ..Default::default()
+            },
+            AttrDef {
+                name: "annotation".into(),
+                short_name: "an".into(),
+                ty: PlugType::String,
+                default_value: PlugValue::String(String::new()),
+                flags: flags::INPUT | flags::STORABLE,
+                doc: "A note kept with the set: sets -text.".into(),
                 ..Default::default()
             },
         ],

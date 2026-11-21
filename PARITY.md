@@ -2017,6 +2017,29 @@ of their stand-ins:
 
 What each still needs from Aztek is in docs/SCRIPT_GAPS.md, now covering 110 scripts.
 
+### Commands the reference's scripts call: renderer, runTimeCommand, repeatLast and others (21/11/2026)
+
+- `renderer`: the registry of renderers, with every 2027 flag: procedures, globals nodes and tabs, UI names, -exists,
+  -namesOfAvailableRenderers, -unregisterRenderer. Harold is registered under the name the reference's scripts look
+  for. `preferredRenderer` keeps the preferred renderer and its fallback.
+- `runTimeCommand`: every 2027 flag. Labels, keywords, tags, plug-in and help fields; the command arrays; -delete for
+  user commands; an error when a name is reused without -e. The app's own commands answer as the factory ones.
+- `repeatLast`: Edit > Repeat's recent commands. -addCommand and its label, -q -commandList and -commandNameList up to
+  a count, -historyLimit, -item.
+- `listAnimatable`, with -type, -manip and -manipHandle.
+- `sets`: -text, -anyMember, -copy, -split and -q -nodesOnly.
+- `polyProjection`: into a named UV set (-uvSetName with -createNewMap), and the image and projection flags as the
+  node's attributes.
+- `filterExpand` reads components and objects selected together, and a group expands to the meshes and curves under it.
+- `ls`: -type and -exactType can be given more than once, and -transforms -shapes lists both kinds.
+- `hide -clearLastHidden`; `polyInstallAction` with no action clears the installed one.
+- `timeControl -showKeysCombined` and `-animLayerShowWeight`; `animDisplay -timeCode` takes frame, fulltimecode or
+  timecode.
+- `window -minimizeButton` and `-maximizeButton`, as the reference spells them.
+- Editors: -unlockMainConnection clears the lock. The key commands take a selection connection's name for what it
+  holds.
+- A selection connection made with no name no longer crashes.
+
 ### A selected group's children light up as it does (18/11/2026, #151)
 
 Objects under a selected group or transform draw in the colour the selected node above them draws in: the lead's green

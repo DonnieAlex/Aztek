@@ -625,7 +625,7 @@ void MainWindow::build_runtime() {
 
     // Scripts can call all of these by name, as the reference's runtime commands.
     QJsonArray names;
-    for (auto it = runtime_.begin(); it != runtime_.end(); ++it) names.append(QJsonArray{it.key(), it->annotation});
+    for (auto it = runtime_.begin(); it != runtime_.end(); ++it) names.append(QJsonArray{it.key(), it->annotation, it->category});
     query("registerUiNames", QString::fromUtf8(QJsonDocument(names).toJson(QJsonDocument::Compact)));
 }
 
@@ -966,6 +966,14 @@ void MainWindow::handle_ui_request(const QString& r) {
         });
     } else if (name == "setTool") {
         set_tool(payload);
+    } else if (name == "repeatAdd") {
+        // repeatLast -addCommand: Edit > Repeat (G) runs this script next, under its label.
+        QJsonObject o = parse(payload).toObject();
+        const QString cmd = o["command"].toString();
+        last_repeat_ = [this, cmd] { mel(cmd); };
+        last_repeat_label_ = o["label"].toString(cmd);
+    } else if (name == "repeatLast") {
+        repeat_last();
     } else if (name == "openUrl") {
         QDesktopServices::openUrl(QUrl::fromUserInput(payload));
     } else if (name == "ctxCompleted") {

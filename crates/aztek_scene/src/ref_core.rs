@@ -297,6 +297,21 @@ fn ls(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
         Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
         _ => Vec::new(),
     };
+    // The kind flags add up: -transforms -shapes lists both kinds.
+    let kind_flags: Vec<&str> = ["shapes", "transforms", "geometry", "cameras", "lights", "sets", "materials", "textures"].into_iter().filter(|k| a.bool(k)).collect();
+    let kinds = |ty: &crate::node::NodeType, id: NodeId| {
+        kind_flags.is_empty()
+            || kind_flags.iter().any(|k| match *k {
+                "shapes" => is_shape(g, id),
+                "transforms" => ty.is_a("transform") && !is_shape(g, id),
+                "geometry" => is_mesh_like(g, id),
+                "cameras" => ty.is_a("camera"),
+                "lights" => ty.is_a("light"),
+                "sets" => ty.is_a("objectSet"),
+                "materials" => crate::shading::is_material_type(ty) || crate::shading::classification(&ty.name).is_some_and(|c| c.starts_with("shader/volume")),
+                _ => crate::shading::is_texture_type(ty),
+            })
+    };
     ids.retain(|&id| {
         let Some(n) = g.node(id) else { return false };
         let ty = n.ty();
@@ -307,20 +322,13 @@ fn ls(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
             && (!a.bool("defaultNodes") || (n.namespace().is_empty() && crate::defaults::is_default_node(n.name())))
             && (!a.bool("undeletable") || crate::defaults::undeletable(g, id))
             && (!a.bool("lockedNodes") || n.is_locked())
-            && (!a.bool("shapes") || is_shape(g, id))
-            && (!a.bool("transforms") || (ty.is_a("transform") && !is_shape(g, id)))
-            && (!a.bool("geometry") || is_mesh_like(g, id))
-            && (!a.bool("cameras") || ty.is_a("camera"))
-            && (!a.bool("lights") || ty.is_a("light"))
+            && kinds(ty, id)
             && (!a.bool("visible") || visible(g, id))
             && (!a.bool("invisible") || !visible(g, id))
             && (!a.bool("assemblies") || (ty.dag && g.parent(id) == NO_NODE))
             && (!a.bool("leaf") || g.children(id).is_empty())
             && (!a.bool("noIntermediate") || !is_intermediate(g, id))
             && (!a.bool("intermediateObjects") || is_intermediate(g, id))
-            && (!a.bool("sets") || ty.is_a("objectSet"))
-            && (!a.bool("materials") || crate::shading::is_material_type(ty) || crate::shading::classification(&ty.name).is_some_and(|c| c.starts_with("shader/volume")))
-            && (!a.bool("textures") || crate::shading::is_texture_type(ty))
     });
     if a.bool("selection") && !a.bool("objectsOnly") && comps.is_empty() && false {
         let _ = ComponentMode::Object;
@@ -369,8 +377,8 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("flatten", "fl", ArgType::Bool, "Components one per item."))
             .flag(f("long", "l", ArgType::Bool, "Full DAG paths."))
             .flag(f("shortNames", "sn", ArgType::Bool, "Shortest unique names (the default)."))
-            .flag(f("type", "typ", ArgType::Any, "Only nodes of this type or derived; a list of types too."))
-            .flag(f("exactType", "et", ArgType::Any, "Only nodes of exactly this type."))
+            .flag(f("type", "typ", ArgType::Any, "Only nodes of this type or derived; several -typ for several types.").multi(1))
+            .flag(f("exactType", "et", ArgType::Any, "Only nodes of exactly this type.").multi(1))
             .flag(f("dag", "dag", ArgType::Bool, "Only DAG nodes; with names or -sl, the DAG nodes below them too."))
             .flag(f("referencedNodes", "rn", ArgType::Bool, "Only nodes from references."))
             .flag(f("readOnly", "ro", ArgType::Bool, "Only nodes from references, which are read only (the older name for referencedNodes)."))

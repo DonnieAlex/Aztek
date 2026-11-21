@@ -527,8 +527,8 @@ void ScriptUi::build_window(Item* it, const QJsonObject& props) {
     Qt::WindowFlags fl = Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint;
     if (it->kind != "progressWindow") {
         if (as_bool(props["toolbox"])) fl = Qt::Tool | Qt::WindowTitleHint | Qt::WindowCloseButtonHint;
-        if (as_bool(props["minimizeBox"], true)) fl |= Qt::WindowMinimizeButtonHint;
-        if (as_bool(props["maximizeBox"], true)) fl |= Qt::WindowMaximizeButtonHint;
+        if (as_bool(props["minimizeButton"], true)) fl |= Qt::WindowMinimizeButtonHint;
+        if (as_bool(props["maximizeButton"], true)) fl |= Qt::WindowMaximizeButtonHint;
     }
     win->setWindowFlags(fl);
     win->setAttribute(Qt::WA_DeleteOnClose, false);

@@ -145,12 +145,14 @@ struct SliderState {
     show_keys: String,
     snap: bool,
     tick_size: f64,
+    keys_combined: bool,
+    layer_weight: bool,
 }
 
 static SLIDER: Mutex<Option<SliderState>> = Mutex::new(None);
 
 fn slider() -> SliderState {
-    SLIDER.lock().unwrap().clone().unwrap_or(SliderState { range: None, show_keys: "active".into(), snap: true, tick_size: 1.0 })
+    SLIDER.lock().unwrap().clone().unwrap_or(SliderState { range: None, show_keys: "active".into(), snap: true, tick_size: 1.0, keys_combined: false, layer_weight: false })
 }
 
 /// The range selected on the time slider, which the UI reports through timeControl -e -ra.
@@ -367,6 +369,10 @@ fn time_control(s: &Session, a: &Args) -> CmdResult {
             json!(st.show_keys)
         } else if queried(a, &["snap"]) {
             json!(st.snap)
+        } else if queried(a, &["showKeysCombined"]) {
+            json!(st.keys_combined)
+        } else if queried(a, &["animLayerShowWeight"]) {
+            json!(st.layer_weight)
         } else if queried(a, &["tickSize"]) {
             json!(st.tick_size)
         } else if queried(a, &["minTime"]) {
@@ -394,6 +400,12 @@ fn time_control(s: &Session, a: &Args) -> CmdResult {
     }
     if let Some(v) = a.get("snap").and_then(Value::as_bool) {
         st.snap = v;
+    }
+    if let Some(v) = a.get("showKeysCombined").and_then(Value::as_bool) {
+        st.keys_combined = v;
+    }
+    if let Some(v) = a.get("animLayerShowWeight").and_then(Value::as_bool) {
+        st.layer_weight = v;
     }
     if let Some(v) = a.get("tickSize").and_then(Value::as_f64) {
         st.tick_size = v;
@@ -503,6 +515,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("rangeVisible", "rv", ArgType::Bool, "Query: whether a range is selected."))
         .flag(f("showKeys", "sk", ArgType::String, "Whose keys show: active, none or a selection connection."))
         .flag(f("snap", "snp", ArgType::Bool, "Snap to whole frames."))
+        .flag(f("showKeysCombined", "skc", ArgType::Bool, "Show the keys of all the attributes as one row."))
+        .flag(f("animLayerShowWeight", "asw", ArgType::Bool, "Show the current animation layer's weight keys."))
         .flag(f("tickSize", "ts", ArgType::Float, "How wide ticks are drawn."))
         .flag(f("minTime", "min", ArgType::Bool, "Query: the playback start."))
         .flag(f("maxTime", "max", ArgType::Bool, "Query: the playback end."))

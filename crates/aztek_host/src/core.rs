@@ -214,6 +214,8 @@ impl Core {
         }
         // The reference's start-up scripts that set things up once the interface is there: the UI templates its
         // windows build with, the auxiliary set-up (with the polygon menus' defaults) and initAfter.
+        // The tool contexts the reference's scripts name through these globals.
+        self.mel("global string $gSelect = \"selectSuperContext\"; global string $gMove = \"moveSuperContext\"; global string $gRotate = \"RotateSuperContext\"; global string $gScale = \"scaleSuperContext\";");
         self.mel("source \"setDefaultTemplates.mel\"; source \"initAuxiliary.mel\"; source \"initAfter.mel\";");
         if !crate::user_folder::load_choice().user_setup {
             return Vec::new();
@@ -455,6 +457,7 @@ impl Core {
     /// One command from MEL: no history lines; the interpreter reports the result or error as fits the statement.
     pub(crate) fn run_mel_command(&mut self, typed: &str, toks: &[mel::Tok]) -> Result<Value, String> {
         let (name, mut call) = mel::build(&self.s.commands, typed, toks)?;
+        self.expand_connections(&name, &mut call);
         let qe = call.as_object_mut().and_then(|o| o.remove("_query").map(|a| (true, a)).or_else(|| o.remove("_edit").map(|a| (false, a))));
         if let Some((query, asked)) = qe {
             let o = call.as_object_mut().unwrap();
@@ -480,6 +483,27 @@ impl Core {
             }
         }
         Ok(out)
+    }
+
+    /// The key commands take a selection connection's name for what it holds, as editors pass theirs.
+    fn expand_connections(&mut self, name: &str, call: &mut Value) {
+        if !matches!(name, "keyTangent" | "setInfinity" | "keyframe" | "cutKey" | "copyKey" | "pasteKey" | "selectKey" | "scaleKey" | "snapKey") {
+            return;
+        }
+        let Some(args) = call.get_mut("args").and_then(Value::as_array_mut) else { return };
+        let mut out = Vec::with_capacity(args.len());
+        for v in args.drain(..) {
+            let members = v.as_str().filter(|n| !matches!(self.s.graph.find(n), Ok(Some(_)))).and_then(crate::script_objects::connection_members);
+            match members {
+                Some(Some(list)) => out.extend(list.into_iter().map(Value::String)),
+                Some(None) => {
+                    let sel = self.s.run("ls", json!({"selection": true})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
+                    out.extend(sel);
+                }
+                None => out.push(v),
+            }
+        }
+        *args = out;
     }
 
     fn exec_plain(&mut self, name: &str, call: Value) -> Result<Value, String> {

@@ -475,6 +475,156 @@ pub fn register(s: &mut Session) {
             .undoable(false),
     );
     s.register(
+        q_flags(Cmd::new("repeatLast", "The recent commands Edit > Repeat runs: -ac a script to add as the latest, -acl its label; on its own repeats the latest, -i the one that many back; -q -cl and -cnl the scripts and labels (up to the number given), -q -nhi how many; -hl how many are kept.", |_s, a| {
+            if a.bool("query") {
+                let q = a.get("queried").map(|v| v.to_string()).unwrap_or_default();
+                return Ok(REPEAT.with(|r| {
+                    let r = r.borrow();
+                    if q.contains("numberOfHistoryItems") {
+                        json!(r.items.len())
+                    } else if q.contains("historyLimit") {
+                        json!(r.limit)
+                    } else {
+                        let n = a.get("commandNameList").or_else(|| a.get("commandList")).and_then(Value::as_i64).map(|n| n.max(0) as usize).unwrap_or(usize::MAX);
+                        let names = q.contains("commandNameList") || a.has("commandNameList");
+                        json!(r.items.iter().rev().take(n).map(|x| if names { x.1.clone() } else { x.0.clone() }).collect::<Vec<_>>())
+                    }
+                }));
+            }
+            if let Some(n) = a.get("historyLimit").and_then(Value::as_i64) {
+                REPEAT.with(|r| {
+                    let mut r = r.borrow_mut();
+                    r.limit = n.max(1) as usize;
+                    let lim = r.limit;
+                    let len = r.items.len();
+                    if len > lim {
+                        r.items.drain(..len - lim);
+                    }
+                });
+            }
+            if let Some(cmd) = a.get("addCommand").and_then(Value::as_str) {
+                let label = a.get("addCommandLabel").and_then(Value::as_str).unwrap_or(cmd).to_string();
+                REPEAT.with(|r| {
+                    let mut r = r.borrow_mut();
+                    r.items.retain(|x| x.0 != cmd);
+                    r.items.push((cmd.to_string(), label.clone()));
+                    let lim = r.limit;
+                    let len = r.items.len();
+                    if len > lim {
+                        r.items.drain(..len - lim);
+                    }
+                });
+                push_ui_request(format!("repeatAdd|{}", json!({"command": cmd, "label": label})));
+                return Ok(Value::Null);
+            }
+            if a.has("historyLimit") {
+                return Ok(Value::Null);
+            }
+            // Repeat: the item that many back, or the latest.
+            let back = a.get("item").and_then(Value::as_i64).unwrap_or(0).max(0) as usize;
+            let cmd = REPEAT.with(|r| r.borrow().items.iter().rev().nth(back).map(|x| x.0.clone()));
+            match cmd {
+                Some(c) => push_ui_request(format!("mel|{c}")),
+                None => push_ui_request("repeatLast".into()),
+            }
+            Ok(Value::Null)
+        }))
+        .undoable(false)
+        .flag(f("addCommand", "ac", A, "A script to add as the latest command."))
+        .flag(f("addCommandLabel", "acl", A, "Its label in Recent Commands."))
+        .flag(f("commandList", "cl", I, "With -q: the scripts, latest first."))
+        .flag(f("commandNameList", "cnl", I, "With -q: the labels, latest first."))
+        .flag(f("historyLimit", "hl", I, "How many are kept."))
+        .flag(f("item", "i", I, "Repeat the one this many back."))
+        .flag(f("numberOfHistoryItems", "nhi", B, "With -q: how many there are.")),
+    );
+    s.register(renderer_cmd());
+    s.register(
+        q_flags(Cmd::new("preferredRenderer", "The renderer new scenes start with: preferredRenderer name sets it, -q reads it, -mc takes the current one, -f the fallback when the preferred isn't there.", |s, a| {
+            let get = |s: &Session, k: &str, d: &str| s.option_vars.get(k).and_then(Value::as_str).unwrap_or(d).to_string();
+            if a.bool("query") {
+                let q = a.get("queried").map(|v| v.to_string()).unwrap_or_default();
+                return Ok(json!(if q.contains("fallback") { get(s, "preferredRendererFallback", "arnold") } else { get(s, "preferredRenderer", "arnold") }));
+            }
+            if let Some(f) = a.get("fallback").and_then(Value::as_str) {
+                s.option_vars.insert("preferredRendererFallback".into(), json!(f));
+            }
+            if a.bool("makeCurrent") {
+                let cur = s.run("getAttr", json!({"args": ["defaultRenderGlobals.currentRenderer"]})).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_else(|| "arnold".into());
+                s.option_vars.insert("preferredRenderer".into(), json!(cur));
+            } else if let Some(n) = a.pos_str(0) {
+                if !RENDERERS.with(|r| r.borrow().contains_key(n)) {
+                    fail!("preferredRenderer: {n} is not a registered renderer.");
+                }
+                s.option_vars.insert("preferredRenderer".into(), json!(n));
+            }
+            Ok(Value::Null)
+        }))
+        .positional("[renderer]")
+        .undoable(false)
+        .flag(f("fallback", "f", A, "The renderer used when the preferred one isn't there."))
+        .flag(f("makeCurrent", "mc", B, "The current renderer becomes the preferred one.")),
+    );
+    s.register(
+        Cmd::new("listAnimatable", "The animatable (keyable) attributes of the objects named or selected and the shapes under them, as full plug paths; -typ their node types instead; -m and -mh only those the current manipulator moves.", |s, a| {
+            let mut names = a.named();
+            if names.is_empty() {
+                names = s.run("ls", json!({"selection": true, "long": true}))?.as_array().cloned().unwrap_or_default().iter().filter_map(|v| v.as_str().map(str::to_string)).collect();
+            }
+            let mut nodes: Vec<String> = Vec::new();
+            for n in names {
+                let obj = n.split('.').next().unwrap_or(&n).to_string();
+                let long = s.run("ls", json!({"args": [obj], "long": true}))?.as_array().and_then(|v| v.first().cloned()).and_then(|v| v.as_str().map(str::to_string)).unwrap_or(obj);
+                if !nodes.contains(&long) {
+                    nodes.push(long.clone());
+                }
+                for sh in s.run("listRelatives", json!({"args": [long], "shapes": true, "fullPath": true})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default() {
+                    if let Some(sh) = sh.as_str() {
+                        if !nodes.iter().any(|x| x == sh) {
+                            nodes.push(sh.to_string());
+                        }
+                    }
+                }
+            }
+            if a.bool("type") {
+                let mut types: Vec<String> = Vec::new();
+                for n in &nodes {
+                    if let Some(t) = s.run("nodeType", json!({"args": [n]})).ok().and_then(|v| v.as_str().map(str::to_string)) {
+                        if !types.contains(&t) {
+                            types.push(t);
+                        }
+                    }
+                }
+                return Ok(json!(types));
+            }
+            // With the move, rotate or scale tool current, -m and -mh keep only what it moves.
+            let manip = (a.bool("manip") || a.bool("manipHandle")).then(|| match crate::ctx_cmds::current().as_str() {
+                "moveSuperContext" | "Move" => Some("translate"),
+                "RotateSuperContext" | "Rotate" => Some("rotate"),
+                "scaleSuperContext" | "Scale" => Some("scale"),
+                _ => None,
+            }).flatten();
+            let mut out = Vec::new();
+            for n in &nodes {
+                for attr in s.run("listAttr", json!({"args": [n], "keyable": true})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default() {
+                    let Some(attr) = attr.as_str() else { continue };
+                    if manip.is_some_and(|m| !attr.starts_with(m)) {
+                        continue;
+                    }
+                    out.push(format!("{n}.{attr}"));
+                }
+            }
+            Ok(json!(out))
+        })
+        .positional("[objects]")
+        .undoable(false)
+        .flag(f("active", "act", B, "Obsolete."))
+        .flag(f("manip", "m", B, "Only what the current manipulator moves."))
+        .flag(f("manipHandle", "mh", B, "Only what the current manipulator handle moves."))
+        .flag(f("shape", "s", B, "Obsolete."))
+        .flag(f("type", "typ", B, "Node types instead of attributes.")),
+    );
+    s.register(
         q_flags(Cmd::new("showHelp", "Opens help in the web browser: -a a full address as given; otherwise Aztek's documentation, -d a page under it, or a topic. -q gives the address it would open; -v the reference version it follows. -ht is held.", |_s, a| {
             const DOCS: &str = "https://github.com/srlegrand/Aztek";
             if a.bool("query") {
@@ -574,4 +724,151 @@ pub fn register(s: &mut Session) {
             .positional("the scale")
             .undoable(false),
     );
+}
+
+
+/// One registered renderer: its procedures and settings by flag, its globals nodes and its Render Settings tabs.
+#[derive(Default, Clone)]
+struct RendererEntry {
+    props: serde_json::Map<String, Value>,
+    globals: Vec<String>,
+    /// (label, create proc, update proc).
+    tabs: Vec<(String, String, String)>,
+    capabilities: serde_json::Map<String, Value>,
+}
+
+/// repeatLast's recent commands, oldest first, and how many are kept.
+struct RepeatQueue {
+    items: Vec<(String, String)>,
+    limit: usize,
+}
+
+thread_local! {
+    static REPEAT: RefCell<RepeatQueue> = const { RefCell::new(RepeatQueue { items: Vec::new(), limit: 30 }) };
+    static RENDERERS: RefCell<std::collections::BTreeMap<String, RendererEntry>> = RefCell::new(builtin_renderers());
+    static RENDERER_ORDER: RefCell<Vec<String>> = RefCell::new(vec!["arnold".to_string()]);
+}
+
+/// Harold, under the name the reference's Arnold has, so scenes and scripts that name it find it.
+fn builtin_renderers() -> std::collections::BTreeMap<String, RendererEntry> {
+    let mut m = std::collections::BTreeMap::new();
+    let mut e = RendererEntry::default();
+    e.props.insert("rendererUIName".into(), json!("Harold"));
+    e.props.insert("supportColorManagement".into(), json!(true));
+    e.globals = vec!["defaultRenderGlobals".into(), "defaultResolution".into(), "defaultArnoldRenderOptions".into()];
+    m.insert("arnold".to_string(), e);
+    m
+}
+
+const RENDERER_PROCS: &[(&str, &str)] = &[
+    ("batchRenderOptionsProcedure", "bro"), ("batchRenderOptionsStringProcedure", "bso"), ("batchRenderProcedure", "br"), ("cancelBatchRenderProcedure", "cbr"),
+    ("changeIprRegionProcedure", "cir"), ("commandRenderProcedure", "cr"), ("iprOptionsMenuLabel", "ipm"), ("iprOptionsProcedure", "io"),
+    ("iprOptionsSubMenuProcedure", "ips"), ("iprRenderProcedure", "ipr"), ("iprRenderSubMenuProcedure", "irs"), ("isRunningIprProcedure", "isr"),
+    ("logoCallbackProcedure", "lgc"), ("logoImageName", "log"), ("pauseIprRenderProcedure", "psi"), ("polyPrelightProcedure", "pp"),
+    ("refreshIprRenderProcedure", "rfi"), ("renderDiagnosticsProcedure", "rd"), ("renderGlobalsProcedure", "rg"), ("renderMenuProcedure", "rm"),
+    ("renderOptionsProcedure", "ro"), ("renderProcedure", "r"), ("renderRegionProcedure", "rr"), ("renderSequenceProcedure", "rs"),
+    ("rendererUIName", "ui"), ("renderingEditorsSubMenuProcedure", "res"), ("showBatchRenderLogProcedure", "brl"), ("showBatchRenderProcedure", "sbr"),
+    ("showRenderLogProcedure", "srl"), ("startIprRenderProcedure", "sti"), ("stopIprRenderProcedure", "spi"), ("textureBakingProcedure", "tb"),
+];
+
+fn renderer_cmd() -> Cmd {
+    let mut c = Cmd::new(
+        "renderer",
+        "The registry of renderers: renderer name registers one (or edits it) with its procedures and settings, -q reads them; -ex whether it is registered, -ava the names of all, -gn its globals nodes, -gtl -gtc -gtu its Render Settings tabs, -unr removes it.",
+        |_s, a| {
+            let name = a.pos_str(0).map(str::to_string);
+            let q = a.bool("query");
+            let asked_flag = a.get("queried").and_then(Value::as_array).and_then(|v| v.first()).and_then(Value::as_str).map(str::to_string);
+            let wants = |k: &str| a.bool(k) || asked_flag.as_deref() == Some(k);
+            if wants("namesOfAvailableRenderers") {
+                return Ok(json!(RENDERER_ORDER.with(|o| o.borrow().clone())));
+            }
+            if wants("materialViewRendererList") {
+                return Ok(json!([]));
+            }
+            let Some(name) = name else { fail!("renderer: name a renderer.") };
+            if wants("exists") {
+                return Ok(json!(RENDERERS.with(|r| r.borrow().contains_key(&name))));
+            }
+            if wants("unregisterRenderer") {
+                RENDERERS.with(|r| r.borrow_mut().remove(&name));
+                RENDERER_ORDER.with(|o| o.borrow_mut().retain(|n| *n != name));
+                return Ok(Value::Null);
+            }
+            if q {
+                let Some(e) = RENDERERS.with(|r| r.borrow().get(&name).cloned()) else { fail!("renderer: {name} is not a registered renderer.") };
+                let k = asked_flag.unwrap_or_default();
+                return Ok(match k.as_str() {
+                    "globalsNodes" | "addGlobalsNode" => json!(e.globals),
+                    "globalsTabLabels" => json!(e.tabs.iter().map(|t| t.0.clone()).collect::<Vec<_>>()),
+                    "globalsTabCreateProcNames" => json!(e.tabs.iter().map(|t| t.1.clone()).collect::<Vec<_>>()),
+                    "globalsTabUpdateProcNames" => json!(e.tabs.iter().map(|t| t.2.clone()).collect::<Vec<_>>()),
+                    "capability" => {
+                        let cap = a.get("capability").and_then(Value::as_str).unwrap_or("").to_lowercase();
+                        e.capabilities.get(&cap).cloned().unwrap_or(json!(""))
+                    }
+                    "supportColorManagement" | "supportUFECameras" | "materialViewRendererPause" | "materialViewRendererSuspend" => e.props.get(&k).cloned().unwrap_or(json!(false)),
+                    _ => e.props.get(&k).cloned().unwrap_or(json!("")),
+                });
+            }
+            // Create or edit: registered on first use, then each flag given is kept.
+            if wants("globalsNodes") || wants("globalsTabLabels") || wants("globalsTabCreateProcNames") || wants("globalsTabUpdateProcNames") {
+                let e = RENDERERS.with(|r| r.borrow().get(&name).cloned()).unwrap_or_default();
+                return Ok(if wants("globalsNodes") { json!(e.globals) } else if wants("globalsTabLabels") { json!(e.tabs.iter().map(|t| t.0.clone()).collect::<Vec<_>>()) } else if wants("globalsTabCreateProcNames") { json!(e.tabs.iter().map(|t| t.1.clone()).collect::<Vec<_>>()) } else { json!(e.tabs.iter().map(|t| t.2.clone()).collect::<Vec<_>>()) });
+            }
+            RENDERERS.with(|r| {
+                let mut r = r.borrow_mut();
+                let e = r.entry(name.clone()).or_default();
+                for (k, _) in RENDERER_PROCS {
+                    if let Some(v) = a.get(k) {
+                        e.props.insert(k.to_string(), v.clone());
+                    }
+                }
+                for k in ["supportColorManagement", "supportUFECameras", "materialViewRendererPause", "materialViewRendererSuspend"] {
+                    if a.has(k) {
+                        e.props.insert(k.to_string(), json!(a.bool(k)));
+                    }
+                }
+                if let Some(n) = a.get("addGlobalsNode").and_then(Value::as_str) {
+                    if !e.globals.iter().any(|g| g == n) {
+                        e.globals.push(n.to_string());
+                    }
+                }
+                if let Some(Value::Array(v)) = a.get("addGlobalsTab") {
+                    let s: Vec<String> = v.iter().map(|x| x.as_str().unwrap_or("").to_string()).collect();
+                    if s.len() == 3 {
+                        e.tabs.push((s[0].clone(), s[1].clone(), s[2].clone()));
+                    }
+                }
+                if let (Some(cap), Some(val)) = (a.get("capability").and_then(Value::as_str), a.get("capabilityValue")) {
+                    e.capabilities.insert(cap.to_lowercase(), val.clone());
+                }
+            });
+            RENDERER_ORDER.with(|o| {
+                let mut o = o.borrow_mut();
+                if !o.contains(&name) {
+                    o.push(name.clone());
+                }
+            });
+            Ok(Value::Null)
+        },
+    )
+    .positional("renderer")
+    .undoable(false)
+    .flag(f("query", "q", B, "Query."))
+    .flag(f("edit", "e", B, "Edit."))
+    .flag(f("queried", "", L, "What -q asks for."));
+    for (k, short) in RENDERER_PROCS {
+        c = c.flag(f(k, short, A, "A procedure or setting of the renderer."));
+    }
+    for (k, short) in [("exists", "ex"), ("globalsNodes", "gn"), ("globalsTabCreateProcNames", "gtc"), ("globalsTabLabels", "gtl"), ("globalsTabUpdateProcNames", "gtu"), ("materialViewRendererList", "mvl"), ("namesOfAvailableRenderers", "ava"), ("unregisterRenderer", "unr")] {
+        c = c.flag(f(k, short, B, "See the description."));
+    }
+    for (k, short) in [("supportColorManagement", "scm"), ("supportUFECameras", "suc"), ("materialViewRendererPause", "mvp"), ("materialViewRendererSuspend", "mvs")] {
+        c = c.flag(f(k, short, A, "A switch of the renderer."));
+    }
+    c.flag(f("addGlobalsNode", "agn", A, "A render settings node the renderer uses."))
+        .flag(f("addGlobalsTab", "agt", A, "A Render Settings tab: label, create procedure, update procedure.").multi(3))
+        .flag(f("capability", "cap", A, "A named capability."))
+        .flag(f("capabilityValue", "cpv", A, "The capability's value."))
 }

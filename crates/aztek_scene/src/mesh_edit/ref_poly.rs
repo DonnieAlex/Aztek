@@ -103,6 +103,8 @@ pub(crate) fn with_table(mut cmd: Cmd, table_of: &str, defaults: &[(&str, Value)
             | "edgeLoopOrBorderPattern" | "shortestEdgePath" | "shortestEdgePathUV" | "shortestFacePath" => 2,
             "facepoint" => 4,
             "point" => 3,
+            // filterExpand -sm 31 -sm 32: each use one more mask.
+            "selectionMask" if table_of == "filterExpand" => 1,
             _ => 0,
         };
         cmd = cmd.flag(flag);

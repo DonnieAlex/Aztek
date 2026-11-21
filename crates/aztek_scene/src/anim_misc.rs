@@ -434,7 +434,7 @@ fn character_map(s: &mut Session, a: &Args) -> CmdResult {
 const ANIM_DISPLAY: &[(&str, &str, ArgType, Def)] = &[
     ("modelUpdate", "upd", S, Def::S("interactive")),
     ("refAnimCurvesEditable", "rae", B, Def::B(false)),
-    ("timeCode", "tc", B, Def::B(false)),
+    ("timeCode", "tc", S, Def::S("frame")),
     ("timeCodeOffset", "tco", S, Def::S("00:00:00:00")),
 ];
 

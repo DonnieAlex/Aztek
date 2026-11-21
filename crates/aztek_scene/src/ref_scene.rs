@@ -754,14 +754,41 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
         Ok(id)
     };
     let parse = |g: &Graph, list: &[String]| os::parse(g, list).map_err(aztek_ops::CommandError::new);
+    let annotation = |g: &Graph, id: NodeId| g.node(id).and_then(|n| n.ty().attr_index("annotation").map(|i| PlugRef::new(id, i as i32)));
     if a.bool("query") {
         let Some(first) = items.first() else { fail!("sets: name a set") };
         let id = set_named(g, first)?;
+        if asked(a, "text") {
+            return Ok(match annotation(g, id) {
+                Some(p) => json!(g.value(&p).map(|v| v.as_str().to_string()).unwrap_or_default()),
+                None => json!(""),
+            });
+        }
         let list = os::members(g, id);
         if asked(a, "size") {
             return Ok(json!(list.len()));
         }
+        if asked(a, "nodesOnly") || a.bool("nodesOnly") {
+            let mut nodes: Vec<String> = Vec::new();
+            for m in &list {
+                let p = g.path(m.node);
+                if !nodes.contains(&p) {
+                    nodes.push(p);
+                }
+            }
+            return Ok(json!(nodes));
+        }
         return Ok(json!(os::format(g, &list)));
+    }
+    // -text with -edit sets the note on the set named.
+    if a.bool("edit") {
+        if let (Some(t), Some(first)) = (a.get("text").and_then(Value::as_str), items.first()) {
+            let id = set_named(g, first)?;
+            if let Some(p) = annotation(g, id) {
+                g.set_value(p, PlugValue::String(t.to_string()))?;
+            }
+            return Ok(Value::Null);
+        }
     }
     for (flag, add) in [("addElement", true), ("forceElement", true), ("include", true), ("remove", false)] {
         let Some(name) = a.get(flag).and_then(Value::as_str) else { continue };
@@ -779,6 +806,28 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
         let list = os::members(g, id);
         os::remove(g, id, &list)?;
         return Ok(Value::Null);
+    }
+    // -anyMember: whether any of the items is in the set.
+    if let Some(name) = a.get("anyMember").and_then(Value::as_str) {
+        let id = set_named(g, name)?;
+        let wanted = if items.is_empty() { os::from_selection(g) } else { parse(g, &items)? };
+        let held = os::members(g, id);
+        let any = wanted.iter().any(|w| held.iter().any(|h| h.node == w.node && (h.kind == crate::components::ComponentMode::Object || (h.kind == w.kind && w.ids.iter().any(|i| h.ids.contains(i))))));
+        return Ok(json!(any));
+    }
+    // -copy: a new set holding the named set's members; -split: the items move out of it into a new set.
+    if let Some(name) = a.get("copy").and_then(Value::as_str) {
+        let src = set_named(g, name)?;
+        let list = os::members(g, src);
+        let id = os::create(g, &a.string("name", "set1"), &list, false)?;
+        return Ok(json!(g.path(id)));
+    }
+    if let Some(name) = a.get("split").and_then(Value::as_str) {
+        let src = set_named(g, name)?;
+        let list = if items.is_empty() { os::from_selection(g) } else { parse(g, &items)? };
+        os::remove(g, src, &list)?;
+        let id = os::create(g, &a.string("name", "set1"), &list, false)?;
+        return Ok(json!(g.path(id)));
     }
     if let Some(name) = a.get("isMember").and_then(Value::as_str) {
         let id = set_named(g, name)?;
@@ -827,6 +876,9 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
         parse(g, &items)?
     };
     let id = os::create(g, &a.string("name", "set1"), &list, false)?;
+    if let (Some(t), Some(p)) = (a.get("text").and_then(Value::as_str), annotation(g, id)) {
+        g.set_value(p, PlugValue::String(t.to_string()))?;
+    }
     Ok(json!(g.path(id)))
 }
 
@@ -2047,7 +2099,7 @@ pub fn register(c: &mut Commands<Session>) {
             ("name", "n", S, "The new set's name."), ("empty", "em", B, "Hold nothing."), ("addElement", "add", S, "Add the items to this set."), ("forceElement", "fe", S, "Add the items to this set."),
             ("include", "in", S, "Add the items to this set."), ("remove", "rm", S, "Take the items out of this set."), ("clear", "cl", S, "Empty this set."), ("isMember", "im", S, "Whether the items are in this set."),
             ("isIntersecting", "ii", S, "Whether this set and the others share members."), ("union", "un", S, "This set's members and the others'."), ("intersection", "int", S, "What this set shares with the others."), ("subtract", "sub", S, "This set less the others."),
-            ("size", "s", B, "With -q: how many."), ("flatten", "fl", B, "Accepted for existing scripts."), ("noWarnings", "nw", B, "Accepted for existing scripts."), ("renderable", "r", B, "Accepted for existing scripts."), ("vertices", "v", B, "Accepted for existing scripts."), ("edges", "ed", B, "Accepted for existing scripts."), ("facets", "fc", B, "Accepted for existing scripts."), ("text", "t", S, "Accepted for existing scripts."),
+            ("size", "s", B, "With -q: how many."), ("flatten", "fl", B, "Accepted for existing scripts."), ("noWarnings", "nw", B, "Accepted for existing scripts."), ("renderable", "r", B, "Accepted for existing scripts."), ("vertices", "v", B, "Accepted for existing scripts."), ("edges", "ed", B, "Accepted for existing scripts."), ("facets", "fc", B, "Accepted for existing scripts."), ("text", "t", S, "A note kept with the set: on creation, with -e, or read with -q."), ("anyMember", "am", S, "Whether any of the items is in this set."), ("copy", "cp", S, "A new set holding this set's members."), ("split", "sp", S, "The items moved out of this set into a new one."), ("nodesOnly", "no", B, "With -q: each node once."), ("ordered", "o", B, "Members in the order they were added (as they are kept)."), ("noIntermediate", "ni", B, "Accepted for existing scripts."), ("color", "co", ArgType::Int, "Accepted for existing scripts."), ("layer", "l", B, "Obsolete."),
         ] {
             sets = sets.flag(f(name, short, ty, doc));
         }
@@ -2170,15 +2222,22 @@ pub fn register(c: &mut Commands<Session>) {
     extend(
         c,
         "hide",
-        vec![f("clearSelection", "cs", B, "Accepted for existing scripts."), f("returnHidden", "rh", B, "Return what was hidden."), f("invertComponents", "ic", B, "Accepted for existing scripts."), f("testVisibility", "tv", B, "Whether they are hidden, changing nothing.")],
+        vec![f("clearSelection", "cs", B, "Accepted for existing scripts."), f("returnHidden", "rh", B, "Return what was hidden."), f("invertComponents", "ic", B, "Accepted for existing scripts."), f("testVisibility", "tv", B, "Whether they are hidden, changing nothing."), f("clearLastHidden", "clh", B, "Forget what was hidden last: the caller keeps its own list for showing them again.")],
         |s, a, prev| {
-            if a.bool("testVisibility") {
+            let clear = a.bool("clearLastHidden");
+            let r = (|| -> CmdResult {
+                if a.bool("testVisibility") {
+                    let names = objects(s, a);
+                    return Ok(json!(names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).all(|i| !crate::transform::effectively_visible(&s.graph, i))));
+                }
                 let names = objects(s, a);
-                return Ok(json!(names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).all(|i| !crate::transform::effectively_visible(&s.graph, i))));
+                let r = prev(s, a)?;
+                Ok(if a.bool("returnHidden") { json!(names) } else { r })
+            })();
+            if clear {
+                s.graph.last_hidden.clear();
             }
-            let names = objects(s, a);
-            let r = prev(s, a)?;
-            Ok(if a.bool("returnHidden") { json!(names) } else { r })
+            r
         },
     );
     c.register(

@@ -140,6 +140,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("keyTangent", "attribute" | "time")
             | ("hotkey", "keyShortcut")
             | ("cmdFileOutput", "status")
+            | ("repeatLast", "commandList" | "commandNameList")
     )
 }
 

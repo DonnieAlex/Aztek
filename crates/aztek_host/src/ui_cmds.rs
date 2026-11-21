@@ -333,7 +333,7 @@ pub fn node_flag_nodes(g: &Graph, flag: &str) -> Vec<NodeId> {
 pub fn runtime_commands() -> Value {
     with_ui(|u| {
         json!({
-            "runTime": u.run_time.values().cloned().collect::<Vec<_>>(),
+            "runTime": u.run_time.values().filter(|e| !e["default"].as_bool().unwrap_or(false)).cloned().collect::<Vec<_>>(),
             "nameCommands": u.name_commands.values().cloned().collect::<Vec<_>>(),
         })
     })
@@ -344,10 +344,15 @@ pub fn runtime_commands() -> Value {
 pub fn register_ui_names(s: &mut Session, list: &Value) {
     for it in list.as_array().into_iter().flatten() {
         let Some(name) = it.get(0).and_then(Value::as_str) else { continue };
+        let doc = it.get(1).and_then(Value::as_str).unwrap_or("");
+        // Known to runTimeCommand as the factory commands they are.
+        let category = it.get(2).and_then(Value::as_str).unwrap_or("Miscellaneous");
+        with_ui(|u| {
+            u.run_time.entry(name.to_string()).or_insert_with(|| json!({"name": name, "command": "", "annotation": doc, "category": category, "label": name, "language": "mel", "default": true, "showInHotkeyEditor": true}));
+        });
         if s.commands.find(name).is_some() {
             continue;
         }
-        let doc = it.get(1).and_then(Value::as_str).unwrap_or("");
         let n = name.to_string();
         s.register(
             Cmd::new(name, doc, move |_s, _a| {
@@ -501,53 +506,7 @@ pub fn register(s: &mut Session) {
         .flag(f("list", "l", ArgType::Bool, "Every name.")),
     );
 
-    reg(
-        s,
-        Cmd::new("runTimeCommand", "Create a named command that runs a script: -c the script, -ann its annotation, -cat its category, -cl mel or python.", |s, a| {
-            let Some(name) = a.pos_str(0).map(str::to_string) else {
-                return Ok(with_ui(|u| json!(u.run_time.keys().cloned().collect::<Vec<_>>())));
-            };
-            if a.bool("exists") {
-                return Ok(json!(with_ui(|u| u.run_time.contains_key(&name))));
-            }
-            if a.bool("query") {
-                return Ok(with_ui(|u| {
-                    let e = u.run_time.get(&name).cloned().unwrap_or(json!({}));
-                    if a.bool("command") { e["command"].clone() } else if a.bool("annotation") { e["annotation"].clone() } else if a.bool("category") { e["category"].clone() } else { e }
-                }));
-            }
-            if a.bool("delete") {
-                with_ui(|u| u.run_time.remove(&name));
-                s.commands.unregister(&name);
-                return Ok(Value::Null);
-            }
-            let cmd = a.string("command", "");
-            let lang = a.string("commandLanguage", "mel");
-            let entry = json!({"name": name, "command": cmd, "annotation": a.string("annotation", ""), "category": a.string("category", "User"), "language": lang, "default": a.bool("default")});
-            with_ui(|u| u.run_time.insert(name.clone(), entry));
-            let doc = a.string("annotation", "");
-            let code = format!("{}|{}", if lang == "python" { "py" } else { "mel" }, cmd);
-            s.register(
-                Cmd::new(&name, &doc, move |_s, _a| {
-                    crate::core::push_ui_request(code.clone());
-                    Ok(Value::Null)
-                })
-                .undoable(false),
-            );
-            Ok(json!(name))
-        })
-        .positional("name")
-        .undoable(false)
-        .flag(f("query", "q", ArgType::Bool, "Query."))
-        .flag(f("edit", "e", ArgType::Bool, "Edit."))
-        .flag(f("exists", "ex", ArgType::Bool, "Whether the command exists."))
-        .flag(f("delete", "del", ArgType::Bool, "Delete it."))
-        .flag(f("command", "c", ArgType::Any, "The script."))
-        .flag(f("annotation", "ann", ArgType::Any, "What it does."))
-        .flag(f("category", "cat", ArgType::Any, "Its category in the Hotkey Editor."))
-        .flag(f("commandLanguage", "cl", ArgType::String, "mel or python."))
-        .flag(f("default", "d", ArgType::Bool, "A factory command.")),
-    );
+    reg(s, run_time_command());
 
     reg(
         s,
@@ -1158,4 +1117,131 @@ pub fn register(s: &mut Session) {
         .undoable(false),
     );
 
+}
+
+
+/// runTimeCommand: named commands that run a script, the factory ones the shell has and those scripts make.
+fn run_time_command() -> Cmd {
+    const FIELDS: &[(&str, &str)] = &[
+        ("command", "c"), ("annotation", "ann"), ("category", "cat"), ("commandLanguage", "cl"), ("label", "l"), ("image", "i"), ("keywords", "k"),
+        ("tags", "t"), ("helpUrl", "url"), ("hotkeyCtx", "hc"), ("longAnnotation", "la"), ("plugin", "p"), ("version", "ver"),
+    ];
+    let mut c = Cmd::new(
+        "runTimeCommand",
+        "Named commands that run a script: runTimeCommand -c script name makes one; -ann, -cat, -l, -i, -k, -t and the rest describe it; -q reads them; -e changes them; -del removes a user one; -ca, -dca, -uca, -caa and -nc, -ndc, -nuc list and count them.",
+        |s, a| {
+            let name = a.pos_str(0).map(str::to_string);
+            let asked = a.get("queried").and_then(Value::as_array).and_then(|v| v.first()).and_then(Value::as_str).map(str::to_string);
+            let wants = |k: &str| a.bool(k) || asked.as_deref() == Some(k);
+            let lists = |pick: &dyn Fn(&Value) -> bool| with_ui(|u| u.run_time.iter().filter(|(_, e)| pick(e)).map(|(k, _)| k.clone()).collect::<Vec<_>>());
+            let is_default = |e: &Value| e["default"].as_bool().unwrap_or(false);
+            if wants("commandArray") {
+                return Ok(json!(lists(&|_| true)));
+            }
+            if wants("defaultCommandArray") {
+                return Ok(json!(lists(&|e| is_default(e))));
+            }
+            if wants("userCommandArray") {
+                return Ok(json!(lists(&|e| !is_default(e))));
+            }
+            if wants("numberOfCommands") {
+                return Ok(json!(lists(&|_| true).len()));
+            }
+            if wants("numberOfDefaultCommands") {
+                return Ok(json!(lists(&|e| is_default(e)).len()));
+            }
+            if wants("numberOfUserCommands") {
+                return Ok(json!(lists(&|e| !is_default(e)).len()));
+            }
+            if wants("categoryArray") {
+                let mut cats: Vec<String> = with_ui(|u| u.run_time.values().filter_map(|e| e["category"].as_str().map(str::to_string)).collect());
+                cats.sort();
+                cats.dedup();
+                return Ok(json!(cats));
+            }
+            if a.bool("save") {
+                return Ok(Value::Null);
+            }
+            let Some(name) = name else {
+                return Ok(json!(lists(&|_| true)));
+            };
+            if a.bool("exists") {
+                return Ok(json!(with_ui(|u| u.run_time.contains_key(&name))));
+            }
+            if a.bool("query") {
+                let Some(e) = with_ui(|u| u.run_time.get(&name).cloned()) else { fail!("runTimeCommand: {name} doesn't exist.") };
+                let k = asked.unwrap_or_default();
+                return Ok(match k.as_str() {
+                    "default" => json!(is_default(&e)),
+                    "showInHotkeyEditor" => json!(e["showInHotkeyEditor"].as_bool().unwrap_or(true)),
+                    "commandLanguage" => e.get("language").cloned().unwrap_or(json!("mel")),
+                    "" => e,
+                    k => e.get(k).cloned().unwrap_or(json!("")),
+                });
+            }
+            if a.bool("delete") {
+                let default = with_ui(|u| u.run_time.get(&name).is_some_and(is_default));
+                if default {
+                    fail!("runTimeCommand: {name} is a factory command and can't be deleted.");
+                }
+                with_ui(|u| u.run_time.remove(&name));
+                s.commands.unregister(&name);
+                return Ok(Value::Null);
+            }
+            let exists = with_ui(|u| u.run_time.contains_key(&name));
+            if exists && !a.bool("edit") {
+                fail!("runTimeCommand: {name} already exists.");
+            }
+            if !exists && a.bool("edit") {
+                fail!("runTimeCommand: {name} doesn't exist.");
+            }
+            let mut entry = with_ui(|u| u.run_time.get(&name).cloned()).unwrap_or_else(|| json!({"name": name, "command": "", "annotation": "", "category": "User", "label": "", "language": "mel", "default": a.bool("default"), "showInHotkeyEditor": true}));
+            for (k, _) in FIELDS {
+                if let Some(v) = a.get(k) {
+                    let key = if *k == "commandLanguage" { "language" } else { k };
+                    entry[key] = v.clone();
+                }
+            }
+            if a.has("showInHotkeyEditor") {
+                entry["showInHotkeyEditor"] = json!(a.bool("showInHotkeyEditor"));
+            }
+            for (flag, key) in [("addKeyword", "keywords"), ("addTag", "tags")] {
+                for v in a.get(flag).and_then(Value::as_array).cloned().unwrap_or_default() {
+                    let have = entry[key].as_str().unwrap_or("").to_string();
+                    let add = v.as_str().unwrap_or("");
+                    entry[key] = json!(if have.is_empty() { add.to_string() } else { format!("{have};{add}") });
+                }
+            }
+            let built_in = is_default(&entry) && entry["command"].as_str().unwrap_or("").is_empty();
+            with_ui(|u| u.run_time.insert(name.clone(), entry.clone()));
+            // A factory command of the shell keeps running the shell's action; any other runs its script.
+            if !built_in {
+                let cmd = entry["command"].as_str().unwrap_or("").to_string();
+                let lang = entry["language"].as_str().unwrap_or("mel").to_string();
+                let code = format!("{}|{}", if lang == "python" { "py" } else { "mel" }, cmd);
+                let doc = entry["annotation"].as_str().unwrap_or("").to_string();
+                s.commands.unregister(&name);
+                s.register(
+                    Cmd::new(&name, &doc, move |_s, _a| {
+                        crate::core::push_ui_request(code.clone());
+                        Ok(Value::Null)
+                    })
+                    .undoable(false),
+                );
+            }
+            Ok(json!(name))
+        },
+    )
+    .positional("name")
+    .undoable(false)
+    .flag(f("query", "q", ArgType::Bool, "Query."))
+    .flag(f("edit", "e", ArgType::Bool, "Edit."))
+    .flag(f("queried", "", ArgType::List, "What -q asks for."));
+    for (k, short) in FIELDS {
+        c = c.flag(f(k, short, ArgType::Any, "A field of the command."));
+    }
+    for (k, short) in [("exists", "ex"), ("delete", "del"), ("default", "d"), ("save", "s"), ("commandArray", "ca"), ("defaultCommandArray", "dca"), ("userCommandArray", "uca"), ("categoryArray", "caa"), ("numberOfCommands", "nc"), ("numberOfDefaultCommands", "ndc"), ("numberOfUserCommands", "nuc"), ("showInHotkeyEditor", "she")] {
+        c = c.flag(f(k, short, ArgType::Bool, "See the description."));
+    }
+    c.flag(f("addKeyword", "ak", ArgType::Any, "One more search keyword.").multi(1)).flag(f("addTag", "at", ArgType::Any, "One more search tag.").multi(1))
 }

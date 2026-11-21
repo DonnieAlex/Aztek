@@ -470,7 +470,13 @@ fn poly_install_action(s: &mut Session, a: &Args) -> CmdResult {
         s.run("polyOptions", json!({"displayBorder": false}))?;
         s.extras.more.install_display = false;
     }
-    let Some(name) = name else { return Ok(json!([])) };
+    let Some(name) = name else {
+        // With no action named, nothing stays installed.
+        if uc && ud {
+            s.extras.more.install_action.clear();
+        }
+        return Ok(json!([]));
+    };
     let Some((mode, border)) = action_kind(&name) else { fail!("polyInstallAction: no action {name}") };
     if converting {
         let convert_flag = match mode {

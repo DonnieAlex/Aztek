@@ -973,7 +973,7 @@ fn component_conversion_and_filter_expand() {
     run(&mut s, "select", json!({"args": ["pCube1.f[0:2]"]}));
     assert_eq!(run(&mut s, "filterExpand", json!({"sm": 34})).as_array().unwrap().len(), 3);
     assert_eq!(run(&mut s, "filterExpand", json!({"sm": 34, "ex": false})), json!(["pCube1.f[0:2]"]));
-    assert_eq!(run(&mut s, "filterExpand", json!({"sm": 31})), Value::Null);
+    assert_eq!(run(&mut s, "filterExpand", json!({"sm": 31})), json!([]));
     assert_eq!(run(&mut s, "filterExpand", json!({"args": ["pCube1"], "sm": 12})), json!(["pCube1"]));
     assert_eq!(run(&mut s, "filterExpand", json!({"args": ["pCube1"], "sm": 12, "fp": true})), json!(["|pCube1"]));
     assert_eq!(run(&mut s, "filterExpand", json!({"args": ["pCube1.map[0:1]"], "sm": 35})).as_array().unwrap().len(), 2);

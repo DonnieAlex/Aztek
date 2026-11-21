@@ -114,7 +114,7 @@ def _command(name):
             if size == 1:
                 return [tuple(result)]
         # The reference's list queries give None rather than an empty list.
-        if name in ("listRelatives", "listConnections", "listAttr") and result == []:
+        if name in ("listRelatives", "listConnections", "listAttr", "filterExpand") and result == []:
             return None
         return result
 

@@ -325,7 +325,7 @@ pub fn cat_of(kind: &str) -> Cat {
 
 pub(crate) const COMMON: &str = "annotation:ann:a backgroundColor:bgc:a defineTemplate:dt:a docTag:dtg:a dragCallback:dgc:a dropCallback:dpc:a enable:en:b enableBackground:ebg:b enableKeyboardFocus:ekf:b exists:ex:b fullPathName:fpn:b height:h:a highlightColor:hlc:a isObscured:io:b manage:m:b noBackground:nbg:b numberOfPopupMenus:npm:b parent:p:a popupMenuArray:pma:b preventOverride:po:b statusBarMessage:sbm:a useTemplate:ut:a visible:vis:b visibleChangeCommand:vcc:a width:w:a query:q:b edit:e:b queried::a";
 const LAYOUT: &str = "childArray:ca:b numberOfChildren:nch:b";
-const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeBox:mnb:b maximizeBox:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:dcs:b dockingLayout:dl:a state:st:a menuArray:ma:b";
+const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:dcs:b dockingLayout:dl:a state:st:a menuArray:ma:b";
 const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a";
 const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a";
 pub(crate) const SLIDER_GRP: &str = "label:l:a field:f:b value:v:a minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderStep:ss:a step:s:a fieldStep:fs:a extraLabel:el:a changeCommand:cc:a dragCommand:dc:a";
@@ -522,6 +522,10 @@ fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String
 
 fn set(m: &mut Model, id: Id, key: &str, v: Value, changed: &mut Map<String, Value>) {
     if let Some(c) = m.controls.get_mut(&id) {
+        // An editor's main connection is locked by one flag and unlocked by another: both answer -q -lockMainConnection.
+        if key == "unlockMainConnection" && v.as_bool() == Some(true) {
+            c.props.insert("lockMainConnection".into(), json!(false));
+        }
         c.props.insert(key.to_string(), v.clone());
     }
     changed.insert(key.to_string(), v);
@@ -1070,7 +1074,7 @@ fn radio_exclusive(m: &mut Model, id: Id) {
 fn default_value(c: &Control, key: &str) -> Value {
     match (c.kind.as_str(), key) {
         ("window" | "workspaceControl" | "dockControl" | "progressWindow", "visible") => json!(false),
-        (_, "enable" | "visible" | "manage" | "editable" | "sizeable" | "minimizeBox" | "maximizeBox" | "titleBar" | "titleBarMenu" | "enableKeyboardFocus" | "enableButton") => json!(true),
+        (_, "enable" | "visible" | "manage" | "editable" | "sizeable" | "minimizeButton" | "maximizeButton" | "titleBar" | "titleBarMenu" | "enableKeyboardFocus" | "enableButton") => json!(true),
         ("floatSliderGrp" | "intSliderGrp" | "colorIndexSliderGrp" | "floatSliderButtonGrp", "minValue") => zero(&c.kind),
         ("floatSliderGrp" | "intSliderGrp" | "floatSliderButtonGrp", "maxValue") => ten(&c.kind),
         ("scriptTable", "rows" | "columns") => json!(0),

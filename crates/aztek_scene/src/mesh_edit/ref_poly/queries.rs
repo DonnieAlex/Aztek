@@ -81,10 +81,14 @@ pub(crate) fn parse_item(g: &mut crate::graph::Graph, text: &str) -> CmdResult<I
 }
 
 /// The call's arguments, or the selection's components, or the selected objects, as strings.
-fn items(s: &Session, a: &Args) -> Vec<String> {
+fn items(s: &mut Session, a: &Args) -> Vec<String> {
     let names = a.named();
     if !names.is_empty() {
         return names;
+    }
+    // The selection as `ls -sl` gives it: components and whole objects together.
+    if let Ok(Value::Array(v)) = s.run("ls", json!({"selection": true})) {
+        return v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect();
     }
     let comps = components::component_strings(&s.graph, false);
     if !comps.is_empty() {
@@ -930,12 +934,26 @@ fn filter_expand(s: &mut Session, a: &Args) -> CmdResult {
                 let hit = (curve && wants(9)) || (joint && wants(0)) || (locator && wants(22)) || (masks.is_empty());
                 if hit {
                     out.push(if full { g.full_path(n) } else { g.path(n) });
+                } else if crate::dag::shapes(g, n, true).is_empty() && !masks.is_empty() {
+                    // A group: the meshes and curves below it that the masks ask for.
+                    for d in g.descendants(n) {
+                        let shapes = crate::dag::shapes(g, d, true);
+                        let is_mesh = shapes.iter().any(|&sh| components::as_mesh(g, sh).is_some());
+                        let is_curve = shapes.iter().any(|&sh| crate::curves::as_curve(g, sh).is_some());
+                        if (is_mesh && wants(12)) || (is_curve && wants(9)) {
+                            let p = if full { g.full_path(d) } else { g.path(d) };
+                            if !out.contains(&p) {
+                                out.push(p);
+                            }
+                        }
+                    }
                 }
             }
             _ => {}
         }
     }
-    Ok(if out.is_empty() { Value::Null } else { json!(out) })
+    // An empty list in MEL; Python's wrapper gives None, as the reference's does.
+    Ok(json!(out))
 }
 
 pub(super) fn register(c: &mut Commands<Session>) {
@@ -1023,7 +1041,7 @@ pub(super) fn register(c: &mut Commands<Session>) {
         ref_cmd(
             "filterExpand",
             "The selection (or arguments) filtered by selection mask and flattened: -sm 31 vertices, 32 edges, 34 faces, 35 UVs, 70 vertex faces, 28 CVs, 12 meshes, 9 curves, \
-             22 locators. -ex 0 keeps ranges. -fp full paths. None when nothing matches.",
+             22 locators. -ex 0 keeps ranges. -fp full paths. Empty when nothing matches (None in Python).",
             &[],
             filter_expand,
         )

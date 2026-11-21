@@ -1120,6 +1120,50 @@ pub(crate) fn each(s: &mut Session, a: &Args, cmd: &str, label: &str, node_type:
     Ok(Value::Array(made))
 }
 
+/// The meshes polyProjection works on: those named (by their faces or whole), else the selection's.
+fn projection_meshes(s: &mut Session, a: &Args) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let names = if a.named().is_empty() { s.run("ls", json!({"selection": true})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default().iter().filter_map(|x| x.as_str().map(str::to_string)).collect() } else { a.named() };
+    for n in names {
+        let obj = n.split('.').next().unwrap_or(&n).to_string();
+        if !out.contains(&obj) {
+            out.push(obj);
+        }
+    }
+    out
+}
+
+fn polyprojection_run(s: &mut Session, a: &Args, ty: Projection) -> CmdResult {
+    let md = a.string("mapDirection", "b").to_lowercase();
+    if ty == Projection::Planar && (md == "c" || md == "n") {
+        return project_along(s, a, &md);
+    }
+
+                let axis = match md.as_str() {
+                    "x" => ProjectAxis::X,
+                    "y" => ProjectAxis::Y,
+                    "z" => ProjectAxis::Z,
+                    _ => ProjectAxis::BestFit,
+                };
+                let node = match ty {
+                    Projection::Cylindrical => "polyCylProj",
+                    Projection::Spherical => "polySphProj",
+                    _ => "polyPlanarProj",
+                };
+                let mut fits: Vec<(Mesh, Vec<Index>)> = Vec::new();
+                let made = each(s, a, "polyProjection", "Projection", node, |m, t, tp| {
+                    let faces = target_faces(m, t, tp);
+                    fits.push((m.clone(), faces.clone()));
+                    project_faces(m, &faces, ty, axis);
+                })?;
+                for (name, (m, faces)) in made.as_array().into_iter().flatten().zip(fits) {
+                    if let Some(n) = name.as_str().and_then(|n| s.graph.find(n).ok().flatten()) {
+                        fit_projection(&mut s.graph, n, &m, &faces, ty, axis)?;
+                    }
+                }
+    Ok(made)
+}
+
 /// Planar UVs seen along a direction: the camera's view (-md c), or the faces' mean normal (-md n), the view's right and
 /// up (or world up's) as U and V, fitted into 0 to 1 keeping proportions.
 fn project_along(s: &mut Session, a: &Args, md: &str) -> CmdResult {
@@ -1252,30 +1296,45 @@ pub fn register(c: &mut Commands<Session>) {
                     "spherical" => Projection::Spherical,
                     t => fail!("polyProjection: type {t} is not planar, cylindrical or spherical"),
                 };
-                let md = a.string("mapDirection", "b").to_lowercase();
-                if ty == Projection::Planar && (md == "c" || md == "n") {
-                    return project_along(s, a, &md);
+                // -uvSetName: the projection goes into that set, made first with -createNewMap when the mesh lacks it;
+                // the current set is put back afterwards.
+                let uv_set = a.get("uvSetName").and_then(Value::as_str).filter(|n| !n.is_empty()).map(str::to_string);
+                let mut restore: Vec<(String, String)> = Vec::new();
+                if let Some(set) = &uv_set {
+                    for name in projection_meshes(s, a) {
+                        let have = s.run("polyUVSet", json!({"args": [name], "query": true, "queried": ["allUVSets"]})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
+                        let cur = s.run("polyUVSet", json!({"args": [name], "query": true, "queried": ["currentUVSet"]})).ok().and_then(|v| v.as_array().and_then(|x| x.first().cloned())).and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default();
+                        if !have.iter().any(|h| h.as_str() == Some(set)) {
+                            if !a.bool("createNewMap") {
+                                fail!("polyProjection: {name} has no UV set {set}");
+                            }
+                            s.run("polyUVSet", json!({"args": [name], "create": true, "uvSet": set}))?;
+                        }
+                        if cur != *set {
+                            s.run("polyUVSet", json!({"args": [name], "currentUVSet": true, "uvSet": set}))?;
+                            restore.push((name.clone(), cur));
+                        }
+                    }
                 }
-                let axis = match md.as_str() {
-                    "x" => ProjectAxis::X,
-                    "y" => ProjectAxis::Y,
-                    "z" => ProjectAxis::Z,
-                    _ => ProjectAxis::BestFit,
-                };
-                let node = match ty {
-                    Projection::Cylindrical => "polyCylProj",
-                    Projection::Spherical => "polySphProj",
-                    _ => "polyPlanarProj",
-                };
-                let mut fits: Vec<(Mesh, Vec<Index>)> = Vec::new();
-                let made = each(s, a, "polyProjection", "Projection", node, |m, t, tp| {
-                    let faces = target_faces(m, t, tp);
-                    fits.push((m.clone(), faces.clone()));
-                    project_faces(m, &faces, ty, axis);
-                })?;
-                for (name, (m, faces)) in made.as_array().into_iter().flatten().zip(fits) {
-                    if let Some(n) = name.as_str().and_then(|n| s.graph.find(n).ok().flatten()) {
-                        fit_projection(&mut s.graph, n, &m, &faces, ty, axis)?;
+                let result = polyprojection_run(s, a, ty);
+                for (name, cur) in restore {
+                    let _ = s.run("polyUVSet", json!({"args": [name], "currentUVSet": true, "uvSet": cur}));
+                }
+                let made = result?;
+                // The manipulator's place and the UVs' placement, on each node made.
+                for node in made.as_array().into_iter().flatten().filter_map(|v| v.as_str()) {
+                    for (flag, attr) in [
+                        ("projectionCenterX", "projectionCenterX"), ("projectionCenterY", "projectionCenterY"), ("projectionCenterZ", "projectionCenterZ"),
+                        ("rotateX", "rotateX"), ("rotateY", "rotateY"), ("rotateZ", "rotateZ"),
+                        ("imageCenterX", "imageCenterX"), ("imageCenterY", "imageCenterY"), ("imageScaleU", "imageScaleX"), ("imageScaleV", "imageScaleY"),
+                        ("projectionScaleU", "projectionWidth"), ("projectionScaleV", "projectionHeight"), ("rotationAngle", "rotationAngle"),
+                    ] {
+                        if let Some(v) = a.get(flag).and_then(Value::as_f64) {
+                            let plug = format!("{node}.{attr}");
+                            if s.graph.plug(&plug).is_ok() {
+                                s.run("setAttr", json!({"args": [plug, v]}))?;
+                            }
+                        }
                     }
                 }
                 Ok(made)
@@ -1285,7 +1344,26 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("type", "t", ArgType::String, Value::Null, "planar, cylindrical or spherical."))
         .flag(f("mapDirection", "md", ArgType::String, Value::Null, "x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals)."))
         .flag(f("camera", "cam", ArgType::String, Value::Null, "The camera -md c projects through (persp)."))
-        .flag(f("constructionHistory", "ch", ArgType::Bool, Value::Null, "Accepted for existing scripts.")),
+        .flag(f("constructionHistory", "ch", ArgType::Bool, Value::Null, "Accepted for existing scripts."))
+        .flag(f("uvSetName", "uvs", ArgType::String, Value::Null, "The UV set projected into."))
+        .flag(f("createNewMap", "cm", ArgType::Bool, Value::Null, "Make the -uvs set when the mesh lacks it."))
+        .flag(f("insertBeforeDeformers", "ibd", ArgType::Bool, Value::Null, "Before or after the deformers: accepted; the projection goes where Aztek's history puts it."))
+        .flag(f("keepImageRatio", "kir", ArgType::Bool, Value::Null, "Planar: the same scale in U and V, as the fit does."))
+        .flag(f("smartFit", "sf", ArgType::Bool, Value::Null, "Cylindrical and spherical: the manipulator fitted to the object, as the fit does."))
+        .flag(f("seamCorrect", "sc", ArgType::Bool, Value::Null, "Accepted: the seam is cut where the projection wraps."))
+        .flag(f("imageCenterX", "icx", ArgType::Float, Value::Null, "U offset of the projected UVs."))
+        .flag(f("imageCenterY", "icy", ArgType::Float, Value::Null, "V offset of the projected UVs."))
+        .flag(f("imageScaleU", "isu", ArgType::Float, Value::Null, "U scale of the projected UVs."))
+        .flag(f("imageScaleV", "isv", ArgType::Float, Value::Null, "V scale of the projected UVs."))
+        .flag(f("projectionCenterX", "pcx", ArgType::Float, Value::Null, "The manipulator's centre."))
+        .flag(f("projectionCenterY", "pcy", ArgType::Float, Value::Null, "The manipulator's centre."))
+        .flag(f("projectionCenterZ", "pcz", ArgType::Float, Value::Null, "The manipulator's centre."))
+        .flag(f("projectionScaleU", "psu", ArgType::Float, Value::Null, "The manipulator's width."))
+        .flag(f("projectionScaleV", "psv", ArgType::Float, Value::Null, "The manipulator's height."))
+        .flag(f("rotateX", "rx", ArgType::Float, Value::Null, "The manipulator's rotation."))
+        .flag(f("rotateY", "ry", ArgType::Float, Value::Null, "The manipulator's rotation."))
+        .flag(f("rotateZ", "rz", ArgType::Float, Value::Null, "The manipulator's rotation."))
+        .flag(f("rotationAngle", "ra", ArgType::Float, Value::Null, "The UVs' rotation in UV space.")),
     );
     // The reference's commands for each kind: polyProjection of that type, making polyPlanarProj, polyCylProj or polySphProj.
     for (name, ty) in [("polyPlanarProjection", "planar"), ("polyCylindricalProjection", "cylindrical"), ("polySphericalProjection", "spherical")] {

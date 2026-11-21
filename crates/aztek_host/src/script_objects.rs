@@ -86,14 +86,18 @@ fn strings(v: Option<&Value>) -> Vec<String> {
     v.map(flat).unwrap_or_default().iter().map(text).collect()
 }
 
+/// The next free name base1, base2...: the counter is read and bumped outside `taken`, which may itself look at the
+/// objects.
 fn fresh(base: &str, taken: impl Fn(&str) -> bool) -> String {
-    with(|o| loop {
-        o.counter += 1;
-        let n = format!("{base}{}", o.counter);
+    loop {
+        let n = with(|o| {
+            o.counter += 1;
+            format!("{base}{}", o.counter)
+        });
         if !taken(&n) {
             break n;
         }
-    })
+    }
 }
 
 /// `*` and `?`, as the reference's name patterns have them.
@@ -317,6 +321,19 @@ fn edit_connection(s: &mut Session, n: &str, a: &Args) -> CmdResult<()> {
 /// What a connection lists for the editors reading it: None for one that means the whole scene.
 pub fn connection_objects(name: &str) -> Option<Vec<String>> {
     with(|o| o.connections.get(name).filter(|c| !matches!(c.kind.as_str(), "worldList" | "activeList" | "modelList")).map(|c| c.objects.clone()))
+}
+
+/// Whether a selection connection has this name, and what it holds: None for one that follows the selection.
+pub fn connection_members(name: &str) -> Option<Option<Vec<String>>> {
+    with(|o| {
+        o.connections.get(name).map(|c| {
+            if matches!(c.kind.as_str(), "activeList" | "modelList") || (c.kind != "worldList" && c.objects.is_empty() && c.kind.is_empty()) {
+                None
+            } else {
+                Some(c.objects.clone())
+            }
+        })
+    })
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

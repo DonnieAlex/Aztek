@@ -23,7 +23,7 @@ fn scripting_commands() {
     run(&mut s, "select", json!({"args": ["pCube1.vtx[0:3]"]}));
     let fe = run(&mut s, "filterExpand", json!({"selectionMask": 31}));
     assert_eq!(fe.as_array().unwrap().len(), 4);
-    assert_eq!(run(&mut s, "filterExpand", json!({"selectionMask": 34})), Value::Null);
+    assert_eq!(run(&mut s, "filterExpand", json!({"selectionMask": 34})), json!([]));
     let r = run(&mut s, "polyCreateFacet", json!({"point": [[0, 0, 0], [1, 0, 0], [0, 0, 1]]}));
     assert!(r[0].is_string());
     run(&mut s, "polyAverageVertex", json!({"args": ["pCube1.vtx[0]"], "iterations": 3}));
