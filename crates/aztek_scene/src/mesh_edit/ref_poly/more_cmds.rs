@@ -192,14 +192,55 @@ fn color_mod_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -
         let Some(x) = vals.get_mut(c as usize) else { continue };
         let (h, s, v) = rgb_hsv(*x);
         let (r, g, b) = hsv_rgb(h + dh, (s * ms).clamp(0.0, 1.0), (v * mv).max(0.0));
-        *x = [r as f32, g as f32, b as f32, x[3]];
+        // Each channel's scale ramp, then the intensity ramp over red, green and blue.
+        let (r, g, b, al) = (r * ramp(a, "redScale", r), g * ramp(a, "greenScale", g), b * ramp(a, "blueScale", b), x[3] as f64 * ramp(a, "alphaScale", x[3] as f64));
+        let k = ramp(a, "intensityScale", (r + g + b) / 3.0);
+        *x = [(r * k) as f32, (g * k) as f32, (b * k) as f32, al as f32];
     }
     Ok(EditResult::default())
 }
 
-fn color_del_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+/// A scale ramp of polyColorMod at a channel's value: one entry, its value at its position, holds that value all along
+/// (linear, smooth and spline alike); none gives 1.
+fn ramp(a: &Args, name: &str, _at: f64) -> f64 {
+    a.get(&format!("{name}_FloatValue")).and_then(Value::as_f64).unwrap_or(1.0)
+}
+
+/// polyColorMod's ramp flags: each channel's one entry, by position, value and interpolation.
+pub(crate) fn color_mod_ramp_flags(mut c: Cmd) -> Cmd {
+    for (name, p, v, i) in [
+        ("redScale", "rp", "rfv", "ri"),
+        ("greenScale", "gp", "gfv", "gi"),
+        ("blueScale", "bp", "bfv", "bi"),
+        ("alphaScale", "ap", "afv", "ai"),
+        ("intensityScale", "np", "nfv", "ni"),
+    ] {
+        c = c
+            .flag(fl(&format!("{name}_Position"), p, T::Float, Value::Null, "Where the ramp's entry sits along the channel, 0 to 1."))
+            .flag(fl(&format!("{name}_FloatValue"), v, T::Float, json!(1.0), "The ramp entry's value: the channel is scaled by it (1)."))
+            .flag(fl(&format!("{name}_Interp"), i, T::Int, json!(0), "How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline."));
+    }
+    c
+}
+
+fn color_del_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let set = color_set_of(a, m);
-    colors::remove(m, &set);
+    let faces: Vec<Index> = sel.iter().copied().filter(|&f| m.face_valid(f)).collect();
+    let all = (0..m.face_capacity()).filter(|&f| m.face_valid(f)).count();
+    if faces.len() >= all {
+        colors::remove(m, &set);
+        return Ok(EditResult::default());
+    }
+    // Some faces only: their corners lose their colour, which shows as none (white over the material).
+    if colors::has(m, &set) {
+        let corners: Vec<Index> = faces.iter().flat_map(|&f| m.face_corners(f)).collect();
+        let vals = colors::values_mut(m, &set);
+        for c in corners {
+            if let Some(x) = vals.get_mut(c as usize) {
+                *x = [1.0, 1.0, 1.0, 1.0];
+            }
+        }
+    }
     Ok(EditResult::default())
 }
 
@@ -325,7 +366,7 @@ fn blind_domain(ty: &str) -> K {
 fn blind_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let layer = blind_layer(a);
     let list: Vec<Index> = a.get("blindIds").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_u64).map(|x| x as Index).collect()).unwrap_or_default();
-    let v = if a.bool("reset") { f32::NAN } else { a.float("blindValue", f64::NAN) as f32 };
+    let v = if a.bool("reset") || a.bool("delete") { f32::NAN } else { a.float("blindValue", f64::NAN) as f32 };
     let attrs = match blind_domain(&a.string("associationType", "face")) {
         K::Vertex => m.point_attrs_mut(),
         K::Edge => m.edge_attrs_mut(),
@@ -347,6 +388,10 @@ fn blind_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> C
 }
 
 fn poly_blind_data(s: &mut Session, a: &Args) -> CmdResult {
+    // Nothing is cached about blind data here: a rescan finds it all as it is.
+    if a.bool("rescan") && !a.has("typeId") {
+        return Ok(json!([]));
+    }
     if !a.has("typeId") {
         fail!("polyBlindData: give -id");
     }
@@ -356,13 +401,61 @@ fn poly_blind_data(s: &mut Session, a: &Args) -> CmdResult {
     if a.has("stringData") || a.has("binaryData") {
         fail!("polyBlindData: only numbers are held here");
     }
-    if blind_value(a).is_none() && !a.bool("reset") {
+    if blind_value(a).is_none() && !a.bool("reset") && !a.bool("delete") {
         fail!("polyBlindData: give -dbd, -ind or -bd");
     }
     let kind = blind_domain(&a.string("associationType", "face"));
     // The ids of the domain asked for, carried to the op, which works on faces.
     let (targets, _) = gather(s, a, kind)?;
     let value = blind_value(a);
+    // Edit: the node of this type, name and association already on the mesh takes the new value and components.
+    if a.bool("edit") {
+        let mut edited = Vec::new();
+        let mut rest = BTreeMap::new();
+        for (mesh, ids) in targets.clone() {
+            match blind_node_of(&s.graph, mesh, a) {
+                Some(node) => {
+                    let path = s.graph.path(node);
+                    let was: Vec<u64> = s.run("getAttr", json!({"args": [format!("{path}.blindIds")]})).ok().and_then(|v| v.as_str().and_then(|t| serde_json::from_str::<Vec<u64>>(t).ok())).unwrap_or_default();
+                    let mut all: Vec<u64> = was.into_iter().chain(ids.iter().map(|&i| i as u64)).collect();
+                    all.sort_unstable();
+                    all.dedup();
+                    let ids_plug = s.graph.plug(&format!("{path}.blindIds")).map_err(|e| aztek_ops::CommandError::new(e.to_string()))?;
+                    s.graph.set_value(ids_plug, crate::plug::PlugValue::String(json!(all).to_string()))?;
+                    if let Some(v) = value {
+                        s.run("setAttr", json!({"args": [format!("{path}.blindValue"), v as f64]}))?;
+                    }
+                    for k in ["reset", "delete"] {
+                        let p = format!("{path}.{k}");
+                        if s.graph.plug(&p).is_ok() {
+                            s.run("setAttr", json!({"args": [p, a.bool(k) as i64]}))?;
+                        }
+                    }
+                    edited.push(json!(path));
+                }
+                None => {
+                    rest.insert(mesh, ids);
+                }
+            }
+        }
+        if rest.is_empty() {
+            s.graph.evaluate();
+            return Ok(Value::Array(edited));
+        }
+        let mut made = edited;
+        let mut b = a.clone();
+        b.flags.remove("edit");
+        let prefix = match kind {
+            K::Vertex => "vtx",
+            K::Edge => "e",
+            _ => "f",
+        };
+        b.positional = rest.iter().flat_map(|(&m, ids)| component_list(&s.graph, m, prefix, ids, false)).map(Value::String).collect();
+        if let Some(Value::Array(more)) = poly_blind_data(s, &b).ok() {
+            made.extend(more);
+        }
+        return Ok(Value::Array(made));
+    }
     run_op_with(s, "polyBlindData", a, &mut |_, node, _, _, args| {
         let list = targets.get(&node).cloned().unwrap_or_default();
         args.flags.insert("blindIds".into(), json!(list));
@@ -371,6 +464,21 @@ fn poly_blind_data(s: &mut Session, a: &Args) -> CmdResult {
         }
         Ok(())
     })
+}
+
+/// The polyBlindData node in a mesh's history holding the type, name and association a call gives.
+fn blind_node_of(g: &crate::graph::Graph, mesh: crate::plug::NodeId, a: &Args) -> Option<crate::plug::NodeId> {
+    let want = |n: &crate::node::Node| {
+        let d = n.data();
+        let get = |k: &str| n.ty().attr_index(k);
+        let id_ok = get("typeId").is_some_and(|i| d.int(i) == a.int("typeId", 0));
+        let long = a.string("longDataName", "");
+        let name = if long.is_empty() { a.string("shortDataName", "") } else { long };
+        let name_ok = ["longDataName", "shortDataName"].iter().any(|k| get(k).is_some_and(|i| d.string(i) == name));
+        let at_ok = get("associationType").is_none_or(|i| blind_domain(d.string(i)) == blind_domain(&a.string("associationType", "face")));
+        id_ok && name_ok && at_ok
+    };
+    crate::history::history_of(g, mesh).into_iter().find(|&h| g.node(h).is_some_and(|n| n.ty().name == "polyBlindData" && want(n)))
 }
 
 fn poly_query_blind_data(s: &mut Session, a: &Args) -> CmdResult {
@@ -417,28 +525,23 @@ fn poly_query_blind_data(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Array(out))
 }
 
-/// polyColorBlindData: colours the components carrying the data. -mode 0 is binary: the colour where there's data, the
-/// no-colour elsewhere; other modes shade between the -mnv and -mxv values.
+/// polyColorBlindData's node: paints the colours the command worked out, one per component of the domain it read, into
+/// the colour set "blindData", which it makes current. Components with none take the no-data colour.
 fn color_blind_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
-    let layer = blind_layer(a);
     let kind = blind_domain(&a.string("associationType", "face"));
-    let (hit, none) = (
-        [a.float("colorRed", 1.0) as f32, a.float("colorGreen", 0.0) as f32, a.float("colorBlue", 0.0) as f32, 1.0],
-        [a.float("noColorRed", 0.2) as f32, a.float("noColorGreen", 0.2) as f32, a.float("noColorBlue", 0.2) as f32, 1.0],
-    );
-    let (lo, hi) = (a.float("minValue", 0.0) as f32, a.float("maxValue", 1.0) as f32);
-    let mode = a.int("mode", 0);
+    let none = [a.float("noColorRed", 0.2) as f32, a.float("noColorGreen", 0.2) as f32, a.float("noColorBlue", 0.2) as f32, 1.0];
+    let mut by_id: BTreeMap<Index, [f32; 4]> = BTreeMap::new();
+    for e in a.get("blindColors").and_then(Value::as_array).into_iter().flatten() {
+        let n: Vec<f64> = e.as_array().map(|l| l.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+        if n.len() == 4 {
+            by_id.insert(n[0] as Index, [n[1] as f32, n[2] as f32, n[3] as f32, 1.0]);
+        }
+    }
     let set = "blindData".to_string();
     if !colors::has(m, &set) {
         colors::add_white(m, &set);
     }
-    let attrs = match kind {
-        K::Vertex => m.point_attrs(),
-        K::Edge => m.edge_attrs(),
-        _ => m.face_attrs(),
-    };
-    let data: Vec<f32> = attrs.get::<f32>(&layer).to_vec();
-    let mut corner_values: Vec<(Index, f32)> = Vec::new();
+    let mut corner_ids: Vec<(Index, Index)> = Vec::new();
     for c in 0..m.corner_capacity() {
         if !m.corner_valid(c) {
             continue;
@@ -448,22 +551,251 @@ fn color_blind_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>
             K::Edge => m.corner_edge(c),
             _ => m.corner_face(c),
         };
-        corner_values.push((c, data.get(i as usize).copied().unwrap_or(f32::NAN)));
+        corner_ids.push((c, i));
     }
     let out = colors::values_mut(m, &set);
-    for (c, v) in corner_values {
-        let Some(x) = out.get_mut(c as usize) else { continue };
-        *x = if v.is_nan() {
-            none
-        } else if mode == 0 {
-            hit
-        } else {
-            let t = ((v - lo) / (hi - lo).max(1e-6)).clamp(0.0, 1.0);
-            [none[0] + (hit[0] - none[0]) * t, none[1] + (hit[1] - none[1]) * t, none[2] + (hit[2] - none[2]) * t, 1.0]
-        };
+    for (c, i) in corner_ids {
+        if let Some(x) = out.get_mut(c as usize) {
+            *x = by_id.get(&i).copied().unwrap_or(none);
+        }
     }
     colors::set_current(m, &set);
     Ok(EditResult::default())
+}
+
+/// One rule of a polyColorBlindData call: a type id, its attributes' names and values, and how to colour by them.
+struct BlindRule {
+    id: i64,
+    names: Vec<String>,
+    values: Vec<String>,
+    mode: i64,
+    color: [f64; 3],
+    min: Option<f64>,
+    max: Option<f64>,
+    min_color: [f64; 3],
+    max_color: [f64; 3],
+    below: [f64; 3],
+    above: [f64; 3],
+}
+
+fn list_of(a: &Args, flag: &str) -> Vec<Value> {
+    match a.get(flag) {
+        Some(Value::Array(l)) => l.clone(),
+        Some(v) => vec![v.clone()],
+        None => Vec::new(),
+    }
+}
+
+fn nth_f(a: &Args, flag: &str, i: usize, default: f64) -> f64 {
+    let l = list_of(a, flag);
+    l.get(i).or(l.last()).and_then(|v| v.as_f64().or(v.as_bool().map(|b| b as i64 as f64))).unwrap_or(default)
+}
+
+fn nth_b(a: &Args, flag: &str, i: usize) -> Option<bool> {
+    let l = list_of(a, flag);
+    l.get(i).or(l.last()).map(|v| v.as_bool().unwrap_or(v.as_f64().unwrap_or(0.0) != 0.0))
+}
+
+fn blind_rules(a: &Args) -> Vec<BlindRule> {
+    let ids = list_of(a, "typeId");
+    let mut names = list_of(a, "attrName");
+    // Aztek's earlier spelling: the data's name by -ldn or -sdn.
+    if names.is_empty() {
+        names = list_of(a, "longDataName");
+    }
+    if names.is_empty() {
+        names = list_of(a, "shortDataName");
+    }
+    let values = list_of(a, "value");
+    // Names go to every rule; values only to the rules that compare them (modes 1, 3, 4 and 5).
+    let (mut at, mut at_value) = (0usize, 0usize);
+    let mut out = Vec::new();
+    for (i, id) in ids.iter().enumerate() {
+        let n = nth_f(a, "numIdTypes", i, 1.0).max(0.0) as usize;
+        let mode = nth_f(a, "mode", i, 0.0) as i64;
+        let take = |l: &[Value], at: usize| -> Vec<String> { l.iter().skip(at).take(n).map(|v| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())).collect() };
+        let compares = matches!(mode, 1 | 3 | 4 | 5);
+        let rule = BlindRule {
+            id: id.as_i64().unwrap_or(0),
+            names: take(&names, at),
+            values: if compares { take(&values, at_value) } else { Vec::new() },
+            mode,
+            color: [nth_f(a, "colorRed", i, 1.0), nth_f(a, "colorGreen", i, 0.0), nth_f(a, "colorBlue", i, 0.0)],
+            min: (nth_b(a, "useMin", i) != Some(false)).then(|| nth_f(a, "minValue", i, f64::MIN)).filter(|_| a.has("minValue")),
+            max: (nth_b(a, "useMax", i) != Some(false)).then(|| nth_f(a, "maxValue", i, f64::MAX)).filter(|_| a.has("maxValue")),
+            min_color: [nth_f(a, "minColorRed", i, 0.0), nth_f(a, "minColorGreen", i, 0.0), nth_f(a, "minColorBlue", i, 0.0)],
+            max_color: [nth_f(a, "maxColorRed", i, 1.0), nth_f(a, "maxColorGreen", i, 1.0), nth_f(a, "maxColorBlue", i, 1.0)],
+            below: [nth_f(a, "belowMinColorRed", i, 0.0), nth_f(a, "belowMinColorGreen", i, 0.0), nth_f(a, "belowMinColorBlue", i, 0.0)],
+            above: [nth_f(a, "aboveMaxColorRed", i, 1.0), nth_f(a, "aboveMaxColorGreen", i, 1.0), nth_f(a, "aboveMaxColorBlue", i, 1.0)],
+        };
+        at += n;
+        if compares {
+            at_value += n;
+        }
+        out.push(rule);
+    }
+    out
+}
+
+/// The domain a type's data lives in on a mesh, and each of the rule's attributes' values there.
+fn blind_layers(m: &Mesh, rule: &BlindRule) -> Option<(K, Vec<Vec<f32>>)> {
+    for kind in [K::Face, K::Vertex, K::Edge] {
+        let attrs = match kind {
+            K::Vertex => m.point_attrs(),
+            K::Edge => m.edge_attrs(),
+            _ => m.face_attrs(),
+        };
+        let prefix = format!("blind:{}:", rule.id);
+        let layers: Vec<String> = if rule.names.is_empty() {
+            attrs.names().into_iter().filter(|n| n.starts_with(&prefix)).collect()
+        } else {
+            rule.names.iter().map(|n| format!("{prefix}{n}")).filter(|n| attrs.has(n)).collect()
+        };
+        if layers.is_empty() || (!rule.names.is_empty() && layers.len() != rule.names.len()) {
+            continue;
+        }
+        return Some((kind, layers.iter().map(|l| attrs.get::<f32>(l).to_vec()).collect()));
+    }
+    None
+}
+
+/// The colour a rule gives a component holding these values, or None where it doesn't colour it.
+fn rule_color(rule: &BlindRule, vals: &[f32]) -> Option<[f64; 3]> {
+    if vals.is_empty() || vals.iter().any(|v| v.is_nan()) {
+        return None;
+    }
+    let given = |k: usize| rule.values.get(k).and_then(|v| v.trim().parse::<f64>().ok());
+    let all = |test: &dyn Fn(f64, f64) -> bool| (0..vals.len()).all(|k| given(k).is_some_and(|g| test(g, vals[k] as f64)));
+    let v0 = vals[0] as f64;
+    match rule.mode {
+        0 => Some(rule.color),
+        1 => all(&|g, x| (g - x).abs() < 1e-6).then_some(rule.color),
+        2 => (rule.min.is_none_or(|lo| v0 >= lo) && rule.max.is_none_or(|hi| v0 <= hi)).then_some(rule.color),
+        3 => all(&|g, x| (g as i64 & x as i64) != 0).then_some(rule.color),
+        4 => all(&|g, x| (g as i64 & x as i64) == 0).then_some(rule.color),
+        5 => all(&|g, x| g as i64 == x as i64).then_some(rule.color),
+        6 => {
+            let (lo, hi) = (rule.min.unwrap_or(0.0), rule.max.unwrap_or(1.0));
+            if v0 < lo {
+                Some(rule.below)
+            } else if v0 > hi {
+                Some(rule.above)
+            } else {
+                let t = if hi > lo { (v0 - lo) / (hi - lo) } else { 0.0 };
+                Some([0, 1, 2].map(|k| rule.min_color[k] + (rule.max_color[k] - rule.min_color[k]) * t))
+            }
+        }
+        7 if vals.len() >= 3 => Some([vals[0] as f64, vals[1] as f64, vals[2] as f64]),
+        _ => None,
+    }
+}
+
+/// Whether a rule's colour counts for a query: out-of-range shades of a grayscale don't.
+fn rule_selects(rule: &BlindRule, vals: &[f32]) -> bool {
+    if rule.mode == 6 {
+        let v0 = vals.first().copied().unwrap_or(f32::NAN) as f64;
+        return !v0.is_nan() && rule.min.is_none_or(|lo| v0 >= lo) && rule.max.is_none_or(|hi| v0 <= hi);
+    }
+    rule_color(rule, vals).is_some()
+}
+
+fn poly_color_blind_data(s: &mut Session, a: &Args) -> CmdResult {
+    // -efc off: the false colours come off every mesh showing them.
+    if let Some(on_) = a.get("enableFalseColor").map(|v| v.as_bool().unwrap_or(v.as_f64().unwrap_or(0.0) != 0.0)) {
+        if !on_ {
+            let meshes: Vec<String> = s.graph.nodes().into_iter().filter(|&n| s.graph.node(n).is_some_and(|x| x.ty().is_a("mesh"))).map(|n| s.graph.path(n)).collect();
+            for m in meshes {
+                let has = s.run("polyColorSet", json!({"args": [m.clone()], "query": true, "queried": ["allColorSets"]})).ok().and_then(|v| v.as_array().cloned()).unwrap_or_default();
+                if has.iter().any(|x| x == "blindData") {
+                    s.run("polyColorSet", json!({"args": [m], "delete": true, "colorSet": "blindData"}))?;
+                }
+            }
+        }
+        if !a.has("typeId") {
+            return Ok(json!([]));
+        }
+    }
+    let rules = blind_rules(a);
+    if rules.is_empty() {
+        fail!("polyColorBlindData: give -id");
+    }
+    let clash = [a.float("clashColorRed", 0.0), a.float("clashColorGreen", 1.0), a.float("clashColorBlue", 1.0)];
+    let mut picked: Vec<NodeId> = Vec::new();
+    let names = a.named();
+    let ids: Vec<NodeId> = if names.is_empty() { s.graph.selection().to_vec() } else { names.iter().filter_map(|n| s.graph.find(n.split('.').next().unwrap_or(n)).ok().flatten()).collect() };
+    for id in ids {
+        if let Some(m) = components::as_mesh(&s.graph, id) {
+            if !picked.contains(&m) {
+                picked.push(m);
+            }
+        }
+    }
+    if picked.is_empty() {
+        picked = s.graph.nodes().into_iter().filter(|&n| s.graph.node(n).is_some_and(|x| x.ty().is_a("mesh") && !x.bool(crate::transform::DagNode::INTERMEDIATE_OBJECT))).collect();
+    }
+    let mut found = Vec::new();
+    let mut paint: Vec<(NodeId, K, Vec<Value>)> = Vec::new();
+    for mesh in picked {
+        let Some(m) = crate::modifiers::cage(&mut s.graph, mesh) else { continue };
+        let mut colours: BTreeMap<Index, Vec<[f64; 3]>> = BTreeMap::new();
+        let mut selects: std::collections::BTreeSet<Index> = Default::default();
+        let mut domain = None;
+        for rule in &rules {
+            let Some((kind, layers)) = blind_layers(&m, rule) else { continue };
+            domain.get_or_insert(kind);
+            if Some(kind) != domain {
+                continue;
+            }
+            let count = layers.iter().map(Vec::len).min().unwrap_or(0);
+            for i in 0..count {
+                let vals: Vec<f32> = layers.iter().map(|l| l[i]).collect();
+                if let Some(c) = rule_color(rule, &vals) {
+                    colours.entry(i as Index).or_default().push(c);
+                }
+                if rule_selects(rule, &vals) {
+                    selects.insert(i as Index);
+                }
+            }
+        }
+        let Some(kind) = domain else { continue };
+        if a.bool("queryMode") {
+            let prefix = match kind {
+                K::Vertex => "vtx",
+                K::Edge => "e",
+                _ => "f",
+            };
+            let ids: Vec<Index> = selects.into_iter().collect();
+            found.extend(component_list(&s.graph, mesh, prefix, &ids, true).into_iter().map(Value::String));
+            continue;
+        }
+        let list: Vec<Value> = colours
+            .into_iter()
+            .map(|(i, cs)| {
+                let first = cs[0];
+                let c = if cs.iter().any(|x| x.iter().zip(first.iter()).any(|(p, q)| (p - q).abs() > 1e-9)) { clash } else { first };
+                json!([i, c[0], c[1], c[2]])
+            })
+            .collect();
+        paint.push((mesh, kind, list));
+    }
+    if a.bool("queryMode") {
+        return Ok(Value::Array(found));
+    }
+    let mut made = Vec::new();
+    for (mesh, kind, list) in paint {
+        let mut b = a.clone();
+        b.positional = vec![json!(s.graph.path(mesh))];
+        b.flags.insert("blindColors".into(), Value::Array(list));
+        b.flags.insert("associationType".into(), json!(match kind {
+            K::Vertex => "vertex",
+            K::Edge => "edge",
+            _ => "face",
+        }));
+        if let Value::Array(n) = run_op(s, "polyColorBlindData", &b)? {
+            made.extend(n);
+        }
+    }
+    Ok(Value::Array(made))
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -813,7 +1145,7 @@ pub(super) fn register(c: &mut Commands<Session>) {
     .flag(fl("cutPlaneHeight", "ph", T::Float, json!(1.0), "Accepted: the plane has no edge here."))
     .flag(fl("deleteFaces", "df", T::Bool, json!(false), "Delete the side the normal points to."))
     .flag(fl("extractFaces", "ef", T::Bool, json!(false), "Pull that side off."))
-    .flag(fl("extractOffset", "eo", T::Vec3, json!([0.0, 0.0, 0.0]), "How far."))
+    .flag(fl("extractOffset", "eo", T::Vec3, json!([0.5, 0.5, 0.5]), "How far extracted faces move (0.5 each way)."))
     .flag(fl("onObject", "oo", T::Bool, Value::Null, "Accepted for existing scripts."))
     .flag(fl("worldSpace", "ws", T::Bool, Value::Null, "The plane is in world space (always)."))
     .flag(world_flag()));
@@ -827,11 +1159,11 @@ pub(super) fn register(c: &mut Commands<Session>) {
         .flag(fl("cleanUVs", "cuv", T::Bool, Value::Null, "Accepted: UVs belong to corners here, so none are loose."))
         .flag(fl("cleanPartialUVMapping", "cpm", T::Bool, json!(true), "UVs that aren't numbers go to 0.")));
     let colour = |c: Cmd| c.flag(fl("baseColorName", "bcn", T::String, Value::Null, "The colour set (the current one)."));
-    c.register(colour(ref_cmd("polyColorMod", "Change colours: -hv adds to hue, -sv and -v scale saturation and value. Returns the node.", &[], |s, a| run_op(s, "polyColorMod", a)))
-        .flag(fl("huev", "hv", T::Float, json!(0.0), "Degrees of hue."))
-        .flag(fl("satv", "sv", T::Float, json!(1.0), "Saturation scale."))
-        .flag(fl("value", "v", T::Float, json!(1.0), "Value scale.")));
-    c.register(ref_cmd("polyColorDel", "Remove a colour set: -cn (the current one). Returns the node.", &[], |s, a| run_op(s, "polyColorDel", a)).flag(fl("colorSetName", "cn", T::String, Value::Null, "The set.")));
+    c.register(color_mod_ramp_flags(colour(ref_cmd("polyColorMod", "Change colours: -h adds to hue, -s and -v scale saturation and value; each channel's ramp (-rfv, -gfv, -bfv, -afv, -nfv for intensity) scales it. Returns the node.", &[], |s, a| run_op(s, "polyColorMod", a)))
+        .flag(fl("huev", "h", T::Float, json!(0.0), "Degrees the hue turns."))
+        .flag(fl("satv", "s", T::Float, json!(1.0), "Saturation scale."))
+        .flag(fl("value", "v", T::Float, json!(1.0), "Value (brightness) scale."))));
+    c.register(ref_cmd("polyColorDel", "Delete the colour of the faces named or selected in a colour set: -cls (the current one); a whole mesh loses the set. Returns the node.", &[], |s, a| run_op(s, "polyColorDel", a)).flag(fl("colorSetName", "cls", T::String, Value::Null, "The colour set.")));
     c.register(colour(ref_cmd("polyAverageColor", "Average vertices' colours with their neighbours': -i passes. Returns the node.", &[], |s, a| run_op(s, "polyAverageColor", a))).flag(fl("iterations", "i", T::Int, json!(1), "How many passes.")));
     c.register(ref_cmd("polyBlendColor", "Blend two colour sets into -dst: -bcn, -src, -bfn (0 by weights -bwa -bwb, 1 add, 2 subtract, 3 multiply, 4 average, 5 replace). Returns the node.", &[], |s, a| run_op(s, "polyBlendColor", a))
         .flag(fl("baseColorName", "bcn", T::String, Value::Null, "One set."))
@@ -855,7 +1187,10 @@ pub(super) fn register(c: &mut Commands<Session>) {
         .flag(fl("shortDataName", "sdn", T::String, Value::Null, "The short name."))
         .flag(fl("doubleData", "dbd", T::Float, Value::Null, "A number."))
         .flag(fl("intData", "ind", T::Int, Value::Null, "A whole number."))
-        .flag(fl("int64Data", "lng", T::Int, Value::Null, "A whole number."))
+        .flag(fl("int64Data", "lid", T::Int, Value::Null, "A whole number, 64 bits."))
+        .flag(fl("delete", "del", T::Bool, Value::Null, "Remove the data from the components."))
+        .flag(fl("rescan", "res", T::Bool, Value::Null, "Look over the blind data again; nothing is cached here, so it is always current."))
+        .flag(fl("edit", "e", T::Bool, Value::Null, "Change the node that already holds this type and name on the mesh, or make one."))
         .flag(fl("booleanData", "bd", T::Bool, Value::Null, "On or off."))
         .flag(fl("stringData", "sd", T::String, Value::Null, "Refused: numbers only."))
         .flag(fl("binaryData", "bnd", T::String, Value::Null, "Refused: numbers only."))
@@ -873,20 +1208,62 @@ pub(super) fn register(c: &mut Commands<Session>) {
         .flag(fl("subString", "ss", T::String, Value::Null, "A part of the name."))
         .flag(fl("showComp", "sc", T::Bool, Value::Null, "List the components too."))
         .undoable(false));
-    c.register(ref_cmd("polyColorBlindData", "Show blind data as colours in the set \"blindData\": -id, -at, -ldn, -m 0 binary or shaded between -mnv and -mxv; -cr -cg -cb and -ncr -ncg -ncb the colours. Returns the node.", &[], |s, a| run_op(s, "polyColorBlindData", a))
-        .flag(fl("typeId", "id", T::Int, Value::Null, "The data's type id."))
-        .flag(fl("associationType", "at", T::String, json!("face"), "face, vertex or edge."))
-        .flag(fl("longDataName", "ldn", T::String, Value::Null, "The name."))
-        .flag(fl("shortDataName", "sdn", T::String, Value::Null, "The short name."))
-        .flag(fl("mode", "m", T::Int, json!(0), "0 binary, others shaded."))
-        .flag(fl("colorRed", "cr", T::Float, json!(1.0), "The colour."))
-        .flag(fl("colorGreen", "cg", T::Float, json!(0.0), "The colour."))
-        .flag(fl("colorBlue", "cb", T::Float, json!(0.0), "The colour."))
-        .flag(fl("noColorRed", "ncr", T::Float, json!(0.2), "Where there's no data."))
-        .flag(fl("noColorGreen", "ncg", T::Float, json!(0.2), "Where there's no data."))
-        .flag(fl("noColorBlue", "ncb", T::Float, json!(0.2), "Where there's no data."))
-        .flag(fl("minValue", "mnv", T::Float, json!(0.0), "Lowest of the shading."))
-        .flag(fl("maxValue", "mxv", T::Float, json!(1.0), "Highest of the shading.")));
+    {
+        let mut cmd = Cmd::new(
+            "polyColorBlindData",
+            "Colour the components (or meshes) holding blind data, by -id and its attributes -n with -v values, in the colour set \
+             \"blindData\". -m: 0 has the data, 1 equals -v, 2 between -mnv and -mxv, 3 bits set, 4 bits not set, 5 bits equal, \
+             6 grayscale from -mnv to -mxv, 7 the data is the colour. Each rule repeats its flags; components two rules colour \
+             differently take the clash colour. -q returns the components that match instead of colouring them.",
+            poly_color_blind_data,
+        )
+        .positional("meshes (the selection, or every mesh, when none)");
+        let fl1 = |n: &str, sh: &str, _t: T, doc: &str| fl(n, sh, T::Any, Value::Null, doc).multi(1);
+        for (n, sh, t, doc) in [
+            ("typeId", "id", T::Int, "The blind data type of this rule."),
+            ("numIdTypes", "num", T::Int, "How many attributes of the type this rule reads."),
+            ("attrName", "n", T::String, "An attribute's name; one for each of -num."),
+            ("dataType", "dt", T::String, "An attribute's data type; one for each of -num."),
+            ("value", "v", T::String, "An attribute's value to match; one for each of -num."),
+            ("mode", "m", T::Int, "How this rule colours: 0 to 7."),
+            ("colorRed", "cr", T::Float, "This rule's colour."),
+            ("colorGreen", "cg", T::Float, "This rule's colour."),
+            ("colorBlue", "cb", T::Float, "This rule's colour."),
+            ("minValue", "mnv", T::Float, "Lowest value of the range or the grayscale."),
+            ("maxValue", "mxv", T::Float, "Highest value of the range or the grayscale."),
+            ("useMin", "umn", T::Bool, "Whether the range has a lowest value."),
+            ("useMax", "umx", T::Bool, "Whether the range has a highest value."),
+            ("minColorRed", "mnr", T::Float, "Grayscale: the colour at the lowest value."),
+            ("minColorGreen", "mng", T::Float, "Grayscale: the colour at the lowest value."),
+            ("minColorBlue", "mnb", T::Float, "Grayscale: the colour at the lowest value."),
+            ("maxColorRed", "mxr", T::Float, "Grayscale: the colour at the highest value."),
+            ("maxColorGreen", "mxg", T::Float, "Grayscale: the colour at the highest value."),
+            ("maxColorBlue", "mxb", T::Float, "Grayscale: the colour at the highest value."),
+            ("belowMinColorRed", "bmr", T::Float, "Grayscale: the colour below the lowest value."),
+            ("belowMinColorGreen", "bmg", T::Float, "Grayscale: the colour below the lowest value."),
+            ("belowMinColorBlue", "bmb", T::Float, "Grayscale: the colour below the lowest value."),
+            ("aboveMaxColorRed", "amr", T::Float, "Grayscale: the colour above the highest value."),
+            ("aboveMaxColorGreen", "amg", T::Float, "Grayscale: the colour above the highest value."),
+            ("aboveMaxColorBlue", "amb", T::Float, "Grayscale: the colour above the highest value."),
+        ] {
+            cmd = cmd.flag(fl1(n, sh, t, doc));
+        }
+        cmd = cmd
+            .flag(fl("noColorRed", "ncr", T::Float, json!(0.2), "Where no rule colours (0.2)."))
+            .flag(fl("noColorGreen", "ncg", T::Float, json!(0.2), "Where no rule colours (0.2)."))
+            .flag(fl("noColorBlue", "ncb", T::Float, json!(0.2), "Where no rule colours (0.2)."))
+            .flag(fl("clashColorRed", "ccr", T::Float, Value::Null, "Where rules colour differently."))
+            .flag(fl("clashColorGreen", "ccg", T::Float, Value::Null, "Where rules colour differently."))
+            .flag(fl("clashColorBlue", "ccb", T::Float, Value::Null, "Where rules colour differently."))
+            .flag(fl("enableFalseColor", "efc", T::Bool, Value::Null, "Off takes the false colours off every mesh."))
+            .flag(fl("queryMode", "q", T::Bool, Value::Null, "Colour nothing: return the components that match."))
+            .flag(fl("associationType", "at", T::String, json!("face"), "The domain the node paints: worked out from where the data is."))
+            .flag(fl("longDataName", "ldn", T::Any, Value::Null, "The data's name, as -attrName.").multi(1))
+            .flag(fl("shortDataName", "sdn", T::Any, Value::Null, "The data's short name, as -attrName.").multi(1))
+            .flag(fl("blindColors", "", T::List, Value::Null, "The colour of each component, worked out from the rules."))
+            .undoable(false);
+        c.register(cmd);
+    }
     c.register(Cmd::new("polyCheck", "Check a mesh's insides: returns how many problems, each logged; -of writes them to a file.", poly_check)
         .positional("meshes")
         .flag(fl("openFile", "of", T::String, Value::Null, "Write the problems here."))

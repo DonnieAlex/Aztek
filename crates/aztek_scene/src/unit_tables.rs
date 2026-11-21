@@ -55,6 +55,8 @@ pub fn attr_unit(ty: &str, name: &str) -> Unit {
         // distanceBetween has no unit since the reference's 2024 math nodes; distanceBetweenDL declares its own.
         (t, "distance") if t != "distanceDimShape" => return Unit::None,
         (t, "center") if t == "polySpherize" => return Linear,
+        ("polyPlanarProj" | "polyCylProj" | "polySphProj", "rotationAngle") => return Angle,
+        ("polyPlanarProj" | "polyCylProj" | "polySphProj", "radius" | "projectionWidth" | "projectionHeight") => return Linear,
         (_, "point1" | "point2") => return Unit::None,
         (t, "maxDistance" | "minDistance") if t != "closestPointOnSurface" => return Unit::None,
         _ => {}
@@ -124,6 +126,7 @@ pub const FLAGS: &[Row] = &[
     ("polyBevel3", &[("offset", Linear), ("angleTolerance", Angle), ("miteringAngle", Angle), ("smoothingAngle", Angle)]),
     ("polySoftEdge", &[("angle", Angle)]),
     ("polyCut", &[("cutPlaneCenter", Linear), ("cutPlaneRotate", Angle), ("cutPlaneWidth", Linear), ("cutPlaneHeight", Linear), ("extractOffset", Linear)]),
+    ("polyCylindricalProjection", &[("projectionCenter", Linear), ("projectionCenterX", Linear), ("projectionCenterY", Linear), ("projectionCenterZ", Linear), ("projectionHeight", Linear), ("projectionHorizontalSweep", Angle), ("projectionScaleU", Angle), ("projectionScaleV", Linear), ("radius", Linear), ("rotationAngle", Angle), ("rotateX", Angle), ("rotateY", Angle), ("rotateZ", Angle)]),
     ("polyMirrorFace", &[("mirrorPosition", Linear), ("pivot", Linear), ("pivotX", Linear), ("pivotY", Linear), ("pivotZ", Linear), ("smoothingAngle", Angle)]),
     ("polyMirror", &[("mirrorPosition", Linear), ("pivot", Linear), ("pivotX", Linear), ("pivotY", Linear), ("pivotZ", Linear), ("tolerance", Linear)]),
     ("polyPoke", &[("translate", Linear), ("translateX", Linear), ("translateY", Linear), ("translateZ", Linear), ("localTranslate", Linear), ("localTranslateX", Linear), ("localTranslateY", Linear), ("localTranslateZ", Linear)]),

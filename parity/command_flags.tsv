@@ -23583,44 +23583,44 @@ polyAxis	sa	done	auto
 polyAxis	sca	done	auto
 polyAxis	scale	done	auto
 polyAxis	subdivisionsAxis	done	auto
-polyBevel	af	missing	
-polyBevel	angleTolerance	missing	
-polyBevel	at	missing	
-polyBevel	autoFit	missing	
-polyBevel	caching	missing	
-polyBevel	cch	missing	
-polyBevel	ch	missing	
-polyBevel	com	missing	
-polyBevel	constructionHistory	missing	
-polyBevel	e	missing	
-polyBevel	edit	missing	
-polyBevel	ma	missing	
-polyBevel	mergeVertexTolerance	missing	
-polyBevel	mergeVertices	missing	
-polyBevel	miteringAngle	missing	
-polyBevel	mv	missing	
-polyBevel	mvt	missing	
-polyBevel	n	missing	
-polyBevel	name	missing	
-polyBevel	nds	missing	
-polyBevel	nodeState	missing	
+polyBevel	af	done	auto
+polyBevel	angleTolerance	done	auto
+polyBevel	at	done	auto
+polyBevel	autoFit	done	auto
+polyBevel	caching	done	auto
+polyBevel	cch	done	auto
+polyBevel	ch	done	auto
+polyBevel	com	done	auto
+polyBevel	constructionHistory	done	auto
+polyBevel	e	done	auto
+polyBevel	edit	done	auto
+polyBevel	ma	done	auto
+polyBevel	mergeVertexTolerance	done	auto
+polyBevel	mergeVertices	done	auto
+polyBevel	miteringAngle	done	auto
+polyBevel	mv	done	auto
+polyBevel	mvt	done	auto
+polyBevel	n	done	auto
+polyBevel	name	done	auto
+polyBevel	nds	done	auto
+polyBevel	nodeState	done	auto
 polyBevel	o	done	auto
 polyBevel	oaf	done	auto
 polyBevel	offset	done	auto
 polyBevel	offsetAsFraction	done	auto
-polyBevel	q	missing	
-polyBevel	query	missing	
-polyBevel	r	missing	
-polyBevel	roundness	missing	
-polyBevel	sa	missing	
+polyBevel	q	done	auto
+polyBevel	query	done	auto
+polyBevel	r	done	auto
+polyBevel	roundness	done	auto
+polyBevel	sa	done	auto
 polyBevel	segments	done	auto
 polyBevel	sg	done	auto
 polyBevel	smoothingAngle	done	auto
-polyBevel	sn	missing	
-polyBevel	subdivideNgons	missing	
-polyBevel	ua	missing	
-polyBevel	useLegacyBevelAlgorithm	missing	
-polyBevel	uvAssignment	missing	
+polyBevel	sn	done	auto
+polyBevel	subdivideNgons	done	auto
+polyBevel	ua	done	auto
+polyBevel	useLegacyBevelAlgorithm	done	auto
+polyBevel	uvAssignment	done	auto
 polyBevel	worldSpace	done	auto
 polyBevel	ws	done	auto
 polyBevel3	af	done	auto
@@ -23635,8 +23635,8 @@ polyBevel3	chamfer	done	auto
 polyBevel3	constructionHistory	done	auto
 polyBevel3	d	done	auto
 polyBevel3	depth	done	auto
-polyBevel3	e	missing	
-polyBevel3	edit	missing	
+polyBevel3	e	done	auto
+polyBevel3	edit	done	auto
 polyBevel3	fillNgons	done	auto
 polyBevel3	fn	done	auto
 polyBevel3	m	done	auto
@@ -23657,8 +23657,8 @@ polyBevel3	o	done	auto
 polyBevel3	oaf	done	auto
 polyBevel3	offset	done	auto
 polyBevel3	offsetAsFraction	done	auto
-polyBevel3	q	missing	
-polyBevel3	query	missing	
+polyBevel3	q	done	auto
+polyBevel3	query	done	auto
 polyBevel3	r	done	auto
 polyBevel3	roundness	done	auto
 polyBevel3	sa	done	auto
@@ -23687,14 +23687,14 @@ polyBlendColor	ch	done	auto
 polyBlendColor	constructionHistory	done	auto
 polyBlendColor	dst	done	auto
 polyBlendColor	dstColorName	done	auto
-polyBlendColor	e	missing	
-polyBlendColor	edit	missing	
+polyBlendColor	e	done	auto
+polyBlendColor	edit	done	auto
 polyBlendColor	n	done	auto
 polyBlendColor	name	done	auto
 polyBlendColor	nds	done	auto
 polyBlendColor	nodeState	done	auto
-polyBlendColor	q	missing	
-polyBlendColor	query	missing	
+polyBlendColor	q	done	auto
+polyBlendColor	query	done	auto
 polyBlendColor	src	done	auto
 polyBlendColor	srcColorName	done	auto
 polyBlindData	associationType	done	auto
@@ -23704,19 +23704,19 @@ polyBlindData	binaryData	done	auto
 polyBlindData	bnd	done	auto
 polyBlindData	booleanData	done	auto
 polyBlindData	dbd	done	auto
-polyBlindData	delete	missing	
+polyBlindData	delete	done	auto
 polyBlindData	doubleData	done	auto
-polyBlindData	e	missing	
-polyBlindData	edit	missing	
+polyBlindData	e	done	auto
+polyBlindData	edit	done	auto
 polyBlindData	id	done	auto
 polyBlindData	ind	done	auto
 polyBlindData	int64Data	done	auto
 polyBlindData	intData	done	auto
 polyBlindData	ldn	done	auto
-polyBlindData	lid	missing	
+polyBlindData	lid	done	auto
 polyBlindData	longDataName	done	auto
-polyBlindData	res	missing	
-polyBlindData	rescan	missing	
+polyBlindData	res	done	auto
+polyBlindData	rescan	done	auto
 polyBlindData	reset	done	auto
 polyBlindData	rst	done	auto
 polyBlindData	sd	done	auto
@@ -23728,8 +23728,8 @@ polyBlindData	stringData	done	auto
 polyBlindData	typeId	done	auto
 polyBoolOp	caching	done	auto
 polyBoolOp	cch	done	auto
-polyBoolOp	e	missing	
-polyBoolOp	edit	missing	
+polyBoolOp	e	done	auto
+polyBoolOp	edit	done	auto
 polyBoolOp	faceAreaThreshold	done	auto
 polyBoolOp	fat	done	auto
 polyBoolOp	mergeUVSets	done	auto
@@ -23740,8 +23740,8 @@ polyBoolOp	op	done	auto
 polyBoolOp	operation	done	auto
 polyBoolOp	pcr	done	auto
 polyBoolOp	preserveColor	done	auto
-polyBoolOp	q	missing	
-polyBoolOp	query	missing	
+polyBoolOp	q	done	auto
+polyBoolOp	query	done	auto
 polyBoolOp	useThresholds	done	auto
 polyBoolOp	uth	done	auto
 polyBoolOp	vdt	done	auto
@@ -23752,8 +23752,8 @@ polyBooleanCmd	changeSmoothMesh	done	auto
 polyBooleanCmd	classification	done	auto
 polyBooleanCmd	cls	done	auto
 polyBooleanCmd	csm	done	auto
-polyBooleanCmd	e	missing	
-polyBooleanCmd	edit	missing	
+polyBooleanCmd	e	done	auto
+polyBooleanCmd	edit	done	auto
 polyBooleanCmd	interactiveUpdate	done	auto
 polyBooleanCmd	iu	done	auto
 polyBooleanCmd	newInputDisplay	done	auto
@@ -23762,8 +23762,8 @@ polyBooleanCmd	nid	done	auto
 polyBooleanCmd	nio	done	auto
 polyBooleanCmd	op	done	auto
 polyBooleanCmd	operation	done	auto
-polyBooleanCmd	q	missing	
-polyBooleanCmd	query	missing	
+polyBooleanCmd	q	done	auto
+polyBooleanCmd	query	done	auto
 polyBooleanCmd	removeMesh	done	auto
 polyBooleanCmd	reorderMesh	done	auto
 polyBooleanCmd	rm	done	auto
@@ -23781,16 +23781,16 @@ polyBridgeEdge	ctp	done	auto
 polyBridgeEdge	curveType	done	auto
 polyBridgeEdge	divisions	done	auto
 polyBridgeEdge	dv	done	auto
-polyBridgeEdge	e	missing	
-polyBridgeEdge	edit	missing	
+polyBridgeEdge	e	done	auto
+polyBridgeEdge	edit	done	auto
 polyBridgeEdge	inc	done	auto
 polyBridgeEdge	inputCurve	done	auto
 polyBridgeEdge	n	done	auto
 polyBridgeEdge	name	done	auto
 polyBridgeEdge	nds	done	auto
 polyBridgeEdge	nodeState	done	auto
-polyBridgeEdge	q	missing	
-polyBridgeEdge	query	missing	
+polyBridgeEdge	q	done	auto
+polyBridgeEdge	query	done	auto
 polyBridgeEdge	sma	done	auto
 polyBridgeEdge	smoothingAngle	done	auto
 polyBridgeEdge	startVert1	done	auto
@@ -23810,8 +23810,8 @@ polyCBoolOp	caching	done	auto
 polyCBoolOp	cch	done	auto
 polyCBoolOp	classification	done	auto
 polyCBoolOp	cls	done	auto
-polyCBoolOp	e	missing	
-polyCBoolOp	edit	missing	
+polyCBoolOp	e	done	auto
+polyCBoolOp	edit	done	auto
 polyCBoolOp	faceAreaThreshold	done	auto
 polyCBoolOp	fat	done	auto
 polyCBoolOp	mergeUVSets	done	auto
@@ -23822,8 +23822,8 @@ polyCBoolOp	op	done	auto
 polyCBoolOp	operation	done	auto
 polyCBoolOp	pcr	done	auto
 polyCBoolOp	preserveColor	done	auto
-polyCBoolOp	q	missing	
-polyCBoolOp	query	missing	
+polyCBoolOp	q	done	auto
+polyCBoolOp	query	done	auto
 polyCBoolOp	tagIntersection	done	auto
 polyCBoolOp	ti	done	auto
 polyCBoolOp	ucb	done	auto
@@ -23832,10 +23832,10 @@ polyCBoolOp	useThresholds	done	auto
 polyCBoolOp	uth	done	auto
 polyCBoolOp	vdt	done	auto
 polyCBoolOp	vertexDistanceThreshold	done	auto
-polyCacheMonitor	cacheValue	missing	
-polyCacheMonitor	chv	missing	
-polyCacheMonitor	nm	missing	
-polyCacheMonitor	nodeName	missing	
+polyCacheMonitor	cacheValue	done	auto
+polyCacheMonitor	chv	done	auto
+polyCacheMonitor	nm	done	auto
+polyCacheMonitor	nodeName	done	auto
 polyCheck	e	done	auto
 polyCheck	edge	done	auto
 polyCheck	f	done	auto
@@ -23852,8 +23852,8 @@ polyChipOff	ch	done	auto
 polyChipOff	constructionHistory	done	auto
 polyChipOff	dup	done	auto
 polyChipOff	duplicate	done	auto
-polyChipOff	e	missing	
-polyChipOff	edit	missing	
+polyChipOff	e	done	auto
+polyChipOff	edit	done	auto
 polyChipOff	g	done	auto
 polyChipOff	ga	done	auto
 polyChipOff	gain	done	auto
@@ -23923,8 +23923,8 @@ polyChipOff	pvt	done	auto
 polyChipOff	pvx	done	auto
 polyChipOff	pvy	done	auto
 polyChipOff	pvz	done	auto
-polyChipOff	q	missing	
-polyChipOff	query	missing	
+polyChipOff	q	done	auto
+polyChipOff	query	done	auto
 polyChipOff	ran	done	auto
 polyChipOff	random	done	auto
 polyChipOff	s	done	auto
@@ -23956,9 +23956,9 @@ polyCircularize	cch	done	auto
 polyCircularize	ch	done	auto
 polyCircularize	constructionHistory	done	auto
 polyCircularize	createCurve	done	auto
-polyCircularize	e	missing	
+polyCircularize	e	done	auto
 polyCircularize	ed	done	auto
-polyCircularize	edit	missing	
+polyCircularize	edit	done	auto
 polyCircularize	evenlyDistribute	done	auto
 polyCircularize	inc	done	auto
 polyCircularize	inputCurve	done	auto
@@ -23968,70 +23968,70 @@ polyCircularize	nds	done	auto
 polyCircularize	nodeState	done	auto
 polyCircularize	nor	done	auto
 polyCircularize	normalOrientation	done	auto
-polyCircularize	q	missing	
-polyCircularize	query	missing	
+polyCircularize	q	done	auto
+polyCircularize	query	done	auto
 polyCircularize	radialOffset	done	auto
 polyCircularize	ro	done	auto
 polyCircularize	sa	done	auto
 polyCircularize	smoothingAngle	done	auto
 polyCircularize	worldSpace	done	auto
 polyCircularize	ws	done	auto
-polyCircularizeEdge	al	missing	
-polyCircularizeEdge	alignment	missing	
-polyCircularizeEdge	caching	missing	
-polyCircularizeEdge	cc	missing	
-polyCircularizeEdge	cch	missing	
-polyCircularizeEdge	ch	missing	
-polyCircularizeEdge	constructionHistory	missing	
-polyCircularizeEdge	createCurve	missing	
-polyCircularizeEdge	e	missing	
-polyCircularizeEdge	ed	missing	
-polyCircularizeEdge	edit	missing	
-polyCircularizeEdge	evenlyDistribute	missing	
-polyCircularizeEdge	inc	missing	
-polyCircularizeEdge	inputCurve	missing	
-polyCircularizeEdge	n	missing	
-polyCircularizeEdge	name	missing	
-polyCircularizeEdge	nds	missing	
-polyCircularizeEdge	nodeState	missing	
-polyCircularizeEdge	nor	missing	
-polyCircularizeEdge	normalOrientation	missing	
-polyCircularizeEdge	q	missing	
-polyCircularizeEdge	query	missing	
-polyCircularizeEdge	radialOffset	missing	
-polyCircularizeEdge	ro	missing	
-polyCircularizeEdge	sa	missing	
-polyCircularizeEdge	smoothingAngle	missing	
-polyCircularizeEdge	worldSpace	missing	
-polyCircularizeEdge	ws	missing	
-polyCircularizeFace	al	missing	
-polyCircularizeFace	alignment	missing	
-polyCircularizeFace	caching	missing	
-polyCircularizeFace	cc	missing	
-polyCircularizeFace	cch	missing	
-polyCircularizeFace	ch	missing	
-polyCircularizeFace	constructionHistory	missing	
-polyCircularizeFace	createCurve	missing	
-polyCircularizeFace	e	missing	
-polyCircularizeFace	ed	missing	
-polyCircularizeFace	edit	missing	
-polyCircularizeFace	evenlyDistribute	missing	
-polyCircularizeFace	inc	missing	
-polyCircularizeFace	inputCurve	missing	
-polyCircularizeFace	n	missing	
-polyCircularizeFace	name	missing	
-polyCircularizeFace	nds	missing	
-polyCircularizeFace	nodeState	missing	
-polyCircularizeFace	nor	missing	
-polyCircularizeFace	normalOrientation	missing	
-polyCircularizeFace	q	missing	
-polyCircularizeFace	query	missing	
-polyCircularizeFace	radialOffset	missing	
-polyCircularizeFace	ro	missing	
-polyCircularizeFace	sa	missing	
-polyCircularizeFace	smoothingAngle	missing	
-polyCircularizeFace	worldSpace	missing	
-polyCircularizeFace	ws	missing	
+polyCircularizeEdge	al	done	auto
+polyCircularizeEdge	alignment	done	auto
+polyCircularizeEdge	caching	done	auto
+polyCircularizeEdge	cc	done	auto
+polyCircularizeEdge	cch	done	auto
+polyCircularizeEdge	ch	done	auto
+polyCircularizeEdge	constructionHistory	done	auto
+polyCircularizeEdge	createCurve	done	auto
+polyCircularizeEdge	e	done	auto
+polyCircularizeEdge	ed	done	auto
+polyCircularizeEdge	edit	done	auto
+polyCircularizeEdge	evenlyDistribute	done	auto
+polyCircularizeEdge	inc	done	auto
+polyCircularizeEdge	inputCurve	done	auto
+polyCircularizeEdge	n	done	auto
+polyCircularizeEdge	name	done	auto
+polyCircularizeEdge	nds	done	auto
+polyCircularizeEdge	nodeState	done	auto
+polyCircularizeEdge	nor	done	auto
+polyCircularizeEdge	normalOrientation	done	auto
+polyCircularizeEdge	q	done	auto
+polyCircularizeEdge	query	done	auto
+polyCircularizeEdge	radialOffset	done	auto
+polyCircularizeEdge	ro	done	auto
+polyCircularizeEdge	sa	done	auto
+polyCircularizeEdge	smoothingAngle	done	auto
+polyCircularizeEdge	worldSpace	done	auto
+polyCircularizeEdge	ws	done	auto
+polyCircularizeFace	al	done	auto
+polyCircularizeFace	alignment	done	auto
+polyCircularizeFace	caching	done	auto
+polyCircularizeFace	cc	done	auto
+polyCircularizeFace	cch	done	auto
+polyCircularizeFace	ch	done	auto
+polyCircularizeFace	constructionHistory	done	auto
+polyCircularizeFace	createCurve	done	auto
+polyCircularizeFace	e	done	auto
+polyCircularizeFace	ed	done	auto
+polyCircularizeFace	edit	done	auto
+polyCircularizeFace	evenlyDistribute	done	auto
+polyCircularizeFace	inc	done	auto
+polyCircularizeFace	inputCurve	done	auto
+polyCircularizeFace	n	done	auto
+polyCircularizeFace	name	done	auto
+polyCircularizeFace	nds	done	auto
+polyCircularizeFace	nodeState	done	auto
+polyCircularizeFace	nor	done	auto
+polyCircularizeFace	normalOrientation	done	auto
+polyCircularizeFace	q	done	auto
+polyCircularizeFace	query	done	auto
+polyCircularizeFace	radialOffset	done	auto
+polyCircularizeFace	ro	done	auto
+polyCircularizeFace	sa	done	auto
+polyCircularizeFace	smoothingAngle	done	auto
+polyCircularizeFace	worldSpace	done	auto
+polyCircularizeFace	ws	done	auto
 polyClean	caching	done	auto
 polyClean	cch	done	auto
 polyClean	ce	done	auto
@@ -24044,16 +24044,16 @@ polyClean	constructionHistory	done	auto
 polyClean	cpm	done	auto
 polyClean	cuv	done	auto
 polyClean	cv	done	auto
-polyClean	e	missing	
-polyClean	edit	missing	
+polyClean	e	done	auto
+polyClean	edit	done	auto
 polyClean	frozen	done	auto
 polyClean	fzn	done	auto
 polyClean	n	done	auto
 polyClean	name	done	auto
 polyClean	nds	done	auto
 polyClean	nodeState	done	auto
-polyClean	q	missing	
-polyClean	query	missing	
+polyClean	q	done	auto
+polyClean	query	done	auto
 polyClipboard	cl	done	auto
 polyClipboard	clear	done	auto
 polyClipboard	clr	done	auto
@@ -24070,93 +24070,93 @@ polyCloseBorder	caching	done	auto
 polyCloseBorder	cch	done	auto
 polyCloseBorder	ch	done	auto
 polyCloseBorder	constructionHistory	done	auto
-polyCloseBorder	e	missing	
-polyCloseBorder	edit	missing	
+polyCloseBorder	e	done	auto
+polyCloseBorder	edit	done	auto
 polyCloseBorder	n	done	auto
 polyCloseBorder	name	done	auto
 polyCloseBorder	nds	done	auto
 polyCloseBorder	nodeState	done	auto
-polyCloseBorder	q	missing	
-polyCloseBorder	query	missing	
+polyCloseBorder	q	done	auto
+polyCloseBorder	query	done	auto
 polyCollapseEdge	caching	done	auto
 polyCollapseEdge	cch	done	auto
 polyCollapseEdge	ch	done	auto
 polyCollapseEdge	constructionHistory	done	auto
-polyCollapseEdge	e	missing	
-polyCollapseEdge	edit	missing	
+polyCollapseEdge	e	done	auto
+polyCollapseEdge	edit	done	auto
 polyCollapseEdge	n	done	auto
 polyCollapseEdge	name	done	auto
 polyCollapseEdge	nds	done	auto
 polyCollapseEdge	nodeState	done	auto
-polyCollapseEdge	q	missing	
-polyCollapseEdge	query	missing	
+polyCollapseEdge	q	done	auto
+polyCollapseEdge	query	done	auto
 polyCollapseFacet	areaThreshold	done	auto
 polyCollapseFacet	at	done	auto
 polyCollapseFacet	caching	done	auto
 polyCollapseFacet	cch	done	auto
 polyCollapseFacet	ch	done	auto
 polyCollapseFacet	constructionHistory	done	auto
-polyCollapseFacet	e	missing	
-polyCollapseFacet	edit	missing	
+polyCollapseFacet	e	done	auto
+polyCollapseFacet	edit	done	auto
 polyCollapseFacet	n	done	auto
 polyCollapseFacet	name	done	auto
 polyCollapseFacet	nds	done	auto
 polyCollapseFacet	nodeState	done	auto
-polyCollapseFacet	q	missing	
-polyCollapseFacet	query	missing	
+polyCollapseFacet	q	done	auto
+polyCollapseFacet	query	done	auto
 polyCollapseFacet	uat	done	auto
 polyCollapseFacet	useAreaThreshold	done	auto
-polyCollapseTweaks	hasVertexTweaks	missing	
-polyCollapseTweaks	hvt	missing	
-polyCollapseTweaks	q	missing	
-polyCollapseTweaks	query	missing	
-polyColorBlindData	aboveMaxColorBlue	missing	
-polyColorBlindData	aboveMaxColorGreen	missing	
-polyColorBlindData	aboveMaxColorRed	missing	
-polyColorBlindData	amb	missing	
-polyColorBlindData	amg	missing	
-polyColorBlindData	amr	missing	
-polyColorBlindData	attrName	missing	
-polyColorBlindData	belowMinColorBlue	missing	
-polyColorBlindData	belowMinColorGreen	missing	
-polyColorBlindData	belowMinColorRed	missing	
-polyColorBlindData	bmb	missing	
-polyColorBlindData	bmg	missing	
-polyColorBlindData	bmr	missing	
+polyCollapseTweaks	hasVertexTweaks	done	auto
+polyCollapseTweaks	hvt	done	auto
+polyCollapseTweaks	q	done	auto
+polyCollapseTweaks	query	done	auto
+polyColorBlindData	aboveMaxColorBlue	done	auto
+polyColorBlindData	aboveMaxColorGreen	done	auto
+polyColorBlindData	aboveMaxColorRed	done	auto
+polyColorBlindData	amb	done	auto
+polyColorBlindData	amg	done	auto
+polyColorBlindData	amr	done	auto
+polyColorBlindData	attrName	done	auto
+polyColorBlindData	belowMinColorBlue	done	auto
+polyColorBlindData	belowMinColorGreen	done	auto
+polyColorBlindData	belowMinColorRed	done	auto
+polyColorBlindData	bmb	done	auto
+polyColorBlindData	bmg	done	auto
+polyColorBlindData	bmr	done	auto
 polyColorBlindData	cb	done	auto
-polyColorBlindData	ccb	missing	
-polyColorBlindData	ccg	missing	
-polyColorBlindData	ccr	missing	
+polyColorBlindData	ccb	done	auto
+polyColorBlindData	ccg	done	auto
+polyColorBlindData	ccr	done	auto
 polyColorBlindData	cg	done	auto
-polyColorBlindData	clashColorBlue	missing	
-polyColorBlindData	clashColorGreen	missing	
-polyColorBlindData	clashColorRed	missing	
+polyColorBlindData	clashColorBlue	done	auto
+polyColorBlindData	clashColorGreen	done	auto
+polyColorBlindData	clashColorRed	done	auto
 polyColorBlindData	colorBlue	done	auto
 polyColorBlindData	colorGreen	done	auto
 polyColorBlindData	colorRed	done	auto
 polyColorBlindData	cr	done	auto
-polyColorBlindData	dataType	missing	
-polyColorBlindData	dt	missing	
-polyColorBlindData	efc	missing	
-polyColorBlindData	enableFalseColor	missing	
+polyColorBlindData	dataType	done	auto
+polyColorBlindData	dt	done	auto
+polyColorBlindData	efc	done	auto
+polyColorBlindData	enableFalseColor	done	auto
 polyColorBlindData	id	done	auto
 polyColorBlindData	m	done	auto
-polyColorBlindData	maxColorBlue	missing	
-polyColorBlindData	maxColorGreen	missing	
-polyColorBlindData	maxColorRed	missing	
+polyColorBlindData	maxColorBlue	done	auto
+polyColorBlindData	maxColorGreen	done	auto
+polyColorBlindData	maxColorRed	done	auto
 polyColorBlindData	maxValue	done	auto
-polyColorBlindData	minColorBlue	missing	
-polyColorBlindData	minColorGreen	missing	
-polyColorBlindData	minColorRed	missing	
+polyColorBlindData	minColorBlue	done	auto
+polyColorBlindData	minColorGreen	done	auto
+polyColorBlindData	minColorRed	done	auto
 polyColorBlindData	minValue	done	auto
-polyColorBlindData	mnb	missing	
-polyColorBlindData	mng	missing	
-polyColorBlindData	mnr	missing	
+polyColorBlindData	mnb	done	auto
+polyColorBlindData	mng	done	auto
+polyColorBlindData	mnr	done	auto
 polyColorBlindData	mnv	done	auto
 polyColorBlindData	mode	done	auto
-polyColorBlindData	mxb	missing	
-polyColorBlindData	mxg	missing	
-polyColorBlindData	mxr	missing	
+polyColorBlindData	mxb	done	auto
+polyColorBlindData	mxg	done	auto
+polyColorBlindData	mxr	done	auto
 polyColorBlindData	mxv	done	auto
 polyColorBlindData	n	done	auto
 polyColorBlindData	ncb	done	auto
@@ -24165,78 +24165,78 @@ polyColorBlindData	ncr	done	auto
 polyColorBlindData	noColorBlue	done	auto
 polyColorBlindData	noColorGreen	done	auto
 polyColorBlindData	noColorRed	done	auto
-polyColorBlindData	num	missing	
-polyColorBlindData	numIdTypes	missing	
-polyColorBlindData	q	missing	
-polyColorBlindData	queryMode	missing	
+polyColorBlindData	num	done	auto
+polyColorBlindData	numIdTypes	done	auto
+polyColorBlindData	q	done	auto
+polyColorBlindData	queryMode	done	auto
 polyColorBlindData	typeId	done	auto
-polyColorBlindData	umn	missing	
-polyColorBlindData	umx	missing	
-polyColorBlindData	useMax	missing	
-polyColorBlindData	useMin	missing	
-polyColorBlindData	v	missing	
-polyColorBlindData	value	missing	
+polyColorBlindData	umn	done	auto
+polyColorBlindData	umx	done	auto
+polyColorBlindData	useMax	done	auto
+polyColorBlindData	useMin	done	auto
+polyColorBlindData	v	done	auto
+polyColorBlindData	value	done	auto
 polyColorDel	caching	done	auto
 polyColorDel	cch	done	auto
 polyColorDel	ch	done	auto
-polyColorDel	cls	missing	
+polyColorDel	cls	done	auto
 polyColorDel	colorSetName	done	auto
 polyColorDel	constructionHistory	done	auto
-polyColorDel	e	missing	
-polyColorDel	edit	missing	
+polyColorDel	e	done	auto
+polyColorDel	edit	done	auto
 polyColorDel	n	done	auto
 polyColorDel	name	done	auto
 polyColorDel	nds	done	auto
 polyColorDel	nodeState	done	auto
-polyColorDel	q	missing	
-polyColorDel	query	missing	
-polyColorMod	afv	missing	
-polyColorMod	ai	missing	
-polyColorMod	alphaScale_FloatValue	missing	
-polyColorMod	alphaScale_Interp	missing	
-polyColorMod	alphaScale_Position	missing	
-polyColorMod	ap	missing	
+polyColorDel	q	done	auto
+polyColorDel	query	done	auto
+polyColorMod	afv	done	auto
+polyColorMod	ai	done	auto
+polyColorMod	alphaScale_FloatValue	done	auto
+polyColorMod	alphaScale_Interp	done	auto
+polyColorMod	alphaScale_Position	done	auto
+polyColorMod	ap	done	auto
 polyColorMod	baseColorName	done	auto
 polyColorMod	bcn	done	auto
-polyColorMod	bfv	missing	
-polyColorMod	bi	missing	
-polyColorMod	blueScale_FloatValue	missing	
-polyColorMod	blueScale_Interp	missing	
-polyColorMod	blueScale_Position	missing	
-polyColorMod	bp	missing	
+polyColorMod	bfv	done	auto
+polyColorMod	bi	done	auto
+polyColorMod	blueScale_FloatValue	done	auto
+polyColorMod	blueScale_Interp	done	auto
+polyColorMod	blueScale_Position	done	auto
+polyColorMod	bp	done	auto
 polyColorMod	caching	done	auto
 polyColorMod	cch	done	auto
 polyColorMod	ch	done	auto
 polyColorMod	constructionHistory	done	auto
-polyColorMod	e	missing	
-polyColorMod	edit	missing	
-polyColorMod	gfv	missing	
-polyColorMod	gi	missing	
-polyColorMod	gp	missing	
-polyColorMod	greenScale_FloatValue	missing	
-polyColorMod	greenScale_Interp	missing	
-polyColorMod	greenScale_Position	missing	
-polyColorMod	h	missing	
+polyColorMod	e	done	auto
+polyColorMod	edit	done	auto
+polyColorMod	gfv	done	auto
+polyColorMod	gi	done	auto
+polyColorMod	gp	done	auto
+polyColorMod	greenScale_FloatValue	done	auto
+polyColorMod	greenScale_Interp	done	auto
+polyColorMod	greenScale_Position	done	auto
+polyColorMod	h	done	auto
 polyColorMod	huev	done	auto
-polyColorMod	intensityScale_FloatValue	missing	
-polyColorMod	intensityScale_Interp	missing	
-polyColorMod	intensityScale_Position	missing	
+polyColorMod	intensityScale_FloatValue	done	auto
+polyColorMod	intensityScale_Interp	done	auto
+polyColorMod	intensityScale_Position	done	auto
 polyColorMod	n	done	auto
 polyColorMod	name	done	auto
 polyColorMod	nds	done	auto
-polyColorMod	nfv	missing	
-polyColorMod	ni	missing	
+polyColorMod	nfv	done	auto
+polyColorMod	ni	done	auto
 polyColorMod	nodeState	done	auto
-polyColorMod	np	missing	
-polyColorMod	q	missing	
-polyColorMod	query	missing	
-polyColorMod	redScale_FloatValue	missing	
-polyColorMod	redScale_Interp	missing	
-polyColorMod	redScale_Position	missing	
-polyColorMod	rfv	missing	
-polyColorMod	ri	missing	
-polyColorMod	rp	missing	
-polyColorMod	s	missing	
+polyColorMod	np	done	auto
+polyColorMod	q	done	auto
+polyColorMod	query	done	auto
+polyColorMod	redScale_FloatValue	done	auto
+polyColorMod	redScale_Interp	done	auto
+polyColorMod	redScale_Position	done	auto
+polyColorMod	rfv	done	auto
+polyColorMod	ri	done	auto
+polyColorMod	rp	done	auto
+polyColorMod	s	done	auto
 polyColorMod	satv	done	auto
 polyColorMod	v	done	auto
 polyColorMod	value	done	auto
@@ -24322,8 +24322,8 @@ polyCone	ch	done	auto
 polyCone	constructionHistory	done	auto
 polyCone	createUVs	done	auto
 polyCone	cuv	done	auto
-polyCone	e	missing	
-polyCone	edit	missing	
+polyCone	e	done	auto
+polyCone	edit	done	auto
 polyCone	h	done	auto
 polyCone	height	done	auto
 polyCone	n	done	auto
@@ -24332,8 +24332,8 @@ polyCone	nds	done	auto
 polyCone	nodeState	done	auto
 polyCone	o	done	auto
 polyCone	object	done	auto
-polyCone	q	missing	
-polyCone	query	missing	
+polyCone	q	done	auto
+polyCone	query	done	auto
 polyCone	r	done	auto
 polyCone	radius	done	auto
 polyCone	rcp	done	auto
@@ -24358,24 +24358,24 @@ polyConnectComponents	caching	done	auto
 polyConnectComponents	cch	done	auto
 polyConnectComponents	ch	done	auto
 polyConnectComponents	constructionHistory	done	auto
-polyConnectComponents	e	missing	
-polyConnectComponents	edit	missing	
+polyConnectComponents	e	done	auto
+polyConnectComponents	edit	done	auto
 polyConnectComponents	ief	done	auto
 polyConnectComponents	insertWithEdgeFlow	done	auto
 polyConnectComponents	n	done	auto
 polyConnectComponents	name	done	auto
 polyConnectComponents	nds	done	auto
 polyConnectComponents	nodeState	done	auto
-polyConnectComponents	q	missing	
-polyConnectComponents	query	missing	
+polyConnectComponents	q	done	auto
+polyConnectComponents	query	done	auto
 polyContourProjection	caching	done	auto
 polyContourProjection	cch	done	auto
 polyContourProjection	ch	done	auto
 polyContourProjection	cm	done	auto
 polyContourProjection	constructionHistory	done	auto
 polyContourProjection	createNewMap	done	auto
-polyContourProjection	e	missing	
-polyContourProjection	edit	missing	
+polyContourProjection	e	done	auto
+polyContourProjection	edit	done	auto
 polyContourProjection	flipRails	done	auto
 polyContourProjection	fr	done	auto
 polyContourProjection	ibd	done	auto
@@ -24394,8 +24394,8 @@ polyContourProjection	offset0	done	auto
 polyContourProjection	offset1	done	auto
 polyContourProjection	offset2	done	auto
 polyContourProjection	offset3	done	auto
-polyContourProjection	q	missing	
-polyContourProjection	query	missing	
+polyContourProjection	q	done	auto
+polyContourProjection	query	done	auto
 polyContourProjection	reduceShear	done	auto
 polyContourProjection	rs	done	auto
 polyContourProjection	s0	done	auto
@@ -24418,14 +24418,14 @@ polyCopyUV	ch	done	auto
 polyCopyUV	cm	done	auto
 polyCopyUV	constructionHistory	done	auto
 polyCopyUV	createNewMap	done	auto
-polyCopyUV	e	missing	
-polyCopyUV	edit	missing	
+polyCopyUV	e	done	auto
+polyCopyUV	edit	done	auto
 polyCopyUV	n	done	auto
 polyCopyUV	name	done	auto
 polyCopyUV	nds	done	auto
 polyCopyUV	nodeState	done	auto
-polyCopyUV	q	missing	
-polyCopyUV	query	missing	
+polyCopyUV	q	done	auto
+polyCopyUV	query	done	auto
 polyCopyUV	uvSetName	done	auto
 polyCopyUV	uvSetNameInput	done	auto
 polyCopyUV	uvi	done	auto
@@ -24433,9 +24433,9 @@ polyCopyUV	uvs	done	auto
 polyCopyUV	worldSpace	done	auto
 polyCopyUV	ws	done	auto
 polyCrease	ch	done	auto
-polyCrease	createHistory	missing	
-polyCrease	e	missing	
-polyCrease	edit	missing	
+polyCrease	createHistory	done	auto
+polyCrease	e	done	auto
+polyCrease	edit	done	auto
 polyCrease	op	done	auto
 polyCrease	operation	done	auto
 polyCrease	q	done	auto
@@ -24466,16 +24466,16 @@ polyCreaseCtx	r	done	auto
 polyCreaseCtx	relative	done	auto
 polyCreateFacet	ch	done	auto
 polyCreateFacet	constructionHistory	done	auto
-polyCreateFacet	e	missing	
-polyCreateFacet	edit	missing	
+polyCreateFacet	e	done	auto
+polyCreateFacet	edit	done	auto
 polyCreateFacet	hl	done	auto
 polyCreateFacet	hole	done	auto
 polyCreateFacet	n	done	auto
 polyCreateFacet	name	done	auto
 polyCreateFacet	p	done	auto
 polyCreateFacet	point	done	auto
-polyCreateFacet	q	missing	
-polyCreateFacet	query	missing	
+polyCreateFacet	q	done	auto
+polyCreateFacet	query	done	auto
 polyCreateFacet	s	done	auto
 polyCreateFacet	subdivision	done	auto
 polyCreateFacet	texture	done	auto
@@ -24512,8 +24512,8 @@ polyCube	createUVs	done	auto
 polyCube	cuv	done	auto
 polyCube	d	done	auto
 polyCube	depth	done	auto
-polyCube	e	missing	
-polyCube	edit	missing	
+polyCube	e	done	auto
+polyCube	edit	done	auto
 polyCube	h	done	auto
 polyCube	height	done	auto
 polyCube	n	done	auto
@@ -24522,8 +24522,8 @@ polyCube	nds	done	auto
 polyCube	nodeState	done	auto
 polyCube	o	done	auto
 polyCube	object	done	auto
-polyCube	q	missing	
-polyCube	query	missing	
+polyCube	q	done	auto
+polyCube	query	done	auto
 polyCube	sd	done	auto
 polyCube	sh	done	auto
 polyCube	subdivisionsDepth	done	auto
@@ -24542,35 +24542,35 @@ polyCube	w	done	auto
 polyCube	width	done	auto
 polyCut	caching	done	auto
 polyCut	cch	done	auto
-polyCut	cd	missing	
+polyCut	cd	done	auto
 polyCut	ch	done	auto
 polyCut	constructionHistory	done	auto
 polyCut	cutPlaneCenter	done	auto
-polyCut	cutPlaneCenterX	missing	
-polyCut	cutPlaneCenterY	missing	
-polyCut	cutPlaneCenterZ	missing	
+polyCut	cutPlaneCenterX	done	auto
+polyCut	cutPlaneCenterY	done	auto
+polyCut	cutPlaneCenterZ	done	auto
 polyCut	cutPlaneHeight	done	auto
 polyCut	cutPlaneRotate	done	auto
-polyCut	cutPlaneRotateX	missing	
-polyCut	cutPlaneRotateY	missing	
-polyCut	cutPlaneRotateZ	missing	
-polyCut	cutPlaneSize	missing	
+polyCut	cutPlaneRotateX	done	auto
+polyCut	cutPlaneRotateY	done	auto
+polyCut	cutPlaneRotateZ	done	auto
+polyCut	cutPlaneSize	done	auto
 polyCut	cutPlaneWidth	done	auto
-polyCut	cuttingDirection	missing	
+polyCut	cuttingDirection	done	auto
 polyCut	deleteFaces	done	auto
 polyCut	df	done	auto
-polyCut	e	missing	
-polyCut	edit	missing	
+polyCut	e	done	auto
+polyCut	edit	done	auto
 polyCut	ef	done	auto
 polyCut	eo	done	auto
-polyCut	eox	missing	
-polyCut	eoy	missing	
-polyCut	eoz	missing	
+polyCut	eox	done	auto
+polyCut	eoy	done	auto
+polyCut	eoz	done	auto
 polyCut	extractFaces	done	auto
 polyCut	extractOffset	done	auto
-polyCut	extractOffsetX	missing	
-polyCut	extractOffsetY	missing	
-polyCut	extractOffsetZ	missing	
+polyCut	extractOffsetX	done	auto
+polyCut	extractOffsetY	done	auto
+polyCut	extractOffsetZ	done	auto
 polyCut	n	done	auto
 polyCut	name	done	auto
 polyCut	nds	done	auto
@@ -24578,18 +24578,18 @@ polyCut	nodeState	done	auto
 polyCut	onObject	done	auto
 polyCut	oo	done	auto
 polyCut	pc	done	auto
-polyCut	pcx	missing	
-polyCut	pcy	missing	
-polyCut	pcz	missing	
+polyCut	pcx	done	auto
+polyCut	pcy	done	auto
+polyCut	pcz	done	auto
 polyCut	ph	done	auto
-polyCut	ps	missing	
+polyCut	ps	done	auto
 polyCut	pw	done	auto
-polyCut	q	missing	
-polyCut	query	missing	
+polyCut	q	done	auto
+polyCut	query	done	auto
 polyCut	ro	done	auto
-polyCut	rx	missing	
-polyCut	ry	missing	
-polyCut	rz	missing	
+polyCut	rx	done	auto
+polyCut	ry	done	auto
+polyCut	rz	done	auto
 polyCut	worldSpace	done	auto
 polyCut	ws	done	auto
 polyCutCtx	deleteFaces	done	auto
@@ -24638,8 +24638,8 @@ polyCylinder	ch	done	auto
 polyCylinder	constructionHistory	done	auto
 polyCylinder	createUVs	done	auto
 polyCylinder	cuv	done	auto
-polyCylinder	e	missing	
-polyCylinder	edit	missing	
+polyCylinder	e	done	auto
+polyCylinder	edit	done	auto
 polyCylinder	h	done	auto
 polyCylinder	height	done	auto
 polyCylinder	n	done	auto
@@ -24648,8 +24648,8 @@ polyCylinder	nds	done	auto
 polyCylinder	nodeState	done	auto
 polyCylinder	o	done	auto
 polyCylinder	object	done	auto
-polyCylinder	q	missing	
-polyCylinder	query	missing	
+polyCylinder	q	done	auto
+polyCylinder	query	done	auto
 polyCylinder	r	done	auto
 polyCylinder	radius	done	auto
 polyCylinder	rcp	done	auto
@@ -24668,22 +24668,22 @@ polyCylinder	sy	done	auto
 polyCylinder	sz	done	auto
 polyCylinder	texture	done	auto
 polyCylinder	tx	done	auto
-polyCylindricalProjection	caching	missing	
-polyCylindricalProjection	cch	missing	
+polyCylindricalProjection	caching	done	auto
+polyCylindricalProjection	cch	done	auto
 polyCylindricalProjection	ch	done	auto
 polyCylindricalProjection	cm	done	auto
 polyCylindricalProjection	constructionHistory	done	auto
 polyCylindricalProjection	createNewMap	done	auto
-polyCylindricalProjection	e	missing	
-polyCylindricalProjection	edit	missing	
+polyCylindricalProjection	e	done	auto
+polyCylindricalProjection	edit	done	auto
 polyCylindricalProjection	ibd	done	auto
-polyCylindricalProjection	ic	missing	
+polyCylindricalProjection	ic	done	auto
 polyCylindricalProjection	icx	done	auto
 polyCylindricalProjection	icy	done	auto
-polyCylindricalProjection	imageCenter	missing	
+polyCylindricalProjection	imageCenter	done	auto
 polyCylindricalProjection	imageCenterX	done	auto
 polyCylindricalProjection	imageCenterY	done	auto
-polyCylindricalProjection	imageScale	missing	
+polyCylindricalProjection	imageScale	done	auto
 polyCylindricalProjection	imageScaleU	done	auto
 polyCylindricalProjection	imageScaleV	done	auto
 polyCylindricalProjection	insertBeforeDeformers	done	auto
@@ -24693,80 +24693,80 @@ polyCylindricalProjection	keepImageRatio	done	auto
 polyCylindricalProjection	kir	done	auto
 polyCylindricalProjection	mapDirection	done	auto
 polyCylindricalProjection	md	done	auto
-polyCylindricalProjection	n	missing	
-polyCylindricalProjection	name	missing	
-polyCylindricalProjection	nds	missing	
-polyCylindricalProjection	nodeState	missing	
-polyCylindricalProjection	pc	missing	
+polyCylindricalProjection	n	done	auto
+polyCylindricalProjection	name	done	auto
+polyCylindricalProjection	nds	done	auto
+polyCylindricalProjection	nodeState	done	auto
+polyCylindricalProjection	pc	done	auto
 polyCylindricalProjection	pcx	done	auto
 polyCylindricalProjection	pcy	done	auto
 polyCylindricalProjection	pcz	done	auto
-polyCylindricalProjection	perInstance	missing	
-polyCylindricalProjection	ph	missing	
-polyCylindricalProjection	phs	missing	
-polyCylindricalProjection	pi	missing	
-polyCylindricalProjection	projectionCenter	missing	
+polyCylindricalProjection	perInstance	done	auto
+polyCylindricalProjection	ph	done	auto
+polyCylindricalProjection	phs	done	auto
+polyCylindricalProjection	pi	done	auto
+polyCylindricalProjection	projectionCenter	done	auto
 polyCylindricalProjection	projectionCenterX	done	auto
 polyCylindricalProjection	projectionCenterY	done	auto
 polyCylindricalProjection	projectionCenterZ	done	auto
-polyCylindricalProjection	projectionHeight	missing	
-polyCylindricalProjection	projectionHorizontalSweep	missing	
-polyCylindricalProjection	projectionScale	missing	
+polyCylindricalProjection	projectionHeight	done	auto
+polyCylindricalProjection	projectionHorizontalSweep	done	auto
+polyCylindricalProjection	projectionScale	done	auto
 polyCylindricalProjection	projectionScaleU	done	auto
 polyCylindricalProjection	projectionScaleV	done	auto
-polyCylindricalProjection	ps	missing	
+polyCylindricalProjection	ps	done	auto
 polyCylindricalProjection	psu	done	auto
 polyCylindricalProjection	psv	done	auto
-polyCylindricalProjection	q	missing	
-polyCylindricalProjection	query	missing	
-polyCylindricalProjection	r	missing	
+polyCylindricalProjection	q	done	auto
+polyCylindricalProjection	query	done	auto
+polyCylindricalProjection	r	done	auto
 polyCylindricalProjection	ra	done	auto
-polyCylindricalProjection	radius	missing	
+polyCylindricalProjection	radius	done	auto
 polyCylindricalProjection	rotationAngle	done	auto
 polyCylindricalProjection	sc	done	auto
 polyCylindricalProjection	seamCorrect	done	auto
 polyCylindricalProjection	sf	done	auto
 polyCylindricalProjection	smartFit	done	auto
-polyCylindricalProjection	worldSpace	missing	
-polyCylindricalProjection	ws	missing	
+polyCylindricalProjection	worldSpace	done	auto
+polyCylindricalProjection	ws	done	auto
 polyDelEdge	caching	done	auto
 polyDelEdge	cch	done	auto
 polyDelEdge	ch	done	auto
 polyDelEdge	cleanVertices	done	auto
 polyDelEdge	constructionHistory	done	auto
 polyDelEdge	cv	done	auto
-polyDelEdge	e	missing	
-polyDelEdge	edit	missing	
+polyDelEdge	e	done	auto
+polyDelEdge	edit	done	auto
 polyDelEdge	n	done	auto
 polyDelEdge	name	done	auto
 polyDelEdge	nds	done	auto
 polyDelEdge	nodeState	done	auto
-polyDelEdge	q	missing	
-polyDelEdge	query	missing	
+polyDelEdge	q	done	auto
+polyDelEdge	query	done	auto
 polyDelFacet	caching	done	auto
 polyDelFacet	cch	done	auto
 polyDelFacet	ch	done	auto
 polyDelFacet	constructionHistory	done	auto
-polyDelFacet	e	missing	
-polyDelFacet	edit	missing	
+polyDelFacet	e	done	auto
+polyDelFacet	edit	done	auto
 polyDelFacet	n	done	auto
 polyDelFacet	name	done	auto
 polyDelFacet	nds	done	auto
 polyDelFacet	nodeState	done	auto
-polyDelFacet	q	missing	
-polyDelFacet	query	missing	
-polyDelVertex	caching	missing	
-polyDelVertex	cch	missing	
+polyDelFacet	q	done	auto
+polyDelFacet	query	done	auto
+polyDelVertex	caching	done	auto
+polyDelVertex	cch	done	auto
 polyDelVertex	ch	done	auto
 polyDelVertex	constructionHistory	done	auto
-polyDelVertex	e	missing	
-polyDelVertex	edit	missing	
+polyDelVertex	e	done	auto
+polyDelVertex	edit	done	auto
 polyDelVertex	n	done	auto
 polyDelVertex	name	done	auto
-polyDelVertex	nds	missing	
-polyDelVertex	nodeState	missing	
-polyDelVertex	q	missing	
-polyDelVertex	query	missing	
+polyDelVertex	nds	done	auto
+polyDelVertex	nodeState	done	auto
+polyDelVertex	q	done	auto
+polyDelVertex	query	done	auto
 polyDuplicateAndConnect	rc	done	auto
 polyDuplicateAndConnect	removeOriginalFromShaders	done	auto
 polyDuplicateAndConnect	renameChildren	done	auto
@@ -24779,8 +24779,8 @@ polyDuplicateEdge	ch	done	auto
 polyDuplicateEdge	constructionHistory	done	auto
 polyDuplicateEdge	de	done	auto
 polyDuplicateEdge	deleteEdge	done	auto
-polyDuplicateEdge	e	missing	
-polyDuplicateEdge	edit	missing	
+polyDuplicateEdge	e	done	auto
+polyDuplicateEdge	edit	done	auto
 polyDuplicateEdge	endVertexOffset	done	auto
 polyDuplicateEdge	evo	done	auto
 polyDuplicateEdge	ief	done	auto
@@ -24791,8 +24791,8 @@ polyDuplicateEdge	nds	done	auto
 polyDuplicateEdge	nodeState	done	auto
 polyDuplicateEdge	of	done	auto
 polyDuplicateEdge	offset	done	auto
-polyDuplicateEdge	q	missing	
-polyDuplicateEdge	query	missing	
+polyDuplicateEdge	q	done	auto
+polyDuplicateEdge	query	done	auto
 polyDuplicateEdge	sma	done	auto
 polyDuplicateEdge	smoothingAngle	done	auto
 polyDuplicateEdge	splitType	done	auto
@@ -24805,16 +24805,16 @@ polyEditEdgeFlow	caching	done	auto
 polyEditEdgeFlow	cch	done	auto
 polyEditEdgeFlow	ch	done	auto
 polyEditEdgeFlow	constructionHistory	done	auto
-polyEditEdgeFlow	e	missing	
+polyEditEdgeFlow	e	done	auto
 polyEditEdgeFlow	edgeFlow	done	auto
-polyEditEdgeFlow	edit	missing	
+polyEditEdgeFlow	edit	done	auto
 polyEditEdgeFlow	ef	done	auto
 polyEditEdgeFlow	n	done	auto
 polyEditEdgeFlow	name	done	auto
 polyEditEdgeFlow	nds	done	auto
 polyEditEdgeFlow	nodeState	done	auto
-polyEditEdgeFlow	q	missing	
-polyEditEdgeFlow	query	missing	
+polyEditEdgeFlow	q	done	auto
+polyEditEdgeFlow	query	done	auto
 polyEditUV	a	done	auto
 polyEditUV	angle	done	auto
 polyEditUV	pivotU	done	auto
@@ -24825,22 +24825,22 @@ polyEditUV	q	done	auto
 polyEditUV	query	done	auto
 polyEditUV	r	done	auto
 polyEditUV	relative	done	auto
-polyEditUV	rot	missing	
-polyEditUV	rotateRatio	missing	
-polyEditUV	rotation	missing	
-polyEditUV	rr	missing	
-polyEditUV	s	missing	
-polyEditUV	scale	missing	
+polyEditUV	rot	done	auto
+polyEditUV	rotateRatio	done	auto
+polyEditUV	rotation	done	auto
+polyEditUV	rr	done	auto
+polyEditUV	s	done	auto
+polyEditUV	scale	done	auto
 polyEditUV	scaleU	done	auto
 polyEditUV	scaleV	done	auto
 polyEditUV	su	done	auto
 polyEditUV	sv	done	auto
 polyEditUV	u	done	auto
-polyEditUV	uValue	missing	
-polyEditUV	uvSetName	missing	
-polyEditUV	uvs	missing	
+polyEditUV	uValue	done	auto
+polyEditUV	uvSetName	done	auto
+polyEditUV	uvs	done	auto
 polyEditUV	v	done	auto
-polyEditUV	vValue	missing	
+polyEditUV	vValue	done	auto
 polyEditUVShell	a	done	auto
 polyEditUVShell	angle	done	auto
 polyEditUVShell	pivotU	done	auto
@@ -24855,16 +24855,16 @@ polyEditUVShell	rot	done	auto
 polyEditUVShell	rotateRatio	done	auto
 polyEditUVShell	rotation	done	auto
 polyEditUVShell	rr	done	auto
-polyEditUVShell	s	missing	
-polyEditUVShell	scale	missing	
+polyEditUVShell	s	done	auto
+polyEditUVShell	scale	done	auto
 polyEditUVShell	scaleU	done	auto
 polyEditUVShell	scaleV	done	auto
 polyEditUVShell	su	done	auto
 polyEditUVShell	sv	done	auto
 polyEditUVShell	u	done	auto
 polyEditUVShell	uValue	done	auto
-polyEditUVShell	uvSetName	missing	
-polyEditUVShell	uvs	missing	
+polyEditUVShell	uvSetName	done	auto
+polyEditUVShell	uvs	done	auto
 polyEditUVShell	v	done	auto
 polyEditUVShell	vValue	done	auto
 polyEvaluate	a	done	auto
@@ -24889,9 +24889,9 @@ polyEvaluate	ec	done	auto
 polyEvaluate	edge	done	auto
 polyEvaluate	edgeComponent	done	auto
 polyEvaluate	f	done	auto
-polyEvaluate	fa	missing	
+polyEvaluate	fa	done	auto
 polyEvaluate	face	done	auto
-polyEvaluate	faceArea	missing	
+polyEvaluate	faceArea	done	auto
 polyEvaluate	faceComponent	done	auto
 polyEvaluate	fc	done	auto
 polyEvaluate	fmt	done	auto
@@ -24902,20 +24902,20 @@ polyEvaluate	t	done	auto
 polyEvaluate	tc	done	auto
 polyEvaluate	triangle	done	auto
 polyEvaluate	triangleComponent	done	auto
-polyEvaluate	uep	missing	
-polyEvaluate	ufa	missing	
+polyEvaluate	uep	done	auto
+polyEvaluate	ufa	done	auto
 polyEvaluate	uis	done	auto
 polyEvaluate	us	done	auto
-polyEvaluate	usi	missing	
+polyEvaluate	usi	done	auto
 polyEvaluate	uv	done	auto
-polyEvaluate	uvArea	missing	
+polyEvaluate	uvArea	done	auto
 polyEvaluate	uvComponent	done	auto
-polyEvaluate	uvEdgePairs	missing	
-polyEvaluate	uvFaceArea	missing	
+polyEvaluate	uvEdgePairs	done	auto
+polyEvaluate	uvFaceArea	done	auto
 polyEvaluate	uvSetName	done	auto
 polyEvaluate	uvShell	done	auto
 polyEvaluate	uvShellIds	done	auto
-polyEvaluate	uva	missing	
+polyEvaluate	uva	done	auto
 polyEvaluate	uvc	done	auto
 polyEvaluate	uvcoord	done	auto
 polyEvaluate	uvs	done	auto
@@ -24925,9 +24925,9 @@ polyEvaluate	vc	done	auto
 polyEvaluate	vertex	done	auto
 polyEvaluate	vertexComponent	done	auto
 polyEvaluate	wa	done	auto
-polyEvaluate	wfa	missing	
+polyEvaluate	wfa	done	auto
 polyEvaluate	worldArea	done	auto
-polyEvaluate	worldFaceArea	missing	
+polyEvaluate	worldFaceArea	done	auto
 polyExtrudeEdge	caching	done	auto
 polyExtrudeEdge	cc	done	auto
 polyExtrudeEdge	cch	done	auto
@@ -24939,8 +24939,8 @@ polyExtrudeEdge	cp	done	auto
 polyExtrudeEdge	createCurve	done	auto
 polyExtrudeEdge	d	done	auto
 polyExtrudeEdge	divisions	done	auto
-polyExtrudeEdge	e	missing	
-polyExtrudeEdge	edit	missing	
+polyExtrudeEdge	e	done	auto
+polyExtrudeEdge	edit	done	auto
 polyExtrudeEdge	ga	done	auto
 polyExtrudeEdge	gain	done	auto
 polyExtrudeEdge	inc	done	auto
@@ -24995,8 +24995,8 @@ polyExtrudeEdge	pvt	done	auto
 polyExtrudeEdge	pvx	done	auto
 polyExtrudeEdge	pvy	done	auto
 polyExtrudeEdge	pvz	done	auto
-polyExtrudeEdge	q	missing	
-polyExtrudeEdge	query	missing	
+polyExtrudeEdge	q	done	auto
+polyExtrudeEdge	query	done	auto
 polyExtrudeEdge	ran	done	auto
 polyExtrudeEdge	random	done	auto
 polyExtrudeEdge	ro	done	auto

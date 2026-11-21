@@ -318,7 +318,7 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
             i += 1;
             continue;
         };
-        if matches!(typed_flag, "q" | "query" | "e" | "edit") && !(e_own && typed_flag == "e") {
+        if matches!(typed_flag, "q" | "query" | "e" | "edit") && !(e_own && typed_flag == "e") && !(q_own && typed_flag == "q") {
             i += 1;
             continue;
         }

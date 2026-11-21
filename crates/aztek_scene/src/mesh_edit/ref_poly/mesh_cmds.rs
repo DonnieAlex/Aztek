@@ -1788,6 +1788,13 @@ fn separate_plain(s: &mut Session, a: &Args) -> CmdResult {
 
 /// polyCircularize's node: the edges of each named or selected loop, the border of each face region, the edges between vertices.
 fn circularize_node(s: &mut Session, a: &Args) -> CmdResult {
+    circularize_node_as(s, a, "polyCircularize", None)
+}
+
+/// A polyCircularize node on what the call names or has selected. `as_kind` reads the components as edges (each loop
+/// they make) or faces (the border of each region) whatever they were picked as, for polyCircularizeEdge and
+/// polyCircularizeFace; None takes each as it comes.
+pub(crate) fn circularize_node_as(s: &mut Session, a: &Args, cmd: &str, as_kind: Option<K>) -> CmdResult {
     let members = named_members(s, a)?;
     let picked: Vec<(NodeId, K, Ids)> = if !members.is_empty() {
         members.into_iter().filter(|m| m.kind != K::Object).map(|m| (m.node, m.kind, m.ids)).collect()
@@ -1800,16 +1807,17 @@ fn circularize_node(s: &mut Session, a: &Args) -> CmdResult {
         }
     };
     if picked.is_empty() {
-        fail!("polyCircularize: select edge loops, faces or vertices");
+        fail!("{cmd}: select edge loops, faces or vertices");
     }
     let op = crate::history::op("polyCircularize").unwrap();
     let g = &mut s.graph;
     let mut targets: std::collections::BTreeMap<NodeId, Ids> = Default::default();
     for (n, kind, ids) in picked {
         let Some(cage) = crate::modifiers::cage(g, n) else { continue };
-        let list = match kind {
-            K::Face => aztek_geo::topology::region_boundary_edges(&cage, &ids),
-            k => components::convert(&cage, k, &ids, K::Edge, false),
+        let list = match (as_kind, kind) {
+            (Some(K::Face), K::Face) | (None, K::Face) => aztek_geo::topology::region_boundary_edges(&cage, &ids),
+            (Some(K::Face), k) => aztek_geo::topology::region_boundary_edges(&cage, &components::convert(&cage, k, &ids, K::Face, false)),
+            (_, k) => components::convert(&cage, k, &ids, K::Edge, false),
         };
         targets.entry(n).or_default().extend(list);
     }

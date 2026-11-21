@@ -719,7 +719,13 @@ const PJ_FACES: usize = 11;
 
 fn projection_state(d: &NodeData) -> String {
     let v = |a: usize| d.vec3(a);
-    format!("{:.6?} {:.6?} {:.6} {:.6} {:.6?} {:.6?} {:.6}", v(PJ_CENTER), v(PJ_ROTATE), d.float(PJ_WIDTH), d.float(PJ_HEIGHT), v(PJ_IMAGE_CENTER), v(PJ_IMAGE_SCALE), d.float(PJ_SWEEP))
+    let mut out = format!("{:.6?} {:.6?} {:.6} {:.6} {:.6?} {:.6?} {:.6}", v(PJ_CENTER), v(PJ_ROTATE), d.float(PJ_WIDTH), d.float(PJ_HEIGHT), v(PJ_IMAGE_CENTER), v(PJ_IMAGE_SCALE), d.float(PJ_SWEEP));
+    // Only a turned projection says so, so states fitted before this held still match.
+    let ra = d.ty.attr_index("rotationAngle").map_or(0.0, |i| d.float(i));
+    if ra != 0.0 {
+        out.push_str(&format!(" {ra:.6}"));
+    }
+    out
 }
 
 fn projection_axes(rotate: glam::DVec3) -> glam::DMat3 {
@@ -735,6 +741,7 @@ fn reproject(d: &NodeData, ty: Projection, m: &mut Mesh) {
     let (w, h) = (d.float(PJ_WIDTH).abs().max(1e-9), d.float(PJ_HEIGHT).abs().max(1e-9));
     let (ic, is) = (d.vec3(PJ_IMAGE_CENTER), d.vec3(PJ_IMAGE_SCALE));
     let sweep = d.float(PJ_SWEEP).abs().max(1e-3f64.to_radians());
+    let ra = d.ty.attr_index("rotationAngle").map_or(0.0, |i| d.float(i));
     let faces = crate::history::parse_components(d.string(PJ_FACES));
     let mut edit = UvEdit::default();
     for f in faces {
@@ -748,7 +755,11 @@ fn reproject(d: &NodeData, ty: Projection, m: &mut Mesh) {
                 Projection::Spherical => (p.x.atan2(p.z) / sweep + 0.5, (p.y / p.length().max(1e-9)).asin() / (sweep * 0.5) + 0.5),
                 _ => (p.x / w + 0.5, p.y / h + 0.5),
             };
-            edit.uvs.insert(corner, [(u * is.x + ic.x) as f32, (v * is.y + ic.y) as f32]);
+            // Scaled about the middle of the 0 to 1 square, turned, then centred on imageCenter, as the reference does.
+            let (du, dv) = ((u - 0.5) * is.x, (v - 0.5) * is.y);
+            let (su, cu) = ra.sin_cos();
+            let (du, dv) = (du * cu - dv * su, du * su + dv * cu);
+            edit.uvs.insert(corner, [(du + ic.x) as f32, (dv + ic.y) as f32]);
         }
     }
     edit.apply(m);
@@ -783,13 +794,15 @@ pub fn fit_projection(g: &mut Graph, node: NodeId, m: &Mesh, faces: &[Index], ty
         _ if a.y >= a.z => 1,
         _ => 2,
     };
+    // Angles are stored in radians.
+    let quarter = std::f64::consts::FRAC_PI_2;
     let (rotate, w, h) = match (ty, normal) {
-        (Projection::Planar, 0) => (DVec3::new(0.0, 90.0, 0.0), ext.z, ext.y),
-        (Projection::Planar, 1) => (DVec3::new(-90.0, 0.0, 0.0), ext.x, ext.z),
+        (Projection::Planar, 0) => (DVec3::new(0.0, quarter, 0.0), ext.z, ext.y),
+        (Projection::Planar, 1) => (DVec3::new(-quarter, 0.0, 0.0), ext.x, ext.z),
         (Projection::Planar, _) => (DVec3::ZERO, ext.x, ext.y),
         _ => (DVec3::ZERO, ext.x.max(ext.z), ext.y),
     };
-    let sweep = if ty == Projection::Spherical || ty == Projection::Cylindrical { 360.0 } else { 0.0 };
+    let sweep = if ty == Projection::Spherical || ty == Projection::Cylindrical { std::f64::consts::TAU } else { 0.0 };
     g.set_value(plug(node, PJ_CENTER), PlugValue::Vec3(centre))?;
     g.set_value(plug(node, PJ_ROTATE), PlugValue::Vec3(rotate))?;
     g.set_value(plug(node, PJ_WIDTH), PlugValue::Float(w.max(1e-6)))?;
@@ -1238,11 +1251,16 @@ fn register_types_now() {
                     own.push(crate::node::vec3_attr("rotate", "ro", DVec3::ZERO, k, "How it is turned, degrees."));
                     own.push(crate::attr_defs::float_attr_short("projectionWidth", "pw", 1.0, "Its width.", None, None));
                     own.push(crate::attr_defs::float_attr_short("projectionHeight", "ph", 1.0, "Its height.", None, None));
-                    own.push(crate::node::vec3_attr("imageCenter", "ic", DVec3::ZERO, k, "Offset in UV space; the third number is unused."));
-                    own.push(crate::node::vec3_attr("imageScale", "is", DVec3::ONE, k, "Scale in UV space; the third number is unused."));
-                    own.push(crate::attr_defs::float_attr_short("projectionHorizontalSweep", "phs", 360.0, "How far round a cylinder or sphere it wraps, degrees.", None, None));
+                    own.push(crate::node::vec3_attr("imageCenter", "ic", DVec3::new(0.5, 0.5, 0.0), k, "Where the middle of the projected UVs goes; the third number is unused."));
+                    own.push(crate::node::vec3_attr("imageScale", "is", DVec3::ONE, k, "Scale in UV space about that middle; the third number is unused."));
+                    own.push(crate::attr_defs::float_attr_short("projectionHorizontalSweep", "phs", std::f64::consts::TAU, "How far round a cylinder or sphere it wraps.", None, None));
                     for (nm, sh, doc) in [("fittedState", "fts", "The attributes as the projection left them."), ("inputComponents", "ics", "The faces projected.")] {
                         own.push(AttrDef { name: nm.into(), short_name: sh.into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, doc: doc.into(), ..Default::default() });
+                    }
+                    own.push(crate::attr_defs::float_attr_short("rotationAngle", "ra", 0.0, "How far the UVs turn about the image centre, counterclockwise.", None, None));
+                    own.push(crate::attr_defs::float_attr_short("radius", "r", 10.0, "The manipulator's radius.", None, None));
+                    for (nm, sh, doc) in [("seamCorrect", "sc", "Cut the seam where the projection wraps."), ("worldSpace", "ws", "Values in world space rather than the object's.")] {
+                        own.push(AttrDef { name: nm.into(), short_name: sh.into(), ty: PlugType::Bool, default_value: PlugValue::Bool(false), flags: flags::INPUT | flags::STORABLE, doc: doc.into(), ..Default::default() });
                     }
                 }
                 own
@@ -2018,6 +2036,9 @@ pub fn register(c: &mut Commands<Session>) {
              sets -u/-v. -q returns u, v of each UV.",
             |s, a| {
                 if a.bool("query") {
+                    // -q -u or -q -v: only that half of each UV.
+                    let asked = |k: &str| a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k));
+                    let (only_u, only_v) = (asked("uValue") && !asked("vValue"), asked("vValue") && !asked("uValue"));
                     let targets = targets(s, a, "polyEditUV")?;
                     let mut out = Vec::new();
                     for (mesh, t) in targets {
@@ -2035,17 +2056,24 @@ pub fn register(c: &mut Commands<Session>) {
                         for mp in maps {
                             if let Some(&c) = tp.maps.get(mp as usize).and_then(|v| v.first()) {
                                 let p = uv_of(uv, c);
-                                out.push(json!(p.x));
-                                out.push(json!(p.y));
+                                if !only_v {
+                                    out.push(json!(p.x));
+                                }
+                                if !only_u {
+                                    out.push(json!(p.y));
+                                }
                             }
                         }
                     }
                     return Ok(Value::Array(out));
                 }
                 let rel = a.get("relative").and_then(Value::as_bool).unwrap_or(true);
-                let (u, v) = (a.get("u").and_then(Value::as_f64), a.get("v").and_then(Value::as_f64));
-                let scale = DVec2::new(a.float("scaleU", 1.0), a.float("scaleV", 1.0));
-                let angle = a.float("angle", 0.0);
+                let (u, v) = (a.get("uValue").and_then(Value::as_f64), a.get("vValue").and_then(Value::as_f64));
+                // -scale and -rotation off leave out the scale and the turn; the turn is the angle by -rotateRatio.
+                let use_scale = a.get("scale").and_then(Value::as_bool) != Some(false);
+                let use_turn = a.get("rotation").and_then(Value::as_bool) != Some(false);
+                let scale = if use_scale { DVec2::new(a.float("scaleU", 1.0), a.float("scaleV", 1.0)) } else { DVec2::ONE };
+                let angle = if use_turn { a.float("angle", 0.0) * a.float("rotateRatio", 1.0) } else { 0.0 };
                 let pivot = DVec2::new(a.float("pivotU", 0.0), a.float("pivotV", 0.0));
                 each(s, a, "polyEditUV", "Edit UVs", "polyTweakUV", |m, t, tp| {
                     let faces = if t.whole { all_faces(m) } else { t.faces.clone() };
@@ -2062,15 +2090,20 @@ pub fn register(c: &mut Commands<Session>) {
             },
         )
         .positional("UVs (pCube1.map[0:3]), faces or meshes")
-        .flag(f("u", "u", ArgType::Float, Value::Null, "U offset (or value with -r 0)."))
-        .flag(f("v", "v", ArgType::Float, Value::Null, "V offset (or value with -r 0)."))
+        .flag(f("uValue", "u", ArgType::Float, Value::Null, "U offset (or value with -r 0)."))
+        .flag(f("vValue", "v", ArgType::Float, Value::Null, "V offset (or value with -r 0)."))
+        .flag(f("scale", "s", ArgType::Bool, Value::Null, "Use the scale values (on)."))
+        .flag(f("rotation", "rot", ArgType::Bool, Value::Null, "Use the turn (on)."))
+        .flag(f("rotateRatio", "rr", ArgType::Float, Value::Null, "The turn is -angle times this (1)."))
+        .flag(f("uvSetName", "uvs", ArgType::String, Value::Null, "The UV set to edit (the current one)."))
         .flag(f("scaleU", "su", ArgType::Float, Value::Null, "Scale in U about the pivot."))
         .flag(f("scaleV", "sv", ArgType::Float, Value::Null, "Scale in V about the pivot."))
         .flag(f("angle", "a", ArgType::Float, Value::Null, "Turn, degrees, about the pivot."))
         .flag(f("pivotU", "pu", ArgType::Float, Value::Null, "Pivot U."))
         .flag(f("pivotV", "pv", ArgType::Float, Value::Null, "Pivot V."))
         .flag(f("relative", "r", ArgType::Bool, Value::Null, "Offsets (default) or values."))
-        .flag(f("query", "q", ArgType::Bool, Value::Null, "Return u, v of each UV.")),
+        .flag(f("query", "q", ArgType::Bool, Value::Null, "Return u, v of each UV."))
+        .flag(f("queried", "", ArgType::List, Value::Null, "Flags asked about in query mode.")),
     );
 
     c.register(

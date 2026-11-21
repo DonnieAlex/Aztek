@@ -294,6 +294,8 @@ pub struct Commands<C> {
     gate: Option<ExecuteGate>,
     depth: i32,
     running: Vec<Args>,
+    /// The flags each running call named itself (long names), beside `running`: the rest came from defaults.
+    given: Vec<Vec<String>>,
     previewing: bool,
     agent_calling: bool,
 }
@@ -307,6 +309,7 @@ impl<C> Default for Commands<C> {
             gate: None,
             depth: 0,
             running: Vec::new(),
+            given: Vec::new(),
             previewing: false,
             agent_calling: false,
         }
@@ -353,6 +356,11 @@ impl<C> Commands<C> {
     /// The arguments of the innermost command running now, or None outside any.
     pub fn current_args(&self) -> Option<&Args> {
         self.running.last()
+    }
+    /// The flags the innermost running call named (long names), so edit and query modes can tell them from defaults.
+    /// None outside any call.
+    pub fn current_given(&self) -> Option<&[String]> {
+        self.given.last().map(|v| v.as_slice())
     }
     /// Called around top-level executes only; commands run by other commands aren't reported.
     pub fn add_execute_listener(&mut self, f: ExecuteListener) -> i32 {
@@ -579,6 +587,15 @@ pub fn execute<C: CommandHost>(
     }
     let c = ctx.commands_mut();
     c.depth += 1;
+    let named: Vec<String> = call
+        .as_object()
+        .map(|o| {
+            o.keys()
+                .filter_map(|k| def.flags.iter().rev().find(|f| f.name == *k || (!f.short_name.is_empty() && f.short_name == *k)).map(|f| f.name.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    c.given.push(named);
     c.running.push(args.clone());
     ctx.running_args_changed(Some(&args));
     let result = if def.undoable {
@@ -605,6 +622,7 @@ pub fn execute<C: CommandHost>(
     });
     let c = ctx.commands_mut();
     c.running.pop();
+    c.given.pop();
     c.depth -= 1;
     let current = ctx.commands().running.last().cloned();
     ctx.running_args_changed(current.as_ref());

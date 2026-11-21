@@ -232,7 +232,14 @@ fn bevel_in_place(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) 
     let o = BevelOptions {
         offset,
         segments: a.int("segments", 1).max(1) as i32,
-        profile: if on(a, "chamfer", false) { 0.25 } else { a.float("profile", 0.5) },
+        // With autoFit off the reference's roundness shapes the bevel.
+        profile: if on(a, "chamfer", false) {
+            0.25
+        } else if !on(a, "autoFit", true) && a.has("roundness") {
+            a.float("roundness", 0.5).clamp(0.0, 1.0)
+        } else {
+            a.float("profile", 0.5)
+        },
         clamp: on(a, "clamp", true) && on(a, "autoFit", true),
         smoothing_angle: a.float("smoothingAngle", 30_f64.to_radians()).to_degrees(),
         symmetry: sym,
@@ -1203,7 +1210,6 @@ pub(super) fn register(c: &mut Commands<Session>) {
             aztek_ops::execute(s, "polyDetachEdges", &json!({}), aztek_ops::CallSource::Script)
         }),
     );
-    extend(c, "polyCrease", "polyCrease", &[], |_, _| None);
     extend(c, "polyAppendVertex", "polyAppendVertex", &[], |s, a| {
         // Named on a mesh with the reference's flags: a polyAppendVertex history node, its points held in the mesh's own
         // space. Calls by the tools (-mesh, -items) and onto nothing go on as they did.

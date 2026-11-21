@@ -693,19 +693,19 @@ polyBoolOp	done	auto
 polyBooleanCmd	done	auto
 polyBridgeEdge	done	auto
 polyCBoolOp	done	auto
-polyCacheMonitor	missing	
-polyCanBridgeEdge	missing	
+polyCacheMonitor	done	auto
+polyCanBridgeEdge	done	auto
 polyCheck	done	auto
 polyChipOff	done	auto
 polyCircularize	done	auto
-polyCircularizeEdge	missing	
-polyCircularizeFace	missing	
+polyCircularizeEdge	done	auto
+polyCircularizeFace	done	auto
 polyClean	done	auto
 polyClipboard	done	auto
 polyCloseBorder	done	auto
 polyCollapseEdge	done	auto
 polyCollapseFacet	done	auto
-polyCollapseTweaks	missing	
+polyCollapseTweaks	done	auto
 polyColorBlindData	done	auto
 polyColorDel	done	auto
 polyColorMod	done	auto

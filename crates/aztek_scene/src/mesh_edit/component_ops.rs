@@ -515,6 +515,10 @@ pub fn register(c: &mut Commands<Session>) {
             if a.get("chamfer").is_none() {
                 a2.flags.insert("chamfer".into(), json!(false));
             }
+            // The reference's flag for what its node holds as fillNgons.
+            if let Some(v) = a2.flags.remove("subdivideNgons") {
+                a2.flags.insert("fillNgons".into(), v);
+            }
             if from_faces && a.get("offset").is_none() {
                 a2.flags.insert("offset".into(), json!(2.0));
             }
@@ -550,7 +554,18 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("segments", "sg", T::Int, json!(1), "Segments across the bevel.").min(1.0).max(64.0))
         .flag(flag("profile", T::Float, json!(0.5), "0.5 round, 0.25 straight, toward 1 square.").min(0.0).max(1.0))
         .flag(flag("clamp", T::Bool, json!(true), "Keep widths from overlapping."))
-        .flag(flag("smoothingAngle", T::Float, json!(30.0), "New edges sharper than this are hard.").min(0.0).max(180.0)),
+        .flag(FlagDef::new("smoothingAngle", "sa", T::Float, json!(30.0), "New edges sharper than this are hard.").min(0.0).max(180.0))
+        .flag(FlagDef::new("autoFit", "af", T::Bool, json!(true), "Round off a smooth angle (on); off rounds by -roundness."))
+        .flag(FlagDef::new("roundness", "r", T::Float, json!(0.5), "How round the bevel is when -autoFit is off (0.5)."))
+        .flag(FlagDef::new("angleTolerance", "at", T::Float, json!(20.0), "Angle under which extra triangles are made; kept for older scenes (20)."))
+        .flag(FlagDef::new("miteringAngle", "ma", T::Float, json!(0.0), "Faces meeting at less than this are mitred (0)."))
+        .flag(FlagDef::new("mergeVertices", "mv", T::Bool, json!(false), "Weld vertices closer than -mergeVertexTolerance after."))
+        .flag(FlagDef::new("mergeVertexTolerance", "mvt", T::Float, Value::Null, "How close vertices weld with -mergeVertices, cm (0)."))
+        .flag(FlagDef::new("subdivideNgons", "sn", T::Bool, json!(false), "Split new faces of more than four sides."))
+        .flag(FlagDef::new("useLegacyBevelAlgorithm", "com", T::Bool, json!(false), "Bevel as the reference's 2014 release did; the one bevel here serves both."))
+        .flag(FlagDef::new("uvAssignment", "ua", T::Int, json!(0), "UVs of new faces: 0 projected along the old surface's normal, 1 along the new one's."))
+        .flag(FlagDef::new("constructionHistory", "ch", T::Bool, Value::Null, "Keep the history node (on)."))
+        .flag(FlagDef::new("name", "n", T::String, Value::Null, "The node's name.")),
     );
 
     c.register(Cmd::new("deleteComponents", "Delete the selected vertices, edges or faces (with whatever depends on them).", |s, _a| {

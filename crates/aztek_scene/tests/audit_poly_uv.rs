@@ -105,7 +105,7 @@ fn colours() {
     run(&mut s, "polyColorMod", json!({"args": ["p"], "v": 0.5}));
     close(&run(&mut s, "polyColorPerVertex", json!({"args": ["p.vtx[0]"], "q": true, "queried": ["colorR"]}))[0], 0.5);
     // A hue turn of 120 takes red to green.
-    run(&mut s, "polyColorMod", json!({"args": ["p"], "hv": 120.0, "v": 2.0}));
+    run(&mut s, "polyColorMod", json!({"args": ["p"], "h": 120.0, "v": 2.0}));
     close(&run(&mut s, "polyColorPerVertex", json!({"args": ["p.vtx[0]"], "q": true, "queried": ["colorG"]}))[0], 1.0);
     run(&mut s, "polyColorPerVertex", json!({"args": ["p.vtx[0]"], "rgb": [0.0, 0.0, 0.0]}));
     run(&mut s, "polyAverageColor", json!({"args": ["p"]}));

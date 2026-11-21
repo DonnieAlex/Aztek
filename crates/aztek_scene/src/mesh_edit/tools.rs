@@ -295,6 +295,7 @@ fn make_live(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 pub fn register(c: &mut Commands<Session>) {
+    register_crease_op();
     crate::history::register_op(crate::history::HistoryOp {
         node_type: "polySlideEdge",
         command: "polySlideEdge",
@@ -395,56 +396,21 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "polyCrease",
-            "Set the crease of the selected edges (-v 0 to 10): it holds them sharper under smoothing. -q -v asks.",
-            |s, a| {
-                let g = &mut s.graph;
-                let names = a.named();
-                if !names.is_empty() {
-                    components::select_strings(g, &names, crate::graph::SelectMode::Replace).map_err(aztek_ops::CommandError::new)?;
-                    components::set_mode(g, K::Edge);
-                }
-                let mode = components::mode(g);
-                let sel = components::selected_all(g, mode).clone();
-                if sel.is_empty() {
-                    fail!("polyCrease: select or name edges");
-                }
-                let mut out = Vec::new();
-                g.open_chunk("Crease");
-                let r = (|| -> CmdResult<()> {
-                    for (n, ids) in sel {
-                        let Some(cage) = crate::modifiers::cage(g, n) else { continue };
-                        let list = components::convert(&cage, mode, &ids, K::Edge, false);
-                        if a.bool("query") {
-                            let cr = cage.edge_attrs().get::<f32>(aztek_geo::attribute::names::CREASE);
-                            out.extend(list.iter().map(|&e| json!(cr.get(e as usize).copied().unwrap_or(0.0) as f64)));
-                            continue;
-                        }
-                        let v = a.float("value", 0.0).clamp(0.0, 10.0) as f32;
-                        let tweak = crate::history::tweak_node(g, n)?;
-                        let _ = tweak;
-                        let base = base_plug(g, n)?;
-                        let mut mesh = base_mesh(g, &base);
-                        mesh.edge_attrs_mut().add(aztek_geo::attribute::names::CREASE, aztek_geo::attribute::AttrType::Float);
-                        let cr = mesh.edge_attrs_mut().get_mut::<f32>(aztek_geo::attribute::names::CREASE);
-                        for &e in &list {
-                            if let Some(x) = cr.get_mut(e as usize) {
-                                *x = v;
-                            }
-                        }
-                        store_edited(g, n, base, mesh, &MeshRemap::default())?;
-                    }
-                    Ok(())
-                })();
-                g.close_chunk();
-                r?;
-                Ok(if a.bool("query") { Value::Array(out) } else { Value::Null })
-            },
+            "Set crease values on edges (-v) and vertices (-vv): they hold sharper under smoothing. -rv adds to what they have; \
+             -op 1 takes the crease off the components, -op 2 off the whole mesh. -v and -vv repeat, one value per component \
+             in order. -q -v and -q -vv read them back.",
+            poly_crease,
         )
-        .positional("edges (the selection when none)")
-        .flag(f("value", "v", ArgType::Float, "Crease value: 0 to 10."))
-        .flag(f("relativeValue", "rv", ArgType::Float, "Accepted for existing scripts."))
+        .positional("edges or vertices (the selection when none)")
+        .flag(f("value", "v", ArgType::Any, "Crease of the edges, 0 to 10; repeat it for one value per edge.").multi(1))
+        .flag(f("vertexValue", "vv", ArgType::Any, "Crease of the vertices; repeat it for one value per vertex.").multi(1))
+        .flag(f("relativeValue", "rv", ArgType::Float, "Add this to the crease of every edge and vertex named."))
+        .flag(f("operation", "op", ArgType::Int, "0 crease the components, 1 take their crease off, 2 take every crease off the mesh."))
+        .flag(f("createHistory", "ch", ArgType::Bool, "Make a polyCreaseEdge history node on a mesh that has no history (one with history always gets one)."))
         .flag(f("query", "q", ArgType::Bool, "Query mode."))
-        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode: the same as creasing."))
+        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode."))
+        .flag(f("creaseVertices", "", ArgType::List, "The vertices a polyCreaseEdge node creases, worked out from the arguments.")),
     );
 
     c.register(
@@ -466,4 +432,158 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("query", "q", ArgType::Bool, "Query mode."))
         .flag(f("edit", "e", ArgType::Bool, "Edit mode.")),
     );
+}
+
+/// Numbers of a flag given once or repeated.
+fn numbers(a: &Args, flag: &str) -> Vec<f64> {
+    match a.get(flag) {
+        Some(Value::Array(l)) => l.iter().filter_map(Value::as_f64).collect(),
+        Some(v) => v.as_f64().into_iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+/// The value for the i-th component: one each, or the last for the rest.
+fn nth(values: &[f64], i: usize) -> Option<f64> {
+    values.get(i).or(values.last()).copied()
+}
+
+pub(crate) const VERTEX_CREASE: &str = "creaseVertex";
+
+/// Creases the edges and vertices as the flags say, on a mesh.
+pub(crate) fn apply_crease(a: &Args, m: &mut Mesh, edges: &[Index], verts: &[Index]) {
+    use aztek_geo::attribute::{names::CREASE, AttrType};
+    let op = a.int("operation", 0);
+    m.edge_attrs_mut().add(CREASE, AttrType::Float);
+    m.point_attrs_mut().add(VERTEX_CREASE, AttrType::Float);
+    if op == 2 {
+        m.edge_attrs_mut().get_mut::<f32>(CREASE).iter_mut().for_each(|x| *x = 0.0);
+        m.point_attrs_mut().get_mut::<f32>(VERTEX_CREASE).iter_mut().for_each(|x| *x = 0.0);
+        return;
+    }
+    let (ev, vv) = (numbers(a, "value"), numbers(a, "vertexValue"));
+    // A node's relativeValue of 0 (its default) adds nothing: the values set it.
+    let rel = a.get("relativeValue").and_then(Value::as_f64).filter(|r| *r != 0.0);
+    let set = |list: &mut [f32], ids: &[Index], vals: &[f64]| {
+        for (i, &id) in ids.iter().enumerate() {
+            let Some(x) = list.get_mut(id as usize) else { continue };
+            if op == 1 {
+                *x = 0.0;
+            } else if let Some(r) = rel {
+                *x = (*x as f64 + r).clamp(0.0, 10.0) as f32;
+            } else if let Some(v) = nth(vals, i) {
+                *x = v.clamp(0.0, 10.0) as f32;
+            }
+        }
+    };
+    set(m.edge_attrs_mut().get_mut::<f32>(CREASE), edges, &ev);
+    set(m.point_attrs_mut().get_mut::<f32>(VERTEX_CREASE), verts, &vv);
+}
+
+fn crease_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+    let verts: Vec<Index> = a.get("creaseVertices").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_u64).map(|x| x as Index).collect()).unwrap_or_default();
+    apply_crease(a, m, sel, &verts);
+    Ok(EditResult::default())
+}
+
+pub(crate) fn register_crease_op() {
+    crate::history::register_op(crate::history::HistoryOp {
+        node_type: "polyCreaseEdge",
+        command: "polyCrease",
+        label: "Crease",
+        kind: K::Edge,
+        run: crease_op,
+        skip_flags: &["edit"],
+        doc: "Sets crease values on edges and vertices of its input mesh.",
+    });
+}
+
+fn poly_crease(s: &mut Session, a: &Args) -> CmdResult {
+    use aztek_geo::attribute::names::CREASE;
+    let members = crate::mesh_edit::ref_poly::named_members(s, a)?;
+    let g = &mut s.graph;
+    g.evaluate();
+    // Each mesh's edges and vertices: vertices stay vertices, the rest go to their edges.
+    let mut picked: BTreeMap<crate::plug::NodeId, (Ids, Ids)> = BTreeMap::new();
+    let mut add = |g: &mut crate::graph::Graph, node: crate::plug::NodeId, kind: K, ids: &Ids| {
+        let Some(mesh) = components::as_mesh(g, node) else { return };
+        let Some(cage) = crate::modifiers::cage(g, mesh) else { return };
+        let e = picked.entry(mesh).or_default();
+        match kind {
+            K::Vertex => e.1.extend(ids.iter().copied()),
+            K::Object => e.0.extend(components::all_ids(&cage, K::Edge)),
+            k => e.0.extend(components::convert(&cage, k, ids, K::Edge, false)),
+        }
+    };
+    if !members.is_empty() {
+        for m in &members {
+            add(g, m.node, m.kind, &m.ids);
+        }
+    } else {
+        let mode = components::mode(g);
+        if mode == K::Object {
+            for id in g.selection().to_vec() {
+                add(g, id, K::Object, &Vec::new());
+            }
+        } else {
+            for (n, ids) in components::selected_all(g, mode).clone() {
+                add(g, n, mode, &ids);
+            }
+        }
+    }
+    if picked.is_empty() {
+        fail!("polyCrease: select or name edges or vertices");
+    }
+    for (e, v) in picked.values_mut() {
+        e.sort_unstable();
+        e.dedup();
+        v.sort_unstable();
+        v.dedup();
+    }
+    let asked = |f: &str| a.bool(f) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == f));
+    if a.bool("query") {
+        let mut out = Vec::new();
+        for (&n, (edges, verts)) in &picked {
+            let Some(cage) = crate::modifiers::cage(g, n) else { continue };
+            if asked("vertexValue") {
+                let cr = cage.point_attrs().get::<f32>(VERTEX_CREASE);
+                let verts: Ids = if verts.is_empty() { components::convert(&cage, K::Edge, edges, K::Vertex, false) } else { verts.clone() };
+                out.extend(verts.iter().map(|&p| json!(cr.get(p as usize).copied().unwrap_or(0.0) as f64)));
+            } else {
+                let cr = cage.edge_attrs().get::<f32>(CREASE);
+                let edges: Ids = if edges.is_empty() { components::convert(&cage, K::Vertex, verts, K::Edge, false) } else { edges.clone() };
+                out.extend(edges.iter().map(|&e| json!(cr.get(e as usize).copied().unwrap_or(0.0) as f64)));
+            }
+        }
+        return Ok(Value::Array(out));
+    }
+    // Vertices named with only -value take it as their value.
+    let mut call = a.clone();
+    if !call.has("vertexValue") && call.has("value") && picked.values().all(|(e, _)| e.is_empty()) {
+        if let Some(v) = call.get("value").cloned() {
+            call.flags.insert("vertexValue".into(), v);
+        }
+    }
+    let force = a.get("createHistory").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+    let op = crate::history::op("polyCreaseEdge").ok_or_else(|| aztek_ops::CommandError::new("no polyCreaseEdge op"))?;
+    g.open_chunk("Crease");
+    let r = (|| -> CmdResult<Vec<crate::plug::NodeId>> {
+        let mut made = Vec::new();
+        for (n, (edges, verts)) in picked {
+            let has_history = !crate::history::history_of(g, n).is_empty();
+            let mut args = call.clone();
+            args.flags.insert("creaseVertices".into(), json!(verts.clone()));
+            args.flags.insert("constructionHistory".into(), json!(force || has_history));
+            let (v1, a1) = (verts.clone(), args.clone());
+            let got = super::apply_targets(g, K::Edge, BTreeMap::from([(n, edges)]), &mut |m, sel, _| {
+                apply_crease(&a1, m, sel, &v1);
+                Ok(EditResult::default())
+            }, Some((&*op, &args)), None)?;
+            made.extend(got);
+        }
+        Ok(made)
+    })();
+    g.close_chunk();
+    r?;
+    Ok(json!(true))
 }

@@ -158,12 +158,20 @@ fn poly_edit_uv_shell(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("query") {
         let mut call = a.clone();
         call.flags.remove("angle");
-        return s.run("polyEditUV", json!({"args": a.named(), "query": true}));
+        let mut q = json!({"args": a.named(), "query": true});
+        if let Some(asked) = a.get("queried") {
+            q["queried"] = asked.clone();
+        }
+        return s.run("polyEditUV", q);
     }
     let rel = a.get("relative").and_then(Value::as_bool).unwrap_or(true);
     let (u, v) = (a.get("uValue").and_then(Value::as_f64), a.get("vValue").and_then(Value::as_f64));
-    let scale = DVec2::new(a.float("scaleU", 1.0), a.float("scaleV", 1.0));
-    let (angle, pivot) = (a.float("rotateRatio", a.float("angle", 0.0)), DVec2::new(a.float("pivotU", 0.0), a.float("pivotV", 0.0)));
+    // -scale and -rotation off leave out the scale and the turn; the turn is the angle by -rotateRatio.
+    let use_scale = a.get("scale").and_then(Value::as_bool) != Some(false);
+    let use_turn = a.get("rotation").and_then(Value::as_bool) != Some(false);
+    let scale = if use_scale { DVec2::new(a.float("scaleU", 1.0), a.float("scaleV", 1.0)) } else { DVec2::ONE };
+    let angle = if use_turn { a.float("angle", 0.0) * a.float("rotateRatio", 1.0) } else { 0.0 };
+    let pivot = DVec2::new(a.float("pivotU", 0.0), a.float("pivotV", 0.0));
     let pivot_given = a.has("pivotU") || a.has("pivotV");
     each(s, a, "polyEditUVShell", "Edit UV Shell", "polyTweakUV", |m, t, tp| {
         for shell in shells_of(m, t, tp) {
@@ -617,13 +625,16 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("vValue", "v", Fl, "V offset, or value with -r 0."))
             .flag(f("scaleU", "su", Fl, "U scale."))
             .flag(f("scaleV", "sv", Fl, "V scale."))
-            .flag(f("rotateRatio", "rr", Fl, "Accepted: the same as -a."))
+            .flag(f("rotateRatio", "rr", Fl, "The turn is -angle times this (1)."))
+            .flag(f("scale", "s", B, "Use the scale values (on)."))
+            .flag(f("uvSetName", "uvs", S, "The UV set to edit (the current one)."))
             .flag(f("angle", "a", Fl, "Turn, degrees."))
             .flag(f("pivotU", "pu", Fl, "Pivot U."))
             .flag(f("pivotV", "pv", Fl, "Pivot V."))
             .flag(f("relative", "r", B, "Offsets (the default) or values."))
-            .flag(f("rotation", "rot", B, "Accepted for existing scripts."))
-            .flag(f("query", "q", B, "Return u, v of each UV.")),
+            .flag(f("rotation", "rot", B, "Use the turn (on)."))
+            .flag(f("query", "q", B, "Return u, v of each UV."))
+            .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
     c.register(
         poly_flag(Cmd::new("polyOptUvs", "Relax UVs: flattens each shell again, keeping its place and size. Returns the node.", |s, a| optimize(s, a, "polyOptUvs", "Optimize UVs", "polyOptUvs")))

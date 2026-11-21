@@ -134,10 +134,14 @@ fn qe_run(s: &mut Session, a: &Args, cmd: &str, types: &[&str], map: &[(&str, &s
     let Some(first) = names.first() else { fail!("{cmd}: name the {} node or an object it feeds", types[0]) };
     let Some(node) = find_hist(&s.graph, first, types) else { fail!("{cmd}: {first} has no {} node", types[0]) };
     let path = s.graph.path(node);
+    // The flags the call named: the others hold the command's defaults, which a query doesn't ask for and an edit
+    // doesn't set.
+    let given: Option<Vec<String>> = s.commands.current_given().map(|g| g.to_vec());
+    let named = |k: &str| given.as_ref().is_none_or(|g| g.iter().any(|x| x == k));
     if a.bool("query") {
         let asked: Vec<String> = match a.get("queried").and_then(Value::as_array) {
             Some(q) if !q.is_empty() => q.iter().filter_map(Value::as_str).map(str::to_string).collect(),
-            _ => a.flags.iter().filter(|(k, v)| !META.contains(&k.as_str()) && v.as_bool() == Some(true)).map(|(k, _)| k.clone()).collect(),
+            _ => a.flags.iter().filter(|(k, v)| !META.contains(&k.as_str()) && v.as_bool() == Some(true) && named(k)).map(|(k, _)| k.clone()).collect(),
         };
         let Some(flag) = asked.into_iter().find(|k| !META.contains(&k.as_str())) else { fail!("{cmd}: name a flag to query") };
         let attr = attr_for(&flag, map);
@@ -165,12 +169,14 @@ fn qe_run(s: &mut Session, a: &Args, cmd: &str, types: &[&str], map: &[(&str, &s
                 v = outer[0].clone();
             }
         }
-        if aztek_ops::units::user_call() {
+        // A flag with a unit of its own has its answer converted as the command returns; the others by the attribute's.
+        let flag_unit = s.commands.find(cmd).and_then(|d| d.flags.iter().find(|f| f.name == flag)).map(|f| f.unit).unwrap_or(aztek_ops::units::Unit::None);
+        if aztek_ops::units::user_call() && flag_unit == aztek_ops::units::Unit::None {
             aztek_ops::units::json_to_user(unit, &mut v);
         }
         return Ok(v);
     }
-    let edits: Vec<(String, Value)> = a.flags.iter().filter(|(k, v)| !META.contains(&k.as_str()) && !v.is_null()).map(|(k, v)| (k.clone(), v.clone())).collect();
+    let edits: Vec<(String, Value)> = a.flags.iter().filter(|(k, v)| !META.contains(&k.as_str()) && !v.is_null() && named(k)).map(|(k, v)| (k.clone(), v.clone())).collect();
     for (flag, v) in edits {
         let attr = attr_for(&flag, map);
         let plug_name = format!("{path}.{attr}");
