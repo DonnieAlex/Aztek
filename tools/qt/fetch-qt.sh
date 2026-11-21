@@ -30,12 +30,13 @@ if [ -z "$PY" ]; then
   [ -n "$PY" ] || { echo "Python 3 is missing: it is needed once to fetch Qt" >&2; exit 1; }
 fi
 mkdir -p "$DEST"
-# aqtinstall in a venv of its own, so neither the build's Python nor the system's pip is changed.
-"$PY" -m venv "$DEST/.aqt"
-"$DEST/.aqt/bin/python" -m pip install -q --retries 10 --timeout 120 aqtinstall
+# aqtinstall in a venv of its own, so neither the build's Python nor the system's pip is changed. Their chatter goes to
+# stderr: stdout carries the kit's path and nothing else.
+"$PY" -m venv "$DEST/.aqt" >&2
+"$DEST/.aqt/bin/python" -m pip install -q --retries 10 --timeout 120 aqtinstall >&2
 # Qt's download servers drop connections now and then: a few tries, each starting clean.
 for i in 1 2 3 4 5; do
-  if "$DEST/.aqt/bin/python" -m aqt install-qt "$HOST" desktop "$VER" "$ARCH" --outputdir "$DEST"; then
+  if "$DEST/.aqt/bin/python" -m aqt install-qt "$HOST" desktop "$VER" "$ARCH" --outputdir "$DEST" >&2; then
     break
   fi
   [ "$i" = 5 ] && { echo "Qt $VER: download failed 5 times" >&2; exit 1; }
