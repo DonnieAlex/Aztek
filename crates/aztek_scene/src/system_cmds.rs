@@ -32,6 +32,8 @@ pub struct Extras {
     pub dg_timer_on: bool,
     /// animDisplay's settings.
     pub anim_display: BTreeMap<String, Value>,
+    /// filterStudioImport's options.
+    pub studio_import: BTreeMap<String, Value>,
     /// recordAttr: plugs marked for recording.
     pub recording: Vec<String>,
     /// symmetricModelling's settings.

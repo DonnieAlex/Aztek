@@ -306,7 +306,7 @@ fn cut_key_options() {
     }
     let times = |s: &mut Session| floats(&q(s, "keyframe", "pCube1.tx", "timeChange"));
     run(&mut s, "selectKey", json!({"args": ["pCube1.tx"], "time": 5}));
-    assert_eq!(run(&mut s, "cutKey", json!({"selected": true, "clear": true})), json!(1));
+    assert_eq!(run(&mut s, "cutKey", json!({"animation": "keys", "clear": true})), json!(1));
     assert_eq!(times(&mut s), vec![1.0, 10.0, 15.0, 20.0]);
     run(&mut s, "cutKey", json!({"args": ["pCube1.tx"], "time": "10:15", "clear": true, "includeUpperBound": false}));
     assert_eq!(times(&mut s), vec![1.0, 15.0, 20.0]);
@@ -531,10 +531,9 @@ fn buffer_curves_swap() {
     assert_eq!(floats(&q(&mut s, "keyframe", "pCube1.tx", "valueChange")), vec![1.0, 9.0]);
     // The stats fields.
     run(&mut s, "selectKey", json!({"args": ["pCube1.tx"], "time": 2}));
-    assert_eq!(run(&mut s, "keyframeStats", json!({"query": true, "queried": ["timeAnnotation"]})), json!("2"));
-    assert_eq!(run(&mut s, "keyframeStats", json!({"query": true, "queried": ["valueAnnotation"]})), json!("9"));
+    assert_eq!(run(&mut s, "keyStats", json!({})), json!(["2", "9"]));
     run(&mut s, "selectKey", json!({"args": ["pCube1.tx"]}));
-    assert_eq!(run(&mut s, "keyframeStats", json!({"query": true, "queried": ["timeAnnotation"]})), json!(""));
+    assert_eq!(run(&mut s, "keyStats", json!({})), json!(["", ""]));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

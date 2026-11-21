@@ -13,6 +13,7 @@ use glam::DVec3;
 use serde_json::{json, Value};
 
 use crate::anim;
+use crate::graph::Graph;
 use crate::ref_core::{asked, f};
 use crate::node::{types, EvalContext, NodeBehavior, NodeData, NodeType};
 use crate::plug::{flags, AttrDef, NodeId, PlugRef, PlugType, PlugValue, NO_NODE};
@@ -322,38 +323,251 @@ fn tick_draw_special(s: &mut Session, a: &Args) -> CmdResult {
 // ---------------------------------------------------------------------------------------------------------------------
 // keyingGroup
 
+/// keyingGroup -setActiveFilter: which groups keying an activator keys. AllKeyingGroups (the default), NoKeyingGroups,
+/// or a category.
+static ACTIVE_FILTER: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+fn active_filter() -> String {
+    let f = ACTIVE_FILTER.lock().unwrap().clone();
+    if f.is_empty() {
+        "AllKeyingGroups".into()
+    } else {
+        f
+    }
+}
+
+pub(crate) fn is_keying_group(g: &Graph, id: NodeId) -> bool {
+    g.node(id).is_some_and(|n| n.ty().name == "keyingGroup")
+}
+
+fn kg_attr(g: &Graph, id: NodeId, name: &str) -> PlugRef {
+    PlugRef::new(id, g.node(id).and_then(|n| n.ty().attr_index(name)).unwrap_or(0) as i32)
+}
+
+fn activators(g: &Graph, kg: NodeId) -> Vec<NodeId> {
+    g.elements(&kg_attr(g, kg, "activators")).iter().filter_map(|e| g.source(e)).map(|p| p.node).collect()
+}
+
+/// The channels a keying group keys: its members' keyable channels less those it was made without, and its
+/// sub-groups' (keyed with it).
+pub(crate) fn keying_group_plugs(g: &Graph, kg: NodeId) -> Vec<PlugRef> {
+    let mut out = Vec::new();
+    let mut seen = Vec::new();
+    let mut stack = vec![kg];
+    while let Some(k) = stack.pop() {
+        if seen.contains(&k) {
+            continue;
+        }
+        seen.push(k);
+        let excluded: Vec<String> = g.node(k).map(|n| n.data().string(n.ty().attr_index("excludedChannels").unwrap_or(0)).split_whitespace().map(str::to_string).collect()).unwrap_or_default();
+        for m in crate::object_sets::members(g, k) {
+            if is_keying_group(g, m.node) {
+                stack.push(m.node);
+                continue;
+            }
+            for p in anim::keyable_plugs(g, crate::dag::transform_of(g, m.node)) {
+                let name = g.attr(&p).name.clone();
+                let dynamic = g.attr(&p).flags & flags::USER != 0;
+                let skip = excluded.iter().any(|x| match x.as_str() {
+                    "translate" => name.starts_with("translate"),
+                    "rotate" => name.starts_with("rotate"),
+                    "scale" => name.starts_with("scale"),
+                    "visibility" => name == "visibility",
+                    "dynamic" => dynamic,
+                    _ => false,
+                });
+                if !skip && !out.contains(&p) {
+                    out.push(p);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The channels keying these nodes also keys: those of the active keying groups they activate.
+pub(crate) fn activated_plugs(g: &Graph, nodes: &[NodeId]) -> Vec<PlugRef> {
+    let filter = active_filter();
+    if filter == "NoKeyingGroups" {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for kg in g.nodes().into_iter().filter(|&k| is_keying_group(g, k)) {
+        let cat = g.node(kg).map(|n| n.data().string(n.ty().attr_index("category").unwrap()).to_string()).unwrap_or_default();
+        if filter != "AllKeyingGroups" && cat != filter {
+            continue;
+        }
+        if activators(g, kg).iter().any(|a| nodes.contains(a)) {
+            for p in keying_group_plugs(g, kg) {
+                if !out.contains(&p) {
+                    out.push(p);
+                }
+            }
+        }
+    }
+    out
+}
+
+const KG_OWN: &[&str] = &["activator", "removeActivator", "category", "setActiveFilter", "minimizeRotation", "excludeDynamic", "excludeRotate", "excludeScale", "excludeTranslate", "excludeVisibility", "copy", "split", "name", "empty", "layer"];
+
 fn keying_group(s: &mut Session, a: &Args) -> CmdResult {
     let names = a.named();
+    let queried: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+    let asked = |f: &str| queried.iter().any(|x| x == f) || a.get(f) == Some(&json!(true));
+    // The global filter, in any mode.
+    if a.bool("query") && asked("setActiveFilter") {
+        return Ok(json!(active_filter()));
+    }
+    if let Some(f) = a.get("setActiveFilter").and_then(Value::as_str) {
+        *ACTIVE_FILTER.lock().unwrap() = f.to_string();
+        if names.is_empty() {
+            return Ok(Value::Null);
+        }
+    }
+    let group = |s: &Session, n: &str| -> CmdResult<NodeId> {
+        match s.graph.find(n)? {
+            Some(id) if is_keying_group(&s.graph, id) => Ok(id),
+            _ => fail!("keyingGroup: no keying group named {n}"),
+        }
+    };
     if a.bool("query") {
-        return s.run("sets", json!({"args": names, "query": true}));
+        let Some(first) = names.first() else { fail!("keyingGroup: name a keying group") };
+        let kg = group(s, first)?;
+        let g = &s.graph;
+        if asked("activator") {
+            return Ok(json!(activators(g, kg).iter().map(|&x| g.path(x)).collect::<Vec<_>>()));
+        }
+        if asked("category") {
+            return Ok(json!(g.node(kg).map(|n| n.data().string(n.ty().attr_index("category").unwrap()).to_string()).unwrap_or_default()));
+        }
+        if asked("minimizeRotation") {
+            return Ok(json!(g.node(kg).map(|n| n.data().bool(n.ty().attr_index("minimizeRotation").unwrap())).unwrap_or(false)));
+        }
+        let mut call = a.flags.clone();
+        call.insert("args".into(), json!(names));
+        return s.run("sets", Value::Object(call.into_iter().collect()));
     }
     if a.bool("edit") {
-        let Some(set) = names.first() else { fail!("keyingGroup: name a keying group") };
-        let mut call = json!({"args": [set]});
-        if let Some(v) = a.get("addElement").or(a.get("include")) {
-            call = json!({"args": [v], "addElement": set});
+        // Flags naming the group take it; the other names are what they work on.
+        let kg_name = ["addElement", "forceElement", "include", "remove", "clear", "flatten", "activator", "removeActivator"].iter().find_map(|f| a.get(f).and_then(Value::as_str).map(str::to_string));
+        let Some(target) = kg_name.clone().or_else(|| names.first().cloned()) else { fail!("keyingGroup: name a keying group") };
+        let kg = group(s, &target)?;
+        let rest: Vec<String> = if kg_name.is_some() { names.clone() } else { names[1..].to_vec() };
+        let mut done = false;
+        for (flag, add) in [("activator", true), ("removeActivator", false)] {
+            if !a.has(flag) {
+                continue;
+            }
+            done = true;
+            let picked: Vec<NodeId> = if rest.is_empty() {
+                s.graph.selection().to_vec()
+            } else {
+                rest.iter().filter_map(|n| s.graph.find(n).ok().flatten()).collect()
+            };
+            let g = &mut s.graph;
+            let have = activators(g, kg);
+            for id in picked {
+                let msg = g.node(id).and_then(|n| n.ty().attr_index("message")).unwrap() as i32;
+                if add && !have.contains(&id) {
+                    g.connect(&PlugRef::new(id, msg), &kg_attr(g, kg, "activators"), false)?;
+                } else if !add {
+                    for e in g.elements(&kg_attr(g, kg, "activators")) {
+                        if g.source(&e).is_some_and(|p| p.node == id) {
+                            g.disconnect(&e);
+                            g.remove_element(&e)?;
+                        }
+                    }
+                }
+            }
         }
-        if let Some(v) = a.get("remove") {
-            call = json!({"args": [v], "remove": set});
+        let g = &mut s.graph;
+        if let Some(c) = a.get("category").and_then(Value::as_str) {
+            g.set_value(kg_attr(g, kg, "category"), PlugValue::String(c.to_string()))?;
+            done = true;
         }
-        return s.run("sets", call);
+        if let Some(m) = a.get("minimizeRotation") {
+            g.set_value(kg_attr(g, kg, "minimizeRotation"), PlugValue::Bool(m.as_bool().unwrap_or_else(|| m.as_f64().unwrap_or(0.0) != 0.0)))?;
+            done = true;
+        }
+        let set_flags: Vec<(String, Value)> = a.flags.iter().filter(|(k, _)| !KG_OWN.contains(&k.as_str()) && !matches!(k.as_str(), "args" | "edit" | "query" | "queried")).map(|(k, v)| (k.clone(), v.clone())).collect();
+        if !set_flags.is_empty() {
+            let mut call = serde_json::Map::new();
+            for (k, v) in set_flags {
+                call.insert(k, v);
+            }
+            call.insert("edit".into(), json!(true));
+            call.insert("args".into(), json!(names));
+            s.run("sets", Value::Object(call))?;
+            done = true;
+        }
+        let _ = done;
+        return Ok(json!(s.graph.path(kg)));
     }
+    // Set operations that make nothing: as sets does them.
+    if ["anyMember", "isMember", "union", "intersection", "subtract", "isIntersecting"].iter().any(|f| a.has(f)) {
+        let mut call = a.flags.clone();
+        call.insert("args".into(), json!(names));
+        return s.run("sets", Value::Object(call.into_iter().collect()));
+    }
+    // Create: from the objects named or selected, a copy of a group, or the items split off one.
     let mut members = objects(s, a);
+    if let Some(src) = a.get("copy").and_then(Value::as_str) {
+        let id = group(s, src).or_else(|_| s.graph.find(src)?.ok_or_else(|| aztek_ops::CommandError::new(format!("keyingGroup: no object named {src}"))))?;
+        members = crate::object_sets::format(&s.graph, &crate::object_sets::members(&s.graph, id));
+    }
     if a.bool("empty") {
         members.clear();
     }
+    let split_from = match a.get("split").and_then(Value::as_str) {
+        Some(n) => Some(group(s, n)?),
+        None => None,
+    };
     let g = &mut s.graph;
     let list = crate::object_sets::parse(g, &members).map_err(aztek_ops::CommandError::new)?;
     let t = types::find("keyingGroup").unwrap();
+    let mut excluded = Vec::new();
+    for (flag, word) in [("excludeTranslate", "translate"), ("excludeRotate", "rotate"), ("excludeScale", "scale"), ("excludeVisibility", "visibility"), ("excludeDynamic", "dynamic")] {
+        if a.bool(flag) {
+            excluded.push(word);
+        }
+    }
     g.open_chunk("keyingGroup");
     let r = (|| -> CmdResult<NodeId> {
+        if let Some(from) = split_from {
+            crate::object_sets::remove(g, from, &list)?;
+        }
         let n = g.create_node(&t, &a.string("name", "keyingGroup1"), NO_NODE, true)?;
         crate::object_sets::add(g, n, &list)?;
+        if !excluded.is_empty() {
+            g.set_value(kg_attr(g, n, "excludedChannels"), PlugValue::String(excluded.join(" ")))?;
+        }
+        if let Some(c) = a.get("category").and_then(Value::as_str) {
+            g.set_value(kg_attr(g, n, "category"), PlugValue::String(c.to_string()))?;
+        }
+        if let Some(m) = a.get("minimizeRotation") {
+            g.set_value(kg_attr(g, n, "minimizeRotation"), PlugValue::Bool(m.as_bool().unwrap_or_else(|| m.as_f64().unwrap_or(0.0) != 0.0)))?;
+        }
+        if let Some(t) = a.get("text").and_then(Value::as_str) {
+            let p = kg_attr(g, n, "annotation");
+            g.set_value(p, PlugValue::String(t.to_string()))?;
+        }
         Ok(n)
     })();
     g.close_chunk();
     let n = r?;
-    Ok(json!(g.path(n)))
+    // Colours and the like, as sets keeps them.
+    if a.has("channelSetColor") || a.has("channelSetColorIndex") {
+        let mut call = serde_json::Map::new();
+        call.insert("edit".into(), json!(true));
+        call.insert("args".into(), json!([s.graph.path(n)]));
+        for k in ["channelSetColor", "channelSetColorIndex"] {
+            if let Some(v) = a.get(k) {
+                call.insert(k.into(), v.clone());
+            }
+        }
+        s.run("sets", Value::Object(call))?;
+    }
+    Ok(json!(s.graph.path(n)))
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -388,11 +602,37 @@ fn character_map(s: &mut Session, a: &Args) -> CmdResult {
     let list = |s: &Session, m: NodeId| -> Vec<String> {
         s.graph.node(m).unwrap().elements(MAP_LIST).iter().filter_map(|(_, v)| if let PlugValue::String(t) = v { Some(t.clone()) } else { None }).collect()
     };
+    // Two characters named: the map already pairing their members, if there is one.
+    let map_node = map_node.or_else(|| {
+        let [one, two] = chars.as_slice() else { return None };
+        let (x, y) = (member_attrs(s, *one), member_attrs(s, *two));
+        s.graph.nodes().into_iter().filter(|&i| s.graph.node(i).is_some_and(|n| n.ty().name == "characterMap")).find(|&m| {
+            let l = list(s, m);
+            !l.is_empty() && l.iter().all(|e| {
+                let mut it = e.split(' ');
+                let (p, q) = (it.next().unwrap_or(""), it.next().unwrap_or(""));
+                x.iter().any(|v| v == p) && y.iter().any(|v| v == q)
+            })
+        })
+    });
     if a.bool("query") {
-        let Some(m) = map_node else { fail!("characterMap: name a characterMap") };
+        let Some(m) = map_node else {
+            if chars.len() == 2 {
+                return Ok(json!([]));
+            }
+            fail!("characterMap: name a characterMap")
+        };
+        // -q -m attr: what that attribute is paired with.
+        if let Some(at) = a.get("mapping").and_then(Value::as_str).filter(|_| crate::anim::queried(a, &["mapping"]) || a.has("mapping")) {
+            let full = s.graph.plug(at).map(|p| s.graph.plug_name(&p)).unwrap_or_else(|_| at.to_string());
+            if full.contains('.') {
+                let out: Vec<String> = list(s, m).into_iter().filter(|e| e.split(' ').any(|x| x == full)).collect();
+                return Ok(json!(out));
+            }
+        }
         return Ok(json!(list(s, m)));
     }
-    let edits = a.get("mapAttr").is_some() || a.get("unmapAttr").is_some();
+    let edits = a.get("mapAttr").is_some() || a.get("unmapAttr").is_some() || a.get("mapNode").is_some() || a.get("unmapNode").is_some();
     let m = match map_node {
         Some(m) => m,
         None => {
@@ -423,6 +663,31 @@ fn character_map(s: &mut Session, a: &Args) -> CmdResult {
         }
         if let Some(p) = pair(a.get("unmapAttr")) {
             now.retain(|x| *x != p);
+        }
+        // -mapNode and -unmapNode: every member attribute of the first node with its namesake on the second. Pairs whose
+        // names differ are left by -unmapNode.
+        let attr = |p: &str| p.rsplit('.').next().unwrap_or(p).to_string();
+        let node = |p: &str| p.rsplit_once('.').map(|x| x.0.to_string()).unwrap_or_default();
+        let short = |g: &Graph, n: &str| g.find(n).ok().flatten().map(|i| g.path(i)).unwrap_or_else(|| n.to_string());
+        if let Some(l) = a.get("mapNode").and_then(Value::as_array) {
+            let (src, dst) = (short(&s.graph, l.first().and_then(Value::as_str).unwrap_or("")), short(&s.graph, l.get(1).and_then(Value::as_str).unwrap_or("")));
+            // The characters named, or else every character's members.
+            let pool: Vec<NodeId> = if chars.is_empty() { s.graph.nodes().into_iter().filter(|&i| crate::characters::is_character(&s.graph, i)).collect() } else { chars.clone() };
+            let all: Vec<String> = pool.iter().flat_map(|&c| member_attrs(s, c)).collect();
+            for p in all.iter().filter(|p| node(p) == src) {
+                if let Some(q) = all.iter().find(|q| node(q) == dst && attr(q) == attr(p)) {
+                    now.retain(|x| x.split(' ').next() != Some(p.as_str()));
+                    now.push(format!("{p} {q}"));
+                }
+            }
+        }
+        if let Some(l) = a.get("unmapNode").and_then(Value::as_array) {
+            let (src, dst) = (short(&s.graph, l.first().and_then(Value::as_str).unwrap_or("")), short(&s.graph, l.get(1).and_then(Value::as_str).unwrap_or("")));
+            now.retain(|x| {
+                let mut it = x.split(' ');
+                let (p, q) = (it.next().unwrap_or(""), it.next().unwrap_or(""));
+                !(node(p) == src && node(q) == dst && attr(p) == attr(q))
+            });
         }
         s.graph.set_elements(&PlugRef::new(m, MAP_LIST as i32), &now.into_iter().map(PlugValue::String).collect::<Vec<_>>())?;
     }
@@ -474,7 +739,12 @@ pub fn register_types() {
             name: "keyingGroup".into(),
             base: Some(set.clone()),
             doc: "A set of objects keyed together.".into(),
-            own_attrs: vec![real_attr("minimizeRotation", "mr", PlugType::Bool, PlugValue::Bool(false), store), real_attr("category", "cat", PlugType::String, PlugValue::String(String::new()), store)],
+            own_attrs: vec![
+                real_attr("minimizeRotation", "mr", PlugType::Bool, PlugValue::Bool(false), store),
+                real_attr("category", "cat", PlugType::String, PlugValue::String(String::new()), store),
+                AttrDef { name: "activators".into(), short_name: "act".into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::ARRAY | flags::MESSAGE | flags::HIDDEN, doc: "The nodes whose keying keys this group.".into(), ..Default::default() },
+                real_attr("excludedChannels", "exc", PlugType::String, PlugValue::String(String::new()), store | flags::HIDDEN),
+            ],
             create: set.create.clone(),
             ..Default::default()
         })
@@ -534,14 +804,57 @@ pub fn register(c: &mut Commands<Session>) {
     );
     setting_store(c, "animDisplay", "How animation shows, kept for scripts: -upd, -tc, -tco, -rae; -q reads.", ANIM_DISPLAY, |s| &mut s.extras.anim_display);
     c.register(
-        q_flags(Cmd::new("keyingGroup", "A set of objects keyed together: -n, -em empty; -e -add and -rm change it; -q lists it.", keying_group))
-            .positional("objects")
-            .flag(f("name", "n", S, "The set's name."))
-            .flag(f("empty", "em", B, "Make it empty."))
-            .flag(f("addElement", "add", ArgType::Any, "With -e: what to add."))
-            .flag(f("include", "in", ArgType::Any, "With -e: what to add."))
-            .flag(f("remove", "rm", ArgType::Any, "With -e: what to remove."))
-            .flag(f("minimizeRotation", "mr", B, "Accepted for existing scripts.")),
+        q_flags(Cmd::new(
+            "keyingGroup",
+            "A keying group: objects (and groups inside it) keyed as one. Keying an activator (-act) keys the group when the \
+             global filter (-fil) lets its category (-cat) through. The set flags work as the sets command's. Returns its name; \
+             -q lists it.",
+            keying_group,
+        ))
+        .positional("objects; the group with -e and -q")
+        .flag(f("name", "n", S, "The group's name."))
+        .flag(f("empty", "em", B, "Make it empty."))
+        .flag(f("activator", "act", ArgType::Any, "With -e: the selected nodes become activators; -q lists them."))
+        .flag(f("removeActivator", "rac", ArgType::Any, "With -e: the selected nodes stop being activators."))
+        .flag(f("category", "cat", S, "The category the active filter matches."))
+        .flag(f("setActiveFilter", "fil", S, "AllKeyingGroups (the default), NoKeyingGroups, or the category whose groups are active."))
+        .flag(f("minimizeRotation", "mr", B, "Keys on the group's rotations take the shortest way."))
+        .flag(f("excludeDynamic", "ed", B, "Made without dynamic attributes."))
+        .flag(f("excludeRotate", "er", B, "Made without rotate channels."))
+        .flag(f("excludeScale", "es", B, "Made without scale channels."))
+        .flag(f("excludeTranslate", "et", B, "Made without translate channels."))
+        .flag(f("excludeVisibility", "ev", B, "Made without visibility."))
+        .flag(f("addElement", "add", ArgType::Any, "With -e: what to add."))
+        .flag(f("include", "in", ArgType::Any, "With -e: what to add, with a warning for what can't go in."))
+        .flag(f("forceElement", "fe", ArgType::Any, "With -e: what to add, taken from any other set of its partition."))
+        .flag(f("remove", "rm", ArgType::Any, "With -e: what to remove."))
+        .flag(f("clear", "cl", ArgType::Any, "With -e: empty the group."))
+        .flag(f("flatten", "fl", ArgType::Any, "With -e: groups inside give it their members."))
+        .flag(f("anyMember", "am", S, "Whether any of the items is in the group."))
+        .flag(f("isMember", "im", S, "Whether all the items are in the group."))
+        .flag(f("union", "un", S, "The members of this group and the others."))
+        .flag(f("intersection", "int", S, "The members this group shares with the others."))
+        .flag(f("subtract", "sub", S, "The members of this group not in the others."))
+        .flag(f("isIntersecting", "ii", S, "Whether this group shares members with the others."))
+        .flag(f("copy", "cp", S, "A new group holding this one's members."))
+        .flag(f("split", "sp", S, "The items leave this group for a new one."))
+        .flag(f("text", "t", S, "A note kept with the group."))
+        .flag(f("size", "s", B, "Query: how many members."))
+        .flag(f("nodesOnly", "no", B, "Query: each node once."))
+        .flag(f("ordered", "o", B, "Members in the order they were added."))
+        .flag(f("noIntermediate", "ni", B, "Leave out intermediate objects."))
+        .flag(f("noWarnings", "nw", B, "No warnings for items that can't be added."))
+        .flag(f("afterFilters", "af", B, "With -e on a deformer's set: change the set, not what the deformer acts on."))
+        .flag(f("channelSetColor", "csc", ArgType::Vec3, "Its dope sheet colour, used when its colour index is -1."))
+        .flag(f("channelSetColorIndex", "coi", I, "Its dope sheet colour by index; -1 uses -channelSetColor."))
+        .flag(f("color", "co", I, "Highlight colour, -1 to 7."))
+        .flag(f("edges", "eg", B, "Edges only."))
+        .flag(f("editPoints", "ep", B, "Edit points only."))
+        .flag(f("facets", "fc", B, "Faces only."))
+        .flag(f("vertices", "v", B, "Vertices only."))
+        .flag(f("renderable", "r", B, "Renderable."))
+        .flag(f("noSurfaceShader", "nss", B, "With -r: no default surface shader."))
+        .flag(f("layer", "l", B, "Obsolete.")),
     );
     c.register(
         q_flags(Cmd::new("characterMap", "Pair two characters' attributes: name them for a map matched by attribute name, -pm for the pairs alone, -ma and -ua with -e to change it. Returns the node; -q the pairs.", character_map))
@@ -551,7 +864,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("mapAttr", "ma", ArgType::List, "Two plugs to pair.").multi(2))
             .flag(f("unmapAttr", "ua", ArgType::List, "Two plugs to part.").multi(2))
             .flag(f("mapMethod", "mm", S, "Accepted: by name is what it does."))
-            .flag(f("mapNode", "mn", ArgType::List, "Accepted for existing scripts.").multi(2))
-            .flag(f("unmapNode", "un", ArgType::List, "Accepted for existing scripts.").multi(2)),
+            .flag(f("mapNode", "mn", ArgType::List, "Two nodes: pair every member attribute of the first with its namesake on the second.").multi(2))
+            .flag(f("unmapNode", "umn", ArgType::List, "Two nodes: part the pairs between them whose attribute names match.").multi(2)),
     );
 }

@@ -67,7 +67,7 @@ autoPlace	done	auto
 autoSave	done	auto
 backgroundEvaluationManager	missing	
 bakeClip	done	auto
-bakeDeformer	missing	
+bakeDeformer	done	auto
 bakePartialHistory	done	auto
 bakeResults	done	auto
 bakeSimulation	done	auto
@@ -338,14 +338,14 @@ fileDialog2	done	auto
 fileInfo	done	auto
 filePathEditor	missing	
 filletCurve	done	auto
-filter	missing	
+filter	done	auto
 filterButterworthCtx	missing	
 filterCurve	done	auto
 filterExpand	done	auto
 filterGaussianCtx	missing	
-filterInstances	missing	
+filterInstances	done	auto
 filterKeyReducerCtx	missing	
-filterStudioImport	missing	
+filterStudioImport	done	auto
 findDeformers	done	auto
 findKeyframe	done	auto
 findType	done	auto
@@ -548,7 +548,7 @@ manipRotateContext	done	auto
 manipRotateLimitsCtx	missing	
 manipScaleContext	done	auto
 manipScaleLimitsCtx	missing	
-marker	missing	
+marker	done	auto
 matchTransform	done	auto
 matrixUtil	done	auto
 mayaDpiSetting	done	auto

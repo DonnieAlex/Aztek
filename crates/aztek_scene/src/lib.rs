@@ -12,6 +12,8 @@ pub mod anim_layer_menu;
 pub mod anim_layer_nodes;
 pub mod anim_layers;
 pub mod anim_misc;
+pub mod bake_deformer;
+pub mod filter_cmds;
 pub mod anim_time;
 pub mod attr_defs;
 pub mod auto_bevel;

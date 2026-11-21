@@ -369,8 +369,8 @@ fn editors_scripts_make() {
     ok(&mut c, "componentEditor -pre 4 ce2; spreadSheetEditor -ko 0 se;");
     assert_eq!(ok(&mut c, "componentEditor -q -pre ce2;"), json!(4));
     assert_eq!(ok(&mut c, "spreadSheetEditor -q -ko se;"), json!(false));
-    ok(&mut c, "keyframeOutliner -an \"box_translateX\" ko;");
-    assert_eq!(ok(&mut c, "keyframeOutliner -q -an ko;"), json!("box_translateX"));
+    ok(&mut c, "keyframeOutliner -ac \"box_translateX\" ko;");
+    assert_eq!(ok(&mut c, "keyframeOutliner -q -ac ko;"), json!("box_translateX"));
 
     // Made with no layout, put in one later.
     ok(&mut c, "setParent -top; deleteUI w;");

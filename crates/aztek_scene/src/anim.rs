@@ -20,6 +20,10 @@ static FPS_BITS: AtomicU64 = AtomicU64::new(0x4038_0000_0000_0000); // 24.0
 /// 29.97 frames a second counted as drop frame timecode (`29.97df`) rather than plain `29.97fps`.
 static DROP_FRAME: AtomicBool = AtomicBool::new(false);
 static AUTO_KEY: AtomicBool = AtomicBool::new(false);
+/// autoKeyframe -addAttr: plugs keyed along with the next channel auto key keys, then forgotten.
+static AUTO_LIST: Mutex<Vec<String>> = Mutex::new(Vec::new());
+/// autoKeyframe -characterOption all: auto keying a character member keys all its members.
+static AUTO_CHAR_ALL: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Debug)]
 pub struct Range {
@@ -1224,9 +1228,11 @@ pub fn install(g: &mut Graph) {
         if auto_key() {
             let t = frame(g);
             if key_plug_in(g, dst, t, Some(v), None, None, None, false).unwrap_or(false) {
+                auto_key_extras(g, dst, t, true);
                 return DrivenEdit::Handled;
             }
         }
+        auto_key_extras(g, dst, 0.0, false);
         DrivenEdit::Hold
     }));
     g.set_driven_vec_set_hook(Arc::new(|g: &mut Graph, dst: &PlugRef, src: &PlugRef, v: glam::DVec3| {
@@ -1249,9 +1255,11 @@ pub fn install(g: &mut Graph) {
                 done &= key_plug_in(g, &p, t, Some(x), None, None, None, raw).unwrap_or(false);
             }
             if done {
+                auto_key_extras(g, dst, t, true);
                 return DrivenEdit::Handled;
             }
         }
+        auto_key_extras(g, dst, 0.0, false);
         DrivenEdit::Hold
     }));
 }
@@ -1315,6 +1323,142 @@ pub fn key_times(g: &Graph, nodes: &[NodeId]) -> Vec<f64> {
 
 pub(crate) type Cmd = CommandDef<Session>;
 
+fn auto_keyframe(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
+    if a.bool("query") {
+        if queried(a, &["listAttr"]) {
+            return Ok(json!(AUTO_LIST.lock().unwrap().clone()));
+        }
+        if queried(a, &["characterOption"]) {
+            return Ok(json!(if AUTO_CHAR_ALL.load(Ordering::Relaxed) { "all" } else { "standard" }));
+        }
+        return Ok(json!(auto_key()));
+    }
+    if let Some(v) = a.get("characterOption").and_then(Value::as_str) {
+        AUTO_CHAR_ALL.store(v == "all", Ordering::Relaxed);
+    }
+    if let Some(p) = a.get("addAttr").and_then(Value::as_str) {
+        let plug = s.graph.plug(p)?;
+        let name = s.graph.plug_name(&plug);
+        let mut l = AUTO_LIST.lock().unwrap();
+        if !l.contains(&name) {
+            l.push(name);
+        }
+        return Ok(json!(0));
+    }
+    if let Some(v) = a.get("state").and_then(Value::as_bool) {
+        if v != auto_key() && !a.bool("noReset") {
+            AUTO_LIST.lock().unwrap().clear();
+        }
+        AUTO_KEY.store(v, Ordering::Relaxed);
+        return Ok(json!(0));
+    }
+    if a.has("characterOption") || a.has("noReset") {
+        return Ok(json!(0));
+    }
+    // No flags: key what the list holds, at the current frame. Like auto key, only channels already animated.
+    let list: Vec<String> = std::mem::take(&mut *AUTO_LIST.lock().unwrap());
+    let g = &mut s.graph;
+    let t = frame(g);
+    let mut n = 0;
+    for name in list {
+        let Ok(p) = g.plug(&name) else { continue };
+        for p in if g.attr(&p).ty == PlugType::Vec3 && p.component < 0 { (0..3).map(|c| PlugRef::component(p.node, p.attr, c)).collect() } else { vec![p] } {
+            if crate::anim_layers::driver(g, &p).is_some_and(|d| is_curve(g, d.node) || crate::anim_layers::is_blend(g, d.node)) && key_plug_in(g, &p, t, None, None, None, None, false)? {
+                n += 1;
+            }
+        }
+    }
+    Ok(json!(n))
+}
+
+/// After auto key keys a channel: the -addAttr plugs, and with -characterOption all its character's other members, are
+/// keyed too. The list is cleared after every set on an animated channel.
+fn auto_key_extras(g: &mut Graph, dst: &PlugRef, t: f64, keyed: bool) {
+    let list: Vec<String> = std::mem::take(&mut *AUTO_LIST.lock().unwrap());
+    if !keyed {
+        return;
+    }
+    let mut more: Vec<PlugRef> = list.iter().filter_map(|n| g.plug(n).ok()).collect();
+    if AUTO_CHAR_ALL.load(Ordering::Relaxed) {
+        for c in g.nodes().into_iter().filter(|&c| crate::characters::is_character(g, c)) {
+            let members = crate::characters::member_plugs(g, c);
+            if members.iter().any(|m| m.node == dst.node && m.attr == dst.attr && (m.component == dst.component || dst.component < 0 || m.component < 0)) {
+                more.extend(members);
+            }
+        }
+    }
+    for p in more {
+        if p.node == dst.node && p.attr == dst.attr && (p.component == dst.component || dst.component < 0) {
+            continue;
+        }
+        let _ = key_plug_in(g, &p, t, None, None, None, None, false);
+    }
+}
+
+/// findKeyframe: a key time from a keyset, from the time slider's ticks, or the curves themselves with -curve.
+fn find_keyframe(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
+    let now = frame(&s.graph);
+    let which = a.string("which", "next");
+    // With -which next or previous a single -time is where the search starts; a range picks keys.
+    let single_time = range_flag(a, "time")?.filter(|(lo, hi)| (hi - lo).abs() < 1e-9).map(|r| r.0);
+    let from = if matches!(which.as_str(), "next" | "previous") { single_time } else { None };
+    let mut call = a.clone();
+    if from.is_some() {
+        call.flags.remove("time");
+    }
+    let mut times: Vec<f64> = if a.bool("timeSlider") {
+        let mut nodes = Vec::new();
+        for n in objects(s, a) {
+            if let Some(id) = s.graph.find(n.split('.').next().unwrap_or(&n))? {
+                nodes.push(id);
+            }
+        }
+        key_times(&s.graph, &nodes)
+    } else {
+        // keysOrObjects (the default): the active keys when nothing is named and keys are active.
+        let anim_mode = a.string("animation", "keysOrObjects");
+        if anim_mode == "keysOrObjects" && a.named().is_empty() && !a.has("attribute") && !s.key_selection.is_empty() {
+            call.flags.insert("animation".into(), json!("keys"));
+        } else if anim_mode == "keysOrObjects" {
+            call.flags.insert("animation".into(), json!("objects"));
+        }
+        if anim_mode == "keys" && s.key_selection.is_empty() {
+            return Ok(frame_json(now));
+        }
+        let curves = target_curves(s, &call, "findKeyframe")?;
+        if a.bool("curve") {
+            let mut names: Vec<String> = Vec::new();
+            for (_, c) in &curves {
+                let n = s.graph.path(*c);
+                if !names.contains(&n) {
+                    names.push(n);
+                }
+            }
+            return Ok(json!(names));
+        }
+        let pick = crate::anim_keys::KeyPick::new(s, &call)?;
+        let mut t = Vec::new();
+        for (_, c) in &curves {
+            for (i, k) in keys_of(&s.graph, *c).keys.iter().enumerate() {
+                if pick.hits(*c, i, k) {
+                    t.push(k.t);
+                }
+            }
+        }
+        t
+    };
+    times.sort_by(f64::total_cmp);
+    times.dedup_by(|x, y| (*x - *y).abs() < 1e-6);
+    let start = from.unwrap_or(now);
+    let r = match which.as_str() {
+        "first" => times.first().copied(),
+        "last" => times.last().copied(),
+        "previous" => times.iter().rev().find(|&&t| t < start - 1e-6).copied().or(times.last().copied()),
+        _ => times.iter().find(|&&t| t > start + 1e-6).copied().or(times.first().copied()),
+    };
+    Ok(frame_json(r.unwrap_or(now)))
+}
+
 pub(crate) fn f(name: &str, short: &str, ty: ArgType, doc: &str) -> FlagDef {
     FlagDef::new(name, short, ty, Value::Null, doc)
 }
@@ -1339,47 +1483,31 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         query_flags(Cmd::new(
             "autoKeyframe",
-            "Auto key: changing an animated channel keys it at the current frame. Returns whether it is on.",
-            |_s, a| {
-                if !a.bool("query") {
-                    if let Some(v) = a.get("state").and_then(Value::as_bool) {
-                        AUTO_KEY.store(v, Ordering::Relaxed);
-                    }
-                }
-                Ok(json!(auto_key()))
-            },
+            "Auto key: changing an animated channel keys it at the current frame. -addAttr adds plugs keyed with the next \
+             one (the list is cleared after the next set, and when -state changes unless -noReset); with no flags the plugs on \
+             that list are keyed now. Returns how many keys were set; -q -st whether it is on.",
+            auto_keyframe,
         ))
         .flag(f("state", "st", ArgType::Bool, "On or off."))
+        .flag(f("addAttr", "aa", ArgType::String, "With -e: a node.attribute to key along with the next auto key."))
+        .flag(f("listAttr", "lsa", ArgType::Bool, "Query: the plugs -addAttr has listed."))
+        .flag(f("noReset", "nr", ArgType::Bool, "With -state: keep the -addAttr list."))
+        .flag(f("characterOption", "co", ArgType::String, "standard (the default) or all: keying a character member keys all its members.").choices(&["standard", "all"]))
         .undoable(false),
     );
 
     c.register(
-        Cmd::new(
+        crate::anim_keys::pick_flags(Cmd::new(
             "findKeyframe",
-            "The frame of the next, previous, first or last key on the objects (the selection when none).",
-            |s, a| {
-                let g = &s.graph;
-                let mut nodes = Vec::new();
-                for n in objects(s, a) {
-                    if let Some(id) = g.find(n.split('.').next().unwrap_or(&n))? {
-                        nodes.push(id);
-                    }
-                }
-                let times = key_times(g, &nodes);
-                let now = a.get("time").and_then(Value::as_f64).unwrap_or_else(|| frame(g));
-                let which = a.string("which", "next");
-                let r = match which.as_str() {
-                    "first" => times.first().copied(),
-                    "last" => times.last().copied(),
-                    "previous" => times.iter().rev().find(|&&t| t < now - 1e-6).copied().or(times.last().copied()),
-                    _ => times.iter().find(|&&t| t > now + 1e-6).copied().or(times.first().copied()),
-                };
-                Ok(frame_json(r.unwrap_or(now)))
-            },
-        )
-        .positional("objects")
+            "The time of the next, previous, first or last key in a keyset: the objects' or channels' keys (the active keys \
+             when nothing is named), or with -ts the time slider's ticks. -c lists the curves instead. The current time when \
+             there are no keys.",
+            find_keyframe,
+        ))
+        .positional("objects, plugs or curves (the selection when none)")
         .flag(f("which", "w", ArgType::String, "next, previous, first or last.").choices(&["next", "previous", "first", "last"]))
-        .flag(f("time", "t", ArgType::Float, "Search from this frame instead of the current one."))
+        .flag(f("curve", "c", ArgType::Bool, "Return the curves driving the objects or attributes."))
+        .flag(f("timeSlider", "ts", ArgType::Bool, "Use the time slider's ticks; -animation is ignored."))
         .undoable(false),
     );
 

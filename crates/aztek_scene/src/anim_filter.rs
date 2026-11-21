@@ -374,11 +374,15 @@ pub(crate) fn butterworth(values: &[f64], cutoff: f64, rate: f64) -> Vec<f64> {
     r
 }
 
-pub(crate) fn gaussian(values: &[f64], width: f64) -> Vec<f64> {
+/// A gaussian of this width in samples; `taps` sets the kernel's size (its reach either side is half of it).
+pub(crate) fn gaussian_taps(values: &[f64], width: f64, taps: Option<usize>) -> Vec<f64> {
     if width <= 0.0 {
         return values.to_vec();
     }
-    let reach = (width * 3.0).ceil() as isize;
+    let reach = match taps {
+        Some(n) => (n / 2).max(1) as isize,
+        None => (width * 3.0).ceil() as isize,
+    };
     let kernel: Vec<f64> = (-reach..=reach).map(|i| (-0.5 * (i as f64 / width).powi(2)).exp()).collect();
     (0..values.len() as isize)
         .map(|i| {
@@ -393,6 +397,76 @@ pub(crate) fn gaussian(values: &[f64], width: f64) -> Vec<f64> {
             sum / weight
         })
         .collect()
+}
+
+/// Resampling at `step` frames with a kernel over the curve played frame by frame: closest (the curve's key or frame
+/// nearest each new time), lirp (the curve at that time), box, triangle, gaussian2 and gaussian4 (averages over one
+/// step, two steps, or a gaussian reaching two or four standard deviations of half a step).
+fn resample_kernel(k: &Keys, lo: f64, hi: f64, step: f64, kernel: &str) -> Vec<(f64, f64)> {
+    let at = sample(k, lo, hi, step);
+    if kernel == "lirp" {
+        return at;
+    }
+    let fine = (step / 8.0).clamp(1e-3, 1.0);
+    let eval = |t: f64| k.eval_inside(t.clamp(lo, hi), k.weighted);
+    at.into_iter()
+        .map(|(t, v)| {
+            let value = match kernel {
+                "closest" => {
+                    // The nearest key's value when one is within half a step, the curve at the nearest frame otherwise.
+                    let near = k.keys.iter().filter(|x| (x.t - t).abs() <= step * 0.5 + 1e-9).min_by(|a, b| (a.t - t).abs().total_cmp(&(b.t - t).abs()));
+                    near.map(|x| x.v).unwrap_or_else(|| eval(t.round()))
+                }
+                _ => {
+                    let (reach, weight): (f64, Box<dyn Fn(f64) -> f64>) = match kernel {
+                        "box" => (step * 0.5, Box::new(|_| 1.0)),
+                        "triangle" => (step, Box::new(move |d: f64| 1.0 - d.abs() / step)),
+                        "gaussian2" => (step, Box::new(move |d: f64| (-0.5 * (d / (step * 0.5)).powi(2)).exp())),
+                        "gaussian4" => (step * 2.0, Box::new(move |d: f64| (-0.5 * (d / (step * 0.5)).powi(2)).exp())),
+                        _ => return (t, v),
+                    };
+                    let n = (reach / fine).ceil() as i64;
+                    let (mut sum, mut wsum) = (0.0, 0.0);
+                    for i in -n..=n {
+                        let d = i as f64 * fine;
+                        let w = weight(d).max(0.0);
+                        sum += eval(t + d) * w;
+                        wsum += w;
+                    }
+                    if wsum > 0.0 { sum / wsum } else { v }
+                }
+            };
+            (t, value)
+        })
+        .collect()
+}
+
+/// A rotate's three curves filtered as quaternions: sampled over lo..hi, each component filtered, then back to Euler
+/// angles kept continuous.
+fn quaternion_filter(g: &mut Graph, node: NodeId, axes: [NodeId; 3], lo: f64, hi: f64, step: f64, filter: &dyn Fn(&[f64]) -> Vec<f64>) -> CmdResult<()> {
+    let order = RotateOrder::from_index(g.node(node).map(|x| x.data().int(Transform::ROTATE_ORDER)).unwrap_or(0));
+    let keys: Vec<Keys> = axes.iter().map(|&c| anim::keys_of(g, c)).collect();
+    let times: Vec<f64> = sample(&keys[0], lo, hi, step).into_iter().map(|x| x.0).collect();
+    let euler: Vec<DVec3> = times.iter().map(|&t| DVec3::new(keys[0].eval_inside(t, keys[0].weighted), keys[1].eval_inside(t, keys[1].weighted), keys[2].eval_inside(t, keys[2].weighted))).collect();
+    let mut quats: Vec<DQuat> = euler.iter().map(|e| DQuat::from_mat4(&euler_to_matrix(*e, order))).collect();
+    for i in 1..quats.len() {
+        if quats[i].dot(quats[i - 1]) < 0.0 {
+            quats[i] = -quats[i];
+        }
+    }
+    let comps: Vec<Vec<f64>> = (0..4).map(|c| filter(&quats.iter().map(|q| q.to_array()[c]).collect::<Vec<_>>())).collect();
+    let mut out: Vec<DVec3> = Vec::with_capacity(times.len());
+    for i in 0..times.len() {
+        let q = DQuat::from_xyzw(comps[0][i], comps[1][i], comps[2][i], comps[3][i]).normalize();
+        let reference = if i == 0 { euler[0] } else { out[i - 1] };
+        out.push(euler_near(&DMat3::from_quat(q), order, reference));
+    }
+    for ax in 0..3 {
+        let samples: Vec<(f64, f64)> = times.iter().zip(&out).map(|(t, e)| (*t, e[ax])).collect();
+        let nk = replace_in_window(&keys[ax], lo, hi, &samples);
+        anim::set_keys(g, axes[ax], nk)?;
+    }
+    Ok(())
 }
 
 /// Replaces the keys in lo..hi with these samples.
@@ -439,6 +513,8 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
     }
     .to_string();
     let selected = a.bool("selectedKeys");
+    let use_quat = a.bool("useQuaternion");
+    let taps = a.get("sampleCount").and_then(Value::as_i64).filter(|n| *n > 0).map(|n| n as usize);
     let window = match (a.get("startTime").and_then(Value::as_f64), a.get("endTime").and_then(Value::as_f64)) {
         (None, None) => None,
         (x, y) => Some((x.unwrap_or(f64::NEG_INFINITY), y.unwrap_or(f64::INFINITY))),
@@ -452,6 +528,34 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
                 n += euler_filter(&mut s.graph, node, axes, window)?;
             }
             return Ok(json!(n));
+        }
+        // With -useQuaternion the smoothing filters work on a rotate's three curves together, as quaternions.
+        "butterworth" | "gaussian" if use_quat => {
+            let groups = rotate_groups(&s.graph, &curves);
+            let mut n = 0;
+            for (node, _, axes) in &groups {
+                let [Some(x), Some(y), Some(z)] = *axes else { continue };
+                let ks: Vec<Keys> = [x, y, z].iter().map(|&c| anim::keys_of(&s.graph, c)).collect();
+                if ks.iter().any(|k| k.keys.is_empty()) {
+                    continue;
+                }
+                let kl = ks.iter().map(|k| k.keys[0].t).fold(f64::INFINITY, f64::min);
+                let kh = ks.iter().map(|k| k.keys[k.keys.len() - 1].t).fold(f64::NEG_INFINITY, f64::max);
+                let (lo, hi) = window.map(|(a, b)| (a.max(kl), b.min(kh))).unwrap_or((kl, kh));
+                if hi <= lo {
+                    continue;
+                }
+                let step = (fps / a.float("samplingRate", fps).max(1e-6)).max(1.0);
+                let (cof, width) = (a.float("cutoffFrequency", 7.0), a.float("width", 1.0));
+                let is_bw = kind == "butterworth";
+                let f = move |v: &[f64]| if is_bw { butterworth(v, cof, fps / step) } else { gaussian_taps(v, width, taps) };
+                quaternion_filter(&mut s.graph, *node, [x, y, z], lo, hi, step, &f)?;
+                n += 3;
+            }
+            // Curves of other channels are filtered one by one.
+            let done: Vec<NodeId> = groups.iter().flat_map(|g| g.2.iter().flatten().copied()).collect();
+            let rest: Vec<(PlugRef, NodeId)> = curves.iter().filter(|(_, c)| !done.contains(c)).copied().collect();
+            return Ok(json!(n + filter_each(s, a, &kind, &rest, window, selected, taps)?));
         }
         "keySync" => {
             let mut times: Vec<f64> = curves.iter().flat_map(|(_, c)| anim::keys_of(&s.graph, *c).keys.into_iter().map(|k| k.t)).filter(|t| anim::in_range(window, *t)).collect();
@@ -472,8 +576,43 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
         "butterworth" | "gaussian" | "keyReducer" | "peakRemover" | "resample" | "simplify" => {}
         o => fail!("filterCurve: unknown filter {o}"),
     }
+    let n = filter_each(s, a, &kind, &curves, window, selected, taps)?;
+    // -keySync on the key reducer: a rotate's, translate's or scale's X, Y and Z curves get each other's keys back.
+    if kind == "keyReducer" && a.bool("keySync") {
+        let mut groups: Vec<(NodeId, i32, Vec<NodeId>)> = Vec::new();
+        for (p, c) in &curves {
+            if p.component < 0 || p.node == *c || s.graph.attr(p).ty != PlugType::Vec3 {
+                continue;
+            }
+            match groups.iter_mut().find(|e| e.0 == p.node && e.1 == p.attr) {
+                Some(e) => e.2.push(*c),
+                None => groups.push((p.node, p.attr, vec![*c])),
+            }
+        }
+        for (_, _, cs) in groups {
+            let mut times: Vec<f64> = cs.iter().flat_map(|c| anim::keys_of(&s.graph, *c).keys.into_iter().map(|k| k.t)).collect();
+            times.sort_by(f64::total_cmp);
+            times.dedup_by(|x, y| (*x - *y).abs() < 1e-6);
+            for c in cs {
+                let mut k = anim::keys_of(&s.graph, c);
+                let mut changed = false;
+                for &t in &times {
+                    changed |= k.insert(t);
+                }
+                if changed {
+                    anim::set_keys(&mut s.graph, c, k)?;
+                }
+            }
+        }
+    }
+    Ok(json!(n))
+}
+
+/// The filters that work on each curve by itself.
+fn filter_each(s: &mut Session, a: &Args, kind: &str, curves: &[(PlugRef, NodeId)], window: Option<(f64, f64)>, selected: bool, taps: Option<usize>) -> CmdResult<usize> {
+    let fps = anim::fps();
     let mut n = 0;
-    for (_, c) in &curves {
+    for (_, c) in curves {
         let k = anim::keys_of(&s.graph, *c);
         if k.keys.is_empty() {
             continue;
@@ -489,13 +628,13 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
         if hi <= lo {
             continue;
         }
-        let new = match kind.as_str() {
+        let new = match kind {
             "butterworth" | "gaussian" => {
                 // At least a frame apart: the filter never asks for finer keys than the curve can play.
                 let step = (fps / a.float("samplingRate", fps).max(1e-6)).max(1.0);
                 let samples = sample(&k, lo, hi, step);
                 let values: Vec<f64> = samples.iter().map(|x| x.1).collect();
-                let filtered = if kind == "butterworth" { butterworth(&values, a.float("cutoffFrequency", 7.0), fps / step) } else { gaussian(&values, a.float("width", 1.0)) };
+                let filtered = if kind == "butterworth" { butterworth(&values, a.float("cutoffFrequency", 7.0), fps / step) } else { gaussian_taps(&values, a.float("width", 1.0), taps) };
                 let out: Vec<(f64, f64)> = samples.iter().zip(filtered).map(|(x, y)| (x.0, y)).collect();
                 replace_in_window(&k, lo, hi, &out)
             }
@@ -504,7 +643,7 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
                 if a.get("keepKeysOnFrame").and_then(Value::as_bool).unwrap_or(false) {
                     step = step.round().max(1.0);
                 }
-                replace_in_window(&k, lo, hi, &sample(&k, lo, hi, step))
+                replace_in_window(&k, lo, hi, &resample_kernel(&k, lo, hi, step, &a.string("kernel", "lirp")))
             }
             "peakRemover" => {
                 let span = k.keys.iter().map(|x| x.v).fold(f64::NEG_INFINITY, f64::max) - k.keys.iter().map(|x| x.v).fold(f64::INFINITY, f64::min);
@@ -512,15 +651,16 @@ fn filter_curve(s: &mut Session, a: &Args) -> CmdResult {
             }
             "keyReducer" => {
                 let span = k.keys.iter().map(|x| x.v).fold(f64::NEG_INFINITY, f64::max) - k.keys.iter().map(|x| x.v).fold(f64::INFINITY, f64::min);
-                // -pre is a percentage of the curve's range.
-                reduce(&k, a.float("precision", 5.0) * 0.01 * span, 0.0, Some((lo, hi)))
+                // -pm 1 (the default): -pre is a percentage of the curve's range; -pm 0: a value.
+                let tol = if a.int("precisionMode", 1) == 0 { a.float("precision", 5.0) } else { a.float("precision", 5.0) * 0.01 * span };
+                reduce(&k, tol, 0.0, Some((lo, hi)))
             }
             _ => reduce(&k, a.float("tolerance", 0.05), a.float("timeTolerance", 0.05), Some((lo, hi))),
         };
         anim::set_keys(&mut s.graph, *c, new)?;
         n += 1;
     }
-    Ok(json!(n))
+    Ok(n)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -696,24 +836,19 @@ fn buffer_curve(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!(n))
 }
 
-fn keyframe_stats(s: &Session, a: &Args) -> CmdResult {
+/// The selected keys' frame and value (in the channel's unit), each None when the keys differ.
+fn key_stats(s: &Session) -> (Option<f64>, Option<f64>) {
     let g = &s.graph;
     let mut keys: Vec<(f64, f64)> = Vec::new();
     for (c, t) in &s.key_selection {
         if anim::is_curve(g, *c) {
             if let Some(k) = anim::keys_of(g, *c).keys.iter().find(|k| (k.t - t).abs() < 1e-6) {
-                keys.push((k.t, k.v));
+                keys.push((k.t, aztek_ops::units::to_user(anim::curve_unit(g, *c), k.v)));
             }
         }
     }
     let same = |f: &dyn Fn(&(f64, f64)) -> f64| keys.first().filter(|x| keys.iter().all(|y| (f(y) - f(x)).abs() < 1e-9)).map(f);
-    // The field is blank when the selected keys disagree, as the stats boxes show them.
-    let shown = |v: Option<f64>| v.map(|x| x.to_string()).unwrap_or_default();
-    Ok(if queried(a, &["valueAnnotation"]) {
-        json!(shown(same(&|k| k.1)))
-    } else {
-        json!(shown(same(&|k| k.0)))
-    })
+    (same(&|k| k.0), same(&|k| k.1))
 }
 
 pub fn register(c: &mut Commands<Session>) {
@@ -743,8 +878,8 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "filterCurve",
-            "Filter curves: euler (default: rotations without jumps), butterworth (-cof, -sr), gaussian (-wd), keyReducer (-pre percent), keySync (keys \
-             where any curve has one), peakRemover (-tol), resample (-per seconds), simplify (-tol, -tto). -stt/-edt limit it in time, -sk to the selected keys. \
+            "Filter curves: euler (default: rotations without jumps), butterworth (-cof, -sr), gaussian (-w, -sc), keyReducer (-pre percent), keySync (keys \
+             where any curve has one), peakRemover (-tol), resample (-per seconds), simplify (-tol, -tto). -s/-e limit it in time, -sk to the selected keys. \
              Returns how many curves it changed.",
             filter_curve,
         )
@@ -753,14 +888,19 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("attribute", "at", ArgType::Any, "Channel name(s).").multi(1))
         .flag(f("cutoffFrequency", "cof", ArgType::Float, "Butterworth: cutoff in Hz (7)."))
         .flag(f("samplingRate", "sr", ArgType::Float, "Butterworth and gaussian: samples per second, at most one a frame."))
-        .flag(f("width", "wd", ArgType::Float, "Gaussian: width in frames (1)."))
+        .flag(f("width", "w", ArgType::Float, "Gaussian: width in frames (1)."))
+        .flag(f("sampleCount", "sc", ArgType::Int, "Gaussian: the kernel's size in samples."))
+        .flag(f("kernel", "ker", ArgType::String, "Resample: closest, lirp (the default), box, triangle, gaussian2 or gaussian4.").choices(&["closest", "lirp", "box", "triangle", "gaussian2", "gaussian4"]))
+        .flag(f("keySync", "ks", ArgType::Bool, "Key reducer: a channel's X, Y and Z curves get each other's keys afterwards."))
+        .flag(f("precisionMode", "pm", ArgType::Int, "Key reducer: -pre is a value (0) or a percentage of the curve's range (1, the default)."))
+        .flag(f("useQuaternion", "uq", ArgType::Bool, "Butterworth and gaussian: filter a rotate's curves together as quaternions."))
         .flag(f("period", "per", ArgType::Float, "Resample: seconds between keys (1/30)."))
         .flag(f("keepKeysOnFrame", "kof", ArgType::Bool, "Resample: keep new keys on whole frames."))
         .flag(f("precision", "pre", ArgType::Float, "Key reducer: percent of the curve's range it may move (5)."))
         .flag(f("tolerance", "tol", ArgType::Float, "Peak remover and simplify: value tolerance."))
         .flag(f("timeTolerance", "tto", ArgType::Float, "Simplify: time tolerance."))
-        .flag(f("startTime", "stt", ArgType::Float, "Start of the part filtered."))
-        .flag(f("endTime", "edt", ArgType::Float, "End of the part filtered."))
+        .flag(f("startTime", "s", ArgType::Float, "Start of the part filtered (the first key)."))
+        .flag(f("endTime", "e", ArgType::Float, "End of the part filtered (the last key)."))
         .flag(f("selectedKeys", "sk", ArgType::Bool, "Only between the selected keys."))
         .flag(f("minTimeStep", "mns", ArgType::Float, "Accepted for existing scripts."))
         .flag(f("maxTimeStep", "mxs", ArgType::Float, "Accepted for existing scripts."))
@@ -782,17 +922,16 @@ pub fn register(c: &mut Commands<Session>) {
     .flag(f("query", "q", ArgType::Bool, "With -ex.")));
 
     c.register(
-        query_flags(Cmd::new(
-            "keyframeStats",
-            "The Graph Editor's stats fields: -q -ta the selected keys' frame, -q -va their value, blank when they differ.",
-            |s, a| keyframe_stats(s, a),
-        ))
-        .positional("the control's name, accepted for existing scripts")
-        .flag(f("timeAnnotation", "ta", ArgType::Bool, "Query: the time field."))
-        .flag(f("valueAnnotation", "va", ArgType::Bool, "Query: the value field."))
-        .flag(f("precision", "pre", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("classicMode", "cm", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("animEditor", "ae", ArgType::String, "Accepted for existing scripts."))
+        Cmd::new(
+            "keyStats",
+            "What the Graph Editor's stats fields show: [frame, value] of the selected keys, each blank when the keys differ.",
+            |s, _a| {
+                // Blank when the selected keys differ, as the stats boxes show them.
+                let (t, v) = key_stats(s);
+                let shown = |v: Option<f64>| v.map(|x| x.to_string()).unwrap_or_default();
+                Ok(json!([shown(t), shown(v)]))
+            },
+        )
         .undoable(false),
     );
 

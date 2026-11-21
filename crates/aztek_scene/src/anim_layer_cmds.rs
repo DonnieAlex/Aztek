@@ -294,7 +294,30 @@ fn query(s: &Session, a: &Args) -> CmdResult {
     }
     if asked(a, "affectedLayers") {
         let mut out: Vec<NodeId> = Vec::new();
-        for p in named_plugs(&[])? {
+        // -afa: only these attributes count, as plugs or as attribute names on the objects (the selection when none).
+        let afa = attr_list(a, "affectedLayersAttribute");
+        let plugs = if afa.is_empty() {
+            named_plugs(&[])?
+        } else {
+            let mut objs: Vec<String> = a.named().into_iter().filter(|n| layer_named(g, n).is_none() && !n.contains('.')).collect();
+            if objs.is_empty() {
+                objs = g.selection().iter().map(|&i| g.path(crate::dag::transform_of(g, i))).collect();
+            }
+            let mut v = Vec::new();
+            for at in &afa {
+                if at.contains('.') {
+                    v.extend(split_axes(g, vec![g.plug(at)?]));
+                } else {
+                    for o in &objs {
+                        if let Ok(p) = g.plug(&format!("{o}.{at}")) {
+                            v.extend(split_axes(g, vec![p]));
+                        }
+                    }
+                }
+            }
+            v
+        };
+        for p in plugs {
             for l in layers_of_plug(g, &p) {
                 if !out.contains(&l) {
                     out.push(l);
@@ -477,6 +500,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("addRelatedKG", "akg", ArgType::Bool, "With -aso or -rso: the keying groups the objects are in too."))
         .flag(f("addSelectedObjects", "aso", ArgType::Bool, "Add the selected objects' keyable channels."))
         .flag(f("affectedLayers", "afl", ArgType::Bool, "Query: the layers the objects or plugs are in."))
+        .flag(f("affectedLayersAttribute", "afa", ArgType::Any, "Query, with -afl: only these attributes count.").multi(1))
         .flag(f("animCurves", "anc", ArgType::Bool, "Query: the layer's curves."))
         .flag(f("attribute", "at", ArgType::Any, "Plug(s) to add; query: the layer's plugs.").multi(1))
         .flag(f("baseAnimCurves", "bac", ArgType::Bool, "Query: the base curves of the layer's channels."))

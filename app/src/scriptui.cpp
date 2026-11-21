@@ -1673,6 +1673,53 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         connect(Host::get(), &Host::sceneChanged, l, update);
         QTimer::singleShot(0, l, update);
         it->w = l;
+    } else if (k == "keyframeStats") {
+        // The selected keys' frame and value; blank when they differ. Typing moves or sets them.
+        auto* box = new QWidget();
+        auto* h = new QHBoxLayout(box);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(2);
+        auto* tf = new QLineEdit(box);
+        auto* vf = new QLineEdit(box);
+        tf->setObjectName("time");
+        vf->setObjectName("value");
+        tf->setFixedWidth(60);
+        vf->setMinimumWidth(60);
+        h->addWidget(tf);
+        h->addWidget(vf, 1);
+        QString stats_path = path;
+        auto update = [this, tf, vf, stats_path] {
+            auto* i = items_.value(stats_path);
+            int pre = i && !i->prop("precision").isNull() ? i->prop("precision").toInt() : 3;
+            int digits = i ? i->prop("autoUnitWidth").toInt() : 0;
+            tf->setFixedWidth(digits > 0 ? 12 + digits * 8 : 60);
+            QJsonArray st = ask("keyStats").toArray();
+            auto show = [](QLineEdit* e, const QString& s, int p) {
+                if (e->hasFocus()) return;
+                bool ok = false;
+                double v = s.toDouble(&ok);
+                e->setText(ok ? QString::number(v, 'f', p) : QString());
+            };
+            show(tf, st.at(0).toString(), 0);
+            show(vf, st.at(1).toString(), pre);
+            if (i) {
+                tf->setToolTip(i->prop("timeAnnotation").toString());
+                vf->setToolTip(i->prop("valueAnnotation").toString());
+            }
+        };
+        connect(tf, &QLineEdit::editingFinished, box, [tf] {
+            bool ok = false;
+            double v = tf->text().toDouble(&ok);
+            if (ok) exec("keyframe", QJsonObject{{"edit", true}, {"animation", "keys"}, {"absolute", true}, {"timeChange", v}});
+        });
+        connect(vf, &QLineEdit::editingFinished, box, [vf] {
+            bool ok = false;
+            double v = vf->text().toDouble(&ok);
+            if (ok) exec("keyframe", QJsonObject{{"edit", true}, {"animation", "keys"}, {"absolute", true}, {"valueChange", v}});
+        });
+        connect(Host::get(), &Host::sceneChanged, box, update);
+        QTimer::singleShot(0, box, update);
+        it->w = box;
     } else if (k == "toolButton") {
         auto* b = new QToolButton();
         b->setCheckable(true);

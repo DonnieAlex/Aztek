@@ -726,9 +726,9 @@ animDisplay	timeCodeOffset	done	auto
 animDisplay	upd	done	auto
 animLayer	addRelatedKG	done	auto
 animLayer	addSelectedObjects	done	auto
-animLayer	afa	missing	
+animLayer	afa	done	auto
 animLayer	affectedLayers	done	auto
-animLayer	affectedLayersAttribute	missing	
+animLayer	affectedLayersAttribute	done	auto
 animLayer	afl	done	auto
 animLayer	akg	done	auto
 animLayer	anc	done	auto
@@ -3899,16 +3899,16 @@ audioTrack	t	missing
 audioTrack	title	missing	
 audioTrack	tr	missing	
 audioTrack	track	missing	
-autoKeyframe	aa	missing	
-autoKeyframe	addAttr	missing	
-autoKeyframe	characterOption	missing	
-autoKeyframe	co	missing	
+autoKeyframe	aa	done	auto
+autoKeyframe	addAttr	done	auto
+autoKeyframe	characterOption	done	auto
+autoKeyframe	co	done	auto
 autoKeyframe	e	done	auto
 autoKeyframe	edit	done	auto
-autoKeyframe	listAttr	missing	
-autoKeyframe	lsa	missing	
-autoKeyframe	noReset	missing	
-autoKeyframe	nr	missing	
+autoKeyframe	listAttr	done	auto
+autoKeyframe	lsa	done	auto
+autoKeyframe	noReset	done	auto
+autoKeyframe	nr	done	auto
 autoKeyframe	q	done	auto
 autoKeyframe	query	done	auto
 autoKeyframe	st	done	auto
@@ -3945,7 +3945,7 @@ backgroundEvaluationManager	q	missing
 backgroundEvaluationManager	query	missing	
 backgroundEvaluationManager	r	missing	
 backgroundEvaluationManager	resume	missing	
-bakeClip	b	missing	
+bakeClip	b	done	auto
 bakeClip	blend	done	auto
 bakeClip	ci	done	auto
 bakeClip	clipIndex	done	auto
@@ -3953,44 +3953,44 @@ bakeClip	k	done	auto
 bakeClip	keepOriginals	done	auto
 bakeClip	n	done	auto
 bakeClip	name	done	auto
-bakeDeformer	bakeRangeOfMotion	missing	
-bakeDeformer	brm	missing	
-bakeDeformer	colorizeSkeleton	missing	
-bakeDeformer	cs	missing	
-bakeDeformer	customRangeOfMotion	missing	
-bakeDeformer	dm	missing	
-bakeDeformer	ds	missing	
-bakeDeformer	dstMeshName	missing	
-bakeDeformer	dstSkeletonName	missing	
-bakeDeformer	hi	missing	
-bakeDeformer	hierarchy	missing	
-bakeDeformer	i	missing	
-bakeDeformer	influences	missing	
-bakeDeformer	maxInfluences	missing	
-bakeDeformer	mi	missing	
-bakeDeformer	pruneWeights	missing	
-bakeDeformer	pw	missing	
-bakeDeformer	rom	missing	
-bakeDeformer	sm	missing	
-bakeDeformer	smoothWeights	missing	
-bakeDeformer	srcMeshName	missing	
-bakeDeformer	srcSkeletonName	missing	
-bakeDeformer	ss	missing	
-bakeDeformer	sw	missing	
-bakePartialHistory	all	missing	
-bakePartialHistory	allShapes	missing	
+bakeDeformer	bakeRangeOfMotion	done	auto
+bakeDeformer	brm	done	auto
+bakeDeformer	colorizeSkeleton	done	auto
+bakeDeformer	cs	done	auto
+bakeDeformer	customRangeOfMotion	done	auto
+bakeDeformer	dm	done	auto
+bakeDeformer	ds	done	auto
+bakeDeformer	dstMeshName	done	auto
+bakeDeformer	dstSkeletonName	done	auto
+bakeDeformer	hi	done	auto
+bakeDeformer	hierarchy	done	auto
+bakeDeformer	i	done	auto
+bakeDeformer	influences	done	auto
+bakeDeformer	maxInfluences	done	auto
+bakeDeformer	mi	done	auto
+bakeDeformer	pruneWeights	done	auto
+bakeDeformer	pw	done	auto
+bakeDeformer	rom	done	auto
+bakeDeformer	sm	done	auto
+bakeDeformer	smoothWeights	done	auto
+bakeDeformer	srcMeshName	done	auto
+bakeDeformer	srcSkeletonName	done	auto
+bakeDeformer	ss	done	auto
+bakeDeformer	sw	done	auto
+bakePartialHistory	all	done	auto
+bakePartialHistory	allShapes	done	auto
 bakePartialHistory	nps	done	auto
-bakePartialHistory	pc	missing	
+bakePartialHistory	pc	done	auto
 bakePartialHistory	postSmooth	done	auto
 bakePartialHistory	ppt	done	auto
 bakePartialHistory	pre	done	auto
-bakePartialHistory	preCache	missing	
+bakePartialHistory	preCache	done	auto
 bakePartialHistory	preDeformers	done	auto
 bakePartialHistory	prePostDeformers	done	auto
 bakePartialHistory	q	done	auto
 bakePartialHistory	query	done	auto
-bakeResults	an	missing	
-bakeResults	animation	missing	
+bakeResults	an	done	auto
+bakeResults	animation	done	auto
 bakeResults	at	done	auto
 bakeResults	attribute	done	auto
 bakeResults	bakeOnOverrideLayer	done	auto
@@ -4001,17 +4001,17 @@ bakeResults	destinationLayer	done	auto
 bakeResults	dic	done	auto
 bakeResults	disableImplicitControl	done	auto
 bakeResults	dl	done	auto
-bakeResults	f	missing	
-bakeResults	float	missing	
+bakeResults	f	done	auto
+bakeResults	float	done	auto
 bakeResults	hi	done	auto
 bakeResults	hierarchy	done	auto
-bakeResults	includeUpperBound	missing	
-bakeResults	index	missing	
-bakeResults	iub	missing	
+bakeResults	includeUpperBound	done	auto
+bakeResults	index	done	auto
+bakeResults	iub	done	auto
 bakeResults	minimizeRotation	done	auto
 bakeResults	mr	done	auto
-bakeResults	osr	missing	
-bakeResults	oversamplingRate	missing	
+bakeResults	osr	done	auto
+bakeResults	oversamplingRate	done	auto
 bakeResults	pok	done	auto
 bakeResults	preserveOutsideKeys	done	auto
 bakeResults	ral	done	auto
@@ -4027,13 +4027,13 @@ bakeResults	sb	done	auto
 bakeResults	shape	done	auto
 bakeResults	simulation	done	auto
 bakeResults	sm	done	auto
-bakeResults	smart	missing	
+bakeResults	smart	done	auto
 bakeResults	sparseAnimCurveBake	done	auto
-bakeResults	sr	missing	
+bakeResults	sr	done	auto
 bakeResults	t	done	auto
 bakeResults	time	done	auto
-bakeSimulation	an	missing	
-bakeSimulation	animation	missing	
+bakeSimulation	an	done	auto
+bakeSimulation	animation	done	auto
 bakeSimulation	at	done	auto
 bakeSimulation	attribute	done	auto
 bakeSimulation	bakeOnOverrideLayer	done	auto
@@ -4044,13 +4044,13 @@ bakeSimulation	destinationLayer	done	auto
 bakeSimulation	dic	done	auto
 bakeSimulation	disableImplicitControl	done	auto
 bakeSimulation	dl	done	auto
-bakeSimulation	f	missing	
-bakeSimulation	float	missing	
+bakeSimulation	f	done	auto
+bakeSimulation	float	done	auto
 bakeSimulation	hi	done	auto
 bakeSimulation	hierarchy	done	auto
-bakeSimulation	includeUpperBound	missing	
-bakeSimulation	index	missing	
-bakeSimulation	iub	missing	
+bakeSimulation	includeUpperBound	done	auto
+bakeSimulation	index	done	auto
+bakeSimulation	iub	done	auto
 bakeSimulation	minimizeRotation	done	auto
 bakeSimulation	mr	done	auto
 bakeSimulation	pok	done	auto
@@ -4068,9 +4068,9 @@ bakeSimulation	sb	done	auto
 bakeSimulation	shape	done	auto
 bakeSimulation	simulation	done	auto
 bakeSimulation	sm	done	auto
-bakeSimulation	smart	missing	
+bakeSimulation	smart	done	auto
 bakeSimulation	sparseAnimCurveBake	done	auto
-bakeSimulation	sr	missing	
+bakeSimulation	sr	done	auto
 bakeSimulation	t	done	auto
 bakeSimulation	time	done	auto
 baseTemplate	e	done	auto
@@ -5502,14 +5502,14 @@ channelBox	w	missing
 channelBox	width	missing	
 character	add	done	auto
 character	addElement	done	auto
-character	addOffsetObject	missing	
-character	am	missing	
-character	anyMember	missing	
-character	aoo	missing	
-character	characterPlug	missing	
+character	addOffsetObject	done	auto
+character	am	done	auto
+character	anyMember	done	auto
+character	aoo	done	auto
+character	characterPlug	done	auto
 character	cl	done	auto
 character	clear	done	auto
-character	cp	missing	
+character	cp	done	auto
 character	e	done	auto
 character	ed	done	auto
 character	edit	done	auto
@@ -5525,48 +5525,48 @@ character	excludeScale	done	auto
 character	excludeTranslate	done	auto
 character	excludeVisibility	done	auto
 character	fe	done	auto
-character	fl	missing	
-character	flatten	missing	
+character	fl	done	auto
+character	flatten	done	auto
 character	forceElement	done	auto
-character	ii	missing	
+character	ii	done	auto
 character	im	done	auto
-character	include	missing	
-character	int	missing	
-character	intersection	missing	
-character	isIntersecting	missing	
+character	include	done	auto
+character	int	done	auto
+character	intersection	done	auto
+character	isIntersecting	done	auto
 character	isMember	done	auto
 character	lib	done	auto
 character	library	done	auto
-character	memberIndex	missing	
-character	mi	missing	
+character	memberIndex	done	auto
+character	mi	done	auto
 character	n	done	auto
 character	name	done	auto
 character	no	done	auto
-character	noWarnings	missing	
+character	noWarnings	done	auto
 character	nodesOnly	done	auto
-character	nw	missing	
-character	offsetNode	missing	
-character	ofs	missing	
+character	nw	done	auto
+character	offsetNode	done	auto
+character	ofs	done	auto
 character	q	done	auto
 character	query	done	auto
 character	remove	done	auto
-character	removeOffsetObject	missing	
+character	removeOffsetObject	done	auto
 character	rm	done	auto
-character	roo	missing	
-character	root	missing	
-character	rt	missing	
+character	roo	done	auto
+character	root	done	auto
+character	rt	done	auto
 character	sc	done	auto
 character	scheduler	done	auto
-character	sp	missing	
-character	split	missing	
-character	sub	missing	
-character	subtract	missing	
-character	t	missing	
-character	text	missing	
-character	ua	missing	
-character	un	missing	
-character	union	missing	
-character	userAlias	missing	
+character	sp	done	auto
+character	split	done	auto
+character	sub	done	auto
+character	subtract	done	auto
+character	t	done	auto
+character	text	done	auto
+character	ua	done	auto
+character	un	done	auto
+character	union	done	auto
+character	userAlias	done	auto
 characterMap	e	done	auto
 characterMap	edit	done	auto
 characterMap	m	done	auto
@@ -5582,7 +5582,7 @@ characterMap	proposedMapping	done	auto
 characterMap	q	done	auto
 characterMap	query	done	auto
 characterMap	ua	done	auto
-characterMap	umn	missing	
+characterMap	umn	done	auto
 characterMap	unmapAttr	done	auto
 characterMap	unmapNode	done	auto
 characterize	aab	done	auto
@@ -8463,9 +8463,9 @@ copyDeformerWeights	ss	done	auto
 copyDeformerWeights	surfaceAssociation	done	auto
 copyDeformerWeights	uv	done	auto
 copyDeformerWeights	uvSpace	done	auto
-copyKey	al	missing	
+copyKey	al	done	auto
 copyKey	an	done	auto
-copyKey	animLayer	missing	
+copyKey	animLayer	done	auto
 copyKey	animation	done	auto
 copyKey	at	done	auto
 copyKey	attribute	done	auto
@@ -8474,9 +8474,9 @@ copyKey	clipboard	done	auto
 copyKey	controlPoints	done	auto
 copyKey	cp	done	auto
 copyKey	f	done	auto
-copyKey	fea	missing	
+copyKey	fea	done	auto
 copyKey	float	done	auto
-copyKey	forceIndependentEulerAngles	missing	
+copyKey	forceIndependentEulerAngles	done	auto
 copyKey	hi	done	auto
 copyKey	hierarchy	done	auto
 copyKey	includeUpperBound	done	auto
@@ -8830,7 +8830,7 @@ cutKey	iub	done	auto
 cutKey	o	done	auto
 cutKey	option	done	auto
 cutKey	s	done	auto
-cutKey	selectKey	missing	
+cutKey	selectKey	done	auto
 cutKey	shape	done	auto
 cutKey	sl	done	auto
 cutKey	t	done	auto
@@ -11750,14 +11750,14 @@ filletCurve	replaceOriginal	done	auto
 filletCurve	rpo	done	auto
 filletCurve	t	done	auto
 filletCurve	trim	done	auto
-filter	e	missing	
-filter	edit	missing	
-filter	n	missing	
-filter	name	missing	
-filter	q	missing	
-filter	query	missing	
-filter	t	missing	
-filter	type	missing	
+filter	e	done	auto
+filter	edit	done	auto
+filter	n	done	auto
+filter	name	done	auto
+filter	q	done	auto
+filter	query	done	auto
+filter	t	done	auto
+filter	type	done	auto
 filterButterworthCtx	a	missing	
 filterButterworthCtx	apply	missing	
 filterButterworthCtx	ch	missing	
@@ -11789,16 +11789,16 @@ filterButterworthCtx	sr	missing
 filterButterworthCtx	startTime	missing	
 filterCurve	cof	done	auto
 filterCurve	cutoffFrequency	done	auto
-filterCurve	e	missing	
+filterCurve	e	done	auto
 filterCurve	endTime	done	auto
 filterCurve	f	done	auto
 filterCurve	filter	done	auto
 filterCurve	keepKeysOnFrame	done	auto
-filterCurve	ker	missing	
-filterCurve	kernel	missing	
-filterCurve	keySync	missing	
+filterCurve	ker	done	auto
+filterCurve	kernel	done	auto
+filterCurve	keySync	done	auto
 filterCurve	kof	done	auto
-filterCurve	ks	missing	
+filterCurve	ks	done	auto
 filterCurve	maxTimeStep	done	auto
 filterCurve	minTimeStep	done	auto
 filterCurve	mns	done	auto
@@ -11806,15 +11806,15 @@ filterCurve	mxs	done	auto
 filterCurve	per	done	auto
 filterCurve	period	done	auto
 filterCurve	pkt	done	auto
-filterCurve	pm	missing	
+filterCurve	pm	done	auto
 filterCurve	pre	done	auto
 filterCurve	precision	done	auto
-filterCurve	precisionMode	missing	
+filterCurve	precisionMode	done	auto
 filterCurve	preserveKeyTangent	done	auto
-filterCurve	s	missing	
-filterCurve	sampleCount	missing	
+filterCurve	s	done	auto
+filterCurve	sampleCount	done	auto
 filterCurve	samplingRate	done	auto
-filterCurve	sc	missing	
+filterCurve	sc	done	auto
 filterCurve	selectedKeys	done	auto
 filterCurve	sk	done	auto
 filterCurve	sr	done	auto
@@ -11823,9 +11823,9 @@ filterCurve	timeTolerance	done	auto
 filterCurve	tol	done	auto
 filterCurve	tolerance	done	auto
 filterCurve	tto	done	auto
-filterCurve	uq	missing	
-filterCurve	useQuaternion	missing	
-filterCurve	w	missing	
+filterCurve	uq	done	auto
+filterCurve	useQuaternion	done	auto
+filterCurve	w	done	auto
 filterCurve	width	done	auto
 filterExpand	ex	done	auto
 filterExpand	expand	done	auto
@@ -11870,8 +11870,8 @@ filterGaussianCtx	uq	missing
 filterGaussianCtx	useQuaternion	missing	
 filterGaussianCtx	w	missing	
 filterGaussianCtx	width	missing	
-filterInstances	s	missing	
-filterInstances	shapes	missing	
+filterInstances	s	done	auto
+filterInstances	shapes	done	auto
 filterKeyReducerCtx	a	missing	
 filterKeyReducerCtx	apply	missing	
 filterKeyReducerCtx	ch	missing	
@@ -11903,35 +11903,35 @@ filterKeyReducerCtx	s	missing
 filterKeyReducerCtx	selectedKeys	missing	
 filterKeyReducerCtx	sk	missing	
 filterKeyReducerCtx	startTime	missing	
-filterStudioImport	convertShellToPoly	missing	
-filterStudioImport	ic	missing	
-filterStudioImport	il	missing	
-filterStudioImport	includeCameras	missing	
-filterStudioImport	includeLights	missing	
-filterStudioImport	sp	missing	
-filterStudioImport	td	missing	
-filterStudioImport	transferDirectoryName	missing	
-findKeyframe	an	missing	
-findKeyframe	animation	missing	
-findKeyframe	at	missing	
-findKeyframe	attribute	missing	
-findKeyframe	c	missing	
-findKeyframe	controlPoints	missing	
-findKeyframe	cp	missing	
-findKeyframe	curve	missing	
-findKeyframe	f	missing	
-findKeyframe	float	missing	
-findKeyframe	hi	missing	
-findKeyframe	hierarchy	missing	
-findKeyframe	includeUpperBound	missing	
-findKeyframe	index	missing	
-findKeyframe	iub	missing	
-findKeyframe	s	missing	
-findKeyframe	shape	missing	
+filterStudioImport	convertShellToPoly	done	auto
+filterStudioImport	ic	done	auto
+filterStudioImport	il	done	auto
+filterStudioImport	includeCameras	done	auto
+filterStudioImport	includeLights	done	auto
+filterStudioImport	sp	done	auto
+filterStudioImport	td	done	auto
+filterStudioImport	transferDirectoryName	done	auto
+findKeyframe	an	done	auto
+findKeyframe	animation	done	auto
+findKeyframe	at	done	auto
+findKeyframe	attribute	done	auto
+findKeyframe	c	done	auto
+findKeyframe	controlPoints	done	auto
+findKeyframe	cp	done	auto
+findKeyframe	curve	done	auto
+findKeyframe	f	done	auto
+findKeyframe	float	done	auto
+findKeyframe	hi	done	auto
+findKeyframe	hierarchy	done	auto
+findKeyframe	includeUpperBound	done	auto
+findKeyframe	index	done	auto
+findKeyframe	iub	done	auto
+findKeyframe	s	done	auto
+findKeyframe	shape	done	auto
 findKeyframe	t	done	auto
 findKeyframe	time	done	auto
-findKeyframe	timeSlider	missing	
-findKeyframe	ts	missing	
+findKeyframe	timeSlider	done	auto
+findKeyframe	ts	done	auto
 findKeyframe	w	done	auto
 findKeyframe	which	done	auto
 findType	d	done	auto
@@ -14308,7 +14308,7 @@ hotBox	updateMenus	missing
 hotkey	alt	done	auto
 hotkey	altModifier	done	auto
 hotkey	autoSave	done	auto
-hotkey	cc	missing	
+hotkey	cc	done	auto
 hotkey	cmd	done	auto
 hotkey	commandModifier	done	auto
 hotkey	ctl	done	auto
@@ -14321,7 +14321,7 @@ hotkey	fs	done	auto
 hotkey	isModifier	done	auto
 hotkey	k	done	auto
 hotkey	keyShortcut	done	auto
-hotkey	mod	missing	
+hotkey	mod	done	auto
 hotkey	n	done	auto
 hotkey	name	done	auto
 hotkey	pcr	done	auto
@@ -14440,8 +14440,8 @@ hotkeySet	hsa	done	auto
 hotkeySet	ip	done	auto
 hotkeySet	q	done	auto
 hotkeySet	query	done	auto
-hotkeySet	re	missing	
-hotkeySet	rename	missing	
+hotkeySet	re	done	auto
+hotkeySet	rename	done	auto
 hotkeySet	source	done	auto
 hotkeySet	src	done	auto
 hudButton	allowOverlap	done	auto
@@ -17093,8 +17093,8 @@ keyTangent	outWeight	done	auto
 keyTangent	ow	done	auto
 keyTangent	ox	done	auto
 keyTangent	oy	done	auto
-keyTangent	pluginTangentTypes	missing	
-keyTangent	ptt	missing	
+keyTangent	pluginTangentTypes	done	auto
+keyTangent	ptt	done	auto
 keyTangent	q	done	auto
 keyTangent	query	done	auto
 keyTangent	r	done	auto
@@ -17121,10 +17121,10 @@ keyframe	at	done	auto
 keyframe	attribute	done	auto
 keyframe	bd	done	auto
 keyframe	breakdown	done	auto
-keyframe	clipTime	missing	
+keyframe	clipTime	done	auto
 keyframe	controlPoints	done	auto
 keyframe	cp	done	auto
-keyframe	ct	missing	
+keyframe	ct	done	auto
 keyframe	e	done	auto
 keyframe	edit	done	auto
 keyframe	ev	done	auto
@@ -17164,7 +17164,7 @@ keyframe	time	done	auto
 keyframe	timeChange	done	auto
 keyframe	valueChange	done	auto
 keyframe	vc	done	auto
-keyframeOutliner	ac	missing	
+keyframeOutliner	ac	done	auto
 keyframeOutliner	animCurve	done	auto
 keyframeOutliner	ann	done	auto
 keyframeOutliner	annotation	done	auto
@@ -17378,132 +17378,132 @@ keyframeRegionTrackCtx	n	done	auto
 keyframeRegionTrackCtx	name	done	auto
 keyframeRegionTrackCtx	q	done	auto
 keyframeRegionTrackCtx	query	done	auto
-keyframeStats	ad2	missing	
-keyframeStats	ad3	missing	
-keyframeStats	ad4	missing	
-keyframeStats	ad5	missing	
-keyframeStats	ad6	missing	
-keyframeStats	adj	missing	
-keyframeStats	adjustableColumn	missing	
-keyframeStats	adjustableColumn2	missing	
-keyframeStats	adjustableColumn3	missing	
-keyframeStats	adjustableColumn4	missing	
-keyframeStats	adjustableColumn5	missing	
-keyframeStats	adjustableColumn6	missing	
+keyframeStats	ad2	done	auto
+keyframeStats	ad3	done	auto
+keyframeStats	ad4	done	auto
+keyframeStats	ad5	done	auto
+keyframeStats	ad6	done	auto
+keyframeStats	adj	done	auto
+keyframeStats	adjustableColumn	done	auto
+keyframeStats	adjustableColumn2	done	auto
+keyframeStats	adjustableColumn3	done	auto
+keyframeStats	adjustableColumn4	done	auto
+keyframeStats	adjustableColumn5	done	auto
+keyframeStats	adjustableColumn6	done	auto
 keyframeStats	ae	done	auto
 keyframeStats	animEditor	done	auto
-keyframeStats	ann	missing	
-keyframeStats	annotation	missing	
-keyframeStats	autoUnitWidth	missing	
-keyframeStats	auw	missing	
-keyframeStats	backgroundColor	missing	
-keyframeStats	bgc	missing	
-keyframeStats	cal	missing	
-keyframeStats	cat	missing	
-keyframeStats	cl2	missing	
-keyframeStats	cl3	missing	
-keyframeStats	cl4	missing	
-keyframeStats	cl5	missing	
-keyframeStats	cl6	missing	
-keyframeStats	co2	missing	
-keyframeStats	co3	missing	
-keyframeStats	co4	missing	
-keyframeStats	co5	missing	
-keyframeStats	co6	missing	
-keyframeStats	columnAlign	missing	
-keyframeStats	columnAlign2	missing	
-keyframeStats	columnAlign3	missing	
-keyframeStats	columnAlign4	missing	
-keyframeStats	columnAlign5	missing	
-keyframeStats	columnAlign6	missing	
-keyframeStats	columnAttach	missing	
-keyframeStats	columnAttach2	missing	
-keyframeStats	columnAttach3	missing	
-keyframeStats	columnAttach4	missing	
-keyframeStats	columnAttach5	missing	
-keyframeStats	columnAttach6	missing	
-keyframeStats	columnOffset2	missing	
-keyframeStats	columnOffset3	missing	
-keyframeStats	columnOffset4	missing	
-keyframeStats	columnOffset5	missing	
-keyframeStats	columnOffset6	missing	
-keyframeStats	columnWidth	missing	
-keyframeStats	columnWidth1	missing	
-keyframeStats	columnWidth2	missing	
-keyframeStats	columnWidth3	missing	
-keyframeStats	columnWidth4	missing	
-keyframeStats	columnWidth5	missing	
-keyframeStats	columnWidth6	missing	
-keyframeStats	ct2	missing	
-keyframeStats	ct3	missing	
-keyframeStats	ct4	missing	
-keyframeStats	ct5	missing	
-keyframeStats	ct6	missing	
-keyframeStats	cw	missing	
-keyframeStats	cw1	missing	
-keyframeStats	cw2	missing	
-keyframeStats	cw3	missing	
-keyframeStats	cw4	missing	
-keyframeStats	cw5	missing	
-keyframeStats	cw6	missing	
-keyframeStats	defineTemplate	missing	
-keyframeStats	dgc	missing	
-keyframeStats	docTag	missing	
-keyframeStats	dpc	missing	
-keyframeStats	dragCallback	missing	
-keyframeStats	dropCallback	missing	
-keyframeStats	dt	missing	
-keyframeStats	dtg	missing	
+keyframeStats	ann	done	auto
+keyframeStats	annotation	done	auto
+keyframeStats	autoUnitWidth	done	auto
+keyframeStats	auw	done	auto
+keyframeStats	backgroundColor	done	auto
+keyframeStats	bgc	done	auto
+keyframeStats	cal	done	auto
+keyframeStats	cat	done	auto
+keyframeStats	cl2	done	auto
+keyframeStats	cl3	done	auto
+keyframeStats	cl4	done	auto
+keyframeStats	cl5	done	auto
+keyframeStats	cl6	done	auto
+keyframeStats	co2	done	auto
+keyframeStats	co3	done	auto
+keyframeStats	co4	done	auto
+keyframeStats	co5	done	auto
+keyframeStats	co6	done	auto
+keyframeStats	columnAlign	done	auto
+keyframeStats	columnAlign2	done	auto
+keyframeStats	columnAlign3	done	auto
+keyframeStats	columnAlign4	done	auto
+keyframeStats	columnAlign5	done	auto
+keyframeStats	columnAlign6	done	auto
+keyframeStats	columnAttach	done	auto
+keyframeStats	columnAttach2	done	auto
+keyframeStats	columnAttach3	done	auto
+keyframeStats	columnAttach4	done	auto
+keyframeStats	columnAttach5	done	auto
+keyframeStats	columnAttach6	done	auto
+keyframeStats	columnOffset2	done	auto
+keyframeStats	columnOffset3	done	auto
+keyframeStats	columnOffset4	done	auto
+keyframeStats	columnOffset5	done	auto
+keyframeStats	columnOffset6	done	auto
+keyframeStats	columnWidth	done	auto
+keyframeStats	columnWidth1	done	auto
+keyframeStats	columnWidth2	done	auto
+keyframeStats	columnWidth3	done	auto
+keyframeStats	columnWidth4	done	auto
+keyframeStats	columnWidth5	done	auto
+keyframeStats	columnWidth6	done	auto
+keyframeStats	ct2	done	auto
+keyframeStats	ct3	done	auto
+keyframeStats	ct4	done	auto
+keyframeStats	ct5	done	auto
+keyframeStats	ct6	done	auto
+keyframeStats	cw	done	auto
+keyframeStats	cw1	done	auto
+keyframeStats	cw2	done	auto
+keyframeStats	cw3	done	auto
+keyframeStats	cw4	done	auto
+keyframeStats	cw5	done	auto
+keyframeStats	cw6	done	auto
+keyframeStats	defineTemplate	done	auto
+keyframeStats	dgc	done	auto
+keyframeStats	docTag	done	auto
+keyframeStats	dpc	done	auto
+keyframeStats	dragCallback	done	auto
+keyframeStats	dropCallback	done	auto
+keyframeStats	dt	done	auto
+keyframeStats	dtg	done	auto
 keyframeStats	e	done	auto
-keyframeStats	ebg	missing	
+keyframeStats	ebg	done	auto
 keyframeStats	edit	done	auto
-keyframeStats	ekf	missing	
-keyframeStats	en	missing	
-keyframeStats	enable	missing	
-keyframeStats	enableBackground	missing	
-keyframeStats	enableKeyboardFocus	missing	
-keyframeStats	ex	missing	
-keyframeStats	exists	missing	
-keyframeStats	fpn	missing	
-keyframeStats	fullPathName	missing	
-keyframeStats	h	missing	
-keyframeStats	height	missing	
-keyframeStats	highlightColor	missing	
-keyframeStats	hlc	missing	
-keyframeStats	io	missing	
-keyframeStats	isObscured	missing	
-keyframeStats	m	missing	
-keyframeStats	manage	missing	
-keyframeStats	nbg	missing	
-keyframeStats	noBackground	missing	
-keyframeStats	npm	missing	
-keyframeStats	numberOfPopupMenus	missing	
-keyframeStats	p	missing	
-keyframeStats	parent	missing	
-keyframeStats	pma	missing	
-keyframeStats	po	missing	
-keyframeStats	popupMenuArray	missing	
+keyframeStats	ekf	done	auto
+keyframeStats	en	done	auto
+keyframeStats	enable	done	auto
+keyframeStats	enableBackground	done	auto
+keyframeStats	enableKeyboardFocus	done	auto
+keyframeStats	ex	done	auto
+keyframeStats	exists	done	auto
+keyframeStats	fpn	done	auto
+keyframeStats	fullPathName	done	auto
+keyframeStats	h	done	auto
+keyframeStats	height	done	auto
+keyframeStats	highlightColor	done	auto
+keyframeStats	hlc	done	auto
+keyframeStats	io	done	auto
+keyframeStats	isObscured	done	auto
+keyframeStats	m	done	auto
+keyframeStats	manage	done	auto
+keyframeStats	nbg	done	auto
+keyframeStats	noBackground	done	auto
+keyframeStats	npm	done	auto
+keyframeStats	numberOfPopupMenus	done	auto
+keyframeStats	p	done	auto
+keyframeStats	parent	done	auto
+keyframeStats	pma	done	auto
+keyframeStats	po	done	auto
+keyframeStats	popupMenuArray	done	auto
 keyframeStats	pre	done	auto
 keyframeStats	precision	done	auto
-keyframeStats	preventOverride	missing	
+keyframeStats	preventOverride	done	auto
 keyframeStats	q	done	auto
 keyframeStats	query	done	auto
-keyframeStats	rat	missing	
-keyframeStats	rowAttach	missing	
-keyframeStats	sbm	missing	
-keyframeStats	statusBarMessage	missing	
-keyframeStats	tan	missing	
+keyframeStats	rat	done	auto
+keyframeStats	rowAttach	done	auto
+keyframeStats	sbm	done	auto
+keyframeStats	statusBarMessage	done	auto
+keyframeStats	tan	done	auto
 keyframeStats	timeAnnotation	done	auto
-keyframeStats	useTemplate	missing	
-keyframeStats	ut	missing	
+keyframeStats	useTemplate	done	auto
+keyframeStats	ut	done	auto
 keyframeStats	valueAnnotation	done	auto
-keyframeStats	van	missing	
-keyframeStats	vcc	missing	
-keyframeStats	vis	missing	
-keyframeStats	visible	missing	
-keyframeStats	visibleChangeCommand	missing	
-keyframeStats	w	missing	
-keyframeStats	width	missing	
+keyframeStats	van	done	auto
+keyframeStats	vcc	done	auto
+keyframeStats	vis	done	auto
+keyframeStats	visible	done	auto
+keyframeStats	visibleChangeCommand	done	auto
+keyframeStats	w	done	auto
+keyframeStats	width	done	auto
 keyframeTangentControl	ann	missing	
 keyframeTangentControl	annotation	missing	
 keyframeTangentControl	backgroundColor	missing	
@@ -17560,95 +17560,95 @@ keyframeTangentControl	visible	missing
 keyframeTangentControl	visibleChangeCommand	missing	
 keyframeTangentControl	w	missing	
 keyframeTangentControl	width	missing	
-keyingGroup	act	missing	
-keyingGroup	activator	missing	
+keyingGroup	act	done	auto
+keyingGroup	activator	done	auto
 keyingGroup	add	done	auto
 keyingGroup	addElement	done	auto
-keyingGroup	af	missing	
-keyingGroup	afterFilters	missing	
-keyingGroup	am	missing	
-keyingGroup	anyMember	missing	
-keyingGroup	cat	missing	
-keyingGroup	category	missing	
-keyingGroup	channelSetColor	missing	
-keyingGroup	channelSetColorIndex	missing	
-keyingGroup	cl	missing	
-keyingGroup	clear	missing	
-keyingGroup	co	missing	
-keyingGroup	coi	missing	
-keyingGroup	color	missing	
-keyingGroup	copy	missing	
-keyingGroup	cp	missing	
-keyingGroup	csc	missing	
+keyingGroup	af	done	auto
+keyingGroup	afterFilters	done	auto
+keyingGroup	am	done	auto
+keyingGroup	anyMember	done	auto
+keyingGroup	cat	done	auto
+keyingGroup	category	done	auto
+keyingGroup	channelSetColor	done	auto
+keyingGroup	channelSetColorIndex	done	auto
+keyingGroup	cl	done	auto
+keyingGroup	clear	done	auto
+keyingGroup	co	done	auto
+keyingGroup	coi	done	auto
+keyingGroup	color	done	auto
+keyingGroup	copy	done	auto
+keyingGroup	cp	done	auto
+keyingGroup	csc	done	auto
 keyingGroup	e	done	auto
-keyingGroup	ed	missing	
-keyingGroup	edges	missing	
+keyingGroup	ed	done	auto
+keyingGroup	edges	done	auto
 keyingGroup	edit	done	auto
-keyingGroup	editPoints	missing	
-keyingGroup	eg	missing	
+keyingGroup	editPoints	done	auto
+keyingGroup	eg	done	auto
 keyingGroup	em	done	auto
 keyingGroup	empty	done	auto
-keyingGroup	ep	missing	
-keyingGroup	er	missing	
-keyingGroup	es	missing	
-keyingGroup	et	missing	
-keyingGroup	ev	missing	
-keyingGroup	excludeDynamic	missing	
-keyingGroup	excludeRotate	missing	
-keyingGroup	excludeScale	missing	
-keyingGroup	excludeTranslate	missing	
-keyingGroup	excludeVisibility	missing	
-keyingGroup	facets	missing	
-keyingGroup	fc	missing	
-keyingGroup	fe	missing	
-keyingGroup	fil	missing	
-keyingGroup	fl	missing	
-keyingGroup	flatten	missing	
-keyingGroup	forceElement	missing	
-keyingGroup	ii	missing	
-keyingGroup	im	missing	
+keyingGroup	ep	done	auto
+keyingGroup	er	done	auto
+keyingGroup	es	done	auto
+keyingGroup	et	done	auto
+keyingGroup	ev	done	auto
+keyingGroup	excludeDynamic	done	auto
+keyingGroup	excludeRotate	done	auto
+keyingGroup	excludeScale	done	auto
+keyingGroup	excludeTranslate	done	auto
+keyingGroup	excludeVisibility	done	auto
+keyingGroup	facets	done	auto
+keyingGroup	fc	done	auto
+keyingGroup	fe	done	auto
+keyingGroup	fil	done	auto
+keyingGroup	fl	done	auto
+keyingGroup	flatten	done	auto
+keyingGroup	forceElement	done	auto
+keyingGroup	ii	done	auto
+keyingGroup	im	done	auto
 keyingGroup	include	done	auto
-keyingGroup	int	missing	
-keyingGroup	intersection	missing	
-keyingGroup	isIntersecting	missing	
-keyingGroup	isMember	missing	
-keyingGroup	l	missing	
-keyingGroup	layer	missing	
+keyingGroup	int	done	auto
+keyingGroup	intersection	done	auto
+keyingGroup	isIntersecting	done	auto
+keyingGroup	isMember	done	auto
+keyingGroup	l	done	auto
+keyingGroup	layer	done	auto
 keyingGroup	minimizeRotation	done	auto
 keyingGroup	mr	done	auto
 keyingGroup	n	done	auto
 keyingGroup	name	done	auto
-keyingGroup	ni	missing	
-keyingGroup	no	missing	
-keyingGroup	noIntermediate	missing	
-keyingGroup	noSurfaceShader	missing	
-keyingGroup	noWarnings	missing	
-keyingGroup	nodesOnly	missing	
-keyingGroup	nss	missing	
-keyingGroup	nw	missing	
-keyingGroup	o	missing	
-keyingGroup	ordered	missing	
+keyingGroup	ni	done	auto
+keyingGroup	no	done	auto
+keyingGroup	noIntermediate	done	auto
+keyingGroup	noSurfaceShader	done	auto
+keyingGroup	noWarnings	done	auto
+keyingGroup	nodesOnly	done	auto
+keyingGroup	nss	done	auto
+keyingGroup	nw	done	auto
+keyingGroup	o	done	auto
+keyingGroup	ordered	done	auto
 keyingGroup	q	done	auto
 keyingGroup	query	done	auto
-keyingGroup	r	missing	
-keyingGroup	rac	missing	
+keyingGroup	r	done	auto
+keyingGroup	rac	done	auto
 keyingGroup	remove	done	auto
-keyingGroup	removeActivator	missing	
-keyingGroup	renderable	missing	
+keyingGroup	removeActivator	done	auto
+keyingGroup	renderable	done	auto
 keyingGroup	rm	done	auto
-keyingGroup	s	missing	
-keyingGroup	setActiveFilter	missing	
-keyingGroup	size	missing	
-keyingGroup	sp	missing	
-keyingGroup	split	missing	
-keyingGroup	sub	missing	
-keyingGroup	subtract	missing	
-keyingGroup	t	missing	
-keyingGroup	text	missing	
-keyingGroup	un	missing	
-keyingGroup	union	missing	
-keyingGroup	v	missing	
-keyingGroup	vertices	missing	
+keyingGroup	s	done	auto
+keyingGroup	setActiveFilter	done	auto
+keyingGroup	size	done	auto
+keyingGroup	sp	done	auto
+keyingGroup	split	done	auto
+keyingGroup	sub	done	auto
+keyingGroup	subtract	done	auto
+keyingGroup	t	done	auto
+keyingGroup	text	done	auto
+keyingGroup	un	done	auto
+keyingGroup	union	done	auto
+keyingGroup	v	done	auto
+keyingGroup	vertices	done	auto
 lassoContext	ch	done	auto
 lassoContext	dc	done	auto
 lassoContext	drawClosed	done	auto
@@ -18999,26 +18999,26 @@ manipScaleLimitsCtx	n	missing
 manipScaleLimitsCtx	name	missing	
 manipScaleLimitsCtx	q	missing	
 manipScaleLimitsCtx	query	missing	
-marker	a	missing	
-marker	attach	missing	
-marker	d	missing	
-marker	detach	missing	
-marker	frontTwist	missing	
-marker	ft	missing	
-marker	om	missing	
-marker	orientationMarker	missing	
-marker	pm	missing	
-marker	positionMarker	missing	
-marker	q	missing	
-marker	query	missing	
-marker	sideTwist	missing	
-marker	st	missing	
-marker	t	missing	
-marker	time	missing	
-marker	u	missing	
-marker	upTwist	missing	
-marker	ut	missing	
-marker	valueU	missing	
+marker	a	done	auto
+marker	attach	done	auto
+marker	d	done	auto
+marker	detach	done	auto
+marker	frontTwist	done	auto
+marker	ft	done	auto
+marker	om	done	auto
+marker	orientationMarker	done	auto
+marker	pm	done	auto
+marker	positionMarker	done	auto
+marker	q	done	auto
+marker	query	done	auto
+marker	sideTwist	done	auto
+marker	st	done	auto
+marker	t	done	auto
+marker	time	done	auto
+marker	u	done	auto
+marker	upTwist	done	auto
+marker	ut	done	auto
+marker	valueU	done	auto
 matchTransform	box	done	auto
 matchTransform	piv	done	auto
 matchTransform	pivots	done	auto

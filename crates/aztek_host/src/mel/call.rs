@@ -144,7 +144,8 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
         ("skinPercent", "transform" | "ignoreBelow")
             | ("keyframe", "attribute" | "time" | "index")
             | ("keyTangent", "attribute" | "time")
-            | ("hotkey", "keyShortcut")
+            | ("hotkey", "keyShortcut" | "ctxClient" | "commandName")
+            | ("animLayer", "affectedLayersAttribute")
             | ("cmdFileOutput", "status")
             | ("repeatLast", "commandList" | "commandNameList")
             | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
@@ -253,6 +254,16 @@ fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize, own: &dyn F
                     v.push(scalar(&toks[*i]));
                     *i += 1;
                 }
+            }
+            Value::Array(v)
+        }
+        // bakeResults -smart: on or off, then a tolerance if one follows.
+        ArgType::List if f == "smart" && toks.get(*i).is_some_and(|t| !is_flag(t)) => {
+            let mut v = vec![bool_of(&toks[*i])];
+            *i += 1;
+            if toks.get(*i).is_some_and(|t| !is_flag(t) && scalar(t).is_number()) {
+                v.push(scalar(&toks[*i]));
+                *i += 1;
             }
             Value::Array(v)
         }

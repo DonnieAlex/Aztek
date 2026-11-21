@@ -40,6 +40,8 @@ pub struct ClipEntry {
     pub keys: Vec<Key>,
     pub pre: i64,
     pub post: i64,
+    /// A rotation curve's interpolation as copied (anim::ROT_INTERP_NAMES): 2 and up paste as quaternion curves.
+    pub rot_interp: i64,
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -261,8 +263,101 @@ fn curves_for(s: &Session, a: &Args, cmd: &str) -> CmdResult<Vec<(PlugRef, NodeI
     anim::target_curves(s, a, cmd)
 }
 
+/// The key times of every animation curve upstream of a plug, sorted.
+fn upstream_key_times(g: &Graph, p: &PlugRef) -> Vec<f64> {
+    let mut times = Vec::new();
+    let mut seen: Vec<NodeId> = Vec::new();
+    let mut stack: Vec<NodeId> = g.source(p).or_else(|| g.source(&p.whole())).map(|x| x.node).into_iter().collect();
+    while let Some(id) = stack.pop() {
+        if seen.contains(&id) || seen.len() > 4096 {
+            continue;
+        }
+        seen.push(id);
+        if anim::is_curve(g, id) {
+            times.extend(keys_of(g, id).keys.iter().map(|k| k.t));
+            continue;
+        }
+        let Some(n) = g.node(id) else { continue };
+        for i in 0..n.ty().attrs.len() {
+            let at = PlugRef::new(id, i as i32);
+            if let Some(src) = g.source(&at) {
+                stack.push(src.node);
+            }
+            for e in g.elements(&at) {
+                if let Some(src) = g.source(&e) {
+                    stack.push(src.node);
+                }
+            }
+            for c in 0..3 {
+                if let Some(src) = g.source(&PlugRef::component(id, i as i32, c)) {
+                    stack.push(src.node);
+                }
+            }
+        }
+    }
+    times.sort_by(f64::total_cmp);
+    times.dedup_by(|x, y| (*x - *y).abs() < 1e-6);
+    times
+}
+
+/// Smart bake: the samples at the wanted times and the range's ends, then, with a tolerance, at the samples where the
+/// result between them strays from the full one by more than tol of the channel's range.
+fn smart_keys(samples: &[(f64, f64)], wanted: &[f64], tol: Option<f64>) -> Vec<(f64, f64)> {
+    if samples.len() < 3 {
+        return samples.to_vec();
+    }
+    let mut keep: Vec<bool> = samples.iter().enumerate().map(|(i, (t, _))| i == 0 || i + 1 == samples.len() || wanted.iter().any(|w| (w - t).abs() < 1e-6)).collect();
+    if let Some(tol) = tol {
+        let (lo, hi) = samples.iter().fold((f64::MAX, f64::MIN), |(a, b), (_, v)| (a.min(*v), b.max(*v)));
+        let limit = tol.abs() * (hi - lo).max(1e-9);
+        loop {
+            let kept: Vec<usize> = (0..samples.len()).filter(|&i| keep[i]).collect();
+            let mut worst: Option<(usize, f64)> = None;
+            for w in kept.windows(2) {
+                let ((ta, va), (tb, vb)) = (samples[w[0]], samples[w[1]]);
+                for j in w[0] + 1..w[1] {
+                    let (t, v) = samples[j];
+                    let lin = va + (vb - va) * (t - ta) / (tb - ta).max(1e-12);
+                    let e = (v - lin).abs();
+                    if e > limit && worst.is_none_or(|(_, x)| e > x) {
+                        worst = Some((j, e));
+                    }
+                }
+            }
+            match worst {
+                Some((j, _)) => keep[j] = true,
+                None => break,
+            }
+        }
+    }
+    samples.iter().zip(keep).filter(|(_, k)| *k).map(|(s, _)| *s).collect()
+}
+
 fn copy_keys(s: &mut Session, a: &Args) -> CmdResult {
-    let curves = curves_for(s, a, "copyKey")?;
+    let mut curves = curves_for(s, a, "copyKey")?;
+    // -animLayer: only the curves the channels have on that layer; none when they have no keys there.
+    if let Some(name) = a.get("animLayer").and_then(Value::as_str) {
+        let g = &s.graph;
+        let layer = match g.find(name)? {
+            Some(l) if crate::anim_layers::is_layer(g, l) => l,
+            _ => fail!("copyKey: no animation layer named {name}"),
+        };
+        let plugs: Vec<PlugRef> = match anim::targets(s, a, "copyKey") {
+            Ok(p) => p,
+            Err(_) => curves.iter().map(|(p, _)| *p).collect(),
+        };
+        let mut on_layer = Vec::new();
+        for p in plugs {
+            let found = crate::anim_layers::plug_layer_curves(g, &p).into_iter().find(|(l, _)| *l == layer).and_then(|(_, c)| c);
+            // A channel in no layer has its keys on the base layer.
+            let found = found.or_else(|| (crate::anim_layers::base_layer(g) == Some(layer) && crate::anim_layers::chain(g, &p).is_empty()).then(|| anim::curve_of(g, &p)).flatten());
+            if let Some(c) = found {
+                on_layer.push((p, c));
+            }
+        }
+        curves = on_layer;
+    }
+    let independent = a.bool("forceIndependentEulerAngles");
     let range = anim::time_range(a)?;
     let pick = crate::anim_keys::KeyPick::new(s, a)?;
     let mut clip = KeyClipboard::default();
@@ -281,9 +376,14 @@ fn copy_keys(s: &mut Session, a: &Args) -> CmdResult {
         }
         let g = &s.graph;
         let (pre, post) = (g.node(*c).map(|x| x.data().int(PRE)).unwrap_or(0), g.node(*c).map(|x| x.data().int(POST)).unwrap_or(0));
-        clip.entries.push(ClipEntry { attr: anim::channel_name(g, p), keys: picked, pre, post });
+        // Rotation curves under quaternion interpolation stay so on the clipboard unless -fea asks for plain Euler curves.
+        let rot_interp = if independent { 0 } else { g.node(*c).map(|x| x.data().int(anim::ROT_INTERP)).unwrap_or(0) };
+        clip.entries.push(ClipEntry { attr: anim::channel_name(g, p), keys: picked, pre, post, rot_interp });
     }
     if clip.entries.is_empty() {
+        if a.has("animLayer") {
+            return Ok(json!(0));
+        }
         fail!("copyKey: no keys to copy");
     }
     clip.start = match range {
@@ -317,6 +417,7 @@ fn paste_keys(s: &mut Session, a: &Args) -> CmdResult {
     let offset0 = start - clip.start + to;
     let g = &mut s.graph;
     let mut pasted = 0;
+    let mut quat_curves: Vec<(NodeId, i64)> = Vec::new();
     // Matched by channel name when the clip has several, in order otherwise.
     for (i, p) in plugs.iter().enumerate() {
         let name = anim::channel_name(g, p);
@@ -366,6 +467,13 @@ fn paste_keys(s: &mut Session, a: &Args) -> CmdResult {
         }
         k.keys.sort_by(|x, y| x.t.total_cmp(&y.t));
         set_keys(g, curve, k)?;
+        if entry.rot_interp >= 2 && g.attr(p).name.starts_with("rotate") {
+            quat_curves.push((curve, entry.rot_interp));
+        }
+    }
+    for (c, mode) in quat_curves {
+        let name = s.graph.path(c);
+        s.run("rotationInterpolation", json!({"args": [name], "convert": anim::ROT_INTERP_NAMES[mode as usize]}))?;
     }
     Ok(json!(pasted))
 }
@@ -378,6 +486,8 @@ pub fn register(c: &mut Commands<Session>) {
             .undoable(false)
             .positional("objects, plugs or curves (the selection when none)")
             .flag(f("selected", "sl", ArgType::Bool, "Copy the keys selectKey selected."))
+            .flag(f("animLayer", "al", ArgType::String, "Only the keys on this animation layer."))
+            .flag(f("forceIndependentEulerAngles", "fea", ArgType::Bool, "Rotation curves go to the clipboard as independent Euler curves (off)."))
             .flag(f("option", "o", ArgType::String, "keys (the default) or curve."))
             .flag(f("clipboard", "cb", ArgType::String, "Accepted for existing scripts.")),
     );
@@ -588,7 +698,22 @@ pub fn register(c: &mut Commands<Session>) {
              the hierarchy, -at the channels; -pok keeps keys outside the range. Returns how many channels.",
             |s, a| {
                 let names = objects(s, a);
-                let mut plugs = anim::targets(s, a, "bakeResults")?;
+                // keysOrObjects (the default): the active keys' channels when nothing is named and keys are active.
+                let anim_mode = a.string("animation", "keysOrObjects");
+                let from_keys = anim_mode == "keys" || (anim_mode == "keysOrObjects" && a.named().is_empty() && !a.has("attribute") && !s.key_selection.is_empty());
+                if anim_mode == "keys" && s.key_selection.is_empty() {
+                    return Ok(json!(0));
+                }
+                let (mut plugs, key_span) = if from_keys {
+                    let mut call = a.clone();
+                    call.flags.insert("animation".into(), json!("keys"));
+                    let curves = anim::target_curves(s, &call, "bakeResults")?;
+                    let times: Vec<f64> = s.key_selection.iter().filter(|(c, _)| curves.iter().any(|(_, x)| x == c)).map(|(_, t)| *t).collect();
+                    let span = times.iter().copied().reduce(f64::min).zip(times.iter().copied().reduce(f64::max));
+                    (curves.into_iter().map(|(p, _)| p).collect::<Vec<_>>(), span)
+                } else {
+                    (anim::targets(s, a, "bakeResults")?, None)
+                };
                 if a.string("hierarchy", "none") == "below" {
                     let g = &s.graph;
                     for n in &names {
@@ -601,23 +726,73 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                     }
                 }
-                // Only channels something drives, unless named outright.
-                let g = &mut s.graph;
                 let r = anim::range();
-                let (t0, t1) = anim::time_range(a)?.filter(|x| x.0.is_finite() && x.1.is_finite()).unwrap_or((r.min, r.max));
+                // The keyset gives the range: -t, or -f on curves driven by time, or the keys -index picks, or the active
+                // keys; the playback range otherwise.
+                let index_span = match a.get("index") {
+                    Some(_) => {
+                        let pick = crate::anim_keys::KeyPick::new(s, a)?;
+                        let g = &s.graph;
+                        let mut t: Vec<f64> = Vec::new();
+                        for p in &plugs {
+                            if let Some(c) = anim::curve_of(g, p) {
+                                t.extend(keys_of(g, c).keys.iter().enumerate().filter(|(i, k)| pick.hits(c, *i, k)).map(|(_, k)| k.t));
+                            }
+                        }
+                        t.iter().copied().reduce(f64::min).zip(t.iter().copied().reduce(f64::max))
+                    }
+                    None => None,
+                };
+                let g = &mut s.graph;
+                let given = anim::time_range(a)?.or(anim::range_flag(a, "float")?);
+                let (t0, t1) = given
+                    .map(|(lo, hi)| (if lo.is_finite() { lo } else { r.min }, if hi.is_finite() { hi } else { r.max }))
+                    .or(index_span)
+                    .or(key_span)
+                    .unwrap_or((r.min, r.max));
+                let upper = a.get("includeUpperBound").and_then(Value::as_bool).unwrap_or(true) || (t1 - t0).abs() < 1e-9;
                 let by = a.float("sampleBy", 1.0).max(1e-3);
+                // -oversamplingRate: the scene steps this many times per -sampleBy; keys go on the -sampleBy frames.
+                let over = a.int("oversamplingRate", 1).max(1);
                 let now = frame(g);
                 let mut samples: Vec<Vec<(f64, f64)>> = vec![Vec::new(); plugs.len()];
-                let mut t = t0;
-                while t <= t1 + 1e-9 {
+                let mut step = 0i64;
+                loop {
+                    let t = t0 + step as f64 * by / over as f64;
+                    if t > t1 + 1e-9 || (!upper && t > t1 - 1e-9 && step > 0) {
+                        break;
+                    }
                     anim::set_frame(g, t);
                     g.evaluate();
-                    for (i, p) in plugs.iter().enumerate() {
-                        samples[i].push((t, scalar(g, p)));
+                    if step % over == 0 {
+                        for (i, p) in plugs.iter().enumerate() {
+                            samples[i].push((t, scalar(g, p)));
+                        }
                     }
-                    t += by;
+                    step += 1;
                 }
                 anim::set_frame(g, now);
+                // -smart: keys only where what drove the channel had keys (and the range's ends); a tolerance adds keys
+                // where the result strays from that by more than that fraction of the channel's range.
+                let smart = match a.get("smart") {
+                    Some(Value::Bool(b)) => b.then_some(None),
+                    Some(Value::Array(v)) if !v.is_empty() => {
+                        let on = v[0].as_bool().unwrap_or_else(|| v[0].as_f64().map(|x| x != 0.0).unwrap_or_else(|| matches!(v[0].as_str(), Some("true" | "on" | "yes" | "1"))));
+                        on.then(|| v.get(1).and_then(|x| x.as_f64().or_else(|| x.as_str().and_then(|s| s.parse().ok()))))
+                    }
+                    Some(v) if v.as_f64().is_some() => (v.as_f64() != Some(0.0)).then_some(None),
+                    _ => None,
+                };
+                if let Some(tol) = smart {
+                    for (i, p) in plugs.iter().enumerate() {
+                        let mut wanted = upstream_key_times(g, p);
+                        wanted.retain(|t| *t >= t0 - 1e-6 && *t <= t1 + 1e-6);
+                        if wanted.is_empty() {
+                            continue;
+                        }
+                        samples[i] = smart_keys(&samples[i], &wanted, tol);
+                    }
+                }
                 let keep = a.bool("preserveOutsideKeys");
                 let mut done = 0;
                 g.open_chunk("Bake");
@@ -689,7 +864,13 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("resolveWithoutLayer", "rwl", ArgType::Any, "Layers merged in the bake: only these give way to the result.").multi(1))
         .flag(f("minimizeRotation", "mr", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("controlPoints", "cp", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("shape", "s", ArgType::Bool, "Accepted for existing scripts.")),
+        .flag(f("shape", "s", ArgType::Bool, "Accepted for existing scripts."))
+        .flag(f("animation", "an", ArgType::String, "keysOrObjects (the default), keys or objects: keys bakes the active keys' channels over their span.").choices(&["objects", "keys", "keysOrObjects"]))
+        .flag(f("float", "f", ArgType::Any, "A range of driver values, as -t is for time."))
+        .flag(f("index", "in", ArgType::Any, "Keys by index: the bake spans them."))
+        .flag(f("includeUpperBound", "iub", ArgType::Bool, "Whether the range's end is baked (on)."))
+        .flag(f("oversamplingRate", "osr", ArgType::Int, "How many times the scene steps per -sampleBy (1)."))
+        .flag(f("smart", "sr", ArgType::List, "Smart bake: keys only where the source had keys; an optional tolerance adds keys where the result strays.")),
     );
 
     c.register(modes(

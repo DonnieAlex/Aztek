@@ -570,19 +570,28 @@ pub fn register(s: &mut Session) {
     reg(
         s,
         Cmd::new("hotkey", "Bind a key: -k the key, -alt -ctl -sht modifiers, -n the name command for press, -rn for release.", |_s, a| {
-            let key = a.string("keyShortcut", "");
+            // A query names the key last: hotkey -q -n z.
+            let key = a.get("keyShortcut").and_then(Value::as_str).map(str::to_string).or_else(|| if a.bool("query") { a.pos_str(0).map(str::to_string) } else { None }).unwrap_or_default();
+            let key = if key == "Dash" { "-".to_string() } else { key };
             if key.is_empty() && !a.bool("factorySettings") {
                 fail!("hotkey: give -k");
             }
+            // -ctxClient: the hotkey context the binding belongs to; none is the global one.
+            let ctx = a.string("ctxClient", "");
             if a.bool("query") {
-                let release = a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| matches!(x.as_str(), Some("releaseName" | "rn"))));
+                let queried: Vec<String> = a.get("queried").and_then(Value::as_array).map(|q| q.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+                let release = queried.iter().any(|x| matches!(x.as_str(), "releaseName" | "rn"));
                 let found = with_ui(|u| {
                     u.hotkeys
                         .iter()
-                        .find(|x| x["key"] == json!(key) && x["ctrl"] == json!(a.bool("ctrlModifier")) && x["alt"] == json!(a.bool("altModifier")) && x["shift"] == json!(a.bool("shiftModifier")))
+                        .find(|x| x["key"] == json!(key) && x["ctrl"] == json!(a.bool("ctrlModifier")) && x["alt"] == json!(a.bool("altModifier")) && x["shift"] == json!(a.bool("shiftModifier")) && x.get("ctx").and_then(Value::as_str).unwrap_or("") == ctx)
                         .cloned()
                 });
                 let field = if release { "releaseName" } else { "name" };
+                // No flag asked: whether anything is bound to the key.
+                if !queried.iter().any(|x| matches!(x.as_str(), "name" | "releaseName")) {
+                    return Ok(json!(found.is_some_and(|h| !h["name"].as_str().unwrap_or("").is_empty() || !h["releaseName"].as_str().unwrap_or("").is_empty())));
+                }
                 return Ok(found.map_or(json!(""), |h| h[field].clone()));
             }
             if a.bool("factorySettings") {
@@ -590,11 +599,7 @@ pub fn register(s: &mut Session) {
                 crate::core::push_ui_request("hotkeyFactory|{}".to_string());
                 return Ok(Value::Null);
             }
-            // An editor's own context: not a key in the views.
-            if !a.string("ctxClient", "").is_empty() {
-                return Ok(Value::Null);
-            }
-            let hk = json!({
+            let mut hk = json!({
                 "key": key,
                 "ctrl": a.bool("ctrlModifier") || a.bool("commandModifier"),
                 "alt": a.bool("altModifier"),
@@ -602,11 +607,28 @@ pub fn register(s: &mut Session) {
                 "name": a.string("name", ""),
                 "releaseName": a.string("releaseName", ""),
             });
+            if !ctx.is_empty() {
+                hk["ctx"] = json!(ctx);
+            }
             with_ui(|u| {
-                u.hotkeys.retain(|x| !(x["key"] == hk["key"] && x["ctrl"] == hk["ctrl"] && x["alt"] == hk["alt"] && x["shift"] == hk["shift"]));
+                let id = hk.clone();
+                let same = move |x: &Value| x["key"] == id["key"] && x["ctrl"] == id["ctrl"] && x["alt"] == id["alt"] && x["shift"] == id["shift"] && x.get("ctx") == id.get("ctx");
+                // Setting only one of press and release keeps the other.
+                if let Some(old) = u.hotkeys.iter().find(|x| same(x)).cloned() {
+                    if !a.has("name") {
+                        hk["name"] = old["name"].clone();
+                    }
+                    if !a.has("releaseName") {
+                        hk["releaseName"] = old["releaseName"].clone();
+                    }
+                }
+                u.hotkeys.retain(|x| !same(x));
                 u.hotkeys.push(hk.clone());
             });
-            crate::core::push_ui_request(format!("hotkey|{hk}"));
+            // An editor's own context: kept and answered, not a key in the views.
+            if ctx.is_empty() {
+                crate::core::push_ui_request(format!("hotkey|{hk}"));
+            }
             Ok(Value::Null)
         })
         .undoable(false)
@@ -619,9 +641,10 @@ pub fn register(s: &mut Session) {
         .flag(f("name", "n", ArgType::String, "The name command for press."))
         .flag(f("releaseName", "rn", ArgType::String, "The name command for release."))
         .flag(f("commandModifier", "cmd", ArgType::Bool, "With Command: as Ctrl here."))
-        .flag(f("ctxClient", "ctc", ArgType::String, "Binds in one editor's context: held, not bound in the views."))
+        .positional("key, when querying")
+        .flag(f("ctxClient", "cc", ArgType::String, "The hotkey context the binding is in (the global one when none); bindings in an editor's context are kept, not bound in the views."))
         .flag(f("dragPress", "dp", ArgType::Bool, "Accepted; has no effect."))
-        .flag(f("isModifier", "ism", ArgType::Bool, "Accepted; has no effect."))
+        .flag(f("isModifier", "mod", ArgType::Bool, "Obsolete in the reference; accepted, has no effect."))
         .flag(f("pressCommandRepeat", "pcr", ArgType::Bool, "Accepted; has no effect."))
         .flag(f("releaseCommandRepeat", "rcr", ArgType::Bool, "Accepted; has no effect."))
         .flag(f("autoSave", "as", ArgType::Bool, "Accepted: bindings are saved as they are made."))
@@ -697,6 +720,9 @@ pub fn register(s: &mut Session) {
                     return Ok(json!(file));
                 }
                 let Some(name) = name else { fail!("hotkeySet: name a hotkey set") };
+                if a.bool("exists") {
+                    return Ok(json!(is_default(&name) || with_ui(|u| u.hotkey_sets.contains(&name))));
+                }
                 if a.bool("delete") {
                     if is_default(&name) {
                         fail!("hotkeySet: the default set can't be deleted");
@@ -712,6 +738,24 @@ pub fn register(s: &mut Session) {
                 let exists = is_default(&name) || with_ui(|u| u.hotkey_sets.contains(&name));
                 if a.bool("edit") && !exists {
                     fail!("hotkeySet: no set {name}");
+                }
+                // -rename: white space in the new name becomes underscores.
+                if let Some(to) = a.get("rename").and_then(Value::as_str) {
+                    if is_default(&name) {
+                        fail!("hotkeySet: the default set can't be renamed");
+                    }
+                    let to: String = to.chars().map(|c| if c.is_whitespace() { '_' } else { c }).collect();
+                    if to.is_empty() || is_default(&to) || with_ui(|u| u.hotkey_sets.contains(&to)) {
+                        fail!("hotkeySet: a hotkey set named {to} already exists");
+                    }
+                    with_ui(|u| {
+                        u.hotkey_sets.remove(&name);
+                        u.hotkey_sets.insert(to.clone());
+                        if u.hotkey_set.as_deref() == Some(name.as_str()) {
+                            u.hotkey_set = Some(to.clone());
+                        }
+                    });
+                    return Ok(json!(to));
                 }
                 if !exists {
                     with_ui(|u| u.hotkey_sets.insert(name.clone()));
@@ -731,6 +775,7 @@ pub fn register(s: &mut Session) {
         .flag(f("hotkeySetArray", "hsa", ArgType::Bool, "With -q: every set."))
         .flag(f("import", "ip", ArgType::String, "Runs a hotkey set file."))
         .flag(f("export", "ep", ArgType::String, "Writes the bound keys as a hotkey set file."))
+        .flag(f("rename", "re", ArgType::String, "With -e: the set's new name; white space becomes underscores."))
         .flag(f("ip", "", ArgType::Any, "Accepted for older files."))
         .flag(f("edit", "e", ArgType::Bool, "Change a set."))
         .flag(f("query", "q", ArgType::Bool, "Read."))

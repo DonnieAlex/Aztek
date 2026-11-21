@@ -179,6 +179,8 @@ impl Session {
         crate::references::register(&mut s.commands);
         crate::rig_misc::register(&mut s.commands);
         crate::anim_misc::register(&mut s.commands);
+        crate::filter_cmds::register(&mut s.commands);
+        crate::bake_deformer::register(&mut s.commands);
         crate::uv_misc::register(&mut s.commands);
         crate::uv_arrange::register(&mut s.commands);
         crate::hair::register(&mut s.commands);

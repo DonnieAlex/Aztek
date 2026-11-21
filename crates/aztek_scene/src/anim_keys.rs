@@ -96,7 +96,19 @@ fn delete_curve(s: &mut Session, curve: NodeId, plug: PlugRef) -> CmdResult<()> 
 // setKeyframe
 
 fn set_keyframe(s: &mut Session, a: &Args) -> CmdResult {
-    let plugs = anim::targets(s, a, "setKeyframe")?;
+    let mut plugs = anim::targets(s, a, "setKeyframe")?;
+    // Keying a keying group's activator keys the group too.
+    let mut nodes: Vec<NodeId> = Vec::new();
+    for p in &plugs {
+        if !nodes.contains(&p.node) {
+            nodes.push(p.node);
+        }
+    }
+    for p in crate::anim_misc::activated_plugs(&s.graph, &nodes) {
+        if !plugs.contains(&p) {
+            plugs.push(p);
+        }
+    }
     let times: Vec<f64> = match a.get("time") {
         Some(Value::Array(v)) => v.iter().filter_map(Value::as_f64).collect(),
         Some(v) => v.as_f64().into_iter().collect(),
@@ -271,6 +283,11 @@ fn keyframe(s: &mut Session, a: &Args) -> CmdResult {
     let index_to = a.get("indexValue").and_then(Value::as_u64).map(|i| i as usize);
     let option = a.string("option", "over");
     let adjust = a.get("adjustBreakdown").and_then(bool_value).unwrap_or(true);
+    let clip = match a.get("clipTime") {
+        Some(Value::Array(v)) if v.len() == 3 => Some((v[0].as_f64().unwrap_or(0.0), v[1].as_f64().unwrap_or(0.0), v[2].as_f64().unwrap_or(1.0))),
+        Some(v) => fail!("keyframe: -clipTime takes an offset, a pivot and a scale, not {v}"),
+        None => None,
+    };
     let mut n = 0;
     for (_, c) in &curves {
         let vu = aztek_ops::units::factor(anim::curve_unit(&s.graph, *c));
@@ -292,13 +309,25 @@ fn keyframe(s: &mut Session, a: &Args) -> CmdResult {
         }
         n += picked.len();
         let target = index_to.and_then(|i| before.get(i).map(|x| x.t));
-        if tc.is_some() || target.is_some() {
-            let change = tc.or(target).unwrap();
+        if tc.is_some() || target.is_some() || clip.is_some() {
+            let base = tc.or(target);
+            // -clipTime offset pivot scale: where the keys end up, scaled about the pivot and then offset.
+            let place = |t: f64| -> f64 {
+                let t = match base {
+                    Some(change) if rel => t + change,
+                    Some(change) => change,
+                    None => t,
+                };
+                match clip {
+                    Some((off, piv, sc)) => piv + (t - piv) * sc + off,
+                    None => t,
+                }
+            };
             if adjust && picked.len() < k.keys.len() {
                 // Breakdowns between moved keys stretch with them.
                 let mut moved = k.keys.clone();
                 for &i in &picked {
-                    moved[i].t = if rel { moved[i].t + change } else { change };
+                    moved[i].t = place(moved[i].t);
                 }
                 crate::anim_edit::retime_breakdowns(&before, &mut moved);
                 let carried: Vec<usize> = (0..moved.len()).filter(|i| !picked.contains(i) && (moved[*i].t - k.keys[*i].t).abs() > 1e-9).collect();
@@ -306,11 +335,11 @@ fn keyframe(s: &mut Session, a: &Args) -> CmdResult {
                     k.keys[i].t = moved[i].t;
                 }
             }
-            retime(&mut k.keys, &picked, |t| if rel { t + change } else { change }, &option);
+            retime(&mut k.keys, &picked, place, &option);
             let moved_from: Vec<f64> = picked.iter().map(|&i| before[i].t).collect();
             for sel in s.key_selection.iter_mut().filter(|x| x.0 == *c) {
                 if moved_from.iter().any(|t| (t - sel.1).abs() < 1e-6) {
-                    sel.1 = if rel { sel.1 + change } else { change };
+                    sel.1 = place(sel.1);
                 }
             }
         }
@@ -400,7 +429,7 @@ fn cut_key(s: &mut Session, a: &Args) -> CmdResult {
             }
             let g = &s.graph;
             let (pre, post) = g.node(*c).map(|n| (n.data().int(PRE), n.data().int(POST))).unwrap_or((0, 0));
-            clip.entries.push(crate::anim_edit::ClipEntry { attr: anim::channel_name(g, p), keys, pre, post });
+            clip.entries.push(crate::anim_edit::ClipEntry { attr: anim::channel_name(g, p), keys, pre, post, rot_interp: g.node(*c).map(|x| x.data().int(anim::ROT_INTERP)).unwrap_or(0) });
         }
         if !clip.entries.is_empty() {
             clip.start = lo;
@@ -409,6 +438,7 @@ fn cut_key(s: &mut Session, a: &Args) -> CmdResult {
         }
     }
     let mut n = 0;
+    let mut cut_curves: Vec<NodeId> = Vec::new();
     for (p, c) in curves {
         let mut k = anim::keys_of(&s.graph, c);
         // Removing keys of a curve whose range is given: the range's ends, whether or not there are keys on them.
@@ -431,6 +461,9 @@ fn cut_key(s: &mut Session, a: &Args) -> CmdResult {
             !hit || end
         });
         n += before.saturating_sub(k.keys.len());
+        if k.keys.len() < before {
+            cut_curves.push(c);
+        }
         // Collapsing closes the gap the range leaves.
         let span = hi - lo;
         match option.as_str() {
@@ -452,6 +485,14 @@ fn cut_key(s: &mut Session, a: &Args) -> CmdResult {
         }
     }
     s.key_selection.retain(|(c, _)| s.graph.node(*c).is_some());
+    // -selectKey: the keys left on the curves that lost some become the key selection.
+    if a.bool("selectKey") {
+        let mut sel = Vec::new();
+        for c in cut_curves.into_iter().filter(|&c| s.graph.node(c).is_some()) {
+            sel.extend(anim::keys_of(&s.graph, c).keys.iter().map(|k| (c, k.t)));
+        }
+        s.key_selection = sel;
+    }
     Ok(json!(n))
 }
 
@@ -508,6 +549,10 @@ fn edited(t: Tan, k: &Keys, i: usize, out: bool, flags: [Option<f64>; 4], rel: b
 }
 
 fn key_tangent(s: &mut Session, a: &Args) -> CmdResult {
+    // The plug-in tangent types loaded: plug-ins here add none, so the list is empty.
+    if a.bool("query") && queried(a, &["pluginTangentTypes"]) {
+        return Ok(json!(Vec::<String>::new()));
+    }
     let (itt, ott) = (anim::tangent_flag(a, "inTangentType")?, anim::tangent_flag(a, "outTangentType")?);
     if a.bool("global") {
         return key_tangent_global(a, itt, ott);
@@ -751,7 +796,8 @@ pub fn register(c: &mut Commands<Session>) {
     .flag(f("selected", "sl", ArgType::Bool, "Work on the keys selectKey selected."))
     .flag(f("lastSelected", "lsl", ArgType::Bool, "Work on the key selected last."))
     .flag(f("adjustBreakdown", "abd", ArgType::Bool, "Breakdowns keep their place between keys that move (on by default)."))
-    .flag(f("tickDrawSpecial", "tds", ArgType::Bool, "Query or set the special tick colour of keys.")));
+    .flag(f("tickDrawSpecial", "tds", ArgType::Bool, "Query or set the special tick colour of keys."))
+    .flag(f("clipTime", "ct", ArgType::List, "Offset, pivot and scale applied to where the keys end up.").multi(3)));
 
     c.register(
         pick_flags(Cmd::new(
@@ -762,7 +808,7 @@ pub fn register(c: &mut Commands<Session>) {
         ))
         .positional("objects, plugs or curves (the selection when none)")
         .flag(f("clear", "cl", ArgType::Bool, "Delete without copying to the clipboard."))
-        .flag(f("selected", "sl", ArgType::Bool, "Delete the keys selectKey selected."))
+        .flag(f("selectKey", "sl", ArgType::Bool, "Select the keys of the curves that had keys removed."))
         .flag(f("option", "o", ArgType::String, "keys (the default), curve, curveCollapse, curveConnect or areaCollapse.").choices(&["keys", "curve", "curveCollapse", "curveConnect", "areaCollapse"])),
     );
 
@@ -791,7 +837,8 @@ pub fn register(c: &mut Commands<Session>) {
     .flag(f("absolute", "a", ArgType::Bool, "Edits are new values (the default)."))
     .flag(f("selected", "sl", ArgType::Bool, "Work on the keys selectKey selected."))
     .flag(f("stepAttributes", "sa", ArgType::Bool, "Accepted for existing scripts: step tangents apply to any channel."))
-    .flag(f("global", "g", ArgType::Bool, "The default tangents for new keys.")));
+    .flag(f("global", "g", ArgType::Bool, "The default tangents for new keys."))
+    .flag(f("pluginTangentTypes", "ptt", ArgType::Bool, "Query: the plug-in tangent types loaded.")));
 }
 
 fn g_is_rotate(g: &crate::graph::Graph, p: &PlugRef) -> bool {

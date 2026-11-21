@@ -405,7 +405,8 @@ const KINDS: &[(&str, &str)] = &[
     ("poseEditor", "targetControlList:tcl:b targetList:tl:b verticalSliders:vs:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("componentEditor", "floatField:ff:a floatSlider:fs:a hidePathName:hpn:b hideZeroColumns:hzc:b lockInput:lck:b newTab:nt:a3 operationCount:oc:b operationLabels:ol:b operationType:ot:a precision:pre:a removeTab:rt:a selected:sl:b setOperationLabel:sol:a2 showObjects:so:a showSelected:ss:b sortAlpha:sa:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("spreadSheetEditor", "attrRegExp:are:a execute:exe:a fixedAttrList:fal:a1 header:hdr:b keyableOnly:ko:b longNames:ln:b niceNames:nn:b precision:pre:a selectedAttr:sla:b showShapes:ssh:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
-    ("keyframeOutliner", "animCurve:an:a display:dsp:a"),
+    ("keyframeOutliner", "animCurve:ac:a display:dsp:a"),
+    ("keyframeStats", "animEditor:ae:a precision:pre:a autoUnitWidth:auw:a timeAnnotation:tan:a valueAnnotation:van:a"),
     ("textureWindow", "capture:cpt:a changeCommand:cc:a checkerColor1:cc1:a checkerColor2:cc2:a checkerDensity:cd:a clearImage:ci:b cmEnabled:cme:b displayAxes:dax:b displayCheckered:dc:b displayDistortion:dcd:b displayDivisionLines:ddl:b displayGridLines:dgl:b displayImage:di:a displayLabels:dl:b displayPreselection:dpr:b displaySolidMap:dsm:b displayStyle:dst:a displayUVShaded:dus:b displayUVWireframe:duw:b distortionAlpha:dal:a distortionPerObject:dpo:b divisions:d:a doubleBuffer:dbf:b drawAxis:da:b drawSubregions:dsr:b exposure:exp:a frameAll:fa:b frameSelected:fs:b frontFacingColor:ffc:a gamma:ga:a gridLinesColor:glc:a gridNumbersColor:gnc:a imageBaseColor:ibc:a imageDim:imd:b imageDisplay:id:b imageNames:imn:b imageNumber:in:a imagePixelSnap:ip:b imageRatio:imr:b imageRatioValue:irv:a imageSize:is:b imageTileRange:itr:a imageUnfiltered:iuf:b internalFaces:if:b labelPosition:lp:a loadImage:li:a maxResolution:mrs:a multiColorAlpha:mca:a nbImages:nim:b nextView:nv:b numUvSets:nuv:b numberOfImages:ni:a numberOfTextures:nt:a previousView:pv:b realSize:rs:b refresh:rf:b relativeHandleSize:rhs:b removeAllImages:rai:b removeImage:ri:b rendererString:rst:a reset:r:b saveImage:si:b selectInternalFaces:sif:b selectRelated:sr:b setUvSet:suv:a singleBuffer:sbf:b size:s:a solidMap3dView:sm3:b solidMapColorSeed:smc:a solidMapPerShell:smp:b spacing:sp:a style:st:a subdivisionLinesColor:slc:a textureBorder:tb:b textureBorderColor:tbc:a textureBorderWidth:tbw:a textureNames:tn:b textureNumber:tx:a tileLabels:tlb:b tileLinesColor:tlc:a toggle:tgl:b toggleExposure:txp:b toggleGamma:tgm:b useFaceGroup:ufg:b usedPercentageHUD:upp:b uvSets:uvs:b viewPortImage:vpi:b viewTransformName:vtn:a wireframeComponentColor:wcc:a wireframeObjectColor:woc:a writeImage:wi:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("timePort", "globalTime:gt:b snap:sn:b"),
     ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a widthHeight:wh:a2"),
@@ -1454,6 +1455,9 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("outlinerEditor", "displayMode") => json!("DAG"),
         ("outlinerEditor", "showShapes" | "showAttributes" | "showDagOnly" | "showConnected" | "showAnimCurvesOnly") => json!(c.kind == "outlinerEditor" && key == "showDagOnly"),
         ("componentEditor", "precision") => json!(3),
+        ("keyframeStats", "precision") => json!(3),
+        ("keyframeStats", "autoUnitWidth") => json!(0),
+        ("keyframeStats", "animEditor" | "timeAnnotation" | "valueAnnotation") => json!(""),
         ("spreadSheetEditor", "precision") => json!(3),
         ("spreadSheetEditor", "keyableOnly" | "longNames") => json!(key == "keyableOnly"),
         ("toolButton", "select" | "stateSelfManaged") => json!(false),
@@ -2496,7 +2500,7 @@ pub fn register(s: &mut Session) {
             "floatSliderGrp" | "floatSliderButtonGrp" => add_flags(c, SLIDER_GRP),
             _ => c,
         };
-        if is_group(name) || *name == "rowLayout" {
+        if is_group(name) || *name == "rowLayout" || *name == "keyframeStats" {
             c = add_column_flags(c);
             c = add_flags(c, "adjustableColumn:adj:a columnWidth:cw:a2 columnAlign:cal:a2 columnAttach:cat:a3 rowAttach:rat:a3");
         }

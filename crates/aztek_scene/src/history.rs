@@ -1055,20 +1055,94 @@ pub fn register(c: &mut Commands<Session>) {
             "Delete by Type > Non-Deformer History: bakes what feeds the first deformer and keeps the deformers. A mesh with no deformers loses its history.",
             |s, a| {
                 let g = &mut s.graph;
-                let named: Vec<NodeId> = match a.get("args").and_then(Value::as_array) {
-                    Some(l) if !l.is_empty() => l.iter().filter_map(|v| v.as_str()).filter_map(|n| g.find(n).ok().flatten()).collect(),
-                    _ => g.selection().to_vec(),
+                let named: Vec<NodeId> = if a.bool("allShapes") {
+                    // Every shape in the scene; none is no error.
+                    g.nodes().into_iter().filter(|&i| g.node(i).is_some_and(|n| n.ty().dag && n.ty().is_a("mesh") && !n.bool(DagNode::INTERMEDIATE_OBJECT))).collect()
+                } else {
+                    let names = a.named();
+                    if names.is_empty() {
+                        g.selection().to_vec()
+                    } else {
+                        names.iter().filter_map(|n| g.find(n).ok().flatten()).collect()
+                    }
                 };
-                let all = a.bool("prePostDeformers");
+                // Neither -pre nor -pc: before and after the deformers, the default.
+                let pre_cache = a.bool("preCache");
+                let all = a.bool("prePostDeformers") || (!a.bool("preDeformers") && !pre_cache);
                 let smooth = a.bool("postSmooth");
-                g.open_chunk("Bake Partial History");
-                let mut r = Ok(());
+                let mut shapes_of = Vec::new();
                 for id in named {
                     let shapes = if g.node(id).is_some_and(|n| n.ty().is_a("transform")) { crate::dag::shapes(g, id, false) } else { vec![id] };
                     for sh in shapes {
-                        if !g.node(sh).is_some_and(|n| n.ty().is_a("mesh")) {
+                        if g.node(sh).is_some_and(|n| n.ty().is_a("mesh")) && !shapes_of.contains(&sh) {
+                            shapes_of.push(sh);
+                        }
+                    }
+                }
+                // What would be baked: history before a cache node, or the modelling nodes (before the deformers, or
+                // all of them), in the order listHistory gives them, nearest first.
+                let cache_at = |g: &Graph, sh: NodeId| history_of(g, sh).iter().position(|&h| g.node(h).is_some_and(|n| matches!(n.ty().name.as_str(), "cacheFile" | "historySwitch" | "cacheBlend")));
+                if a.bool("query") {
+                    let mut out: Vec<String> = Vec::new();
+                    for sh in shapes_of.clone() {
+                        let path = s.graph.path(sh);
+                        let hist: Vec<String> = match s.run("listHistory", json!({"args": [path]}))? {
+                            Value::Array(v) => v.into_iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+                            _ => Vec::new(),
+                        };
+                        let g = &s.graph;
+                        let ids: Vec<NodeId> = hist.iter().filter_map(|n| g.find(n).ok().flatten()).filter(|&h| h != sh).collect();
+                        let is_deformer = |h: NodeId| g.node(h).is_some_and(|n| crate::deform::is_deformer(&n.ty().name) || n.ty().name == "tweak" || n.ty().is_a("geometryFilter") || n.ty().dag);
+                        let picked: Vec<NodeId> = if pre_cache {
+                            match cache_at(g, sh) {
+                                Some(_) => {
+                                    let cache = ids.iter().position(|&h| g.node(h).is_some_and(|n| matches!(n.ty().name.as_str(), "cacheFile" | "historySwitch" | "cacheBlend")));
+                                    cache.map(|i| ids[i + 1..].iter().copied().filter(|&h| !g.node(h).is_some_and(|n| n.ty().dag)).collect()).unwrap_or_default()
+                                }
+                                None => Vec::new(),
+                            }
+                        } else {
+                            let first_deformer = ids.iter().position(|&h| is_deformer(h) && !g.node(h).is_some_and(|n| n.ty().dag));
+                            ids.iter().enumerate().filter(|(i, &h)| !is_deformer(h) && (all || first_deformer.is_none_or(|f| *i > f))).map(|(_, &h)| h).collect()
+                        };
+                        for h in picked {
+                            let n = g.path(h);
+                            if !out.contains(&n) {
+                                out.push(n);
+                            }
+                        }
+                    }
+                    return Ok(json!(out));
+                }
+                let g = &mut s.graph;
+                let mut baked: Vec<String> = Vec::new();
+                g.open_chunk("Bake Partial History");
+                let mut r = Ok(());
+                for sh in shapes_of {
+                    {
+                        if pre_cache {
+                            // Everything feeding the cache becomes the mesh it gave; a mesh with no cache keeps its history.
+                            let Some(i) = cache_at(g, sh) else { continue };
+                            let hist = history_of(g, sh);
+                            let cache = hist[i];
+                            let into = g.node(cache).and_then(|n| n.ty().attr_index("inMesh").or(n.ty().attr_index("inp")).or(n.ty().attr_index("input")));
+                            if let Some(at) = into {
+                                let p = PlugRef::new(cache, at as i32);
+                                if let (Some(_), Ok(v)) = (g.source(&p), g.value(&p)) {
+                                    let doomed = upstream_nodes(g, &p);
+                                    g.disconnect(&p);
+                                    let _ = g.set_value(p, v);
+                                    for id in doomed {
+                                        if g.node(id).is_some() {
+                                            let _ = g.delete_node(id);
+                                        }
+                                    }
+                                    baked.push(g.path(sh));
+                                }
+                            }
                             continue;
                         }
+                        baked.push(g.path(sh));
                         // A deformed mesh's history runs through its original: bake that.
                         let original = history_of(g, sh).into_iter().find(|&h| g.node(h).is_some_and(|n| n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT)));
                         // All non-deformer history: the edits made after the deformers go before them first, so they're
@@ -1088,10 +1162,13 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 g.close_chunk();
                 r?;
-                Ok(Value::Null)
+                Ok(json!(baked))
             },
         )
         .positional("objects")
+        .flag(FlagDef::new("allShapes", "all", ArgType::Bool, Value::Null, "Every shape in the scene rather than the selection."))
+        .flag(FlagDef::new("preCache", "pc", ArgType::Bool, Value::Null, "What comes before a cache, deformers included; -q: the nodes that would be baked."))
+        .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What -q asks for."))
         .flag(FlagDef::new("prePostDeformers", "ppt", ArgType::Bool, Value::Null, "Before and after the deformers."))
         .flag(FlagDef::new("preDeformers", "pre", ArgType::Bool, Value::Null, "Before the deformers."))
         .flag(FlagDef::new("postSmooth", "nps", ArgType::Bool, Value::Null, "With -prePostDeformers: the weights of the points the edits after the deformers made are smoothed with their neighbours'."))

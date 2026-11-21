@@ -39,6 +39,8 @@ const BANK_LIMIT: usize = 15;
 const GEOMETRY_PATH: usize = 16;
 const PARENT_SPACE: usize = 17;
 const ROTATE_ORDER: usize = 18;
+const POSITION_MARKER_TIME: usize = 19;
+const ORIENTATION_MARKER_TIME: usize = 20;
 const ALL_COORDINATES: usize = 21;
 const ROTATE: usize = 22;
 const ORIENT_MATRIX: usize = 23;
@@ -753,6 +755,35 @@ pub fn register_types() {
         })
         .expect("motionPath");
 
+        // Markers: a locator each, under the path curve, keeping the time of the key it stands for.
+        let locator = types::find("locator").expect("locator");
+        let mut time = AttrDef { name: "time".into(), short_name: "t".into(), ty: PlugType::Float, default_value: PlugValue::Float(0.0), flags: store | flags::OUTPUT, doc: "The frame of the key this marker stands for.".into(), ..Default::default() };
+        time.unit = aztek_ops::units::Unit::None;
+        types::register_type(NodeType {
+            name: "positionMarker".into(),
+            icon: "crosshair".into(),
+            base: Some(locator.clone()),
+            dag: true,
+            doc: "A key of a motion path's uValue, shown where it puts the object on the curve.".into(),
+            own_attrs: vec![time],
+            create: locator.create.clone(),
+            ..Default::default()
+        })
+        .expect("positionMarker");
+        let pm = types::find("positionMarker").unwrap();
+        let twist = |name: &str, short: &str, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Float, default_value: PlugValue::Float(0.0), flags: store, unit: aztek_ops::units::Unit::Angle, doc: doc.into(), ..Default::default() };
+        types::register_type(NodeType {
+            name: "orientationMarker".into(),
+            icon: "crosshair".into(),
+            base: Some(pm),
+            dag: true,
+            doc: "Keys of a motion path's frontTwist, upTwist and sideTwist at one time.".into(),
+            own_attrs: vec![twist("frontTwist", "ft", "Turn about the front direction."), twist("sideTwist", "st", "Turn about the side direction."), twist("upTwist", "ut", "Turn about the up direction.")],
+            create: locator.create.clone(),
+            ..Default::default()
+        })
+        .expect("orientationMarker");
+
         let msg_in = |name: &str, short: &str, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::MESSAGE | flags::HIDDEN, doc: doc.into(), ..Default::default() };
         types::register_type(NodeType {
             name: "flow".into(),
@@ -817,8 +848,265 @@ pub fn register_types() {
     });
 }
 
+
+// ---------------------------------------------------------------------------------------------------------------------
+// marker
+
+/// How far along a curve's length a parameter is, 0 to 1.
+fn fraction_at_param(c: &NurbsCurve, u: f64) -> f64 {
+    let (lo, hi) = c.domain();
+    let n = (c.spans() * 32).max(32);
+    let (mut total, mut upto) = (0.0, 0.0);
+    let mut last = c.eval(lo);
+    for i in 1..=n {
+        let t = lo + (hi - lo) * i as f64 / n as f64;
+        let p = c.eval(t);
+        let d = (p - last).length();
+        total += d;
+        if t <= u {
+            upto += d;
+        } else if t - (hi - lo) / (n as f64) < u {
+            upto += d * (u - (t - (hi - lo) / (n as f64))) / ((hi - lo) / (n as f64));
+        }
+        last = p;
+    }
+    if total > 1e-12 { upto / total } else { 0.0 }
+}
+
+/// The motion paths a curve drives.
+fn paths_on_curve(g: &Graph, curve_shape: NodeId) -> Vec<NodeId> {
+    g.destinations(&PlugRef::new(curve_shape, CurveShape::WORLD_SPACE as i32)).into_iter().filter(|d| is_motion_path(g, d.node) && d.attr == GEOMETRY_PATH as i32).map(|d| d.node).collect()
+}
+
+/// A marker's motion path and which of its marker time arrays it is in.
+fn marker_path(g: &Graph, marker: NodeId) -> Option<(NodeId, usize)> {
+    let at = g.node(marker)?.ty().attr_index("time")? as i32;
+    g.destinations(&PlugRef::new(marker, at)).into_iter().find(|d| is_motion_path(g, d.node)).map(|d| (d.node, d.attr as usize))
+}
+
+fn is_marker(g: &Graph, id: NodeId) -> bool {
+    g.node(id).is_some_and(|n| n.ty().is_a("positionMarker"))
+}
+
+/// A marker named, or the marker shape under a transform named.
+fn marker_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
+    let Some(id) = g.find(name)? else { fail!("marker: no object named {name}") };
+    if is_marker(g, id) {
+        return Ok(id);
+    }
+    match g.children(id).iter().copied().find(|&c| is_marker(g, c)) {
+        Some(m) => Ok(m),
+        None => fail!("marker: {name} is not a marker"),
+    }
+}
+
+/// A channel's value at frame t: its curve's there, or the value it holds.
+fn value_at(g: &Graph, p: &PlugRef, t: f64) -> f64 {
+    match anim::curve_of(g, p) {
+        Some(c) => {
+            let k = anim::keys_of(g, c);
+            if k.keys.is_empty() {
+                g.node(p.node).map(|n| n.data().float(p.attr as usize)).unwrap_or(0.0)
+            } else {
+                k.eval_inside(t.clamp(k.keys[0].t, k.keys[k.keys.len() - 1].t), k.weighted)
+            }
+        }
+        None => g.node(p.node).map(|n| n.data().float(p.attr as usize)).unwrap_or(0.0),
+    }
+}
+
+/// Where u puts a point on the path's curve, in the curve's object space.
+fn point_on_path(g: &mut Graph, mp: NodeId, curve_shape: NodeId, u: f64) -> DVec3 {
+    let fraction = g.node(mp).is_some_and(|n| n.data().bool(FRACTION_MODE));
+    match curves::local_curve(g, curve_shape) {
+        Some(c) => {
+            let (lo, hi) = c.domain();
+            c.eval(if fraction { c.param_at_fraction(u.clamp(0.0, 1.0)) } else { u.clamp(lo, hi) })
+        }
+        None => DVec3::ZERO,
+    }
+}
+
+/// The group under the curve's transform that holds its markers, made the first time.
+fn marker_group(g: &mut Graph, curve_shape: NodeId) -> CmdResult<NodeId> {
+    let xf = crate::dag::transform_of(g, curve_shape);
+    let base = g.node(xf).map(|n| n.name.rsplit(':').next().unwrap_or("").to_string()).unwrap_or_default();
+    let wanted = format!("{base}Markers");
+    if let Some(&grp) = g.children(xf).iter().find(|&&c| g.node(c).is_some_and(|n| n.name == wanted && n.ty().is_a("transform"))) {
+        return Ok(grp);
+    }
+    let t = types::find("transform").unwrap();
+    g.create_node(&t, &wanted, xf, true).map_err(Into::into)
+}
+
+fn marker(s: &mut Session, a: &Args) -> CmdResult {
+    let names = a.named();
+    let g = &mut s.graph;
+    let to_user = |v: f64| aztek_ops::units::to_user(aztek_ops::units::Unit::Angle, v);
+    let from_user = |v: f64| aztek_ops::units::to_stored(aztek_ops::units::Unit::Angle, v);
+    if a.bool("query") {
+        let Some(name) = names.first() else { fail!("marker: name a marker") };
+        let m = marker_named(g, name)?;
+        let n = g.node(m).unwrap();
+        let ty = n.ty().clone();
+        let t = n.data().float(ty.attr_index("time").unwrap());
+        if queried(a, &["time"]) {
+            return Ok(anim::frame_json(t));
+        }
+        if queried(a, &["positionMarker"]) {
+            return Ok(json!(!ty.is_a("orientationMarker")));
+        }
+        if queried(a, &["orientationMarker"]) {
+            return Ok(json!(ty.is_a("orientationMarker")));
+        }
+        let path = marker_path(g, m).map(|x| x.0);
+        for (flag, attr, own) in [("frontTwist", FRONT_TWIST, "frontTwist"), ("upTwist", UP_TWIST, "upTwist"), ("sideTwist", SIDE_TWIST, "sideTwist")] {
+            if queried(a, &[flag]) {
+                let v = match path {
+                    Some(mp) => value_at(g, &PlugRef::new(mp, attr as i32), t),
+                    None => ty.attr_index(own).map(|i| n.data().float(i)).unwrap_or(0.0),
+                };
+                return Ok(json!(to_user(v)));
+            }
+        }
+        if queried(a, &["valueU"]) {
+            let Some(mp) = path else { fail!("marker: {name} is on no motion path") };
+            return Ok(json!(value_at(g, &u_plug(mp), t)));
+        }
+        return Ok(anim::frame_json(t));
+    }
+    // -attach and -detach work on the position markers named or selected.
+    if a.bool("attach") || a.bool("detach") {
+        let picked: Vec<NodeId> = if names.is_empty() {
+            g.selection().iter().filter_map(|&i| marker_named(g, &g.path(i)).ok()).collect()
+        } else {
+            names.iter().map(|n| marker_named(g, n)).collect::<CmdResult<Vec<_>>>()?
+        };
+        let mut out = Vec::new();
+        for m in picked {
+            let Some((mp, _)) = marker_path(g, m) else { continue };
+            let Some(curve) = g.source(&PlugRef::new(mp, GEOMETRY_PATH as i32)).map(|p| p.node) else { continue };
+            let xf = crate::dag::transform_of(g, m);
+            if a.bool("detach") {
+                // Into 3D space: the marker keeps where it is in the world, no longer under the curve.
+                g.evaluate();
+                let world = g.node(m).map(|n| n.data().matrix(DagNode::WORLD_MATRIX)).unwrap_or_default();
+                let lp = g.node(m).map(|n| n.data().vec3(crate::transform::Locator::LOCAL_POSITION)).unwrap_or_default();
+                let at = world.transform_point3(lp);
+                let tt = types::find("transform").unwrap();
+                let own = g.create_node(&tt, &format!("{}3D", g.node(m).unwrap().name), NO_NODE, true)?;
+                g.set_parent(m, own, false, usize::MAX)?;
+                g.set_value(PlugRef::new(m, crate::transform::Locator::LOCAL_POSITION as i32), PlugValue::Vec3(at))?;
+                let _ = xf;
+            } else {
+                // Back on the curve: the nearest point, which becomes the marker's key on uValue.
+                g.evaluate();
+                let world = g.node(m).map(|n| n.data().matrix(DagNode::WORLD_MATRIX)).unwrap_or_default();
+                let lp = g.node(m).map(|n| n.data().vec3(crate::transform::Locator::LOCAL_POSITION)).unwrap_or_default();
+                let at = world.transform_point3(lp);
+                let grp = marker_group(g, curve)?;
+                let old_parent = crate::dag::transform_of(g, m);
+                if old_parent != grp {
+                    g.set_parent(m, grp, false, usize::MAX)?;
+                    if g.children(old_parent).is_empty() {
+                        g.delete_node(old_parent)?;
+                    }
+                }
+                if let Some(c) = curves::world_curve(g, curve) {
+                    let u = c.closest_param(at);
+                    let fraction = g.node(mp).is_some_and(|n| n.data().bool(FRACTION_MODE));
+                    let u = if fraction { fraction_at_param(&c, u) } else { u };
+                    let t = g.node(m).map(|n| n.data().float(n.ty().attr_index("time").unwrap())).unwrap_or(0.0);
+                    anim::key_plug(g, &u_plug(mp), t, Some(u), None, None)?;
+                    let p = point_on_path(g, mp, curve, u);
+                    g.set_value(PlugRef::new(m, crate::transform::Locator::LOCAL_POSITION as i32), PlugValue::Vec3(p))?;
+                }
+            }
+            out.push(g.path(m));
+        }
+        return Ok(json!(out));
+    }
+    // Create: on the curve named (the selection when none), at -t (the current time).
+    let curve_name = match names.first().cloned().or_else(|| g.selection().first().map(|&i| g.path(i))) {
+        Some(n) => n,
+        None => fail!("marker: name the path curve"),
+    };
+    let Some(cid) = g.find(&curve_name)? else { fail!("marker: no object named {curve_name}") };
+    let Some(curve) = curves::as_curve(g, cid) else { fail!("marker: {curve_name} is not a curve") };
+    let Some(&mp) = paths_on_curve(g, curve).first() else { fail!("marker: {curve_name} is not a motion path") };
+    let t = a.get("time").and_then(Value::as_f64).unwrap_or_else(|| anim::frame(g));
+    let orient = a.bool("orientationMarker");
+    let position = a.bool("positionMarker") || !orient;
+    let mut out = Vec::new();
+    g.open_chunk("marker");
+    let r = (|| -> CmdResult<()> {
+        for (want, kind, times_attr) in [(position, "positionMarker", POSITION_MARKER_TIME), (orient, "orientationMarker", ORIENTATION_MARKER_TIME)] {
+            if !want {
+                continue;
+            }
+            // One marker of each kind a time: the one there already is updated.
+            let existing = g.elements(&PlugRef::new(mp, times_attr as i32)).into_iter().filter_map(|e| g.source(&e)).map(|p| p.node).find(|&m| {
+                g.node(m).is_some_and(|n| n.ty().name == kind && (n.data().float(n.ty().attr_index("time").unwrap()) - t).abs() < 1e-6)
+            });
+            let m = match existing {
+                Some(m) => m,
+                None => {
+                    let grp = marker_group(g, curve)?;
+                    let ty = types::find(kind).unwrap();
+                    let m = g.create_node(&ty, &format!("{kind}1"), grp, true)?;
+                    let at = ty.attr_index("time").unwrap() as i32;
+                    g.set_value(PlugRef::new(m, at), PlugValue::Float(t))?;
+                    g.connect(&PlugRef::new(m, at), &PlugRef::new(mp, times_attr as i32), false)?;
+                    m
+                }
+            };
+            let u = if kind == "positionMarker" {
+                let u = a.get("valueU").and_then(Value::as_f64).unwrap_or_else(|| value_at(g, &u_plug(mp), t));
+                anim::key_plug(g, &u_plug(mp), t, Some(u), None, None)?;
+                u
+            } else {
+                for (flag, attr, own) in [("frontTwist", FRONT_TWIST, "frontTwist"), ("upTwist", UP_TWIST, "upTwist"), ("sideTwist", SIDE_TWIST, "sideTwist")] {
+                    let v = a.get(flag).and_then(Value::as_f64).map(from_user).unwrap_or(0.0);
+                    anim::key_plug(g, &PlugRef::new(mp, attr as i32), t, Some(v), None, None)?;
+                    let i = g.node(m).unwrap().ty().attr_index(own).unwrap() as i32;
+                    g.set_value(PlugRef::new(m, i), PlugValue::Float(v))?;
+                }
+                value_at(g, &u_plug(mp), t)
+            };
+            let p = point_on_path(g, mp, curve, u);
+            g.set_value(PlugRef::new(m, crate::transform::Locator::LOCAL_POSITION as i32), PlugValue::Vec3(p))?;
+            out.push(g.path(m));
+        }
+        Ok(())
+    })();
+    g.close_chunk();
+    r?;
+    Ok(json!(out))
+}
+
 pub fn register(c: &mut Commands<Session>) {
     register_types();
+
+    c.register(
+        query_flags(Cmd::new(
+            "marker",
+            "Markers on a motion path's curve at -t (the current time): a position marker (-pm, the default) keys uValue at -u, an \
+             orientation marker (-om) keys the twists (-ft, -ut, -st). One of each kind a time. -a and -d attach and detach \
+             position markers. Returns the markers; -q reads one.",
+            marker,
+        ))
+        .positional("the path curve, or a marker with -q")
+        .flag(f("attach", "a", ArgType::Bool, "Attach the selected position markers to their curve."))
+        .flag(f("detach", "d", ArgType::Bool, "Detach the selected position markers from their curve into 3D space."))
+        .flag(f("positionMarker", "pm", ArgType::Bool, "A position marker (the default)."))
+        .flag(f("orientationMarker", "om", ArgType::Bool, "An orientation marker."))
+        .flag(f("time", "t", ArgType::Float, "The marker's frame (the current one)."))
+        .flag(f("valueU", "u", ArgType::Float, "Where the position marker is on the curve (where the path is at that time)."))
+        .flag(f("frontTwist", "ft", ArgType::Float, "Turn about the front direction, degrees (0)."))
+        .flag(f("upTwist", "ut", ArgType::Float, "Turn about the up direction, degrees (0)."))
+        .flag(f("sideTwist", "st", ArgType::Float, "Turn about the side direction, degrees (0)."))
+        .undoable(true),
+    );
 
     c.register(
         query_flags(Cmd::new(

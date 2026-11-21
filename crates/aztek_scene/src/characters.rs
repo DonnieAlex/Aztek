@@ -25,6 +25,14 @@ const MEMBER_ATTRS: usize = 1;
 // The links run from the library and scheduler to the character: they drive its members, and the members feed it.
 const LINK_LIBRARY: usize = 2;
 const LINK_SCHEDULER: usize = 3;
+/// Sub-characters: each one's message, connected in.
+const SUB_CHARACTERS: usize = 4;
+/// The members marked as offset objects (character -addOffsetObject), by name.
+const OFFSET_OBJECTS: usize = 5;
+/// character -text.
+const ANNOTATION: usize = 6;
+/// The characterOffset node's message, when the character has a root.
+const OFFSET_LINK: usize = 7;
 
 const LIB_SOURCES: usize = 0;
 const LIB_POSES: usize = 1;
@@ -242,17 +250,194 @@ fn named_plugs(s: &Session, names: &[String], a: &Args) -> CmdResult<Vec<PlugRef
     Ok(out)
 }
 
+/// The characters directly inside one.
+pub fn sub_characters(g: &Graph, c: NodeId) -> Vec<NodeId> {
+    g.elements(&PlugRef::new(c, SUB_CHARACTERS as i32)).iter().filter_map(|e| g.source(e)).map(|p| p.node).filter(|&n| is_character(g, n)).collect()
+}
+
+/// The character a character is inside, if any.
+fn parent_character(g: &Graph, c: NodeId) -> Option<NodeId> {
+    let msg = g.node(c)?.ty().attr_index("message")? as i32;
+    g.destinations(&PlugRef::new(c, msg)).into_iter().find(|d| is_character(g, d.node) && d.attr == SUB_CHARACTERS as i32).map(|d| d.node)
+}
+
+fn add_sub(g: &mut Graph, c: NodeId, sub: NodeId) -> CmdResult<()> {
+    if sub == c || sub_characters(g, c).contains(&sub) {
+        return Ok(());
+    }
+    // A character can't hold one it is inside.
+    let mut up = Some(c);
+    while let Some(x) = up {
+        if x == sub {
+            fail!("character: {} is inside {}", g.path(c), g.path(sub));
+        }
+        up = parent_character(g, x);
+    }
+    if let Some(old) = parent_character(g, sub) {
+        remove_sub(g, old, sub)?;
+    }
+    let msg = g.node(sub).and_then(|n| n.ty().attr_index("message")).unwrap() as i32;
+    g.connect(&PlugRef::new(sub, msg), &PlugRef::new(c, SUB_CHARACTERS as i32), false)?;
+    Ok(())
+}
+
+fn remove_sub(g: &mut Graph, c: NodeId, sub: NodeId) -> CmdResult<()> {
+    for e in g.elements(&PlugRef::new(c, SUB_CHARACTERS as i32)) {
+        if g.source(&e).is_some_and(|p| p.node == sub) {
+            g.disconnect(&e);
+            g.remove_element(&e)?;
+        }
+    }
+    Ok(())
+}
+
+/// Every channel a character holds, its sub-characters' too.
+pub fn all_member_plugs(g: &Graph, c: NodeId) -> Vec<PlugRef> {
+    let mut out = member_plugs(g, c);
+    for sub in sub_characters(g, c) {
+        out.extend(all_member_plugs(g, sub));
+    }
+    out
+}
+
+/// What a character's query lists: its channels as plugs, then its sub-characters.
+fn member_names(g: &Graph, c: NodeId) -> Vec<String> {
+    let mut out: Vec<String> = member_plugs(g, c).iter().map(|p| g.plug_name(p)).collect();
+    out.extend(sub_characters(g, c).iter().map(|&x| g.path(x)));
+    out
+}
+
+/// The character's own plug for a member, as the reference names it: linearValues, angularValues or unitlessValues
+/// by the member's unit, numbered from 1 in the order members were added.
+fn character_plug(g: &Graph, c: NodeId, p: &PlugRef) -> Option<(String, String)> {
+    let mut counts = [0usize; 3];
+    for m in member_plugs(g, c) {
+        let (kind, long, short) = match g.attr(&m).unit {
+            aztek_ops::units::Unit::Linear => (1, "linearValues", "lv"),
+            aztek_ops::units::Unit::Angle => (2, "angularValues", "av"),
+            _ => (0, "unitlessValues", "uv"),
+        };
+        counts[kind] += 1;
+        if m == *p {
+            return Some((format!("{long}[{}]", counts[kind]), format!("{short}[{}]", counts[kind])));
+        }
+    }
+    None
+}
+
+/// The names given as members: characters as themselves, the rest as channels.
+fn split_names(s: &Session, names: &[String], a: &Args) -> CmdResult<(Vec<PlugRef>, Vec<NodeId>)> {
+    let g = &s.graph;
+    let mut chars = Vec::new();
+    let mut rest = Vec::new();
+    for n in names {
+        match g.find(n).ok().flatten() {
+            Some(id) if !n.contains('.') && is_character(g, id) => chars.push(id),
+            _ => rest.push(n.clone()),
+        }
+    }
+    Ok((named_plugs(s, &rest, a)?, chars))
+}
+
+fn set_lists(s: &Session, first: &str, others: &[String]) -> CmdResult<Vec<Vec<String>>> {
+    let g = &s.graph;
+    let mut out = Vec::new();
+    for n in std::iter::once(first.to_string()).chain(others.iter().cloned()) {
+        let c = character_arg(g, &n, "character")?;
+        out.push(all_member_plugs(g, c).iter().map(|p| g.plug_name(p)).collect());
+    }
+    Ok(out)
+}
+
 fn character(s: &mut Session, a: &Args) -> CmdResult {
     let names = a.named();
+    // The set operations: -union, -intersection, -subtract and -isIntersecting take the first character, the others
+    // follow.
+    for key in ["union", "intersection", "subtract", "isIntersecting"] {
+        // After -q the flag is a switch and the characters are all named after it.
+        let (first, others) = match a.get(key).and_then(Value::as_str) {
+            Some(f) => (f.to_string(), names.clone()),
+            None if a.bool("query") && queried(a, &[key]) && !names.is_empty() => (names[0].clone(), names[1..].to_vec()),
+            None => continue,
+        };
+        let lists = set_lists(s, &first, &others)?;
+        let mut acc = lists[0].clone();
+        for l in &lists[1..] {
+            match key {
+                "union" => {
+                    for x in l {
+                        if !acc.contains(x) {
+                            acc.push(x.clone());
+                        }
+                    }
+                }
+                "subtract" => acc.retain(|x| !l.contains(x)),
+                _ => acc.retain(|x| l.contains(x)),
+            }
+        }
+        if key == "isIntersecting" {
+            return Ok(json!(lists.len() > 1 && !acc.is_empty()));
+        }
+        return Ok(json!(acc));
+    }
     if a.bool("query") {
+        // -q -mi before the character: the member at that index, or with a member named, its index.
+        let index_value = a.get("memberIndex").filter(|v| !matches!(v, Value::Bool(_)));
+        if index_value.is_some() || queried(a, &["memberIndex"]) {
+            let cname = names.iter().find(|n| s.graph.find(n).ok().flatten().is_some_and(|id| is_character(&s.graph, id))).cloned();
+            let Some(cname) = cname else { fail!("character: name the character") };
+            let c = character_arg(&s.graph, &cname, "character")?;
+            let list = member_names(&s.graph, c);
+            if let Some(i) = index_value.and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|x| x.parse().ok()))) {
+                return Ok(list.get(i as usize).map(|x| json!(x)).unwrap_or(Value::Null));
+            }
+            let named = names.iter().find(|n| **n != cname).cloned();
+            let want = index_value.and_then(Value::as_str).map(str::to_string).or(named).unwrap_or_default();
+            let want = want.as_str();
+            let full = s.graph.plug(want).map(|p| s.graph.plug_name(&p)).unwrap_or_else(|_| want.to_string());
+            return Ok(list.iter().position(|x| *x == full || x == want).map(|i| json!(i)).unwrap_or(json!(-1)));
+        }
+        // -q -cp member: the character's own plug for it; -q -ua member: that plug's alias, if one was given.
+        if queried(a, &["characterPlug"]) || queried(a, &["userAlias"]) {
+            let g = &s.graph;
+            let mut out = Vec::new();
+            for n in names.iter().chain(a.get("userAlias").and_then(Value::as_str).map(str::to_string).iter()) {
+                let Ok(p) = g.plug(n) else { continue };
+                let p = if g.attr(&p).ty == PlugType::Vec3 && p.component < 0 { PlugRef::component(p.node, p.attr, 0) } else { p };
+                let Some(c) = g.nodes().into_iter().find(|&c| is_character(g, c) && member_plugs(g, c).contains(&p)) else { continue };
+                let (long, short) = character_plug(g, c, &p).unwrap();
+                if queried(a, &["userAlias"]) {
+                    let alias = g.node(c).and_then(|n| n.aliases().iter().find(|(_, at)| **at == long || **at == short).map(|(al, _)| al.clone()));
+                    out.push(alias.unwrap_or_default());
+                } else {
+                    out.push(format!("{}.{long}", g.path(c)));
+                }
+            }
+            return Ok(if out.len() == 1 { json!(out[0]) } else { json!(out) });
+        }
         let Some(name) = names.first() else { fail!("character: name the character") };
         let c = character_arg(&s.graph, name, "character")?;
         let g = &s.graph;
         let plugs = member_plugs(g, c);
+        if queried(a, &["offsetNode"]) {
+            return Ok(g.source(&PlugRef::new(c, OFFSET_LINK as i32)).map(|p| json!(g.path(p.node))).unwrap_or(json!("")));
+        }
+        if queried(a, &["addOffsetObject"]) {
+            return Ok(json_of(g.node(c).unwrap().data(), OFFSET_OBJECTS).as_array().cloned().map(Value::Array).unwrap_or(json!([])));
+        }
+        if queried(a, &["text"]) {
+            return Ok(json!(g.node(c).map(|n| n.data().string(ANNOTATION).to_string()).unwrap_or_default()));
+        }
         if a.bool("nodesOnly") || queried(a, &["nodesOnly"]) {
             let mut nodes: Vec<String> = Vec::new();
             for p in &plugs {
                 let n = g.path(p.node);
+                if !nodes.contains(&n) {
+                    nodes.push(n);
+                }
+            }
+            for sub in sub_characters(g, c) {
+                let n = g.path(sub);
                 if !nodes.contains(&n) {
                     nodes.push(n);
                 }
@@ -268,50 +453,319 @@ fn character(s: &mut Session, a: &Args) -> CmdResult {
         if queried(a, &["scheduler"]) {
             return Ok(scheduler_of(g, c).map(|l| json!(g.path(l))).unwrap_or(Value::Null));
         }
-        return Ok(json!(plugs.iter().map(|p| g.plug_name(p)).collect::<Vec<_>>()));
+        return Ok(json!(member_names(g, c)));
     }
     if let Some(n) = a.get("isMember").and_then(Value::as_str) {
         let c = character_arg(&s.graph, n, "character")?;
-        let plugs = named_plugs(s, &names, a)?;
+        let (plugs, chars) = split_names(s, &names, a)?;
         let members = member_plugs(&s.graph, c);
-        return Ok(json!(!plugs.is_empty() && plugs.iter().all(|p| members.contains(p))));
+        let subs = sub_characters(&s.graph, c);
+        return Ok(json!((!plugs.is_empty() || !chars.is_empty()) && plugs.iter().all(|p| members.contains(p)) && chars.iter().all(|x| subs.contains(x))));
     }
-    for (flag, force) in [("addElement", false), ("forceElement", true)] {
+    if let Some(n) = a.get("anyMember").and_then(Value::as_str) {
+        let c = character_arg(&s.graph, n, "character")?;
+        let (plugs, chars) = split_names(s, &objects(s, a), a)?;
+        let members = member_plugs(&s.graph, c);
+        let subs = sub_characters(&s.graph, c);
+        return Ok(json!(plugs.iter().any(|p| members.contains(p)) || chars.iter().any(|x| subs.contains(x))));
+    }
+    if a.bool("edit") || a.has("addElement") || a.has("forceElement") || a.has("include") || a.has("remove") || a.has("clear") || a.has("flatten") || a.has("removeOffsetObject") || a.has("addOffsetObject") {
+        // -text with -e names the character as the object.
+        if let (Some(t), true) = (a.get("text").and_then(Value::as_str), a.bool("edit")) {
+            let Some(n) = names.first() else { fail!("character: name the character") };
+            let c = character_arg(&s.graph, n, "character")?;
+            s.graph.set_value(PlugRef::new(c, ANNOTATION as i32), PlugValue::String(t.to_string()))?;
+            return Ok(json!(s.graph.path(c)));
+        }
+    }
+    for (flag, force, lenient) in [("addElement", false, false), ("forceElement", true, false), ("include", false, true)] {
         if let Some(n) = a.get(flag).and_then(Value::as_str) {
             let c = character_arg(&s.graph, n, "character")?;
-            let plugs = named_plugs(s, &objects(s, a), a)?;
-            if force {
-                // Forcing takes the channels out of whatever character has them now.
-                let g = &mut s.graph;
-                let others: Vec<NodeId> = g.nodes().into_iter().filter(|&x| is_character(g, x) && x != c).collect();
-                for o in others {
-                    remove_members(g, o, &plugs)?;
+            let (plugs, chars) = split_names(s, &objects(s, a), a)?;
+            let g = &mut s.graph;
+            let others: Vec<NodeId> = g.nodes().into_iter().filter(|&x| is_character(g, x) && x != c).collect();
+            let mut take = Vec::new();
+            for p in plugs {
+                let holder = others.iter().copied().find(|&o| member_plugs(g, o).contains(&p));
+                match holder {
+                    // Characters share no channels: forcing takes them from the other one.
+                    Some(o) if force => {
+                        remove_members(g, o, &[p])?;
+                        take.push(p);
+                    }
+                    Some(o) if lenient => {
+                        if !a.bool("noWarnings") {
+                            log::warn!("{} is already in {}; not added to {}.", g.plug_name(&p), g.path(o), g.path(c));
+                        }
+                    }
+                    Some(o) => fail!("character: {} is already in {}", g.plug_name(&p), g.path(o)),
+                    None => take.push(p),
                 }
             }
-            add_members(&mut s.graph, c, &plugs)?;
+            add_members(g, c, &take)?;
+            for sub in chars {
+                match add_sub(g, c, sub) {
+                    Err(e) if lenient => {
+                        if !a.bool("noWarnings") {
+                            log::warn!("{e}");
+                        }
+                    }
+                    r => r?,
+                }
+            }
             return Ok(json!(s.graph.path(c)));
         }
     }
     if let Some(n) = a.get("remove").and_then(Value::as_str) {
         let c = character_arg(&s.graph, n, "character")?;
-        let plugs = named_plugs(s, &objects(s, a), a)?;
+        let (plugs, chars) = split_names(s, &objects(s, a), a)?;
         remove_members(&mut s.graph, c, &plugs)?;
+        for sub in chars {
+            remove_sub(&mut s.graph, c, sub)?;
+        }
         return Ok(json!(s.graph.path(c)));
     }
     if let Some(n) = a.get("clear").and_then(Value::as_str) {
         let c = character_arg(&s.graph, n, "character")?;
         let plugs = member_plugs(&s.graph, c);
         remove_members(&mut s.graph, c, &plugs)?;
+        for sub in sub_characters(&s.graph, c) {
+            remove_sub(&mut s.graph, c, sub)?;
+        }
         return Ok(json!(s.graph.path(c)));
     }
-    let plugs = if a.bool("empty") { Vec::new() } else { named_plugs(s, &objects(s, a), a)? };
-    if plugs.is_empty() && !a.bool("empty") {
+    // -flatten: the characters inside give up their members to this one.
+    if let Some(n) = a.get("flatten").and_then(Value::as_str) {
+        let c = character_arg(&s.graph, n, "character")?;
+        let g = &mut s.graph;
+        let mut stack = sub_characters(g, c);
+        while let Some(sub) = stack.pop() {
+            stack.extend(sub_characters(g, sub));
+            let plugs = member_plugs(g, sub);
+            remove_members(g, sub, &plugs)?;
+            add_members(g, c, &plugs)?;
+            for inner in sub_characters(g, sub) {
+                remove_sub(g, sub, inner)?;
+            }
+            remove_sub(g, c, sub)?;
+        }
+        return Ok(json!(g.path(c)));
+    }
+    // -addOffsetObject / -removeOffsetObject: the selected members (or those named) as the character's offset objects.
+    for (flag, add) in [("addOffsetObject", true), ("removeOffsetObject", false)] {
+        let Some(n) = a.get(flag).and_then(Value::as_str) else { continue };
+        let c = character_arg(&s.graph, n, "character")?;
+        let g = &mut s.graph;
+        let picked: Vec<String> = if names.is_empty() { g.selection().iter().map(|&i| g.path(crate::dag::transform_of(g, i))).collect() } else { names.clone() };
+        let mut list: Vec<String> = json_of(g.node(c).unwrap().data(), OFFSET_OBJECTS).as_array().map(|v| v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+        let members: Vec<NodeId> = all_member_plugs(g, c).iter().map(|p| p.node).collect();
+        for o in picked {
+            let Some(id) = g.find(&o)? else { fail!("character: no object named {o}") };
+            let path = g.path(id);
+            if add {
+                if !members.contains(&id) {
+                    fail!("character: {path} is not a member of {}", g.path(c));
+                }
+                if !list.contains(&path) {
+                    list.push(path);
+                }
+            } else {
+                list.retain(|x| *x != path);
+            }
+        }
+        set_json(g, c, OFFSET_OBJECTS, json!(list))?;
+        return Ok(json!(g.path(c)));
+    }
+    // -split: the items leave the named character for a new one.
+    if let Some(n) = a.get("split").and_then(Value::as_str) {
+        let from = character_arg(&s.graph, n, "character")?;
+        let (plugs, chars) = split_names(s, &objects(s, a), a)?;
+        let g = &mut s.graph;
+        remove_members(g, from, &plugs)?;
+        let t = types::find("character").unwrap();
+        let c = g.create_node(&t, a.get("name").and_then(Value::as_str).unwrap_or("character1"), NO_NODE, true)?;
+        add_members(g, c, &plugs)?;
+        for sub in chars {
+            remove_sub(g, from, sub)?;
+            add_sub(g, c, sub)?;
+        }
+        return Ok(json!(g.path(c)));
+    }
+    let (plugs, chars) = if a.bool("empty") { (Vec::new(), Vec::new()) } else { split_names(s, &objects(s, a), a)? };
+    if plugs.is_empty() && chars.is_empty() && !a.bool("empty") {
         fail!("character: name or select what goes in it, or use -em");
     }
     let t = types::find("character").unwrap();
-    let c = s.graph.create_node(&t, a.get("name").and_then(Value::as_str).unwrap_or("character1"), NO_NODE, true)?;
-    add_members(&mut s.graph, c, &plugs)?;
-    Ok(json!(s.graph.path(c)))
+    let g = &mut s.graph;
+    let c = g.create_node(&t, a.get("name").and_then(Value::as_str).unwrap_or("character1"), NO_NODE, true)?;
+    add_members(g, c, &plugs)?;
+    for sub in chars {
+        add_sub(g, c, sub)?;
+    }
+    if let Some(t) = a.get("text").and_then(Value::as_str) {
+        g.set_value(PlugRef::new(c, ANNOTATION as i32), PlugValue::String(t.to_string()))?;
+    }
+    if let Some(root) = a.get("root").and_then(Value::as_str) {
+        let Some(r) = g.find(root)? else { fail!("character: no object named {root}") };
+        make_offset(g, c, r)?;
+    }
+    Ok(json!(g.path(c)))
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// characterOffset
+
+const OFS_ACPT: usize = 0;
+const OFS_ENABLE: usize = 1;
+const OFS_IN_R: usize = 2;
+const OFS_IN_T: usize = 3;
+const OFS_INIT_T: usize = 4;
+const OFS_OFF_R: usize = 5;
+const OFS_OFF_ORDER: usize = 6;
+const OFS_PIVOT: usize = 7;
+const OFS_OFF_T: usize = 8;
+const OFS_OUT_R: usize = 9;
+const OFS_OUT_T: usize = 10;
+const OFS_JOINT_ORIENT: usize = 11;
+const OFS_PARENT_INV: usize = 12;
+const OFS_PARENT: usize = 13;
+const OFS_ORDER: usize = 14;
+const OFS_CONTROL_PARENT: usize = 15;
+const OFS_CONTROL_SCALE: usize = 16;
+
+/// Redirects a root's motion: its rotation turned by the offset rotation about the pivot, then moved by the offset
+/// translation less where the translation's driver started. Matrices taken as the root's parent space.
+struct CharacterOffset;
+
+impl NodeBehavior for CharacterOffset {
+    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        use crate::transform::{euler_near, euler_to_matrix, RotateOrder};
+        let (rin, tin) = (d.vec3(OFS_IN_R), d.vec3(OFS_IN_T));
+        if !d.bool(OFS_ENABLE) {
+            d.set_output(OFS_OUT_R, PlugValue::Vec3(rin));
+            d.set_output(OFS_OUT_T, PlugValue::Vec3(tin));
+            return;
+        }
+        let order = RotateOrder::from_index(d.int(OFS_ORDER));
+        let jo = glam::DMat3::from_mat4(euler_to_matrix(d.vec3(OFS_JOINT_ORIENT), RotateOrder::from_index(0)));
+        let off = glam::DMat3::from_mat4(euler_to_matrix(d.vec3(OFS_OFF_R), RotateOrder::from_index(d.int(OFS_OFF_ORDER))));
+        // Into the parent's space and back: the offset is in world space.
+        let parent = d.matrix(OFS_PARENT);
+        let parent_inv = d.matrix(OFS_PARENT_INV);
+        let control = if d.bool(OFS_ACPT) { d.matrix(OFS_CONTROL_PARENT) } else { glam::DMat4::IDENTITY };
+        let scale = d.vec3(OFS_CONTROL_SCALE);
+        let world_t = parent.transform_point3(tin);
+        let pivot = control.transform_point3(d.vec3(OFS_PIVOT) * scale);
+        let moved = off * (world_t - pivot) + pivot + control.transform_vector3(d.vec3(OFS_OFF_T) - d.vec3(OFS_INIT_T));
+        let tout = parent_inv.transform_point3(moved);
+        let pr = glam::DMat3::from_mat4(parent);
+        let rot = jo * glam::DMat3::from_mat4(euler_to_matrix(rin, order));
+        let world_r = pr * rot;
+        let out_r = pr.inverse() * off * world_r;
+        let local = jo.inverse() * out_r;
+        let rout = euler_near(&local, order, rin);
+        d.set_output(OFS_OUT_R, PlugValue::Vec3(rout));
+        d.set_output(OFS_OUT_T, PlugValue::Vec3(tout));
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+fn register_offset_type() {
+    use aztek_ops::units::Unit;
+    let v3 = |name: &str, short: &str, shorts: [&str; 3], default: f64, fl: u32, unit: Unit, doc: &str| {
+        let mut a = crate::node::vec3_attr(name, short, glam::DVec3::splat(default), fl, doc);
+        for (i, s) in shorts.iter().enumerate() {
+            a.child_short[i] = s.to_string();
+        }
+        a.unit = unit;
+        a
+    };
+    let io = flags::INPUT | flags::STORABLE;
+    let ax = |b: &str| [format!("{b}x"), format!("{b}y"), format!("{b}z")];
+    let sh = |b: &str| {
+        let v = ax(b);
+        [v[0].clone(), v[1].clone(), v[2].clone()]
+    };
+    fn s3(v: &[String; 3]) -> [&str; 3] {
+        [v[0].as_str(), v[1].as_str(), v[2].as_str()]
+    }
+    let (rri, rti, itf, rrf, rpf, rtf, rro, rto, rjo, rcs) = (sh("rri"), sh("rti"), sh("itf"), sh("rrf"), [String::from("rppfx"), String::from("rppfy"), String::from("rppfz")], sh("rtf"), sh("rro"), sh("rto"), sh("rjo"), sh("rcs"));
+    let mat = |name: &str, short: &str, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(glam::DMat4::IDENTITY), flags: io, doc: doc.into(), ..Default::default() };
+    let enm = |name: &str, short: &str, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Enum, default_value: PlugValue::Int(0), flags: io, enum_names: ["xyz", "yzx", "zxy", "xzy", "yxz", "zyx"].iter().map(|x| x.to_string()).collect(), doc: doc.into(), ..Default::default() };
+    let boolean = |name: &str, short: &str, d: bool, fl: u32, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Bool, default_value: PlugValue::Bool(d), flags: fl, doc: doc.into(), ..Default::default() };
+    types::register_type(NodeType {
+        name: "characterOffset".into(),
+        icon: "chart-line".into(),
+        doc: "Offsets a character's root: turns and moves its motion, as when redirecting a walk.".into(),
+        own_attrs: vec![
+            boolean("applyControlParentTransform", "acpx", false, io, "Take the offset control's parent matrix into account."),
+            boolean("enable", "nabl", true, io | flags::KEYABLE, "The offset is on."),
+            v3("inRootRotate", "rri", s3(&rri), 0.0, io, Unit::Angle, "The root's rotation before the offset."),
+            v3("inRootTranslate", "rti", s3(&rti), 0.0, io, Unit::Linear, "The root's translation before the offset."),
+            v3("initialOffsetRootTranslate", "itf", s3(&itf), 0.0, io, Unit::Linear, "Where the translation offset's driver starts."),
+            v3("offsetRootRotate", "rrf", s3(&rrf), 0.0, io | flags::KEYABLE, Unit::Angle, "The rotation offset."),
+            enm("offsetRootRotateOrder", "rfor", "The order the rotation offset applies in."),
+            v3("offsetRootRotatePivot", "rpf", s3(&rpf), 0.0, io | flags::KEYABLE, Unit::Linear, "What the rotation offset turns about."),
+            v3("offsetRootTranslate", "rtf", s3(&rtf), 0.0, io | flags::KEYABLE, Unit::Linear, "The translation offset."),
+            v3("outRootRotate", "rro", s3(&rro), 0.0, flags::OUTPUT, Unit::Angle, "The root's rotation after the offset."),
+            v3("outRootTranslate", "rto", s3(&rto), 0.0, flags::OUTPUT, Unit::Linear, "The root's translation after the offset."),
+            v3("rootJointOrient", "rjo", s3(&rjo), 0.0, io, Unit::Angle, "The root joint's orient."),
+            mat("rootParentInverseMatrix", "rpim", "The inverse of the root's parent matrix."),
+            mat("rootParentMatrix", "rpm", "The root's parent matrix."),
+            enm("rootRotateOrder", "rror", "The root's rotate order."),
+            mat("rotateControlParentMatrix", "rcpm", "The rotate control's parent matrix."),
+            v3("rotateControlScale", "rcs", s3(&rcs), 1.0, io, Unit::None, "The rotate control's scale."),
+        ],
+        create: Some(Arc::new(|| Box::new(CharacterOffset))),
+        ..Default::default()
+    })
+    .expect("characterOffset");
+}
+
+/// character -root: a characterOffset between the root's channels and what drives them.
+fn make_offset(g: &mut Graph, c: NodeId, root: NodeId) -> CmdResult<NodeId> {
+    let t = types::find("characterOffset").unwrap();
+    let o = g.create_node(&t, "characterOffset1", NO_NODE, true)?;
+    let msg = g.node(o).and_then(|n| n.ty().attr_index("message")).unwrap() as i32;
+    g.connect(&PlugRef::new(o, msg), &PlugRef::new(c, OFFSET_LINK as i32), false)?;
+    let ty = g.node(root).unwrap().ty().clone();
+    let at = |n: &str| ty.attr_index(n).map(|i| i as i32);
+    let pairs = [("rotate", OFS_IN_R, OFS_OUT_R), ("translate", OFS_IN_T, OFS_OUT_T)];
+    for (name, input, output) in pairs {
+        let Some(a) = at(name) else { continue };
+        let whole = PlugRef::new(root, a);
+        let v = g.value(&whole)?;
+        g.set_value(PlugRef::new(o, input as i32), v)?;
+        // Whatever drove the channel now drives the offset's input.
+        if let Some(src) = g.source(&whole) {
+            g.disconnect(&whole);
+            g.connect(&src, &PlugRef::new(o, input as i32), false)?;
+        }
+        for k in 0..3 {
+            let comp = PlugRef::component(root, a, k);
+            if let Some(src) = g.source(&comp) {
+                g.disconnect(&comp);
+                g.connect(&src, &PlugRef::component(o, input as i32, k), false)?;
+            }
+        }
+        g.connect(&PlugRef::new(o, output as i32), &whole, true)?;
+    }
+    if let Some(a) = at("rotateOrder") {
+        let v = g.value(&PlugRef::new(root, a))?;
+        g.set_value(PlugRef::new(o, OFS_ORDER as i32), v)?;
+    }
+    if let Some(a) = at("jointOrient") {
+        let v = g.value(&PlugRef::new(root, a))?;
+        g.set_value(PlugRef::new(o, OFS_JOINT_ORIENT as i32), v)?;
+    }
+    for (name, dst) in [("parentMatrix", OFS_PARENT), ("parentInverseMatrix", OFS_PARENT_INV)] {
+        if let Some(a) = at(name) {
+            g.connect(&PlugRef::new(root, a), &PlugRef::new(o, dst as i32), false)?;
+        }
+    }
+    Ok(o)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -525,11 +979,20 @@ fn bake_clip(s: &mut Session, a: &Args) -> CmdResult {
     let g = &mut s.graph;
     let c = character_arg(g, &char_name, "bakeClip")?;
     let (Some(lib), Some(sched)) = (library_of(g, c), scheduler_of(g, c)) else { fail!("bakeClip: {char_name} has no clips") };
-    let mut picked: Vec<usize> = match a.get("clipIndex").or(a.get("blend")) {
-        Some(Value::Array(v)) => v.iter().filter_map(Value::as_u64).map(|x| x as usize).collect(),
-        Some(v) => v.as_u64().map(|x| x as usize).into_iter().collect(),
-        None => Vec::new(),
-    };
+    // -ci and -b together: the clips named and the blend's two.
+    let mut picked: Vec<usize> = Vec::new();
+    for flag in ["clipIndex", "blend"] {
+        let idx: Vec<usize> = match a.get(flag) {
+            Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_u64().or_else(|| x.as_str().and_then(|s| s.parse().ok()))).map(|x| x as usize).collect(),
+            Some(v) => v.as_u64().map(|x| x as usize).into_iter().collect(),
+            None => Vec::new(),
+        };
+        for i in idx {
+            if !picked.contains(&i) {
+                picked.push(i);
+            }
+        }
+    }
     let clips = node_json(g, sched, SCHED_CLIPS);
     let list = clips.as_array().cloned().unwrap_or_default();
     if picked.is_empty() {
@@ -809,8 +1272,13 @@ pub fn register_types() {
                 data_attr("memberAttrs", "ma", "Each member's attr and component."),
                 data_attr("clipLibrary", "cli", "From its library."),
                 data_attr("clipScheduler", "cls", "From its scheduler."),
+                AttrDef { name: "subCharacters".into(), short_name: "sch".into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::ARRAY | flags::HIDDEN | flags::MESSAGE, doc: "The characters inside this one.".into(), ..Default::default() },
+                data_attr("offsetObjects", "ofo", "The members used to work out and apply offsets."),
+                AttrDef { name: "annotation".into(), short_name: "an".into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: flags::INPUT | flags::STORABLE, doc: "A note kept with the character.".into(), ..Default::default() },
+                AttrDef { name: "offsetNode".into(), short_name: "ofn".into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::HIDDEN | flags::MESSAGE, doc: "Its characterOffset node.".into(), ..Default::default() },
             ],
         );
+        register_offset_type();
         plain(
             "clipLibrary",
             "A character's source clips and poses.",
@@ -842,10 +1310,10 @@ pub fn register_types() {
 pub fn register(c: &mut Commands<Session>) {
     register_types();
     c.register(
-        Cmd::new("bakeClip", "Bake clips into one, frame by frame: -ci which (all by default), -bl a blend's two, -k keeps the originals disabled, -n its name. Returns the new clip.", bake_clip)
+        Cmd::new("bakeClip", "Bake clips into one, frame by frame: -ci which (all by default), -b a blend's two, -k keeps the originals disabled, -n its name. Returns the new clip.", bake_clip)
             .positional("character")
             .flag(f("clipIndex", "ci", ArgType::Any, "A clip's place on the scheduler.").multi(1))
-            .flag(f("blend", "bl", ArgType::List, "A blend's two clips.").multi(2))
+            .flag(f("blend", "b", ArgType::List, "The two clips of a blend, by index.").multi(2))
             .flag(f("keepOriginals", "k", ArgType::Bool, "Keep the clips, disabled."))
             .flag(f("name", "n", ArgType::String, "The new clip's name.")),
     );
@@ -881,7 +1349,24 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("excludeRotate", "er", ArgType::Bool, "Leave out rotate channels."))
         .flag(f("excludeScale", "es", ArgType::Bool, "Leave out scale channels."))
         .flag(f("excludeVisibility", "ev", ArgType::Bool, "Leave out visibility."))
-        .flag(f("excludeDynamic", "ed", ArgType::Bool, "Accepted for existing scripts: objects give their keyable channels.")),
+        .flag(f("excludeDynamic", "ed", ArgType::Bool, "Accepted for existing scripts: objects give their keyable channels."))
+        .flag(f("include", "in", ArgType::String, "The character to add to; what can't go in is left out with a warning."))
+        .flag(f("anyMember", "am", ArgType::String, "Whether any of the items is in this character."))
+        .flag(f("flatten", "fl", ArgType::String, "The character whose sub-characters give it their members."))
+        .flag(f("union", "un", ArgType::String, "Query: the members of this character and the others named."))
+        .flag(f("intersection", "int", ArgType::String, "Query: the members this character shares with all the others named."))
+        .flag(f("subtract", "sub", ArgType::String, "Query: the members of this character not in the others named."))
+        .flag(f("isIntersecting", "ii", ArgType::String, "Query: whether this character shares members with the others named."))
+        .flag(f("split", "sp", ArgType::String, "The character the items leave for a new one."))
+        .flag(f("noWarnings", "nw", ArgType::Bool, "No warnings for items that can't be added."))
+        .flag(f("text", "t", ArgType::String, "A note kept with the character."))
+        .flag(f("memberIndex", "mi", ArgType::Any, "Query: the member at this index, or the index of the member named."))
+        .flag(f("characterPlug", "cp", ArgType::Bool, "Query: the character's plug for the member named."))
+        .flag(f("userAlias", "ua", ArgType::Any, "Query: the alias given to the character's plug for a member, or an empty string."))
+        .flag(f("root", "rt", ArgType::String, "A transform to be the character's root, with a characterOffset node."))
+        .flag(f("offsetNode", "ofs", ArgType::Bool, "Query: the characterOffset node."))
+        .flag(f("addOffsetObject", "aoo", ArgType::String, "The character whose offset objects the selected members join; -q lists them."))
+        .flag(f("removeOffsetObject", "roo", ArgType::String, "The character whose offset objects the selected members leave.")),
     );
 
     c.register(
