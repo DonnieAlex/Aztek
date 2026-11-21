@@ -37,7 +37,7 @@ Requires:       vulkan-loader
 Requires:       hicolor-icon-theme
 # What the bundle's Qt and Python still take from the machine: its desktop, fonts and C++ runtime. The xcb-util
 # libraries the xcb plugin needs are inside the bundle.
-Requires:       libX11 libxcb fontconfig freetype glib2 dbus-libs libstdc++ zlib
+Requires:       libX11 libxcb fontconfig freetype glib2 dbus-libs libstdc++ zlib libglvnd-egl libglvnd-glx
 # A Vulkan driver is what draws. NVIDIA's own driver brings one, and is preferred over Mesa's when both are there.
 Recommends:     mesa-vulkan-drivers
 

@@ -26,13 +26,13 @@ done
 
 if [ "$DEPS" = 1 ]; then
   if command -v apt >/dev/null; then
-    sudo apt install -y build-essential cmake ninja-build curl libglvnd-dev libxkbcommon-dev libxkbcommon-x11-dev \
+    sudo apt install -y build-essential cmake ninja-build curl libglvnd-dev libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libxcb-xinerama0 libxkbcommon-dev libxkbcommon-x11-dev \
       libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev mesa-vulkan-drivers libvulkan1
   elif command -v dnf >/dev/null; then
-    sudo dnf install -y gcc-c++ cmake ninja-build curl libglvnd-devel libxkbcommon-devel libxkbcommon-x11 \
+    sudo dnf install -y gcc-c++ cmake ninja-build curl libglvnd-devel xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm libxkbcommon-devel libxkbcommon-x11 \
       fontconfig freetype dbus-libs glib2 mesa-vulkan-drivers vulkan-loader
   elif command -v pacman >/dev/null; then
-    sudo pacman -S --needed base-devel cmake ninja curl libglvnd libxkbcommon fontconfig freetype2 dbus glib2 \
+    sudo pacman -S --needed base-devel cmake ninja curl libglvnd libxkbcommon xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm fontconfig freetype2 dbus glib2 \
       vulkan-icd-loader
   else
     echo "Install by hand: a C++17 compiler, CMake 3.21+, Ninja, curl, the OpenGL and XKB development files, and a"

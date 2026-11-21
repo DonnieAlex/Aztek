@@ -56,8 +56,12 @@ for p in PySide6 shiboken6; do
   cp -a "$SITE/$p" "$PYDEST/site-packages/"
 done
 PS=$PYDEST/site-packages/PySide6
-rm -rf "$PS/Qt/plugins" "$PS/Qt/qml" "$PS/Qt/translations" "$PS/Qt/libexec" \
+rm -rf "$PS/Qt/plugins" "$PS/Qt/qml" "$PS/Qt/translations" "$PS/Qt/libexec" "$PS/scripts" \
   "$PS"/{assistant,designer,linguist,lrelease,lupdate,qmllint,qmlformat,qmlls,qmlcachegen,qmlimportscanner,qmltyperegistrar,rcc,uic,svgtoqml}
+# RPM's shebang mangling refuses this stdlib file as it is ("python", not "python3"); the bundle's Python runs it.
+if [ -f "$PYDEST/encodings/rot_13.py" ]; then
+  sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/env python3|' "$PYDEST/encodings/rot_13.py"
+fi
 
 # Every library the program, the plugins and Python's modules load, and what those load, except what every desktop has
 # and what has to match the machine: the C library, the graphics drivers' side (GL, Vulkan, DRM), X11 and Wayland's own,
