@@ -36,6 +36,8 @@
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QImage>
+#include <QInputDialog>
+#include <QRegularExpression>
 #include <QJsonDocument>
 #include <QKeyEvent>
 #include <QLabel>
@@ -178,8 +180,18 @@ public:
         run(r, true);
     }
     void set_spacing(int s) { spacing_ = s; invalidate(); }
+    void setSpacing(int s) override { set_spacing(s); }
+    int spacing() const override { return spacing_; }
+    void set_vertical(bool v) { vertical_ = v; invalidate(); }
 private:
-    QSize run(const QRect& r, bool apply) const {
+    QSize run(const QRect& outer, bool apply) const {
+        // The layout's margins (-margins, -margins4) keep its items in from its edges.
+        const QMargins m = contentsMargins();
+        const QRect r = outer.marginsRemoved(m);
+        QSize got = run_in(r, apply);
+        return got.isEmpty() ? got : got + QSize(m.left() + m.right(), m.top() + m.bottom());
+    }
+    QSize run_in(const QRect& r, bool apply) const {
         int x = r.x(), y = r.y(), across = 0, far_x = 0, far_y = 0;
         for (auto* i : items_) {
             if (i->isEmpty()) continue;
@@ -1002,7 +1014,8 @@ void ScriptUi::build_layout(Item* it, const QJsonObject& props) {
         it->grid = g;
     } else if (k == "flowLayout" || k == "shelfLayout") {
         bool wrap = k == "shelfLayout" || as_bool(props["wrap"]);
-        it->layout = new FlowLayout(w, as_bool(props["vertical"]), wrap, int(as_number(props["columnSpacing"], k == "shelfLayout" ? 2 : 0)));
+        bool vertical = k == "shelfLayout" ? !as_bool(props["horizontal"], true) : as_bool(props["vertical"]);
+        it->layout = new FlowLayout(w, vertical, wrap, int(as_number(props["columnSpacing"], k == "shelfLayout" ? 2 : 0)));
     } else if (k == "menuBarLayout") {
         auto* v = new QVBoxLayout(w);
         v->setContentsMargins(0, 0, 0, 0);
@@ -1061,8 +1074,56 @@ void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
             int mw = int(as_number(it->prop("marginWidth"))), mh = int(as_number(it->prop("marginHeight")));
             it->layout->setContentsMargins(mw, mh, mw, mh);
         }
+    } else if (k == "shelfLayout") {
+        // -horizontal off: the buttons run down rather than across.
+        if (props.contains("horizontal")) static_cast<FlowLayout*>(it->layout)->set_vertical(!as_bool(props["horizontal"], true));
     } else if (k == "tabLayout") {
         QSignalBlocker block(it->tabs);
+        auto by_kid = [&](const char* key, auto apply) {
+            if (!props.contains(key)) return;
+            QJsonObject map = props[key].toObject();
+            for (int i = 0; i < it->kids.size(); ++i)
+                if (map.contains(it->kids[i]->path)) {
+                    int at = it->tabs->indexOf(it->kids[i]->w);
+                    if (at >= 0) apply(at, map[it->kids[i]->path].toString());
+                }
+        };
+        by_kid("tabTooltips", [&](int at, const QString& t) { it->tabs->setTabToolTip(at, t); });
+        by_kid("tabIcons", [&](int at, const QString& t) {
+            QString image = az::find_image(t);
+            it->tabs->setTabIcon(at, image.isEmpty() ? QIcon() : QIcon(image));
+        });
+        // -borderStyle: a frame round the body (full), on three sides (notop), a line under the tabs (top), or none.
+        if (props.contains("borderStyle")) {
+            QString bs = props["borderStyle"].toString("full");
+            it->tabs->setDocumentMode(bs == "none" || bs == "top");
+            QString pane = bs == "none" ? "QTabWidget::pane { border: none; }" : bs == "top" ? "QTabWidget::pane { border: none; border-top: 1px solid palette(mid); }" : bs == "notop" ? "QTabWidget::pane { border: 1px solid palette(mid); border-top: none; }" : "";
+            it->tabs->setStyleSheet(pane);
+        }
+        // -image in the top right corner, shown unless -imageVisible is off.
+        if (props.contains("image") || props.contains("imageVisible")) {
+            QString image = az::find_image(it->prop("image").toString());
+            auto* corner = qobject_cast<QLabel*>(it->tabs->cornerWidget(Qt::TopRightCorner));
+            if (!image.isEmpty() && !corner) {
+                corner = new QLabel();
+                it->tabs->setCornerWidget(corner, Qt::TopRightCorner);
+            }
+            if (corner) {
+                if (!image.isEmpty()) corner->setPixmap(QPixmap(image).scaledToHeight(qMax(16, it->tabs->tabBar()->sizeHint().height() - 4), Qt::SmoothTransformation));
+                corner->setVisible(!image.isEmpty() && as_bool(it->prop("imageVisible"), true));
+            }
+        }
+        if (props.contains("margins")) {
+            int m = int(as_number(props["margins"]));
+            it->tabs->setContentsMargins(m, m, m, m);
+        }
+        QJsonArray m4 = flat(props["margins4"]);
+        if (m4.size() >= 4) it->tabs->setContentsMargins(int(as_number(m4[0])), int(as_number(m4[1])), int(as_number(m4[2])), int(as_number(m4[3])));
+        // -scrollableTabs off: the mouse wheel no longer changes the tab.
+        if (props.contains("scrollableTabs")) {
+            it->tabs->tabBar()->setProperty("azNoWheel", !as_bool(props["scrollableTabs"], true));
+            it->tabs->tabBar()->installEventFilter(this);
+        }
         if (props.contains("tabLabels")) {
             QJsonObject labels = props["tabLabels"].toObject();
             for (int i = 0; i < it->kids.size(); ++i)
@@ -1218,7 +1279,13 @@ void ScriptUi::place(Item* parent, Item* child) {
     } else if (k == "tabLayout") {
         QJsonObject labels = parent->prop("tabLabels").toObject();
         QSignalBlocker block(parent->tabs);
-        parent->tabs->addTab(w, labels.contains(child->path) ? labels[child->path].toString() : child->name);
+        int at = parent->tabs->addTab(w, labels.contains(child->path) ? labels[child->path].toString() : child->name);
+        QJsonObject tips = parent->prop("tabTooltips").toObject(), icons = parent->prop("tabIcons").toObject();
+        if (tips.contains(child->path)) parent->tabs->setTabToolTip(at, tips[child->path].toString());
+        if (icons.contains(child->path)) {
+            QString image = az::find_image(icons[child->path].toString());
+            if (!image.isEmpty()) parent->tabs->setTabIcon(at, QIcon(image));
+        }
     } else if (k == "paneLayout") {
         QList<PaneCell> cells = pane_cells(parent->prop("configuration").toString("single"));
         if (parent->next_cell < cells.size()) {
@@ -1311,7 +1378,13 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         auto* b = new QToolButton();
         b->setCheckable(true);
         b->setText(k == "symbolCheckBox" ? QString() : amp(label));
-        connect(b, &QToolButton::toggled, this, [this, path](bool on) {
+        connect(b, &QToolButton::toggled, this, [this, path, k](bool on) {
+            if (k == "symbolCheckBox") {
+                if (Item* me = items_.value(path)) {
+                    me->props["value"] = on;
+                    symbol_check_image(me);
+                }
+            }
             fire(path, QJsonObject{{"value", on}}, QJsonArray{"changeCommand", on ? "onCommand" : "offCommand"}, QJsonArray{on});
         });
         it->w = b;
@@ -2088,11 +2161,21 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         auto* b = qobject_cast<QToolButton*>(w);
         if (b) {
             QString image = az::find_image(props.contains("image") ? props["image"].toString() : props.contains("image1") ? props["image1"].toString() : QString());
+            // A shelf button's -flipX and -flipY mirror its picture.
+            bool flip = k == "shelfButton" && (as_bool(it->prop("flipX")) || as_bool(it->prop("flipY")));
+            if (flip && image.isEmpty()) image = az::find_image(it->prop("image").toString().isEmpty() ? it->prop("image1").toString() : it->prop("image").toString());
             if (!image.isEmpty()) {
-                b->setIcon(QIcon(image));
+                if (flip) {
+                    QImage img(image);
+                    b->setIcon(QIcon(QPixmap::fromImage(img.mirrored(as_bool(it->prop("flipX")), as_bool(it->prop("flipY"))))));
+                } else {
+                    b->setIcon(QIcon(image));
+                }
                 b->setIconSize(QSize(32, 32));
             }
-            QString style = it->prop("style").toString(k == "symbolButton" ? "iconOnly" : "textOnly");
+            if (k == "symbolCheckBox") symbol_check_image(it);
+            if (k == "shelfButton") shelf_button_extras(it, props);
+            QString style = it->prop("style").toString(k == "symbolButton" || k == "symbolCheckBox" ? "iconOnly" : "textOnly");
             b->setToolButtonStyle(style == "iconOnly" ? Qt::ToolButtonIconOnly : style == "iconAndTextVertical" ? Qt::ToolButtonTextUnderIcon : style == "iconAndTextHorizontal" ? Qt::ToolButtonTextBesideIcon : Qt::ToolButtonTextOnly);
             if (props.contains("value")) {
                 QSignalBlocker block(b);
@@ -2105,6 +2188,11 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         }
     } else if (k == "text") {
         auto* l = static_cast<QLabel*>(w);
+        if (props.contains("hasDropRect")) {
+            l->setAcceptDrops(true);
+            l->setProperty("azDropRectPath", it->path);
+            l->installEventFilter(this);
+        }
         if (props.contains("label")) l->setText(props["label"].toString());
         if (props.contains("align")) l->setAlignment(alignment(props["align"].toString()));
         if (props.contains("wordWrap")) l->setWordWrap(as_bool(props["wordWrap"]));
@@ -2436,12 +2524,122 @@ void ScriptUi::edit(Item* it, const QJsonObject& props) {
     apply_common(it, props);
 }
 
+// A symbol check box's picture for its state: -onImage or -offImage, and -disableOnImage or -disableOffImage when it is
+// disabled, each falling back to -image. -innerMargin puts the old 2 pixel margin round it.
+void ScriptUi::symbol_check_image(Item* it) {
+    auto* b = qobject_cast<QToolButton*>(it->w);
+    if (!b) return;
+    bool on = as_bool(it->prop("value"));
+    bool enabled = as_bool(it->prop("enable"), true);
+    auto pick = [&](const char* key) { return it->prop(key).toString(); };
+    QString name = enabled ? pick(on ? "onImage" : "offImage") : pick(on ? "disableOnImage" : "disableOffImage");
+    if (name.isEmpty() && !enabled) name = pick(on ? "onImage" : "offImage");
+    if (name.isEmpty()) name = pick("image");
+    QString image = az::find_image(name);
+    if (!image.isEmpty()) {
+        b->setIcon(QIcon(image));
+        b->setIconSize(QSize(32, 32));
+    }
+    int m = as_bool(it->prop("innerMargin")) ? 2 : 0;
+    b->setStyleSheet(m ? QString("QToolButton { padding: %1px; }").arg(m) : QString());
+}
+
+// A shelf button's popup menu from -menuItem and -menuItemWithOptionBox (each entry fires its command by number), a
+// label renamed by double click with -labelEditingCallback, and nodes dropped on it with -handleNodeDropCallback.
+void ScriptUi::shelf_button_extras(Item* it, const QJsonObject& props) {
+    auto* b = qobject_cast<QToolButton*>(it->w);
+    if (!b) return;
+    const QString path = it->path;
+    if (props.contains("menuEntries")) {
+        QJsonArray entries = props["menuEntries"].toArray();
+        if (entries.isEmpty()) {
+            b->setContextMenuPolicy(Qt::DefaultContextMenu);
+        } else {
+            b->setContextMenuPolicy(Qt::CustomContextMenu);
+            QObject::disconnect(b, &QWidget::customContextMenuRequested, nullptr, nullptr);
+            connect(b, &QWidget::customContextMenuRequested, this, [this, path, b](const QPoint& at) {
+                Item* me = items_.value(path);
+                if (!me) return;
+                QMenu menu;
+                QJsonArray list = me->prop("menuEntries").toArray();
+                for (int i = 0; i < list.size(); ++i) {
+                    QJsonObject e = list[i].toObject();
+                    QString n = QString::number(i + 1);
+                    menu.addAction(amp(e["label"].toString()), this, [this, path, n] { fire(path, QJsonObject(), QJsonArray{"menuItemCommand" + n}, QJsonArray()); });
+                    if (e["optionBox"].toBool()) menu.addAction(amp(e["label"].toString()) + " (options)", this, [this, path, n] { fire(path, QJsonObject(), QJsonArray{"menuItemOptionCommand" + n}, QJsonArray()); });
+                }
+                menu.exec(b->mapToGlobal(at));
+            });
+        }
+    }
+    if (props.contains("hasLabelEdit")) b->setProperty("azLabelEdit", true);
+    if (props.contains("hasNodeDrop")) {
+        b->setAcceptDrops(true);
+        b->setProperty("azNodeDropPath", path);
+    }
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Events on controls
 
 bool ScriptUi::eventFilter(QObject* o, QEvent* e) {
     auto* w = qobject_cast<QWidget*>(o);
     if (!w) return false;
+    // A tab bar with -scrollableTabs off keeps its tab under the wheel.
+    if (e->type() == QEvent::Wheel && w->property("azNoWheel").toBool()) return true;
+    // A shelf button taking a node dropped on it: its name goes to -handleNodeDropCallback.
+    const QString node_drop = w->property("azNodeDropPath").toString();
+    if (!node_drop.isEmpty() && (e->type() == QEvent::DragEnter || e->type() == QEvent::DragMove)) {
+        auto* de = static_cast<QDragMoveEvent*>(e);
+        if (de->mimeData()->hasText() && !de->mimeData()->hasFormat(CONTROL_MIME)) {
+            de->acceptProposedAction();
+            return true;
+        }
+    } else if (!node_drop.isEmpty() && e->type() == QEvent::Drop) {
+        auto* de = static_cast<QDropEvent*>(e);
+        if (de->mimeData()->hasText() && !de->mimeData()->hasFormat(CONTROL_MIME)) {
+            de->acceptProposedAction();
+            for (const QString& node : de->mimeData()->text().split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts)) fire(node_drop, QJsonObject(), QJsonArray{"handleNodeDropCallback"}, QJsonArray{node});
+            return true;
+        }
+    }
+    // A text control with -dropRectCallback: the rectangle it gives drawn while a drag is over it.
+    const QString rect_path = w->property("azDropRectPath").toString();
+    if (!rect_path.isEmpty() && (e->type() == QEvent::DragEnter || e->type() == QEvent::DragMove || e->type() == QEvent::DragLeave || e->type() == QEvent::Drop)) {
+        auto* band = w->findChild<QFrame*>("azDropRect");
+        if (e->type() == QEvent::DragLeave || e->type() == QEvent::Drop) {
+            if (band) band->hide();
+        } else {
+            QPoint at = static_cast<QDropEvent*>(e)->position().toPoint();
+            QJsonObject ask_it{{"path", rect_path}, {"x", at.x()}, {"y", at.y()}};
+            QJsonArray r = query("uiDropRect", QString::fromUtf8(QJsonDocument(ask_it).toJson(QJsonDocument::Compact))).toArray();
+            if (r.size() == 4) {
+                if (!band) {
+                    band = new QFrame(w);
+                    band->setObjectName("azDropRect");
+                    band->setStyleSheet("QFrame#azDropRect { border: 2px solid palette(highlight); background: transparent; }");
+                    band->setAttribute(Qt::WA_TransparentForMouseEvents);
+                }
+                band->setGeometry(r[0].toInt(), r[1].toInt(), r[2].toInt(), r[3].toInt());
+                band->show();
+                band->raise();
+                static_cast<QDragMoveEvent*>(e)->acceptProposedAction();
+            } else if (band) {
+                band->hide();
+            }
+        }
+    }
+    // A shelf button's label renamed by double click: -labelEditingCallback gets the new label.
+    if (e->type() == QEvent::MouseButtonDblClick && w->property("azLabelEdit").toBool()) {
+        for (Item* it : items_)
+            if (it->w == w) {
+                bool ok = false;
+                QString now = it->prop("label").toString(it->name);
+                QString got = QInputDialog::getText(w, "Rename", "Label:", QLineEdit::Normal, now, &ok);
+                if (ok && got != now) fire(it->path, QJsonObject{{"label", got}}, QJsonArray{"labelEditingCallback"}, QJsonArray{got});
+                return true;
+            }
+    }
     // An option menu's list about to show: its -beforeShowPopup and -postMenuCommand.
     const QString om_path = w->property("azOptionMenuPath").toString();
     if (!om_path.isEmpty() && (e->type() == QEvent::MouseButtonPress || (e->type() == QEvent::KeyPress && (static_cast<QKeyEvent*>(e)->key() == Qt::Key_Space || static_cast<QKeyEvent*>(e)->key() == Qt::Key_Down)))) {

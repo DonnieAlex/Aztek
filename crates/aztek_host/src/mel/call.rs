@@ -153,6 +153,8 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
             | ("proximityWrap", "canBeAdded")
+            | ("selectPriority", "queryByName")
+            | ("setInfinity", "attribute")
             | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
             | (
                 "polySelect",

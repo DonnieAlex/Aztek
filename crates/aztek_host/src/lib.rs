@@ -403,6 +403,7 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             }
             "runtimeCommands" => ui_cmds::runtime_commands(),
             "uiDrag" => attr_ui::drag_start(c, &arg),
+            "uiDropRect" => attr_ui::drop_rect(c, &arg),
             "aeTemplate" => script_objects::ae_template(c, &arg),
             "panelSync" => {
                 panel_cmds::shell_sync(&serde_json::from_str(&arg).unwrap_or(json!({})));

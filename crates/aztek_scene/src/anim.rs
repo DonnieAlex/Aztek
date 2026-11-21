@@ -1081,13 +1081,25 @@ pub(crate) fn targets(s: &Session, a: &aztek_ops::Args, cmd: &str) -> CmdResult<
             }
         }
         for node in nodes {
+            // -controlPoints: the shapes' control points, as each one's channels.
+            if a.bool("controlPoints") {
+                for &k in g.children(node) {
+                    let Some(n) = g.node(k).filter(|x| x.ty().dag && !x.ty().is_a("transform")) else { continue };
+                    for at in ["controlPoints", "pnts"] {
+                        let Some(i) = n.ty().attr_index(at) else { continue };
+                        for e in g.elements(&PlugRef::new(k, i as i32)) {
+                            out.extend(split(e));
+                        }
+                    }
+                }
+            }
             if attrs.is_empty() {
                 out.extend(keyable_plugs(g, node));
                 if want_shape {
                     for &k in g.children(node) {
                         if g.node(k).is_some_and(|x| x.ty().dag && !x.ty().is_a("transform")) {
                             // A shape's visibility isn't one of the channels S keys.
-                            out.extend(keyable_plugs(g, k).into_iter().filter(|p| p.attr != crate::transform::DagNode::VISIBILITY as i32));
+                            out.extend(keyable_plugs(g, k).into_iter().filter(|p| p.attr != crate::transform::DagNode::VISIBILITY as i32).flat_map(&split));
                         }
                     }
                 }

@@ -327,6 +327,7 @@ pub(crate) const COMMON: &str = "annotation:ann:a backgroundColor:bgc:a defineTe
 const LAYOUT: &str = "childArray:ca:b numberOfChildren:nch:b";
 const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:dcs:b dockingLayout:dl:a state:st:a menuArray:ma:b";
 const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a";
+const SHELF_BUTTON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a enableCommandRepeat:ecr:b flipX:fx:b flipY:fy:b handleNodeDropCallback:hnd:a labelEditingCallback:lec:a menuItem:mi:a2 menuItemPython:mip:a1 menuItemWithOptionBox:mio:a3 noDefaultPopup:ndp:b";
 const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a";
 pub(crate) const SLIDER_GRP: &str = "label:l:a field:f:b value:v:a minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderStep:ss:a step:s:a fieldStep:fs:a extraLabel:el:a changeCommand:cc:a dragCommand:dc:a";
 const FIELD: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a changeCommand:cc:a dragCommand:dc:a enterCommand:ec:a receiveFocusCommand:rfc:a editable:ed:b";
@@ -344,18 +345,18 @@ const KINDS: &[(&str, &str)] = &[
     ("formLayout", "numberOfDivisions:nd:a attachForm:af:a3 attachControl:ac:a4 attachPosition:ap:a4 attachNone:an:a2 attachOppositeForm:aof:a3 attachOppositeControl:aoc:a4 generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("frameLayout", "label:l:a collapsable:cll:b collapse:cl:b marginHeight:mh:a marginWidth:mw:a borderVisible:bv:b borderStyle:bs:a labelVisible:lv:b labelIndent:li:a labelWidth:lw:a labelAlign:la:a font:fn:a collapseCommand:cc:a expandCommand:ec:a preCollapseCommand:pcc:a preExpandCommand:pec:a backgroundShade:bgs:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("scrollLayout", "horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a childResizable:cr:b resizeCommand:rc:a scrollAreaHeight:sah:b scrollAreaWidth:saw:b scrollAreaValue:sav:b scrollByPixel:sbp:a2 scrollPage:sp:a minChildWidth:mcw:a verticalScrollBarAlwaysVisible:vsb:b panEnabled:pe:b borderVisible:bv:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
-    ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a"),
+    ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b borderStyle:bs:a closeTab:ct:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4 postMenuCommand:pmc:a scrollableTabs:stb:b tabIcon:ti:a2 tabIconIndex:tii:a2 tabTooltipIndex:tti:a2"),
     ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b activeFrameThickness:aft:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
-    ("shelfLayout", "cellWidth:cwd:a cellHeight:ch:a cellWidthHeight:cwh:a spacing:spa:a alignment:aln:a position:pos:a2 style:st:a version:ver:a"),
+    ("shelfLayout", "cellWidth:cw:a cellHeight:ch:a cellWidthHeight:cwh:a spacing:spa:a alignment:aln:a position:pos:a2 style:st:a version:ver:a horizontal:hr:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("menuBarLayout", "menuBarVisible:mbv:b menuArray:ma:b menuIndex:mi:a2 numberOfMenus:nm:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("button", "label:l:a align:al:a command:c:a recomputeSize:rs:b actOnPress:aop:b actionIsSubstitute:ais:b"),
     ("iconTextButton", BUTTON_ICON),
-    ("shelfButton", BUTTON_ICON),
+    ("shelfButton", SHELF_BUTTON),
     ("iconTextCheckBox", "style:st:a image:i:a image1:i1:a label:l:a value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b font:fn:a align:al:a"),
     ("iconTextRadioButton", "style:st:a image:i:a image1:i1:a label:l:a select:sl:b collection:cl:a onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b font:fn:a align:al:a"),
     ("symbolButton", "image:i:a command:c:a"),
-    ("symbolCheckBox", "image:i:a onImage:oni:a offImage:ofi:a value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a"),
-    ("text", "label:l:a align:al:a font:fn:a recomputeSize:rs:b wordWrap:ww:b hyperlink:hl:b"),
+    ("symbolCheckBox", "image:i:a onImage:oni:a offImage:ofi:a disableOnImage:dni:a disableOffImage:dfi:a innerMargin:im:b version:ver:a value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a"),
+    ("text", "label:l:a align:al:a font:fn:a recomputeSize:rs:b wordWrap:ww:b hyperlink:hl:b dropRectCallback:drc:a"),
     ("textField", "text:tx:a placeholderText:pht:a editable:ed:b changeCommand:cc:a textChangedCommand:tcc:a enterCommand:ec:a alwaysInvokeEnterCommandOnReturn:aie:b receiveFocusCommand:rfc:a insertText:it:a insertionPosition:ip:a fileName:fi:a font:fn:a searchField:sf:b"),
     ("textFieldGrp", "label:l:a text:tx:a placeholderText:pht:a editable:ed:b changeCommand:cc:a textChangedCommand:tcc:a forceChangeCommand:fcc:b fileName:fi:a insertText:it:a insertionPosition:ip:a"),
     ("textFieldButtonGrp", "label:l:a text:tx:a placeholderText:pht:a editable:ed:b changeCommand:cc:a textChangedCommand:tcc:a forceChangeCommand:fcc:b fileName:fi:a insertText:it:a insertionPosition:ip:a buttonLabel:bl:a buttonCommand:bc:a enableButton:eb:b"),
@@ -390,7 +391,7 @@ const KINDS: &[(&str, &str)] = &[
     ("workspaceControl", "label:l:a uiScript:ui:a floating:fl:b initialWidth:iw:a initialHeight:ih:a minimumWidth:mw:a minimumHeight:mh:a retain:r:b widthProperty:wp:a heightProperty:hp:a dockToMainWindow:dtm:a2 dockToControl:dtc:a2 dockToPanel:dtp:a3 tabToControl:ttc:a2 collapse:clp:b restore:rs:b closeCommand:cc:a requiredPlugin:rp:a requiredControl:rc:a loadImmediately:li:b checksPlugins:cp:b actLikeMayaUIElement:aui:b duplicatable:dup:b horizontal:hr:b stateString:ss:a uiScriptCommand:uic:a"),
     ("dockControl", "area:a:a content:con:a allowedArea:aa:a label:l:a floating:fl:b retain:ret:b raise:r:b moveable:mov:b sizeable:s:b fixedWidth:fw:b fixedHeight:fh:b enablePopupOption:epo:b dockStation:ds:a splitLayout:sl:a state:st:a closeCommand:cc:a floatChangeCommand:fcc:a"),
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
-    ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b"),
+    ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b borderStyle:bs:a closeTab:ct:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4 postMenuCommand:pmc:a scrollableTabs:stb:b tabIcon:ti:a2 tabIconIndex:tii:a2 tabTooltipIndex:tti:a2"),
     ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:ct:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:udc:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColorCommand:cbc:a cellForegroundColorCommand:cfc:a columnFilter:cf:a2 editable:ed:b rowsRemovedCmd:rrc:a rowsToBeRemovedCmd:rtc:a selectionBehavior:sb:a selectionMode:sm:a"),
     ("layerButton", "label:l:a name:n:a changeCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:hp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
     ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:pin:b toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
@@ -511,13 +512,52 @@ fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String
                 "dropCallback" => {
                     changed.insert("hasDrop".to_string(), json!(true));
                 }
+                // A node dropped on it (shelfButton), and a rectangle to draw as a drag hovers (text).
+                "handleNodeDropCallback" => {
+                    changed.insert("hasNodeDrop".to_string(), json!(true));
+                }
+                "dropRectCallback" => {
+                    changed.insert("hasDropRect".to_string(), json!(true));
+                }
+                "labelEditingCallback" => {
+                    changed.insert("hasLabelEdit".to_string(), json!(true));
+                }
                 _ => {}
             }
             continue;
         }
         apply_one(m, id, &kind, key, raw, &mut changed)?;
     }
+    // A shelf button's popup menu: -menuItem label command, -menuItemWithOptionBox label command optionCommand, in the
+    // order given, -menuItemPython marking which are Python.
+    if kind == "shelfButton" && ["menuItem", "menuItemWithOptionBox", "menuItemPython"].iter().any(|k| flags.contains_key(*k)) {
+        shelf_menu(m, id, &mut changed);
+    }
     Ok(changed)
+}
+
+/// Builds a shelf button's popup entries from its -menuItem, -menuItemWithOptionBox and -menuItemPython: the labels for
+/// the shell, each entry's command (and option box command) kept as callbacks to fire by number.
+fn shelf_menu(m: &mut Model, id: Id, changed: &mut Map<String, Value>) {
+    let prop = |m: &Model, k: &str| m.get(id).and_then(|c| c.props.get(k)).cloned().unwrap_or(Value::Null);
+    let plain = flat(&prop(m, "menuItem"));
+    let boxed = flat(&prop(m, "menuItemWithOptionBox"));
+    let python: Vec<i64> = flat(&prop(m, "menuItemPython")).iter().map(|v| number(v) as i64).collect();
+    let mut entries: Vec<(String, String, Option<String>)> = plain.chunks(2).filter(|c| c.len() == 2).map(|c| (text(&c[0]), text(&c[1]), None)).collect();
+    entries.extend(boxed.chunks(3).filter(|c| c.len() == 3).map(|c| (text(&c[0]), text(&c[1]), Some(text(&c[2])))));
+    let mut labels = Vec::new();
+    for (i, (label, cmd, opt)) in entries.iter().enumerate() {
+        let py = python.contains(&(i as i64));
+        let cb = |src: &str| if py { json!({ "__pysrc__": src }) } else { json!(src) };
+        if let Some(c) = m.controls.get_mut(&id) {
+            c.props.insert(format!("menuItemCommand{}", i + 1), cb(cmd));
+            if let Some(o) = opt {
+                c.props.insert(format!("menuItemOptionCommand{}", i + 1), cb(o));
+            }
+        }
+        labels.push(json!({"label": label, "optionBox": opt.is_some()}));
+    }
+    set(m, id, "menuEntries", Value::Array(labels), changed);
 }
 
 fn set(m: &mut Model, id: Id, key: &str, v: Value, changed: &mut Map<String, Value>) {
@@ -590,6 +630,53 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
                 }
             }
         }
+        ("tabLayout", "tabTooltip" | "tabIcon") => {
+            let store = if key == "tabTooltip" { "tabTooltips" } else { "tabIcons" };
+            for ch in vals.chunks(2) {
+                if let [c, l] = ch {
+                    let Some(child) = m.find(&text(c)) else { return Err(format!("Object '{}' not found.", text(c))) };
+                    let path = m.get(child).unwrap().path.clone();
+                    let mut map = m.get(id).and_then(|c| c.props.get(store)).and_then(Value::as_object).cloned().unwrap_or_default();
+                    map.insert(path, json!(text(l)));
+                    set(m, id, store, Value::Object(map), changed);
+                }
+            }
+        }
+        ("tabLayout", "tabTooltipIndex" | "tabIconIndex") => {
+            let store = if key == "tabTooltipIndex" { "tabTooltips" } else { "tabIcons" };
+            for ch in vals.chunks(2) {
+                if let [i, l] = ch {
+                    let kids = m.get(id).map(|c| c.children.clone()).unwrap_or_default();
+                    let Some(&k) = kids.get((number(i) as usize).saturating_sub(1)) else { return Err(format!("{key}: no such tab.")) };
+                    let path = m.get(k).unwrap().path.clone();
+                    let mut map = m.get(id).and_then(|c| c.props.get(store)).and_then(Value::as_object).cloned().unwrap_or_default();
+                    map.insert(path, json!(text(l)));
+                    set(m, id, store, Value::Object(map), changed);
+                }
+            }
+        }
+        ("tabLayout", "closeTab") => {
+            // By 1-based index, as the other index flags: the tab and what is in it go.
+            let kids = m.get(id).map(|c| c.children.clone()).unwrap_or_default();
+            let i = number(raw) as usize;
+            let Some(&k) = kids.get(i.saturating_sub(1)).filter(|_| i >= 1) else { return Err("closeTab: no such tab.".into()) };
+            for cb in m.delete(k) {
+                run_soon(cb, Vec::new());
+            }
+            let n = m.get(id).map(|c| c.children.len()).unwrap_or(0);
+            let sel = m.get(id).and_then(|c| c.props.get("selectTabIndex")).map(number).unwrap_or(1.0) as usize;
+            if sel > n {
+                set(m, id, "selectTabIndex", json!(n.max(1)), changed);
+            }
+        }
+        ("tabLayout", "borderStyle") => {
+            let t = text(raw);
+            if !matches!(t.as_str(), "none" | "top" | "notop" | "full") {
+                return Err(format!("borderStyle: none, top, notop or full, not {t}."));
+            }
+            set(m, id, key, json!(t), changed);
+        }
+        ("shelfLayout", "horizontal") => set(m, id, key, json!(truth(raw)), changed),
         ("tabLayout", "selectTab") => {
             let name = text(raw);
             let kids = m.get(id).map(|c| c.children.clone()).unwrap_or_default();
@@ -892,6 +979,34 @@ pub(crate) fn control_kind(path: &str) -> Option<String> {
 
 pub(crate) fn control_full_path(path: &str) -> Option<String> {
     with_model(|m| m.find(path).and_then(|i| m.get(i)).map(|c| c.path.clone()))
+}
+
+/// A command's -defineTemplate: the flags go into the template as that command's defaults.
+pub(crate) fn define_template(template: &str, cmd: &str, flags: &Map<String, Value>) {
+    with_model(|m| {
+        let e = m.templates.entry(template.to_string()).or_default().entry(cmd.to_string()).or_default();
+        for (k, v) in flags {
+            if !META.contains(&k.as_str()) && k != "defineTemplate" && !v.is_null() {
+                e.insert(k.clone(), v.clone());
+            }
+        }
+    })
+}
+
+/// The defaults a command takes from the templates: -useTemplate's, or the current one's.
+pub(crate) fn template_defaults(cmd: &str, use_template: Option<&str>) -> Map<String, Value> {
+    with_model(|m| {
+        let mut out = Map::new();
+        let names: Vec<String> = use_template.map(str::to_string).into_iter().chain(m.template_stack.last().cloned()).collect();
+        for t in names {
+            if let Some(d) = m.templates.get(&t).and_then(|x| x.get(cmd)) {
+                for (k, v) in d {
+                    out.entry(k.clone()).or_insert(v.clone());
+                }
+            }
+        }
+        out
+    })
 }
 
 pub(crate) fn control_prop(path: &str, key: &str) -> Option<Value> {
@@ -1208,6 +1323,12 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("dockControl", "fixedWidth" | "fixedHeight" | "raise") => json!(false),
         ("flowLayout", "horizontal") => json!(!c.props.get("vertical").is_some_and(truth)),
         ("flowLayout", "vertical" | "wrap") => json!(false),
+        ("tabLayout", "scrollableTabs" | "imageVisible") => json!(true),
+        ("tabLayout", "borderStyle") => json!("full"),
+        ("shelfLayout", "horizontal") => json!(true),
+        ("shelfButton", "enableCommandRepeat") => json!(true),
+        ("shelfButton", "flipX" | "flipY" | "noDefaultPopup") => json!(false),
+        ("symbolCheckBox", "innerMargin") => json!(false),
         ("frameLayout", "backgroundShade") => json!(false),
         ("floatScrollBar" | "intScrollBar", "largeStep") => json!(if c.kind == "floatScrollBar" { json!(10.0) } else { json!(10) }),
         (k, "label") if !is_group(k) => json!(c.name),
@@ -1288,6 +1409,12 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
             no_list(v)
         }
         "tabLabelIndex" => query(m, id, "tabLabel"),
+        "tabTooltip" | "tabTooltipIndex" | "tabIcon" | "tabIconIndex" if c.kind == "tabLayout" => {
+            let store = if key.starts_with("tabTooltip") { "tabTooltips" } else { "tabIcons" };
+            let map = c.props.get(store).and_then(Value::as_object).cloned().unwrap_or_default();
+            let v: Vec<String> = c.children.iter().filter_map(|k| m.get(*k)).map(|k| map.get(&k.path).map(text).unwrap_or_default()).collect();
+            no_list(v)
+        }
         "selectTabIndex" => {
             if c.children.is_empty() {
                 json!(0)
@@ -1722,6 +1849,15 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
                     }
                 }
                 if let Some(cb) = m.get(id).and_then(|c| c.props.get(flag)).cloned() {
+                    // -handleNodeDropCallback and -labelEditingCallback: a MEL script has the node's name or the new
+                    // label added to it as a string.
+                    if matches!(flag, "handleNodeDropCallback" | "labelEditingCallback") {
+                        if let (Value::String(src), Some(arg)) = (&cb, args.first()) {
+                            let quoted = text(arg).replace('\\', "\\\\").replace('"', "\\\"");
+                            out.push((json!(format!("{src} \"{quoted}\"")), Vec::new()));
+                            continue;
+                        }
+                    }
                     out.push((cb, args.clone()));
                 }
             }

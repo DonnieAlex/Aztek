@@ -1019,6 +1019,11 @@ fn sym_meshes(s: &Session) -> Vec<String> {
     list.into_iter().map(|n| g.path(n)).collect()
 }
 
+/// Where symmetricModelling -seamFalloffCurve is kept, and what it is to begin with: full strength on the seam, none at
+/// the edge of its tolerance.
+const SEAM_FALLOFF: &str = "__symmetricModelling:seamFalloffCurve";
+const DEFAULT_SEAM_FALLOFF: &str = "1,0,2,0,1,2";
+
 fn symmetric_modelling(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("query") {
         let e = &s.extras.symmetry;
@@ -1037,10 +1042,23 @@ fn symmetric_modelling(s: &mut Session, a: &Args) -> CmdResult {
         if asked(a, "preserveSeam") {
             return Ok(json!(if s.graph.move_opts.preserve_seam { 1 } else { 0 }));
         }
+        if asked(a, "seamFalloffCurve") {
+            return Ok(s.option_vars.get(SEAM_FALLOFF).cloned().unwrap_or_else(|| json!(DEFAULT_SEAM_FALLOFF)));
+        }
         return Ok(json!(e.on));
     }
     if a.bool("reset") {
         s.extras.symmetry = Default::default();
+        s.option_vars.remove(SEAM_FALLOFF);
+    }
+    if let Some(t) = a.get("seamFalloffCurve").and_then(Value::as_str) {
+        let n: Result<Vec<f64>, _> = t.split(',').map(str::trim).filter(|x| !x.is_empty()).map(str::parse::<f64>).collect();
+        match n {
+            Ok(v) if !v.is_empty() && v.len() % 3 == 0 => {
+                s.option_vars.insert(SEAM_FALLOFF.into(), json!(t));
+            }
+            _ => fail!("symmetricModelling: -seamFalloffCurve takes three numbers per point: strength, distance, interpolation"),
+        }
     }
     if a.has("tolerance") {
         s.extras.symmetry.tolerance = a.float("tolerance", 0.001);
@@ -1320,10 +1338,11 @@ pub(super) fn register(c: &mut Commands<Session>) {
     c.register(query_flags(Cmd::new("symmetricModelling", "Symmetry for component edits: -e -s on, -ax x|y|z, -ab world|object|topo, -ts on from the selected seam edge. On the selected meshes, or all. -q reads each.", symmetric_modelling))
         .flag(fl("symmetry", "s", T::Any, Value::Null, "On or off."))
         .flag(fl("axis", "ax", T::Any, Value::Null, "x, y or z."))
-        .flag(fl("about", "ab", T::Any, Value::Null, "world, object or topo. All mirror in the object's axes here; topo pairs by topology."))
+        .flag(fl("about", "a", T::Any, Value::Null, "world, object or topo. All mirror in the object's axes here; topo pairs by topology."))
         .flag(fl("topoSymmetry", "ts", T::Any, Value::Null, "Pair by topology from the selected seam edge."))
         .flag(fl("worldSpace", "ws", T::Bool, Value::Null, "About world."))
-        .flag(fl("tolerance", "tol", T::Any, Value::Null, "How close a pair must be."))
+        .flag(fl("tolerance", "t", T::Any, Value::Null, "How close a pair must be."))
+        .flag(fl("seamFalloffCurve", "sf", T::String, Value::Null, "The seam's falloff curve, how strongly the seam holds across its tolerance: three numbers per point, the strength, the distance (0 to 1) and the interpolation (0 none, 1 linear, 2 smooth, 3 spline), comma separated."))
         .flag(fl("reset", "r", T::Bool, Value::Null, "Back to the defaults."))
         .flag(fl("allowPartial", "ap", T::Bool, Value::Null, "Accepted for existing scripts."))
         .flag(fl("preserveSeam", "ps", T::Int, Value::Null, "1 keeps points on the plane there; 0 lets them leave it."))

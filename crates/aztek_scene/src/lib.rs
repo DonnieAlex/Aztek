@@ -69,6 +69,7 @@ pub mod poly_extra;
 pub mod poly_model;
 pub mod poly_tail;
 pub mod misc_tail;
+mod skin_bind_flags;
 pub mod nurbs_align;
 pub mod nurbs_tools;
 pub mod blind_data;

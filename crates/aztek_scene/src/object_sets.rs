@@ -772,6 +772,31 @@ impl NodeBehavior for ObjectSetNode {
     }
 }
 
+fn only_attr(name: &str, short: &str, doc: &str) -> AttrDef {
+    AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Bool, default_value: PlugValue::Bool(false), flags: flags::INPUT | flags::STORABLE, doc: doc.into(), ..Default::default() }
+}
+
+/// The component kinds a set restricted by -vertices, -edges, -facets or -editPoints holds, as the brackets of their names.
+pub(crate) fn only_kinds(g: &Graph, set: NodeId) -> Vec<&'static str> {
+    let Some(n) = g.node(set) else { return Vec::new() };
+    let mut out = Vec::new();
+    for (attr, mark) in [("verticesOnlySet", ".vtx["), ("edgesOnlySet", ".e["), ("facetsOnlySet", ".f["), ("editPointsOnlySet", ".ep[")] {
+        if n.ty().attr_index(attr).is_some_and(|i| n.data().bool(i)) {
+            out.push(mark);
+        }
+    }
+    out
+}
+
+/// What of `list` a set restricted to some component kinds takes: those components alone. Unrestricted, all of it.
+pub(crate) fn restrict(g: &Graph, set: NodeId, list: &[Member]) -> Vec<Member> {
+    let kinds = only_kinds(g, set);
+    if kinds.is_empty() {
+        return list.to_vec();
+    }
+    list.iter().filter(|m| m.kind != ComponentMode::Object && format(g, std::slice::from_ref(m)).iter().all(|x| kinds.iter().any(|k| x.contains(k)))).cloned().collect()
+}
+
 pub fn register_types() {
     if types::find(TYPE_NAME).is_some() {
         return;
@@ -820,6 +845,20 @@ pub fn register_types() {
                 doc: "A note kept with the set: sets -text.".into(),
                 ..Default::default()
             },
+            only_attr("verticesOnlySet", "vo", "The set holds mesh vertices only: sets -vertices."),
+            only_attr("edgesOnlySet", "eo", "The set holds edges only: sets -edges."),
+            only_attr("facetsOnlySet", "fo", "The set holds faces only: sets -facets."),
+            only_attr("editPointsOnlySet", "ep", "The set holds edit points only: sets -editPoints."),
+            AttrDef {
+                name: "channelSetColorIndex".into(),
+                short_name: "coi".into(),
+                ty: PlugType::Int,
+                default_value: PlugValue::Int(0),
+                flags: flags::INPUT | flags::STORABLE,
+                doc: "The dope sheet colour of a channel set, by index; -1 uses channelSetColor.".into(),
+                ..Default::default()
+            },
+            crate::node::vec3_attr("channelSetColor", "csc", glam::DVec3::new(0.5, 0.5, 0.5), flags::INPUT | flags::STORABLE, "The dope sheet colour of a channel set when its index is -1."),
         ],
         create: Some(Arc::new(|| Box::new(ObjectSetNode))),
         ..Default::default()

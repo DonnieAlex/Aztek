@@ -942,6 +942,147 @@ fn curve_intersect_cmd(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 /// stitch: a boundary's CVs moved onto the target curve, by bias.
+/// stitchSrf: inputSurface, outputSurface, targetEdge, edgeDirection, edgeParameter, bias, then the settings below.
+const ST_WEIGHT0: usize = P + 4;
+const ST_SIDE: usize = P + 6;
+const ST_INNER: usize = P + 7;
+const ST_POINTS: usize = P + 8;
+
+fn stitch_attrs() -> Vec<AttrDef> {
+    let doc = |a: AttrDef, d: &str| AttrDef { doc: d.into(), ..a };
+    vec![
+        sin("inputSurface", "is"),
+        sout("outputSurface", "os"),
+        cin("targetEdge", "te"),
+        int_in("edgeDirection", "ed", 0, "0 U, 1 V."),
+        f_in("edgeParameter", "ep", 0.0, "Which edge."),
+        f_in("bias", "b", 1.0, "Blends the CVs between the input surface (0) and the stitched result (1)."),
+        f_in("weight0", "wt0", 0.5, "The first edge's weight in where the edges meet."),
+        f_in("weight1", "wt1", 0.5, "The second edge's weight in where the edges meet."),
+        int_in("side", "sd", 0, "Which of the two surfaces this node moves: 0 the first, 1 the second."),
+        cin("targetInner", "ti"),
+        crate::rig::data_attr("stitchPoints", "spt", "CVs moved to a point: [u index, v index, x, y, z] each, in the surface's space."),
+        doc(bin("positionalContinuity", "pc", true), "The edges meet (G0)."),
+        doc(bin("tangentialContinuity", "tc", false), "The surfaces are tangent across the edge (G1): the CV rows either side of it line up."),
+        doc(bin("fixBoundary", "fb", false), "The edge's CVs stay put while the rows beside it line up for tangency."),
+        doc(bin("togglePointPosition", "tpp", true), "The CV at -cvIthIndex, -cvJthIndex (or nearest -parameterU, -parameterV) keeps its place."),
+        doc(bin("togglePointNormals", "tpn", false), "The CVs beside that point keep their places too, so the normal there holds."),
+        doc(bin("toggleTolerance", "tt", false), "Discretise the edge by -tolerance rather than -stepCount."),
+        f_in("tolerance", "tol", 0.1, "The tolerance used discretising the edge."),
+        int_in("stepCount", "sc", 20, "Discretisation steps along the edge."),
+        int_in("cvIthIndex", "ci", -1, "The U index of a CV held by a point constraint (-1 none)."),
+        int_in("cvJthIndex", "cj", -1, "The V index of a CV held by a point constraint (-1 none)."),
+        f_in("parameterU", "u", -10000.0, "The U parameter of a point held by a point constraint (-10000 none)."),
+        f_in("parameterV", "v", -10000.0, "The V parameter of a point held by a point constraint (-10000 none)."),
+        AttrDef { name: "partner".into(), short_name: "ptn".into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: STORE | flags::HIDDEN, doc: "The stitch node of the other surface, which edits reach too.".into(), ..Default::default() },
+    ]
+}
+
+struct StitchOptions {
+    fraction: f64,
+    g0: bool,
+    g1: bool,
+    fix: bool,
+    hold: Option<(usize, usize)>,
+    hold_param: Option<(f64, f64)>,
+    normals: bool,
+}
+
+impl StitchOptions {
+    fn of(d: &NodeData) -> StitchOptions {
+        let at = |n: &str| d.ty.attr_index(n).unwrap_or(0);
+        let (w0, w1) = (d.float(ST_WEIGHT0), d.float(ST_WEIGHT0 + 1));
+        let share = if (w0 + w1).abs() < 1e-12 { 0.5 } else if d.int(ST_SIDE) == 0 { w1 / (w0 + w1) } else { w0 / (w0 + w1) };
+        let (ci, cj) = (d.int(at("cvIthIndex")), d.int(at("cvJthIndex")));
+        let (pu, pv) = (d.float(at("parameterU")), d.float(at("parameterV")));
+        let tpp = d.bool(at("togglePointPosition"));
+        StitchOptions {
+            fraction: d.float(P + 3) * share,
+            g0: d.bool(at("positionalContinuity")),
+            g1: d.bool(at("tangentialContinuity")),
+            fix: d.bool(at("fixBoundary")),
+            hold: (tpp && ci >= 0 && cj >= 0).then_some((ci as usize, cj as usize)),
+            hold_param: (tpp && pu > -9999.0 && pv > -9999.0).then_some((pu, pv)),
+            normals: d.bool(at("togglePointNormals")),
+        }
+    }
+}
+
+/// stitchSurfacePoints: each CV listed goes toward its point, by `bias`.
+fn stitch_cvs(s: &NurbsSurface, points: &Value, bias: f64) -> NurbsSurface {
+    let mut o = s.clone();
+    for p in points.as_array().into_iter().flatten() {
+        let Some(v) = p.as_array() else { continue };
+        let num = |k: usize| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+        let (i, j) = (num(0) as usize, num(1) as usize);
+        if i < o.nu && j < o.nv {
+            let q = DVec3::new(num(2), num(3), num(4));
+            o.cvs[i * o.nv + j] = s.cv(i, j).lerp(q, bias);
+        }
+    }
+    o.rewrap();
+    o
+}
+
+/// stitchSurface on one of the two surfaces: its edge goes toward the other's by its share, and with tangential
+/// continuity the row inside turns to line up with the other surface's.
+fn stitch_edge(s: &NurbsSurface, dir: i64, value: f64, target: &NurbsCurve, inner: Option<&NurbsCurve>, o: &StitchOptions) -> NurbsSurface {
+    let mut out = s.clone();
+    let (nu, nv) = (s.nu, s.nv);
+    // The edge's CVs and the row inside them.
+    let mut row: Vec<((usize, usize), (usize, usize))> = Vec::new();
+    if dir == 0 {
+        let (lo, hi) = s.domain_u();
+        let (i, k) = if (value - lo).abs() < (hi - value).abs() { (0, 1.min(nu - 1)) } else { (nu - 1, nu.saturating_sub(2)) };
+        row.extend((0..nv).map(|j| ((i, j), (k, j))));
+    } else {
+        let (lo, hi) = s.domain_v();
+        let (j, k) = if (value - lo).abs() < (hi - value).abs() { (0, 1.min(nv - 1)) } else { (nv - 1, nv.saturating_sub(2)) };
+        row.extend((0..nu).map(|i| ((i, j), (i, k))));
+    }
+    let move_by = if o.g0 && !o.fix { o.fraction } else { 0.0 };
+    for &((i, j), (ii, jj)) in &row {
+        let p = s.cv(i, j);
+        let q = target.eval(target.closest_param(p));
+        let e = p.lerp(q, move_by);
+        out.cvs[i * nv + j] = e;
+        if o.g1 && (ii, jj) != (i, j) {
+            if let Some(other) = inner {
+                // The other surface's inner CV across the edge, mirrored from this one's.
+                let own = s.cv(ii, jj);
+                let mirrored = 2.0 * e - own;
+                let far = other.eval(other.closest_param(mirrored));
+                let d = ((e - own) + (far - e)).normalize_or_zero();
+                if d != DVec3::ZERO {
+                    out.cvs[ii * nv + jj] = e - d * (e - own).length();
+                }
+            }
+        }
+    }
+    // A point held: its CV (and with the normals, those beside it) keeps its place.
+    let held = o.hold.or_else(|| {
+        o.hold_param.map(|(u, v)| {
+            let (pu, pv) = (s.cv_params_u(), s.swapped().cv_params_u());
+            let near = |ps: &[f64], x: f64| ps.iter().enumerate().min_by(|a, b| (a.1 - x).abs().total_cmp(&(b.1 - x).abs())).map(|a| a.0).unwrap_or(0);
+            (near(&pu, u), near(&pv, v))
+        })
+    });
+    if let Some((hi, hj)) = held {
+        let reach: i64 = if o.normals { 1 } else { 0 };
+        for di in -reach..=reach {
+            for dj in -reach..=reach {
+                let (i, j) = (hi as i64 + di, hj as i64 + dj);
+                if i >= 0 && j >= 0 && (i as usize) < nu && (j as usize) < nv {
+                    let k = i as usize * nv + j as usize;
+                    out.cvs[k] = s.cvs[k];
+                }
+            }
+        }
+    }
+    out.rewrap();
+    out
+}
+
 fn stitch_boundary(s: &NurbsSurface, dir: i64, value: f64, target: &NurbsCurve, bias: f64) -> NurbsSurface {
     let mut o = s.clone();
     let (nu, nv) = (s.nu, s.nv);
@@ -1504,14 +1645,23 @@ fn register_types() {
         reg(node_type(
             "stitchSrf",
             "Moves a surface's edge onto another's.",
-            vec![sin("inputSurface", "is"), sout("outputSurface", "os"), cin("targetEdge", "te"), int_in("edgeDirection", "ed", 0, "0 U, 1 V."), f_in("edgeParameter", "ep", 0.0, "Which edge."), f_in("bias", "b", 0.5, "0 stays, 1 goes all the way.")],
+            stitch_attrs(),
             |d| {
-                let (Some(s), Some(t)) = (srf(d, IN), crv(d, P)) else {
-                    let out = srf(d, IN);
-                    put_surface(d, OUT, out);
+                let Some(s) = srf(d, IN) else {
+                    d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
-                put_surface(d, OUT, Some(stitch_boundary(&s, d.int(P + 1), d.float(P + 2), &t, d.float(P + 3))));
+                let points = crate::rig::json_of(d, ST_POINTS);
+                if points.as_array().is_some_and(|v| !v.is_empty()) {
+                    put_surface(d, OUT, Some(stitch_cvs(&s, &points, d.float(P + 3))));
+                    return;
+                }
+                let Some(t) = crv(d, P) else {
+                    put_surface(d, OUT, Some(s));
+                    return;
+                };
+                let o = StitchOptions::of(d);
+                put_surface(d, OUT, Some(stitch_edge(&s, d.int(P + 1), d.float(P + 2), &t, crv(d, ST_INNER).as_ref(), &o)));
             },
         ));
         reg(node_type(
@@ -2046,24 +2196,113 @@ fn text_curves(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!([g.path(group), g.path(node)]))
 }
 
-fn stitch_pair(g: &mut Graph, a: &Args, first: (NodeId, Option<(i64, f64)>), second: (NodeId, Option<(i64, f64)>), bias: f64, out: &mut Vec<Value>) -> CmdResult<()> {
-    let (Some(s1), Some(s2)) = (surfaces::local_surface(g, first.0), surfaces::local_surface(g, second.0)) else { fail!("stitchSurface: no surface") };
+/// A row of a surface's CVs next to an edge, as a line through them in world space: `inner` the row inside the edge.
+fn edge_row(w: &NurbsSurface, e: (i64, f64), inner: bool) -> NurbsCurve {
+    let (nu, nv) = (w.nu, w.nv);
+    let pts: Vec<DVec3> = if e.0 == 0 {
+        let (lo, hi) = w.domain_u();
+        let at_start = (e.1 - lo).abs() < (hi - e.1).abs();
+        let i = match (at_start, inner) {
+            (true, false) => 0,
+            (true, true) => 1.min(nu - 1),
+            (false, false) => nu - 1,
+            (false, true) => nu.saturating_sub(2),
+        };
+        (0..nv).map(|j| w.cv(i, j)).collect()
+    } else {
+        let (lo, hi) = w.domain_v();
+        let at_start = (e.1 - lo).abs() < (hi - e.1).abs();
+        let j = match (at_start, inner) {
+            (true, false) => 0,
+            (true, true) => 1.min(nv - 1),
+            (false, false) => nv - 1,
+            (false, true) => nv.saturating_sub(2),
+        };
+        (0..nu).map(|i| w.cv(i, j)).collect()
+    };
+    NurbsCurve::open(1, pts)
+}
+
+/// The values of a flag that may be given once or many times, as numbers.
+fn flag_numbers(a: &Args, k: &str) -> Vec<f64> {
+    match a.get(k) {
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_f64().or_else(|| x.as_bool().map(|b| b as i64 as f64))).collect(),
+        Some(Value::Bool(b)) => vec![*b as i64 as f64],
+        Some(v) => v.as_f64().into_iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+/// The stitch node's settings from the call's flags: the first value of each multi-use flag.
+fn stitch_settings(a: &Args) -> Vec<(&'static str, PlugValue)> {
+    let mut out = Vec::new();
+    let first = |k: &str| flag_numbers(a, k).first().copied();
+    // -keepG0Continuity and -keepG1Continuity say the same as -pc and -tc.
+    if let Some(x) = first("keepG0Continuity") {
+        out.push(("positionalContinuity", PlugValue::Bool(x != 0.0)));
+    }
+    if let Some(x) = first("keepG1Continuity") {
+        out.push(("tangentialContinuity", PlugValue::Bool(x != 0.0)));
+    }
+    if let Some(x) = first("numberOfSamples") {
+        out.push(("stepCount", PlugValue::Int(x as i64)));
+    }
+    for k in ["positionalContinuity", "tangentialContinuity", "fixBoundary", "togglePointPosition", "togglePointNormals", "toggleTolerance"] {
+        if let Some(x) = first(k) {
+            out.push((k, PlugValue::Bool(x != 0.0)));
+        }
+    }
+    for k in ["stepCount", "cvIthIndex", "cvJthIndex"] {
+        if let Some(x) = first(k) {
+            out.push((k, PlugValue::Int(x as i64)));
+        }
+    }
+    for k in ["tolerance", "parameterU", "parameterV", "weight0", "weight1", "bias"] {
+        if let Some(x) = first(k) {
+            out.push((k, PlugValue::Float(x)));
+        }
+    }
+    out
+}
+
+fn set_named(g: &mut Graph, n: NodeId, set: &[(&str, PlugValue)]) -> CmdResult<()> {
+    for (k, v) in set {
+        if let Some(i) = g.node(n).and_then(|x| x.ty().attr_index(k)) {
+            g.set_value(plug(n, i), v.clone())?;
+        }
+    }
+    Ok(())
+}
+
+fn stitch_pair(g: &mut Graph, a: &Args, first: (NodeId, Option<(i64, f64)>), second: (NodeId, Option<(i64, f64)>), out: &mut Vec<Value>) -> CmdResult<()> {
     let (Some(w1), Some(w2)) = (surfaces::world_surface(g, first.0), surfaces::world_surface(g, second.0)) else { fail!("stitchSurface: no surface") };
     let e1 = first.1.unwrap_or_else(|| nearest_boundary(&w1, &w2));
     let e2 = second.1.unwrap_or_else(|| nearest_boundary(&w2, &w1));
     let iso = |x: &NurbsSurface, e: (i64, f64)| if e.0 == 0 { x.iso_u(e.1) } else { x.iso_v(e.1) };
     let (t1, t2) = (iso(&w2, e2), iso(&w1, e1));
+    let (i1, i2) = (edge_row(&w2, e2, true), edge_row(&w1, e1, true));
     let to_local = |sh: NodeId, g: &mut Graph, c: NurbsCurve| {
         let w = crate::rig::world(g, crate::dag::transform_of(g, sh));
         c.transformed(&w.inverse())
     };
     let (t1, t2) = (to_local(first.0, g, t1), to_local(second.0, g, t2));
-    let _ = (s1, s2);
+    let (i1, i2) = (to_local(first.0, g, i1), to_local(second.0, g, i2));
     let ch = surfaces::wants_history(g, a);
-    for (shape, edge, target, b) in [(first.0, e1, t1, bias), (second.0, e2, t2, 1.0 - bias)] {
-        let set = [(P, curves::to_value(target)), (P + 1, PlugValue::Int(edge.0)), (P + 2, PlugValue::Float(edge.1)), (P + 3, PlugValue::Float(b))];
+    let settings = stitch_settings(a);
+    let mut nodes = Vec::new();
+    for (side, (shape, edge, target, inner)) in [(first.0, e1, t1, i1), (second.0, e2, t2, i2)].into_iter().enumerate() {
+        let set = [(P, curves::to_value(target)), (P + 1, PlugValue::Int(edge.0)), (P + 2, PlugValue::Float(edge.1)), (ST_SIDE, PlugValue::Int(side as i64)), (ST_INNER, curves::to_value(inner))];
         let node = surfaces::insert_op(g, shape, "stitchSrf", &set)?;
-        g.evaluate();
+        set_named(g, node, &settings)?;
+        crate::history_qe::apply_common(g, node, a)?;
+        nodes.push((shape, node));
+    }
+    // Each knows the other, so an edit of one reaches both.
+    let names: Vec<String> = nodes.iter().map(|&(_, n)| g.path(n)).collect();
+    set_named(g, nodes[0].1, &[("partner", PlugValue::String(names[1].clone()))])?;
+    set_named(g, nodes[1].1, &[("partner", PlugValue::String(names[0].clone()))])?;
+    g.evaluate();
+    for (shape, node) in nodes {
         out.push(json!(g.path(crate::dag::transform_of(g, shape))));
         if ch {
             out.push(json!(g.path(node)));
@@ -2081,7 +2320,7 @@ fn stitch_surface(s: &mut Session, a: &Args) -> CmdResult {
     let (e1, e2) = (edge_arg(g, x, "stitchSurface")?, edge_arg(g, y, "stitchSurface")?);
     let mut out = Vec::new();
     g.open_chunk("Stitch");
-    let r = stitch_pair(g, a, e1, e2, a.float("bias", 0.5), &mut out);
+    let r = stitch_pair(g, a, e1, e2, &mut out);
     g.close_chunk();
     r?;
     Ok(Value::Array(out))
@@ -2092,35 +2331,109 @@ fn stitch_points(s: &mut Session, a: &Args) -> CmdResult {
     if names.is_empty() {
         fail!("stitchSurfacePoints: name CVs");
     }
-    let bias_equal = a.get("equalWeight").is_none_or(|v| v.as_bool().unwrap_or(true));
+    let equal = a.get("equalWeight").is_none_or(|v| v.as_bool().or_else(|| v.as_i64().map(|i| i != 0)).unwrap_or(true));
     let g = &mut s.graph;
     let members = crate::object_sets::parse(g, &names).map_err(aztek_ops::CommandError::new)?;
-    let mut spots: Vec<(NodeId, u32, DVec3)> = Vec::new();
+    // Each CV named (or edit point, by the CV it stands on): the surface, its grid place and where it is in world space.
+    let mut spots: Vec<(NodeId, usize, usize, DVec3)> = Vec::new();
     for m in &members {
-        let w = crate::rig::world(g, crate::dag::transform_of(g, m.node));
-        let Some(pp) = g.node(m.node).and_then(crate::components::point_provider) else { continue };
-        let Some(points) = pp.points else { continue };
-        let at: std::collections::HashMap<u32, DVec3> = points(g, m.node).into_iter().collect();
-        for &i in &m.ids {
-            if let Some(p) = at.get(&i) {
-                spots.push((m.node, i, w.transform_point3(*p)));
+        let Some(shape) = surfaces::as_surface(g, m.node) else { continue };
+        let Some(w) = surfaces::world_surface(g, shape) else { continue };
+        let (du, dv) = (w.distinct_u(), w.distinct_v());
+        let xf = crate::rig::world(g, crate::dag::transform_of(g, shape));
+        let Some(points) = g.node(shape).and_then(crate::components::point_provider).and_then(|p| p.points) else { continue };
+        let at: std::collections::HashMap<u32, DVec3> = points(g, shape).into_iter().collect();
+        for &id in &m.ids {
+            let Some(p) = at.get(&id).map(|p| xf.transform_point3(*p)) else { continue };
+            let k = id as usize;
+            if k < du * dv {
+                spots.push((shape, k / dv, k % dv, p));
+            } else {
+                // An edit point: the CV nearest it goes.
+                let near = (0..w.cvs.len()).min_by(|a, b| w.cvs[*a].distance(p).total_cmp(&w.cvs[*b].distance(p))).unwrap_or(0);
+                spots.push((shape, near / w.nv, near % w.nv, p));
             }
         }
     }
     if spots.len() < 2 {
         fail!("stitchSurfacePoints: name at least two CVs");
     }
-    let mean = if bias_equal { spots.iter().map(|x| x.2).sum::<DVec3>() / spots.len() as f64 } else { spots[0].2 };
-    g.open_chunk("Stitch Points");
-    for &(node, i, _) in &spots {
-        let w = crate::rig::world(g, crate::dag::transform_of(g, node));
-        if let Some(set) = g.node(node).and_then(crate::components::point_provider).and_then(|p| p.set_points) {
-            set(g, node, &[(i, w.inverse().transform_point3(mean))]);
+    let mut seen = Vec::new();
+    for x in &spots {
+        if seen.contains(&x.0) {
+            fail!("stitchSurfacePoints: no two points can lie on the same surface");
         }
+        seen.push(x.0);
     }
+    // Equal weights meet at their mean; otherwise the first has all the weight.
+    let meet = if equal { spots.iter().map(|x| x.3).sum::<DVec3>() / spots.len() as f64 } else { spots[0].3 };
+    let ch = surfaces::wants_history(g, a);
+    let settings = stitch_settings(a);
+    let mut out = Vec::new();
+    g.open_chunk("Stitch Points");
+    let r = (|| -> CmdResult<()> {
+        let mut made = Vec::new();
+        for &(shape, i, j, _) in &spots {
+            let w = crate::rig::world(g, crate::dag::transform_of(g, shape));
+            let q = w.inverse().transform_point3(meet);
+            let pts = json!([[i, j, q.x, q.y, q.z]]);
+            let node = surfaces::insert_op(g, shape, "stitchSrf", &[(ST_POINTS, PlugValue::Data(Some(Arc::new(crate::rig::JsonData(pts)))))])?;
+            if let Some(n) = a.get("name").and_then(Value::as_str) {
+                if made.is_empty() {
+                    g.rename(node, n)?;
+                }
+            }
+            set_named(g, node, &settings)?;
+            crate::history_qe::apply_common(g, node, a)?;
+            made.push((shape, node));
+        }
+        g.evaluate();
+        for (shape, node) in made {
+            out.push(json!(g.path(crate::dag::transform_of(g, shape))));
+            if ch {
+                out.push(json!(g.path(node)));
+            } else {
+                surfaces::bake_history(g, shape)?;
+            }
+        }
+        Ok(())
+    })();
     g.close_chunk();
-    g.evaluate();
-    Ok(Value::Array(names.iter().map(|n| json!(n)).collect()))
+    r?;
+    Ok(Value::Array(out))
+}
+
+/// -q and -e on stitchSurface and stitchSurfacePoints reach the stitch node, and an edit reaches the other surface's
+/// stitch node too.
+pub(crate) fn stitch_qe(c: &mut Commands<Session>) {
+    const MAP: &[(&str, &str)] = &[("keepG0Continuity", "positionalContinuity"), ("keepG1Continuity", "tangentialContinuity"), ("numberOfSamples", "stepCount")];
+    for name in ["stitchSurface", "stitchSurfacePoints"] {
+        crate::history_qe::extend(c, name, &["stitchSrf"], MAP, Vec::new());
+        let Some(mut cmd) = c.find(name).cloned() else { continue };
+        let run = cmd.run.clone();
+        cmd.run = Arc::new(move |s: &mut Session, a: &Args| {
+            let out = run(s, a)?;
+            if a.bool("edit") {
+                if let Some(node) = out.as_array().and_then(|v| v.first()).and_then(Value::as_str).and_then(|n| s.graph.find(n).ok().flatten()) {
+                    let partner = s.graph.node(node).and_then(|x| x.ty().attr_index("partner")).and_then(|i| s.graph.value(&plug(node, i)).ok());
+                    if let Some(PlugValue::String(p)) = partner {
+                        if let Ok(Some(other)) = s.graph.find(&p) {
+                            let ty = s.graph.node(node).unwrap().ty().clone();
+                            for (attr, _) in stitch_settings(a) {
+                                if let Some(i) = ty.attr_index(attr) {
+                                    let v = s.graph.value(&plug(node, i))?;
+                                    s.graph.set_value(plug(other, i), v)?;
+                                }
+                            }
+                            s.graph.evaluate();
+                        }
+                    }
+                }
+            }
+            Ok(out)
+        });
+        c.register(cmd);
+    }
 }
 
 const GS_IN: usize = 0;
@@ -3279,31 +3592,56 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("curveOnSurface", "cos", B, "Accepted for existing scripts."))
             .flag(f("noChanges", "nc", B, "Accepted for existing scripts.")),
     ));
-    c.register(make_flags(
-        Cmd::new("stitchSurface", "Close the gap between two surfaces' edges (surface.u[x] or the nearest): -b 0.5 meets halfway, 0 moves only the second, 1 only the first. Returns the surfaces and nodes.", stitch_surface)
-            .positional("two surfaces or edges")
-            .flag(f("bias", "b", Fl, "Which moves (0.5)."))
-            .flag(f("cascade", "c", B, "Accepted for existing scripts."))
-            .flag(f("keepG0Continuity", "kg0", B, "Accepted for existing scripts."))
-            .flag(f("keepG1Continuity", "kg1", B, "Accepted for existing scripts."))
-            .flag(f("numberOfSamples", "ns", I, "Accepted for existing scripts."))
-            .flag(f("stepCount", "sc", I, "Accepted for existing scripts."))
-            .flag(f("fixBoundary", "fb", B, "Accepted for existing scripts."))
-            .flag(f("replaceOriginal", "rpo", B, "Accepted: the surfaces themselves change.")),
-    ));
-    c.register(
-        Cmd::new("stitchSurfacePoints", "Move CVs to one place: their mean, or -ew 0 the first. Returns them.", stitch_points)
-            .positional("CVs")
-            .flag(f("equalWeight", "ew", ArgType::Any, "Their mean (the default), or the first."))
-            .flag(f("bias", "b", Fl, "Accepted for existing scripts."))
-            .flag(f("constructionHistory", "ch", B, "Accepted for existing scripts."))
-            .flag(f("cascade", "c", B, "Accepted for existing scripts."))
-            .flag(f("keepG0Continuity", "kg0", B, "Accepted for existing scripts."))
-            .flag(f("keepG1Continuity", "kg1", B, "Accepted for existing scripts."))
-            .flag(f("replaceOriginal", "rpo", B, "Accepted: they change in place."))
-            .flag(f("stepCount", "sc", I, "Accepted for existing scripts."))
-            .flag(f("tolerance", "tol", Fl, "Accepted for existing scripts.")),
-    );
+    for (name, doc, run) in [
+        (
+            "stitchSurface",
+            "Close the gap between two surfaces' edges (surface.u[x] or the nearest): they meet where -wt0 and -wt1 weigh them (halfway), -b blends from the input surfaces (0) to that (1), -tc lines the CV rows either side up for tangency. Returns each surface and its stitch node.",
+            stitch_surface as fn(&mut Session, &Args) -> CmdResult,
+        ),
+        (
+            "stitchSurfacePoints",
+            "Move points of two or more surfaces, one on each, to one place: their mean with -ewt (on), or the first's. Returns each surface and its stitch node.",
+            stitch_points,
+        ),
+    ] {
+        let mut cmd = make_flags(Cmd::new(name, doc, run))
+            .positional(if name == "stitchSurface" { "two surfaces or edges" } else { "CVs or edit points, one on each surface (the selection when none)" })
+            .flag(f("bias", "b", Fl, "Blends the CVs between the input surface (0) and the stitch result (1)."))
+            .flag(f("cascade", "c", B, "Cascade the stitch node onto stitch history the surface has (off): each stitch is a node of its own here."))
+            .flag(f("keepG0Continuity", "kg0", B, "Stitch with positional continuity (on)."))
+            .flag(f("keepG1Continuity", "kg1", B, "Stitch with tangent continuity (off)."))
+            .flag(f("fixBoundary", "fb", B, "Keep the boundary CVs while lining up for tangency (off)."))
+            .flag(f("replaceOriginal", "rpo", B, "Make the result in place of the original: the surfaces themselves change."))
+            .flag(f("cvIthIndex", "ci", ArgType::Any, "The U index of a CV a point constraint holds (-1).").multi(1))
+            .flag(f("cvJthIndex", "cj", ArgType::Any, "The V index of a CV a point constraint holds (-1).").multi(1))
+            .flag(f("parameterU", "u", ArgType::Any, "The U parameter of a point a point constraint holds (-10000).").multi(1))
+            .flag(f("parameterV", "v", ArgType::Any, "The V parameter of a point a point constraint holds (-10000).").multi(1))
+            .flag(f("positionalContinuity", "pc", ArgType::Any, "G0 continuity at the edge (on).").multi(1))
+            .flag(f("tangentialContinuity", "tc", ArgType::Any, "G1 continuity across the edge (off).").multi(1))
+            .flag(f("stepCount", "sc", ArgType::Any, "Discretisation steps (20).").multi(1))
+            .flag(f("togglePointNormals", "tpn", B, "Point constraints hold the normal too (off)."))
+            .flag(f("togglePointPosition", "tpp", B, "Point constraints hold the position (on)."))
+            .flag(f("toggleTolerance", "tt", ArgType::Any, "Discretise by the tolerance rather than the step count (off).").multi(1))
+            .flag(f("tolerance", "tol", ArgType::Any, "The tolerance discretising the edge (0.1).").multi(1));
+        if name == "stitchSurface" {
+            cmd = cmd
+                .flag(f("numberOfSamples", "ns", I, "Samples along the edge (20)."))
+                .flag(f("weight0", "wt0", Fl, "The first edge's weight (0.5)."))
+                .flag(f("weight1", "wt1", Fl, "The second edge's weight (0.5)."));
+        } else {
+            cmd = cmd.flag(f("equalWeight", "ewt", B, "Equal weights, so the points meet at their mean (on); off, the first point has all the weight."));
+        }
+        // The later of two flags of a name wins.
+        let mut kept: Vec<aztek_ops::FlagDef> = Vec::new();
+        for fl in cmd.flags.drain(..).rev() {
+            if !kept.iter().any(|k| k.name == fl.name) {
+                kept.push(fl);
+            }
+        }
+        kept.reverse();
+        cmd.flags = kept;
+        c.register(cmd);
+    }
     c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(make_flags(
         Cmd::new(
             "globalStitch",

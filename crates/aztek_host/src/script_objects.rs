@@ -28,6 +28,8 @@ struct Connection {
     filter: String,
     parent: String,
     locked: bool,
+    /// An editorList's editor: the connection reflects its main list connection.
+    editor: String,
 }
 
 thread_local! {
@@ -221,47 +223,140 @@ fn ls_through_filter(s: &mut Session, a: &Args) -> CmdResult {
 // ---------------------------------------------------------------------------------------------------------------------
 // selectionConnection
 
-const LIST_KINDS: &[&str] = &["activeList", "modelList", "keyframeList", "worldList", "objectList", "highlightList", "connectionList", "characterList", "setList"];
+const LIST_KINDS: &[&str] = &["activeList", "modelList", "keyframeList", "worldList", "objectList", "highlightList", "connectionList", "characterList", "setList", "activeCharacterList", "activeCacheList"];
+
+/// What an activeCharacterList holds: the characters the selected objects belong to.
+fn active_characters(s: &Session) -> Vec<String> {
+    let g = &s.graph;
+    let picked: Vec<_> = g.selection().to_vec();
+    let mut out = Vec::new();
+    for id in g.nodes() {
+        if !aztek_scene::characters::is_character(g, id) {
+            continue;
+        }
+        let members = aztek_scene::characters::member_plugs(g, id);
+        if members.iter().any(|p| picked.contains(&p.node) || g.node(p.node).is_some_and(|n| n.ty().dag && picked.contains(&g.parent(p.node)))) {
+            out.push(g.path(id));
+        }
+    }
+    out
+}
+
+/// What an activeCacheList holds: the caches feeding the selected objects.
+fn active_caches(s: &Session) -> Vec<String> {
+    let g = &s.graph;
+    let mut out = Vec::new();
+    for &id in g.selection() {
+        let mut start = vec![id];
+        start.extend(aztek_scene::dag::shapes(g, id, false));
+        for n in start {
+            for h in aztek_scene::history::history_of(g, n) {
+                if g.node(h).is_some_and(|x| x.ty().is_a("cacheFile") || x.ty().name.to_lowercase().contains("cache")) {
+                    let p = g.path(h);
+                    if !out.contains(&p) {
+                        out.push(p);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// What a connection holds now, followed through editors and the special lists.
+fn objects_of(s: &Session, name: &str, depth: usize) -> Vec<String> {
+    let active: Vec<String> = s.graph.selection().iter().map(|&i| s.graph.path(i)).collect();
+    let Some((kind, objects, editor)) = with(|o| o.connections.get(name).map(|c| (c.kind.clone(), c.objects.clone(), c.editor.clone()))) else {
+        // The lists every scene has.
+        return match name {
+            "activeList" | "modelList" => active,
+            _ => Vec::new(),
+        };
+    };
+    match kind.as_str() {
+        "activeList" | "modelList" => active,
+        "activeCharacterList" => active_characters(s),
+        "activeCacheList" => active_caches(s),
+        "editorList" if depth < 8 => {
+            let mlc = crate::scriptui::control_prop(&editor, "mainListConnection").and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default();
+            if mlc.is_empty() {
+                Vec::new()
+            } else {
+                objects_of(s, &mlc, depth + 1)
+            }
+        }
+        _ => objects,
+    }
+}
 
 fn selection_connection(s: &mut Session, a: &Args) -> CmdResult {
     let name = a.pos_str(0).map(str::to_string);
     if a.bool("exists") && !a.bool("query") {
         return Ok(json!(name.is_some_and(|n| with(|o| o.connections.contains_key(&n)))));
     }
-    let active: Vec<String> = s.graph.selection().iter().map(|&i| s.graph.path(i)).collect();
+    // -defineTemplate: the flags are kept as defaults for later calls.
+    if let Some(t) = a.get("defineTemplate").and_then(Value::as_str) {
+        if !a.bool("query") && !a.bool("edit") {
+            crate::scriptui::define_template(t, "selectionConnection", &a.flags);
+            return Ok(json!("selectionConnection"));
+        }
+    }
     if a.bool("query") {
         let Some(n) = name else { fail!("selectionConnection: name a connection.") };
         let Some(q) = asked(a) else { fail!("selectionConnection: name what to ask about.") };
+        if q == "object" && with(|o| o.connections.contains_key(&n)) {
+            let mut list = objects_of(s, &n, 0);
+            if let Some(m) = a.get("maxObjects").and_then(Value::as_i64) {
+                list.truncate(m.max(0) as usize);
+            }
+            return Ok(json!(list));
+        }
         return with(|o| {
             let Some(x) = o.connections.get(&n) else { fail!("selectionConnection: Object '{n}' not found.") };
             Ok(match q.as_str() {
-                "object" => {
-                    if x.kind == "activeList" {
-                        json!(active)
-                    } else {
-                        json!(x.objects)
-                    }
-                }
+                "editor" => json!(x.editor),
                 "filter" => json!(x.filter),
                 "parent" => json!(x.parent),
                 "lock" => json!(x.locked),
-                "identify" => json!(x.kind),
+                "identify" => json!(if x.kind.is_empty() { "connection" } else { x.kind.as_str() }),
                 k if LIST_KINDS.contains(&k) => json!(x.kind == k),
                 _ => Value::Null,
             })
         });
     }
-    let kind = LIST_KINDS.iter().find(|k| a.bool(k)).map(|k| k.to_string());
+    // What a template gives comes first; what the call says wins.
+    let merged;
+    let a = if a.bool("edit") {
+        a
+    } else {
+        let mut flags = crate::scriptui::template_defaults("selectionConnection", a.get("useTemplate").and_then(Value::as_str));
+        for (k, v) in &a.flags {
+            if !v.is_null() || !flags.contains_key(k) {
+                flags.insert(k.clone(), v.clone());
+            }
+        }
+        merged = Args { positional: a.positional.clone(), flags };
+        &merged
+    };
+    let editor = a.get("editor").and_then(Value::as_str).map(str::to_string);
+    let kind = LIST_KINDS.iter().find(|k| a.bool(k)).map(|k| k.to_string()).or_else(|| editor.as_ref().map(|_| "editorList".to_string()));
     if !a.bool("edit") {
         let n = name.unwrap_or_else(|| fresh("selectionConnection", |t| with(|o| o.connections.contains_key(t))));
         let taken = with(|o| o.connections.contains_key(&n));
         if taken {
             fail!("selectionConnection: Object's name '{n}' is not unique.");
         }
-        let c = Connection { kind: kind.unwrap_or_else(|| "objectList".to_string()), ..Default::default() };
+        let c = Connection { kind: kind.unwrap_or_else(|| "objectList".to_string()), editor: editor.unwrap_or_default(), ..Default::default() };
         with(|o| o.connections.insert(n.clone(), c));
         edit_connection(s, &n, a)?;
         return Ok(json!(n));
+    }
+    if let Some(e) = &editor {
+        with(|o| {
+            if let Some(c) = o.connections.get_mut(name.as_deref().unwrap_or("")) {
+                c.editor = e.clone();
+            }
+        });
     }
     let Some(n) = name else { fail!("selectionConnection: name a connection.") };
     if !with(|o| o.connections.contains_key(&n)) {
@@ -591,7 +686,7 @@ pub fn register(s: &mut Session) {
     ));
     s.register(add(
         Cmd::new("selectionConnection", "A named list of objects for editors to show and follow: -activeList is the scene's selection, -worldList the scene, -objectList its own.", selection_connection).positional("[name]").undoable(false),
-        "activeList:act:b modelList:mdl:b keyframeList:key:b worldList:wl:b objectList:ol:b highlightList:hl:b connectionList:crl:b characterList:cl:b setList:sl:b addScript:as:a removeScript:rs:a addTo:add:a1 clear:clr:b deselect:d:a1 select:s:a1 remove:rm:a1 object:obj:a1 filter:f:a findObject:fo:a global:g:a identify:id:b lock:lck:b parent:p:a switch:sw:b exists:ex:b query:q:b edit:e:b queried::a",
+        "activeList:act:b activeCharacterList:acl:b activeCacheList:atc:b editor:ed:a modelList:mdl:b keyframeList:key:b worldList:wl:b objectList:ol:b highlightList:hl:b connectionList:lst:b characterList:cl:b setList:sl:b maxObjects:mxo:a defineTemplate:dt:a useTemplate:ut:a addScript:as:a removeScript:rs:a addTo:add:a1 clear:clr:b deselect:d:a1 select:s:a1 remove:rm:a1 object:obj:a1 filter:f:a findObject:fo:a global:g:a identify:id:b lock:lck:b parent:p:a switch:sw:b exists:ex:b query:q:b edit:e:b queried::a",
     ));
     s.register(add(
         Cmd::new("panelConfiguration", "A named arrangement of panels: -addPanel (fixed, label, type, create, edit), -replacePanel (number, then the same), -configString, -label; getPanel -allConfigs lists them.", |_s, a| panel_configuration(a)).positional("[name]").undoable(false),

@@ -413,6 +413,9 @@ pub fn signature(g: &crate::graph::Graph, mode: crate::components::ComponentMode
     let name = falloff_name();
     name.hash(&mut h);
     current_curve().to_json().to_string().hash(&mut h);
+    let p = PrefStore::get();
+    p.string("general", COLOR_CURVE, DEFAULT_COLOR_CURVE).hash(&mut h);
+    p.bool("general", FALSE_COLOR, true).hash(&mut h);
     if name == "global" && mode != crate::components::ComponentMode::Object {
         for (node, ids) in crate::components::selected_all(g, mode) {
             node.hash(&mut h);
@@ -420,6 +423,44 @@ pub fn signature(g: &crate::graph::Graph, mode: crate::components::ComponentMode
         }
     }
     h.finish()
+}
+
+/// Whether the views show the weights in false colour (softSelect -enableFalseColor).
+pub fn false_color_enabled() -> bool {
+    PrefStore::get().bool("general", FALSE_COLOR, true)
+}
+
+/// The false colour ramp of softSelect -softSelectColorCurve: a weight's colour lies between its points by weight,
+/// linear, or held where a point's interpolation is 0.
+pub struct FalseColors(Vec<(f64, [f64; 3], i64)>);
+
+impl FalseColors {
+    pub fn current() -> FalseColors {
+        let text = PrefStore::get().string("general", COLOR_CURVE, DEFAULT_COLOR_CURVE);
+        let parse = |t: &str| -> Vec<(f64, [f64; 3], i64)> { numbers(t).unwrap_or_default().chunks_exact(5).map(|c| (c[3], [c[0], c[1], c[2]], c[4] as i64)).collect() };
+        let mut pts = parse(&text);
+        if pts.is_empty() {
+            pts = parse(DEFAULT_COLOR_CURVE);
+        }
+        pts.sort_by(|a, b| a.0.total_cmp(&b.0));
+        FalseColors(pts)
+    }
+
+    pub fn at(&self, x: f64) -> [u8; 4] {
+        let pts = &self.0;
+        let rgb = if x <= pts[0].0 {
+            pts[0].1
+        } else if x >= pts[pts.len() - 1].0 {
+            pts[pts.len() - 1].1
+        } else {
+            let k = pts.windows(2).position(|w| x >= w[0].0 && x <= w[1].0).unwrap_or(0);
+            let (a, b) = (pts[k], pts[k + 1]);
+            let t = if a.2 == 0 || b.0 - a.0 <= EPS { 0.0 } else { (x - a.0) / (b.0 - a.0) };
+            [a.1[0] + (b.1[0] - a.1[0]) * t, a.1[1] + (b.1[1] - a.1[1]) * t, a.1[2] + (b.1[2] - a.1[2]) * t]
+        };
+        let c = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        [c(rgb[0]), c(rgb[1]), c(rgb[2]), 255]
+    }
 }
 
 /// True when falloff distances are measured along the surface rather than straight through space.
@@ -431,6 +472,55 @@ pub fn surface_falloff() -> bool {
 pub fn state() -> (bool, f64) {
     let p = PrefStore::get();
     (p.bool("general", ENABLED, false), p.f64("general", RADIUS, 5.0))
+}
+
+/// softSelect's other settings.
+pub const UV_RADIUS: &str = "/softSelect/uvRadius";
+pub const COLOR_CURVE: &str = "/softSelect/colorCurve";
+pub const FALSE_COLOR: &str = "/softSelect/falseColor";
+pub const COMPRESS_UNDO: &str = "/softSelect/compressUndo";
+/// The false colour ramp to start with: black where nothing is picked, through red, to yellow at full weight.
+pub const DEFAULT_COLOR_CURVE: &str = "0,0,0,0,1,1,0,0,0.5,1,1,1,0,1,1";
+
+/// The reference's numbers for a key's interpolation: 0 none, 1 linear, 2 smooth, 3 spline.
+fn interp_code(i: Interp) -> i64 {
+    match i {
+        Interp::Flat => 0,
+        Interp::Linear => 1,
+        Interp::Smooth => 2,
+        Interp::Spline => 3,
+    }
+}
+
+fn interp_of_code(c: i64) -> Interp {
+    match c {
+        0 => Interp::Flat,
+        1 => Interp::Linear,
+        2 => Interp::Smooth,
+        _ => Interp::Spline,
+    }
+}
+
+fn numbers(text: &str) -> Result<Vec<f64>, String> {
+    text.split(',').map(str::trim).filter(|t| !t.is_empty()).map(|t| t.parse::<f64>().map_err(|_| format!("{t} is not a number"))).collect()
+}
+
+fn trim_num(v: f64) -> String {
+    let t = format!("{v}");
+    t
+}
+
+/// softSelect -ssc: three numbers per key, the weight, the distance (0 to 1) and the interpolation.
+pub fn curve_from_string(text: &str) -> Result<Curve, String> {
+    let n = numbers(text)?;
+    if n.is_empty() || n.len() % 3 != 0 {
+        return Err("three numbers per point: weight, distance, interpolation".into());
+    }
+    Ok(Curve::new(n.chunks(3).map(|c| key(c[1], c[0], interp_of_code(c[2] as i64))).collect()))
+}
+
+pub fn curve_to_string(c: &Curve) -> String {
+    c.keys().iter().map(|k| format!("{},{},{}", trim_num(k.value), trim_num(k.pos), interp_code(k.interp))).collect::<Vec<_>>().join(",")
 }
 
 pub fn register(c: &mut Commands<Session>) {
@@ -451,7 +541,57 @@ pub fn register(c: &mut Commands<Session>) {
                         let m = p.string("general", FALLOFF_MODE, "volume");
                         return Ok(json!(FALLOFFS.iter().position(|x| *x == m).unwrap_or(0)));
                     }
+                    if q.iter().any(|x| x == "softSelectUVDistance") {
+                        return Ok(json!(p.f64("general", UV_RADIUS, 0.5)));
+                    }
+                    if q.iter().any(|x| x == "softSelectCurve") {
+                        return Ok(json!(curve_to_string(&current_curve())));
+                    }
+                    if q.iter().any(|x| x == "softSelectColorCurve") {
+                        return Ok(json!(p.string("general", COLOR_CURVE, DEFAULT_COLOR_CURVE)));
+                    }
+                    if q.iter().any(|x| x == "enableFalseColor") {
+                        return Ok(json!(if p.bool("general", FALSE_COLOR, true) { 1 } else { 0 }));
+                    }
+                    if q.iter().any(|x| x == "compressUndo") {
+                        return Ok(json!(p.f64("general", COMPRESS_UNDO, 0.0) as i64));
+                    }
                     return Ok(json!(if p.bool("general", ENABLED, false) { 1 } else { 0 }));
+                }
+                // -softSelectReset: the settings go back to their defaults; whether it is on stays.
+                if a.bool("softSelectReset") {
+                    p.set("general", RADIUS, json!(5.0), PrefScope::User);
+                    p.set("general", UV_RADIUS, json!(0.5), PrefScope::User);
+                    p.set("general", FALLOFF_MODE, json!("volume"), PrefScope::User);
+                    p.set("general", CURVE, Curve::default().to_json(), PrefScope::User);
+                    p.set("general", COLOR_CURVE, json!(DEFAULT_COLOR_CURVE), PrefScope::User);
+                    p.set("general", FALSE_COLOR, json!(true), PrefScope::User);
+                }
+                if let Some(t) = a.get("softSelectCurve").and_then(Value::as_str) {
+                    match curve_from_string(t) {
+                        Ok(c) => set_current_curve(&c),
+                        Err(e) => fail!("softSelect: -ssc: {e}"),
+                    }
+                }
+                if let Some(t) = a.get("softSelectColorCurve").and_then(Value::as_str) {
+                    let n = numbers(t).map_err(|e| aztek_ops::CommandError::new(format!("softSelect: -scc: {e}")))?;
+                    if n.is_empty() || n.len() % 5 != 0 {
+                        fail!("softSelect: -scc: five numbers per point: red, green, blue, weight, interpolation");
+                    }
+                    p.set("general", COLOR_CURVE, json!(t), PrefScope::User);
+                }
+                if let Some(v) = a.get("enableFalseColor") {
+                    let on = v.as_bool().or_else(|| v.as_i64().map(|i| i != 0)).unwrap_or(true);
+                    p.set("general", FALSE_COLOR, json!(on), PrefScope::User);
+                }
+                if let Some(v) = a.get("compressUndo").and_then(Value::as_i64) {
+                    if !(0..=2).contains(&v) {
+                        fail!("softSelect: -cu is 0, 1 or 2");
+                    }
+                    p.set("general", COMPRESS_UNDO, json!(v), PrefScope::User);
+                }
+                if let Some(v) = a.get("softSelectUVDistance").and_then(Value::as_f64) {
+                    p.set("general", UV_RADIUS, json!(v.max(1e-6)), PrefScope::User);
                 }
                 if let Some(v) = a.get("softSelectEnabled") {
                     let on = v.as_bool().or_else(|| v.as_i64().map(|i| i != 0)).or_else(|| v.as_str().map(|t| matches!(t, "true" | "on" | "yes" | "1"))).unwrap_or(false);
@@ -471,6 +611,12 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("softSelectEnabled", "sse", T::Any, "1 on, 0 off."))
         .flag(f("softSelectDistance", "ssd", T::Float, "Falloff radius, world units."))
         .flag(f("softSelectFalloff", "ssf", T::Int, "0 volume, 1 surface, 2 global, 3 object."))
+        .flag(f("softSelectCurve", "ssc", T::String, "The falloff curve: three numbers per point, the weight, the distance (0 at the selection, 1 at the radius) and the interpolation (0 none, 1 linear, 2 smooth, 3 spline), comma separated."))
+        .flag(f("softSelectColorCurve", "scc", T::String, "The false colour ramp: five numbers per point, red, green and blue, the weight, and the interpolation, comma separated."))
+        .flag(f("enableFalseColor", "efc", T::Int, "1 shows the false colours of the weights in the views, 0 doesn't (1)."))
+        .flag(f("softSelectUVDistance", "sud", T::Float, "The falloff radius in UV space (0.5)."))
+        .flag(f("softSelectReset", "ssr", T::Bool, "Put the settings back to their defaults."))
+        .flag(f("compressUndo", "cu", T::Int, "0 every change undoes on its own, 1 changes in a row undo as one, 2 only interactive ones do (0)."))
         .flag(f("edit", "e", T::Bool, "Edit mode."))
         .flag(f("query", "q", T::Bool, "Query mode."))
         .flag(f("queried", "", T::List, "Flags asked about in query mode.")),

@@ -33,6 +33,7 @@ const SELECTED: usize = BASE_COUNT + 9;
 const CURVE_POS: usize = BASE_COUNT + 10;
 const CURVE_VAL: usize = BASE_COUNT + 11;
 const CURVE_INTERP: usize = BASE_COUNT + 12;
+const MASKING: usize = BASE_COUNT + 13;
 
 /// One falloffCurve entry, as the reference's ramps: position along the radius, weight, then how it goes on to the next: 0 none,
 /// 1 linear, 2 smooth, 3 spline.
@@ -136,6 +137,8 @@ struct Key {
     seeds: Vec<u32>,
     axes: [bool; 3],
     knots: Vec<Knot>,
+    /// With falloffMasking: the points that may move.
+    masking: Vec<u32>,
 }
 
 #[derive(Default)]
@@ -170,7 +173,22 @@ fn falloff(m: &Mesh, k: &Key) -> Vec<f64> {
             })
             .collect()
     };
-    dist.into_iter().map(|x| if x >= radius { 0.0 } else { curve_value(&k.knots, x / radius) }).collect()
+    let mut out: Vec<f64> = dist.into_iter().map(|x| if x >= radius { 0.0 } else { curve_value(&k.knots, x / radius) }).collect();
+    // Masking: only the points it was made on move.
+    if !k.masking.is_empty() {
+        let mut keep = vec![false; out.len()];
+        for &s in &k.masking {
+            if let Some(x) = keep.get_mut(s as usize) {
+                *x = true;
+            }
+        }
+        for (w, k) in out.iter_mut().zip(keep) {
+            if !k {
+                *w = 0.0;
+            }
+        }
+    }
+    out
 }
 
 impl NodeBehavior for SoftMod {
@@ -190,6 +208,7 @@ impl NodeBehavior for SoftMod {
             seeds: if around { floats_of(d, SELECTED).map(|s| s.0.iter().map(|x| *x as u32).collect()).unwrap_or_default() } else { Vec::new() },
             axes: [d.bool(IN_X), d.bool(IN_X + 1), d.bool(IN_X + 2)],
             knots: knots_of(d),
+            masking: if d.bool(MASKING) { floats_of(d, SELECTED).map(|s| s.0.iter().map(|x| *x as u32).collect()).unwrap_or_default() } else { Vec::new() },
         };
         if key != self.key || self.falloff.len() != input.point_capacity() as usize {
             self.falloff = falloff(&input, &key);
@@ -277,6 +296,7 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
             curve_attr("Position", 0.0, "Where along the radius, 0 to 1."),
             curve_attr("FloatValue", 1.0, "The weight there."),
             curve_attr("Interp", 2.0, "On to the next: 0 none, 1 linear, 2 smooth, 3 spline."),
+            AttrDef { short_name: "fm".into(), ..bool_attr("falloffMasking", false, "Only the points selected when it was made move; the rest of the falloff is masked off.") },
         ],
         create: Some(Arc::new(|| Box::<SoftMod>::default())),
         ..Default::default()
@@ -301,9 +321,75 @@ fn soft_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
     }
 }
 
-const SETTINGS: &[&str] = &["falloffRadius", "falloffMode", "falloffCenter", "falloffAroundSelection", "relative", "envelope"];
+const SETTINGS: &[&str] = &["falloffRadius", "falloffMode", "falloffCenter", "falloffAroundSelection", "relative", "envelope", "falloffMasking"];
+
+/// The ramp from -curvePoint, -curveValue and -curveInterpolation, one of each per point; empty when none are given.
+fn ramp_flags(a: &Args) -> CmdResult<Vec<(f64, f64, i64)>> {
+    let list = |k: &str| -> Vec<f64> {
+        match a.get(k) {
+            Some(Value::Array(v)) => v.iter().filter_map(Value::as_f64).collect(),
+            Some(v) => v.as_f64().into_iter().collect(),
+            None => Vec::new(),
+        }
+    };
+    let (pos, val, interp) = (list("curvePoint"), list("curveValue"), list("curveInterpolation"));
+    if pos.is_empty() && val.is_empty() && interp.is_empty() {
+        return Ok(Vec::new());
+    }
+    if pos.len() != val.len() || pos.len() != interp.len() {
+        fail!("softMod: give -curvePoint, -curveValue and -curveInterpolation once each per point");
+    }
+    for &i in &interp {
+        if !(0.0..=3.0).contains(&i) {
+            fail!("softMod: -curveInterpolation is 0 none, 1 linear, 2 smooth or 3 spline");
+        }
+    }
+    Ok((0..pos.len()).map(|k| (pos[k].clamp(0.0, 1.0), val[k], interp[k] as i64)).collect())
+}
+
+/// The transforms a softMod's matrices come from: the one whose local matrix it reads, then the one whose world matrix
+/// it reads (both its handle, unless -weightedNode changed them).
+fn weighted_nodes(g: &Graph, n: NodeId) -> (Option<NodeId>, Option<NodeId>) {
+    (g.source(&plug(n, LOCAL)).map(|p| p.node), g.source(&plug(n, HANDLE)).map(|p| p.node))
+}
+
+/// -weightedNode: the softMod follows these transforms, `first`'s own matrix and `second`'s world matrix, bound as they
+/// stand now unless `bind` is off.
+fn set_weighted(g: &mut Graph, n: NodeId, first: NodeId, second: NodeId, bind: bool) -> CmdResult<()> {
+    g.disconnect(&plug(n, LOCAL));
+    g.disconnect(&plug(n, HANDLE));
+    g.connect(&plug(second, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
+    g.connect(&plug(first, Transform::MATRIX), &plug(n, LOCAL), false)?;
+    g.evaluate();
+    let (pre, local) = if bind {
+        let local = match g.value(&plug(first, Transform::MATRIX)) {
+            Ok(PlugValue::Matrix(m)) => m.inverse(),
+            _ => DMat4::IDENTITY,
+        };
+        (world(g, second).inverse(), local)
+    } else {
+        (DMat4::IDENTITY, DMat4::IDENTITY)
+    };
+    set_data(g, n, json!({"bindPre": mat_json(&pre), "bindLocal": mat_json(&local)}))
+}
+
+fn weighted_arg(g: &Graph, a: &Args) -> CmdResult<Option<(NodeId, NodeId)>> {
+    let Some(Value::Array(v)) = a.get("weightedNode") else { return Ok(None) };
+    let names: Vec<&str> = v.iter().filter_map(Value::as_str).collect();
+    let [x, y] = names.as_slice() else { fail!("softMod: -weightedNode takes two transforms") };
+    let (x, y) = (crate::rig::find(g, x, "softMod")?, crate::rig::find(g, y, "softMod")?);
+    for t in [x, y] {
+        if !g.node(t).is_some_and(|n| n.ty().is_a("transform")) {
+            fail!("softMod: -weightedNode takes transforms");
+        }
+    }
+    Ok(Some((x, y)))
+}
 
 fn create(s: &mut Session, a: &Args) -> CmdResult {
+    let ramp = ramp_flags(a)?;
+    let weighted = weighted_arg(&s.graph, a)?;
+    let a = &crate::deform_common::creation_args(s, a, "softMod")?;
     let meshes = deform::targets(s, a)?;
     if meshes.is_empty() {
         fail!("softMod: select meshes or vertices");
@@ -350,11 +436,22 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
             _ => DMat4::IDENTITY,
         };
         set_data(g, n, json!({"bindPre": mat_json(&bind), "bindLocal": mat_json(&local)}))?;
-        // The curve the reference starts with.
-        for (i, (at, value)) in [(0.0, 1.0), (1.0, 0.0)].into_iter().enumerate() {
+        // -weightedNode: other transforms drive it, with compensation for where they stand only with -bindState.
+        if let Some((x, y)) = weighted {
+            set_weighted(g, n, x, y, a.bool("bindState"))?;
+        }
+        // The curve the reference starts with, or the one given.
+        let knots = if ramp.is_empty() { vec![(0.0, 1.0, 2), (1.0, 0.0, 2)] } else { ramp.clone() };
+        for (i, (at, value, interp)) in knots.into_iter().enumerate() {
             g.set_value(PlugRef::element(n, CURVE_POS as i32, i as i32), PlugValue::Float(at))?;
             g.set_value(PlugRef::element(n, CURVE_VAL as i32, i as i32), PlugValue::Float(value))?;
-            g.set_value(PlugRef::element(n, CURVE_INTERP as i32, i as i32), PlugValue::Int(2))?;
+            g.set_value(PlugRef::element(n, CURVE_INTERP as i32, i as i32), PlugValue::Int(interp))?;
+        }
+        // Which axes distance counts along.
+        for (k, flag) in ["falloffBasedOnX", "falloffBasedOnY", "falloffBasedOnZ"].into_iter().enumerate() {
+            if a.has(flag) {
+                g.set_value(plug(n, IN_X + k), PlugValue::Bool(a.bool(flag)))?;
+            }
         }
         for (k, (m, pts)) in meshes.iter().enumerate() {
             let at = if k == 0 { n } else { deform::add_geometry(g, n, *m, &None)? };
@@ -369,12 +466,49 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
     })();
     g.close_chunk();
     let (n, xf) = r?;
+    crate::deform_common::after_create(g, n, a)?;
     Ok(json!([g.path(n), g.path(xf)]))
+}
+
+fn edit(s: &mut Session, a: &Args, n: NodeId) -> CmdResult {
+    let path = s.graph.path(deform::leader_of(&s.graph, n));
+    if let Some(r) = crate::deform_common::shared_edit(s, a, &path, "softMod") {
+        r?;
+        // A further mesh's points mean nothing to it: it falls off round the centre there.
+        let g = &mut s.graph;
+        for x in deform::group(g, deform::leader_of(g, n)) {
+            if x != n {
+                clear_selected(g, x)?;
+            }
+        }
+    }
+    let g = &mut s.graph;
+    deform::apply_flags(g, n, a, SETTINGS)?;
+    for (k, flag) in ["falloffBasedOnX", "falloffBasedOnY", "falloffBasedOnZ"].into_iter().enumerate() {
+        if a.has(flag) {
+            g.set_value(plug(n, IN_X + k), PlugValue::Bool(a.bool(flag)))?;
+        }
+    }
+    if let Some((x, y)) = weighted_arg(g, a)? {
+        set_weighted(g, n, x, y, true)?;
+    }
+    // -resetGeometry: each deformed object's matrix as it is now, where the matrix isn't followed live.
+    if a.bool("resetGeometry") {
+        for x in deform::group(g, deform::leader_of(g, n)) {
+            let Some(mesh) = deform::mesh_fed_by(g, x) else { continue };
+            if g.source(&plug(x, GEOM)).is_none() {
+                let m = world(g, crate::dag::transform_of(g, mesh));
+                g.set_value(plug(x, GEOM), PlugValue::Matrix(m))?;
+            }
+        }
+    }
+    g.evaluate();
+    Ok(json!([g.path(n)]))
 }
 
 pub(crate) fn register(c: &mut Commands<Session>) {
     c.register(
-        modes(deform::common_flags(Cmd::new(
+        crate::deform_common::geometry_flags(crate::deform_common::creation_flags(modes(deform::common_flags(Cmd::new(
             "softMod",
             "Add a soft modification to the selected vertices or meshes: softMod -fr 2 -fas true. Returns [softMod1, softMod1Handle]. Move \
              the handle and points follow by their falloff. With vertices it falls off around them; with a mesh, around its centre or \
@@ -383,18 +517,41 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                 if a.bool("query") {
                     let Some(name) = a.named().into_iter().next() else { fail!("softMod: name a softMod to query") };
                     let n = soft_named(&s.graph, &name)?;
-                    return deform::query_flags(&mut s.graph, n, a, SETTINGS);
+                    let g = &mut s.graph;
+                    let (first, second) = weighted_nodes(g, n);
+                    let tools: Vec<NodeId> = second.into_iter().collect();
+                    if let Some(v) = crate::deform_common::shared_query(g, n, a, &tools) {
+                        return Ok(v);
+                    }
+                    if crate::skin::asked(a, "weightedNode") {
+                        return Ok(json!([first.map(|x| g.path(x)).unwrap_or_default(), second.map(|x| g.path(x)).unwrap_or_default()]));
+                    }
+                    for (k, flag) in ["falloffBasedOnX", "falloffBasedOnY", "falloffBasedOnZ"].into_iter().enumerate() {
+                        if crate::skin::asked(a, flag) {
+                            return Ok(json!(g.node(n).is_some_and(|x| x.data().bool(IN_X + k))));
+                        }
+                    }
+                    return deform::query_flags(g, n, a, SETTINGS);
                 }
                 if a.bool("edit") {
                     let Some(name) = a.named().into_iter().next() else { fail!("softMod: name a softMod to edit") };
                     let n = soft_named(&s.graph, &name)?;
-                    deform::apply_flags(&mut s.graph, n, a, SETTINGS)?;
-                    return Ok(json!([s.graph.path(n)]));
+                    return edit(s, a, n);
                 }
                 create(s, a)
             },
-        )))
+        )))))
         .positional("vertices or meshes (the selection when none); the softMod with -e and -q")
+        .flag(f("bindState", "bs", ArgType::Bool, "With -weightedNode: make up for where its transforms stand, so the objects stay where they are."))
+        .flag(f("curvePoint", "cp", ArgType::Any, "A point of the falloff ramp: where along the radius, 0 to 1. One per point, with -cv and -ci.").multi(1))
+        .flag(f("curveValue", "cv", ArgType::Any, "The ramp's weight at that point.").multi(1))
+        .flag(f("curveInterpolation", "ci", ArgType::Any, "From that point on: 0 none, 1 linear, 2 smooth, 3 spline.").multi(1))
+        .flag(f("falloffBasedOnX", "fbx", ArgType::Bool, "Distance counts along X (on)."))
+        .flag(f("falloffBasedOnY", "fby", ArgType::Bool, "Distance counts along Y (on)."))
+        .flag(f("falloffBasedOnZ", "fbz", ArgType::Bool, "Distance counts along Z (on)."))
+        .flag(f("falloffMasking", "fm", ArgType::Bool, "Only the selected points move (off)."))
+        .flag(f("resetGeometry", "rg", ArgType::Bool, "With -e: the deformed objects' matrices as they are now, so scaling them before has no effect."))
+        .flag(f("weightedNode", "wn", ArgType::Any, "The transform it takes its matrix from, then the one whose world matrix it reads (its handle).").multi(2))
         .flag(f("falloffRadius", "fr", ArgType::Float, "How far the effect reaches, cm (5)."))
         .flag(f("falloffMode", "fom", ArgType::Int, "0 straight through space, 1 along the surface."))
         .flag(f("falloffCenter", "fc", ArgType::Vec3, "Centre of the falloff, world space."))

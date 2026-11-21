@@ -383,4 +383,14 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "reverseCurve", &["reverseCurve"], &[], Vec::new());
     crate::history_qe::extend(c, "reverseSurface", &["reverseSurface"], &[], Vec::new());
     crate::history_qe::extend(c, "revolve", &["revolve"], &[], Vec::new());
+    for name in ["singleProfileBirailSurface", "birail"] {
+        crate::history_qe::extend(c, name, &["singleProfileBirailSurface"], &[], Vec::new());
+    }
+    crate::history_qe::extend(c, "smoothCurve", &["smoothCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "smoothTangentSurface", &["smoothTangentSrf"], &[], Vec::new());
+    crate::history_qe::extend(c, "sphere", &["makeNurbSphere"], &[], Vec::new());
+    for name in ["square", "squareSurface"] {
+        crate::history_qe::extend(c, name, &["squareSrf"], &[], Vec::new());
+    }
+    crate::nurbs_ops::stitch_qe(c);
 }

@@ -590,7 +590,7 @@ fn move_rotate_scale_forms() {
     // About a point.
     run(&mut s, "polyCube", json!({"name": "c"}));
     set(&mut s, "c.translate", json!([1.0, 0.0, 0.0]));
-    run(&mut s, "rotate", json!({"args": ["c"], "to": [0.0, 90.0, 0.0], "r": true, "p": [0.0, 0.0, 0.0]}));
+    run(&mut s, "rotate", json!({"args": ["c"], "to": [0.0, 90.0, 0.0], "r": true, "p": [0.0, 0.0, 0.0], "t": true}));
     close3(&get(&mut s, "c.translate"), [0.0, 0.0, -1.0]);
 
     // Scale.
@@ -790,7 +790,7 @@ fn display_and_order_commands() {
     run(&mut s, "showHidden", json!({"args": ["g"], "b": true}));
     assert_eq!(get(&mut s, "b.v"), true);
     run(&mut s, "hide", json!({"args": ["c", "d"]}));
-    run(&mut s, "showHidden", json!({"a": true}));
+    run(&mut s, "showHidden", json!({"all": true}));
     assert_eq!(get(&mut s, "d.v"), true);
 
     assert_eq!(run(&mut s, "toggle", json!({"args": ["c"], "la": true})), true);

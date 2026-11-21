@@ -542,6 +542,12 @@ pub fn register(c: &mut Commands<Session>) {
             "setInfinity",
             "What curves do before and after their keys: -pri and -poi constant, linear, cycle, cycleRelative or oscillate.",
             |s, a| {
+                // Shapes' channels are taken in unless -s 0.
+                let mut b = a.clone();
+                if !a.has("shape") {
+                    b.flags.insert("shape".to_string(), json!(true));
+                }
+                let a = &b;
                 let curves = curves_for(s, a, "setInfinity")?;
                 let index = |n: &str| anim::INFINITY_NAMES.iter().enumerate().find(|(i, x)| **x == n && *i != 2).map(|(i, _)| i as i64);
                 if a.bool("query") {
@@ -569,7 +575,10 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("objects, plugs or curves (the selection when none)")
         .flag(f("attribute", "at", ArgType::Any, "Channel name(s)."))
         .flag(f("preInfinite", "pri", ArgType::String, "Before the first key."))
-        .flag(f("postInfinite", "poi", ArgType::String, "After the last key.")),
+        .flag(f("postInfinite", "poi", ArgType::String, "After the last key."))
+        .flag(f("controlPoints", "cp", ArgType::Bool, "Take in the shapes' control points too (off)."))
+        .flag(f("hierarchy", "hi", ArgType::String, "Take in the hierarchy: above, below, both or none (none)."))
+        .flag(f("shape", "s", ArgType::Bool, "Take in the channels of the shapes under the transforms, not their control points (on).")),
     ));
 
     c.register(

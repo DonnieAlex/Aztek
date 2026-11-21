@@ -307,7 +307,7 @@ fn preserve_seam_holds_or_frees_points_on_the_plane() {
     let seam_x = |seam: i32| {
         let mut c = Core::new();
         c.mel("polyPlane -n m -w 2 -h 2 -sx 2 -sy 2;");
-        c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+        c.mel("symmetricModelling -e -s 1 -ax x -a object;");
         c.mel(&format!("symmetricModelling -e -ps {seam};"));
         c.mel("select m.vtx[4];");
         c.exec("moveComponents", json!({"by": [0.4, 0.0, 0.0]})).unwrap();

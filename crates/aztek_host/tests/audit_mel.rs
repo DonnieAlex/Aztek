@@ -24,9 +24,9 @@ fn queries_and_settings() {
     c.mel("lockNode -l 1 a;");
     assert_eq!(c.mel("lockNode -q -l a;"), json!([true]));
     c.mel("lockNode -l 0 a;");
-    c.mel("symmetricModelling -e -s 1 -ax \"x\" -ab \"world\";");
+    c.mel("symmetricModelling -e -s 1 -ax \"x\" -a \"world\";");
     assert_eq!(c.mel("symmetricModelling -q -s;"), json!(true));
-    assert_eq!(c.mel("symmetricModelling -q -ab;"), json!("world"));
+    assert_eq!(c.mel("symmetricModelling -q -a;"), json!("world"));
     assert_eq!(errors(&mut c), Vec::<String>::new());
 }
 

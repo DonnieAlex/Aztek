@@ -1380,24 +1380,22 @@ impl Viewport {
                         entry.lines = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lv), lv.len() as u32));
                     }
                 }
-                if soft_on {
-                    // Soft selection's falloff, the reference's colours: yellow at the selection through red to black.
+                if soft_on && aztek_scene::soft_select::false_color_enabled() {
+                    // Soft selection's falloff in false colour, by softSelect's colour ramp: yellow at the selection
+                    // through red to black, to begin with.
                     let pts = components::convert(&it.mesh, mode, comps, ComponentMode::Vertex, false);
                     let w = aztek_scene::mesh_edit::transform::soft_weights(g, &it.mesh, &it.world, &pts);
+                    let ramp = aztek_scene::soft_select::FalseColors::current();
                     let mut pv = Vec::new();
                     for p in 0..it.mesh.point_capacity() {
                         if !it.mesh.point_valid(p) {
                             continue;
                         }
                         let x = w.get(p as usize).copied().unwrap_or(0.0).clamp(0.0, 1.0);
-                        let c = if x >= 0.999 {
-                            [255, 255, 0, 255]
-                        } else if x <= 0.0 {
+                        let c = if x <= 0.0 {
                             if mode == ComponentMode::Vertex && hilited { [10, 10, 10, 255] } else { continue }
-                        } else if x > 0.5 {
-                            [255, (255.0 * (x - 0.5) * 2.0) as u8, 0, 255]
                         } else {
-                            [(80.0 + 175.0 * x * 2.0) as u8, 0, 0, 255]
+                            ramp.at(x as f64)
                         };
                         pv.push(LineVertex { pos: it.mesh.position(p).as_vec3().to_array(), color: c8(c) });
                     }

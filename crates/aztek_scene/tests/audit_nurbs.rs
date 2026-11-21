@@ -292,7 +292,7 @@ fn stitch() {
     run(&mut s, "nurbsPlane", json!({"name": "b", "axis": [0, 1, 0], "w": 2.0, "lr": 1.0, "u": 1, "v": 1, "d": 1}));
     run(&mut s, "setAttr", json!({"args": ["b.tx", 3.0]}));
     // A gap of 1 in X: right edge of a at 1, left edge of b at 2.
-    let r = run(&mut s, "stitchSurface", json!({"args": ["a", "b"], "b": 0.5}));
+    let r = run(&mut s, "stitchSurface", json!({"args": ["a", "b"]}));
     assert_eq!(run(&mut s, "nodeType", json!({"args": [r[1].clone()]})), "stitchSrf");
     let bb = run(&mut s, "exactWorldBoundingBox", json!({"args": ["a"]}));
     close(&bb[3], 1.5, 1e-6);

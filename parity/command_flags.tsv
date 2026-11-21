@@ -31852,14 +31852,14 @@ selectPriority	fc	done	auto
 selectPriority	fi	done	auto
 selectPriority	field	done	auto
 selectPriority	fl	done	auto
-selectPriority	fluid	missing	
-selectPriority	fo	missing	
-selectPriority	follicle	missing	
-selectPriority	ha	missing	
-selectPriority	hairSystem	missing	
-selectPriority	handle	missing	
+selectPriority	fluid	done	auto
+selectPriority	fo	done	auto
+selectPriority	follicle	done	auto
+selectPriority	ha	done	auto
+selectPriority	hairSystem	done	auto
+selectPriority	handle	done	auto
 selectPriority	hl	done	auto
-selectPriority	hs	missing	
+selectPriority	hs	done	auto
 selectPriority	hull	done	auto
 selectPriority	iee	done	auto
 selectPriority	ig	done	auto
@@ -31887,22 +31887,22 @@ selectPriority	locatorXYZ	done	auto
 selectPriority	lp	done	auto
 selectPriority	lt	done	auto
 selectPriority	luv	done	auto
-selectPriority	meshUVShell	missing	
-selectPriority	motionTrailPoint	missing	
-selectPriority	motionTrailTangent	missing	
-selectPriority	msh	missing	
-selectPriority	mtp	missing	
-selectPriority	mtt	missing	
+selectPriority	meshUVShell	done	auto
+selectPriority	motionTrailPoint	done	auto
+selectPriority	motionTrailTangent	done	auto
+selectPriority	msh	done	auto
+selectPriority	mtp	done	auto
+selectPriority	mtt	done	auto
 selectPriority	nCloth	done	auto
 selectPriority	nParticle	done	auto
-selectPriority	nParticleShape	missing	
+selectPriority	nParticleShape	done	auto
 selectPriority	nRigid	done	auto
 selectPriority	nc	done	auto
 selectPriority	ncl	done	auto
-selectPriority	nl	missing	
-selectPriority	nonlinear	missing	
+selectPriority	nl	done	auto
+selectPriority	nonlinear	done	auto
 selectPriority	npr	done	auto
-selectPriority	nps	missing	
+selectPriority	nps	done	auto
 selectPriority	nr	done	auto
 selectPriority	ns	done	auto
 selectPriority	nurbsCurve	done	auto
@@ -31911,7 +31911,7 @@ selectPriority	ol	done	auto
 selectPriority	orientationLocator	done	auto
 selectPriority	p	done	auto
 selectPriority	particle	done	auto
-selectPriority	particleShape	missing	
+selectPriority	particleShape	done	auto
 selectPriority	pe	done	auto
 selectPriority	pf	done	auto
 selectPriority	pfe	done	auto
@@ -31925,14 +31925,14 @@ selectPriority	polymeshUV	done	auto
 selectPriority	polymeshVertex	done	auto
 selectPriority	polymeshVtxFace	done	auto
 selectPriority	pr	done	auto
-selectPriority	ps	missing	
+selectPriority	ps	done	auto
 selectPriority	puv	done	auto
 selectPriority	pv	done	auto
 selectPriority	pvf	done	auto
 selectPriority	q	done	auto
-selectPriority	qbn	missing	
+selectPriority	qbn	done	auto
 selectPriority	query	done	auto
-selectPriority	queryByName	missing	
+selectPriority	queryByName	done	auto
 selectPriority	ra	done	auto
 selectPriority	rb	done	auto
 selectPriority	rc	done	auto
@@ -31948,25 +31948,25 @@ selectPriority	se	done	auto
 selectPriority	selectHandle	done	auto
 selectPriority	sf	done	auto
 selectPriority	sh	done	auto
-selectPriority	sk	missing	
-selectPriority	sme	missing	
-selectPriority	smf	missing	
-selectPriority	smp	missing	
-selectPriority	smu	missing	
+selectPriority	sk	done	auto
+selectPriority	sme	done	auto
+selectPriority	smf	done	auto
+selectPriority	smp	done	auto
+selectPriority	smu	done	auto
 selectPriority	sp	done	auto
 selectPriority	spc	done	auto
 selectPriority	spp	done	auto
 selectPriority	spr	done	auto
 selectPriority	spring	done	auto
 selectPriority	springComponent	done	auto
-selectPriority	sr	missing	
+selectPriority	sr	done	auto
 selectPriority	str	done	auto
 selectPriority	stroke	done	auto
 selectPriority	subdiv	done	auto
-selectPriority	subdivMeshEdge	missing	
-selectPriority	subdivMeshFace	missing	
-selectPriority	subdivMeshPoint	missing	
-selectPriority	subdivMeshUV	missing	
+selectPriority	subdivMeshEdge	done	auto
+selectPriority	subdivMeshFace	done	auto
+selectPriority	subdivMeshPoint	done	auto
+selectPriority	subdivMeshUV	done	auto
 selectPriority	surfaceEdge	done	auto
 selectPriority	surfaceFace	done	auto
 selectPriority	surfaceKnot	done	auto
@@ -31976,7 +31976,7 @@ selectPriority	texture	done	auto
 selectPriority	tx	done	auto
 selectPriority	v	done	auto
 selectPriority	vertex	done	auto
-selectPriority	xyz	missing	
+selectPriority	xyz	done	auto
 selectType	abd	missing	
 selectType	ac	missing	
 selectType	ait	missing	
@@ -32153,28 +32153,28 @@ selectType	tx	missing
 selectType	v	done	auto
 selectType	vertex	done	auto
 selectType	xyz	missing	
-selectionConnection	acl	missing	
+selectionConnection	acl	done	auto
 selectionConnection	act	done	auto
-selectionConnection	activeCacheList	missing	
-selectionConnection	activeCharacterList	missing	
+selectionConnection	activeCacheList	done	auto
+selectionConnection	activeCharacterList	done	auto
 selectionConnection	activeList	done	auto
 selectionConnection	add	done	auto
 selectionConnection	addScript	done	auto
 selectionConnection	addTo	done	auto
-selectionConnection	atc	missing	
+selectionConnection	atc	done	auto
 selectionConnection	characterList	done	auto
 selectionConnection	cl	done	auto
 selectionConnection	clear	done	auto
 selectionConnection	clr	done	auto
 selectionConnection	connectionList	done	auto
 selectionConnection	d	done	auto
-selectionConnection	defineTemplate	missing	
+selectionConnection	defineTemplate	done	auto
 selectionConnection	deselect	done	auto
-selectionConnection	dt	missing	
+selectionConnection	dt	done	auto
 selectionConnection	e	done	auto
-selectionConnection	ed	missing	
+selectionConnection	ed	done	auto
 selectionConnection	edit	done	auto
-selectionConnection	editor	missing	
+selectionConnection	editor	done	auto
 selectionConnection	ex	done	auto
 selectionConnection	exists	done	auto
 selectionConnection	f	done	auto
@@ -32190,7 +32190,7 @@ selectionConnection	key	done	auto
 selectionConnection	keyframeList	done	auto
 selectionConnection	lck	done	auto
 selectionConnection	lock	done	auto
-selectionConnection	lst	missing	
+selectionConnection	lst	done	auto
 selectionConnection	mdl	done	auto
 selectionConnection	modelList	done	auto
 selectionConnection	obj	done	auto
@@ -32209,8 +32209,8 @@ selectionConnection	setList	done	auto
 selectionConnection	sl	done	auto
 selectionConnection	sw	done	auto
 selectionConnection	switch	done	auto
-selectionConnection	useTemplate	missing	
-selectionConnection	ut	missing	
+selectionConnection	useTemplate	done	auto
+selectionConnection	ut	done	auto
 selectionConnection	wl	done	auto
 selectionConnection	worldList	done	auto
 separator	ann	done	auto
@@ -32296,9 +32296,9 @@ setAttr	av	done	auto
 setAttr	c	done	auto
 setAttr	ca	done	auto
 setAttr	caching	done	auto
-setAttr	capacityHint	missing	
+setAttr	capacityHint	done	auto
 setAttr	cb	done	auto
-setAttr	ch	missing	
+setAttr	ch	done	auto
 setAttr	channelBox	done	auto
 setAttr	clamp	done	auto
 setAttr	k	done	auto
@@ -32395,18 +32395,18 @@ setFluidAttr	zIndex	missing
 setFluidAttr	zi	missing	
 setInfinity	at	done	auto
 setInfinity	attribute	done	auto
-setInfinity	controlPoints	missing	
-setInfinity	cp	missing	
-setInfinity	hi	missing	
-setInfinity	hierarchy	missing	
+setInfinity	controlPoints	done	auto
+setInfinity	cp	done	auto
+setInfinity	hi	done	auto
+setInfinity	hierarchy	done	auto
 setInfinity	poi	done	auto
 setInfinity	postInfinite	done	auto
 setInfinity	preInfinite	done	auto
 setInfinity	pri	done	auto
 setInfinity	q	done	auto
 setInfinity	query	done	auto
-setInfinity	s	missing	
-setInfinity	shape	missing	
+setInfinity	s	done	auto
+setInfinity	shape	done	auto
 setInputDeviceMapping	a	missing	
 setInputDeviceMapping	absolute	missing	
 setInputDeviceMapping	ax	missing	
@@ -32515,14 +32515,14 @@ setParticleAttr	at	done	auto
 setParticleAttr	attribute	done	auto
 setParticleAttr	floatValue	done	auto
 setParticleAttr	fv	done	auto
-setParticleAttr	o	missing	
-setParticleAttr	object	missing	
-setParticleAttr	r	missing	
-setParticleAttr	randomFloat	missing	
-setParticleAttr	randomVector	missing	
-setParticleAttr	relative	missing	
-setParticleAttr	rf	missing	
-setParticleAttr	rv	missing	
+setParticleAttr	o	done	auto
+setParticleAttr	object	done	auto
+setParticleAttr	r	done	auto
+setParticleAttr	randomFloat	done	auto
+setParticleAttr	randomVector	done	auto
+setParticleAttr	relative	done	auto
+setParticleAttr	rf	done	auto
+setParticleAttr	rv	done	auto
 setParticleAttr	vectorValue	done	auto
 setParticleAttr	vv	done	auto
 setRenderPassType	d	missing	
@@ -32547,28 +32547,28 @@ setXformManip	worldSpace	done	auto
 setXformManip	ws	done	auto
 sets	add	done	auto
 sets	addElement	done	auto
-sets	af	missing	
-sets	afterFilters	missing	
+sets	af	done	auto
+sets	afterFilters	done	auto
 sets	am	done	auto
 sets	anyMember	done	auto
-sets	channelSetColor	missing	
-sets	channelSetColorIndex	missing	
+sets	channelSetColor	done	auto
+sets	channelSetColorIndex	done	auto
 sets	cl	done	auto
 sets	clear	done	auto
 sets	co	done	auto
-sets	coi	missing	
+sets	coi	done	auto
 sets	color	done	auto
 sets	copy	done	auto
 sets	cp	done	auto
-sets	csc	missing	
+sets	csc	done	auto
 sets	e	done	auto
 sets	edges	done	auto
 sets	edit	done	auto
-sets	editPoints	missing	
-sets	eg	missing	
+sets	editPoints	done	auto
+sets	eg	done	auto
 sets	em	done	auto
 sets	empty	done	auto
-sets	ep	missing	
+sets	ep	done	auto
 sets	facets	done	auto
 sets	fc	done	auto
 sets	fe	done	auto
@@ -32818,13 +32818,13 @@ shelfButton	dt	done	auto
 shelfButton	dtg	done	auto
 shelfButton	e	done	auto
 shelfButton	ebg	done	auto
-shelfButton	ecr	missing	
+shelfButton	ecr	done	auto
 shelfButton	edit	done	auto
 shelfButton	ekf	done	auto
 shelfButton	en	done	auto
 shelfButton	enable	done	auto
 shelfButton	enableBackground	done	auto
-shelfButton	enableCommandRepeat	missing	
+shelfButton	enableCommandRepeat	done	auto
 shelfButton	enableKeyboardFocus	done	auto
 shelfButton	ex	done	auto
 shelfButton	exists	done	auto
@@ -32832,24 +32832,24 @@ shelfButton	fla	done	auto
 shelfButton	flat	done	auto
 shelfButton	flexibleWidthType	done	auto
 shelfButton	flexibleWidthValue	done	auto
-shelfButton	flipX	missing	
-shelfButton	flipY	missing	
+shelfButton	flipX	done	auto
+shelfButton	flipY	done	auto
 shelfButton	fn	done	auto
 shelfButton	font	done	auto
 shelfButton	fpn	done	auto
 shelfButton	fullPathName	done	auto
 shelfButton	fwt	done	auto
 shelfButton	fwv	done	auto
-shelfButton	fx	missing	
-shelfButton	fy	missing	
+shelfButton	fx	done	auto
+shelfButton	fy	done	auto
 shelfButton	h	done	auto
-shelfButton	handleNodeDropCallback	missing	
+shelfButton	handleNodeDropCallback	done	auto
 shelfButton	height	done	auto
 shelfButton	hi	done	auto
 shelfButton	highlightColor	done	auto
 shelfButton	highlightImage	done	auto
 shelfButton	hlc	done	auto
-shelfButton	hnd	missing	
+shelfButton	hnd	done	auto
 shelfButton	i	done	auto
 shelfButton	i1	done	auto
 shelfButton	i2	done	auto
@@ -32864,26 +32864,26 @@ shelfButton	iol	done	auto
 shelfButton	isObscured	done	auto
 shelfButton	l	done	auto
 shelfButton	label	done	auto
-shelfButton	labelEditingCallback	missing	
+shelfButton	labelEditingCallback	done	auto
 shelfButton	labelOffset	done	auto
-shelfButton	lec	missing	
+shelfButton	lec	done	auto
 shelfButton	lo	done	auto
 shelfButton	m	done	auto
 shelfButton	manage	done	auto
 shelfButton	marginHeight	done	auto
 shelfButton	marginWidth	done	auto
-shelfButton	menuItem	missing	
-shelfButton	menuItemPython	missing	
-shelfButton	menuItemWithOptionBox	missing	
+shelfButton	menuItem	done	auto
+shelfButton	menuItemPython	done	auto
+shelfButton	menuItemWithOptionBox	done	auto
 shelfButton	mh	done	auto
-shelfButton	mi	missing	
-shelfButton	mio	missing	
-shelfButton	mip	missing	
+shelfButton	mi	done	auto
+shelfButton	mio	done	auto
+shelfButton	mip	done	auto
 shelfButton	mw	done	auto
 shelfButton	nbg	done	auto
-shelfButton	ndp	missing	
+shelfButton	ndp	done	auto
 shelfButton	noBackground	done	auto
-shelfButton	noDefaultPopup	missing	
+shelfButton	noDefaultPopup	done	auto
 shelfButton	npm	done	auto
 shelfButton	numberOfPopupMenus	done	auto
 shelfButton	olb	done	auto
@@ -32935,7 +32935,7 @@ shelfLayout	cellWidth	done	auto
 shelfLayout	cellWidthHeight	done	auto
 shelfLayout	ch	done	auto
 shelfLayout	childArray	done	auto
-shelfLayout	cw	missing	
+shelfLayout	cw	done	auto
 shelfLayout	cwh	done	auto
 shelfLayout	defineTemplate	done	auto
 shelfLayout	dgc	done	auto
@@ -32957,22 +32957,22 @@ shelfLayout	ex	done	auto
 shelfLayout	exists	done	auto
 shelfLayout	fpn	done	auto
 shelfLayout	fullPathName	done	auto
-shelfLayout	generalSpacing	missing	
-shelfLayout	gsp	missing	
+shelfLayout	generalSpacing	done	auto
+shelfLayout	gsp	done	auto
 shelfLayout	h	done	auto
 shelfLayout	height	done	auto
 shelfLayout	highlightColor	done	auto
 shelfLayout	hlc	done	auto
-shelfLayout	horizontal	missing	
-shelfLayout	hr	missing	
+shelfLayout	horizontal	done	auto
+shelfLayout	hr	done	auto
 shelfLayout	io	done	auto
 shelfLayout	isObscured	done	auto
 shelfLayout	m	done	auto
 shelfLayout	manage	done	auto
-shelfLayout	mar	missing	
-shelfLayout	margins	missing	
-shelfLayout	margins4	missing	
-shelfLayout	mr4	missing	
+shelfLayout	mar	done	auto
+shelfLayout	margins	done	auto
+shelfLayout	margins4	done	auto
+shelfLayout	mr4	done	auto
 shelfLayout	nbg	done	auto
 shelfLayout	nch	done	auto
 shelfLayout	noBackground	done	auto
@@ -33009,17 +33009,17 @@ shelfTabLayout	ann	done	auto
 shelfTabLayout	annotation	done	auto
 shelfTabLayout	backgroundColor	done	auto
 shelfTabLayout	bgc	done	auto
-shelfTabLayout	borderStyle	missing	
-shelfTabLayout	bs	missing	
+shelfTabLayout	borderStyle	done	auto
+shelfTabLayout	bs	done	auto
 shelfTabLayout	ca	done	auto
 shelfTabLayout	cc	done	auto
 shelfTabLayout	changeCommand	done	auto
 shelfTabLayout	childArray	done	auto
 shelfTabLayout	childResizable	done	auto
-shelfTabLayout	closeTab	missing	
+shelfTabLayout	closeTab	done	auto
 shelfTabLayout	closeTabCommand	done	auto
 shelfTabLayout	cr	done	auto
-shelfTabLayout	ct	missing	
+shelfTabLayout	ct	done	auto
 shelfTabLayout	ctc	done	auto
 shelfTabLayout	dcc	done	auto
 shelfTabLayout	defineTemplate	done	auto
@@ -33043,8 +33043,8 @@ shelfTabLayout	ex	done	auto
 shelfTabLayout	exists	done	auto
 shelfTabLayout	fpn	done	auto
 shelfTabLayout	fullPathName	done	auto
-shelfTabLayout	generalSpacing	missing	
-shelfTabLayout	gsp	missing	
+shelfTabLayout	generalSpacing	done	auto
+shelfTabLayout	gsp	done	auto
 shelfTabLayout	h	done	auto
 shelfTabLayout	height	done	auto
 shelfTabLayout	highlightColor	done	auto
@@ -33063,13 +33063,13 @@ shelfTabLayout	isObscured	done	auto
 shelfTabLayout	iv	done	auto
 shelfTabLayout	m	done	auto
 shelfTabLayout	manage	done	auto
-shelfTabLayout	mar	missing	
-shelfTabLayout	margins	missing	
-shelfTabLayout	margins4	missing	
+shelfTabLayout	mar	done	auto
+shelfTabLayout	margins	done	auto
+shelfTabLayout	margins4	done	auto
 shelfTabLayout	mcw	done	auto
 shelfTabLayout	minChildWidth	done	auto
 shelfTabLayout	moveTab	done	auto
-shelfTabLayout	mr4	missing	
+shelfTabLayout	mr4	done	auto
 shelfTabLayout	mt	done	auto
 shelfTabLayout	nbg	done	auto
 shelfTabLayout	nch	done	auto
@@ -33082,10 +33082,10 @@ shelfTabLayout	numberOfPopupMenus	done	auto
 shelfTabLayout	p	done	auto
 shelfTabLayout	parent	done	auto
 shelfTabLayout	pma	done	auto
-shelfTabLayout	pmc	missing	
+shelfTabLayout	pmc	done	auto
 shelfTabLayout	po	done	auto
 shelfTabLayout	popupMenuArray	done	auto
-shelfTabLayout	postMenuCommand	missing	
+shelfTabLayout	postMenuCommand	done	auto
 shelfTabLayout	preSelectCommand	done	auto
 shelfTabLayout	preventOverride	done	auto
 shelfTabLayout	psc	done	auto
@@ -33095,7 +33095,7 @@ shelfTabLayout	sbm	done	auto
 shelfTabLayout	sc	done	auto
 shelfTabLayout	scr	done	auto
 shelfTabLayout	scrollable	done	auto
-shelfTabLayout	scrollableTabs	missing	
+shelfTabLayout	scrollableTabs	done	auto
 shelfTabLayout	selectCommand	done	auto
 shelfTabLayout	selectTab	done	auto
 shelfTabLayout	selectTabIndex	done	auto
@@ -33103,25 +33103,25 @@ shelfTabLayout	showNewTab	done	auto
 shelfTabLayout	snt	done	auto
 shelfTabLayout	st	done	auto
 shelfTabLayout	statusBarMessage	done	auto
-shelfTabLayout	stb	missing	
+shelfTabLayout	stb	done	auto
 shelfTabLayout	sti	done	auto
-shelfTabLayout	tabIcon	missing	
-shelfTabLayout	tabIconIndex	missing	
+shelfTabLayout	tabIcon	done	auto
+shelfTabLayout	tabIconIndex	done	auto
 shelfTabLayout	tabLabel	done	auto
 shelfTabLayout	tabLabelIndex	done	auto
 shelfTabLayout	tabPosition	done	auto
 shelfTabLayout	tabTooltip	done	auto
-shelfTabLayout	tabTooltipIndex	missing	
+shelfTabLayout	tabTooltipIndex	done	auto
 shelfTabLayout	tabsClosable	done	auto
 shelfTabLayout	tabsVisible	done	auto
 shelfTabLayout	tc	done	auto
-shelfTabLayout	ti	missing	
-shelfTabLayout	tii	missing	
+shelfTabLayout	ti	done	auto
+shelfTabLayout	tii	done	auto
 shelfTabLayout	tl	done	auto
 shelfTabLayout	tli	done	auto
 shelfTabLayout	tp	done	auto
 shelfTabLayout	tt	done	auto
-shelfTabLayout	tti	missing	
+shelfTabLayout	tti	done	auto
 shelfTabLayout	tv	done	auto
 shelfTabLayout	useTemplate	done	auto
 shelfTabLayout	ut	done	auto
@@ -33292,11 +33292,11 @@ showHelp	version	done	auto
 showHidden	a	done	auto
 showHidden	above	done	auto
 showHidden	all	done	auto
-showHidden	allObjects	missing	
+showHidden	allObjects	done	auto
 showHidden	b	done	auto
 showHidden	below	done	auto
-showHidden	lastHidden	missing	
-showHidden	lh	missing	
+showHidden	lastHidden	done	auto
+showHidden	lh	done	auto
 showManipCtx	aa	missing	
 showManipCtx	addAttr	missing	
 showManipCtx	ch	done	auto
@@ -33390,7 +33390,7 @@ simplify	cp	done	auto
 simplify	f	done	auto
 simplify	float	done	auto
 simplify	floatTolerance	done	auto
-simplify	ft	missing	
+simplify	ft	done	auto
 simplify	hi	done	auto
 simplify	hierarchy	done	auto
 simplify	includeUpperBound	done	auto
@@ -33401,25 +33401,25 @@ simplify	shape	done	auto
 simplify	t	done	auto
 simplify	time	done	auto
 simplify	timeTolerance	done	auto
-simplify	tt	missing	
+simplify	tt	done	auto
 simplify	valueTolerance	done	auto
-simplify	vt	missing	
-singleProfileBirailSurface	caching	missing	
-singleProfileBirailSurface	cch	missing	
+simplify	vt	done	auto
+singleProfileBirailSurface	caching	done	auto
+singleProfileBirailSurface	cch	done	auto
 singleProfileBirailSurface	ch	done	auto
 singleProfileBirailSurface	constructionHistory	done	auto
-singleProfileBirailSurface	e	missing	
-singleProfileBirailSurface	edit	missing	
+singleProfileBirailSurface	e	done	auto
+singleProfileBirailSurface	edit	done	auto
 singleProfileBirailSurface	n	done	auto
 singleProfileBirailSurface	name	done	auto
-singleProfileBirailSurface	nds	missing	
-singleProfileBirailSurface	nodeState	missing	
+singleProfileBirailSurface	nds	done	auto
+singleProfileBirailSurface	nodeState	done	auto
 singleProfileBirailSurface	o	done	auto
 singleProfileBirailSurface	object	done	auto
 singleProfileBirailSurface	po	done	auto
 singleProfileBirailSurface	polygon	done	auto
-singleProfileBirailSurface	q	missing	
-singleProfileBirailSurface	query	missing	
+singleProfileBirailSurface	q	done	auto
+singleProfileBirailSurface	query	done	auto
 singleProfileBirailSurface	tangentContinuityProfile1	done	auto
 singleProfileBirailSurface	tm	done	auto
 singleProfileBirailSurface	tp1	done	auto
@@ -33467,47 +33467,47 @@ skinBindCtx	symmetry	done	auto
 skinBindCtx	t	done	auto
 skinBindCtx	tolerance	done	auto
 skinCluster	addInfluence	done	auto
-skinCluster	addToSelection	missing	
-skinCluster	af	missing	
-skinCluster	after	missing	
-skinCluster	afterReference	missing	
+skinCluster	addToSelection	done	auto
+skinCluster	af	done	auto
+skinCluster	after	done	auto
+skinCluster	afterReference	done	auto
 skinCluster	ai	done	auto
-skinCluster	ar	missing	
-skinCluster	ats	missing	
+skinCluster	ar	done	auto
+skinCluster	ats	done	auto
 skinCluster	baseShape	done	auto
-skinCluster	before	missing	
-skinCluster	bf	missing	
+skinCluster	before	done	auto
+skinCluster	bf	done	auto
 skinCluster	bindMethod	done	auto
 skinCluster	bm	done	auto
 skinCluster	bsh	done	auto
-skinCluster	cmp	missing	
-skinCluster	cms	missing	
-skinCluster	components	missing	
-skinCluster	deformerTools	missing	
+skinCluster	cmp	done	auto
+skinCluster	cms	done	auto
+skinCluster	components	done	auto
+skinCluster	deformerTools	done	auto
 skinCluster	dr	done	auto
 skinCluster	dropoffRate	done	auto
-skinCluster	dt	missing	
-skinCluster	dui	missing	
-skinCluster	dumpInfo	missing	
+skinCluster	dt	done	auto
+skinCluster	dui	done	auto
+skinCluster	dumpInfo	done	auto
 skinCluster	e	done	auto
 skinCluster	edit	done	auto
-skinCluster	ex	missing	
-skinCluster	exclusive	missing	
+skinCluster	ex	done	auto
+skinCluster	exclusive	done	auto
 skinCluster	fnw	done	auto
-skinCluster	foc	missing	
+skinCluster	foc	done	auto
 skinCluster	forceNormalizeWeights	done	auto
-skinCluster	frontOfChain	missing	
+skinCluster	frontOfChain	done	auto
 skinCluster	g	done	auto
 skinCluster	geometry	done	auto
-skinCluster	geometryIndices	missing	
-skinCluster	gi	missing	
+skinCluster	geometryIndices	done	auto
+skinCluster	gi	done	auto
 skinCluster	heatmapFalloff	done	auto
 skinCluster	hmf	done	auto
-skinCluster	ibp	missing	
-skinCluster	ignoreBindPose	missing	
-skinCluster	ignoreHierarchy	missing	
-skinCluster	ignoreSelected	missing	
-skinCluster	ih	missing	
+skinCluster	ibp	done	auto
+skinCluster	ignoreBindPose	done	auto
+skinCluster	ignoreHierarchy	done	auto
+skinCluster	ignoreSelected	done	auto
+skinCluster	ih	done	auto
 skinCluster	ihs	done	auto
 skinCluster	includeHiddenSelections	done	auto
 skinCluster	inf	done	auto
@@ -33518,61 +33518,61 @@ skinCluster	maximumInfluences	done	auto
 skinCluster	mi	done	auto
 skinCluster	mjm	done	auto
 skinCluster	moveJointsMode	done	auto
-skinCluster	mul	missing	
-skinCluster	multi	missing	
+skinCluster	mul	done	auto
+skinCluster	multi	done	auto
 skinCluster	n	done	auto
 skinCluster	name	done	auto
 skinCluster	normalizeWeights	done	auto
-skinCluster	ns	missing	
-skinCluster	nurbsSamples	missing	
+skinCluster	ns	done	auto
+skinCluster	nurbsSamples	done	auto
 skinCluster	nw	done	auto
 skinCluster	obeyMaxInfluences	done	auto
 skinCluster	omi	done	auto
-skinCluster	par	missing	
-skinCluster	parallel	missing	
+skinCluster	par	done	auto
+skinCluster	parallel	done	auto
 skinCluster	polySmoothness	done	auto
-skinCluster	pr	missing	
-skinCluster	prune	missing	
+skinCluster	pr	done	auto
+skinCluster	prune	done	auto
 skinCluster	ps	done	auto
 skinCluster	q	done	auto
 skinCluster	query	done	auto
 skinCluster	rbm	done	auto
 skinCluster	recacheBindMatrices	done	auto
-skinCluster	remove	missing	
-skinCluster	removeFromSelection	missing	
+skinCluster	remove	done	auto
+skinCluster	removeFromSelection	done	auto
 skinCluster	removeInfluence	done	auto
 skinCluster	removeUnusedInfluence	done	auto
-skinCluster	rfs	missing	
+skinCluster	rfs	done	auto
 skinCluster	ri	done	auto
-skinCluster	rm	missing	
+skinCluster	rm	done	auto
 skinCluster	rui	done	auto
-skinCluster	selectInfluenceVerts	missing	
-skinCluster	selectedComponents	missing	
-skinCluster	siv	missing	
+skinCluster	selectInfluenceVerts	done	auto
+skinCluster	selectedComponents	done	auto
+skinCluster	siv	done	auto
 skinCluster	skinMethod	done	auto
 skinCluster	sm	done	auto
 skinCluster	smoothWeights	done	auto
 skinCluster	smoothWeightsMaxIterations	done	auto
-skinCluster	sp	missing	
-skinCluster	split	missing	
+skinCluster	sp	done	auto
+skinCluster	split	done	auto
 skinCluster	sw	done	auto
 skinCluster	swi	done	auto
 skinCluster	toSelectedBones	done	auto
-skinCluster	toSkeletonAndTransforms	missing	
+skinCluster	toSkeletonAndTransforms	done	auto
 skinCluster	tsb	done	auto
-skinCluster	tst	missing	
+skinCluster	tst	done	auto
 skinCluster	ub	done	auto
 skinCluster	ubk	done	auto
-skinCluster	uct	missing	
+skinCluster	uct	done	auto
 skinCluster	ug	done	auto
 skinCluster	unbind	done	auto
 skinCluster	unbindKeepHistory	done	auto
-skinCluster	useComponentTags	missing	
+skinCluster	useComponentTags	done	auto
 skinCluster	useGeometry	done	auto
-skinCluster	vb	missing	
-skinCluster	volumeBind	missing	
-skinCluster	volumeType	missing	
-skinCluster	vt	missing	
+skinCluster	vb	done	auto
+skinCluster	volumeBind	done	auto
+skinCluster	volumeType	done	auto
+skinCluster	vt	done	auto
 skinCluster	wd	done	auto
 skinCluster	weight	done	auto
 skinCluster	weightDistribution	done	auto
@@ -33601,42 +33601,42 @@ skinPercent	v	done	auto
 skinPercent	value	done	auto
 skinPercent	zeroRemainingInfluences	done	auto
 skinPercent	zri	done	auto
-smoothCurve	caching	missing	
-smoothCurve	cch	missing	
+smoothCurve	caching	done	auto
+smoothCurve	cch	done	auto
 smoothCurve	ch	done	auto
 smoothCurve	constructionHistory	done	auto
-smoothCurve	e	missing	
-smoothCurve	edit	missing	
+smoothCurve	e	done	auto
+smoothCurve	edit	done	auto
 smoothCurve	n	done	auto
 smoothCurve	name	done	auto
-smoothCurve	nds	missing	
-smoothCurve	nodeState	missing	
+smoothCurve	nds	done	auto
+smoothCurve	nodeState	done	auto
 smoothCurve	o	done	auto
 smoothCurve	object	done	auto
-smoothCurve	q	missing	
-smoothCurve	query	missing	
+smoothCurve	q	done	auto
+smoothCurve	query	done	auto
 smoothCurve	replaceOriginal	done	auto
 smoothCurve	rpo	done	auto
 smoothCurve	s	done	auto
 smoothCurve	smoothness	done	auto
-smoothTangentSurface	caching	missing	
-smoothTangentSurface	cch	missing	
+smoothTangentSurface	caching	done	auto
+smoothTangentSurface	cch	done	auto
 smoothTangentSurface	ch	done	auto
 smoothTangentSurface	constructionHistory	done	auto
 smoothTangentSurface	d	done	auto
 smoothTangentSurface	direction	done	auto
-smoothTangentSurface	e	missing	
-smoothTangentSurface	edit	missing	
+smoothTangentSurface	e	done	auto
+smoothTangentSurface	edit	done	auto
 smoothTangentSurface	n	done	auto
 smoothTangentSurface	name	done	auto
-smoothTangentSurface	nds	missing	
-smoothTangentSurface	nodeState	missing	
+smoothTangentSurface	nds	done	auto
+smoothTangentSurface	nodeState	done	auto
 smoothTangentSurface	o	done	auto
 smoothTangentSurface	object	done	auto
 smoothTangentSurface	p	done	auto
 smoothTangentSurface	parameter	done	auto
-smoothTangentSurface	q	missing	
-smoothTangentSurface	query	missing	
+smoothTangentSurface	q	done	auto
+smoothTangentSurface	query	done	auto
 smoothTangentSurface	replaceOriginal	done	auto
 smoothTangentSurface	rpo	done	auto
 smoothTangentSurface	s	done	auto
@@ -33666,34 +33666,34 @@ snapKey	valueMultiple	done	auto
 snapKey	vm	done	auto
 snapMode	c	done	auto
 snapMode	curve	done	auto
-snapMode	distanceIncrement	missing	
-snapMode	dsi	missing	
-snapMode	edgeMagnet	missing	
-snapMode	edgeMagnetTolerance	missing	
-snapMode	em	missing	
-snapMode	emt	missing	
+snapMode	distanceIncrement	done	auto
+snapMode	dsi	done	auto
+snapMode	edgeMagnet	done	auto
+snapMode	edgeMagnetTolerance	done	auto
+snapMode	em	done	auto
+snapMode	emt	done	auto
 snapMode	gr	done	auto
 snapMode	grid	done	auto
-snapMode	lfc	missing	
-snapMode	liveFaceCenter	missing	
-snapMode	livePoint	missing	
-snapMode	lp	missing	
+snapMode	lfc	done	auto
+snapMode	liveFaceCenter	done	auto
+snapMode	livePoint	done	auto
+snapMode	lp	done	auto
 snapMode	mc	done	auto
 snapMode	meshCenter	done	auto
 snapMode	p	done	auto
-snapMode	pc	missing	
-snapMode	pixelCenter	missing	
-snapMode	pixelSnap	missing	
+snapMode	pc	done	auto
+snapMode	pixelCenter	done	auto
+snapMode	pixelSnap	done	auto
 snapMode	point	done	auto
-snapMode	ps	missing	
+snapMode	ps	done	auto
 snapMode	q	done	auto
 snapMode	query	done	auto
-snapMode	t	missing	
-snapMode	tolerance	missing	
-snapMode	useTolerance	missing	
-snapMode	ut	missing	
-snapMode	uvTolerance	missing	
-snapMode	uvt	missing	
+snapMode	t	done	auto
+snapMode	tolerance	done	auto
+snapMode	useTolerance	done	auto
+snapMode	ut	done	auto
+snapMode	uvTolerance	done	auto
+snapMode	uvt	done	auto
 snapMode	viewPlane	done	auto
 snapMode	vp	done	auto
 snapTogetherCtx	ch	done	auto
@@ -33788,77 +33788,77 @@ soft	h	missing
 soft	hideOriginal	missing	
 softMod	af	done	auto
 softMod	after	done	auto
-softMod	afterReference	missing	
-softMod	ar	missing	
+softMod	afterReference	done	auto
+softMod	ar	done	auto
 softMod	before	done	auto
 softMod	bf	done	auto
-softMod	bindState	missing	
-softMod	bs	missing	
-softMod	ci	missing	
-softMod	cmp	missing	
-softMod	cms	missing	
-softMod	components	missing	
-softMod	cp	missing	
-softMod	curveInterpolation	missing	
-softMod	curvePoint	missing	
-softMod	curveValue	missing	
-softMod	cv	missing	
-softMod	deformerTools	missing	
-softMod	dt	missing	
-softMod	dui	missing	
-softMod	dumpInfo	missing	
+softMod	bindState	done	auto
+softMod	bs	done	auto
+softMod	ci	done	auto
+softMod	cmp	done	auto
+softMod	cms	done	auto
+softMod	components	done	auto
+softMod	cp	done	auto
+softMod	curveInterpolation	done	auto
+softMod	curvePoint	done	auto
+softMod	curveValue	done	auto
+softMod	cv	done	auto
+softMod	deformerTools	done	auto
+softMod	dt	done	auto
+softMod	dui	done	auto
+softMod	dumpInfo	done	auto
 softMod	e	done	auto
 softMod	edit	done	auto
 softMod	en	done	auto
 softMod	envelope	done	auto
-softMod	ex	missing	
-softMod	exclusive	missing	
+softMod	ex	done	auto
+softMod	exclusive	done	auto
 softMod	falloffAroundSelection	done	auto
-softMod	falloffBasedOnX	missing	
-softMod	falloffBasedOnY	missing	
-softMod	falloffBasedOnZ	missing	
+softMod	falloffBasedOnX	done	auto
+softMod	falloffBasedOnY	done	auto
+softMod	falloffBasedOnZ	done	auto
 softMod	falloffCenter	done	auto
-softMod	falloffMasking	missing	
+softMod	falloffMasking	done	auto
 softMod	falloffMode	done	auto
 softMod	falloffRadius	done	auto
 softMod	fas	done	auto
-softMod	fbx	missing	
-softMod	fby	missing	
-softMod	fbz	missing	
+softMod	fbx	done	auto
+softMod	fby	done	auto
+softMod	fbz	done	auto
 softMod	fc	done	auto
-softMod	fm	missing	
+softMod	fm	done	auto
 softMod	foc	done	auto
 softMod	fom	done	auto
 softMod	fr	done	auto
 softMod	frontOfChain	done	auto
-softMod	g	missing	
-softMod	geometry	missing	
-softMod	geometryIndices	missing	
-softMod	gi	missing	
-softMod	ignoreSelected	missing	
-softMod	ihs	missing	
-softMod	includeHiddenSelections	missing	
+softMod	g	done	auto
+softMod	geometry	done	auto
+softMod	geometryIndices	done	auto
+softMod	gi	done	auto
+softMod	ignoreSelected	done	auto
+softMod	ihs	done	auto
+softMod	includeHiddenSelections	done	auto
 softMod	n	done	auto
 softMod	name	done	auto
-softMod	par	missing	
-softMod	parallel	missing	
+softMod	par	done	auto
+softMod	parallel	done	auto
 softMod	pr	done	auto
 softMod	prune	done	auto
 softMod	q	done	auto
 softMod	query	done	auto
 softMod	rel	done	auto
 softMod	relative	done	auto
-softMod	remove	missing	
-softMod	resetGeometry	missing	
-softMod	rg	missing	
-softMod	rm	missing	
-softMod	selectedComponents	missing	
-softMod	sp	missing	
-softMod	split	missing	
-softMod	uct	missing	
-softMod	useComponentTags	missing	
-softMod	weightedNode	missing	
-softMod	wn	missing	
+softMod	remove	done	auto
+softMod	resetGeometry	done	auto
+softMod	rg	done	auto
+softMod	rm	done	auto
+softMod	selectedComponents	done	auto
+softMod	sp	done	auto
+softMod	split	done	auto
+softMod	uct	done	auto
+softMod	useComponentTags	done	auto
+softMod	weightedNode	done	auto
+softMod	wn	done	auto
 softModCtx	dragSlider	missing	
 softModCtx	ds	missing	
 softModCtx	e	missing	
@@ -33877,28 +33877,28 @@ softModCtx	q	missing
 softModCtx	query	missing	
 softModCtx	reset	missing	
 softModCtx	rst	missing	
-softSelect	compressUndo	missing	
-softSelect	cu	missing	
+softSelect	compressUndo	done	auto
+softSelect	cu	done	auto
 softSelect	e	done	auto
 softSelect	edit	done	auto
-softSelect	efc	missing	
-softSelect	enableFalseColor	missing	
+softSelect	efc	done	auto
+softSelect	enableFalseColor	done	auto
 softSelect	q	done	auto
 softSelect	query	done	auto
-softSelect	scc	missing	
-softSelect	softSelectColorCurve	missing	
-softSelect	softSelectCurve	missing	
+softSelect	scc	done	auto
+softSelect	softSelectColorCurve	done	auto
+softSelect	softSelectCurve	done	auto
 softSelect	softSelectDistance	done	auto
 softSelect	softSelectEnabled	done	auto
 softSelect	softSelectFalloff	done	auto
-softSelect	softSelectReset	missing	
-softSelect	softSelectUVDistance	missing	
-softSelect	ssc	missing	
+softSelect	softSelectReset	done	auto
+softSelect	softSelectUVDistance	done	auto
+softSelect	ssc	done	auto
 softSelect	ssd	done	auto
 softSelect	sse	done	auto
 softSelect	ssf	done	auto
-softSelect	ssr	missing	
-softSelect	sud	missing	
+softSelect	ssr	done	auto
+softSelect	sud	done	auto
 soloMaterial	a	missing	
 soloMaterial	attr	missing	
 soloMaterial	l	missing	
@@ -34059,34 +34059,34 @@ soundPopup	w	missing
 soundPopup	width	missing	
 spaceLocator	a	done	auto
 spaceLocator	absolute	done	auto
-spaceLocator	e	missing	
-spaceLocator	edit	missing	
+spaceLocator	e	done	auto
+spaceLocator	edit	done	auto
 spaceLocator	n	done	auto
 spaceLocator	name	done	auto
 spaceLocator	p	done	auto
 spaceLocator	position	done	auto
-spaceLocator	q	missing	
-spaceLocator	query	missing	
+spaceLocator	q	done	auto
+spaceLocator	query	done	auto
 spaceLocator	r	done	auto
 spaceLocator	relative	done	auto
 sphere	ax	done	auto
 sphere	axis	done	auto
-sphere	caching	missing	
-sphere	cch	missing	
+sphere	caching	done	auto
+sphere	cch	done	auto
 sphere	ch	done	auto
 sphere	constructionHistory	done	auto
 sphere	d	done	auto
 sphere	degree	done	auto
-sphere	e	missing	
-sphere	edit	missing	
+sphere	e	done	auto
+sphere	edit	done	auto
 sphere	endSweep	done	auto
 sphere	esw	done	auto
 sphere	heightRatio	done	auto
 sphere	hr	done	auto
 sphere	n	done	auto
 sphere	name	done	auto
-sphere	nds	missing	
-sphere	nodeState	missing	
+sphere	nds	done	auto
+sphere	nodeState	done	auto
 sphere	nsp	done	auto
 sphere	o	done	auto
 sphere	object	done	auto
@@ -34094,8 +34094,8 @@ sphere	p	done	auto
 sphere	pivot	done	auto
 sphere	po	done	auto
 sphere	polygon	done	auto
-sphere	q	missing	
-sphere	query	missing	
+sphere	q	done	auto
+sphere	query	done	auto
 sphere	r	done	auto
 sphere	radius	done	auto
 sphere	s	done	auto
@@ -34318,42 +34318,42 @@ spring	walkLength	missing
 spring	wf	missing	
 spring	wireframe	missing	
 spring	wl	missing	
-squareSurface	caching	missing	
-squareSurface	cch	missing	
-squareSurface	cfc	missing	
+squareSurface	caching	done	auto
+squareSurface	cch	done	auto
+squareSurface	cfc	done	auto
 squareSurface	ch	done	auto
 squareSurface	constructionHistory	done	auto
 squareSurface	continuityType1	done	auto
-squareSurface	continuityType2	missing	
-squareSurface	continuityType3	missing	
-squareSurface	continuityType4	missing	
-squareSurface	ct1	missing	
-squareSurface	ct2	missing	
-squareSurface	ct3	missing	
-squareSurface	ct4	missing	
-squareSurface	curveFitCheckpoints	missing	
-squareSurface	e	missing	
-squareSurface	edit	missing	
+squareSurface	continuityType2	done	auto
+squareSurface	continuityType3	done	auto
+squareSurface	continuityType4	done	auto
+squareSurface	ct1	done	auto
+squareSurface	ct2	done	auto
+squareSurface	ct3	done	auto
+squareSurface	ct4	done	auto
+squareSurface	curveFitCheckpoints	done	auto
+squareSurface	e	done	auto
+squareSurface	edit	done	auto
 squareSurface	endPointTolerance	done	auto
 squareSurface	ept	done	auto
 squareSurface	n	done	auto
 squareSurface	name	done	auto
-squareSurface	nds	missing	
-squareSurface	nodeState	missing	
+squareSurface	nds	done	auto
+squareSurface	nodeState	done	auto
 squareSurface	o	done	auto
 squareSurface	object	done	auto
 squareSurface	po	done	auto
 squareSurface	polygon	done	auto
-squareSurface	q	missing	
-squareSurface	query	missing	
+squareSurface	q	done	auto
+squareSurface	query	done	auto
 squareSurface	rc1	done	auto
-squareSurface	rc2	missing	
-squareSurface	rc3	missing	
-squareSurface	rc4	missing	
+squareSurface	rc2	done	auto
+squareSurface	rc3	done	auto
+squareSurface	rc4	done	auto
 squareSurface	rebuildCurve1	done	auto
-squareSurface	rebuildCurve2	missing	
-squareSurface	rebuildCurve3	missing	
-squareSurface	rebuildCurve4	missing	
+squareSurface	rebuildCurve2	done	auto
+squareSurface	rebuildCurve3	done	auto
+squareSurface	rebuildCurve4	done	auto
 srtContext	ch	missing	
 srtContext	e	missing	
 srtContext	edit	missing	
@@ -34721,13 +34721,13 @@ stitchSurface	caching	done	auto
 stitchSurface	cascade	done	auto
 stitchSurface	cch	done	auto
 stitchSurface	ch	done	auto
-stitchSurface	ci	missing	
-stitchSurface	cj	missing	
+stitchSurface	ci	done	auto
+stitchSurface	cj	done	auto
 stitchSurface	constructionHistory	done	auto
-stitchSurface	cvIthIndex	missing	
-stitchSurface	cvJthIndex	missing	
-stitchSurface	e	missing	
-stitchSurface	edit	missing	
+stitchSurface	cvIthIndex	done	auto
+stitchSurface	cvJthIndex	done	auto
+stitchSurface	e	done	auto
+stitchSurface	edit	done	auto
 stitchSurface	fb	done	auto
 stitchSurface	fixBoundary	done	auto
 stitchSurface	keepG0Continuity	done	auto
@@ -34742,82 +34742,82 @@ stitchSurface	ns	done	auto
 stitchSurface	numberOfSamples	done	auto
 stitchSurface	o	done	auto
 stitchSurface	object	done	auto
-stitchSurface	parameterU	missing	
-stitchSurface	parameterV	missing	
-stitchSurface	pc	missing	
-stitchSurface	positionalContinuity	missing	
-stitchSurface	q	missing	
-stitchSurface	query	missing	
+stitchSurface	parameterU	done	auto
+stitchSurface	parameterV	done	auto
+stitchSurface	pc	done	auto
+stitchSurface	positionalContinuity	done	auto
+stitchSurface	q	done	auto
+stitchSurface	query	done	auto
 stitchSurface	replaceOriginal	done	auto
 stitchSurface	rpo	done	auto
 stitchSurface	sc	done	auto
 stitchSurface	stepCount	done	auto
-stitchSurface	tangentialContinuity	missing	
-stitchSurface	tc	missing	
-stitchSurface	togglePointNormals	missing	
-stitchSurface	togglePointPosition	missing	
-stitchSurface	toggleTolerance	missing	
+stitchSurface	tangentialContinuity	done	auto
+stitchSurface	tc	done	auto
+stitchSurface	togglePointNormals	done	auto
+stitchSurface	togglePointPosition	done	auto
+stitchSurface	toggleTolerance	done	auto
 stitchSurface	tol	done	auto
 stitchSurface	tolerance	done	auto
-stitchSurface	tpn	missing	
-stitchSurface	tpp	missing	
-stitchSurface	tt	missing	
-stitchSurface	u	missing	
-stitchSurface	v	missing	
-stitchSurface	weight0	missing	
-stitchSurface	weight1	missing	
-stitchSurface	wt0	missing	
-stitchSurface	wt1	missing	
+stitchSurface	tpn	done	auto
+stitchSurface	tpp	done	auto
+stitchSurface	tt	done	auto
+stitchSurface	u	done	auto
+stitchSurface	v	done	auto
+stitchSurface	weight0	done	auto
+stitchSurface	weight1	done	auto
+stitchSurface	wt0	done	auto
+stitchSurface	wt1	done	auto
 stitchSurfacePoints	b	done	auto
 stitchSurfacePoints	bias	done	auto
 stitchSurfacePoints	c	done	auto
-stitchSurfacePoints	caching	missing	
+stitchSurfacePoints	caching	done	auto
 stitchSurfacePoints	cascade	done	auto
-stitchSurfacePoints	cch	missing	
+stitchSurfacePoints	cch	done	auto
 stitchSurfacePoints	ch	done	auto
-stitchSurfacePoints	ci	missing	
-stitchSurfacePoints	cj	missing	
+stitchSurfacePoints	ci	done	auto
+stitchSurfacePoints	cj	done	auto
 stitchSurfacePoints	constructionHistory	done	auto
-stitchSurfacePoints	cvIthIndex	missing	
-stitchSurfacePoints	cvJthIndex	missing	
-stitchSurfacePoints	e	missing	
-stitchSurfacePoints	edit	missing	
+stitchSurfacePoints	cvIthIndex	done	auto
+stitchSurfacePoints	cvJthIndex	done	auto
+stitchSurfacePoints	e	done	auto
+stitchSurfacePoints	edit	done	auto
 stitchSurfacePoints	equalWeight	done	auto
-stitchSurfacePoints	ewt	missing	
-stitchSurfacePoints	fb	missing	
-stitchSurfacePoints	fixBoundary	missing	
+stitchSurfacePoints	ewt	done	auto
+stitchSurfacePoints	fb	done	auto
+stitchSurfacePoints	fixBoundary	done	auto
 stitchSurfacePoints	keepG0Continuity	done	auto
 stitchSurfacePoints	keepG1Continuity	done	auto
 stitchSurfacePoints	kg0	done	auto
 stitchSurfacePoints	kg1	done	auto
-stitchSurfacePoints	n	missing	
-stitchSurfacePoints	name	missing	
-stitchSurfacePoints	nds	missing	
-stitchSurfacePoints	nodeState	missing	
-stitchSurfacePoints	o	missing	
-stitchSurfacePoints	object	missing	
-stitchSurfacePoints	parameterU	missing	
-stitchSurfacePoints	parameterV	missing	
-stitchSurfacePoints	pc	missing	
-stitchSurfacePoints	positionalContinuity	missing	
-stitchSurfacePoints	q	missing	
-stitchSurfacePoints	query	missing	
+stitchSurfacePoints	n	done	auto
+stitchSurfacePoints	name	done	auto
+stitchSurfacePoints	nds	done	auto
+stitchSurfacePoints	nodeState	done	auto
+stitchSurfacePoints	o	done	auto
+stitchSurfacePoints	object	done	auto
+stitchSurfacePoints	parameterU	done	auto
+stitchSurfacePoints	parameterV	done	auto
+stitchSurfacePoints	pc	done	auto
+stitchSurfacePoints	positionalContinuity	done	auto
+stitchSurfacePoints	q	done	auto
+stitchSurfacePoints	query	done	auto
 stitchSurfacePoints	replaceOriginal	done	auto
 stitchSurfacePoints	rpo	done	auto
 stitchSurfacePoints	sc	done	auto
 stitchSurfacePoints	stepCount	done	auto
-stitchSurfacePoints	tangentialContinuity	missing	
-stitchSurfacePoints	tc	missing	
-stitchSurfacePoints	togglePointNormals	missing	
-stitchSurfacePoints	togglePointPosition	missing	
-stitchSurfacePoints	toggleTolerance	missing	
+stitchSurfacePoints	tangentialContinuity	done	auto
+stitchSurfacePoints	tc	done	auto
+stitchSurfacePoints	togglePointNormals	done	auto
+stitchSurfacePoints	togglePointPosition	done	auto
+stitchSurfacePoints	toggleTolerance	done	auto
 stitchSurfacePoints	tol	done	auto
 stitchSurfacePoints	tolerance	done	auto
-stitchSurfacePoints	tpn	missing	
-stitchSurfacePoints	tpp	missing	
-stitchSurfacePoints	tt	missing	
-stitchSurfacePoints	u	missing	
-stitchSurfacePoints	v	missing	
+stitchSurfacePoints	tpn	done	auto
+stitchSurfacePoints	tpp	done	auto
+stitchSurfacePoints	tt	done	auto
+stitchSurfacePoints	u	done	auto
+stitchSurfacePoints	v	done	auto
 stringArrayIntersector	ad	done	auto
 stringArrayIntersector	allowDuplicates	done	auto
 stringArrayIntersector	defineTemplate	done	auto
@@ -35155,16 +35155,16 @@ subdivDisplaySmoothness	q	missing
 subdivDisplaySmoothness	query	missing	
 subdivDisplaySmoothness	s	missing	
 subdivDisplaySmoothness	smoothness	missing	
-substituteGeometry	disableNonSkinDeformers	missing	
-substituteGeometry	dnd	missing	
-substituteGeometry	newGeometryToLayer	missing	
-substituteGeometry	ngl	missing	
-substituteGeometry	ogl	missing	
-substituteGeometry	oldGeometryToLayer	missing	
-substituteGeometry	reWeightDistTolerance	missing	
+substituteGeometry	disableNonSkinDeformers	done	auto
+substituteGeometry	dnd	done	auto
+substituteGeometry	newGeometryToLayer	done	auto
+substituteGeometry	ngl	done	auto
+substituteGeometry	ogl	done	auto
+substituteGeometry	oldGeometryToLayer	done	auto
+substituteGeometry	reWeightDistTolerance	done	auto
 substituteGeometry	retainOldGeometry	done	auto
 substituteGeometry	rog	done	auto
-substituteGeometry	wdt	missing	
+substituteGeometry	wdt	done	auto
 suitePrefs	applyToSuite	missing	
 suitePrefs	ats	missing	
 suitePrefs	ias	missing	
@@ -35449,11 +35449,11 @@ symbolCheckBox	bgc	done	auto
 symbolCheckBox	cc	done	auto
 symbolCheckBox	changeCommand	done	auto
 symbolCheckBox	defineTemplate	done	auto
-symbolCheckBox	dfi	missing	
+symbolCheckBox	dfi	done	auto
 symbolCheckBox	dgc	done	auto
-symbolCheckBox	disableOffImage	missing	
-symbolCheckBox	disableOnImage	missing	
-symbolCheckBox	dni	missing	
+symbolCheckBox	disableOffImage	done	auto
+symbolCheckBox	disableOnImage	done	auto
+symbolCheckBox	dni	done	auto
 symbolCheckBox	docTag	done	auto
 symbolCheckBox	dpc	done	auto
 symbolCheckBox	dragCallback	done	auto
@@ -35477,9 +35477,9 @@ symbolCheckBox	height	done	auto
 symbolCheckBox	highlightColor	done	auto
 symbolCheckBox	hlc	done	auto
 symbolCheckBox	i	done	auto
-symbolCheckBox	im	missing	
+symbolCheckBox	im	done	auto
 symbolCheckBox	image	done	auto
-symbolCheckBox	innerMargin	missing	
+symbolCheckBox	innerMargin	done	auto
 symbolCheckBox	io	done	auto
 symbolCheckBox	isObscured	done	auto
 symbolCheckBox	m	done	auto
@@ -35511,14 +35511,14 @@ symbolCheckBox	ut	done	auto
 symbolCheckBox	v	done	auto
 symbolCheckBox	value	done	auto
 symbolCheckBox	vcc	done	auto
-symbolCheckBox	ver	missing	
-symbolCheckBox	version	missing	
+symbolCheckBox	ver	done	auto
+symbolCheckBox	version	done	auto
 symbolCheckBox	vis	done	auto
 symbolCheckBox	visible	done	auto
 symbolCheckBox	visibleChangeCommand	done	auto
 symbolCheckBox	w	done	auto
 symbolCheckBox	width	done	auto
-symmetricModelling	a	missing	
+symmetricModelling	a	done	auto
 symmetricModelling	about	done	auto
 symmetricModelling	allowPartial	done	auto
 symmetricModelling	ap	done	auto
@@ -35533,12 +35533,12 @@ symmetricModelling	query	done	auto
 symmetricModelling	r	done	auto
 symmetricModelling	reset	done	auto
 symmetricModelling	s	done	auto
-symmetricModelling	seamFalloffCurve	missing	
+symmetricModelling	seamFalloffCurve	done	auto
 symmetricModelling	seamTolerance	done	auto
-symmetricModelling	sf	missing	
+symmetricModelling	sf	done	auto
 symmetricModelling	st	done	auto
 symmetricModelling	symmetry	done	auto
-symmetricModelling	t	missing	
+symmetricModelling	t	done	auto
 symmetricModelling	tolerance	done	auto
 symmetricModelling	topoSymmetry	done	auto
 symmetricModelling	ts	done	auto
@@ -35557,17 +35557,17 @@ tabLayout	ann	done	auto
 tabLayout	annotation	done	auto
 tabLayout	backgroundColor	done	auto
 tabLayout	bgc	done	auto
-tabLayout	borderStyle	missing	
-tabLayout	bs	missing	
+tabLayout	borderStyle	done	auto
+tabLayout	bs	done	auto
 tabLayout	ca	done	auto
 tabLayout	cc	done	auto
 tabLayout	changeCommand	done	auto
 tabLayout	childArray	done	auto
 tabLayout	childResizable	done	auto
-tabLayout	closeTab	missing	
+tabLayout	closeTab	done	auto
 tabLayout	closeTabCommand	done	auto
 tabLayout	cr	done	auto
-tabLayout	ct	missing	
+tabLayout	ct	done	auto
 tabLayout	ctc	done	auto
 tabLayout	dcc	done	auto
 tabLayout	defineTemplate	done	auto
@@ -35591,33 +35591,33 @@ tabLayout	ex	done	auto
 tabLayout	exists	done	auto
 tabLayout	fpn	done	auto
 tabLayout	fullPathName	done	auto
-tabLayout	generalSpacing	missing	
-tabLayout	gsp	missing	
+tabLayout	generalSpacing	done	auto
+tabLayout	gsp	done	auto
 tabLayout	h	done	auto
 tabLayout	height	done	auto
 tabLayout	highlightColor	done	auto
 tabLayout	hlc	done	auto
 tabLayout	horizontalScrollBarThickness	done	auto
 tabLayout	hst	done	auto
-tabLayout	i	missing	
-tabLayout	image	missing	
-tabLayout	imageVisible	missing	
+tabLayout	i	done	auto
+tabLayout	image	done	auto
+tabLayout	imageVisible	done	auto
 tabLayout	imh	done	auto
 tabLayout	imw	done	auto
 tabLayout	innerMarginHeight	done	auto
 tabLayout	innerMarginWidth	done	auto
 tabLayout	io	done	auto
 tabLayout	isObscured	done	auto
-tabLayout	iv	missing	
+tabLayout	iv	done	auto
 tabLayout	m	done	auto
 tabLayout	manage	done	auto
-tabLayout	mar	missing	
-tabLayout	margins	missing	
-tabLayout	margins4	missing	
+tabLayout	mar	done	auto
+tabLayout	margins	done	auto
+tabLayout	margins4	done	auto
 tabLayout	mcw	done	auto
 tabLayout	minChildWidth	done	auto
 tabLayout	moveTab	done	auto
-tabLayout	mr4	missing	
+tabLayout	mr4	done	auto
 tabLayout	mt	done	auto
 tabLayout	nbg	done	auto
 tabLayout	nch	done	auto
@@ -35630,10 +35630,10 @@ tabLayout	numberOfPopupMenus	done	auto
 tabLayout	p	done	auto
 tabLayout	parent	done	auto
 tabLayout	pma	done	auto
-tabLayout	pmc	missing	
+tabLayout	pmc	done	auto
 tabLayout	po	done	auto
 tabLayout	popupMenuArray	done	auto
-tabLayout	postMenuCommand	missing	
+tabLayout	postMenuCommand	done	auto
 tabLayout	preSelectCommand	done	auto
 tabLayout	preventOverride	done	auto
 tabLayout	psc	done	auto
@@ -35643,7 +35643,7 @@ tabLayout	sbm	done	auto
 tabLayout	sc	done	auto
 tabLayout	scr	done	auto
 tabLayout	scrollable	done	auto
-tabLayout	scrollableTabs	missing	
+tabLayout	scrollableTabs	done	auto
 tabLayout	selectCommand	done	auto
 tabLayout	selectTab	done	auto
 tabLayout	selectTabIndex	done	auto
@@ -35651,25 +35651,25 @@ tabLayout	showNewTab	done	auto
 tabLayout	snt	done	auto
 tabLayout	st	done	auto
 tabLayout	statusBarMessage	done	auto
-tabLayout	stb	missing	
+tabLayout	stb	done	auto
 tabLayout	sti	done	auto
-tabLayout	tabIcon	missing	
-tabLayout	tabIconIndex	missing	
+tabLayout	tabIcon	done	auto
+tabLayout	tabIconIndex	done	auto
 tabLayout	tabLabel	done	auto
 tabLayout	tabLabelIndex	done	auto
 tabLayout	tabPosition	done	auto
 tabLayout	tabTooltip	done	auto
-tabLayout	tabTooltipIndex	missing	
+tabLayout	tabTooltipIndex	done	auto
 tabLayout	tabsClosable	done	auto
 tabLayout	tabsVisible	done	auto
 tabLayout	tc	done	auto
-tabLayout	ti	missing	
-tabLayout	tii	missing	
+tabLayout	ti	done	auto
+tabLayout	tii	done	auto
 tabLayout	tl	done	auto
 tabLayout	tli	done	auto
 tabLayout	tp	done	auto
 tabLayout	tt	done	auto
-tabLayout	tti	missing	
+tabLayout	tti	done	auto
 tabLayout	tv	done	auto
 tabLayout	useTemplate	done	auto
 tabLayout	ut	done	auto
@@ -36079,9 +36079,9 @@ text	dgc	done	auto
 text	docTag	done	auto
 text	dpc	done	auto
 text	dragCallback	done	auto
-text	drc	missing	
+text	drc	done	auto
 text	dropCallback	done	auto
-text	dropRectCallback	missing	
+text	dropRectCallback	done	auto
 text	dt	done	auto
 text	dtg	done	auto
 text	e	done	auto

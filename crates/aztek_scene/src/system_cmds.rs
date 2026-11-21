@@ -643,24 +643,39 @@ const SELECT_PRIORITY: &[(&str, &str, i64)] = &[
     ("allComponents", "alc", 1), ("allObjects", "alo", 1), ("animBreakdown", "abd", 3), ("animCurve", "ac", 3), ("animInTangent", "ait", 3), ("animKeyframe", "ak", 3),
     ("animOutTangent", "aot", 3), ("byName", "bn", 2), ("camera", "ca", 1), ("cluster", "cl", 1), ("collisionModel", "clm", 1), ("controlVertex", "cv", 5),
     ("curve", "c", 1), ("curveKnot", "ck", 5), ("curveOnSurface", "cos", 1), ("curveParameterPoint", "cpp", 5), ("dimension", "dim", 1), ("dynamicConstraint", "dc", 1),
-    ("edge", "eg", 5), ("editPoint", "ep", 5), ("emitter", "em", 1), ("facet", "fc", 5), ("field", "fi", 1), ("flexor", "fl", 1), ("hull", "hl", 5),
+    ("edge", "eg", 5), ("editPoint", "ep", 5), ("emitter", "em", 1), ("facet", "fc", 5), ("field", "fi", 1), ("fluid", "fl", 1), ("follicle", "fo", 1), ("hairSystem", "hs", 1), ("handle", "ha", 2), ("hull", "hl", 5),
     ("ikEndEffector", "iee", 2), ("ikHandle", "ikh", 2), ("imagePlane", "ip", 1), ("implicitGeometry", "ig", 1), ("isoparm", "iso", 5), ("joint", "j", 3),
     ("jointPivot", "jp", 3), ("lattice", "la", 1), ("latticePoint", "lp", 5), ("light", "lt", 1), ("localRotationAxis", "ra", 3), ("locator", "lc", 1),
-    ("locatorUV", "luv", 1), ("locatorXYZ", "lxyz", 1), ("nCloth", "ncl", 1), ("nParticle", "npr", 1), ("nRigid", "nr", 1), ("nurbsCurve", "nc", 1), ("nurbsSurface", "ns", 1),
-    ("orientationLocator", "ol", 1), ("particle", "pr", 1), ("plane", "pl", 1), ("polymesh", "p", 1), ("polymeshEdge", "pe", 5), ("polymeshFace", "pf", 5),
+    ("locatorUV", "luv", 1), ("locatorXYZ", "xyz", 1), ("meshUVShell", "msh", 5), ("motionTrailPoint", "mtp", 5), ("motionTrailTangent", "mtt", 5), ("nCloth", "ncl", 1), ("nParticle", "npr", 1), ("nParticleShape", "nps", 1), ("nRigid", "nr", 1), ("nonlinear", "nl", 1), ("nurbsCurve", "nc", 1), ("nurbsSurface", "ns", 1),
+    ("orientationLocator", "ol", 1), ("particle", "pr", 1), ("particleShape", "ps", 1), ("plane", "pl", 1), ("polymesh", "p", 1), ("polymeshEdge", "pe", 5), ("polymeshFace", "pf", 5),
     ("polymeshFreeEdge", "pfe", 5), ("polymeshUV", "puv", 5), ("polymeshVertex", "pv", 5), ("polymeshVtxFace", "pvf", 5), ("queueTangent", "qt", 3), ("rigidBody", "rb", 1),
     ("rigidConstraint", "rc", 1), ("rotatePivot", "rp", 3), ("scalePivot", "sp", 3), ("sculpt", "sc", 1), ("selectHandle", "sh", 2), ("spring", "spr", 1), ("springComponent", "spc", 5),
-    ("stroke", "str", 1), ("subdiv", "sd", 1), ("surfaceEdge", "se", 5), ("surfaceFace", "sf", 5), ("surfaceKnot", "skn", 5), ("surfaceParameterPoint", "spp", 5),
-    ("surfaceRange", "srn", 5), ("surfaceUV", "suv", 5), ("texture", "tx", 1), ("vertex", "v", 5),
+    ("stroke", "str", 1), ("subdiv", "sd", 1), ("subdivMeshEdge", "sme", 5), ("subdivMeshFace", "smf", 5), ("subdivMeshPoint", "smp", 5), ("subdivMeshUV", "smu", 5), ("surfaceEdge", "se", 5), ("surfaceFace", "sf", 5), ("surfaceKnot", "sk", 5), ("surfaceParameterPoint", "spp", 5),
+    ("surfaceRange", "sr", 5), ("surfaceUV", "suv", 5), ("texture", "tx", 1), ("vertex", "v", 5),
 ];
 
 fn select_priority(s: &mut Session, a: &Args) -> CmdResult {
+    // A user-defined selection type, by name: -byName name on|off, -q -queryByName name.
+    let by_name = |n: &str| format!("byName:{n}");
     if a.bool("query") {
+        if let Some(n) = a.get("queryByName").and_then(Value::as_str) {
+            return Ok(json!(s.extras.select_priority.get(&by_name(n)).copied().unwrap_or(0)));
+        }
         let Some(q) = q_one(a) else { fail!("selectPriority: query what?") };
         let Some(e) = SELECT_PRIORITY.iter().find(|x| x.0 == q) else { fail!("selectPriority: no {q}") };
         return Ok(json!(s.extras.select_priority.get(&q).copied().unwrap_or(e.2)));
     }
+    if let Some(Value::Array(v)) = a.get("byName") {
+        for pair in v.chunks(2) {
+            let (Some(n), Some(on)) = (pair.first().and_then(Value::as_str), pair.get(1)) else { continue };
+            let on = on.as_bool().or_else(|| on.as_i64().map(|i| i != 0)).unwrap_or(false);
+            s.extras.select_priority.insert(by_name(n), on as i64);
+        }
+    }
     for e in SELECT_PRIORITY {
+        if e.0 == "byName" {
+            continue;
+        }
         if a.has(e.0) {
             s.extras.select_priority.insert(e.0.to_string(), a.int(e.0, e.2));
         }
@@ -1340,8 +1355,13 @@ pub fn register(c: &mut Commands<Session>) {
     );
     let mut sp = q_flags(Cmd::new("selectPriority", "Selection priorities by component and object type: -cv 5, -q -cv. Kept for scripts.", select_priority)).undoable(false);
     for e in SELECT_PRIORITY {
+        if e.0 == "byName" {
+            sp = sp.flag(f("byName", "bn", ArgType::Any, "A user-defined selection type and whether it takes priority: -bn name on.").multi(2));
+            continue;
+        }
         sp = sp.flag(f(e.0, e.1, I, "The priority."));
     }
+    sp = sp.flag(f("queryByName", "qbn", S, "With -q: a user-defined selection type's priority, by name."));
     c.register(sp);
     c.register(
         Cmd::new("selectedNodes", "The selection as full paths: -do leaves out what isn't in the DAG.", |s, a| {

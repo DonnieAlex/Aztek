@@ -70,6 +70,8 @@ private:
     void apply_menu_item(Item* it, const QJsonObject& props);
     void relayout_form(Item* it);
     void rebuild_option_menu(Item* it);
+    void symbol_check_image(Item* it);
+    void shelf_button_extras(Item* it, const QJsonObject& props);
     QMenuBar* menu_bar_of(Item* it);
     void fire(const QString& path, const QJsonObject& set, const QJsonArray& flags, const QJsonArray& args);
     QAction* menu_action_for(Item* it) const;

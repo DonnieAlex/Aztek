@@ -238,6 +238,25 @@ pub(crate) fn drag_start(core: &mut Core, arg: &str) -> Value {
     }
 }
 
+/// A drag hovering over a control with -dropRectCallback: the rectangle it gives (left, top, width, height) to draw,
+/// or none.
+pub(crate) fn drop_rect(core: &mut Core, arg: &str) -> Value {
+    let ev: Value = serde_json::from_str(arg).unwrap_or(Value::Null);
+    let path = ev["path"].as_str().unwrap_or("");
+    let Some(cb) = control_prop(path, "dropRectCallback") else { return json!([]) };
+    let v = call_for_value(core, &cb, &[json!(path), ev["x"].clone(), ev["y"].clone()]).unwrap_or(Value::Null);
+    let n: Vec<i64> = flat(&v).iter().filter_map(|x| x.as_f64().or_else(|| x.as_str().and_then(|t| t.parse().ok()))).map(|x| x as i64).collect();
+    if n.len() == 4 {
+        json!(n)
+    } else {
+        json!([])
+    }
+}
+
+pub fn drop_rect_for_tests(core: &mut Core, arg: &str) -> Value {
+    drop_rect(core, arg)
+}
+
 pub fn drag_start_for_tests(core: &mut Core, arg: &str) -> Value {
     drag_start(core, arg)
 }

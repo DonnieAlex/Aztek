@@ -620,6 +620,28 @@ pub(crate) fn insert_at(g: &mut Graph, mesh: NodeId, ty: &str, name: &str, place
     Ok(n)
 }
 
+/// Moves a node already in a mesh's chain to another place in it: Before just above the deformer nearest the mesh,
+/// Front above every other, After nearest the mesh.
+pub(crate) fn relocate(g: &mut Graph, mesh: NodeId, n: NodeId, place: Place) -> CmdResult<()> {
+    splice(g, n)?;
+    let (mut base, mut src) = crate::history::upstream(g, mesh)?;
+    if place != Place::After {
+        let chain: Vec<NodeId> = crate::history::history_of(g, mesh).into_iter().filter(|&h| h != n && g.node(h).is_some_and(|x| crate::rig::is_rig_chain_node(x.ty().name.as_str()))).collect();
+        let target = if place == Place::Before { chain.first() } else { chain.last() };
+        if let Some(&d) = target {
+            if let Some(up) = g.source(&plug(d, IN)) {
+                base = plug(d, IN);
+                src = up;
+            }
+        }
+    }
+    let src = crate::deform_sets::orig_source(g, mesh, src)?;
+    g.disconnect(&base);
+    g.connect(&src, &plug(n, IN), false)?;
+    g.connect(&plug(n, OUT), &base, false)?;
+    Ok(())
+}
+
 /// A new deformer's input, evaluated.
 pub(crate) fn input_mesh(g: &mut Graph, n: NodeId) -> Option<Arc<Mesh>> {
     g.evaluate();

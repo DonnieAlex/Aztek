@@ -446,6 +446,7 @@ fn register_types() {
                 AttrDef { flags: flags::INPUT | flags::STORABLE, ..crate::attr_defs::bool_attr("moveJointsMode", false, "Joints move without moving the mesh.") },
                 int_attr("bindMethod", "bm", 0, "How the skin was bound: 0 closest distance, 1 closest in hierarchy, 2 heat map, 3 geodesic voxel."),
                 matrix_in("bindPreMatrix", "pm", true, "A connected bind pre-matrix for an influence; overrides the held one (a skin that moves with a local rig)."),
+                int_attr("nurbsSamples", "ns", 10, "Sample points taken along a NURBS curve influence, or across a surface one: more follow its shape more closely."),
             ],
             create: Some(Arc::new(|| Box::new(SkinNode::default()))),
             ..Default::default()
@@ -1153,8 +1154,9 @@ fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
     if joints.is_empty() {
         fail!("skinCluster: name or select the joints to bind to");
     }
-    if skin_of(g, mesh).is_some() {
-        fail!("skinCluster: {} is already skinned", components::display_path(g, mesh));
+    // -multi: a second skin on the same geometry is allowed.
+    if skin_of(g, mesh).is_some() && !a.bool("multi") {
+        fail!("skinCluster: {} is already skinned (-multi allows another skinCluster)", components::display_path(g, mesh));
     }
     // The whole skeleton unless -tsb.
     if !a.bool("toSelectedBones") {
@@ -1162,6 +1164,30 @@ fn bind(s: &mut Session, a: &Args, names: &[String]) -> CmdResult {
             for j in skeleton_of(g, j0) {
                 if !joints.contains(&j) && (hidden_too || shown(g, j)) {
                     joints.push(j);
+                }
+            }
+        }
+    }
+    // -toSkeletonAndTransforms: the transforms in the hierarchy are influences too, not just the joints.
+    if a.bool("toSkeletonAndTransforms") {
+        let mut roots: Vec<NodeId> = Vec::new();
+        for &j in &joints {
+            let mut r = j;
+            while g.parent(r) != NO_NODE {
+                r = g.parent(r);
+            }
+            if !roots.contains(&r) {
+                roots.push(r);
+            }
+        }
+        let mesh_xf = crate::dag::transform_of(g, mesh);
+        for r in roots {
+            let mut all = vec![r];
+            all.extend(g.descendants(r));
+            for d in all {
+                let is_xf = g.node(d).is_some_and(|x| x.ty().is_a("transform"));
+                if is_xf && d != mesh_xf && components::as_mesh(g, d).is_none() && !joints.contains(&d) && (hidden_too || shown(g, d)) {
+                    joints.push(d);
                 }
             }
         }
@@ -2493,4 +2519,144 @@ pub(crate) fn stamp_name(s: Stamp) -> &'static str {
         Stamp::Solid => "solid",
         Stamp::Square => "square",
     }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// What skinCluster's further flags need of the skin
+
+/// The points an influence moves: those holding weight from it.
+pub(crate) fn influence_points(g: &Graph, sk: NodeId, joint: NodeId) -> Vec<u32> {
+    let Some(e) = influences(g, sk).into_iter().find(|x| x.1 == joint).map(|x| x.0 as u32) else { return Vec::new() };
+    let Some(b) = bind_of(g, sk) else { return Vec::new() };
+    b.weights.iter().enumerate().filter(|(_, w)| weight_at(w, e) > 0.0).map(|(p, _)| p as u32).collect()
+}
+
+/// The points no influence holds any weight on.
+pub(crate) fn unweighted_points(g: &Graph, sk: NodeId) -> Vec<u32> {
+    let Some(b) = bind_of(g, sk) else { return Vec::new() };
+    b.weights.iter().enumerate().filter(|(_, w)| w.iter().all(|x| x.1 <= 0.0)).map(|(p, _)| p as u32).collect()
+}
+
+/// Volume binding (-volumeBind): each influence gets a volume round its bone, a capsule (-volumeType 0 or 1) or a
+/// cylinder (2), grown to take in the points that a closest distance bind weights at least `min` to it. Points take
+/// weight from the volumes they are in, more the deeper in; a point in none keeps the closest distance weights.
+pub(crate) fn volume_bind(g: &mut Graph, sk: NodeId, min: f64, kind: i64) -> CmdResult<()> {
+    let Some(mut b) = bind_of(g, sk).map(|x| (*x).clone()) else { fail!("skinCluster: no bind data") };
+    let infs = influences(g, sk);
+    let bones: Vec<(i32, (DVec3, DVec3))> = infs.iter().map(|&(e, j)| (e, bone_of(g, j))).collect();
+    g.evaluate();
+    let Some(cage) = g.value(&plug(sk, SK_IN))?.as_mesh().cloned() else { fail!("skinCluster: no input mesh") };
+    let cylinder = kind == 2;
+    let dist = |p: DVec3, a: DVec3, c: DVec3| -> Option<f64> {
+        if !cylinder {
+            return Some(seg_dist(p, a, c));
+        }
+        // A cylinder: only along the bone's length, square to it.
+        let ax = c - a;
+        let len2 = ax.length_squared();
+        if len2 < 1e-12 {
+            return Some(p.distance(a));
+        }
+        let t = (p - a).dot(ax) / len2;
+        if !(0.0..=1.0).contains(&t) {
+            return None;
+        }
+        Some(p.distance(a + ax * t))
+    };
+    let world_of = |p: u32| b.geom.transform_point3(cage.position(p));
+    // Each volume's radius: the farthest of the points weighted at least `min` to it.
+    let radii: Vec<f64> = bones
+        .iter()
+        .map(|&(e, (a, c))| {
+            (0..cage.point_capacity())
+                .filter(|&p| cage.point_valid(p) && b.weights.get(p as usize).is_some_and(|w| weight_at(w, e as u32) >= min))
+                .filter_map(|p| dist(world_of(p), a, c))
+                .fold(0.0f64, f64::max)
+        })
+        .collect();
+    for p in 0..cage.point_capacity() {
+        if !cage.point_valid(p) {
+            continue;
+        }
+        let wp = world_of(p);
+        let mut w: Vec<(u32, f64)> = Vec::new();
+        for (k, &(e, (a, c))) in bones.iter().enumerate() {
+            let r = radii[k];
+            if r <= 1e-9 {
+                continue;
+            }
+            if let Some(d) = dist(wp, a, c) {
+                if d <= r {
+                    w.push((e as u32, (1.0 - d / r).max(1e-3)));
+                }
+            }
+        }
+        if w.is_empty() {
+            continue;
+        }
+        let sum: f64 = w.iter().map(|x| x.1).sum();
+        w.iter_mut().for_each(|x| x.1 /= sum);
+        w.sort_by_key(|x| x.0);
+        if let Some(slot) = b.weights.get_mut(p as usize) {
+            *slot = w;
+        }
+    }
+    set_bind(g, sk, b)
+}
+
+/// substituteGeometry -reWeightDistTolerance: points of the new geometry farther than `tol` from every point of the old
+/// (a hole filled, say) were matched to points they have nothing to do with. They take their weights from their
+/// neighbours instead, spreading in from the points that matched.
+pub(crate) fn reweight_far(g: &mut Graph, sk: NodeId, old_points: &[DVec3], tol: f64) -> CmdResult<usize> {
+    let Some(mut b) = bind_of(g, sk).map(|x| (*x).clone()) else { return Ok(0) };
+    g.evaluate();
+    let Some(cage) = g.value(&plug(sk, SK_IN))?.as_mesh().cloned() else { return Ok(0) };
+    let n = cage.point_capacity();
+    let mut far: Vec<bool> = (0..n)
+        .map(|p| {
+            cage.point_valid(p) && {
+                let wp = b.geom.transform_point3(cage.position(p));
+                old_points.iter().map(|q| q.distance(wp)).fold(f64::MAX, f64::min) > tol
+            }
+        })
+        .collect();
+    let count = far.iter().filter(|x| **x).count();
+    for _ in 0..n {
+        if !far.iter().any(|x| *x) {
+            break;
+        }
+        let mut next = far.clone();
+        let mut moved = false;
+        for p in 0..n {
+            if !far[p as usize] {
+                continue;
+            }
+            let mut sum: HashMap<u32, f64> = HashMap::new();
+            let mut k = 0;
+            cage.for_each_point_edge(p, |e| {
+                let q = cage.edge_other_point(e, p);
+                if !far[q as usize] {
+                    k += 1;
+                    for &(i, w) in b.weights.get(q as usize).map(Vec::as_slice).unwrap_or(&[]) {
+                        *sum.entry(i).or_default() += w;
+                    }
+                }
+            });
+            if k > 0 {
+                let mut w: Vec<(u32, f64)> = sum.into_iter().map(|(i, w)| (i, w / k as f64)).filter(|x| x.1 > 0.0).collect();
+                w.sort_by_key(|x| x.0);
+                if let Some(slot) = b.weights.get_mut(p as usize) {
+                    *slot = w;
+                }
+                next[p as usize] = false;
+                moved = true;
+            }
+        }
+        far = next;
+        if !moved {
+            break;
+        }
+    }
+    set_bind(g, sk, b)?;
+    Ok(count)
 }

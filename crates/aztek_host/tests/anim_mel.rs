@@ -46,7 +46,7 @@ fn tangents_and_key_flags() {
     mel(&mut c, "selectKey -cl;");
     mel(&mut c, "cutKey -cl -t 13 pCube1.tx;");
     mel(&mut c, "filterCurve -f euler pCube1;");
-    mel(&mut c, "simplify -vtl 0.01 pCube1.tx;");
+    mel(&mut c, "simplify -vt 0.01 pCube1.tx;");
     mel(&mut c, "mute pCube1.tx;");
     assert_eq!(mel(&mut c, "mute -q pCube1.tx;"), json!(true));
     mel(&mut c, "mute -d -f pCube1.tx;");

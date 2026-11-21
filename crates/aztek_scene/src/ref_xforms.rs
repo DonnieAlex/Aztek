@@ -1217,8 +1217,14 @@ pub fn register(c: &mut Commands<Session>) {
         vec![
             f("absolute", "a", ArgType::Bool, "The position is world, with the pivots at it."),
             f("relative", "r", ArgType::Bool, "The position is local (the default)."),
+            f("query", "q", ArgType::Bool, "Query mode: -p reads the locator's position."),
+            f("edit", "e", ArgType::Bool, "Edit mode: -p moves the locator shape in its transform, -n renames it."),
+            f("queried", "", ArgType::List, "Flags asked about in query mode."),
         ],
         |s, a, prev| {
+            if a.bool("query") || a.bool("edit") {
+                return locator_query_edit(s, a);
+            }
             let r = prev(s, a)?;
             if a.bool("absolute") {
                 if let (Some(p), Some(name)) = (a.vec3("position"), r[0].as_str()) {
@@ -1232,6 +1238,48 @@ pub fn register(c: &mut Commands<Session>) {
             Ok(r)
         },
     );
+
+    if let Some(mut d) = c.find("spaceLocator").cloned() {
+        d.positional_doc = "with -q and -e: the locator".into();
+        c.register(d);
+    }
+    fn locator_query_edit(s: &mut Session, a: &Args) -> CmdResult {
+        let names = aztek_ops::objects(s, a);
+        let Some(name) = names.first() else { fail!("spaceLocator: name a locator") };
+        let g = &mut s.graph;
+        let Some(id) = g.find(name)? else { fail!("spaceLocator: no object {name}") };
+        // The transform or its locator shape.
+        let shape = if g.node(id).is_some_and(|n| n.ty().is_a("locator")) { Some(id) } else { crate::dag::shapes(g, id, false).into_iter().find(|&x| g.node(x).is_some_and(|n| n.ty().is_a("locator"))) };
+        let Some(shape) = shape else { fail!("spaceLocator: {name} is not a locator") };
+        let lp = PlugRef::new(shape, crate::transform::Locator::LOCAL_POSITION as i32);
+        if a.bool("query") {
+            if crate::ref_core::asked(a, "position") {
+                let v = g.node(shape).unwrap().data().vec3(crate::transform::Locator::LOCAL_POSITION);
+                return Ok(j3(v));
+            }
+            fail!("spaceLocator: -q takes -p");
+        }
+        let tr = crate::dag::transform_of(g, shape);
+        if let Some(p) = a.vec3("position") {
+            let at = DVec3::from_array(p);
+            g.open_chunk("Space Locator");
+            let r = (|| -> CmdResult<()> {
+                g.set_value(lp, at.into())?;
+                // Absolute: the pivots go to the point too, as at creation.
+                if a.bool("absolute") {
+                    put(g, tr, Transform::ROTATE_PIVOT, at)?;
+                    put(g, tr, Transform::SCALE_PIVOT, at)?;
+                }
+                Ok(())
+            })();
+            g.close_chunk();
+            r?;
+        }
+        if let Some(n) = a.get("name").and_then(Value::as_str) {
+            g.rename(tr, n)?;
+        }
+        Ok(json!([g.path(tr)]))
+    }
 
     let mut tl = aztek_ops::CommandDef::<Session>::new("transformLimits", "Set or query the limits of translate, rotate and scale: -tx lo hi, -etx onLo onHi.", transform_limits)
         .positional("objects")

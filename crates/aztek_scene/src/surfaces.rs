@@ -811,6 +811,9 @@ fn placement(axis: DVec3, pivot: DVec3) -> DMat4 {
 
 impl NodeBehavior for MakeNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
         let place = placement(d.vec3(M_AXIS), d.vec3(M_PIVOT));
         let round = |d: &NodeData| (d.float(M_P), d.float(M_P + 1), d.float(M_P + 2), degree_of(d.int(M_P + 3)), d.int(M_P + 4).max(3) as usize, d.int(M_P + 5).max(1) as usize);
         match self.kind {
@@ -1054,7 +1057,17 @@ struct FromCurvesNode {
 
 impl NodeBehavior for FromCurvesNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
-        let curves: Vec<NurbsCurve> = d.elements(0).iter().filter_map(|(_, v)| crate::curves::curve_value(v).cloned()).collect();
+        // Blocking: it keeps what it gave. It has no input of its output's kind to pass through.
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
+        let mut curves: Vec<NurbsCurve> = d.elements(0).iter().filter_map(|(_, v)| crate::curves::curve_value(v).cloned()).collect();
+        // squareSrf's -rebuildCurveN: that curve rebuilt cubic first, so it carries curvature continuity.
+        for (k, c) in curves.iter_mut().enumerate().take(4) {
+            if d.ty.attr_index(&format!("rebuildCurve{}", k + 1)).is_some_and(|i| d.bool(i)) {
+                *c = c.rebuilt(c.spans().max(1), 3);
+            }
+        }
         let s = match self.kind {
             FromCurves::Coons => boundary_surface(&curves),
             FromCurves::Birail if curves.len() >= 3 => birail_surface(&curves[0], &curves[1], &curves[2]),
@@ -1068,17 +1081,30 @@ impl NodeBehavior for FromCurvesNode {
 }
 
 fn from_curves_type(name: &str, kind: FromCurves, doc: &str) -> NodeType {
-    NodeType {
-        name: name.into(),
-        icon: "chart-line".into(),
-        doc: doc.into(),
-        own_attrs: vec![
-            crate::curves::curve_attr("inputCurve", "ic", flags::INPUT | flags::ARRAY | flags::HIDDEN, "The curves."),
-            surface_attr("outputSurface", "os", flags::OUTPUT | flags::HIDDEN, "The surface."),
-        ],
-        create: Some(Arc::new(move || Box::new(FromCurvesNode { kind }))),
-        ..Default::default()
+    from_curves_type_with(name, kind, doc, Vec::new())
+}
+
+fn from_curves_type_with(name: &str, kind: FromCurves, doc: &str, extra: Vec<AttrDef>) -> NodeType {
+    let mut own_attrs = vec![
+        crate::curves::curve_attr("inputCurve", "ic", flags::INPUT | flags::ARRAY | flags::HIDDEN, "The curves."),
+        surface_attr("outputSurface", "os", flags::OUTPUT | flags::HIDDEN, "The surface."),
+    ];
+    own_attrs.extend(extra);
+    NodeType { name: name.into(), icon: "chart-line".into(), doc: doc.into(), own_attrs, create: Some(Arc::new(move || Box::new(FromCurvesNode { kind }))), ..Default::default() }
+}
+
+/// squareSrf's settings, per input curve: its continuity and whether it is rebuilt first.
+fn square_attrs() -> Vec<AttrDef> {
+    let mut v = Vec::new();
+    for k in 1..=4 {
+        v.push(int_in(&format!("continuityType{k}"), &format!("ct{k}"), 2, "1 fixed boundary, 2 tangent, 3 implied tangent. Tangent continuity holds to the surface a curve on a surface lies on."));
     }
+    for k in 1..=4 {
+        v.push(AttrDef { short_name: format!("rc{k}"), ..store_bool(&format!("rebuildCurve{k}"), false, "Rebuild this curve cubic first, for curvature continuity.") });
+    }
+    v.push(int_in("curveFitCheckpoints", "cfc", 5, "Points per span checked for tangency to the boundary."));
+    v.push(f_in("endPointTolerance", "ept", 0.1, "How near the curves' ends must be to count as meeting."));
+    v
 }
 
 /// doubleProfileBirailSurface: inputProfile1 (0), outputSurface (1), inputProfile2 (2), inputRail1 (3), inputRail2 (4),
@@ -1719,7 +1745,7 @@ pub fn register_types() {
             op_type("offsetSurface", Op::Offset, "Moved along its normals.", vec![f_in("distance", "d", 1.0, "How far.")]),
             op_type("closeSurface", Op::Close, "Closed.", vec![int_in("direction", "d", 0, "0 U, 1 V, 2 both.")]),
             from_curves_type("boundary", FromCurves::Coons, "A surface inside three or four curves."),
-            from_curves_type("squareSrf", FromCurves::Coons, "A surface inside four curves."),
+            from_curves_type_with("squareSrf", FromCurves::Coons, "A surface inside three or four curves.", square_attrs()),
             from_curves_type("singleProfileBirailSurface", FromCurves::Birail, "A profile along two rails."),
         ] {
             register_one(t);
@@ -2587,12 +2613,49 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("endPointTolerance", "ept", ArgType::Float, "Accepted for existing scripts.")),
     ));
     c.register(curve_surface_flags(
-        Cmd::new("square", "A surface inside four curves, in order round the edge. Returns [squareSurface1, squareSrf1].", |s, a| from_curves_cmd(s, a, "square", "squareSrf", "squareSurface1", "squareSrf1", 4, 4))
-            .positional("four curves (the selection when none)")
+        Cmd::new("square", "A surface inside three or four curves, in order round the edge. -ct1 to -ct4 each curve's continuity, -rc1 to -rc4 rebuild a curve first. Returns [squareSurface1, squareSrf1].", |s, a| {
+            let r = from_curves_cmd(s, a, "square", "squareSrf", "squareSurface1", "squareSrf1", 3, 4)?;
+            // The node's settings, from the flags given.
+            if let Some(node) = r.as_array().and_then(|v| v.get(1)).and_then(Value::as_str).and_then(|n| s.graph.find(n).ok().flatten()) {
+                let mut set: Vec<(String, PlugValue)> = Vec::new();
+                for k in 1..=4 {
+                    if let Some(v) = a.get(&format!("continuityType{k}")).and_then(Value::as_i64) {
+                        if !(1..=3).contains(&v) {
+                            fail!("square: -ct{k} is 1, 2 or 3");
+                        }
+                        set.push((format!("continuityType{k}"), PlugValue::Int(v)));
+                    }
+                    if a.has(&format!("rebuildCurve{k}")) {
+                        set.push((format!("rebuildCurve{k}"), PlugValue::Bool(a.bool(&format!("rebuildCurve{k}")))));
+                    }
+                }
+                if let Some(v) = a.get("curveFitCheckpoints").and_then(Value::as_i64) {
+                    set.push(("curveFitCheckpoints".into(), PlugValue::Int(v)));
+                }
+                if let Some(v) = a.get("endPointTolerance").and_then(Value::as_f64) {
+                    set.push(("endPointTolerance".into(), PlugValue::Float(v)));
+                }
+                for (k, v) in set {
+                    if let Some(i) = s.graph.node(node).and_then(|n| n.ty().attr_index(&k)) {
+                        s.graph.set_value(plug(node, i), v)?;
+                    }
+                }
+                s.graph.evaluate();
+            }
+            Ok(r)
+        })
+            .positional("three or four curves (the selection when none)")
             .flag(f("degree", "d", ArgType::Int, "Accepted for existing scripts."))
-            .flag(f("continuityType1", "cp", ArgType::Int, "Accepted for existing scripts."))
-            .flag(f("endPointTolerance", "ept", ArgType::Float, "Accepted for existing scripts."))
-            .flag(f("rebuildCurve1", "rc1", ArgType::Bool, "Accepted for existing scripts.")),
+            .flag(f("continuityType1", "ct1", ArgType::Int, "Curve 1: 1 fixed boundary, 2 tangent (2), 3 implied tangent."))
+            .flag(f("continuityType2", "ct2", ArgType::Int, "Curve 2: 1 fixed boundary, 2 tangent (2), 3 implied tangent."))
+            .flag(f("continuityType3", "ct3", ArgType::Int, "Curve 3: 1 fixed boundary, 2 tangent (2), 3 implied tangent."))
+            .flag(f("continuityType4", "ct4", ArgType::Int, "Curve 4: 1 fixed boundary, 2 tangent (2), 3 implied tangent."))
+            .flag(f("curveFitCheckpoints", "cfc", ArgType::Int, "Points per span checked for tangency, with tangent continuity (5)."))
+            .flag(f("endPointTolerance", "ept", ArgType::Float, "How near the ends must be (0.1)."))
+            .flag(f("rebuildCurve1", "rc1", ArgType::Bool, "Rebuild curve 1 for curvature continuity (off)."))
+            .flag(f("rebuildCurve2", "rc2", ArgType::Bool, "Rebuild curve 2 for curvature continuity (off)."))
+            .flag(f("rebuildCurve3", "rc3", ArgType::Bool, "Rebuild curve 3 for curvature continuity (off)."))
+            .flag(f("rebuildCurve4", "rc4", ArgType::Bool, "Rebuild curve 4 for curvature continuity (off).")),
     ));
     c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(curve_surface_flags(
         Cmd::new(

@@ -34,7 +34,7 @@ fn counts(c: &mut Core, mesh: &str) -> (u64, u64) {
 /// A symmetric box in object space, grid 4 x 2 x 2, symmetry on, and its counts.
 fn setup(c: &mut Core) -> (u64, u64) {
     c.mel("polyCube -n m -w 4 -h 2 -d 2 -sx 4 -sy 2 -sz 2;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a object;");
     counts(c, "m")
 }
 
@@ -206,7 +206,7 @@ fn the_tools_mirror_too() {
     // Bridge two border edges, after deleting faces on one side.
     let mut c = Core::new();
     c.mel("polyPlane -n m -w 6 -h 2 -sx 6 -sy 1;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a object;");
     let before = counts(&mut c, "m");
     c.mel("select m.f[4]; deleteComponents;");
     let (edges_a, edges_b) = shared_edges_of_hole(&mut c);
@@ -218,7 +218,7 @@ fn the_tools_mirror_too() {
     // Quad Draw's face.
     let mut c = Core::new();
     c.mel("polyPlane -n m -w 4 -h 2 -sx 4 -sy 1;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a object;");
     let before = counts(&mut c, "m").1;
     c.exec("polyAppendVertex", json!({"mesh": "m", "items": [{"position": [1.0, 0.0, 2.0]}, {"position": [2.0, 0.0, 2.0]}, {"position": [2.0, 1.0, 2.0]}]})).unwrap();
     assert_eq!(counts(&mut c, "m").1, before + 2, "the face and its image");
@@ -258,7 +258,7 @@ fn soft_select_moves_both_sides_alike() {
     let _one_at_a_time = serial();
     let mut c = Core::new();
     c.mel("polyCube -n m -w 4 -h 2 -d 2 -sx 8 -sy 4 -sz 4;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a object;");
     c.mel("softSelect -e -sse 1 -ssd 1.5;");
     let v = comp_on_plus_x(&mut c, "vtx");
     c.mel(&format!("select {v};"));
@@ -273,8 +273,8 @@ fn world_symmetry_mirrors_in_world_space() {
     // Moved off the origin: the plane stays at the world's x = 0, not the object's.
     let mut c = Core::new();
     c.mel("polyCube -n m -w 6 -h 2 -d 2 -sx 6 -sy 2 -sz 2; move 1 0 0 m;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab world;");
-    assert_eq!(c.mel("symmetricModelling -q -ab;"), json!("world"));
+    c.mel("symmetricModelling -e -s 1 -ax x -a world;");
+    assert_eq!(c.mel("symmetricModelling -q -a;"), json!("world"));
     // The vertices at world x = 2 and -2 are images of each other.
     let n = points(&mut c, "m").len();
     let mut at_two = None;
@@ -295,7 +295,7 @@ fn world_symmetry_mirrors_in_world_space() {
     // The same cube in object space mirrors about its pivot's own plane instead.
     let mut c = Core::new();
     c.mel("polyCube -n m -w 6 -h 2 -d 2 -sx 6 -sy 2 -sz 2; move 1 0 0 m;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab object;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a object;");
     let n = points(&mut c, "m").len();
     for i in 0..n {
         let v = c.mel(&format!("xform -q -ws -t m.vtx[{i}];"));
@@ -316,7 +316,7 @@ fn world_symmetry_on_a_turned_object() {
     // A 12-sided cylinder turned 30 degrees still has a mirror at world x = 0.
     let mut c = Core::new();
     c.mel("polyCylinder -n m -sx 12 -sy 1 -r 2 -h 2; rotate -a 0 30 0 m;");
-    c.mel("symmetricModelling -e -s 1 -ax x -ab world;");
+    c.mel("symmetricModelling -e -s 1 -ax x -a world;");
     let pts = points(&mut c, "m");
     let i = pts.iter().position(|p| p.x > 1.0 && p.y > 0.5).unwrap();
     c.mel(&format!("select m.vtx[{i}];"));

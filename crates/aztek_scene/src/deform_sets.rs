@@ -186,6 +186,27 @@ pub(crate) fn members_changed(g: &mut Graph, deformer: NodeId, list: &[Member], 
     Ok(())
 }
 
+/// Points that come into a deformer's set without the deformer taking them on: their weights go to 0.
+pub(crate) fn zero_weights(g: &mut Graph, deformer: NodeId, list: &[Member]) -> CmdResult<()> {
+    for m in list {
+        let Some(x) = deform::node_on(g, deformer, m.node) else { continue };
+        let Some(input) = input_mesh(g, x) else { continue };
+        let size = input.point_capacity() as usize;
+        let mut w = g.node(x).and_then(|n| floats_of(n.data(), WEIGHTS)).map(|w| w.0.clone()).unwrap_or_else(|| {
+            // No weights yet: the points it acted on keep 1, the rest 0.
+            member_mask(g, x, size).map(|mask| mask.iter().map(|&b| if b { 1.0 } else { 0.0 }).collect()).unwrap_or_else(|| vec![1.0; size])
+        });
+        w.resize(size, 0.0);
+        for &p in &m.ids {
+            if let Some(v) = w.get_mut(p as usize) {
+                *v = 0.0;
+            }
+        }
+        set_floats(g, x, WEIGHTS, w)?;
+    }
+    Ok(())
+}
+
 /// Which points of the mesh under this deformer node are in its set; None when it has no set.
 pub fn member_mask(g: &Graph, n: NodeId, capacity: usize) -> Option<Vec<bool>> {
     let set = set_of(g, n)?;

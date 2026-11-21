@@ -252,22 +252,60 @@ fn get_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
 
 /// setParticleAttr -at velocity -vv 0 1 0 particle1.pt[3]: changes particles in the solver now.
 fn set_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
-    let Some(name) = a.named().into_iter().next() else { fail!("setParticleAttr: name particles") };
-    let g = &mut s.graph;
-    let p = particles_named(g, &name)?;
+    // -object: that object alone, every particle of it, whatever is named or selected.
+    let names: Vec<String> = match a.get("object").and_then(Value::as_str) {
+        Some(o) => vec![o.to_string()],
+        None => aztek_ops::objects(s, a),
+    };
+    if names.is_empty() {
+        fail!("setParticleAttr: name or select particles");
+    }
     let at = a.string("attribute", "position");
-    let value = a.vec3("vectorValue").map(DVec3::from).unwrap_or_else(|| DVec3::splat(a.float("floatValue", 0.0)));
-    let changed = write_particles(g, p, &at, value, particle_ids(&name), "setParticleAttr")?;
+    let vector = matches!(at.as_str(), "position" | "velocity" | "rgbPP");
+    // A float attribute given a vector takes its length; a vector one given a float takes it on each axis.
+    let given = match a.vec3("vectorValue").map(DVec3::from) {
+        Some(v) if !vector => DVec3::splat(v.length()),
+        Some(v) => v,
+        None => DVec3::splat(a.float("floatValue", 0.0)),
+    };
+    let rf = a.float("randomFloat", 0.0);
+    let rv = a.vec3("randomVector").map(DVec3::from).unwrap_or(DVec3::ZERO);
+    let relative = a.bool("relative");
+    // xorshift64*: -1 to 1.
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15 ^ names.iter().map(|n| n.len() as u64).sum::<u64>();
+    let mut unit = move || {
+        state ^= state >> 12;
+        state ^= state << 25;
+        state ^= state >> 27;
+        (state.wrapping_mul(0x2545_f491_4f6c_dd1d) >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+    };
+    let mut changed = 0;
+    let g = &mut s.graph;
+    for name in &names {
+        let p = particles_named(g, name)?;
+        let ids = if a.has("object") { None } else { particle_ids(name) };
+        changed += write_particles_with(g, p, &at, ids, "setParticleAttr", &mut |now: DVec3| {
+            // The random part: within -rf on every axis for a float, within -rv per axis for a vector.
+            let jitter = if vector { DVec3::new(unit() * rv.x, unit() * rv.y, unit() * rv.z) + DVec3::splat(unit() * rf) } else { DVec3::splat(unit() * rf) };
+            let v = given + jitter;
+            if relative { now + v } else { v }
+        })?;
+    }
     Ok(json!(changed))
 }
 
 /// Sets a per particle value on the particles at these places in the array (all when None), in the solver now.
 fn write_particles(g: &mut Graph, p: NodeId, at: &str, value: DVec3, ids: Option<Vec<usize>>, cmd: &str) -> CmdResult<usize> {
+    write_particles_with(g, p, at, ids, cmd, &mut |_| value)
+}
+
+/// As write_particles, each particle's new value worked from its value now (in the scene's units).
+fn write_particles_with(g: &mut Graph, p: NodeId, at: &str, ids: Option<Vec<usize>>, cmd: &str, value: &mut dyn FnMut(DVec3) -> DVec3) -> CmdResult<usize> {
     let name = g.path(p);
     let Some(sv) = solver_of(g, p) else { fail!("{cmd}: {name} is in no solver") };
     // The solver works in metres: lengths and speeds given in the scene's units go in as such.
     let mpu = crate::dyn_solve::metres(g, sv);
-    let value = if matches!(at, "position" | "velocity" | "radiusPP") { value * mpu } else { value };
+    let scale = if matches!(at, "position" | "velocity" | "radiusPP") { mpu } else { 1.0 };
     let n = g.node(sv).and_then(|n| n.behavior().as_any().downcast_ref::<dy::SolverNode>());
     let Some(n) = n else { fail!("{cmd}: no solver") };
     let mut st = n.state.lock().unwrap();
@@ -280,17 +318,26 @@ fn write_particles(g: &mut Graph, p: NodeId, at: &str, value: DVec3, ids: Option
             continue;
         }
         let pt = &mut solver.pt;
+        let now = match at {
+            "position" => pt.x[i],
+            "velocity" => pt.v[i],
+            "rgbPP" => pt.rgb[i],
+            "opacityPP" => DVec3::splat(pt.opacity[i]),
+            "lifespanPP" => DVec3::splat(pt.life[i]),
+            "radiusPP" => DVec3::splat(pt.radius[i]),
+            other => fail!("{cmd}: {other} is not a particle attribute here"),
+        } / scale;
+        let v = value(now) * scale;
         match at {
             "position" => {
-                pt.x[i] = value;
-                pt.p[i] = value;
+                pt.x[i] = v;
+                pt.p[i] = v;
             }
-            "velocity" => pt.v[i] = value,
-            "rgbPP" => pt.rgb[i] = value,
-            "opacityPP" => pt.opacity[i] = value.x,
-            "lifespanPP" => pt.life[i] = value.x,
-            "radiusPP" => pt.radius[i] = value.x,
-            other => fail!("{cmd}: {other} is not a particle attribute here"),
+            "velocity" => pt.v[i] = v,
+            "rgbPP" => pt.rgb[i] = v,
+            "opacityPP" => pt.opacity[i] = v.x,
+            "lifespanPP" => pt.life[i] = v.x,
+            _ => pt.radius[i] = v.x,
         }
         changed += 1;
     }
@@ -797,7 +844,11 @@ pub fn register(c: &mut Commands<Session>) {
             .positional("particles or particle1.pt[0:3]")
             .flag(f("attribute", "at", ArgType::String, "position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP."))
             .flag(f("vectorValue", "vv", ArgType::Vec3, "A vector."))
-            .flag(f("floatValue", "fv", ArgType::Float, "A number."))
+            .flag(f("floatValue", "fv", ArgType::Float, "A number: on each axis of a vector attribute."))
+            .flag(f("object", "o", ArgType::String, "Only this particle object, every particle of it; what is named or selected is passed over."))
+            .flag(f("randomFloat", "rf", ArgType::Float, "Add a random amount from -this to +this to each particle's value (0)."))
+            .flag(f("randomVector", "rv", ArgType::Vec3, "Add a random amount within -x -y -z to x y z to each particle's value (0 0 0)."))
+            .flag(f("relative", "r", ArgType::Bool, "Add the value to each particle's value rather than replace it (off)."))
             .undoable(false),
     );
     c.register(

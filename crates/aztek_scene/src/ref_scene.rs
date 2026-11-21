@@ -879,9 +879,23 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
     };
     let parse = |g: &Graph, list: &[String]| os::parse(g, list).map_err(aztek_ops::CommandError::new);
     let annotation = |g: &Graph, id: NodeId| g.node(id).and_then(|n| n.ty().attr_index("annotation").map(|i| PlugRef::new(id, i as i32)));
+    let attr_of = |g: &Graph, id: NodeId, name: &str| g.node(id).and_then(|n| n.ty().attr_index(name).map(|i| PlugRef::new(id, i as i32)));
+    const ONLY: [(&str, &str); 4] = [("vertices", "verticesOnlySet"), ("edges", "edgesOnlySet"), ("facets", "facetsOnlySet"), ("editPoints", "editPointsOnlySet")];
     if a.bool("query") {
         let Some(first) = items.first() else { fail!("sets: name a set") };
         let id = set_named(g, first)?;
+        for (flag, attr) in ONLY {
+            if asked(a, flag) {
+                return Ok(json!(attr_of(g, id, attr).and_then(|p| g.value(&p).ok()).is_some_and(|v| v.as_bool())));
+            }
+        }
+        if asked(a, "channelSetColorIndex") {
+            return Ok(json!(attr_of(g, id, "channelSetColorIndex").and_then(|p| g.value(&p).ok()).map(|v| v.as_int()).unwrap_or(0)));
+        }
+        if asked(a, "channelSetColor") {
+            let c = g.node(id).and_then(|n| n.ty().attr_index("channelSetColor").map(|i| n.data().vec3(i))).unwrap_or_default();
+            return Ok(json!([c.x, c.y, c.z]));
+        }
         if asked(a, "text") {
             return Ok(match annotation(g, id) {
                 Some(p) => json!(g.value(&p).map(|v| v.as_str().to_string()).unwrap_or_default()),
@@ -904,6 +918,20 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
         }
         return Ok(json!(os::format(g, &list)));
     }
+    // The dope sheet colours of a channel set.
+    let colours = |g: &mut Graph, id: NodeId, a: &Args| -> CmdResult<()> {
+        if let Some(i) = a.get("channelSetColorIndex").and_then(Value::as_i64) {
+            if let Some(p) = attr_of(g, id, "channelSetColorIndex") {
+                g.set_value(p, PlugValue::Int(i))?;
+            }
+        }
+        if let Some(c) = a.vec3("channelSetColor") {
+            if let Some(p) = attr_of(g, id, "channelSetColor") {
+                g.set_value(p, glam::DVec3::from_array(c).into())?;
+            }
+        }
+        Ok(())
+    };
     // -text with -edit sets the note on the set named.
     if a.bool("edit") {
         if let (Some(t), Some(first)) = (a.get("text").and_then(Value::as_str), items.first()) {
@@ -913,11 +941,43 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
             }
             return Ok(Value::Null);
         }
+        if a.has("channelSetColorIndex") || a.has("channelSetColor") {
+            let Some(first) = items.first() else { fail!("sets: name a set") };
+            let id = set_named(g, first)?;
+            colours(g, id, a)?;
+            return Ok(json!(g.path(id)));
+        }
     }
     for (flag, add) in [("addElement", true), ("forceElement", true), ("include", true), ("remove", false)] {
         let Some(name) = a.get(flag).and_then(Value::as_str) else { continue };
         let id = set_named(g, name)?;
         let list = if items.is_empty() { os::from_selection(g) } else { parse(g, &items)? };
+        // A set of one component kind takes nothing else.
+        let list = if add { os::restrict(g, id, &list) } else { list };
+        let deformer = crate::deform_sets::deformer_of_set(g, id);
+        // -afterFilters on a deformer's set: the set changes, what the deformer does doesn't. Points added come in
+        // with no weight.
+        if a.bool("afterFilters") && deformer.is_some() {
+            let list = crate::deform_sets::as_points(g, &list);
+            let before = os::members(g, id);
+            let mut after = before.clone();
+            if add {
+                after.extend(list.iter().cloned());
+            } else {
+                for r in &list {
+                    for m in &mut after {
+                        if m.node == r.node && m.kind == r.kind {
+                            m.ids.retain(|x| !r.ids.contains(x));
+                        }
+                    }
+                }
+            }
+            os::set_members_raw(g, id, &after)?;
+            if add {
+                crate::deform_sets::zero_weights(g, deformer.unwrap(), &list)?;
+            }
+            return Ok(json!(g.path(id)));
+        }
         if add {
             os::add(g, id, &list)?;
         } else {
@@ -999,7 +1059,19 @@ fn sets_cmd(s: &mut Session, a: &Args) -> CmdResult {
     } else {
         parse(g, &items)?
     };
-    let id = os::create(g, &a.string("name", "set1"), &list, false)?;
+    // -vertices, -edges, -facets, -editPoints: a set of that kind of component alone.
+    let only: Vec<&str> = ONLY.iter().filter(|(f, _)| a.bool(f)).map(|(_, at)| *at).collect();
+    let id = os::create(g, &a.string("name", "set1"), &[], false)?;
+    for at in &only {
+        if let Some(p) = attr_of(g, id, at) {
+            g.set_value(p, PlugValue::Bool(true))?;
+        }
+    }
+    let list = os::restrict(g, id, &list);
+    if !list.is_empty() {
+        os::add(g, id, &list)?;
+    }
+    colours(g, id, a)?;
     if let (Some(t), Some(p)) = (a.get("text").and_then(Value::as_str), annotation(g, id)) {
         g.set_value(p, PlugValue::String(t.to_string()))?;
     }
@@ -2379,7 +2451,7 @@ pub fn register(c: &mut Commands<Session>) {
             ("name", "n", S, "The new set's name."), ("empty", "em", B, "Hold nothing."), ("addElement", "add", S, "Add the items to this set."), ("forceElement", "fe", S, "Add the items to this set."),
             ("include", "in", S, "Add the items to this set."), ("remove", "rm", S, "Take the items out of this set."), ("clear", "cl", S, "Empty this set."), ("isMember", "im", S, "Whether the items are in this set."),
             ("isIntersecting", "ii", S, "Whether this set and the others share members."), ("union", "un", S, "This set's members and the others'."), ("intersection", "int", S, "What this set shares with the others."), ("subtract", "sub", S, "This set less the others."),
-            ("size", "s", B, "With -q: how many."), ("flatten", "fl", B, "Accepted for existing scripts."), ("noWarnings", "nw", B, "Accepted for existing scripts."), ("renderable", "r", B, "Accepted for existing scripts."), ("vertices", "v", B, "Accepted for existing scripts."), ("edges", "ed", B, "Accepted for existing scripts."), ("facets", "fc", B, "Accepted for existing scripts."), ("text", "t", S, "A note kept with the set: on creation, with -e, or read with -q."), ("anyMember", "am", S, "Whether any of the items is in this set."), ("copy", "cp", S, "A new set holding this set's members."), ("split", "sp", S, "The items moved out of this set into a new one."), ("nodesOnly", "no", B, "With -q: each node once."), ("ordered", "o", B, "Members in the order they were added (as they are kept)."), ("noIntermediate", "ni", B, "Accepted for existing scripts."), ("color", "co", ArgType::Int, "Accepted for existing scripts."), ("layer", "l", B, "Obsolete."),
+            ("size", "s", B, "With -q: how many."), ("flatten", "fl", B, "Accepted for existing scripts."), ("noWarnings", "nw", B, "Accepted for existing scripts."), ("renderable", "r", B, "Accepted for existing scripts."), ("vertices", "v", B, "The new set holds mesh vertices only (off); -q: whether it does."), ("edges", "eg", B, "The new set holds edges only (off); -q: whether it does."), ("facets", "fc", B, "The new set holds faces only (off); -q: whether it does."), ("editPoints", "ep", B, "The new set holds edit points only (off); -q: whether it does."), ("afterFilters", "af", B, "With -e on a deformer's set: change the set, not what the deformer acts on (off)."), ("channelSetColor", "csc", ArgType::Vec3, "A channel set's dope sheet colour, used when its colour index is -1."), ("channelSetColorIndex", "coi", ArgType::Int, "A channel set's dope sheet colour by index (0); -1 uses -channelSetColor."), ("text", "t", S, "A note kept with the set: on creation, with -e, or read with -q."), ("anyMember", "am", S, "Whether any of the items is in this set."), ("copy", "cp", S, "A new set holding this set's members."), ("split", "sp", S, "The items moved out of this set into a new one."), ("nodesOnly", "no", B, "With -q: each node once."), ("ordered", "o", B, "Members in the order they were added (as they are kept)."), ("noIntermediate", "ni", B, "Accepted for existing scripts."), ("color", "co", ArgType::Int, "Accepted for existing scripts."), ("layer", "l", B, "Obsolete."),
         ] {
             sets = sets.flag(f(name, short, ty, doc));
         }
@@ -2549,8 +2621,17 @@ pub fn register(c: &mut Commands<Session>) {
         },
     );
     c.register(
-        Cmd::new("showHidden", "Show objects: named, -a every one, -b those below the named. Components (or, with none named, the component selection in a component mode) show their hidden faces.", |s, a| {
-            if !a.bool("all") && !a.bool("below") && !a.bool("above") {
+        Cmd::new("showHidden", "Show objects: named, -all every one, -b those below the named too, -a those above, -lh what the last hide hid. Components (or, with none named, the component selection in a component mode) show their hidden faces.", |s, a| {
+            if a.bool("lastHidden") {
+                let g = &mut s.graph;
+                for id in g.last_hidden.clone() {
+                    if g.node(id).is_some() {
+                        g.set_value(PlugRef::new(id, DagNode::VISIBILITY as i32), PlugValue::Bool(true))?;
+                    }
+                }
+                return Ok(Value::Null);
+            }
+            if !a.bool("allObjects") && !a.bool("below") && !a.bool("above") {
                 if let Some(faces) = crate::hidden_components::picked_faces(&mut s.graph, &a.named()).map_err(aztek_ops::CommandError::new)? {
                     crate::hidden_components::show_picked(&mut s.graph, &faces);
                     return Ok(Value::Null);
@@ -2558,14 +2639,12 @@ pub fn register(c: &mut Commands<Session>) {
             }
             let g = &mut s.graph;
             let mut ids = Vec::new();
-            if a.bool("all") {
+            if a.bool("allObjects") {
                 ids = g.nodes().into_iter().filter(|&i| g.node(i).is_some_and(|n| n.ty().dag)).collect();
             }
             for n in a.named() {
                 let id = node_of(g, &n, "showHidden")?;
-                if !a.bool("below") {
-                    ids.push(id);
-                }
+                ids.push(id);
                 if a.bool("below") {
                     ids.extend(g.descendants(id));
                 }
@@ -2585,9 +2664,10 @@ pub fn register(c: &mut Commands<Session>) {
             Ok(Value::Null)
         })
         .positional("objects")
-        .flag(f("all", "a", B, "Every hidden object."))
-        .flag(f("below", "b", B, "The objects under those named."))
-        .flag(f("above", "ab", B, "The objects above those named.")),
+        .flag(f("allObjects", "all", B, "Every hidden object, the cameras too."))
+        .flag(f("below", "b", B, "The objects named and every hidden one under them."))
+        .flag(f("above", "a", B, "The objects named and every hidden one above them, so they show."))
+        .flag(f("lastHidden", "lh", B, "What the last hide hid.")),
     );
     c.register(
         Cmd::new("displayCull", "Back face culling per object, kept for scripts that ask: -bfc on or off, -q.", |s, a| {
@@ -2763,8 +2843,16 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("alignToLead", "atl", B, "Min, mid or max from the lead object (the last selected) rather than averaged over all.")),
     );
     {
-        let mut sn = Cmd::new("snapMode", "Move snapping switches: -grid, -point, -curve; -q to ask.", |s, a| {
-            for key in ["grid", "point", "curve", "liveFace", "viewPlane", "meshCenter"] {
+        // The settings snapping works with, by flag: (name, short, default, what it is).
+        const SNAP_VALUES: [(&str, &str, f64, &str); 5] = [
+            ("distanceIncrement", "dsi", 0.0, "The distance to snap by along objects such as lines or planes (0)."),
+            ("edgeMagnet", "em", 0.0, "Extra magnets to snap to, evenly along an edge (0)."),
+            ("edgeMagnetTolerance", "emt", 10.0, "How near edge magnet snapping must come (10)."),
+            ("tolerance", "t", 20.0, "With -useTolerance: points snap within this many pixels of the cursor, each way (20)."),
+            ("uvTolerance", "uvt", 20.0, "As -tolerance, in the UV editor (20)."),
+        ];
+        let mut sn = Cmd::new("snapMode", "Snapping switches and settings: -grid, -point, -curve, -viewPlane, -meshCenter, -livePoint, -liveFaceCenter, -pixelSnap, -pixelCenter, -useTolerance on or off; -tolerance, -distanceIncrement and the edge magnets; -q to ask.", |s, a| {
+            for key in ["grid", "point", "curve", "liveFace", "viewPlane", "meshCenter", "livePoint", "liveFaceCenter", "pixelSnap", "pixelCenter", "useTolerance"] {
                 if a.bool("query") {
                     if asked(a, key) {
                         return Ok(json!(s.snap_modes.get(key).copied().unwrap_or(false)));
@@ -2773,11 +2861,48 @@ pub fn register(c: &mut Commands<Session>) {
                     s.snap_modes.insert(key.to_string(), a.bool(key));
                 }
             }
+            for (key, _, def, _) in SNAP_VALUES {
+                let k = format!("__snapMode:{key}");
+                if a.bool("query") {
+                    if asked(a, key) {
+                        let v = s.option_vars.get(&k).and_then(Value::as_f64).unwrap_or(def);
+                        // Whole numbers for the counts and pixel sizes.
+                        return Ok(if matches!(key, "edgeMagnet" | "tolerance" | "uvTolerance") { json!(v.round() as i64) } else { json!(v) });
+                    }
+                } else if let Some(v) = a.get(key).and_then(Value::as_f64) {
+                    if v < 0.0 {
+                        fail!("snapMode: -{key} can't be negative");
+                    }
+                    s.option_vars.insert(k, json!(v));
+                }
+            }
+            if a.bool("query") {
+                fail!("snapMode: name a flag to query");
+            }
             Ok(Value::Null)
         })
         .undoable(false);
-        for (name, short) in [("grid", "gr"), ("point", "p"), ("curve", "c"), ("liveFace", "lf"), ("viewPlane", "vp"), ("meshCenter", "mc")] {
-            sn = sn.flag(f(name, short, B, "This snap."));
+        for (name, short, doc) in [
+            ("grid", "gr", "Grid snapping."),
+            ("point", "p", "Point snapping."),
+            ("curve", "c", "Curve snapping."),
+            ("liveFace", "lf", "Snapping to a live surface's faces."),
+            ("viewPlane", "vp", "View plane snapping."),
+            ("meshCenter", "mc", "While moving, snap to the centre of the mesh under the cursor."),
+            ("livePoint", "lp", "While moving on a live polygon object, snap to its vertices."),
+            ("liveFaceCenter", "lfc", "While moving on a live polygon object, snap to its face centres."),
+            ("pixelSnap", "ps", "UVs snap to the nearest pixel centre or corner."),
+            ("pixelCenter", "pc", "With -pixelSnap: to the pixel centre rather than the corner."),
+            ("useTolerance", "ut", "Point snapping only within -tolerance of the cursor."),
+        ] {
+            sn = sn.flag(f(name, short, B, doc));
+        }
+        for (name, short, _, doc) in SNAP_VALUES {
+            let mut fl = f(name, short, if matches!(name, "distanceIncrement" | "edgeMagnetTolerance") { ArgType::Float } else { ArgType::Int }, doc);
+            if name == "distanceIncrement" {
+                fl.unit = aztek_ops::units::Unit::Linear;
+            }
+            sn = sn.flag(fl);
         }
         c.register(sn.flag(f("query", "q", B, "Query.")).flag(f("queried", "", ArgType::List, "What -q asks for.")));
     }

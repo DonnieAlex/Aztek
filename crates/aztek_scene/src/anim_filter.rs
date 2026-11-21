@@ -308,9 +308,14 @@ fn simplify(s: &mut Session, a: &Args) -> CmdResult {
     let curves = anim::target_curves(s, a, "simplify")?;
     let pick = KeyPick::new(s, a)?;
     let tol = a.float("valueTolerance", 0.01);
-    let time_tol = a.float("timeTolerance", 0.05).max(a.float("floatTolerance", 0.0));
+    // -timeTolerance for curves driven by time, -floatTolerance for those driven by another value, as set driven keys
+    // are: keys closer than it along the curve become one.
+    let time_tol = a.float("timeTolerance", 0.05);
+    let float_tol = a.float("floatTolerance", 0.05);
     let mut n = 0;
     for (_, c) in curves {
+        let driven = s.graph.node(c).is_some_and(|x| x.ty().name.starts_with("animCurveU"));
+        let time_tol = if driven { float_tol } else { time_tol };
         let k = anim::keys_of(&s.graph, c);
         let r = reduce(&k, tol, time_tol, pick.range());
         if r.keys.len() != k.keys.len() {
@@ -730,9 +735,9 @@ pub fn register(c: &mut Commands<Session>) {
             simplify,
         ))
         .positional("objects, plugs or curves (the selection when none)")
-        .flag(f("valueTolerance", "vtl", ArgType::Float, "How far the curve may move (0.01)."))
-        .flag(f("timeTolerance", "tol", ArgType::Float, "Keys closer than this become one (0.05)."))
-        .flag(f("floatTolerance", "ftl", ArgType::Float, "As -tol, for driven curves.")),
+        .flag(f("valueTolerance", "vt", ArgType::Float, "How far the curve may move (0.01)."))
+        .flag(f("timeTolerance", "tt", ArgType::Float, "Curves driven by time: keys closer than this become one (0.05)."))
+        .flag(f("floatTolerance", "ft", ArgType::Float, "Curves driven by another value, as set driven keys: keys closer than this become one (0.05).")),
     );
 
     c.register(

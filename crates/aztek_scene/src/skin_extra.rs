@@ -950,6 +950,15 @@ fn substitute(s: &mut Session, a: &Args) -> CmdResult {
     };
     let g = &mut s.graph;
     let Some(old_skin) = skin_named(g, &old) else { fail!("substituteGeometry: {old} has no skin") };
+    // Where the old geometry's points are, for -reWeightDistTolerance.
+    g.evaluate();
+    let old_points: Vec<glam::DVec3> = match g.find(&old).ok().flatten().and_then(|id| crate::components::as_mesh(g, id)) {
+        Some(m) => {
+            let w = crate::rig::world(g, crate::dag::transform_of(g, m));
+            crate::modifiers::cage(g, m).map(|c| (0..c.point_capacity()).filter(|&p| c.point_valid(p)).map(|p| w.transform_point3(c.position(p))).collect()).unwrap_or_default()
+        }
+        None => Vec::new(),
+    };
     let joints: Vec<String> = influences(g, old_skin).into_iter().map(|x| g.path(x.1)).collect();
     let max_inf = g.node(old_skin).map(|n| n.data().int(crate::skin::SK_MAX_INF)).unwrap_or(5);
     let mut args: Vec<Value> = joints.iter().map(|j| json!(j)).collect();
@@ -958,7 +967,41 @@ fn substitute(s: &mut Session, a: &Args) -> CmdResult {
     let new_skin = made.as_array().and_then(|v| v.first()).and_then(Value::as_str).unwrap_or("").to_string();
     let old_skin_path = s.graph.path(old_skin);
     execute(s, "copySkinWeights", &json!({"sourceSkin": old_skin_path, "destinationSkin": new_skin, "noMirror": true, "surfaceAssociation": "closestPoint", "influenceAssociation": ["oneToOne"]}), CallSource::Script)?;
-    if !a.bool("retainOldGeometry") {
+    if let Some(tol) = a.get("reWeightDistTolerance").and_then(Value::as_f64) {
+        if let Ok(Some(sk)) = s.graph.find(&new_skin) {
+            crate::skin::reweight_far(&mut s.graph, sk, &old_points, tol.max(0.0))?;
+        }
+    }
+    // -disableNonSkinDeformers: the other deformers on the geometry are left with no effect.
+    if a.bool("disableNonSkinDeformers") {
+        let g = &mut s.graph;
+        let mut shapes = Vec::new();
+        for n in [&old, &new] {
+            if let Some(m) = g.find(n).ok().flatten().and_then(|id| crate::components::as_mesh(g, id)) {
+                shapes.push(m);
+            }
+        }
+        for m in shapes {
+            for h in crate::history::history_of(g, m) {
+                let Some(node) = g.node(h) else { continue };
+                if crate::deform::is_deformer(node.ty().name.as_str()) && !node.ty().is_a("skinCluster") {
+                    if let Some(i) = node.ty().attr_index("nodeState") {
+                        g.set_value(crate::plug::PlugRef::new(h, i as i32), crate::plug::PlugValue::Int(1))?;
+                    }
+                }
+            }
+        }
+    }
+    // -newGeometryToLayer and -oldGeometryToLayer: each goes into a new display layer. The old geometry kept in one
+    // isn't deleted.
+    if a.bool("newGeometryToLayer") {
+        execute(s, "createDisplayLayer", &json!({"args": [new], "name": "newGeometryLayer", "noRecurse": true}), CallSource::Script)?;
+    }
+    let keep_old = a.bool("retainOldGeometry") || a.bool("oldGeometryToLayer");
+    if a.bool("oldGeometryToLayer") {
+        execute(s, "createDisplayLayer", &json!({"args": [old], "name": "oldGeometryLayer", "noRecurse": true}), CallSource::Script)?;
+    }
+    if !keep_old {
         execute(s, "delete", &json!({"args": [old]}), CallSource::Script)?;
     }
     Ok(json!([new_skin]))
@@ -1078,7 +1121,11 @@ pub(crate) fn register(c: &mut Commands<Session>) {
             .positional("the skinned mesh, then its replacement (the selection when none)")
             .flag(f("oldGeometry", "og", ArgType::String, "The skinned mesh."))
             .flag(f("newGeometry", "ng", ArgType::String, "Its replacement."))
-            .flag(f("retainOldGeometry", "rog", ArgType::Bool, "Keep the old mesh.")),
+            .flag(f("retainOldGeometry", "rog", ArgType::Bool, "Keep the old mesh."))
+            .flag(f("disableNonSkinDeformers", "dnd", ArgType::Bool, "Leave the deformers other than skins on the geometry with no effect afterwards (off)."))
+            .flag(f("newGeometryToLayer", "ngl", ArgType::Bool, "Put the new geometry in a new display layer."))
+            .flag(f("oldGeometryToLayer", "ogl", ArgType::Bool, "Keep the old geometry, in a new display layer."))
+            .flag(f("reWeightDistTolerance", "wdt", ArgType::Float, "New points farther than this from the old geometry take their weights from their neighbours, not from points they were matched to by mistake.")),
     );
     c.register(
         Cmd::new("removeUnusedInfluences", "Takes influences holding no weight off a skin. Returns those taken off.", remove_unused).positional("skinned meshes or skinClusters (the selection when none)"),

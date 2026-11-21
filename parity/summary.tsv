@@ -1,6 +1,6 @@
 area	rows	done	partial	missing	na	percent	weight
 commands	1198	795	0	403	0	66.4	1
-command_flags	40285	24398	0	15887	0	60.6	1
+command_flags	40285	24813	0	15472	0	61.6	1
 python_commands	0	0	0	0	0		1
 mel_procs	15931	1398	0	14533	0	8.8	1
 node_types	0	0	0	0	0		1
@@ -22,4 +22,4 @@ tool_contexts	0	0	0	0	0		1
 translators	0	0	0	0	0		1
 workspace_rules	0	0	0	0	0		1
 plugins	0	0	0	0	0		1
-all						45.2	
+all						45.6	
