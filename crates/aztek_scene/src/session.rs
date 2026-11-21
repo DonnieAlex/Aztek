@@ -194,6 +194,7 @@ impl Session {
         crate::nurbs_tools::register(&mut s.commands);
         crate::blind_data::register(&mut s.commands);
         crate::dg_timer::register(&mut s.commands);
+        crate::freeze::register(&mut s.commands);
         crate::do_blur::register(&mut s.commands);
         // Last: history node types take their attributes from the commands registered above.
         crate::history::register(&mut s.commands);
@@ -293,6 +294,7 @@ impl CommandHost for Session {
     fn close_undo_chunk(&mut self) {
         // Still inside the command's undo step: undoing it takes the membership with the mesh.
         if self.commands.depth() == 1 {
+            crate::display_layers::adopt_new_nodes(self);
             crate::shading::adopt_new_meshes(self);
         }
         self.graph.close_chunk();

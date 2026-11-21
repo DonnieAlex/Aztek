@@ -9972,11 +9972,11 @@ dockControl	content	done	auto
 dockControl	defineTemplate	done	auto
 dockControl	dgc	done	auto
 dockControl	docTag	done	auto
-dockControl	dockStation	missing	
+dockControl	dockStation	done	auto
 dockControl	dpc	done	auto
 dockControl	dragCallback	done	auto
 dockControl	dropCallback	done	auto
-dockControl	ds	missing	
+dockControl	ds	done	auto
 dockControl	dt	done	auto
 dockControl	dtg	done	auto
 dockControl	e	done	auto
@@ -9987,20 +9987,20 @@ dockControl	en	done	auto
 dockControl	enable	done	auto
 dockControl	enableBackground	done	auto
 dockControl	enableKeyboardFocus	done	auto
-dockControl	enablePopupOption	missing	
-dockControl	epo	missing	
+dockControl	enablePopupOption	done	auto
+dockControl	epo	done	auto
 dockControl	ex	done	auto
 dockControl	exists	done	auto
 dockControl	fcc	done	auto
-dockControl	fh	missing	
-dockControl	fixedHeight	missing	
-dockControl	fixedWidth	missing	
+dockControl	fh	done	auto
+dockControl	fixedHeight	done	auto
+dockControl	fixedWidth	done	auto
 dockControl	fl	done	auto
 dockControl	floatChangeCommand	done	auto
 dockControl	floating	done	auto
 dockControl	fpn	done	auto
 dockControl	fullPathName	done	auto
-dockControl	fw	missing	
+dockControl	fw	done	auto
 dockControl	h	done	auto
 dockControl	height	done	auto
 dockControl	highlightColor	done	auto
@@ -10026,15 +10026,15 @@ dockControl	preventOverride	done	auto
 dockControl	q	done	auto
 dockControl	query	done	auto
 dockControl	r	done	auto
-dockControl	ret	missing	
+dockControl	ret	done	auto
 dockControl	retain	done	auto
 dockControl	s	done	auto
 dockControl	sbm	done	auto
 dockControl	sizeable	done	auto
-dockControl	sl	missing	
-dockControl	splitLayout	missing	
-dockControl	st	missing	
-dockControl	state	missing	
+dockControl	sl	done	auto
+dockControl	splitLayout	done	auto
+dockControl	st	done	auto
+dockControl	state	done	auto
 dockControl	statusBarMessage	done	auto
 dockControl	useTemplate	done	auto
 dockControl	ut	done	auto
@@ -10162,30 +10162,30 @@ dopeSheetEditor	upd	done	auto
 dopeSheetEditor	updateMainConnection	done	auto
 dopeSheetEditor	useTemplate	done	auto
 dopeSheetEditor	ut	done	auto
-doubleProfileBirailSurface	bl	missing	
-doubleProfileBirailSurface	blendFactor	missing	
-doubleProfileBirailSurface	caching	missing	
-doubleProfileBirailSurface	cch	missing	
-doubleProfileBirailSurface	ch	missing	
-doubleProfileBirailSurface	constructionHistory	missing	
-doubleProfileBirailSurface	e	missing	
-doubleProfileBirailSurface	edit	missing	
-doubleProfileBirailSurface	n	missing	
-doubleProfileBirailSurface	name	missing	
-doubleProfileBirailSurface	nds	missing	
-doubleProfileBirailSurface	nodeState	missing	
-doubleProfileBirailSurface	o	missing	
-doubleProfileBirailSurface	object	missing	
-doubleProfileBirailSurface	po	missing	
-doubleProfileBirailSurface	polygon	missing	
-doubleProfileBirailSurface	q	missing	
-doubleProfileBirailSurface	query	missing	
-doubleProfileBirailSurface	tangentContinuityProfile1	missing	
-doubleProfileBirailSurface	tangentContinuityProfile2	missing	
-doubleProfileBirailSurface	tm	missing	
-doubleProfileBirailSurface	tp1	missing	
-doubleProfileBirailSurface	tp2	missing	
-doubleProfileBirailSurface	transformMode	missing	
+doubleProfileBirailSurface	bl	done	auto
+doubleProfileBirailSurface	blendFactor	done	auto
+doubleProfileBirailSurface	caching	done	auto
+doubleProfileBirailSurface	cch	done	auto
+doubleProfileBirailSurface	ch	done	auto
+doubleProfileBirailSurface	constructionHistory	done	auto
+doubleProfileBirailSurface	e	done	auto
+doubleProfileBirailSurface	edit	done	auto
+doubleProfileBirailSurface	n	done	auto
+doubleProfileBirailSurface	name	done	auto
+doubleProfileBirailSurface	nds	done	auto
+doubleProfileBirailSurface	nodeState	done	auto
+doubleProfileBirailSurface	o	done	auto
+doubleProfileBirailSurface	object	done	auto
+doubleProfileBirailSurface	po	done	auto
+doubleProfileBirailSurface	polygon	done	auto
+doubleProfileBirailSurface	q	done	auto
+doubleProfileBirailSurface	query	done	auto
+doubleProfileBirailSurface	tangentContinuityProfile1	done	auto
+doubleProfileBirailSurface	tangentContinuityProfile2	done	auto
+doubleProfileBirailSurface	tm	done	auto
+doubleProfileBirailSurface	tp1	done	auto
+doubleProfileBirailSurface	tp2	done	auto
+doubleProfileBirailSurface	transformMode	done	auto
 drag	att	done	auto
 drag	attenuation	done	auto
 drag	directionX	done	auto
@@ -10298,8 +10298,8 @@ draggerContext	space	missing
 draggerContext	stepsCount	missing	
 draggerContext	um	missing	
 draggerContext	undoMode	missing	
-duplicate	f	missing	
-duplicate	fullPath	missing	
+duplicate	f	done	auto
+duplicate	fullPath	done	auto
 duplicate	ic	done	auto
 duplicate	ilf	done	auto
 duplicate	inputConnections	done	auto
@@ -10318,26 +10318,26 @@ duplicate	to	done	auto
 duplicate	transformsOnly	done	auto
 duplicate	un	done	auto
 duplicate	upstreamNodes	done	auto
-duplicateCurve	caching	missing	
-duplicateCurve	cch	missing	
+duplicateCurve	caching	done	auto
+duplicateCurve	cch	done	auto
 duplicateCurve	ch	done	auto
 duplicateCurve	constructionHistory	done	auto
-duplicateCurve	e	missing	
-duplicateCurve	edit	missing	
+duplicateCurve	e	done	auto
+duplicateCurve	edit	done	auto
 duplicateCurve	l	done	auto
 duplicateCurve	local	done	auto
-duplicateCurve	max	missing	
-duplicateCurve	maxValue	missing	
-duplicateCurve	mergeItems	missing	
-duplicateCurve	mi	missing	
-duplicateCurve	min	missing	
-duplicateCurve	minValue	missing	
+duplicateCurve	max	done	auto
+duplicateCurve	maxValue	done	auto
+duplicateCurve	mergeItems	done	auto
+duplicateCurve	mi	done	auto
+duplicateCurve	min	done	auto
+duplicateCurve	minValue	done	auto
 duplicateCurve	n	done	auto
 duplicateCurve	name	done	auto
-duplicateCurve	nds	missing	
-duplicateCurve	nodeState	missing	
-duplicateCurve	q	missing	
-duplicateCurve	query	missing	
+duplicateCurve	nds	done	auto
+duplicateCurve	nodeState	done	auto
+duplicateCurve	q	done	auto
+duplicateCurve	query	done	auto
 duplicateCurve	r	done	auto
 duplicateCurve	range	done	auto
 duplicateCurve	relative	done	auto
@@ -10346,16 +10346,16 @@ duplicateSurface	caching	done	auto
 duplicateSurface	cch	done	auto
 duplicateSurface	ch	done	auto
 duplicateSurface	constructionHistory	done	auto
-duplicateSurface	e	missing	
-duplicateSurface	edit	missing	
-duplicateSurface	faceCountU	missing	
-duplicateSurface	faceCountV	missing	
-duplicateSurface	fcu	missing	
-duplicateSurface	fcv	missing	
-duplicateSurface	ffu	missing	
-duplicateSurface	ffv	missing	
-duplicateSurface	firstFaceU	missing	
-duplicateSurface	firstFaceV	missing	
+duplicateSurface	e	done	auto
+duplicateSurface	edit	done	auto
+duplicateSurface	faceCountU	done	auto
+duplicateSurface	faceCountV	done	auto
+duplicateSurface	fcu	done	auto
+duplicateSurface	fcv	done	auto
+duplicateSurface	ffu	done	auto
+duplicateSurface	ffv	done	auto
+duplicateSurface	firstFaceU	done	auto
+duplicateSurface	firstFaceV	done	auto
 duplicateSurface	l	done	auto
 duplicateSurface	local	done	auto
 duplicateSurface	mergeItems	done	auto
@@ -10364,8 +10364,8 @@ duplicateSurface	n	done	auto
 duplicateSurface	name	done	auto
 duplicateSurface	nds	done	auto
 duplicateSurface	nodeState	done	auto
-duplicateSurface	q	missing	
-duplicateSurface	query	missing	
+duplicateSurface	q	done	auto
+duplicateSurface	query	done	auto
 dynExport	all	missing	
 dynExport	allObjects	missing	
 dynExport	atr	missing	
@@ -10593,26 +10593,26 @@ dynPref	saveOnQuit	missing
 dynPref	saveRuntimeState	missing	
 dynPref	sq	missing	
 dynPref	sr	missing	
-editDisplayLayerGlobals	baseId	missing	
-editDisplayLayerGlobals	bi	missing	
-editDisplayLayerGlobals	cdl	missing	
-editDisplayLayerGlobals	currentDisplayLayer	missing	
-editDisplayLayerGlobals	mergeType	missing	
-editDisplayLayerGlobals	mt	missing	
-editDisplayLayerGlobals	q	missing	
-editDisplayLayerGlobals	query	missing	
-editDisplayLayerGlobals	uc	missing	
-editDisplayLayerGlobals	useCurrent	missing	
-editDisplayLayerMembers	clear	missing	
-editDisplayLayerMembers	clr	missing	
+editDisplayLayerGlobals	baseId	done	auto
+editDisplayLayerGlobals	bi	done	auto
+editDisplayLayerGlobals	cdl	done	auto
+editDisplayLayerGlobals	currentDisplayLayer	done	auto
+editDisplayLayerGlobals	mergeType	done	auto
+editDisplayLayerGlobals	mt	done	auto
+editDisplayLayerGlobals	q	done	auto
+editDisplayLayerGlobals	query	done	auto
+editDisplayLayerGlobals	uc	done	auto
+editDisplayLayerGlobals	useCurrent	done	auto
+editDisplayLayerMembers	clear	done	auto
+editDisplayLayerMembers	clr	done	auto
 editDisplayLayerMembers	fn	done	auto
 editDisplayLayerMembers	fullNames	done	auto
 editDisplayLayerMembers	noRecurse	done	auto
 editDisplayLayerMembers	nr	done	auto
 editDisplayLayerMembers	q	done	auto
 editDisplayLayerMembers	query	done	auto
-editDisplayLayerMembers	ufe	missing	
-editDisplayLayerMembers	ufeObjects	missing	
+editDisplayLayerMembers	ufe	done	auto
+editDisplayLayerMembers	ufeObjects	done	auto
 editMetadata	channelName	done	auto
 editMetadata	channelType	done	auto
 editMetadata	cht	done	auto
@@ -10707,24 +10707,24 @@ editor	useTemplate	missing
 editor	ut	missing	
 editorTemplate	aac	done	auto
 editorTemplate	ac	done	auto
-editorTemplate	acp	missing	
+editorTemplate	acp	done	auto
 editorTemplate	adc	done	auto
-editorTemplate	addAdskAssetControls	missing	
+editorTemplate	addAdskAssetControls	done	auto
 editorTemplate	addComponents	done	auto
 editorTemplate	addControl	done	auto
 editorTemplate	addDynamicControl	done	auto
 editorTemplate	addExtraControls	done	auto
 editorTemplate	addSeparator	done	auto
 editorTemplate	aec	done	auto
-editorTemplate	afo	missing	
+editorTemplate	afo	done	auto
 editorTemplate	ann	done	auto
-editorTemplate	annotateFieldOnly	missing	
+editorTemplate	annotateFieldOnly	done	auto
 editorTemplate	annotation	done	auto
 editorTemplate	beginLayout	done	auto
 editorTemplate	beginNoOptimize	done	auto
 editorTemplate	beginScrollLayout	done	auto
 editorTemplate	bl	done	auto
-editorTemplate	bn	missing	
+editorTemplate	bn	done	auto
 editorTemplate	bsl	done	auto
 editorTemplate	callCustom	done	auto
 editorTemplate	ccu	done	auto
@@ -10736,14 +10736,14 @@ editorTemplate	debugMode	done	auto
 editorTemplate	dimControl	done	auto
 editorTemplate	ecl	done	auto
 editorTemplate	el	done	auto
-editorTemplate	en	missing	
+editorTemplate	en	done	auto
 editorTemplate	endLayout	done	auto
 editorTemplate	endNoOptimize	done	auto
 editorTemplate	endScrollLayout	done	auto
 editorTemplate	esl	done	auto
 editorTemplate	extraControlsLabel	done	auto
-editorTemplate	forceRebuild	missing	
-editorTemplate	fr	missing	
+editorTemplate	forceRebuild	done	auto
+editorTemplate	fr	done	auto
 editorTemplate	interruptOptimize	done	auto
 editorTemplate	io	done	auto
 editorTemplate	l	done	auto
@@ -10864,48 +10864,48 @@ evalDeferred	lowPriority	done	auto
 evalDeferred	lowestPriority	done	auto
 evalDeferred	lp	done	auto
 evalDeferred	ls	done	auto
-evaluationManager	ccl	missing	
-evaluationManager	cycleCluster	missing	
-evaluationManager	di	missing	
-evaluationManager	disableInfo	missing	
-evaluationManager	downstreamFrom	missing	
-evaluationManager	dst	missing	
+evaluationManager	ccl	done	auto
+evaluationManager	cycleCluster	done	auto
+evaluationManager	di	done	auto
+evaluationManager	disableInfo	done	auto
+evaluationManager	downstreamFrom	done	auto
+evaluationManager	dst	done	auto
 evaluationManager	e	done	auto
-evaluationManager	empty	missing	
+evaluationManager	empty	done	auto
 evaluationManager	enabled	done	auto
-evaluationManager	fallbackTriggered	missing	
-evaluationManager	ft	missing	
-evaluationManager	ia	missing	
+evaluationManager	fallbackTriggered	done	auto
+evaluationManager	ft	done	auto
+evaluationManager	ia	done	auto
 evaluationManager	ib	done	auto
-evaluationManager	idleAction	missing	
+evaluationManager	idleAction	done	auto
 evaluationManager	idleBuild	done	auto
 evaluationManager	inv	done	auto
 evaluationManager	invalidate	done	auto
 evaluationManager	m	done	auto
 evaluationManager	man	done	auto
 evaluationManager	manipulation	done	auto
-evaluationManager	manipulationPrevalidation	missing	
-evaluationManager	manipulationReady	missing	
+evaluationManager	manipulationPrevalidation	done	auto
+evaluationManager	manipulationReady	done	auto
 evaluationManager	mode	done	auto
-evaluationManager	mp	missing	
-evaluationManager	mr	missing	
-evaluationManager	mt	missing	
-evaluationManager	nodeTypeGloballySerialize	missing	
-evaluationManager	nodeTypeParallel	missing	
-evaluationManager	nodeTypeSerialize	missing	
-evaluationManager	nodeTypeUntrusted	missing	
-evaluationManager	ntg	missing	
-evaluationManager	ntp	missing	
-evaluationManager	nts	missing	
-evaluationManager	ntu	missing	
+evaluationManager	mp	done	auto
+evaluationManager	mr	done	auto
+evaluationManager	mt	done	auto
+evaluationManager	nodeTypeGloballySerialize	done	auto
+evaluationManager	nodeTypeParallel	done	auto
+evaluationManager	nodeTypeSerialize	done	auto
+evaluationManager	nodeTypeUntrusted	done	auto
+evaluationManager	ntg	done	auto
+evaluationManager	ntp	done	auto
+evaluationManager	nts	done	auto
+evaluationManager	ntu	done	auto
 evaluationManager	q	done	auto
 evaluationManager	query	done	auto
-evaluationManager	reduceGraphRebuild	missing	
-evaluationManager	rgr	missing	
-evaluationManager	safeMode	missing	
-evaluationManager	sfm	missing	
-evaluationManager	upstreamFrom	missing	
-evaluationManager	ust	missing	
+evaluationManager	reduceGraphRebuild	done	auto
+evaluationManager	rgr	done	auto
+evaluationManager	safeMode	done	auto
+evaluationManager	sfm	done	auto
+evaluationManager	upstreamFrom	done	auto
+evaluationManager	ust	done	auto
 evaluator	c	missing	
 evaluator	cl	missing	
 evaluator	clusters	missing	
@@ -11053,12 +11053,12 @@ exportEdits	sel	missing
 exportEdits	selected	missing	
 exportEdits	typ	missing	
 exportEdits	type	missing	
-expression	a	missing	
+expression	a	done	auto
 expression	ae	done	auto
 expression	alwaysEvaluate	done	auto
-expression	an	missing	
-expression	animated	missing	
-expression	attribute	missing	
+expression	an	done	auto
+expression	animated	done	auto
+expression	attribute	done	auto
 expression	e	done	auto
 expression	edit	done	auto
 expression	n	done	auto
@@ -11077,59 +11077,59 @@ expression	td	done	auto
 expression	timeDependent	done	auto
 expression	uc	done	auto
 expression	unitConversion	done	auto
-expressionEditorListen	la	missing	
-expressionEditorListen	le	missing	
-expressionEditorListen	lf	missing	
-expressionEditorListen	listenFile	missing	
-expressionEditorListen	listenForAttr	missing	
-expressionEditorListen	listenForExpression	missing	
-expressionEditorListen	listenForName	missing	
-expressionEditorListen	ln	missing	
-expressionEditorListen	sla	missing	
-expressionEditorListen	sle	missing	
-expressionEditorListen	sln	missing	
-expressionEditorListen	stopListenForAttr	missing	
-expressionEditorListen	stopListenForExpression	missing	
-expressionEditorListen	stopListenForName	missing	
-extendCurve	caching	missing	
-extendCurve	cch	missing	
+expressionEditorListen	la	done	auto
+expressionEditorListen	le	done	auto
+expressionEditorListen	lf	done	auto
+expressionEditorListen	listenFile	done	auto
+expressionEditorListen	listenForAttr	done	auto
+expressionEditorListen	listenForExpression	done	auto
+expressionEditorListen	listenForName	done	auto
+expressionEditorListen	ln	done	auto
+expressionEditorListen	sla	done	auto
+expressionEditorListen	sle	done	auto
+expressionEditorListen	sln	done	auto
+expressionEditorListen	stopListenForAttr	done	auto
+expressionEditorListen	stopListenForExpression	done	auto
+expressionEditorListen	stopListenForName	done	auto
+extendCurve	caching	done	auto
+extendCurve	cch	done	auto
 extendCurve	ch	done	auto
 extendCurve	constructionHistory	done	auto
-extendCurve	cos	missing	
-extendCurve	curveOnSurface	missing	
+extendCurve	cos	done	auto
+extendCurve	curveOnSurface	done	auto
 extendCurve	d	done	auto
 extendCurve	distance	done	auto
-extendCurve	e	missing	
-extendCurve	edit	missing	
-extendCurve	em	missing	
+extendCurve	e	done	auto
+extendCurve	edit	done	auto
+extendCurve	em	done	auto
 extendCurve	et	done	auto
-extendCurve	extendMethod	missing	
+extendCurve	extendMethod	done	auto
 extendCurve	extensionType	done	auto
-extendCurve	inputPoint	missing	
-extendCurve	ip	missing	
-extendCurve	jn	missing	
-extendCurve	join	missing	
+extendCurve	inputPoint	done	auto
+extendCurve	ip	done	auto
+extendCurve	jn	done	auto
+extendCurve	join	done	auto
 extendCurve	n	done	auto
 extendCurve	name	done	auto
-extendCurve	nc	missing	
-extendCurve	nds	missing	
-extendCurve	noChanges	missing	
-extendCurve	nodeState	missing	
+extendCurve	nc	done	auto
+extendCurve	nds	done	auto
+extendCurve	noChanges	done	auto
+extendCurve	nodeState	done	auto
 extendCurve	o	done	auto
 extendCurve	object	done	auto
-extendCurve	pointX	missing	
-extendCurve	pointY	missing	
-extendCurve	pointZ	missing	
-extendCurve	px	missing	
-extendCurve	py	missing	
-extendCurve	pz	missing	
-extendCurve	q	missing	
-extendCurve	query	missing	
-extendCurve	range	missing	
-extendCurve	removeMultipleKnots	missing	
+extendCurve	pointX	done	auto
+extendCurve	pointY	done	auto
+extendCurve	pointZ	done	auto
+extendCurve	px	done	auto
+extendCurve	py	done	auto
+extendCurve	pz	done	auto
+extendCurve	q	done	auto
+extendCurve	query	done	auto
+extendCurve	range	done	auto
+extendCurve	removeMultipleKnots	done	auto
 extendCurve	replaceOriginal	done	auto
-extendCurve	rmk	missing	
-extendCurve	rn	missing	
+extendCurve	rmk	done	auto
+extendCurve	rn	done	auto
 extendCurve	rpo	done	auto
 extendCurve	s	done	auto
 extendCurve	start	done	auto
@@ -11139,9 +11139,9 @@ extendSurface	ch	done	auto
 extendSurface	constructionHistory	done	auto
 extendSurface	d	done	auto
 extendSurface	distance	done	auto
-extendSurface	e	missing	
+extendSurface	e	done	auto
 extendSurface	ed	done	auto
-extendSurface	edit	missing	
+extendSurface	edit	done	auto
 extendSurface	em	done	auto
 extendSurface	es	done	auto
 extendSurface	et	done	auto
@@ -11157,49 +11157,49 @@ extendSurface	nds	done	auto
 extendSurface	nodeState	done	auto
 extendSurface	o	done	auto
 extendSurface	object	done	auto
-extendSurface	q	missing	
-extendSurface	query	missing	
+extendSurface	q	done	auto
+extendSurface	query	done	auto
 extendSurface	replaceOriginal	done	auto
 extendSurface	rpo	done	auto
-extrude	caching	missing	
-extrude	cch	missing	
+extrude	caching	done	auto
+extrude	cch	done	auto
 extrude	ch	done	auto
 extrude	constructionHistory	done	auto
 extrude	d	done	auto
-extrude	degreeAlongLength	missing	
+extrude	degreeAlongLength	done	auto
 extrude	direction	done	auto
-extrude	directionX	missing	
-extrude	directionY	missing	
-extrude	directionZ	missing	
-extrude	dl	missing	
-extrude	dx	missing	
-extrude	dy	missing	
-extrude	dz	missing	
-extrude	e	missing	
-extrude	edit	missing	
+extrude	directionX	done	auto
+extrude	directionY	done	auto
+extrude	directionZ	done	auto
+extrude	dl	done	auto
+extrude	dx	done	auto
+extrude	dy	done	auto
+extrude	dz	done	auto
+extrude	e	done	auto
+extrude	edit	done	auto
 extrude	et	done	auto
 extrude	extrudeType	done	auto
 extrude	fixedPath	done	auto
 extrude	fpt	done	auto
 extrude	l	done	auto
 extrude	length	done	auto
-extrude	mergeItems	missing	
-extrude	mi	missing	
+extrude	mergeItems	done	auto
+extrude	mi	done	auto
 extrude	n	done	auto
 extrude	name	done	auto
-extrude	nds	missing	
-extrude	nodeState	missing	
-extrude	o	missing	
-extrude	object	missing	
-extrude	p	missing	
-extrude	pivot	missing	
+extrude	nds	done	auto
+extrude	nodeState	done	auto
+extrude	o	done	auto
+extrude	object	done	auto
+extrude	p	done	auto
+extrude	pivot	done	auto
 extrude	po	done	auto
 extrude	polygon	done	auto
-extrude	q	missing	
-extrude	query	missing	
+extrude	q	done	auto
+extrude	query	done	auto
 extrude	range	done	auto
-extrude	rb	missing	
-extrude	rebuild	missing	
+extrude	rb	done	auto
+extrude	rebuild	done	auto
 extrude	reverseSurfaceIfPathReversed	done	auto
 extrude	rn	done	auto
 extrude	ro	done	auto
@@ -11207,8 +11207,8 @@ extrude	rotation	done	auto
 extrude	rsp	done	auto
 extrude	sc	done	auto
 extrude	scale	done	auto
-extrude	scs	missing	
-extrude	subCurveSubSurface	missing	
+extrude	scs	done	auto
+extrude	subCurveSubSurface	done	auto
 extrude	ucp	done	auto
 extrude	upn	done	auto
 extrude	useComponentPivot	done	auto
@@ -11638,7 +11638,7 @@ fileDialog2	ftc	done	auto
 fileDialog2	hideNameEdit	done	auto
 fileDialog2	hne	done	auto
 fileDialog2	oc2	done	auto
-fileDialog2	oca	missing	
+fileDialog2	oca	done	auto
 fileDialog2	ocm	done	auto
 fileDialog2	ocr	done	auto
 fileDialog2	oin	done	auto
@@ -11649,8 +11649,8 @@ fileDialog2	optionsUICommit	done	auto
 fileDialog2	optionsUICommit2	done	auto
 fileDialog2	optionsUICreate	done	auto
 fileDialog2	optionsUIInit	done	auto
-fileDialog2	optionsUITitle	missing	
-fileDialog2	oti	missing	
+fileDialog2	optionsUITitle	done	auto
+fileDialog2	oti	done	auto
 fileDialog2	returnFilter	done	auto
 fileDialog2	rf	done	auto
 fileDialog2	sc	done	auto
@@ -11730,8 +11730,8 @@ filletCurve	curveParameter1	done	auto
 filletCurve	curveParameter2	done	auto
 filletCurve	d	done	auto
 filletCurve	depth	done	auto
-filletCurve	e	missing	
-filletCurve	edit	missing	
+filletCurve	e	done	auto
+filletCurve	edit	done	auto
 filletCurve	fb	done	auto
 filletCurve	freeformBlend	done	auto
 filletCurve	jn	done	auto
@@ -11742,12 +11742,12 @@ filletCurve	nds	done	auto
 filletCurve	nodeState	done	auto
 filletCurve	o	done	auto
 filletCurve	object	done	auto
-filletCurve	q	missing	
-filletCurve	query	missing	
+filletCurve	q	done	auto
+filletCurve	query	done	auto
 filletCurve	r	done	auto
 filletCurve	radius	done	auto
-filletCurve	replaceOriginal	missing	
-filletCurve	rpo	missing	
+filletCurve	replaceOriginal	done	auto
+filletCurve	rpo	done	auto
 filletCurve	t	done	auto
 filletCurve	trim	done	auto
 filter	e	missing	
@@ -11938,24 +11938,24 @@ findType	d	done	auto
 findType	deep	done	auto
 findType	e	done	auto
 findType	exact	done	auto
-findType	f	missing	
+findType	f	done	auto
 findType	forward	done	auto
 findType	t	done	auto
 findType	type	done	auto
-fitBspline	caching	missing	
-fitBspline	cch	missing	
+fitBspline	caching	done	auto
+fitBspline	cch	done	auto
 fitBspline	ch	done	auto
 fitBspline	constructionHistory	done	auto
-fitBspline	e	missing	
-fitBspline	edit	missing	
+fitBspline	e	done	auto
+fitBspline	edit	done	auto
 fitBspline	n	done	auto
 fitBspline	name	done	auto
-fitBspline	nds	missing	
-fitBspline	nodeState	missing	
+fitBspline	nds	done	auto
+fitBspline	nodeState	done	auto
 fitBspline	o	done	auto
 fitBspline	object	done	auto
-fitBspline	q	missing	
-fitBspline	query	missing	
+fitBspline	q	done	auto
+fitBspline	query	done	auto
 fitBspline	tol	done	auto
 fitBspline	tolerance	done	auto
 flexor	ab	done	auto
@@ -12238,8 +12238,8 @@ floatScrollBar	horizontal	done	auto
 floatScrollBar	hr	done	auto
 floatScrollBar	io	done	auto
 floatScrollBar	isObscured	done	auto
-floatScrollBar	largeStep	missing	
-floatScrollBar	ls	missing	
+floatScrollBar	largeStep	done	auto
+floatScrollBar	ls	done	auto
 floatScrollBar	m	done	auto
 floatScrollBar	manage	done	auto
 floatScrollBar	max	done	auto
@@ -12720,8 +12720,8 @@ flow	localCompute	done	auto
 flow	localDivisions	done	auto
 flow	objectCentered	done	auto
 flow	oc	done	auto
-flow	q	missing	
-flow	query	missing	
+flow	q	done	auto
+flow	query	done	auto
 flowLayout	ann	done	auto
 flowLayout	annotation	done	auto
 flowLayout	backgroundColor	done	auto
@@ -12750,22 +12750,22 @@ flowLayout	ex	done	auto
 flowLayout	exists	done	auto
 flowLayout	fpn	done	auto
 flowLayout	fullPathName	done	auto
-flowLayout	generalSpacing	missing	
-flowLayout	gsp	missing	
+flowLayout	generalSpacing	done	auto
+flowLayout	gsp	done	auto
 flowLayout	h	done	auto
 flowLayout	height	done	auto
 flowLayout	highlightColor	done	auto
 flowLayout	hlc	done	auto
-flowLayout	horizontal	missing	
-flowLayout	hr	missing	
+flowLayout	horizontal	done	auto
+flowLayout	hr	done	auto
 flowLayout	io	done	auto
 flowLayout	isObscured	done	auto
 flowLayout	m	done	auto
 flowLayout	manage	done	auto
-flowLayout	mar	missing	
-flowLayout	margins	missing	
-flowLayout	margins4	missing	
-flowLayout	mr4	missing	
+flowLayout	mar	done	auto
+flowLayout	margins	done	auto
+flowLayout	margins4	done	auto
+flowLayout	mr4	done	auto
 flowLayout	nbg	done	auto
 flowLayout	nch	done	auto
 flowLayout	noBackground	done	auto
@@ -12912,8 +12912,8 @@ formLayout	ex	done	auto
 formLayout	exists	done	auto
 formLayout	fpn	done	auto
 formLayout	fullPathName	done	auto
-formLayout	generalSpacing	missing	
-formLayout	gsp	missing	
+formLayout	generalSpacing	done	auto
+formLayout	gsp	done	auto
 formLayout	h	done	auto
 formLayout	height	done	auto
 formLayout	highlightColor	done	auto
@@ -12922,10 +12922,10 @@ formLayout	io	done	auto
 formLayout	isObscured	done	auto
 formLayout	m	done	auto
 formLayout	manage	done	auto
-formLayout	mar	missing	
-formLayout	margins	missing	
-formLayout	margins4	missing	
-formLayout	mr4	missing	
+formLayout	mar	done	auto
+formLayout	margins	done	auto
+formLayout	margins4	done	auto
+formLayout	mr4	done	auto
 formLayout	nbg	done	auto
 formLayout	nch	done	auto
 formLayout	nd	done	auto
@@ -12965,9 +12965,9 @@ frameBufferName	renderPass	missing
 frameLayout	ann	done	auto
 frameLayout	annotation	done	auto
 frameLayout	backgroundColor	done	auto
-frameLayout	backgroundShade	missing	
+frameLayout	backgroundShade	done	auto
 frameLayout	bgc	done	auto
-frameLayout	bgs	missing	
+frameLayout	bgs	done	auto
 frameLayout	borderStyle	done	auto
 frameLayout	borderVisible	done	auto
 frameLayout	bs	done	auto
@@ -13004,8 +13004,8 @@ frameLayout	fn	done	auto
 frameLayout	font	done	auto
 frameLayout	fpn	done	auto
 frameLayout	fullPathName	done	auto
-frameLayout	generalSpacing	missing	
-frameLayout	gsp	missing	
+frameLayout	generalSpacing	done	auto
+frameLayout	gsp	done	auto
 frameLayout	h	done	auto
 frameLayout	height	done	auto
 frameLayout	highlightColor	done	auto
@@ -13024,13 +13024,13 @@ frameLayout	lv	done	auto
 frameLayout	lw	done	auto
 frameLayout	m	done	auto
 frameLayout	manage	done	auto
-frameLayout	mar	missing	
+frameLayout	mar	done	auto
 frameLayout	marginHeight	done	auto
 frameLayout	marginWidth	done	auto
-frameLayout	margins	missing	
-frameLayout	margins4	missing	
+frameLayout	margins	done	auto
+frameLayout	margins4	done	auto
 frameLayout	mh	done	auto
-frameLayout	mr4	missing	
+frameLayout	mr4	done	auto
 frameLayout	mw	done	auto
 frameLayout	nbg	done	auto
 frameLayout	nch	done	auto
@@ -13072,7 +13072,7 @@ framelessDialog	pr	missing
 framelessDialog	primary	missing	
 framelessDialog	t	missing	
 framelessDialog	title	missing	
-freeFormFillet	b	missing	
+freeFormFillet	b	done	auto
 freeFormFillet	bias	done	auto
 freeFormFillet	caching	done	auto
 freeFormFillet	cch	done	auto
@@ -13080,8 +13080,8 @@ freeFormFillet	ch	done	auto
 freeFormFillet	constructionHistory	done	auto
 freeFormFillet	d	done	auto
 freeFormFillet	depth	done	auto
-freeFormFillet	e	missing	
-freeFormFillet	edit	missing	
+freeFormFillet	e	done	auto
+freeFormFillet	edit	done	auto
 freeFormFillet	n	done	auto
 freeFormFillet	name	done	auto
 freeFormFillet	nds	done	auto
@@ -13092,60 +13092,60 @@ freeFormFillet	po	done	auto
 freeFormFillet	polygon	done	auto
 freeFormFillet	positionTolerance	done	auto
 freeFormFillet	pt	done	auto
-freeFormFillet	q	missing	
-freeFormFillet	query	missing	
+freeFormFillet	q	done	auto
+freeFormFillet	query	done	auto
 freeFormFillet	range	done	auto
 freeFormFillet	rn	done	auto
 freeFormFillet	tangentTolerance	done	auto
 freeFormFillet	tt	done	auto
-freeze	all	missing	
-freeze	allNodes	missing	
-freeze	displayLayers	missing	
-freeze	dl	missing	
-freeze	dn	missing	
-freeze	downstream	missing	
-freeze	f	missing	
-freeze	fd	missing	
-freeze	forceDownstream	missing	
-freeze	frozen	missing	
-freeze	i	missing	
-freeze	invisible	missing	
-freeze	n	missing	
-freeze	noFreeze	missing	
-freeze	q	missing	
-freeze	query	missing	
-freeze	uf	missing	
-freeze	unfreeze	missing	
-freeze	up	missing	
-freeze	upstream	missing	
-freezeOptions	displayLayers	missing	
-freezeOptions	dl	missing	
-freezeOptions	dn	missing	
-freezeOptions	downstream	missing	
-freezeOptions	ep	missing	
-freezeOptions	explicitPropagation	missing	
-freezeOptions	inv	missing	
-freezeOptions	invisible	missing	
-freezeOptions	q	missing	
-freezeOptions	query	missing	
-freezeOptions	referencedNodes	missing	
-freezeOptions	rn	missing	
-freezeOptions	rt	missing	
-freezeOptions	runtimePropagation	missing	
-freezeOptions	up	missing	
-freezeOptions	upstream	missing	
+freeze	all	done	auto
+freeze	allNodes	done	auto
+freeze	displayLayers	done	auto
+freeze	dl	done	auto
+freeze	dn	done	auto
+freeze	downstream	done	auto
+freeze	f	done	auto
+freeze	fd	done	auto
+freeze	forceDownstream	done	auto
+freeze	frozen	done	auto
+freeze	i	done	auto
+freeze	invisible	done	auto
+freeze	n	done	auto
+freeze	noFreeze	done	auto
+freeze	q	done	auto
+freeze	query	done	auto
+freeze	uf	done	auto
+freeze	unfreeze	done	auto
+freeze	up	done	auto
+freeze	upstream	done	auto
+freezeOptions	displayLayers	done	auto
+freezeOptions	dl	done	auto
+freezeOptions	dn	done	auto
+freezeOptions	downstream	done	auto
+freezeOptions	ep	done	auto
+freezeOptions	explicitPropagation	done	auto
+freezeOptions	inv	done	auto
+freezeOptions	invisible	done	auto
+freezeOptions	q	done	auto
+freezeOptions	query	done	auto
+freezeOptions	referencedNodes	done	auto
+freezeOptions	rn	done	auto
+freezeOptions	rt	done	auto
+freezeOptions	runtimePropagation	done	auto
+freezeOptions	up	done	auto
+freezeOptions	upstream	done	auto
 geomBind	bindMethod	done	auto
 geomBind	bm	done	auto
-geomBind	e	missing	
-geomBind	edit	missing	
+geomBind	e	done	auto
+geomBind	edit	done	auto
 geomBind	falloff	done	auto
 geomBind	fo	done	auto
 geomBind	geodesicVoxelParams	done	auto
 geomBind	gvp	done	auto
 geomBind	maxInfluences	done	auto
 geomBind	mi	done	auto
-geomBind	q	missing	
-geomBind	query	missing	
+geomBind	q	done	auto
+geomBind	query	done	auto
 geomToBBox	ba	missing	
 geomToBBox	bakeAnimation	missing	
 geomToBBox	cm	missing	
@@ -13173,39 +13173,39 @@ geometryAttrInfo	castToFaces	done	auto
 geometryAttrInfo	castToVerts	done	auto
 geometryAttrInfo	ccy	done	auto
 geometryAttrInfo	cex	done	auto
-geometryAttrInfo	chh	missing	
+geometryAttrInfo	chh	done	auto
 geometryAttrInfo	cmp	done	auto
 geometryAttrInfo	cnm	done	auto
 geometryAttrInfo	componentTagCategory	done	auto
 geometryAttrInfo	componentTagExpression	done	auto
-geometryAttrInfo	componentTagHash	missing	
-geometryAttrInfo	componentTagHistory	missing	
-geometryAttrInfo	componentTagHistoryHash	missing	
+geometryAttrInfo	componentTagHash	done	auto
+geometryAttrInfo	componentTagHistory	done	auto
+geometryAttrInfo	componentTagHistoryHash	done	auto
 geometryAttrInfo	componentTagNames	done	auto
 geometryAttrInfo	components	done	auto
 geometryAttrInfo	cte	done	auto
 geometryAttrInfo	ctf	done	auto
-geometryAttrInfo	cth	missing	
+geometryAttrInfo	cth	done	auto
 geometryAttrInfo	ctv	done	auto
 geometryAttrInfo	dch	done	auto
 geometryAttrInfo	deformerChain	done	auto
 geometryAttrInfo	ec	done	auto
 geometryAttrInfo	elementCount	done	auto
-geometryAttrInfo	gid	missing	
-geometryAttrInfo	groupId	missing	
-geometryAttrInfo	hsh	missing	
+geometryAttrInfo	gid	done	auto
+geometryAttrInfo	groupId	done	auto
+geometryAttrInfo	hsh	done	auto
 geometryAttrInfo	matrix	done	auto
 geometryAttrInfo	mtx	done	auto
 geometryAttrInfo	nch	done	auto
 geometryAttrInfo	nodeChain	done	auto
-geometryAttrInfo	och	missing	
+geometryAttrInfo	och	done	auto
 geometryAttrInfo	og	done	auto
 geometryAttrInfo	originalGeometry	done	auto
-geometryAttrInfo	outputPlugChain	missing	
+geometryAttrInfo	outputPlugChain	done	auto
 geometryAttrInfo	pc	done	auto
-geometryAttrInfo	pch	missing	
+geometryAttrInfo	pch	done	auto
 geometryAttrInfo	pi	done	auto
-geometryAttrInfo	plugChain	missing	
+geometryAttrInfo	plugChain	done	auto
 geometryAttrInfo	pnt	done	auto
 geometryAttrInfo	pointCount	done	auto
 geometryAttrInfo	pointIndices	done	auto
@@ -13229,8 +13229,8 @@ geometryConstraint	wal	done	auto
 geometryConstraint	weight	done	auto
 geometryConstraint	weightAliasList	done	auto
 getAttr	asString	done	auto
-getAttr	ca	missing	
-getAttr	caching	missing	
+getAttr	ca	done	auto
+getAttr	caching	done	auto
 getAttr	cb	done	auto
 getAttr	channelBox	done	auto
 getAttr	expandEnvironmentVariables	done	auto
@@ -13333,8 +13333,8 @@ getParticleAttr	a	done	auto
 getParticleAttr	array	done	auto
 getParticleAttr	at	done	auto
 getParticleAttr	attribute	done	auto
-getParticleAttr	o	missing	
-getParticleAttr	object	missing	
+getParticleAttr	o	done	auto
+getParticleAttr	object	done	auto
 getRenderTasks	c	missing	
 getRenderTasks	camera	missing	
 getRenderTasks	renderLayer	missing	
@@ -13502,8 +13502,8 @@ globalStitch	caching	done	auto
 globalStitch	cch	done	auto
 globalStitch	ch	done	auto
 globalStitch	constructionHistory	done	auto
-globalStitch	e	missing	
-globalStitch	edit	missing	
+globalStitch	e	done	auto
+globalStitch	edit	done	auto
 globalStitch	lk	done	auto
 globalStitch	lockSurface	done	auto
 globalStitch	maxSeparation	done	auto
@@ -13516,8 +13516,8 @@ globalStitch	nds	done	auto
 globalStitch	nodeState	done	auto
 globalStitch	o	done	auto
 globalStitch	object	done	auto
-globalStitch	q	missing	
-globalStitch	query	missing	
+globalStitch	q	done	auto
+globalStitch	query	done	auto
 globalStitch	sam	done	auto
 globalStitch	sampling	done	auto
 globalStitch	sc	done	auto
@@ -13856,10 +13856,10 @@ gridLayout	ex	done	auto
 gridLayout	exists	done	auto
 gridLayout	fpn	done	auto
 gridLayout	fullPathName	done	auto
-gridLayout	generalSpacing	missing	
+gridLayout	generalSpacing	done	auto
 gridLayout	go	done	auto
 gridLayout	gridOrder	done	auto
-gridLayout	gsp	missing	
+gridLayout	gsp	done	auto
 gridLayout	h	done	auto
 gridLayout	height	done	auto
 gridLayout	highlightColor	done	auto
@@ -13868,10 +13868,10 @@ gridLayout	io	done	auto
 gridLayout	isObscured	done	auto
 gridLayout	m	done	auto
 gridLayout	manage	done	auto
-gridLayout	mar	missing	
-gridLayout	margins	missing	
-gridLayout	margins4	missing	
-gridLayout	mr4	missing	
+gridLayout	mar	done	auto
+gridLayout	margins	done	auto
+gridLayout	margins4	done	auto
+gridLayout	mr4	done	auto
 gridLayout	nbg	done	auto
 gridLayout	nc	done	auto
 gridLayout	nch	done	auto
@@ -13918,22 +13918,22 @@ group	uag	done	auto
 group	useAsGroup	done	auto
 group	w	done	auto
 group	world	done	auto
-hardenPointCurve	caching	missing	
-hardenPointCurve	cch	missing	
+hardenPointCurve	caching	done	auto
+hardenPointCurve	cch	done	auto
 hardenPointCurve	ch	done	auto
 hardenPointCurve	constructionHistory	done	auto
-hardenPointCurve	e	missing	
-hardenPointCurve	edit	missing	
+hardenPointCurve	e	done	auto
+hardenPointCurve	edit	done	auto
 hardenPointCurve	m	done	auto
 hardenPointCurve	multiplicity	done	auto
 hardenPointCurve	n	done	auto
 hardenPointCurve	name	done	auto
-hardenPointCurve	nds	missing	
-hardenPointCurve	nodeState	missing	
+hardenPointCurve	nds	done	auto
+hardenPointCurve	nodeState	done	auto
 hardenPointCurve	o	done	auto
 hardenPointCurve	object	done	auto
-hardenPointCurve	q	missing	
-hardenPointCurve	query	missing	
+hardenPointCurve	q	done	auto
+hardenPointCurve	query	done	auto
 hardenPointCurve	replaceOriginal	done	auto
 hardenPointCurve	rpo	done	auto
 hardware	brd	missing	
@@ -14113,7 +14113,7 @@ headsUpDisplay	so	missing
 headsUpDisplay	sr	missing	
 headsUpDisplay	vis	done	auto
 headsUpDisplay	visible	done	auto
-headsUpMessage	ho	missing	
+headsUpMessage	ho	done	auto
 headsUpMessage	horizontalOffset	done	auto
 headsUpMessage	o	done	auto
 headsUpMessage	object	done	auto
@@ -14201,8 +14201,8 @@ helpLine	visible	missing
 helpLine	visibleChangeCommand	missing	
 helpLine	w	missing	
 helpLine	width	missing	
-hide	all	missing	
-hide	allObjects	missing	
+hide	all	done	auto
+hide	allObjects	done	auto
 hide	clearLastHidden	done	auto
 hide	clearSelection	done	auto
 hide	clh	done	auto
@@ -15599,11 +15599,11 @@ ikHandle	ap	done	auto
 ikHandle	autoPriority	done	auto
 ikHandle	c	done	auto
 ikHandle	ccv	done	auto
-ikHandle	ce	missing	
-ikHandle	connectEffector	missing	
-ikHandle	cra	missing	
+ikHandle	ce	done	auto
+ikHandle	connectEffector	done	auto
+ikHandle	cra	done	auto
 ikHandle	createCurve	done	auto
-ikHandle	createRootAxis	missing	
+ikHandle	createRootAxis	done	auto
 ikHandle	curve	done	auto
 ikHandle	dh	done	auto
 ikHandle	disableHandles	done	auto
@@ -15615,9 +15615,9 @@ ikHandle	enableHandles	done	auto
 ikHandle	endEffector	done	auto
 ikHandle	ex	done	auto
 ikHandle	exists	done	auto
-ikHandle	fj	missing	
+ikHandle	fj	done	auto
 ikHandle	forceSolver	done	auto
-ikHandle	freezeJoints	missing	
+ikHandle	freezeJoints	done	auto
 ikHandle	fs	done	auto
 ikHandle	jl	done	auto
 ikHandle	jointList	done	auto
@@ -15640,7 +15640,7 @@ ikHandle	rtm	done	auto
 ikHandle	s	done	auto
 ikHandle	scv	done	auto
 ikHandle	see	done	auto
-ikHandle	setupForRPsolver	missing	
+ikHandle	setupForRPsolver	done	auto
 ikHandle	shf	done	auto
 ikHandle	simplifyCurve	done	auto
 ikHandle	sj	done	auto
@@ -15650,7 +15650,7 @@ ikHandle	snapHandleToEffector	done	auto
 ikHandle	snc	done	auto
 ikHandle	sol	done	auto
 ikHandle	solver	done	auto
-ikHandle	srp	missing	
+ikHandle	srp	done	auto
 ikHandle	startJoint	done	auto
 ikHandle	sticky	done	auto
 ikHandle	twistType	done	auto
@@ -15769,17 +15769,17 @@ ikSplineHandleCtx	twistType	done	auto
 ikSplineHandleCtx	tws	done	auto
 ikSplineHandleCtx	wH	done	auto
 ikSplineHandleCtx	weightH	done	auto
-ikSystem	allowRotation	missing	
-ikSystem	ap	missing	
-ikSystem	apm	missing	
-ikSystem	aps	missing	
-ikSystem	ar	missing	
-ikSystem	autoPriority	missing	
-ikSystem	autoPriorityMC	missing	
-ikSystem	autoPrioritySC	missing	
+ikSystem	allowRotation	done	auto
+ikSystem	ap	done	auto
+ikSystem	apm	done	auto
+ikSystem	aps	done	auto
+ikSystem	ar	done	auto
+ikSystem	autoPriority	done	auto
+ikSystem	autoPriorityMC	done	auto
+ikSystem	autoPrioritySC	done	auto
 ikSystem	e	done	auto
 ikSystem	edit	done	auto
-ikSystem	list	missing	
+ikSystem	list	done	auto
 ikSystem	ls	done	auto
 ikSystem	q	done	auto
 ikSystem	query	done	auto
@@ -15787,8 +15787,8 @@ ikSystem	sn	done	auto
 ikSystem	snap	done	auto
 ikSystem	sol	done	auto
 ikSystem	solve	done	auto
-ikSystem	solverTypes	missing	
-ikSystem	st	missing	
+ikSystem	solverTypes	done	auto
+ikSystem	st	done	auto
 ikSystemInfo	globalSnapHandle	done	auto
 ikSystemInfo	gsh	done	auto
 ikSystemInfo	q	done	auto
@@ -15873,42 +15873,42 @@ imagePlane	c	done	auto
 imagePlane	camera	done	auto
 imagePlane	d	done	auto
 imagePlane	detach	done	auto
-imagePlane	df	missing	
-imagePlane	dropFrame	missing	
+imagePlane	df	done	auto
+imagePlane	dropFrame	done	auto
 imagePlane	e	done	auto
 imagePlane	edit	done	auto
-imagePlane	fd	missing	
+imagePlane	fd	done	auto
 imagePlane	fileName	done	auto
 imagePlane	fn	done	auto
-imagePlane	frameDuration	missing	
+imagePlane	frameDuration	done	auto
 imagePlane	h	done	auto
 imagePlane	height	done	auto
-imagePlane	imageSize	missing	
-imagePlane	iz	missing	
+imagePlane	imageSize	done	auto
+imagePlane	iz	done	auto
 imagePlane	lookThrough	done	auto
 imagePlane	lt	done	auto
 imagePlane	maintainRatio	done	auto
 imagePlane	mr	done	auto
 imagePlane	n	done	auto
 imagePlane	name	done	auto
-imagePlane	negTimesOK	missing	
-imagePlane	nf	missing	
-imagePlane	nt	missing	
-imagePlane	numFrames	missing	
+imagePlane	negTimesOK	done	auto
+imagePlane	nf	done	auto
+imagePlane	nt	done	auto
+imagePlane	numFrames	done	auto
 imagePlane	q	done	auto
-imagePlane	qt	missing	
+imagePlane	qt	done	auto
 imagePlane	query	done	auto
-imagePlane	quickTime	missing	
+imagePlane	quickTime	done	auto
 imagePlane	showInAllViews	done	auto
 imagePlane	sia	done	auto
-imagePlane	tc	missing	
-imagePlane	tf	missing	
-imagePlane	timeCode	missing	
-imagePlane	timeCodeTrack	missing	
-imagePlane	timeScale	missing	
-imagePlane	ts	missing	
-imagePlane	tt	missing	
-imagePlane	twentyFourHourMax	missing	
+imagePlane	tc	done	auto
+imagePlane	tf	done	auto
+imagePlane	timeCode	done	auto
+imagePlane	timeCodeTrack	done	auto
+imagePlane	timeScale	done	auto
+imagePlane	ts	done	auto
+imagePlane	tt	done	auto
+imagePlane	twentyFourHourMax	done	auto
 imagePlane	w	done	auto
 imagePlane	width	done	auto
 imfPlugins	ext	missing	

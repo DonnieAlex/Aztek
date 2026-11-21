@@ -679,6 +679,39 @@ void ScriptUi::place_dock(Item* it, const QJsonObject& props, bool made) {
         }
         dock->setAllowedAreas(allowed);
     }
+    if (it->kind == "dockControl") {
+        // -splitLayout: beside the docks already in its area rather than tabbed with them.
+        if (made && props.contains("area") && props.contains("splitLayout")) {
+            Qt::Orientation o = props["splitLayout"].toString() == "vertical" ? Qt::Vertical : Qt::Horizontal;
+            for (QDockWidget* d : main_->findChildren<QDockWidget*>())
+                if (d != dock && d->isVisible() && !d->isFloating() && main_->dockWidgetArea(d) == main_->dockWidgetArea(dock)) {
+                    dock->show();
+                    main_->splitDockWidget(d, dock, o);
+                    break;
+                }
+        }
+        // -fixedWidth and -fixedHeight: the size it has now can't be dragged.
+        if (props.contains("fixedWidth")) {
+            if (as_bool(props["fixedWidth"])) dock->setFixedWidth(std::max(dock->width(), int(as_number(it->prop("width"), dock->width()))));
+            else { dock->setMinimumWidth(0); dock->setMaximumWidth(QWIDGETSIZE_MAX); }
+        }
+        if (props.contains("fixedHeight")) {
+            if (as_bool(props["fixedHeight"])) dock->setFixedHeight(std::max(dock->height(), int(as_number(it->prop("height"), dock->height()))));
+            else { dock->setMinimumHeight(0); dock->setMaximumHeight(QWIDGETSIZE_MAX); }
+        }
+        // -enablePopupOption: its entry in the main window's list of docks can be used, or is greyed.
+        if (props.contains("enablePopupOption")) dock->toggleViewAction()->setEnabled(as_bool(props["enablePopupOption"], true));
+        if (props.contains("moveable")) {
+            QDockWidget::DockWidgetFeatures f = dock->features();
+            f.setFlag(QDockWidget::DockWidgetMovable, as_bool(props["moveable"], true));
+            f.setFlag(QDockWidget::DockWidgetFloatable, as_bool(props["moveable"], true));
+            dock->setFeatures(f);
+        }
+        if (props.contains("raise") && as_bool(props["raise"])) {
+            dock->show();
+            dock->raise();
+        }
+    }
     if (props.contains("floating")) {
         dock->setFloating(as_bool(props["floating"]));
     } else if (made && !placed && it->kind == "workspaceControl") {
@@ -1012,6 +1045,11 @@ void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
         it->arrow->setText(frame_title(it->prop("label").toString(it->name), collapsable, collapsed));
         it->frame->setVisible(!collapsed);
         if (props.contains("labelVisible")) it->arrow->setVisible(as_bool(props["labelVisible"], true));
+        // -backgroundShade: the frame's background shaded from light at the top to dark at the bottom.
+        if (props.contains("backgroundShade")) {
+            it->frame->setObjectName("frameBody");
+            it->frame->setStyleSheet(as_bool(props["backgroundShade"]) ? "QFrame#frameBody { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 palette(midlight), stop:1 palette(dark)); }" : "");
+        }
         if (props.contains("marginWidth") || props.contains("marginHeight")) {
             int mw = int(as_number(it->prop("marginWidth"))), mh = int(as_number(it->prop("marginHeight")));
             it->layout->setContentsMargins(mw, mh, mw, mh);
@@ -2026,6 +2064,11 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         QSignalBlocker block(s);
         double lo = as_number(it->prop("minValue"), 0), hi = as_number(it->prop("maxValue"), 100), v = as_number(it->prop("value"), lo);
         s->setValue(hi > lo ? int((v - lo) / (hi - lo) * SLIDER_STEPS) : 0);
+        // -step for the arrow keys, -largeStep for a press in the track, in the control's own units.
+        if (hi > lo) {
+            if (it->props.contains("step") && as_number(it->prop("step"), 0) > 0) s->setSingleStep(std::max(1, int(as_number(it->prop("step"), 1) / (hi - lo) * SLIDER_STEPS)));
+            if (it->props.contains("largeStep") && as_number(it->prop("largeStep"), 0) > 0) s->setPageStep(std::max(1, int(as_number(it->prop("largeStep"), 10) / (hi - lo) * SLIDER_STEPS)));
+        }
     } else if (k == "checkBox") {
         auto* c = static_cast<QCheckBox*>(w);
         QSignalBlocker block(c);
@@ -2424,6 +2467,9 @@ void ScriptUi::show_in_view_message(const QJsonObject& o) {
     if (pos.startsWith("bot")) y = main_->height() - 150;
     if (pos.endsWith("Left")) x = 60;
     if (pos.endsWith("Right")) x = main_->width() - l->width() - 60;
+    // headsUpMessage's offsets: right and up, in pixels.
+    x += int(o["horizontalOffset"].toDouble(0));
+    y -= int(o["verticalOffset"].toDouble(0));
     l->move(main_->mapToGlobal(QPoint(x, y)));
     l->show();
     l->raise();

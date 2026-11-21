@@ -66,7 +66,7 @@ fn fillet_two_lines() {
     // Free form: from the end of one to the start of the other.
     line(&mut s, "c", [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]);
     line(&mut s, "d", [3.0, 1.0, 0.0], [4.0, 1.0, 0.0]);
-    let f = run(&mut s, "filletCurve", json!({"args": ["c", "d"], "cir": false, "fb": 0.5, "n": "ff"}));
+    let f = run(&mut s, "filletCurve", json!({"args": ["c", "d"], "cir": false, "n": "ff"}));
     close3(&run(&mut s, "pointOnCurve", json!({"args": [f[0].clone()], "pr": 0.0})), [1.0, 0.0, 0.0], 1e-6);
 }
 
@@ -310,7 +310,11 @@ fn stitch() {
     run(&mut s, "nurbsPlane", json!({"name": "a", "axis": [0, 1, 0], "w": 2.0, "lr": 1.0, "u": 1, "v": 1, "d": 1}));
     run(&mut s, "nurbsPlane", json!({"name": "b", "axis": [0, 1, 0], "w": 2.0, "lr": 1.0, "u": 1, "v": 1, "d": 1}));
     run(&mut s, "setAttr", json!({"args": ["b.tx", 2.2]}));
-    assert!(run(&mut s, "globalStitch", json!({"args": ["a", "b"], "ms": 0.1})).as_array().unwrap().is_empty());
+    // Out of reach: the node is made, the surfaces stay as they are.
+    let r = run(&mut s, "globalStitch", json!({"args": ["a", "b"], "ms": 0.1}));
+    assert_eq!(r.as_array().unwrap().len(), 3);
+    close(&run(&mut s, "exactWorldBoundingBox", json!({"args": ["a"]}))[3], 1.0, 1e-6);
+    run(&mut s, "undo", json!({}));
     run(&mut s, "globalStitch", json!({"args": ["a", "b"], "ms": 0.5}));
     close(&run(&mut s, "exactWorldBoundingBox", json!({"args": ["a"]}))[3], 1.1, 1e-6);
 }

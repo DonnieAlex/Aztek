@@ -1373,6 +1373,30 @@ pub fn orphans(g: &Graph, doomed: &[NodeId]) -> Vec<NodeId> {
     driving.into_iter().filter(|(id, alive)| !*alive && !doomed.contains(id)).map(|(id, _)| id).collect()
 }
 
+/// The attribute an expression's first statement assigns: `obj.tx = ...` or `tx = ...`.
+fn assigned_attribute(src: &str) -> String {
+    let first = src.trim_start().split(';').next().unwrap_or("");
+    let Some((lhs, rest)) = first.split_once('=') else { return String::new() };
+    if rest.starts_with('=') || lhs.ends_with(['!', '<', '>', '+', '-', '*', '/']) {
+        return String::new();
+    }
+    let lhs = lhs.trim();
+    if lhs.is_empty() || !lhs.chars().all(|c| c.is_alphanumeric() || matches!(c, '_' | '.' | '|' | ':' | '[' | ']')) {
+        return String::new();
+    }
+    lhs.rsplit('.').next().unwrap_or(lhs).to_string()
+}
+
+/// With -attribute, the source given is what that attribute of the object is set to, unless it assigns it itself.
+fn with_attribute(src: &str, object: &str, attr: &str) -> String {
+    if attr.is_empty() || assigned_attribute(src) == attr.rsplit('.').next().unwrap_or(attr) {
+        return src.to_string();
+    }
+    let target = if attr.contains('.') || object.is_empty() { attr.to_string() } else { format!("{object}.{attr}") };
+    let body = src.trim().trim_start_matches('=').trim().trim_end_matches(';');
+    format!("{target} = {body};")
+}
+
 fn run_command(s: &mut Session, a: &Args) -> CmdResult {
     let target = |s: &Session| -> CmdResult<NodeId> {
         let name = a.pos_str(0).map(str::to_string).or_else(|| a.get("name").and_then(Value::as_str).map(str::to_string));
@@ -1397,6 +1421,8 @@ fn run_command(s: &mut Session, a: &Args) -> CmdResult {
             Some("unitConversion") => json!(["all", "none", "angularOnly"][n.int(UNIT_OPTION).clamp(0, 2) as usize]),
             Some("name") => json!(g.path(id)),
             Some("timeDependent") => json!(n.int(ANIMATED) != 0),
+            Some("animated") => json!(n.int(ANIMATED)),
+            Some("attribute") => json!(assigned_attribute(&current_source(g, id))),
             _ => json!(current_source(g, id)),
         });
     }
@@ -1411,8 +1437,9 @@ fn run_command(s: &mut Session, a: &Args) -> CmdResult {
         }
         let object = if a.has("object") { a.string("object", "") } else { current_object(g, id) };
         let src = if a.has("string") { a.string("string", "") } else { current_source(g, id) };
+        let src = with_attribute(&src, &object, &a.string("attribute", ""));
         let unit = g.node(id).unwrap().int(UNIT_OPTION);
-        if a.has("string") || a.has("object") || a.has("unitConversion") {
+        if a.has("string") || a.has("object") || a.has("unitConversion") || a.has("attribute") {
             // Refuse a bad edit before anything changes.
             parse(&src).map_err(aztek_ops::CommandError::new)?;
             let mark = current_source(g, id);
@@ -1422,6 +1449,9 @@ fn run_command(s: &mut Session, a: &Args) -> CmdResult {
                 return Err(e);
             }
         }
+        if a.has("animated") {
+            g.set_value(PlugRef::new(id, ANIMATED as i32), PlugValue::Int(a.int("animated", 0).clamp(0, 2)))?;
+        }
         if a.has("name") {
             g.rename(id, &a.string("name", ""))?;
         }
@@ -1430,8 +1460,8 @@ fn run_command(s: &mut Session, a: &Args) -> CmdResult {
     if !a.has("string") {
         fail!("expression: give the source with -s");
     }
-    let src = a.string("string", "");
     let object = a.string("object", "");
+    let src = with_attribute(&a.string("string", ""), &object, &a.string("attribute", ""));
     let g = &mut s.graph;
     let program = parse(&src).map_err(aztek_ops::CommandError::new)?;
     bind(g, &program, &object).map_err(aztek_ops::CommandError::new)?;
@@ -1444,6 +1474,9 @@ fn run_command(s: &mut Session, a: &Args) -> CmdResult {
         disconnect_all(g, id);
         g.delete_node(id)?;
         return Err(e);
+    }
+    if a.has("animated") {
+        g.set_value(PlugRef::new(id, ANIMATED as i32), PlugValue::Int(a.int("animated", 0).clamp(0, 2)))?;
     }
     Ok(json!(g.path(id)))
 }
@@ -1468,6 +1501,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("name", "n", ArgType::String, "The node's name."))
         .flag(f("shortNames", "sn", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("safe", "sf", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("timeDependent", "td", ArgType::Bool, "With -q: whether it reads time or frame.")),
+        .flag(f("timeDependent", "td", ArgType::Bool, "With -q: whether it reads time or frame."))
+        .flag(f("attribute", "a", ArgType::String, "The attribute the expression sets: the source is what it is set to, unless it assigns it itself."))
+        .flag(f("animated", "an", ArgType::Int, "The node's animation mode: 0 not animated, 1 animated, 2 animated with no callback.")),
     );
 }

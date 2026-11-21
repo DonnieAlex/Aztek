@@ -84,6 +84,21 @@ pub fn register_types() {
             types::register_type(t).expect(&name);
         };
         reg(NodeType {
+            name: "geomBind".into(),
+            icon: "bone".into(),
+            doc: "The settings a geodesic voxel bind computed skinCluster weights with.".into(),
+            own_attrs: vec![
+                attr("skinClusters", "skc", PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::ARRAY | flags::MESSAGE | flags::HIDDEN, "The skinClusters bound."),
+                attr("bindMethod", "bm", PlugType::Int, PlugValue::Int(3), IN_STORE, "3 geodesic voxel."),
+                float_in("falloff", "fo", 0.2),
+                attr("maxInfluences", "mi", PlugType::Int, PlugValue::Int(-1), IN_STORE, "Most influences on a point; -1 all of them."),
+                attr("maxResolution", "mr", PlugType::Int, PlugValue::Int(256), IN_STORE, "The voxel grid's largest resolution, a power of two."),
+                attr("validateVoxels", "vv", PlugType::Bool, PlugValue::Bool(true), IN_STORE, "Check the voxels' state after voxelising."),
+            ],
+            create: Some(Arc::new(|| Box::new(crate::node::Plain))),
+            ..Default::default()
+        });
+        reg(NodeType {
             name: "distanceDimShape".into(),
             base: Some(shape.clone()),
             dag: true,
@@ -252,19 +267,111 @@ fn bind_skin(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!(1))
 }
 
+/// The skinCluster a name stands for: itself, or the one skinning a mesh.
+fn skin_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
+    let id = find(g, name, "geomBind")?;
+    let sk = if g.node(id).is_some_and(|n| n.ty().is_a(crate::skin::SKIN_TYPE)) { Some(id) } else { crate::components::as_mesh(g, id).and_then(|m| crate::skin::skin_of(g, m)) };
+    match sk {
+        Some(sk) => Ok(sk),
+        None => fail!("geomBind: {name} is not bound"),
+    }
+}
+
+/// The geomBind node holding a skinCluster's bind settings, or the node named.
+fn geom_bind_node(g: &Graph, name: &str) -> Option<NodeId> {
+    let id = g.find(name).ok()??;
+    if g.node(id).is_some_and(|n| n.ty().name == "geomBind") {
+        return Some(id);
+    }
+    let sk = skin_named(g, name).ok()?;
+    let msg = g.node(sk)?.ty().attr_index("message")? as i32;
+    g.destinations(&PlugRef::new(sk, msg)).into_iter().map(|p| p.node).find(|&n| g.node(n).is_some_and(|x| x.ty().name == "geomBind"))
+}
+
+/// Weights computed again from a geomBind node's settings, for every skinCluster it holds.
+fn geom_bind_apply(g: &mut Graph, node: NodeId) -> CmdResult<()> {
+    let n = g.node(node).unwrap();
+    let t = n.ty();
+    let (fo, mi) = (n.float(t.attr_index("falloff").unwrap()), n.int(t.attr_index("maxInfluences").unwrap()));
+    let skc = t.attr_index("skinClusters").unwrap() as i32;
+    let skins: Vec<NodeId> = g.elements(&PlugRef::new(node, skc)).iter().filter_map(|e| g.source(e)).map(|p| p.node).collect();
+    // The reference's geodesic voxel bind is the heat bind here: both follow the surface rather than straight lines.
+    let max = if mi < 0 { usize::MAX } else { (mi as usize).max(1) };
+    for sk in skins {
+        crate::skin::rebind_weights(g, sk, 2, max, fo * 20.0)?;
+    }
+    Ok(())
+}
+
 fn geom_bind(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let Some(first) = names.first() else { fail!("geomBind: name a skinCluster") };
     let g = &mut s.graph;
-    let id = find(g, first, "geomBind")?;
-    let sk = if g.node(id).is_some_and(|n| n.ty().is_a(crate::skin::SKIN_TYPE)) { Some(id) } else { crate::components::as_mesh(g, id).and_then(|m| crate::skin::skin_of(g, m)) };
-    let Some(sk) = sk else { fail!("geomBind: {first} is not bound") };
-    // The reference's geodesic voxel bind (3) is the heat bind here; both follow the surface rather than straight lines.
-    let method = match a.int("bindMethod", 3) {
-        3 | 2 => 2,
-        m => m,
+    let gvp: Vec<Value> = match a.get("geodesicVoxelParams") {
+        Some(Value::Array(v)) if !a.bool("query") => v.iter().flat_map(|x| match x {
+            Value::Array(inner) => inner.clone(),
+            o => vec![o.clone()],
+        }).collect(),
+        _ => Vec::new(),
     };
-    crate::skin::rebind_weights(g, sk, method, a.int("maxInfluences", 5).max(1) as usize, a.float("falloff", 0.2) * 20.0)?;
+    if a.bool("query") {
+        let Some(node) = geom_bind_node(g, first) else { fail!("geomBind: {first} has no geomBind settings") };
+        let n = g.node(node).unwrap();
+        let t = n.ty();
+        let get = |k: &str| t.attr_index(k).unwrap();
+        return Ok(if asked(a, "falloff") {
+            json!(n.float(get("falloff")))
+        } else if asked(a, "maxInfluences") {
+            json!(n.int(get("maxInfluences")))
+        } else if asked(a, "geodesicVoxelParams") {
+            json!([n.int(get("maxResolution")), n.bool(get("validateVoxels"))])
+        } else if asked(a, "bindMethod") {
+            json!(n.int(get("bindMethod")))
+        } else {
+            fail!("geomBind: name a flag to query: -fo, -mi or -gvp")
+        });
+    }
+    let node = if a.bool("edit") {
+        match geom_bind_node(g, first) {
+            Some(n) => n,
+            None => fail!("geomBind: {first} has no geomBind settings to edit"),
+        }
+    } else {
+        let method = a.int("bindMethod", 3);
+        if method != 3 {
+            fail!("geomBind: -bindMethod {method} is not a bind method: 3 (geodesic voxel) is the one there is");
+        }
+        let mut skins = Vec::new();
+        for n in &names {
+            skins.push(skin_named(g, n)?);
+        }
+        let t = types::find("geomBind").unwrap();
+        let node = g.create_node(&t, "geomBind1", NO_NODE, true)?;
+        let skc = t.attr_index("skinClusters").unwrap() as i32;
+        for (k, sk) in skins.iter().enumerate() {
+            let msg = g.node(*sk).unwrap().ty().attr_index("message").unwrap() as i32;
+            g.connect(&PlugRef::new(*sk, msg), &PlugRef::element(node, skc, k as i32), false)?;
+        }
+        node
+    };
+    let t = g.node(node).unwrap().type_arc().clone();
+    let at = |k: &str| PlugRef::new(node, t.attr_index(k).unwrap() as i32);
+    if a.has("falloff") {
+        g.set_value(at("falloff"), PlugValue::Float(a.float("falloff", 0.2).clamp(0.0, 1.0)))?;
+    }
+    if a.has("maxInfluences") {
+        g.set_value(at("maxInfluences"), PlugValue::Int(a.int("maxInfluences", -1)))?;
+    }
+    if let Some(r) = gvp.first().and_then(Value::as_i64) {
+        if r <= 0 || (r & (r - 1)) != 0 {
+            fail!("geomBind: the voxel resolution {r} is not a power of two");
+        }
+        g.set_value(at("maxResolution"), PlugValue::Int(r))?;
+    }
+    if let Some(v) = gvp.get(1) {
+        g.set_value(at("validateVoxels"), PlugValue::Bool(v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0)))?;
+    }
+    geom_bind_apply(g, node)?;
     Ok(Value::Null)
 }
 
@@ -1059,13 +1166,19 @@ pub fn register(c: &mut Commands<Session>) {
         );
     }
     c.register(
-        Cmd::new("geomBind", "Recomputes a skinCluster's weights following the surface: -bm 3 (the geodesic voxel method, which runs the heat bind here), -mi, -fo.", geom_bind)
-            .positional("skinCluster or skinned mesh")
-            .flag(f("bindMethod", "bm", I, "3 geodesic voxel; 2 heat map; 0 and 1 closest distance and hierarchy."))
-            .flag(f("falloff", "fo", F, "0 to 1, how far influences reach."))
-            .flag(f("maxInfluences", "mi", I, "Most influences on a point."))
-            .flag(f("geodesicVoxelParams", "gvp", L, "Accepted for existing scripts."))
-            .flag(f("postVoxelSmooth", "pvs", I, "Accepted for existing scripts.")),
+        q_flags(Cmd::new(
+            "geomBind",
+            "Compute skinClusters' weights following the surface (the geodesic voxel bind, which runs the heat bind here): -fo, -mi, -gvp. \
+             Makes a geomBind node holding the settings, connected to the skinClusters; -e on a skinCluster computes again with new ones, \
+             -q reads them.",
+            geom_bind,
+        ))
+        .positional("skinClusters or skinned meshes")
+        .flag(f("bindMethod", "bm", I, "3 geodesic voxel (3), the only method."))
+        .flag(f("falloff", "fo", F, "0 to 1: the bind's stiffness, how far influences reach."))
+        .flag(f("maxInfluences", "mi", I, "Most influences on a point (-1: all)."))
+        .flag(f("geodesicVoxelParams", "gvp", L, "The voxel grid's largest resolution, a power of two (256), and whether to check the voxels after (on).").multi(2))
+        .flag(f("postVoxelSmooth", "pvs", I, "Smoothing passes after voxelising, held for existing scripts.")),
     );
     c.register(
         Cmd::new("jointCluster", "Record a joint's rigid bind settings on a jointCluster node: -j, -ab, -bb, -av, -bv. Returns the node. It softens nothing here.", joint_cluster)

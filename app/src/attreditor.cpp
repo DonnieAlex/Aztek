@@ -1105,7 +1105,10 @@ void AttributeEditor::refresh() {
                     used.insert(n);
                     QWidget* field = attr_field(a, body);
                     field->setToolTip(item.contains("annotation") ? item["annotation"].toString() : a["doc"].toString());
-                    current->addRow(attr_label(item.contains("label") ? item["label"].toString() : a["nice"].toString(), a, body, field), field);
+                    QWidget* lab = attr_label(item.contains("label") ? item["label"].toString() : a["nice"].toString(), a, body, field);
+                    // An annotation covers the whole row unless -annotateFieldOnly keeps it to the field.
+                    if (lab && item.contains("annotation") && !item["annotateFieldOnly"].toBool()) lab->setToolTip(item["annotation"].toString());
+                    current->addRow(lab, field);
                 }
             }
         }

@@ -783,7 +783,7 @@ fn display_and_order_commands() {
     run(&mut s, "polyCube", json!({"name": "d"}));
     run(&mut s, "hide", json!({"args": ["c"]}));
     assert_eq!(get(&mut s, "c.v"), false);
-    assert_eq!(run(&mut s, "hide", json!({"args": ["c"], "tv": true})), true);
+    assert_eq!(run(&mut s, "hide", json!({"args": ["c"], "tv": true})), 1, "1: all hidden");
     run(&mut s, "showHidden", json!({"args": ["c"]}));
     assert_eq!(get(&mut s, "c.v"), true);
     run(&mut s, "hide", json!({"args": ["b"]}));

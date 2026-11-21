@@ -41,7 +41,7 @@ fn draw_override_by_name_and_a_layer_through_connectattr() {
     c.mel("circle -n \"a\";");
     // -e is createDisplayLayer's empty, not edit mode.
     c.mel("select a; createDisplayLayer -e -n \"L\";");
-    assert_eq!(c.mel("editDisplayLayerMembers L a;"), json!(["a"]));
+    assert_eq!(c.mel("editDisplayLayerMembers L a;"), json!(1));
     c.mel("setAttr L.color 13;");
     assert_eq!(c.mel("getAttr a.overrideEnabled;"), json!(true));
     assert_eq!(c.mel("getAttr a.overrideColor;"), json!(13));

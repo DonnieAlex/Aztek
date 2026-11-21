@@ -551,18 +551,99 @@ fn snapshot(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!([s.graph.path(group), s.graph.path(node)]))
 }
 
+fn three(v: Option<&Value>, def: [f64; 3]) -> [f64; 3] {
+    let flat: Vec<f64> = match v {
+        Some(Value::Array(x)) => x.iter().flat_map(|e| match e {
+            Value::Array(i) => i.iter().filter_map(Value::as_f64).collect::<Vec<_>>(),
+            o => o.as_f64().into_iter().collect(),
+        }).collect(),
+        _ => Vec::new(),
+    };
+    if flat.len() >= 3 { [flat[0], flat[1], flat[2]] } else { def }
+}
+
+/// The flow node a name stands for: itself, or the one an object flows through.
+fn flow_node(g: &Graph, name: &str) -> Option<NodeId> {
+    let id = g.find(name).ok()??;
+    if g.node(id).is_some_and(|n| n.ty().name == "flow") {
+        return Some(id);
+    }
+    let t = crate::dag::transform_of(g, id);
+    let msg = g.node(t)?.ty().attr_index("message")? as i32;
+    g.destinations(&PlugRef::new(t, msg)).into_iter().map(|p| p.node).find(|&n| g.node(n).is_some_and(|x| x.ty().name == "flow"))
+}
+
 fn flow(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let Some(name) = names.first().cloned() else { fail!("flow: name or select an object on a motion path") };
-    path_of(&s.graph, &name)?;
+    if a.bool("query") {
+        let g = &s.graph;
+        let Some(node) = flow_node(g, &name) else { fail!("flow: {name} has no flow") };
+        let n = g.node(node).unwrap();
+        let ints = |v: DVec3| json!([v.x.round() as i64, v.y.round() as i64, v.z.round() as i64]);
+        return Ok(if queried(a, &["divisions"]) {
+            ints(n.vec3(0))
+        } else if queried(a, &["localDivisions"]) {
+            ints(n.vec3(1))
+        } else if queried(a, &["localCompute"]) {
+            json!(n.bool(2))
+        } else if queried(a, &["objectCentered"]) {
+            json!(n.bool(3))
+        } else {
+            fail!("flow: name a flag to query: -dv, -ld, -lc or -oc")
+        });
+    }
+    let mp = path_of(&s.graph, &name)?;
     if s.commands.find("lattice").is_none() {
         fail!("flow: needs the lattice deformer, which is not in this build");
     }
-    let dv = a.get("divisions").cloned().unwrap_or(json!([2, 5, 2]));
+    let centred = !a.has("objectCentered") || a.bool("objectCentered");
+    // Local control is on for a lattice round the path, off for one round the object, unless asked.
+    let local = if a.has("localCompute") { a.bool("localCompute") } else { !centred };
+    let dv = three(a.get("divisions"), [2.0, 5.0, 2.0]);
+    let ld = three(a.get("localDivisions"), [2.0, 2.0, 2.0]);
     let mut call = serde_json::Map::new();
     call.insert("args".into(), json!([name]));
-    call.insert("divisions".into(), dv);
-    s.run("lattice", Value::Object(call))
+    call.insert("divisions".into(), json!(dv));
+    call.insert("ldivisions".into(), json!(ld));
+    if !centred {
+        // Round the path: the lattice takes the curve's bounding box.
+        let g = &mut s.graph;
+        let Some(src) = g.source(&PlugRef::new(mp, GEOMETRY_PATH as i32)) else { fail!("flow: {name}'s motion path has no curve") };
+        let c = curves::world_curve(g, src.node).unwrap_or_default();
+        let pts = c.tessellate(16);
+        let (lo, hi) = pts.iter().fold((DVec3::splat(f64::MAX), DVec3::splat(f64::MIN)), |(l, h), p| (l.min(*p), h.max(*p)));
+        let size = (hi - lo).max(DVec3::splat(1e-3));
+        call.insert("position".into(), json!(((lo + hi) * 0.5).to_array()));
+        call.insert("scale".into(), json!(size.to_array()));
+    }
+    s.graph.open_chunk("Flow");
+    let r = (|| -> CmdResult {
+        let made = s.run("lattice", Value::Object(call))?;
+        let list: Vec<String> = made.as_array().map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+        let g = &mut s.graph;
+        let Some(ffd) = list.first().and_then(|n| g.find(n).ok().flatten()) else { fail!("flow: the lattice gave nothing back") };
+        if let Some(i) = g.node(ffd).and_then(|n| n.ty().attr_index("local")) {
+            g.set_value(PlugRef::new(ffd, i as i32), PlugValue::Bool(local))?;
+        }
+        let t = types::find("flow").unwrap();
+        let node = g.create_node(&t, "flow1", NO_NODE, true)?;
+        g.set_value(PlugRef::new(node, 0), PlugValue::Vec3(DVec3::from_array(dv)))?;
+        g.set_value(PlugRef::new(node, 1), PlugValue::Vec3(DVec3::from_array(ld)))?;
+        g.set_value(PlugRef::new(node, 2), PlugValue::Bool(local))?;
+        g.set_value(PlugRef::new(node, 3), PlugValue::Bool(centred))?;
+        let obj = crate::dag::transform_of(g, g.find(&name)?.unwrap());
+        let msg = |g: &Graph, n: NodeId| g.node(n).and_then(|x| x.ty().attr_index("message")).unwrap() as i32;
+        let (om, fm) = (msg(g, obj), msg(g, ffd));
+        g.connect(&PlugRef::new(obj, om), &PlugRef::new(node, 4), false)?;
+        g.connect(&PlugRef::new(ffd, fm), &PlugRef::new(node, 5), false)?;
+        g.evaluate();
+        let mut out = vec![json!(g.path(node))];
+        out.extend(list.into_iter().map(Value::from));
+        Ok(Value::Array(out))
+    })();
+    s.graph.close_chunk();
+    r
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -672,6 +753,23 @@ pub fn register_types() {
         })
         .expect("motionPath");
 
+        let msg_in = |name: &str, short: &str, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::MESSAGE | flags::HIDDEN, doc: doc.into(), ..Default::default() };
+        types::register_type(NodeType {
+            name: "flow".into(),
+            icon: "route".into(),
+            doc: "Bends an object on a motion path through a lattice: the settings flow made it with.".into(),
+            own_attrs: vec![
+                vec3_attr("divisions", "dv", DVec3::new(2.0, 5.0, 2.0), store, "Lattice slices in X, Y and Z."),
+                vec3_attr("localDivisions", "ld", DVec3::splat(2.0), store, "The local region of effect in X, Y and Z."),
+                boolean("localCompute", "lc", false, "The deformation has local control."),
+                boolean("objectCentered", "oc", true, "The lattice is round the object; off, round the path."),
+                msg_in("object", "obj", "The object flowing."),
+                msg_in("deformer", "dfm", "The lattice deformer."),
+            ],
+            create: Some(Arc::new(|| Box::new(PlainNode))),
+            ..Default::default()
+        })
+        .expect("flow");
         types::register_type(NodeType {
             name: "snapshot".into(),
             icon: "chart-line".into(),
@@ -753,12 +851,19 @@ pub fn register(c: &mut Commands<Session>) {
     );
 
     c.register(
-        Cmd::new("flow", "Deform an object on a motion path through a lattice that travels with it. Needs the lattice deformer.", flow)
-            .positional("the object (the selection when none)")
-            .flag(f("divisions", "dv", ArgType::Any, "Lattice divisions."))
-            .flag(f("localCompute", "lc", ArgType::Bool, "Accepted for existing scripts."))
-            .flag(f("localDivisions", "ld", ArgType::Any, "Accepted for existing scripts."))
-            .flag(f("objectCentered", "oc", ArgType::Bool, "Accepted for existing scripts.")),
+        Cmd::new(
+            "flow",
+            "Deform an object on a motion path through a lattice: round the object (-oc on) or round the path. Returns the flow node, \
+             then the ffd, the lattice and its base. -q on the flow node or the object reads -dv, -ld, -lc and -oc.",
+            flow,
+        )
+        .positional("the object (the selection when none); the flow node or the object with -q")
+        .flag(f("divisions", "dv", ArgType::Any, "Lattice slices in X, Y and Z (2 5 2).").multi(3))
+        .flag(f("localCompute", "lc", ArgType::Bool, "Local control of the deformation: on for a lattice round the path, off round the object."))
+        .flag(f("localDivisions", "ld", ArgType::Any, "The local region of effect in X, Y and Z (2 2 2).").multi(3))
+        .flag(f("objectCentered", "oc", ArgType::Bool, "Round the object (on); off, round the path."))
+        .flag(f("query", "q", ArgType::Bool, "Query mode."))
+        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
 
     c.register(

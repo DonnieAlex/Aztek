@@ -186,6 +186,14 @@ fn fillet_freeform(c1: &NurbsCurve, c2: &NurbsCurve, depth: f64, bias: f64, cp1:
     Some(NurbsCurve::open(3, vec![p0, p0 + t0 * k0, p1 - t1 * k1, p1]))
 }
 
+/// A free-form blend fillet: it leaves each curve along its tangent and eases into the gap with no turn at either end,
+/// two CVs on each tangent rather than one.
+fn fillet_blend(c1: &NurbsCurve, c2: &NurbsCurve, depth: f64, bias: f64, cp1: Option<f64>, cp2: Option<f64>) -> Option<NurbsCurve> {
+    let t = fillet_freeform(c1, c2, depth, bias, cp1, cp2)?;
+    let (p0, a, b, p1) = (t.cvs[0], t.cvs[1], t.cvs[2], t.cvs[3]);
+    Some(NurbsCurve::open(3, vec![p0, p0.lerp(a, 0.5), a, b, p1.lerp(b, 0.5), p1]))
+}
+
 /// A circular arc through three points. None when they lie on a line.
 fn three_point_arc(a: DVec3, b: DVec3, c: DVec3, degree: usize, sections: usize) -> Option<NurbsCurve> {
     let (centre, r, axis) = arc_centre(a, b, c)?;
@@ -857,15 +865,37 @@ fn register_types() {
         reg(node_type(
             "filletCurve",
             "A round or free-form fillet between two curves.",
-            vec![cin("primaryCurve", "pc"), cout("outputCurve", "oc"), cin("secondaryCurve", "sc"), f_in("radius", "r", 1.0, "The circle's radius."), bin("circular", "cir", true), f_in("freeformBlend", "fb", 0.5, "A setting."), f_in("depth", "d", 0.5, "How far a free-form fillet reaches."), f_in("bias", "b", 0.0, "Which way it leans."), f_in("curveParameter1", "cp1", -1.0, "Where on the first curve, or -1."), f_in("curveParameter2", "cp2", -1.0, "Where on the second curve, or -1.")],
+            vec![
+                cin("primaryCurve", "pc"),
+                cout("outputCurve", "oc"),
+                cin("secondaryCurve", "sc"),
+                f_in("radius", "r", 1.0, "The circle's radius."),
+                bin("circular", "cir", true),
+                AttrDef { doc: "A free-form fillet blends (on) rather than leaving each curve along its tangent (off).".into(), ..bin("freeformBlend", "fb", false) },
+                f_in("depth", "d", 0.5, "How far a free-form fillet reaches, with blendControl."),
+                f_in("bias", "b", 0.0, "Which curve it leans toward, with blendControl."),
+                f_in("curveParameter1", "cp1", -1.0, "Where on the first curve, or -1."),
+                f_in("curveParameter2", "cp2", -1.0, "Where on the second curve, or -1."),
+                AttrDef { doc: "Depth and bias apply; off, a free-form fillet takes their defaults.".into(), ..bin("blendControl", "bc", false) },
+            ],
             |d| {
+                if matches!(crate::history_qe::node_state(d), 2 | 5) {
+                    return;
+                }
                 let (Some(c1), Some(c2)) = (crv(d, IN), crv(d, P)) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
                 let par = |x: f64| (x >= 0.0).then_some(x);
                 let (cp1, cp2) = (par(d.float(P + 6)), par(d.float(P + 7)));
-                let out = if d.bool(P + 2) { fillet_arc(&c1, &c2, d.float(P + 1), cp1, cp2).map(|x| x.0) } else { fillet_freeform(&c1, &c2, d.float(P + 4), d.float(P + 5), cp1, cp2) };
+                let (depth, bias) = if d.bool(P + 8) { (d.float(P + 4), d.float(P + 5)) } else { (0.5, 0.0) };
+                let out = if d.bool(P + 2) {
+                    fillet_arc(&c1, &c2, d.float(P + 1), cp1, cp2).map(|x| x.0)
+                } else if d.bool(P + 3) {
+                    fillet_blend(&c1, &c2, depth, bias, cp1, cp2)
+                } else {
+                    fillet_freeform(&c1, &c2, depth, bias, cp1, cp2)
+                };
                 put_curve(d, OUT, out);
             },
         ));
@@ -957,6 +987,15 @@ fn register_types() {
             "Makes a curve pass through its CVs by raising the knot multiplicity there.",
             vec![cin("inputCurve", "ic"), cout("outputCurve", "oc"), crate::rig::data_attr("inputComponents", "ics", "The CVs."), int_in("multiplicity", "m", -1, "How many knots; -1 as many as the degree.")],
             |d| {
+                match crate::history_qe::node_state(d) {
+                    2 | 5 => return,
+                    1 | 4 => {
+                        let c = crv(d, IN);
+                        put_curve(d, OUT, c);
+                        return;
+                    }
+                    _ => {}
+                }
                 let Some(mut c) = crv(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
@@ -1090,16 +1129,33 @@ fn register_types() {
         reg(node_type(
             "extendSurface",
             "A surface lengthened past its edges.",
-            vec![sin("inputSurface", "is"), sout("outputSurface", "os"), f_in("distance", "d", 1.0, "How far."), int_in("extendDirection", "ed", 0, "0 U, 1 V, 2 both."), int_in("extendSide", "es", 1, "0 start, 1 end, 2 both."), int_in("extensionType", "et", 0, "0 tangent, 1 extrapolate.")],
+            vec![
+                sin("inputSurface", "is"),
+                sout("outputSurface", "os"),
+                f_in("distance", "d", 1.0, "How far, extending by distance."),
+                int_in("extendDirection", "ed", 0, "0 U, 1 V, 2 both."),
+                int_in("extendSide", "es", 1, "0 the end, 1 the start, 2 both."),
+                int_in("extensionType", "et", 0, "0 tangent, 2 extrapolated."),
+                int_in("extendMethod", "em", 0, "0 by distance."),
+                AttrDef { doc: "The extension joins the surface; off, it is a surface of its own.".into(), ..bin("join", "jn", true) },
+            ],
             |d| {
+                if matches!(crate::history_qe::node_state(d), 2 | 5) {
+                    return;
+                }
                 let Some(s) = srf(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
                 let (dist, dir, side) = (d.float(P), d.int(P + 1), d.int(P + 2));
-                let (st, en) = (side != 1, side != 0);
-                let along_u = |x: &NurbsSurface| x.map_u(|c| c.extended(dist, st, en));
-                let along_v = |x: &NurbsSurface| x.swapped().map_u(|c| c.extended(dist, st, en)).swapped();
+                let o = curves::ExtendOptions { distance: dist, start: side, method: 0, kind: if d.int(P + 3) == 2 { 2 } else { 0 }, point: DVec3::ZERO, join: d.bool(P + 5), remove_knots: true };
+                // Every row extended alike; on its own, each extension evened to the same knots so they make a surface.
+                let row = |c: &NurbsCurve| {
+                    let e = curves::extend_curve(c, &o);
+                    if o.join { e } else { e.rebuilt(1, c.degree) }
+                };
+                let along_u = |x: &NurbsSurface| x.map_u(row);
+                let along_v = |x: &NurbsSurface| x.swapped().map_u(row).swapped();
                 let r = match dir {
                     1 => along_v(&s),
                     2 => along_v(&along_u(&s)),
@@ -1161,6 +1217,24 @@ fn register_types() {
                 s.trim.clear();
                 put_surface(d, OUT, Some(s));
             },
+        ));
+        reg(node_type(
+            "globalStitch",
+            "Stitches a set of surfaces where their edges and corners come within maxSeparation of each other.",
+            vec![
+                AttrDef { flags: STORE | flags::HIDDEN | flags::ARRAY, ..sin("inputSurface", "is") },
+                AttrDef { flags: flags::OUTPUT | flags::HIDDEN | flags::ARRAY, ..sout("outputSurface", "os") },
+                AttrDef { name: "inputMatrix".into(), short_name: "imt".into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(glam::DMat4::IDENTITY), flags: flags::INPUT | flags::HIDDEN | flags::ARRAY, doc: "Each surface's world matrix.".into(), ..Default::default() },
+                f_in("maxSeparation", "ms", 0.1, "The widest gap still stitched."),
+                int_in("sampling", "sam", 1, "How finely edges are sampled when stitching."),
+                int_in("stitchCorners", "sc", 1, "0 off, 1 closest point, 2 closest knot."),
+                int_in("stitchEdges", "se", 1, "0 off, 1 closest point, 2 matching parameters."),
+                AttrDef { doc: "Stitch edges only partly within reach, where they are.".into(), ..bin("stitchPartialEdges", "spe", false) },
+                int_in("stitchSmoothness", "ss", 0, "0 off, 1 tangent, 2 normal."),
+                AttrDef { flags: STORE | flags::ARRAY, doc: "The surface at this index stays as it is.".into(), ..bin("lockSurface", "lk", false) },
+                f_in("modificationResistance", "mr", 0.1, "How much each surface's CVs resist moving."),
+            ],
+            global_stitch_run,
         ));
         reg(node_type(
             "stitchSrf",
@@ -1331,8 +1405,23 @@ fn register_types() {
         reg(node_type(
             "ffFilletSrf",
             "A free-form blend between two edges.",
-            vec![sin("inputSurface1", "is1"), sout("outputSurface", "os"), sin("inputSurface2", "is2"), int_in("direction1", "d1", 0, "0 U, 1 V."), f_in("parameter1", "p1", 0.0, "Which isoparm."), int_in("direction2", "d2", 0, "0 U, 1 V."), f_in("parameter2", "p2", 0.0, "Which isoparm."), f_in("depth", "dp", 0.5, "How far the tangents reach."), f_in("bias", "b", 0.0, "Which way it leans.")],
+            vec![
+                sin("inputSurface1", "is1"),
+                sout("outputSurface", "os"),
+                sin("inputSurface2", "is2"),
+                int_in("direction1", "d1", 0, "0 U, 1 V."),
+                f_in("parameter1", "p1", 0.0, "Which isoparm."),
+                int_in("direction2", "d2", 0, "0 U, 1 V."),
+                f_in("parameter2", "p2", 0.0, "Which isoparm."),
+                f_in("depth", "dp", 0.5, "How far the tangents reach: the curvature across the fillet."),
+                f_in("bias", "b", 0.5, "How the tangents at the two ends are scaled: 0.5 alike, toward 0 or 1 longer at one end."),
+                f_in("positionTolerance", "pt", 0.1, "How far the fillet's edges may stray from the surfaces: they meet them exactly here."),
+                f_in("tangentTolerance", "tt", 0.1, "How far its tangents may stray from the surfaces': they follow them exactly here."),
+            ],
             |d| {
+                if matches!(crate::history_qe::node_state(d), 2 | 5) {
+                    return;
+                }
                 let (Some(a), Some(b)) = (srf(d, IN), srf(d, P)) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
@@ -1341,7 +1430,8 @@ fn register_types() {
                 let (c2, t2) = across_tangents(&b, d.int(P + 3), d.float(P + 4), 16);
                 // Tangents into the gap at the second edge point back along it.
                 let t2: Vec<DVec3> = t2.iter().map(|v| -*v).collect();
-                put_surface(d, OUT, tangent_blend(&c1, &t1, &c2, &t2, d.float(P + 5), d.float(P + 6), 16));
+                // The reference's bias runs 0 to 1 about an even 0.5; the blend's lean runs -1 to 1 about 0.
+                put_surface(d, OUT, tangent_blend(&c1, &t1, &c2, &t2, d.float(P + 5), (d.float(P + 6) - 0.5) * 2.0, 16));
             },
         ));
         reg(node_type(
@@ -1768,41 +1858,232 @@ fn stitch_points(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Array(names.iter().map(|n| json!(n)).collect()))
 }
 
-fn global_stitch(s: &mut Session, a: &Args) -> CmdResult {
-    let names = objects(s, a);
-    if names.len() < 2 {
-        fail!("globalStitch: name two or more surfaces");
+const GS_IN: usize = 0;
+const GS_OUT: usize = 1;
+const GS_MATRIX: usize = 2;
+const GS_SETTINGS: usize = 3;
+
+/// The CV grid indices of a surface's boundary nearest `value` in `dir`, and of the row just inside it.
+fn boundary_rows(s: &NurbsSurface, dir: i64, value: f64) -> (Vec<usize>, Vec<usize>) {
+    let (nu, nv) = (s.nu, s.nv);
+    if dir == 0 {
+        let (lo, hi) = s.domain_u();
+        let (i, inner) = if (value - lo).abs() < (hi - value).abs() { (0, 1.min(nu - 1)) } else { (nu - 1, nu.saturating_sub(2)) };
+        ((0..nv).map(|j| i * nv + j).collect(), (0..nv).map(|j| inner * nv + j).collect())
+    } else {
+        let (lo, hi) = s.domain_v();
+        let (j, inner) = if (value - lo).abs() < (hi - value).abs() { (0, 1.min(nv - 1)) } else { (nv - 1, nv.saturating_sub(2)) };
+        ((0..nu).map(|i| i * nv + j).collect(), (0..nu).map(|i| i * nv + inner).collect())
     }
-    let max = a.float("maxSeparation", 0.1);
+}
+
+/// The reference's globalStitch node: every pair of surfaces whose nearest edges come within maxSeparation meets
+/// halfway (a locked surface stays and the other comes all the way); corners within reach meet too; with tangent
+/// smoothness the CVs either side of a stitched edge line up across it.
+fn global_stitch_run(d: &mut NodeData) {
+    let state = crate::history_qe::node_state(d);
+    if state == 2 || state == 5 {
+        return;
+    }
+    let ins: Vec<(i32, NurbsSurface)> = d.elements(GS_IN).iter().filter_map(|(i, v)| surface_value(v).cloned().filter(NurbsSurface::is_valid).map(|s| (*i, s))).collect();
+    if state == 1 || state == 4 {
+        d.set_output_elements(GS_OUT, ins.into_iter().map(|(i, s)| (i, surfaces::to_value(s))).collect());
+        return;
+    }
+    let mat = |d: &NodeData, i: i32| match d.element(GS_MATRIX, i) {
+        Some(PlugValue::Matrix(m)) => *m,
+        _ => glam::DMat4::IDENTITY,
+    };
+    let locked = |d: &NodeData, i: i32| matches!(d.element(GS_SETTINGS + 7, i), Some(PlugValue::Bool(true)));
+    let ms = d.float(GS_SETTINGS);
+    let samples = 8 * d.int(GS_SETTINGS + 1).max(1) as usize;
+    let (corners, edges, partial, smooth) = (d.int(GS_SETTINGS + 2), d.int(GS_SETTINGS + 3), d.bool(GS_SETTINGS + 4), d.int(GS_SETTINGS + 5));
+    let mats: Vec<glam::DMat4> = ins.iter().map(|(i, _)| mat(d, *i)).collect();
+    let locks: Vec<bool> = ins.iter().map(|(i, _)| locked(d, *i)).collect();
+    let mut world: Vec<NurbsSurface> = ins.iter().zip(&mats).map(|((_, s), m)| s.transformed(m)).collect();
+    let iso = |x: &NurbsSurface, e: (i64, f64)| if e.0 == 0 { x.iso_u(e.1) } else { x.iso_v(e.1) };
+    let n = world.len();
+    for i in 0..n {
+        for j in i + 1..n {
+            let (bi, bj) = match (locks[i], locks[j]) {
+                (true, true) => continue,
+                (true, false) => (0.0, 1.0),
+                (false, true) => (1.0, 0.0),
+                _ => (0.5, 0.5),
+            };
+            if edges != 0 {
+                let (e1, e2) = (nearest_boundary(&world[i], &world[j]), nearest_boundary(&world[j], &world[i]));
+                let (c1, c2) = (iso(&world[i], e1), iso(&world[j], e2));
+                let (lo, hi) = c1.domain();
+                let gaps: Vec<f64> = (0..=samples).map(|k| {
+                    let p = c1.eval(lo + (hi - lo) * k as f64 / samples as f64);
+                    p.distance(c2.eval(c2.closest_param(p)))
+                }).collect();
+                let reach = if partial { gaps.iter().copied().fold(f64::MAX, f64::min) } else { gaps.iter().copied().fold(0.0, f64::max) };
+                if reach <= ms {
+                    let stitch = |s: &NurbsSurface, e: (i64, f64), target: &NurbsCurve, bias: f64| {
+                        if !partial {
+                            return stitch_boundary(s, e.0, e.1, target, bias);
+                        }
+                        // Partly within reach: only the CVs near the other edge move.
+                        let mut o = s.clone();
+                        for k in boundary_rows(s, e.0, e.1).0 {
+                            let p = s.cvs[k];
+                            let q = target.eval(target.closest_param(p));
+                            if p.distance(q) <= ms {
+                                o.cvs[k] = p.lerp(q, bias);
+                            }
+                        }
+                        o.rewrap();
+                        o
+                    };
+                    let (a, b) = (stitch(&world[i], e1, &c2, bi), stitch(&world[j], e2, &c1, bj));
+                    world[i] = a;
+                    world[j] = b;
+                    if smooth >= 1 {
+                        // Tangent: the CVs just inside each edge lined up through the edge's CVs.
+                        let (ri, ii) = boundary_rows(&world[i], e1.0, e1.1);
+                        let (rj, ij) = boundary_rows(&world[j], e2.0, e2.1);
+                        if ri.len() == rj.len() {
+                            let flip = world[i].cvs[ri[0]].distance(world[j].cvs[rj[0]]) > world[i].cvs[ri[0]].distance(world[j].cvs[*rj.last().unwrap()]);
+                            for k in 0..ri.len() {
+                                let kj = if flip { rj.len() - 1 - k } else { k };
+                                let p = (world[i].cvs[ri[k]] + world[j].cvs[rj[kj]]) * 0.5;
+                                let (a, b) = (world[i].cvs[ii[k]], world[j].cvs[ij[kj]]);
+                                let dir = (a - b).normalize_or_zero();
+                                if dir == DVec3::ZERO {
+                                    continue;
+                                }
+                                if !locks[i] {
+                                    world[i].cvs[ii[k]] = p + dir * a.distance(p);
+                                }
+                                if !locks[j] {
+                                    world[j].cvs[ij[kj]] = p - dir * b.distance(p);
+                                }
+                            }
+                            world[i].rewrap();
+                            world[j].rewrap();
+                        }
+                    }
+                }
+            }
+            if corners != 0 {
+                let corner_ids = |s: &NurbsSurface| [0, s.nv - 1, (s.nu - 1) * s.nv, s.nu * s.nv - 1];
+                for ka in corner_ids(&world[i]) {
+                    for kb in corner_ids(&world[j]) {
+                        let (p, q) = (world[i].cvs[ka], world[j].cvs[kb]);
+                        let gap = p.distance(q);
+                        if gap > 1e-12 && gap <= ms {
+                            world[i].cvs[ka] = p.lerp(q, bi);
+                            world[j].cvs[kb] = q.lerp(p, bj);
+                        }
+                    }
+                }
+                world[i].rewrap();
+                world[j].rewrap();
+            }
+        }
+    }
+    let out = ins.iter().zip(world).zip(&mats).map(|(((i, _), w), m)| (*i, surfaces::to_value(w.transformed(&m.inverse())))).collect();
+    d.set_output_elements(GS_OUT, out);
+}
+
+fn global_stitch(s: &mut Session, a: &Args) -> CmdResult {
+    let locks: Vec<bool> = match a.get("lockSurface") {
+        Some(Value::Array(v)) => v.iter().map(truthy).collect(),
+        Some(v) => vec![truthy(v)],
+        None => Vec::new(),
+    };
+    if a.bool("query") || a.bool("edit") {
+        if a.bool("edit") && !locks.is_empty() {
+            let names = objects(s, a);
+            let Some(node) = names.first().and_then(|n| crate::history_qe::find_hist(&s.graph, n, &["globalStitch"])) else { fail!("globalStitch: name the globalStitch node or a surface it feeds") };
+            for (k, l) in locks.iter().enumerate() {
+                s.graph.set_value(PlugRef::element(node, (GS_SETTINGS + 7) as i32, k as i32), PlugValue::Bool(*l))?;
+            }
+            let mut rest = a.clone();
+            rest.flags.remove("lockSurface");
+            if !rest.flags.keys().any(|k| !matches!(k.as_str(), "edit" | "args")) {
+                s.graph.evaluate();
+                return Ok(json!([s.graph.path(node)]));
+            }
+            return crate::history_qe::qe(s, &rest, "globalStitch", &["globalStitch"], &[]).unwrap_or(Ok(Value::Null));
+        }
+        if a.bool("query") && asked(a, "lockSurface") {
+            let names = objects(s, a);
+            let Some(node) = names.first().and_then(|n| crate::history_qe::find_hist(&s.graph, n, &["globalStitch"])) else { fail!("globalStitch: name the globalStitch node or a surface it feeds") };
+            let count = s.graph.connections().iter().filter(|(d, _)| d.node == node && d.attr == GS_MATRIX as i32).count().max(s.graph.elements(&PlugRef::new(node, GS_IN as i32)).len());
+            let n = s.graph.node(node).unwrap();
+            return Ok(Value::Array((0..count).map(|k| json!(matches!(n.element((GS_SETTINGS + 7) as usize, k as i32), Some(PlugValue::Bool(true))))).collect()));
+        }
+        return crate::history_qe::qe(s, a, "globalStitch", &["globalStitch"], &[]).unwrap_or(Ok(Value::Null));
+    }
+    let names = objects(s, a);
+    if names.is_empty() {
+        fail!("globalStitch: name or select NURBS surfaces");
+    }
     let g = &mut s.graph;
     let mut shapes = Vec::new();
     for n in &names {
         shapes.push(surfaces::surface_arg(g, n, "globalStitch")?);
     }
-    let mut out = Vec::new();
     g.open_chunk("Global Stitch");
-    let r = (|| -> CmdResult<()> {
-        for i in 0..shapes.len() {
-            for j in i + 1..shapes.len() {
-                let (Some(wa), Some(wb)) = (surfaces::world_surface(g, shapes[i]), surfaces::world_surface(g, shapes[j])) else { continue };
-                let (e1, e2) = (nearest_boundary(&wa, &wb), nearest_boundary(&wb, &wa));
-                let iso = |x: &NurbsSurface, e: (i64, f64)| if e.0 == 0 { x.iso_u(e.1) } else { x.iso_v(e.1) };
-                let (c1, c2) = (iso(&wa, e1), iso(&wb, e2));
-                let (lo, hi) = c1.domain();
-                let gap = (0..=8).map(|k| {
-                    let p = c1.eval(lo + (hi - lo) * k as f64 / 8.0);
-                    p.distance(c2.eval(c2.closest_param(p)))
-                }).fold(0.0, f64::max);
-                if gap <= max {
-                    stitch_pair(g, a, (shapes[i], Some(e1)), (shapes[j], Some(e2)), 0.5, &mut out)?;
+    let r = (|| -> CmdResult {
+        let node = new_node(g, "globalStitch", &a.string("name", "globalStitch1"))?;
+        for (k, &shape) in shapes.iter().enumerate() {
+            let slot = PlugRef::element(node, GS_IN as i32, k as i32);
+            let create = plug(shape, SurfaceShape::CREATE);
+            let untweaked = g.node(shape).is_some_and(|n| matches!(n.data().value(SurfaceShape::TWEAK), PlugValue::Data(None)));
+            match g.source(&create) {
+                Some(src) if untweaked => {
+                    g.connect(&src, &slot, false)?;
+                }
+                _ => {
+                    let current = surfaces::local_surface(g, shape).unwrap_or_default();
+                    g.set_value(slot, surfaces::to_value(current))?;
+                    let _ = g.set_value(plug(shape, SurfaceShape::TWEAK), PlugValue::Data(None));
                 }
             }
+            let tr = crate::dag::transform_of(g, shape);
+            g.connect(&plug(tr, Transform::WORLD_MATRIX), &PlugRef::element(node, GS_MATRIX as i32, k as i32), false)?;
+            g.connect(&PlugRef::element(node, GS_OUT as i32, k as i32), &create, true)?;
         }
-        Ok(())
+        set_f(g, node, "maxSeparation", a.float("maxSeparation", 0.1))?;
+        set_i(g, node, "sampling", a.int("sampling", 1))?;
+        set_i(g, node, "stitchCorners", a.int("stitchCorners", 1))?;
+        set_i(g, node, "stitchEdges", a.int("stitchEdges", 1))?;
+        set_b(g, node, "stitchPartialEdges", a.get("stitchPartialEdges").is_some_and(truthy))?;
+        set_i(g, node, "stitchSmoothness", a.int("stitchSmoothness", 0))?;
+        set_f(g, node, "modificationResistance", a.float("modificationResistance", 0.1))?;
+        for (k, l) in locks.iter().enumerate() {
+            g.set_value(PlugRef::element(node, (GS_SETTINGS + 7) as i32, k as i32), PlugValue::Bool(*l))?;
+        }
+        crate::history_qe::apply_common(g, node, a)?;
+        g.evaluate();
+        let mut out: Vec<Value> = shapes.iter().map(|&sh| json!(g.path(crate::dag::transform_of(g, sh)))).collect();
+        if surfaces::wants_history(g, a) {
+            out.push(json!(g.path(node)));
+        } else {
+            for &sh in &shapes {
+                surfaces::bake_history(g, sh)?;
+            }
+            if g.node(node).is_some() {
+                g.delete_node(node)?;
+            }
+        }
+        Ok(Value::Array(out))
     })();
     g.close_chunk();
-    r?;
-    Ok(Value::Array(out))
+    r
+}
+
+fn truthy(v: &Value) -> bool {
+    match v {
+        Value::Bool(b) => *b,
+        Value::Number(n) => n.as_f64().unwrap_or(0.0) != 0.0,
+        Value::String(t) => matches!(t.as_str(), "true" | "on" | "yes" | "1"),
+        _ => false,
+    }
 }
 
 fn make_single_surface(s: &mut Session, a: &Args) -> CmdResult {
@@ -2059,7 +2340,9 @@ pub fn register(c: &mut Commands<Session>) {
                 connect_world_curve(g, c1, n, IN)?;
                 connect_world_curve(g, c2, n, P)?;
                 set_f(g, n, "radius", a.float("radius", 1.0))?;
-                set_b(g, n, "circular", a.get("freeformBlend").is_none() && a.get("circular").and_then(Value::as_bool).unwrap_or(true))?;
+                set_b(g, n, "circular", a.get("circular").map_or(true, truthy))?;
+                set_b(g, n, "freeformBlend", a.get("freeformBlend").is_some_and(truthy))?;
+                set_b(g, n, "blendControl", a.get("blendControl").is_some_and(truthy))?;
                 set_f(g, n, "depth", a.float("depth", 0.5))?;
                 set_f(g, n, "bias", a.float("bias", 0.0))?;
                 set_f(g, n, "curveParameter1", a.float("curveParameter1", -1.0))?;
@@ -2067,36 +2350,71 @@ pub fn register(c: &mut Commands<Session>) {
                 curve_from(g, a, n, plug(n, OUT), "filletCurve1")
             })();
             g.close_chunk();
-            let out = r?;
-            if a.bool("trim") || a.bool("join") {
+            let mut out = r?;
+            let (trim, join, rpo) = (a.get("trim").is_some_and(truthy), a.get("join").is_some_and(truthy), a.get("replaceOriginal").is_some_and(truthy));
+            if trim || join || rpo {
                 let g = &mut s.graph;
                 g.evaluate();
-                if let (Some(w1), Some(w2)) = (curves::world_curve(g, c1), curves::world_curve(g, c2)) {
-                    if let Some((_, u, v)) = fillet_arc(&w1, &w2, a.float("radius", 1.0), None, None) {
-                        for (sh, cu, at) in [(c1, w1, u), (c2, w2, v)] {
-                            let (x0, x1) = cu.split(at);
-                            let (lo, hi) = cu.domain();
-                            let keep = if at - lo >= hi - at { x0 } else { x1 };
-                            let w = crate::rig::world(g, crate::dag::transform_of(g, sh));
-                            curves::bake_history(g, sh)?;
-                            curves::set_cached(g, sh, keep.transformed(&w.inverse()))?;
+                let fillet = out.get(0).and_then(Value::as_str).and_then(|n| g.find(n).ok().flatten()).and_then(|t| curves::as_curve(g, t));
+                let fw = fillet.and_then(|f| curves::world_curve(g, f));
+                let mut kept: Vec<NurbsCurve> = Vec::new();
+                if let (Some(w1), Some(w2), Some(fw)) = (curves::world_curve(g, c1), curves::world_curve(g, c2), fw.clone()) {
+                    let (flo, fhi) = fw.domain();
+                    let (e0, e1) = (fw.eval(flo), fw.eval(fhi));
+                    for (sh, cu, end) in [(c1, w1, e0), (c2, w2, e1)] {
+                        // Each curve is cut where the fillet meets it, keeping its longer side.
+                        let at = cu.closest_param(end);
+                        let (x0, x1) = cu.split(at);
+                        let (lo, hi) = cu.domain();
+                        let keep = if at - lo >= hi - at { x0 } else { x1 };
+                        kept.push(keep.clone());
+                        let w = crate::rig::world(g, crate::dag::transform_of(g, sh));
+                        curves::bake_history(g, sh)?;
+                        curves::set_cached(g, sh, keep.transformed(&w.inverse()))?;
+                    }
+                }
+                if (join || rpo) && kept.len() == 2 {
+                    if let Some(fw) = fw {
+                        // One curve: the first trimmed curve, the fillet, the second, each running on from the last.
+                        let toward = |c: &NurbsCurve, p: DVec3| {
+                            let (lo, hi) = c.domain();
+                            if c.eval(hi).distance(p) < c.eval(lo).distance(p) { c.clone() } else { c.reversed() }
+                        };
+                        let (flo, fhi) = fw.domain();
+                        let first = toward(&kept[0], fw.eval(flo));
+                        let second = toward(&kept[1], fw.eval(fhi)).reversed();
+                        let joined = first.attached(&fw).attached(&second);
+                        if rpo {
+                            // In place: the first curve becomes the joined one; the second and the fillet go.
+                            let w = crate::rig::world(g, crate::dag::transform_of(g, c1));
+                            curves::set_cached(g, c1, joined.transformed(&w.inverse()))?;
+                            for sh in [Some(c2), fillet].into_iter().flatten() {
+                                let tr = crate::dag::transform_of(g, sh);
+                                g.delete_node(tr)?;
+                            }
+                            out = json!([g.path(crate::dag::transform_of(g, c1))]);
+                        } else {
+                            let (tr, _) = curves::create_curve(g, &a.string("name", "filletCurve1"), joined, true)?;
+                            out = json!([g.path(tr)]);
                         }
                     }
                 }
+                g.evaluate();
             }
             Ok(out)
         })
         .positional("two curves")
         .flag(f("radius", "r", Fl, "The radius (1)."))
         .flag(f("circular", "cir", B, "A circular fillet (the default)."))
-        .flag(f("freeformBlend", "fb", Fl, "A free-form fillet."))
-        .flag(f("depth", "d", Fl, "How far a free-form fillet reaches."))
-        .flag(f("bias", "b", Fl, "Which way it leans."))
-        .flag(f("blendControl", "bc", B, "Accepted for existing scripts."))
+        .flag(f("freeformBlend", "fb", B, "With -cir off: a blend (on) rather than a tangent fillet (off)."))
+        .flag(f("depth", "d", Fl, "How far a free-form fillet reaches, with -bc (0.5)."))
+        .flag(f("bias", "b", Fl, "Which curve it leans toward, with -bc (0)."))
+        .flag(f("blendControl", "bc", B, "Let -d and -b apply (off)."))
         .flag(f("curveParameter1", "cp1", Fl, "Where on the first curve."))
         .flag(f("curveParameter2", "cp2", Fl, "Where on the second curve."))
-        .flag(f("join", "jn", B, "Trim the curves back too."))
-        .flag(f("trim", "t", B, "Trim the curves back.")),
+        .flag(f("join", "jn", B, "Trim the curves and join them and the fillet into one new curve."))
+        .flag(f("trim", "t", B, "Trim the curves back to the fillet."))
+        .flag(f("replaceOriginal", "rpo", B, "In place: the first curve becomes the curves and fillet joined; the second goes.")),
     ));
     c.register(make_flags(
         Cmd::new("bevel", "A bevelled wall round a curve: -w width, -d depth, -ed wall depth, -bst 1 straight or 2 arc. Returns [surface, node].", |s, a| {
@@ -2315,17 +2633,19 @@ pub fn register(c: &mut Commands<Session>) {
                 set_i(g, n, "direction2", d2)?;
                 set_f(g, n, "parameter2", p2)?;
                 set_f(g, n, "depth", a.float("depth", 0.5))?;
-                set_f(g, n, "bias", a.float("bias", 0.0))?;
+                set_f(g, n, "bias", a.float("bias", 0.5))?;
+                set_f(g, n, "positionTolerance", a.float("positionTolerance", 0.1))?;
+                set_f(g, n, "tangentTolerance", a.float("tangentTolerance", 0.1))?;
                 surface_from(g, a, n, plug(n, OUT), "freeFormFillet1")
             })();
             g.close_chunk();
             r
         })
         .positional("two edges")
-        .flag(f("depth", "d", Fl, "How far the tangents reach (0.5)."))
-        .flag(f("bias", "bb", Fl, "Which way it leans."))
-        .flag(f("positionTolerance", "pt", Fl, "Accepted for existing scripts."))
-        .flag(f("tangentTolerance", "tt", Fl, "Accepted for existing scripts.")),
+        .flag(f("depth", "d", Fl, "The curvature across the fillet: how far the tangents reach (0.5)."))
+        .flag(f("bias", "b", Fl, "How the tangents at the two ends are scaled (0.5 alike)."))
+        .flag(f("positionTolerance", "pt", Fl, "How far its edges may stray from the surfaces (0.1): they meet them exactly here."))
+        .flag(f("tangentTolerance", "tt", Fl, "How far its tangents may stray (0.1): they follow the surfaces exactly here.")),
     ));
     c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
         Cmd::new(
@@ -2512,30 +2832,43 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("stepCount", "sc", I, "Accepted for existing scripts."))
             .flag(f("tolerance", "tol", Fl, "Accepted for existing scripts.")),
     );
-    c.register(make_flags(
-        Cmd::new("globalStitch", "Stitch a whole set of surfaces: every pair of edges within -ms of each other. Returns the surfaces and nodes.", global_stitch)
-            .positional("surfaces")
-            .flag(f("maxSeparation", "ms", Fl, "How far apart edges may be (0.1)."))
-            .flag(f("lockSurface", "lk", B, "Accepted for existing scripts."))
-            .flag(f("modificationResistance", "mr", Fl, "Accepted for existing scripts."))
-            .flag(f("sampling", "sam", I, "Accepted for existing scripts."))
-            .flag(f("stitchCorners", "sc", I, "Accepted for existing scripts."))
-            .flag(f("stitchEdges", "se", I, "Accepted for existing scripts."))
-            .flag(f("stitchPartialEdges", "spe", B, "Accepted for existing scripts."))
-            .flag(f("stitchSmoothness", "ss", I, "Accepted for existing scripts.")),
-    ));
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(make_flags(
+        Cmd::new(
+            "globalStitch",
+            "Stitch a set of surfaces through a globalStitch node: edges (-se) and corners (-sc) within -ms of each other meet, \
+             -lk keeps a surface as it is, -ss 1 lines the CVs up across the edges. Returns the surfaces, then the node. -q and -e \
+             on the node or a surface it feeds.",
+            global_stitch,
+        )
+        .positional("surfaces; the node or a surface it feeds with -q and -e")
+        .flag(f("maxSeparation", "ms", Fl, "The widest gap still stitched (0.1)."))
+        .flag(f("lockSurface", "lk", ArgType::Any, "Keep the surface at this index as it is (off). One per surface, in order.").multi(1))
+        .flag(f("modificationResistance", "mr", Fl, "How much the CVs resist moving (0.1)."))
+        .flag(f("sampling", "sam", I, "How finely edges are sampled (1)."))
+        .flag(f("stitchCorners", "sc", I, "0 off, 1 closest point (1), 2 closest knot."))
+        .flag(f("stitchEdges", "se", I, "0 off, 1 closest point (1), 2 matching parameters."))
+        .flag(f("stitchPartialEdges", "spe", B, "Stitch edges only partly within reach, where they are (off)."))
+        .flag(f("stitchSmoothness", "ss", I, "0 off (0), 1 tangent, 2 normal.")),
+    ))));
     c.register(make_flags(
         Cmd::new("extendSurface", "Lengthen a surface: -d distance, -ed 0 U, 1 V, 2 both, -es 0 start, 1 end, 2 both, -et 0 tangent. Returns [surface, node].", |s, a| {
-            let set = [(P, PlugValue::Float(a.float("distance", 1.0))), (P + 1, PlugValue::Int(a.int("extendDirection", 0))), (P + 2, PlugValue::Int(a.int("extendSide", 1))), (P + 3, PlugValue::Int(a.int("extensionType", 0)))];
+            let set = [
+                (P, PlugValue::Float(a.float("distance", 1.0))),
+                (P + 1, PlugValue::Int(a.int("extendDirection", 0))),
+                (P + 2, PlugValue::Int(a.int("extendSide", 1))),
+                (P + 3, PlugValue::Int(a.int("extensionType", 0))),
+                (P + 4, PlugValue::Int(a.int("extendMethod", 0))),
+                (P + 5, PlugValue::Bool(a.get("join").map_or(true, truthy))),
+            ];
             surfaces::run_op(s, a, "extendSurface", "extendSurface", &set)
         })
         .positional("surfaces (the selection when none)")
         .flag(f("distance", "d", Fl, "How far (1)."))
-        .flag(f("extendDirection", "ed", I, "0 U, 1 V, 2 both."))
-        .flag(f("extendSide", "es", I, "0 start, 1 end, 2 both."))
-        .flag(f("extensionType", "et", I, "Accepted: tangent lines."))
-        .flag(f("extendMethod", "em", I, "Accepted for existing scripts."))
-        .flag(f("join", "jn", B, "Accepted for existing scripts."))
+        .flag(f("extendDirection", "ed", I, "0 U (0), 1 V, 2 both."))
+        .flag(f("extendSide", "es", I, "0 the end, 1 the start (1), 2 both."))
+        .flag(f("extensionType", "et", I, "0 tangent (0), 2 extrapolated."))
+        .flag(f("extendMethod", "em", I, "0 by distance (0)."))
+        .flag(f("join", "jn", B, "Join the extension to the surface (on); off, the result is the extension alone."))
         .flag(f("replaceOriginal", "rpo", B, "Change the surface itself (on by default).")),
     ));
     c.register(make_flags(
@@ -2567,6 +2900,8 @@ pub fn register(c: &mut Commands<Session>) {
                 }
                 None => (0, surf.spans_u() as i64, 0, surf.spans_v() as i64),
             };
+            // The flags name the patches outright.
+            let (fu, cu, fv, cv) = (a.int("firstFaceU", fu), a.int("faceCountU", cu), a.int("firstFaceV", fv), a.int("faceCountV", cv));
             g.open_chunk("Duplicate Surface");
             let r = (|| -> CmdResult {
                 let n = new_node(g, "subSurface", "subSurface1")?;
@@ -2586,7 +2921,11 @@ pub fn register(c: &mut Commands<Session>) {
         })
         .positional("a surface or patches")
         .flag(f("local", "l", B, "Keep following it."))
-        .flag(f("mergeItems", "mi", B, "Accepted for existing scripts.")),
+        .flag(f("firstFaceU", "ffu", I, "The first patch in U (0)."))
+        .flag(f("firstFaceV", "ffv", I, "The first patch in V (0)."))
+        .flag(f("faceCountU", "fcu", I, "How many patches in U (1)."))
+        .flag(f("faceCountV", "fcv", I, "How many patches in V (1)."))
+        .flag(f("mergeItems", "mi", B, "Merge component results where it can: the result here is whole objects.")),
     ));
     c.register(
         Cmd::new("surface", "A surface from raw data: -du -dv degrees, -fu -fv open, closed or periodic, -ku -kv one knot each, -p x y z one point each (or -pw with a weight), V running fastest.", raw_surface)

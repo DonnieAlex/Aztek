@@ -226,6 +226,77 @@ pub fn reorder(g: &mut Graph, layer: NodeId, index: usize) -> CmdResult<()> {
     Ok(())
 }
 
+const GLOBALS: &[(&str, &str)] = &[("baseId", "displayLayerBaseId"), ("mergeType", "displayLayerMergeType"), ("useCurrent", "displayLayerUseCurrent")];
+
+/// A shared display layer setting kept as a preference, or its default.
+fn global(s: &Session, flag: &str) -> Value {
+    let key = GLOBALS.iter().find(|g| g.0 == flag).map_or(flag, |g| g.1);
+    s.option_vars.get(key).cloned().unwrap_or(match flag {
+        "baseId" => json!(1),
+        "mergeType" => json!(0),
+        _ => json!(true),
+    })
+}
+
+fn display_layer_globals(s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("query") {
+        if crate::anim::queried(a, &["currentDisplayLayer"]) {
+            let cur = current(&s.graph);
+            let g = &s.graph;
+            let layer = all(g).into_iter().find(|&l| cur != 0 && g.node(l).is_some_and(|n| n.int(IDENTIFICATION) == cur));
+            return Ok(json!(layer.map_or(DEFAULT_LAYER.to_string(), |l| g.path(l))));
+        }
+        for (flag, _) in GLOBALS {
+            if crate::anim::queried(a, &[flag]) {
+                return Ok(global(s, flag));
+            }
+        }
+        fail!("editDisplayLayerGlobals: name a flag to query");
+    }
+    if let Some(name) = a.get("currentDisplayLayer").and_then(Value::as_str) {
+        let number = if name == DEFAULT_LAYER {
+            0
+        } else {
+            let layer = layer_arg(&s.graph, name, "editDisplayLayerGlobals")?;
+            s.graph.node(layer).map_or(0, |n| n.int(IDENTIFICATION))
+        };
+        set_current(&mut s.graph, number)?;
+    }
+    for (flag, key) in GLOBALS {
+        let Some(v) = a.get(flag) else { continue };
+        let v = match *flag {
+            "useCurrent" => json!(v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0)),
+            "mergeType" => {
+                let m = v.as_i64().unwrap_or(0);
+                if !(0..=2).contains(&m) {
+                    fail!("editDisplayLayerGlobals: -mergeType is 0, 1 or 2");
+                }
+                json!(m)
+            }
+            _ => json!(v.as_i64().unwrap_or(1)),
+        };
+        s.option_vars.insert(key.to_string(), v);
+    }
+    Ok(json!(true))
+}
+
+/// At the end of a command: DAG objects it made that are in no layer go in the current one, while useCurrent is on.
+pub(crate) fn adopt_new_nodes(s: &mut Session) {
+    let Some(from) = s.new_nodes_from else { return };
+    let cur = current(&s.graph);
+    if cur == 0 || !global(s, "useCurrent").as_bool().unwrap_or(true) {
+        return;
+    }
+    let g = &mut s.graph;
+    let Some(layer) = all(g).into_iter().find(|&l| g.node(l).is_some_and(|n| n.int(IDENTIFICATION) == cur)) else { return };
+    let to = g.next_node_id();
+    // The top new objects: a group's children follow its layer.
+    let fresh: Vec<NodeId> = (from..to).filter(|&id| g.node(id).is_some_and(|n| n.ty().dag && n.ty().is_a("transform")) && layer_of(g, id).is_none() && !(from..to).contains(&g.parent(id))).collect();
+    if let Err(e) = add_members(g, layer, &fresh) {
+        log::warn!("current display layer: {e}");
+    }
+}
+
 fn names_of(g: &Graph, ids: &[NodeId]) -> Value {
     Value::Array(ids.iter().map(|&id| Value::String(g.path(id))).collect())
 }
@@ -400,10 +471,11 @@ pub fn register(c: &mut Commands<Session>) {
                     ids = with;
                 }
                 let taken: Vec<i64> = all(&s.graph).iter().map(|&l| s.graph.node(l).map_or(0, |n| n.int(IDENTIFICATION))).collect();
+                let base = global(s, "baseId").as_i64().unwrap_or(1).max(1);
                 let number = match a.get("number").and_then(Value::as_i64) {
                     Some(n) => n,
-                    // The lowest number not in use, from the base index (1).
-                    None => (1..).find(|n| !taken.contains(n)).unwrap_or(1),
+                    // The lowest number not in use, from the base id (editDisplayLayerGlobals -bi, 1 by default).
+                    None => (base..).find(|n| !taken.contains(n)).unwrap_or(base),
                 };
                 let g = &mut s.graph;
                 let layer = create(g, &a.string("name", ""), &ids).map_err(|e| CommandError::new(format!("createDisplayLayer: {e}")))?;
@@ -425,8 +497,9 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         CommandDef::<Session>::new(
             "editDisplayLayerMembers",
-            "Put objects (the selection by default) in a display layer, moving them out of their old one. Naming defaultLayer \
-             takes them out of any layer. Returns the layer's members.",
+            "Put objects (the selection by default) and their descendants (not with -nr) in a display layer, moving them out of \
+             their old one; only DAG objects can be in one. Naming defaultLayer takes them out of any layer. -clear moves every \
+             member to the default layer. Returns how many objects were added (or cleared); -q lists the members.",
             |s, a| {
                 let layer_name = first_positional(a, "editDisplayLayerMembers", "name the layer first")?;
                 if a.bool("query") {
@@ -434,28 +507,73 @@ pub fn register(c: &mut Commands<Session>) {
                         return Ok(json!([]));
                     }
                     let layer = layer_arg(&s.graph, &layer_name, "editDisplayLayerMembers")?;
+                    // There are no objects of other kinds (-ufeObjects) in display layers here: the list is the same.
                     let ids = members(&s.graph, layer);
                     if crate::anim::queried(a, &["fullNames"]) {
                         return Ok(json!(ids.iter().map(|&id| s.graph.full_path(id)).collect::<Vec<_>>()));
                     }
                     return Ok(names_of(&s.graph, &ids));
                 }
+                if a.bool("clear") {
+                    if layer_name == DEFAULT_LAYER {
+                        return Ok(json!(0));
+                    }
+                    let layer = layer_arg(&s.graph, &layer_name, "editDisplayLayerMembers")?;
+                    let ids = members(&s.graph, layer);
+                    remove_members(&mut s.graph, &ids);
+                    return Ok(json!(ids.len()));
+                }
                 let mut rest = a.clone();
                 rest.positional.remove(0);
-                let ids = object_ids(&s.graph, &objects(s, &rest), "editDisplayLayerMembers")?;
+                // Only DAG objects can be in a display layer: others are left out with a warning.
+                let mut ids = Vec::new();
+                for name in objects(s, &rest) {
+                    let Some(id) = s.graph.find(&name)? else { fail!("editDisplayLayerMembers: no object named {name}") };
+                    if s.graph.node(id).is_some_and(has_layer_plug) {
+                        ids.push(id);
+                    } else {
+                        log::warn!("Only DAG objects can be in a display layer. Ignoring '{name}'.");
+                    }
+                }
+                let added = ids.len();
+                if !a.bool("noRecurse") {
+                    // The transforms below go in too; shapes follow their transform's layer.
+                    let mut with = Vec::new();
+                    for &id in &ids {
+                        with.push(id);
+                        with.extend(s.graph.descendants(id).into_iter().filter(|&d| s.graph.node(d).is_some_and(|n| n.ty().is_a("transform"))));
+                    }
+                    ids = with;
+                }
                 if layer_name == DEFAULT_LAYER {
                     remove_members(&mut s.graph, &ids);
-                    return Ok(json!([]));
+                    return Ok(json!(added));
                 }
                 let layer = layer_arg(&s.graph, &layer_name, "editDisplayLayerMembers")?;
                 add_members(&mut s.graph, layer, &ids)?;
-                Ok(names_of(&s.graph, &members(&s.graph, layer)))
+                Ok(json!(added))
             },
         )
         .positional("layer, objects")
         .flag(flag("query", "q", T::Bool, json!(false), "List the layer's members."))
         .flag(flag("fullNames", "fn", T::Bool, json!(false), "Query: full DAG paths."))
-        .flag(flag("noRecurse", "nr", T::Bool, json!(false), "Accepted: members are listed, not their children.")),
+        .flag(flag("noRecurse", "nr", T::Bool, json!(false), "Only the objects named go in, not their descendants."))
+        .flag(flag("clear", "clr", T::Bool, json!(false), "Move every member of the layer to the default layer."))
+        .flag(flag("ufeObjects", "ufe", T::Bool, json!(false), "Query: objects of other kinds too; display layers here hold only DAG objects.")),
+    );
+    c.register(
+        CommandDef::<Session>::new(
+            "editDisplayLayerGlobals",
+            "Settings all display layers share: -cdl the current layer (new objects go in it while -uc is on), -bi where new \
+             layers' numbers start, -mt how imported layers merge (0 none, 1 by number, 2 by name). -q reads one.",
+            display_layer_globals,
+        )
+        .flag(flag("baseId", "bi", T::Int, Value::Null, "Where new layers start looking for a free number (1)."))
+        .flag(flag("currentDisplayLayer", "cdl", T::String, Value::Null, "The current layer, which new objects go in; defaultLayer for none."))
+        .flag(flag("mergeType", "mt", T::Int, Value::Null, "How imported layers merge: 0 none, 1 by number, 2 by name."))
+        .flag(flag("useCurrent", "uc", T::Bool, Value::Null, "New objects go in the current layer (on)."))
+        .flag(flag("query", "q", T::Bool, json!(false), "Query mode."))
+        .flag(flag("queried", "", T::List, Value::Null, "Flags asked about in query mode.")),
     );
 
     c.register(

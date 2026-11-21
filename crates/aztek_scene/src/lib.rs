@@ -41,6 +41,7 @@ pub mod deform_soft;
 pub mod deform_wire;
 pub mod deform_wrap;
 pub mod display_layers;
+pub mod freeze;
 pub mod draw_style;
 pub mod duplicate;
 pub mod dynamics;

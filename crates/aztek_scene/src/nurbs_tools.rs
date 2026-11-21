@@ -281,4 +281,13 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "cone", &["makeNurbCone"], &[], Vec::new());
     crate::history_qe::extend(c, "cylinder", &["makeNurbCylinder"], &[], Vec::new());
     crate::history_qe::extend(c, "circularFillet", &["rbfSrf"], &[], Vec::new());
+    crate::history_qe::extend(c, "duplicateCurve", &["curveFromSurfaceIso"], &[("relative", "relativeValue")], Vec::new());
+    crate::history_qe::extend(c, "duplicateSurface", &["subSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "extendCurve", &["extendCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "extendSurface", &["extendSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "extrude", &["extrude"], &[], Vec::new());
+    crate::history_qe::extend(c, "filletCurve", &["filletCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "fitBspline", &["fitBspline"], &[], Vec::new());
+    crate::history_qe::extend(c, "freeFormFillet", &["ffFilletSrf"], &[], Vec::new());
+    crate::history_qe::extend(c, "hardenPointCurve", &["hardenPointCurve"], &[], Vec::new());
 }

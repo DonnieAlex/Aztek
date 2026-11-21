@@ -339,10 +339,10 @@ const KINDS: &[(&str, &str)] = &[
     ("columnLayout", "adjustableColumn:adj:b columnAlign:cal:a columnAttach:cat:a2 columnOffset:co:a2 columnWidth:cw:a rowSpacing:rs:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("rowLayout", "numberOfColumns:nc:a adjustableColumn:adj:a rowAttach:rat:a3 columnAlign:cal:a2 columnAttach:cat:a3 columnWidth:cw:a2 columnOffset:co:a2"),
     ("rowColumnLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a adjustableColumn:adj:a adjustableRow:ar:a columnAlign:cal:a2 columnAttach:cat:a3 columnOffset:co:a3 columnSpacing:cs:a2 columnWidth:cw:a2 rowAlign:ral:a2 rowAttach:rat:a3 rowHeight:rh:a2 rowOffset:ro:a3 rowSpacing:rs:a2"),
-    ("gridLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a cellWidth:cw:a cellHeight:ch:a cellWidthHeight:cwh:a autoGrow:ag:b allowEmptyCells:aec:b columnsResizable:cr:b position:pos:a2 gridOrder:go:a"),
-    ("flowLayout", "vertical:v:b wrap:wr:b columnSpacing:cs:a"),
-    ("formLayout", "numberOfDivisions:nd:a attachForm:af:a3 attachControl:ac:a4 attachPosition:ap:a4 attachNone:an:a2 attachOppositeForm:aof:a3 attachOppositeControl:aoc:a4"),
-    ("frameLayout", "label:l:a collapsable:cll:b collapse:cl:b marginHeight:mh:a marginWidth:mw:a borderVisible:bv:b borderStyle:bs:a labelVisible:lv:b labelIndent:li:a labelWidth:lw:a labelAlign:la:a font:fn:a collapseCommand:cc:a expandCommand:ec:a preCollapseCommand:pcc:a preExpandCommand:pec:a"),
+    ("gridLayout", "numberOfColumns:nc:a numberOfRows:nr:a numberOfRowsColumns:nrc:a cellWidth:cw:a cellHeight:ch:a cellWidthHeight:cwh:a autoGrow:ag:b allowEmptyCells:aec:b columnsResizable:cr:b position:pos:a2 gridOrder:go:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
+    ("flowLayout", "vertical:v:b horizontal:hr:b wrap:wr:b columnSpacing:cs:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
+    ("formLayout", "numberOfDivisions:nd:a attachForm:af:a3 attachControl:ac:a4 attachPosition:ap:a4 attachNone:an:a2 attachOppositeForm:aof:a3 attachOppositeControl:aoc:a4 generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
+    ("frameLayout", "label:l:a collapsable:cll:b collapse:cl:b marginHeight:mh:a marginWidth:mw:a borderVisible:bv:b borderStyle:bs:a labelVisible:lv:b labelIndent:li:a labelWidth:lw:a labelAlign:la:a font:fn:a collapseCommand:cc:a expandCommand:ec:a preCollapseCommand:pcc:a preExpandCommand:pec:a backgroundShade:bgs:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("scrollLayout", "horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a childResizable:cr:b resizeCommand:rc:a scrollAreaHeight:sah:b scrollAreaWidth:saw:b scrollAreaValue:sav:b scrollByPixel:sbp:a2 scrollPage:sp:a minChildWidth:mcw:a verticalScrollBarAlwaysVisible:vsb:b panEnabled:pe:b"),
     ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a"),
     ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b"),
@@ -367,7 +367,7 @@ const KINDS: &[(&str, &str)] = &[
     ("intSlider", SLIDER),
     ("floatSlider", SLIDER),
     ("intScrollBar", SLIDER),
-    ("floatScrollBar", SLIDER),
+    ("floatScrollBar", "value:v:a minValue:min:a maxValue:max:a step:s:a largeStep:ls:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a"),
     ("intSliderGrp", SLIDER_GRP),
     ("floatSliderGrp", "precision:pre:a showTrailingZeros:tze:b"),
     ("checkBox", "label:l:a value:v:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a align:al:a editable:ed:b recomputeSize:rs:b"),
@@ -388,7 +388,7 @@ const KINDS: &[(&str, &str)] = &[
     ("picture", "image:i:a tile:tl:b"),
     ("canvas", "rgbValue:rgb:a hsvValue:hsv:a pressCommand:pc:a"),
     ("workspaceControl", "label:l:a uiScript:ui:a floating:fl:b initialWidth:iw:a initialHeight:ih:a minimumWidth:mw:a minimumHeight:mh:a retain:r:b widthProperty:wp:a heightProperty:hp:a dockToMainWindow:dtm:a2 dockToControl:dtc:a2 dockToPanel:dtp:a3 tabToControl:ttc:a2 collapse:clp:b restore:rs:b closeCommand:cc:a requiredPlugin:rp:a requiredControl:rc:a loadImmediately:li:b checksPlugins:cp:b actLikeMayaUIElement:aui:b duplicatable:dup:b horizontal:hr:b stateString:ss:a uiScriptCommand:uic:a"),
-    ("dockControl", "area:a:a content:con:a allowedArea:aa:a label:l:a floating:fl:b retain:r:b moveable:mov:b sizeable:s:b closeCommand:cc:a floatChangeCommand:fcc:a"),
+    ("dockControl", "area:a:a content:con:a allowedArea:aa:a label:l:a floating:fl:b retain:ret:b raise:r:b moveable:mov:b sizeable:s:b fixedWidth:fw:b fixedHeight:fh:b enablePopupOption:epo:b dockStation:ds:a splitLayout:sl:a state:st:a closeCommand:cc:a floatChangeCommand:fcc:a"),
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
     ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b"),
     ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:clr:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:dce:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColor:cbc:a cellForegroundColor:cfc:a"),
@@ -541,6 +541,29 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             }
         }
         (_, "width" | "height") => set(m, id, key, json!(number(raw) as i64), changed),
+        ("dockControl", "state") => {
+            // What -q -state gave: hex of the dock's settings.
+            let t = text(raw);
+            let bytes: Option<Vec<u8>> = (0..t.len() / 2).map(|i| u8::from_str_radix(t.get(i * 2..i * 2 + 2)?, 16).ok()).collect();
+            let st: Value = bytes.and_then(|b| serde_json::from_slice(&b).ok()).ok_or_else(|| "dockControl: -state takes what -q -state gave.".to_string())?;
+            for k in ["area", "floating", "width", "height", "visible", "raise"] {
+                if let Some(v) = st.get(k).filter(|v| !v.is_null()) {
+                    set(m, id, k, v.clone(), changed);
+                }
+            }
+        }
+        ("dockControl", "splitLayout") => {
+            let t = text(raw);
+            if t != "horizontal" && t != "vertical" {
+                return Err(format!("dockControl: -splitLayout is horizontal or vertical, not {t}."));
+            }
+            set(m, id, key, json!(t), changed);
+        }
+        ("flowLayout", "horizontal") => {
+            // The obsolete -vertical is the other way of saying it.
+            set(m, id, "vertical", json!(!truth(raw)), changed);
+            set(m, id, key, json!(truth(raw)), changed);
+        }
         ("textScrollList", _) => list_flag(m, id, key, raw, changed)?,
         ("formLayout", "attachForm" | "attachControl" | "attachPosition" | "attachNone" | "attachOppositeForm" | "attachOppositeControl") => form_flag(m, id, key, &vals, changed)?,
         ("tabLayout", "tabLabel") => {
@@ -1104,6 +1127,12 @@ fn default_value(c: &Control, key: &str) -> Value {
         (k, "value" | "value1" | "value2" | "value3" | "value4" | "step") if is_int_kind(k) || is_float_kind(k) => zero(k),
         ("window" | "workspaceControl" | "dockControl", "title" | "label") => json!(c.name),
         ("dockControl", "area") => json!("left"),
+        ("dockControl", "retain" | "enablePopupOption" | "moveable") => json!(true),
+        ("dockControl", "fixedWidth" | "fixedHeight" | "raise") => json!(false),
+        ("flowLayout", "horizontal") => json!(!c.props.get("vertical").is_some_and(truth)),
+        ("flowLayout", "vertical" | "wrap") => json!(false),
+        ("frameLayout", "backgroundShade") => json!(false),
+        ("floatScrollBar" | "intScrollBar", "largeStep") => json!(if c.kind == "floatScrollBar" { json!(10.0) } else { json!(10) }),
         (k, "label") if !is_group(k) => json!(c.name),
         (k, "label") if is_group(k) => json!(""),
         (_, "text" | "placeholderText" | "annotation" | "docTag" | "image" | "status") => json!(""),
@@ -1169,6 +1198,12 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
         "numberOfMenus" => json!(c.children.iter().filter(|k| m.get(**k).is_some_and(|x| x.kind == "menu")).count()),
         "isObscured" => json!(!m.window_of(id).and_then(|w| m.get(w)).is_some_and(|w| w.props.get("visible").is_some_and(truth))),
         "widthHeight" => json!([prop("width"), prop("height")]),
+        "state" if c.kind == "dockControl" => {
+            // The dock's state as one string to keep in an optionVar and give back to -state: hex of its settings.
+            let st = json!({"area": prop("area"), "floating": prop("floating"), "width": prop("width"), "height": prop("height"), "visible": prop("visible"), "raise": prop("raise")});
+            json!(st.to_string().bytes().map(|b| format!("{b:02x}")).collect::<String>())
+        }
+        "horizontal" if c.kind == "flowLayout" => json!(!prop("vertical").as_bool().unwrap_or(false)),
         "topLeftCorner" => json!([prop("topEdge").as_i64().unwrap_or(0), prop("leftEdge").as_i64().unwrap_or(0)]),
         "tabLabel" => {
             let labels = tab_labels(m, id);
@@ -1602,7 +1637,8 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
             }
         }
         if ev["closed"].as_bool() == Some(true) {
-            let retain = m.get(id).is_some_and(|c| c.props.get("retain").is_some_and(truth));
+            // A dock control is kept when closed unless -retain says not; a window only with -retain.
+            let retain = m.get(id).is_some_and(|c| c.props.get("retain").map_or(c.kind == "dockControl", truth));
             if retain {
                 if let Some(c) = m.controls.get_mut(&id) {
                     c.props.insert("visible".into(), json!(false));
@@ -2205,7 +2241,8 @@ pub fn register(s: &mut Session) {
         .flag(f("optionsUIInit", "oin", ArgType::Any))
         .flag(f("optionsUICommit", "ocm", ArgType::Any))
         .flag(f("optionsUICommit2", "oc2", ArgType::Any))
-        .flag(f("optionsUICancel", "ocl", ArgType::Any))
+        .flag(f("optionsUICancel", "oca", ArgType::Any))
+        .flag(f("optionsUITitle", "oti", ArgType::Any))
         .flag(f("buttonBoxOrientation", "bbo", ArgType::Any))
         .flag(f("selectionChanged", "sc", ArgType::Any)),
     );
@@ -2246,7 +2283,8 @@ pub fn register(s: &mut Session) {
     s.register(
         Cmd::new("headsUpMessage", "A short message over the view. -time how long it stays.", |_s, a| {
             let Some(m) = a.pos_str(0) else { fail!("headsUpMessage: give the message.") };
-            in_view(m, a.float("time", 1.0), "midCenter");
+            let req = json!({"message": m, "time": a.float("time", 1.0), "position": "midCenter", "horizontalOffset": a.float("horizontalOffset", 0.0), "verticalOffset": a.float("verticalOffset", 0.0)});
+            crate::core::push_ui_request(format!("inViewMessage|{req}"));
             Ok(Value::Null)
         })
         .positional("message")
@@ -2255,8 +2293,8 @@ pub fn register(s: &mut Session) {
         .flag(f("selection", "s", ArgType::Bool))
         .flag(f("time", "t", ArgType::Float))
         .flag(f("uvTextureEditor", "uve", ArgType::Bool))
-        .flag(f("verticalOffset", "vo", ArgType::Any))
-        .flag(f("horizontalOffset", "hoo", ArgType::Any))
+        .flag(f("verticalOffset", "vo", ArgType::Int))
+        .flag(f("horizontalOffset", "ho", ArgType::Int))
         .flag(f("viewport", "vp", ArgType::Bool)),
     );
 

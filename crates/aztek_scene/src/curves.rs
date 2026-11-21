@@ -342,6 +342,17 @@ const P0: usize = 2;
 impl NodeBehavior for CurveNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
         let input = curve_value(d.value(IN)).cloned();
+        // nodeState: 1 (has no effect) passes the input through, 2 (blocking) keeps what the node last gave.
+        if !matches!(self.kind, Kind::Circle | Kind::Square) {
+            match crate::history_qe::node_state(d) {
+                1 | 4 => {
+                    d.set_output(OUT, input.map(to_value).unwrap_or(PlugValue::Data(None)));
+                    return;
+                }
+                2 | 5 => return,
+                _ => {}
+            }
+        }
         let c = match self.kind {
             Kind::Circle => {
                 let state = crate::history_qe::node_state(d);
@@ -385,11 +396,22 @@ impl NodeBehavior for CurveNode {
             Kind::Reverse => input.map(|c| c.reversed()),
             Kind::Close => input.map(|c| close_curve(&c, d.int(P0), d.float(P0 + 1), d.bool(P0 + 2), d.float(P0 + 3))),
             Kind::Smooth => input.map(|c| c.smoothed(d.float(P0), d.int(P0 + 1).max(1) as usize)),
-            Kind::Fit => input.map(|c| {
-                let pts = c.distinct_cvs().to_vec();
-                NurbsCurve::through(3, &pts)
+            Kind::Fit => input.map(|c| fit_bspline(c.distinct_cvs(), d.float(P0))),
+            Kind::Extend => input.map(|c| {
+                if d.bool(P0 + 7) {
+                    return c;
+                }
+                let o = ExtendOptions {
+                    distance: d.float(P0),
+                    start: d.int(P0 + 1),
+                    method: d.int(P0 + 2),
+                    kind: d.int(P0 + 3),
+                    point: d.vec3(P0 + 4),
+                    join: d.bool(P0 + 5),
+                    remove_knots: d.bool(P0 + 6),
+                };
+                extend_curve(&c, &o)
             }),
-            Kind::Extend => input.map(|c| c.extended(d.float(P0), d.bool(P0 + 1), d.bool(P0 + 2))),
             Kind::Offset => input.map(|c| {
                 let n = d.vec3(P0 + 1);
                 c.offset(d.float(P0), (n != DVec3::ZERO).then_some(n))
@@ -449,6 +471,187 @@ pub(crate) fn close_curve(c: &NurbsCurve, ps: i64, bias: f64, bki: bool, param: 
         return c.closed();
     }
     NurbsCurve::interpolated_periodic(c.degree, &pts)
+}
+
+/// The reference's fitBspline: a cubic with as few spans as keep it within `tol` of every point; through them all at worst.
+pub(crate) fn fit_bspline(pts: &[DVec3], tol: f64) -> NurbsCurve {
+    let exact = NurbsCurve::through(3, pts);
+    if pts.len() < 5 || tol <= 0.0 {
+        return exact;
+    }
+    let within = |c: &NurbsCurve| pts.iter().all(|p| c.eval(c.closest_param(*p)).distance(*p) <= tol);
+    for spans in 1..pts.len() - 2 {
+        let c = exact.rebuilt(spans, 3);
+        if within(&c) {
+            return c;
+        }
+    }
+    exact
+}
+
+/// extendCurve's settings.
+pub(crate) struct ExtendOptions {
+    pub distance: f64,
+    /// 0 the end, 1 the start, 2 both.
+    pub start: i64,
+    /// 0 by distance, 2 to `point`.
+    pub method: i64,
+    /// 0 linear, 1 circular, 2 extrapolated.
+    pub kind: i64,
+    pub point: DVec3,
+    pub join: bool,
+    pub remove_knots: bool,
+}
+
+/// Points of an extension leaving `e` along unit tangent `t`, with `k` the curvature vector there and `a` the second
+/// derivative per unit length squared: reaching `dist` along it, or `target` when given.
+fn extension_points(e: DVec3, t: DVec3, k: DVec3, kind: i64, dist: f64, target: Option<DVec3>) -> Vec<DVec3> {
+    const STEPS: usize = 8;
+    match (kind, target) {
+        (1, Some(p)) => {
+            // The arc leaving e along t that passes through p.
+            let d = p - e;
+            let side = d - t * d.dot(t);
+            if side.length() < 1e-9 || d.length() < 1e-12 {
+                return vec![e, p];
+            }
+            let n = side.normalize();
+            let r = d.length_squared() / (2.0 * d.dot(n));
+            let c = e + n * r;
+            let axis = t.cross(n);
+            let (u, w) = (e - c, p - c);
+            let angle = u.cross(w).dot(axis).atan2(u.dot(w)).rem_euclid(std::f64::consts::TAU);
+            (0..=STEPS).map(|i| c + glam::DQuat::from_axis_angle(axis, angle * i as f64 / STEPS as f64) * u).collect()
+        }
+        (1, None) if k.length() > 1e-9 => {
+            let r = 1.0 / k.length();
+            let n = k.normalize();
+            let c = e + n * r;
+            let axis = t.cross(n);
+            let u = e - c;
+            (0..=STEPS).map(|i| c + glam::DQuat::from_axis_angle(axis, dist / r * i as f64 / STEPS as f64) * u).collect()
+        }
+        (2, _) => {
+            // The end's shape carried on: a parabola matching position, tangent and curvature.
+            let len = target.map_or(dist, |p| (p - e).length());
+            let mut pts: Vec<DVec3> = (0..=STEPS)
+                .map(|i| {
+                    let s = len * i as f64 / STEPS as f64;
+                    e + t * s + k * (0.5 * s * s)
+                })
+                .collect();
+            if let Some(p) = target {
+                // Bend the tail onto the point.
+                let miss = p - *pts.last().unwrap();
+                for (i, q) in pts.iter_mut().enumerate() {
+                    let f = i as f64 / STEPS as f64;
+                    *q += miss * f * f;
+                }
+            }
+            pts
+        }
+        _ => {
+            let end = target.unwrap_or(e + t * dist);
+            (0..=STEPS).map(|i| e.lerp(end, i as f64 / STEPS as f64)).collect()
+        }
+    }
+}
+
+/// The extension at one end, running away from the curve, as a curve of the curve's degree.
+fn extension_at(c: &NurbsCurve, at_start: bool, o: &ExtendOptions) -> Option<NurbsCurve> {
+    let (lo, hi) = c.domain();
+    let u = if at_start { lo } else { hi };
+    let e = c.eval(u);
+    let h = (hi - lo).max(1e-6) * 1e-3;
+    let sign = if at_start { -1.0 } else { 1.0 };
+    let d1 = c.tangent(u) * sign;
+    let speed = d1.length();
+    if speed < 1e-12 {
+        return None;
+    }
+    let t = d1 / speed;
+    let _ = h;
+    // Curvature from the circle through the end and two points just inside it.
+    let step = (hi - lo) / c.spans().max(1) as f64 * 0.05;
+    let (p1, p2) = if at_start { (c.eval(u + step), c.eval(u + 2.0 * step)) } else { (c.eval(u - step), c.eval(u - 2.0 * step)) };
+    let k = {
+        let (ab, ac) = (p1 - e, p2 - e);
+        let n = ab.cross(ac);
+        if n.length_squared() < 1e-18 {
+            DVec3::ZERO
+        } else {
+            let centre = e + n.cross(ab * ac.length_squared() - ac * ab.length_squared()) / (2.0 * n.length_squared());
+            let r2 = (centre - e).length_squared();
+            let towards = centre - e;
+            (towards - t * towards.dot(t)).normalize_or_zero() / r2.sqrt()
+        }
+    };
+    let target = (o.method == 2).then_some(o.point);
+    let pts = extension_points(e, t, k, o.kind, o.distance, target);
+    if pts.len() < 2 || pts[0].distance(*pts.last().unwrap()) < 1e-12 {
+        return None;
+    }
+    Some(if o.kind == 0 { NurbsCurve::line(pts[0], *pts.last().unwrap(), 1, c.degree) } else { NurbsCurve::through(c.degree, &pts) })
+}
+
+/// Two clamped curves of one degree, the second starting where the first ends: one curve, the first exactly as it was,
+/// a knot of full multiplicity where they meet.
+fn concatenated(a: &NurbsCurve, b: &NurbsCurve) -> NurbsCurve {
+    let d = a.degree;
+    if b.degree != d || a.form == Form::Periodic {
+        return a.attached(b);
+    }
+    let (_, hi) = a.domain();
+    let (blo, _) = b.domain();
+    let mut cvs = a.cvs.clone();
+    cvs.extend(b.cvs.iter().skip(1));
+    let mut knots = a.knots.clone();
+    knots.extend(b.knots.iter().skip(d).map(|k| k - blo + hi));
+    let c = NurbsCurve::new(d, Form::Open, cvs, knots);
+    if c.is_valid() { c } else { a.attached(b) }
+}
+
+/// The reference's extendCurve: an end (or both) carried on by a line, an arc or the curve's own shape, by a distance
+/// or to a point; joined to the curve or on its own.
+pub(crate) fn extend_curve(c: &NurbsCurve, o: &ExtendOptions) -> NurbsCurve {
+    if !c.is_valid() || c.form == Form::Periodic {
+        return c.clone();
+    }
+    let c = c.clamped();
+    let (at_start, at_end) = match o.start {
+        0 => (false, true),
+        2 => (true, true),
+        _ => (true, false),
+    };
+    let start = if at_start { extension_at(&c, true, o) } else { None };
+    let end = if at_end { extension_at(&c, false, o) } else { None };
+    if !o.join {
+        // The extension alone, running out from the curve.
+        return end.or(start).unwrap_or(c);
+    }
+    if o.remove_knots {
+        // One smooth curve through the original and its extensions.
+        let mut pts: Vec<DVec3> = Vec::new();
+        if let Some(s) = &start {
+            pts.extend(s.reversed().tessellate(4));
+            pts.pop();
+        }
+        pts.extend(c.tessellate(8));
+        if let Some(e) = &end {
+            pts.extend(e.tessellate(4).into_iter().skip(1));
+        }
+        let extra = usize::from(start.is_some()) + usize::from(end.is_some());
+        return NurbsCurve::through(c.degree, &pts).rebuilt(c.spans() + extra, c.degree);
+    }
+    let mut out = c.clone();
+    if let Some(s) = start {
+        let r = s.reversed();
+        out = concatenated(&r, &out);
+    }
+    if let Some(e) = end {
+        out = concatenated(&out, &e);
+    }
+    out
 }
 
 fn curve_op_type(name: &str, kind: Kind, doc: &str, params: Vec<AttrDef>) -> NodeType {
@@ -598,6 +801,9 @@ fn open_points(c: &NurbsCurve, per_span: usize) -> (Vec<DVec3>, bool) {
 
 impl NodeBehavior for SurfNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
         let curves: Vec<NurbsCurve> = d.elements(S_CURVES).iter().filter_map(|(_, v)| curve_value(v).cloned()).collect();
         if self.kind != SurfKind::Sweep && d.int(S_POLYGON) != 1 {
             let surface = match self.kind {
@@ -610,6 +816,10 @@ impl NodeBehavior for SurfNode {
                         rotation: d.float(S_P + 1),
                         fixed_path: d.bool(S_P + 6),
                         profile_normal: d.bool(S_P + 7),
+                        pivot_mode: d.int(S_P + 8),
+                        degree_along: d.int(S_P + 9).clamp(1, 7) as usize,
+                        pivot: d.vec3(S_P + 10),
+                        reverse_if_reversed: d.bool(S_P + 11),
                     };
                     crate::surfaces::extrude_surface(profile, curves.get(1), o)
                 }),
@@ -882,12 +1092,26 @@ pub fn register_types() {
                 ],
             ),
             curve_op_type("smoothCurve", Kind::Smooth, "CVs smoothed.", vec![f_in("smoothness", "s", 0.5, "How far each pass moves."), int_in("iterations", "i", 1, "Passes.")]),
-            curve_op_type("fitBspline", Kind::Fit, "A cubic through the CVs.", vec![]),
+            curve_op_type("fitBspline", Kind::Fit, "A cubic fitted to the CVs.", vec![f_in("tolerance", "tol", 0.1, "How far the fitted curve may stray from the CVs.")]),
             curve_op_type(
                 "extendCurve",
                 Kind::Extend,
-                "Lengthened along its ends.",
-                vec![f_in("distance", "d", 1.0, "How far."), store_bool("extendStart", false, "At the start."), store_bool("extendEnd", true, "At the end.")],
+                "Lengthened past its ends.",
+                vec![
+                    f_in("distance", "d", 1.0, "How far, extending by distance."),
+                    int_in("start", "s", 1, "Which end: 0 the end, 1 the start, 2 both."),
+                    int_in("extendMethod", "em", 0, "0 by distance, 2 to inputPoint."),
+                    int_in("extensionType", "et", 0, "0 linear, 1 circular, 2 extrapolated."),
+                    {
+                        let mut p = v_in("inputPoint", "ip", DVec3::ZERO, "The point extended to, with extendMethod 2.");
+                        p.child_names = ["pointX".into(), "pointY".into(), "pointZ".into()];
+                        p.child_short = ["px".into(), "py".into(), "pz".into()];
+                        p
+                    },
+                    AttrDef { short_name: "jn".into(), ..store_bool("join", true, "The extension joins the curve; off, it is a curve of its own.") },
+                    AttrDef { short_name: "rmk".into(), ..store_bool("removeMultipleKnots", false, "With join: the knots at the join are removed, the curve refitted smooth through it.") },
+                    AttrDef { short_name: "nc".into(), ..store_bool("noChanges", false, "Pass the curve through unchanged.") },
+                ],
             ),
             curve_op_type("offsetCurve", Kind::Offset, "Offset in its plane.", vec![f_in("distance", "d", 1.0, "How far."), v_in("normal", "nr", DVec3::ZERO, "The plane's normal; zero works it out.")]),
             curve_op_type("insertKnotCurve", Kind::InsertKnot, "A knot added.", vec![f_in("parameter", "p", 0.0, "Where."), int_in("numberOfKnots", "nk", 1, "How many.")]),
@@ -944,11 +1168,20 @@ pub fn register_types() {
                     f_in("rotation", "ro", 0.0, "Twist at the end of the path, degrees."),
                     int_in("extrudeType", "et", 2, "0 distance, 1 flat, 2 tube."),
                     int_in("divisions", "dv", 8, "Mesh points per span of the profile."),
-                    v_in("direction", "d", DVec3::Y, "Direction with no path."),
-                    f_in("length", "l", 1.0, "Length with no path."),
+                    {
+                        let mut d = v_in("direction", "d", DVec3::Y, "Direction of a distance extrude.");
+                        d.child_names = ["directionX".into(), "directionY".into(), "directionZ".into()];
+                        d.child_short = ["dx".into(), "dy".into(), "dz".into()];
+                        d
+                    },
+                    f_in("length", "l", 1.0, "Length of a distance extrude."),
                     AttrDef { short_name: "fpt".into(), ..store_bool("fixedPath", false, "The surface sits on the path, not where the profile is.") },
                     AttrDef { short_name: "upn".into(), ..store_bool("useProfileNormal", false, "The profile's normal is turned along the path's start.") },
-                    int_in("useComponentPivot", "ucp", 0, "Where the profile's pivot is: 1 its middle."),
+                    int_in("useComponentPivot", "ucp", 0, "The pivot a tube turns and scales the profile about: 0 the path's end nearest the profile, 1 pivot, 2 the middle of the profile's bounding box."),
+                    int_in("degreeAlongLength", "dl", 1, "The surface's degree along a distance extrude."),
+                    v_in("pivot", "p", DVec3::ZERO, "The profile's pivot, with useComponentPivot 1."),
+                    AttrDef { short_name: "rsp".into(), ..store_bool("reverseSurfaceIfPathReversed", false, "A tube along a path taken from its far end is reversed to run with the path.") },
+                    AttrDef { short_name: "scs".into(), ..store_bool("subCurveSubSurface", false, "The path's curve range applies to the surface rather than cutting the path first.") },
                 ],
             ),
             surf_type(
@@ -1486,17 +1719,60 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("smoothness", "s", ArgType::Float, "How far each pass moves."))
         .flag(f("iterations", "i", ArgType::Int, "Passes.")),
     ));
-    c.register(with_common(Cmd::new("fitBspline", "A cubic through the curve's CVs. Returns [curve, node].", |s, a| run_op(s, a, "fitBspline", "fitBspline", &[])).positional("curves (the selection when none)").flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts."))));
     c.register(with_common(
-        Cmd::new("extendCurve", "Lengthen a curve along its tangent: -d distance, -s 0 end, 1 start, 2 both. Returns [curve, node].", |s, a| {
-            let which = a.int("start", 0);
-            let set = vec![(P0, PlugValue::Float(a.float("distance", 1.0))), (P0 + 1, PlugValue::Bool(which >= 1)), (P0 + 2, PlugValue::Bool(which != 1))];
-            run_op(s, a, "extendCurve", "extendCurve", &set)
+        Cmd::new("fitBspline", "A cubic fitted to the curve's CVs, within -tol of them (0.1), with as few spans as that allows. Returns [curve, node].", |s, a| {
+            // A new curve, as the reference makes: the input stays.
+            let mut b = a.clone();
+            b.flags.insert("replaceOriginal".to_string(), json!(false));
+            run_op(s, &b, "fitBspline", "fitBspline", &[(P0, PlugValue::Float(a.float("tolerance", 0.1)))])
         })
         .positional("curves (the selection when none)")
-        .flag(f("distance", "d", ArgType::Float, "How far."))
-        .flag(f("start", "s", ArgType::Int, "0 the end, 1 the start, 2 both."))
-        .flag(f("extensionType", "et", ArgType::Int, "Accepted for existing scripts.")),
+        .flag(f("tolerance", "tol", ArgType::Float, "How far the fit may stray from the CVs (0.1).")),
+    ));
+    c.register(with_common(
+        Cmd::new(
+            "extendCurve",
+            "Extend a curve past its ends: -s 0 the end, 1 the start (the default), 2 both; -em 0 by -d distance, 2 to the point -ip (or \
+             -px -py -pz); -et 0 linear, 1 circular, 2 extrapolated; -jn joins the extension to the curve (on), -rmk smooths the join. \
+             Returns [curve, node].",
+            |s, a| {
+                let mut pt = a.vec3("inputPoint").map(DVec3::from_array).unwrap_or(DVec3::ZERO);
+                for (i, k) in ["pointX", "pointY", "pointZ"].iter().enumerate() {
+                    if a.has(k) {
+                        pt[i] = a.float(k, 0.0);
+                    }
+                }
+                let start = match a.get("start") {
+                    Some(Value::Bool(b)) => *b as i64,
+                    _ => a.int("start", 1),
+                };
+                let set = vec![
+                    (P0, PlugValue::Float(a.float("distance", 1.0))),
+                    (P0 + 1, PlugValue::Int(start)),
+                    (P0 + 2, PlugValue::Int(a.int("extendMethod", 0))),
+                    (P0 + 3, PlugValue::Int(a.int("extensionType", 0))),
+                    (P0 + 4, PlugValue::Vec3(pt)),
+                    (P0 + 5, PlugValue::Bool(a.get("join").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0))))),
+                    (P0 + 6, PlugValue::Bool(a.bool("removeMultipleKnots"))),
+                    (P0 + 7, PlugValue::Bool(a.bool("noChanges"))),
+                ];
+                run_op(s, a, "extendCurve", "extendCurve", &set)
+            },
+        )
+        .positional("curves (the selection when none)")
+        .flag(f("distance", "d", ArgType::Float, "How far, with -em 0 (1)."))
+        .flag(f("start", "s", ArgType::Int, "0 the end, 1 the start (1), 2 both."))
+        .flag(f("extendMethod", "em", ArgType::Int, "0 by distance (0), 2 to a point."))
+        .flag(f("extensionType", "et", ArgType::Int, "0 linear (0), 1 circular, 2 extrapolated."))
+        .flag(f("inputPoint", "ip", ArgType::Vec3, "The point extended to, with -em 2."))
+        .flag(f("pointX", "px", ArgType::Float, "Its X (0)."))
+        .flag(f("pointY", "py", ArgType::Float, "Its Y (0)."))
+        .flag(f("pointZ", "pz", ArgType::Float, "Its Z (0)."))
+        .flag(f("join", "jn", ArgType::Bool, "Join the extension to the curve (on); off, the result is the extension alone."))
+        .flag(f("removeMultipleKnots", "rmk", ArgType::Bool, "With -jn: remove the multiple knots at the join, refitting the curve smooth (off)."))
+        .flag(f("noChanges", "nc", ArgType::Bool, "The node passes the curve through unchanged (off)."))
+        .flag(f("curveOnSurface", "cos", ArgType::Bool, "Make a curve on a surface where the input is one; curves here are 3D, so the result is too."))
+        .flag(f("range", "rn", ArgType::Bool, "Use the whole input curve as its range: curves here are always taken whole.")),
     ));
     c.register(with_common(
         Cmd::new("offsetCurve", "A copy offset in the curve's plane: -d distance, -nr normal. Returns [curve, node].", |s, a| {
@@ -1621,16 +1897,59 @@ pub fn register(c: &mut Commands<Session>) {
                 if names.is_empty() {
                     fail!("extrude: name or select a profile and a path");
                 }
-                let inputs: Vec<NodeId> = names.iter().map(|n| curve_arg(g, n, "extrude")).collect::<CmdResult<_>>()?;
+                let mut inputs: Vec<NodeId> = names.iter().map(|n| curve_arg(g, n, "extrude")).collect::<CmdResult<_>>()?;
+                if a.bool("rebuild") {
+                    // The inputs rebuilt first: uniform knots, keeping each curve's span count and degree.
+                    let mut rebuilt = Vec::new();
+                    for &sh in &inputs {
+                        let c = world_curve(g, sh).unwrap_or_default();
+                        let (_, copy) = create_curve(g, "rebuiltCurve1", c.rebuilt(c.spans().max(1), c.degree), false)?;
+                        g.set_value(plug(crate::dag::transform_of(g, copy), DagNode::VISIBILITY), PlugValue::Bool(false))?;
+                        rebuilt.push(copy);
+                    }
+                    inputs = rebuilt;
+                }
+                let mut dir = v3(a, "direction", DVec3::Y);
+                for (i, k) in ["directionX", "directionY", "directionZ"].iter().enumerate() {
+                    if a.has(k) {
+                        dir[i] = a.float(k, 0.0);
+                    }
+                }
+                let pivot = match a.vec3("pivot") {
+                    Some(p) => DVec3::from_array(p),
+                    None => world_curve(g, inputs[0]).map(|c| {
+                        let lap = c.distinct_cvs();
+                        lap.iter().copied().sum::<DVec3>() / lap.len().max(1) as f64
+                    }).unwrap_or(DVec3::ZERO),
+                };
                 let set = vec![
                     (S_P, PlugValue::Float(a.float("scale", 1.0))),
                     (S_P + 1, PlugValue::Float(a.float("rotation", 0.0))),
                     (S_P + 2, PlugValue::Int(a.int("extrudeType", 2))),
                     (S_P + 3, PlugValue::Int(a.int("divisions", 8))),
-                    (S_P + 4, PlugValue::Vec3(v3(a, "direction", DVec3::Y))),
+                    (S_P + 4, PlugValue::Vec3(dir)),
                     (S_P + 5, PlugValue::Float(a.float("length", 1.0))),
                     (S_P + 6, PlugValue::Bool(a.bool("fixedPath"))),
+                    (S_P + 7, PlugValue::Bool(a.bool("useProfileNormal"))),
+                    (S_P + 8, PlugValue::Int(a.int("useComponentPivot", 0))),
+                    (S_P + 9, PlugValue::Int(a.int("degreeAlongLength", 1))),
+                    (S_P + 10, PlugValue::Vec3(pivot)),
+                    (S_P + 11, PlugValue::Bool(a.bool("reverseSurfaceIfPathReversed"))),
+                    (S_P + 12, PlugValue::Bool(a.bool("subCurveSubSurface"))),
                 ];
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    // Only the node.
+                    let t = types::find("extrude").expect("extrude");
+                    let node = g.create_node(&t, "extrude1", NO_NODE, true)?;
+                    for (i, &shape) in inputs.iter().enumerate() {
+                        g.connect(&plug(shape, CurveShape::WORLD_SPACE), &PlugRef::element(node, S_CURVES as i32, i as i32), false)?;
+                    }
+                    for (attr, v) in &set {
+                        g.set_value(plug(node, *attr), v.clone())?;
+                    }
+                    g.evaluate();
+                    return Ok(json!([g.path(node)]));
+                }
                 let (tr, node) = surf_output(g, "extrude", &a.string("name", "extrudedSurface1"), "extrude1", &inputs, &set, a.int("polygon", 0) == 1)?;
                 finish_surf(g, a, tr, node)
             },
@@ -1643,9 +1962,18 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("length", "l", ArgType::Float, "Length, with no path."))
         .flag(f("divisions", "dv", ArgType::Int, "Mesh points per span of the profile."))
         .flag(f("fixedPath", "fpt", ArgType::Bool, "The surface sits on the path, not where the profile is."))
-        .flag(f("useComponentPivot", "ucp", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("useProfileNormal", "upn", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("reverseSurfaceIfPathReversed", "rsp", ArgType::Bool, "Accepted for existing scripts.")),
+        .flag(f("useComponentPivot", "ucp", ArgType::Int, "A tube's pivot: 0 the path's end nearest the profile (0), 1 -p, 2 the middle of the profile's bounding box."))
+        .flag(f("useProfileNormal", "upn", ArgType::Bool, "Turn the profile's plane square to the path's start (off)."))
+        .flag(f("reverseSurfaceIfPathReversed", "rsp", ArgType::Bool, "A tube along a path taken from its far end is reversed to run with the path (off)."))
+        .flag(f("degreeAlongLength", "dl", ArgType::Int, "The surface's degree along a distance extrude (1)."))
+        .flag(f("directionX", "dx", ArgType::Float, "The direction's X (0)."))
+        .flag(f("directionY", "dy", ArgType::Float, "The direction's Y (1)."))
+        .flag(f("directionZ", "dz", ArgType::Float, "The direction's Z (0)."))
+        .flag(f("pivot", "p", ArgType::Vec3, "The profile's pivot, with -ucp 1 (the middle of its CVs)."))
+        .flag(f("subCurveSubSurface", "scs", ArgType::Bool, "The path's curve range applies to the surface rather than cutting the path first (off)."))
+        .flag(f("rebuild", "rb", ArgType::Bool, "Rebuild the input curves first, with uniform knots (off)."))
+        .flag(f("mergeItems", "mi", ArgType::Bool, "Merge component results where it can: the result here is whole objects."))
+        .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
     ));
 
     c.register(surf_flags(

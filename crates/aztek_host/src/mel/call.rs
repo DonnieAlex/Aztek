@@ -150,6 +150,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
             | ("dgtimer", "outputFile" | "returnType" | "returnCode" | "sortType" | "sortMetric" | "show" | "hide" | "threshold" | "maxDisplay" | "name" | "type" | "rangeLower" | "rangeUpper")
             | ("dgdirty", "list")
+            | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
             | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
     )

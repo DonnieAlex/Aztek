@@ -1063,10 +1063,104 @@ impl Interp<'_> {
                 return Ok(Value::from_json(&j));
             }
         }
+        if name == "fileDialog2" {
+            if let Some(v) = self.file_dialog_with_options(toks)? {
+                return Ok(v);
+            }
+        }
         let j = self.core.run_mel_command(name, toks)?;
         let v = Value::from_json(&j);
         self.st().last_raw = Some(j);
         Ok(v)
+    }
+
+    /// fileDialog2 with the reference's options pane: -optionsUICreate builds controls in a pane (here a window of its own,
+    /// titled -optionsUITitle, beside the dialog), -optionsUIInit sets them up with the filter, and -optionsUICommit,
+    /// -optionsUICommit2 (with the file chosen) or -optionsUICancel run as the dialog closes. None when no option
+    /// procedure is given.
+    fn file_dialog_with_options(&mut self, toks: &[Tok]) -> R<Option<Value>> {
+        const KEYS: &[(&str, &str)] = &[("optionsUICreate", "ocr"), ("optionsUIInit", "oin"), ("optionsUICommit", "ocm"), ("optionsUICommit2", "oc2"), ("optionsUICancel", "oca"), ("optionsUITitle", "oti")];
+        let word = |t: &Tok| match t {
+            Tok::Word(w) => w.clone(),
+            Tok::Val(J::String(s)) => s.clone(),
+            Tok::Val(v) => v.to_string(),
+        };
+        let flag_of = |t: &Tok| match t {
+            Tok::Word(w) if w.starts_with('-') => Some(w.trim_start_matches('-').to_string()),
+            _ => None,
+        };
+        let mut picked: HashMap<&str, String> = HashMap::new();
+        let mut rest: Vec<Tok> = Vec::new();
+        let mut filter = String::new();
+        let mut selected = String::new();
+        let mut i = 0;
+        while i < toks.len() {
+            let f = flag_of(&toks[i]);
+            if let Some(f) = &f {
+                if let Some((long, _)) = KEYS.iter().find(|(l, sh)| f == l || f == sh) {
+                    if let Some(v) = toks.get(i + 1) {
+                        picked.insert(long, word(v));
+                    }
+                    i += 2;
+                    continue;
+                }
+                if matches!(f.as_str(), "fileFilter" | "ff") {
+                    filter = toks.get(i + 1).map(word).unwrap_or_default();
+                } else if matches!(f.as_str(), "selectFileFilter" | "sff") {
+                    selected = toks.get(i + 1).map(word).unwrap_or_default();
+                }
+            }
+            rest.push(toks[i].clone());
+            i += 1;
+        }
+        if !KEYS[..5].iter().any(|(l, _)| picked.contains_key(l)) {
+            return Ok(None);
+        }
+        let q = |t: &str| t.replace('\\', "\\\\").replace('"', "\\\"");
+        let first_filter = if !selected.is_empty() { selected } else { filter.split(";;").next().unwrap_or("").to_string() };
+        let mut parent = String::new();
+        let mut win = String::new();
+        if let Some(create) = picked.get("optionsUICreate") {
+            let title = picked.get("optionsUITitle").cloned().unwrap_or_default();
+            win = self.run_quiet(&format!("window -title \"{}\";", q(&title)), None)?.to_text();
+            parent = self.run_quiet(&format!("columnLayout -adjustableColumn true -parent \"{}\";", q(&win)), None)?.to_text();
+            self.run_quiet(&format!("{create} \"{}\";", q(&parent)), None)?;
+            self.run_quiet(&format!("showWindow \"{}\";", q(&win)), None)?;
+        }
+        if let Some(init) = picked.get("optionsUIInit") {
+            self.run_quiet(&format!("{init} \"{}\" \"{}\";", q(&parent), q(&first_filter)), None)?;
+        }
+        let j = self.core.run_mel_command("fileDialog2", &rest);
+        let j = match j {
+            Ok(j) => j,
+            Err(e) => {
+                if !win.is_empty() {
+                    let _ = self.run_quiet(&format!("deleteUI -window \"{}\";", q(&win)), None);
+                }
+                return Err(Flow::Error(e));
+            }
+        };
+        let files: Vec<String> = j.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+        let r = (|| -> R<()> {
+            if let Some(first) = files.first() {
+                if let Some(c) = picked.get("optionsUICommit") {
+                    self.run_quiet(&format!("{c} \"{}\";", q(&parent)), None)?;
+                }
+                if let Some(c) = picked.get("optionsUICommit2") {
+                    self.run_quiet(&format!("{c} \"{}\" \"{}\";", q(&parent), q(first)), None)?;
+                }
+            } else if let Some(c) = picked.get("optionsUICancel") {
+                self.run_quiet(&format!("{c};"), None)?;
+            }
+            Ok(())
+        })();
+        if !win.is_empty() {
+            let _ = self.run_quiet(&format!("deleteUI -window \"{}\";", q(&win)), None);
+        }
+        r?;
+        let v = Value::from_json(&j);
+        self.st().last_raw = Some(j);
+        Ok(Some(v))
     }
 
     fn call_builtin(&mut self, name: &str, mut vals: Vec<Value>, targets: &[Option<&Expr>]) -> R<Value> {

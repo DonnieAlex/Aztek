@@ -50,6 +50,8 @@ pub struct NodeType {
     /// A DAG type whose compute reads attrs added to its nodes (a constraint's target weights), so connections to them
     /// order it as its own inputs do.
     pub reads_added_attrs: bool,
+    /// Where the every-node `frozen` attr sits, found when the type is registered: evaluation reads it often.
+    pub frozen_attr: Option<usize>,
 }
 
 impl fmt::Debug for NodeType {
@@ -175,8 +177,8 @@ fn is_implicit_message(a: &AttrDef) -> bool {
 const EVERY_NODE: &str = "__everyNode";
 
 /// The attributes every node of the reference has besides its message, which scripts set on any node they make:
-/// caching, frozen, isHistoricallyInteresting, nodeState and binMembership. They are kept and saved; Aztek's
-/// evaluation does not act on them, except where a type declares a nodeState of its own.
+/// caching, frozen, isHistoricallyInteresting, nodeState and binMembership. They are kept and saved. Evaluation acts on
+/// frozen (a frozen node keeps what it last computed) and, where a type reads it, nodeState.
 fn every_node_attrs() -> Vec<AttrDef> {
     let held = flags::INPUT | flags::STORABLE | flags::HIDDEN;
     let mk = |name: &str, short: &str, ty: crate::plug::PlugType, v: PlugValue, doc: &str| AttrDef { name: name.into(), short_name: short.into(), ty, default_value: v, flags: held, doc: doc.into(), category: EVERY_NODE.into(), ..Default::default() };
@@ -184,7 +186,7 @@ fn every_node_attrs() -> Vec<AttrDef> {
     state.enum_names = ["Normal", "HasNoEffect", "Blocking", "Waiting-Normal", "Waiting-HasNoEffect", "Waiting-Blocking"].iter().map(|s| s.to_string()).collect();
     vec![
         mk("caching", "cch", crate::plug::PlugType::Bool, PlugValue::Bool(false), "Kept for scripts and scene files."),
-        mk("frozen", "fzn", crate::plug::PlugType::Bool, PlugValue::Bool(false), "Kept for scripts and scene files."),
+        mk("frozen", "fzn", crate::plug::PlugType::Bool, PlugValue::Bool(false), "Frozen: the node ignores changes to its inputs and keeps what it computed when frozen."),
         mk("isHistoricallyInteresting", "ihi", crate::plug::PlugType::Int, PlugValue::Int(2), "How much of history lists and the Channel Box show the node: 0 none, 1 outputs only, 2 everything. Kept for scripts and scene files."),
         state,
         mk("binMembership", "bnm", crate::plug::PlugType::String, PlugValue::String(String::new()), "Kept for scripts and scene files."),
@@ -246,6 +248,7 @@ pub mod types {
         if !ty.attrs.iter().any(|a| a.name == "message") {
             ty.attrs.push(message_attr());
         }
+        ty.frozen_attr = ty.attrs.iter().position(|a| a.name == "frozen");
         let type_name = ty.name.clone();
         for a in &mut ty.attrs {
             if a.unit == aztek_ops::units::Unit::None && matches!(a.ty, crate::plug::PlugType::Float | crate::plug::PlugType::Vec3) {

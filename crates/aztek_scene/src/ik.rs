@@ -100,6 +100,7 @@ impl NodeBehavior for IkHandle {
 }
 
 const EFFECTOR_HANDLE: usize = Transform::COUNT;
+const EFFECTOR_END: usize = Transform::COUNT + 2;
 
 const IK_HANDLE: usize = 0;
 const IK_PARENT: usize = 1;
@@ -801,7 +802,8 @@ pub(crate) fn register_types() {
             flags: flags::INPUT | flags::HIDDEN,
             doc: "The handle this effector ends.".into(),
             ..Default::default()
-        }, AttrDef { short_name: "hd".into(), ..bool_attr("hideDisplay", false, "Hide the effector when it is attached to a handle. Held for scripts: the views do not draw effectors.") }],
+        }, AttrDef { short_name: "hd".into(), ..bool_attr("hideDisplay", false, "Hide the effector when it is attached to a handle. Held for scripts: the views do not draw effectors.") },
+        AttrDef { name: "endJoint".into(), short_name: "ejt".into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::HIDDEN | flags::MESSAGE, doc: "The chain's end joint, when the effector's translate doesn't follow it (connectEffector off).".into(), ..Default::default() }],
         create: Some(Arc::new(|| Box::new(Transform))),
         ..Default::default()
     })
@@ -865,6 +867,8 @@ pub(crate) fn register_types() {
         own_attrs: vec![
             AttrDef { name: "globalSolve".into(), short_name: "gsl".into(), ty: PlugType::Bool, default_value: PlugValue::Bool(true), flags: flags::INPUT | flags::STORABLE | flags::OUTPUT, doc: "Whether any IK solves.".into(), ..Default::default() },
             AttrDef { short_name: "gsn".into(), ..bool_attr("globalSnap", true, "Whether handles snap to their effectors while IK is off.") },
+            AttrDef { short_name: "ar".into(), ..bool_attr("allowRotation", false, "A handle keyed on translation may still be rotated.") },
+            AttrDef { name: "ikSolver".into(), short_name: "isl".into(), ty: PlugType::Int, default_value: PlugValue::Int(0), flags: flags::INPUT | flags::ARRAY | flags::MESSAGE | flags::HIDDEN, doc: "The solvers, in the order they run.".into(), ..Default::default() },
         ],
         create: Some(Arc::new(|| Box::new(PlainNode))),
         ..Default::default()
@@ -919,7 +923,7 @@ pub(crate) fn effector_of(g: &Graph, handle: NodeId) -> Option<NodeId> {
 
 pub(crate) fn end_of(g: &Graph, handle: NodeId) -> Option<NodeId> {
     let eff = effector_of(g, handle)?;
-    g.source(&plug(eff, Transform::TRANSLATE)).map(|s| s.node)
+    g.source(&plug(eff, Transform::TRANSLATE)).or_else(|| g.source(&plug(eff, EFFECTOR_END))).map(|s| s.node)
 }
 
 /// The joints a solver drives, first to last.
@@ -1084,6 +1088,50 @@ pub(crate) fn set_fk(g: &mut Graph, src: &PlugRef, v: DVec3) -> DrivenEdit {
         Ok(()) => DrivenEdit::Handled,
         Err(_) => DrivenEdit::Reject,
     }
+}
+
+const SYSTEM_ALLOW_ROTATION: usize = 2;
+const SYSTEM_SOLVERS: usize = 3;
+
+/// The solver nodes in the order they run: those the ikSystem lists, then any it doesn't yet.
+fn solver_order(g: &Graph) -> Vec<NodeId> {
+    let mut out: Vec<NodeId> = Vec::new();
+    if let Some(sys) = find_system(g) {
+        out.extend(g.elements(&plug(sys, SYSTEM_SOLVERS)).iter().filter_map(|e| g.source(e)).map(|p| p.node));
+    }
+    for id in g.nodes() {
+        if g.node(id).is_some_and(|n| SOLVER_TYPES.contains(&n.ty().name.as_str())) && !out.contains(&id) {
+            out.push(id);
+        }
+    }
+    out
+}
+
+/// Lists the solvers on the ikSystem in this order.
+fn set_solver_order(g: &mut Graph, order: &[NodeId]) -> CmdResult<()> {
+    let sys = ensure_system(g)?;
+    for e in g.elements(&plug(sys, SYSTEM_SOLVERS)) {
+        g.disconnect(&e);
+    }
+    for (k, &sv) in order.iter().enumerate() {
+        let msg = g.node(sv).and_then(|n| n.ty().attr_index("message")).unwrap() as i32;
+        g.connect(&PlugRef::new(sv, msg), &PlugRef::element(sys, SYSTEM_SOLVERS as i32, k as i32), true)?;
+    }
+    Ok(())
+}
+
+/// The priority autoPriority gives a handle: one more than its start joint's depth in the hierarchy.
+fn auto_priority(g: &mut Graph, h: NodeId) -> CmdResult<()> {
+    let mut depth = 0;
+    if let Some(start) = start_of(g, h) {
+        let mut p = g.parent(start);
+        while p != NO_NODE {
+            depth += 1;
+            p = g.parent(p);
+        }
+    }
+    g.set_value(plug(h, IkHandle::PRIORITY), PlugValue::Int(depth + 1))?;
+    Ok(())
 }
 
 fn find_system(g: &Graph) -> Option<NodeId> {
@@ -1473,15 +1521,19 @@ fn handle_command(s: &mut Session, a: &Args) -> CmdResult {
             wire_chain(g, h, sv, eff, &chain, end)?;
         }
         if a.bool("autoPriority") {
-            let mut depth = 0;
-            if let Some(start) = start_of(g, h) {
-                let mut p = g.parent(start);
-                while p != NO_NODE {
-                    depth += 1;
-                    p = g.parent(p);
-                }
+            auto_priority(g, h)?;
+        }
+        if let Some(v) = a.get("connectEffector") {
+            connect_effector(g, h, v.as_bool().unwrap_or(v.as_i64().unwrap_or(1) != 0))?;
+        }
+        if a.bool("setupForRPsolver") && g.node(h).is_some_and(|n| n.data().string(IkHandle::IK_SOLVER) == "ikRPsolver") {
+            // The reference's RPRotateSetup: the pole vector taken from the chain as it is, so it doesn't move.
+            if let Some(sv) = solver_of(g, h) {
+                set_default_pole(g, h, sv)?;
             }
-            g.set_value(plug(h, IkHandle::PRIORITY), PlugValue::Int(depth + 1))?;
+        }
+        if a.bool("freezeJoints") {
+            freeze_joints_curve(g, h)?;
         }
         apply_handle_flags(g, h, a)?;
         return Ok(Value::Null);
@@ -1508,7 +1560,32 @@ fn handle_command(s: &mut Session, a: &Args) -> CmdResult {
         let (h, eff) = create_handle(g, &a.string("name", "ikHandle1"), start, end, &solver)?;
         apply_handle_flags(g, h, a)?;
         let spline = solver == "ikSplineSolver" || solver.contains("Spline");
+        if spline && a.bool("freezeJoints") && a.has("curve") {
+            // The curve comes to the chain rather than the chain to the curve.
+            let n = a.string("curve", "");
+            let id = find(g, &n, "ikHandle")?;
+            if let Some(shape) = crate::curves::as_curve(g, id) {
+                fit_curve_to_chain(g, h, shape)?;
+            }
+        }
         let curve = if spline { Some(setup_spline(g, h, a)?) } else { None };
+        if a.get("connectEffector").is_some_and(|v| v == &json!(false) || v == &json!(0)) {
+            connect_effector(g, h, false)?;
+        }
+        if spline && a.bool("createRootAxis") {
+            // A transform above the chain's start, where it is, so a motion path can't flip the root.
+            if let Some(start) = start_of(g, h) {
+                g.evaluate();
+                let w = world(g, start);
+                let parent = g.parent(start);
+                let tt = types::find("transform").unwrap();
+                let base = g.node(start).map(|n| n.name().to_string()).unwrap_or_default();
+                let root = g.create_node(&tt, &format!("{base}_rootAxis"), parent, true)?;
+                let local = if parent == NO_NODE { w } else { world(g, parent).inverse() * w };
+                set_vec3(g, root, Transform::TRANSLATE, local.w_axis.truncate())?;
+                g.set_parent(start, root, true, usize::MAX)?;
+            }
+        }
         g.select(&[h], SelectMode::Replace);
         Ok((h, eff, curve))
     })();
@@ -1519,6 +1596,48 @@ fn handle_command(s: &mut Session, a: &Args) -> CmdResult {
         out.push(json!(g.path(c)));
     }
     Ok(Value::Array(out))
+}
+
+/// The effector's translate follows the end joint's (on), or not.
+fn connect_effector(g: &mut Graph, h: NodeId, on: bool) -> CmdResult<()> {
+    let (Some(eff), Some(end)) = (effector_of(g, h), end_of(g, h)) else { fail!("ikHandle: the handle has no effector") };
+    let to = plug(eff, Transform::TRANSLATE);
+    if on {
+        g.connect(&plug(end, Transform::TRANSLATE), &to, true)?;
+    } else if g.source(&to).is_some_and(|s| s.node == end) {
+        // The chain still knows its end through the effector's endJoint.
+        let msg = g.node(end).and_then(|n| n.ty().attr_index("message")).unwrap_or(0) as i32;
+        g.connect(&PlugRef::new(end, msg), &plug(eff, EFFECTOR_END), true)?;
+        g.disconnect(&to);
+    }
+    Ok(())
+}
+
+/// A curve reshaped through the chain's joints, keeping its span count, in its own space.
+fn fit_curve_to_chain(g: &mut Graph, h: NodeId, shape: NodeId) -> CmdResult<()> {
+    let Some(sv) = solver_of(g, h) else { fail!("ikHandle: the handle has no chain") };
+    g.evaluate();
+    let mut pts: Vec<DVec3> = joints_of(g, sv).into_iter().map(|j| world(g, j).w_axis.truncate()).collect();
+    if let Some(e) = end_of(g, h) {
+        pts.push(world(g, e).w_axis.truncate());
+    }
+    let old = crate::curves::local_curve(g, shape).unwrap_or_default();
+    let spans = old.spans().max(1);
+    let tr = crate::dag::transform_of(g, shape);
+    let inv = world(g, tr).inverse();
+    let local: Vec<DVec3> = pts.iter().map(|p| inv.transform_point3(*p)).collect();
+    let c = aztek_geo::nurbs::NurbsCurve::through(old.degree.max(1), &local).rebuilt(spans, old.degree.max(1));
+    crate::curves::bake_history(g, shape)?;
+    crate::curves::set_cached(g, shape, c)?;
+    g.evaluate();
+    Ok(())
+}
+
+/// freezeJoints on an existing spline handle: its curve comes to the chain.
+fn freeze_joints_curve(g: &mut Graph, h: NodeId) -> CmdResult<()> {
+    let Some(sv) = solver_of(g, h) else { return Ok(()) };
+    let Some(src) = g.source(&plug(sv, IK_CURVE)) else { return Ok(()) };
+    fit_curve_to_chain(g, h, src.node)
 }
 
 /// Spline IK's curve: the one given with -c, or (-ccv, the default) a new one through the joints with -ns spans. Returns its
@@ -1598,6 +1717,10 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("snapHandleToEffector", "see", ArgType::Bool, "Put the handle at the end joint now."))
         .flag(f("sticky", "s", ArgType::String, "off or sticky."))
         .flag(f("forceSolver", "fs", ArgType::Bool, "Run the solver every time."))
+        .flag(f("connectEffector", "ce", ArgType::Bool, "The effector's translate follows the end joint's (on)."))
+        .flag(f("createRootAxis", "cra", ArgType::Bool, "Spline IK: a transform above the chain's start, so a motion path can't flip the root (off)."))
+        .flag(f("freezeJoints", "fj", ArgType::Bool, "Spline IK with -c: the curve is reshaped through the chain, rather than the joints moving onto it."))
+        .flag(f("setupForRPsolver", "srp", ArgType::Bool, "Edit, RP solver: take the pole vector from the chain as it is, so it doesn't move."))
         .flag(f("exists", "ex", ArgType::String, "Whether a handle of this name exists."))
         .flag(f("edit", "e", ArgType::Bool, "Change a handle."))
         .flag(f("query", "q", ArgType::Bool, "Ask about a handle."))
@@ -1668,14 +1791,13 @@ pub fn register(c: &mut Commands<Session>) {
                 if a.bool("query") {
                     let flag = asked(a).into_iter().next().unwrap_or_else(|| "solve".into());
                     let system = find_system(g);
-                    let read = |g: &Graph, attr: usize| system.map(|x| g.node(x).unwrap().data().bool(attr)).unwrap_or(true);
+                    let read = |g: &Graph, attr: usize, def: bool| system.map(|x| g.node(x).unwrap().data().bool(attr)).unwrap_or(def);
                     return Ok(match flag.as_str() {
-                        "solve" => json!(read(g, SYSTEM_SOLVE)),
-                        "snap" => json!(read(g, SYSTEM_SNAP)),
-                        "list" | "listSolvers" => {
-                            let nodes: Vec<String> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| SOLVER_TYPES.contains(&n.ty().name.as_str()))).map(|id| g.path(id)).collect();
-                            json!(nodes)
-                        }
+                        "solve" => json!(read(g, SYSTEM_SOLVE, true)),
+                        "snap" => json!(read(g, SYSTEM_SNAP, true)),
+                        "allowRotation" => json!(read(g, SYSTEM_ALLOW_ROTATION, false)),
+                        "list" | "listSolvers" => json!(solver_order(g).into_iter().map(|id| g.path(id)).collect::<Vec<_>>()),
+                        "solverTypes" => json!(SOLVER_TYPES),
                         other => fail!("ikSystem: can't query -{other}"),
                     });
                 }
@@ -1686,12 +1808,51 @@ pub fn register(c: &mut Commands<Session>) {
                 if a.has("snap") {
                     g.set_value(plug(system, SYSTEM_SNAP), PlugValue::Bool(a.bool("snap")))?;
                 }
+                if a.has("allowRotation") {
+                    g.set_value(plug(system, SYSTEM_ALLOW_ROTATION), PlugValue::Bool(a.bool("allowRotation")))?;
+                }
+                if let Some(v) = a.get("list") {
+                    // Move the solver at one place in the order to another, counting from 0.
+                    let ns: Vec<i64> = match v {
+                        Value::Array(x) => x.iter().flat_map(|e| match e {
+                            Value::Array(i) => i.iter().filter_map(Value::as_i64).collect::<Vec<_>>(),
+                            o => o.as_i64().into_iter().collect(),
+                        }).collect(),
+                        _ => Vec::new(),
+                    };
+                    let [from, to] = ns.as_slice() else { fail!("ikSystem: -list takes the old position and the new one") };
+                    let mut order = solver_order(g);
+                    let n = order.len() as i64;
+                    if !(0..n).contains(from) || !(0..n).contains(to) {
+                        fail!("ikSystem: -list positions run from 0 to {}", n - 1);
+                    }
+                    let sv = order.remove(*from as usize);
+                    order.insert(*to as usize, sv);
+                    set_solver_order(g, &order)?;
+                }
+                // autoPriority for every handle, or those of single chain solvers (RP and SC) or the others.
+                for (flag, which) in [("autoPriority", 0), ("autoPrioritySC", 1), ("autoPriorityMC", 2)] {
+                    if !a.bool(flag) {
+                        continue;
+                    }
+                    for h in all_handles(g) {
+                        let single = g.node(h).is_some_and(|n| matches!(n.data().string(IkHandle::IK_SOLVER), "ikRPsolver" | "ikSCsolver"));
+                        if which == 0 || (which == 1) == single {
+                            auto_priority(g, h)?;
+                        }
+                    }
+                }
                 Ok(Value::Null)
             },
         )
         .flag(f("solve", "sol", ArgType::Bool, "Whether any IK solves."))
         .flag(f("snap", "sn", ArgType::Bool, "Whether handles snap to their effectors."))
-        .flag(f("listSolvers", "ls", ArgType::Bool, "Query: the solver nodes."))
+        .flag(f("allowRotation", "ar", ArgType::Bool, "Whether a handle keyed on translation may be rotated."))
+        .flag(f("list", "ls", ArgType::Any, "Query: the solvers in the order they run. Edit: move the solver at one place to another (from 0).").multi(2))
+        .flag(f("solverTypes", "st", ArgType::Bool, "Query: the solver types there are."))
+        .flag(f("autoPriority", "ap", ArgType::Bool, "Edit: set every handle's priority from its depth in the hierarchy."))
+        .flag(f("autoPrioritySC", "aps", ArgType::Bool, "Edit: the same for the single chain handles (RP and SC solvers)."))
+        .flag(f("autoPriorityMC", "apm", ArgType::Bool, "Edit: the same for the other handles."))
         .flag(f("edit", "e", ArgType::Bool, "Change the settings."))
         .flag(f("query", "q", ArgType::Bool, "Ask about the settings."))
         .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),

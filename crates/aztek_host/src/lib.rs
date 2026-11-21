@@ -33,6 +33,7 @@ pub mod script_jobs;
 pub mod attr_ui;
 pub mod script_objects;
 pub mod host_general;
+pub mod ee_listen;
 pub mod scriptui;
 pub mod tools;
 pub mod tools_quad;

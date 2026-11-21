@@ -314,6 +314,18 @@ pub fn register(c: &mut Commands<Session>) {
                             json!(camera_of(g, shape).map(|c| g.path(g.parent(c))).unwrap_or_default())
                         } else if asked("showInAllViews") {
                             json!(!val(g, shape, "displayOnlyIfCurrent").as_bool())
+                        } else if asked("maintainRatio") {
+                            json!(val(g, shape, "maintainRatio").as_bool())
+                        } else if asked("lookThrough") {
+                            json!(camera_of(g, shape).map(|c| g.path(g.parent(c))).unwrap_or_default())
+                        } else if asked("name") {
+                            json!(g.node(shape).map(|n| n.name().to_string()).unwrap_or_default())
+                        } else if asked("imageSize") {
+                            let file = file_at(g, shape, crate::anim::frame(g));
+                            let (w, h) = image::image_dimensions(&file).map(|(w, h)| (w as i64, h as i64)).unwrap_or((0, 0));
+                            json!([w, h])
+                        } else if let Some(v) = movie_query(g, shape, &asked) {
+                            v
                         } else {
                             fail!("imagePlane: query what?")
                         });
@@ -376,10 +388,58 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("showInAllViews", "sia", ArgType::Bool, Value::Null, "Shown in every view, not only looking through its camera."))
         .flag(FlagDef::new("lookThrough", "lt", ArgType::String, Value::Null, "The camera it is shown on, by name."))
         .flag(FlagDef::new("detach", "d", ArgType::Bool, Value::Null, "Free it from its camera."))
+        .flag(FlagDef::new("imageSize", "iz", ArgType::Bool, Value::Null, "Query: the picture's width and height in pixels."))
+        .flag(FlagDef::new("quickTime", "qt", ArgType::Bool, Value::Null, "Query: whether the picture is a movie."))
+        .flag(FlagDef::new("timeCodeTrack", "tt", ArgType::Bool, Value::Null, "Query: whether the movie has a timecode track."))
+        .flag(FlagDef::new("timeCode", "tc", ArgType::Bool, Value::Null, "Query: the timecode, as a frame count."))
+        .flag(FlagDef::new("counter", "cn", ArgType::Bool, Value::Null, "Query: whether the timecode is a frame count rather than hours, minutes, seconds and frames."))
+        .flag(FlagDef::new("numFrames", "nf", ArgType::Bool, Value::Null, "Query: the timecode format's whole frames per second."))
+        .flag(FlagDef::new("timeScale", "ts", ArgType::Bool, Value::Null, "Query: the timecode format's time scale."))
+        .flag(FlagDef::new("frameDuration", "fd", ArgType::Bool, Value::Null, "Query: the timecode format's frame duration."))
+        .flag(FlagDef::new("dropFrame", "df", ArgType::Bool, Value::Null, "Query: the timecode format's drop frame flag."))
+        .flag(FlagDef::new("negTimesOK", "nt", ArgType::Bool, Value::Null, "Query: the timecode format's negative times flag."))
+        .flag(FlagDef::new("twentyFourHourMax", "tf", ArgType::Bool, Value::Null, "Query: the timecode format's 24 hour maximum flag."))
         .flag(FlagDef::new("edit", "e", ArgType::Bool, Value::Null, "Change one."))
         .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Read one."))
         .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What -q asks for.")),
     );
+}
+
+/// Whether the picture is a movie file.
+fn is_movie(g: &Graph, id: NodeId) -> bool {
+    let name = val(g, id, "imageName").as_str().to_ascii_lowercase();
+    val(g, id, "type").as_int() == 2 || [".mov", ".mp4", ".avi", ".m4v", ".mkv", ".qt"].iter().any(|e| name.ends_with(e))
+}
+
+/// The movie and timecode questions. Pictures here carry no timecode track, so the timecode format is the scene's:
+/// its frame rate as the reference writes it (frames per second, a time scale and a frame duration), drop frame for
+/// the NTSC rates, and the timecode as a frame count.
+fn movie_query(g: &Graph, id: NodeId, asked: &dyn Fn(&str) -> bool) -> Option<Value> {
+    let fps = crate::anim::fps();
+    let ntsc = (fps * 1001.0 / 1000.0 - (fps * 1001.0 / 1000.0).round()).abs() < 1e-3 && (fps.round() - fps).abs() > 1e-3;
+    let whole = if ntsc { (fps * 1001.0 / 1000.0).round() } else { fps.round() };
+    let (scale, duration) = if ntsc { (whole as i64 * 1000, 1001) } else { (whole as i64 * 100, 100) };
+    Some(if asked("quickTime") {
+        json!(is_movie(g, id))
+    } else if asked("timeCodeTrack") {
+        json!(false)
+    } else if asked("numFrames") {
+        json!(whole as i64)
+    } else if asked("timeScale") {
+        json!(scale)
+    } else if asked("frameDuration") {
+        json!(duration)
+    } else if asked("dropFrame") {
+        json!(ntsc && (whole as i64) % 30 == 0)
+    } else if asked("negTimesOK") || asked("twentyFourHourMax") {
+        json!(false)
+    } else if asked("counter") {
+        json!(true)
+    } else if asked("timeCode") {
+        json!(crate::anim::frame(g).round() as i64)
+    } else {
+        return None;
+    })
 }
 
 fn apply_flags(s: &mut Session, shp: &str, a: &aztek_ops::Args) -> CmdResult<()> {

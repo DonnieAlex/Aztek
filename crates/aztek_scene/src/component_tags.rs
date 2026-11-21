@@ -680,12 +680,118 @@ fn geometry_at(g: &mut Graph, name: &str) -> CmdResult<(PlugRef, std::sync::Arc<
     Ok((p, m))
 }
 
+/// The geometry input of a node: the plug the geometry comes in on.
+fn geometry_input(g: &Graph, n: NodeId) -> Option<PlugRef> {
+    let t = g.node(n)?.type_arc().clone();
+    let i = ["inputPolymesh", "inMesh", "inputMesh", "inputGeometry", "input", "inputSurface", "inputCurve", "create"].iter().find_map(|x| t.attr_index(x))?;
+    Some(PlugRef::new(n, i as i32))
+}
+
+/// The plugs the geometry came through to `p`, furthest upstream first: each node's input then its output, or with
+/// `outputs_only` the outputs alone.
+fn plug_chain(g: &Graph, p: PlugRef, outputs_only: bool) -> Vec<String> {
+    let mut out: Vec<String> = vec![g.plug_name(&p)];
+    let mut at = p;
+    let mut seen = std::collections::HashSet::new();
+    while seen.insert(at.node) {
+        let Some(input) = geometry_input(g, at.node) else { break };
+        let Some(src) = g.source(&input) else { break };
+        if !outputs_only {
+            out.push(g.plug_name(&input));
+        }
+        out.push(g.plug_name(&src));
+        at = src;
+    }
+    out.reverse();
+    out
+}
+
+/// A hash of text, the same from run to run.
+fn stable_hash(text: &str) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in text.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    h
+}
+
+/// Each tag's state: its name and components.
+fn tag_state(m: &Mesh) -> String {
+    names(m).iter().map(|n| format!("{n}={}", get(m, n).map(|s| text(&s).join(" ")).unwrap_or_default())).collect::<Vec<_>>().join(";")
+}
+
+/// Each tag, then the node upstream where it first appears in the geometry, in tag order.
+fn tag_history(g: &mut Graph, p: PlugRef, m: &Mesh) -> Vec<String> {
+    let mut chain: Vec<PlugRef> = vec![p];
+    let mut at = p;
+    let mut seen = std::collections::HashSet::new();
+    while seen.insert(at.node) {
+        let Some(src) = geometry_input(g, at.node).and_then(|i| g.source(&i)) else { break };
+        chain.push(src);
+        at = src;
+    }
+    let mut out = Vec::new();
+    for tag in names(m) {
+        // The furthest upstream output that still holds it.
+        let mut origin = p.node;
+        for q in &chain {
+            if g.value(q).ok().and_then(|v| v.as_mesh().cloned()).is_some_and(|mm| get(&mm, &tag).is_some()) {
+                origin = q.node;
+            }
+        }
+        out.push(tag);
+        out.push(g.path(origin));
+    }
+    out
+}
+
+/// The vertices of the group a groupId names, from the groupParts upstream of the plug that marks them.
+fn group_vertices(g: &mut Graph, p: PlugRef, m: &Mesh, gid: i64) -> Option<Sel> {
+    let mut at = p.node;
+    let mut seen = std::collections::HashSet::new();
+    while seen.insert(at) {
+        if let Some(n) = g.node(at) {
+            let t = n.ty();
+            if t.name == "groupParts" && t.attr_index("groupId").is_some_and(|i| n.int(i) == gid) {
+                let comps = t.attr_index("inputComponents").map(|i| n.value(i).as_str().to_string()).unwrap_or_default();
+                return parse(m, &comps);
+            }
+        }
+        let Some(src) = geometry_input(g, at).and_then(|i| g.source(&i)) else { break };
+        at = src.node;
+    }
+    None
+}
+
 fn geometry_attr_info(s: &mut Session, a: &Args) -> CmdResult {
     let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("geometryAttrInfo: name a geometry plug") };
     let g = &mut s.graph;
+    if a.bool("plugChain") || a.bool("outputPlugChain") {
+        let p = match g.plug(&name) {
+            Ok(p) => p,
+            Err(_) => geometry_at(g, &name)?.0,
+        };
+        return Ok(json!(plug_chain(g, p, a.bool("outputPlugChain"))));
+    }
     let (p, m) = geometry_at(g, &name)?;
+    if a.bool("componentTagHash") {
+        return Ok(json!(stable_hash(&tag_state(&m)).to_string()));
+    }
+    if a.bool("componentTagHistory") {
+        return Ok(json!(tag_history(g, p, &m)));
+    }
+    if a.bool("componentTagHistoryHash") {
+        let h = tag_history(g, p, &m).join(";") + "|" + &tag_state(&m);
+        return Ok(json!(stable_hash(&h).to_string()));
+    }
     let expr = a.string("componentTagExpression", "");
     let mut sel = if expr.is_empty() { Sel::all() } else { eval(&m, &expr).map_err(|e| aztek_ops::CommandError::new(format!("geometryAttrInfo: {e}")))? };
+    if a.has("groupId") {
+        let gid = a.int("groupId", -1);
+        let Some(group) = group_vertices(g, p, &m, gid) else { fail!("geometryAttrInfo: no group {gid} on the geometry at {name}") };
+        sel = if sel.cat == Cat::All { group } else { combine(&m, &cast(&m, &sel, Cat::V), &group, Op::Intersect) };
+    }
     for (flag, cat) in [("castToVerts", Cat::V), ("castToEdges", Cat::E), ("castToFaces", Cat::F)] {
         if a.bool(flag) {
             sel = cast(&m, &sel, cat);
@@ -792,6 +898,12 @@ pub fn register(c: &mut Commands<Session>) {
         )
         .positional("a geometry plug, or a shape")
         .flag(f("componentTagExpression", "cex", ArgType::String, "Limit the results to what the expression names."))
+        .flag(f("groupId", "gid", ArgType::Int, "Limit the results to the components of this group."))
+        .flag(f("plugChain", "pch", ArgType::Bool, "The plugs upstream of this one the geometry came through, inputs and outputs."))
+        .flag(f("outputPlugChain", "och", ArgType::Bool, "The output plugs upstream of this one the geometry came through."))
+        .flag(f("componentTagHash", "hsh", ArgType::Bool, "A hash of the tags' state: it changes when tags are added, removed, renamed or change components."))
+        .flag(f("componentTagHistory", "cth", ArgType::Bool, "Each tag, then the node it was added at."))
+        .flag(f("componentTagHistoryHash", "chh", ArgType::Bool, "A hash of the tags' history: it changes when other nodes make them or they change."))
         .flag(f("componentTagNames", "cnm", ArgType::Bool, "The tags' names."))
         .flag(f("componentTagCategory", "ccy", ArgType::Bool, "v, e, f, or unknown."))
         .flag(f("components", "cmp", ArgType::Bool, "The components."))

@@ -121,7 +121,9 @@ fn particle_value(st: &dy::ParticleState, at: &str, i: usize) -> Value {
 /// getParticleAttr -at position -a true particle1: every particle's value; without -a, the mean and the spread
 /// (largest minus smallest), as the old command gives.
 fn get_particle_attr(s: &mut Session, a: &Args) -> CmdResult {
-    let Some(name) = a.named().into_iter().next() else { fail!("getParticleAttr: name particles") };
+    // -object is the reference's older way of naming them; the selection when nothing is named.
+    let named = a.named().into_iter().next().or_else(|| a.get("object").and_then(Value::as_str).map(str::to_string)).or_else(|| s.graph.selection().first().map(|&id| s.graph.path(id)));
+    let Some(name) = named else { fail!("getParticleAttr: name particles") };
     let g = &mut s.graph;
     let p = particles_named(g, &name)?;
     g.evaluate();
@@ -623,6 +625,7 @@ pub fn register(c: &mut Commands<Session>) {
             .positional("particles or particle1.pt[0:3]")
             .flag(f("attribute", "at", ArgType::String, "position, velocity, rgbPP, opacityPP, lifespanPP, age, radiusPP, particleId."))
             .flag(f("array", "a", ArgType::Bool, "Every value."))
+            .flag(f("object", "o", ArgType::String, "Obsolete: the particle object, when none is named."))
             .undoable(false),
     );
     c.register(

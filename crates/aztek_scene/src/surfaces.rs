@@ -545,6 +545,13 @@ pub(crate) struct ExtrudeOptions {
     pub rotation: f64,
     pub fixed_path: bool,
     pub profile_normal: bool,
+    /// The pivot a tube turns and scales about: 0 the path's end nearest the profile, 1 `pivot`, 2 the middle of the
+    /// profile's bounding box.
+    pub pivot_mode: i64,
+    pub pivot: DVec3,
+    /// The surface's degree along a distance extrude.
+    pub degree_along: usize,
+    pub reverse_if_reversed: bool,
 }
 
 /// The reference's extrude: U along the profile, V along the path. Distance moves it straight; flat keeps the profile's
@@ -554,8 +561,9 @@ pub(crate) fn extrude_surface(profile: &NurbsCurve, path: Option<&NurbsCurve>, o
         return None;
     }
     let lap = profile.distinct_cvs();
-    let center = lap.iter().copied().sum::<DVec3>() / lap.len().max(1) as f64;
-    let straight = |off: DVec3| NurbsCurve::open(1, vec![DVec3::ZERO, off]);
+    let middle = lap.iter().copied().sum::<DVec3>() / lap.len().max(1) as f64;
+    let straight = |off: DVec3| NurbsCurve::line(DVec3::ZERO, off, 1, o.degree_along.max(1));
+    let mut reversed = false;
     let (way, tube) = match path {
         None => (straight(o.direction.normalize_or_zero() * o.length), false),
         Some(p) if !p.is_valid() => return None,
@@ -563,7 +571,21 @@ pub(crate) fn extrude_surface(profile: &NurbsCurve, path: Option<&NurbsCurve>, o
             let (lo, hi) = p.domain();
             (straight(p.eval(hi) - p.eval(lo)), false)
         }
-        Some(p) => (p.clone(), o.extrude_type == 2),
+        Some(p) => {
+            // A path whose far end is nearer the profile is taken from that end.
+            let (lo, hi) = p.domain();
+            reversed = p.eval(hi).distance(middle) < p.eval(lo).distance(middle) - 1e-9;
+            (if reversed { p.reversed() } else { p.clone() }, o.extrude_type == 2)
+        }
+    };
+    let center = match o.pivot_mode {
+        1 => o.pivot,
+        2 => {
+            let (lo, hi) = lap.iter().fold((DVec3::splat(f64::MAX), DVec3::splat(f64::MIN)), |(l, h), p| (l.min(*p), h.max(*p)));
+            (lo + hi) * 0.5
+        }
+        _ if tube => way.eval(way.domain().0),
+        _ => middle,
     };
     let (lo, hi) = way.domain();
     let d = way.degree;
@@ -597,12 +619,13 @@ pub(crate) fn extrude_surface(profile: &NurbsCurve, path: Option<&NurbsCurve>, o
     } else {
         DQuat::IDENTITY
     };
-    Some(NurbsSurface::from_curves(profile, &way, |i, j| {
+    let srf = NurbsSurface::from_curves(profile, &way, |i, j| {
         let s = ((params[j] - lo) / (hi - lo).max(1e-12)).clamp(0.0, 1.0);
         let local = DQuat::from_axis_angle(axis, o.rotation * s) * (lift * (profile.cvs[i] - center) * (1.0 + (o.scale - 1.0) * s));
         let base = if o.fixed_path && path.is_some() { way.cvs[j] } else { center + way.cvs[j] - q0 };
         base + turns[j] * local
-    }))
+    });
+    Some(if reversed && o.reverse_if_reversed { srf.reversed_v() } else { srf })
 }
 
 /// A surface for a closed degree 1 curve of four corners at right angles; None for anything else.
@@ -1018,6 +1041,124 @@ fn from_curves_type(name: &str, kind: FromCurves, doc: &str) -> NodeType {
     }
 }
 
+/// doubleProfileBirailSurface: inputProfile1 (0), outputSurface (1), inputProfile2 (2), inputRail1 (3), inputRail2 (4),
+/// blendFactor (5), tangentContinuityProfile1 and 2 (6, 7), transformMode (8), inputSurface1 and 2 (9, 10).
+struct DoubleBirailNode;
+
+impl NodeBehavior for DoubleBirailNode {
+    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
+        let c = |i: usize| crate::curves::curve_value(d.value(i)).cloned().filter(NurbsCurve::is_valid);
+        let out = match (c(0), c(2), c(3), c(4)) {
+            (Some(p1), Some(p2), Some(r1), Some(r2)) => {
+                let tangent = [(d.bool(6), surface_value(d.value(9)).cloned()), (d.bool(7), surface_value(d.value(10)).cloned())];
+                double_birail_surface(&p1, &p2, &r1, &r2, d.float(5), d.int(8) == 1, &tangent)
+            }
+            _ => None,
+        };
+        d.set_output(1, out.map(to_value).unwrap_or(PlugValue::Data(None)));
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// A profile laid between two rail points: `p0` and `p1` its ends, carried onto `pa` and `pb`. Proportional scales it
+/// whole by the change in width; otherwise it stretches only along the line between its ends.
+fn place_profile(q: DVec3, p0: DVec3, p1: DVec3, pa: DVec3, pb: DVec3, proportional: bool) -> DVec3 {
+    let chord = p1 - p0;
+    let span = pb - pa;
+    if chord.length() < 1e-9 {
+        return pa + (q - p0);
+    }
+    let turn = if span.length() > 1e-9 { DQuat::from_rotation_arc(chord.normalize(), span.normalize()) } else { DQuat::IDENTITY };
+    let ratio = span.length() / chord.length();
+    let off = q - p0;
+    let local = if proportional {
+        off * ratio
+    } else {
+        let along = chord.normalize() * off.dot(chord.normalize());
+        along * ratio + (off - along)
+    };
+    pa + turn * local
+}
+
+/// The reference's doubleProfileBirailSurface: U along the profiles, V along the rails from the first profile to the
+/// second. Each place along the rails takes both profiles laid between the rails there, weighted from the first toward
+/// the second; blendFactor above 0.5 keeps the first's shape longer. A profile on a surface with tangent continuity
+/// leaves along that surface.
+fn double_birail_surface(p1: &NurbsCurve, p2: &NurbsCurve, r1: &NurbsCurve, r2: &NurbsCurve, blend: f64, proportional: bool, tangent: &[(bool, Option<NurbsSurface>); 2]) -> Option<NurbsSurface> {
+    let ends = |c: &NurbsCurve| {
+        let (lo, hi) = c.domain();
+        (c.eval(lo), c.eval(hi))
+    };
+    let (a0, a1) = ends(p1);
+    // The rails run from the first profile; the first rail is the one at the first profile's start.
+    let orient = |r: &NurbsCurve, from: DVec3| {
+        let (s, e) = ends(r);
+        if e.distance(from) < s.distance(from) { r.reversed() } else { r.clone() }
+    };
+    let (mut ra, mut rb) = (orient(r1, a0), orient(r2, a1));
+    if ends(&ra).0.distance(a0) + ends(&rb).0.distance(a1) > ends(&rb).0.distance(a0) + ends(&ra).0.distance(a1) {
+        std::mem::swap(&mut ra, &mut rb);
+        ra = orient(&ra, a0);
+        rb = orient(&rb, a1);
+    }
+    let ra_end = ends(&ra).1;
+    // The second profile runs the same way as the first across the rails.
+    let p2 = if ends(p2).0.distance(ra_end) > ends(p2).1.distance(ra_end) { p2.reversed() } else { p2.clone() };
+    let (b0, b1) = ends(&p2);
+    let unit = |c: &NurbsCurve, t: f64| {
+        let (lo, hi) = c.domain();
+        c.eval(lo + (hi - lo) * t)
+    };
+    let pa = p1.clamped();
+    let pb = p2.clamped();
+    // Both profiles sampled at the same fractions, so their points pair up.
+    let degree = ra.degree.max(rb.degree).max(1);
+    let spans = ra.spans().max(rb.spans()).max(2);
+    let v_knots: Vec<f64> = nurbs::open_knots(spans + degree, degree).into_iter().map(|k| k / spans as f64).collect();
+    let u_deg = pa.degree.max(pb.degree).clamp(1, 3);
+    let u_spans = pa.spans().max(pb.spans()).max(1);
+    let u_knots: Vec<f64> = nurbs::open_knots(u_spans + u_deg, u_deg).into_iter().map(|k| k / u_spans as f64).collect();
+    let b = blend.clamp(1e-3, 1.0 - 1e-3);
+    let power = b / (1.0 - b);
+    let mut srf = NurbsSurface::fitted((u_deg, Form::Open, u_knots), (degree, Form::Open, v_knots), |u, v| {
+        let (x, y) = (unit(&ra, v), unit(&rb, v));
+        let q1 = place_profile(unit(&pa, u), a0, a1, x, y, proportional);
+        let q2 = place_profile(unit(&pb, u), b0, b1, x, y, proportional);
+        q1.lerp(q2, v.powf(power))
+    });
+    // Tangent continuity: the row of CVs next to a profile's edge goes along the surface it lies on.
+    for (k, (on, surface)) in tangent.iter().enumerate() {
+        let (true, Some(base)) = (*on, surface) else { continue };
+        if srf.nv < 3 {
+            continue;
+        }
+        let (edge, inner) = if k == 0 { (0, 1) } else { (srf.nv - 1, srf.nv - 2) };
+        for i in 0..srf.nu {
+            let p = srf.cvs[i * srf.nv + edge];
+            let q = srf.cvs[i * srf.nv + inner];
+            let (u, v) = base.closest_point(p);
+            let (_, du, dv) = base.eval_ders(u, v);
+            let n = du.cross(dv).normalize_or_zero();
+            if n == DVec3::ZERO {
+                continue;
+            }
+            // In the surface's tangent plane at the edge, pointing away from it.
+            let off = q - p;
+            let flat = off - n * off.dot(n);
+            if flat.length() > 1e-9 {
+                srf.cvs[i * srf.nv + inner] = p + flat.normalize() * off.length();
+            }
+        }
+        srf.rewrap();
+    }
+    Some(srf)
+}
+
 /// curveFromSurfaceIso: an isoparm as a curve. Direction 0 is U, 1 is V.
 struct IsoNode;
 
@@ -1027,7 +1168,31 @@ impl NodeBehavior for IsoNode {
             d.set_output(1, PlugValue::Data(None));
             return;
         };
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
         let c = if d.int(3) == 0 { s.iso_u(d.float(2)) } else { s.iso_v(d.float(2)) };
+        // minValue to maxValue along it, as parameters or with relativeValue 0 to 1 of its range; the whole of it while the
+        // minimum isn't below the maximum.
+        let (mut lo, mut hi) = (d.float(4), d.float(5));
+        let (clo, chi) = c.domain();
+        if d.bool(6) {
+            lo = clo + (chi - clo) * lo;
+            hi = clo + (chi - clo) * hi;
+        }
+        let c = if lo < hi && c.form == aztek_geo::nurbs::Form::Open {
+            let (lo, hi) = (lo.max(clo), hi.min(chi));
+            let mut piece = c.clone();
+            if hi < chi - 1e-9 {
+                piece = piece.split(hi).0;
+            }
+            if lo > clo + 1e-9 {
+                piece = piece.split(lo).1;
+            }
+            piece
+        } else {
+            c
+        };
         d.set_output(1, crate::curves::to_value(c));
     }
     fn as_any(&self) -> &dyn Any {
@@ -1347,6 +1512,26 @@ pub fn register_types() {
             register_one(t);
         }
         register_one(NodeType {
+            name: "doubleProfileBirailSurface".into(),
+            icon: "chart-line".into(),
+            doc: "The first profile swept along two rails, turning into the second by the rails' far end.".into(),
+            own_attrs: vec![
+                crate::curves::curve_attr("inputProfile1", "ip1", flags::INPUT | flags::HIDDEN, "The first profile."),
+                surface_attr("outputSurface", "os", flags::OUTPUT | flags::HIDDEN, "The surface."),
+                crate::curves::curve_attr("inputProfile2", "ip2", flags::INPUT | flags::HIDDEN, "The second profile."),
+                crate::curves::curve_attr("inputRail1", "ir1", flags::INPUT | flags::HIDDEN, "The first rail."),
+                crate::curves::curve_attr("inputRail2", "ir2", flags::INPUT | flags::HIDDEN, "The second rail."),
+                f_in("blendFactor", "bl", 0.5, "How much the first profile weighs against the second: 1 all the first, 0 all the second."),
+                AttrDef { short_name: "tp1".into(), ..crate::curves::store_bool("tangentContinuityProfile1", false, "Tangent continuous across the first profile when it lies on a surface.") },
+                AttrDef { short_name: "tp2".into(), ..crate::curves::store_bool("tangentContinuityProfile2", false, "Tangent continuous across the second profile when it lies on a surface.") },
+                int_in("transformMode", "tm", 0, "0 non-proportional: the profiles stretch only between the rails; 1 proportional: they scale whole."),
+                surface_attr("inputSurface1", "is1", flags::INPUT | flags::HIDDEN, "The surface the first profile lies on, for tangent continuity."),
+                surface_attr("inputSurface2", "is2", flags::INPUT | flags::HIDDEN, "The surface the second profile lies on, for tangent continuity."),
+            ],
+            create: Some(Arc::new(|| Box::new(DoubleBirailNode))),
+            ..Default::default()
+        });
+        register_one(NodeType {
             name: "curveFromSurfaceIso".into(),
             icon: "chart-line".into(),
             doc: "An isoparm as a curve.".into(),
@@ -1355,6 +1540,9 @@ pub fn register_types() {
                 crate::curves::curve_attr("outputCurve", "oc", flags::OUTPUT | flags::HIDDEN, "The curve."),
                 f_in("isoparmValue", "iv", 0.0, "The parameter."),
                 int_in("isoparmDirection", "idr", 0, "0 U, 1 V."),
+                f_in("minValue", "min", 1.0, "Where the curve starts along the isoparm; the whole isoparm while it isn't below maxValue."),
+                f_in("maxValue", "max", -1.0, "Where the curve ends along the isoparm."),
+                AttrDef { short_name: "r".into(), ..crate::curves::store_bool("relativeValue", false, "minValue and maxValue run 0 to 1 over the isoparm.") },
             ],
             create: Some(Arc::new(|| Box::new(IsoNode))),
             ..Default::default()
@@ -1707,6 +1895,77 @@ fn from_curves_cmd(s: &mut Session, a: &Args, cmd: &str, ty: &str, name: &str, n
     Ok(json!([g.path(tr), g.path(node)]))
 }
 
+/// A curve, or an isoparm (surface.u[0.5]) as a curve through a curveFromSurfaceIso node: the plug carrying it, and the
+/// surface it lies on.
+fn curve_or_isoparm(g: &mut Graph, name: &str, cmd: &str) -> CmdResult<(crate::plug::PlugRef, Option<NodeId>)> {
+    if let Some((shape, dir, value)) = parse_isoparm(g, name) {
+        let t = types::find("curveFromSurfaceIso").expect("curveFromSurfaceIso");
+        let node = g.create_node(&t, "curveFromSurfaceIso1", NO_NODE, true)?;
+        g.connect(&plug(shape, SurfaceShape::WORLD_SPACE), &plug(node, 0), false)?;
+        g.set_value(plug(node, 2), PlugValue::Float(value))?;
+        g.set_value(plug(node, 3), PlugValue::Int(dir))?;
+        return Ok((plug(node, 1), Some(shape)));
+    }
+    let shape = curve_shape(g, name, cmd)?;
+    Ok((plug(shape, crate::curves::CurveShape::WORLD_SPACE), None))
+}
+
+fn double_birail_cmd(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(r) = crate::history_qe::qe(s, a, "doubleProfileBirailSurface", &["doubleProfileBirailSurface"], &[]) {
+        return r;
+    }
+    let names = objects(s, a);
+    if names.len() != 4 {
+        fail!("doubleProfileBirailSurface: name two profiles and two rails");
+    }
+    let g = &mut s.graph;
+    g.open_chunk("Birail");
+    let r = (|| -> CmdResult {
+        let t = types::find("doubleProfileBirailSurface").expect("doubleProfileBirailSurface");
+        let node = g.create_node(&t, "doubleProfileBirailSurface1", NO_NODE, true)?;
+        for (k, slot) in [0usize, 2, 3, 4].into_iter().enumerate() {
+            let (src, on) = curve_or_isoparm(g, &names[k], "doubleProfileBirailSurface")?;
+            g.connect(&src, &plug(node, slot), false)?;
+            if let (Some(sh), true) = (on, k < 2) {
+                g.connect(&plug(sh, SurfaceShape::WORLD_SPACE), &plug(node, 9 + k), false)?;
+            }
+        }
+        g.set_value(plug(node, 5), PlugValue::Float(a.float("blendFactor", 0.5)))?;
+        g.set_value(plug(node, 6), PlugValue::Bool(a.bool("tangentContinuityProfile1")))?;
+        g.set_value(plug(node, 7), PlugValue::Bool(a.bool("tangentContinuityProfile2")))?;
+        g.set_value(plug(node, 8), PlugValue::Int(a.int("transformMode", 0)))?;
+        crate::history_qe::apply_common(g, node, a)?;
+        if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+            g.evaluate();
+            return Ok(json!([g.path(node)]));
+        }
+        let polygon = a.int("polygon", 0) == 1;
+        let name = a.string("name", "doubleBirailSurface1");
+        let (tr, sh) = if polygon {
+            tessellate_plug(g, &plug(node, 1), &name, &per_span_settings())?
+        } else {
+            let (tr, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, &name, NO_NODE)?;
+            g.connect(&plug(node, 1), &plug(sh, SurfaceShape::CREATE), false)?;
+            (tr, sh)
+        };
+        g.select(&[tr], SelectMode::Replace);
+        g.evaluate();
+        if !wants_history(g, a) {
+            if polygon {
+                if let Some(m) = components::as_mesh(g, tr) {
+                    crate::history::delete_history(g, m)?;
+                }
+            } else {
+                bake_history(g, sh)?;
+            }
+            return Ok(json!([g.path(tr)]));
+        }
+        Ok(json!([g.path(tr), g.path(node)]))
+    })();
+    g.close_chunk();
+    r
+}
+
 fn curve_surface_flags(c: Cmd) -> Cmd {
     c.flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
         .flag(f("polygon", "po", ArgType::Int, "0 NURBS, 1 polygons."))
@@ -2032,6 +2291,21 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("endPointTolerance", "ept", ArgType::Float, "Accepted for existing scripts."))
             .flag(f("rebuildCurve1", "rc1", ArgType::Bool, "Accepted for existing scripts.")),
     ));
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(curve_surface_flags(
+        Cmd::new(
+            "doubleProfileBirailSurface",
+            "Sweep the first profile along two rails into the second: profile1 profile2 rail1 rail2, curves or isoparms (surface.u[0.5]). \
+             -bl weighs the first profile against the second, -tp1 -tp2 keep the result tangent to a profile's surface, -tm 1 scales the \
+             profiles whole. Returns [surface, node]; -q and -e on the node or the surface.",
+            double_birail_cmd,
+        )
+        .positional("two profiles and two rails (the selection when none)")
+        .flag(f("blendFactor", "bl", ArgType::Float, "How much the first profile weighs against the second (0.5)."))
+        .flag(f("tangentContinuityProfile1", "tp1", ArgType::Bool, "Tangent continuous across the first profile, on its surface (off)."))
+        .flag(f("tangentContinuityProfile2", "tp2", ArgType::Bool, "Tangent continuous across the second profile, on its surface (off)."))
+        .flag(f("transformMode", "tm", ArgType::Int, "0 non-proportional (0), 1 proportional."))
+        .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
+    ))));
     for name in ["singleProfileBirailSurface", "birail"] {
         c.register(curve_surface_flags(
             Cmd::new(name, "A profile along two rails, its ends staying on them: profile, rail, rail. Returns [birailSurface1, singleProfileBirailSurface1].", |s, a| {
@@ -2138,6 +2412,16 @@ pub fn register(c: &mut Commands<Session>) {
                 g.connect(&plug(shape, from), &plug(node, 0), false)?;
                 g.set_value(plug(node, 2), PlugValue::Float(value))?;
                 g.set_value(plug(node, 3), PlugValue::Int(dir))?;
+                if !a.bool("range") {
+                    g.set_value(plug(node, 4), PlugValue::Float(a.float("minValue", 1.0)))?;
+                    g.set_value(plug(node, 5), PlugValue::Float(a.float("maxValue", -1.0)))?;
+                }
+                g.set_value(plug(node, 6), PlugValue::Bool(a.bool("relative")))?;
+                crate::history_qe::apply_common(g, node, a)?;
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    g.evaluate();
+                    return Ok(json!([g.path(node)]));
+                }
                 let (tr, sh) = crate::dag::create_with_shape(g, crate::curves::SHAPE_TYPE, &name, NO_NODE)?;
                 g.connect(&plug(node, 1), &plug(sh, crate::curves::CurveShape::CREATE), false)?;
                 g.select(&[tr], SelectMode::Replace);
@@ -2152,8 +2436,12 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("an isoparm or a curve (the selection when none)")
         .flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
         .flag(f("local", "l", ArgType::Bool, "Follow the surface in object space, not the world."))
-        .flag(f("range", "rn", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("relative", "r", ArgType::Bool, "Accepted for existing scripts."))
+        .flag(f("range", "rn", ArgType::Bool, "Take the whole isoparm, whatever -min and -max say."))
+        .flag(f("relative", "r", ArgType::Bool, "-min and -max run 0 to 1 over the isoparm (off)."))
+        .flag(f("minValue", "min", ArgType::Float, "Where the curve starts along the isoparm (1); the whole isoparm while it isn't below -max."))
+        .flag(f("maxValue", "max", ArgType::Float, "Where the curve ends along the isoparm (-1)."))
+        .flag(f("mergeItems", "mi", ArgType::Bool, "Merge component results where it can: the result here is whole objects."))
+        .flag(f("object", "o", ArgType::Bool, "Make the curve (on); off, only the node."))
         .flag(f("name", "n", ArgType::String, "Name of the curve.")),
     );
 

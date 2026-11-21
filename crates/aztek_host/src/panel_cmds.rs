@@ -785,6 +785,22 @@ fn playblast(s: &mut Session, a: &Args) -> CmdResult {
 // ---------------------------------------------------------------------------------------------------------------------
 
 pub fn register(s: &mut Session) {
+    s.register(
+        Cmd::new(
+            "excludeObjectDisplayPreset",
+            "Named presets of which kinds of object a view leaves out, for modelEditor: -listPresets gives their names, All (every kind shown) and None.",
+            |_s, a| {
+                if a.bool("listPresets") || a.flags.is_empty() || a.bool("query") {
+                    return Ok(serde_json::json!(["All", "None"]));
+                }
+                Ok(Value::Null)
+            },
+        )
+        .undoable(false)
+        .flag(f("listPresets", "", ArgType::Bool))
+        .flag(f("query", "q", ArgType::Bool))
+        .flag(f("edit", "e", ArgType::Bool)),
+    );
     let mut gp = Cmd::new("getPanel", "The panels: -wf in focus, -up under the pointer, -wl by label, -typ of a type, -to the type of one, -vis visible, -all.", |_s, a| get_panel(a)).undoable(false);
     for (n, sh) in [("withLabel", "wl"), ("type", "typ"), ("typeOf", "to"), ("scriptType", "sty"), ("containing", "con"), ("configWithLabel", "cwl")] {
         gp = gp.flag(f(n, sh, ArgType::Any));

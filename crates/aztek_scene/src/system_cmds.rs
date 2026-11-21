@@ -48,6 +48,10 @@ pub struct Extras {
     pub option_var_meta: crate::ref_scene::OptionVarMeta,
     /// The project, as `workspace` keeps it.
     pub workspace: crate::ref_scene::Workspace,
+    /// evaluationManager's finer settings and node type overrides.
+    pub eval_manager: crate::freeze::EvalManager,
+    /// setAttr -caching: plugs set not to be cached (or back on), by node and attribute.
+    pub plug_caching: BTreeMap<(NodeId, i32), bool>,
 }
 
 /// What a query asks for: the first flag -q names.
@@ -817,6 +821,13 @@ fn find_type(s: &mut Session, a: &Args) -> CmdResult {
         let Some(id) = g.find(&name)? else { continue };
         let mut seen: HashSet<NodeId> = HashSet::from([id]);
         let mut front = std::collections::VecDeque::from([id]);
+        // The node itself counts: the search starts there.
+        if fits(id) {
+            out.push(json!(g.path(id)));
+            if !deep {
+                continue;
+            }
+        }
         'walk: while let Some(n) = front.pop_front() {
             let near: Vec<NodeId> = conns.iter().filter_map(|(d, s)| if forward { (s.node == n).then_some(d.node) } else { (d.node == n).then_some(s.node) }).collect();
             for x in near {
@@ -1098,7 +1109,13 @@ pub fn register(c: &mut Commands<Session>) {
             .undoable(false),
     );
     c.register(
-        q_flags(Cmd::new("evaluationManager", "The evaluation mode, as a setting scripts can read: -mode off|serial|parallel|emp. It doesn't change how the graph evaluates.", |s, a| {
+        crate::freeze::evaluation_manager_flags(q_flags(Cmd::new("evaluationManager", "The evaluation mode, as a setting scripts can read: -mode off|serial|parallel|emp; -dst, -ust and -ccl walk the graph; node type overrides and settings are held. The graph evaluates as before whatever the mode.", |s, a| {
+            if let Some(r) = crate::freeze::evaluation_manager(s, a) {
+                if !a.has("mode") || a.bool("query") {
+                    return r;
+                }
+                r?;
+            }
             if a.bool("query") {
                 let m = s.extras.evaluation_mode.clone().unwrap_or("off".to_string());
                 if asked(a, "enabled") {
@@ -1122,7 +1139,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("invalidate", "inv", B, "Accepted for existing scripts."))
         .flag(f("manipulation", "man", B, "Accepted for existing scripts."))
         .flag(f("idleBuild", "ib", B, "Accepted for existing scripts."))
-        .undoable(false),
+        .positional("node types, for the node type overrides")
+        .undoable(false)),
     );
     c.register(
         q_flags(Cmd::new("threadCount", "Threads to evaluate with, kept for scripts: -n count, 0 for the machine's; -q -n asks.", |s, a| {
@@ -1342,12 +1360,12 @@ pub fn register(c: &mut Commands<Session>) {
         .undoable(false),
     );
     c.register(
-        Cmd::new("findType", "Nodes of a type upstream of the objects (-fwd downstream), the nearest unless -d. -e exact type.", find_type)
+        Cmd::new("findType", "Nodes of a type connected upstream of the objects (the selection when none), or with -f downstream, the objects themselves included: the nearest, or every one with -d. -e matches the type exactly.", find_type)
             .positional("objects")
             .flag(f("type", "t", S, "The type."))
             .flag(f("deep", "d", B, "Every one, not just the nearest."))
             .flag(f("exact", "e", B, "This type exactly."))
-            .flag(f("forward", "fwd", B, "Look downstream."))
+            .flag(f("forward", "f", B, "Look downstream."))
             .undoable(false),
     );
     c.register(

@@ -105,6 +105,7 @@ impl Core {
         crate::ctx_cmds::register(&mut c.s);
         crate::panel_cmds::register(&mut c.s);
         crate::host_general::register(&mut c.s);
+        crate::ee_listen::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.ensure_defaults();
@@ -344,7 +345,8 @@ impl Core {
         crate::host_general::watch(&mut self.s);
         aztek_scene::messages::flush(&mut self.s);
         self.run_conditions();
-        let scripts = crate::script_jobs::scan(&mut self.s);
+        let mut scripts = crate::script_jobs::scan(&mut self.s);
+        scripts.extend(crate::ee_listen::due(&self.s));
         let deferred = crate::script_jobs::take_deferred();
         self.drain_captured();
         self.run_callbacks(scripts);

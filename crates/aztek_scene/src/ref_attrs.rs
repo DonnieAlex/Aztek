@@ -182,6 +182,11 @@ fn old_smooth_plug(s: &Session, name: &str) -> Option<NodeId> {
 
 fn get_attr(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> CmdResult {
     let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("getAttr: expected a plug") };
+    if a.bool("caching") {
+        // Attributes are cached until setAttr -caching off says otherwise.
+        let p = s.graph.plug(&name)?;
+        return Ok(json!(s.extras.plug_caching.get(&(p.node, p.attr)).copied().unwrap_or(true)));
+    }
     if let Some(id) = old_smooth_plug(s, &name) {
         return Ok(json!(crate::mesh_nodes::MeshNode::preview_level(s.graph.node(id).unwrap())));
     }
@@ -347,6 +352,17 @@ fn curve_from_values(values: &[Value]) -> Option<aztek_geo::nurbs::NurbsCurve> {
 
 fn set_attr_one(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> CmdResult {
     let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("setAttr: expected (plug, value)") };
+    if let Some(v) = a.get("caching") {
+        let p = s.graph.plug(&name)?;
+        let on = v.as_bool().unwrap_or(v.as_i64().unwrap_or(1) != 0);
+        s.extras.plug_caching.insert((p.node, p.attr), on);
+        if a.positional.len() < 2 {
+            return Ok(Value::Null);
+        }
+        let mut rest = a.clone();
+        rest.flags.remove("caching");
+        return set_attr_one(s, &rest, prev);
+    }
     if a.get("type").and_then(Value::as_str) == Some("nurbsCurve") {
         let Some(curve) = curve_from_values(&a.positional[1..]) else { fail!("setAttr: {name}: the values do not make a curve (degree, spans, form, rational, dimension, knots, CVs)") };
         let p = s.graph.plug(&name)?;
@@ -950,6 +966,7 @@ pub fn register(c: &mut Commands<Session>) {
             f("expandEnvironmentVariables", "x", ArgType::Bool, "Accepted for existing scripts."),
             f("lock", "l", ArgType::Bool, "Whether it is locked."),
             f("multiIndices", "mi", ArgType::Bool, "The element indices of a multi attribute."),
+            f("caching", "ca", ArgType::Bool, "Whether the attribute is set to be cached (on unless setAttr -caching turned it off)."),
         ],
         |s, a, prev| {
             if a.bool("asString") {
@@ -982,7 +999,7 @@ pub fn register(c: &mut Commands<Session>) {
             f("clamp", "c", ArgType::Bool, "Accepted: values are always held inside an attribute's limits."),
             f("size", "s", ArgType::Int, "Accepted for existing scripts."),
             f("alteredValue", "av", ArgType::Bool, "Accepted for existing scripts."),
-            f("caching", "ca", ArgType::Bool, "Accepted for existing scripts."),
+            f("caching", "ca", ArgType::Bool, "Set whether the attribute is cached internally; getAttr -caching reads it."),
         ],
         set_attr,
     );

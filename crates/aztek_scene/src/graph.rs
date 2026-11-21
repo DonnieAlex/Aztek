@@ -708,6 +708,13 @@ impl EvalView<'_> {
     }
 
     fn pull(&self, n: &mut Node) {
+        // A frozen node ignores its inputs and keeps what it computed when it was frozen; so does one a freeze reached
+        // indirectly (frozenAffected, an attribute added to the nodes it reaches).
+        if n.evaluated_pass > 0 && is_frozen(&n.data) {
+            n.dirty = false;
+            n.evaluated_pass = self.pass;
+            return;
+        }
         let cache_node = self.cache && !self.turned.contains(&n.id);
         let upstream = if cache_node {
             self.upstream_playback(n)
@@ -4169,4 +4176,15 @@ fn physical_memory_bytes() -> usize {
     let mut s = sysinfo::System::new();
     s.refresh_memory();
     s.total_memory() as usize
+}
+
+/// The node's frozen state as evaluation honours it: its frozen attr, or a frozenAffected one a freeze added.
+pub(crate) fn is_frozen(d: &crate::node::NodeData) -> bool {
+    if let Some(i) = d.ty.frozen_attr {
+        if matches!(d.values.get(i), Some(PlugValue::Bool(true))) {
+            return true;
+        }
+    }
+    // Only nodes with added attrs can have frozenAffected.
+    d.ty.user_of.is_some() && d.ty.attr_index("frozenAffected").is_some_and(|i| matches!(d.values.get(i), Some(PlugValue::Bool(true))))
 }

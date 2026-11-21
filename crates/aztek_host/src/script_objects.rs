@@ -427,8 +427,29 @@ fn editor_template(a: &Args) -> CmdResult {
                 m.insert(k.to_string(), v.clone());
             }
         }
+        // -annotateFieldOnly: the annotation shows over the value field alone, not the whole row.
+        if a.has("annotation") && a.bool("annotateFieldOnly") {
+            m.insert("annotateFieldOnly".to_string(), json!(true));
+        }
         m
     };
+    if a.has("forceRebuild") {
+        // The editor builds the template afresh each time rather than replacing what it built.
+        let mut m = item("forceRebuild");
+        m.insert("on".to_string(), json!(a.get("forceRebuild").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0)))));
+        with(|o| o.template.push(Value::Object(m)));
+        return Ok(Value::Null);
+    }
+    if a.bool("beginNoOptimize") || a.bool("endNoOptimize") {
+        // The rows between keep their own spacing, not packed to save room.
+        let kind = if a.bool("beginNoOptimize") { "beginNoOptimize" } else { "endNoOptimize" };
+        with(|o| o.template.push(Value::Object(item(kind))));
+        return Ok(Value::Null);
+    }
+    if a.bool("addComponents") {
+        with(|o| o.template.push(Value::Object(item("components"))));
+        return Ok(Value::Null);
+    }
     let positional: Vec<String> = a.named();
     let push = |m: Map<String, Value>| with(|o| o.template.push(Value::Object(m)));
     if a.bool("beginScrollLayout") {
@@ -458,8 +479,8 @@ fn editor_template(a: &Args) -> CmdResult {
             m.insert("changeCommand".to_string(), json!(cc));
         }
         push(m);
-    } else if a.has("addAdskAssetControl") {
-        // Nothing of that kind here.
+    } else if a.bool("addAdskAssetControls") {
+        // Controls for an adskMaterial's dynamic attributes: there are no adskMaterial nodes here, so none to add.
     } else if let Some(attr) = a.get("suppress") {
         let mut m = item("suppress");
         m.insert("attr".to_string(), json!(text(attr)));
@@ -562,7 +583,7 @@ pub fn register(s: &mut Session) {
     ));
     s.register(add(
         Cmd::new("editorTemplate", "Inside an AE<type>Template procedure: lays out the Attribute Editor with -beginLayout, -addControl, -suppress, -addSeparator, -addExtraControls, -callCustom.", |_s, a| editor_template(a)).positional("[attribute]").undoable(false),
-        "addAdskAssetControl:aac:a addComponents:acm:b addControl:ac:a addDynamicControl:adc:a addExtraControls:aec:b addSeparator:as:b annotation:ann:a beginLayout:bl:a beginNoOptimize:bno:b beginScrollLayout:bsl:b callCustom:ccu:a callback:cb:a2 collapse:cl:b debugMode:dbm:b dimControl:dc:a endLayout:el:b endNoOptimize:eno:b endScrollLayout:esl:b extraControlsLabel:ecl:a interruptOptimize:io:b label:l:a listExtraAttributes:lea:a preventOverride:po:b queryControl:qc:a queryLabel:ql:a queryName:qn:a removeControl:rc:a suppress:s:a query:q:b edit:e:b queried::a",
+        "addAdskAssetControls:aac:b addComponents:acp:b annotateFieldOnly:afo:b forceRebuild:fr:b addControl:ac:a addDynamicControl:adc:a addExtraControls:aec:b addSeparator:as:b annotation:ann:a beginLayout:bl:a beginNoOptimize:bn:b beginScrollLayout:bsl:b callCustom:ccu:a callback:cb:a2 collapse:cl:b debugMode:dbm:b dimControl:dc:a endLayout:el:b endNoOptimize:en:b endScrollLayout:esl:b extraControlsLabel:ecl:a interruptOptimize:io:b label:l:a listExtraAttributes:lea:a preventOverride:po:b queryControl:qc:a queryLabel:ql:a queryName:qn:a removeControl:rc:a suppress:s:a query:q:b edit:e:b queried::a",
     ));
     s.register(add(
         Cmd::new("baseTemplate", "Base node templates: -load -fileName, -unload, -exists. Their contents are not read here: the name is kept.", |_s, a| base_template(a)).positional("[name]").undoable(false),

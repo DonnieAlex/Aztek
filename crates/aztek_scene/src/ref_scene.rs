@@ -2217,7 +2217,22 @@ pub fn register(c: &mut Commands<Session>) {
             v.push(f(name, short, B, doc));
         }
         v.push(f("groupUnder", "gu", ArgType::String, "Where the copies go: parent (beside their originals, the default), world, or group (a new group, as -group)."));
-        extend(c, "duplicate", v, duplicate_cmd);
+        v.push(f("fullPath", "f", B, "Return full path names rather than object names."));
+        extend(c, "duplicate", v, |s, a, prev| {
+            let out = duplicate_cmd(s, a, prev)?;
+            if !a.bool("fullPath") {
+                return Ok(out);
+            }
+            let g = &s.graph;
+            let full = |v: &Value| match v.as_str().and_then(|n| g.find(n).ok().flatten()) {
+                Some(id) => json!(g.full_path(id)),
+                None => v.clone(),
+            };
+            Ok(match &out {
+                Value::Array(list) => Value::Array(list.iter().map(full).collect()),
+                other => full(other),
+            })
+        });
     }
     extend(c, "instance", vec![f("leaf", "lf", B, "Accepted for existing scripts."), f("smartTransform", "st", B, "Accepted for existing scripts.")], |s, a, prev| prev(s, a));
     extend(
@@ -2374,16 +2389,44 @@ pub fn register(c: &mut Commands<Session>) {
     extend(
         c,
         "hide",
-        vec![f("clearSelection", "cs", B, "Accepted for existing scripts."), f("returnHidden", "rh", B, "Return what was hidden."), f("invertComponents", "ic", B, "Accepted for existing scripts."), f("testVisibility", "tv", B, "Whether they are hidden, changing nothing."), f("clearLastHidden", "clh", B, "Forget what was hidden last: the caller keeps its own list for showing them again.")],
+        vec![
+            f("clearSelection", "cs", B, "Clear the selection afterwards."),
+            f("returnHidden", "rh", B, "Return what was hidden."),
+            f("invertComponents", "ic", B, "Accepted for existing scripts."),
+            f("testVisibility", "tv", B, "Change nothing: 1 when they are all hidden, 2 all visible, 3 some of each."),
+            f("clearLastHidden", "clh", B, "Forget what was hidden last: the caller keeps its own list for showing them again."),
+            f("allObjects", "all", B, "Hide every top level object."),
+        ],
         |s, a, prev| {
             let clear = a.bool("clearLastHidden");
+            let mut a = a.clone();
+            if a.bool("allObjects") {
+                // Every object at the top of the hierarchy, the scene's own cameras aside.
+                let g = &s.graph;
+                let tops: Vec<Value> = g
+                    .nodes()
+                    .into_iter()
+                    .filter(|&n| g.parent(n) == crate::plug::NO_NODE && g.node(n).is_some_and(|x| x.ty().dag && x.ty().is_a("transform")) && !crate::defaults::undeletable(g, n))
+                    .map(|n| json!(g.path(n)))
+                    .collect();
+                if tops.is_empty() {
+                    return Ok(Value::Null);
+                }
+                a.positional = tops;
+            }
+            let a = &a;
             let r = (|| -> CmdResult {
                 if a.bool("testVisibility") {
                     let names = objects(s, a);
-                    return Ok(json!(names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).all(|i| !crate::transform::effectively_visible(&s.graph, i))));
+                    let ids: Vec<_> = names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).collect();
+                    let shown = ids.iter().filter(|&&i| crate::transform::effectively_visible(&s.graph, i)).count();
+                    return Ok(json!(if shown == 0 { 1 } else if shown == ids.len() { 2 } else { 3 }));
                 }
                 let names = objects(s, a);
                 let r = prev(s, a)?;
+                if a.bool("clearSelection") {
+                    s.graph.select(&[], crate::graph::SelectMode::Replace);
+                }
                 Ok(if a.bool("returnHidden") { json!(names) } else { r })
             })();
             if clear {
