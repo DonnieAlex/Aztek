@@ -14203,9 +14203,9 @@ helpLine	w	missing
 helpLine	width	missing	
 hide	all	missing	
 hide	allObjects	missing	
-hide	clearLastHidden	missing	
+hide	clearLastHidden	done	auto
 hide	clearSelection	done	auto
-hide	clh	missing	
+hide	clh	done	auto
 hide	cs	done	auto
 hide	ic	done	auto
 hide	invertComponents	done	auto
@@ -18109,16 +18109,16 @@ lightlink	ual	done	auto
 lightlink	uao	done	auto
 lightlink	useActiveLights	done	auto
 lightlink	useActiveObjects	done	auto
-listAnimatable	act	missing	
-listAnimatable	active	missing	
-listAnimatable	m	missing	
-listAnimatable	manip	missing	
-listAnimatable	manipHandle	missing	
-listAnimatable	mh	missing	
-listAnimatable	s	missing	
-listAnimatable	shape	missing	
-listAnimatable	typ	missing	
-listAnimatable	type	missing	
+listAnimatable	act	done	auto
+listAnimatable	active	done	auto
+listAnimatable	m	done	auto
+listAnimatable	manip	done	auto
+listAnimatable	manipHandle	done	auto
+listAnimatable	mh	done	auto
+listAnimatable	s	done	auto
+listAnimatable	shape	done	auto
+listAnimatable	typ	done	auto
+listAnimatable	type	done	auto
 listAttr	a	done	auto
 listAttr	array	done	auto
 listAttr	at	missing	
@@ -24671,26 +24671,26 @@ polyCylinder	tx	done	auto
 polyCylindricalProjection	caching	missing	
 polyCylindricalProjection	cch	missing	
 polyCylindricalProjection	ch	done	auto
-polyCylindricalProjection	cm	missing	
+polyCylindricalProjection	cm	done	auto
 polyCylindricalProjection	constructionHistory	done	auto
-polyCylindricalProjection	createNewMap	missing	
+polyCylindricalProjection	createNewMap	done	auto
 polyCylindricalProjection	e	missing	
 polyCylindricalProjection	edit	missing	
-polyCylindricalProjection	ibd	missing	
+polyCylindricalProjection	ibd	done	auto
 polyCylindricalProjection	ic	missing	
-polyCylindricalProjection	icx	missing	
-polyCylindricalProjection	icy	missing	
+polyCylindricalProjection	icx	done	auto
+polyCylindricalProjection	icy	done	auto
 polyCylindricalProjection	imageCenter	missing	
-polyCylindricalProjection	imageCenterX	missing	
-polyCylindricalProjection	imageCenterY	missing	
+polyCylindricalProjection	imageCenterX	done	auto
+polyCylindricalProjection	imageCenterY	done	auto
 polyCylindricalProjection	imageScale	missing	
-polyCylindricalProjection	imageScaleU	missing	
-polyCylindricalProjection	imageScaleV	missing	
-polyCylindricalProjection	insertBeforeDeformers	missing	
-polyCylindricalProjection	isu	missing	
-polyCylindricalProjection	isv	missing	
-polyCylindricalProjection	keepImageRatio	missing	
-polyCylindricalProjection	kir	missing	
+polyCylindricalProjection	imageScaleU	done	auto
+polyCylindricalProjection	imageScaleV	done	auto
+polyCylindricalProjection	insertBeforeDeformers	done	auto
+polyCylindricalProjection	isu	done	auto
+polyCylindricalProjection	isv	done	auto
+polyCylindricalProjection	keepImageRatio	done	auto
+polyCylindricalProjection	kir	done	auto
 polyCylindricalProjection	mapDirection	done	auto
 polyCylindricalProjection	md	done	auto
 polyCylindricalProjection	n	missing	
@@ -24698,35 +24698,35 @@ polyCylindricalProjection	name	missing
 polyCylindricalProjection	nds	missing	
 polyCylindricalProjection	nodeState	missing	
 polyCylindricalProjection	pc	missing	
-polyCylindricalProjection	pcx	missing	
-polyCylindricalProjection	pcy	missing	
-polyCylindricalProjection	pcz	missing	
+polyCylindricalProjection	pcx	done	auto
+polyCylindricalProjection	pcy	done	auto
+polyCylindricalProjection	pcz	done	auto
 polyCylindricalProjection	perInstance	missing	
 polyCylindricalProjection	ph	missing	
 polyCylindricalProjection	phs	missing	
 polyCylindricalProjection	pi	missing	
 polyCylindricalProjection	projectionCenter	missing	
-polyCylindricalProjection	projectionCenterX	missing	
-polyCylindricalProjection	projectionCenterY	missing	
-polyCylindricalProjection	projectionCenterZ	missing	
+polyCylindricalProjection	projectionCenterX	done	auto
+polyCylindricalProjection	projectionCenterY	done	auto
+polyCylindricalProjection	projectionCenterZ	done	auto
 polyCylindricalProjection	projectionHeight	missing	
 polyCylindricalProjection	projectionHorizontalSweep	missing	
 polyCylindricalProjection	projectionScale	missing	
-polyCylindricalProjection	projectionScaleU	missing	
-polyCylindricalProjection	projectionScaleV	missing	
+polyCylindricalProjection	projectionScaleU	done	auto
+polyCylindricalProjection	projectionScaleV	done	auto
 polyCylindricalProjection	ps	missing	
-polyCylindricalProjection	psu	missing	
-polyCylindricalProjection	psv	missing	
+polyCylindricalProjection	psu	done	auto
+polyCylindricalProjection	psv	done	auto
 polyCylindricalProjection	q	missing	
 polyCylindricalProjection	query	missing	
 polyCylindricalProjection	r	missing	
-polyCylindricalProjection	ra	missing	
+polyCylindricalProjection	ra	done	auto
 polyCylindricalProjection	radius	missing	
-polyCylindricalProjection	rotationAngle	missing	
-polyCylindricalProjection	sc	missing	
-polyCylindricalProjection	seamCorrect	missing	
-polyCylindricalProjection	sf	missing	
-polyCylindricalProjection	smartFit	missing	
+polyCylindricalProjection	rotationAngle	done	auto
+polyCylindricalProjection	sc	done	auto
+polyCylindricalProjection	seamCorrect	done	auto
+polyCylindricalProjection	sf	done	auto
+polyCylindricalProjection	smartFit	done	auto
 polyCylindricalProjection	worldSpace	missing	
 polyCylindricalProjection	ws	missing	
 polyDelEdge	caching	done	auto
@@ -26326,26 +26326,26 @@ polyPipe	tx	done	auto
 polyPlanarProjection	caching	missing	
 polyPlanarProjection	cch	missing	
 polyPlanarProjection	ch	done	auto
-polyPlanarProjection	cm	missing	
+polyPlanarProjection	cm	done	auto
 polyPlanarProjection	constructionHistory	done	auto
-polyPlanarProjection	createNewMap	missing	
+polyPlanarProjection	createNewMap	done	auto
 polyPlanarProjection	e	missing	
 polyPlanarProjection	edit	missing	
-polyPlanarProjection	ibd	missing	
+polyPlanarProjection	ibd	done	auto
 polyPlanarProjection	ic	missing	
-polyPlanarProjection	icx	missing	
-polyPlanarProjection	icy	missing	
+polyPlanarProjection	icx	done	auto
+polyPlanarProjection	icy	done	auto
 polyPlanarProjection	imageCenter	missing	
-polyPlanarProjection	imageCenterX	missing	
-polyPlanarProjection	imageCenterY	missing	
+polyPlanarProjection	imageCenterX	done	auto
+polyPlanarProjection	imageCenterY	done	auto
 polyPlanarProjection	imageScale	missing	
-polyPlanarProjection	imageScaleU	missing	
-polyPlanarProjection	imageScaleV	missing	
-polyPlanarProjection	insertBeforeDeformers	missing	
-polyPlanarProjection	isu	missing	
-polyPlanarProjection	isv	missing	
-polyPlanarProjection	keepImageRatio	missing	
-polyPlanarProjection	kir	missing	
+polyPlanarProjection	imageScaleU	done	auto
+polyPlanarProjection	imageScaleV	done	auto
+polyPlanarProjection	insertBeforeDeformers	done	auto
+polyPlanarProjection	isu	done	auto
+polyPlanarProjection	isv	done	auto
+polyPlanarProjection	keepImageRatio	done	auto
+polyPlanarProjection	kir	done	auto
 polyPlanarProjection	mapDirection	done	auto
 polyPlanarProjection	md	done	auto
 polyPlanarProjection	n	missing	
@@ -26353,37 +26353,37 @@ polyPlanarProjection	name	missing
 polyPlanarProjection	nds	missing	
 polyPlanarProjection	nodeState	missing	
 polyPlanarProjection	pc	missing	
-polyPlanarProjection	pcx	missing	
-polyPlanarProjection	pcy	missing	
-polyPlanarProjection	pcz	missing	
+polyPlanarProjection	pcx	done	auto
+polyPlanarProjection	pcy	done	auto
+polyPlanarProjection	pcz	done	auto
 polyPlanarProjection	perInstance	missing	
 polyPlanarProjection	ph	missing	
 polyPlanarProjection	phs	missing	
 polyPlanarProjection	pi	missing	
 polyPlanarProjection	projectionCenter	missing	
-polyPlanarProjection	projectionCenterX	missing	
-polyPlanarProjection	projectionCenterY	missing	
-polyPlanarProjection	projectionCenterZ	missing	
+polyPlanarProjection	projectionCenterX	done	auto
+polyPlanarProjection	projectionCenterY	done	auto
+polyPlanarProjection	projectionCenterZ	done	auto
 polyPlanarProjection	projectionHeight	missing	
 polyPlanarProjection	projectionHorizontalSweep	missing	
 polyPlanarProjection	projectionScale	missing	
 polyPlanarProjection	ps	missing	
 polyPlanarProjection	q	missing	
 polyPlanarProjection	query	missing	
-polyPlanarProjection	ra	missing	
+polyPlanarProjection	ra	done	auto
 polyPlanarProjection	ro	missing	
 polyPlanarProjection	rotate	missing	
-polyPlanarProjection	rotateX	missing	
-polyPlanarProjection	rotateY	missing	
-polyPlanarProjection	rotateZ	missing	
-polyPlanarProjection	rotationAngle	missing	
-polyPlanarProjection	rx	missing	
-polyPlanarProjection	ry	missing	
-polyPlanarProjection	rz	missing	
-polyPlanarProjection	sc	missing	
-polyPlanarProjection	seamCorrect	missing	
-polyPlanarProjection	sf	missing	
-polyPlanarProjection	smartFit	missing	
+polyPlanarProjection	rotateX	done	auto
+polyPlanarProjection	rotateY	done	auto
+polyPlanarProjection	rotateZ	done	auto
+polyPlanarProjection	rotationAngle	done	auto
+polyPlanarProjection	rx	done	auto
+polyPlanarProjection	ry	done	auto
+polyPlanarProjection	rz	done	auto
+polyPlanarProjection	sc	done	auto
+polyPlanarProjection	seamCorrect	done	auto
+polyPlanarProjection	sf	done	auto
+polyPlanarProjection	smartFit	done	auto
 polyPlanarProjection	worldSpace	missing	
 polyPlanarProjection	ws	missing	
 polyPlane	ax	done	auto
@@ -26428,7 +26428,7 @@ polyPlatonicSolid	createUVs	done	auto
 polyPlatonicSolid	cuv	done	auto
 polyPlatonicSolid	e	missing	
 polyPlatonicSolid	edit	missing	
-polyPlatonicSolid	l	missing	
+polyPlatonicSolid	l	done	auto
 polyPlatonicSolid	n	done	auto
 polyPlatonicSolid	name	done	auto
 polyPlatonicSolid	nds	done	auto
@@ -26484,7 +26484,7 @@ polyPrimitive	createUVs	done	auto
 polyPrimitive	cuv	done	auto
 polyPrimitive	e	missing	
 polyPrimitive	edit	missing	
-polyPrimitive	l	missing	
+polyPrimitive	l	done	auto
 polyPrimitive	n	done	auto
 polyPrimitive	name	done	auto
 polyPrimitive	nds	done	auto
@@ -26553,49 +26553,49 @@ polyProjectCurve	query	missing
 polyProjectCurve	tol	done	auto
 polyProjectCurve	tolerance	done	auto
 polyProjection	ch	done	auto
-polyProjection	cm	missing	
+polyProjection	cm	done	auto
 polyProjection	constructionHistory	done	auto
-polyProjection	createNewMap	missing	
-polyProjection	ibd	missing	
-polyProjection	icx	missing	
-polyProjection	icy	missing	
-polyProjection	imageCenterX	missing	
-polyProjection	imageCenterY	missing	
-polyProjection	imageScaleU	missing	
-polyProjection	imageScaleV	missing	
-polyProjection	insertBeforeDeformers	missing	
-polyProjection	isu	missing	
-polyProjection	isv	missing	
-polyProjection	keepImageRatio	missing	
-polyProjection	kir	missing	
+polyProjection	createNewMap	done	auto
+polyProjection	ibd	done	auto
+polyProjection	icx	done	auto
+polyProjection	icy	done	auto
+polyProjection	imageCenterX	done	auto
+polyProjection	imageCenterY	done	auto
+polyProjection	imageScaleU	done	auto
+polyProjection	imageScaleV	done	auto
+polyProjection	insertBeforeDeformers	done	auto
+polyProjection	isu	done	auto
+polyProjection	isv	done	auto
+polyProjection	keepImageRatio	done	auto
+polyProjection	kir	done	auto
 polyProjection	mapDirection	done	auto
 polyProjection	md	done	auto
-polyProjection	pcx	missing	
-polyProjection	pcy	missing	
-polyProjection	pcz	missing	
-polyProjection	projectionCenterX	missing	
-polyProjection	projectionCenterY	missing	
-polyProjection	projectionCenterZ	missing	
-polyProjection	projectionScaleU	missing	
-polyProjection	projectionScaleV	missing	
-polyProjection	psu	missing	
-polyProjection	psv	missing	
-polyProjection	ra	missing	
-polyProjection	rotateX	missing	
-polyProjection	rotateY	missing	
-polyProjection	rotateZ	missing	
-polyProjection	rotationAngle	missing	
-polyProjection	rx	missing	
-polyProjection	ry	missing	
-polyProjection	rz	missing	
-polyProjection	sc	missing	
-polyProjection	seamCorrect	missing	
-polyProjection	sf	missing	
-polyProjection	smartFit	missing	
+polyProjection	pcx	done	auto
+polyProjection	pcy	done	auto
+polyProjection	pcz	done	auto
+polyProjection	projectionCenterX	done	auto
+polyProjection	projectionCenterY	done	auto
+polyProjection	projectionCenterZ	done	auto
+polyProjection	projectionScaleU	done	auto
+polyProjection	projectionScaleV	done	auto
+polyProjection	psu	done	auto
+polyProjection	psv	done	auto
+polyProjection	ra	done	auto
+polyProjection	rotateX	done	auto
+polyProjection	rotateY	done	auto
+polyProjection	rotateZ	done	auto
+polyProjection	rotationAngle	done	auto
+polyProjection	rx	done	auto
+polyProjection	ry	done	auto
+polyProjection	rz	done	auto
+polyProjection	sc	done	auto
+polyProjection	seamCorrect	done	auto
+polyProjection	sf	done	auto
+polyProjection	smartFit	done	auto
 polyProjection	t	done	auto
 polyProjection	type	done	auto
-polyProjection	uvSetName	missing	
-polyProjection	uvs	missing	
+polyProjection	uvSetName	done	auto
+polyProjection	uvs	done	auto
 polyPyramid	ax	done	auto
 polyPyramid	axis	done	auto
 polyPyramid	caching	done	auto
@@ -27247,26 +27247,26 @@ polySphere	tx	done	auto
 polySphericalProjection	caching	missing	
 polySphericalProjection	cch	missing	
 polySphericalProjection	ch	done	auto
-polySphericalProjection	cm	missing	
+polySphericalProjection	cm	done	auto
 polySphericalProjection	constructionHistory	done	auto
-polySphericalProjection	createNewMap	missing	
+polySphericalProjection	createNewMap	done	auto
 polySphericalProjection	e	missing	
 polySphericalProjection	edit	missing	
-polySphericalProjection	ibd	missing	
+polySphericalProjection	ibd	done	auto
 polySphericalProjection	ic	missing	
-polySphericalProjection	icx	missing	
-polySphericalProjection	icy	missing	
+polySphericalProjection	icx	done	auto
+polySphericalProjection	icy	done	auto
 polySphericalProjection	imageCenter	missing	
-polySphericalProjection	imageCenterX	missing	
-polySphericalProjection	imageCenterY	missing	
+polySphericalProjection	imageCenterX	done	auto
+polySphericalProjection	imageCenterY	done	auto
 polySphericalProjection	imageScale	missing	
-polySphericalProjection	imageScaleU	missing	
-polySphericalProjection	imageScaleV	missing	
-polySphericalProjection	insertBeforeDeformers	missing	
-polySphericalProjection	isu	missing	
-polySphericalProjection	isv	missing	
-polySphericalProjection	keepImageRatio	missing	
-polySphericalProjection	kir	missing	
+polySphericalProjection	imageScaleU	done	auto
+polySphericalProjection	imageScaleV	done	auto
+polySphericalProjection	insertBeforeDeformers	done	auto
+polySphericalProjection	isu	done	auto
+polySphericalProjection	isv	done	auto
+polySphericalProjection	keepImageRatio	done	auto
+polySphericalProjection	kir	done	auto
 polySphericalProjection	mapDirection	done	auto
 polySphericalProjection	md	done	auto
 polySphericalProjection	n	missing	
@@ -27274,41 +27274,41 @@ polySphericalProjection	name	missing
 polySphericalProjection	nds	missing	
 polySphericalProjection	nodeState	missing	
 polySphericalProjection	pc	missing	
-polySphericalProjection	pcx	missing	
-polySphericalProjection	pcy	missing	
-polySphericalProjection	pcz	missing	
+polySphericalProjection	pcx	done	auto
+polySphericalProjection	pcy	done	auto
+polySphericalProjection	pcz	done	auto
 polySphericalProjection	perInstance	missing	
 polySphericalProjection	phs	missing	
 polySphericalProjection	pi	missing	
 polySphericalProjection	projectionCenter	missing	
-polySphericalProjection	projectionCenterX	missing	
-polySphericalProjection	projectionCenterY	missing	
-polySphericalProjection	projectionCenterZ	missing	
+polySphericalProjection	projectionCenterX	done	auto
+polySphericalProjection	projectionCenterY	done	auto
+polySphericalProjection	projectionCenterZ	done	auto
 polySphericalProjection	projectionHorizontalSweep	missing	
 polySphericalProjection	projectionScale	missing	
-polySphericalProjection	projectionScaleU	missing	
-polySphericalProjection	projectionScaleV	missing	
+polySphericalProjection	projectionScaleU	done	auto
+polySphericalProjection	projectionScaleV	done	auto
 polySphericalProjection	ps	missing	
-polySphericalProjection	psu	missing	
-polySphericalProjection	psv	missing	
+polySphericalProjection	psu	done	auto
+polySphericalProjection	psv	done	auto
 polySphericalProjection	q	missing	
 polySphericalProjection	query	missing	
 polySphericalProjection	r	missing	
-polySphericalProjection	ra	missing	
+polySphericalProjection	ra	done	auto
 polySphericalProjection	radius	missing	
 polySphericalProjection	ro	missing	
 polySphericalProjection	rotate	missing	
-polySphericalProjection	rotateX	missing	
-polySphericalProjection	rotateY	missing	
-polySphericalProjection	rotateZ	missing	
-polySphericalProjection	rotationAngle	missing	
-polySphericalProjection	rx	missing	
-polySphericalProjection	ry	missing	
-polySphericalProjection	rz	missing	
-polySphericalProjection	sc	missing	
-polySphericalProjection	seamCorrect	missing	
-polySphericalProjection	sf	missing	
-polySphericalProjection	smartFit	missing	
+polySphericalProjection	rotateX	done	auto
+polySphericalProjection	rotateY	done	auto
+polySphericalProjection	rotateZ	done	auto
+polySphericalProjection	rotationAngle	done	auto
+polySphericalProjection	rx	done	auto
+polySphericalProjection	ry	done	auto
+polySphericalProjection	rz	done	auto
+polySphericalProjection	sc	done	auto
+polySphericalProjection	seamCorrect	done	auto
+polySphericalProjection	sf	done	auto
+polySphericalProjection	smartFit	done	auto
 polySphericalProjection	worldSpace	missing	
 polySphericalProjection	ws	missing	
 polySplit	adjustEdgeFlow	done	auto
@@ -27892,12 +27892,12 @@ posePanel	unParent	done	auto
 posePanel	up	done	auto
 posePanel	useTemplate	done	auto
 posePanel	ut	done	auto
-preferredRenderer	f	missing	
-preferredRenderer	fallback	missing	
-preferredRenderer	makeCurrent	missing	
-preferredRenderer	mc	missing	
-preferredRenderer	q	missing	
-preferredRenderer	query	missing	
+preferredRenderer	f	done	auto
+preferredRenderer	fallback	done	auto
+preferredRenderer	makeCurrent	done	auto
+preferredRenderer	mc	done	auto
+preferredRenderer	q	done	auto
+preferredRenderer	query	done	auto
 preloadRefEd	control	missing	
 preloadRefEd	ctl	missing	
 preloadRefEd	defineTemplate	missing	
@@ -29483,100 +29483,100 @@ renderWindowSelectContext	image2	missing
 renderWindowSelectContext	image3	missing	
 renderWindowSelectContext	q	missing	
 renderWindowSelectContext	query	missing	
-renderer	addGlobalsNode	missing	
-renderer	addGlobalsTab	missing	
-renderer	agn	missing	
-renderer	agt	missing	
-renderer	ava	missing	
-renderer	batchRenderOptionsProcedure	missing	
-renderer	batchRenderOptionsStringProcedure	missing	
-renderer	batchRenderProcedure	missing	
-renderer	br	missing	
-renderer	brl	missing	
-renderer	bro	missing	
-renderer	bso	missing	
-renderer	cancelBatchRenderProcedure	missing	
-renderer	cbr	missing	
-renderer	changeIprRegionProcedure	missing	
-renderer	cir	missing	
-renderer	commandRenderProcedure	missing	
-renderer	cr	missing	
-renderer	e	missing	
-renderer	edit	missing	
-renderer	ex	missing	
-renderer	exists	missing	
-renderer	globalsNodes	missing	
-renderer	globalsTabCreateProcNames	missing	
-renderer	globalsTabLabels	missing	
-renderer	globalsTabUpdateProcNames	missing	
-renderer	gn	missing	
-renderer	gtc	missing	
-renderer	gtl	missing	
-renderer	gtu	missing	
-renderer	io	missing	
-renderer	ipm	missing	
-renderer	ipr	missing	
-renderer	iprOptionsMenuLabel	missing	
-renderer	iprOptionsProcedure	missing	
-renderer	iprOptionsSubMenuProcedure	missing	
-renderer	iprRenderProcedure	missing	
-renderer	iprRenderSubMenuProcedure	missing	
-renderer	ips	missing	
-renderer	irs	missing	
-renderer	isRunningIprProcedure	missing	
-renderer	isr	missing	
-renderer	lgc	missing	
-renderer	log	missing	
-renderer	logoCallbackProcedure	missing	
-renderer	logoImageName	missing	
-renderer	materialViewRendererList	missing	
-renderer	materialViewRendererPause	missing	
-renderer	materialViewRendererSuspend	missing	
-renderer	mvl	missing	
-renderer	mvp	missing	
-renderer	mvs	missing	
-renderer	namesOfAvailableRenderers	missing	
-renderer	pauseIprRenderProcedure	missing	
-renderer	polyPrelightProcedure	missing	
-renderer	pp	missing	
-renderer	psi	missing	
-renderer	q	missing	
-renderer	query	missing	
-renderer	r	missing	
-renderer	rd	missing	
-renderer	refreshIprRenderProcedure	missing	
-renderer	renderDiagnosticsProcedure	missing	
-renderer	renderGlobalsProcedure	missing	
-renderer	renderMenuProcedure	missing	
-renderer	renderOptionsProcedure	missing	
-renderer	renderProcedure	missing	
-renderer	renderRegionProcedure	missing	
-renderer	renderSequenceProcedure	missing	
-renderer	rendererUIName	missing	
-renderer	renderingEditorsSubMenuProcedure	missing	
-renderer	res	missing	
-renderer	rfi	missing	
-renderer	rg	missing	
-renderer	rm	missing	
-renderer	ro	missing	
-renderer	rr	missing	
-renderer	rs	missing	
-renderer	sbr	missing	
-renderer	scm	missing	
-renderer	showBatchRenderLogProcedure	missing	
-renderer	showBatchRenderProcedure	missing	
-renderer	showRenderLogProcedure	missing	
-renderer	spi	missing	
-renderer	srl	missing	
-renderer	startIprRenderProcedure	missing	
-renderer	sti	missing	
-renderer	stopIprRenderProcedure	missing	
-renderer	supportColorManagement	missing	
-renderer	tb	missing	
-renderer	textureBakingProcedure	missing	
-renderer	ui	missing	
-renderer	unr	missing	
-renderer	unregisterRenderer	missing	
+renderer	addGlobalsNode	done	auto
+renderer	addGlobalsTab	done	auto
+renderer	agn	done	auto
+renderer	agt	done	auto
+renderer	ava	done	auto
+renderer	batchRenderOptionsProcedure	done	auto
+renderer	batchRenderOptionsStringProcedure	done	auto
+renderer	batchRenderProcedure	done	auto
+renderer	br	done	auto
+renderer	brl	done	auto
+renderer	bro	done	auto
+renderer	bso	done	auto
+renderer	cancelBatchRenderProcedure	done	auto
+renderer	cbr	done	auto
+renderer	changeIprRegionProcedure	done	auto
+renderer	cir	done	auto
+renderer	commandRenderProcedure	done	auto
+renderer	cr	done	auto
+renderer	e	done	auto
+renderer	edit	done	auto
+renderer	ex	done	auto
+renderer	exists	done	auto
+renderer	globalsNodes	done	auto
+renderer	globalsTabCreateProcNames	done	auto
+renderer	globalsTabLabels	done	auto
+renderer	globalsTabUpdateProcNames	done	auto
+renderer	gn	done	auto
+renderer	gtc	done	auto
+renderer	gtl	done	auto
+renderer	gtu	done	auto
+renderer	io	done	auto
+renderer	ipm	done	auto
+renderer	ipr	done	auto
+renderer	iprOptionsMenuLabel	done	auto
+renderer	iprOptionsProcedure	done	auto
+renderer	iprOptionsSubMenuProcedure	done	auto
+renderer	iprRenderProcedure	done	auto
+renderer	iprRenderSubMenuProcedure	done	auto
+renderer	ips	done	auto
+renderer	irs	done	auto
+renderer	isRunningIprProcedure	done	auto
+renderer	isr	done	auto
+renderer	lgc	done	auto
+renderer	log	done	auto
+renderer	logoCallbackProcedure	done	auto
+renderer	logoImageName	done	auto
+renderer	materialViewRendererList	done	auto
+renderer	materialViewRendererPause	done	auto
+renderer	materialViewRendererSuspend	done	auto
+renderer	mvl	done	auto
+renderer	mvp	done	auto
+renderer	mvs	done	auto
+renderer	namesOfAvailableRenderers	done	auto
+renderer	pauseIprRenderProcedure	done	auto
+renderer	polyPrelightProcedure	done	auto
+renderer	pp	done	auto
+renderer	psi	done	auto
+renderer	q	done	auto
+renderer	query	done	auto
+renderer	r	done	auto
+renderer	rd	done	auto
+renderer	refreshIprRenderProcedure	done	auto
+renderer	renderDiagnosticsProcedure	done	auto
+renderer	renderGlobalsProcedure	done	auto
+renderer	renderMenuProcedure	done	auto
+renderer	renderOptionsProcedure	done	auto
+renderer	renderProcedure	done	auto
+renderer	renderRegionProcedure	done	auto
+renderer	renderSequenceProcedure	done	auto
+renderer	rendererUIName	done	auto
+renderer	renderingEditorsSubMenuProcedure	done	auto
+renderer	res	done	auto
+renderer	rfi	done	auto
+renderer	rg	done	auto
+renderer	rm	done	auto
+renderer	ro	done	auto
+renderer	rr	done	auto
+renderer	rs	done	auto
+renderer	sbr	done	auto
+renderer	scm	done	auto
+renderer	showBatchRenderLogProcedure	done	auto
+renderer	showBatchRenderProcedure	done	auto
+renderer	showRenderLogProcedure	done	auto
+renderer	spi	done	auto
+renderer	srl	done	auto
+renderer	startIprRenderProcedure	done	auto
+renderer	sti	done	auto
+renderer	stopIprRenderProcedure	done	auto
+renderer	supportColorManagement	done	auto
+renderer	tb	done	auto
+renderer	textureBakingProcedure	done	auto
+renderer	ui	done	auto
+renderer	unr	done	auto
+renderer	unregisterRenderer	done	auto
 reorder	b	done	auto
 reorder	back	done	auto
 reorder	f	done	auto
@@ -30210,61 +30210,61 @@ rowLayout	visible	done	auto
 rowLayout	visibleChangeCommand	done	auto
 rowLayout	w	done	auto
 rowLayout	width	done	auto
-runTimeCommand	addKeyword	missing	
-runTimeCommand	addTag	missing	
-runTimeCommand	ak	missing	
+runTimeCommand	addKeyword	done	auto
+runTimeCommand	addTag	done	auto
+runTimeCommand	ak	done	auto
 runTimeCommand	ann	done	auto
 runTimeCommand	annotation	done	auto
-runTimeCommand	at	missing	
+runTimeCommand	at	done	auto
 runTimeCommand	c	done	auto
-runTimeCommand	ca	missing	
-runTimeCommand	caa	missing	
+runTimeCommand	ca	done	auto
+runTimeCommand	caa	done	auto
 runTimeCommand	cat	done	auto
 runTimeCommand	category	done	auto
-runTimeCommand	categoryArray	missing	
+runTimeCommand	categoryArray	done	auto
 runTimeCommand	cl	done	auto
 runTimeCommand	command	done	auto
-runTimeCommand	commandArray	missing	
+runTimeCommand	commandArray	done	auto
 runTimeCommand	commandLanguage	done	auto
 runTimeCommand	d	done	auto
-runTimeCommand	dca	missing	
+runTimeCommand	dca	done	auto
 runTimeCommand	default	done	auto
-runTimeCommand	defaultCommandArray	missing	
+runTimeCommand	defaultCommandArray	done	auto
 runTimeCommand	delete	done	auto
 runTimeCommand	e	done	auto
 runTimeCommand	edit	done	auto
 runTimeCommand	ex	done	auto
 runTimeCommand	exists	done	auto
-runTimeCommand	hc	missing	
-runTimeCommand	helpUrl	missing	
-runTimeCommand	hotkeyCtx	missing	
-runTimeCommand	i	missing	
-runTimeCommand	image	missing	
-runTimeCommand	k	missing	
-runTimeCommand	keywords	missing	
-runTimeCommand	l	missing	
-runTimeCommand	la	missing	
-runTimeCommand	label	missing	
-runTimeCommand	longAnnotation	missing	
-runTimeCommand	nc	missing	
-runTimeCommand	ndc	missing	
-runTimeCommand	nuc	missing	
-runTimeCommand	numberOfCommands	missing	
-runTimeCommand	numberOfDefaultCommands	missing	
-runTimeCommand	numberOfUserCommands	missing	
-runTimeCommand	p	missing	
-runTimeCommand	plugin	missing	
+runTimeCommand	hc	done	auto
+runTimeCommand	helpUrl	done	auto
+runTimeCommand	hotkeyCtx	done	auto
+runTimeCommand	i	done	auto
+runTimeCommand	image	done	auto
+runTimeCommand	k	done	auto
+runTimeCommand	keywords	done	auto
+runTimeCommand	l	done	auto
+runTimeCommand	la	done	auto
+runTimeCommand	label	done	auto
+runTimeCommand	longAnnotation	done	auto
+runTimeCommand	nc	done	auto
+runTimeCommand	ndc	done	auto
+runTimeCommand	nuc	done	auto
+runTimeCommand	numberOfCommands	done	auto
+runTimeCommand	numberOfDefaultCommands	done	auto
+runTimeCommand	numberOfUserCommands	done	auto
+runTimeCommand	p	done	auto
+runTimeCommand	plugin	done	auto
 runTimeCommand	q	done	auto
 runTimeCommand	query	done	auto
-runTimeCommand	s	missing	
-runTimeCommand	save	missing	
-runTimeCommand	she	missing	
-runTimeCommand	showInHotkeyEditor	missing	
-runTimeCommand	t	missing	
-runTimeCommand	tags	missing	
-runTimeCommand	uca	missing	
-runTimeCommand	url	missing	
-runTimeCommand	userCommandArray	missing	
+runTimeCommand	s	done	auto
+runTimeCommand	save	done	auto
+runTimeCommand	she	done	auto
+runTimeCommand	showInHotkeyEditor	done	auto
+runTimeCommand	t	done	auto
+runTimeCommand	tags	done	auto
+runTimeCommand	uca	done	auto
+runTimeCommand	url	done	auto
+runTimeCommand	userCommandArray	done	auto
 runup	cache	missing	
 runup	cch	missing	
 runup	fpf	missing	
@@ -32549,17 +32549,17 @@ sets	add	done	auto
 sets	addElement	done	auto
 sets	af	missing	
 sets	afterFilters	missing	
-sets	am	missing	
-sets	anyMember	missing	
+sets	am	done	auto
+sets	anyMember	done	auto
 sets	channelSetColor	missing	
 sets	channelSetColorIndex	missing	
 sets	cl	done	auto
 sets	clear	done	auto
-sets	co	missing	
+sets	co	done	auto
 sets	coi	missing	
-sets	color	missing	
-sets	copy	missing	
-sets	cp	missing	
+sets	color	done	auto
+sets	copy	done	auto
+sets	cp	done	auto
 sets	csc	missing	
 sets	e	done	auto
 sets	edges	done	auto
@@ -32582,20 +32582,20 @@ sets	int	done	auto
 sets	intersection	done	auto
 sets	isIntersecting	done	auto
 sets	isMember	done	auto
-sets	l	missing	
-sets	layer	missing	
+sets	l	done	auto
+sets	layer	done	auto
 sets	n	done	auto
 sets	name	done	auto
-sets	ni	missing	
-sets	no	missing	
-sets	noIntermediate	missing	
+sets	ni	done	auto
+sets	no	done	auto
+sets	noIntermediate	done	auto
 sets	noSurfaceShader	done	auto
 sets	noWarnings	done	auto
-sets	nodesOnly	missing	
+sets	nodesOnly	done	auto
 sets	nss	done	auto
 sets	nw	done	auto
-sets	o	missing	
-sets	ordered	missing	
+sets	o	done	auto
+sets	ordered	done	auto
 sets	q	done	auto
 sets	query	done	auto
 sets	r	done	auto
@@ -32604,8 +32604,8 @@ sets	renderable	done	auto
 sets	rm	done	auto
 sets	s	done	auto
 sets	size	done	auto
-sets	sp	missing	
-sets	split	missing	
+sets	sp	done	auto
+sets	split	done	auto
 sets	sub	done	auto
 sets	subtract	done	auto
 sets	t	done	auto
@@ -37028,10 +37028,10 @@ timeControl	acn	missing
 timeControl	alf	missing	
 timeControl	animCurveNames	missing	
 timeControl	animLayerFilterOptions	missing	
-timeControl	animLayerShowWeight	missing	
+timeControl	animLayerShowWeight	done	auto
 timeControl	ann	missing	
 timeControl	annotation	missing	
-timeControl	asw	missing	
+timeControl	asw	done	auto
 timeControl	backgroundColor	missing	
 timeControl	beginScrub	done	auto
 timeControl	bgc	missing	
@@ -37111,9 +37111,9 @@ timeControl	rv	done	auto
 timeControl	s	done	auto
 timeControl	sbm	missing	
 timeControl	showKeys	done	auto
-timeControl	showKeysCombined	missing	
+timeControl	showKeysCombined	done	auto
 timeControl	sk	done	auto
-timeControl	skc	missing	
+timeControl	skc	done	auto
 timeControl	sn	missing	
 timeControl	snap	done	auto
 timeControl	sound	done	auto
@@ -39740,7 +39740,7 @@ window	leftEdge	done	auto
 window	ma	done	auto
 window	mainMenuBar	missing	
 window	mainWindow	done	auto
-window	maximizeButton	missing	
+window	maximizeButton	done	auto
 window	mb	done	auto
 window	mbr	missing	
 window	mbv	done	auto
@@ -39752,7 +39752,7 @@ window	menuBarResize	missing
 window	menuBarVisible	done	auto
 window	menuIndex	missing	
 window	mi	missing	
-window	minimizeButton	missing	
+window	minimizeButton	done	auto
 window	minimizeCommand	done	auto
 window	mm	missing	
 window	mnb	done	auto

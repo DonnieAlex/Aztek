@@ -510,7 +510,7 @@ license	missing
 lightList	missing	
 lightlink	done	auto
 linearPrecision	missing	
-listAnimatable	missing	
+listAnimatable	done	auto
 listAttr	done	auto
 listAttrPatterns	missing	
 listCameras	done	auto
@@ -828,7 +828,7 @@ popupMenu	done	auto
 pose	done	auto
 poseEditor	done	auto
 posePanel	done	auto
-preferredRenderer	missing	
+preferredRenderer	done	auto
 preloadRefEd	missing	
 prepareRender	missing	
 profiler	missing	
@@ -888,7 +888,7 @@ renderSettings	done	auto
 renderThumbnailUpdate	missing	
 renderWindowEditor	done	auto
 renderWindowSelectContext	missing	
-renderer	missing	
+renderer	done	auto
 reorder	done	auto
 reorderContainer	missing	
 reorderDeformers	done	auto
