@@ -53,9 +53,9 @@ Rust. Every build fetches Qt 6.12.0, Python 3.12 and PySide6 6.12.0 and puts the
 in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked there yet.
 
 **Windows**, from PowerShell or a command prompt: Visual Studio 2022 (or its Build Tools) with "Desktop development with
-C++", Rust from [rustup](https://rustup.rs) and CMake. Every build fetches Qt 6.12.0 for MSVC 2022, Python 3.12 and
-PySide6 6.12.0 into `build\`, builds against them, and makes a folder in `build\dist` that runs by itself: Qt's DLLs, the
-VC runtime, Python and PySide6 beside `aztek.exe`.
+C++", Rust from [rustup](https://rustup.rs) and CMake. Every build fetches Qt 6.10.1 for MSVC 2022 (Qt publishes no
+6.12 kit for Windows), Python 3.12 and PySide6 6.10.1 into `build\`, builds against them, and makes a folder in
+`build\dist` that runs by itself: Qt's DLLs, the VC runtime, Python and PySide6 beside `aztek.exe`.
 
 **By hand**, on any of them, after the build script has fetched them: CMake needs the kit `tools/bundle/versions.sh`
 names (`build/qt/6.12.0/gcc_64`, or `build/qt/6.8.3/gcc_64` on Rocky 8) on its `CMAKE_PREFIX_PATH`, and
@@ -615,10 +615,10 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
 | macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
 
-Every package carries Python 3.12 and PySide6/shiboken6 at its Qt version, which is Qt 6.12.0 on current systems, so
-none needs Qt or Python installed. Rocky 8 and the AppImage built there carry 6.8.3, the newest whose Linux wheel runs on
-that C library. The ARM AppImage is the other exception: it uses Rocky 9's Qt and has no PySide6, as there is no arm64
-Linux kit or wheel.
+Every package carries Python 3.12 and PySide6/shiboken6 at its Qt version: 6.12.0 on Linux and macOS, 6.10.1 on
+Windows (Qt publishes no 6.12 kit for it), and 6.8.3 on Rocky 8 and the AppImage built there, the newest whose Linux
+wheel runs on that C library. None needs Qt or Python installed. The ARM AppImage is the other exception: it uses
+Rocky 9's Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
 draws through MoltenVK, which comes inside Aztek.app.

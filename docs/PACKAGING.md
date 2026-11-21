@@ -21,13 +21,13 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 | `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | 6.12.0 bundled | 3.12 bundled |
 | `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | 6.12.0 bundled | 3.12 bundled |
 | `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | 6.12.0 bundled | 3.12 bundled |
-| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.12.0 bundled | 3.12 bundled |
-| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.12.0 bundled | 3.12 bundled |
+| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.10.1 bundled | 3.12 bundled |
+| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.10.1 bundled | 3.12 bundled |
 | `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | 6.12.0 bundled | 3.12 bundled |
 | `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `build.sh`, `packaging/appimage/pack-appimage.sh` | 6.8.3 bundled | 3.12 bundled |
 | `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.12 bundled |
 
-Every package except the ARM AppImage carries Python 3.12 and PySide6/shiboken6 at its Qt version: 6.12.0, or 6.8.3 on
+Every package except the ARM AppImage carries Python 3.12 and PySide6/shiboken6 at its Qt version: 6.12.0 on Linux and macOS, 6.10.1 on Windows, or 6.8.3 on
 Rocky 8 and the AppImage built there, whose C library is older than 6.12's Linux wheels need. The ARM AppImage is the
 other exception: it uses Rocky 9's Qt and goes without PySide6, as there is no arm64 Linux kit or wheel.
 
@@ -106,9 +106,9 @@ libraries the bundle still takes (X11, fontconfig, glib, freetype) come from the
 
 ## Windows
 
-`build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt 6.12.0 from `windeployqt`, the
+`build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt 6.10.1 from `windeployqt`, the
 VC runtime copied beside the exe, Python 3.12's DLL with its standard library in `Lib` and its extension modules in
-`DLLs`, and PySide6/shiboken6 6.12.0 in `Lib\site-packages`. Qt and Python are fetched into `build\` by
+`DLLs`, and PySide6/shiboken6 6.10.1 in `Lib\site-packages`. Qt and Python are fetched into `build\` by
 `tools\qt\fetch-qt.ps1` and `tools\python\fetch-python.ps1`, and PySide6 by `tools\python\fetch-pyside.ps1`; none is
 taken from the machine. The installer carries the folder, so it needs no Qt or Python where it installs.
 
