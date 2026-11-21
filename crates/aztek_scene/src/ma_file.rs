@@ -6337,6 +6337,8 @@ pub struct PluginTranslator {
     pub write: bool,
     pub owner: String,
     pub default_options: String,
+    /// The MEL procedure that posts its options in the file dialogs, or "".
+    pub options_script: String,
 }
 
 /// What runs a plug-in's translator: (session, translator, "open" | "import" | "reference" | "exportAll" |

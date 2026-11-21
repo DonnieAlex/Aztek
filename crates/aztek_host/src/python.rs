@@ -224,8 +224,8 @@ fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32
 
 /// A plug-in's file translator (MPxFileTranslator): `file` hands its type's files to the plug-in's reader and writer.
 #[pyfunction]
-#[pyo3(signature = (name, owner, extension, read, write, default_options=""))]
-fn register_translator(name: &str, owner: &str, extension: &str, read: bool, write: bool, default_options: &str) {
+#[pyo3(signature = (name, owner, extension, read, write, default_options="", options_script=""))]
+fn register_translator(name: &str, owner: &str, extension: &str, read: bool, write: bool, default_options: &str, options_script: &str) {
     static HOOKED: std::sync::Once = std::sync::Once::new();
     HOOKED.call_once(|| {
         aztek_scene::ma_file::set_translator_hook(Arc::new(|s: &mut Session, name: &str, mode: &str, path: &str, options: &str| {
@@ -240,6 +240,7 @@ fn register_translator(name: &str, owner: &str, extension: &str, read: bool, wri
         write,
         owner: owner.to_string(),
         default_options: default_options.to_string(),
+        options_script: options_script.to_string(),
     });
 }
 

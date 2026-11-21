@@ -1097,6 +1097,26 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(
+        Cmd::new(
+            "toolDropped",
+            "Runs what recreates a tool's button where the tool was dropped: a toolButton for it in the current layout, \
+             in the current tool collection, showing the tool's image.",
+            |s, a| {
+                let Some(t) = a.pos_str(0).filter(|t| !t.is_empty()).map(str::to_string) else { fail!("toolDropped: name a tool.") };
+                let image = prop(&t, "image1").as_str().unwrap_or("").to_string();
+                let mut call = json!({ "tool": [t.clone()] });
+                if !image.is_empty() {
+                    call["image1"] = json!(image);
+                    call["toolImage1"] = json!([t, image]);
+                }
+                s.run("toolButton", call)?;
+                Ok(Value::Null)
+            },
+        )
+        .positional("tool"),
+    );
+
+    s.register(
         Cmd::new("contextInfo", "About a tool context: -ex whether it exists, -c its class, -t its title; -esc the command that leaves the current tool.", |_s, a| {
             if a.bool("escapeContext") {
                 // Leaving a tool goes back to the select tool, as Escape does.

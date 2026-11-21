@@ -720,21 +720,215 @@ pub fn set_current_workspace(name: &str) {
     }
 }
 
-fn workspace_cmd(_s: &mut Session, a: &Args) -> CmdResult {
-    if a.bool("listLayouts") {
-        return Ok(json!(WORKSPACES));
+/// What workspaceLayoutManager keeps for the session: the layouts changed since they were loaded or saved, the callbacks
+/// it was given, and whether the main window's controls are collapsed.
+#[derive(Default)]
+struct Layouts {
+    modified: std::collections::BTreeSet<String>,
+    set_current_cb: String,
+    set_modified_cb: String,
+    collapsed: bool,
+}
+
+static LAYOUTS: Mutex<Option<Layouts>> = Mutex::new(None);
+
+fn with_layouts<R>(f: impl FnOnce(&mut Layouts) -> R) -> R {
+    let mut g = LAYOUTS.lock().unwrap_or_else(|e| e.into_inner());
+    f(g.get_or_insert_with(Layouts::default))
+}
+
+/// Where layouts saved by the user are: a `.json` file each, in the preferences' `workspaces` folder.
+fn workspaces_dir() -> PathBuf {
+    prefs_base().join("workspaces")
+}
+
+fn layout_files(dir: &Path) -> Vec<String> {
+    let Ok(rd) = std::fs::read_dir(dir) else { return Vec::new() };
+    let mut v: Vec<String> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).filter_map(|p| p.file_stem().map(|x| x.to_string_lossy().into_owned())).collect();
+    v.sort();
+    v
+}
+
+/// Layouts modules bring, from each module's `workspaces` folder.
+fn module_layouts() -> Vec<String> {
+    let mut v = Vec::new();
+    for m in modules() {
+        for n in layout_files(&m.path.join("workspaces")) {
+            if !v.contains(&n) {
+                v.push(n);
+            }
+        }
     }
-    let current = CURRENT_WORKSPACE.lock().map(|c| c.clone()).unwrap_or_default();
+    v
+}
+
+fn current_layout() -> String {
+    let c = CURRENT_WORKSPACE.lock().map(|c| c.clone()).unwrap_or_default();
+    if c.is_empty() {
+        "General".to_string()
+    } else {
+        c
+    }
+}
+
+/// FACTORY, MODULE or USER, with _OVERRIDE where the user saved over a factory or module layout; None when unknown.
+fn layout_type(name: &str) -> Option<&'static str> {
+    let user = workspaces_dir().join(format!("{name}.json")).is_file();
+    if WORKSPACES.contains(&name) {
+        Some(if user { "FACTORY_OVERRIDE" } else { "FACTORY" })
+    } else if module_layouts().iter().any(|m| m == name) {
+        Some(if user { "MODULE_OVERRIDE" } else { "MODULE" })
+    } else if user {
+        Some("USER")
+    } else {
+        None
+    }
+}
+
+fn mel_string(t: &str) -> String {
+    format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// The current layout was changed (a workspace control docked, floated, closed or resized): it is modified, and
+/// -setModifiedCallback hears when that is new.
+pub fn layout_modified() {
+    set_modified(&current_layout(), true);
+}
+
+fn set_modified(name: &str, on: bool) {
+    let cb = with_layouts(|l| {
+        let changed = if on { l.modified.insert(name.to_string()) } else { l.modified.remove(name) };
+        (changed && !l.set_modified_cb.is_empty()).then(|| l.set_modified_cb.clone())
+    });
+    if let Some(p) = cb {
+        crate::scriptui::run_soon(json!(p), Vec::new());
+    }
+}
+
+/// Saves the current arrangement under a name: the file marks it as the user's, the window keeps the arrangement.
+fn save_layout(name: &str) -> Result<(), CommandError> {
+    let dir = workspaces_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| CommandError::new(format!("workspaceLayoutManager: {}: {e}", dir.display())))?;
+    let file = dir.join(format!("{name}.json"));
+    let body = json!({ "name": name, "type": if WORKSPACES.contains(&name) { "FACTORY_OVERRIDE" } else { "USER" } });
+    std::fs::write(&file, serde_json::to_string_pretty(&body).unwrap_or_default()).map_err(|e| CommandError::new(format!("workspaceLayoutManager: {}: {e}", file.display())))?;
+    crate::core::push_ui_request(format!("workspaceSave|{name}"));
+    set_modified(name, false);
+    Ok(())
+}
+
+fn workspace_cmd(_s: &mut Session, a: &Args) -> CmdResult {
+    let err = |m: String| CommandError::new(format!("workspaceLayoutManager: {m}"));
+    if let Some(p) = a.get("setCurrentCallback").and_then(Value::as_str) {
+        with_layouts(|l| l.set_current_cb = p.to_string());
+    }
+    if let Some(p) = a.get("setModifiedCallback").and_then(Value::as_str) {
+        with_layouts(|l| l.set_modified_cb = p.to_string());
+    }
+    if a.bool("listLayouts") {
+        let mut all: Vec<String> = WORKSPACES.iter().map(|s| s.to_string()).collect();
+        for n in module_layouts().into_iter().chain(layout_files(&workspaces_dir())) {
+            if !all.contains(&n) {
+                all.push(n);
+            }
+        }
+        return Ok(json!(all));
+    }
+    if a.bool("listUserLayouts") {
+        return Ok(json!(layout_files(&workspaces_dir()).into_iter().filter(|n| layout_type(n) == Some("USER")).collect::<Vec<_>>()));
+    }
+    if a.bool("listModuleLayouts") {
+        return Ok(json!(module_layouts()));
+    }
+    if let Some(n) = a.get("type").and_then(Value::as_str) {
+        return layout_type(n).map(|t| json!(t)).ok_or_else(|| err(format!("no layout named {n}")));
+    }
+    if let Some(n) = a.get("modified").and_then(Value::as_str) {
+        if layout_type(n).is_none() {
+            return Err(err(format!("no layout named {n}")));
+        }
+        return Ok(json!(with_layouts(|l| l.modified.contains(n))));
+    }
+    if let Some(n) = a.get("parentWorkspaceControl").and_then(Value::as_str) {
+        return Ok(json!(crate::scriptui::parent_workspace_control(n)));
+    }
+    let current = current_layout();
     if a.bool("query") || a.bool("current") && a.get("setCurrent").is_none() {
-        return Ok(json!(if current.is_empty() { "General".to_string() } else { current }));
+        return Ok(json!(current));
     }
     if let Some(name) = a.get("setCurrent").and_then(Value::as_str) {
+        if layout_type(name).is_none() {
+            return Err(err(format!("no layout named {name}")));
+        }
         set_current_workspace(name);
         crate::core::push_ui_request(format!("workspace|{name}"));
+        set_modified(name, false);
+        let cb = with_layouts(|l| l.set_current_cb.clone());
+        if !cb.is_empty() {
+            crate::scriptui::run_soon(json!(format!("{cb} {}", mel_string(name))), Vec::new());
+        }
         return Ok(json!(name));
     }
     if a.bool("reset") {
-        crate::core::push_ui_request(format!("workspaceReset|{current}"));
+        // A factory layout goes back as it ships; one of the user's is read again from its file.
+        if layout_type(&current) == Some("USER") {
+            crate::core::push_ui_request(format!("workspace|{current}"));
+        } else {
+            crate::core::push_ui_request(format!("workspaceReset|{current}"));
+        }
+        set_modified(&current, false);
+        return Ok(Value::Null);
+    }
+    if a.bool("save") {
+        save_layout(&current)?;
+        return Ok(Value::Null);
+    }
+    if let Some(name) = a.get("saveAs").and_then(Value::as_str) {
+        if name.is_empty() {
+            return Err(err("-saveAs needs a name".into()));
+        }
+        save_layout(name)?;
+        set_current_workspace(name);
+        return Ok(Value::Null);
+    }
+    if let Some(name) = a.get("delete").and_then(Value::as_str) {
+        let file = workspaces_dir().join(format!("{name}.json"));
+        if !file.is_file() {
+            return Err(err(format!("{name} is not a layout of the user's")));
+        }
+        std::fs::remove_file(&file).map_err(|e| err(format!("{}: {e}", file.display())))?;
+        crate::core::push_ui_request(format!("workspaceDelete|{name}"));
+        with_layouts(|l| l.modified.remove(name));
+        if current == name && layout_type(name).is_none() {
+            set_current_workspace("General");
+            crate::core::push_ui_request("workspace|General".to_string());
+        }
+        return Ok(Value::Null);
+    }
+    if let Some(path) = a.get("import").and_then(Value::as_str) {
+        let from = PathBuf::from(expand(path));
+        let (Some(stem), true) = (from.file_stem().map(|x| x.to_string_lossy().into_owned()), from.is_file()) else { return Err(err(format!("{path} is not a file"))) };
+        let dir = workspaces_dir();
+        std::fs::create_dir_all(&dir).map_err(|e| err(format!("{}: {e}", dir.display())))?;
+        std::fs::copy(&from, dir.join(format!("{stem}.json"))).map_err(|e| err(format!("{path}: {e}")))?;
+        return Ok(json!(stem));
+    }
+    if let Some(v) = a.get("collapseMainWindowControls") {
+        let list: Vec<Value> = match v {
+            Value::Array(x) => x.clone(),
+            o => vec![o.clone()],
+        };
+        let keep = list.first().and_then(Value::as_str).unwrap_or("").to_string();
+        let hide = list.get(1).is_some_and(|x| x.as_bool().unwrap_or_else(|| x.as_f64().is_some_and(|n| n != 0.0)));
+        with_layouts(|l| l.collapsed = true);
+        crate::core::push_ui_request(format!("workspaceCollapse|{keep}|{}", hide as i32));
+        return Ok(Value::Null);
+    }
+    if a.bool("restoreMainWindowControls") {
+        if with_layouts(|l| std::mem::replace(&mut l.collapsed, false)) {
+            crate::core::push_ui_request("workspaceRestore|".to_string());
+        }
+        return Ok(Value::Null);
     }
     Ok(Value::Null)
 }
@@ -864,7 +1058,20 @@ pub fn register_commands(s: &mut Session) {
         .flag(FlagDef::new("setCurrent", "sc", ArgType::String, Value::Null, "Switch to this workspace."))
         .flag(b("current", "cu", "Query: the workspace shown."))
         .flag(b("listLayouts", "ll", "The workspaces there are."))
-        .flag(b("reset", "rs", "The current workspace as it ships."))
+        .flag(b("listUserLayouts", "lul", "The workspaces the user saved."))
+        .flag(b("listModuleLayouts", "lml", "The workspaces modules bring."))
+        .flag(b("reset", "rs", "The current workspace as it ships, or as its file has it for one of the user's."))
+        .flag(b("save", "s", "Save the current workspace."))
+        .flag(FlagDef::new("saveAs", "sa", ArgType::String, Value::Null, "Save the current workspace under this name, which becomes current."))
+        .flag(FlagDef::new("delete", "d", ArgType::String, Value::Null, "Delete a workspace the user saved, by its name."))
+        .flag(FlagDef::new("import", "i", ArgType::String, Value::Null, "Copy a workspace file into the workspaces folder: an absolute path."))
+        .flag(FlagDef::new("modified", "m", ArgType::String, Value::Null, "Whether the workspace named was changed since it was loaded or saved."))
+        .flag(FlagDef::new("type", "t", ArgType::String, Value::Null, "FACTORY, FACTORY_OVERRIDE, MODULE, MODULE_OVERRIDE or USER."))
+        .flag(FlagDef::new("parentWorkspaceControl", "pwc", ArgType::String, Value::Null, "The workspace control a control or panel is in, or an empty string."))
+        .flag(FlagDef::new("collapseMainWindowControls", "cmw", ArgType::Any, Value::Null, "Keep the main window's layout and collapse its controls but the one named; the switch also hides the main window's bars.").multi(2))
+        .flag(b("restoreMainWindowControls", "rmw", "Put back the main window's layout -collapseMainWindowControls kept."))
+        .flag(FlagDef::new("setCurrentCallback", "scc", ArgType::String, Value::Null, "MEL: a global proc given the layout's name each time -setCurrent makes one current."))
+        .flag(FlagDef::new("setModifiedCallback", "smc", ArgType::String, Value::Null, "MEL: a global proc, taking nothing, run when a layout's modified state changes."))
         .undoable(false),
     );
     s.register(

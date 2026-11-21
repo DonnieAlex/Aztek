@@ -1597,15 +1597,56 @@ fn register_types() {
         reg(node_type(
             "trim",
             "Trims a surface along curves on it.",
-            vec![sin("inputSurface", "is"), sout("outputSurface", "os"), data_in("trimLoops", "tl"), bin("keepInside", "ki", true)],
+            vec![
+                sin("inputSurface", "is"),
+                sout("outputSurface", "os"),
+                data_in("trimLoops", "tl"),
+                bin("keepInside", "ki", true),
+                curves::f_in("locatorU", "lu", 0.5, "Where the region kept or thrown away is, in U, 0 to 1 over the surface."),
+                curves::f_in("locatorV", "lv", 0.5, "Where it is in V."),
+                curves::int_in("selected", "sl", 0, "0 keeps the region at the locator, 1 throws it away."),
+                bin("shrink", "sh", false),
+                curves::f_in("tolerance", "tol", 0.001, "The tolerance trimming works to."),
+            ],
             |d| {
                 let Some(mut s) = srf(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
                 let loops = surfaces::trim_from_json(&crate::rig::json_of(d, P));
+                // The region at the locator is the one inside the loops or outside them: kept, or with -sl 1 thrown away.
+                let (ulo, uhi) = s.domain_u();
+                let (vlo, vhi) = s.domain_v();
+                let at = glam::DVec2::new(ulo + (uhi - ulo) * d.float(P + 2), vlo + (vhi - vlo) * d.float(P + 3));
+                let all: Vec<Vec<glam::DVec2>> = loops.iter().flat_map(|r| r.loops.clone()).collect();
+                let inside = TrimRegion { loops: all.clone(), keep_odd: true }.keeps(at);
+                let keep_inside = if d.int(P + 4) == 0 { inside } else { !inside };
+                // -shrink: the surface underneath cut down to the loops' outer bounds when what is kept is inside them.
+                if d.bool(P + 5) && keep_inside && !all.is_empty() {
+                    let (mut lo, mut hi) = (glam::DVec2::splat(f64::MAX), glam::DVec2::splat(f64::MIN));
+                    for p in all.iter().flatten() {
+                        lo = lo.min(*p);
+                        hi = hi.max(*p);
+                    }
+                    let tol = d.float(P + 6).max(0.0);
+                    let old = std::mem::take(&mut s.trim);
+                    let (lo, hi) = (lo - glam::DVec2::splat(tol), hi + glam::DVec2::splat(tol));
+                    if lo.x > ulo + 1e-9 {
+                        s = s.split_u(lo.x).1;
+                    }
+                    if hi.x < uhi - 1e-9 {
+                        s = s.split_u(hi.x).0;
+                    }
+                    if lo.y > vlo + 1e-9 {
+                        s = s.split_v(lo.y).1;
+                    }
+                    if hi.y < vhi - 1e-9 {
+                        s = s.split_v(hi.y).0;
+                    }
+                    s.trim = old;
+                }
                 for mut r in loops {
-                    r.keep_odd = d.bool(P + 1);
+                    r.keep_odd = keep_inside;
                     s.trim.push(r);
                 }
                 put_surface(d, OUT, Some(s));
@@ -1614,13 +1655,18 @@ fn register_types() {
         reg(node_type(
             "untrim",
             "Takes a surface's trims off.",
-            vec![sin("inputSurface", "is"), sout("outputSurface", "os")],
+            vec![sin("inputSurface", "is"), sout("outputSurface", "os"), bin("untrimAll", "all", true)],
             |d| {
                 let Some(mut s) = srf(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
-                s.trim.clear();
+                // Every trim, or only the last one made.
+                if d.bool(P) {
+                    s.trim.clear();
+                } else {
+                    s.trim.pop();
+                }
                 put_surface(d, OUT, Some(s));
             },
         ));
@@ -2005,14 +2051,35 @@ fn trim_cmd(s: &mut Session, a: &Args) -> CmdResult {
     let (ulo, uhi) = surf.domain_u();
     let (vlo, vhi) = surf.domain_v();
     // -lu -lv go 0 to 1 over the surface's parameters. The region holding them is kept, or with -sl 1 thrown away.
-    let at_uv = DVec2::new(ulo + (uhi - ulo) * a.float("locatorU", 0.5), vlo + (vhi - vlo) * a.float("locatorV", 0.5));
+    // -lu and -lv may be given more than once: the first places the node's locator.
+    let first = |k: &str| match a.get(k) {
+        Some(Value::Array(v)) => v.first().and_then(Value::as_f64).unwrap_or(0.5),
+        Some(v) => v.as_f64().unwrap_or(0.5),
+        None => 0.5,
+    };
+    let (lu, lv) = (first("locatorU"), first("locatorV"));
+    let at_uv = DVec2::new(ulo + (uhi - ulo) * lu, vlo + (vhi - vlo) * lv);
     let probe = TrimRegion { loops: loops.clone(), keep_odd: true };
     let inside = probe.keeps(at_uv);
     let keep_inside = if a.int("selected", 0) == 0 { inside } else { !inside };
     let region = json!([{"keepOdd": keep_inside, "loops": loops.iter().map(|l| l.iter().flat_map(|p| [p.x, p.y]).collect::<Vec<f64>>()).collect::<Vec<_>>()}]);
     g.open_chunk("Trim");
     let r = (|| -> CmdResult<NodeId> {
-        let node = surfaces::insert_op(g, shape, "trim", &[(P, PlugValue::Data(Some(Arc::new(crate::rig::JsonData(region.clone()))))), (P + 1, PlugValue::Bool(keep_inside))])?;
+        let node = surfaces::insert_op(
+            g,
+            shape,
+            "trim",
+            &[
+                (P, PlugValue::Data(Some(Arc::new(crate::rig::JsonData(region.clone()))))),
+                (P + 1, PlugValue::Bool(keep_inside)),
+                (P + 2, PlugValue::Float(lu)),
+                (P + 3, PlugValue::Float(lv)),
+                (P + 4, PlugValue::Int(a.int("selected", 0))),
+                (P + 5, PlugValue::Bool(a.bool("shrink"))),
+                (P + 6, PlugValue::Float(a.float("tolerance", 0.001))),
+            ],
+        )?;
+        crate::history_qe::apply_common(g, node, a)?;
         Ok(node)
     })();
     g.close_chunk();
@@ -3581,16 +3648,18 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(make_flags(
         Cmd::new("trim", "Trim a surface along closed curves on it: the region holding -lu -lv (0 to 1, the middle by default) stays, or with -sl 1 goes. Returns [surface, node].", trim_cmd)
             .positional("a surface, then curves on it")
-            .flag(f("locatorU", "lu", Fl, "Where, in U (0.5)."))
-            .flag(f("locatorV", "lv", Fl, "Where, in V (0.5)."))
+            .flag(f("locatorU", "lu", ArgType::Any, "Where, in U (0.5).").multi(1))
+            .flag(f("locatorV", "lv", ArgType::Any, "Where, in V (0.5).").multi(1))
             .flag(f("selected", "sl", I, "0 keeps that region, 1 throws it away."))
-            .flag(f("shrink", "sh", B, "Accepted for existing scripts.")),
+            .flag(f("shrink", "sh", B, "Cut the surface underneath down to the outer bounds of what is kept (off)."))
+            .flag(f("tolerance", "tol", Fl, "The tolerance trimming works to (0.001).")),
     ));
     c.register(surfaces::with_common(
         Cmd::new("untrim", "Take a surface's trims off. Returns [surface, node].", |s, a| surfaces::run_op(s, a, "untrim", "untrim", &[]))
             .positional("surfaces (the selection when none)")
             .flag(f("curveOnSurface", "cos", B, "Accepted for existing scripts."))
-            .flag(f("noChanges", "nc", B, "Accepted for existing scripts.")),
+            .flag(f("noChanges", "nc", B, "Accepted for existing scripts."))
+            .flag(f("untrimAll", "all", B, "With -q and -e: every trim comes off (on), or only the last one.")),
     ));
     for (name, doc, run) in [
         (

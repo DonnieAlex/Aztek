@@ -81,6 +81,9 @@ fn xform_query(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult {
     let transform = n.ty().is_a("transform");
     let world = n.matrix(Transform::WORLD_MATRIX);
     let frame = n.matrix(Transform::PARENT_MATRIX);
+    // -parentSpace: pivots and bounding boxes in the parent's space, through the object's own matrix.
+    let ps = a.bool("parentSpace") && !ws;
+    let local_m = n.matrix(Transform::MATRIX);
     if a.has("matrix") {
         return Ok(to_json(&PlugValue::Matrix(if ws { world } else { n.matrix(Transform::MATRIX) })));
     }
@@ -104,7 +107,7 @@ fn xform_query(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult {
                 continue;
             }
             let w = g.node(u).unwrap().matrix(Transform::WORLD_MATRIX);
-            let b = crate::node_bounds::transformed(&local, &if ws { w } else { inv * w });
+            let b = crate::node_bounds::transformed(&local, &if ws { w } else if ps { frame.inverse() * w } else { inv * w });
             lo = lo.min(b.min);
             hi = hi.max(b.max);
         }
@@ -122,7 +125,7 @@ fn xform_query(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult {
     let n = g.node(id).unwrap();
     let order = order_of(g, id);
     let (t, r, sc, sh) = decompose_full(&world);
-    let pivot = |v: DVec3, ws: bool, m: DMat4| if ws { m.transform_point3(v) } else { v };
+    let pivot = |v: DVec3, ws: bool, m: DMat4| if ws { m.transform_point3(v) } else if ps { local_m.transform_point3(v) } else { v };
     let (rp, sp) = (n.vec3(Transform::ROTATE_PIVOT), n.vec3(Transform::SCALE_PIVOT));
     if a.has("translation") {
         return Ok(if ws { j3(t) } else { to_json(n.value(Transform::TRANSLATE)) });
@@ -164,7 +167,7 @@ fn xform_query(g: &mut Graph, id: NodeId, a: &Args) -> CmdResult {
 fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
     let named = objects(s, a);
     if named.iter().any(|n| crate::components::is_component_string(n)) {
-        return prev(s, a);
+        return xform_components(s, a, prev);
     }
     let mut ids = Vec::new();
     for n in &named {
@@ -176,6 +179,7 @@ fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
         return xform_query(&mut s.graph, id, a);
     }
     let (ws, rel, preserve) = (a.bool("worldSpace"), a.bool("relative"), a.bool("preserve"));
+    let ps = a.bool("parentSpace") && !ws;
     for id in ids {
         let g = &mut s.graph;
         if !g.node(id).is_some_and(|n| n.ty().dag) {
@@ -211,9 +215,18 @@ fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             if rel {
                 if ws {
                     xf::rotate_by(g, &[id], &DMat3::from_mat4(euler_to_matrix(v, RotateOrder::Xyz)), Space::World)?;
-                } else {
+                } else if a.bool("euler") {
+                    // -euler: the values add to the XYZ angles there are.
                     let cur = n.vec3(Transform::ROTATE);
                     put(g, id, Transform::ROTATE, cur + v)?;
+                } else {
+                    // A turn by the angles given: about the object's own axes, or the parent's with -parentSpace.
+                    let cur = DMat3::from_mat4(euler_to_matrix(n.vec3(Transform::ROTATE), order));
+                    let by = DMat3::from_mat4(euler_to_matrix(v, order));
+                    let m = if ps { by * cur } else { cur * by };
+                    // Of the angles that give the turn, those nearest the plain sum, as the reference keeps them.
+                    let near = n.vec3(Transform::ROTATE) + v;
+                    put(g, id, Transform::ROTATE, nearest_euler(&m, order, near))?;
                 }
             } else if ws {
                 let frame = DMat3::from_mat4(n.matrix(Transform::PARENT_MATRIX));
@@ -234,7 +247,7 @@ fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
         }
         if let Some(v) = set_vec(a, "translation")? {
             if rel {
-                xf::move_by(g, &[id], v, if ws { Space::World } else { Space::Object })?;
+                xf::move_by(g, &[id], v, if ws { Space::World } else if ps { Space::Parent } else { Space::Object })?;
             } else if ws {
                 g.evaluate();
                 let n = g.node(id).unwrap();
@@ -251,6 +264,9 @@ fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             if ws {
                 g.evaluate();
                 g.node(id).unwrap().matrix(Transform::WORLD_MATRIX).inverse().transform_point3(v)
+            } else if ps {
+                g.evaluate();
+                g.node(id).unwrap().matrix(Transform::MATRIX).inverse().transform_point3(v)
             } else {
                 v
             }
@@ -284,6 +300,44 @@ fn xform(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             aztek_ops::run(s, "resetPivot", json!({"args": [path]}))?;
         }
     }
+    Ok(Value::Null)
+}
+
+/// The Euler angles for a rotation nearest to `near`: of the two solutions, each angle taken a whole number of turns
+/// towards it.
+fn nearest_euler(m: &DMat3, order: RotateOrder, near: DVec3) -> DVec3 {
+    use std::f64::consts::{PI, TAU};
+    let e = matrix_to_euler(m, order);
+    let a = order.axes();
+    let mut alt = e;
+    alt[a[0]] += PI;
+    alt[a[1]] = PI - alt[a[1]];
+    alt[a[2]] += PI;
+    let wrap = |v: DVec3| DVec3::new(v.x + ((near.x - v.x) / TAU).round() * TAU, v.y + ((near.y - v.y) / TAU).round() * TAU, v.z + ((near.z - v.z) / TAU).round() * TAU);
+    let (e, alt) = (wrap(e), wrap(alt));
+    if (alt - near).length_squared() < (e - near).length_squared() {
+        alt
+    } else {
+        e
+    }
+}
+
+/// xform on components. With -preserveUV or -reflection (-reflectionAbout*, -reflectionTolerance) a translation goes
+/// through move, which carries both out; everything else the older command does.
+fn xform_components(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
+    let options = ["preserveUV", "reflection"].iter().any(|k| a.bool(k));
+    let Some(t) = a.vec3("translation").filter(|_| options && !a.bool("query")) else { return prev(s, a) };
+    let named: Vec<Value> = a.named().into_iter().filter(|n| crate::components::is_component_string(n)).map(Value::String).collect();
+    let mut call = serde_json::Map::new();
+    call.insert("args".into(), Value::Array(named));
+    call.insert(if a.bool("relative") { "by" } else { "to" }.into(), json!(t));
+    call.insert(if a.bool("worldSpace") { "worldSpace" } else { "objectSpace" }.into(), json!(true));
+    for k in ["preserveUV", "reflection", "reflectionAboutBBox", "reflectionAboutOrigin", "reflectionAboutX", "reflectionAboutY", "reflectionAboutZ", "reflectionTolerance"] {
+        if let Some(v) = a.get(k) {
+            call.insert(k.into(), v.clone());
+        }
+    }
+    s.run("move", Value::Object(call))?;
     Ok(Value::Null)
 }
 
@@ -634,7 +688,15 @@ fn run_move(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             }
         }
         b.positional.retain(|v| !v.as_array().is_some_and(Vec::is_empty));
-        let r = run_move_inner(s, &b, prev);
+        // The components picked move, by the older command on the selection: not their objects.
+        let r = match read_motion(&b, "move", 0.0) {
+            Ok(Some(m)) => {
+                let key = if m.relative { "by" } else { "to" };
+                prev(s, &plain_args(a, json!({key: j3(m.values)})))
+            }
+            Ok(None) => run_move_inner(s, &b, prev),
+            Err(e) => Err(e),
+        };
         let back: Vec<String> = if before_components.is_empty() { before } else { before_components };
         let _ = if back.is_empty() { s.run("select", json!({"clear": true})) } else { s.run("select", json!({"args": back})) };
         r
@@ -1097,11 +1159,16 @@ pub fn register(c: &mut Commands<Session>) {
     }
     for (name, short, doc) in [
         ("centerPivots", "cp", "Centre the pivots on the bounding box."), ("centerPivotsOnComponents", "cpc", "Centre the pivots on the bounding box."), ("zeroTransformPivots", "ztp", "Put the pivots back at the origin of the object."),
-        ("worldSpaceDistance", "wd", "Accepted: distances are in world units already."), ("eulerFilter", "eu", "Accepted for existing scripts."), ("deletePriorHistory", "dph", "Accepted for existing scripts."), ("reflection", "rfl", "Accepted for existing scripts."),
-        ("disableReflection", "drp", "Accepted for existing scripts."), ("requiresAll", "rab", "Accepted for existing scripts."),
+        ("worldSpaceDistance", "wd", "Accepted: distances are in world units already."), ("euler", "eu", "With -r: the rotation values add to the XYZ angles there are, rather than turning the object by them."),
+        ("deletePriorHistory", "dph", "Accepted for existing scripts."), ("reflection", "rfl", "On components: move the symmetric components too."),
+        ("disableReflection", "drp", "Accepted for existing scripts."), ("parentSpace", "ps", "Pivots, translations, rotations, the rotate axis, the matrix and the bounding box in the parent's space."),
+        ("preserveUV", "puv", "On components: their UVs follow, projected across the change (off)."), ("reflectionAboutBBox", "rab", "With -rfl: the mirror plane at the middle of the object's bounding box."),
+        ("reflectionAboutOrigin", "rao", "With -rfl: the mirror plane through the origin (the default)."), ("reflectionAboutX", "rax", "With -rfl: mirror across X = 0 (the default)."),
+        ("reflectionAboutY", "ray", "With -rfl: mirror across Y = 0."), ("reflectionAboutZ", "raz", "With -rfl: mirror across Z = 0."),
     ] {
         xf_flags.push(f(name, short, ArgType::Bool, doc));
     }
+    xf_flags.push(f("reflectionTolerance", "rft", ArgType::Float, "With -rfl: how far a point and its mirror image may be apart to pair."));
     extend(c, "xform", xf_flags, xform);
 
     let mut mv = motion_flags("move");

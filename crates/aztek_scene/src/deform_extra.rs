@@ -444,6 +444,67 @@ const WR_STYLE: usize = BASE_COUNT + 4;
 const WR_DROPOFF: usize = BASE_COUNT + 5;
 const WR_SCALE: usize = BASE_COUNT + 6;
 const WR_ALONG_X: usize = BASE_COUNT + 7;
+const WR_BRANCH_COUNT: usize = BASE_COUNT + 8;
+const WR_BRANCH_DEPTH: usize = BASE_COUNT + 9;
+/// Curves given with -crease, as polylines in world space: how many, each one's length, then their points.
+const WR_CREASES: usize = BASE_COUNT + 10;
+/// -uvSpace: half length, half breadth, rotation (degrees), centre u and v of the patch the wrinkle is made in; empty when
+/// the wrinkle works about its handle.
+const WR_UV: usize = BASE_COUNT + 11;
+
+fn pack_lines(lines: &[Vec<DVec3>]) -> Vec<f64> {
+    let mut out = vec![lines.len() as f64];
+    out.extend(lines.iter().map(|w| w.len() as f64));
+    for w in lines {
+        out.extend(flat(w));
+    }
+    out
+}
+
+fn unpack_lines(v: &[f64]) -> Vec<Vec<DVec3>> {
+    let Some(&count) = v.first() else { return Vec::new() };
+    let count = count as usize;
+    let mut at = 1 + count;
+    let mut out = Vec::with_capacity(count);
+    for k in 0..count {
+        let n = v.get(1 + k).copied().unwrap_or(0.0) as usize;
+        let Some(part) = v.get(at..at + n * 3) else { break };
+        out.push(unflat(part));
+        at += n * 3;
+    }
+    out
+}
+
+/// Distance from a point to a polyline.
+fn line_distance(line: &[DVec3], q: DVec3) -> f64 {
+    match line.len() {
+        0 => f64::MAX,
+        1 => (line[0] - q).length(),
+        _ => line
+            .windows(2)
+            .map(|w| {
+                let ab = w[1] - w[0];
+                let t = ((q - w[0]).dot(ab) / ab.length_squared().max(1e-18)).clamp(0.0, 1.0);
+                (w[0] + ab * t - q).length()
+            })
+            .fold(f64::MAX, f64::min),
+    }
+}
+
+/// Each point's UV, the mean of its corners' in the first set.
+fn wrinkle_point_uvs(m: &Mesh) -> Vec<glam::DVec2> {
+    let layer = m.corner_attrs().get::<[f32; 2]>(crate::uv_ops::UV);
+    let mut sum = vec![(glam::DVec2::ZERO, 0.0); m.point_capacity() as usize];
+    for f in (0..m.face_capacity()).filter(|&f| m.face_valid(f)) {
+        for c in m.face_corners(f) {
+            let Some(u) = layer.get(c as usize) else { continue };
+            let p = m.corner_point(c) as usize;
+            sum[p].0 += glam::DVec2::new(u[0] as f64, u[1] as f64);
+            sum[p].1 += 1.0;
+        }
+    }
+    sum.into_iter().map(|(s, n)| if n > 0.0 { s / n } else { glam::DVec2::splat(f64::NAN) }).collect()
+}
 
 struct Wrinkle;
 
@@ -453,26 +514,67 @@ impl NodeBehavior for Wrinkle {
         let h = d.matrix(HANDLE);
         let (hi, geom) = (h.inverse(), d.matrix(GEOM));
         let (count, intensity, thick, rnd, style, drop, scale, along_x) = (d.int(WR_COUNT).max(1) as f64, d.float(WR_INTENSITY), d.float(WR_THICKNESS).max(1e-3), d.float(WR_RANDOM), d.int(WR_STYLE), d.float(WR_DROPOFF).max(1e-6), d.float(WR_SCALE), d.bool(WR_ALONG_X));
+        let (branches, depth) = (d.int(WR_BRANCH_COUNT).max(1) as f64, d.int(WR_BRANCH_DEPTH).max(0) as f64);
+        let creases = floats_of(d, WR_CREASES).map(|f| unpack_lines(&f.0)).unwrap_or_default();
+        let patch = floats_of(d, WR_UV).map(|f| f.0.clone()).filter(|v| v.len() == 5);
+        let uvs = patch.as_ref().map(|_| wrinkle_point_uvs(&input));
         let normals = point_normals(&input);
         deform_world(d, &input, |p, at| {
-            let q = hi.transform_point3(at);
+            // The same point always gets the same irregularity.
+            let wobble = rnd * ((p as f64 * 12.9898).sin() * 43758.5453).fract();
+            let n = geom.transform_vector3(normals[p as usize]).normalize_or_zero();
+            // -crease: grooves along the curves given, deepest on them, gone at the dropoff distance.
+            if !creases.is_empty() {
+                let dist = creases.iter().map(|l| line_distance(l, at)).fold(f64::MAX, f64::min);
+                if dist >= drop {
+                    return None;
+                }
+                let groove = (1.0 - dist / drop).powf(1.0 / thick) * (1.0 - wobble * 0.5);
+                return Some(at - n * groove * intensity * scale);
+            }
+            // Where the point is in the wrinkle's own plane: about the handle, or in the -uvSpace patch.
+            let q = match (&patch, &uvs) {
+                (Some(v), Some(uvs)) => {
+                    let uv = uvs[p as usize];
+                    if uv.is_nan() {
+                        return None;
+                    }
+                    let (sn, cs) = (-v[2].to_radians()).sin_cos();
+                    let rel = uv - glam::DVec2::new(v[3], v[4]);
+                    let local = glam::DVec2::new(rel.x * cs - rel.y * sn, rel.x * sn + rel.y * cs);
+                    let (x, z) = (local.x / v[0].abs().max(1e-9), local.y / v[1].abs().max(1e-9));
+                    if x.abs() > 1.0 || z.abs() > 1.0 {
+                        return None;
+                    }
+                    DVec3::new(x * drop, 0.0, z * drop)
+                }
+                _ => hi.transform_point3(at),
+            };
             let r = (q.x * q.x + q.z * q.z).sqrt();
+            // Radial creases branch -branchDepth times on the way out, each into -branchCount.
+            let level = ((r / drop) * (depth + 1.0)).floor().min(depth);
+            let spokes = count * branches.powf(level);
             let phase = match style {
-                0 => q.z.atan2(q.x) * count,
+                0 => q.z.atan2(q.x) * spokes,
                 1 => r / drop * count * std::f64::consts::TAU,
                 _ => (if along_x { q.x } else { q.z }) / drop * count * std::f64::consts::TAU,
             };
-            // The same point always gets the same irregularity.
-            let wobble = rnd * ((p as f64 * 12.9898).sin() * 43758.5453).fract();
             let wave = (phase + wobble).cos().abs().powf(1.0 / thick);
             let reach = (1.0 - r / drop).clamp(0.0, 1.0);
-            let n = geom.transform_vector3(normals[p as usize]).normalize_or_zero();
             Some(at - n * (1.0 - wave) * intensity * scale * reach)
         });
     }
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+fn vec3_of(v: &Value) -> Option<DVec3> {
+    let n: Vec<f64> = match v {
+        Value::Array(x) => x.iter().filter_map(Value::as_f64).collect(),
+        _ => Vec::new(),
+    };
+    (n.len() == 3).then(|| DVec3::new(n[0], n[1], n[2]))
 }
 
 fn wrinkle_create(s: &mut Session, a: &Args) -> CmdResult {
@@ -500,8 +602,49 @@ fn wrinkle_create(s: &mut Session, a: &Args) -> CmdResult {
         if a.has("x") {
             g.set_value(plug(n, WR_ALONG_X), PlugValue::Bool(a.bool("x")))?;
         }
-        let h = deform::make_handle(g, &format!("{stem}Handle"), "wrinkle", (lo + hi) * 0.5, DVec3::ONE)?;
+        for (flag, at) in [("branchCount", WR_BRANCH_COUNT), ("branchDepth", WR_BRANCH_DEPTH)] {
+            if let Some(v) = a.get(flag).and_then(Value::as_f64) {
+                g.set_value(plug(n, at), PlugValue::Int(v as i64))?;
+            }
+        }
+        // -center places the handle, -axis turns its Y to the normal of the wrinkle's plane.
+        let center = a.get("center").and_then(vec3_of).unwrap_or((lo + hi) * 0.5);
+        let h = deform::make_handle(g, &format!("{stem}Handle"), "wrinkle", center, DVec3::ONE)?;
+        if let Some(axis) = a.get("axis").and_then(vec3_of).filter(|v| v.length() > 1e-12) {
+            let q = DQuat::from_rotation_arc(DVec3::Y, axis.normalize());
+            let (z, y, x) = q.to_euler(glam::EulerRot::ZYX);
+            g.set_value(plug(h, Transform::ROTATE), PlugValue::Vec3(DVec3::new(x, y, z)))?;
+        }
         g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
+        // -crease: existing curves are the wrinkles.
+        let crease_names: Vec<String> = match a.get("crease") {
+            Some(Value::String(c)) => vec![c.clone()],
+            Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+            _ => Vec::new(),
+        };
+        if !crease_names.is_empty() {
+            g.evaluate();
+            let mut lines = Vec::new();
+            for c in &crease_names {
+                let id = crate::rig::find(g, c, "wrinkle")?;
+                let line = crate::deform_wire::driver_points(g, crate::dag::transform_of(g, id));
+                if line.is_empty() {
+                    fail!("wrinkle: {c} has no points to crease along");
+                }
+                lines.push(line);
+            }
+            set_floats(g, n, WR_CREASES, pack_lines(&lines))?;
+        }
+        if let Some(v) = a.get("uvSpace") {
+            let nums: Vec<f64> = match v {
+                Value::Array(x) => x.iter().filter_map(Value::as_f64).collect(),
+                _ => Vec::new(),
+            };
+            if nums.len() != 5 {
+                fail!("wrinkle: -uvSpace takes half length, half breadth, rotation, centre u and v");
+            }
+            set_floats(g, n, WR_UV, nums)?;
+        }
         if let Some(input) = input_mesh(g, n) {
             deform::limit_to(g, n, input.point_capacity(), &meshes[0].1)?;
         }
@@ -1363,6 +1506,10 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
             fl("dropoffDistance", "dds", 1.0, "How far they reach from the handle."),
             fl("scale", "sc", 1.0, "Multiplies the depth."),
             short(bool_attr("alongX", false, "Lines run across X rather than Z."), "x"),
+            int_attr("branchCount", "brc", 2, "Radial creases split into this many at each branching.", Some(1.0)),
+            int_attr("branchDepth", "bd", 0, "How many times radial creases branch on the way out.", Some(0.0)),
+            data_attr("creaseLines", "crl", "The curves given as creases, world space."),
+            data_attr("uvPatch", "uvp", "The UV patch the wrinkle is made in: half length, half breadth, rotation, centre u, v."),
         ],
         Arc::new(|| Box::new(Wrinkle)),
     );
@@ -1497,7 +1644,7 @@ impl NodeBehavior for Tweak {
 const JIGGLE: &[&str] = &["startFrame", "stiffness", "damping", "jiggleWeight", "motionMultiplier", "forceOnAxis", "envelope"];
 const SHRINK: &[&str] = &["closestIfNoIntersection", "bidirectional", "targetInflation", "offset", "reverse", "alongX", "alongY", "alongZ", "envelope"];
 const MORPH: &[&str] = &["morphSpace", "normalScale", "tangentScale", "envelope"];
-const WRINKLE: &[&str] = &["wrinkleCount", "wrinkleIntensity", "thickness", "randomness", "scale", "envelope"];
+const WRINKLE: &[&str] = &["wrinkleCount", "wrinkleIntensity", "thickness", "randomness", "scale", "envelope", "branchCount", "branchDepth"];
 const PROXIMITY: &[&str] = &["wrapMode", "maxDrivers", "falloffScale", "dropoffRateScale", "envelope"];
 const SOLIDIFY: &[&str] = &["scaleEnvelope", "envelope"];
 const POINT_CURVE: &[&str] = &["parameter", "turnOnPercentage", "envelope"];
@@ -1560,6 +1707,18 @@ fn settings_modes(s: &mut Session, a: &Args, ty: &str, settings: &[&str]) -> Opt
         apply_settings(&mut s.graph, n, a, settings)?;
         Ok(json!([s.graph.path(n)]))
     })())
+}
+
+/// textureDeformer's -direction, -pointSpace and -vectorSpace by the reference's words (Normal, World, Tangent...) as the
+/// numbers the node holds; numbers pass as they are.
+fn texture_words(a: &Args) -> CmdResult<Args> {
+    let mut b = a.clone();
+    for (flag, words) in [("direction", ["normal", "handle", "vector"]), ("pointSpace", ["world", "local", "uv"]), ("vectorSpace", ["object", "world", "tangent"])] {
+        let Some(Value::String(w)) = a.get(flag) else { continue };
+        let Some(i) = words.iter().position(|x| x.eq_ignore_ascii_case(w)) else { fail!("textureDeformer: -{flag} is one of {}, not {w}", words.join(", ")) };
+        b.flags.insert(flag.into(), json!(i));
+    }
+    Ok(b)
 }
 
 fn setting_flags(c: Cmd, flags: Vec<FlagDef>) -> Cmd {
@@ -1798,6 +1957,12 @@ pub(crate) fn register(c: &mut Commands<Session>) {
             fx("dropoffDistance", "dds", "How far they reach from the handle."),
             fx("scale", "sc", "Multiplies the depth (1)."),
             bx("x", "x", "Lines run across X rather than Z."),
+            f("axis", "ax", ArgType::Vec3, "The normal of the wrinkle's plane: the handle's up axis turns to it."),
+            f("center", "ct", ArgType::Vec3, "Where the wrinkle is centred: the handle goes there (the middle of what is deformed)."),
+            f("branchCount", "brc", ArgType::Int, "How many each radial crease splits into at a branching (2)."),
+            f("branchDepth", "bd", ArgType::Int, "How many times radial creases branch (0)."),
+            f("crease", "cr", ArgType::Any, "An existing curve to serve as a wrinkle; repeat it for more.").multi(1),
+            f("uvSpace", "uv", ArgType::Any, "Half length, half breadth, rotation in degrees, centre u and v: the patch in UV space the wrinkle is made in.").multi(5),
         ],
     ));
 
@@ -1926,14 +2091,32 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         ],
     ));
 
-    c.register(setting_flags(
+    c.register(crate::deform_common::geometry_flags(crate::deform_common::creation_flags(setting_flags(
         modes(deform::common_flags(Cmd::new(
             "textureDeformer",
             "Texture Deformer: moves points by the texture connected to the deformer's .texture, with a handle whose up axis is the direction by default. Returns [textureDeformer1, textureDeformerHandle1].",
             |s, a| {
+                let named_args = texture_words(a)?;
+                let a = &named_args;
+                if a.bool("query") || a.bool("edit") {
+                    let Some(name) = a.named().into_iter().next() else { fail!("textureDeformer: name the deformer") };
+                    let n = named(&s.graph, &name, "textureDeformer")?;
+                    if a.bool("query") {
+                        let tools: Vec<NodeId> = s.graph.source(&plug(n, HANDLE)).map(|p| p.node).into_iter().collect();
+                        if let Some(v) = crate::deform_common::shared_query(&mut s.graph, n, a, &tools) {
+                            return Ok(v);
+                        }
+                    } else {
+                        let path = s.graph.path(n);
+                        if let Some(r) = crate::deform_common::shared_edit(s, a, &path, "textureDeformer") {
+                            r?;
+                        }
+                    }
+                }
                 if let Some(r) = settings_modes(s, a, "textureDeformer", TEXTURE) {
                     return r;
                 }
+                let a = &crate::deform_common::creation_args(s, a, "textureDeformer")?;
                 let mut handle = String::new();
                 let made = make_on(s, a, "textureDeformer", TEXTURE, |_, _| 0, |g, n, _, meshes| {
                     // The handle at the middle of what is deformed, as the reference puts it.
@@ -1956,6 +2139,7 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                     let h = deform::make_handle(g, &name, "textureDeformer", at, DVec3::ONE)?;
                     g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
                     handle = g.path(h);
+                    crate::deform_common::after_create(g, n, a)?;
                     Ok(())
                 })?;
                 let mut out = made.as_array().cloned().unwrap_or_default();
@@ -1968,11 +2152,11 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         vec![
             fx("strength", "s", "How far a white texture moves points (1)."),
             fx("offset", "o", "Added to the move, not scaled by strength."),
-            f("direction", "d", ArgType::Int, "0 normal, 1 the handle's up axis (the default), 2 vector."),
-            f("vectorSpace", "vsp", ArgType::Int, "With direction vector: 0 object, 1 world, 2 tangent."),
+            f("direction", "d", ArgType::Any, "Normal, Handle (the handle's up axis, the default) or Vector; or 0, 1, 2."),
+            f("vectorSpace", "vsp", ArgType::Any, "With direction Vector: Object, World or Tangent; or 0, 1, 2."),
             f("vectorStrength", "vs", ArgType::Vec3, "With direction vector: on each axis."),
             f("vectorOffset", "vo", ArgType::Vec3, "With direction vector: added on each axis."),
-            f("pointSpace", "ps", ArgType::Int, "0 world, 1 local, 2 UV (the default)."),
+            f("pointSpace", "ps", ArgType::Any, "World, Local or UV (the default); or 0, 1, 2."),
         ],
-    ));
+    ))));
 }

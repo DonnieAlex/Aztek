@@ -1127,7 +1127,7 @@ tolerance	missing
 toolBar	missing	
 toolButton	done	auto
 toolCollection	done	auto
-toolDropped	missing	
+toolDropped	done	auto
 toolHasOptions	done	auto
 toolPropertyWindow	done	auto
 torus	done	auto

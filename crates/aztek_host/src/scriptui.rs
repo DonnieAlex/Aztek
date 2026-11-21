@@ -44,6 +44,8 @@ pub(crate) struct Model {
     prompt_text: String,
     built_in: bool,
     window_prefs: HashMap<String, Value>,
+    /// workspaceControlState: each workspace control's saved size and place, by its name.
+    ws_states: BTreeMap<String, Map<String, Value>>,
     dirty_tables: Vec<Id>,
 }
 
@@ -325,7 +327,7 @@ pub fn cat_of(kind: &str) -> Cat {
 
 pub(crate) const COMMON: &str = "annotation:ann:a backgroundColor:bgc:a defineTemplate:dt:a docTag:dtg:a dragCallback:dgc:a dropCallback:dpc:a enable:en:b enableBackground:ebg:b enableKeyboardFocus:ekf:b exists:ex:b fullPathName:fpn:b height:h:a highlightColor:hlc:a isObscured:io:b manage:m:b noBackground:nbg:b numberOfPopupMenus:npm:b parent:p:a popupMenuArray:pma:b preventOverride:po:b statusBarMessage:sbm:a useTemplate:ut:a visible:vis:b visibleChangeCommand:vcc:a width:w:a query:q:b edit:e:b queried::a";
 const LAYOUT: &str = "childArray:ca:b numberOfChildren:nch:b";
-const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:dcs:b dockingLayout:dl:a state:st:a menuArray:ma:b";
+const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:ds:b dockingLayout:dl:a state:st:a menuArray:ma:b mainMenuBar:mm:b menuBarCornerWidget:mcw:a2 menuBarResize:mbr:b menuIndex:mi:a2 numberOfMenus:nm:b";
 const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a";
 const SHELF_BUTTON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a enableCommandRepeat:ecr:b flipX:fx:b flipY:fy:b handleNodeDropCallback:hnd:a labelEditingCallback:lec:a menuItem:mi:a2 menuItemPython:mip:a1 menuItemWithOptionBox:mio:a3 noDefaultPopup:ndp:b";
 const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a";
@@ -381,20 +383,20 @@ const KINDS: &[(&str, &str)] = &[
     ("menu", MENU),
     ("popupMenu", "button:b:a ctrlModifier:ctl:b altModifier:alt:b shiftModifier:sh:b markingMenu:mm:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
     ("separator", "style:st:a horizontal:hr:b"),
-    ("textScrollList", "append:a:a1 appendPosition:ap:a2 removeItem:ri:a1 removeIndexedItem:rii:a1 removeAll:ra:b selectItem:si:a1 selectIndexedItem:sii:a1 deselectAll:da:b deselectItem:di:a1 deselectIndexedItem:dii:a1 allowMultiSelection:ams:b numberOfRows:nr:a allItems:ai:b numberOfItems:ni:b numberOfSelectedItems:nsi:b showIndexedItem:shi:a selectCommand:sc:a doubleClickCommand:dcc:a deleteKeyCommand:dkc:a lineFont:lf:a2 font:fn:a allowAutomaticSelection:aas:b uniqueTag:utg:a1 selectUniqueTagItem:sut:a1"),
+    ("textScrollList", "append:a:a1 appendPosition:ap:a2 removeItem:ri:a1 removeIndexedItem:rii:a1 removeAll:ra:b selectItem:si:a1 selectIndexedItem:sii:a1 deselectAll:da:b deselectItem:di:a1 deselectIndexedItem:dii:a1 allowMultiSelection:ams:b numberOfRows:nr:a allItems:ai:b numberOfItems:ni:b numberOfSelectedItems:nsi:b showIndexedItem:shi:a selectCommand:sc:a doubleClickCommand:dcc:a deleteKeyCommand:dkc:a lineFont:lf:a2 font:fn:a allowAutomaticSelection:aas:b uniqueTag:utg:a1 selectUniqueTagItem:sut:a1 allItemsUniqueTags:ait:b emptyLabel:el:a enableAll:ea:b enableItem:ei:a2 enableIndexedItem:eii:a2 enableUniqueTagItem:eut:a2"),
     ("colorSliderGrp", "label:l:a rgbValue:rgb:a hsvValue:hsv:a forceDragRefresh:fdr:b changeCommand:cc:a dragCommand:dc:a"),
     ("colorIndexSliderGrp", "label:l:a value:v:a minValue:min:a maxValue:max:a invisible:inv:a forceDragRefresh:fdr:b extraLabel:el:a changeCommand:cc:a dragCommand:dc:a"),
     ("progressBar", "progress:pr:a minValue:min:a maxValue:max:a step:s:a status:st:a isInterruptable:ii:b isCancelled:ic:b isMainProgressBar:imp:b beginProgress:bp:b endProgress:ep:b"),
     ("image", "image:i:a"),
     ("picture", "image:i:a tile:tl:b"),
     ("canvas", "rgbValue:rgb:a hsvValue:hsv:a pressCommand:pc:a"),
-    ("workspaceControl", "label:l:a uiScript:ui:a floating:fl:b initialWidth:iw:a initialHeight:ih:a minimumWidth:mw:a minimumHeight:mh:a retain:r:b widthProperty:wp:a heightProperty:hp:a dockToMainWindow:dtm:a2 dockToControl:dtc:a2 dockToPanel:dtp:a3 tabToControl:ttc:a2 collapse:clp:b restore:rs:b closeCommand:cc:a requiredPlugin:rp:a requiredControl:rc:a loadImmediately:li:b checksPlugins:cp:b actLikeMayaUIElement:aui:b duplicatable:dup:b horizontal:hr:b stateString:ss:a uiScriptCommand:uic:a"),
+    ("workspaceControl", "label:l:a uiScript:ui:a floating:fl:b initialWidth:iw:a initialHeight:ih:a minimumWidth:mw:a minimumHeight:mh:a retain:rt:b widthProperty:wp:a heightProperty:hp:a dockToMainWindow:dtm:a2 dockToControl:dtc:a2 dockToPanel:dtp:a3 tabToControl:ttc:a2 collapse:clp:b restore:rs:b closeCommand:cc:a requiredPlugin:rp:a requiredControl:rc:a loadImmediately:li:b checksPlugins:cp:b actLikeMayaUIElement:alm:b duplicatable:dup:b horizontal:hr:b stateString:ss:a uiScriptCommand:uic:a close:cl:b initCallback:ic:a layoutDirectionCallback:ldc:a resizeHeight:rsh:a resizeWidth:rsw:a tabPosition:tp:a2 raise:r:b maximumWidth:mxw:a maximumHeight:mxh:a"),
     ("dockControl", "area:a:a content:con:a allowedArea:aa:a label:l:a floating:fl:b retain:ret:b raise:r:b moveable:mov:b sizeable:s:b fixedWidth:fw:b fixedHeight:fh:b enablePopupOption:epo:b dockStation:ds:a splitLayout:sl:a state:st:a closeCommand:cc:a floatChangeCommand:fcc:a"),
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
     ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b borderStyle:bs:a closeTab:ct:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4 postMenuCommand:pmc:a scrollableTabs:stb:b tabIcon:ti:a2 tabIconIndex:tii:a2 tabTooltipIndex:tti:a2"),
     ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:ct:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:udc:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColorCommand:cbc:a cellForegroundColorCommand:cfc:a columnFilter:cf:a2 editable:ed:b rowsRemovedCmd:rrc:a rowsToBeRemovedCmd:rtc:a selectionBehavior:sb:a selectionMode:sm:a"),
     ("layerButton", "label:l:a name:n:a changeCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:hp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
-    ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:pin:b toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
+    ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:piv:b stateSelfManaged:ssm:b toolImage1:ti1:a2 toolImage2:ti2:a2 toolImage3:ti3:a2 toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
     ("outlinerEditor", "alwaysToggleSelect:ats:b animLayerFilterOptions:alf:a attrAlphaOrder:aao:a attrFilter:af:a autoExpand:xpd:b autoExpandLayers:ael:b autoSelectNewObjects:aso:b containersIgnoreFilters:cif:b directSelect:ds:b displayMode:dm:a doNotSelectNewObjects:dns:b dropIsParent:dip:b editAttrName:ean:b expandAllItems:eai:b expandAllSelectedItems:eas:b expandAttribute:xta:b expandConnections:xc:b expandObjects:eo:b feedbackItemName:fbn:b feedbackRowNumber:fbr:b getCurrentSetOfItem:gcs:a highlightActive:ha:b highlightSecondary:hs:b ignoreDagHierarchy:hir:b ignoreHiddenAttribute:iha:b ignoreOutlinerColor:ioc:b isChildSelected:ics:a isSet:isSet:a isSetMember:ism:a lineHeight:lh:a longNames:ln:b niceNames:nn:b object:obj:a organizeByClip:obc:b organizeByLayer:obl:b parentObject:po:b pinPlug:pin:a refresh:rfs:b removeFromCurrentSet:rcs:a renameItem:rni:a renameSelectedItem:rsi:b renderFilterActive:rfa:b renderFilterIndex:rfi:a renderFilterVisible:rfv:b selectCommand:sec:a setDefaultFilter:sdf:b setFilter:sf:a setsIgnoreFilters:sif:b showAnimCurvesOnly:aco:b showAnimLayerWeight:salw:b showAssets:a:b showAssignedMaterials:am:b showAttrValues:av:b showAttributes:sat:b showCompounds:cmp:b showConnected:sc:b showContainedOnly:sco:b showContainerContents:scc:b showDagOnly:dag:b showLeafs:laf:b showMuteInfo:smi:b showNamespace:sn:b showNumericAttrsOnly:num:b showParentContainers:spc:b showPinIcons:spi:b showPublishedAsConnected:spu:b showReferenceMembers:srm:b showReferenceNodes:rn:b showSelected:ssd:b showSetMembers:ssm:b showShapes:shp:b showTextureNodesOnly:tno:b showTimeEditor:ste:b showUVAttrsOnly:uv:b showUnitlessCurves:su:b showUpstreamCurves:suc:b sortOrder:so:a transmitFilters:tf:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("nodeEditor", "addNewNodes:ann:b addNode:an:a1 additiveGraphingMode:agm:b allAttributes:ala:b allNodes:aln:b autoSizeNodes:asn:b beginCreateNode:bcn:b consistentNameSize:cns:b createNodeCommand:cnc:a customAttributeListEdit:cal:a cycleHUD:ch:b defaultPinnedState:dps:b deleteSelected:dsl:b downstream:ds:b dotFormat:dot:a duplicateSelected:dup:b errorCallback:ecb:a extendToShapes:ets:b feedbackConnection:fbc:b feedbackNode:fbn:b feedbackPlug:fbp:b feedbackTabIndex:fbi:b feedbackType:fbt:b filterCreateNodeTypes:fcn:a focusCommand:fc:a frameAll:fa:b frameModelSelection:fms:b frameSelected:fs:b getNodeList:gnl:b graphSelectedConnections:gsc:b graphSelection:gs:b gridSnap:gsn:b gridVisibility:gv:b hasWatchpoint:hw:b hudMessage:hm:a ignoreAssets:ia:b island:isl:b keyPressCommand:kp:a keyReleaseCommand:kr:a layout:lay:b layoutCommand:lc:a nodeSwatchSize:nss:a nodeTitleMode:ntm:a nodeViewMode:nvm:a panView:pv:a pinSelectedNodes:psn:b popupMenuScript:pms:a redockSelectedNodes:rsn:b removeDownstream:rd:b removeNode:rem:a1 removeUnselected:run:b removeUpstream:ru:b rootNode:rn:a1 rootsFromSelection:rfs:b scaleView:sv:a selectAll:sa:b selectConnectionNodes:scn:b selectDownstream:sdn:b selectFeedbackConnection:sfc:b selectNode:sln:a1 selectUpstream:su:b setWatchpoint:sw:b settingsChangedCallback:scc:a shaderNetworks:sn:b showAllNodeAttributes:saa:a showNamespace:sns:b showSGShapes:ssg:b showShapes:ss:b showTransforms:st:b showUnitConversions:suc:b syncedSelection:ssl:b toggleAttrFilter:taf:b toggleSelectedPins:tsp:b toggleSwatchSize:tss:b toolTipCommand:ttc:a traversalDepthLimit:tdl:a updateNodeAdded:una:b upstream:ups:b useAssets:ua:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("dopeSheetEditor", "autoFit:af:a autoFitTime:aft:a displayActiveKeyTangents:dat:a displayActiveKeys:dak:a displayInfinities:di:a displayKeys:dk:a displayTangents:dtn:a displayValues:dv:a dropCommand:dc:a hierarchyBelow:hb:b lookAt:la:a outliner:o:a selectionWindow:sel:a showScene:sc:b showSummary:ss:b showTicks:stk:b snapTime:st:a snapValue:sv:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
@@ -605,6 +607,64 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             set(m, id, key, json!(truth(raw)), changed);
         }
         ("textScrollList", _) => list_flag(m, id, key, raw, changed)?,
+        // -menuIndex menu index: the menu moves to that place (from 0) among the bar's menus.
+        ("window" | "menuBarLayout", "menuIndex") => {
+            for ch in vals.chunks(2) {
+                let [which, at] = ch else { return Err(format!("{kind}: -menuIndex takes a menu and an index.")) };
+                let want = text(which);
+                let kids = m.get(id).map(|c| c.children.clone()).unwrap_or_default();
+                let menus: Vec<Id> = kids.iter().copied().filter(|k| m.get(*k).is_some_and(|x| x.kind == "menu")).collect();
+                let Some(&mv) = menus.iter().find(|k| m.get(**k).is_some_and(|x| x.name == want || x.path == want)) else { return Err(format!("{kind}: no menu {want} on the bar.")) };
+                let mut order: Vec<Id> = menus.iter().copied().filter(|k| *k != mv).collect();
+                let at = (number(at).max(0.0) as usize).min(order.len());
+                order.insert(at, mv);
+                // The menus take the places menus had among the children, in the new order.
+                let mut next = order.iter();
+                let new_kids: Vec<Id> = kids.iter().map(|k| if menus.contains(k) { *next.next().unwrap() } else { *k }).collect();
+                if let Some(c) = m.controls.get_mut(&id) {
+                    c.children = new_kids;
+                }
+                let paths: Vec<String> = order.iter().filter_map(|k| m.get(*k)).map(|x| x.path.clone()).collect();
+                set(m, id, "menuOrder", json!(paths), changed);
+            }
+        }
+        // -menuBarCornerWidget widget corner: a control shown in a corner of the menu bar.
+        ("window", "menuBarCornerWidget") => {
+            let mut corners = m.get(id).and_then(|c| c.props.get("cornerWidgets")).and_then(Value::as_object).cloned().unwrap_or_default();
+            for ch in vals.chunks(2) {
+                let [w, corner] = ch else { return Err("window: -menuBarCornerWidget takes a control and a corner.".into()) };
+                let corner = text(corner);
+                if !matches!(corner.as_str(), "topLeft" | "topRight" | "bottomLeft" | "bottomRight") {
+                    return Err(format!("window: the corner is topLeft, topRight, bottomLeft or bottomRight, not {corner}."));
+                }
+                let name = text(w);
+                let path = m.find(&name).and_then(|i| m.get(i)).map(|c| c.path.clone()).ok_or_else(|| format!("Object '{name}' not found."))?;
+                corners.insert(corner, json!(path));
+            }
+            set(m, id, "cornerWidgets", Value::Object(corners), changed);
+        }
+        ("workspaceControl", "resizeWidth") => set(m, id, "width", json!(number(raw) as i64), changed),
+        ("workspaceControl", "resizeHeight") => set(m, id, "height", json!(number(raw) as i64), changed),
+        // -tabPosition north|east|west, and whether every control of its tab group takes it.
+        ("workspaceControl", "tabPosition") => {
+            let pos = vals.first().map(text).unwrap_or_default();
+            if !matches!(pos.as_str(), "north" | "east" | "west") {
+                return Err(format!("workspaceControl: -tabPosition is north, east or west, not {pos}."));
+            }
+            set(m, id, "tabPosition", json!(pos), changed);
+            set(m, id, "tabPositionAll", json!(vals.get(1).is_some_and(truth)), changed);
+        }
+        // A change of orientation tells -layoutDirectionCallback: 1 horizontal, 0 vertical.
+        ("workspaceControl", "horizontal") => {
+            let on = truth(raw);
+            let (made, was, cb) = m.get(id).map_or((false, false, None), |c| (c.props.contains_key("visible"), c.props.get("horizontal").is_some_and(truth), c.props.get("layoutDirectionCallback").cloned()));
+            set(m, id, key, json!(on), changed);
+            if made && was != on {
+                if let Some(Value::String(p)) = cb {
+                    run_soon(json!(format!("{p} {}", on as i32)), Vec::new());
+                }
+            }
+        }
         ("formLayout", "attachForm" | "attachControl" | "attachPosition" | "attachNone" | "attachOppositeForm" | "attachOppositeControl") => form_flag(m, id, key, &vals, changed)?,
         ("tabLayout", "tabLabel") => {
             for ch in vals.chunks(2) {
@@ -733,6 +793,47 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             set(m, id, key, json!(on), changed);
             if on {
                 radio_exclusive(m, id);
+            }
+        }
+        // -tool adds tools to the button; one already on it becomes the current one.
+        ("toolButton", "tool") => {
+            let mut tools: Vec<String> = m.get(id).and_then(|c| c.props.get("tool")).map(flat).unwrap_or_default().iter().map(text).collect();
+            let mut cur = m.get(id).and_then(|c| c.props.get("currentTool")).map(text);
+            for v in &vals {
+                let t = text(v);
+                if tools.contains(&t) {
+                    cur = Some(t);
+                } else {
+                    tools.push(t.clone());
+                    if cur.is_none() {
+                        cur = Some(t);
+                    }
+                }
+            }
+            set(m, id, "tool", json!(tools), changed);
+            set(m, id, "currentTool", json!(cur.unwrap_or_default()), changed);
+        }
+        // Pairs of tool and image: the image the button shows while that tool is its current one.
+        ("toolButton", "toolImage1" | "toolImage2" | "toolImage3") => {
+            let mut pairs: Vec<Value> = m.get(id).and_then(|c| c.props.get(key)).map(flat).unwrap_or_default();
+            for ch in vals.chunks(2) {
+                let [t, img] = ch else { return Err(format!("toolButton: -{key} takes a tool and an image.")) };
+                match pairs.chunks(2).position(|p| text(&p[0]) == text(t)) {
+                    Some(i) => pairs[i * 2 + 1] = json!(text(img)),
+                    None => pairs.extend([json!(text(t)), json!(text(img))]),
+                }
+            }
+            set(m, id, key, Value::Array(pairs), changed);
+        }
+        // Every item of the collection unselected.
+        ("toolCollection" | "radioCollection", "clear") => {
+            if truth(raw) {
+                for k in collection_members(m, id) {
+                    if let Some(c) = m.controls.get_mut(&k) {
+                        c.props.insert("select".into(), json!(false));
+                        op(json!({"op": "edit", "path": c.path, "props": {"select": false}}));
+                    }
+                }
             }
         }
         ("radioCollection" | "toolCollection", "select") => {
@@ -1058,6 +1159,8 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
     let mut items: Vec<String> = m.get(id).and_then(|c| c.props.get("items")).and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
     let mut tags: Vec<String> = m.get(id).and_then(|c| c.props.get("tags")).and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
     let mut sel: Vec<i64> = m.get(id).and_then(|c| c.props.get("selected")).and_then(Value::as_array).map(|a| a.iter().map(|v| number(v) as i64).collect()).unwrap_or_default();
+    // Rows turned off by -enableItem and the like, from 0.
+    let mut off: Vec<i64> = m.get(id).and_then(|c| c.props.get("disabled")).and_then(Value::as_array).map(|a| a.iter().map(|v| number(v) as i64).collect()).unwrap_or_default();
     let multi = m.get(id).and_then(|c| c.props.get("allowMultiSelection")).is_some_and(truth);
     let pick = |sel: &mut Vec<i64>, i: i64| {
         if !multi {
@@ -1067,16 +1170,25 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
             sel.push(i);
         }
     };
-    let remove = |items: &mut Vec<String>, tags: &mut Vec<String>, sel: &mut Vec<i64>, i: usize| {
+    let remove = |items: &mut Vec<String>, tags: &mut Vec<String>, sel: &mut Vec<i64>, off: &mut Vec<i64>, i: usize| {
         items.remove(i);
         if i < tags.len() {
             tags.remove(i);
         }
-        sel.retain(|s| *s != i as i64);
-        for s in sel.iter_mut() {
-            if *s > i as i64 {
-                *s -= 1;
+        for rows in [&mut *sel, &mut *off] {
+            rows.retain(|s| *s != i as i64);
+            for s in rows.iter_mut() {
+                if *s > i as i64 {
+                    *s -= 1;
+                }
             }
+        }
+    };
+    let able = |off: &mut Vec<i64>, i: i64, on: bool| {
+        off.retain(|x| *x != i);
+        if !on {
+            off.push(i);
+            off.sort_unstable();
         }
     };
     let mut touched = true;
@@ -1092,7 +1204,7 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
                     if at < tags.len() {
                         tags.insert(at, String::new());
                     }
-                    for s in sel.iter_mut() {
+                    for s in sel.iter_mut().chain(off.iter_mut()) {
                         if *s >= at as i64 {
                             *s += 1;
                         }
@@ -1103,7 +1215,7 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
         "removeItem" => {
             for v in &vals {
                 while let Some(i) = items.iter().position(|t| *t == text(v)) {
-                    remove(&mut items, &mut tags, &mut sel, i);
+                    remove(&mut items, &mut tags, &mut sel, &mut off, i);
                 }
             }
         }
@@ -1112,7 +1224,7 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
             idx.sort_unstable();
             for i in idx.into_iter().rev() {
                 if i >= 1 && i <= items.len() {
-                    remove(&mut items, &mut tags, &mut sel, i - 1);
+                    remove(&mut items, &mut tags, &mut sel, &mut off, i - 1);
                 }
             }
         }
@@ -1121,6 +1233,7 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
                 items.clear();
                 tags.clear();
                 sel.clear();
+                off.clear();
             }
         }
         "selectItem" => {
@@ -1168,6 +1281,34 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
                 }
             }
         }
+        "enableAll" => {
+            if truth(raw) {
+                off.clear();
+            }
+        }
+        // Pairs of an item (its text, 1-based index or unique tag) and whether it is on.
+        "enableItem" | "enableIndexedItem" | "enableUniqueTagItem" => {
+            for ch in vals.chunks(2) {
+                let [which, on] = ch else { return Err(format!("textScrollList: -{key} takes an item and on or off.")) };
+                let rows: Vec<i64> = match key {
+                    "enableIndexedItem" => {
+                        let i = number(which) as i64 - 1;
+                        if i < 0 || i as usize >= items.len() {
+                            return Err(format!("textScrollList: no item {}.", i + 1));
+                        }
+                        vec![i]
+                    }
+                    "enableItem" => items.iter().enumerate().filter(|(_, t)| **t == text(which)).map(|(i, _)| i as i64).collect(),
+                    _ => tags.iter().enumerate().filter(|(_, t)| **t == text(which)).map(|(i, _)| i as i64).collect(),
+                };
+                if rows.is_empty() {
+                    return Err(format!("textScrollList: no item {}.", text(which)));
+                }
+                for i in rows {
+                    able(&mut off, i, truth(on));
+                }
+            }
+        }
         "selectUniqueTagItem" => {
             for v in &vals {
                 let want = text(v);
@@ -1189,6 +1330,7 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
         set(m, id, "items", json!(items), changed);
         set(m, id, "tags", json!(tags), changed);
         set(m, id, "selected", json!(sel), changed);
+        set(m, id, "disabled", json!(off), changed);
     }
     Ok(())
 }
@@ -1240,6 +1382,12 @@ fn menu_items(m: &Model, id: Id) -> Vec<(String, String)> {
         .filter(|k| k.kind == "menuItem" && !k.props.get("divider").is_some_and(truth))
         .map(|k| (k.name.clone(), k.props.get("label").map(text).unwrap_or_else(|| k.name.clone())))
         .collect()
+}
+
+/// A tool button's current tool: the one last picked, or the first attached.
+pub(crate) fn tool_of(props: &Map<String, Value>) -> Option<String> {
+    let tools: Vec<String> = props.get("tool").map(flat).unwrap_or_default().iter().map(text).collect();
+    props.get("currentTool").map(text).filter(|t| tools.contains(t)).or_else(|| tools.first().cloned())
 }
 
 fn collection_members(m: &Model, coll: Id) -> Vec<Id> {
@@ -1308,7 +1456,8 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("componentEditor", "precision") => json!(3),
         ("spreadSheetEditor", "precision") => json!(3),
         ("spreadSheetEditor", "keyableOnly" | "longNames") => json!(key == "keyableOnly"),
-        ("toolButton", "select") => json!(false),
+        ("toolButton", "select" | "stateSelfManaged") => json!(false),
+        ("toolButton", "popupIndicatorVisible") => json!(true),
         ("layerButton", "select" | "current" | "transparent") => json!(false),
         ("layerButton", "layerVisible") => json!(true),
         ("layerButton", "layerState") => json!("normal"),
@@ -1320,6 +1469,9 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("window" | "workspaceControl" | "dockControl", "title" | "label") => json!(c.name),
         ("dockControl", "area") => json!("left"),
         ("dockControl", "retain" | "enablePopupOption" | "moveable") => json!(true),
+        ("workspaceControl", "retain") => json!(true),
+        ("window", "mainMenuBar" | "menuBar") | ("workspaceControl", "actLikeMayaUIElement" | "horizontal" | "duplicatable") => json!(false),
+        ("workspaceControl", "initCallback" | "layoutDirectionCallback" | "stateString") => json!(""),
         ("dockControl", "fixedWidth" | "fixedHeight" | "raise") => json!(false),
         ("flowLayout", "horizontal") => json!(!c.props.get("vertical").is_some_and(truth)),
         ("flowLayout", "vertical" | "wrap") => json!(false),
@@ -1333,7 +1485,7 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("floatScrollBar" | "intScrollBar", "largeStep") => json!(if c.kind == "floatScrollBar" { json!(10.0) } else { json!(10) }),
         (k, "label") if !is_group(k) => json!(c.name),
         (k, "label") if is_group(k) => json!(""),
-        (_, "text" | "placeholderText" | "annotation" | "docTag" | "image" | "status") => json!(""),
+        (_, "text" | "placeholderText" | "annotation" | "docTag" | "image" | "status" | "emptyLabel") => json!(""),
         ("window", "width") => json!(546),
         ("window", "height") => json!(350),
         (_, "width") => json!(100),
@@ -1394,6 +1546,13 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
         }
         "numberOfPopupMenus" => json!(c.children.iter().filter(|k| m.get(**k).is_some_and(|x| x.kind == "popupMenu")).count()),
         "numberOfMenus" => json!(c.children.iter().filter(|k| m.get(**k).is_some_and(|x| x.kind == "menu")).count()),
+        // The corner widgets, topLeft, topRight, bottomLeft then bottomRight.
+        "menuBarCornerWidget" => {
+            let corners = c.props.get("cornerWidgets").and_then(Value::as_object).cloned().unwrap_or_default();
+            let v: Vec<String> = ["topLeft", "topRight", "bottomLeft", "bottomRight"].iter().map(|k| corners.get(*k).map(text).map(|p| p.rsplit('|').next().unwrap_or("").to_string()).unwrap_or_default()).collect();
+            json!(v)
+        }
+        "tabPosition" if c.kind == "workspaceControl" => json!(c.props.get("tabPosition").map(text).unwrap_or_else(|| "north".into())),
         "isObscured" => json!(!m.window_of(id).and_then(|w| m.get(w)).is_some_and(|w| w.props.get("visible").is_some_and(truth))),
         "widthHeight" => json!([prop("width"), prop("height")]),
         "state" if c.kind == "dockControl" => {
@@ -1451,7 +1610,8 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
         }
         "toolArray" => no_list(c.props.get("tool").map(flat).unwrap_or_default().iter().map(text).collect()),
         "toolCount" => json!(c.props.get("tool").map(flat).map_or(0, |t| t.len())),
-        "tool" if c.kind == "toolButton" => json!(c.props.get("tool").map(flat).and_then(|t| t.first().map(text)).unwrap_or_default()),
+        "tool" if c.kind == "toolButton" => json!(tool_of(&c.props).unwrap_or_default()),
+        "toolImage1" | "toolImage2" | "toolImage3" if c.kind == "toolButton" => no_list(c.props.get(key).map(flat).unwrap_or_default().iter().map(text).collect()),
         "selectedCells" | "selectedRows" | "selectedColumns" | "selectedRow" if c.kind == "scriptTable" => {
             let at: Vec<i64> = c.props.get("selectedCells").map(flat).unwrap_or_default().iter().map(|v| number(v) as i64).collect();
             let mut rows: Vec<i64> = at.chunks(2).map(|x| x[0]).collect();
@@ -1492,6 +1652,7 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
             let v: Vec<String> = c.props.get("items").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
             no_list(v)
         }
+        "allItemsUniqueTags" => no_list(c.props.get("tags").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default()),
         "numberOfItems" => json!(c.props.get("items").and_then(Value::as_array).map_or(0, Vec::len)),
         "numberOfSelectedItems" => json!(c.props.get("selected").and_then(Value::as_array).map_or(0, Vec::len)),
         "selectItem" | "selectIndexedItem" | "selectUniqueTagItem" if c.kind == "textScrollList" => {
@@ -1583,6 +1744,18 @@ fn run_edit(cmd: &str, a: &Args) -> CmdResult {
             } else if let Some(p) = a.get("parent").map(text).filter(|p| !p.is_empty()) {
                 let to = m.find(&p).ok_or_else(|| format!("Object '{p}' not found."))?;
                 move_editor(m, id, Some(to));
+            }
+        }
+        if m.get(id).is_some_and(|c| c.kind == "workspaceControl") {
+            if a.bool("close") {
+                let path = m.get(id).unwrap().path.clone();
+                for cb in close_control(m, id) {
+                    run_soon(cb, Vec::new());
+                }
+                return Ok(json!(path));
+            }
+            if ["dockToMainWindow", "dockToControl", "dockToPanel", "tabToControl", "floating", "resizeWidth", "resizeHeight", "tabPosition", "horizontal"].iter().any(|k| a.has(k)) {
+                crate::user_folder::layout_modified();
             }
         }
         let changed = apply(m, id, &a.flags)?;
@@ -1797,9 +1970,32 @@ fn after_create(cmd: &str, result: &CmdResult, a: &Args) {
     }
     let name = result.as_ref().ok().and_then(Value::as_str).unwrap_or("").to_string();
     let docked = a.has("dockToMainWindow") || a.has("dockToControl") || a.has("dockToPanel") || a.has("tabToControl");
+    // -initCallback: a MEL proc given the control's name once it is in the layout.
+    if let Some(Value::String(p)) = a.get("initCallback") {
+        if !p.is_empty() {
+            run_soon(json!(format!("{p} \"{name}\"")), Vec::new());
+        }
+    }
     with_model(|m| {
+        let saved = m.ws_states.get(&name).cloned();
         if let Some(i) = m.find(&name) {
             if let Some(c) = m.controls.get_mut(&i) {
+                // A saved workspaceControlState sizes and places it, where the call doesn't.
+                if let Some(st) = saved {
+                    let mut edit = Map::new();
+                    for (k, v) in st {
+                        if matches!(k.as_str(), "width" | "height" | "topEdge" | "leftEdge" | "maximized") && !a.has(&k) {
+                            c.props.insert(k.clone(), v.clone());
+                            edit.insert(k, v);
+                        }
+                    }
+                    if let (Some(t), Some(l)) = (c.props.get("topEdge").cloned(), c.props.get("leftEdge").cloned()) {
+                        edit.insert("topLeftCorner".into(), json!([t, l]));
+                    }
+                    if !edit.is_empty() {
+                        op(json!({"op": "edit", "path": c.path, "props": edit}));
+                    }
+                }
                 c.props.insert("visible".into(), json!(true));
                 // It floats until it is docked.
                 if !c.props.contains_key("floating") {
@@ -1829,7 +2025,7 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
         let mut out = Vec::new();
         // A tool button's press makes its tool current.
         if ev["set"]["select"].as_bool() == Some(true) && m.get(id).is_some_and(|c| c.kind == "toolButton") {
-            if let Some(t) = m.get(id).and_then(|c| c.props.get("tool")).map(flat).and_then(|t| t.first().map(text)) {
+            if let Some(t) = m.get(id).and_then(|c| tool_of(&c.props)) {
                 out.push((json!(format!("setToolTo \"{t}\";")), Vec::new()));
             }
         }
@@ -1863,23 +2059,44 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
             }
         }
         if ev["closed"].as_bool() == Some(true) {
-            // A dock control is kept when closed unless -retain says not; a window only with -retain.
-            let retain = m.get(id).is_some_and(|c| c.props.get("retain").map_or(c.kind == "dockControl", truth));
-            if retain {
-                if let Some(c) = m.controls.get_mut(&id) {
-                    c.props.insert("visible".into(), json!(false));
-                    if let Some(cb) = c.props.get("closeCommand") {
-                        out.push((cb.clone(), Vec::new()));
-                    }
-                }
-            } else {
-                for cb in m.delete(id) {
-                    out.push((cb, Vec::new()));
-                }
+            out.extend(close_control(m, id).into_iter().map(|cb| (cb, Vec::new())));
+        }
+        if ev["set"].get("horizontal").is_some() || ev["set"].get("floating").is_some() || ev["set"].get("width").is_some() {
+            if m.get(id).is_some_and(|c| c.kind == "workspaceControl") {
+                crate::user_folder::layout_modified();
             }
         }
         out
     })
+}
+
+/// A window or dock closed: kept hidden when it is retained (a dock or workspace control unless -retain says not, a
+/// window only with -retain), else deleted. A workspace control's size and place are kept as its workspaceControlState.
+/// Returns the close commands to run.
+fn close_control(m: &mut Model, id: Id) -> Vec<Value> {
+    let Some(c) = m.get(id).cloned() else { return Vec::new() };
+    if c.kind == "workspaceControl" {
+        let st = m.ws_states.entry(c.name.clone()).or_default();
+        for k in ["width", "height", "topEdge", "leftEdge", "maximized"] {
+            if let Some(v) = c.props.get(k) {
+                st.insert(k.to_string(), v.clone());
+            }
+        }
+    }
+    let retain = c.props.get("retain").map_or(c.kind == "dockControl" || c.kind == "workspaceControl", truth);
+    if retain {
+        let mut out = Vec::new();
+        if let Some(c) = m.controls.get_mut(&id) {
+            c.props.insert("visible".into(), json!(false));
+            if let Some(cb) = c.props.get("closeCommand") {
+                out.push(cb.clone());
+            }
+            op(json!({"op": "edit", "path": c.path, "props": {"visible": false}}));
+        }
+        out
+    } else {
+        m.delete(id)
+    }
 }
 
 /// A panel placed in a script's layout: a control the shell can build, with the current parent left as it is. No parent
@@ -2172,6 +2389,87 @@ fn in_view_message(a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+fn workspace_control_state(_s: &mut Session, a: &Args) -> CmdResult {
+    let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("workspaceControlState: name a workspace control.") };
+    let asked = |k: &str| a.bool(k) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k));
+    with_model(|m| {
+        if a.bool("exists") {
+            return Ok(json!(m.ws_states.contains_key(&name)));
+        }
+        if a.bool("remove") {
+            m.ws_states.remove(&name);
+            return Ok(Value::Null);
+        }
+        if a.bool("query") {
+            let Some(st) = m.ws_states.get(&name) else { fail!("workspaceControlState: no state is kept for {name}.") };
+            let int = |k: &str| st.get(k).map(|v| json!(number(v) as i64)).unwrap_or(json!(0));
+            let pair = |k: &str| match st.get(k) {
+                Some(Value::Array(v)) => json!(v.iter().map(|x| number(x) as i64).collect::<Vec<_>>()),
+                _ => json!([0, 0]),
+            };
+            return Ok(if asked("widthHeight") {
+                json!([int("width"), int("height")])
+            } else if asked("topLeftCorner") {
+                json!([int("topEdge"), int("leftEdge")])
+            } else if asked("defaultTopLeftCorner") {
+                pair("defaultTopLeftCorner")
+            } else if asked("defaultWidthHeight") {
+                pair("defaultWidthHeight")
+            } else if asked("maximized") {
+                json!(st.get("maximized").is_some_and(truth))
+            } else if let Some(k) = ["width", "height", "topEdge", "leftEdge"].into_iter().find(|k| asked(k)) {
+                int(k)
+            } else {
+                fail!("workspaceControlState: name what to query.")
+            });
+        }
+        // Made, or changed: the values given.
+        let st = m.ws_states.entry(name.clone()).or_default();
+        let ints = |v: &Value| -> Vec<i64> { flat(v).iter().map(|x| number(x) as i64).collect() };
+        if let Some(v) = a.get("widthHeight").map(ints) {
+            if let [w, h, ..] = v.as_slice() {
+                st.insert("width".into(), json!(w));
+                st.insert("height".into(), json!(h));
+            }
+        }
+        if let Some(v) = a.get("topLeftCorner").map(ints) {
+            if let [t, l, ..] = v.as_slice() {
+                st.insert("topEdge".into(), json!(t));
+                st.insert("leftEdge".into(), json!(l));
+            }
+        }
+        for k in ["width", "height", "topEdge", "leftEdge"] {
+            if let Some(v) = a.get(k) {
+                st.insert(k.into(), json!(number(v) as i64));
+            }
+        }
+        for k in ["defaultTopLeftCorner", "defaultWidthHeight"] {
+            if let Some(v) = a.get(k).map(ints) {
+                st.insert(k.into(), json!(v));
+            }
+        }
+        if let Some(v) = a.get("maximized") {
+            st.insert("maximized".into(), json!(truth(v)));
+        }
+        Ok(Value::Null)
+    })
+}
+
+/// The workspace control a control or panel is in, or "".
+pub(crate) fn parent_workspace_control(name: &str) -> String {
+    with_model(|m| {
+        let mut at = m.find(name);
+        while let Some(i) = at {
+            let Some(c) = m.get(i) else { break };
+            if c.kind == "workspaceControl" {
+                return c.name.clone();
+            }
+            at = c.parent;
+        }
+        String::new()
+    })
+}
+
 pub fn register(s: &mut Session) {
     for (name, spec) in KINDS {
         let cmd: &'static str = name;
@@ -2230,7 +2528,7 @@ pub fn register(s: &mut Session) {
     crate::attr_ui::register(s);
 
     for (name, spec) in [
-        ("toolCollection", "select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
+        ("toolCollection", "clear:cl:b select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
         ("radioCollection", "select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
         ("radioMenuItemCollection", "select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
     ] {
@@ -2425,28 +2723,32 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(
-        Cmd::new("workspaceControlState", "Saved state of workspace controls: none are kept here, so -ex is false and -remove does nothing.", |_s, a| {
-            if a.bool("exists") {
-                return Ok(json!(false));
-            }
-            Ok(Value::Null)
-        })
+        Cmd::new(
+            "workspaceControlState",
+            "The size and place a workspace control is given when it is made: kept for each name, made when a workspace \
+             control closes or by this command, and taken off with -remove. -ex says whether one is kept.",
+            workspace_control_state,
+        )
         .positional("name")
         .undoable(false)
         .flag(f("query", "q", ArgType::Bool))
         .flag(f("edit", "e", ArgType::Bool))
+        .flag(f("queried", "", ArgType::Any))
         .flag(f("exists", "ex", ArgType::Bool))
         .flag(f("remove", "r", ArgType::Bool))
-        .flag(f("defaultTopLeftCorner", "dtc", ArgType::Any).multi(2))
+        .flag(f("defaultTopLeftCorner", "dc", ArgType::Any).multi(2))
         .flag(f("defaultWidthHeight", "dwh", ArgType::Any).multi(2))
-        .flag(f("heightProperty", "hp", ArgType::Any))
+        .flag(f("height", "h", ArgType::Any))
+        .flag(f("width", "w", ArgType::Any))
         .flag(f("leftEdge", "le", ArgType::Any))
-        .flag(f("maximumWidthHeight", "mwh", ArgType::Any).multi(2))
-        .flag(f("minimumWidthHeight", "nwh", ArgType::Any).multi(2))
         .flag(f("topEdge", "te", ArgType::Any))
+        .flag(f("maximized", "max", ArgType::Bool))
         .flag(f("topLeftCorner", "tlc", ArgType::Any).multi(2))
         .flag(f("widthHeight", "wh", ArgType::Any).multi(2))
-        .flag(f("widthProperty", "wp", ArgType::Any)),
+        .flag(f("heightProperty", "hp", ArgType::Any))
+        .flag(f("widthProperty", "wp", ArgType::Any))
+        .flag(f("maximumWidthHeight", "mwh", ArgType::Any).multi(2))
+        .flag(f("minimumWidthHeight", "nwh", ArgType::Any).multi(2)),
     );
 
     s.register(

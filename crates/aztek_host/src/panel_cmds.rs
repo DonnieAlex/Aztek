@@ -723,9 +723,83 @@ fn home_of(name: &str) -> (DVec3, DVec3, f64) {
     cam::home(name)
 }
 
+thread_local! {
+    /// viewSet's views of each camera, older first, and where in them the camera is: -previousView and -nextView step
+    /// through them.
+    static VIEWS: std::cell::RefCell<std::collections::HashMap<String, (Vec<(DVec3, DVec3, f64)>, usize)>> = Default::default();
+    /// viewSet -fit and -keepRenderSettings as last given, for -q.
+    static VIEW_SET_FLAGS: std::cell::RefCell<(bool, bool)> = const { std::cell::RefCell::new((false, false)) };
+}
+
+fn view_state(s: &Session, c: &Camera) -> (DVec3, DVec3, f64) {
+    let d = s.graph.node(c.tr).unwrap().data();
+    (d.vec3(Transform::TRANSLATE), d.vec3(Transform::ROTATE), c.coi)
+}
+
 fn view_set(s: &mut Session, a: &Args) -> CmdResult {
     let name = cam_arg(a).unwrap_or_else(active_camera);
     let c = camera_of(s, Some(&name), "viewSet")?;
+    let path = s.graph.path(c.tr);
+    if a.bool("query") {
+        let asked = |k: &str| a.bool(k) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k));
+        let (fit, keep) = VIEW_SET_FLAGS.with(|v| *v.borrow());
+        let (n, at) = VIEWS.with(|v| v.borrow().get(&path).map(|(l, i)| (l.len(), *i)).unwrap_or((0, 0)));
+        return Ok(json!(if asked("previousView") {
+            at > 0
+        } else if asked("nextView") {
+            at + 1 < n
+        } else if asked("keepRenderSettings") {
+            keep
+        } else if asked("fit") {
+            fit
+        } else {
+            fail!("viewSet: name what to query: -fit, -keepRenderSettings, -previousView or -nextView.")
+        }));
+    }
+    VIEW_SET_FLAGS.with(|v| {
+        let mut v = v.borrow_mut();
+        if a.has("fit") {
+            v.0 = a.bool("fit");
+        }
+        if a.has("keepRenderSettings") {
+            v.1 = a.bool("keepRenderSettings");
+        }
+    });
+    if a.bool("previousView") || a.bool("nextView") {
+        // The camera goes back or on to a view it had; the panel's own history follows.
+        let back = a.bool("previousView");
+        let now = view_state(s, &c);
+        let step = VIEWS.with(|v| {
+            let mut v = v.borrow_mut();
+            let (list, at) = v.entry(path.clone()).or_default();
+            if *at == list.len() {
+                list.push(now);
+            } else {
+                list[*at] = now;
+            }
+            let to = if back { at.checked_sub(1) } else { Some(*at + 1).filter(|i| *i < list.len()) };
+            to.map(|i| {
+                *at = i;
+                list[i]
+            })
+        });
+        push_ui_request(if back { "panelFocusUndo" } else { "panelFocusRedo" }.to_string());
+        if let Some((t, r, coi)) = step {
+            set_plug(s, c.tr, Transform::TRANSLATE, PlugValue::Vec3(t))?;
+            set_plug(s, c.tr, Transform::ROTATE, PlugValue::Vec3(r))?;
+            set_plug(s, c.sh, cam::COI, PlugValue::Float(coi))?;
+        }
+        return Ok(Value::Null);
+    }
+    // The view the camera leaves is kept to go back to.
+    let before = view_state(s, &c);
+    VIEWS.with(|v| {
+        let mut v = v.borrow_mut();
+        let (list, at) = v.entry(path.clone()).or_default();
+        list.truncate(*at);
+        list.push(before);
+        *at = list.len();
+    });
     let center = c.center();
     let dist = c.coi;
     // Directions in the Y up frame, turned with the world: -top looks down world up whichever axis that is.
@@ -760,12 +834,6 @@ fn view_set(s: &mut Session, a: &Args) -> CmdResult {
         side(s, DVec3::X)?;
     } else if a.bool("leftSide") {
         side(s, -DVec3::X)?;
-    } else if a.bool("previousView") {
-        push_ui_request("panelFocusUndo".to_string());
-        return Ok(Value::Null);
-    } else if a.bool("nextView") {
-        push_ui_request("panelFocusRedo".to_string());
-        return Ok(Value::Null);
     }
     if a.bool("fit") {
         fit = true;
@@ -1220,6 +1288,18 @@ pub fn register(s: &mut Session) {
                 let sel: Vec<String> = s.graph.selection().iter().map(|&i| s.graph.path(i)).collect();
                 if sel.is_empty() && !prims_selected { every_object(s) } else { sel }
             };
+            // -noChildren: each object by its own shapes, without what is parented under it.
+            let names = if a.bool("noChildren") {
+                let g = &s.graph;
+                names
+                    .iter()
+                    .filter_map(|n| g.find(n).ok().flatten())
+                    .flat_map(|id| if g.node(id).is_some_and(|x| x.ty().is_a("transform")) { aztek_scene::dag::shapes(g, id, false) } else { vec![id] })
+                    .map(|id| g.path(id))
+                    .collect()
+            } else {
+                names
+            };
             let nodes = bounds(s, names)?;
             let stage = crate::usd_view::bounds(s, a.bool("allObjects"));
             let b = match (nodes, stage) {
@@ -1228,12 +1308,27 @@ pub fn register(s: &mut Session) {
             };
             if let Some(b) = b {
                 fit_camera(s, &c, b, a.float("fitFactor", 1.0))?;
+                // -fitClipPlanes: an orthographic camera's near and far planes take in the whole box.
+                if a.bool("fitClipPlanes") && c.ortho {
+                    let c = camera_of(s, cam_arg_filtered(a).as_deref(), "viewFit")?;
+                    let (lo, hi) = b;
+                    let depths: Vec<f64> = (0..8)
+                        .map(|k| DVec3::new(if k & 1 == 0 { lo.x } else { hi.x }, if k & 2 == 0 { lo.y } else { hi.y }, if k & 4 == 0 { lo.z } else { hi.z }))
+                        .map(|p| (p - c.eye).dot(c.forward()))
+                        .collect();
+                    let (near, far) = depths.iter().fold((f64::MAX, f64::MIN), |(n, f), d| (n.min(*d), f.max(*d)));
+                    let pad = ((far - near) * 0.01).max(1e-3);
+                    set_plug(s, c.sh, cam::NEAR_CLIP, PlugValue::Float((near - pad).max(1e-3)))?;
+                    set_plug(s, c.sh, cam::FAR_CLIP, PlugValue::Float((far + pad).max(near.max(1e-3) + 2.0 * pad)))?;
+                }
             }
             Ok(Value::Null)
         })
         .positional("[camera]")
         .flag(f("allObjects", "all", ArgType::Bool))
         .flag(f("fitFactor", "f", ArgType::Float))
+        .flag(f("fitClipPlanes", "fcp", ArgType::Bool))
+        .flag(f("noChildren", "noc", ArgType::Bool))
         .flag(f("animate", "an", ArgType::Bool))
         .flag(f("center", "c", ArgType::Bool))
         .flag(f("namespace", "ns", ArgType::Any))
@@ -1241,10 +1336,10 @@ pub fn register(s: &mut Session) {
     );
 
     let mut vs = Cmd::new("viewSet", "Put a camera on an axis, or back: -p -t -f -s -bo -bk -ls -rs, -home, -fit, -fitFactor.", view_set).positional("[camera]");
-    for (n, sh) in [("persp", "p"), ("top", "t"), ("front", "f"), ("side", "s"), ("bottom", "bo"), ("back", "bk"), ("leftSide", "ls"), ("rightSide", "rs"), ("home", "h"), ("fit", "fit"), ("previousView", "pv"), ("nextView", "nv"), ("viewNegativeX", "vnx"), ("viewNegativeY", "vny"), ("viewNegativeZ", "vnz"), ("viewX", "vx"), ("viewY", "vy"), ("viewZ", "vz"), ("keepRenderSettings", "krs")] {
+    for (n, sh) in [("persp", "p"), ("top", "t"), ("front", "f"), ("side", "s"), ("bottom", "bo"), ("back", "b"), ("leftSide", "ls"), ("rightSide", "rs"), ("home", "h"), ("fit", "fit"), ("previousView", "pv"), ("nextView", "nv"), ("viewNegativeX", "vnx"), ("viewNegativeY", "vny"), ("viewNegativeZ", "vnz"), ("viewX", "vx"), ("viewY", "vy"), ("viewZ", "vz"), ("keepRenderSettings", "krs")] {
         vs = vs.flag(f(n, sh, ArgType::Bool));
     }
-    s.register(vs.flag(f("animate", "an", ArgType::Bool)).flag(f("fitFactor", "ff", ArgType::Float)).flag(f("namespace", "ns", ArgType::Any)));
+    s.register(vs.flag(f("animate", "an", ArgType::Bool)).flag(f("fitFactor", "ff", ArgType::Float)).flag(f("namespace", "ns", ArgType::Any)).flag(f("query", "q", ArgType::Bool)).flag(f("queried", "", ArgType::Any)));
 
     s.register(
         Cmd::new("viewLookAt", "Turn a camera to a point, or to the selection. The camera stays where it is.", |s, a| {
@@ -1283,11 +1378,21 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(
-        Cmd::new("viewPlace", "Place a camera: -eye -la look at -up, -fov degrees, -o orthographic, -p perspective, -ow its width.", |s, a| {
+        Cmd::new("viewPlace", "Place a camera: -eye, -la a point to look at or -vd a direction to look in, -up, -fov degrees, -o orthographic, -p perspective, -ow its width.", |s, a| {
             let c = camera_of(s, cam_arg(a).as_deref(), "viewPlace")?;
-            let eye = a.get("eye").and_then(vec3_of).unwrap_or(c.eye);
-            let target = a.get("lookAt").and_then(vec3_of).unwrap_or_else(|| eye + c.forward() * c.coi);
-            let up = a.get("up").and_then(vec3_of).unwrap_or_else(world::up);
+            if a.has("lookAt") && a.has("viewDirection") {
+                fail!("viewPlace: -lookAt and -viewDirection can't both be given.");
+            }
+            if a.bool("ortho") && a.bool("perspective") {
+                fail!("viewPlace: -ortho and -perspective can't both be given.");
+            }
+            let eye = a.get("eyePoint").and_then(vec3_of).unwrap_or(c.eye);
+            let target = match (a.get("lookAt").and_then(vec3_of), a.get("viewDirection").and_then(vec3_of)) {
+                (Some(t), _) => t,
+                (None, Some(d)) if d.length() > 1e-12 => eye + d.normalize() * c.coi,
+                _ => eye + c.forward() * c.coi,
+            };
+            let up = a.get("upDirection").and_then(vec3_of).unwrap_or_else(world::up);
             put_eye(s, &c, eye)?;
             set_plug(s, c.tr, Transform::ROTATE, PlugValue::Vec3(look_rotation(target - eye, up)))?;
             set_plug(s, c.sh, cam::COI, PlugValue::Float((target - eye).length().max(1e-3)))?;
@@ -1309,9 +1414,11 @@ pub fn register(s: &mut Session) {
             Ok(Value::Null)
         })
         .positional("[camera]")
-        .flag(f("eye", "eye", ArgType::Vec3))
+        .flag(f("eyePoint", "eye", ArgType::Vec3))
         .flag(f("lookAt", "la", ArgType::Vec3))
-        .flag(f("up", "up", ArgType::Vec3))
+        .flag(f("upDirection", "up", ArgType::Vec3))
+        .flag(f("viewDirection", "vd", ArgType::Vec3))
+        .flag(f("animate", "an", ArgType::Bool))
         .flag(f("fieldOfView", "fov", ArgType::Float))
         .flag(f("ortho", "o", ArgType::Bool))
         .flag(f("perspective", "p", ArgType::Bool))
@@ -1448,10 +1555,11 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(
-        Cmd::new("track", "Slide a camera sideways: -l left, -r right, -u up, -d down, in units.", |s, a| {
+        Cmd::new("track", "Slide a camera sideways: -l left, -r right, -u or -up up, -d down, in units.", |s, a| {
             let c = camera_of(s, cam_arg(a).as_deref(), "track")?;
             let side = a.float("right", 0.0) - a.float("left", 0.0);
-            let up = a.float("up", 0.0) - a.float("down", 0.0);
+            // -upDistance01 (-u) and -upDistance02 (-up) are the same.
+            let up = a.float("upDistance01", 0.0) + a.float("upDistance02", 0.0) - a.float("down", 0.0);
             let eye = c.eye + c.axes.x_axis * side + c.axes.y_axis * up;
             put_eye(s, &c, eye)?;
             Ok(Value::Null)
@@ -1459,7 +1567,8 @@ pub fn register(s: &mut Session) {
         .positional("[camera]")
         .flag(f("left", "l", ArgType::Float))
         .flag(f("right", "r", ArgType::Float))
-        .flag(f("up", "u", ArgType::Float))
+        .flag(f("upDistance01", "u", ArgType::Float))
+        .flag(f("upDistance02", "up", ArgType::Float))
         .flag(f("down", "d", ArgType::Float)),
     );
 

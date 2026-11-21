@@ -1200,11 +1200,10 @@ void MainWindow::build_menus() {
         } else if (picked.startsWith("Save")) {
             bool ok = false;
             const QString n = QInputDialog::getText(this, "Save Workspace", "Name:", QLineEdit::Normal, current, &ok).trimmed();
-            if (ok && !n.isEmpty()) {
-                QSettings().setValue("workspaces/" + n, saveState());
-                QSettings().setValue("workspaces_current", n);
-            }
+            // As workspaceLayoutManager -saveAs: the core keeps the layout's file, the window its arrangement.
+            if (ok && !n.isEmpty()) exec("workspaceLayoutManager", QJsonObject{{"saveAs", n}});
         } else if (!workspace_names().contains(current)) {
+            exec("workspaceLayoutManager", QJsonObject{{"delete", current}});
             QSettings().remove("workspaces/" + current);
             QSettings().setValue("workspaces_current", "General");
         }

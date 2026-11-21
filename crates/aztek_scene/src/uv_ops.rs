@@ -1899,6 +1899,7 @@ pub fn register(c: &mut Commands<Session>) {
                 let pin_border = a.get("pinUvBorder").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 let iterations = 12 * (a.int("iterations", 5000) / 1000).clamp(1, 10) as i32;
                 let axis = a.int("optimizeAxis", 0).clamp(0, 2);
+                let to_shells = a.get("applyToShell").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 each(s, a, "unfold", "Unfold", "Unfold3DUnfold", |m, t, tp| {
                     let mut o = UnfoldOpts { iterations, pin_border, ..Default::default() };
                     if pin_selected {
@@ -1912,6 +1913,18 @@ pub fn register(c: &mut Commands<Session>) {
                         shells_of(tp, &f).concat()
                     } else {
                         target_faces(m, t, tp)
+                    };
+                    // -applyToShell: whole shells, those with something selected or with UVs pinned.
+                    let faces = if to_shells {
+                        let pin = m.corner_attrs().get::<f32>("uvPin");
+                        let mut seeds: Vec<Index> = if t.whole { Vec::new() } else { faces };
+                        seeds.extend((0..m.face_capacity()).filter(|&f| m.face_valid(f)).filter(|&f| m.face_corners(f).iter().any(|&c| pin.get(c as usize).is_some_and(|&p| p > 0.5))));
+                        if t.whole && seeds.is_empty() {
+                            seeds = all_faces(m);
+                        }
+                        shells_of(tp, &seeds).concat()
+                    } else {
+                        faces
                     };
                     // -oa 1 unfolds along U alone, 2 along V alone: the other stays as it was, and each shell keeps the
                     // span it had along the one unfolded.
@@ -1954,6 +1967,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("iterations", "i", ArgType::Int, Value::Null, "The solver's passes: every thousand is twelve of Aztek's."))
         .flag(f("pinSelected", "ps", ArgType::Any, Value::Null, "The selected UVs stay where they are."))
         .flag(f("pinUvBorder", "pub", ArgType::Any, Value::Null, "Each shell's border stays where it is."))
+        .flag(f("applyToShell", "as", ArgType::Bool, Value::Null, "Unfold whole shells: those with something selected or pinned."))
         .flag(f("stoppingThreshold", "ss", ArgType::Float, Value::Null, "Accepted for existing scripts."))
         .flag(f("globalBlend", "gb", ArgType::Float, Value::Null, "Accepted for existing scripts."))
         .flag(f("globalMethodBlend", "gmb", ArgType::Float, Value::Null, "Accepted for existing scripts."))

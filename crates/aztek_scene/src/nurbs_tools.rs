@@ -389,6 +389,9 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "smoothCurve", &["smoothCurve"], &[], Vec::new());
     crate::history_qe::extend(c, "smoothTangentSurface", &["smoothTangentSrf"], &[], Vec::new());
     crate::history_qe::extend(c, "sphere", &["makeNurbSphere"], &[], Vec::new());
+    crate::history_qe::extend(c, "torus", &["makeNurbTorus"], &[], Vec::new());
+    crate::history_qe::extend(c, "trim", &["trim"], &[], Vec::new());
+    crate::history_qe::extend(c, "untrim", &["untrim"], &[], Vec::new());
     for name in ["square", "squareSurface"] {
         crate::history_qe::extend(c, name, &["squareSrf"], &[], Vec::new());
     }

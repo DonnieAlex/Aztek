@@ -47,6 +47,7 @@
 #include <QPushButton>
 #include <QSet>
 #include <QSettings>
+#include <QToolBar>
 #include <QStatusBar>
 #include <QCoreApplication>
 #include <QTimer>
@@ -1043,6 +1044,34 @@ void MainWindow::handle_ui_request(const QString& r) {
         if (ViewportWidget* v = active_view()) v->set("isolate", payload);
     } else if (name == "workspace") {
         apply_workspace(payload);
+    } else if (name == "workspaceSave") {
+        // workspaceLayoutManager -save and -saveAs: the arrangement kept under the name.
+        QSettings().setValue("workspaces/" + payload, saveState());
+        QSettings().setValue("workspaces_current", payload);
+        if (workspace_box_) {
+            QSignalBlocker b(workspace_box_);
+            if (workspace_box_->findText(payload) < 0) workspace_box_->insertItem(0, payload);
+            workspace_box_->setCurrentText(payload);
+        }
+    } else if (name == "workspaceDelete") {
+        QSettings().remove("workspaces/" + payload);
+        if (workspace_box_ && !workspace_names().contains(payload)) {
+            int i = workspace_box_->findText(payload);
+            if (i >= 0) workspace_box_->removeItem(i);
+        }
+    } else if (name == "workspaceCollapse") {
+        // Every docked control but the one named is put away; the arrangement is kept to restore.
+        const QString keep = payload.section('|', 0, 0);
+        const bool hide_bars = payload.section('|', 1, 1) == "1";
+        QSettings().setValue("workspaces_collapsed", saveState());
+        for (QDockWidget* d : findChildren<QDockWidget*>())
+            if (d->objectName() != keep && d->windowTitle() != keep && !d->isFloating()) d->hide();
+        if (hide_bars)
+            for (QToolBar* b : findChildren<QToolBar*>()) b->hide();
+    } else if (name == "workspaceRestore") {
+        QByteArray kept = QSettings().value("workspaces_collapsed").toByteArray();
+        if (!kept.isEmpty()) restoreState(kept);
+        QSettings().remove("workspaces_collapsed");
     } else if (name == "workspaceReset") {
         if (workspace_names().contains(payload)) QSettings().remove("workspaces/" + payload);
         apply_workspace(payload.isEmpty() ? QString("General") : payload);

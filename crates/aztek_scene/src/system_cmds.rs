@@ -1015,6 +1015,11 @@ fn closest_cmd(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
     Ok(json!(g.path(n)))
 }
 
+thread_local! {
+    /// translator -fileCompression, by translator.
+    static COMPRESSION: std::cell::RefCell<std::collections::HashMap<String, String>> = Default::default();
+}
+
 pub fn register(c: &mut Commands<Session>) {
     c.register(
         CommandDef::<Session>::new(
@@ -1023,11 +1028,40 @@ pub fn register(c: &mut Commands<Session>) {
              loaded), and of one named: -q -extension, -filter, -readSupport, -writeSupport, -loaded, -defaultOptions.",
             |s, a| {
                 let known = |cmd: &Option<&str>| cmd.is_none_or(|c| s.commands.find(c).is_some());
+                // -findTranslator file mode: the loaded translator for the file's type that reads (0), writes (1) or both (2).
+                if let Some(v) = a.get("findTranslator") {
+                    let parts: Vec<Value> = match v {
+                        Value::Array(x) => x.clone(),
+                        o => vec![o.clone()],
+                    };
+                    let file = parts.first().and_then(Value::as_str).unwrap_or("");
+                    let mode = parts.get(1).and_then(Value::as_i64).unwrap_or(0);
+                    let ext = std::path::Path::new(file).extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+                    let fits = |r: bool, w: bool| match mode {
+                        1 => w,
+                        2 => r && w,
+                        _ => r,
+                    };
+                    let builtin = crate::ma_file::TRANSLATORS.iter().find(|t| t.1 == ext && known(&t.4) && fits(t.2, t.3)).map(|t| t.0.to_string());
+                    let found = builtin.or_else(|| crate::ma_file::plugin_translators().into_iter().find(|t| t.extension.eq_ignore_ascii_case(&ext) && fits(t.read, t.write)).map(|t| t.name));
+                    return Ok(json!(found.unwrap_or_default()));
+                }
+                // -fileCompression given a value outside query: what saving files of that type is to do.
                 if !a.bool("query") {
-                    fail!("translator: use -q");
+                    if let (Some(c), Some(n)) = (a.get("fileCompression").and_then(Value::as_str), a.named().first()) {
+                        if !["compressed", "uncompressed", "asCompressed"].contains(&c) {
+                            fail!("translator: -fileCompression is compressed, uncompressed or asCompressed, not {c}");
+                        }
+                        COMPRESSION.with(|m| m.borrow_mut().insert(n.to_lowercase(), c.to_string()));
+                        return Ok(json!(true));
+                    }
+                    fail!("translator: use -q, -findTranslator or -fileCompression");
                 }
                 let q: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
-                let asked = |f: &str| a.bool(f) || q.iter().any(|x| x == f);
+                let asked = |f: &str| a.bool(f) || q.iter().any(|x| x == f) || (f == "fileCompression" && a.get(f).is_some_and(Value::is_string));
+                if let Some(n) = a.named().first().filter(|_| asked("fileCompression")) {
+                    return Ok(json!(COMPRESSION.with(|m| m.borrow().get(&n.to_lowercase()).cloned()).unwrap_or_else(|| "uncompressed".into())));
+                }
                 if asked("list") {
                     let mut l: Vec<String> = crate::ma_file::TRANSLATORS.iter().filter(|t| known(&t.4)).map(|t| t.0.to_string()).collect();
                     l.extend(crate::ma_file::plugin_translators().into_iter().map(|t| t.name));
@@ -1048,6 +1082,10 @@ pub fn register(c: &mut Commands<Session>) {
                         json!(true)
                     } else if asked("defaultOptions") {
                         json!(t.default_options)
+                    } else if asked("optionsScript") {
+                        json!(t.options_script)
+                    } else if asked("defaultFileRule") || asked("objectType") {
+                        json!(t.name)
                     } else {
                         json!(t.name)
                     });
@@ -1065,6 +1103,11 @@ pub fn register(c: &mut Commands<Session>) {
                     json!(known(&t.4))
                 } else if asked("defaultOptions") {
                     json!("")
+                } else if asked("optionsScript") {
+                    json!("")
+                } else if asked("defaultFileRule") || asked("objectType") {
+                    // The workspace file rule the type's files go by: its own name, as the default workspace lists them.
+                    json!(t.0)
                 } else {
                     fail!("translator: query what?")
                 })
@@ -1078,6 +1121,11 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(FlagDef::new("writeSupport", "ws", ArgType::Bool, Value::Null, "Whether it writes."))
         .flag(FlagDef::new("loaded", "ld", ArgType::Bool, Value::Null, "Whether its plug-in is loaded."))
         .flag(FlagDef::new("defaultOptions", "do", ArgType::Bool, Value::Null, "Its default options string."))
+        .flag(FlagDef::new("defaultFileRule", "dfr", ArgType::Bool, Value::Null, "The workspace file rule its files go by."))
+        .flag(FlagDef::new("objectType", "ot", ArgType::Bool, Value::Null, "Obsolete: the same as -defaultFileRule."))
+        .flag(FlagDef::new("optionsScript", "os", ArgType::Bool, Value::Null, "The MEL procedure that posts its options, or \"\"."))
+        .flag(FlagDef::new("fileCompression", "cmp", ArgType::Any, Value::Null, "compressed, uncompressed or asCompressed: what saving its files does; -q gives it."))
+        .flag(FlagDef::new("findTranslator", "ft", ArgType::Any, Value::Null, "A file and 0 read, 1 write or 2 both: the translator that handles it.").multi(2))
         .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Read."))
         .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What -q asks for."))
         .undoable(false),

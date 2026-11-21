@@ -36517,9 +36517,9 @@ textManip	visible	missing
 textScrollList	a	done	auto
 textScrollList	aas	done	auto
 textScrollList	ai	done	auto
-textScrollList	ait	missing	
+textScrollList	ait	done	auto
 textScrollList	allItems	done	auto
-textScrollList	allItemsUniqueTags	missing	
+textScrollList	allItemsUniqueTags	done	auto
 textScrollList	allowAutomaticSelection	done	auto
 textScrollList	allowMultiSelection	done	auto
 textScrollList	ams	done	auto
@@ -36549,23 +36549,23 @@ textScrollList	dropCallback	done	auto
 textScrollList	dt	done	auto
 textScrollList	dtg	done	auto
 textScrollList	e	done	auto
-textScrollList	ea	missing	
+textScrollList	ea	done	auto
 textScrollList	ebg	done	auto
 textScrollList	edit	done	auto
-textScrollList	ei	missing	
-textScrollList	eii	missing	
+textScrollList	ei	done	auto
+textScrollList	eii	done	auto
 textScrollList	ekf	done	auto
-textScrollList	el	missing	
-textScrollList	emptyLabel	missing	
+textScrollList	el	done	auto
+textScrollList	emptyLabel	done	auto
 textScrollList	en	done	auto
 textScrollList	enable	done	auto
-textScrollList	enableAll	missing	
+textScrollList	enableAll	done	auto
 textScrollList	enableBackground	done	auto
-textScrollList	enableIndexedItem	missing	
-textScrollList	enableItem	missing	
+textScrollList	enableIndexedItem	done	auto
+textScrollList	enableItem	done	auto
 textScrollList	enableKeyboardFocus	done	auto
-textScrollList	enableUniqueTagItem	missing	
-textScrollList	eut	missing	
+textScrollList	enableUniqueTagItem	done	auto
+textScrollList	eut	done	auto
 textScrollList	ex	done	auto
 textScrollList	exists	done	auto
 textScrollList	fn	done	auto
@@ -36630,55 +36630,55 @@ textScrollList	w	done	auto
 textScrollList	width	done	auto
 textureDeformer	af	done	auto
 textureDeformer	after	done	auto
-textureDeformer	afterReference	missing	
-textureDeformer	ar	missing	
+textureDeformer	afterReference	done	auto
+textureDeformer	ar	done	auto
 textureDeformer	before	done	auto
 textureDeformer	bf	done	auto
-textureDeformer	cmp	missing	
-textureDeformer	cms	missing	
-textureDeformer	components	missing	
+textureDeformer	cmp	done	auto
+textureDeformer	cms	done	auto
+textureDeformer	components	done	auto
 textureDeformer	d	done	auto
-textureDeformer	deformerTools	missing	
+textureDeformer	deformerTools	done	auto
 textureDeformer	direction	done	auto
-textureDeformer	dt	missing	
-textureDeformer	dui	missing	
-textureDeformer	dumpInfo	missing	
+textureDeformer	dt	done	auto
+textureDeformer	dui	done	auto
+textureDeformer	dumpInfo	done	auto
 textureDeformer	e	done	auto
 textureDeformer	edit	done	auto
 textureDeformer	en	done	auto
 textureDeformer	envelope	done	auto
-textureDeformer	ex	missing	
-textureDeformer	exclusive	missing	
+textureDeformer	ex	done	auto
+textureDeformer	exclusive	done	auto
 textureDeformer	foc	done	auto
 textureDeformer	frontOfChain	done	auto
-textureDeformer	g	missing	
-textureDeformer	geometry	missing	
-textureDeformer	geometryIndices	missing	
-textureDeformer	gi	missing	
-textureDeformer	ignoreSelected	missing	
-textureDeformer	ihs	missing	
-textureDeformer	includeHiddenSelections	missing	
+textureDeformer	g	done	auto
+textureDeformer	geometry	done	auto
+textureDeformer	geometryIndices	done	auto
+textureDeformer	gi	done	auto
+textureDeformer	ignoreSelected	done	auto
+textureDeformer	ihs	done	auto
+textureDeformer	includeHiddenSelections	done	auto
 textureDeformer	n	done	auto
 textureDeformer	name	done	auto
 textureDeformer	o	done	auto
 textureDeformer	offset	done	auto
-textureDeformer	par	missing	
-textureDeformer	parallel	missing	
+textureDeformer	par	done	auto
+textureDeformer	parallel	done	auto
 textureDeformer	pointSpace	done	auto
 textureDeformer	pr	done	auto
 textureDeformer	prune	done	auto
 textureDeformer	ps	done	auto
 textureDeformer	q	done	auto
 textureDeformer	query	done	auto
-textureDeformer	remove	missing	
-textureDeformer	rm	missing	
+textureDeformer	remove	done	auto
+textureDeformer	rm	done	auto
 textureDeformer	s	done	auto
-textureDeformer	selectedComponents	missing	
-textureDeformer	sp	missing	
-textureDeformer	split	missing	
+textureDeformer	selectedComponents	done	auto
+textureDeformer	sp	done	auto
+textureDeformer	split	done	auto
 textureDeformer	strength	done	auto
-textureDeformer	uct	missing	
-textureDeformer	useComponentTags	missing	
+textureDeformer	uct	done	auto
+textureDeformer	useComponentTags	done	auto
 textureDeformer	vectorOffset	done	auto
 textureDeformer	vectorSpace	done	auto
 textureDeformer	vectorStrength	done	auto
@@ -38213,7 +38213,7 @@ toolButton	onCommand	done	auto
 toolButton	onc	done	auto
 toolButton	p	done	auto
 toolButton	parent	done	auto
-toolButton	piv	missing	
+toolButton	piv	done	auto
 toolButton	pma	done	auto
 toolButton	po	done	auto
 toolButton	popupIndicatorVisible	done	auto
@@ -38224,23 +38224,23 @@ toolButton	query	done	auto
 toolButton	sbm	done	auto
 toolButton	select	done	auto
 toolButton	sl	done	auto
-toolButton	ssm	missing	
+toolButton	ssm	done	auto
 toolButton	st	done	auto
-toolButton	stateSelfManaged	missing	
+toolButton	stateSelfManaged	done	auto
 toolButton	statusBarMessage	done	auto
 toolButton	style	done	auto
 toolButton	t	done	auto
 toolButton	ta	done	auto
 toolButton	tc	done	auto
-toolButton	ti1	missing	
-toolButton	ti2	missing	
-toolButton	ti3	missing	
+toolButton	ti1	done	auto
+toolButton	ti2	done	auto
+toolButton	ti3	done	auto
 toolButton	tool	done	auto
 toolButton	toolArray	done	auto
 toolButton	toolCount	done	auto
-toolButton	toolImage1	missing	
-toolButton	toolImage2	missing	
-toolButton	toolImage3	missing	
+toolButton	toolImage1	done	auto
+toolButton	toolImage2	done	auto
+toolButton	toolImage3	done	auto
 toolButton	useTemplate	done	auto
 toolButton	ut	done	auto
 toolButton	vcc	done	auto
@@ -38252,8 +38252,8 @@ toolButton	visibleChangeCommand	done	auto
 toolButton	w	done	auto
 toolButton	width	done	auto
 toolCollection	cia	done	auto
-toolCollection	cl	missing	
-toolCollection	clear	missing	
+toolCollection	cl	done	auto
+toolCollection	clear	done	auto
 toolCollection	collectionItemArray	done	auto
 toolCollection	defineTemplate	done	auto
 toolCollection	dt	done	auto
@@ -38298,14 +38298,14 @@ toolPropertyWindow	showCommand	done	auto
 toolPropertyWindow	shw	done	auto
 torus	ax	done	auto
 torus	axis	done	auto
-torus	caching	missing	
-torus	cch	missing	
+torus	caching	done	auto
+torus	cch	done	auto
 torus	ch	done	auto
 torus	constructionHistory	done	auto
 torus	d	done	auto
 torus	degree	done	auto
-torus	e	missing	
-torus	edit	missing	
+torus	e	done	auto
+torus	edit	done	auto
 torus	endSweep	done	auto
 torus	esw	done	auto
 torus	heightRatio	done	auto
@@ -38314,8 +38314,8 @@ torus	minorSweep	done	auto
 torus	msw	done	auto
 torus	n	done	auto
 torus	name	done	auto
-torus	nds	missing	
-torus	nodeState	missing	
+torus	nds	done	auto
+torus	nodeState	done	auto
 torus	nsp	done	auto
 torus	o	done	auto
 torus	object	done	auto
@@ -38323,8 +38323,8 @@ torus	p	done	auto
 torus	pivot	done	auto
 torus	po	done	auto
 torus	polygon	done	auto
-torus	q	missing	
-torus	query	missing	
+torus	q	done	auto
+torus	query	done	auto
 torus	r	done	auto
 torus	radius	done	auto
 torus	s	done	auto
@@ -38344,8 +38344,8 @@ track	r	done	auto
 track	right	done	auto
 track	u	done	auto
 track	up	done	auto
-track	upDistance01	missing	
-track	upDistance02	missing	
+track	upDistance01	done	auto
+track	upDistance02	done	auto
 trackCtx	ac	done	auto
 trackCtx	alternateContext	done	auto
 trackCtx	ch	done	auto
@@ -38384,10 +38384,10 @@ transferAttributes	colorBorders	done	auto
 transferAttributes	components	done	auto
 transferAttributes	deformerTools	done	auto
 transferAttributes	dt	done	auto
-transferAttributes	dui	missing	
-transferAttributes	dumpInfo	missing	
-transferAttributes	e	missing	
-transferAttributes	edit	missing	
+transferAttributes	dui	done	auto
+transferAttributes	dumpInfo	done	auto
+transferAttributes	e	done	auto
+transferAttributes	edit	done	auto
 transferAttributes	ex	done	auto
 transferAttributes	exclusive	done	auto
 transferAttributes	flipUVs	done	auto
@@ -38411,8 +38411,8 @@ transferAttributes	parallel	done	auto
 transferAttributes	pos	done	auto
 transferAttributes	pr	done	auto
 transferAttributes	prune	done	auto
-transferAttributes	q	missing	
-transferAttributes	query	missing	
+transferAttributes	q	done	auto
+transferAttributes	query	done	auto
 transferAttributes	remove	done	auto
 transferAttributes	rm	done	auto
 transferAttributes	sampleSpace	done	auto
@@ -38497,26 +38497,26 @@ transformLimits	translationZ	done	auto
 transformLimits	tx	done	auto
 transformLimits	ty	done	auto
 transformLimits	tz	done	auto
-translator	cmp	missing	
-translator	defaultFileRule	missing	
+translator	cmp	done	auto
+translator	defaultFileRule	done	auto
 translator	defaultOptions	done	auto
-translator	dfr	missing	
+translator	dfr	done	auto
 translator	do	done	auto
 translator	ext	done	auto
 translator	extension	done	auto
 translator	f	done	auto
-translator	fileCompression	missing	
+translator	fileCompression	done	auto
 translator	filter	done	auto
-translator	findTranslator	missing	
-translator	ft	missing	
+translator	findTranslator	done	auto
+translator	ft	done	auto
 translator	l	done	auto
 translator	ld	done	auto
 translator	list	done	auto
 translator	loaded	done	auto
-translator	objectType	missing	
-translator	optionsScript	missing	
-translator	os	missing	
-translator	ot	missing	
+translator	objectType	done	auto
+translator	optionsScript	done	auto
+translator	os	done	auto
+translator	ot	done	auto
 translator	q	done	auto
 translator	query	done	auto
 translator	readSupport	done	auto
@@ -38806,8 +38806,8 @@ trim	caching	done	auto
 trim	cch	done	auto
 trim	ch	done	auto
 trim	constructionHistory	done	auto
-trim	e	missing	
-trim	edit	missing	
+trim	e	done	auto
+trim	edit	done	auto
 trim	locatorU	done	auto
 trim	locatorV	done	auto
 trim	lu	done	auto
@@ -38818,8 +38818,8 @@ trim	nds	done	auto
 trim	nodeState	done	auto
 trim	o	done	auto
 trim	object	done	auto
-trim	q	missing	
-trim	query	missing	
+trim	q	done	auto
+trim	query	done	auto
 trim	selected	done	auto
 trim	sh	done	auto
 trim	shrink	done	auto
@@ -38951,8 +38951,8 @@ undoInfo	ock	done	auto
 undoInfo	openChunk	done	auto
 undoInfo	pq	done	auto
 undoInfo	printQueue	done	auto
-undoInfo	printRedoQueue	missing	
-undoInfo	prq	missing	
+undoInfo	printRedoQueue	done	auto
+undoInfo	prq	done	auto
 undoInfo	q	done	auto
 undoInfo	query	done	auto
 undoInfo	redoName	done	auto
@@ -38967,7 +38967,7 @@ undoInfo	un	done	auto
 undoInfo	undoName	done	auto
 undoInfo	undoQueueEmpty	done	auto
 undoInfo	uqe	done	auto
-unfold	applyToShell	missing	
+unfold	applyToShell	done	auto
 unfold	areaWeight	done	auto
 unfold	aw	done	auto
 unfold	gb	done	auto
@@ -39033,9 +39033,9 @@ unknownNode	plugin	done	auto
 unknownNode	q	done	auto
 unknownNode	query	done	auto
 unknownNode	rcn	done	auto
-unknownNode	rct	missing	
+unknownNode	rct	done	auto
 unknownNode	realClassName	done	auto
-unknownNode	realClassTag	missing	
+unknownNode	realClassTag	done	auto
 unknownPlugin	dataTypes	missing	
 unknownPlugin	dt	missing	
 unknownPlugin	l	missing	
@@ -39048,12 +39048,12 @@ unknownPlugin	r	missing
 unknownPlugin	remove	missing	
 unknownPlugin	v	missing	
 unknownPlugin	version	missing	
-unloadPlugin	ac	missing	
-unloadPlugin	addCallback	missing	
+unloadPlugin	ac	done	auto
+unloadPlugin	addCallback	done	auto
 unloadPlugin	f	done	auto
 unloadPlugin	force	done	auto
-unloadPlugin	rc	missing	
-unloadPlugin	removeCallback	missing	
+unloadPlugin	rc	done	auto
+unloadPlugin	removeCallback	done	auto
 untangleUV	mapBorder	done	auto
 untangleUV	maxRelaxIterations	done	auto
 untangleUV	mb	done	auto
@@ -39070,28 +39070,28 @@ untangleUV	relaxTolerance	done	auto
 untangleUV	rt	done	auto
 untangleUV	sd	done	auto
 untangleUV	shapeDetail	done	auto
-untrim	all	missing	
-untrim	caching	missing	
-untrim	cch	missing	
+untrim	all	done	auto
+untrim	caching	done	auto
+untrim	cch	done	auto
 untrim	ch	done	auto
 untrim	constructionHistory	done	auto
 untrim	cos	done	auto
 untrim	curveOnSurface	done	auto
-untrim	e	missing	
-untrim	edit	missing	
+untrim	e	done	auto
+untrim	edit	done	auto
 untrim	n	done	auto
 untrim	name	done	auto
 untrim	nc	done	auto
-untrim	nds	missing	
+untrim	nds	done	auto
 untrim	noChanges	done	auto
-untrim	nodeState	missing	
+untrim	nodeState	done	auto
 untrim	o	done	auto
 untrim	object	done	auto
-untrim	q	missing	
-untrim	query	missing	
+untrim	q	done	auto
+untrim	query	done	auto
 untrim	replaceOriginal	done	auto
 untrim	rpo	done	auto
-untrim	untrimAll	missing	
+untrim	untrimAll	done	auto
 upAxis	ax	done	auto
 upAxis	axis	done	auto
 upAxis	q	done	auto
@@ -39129,8 +39129,8 @@ uvSnapshot	uMax	done	auto
 uvSnapshot	uMin	done	auto
 uvSnapshot	umn	done	auto
 uvSnapshot	umx	done	auto
-uvSnapshot	uvSetName	missing	
-uvSnapshot	uvs	missing	
+uvSnapshot	uvSetName	done	auto
+uvSnapshot	uvs	done	auto
 uvSnapshot	vMax	done	auto
 uvSnapshot	vMin	done	auto
 uvSnapshot	vmn	done	auto
@@ -39265,12 +39265,12 @@ viewFit	animate	done	auto
 viewFit	c	done	auto
 viewFit	center	done	auto
 viewFit	f	done	auto
-viewFit	fcp	missing	
-viewFit	fitClipPlanes	missing	
+viewFit	fcp	done	auto
+viewFit	fitClipPlanes	done	auto
 viewFit	fitFactor	done	auto
 viewFit	namespace	done	auto
-viewFit	noChildren	missing	
-viewFit	noc	missing	
+viewFit	noChildren	done	auto
+viewFit	noc	done	auto
 viewFit	ns	done	auto
 viewLookAt	pos	done	auto
 viewLookAt	position	done	auto
@@ -39332,10 +39332,10 @@ viewManip	v	done	auto
 viewManip	visible	done	auto
 viewManip	zf	done	auto
 viewManip	zoomToFitScene	done	auto
-viewPlace	an	missing	
-viewPlace	animate	missing	
+viewPlace	an	done	auto
+viewPlace	animate	done	auto
 viewPlace	eye	done	auto
-viewPlace	eyePoint	missing	
+viewPlace	eyePoint	done	auto
 viewPlace	fieldOfView	done	auto
 viewPlace	fov	done	auto
 viewPlace	la	done	auto
@@ -39345,12 +39345,12 @@ viewPlace	ortho	done	auto
 viewPlace	p	done	auto
 viewPlace	perspective	done	auto
 viewPlace	up	done	auto
-viewPlace	upDirection	missing	
-viewPlace	vd	missing	
-viewPlace	viewDirection	missing	
+viewPlace	upDirection	done	auto
+viewPlace	vd	done	auto
+viewPlace	viewDirection	done	auto
 viewSet	an	done	auto
 viewSet	animate	done	auto
-viewSet	b	missing	
+viewSet	b	done	auto
 viewSet	back	done	auto
 viewSet	bo	done	auto
 viewSet	bottom	done	auto
@@ -39373,8 +39373,8 @@ viewSet	p	done	auto
 viewSet	persp	done	auto
 viewSet	previousView	done	auto
 viewSet	pv	done	auto
-viewSet	q	missing	
-viewSet	query	missing	
+viewSet	q	done	auto
+viewSet	query	done	auto
 viewSet	rightSide	done	auto
 viewSet	rs	done	auto
 viewSet	s	done	auto
@@ -39719,7 +39719,7 @@ window	docTag	done	auto
 window	dockCorner	done	auto
 window	dockStation	done	auto
 window	dockingLayout	done	auto
-window	ds	missing	
+window	ds	done	auto
 window	dt	done	auto
 window	dtg	done	auto
 window	e	done	auto
@@ -39738,31 +39738,31 @@ window	ip	done	auto
 window	le	done	auto
 window	leftEdge	done	auto
 window	ma	done	auto
-window	mainMenuBar	missing	
+window	mainMenuBar	done	auto
 window	mainWindow	done	auto
 window	maximizeButton	done	auto
 window	mb	done	auto
-window	mbr	missing	
+window	mbr	done	auto
 window	mbv	done	auto
-window	mcw	missing	
+window	mcw	done	auto
 window	menuArray	done	auto
 window	menuBar	done	auto
-window	menuBarCornerWidget	missing	
-window	menuBarResize	missing	
+window	menuBarCornerWidget	done	auto
+window	menuBarResize	done	auto
 window	menuBarVisible	done	auto
-window	menuIndex	missing	
-window	mi	missing	
+window	menuIndex	done	auto
+window	mi	done	auto
 window	minimizeButton	done	auto
 window	minimizeCommand	done	auto
-window	mm	missing	
+window	mm	done	auto
 window	mnb	done	auto
 window	mnc	done	auto
 window	mw	done	auto
 window	mxb	done	auto
 window	nde	done	auto
 window	nestedDockingEnabled	done	auto
-window	nm	missing	
-window	numberOfMenus	missing	
+window	nm	done	auto
+window	numberOfMenus	done	auto
 window	p	done	auto
 window	parent	done	auto
 window	q	done	auto
@@ -39835,61 +39835,61 @@ windowPref	width	done	auto
 windowPref	widthHeight	done	auto
 wire	af	done	auto
 wire	after	done	auto
-wire	afterReference	missing	
-wire	ar	missing	
+wire	afterReference	done	auto
+wire	ar	done	auto
 wire	before	done	auto
 wire	bf	done	auto
 wire	ce	done	auto
-wire	cmp	missing	
-wire	cms	missing	
-wire	components	missing	
+wire	cmp	done	auto
+wire	cms	done	auto
+wire	components	done	auto
 wire	crossingEffect	done	auto
 wire	dds	done	auto
-wire	deformerTools	missing	
+wire	deformerTools	done	auto
 wire	dropoffDistance	done	auto
-wire	dt	missing	
-wire	dui	missing	
-wire	dumpInfo	missing	
+wire	dt	done	auto
+wire	dui	done	auto
+wire	dumpInfo	done	auto
 wire	e	done	auto
 wire	edit	done	auto
 wire	en	done	auto
 wire	envelope	done	auto
-wire	ex	missing	
-wire	exclusive	missing	
+wire	ex	done	auto
+wire	exclusive	done	auto
 wire	foc	done	auto
 wire	frontOfChain	done	auto
-wire	g	missing	
-wire	geometry	missing	
-wire	geometryIndices	missing	
-wire	gi	missing	
+wire	g	done	auto
+wire	geometry	done	auto
+wire	geometryIndices	done	auto
+wire	gi	done	auto
 wire	groupWithBase	done	auto
 wire	gw	done	auto
-wire	ho	missing	
-wire	holder	missing	
-wire	ignoreSelected	missing	
-wire	ihs	missing	
-wire	includeHiddenSelections	missing	
+wire	ho	done	auto
+wire	holder	done	auto
+wire	ignoreSelected	done	auto
+wire	ihs	done	auto
+wire	includeHiddenSelections	done	auto
 wire	li	done	auto
 wire	localInfluence	done	auto
 wire	n	done	auto
 wire	name	done	auto
-wire	par	missing	
-wire	parallel	missing	
+wire	par	done	auto
+wire	parallel	done	auto
 wire	pr	done	auto
 wire	prune	done	auto
 wire	q	done	auto
 wire	query	done	auto
-wire	remove	missing	
-wire	rm	missing	
-wire	selectedComponents	missing	
-wire	sp	missing	
-wire	split	missing	
-wire	uct	missing	
-wire	useComponentTags	missing	
+wire	remove	done	auto
+wire	rm	done	auto
+wire	selectedComponents	done	auto
+wire	sp	done	auto
+wire	split	done	auto
+wire	uct	done	auto
+wire	useComponentTags	done	auto
 wire	w	done	auto
-wire	wc	missing	
+wire	wc	done	auto
 wire	wire	done	auto
-wire	wireCount	missing	
+wire	wireCount	done	auto
 wireContext	ce	missing	
 wireContext	ch	missing	
 wireContext	crossingEffect	missing	
@@ -39989,11 +39989,11 @@ workspace	variableList	done	auto
 workspace	ve	done	auto
 workspace	vl	done	auto
 workspaceControl	actLikeMayaUIElement	done	auto
-workspaceControl	alm	missing	
+workspaceControl	alm	done	auto
 workspaceControl	cc	done	auto
 workspaceControl	checksPlugins	done	auto
-workspaceControl	cl	missing	
-workspaceControl	close	missing	
+workspaceControl	cl	done	auto
+workspaceControl	close	done	auto
 workspaceControl	closeCommand	done	auto
 workspaceControl	clp	done	auto
 workspaceControl	collapse	done	auto
@@ -40020,16 +40020,16 @@ workspaceControl	heightProperty	done	auto
 workspaceControl	horizontal	done	auto
 workspaceControl	hp	done	auto
 workspaceControl	hr	done	auto
-workspaceControl	ic	missing	
+workspaceControl	ic	done	auto
 workspaceControl	ih	done	auto
-workspaceControl	initCallback	missing	
+workspaceControl	initCallback	done	auto
 workspaceControl	initialHeight	done	auto
 workspaceControl	initialWidth	done	auto
 workspaceControl	iw	done	auto
 workspaceControl	l	done	auto
 workspaceControl	label	done	auto
-workspaceControl	layoutDirectionCallback	missing	
-workspaceControl	ldc	missing	
+workspaceControl	layoutDirectionCallback	done	auto
+workspaceControl	ldc	done	auto
 workspaceControl	li	done	auto
 workspaceControl	loadImmediately	done	auto
 workspaceControl	mh	done	auto
@@ -40042,20 +40042,20 @@ workspaceControl	r	done	auto
 workspaceControl	rc	done	auto
 workspaceControl	requiredControl	done	auto
 workspaceControl	requiredPlugin	done	auto
-workspaceControl	resizeHeight	missing	
-workspaceControl	resizeWidth	missing	
+workspaceControl	resizeHeight	done	auto
+workspaceControl	resizeWidth	done	auto
 workspaceControl	restore	done	auto
 workspaceControl	retain	done	auto
 workspaceControl	rp	done	auto
 workspaceControl	rs	done	auto
-workspaceControl	rsh	missing	
-workspaceControl	rsw	missing	
-workspaceControl	rt	missing	
+workspaceControl	rsh	done	auto
+workspaceControl	rsw	done	auto
+workspaceControl	rt	done	auto
 workspaceControl	ss	done	auto
 workspaceControl	stateString	done	auto
-workspaceControl	tabPosition	missing	
+workspaceControl	tabPosition	done	auto
 workspaceControl	tabToControl	done	auto
-workspaceControl	tp	missing	
+workspaceControl	tp	done	auto
 workspaceControl	ttc	done	auto
 workspaceControl	ui	done	auto
 workspaceControl	uiScript	done	auto
@@ -40069,7 +40069,7 @@ workspaceControl	w	done	auto
 workspaceControl	width	done	auto
 workspaceControl	widthProperty	done	auto
 workspaceControl	wp	done	auto
-workspaceControlState	dc	missing	
+workspaceControlState	dc	done	auto
 workspaceControlState	defaultTopLeftCorner	done	auto
 workspaceControlState	defaultWidthHeight	done	auto
 workspaceControlState	dwh	done	auto
@@ -40077,12 +40077,12 @@ workspaceControlState	e	done	auto
 workspaceControlState	edit	done	auto
 workspaceControlState	ex	done	auto
 workspaceControlState	exists	done	auto
-workspaceControlState	h	missing	
-workspaceControlState	height	missing	
+workspaceControlState	h	done	auto
+workspaceControlState	height	done	auto
 workspaceControlState	le	done	auto
 workspaceControlState	leftEdge	done	auto
-workspaceControlState	max	missing	
-workspaceControlState	maximized	missing	
+workspaceControlState	max	done	auto
+workspaceControlState	maximized	done	auto
 workspaceControlState	q	done	auto
 workspaceControlState	query	done	auto
 workspaceControlState	r	done	auto
@@ -40091,55 +40091,55 @@ workspaceControlState	te	done	auto
 workspaceControlState	tlc	done	auto
 workspaceControlState	topEdge	done	auto
 workspaceControlState	topLeftCorner	done	auto
-workspaceControlState	w	missing	
+workspaceControlState	w	done	auto
 workspaceControlState	wh	done	auto
-workspaceControlState	width	missing	
+workspaceControlState	width	done	auto
 workspaceControlState	widthHeight	done	auto
-workspaceLayoutManager	cmw	missing	
-workspaceLayoutManager	collapseMainWindowControls	missing	
+workspaceLayoutManager	cmw	done	auto
+workspaceLayoutManager	collapseMainWindowControls	done	auto
 workspaceLayoutManager	cu	done	auto
 workspaceLayoutManager	current	done	auto
-workspaceLayoutManager	d	missing	
-workspaceLayoutManager	delete	missing	
-workspaceLayoutManager	i	missing	
+workspaceLayoutManager	d	done	auto
+workspaceLayoutManager	delete	done	auto
+workspaceLayoutManager	i	done	auto
 workspaceLayoutManager	listLayouts	done	auto
-workspaceLayoutManager	listModuleLayouts	missing	
-workspaceLayoutManager	listUserLayouts	missing	
+workspaceLayoutManager	listModuleLayouts	done	auto
+workspaceLayoutManager	listUserLayouts	done	auto
 workspaceLayoutManager	ll	done	auto
-workspaceLayoutManager	lml	missing	
-workspaceLayoutManager	lul	missing	
-workspaceLayoutManager	m	missing	
-workspaceLayoutManager	modified	missing	
-workspaceLayoutManager	parentWorkspaceControl	missing	
-workspaceLayoutManager	pwc	missing	
+workspaceLayoutManager	lml	done	auto
+workspaceLayoutManager	lul	done	auto
+workspaceLayoutManager	m	done	auto
+workspaceLayoutManager	modified	done	auto
+workspaceLayoutManager	parentWorkspaceControl	done	auto
+workspaceLayoutManager	pwc	done	auto
 workspaceLayoutManager	q	done	auto
 workspaceLayoutManager	query	done	auto
 workspaceLayoutManager	reset	done	auto
-workspaceLayoutManager	restoreMainWindowControls	missing	
-workspaceLayoutManager	rmw	missing	
+workspaceLayoutManager	restoreMainWindowControls	done	auto
+workspaceLayoutManager	rmw	done	auto
 workspaceLayoutManager	rs	done	auto
-workspaceLayoutManager	s	missing	
-workspaceLayoutManager	sa	missing	
-workspaceLayoutManager	save	missing	
-workspaceLayoutManager	saveAs	missing	
+workspaceLayoutManager	s	done	auto
+workspaceLayoutManager	sa	done	auto
+workspaceLayoutManager	save	done	auto
+workspaceLayoutManager	saveAs	done	auto
 workspaceLayoutManager	sc	done	auto
-workspaceLayoutManager	scc	missing	
+workspaceLayoutManager	scc	done	auto
 workspaceLayoutManager	setCurrent	done	auto
-workspaceLayoutManager	setCurrentCallback	missing	
-workspaceLayoutManager	setModifiedCallback	missing	
-workspaceLayoutManager	smc	missing	
-workspaceLayoutManager	t	missing	
-workspaceLayoutManager	type	missing	
-wrinkle	ax	missing	
-wrinkle	axis	missing	
-wrinkle	bd	missing	
-wrinkle	branchCount	missing	
-wrinkle	branchDepth	missing	
-wrinkle	brc	missing	
-wrinkle	center	missing	
-wrinkle	cr	missing	
-wrinkle	crease	missing	
-wrinkle	ct	missing	
+workspaceLayoutManager	setCurrentCallback	done	auto
+workspaceLayoutManager	setModifiedCallback	done	auto
+workspaceLayoutManager	smc	done	auto
+workspaceLayoutManager	t	done	auto
+workspaceLayoutManager	type	done	auto
+wrinkle	ax	done	auto
+wrinkle	axis	done	auto
+wrinkle	bd	done	auto
+wrinkle	branchCount	done	auto
+wrinkle	branchDepth	done	auto
+wrinkle	brc	done	auto
+wrinkle	center	done	auto
+wrinkle	cr	done	auto
+wrinkle	crease	done	auto
+wrinkle	ct	done	auto
 wrinkle	dds	done	auto
 wrinkle	dropoffDistance	done	auto
 wrinkle	en	done	auto
@@ -40150,8 +40150,8 @@ wrinkle	st	done	auto
 wrinkle	style	done	auto
 wrinkle	th	done	auto
 wrinkle	thickness	done	auto
-wrinkle	uv	missing	
-wrinkle	uvSpace	missing	
+wrinkle	uv	done	auto
+wrinkle	uvSpace	done	auto
 wrinkle	wc	done	auto
 wrinkle	wi	done	auto
 wrinkle	wrinkleCount	done	auto
@@ -40213,38 +40213,38 @@ xform	cpc	done	auto
 xform	deletePriorHistory	done	auto
 xform	dph	done	auto
 xform	eu	done	auto
-xform	euler	missing	
+xform	euler	done	auto
 xform	m	done	auto
 xform	matrix	done	auto
 xform	objectSpace	done	auto
 xform	os	done	auto
 xform	p	done	auto
-xform	parentSpace	missing	
+xform	parentSpace	done	auto
 xform	piv	done	auto
 xform	pivots	done	auto
 xform	preserve	done	auto
-xform	preserveUV	missing	
-xform	ps	missing	
-xform	puv	missing	
+xform	preserveUV	done	auto
+xform	ps	done	auto
+xform	puv	done	auto
 xform	q	done	auto
 xform	query	done	auto
 xform	r	done	auto
 xform	ra	done	auto
 xform	rab	done	auto
-xform	rao	missing	
-xform	rax	missing	
-xform	ray	missing	
-xform	raz	missing	
+xform	rao	done	auto
+xform	rax	done	auto
+xform	ray	done	auto
+xform	raz	done	auto
 xform	reflection	done	auto
-xform	reflectionAboutBBox	missing	
-xform	reflectionAboutOrigin	missing	
-xform	reflectionAboutX	missing	
-xform	reflectionAboutY	missing	
-xform	reflectionAboutZ	missing	
-xform	reflectionTolerance	missing	
+xform	reflectionAboutBBox	done	auto
+xform	reflectionAboutOrigin	done	auto
+xform	reflectionAboutX	done	auto
+xform	reflectionAboutY	done	auto
+xform	reflectionAboutZ	done	auto
+xform	reflectionTolerance	done	auto
 xform	relative	done	auto
 xform	rfl	done	auto
-xform	rft	missing	
+xform	rft	done	auto
 xform	ro	done	auto
 xform	roo	done	auto
 xform	rotateAxis	done	auto

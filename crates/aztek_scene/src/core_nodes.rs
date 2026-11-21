@@ -193,6 +193,16 @@ pub fn register(c: &mut Commands<Session>) {
                 if asked(&a, "plugin") {
                     return Ok(json!(get("filePlugin")));
                 }
+                // The IFF tag a binary file gave the type; a text file has none.
+                if asked(&a, "realClassTag") {
+                    return Ok(json!(match crate::mb_file::class_tag_of(n.uuid(), n.name()) {
+                        Some(t) => t as i64,
+                        None => {
+                            log::warn!("unknownNode: no class tag is available for {name}: it was not read from a binary file");
+                            0
+                        }
+                    }));
+                }
                 Ok(json!(get("fileType")))
             },
         )
@@ -201,6 +211,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(b("query", "q", "Query mode."))
         .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "Flags asked about in query mode."))
         .flag(b("realClassName", "rcn", "Query: the node's type in the file."))
-        .flag(b("plugin", "p", "Query: the plug-in the file said that type comes from.")),
+        .flag(b("plugin", "p", "Query: the plug-in the file said that type comes from."))
+        .flag(b("realClassTag", "rct", "Query: the type's class tag in a binary file, or 0 with a warning for a node read from a text file.")),
     );
 }

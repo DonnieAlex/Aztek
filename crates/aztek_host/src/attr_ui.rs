@@ -210,9 +210,21 @@ pub(crate) fn idle(core: &mut Core) {
 fn sync_tool_buttons() {
     let cur = crate::ctx_cmds::current();
     for (path, props) in controls_of("toolButton") {
+        // -stateSelfManaged: the button's owner keeps its state, not the tools.
+        if props.get("stateSelfManaged").is_some_and(|v| v.as_bool().unwrap_or(v.as_f64().is_some_and(|x| x != 0.0))) {
+            continue;
+        }
         let on = props.get("tool").map(flat).is_some_and(|t| t.iter().any(|x| text(x) == cur));
+        let mut edit = Map::new();
         if props.get("select").and_then(Value::as_bool).unwrap_or(false) != on {
-            let _ = model_edit(&path, &Map::from_iter([("select".to_string(), json!(on))]));
+            edit.insert("select".to_string(), json!(on));
+        }
+        // One of several tools on the button made current elsewhere: the button shows it.
+        if on && crate::scriptui::tool_of(&props).as_deref() != Some(cur.as_str()) {
+            edit.insert("tool".to_string(), json!([cur.clone()]));
+        }
+        if !edit.is_empty() {
+            let _ = model_edit(&path, &edit);
         }
     }
 }
@@ -517,7 +529,7 @@ pub(crate) fn after_command(s: &mut Session, cmd: &str, a: &Args, made: &CmdResu
         }
     }
     if cmd == "toolButton" && a.has("select") && a.bool("select") {
-        if let Some(t) = name.as_deref().and_then(|n| control_prop(n, "tool")).map(|t| flat(&t)).and_then(|t| t.first().map(text)) {
+        if let Some(t) = name.as_deref().and_then(crate::scriptui::control_props).and_then(|p| crate::scriptui::tool_of(&p)) {
             crate::scriptui::run_soon(json!(format!("setToolTo \"{t}\";")), Vec::new());
         }
     }

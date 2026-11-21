@@ -1230,7 +1230,7 @@ except RuntimeError as e:
 print(cmds.loadPlugin("testPlugin"), cmds.getAttr(cmds.createNode("doubler") + ".output"))
 "#,
         &[
-            "None False False False",
+            "['testPlugin'] False False False",
             "no command",
             "unknown node type 'doubler'",
             "Plug-in \"testPlugin\" is not loaded.",

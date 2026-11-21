@@ -396,6 +396,11 @@ thread_local! {
     static LOAD_CALLBACKS: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+thread_local! {
+    /// unloadPlugin -addCallback: scripts run with the name of each plug-in about to unload.
+    static UNLOAD_CALLBACKS: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// The callbacks -addCallback gave, each due with the plug-in's name: a MEL global proc by name, a Python string with %s
 /// for the name, or a Python callable.
 fn queue_load_callbacks(name: &str) {
@@ -521,9 +526,34 @@ fn load_one(s: &mut Session, a: &Args, name: &str, key: &str, quiet: bool, out: 
 
 fn unload_plugin(s: &mut Session, a: &Args) -> CmdResult {
     let force = a.bool("force");
+    if let Some(cb) = a.get("addCallback") {
+        UNLOAD_CALLBACKS.with(|c| {
+            let mut c = c.borrow_mut();
+            if !c.contains(cb) {
+                c.push(cb.clone());
+            }
+        });
+    }
+    if let Some(cb) = a.get("removeCallback") {
+        UNLOAD_CALLBACKS.with(|c| c.borrow_mut().retain(|x| x != cb));
+    }
+    let mut done = Vec::new();
     for v in &a.positional {
         let Some(name) = v.as_str() else { continue };
         let key = key_of(name);
+        let loaded = crate::builtin_plugins::find(name).is_some() || plugin_named(&key).is_some() || python_started();
+        if loaded {
+            // Run as soon as the command returns, first among what it leaves to run.
+            for cb in UNLOAD_CALLBACKS.with(|c| c.borrow().clone()) {
+                let (call, args) = match &cb {
+                    Value::String(src) if src.contains("%s") => (json!({ "__pysrc__": src.replace("%s", &key) }), Vec::new()),
+                    Value::String(src) => (json!(format!("{src} \"{}\"", key.replace('\\', "\\\\").replace('"', "\\\""))), Vec::new()),
+                    Value::Object(o) if o.contains_key("__pysrc__") => (json!({ "__pysrc__": o["__pysrc__"].as_str().unwrap_or("").replace("%s", &key) }), Vec::new()),
+                    other => (other.clone(), vec![json!(key)]),
+                };
+                crate::scriptui::run_soon(call, args);
+            }
+        }
         if let Some(b) = crate::builtin_plugins::find(name) {
             crate::builtin_plugins::unload(s, b);
         } else if let Some(p) = plugin_named(&key) {
@@ -538,8 +568,10 @@ fn unload_plugin(s: &mut Session, a: &Args) -> CmdResult {
         } else {
             return Err(CommandError::new(format!("Plug-in \"{name}\" is not loaded.")));
         }
+        done.push(json!(key));
     }
-    Ok(Value::Null)
+    // The internal names of the plug-ins unloaded.
+    Ok(Value::Array(done))
 }
 
 fn plugin_info(s: &mut Session, a: &Args) -> CmdResult {
@@ -658,6 +690,8 @@ pub fn register_commands(s: &mut Session) {
         CommandDef::<Session>::new("unloadPlugin", "Unload a plug-in: its uninitializePlugin runs and its commands and node types go. A compiled one in use by the scene needs -force.", unload_plugin)
             .positional("plug-in name")
             .flag(b("force", "f", "Unload even with its nodes in the scene."))
+            .flag(FlagDef::new("addCallback", "ac", ArgType::Any, Value::Null, "A script run as each plug-in unloads, given its name: a MEL global proc taking string $pluginName, or Python (a string with %s, or a callable)."))
+            .flag(FlagDef::new("removeCallback", "rc", ArgType::Any, Value::Null, "Take back a script -addCallback gave."))
             .undoable(false),
     );
     s.register(

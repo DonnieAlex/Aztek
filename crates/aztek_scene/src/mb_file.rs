@@ -167,6 +167,20 @@ impl<'a> Cursor<'a> {
     }
 }
 
+thread_local! {
+    /// The IFF class tag of each node read from a binary file whose type no loaded plug-in has, by its UUID (or its
+    /// name when the file gave none): what unknownNode -q -realClassTag answers.
+    static CLASS_TAGS: std::cell::RefCell<HashMap<String, u32>> = Default::default();
+}
+
+/// The class tag a binary file gave an unknown node: by its UUID, then by its name.
+pub fn class_tag_of(uuid: &str, name: &str) -> Option<u32> {
+    CLASS_TAGS.with(|t| {
+        let t = t.borrow();
+        (!uuid.is_empty()).then(|| t.get(uuid).copied()).flatten().or_else(|| t.get(name).copied())
+    })
+}
+
 fn tag_name(t: [u8; 4]) -> String {
     if t.iter().all(|c| c.is_ascii_graphic() || *c == b' ') {
         String::from_utf8_lossy(&t).trim_end().to_string()
@@ -479,6 +493,11 @@ impl Writer {
                 }
             }
         };
+        // A plug-in's type that isn't here: the node comes in unknown, and its class tag is kept.
+        if self.plugin_types.contains_key(&form) && crate::node::types::find(&ty).is_none() {
+            let key = uid.clone().filter(|u| !u.is_empty()).unwrap_or_else(|| name.clone());
+            CLASS_TAGS.with(|t| t.borrow_mut().insert(key, u32::from_be_bytes(form)));
+        }
         let shared = if flags & 0x01 != 0 { " -s" } else { "" };
         let mut line = format!("createNode {ty}{shared} -n {}", q(&name));
         if let Some(p) = parent.filter(|p| !p.is_empty()) {

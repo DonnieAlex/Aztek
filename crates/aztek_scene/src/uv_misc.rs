@@ -648,11 +648,22 @@ fn uv_snapshot(s: &mut Session, a: &Args) -> CmdResult {
     if list.is_empty() {
         fail!("uvSnapshot: name or select a mesh");
     }
+    // -uvSetName: that set's UVs, else the current set's.
+    let set = a.get("uvSetName").and_then(Value::as_str).filter(|x| !x.is_empty());
     for (_, m, faces) in &list {
+        let layer = match set {
+            Some(n) => match crate::uv_sets::layer(m, n) {
+                Some(l) => l,
+                None => fail!("uvSnapshot: no UV set {n}"),
+            },
+            None => UV.to_string(),
+        };
+        let uvs = m.corner_attrs().get::<[f32; 2]>(&layer);
+        let at = |c: Index| uvs.get(c as usize).map_or(DVec2::ZERO, |u| DVec2::new(u[0] as f64, u[1] as f64));
         for &f in faces {
             let corners = m.face_corners(f);
             for k in 0..corners.len() {
-                let (p, q) = (uv_at(m, corners[k]), uv_at(m, corners[(k + 1) % corners.len()]));
+                let (p, q) = (at(corners[k]), at(corners[(k + 1) % corners.len()]));
                 let to = |x: DVec2| DVec2::new((x.x - u0) / (u1 - u0) * (w - 1) as f64, (1.0 - (x.y - v0) / (v1 - v0)) * (h - 1) as f64);
                 let (p, q) = (to(p), to(q));
                 let steps = (p.distance(q).ceil() as usize).max(1);
@@ -783,6 +794,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("fileFormat", "ff", S, "png, or ppm."))
             .flag(f("antiAliased", "aa", B, "Accepted for existing scripts."))
             .flag(f("entireUVRange", "euv", B, "Accepted for existing scripts."))
+            .flag(f("uvSetName", "uvs", S, "The UV set to draw (the current one)."))
             .undoable(false),
     );
     extend(

@@ -985,6 +985,7 @@ pub fn register(s: &mut Session) {
         .flag(f("ikfk", "ik", A, "The size of ik/fk skeleton joints. Held only."))
         .undoable(false),
     );
+    undo_info_print(s);
     s.register(
         q_flags(Cmd::new("ikHandleDisplayScale", "How big IK handles draw in the views: the scale, -q reads it.", |_s, a| scale_cmd(a, "ikHandleDisplayScale", "ikHandleScale")))
             .positional("the scale")
@@ -1218,4 +1219,30 @@ fn handler_value(core: &mut crate::core::Core, cb: &Value, kwargs: &Value) -> Re
 #[cfg(not(feature = "python"))]
 fn handler_value(_core: &mut crate::core::Core, _cb: &Value, _kwargs: &Value) -> Result<Value, String> {
     Err("connectDynamic: this build has no Python for script handlers".into())
+}
+
+/// undoInfo -q -printQueue and -printRedoQueue: the undo queue, or what redo would replay in order, printed to the
+/// Script Editor a line a step.
+fn undo_info_print(s: &mut Session) {
+    let Some(mut cmd) = s.commands.find("undoInfo").cloned() else { return };
+    let run = cmd.run.clone();
+    for (name, short, doc) in [("printQueue", "pq", "With -q: print the undo queue to the Script Editor."), ("printRedoQueue", "prq", "With -q: print the redo queue to the Script Editor.")] {
+        cmd.flags.retain(|x| x.name != name);
+        cmd = cmd.flag(f(name, short, B, doc));
+    }
+    cmd.run = std::sync::Arc::new(move |s: &mut Session, a: &Args| {
+        let asked = |k: &str| a.bool(k) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k));
+        if a.bool("query") && (asked("printQueue") || asked("printRedoQueue")) {
+            let u = s.graph.undo_stack();
+            let steps = u.steps();
+            let done = u.undo_count();
+            let list: Vec<String> = if asked("printQueue") { steps[..done].iter().map(|x| x.label.clone()).collect() } else { steps[done..].iter().map(|x| x.label.clone()).collect() };
+            for (i, l) in list.iter().enumerate() {
+                crate::native_plugin::defer(format!("# {i}: {l}"), crate::core::LineKind::Info);
+            }
+            return Ok(Value::Null);
+        }
+        run(s, a)
+    });
+    s.register(cmd);
 }

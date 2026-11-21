@@ -606,6 +606,76 @@ void ScriptUi::build_window(Item* it, const QJsonObject& props) {
         place_dock(it, props, true);
     }
     if (as_bool(props["menuBar"])) menu_bar_of(it);
+    if (it->kind == "workspaceControl") {
+        // Docked along the top or bottom it lies horizontally: -layoutDirectionCallback hears of it.
+        QString own = it->path;
+        connect(it->dock, &QDockWidget::dockLocationChanged, this, [own](Qt::DockWidgetArea area) {
+            bool horizontal = area == Qt::TopDockWidgetArea || area == Qt::BottomDockWidgetArea;
+            QJsonObject ev{{"path", own}, {"set", QJsonObject{{"horizontal", horizontal}}}};
+            aztek_ui_event(QJsonDocument(ev).toJson(QJsonDocument::Compact).constData());
+        });
+    }
+    window_extras(it, props);
+}
+
+// What a window's and a workspace control's flags do beyond the common ones: the menus' order, the menu bar's corner
+// widgets, the main menu bar in the window, tab positions and the look of a built-in element.
+void ScriptUi::window_extras(Item* it, const QJsonObject& props) {
+    if (props.contains("menuOrder")) {
+        if (QMenuBar* bar = it->bar) {
+            for (const QJsonValue& v : props["menuOrder"].toArray())
+                if (Item* m = items_.value(v.toString()))
+                    if (m->action) {
+                        bar->removeAction(m->action);
+                        bar->addAction(m->action);
+                    }
+        }
+    }
+    if (props.contains("mainMenuBar") && as_bool(props["mainMenuBar"]) && main_) {
+        if (QMenuBar* bar = menu_bar_of(it)) {
+            bar->clear();
+            for (QAction* a : main_->menuBar()->actions()) bar->addAction(a);
+        }
+    }
+    if (props.contains("cornerWidgets") || props.contains("menuBarResize")) {
+        if (QMenuBar* bar = menu_bar_of(it)) {
+            QJsonObject corners = it->prop("cornerWidgets").toObject();
+            for (auto c = corners.begin(); c != corners.end(); ++c) {
+                Item* w = items_.value(c.value().toString());
+                if (!w || !w->w) continue;
+                // A menu bar has two corners, along its top: the bottom ones share them.
+                Qt::Corner corner = c.key().endsWith("Left") ? Qt::TopLeftCorner : Qt::TopRightCorner;
+                if (bar->cornerWidget(corner) != w->w) bar->setCornerWidget(w->w, corner);
+                w->w->show();
+            }
+            bar->adjustSize();
+            bar->updateGeometry();
+        }
+    }
+    if (it->dock) {
+        if (props.contains("tabPosition") && main_) {
+            QString p = props["tabPosition"].toString();
+            QTabWidget::TabPosition pos = p == "east" ? QTabWidget::East : p == "west" ? QTabWidget::West : QTabWidget::North;
+            Qt::DockWidgetAreas areas = as_bool(it->prop("tabPositionAll")) ? Qt::AllDockWidgetAreas : main_->dockWidgetArea(it->dock);
+            main_->setTabPosition(areas, pos);
+        }
+        if (props.contains("actLikeMayaUIElement")) {
+            // Like the built-in shelf and tool box: no title or tab, a grip to drag it off by.
+            if (as_bool(props["actLikeMayaUIElement"])) {
+                auto* grip = new QFrame();
+                grip->setFixedHeight(6);
+                grip->setFrameShape(QFrame::StyledPanel);
+                grip->setCursor(Qt::SizeAllCursor);
+                it->dock->setTitleBarWidget(grip);
+            } else {
+                delete it->dock->titleBarWidget();
+                it->dock->setTitleBarWidget(nullptr);
+            }
+        }
+        if (props.contains("width") || props.contains("height")) {
+            if (it->dock->isFloating()) it->dock->resize(int(as_number(it->prop("width"), it->dock->width())), int(as_number(it->prop("height"), it->dock->height())));
+        }
+    }
 }
 
 // A control scripts name for docking to: another script's, or one of the application's by the reference's name for it.
@@ -2069,15 +2139,44 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     if (k == "toolButton") {
         auto* b = static_cast<QToolButton*>(w);
         QSignalBlocker block(b);
-        QString image = az::find_image(it->prop("image1").toString());
+        QStringList tools = strings(it->prop("tool"));
+        QString current = it->prop("currentTool").toString();
+        if (!tools.contains(current)) current = tools.isEmpty() ? QString() : tools.first();
+        // The current tool's -toolImage1 (or 2, 3), else -image1.
+        QString pic;
+        for (const char* key : {"toolImage1", "toolImage2", "toolImage3"}) {
+            QJsonArray pairs = flat(it->prop(key));
+            for (int i = 0; pic.isEmpty() && i + 1 < pairs.size(); i += 2)
+                if (pairs[i].toString() == current) pic = pairs[i + 1].toString();
+        }
+        if (pic.isEmpty()) pic = it->prop("image1").toString();
+        QString image = az::find_image(pic);
+        // Several tools: a menu of them, with the indicator unless -popupIndicatorVisible is off.
+        if (tools.size() > 1) {
+            auto* menu = b->menu();
+            if (!menu) {
+                menu = new QMenu(b);
+                b->setMenu(menu);
+            }
+            menu->clear();
+            const QString path = it->path;
+            for (const QString& t : tools)
+                menu->addAction(t, this, [this, path, t] {
+                    QJsonObject ev{{"path", path}, {"set", QJsonObject{{"tool", QJsonArray{t}}, {"select", true}}}};
+                    aztek_ui_event(QJsonDocument(ev).toJson(QJsonDocument::Compact).constData());
+                    fire(path, QJsonObject(), QJsonArray{"changeCommand", "onCommand"}, QJsonArray{true});
+                });
+            b->setPopupMode(QToolButton::DelayedPopup);
+            b->setStyleSheet(as_bool(it->prop("popupIndicatorVisible"), true) ? "QToolButton:checked { background: #5285a6; }"
+                                                                                : "QToolButton:checked { background: #5285a6; } QToolButton::menu-indicator { image: none; width: 0px; }");
+        }
         if (!image.isEmpty()) {
             b->setIcon(QIcon(image));
             b->setIconSize(QSize(32, 32));
             b->setToolButtonStyle(Qt::ToolButtonIconOnly);
         } else {
             // No picture: the tool's name, so the button can be told from the others.
-            QStringList tools = strings(it->prop("tool"));
-            b->setText(tools.isEmpty() ? it->name : tools.first());
+            b->setText(current.isEmpty() ? it->name : current);
             b->setToolButtonStyle(Qt::ToolButtonTextOnly);
         }
         if (props.contains("select")) b->setChecked(as_bool(props["select"]));
@@ -2273,9 +2372,25 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         QSignalBlocker block(l);
         if (props.contains("allowMultiSelection")) l->setSelectionMode(as_bool(props["allowMultiSelection"]) ? QAbstractItemView::ExtendedSelection : QAbstractItemView::SingleSelection);
         if (props.contains("numberOfRows")) l->setFixedHeight(int(as_number(props["numberOfRows"])) * 18 + 4);
-        if (props.contains("items")) {
+        if (props.contains("items") || props.contains("disabled") || props.contains("emptyLabel")) {
             l->clear();
-            l->addItems(strings(props["items"]));
+            QStringList items = strings(it->prop("items"));
+            l->addItems(items);
+            // -enableItem and the like: rows turned off can't be picked.
+            for (const QJsonValue& v : it->prop("disabled").toArray())
+                if (auto* i = l->item(v.toInt())) i->setFlags(i->flags() & ~(Qt::ItemIsEnabled | Qt::ItemIsSelectable));
+            // -emptyLabel: shown greyed while the list has nothing in it.
+            QString empty = it->prop("emptyLabel").toString();
+            if (items.isEmpty() && !empty.isEmpty()) {
+                auto* i = new QListWidgetItem(empty, l);
+                i->setFlags(Qt::NoItemFlags);
+                QFont f = i->font();
+                f.setItalic(true);
+                i->setFont(f);
+            }
+            if (!props.contains("selected"))
+                for (const QJsonValue& v : it->prop("selected").toArray())
+                    if (auto* i = l->item(v.toInt())) i->setSelected(true);
         }
         if (props.contains("selected")) {
             l->clearSelection();
@@ -2512,8 +2627,12 @@ void ScriptUi::edit(Item* it, const QJsonObject& props) {
         if (props.contains("button")) it->popup_button = int(as_number(props["button"], 3));
         return;
     }
+    if (k == "window" || k == "workspaceControl") window_extras(it, props);
     if (k == "workspaceControl" || k == "dockControl") {
         place_dock(it, props, false);
+    } else if (k == "menuBarLayout") {
+        window_extras(it, props);
+        apply_layout(it, props);
     } else if (k.endsWith("Layout") || k == "scriptedPanel") {
         apply_layout(it, props);
     } else {

@@ -31,7 +31,7 @@ impl RotateOrder {
         ][i.clamp(0, 5) as usize]
     }
     /// Axis indices in application order.
-    fn axes(self) -> [usize; 3] {
+    pub(crate) fn axes(self) -> [usize; 3] {
         match self {
             Self::Xyz => [0, 1, 2],
             Self::Yzx => [1, 2, 0],

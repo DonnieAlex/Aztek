@@ -1097,7 +1097,7 @@ class MFnPlugin(MFnBase):
             _fail(status="kInvalidParameter", message="The creator didn't make an MPxFileTranslator")
         if name in _translator_classes:
             _fail(status="kFailure", message="A file translator named %s already exists" % (name,))
-        _az.register_translator(name, self._p["name"], t.defaultExtension() or "", bool(t.haveReadMethod()), bool(t.haveWriteMethod()), defaultOptionsString or "")
+        _az.register_translator(name, self._p["name"], t.defaultExtension() or "", bool(t.haveReadMethod()), bool(t.haveWriteMethod()), defaultOptionsString or "", optionsScriptName or "")
         _translator_classes[name] = {"creator": creator, "owner": self._p["name"], "options": optionsScriptName}
         self._p.setdefault("translators", []).append(name)
         return self

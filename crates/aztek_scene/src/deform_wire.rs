@@ -34,6 +34,10 @@ const WIRE_MATRIX: usize = BASE_COUNT + 5;
 const BASE_WIRE: usize = BASE_COUNT + 6;
 /// One element per wire whose rest curve is a shape in the scene: which shape, for saving.
 const BASE_WIRE_MATRIX: usize = BASE_COUNT + 7;
+/// One element per wire with a holder, connected from the holder's transform: which shape holds it.
+const HOLDER_MATRIX: usize = BASE_COUNT + 8;
+/// The holders as they were when given, world space, packed as the base wires are; an empty one where a wire has none.
+const HOLDERS: usize = BASE_COUNT + 9;
 
 /// Wire nodes ever made in this process: scenes without any skip the hook's walk over the nodes.
 static WIRES_MADE: AtomicUsize = AtomicUsize::new(0);
@@ -147,6 +151,7 @@ impl NodeBehavior for Wire {
             self.nearest = base.iter().map(|line| points.iter().map(|q| nearest_on(line, *q)).collect()).collect();
             self.key = (points.clone(), base_data.0.clone());
         }
+        let holders = floats_of(d, HOLDERS).map(unpack).unwrap_or_default();
         let (rotation, crossing, tension, local) = (d.float(ROTATION), d.float(CROSSING), d.float(TENSION), d.float(LOCAL_INFLUENCE));
         let env = d.float(ENVELOPE);
         let weights_owned = crate::deform::weights_of(d, &input);
@@ -172,7 +177,12 @@ impl NodeBehavior for Wire {
                     continue;
                 }
                 let s = 1.0 - dist / reach.max(1e-12);
-                let fall = (s * s * (3.0 - 2.0 * s)).powf(tension);
+                let mut fall = (s * s * (3.0 - 2.0 * s)).powf(tension);
+                // A holder bounds the region: full effect at the wire, none at the holder or beyond it.
+                if let Some(h) = holders.get(k).filter(|h| !h.is_empty()) {
+                    let dh = nearest_on(h, q).2;
+                    fall *= dh / (dist + dh).max(1e-12);
+                }
                 let (from, to) = (at_place(line, seg, t), at_place(now, seg, t));
                 let (t0, t1) = (tangent(line, seg), tangent(now, seg));
                 let turn = if t0 != DVec3::ZERO && t1 != DVec3::ZERO { DQuat::IDENTITY.slerp(DQuat::from_rotation_arc(t0, t1), rotation) } else { DQuat::IDENTITY };
@@ -212,6 +222,8 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
             AttrDef { name: "wireMatrix".into(), short_name: "wm".into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(DMat4::IDENTITY), flags: flags::INPUT | flags::HIDDEN | flags::ARRAY, doc: "Each wire's world matrix.".into(), ..Default::default() },
             data_attr("baseWire", "bw", "The wires as they were when added, world space."),
             AttrDef { name: "baseWireMatrix".into(), short_name: "bwm".into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(DMat4::IDENTITY), flags: flags::INPUT | flags::HIDDEN | flags::ARRAY, doc: "Each wire's rest curve, when it is a shape in the scene.".into(), ..Default::default() },
+            AttrDef { name: "holderMatrix".into(), short_name: "hm".into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(DMat4::IDENTITY), flags: flags::INPUT | flags::HIDDEN | flags::ARRAY, doc: "Each wire's holder, when it has one.".into(), ..Default::default() },
+            data_attr("holders", "hld", "The holders as they were when given, world space."),
         ],
         create: Some(Arc::new(|| {
             WIRES_MADE.fetch_add(1, Ordering::Relaxed);
@@ -298,6 +310,83 @@ pub(crate) fn add_file_wire(g: &mut Graph, n: NodeId, index: i32, driver: NodeId
     set_floats(g, n, BASE_WIRE, pack(&base))
 }
 
+/// -holder index shape: the curve or surface bounding the region wire `index` acts on.
+fn set_holders(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
+    let Some(v) = a.get("holder") else { return Ok(()) };
+    let mut flat_v = Vec::new();
+    fn walk(v: &Value, out: &mut Vec<Value>) {
+        match v {
+            Value::Array(a) => a.iter().for_each(|x| walk(x, out)),
+            o => out.push(o.clone()),
+        }
+    }
+    walk(v, &mut flat_v);
+    for pair in flat_v.chunks(2) {
+        let [i, name] = pair else { fail!("wire: -holder takes a wire index and a shape") };
+        let index = i.as_f64().or_else(|| i.as_str().and_then(|t| t.parse().ok())).unwrap_or(-1.0);
+        if index < 0.0 || index as usize >= wire_count(g, n) {
+            fail!("wire: no wire {index} to hold");
+        }
+        let Some(name) = name.as_str() else { fail!("wire: -holder takes a shape name") };
+        let id = crate::rig::find(g, name, "wire")?;
+        let xf = crate::dag::transform_of(g, id);
+        g.evaluate();
+        let line = driver_points(g, xf);
+        if line.is_empty() {
+            fail!("wire: {name} has no points to hold with");
+        }
+        let k = index as usize;
+        let mut held = floats_of(g.node(n).unwrap().data(), HOLDERS).map(unpack).unwrap_or_default();
+        if held.len() <= k {
+            held.resize(k + 1, Vec::new());
+        }
+        held[k] = line;
+        g.connect(&plug(xf, Transform::WORLD_MATRIX), &PlugRef::element(n, HOLDER_MATRIX as i32, k as i32), true)?;
+        set_floats(g, n, HOLDERS, pack(&held))?;
+    }
+    Ok(())
+}
+
+/// -wireCount n: wires past the first n are taken off.
+fn set_wire_count(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
+    let Some(count) = a.get("wireCount").and_then(Value::as_f64) else { return Ok(()) };
+    let keep = count.max(0.0) as usize;
+    let mut base = floats_of(g.node(n).unwrap().data(), BASE_WIRE).map(unpack).unwrap_or_default();
+    if base.len() <= keep {
+        return Ok(());
+    }
+    for e in g.elements(&plug(n, WIRE_MATRIX)) {
+        if e.element as usize >= keep {
+            g.disconnect(&e);
+        }
+    }
+    for e in g.elements(&plug(n, HOLDER_MATRIX)).into_iter().chain(g.elements(&plug(n, BASE_WIRE_MATRIX))) {
+        if e.element as usize >= keep {
+            g.disconnect(&e);
+        }
+    }
+    base.truncate(keep);
+    set_floats(g, n, BASE_WIRE, pack(&base))?;
+    let mut held = floats_of(g.node(n).unwrap().data(), HOLDERS).map(unpack).unwrap_or_default();
+    if held.len() > keep {
+        held.truncate(keep);
+        set_floats(g, n, HOLDERS, pack(&held))?;
+    }
+    g.touch(n);
+    Ok(())
+}
+
+fn wire_count(g: &Graph, n: NodeId) -> usize {
+    floats_of(g.node(n).unwrap().data(), BASE_WIRE).map(unpack).map_or(0, |b| b.len())
+}
+
+/// The shapes that drive and hold a wire: its tool objects.
+fn tools_of(g: &Graph, n: NodeId) -> Vec<NodeId> {
+    let mut out: Vec<NodeId> = g.elements(&plug(n, WIRE_MATRIX)).iter().filter_map(|e| g.source(e)).map(|d| d.node).collect();
+    out.extend(g.elements(&plug(n, HOLDER_MATRIX)).iter().filter_map(|e| g.source(e)).map(|d| d.node));
+    out
+}
+
 /// -dds index distance, any number of pairs.
 fn set_dropoffs(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
     fn numbers(v: &Value, out: &mut Vec<f64>) {
@@ -326,6 +415,16 @@ fn wire_names(a: &Args) -> Vec<String> {
 const SETTINGS: &[&str] = &["rotation", "crossingEffect", "tension", "localInfluence", "envelope"];
 
 fn create(s: &mut Session, a: &Args) -> CmdResult {
+    // The deformed objects, without the wire named last; then where the deformer goes.
+    let mut b = a.clone();
+    if wire_names(a).is_empty() {
+        let all = objects(s, a);
+        if all.len() > 1 {
+            b.positional = all[..all.len() - 1].iter().map(|x| json!(x)).collect();
+            b.flags.insert("wire".into(), json!(all[all.len() - 1]));
+        }
+    }
+    let a = &crate::deform_common::creation_args(s, &b, "wire")?;
     let mut names = objects(s, a);
     let mut wires = wire_names(a);
     // Without -w, the wire is named last, as the selection for the menu item has it.
@@ -346,12 +445,15 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
             add_wire(g, n, w)?;
         }
         set_dropoffs(g, n, a)?;
+        set_holders(g, n, a)?;
+        set_wire_count(g, n, a)?;
         if let Some(input) = input_mesh(g, n) {
             deform::limit_to(g, n, input.point_capacity(), &meshes[0].1)?;
         }
         for (m, pts) in &meshes[1..] {
             deform::add_geometry(g, n, *m, pts)?;
         }
+        crate::deform_common::after_create(g, n, a)?;
         Ok(n)
     })();
     g.close_chunk();
@@ -368,7 +470,7 @@ fn wire_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
 }
 
 pub(crate) fn register(c: &mut Commands<Session>) {
-    c.register(
+    c.register(crate::deform_common::geometry_flags(crate::deform_common::creation_flags(
         modes(deform::common_flags(Cmd::new(
             "wire",
             "Make points follow a curve: wire -w curve1 -dds 0 2.0 -en 1 -ce 0 -li 0 -n name mesh. Returns [wire1]. With -e on a wire: -w adds a \
@@ -384,6 +486,16 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                     if asked(a, "dropoffDistance") {
                         return Ok(json!(g.node(n).unwrap().elements(DROPOFF).iter().map(|(_, v)| v.as_float()).collect::<Vec<_>>()));
                     }
+                    if asked(a, "holder") {
+                        return Ok(json!(g.elements(&plug(n, HOLDER_MATRIX)).iter().filter_map(|e| g.source(e)).map(|d| g.path(d.node)).collect::<Vec<_>>()));
+                    }
+                    if asked(a, "wireCount") {
+                        return Ok(json!(wire_count(g, n)));
+                    }
+                    let tools = tools_of(g, n);
+                    if let Some(v) = crate::deform_common::shared_query(g, n, a, &tools) {
+                        return Ok(v);
+                    }
                     return deform::query_flags(g, n, a, SETTINGS);
                 }
                 if a.bool("edit") && a.bool("prune") {
@@ -391,14 +503,20 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                 }
                 if a.bool("edit") {
                     let Some(name) = a.named().into_iter().next() else { fail!("wire: name a wire to edit") };
+                    let n = wire_named(&s.graph, &name)?;
+                    let path = s.graph.path(n);
+                    if let Some(r) = crate::deform_common::shared_edit(s, a, &path, "wire") {
+                        r?;
+                    }
                     let g = &mut s.graph;
-                    let n = wire_named(g, &name)?;
                     deform::apply_flags(g, n, a, SETTINGS)?;
                     for x in deform::group(g, n) {
                         for w in wire_names(a) {
                             add_wire(g, x, &w)?;
                         }
                         set_dropoffs(g, x, a)?;
+                        set_holders(g, x, a)?;
+                        set_wire_count(g, x, a)?;
                     }
                     return Ok(json!([g.path(n)]));
                 }
@@ -406,12 +524,14 @@ pub(crate) fn register(c: &mut Commands<Session>) {
             },
         )))
         .positional("meshes to deform, then the wire unless -w names it (the selection when none); the wire with -e and -q")
-        .flag(f("wire", "w", ArgType::Any, "The curve to follow, or several. Any shape with points will do."))
-        .flag(f("dropoffDistance", "dds", ArgType::Any, "Wire index, then how far it reaches, cm (1)."))
+        .flag(f("wire", "w", ArgType::Any, "The curve to follow, or several. Any shape with points will do.").multi(1))
+        .flag(f("dropoffDistance", "dds", ArgType::Any, "Wire index, then how far it reaches, cm (1).").multi(2))
+        .flag(f("holder", "ho", ArgType::Any, "Wire index, then the curve or surface bounding where it acts: full effect at the wire, none at the holder. With -q: the holders.").multi(2))
+        .flag(f("wireCount", "wc", ArgType::Int, "How many wires: wires past that many come off. With -q: how many there are."))
         .flag(f("groupWithBase", "gw", ArgType::Bool, "Accepted and ignored: the base wire is held on the node, so there is nothing to group."))
         .flag(f("rotation", "rt", ArgType::Float, "How much points turn with the wire: 0 not at all, 1 fully (1)."))
         .flag(f("crossingEffect", "ce", ArgType::Float, "Where wires cross: 0 they blend, 1 they add up (0)."))
         .flag(f("tension", "tn", ArgType::Float, "How tightly the effect gathers to the wire (1)."))
         .flag(f("localInfluence", "li", ArgType::Float, "Where wires cross: how much a still wire holds its points, 0 to 1 (0).")),
-    );
+    )));
 }

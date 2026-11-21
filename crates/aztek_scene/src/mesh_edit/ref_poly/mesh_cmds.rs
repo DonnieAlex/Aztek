@@ -825,6 +825,56 @@ impl NodeBehavior for TransferNode {
     }
 }
 
+/// transferAttributes -q and -e on a node, named or found upstream of a mesh: its settings, and what every deformer
+/// command answers (the points it acts on, the target, -dumpInfo).
+fn transfer_qe(s: &mut Session, a: &Args) -> CmdResult {
+    let names = aztek_ops::objects(s, a);
+    let Some(first) = names.first() else { fail!("transferAttributes: name the transferAttributes node or a mesh it feeds") };
+    let Some(n) = crate::history_qe::find_hist(&s.graph, first, &["transferAttributes"]) else { fail!("transferAttributes: {first} has no transferAttributes node") };
+    let path = s.graph.path(n);
+    if a.bool("query") {
+        let asked = |k: &str| crate::skin::asked(a, k);
+        let g = &mut s.graph;
+        let target = crate::deform::mesh_fed_by(g, n);
+        let count = target.and_then(|m| crate::modifiers::cage(g, m)).map(|m| (0..m.point_capacity()).filter(|&p| m.point_valid(p)).count()).unwrap_or(0);
+        let all = || target.map(|m| crate::object_sets::Member { node: m, kind: K::Vertex, ids: (0..count as u32).collect() });
+        if asked("dumpInfo") {
+            return Ok(if target.is_some() { json!([0, count, count]) } else { json!([]) });
+        }
+        if asked("components") {
+            return Ok(json!(crate::object_sets::format(g, &all().into_iter().collect::<Vec<_>>())));
+        }
+        if asked("selectedComponents") {
+            let picked = crate::object_sets::from_selection(g);
+            let mut out = Vec::new();
+            if let Some(m) = target {
+                let mut ids: Vec<u32> = picked.iter().filter(|p| p.node == m && p.kind == K::Vertex).flat_map(|p| p.ids.iter().copied()).filter(|&i| (i as usize) < count).collect();
+                ids.sort_unstable();
+                ids.dedup();
+                if !ids.is_empty() {
+                    out.push(crate::object_sets::Member { node: m, kind: K::Vertex, ids });
+                }
+            }
+            return Ok(json!(crate::object_sets::format(g, &out)));
+        }
+        if asked("deformerTools") {
+            return Ok(json!([]));
+        }
+        if asked("exclusive") {
+            return Ok(json!(""));
+        }
+        if asked("geometryIndices") {
+            return Ok(json!(if target.is_some() { vec![0] } else { vec![] }));
+        }
+        if asked("geometry") {
+            return Ok(json!(target.map(|m| g.path(m)).into_iter().collect::<Vec<_>>()));
+        }
+    }
+    let mut b = a.clone();
+    b.positional = vec![json!(path)];
+    crate::history_qe::qe(s, &b, "transferAttributes", &["transferAttributes"], &[]).unwrap_or_else(|| Ok(json!([path])))
+}
+
 fn register_transfer_type() {
     let int_attr = |n: &str, short: &str, def: i64| AttrDef {
         name: n.into(),
@@ -1629,12 +1679,15 @@ pub(super) fn register(c: &mut Commands<Session>) {
         &[],
     ));
 
-    c.register(with_table(
+    let transfer = with_table(
         Cmd::new(
             "transferAttributes",
             "Copy attributes from the first mesh to the others: -pos positions, -nml normals, -uvs UVs, -col colours, 1 or 2 on; -spa 0 world, 1 model, \
              3 UV, 4 component, 5 topology; -sm 0 along the normal, 3 nearest. Live: changing the source changes the target. Returns the nodes.",
             |s, a| {
+                if a.bool("query") || a.bool("edit") {
+                    return transfer_qe(s, a);
+                }
                 let names = a.named();
                 let (source, targets): (String, Vec<String>) = if names.len() >= 2 {
                     (names[0].clone(), names[1..].to_vec())
@@ -1684,7 +1737,13 @@ pub(super) fn register(c: &mut Commands<Session>) {
         ),
         "transferAttributes",
         &[],
-    ));
+    );
+    let transfer = crate::history_qe::qe_flags(transfer);
+    let transfer = crate::history_qe::upsert(
+        transfer,
+        crate::history_qe::f("dumpInfo", "dui", T::Bool, "Query: the target's index, how many points it acts on and how many there are."),
+    );
+    c.register(transfer);
 
     let cleanup_flags = |cmd: Cmd| -> Cmd {
         cmd.positional("meshes (the selection when none)")
