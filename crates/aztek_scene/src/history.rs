@@ -253,6 +253,11 @@ impl NodeBehavior for HistoryNode {
             d.set_output(OUTPUT, PlugValue::Mesh(None));
             return;
         };
+        // HasNoEffect: the mesh passes through.
+        if crate::history_qe::node_state(d) == 1 {
+            d.set_output(OUTPUT, PlugValue::Mesh(Some(input)));
+            return;
+        }
         if let Some(r) = take_primed(&input, d) {
             d.set_output(OUTPUT, PlugValue::Mesh(Some(r)));
             return;
@@ -278,7 +283,7 @@ impl NodeBehavior for HistoryNode {
 /// Command flags that say how the command runs rather than what the edit does: never attributes.
 const NOT_ATTRS: [&str; 7] = ["constructionHistory", "name", "query", "edit", "queried", "object", "createHistory"];
 /// Values the command works out for its node (a curve's samples, the object's matrix): stored but not shown.
-const HIDDEN_ATTRS: [&str; 5] = ["worldInverse", "curvePoints", "vertices", "creaseVertices", "blindColors"];
+const HIDDEN_ATTRS: [&str; 6] = ["worldInverse", "curvePoints", "vertices", "creaseVertices", "blindColors", "geoSamples"];
 /// Vector flags whose X, Y and Z flags are the vector's parts: the node has one attribute with three children.
 const VECTOR_PARTS: [(&str, &str); 14] = [
     ("translate", "translate"),

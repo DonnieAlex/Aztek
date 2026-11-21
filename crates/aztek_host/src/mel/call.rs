@@ -153,6 +153,12 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
             | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
+            | (
+                "polySelect",
+                "edgeBorder" | "edgeBorderPath" | "edgeBorderPattern" | "edgeLoop" | "edgeLoopOrBorder" | "edgeLoopOrBorderPattern" | "edgeLoopPath"
+                    | "edgeLoopPattern" | "edgeRing" | "edgeRingPath" | "edgeRingPattern" | "edgeUVLoopOrBorder" | "extendToShell" | "shortestEdgePath"
+                    | "shortestEdgePathUV" | "shortestFacePath" | "everyN"
+            )
     )
 }
 
@@ -173,7 +179,6 @@ pub struct Alias {
 pub const ALIASES: &[Alias] = &[
     Alias { the_reference: "makeIdentity", target: "freezeTransforms", flags: &[("a", "apply")] },
     Alias { the_reference: "CenterPivot", target: "centerPivot", flags: &[] },
-    Alias { the_reference: "polyMultiLayoutUV", target: "u3dLayout", flags: &[("ps", "shellSpacing")] },
 ];
 
 pub fn alias(name: &str) -> Option<&'static Alias> {
@@ -359,8 +364,19 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
             }
             let next_is_value = toks.get(i).is_some_and(|n| !is_flag(n));
             if next_is_value && fd.is_some() && (before_q || query_takes_value(&name, &long)) {
-                flags.insert(long, scalar(&toks[i]));
-                i += 1;
+                let arity = fd.map_or(0, |d| d.arity as usize);
+                if arity > 1 {
+                    // A flag of a set number of values (polySelect -q -edgeRingPath 1 10): all of them.
+                    let mut v = Vec::new();
+                    while v.len() < arity && toks.get(i).is_some_and(|n| !is_flag(n)) {
+                        v.push(scalar(&toks[i]));
+                        i += 1;
+                    }
+                    flags.insert(long, Value::Array(v));
+                } else {
+                    flags.insert(long, scalar(&toks[i]));
+                    i += 1;
+                }
             } else {
                 asked.push(json!(long));
             }

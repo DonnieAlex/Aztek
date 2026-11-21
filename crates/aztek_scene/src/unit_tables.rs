@@ -160,7 +160,7 @@ const PRIMITIVE_FLAGS: &[(&str, Unit)] = &[
     ("tipRadius", Linear), ("sectionRadius", Linear), ("thickness", Linear), ("rotation", Angle), ("twist", Angle),
 ];
 
-const MODIFIERS: &[&str] = &["polyExtrudeFacet", "polyExtrudeEdge", "polyExtrude", "polyMoveVertex", "polyMoveEdge", "polyMoveFacet", "polyChipOff", "polyDuplicateEdge"];
+const MODIFIERS: &[&str] = &["polySmartExtrude", "polyExtrudeFacet", "polyExtrudeEdge", "polyExtrude", "polyMoveVertex", "polyMoveEdge", "polyMoveFacet", "polyChipOff", "polyDuplicateEdge"];
 const MODIFIER_FLAGS: &[(&str, Unit)] = &[
     ("translate", Linear), ("translateX", Linear), ("translateY", Linear), ("translateZ", Linear), ("localTranslate", Linear), ("localTranslateX", Linear), ("localTranslateY", Linear), ("localTranslateZ", Linear),
     ("pivot", Linear), ("pivotX", Linear), ("pivotY", Linear), ("pivotZ", Linear), ("offset", Linear), ("thickness", Linear),

@@ -305,6 +305,7 @@ pub fn table(command: &str) -> &'static [Row] {
             ("activeObjects", "ao", 'b'), ("allEdges", "ae", 'b'), ("backCullVertex", "bcv", 'b'),
             ("backCulling", "bc", 'b'), ("colorMaterialChannel", "cm", 's'), ("colorShadedDisplay", "cs", 'b'),
             ("displayAlphaAsGreyScale", "dal", 'b'), ("displayBlueChannel", "dbc", 'b'), ("displayBorder", "db", 'b'),
+            ("displayColorAsGreyScale", "dcl", 'b'),
             ("displayCenter", "dc", 'b'), ("displayCreaseEdge", "dce", 'b'), ("displayCreaseVertex", "dcv", 'b'),
             ("displayGeometry", "dg", 'b'), ("displayGreenChannel", "dgc", 'b'),
             ("displayInvisibleFaces", "dif", 'b'), ("displayItemNumbers", "din", 'l'),

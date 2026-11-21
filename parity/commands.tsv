@@ -789,7 +789,7 @@ polyRemesh	done	auto
 polyRetopo	done	auto
 polySelect	done	auto
 polySelectConstraint	done	auto
-polySelectConstraintMonitor	missing	
+polySelectConstraintMonitor	done	auto
 polySelectCtx	done	auto
 polySelectEditCtx	done	auto
 polySeparate	done	auto
@@ -797,7 +797,7 @@ polySetToFaceNormal	done	auto
 polySewEdge	done	auto
 polyShortestPathCtx	done	auto
 polySlideEdge	done	auto
-polySmartExtrude	missing	
+polySmartExtrude	done	auto
 polySmooth	done	auto
 polySoftEdge	done	auto
 polySphere	done	auto

@@ -62,6 +62,7 @@ const NATIVE: &[&str] = &[
     "polySplitFacet", "polySplitRing", "polySplitVertex", "polySubdivideEdge", "polySubdivideFacet", "polySymmetrize", "polyTransfer",
     "polyTriangulate", "polyUVSet", "polyUnite", "polyWedgeFace", "polyMirror", "polyCrease",
     "polyCanBridgeEdge", "polyCircularizeEdge", "polyCircularizeFace", "polyCollapseTweaks",
+    "polySmartExtrude", "polyMultiLayoutUV",
 ];
 
 pub(crate) fn fl(name: &str, short: &str, ty: ArgType, default: Value, doc: &str) -> FlagDef {

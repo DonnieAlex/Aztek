@@ -109,6 +109,17 @@ fn sample(path: &[DVec3], t: f64) -> (DVec3, DVec3) {
     (path[i] + d * (x - i as f64), d.normalize_or_zero())
 }
 
+/// polySmartExtrude: faces extruded as one region, one division, moved by the local and pivot transforms.
+fn smart_extrude_op(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+    let mut b = a.clone();
+    for (k, v) in [("keepFacesTogether", json!(true)), ("divisions", json!(1)), ("thickness", json!(0.0)), ("offset", json!(0.0))] {
+        b.flags.insert(k.into(), v);
+    }
+    // Its localDirection names the local X axis; the extrusion still runs along each region's normal.
+    b.flags.remove("localDirection");
+    extrude_face_op(&b, m, sel, sym)
+}
+
 fn extrude_face_op(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let spec = move_spec(a);
     let together = on(a, "keepFacesTogether", true) && on(a, "keepFacetTogether", true) && !a.bool("individual");
@@ -834,6 +845,7 @@ pub(super) fn register_ops() {
         register_op(HistoryOp { node_type, command, label, kind, run, skip_flags: &[], doc })
     };
     op("polyExtrudeFace", "polyExtrudeFacet", "Extrude", K::Face, extrude_face_op, "Extrudes faces of its input mesh.");
+    op("polySmartExtrude", "polySmartExtrude", "Smart Extrude", K::Face, smart_extrude_op, "Extrudes faces of its input mesh as one region.");
     op("polyExtrudeEdge", "polyExtrudeEdge", "Extrude", K::Edge, extrude_edge_op, "Extrudes edges of its input mesh into strips of faces.");
     op("polyExtrudeVertex", "polyExtrudeVertex", "Extrude Vertex", K::Vertex, extrude_vertex_op, "Extrudes vertices into pyramids.");
     op("polyChamfer", "polyChamferVtx", "Chamfer Vertex", K::Vertex, chamfer_op, "Cuts vertices off, leaving a face each.");
@@ -897,6 +909,62 @@ pub(super) fn register(c: &mut Commands<Session>) {
         "polyExtrudeFacet",
         &extrude_defaults,
     ));
+    {
+        let v = |n: &str, sh: &str, def: Value, doc: &str| fl(n, sh, T::Vec3, def, doc);
+        let x = |n: &str, sh: &str, doc: &str| fl(n, sh, T::Float, Value::Null, doc);
+        let mut cmd = Cmd::new(
+            "polySmartExtrude",
+            "Smart Extrude: extrude faces as one region, moved by -lt -lr -ls in each region's own space (-ltz along its normal) and by -t \
+             -ro -s about -pvt. Returns the node.",
+            |s, a| {
+                run_op_with(s, "polySmartExtrude", a, &mut |g, n, m, ids, args| {
+                    set_pivot(g, n, m, ids, K::Face, args);
+                    Ok(())
+                })
+            },
+        )
+        .flag(fl("localCenter", "lc", T::Int, json!(0), "The local centre on an edge: 0 its middle, 1 its start, 2 its end."))
+        .flag(v("localDirection", "ld", json!([1.0, 0.0, 0.0]), "The direction of the local X axis (1 0 0)."));
+        for (n, sh) in [("localDirectionX", "ldx"), ("localDirectionY", "ldy"), ("localDirectionZ", "ldz")] {
+            cmd = cmd.flag(x(n, sh, "A part of the local X axis's direction."));
+        }
+        cmd = cmd.flag(v("localRotate", "lr", json!([0.0, 0.0, 0.0]), "Turn in the region's own space (0 0 0)."));
+        for (n, sh) in [("localRotateX", "lrx"), ("localRotateY", "lry"), ("localRotateZ", "lrz")] {
+            cmd = cmd.flag(x(n, sh, "Turn about one local axis; Z is the normal."));
+        }
+        cmd = cmd.flag(v("localScale", "ls", json!([1.0, 1.0, 1.0]), "Scale in the region's own space (1 1 1)."));
+        for (n, sh) in [("localScaleX", "lsx"), ("localScaleY", "lsy"), ("localScaleZ", "lsz")] {
+            cmd = cmd.flag(x(n, sh, "Scale along one local axis."));
+        }
+        cmd = cmd.flag(v("localTranslate", "lt", json!([0.0, 0.0, 0.0]), "Move in the region's own space (0 0 0)."));
+        for (n, sh) in [("localTranslateX", "ltx"), ("localTranslateY", "lty"), ("localTranslateZ", "ltz")] {
+            cmd = cmd.flag(x(n, sh, "Move along one local axis; Z is the normal."));
+        }
+        cmd = cmd.flag(fl("pivot", "pvt", T::Vec3, Value::Null, "The pivot for -ro and -s (the middle of the faces)."));
+        for (n, sh) in [("pivotX", "pvx"), ("pivotY", "pvy"), ("pivotZ", "pvz")] {
+            cmd = cmd.flag(x(n, sh, "A part of the pivot."));
+        }
+        cmd = cmd.flag(v("rotate", "ro", json!([0.0, 0.0, 0.0]), "Turn about the pivot (0 0 0)."));
+        for (n, sh) in [("rotateX", "rx"), ("rotateY", "ry"), ("rotateZ", "rz")] {
+            cmd = cmd.flag(x(n, sh, "Turn about one axis."));
+        }
+        cmd = cmd.flag(v("scale", "s", json!([1.0, 1.0, 1.0]), "Scale about the pivot (1 1 1)."));
+        for (n, sh) in [("scaleX", "sx"), ("scaleY", "sy"), ("scaleZ", "sz")] {
+            cmd = cmd.flag(x(n, sh, "Scale along one axis."));
+        }
+        cmd = cmd.flag(v("translate", "t", json!([0.0, 0.0, 0.0]), "Move (0 0 0)."));
+        for (n, sh) in [("translateX", "tx"), ("translateY", "ty"), ("translateZ", "tz")] {
+            cmd = cmd.flag(x(n, sh, "Move along one axis."));
+        }
+        cmd = cmd
+            .flag(fl("worldSpace", "ws", T::Bool, json!(false), "Values in world space rather than the object's (off)."))
+            .flag(world_flag())
+            .flag(fl("constructionHistory", "ch", T::Bool, Value::Null, "Keep the history node (on)."))
+            .flag(fl("name", "n", T::String, Value::Null, "The node's name."))
+            .flag(fl("caching", "cch", T::Bool, Value::Null, "The node's caching."))
+            .flag(fl("nodeState", "nds", T::Int, Value::Null, "The node's state: 0 normal, 1 has no effect, 2 blocking."));
+        c.register(cmd);
+    }
     c.register(with_table(
         Cmd::new(
             "polyExtrudeEdge",

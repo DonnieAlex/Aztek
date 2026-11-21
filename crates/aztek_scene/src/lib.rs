@@ -66,6 +66,7 @@ pub mod hik_solve;
 pub mod history;
 pub mod history_qe;
 pub mod poly_extra;
+pub mod poly_model;
 pub mod nurbs_align;
 pub mod nurbs_tools;
 pub mod blind_data;

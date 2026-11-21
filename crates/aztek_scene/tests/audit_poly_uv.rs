@@ -61,7 +61,7 @@ fn sew_edge_joins_borders() {
     let u = run(&mut s, "polyUnite", json!({"args": ["a", "b"], "ch": false, "name": "u"}));
     let u = u[0].as_str().unwrap().to_string();
     assert_eq!(eval(&mut s, &u, "v"), 8);
-    run(&mut s, "polySewEdge", json!({"args": [u.clone()], "tx": 0.01}));
+    run(&mut s, "polySewEdge", json!({"args": [u.clone()], "t": 0.01}));
     assert_eq!(eval(&mut s, &u, "v"), 6);
     assert_eq!(eval(&mut s, &u, "f"), 2);
 }
@@ -82,7 +82,7 @@ fn check_compare_output() {
     assert!(text[0].as_str().unwrap().contains("8 vertices, 12 edges, 6 faces"));
     assert_eq!(text.as_array().unwrap().iter().filter(|x| x.as_str().unwrap().starts_with("face ")).count(), 6);
     let path = temp("out.txt");
-    run(&mut s, "polyOutput", json!({"args": ["a"], "of": path.clone()}));
+    run(&mut s, "polyOutput", json!({"args": ["a"], "a": true, "of": path.clone()}));
     assert!(std::fs::read_to_string(&path).unwrap().contains("vtx 0"));
 }
 

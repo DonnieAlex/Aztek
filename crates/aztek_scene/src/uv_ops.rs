@@ -161,7 +161,7 @@ pub(crate) fn shells_of(t: &UvTopo, faces: &[Index]) -> Vec<Vec<Index>> {
     ids.into_iter().map(|s| t.shells[s as usize].clone()).collect()
 }
 
-fn all_faces(m: &Mesh) -> Vec<Index> {
+pub(crate) fn all_faces(m: &Mesh) -> Vec<Index> {
     (0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect()
 }
 
@@ -541,7 +541,7 @@ pub fn layout_with(m: &mut Mesh, faces: &[Index], p: &Pack) {
 }
 
 /// The corners of the faces, or of the maps.
-fn corners_of(m: &Mesh, t: &UvTopo, faces: &[Index], maps: &[Index]) -> Vec<Index> {
+pub(crate) fn corners_of(m: &Mesh, t: &UvTopo, faces: &[Index], maps: &[Index]) -> Vec<Index> {
     let mut out: Vec<Index> = faces.iter().filter(|&&f| m.face_valid(f)).flat_map(|&f| m.face_corners(f)).collect();
     for &mp in maps {
         if let Some(cs) = t.maps.get(mp as usize) {
@@ -553,7 +553,7 @@ fn corners_of(m: &Mesh, t: &UvTopo, faces: &[Index], maps: &[Index]) -> Vec<Inde
     out
 }
 
-fn bounds(uv: &[[f32; 2]], corners: &[Index]) -> (DVec2, DVec2) {
+pub(crate) fn bounds(uv: &[[f32; 2]], corners: &[Index]) -> (DVec2, DVec2) {
     let mut lo = DVec2::splat(f64::MAX);
     let mut hi = DVec2::splat(f64::MIN);
     for &c in corners {
@@ -823,6 +823,16 @@ impl NodeBehavior for UvEditNode {
             d.set_output(OUT, PlugValue::Mesh(None));
             return;
         };
+        // HasNoEffect: the mesh passes through.
+        if crate::history_qe::node_state(d) == 1 {
+            d.set_output(OUT, PlugValue::Mesh(Some(input)));
+            return;
+        }
+        // Settings changed since the edit was made: made again from them.
+        if let Some(m) = crate::poly_model::live_uv(d, &input) {
+            d.set_output(OUT, PlugValue::Mesh(Some(Arc::new(m))));
+            return;
+        }
         // Moved from where the projection fitted: reproject from the attributes.
         if let Some(ty) = self.projection {
             let fitted = d.string(PJ_FITTED);
@@ -1245,6 +1255,7 @@ fn register_types_now() {
                 if *name == "polyAutoProj" {
                     own.extend(auto_proj_attrs());
                 }
+                own.extend(crate::poly_model::live_uv_attrs(name));
                 if projection.is_some() {
                     let k = flags::INPUT | flags::STORABLE | flags::KEYABLE;
                     own.push(crate::node::vec3_attr("projectionCenter", "pc", DVec3::ZERO, k, "Where the projection sits, in the object's space."));
@@ -1284,9 +1295,15 @@ pub fn edit_mesh(g: &mut Graph, mesh: NodeId, node_type: &str, f: impl FnOnce(&m
     let mut after = before.clone();
     f(&mut after);
     let edit = UvEdit::diff(&before, &after);
-    if edit.uvs.is_empty() && edit.seams.is_empty() {
+    // A projection makes its node even where the UVs come out as they were, so its settings can change them.
+    if edit.uvs.is_empty() && edit.seams.is_empty() && !matches!(node_type, "polyPlanarProj" | "polyCylProj" | "polySphProj" | "polyAutoProj") {
         return Ok(None);
     }
+    record_edit(g, mesh, node_type, edit)
+}
+
+/// Puts a UV edit into the mesh's history as a node of `node_type`, or into the mesh itself when it records none.
+pub(crate) fn record_edit(g: &mut Graph, mesh: NodeId, node_type: &str, edit: UvEdit) -> CmdResult<Option<NodeId>> {
     if crate::history::can_record(g, mesh) {
         let t = types::find(node_type).unwrap();
         let (base, src) = crate::history::upstream(g, mesh)?;
@@ -1448,7 +1465,7 @@ pub(crate) fn target_faces(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
 }
 
 /// The edges a target names, the edges with both ends' UVs among its maps, or the edges of its faces.
-fn target_edges(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
+pub(crate) fn target_edges(m: &Mesh, t: &Target, tp: &UvTopo) -> Vec<Index> {
     if !t.edges.is_empty() {
         return t.edges.clone();
     }

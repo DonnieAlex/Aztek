@@ -675,11 +675,16 @@ fn get_plug(s: &mut Session, plug: &str) -> CmdResult<Value> {
     })
 }
 
-/// Sets the settings the call names on one polyCylProj node.
-fn cyl_apply(s: &mut Session, a: &Args, node: &str, only_given: bool) -> CmdResult<()> {
+/// A projection command's flags and the node attributes they stand for: single-value flags, then flags of several
+/// values.
+pub(crate) type ProjTables = (&'static [(&'static str, &'static str)], &'static [(&'static str, &'static [&'static str])]);
+
+/// Sets the settings the call names on one projection node.
+fn cyl_apply(s: &mut Session, a: &Args, node: &str, only_given: bool, tables: ProjTables) -> CmdResult<()> {
     let given: Option<Vec<String>> = if only_given { s.commands.current_given().map(|g| g.to_vec()) } else { None };
     let named = |k: &str| given.as_ref().is_none_or(|g| g.iter().any(|x| x == k));
-    for &(flag, attrs) in CYL_MULTI {
+    let (single, multi) = tables;
+    for &(flag, attrs) in multi {
         if !named(flag) {
             continue;
         }
@@ -695,7 +700,7 @@ fn cyl_apply(s: &mut Session, a: &Args, node: &str, only_given: bool) -> CmdResu
             set_plug(s, &format!("{node}.{attr}"), &v)?;
         }
     }
-    for &(flag, attr) in CYL_SINGLE {
+    for &(flag, attr) in single {
         if !named(flag) {
             continue;
         }
@@ -739,23 +744,29 @@ fn cyl_flags(mut c: Cmd) -> Cmd {
 
 fn cylindrical(c: &mut Commands<Session>) {
     let Some(old) = c.find("polyCylindricalProjection").cloned() else { return };
-    let run = old.run.clone();
-    let mut cmd = cyl_flags(old);
-    cmd.positional_doc = "faces or meshes; with -q and -e, the polyCylProj node or the mesh".into();
+    projection_qe(c, cyl_flags(old), "polyCylProj", (CYL_SINGLE, CYL_MULTI));
+}
+
+/// Gives a projection command its settings on its node: set as it is made, read with -q, changed with -e.
+pub(crate) fn projection_qe(c: &mut Commands<Session>, mut cmd: Cmd, node_type: &'static str, tables: ProjTables) {
+    let run = cmd.run.clone();
+    let name = cmd.name.clone();
+    let (single, multi) = tables;
+    cmd.positional_doc = format!("faces or meshes; with -q and -e, the {node_type} node or the mesh");
     cmd.run = std::sync::Arc::new(move |s: &mut Session, a: &Args| {
         if a.bool("query") || a.bool("edit") {
             let names = a.named();
-            let Some(first) = names.first() else { fail!("polyCylindricalProjection: name the polyCylProj node or a mesh it feeds") };
-            let Some(node) = crate::history_qe::find_hist(&s.graph, first, &["polyCylProj"]) else { fail!("polyCylindricalProjection: {first} has no polyCylProj node") };
+            let Some(first) = names.first() else { fail!("{name}: name the {node_type} node or a mesh it feeds") };
+            let Some(node) = crate::history_qe::find_hist(&s.graph, first, &[node_type]) else { fail!("{name}: {first} has no {node_type} node") };
             let path = s.graph.path(node);
             if a.bool("edit") {
-                cyl_apply(s, a, &path, true)?;
+                cyl_apply(s, a, &path, true, tables)?;
                 s.graph.evaluate();
                 return Ok(json!([path]));
             }
             let asked: Vec<String> = a.get("queried").and_then(Value::as_array).map(|q| q.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
-            let Some(flag) = asked.first() else { fail!("polyCylindricalProjection: name a flag to query") };
-            if let Some((_, attrs)) = CYL_MULTI.iter().find(|m| m.0 == flag) {
+            let Some(flag) = asked.first() else { fail!("{name}: name a flag to query") };
+            if let Some((_, attrs)) = multi.iter().find(|m| m.0 == flag) {
                 let mut out = Vec::new();
                 for attr in attrs.iter() {
                     let mut v = get_plug(s, &format!("{path}.{attr}"))?;
@@ -768,7 +779,7 @@ fn cylindrical(c: &mut Commands<Session>) {
                 }
                 return Ok(Value::Array(out));
             }
-            let Some(&(_, attr)) = CYL_SINGLE.iter().find(|m| m.0 == flag) else { fail!("polyCylindricalProjection: -{flag} can't be queried") };
+            let Some(&(_, attr)) = single.iter().find(|m| m.0 == flag) else { fail!("{name}: -{flag} can't be queried") };
             let v = get_plug(s, &format!("{path}.{attr}"))?;
             return Ok(match (flag.as_str(), v) {
                 ("seamCorrect" | "worldSpace" | "caching", x) => json!(x.as_f64().map_or(x.as_bool().unwrap_or(false), |n| n != 0.0)),
@@ -778,15 +789,15 @@ fn cylindrical(c: &mut Commands<Session>) {
         }
         // The settings go on the node once it is made, in place of the fitted ones.
         let mut b = a.clone();
-        for k in CYL_MULTI.iter().map(|m| m.0).chain(CYL_SINGLE.iter().map(|m| m.0)) {
+        for k in multi.iter().map(|m| m.0).chain(single.iter().map(|m| m.0)) {
             b.flags.remove(k);
         }
         let made = run(s, &b)?;
         let mut out = Vec::new();
         for n in made.as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect::<Vec<_>>() {
             let mut n = n;
-            if s.graph.find(&n).ok().flatten().is_some_and(|id| s.graph.node(id).is_some_and(|x| x.ty().name == "polyCylProj")) {
-                cyl_apply(s, a, &n, true)?;
+            if s.graph.find(&n).ok().flatten().is_some_and(|id| s.graph.node(id).is_some_and(|x| x.ty().name == node_type)) {
+                cyl_apply(s, a, &n, true, tables)?;
                 if let Some(name) = a.get("name").and_then(Value::as_str).filter(|x| !x.is_empty()) {
                     if let Some(new) = s.run("rename", json!({"args": [n.clone(), name]}))?.as_str() {
                         n = new.to_string();
@@ -806,7 +817,7 @@ fn cylindrical(c: &mut Commands<Session>) {
 
 /// Runs a UV command on another UV set: each mesh it names (or has selected) makes that set current for the call, then
 /// goes back.
-fn uv_set_wrapped(c: &mut Commands<Session>, name: &'static str) {
+pub(crate) fn uv_set_wrapped(c: &mut Commands<Session>, name: &'static str) {
     let Some(old) = c.find(name).cloned() else { return };
     let run = old.run.clone();
     let mut cmd = old;
@@ -835,7 +846,11 @@ fn uv_set_wrapped(c: &mut Commands<Session>, name: &'static str) {
         for m in &meshes {
             let all = s.run("polyUVSet", json!({"args": [m], "query": true, "queried": ["allUVSets"]}))?;
             if !all.as_array().is_some_and(|l| l.iter().any(|x| x.as_str() == Some(set.as_str()))) {
-                fail!("{name}: {m} has no UV set {set}");
+                // -createNewMap: the set is made, a copy of the current one, for the command to work on.
+                if !a.bool("createNewMap") {
+                    fail!("{name}: {m} has no UV set {set}");
+                }
+                s.run("polyUVSet", json!({"args": [m], "copy": true, "newUVSet": set}))?;
             }
             let cur = s.run("polyUVSet", json!({"args": [m], "query": true, "queried": ["currentUVSet"]}))?;
             let cur = cur.as_array().and_then(|l| l.first()).and_then(Value::as_str).unwrap_or_default().to_string();

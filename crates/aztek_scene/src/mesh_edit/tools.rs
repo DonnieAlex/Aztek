@@ -96,13 +96,46 @@ pub fn slide_targets(m: &Mesh, sel: &[Index]) -> Vec<(Index, Option<Index>, Opti
 }
 
 fn slide_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
-    let v = a.float("value", 0.0).clamp(-1.0, 1.0);
     let targets = slide_targets(m, sel);
     let before = m.positions().to_vec();
+    // The reference's -edgeDirection: a share of the side edges, toward -direction 0 (one side), 1 (the other) or 2
+    // (along the vertex normals); -absolute moves every vertex that share of the shortest side edge.
+    let ed = a.get("edgeDirection").and_then(Value::as_f64).filter(|x| *x != 0.0);
+    let Some(ed) = ed else {
+        let v = a.float("value", 0.0).clamp(-1.0, 1.0);
+        for (p, side_a, side_b) in targets {
+            let to = if v >= 0.0 { side_a } else { side_b };
+            let Some(t) = to else { continue };
+            let at = before[p as usize].lerp(before[t as usize], v.abs());
+            m.set_position(p, at);
+        }
+        return Ok(edges(sel.clone()));
+    };
+    let dir = a.int("direction", 0);
+    let side_len = |p: Index, t: Option<Index>| t.map(|t| before[p as usize].distance(before[t as usize]));
+    let shortest = targets
+        .iter()
+        .flat_map(|&(p, x, y)| [side_len(p, x), side_len(p, y)])
+        .flatten()
+        .filter(|l| *l > 1e-12)
+        .fold(f64::INFINITY, f64::min);
+    let absolute = a.bool("absolute") && shortest.is_finite();
+    let normals = if dir == 2 { aztek_geo::normals::point_normals(m, aztek_geo::normals::NormalWeight::Area) } else { Vec::new() };
     for (p, side_a, side_b) in targets {
-        let to = if v >= 0.0 { side_a } else { side_b };
-        let Some(t) = to else { continue };
-        let at = before[p as usize].lerp(before[t as usize], v.abs());
+        let from = before[p as usize];
+        let at = if dir == 2 {
+            let mean = [side_len(p, side_a), side_len(p, side_b)].into_iter().flatten().sum::<f64>() / 2.0;
+            let len = if absolute { shortest } else { mean };
+            from + normals.get(p as usize).map_or(DVec3::ZERO, |n| n.as_dvec3()) * ed * len
+        } else {
+            let Some(t) = (if dir == 1 { side_a } else { side_b }) else { continue };
+            let to = before[t as usize];
+            if absolute {
+                from + (to - from).normalize_or_zero() * ed * shortest
+            } else {
+                from.lerp(to, ed)
+            }
+        };
         m.set_position(p, at);
     }
     Ok(edges(sel.clone()))
@@ -313,8 +346,9 @@ pub fn register(c: &mut Commands<Session>) {
             |s, a| edit_selected_op(s, "polySlideEdge", a, false, None),
         )
         .flag(f("value", "v", ArgType::Float, "How far: -1 to 1."))
-        .flag(f("absolute", "a", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("direction", "d", ArgType::Int, "Accepted for existing scripts."))
+        .flag(f("edgeDirection", "ed", ArgType::Float, "How far, as a share of the side edges (0.5 is half way; more than 1 goes past them)."))
+        .flag(f("absolute", "a", ArgType::Bool, "With -ed: every vertex moves the same distance, that share of the shortest side edge."))
+        .flag(f("direction", "d", ArgType::Int, "With -ed: 0 toward one side, 1 toward the other, 2 along the vertex normals."))
         .flag(f("edgeFlow", "ef", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("symmetry", "sym", ArgType::Bool, "Accepted for existing scripts.")),
     );

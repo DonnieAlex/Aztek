@@ -1106,9 +1106,10 @@ fn primitives() -> Vec<Primitive> {
                 known_as(int1("subdivisionsCoil", 50, "Segments per coil."), "sco", &[]),
                 known_as(int_attr("subdivisionsCaps", 0, "Rings on each end.", 0.0, 1000.0), "sc", &[]),
                 keyable_bool("roundCap", false, "Accepted; the ends stay flat."),
+                known_as(keyable_bool("useOldInitBehaviour", false, "Build the helix up from the origin, as the reference's older releases did, rather than centred on it."), "oib", &[]),
             ],
             Arc::new(|n| {
-                make_helix(
+                let mut m = make_helix(
                     f(n, "coils"),
                     f(n, "height"),
                     f(n, "width"),
@@ -1117,7 +1118,17 @@ fn primitives() -> Vec<Primitive> {
                     count(n, "subdivisionsAxis", 3),
                     count(n, "subdivisionsCoil", 1),
                     count(n, "subdivisionsCaps", 0),
-                )
+                );
+                if b(n, "useOldInitBehaviour") {
+                    // Its bottom on the origin: the whole helix moves up half its height.
+                    let up = f(n, "height") * 0.5;
+                    for p in 0..m.point_capacity() {
+                        if m.point_valid(p) {
+                            m.set_position(p, m.position(p) + DVec3::new(0.0, up, 0.0));
+                        }
+                    }
+                }
+                m
             }),
             false,
         ),
@@ -1216,6 +1227,8 @@ fn primitives() -> Vec<Primitive> {
                     v
                 }
                 "polyDisc" => vec![int_alias("sides", "s"), int_alias("subdivisions", "sd"), int_alias("subdivisionMode", "sm")],
+                // The reference's misspelt second name of numberOfSides.
+                "polyPrism" | "polyPyramid" => vec![int_alias("numderOfSides", "nsi")],
                 _ => Vec::new(),
             };
             p

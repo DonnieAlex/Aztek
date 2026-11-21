@@ -25049,8 +25049,8 @@ polyExtrudeFacet	cp	done	auto
 polyExtrudeFacet	createCurve	done	auto
 polyExtrudeFacet	d	done	auto
 polyExtrudeFacet	divisions	done	auto
-polyExtrudeFacet	e	missing	
-polyExtrudeFacet	edit	missing	
+polyExtrudeFacet	e	done	auto
+polyExtrudeFacet	edit	done	auto
 polyExtrudeFacet	g	done	auto
 polyExtrudeFacet	ga	done	auto
 polyExtrudeFacet	gain	done	auto
@@ -25122,8 +25122,8 @@ polyExtrudeFacet	pvt	done	auto
 polyExtrudeFacet	pvx	done	auto
 polyExtrudeFacet	pvy	done	auto
 polyExtrudeFacet	pvz	done	auto
-polyExtrudeFacet	q	missing	
-polyExtrudeFacet	query	missing	
+polyExtrudeFacet	q	done	auto
+polyExtrudeFacet	query	done	auto
 polyExtrudeFacet	raf	done	auto
 polyExtrudeFacet	ran	done	auto
 polyExtrudeFacet	random	done	auto
@@ -25174,16 +25174,16 @@ polyExtrudeVertex	ch	done	auto
 polyExtrudeVertex	constructionHistory	done	auto
 polyExtrudeVertex	d	done	auto
 polyExtrudeVertex	divisions	done	auto
-polyExtrudeVertex	e	missing	
-polyExtrudeVertex	edit	missing	
+polyExtrudeVertex	e	done	auto
+polyExtrudeVertex	edit	done	auto
 polyExtrudeVertex	l	done	auto
 polyExtrudeVertex	length	done	auto
 polyExtrudeVertex	n	done	auto
 polyExtrudeVertex	name	done	auto
 polyExtrudeVertex	nds	done	auto
 polyExtrudeVertex	nodeState	done	auto
-polyExtrudeVertex	q	missing	
-polyExtrudeVertex	query	missing	
+polyExtrudeVertex	q	done	auto
+polyExtrudeVertex	query	done	auto
 polyExtrudeVertex	w	done	auto
 polyExtrudeVertex	width	done	auto
 polyExtrudeVertex	worldSpace	done	auto
@@ -25196,8 +25196,8 @@ polyFlipUV	constructionHistory	done	auto
 polyFlipUV	createNewMap	done	auto
 polyFlipUV	cut	done	auto
 polyFlipUV	cutUV	done	auto
-polyFlipUV	e	missing	
-polyFlipUV	edit	missing	
+polyFlipUV	e	done	auto
+polyFlipUV	edit	done	auto
 polyFlipUV	flipType	done	auto
 polyFlipUV	ft	done	auto
 polyFlipUV	ibd	done	auto
@@ -25212,8 +25212,8 @@ polyFlipUV	pivotU	done	auto
 polyFlipUV	pivotV	done	auto
 polyFlipUV	pu	done	auto
 polyFlipUV	pv	done	auto
-polyFlipUV	q	missing	
-polyFlipUV	query	missing	
+polyFlipUV	q	done	auto
+polyFlipUV	query	done	auto
 polyFlipUV	up	done	auto
 polyFlipUV	usePivot	done	auto
 polyFlipUV	uvSetName	done	auto
@@ -25243,44 +25243,44 @@ polyForceUV	unitize	done	auto
 polyForceUV	unshare	done	auto
 polyForceUV	uvSetName	done	auto
 polyForceUV	uvs	done	auto
-polyGeoSampler	abl	missing	
-polyGeoSampler	ac	missing	
-polyGeoSampler	alphaBlend	missing	
-polyGeoSampler	amn	missing	
-polyGeoSampler	amx	missing	
-polyGeoSampler	averageColor	missing	
-polyGeoSampler	bf	missing	
-polyGeoSampler	cbl	missing	
-polyGeoSampler	cdo	missing	
-polyGeoSampler	clampAlphaMax	missing	
-polyGeoSampler	clampAlphaMin	missing	
-polyGeoSampler	clampRGBMax	missing	
-polyGeoSampler	clampRGBMin	missing	
+polyGeoSampler	abl	done	auto
+polyGeoSampler	ac	done	auto
+polyGeoSampler	alphaBlend	done	auto
+polyGeoSampler	amn	done	auto
+polyGeoSampler	amx	done	auto
+polyGeoSampler	averageColor	done	auto
+polyGeoSampler	bf	done	auto
+polyGeoSampler	cbl	done	auto
+polyGeoSampler	cdo	done	auto
+polyGeoSampler	clampAlphaMax	done	auto
+polyGeoSampler	clampAlphaMin	done	auto
+polyGeoSampler	clampRGBMax	done	auto
+polyGeoSampler	clampRGBMin	done	auto
 polyGeoSampler	cmn	done	auto
 polyGeoSampler	cmx	done	auto
-polyGeoSampler	colorBlend	missing	
-polyGeoSampler	colorDisplayOption	missing	
+polyGeoSampler	colorBlend	done	auto
+polyGeoSampler	colorDisplayOption	done	auto
 polyGeoSampler	computeShadows	done	auto
 polyGeoSampler	cs	done	auto
-polyGeoSampler	dg	missing	
-polyGeoSampler	displaceGeometry	missing	
-polyGeoSampler	e	missing	
-polyGeoSampler	edit	missing	
-polyGeoSampler	flatShading	missing	
-polyGeoSampler	fs	missing	
-polyGeoSampler	ids	missing	
-polyGeoSampler	ignoreDoubleSided	missing	
-polyGeoSampler	lightingOnly	missing	
-polyGeoSampler	lo	missing	
-polyGeoSampler	reuseShadows	missing	
-polyGeoSampler	rs	missing	
+polyGeoSampler	dg	done	auto
+polyGeoSampler	displaceGeometry	done	auto
+polyGeoSampler	e	done	auto
+polyGeoSampler	edit	done	auto
+polyGeoSampler	flatShading	done	auto
+polyGeoSampler	fs	done	auto
+polyGeoSampler	ids	done	auto
+polyGeoSampler	ignoreDoubleSided	done	auto
+polyGeoSampler	lightingOnly	done	auto
+polyGeoSampler	lo	done	auto
+polyGeoSampler	reuseShadows	done	auto
+polyGeoSampler	rs	done	auto
 polyGeoSampler	sampleByFace	done	auto
 polyGeoSampler	scaleFactor	done	auto
 polyGeoSampler	sf	done	auto
-polyGeoSampler	shareUV	missing	
-polyGeoSampler	su	missing	
-polyGeoSampler	ul	missing	
-polyGeoSampler	useLightShadows	missing	
+polyGeoSampler	shareUV	done	auto
+polyGeoSampler	su	done	auto
+polyGeoSampler	ul	done	auto
+polyGeoSampler	useLightShadows	done	auto
 polyHelix	c	done	auto
 polyHelix	caching	done	auto
 polyHelix	cch	done	auto
@@ -25291,8 +25291,8 @@ polyHelix	createUVs	done	auto
 polyHelix	cuv	done	auto
 polyHelix	d	done	auto
 polyHelix	direction	done	auto
-polyHelix	e	missing	
-polyHelix	edit	missing	
+polyHelix	e	done	auto
+polyHelix	edit	done	auto
 polyHelix	h	done	auto
 polyHelix	height	done	auto
 polyHelix	n	done	auto
@@ -25301,9 +25301,9 @@ polyHelix	nds	done	auto
 polyHelix	nodeState	done	auto
 polyHelix	o	done	auto
 polyHelix	object	done	auto
-polyHelix	oib	missing	
-polyHelix	q	missing	
-polyHelix	query	missing	
+polyHelix	oib	done	auto
+polyHelix	q	done	auto
+polyHelix	query	done	auto
 polyHelix	r	done	auto
 polyHelix	radius	done	auto
 polyHelix	rcp	done	auto
@@ -25316,13 +25316,13 @@ polyHelix	subdivisionsCaps	done	auto
 polyHelix	subdivisionsCoil	done	auto
 polyHelix	texture	done	auto
 polyHelix	tx	done	auto
-polyHelix	useOldInitBehaviour	missing	
+polyHelix	useOldInitBehaviour	done	auto
 polyHelix	w	done	auto
 polyHelix	width	done	auto
 polyHole	ah	done	auto
 polyHole	assignHole	done	auto
 polyHole	ch	done	auto
-polyHole	createHistory	missing	
+polyHole	createHistory	done	auto
 polyHole	e	done	auto
 polyHole	edit	done	auto
 polyHole	q	done	auto
@@ -25375,8 +25375,8 @@ polyLayoutUV	caching	done	auto
 polyLayoutUV	cch	done	auto
 polyLayoutUV	ch	done	auto
 polyLayoutUV	constructionHistory	done	auto
-polyLayoutUV	e	missing	
-polyLayoutUV	edit	missing	
+polyLayoutUV	e	done	auto
+polyLayoutUV	edit	done	auto
 polyLayoutUV	flipReversed	done	auto
 polyLayoutUV	fr	done	auto
 polyLayoutUV	l	done	auto
@@ -25389,8 +25389,8 @@ polyLayoutUV	nds	done	auto
 polyLayoutUV	nodeState	done	auto
 polyLayoutUV	percentageSpace	done	auto
 polyLayoutUV	ps	done	auto
-polyLayoutUV	q	missing	
-polyLayoutUV	query	missing	
+polyLayoutUV	q	done	auto
+polyLayoutUV	query	done	auto
 polyLayoutUV	rbf	done	auto
 polyLayoutUV	rotateForBestFit	done	auto
 polyLayoutUV	sc	done	auto
@@ -25428,70 +25428,70 @@ polyListComponentConversion	uvShell	done	auto
 polyListComponentConversion	uvs	done	auto
 polyListComponentConversion	vertexFaceAllEdges	done	auto
 polyListComponentConversion	vfa	done	auto
-polyMapCut	caching	missing	
-polyMapCut	cch	missing	
-polyMapCut	ch	missing	
-polyMapCut	constructionHistory	missing	
-polyMapCut	e	missing	
-polyMapCut	edit	missing	
-polyMapCut	moveratio	missing	
-polyMapCut	mvr	missing	
-polyMapCut	n	missing	
-polyMapCut	name	missing	
-polyMapCut	nds	missing	
-polyMapCut	nodeState	missing	
-polyMapCut	q	missing	
-polyMapCut	query	missing	
+polyMapCut	caching	done	auto
+polyMapCut	cch	done	auto
+polyMapCut	ch	done	auto
+polyMapCut	constructionHistory	done	auto
+polyMapCut	e	done	auto
+polyMapCut	edit	done	auto
+polyMapCut	moveratio	done	auto
+polyMapCut	mvr	done	auto
+polyMapCut	n	done	auto
+polyMapCut	name	done	auto
+polyMapCut	nds	done	auto
+polyMapCut	nodeState	done	auto
+polyMapCut	q	done	auto
+polyMapCut	query	done	auto
 polyMapDel	caching	done	auto
 polyMapDel	cch	done	auto
 polyMapDel	ch	done	auto
 polyMapDel	constructionHistory	done	auto
-polyMapDel	e	missing	
-polyMapDel	edit	missing	
+polyMapDel	e	done	auto
+polyMapDel	edit	done	auto
 polyMapDel	n	done	auto
 polyMapDel	name	done	auto
 polyMapDel	nds	done	auto
 polyMapDel	nodeState	done	auto
-polyMapDel	q	missing	
-polyMapDel	query	missing	
-polyMapSew	caching	missing	
-polyMapSew	cch	missing	
-polyMapSew	ch	missing	
-polyMapSew	constructionHistory	missing	
-polyMapSew	e	missing	
-polyMapSew	edit	missing	
-polyMapSew	n	missing	
-polyMapSew	name	missing	
-polyMapSew	nds	missing	
-polyMapSew	nodeState	missing	
-polyMapSew	q	missing	
-polyMapSew	query	missing	
-polyMapSewMove	caching	missing	
-polyMapSewMove	cch	missing	
-polyMapSewMove	ch	missing	
-polyMapSewMove	constructionHistory	missing	
-polyMapSewMove	e	missing	
-polyMapSewMove	edit	missing	
-polyMapSewMove	limitPieceSize	missing	
+polyMapDel	q	done	auto
+polyMapDel	query	done	auto
+polyMapSew	caching	done	auto
+polyMapSew	cch	done	auto
+polyMapSew	ch	done	auto
+polyMapSew	constructionHistory	done	auto
+polyMapSew	e	done	auto
+polyMapSew	edit	done	auto
+polyMapSew	n	done	auto
+polyMapSew	name	done	auto
+polyMapSew	nds	done	auto
+polyMapSew	nodeState	done	auto
+polyMapSew	q	done	auto
+polyMapSew	query	done	auto
+polyMapSewMove	caching	done	auto
+polyMapSewMove	cch	done	auto
+polyMapSewMove	ch	done	auto
+polyMapSewMove	constructionHistory	done	auto
+polyMapSewMove	e	done	auto
+polyMapSewMove	edit	done	auto
+polyMapSewMove	limitPieceSize	done	auto
 polyMapSewMove	lps	done	auto
-polyMapSewMove	n	missing	
-polyMapSewMove	name	missing	
-polyMapSewMove	nds	missing	
+polyMapSewMove	n	done	auto
+polyMapSewMove	name	done	auto
+polyMapSewMove	nds	done	auto
 polyMapSewMove	nf	done	auto
-polyMapSewMove	nodeState	missing	
-polyMapSewMove	numberFaces	missing	
-polyMapSewMove	q	missing	
-polyMapSewMove	query	missing	
-polyMapSewMove	uvSetName	missing	
-polyMapSewMove	uvs	missing	
-polyMapSewMove	worldSpace	missing	
-polyMapSewMove	ws	missing	
+polyMapSewMove	nodeState	done	auto
+polyMapSewMove	numberFaces	done	auto
+polyMapSewMove	q	done	auto
+polyMapSewMove	query	done	auto
+polyMapSewMove	uvSetName	done	auto
+polyMapSewMove	uvs	done	auto
+polyMapSewMove	worldSpace	done	auto
+polyMapSewMove	ws	done	auto
 polyMergeEdge	caching	done	auto
 polyMergeEdge	cch	done	auto
 polyMergeEdge	ch	done	auto
 polyMergeEdge	constructionHistory	done	auto
-polyMergeEdge	e	missing	
-polyMergeEdge	edit	missing	
+polyMergeEdge	e	done	auto
+polyMergeEdge	edit	done	auto
 polyMergeEdge	fe	done	auto
 polyMergeEdge	firstEdge	done	auto
 polyMergeEdge	mergeMode	done	auto
@@ -25502,8 +25502,8 @@ polyMergeEdge	n	done	auto
 polyMergeEdge	name	done	auto
 polyMergeEdge	nds	done	auto
 polyMergeEdge	nodeState	done	auto
-polyMergeEdge	q	missing	
-polyMergeEdge	query	missing	
+polyMergeEdge	q	done	auto
+polyMergeEdge	query	done	auto
 polyMergeEdge	se	done	auto
 polyMergeEdge	secondEdge	done	auto
 polyMergeEdgeCtx	activeNodes	done	auto
@@ -25548,8 +25548,8 @@ polyMergeFacet	caching	done	auto
 polyMergeFacet	cch	done	auto
 polyMergeFacet	ch	done	auto
 polyMergeFacet	constructionHistory	done	auto
-polyMergeFacet	e	missing	
-polyMergeFacet	edit	missing	
+polyMergeFacet	e	done	auto
+polyMergeFacet	edit	done	auto
 polyMergeFacet	ff	done	auto
 polyMergeFacet	firstFacet	done	auto
 polyMergeFacet	mergeMode	done	auto
@@ -25558,8 +25558,8 @@ polyMergeFacet	n	done	auto
 polyMergeFacet	name	done	auto
 polyMergeFacet	nds	done	auto
 polyMergeFacet	nodeState	done	auto
-polyMergeFacet	q	missing	
-polyMergeFacet	query	missing	
+polyMergeFacet	q	done	auto
+polyMergeFacet	query	done	auto
 polyMergeFacet	secondFacet	done	auto
 polyMergeFacet	sf	done	auto
 polyMergeFacetCtx	activeNodes	done	auto
@@ -25604,14 +25604,14 @@ polyMergeUV	ch	done	auto
 polyMergeUV	constructionHistory	done	auto
 polyMergeUV	d	done	auto
 polyMergeUV	distance	done	auto
-polyMergeUV	e	missing	
-polyMergeUV	edit	missing	
+polyMergeUV	e	done	auto
+polyMergeUV	edit	done	auto
 polyMergeUV	n	done	auto
 polyMergeUV	name	done	auto
 polyMergeUV	nds	done	auto
 polyMergeUV	nodeState	done	auto
-polyMergeUV	q	missing	
-polyMergeUV	query	missing	
+polyMergeUV	q	done	auto
+polyMergeUV	query	done	auto
 polyMergeUV	uvSetName	done	auto
 polyMergeUV	uvs	done	auto
 polyMergeUV	worldSpace	done	auto
@@ -25624,16 +25624,16 @@ polyMergeVertex	ch	done	auto
 polyMergeVertex	constructionHistory	done	auto
 polyMergeVertex	d	done	auto
 polyMergeVertex	distance	done	auto
-polyMergeVertex	e	missing	
-polyMergeVertex	edit	missing	
+polyMergeVertex	e	done	auto
+polyMergeVertex	edit	done	auto
 polyMergeVertex	mergeToComponents	done	auto
 polyMergeVertex	mtc	done	auto
 polyMergeVertex	n	done	auto
 polyMergeVertex	name	done	auto
 polyMergeVertex	nds	done	auto
 polyMergeVertex	nodeState	done	auto
-polyMergeVertex	q	missing	
-polyMergeVertex	query	missing	
+polyMergeVertex	q	done	auto
+polyMergeVertex	query	done	auto
 polyMergeVertex	texture	done	auto
 polyMergeVertex	tx	done	auto
 polyMergeVertex	worldSpace	done	auto
@@ -25648,8 +25648,8 @@ polyMirrorFace	ch	done	auto
 polyMirrorFace	constructionHistory	done	auto
 polyMirrorFace	d	done	auto
 polyMirrorFace	direction	done	auto
-polyMirrorFace	e	missing	
-polyMirrorFace	edit	missing	
+polyMirrorFace	e	done	auto
+polyMirrorFace	edit	done	auto
 polyMirrorFace	ma	done	auto
 polyMirrorFace	mergeMode	done	auto
 polyMirrorFace	mergeThreshold	done	auto
@@ -25672,16 +25672,16 @@ polyMirrorFace	pivotZ	done	auto
 polyMirrorFace	px	done	auto
 polyMirrorFace	py	done	auto
 polyMirrorFace	pz	done	auto
-polyMirrorFace	q	missing	
-polyMirrorFace	query	missing	
+polyMirrorFace	q	done	auto
+polyMirrorFace	query	done	auto
 polyMirrorFace	worldSpace	done	auto
 polyMirrorFace	ws	done	auto
 polyMoveEdge	caching	done	auto
 polyMoveEdge	cch	done	auto
 polyMoveEdge	ch	done	auto
 polyMoveEdge	constructionHistory	done	auto
-polyMoveEdge	e	missing	
-polyMoveEdge	edit	missing	
+polyMoveEdge	e	done	auto
+polyMoveEdge	edit	done	auto
 polyMoveEdge	ga	done	auto
 polyMoveEdge	gain	done	auto
 polyMoveEdge	lc	done	auto
@@ -25730,8 +25730,8 @@ polyMoveEdge	pvt	done	auto
 polyMoveEdge	pvx	done	auto
 polyMoveEdge	pvy	done	auto
 polyMoveEdge	pvz	done	auto
-polyMoveEdge	q	missing	
-polyMoveEdge	query	missing	
+polyMoveEdge	q	done	auto
+polyMoveEdge	query	done	auto
 polyMoveEdge	ran	done	auto
 polyMoveEdge	random	done	auto
 polyMoveEdge	ro	done	auto
@@ -25766,8 +25766,8 @@ polyMoveFacet	caching	done	auto
 polyMoveFacet	cch	done	auto
 polyMoveFacet	ch	done	auto
 polyMoveFacet	constructionHistory	done	auto
-polyMoveFacet	e	missing	
-polyMoveFacet	edit	missing	
+polyMoveFacet	e	done	auto
+polyMoveFacet	edit	done	auto
 polyMoveFacet	g	done	auto
 polyMoveFacet	ga	done	auto
 polyMoveFacet	gain	done	auto
@@ -25834,8 +25834,8 @@ polyMoveFacet	pvt	done	auto
 polyMoveFacet	pvx	done	auto
 polyMoveFacet	pvy	done	auto
 polyMoveFacet	pvz	done	auto
-polyMoveFacet	q	missing	
-polyMoveFacet	query	missing	
+polyMoveFacet	q	done	auto
+polyMoveFacet	query	done	auto
 polyMoveFacet	ran	done	auto
 polyMoveFacet	random	done	auto
 polyMoveFacet	ro	done	auto
@@ -25873,8 +25873,8 @@ polyMoveFacetUV	caching	done	auto
 polyMoveFacetUV	cch	done	auto
 polyMoveFacetUV	ch	done	auto
 polyMoveFacetUV	constructionHistory	done	auto
-polyMoveFacetUV	e	missing	
-polyMoveFacetUV	edit	missing	
+polyMoveFacetUV	e	done	auto
+polyMoveFacetUV	edit	done	auto
 polyMoveFacetUV	l	done	auto
 polyMoveFacetUV	lx	done	auto
 polyMoveFacetUV	ly	done	auto
@@ -25888,8 +25888,8 @@ polyMoveFacetUV	pivotV	done	auto
 polyMoveFacetUV	pvt	done	auto
 polyMoveFacetUV	pvu	done	auto
 polyMoveFacetUV	pvv	done	auto
-polyMoveFacetUV	q	missing	
-polyMoveFacetUV	query	missing	
+polyMoveFacetUV	q	done	auto
+polyMoveFacetUV	query	done	auto
 polyMoveFacetUV	ra	done	auto
 polyMoveFacetUV	ran	done	auto
 polyMoveFacetUV	random	done	auto
@@ -25913,8 +25913,8 @@ polyMoveUV	caching	done	auto
 polyMoveUV	cch	done	auto
 polyMoveUV	ch	done	auto
 polyMoveUV	constructionHistory	done	auto
-polyMoveUV	e	missing	
-polyMoveUV	edit	missing	
+polyMoveUV	e	done	auto
+polyMoveUV	edit	done	auto
 polyMoveUV	l	done	auto
 polyMoveUV	lx	done	auto
 polyMoveUV	ly	done	auto
@@ -25928,8 +25928,8 @@ polyMoveUV	pivotV	done	auto
 polyMoveUV	pvt	done	auto
 polyMoveUV	pvu	done	auto
 polyMoveUV	pvv	done	auto
-polyMoveUV	q	missing	
-polyMoveUV	query	missing	
+polyMoveUV	q	done	auto
+polyMoveUV	query	done	auto
 polyMoveUV	ra	done	auto
 polyMoveUV	ran	done	auto
 polyMoveUV	random	done	auto
@@ -25950,8 +25950,8 @@ polyMoveVertex	caching	done	auto
 polyMoveVertex	cch	done	auto
 polyMoveVertex	ch	done	auto
 polyMoveVertex	constructionHistory	done	auto
-polyMoveVertex	e	missing	
-polyMoveVertex	edit	missing	
+polyMoveVertex	e	done	auto
+polyMoveVertex	edit	done	auto
 polyMoveVertex	ga	done	auto
 polyMoveVertex	gain	done	auto
 polyMoveVertex	ld	done	auto
@@ -25982,8 +25982,8 @@ polyMoveVertex	pvt	done	auto
 polyMoveVertex	pvx	done	auto
 polyMoveVertex	pvy	done	auto
 polyMoveVertex	pvz	done	auto
-polyMoveVertex	q	missing	
-polyMoveVertex	query	missing	
+polyMoveVertex	q	done	auto
+polyMoveVertex	query	done	auto
 polyMoveVertex	ran	done	auto
 polyMoveVertex	random	done	auto
 polyMoveVertex	ro	done	auto
@@ -26012,48 +26012,48 @@ polyMoveVertex	ty	done	auto
 polyMoveVertex	tz	done	auto
 polyMoveVertex	worldSpace	done	auto
 polyMoveVertex	ws	done	auto
-polyMultiLayoutUV	flipReversed	missing	
-polyMultiLayoutUV	fr	missing	
-polyMultiLayoutUV	gridU	missing	
-polyMultiLayoutUV	gridV	missing	
-polyMultiLayoutUV	gu	missing	
-polyMultiLayoutUV	gv	missing	
-polyMultiLayoutUV	l	missing	
-polyMultiLayoutUV	layout	missing	
-polyMultiLayoutUV	layoutMethod	missing	
-polyMultiLayoutUV	lm	missing	
-polyMultiLayoutUV	offsetU	missing	
-polyMultiLayoutUV	offsetV	missing	
-polyMultiLayoutUV	ou	missing	
-polyMultiLayoutUV	ov	missing	
-polyMultiLayoutUV	percentageSpace	missing	
-polyMultiLayoutUV	prescale	missing	
+polyMultiLayoutUV	flipReversed	done	auto
+polyMultiLayoutUV	fr	done	auto
+polyMultiLayoutUV	gridU	done	auto
+polyMultiLayoutUV	gridV	done	auto
+polyMultiLayoutUV	gu	done	auto
+polyMultiLayoutUV	gv	done	auto
+polyMultiLayoutUV	l	done	auto
+polyMultiLayoutUV	layout	done	auto
+polyMultiLayoutUV	layoutMethod	done	auto
+polyMultiLayoutUV	lm	done	auto
+polyMultiLayoutUV	offsetU	done	auto
+polyMultiLayoutUV	offsetV	done	auto
+polyMultiLayoutUV	ou	done	auto
+polyMultiLayoutUV	ov	done	auto
+polyMultiLayoutUV	percentageSpace	done	auto
+polyMultiLayoutUV	prescale	done	auto
 polyMultiLayoutUV	ps	done	auto
-polyMultiLayoutUV	psc	missing	
-polyMultiLayoutUV	rbf	missing	
-polyMultiLayoutUV	rotateForBestFit	missing	
-polyMultiLayoutUV	sc	missing	
-polyMultiLayoutUV	scale	missing	
-polyMultiLayoutUV	sizeU	missing	
-polyMultiLayoutUV	sizeV	missing	
-polyMultiLayoutUV	su	missing	
-polyMultiLayoutUV	sv	missing	
-polyMultiLayoutUV	uvSetName	missing	
-polyMultiLayoutUV	uvs	missing	
+polyMultiLayoutUV	psc	done	auto
+polyMultiLayoutUV	rbf	done	auto
+polyMultiLayoutUV	rotateForBestFit	done	auto
+polyMultiLayoutUV	sc	done	auto
+polyMultiLayoutUV	scale	done	auto
+polyMultiLayoutUV	sizeU	done	auto
+polyMultiLayoutUV	sizeV	done	auto
+polyMultiLayoutUV	su	done	auto
+polyMultiLayoutUV	sv	done	auto
+polyMultiLayoutUV	uvSetName	done	auto
+polyMultiLayoutUV	uvs	done	auto
 polyNormal	caching	done	auto
 polyNormal	cch	done	auto
 polyNormal	ch	done	auto
 polyNormal	constructionHistory	done	auto
-polyNormal	e	missing	
-polyNormal	edit	missing	
+polyNormal	e	done	auto
+polyNormal	edit	done	auto
 polyNormal	n	done	auto
 polyNormal	name	done	auto
 polyNormal	nds	done	auto
 polyNormal	nm	done	auto
 polyNormal	nodeState	done	auto
 polyNormal	normalMode	done	auto
-polyNormal	q	missing	
-polyNormal	query	missing	
+polyNormal	q	done	auto
+polyNormal	query	done	auto
 polyNormal	unm	done	auto
 polyNormal	userNormalMode	done	auto
 polyNormalPerVertex	al	done	auto
@@ -26077,34 +26077,34 @@ polyNormalPerVertex	x	done	auto
 polyNormalPerVertex	xyz	done	auto
 polyNormalPerVertex	y	done	auto
 polyNormalPerVertex	z	done	auto
-polyNormalizeUV	caching	missing	
-polyNormalizeUV	cch	missing	
-polyNormalizeUV	centerOnTile	missing	
-polyNormalizeUV	ch	missing	
-polyNormalizeUV	cm	missing	
-polyNormalizeUV	constructionHistory	missing	
-polyNormalizeUV	cot	missing	
-polyNormalizeUV	createNewMap	missing	
-polyNormalizeUV	e	missing	
-polyNormalizeUV	edit	missing	
-polyNormalizeUV	ibd	missing	
-polyNormalizeUV	insertBeforeDeformers	missing	
-polyNormalizeUV	n	missing	
-polyNormalizeUV	name	missing	
+polyNormalizeUV	caching	done	auto
+polyNormalizeUV	cch	done	auto
+polyNormalizeUV	centerOnTile	done	auto
+polyNormalizeUV	ch	done	auto
+polyNormalizeUV	cm	done	auto
+polyNormalizeUV	constructionHistory	done	auto
+polyNormalizeUV	cot	done	auto
+polyNormalizeUV	createNewMap	done	auto
+polyNormalizeUV	e	done	auto
+polyNormalizeUV	edit	done	auto
+polyNormalizeUV	ibd	done	auto
+polyNormalizeUV	insertBeforeDeformers	done	auto
+polyNormalizeUV	n	done	auto
+polyNormalizeUV	name	done	auto
 polyNormalizeUV	nd	done	auto
-polyNormalizeUV	nds	missing	
-polyNormalizeUV	nodeState	missing	
+polyNormalizeUV	nds	done	auto
+polyNormalizeUV	nodeState	done	auto
 polyNormalizeUV	normalizeDirection	done	auto
 polyNormalizeUV	normalizeType	done	auto
 polyNormalizeUV	nt	done	auto
 polyNormalizeUV	pa	done	auto
 polyNormalizeUV	preserveAspectRatio	done	auto
-polyNormalizeUV	q	missing	
-polyNormalizeUV	query	missing	
-polyNormalizeUV	uvSetName	missing	
-polyNormalizeUV	uvs	missing	
-polyNormalizeUV	worldSpace	missing	
-polyNormalizeUV	ws	missing	
+polyNormalizeUV	q	done	auto
+polyNormalizeUV	query	done	auto
+polyNormalizeUV	uvSetName	done	auto
+polyNormalizeUV	uvs	done	auto
+polyNormalizeUV	worldSpace	done	auto
+polyNormalizeUV	ws	done	auto
 polyOptUvs	applyToShell	done	auto
 polyOptUvs	areaWeight	done	auto
 polyOptUvs	aw	done	auto
@@ -26112,8 +26112,8 @@ polyOptUvs	caching	done	auto
 polyOptUvs	cch	done	auto
 polyOptUvs	ch	done	auto
 polyOptUvs	constructionHistory	done	auto
-polyOptUvs	e	missing	
-polyOptUvs	edit	missing	
+polyOptUvs	e	done	auto
+polyOptUvs	edit	done	auto
 polyOptUvs	gb	done	auto
 polyOptUvs	globalBlend	done	auto
 polyOptUvs	globalMethodBlend	done	auto
@@ -26130,18 +26130,18 @@ polyOptUvs	pinSelected	done	auto
 polyOptUvs	pinUvBorder	done	auto
 polyOptUvs	ps	done	auto
 polyOptUvs	pub	done	auto
-polyOptUvs	q	missing	
-polyOptUvs	query	missing	
+polyOptUvs	q	done	auto
+polyOptUvs	query	done	auto
 polyOptUvs	s	done	auto
 polyOptUvs	scale	done	auto
 polyOptUvs	ss	done	auto
 polyOptUvs	stoppingThreshold	done	auto
 polyOptUvs	us	done	auto
 polyOptUvs	useScale	done	auto
-polyOptUvs	uvSetName	missing	
-polyOptUvs	uvs	missing	
-polyOptUvs	worldSpace	missing	
-polyOptUvs	ws	missing	
+polyOptUvs	uvSetName	done	auto
+polyOptUvs	uvs	done	auto
+polyOptUvs	worldSpace	done	auto
+polyOptUvs	ws	done	auto
 polyOptions	activeObjects	done	auto
 polyOptions	ae	done	auto
 polyOptions	allEdges	done	auto
@@ -26159,7 +26159,7 @@ polyOptions	db	done	auto
 polyOptions	dbc	done	auto
 polyOptions	dc	done	auto
 polyOptions	dce	done	auto
-polyOptions	dcl	missing	
+polyOptions	dcl	done	auto
 polyOptions	dcv	done	auto
 polyOptions	dg	done	auto
 polyOptions	dgc	done	auto
@@ -26169,7 +26169,7 @@ polyOptions	displayAlphaAsGreyScale	done	auto
 polyOptions	displayBlueChannel	done	auto
 polyOptions	displayBorder	done	auto
 polyOptions	displayCenter	done	auto
-polyOptions	displayColorAsGreyScale	missing	
+polyOptions	displayColorAsGreyScale	done	auto
 polyOptions	displayCreaseEdge	done	auto
 polyOptions	displayCreaseVertex	done	auto
 polyOptions	displayGeometry	done	auto
@@ -26242,47 +26242,47 @@ polyOptions	wireBackCulling	done	auto
 polyOutput	a	done	auto
 polyOutput	allValues	done	auto
 polyOutput	c	done	auto
-polyOutput	cd	missing	
+polyOutput	cd	done	auto
 polyOutput	color	done	auto
-polyOutput	colorDesc	missing	
-polyOutput	e	missing	
+polyOutput	colorDesc	done	auto
+polyOutput	e	done	auto
 polyOutput	edge	done	auto
-polyOutput	edgeFace	missing	
-polyOutput	ef	missing	
+polyOutput	edgeFace	done	auto
+polyOutput	ef	done	auto
 polyOutput	f	done	auto
 polyOutput	face	done	auto
 polyOutput	faceNorm	done	auto
 polyOutput	fn	done	auto
-polyOutput	fo	missing	
-polyOutput	force	missing	
+polyOutput	fo	done	auto
+polyOutput	force	done	auto
 polyOutput	g	done	auto
 polyOutput	group	done	auto
-polyOutput	nd	missing	
-polyOutput	no	missing	
-polyOutput	noOutput	missing	
-polyOutput	normDesc	missing	
+polyOutput	nd	done	auto
+polyOutput	no	done	auto
+polyOutput	noOutput	done	auto
+polyOutput	normDesc	done	auto
 polyOutput	of	done	auto
 polyOutput	outputFile	done	auto
 polyOutput	t	done	auto
 polyOutput	triangle	done	auto
 polyOutput	uv	done	auto
-polyOutput	uvDesc	missing	
+polyOutput	uvDesc	done	auto
 polyOutput	uvValue	done	auto
-polyOutput	uvd	missing	
+polyOutput	uvd	done	auto
 polyOutput	v	done	auto
-polyOutput	ve	missing	
+polyOutput	ve	done	auto
 polyOutput	vert	done	auto
-polyOutput	vertEdge	missing	
+polyOutput	vertEdge	done	auto
 polyOutput	vertNorm	done	auto
 polyOutput	vn	done	auto
 polyPinUV	ch	done	auto
-polyPinUV	createHistory	missing	
-polyPinUV	e	missing	
-polyPinUV	edit	missing	
+polyPinUV	createHistory	done	auto
+polyPinUV	e	done	auto
+polyPinUV	edit	done	auto
 polyPinUV	op	done	auto
 polyPinUV	operation	done	auto
-polyPinUV	q	missing	
-polyPinUV	query	missing	
+polyPinUV	q	done	auto
+polyPinUV	query	done	auto
 polyPinUV	unp	done	auto
 polyPinUV	unpinned	done	auto
 polyPinUV	uvSetName	done	auto
@@ -26297,8 +26297,8 @@ polyPipe	ch	done	auto
 polyPipe	constructionHistory	done	auto
 polyPipe	createUVs	done	auto
 polyPipe	cuv	done	auto
-polyPipe	e	missing	
-polyPipe	edit	missing	
+polyPipe	e	done	auto
+polyPipe	edit	done	auto
 polyPipe	h	done	auto
 polyPipe	height	done	auto
 polyPipe	n	done	auto
@@ -26307,8 +26307,8 @@ polyPipe	nds	done	auto
 polyPipe	nodeState	done	auto
 polyPipe	o	done	auto
 polyPipe	object	done	auto
-polyPipe	q	missing	
-polyPipe	query	missing	
+polyPipe	q	done	auto
+polyPipe	query	done	auto
 polyPipe	r	done	auto
 polyPipe	radius	done	auto
 polyPipe	rcp	done	auto
@@ -26323,22 +26323,22 @@ polyPipe	t	done	auto
 polyPipe	texture	done	auto
 polyPipe	thickness	done	auto
 polyPipe	tx	done	auto
-polyPlanarProjection	caching	missing	
-polyPlanarProjection	cch	missing	
+polyPlanarProjection	caching	done	auto
+polyPlanarProjection	cch	done	auto
 polyPlanarProjection	ch	done	auto
 polyPlanarProjection	cm	done	auto
 polyPlanarProjection	constructionHistory	done	auto
 polyPlanarProjection	createNewMap	done	auto
-polyPlanarProjection	e	missing	
-polyPlanarProjection	edit	missing	
+polyPlanarProjection	e	done	auto
+polyPlanarProjection	edit	done	auto
 polyPlanarProjection	ibd	done	auto
-polyPlanarProjection	ic	missing	
+polyPlanarProjection	ic	done	auto
 polyPlanarProjection	icx	done	auto
 polyPlanarProjection	icy	done	auto
-polyPlanarProjection	imageCenter	missing	
+polyPlanarProjection	imageCenter	done	auto
 polyPlanarProjection	imageCenterX	done	auto
 polyPlanarProjection	imageCenterY	done	auto
-polyPlanarProjection	imageScale	missing	
+polyPlanarProjection	imageScale	done	auto
 polyPlanarProjection	imageScaleU	done	auto
 polyPlanarProjection	imageScaleV	done	auto
 polyPlanarProjection	insertBeforeDeformers	done	auto
@@ -26348,31 +26348,31 @@ polyPlanarProjection	keepImageRatio	done	auto
 polyPlanarProjection	kir	done	auto
 polyPlanarProjection	mapDirection	done	auto
 polyPlanarProjection	md	done	auto
-polyPlanarProjection	n	missing	
-polyPlanarProjection	name	missing	
-polyPlanarProjection	nds	missing	
-polyPlanarProjection	nodeState	missing	
-polyPlanarProjection	pc	missing	
+polyPlanarProjection	n	done	auto
+polyPlanarProjection	name	done	auto
+polyPlanarProjection	nds	done	auto
+polyPlanarProjection	nodeState	done	auto
+polyPlanarProjection	pc	done	auto
 polyPlanarProjection	pcx	done	auto
 polyPlanarProjection	pcy	done	auto
 polyPlanarProjection	pcz	done	auto
-polyPlanarProjection	perInstance	missing	
-polyPlanarProjection	ph	missing	
-polyPlanarProjection	phs	missing	
-polyPlanarProjection	pi	missing	
-polyPlanarProjection	projectionCenter	missing	
+polyPlanarProjection	perInstance	done	auto
+polyPlanarProjection	ph	done	auto
+polyPlanarProjection	phs	done	auto
+polyPlanarProjection	pi	done	auto
+polyPlanarProjection	projectionCenter	done	auto
 polyPlanarProjection	projectionCenterX	done	auto
 polyPlanarProjection	projectionCenterY	done	auto
 polyPlanarProjection	projectionCenterZ	done	auto
-polyPlanarProjection	projectionHeight	missing	
-polyPlanarProjection	projectionHorizontalSweep	missing	
-polyPlanarProjection	projectionScale	missing	
-polyPlanarProjection	ps	missing	
-polyPlanarProjection	q	missing	
-polyPlanarProjection	query	missing	
+polyPlanarProjection	projectionHeight	done	auto
+polyPlanarProjection	projectionHorizontalSweep	done	auto
+polyPlanarProjection	projectionScale	done	auto
+polyPlanarProjection	ps	done	auto
+polyPlanarProjection	q	done	auto
+polyPlanarProjection	query	done	auto
 polyPlanarProjection	ra	done	auto
-polyPlanarProjection	ro	missing	
-polyPlanarProjection	rotate	missing	
+polyPlanarProjection	ro	done	auto
+polyPlanarProjection	rotate	done	auto
 polyPlanarProjection	rotateX	done	auto
 polyPlanarProjection	rotateY	done	auto
 polyPlanarProjection	rotateZ	done	auto
@@ -26384,8 +26384,8 @@ polyPlanarProjection	sc	done	auto
 polyPlanarProjection	seamCorrect	done	auto
 polyPlanarProjection	sf	done	auto
 polyPlanarProjection	smartFit	done	auto
-polyPlanarProjection	worldSpace	missing	
-polyPlanarProjection	ws	missing	
+polyPlanarProjection	worldSpace	done	auto
+polyPlanarProjection	ws	done	auto
 polyPlane	ax	done	auto
 polyPlane	axis	done	auto
 polyPlane	caching	done	auto
@@ -26394,8 +26394,8 @@ polyPlane	ch	done	auto
 polyPlane	constructionHistory	done	auto
 polyPlane	createUVs	done	auto
 polyPlane	cuv	done	auto
-polyPlane	e	missing	
-polyPlane	edit	missing	
+polyPlane	e	done	auto
+polyPlane	edit	done	auto
 polyPlane	h	done	auto
 polyPlane	height	done	auto
 polyPlane	n	done	auto
@@ -26404,8 +26404,8 @@ polyPlane	nds	done	auto
 polyPlane	nodeState	done	auto
 polyPlane	o	done	auto
 polyPlane	object	done	auto
-polyPlane	q	missing	
-polyPlane	query	missing	
+polyPlane	q	done	auto
+polyPlane	query	done	auto
 polyPlane	sh	done	auto
 polyPlane	subdivisionsHeight	done	auto
 polyPlane	subdivisionsWidth	done	auto
@@ -26426,8 +26426,8 @@ polyPlatonicSolid	ch	done	auto
 polyPlatonicSolid	constructionHistory	done	auto
 polyPlatonicSolid	createUVs	done	auto
 polyPlatonicSolid	cuv	done	auto
-polyPlatonicSolid	e	missing	
-polyPlatonicSolid	edit	missing	
+polyPlatonicSolid	e	done	auto
+polyPlatonicSolid	edit	done	auto
 polyPlatonicSolid	l	done	auto
 polyPlatonicSolid	n	done	auto
 polyPlatonicSolid	name	done	auto
@@ -26435,8 +26435,8 @@ polyPlatonicSolid	nds	done	auto
 polyPlatonicSolid	nodeState	done	auto
 polyPlatonicSolid	o	done	auto
 polyPlatonicSolid	object	done	auto
-polyPlatonicSolid	q	missing	
-polyPlatonicSolid	query	missing	
+polyPlatonicSolid	q	done	auto
+polyPlatonicSolid	query	done	auto
 polyPlatonicSolid	r	done	auto
 polyPlatonicSolid	radius	done	auto
 polyPlatonicSolid	sideLength	done	auto
@@ -26448,8 +26448,8 @@ polyPoke	caching	done	auto
 polyPoke	cch	done	auto
 polyPoke	ch	done	auto
 polyPoke	constructionHistory	done	auto
-polyPoke	e	missing	
-polyPoke	edit	missing	
+polyPoke	e	done	auto
+polyPoke	edit	done	auto
 polyPoke	localTranslate	done	auto
 polyPoke	localTranslateX	done	auto
 polyPoke	localTranslateY	done	auto
@@ -26462,8 +26462,8 @@ polyPoke	n	done	auto
 polyPoke	name	done	auto
 polyPoke	nds	done	auto
 polyPoke	nodeState	done	auto
-polyPoke	q	missing	
-polyPoke	query	missing	
+polyPoke	q	done	auto
+polyPoke	query	done	auto
 polyPoke	t	done	auto
 polyPoke	translate	done	auto
 polyPoke	translateX	done	auto
@@ -26482,8 +26482,8 @@ polyPrimitive	ch	done	auto
 polyPrimitive	constructionHistory	done	auto
 polyPrimitive	createUVs	done	auto
 polyPrimitive	cuv	done	auto
-polyPrimitive	e	missing	
-polyPrimitive	edit	missing	
+polyPrimitive	e	done	auto
+polyPrimitive	edit	done	auto
 polyPrimitive	l	done	auto
 polyPrimitive	n	done	auto
 polyPrimitive	name	done	auto
@@ -26493,8 +26493,8 @@ polyPrimitive	o	done	auto
 polyPrimitive	object	done	auto
 polyPrimitive	polyType	done	auto
 polyPrimitive	pt	done	auto
-polyPrimitive	q	missing	
-polyPrimitive	query	missing	
+polyPrimitive	q	done	auto
+polyPrimitive	query	done	auto
 polyPrimitive	r	done	auto
 polyPrimitive	radius	done	auto
 polyPrimitive	sideLength	done	auto
@@ -26508,8 +26508,8 @@ polyPrism	ch	done	auto
 polyPrism	constructionHistory	done	auto
 polyPrism	createUVs	done	auto
 polyPrism	cuv	done	auto
-polyPrism	e	missing	
-polyPrism	edit	missing	
+polyPrism	e	done	auto
+polyPrism	edit	done	auto
 polyPrism	l	done	auto
 polyPrism	length	done	auto
 polyPrism	n	done	auto
@@ -26517,13 +26517,13 @@ polyPrism	name	done	auto
 polyPrism	nds	done	auto
 polyPrism	nodeState	done	auto
 polyPrism	ns	done	auto
-polyPrism	nsi	missing	
+polyPrism	nsi	done	auto
 polyPrism	numberOfSides	done	auto
-polyPrism	numderOfSides	missing	
+polyPrism	numderOfSides	done	auto
 polyPrism	o	done	auto
 polyPrism	object	done	auto
-polyPrism	q	missing	
-polyPrism	query	missing	
+polyPrism	q	done	auto
+polyPrism	query	done	auto
 polyPrism	sc	done	auto
 polyPrism	sh	done	auto
 polyPrism	sideLength	done	auto
@@ -26544,12 +26544,12 @@ polyProjectCurve	directionZ	done	auto
 polyProjectCurve	dx	done	auto
 polyProjectCurve	dy	done	auto
 polyProjectCurve	dz	done	auto
-polyProjectCurve	e	missing	
-polyProjectCurve	edit	missing	
+polyProjectCurve	e	done	auto
+polyProjectCurve	edit	done	auto
 polyProjectCurve	nds	done	auto
 polyProjectCurve	nodeState	done	auto
-polyProjectCurve	q	missing	
-polyProjectCurve	query	missing	
+polyProjectCurve	q	done	auto
+polyProjectCurve	query	done	auto
 polyProjectCurve	tol	done	auto
 polyProjectCurve	tolerance	done	auto
 polyProjection	ch	done	auto
@@ -26604,20 +26604,20 @@ polyPyramid	ch	done	auto
 polyPyramid	constructionHistory	done	auto
 polyPyramid	createUVs	done	auto
 polyPyramid	cuv	done	auto
-polyPyramid	e	missing	
-polyPyramid	edit	missing	
+polyPyramid	e	done	auto
+polyPyramid	edit	done	auto
 polyPyramid	n	done	auto
 polyPyramid	name	done	auto
 polyPyramid	nds	done	auto
 polyPyramid	nodeState	done	auto
 polyPyramid	ns	done	auto
-polyPyramid	nsi	missing	
+polyPyramid	nsi	done	auto
 polyPyramid	numberOfSides	done	auto
-polyPyramid	numderOfSides	missing	
+polyPyramid	numderOfSides	done	auto
 polyPyramid	o	done	auto
 polyPyramid	object	done	auto
-polyPyramid	q	missing	
-polyPyramid	query	missing	
+polyPyramid	q	done	auto
+polyPyramid	query	done	auto
 polyPyramid	sc	done	auto
 polyPyramid	sh	done	auto
 polyPyramid	sideLength	done	auto
@@ -26632,8 +26632,8 @@ polyQuad	caching	done	auto
 polyQuad	cch	done	auto
 polyQuad	ch	done	auto
 polyQuad	constructionHistory	done	auto
-polyQuad	e	missing	
-polyQuad	edit	missing	
+polyQuad	e	done	auto
+polyQuad	edit	done	auto
 polyQuad	keepGroupBorder	done	auto
 polyQuad	keepHardEdges	done	auto
 polyQuad	keepTextureBorders	done	auto
@@ -26644,34 +26644,34 @@ polyQuad	n	done	auto
 polyQuad	name	done	auto
 polyQuad	nds	done	auto
 polyQuad	nodeState	done	auto
-polyQuad	q	missing	
-polyQuad	query	missing	
+polyQuad	q	done	auto
+polyQuad	query	done	auto
 polyQuad	worldSpace	done	auto
 polyQuad	ws	done	auto
 polyQueryBlindData	associationType	done	auto
 polyQueryBlindData	at	done	auto
-polyQueryBlindData	bd	missing	
-polyQueryBlindData	binaryData	missing	
-polyQueryBlindData	bnd	missing	
-polyQueryBlindData	booleanData	missing	
-polyQueryBlindData	dbd	missing	
-polyQueryBlindData	doubleData	missing	
+polyQueryBlindData	bd	done	auto
+polyQueryBlindData	binaryData	done	auto
+polyQueryBlindData	bnd	done	auto
+polyQueryBlindData	booleanData	done	auto
+polyQueryBlindData	dbd	done	auto
+polyQueryBlindData	doubleData	done	auto
 polyQueryBlindData	id	done	auto
-polyQueryBlindData	ind	missing	
-polyQueryBlindData	intData	missing	
+polyQueryBlindData	ind	done	auto
+polyQueryBlindData	intData	done	auto
 polyQueryBlindData	ldn	done	auto
 polyQueryBlindData	longDataName	done	auto
-polyQueryBlindData	max	missing	
-polyQueryBlindData	maxValue	missing	
-polyQueryBlindData	min	missing	
-polyQueryBlindData	minValue	missing	
+polyQueryBlindData	max	done	auto
+polyQueryBlindData	maxValue	done	auto
+polyQueryBlindData	min	done	auto
+polyQueryBlindData	minValue	done	auto
 polyQueryBlindData	sc	done	auto
-polyQueryBlindData	sd	missing	
+polyQueryBlindData	sd	done	auto
 polyQueryBlindData	sdn	done	auto
 polyQueryBlindData	shortDataName	done	auto
 polyQueryBlindData	showComp	done	auto
 polyQueryBlindData	ss	done	auto
-polyQueryBlindData	stringData	missing	
+polyQueryBlindData	stringData	done	auto
 polyQueryBlindData	subString	done	auto
 polyQueryBlindData	typeId	done	auto
 polyReduce	caching	done	auto
@@ -26685,8 +26685,8 @@ polyReduce	compactness	done	auto
 polyReduce	constructionHistory	done	auto
 polyReduce	cr	done	auto
 polyReduce	cwt	done	auto
-polyReduce	e	missing	
-polyReduce	edit	missing	
+polyReduce	e	done	auto
+polyReduce	edit	done	auto
 polyReduce	geomWeights	done	auto
 polyReduce	gwt	done	auto
 polyReduce	invertVertexWeights	done	auto
@@ -26727,8 +26727,8 @@ polyReduce	percentage	done	auto
 polyReduce	pl	done	auto
 polyReduce	preserveLocation	done	auto
 polyReduce	preserveTopology	done	auto
-polyReduce	q	missing	
-polyReduce	query	missing	
+polyReduce	q	done	auto
+polyReduce	query	done	auto
 polyReduce	replaceOriginal	done	auto
 polyReduce	rpo	done	auto
 polyReduce	sharpness	done	auto
@@ -26770,8 +26770,8 @@ polyRemesh	ch	done	auto
 polyRemesh	collapseThreshold	done	auto
 polyRemesh	constructionHistory	done	auto
 polyRemesh	cot	done	auto
-polyRemesh	e	missing	
-polyRemesh	edit	missing	
+polyRemesh	e	done	auto
+polyRemesh	edit	done	auto
 polyRemesh	interpolationType	done	auto
 polyRemesh	ipt	done	auto
 polyRemesh	maxEdgeLength	done	auto
@@ -26780,8 +26780,8 @@ polyRemesh	n	done	auto
 polyRemesh	name	done	auto
 polyRemesh	nds	done	auto
 polyRemesh	nodeState	done	auto
-polyRemesh	q	missing	
-polyRemesh	query	missing	
+polyRemesh	q	done	auto
+polyRemesh	query	done	auto
 polyRemesh	smoothStrength	done	auto
 polyRemesh	smt	done	auto
 polyRemesh	tessellateBorders	done	auto
@@ -26824,8 +26824,8 @@ polySelect	lbp	done	auto
 polySelect	lpt	done	auto
 polySelect	noSelection	done	auto
 polySelect	ns	done	auto
-polySelect	q	missing	
-polySelect	query	missing	
+polySelect	q	done	auto
+polySelect	query	done	auto
 polySelect	r	done	auto
 polySelect	replace	done	auto
 polySelect	rpt	done	auto
@@ -26952,12 +26952,12 @@ polySelectConstraint	w	done	auto
 polySelectConstraint	where	done	auto
 polySelectConstraint	wholeSensitive	done	auto
 polySelectConstraint	ws	done	auto
-polySelectConstraintMonitor	c	missing	
-polySelectConstraintMonitor	cc	missing	
-polySelectConstraintMonitor	changeCommand	missing	
-polySelectConstraintMonitor	create	missing	
-polySelectConstraintMonitor	d	missing	
-polySelectConstraintMonitor	delete	missing	
+polySelectConstraintMonitor	c	done	auto
+polySelectConstraintMonitor	cc	done	auto
+polySelectConstraintMonitor	changeCommand	done	auto
+polySelectConstraintMonitor	create	done	auto
+polySelectConstraintMonitor	d	done	auto
+polySelectConstraintMonitor	delete	done	auto
 polySelectCtx	e	done	auto
 polySelectCtx	edit	done	auto
 polySelectCtx	ex	done	auto
@@ -27012,12 +27012,12 @@ polySelectEditCtx	uem	done	auto
 polySelectEditCtx	useEqualMultiplier	done	auto
 polySeparate	caching	done	auto
 polySeparate	cch	done	auto
-polySeparate	e	missing	
-polySeparate	edit	missing	
+polySeparate	e	done	auto
+polySeparate	edit	done	auto
 polySeparate	nds	done	auto
 polySeparate	nodeState	done	auto
-polySeparate	q	missing	
-polySeparate	query	missing	
+polySeparate	q	done	auto
+polySeparate	query	done	auto
 polySeparate	removeShells	done	auto
 polySeparate	rs	done	auto
 polySeparate	separateSpecificShell	done	auto
@@ -27028,15 +27028,15 @@ polySewEdge	caching	done	auto
 polySewEdge	cch	done	auto
 polySewEdge	ch	done	auto
 polySewEdge	constructionHistory	done	auto
-polySewEdge	e	missing	
-polySewEdge	edit	missing	
+polySewEdge	e	done	auto
+polySewEdge	edit	done	auto
 polySewEdge	n	done	auto
 polySewEdge	name	done	auto
 polySewEdge	nds	done	auto
 polySewEdge	nodeState	done	auto
-polySewEdge	q	missing	
-polySewEdge	query	missing	
-polySewEdge	t	missing	
+polySewEdge	q	done	auto
+polySewEdge	query	done	auto
+polySewEdge	t	done	auto
 polySewEdge	texture	done	auto
 polySewEdge	tolerance	done	auto
 polySewEdge	tx	done	auto
@@ -27058,90 +27058,90 @@ polySlideEdge	a	done	auto
 polySlideEdge	absolute	done	auto
 polySlideEdge	d	done	auto
 polySlideEdge	direction	done	auto
-polySlideEdge	ed	missing	
-polySlideEdge	edgeDirection	missing	
+polySlideEdge	ed	done	auto
+polySlideEdge	edgeDirection	done	auto
 polySlideEdge	sym	done	auto
 polySlideEdge	symmetry	done	auto
-polySmartExtrude	caching	missing	
-polySmartExtrude	cch	missing	
-polySmartExtrude	ch	missing	
-polySmartExtrude	constructionHistory	missing	
-polySmartExtrude	e	missing	
-polySmartExtrude	edit	missing	
-polySmartExtrude	lc	missing	
-polySmartExtrude	ld	missing	
-polySmartExtrude	ldx	missing	
-polySmartExtrude	ldy	missing	
-polySmartExtrude	ldz	missing	
-polySmartExtrude	localCenter	missing	
-polySmartExtrude	localDirection	missing	
-polySmartExtrude	localDirectionX	missing	
-polySmartExtrude	localDirectionY	missing	
-polySmartExtrude	localDirectionZ	missing	
-polySmartExtrude	localRotate	missing	
-polySmartExtrude	localRotateX	missing	
-polySmartExtrude	localRotateY	missing	
-polySmartExtrude	localRotateZ	missing	
-polySmartExtrude	localScale	missing	
-polySmartExtrude	localScaleX	missing	
-polySmartExtrude	localScaleY	missing	
-polySmartExtrude	localScaleZ	missing	
-polySmartExtrude	localTranslate	missing	
-polySmartExtrude	localTranslateX	missing	
-polySmartExtrude	localTranslateY	missing	
-polySmartExtrude	localTranslateZ	missing	
-polySmartExtrude	lr	missing	
-polySmartExtrude	lrx	missing	
-polySmartExtrude	lry	missing	
-polySmartExtrude	lrz	missing	
-polySmartExtrude	ls	missing	
-polySmartExtrude	lsx	missing	
-polySmartExtrude	lsy	missing	
-polySmartExtrude	lsz	missing	
-polySmartExtrude	lt	missing	
-polySmartExtrude	ltx	missing	
-polySmartExtrude	lty	missing	
-polySmartExtrude	ltz	missing	
-polySmartExtrude	n	missing	
-polySmartExtrude	name	missing	
-polySmartExtrude	nds	missing	
-polySmartExtrude	nodeState	missing	
-polySmartExtrude	pivot	missing	
-polySmartExtrude	pivotX	missing	
-polySmartExtrude	pivotY	missing	
-polySmartExtrude	pivotZ	missing	
-polySmartExtrude	pvt	missing	
-polySmartExtrude	pvx	missing	
-polySmartExtrude	pvy	missing	
-polySmartExtrude	pvz	missing	
-polySmartExtrude	q	missing	
-polySmartExtrude	query	missing	
-polySmartExtrude	ro	missing	
-polySmartExtrude	rotate	missing	
-polySmartExtrude	rotateX	missing	
-polySmartExtrude	rotateY	missing	
-polySmartExtrude	rotateZ	missing	
-polySmartExtrude	rx	missing	
-polySmartExtrude	ry	missing	
-polySmartExtrude	rz	missing	
-polySmartExtrude	s	missing	
-polySmartExtrude	scale	missing	
-polySmartExtrude	scaleX	missing	
-polySmartExtrude	scaleY	missing	
-polySmartExtrude	scaleZ	missing	
-polySmartExtrude	sx	missing	
-polySmartExtrude	sy	missing	
-polySmartExtrude	sz	missing	
-polySmartExtrude	t	missing	
-polySmartExtrude	translate	missing	
-polySmartExtrude	translateX	missing	
-polySmartExtrude	translateY	missing	
-polySmartExtrude	translateZ	missing	
-polySmartExtrude	tx	missing	
-polySmartExtrude	ty	missing	
-polySmartExtrude	tz	missing	
-polySmartExtrude	worldSpace	missing	
-polySmartExtrude	ws	missing	
+polySmartExtrude	caching	done	auto
+polySmartExtrude	cch	done	auto
+polySmartExtrude	ch	done	auto
+polySmartExtrude	constructionHistory	done	auto
+polySmartExtrude	e	done	auto
+polySmartExtrude	edit	done	auto
+polySmartExtrude	lc	done	auto
+polySmartExtrude	ld	done	auto
+polySmartExtrude	ldx	done	auto
+polySmartExtrude	ldy	done	auto
+polySmartExtrude	ldz	done	auto
+polySmartExtrude	localCenter	done	auto
+polySmartExtrude	localDirection	done	auto
+polySmartExtrude	localDirectionX	done	auto
+polySmartExtrude	localDirectionY	done	auto
+polySmartExtrude	localDirectionZ	done	auto
+polySmartExtrude	localRotate	done	auto
+polySmartExtrude	localRotateX	done	auto
+polySmartExtrude	localRotateY	done	auto
+polySmartExtrude	localRotateZ	done	auto
+polySmartExtrude	localScale	done	auto
+polySmartExtrude	localScaleX	done	auto
+polySmartExtrude	localScaleY	done	auto
+polySmartExtrude	localScaleZ	done	auto
+polySmartExtrude	localTranslate	done	auto
+polySmartExtrude	localTranslateX	done	auto
+polySmartExtrude	localTranslateY	done	auto
+polySmartExtrude	localTranslateZ	done	auto
+polySmartExtrude	lr	done	auto
+polySmartExtrude	lrx	done	auto
+polySmartExtrude	lry	done	auto
+polySmartExtrude	lrz	done	auto
+polySmartExtrude	ls	done	auto
+polySmartExtrude	lsx	done	auto
+polySmartExtrude	lsy	done	auto
+polySmartExtrude	lsz	done	auto
+polySmartExtrude	lt	done	auto
+polySmartExtrude	ltx	done	auto
+polySmartExtrude	lty	done	auto
+polySmartExtrude	ltz	done	auto
+polySmartExtrude	n	done	auto
+polySmartExtrude	name	done	auto
+polySmartExtrude	nds	done	auto
+polySmartExtrude	nodeState	done	auto
+polySmartExtrude	pivot	done	auto
+polySmartExtrude	pivotX	done	auto
+polySmartExtrude	pivotY	done	auto
+polySmartExtrude	pivotZ	done	auto
+polySmartExtrude	pvt	done	auto
+polySmartExtrude	pvx	done	auto
+polySmartExtrude	pvy	done	auto
+polySmartExtrude	pvz	done	auto
+polySmartExtrude	q	done	auto
+polySmartExtrude	query	done	auto
+polySmartExtrude	ro	done	auto
+polySmartExtrude	rotate	done	auto
+polySmartExtrude	rotateX	done	auto
+polySmartExtrude	rotateY	done	auto
+polySmartExtrude	rotateZ	done	auto
+polySmartExtrude	rx	done	auto
+polySmartExtrude	ry	done	auto
+polySmartExtrude	rz	done	auto
+polySmartExtrude	s	done	auto
+polySmartExtrude	scale	done	auto
+polySmartExtrude	scaleX	done	auto
+polySmartExtrude	scaleY	done	auto
+polySmartExtrude	scaleZ	done	auto
+polySmartExtrude	sx	done	auto
+polySmartExtrude	sy	done	auto
+polySmartExtrude	sz	done	auto
+polySmartExtrude	t	done	auto
+polySmartExtrude	translate	done	auto
+polySmartExtrude	translateX	done	auto
+polySmartExtrude	translateY	done	auto
+polySmartExtrude	translateZ	done	auto
+polySmartExtrude	tx	done	auto
+polySmartExtrude	ty	done	auto
+polySmartExtrude	tz	done	auto
+polySmartExtrude	worldSpace	done	auto
+polySmartExtrude	ws	done	auto
 polySmooth	c	done	auto
 polySmooth	caching	done	auto
 polySmooth	cch	done	auto
@@ -27154,8 +27154,8 @@ polySmooth	divisions	done	auto
 polySmooth	divisionsPerEdge	done	auto
 polySmooth	dpe	done	auto
 polySmooth	dv	done	auto
-polySmooth	e	missing	
-polySmooth	edit	missing	
+polySmooth	e	done	auto
+polySmooth	edit	done	auto
 polySmooth	kb	done	auto
 polySmooth	keepBorder	done	auto
 polySmooth	keepHardEdge	done	auto
@@ -27187,8 +27187,8 @@ polySmooth	peh	done	auto
 polySmooth	propagateEdgeHardness	done	auto
 polySmooth	ps	done	auto
 polySmooth	pushStrength	done	auto
-polySmooth	q	missing	
-polySmooth	query	missing	
+polySmooth	q	done	auto
+polySmooth	query	done	auto
 polySmooth	ro	done	auto
 polySmooth	roundness	done	auto
 polySmooth	sdt	done	auto

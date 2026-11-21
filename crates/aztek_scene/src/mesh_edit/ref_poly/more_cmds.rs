@@ -109,7 +109,16 @@ fn sew_op(a: &Args, m: &mut Mesh, sel: &Ids, sym: Option<&SymmetryMap>) -> CmdRe
     pts.sort_unstable();
     pts.dedup();
     let o = MergeOptions { distance: a.float("tolerance", 0.0).max(1e-9), average: true, symmetry: sym };
-    Ok(points(merge_by_distance(m, &pts, &o)))
+    let r = merge_by_distance(m, &pts, &o);
+    if on(a, "texture", true) {
+        // The UVs are sewn too: each edge the sew joined gets one UV each end, halfway between the two sides'.
+        let near: std::collections::BTreeSet<Index> = r.iter().copied().collect();
+        let joined: Vec<Index> = (0..m.edge_capacity())
+            .filter(|&e| m.edge_valid(e) && !m.is_boundary_edge(e) && near.contains(&m.edge_point(e, 0)) && near.contains(&m.edge_point(e, 1)))
+            .collect();
+        crate::uv_ops::sew(m, &joined);
+    }
+    Ok(points(r))
 }
 
 fn clean_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
@@ -329,17 +338,9 @@ fn blend_color_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>)
     Ok(EditResult::default())
 }
 
-fn geo_sampler_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+fn geo_sampler_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let set = color_set_of(a, m);
-    if !colors::has(m, &set) {
-        colors::add_white(m, &set);
-    }
-    let (sc, off, lo, hi) = (a.float("scaleFactor", 1.0) as f32, 0.0f32, a.float("clampMin", 0.0) as f32, a.float("clampMax", 1.0) as f32);
-    for x in colors::values_mut(m, &set).iter_mut() {
-        for k in 0..3 {
-            x[k] = (x[k] * sc + off).clamp(lo, hi);
-        }
-    }
+    crate::poly_model::geo_sample_apply(a, m, sel, &set);
     Ok(EditResult::default())
 }
 
@@ -490,6 +491,11 @@ fn poly_query_blind_data(s: &mut Session, a: &Args) -> CmdResult {
         if long.is_empty() { a.string("shortDataName", "") } else { long }
     };
     let sub = a.string("subString", "");
+    // The value to match: an exact number, or a range. Text and binary data are never stored here, so they match none.
+    let exact = a.get("doubleData").and_then(Value::as_f64).or(a.get("intData").and_then(Value::as_f64)).or(a.get("booleanData").map(|v| if v.as_bool().unwrap_or(v.as_f64().unwrap_or(0.0) != 0.0) { 1.0 } else { 0.0 }));
+    let (lo, hi) = (a.get("minValue").and_then(Value::as_f64), a.get("maxValue").and_then(Value::as_f64));
+    let text = a.has("stringData") || a.has("binaryData");
+    let keep = |v: f64| !text && exact.is_none_or(|x| (x - v).abs() <= 1e-6 * x.abs().max(1.0)) && lo.is_none_or(|l| v >= l - 1e-9) && hi.is_none_or(|h| v <= h + 1e-9);
     let prefix = match kind {
         K::Vertex => "vtx",
         K::Edge => "e",
@@ -512,7 +518,7 @@ fn poly_query_blind_data(s: &mut Session, a: &Args) -> CmdResult {
             let data = attrs.get::<f32>(&name);
             for &i in &ids {
                 let Some(&v) = data.get(i as usize) else { continue };
-                if v.is_nan() {
+                if v.is_nan() || !keep(v as f64) {
                     continue;
                 }
                 if a.bool("showComp") {
@@ -1150,9 +1156,9 @@ pub(super) fn register(c: &mut Commands<Session>) {
     .flag(fl("worldSpace", "ws", T::Bool, Value::Null, "The plane is in world space (always)."))
     .flag(world_flag()));
     c.register(ref_cmd("polySewEdge", "Sew border edges together where their ends are within -tx. Returns the node.", &[], |s, a| run_op(s, "polySewEdge", a))
-        .flag(fl("tolerance", "tx", T::Float, json!(0.0), "How close the ends must be."))
-        .flag(fl("texture", "tx2", T::Bool, Value::Null, "Accepted for existing scripts."))
-        .flag(fl("worldSpace", "ws", T::Bool, Value::Null, "Accepted for existing scripts.")));
+        .flag(fl("tolerance", "t", T::Float, json!(0.0), "How close the ends must be (0)."))
+        .flag(fl("texture", "tx", T::Bool, json!(true), "Sew the UVs along with the edges (on)."))
+        .flag(fl("worldSpace", "ws", T::Bool, Value::Null, "World-space values rather than the object's; the tolerance is a distance either way.")));
     c.register(ref_cmd("polyClean", "Remove edges and vertices no face uses: -ce, -cv, -cuv, -cpm (each on by default). Returns the node.", &[], |s, a| run_op(s, "polyClean", a))
         .flag(fl("cleanEdges", "ce", T::Bool, json!(true), "Loose edges."))
         .flag(fl("cleanVertices", "cv", T::Bool, json!(true), "Loose vertices."))
@@ -1207,6 +1213,13 @@ pub(super) fn register(c: &mut Commands<Session>) {
         .flag(fl("shortDataName", "sdn", T::String, Value::Null, "The short name."))
         .flag(fl("subString", "ss", T::String, Value::Null, "A part of the name."))
         .flag(fl("showComp", "sc", T::Bool, Value::Null, "List the components too."))
+        .flag(fl("doubleData", "dbd", T::Float, Value::Null, "Only components whose value is this number."))
+        .flag(fl("intData", "ind", T::Int, Value::Null, "Only components whose value is this whole number."))
+        .flag(fl("booleanData", "bd", T::Bool, Value::Null, "Only components whose value is this on or off."))
+        .flag(fl("minValue", "min", T::Float, Value::Null, "Only values of at least this."))
+        .flag(fl("maxValue", "max", T::Float, Value::Null, "Only values of at most this."))
+        .flag(fl("stringData", "sd", T::String, Value::Null, "Only text data of this value; blind data here holds numbers, so none match."))
+        .flag(fl("binaryData", "bnd", T::String, Value::Null, "Only binary data of this value; blind data here holds numbers, so none match."))
         .undoable(false));
     {
         let mut cmd = Cmd::new(

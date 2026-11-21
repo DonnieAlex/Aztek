@@ -407,6 +407,11 @@ fn export_hotkeys(set: &str) -> String {
     })
 }
 
+thread_local! {
+    /// The selection constraint monitor, when made: its refresh script and window.
+    static CONSTRAINT_MONITOR: std::cell::RefCell<Option<(String, String)>> = const { std::cell::RefCell::new(None) };
+}
+
 fn reg(s: &mut Session, c: Cmd) {
     // A command the scene layer already has wins.
     if s.commands.find(&c.name).is_none() {
@@ -1034,6 +1039,50 @@ pub fn register(s: &mut Session) {
         .flag(f("template", "te", ArgType::Bool, "Template display."))
         .flag(f("state", "st", ArgType::Bool, "On or off rather than a switch.")),
     );
+
+    // polySelectConstraintMonitor: the window showing the selection constraints, refreshed by its callback whenever
+    // polySelectConstraint changes them.
+    reg(
+        s,
+        Cmd::new(
+            "polySelectConstraintMonitor",
+            "The selection constraint monitor: -c makes it, -d removes it, -cc callback window sets the script run (with the \
+             window's name) to refresh the window each time polySelectConstraint changes the constraints.",
+            |_s, a| {
+                CONSTRAINT_MONITOR.with(|m| {
+                    let mut m = m.borrow_mut();
+                    if a.bool("delete") {
+                        *m = None;
+                    }
+                    if a.bool("create") && m.is_none() {
+                        *m = Some((String::new(), String::new()));
+                    }
+                    if let Some(v) = a.get("changeCommand").and_then(Value::as_array) {
+                        let get = |i: usize| v.get(i).and_then(Value::as_str).unwrap_or("").to_string();
+                        *m = Some((get(0), get(1)));
+                    }
+                });
+                Ok(Value::Null)
+            },
+        )
+        .flag(f("create", "c", ArgType::Bool, "Make the monitor."))
+        .flag(f("delete", "d", ArgType::Bool, "Remove the monitor and its callback."))
+        .flag(FlagDef::new("changeCommand", "cc", ArgType::List, Value::Null, "The script that refreshes the window, then the window's name.").multi(2)),
+    );
+    if let Some(mut def) = s.commands.find("polySelectConstraint").cloned() {
+        let prev = def.run.clone();
+        def.run = std::sync::Arc::new(move |s: &mut Session, a: &aztek_ops::Args| {
+            let r = prev(s, a)?;
+            if !a.bool("query") {
+                let cb = CONSTRAINT_MONITOR.with(|m| m.borrow().clone());
+                if let Some((script, window)) = cb.filter(|c| !c.0.is_empty()) {
+                    crate::script_jobs::defer(json!(format!("{script} \"{window}\"")));
+                }
+            }
+            Ok(r)
+        });
+        s.register(def);
+    }
 
     // polyOptions: the scene layer keeps every flag for scripts to read back; this draws them.
     {
