@@ -216,6 +216,7 @@ dependencies = [
  "miniz_oxide 0.8.9",
  "rand_mt",
  "rayon",
+ "regex-lite",
  "serde_json",
  "sysinfo",
  "thiserror 2.0.21",

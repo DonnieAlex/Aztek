@@ -957,6 +957,16 @@ fn restore_pose(g: &mut Graph, pose: NodeId, only: Option<&[NodeId]>) -> CmdResu
             let f = |x: usize| e.get(k).and_then(|a| a.get(x)).and_then(Value::as_f64).unwrap_or(d);
             DVec3::new(f(0), f(1), f(2))
         };
+        // A member worked out as if parented to the world (-worldParent) is put back by where it sat in the world.
+        if let Some(wm) = e.get("world").and_then(Value::as_array).filter(|w| w.len() == 16) {
+            let m: Vec<f64> = wm.iter().filter_map(Value::as_f64).collect();
+            if m.len() == 16 {
+                g.evaluate();
+                crate::repeat::set_world_matrix(g, j, &DMat4::from_cols_slice(&m), None)?;
+                done.push(j);
+                continue;
+            }
+        }
         for (attr, v) in [(Transform::TRANSLATE, vec("t", 0.0)), (Transform::ROTATE, vec("r", 0.0)), (Transform::SCALE, vec("s", 1.0))] {
             let p = plug(j, attr);
             // Driven channels (constraints, IK, keys) stay with their drivers, as in the reference.
@@ -967,6 +977,61 @@ fn restore_pose(g: &mut Graph, pose: NodeId, only: Option<&[NodeId]>) -> CmdResu
         done.push(j);
     }
     Ok(done)
+}
+
+/// A member's saved local transform, or None when it isn't in the pose.
+fn pose_entry(g: &Graph, pose: NodeId, j: NodeId) -> Option<(i32, Value)> {
+    let (i, _) = pose_members(g, pose).into_iter().find(|x| x.1 == j)?;
+    let data = g.node(pose).map(|n| crate::rig::json_of(n.data(), 1)).unwrap_or(Value::Null);
+    Some((i, data.get(i as usize).cloned().unwrap_or(Value::Null)))
+}
+
+fn set_pose_entry(g: &mut Graph, pose: NodeId, i: i32, e: Value) -> CmdResult<()> {
+    let mut data = g.node(pose).map(|n| crate::rig::json_of(n.data(), 1)).unwrap_or(Value::Null);
+    if !data.is_array() {
+        data = json!([]);
+    }
+    let list = data.as_array_mut().unwrap();
+    while list.len() <= i as usize {
+        list.push(Value::Null);
+    }
+    list[i as usize] = e;
+    crate::rig::set_json(g, pose, 1, data)
+}
+
+/// Whether a member sits where the pose has it.
+fn at_pose(g: &mut Graph, j: NodeId, e: &Value) -> bool {
+    if let Some(wm) = e.get("world").and_then(Value::as_array) {
+        let m: Vec<f64> = wm.iter().filter_map(Value::as_f64).collect();
+        let now = crate::rig::world(g, j).to_cols_array();
+        return m.len() == 16 && m.iter().zip(now.iter()).all(|(a, b)| (a - b).abs() < 1e-4);
+    }
+    let now = local_of(g, j);
+    ["t", "r", "s"].iter().all(|k| {
+        let (a, b) = (e.get(*k).and_then(Value::as_array), now.get(*k).and_then(Value::as_array));
+        match (a, b) {
+            (Some(a), Some(b)) => a.iter().zip(b).all(|(x, y)| (x.as_f64().unwrap_or(0.0) - y.as_f64().unwrap_or(0.0)).abs() < 1e-4),
+            _ => true,
+        }
+    })
+}
+
+/// Where a member sits in the world at the pose: its pose transform under its parent as it is now.
+fn world_at_pose(g: &mut Graph, j: NodeId, e: &Value) -> CmdResult<DMat4> {
+    let keep = local_of(g, j);
+    let set = |g: &mut Graph, e: &Value| -> CmdResult<()> {
+        for (attr, k, d) in [(Transform::TRANSLATE, "t", 0.0), (Transform::ROTATE, "r", 0.0), (Transform::SCALE, "s", 1.0)] {
+            let f = |x: usize| e.get(k).and_then(|a| a.get(x)).and_then(Value::as_f64).unwrap_or(d);
+            g.set_value(plug(j, attr), PlugValue::Vec3(DVec3::new(f(0), f(1), f(2))))?;
+        }
+        Ok(())
+    };
+    set(g, e)?;
+    g.evaluate();
+    let w = crate::rig::world(g, j);
+    set(g, &keep)?;
+    g.evaluate();
+    Ok(w)
 }
 
 fn bind_pose_of(g: &Graph, joint: NodeId) -> Option<NodeId> {
@@ -1758,6 +1823,32 @@ fn influence_map(g: &mut Graph, src: &[(i32, NodeId)], dst: &[(i32, NodeId)], ru
 fn copy_skin_weights(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let g = &mut s.graph;
+    if a.bool("query") {
+        // What a copy would use.
+        let pick = |k: &str, at: Option<&String>| -> Value {
+            let n = a.get(k).and_then(Value::as_str).map(str::to_string).or_else(|| at.cloned());
+            json!(n.and_then(|n| skin_named(g, &n)).map(|x| g.path(x)).unwrap_or_default())
+        };
+        if asked(a, "sourceSkin") {
+            return Ok(pick("sourceSkin", names.first()));
+        }
+        if asked(a, "destinationSkin") {
+            return Ok(pick("destinationSkin", names.last()));
+        }
+        if asked(a, "mirrorMode") {
+            return Ok(json!(a.string("mirrorMode", "XY")));
+        }
+        if asked(a, "surfaceAssociation") {
+            return Ok(json!(a.string("surfaceAssociation", "closestPoint")));
+        }
+        if asked(a, "influenceAssociation") {
+            return Ok(json!(a.get("influenceAssociation").map(names_list).unwrap_or_else(|| vec!["closestJoint".into()])));
+        }
+        if asked(a, "sampleSpace") {
+            return Ok(json!(a.int("sampleSpace", 0)));
+        }
+        fail!("copySkinWeights: query -ss, -ds, -mm, -sa, -ia or -spa");
+    }
     let source = match a.get("sourceSkin").and_then(Value::as_str) {
         Some(n) => skin_named(g, n),
         None => names.first().and_then(|n| skin_named(g, n)),
@@ -1772,7 +1863,7 @@ fn copy_skin_weights(s: &mut Session, a: &Args) -> CmdResult {
     let mirror = if a.bool("noMirror") || src != dst && !a.has("mirrorMode") {
         None
     } else {
-        match a.string("mirrorMode", "YZ").to_uppercase().as_str() {
+        match a.string("mirrorMode", "XY").to_uppercase().as_str() {
             "YZ" => Some(0usize),
             "XZ" => Some(1),
             "XY" => Some(2),
@@ -1794,9 +1885,21 @@ fn copy_skin_weights(s: &mut Session, a: &Args) -> CmdResult {
     let sa = a.string("surfaceAssociation", "closestPoint");
     let bvh = (sa == "closestPoint" || sa == "rayCast").then(|| MeshBvh::new(&sm));
     let near: Vec<(u32, DVec3)> = (0..sm.point_capacity()).filter(|&p| sm.point_valid(p)).map(|p| (p, sm.position(p))).collect();
-    let sgi = sg.inverse();
     let inverse = a.bool("mirrorInverse");
-    let wanted = selected_points(g, dst_mesh);
+    // Named skins take every point, unless -selectedComponents; picked from the selection, the selected points.
+    let named = a.has("sourceSkin") && a.has("destinationSkin");
+    let wanted = if named && !a.bool("selectedComponents") { (0..dm.point_capacity()).filter(|&p| dm.point_valid(p)).collect() } else { selected_points(g, dst_mesh) };
+    let smooth = a.bool("smooth");
+    // Model space (1) compares the shapes as they sit in their own spaces rather than in the world.
+    let model = a.int("sampleSpace", 0) == 1;
+    let (sg, dg) = if model { (DMat4::IDENTITY, DMat4::IDENTITY) } else { (sg, dg) };
+    let sgi = sg.inverse();
+    let bw_attr = g.node(src).and_then(|x| x.ty().attr_index("blendWeights"));
+    let src_bw: Option<Vec<f64>> = bw_attr.and_then(|i| crate::deform::floats_of(g.node(src).unwrap().data(), i).map(|f| f.0.clone()));
+    let mut dst_bw: Option<Vec<f64>> = match (a.bool("noBlendWeight"), &src_bw, bw_attr) {
+        (false, Some(_), Some(i)) => Some(crate::deform::floats_of(g.node(dst).unwrap().data(), i).map(|f| f.0.clone()).unwrap_or_default()),
+        _ => None,
+    };
     let locks = SkinBind { locks: db.locks.clone(), ..Default::default() };
     for p in wanted {
         if p as usize >= db.weights.len() {
@@ -1817,7 +1920,28 @@ fn copy_skin_weights(s: &mut Session, a: &Args) -> CmdResult {
             None => wp,
         };
         let by_uv = uv_lookup.as_ref().and_then(|l| crate::skin_extra::uv_of_point(&dm, p).and_then(|uv| l.sample(uv)));
-        let samples = by_uv.unwrap_or_else(|| surface_sample(&sm, bvh.as_ref(), &near, sgi.transform_point3(query)));
+        let local = sgi.transform_point3(query);
+        let samples = by_uv.unwrap_or_else(|| {
+            if smooth && bvh.is_none() {
+                // Between the nearest points, by distance, rather than from the one nearest.
+                let mut by: Vec<(u32, f64)> = near.iter().map(|x| (x.0, (x.1 - local).length())).collect();
+                by.sort_by(|a, b| a.1.total_cmp(&b.1));
+                by.truncate(4);
+                if by.first().is_some_and(|x| x.1 < 1e-9) {
+                    return vec![(by[0].0, 1.0)];
+                }
+                let total: f64 = by.iter().map(|x| 1.0 / x.1).sum();
+                return by.iter().map(|x| (x.0, 1.0 / x.1 / total)).collect();
+            }
+            surface_sample(&sm, bvh.as_ref(), &near, local)
+        });
+        if let (Some(from), Some(to)) = (&src_bw, dst_bw.as_mut()) {
+            let v: f64 = samples.iter().map(|&(q, share)| from.get(q as usize).copied().unwrap_or(0.0) * share).sum();
+            if to.len() <= p as usize {
+                to.resize(p as usize + 1, 0.0);
+            }
+            to[p as usize] = v;
+        }
         let mut acc: HashMap<u32, f64> = HashMap::new();
         for (q, share) in samples {
             for &(i, x) in sb.weights.get(q as usize).map(|v| v.as_slice()).unwrap_or(&[]) {
@@ -1842,6 +1966,9 @@ fn copy_skin_weights(s: &mut Session, a: &Args) -> CmdResult {
     }
     hold_all(g, dst, &mut db);
     set_bind(g, dst, db)?;
+    if let (Some(bw), Some(i)) = (dst_bw, bw_attr) {
+        crate::deform::set_floats(g, dst, i, bw)?;
+    }
     Ok(Value::Null)
 }
 
@@ -1931,15 +2058,21 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("source then destination (the selection when none)")
         .flag(f("sourceSkin", "ss", ArgType::String, "Source skinCluster."))
         .flag(f("destinationSkin", "ds", ArgType::String, "Destination skinCluster."))
-        .flag(f("mirrorMode", "mm", ArgType::String, "Mirror plane: YZ (default), XZ or XY."))
+        .flag(f("mirrorMode", "mm", ArgType::String, "Mirror plane: XY (the default), YZ or XZ."))
         .flag(f("mirrorInverse", "mi", ArgType::Bool, "Copy from the negative side to the positive."))
         .flag(f("noMirror", "nm", ArgType::Bool, "A plain copy."))
         .flag(f("surfaceAssociation", "sa", ArgType::String, "closestPoint (default), rayCast or closestComponent."))
         .flag(f("influenceAssociation", "ia", ArgType::Any, "closestJoint (default), closestBone, oneToOne, label or name, tried in turn.").multi(1))
         .flag(f("normalize", "nr", ArgType::Bool, "Normalize the copied weights (default on)."))
         .flag(f("uvSpace", "uv", ArgType::Any, "Source and destination UV sets: points read the source at their UV position, between the corners of the face there. Sets beyond map1 aren't kept here.").multi(2))
-        .flag(f("sampleSpace", "spa", ArgType::Int, "Accepted for existing scripts.")),
+        .flag(f("sampleSpace", "spa", ArgType::Int, "0 compare the shapes in world space (the default), 1 in their own spaces."))
+        .flag(f("noBlendWeight", "nbw", ArgType::Bool, "Leave the destination's blend weights (linear against dual quaternion) as they are."))
+        .flag(f("selectedComponents", "sc", ArgType::Bool, "With -ss and -ds: only the selected points take weights."))
+        .flag(f("smooth", "sm", ArgType::Bool, "Between the nearest points rather than from the one nearest, with -sa closestComponent.")),
     );
+    if let Some(d) = c.find("copySkinWeights").cloned() {
+        c.register(modes(d));
+    }
 
     c.register(
         Cmd::new(
@@ -2131,6 +2264,86 @@ pub fn register(c: &mut Commands<Session>) {
                         joints.push(id);
                     }
                 }
+                // The pose a call works on: one named, -name's, or the bind pose of the joints.
+                let named_pose = match a.get("name").and_then(Value::as_str) {
+                    Some(n) if !a.bool("save") => {
+                        let id = find(g, n, "dagPose")?;
+                        if !g.node(id).is_some_and(|x| x.ty().name == "dagPose") {
+                            fail!("dagPose: {n} is not a pose");
+                        }
+                        Some(id)
+                    }
+                    _ => None,
+                };
+                let pose = poses.first().copied().or(named_pose).or_else(|| joints.iter().find_map(|&j| bind_pose_of(g, j)));
+                if a.bool("query") && (asked(a, "members") || asked(a, "atPose")) {
+                    let Some(p) = pose else { fail!("dagPose: name a pose, or give -bp or -n") };
+                    let members = pose_members(g, p);
+                    if asked(a, "members") {
+                        return Ok(json!(members.iter().map(|x| g.path(x.1)).collect::<Vec<_>>()));
+                    }
+                    let mut off = Vec::new();
+                    for (_, j) in members {
+                        let e = pose_entry(g, p, j).map(|x| x.1).unwrap_or(Value::Null);
+                        if !at_pose(g, j, &e) {
+                            off.push(json!(g.path(j)));
+                        }
+                    }
+                    return Ok(Value::Array(off));
+                }
+                if a.bool("query") && asked(a, "name") {
+                    let mut out: Vec<String> = Vec::new();
+                    for &j in &joints {
+                        for p in g.nodes().into_iter().filter(|&n| g.node(n).is_some_and(|x| x.ty().name == "dagPose") && pose_members(g, n).iter().any(|x| x.1 == j)) {
+                            let name = g.path(p);
+                            if !out.contains(&name) {
+                                out.push(name);
+                            }
+                        }
+                    }
+                    return Ok(json!(out));
+                }
+                if a.bool("addToPose") || a.bool("remove") || a.bool("reset") || a.bool("worldParent") {
+                    let Some(p) = pose else { fail!("dagPose: name a pose, or give -bp or -n") };
+                    let mut list = joints.clone();
+                    if a.bool("addToPose") && !a.bool("selection") {
+                        // The hierarchies below too, as -save takes them.
+                        for &j in &joints {
+                            for k in skeleton_of(g, j) {
+                                if !list.contains(&k) {
+                                    list.push(k);
+                                }
+                            }
+                        }
+                    }
+                    for j in list {
+                        let entry = pose_entry(g, p, j);
+                        if a.bool("addToPose") {
+                            if entry.is_none() {
+                                let next = pose_members(g, p).iter().map(|x| x.0 + 1).max().unwrap_or(0);
+                                g.connect(&plug(j, Transform::WORLD_MATRIX), &PlugRef::element(p, 0, next), false)?;
+                                set_pose_entry(g, p, next, local_of(g, j))?;
+                            }
+                        } else if a.bool("remove") {
+                            if let Some((i, _)) = entry {
+                                g.disconnect(&PlugRef::element(p, 0, i));
+                            }
+                        } else if a.bool("reset") {
+                            if let Some((i, _)) = entry {
+                                set_pose_entry(g, p, i, local_of(g, j))?;
+                            }
+                        } else if let Some((i, e)) = entry {
+                            let w = world_at_pose(g, j, &e)?;
+                            let mut e2 = e.clone();
+                            if !e2.is_object() {
+                                e2 = local_of(g, j);
+                            }
+                            e2["world"] = json!(w.to_cols_array().to_vec());
+                            set_pose_entry(g, p, i, e2)?;
+                        }
+                    }
+                    return Ok(json!(g.path(p)));
+                }
                 if a.bool("query") {
                     let mut out = Vec::new();
                     for &j in &joints {
@@ -2202,7 +2415,13 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("bindPose", "bp", ArgType::Bool, "The bind pose."))
         .flag(f("global", "g", ArgType::Bool, "The whole pose, not only what's below the joints named."))
         .flag(f("selection", "sl", ArgType::Bool, "With -save, only the objects named or selected, not their hierarchies."))
-        .flag(f("name", "n", ArgType::String, "Name of a saved pose.")),
+        .flag(f("name", "n", ArgType::String, "Name of a saved pose; with -q, the poses the joints are in."))
+        .flag(f("members", "m", ArgType::Bool, "With -q: the pose's members."))
+        .flag(f("atPose", "ap", ArgType::Bool, "With -q: the members not where the pose has them; empty when all are."))
+        .flag(f("addToPose", "a", ArgType::Bool, "Add the joints named or selected to the pose, as they are now."))
+        .flag(f("remove", "rm", ArgType::Bool, "Take the joints named or selected out of the pose."))
+        .flag(f("reset", "rs", ArgType::Bool, "The pose takes the joints named or selected as they are now."))
+        .flag(f("worldParent", "wp", ArgType::Bool, "Work the members named out as if parented to the world, so they go back to where they sat after reparenting.")),
     ));
 }
 

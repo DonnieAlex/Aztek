@@ -56,6 +56,10 @@ pub const SELECTED: [u8; 4] = [255, 255, 255, 255];
 #[derive(Default)]
 struct Colors {
     palette: BTreeMap<i64, [f64; 3]>,
+    /// The active palette's entries that were changed; the rest are the dormant palette's.
+    active: BTreeMap<i64, [f64; 3]>,
+    /// curveRGBColor's colours for Graph Editor curves, by name or pattern, in the order given.
+    curves: Vec<(String, [f64; 3])>,
     display: BTreeMap<(String, bool), i64>,
     rgb: BTreeMap<String, [f64; 4]>,
 }
@@ -88,7 +92,23 @@ pub fn set_palette(i: i64, rgb: [f64; 3]) {
 }
 
 pub fn reset_palette() {
-    COLORS.with(|c| c.borrow_mut().palette.clear());
+    COLORS.with(|c| {
+        let mut c = c.borrow_mut();
+        c.palette.clear();
+        c.active.clear();
+    });
+}
+
+/// An entry of the active palette, the colours selected objects draw in: the dormant entry unless set apart.
+pub fn active_palette(i: i64) -> [f64; 3] {
+    let i = i.clamp(0, 31);
+    COLORS.with(|c| c.borrow().active.get(&i).copied()).unwrap_or_else(|| palette(i))
+}
+
+pub fn set_active_palette(i: i64, rgb: [f64; 3]) {
+    COLORS.with(|c| {
+        c.borrow_mut().active.insert(i, rgb);
+    });
 }
 
 /// displayColor's index for a name, set or factory. None for a name it doesn't know.
@@ -489,7 +509,73 @@ fn color_cmd(s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// The Graph Editor colour a curve named so takes: an exact name first, then the latest pattern matching it.
+pub fn curve_color(name: &str) -> Option<[f64; 3]> {
+    COLORS.with(|c| {
+        let c = c.borrow();
+        c.curves.iter().find(|x| x.0 == name).or_else(|| c.curves.iter().rev().find(|x| crate::ref_core::glob(&x.0, name))).map(|x| x.1)
+    })
+}
+
+/// curveRGBColor: custom colours for curves in the Graph Editor, by name with ? and * wildcards. A UI setting, not
+/// scene data.
+fn curve_rgb_color(_s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("resetToFactory") || a.bool("resetToSaved") {
+        COLORS.with(|c| c.borrow_mut().curves.clear());
+        return Ok(Value::Null);
+    }
+    if a.bool("listNames") {
+        return Ok(Value::Array(COLORS.with(|c| c.borrow().curves.iter().map(|x| Value::String(x.0.clone())).collect())));
+    }
+    if a.bool("list") {
+        let lines: Vec<String> = COLORS.with(|c| c.borrow().curves.iter().map(|x| format!("{} {} {} {}", x.0, x.1[0], x.1[1], x.1[2])).collect());
+        for l in &lines {
+            println!("{l}");
+        }
+        return Ok(Value::Array(lines.into_iter().map(Value::String).collect()));
+    }
+    let Some(name) = a.positional.first().and_then(Value::as_str).map(str::to_string) else { fail!("curveRGBColor: name the curves") };
+    if a.bool("remove") {
+        COLORS.with(|c| c.borrow_mut().curves.retain(|x| x.0 != name));
+        return Ok(Value::Null);
+    }
+    let hsv = a.bool("hueSaturationValue");
+    if a.bool("query") {
+        let Some(rgb) = curve_color(&name) else { fail!("curveRGBColor: no colour for {name}") };
+        return Ok(serde_json::json!(if hsv { crate::system_cmds::rgb_to_hsv(rgb) } else { rgb }));
+    }
+    let n: Vec<f64> = a.positional.iter().skip(1).filter_map(Value::as_f64).collect();
+    if n.len() < 3 {
+        fail!("curveRGBColor: give the name, then r g b (or h s v with -hsv)");
+    }
+    let rgb = if hsv { crate::system_cmds::hsv_to_rgb(n[0], n[1], n[2]) } else { [n[0], n[1], n[2]] };
+    COLORS.with(|c| {
+        let mut c = c.borrow_mut();
+        c.curves.retain(|x| x.0 != name);
+        c.curves.push((name, rgb));
+    });
+    Ok(Value::Null)
+}
+
 pub fn register(c: &mut Commands<Session>) {
+    c.register(
+        CommandDef::<Session>::new(
+            "curveRGBColor",
+            "Colours for curves in the Graph Editor: curveRGBColor \"translateX\" 1 0 1, or a pattern with ? and * (\"*Y\"). -r removes one, \
+             -l writes them out, -ln returns the names, -rf and -rs go back to the standard colours, -q reads one. A UI setting, not \
+             saved with the scene.",
+            curve_rgb_color,
+        )
+        .positional("name [r g b]")
+        .flag(FlagDef::new("hueSaturationValue", "hsv", ArgType::Bool, Value::Null, "The values are hue (degrees), saturation and value; -q answers so."))
+        .flag(FlagDef::new("list", "l", ArgType::Bool, Value::Null, "Write out every custom curve colour."))
+        .flag(FlagDef::new("listNames", "ln", ArgType::Bool, Value::Null, "Every custom curve colour's name."))
+        .flag(FlagDef::new("remove", "r", ArgType::Bool, Value::Null, "Remove the colour named; those curves go back to the standard colour."))
+        .flag(FlagDef::new("resetToFactory", "rf", ArgType::Bool, Value::Null, "Remove every custom curve colour."))
+        .flag(FlagDef::new("resetToSaved", "rs", ArgType::Bool, Value::Null, "Back to the saved colours: none are saved apart from the session, so every custom colour goes."))
+        .flag(FlagDef::new("query", "q", ArgType::Bool, Value::Null, "Read a colour."))
+        .undoable(false),
+    );
     c.register(
         CommandDef::<Session>::new("color", "Set the dormant wireframe colour of objects (the selection by default): -ud 1 to 8, -rgb r g b, or neither for the class colour.", color_cmd)
             .positional("objects")

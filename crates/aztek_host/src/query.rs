@@ -295,7 +295,18 @@ pub fn anim_curves(core: &Core, arg: &str) -> Value {
                     t += step;
                 }
             }
-            curves.push(json!({"curve": g.path(c), "channel": channel, "plug": g.plug_name(&p), "component": p.component, "keys": keys, "samples": samples, "weighted": k.weighted, "buffer": buffer}));
+            // curveRGBColor: a custom colour for the attribute's name, its long or short one, or the curve's.
+            let custom = {
+                let a = g.attr(&p);
+                let (long, short) = if p.component >= 0 { (a.child_names[p.component as usize].clone(), a.child_short[p.component as usize].clone()) } else { (a.name.clone(), a.short_name.clone()) };
+                let curve_name = g.node(c).map(|n| n.name().to_string()).unwrap_or_default();
+                [long, short, curve_name].iter().filter(|x| !x.is_empty()).find_map(|x| aztek_scene::draw_style::curve_color(x))
+            };
+            let mut entry = json!({"curve": g.path(c), "channel": channel, "plug": g.plug_name(&p), "component": p.component, "keys": keys, "samples": samples, "weighted": k.weighted, "buffer": buffer});
+            if let Some(rgb) = custom {
+                entry["rgb"] = json!(rgb);
+            }
+            curves.push(entry);
         }
         if !curves.is_empty() {
             out.push(json!({"node": g.path(id), "curves": curves}));

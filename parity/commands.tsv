@@ -217,7 +217,7 @@ curveEditorCtx	done	auto
 curveIntersect	done	auto
 curveMoveEPCtx	done	auto
 curveOnSurface	done	auto
-curveRGBColor	missing	
+curveRGBColor	done	auto
 curveSketchCtx	done	auto
 cutKey	done	auto
 cycleCheck	done	auto
@@ -279,7 +279,7 @@ displayString	missing
 displaySurface	done	auto
 distanceDimContext	missing	
 distanceDimension	done	auto
-doBlur	missing	
+doBlur	done	auto
 dockControl	done	auto
 dolly	done	auto
 dollyCtx	done	auto

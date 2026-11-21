@@ -131,7 +131,7 @@ pub const SHAPE_TYPE: &str = "nurbsSurface";
 /// Keeps the tessellation between evaluations, so moving the transform doesn't rebuild it.
 #[derive(Default)]
 pub struct SurfaceShape {
-    cached: Option<(NurbsSurface, [i64; 4])>,
+    cached: Option<(NurbsSurface, [i64; 8])>,
     mesh: Option<Arc<Mesh>>,
     lines: Vec<Vec<DVec3>>,
 }
@@ -189,12 +189,54 @@ impl NodeBehavior for SurfaceShape {
                 s.rewrap();
             }
         }
-        let display = [d.int(Self::DIVISIONS_U), d.int(Self::DIVISIONS_V), d.int(Self::CURVE_PRECISION), d.int(Self::CURVE_PRECISION_SHADED)];
+        let extra = |name: &str, def: i64| d.ty().attr_index(name).map_or(def, |i| d.int(i));
+        let display = [
+            d.int(Self::DIVISIONS_U),
+            d.int(Self::DIVISIONS_V),
+            d.int(Self::CURVE_PRECISION),
+            d.int(Self::CURVE_PRECISION_SHADED),
+            extra("simplifyMode", 0),
+            extra("simplifyU", 1),
+            extra("simplifyV", 1),
+            d.ty().attr_index("displayRenderTessellation").map_or(0, |i| d.bool(i) as i64),
+        ];
         if self.cached.as_ref().is_none_or(|(c, k)| *c != s || *k != display) {
-            let [du, dv, wire, shaded] = display;
+            let [du, dv, wire, shaded, mode, su, sv, render] = display;
             let steps = |div: i64| ((div.max(0) + 1) * shaded.max(1) * 4).clamp(1, 32) as usize;
-            self.mesh = Some(Arc::new(s.tessellate(steps(du), steps(dv))));
-            self.lines = s.isoparm_lines(du.max(0) as usize, dv.max(0) as usize, wire.max(1) as usize);
+            // As it renders: the render tessellation's three isoparms to a span, refined four times.
+            let (tu, tv) = if render != 0 { (12, 12) } else { (steps(du), steps(dv)) };
+            match mode {
+                1 => {
+                    // The hull: the CVs themselves, every su-th row and sv-th column.
+                    let (su, sv) = (su.max(1) as usize, sv.max(1) as usize);
+                    let rows: Vec<usize> = (0..s.nu).step_by(su).chain((s.nu > 0 && (s.nu - 1) % su != 0).then_some(s.nu - 1)).collect();
+                    let cols: Vec<usize> = (0..s.nv).step_by(sv).chain((s.nv > 0 && (s.nv - 1) % sv != 0).then_some(s.nv - 1)).collect();
+                    let mut lines: Vec<Vec<DVec3>> = rows.iter().map(|&u| cols.iter().map(|&v| s.cv(u, v)).collect()).collect();
+                    lines.extend(cols.iter().map(|&v| rows.iter().map(|&u| s.cv(u, v)).collect::<Vec<_>>()));
+                    let mut m = Mesh::new();
+                    let ids: Vec<Vec<u32>> = rows.iter().map(|&u| cols.iter().map(|&v| m.add_point(s.cv(u, v))).collect()).collect();
+                    for a in 0..ids.len().saturating_sub(1) {
+                        for b in 0..cols.len().saturating_sub(1) {
+                            m.add_face(&[ids[a][b], ids[a + 1][b], ids[a + 1][b + 1], ids[a][b + 1]]);
+                        }
+                    }
+                    self.mesh = Some(Arc::new(m));
+                    self.lines = lines;
+                }
+                2 => {
+                    // Boundaries only.
+                    self.mesh = Some(Arc::new(s.tessellate(tu, tv)));
+                    let ((ul, uh), (vl, vh)) = (s.domain_u(), s.domain_v());
+                    let n = (wire.max(1) as usize) * 8;
+                    let iso_u = |u: f64| (0..=n).map(|k| s.eval(u, vl + (vh - vl) * k as f64 / n as f64)).collect::<Vec<_>>();
+                    let iso_v = |v: f64| (0..=n).map(|k| s.eval(ul + (uh - ul) * k as f64 / n as f64, v)).collect::<Vec<_>>();
+                    self.lines = vec![iso_u(ul), iso_u(uh), iso_v(vl), iso_v(vh)];
+                }
+                _ => {
+                    self.mesh = Some(Arc::new(s.tessellate(tu, tv)));
+                    self.lines = s.isoparm_lines(du.max(0) as usize, dv.max(0) as usize, wire.max(1) as usize);
+                }
+            }
             self.cached = Some((s.clone(), display));
         }
         let world = d.matrix(DagNode::WORLD_MATRIX);
@@ -719,7 +761,9 @@ impl NodeBehavior for MakeNode {
                 let (r, ssw, esw, deg, sections, spans) = round(d);
                 let half = r * d.float(M_P + 8) * 0.5;
                 let top = if self.kind == Make::Cone { 0.0 } else { r };
-                let profile = NurbsCurve::line(DVec3::new(r, -half, 0.0), DVec3::new(top, half, 0.0), spans, deg);
+                // The reference's old placement for a cone: its base on the origin rather than its middle.
+                let lift = if self.kind == Make::Cone && d.ty().attrs.len() > M_P + 9 && d.bool(M_P + 9) { half } else { 0.0 };
+                let profile = NurbsCurve::line(DVec3::new(r, lift - half, 0.0), DVec3::new(top, lift + half, 0.0), spans, deg);
                 let s = nurbs::revolved(&profile, DVec3::Y, DVec3::ZERO, ssw.to_degrees(), esw.to_degrees(), sections, deg);
                 d.set_output(M_OUT, to_value(s.transformed(&place)));
             }
@@ -1203,6 +1247,12 @@ pub fn register_types() {
             ]
             .into_iter()
             .chain(crate::harold_nodes::shape_render_attrs())
+            .chain([
+                stored_int("simplifyMode", "smd", 0, "How the surface draws: 0 in full, 1 its hull (the CVs rather than evaluated points), 2 its boundaries only."),
+                stored_int("simplifyU", "smu", 1, "With the hull: spans along U drawn, every this many."),
+                stored_int("simplifyV", "smv", 1, "With the hull: spans along V drawn, every this many."),
+                AttrDef { short_name: "drt".into(), ..store_bool("displayRenderTessellation", false, "Shaded, the surface draws as finely as it renders.") },
+            ])
             .collect(),
             create: Some(Arc::new(|| Box::<SurfaceShape>::default())),
             ..Default::default()
@@ -1213,6 +1263,9 @@ pub fn register_types() {
         for (name, kind, doc) in [("makeNurbCylinder", Make::Cylinder, "A cylinder."), ("makeNurbCone", Make::Cone, "A cone.")] {
             let mut p = round_params(1);
             p.push(f_in("heightRatio", "hr", 2.0, "Height over radius."));
+            if kind == Make::Cone {
+                p.push(AttrDef { short_name: "oib".into(), ..store_bool("useOldInitBehaviour", false, "The base sits on the origin, as the reference's cones once did; off, the cone is centred on it.") });
+            }
             register_one(make_type(name, kind, doc, p));
         }
         let mut torus = round_params(4);
@@ -1706,8 +1759,9 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(round_flags(Cmd::new("cone", "Create a NURBS cone with a makeNurbCone node. Returns [nurbsCone1, makeNurbCone1].", |s, a| {
         let mut set = round_settings(a, 1);
         set.push((M_P + 8, PlugValue::Float(a.float("heightRatio", 2.0))));
+        set.push((M_P + 9, PlugValue::Bool(a.bool("useOldInitBehaviour"))));
         make_primitive(s, a, "makeNurbCone", "nurbsCone1", "makeNurbCone1", &set)
-    })));
+    }).flag(f("useOldInitBehaviour", "oib", ArgType::Bool, "The base on the origin rather than the cone centred on it (off)."))));
     c.register(
         round_flags(Cmd::new("torus", "Create a NURBS torus with a makeNurbTorus node. Returns [nurbsTorus1, makeNurbTorus1].", |s, a| {
             let mut set = round_settings(a, 4);
@@ -2197,9 +2251,8 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                         return Ok(Value::Array(out));
                     }
-                    return Ok(Value::Null);
                 }
-                if a.has("polygonObject") {
+                if a.has("polygonObject") && !a.bool("query") {
                     let level = a.int("polygonObject", 1).clamp(1, 3) - 1;
                     for m in &meshes {
                         if let Some(p) = mesh_attr(g, *m, "displaySmoothMesh") {
@@ -2218,11 +2271,86 @@ pub fn register(c: &mut Commands<Session>) {
                         }
                     }
                 }
-                for sh in shapes {
-                    for (flag, attr) in [("divisionsU", SurfaceShape::DIVISIONS_U), ("divisionsV", SurfaceShape::DIVISIONS_V), ("pointsWire", SurfaceShape::CURVE_PRECISION), ("pointsShaded", SurfaceShape::CURVE_PRECISION_SHADED)] {
-                        if a.has(flag) {
-                            g.set_value(plug(sh, attr), PlugValue::Int(a.int(flag, 0)))?;
+                let settings = [("divisionsU", SurfaceShape::DIVISIONS_U), ("divisionsV", SurfaceShape::DIVISIONS_V), ("pointsWire", SurfaceShape::CURVE_PRECISION), ("pointsShaded", SurfaceShape::CURVE_PRECISION_SHADED)];
+                let attr = |g: &Graph, sh: NodeId, name: &str| g.node(sh).and_then(|n| n.ty().attr_index(name));
+                if a.bool("query") {
+                    let asked = |k: &str| crate::skin::asked(a, k);
+                    if a.bool("defaultCreation") {
+                        for (k, (flag, _)) in settings.iter().enumerate() {
+                            if asked(flag) {
+                                return Ok(json!(smooth_default(k)));
+                            }
                         }
+                        fail!("displaySmoothness: -q -dc takes -du, -dv, -pw or -ps");
+                    }
+                    let Some(&sh) = shapes.first() else { fail!("displaySmoothness: name or select a surface to query") };
+                    let node = g.node(sh).unwrap();
+                    for (flag, at) in settings {
+                        if asked(flag) {
+                            return Ok(json!([node.int(at)]));
+                        }
+                    }
+                    let mode = attr(g, sh, "simplifyMode").map_or(0, |i| node.int(i));
+                    if asked("hull") {
+                        return Ok(json!([mode == 1]));
+                    }
+                    if asked("boundary") {
+                        return Ok(json!([mode == 2]));
+                    }
+                    if asked("full") {
+                        return Ok(json!([mode == 0]));
+                    }
+                    for (flag, name) in [("simplifyU", "simplifyU"), ("simplifyV", "simplifyV")] {
+                        if asked(flag) {
+                            return Ok(json!([attr(g, sh, name).map_or(1, |i| node.int(i))]));
+                        }
+                    }
+                    if asked("renderTessellation") {
+                        return Ok(json!([attr(g, sh, "displayRenderTessellation").is_some_and(|i| node.bool(i))]));
+                    }
+                    return Ok(Value::Null);
+                }
+                if a.bool("defaultCreation") {
+                    // Settings new surfaces take: -du, -dv, -pw and -ps only.
+                    for (k, (flag, _)) in settings.iter().enumerate() {
+                        if a.has(flag) {
+                            set_smooth_default(k, a.int(flag, 0));
+                        }
+                    }
+                    return Ok(Value::Null);
+                }
+                for sh in shapes {
+                    for (flag, at) in settings {
+                        if a.has(flag) {
+                            g.set_value(plug(sh, at), PlugValue::Int(a.int(flag, 0)))?;
+                        }
+                    }
+                    let mode = if a.bool("hull") {
+                        Some(1)
+                    } else if a.bool("boundary") {
+                        Some(2)
+                    } else if a.bool("full") {
+                        Some(0)
+                    } else {
+                        None
+                    };
+                    let mut set = |name: &str, v: PlugValue| -> CmdResult<()> {
+                        if let Some(i) = attr(g, sh, name) {
+                            g.set_value(plug(sh, i), v)?;
+                        }
+                        Ok(())
+                    };
+                    if let Some(m) = mode {
+                        set("simplifyMode", PlugValue::Int(m))?;
+                    }
+                    if a.has("simplifyU") {
+                        set("simplifyU", PlugValue::Int(a.int("simplifyU", 1).max(1)))?;
+                    }
+                    if a.has("simplifyV") {
+                        set("simplifyV", PlugValue::Int(a.int("simplifyV", 1).max(1)))?;
+                    }
+                    if a.has("renderTessellation") {
+                        set("displayRenderTessellation", PlugValue::Bool(a.bool("renderTessellation")))?;
                     }
                 }
                 Ok(Value::Null)
@@ -2236,8 +2364,39 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("polygonObject", "po", ArgType::Int, "Meshes: 1 the cage, 2 the cage and the smoothed mesh, 3 the smoothed mesh."))
         .flag(f("query", "q", ArgType::Bool, "Ask: -po answers per object."))
         .flag(f("queried", "", ArgType::Any, "What a query asks for."))
-        .flag(f("all", "all", ArgType::Bool, "Every surface.")),
+        .flag(f("all", "all", ArgType::Bool, "Every surface."))
+        .flag(f("hull", "hl", ArgType::Bool, "Draw the hull: the CVs rather than evaluated points."))
+        .flag(f("full", "f", ArgType::Bool, "Draw the surface in full (the default)."))
+        .flag(f("boundary", "bn", ArgType::Bool, "Draw only the surface's boundaries in wireframe."))
+        .flag(f("simplifyU", "su", ArgType::Int, "With the hull: draw every this many spans along U."))
+        .flag(f("simplifyV", "sv", ArgType::Int, "With the hull: draw every this many spans along V."))
+        .flag(f("renderTessellation", "rt", ArgType::Bool, "Shaded, draw as finely as the surface renders."))
+        .flag(f("defaultCreation", "dc", ArgType::Bool, "With -du, -dv, -pw and -ps: what new surfaces take; -q -dc reads it.")),
     );
+}
+
+thread_local! {
+    /// displaySmoothness -dc: divisionsU, divisionsV, curvePrecision and curvePrecisionShaded for new surfaces.
+    static SMOOTH_DEFAULTS: std::cell::RefCell<[i64; 4]> = const { std::cell::RefCell::new([0, 0, 4, 1]) };
+}
+
+fn smooth_default(k: usize) -> i64 {
+    SMOOTH_DEFAULTS.with(|d| d.borrow()[k])
+}
+
+fn set_smooth_default(k: usize, v: i64) {
+    SMOOTH_DEFAULTS.with(|d| d.borrow_mut()[k] = v);
+}
+
+/// A new surface shape takes displaySmoothness -dc's settings.
+pub(crate) fn apply_smooth_defaults(g: &mut Graph, shape: NodeId) {
+    let d = SMOOTH_DEFAULTS.with(|d| *d.borrow());
+    if d == [0, 0, 4, 1] {
+        return;
+    }
+    for (k, at) in [SurfaceShape::DIVISIONS_U, SurfaceShape::DIVISIONS_V, SurfaceShape::CURVE_PRECISION, SurfaceShape::CURVE_PRECISION_SHADED].into_iter().enumerate() {
+        let _ = g.set_value(plug(shape, at), PlugValue::Int(d[k]));
+    }
 }
 
 /// selectType's component masks: -cv -v -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells;

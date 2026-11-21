@@ -407,6 +407,8 @@ struct EvalView<'a> {
     passed: &'a HashMap<PlugRef, PlugValue>,
     /// The scene, for an extension's compute to read (`in_compute`); 0 when no node of the level is an extension's.
     graph: usize,
+    /// The graph's serial, for dgtimer.
+    serial: u64,
 }
 
 /// Runs `f` on the scene the node computing on this thread belongs to, read only: what a plug-in's compute may ask
@@ -822,7 +824,13 @@ impl EvalView<'_> {
         }
         let ctx = self.ctx;
         n.behavior.set_node_name(&n.name);
-        n.behavior.compute(&ctx, &mut n.data);
+        if crate::dg_timer::active() {
+            let t0 = std::time::Instant::now();
+            n.behavior.compute(&ctx, &mut n.data);
+            crate::dg_timer::record_compute(self.serial, n.id, &n.name, t0.elapsed().as_secs_f64());
+        } else {
+            n.behavior.compute(&ctx, &mut n.data);
+        }
         if dag {
             crate::transform::DagNode::compute_derived(&mut n.data, &parent_frame, is_transform);
         }
@@ -3595,6 +3603,9 @@ impl Graph {
                 continue;
             }
             n.dirty = true;
+            if crate::dg_timer::active() {
+                crate::dg_timer::record_dirty(self.serial, cur);
+            }
             if let Some(dsts) = self.outgoing_dst.get(&cur) {
                 for dst in dsts {
                     // A held value lasts only until its source changes.
@@ -3915,6 +3926,7 @@ impl Graph {
                     cache,
                     passed: &passed,
                     graph,
+                    serial: self.serial,
                 };
                 if owned.len() < 16 {
                     for n in owned.iter_mut() {

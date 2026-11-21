@@ -960,6 +960,17 @@ pub(crate) fn fire_value(core: &mut Core, id: i64, args: &[Value]) -> Result<Val
     serde_json::from_str(&r?).map_err(|e| e.to_string())
 }
 
+/// A kept callable given keyword arguments (an object of them), with what it returns.
+pub(crate) fn fire_value_kw(core: &mut Core, id: i64, kwargs: &Value) -> Result<Value, String> {
+    let saved = NESTED.with(|c| c.replace(core as *mut Core));
+    let text = kwargs.to_string();
+    let r = ensure().and_then(|()| {
+        Python::attach(|py| -> PyResult<String> { py.import("__main__")?.getattr("_aztek_fire_value_kw")?.call1((id, text))?.extract() }).map_err(|e| e.to_string())
+    });
+    NESTED.with(|c| c.set(saved));
+    serde_json::from_str(&r?).map_err(|e| e.to_string())
+}
+
 /// Runs Python source given as a callback. Exceptions are reported in the history, as for a callable.
 pub(crate) fn fire_source(core: &mut Core, src: &str) -> Result<(), String> {
     call_main(core, "_aztek_fire_source", (src,))

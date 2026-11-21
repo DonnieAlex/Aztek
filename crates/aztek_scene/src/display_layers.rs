@@ -166,6 +166,21 @@ pub fn create(g: &mut Graph, name: &str, nodes: &[NodeId]) -> CmdResult<NodeId> 
     Ok(layer)
 }
 
+/// The display layer manager's current layer, by number: what layerManager.currentDisplayLayer holds.
+pub fn set_current(g: &mut Graph, number: i64) -> CmdResult<()> {
+    let Some(m) = g.nodes().into_iter().find(|&n| g.node(n).is_some_and(|x| x.ty().name == "displayLayerManager")) else { return Ok(()) };
+    if let Some(i) = g.node(m).and_then(|x| x.ty().attr_index("currentDisplayLayer")) {
+        g.set_value(PlugRef::new(m, i as i32), PlugValue::Int(number))?;
+    }
+    Ok(())
+}
+
+/// The current layer's number, 0 for the default layer.
+pub fn current(g: &Graph) -> i64 {
+    let Some(m) = g.nodes().into_iter().find(|&n| g.node(n).is_some_and(|x| x.ty().name == "displayLayerManager")) else { return 0 };
+    g.node(m).and_then(|x| x.ty().attr_index("currentDisplayLayer").map(|i| x.int(i))).unwrap_or(0)
+}
+
 pub fn add_members(g: &mut Graph, layer: NodeId, nodes: &[NodeId]) -> CmdResult<()> {
     for &id in nodes {
         if !g.node(id).is_some_and(has_layer_plug) {
@@ -370,15 +385,41 @@ pub fn register(c: &mut Commands<Session>) {
             "Create a display layer holding the objects (the selection by default), taking them out of any layer they were \
              in. Returns its name.",
             |s, a| {
-                let ids = if a.bool("empty") { Vec::new() } else { object_ids(&s.graph, &objects(s, a), "createDisplayLayer")? };
-                let layer = create(&mut s.graph, &a.string("name", ""), &ids)
-                    .map_err(|e| CommandError::new(format!("createDisplayLayer: {e}")))?;
-                Ok(Value::String(s.graph.path(layer)))
+                let mut ids = if a.bool("empty") { Vec::new() } else { object_ids(&s.graph, &objects(s, a), "createDisplayLayer")? };
+                // The objects' descendants go in too, unless -noRecurse.
+                if !a.bool("noRecurse") {
+                    let mut with = Vec::new();
+                    let mut stack: Vec<NodeId> = ids.into_iter().rev().collect();
+                    while let Some(id) = stack.pop() {
+                        if with.contains(&id) {
+                            continue;
+                        }
+                        with.push(id);
+                        stack.extend(s.graph.children(id).iter().rev().copied());
+                    }
+                    ids = with;
+                }
+                let taken: Vec<i64> = all(&s.graph).iter().map(|&l| s.graph.node(l).map_or(0, |n| n.int(IDENTIFICATION))).collect();
+                let number = match a.get("number").and_then(Value::as_i64) {
+                    Some(n) => n,
+                    // The lowest number not in use, from the base index (1).
+                    None => (1..).find(|n| !taken.contains(n)).unwrap_or(1),
+                };
+                let g = &mut s.graph;
+                let layer = create(g, &a.string("name", ""), &ids).map_err(|e| CommandError::new(format!("createDisplayLayer: {e}")))?;
+                g.set_value(PlugRef::new(layer, IDENTIFICATION as i32), PlugValue::Int(number))?;
+                if a.bool("makeCurrent") {
+                    set_current(g, number)?;
+                }
+                Ok(Value::String(g.path(layer)))
             },
         )
         .positional("objects")
         .flag(flag("name", "n", T::String, json!(""), "Name; layer1 when empty, made unique."))
-        .flag(flag("empty", "e", T::Bool, json!(false), "Make it with no members, whatever is selected.")),
+        .flag(flag("empty", "e", T::Bool, json!(false), "Make it with no members, whatever is selected."))
+        .flag(flag("noRecurse", "nr", T::Bool, json!(false), "Only the objects themselves go in, not their descendants."))
+        .flag(flag("number", "num", T::Int, Value::Null, "The layer's number (its identification); the lowest free one from 1 when not given."))
+        .flag(flag("makeCurrent", "mc", T::Bool, json!(false), "Make it the current layer.")),
     );
 
     c.register(

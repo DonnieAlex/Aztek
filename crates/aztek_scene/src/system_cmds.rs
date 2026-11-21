@@ -249,13 +249,24 @@ fn cycle_walk(at: PlugKey, next: &BTreeMap<PlugKey, Vec<PlugKey>>, state: &mut B
     None
 }
 
-/// Plugs on a dependency cycle reachable from the given nodes (every node when none): a connection feeds its destination
-/// plug, and an input feeds whatever of its node's computed outputs drive something. A stored plug feeds only itself, so
-/// tx through a node into ty is no cycle, as in the reference.
-fn find_cycle(g: &crate::graph::Graph, from: Option<&[NodeId]>) -> Vec<PlugRef> {
+/// Where a cycle search starts: every plug, those of some nodes, or some plugs.
+enum Starts {
+    All,
+    Nodes(Vec<NodeId>),
+    Plugs(Vec<PlugKey>),
+}
+
+/// Cycles of plugs reachable from `from`: a connection feeds its destination plug, and an input feeds whatever of its
+/// node's computed outputs drive something. A stored plug feeds only itself, so tx through a node into ty is no cycle,
+/// as in the reference. With `dag`, a parent's world matrix feeds each child's parent matrix too, and what a node takes
+/// in feeds its world matrix. Each cycle once; the search stops at the first with `first_only`, or at `deadline`.
+fn find_cycles(g: &crate::graph::Graph, from: &Starts, dag: bool, first_only: bool, deadline: Option<std::time::Instant>) -> Vec<Vec<PlugRef>> {
     let conns = g.connections();
     let mut next: BTreeMap<PlugKey, Vec<PlugKey>> = BTreeMap::new();
+    let mut refs: BTreeMap<PlugKey, PlugRef> = BTreeMap::new();
     for (dst, src) in &conns {
+        refs.insert(key(src), *src);
+        refs.insert(key(dst), *dst);
         next.entry(key(src)).or_default().push(key(dst));
         for (_, out) in conns.iter().filter(|(_, o)| o.node == dst.node) {
             if g.attr(out).has(flags::OUTPUT) {
@@ -263,16 +274,75 @@ fn find_cycle(g: &crate::graph::Graph, from: Option<&[NodeId]>) -> Vec<PlugRef> 
             }
         }
     }
-    let mut state = BTreeMap::new();
-    let mut stack = Vec::new();
-    let starts: Vec<PlugKey> = next.keys().filter(|k| from.is_none_or(|l| l.contains(&k.0))).copied().collect();
-    for st in starts {
-        if let Some(c) = cycle_walk(st, &next, &mut state, &mut stack) {
-            let refs: Vec<PlugRef> = conns.iter().flat_map(|(d, s)| [*d, *s]).collect();
-            return c.into_iter().filter_map(|k| refs.iter().find(|p| key(p) == k).copied()).collect();
+    if dag {
+        use crate::transform::DagNode;
+        for id in g.nodes() {
+            let p = g.parent(id);
+            if p == crate::plug::NO_NODE || !g.node(id).is_some_and(|n| n.ty().dag) {
+                continue;
+            }
+            let (pw, cp) = (PlugRef::new(p, DagNode::WORLD_MATRIX as i32), PlugRef::new(id, DagNode::PARENT_MATRIX as i32));
+            refs.insert(key(&pw), pw);
+            refs.insert(key(&cp), cp);
+            next.entry(key(&pw)).or_default().push(key(&cp));
+            // The child's parent matrix moves whatever the child gives out; the parent's inputs move its world matrix.
+            let outs: Vec<PlugKey> = conns.iter().filter(|(_, o)| o.node == id).map(|(_, o)| key(o)).collect();
+            next.entry(key(&cp)).or_default().extend(outs);
+            for (dst, _) in conns.iter().filter(|(d, _)| d.node == p) {
+                next.entry(key(dst)).or_default().push(key(&pw));
+            }
         }
     }
-    Vec::new()
+    let starts: Vec<PlugKey> = match from {
+        Starts::All => next.keys().copied().collect(),
+        Starts::Nodes(ids) => next.keys().filter(|k| ids.contains(&k.0)).copied().collect(),
+        Starts::Plugs(ks) => next.keys().filter(|k| ks.iter().any(|w| w.0 == k.0 && w.1 == k.1 && (w.2 < 0 || w.2 == k.2) && (w.3 < 0 || w.3 == k.3))).copied().collect(),
+    };
+    let mut found: Vec<Vec<PlugKey>> = Vec::new();
+    for st in starts {
+        if deadline.is_some_and(|d| std::time::Instant::now() > d) {
+            break;
+        }
+        // A fresh walk from each start finds the cycles through it.
+        let (mut state, mut stack) = (BTreeMap::new(), Vec::new());
+        if let Some(c) = cycle_walk(st, &next, &mut state, &mut stack) {
+            let mut sorted = c.clone();
+            sorted.sort();
+            if !found.iter().any(|f| {
+                let mut x = f.clone();
+                x.sort();
+                x == sorted
+            }) {
+                found.push(c);
+                if first_only {
+                    break;
+                }
+            }
+        }
+    }
+    found.into_iter().map(|c| c.into_iter().filter_map(|k| refs.get(&k).copied()).collect()).collect()
+}
+
+/// A time limit: seconds, or a number with a unit (10sec, 2min, 500ms, 24 frames counted as seconds at 24 fps).
+fn time_limit(v: &Value) -> Option<std::time::Duration> {
+    let secs = match v {
+        Value::Number(n) => n.as_f64()?,
+        Value::String(t) => {
+            let t = t.trim();
+            let at = t.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(t.len());
+            let (n, unit) = t.split_at(at);
+            let n: f64 = n.trim().parse().ok()?;
+            match unit {
+                "" | "s" | "sec" => n,
+                "ms" | "millisec" => n / 1000.0,
+                "min" => n * 60.0,
+                "hour" => n * 3600.0,
+                _ => n / 24.0,
+            }
+        }
+        _ => return None,
+    };
+    Some(std::time::Duration::from_secs_f64(secs.max(0.0)))
 }
 
 fn cycle_check(s: &mut Session, a: &Args) -> CmdResult {
@@ -289,14 +359,49 @@ fn cycle_check(s: &mut Session, a: &Args) -> CmdResult {
         s.extras.cycle_check = Some(!off);
         return Ok(Value::Null);
     }
+    let names = objects(s, a);
     let g = &s.graph;
-    let names = a.named();
-    let ids: Vec<NodeId> = names.iter().filter_map(|n| g.find(n).ok().flatten()).collect();
-    let cycle = find_cycle(g, if a.bool("all") || ids.is_empty() { None } else { Some(&ids) });
-    if a.bool("list") {
-        return Ok(Value::Array(cycle.iter().map(|p| json!(g.plug_name(p))).collect()));
+    let all = a.bool("all") || names.is_empty();
+    // -secondary (on for -all) looks at the plugs related to those named too: their nodes' other plugs.
+    let secondary = a.get("secondary").map_or(all, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+    let starts = if all {
+        Starts::All
+    } else if names.iter().any(|n| n.contains('.')) && !secondary {
+        Starts::Plugs(names.iter().filter_map(|n| g.plug(n).ok()).map(|p| key(&p)).collect())
+    } else {
+        Starts::Nodes(names.iter().filter_map(|n| g.find(n.split('.').next().unwrap_or(n)).ok().flatten()).collect())
+    };
+    let deadline = a.get("timeLimit").and_then(time_limit).map(|d| std::time::Instant::now() + d);
+    let list = a.bool("list");
+    let cycles = find_cycles(g, &starts, a.bool("dag"), !list || a.bool("firstCycleOnly"), deadline);
+    if !list {
+        return Ok(json!(!cycles.is_empty()));
     }
-    Ok(json!(!cycle.is_empty()))
+    let sep = a.get("listSeparator").and_then(Value::as_str);
+    let (first, last) = (a.bool("firstPlugPerNode"), a.bool("lastPlugPerNode"));
+    let mut out = Vec::new();
+    for (k, c) in cycles.iter().enumerate() {
+        if k > 0 {
+            if let Some(sep) = sep {
+                out.push(json!(sep));
+            }
+        }
+        let mut plugs: Vec<PlugRef> = c.clone();
+        if first || last {
+            // One plug a node: the first or the last it has on the cycle.
+            let mut kept: Vec<PlugRef> = Vec::new();
+            for p in &plugs {
+                match kept.iter().position(|q| q.node == p.node) {
+                    Some(i) if last => kept[i] = *p,
+                    Some(_) => {}
+                    None => kept.push(*p),
+                }
+            }
+            plugs = kept;
+        }
+        out.extend(plugs.iter().map(|p| json!(g.plug_name(p))));
+    }
+    Ok(Value::Array(out))
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -380,25 +485,78 @@ fn display_rgb(_s: &mut Session, a: &Args) -> CmdResult {
     Ok(Value::Null)
 }
 
+/// RGB 0 to 1 from hue in degrees, saturation and value 0 to 1.
+pub(crate) fn hsv_to_rgb(h: f64, s: f64, v: f64) -> [f64; 3] {
+    let h = h.rem_euclid(360.0) / 60.0;
+    let c = v * s;
+    let x = c * (1.0 - (h % 2.0 - 1.0).abs());
+    let (r, g, b) = match h as i64 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = v - c;
+    [r + m, g + m, b + m]
+}
+
+/// Hue in degrees, saturation and value from RGB 0 to 1.
+pub(crate) fn rgb_to_hsv(c: [f64; 3]) -> [f64; 3] {
+    let (max, min) = (c[0].max(c[1]).max(c[2]), c[0].min(c[1]).min(c[2]));
+    let d = max - min;
+    let h = if d <= 0.0 {
+        0.0
+    } else if max == c[0] {
+        60.0 * ((c[1] - c[2]) / d).rem_euclid(6.0)
+    } else if max == c[1] {
+        60.0 * ((c[2] - c[0]) / d + 2.0)
+    } else {
+        60.0 * ((c[0] - c[1]) / d + 4.0)
+    };
+    [h, if max <= 0.0 { 0.0 } else { d / max }, max]
+}
+
+/// colorIndex: the dormant palette (the default), -active the colours selected objects draw in, -userColor the eight
+/// user colours (1 to 8). -hsv gives and answers hue (degrees), saturation and value.
 fn color_index(_s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("resetToFactory") || a.bool("resetToSaved") {
         draw_style::reset_palette();
-        return Ok(Value::Null);
+        return Ok(json!(1));
     }
     let Some(i) = a.positional.first().and_then(Value::as_i64) else { fail!("colorIndex: give an index") };
+    let user = a.bool("userColor");
+    let active = a.bool("active");
+    let hsv = a.bool("hueSaturationValue");
+    // The user colours are the palette's last eight entries.
+    let entry = if user {
+        if !(1..=8).contains(&i) {
+            fail!("colorIndex: a user colour is 1 to 8");
+        }
+        draw_style::USER_COLOR_BASE + i - 1
+    } else {
+        i
+    };
     // Entry 0 means no colour: it can be asked about, not set.
-    if a.bool("query") && (0..=31).contains(&i) {
-        return Ok(json!(draw_style::palette(i)));
+    if a.bool("query") && (0..=31).contains(&entry) {
+        let c = if active { draw_style::active_palette(entry) } else { draw_style::palette(entry) };
+        return Ok(json!(if hsv { rgb_to_hsv(c) } else { c }));
     }
-    if !(1..=31).contains(&i) {
+    if !(1..=31).contains(&entry) {
         fail!("colorIndex: the index must be 1 to 31");
     }
     let n: Vec<f64> = a.positional.iter().skip(1).filter_map(Value::as_f64).collect();
     if n.len() < 3 {
         fail!("colorIndex: give r g b");
     }
-    draw_style::set_palette(i, [n[0], n[1], n[2]]);
-    Ok(Value::Null)
+    let c = if hsv { hsv_to_rgb(n[0], n[1], n[2]) } else { [n[0], n[1], n[2]] };
+    if active {
+        draw_style::set_active_palette(entry, c);
+    } else {
+        draw_style::set_palette(entry, c);
+    }
+    Ok(json!(1))
 }
 
 /// A default for a settings command.
@@ -731,11 +889,32 @@ fn list_node_types(a: &Args) -> CmdResult {
     Ok(json!(out))
 }
 
+/// About how much memory a value takes.
+fn value_bytes(v: &PlugValue) -> usize {
+    match v {
+        PlugValue::Bool(_) => 1,
+        PlugValue::Int(_) | PlugValue::Float(_) => 8,
+        PlugValue::Vec3(_) => 24,
+        PlugValue::Matrix(_) => 128,
+        PlugValue::String(s) => s.len() + 24,
+        PlugValue::Mesh(Some(m)) => m.point_capacity() as usize * 24 + m.face_capacity() as usize * 16,
+        PlugValue::Mesh(None) | PlugValue::Data(None) => 8,
+        PlugValue::Data(Some(_)) => 64,
+    }
+}
+
 fn dg_info(s: &mut Session, a: &Args) -> CmdResult {
     let g = &s.graph;
     let names = a.named();
     let ids: Vec<NodeId> = if names.is_empty() || a.bool("allNodes") { g.nodes() } else { names.iter().filter_map(|n| g.find(n).ok().flatten()).collect() };
     let ty = a.get("type").and_then(Value::as_str).map(str::to_string);
+    // Nodes every scene has are left out unless -nonDeletable.
+    let ids: Vec<NodeId> = ids.into_iter().filter(|&id| a.bool("nonDeletable") || !crate::defaults::undeletable(g, id)).filter(|&id| ty.as_ref().is_none_or(|t| g.node(id).is_some_and(|n| n.ty().is_a(t)))).collect();
+    if a.bool("size") {
+        // Nodes, datablocks (one each here) and the memory their values take.
+        let bytes: usize = ids.iter().filter_map(|&id| g.node(id)).map(|n| n.data().values.iter().map(value_bytes).sum::<usize>()).sum();
+        return Ok(json!([ids.len(), ids.len(), bytes]));
+    }
     let mut out: Vec<String> = Vec::new();
     if a.bool("connections") {
         for (d, sr) in g.connections() {
@@ -746,7 +925,7 @@ fn dg_info(s: &mut Session, a: &Args) -> CmdResult {
     } else {
         for id in ids {
             let n = g.node(id).unwrap();
-            if ty.as_ref().is_some_and(|t| !n.ty().is_a(t)) || (a.has("dirty") && a.bool("dirty") != n.is_dirty()) || (a.bool("nonDeletable") && !n.is_locked()) {
+            if a.has("dirty") && a.bool("dirty") != n.is_dirty() {
                 continue;
             }
             out.push(g.path(id));
@@ -907,10 +1086,15 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("evaluation", "ev", ArgType::Any, "Warn about cycles while evaluating."))
             .flag(f("all", "all", B, "Look through the whole scene."))
             .flag(f("list", "l", B, "List the plugs on a cycle."))
-            .flag(f("firstCycleOnly", "fco", B, "Accepted: the first found is what's listed."))
+            .flag(f("firstCycleOnly", "fco", B, "With -l: only the first cycle found."))
+            .flag(f("firstPlugPerNode", "fpn", B, "With -l: only the first plug of each node on a cycle."))
+            .flag(f("lastPlugPerNode", "lpn", B, "With -l: only the last plug of each node on a cycle."))
+            .flag(f("listSeparator", "ls", S, "With -l: this string goes between one cycle's plugs and the next's."))
+            .flag(f("secondary", "s", ArgType::Any, "Look at the plugs related to those named too (on with -all)."))
+            .flag(f("timeLimit", "tl", ArgType::Any, "Stop looking after this long: 10sec, 2min, or seconds."))
             .flag(f("children", "c", B, "Accepted for existing scripts."))
             .flag(f("parents", "p", B, "Accepted for existing scripts."))
-            .flag(f("dag", "dag", B, "Accepted for existing scripts."))
+            .flag(f("dag", "dag", B, "Count parenting too: a parent's world matrix feeds its children."))
             .undoable(false),
     );
     c.register(
@@ -956,10 +1140,11 @@ pub fn register(c: &mut Commands<Session>) {
         Cmd::new("dgInfo", "The dependency graph as text: -nd nodes, -c connections, -nt a type, -d dirty ones, -of a file.", dg_info)
             .positional("objects")
             .flag(f("allNodes", "all", B, "Every node."))
-            .flag(f("nodes", "nd", B, "List nodes (what it lists anyway)."))
+            .flag(f("nodes", "n", B, "List nodes (what it lists anyway)."))
             .flag(f("connections", "c", B, "List connections."))
             .flag(f("dirty", "d", B, "Only nodes in this dirty state."))
-            .flag(f("nonDeletable", "nod", B, "Only locked nodes."))
+            .flag(f("nonDeletable", "nd", B, "Take in the nodes every scene has, left out otherwise."))
+            .flag(f("size", "sz", B, "The nodes' sizes: how many nodes, datablocks and bytes."))
             .flag(f("outputFile", "of", S, "Write to this file."))
             .flag(f("propagation", "p", B, "Accepted for existing scripts."))
             .flag(f("short", "s", B, "Accepted for existing scripts."))
@@ -967,31 +1152,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("type", "nt", S, "Only this type."))
             .undoable(false),
     );
-    c.register(
-        q_flags(Cmd::new("dgtimer", "A stub: nothing is timed here. -on, -off, -reset are accepted, every result is 0.", |s, a| {
-            if a.has("timerOn") {
-                s.extras.dg_timer_on = a.get("timerOn").is_some_and(on_off);
-            }
-            if a.bool("timerOff") {
-                s.extras.dg_timer_on = false;
-            }
-            if a.bool("query") && asked(a, "timerOn") {
-                return Ok(json!(s.extras.dg_timer_on));
-            }
-            Ok(json!(0.0))
-        }))
-        .flag(f("timerOn", "on", ArgType::Any, "Turn the timer on or off."))
-        .flag(f("timerOff", "off", B, "Accepted."))
-        .flag(f("reset", "r", B, "Accepted."))
-        .flag(f("outputFile", "o", S, "Accepted."))
-        .flag(f("maxDisplay", "m", I, "Accepted."))
-        .flag(f("sortMetric", "sm", S, "Accepted."))
-        .flag(f("sortType", "st", S, "Accepted."))
-        .flag(f("threshold", "th", F, "Accepted."))
-        .flag(f("timerType", "tt", S, "Accepted."))
-        .flag(f("uniqueName", "un", B, "Accepted."))
-        .undoable(false),
-    );
+
     c.register(
         q_flags(Cmd::new("displayColor", "A display colour's index: name index, -a active or dormant, -q asks, -l lists, -c creates, -rf resets.", display_color))
             .positional("name [index]")
@@ -1019,7 +1180,10 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         q_flags(Cmd::new("colorIndex", "A palette entry's colour: index r g b, 1 to 31, -q asks.", color_index))
             .positional("index [r g b]")
-            .flag(f("hueSaturationValue", "hsv", B, "Accepted for existing scripts."))
+            .flag(f("hueSaturationValue", "hsv", B, "The values are hue (degrees), saturation and value; -q answers so."))
+            .flag(f("active", "atv", B, "The active palette: the colours selected objects draw in."))
+            .flag(f("dormant", "dor", B, "The dormant palette (the default)."))
+            .flag(f("userColor", "uc", B, "The eight user colours, 1 to 8."))
             .flag(f("resetToFactory", "rf", B, "Back to the factory colours."))
             .flag(f("resetToSaved", "rs", B, "Back to the saved colours."))
             .undoable(false),
@@ -1041,7 +1205,7 @@ pub fn register(c: &mut Commands<Session>) {
     setting_store(c, "displayPref", "Viewport display preferences, kept for scripts: each flag sets, -q reads.", DISPLAY_PREF, |s| &mut s.extras.display_pref);
     setting_store(c, "displayStats", "Which statistics a viewport shows, kept for scripts: each flag sets, -q reads.", DISPLAY_STATS, |s| &mut s.extras.display_stats);
     c.register(
-        q_flags(Cmd::new("displaySurface", "How a surface draws, kept for scripts: -xr X-ray, -tsl two-sided lighting, -fn flip normals. On named or selected objects; -q reads the first.", |s, a| {
+        q_flags(Cmd::new("displaySurface", "How the named or selected surfaces draw: -x X-ray (see-through), -two two-sided (off culls the back faces, and the shape renders single sided), -flp flips the normals drawn. -q reads the first.", |s, a| {
             let names = objects(s, a);
             let ids: Vec<NodeId> = names.iter().filter_map(|n| s.graph.find(n).ok().flatten()).collect();
             if a.bool("query") {
@@ -1050,20 +1214,40 @@ pub fn register(c: &mut Commands<Session>) {
                 let def = q == "twoSidedLighting";
                 return Ok(json!([s.extras.display_surface.get(&(id, q)).copied().unwrap_or(def)]));
             }
+            // NURBS surfaces and meshes only: other objects are passed over.
+            let ids: Vec<NodeId> = ids
+                .into_iter()
+                .filter(|&id| {
+                    let g = &s.graph;
+                    let mut all = vec![id];
+                    all.extend(crate::dag::shapes(g, id, false));
+                    all.iter().any(|&n| g.node(n).is_some_and(|x| x.ty().is_a("mesh") || x.ty().is_a("nurbsSurface")))
+                })
+                .collect();
             for flag in ["xRay", "twoSidedLighting", "flipNormals"] {
                 if a.has(flag) {
                     let on = a.bool(flag);
                     for &id in &ids {
                         s.extras.display_surface.insert((id, flag.to_string()), on);
+                        if flag == "twoSidedLighting" {
+                            // The shapes' doubleSided render setting follows.
+                            let mut shapes = crate::dag::shapes(&s.graph, id, false);
+                            shapes.push(id);
+                            for sh in shapes {
+                                if let Some(i) = s.graph.node(sh).and_then(|x| x.ty().attr_index("doubleSided")) {
+                                    s.graph.set_value(crate::plug::PlugRef::new(sh, i as i32), crate::plug::PlugValue::Bool(on))?;
+                                }
+                            }
+                        }
                     }
                 }
             }
             Ok(Value::Null)
         }))
         .positional("objects")
-        .flag(f("xRay", "xr", B, "Draw see-through."))
-        .flag(f("twoSidedLighting", "tsl", B, "Light both sides (on by default)."))
-        .flag(f("flipNormals", "fn", B, "Flip the normals drawn."))
+        .flag(f("xRay", "x", B, "Draw see-through."))
+        .flag(f("twoSidedLighting", "two", B, "Two-sided (on by default); off, single sided: the back faces are culled."))
+        .flag(f("flipNormals", "flp", B, "Flip the normals drawn."))
         .undoable(false),
     );
     c.register(

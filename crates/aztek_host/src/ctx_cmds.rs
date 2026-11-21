@@ -1044,12 +1044,16 @@ pub fn register(s: &mut Session) {
         })
         .undoable(false)
         .flag(f("query", "q", ArgType::Bool))
-        .flag(f("buttonDown", "bd", ArgType::Bool))
-        .flag(f("buttonUp", "bu", ArgType::Bool)),
+        .flag(f("buttonDown", "btd", ArgType::Bool))
+        .flag(f("buttonUp", "btu", ArgType::Bool)),
     );
 
     s.register(
-        Cmd::new("contextInfo", "About a tool context: -ex whether it exists, -c its class, -t its title.", |_s, a| {
+        Cmd::new("contextInfo", "About a tool context: -ex whether it exists, -c its class, -t its title; -esc the command that leaves the current tool.", |_s, a| {
+            if a.bool("escapeContext") {
+                // Leaving a tool goes back to the select tool, as Escape does.
+                return Ok(json!("setToolTo $gSelect"));
+            }
             let Some(n) = a.pos_str(0) else { fail!("contextInfo: name a context.") };
             with_ctx(|c| {
                 let x = c.all.get(n);
@@ -1073,7 +1077,8 @@ pub fn register(s: &mut Session) {
         .flag(f("title", "t", ArgType::Bool))
         .flag(f("image1", "i1", ArgType::Bool))
         .flag(f("image2", "i2", ArgType::Bool))
-        .flag(f("image3", "i3", ArgType::Bool)),
+        .flag(f("image3", "i3", ArgType::Bool))
+        .flag(f("escapeContext", "esc", ArgType::Bool)),
     );
 
     s.register(

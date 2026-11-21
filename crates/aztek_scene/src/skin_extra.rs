@@ -185,8 +185,22 @@ struct WeightLayer {
 
 #[derive(Default, Debug)]
 struct WeightDoc {
+    /// Point positions in the shape's own space, and the shape's world matrix when written.
     shape_points: Vec<(usize, DVec3)>,
+    world: Option<DMat4>,
+    /// The faces, as point indices, when written with -vertexConnections.
+    faces: Vec<Vec<usize>>,
     layers: Vec<WeightLayer>,
+    /// Deformer attributes written with -attribute: (deformer, attribute, value).
+    attrs: Vec<(String, String, Vec<f64>)>,
+}
+
+fn numbers(text: &str) -> Vec<f64> {
+    text.split_whitespace().filter_map(|x| x.parse().ok()).collect()
+}
+
+fn matrix_of(v: &[f64]) -> Option<DMat4> {
+    (v.len() == 16).then(|| DMat4::from_cols_array(&v.try_into().unwrap()))
 }
 
 /// One tag's attributes.
@@ -216,6 +230,9 @@ fn parse_xml(text: &str) -> CmdResult<WeightDoc> {
         let name = tag.split_whitespace().next().unwrap_or("");
         let attrs = xml_attrs(tag);
         match name {
+            "headerInfo" => doc.world = attrs.get("worldMatrix").and_then(|m| matrix_of(&numbers(m))),
+            "face" => doc.faces.push(numbers(attrs.get("value").map_or("", String::as_str)).into_iter().map(|x| x as usize).collect()),
+            "attribute" => doc.attrs.push((attrs.get("deformer").cloned().unwrap_or_default(), attrs.get("name").cloned().unwrap_or_default(), numbers(attrs.get("value").map_or("", String::as_str)))),
             "shape" => in_shape = true,
             "/shape" => in_shape = false,
             "weights" => {
@@ -250,7 +267,21 @@ fn parse_json(text: &str) -> CmdResult<WeightDoc> {
     let v: Value = serde_json::from_str(text).map_err(|e| aztek_ops::CommandError::new(format!("deformerWeights: {e}")))?;
     let Some(root) = v.get("deformerWeight") else { fail!("deformerWeights: not a deformer weights file") };
     let mut doc = WeightDoc::default();
+    let nums = |v: Option<&Value>| -> Vec<f64> { v.and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default() };
+    doc.world = matrix_of(&nums(root.get("headerInfo").and_then(|h| h.get("worldMatrix"))));
+    for at in root.get("attributes").and_then(Value::as_array).into_iter().flatten() {
+        let s = |k: &str| at.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+        let value = match at.get("value") {
+            Some(Value::Array(_)) => nums(at.get("value")),
+            Some(v) => v.as_f64().into_iter().collect(),
+            None => Vec::new(),
+        };
+        doc.attrs.push((s("deformer"), s("name"), value));
+    }
     for sh in root.get("shapes").and_then(Value::as_array).into_iter().flatten() {
+        for fc in sh.get("faces").and_then(Value::as_array).into_iter().flatten() {
+            doc.faces.push(nums(Some(fc)).into_iter().map(|x| x as usize).collect());
+        }
         for p in sh.get("points").and_then(Value::as_array).into_iter().flatten() {
             let c = |k: usize| p.get("value").and_then(|x| x.get(k)).and_then(Value::as_f64).unwrap_or(0.0);
             doc.shape_points.push((p.get("index").and_then(Value::as_u64).unwrap_or(0) as usize, DVec3::new(c(0), c(1), c(2))));
@@ -291,7 +322,14 @@ fn layers_of(g: &Graph, n: NodeId, tolerance: f64, default: f64) -> CmdResult<(N
     Ok((mesh, vec![WeightLayer { deformer: name.clone(), source: name, shape, default, points }]))
 }
 
-fn write_xml(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers: &[WeightLayer], precision: usize) -> String {
+/// What else goes in a file beside the weights: faces with -vertexConnections, attributes with -attribute.
+#[derive(Default)]
+struct Extras {
+    faces: Vec<Vec<u32>>,
+    attrs: Vec<(String, String, Vec<f64>)>,
+}
+
+fn write_xml(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers: &[WeightLayer], precision: usize, extra: &Extras) -> String {
     let matrix: Vec<String> = wm.to_cols_array().iter().map(|x| format!("{x}")).collect();
     let mut s = String::from("<?xml version=\"1.0\"?>\n<deformerWeight>\n");
     s += &format!("  <headerInfo fileName=\"{file}\" worldMatrix=\"{}\"/>\n", matrix.join(" "));
@@ -300,7 +338,15 @@ fn write_xml(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers
     for (i, p) in pts {
         s += &format!("    <point index=\"{i}\" value=\" {:.*} {:.*} {:.*}\"/>\n", precision, p.x, precision, p.y, precision, p.z);
     }
+    for (k, face) in extra.faces.iter().enumerate() {
+        let ids: Vec<String> = face.iter().map(u32::to_string).collect();
+        s += &format!("    <face index=\"{k}\" value=\"{}\"/>\n", ids.join(" "));
+    }
     s += "  </shape>\n";
+    for (d, name, v) in &extra.attrs {
+        let vals: Vec<String> = v.iter().map(|x| format!("{x}")).collect();
+        s += &format!("  <attribute deformer=\"{d}\" name=\"{name}\" value=\"{}\"/>\n", vals.join(" "));
+    }
     for l in layers {
         let max = l.points.last().map_or(0, |x| x.0);
         s += &format!("  <weights deformer=\"{}\" source=\"{}\" shape=\"{}\" layer=\"0\" defaultValue=\"{:.*}\" size=\"{}\" max=\"{max}\">\n", l.deformer, l.source, l.shape, precision, l.default, l.points.len());
@@ -313,7 +359,7 @@ fn write_xml(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers
     s
 }
 
-fn write_json(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers: &[WeightLayer]) -> String {
+fn write_json(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layers: &[WeightLayer], extra: &Extras) -> String {
     let weights: Vec<Value> = layers
         .iter()
         .map(|l| {
@@ -327,14 +373,75 @@ fn write_json(file: &str, shape: &str, wm: &DMat4, pts: &[(usize, DVec3)], layer
     let doc = json!({"deformerWeight": {
         "headerInfo": {"fileName": file, "worldMatrix": wm.to_cols_array().to_vec()},
         "shapes": [{"name": shape, "group": 0, "stride": 3, "size": pts.len(), "max": pts.last().map_or(0, |x| x.0),
-            "points": pts.iter().map(|(i, p)| json!({"index": i, "value": [p.x, p.y, p.z]})).collect::<Vec<_>>()}],
+            "points": pts.iter().map(|(i, p)| json!({"index": i, "value": [p.x, p.y, p.z]})).collect::<Vec<_>>(),
+            "faces": extra.faces}],
         "weights": weights,
+        "attributes": extra.attrs.iter().map(|(d, n, v)| json!({"deformer": d, "name": n, "value": v})).collect::<Vec<_>>(),
     }});
     serde_json::to_string_pretty(&doc).unwrap_or_default()
 }
 
-/// How each destination point reads the file's: (stored index, share).
-fn mapping(m: &Mesh, wm: &DMat4, doc: &WeightDoc, method: &str) -> CmdResult<Vec<Vec<(usize, f64)>>> {
+/// Barycentric shares of the nearest point on a triangle.
+fn barycentric(p: DVec3, a: DVec3, b: DVec3, c: DVec3) -> (DVec3, [f64; 3]) {
+    let (ab, ac, ap) = (b - a, c - a, p - a);
+    let (d1, d2) = (ab.dot(ap), ac.dot(ap));
+    if d1 <= 0.0 && d2 <= 0.0 {
+        return (a, [1.0, 0.0, 0.0]);
+    }
+    let bp = p - b;
+    let (d3, d4) = (ab.dot(bp), ac.dot(bp));
+    if d3 >= 0.0 && d4 <= d3 {
+        return (b, [0.0, 1.0, 0.0]);
+    }
+    let vc = d1 * d4 - d3 * d2;
+    if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+        let v = d1 / (d1 - d3);
+        return (a + ab * v, [1.0 - v, v, 0.0]);
+    }
+    let cp = p - c;
+    let (d5, d6) = (ab.dot(cp), ac.dot(cp));
+    if d6 >= 0.0 && d5 <= d6 {
+        return (c, [0.0, 0.0, 1.0]);
+    }
+    let vb = d5 * d2 - d1 * d6;
+    if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+        let w = d2 / (d2 - d6);
+        return (a + ac * w, [1.0 - w, 0.0, w]);
+    }
+    let va = d3 * d6 - d5 * d4;
+    if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+        let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        return (b + (c - b) * w, [0.0, 1.0 - w, w]);
+    }
+    let denom = 1.0 / (va + vb + vc);
+    let (v, w) = (vb * denom, vc * denom);
+    (a + ab * v + ac * w, [1.0 - v - w, v, w])
+}
+
+/// Bilinear shares of the nearest point on a quad a b c d, found by refining (s, t) from its middle.
+fn bilinear(p: DVec3, q: [DVec3; 4]) -> (DVec3, [f64; 4]) {
+    let at = |s: f64, t: f64| q[0] * (1.0 - s) * (1.0 - t) + q[1] * s * (1.0 - t) + q[2] * s * t + q[3] * (1.0 - s) * t;
+    let (mut s, mut t, mut step) = (0.5, 0.5, 0.25);
+    for _ in 0..40 {
+        let mut best = (s, t, at(s, t).distance(p));
+        for (ds, dt) in [(step, 0.0), (-step, 0.0), (0.0, step), (0.0, -step)] {
+            let (s2, t2) = ((s + ds).clamp(0.0, 1.0), (t + dt).clamp(0.0, 1.0));
+            let d = at(s2, t2).distance(p);
+            if d < best.2 {
+                best = (s2, t2, d);
+            }
+        }
+        if (best.0, best.1) == (s, t) {
+            step *= 0.5;
+        }
+        (s, t) = (best.0, best.1);
+    }
+    (at(s, t), [(1.0 - s) * (1.0 - t), s * (1.0 - t), s * t, (1.0 - s) * t])
+}
+
+/// How each destination point reads the file's: (stored index, share). The positions compared are the shapes' own,
+/// or world space with `world`. Nearest looks no further than `radius`.
+fn mapping(m: &Mesh, wm: &DMat4, doc: &WeightDoc, method: &str, world: bool, radius: f64) -> CmdResult<Vec<Vec<(usize, f64)>>> {
     let cap = m.point_capacity() as usize;
     let nearest_count = match method {
         "index" | "over" => 0,
@@ -349,16 +456,50 @@ fn mapping(m: &Mesh, wm: &DMat4, doc: &WeightDoc, method: &str) -> CmdResult<Vec
     if doc.shape_points.is_empty() {
         fail!("deformerWeights: the file has no point positions for -method {method}");
     }
+    let file_world = doc.world.unwrap_or(DMat4::IDENTITY);
+    let stored: HashMap<usize, DVec3> = doc.shape_points.iter().map(|(i, q)| (*i, if world { file_world.transform_point3(*q) } else { *q })).collect();
+    // Faces written with -vertexConnections give barycentric and bilinear their triangles and quads; without them the
+    // nearest points share by distance.
+    let faces: Vec<Vec<(usize, DVec3)>> = if nearest_count >= 3 {
+        doc.faces.iter().filter_map(|f| f.iter().map(|i| stored.get(i).map(|q| (*i, *q))).collect::<Option<Vec<_>>>()).filter(|f| f.len() >= 3).collect()
+    } else {
+        Vec::new()
+    };
     Ok((0..cap as u32)
         .into_par_iter()
         .map(|p| {
             if !m.point_valid(p) {
                 return Vec::new();
             }
-            let at = wm.transform_point3(m.position(p));
-            let mut by: Vec<(usize, f64)> = doc.shape_points.iter().map(|(i, q)| (*i, (*q - at).length())).collect();
-            by.sort_by(|a, b| a.1.total_cmp(&b.1));
+            let at = if world { wm.transform_point3(m.position(p)) } else { m.position(p) };
+            if !faces.is_empty() {
+                let mut best: (f64, Vec<(usize, f64)>) = (f64::MAX, Vec::new());
+                for f in &faces {
+                    if nearest_count == 4 && f.len() == 4 {
+                        let (q, w) = bilinear(at, [f[0].1, f[1].1, f[2].1, f[3].1]);
+                        let d = q.distance(at);
+                        if d < best.0 {
+                            best = (d, (0..4).map(|k| (f[k].0, w[k])).collect());
+                        }
+                        continue;
+                    }
+                    // Any other face in a fan of triangles.
+                    for k in 1..f.len() - 1 {
+                        let (q, w) = barycentric(at, f[0].1, f[k].1, f[k + 1].1);
+                        let d = q.distance(at);
+                        if d < best.0 {
+                            best = (d, vec![(f[0].0, w[0]), (f[k].0, w[1]), (f[k + 1].0, w[2])]);
+                        }
+                    }
+                }
+                return best.1;
+            }
+            let mut by: Vec<(usize, f64)> = stored.iter().map(|(i, q)| (*i, (*q - at).length())).collect();
+            by.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
             by.truncate(nearest_count);
+            if by[0].1 > radius {
+                return Vec::new();
+            }
             if by[0].1 < 1e-9 {
                 return vec![(by[0].0, 1.0)];
             }
@@ -366,6 +507,76 @@ fn mapping(m: &Mesh, wm: &DMat4, doc: &WeightDoc, method: &str) -> CmdResult<Vec
             by.iter().map(|x| (x.0, 1.0 / x.1 / total)).collect()
         })
         .collect())
+}
+
+/// -remap's renames, "pattern;format" each, the format taking $1 to $9.
+fn remaps(a: &Args) -> CmdResult<Vec<(regex_lite::Regex, String)>> {
+    let list: Vec<String> = match a.get("remap") {
+        Some(Value::String(x)) => vec![x.clone()],
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    };
+    let mut out = Vec::new();
+    for r in list {
+        let Some((pat, fmt)) = r.split_once(';') else { fail!("deformerWeights: -remap takes \"pattern;format\"") };
+        let re = regex_lite::Regex::new(&format!("^(?:{pat})$")).map_err(|e| aztek_ops::CommandError::new(format!("deformerWeights: -remap {pat}: {e}")))?;
+        // The reference's $1 is the regex crate's ${1}, so a letter after it is not read as part of the name.
+        let fmt = regex_lite::Regex::new(r"\$(\d)").unwrap().replace_all(fmt, "$${$1}").to_string();
+        out.push((re, fmt));
+    }
+    Ok(out)
+}
+
+fn renamed(maps: &[(regex_lite::Regex, String)], name: &str) -> String {
+    for (re, fmt) in maps {
+        if re.is_match(name) {
+            return re.replace(name, fmt.as_str()).to_string();
+        }
+    }
+    name.to_string()
+}
+
+/// -skip's patterns: a regular expression, or a glob where it doesn't read as one (*B).
+fn skips(a: &Args) -> Vec<String> {
+    match a.get("skip") {
+        Some(Value::String(x)) => vec![x.clone()],
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn skipped(pats: &[String], name: &str) -> bool {
+    let short = name.rsplit(['|', ':']).next().unwrap_or(name);
+    pats.iter().any(|p| match regex_lite::Regex::new(&format!("^(?:{p})$")) {
+        Ok(re) if !p.starts_with('*') => re.is_match(name) || re.is_match(short),
+        _ => crate::ref_core::glob(p, name) || crate::ref_core::glob(p, short),
+    })
+}
+
+/// A deformer's numeric or matrix attribute, as numbers.
+fn attr_numbers(g: &mut Graph, n: NodeId, name: &str) -> Option<Vec<f64>> {
+    let p = g.plug(&format!("{}.{name}", g.path(n))).ok()?;
+    Some(match g.value(&p).ok()? {
+        crate::plug::PlugValue::Float(x) => vec![x],
+        crate::plug::PlugValue::Int(x) => vec![x as f64],
+        crate::plug::PlugValue::Bool(x) => vec![x as i64 as f64],
+        crate::plug::PlugValue::Vec3(v) => v.to_array().to_vec(),
+        crate::plug::PlugValue::Matrix(m) => m.to_cols_array().to_vec(),
+        _ => return None,
+    })
+}
+
+fn set_attr_numbers(s: &mut Session, n: NodeId, name: &str, v: &[f64]) -> CmdResult<()> {
+    let plug_name = format!("{}.{name}", s.graph.path(n));
+    let Ok(p) = s.graph.plug(&plug_name) else { return Ok(()) };
+    if s.graph.attr(&p).ty == crate::plug::PlugType::Matrix {
+        s.graph.set_value(p, crate::plug::PlugValue::Matrix(matrix_of(v).unwrap_or(DMat4::IDENTITY)))?;
+        return Ok(());
+    }
+    let mut args = vec![json!(plug_name)];
+    args.extend(v.iter().map(|x| json!(x)));
+    s.run("setAttr", json!({ "args": args }))?;
+    Ok(())
 }
 
 fn deformers_named(s: &Session, a: &Args) -> CmdResult<Vec<NodeId>> {
@@ -389,14 +600,60 @@ fn deformers_named(s: &Session, a: &Args) -> CmdResult<Vec<NodeId>> {
     list.iter().map(|n| crate::rig::find(g, n, "deformerWeights")).collect()
 }
 
+fn names_of(a: &Args, k: &str) -> Vec<String> {
+    match a.get(k) {
+        Some(Value::String(x)) => vec![x.clone()],
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("query") {
+        // What a call would work on: the deformers (on -shape), their shapes, the attributes asked for.
+        let g = &s.graph;
+        if crate::skin::asked(a, "shape") {
+            let list = deformers_named(s, a)?;
+            let shapes: Vec<String> = list.iter().filter_map(|&n| if g.node(n).is_some_and(|x| x.ty().name == crate::skin::SKIN_TYPE) { skin_geometry(g, n) } else { deform::mesh_fed_by(g, n) }).map(|m| g.path(m)).collect();
+            return Ok(json!(shapes));
+        }
+        if crate::skin::asked(a, "deformer") {
+            let list = deformers_named(s, a)?;
+            return Ok(json!(list.iter().map(|&n| g.path(n)).collect::<Vec<_>>()));
+        }
+        if crate::skin::asked(a, "path") {
+            return Ok(json!(a.string("path", &std::env::current_dir().map(|d| d.to_string_lossy().to_string()).unwrap_or_default())));
+        }
+        if crate::skin::asked(a, "format") {
+            return Ok(json!(a.string("format", "XML")));
+        }
+        if crate::skin::asked(a, "method") {
+            return Ok(json!(a.string("method", "index")));
+        }
+        if crate::skin::asked(a, "weightPrecision") {
+            return Ok(json!(a.int("weightPrecision", 3)));
+        }
+        if crate::skin::asked(a, "weightTolerance") {
+            return Ok(json!(a.float("weightTolerance", 0.001)));
+        }
+        if crate::skin::asked(a, "attribute") {
+            return Ok(json!(names_of(a, "attribute")));
+        }
+        fail!("deformerWeights: query -deformer, -shape, -path, -format, -method or -attribute");
+    }
     let Some(file) = a.named().into_iter().next() else { fail!("deformerWeights: name the file") };
     let path = match a.get("path").and_then(Value::as_str) {
         Some(dir) => std::path::Path::new(dir).join(&file),
         None => std::path::PathBuf::from(&file),
     };
     let json_format = a.get("format").and_then(Value::as_str).map_or_else(|| path.extension().is_some_and(|e| e == "json"), |x| x.eq_ignore_ascii_case("json"));
-    let targets = deformers_named(s, a)?;
+    let skip = skips(a);
+    let maps = remaps(a)?;
+    let attributes = names_of(a, "attribute");
+    let targets: Vec<NodeId> = deformers_named(s, a)?.into_iter().filter(|&n| !skipped(&skip, &s.graph.path(n))).collect();
+    if targets.is_empty() {
+        fail!("deformerWeights: every deformer named is skipped");
+    }
     let default_value = a.float("defaultValue", 0.0);
     let g = &mut s.graph;
     g.evaluate();
@@ -405,22 +662,37 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
         let precision = a.int("weightPrecision", 3).clamp(0, 15) as usize;
         let mut layers = Vec::new();
         let mut shape = None;
+        let mut extra = Extras::default();
         for &n in &targets {
             let (mesh, l) = layers_of(g, n, tolerance, default_value)?;
             shape.get_or_insert(mesh);
-            layers.extend(l);
+            layers.extend(l.into_iter().filter(|x| !skipped(&skip, &x.source)));
+            let dname = g.node(n).map(|x| x.name().to_string()).unwrap_or_default();
+            for at in &attributes {
+                if let Some(v) = attr_numbers(g, n, at) {
+                    extra.attrs.push((renamed(&maps, &dname), at.clone(), v));
+                }
+            }
+        }
+        for l in layers.iter_mut() {
+            l.deformer = renamed(&maps, &l.deformer);
+            l.source = renamed(&maps, &l.source);
+            l.shape = renamed(&maps, &l.shape);
         }
         let mesh = shape.unwrap();
         let Some(m) = crate::modifiers::cage(g, mesh) else { fail!("deformerWeights: no geometry") };
         let xf = crate::dag::transform_of(g, mesh);
         let wm = crate::rig::world(g, xf);
-        // Points as they were before deforming, by way of the original where there is one.
+        // Points as they were before deforming, by way of the original where there is one, in the shape's own space.
         let rest = crate::deform_sets::orig_of(g, mesh).and_then(|o| g.value(&crate::deform::plug(o, crate::mesh_nodes::MeshNode::OUT_MESH)).ok()).and_then(|v| v.as_mesh().cloned());
         let from = rest.as_deref().unwrap_or(&m);
-        let pts: Vec<(usize, DVec3)> = (0..from.point_capacity()).filter(|&p| from.point_valid(p)).map(|p| (p as usize, wm.transform_point3(from.position(p)))).collect();
-        let shape_name = g.node(mesh).map(|x| x.name().to_string()).unwrap_or_default();
+        let pts: Vec<(usize, DVec3)> = (0..from.point_capacity()).filter(|&p| from.point_valid(p)).map(|p| (p as usize, from.position(p))).collect();
+        if a.bool("vertexConnections") {
+            extra.faces = (0..from.face_capacity()).filter(|&f| from.face_valid(f)).map(|f| from.face_points(f)).collect();
+        }
+        let shape_name = renamed(&maps, &g.node(mesh).map(|x| x.name().to_string()).unwrap_or_default());
         let name = path.file_name().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
-        let text = if json_format { write_json(&name, &shape_name, &wm, &pts, &layers) } else { write_xml(&name, &shape_name, &wm, &pts, &layers, precision) };
+        let text = if json_format { write_json(&name, &shape_name, &wm, &pts, &layers, &extra) } else { write_xml(&name, &shape_name, &wm, &pts, &layers, precision, &extra) };
         if let Err(e) = std::fs::write(&path, text) {
             fail!("deformerWeights: can't write {}: {e}", path.display());
         }
@@ -433,12 +705,25 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
         Ok(t) => t,
         Err(e) => fail!("deformerWeights: can't read {}: {e}", path.display()),
     };
-    let doc = if json_format { parse_json(&text)? } else { parse_xml(&text)? };
+    let mut doc = if json_format { parse_json(&text)? } else { parse_xml(&text)? };
+    // The file's names as the scene has them.
+    for l in doc.layers.iter_mut() {
+        l.deformer = renamed(&maps, &l.deformer);
+        l.source = renamed(&maps, &l.source);
+        l.shape = renamed(&maps, &l.shape);
+    }
+    for at in doc.attrs.iter_mut() {
+        at.0 = renamed(&maps, &at.0);
+    }
+    doc.layers.retain(|l| !skipped(&skip, &l.source) && !skipped(&skip, &l.shape));
     let method = a.string("method", "index");
     let ignore_name = a.bool("ignoreName");
-    g.open_chunk("Deformer Weights");
+    let world_space = a.bool("worldSpace");
+    let radius = a.float("positionTolerance", f64::MAX);
+    s.graph.open_chunk("Deformer Weights");
     let r = (|| -> CmdResult<()> {
         for &n in &targets {
+            let g = &mut s.graph;
             let name = g.node(n).map(|x| x.name().to_string()).unwrap_or_default();
             let of_this: Vec<&WeightLayer> = doc.layers.iter().filter(|l| ignore_name || l.deformer == name).collect();
             if of_this.is_empty() {
@@ -450,7 +735,7 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
             let Some(m) = crate::modifiers::cage(g, mesh) else { fail!("deformerWeights: no geometry") };
             let xf = crate::dag::transform_of(g, mesh);
             let wm = crate::rig::world(g, xf);
-            let map = mapping(&m, &wm, &doc, &method)?;
+            let map = mapping(&m, &wm, &doc, &method, world_space, radius)?;
             let over = method == "over";
             let value_at = |l: &WeightLayer, p: usize, lookup: &HashMap<usize, f64>| -> Option<f64> {
                 let def = if a.has("defaultValue") { default_value } else { l.default };
@@ -464,6 +749,10 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
                         }
                         None => sum += def * share,
                     }
+                }
+                // A point nothing in the file was found near keeps what it has.
+                if map[p].is_empty() {
+                    return None;
                 }
                 (any || !over).then_some(sum)
             };
@@ -498,10 +787,14 @@ fn deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
                 }
                 set_floats(g, n, WEIGHTS, w)?;
             }
+            let attrs: Vec<(String, Vec<f64>)> = doc.attrs.iter().filter(|x| ignore_name || x.0 == name).map(|x| (x.1.clone(), x.2.clone())).collect();
+            for (at, v) in attrs {
+                set_attr_numbers(s, n, &at, &v)?;
+            }
         }
         Ok(())
     })();
-    g.close_chunk();
+    s.graph.close_chunk();
     r?;
     Ok(json!(path.to_string_lossy()))
 }
@@ -757,8 +1050,18 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         .flag(f("format", "fm", ArgType::String, "XML or JSON."))
         .flag(f("weightPrecision", "wp", ArgType::Int, "Decimal places in XML (3)."))
         .flag(f("weightTolerance", "wt", ArgType::Float, "Leave out weights at or below this."))
-        .flag(f("ignoreName", "ig", ArgType::Bool, "Match deformers and sources by order, not name.")),
+        .flag(f("ignoreName", "ig", ArgType::Bool, "Match deformers and sources by order, not name."))
+        .flag(f("attribute", "at", ArgType::List, "A deformer attribute (numbers or a matrix) written and read with the weights: envelope, say. Repeat it.").multi(1))
+        .flag(f("positionTolerance", "pt", ArgType::Float, "With -method nearest: how far to look for a point (no limit)."))
+        .flag(f("remap", "r", ArgType::List, "\"pattern;format\": names matching the pattern become the format, $1 to $9 its groups; scene names to the file's on export, the file's to the scene's on import. Repeat it.").multi(1))
+        .flag(f("skip", "sk", ArgType::List, "Deformers, shapes and influences whose names match are left out. Repeat it.").multi(1))
+        .flag(f("vertexConnections", "vc", ArgType::Bool, "With -ex: write the faces too, which -method barycentric and bilinear use."))
+        .flag(f("worldSpace", "ws", ArgType::Bool, "With -method nearest: compare world positions rather than the shapes' own."))
+        ,
     );
+    if let Some(d) = c.find("deformerWeights").cloned() {
+        c.register(crate::skin::modes(d));
+    }
     c.register(
         Cmd::new("weightHammerVerts", "Hammer Skin Weights: the points named or selected take the average weights of the points around them.", hammer)
             .positional("points (the selection when none)"),

@@ -84,5 +84,8 @@ pub fn create_with_shape(g: &mut Graph, shape_type: &str, name: &str, parent: No
     let tr = g.create_node(&tt, &wanted, parent, true)?;
     let sh_name = shape_name(&g.node(tr).unwrap().name().to_string());
     let sh = g.create_node(&st, &sh_name, tr, false)?;
+    if shape_type == crate::surfaces::SHAPE_TYPE {
+        crate::surfaces::apply_smooth_defaults(g, sh);
+    }
     Ok((tr, sh))
 }

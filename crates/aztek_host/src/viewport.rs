@@ -1631,14 +1631,26 @@ impl Viewport {
                         Some((pb, pn)) => (pb, pn),
                         None => (ib, n),
                     };
-                    // Per object too (Modeling Toolkit > Object > X-Ray, displaySurface -xr; displayCull -bfc).
+                    // Per object too (Modeling Toolkit > Object > X-Ray, displaySurface -x; displayCull -bfc).
                     let own = |k: &str| [it.xf, it.shape].iter().any(|&n| s.extras.display_surface.get(&(n, k.to_string())).copied().unwrap_or(false));
-                    let (obj_xray, obj_cull) = (own("xRay"), own("backFaceCulling"));
+                    let (obj_xray, obj_cull, obj_flip) = (own("xRay"), own("backFaceCulling"), own("flipNormals"));
+                    // displaySurface -two off: single sided, so the back faces go.
+                    let obj_cull = obj_cull || [it.xf, it.shape].iter().any(|&n| s.extras.display_surface.get(&(n, "twoSidedLighting".to_string())) == Some(&false));
+                    let flip = |pc: &mut Push| {
+                        if obj_flip {
+                            for row in [&mut pc.n0, &mut pc.n1, &mut pc.n2] {
+                                for v in row.iter_mut().take(3) {
+                                    *v = -*v;
+                                }
+                            }
+                        }
+                    };
                     if on_live && self.disp.highlight && self.live.color.is_some() {
                         r.bind(gpu, Kind::Tint);
                         let c = self.live.color.unwrap_or([0.2, 0.42, 0.95]);
                         let mut pc = push(mvp, it.world, view, [c[0], c[1], c[2], self.live.alpha.unwrap_or(1.0)], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
+                        flip(&mut pc);
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
                     } else if self.disp.xray || obj_xray {
@@ -1646,12 +1658,14 @@ impl Viewport {
                         r.bind(gpu, Kind::Tint);
                         let mut pc = push(mvp, it.world, view, [0.55, 0.55, 0.55, 0.45], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
+                        flip(&mut pc);
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
                     } else if self.disp.default_material && (self.disp.light_mode == crate::lighting::LightMode::Default || !r.materials) && !(checker_set.is_some() && checkered) {
                         r.bind(gpu, if self.disp.backface || obj_cull { Kind::ShadedCull } else { Kind::Shaded });
                         let mut pc = push(mvp, it.world, view, [0.5, 0.5, 0.5, 1.0], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
+                        flip(&mut pc);
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
                     } else {
@@ -1699,6 +1713,7 @@ impl Viewport {
                             };
                             let mut pc = push(mvp, it.world, view, [m.color[0], m.color[1], m.color[2], 1.0], retopo, 1.0);
                             pc.n2[3] = self.disp.flat as i32 as f32;
+                            flip(&mut pc);
                             let (mut mp, clear) = material_push(pc, m, if checker_sets.is_some() { checker_sets.as_ref() } else if plain { None } else { self.mats.sets.get(&b.group).filter(|_| style.textured) });
                             stamp_lights(&self.lit, &mut mp, it.shape, if plain { NO_NODE } else { b.group });
                             // The isolated draws are for this frame only, so see-through ones go now rather than later.

@@ -138,6 +138,11 @@ fn deformer_cmd(s: &mut Session, a: &Args) -> CmdResult {
         let Some(name) = a.named().into_iter().next() else { fail!("deformer: name a deformer to query") };
         let g = &s.graph;
         let n = deformer_named(g, &name, "deformer")?;
+        let tools: Vec<NodeId> = g.source(&plug(n, deform::HANDLE)).map(|p| p.node).into_iter().collect();
+        if let Some(v) = crate::deform_common::query(&mut s.graph, n, a, &tools) {
+            return Ok(v);
+        }
+        let g = &s.graph;
         if asked(a, "geometryIndices") {
             return Ok(json!((0..deform::geometry_names(g, n).len()).collect::<Vec<_>>()));
         }
@@ -150,7 +155,10 @@ fn deformer_cmd(s: &mut Session, a: &Args) -> CmdResult {
         let Some(name) = a.named().into_iter().next() else { fail!("deformer: name a deformer to edit") };
         let geometry = named_geometry(a);
         if geometry.is_empty() {
-            fail!("deformer: -e needs -g");
+            if a.bool("prune") {
+                return deform::prune(s, a, "deformer");
+            }
+            fail!("deformer: -e takes -g or -prune");
         }
         let remove = a.bool("remove");
         let g = &mut s.graph;
@@ -197,7 +205,12 @@ fn deformer_cmd(s: &mut Session, a: &Args) -> CmdResult {
     if ty.is_empty() {
         fail!("deformer: give -type");
     }
-    create(s, a, &ty)
+    let a = &crate::deform_common::creation_args(s, a, "deformer")?;
+    let made = create(s, a, &ty)?;
+    if let Some(n) = made.as_array().and_then(|v| v.first()).and_then(Value::as_str).and_then(|x| s.graph.find(x).ok().flatten()) {
+        crate::deform_common::after_create(&mut s.graph, n, a)?;
+    }
+    Ok(made)
 }
 
 /// The points percent works on, per mesh: (node on that mesh, ids).
@@ -344,8 +357,14 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         .flag(f("remove", "rm", ArgType::Bool, "With -e -g: take the geometry off the deformer."))
         .flag(f("before", "bf", ArgType::Bool, "Go just above the deformer nearest the mesh."))
         .flag(f("after", "af", ArgType::Bool, "Go nearest the mesh (the default)."))
-        .flag(f("frontOfChain", "foc", ArgType::Bool, "Go above every other deformer.")),
+        .flag(f("frontOfChain", "foc", ArgType::Bool, "Go above every other deformer."))
+        .flag(f("prune", "pr", ArgType::Bool, "With -e: the points it doesn't move leave its set."))
+        .flag(f("ignoreSelected", "is", ArgType::Bool, "Deform only the objects named, not the selection."))
+        .flag(f("parallel", "par", ArgType::Bool, "Work beside the other deformers, from the shape they start from.")),
     );
+    if let Some(d) = c.find("deformer").cloned() {
+        c.register(crate::deform_common::creation_flags(d));
+    }
     c.register(
         modes(Cmd::new(
             "percent",

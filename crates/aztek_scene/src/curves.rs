@@ -383,7 +383,7 @@ impl NodeBehavior for CurveNode {
                 }
             }),
             Kind::Reverse => input.map(|c| c.reversed()),
-            Kind::Close => input.map(|c| c.closed()),
+            Kind::Close => input.map(|c| close_curve(&c, d.int(P0), d.float(P0 + 1), d.bool(P0 + 2), d.float(P0 + 3))),
             Kind::Smooth => input.map(|c| c.smoothed(d.float(P0), d.int(P0 + 1).max(1) as usize)),
             Kind::Fit => input.map(|c| {
                 let pts = c.distinct_cvs().to_vec();
@@ -408,6 +408,47 @@ impl NodeBehavior for CurveNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+/// The reference's closeCurve: `ps` 0 makes the curve periodic on its own CVs (the shape moves), 1 keeps the shape, the
+/// curve passing through its edit points with a span over the gap, 2 blends the ends to meet at a point `bias` of the
+/// way from the end to the start, with knots added at `param` of the end spans first when `bki`.
+pub(crate) fn close_curve(c: &NurbsCurve, ps: i64, bias: f64, bki: bool, param: f64) -> NurbsCurve {
+    if c.form == aztek_geo::nurbs::Form::Periodic || !c.is_valid() {
+        return c.clone();
+    }
+    if ps == 0 {
+        return c.closed();
+    }
+    let (lo, hi) = c.domain();
+    // The edit points and two more on each span between them, so even a single span keeps its shape.
+    let knots = c.distinct_params();
+    let mut us: Vec<f64> = Vec::new();
+    for w in knots.windows(2) {
+        us.extend([w[0], w[0] + (w[1] - w[0]) / 3.0, w[0] + (w[1] - w[0]) * 2.0 / 3.0]);
+    }
+    if let Some(&last) = knots.last() {
+        us.push(last);
+    }
+    if ps == 2 && bki && us.len() >= 2 {
+        let p = param.clamp(0.0, 1.0);
+        let (a, b) = (us[0] + (us[1] - us[0]) * p, us[us.len() - 1] - (us[us.len() - 1] - us[us.len() - 2]) * p);
+        us.insert(1, a);
+        let at = us.len() - 1;
+        us.insert(at, b);
+    }
+    let mut pts: Vec<DVec3> = us.iter().map(|&u| c.eval(u.clamp(lo, hi))).collect();
+    if pts.len() >= 2 && pts[0].distance(*pts.last().unwrap()) < 1e-9 {
+        pts.pop();
+    } else if ps == 2 && pts.len() >= 2 {
+        let meet = pts.last().unwrap().lerp(pts[0], bias.clamp(0.0, 1.0));
+        pts[0] = meet;
+        pts.pop();
+    }
+    if pts.len() < 3 {
+        return c.closed();
+    }
+    NurbsCurve::interpolated_periodic(c.degree, &pts)
 }
 
 fn curve_op_type(name: &str, kind: Kind, doc: &str, params: Vec<AttrDef>) -> NodeType {
@@ -829,7 +870,17 @@ pub fn register_types() {
                 vec![int_in("spans", "s", 4, "Spans; 0 keeps the count."), int_in("degree", "d", 3, "The degree."), store_bool("keepControlPoints", false, "Keep the CVs as they are.")],
             ),
             curve_op_type("reverseCurve", Kind::Reverse, "Direction reversed.", vec![]),
-            curve_op_type("closeCurve", Kind::Close, "Closed.", vec![]),
+            curve_op_type(
+                "closeCurve",
+                Kind::Close,
+                "Closed: made periodic.",
+                vec![
+                    int_in("preserveShape", "ps", 1, "0 the CVs as they are make the closed curve, 1 the curve keeps its shape and a span closes the gap, 2 the ends blend together."),
+                    f_in("blendBias", "bb", 0.5, "With a blend: toward the start (under 0.5) or the end (over 0.5)."),
+                    AttrDef { short_name: "bki".into(), ..store_bool("blendKnotInsertion", false, "With a blend: a knot goes in at the parameter near each end first.") },
+                    f_in("parameter", "p", 0.1, "Where the blend's knot goes, as a fraction of the end span."),
+                ],
+            ),
             curve_op_type("smoothCurve", Kind::Smooth, "CVs smoothed.", vec![f_in("smoothness", "s", 0.5, "How far each pass moves."), int_in("iterations", "i", 1, "Passes.")]),
             curve_op_type("fitBspline", Kind::Fit, "A cubic through the CVs.", vec![]),
             curve_op_type(
@@ -963,6 +1014,28 @@ pub(crate) fn flat_numbers(v: &Value, out: &mut Vec<f64>) {
         Value::Array(a) => a.iter().for_each(|x| flat_numbers(x, out)),
         x => out.extend(x.as_f64()),
     }
+}
+
+/// The rational curve of `c`'s CVs with these weights, as a plain curve through points sampled along it: eight to a
+/// span, so it follows the weighted shape closely.
+fn rational_fit(c: &NurbsCurve, weights: &[f64]) -> NurbsCurve {
+    let lap = c.distinct_cvs().len();
+    let w_of = |i: usize| weights.get(i % lap.max(1)).copied().unwrap_or(1.0);
+    // Homogeneous: the weighted points and the weights, on the same knots.
+    let num = NurbsCurve::new(c.degree, c.form, c.cvs.iter().enumerate().map(|(i, p)| *p * w_of(i)).collect(), c.knots.clone());
+    let den = NurbsCurve::new(c.degree, c.form, (0..c.cvs.len()).map(|i| DVec3::new(w_of(i), 0.0, 0.0)).collect(), c.knots.clone());
+    let (lo, hi) = c.domain();
+    let n = c.spans().max(1) * 8;
+    let at = |u: f64| {
+        let w = den.eval(u).x;
+        if w.abs() < 1e-12 { num.eval(u) } else { num.eval(u) / w }
+    };
+    if c.form == Form::Periodic {
+        let pts: Vec<DVec3> = (0..n).map(|k| at(lo + (hi - lo) * k as f64 / n as f64)).collect();
+        return NurbsCurve::interpolated_periodic(c.degree, &pts);
+    }
+    let pts: Vec<DVec3> = (0..=n).map(|k| at(lo + (hi - lo) * k as f64 / n as f64)).collect();
+    NurbsCurve::through(c.degree, &pts)
 }
 
 fn points_flag(a: &Args, name: &str) -> Vec<DVec3> {
@@ -1154,6 +1227,19 @@ pub fn register(c: &mut Commands<Session>) {
                 let g = &mut s.graph;
                 let degree = a.int("degree", 3).max(1) as usize;
                 let mut pts = points_flag(a, "point");
+                // -pointWeight: CVs with weights, x y z w.
+                let mut weights: Vec<f64> = Vec::new();
+                if let Some(v) = a.get("pointWeight") {
+                    let mut nums = Vec::new();
+                    flat_numbers(v, &mut nums);
+                    for c in nums.chunks(4).filter(|c| c.len() == 4) {
+                        pts.push(DVec3::new(c[0], c[1], c[2]));
+                        weights.push(c[3]);
+                    }
+                    if !weights.is_empty() && weights.len() != pts.len() {
+                        fail!("curve: give every CV with -pw, or none");
+                    }
+                }
                 let eps = points_flag(a, "editPoint");
                 let mut knots = Vec::new();
                 if let Some(k) = a.get("knot") {
@@ -1208,6 +1294,9 @@ pub fn register(c: &mut Commands<Session>) {
                         NurbsCurve::open(degree, pts)
                     }
                 };
+                // Weighted CVs make a rational curve; it is kept as a plain one following it closely: sampled along its
+                // spans and fitted again.
+                let build = if weights.iter().any(|w| (w - 1.0).abs() > 1e-12) { rational_fit(&build, &weights) } else { build };
                 if let Some(shape) = existing {
                     if !a.bool("replace") {
                         fail!("curve: naming a curve needs -a or -r");
@@ -1224,6 +1313,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("degree", "d", ArgType::Int, "Degree (3)."))
         .flag(f("point", "p", ArgType::List, "A CV: x y z. Repeat it.").multi(3))
         .flag(f("editPoint", "ep", ArgType::List, "An edit point to pass through: x y z. Repeat it.").multi(3))
+        .flag(f("pointWeight", "pw", ArgType::List, "A CV with its weight: x y z w. Repeat it; a weight over 1 pulls the curve to the CV.").multi(4))
         .flag(f("knot", "k", ArgType::List, "A knot. Repeat it; CVs + degree - 1 of them.").multi(1))
         .flag(f("periodic", "per", ArgType::Bool, "A closed, periodic curve."))
         .flag(f("bezier", "bez", ArgType::Bool, "The points are Bezier points."))
@@ -1371,10 +1461,21 @@ pub fn register(c: &mut Commands<Session>) {
     ));
     c.register(with_common(Cmd::new("reverseCurve", "Reverse the direction. Returns [curve, node].", |s, a| run_op(s, a, "reverseCurve", "reverseCurve", &[])).positional("curves (the selection when none)")));
     c.register(with_common(
-        Cmd::new("closeCurve", "Close a curve. Returns [curve, node].", |s, a| run_op(s, a, "closeCurve", "closeCurve", &[]))
+        Cmd::new("closeCurve", "Close a curve, making it periodic: -ps 0 on its CVs, 1 keeping its shape (the default), 2 blending the ends at -bb. Returns [curve, node].", |s, a| {
+            let set = vec![
+                (P0, PlugValue::Int(a.int("preserveShape", 1))),
+                (P0 + 1, PlugValue::Float(a.float("blendBias", 0.5))),
+                (P0 + 2, PlugValue::Bool(a.bool("blendKnotInsertion"))),
+                (P0 + 3, PlugValue::Float(a.float("parameter", 0.1))),
+            ];
+            run_op(s, a, "closeCurve", "closeCurve", &set)
+        })
             .positional("curves (the selection when none)")
-            .flag(f("preserveShape", "ps", ArgType::Int, "Accepted for existing scripts."))
-            .flag(f("blendBias", "bb", ArgType::Float, "Accepted for existing scripts.")),
+            .flag(f("preserveShape", "ps", ArgType::Int, "0 on the CVs as they are, 1 keep the shape (1), 2 blend the ends."))
+            .flag(f("blendBias", "bb", ArgType::Float, "Where the ends of a blend meet, from the end (0) to the start (1) (0.5)."))
+            .flag(f("blendKnotInsertion", "bki", ArgType::Bool, "With a blend: a knot goes in near each end first (off)."))
+            .flag(f("parameter", "p", ArgType::Float, "Where that knot goes, a fraction of the end span (0.1)."))
+            .flag(f("curveOnSurface", "cos", ArgType::Bool, "A curve on a surface stays one where it can; other curves close in 3D.")),
     ));
     c.register(with_common(
         Cmd::new("smoothCurve", "Smooth the CVs: -s how far, -i passes. Returns [curve, node].", |s, a| {

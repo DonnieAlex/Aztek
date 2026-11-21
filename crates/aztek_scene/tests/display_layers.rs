@@ -38,12 +38,13 @@ fn membership_one_layer_per_object_undo() {
     assert_eq!(l1, "Props");
     assert_eq!(layer_name(&s, &a), "Props");
     assert!(layer_name(&s, &c).is_empty());
-    assert_eq!(run(&mut s, "displayLayer", json!({"args": [l1]}))["members"], json!([a, b]));
+    // The objects' shapes go in with them, as the reference's createDisplayLayer adds descendants.
+    assert_eq!(run(&mut s, "displayLayer", json!({"args": [l1]}))["members"], json!([a, "pCubeShape1", b, "pCubeShape2"]));
 
     // Joining another layer leaves the first.
     let l2 = made(run(&mut s, "createDisplayLayer", json!({"args": [b]})));
     assert_eq!(layer_name(&s, &b), l2);
-    assert_eq!(run(&mut s, "displayLayer", json!({"args": [l1]}))["members"], json!([a]));
+    assert_eq!(run(&mut s, "displayLayer", json!({"args": [l1]}))["members"], json!([a, "pCubeShape1"]));
     run(&mut s, "undo", json!({}));
     assert!(s.graph.find(&l2).unwrap().is_none());
     assert_eq!(layer_name(&s, &b), "Props");
@@ -63,7 +64,8 @@ fn membership_one_layer_per_object_undo() {
     assert_eq!(layer_name(&s, "Crate"), "Set");
 
     run(&mut s, "selectDisplayLayerMembers", json!({"args": ["Set"]}));
-    assert_eq!(s.graph.selection().len(), 2);
+    // Two cubes, each with its shape.
+    assert_eq!(s.graph.selection().len(), 4);
 
     run(&mut s, "deleteDisplayLayer", json!({"args": ["Set"]}));
     assert!(layer_name(&s, "Crate").is_empty());

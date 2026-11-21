@@ -996,3 +996,84 @@ fn renderer_cmd() -> Cmd {
         .flag(f("capability", "cap", A, "A named capability."))
         .flag(f("capabilityValue", "cpv", A, "The capability's value."))
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// connectDynamic's script handlers
+
+/// Python functions given to connectDynamic -addScriptHandler, by the number it returned.
+static DYNAMIC_HANDLERS: std::sync::Mutex<Vec<(i64, Value)>> = std::sync::Mutex::new(Vec::new());
+static NEXT_HANDLER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(1);
+
+/// Commands the host answers before the scene does: connectDynamic's handlers, which run Python.
+pub(crate) fn intercept(core: &mut crate::core::Core, name: &str, call: &Value) -> Option<Result<Value, String>> {
+    if name == "connectDynamic" {
+        return connect_dynamic(core, call);
+    }
+    None
+}
+
+fn connect_dynamic(core: &mut crate::core::Core, call: &Value) -> Option<Result<Value, String>> {
+    let o = call.as_object()?;
+    let others = o.keys().any(|k| !matches!(k.as_str(), "addScriptHandler" | "removeScriptHandler" | "args") );
+    if let Some(cb) = o.get("addScriptHandler").filter(|v| !v.is_null()) {
+        if others || o.contains_key("removeScriptHandler") {
+            return Some(Err("connectDynamic: -addScriptHandler can't be used with other flags".into()));
+        }
+        let id = NEXT_HANDLER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        DYNAMIC_HANDLERS.lock().unwrap_or_else(|e| e.into_inner()).push((id, cb.clone()));
+        return Some(Ok(json!(id)));
+    }
+    if let Some(id) = o.get("removeScriptHandler").filter(|v| !v.is_null()) {
+        if others {
+            return Some(Err("connectDynamic: -removeScriptHandler can't be used with other flags".into()));
+        }
+        // An unknown number does nothing.
+        let id = id.as_i64().unwrap_or(0);
+        DYNAMIC_HANDLERS.lock().unwrap_or_else(|e| e.into_inner()).retain(|h| h.0 != id);
+        return Some(Ok(Value::Null));
+    }
+    let handlers: Vec<(i64, Value)> = DYNAMIC_HANDLERS.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if handlers.is_empty() {
+        return None;
+    }
+    let list = |k: &str| -> Value {
+        match o.get(k) {
+            Some(Value::Array(v)) => Value::Array(v.clone()),
+            Some(Value::String(x)) => json!([x]),
+            _ => json!([]),
+        }
+    };
+    let mut objects: Vec<Value> = o.get("args").and_then(Value::as_array).cloned().unwrap_or_default();
+    if objects.is_empty() {
+        objects = core.s.graph.selection().iter().map(|&id| json!(core.s.graph.path(id))).collect();
+    }
+    let kwargs = json!({"fields": list("fields"), "emitters": list("emitters"), "collisionObjects": list("collisions"), "objects": objects});
+    // The first handler to say it dealt with the call ends it; with none, the command runs as usual.
+    for (_, cb) in handlers {
+        match handler_value(core, &cb, &kwargs) {
+            Ok(v) if v.as_bool() == Some(true) || v.as_i64().is_some_and(|x| x != 0) => return Some(Ok(json!(""))),
+            Ok(_) => {}
+            Err(e) => return Some(Err(e)),
+        }
+    }
+    None
+}
+
+#[cfg(feature = "python")]
+fn handler_value(core: &mut crate::core::Core, cb: &Value, kwargs: &Value) -> Result<Value, String> {
+    if let Some(id) = cb.get("__pycb__").and_then(Value::as_i64) {
+        return crate::python::fire_value_kw(core, id, kwargs);
+    }
+    // A function named by a string, or Python source for one.
+    let name = cb.as_str().or_else(|| cb.get("__pysrc__").and_then(Value::as_str)).unwrap_or_default();
+    if name.is_empty() {
+        return Ok(Value::Null);
+    }
+    let text = serde_json::to_string(&kwargs.to_string()).unwrap_or_default();
+    crate::core::python_from_mel(core, &format!("{name}(**__import__('json').loads({text}))"))
+}
+
+#[cfg(not(feature = "python"))]
+fn handler_value(_core: &mut crate::core::Core, _cb: &Value, _kwargs: &Value) -> Result<Value, String> {
+    Err("connectDynamic: this build has no Python for script handlers".into())
+}

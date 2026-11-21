@@ -122,6 +122,12 @@ fn is_bool_word(t: &Tok) -> bool {
     }
 }
 
+/// Switches of the reference's that take no value, on commands whose positional arguments are numbers: a 1 after one of
+/// these is the next argument, not the switch's value (colorIndex -q -uc 1).
+fn takes_no_value(cmd: &str, flag: &str) -> bool {
+    matches!((cmd, flag), ("colorIndex", "active" | "dormant" | "userColor" | "hueSaturationValue" | "resetToFactory" | "resetToSaved"))
+}
+
 fn bool_of(t: &Tok) -> Value {
     match scalar(t) {
         Value::Number(n) => json!(n.as_i64() != Some(0)),
@@ -142,6 +148,10 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("cmdFileOutput", "status")
             | ("repeatLast", "commandList" | "commandNameList")
             | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
+            | ("dgtimer", "outputFile" | "returnType" | "returnCode" | "sortType" | "sortMetric" | "show" | "hide" | "threshold" | "maxDisplay" | "name" | "type" | "rangeLower" | "rangeUpper")
+            | ("dgdirty", "list")
+            | ("deformerWeights", "shape")
+            | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
     )
 }
 
@@ -220,7 +230,7 @@ fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize, own: &dyn F
     Ok(match fd.ty {
         ArgType::Bool => {
             // move -r 1 0 0: move, rotate and scale take their values positionally, so a 1 after a switch is a value.
-            if !matches!(name, "move" | "rotate" | "scale") && toks.get(*i).is_some_and(is_bool_word) {
+            if !matches!(name, "move" | "rotate" | "scale") && !takes_no_value(name, f) && toks.get(*i).is_some_and(is_bool_word) {
                 *i += 1;
                 bool_of(&toks[*i - 1])
             } else {
@@ -324,7 +334,7 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
             i += 1;
             // Switches (xform -q -ws -t): on unless given a value that says off.
             if fd.is_some_and(|d| d.ty == ArgType::Bool) {
-                let on = if toks.get(i).is_some_and(is_bool_word) {
+                let on = if !takes_no_value(&name, &long) && toks.get(i).is_some_and(is_bool_word) {
                     i += 1;
                     bool_of(&toks[i - 1]) == json!(true)
                 } else {

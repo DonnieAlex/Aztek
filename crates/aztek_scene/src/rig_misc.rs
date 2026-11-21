@@ -607,6 +607,30 @@ fn set_parent_tag(g: &mut Graph, tag: NodeId, parent: Option<NodeId>) -> CmdResu
     Ok(())
 }
 
+/// A tag's children in their order: the elements of its children multi.
+fn child_tags(g: &Graph, tag: NodeId) -> Vec<NodeId> {
+    let mut els = g.elements(&plug(tag, CTL_CHILDREN));
+    els.sort_by_key(|e| e.element);
+    els.iter().filter_map(|e| g.source(e)).filter(|s| s.attr as usize == CTL_PARENT).map(|s| s.node).collect()
+}
+
+/// Puts a tag at `index` among its parent's children, the others keeping their order.
+fn reorder_tag(g: &mut Graph, tag: NodeId, index: i64) -> CmdResult<()> {
+    let Some(p) = parent_tag(g, tag) else { fail!("controller: {} has no parent to be ordered under", g.path(tag)) };
+    let mut kids = child_tags(g, p);
+    kids.retain(|&k| k != tag);
+    kids.insert((index.max(0) as usize).min(kids.len()), tag);
+    for &k in &kids {
+        for d in g.destinations(&plug(k, CTL_PARENT)) {
+            g.disconnect(&d);
+        }
+    }
+    for (i, &k) in kids.iter().enumerate() {
+        g.connect(&plug(k, CTL_PARENT), &PlugRef::element(p, CTL_CHILDREN as i32, i as i32), true)?;
+    }
+    Ok(())
+}
+
 fn controller_cmd(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let g = &mut s.graph;
@@ -623,7 +647,8 @@ fn controller_cmd(s: &mut Session, a: &Args) -> CmdResult {
         if asked(a, "isController") {
             return Ok(json!(tag.is_some()));
         }
-        let plain = !asked(a, "parent") && !asked(a, "children");
+        let walks = ["pickWalkUp", "pickWalkDown", "pickWalkLeft", "pickWalkRight", "index"];
+        let plain = !asked(a, "parent") && !asked(a, "children") && !walks.iter().any(|w| asked(a, w));
         // A plain query names the object's controller node, as the reference's does; nothing for an object without one.
         if plain {
             return Ok(match tag {
@@ -638,10 +663,76 @@ fn controller_cmd(s: &mut Session, a: &Args) -> CmdResult {
                 None => Value::Null,
             });
         }
+        // A tag with no object (made with -group) answers by its own name.
+        let named = |g: &Graph, t: NodeId| json!(g.path(object_of_tag(g, t).unwrap_or(t)));
         if asked(a, "children") {
-            let kids: Vec<Value> = g.nodes().into_iter().filter(|&c| is_type(g, c, "controller") && parent_tag(g, c) == Some(tag)).filter_map(|c| object_of_tag(g, c)).map(|o| json!(g.path(o))).collect();
-            return Ok(Value::Array(kids));
+            return Ok(Value::Array(child_tags(g, tag).into_iter().map(|c| named(g, c)).collect()));
         }
+        let parent = parent_tag(g, tag);
+        let siblings = parent.map(|p| child_tags(g, p)).unwrap_or_default();
+        let at = siblings.iter().position(|&x| x == tag);
+        if asked(a, "index") {
+            return Ok(json!(at.map_or(-1, |i| i as i64)));
+        }
+        if asked(a, "pickWalkUp") {
+            return Ok(parent.map_or(Value::Null, |p| named(g, p)));
+        }
+        if asked(a, "pickWalkDown") {
+            return Ok(child_tags(g, tag).first().map_or(Value::Null, |&c| named(g, c)));
+        }
+        // Left and right walk the siblings, round from the ends when the parent's cycleWalkSibling is on.
+        let cycle = parent.and_then(|p| g.node(p).and_then(|n| n.ty().attr_index("cycleWalkSibling").map(|i| n.bool(i)))).unwrap_or(false);
+        let step = |d: i64| -> Value {
+            let Some(i) = at else { return Value::Null };
+            let n = siblings.len() as i64;
+            let j = i as i64 + d;
+            let j = if cycle { j.rem_euclid(n) } else { j };
+            if j < 0 || j >= n || j == i as i64 {
+                return Value::Null;
+            }
+            named(g, siblings[j as usize])
+        };
+        if asked(a, "pickWalkLeft") {
+            return Ok(step(-1));
+        }
+        if asked(a, "pickWalkRight") {
+            return Ok(step(1));
+        }
+    }
+    if a.bool("edit") {
+        if let Some(i) = a.get("index").and_then(Value::as_i64) {
+            for n in &names {
+                if let Some(tag) = tag_named(g, n)? {
+                    reorder_tag(g, tag, i)?;
+                }
+            }
+            return Ok(Value::Null);
+        }
+    }
+    if a.bool("group") {
+        // A tag of no object, the parent of those named or selected.
+        let t = types::find("controller").unwrap();
+        g.open_chunk("controller");
+        let r = (|| -> CmdResult {
+            let group = g.create_node(&t, "controller1", NO_NODE, true)?;
+            for n in &names {
+                let id = find(g, n, "controller")?;
+                let tag = match tag_of(g, id) {
+                    Some(x) => x,
+                    None => {
+                        let short = g.node(id).unwrap().name().to_string();
+                        let x = g.create_node(&t, &format!("{short}_tag"), NO_NODE, true)?;
+                        let Some(msg) = message_of(g, id) else { fail!("controller: {n} has no message") };
+                        g.connect(&msg, &plug(x, CTL_OBJECT), true)?;
+                        x
+                    }
+                };
+                set_parent_tag(g, tag, Some(group))?;
+            }
+            Ok(json!(g.path(group)))
+        })();
+        g.close_chunk();
+        return r;
     }
     if a.bool("unparent") {
         for n in &names {
@@ -842,6 +933,35 @@ fn find_deformers(s: &mut Session, a: &Args) -> CmdResult {
 fn copy_deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
     let (ss, ds) = (a.string("sourceShape", ""), a.string("destinationShape", ""));
     let (sd, dd) = (a.string("sourceDeformer", ""), a.string("destinationDeformer", ""));
+    if a.bool("query") {
+        let g = &s.graph;
+        let asked = |k: &str| crate::skin::asked(a, k);
+        // The deformers on a shape, nearest the shape first.
+        let on = |shape: &str| -> Vec<String> {
+            let Some(m) = g.find(shape).ok().flatten().and_then(|id| crate::components::as_mesh(g, id)) else { return Vec::new() };
+            crate::history::history_of(g, m).into_iter().filter(|&h| g.node(h).is_some_and(|n| crate::deform::is_deformer(n.ty().name.as_str()))).map(|h| g.path(h)).collect()
+        };
+        if asked("sourceDeformer") {
+            return Ok(json!(if ss.is_empty() { vec![sd] } else { on(&ss) }));
+        }
+        if asked("destinationDeformer") {
+            return Ok(json!(if ds.is_empty() { vec![dd] } else { on(&ds) }));
+        }
+        if asked("sourceShape") || asked("destinationShape") {
+            let d = if asked("sourceShape") { &sd } else { &dd };
+            let Some(n) = g.find(d).ok().flatten() else { return Ok(json!([])) };
+            return Ok(json!(crate::deform::geometry_names(g, n)));
+        }
+        if asked("mirrorMode") {
+            return Ok(json!(a.string("mirrorMode", "XY")));
+        }
+        if asked("surfaceAssociation") {
+            return Ok(json!(a.string("surfaceAssociation", "closestComponent")));
+        }
+        fail!("copyDeformerWeights: query -sd, -dd, -ss, -ds, -mm or -sa");
+    }
+    // Mirroring on one deformer needs it named once.
+    let dd = if dd.is_empty() && (ds.is_empty() || ds == ss) { sd.clone() } else { dd };
     if sd.is_empty() || dd.is_empty() {
         fail!("copyDeformerWeights: give -sd and -dd");
     }
@@ -862,7 +982,18 @@ fn copy_deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
         }
     };
     let (ws, wd) = (geom(g, &ss, src), geom(g, &ds, dst));
-    let mirror = a.get("mirrorMode").and_then(Value::as_str).map(str::to_string).filter(|_| !a.bool("noMirror"));
+    // Copying between two deformers is a plain copy unless a mirror plane is named; on one deformer it mirrors (XY).
+    let mirror = if a.bool("noMirror") || (src != dst && !a.has("mirrorMode")) { None } else { Some(a.string("mirrorMode", "XY").to_uppercase()) };
+    let axis = match mirror.as_deref() {
+        Some("XY") => Some(2usize),
+        Some("XZ") => Some(1),
+        Some("YZ") => Some(0),
+        _ => None,
+    };
+    let inverse = a.bool("mirrorInverse");
+    let smooth = a.bool("smooth");
+    let mut kept = crate::deform::floats_of(g.node(dst).unwrap().data(), crate::deform::WEIGHTS).map(|f| f.0.clone()).unwrap_or_else(|| vec![1.0; nd]);
+    kept.resize(nd, 0.0);
     let flip = |p: DVec3| -> DVec3 {
         match mirror.as_deref() {
             Some("XY") => DVec3::new(p.x, p.y, -p.z),
@@ -874,20 +1005,32 @@ fn copy_deformer_weights(s: &mut Session, a: &Args) -> CmdResult {
     // Closest point: the source points in the destination's world.
     let spots: Vec<DVec3> = (0..ns as u32).filter(|&p| input_s.point_valid(p)).map(|p| ws.transform_point3(input_s.position(p))).collect();
     let keys: Vec<usize> = (0..ns as u32).filter(|&p| input_s.point_valid(p)).map(|p| p as usize).collect();
-    let mut w = vec![0.0; nd];
+    let mut w = if axis.is_some() { kept } else { vec![0.0; nd] };
     for p in 0..nd as u32 {
         if !input_d.point_valid(p) {
             continue;
         }
-        let q = flip(wd.transform_point3(input_d.position(p)));
-        let mut best = (f64::MAX, 0usize);
-        for (i, sp) in spots.iter().enumerate() {
-            let d = sp.distance_squared(q);
-            if d < best.0 {
-                best = (d, keys[i]);
+        let at = wd.transform_point3(input_d.position(p));
+        // Mirroring: the positive side copies onto the negative, -mirrorInverse the other way; the side copied from
+        // stays as it is.
+        if let Some(ax) = axis {
+            let on_dest = if inverse { at[ax] > 1e-9 } else { at[ax] < -1e-9 };
+            if !on_dest {
+                continue;
             }
         }
-        w[p as usize] = from.get(best.1).copied().unwrap_or(0.0);
+        let q = flip(at);
+        let mut by: Vec<(f64, usize)> = spots.iter().enumerate().map(|(i, sp)| (sp.distance(q), keys[i])).collect();
+        by.sort_by(|a, b| a.0.total_cmp(&b.0));
+        // -smooth: between the nearest points by distance, rather than from the one nearest.
+        let take = if smooth { 4 } else { 1 };
+        by.truncate(take);
+        w[p as usize] = if by.first().is_some_and(|x| x.0 < 1e-9) || !smooth {
+            by.first().and_then(|x| from.get(x.1)).copied().unwrap_or(0.0)
+        } else {
+            let total: f64 = by.iter().map(|x| 1.0 / x.0).sum();
+            by.iter().map(|x| from.get(x.1).copied().unwrap_or(0.0) / x.0 / total).sum()
+        };
     }
     crate::deform::set_floats(g, dst, crate::deform::WEIGHTS, w)?;
     Ok(Value::Null)
@@ -984,14 +1127,16 @@ pub fn register(c: &mut Commands<Session>) {
         q_flags(Cmd::new("controller", "Tag objects as animation controls: controller obj; -p parent makes them its children; -q -p, -q -c read the tree; -ac all; -ic is it one; -up unparents.", controller_cmd))
             .positional("objects")
             .flag(f("parent", "p", ArgType::Any, "The parent control, or with -q ask."))
-            .flag(f("children", "c", B, "With -q: its children."))
+            .flag(f("children", "cld", B, "With -q: its children, in order."))
             .flag(f("allControllers", "ac", B, "All the controls."))
             .flag(f("isController", "ic", B, "Whether the object is a control."))
             .flag(f("unparent", "unp", B, "Take from its parent."))
-            .flag(f("group", "g", B, "Accepted for existing scripts."))
-            .flag(f("index", "idx", I, "Accepted for existing scripts."))
-            .flag(f("pickWalkDown", "pwd", B, "Accepted for existing scripts."))
-            .flag(f("pickWalkUp", "pwu", B, "Accepted for existing scripts.")),
+            .flag(f("group", "g", B, "Make a control of no object, the parent of those named or selected."))
+            .flag(f("index", "idx", I, "Its place among its parent's children: -q reads it, -e moves it there."))
+            .flag(f("pickWalkDown", "pwd", B, "With -q: its first child."))
+            .flag(f("pickWalkUp", "pwu", B, "With -q: its parent."))
+            .flag(f("pickWalkLeft", "pwl", B, "With -q: the sibling before it."))
+            .flag(f("pickWalkRight", "pwr", B, "With -q: the sibling after it.")),
     );
     c.register(
         Cmd::new("annotate", "A note in the viewport: -tx text, -p where; the line points at the object named. Returns the shape.", annotate)
@@ -1014,10 +1159,13 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("sourceShape", "ss", S, "Its shape."))
             .flag(f("destinationShape", "ds", S, "Its shape."))
             .flag(f("mirrorMode", "mm", S, "XY, XZ or YZ."))
-            .flag(f("mirrorInverse", "mi", B, "Accepted for existing scripts."))
+            .flag(f("mirrorInverse", "mi", B, "Mirror from the negative side to the positive."))
             .flag(f("noMirror", "nm", B, "Don't mirror."))
-            .flag(f("smooth", "sm", B, "Accepted for existing scripts."))
+            .flag(f("smooth", "sm", B, "Between the nearest points by distance, rather than from the one nearest."))
             .flag(f("surfaceAssociation", "sa", S, "Accepted: closest point is what's used."))
             .flag(f("uvSpace", "uv", L, "Accepted for existing scripts.")),
     );
+    if let Some(d) = c.find("copyDeformerWeights").cloned() {
+        c.register(crate::skin::modes(d));
+    }
 }

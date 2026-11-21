@@ -3,7 +3,7 @@
 //! can't be given weight. Also the deformableShape command.
 
 use aztek_ops::{fail, objects, ArgType, Args, CmdResult, Commands};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::components::{self, ComponentMode};
 use crate::deform::{self, f, floats_of, input_mesh, plug, set_floats, Cmd, DEFORMER_SET, WEIGHTS};
@@ -207,6 +207,28 @@ pub fn member_mask(g: &Graph, n: NodeId, capacity: usize) -> Option<Vec<bool>> {
 // ---------------------------------------------------------------------------------------------------------------------
 // Commands
 
+/// The connections geometry passes through to reach a mesh, nearest the mesh first: (output plug, the input it feeds).
+fn plug_chain(g: &Graph, mesh: NodeId) -> Vec<(PlugRef, PlugRef)> {
+    let (mut p, _) = crate::modifiers::chain_base(g, mesh);
+    let mut out = Vec::new();
+    while let Some(src) = g.source(&p) {
+        out.push((src, p));
+        if out.len() > 512 {
+            break;
+        }
+        let Some(n) = g.node(src.node) else { break };
+        let ty = n.ty().name.as_str();
+        if n.ty().is_a(crate::history::BASE_TYPE) || ty == crate::history::TWEAK_TYPE || ty == "tweak" || crate::uv_ops::is_uv_node(ty) || crate::rig::is_rig_chain_node(ty) || ty == "transformGeometry" {
+            p = PlugRef::new(src.node, 0);
+        } else if n.ty().is_a("mesh") && n.bool(crate::transform::DagNode::INTERMEDIATE_OBJECT) {
+            p = PlugRef::new(src.node, crate::mesh_nodes::MeshNode::IN_MESH as i32);
+        } else {
+            break;
+        }
+    }
+    out
+}
+
 fn deformable_shape(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
     let Some(name) = names.first() else { fail!("deformableShape: name a mesh") };
@@ -214,7 +236,7 @@ fn deformable_shape(s: &mut Session, a: &Args) -> CmdResult {
     let Some(mesh) = components::as_mesh(&s.graph, id) else { fail!("deformableShape: {name} is not a mesh") };
     let g = &mut s.graph;
     let path = g.path(mesh);
-    if a.bool("createOriginalGeometry") {
+    let make_orig = |g: &mut Graph| -> CmdResult<()> {
         if orig_of(g, mesh).is_none() {
             let (base, src) = crate::history::upstream(g, mesh)?;
             let orig = orig_source(g, mesh, src)?;
@@ -223,6 +245,10 @@ fn deformable_shape(s: &mut Session, a: &Args) -> CmdResult {
                 g.connect(&orig, &base, false)?;
             }
         }
+        Ok(())
+    };
+    if a.bool("createOriginalGeometry") {
+        make_orig(g)?;
     }
     if a.bool("createOriginalGeometry") || a.bool("originalGeometry") {
         return Ok(json!(orig_of(g, mesh).map(|o| vec![format!("{}.worldMesh", g.path(o))]).unwrap_or_default()));
@@ -230,13 +256,78 @@ fn deformable_shape(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("outputGeometry") || a.bool("localShapeOutAttr") {
         return Ok(json!([if a.bool("localShapeOutAttr") { "outMesh".to_string() } else { format!("{path}.outMesh") }]));
     }
-    if a.bool("localShapeInAttr") {
+    if a.bool("localShapeInAttr") || a.bool("deformShapeInAttr") {
         return Ok(json!(["inMesh"]));
+    }
+    if a.bool("deformShapeOutAttr") {
+        return Ok(json!(["outMesh"]));
     }
     if a.bool("worldShapeOutAttr") {
         return Ok(json!(["worldMesh"]));
     }
-    fail!("deformableShape: give -cog, -og, -ogm, -lsi, -lso or -wso")
+    if a.bool("tweakAttr") {
+        // A mesh keeps its point moves in pnts.
+        return Ok(json!(["pnts"]));
+    }
+    let tweak_in_chain = |g: &Graph| crate::history::history_of(g, mesh).into_iter().find(|&h| g.node(h).is_some_and(|n| matches!(n.ty().name.as_str(), "tweak" | "polyTweak")));
+    if a.bool("createTweakNode") {
+        if tweak_in_chain(g).is_none() {
+            crate::deform::insert_at(g, mesh, "tweak", "tweak1", crate::deform::Place::Front)?;
+        }
+        return Ok(json!(tweak_in_chain(g).map(|t| vec![g.path(t)]).unwrap_or_default()));
+    }
+    if a.bool("tweakNode") {
+        return Ok(json!(tweak_in_chain(g).map(|t| vec![g.path(t)]).unwrap_or_default()));
+    }
+    let chain = plug_chain(g, mesh);
+    if a.bool("chain") {
+        let list: Vec<String> = chain.iter().map(|(o, _)| o.node).filter(|&n| g.node(n).is_some_and(|x| crate::deform::is_deformer(x.ty().name.as_str()) || x.ty().name == crate::skin::SKIN_TYPE)).map(|n| g.path(n)).collect();
+        return Ok(json!(list));
+    }
+    if a.bool("nodeChain") {
+        let mut list = vec![path.clone()];
+        list.extend(chain.iter().map(|(o, _)| g.path(o.node)));
+        return Ok(json!(list));
+    }
+    if a.bool("plugChain") {
+        let list: Vec<String> = chain.iter().flat_map(|(o, i)| [g.plug_name(i), g.plug_name(o)]).collect();
+        return Ok(json!(list));
+    }
+    if a.bool("outputPlugChain") {
+        return Ok(json!(chain.iter().map(|(o, _)| g.plug_name(o)).collect::<Vec<_>>()));
+    }
+    if a.bool("chainHistory") {
+        let list: Vec<Value> = chain.iter().map(|(o, i)| json!({"node": g.path(o.node), "type": g.node(o.node).map(|n| n.ty().name.clone()).unwrap_or_default(), "outputPlug": g.plug_name(o), "inputPlug": g.plug_name(i)})).collect();
+        return Ok(json!({"shape": path, "chain": list}));
+    }
+    if a.bool("frontOfChain") {
+        // The shape the chain starts from: the original, or nothing when there is none.
+        return Ok(json!(orig_of(g, mesh).map(|o| format!("{}.outMesh", g.path(o))).unwrap_or_default()));
+    }
+    if a.bool("supportsComponentTags") {
+        return Ok(json!(true));
+    }
+    // Component tags are kept on the mesh shapes: the original holds those every deformer upstream reads.
+    let not_referenced = |g: &Graph, n: NodeId| g.node(n).is_some_and(|x| x.reference_id() == 0);
+    if a.bool("createUpstreamTagInjectionNode") {
+        make_orig(g)?;
+        return Ok(json!(orig_of(g, mesh).filter(|&o| not_referenced(g, o)).map(|o| g.path(o)).unwrap_or_default()));
+    }
+    if a.bool("upstreamTagInjectionNode") {
+        return Ok(json!(orig_of(g, mesh).filter(|&o| not_referenced(g, o)).map(|o| g.path(o)).unwrap_or_default()));
+    }
+    if a.bool("tagInjectionNode") {
+        let top = orig_of(g, mesh).filter(|&o| not_referenced(g, o)).or_else(|| not_referenced(g, mesh).then_some(mesh));
+        return Ok(json!(top.map(|o| g.path(o)).unwrap_or_default()));
+    }
+    if a.bool("tagInjectionList") {
+        let mut list: Vec<String> = orig_of(g, mesh).into_iter().filter(|&o| not_referenced(g, o)).map(|o| g.path(o)).collect();
+        if not_referenced(g, mesh) {
+            list.push(path.clone());
+        }
+        return Ok(json!(list));
+    }
+    fail!("deformableShape: give a flag: -ch, -nch, -pch, -och, -cog, -og, -tw, -ti and the like")
 }
 
 pub(crate) fn register(c: &mut Commands<Session>) {
@@ -253,6 +344,22 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         .flag(f("outputGeometry", "ogm", ArgType::Bool, "The shape's output plug."))
         .flag(f("localShapeInAttr", "lsi", ArgType::Bool, "The local input attribute."))
         .flag(f("localShapeOutAttr", "lso", ArgType::Bool, "The local output attribute."))
-        .flag(f("worldShapeOutAttr", "wso", ArgType::Bool, "The world output attribute.")),
+        .flag(f("worldShapeOutAttr", "wso", ArgType::Bool, "The world output attribute."))
+        .flag(f("deformShapeInAttr", "dsi", ArgType::Bool, "The attribute deformed geometry comes in by."))
+        .flag(f("deformShapeOutAttr", "dso", ArgType::Bool, "The attribute deformed geometry goes out by."))
+        .flag(f("chain", "ch", ArgType::Bool, "The deformers deforming the shape, nearest it first."))
+        .flag(f("chainHistory", "his", ArgType::Bool, "The chain in detail: each node, its type and plugs (for Python)."))
+        .flag(f("nodeChain", "nch", ArgType::Bool, "The shape and the nodes its geometry passes through, nearest first."))
+        .flag(f("plugChain", "pch", ArgType::Bool, "The input and output plugs along the chain."))
+        .flag(f("outputPlugChain", "och", ArgType::Bool, "The output plugs along the chain."))
+        .flag(f("frontOfChain", "foc", ArgType::Bool, "The plug at the front of the chain: the original shape's, or \"\"."))
+        .flag(f("tweakNode", "tw", ArgType::Bool, "The tweak node in the chain, if any."))
+        .flag(f("tweakAttr", "twa", ArgType::Bool, "The attribute the shape keeps its point moves in."))
+        .flag(f("createTweakNode", "ctw", ArgType::Bool, "Make a tweak node at the front of the chain if there is none."))
+        .flag(f("supportsComponentTags", "sct", ArgType::Bool, "Whether the shape takes component tags."))
+        .flag(f("tagInjectionNode", "ti", ArgType::Bool, "The highest shape in the chain holding component tags, not referenced: the original, or the shape."))
+        .flag(f("tagInjectionList", "til", ArgType::Bool, "The shapes in the chain holding component tags."))
+        .flag(f("upstreamTagInjectionNode", "uti", ArgType::Bool, "The upstream shape holding component tags, the original; \"\" when there is none."))
+        .flag(f("createUpstreamTagInjectionNode", "cti", ArgType::Bool, "Make the original shape to hold component tags if there is none.")),
     );
 }

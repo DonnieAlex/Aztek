@@ -907,10 +907,101 @@ pub fn connect_placement(g: &mut Graph, place: NodeId, file: NodeId) -> CmdResul
     Ok(())
 }
 
+/// What the destination's questions answer: the node it names, and its plug when it names one.
+fn nav_destination(g: &Graph, a: &Args) -> CmdResult<(NodeId, Option<PlugRef>)> {
+    let Some(dst) = a.get("destination").and_then(Value::as_str) else { fail!("defaultNavigation: give -destination") };
+    if dst.contains('.') {
+        let p = g.plug(dst)?;
+        return Ok((p.node, Some(p)));
+    }
+    Ok((node_named(g, dst, "defaultNavigation")?, None))
+}
+
+/// The nodes feeding a plug, or the whole node.
+fn nav_sources(g: &Graph, n: NodeId, p: Option<PlugRef>) -> Vec<NodeId> {
+    let plugs: Vec<PlugRef> = match p {
+        Some(p) => vec![p],
+        None => g.connections().into_iter().filter(|(d, _)| d.node == n).map(|(d, _)| d).collect(),
+    };
+    let mut out = Vec::new();
+    for q in plugs {
+        if let Some(src) = g.source(&q) {
+            if !out.contains(&src.node) {
+                out.push(src.node);
+            }
+        }
+    }
+    out
+}
+
 fn default_navigation(s: &mut Session, a: &Args) -> CmdResult {
     let g = &mut s.graph;
+    if a.bool("defaultWorkingNode") {
+        // The node one most likely wants to work on when looking at the destination: a shading group's material, a
+        // transform's shape, else the node itself.
+        let (n, _) = nav_destination(g, a)?;
+        let t = g.node(n).unwrap().type_arc().clone();
+        let work = if t.is_a(SG_TYPE) {
+            plug_named(g, n, "surfaceShader").and_then(|p| g.source(&p)).map(|p| p.node).unwrap_or(n)
+        } else if t.is_a("transform") {
+            crate::dag::shapes(g, n, false).first().copied().unwrap_or(n)
+        } else {
+            n
+        };
+        return Ok(json!(g.path(work)));
+    }
+    if a.bool("defaultTraversal") {
+        // Where to go from the destination: what feeds it, else the node itself.
+        let (n, p) = nav_destination(g, a)?;
+        let to = nav_sources(g, n, p).first().copied().unwrap_or(n);
+        return Ok(json!(g.path(to)));
+    }
+    if a.bool("relatedNodes") {
+        let (n, p) = nav_destination(g, a)?;
+        let mut out = nav_sources(g, n, p);
+        // And what those are fed by in turn.
+        let mut k = 0;
+        while k < out.len() && out.len() < 256 {
+            for x in nav_sources(g, out[k], None) {
+                if x != n && !out.contains(&x) {
+                    out.push(x);
+                }
+            }
+            k += 1;
+        }
+        return Ok(json!(out.iter().map(|&x| g.path(x)).collect::<Vec<_>>()));
+    }
+    if a.bool("disconnect") || a.bool("delete") {
+        let (n, p) = nav_destination(g, a)?;
+        let feeding = nav_sources(g, n, p);
+        g.open_chunk("defaultNavigation");
+        let r = (|| -> CmdResult<()> {
+            match p {
+                Some(p) => {
+                    g.disconnect(&p);
+                }
+                None => {
+                    for (d, _) in g.connections().into_iter().filter(|(d, _)| d.node == n) {
+                        g.disconnect(&d);
+                    }
+                }
+            }
+            if a.bool("delete") {
+                // Nodes left feeding nothing go.
+                for x in feeding {
+                    if g.node(x).is_some() && !g.connections().iter().any(|(_, src)| src.node == x) && !g.node(x).unwrap().ty().dag {
+                        g.delete_node(x)?;
+                    }
+                }
+            }
+            Ok(())
+        })();
+        g.close_chunk();
+        r?;
+        return Ok(json!([]));
+    }
     if !a.bool("connectToExisting") {
-        // createNew and the traversal flags answer questions the interface asks of itself.
+        // createNew answers what the interface asks of itself: it opens a window there.
         return Ok(json!([]));
     }
     let (Some(src), Some(dst)) = (a.get("source").and_then(Value::as_str), a.get("destination").and_then(Value::as_str)) else {
@@ -1515,13 +1606,15 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("force", "f", ArgType::Bool, "Accepted: a connection is always replaced."))
             .flag(f("quiet", "qt", ArgType::Bool, "Accepted for scripts."))
             .flag(f("createNew", "cn", ArgType::Bool, "Accepted for scripts."))
-            .flag(f("defaultTraversal", "dtv", ArgType::Bool, "Accepted for scripts."))
+            .flag(f("defaultTraversal", "dtv", ArgType::Bool, "The node to go to from -destination: what feeds it, else the node."))
             .flag(f("defaultAttribute", "da", ArgType::Bool, "Accepted for scripts."))
             .flag(f("navigatorDecisionString", "nds", ArgType::String, "Accepted for scripts."))
-            .flag(f("relatedNodes", "ren", ArgType::Bool, "Accepted for scripts."))
+            .flag(f("relatedNodes", "ren", ArgType::Bool, "The nodes feeding -destination, directly or not."))
             .flag(f("ignore", "i", ArgType::Bool, "Accepted for scripts."))
             .flag(f("unignore", "u", ArgType::Bool, "Accepted for scripts."))
-            .flag(f("delete", "del", ArgType::Bool, "Accepted for scripts.")),
+            .flag(f("delete", "del", ArgType::Bool, "Delete the nodes feeding -destination, once they feed nothing else."))
+            .flag(f("disconnect", "dis", ArgType::Bool, "Break the connection into -destination."))
+            .flag(f("defaultWorkingNode", "dwn", ArgType::Bool, "The node most likely wanted when looking at -destination: a shading group's material, a transform's shape, else the node."))
     );
     extend(
         c,

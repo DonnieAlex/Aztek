@@ -157,11 +157,114 @@ fn is_anim_curve(t: &crate::node::NodeType) -> bool {
     t.name.starts_with("animCurve")
 }
 
+/// dgdirty: dirty messages, cleaning, and the lists of what is dirty or clean.
+fn dgdirty(s: &mut Session, a: &Args) -> CmdResult {
+    const KINDS: [(&str, &str, &str); 3] = [("d", "data", "plugs with dirty or clean data"), ("p", "plug", "plugs in a dirty or clean state"), ("c", "connection", "connections in a dirty or clean state, as pairs")];
+    if a.bool("query") {
+        // The kinds of list, or what one is.
+        if let Some(v) = a.get("list").and_then(Value::as_str).filter(|v| *v != "true") {
+            let Some(k) = KINDS.iter().find(|k| k.0 == v || k.1 == v) else { fail!("dgdirty: -list {v} is not data, plug or connection") };
+            return Ok(json!(format!("{}: {}", k.1, k.2)));
+        }
+        return Ok(json!(KINDS.iter().map(|k| format!("{}/{}", k.0, k.1)).collect::<Vec<_>>()));
+    }
+    let started = std::time::Instant::now();
+    let names = objects(s, a);
+    let g = &mut s.graph;
+    let all = a.bool("allPlugs") || (names.is_empty() && a.get("list").is_some());
+    let mut ids: Vec<NodeId> = Vec::new();
+    let mut plugs: Vec<PlugRef> = Vec::new();
+    if all {
+        ids = g.nodes().into_iter().filter(|&id| a.bool("implicit") || g.node(id).is_some_and(|n| !(n.namespace.is_empty() && crate::defaults::is_default_node(n.name())))).collect();
+    } else {
+        for n in &names {
+            if n.contains('.') {
+                plugs.push(g.plug(n)?);
+            } else {
+                ids.push(node_of(g, n, "dgdirty")?);
+            }
+        }
+    }
+    // A node's plugs that carry anything: those connected.
+    let conns = g.connections();
+    for &id in &ids {
+        for (d, sr) in &conns {
+            for p in [d, sr] {
+                if p.node == id && !plugs.contains(p) {
+                    plugs.push(*p);
+                }
+            }
+        }
+    }
+    let clean = a.bool("clean");
+    if let Some(kind) = a.get("list") {
+        let kind = kind.as_str().unwrap_or("data");
+        let Some(k) = KINDS.iter().find(|k| k.0 == kind || k.1 == kind) else { fail!("dgdirty: -list {kind} is not data, plug or connection") };
+        let dirty_node = |g: &Graph, n: NodeId| g.node(n).is_some_and(|x| x.is_dirty());
+        let mut out = Vec::new();
+        if k.1 == "connection" {
+            for (d, sr) in &conns {
+                if (plugs.contains(d) || plugs.contains(sr)) && dirty_node(g, d.node) != clean {
+                    out.push(json!(g.plug_name(sr)));
+                    out.push(json!(g.plug_name(d)));
+                }
+            }
+        } else {
+            for p in &plugs {
+                // A plug's data is dirty while its node waits to compute; its state, while it is the destination of a
+                // dirty connection.
+                let dirty = if k.1 == "data" { dirty_node(g, p.node) } else { dirty_node(g, p.node) && g.source(p).is_some_and(|sr| dirty_node(g, sr.node) || dirty_node(g, p.node)) };
+                if dirty != clean {
+                    out.push(json!(g.plug_name(p)));
+                }
+            }
+        }
+        return Ok(Value::Array(out));
+    }
+    if clean {
+        g.evaluate();
+        for p in &plugs {
+            let _ = g.value(p);
+        }
+    } else {
+        let mut touched: Vec<NodeId> = plugs.iter().map(|p| p.node).collect();
+        touched.sort();
+        touched.dedup();
+        for id in touched {
+            g.touch(id);
+        }
+    }
+    if a.bool("verbose") {
+        for p in &plugs {
+            println!("{} {}", if clean { "clean" } else { "dirty" }, g.plug_name(p));
+        }
+    }
+    if a.bool("showTiming") {
+        println!("// Messages took {} microseconds to process.", started.elapsed().as_micros());
+    }
+    Ok(json!(plugs.len()))
+}
+
 fn delete_cmd(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> CmdResult {
     if a.bool("constructionHistory") {
         return prev(s, a);
     }
     let selective = ["channels", "expressions", "constraints", "staticChannels", "timeAnimationCurves", "unitlessAnimationCurves", "shape", "inputConnectionsAndNodes"].iter().any(|k| a.bool(k)) || a.has("attribute");
+    if a.bool("all") && !selective {
+        // -all names no kind of its own: with no other flag there is nothing to delete.
+        return Ok(Value::Null);
+    }
+    if a.bool("all") && a.bool("constraints") {
+        // Every constraint in the scene.
+        let g = &mut s.graph;
+        let all: Vec<NodeId> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| is_constraint(n.ty()))).collect();
+        for id in all {
+            if g.node(id).is_some() {
+                g.delete_node(id)?;
+            }
+        }
+        return Ok(Value::Null);
+    }
     if !selective {
         // What a plain delete leaves driving nothing goes too.
         let mut doomed = Vec::new();
@@ -181,7 +284,9 @@ fn delete_cmd(s: &mut Session, a: &Args, prev: &aztek_ops::RunFn<Session>) -> Cm
         return Ok(r);
     }
     let mut targets = Vec::new();
-    for n in objects(s, a) {
+    // -all: every node in the scene, for the kinds the other flags name.
+    let names: Vec<String> = if a.bool("all") { s.graph.nodes().into_iter().map(|id| s.graph.path(id)).collect() } else { objects(s, a) };
+    for n in names {
         let id = if n.contains('.') { s.graph.plug(&n)?.node } else { node_of(&s.graph, &n, "delete")? };
         targets.push(id);
         if a.string("hierarchy", "none") == "below" || a.string("hierarchy", "none") == "both" {
@@ -2054,6 +2159,7 @@ pub fn register(c: &mut Commands<Session>) {
             ("hierarchy", "hi", S, "below or both: the objects under it too."), ("shape", "s", B, "Only the shapes."), ("staticChannels", "sc", B, "Curves whose keys all hold one value."),
             ("timeAnimationCurves", "tac", B, "Curves over time."), ("unitlessAnimationCurves", "uac", B, "Driven key curves."), ("attribute", "at", A, "Only on these attributes."), ("inputConnectionsAndNodes", "icn", B, "Everything feeding the channels."),
             ("controlPoints", "cp", B, "Accepted for existing scripts."), ("motionPaths", "mp", B, "Accepted for existing scripts."),
+            ("all", "all", B, "Every object in the scene, for the kind the other flags name: delete -all -c, delete -all -e, delete -all -cn."),
         ] {
             v.push(f(name, short, ty, doc));
         }
@@ -2363,40 +2469,57 @@ pub fn register(c: &mut Commands<Session>) {
         .undoable(false),
     );
     c.register(
-        Cmd::new("dgdirty", "Marks nodes for recompute: named, or -a every one.", |s, a| {
-            let ids: Vec<NodeId> = if a.bool("allPlugs") {
-                s.graph.nodes()
-            } else {
-                let mut v = Vec::new();
-                for n in objects(s, a) {
-                    v.push(if n.contains('.') { s.graph.plug(&n)?.node } else { node_of(&s.graph, &n, "dgdirty")? });
-                }
-                v
-            };
-            for id in ids {
-                s.graph.touch(id);
-            }
-            Ok(Value::Null)
-        })
+        Cmd::new(
+            "dgdirty",
+            "Sends dirty messages to the nodes or plugs named or selected, or -a every one; -c cleans them (brings them up to date) \
+             instead. Returns how many plugs took a message. -l data, plug or connection lists the dirty ones (the clean ones with -c) \
+             rather than sending anything.",
+            dgdirty,
+        )
         .positional("objects or plugs")
         .flag(f("allPlugs", "a", B, "Every node."))
-        .flag(f("clean", "c", B, "Accepted for existing scripts."))
-        .flag(f("verbose", "v", B, "Accepted for existing scripts."))
+        .flag(f("clean", "c", B, "Clean rather than dirty; with -l, list the clean ones."))
+        .flag(f("verbose", "v", B, "Print each plug set dirty."))
+        .flag(f("implicit", "i", B, "With -a: the nodes every scene has too."))
+        .flag(f("list", "l", A, "List instead: data (plugs with dirty data), plug (plugs in a dirty state), connection (dirty connections, in pairs)."))
+        .flag(f("propagation", "p", B, "Dirty messages flow on through the graph (as they always do here)."))
+        .flag(f("showTiming", "st", B, "Print how long the messages took."))
+        .flag(f("query", "q", B, "With -l: the kinds of list there are."))
+        .flag(f("queried", "", A, "Flags asked about in query mode."))
         .undoable(false),
     );
     c.register(
-        Cmd::new("dgeval", "Brings nodes or plugs up to date.", |s, a| {
-            for n in a.named() {
+        Cmd::new("dgeval", "Brings the nodes or plugs named or selected up to date. Returns how many plugs were evaluated.", |s, a| {
+            let names = objects(s, a);
+            let g = &mut s.graph;
+            let mut count = 0usize;
+            for n in names {
                 if n.contains('.') {
-                    let p = s.graph.plug(&n)?;
-                    s.graph.value(&p)?;
+                    let p = g.plug(&n)?;
+                    let v = g.value(&p)?;
+                    count += 1;
+                    if a.bool("verbose") {
+                        println!("{n} = {v:?}");
+                    }
+                } else {
+                    let id = node_of(g, &n, "dgeval")?;
+                    // Its connected plugs.
+                    let plugs: Vec<PlugRef> = g.connections().into_iter().flat_map(|(d, sr)| [d, sr]).filter(|p| p.node == id).collect();
+                    for p in plugs {
+                        let v = g.value(&p)?;
+                        count += 1;
+                        if a.bool("verbose") {
+                            println!("{} = {v:?}", g.plug_name(&p));
+                        }
+                    }
                 }
             }
-            s.graph.evaluate();
-            Ok(Value::Null)
+            g.evaluate();
+            Ok(json!(count))
         })
         .positional("objects or plugs")
-        .flag(f("verbose", "v", B, "Accepted for existing scripts."))
+        .flag(f("verbose", "v", B, "Print what each plug evaluated to."))
+        .flag(f("src", "src", B, "Obsolete: has no effect."))
         .undoable(false),
     );
     c.register(

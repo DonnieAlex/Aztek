@@ -177,3 +177,109 @@ pub(crate) fn query(g: &mut Graph, n: NodeId, a: &Args, tools: &[NodeId]) -> Opt
     }
     None
 }
+
+/// What every deformer command answers about a deformer it names: the shared queries, -geometry and -geometryIndices.
+/// `tools` are its tool objects for -deformerTools.
+pub(crate) fn shared_query(g: &mut Graph, n: NodeId, a: &Args, tools: &[NodeId]) -> Option<Value> {
+    if let Some(v) = query(g, n, a, tools) {
+        return Some(v);
+    }
+    let asked = |k: &str| crate::skin::asked(a, k);
+    if asked("geometryIndices") {
+        return Some(json!((0..deform::geometry_names(g, n).len()).collect::<Vec<_>>()));
+    }
+    if asked("geometry") {
+        return Some(json!(deform::geometry_names(g, n)));
+    }
+    None
+}
+
+/// The shared edits on a deformer named: -geometry (with -remove) and -prune. None when the call has neither.
+pub(crate) fn shared_edit(s: &mut Session, a: &Args, name: &str, cmd: &str) -> Option<CmdResult> {
+    if let Some(geo) = a.get("geometry").cloned() {
+        let mut call = serde_json::Map::new();
+        call.insert("edit".into(), json!(true));
+        call.insert("geometry".into(), geo);
+        if a.bool("remove") {
+            call.insert("remove".into(), json!(true));
+        }
+        call.insert("args".into(), json!([name]));
+        return Some(aztek_ops::execute(s, "deformer", &Value::Object(call), aztek_ops::CallSource::Script));
+    }
+    if a.bool("prune") {
+        return Some(deform::prune(s, &Args { positional: vec![json!(name)], flags: Default::default() }, cmd));
+    }
+    None
+}
+
+/// The arguments a deformer command makes its deformer with, once the shared creation flags are worked: the objects named
+/// or selected (hidden ones left out unless -includeHiddenSelections, the selection not at all with -ignoreSelected), and
+/// where it goes as -before, -after or -frontOfChain.
+pub(crate) fn creation_args(s: &mut Session, a: &Args, cmd: &str) -> CmdResult<Args> {
+    let mut b = a.clone();
+    let named = a.named();
+    if named.is_empty() {
+        if a.bool("ignoreSelected") {
+            fail!("{cmd}: -ignoreSelected: name the objects to deform");
+        }
+        let all = objects(s, a);
+        let kept = targets(s, a);
+        // Hidden objects taken in, or some left out: the inner command is given the objects by name.
+        if kept.len() != all.len() || a.bool("includeHiddenSelections") {
+            if kept.is_empty() {
+                fail!("{cmd}: the objects selected are hidden (use -includeHiddenSelections)");
+            }
+            b.positional = kept.iter().map(|k| json!(k)).collect();
+        }
+    }
+    if a.bool("afterReference") || a.bool("automatic") || a.bool("split") || a.bool("parallel") {
+        let first = b.named().into_iter().next().or_else(|| objects(s, a).into_iter().next());
+        let mesh = first.and_then(|n| s.graph.find(n.split('.').next().unwrap_or(&n)).ok().flatten()).and_then(|id| crate::components::as_mesh(&s.graph, id));
+        // -parallel puts the deformer beside the others, from the shape they start from; it goes in front of them here.
+        let place = match mesh {
+            Some(m) if !a.bool("parallel") => placement(&s.graph, a, m),
+            _ => Place::Front,
+        };
+        for k in ["before", "after", "frontOfChain", "afterReference", "automatic", "split", "parallel"] {
+            b.flags.remove(k);
+        }
+        let k = match place {
+            Place::After => "after",
+            Place::Before => "before",
+            Place::Front => "frontOfChain",
+        };
+        b.flags.insert(k.into(), json!(true));
+    }
+    Ok(b)
+}
+
+/// After a deformer is made: -exclusive's partition and -useComponentTags.
+pub(crate) fn after_create(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
+    if let Some(ex) = a.get("exclusive").and_then(Value::as_str) {
+        exclusive(g, n, ex)?;
+    }
+    if a.bool("useComponentTags") {
+        use_component_tags(g, n)?;
+    }
+    Ok(())
+}
+
+/// The flags a deformer command shares beyond creation_flags: what it deforms, edited and queried.
+pub(crate) fn geometry_flags(mut c: crate::history_qe::Cmd) -> crate::history_qe::Cmd {
+    use aztek_ops::ArgType;
+    use crate::history_qe::{f, upsert};
+    for fl in [
+        f("geometry", "g", ArgType::Any, "With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms.").multi(1),
+        f("geometryIndices", "gi", ArgType::Bool, "With -q -g: the index of each shape."),
+        f("remove", "rm", ArgType::Bool, "With -e -g: take the geometry off the deformer."),
+        f("ignoreSelected", "is", ArgType::Bool, "Deform only the objects named, not the selection."),
+        f("parallel", "par", ArgType::Bool, "Work beside the other deformers, from the shape they start from."),
+        f("prune", "pr", ArgType::Bool, "With -e: the points it doesn't move leave its set."),
+    ] {
+        if c.flags.iter().any(|x| x.name == fl.name) {
+            continue;
+        }
+        c = upsert(c, fl);
+    }
+    c
+}

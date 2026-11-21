@@ -977,6 +977,16 @@ void ScriptUi::build_layout(Item* it, const QJsonObject& props) {
 
 void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
     const QString& k = it->kind;
+    // The reference's -generalSpacing, -margins and -margins4 (left, top, right, bottom) set on a layout.
+    if (it->layout) {
+        if (props.contains("generalSpacing")) it->layout->setSpacing(int(as_number(props["generalSpacing"])));
+        if (props.contains("margins")) {
+            int m = int(as_number(props["margins"]));
+            it->layout->setContentsMargins(m, m, m, m);
+        }
+        QJsonArray m4 = flat(props["margins4"]);
+        if (m4.size() >= 4) it->layout->setContentsMargins(int(as_number(m4[0])), int(as_number(m4[1])), int(as_number(m4[2])), int(as_number(m4[3])));
+    }
     if (k == "formLayout") {
         auto* f = static_cast<FormWidget*>(it->w);
         if (props.contains("numberOfDivisions")) f->divisions = int(as_number(props["numberOfDivisions"], 100));

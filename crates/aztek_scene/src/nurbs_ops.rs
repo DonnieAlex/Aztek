@@ -684,14 +684,17 @@ pub(crate) fn trimmed_plane(c: &NurbsCurve) -> Option<NurbsSurface> {
 }
 
 /// circularFillet's sections: where the offsets of the surfaces meet is the arc's centre.
-fn circular_fillet(a: &NurbsSurface, b: &NurbsSurface, r1: f64, r2: f64) -> Option<NurbsSurface> {
+/// The fillet is fitted closer as the tolerances go down: the position tolerance sets how finely the offset surfaces
+/// are met, the tangent tolerance how many cross sections the fillet is lofted through (0.01 each: 16 and 16).
+fn circular_fillet(a: &NurbsSurface, b: &NurbsSurface, r1: f64, r2: f64, pt: f64, tt: f64) -> Option<NurbsSurface> {
+    let res = |tol: f64| ((16.0 * (0.01 / tol.max(1e-6)).sqrt()).round() as usize).clamp(4, 64);
     let (oa, ob) = (a.offset(r1), b.offset(r2));
-    let lines = mesh_intersection(&surface_mesh(&oa, 16), &surface_mesh(&ob, 16));
+    let lines = mesh_intersection(&surface_mesh(&oa, res(pt)), &surface_mesh(&ob, res(pt)));
     let spine = lines.first()?;
     if spine.len() < 2 {
         return None;
     }
-    let step = (spine.len() / 16).max(1);
+    let step = (spine.len() / res(tt)).max(1);
     let mut sections: Vec<NurbsCurve> = Vec::new();
     for (k, &c) in spine.iter().enumerate() {
         if k % step != 0 && k + 1 != spine.len() {
@@ -707,6 +710,43 @@ fn circular_fillet(a: &NurbsSurface, b: &NurbsSurface, r1: f64, r2: f64) -> Opti
         return None;
     }
     loft_of(&sections)
+}
+
+fn intersect_text(hits: &[(f64, f64)]) -> String {
+    let all: Vec<String> = hits.iter().map(|h| h.0.to_string()).chain(hits.iter().map(|h| h.1.to_string())).collect();
+    all.join(" ")
+}
+
+fn curve_intersect_cmd(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(r) = crate::history_qe::qe(s, a, "curveIntersect", &["curveIntersect"], &[]) {
+        return r;
+    }
+    let names = objects(s, a);
+    let [x, y] = names.as_slice() else { fail!("curveIntersect: name two curves") };
+    let g = &mut s.graph;
+    let (c1, c2) = (curves::curve_arg(g, x, "curveIntersect")?, curves::curve_arg(g, y, "curveIntersect")?);
+    let mut dir = a.vec3("direction").map_or(DVec3::Z, DVec3::from_array);
+    for (k, axis) in ["directionX", "directionY", "directionZ"].iter().enumerate() {
+        if a.has(axis) {
+            dir[k] = a.float(axis, 0.0);
+        }
+    }
+    let ud = a.bool("useDirection");
+    let tol = a.float("tolerance", 1e-3);
+    if a.bool("constructionHistory") {
+        let n = new_node(g, "curveIntersect", "curveIntersect1")?;
+        g.connect(&plug(c1, CurveShape::WORLD_SPACE), &plug(n, 0), false)?;
+        g.connect(&plug(c2, CurveShape::WORLD_SPACE), &plug(n, 2), false)?;
+        set_f(g, n, "tolerance", tol)?;
+        g.set_value(plug(n, 5), PlugValue::Bool(ud))?;
+        g.set_value(plug(n, 6), PlugValue::Vec3(dir))?;
+        crate::history_qe::apply_common(g, n, a)?;
+        g.evaluate();
+        return Ok(json!(g.path(n)));
+    }
+    let (Some(w1), Some(w2)) = (curves::world_curve(g, c1), curves::world_curve(g, c2)) else { fail!("curveIntersect: no curve") };
+    let hits = curve_intersections(&w1, &w2, tol, ud.then(|| dir.normalize_or_zero()));
+    Ok(json!(intersect_text(&hits)))
 }
 
 /// stitch: a boundary's CVs moved onto the target curve, by bias.
@@ -1243,16 +1283,49 @@ fn register_types() {
             },
         ));
         reg(node_type(
+            "curveIntersect",
+            "Where two curves cross: the parameters on each, projected along a direction first with useDirection.",
+            vec![
+                cin("inputCurve1", "ic1"),
+                AttrDef { flags: flags::OUTPUT | flags::ARRAY, ..f_in("parameter1", "p1", 0.0, "The parameters on the first curve.") },
+                cin("inputCurve2", "ic2"),
+                AttrDef { flags: flags::OUTPUT | flags::ARRAY, ..f_in("parameter2", "p2", 0.0, "The parameters on the second curve.") },
+                f_in("tolerance", "tol", 0.001, "How close counts."),
+                bin("useDirection", "ud", false),
+                v_in("direction", "d", DVec3::Z, "The direction the curves are projected along."),
+            ],
+            |d| {
+                let (Some(a), Some(b)) = (crv(d, 0), crv(d, 2)) else {
+                    d.set_output_elements(1, Vec::new());
+                    d.set_output_elements(3, Vec::new());
+                    return;
+                };
+                let dir = d.bool(5).then(|| d.vec3(6).normalize_or_zero());
+                let hits = curve_intersections(&a, &b, d.float(4), dir);
+                d.set_output_elements(1, hits.iter().enumerate().map(|(i, h)| (i as i32, PlugValue::Float(h.0))).collect());
+                d.set_output_elements(3, hits.iter().enumerate().map(|(i, h)| (i as i32, PlugValue::Float(h.1))).collect());
+            },
+        ));
+        reg(node_type(
             "rbfSrf",
             "A round fillet between two surfaces.",
-            vec![sin("primarySurface", "ps"), sout("outputSurface", "os"), sin("secondarySurface", "ss"), f_in("primaryRadius", "pr", 1.0, "Offset from the first, signed."), f_in("secondaryRadius", "sr", 1.0, "Offset from the second, signed.")],
+            vec![
+                sin("primarySurface", "ps"),
+                sout("outputSurface", "os"),
+                sin("secondarySurface", "ss"),
+                f_in("primaryRadius", "pr", 1.0, "Offset from the first, signed."),
+                f_in("secondaryRadius", "sr", 1.0, "Offset from the second, signed."),
+                f_in("positionTolerance", "pt", 0.01, "How far the fillet may stray from where it touches the surfaces."),
+                f_in("tangentTolerance", "tt", 0.01, "How far its tangents may stray from the surfaces'."),
+            ],
             |d| {
                 let (Some(a), Some(b)) = (srf(d, IN), srf(d, P)) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
                 let (r1, r2) = (d.float(P + 1), d.float(P + 2));
-                put_surface(d, OUT, circular_fillet(&a, &b, r1, r2));
+                let (pt, tt) = (d.float(P + 3), d.float(P + 4));
+                put_surface(d, OUT, circular_fillet(&a, &b, r1, r2, pt, tt));
             },
         ));
         reg(node_type(
@@ -2209,6 +2282,9 @@ pub fn register(c: &mut Commands<Session>) {
                 connect_world_surface(g, s2, n, P)?;
                 set_f(g, n, "primaryRadius", a.float("primaryRadius", r0))?;
                 set_f(g, n, "secondaryRadius", a.float("secondaryRadius", r0))?;
+                set_f(g, n, "positionTolerance", a.float("positionTolerance", 0.01))?;
+                set_f(g, n, "tangentTolerance", a.float("tangentTolerance", 0.01))?;
+                crate::history_qe::apply_common(g, n, a)?;
                 surface_from(g, a, n, plug(n, OUT), "circularFillet1")
             })();
             g.close_chunk();
@@ -2218,6 +2294,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("radius", "r", Fl, "Both offsets (1)."))
         .flag(f("primaryRadius", "pr", Fl, "Offset from the first."))
         .flag(f("secondaryRadius", "sr", Fl, "Offset from the second."))
+        .flag(f("positionTolerance", "pt", Fl, "How far the fillet may stray from where it touches the surfaces (0.01)."))
+        .flag(f("tangentTolerance", "tt", Fl, "How far its tangents may stray from the surfaces' (0.01)."))
         .flag(f("curveOnSurface", "cos", B, "Accepted for existing scripts.")),
     ));
     c.register(make_flags(
@@ -2249,28 +2327,23 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("positionTolerance", "pt", Fl, "Accepted for existing scripts."))
         .flag(f("tangentTolerance", "tt", Fl, "Accepted for existing scripts.")),
     ));
-    c.register(
-        Cmd::new("curveIntersect", "Where two curves cross, as text: \"u1 u2 u1 u2 ...\" on the first and second. -ud -d flattens along a direction first; -tol how close.", |s, a| {
-            let names = objects(s, a);
-            let [x, y] = names.as_slice() else { fail!("curveIntersect: name two curves") };
-            let g = &mut s.graph;
-            let (c1, c2) = (curves::curve_arg(g, x, "curveIntersect")?, curves::curve_arg(g, y, "curveIntersect")?);
-            let (Some(w1), Some(w2)) = (curves::world_curve(g, c1), curves::world_curve(g, c2)) else { fail!("curveIntersect: no curve") };
-            let dir = a.bool("useDirection").then(|| a.vec3("direction").map_or(DVec3::Z, DVec3::from_array).normalize_or_zero());
-            let hits = curve_intersections(&w1, &w2, a.float("tolerance", 1e-3), dir);
-            let mut t = String::new();
-            for (u, v) in hits {
-                t.push_str(&format!("{u} {v} "));
-            }
-            Ok(json!(t))
-        })
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
+        Cmd::new(
+            "curveIntersect",
+            "Where two curves cross: the parameters on the first, then those on the second, as text. -ud with -d projects them along a \
+             direction first; -tol how close counts. With -ch, a curveIntersect node instead, its parameter1 and parameter2 following \
+             the curves.",
+            curve_intersect_cmd,
+        )
         .positional("two curves")
         .flag(f("tolerance", "tol", Fl, "How close counts (0.001)."))
-        .flag(f("useDirection", "ud", B, "Flatten along -d first."))
-        .flag(f("direction", "d", ArgType::Vec3, "Which way."))
-        .flag(f("constructionHistory", "ch", B, "Accepted for existing scripts."))
-        .undoable(false),
-    );
+        .flag(f("useDirection", "ud", B, "Project along -d first (off)."))
+        .flag(f("direction", "d", ArgType::Vec3, "The direction projected along."))
+        .flag(f("directionX", "dx", Fl, "Its X."))
+        .flag(f("directionY", "dy", Fl, "Its Y."))
+        .flag(f("directionZ", "dz", Fl, "Its Z."))
+        .flag(f("constructionHistory", "ch", B, "Make a curveIntersect node and return it (off).")),
+    )));
     c.register(make_flags(
         Cmd::new("intersect", "Curves where two surfaces cross, sampled from their tessellation: one object per run, -cos on the first surface. Returns [curves..., node].", |s, a| {
             let names = objects(s, a);

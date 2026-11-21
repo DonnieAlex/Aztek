@@ -193,6 +193,10 @@ pub(crate) fn extend(c: &mut aztek_ops::Commands<Session>, name: &str, types: &'
     };
     let run = old.run.clone();
     let mut cmd = node_flags(qe_flags(old));
+    // -q and -e name the node or an object it feeds.
+    if cmd.positional_doc.is_empty() {
+        cmd.positional_doc = "with -q and -e: the node, or an object it feeds".into();
+    }
     for fl in extra {
         cmd = upsert(cmd, fl);
     }

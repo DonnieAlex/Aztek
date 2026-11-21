@@ -27,7 +27,7 @@ type Cmd = CommandDef<Session>;
 
 /// How an image is baked: its size, the part of UV space it covers (u0, u1, v0, v1), what is behind the faces, and
 /// whether the faces' edges are grown out into it so filtering doesn't bring the background in at the seams.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Opts {
     pub width: u32,
     pub height: u32,
@@ -36,11 +36,17 @@ pub struct Opts {
     pub fill_seams: bool,
     pub anti_alias: bool,
     pub alpha: bool,
+    /// The UV set read, by name; the current one when None.
+    pub uv_set: Option<String>,
+    /// Sample a flat plane spanning this UV range rather than the surfaces.
+    pub plane: Option<[f64; 4]>,
+    /// Where the camera is, for -doubleSided: normals facing away from it are turned round.
+    pub camera: Option<Vec3>,
 }
 
 impl Default for Opts {
     fn default() -> Self {
-        Opts { width: 256, height: 256, range: [0.0, 1.0, 0.0, 1.0], background: [0, 0, 0], fill_seams: true, anti_alias: false, alpha: false }
+        Opts { width: 256, height: 256, range: [0.0, 1.0, 0.0, 1.0], background: [0, 0, 0], fill_seams: true, anti_alias: false, alpha: false, uv_set: None, plane: None, camera: None }
     }
 }
 
@@ -76,9 +82,37 @@ struct Surface {
     tris: Vec<[(Vec3, Vec3, Vec3, Vec2); 3]>,
 }
 
-fn surface(g: &mut Graph, shape: NodeId, faces: Option<&[Index]>) -> Option<Surface> {
+/// The UVs of a corner in a set, by its layer name.
+fn uv_in(m: &Mesh, layer: Option<&str>, c: Index) -> DVec2 {
+    match layer {
+        Some(l) => m.corner_attrs().get::<[f32; 2]>(l).get(c as usize).map_or(DVec2::ZERO, |u| DVec2::new(u[0] as f64, u[1] as f64)),
+        None => crate::uv_misc::uv_at(m, c),
+    }
+}
+
+/// The UV extent of a shape's faces (all of them when None): u0 u1 v0 v1.
+pub fn uv_bounds(g: &mut Graph, shape: NodeId, faces: Option<&[Index]>, set: Option<&str>) -> Option<[f64; 4]> {
     g.evaluate();
     let m: std::sync::Arc<Mesh> = g.node(shape)?.data().mesh(MeshNode::OUT_MESH).cloned()?;
+    let layer = set.and_then(|s| crate::uv_sets::layer(&m, s));
+    let all: Vec<Index> = (0..m.face_capacity()).filter(|&f| m.face_valid(f)).collect();
+    let mut b = [f64::MAX, f64::MIN, f64::MAX, f64::MIN];
+    for &f in faces.unwrap_or(&all) {
+        if !m.face_valid(f) {
+            continue;
+        }
+        for c in m.face_corners(f) {
+            let uv = uv_in(&m, layer.as_deref(), c);
+            b = [b[0].min(uv.x), b[1].max(uv.x), b[2].min(uv.y), b[3].max(uv.y)];
+        }
+    }
+    (b[1] > b[0] && b[3] > b[2]).then_some(b)
+}
+
+fn surface_in(g: &mut Graph, shape: NodeId, faces: Option<&[Index]>, set: Option<&str>) -> Option<Surface> {
+    g.evaluate();
+    let m: std::sync::Arc<Mesh> = g.node(shape)?.data().mesh(MeshNode::OUT_MESH).cloned()?;
+    let layer = set.and_then(|s| crate::uv_sets::layer(&m, s));
     let xf = crate::dag::transform_of(g, shape);
     let world = crate::rig::world(g, xf).as_mat4();
     let normal_m = world.inverse().transpose();
@@ -95,7 +129,7 @@ fn surface(g: &mut Graph, shape: NodeId, faces: Option<&[Index]>) -> Option<Surf
             let p = m.corner_point(c);
             let obj = m.position(p).as_vec3();
             let n = pn.get(p as usize).copied().unwrap_or(Vec3::Z);
-            let uv = crate::uv_misc::uv_at(&m, c);
+            let uv = uv_in(&m, layer.as_deref(), c);
             (world.transform_point3(obj), normal_m.transform_vector3(n).normalize_or_zero(), obj, Vec2::new(uv.x as f32, uv.y as f32))
         };
         for k in 1..cs.len().saturating_sub(1) {
@@ -126,8 +160,15 @@ pub fn bake(s: &mut Session, src: &PlugRef, shapes: &[(NodeId, Option<Vec<Index>
     let [u0, u1, v0, v1] = o.range;
     let to_px = |uv: Vec2| Vec2::new(((uv.x as f64 - u0) / (u1 - u0) * w as f64) as f32, ((1.0 - (uv.y as f64 - v0) / (v1 - v0)) * h as f64) as f32);
     let samples: &[Vec2] = if o.anti_alias { &[Vec2::new(0.25, 0.25), Vec2::new(0.75, 0.25), Vec2::new(0.25, 0.75), Vec2::new(0.75, 0.75)] } else { &[Vec2::new(0.5, 0.5)] };
-    for &(shape, ref faces) in shapes {
-        let Some(surf) = surface(g, shape, faces.as_deref()) else { continue };
+    // A sample plane: a flat square whose UVs span the range, in place of the surfaces.
+    let surfaces: Vec<Surface> = match o.plane {
+        Some([pu0, pu1, pv0, pv1]) => {
+            let c = |u: f64, v: f64| (Vec3::new(u as f32, v as f32, 0.0), Vec3::Z, Vec3::new(u as f32, v as f32, 0.0), Vec2::new(u as f32, v as f32));
+            vec![Surface { tris: vec![[c(pu0, pv0), c(pu1, pv0), c(pu1, pv1)], [c(pu0, pv0), c(pu1, pv1), c(pu0, pv1)]] }]
+        }
+        None => shapes.iter().filter_map(|(shape, faces)| surface_in(g, *shape, faces.as_deref(), o.uv_set.as_deref())).collect(),
+    };
+    for surf in &surfaces {
         for t in &surf.tris {
             let p = [to_px(t[0].3), to_px(t[1].3), to_px(t[2].3)];
             let area = (p[1] - p[0]).perp_dot(p[2] - p[0]);
@@ -157,7 +198,13 @@ pub fn bake(s: &mut Session, src: &PlugRef, shapes: &[(NodeId, Option<Vec<Index>
                             get(0) * b0 + get(1) * b1 + get(2) * b2
                         };
                         let uv = t[0].3 * b0 + t[1].3 * b1 + t[2].3 * b2;
-                        let n = mix3(1).normalize_or_zero();
+                        let mut n = mix3(1).normalize_or_zero();
+                        // Double sided: the side the camera sees.
+                        if let Some(cam) = o.camera {
+                            if n.dot(cam - mix3(0)) < 0.0 {
+                                n = -n;
+                            }
+                        }
                         let ctx = ShadeCtx { p: mix3(0), p_obj: mix3(2), n, ng: n, uv, wo: n, footprint: 1.0 / w.max(h) as f32, ..Default::default() };
                         let c = net.eval(input, &ctx, &tex);
                         sum += if c.is_finite() { c } else { Vec3::ZERO };
@@ -244,6 +291,20 @@ pub fn uv_lines(g: &mut Graph, shapes: &[NodeId], w: u32, h: u32) -> Vec<u8> {
         }
     }
     rgba
+}
+
+/// Writes 16 bits a channel where the format takes them (png, tif), else 8.
+fn save_depth(path: &Path, rgba: &[u8], w: u32, h: u32, sixteen: bool) -> Result<(), String> {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    if sixteen && matches!(ext.as_str(), "png" | "tif" | "tiff") {
+        if let Some(d) = path.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let wide: Vec<u16> = rgba.iter().map(|&x| x as u16 * 257).collect();
+        let Some(img) = image::ImageBuffer::<image::Rgba<u16>, Vec<u16>>::from_raw(w, h, wide) else { return Err("bad image size".into()) };
+        return img.save(path).map_err(|e| format!("{}: {e}", path.display()));
+    }
+    save(path, rgba, w, h)
 }
 
 fn save(path: &Path, rgba: &[u8], w: u32, h: u32) -> Result<(), String> {
@@ -338,11 +399,53 @@ fn convert_solid_tx(s: &mut Session, a: &Args) -> CmdResult {
     let names = a.named();
     let Some(attr) = names.first().cloned() else { fail!("convertSolidTx: name the attribute to bake, then the objects") };
     let src = plug_of(&s.graph, &attr, "convertSolidTx")?;
-    let shapes = shapes_named(s, &names[1..], "convertSolidTx")?;
-    let o = opts_from(a, 256, 256);
+    let plane = a.bool("samplePlane");
+    // A sample plane needs no surface.
+    let shapes = if plane && names.len() < 2 { Vec::new() } else { shapes_named(s, &names[1..], "convertSolidTx")? };
+    let mut o = opts_from(a, 256, 256);
+    let uv_set = a.get("uvSetName").and_then(Value::as_str).filter(|x| !x.is_empty()).map(str::to_string);
+    o.uv_set = uv_set.clone();
+    if plane {
+        let r: Vec<f64> = a.get("samplePlaneRange").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+        let r = if r.len() == 4 && r[1] > r[0] && r[3] > r[2] { [r[0], r[1], r[2], r[3]] } else { [0.0, 1.0, 0.0, 1.0] };
+        o.plane = Some(r);
+        o.range = r;
+    }
+    // The UVs sampled: the given range, the surfaces' whole extent (-fullUvRange), or the extent of the faces named
+    // (-componentRange).
+    let mut fitted = a.get("uvRange").is_some();
+    if !plane && (a.bool("fullUvRange") || (a.bool("componentRange") && shapes.iter().any(|x| x.1.is_some()))) {
+        let mut b = [f64::MAX, f64::MIN, f64::MAX, f64::MIN];
+        for (sh, faces) in &shapes {
+            let faces = if a.bool("fullUvRange") { None } else { faces.as_deref() };
+            if let Some(x) = uv_bounds(&mut s.graph, *sh, faces, uv_set.as_deref()) {
+                b = [b[0].min(x[0]), b[1].max(x[1]), b[2].min(x[2]), b[3].max(x[3])];
+            }
+        }
+        if b[1] > b[0] && b[3] > b[2] {
+            o.range = b;
+            fitted = true;
+        }
+    }
+    if a.bool("doubleSided") {
+        let cam = a.get("camera").and_then(Value::as_str).map(str::to_string).or_else(|| s.graph.nodes().into_iter().find(|&n| s.graph.node(n).is_some_and(|x| x.name() == "persp")).map(|n| s.graph.path(n)));
+        if let Some(c) = cam.and_then(|c| s.graph.find(&c).ok().flatten()) {
+            let xf = crate::dag::transform_of(&s.graph, c);
+            let w = crate::rig::world(&mut s.graph, xf);
+            o.camera = Some(w.w_axis.truncate().as_vec3());
+        }
+    }
     let node_name = s.graph.node(src.node).map(|n| n.name().to_string()).unwrap_or_default();
     let attr_name = s.graph.attr(&src).name.clone();
-    let first = s.graph.path(crate::dag::transform_of(&s.graph, shapes[0].0)).trim_start_matches('|').replace('|', "_");
+    let first = match shapes.first() {
+        Some(sh) => s.graph.path(crate::dag::transform_of(&s.graph, sh.0)).trim_start_matches('|').replace('|', "_"),
+        None => "samplePlane".to_string(),
+    };
+    // With a UV set, the name says it: surface-set.
+    let first = match &uv_set {
+        Some(u) => format!("{first}-{u}"),
+        None => first,
+    };
     let file = match a.get("fileImageName").and_then(Value::as_str).filter(|x| !x.is_empty()) {
         Some(f) => PathBuf::from(f),
         None => {
@@ -355,7 +458,8 @@ fn convert_solid_tx(s: &mut Session, a: &Args) -> CmdResult {
         fail!("convertSolidTx: {} exists; -force writes over it", file.display());
     }
     let rgba = bake(s, &src, &shapes, &o).map_err(|e| CommandError::new(format!("convertSolidTx: {e}")))?;
-    save(&file, &rgba, o.width, o.height).map_err(|e| CommandError::new(format!("convertSolidTx: {e}")))?;
+    let sixteen = a.get("pixelFormat").map(|v| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())).is_some_and(|v| v == "16");
+    save_depth(&file, &rgba, o.width, o.height, sixteen).map_err(|e| CommandError::new(format!("convertSolidTx: {e}")))?;
     let path = file.to_string_lossy().replace('\\', "/");
     if a.bool("noFileNode") {
         return Ok(json!(path));
@@ -364,6 +468,15 @@ fn convert_solid_tx(s: &mut Session, a: &Args) -> CmdResult {
     let made = s.run("shadingNode", json!({"args": ["file"], "asTexture": true, "name": name}))?;
     let f = made.as_str().unwrap_or_default().to_string();
     s.run("setAttr", json!({"args": [format!("{f}.fileTextureName"), path], "type": "string"}))?;
+    if fitted {
+        // A placement maps the image back onto the part of UV space it was sampled from.
+        let place = s.run("shadingNode", json!({"args": ["place2dTexture"], "asUtility": true}))?;
+        let place = place.as_str().unwrap_or_default().to_string();
+        s.run("defaultNavigation", json!({"connectToExisting": true, "source": place, "destination": f}))?;
+        let [u0, u1, v0, v1] = o.range;
+        s.run("setAttr", json!({"args": [format!("{place}.coverage"), u1 - u0, v1 - v0]}))?;
+        s.run("setAttr", json!({"args": [format!("{place}.translateFrame"), u0, v0]}))?;
+    }
     Ok(json!([f]))
 }
 
@@ -694,7 +807,16 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("uvRange", "uvr", ArgType::List, "u0 u1 v0 v1.").multi(4))
             .flag(f("force", "f", ArgType::Bool, "Write over the file."))
             .flag(f("name", "n", ArgType::String, "The file node's name."))
-            .flag(f("doubleSided", "ds", ArgType::Bool, "Accepted: both sides are the same here."))
+            .flag(f("doubleSided", "ds", ArgType::Bool, "Normals facing away from the camera are turned round, so the side it sees is sampled."))
+            .flag(f("camera", "cam", ArgType::String, "The camera for -doubleSided (persp)."))
+            .flag(f("componentRange", "cr", ArgType::Bool, "With faces named: the image covers their UV extent."))
+            .flag(f("fullUvRange", "fur", ArgType::Bool, "The image covers the surfaces' whole UV extent; a placement maps it back."))
+            .flag(f("pixelFormat", "pf", ArgType::Any, "8 or 16 bits a channel (8); 16 where the format takes it (png, tif)."))
+            .flag(f("reuseDepthMap", "rdm", ArgType::Bool, "Accepted: no shadows are baked, so there are no depth maps."))
+            .flag(f("samplePlane", "sp", ArgType::Bool, "Sample a flat plane whose UVs span -samplePlaneRange rather than the surfaces."))
+            .flag(f("samplePlaneRange", "spr", ArgType::List, "u0 u1 v0 v1 for -samplePlane (0 1 0 1).").multi(4))
+            .flag(f("uvBBoxIntersect", "ubi", ArgType::Bool, "Obsolete: has no effect."))
+            .flag(f("uvSetName", "uv", ArgType::String, "The UV set sampled; the image is named surface-set."))
             .flag(f("shadows", "sh", ArgType::Bool, "Accepted: no lighting is baked."))
             .flag(f("noFileNode", "nfn", ArgType::Bool, "Aztek: only the image, no file node.")),
     );

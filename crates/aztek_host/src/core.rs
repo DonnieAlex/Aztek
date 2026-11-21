@@ -403,7 +403,10 @@ impl Core {
     pub fn exec_quiet(&mut self, name: &str, call: Value, src: CallSource) -> Result<Value, String> {
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
-        let r = execute(&mut self.s, &name, &call, src);
+        let r = match crate::host_general::intercept(self, &name, &call) {
+            Some(r) => r.map_err(aztek_ops::CommandError::new),
+            None => execute(&mut self.s, &name, &call, src),
+        };
         self.ensure_defaults();
         self.version += 1;
         self.drain_captured();
@@ -509,7 +512,10 @@ impl Core {
     fn exec_plain(&mut self, name: &str, call: Value) -> Result<Value, String> {
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
-        let r = execute(&mut self.s, &name, &call, CallSource::Script);
+        let r = match crate::host_general::intercept(self, &name, &call) {
+            Some(r) => r.map_err(aztek_ops::CommandError::new),
+            None => execute(&mut self.s, &name, &call, CallSource::Script),
+        };
         self.version += 1;
         self.drain_captured();
         self.after_command(&name, &call, r.is_ok());
@@ -568,7 +574,10 @@ impl Core {
         let before = self.s.graph.undo_stack().newest_id();
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
-        let r = execute(&mut self.s, &name, &call, CallSource::Script);
+        let r = match crate::host_general::intercept(self, &name, &call) {
+            Some(r) => r.map_err(aztek_ops::CommandError::new),
+            None => execute(&mut self.s, &name, &call, CallSource::Script),
+        };
         self.ensure_defaults();
         self.after_command(&name, &call, r.is_ok());
         let after = self.s.graph.undo_stack().newest_id();

@@ -200,12 +200,16 @@ fn write_meta(s: &mut Session, node: Option<NodeId>, v: Value) -> CmdResult<()> 
 fn data_structure(s: &mut Session, a: &Args) -> CmdResult {
     let more = &mut s.extras.more;
     if a.bool("removeAll") {
+        let names: Vec<String> = more.structures.keys().cloned().collect();
         more.structures.clear();
-        return Ok(Value::Null);
+        return Ok(json!(names));
     }
     if a.bool("remove") {
-        more.structures.remove(&a.string("name", ""));
-        return Ok(Value::Null);
+        let name = a.string("name", "");
+        if more.structures.remove(&name).is_none() {
+            fail!("dataStructure: no structure {name}");
+        }
+        return Ok(json!([name]));
     }
     if a.bool("query") {
         if asked(a, "format") {
@@ -934,7 +938,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("format", "fmt", A, "raw is the one there is."))
             .flag(f("listMemberNames", "lmn", A, "The member names."))
             .flag(f("name", "n", S, "The structure asked about."))
-            .flag(f("remove", "rm", B, "Remove -n."))
+            .flag(f("remove", "rem", B, "Remove the structure named with -n; it must exist. Returns its name."))
             .flag(f("removeAll", "ral", B, "Remove all."))
             .undoable(false),
     );

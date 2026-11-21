@@ -246,8 +246,8 @@ fn settings(extra: Vec<AttrDef>) -> Vec<AttrDef> {
         int_attr("smoothingIterations", "si", 10, "Smoothing passes.", Some(0.0)),
         float_attr_short("smoothingStep", "ss", 0.5, "How far each pass moves a point towards its neighbours.", Some(0.0), Some(1.0)),
         AttrDef { short_name: "pbv".into(), ..bool_attr("pinBorderVertices", true, "Border points stay out of the smoothing.") },
-        float_attr_short("inwardConstraint", "ic", 0.0, "Stops points moving in along the normal: 0 free, 1 not at all.", Some(0.0), Some(1.0)),
-        float_attr_short("outwardConstraint", "oc", 0.0, "Stops points moving out along the normal: 0 free, 1 not at all.", Some(0.0), Some(1.0)),
+        float_attr_short("inwardConstraint", "iwc", 0.0, "Stops points moving in along the normal: 0 free, 1 not at all.", Some(0.0), Some(1.0)),
+        float_attr_short("outwardConstraint", "owc", 0.0, "Stops points moving out along the normal: 0 free, 1 not at all.", Some(0.0), Some(1.0)),
         data_attr("restPoints", "rp", "The mesh's points when the deformer was made."),
     ];
     v.extend(extra);
@@ -294,11 +294,26 @@ fn run(s: &mut Session, a: &Args, ty: &str, label: &str, list: &[&str]) -> CmdRe
         let Some(name) = a.named().into_iter().next() else { fail!("{ty}: name a {ty}") };
         let n = crate::deform_cmds::deformer_named(&s.graph, &name, ty)?;
         if a.bool("query") {
+            if let Some(v) = crate::deform_common::shared_query(&mut s.graph, n, a, &[]) {
+                return Ok(v);
+            }
             return deform::query_flags(&mut s.graph, n, a, list);
+        }
+        let path = s.graph.path(deform::leader_of(&s.graph, n));
+        if let Some(r) = crate::deform_common::shared_edit(s, a, &path, ty) {
+            r?;
+            // Geometry just added rests as it is now.
+            let g = &mut s.graph;
+            for x in deform::group(g, deform::leader_of(g, n)) {
+                if g.node(x).is_some_and(|d| floats_of(d.data(), REST).is_none_or(|r| r.0.is_empty())) {
+                    capture_rest(g, x)?;
+                }
+            }
         }
         deform::apply_flags(&mut s.graph, n, a, list)?;
         return Ok(json!([s.graph.path(n)]));
     }
+    let a = &crate::deform_common::creation_args(s, a, ty)?;
     let meshes = deform::targets(s, a)?;
     if meshes.is_empty() {
         fail!("{ty}: select meshes");
@@ -319,6 +334,7 @@ fn run(s: &mut Session, a: &Args, ty: &str, label: &str, list: &[&str]) -> CmdRe
         for (m, pts) in &meshes[1..] {
             deform::add_geometry(g, n, *m, pts)?;
         }
+        crate::deform_common::after_create(g, n, a)?;
         Ok(n)
     })();
     g.close_chunk();
@@ -327,14 +343,14 @@ fn run(s: &mut Session, a: &Args, ty: &str, label: &str, list: &[&str]) -> CmdRe
 }
 
 fn shared_flags(c: Cmd) -> Cmd {
-    modes(deform::common_flags(c))
+    crate::deform_common::geometry_flags(crate::deform_common::creation_flags(modes(deform::common_flags(c))))
         .positional("meshes or vertices (the selection when none); the deformer with -e and -q")
         .flag(f("smoothingIterations", "si", ArgType::Int, "Smoothing passes (10)."))
         .flag(f("smoothingStep", "ss", ArgType::Float, "How far each pass moves a point towards its neighbours (0.5)."))
         .flag(f("pinBorderVertices", "pbv", ArgType::Bool, "Border points stay out of the smoothing (on)."))
         .flag(f("pin", "pin", ArgType::Bool, "The same as -pinBorderVertices."))
-        .flag(f("inwardConstraint", "ic", ArgType::Float, "Stops points moving in along the normal: 0 free, 1 not at all."))
-        .flag(f("outwardConstraint", "oc", ArgType::Float, "Stops points moving out along the normal: 0 free, 1 not at all."))
+        .flag(f("inwardConstraint", "iwc", ArgType::Float, "Stops points moving in along the normal, keeping the contour: 0 free, 1 not at all (0)."))
+        .flag(f("outwardConstraint", "owc", ArgType::Float, "Stops points moving out along the normal, keeping the contour: 0 free, 1 not at all (0)."))
 }
 
 pub(crate) fn register(c: &mut Commands<Session>) {

@@ -763,7 +763,8 @@ pub fn history_of(g: &Graph, mesh: NodeId) -> Vec<NodeId> {
     while let Some(src) = g.source(&p) {
         out.push(src.node);
         let Some(n) = g.node(src.node) else { break };
-        if n.ty().is_a(BASE_TYPE) || n.ty().name == TWEAK_TYPE || crate::uv_ops::is_uv_node(n.ty().name.as_str()) || crate::rig::is_rig_chain_node(n.ty().name.as_str()) {
+        // The deformers' tweak node passes its input on as they do.
+        if n.ty().is_a(BASE_TYPE) || n.ty().name == TWEAK_TYPE || n.ty().name == "tweak" || crate::uv_ops::is_uv_node(n.ty().name.as_str()) || crate::rig::is_rig_chain_node(n.ty().name.as_str()) {
             p = plug(src.node, INPUT_POLYMESH);
         } else if n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT) {
             // A deformed mesh's original: what made it is history too.

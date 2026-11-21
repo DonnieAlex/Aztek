@@ -780,6 +780,11 @@ void GraphEditor::refresh() {
             view.node = o["node"].toString();
             view.component = c["component"].toInt(-1);
             view.color = channel_color(view.channel, view.component);
+            // A colour curveRGBColor set for the curve.
+            if (c.contains("rgb")) {
+                QJsonArray rgb = c["rgb"].toArray();
+                if (rgb.size() >= 3) view.color = QColor::fromRgbF(float(rgb[0].toDouble()), float(rgb[1].toDouble()), float(rgb[2].toDouble()));
+            }
             for (const QJsonValue& s : c["samples"].toArray()) view.samples.append(QPointF(s[0].toDouble(), s[1].toDouble()));
             for (const QJsonValue& s : c["buffer"].toArray()) view.buffer.append(QPointF(s[0].toDouble(), s[1].toDouble()));
             view.weighted = c["weighted"].toBool();

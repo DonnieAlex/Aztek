@@ -163,7 +163,7 @@ fn display_colors_and_prefs() {
     run(&mut s, "selectPriority", json!({"cv": 7}));
     assert_eq!(run(&mut s, "selectPriority", json!({"q": true, "queried": ["controlVertex"]})), 7);
     run(&mut s, "polyCube", json!({"name": "a"}));
-    run(&mut s, "displaySurface", json!({"args": ["a"], "xr": true}));
+    run(&mut s, "displaySurface", json!({"args": ["a"], "x": true}));
     assert_eq!(run(&mut s, "displaySurface", json!({"args": ["a"], "q": true, "queried": ["xRay"]})), json!([true]));
     
 }

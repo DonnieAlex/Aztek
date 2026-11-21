@@ -1265,6 +1265,11 @@ pub fn register(c: &mut Commands<Session>) {
             json!(!g.destinations(&p).is_empty())
         } else if a.bool("isLocked") {
             json!(g.is_locked(&p))
+        } else if a.bool("getLockedAncestor") {
+            // The plug itself when locked, else the nearest locked one above it: its compound, then its array.
+            // A compound with every child locked counts as locked itself, so it is named rather than the child.
+            let up = [PlugRef { element: -1, ..whole }, whole, p];
+            up.iter().filter(|q| q.element == p.element || p.element >= 0).find(|q| g.is_locked(q)).map(name_of).unwrap_or(json!(""))
         } else {
             fail!("connectionInfo: nothing asked")
         })
@@ -1274,6 +1279,7 @@ pub fn register(c: &mut Commands<Session>) {
     for (name, short, doc) in [
         ("sourceFromDestination", "sfd", "The plug driving this one, or \"\"."), ("destinationFromSource", "dfs", "The plugs this one drives."), ("getExactSource", "ges", "The plug driving exactly this one."), ("getExactDestination", "ged", "The plugs driven by exactly this one."),
         ("isDestination", "id", "Driven."), ("isExactDestination", "ied", "Driven directly."), ("isSource", "is", "Drives something."), ("isExactSource", "ies", "Drives something directly."), ("isLocked", "il", "Locked."),
+        ("getLockedAncestor", "gla", "The locked plug or its nearest locked ancestor, or \"\"."),
     ] {
         ci = ci.flag(f(name, short, ArgType::Bool, doc));
     }

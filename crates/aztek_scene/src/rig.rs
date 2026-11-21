@@ -1260,10 +1260,16 @@ pub fn register(c: &mut Commands<Session>) {
         Cmd::new("disconnectJoint", "Break a skeleton at a joint, deleting handles across the break. Returns the new end joint left on the old parent, then the joint.", |s, a| {
             let id = one_joint(s, a, "disconnectJoint")?;
             let g = &mut s.graph;
+            if a.bool("deleteHandleMode") {
+                // The handles on the joint go too: any whose chain holds it.
+                crate::ik::delete_handles_on(g, id)?;
+            }
             let leaf = disconnect_joint(g, id)?;
             Ok(json!([g.path(leaf), g.path(id)]))
         })
-        .positional("joint"),
+        .positional("joint")
+        .flag(crate::deform::f("deleteHandleMode", "dhm", aztek_ops::ArgType::Bool, "Delete the handles on the joint as well as those across the break."))
+        .flag(crate::deform::f("attachHandleMode", "ahm", aztek_ops::ArgType::Bool, "Obsolete: has no effect.")),
     );
 
     c.register(

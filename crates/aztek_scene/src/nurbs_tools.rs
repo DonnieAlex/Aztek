@@ -274,4 +274,11 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "bevel", &["bevel"], &[], Vec::new());
     crate::history_qe::extend(c, "bevelPlus", &["bevelPlus"], &[], Vec::new());
     crate::history_qe::extend(c, "blend2", &["ffBlendSrf"], &[], Vec::new());
+    crate::history_qe::extend(c, "closeCurve", &["closeCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "closeSurface", &["closeSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "detachCurve", &["detachCurve"], &[], vec![f("curveOnSurface", "cos", ArgType::Bool, "A curve on a surface gives pieces on the surface where it can; other curves give 3D pieces.")]);
+    crate::history_qe::extend(c, "detachSurface", &["detachSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "cone", &["makeNurbCone"], &[], Vec::new());
+    crate::history_qe::extend(c, "cylinder", &["makeNurbCylinder"], &[], Vec::new());
+    crate::history_qe::extend(c, "circularFillet", &["rbfSrf"], &[], Vec::new());
 }

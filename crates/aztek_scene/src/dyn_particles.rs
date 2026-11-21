@@ -360,6 +360,10 @@ fn field_flags(g: &mut Graph, fl: NodeId, a: &Args, _kind: usize) -> CmdResult<(
 
 /// connectDynamic -f gravity1 -em emitter1 -c collider1 particles1: what acts on the bodies named. -d disconnects.
 fn connect_dynamic(s: &mut Session, a: &Args) -> CmdResult {
+    if a.has("addScriptHandler") || a.has("removeScriptHandler") {
+        // The application keeps the handlers, as they run Python; a scene on its own has none.
+        fail!("connectDynamic: script handlers are kept by the application");
+    }
     let g = &mut s.graph;
     let list = |a: &Args, flag: &str| -> Vec<String> {
         match a.get(flag) {
@@ -610,7 +614,9 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("emitters", "em", ArgType::List, "Emitters."))
             .flag(f("collisions", "c", ArgType::List, "Colliders."))
             .flag(f("delete", "d", ArgType::Bool, "Disconnect instead."))
-            .flag(f("solver", "sv", ArgType::String, "The solver a body with none joins.")),
+            .flag(f("solver", "sv", ArgType::String, "The solver a body with none joins."))
+            .flag(f("addScriptHandler", "ash", ArgType::Any, "A Python function that may handle the calls instead, given fields, emitters, collisionObjects and objects as keywords; True says it did. Alone; returns a number for -rsh."))
+            .flag(f("removeScriptHandler", "rsh", ArgType::Int, "Take away the handler of this number; an unknown one does nothing. Alone.")),
     );
     c.register(
         Cmd::new("getParticleAttr", "Per particle values: -at position -a true gives every one; without -a, the mean then the spread.", get_particle_attr)

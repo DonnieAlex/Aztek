@@ -387,7 +387,14 @@ impl NodeBehavior for Cluster {
         let weights = weights_owned.as_deref();
         // Files from before weightList keep the weights in deformerData.
         let old: Vec<f64> = data.get("weights").and_then(Value::as_array).map(|a| a.iter().map(|x| x.as_f64().unwrap_or(0.0)).collect()).unwrap_or_default();
-        let h = d.matrix(HANDLE) * bind;
+        // Relative: only the handle's own transform, not its parents'.
+        let t = d.ty().clone();
+        let relative = t.attr_index("relative").is_some_and(|i| d.bool(i));
+        let driver = match t.attr_index("weightedMatrix") {
+            Some(i) if relative => d.matrix(i),
+            _ => d.matrix(HANDLE),
+        };
+        let h = driver * bind;
         let mut m = (*input).clone();
         let gi = geom.inverse();
         let env = d.float(ENVELOPE);
@@ -552,6 +559,10 @@ pub fn register_types() {
             base: Some(gf.clone()),
             icon: "circle-letter-c".into(),
             doc: "Points that follow a handle, each by its weight.".into(),
+            own_attrs: vec![
+                AttrDef { short_name: "rel".into(), ..crate::attr_defs::bool_attr("relative", false, "Only the handle's own transform moves the points, not its parents'.") },
+                AttrDef { short_name: "wt".into(), ..crate::attr_defs::matrix_attr("weightedMatrix", flags::INPUT | flags::HIDDEN, "The handle's own matrix, for relative.") },
+            ],
             create: Some(Arc::new(|| Box::new(Cluster))),
             ..Default::default()
         })
@@ -1190,7 +1201,7 @@ pub(crate) fn nurbs_insert(g: &mut Graph, shape: NodeId, ty: &str, name: &str) -
 }
 
 /// The world positions of a curve's or surface's CVs, U first on a surface.
-fn world_cvs(g: &mut Graph, shape: NodeId) -> Vec<DVec3> {
+pub(crate) fn world_cvs(g: &mut Graph, shape: NodeId) -> Vec<DVec3> {
     let w = world(g, crate::dag::transform_of(g, shape));
     let cvs = crate::curves::local_curve(g, shape).map(|c| c.cvs).or_else(|| crate::surfaces::local_surface(g, shape).map(|s| s.cvs)).unwrap_or_default();
     cvs.into_iter().map(|p| w.transform_point3(p)).collect()
@@ -1322,105 +1333,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("wavelength", "wav", ArgType::Float, "sine, wave: length of the waves.")),
     );
 
-    c.register(
-        Cmd::new(
-            "cluster",
-            "Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. \
-             Returns [cluster, handle].",
-            |s, a| {
-                if a.bool("edit") {
-                    if a.bool("prune") {
-                        return prune(s, a, "cluster");
-                    }
-                    fail!("cluster: -e takes -prune");
-                }
-                let meshes = targets(s, a)?;
-                let nurbs = nurbs_targets(s, a)?;
-                if meshes.is_empty() && nurbs.is_empty() {
-                    fail!("cluster: select vertices, CVs, meshes, curves or surfaces");
-                }
-                let g = &mut s.graph;
-                g.evaluate();
-                // The handle sits at the middle of the picked points.
-                let mut sum = DVec3::ZERO;
-                let mut n_pts = 0.0;
-                for (m, pts) in &meshes {
-                    let cage = crate::modifiers::cage(g, *m).unwrap();
-                    let w = world(g, crate::dag::transform_of(g, *m));
-                    for p in 0..cage.point_capacity() {
-                        if cage.point_valid(p) && pts.as_ref().is_none_or(|v| v.contains(&p)) {
-                            sum += w.transform_point3(cage.position(p));
-                            n_pts += 1.0;
-                        }
-                    }
-                }
-                for (shape, pts) in &nurbs {
-                    for (i, p) in world_cvs(g, *shape).into_iter().enumerate() {
-                        if pts.as_ref().is_none_or(|v| v.contains(&(i as u32))) {
-                            sum += p;
-                            n_pts += 1.0;
-                        }
-                    }
-                }
-                let centre = if n_pts > 0.0 { sum / n_pts } else { DVec3::ZERO };
-                let name = a.string("name", "cluster1");
-                g.open_chunk("Cluster");
-                let r = (|| -> CmdResult<(NodeId, NodeId)> {
-                    // As the reference's: at zero, its pivot on the points' middle, so its translate is how far it has moved.
-                    let h = make_handle(g, &format!("{name}Handle"), "cluster", DVec3::ZERO, DVec3::ONE)?;
-                    g.set_value(plug(h, Transform::ROTATE_PIVOT), PlugValue::Vec3(centre))?;
-                    g.set_value(plug(h, Transform::SCALE_PIVOT), PlugValue::Vec3(centre))?;
-                    // The reference's handle shape draws at the same place.
-                    if let Some(sh) = handle_shape(g, h) {
-                        if let Some(a) = g.node(sh).and_then(|x| x.ty().attr_index("origin")) {
-                            g.set_value(plug(sh, a), PlugValue::Vec3(centre))?;
-                        }
-                    }
-                    g.evaluate();
-                    let hw = world(g, h);
-                    let mut first = NO_NODE;
-                    for (m, pts) in &meshes {
-                        let cage = crate::modifiers::cage(g, *m).unwrap();
-                        let geom = world(g, crate::dag::transform_of(g, *m));
-                        let n = insert(g, *m, "cluster", &name)?;
-                        set_data(g, n, json!({"geom": mat_json(&geom), "bindPre": mat_json(&hw.inverse())}))?;
-                        limit_to(g, n, cage.point_capacity(), pts)?;
-                        g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
-                        if first == NO_NODE {
-                            first = n;
-                        } else {
-                            link_follower(g, first, n)?;
-                        }
-                    }
-                    for (shape, pts) in &nurbs {
-                        let count = world_cvs(g, *shape).len() as u32;
-                        let geom = world(g, crate::dag::transform_of(g, *shape));
-                        let n = nurbs_insert(g, *shape, "cluster", &name)?;
-                        set_data(g, n, json!({"geom": mat_json(&geom), "bindPre": mat_json(&hw.inverse())}))?;
-                        if let Some(w) = weights_for(count, pts) {
-                            set_floats(g, n, WEIGHTS, w)?;
-                        }
-                        g.connect(&plug(h, Transform::WORLD_MATRIX), &plug(n, HANDLE), false)?;
-                        if first == NO_NODE {
-                            first = n;
-                        } else {
-                            link_follower(g, first, n)?;
-                        }
-                    }
-                    components::set_mode_undoable(g, ComponentMode::Object);
-                    g.select(&[h], SelectMode::Replace);
-                    Ok((first, h))
-                })();
-                g.close_chunk();
-                let (n, h) = r?;
-                Ok(json!([g.path(n), g.path(h)]))
-            },
-        )
-        .positional("meshes, curves, surfaces, vertices or CVs (the selection when none)")
-        .flag(f("name", "n", ArgType::String, "Name of the cluster; its handle takes the name plus Handle."))
-        .flag(f("edit", "e", ArgType::Bool, "Edit a cluster: with -prune."))
-        .flag(f("prune", "pr", ArgType::Bool, "With -e: take the points it doesn't move out of its set.")),
-    );
+    crate::deform_cluster::register(c);
 
 }
 

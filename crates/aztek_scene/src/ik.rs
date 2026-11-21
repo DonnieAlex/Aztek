@@ -1274,6 +1274,17 @@ fn set_default_pole(g: &mut Graph, handle: NodeId, solver: NodeId) -> CmdResult<
 }
 
 /// After a skeleton edit: chains follow their start and end joints, and a handle whose joints no longer connect goes.
+/// Deletes the handles whose chain holds the joint, at either end or between.
+pub(crate) fn delete_handles_on(g: &mut Graph, j: NodeId) -> CmdResult<()> {
+    for h in all_handles(g) {
+        let Some(sv) = solver_of(g, h) else { continue };
+        if joints_of(g, sv).contains(&j) || end_of(g, h) == Some(j) {
+            delete_handle(g, h, &[])?;
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn refresh_handles(g: &mut Graph) -> CmdResult<()> {
     for h in all_handles(g) {
         let (Some(sv), Some(eff), Some(end)) = (solver_of(g, h), effector_of(g, h), end_of(g, h)) else { continue };

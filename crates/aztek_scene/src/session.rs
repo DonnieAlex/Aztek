@@ -193,6 +193,8 @@ impl Session {
         crate::dyn_particles::register(&mut s.commands);
         crate::nurbs_tools::register(&mut s.commands);
         crate::blind_data::register(&mut s.commands);
+        crate::dg_timer::register(&mut s.commands);
+        crate::do_blur::register(&mut s.commands);
         // Last: history node types take their attributes from the commands registered above.
         crate::history::register(&mut s.commands);
         crate::unit_tables::tag_commands(&mut s.commands);
