@@ -656,6 +656,10 @@ pub(crate) fn driven_of(g: &Graph, c: NodeId) -> Option<NodeId> {
                 });
                 return found;
             }
+            // Through an animation layer (-layer): what the layer's blends drive is the object.
+            if crate::anim_layers::is_blend(g, d.node) {
+                return crate::anim_layers::final_plugs(g, *d).first().map(|x| x.node);
+            }
             return Some(d.node);
         }
     }
@@ -1214,6 +1218,56 @@ fn edit(g: &mut Graph, c: NodeId, targets: &[NodeId], a: &Args, cmd: &str, kind:
     Ok(Value::Null)
 }
 
+/// The reference's -layer: what the constraint drives goes through an animation layer, the constraint feeding the layer's
+/// input, so the layer's weight blends it over what is under.
+fn to_layer(g: &mut Graph, c: NodeId, driven: NodeId, layer_name: &str, cmd: &str) -> CmdResult<()> {
+    let layer = find(g, layer_name, cmd)?;
+    if !crate::anim_layers::is_layer(g, layer) {
+        fail!("{cmd}: {layer_name} is not an animation layer");
+    }
+    let count = g.node(c).map_or(0, |n| n.ty().attrs.len());
+    let mut pairs: Vec<(PlugRef, PlugRef)> = Vec::new();
+    for i in 0..count {
+        let whole = PlugRef::new(c, i as i32);
+        for d in g.destinations(&whole) {
+            if d.node != driven {
+                continue;
+            }
+            if d.component < 0 && g.attr(&d).ty == crate::plug::PlugType::Vec3 {
+                for k in 0..3 {
+                    pairs.push((PlugRef::component(c, i as i32, k), PlugRef::component(d.node, d.attr, k)));
+                }
+                g.disconnect(&d);
+            } else {
+                pairs.push((whole, d));
+                g.disconnect(&d);
+            }
+        }
+        for k in 0..3 {
+            let part = PlugRef::component(c, i as i32, k);
+            for d in g.destinations(&part) {
+                if d.node == driven {
+                    g.disconnect(&d);
+                    pairs.push((part, d));
+                }
+            }
+        }
+    }
+    for (src, dst) in pairs {
+        crate::anim_layers::add_plug(g, layer, &dst)?;
+        match crate::anim_layers::slot(g, &dst, Some(layer)) {
+            Some(slot) => {
+                g.connect(&src, &slot, true)?;
+            }
+            None => {
+                g.connect(&src, &dst, true)?;
+            }
+        }
+    }
+    g.evaluate();
+    Ok(())
+}
+
 fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     let names = objects(s, a);
     let g = &mut s.graph;
@@ -1224,7 +1278,13 @@ fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     if a.bool("edit") || a.bool("remove") {
         let (c, targets) = resolve(g, &names, cmd, kind)?;
         let driven = driven_of(g, c).unwrap_or(NO_NODE);
-        return edit(g, c, &targets, a, cmd, kind, driven);
+        let r = edit(g, c, &targets, a, cmd, kind, driven)?;
+        if let Some(layer) = a.get("layer").and_then(Value::as_str) {
+            if g.node(c).is_some() && driven != NO_NODE {
+                to_layer(g, c, driven, layer, cmd)?;
+            }
+        }
+        return Ok(r);
     }
     if names.len() < 2 {
         fail!("{cmd}: name or select the targets, then the object to drive");
@@ -1332,6 +1392,9 @@ fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     })();
     g.close_chunk();
     let c = r?;
+    if let Some(layer) = a.get("layer").and_then(Value::as_str) {
+        to_layer(g, c, driven, layer, cmd)?;
+    }
     Ok(json!([g.path(c)]))
 }
 
@@ -1365,6 +1428,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("skipRotate", "sr", ArgType::Any, "Rotate axes to leave alone: x, y, z or none. May be used more than once.").multi(1))
             .flag(f("skip", "sk", ArgType::Any, "Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once.").multi(1))
             .flag(f("skipScale", "", ArgType::Any, "Scale axes to leave alone: x, y, z or none.").multi(1))
+            .flag(f("layer", "l", ArgType::String, "The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under."))
             .flag(f("edit", "e", ArgType::Bool, "Change the constraint."))
             .flag(f("query", "q", ArgType::Bool, "Ask about the constraint."))
             .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),

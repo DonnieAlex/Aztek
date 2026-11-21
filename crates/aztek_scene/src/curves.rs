@@ -283,6 +283,39 @@ fn register_provider() {
 // ---------------------------------------------------------------------------------------------------------------------
 // History
 
+/// makeNurbCircle's curve. fixCenter off: the circle starts at the first point, its centre a radius back toward the centre
+/// given. useTolerance: as few sections as keep every point within tolerance of the true circle.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn circle_from(normal: DVec3, center: DVec3, first: DVec3, r: f64, degree: usize, sections: usize, sweep_deg: f64, use_tol: bool, tol: f64, fix_center: bool) -> NurbsCurve {
+    let n = normal.normalize_or_zero();
+    let n = if n == DVec3::ZERO { DVec3::Z } else { n };
+    let (center, dir) = if fix_center {
+        (center, first)
+    } else {
+        let radial = first - center;
+        let radial = radial - n * radial.dot(n);
+        let x = if radial.length() < 1e-9 { n.any_orthonormal_vector() } else { radial.normalize() };
+        (first - x * r, x)
+    };
+    if !use_tol || tol <= 0.0 {
+        return nurbs::circle(center, n, dir, r, degree, sections, sweep_deg);
+    }
+    let error = |c: &NurbsCurve| {
+        let (lo, hi) = c.domain();
+        (0..=64).map(|i| ((c.eval(lo + (hi - lo) * i as f64 / 64.0) - center).length() - r).abs()).fold(0.0, f64::max)
+    };
+    let mut best = nurbs::circle(center, n, dir, r, degree, 3, sweep_deg);
+    for k in 3..=512 {
+        let c = nurbs::circle(center, n, dir, r, degree, k, sweep_deg);
+        let ok = error(&c) <= tol;
+        best = c;
+        if ok {
+            break;
+        }
+    }
+    best
+}
+
 /// A node making a curve from settings, or changing the curve at its input.
 pub struct CurveNode {
     kind: Kind,
@@ -311,9 +344,13 @@ impl NodeBehavior for CurveNode {
         let input = curve_value(d.value(IN)).cloned();
         let c = match self.kind {
             Kind::Circle => {
+                let state = crate::history_qe::node_state(d);
+                if state == 2 || state == 5 {
+                    return;
+                }
                 let (normal, center, first) = (d.vec3(P0), d.vec3(P0 + 1), d.vec3(P0 + 2));
                 let (r, sw) = (d.float(P0 + 3), d.float(P0 + 6));
-                Some(nurbs::circle(center, normal, first, r, d.int(P0 + 4).max(1) as usize, d.int(P0 + 5).max(3) as usize, sw.to_degrees()))
+                Some(circle_from(normal, center, first, r, d.int(P0 + 4).max(1) as usize, d.int(P0 + 5).max(3) as usize, sw.to_degrees(), d.bool(P0 + 7), d.float(P0 + 8), d.bool(P0 + 9)))
             }
             Kind::Square => {
                 let (normal, center) = (d.vec3(P0), d.vec3(P0 + 1));
@@ -394,6 +431,10 @@ struct InfoNode;
 
 impl NodeBehavior for InfoNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        let state = crate::history_qe::node_state(d);
+        if state == 2 || state == 5 {
+            return;
+        }
         let Some(c) = curve_value(d.value(0)).cloned() else { return };
         d.set_output(1, PlugValue::Float(c.length()));
     }
@@ -759,6 +800,9 @@ pub fn register_types() {
                     int_in("degree", "d", 3, "The degree."),
                     int_in("sections", "s", 8, "Sections around."),
                     f_in("sweep", "sw", 360.0, "Degrees covered."),
+                    AttrDef { short_name: "ut".into(), ..store_bool("useTolerance", false, "Take the sections from the tolerance.") },
+                    f_in("tolerance", "tol", 0.01, "How far from the true circle its points may be, with useTolerance."),
+                    AttrDef { short_name: "fc".into(), ..store_bool("fixCenter", true, "The centre stays; off, the circle starts at the first point.") },
                 ],
             ),
             curve_op_type(
@@ -972,6 +1016,9 @@ pub(crate) fn insert_op(g: &mut Graph, shape: NodeId, ty: &str, set: &[(usize, P
     g.connect(&plug(node, OUT), &create, true)?;
     Ok(node)
 }
+
+/// circle's flags that name makeNurbCircle attributes of other names.
+const CIRCLE_MAP: &[(&str, &str)] = &[("first", "firstPoint")];
 
 pub(crate) fn with_common(c: Cmd) -> Cmd {
     c.flag(f("constructionHistory", "ch", ArgType::Bool, "Keep a history node (on by default)."))
@@ -1190,29 +1237,55 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new(
             "circle",
-            "Create a NURBS circle, with a makeNurbCircle node (-nr normal, -c centre, -r radius, -d degree, -s sections, -sw sweep). \
-             Returns [nurbsCircle1, makeNurbCircle1].",
+            "Create a NURBS circle or arc, with a makeNurbCircle node (-nr normal, -c centre, -r radius, -d degree, -s sections, -sw sweep, \
+             -fp first point; -fc off starts it at the first point; -ut sets the sections from -tol). Returns [nurbsCircle1, makeNurbCircle1]. \
+             -q and -e read and change the node.",
             |s, a| {
+                if let Some(r) = crate::history_qe::qe(s, a, "circle", &["makeNurbCircle"], CIRCLE_MAP) {
+                    return r;
+                }
                 let g = &mut s.graph;
                 let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(g.construction_history);
+                let object = a.get("object").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0)));
                 let name = a.string("name", "nurbsCircle1");
+                let vec_of = |whole: &str, parts: [&str; 3], def: DVec3| {
+                    let mut v = v3(a, whole, def);
+                    for (i, p) in parts.iter().enumerate() {
+                        if let Some(x) = a.get(p).and_then(Value::as_f64) {
+                            v[i] = x;
+                        }
+                    }
+                    v
+                };
+                let normal = vec_of("normal", ["normalX", "normalY", "normalZ"], DVec3::Z);
+                let center = vec_of("center", ["centerX", "centerY", "centerZ"], DVec3::ZERO);
+                let first = vec_of("first", ["firstPointX", "firstPointY", "firstPointZ"], DVec3::X);
+                let on = |k: &str, def: bool| a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                 g.open_chunk("Circle");
-                let r = (|| -> CmdResult<(NodeId, NodeId, NodeId)> {
-                    let (tr, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, &name, NO_NODE)?;
+                let r = (|| -> CmdResult<(Option<(NodeId, NodeId)>, NodeId)> {
                     let t = types::find("makeNurbCircle").unwrap();
                     let n = g.create_node(&t, "makeNurbCircle1", NO_NODE, true)?;
-                    g.set_value(plug(n, P0), PlugValue::Vec3(v3(a, "normal", DVec3::Z)))?;
-                    g.set_value(plug(n, P0 + 1), PlugValue::Vec3(v3(a, "center", DVec3::ZERO)))?;
-                    g.set_value(plug(n, P0 + 2), PlugValue::Vec3(v3(a, "firstPoint", DVec3::X)))?;
+                    g.set_value(plug(n, P0), PlugValue::Vec3(normal))?;
+                    g.set_value(plug(n, P0 + 1), PlugValue::Vec3(center))?;
+                    g.set_value(plug(n, P0 + 2), PlugValue::Vec3(first))?;
                     g.set_value(plug(n, P0 + 3), PlugValue::Float(a.float("radius", 1.0)))?;
                     g.set_value(plug(n, P0 + 4), PlugValue::Int(a.int("degree", 3)))?;
                     g.set_value(plug(n, P0 + 5), PlugValue::Int(a.int("sections", 8)))?;
                     g.set_value(plug(n, P0 + 6), PlugValue::Float(a.float("sweep", std::f64::consts::TAU)))?;
+                    g.set_value(plug(n, P0 + 7), PlugValue::Bool(on("useTolerance", false)))?;
+                    g.set_value(plug(n, P0 + 8), PlugValue::Float(a.float("tolerance", 0.01)))?;
+                    g.set_value(plug(n, P0 + 9), PlugValue::Bool(on("fixCenter", true)))?;
+                    crate::history_qe::apply_common(g, n, a)?;
+                    if !object {
+                        return Ok((None, n));
+                    }
+                    let (tr, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, &name, NO_NODE)?;
                     g.connect(&plug(n, OUT), &plug(sh, CurveShape::CREATE), false)?;
-                    Ok((tr, sh, n))
+                    Ok((Some((tr, sh)), n))
                 })();
                 g.close_chunk();
-                let (tr, sh, n) = r?;
+                let (made, n) = r?;
+                let Some((tr, sh)) = made else { return Ok(json!([g.path(n)])) };
                 g.select(&[tr], SelectMode::Replace);
                 g.evaluate();
                 if !ch {
@@ -1222,18 +1295,34 @@ pub fn register(c: &mut Commands<Session>) {
                 Ok(json!([g.path(tr), g.path(n)]))
             },
         )
-        .flag(f("normal", "nr", ArgType::Vec3, "The circle's normal (0 0 1)."))
-        .flag(f("center", "c", ArgType::Vec3, "The centre."))
-        .flag(f("firstPoint", "fp", ArgType::Vec3, "Toward the first section's start."))
+        .positional("the makeNurbCircle node or the circle, with -q and -e")
+        .flag(f("normal", "nr", ArgType::Vec3, "The normal of the circle's plane (0 0 1)."))
+        .flag(f("normalX", "nrx", ArgType::Float, "The normal's X (0)."))
+        .flag(f("normalY", "nry", ArgType::Float, "The normal's Y (0)."))
+        .flag(f("normalZ", "nrz", ArgType::Float, "The normal's Z (1)."))
+        .flag(f("center", "c", ArgType::Vec3, "The centre (0 0 0)."))
+        .flag(f("centerX", "cx", ArgType::Float, "The centre's X (0)."))
+        .flag(f("centerY", "cy", ArgType::Float, "The centre's Y (0)."))
+        .flag(f("centerZ", "cz", ArgType::Float, "The centre's Z (0)."))
+        .flag(f("first", "fp", ArgType::Vec3, "The start point with -fc off; with -fc on, which way the first section starts (1 0 0)."))
+        .flag(f("firstPointX", "fpx", ArgType::Float, "The first point's X (1)."))
+        .flag(f("firstPointY", "fpy", ArgType::Float, "The first point's Y (0)."))
+        .flag(f("firstPointZ", "fpz", ArgType::Float, "The first point's Z (0)."))
+        .flag(f("fixCenter", "fc", ArgType::Bool, "Keep the centre (on); off, the circle starts at the first point."))
         .flag(f("radius", "r", ArgType::Float, "Radius (1)."))
-        .flag(f("degree", "d", ArgType::Int, "Degree (3)."))
-        .flag(f("sections", "s", ArgType::Int, "Sections (8)."))
+        .flag(f("degree", "d", ArgType::Int, "Degree: 1 linear or 3 cubic (3)."))
+        .flag(f("sections", "s", ArgType::Int, "Sections, when -ut is off (8)."))
         .flag(f("sweep", "sw", ArgType::Float, "Degrees covered (360)."))
-        .flag(f("useTolerance", "ut", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts."))
+        .flag(f("useTolerance", "ut", ArgType::Bool, "Take the sections from -tol (off)."))
+        .flag(f("tolerance", "tol", ArgType::Float, "How far the points may be from the true circle, with -ut (0.01)."))
         .flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
-        .flag(f("object", "o", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("name", "n", ArgType::String, "Name of the transform.")),
+        .flag(f("object", "o", ArgType::Bool, "Make the circle (on); off, only the node."))
+        .flag(f("name", "n", ArgType::String, "Name of the transform."))
+        .flag(f("caching", "cch", ArgType::Bool, "The node's caching."))
+        .flag(f("nodeState", "nds", ArgType::Int, "The node's state: 0 normal, 2 blocking (it keeps what it gave)."))
+        .flag(f("query", "q", ArgType::Bool, "Query mode: read the node's settings."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode: change the node's settings."))
+        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
 
     c.register(
@@ -1353,16 +1442,38 @@ pub fn register(c: &mut Commands<Session>) {
     );
 
     c.register(
-        Cmd::new("arclen", "The length of a curve along its arc, world space.", |s, a| {
-            let names = objects(s, a);
-            let Some(n) = names.first() else { fail!("arclen: name or select a curve") };
-            let g = &mut s.graph;
-            let shape = curve_arg(g, n, "arclen")?;
-            Ok(json!(world_curve(g, shape).map(|c| c.length()).unwrap_or(0.0)))
-        })
-        .undoable(false)
-        .positional("a curve (the selection when none)")
-        .flag(f("constructionHistory", "ch", ArgType::Bool, "Accepted for existing scripts.")),
+        Cmd::new(
+            "arclen",
+            "The length of a curve along its arc, world space. -ch on makes a curveInfo node computing it, connected to the curve, and returns the node, \
+             whose arcLength follows the curve. -q and -e on the node: -cch, -nds.",
+            |s, a| {
+                if let Some(r) = crate::history_qe::qe(s, a, "arclen", &["curveInfo"], &[]) {
+                    return r;
+                }
+                let names = objects(s, a);
+                let Some(n) = names.first() else { fail!("arclen: name or select a curve") };
+                let g = &mut s.graph;
+                let shape = curve_arg(g, n, "arclen")?;
+                if a.get("constructionHistory").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0)) {
+                    let t = types::find("curveInfo").expect("curveInfo");
+                    let node = g.create_node(&t, "curveInfo1", NO_NODE, true)?;
+                    g.connect(&plug(shape, CurveShape::WORLD_SPACE), &plug(node, 0), false)?;
+                    crate::history_qe::apply_common(g, node, a)?;
+                    g.evaluate();
+                    return Ok(json!(g.path(node)));
+                }
+                // In the current unit: the result isn't tagged, as a query or the node's name may come back instead.
+                let len = world_curve(g, shape).map(|c| c.length()).unwrap_or(0.0);
+                Ok(json!(if aztek_ops::units::user_call() { aztek_ops::units::to_user(aztek_ops::units::Unit::Linear, len) } else { len }))
+            },
+        )
+        .positional("a curve (the selection when none); the curveInfo node with -q and -e")
+        .flag(f("constructionHistory", "ch", ArgType::Bool, "Make a curveInfo node computing the length and return it (off)."))
+        .flag(f("caching", "cch", ArgType::Bool, "With -ch: the node's caching."))
+        .flag(f("nodeState", "nds", ArgType::Int, "With -ch: the node's state; 2 blocking keeps the length it gave."))
+        .flag(f("query", "q", ArgType::Bool, "Query mode, on the node."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode, on the node."))
+        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
 
     c.register(

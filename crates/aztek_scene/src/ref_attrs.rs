@@ -532,6 +532,9 @@ fn add_attr_query(s: &mut Session, a: &Args) -> CmdResult {
         "multi" => json!(def.is_array()),
         "parent" => json!(def.name.split_once('.').map(|x| x.0).unwrap_or("")),
         "exists" => json!(true),
+        "category" => json!(crate::commands::categories(&def)),
+        "enforcingUniqueName" => json!(def.flags & flags::NAME_NOT_UNIQUE == 0),
+        "worldSpace" => json!(def.flags & flags::WORLD_SPACE != 0),
         _ => fail!("addAttr: nothing to query"),
     })
 }
@@ -589,6 +592,14 @@ fn add_attr_edit(s: &mut Session, a: &Args) -> CmdResult {
             def.flags &= !flags::KEYABLE;
         }
     }
+    // Categories are added, never taken away.
+    let mut cats = crate::commands::categories(&def);
+    for c in crate::commands::categories_of(a) {
+        if !cats.contains(&c) {
+            cats.push(c);
+        }
+    }
+    def.category = cats.join(";");
     if !def.has(flags::USER) {
         fail!("addAttr: {} belongs to the node's type and can't be edited", g.plug_name(&plug));
     }

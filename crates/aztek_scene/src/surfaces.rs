@@ -860,14 +860,7 @@ impl NodeBehavior for OpNode {
                 a
             }
             Op::Attach => match surface_value(d.value(P0 + 3)).cloned() {
-                Some(o) if o.is_valid() => {
-                    let (blend, bias) = (d.int(P0) == 1, d.float(P0 + 1));
-                    if d.int(P0 + 2) == DIR_U {
-                        s.attached_u(&o, blend, bias)
-                    } else {
-                        s.attached_v(&o, blend, bias)
-                    }
-                }
+                Some(o) if o.is_valid() => attach_surfaces(&s, &o, d),
                 _ => s,
             },
             Op::Offset => s.offset(d.float(P0)),
@@ -887,6 +880,49 @@ impl NodeBehavior for OpNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+/// attachSurface's join, with its reverse, swap and twist options and the knots kept or smoothed away.
+fn attach_surfaces(first: &NurbsSurface, second: &NurbsSurface, d: &NodeData) -> NurbsSurface {
+    let (blend, bias, dir_u, keep) = (d.int(P0) == 1, d.float(P0 + 1), d.bool(P0 + 2), d.bool(P0 + 4));
+    let (rev1, rev2, swap1, swap2, twist) = (d.bool(P0 + 5), d.bool(P0 + 6), d.bool(P0 + 7), d.bool(P0 + 8), d.bool(P0 + 9));
+    let (mut a, mut b) = (first.clone(), second.clone());
+    if swap1 {
+        a = a.swapped();
+    }
+    if swap2 {
+        b = b.swapped();
+    }
+    if !dir_u {
+        a = a.swapped();
+        b = b.swapped();
+    }
+    if rev1 {
+        a = a.reversed_u();
+    }
+    if rev2 {
+        b = b.reversed_u();
+    }
+    if twist {
+        b = b.reversed_v();
+    }
+    let mut out = a.attached_u(&b, blend, bias);
+    if !keep && out.is_valid() {
+        // The knots where they met go: the same spans, evenly, smooth across the join.
+        let u = RebuildDir { on: true, spans: out.spans_u(), degree: out.degree_u, form: out.form_u };
+        let v = RebuildDir { on: false, spans: out.spans_v(), degree: out.degree_v, form: out.form_v };
+        out = out.rebuilt(u, v, 1);
+    }
+    if rev1 {
+        out = out.reversed_u();
+    }
+    if !dir_u {
+        out = out.swapped();
+    }
+    if swap1 {
+        out = out.swapped();
+    }
+    out
 }
 
 fn op_type(name: &str, kind: Op, doc: &str, params: Vec<AttrDef>) -> NodeType {
@@ -1237,8 +1273,16 @@ pub fn register_types() {
                 vec![
                     int_in("method", "m", 0, "0 connect, 1 blend."),
                     f_in("blendBias", "bb", 0.5, "Where a blend meets."),
-                    int_in("direction", "d", 1, "1 U, 0 V."),
+                    AttrDef { short_name: "du".into(), ..store_bool("directionU", true, "Attach along U; off, along V.") },
                     surface_attr("inputSurface1", "is1", flags::INPUT | flags::STORABLE | flags::HIDDEN, "The surface added."),
+                    AttrDef { short_name: "kmk".into(), ..store_bool("keepMultipleKnots", true, "Keep the multiple knots where they meet; off, the joined surface is rebuilt smooth across.") },
+                    AttrDef { short_name: "rv1".into(), ..store_bool("reverse1", false, "Reverse the first surface along the direction first.") },
+                    AttrDef { short_name: "rv2".into(), ..store_bool("reverse2", false, "Reverse the second surface along the direction first.") },
+                    AttrDef { short_name: "sw1".into(), ..store_bool("swap1", false, "Swap the first surface's U and V first.") },
+                    AttrDef { short_name: "sw2".into(), ..store_bool("swap2", false, "Swap the second surface's U and V first.") },
+                    AttrDef { short_name: "tw".into(), ..store_bool("twist", false, "Reverse the second surface across the direction first, against a twist.") },
+                    f_in("parameter", "p", 0.1, "Where a blend's inserted knot goes."),
+                    AttrDef { short_name: "bki".into(), ..store_bool("blendKnotInsertion", false, "Insert a knot at the parameter for a blend.") },
                 ],
             ),
             op_type("offsetSurface", Op::Offset, "Moved along its normals.", vec![f_in("distance", "d", 1.0, "How far.")]),
@@ -1874,7 +1918,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("keep", "k", ArgType::Bool, "Accepted for existing scripts.")),
     ));
     c.register(with_common(
-        Cmd::new("attachSurface", "Join two surfaces along -d, 1 U or 0 V; -m 0 connects, 1 blends at -bb. The first takes the result with -rpo (on). Returns [surface, node].", |s, a| {
+        Cmd::new("attachSurface", "Join two surfaces end to start along U (-du, on) or V; -m 0 connects, 1 blends at -bb. -rv1, -rv2 reverse, -sw1, -sw2 swap U and V, -tw turns the second across first; -kmk off smooths the join. The first takes the result with -rpo (on). Returns [surface, node].", |s, a| {
             let names = objects(s, a);
             let g = &mut s.graph;
             if names.len() != 2 {
@@ -1886,11 +1930,20 @@ pub fn register(c: &mut Commands<Session>) {
             // The second surface, as it sits in the first's space.
             let inv = crate::rig::world(g, tr).inverse();
             let o = world_surface(g, other).unwrap_or_default().transformed(&inv);
+            let on = |k: &str, def: bool| a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
             let set = vec![
                 (P0, PlugValue::Int(a.int("method", 0))),
                 (P0 + 1, PlugValue::Float(a.float("blendBias", 0.5))),
-                (P0 + 2, PlugValue::Int(a.int("direction", 1))),
+                (P0 + 2, PlugValue::Bool(on("directionU", true))),
                 (P0 + 3, to_value(o)),
+                (P0 + 4, PlugValue::Bool(on("keepMultipleKnots", true))),
+                (P0 + 5, PlugValue::Bool(on("reverse1", false))),
+                (P0 + 6, PlugValue::Bool(on("reverse2", false))),
+                (P0 + 7, PlugValue::Bool(on("swap1", false))),
+                (P0 + 8, PlugValue::Bool(on("swap2", false))),
+                (P0 + 9, PlugValue::Bool(on("twist", false))),
+                (P0 + 10, PlugValue::Float(a.float("parameter", 0.1))),
+                (P0 + 11, PlugValue::Bool(on("blendKnotInsertion", false))),
             ];
             let mut b = a.clone();
             b.positional = vec![json!(names[0])];
@@ -1899,10 +1952,15 @@ pub fn register(c: &mut Commands<Session>) {
         .positional("two surfaces (the selection when none)")
         .flag(f("method", "m", ArgType::Int, "0 connect, 1 blend (0)."))
         .flag(f("blendBias", "bb", ArgType::Float, "Where a blend meets (0.5)."))
-        .flag(f("direction", "d", ArgType::Int, "1 U, 0 V (1)."))
-        .flag(f("keepMultipleKnots", "kmk", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("blendKnotInsertion", "bki", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("parameter", "p", ArgType::Float, "Accepted for existing scripts.")),
+        .flag(f("directionU", "du", ArgType::Bool, "Along U (on); off, along V."))
+        .flag(f("keepMultipleKnots", "kmk", ArgType::Bool, "Keep the multiple knots where they meet (on); off, smooth across."))
+        .flag(f("blendKnotInsertion", "bki", ArgType::Bool, "Insert a knot at -p for a blend (off)."))
+        .flag(f("parameter", "p", ArgType::Float, "Where a blend's knot goes (0.1)."))
+        .flag(f("reverse1", "rv1", ArgType::Bool, "Reverse the first along the direction first (off)."))
+        .flag(f("reverse2", "rv2", ArgType::Bool, "Reverse the second along the direction first (off)."))
+        .flag(f("swap1", "sw1", ArgType::Bool, "Swap the first's U and V first (off)."))
+        .flag(f("swap2", "sw2", ArgType::Bool, "Swap the second's U and V first (off)."))
+        .flag(f("twist", "tw", ArgType::Bool, "Reverse the second across the direction first, against a twist (off).")),
     ));
 
     c.register(curve_surface_flags(

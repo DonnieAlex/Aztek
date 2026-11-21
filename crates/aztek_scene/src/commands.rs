@@ -186,7 +186,7 @@ fn delete_category(g: &mut Graph, id: NodeId, category: &str) -> CmdResult<()> {
     let count = g.node(id).unwrap().ty().attrs.len();
     for i in (0..count).rev() {
         let d = &g.node(id).unwrap().ty().attrs[i];
-        if d.has(flags::USER) && d.category == category {
+        if d.has(flags::USER) && categories(d).iter().any(|c| c == category) {
             g.delete_attr(&PlugRef::new(id, i as i32))?;
         }
     }
@@ -1002,7 +1002,9 @@ fn register_attrs(c: &mut Commands<Session>) {
         .flag(flag("hidden", "h", T::Bool, json!(false), "Hide it from editors."))
         .flag(flag("usedAsColor", "uac", T::Bool, json!(false), "A double3 holding a colour: editors show a swatch."))
         .flag(flag("usedAsFilename", "uaf", T::Bool, json!(false), "A string holding a file path: editors offer a file browser."))
-        .flag(flag("category", "", T::String, Value::Null, "A heading the Attribute Editor groups it under."))
+        .flag(flag("category", "ct", T::Any, Value::Null, "A category identifying the attribute, such as the plug-in that made it. Repeat it for more; the first is the heading the Attribute Editor groups it under.").multi(1))
+        .flag(flag("enforcingUniqueName", "eun", T::Bool, Value::Null, "Its name must be unique in the attribute tree (on); off, a child may share a name with another attribute."))
+        .flag(flag("worldSpace", "ws", T::Bool, Value::Null, "A multi attribute that depends on the node's world transform, an element per instance."))
         .flag(flag("doc", "", T::String, Value::Null, "What it is for: editors show it as a tooltip.")),
     );
 
@@ -1148,6 +1150,20 @@ fn register_attrs(c: &mut Commands<Session>) {
     );
 }
 
+/// addAttr's -category values, however given.
+pub(crate) fn categories_of(a: &Args) -> Vec<String> {
+    match a.get("category") {
+        Some(Value::String(c)) => vec![c.clone()],
+        Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// An attribute's categories, kept separated by ';'.
+pub(crate) fn categories(d: &AttrDef) -> Vec<String> {
+    d.category.split(';').filter(|c| !c.is_empty()).map(str::to_string).collect()
+}
+
 fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
     let objs = objects(s, a);
     if objs.is_empty() {
@@ -1230,9 +1246,18 @@ fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
         doc: a.string("doc", ""),
         ty,
         default_value: default_for(ty),
-        category: a.string("category", ""),
+        category: crate::commands::categories_of(a).join(";"),
         ..Default::default()
     };
+    if a.get("enforcingUniqueName").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+        def.flags |= flags::NAME_NOT_UNIQUE;
+    }
+    if a.bool("worldSpace") {
+        if !(array || a.bool("multi")) {
+            fail!("addAttr: -worldSpace is for multi attributes only");
+        }
+        def.flags |= flags::WORLD_SPACE;
+    }
     if kind == "message" {
         def.flags = flags::INPUT | flags::USER | flags::MESSAGE;
     }
@@ -1302,6 +1327,14 @@ fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
             }
             if multi {
                 child.flags |= flags::ARRAY;
+            }
+        }
+        // The name is unique in the attribute tree unless -eun says otherwise: no leaf of another compound shares it.
+        if child.flags & flags::NAME_NOT_UNIQUE == 0 {
+            let n = s.graph.node(id).unwrap();
+            let clash = n.ty().attrs.iter().any(|x| x.name != child.name && x.name.rsplit('.').next() == Some(def.name.as_str()) && x.flags & flags::NAME_NOT_UNIQUE == 0);
+            if clash {
+                fail!("addAttr: '{}' already has an attribute named '{}' in its attribute tree", n.name(), def.name);
             }
         }
         let index = s.graph.add_attr(id, child)?;

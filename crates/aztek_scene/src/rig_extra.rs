@@ -100,7 +100,11 @@ pub(crate) fn lattice_bulge(d: &mut NodeData) {
         let env = d.float(FX_ENV);
         let (crease, round, left, right) = (d.float(FX_INSIDE), d.float(FX_OUTSIDE), d.float(FX_LEFT), d.float(FX_RIGHT));
         let (len_in, len_out) = (d.float(FX_LEN_IN), d.float(FX_LEN_OUT));
-        for p in &mut grid.pts {
+        let skip = excluded(d);
+        for (i, p) in grid.pts.iter_mut().enumerate() {
+            if skip.contains(&i) {
+                continue;
+            }
             let radial = DVec3::new(p.x * size.x, 0.0, p.z * size.z).normalize_or_zero();
             let (c, l) = (radial.dot(inside), radial.dot(side));
             let amount = c.max(0.0) * crease + (-c).max(0.0) * round + l.max(0.0) * left + (-l).max(0.0) * right;
@@ -141,7 +145,14 @@ pub(crate) fn flexor_attrs(inside: (&str, &str), outside: (&str, &str)) -> Vec<A
         matrix_in("baseLatticeMatrix", "mb", "The base lattice's world matrix."),
         vec3_attr("bendVector", "bv", DVec3::ZERO, flags::OUTPUT, "The axis of the bend, in the upper transform's space."),
         AttrDef { name: "bendMagnitude".into(), short_name: "bm".into(), ty: PlugType::Float, default_value: PlugValue::Float(0.0), flags: flags::OUTPUT, doc: "The bend's angle over 180 degrees.".into(), ..Default::default() },
+        AttrDef { name: "excludedPoints".into(), short_name: "exp".into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, doc: "Lattice points pruned out of the flexor: it leaves them alone.".into(), ..Default::default() },
     ]
+}
+
+const FX_EXCLUDED: usize = 17;
+
+fn excluded(d: &NodeData) -> Vec<usize> {
+    d.string(FX_EXCLUDED).split_whitespace().filter_map(|x| x.parse().ok()).collect()
 }
 
 const JOINT_SETTINGS: &[&str] = &["creasing", "rounding", "lengthIn", "lengthOut", "widthLeft", "widthRight"];
@@ -166,12 +177,28 @@ fn drive(g: &mut Graph, n: NodeId, attr: usize, rest: usize, by: Option<NodeId>)
 
 /// A flexor node on an ffd: between its lattice's points and the ffd. Returns the node.
 fn insert_flexor(g: &mut Graph, ty: &str, ffd: NodeId, name: &str, upper: Option<NodeId>, lower: Option<NodeId>) -> CmdResult<NodeId> {
-    let Some(feed) = g.source(&plug(ffd, DLP)) else { fail!("{ty}: the lattice's points are not connected") };
+    insert_flexor_at(g, ty, ffd, name, upper, lower, false)
+}
+
+/// Puts a flexor's node on the lattice's points: nearest the lattice (after the other flexors there), or with front at the
+/// start of their chain.
+fn insert_flexor_at(g: &mut Graph, ty: &str, ffd: NodeId, name: &str, upper: Option<NodeId>, lower: Option<NodeId>, front: bool) -> CmdResult<NodeId> {
+    let mut at = plug(ffd, DLP);
+    if front {
+        // Up through the flexor nodes already there.
+        while let Some(src) = g.source(&at) {
+            if !g.node(src.node).is_some_and(|x| FLEXOR_TYPES.contains(&x.ty().name.as_str()) && src.attr == FX_OUT as i32) {
+                break;
+            }
+            at = plug(src.node, FX_IN);
+        }
+    }
+    let Some(feed) = g.source(&at) else { fail!("{ty}: the lattice's points are not connected") };
     let t = types::find(ty).unwrap();
     let n = g.create_node(&t, name, NO_NODE, true)?;
-    g.disconnect(&plug(ffd, DLP));
+    g.disconnect(&at);
     g.connect(&feed, &plug(n, FX_IN), false)?;
-    g.connect(&plug(n, FX_OUT), &plug(ffd, DLP), false)?;
+    g.connect(&plug(n, FX_OUT), &at, false)?;
     let (lat, base) = (g.source(&plug(ffd, DLM)), g.source(&plug(ffd, deform_lattice::BLM)));
     if let Some(x) = lat {
         g.connect(&x, &plug(n, FX_LATTICE), false)?;
@@ -201,8 +228,122 @@ fn opt_node(g: &Graph, a: &Args, flag: &str, cmd: &str) -> CmdResult<Option<Node
 }
 
 /// jointLattice and boneLattice: on the lattice named or selected; -q and -e on the node.
+/// The lattice transform a flexor node deforms.
+fn flexor_lattice(g: &Graph, n: NodeId) -> Option<NodeId> {
+    g.source(&plug(n, FX_LATTICE)).map(|p| p.node)
+}
+
+/// The lattice's points a flexor node acts on, as component names: all but those pruned.
+fn flexor_components(g: &Graph, n: NodeId, only_selected: bool) -> Vec<String> {
+    let (Some(lat), Some(node)) = (flexor_lattice(g, n), g.node(n)) else { return Vec::new() };
+    let Some(grid) = grid_of(node.data().value(FX_IN)) else { return Vec::new() };
+    let [ds, dt, du] = grid.dims;
+    let path = g.path(lat);
+    let skip = excluded(node.data());
+    if !only_selected && skip.is_empty() {
+        return vec![format!("{path}.pt[0:{}][0:{}][0:{}]", ds.saturating_sub(1), dt.saturating_sub(1), du.saturating_sub(1))];
+    }
+    let picked: Vec<String> = if only_selected { crate::components::component_strings(g, true) } else { Vec::new() };
+    let mut out = Vec::new();
+    for u in 0..du {
+        for t in 0..dt {
+            for s_ in 0..ds {
+                let i = s_ + t * ds + u * ds * dt;
+                if skip.contains(&i) {
+                    continue;
+                }
+                let name = format!("{path}.pt[{s_}][{t}][{u}]");
+                if only_selected && !picked.iter().any(|p| p == &name || p.rsplit('|').next() == name.rsplit('|').next()) {
+                    continue;
+                }
+                out.push(name);
+            }
+        }
+    }
+    out
+}
+
+/// The flags boneLattice shares with the other deformers, worked on a flexor node: queries, -prune, -remove -geometry,
+/// -exclusive. None for a call that's none of these.
+fn flexor_deformer_flags(g: &mut Graph, n: NodeId, a: &Args, ty: &str) -> Option<CmdResult> {
+    if a.bool("query") {
+        g.evaluate();
+        if asked(a, "components") {
+            return Some(Ok(json!(flexor_components(g, n, false))));
+        }
+        if asked(a, "selectedComponents") {
+            return Some(Ok(json!(flexor_components(g, n, true))));
+        }
+        if asked(a, "geometryIndices") {
+            return Some(Ok(json!(if flexor_lattice(g, n).is_some() { vec![0] } else { Vec::<i64>::new() })));
+        }
+        if asked(a, "deformerTools") {
+            let tools: Vec<String> = [FX_UPPER, FX_LOWER].iter().filter_map(|&at| g.source(&plug(n, at))).map(|p| g.path(p.node)).collect();
+            return Some(Ok(json!(tools)));
+        }
+        if asked(a, "dumpInfo") {
+            let node = g.node(n)?;
+            let full = grid_of(node.data().value(FX_IN)).map_or(0, |gr| gr.pts.len());
+            let affect = full.saturating_sub(excluded(node.data()).len());
+            return Some(Ok(json!([0, affect, full])));
+        }
+        if asked(a, "exclusive") {
+            let msg = g.node(n)?.ty().attr_index("message")?;
+            let part = g.destinations(&plug(n, msg)).into_iter().find(|d| g.node(d.node).is_some_and(|x| x.ty().name == "partition"));
+            return Some(Ok(json!(part.map(|d| g.path(d.node)).unwrap_or_default())));
+        }
+        return None;
+    }
+    if a.bool("prune") {
+        // The points it doesn't move as things are now leave it.
+        g.evaluate();
+        let node = g.node(n)?;
+        let (Some(i), Some(o)) = (grid_of(node.data().value(FX_IN)), grid_of(node.data().value(FX_OUT))) else { return Some(Ok(json!(g.path(n)))) };
+        let mut skip = excluded(node.data());
+        for (k, (p, q)) in i.pts.iter().zip(&o.pts).enumerate() {
+            if (*p - *q).length() < 1e-9 && !skip.contains(&k) {
+                skip.push(k);
+            }
+        }
+        skip.sort_unstable();
+        let text = skip.iter().map(|k| k.to_string()).collect::<Vec<_>>().join(" ");
+        return Some(g.set_value(plug(n, FX_EXCLUDED), PlugValue::String(text)).map(|_| json!(g.path(n))).map_err(Into::into));
+    }
+    if a.bool("remove") && a.has("geometry") {
+        // Off the lattice: what fed it feeds the lattice's points again.
+        let feed = g.source(&plug(n, FX_IN));
+        let outs = g.destinations(&plug(n, FX_OUT));
+        let r = (|| -> CmdResult {
+            g.disconnect(&plug(n, FX_IN));
+            for d in &outs {
+                g.disconnect(d);
+                if let Some(f) = feed {
+                    g.connect(&f, d, false)?;
+                }
+            }
+            g.disconnect(&plug(n, FX_LATTICE));
+            Ok(json!(g.path(n)))
+        })();
+        return Some(r);
+    }
+    if let Some(name) = a.get("exclusive").and_then(Value::as_str) {
+        let r = (|| -> CmdResult {
+            let part = match g.find(name)? {
+                Some(p) => p,
+                None => g.create_node(&types::find("partition").expect("partition"), name, NO_NODE, true)?,
+            };
+            let (Some(msg), Some(sets)) = (g.node(n).and_then(|x| x.ty().attr_index("message")), g.node(part).and_then(|x| x.ty().attr_index("sets"))) else { fail!("{ty}: {name} is not a partition") };
+            let next = g.elements(&plug(part, sets)).iter().map(|e| e.element + 1).max().unwrap_or(0);
+            g.connect(&plug(n, msg), &PlugRef::element(part, sets as i32, next), false)?;
+            Ok(json!(g.path(n)))
+        })();
+        return Some(r);
+    }
+    None
+}
+
 fn flexor_node_cmd(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
-    let names = objects(s, a);
+    let names = if a.bool("ignoreSelected") { a.named() } else { crate::deform_common::targets(s, a) };
     let Some(first) = names.first() else { fail!("{ty}: name a lattice, or the {ty} with -q or -e") };
     let settings = settings_of(ty);
     if a.bool("query") || a.bool("edit") {
@@ -211,6 +352,9 @@ fn flexor_node_cmd(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
             fail!("{ty}: {first} is not a {ty}");
         }
         let g = &mut s.graph;
+        if let Some(r) = flexor_deformer_flags(g, n, a, ty) {
+            return r;
+        }
         if a.bool("query") {
             if asked(a, "joint") {
                 return Ok(g.source(&plug(n, FX_LOWER)).map_or(Value::Null, |p| json!(g.path(p.node))));
@@ -231,8 +375,15 @@ fn flexor_node_cmd(s: &mut Session, a: &Args, ty: &str) -> CmdResult {
     let upper = upper.or_else(|| joint.and_then(|j| joint_parent(g, j)));
     let lower = if ty == "jointLattice" { opt_node(g, a, "lowerTransform", ty)?.or(joint) } else { joint };
     let name = a.string("name", &format!("{ty}1"));
-    let n = insert_flexor(g, ty, ffd, &name, upper, lower)?;
+    // -before, -frontOfChain, -split and -parallel put it at the start of the flexors on these points; -afterReference
+    // there too unless the lattice is referenced.
+    let referenced = g.node(ffd).is_some_and(|x| x.reference_id() != 0);
+    let front = a.bool("before") || a.bool("frontOfChain") || a.bool("split") || a.bool("parallel") || (a.bool("afterReference") && !referenced);
+    let n = insert_flexor_at(g, ty, ffd, &name, upper, lower, front && !a.bool("after"))?;
     deform::apply_flags(g, n, a, settings)?;
+    if let Some(r) = flexor_deformer_flags(g, n, &Args { positional: Vec::new(), flags: a.flags.iter().filter(|(k, _)| k.as_str() == "exclusive").map(|(k, v)| (k.clone(), v.clone())).collect() }, ty) {
+        r?;
+    }
     Ok(json!(g.path(n)))
 }
 
@@ -257,6 +408,23 @@ fn flexor_node_def(ty: &'static str, doc: &'static str) -> Cmd {
         c.flag(f("bicep", "bi", F, "Bulge on the inside of the bend."))
             .flag(f("tricep", "tr", F, "Bulge on the outside of the bend."))
             .flag(f("transform", "t", S, "The transform the bend is measured against: the joint's parent by default."))
+            .flag(f("after", "af", B, "Go after the other flexors on the lattice's points (the default)."))
+            .flag(f("before", "bf", B, "Go before the other flexors on the lattice's points."))
+            .flag(f("frontOfChain", "foc", B, "Go at the start of the flexors on the lattice's points."))
+            .flag(f("afterReference", "ar", B, "Go after the others on a referenced lattice, else before them."))
+            .flag(f("parallel", "par", B, "Work alongside the others, from the lattice's own points."))
+            .flag(f("split", "sp", B, "A branch of its own from the lattice's own points."))
+            .flag(f("exclusive", "ex", S, "The partition the node goes into; -q: the partition."))
+            .flag(f("ignoreSelected", "is", B, "Use only the lattice named, not the selection."))
+            .flag(f("includeHiddenSelections", "ihs", B, "Take hidden lattices in the selection too (off)."))
+            .flag(f("useComponentTags", "uct", B, "Work by component tags: a flexor makes no sets or tweaks here anyway."))
+            .flag(f("components", "cmp", B, "Query: the lattice points it acts on."))
+            .flag(f("selectedComponents", "cms", B, "Query: those of its points that are selected."))
+            .flag(f("deformerTools", "dt", B, "Query: the transforms that drive it."))
+            .flag(f("dumpInfo", "dui", B, "Query: the geometry index, how many points it acts on and how many the lattice has."))
+            .flag(f("geometryIndices", "gi", B, "Query: the index of the lattice it deforms."))
+            .flag(f("prune", "pr", B, "With -e: the lattice points it doesn't move now leave it."))
+            .flag(f("remove", "rm", B, "With -e -g: take the node off the lattice."))
     }
 }
 

@@ -442,7 +442,8 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             "children": a.child_names,
             "output": a.flags & flags::OUTPUT != 0,
             "keyable": a.flags & flags::KEYABLE != 0,
-            "category": a.category,
+            // The heading is the first of an added attribute's categories.
+            "category": a.category.split(';').next().unwrap_or(""),
             "doc": a.doc,
             "min": a.soft_min.or(a.min_value),
             "max": a.soft_max.or(a.max_value),

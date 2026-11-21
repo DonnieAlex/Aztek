@@ -846,9 +846,10 @@ fn bounds_align_and_measures() {
     assert_eq!(run(&mut s, "exactWorldBoundingBox", json!({"args": ["a", "b"], "ii": true})), json!([-1.0, -1.0, -1.0, 1.0, 1.0, 1.0]));
     run(&mut s, "showHidden", json!({"args": ["b"]}));
 
+    // Without -atl the tops go to their average, as the reference averages over the objects.
     run(&mut s, "align", json!({"args": ["a", "b"], "y": "Max"}));
-    close(&get(&mut s, "a.ty"), 4.0);
-    close(&get(&mut s, "b.ty"), 4.0);
+    close(&get(&mut s, "a.ty"), 2.0);
+    close(&get(&mut s, "b.ty"), 2.0);
     run(&mut s, "align", json!({"args": ["a", "b"], "x": "Mid", "atl": true}));
     close(&get(&mut s, "a.tx"), 10.0);
 

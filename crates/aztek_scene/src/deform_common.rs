@@ -1,0 +1,179 @@
+//! What every deformer command of the reference takes, worked for any deformer here: where the new node goes in the chain
+//! (-afterReference, -automatic, -split), -exclusive's partition, -useComponentTags, -includeHiddenSelections, and the
+//! queries -components, -selectedComponents, -dumpInfo and -geometryIndices.
+
+use aztek_ops::{fail, objects, Args, CmdResult};
+use serde_json::{json, Value};
+
+use crate::components::ComponentMode;
+use crate::deform::{self, Place};
+use crate::graph::Graph;
+use crate::object_sets::Member;
+use crate::plug::{NodeId, PlugRef};
+use crate::session::Session;
+
+/// Deformers the reference counts as invertible: what -automatic puts a new deformer in front of.
+const INVERTIBLE: &[&str] = &["skinCluster", "cluster", "jointCluster", "tweak", "polyTweak"];
+
+/// Where a new deformer goes, the reference's way: -frontOfChain, -before, -after, -afterReference (after on referenced
+/// geometry, else before), -automatic (in front when only invertible deformers are there, else before), -split (a branch
+/// of its own from the original shape, which here is in front of the chain).
+pub(crate) fn placement(g: &Graph, a: &Args, mesh: NodeId) -> Place {
+    if a.bool("afterReference") {
+        let referenced = g.node(crate::dag::transform_of(g, mesh)).is_some_and(|n| n.reference_id() != 0) || g.node(mesh).is_some_and(|n| n.reference_id() != 0);
+        return if referenced { Place::After } else { Place::Before };
+    }
+    if a.bool("automatic") {
+        let chain: Vec<NodeId> = crate::history::history_of(g, mesh).into_iter().filter(|&h| g.node(h).is_some_and(|n| crate::rig::is_rig_chain_node(n.ty().name.as_str()))).collect();
+        let all_invertible = chain.iter().all(|&h| g.node(h).is_some_and(|n| INVERTIBLE.iter().any(|t| n.ty().is_a(t))));
+        return if all_invertible { Place::Front } else { Place::Before };
+    }
+    if a.bool("split") {
+        return Place::Front;
+    }
+    Place::from_args(a)
+}
+
+/// The objects a deformer command works on: those named, or the selection without hidden objects unless
+/// -includeHiddenSelections.
+pub(crate) fn targets(s: &Session, a: &Args) -> Vec<String> {
+    let named = a.named();
+    if !named.is_empty() {
+        return named;
+    }
+    let g = &s.graph;
+    objects(s, a)
+        .into_iter()
+        .filter(|n| a.bool("includeHiddenSelections") || g.find(n.split('.').next().unwrap_or(n)).ok().flatten().is_none_or(|id| crate::transform::effectively_visible(g, id)))
+        .collect()
+}
+
+/// -useComponentTags: the deformer works by component tags rather than a set, so it has no deformer set.
+pub(crate) fn use_component_tags(g: &mut Graph, n: NodeId) -> CmdResult<()> {
+    if let Some(set) = crate::deform_sets::set_of(g, n) {
+        g.delete_node(set)?;
+    }
+    Ok(())
+}
+
+fn message(g: &Graph, n: NodeId) -> Option<PlugRef> {
+    g.node(n)?.ty().attr_index("message").map(|i| PlugRef::new(n, i as i32))
+}
+
+/// -exclusive: the deformer's set goes into a partition of that name, made when there is none.
+pub(crate) fn exclusive(g: &mut Graph, n: NodeId, name: &str) -> CmdResult<()> {
+    let Some(set) = crate::deform_sets::set_of(g, n) else { fail!("exclusive: the deformer has no set to partition") };
+    let part = match g.find(name)? {
+        Some(p) if g.node(p).is_some_and(|x| x.ty().name == "partition") => p,
+        Some(_) => fail!("exclusive: {name} is not a partition"),
+        None => {
+            let t = crate::node::types::find("partition").expect("partition");
+            g.create_node(&t, name, crate::plug::NO_NODE, true)?
+        }
+    };
+    let Some(sets) = g.node(part).and_then(|x| x.ty().attr_index("sets")) else { return Ok(()) };
+    let Some(msg) = message(g, set) else { return Ok(()) };
+    let next = g.elements(&PlugRef::new(part, sets as i32)).iter().map(|e| e.element + 1).max().unwrap_or(0);
+    g.connect(&msg, &PlugRef::element(part, sets as i32, next), false)?;
+    Ok(())
+}
+
+/// The partition a deformer's set is in, or "".
+pub(crate) fn exclusive_of(g: &Graph, n: NodeId) -> String {
+    let Some(set) = crate::deform_sets::set_of(g, n) else { return String::new() };
+    let Some(msg) = message(g, set) else { return String::new() };
+    g.destinations(&msg).into_iter().find(|d| g.node(d.node).is_some_and(|x| x.ty().name == "partition")).map(|d| g.path(d.node)).unwrap_or_default()
+}
+
+/// The points a deformer acts on, each mesh's: its set's members, or every point when it has none.
+pub(crate) fn members(g: &mut Graph, n: NodeId) -> Vec<Member> {
+    if let Some(set) = crate::deform_sets::set_of(g, n) {
+        return crate::object_sets::members(g, set);
+    }
+    let mut out = Vec::new();
+    for x in deform::group(g, n) {
+        let Some(mesh) = deform::mesh_fed_by(g, x) else { continue };
+        let ids: Vec<u32> = crate::modifiers::cage(g, mesh).map(|m| (0..m.point_capacity()).filter(|&p| m.point_valid(p)).collect()).unwrap_or_default();
+        out.push(Member { node: mesh, kind: ComponentMode::Vertex, ids });
+    }
+    out
+}
+
+/// -components: the deformer's points as component names.
+pub(crate) fn components(g: &mut Graph, n: NodeId) -> Value {
+    let list = members(g, n);
+    json!(crate::object_sets::format(g, &list))
+}
+
+/// -selectedComponents: those of its points that are selected.
+pub(crate) fn selected_components(g: &mut Graph, n: NodeId) -> Value {
+    let picked = crate::object_sets::from_selection(g);
+    let mut out = Vec::new();
+    for m in members(g, n) {
+        let mut ids: Vec<u32> = picked.iter().filter(|p| p.node == m.node && p.kind == ComponentMode::Vertex).flat_map(|p| p.ids.iter().copied()).filter(|i| m.ids.contains(i)).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        if !ids.is_empty() {
+            out.push(Member { node: m.node, kind: ComponentMode::Vertex, ids });
+        }
+    }
+    json!(crate::object_sets::format(g, &out))
+}
+
+/// -dumpInfo: for each geometry, its index, how many points the deformer acts on and how many it has.
+pub(crate) fn dump_info(g: &mut Graph, n: NodeId) -> Value {
+    let list = members(g, n);
+    let mut out = Vec::new();
+    for (i, x) in deform::group(g, n).into_iter().enumerate() {
+        let Some(mesh) = deform::mesh_fed_by(g, x) else { continue };
+        let full = crate::modifiers::cage(g, mesh).map(|m| (0..m.point_capacity()).filter(|&p| m.point_valid(p)).count()).unwrap_or(0);
+        let affect: usize = list.iter().filter(|m| m.node == mesh).map(|m| m.ids.len()).sum();
+        out.extend([json!(i), json!(affect), json!(full)]);
+    }
+    Value::Array(out)
+}
+
+/// The creation flags every deformer command shares, taking the ones a command already has as they are.
+pub(crate) fn creation_flags(mut c: crate::history_qe::Cmd) -> crate::history_qe::Cmd {
+    use aztek_ops::ArgType;
+    use crate::history_qe::{f, upsert};
+    for fl in [
+        f("afterReference", "ar", ArgType::Bool, "Go before the other deformers, or after them when the geometry is referenced."),
+        f("automatic", "at", ArgType::Bool, "Go in front of the chain when only invertible deformers (skin, clusters) are there, else before."),
+        f("split", "sp", ArgType::Bool, "A branch of its own from the original shape rather than into the chain."),
+        f("exclusive", "ex", ArgType::String, "The partition the deformer's set goes into; -q: the partition."),
+        f("includeHiddenSelections", "ihs", ArgType::Bool, "Deform hidden objects in the selection too (off)."),
+        f("useComponentTags", "uct", ArgType::Bool, "Work by component tags: no deformer set is made."),
+        f("components", "cmp", ArgType::Bool, "Query: the points the deformer acts on."),
+        f("selectedComponents", "cms", ArgType::Bool, "Query: those of its points that are selected."),
+        f("deformerTools", "dt", ArgType::Bool, "Query: the deformer's tool objects."),
+        f("dumpInfo", "dui", ArgType::Bool, "Query: per geometry, its index, how many points it acts on and how many there are."),
+    ] {
+        if c.flags.iter().any(|x| x.name == fl.name) {
+            continue;
+        }
+        c = upsert(c, fl);
+    }
+    c
+}
+
+/// Answers the shared queries, or None for another flag.
+pub(crate) fn query(g: &mut Graph, n: NodeId, a: &Args, tools: &[NodeId]) -> Option<Value> {
+    let asked = |k: &str| crate::skin::asked(a, k);
+    if asked("components") {
+        return Some(components(g, n));
+    }
+    if asked("selectedComponents") {
+        return Some(selected_components(g, n));
+    }
+    if asked("dumpInfo") {
+        return Some(dump_info(g, n));
+    }
+    if asked("deformerTools") {
+        return Some(json!(tools.iter().map(|&t| g.path(t)).collect::<Vec<_>>()));
+    }
+    if asked("exclusive") {
+        return Some(json!(exclusive_of(g, n)));
+    }
+    None
+}

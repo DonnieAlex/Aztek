@@ -20,7 +20,7 @@ const LINEAR_ATTRS: &[&str] = &[
     "targetTranslate", "targetRotatePivot", "targetRotateTranslate", "targetScalePivot", "targetOffsetTranslate", "restTranslate",
     "localTranslate", "localPosition", "cutPlaneCenter", "centerOfIllumination", "centerOfInterest", "focusDistance", "nearClipPlane",
     "farClipPlane", "orthographicWidth", "distance", "point1", "point2", "falloffRadius", "falloffCenter", "maxDistance",
-    "minDistance",
+    "minDistance", "arcLength", "arcLengthInV",
 ];
 
 /// Attrs that mean a distance on primitives, and only there: `width` on a texture isn't one.
@@ -94,7 +94,8 @@ pub const FLAGS: &[Row] = &[
     ("roll", &[("degree", Angle)]),
     ("spotLight", &[("position", Linear), ("rotation", Angle), ("coneAngle", Angle), ("penumbra", Angle), ("leftBarnDoorAngle", Angle), ("rightBarnDoorAngle", Angle), ("topBarnDoorAngle", Angle), ("bottomBarnDoorAngle", Angle)]),
     ("curve", &[("point", Linear), ("editPoint", Linear)]),
-    ("circle", &[("center", Linear), ("radius", Linear), ("sweep", Angle), ("firstPoint", Linear)]),
+    ("circle", &[("center", Linear), ("centerX", Linear), ("centerY", Linear), ("centerZ", Linear), ("radius", Linear), ("sweep", Angle), ("first", Linear), ("firstPointX", Linear), ("firstPointY", Linear), ("firstPointZ", Linear), ("tolerance", Linear)]),
+    ("angleBetween", &[("vector1", Linear), ("vector1X", Linear), ("vector1Y", Linear), ("vector1Z", Linear), ("vector2", Linear), ("vector2X", Linear), ("vector2Y", Linear), ("vector2Z", Linear)]),
     ("nurbsSquare", &[("center", Linear), ("sideLength1", Linear)]),
     ("sphere", &[("pivot", Linear), ("radius", Linear), ("startSweep", Angle), ("endSweep", Angle)]),
     ("cone", &[("pivot", Linear), ("radius", Linear), ("startSweep", Angle), ("endSweep", Angle)]),
@@ -170,7 +171,7 @@ pub const POSITIONAL: &[(&str, Unit)] = &[("move", Linear), ("rotate", Angle), (
 
 /// What results measure, for commands that answer one thing.
 pub const RESULTS: &[(&str, Unit)] = &[
-    ("pointPosition", Linear), ("objectCenter", Linear), ("exactWorldBoundingBox", Linear), ("arclen", Linear), ("pointOnCurve", Linear), ("pointOnSurface", Linear),
+    ("pointPosition", Linear), ("objectCenter", Linear), ("exactWorldBoundingBox", Linear), ("pointOnCurve", Linear), ("pointOnSurface", Linear),
     ];
 
 /// Every flag's tag, for a command name.

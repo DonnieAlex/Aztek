@@ -159,6 +159,10 @@ pub struct RefTable {
     pub search: Vec<PathBuf>,
     /// The nodes the last load made.
     last_new: Vec<NodeId>,
+    /// Referenced animation curves as their file has them, before the scene's edits: what bufferCurve -urc shows.
+    pub referenced_curves: HashMap<NodeId, crate::anim::Keys>,
+    /// Curves whose buffer curve is their referenced curve.
+    pub buffer_is_referenced: std::collections::HashSet<NodeId>,
 }
 
 /// A `file -r` line as read.
@@ -676,6 +680,13 @@ fn finish(s: &mut Session, id: u32) {
 
 /// This scene's edits on a reference and those below it.
 fn apply_scene_edits(s: &mut Session, id: u32) {
+    // The referenced curves as the file gives them, before the scene changes them.
+    let ids = subtree(s, id);
+    let curves: Vec<NodeId> = s.graph.nodes().into_iter().filter(|&n| s.graph.node(n).is_some_and(|x| ids.contains(&x.reference_id())) && crate::anim::is_curve(&s.graph, n)).collect();
+    for c in curves {
+        let keys = crate::anim::keys_of(&s.graph, c);
+        s.extras.references.referenced_curves.entry(c).or_insert(keys);
+    }
     let was = s.graph.undo_stack().enabled();
     s.graph.undo_stack_mut().set_enabled(false);
     for r in subtree(s, id) {

@@ -181,7 +181,7 @@ pub fn shape_lines(n: &crate::node::Node) -> Option<Vec<(DVec3, DVec3)>> {
         let target = n.data().elements(Shape::COUNT + 3).first().map_or(n.data().vec3(AN_TARGET), |(_, m)| m.as_matrix().w_axis.truncate());
         return Some(if n.data().bool(Shape::COUNT + 1) { vec![(o, target)] } else { Vec::new() });
     }
-    if t.name == "paramDimension" || t.name == "dropoffLocator" {
+    if t.name == "paramDimension" || t.name == "dropoffLocator" || t.name == "arcLengthDimension" {
         let o = n.data().matrix(DagNode::WORLD_MATRIX).w_axis.truncate();
         let k = 0.15;
         return Some(vec![(o - DVec3::X * k, o + DVec3::X * k), (o - DVec3::Y * k, o + DVec3::Y * k), (o - DVec3::Z * k, o + DVec3::Z * k)]);
@@ -191,6 +191,9 @@ pub fn shape_lines(n: &crate::node::Node) -> Option<Vec<(DVec3, DVec3)>> {
 
 /// The label a shape shows, with where it goes. The viewport calls this.
 pub fn shape_label(n: &crate::node::Node) -> Option<(String, DVec3)> {
+    if let Some(x) = crate::nurbs_tools::dimension_label(n) {
+        return Some(x);
+    }
     let t = n.ty();
     if t.name == "distanceDimShape" {
         return Some((format!("{:.3}", n.data().float(DD_DISTANCE)), (n.data().vec3(DD_START) + n.data().vec3(DD_END)) * 0.5));
@@ -208,12 +211,32 @@ pub fn shape_label(n: &crate::node::Node) -> Option<(String, DVec3)> {
 // ---------------------------------------------------------------------------------------------------------------------
 // Binding
 
+/// Locks or unlocks the translate, rotate and scale of the objects that aren't joints, as a rigid bind leaves them.
+fn lock_trs(g: &mut Graph, names: &[String], lock: bool) -> CmdResult<()> {
+    for n in names {
+        let Ok(Some(id)) = g.find(n) else { continue };
+        let tr = crate::dag::transform_of(g, id);
+        if crate::rig::is_joint(g, tr) || !g.node(tr).is_some_and(|x| x.ty().is_a("transform")) {
+            continue;
+        }
+        for attr in [Transform::TRANSLATE, Transform::ROTATE, Transform::SCALE] {
+            g.set_locked(&plug(tr, attr), lock)?;
+        }
+    }
+    Ok(())
+}
+
 fn bind_skin(s: &mut Session, a: &Args) -> CmdResult {
     let names = objects(s, a);
+    if a.bool("unlock") {
+        lock_trs(&mut s.graph, &names, false)?;
+        return Ok(json!(1));
+    }
     if a.bool("unbind") || a.bool("unbindKeepHistory") || a.bool("delete") {
         let mut call = json!({"args": names, "edit": true});
         call[if a.bool("unbindKeepHistory") { "unbindKeepHistory" } else { "unbind" }] = json!(true);
         s.run("skinCluster", call)?;
+        lock_trs(&mut s.graph, &names, false)?;
         return Ok(json!(1));
     }
     if names.len() < 2 {
@@ -224,6 +247,8 @@ fn bind_skin(s: &mut Session, a: &Args) -> CmdResult {
         call["name"] = json!(a.string("name", ""));
     }
     s.run("skinCluster", call)?;
+    // Bound objects go wrong moved away from the skeleton, so the reference locks them.
+    lock_trs(&mut s.graph, &names, true)?;
     Ok(json!(1))
 }
 
@@ -877,13 +902,15 @@ pub fn register(c: &mut Commands<Session>) {
                 .flag(f("byClosestPoint", "bcp", B, "Accepted: closest point is how it binds."))
                 .flag(f("byPartition", "bp", B, "Accepted for existing scripts."))
                 .flag(f("colorJoints", "cj", B, "Accepted for existing scripts."))
-                .flag(f("delete", "del", B, "Remove the skin."))
+                .flag(f("delete", "d", B, "Detach the skin from the skeletons and remove its history."))
                 .flag(f("doNotDescend", "dnd", B, "Only the joints named."))
                 .flag(f("enable", "en", B, "Accepted for existing scripts."))
                 .flag(f("name", "n", S, "The skinCluster's name."))
                 .flag(f("partition", "p", S, "Accepted for existing scripts."))
                 .flag(f("toAll", "ta", B, "The whole skeleton (the default)."))
                 .flag(f("toSelectedBones", "tsb", B, "Only the joints named."))
+                .flag(f("toSkeleton", "ts", B, "The whole skeleton of each joint named (the default)."))
+                .flag(f("unlock", "ul", B, "Unlock the translate, rotate and scale that binding locked on the objects."))
                 .flag(f("unbind", "ub", B, "Remove the skin."))
                 .flag(f("unbindKeepHistory", "ubk", B, "Stop skinning, keep the node.")),
         );

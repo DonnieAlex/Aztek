@@ -270,6 +270,10 @@ pub mod flags {
     /// An output array whose elements exist once something is connected to them, as the reference's do: a mesh's
     /// worldMesh[0] is only made when read.
     pub const MADE_ON_READ: u32 = 1 << 18;
+    /// An added attribute that may share its name with another in the attribute tree (addAttr -eun off).
+    pub const NAME_NOT_UNIQUE: u32 = 1 << 19;
+    /// An added array attribute that depends on the node's world transform, an element per instance (addAttr -ws).
+    pub const WORLD_SPACE: u32 = 1 << 20;
 }
 
 #[derive(Clone, Debug)]

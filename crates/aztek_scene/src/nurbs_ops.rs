@@ -40,6 +40,17 @@ struct FnNode(fn(&mut NodeData));
 
 impl NodeBehavior for FnNode {
     fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        match crate::history_qe::node_state(d) {
+            // Blocking: it keeps what it gave.
+            2 | 5 => return,
+            // Has no effect: what comes in goes out, where the first input and output are of a kind.
+            1 | 4 if d.ty().attrs.len() > 1 && d.ty().attrs[0].ty == d.ty().attrs[1].ty && d.ty().attrs[1].flags & flags::OUTPUT != 0 => {
+                let v = d.value(0).clone();
+                d.set_output(1, v);
+                return;
+            }
+            _ => {}
+        }
         (self.0)(d);
     }
     fn as_any(&self) -> &dyn Any {
@@ -568,38 +579,73 @@ fn plane_offset(c: &NurbsCurve, distance: f64) -> NurbsCurve {
     c.offset(distance, None)
 }
 
-/// bevel's sections: (offset out in the plane, along the normal) from the front round to the back.
-fn bevel_sections(c: &NurbsCurve, width: f64, depth: f64, extrude: f64, back: bool) -> Vec<NurbsCurve> {
+/// The reference's bevel profile as three pieces, each a list of (offset out, along the normal): the bevel at the start
+/// (when sides is 2 or 4), the wall, the bevel at the end (sides 3 or 4). Shape 1 straight, 2 curving out, 3 curving in.
+pub(crate) fn bevel_profile(width: f64, depth: f64, extrude: f64, shape: i64, sides: i64, steps: usize) -> [Vec<(f64, f64)>; 3] {
+    let (front, back) = (matches!(sides, 2 | 4), matches!(sides, 3 | 4));
+    let steps = if shape == 1 { 1 } else { steps.max(2) };
+    // From the curve (t = 0) to the wall's top (t = 1).
+    let round = |t: f64| -> (f64, f64) {
+        let a = t * std::f64::consts::FRAC_PI_2;
+        match shape {
+            2 => (width * a.sin(), -depth * (1.0 - a.cos())),
+            3 => (width * (1.0 - a.cos()), -depth * a.sin()),
+            _ => (width * t, -depth * t),
+        }
+    };
+    let top = if front { -depth } else { 0.0 };
+    let bottom = top - extrude;
+    let start: Vec<(f64, f64)> = if front { (0..=steps).map(|k| round(k as f64 / steps as f64)).collect() } else { Vec::new() };
+    let wall = vec![(width, top), (width, bottom)];
+    let end: Vec<(f64, f64)> = if back {
+        (0..=steps).map(|k| {
+            let (o, z) = round(1.0 - k as f64 / steps as f64);
+            (o, bottom - (-depth - z))
+        }).collect()
+    } else {
+        Vec::new()
+    };
+    [start, wall, end]
+}
+
+/// The profile's points as curves round the outline.
+fn profile_curves(c: &NurbsCurve, prof: &[(f64, f64)]) -> Vec<NurbsCurve> {
     let n = c.plane_normal();
     let up = if n == DVec3::ZERO { DVec3::Z } else { n };
-    let mut prof: Vec<(f64, f64)> = vec![(0.0, 0.0), (width, -depth), (width, -depth - extrude)];
-    if back {
-        prof.push((0.0, -2.0 * depth - extrude));
-    }
     prof.iter().map(|&(o, z)| plane_offset(c, o).transformed(&glam::DMat4::from_translation(up * z))).collect()
+}
+
+/// The bevel's surfaces: joined into one, or a surface for each piece there is.
+pub(crate) fn bevel_surfaces(c: &NurbsCurve, pieces: &[Vec<(f64, f64)>; 3], join: bool) -> Vec<Option<NurbsSurface>> {
+    if join {
+        let mut all: Vec<(f64, f64)> = Vec::new();
+        for p in pieces.iter() {
+            for &pt in p {
+                if all.last().is_none_or(|l: &(f64, f64)| (l.0 - pt.0).abs() > 1e-12 || (l.1 - pt.1).abs() > 1e-12) {
+                    all.push(pt);
+                }
+            }
+        }
+        return vec![loft_of(&profile_curves(c, &all))];
+    }
+    pieces.iter().map(|p| if p.len() >= 2 { loft_of(&profile_curves(c, p)) } else { None }).collect()
+}
+
+/// Turns a surface round when its normals point in, as normalsOutwards asks: the side the outline's centre is on is in.
+fn outward(s: NurbsSurface, centre: DVec3) -> NurbsSurface {
+    let (u0, u1) = s.domain_u();
+    let (v0, v1) = s.domain_v();
+    let (u, v) = ((u0 + u1) * 0.5, (v0 + v1) * 0.5);
+    let p = s.eval(u, v);
+    if s.normal(u, v).dot(p - centre) < 0.0 {
+        s.reversed_u()
+    } else {
+        s
+    }
 }
 
 fn loft_of(list: &[NurbsCurve]) -> Option<NurbsSurface> {
     surfaces::loft_surface(list, surfaces::LoftOptions { close: false, uniform: true, degree: 1, section_spans: 1, auto_reverse: false, reverse_normals: false })
-}
-
-fn round_sections(c: &NurbsCurve, width: f64, depth: f64, extrude: f64, sides: usize, back: bool) -> Vec<NurbsCurve> {
-    let n = c.plane_normal();
-    let up = if n == DVec3::ZERO { DVec3::Z } else { n };
-    let mut prof: Vec<(f64, f64)> = Vec::new();
-    let steps = sides.max(1);
-    for k in 0..=steps {
-        let t = k as f64 / steps as f64 * std::f64::consts::FRAC_PI_2;
-        prof.push((width * t.sin(), -depth * (1.0 - t.cos())));
-    }
-    prof.push((width, -depth - extrude));
-    if back {
-        for k in (0..steps).rev() {
-            let t = k as f64 / steps as f64 * std::f64::consts::FRAC_PI_2;
-            prof.push((width * t.sin(), -depth - extrude - depth * (1.0 - t.cos())));
-        }
-    }
-    prof.iter().map(|&(o, z)| plane_offset(c, o).transformed(&glam::DMat4::from_translation(up * z))).collect()
 }
 
 fn closed_outline(c: &NurbsCurve) -> bool {
@@ -1092,37 +1138,90 @@ fn register_types() {
         reg(node_type(
             "bevel",
             "A bevelled wall round a curve.",
-            vec![cin("inputCurve", "ic"), sout("outputSurface", "os"), f_in("width", "w", 0.1, "How far out."), f_in("depth", "d", 0.1, "How deep the bevel."), f_in("extrudeDepth", "ed", 1.0, "How deep the wall."), int_in("bevelShapeType", "bst", 1, "1 straight, 2 arc."), bin("backFace", "bf", true)],
+            vec![
+                cin("inputCurve", "ic"),
+                sout("outputSurface", "os"),
+                f_in("width", "w", 0.5, "How far out."),
+                f_in("depth", "d", 0.5, "How deep the bevel."),
+                f_in("extrudeDepth", "ed", 1.0, "How deep the wall."),
+                int_in("bevelShapeType", "bst", 1, "1 straight cut, 2 curving out, 3 curving in."),
+                bin("backFace", "bf", true),
+                int_in("numberOfSides", "ns", 4, "Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both."),
+                AttrDef { short_name: "js".into(), ..bin("joinSurfaces", "js", true) },
+                int_in("cornerType", "ct", 2, "1 linear, 2 circular corners."),
+                f_in("tolerance", "tol", 0.01, "Tolerance of the offsets."),
+                sout("outputSurface1", "os1"),
+                sout("outputSurface2", "os2"),
+                sout("outputSurface3", "os3"),
+            ],
             |d| {
                 let Some(c) = crv(d, IN) else {
-                    d.set_output(OUT, PlugValue::Data(None));
+                    for o in [OUT, P + 9, P + 10, P + 11] {
+                        d.set_output(o, PlugValue::Data(None));
+                    }
                     return;
                 };
-                let (w, dp, e, back) = (d.float(P), d.float(P + 1), d.float(P + 2), d.bool(P + 4));
-                let list = if d.int(P + 3) == 2 { round_sections(&c, w, dp, e, 4, back) } else { bevel_sections(&c, w, dp, e, back) };
-                put_surface(d, OUT, loft_of(&list));
+                let (w, dp, e) = (d.float(P), d.float(P + 1), d.float(P + 2));
+                // backFace off is the older way of saying no bevel at the end.
+                let mut sides = d.int(P + 5);
+                if !d.bool(P + 4) && sides == 4 {
+                    sides = 2;
+                }
+                let pieces = bevel_profile(w, dp, e, d.int(P + 3), sides, 4);
+                let joined = bevel_surfaces(&c, &pieces, true).pop().flatten();
+                put_surface(d, OUT, joined);
+                let apart = bevel_surfaces(&c, &pieces, false);
+                for (k, piece) in apart.into_iter().enumerate() {
+                    put_surface(d, P + 9 + k, piece);
+                }
             },
         ));
         reg(node_type(
             "bevelPlus",
             "A bevelled wall round a curve, rounded, with caps.",
-            vec![cin("inputCurve", "ic"), sout("outputSurface", "os"), f_in("width", "w", 0.1, "How far out."), f_in("depth", "d", 0.1, "How deep the bevel."), f_in("extrudeDepth", "ed", 1.0, "How deep the wall."), int_in("numberOfSides", "ns", 4, "1 to 4: straight, or more round."), int_in("capSides", "cap", 4, "1 none, 2 front, 3 back, 4 both."), crate::attr_defs::mesh_attr("outputPoly", "op", flags::OUTPUT | flags::HIDDEN, "The wall with its caps, as polygons.")],
+            vec![
+                cin("inputCurve", "ic"),
+                sout("outputSurface", "os"),
+                f_in("width", "w", 0.1, "How far out."),
+                f_in("depth", "d", 0.1, "How deep the bevel."),
+                f_in("extrudeDepth", "ed", 1.0, "How deep the wall."),
+                int_in("numberOfSides", "ns", 4, "Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both."),
+                int_in("capSides", "cap", 4, "1 none, 2 front, 3 back, 4 both."),
+                crate::attr_defs::mesh_attr("outputPoly", "op", flags::OUTPUT | flags::HIDDEN, "The wall with its caps, as polygons."),
+                AttrDef { short_name: "bin".into(), ..bin("bevelInside", "bin", false) },
+                AttrDef { short_name: "js".into(), ..bin("joinSurfaces", "js", true) },
+                AttrDef { short_name: "no".into(), ..bin("normalsOutwards", "no", true) },
+                sout("outputSurface1", "os1"),
+                sout("outputSurface2", "os2"),
+                sout("outputSurface3", "os3"),
+            ],
             |d| {
                 let Some(c) = crv(d, IN) else {
-                    d.set_output(OUT, PlugValue::Data(None));
+                    for o in [OUT, P + 9, P + 10, P + 11] {
+                        d.set_output(o, PlugValue::Data(None));
+                    }
                     d.set_output(P + 5, PlugValue::Mesh(None));
                     return;
                 };
                 let (w, dp, ed, cap) = (d.float(P), d.float(P + 1), d.float(P + 2), d.int(P + 4));
-                let list = round_sections(&c, w, dp, ed, d.int(P + 3).max(1) as usize, true);
-                let wall = loft_of(&list);
+                // Inside: the bevel stays within the outline, going in rather than out.
+                let w = if d.bool(P + 6) { -w } else { w };
+                let pieces = bevel_profile(w, dp, ed, 2, d.int(P + 3), 4);
+                let centre = c.cvs.iter().copied().sum::<DVec3>() / c.cvs.len().max(1) as f64;
+                let fix = |s: Option<NurbsSurface>| if d.bool(P + 8) { s.map(|s| outward(s, centre)) } else { s };
+                let wall = fix(bevel_surfaces(&c, &pieces, true).pop().flatten());
+                let apart: Vec<Option<NurbsSurface>> = bevel_surfaces(&c, &pieces, false).into_iter().map(fix).collect();
+                for (k, piece) in apart.into_iter().enumerate() {
+                    put_surface(d, P + 9 + k, piece);
+                }
                 let mut m = wall.as_ref().map_or_else(Mesh::default, |s| s.tessellate(4, 1));
+                let total_depth = pieces.iter().flat_map(|p| p.iter().map(|x| x.1)).fold(0.0, f64::min);
                 if closed_outline(&c) {
                     let up = {
                         let n = c.plane_normal();
                         if n == DVec3::ZERO { DVec3::Z } else { n }
                     };
-                    for (on, z, flip) in [(cap == 2 || cap == 4, 0.0, false), (cap == 3 || cap == 4, -2.0 * dp - ed, true)] {
+                    for (on, z, flip) in [(cap == 2 || cap == 4, 0.0, false), (cap == 3 || cap == 4, total_depth, true)] {
                         if !on {
                             continue;
                         }
@@ -1936,21 +2035,56 @@ pub fn register(c: &mut Commands<Session>) {
             let r = (|| -> CmdResult {
                 let node = new_node(g, "bevel", "bevel1")?;
                 connect_world_curve(g, shape, node, IN)?;
-                set_f(g, node, "width", a.float("width", 0.1))?;
-                set_f(g, node, "depth", a.float("depth", 0.1))?;
+                set_f(g, node, "width", a.float("width", 0.5))?;
+                set_f(g, node, "depth", a.float("depth", 0.5))?;
                 set_f(g, node, "extrudeDepth", a.float("extrudeDepth", 1.0))?;
                 set_i(g, node, "bevelShapeType", a.int("bevelShapeType", 1))?;
-                surface_from(g, a, node, plug(node, OUT), "bevelSurface1")
+                set_i(g, node, "numberOfSides", a.int("numberOfSides", 4))?;
+                set_i(g, node, "cornerType", a.int("cornerType", 2))?;
+                set_f(g, node, "tolerance", a.float("tolerance", 0.01))?;
+                let join = a.get("joinSurfaces").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0)));
+                set_b(g, node, "joinSurfaces", join)?;
+                if join {
+                    return surface_from(g, a, node, plug(node, OUT), "bevelSurface1");
+                }
+                // A surface for each piece the bevel has.
+                g.evaluate();
+                let mut out = Vec::new();
+                let mut made = Vec::new();
+                for k in 0..3 {
+                    let from = plug(node, P + 9 + k);
+                    if !matches!(g.value(&from)?, PlugValue::Data(Some(_))) {
+                        continue;
+                    }
+                    let (tr, sh) = crate::dag::create_with_shape(g, surfaces::SHAPE_TYPE, &format!("bevelSurface{}", out.len() + 1), NO_NODE)?;
+                    g.connect(&from, &plug(sh, SurfaceShape::CREATE), false)?;
+                    out.push(json!(g.path(tr)));
+                    made.push(sh);
+                }
+                g.evaluate();
+                if !surfaces::wants_history(g, a) {
+                    for sh in made {
+                        surfaces::bake_history(g, sh)?;
+                    }
+                    if g.node(node).is_some() {
+                        g.delete_node(node)?;
+                    }
+                } else {
+                    out.push(json!(g.path(node)));
+                }
+                Ok(Value::Array(out))
             })();
             g.close_chunk();
             r
         })
         .positional("a curve")
-        .flag(f("width", "w", Fl, "How far out (0.1)."))
-        .flag(f("depth", "d", Fl, "How deep the bevel (0.1)."))
+        .flag(f("width", "w", Fl, "How far out (0.5)."))
+        .flag(f("depth", "d", Fl, "How deep the bevel (0.5)."))
         .flag(f("extrudeDepth", "ed", Fl, "How deep the wall (1)."))
-        .flag(f("bevelShapeType", "bst", I, "1 straight, 2 arc."))
-        .flag(f("cornerType", "ct", I, "Accepted for existing scripts.")),
+        .flag(f("bevelShapeType", "bst", I, "1 straight cut, 2 curving out, 3 curving in (1)."))
+        .flag(f("numberOfSides", "ns", I, "Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both (4)."))
+        .flag(f("joinSurfaces", "js", B, "One surface for the curve (on); off, a surface for each bevel and the wall."))
+        .flag(f("cornerType", "ct", I, "1 linear, 2 circular (2).")),
     ));
     c.register(make_flags(
         Cmd::new("bevelPlus", "A bevel with caps: -w, -d, -ed, -ns sides of the round, -cap 1 none, 2 front, 3 back, 4 both, -po 1 polygons (the default here). Returns [surface or group, node].", |s, a| {
@@ -1973,6 +2107,10 @@ pub fn register(c: &mut Commands<Session>) {
                 set_f(g, node, "extrudeDepth", ed)?;
                 set_i(g, node, "numberOfSides", a.int("numberOfSides", 4))?;
                 set_i(g, node, "capSides", cap)?;
+                let on = |k: &str, def: bool| a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                set_b(g, node, "bevelInside", on("bevelInside", false))?;
+                set_b(g, node, "joinSurfaces", on("joinSurfaces", true))?;
+                set_b(g, node, "normalsOutwards", on("normalsOutwards", true))?;
                 if polygon {
                     let (tr, sh) = crate::mesh_nodes::create_mesh_node(g, &a.string("name", "bevelPlusSurface1"))?;
                     g.connect(&plug(node, P + 5), &plug(sh, crate::mesh_nodes::MeshNode::IN_MESH), true)?;
@@ -1983,6 +2121,32 @@ pub fn register(c: &mut Commands<Session>) {
                         return Ok(json!([g.path(tr)]));
                     }
                     return Ok(json!([g.path(tr), g.path(node)]));
+                }
+                if !on("joinSurfaces", true) {
+                    // A surface for each bevel and the wall, under a group with the caps.
+                    g.evaluate();
+                    let t = types::find("transform").unwrap();
+                    let group = g.create_node(&t, &a.string("name", "bevelPlus1Group"), NO_NODE, true)?;
+                    let mut made = Vec::new();
+                    for k in 0..3 {
+                        let from = plug(node, P + 9 + k);
+                        if !matches!(g.value(&from)?, PlugValue::Data(Some(_))) {
+                            continue;
+                        }
+                        let (tr, sh) = crate::dag::create_with_shape(g, surfaces::SHAPE_TYPE, &format!("bevelPlusSurface{}", made.len() + 1), NO_NODE)?;
+                        g.connect(&from, &plug(sh, SurfaceShape::CREATE), false)?;
+                        g.set_parent(tr, group, true, usize::MAX)?;
+                        made.push(sh);
+                    }
+                    g.select(&[group], SelectMode::Replace);
+                    g.evaluate();
+                    if !surfaces::wants_history(g, a) {
+                        for sh in made {
+                            surfaces::bake_history(g, sh)?;
+                        }
+                        return Ok(json!([g.path(group)]));
+                    }
+                    return Ok(json!([g.path(group), g.path(node)]));
                 }
                 let out = surface_from(g, &args, node, plug(node, OUT), "bevelPlusSurface1")?;
                 if !closed_outline(&world) || cap == 1 {
@@ -2023,8 +2187,11 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("width", "w", Fl, "How far out (0.1)."))
         .flag(f("depth", "d", Fl, "How deep the bevel (0.1)."))
         .flag(f("extrudeDepth", "ed", Fl, "How deep the wall (1)."))
-        .flag(f("numberOfSides", "ns", I, "Sides of the round."))
+        .flag(f("numberOfSides", "ns", I, "Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both (4)."))
         .flag(f("capSides", "cap", I, "1 none, 2 front, 3 back, 4 both."))
+        .flag(f("bevelInside", "bin", B, "Keep the bevel within the outline (off)."))
+        .flag(f("joinSurfaces", "js", B, "One surface for the curve (on); off, a surface for each bevel and the wall."))
+        .flag(f("normalsOutwards", "no", B, "Normals point out of the shape (on)."))
         .flag(f("innerStyle", "is", I, "Accepted for existing scripts."))
         .flag(f("outerStyle", "os", I, "Accepted for existing scripts.")),
     ));

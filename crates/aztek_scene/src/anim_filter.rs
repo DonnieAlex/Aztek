@@ -652,10 +652,27 @@ fn mute_cmd(s: &mut Session, a: &Args) -> CmdResult {
 
 fn buffer_curve(s: &mut Session, a: &Args) -> CmdResult {
     let curves = anim::target_curves(s, a, "bufferCurve")?;
+    if a.bool("query") && queried(a, &["useReferencedCurve"]) {
+        // Whether the keys' curves show their referenced curve as the buffer.
+        let refs = &s.extras.references.buffer_is_referenced;
+        return Ok(json!(!curves.is_empty() && curves.iter().all(|(_, c)| refs.contains(c))));
+    }
     if a.bool("query") || queried(a, &["exists"]) {
         return Ok(json!(curves.iter().any(|(_, c)| s.buffer_curves.contains_key(c))));
     }
-    let overwrite = a.get("overwrite").and_then(Value::as_bool).unwrap_or(true);
+    if a.bool("useReferencedCurve") && !a.bool("swap") {
+        // The buffer becomes the curve as its file has it; curves not from a reference are left as they are.
+        let mut n = 0;
+        for (_, c) in curves {
+            let Some(keys) = s.extras.references.referenced_curves.get(&c).cloned() else { continue };
+            s.buffer_curves.insert(c, keys);
+            s.extras.references.buffer_is_referenced.insert(c);
+            n += 1;
+        }
+        return Ok(json!(n));
+    }
+    // Left out, -ov is off: a buffer already there stays.
+    let overwrite = a.get("overwrite").map_or(false, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
     let mut n = 0;
     for (_, c) in curves {
         let now = anim::keys_of(&s.graph, c);
@@ -663,9 +680,11 @@ fn buffer_curve(s: &mut Session, a: &Args) -> CmdResult {
             if let Some(old) = s.buffer_curves.insert(c, now) {
                 anim::set_keys(&mut s.graph, c, old)?;
             }
+            s.extras.references.buffer_is_referenced.remove(&c);
             n += 1;
         } else if overwrite || !s.buffer_curves.contains_key(&c) {
             s.buffer_curves.insert(c, now);
+            s.extras.references.buffer_is_referenced.remove(&c);
             n += 1;
         }
     }
@@ -750,7 +769,8 @@ pub fn register(c: &mut Commands<Session>) {
         buffer_curve,
     ))
     .positional("objects, plugs or curves (the selection when none)")
-    .flag(f("overwrite", "ov", ArgType::Bool, "Replace what the buffer holds (on by default)."))
+    .flag(f("overwrite", "ov", ArgType::Bool, "Replace a buffer curve already there; left out, one there stays."))
+    .flag(f("useReferencedCurve", "urc", ArgType::Bool, "The buffer becomes the curve as its referenced file has it; -q: whether the keys' curves show it."))
     .flag(f("swap", "sw", ArgType::Bool, "Swap the curve and its buffer."))
     .flag(f("exists", "ex", ArgType::Bool, "Whether a curve has a buffer."))
     .flag(f("selected", "sl", ArgType::Bool, "Curves of the keys selectKey selected."))

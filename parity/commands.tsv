@@ -13,8 +13,8 @@ air	done	auto
 aliasAttr	done	auto
 align	done	auto
 alignCtx	missing	
-alignCurve	missing	
-alignSurface	missing	
+alignCurve	done	auto
+alignSurface	done	auto
 allNodeTypes	done	auto
 ambientLight	done	auto
 angleBetween	done	auto
@@ -28,7 +28,7 @@ applyAttrPattern	missing
 applyMetadata	missing	
 applyTake	missing	
 arcLenDimContext	missing	
-arcLengthDimension	missing	
+arcLengthDimension	done	auto
 arclen	done	auto
 arrayMapper	missing	
 art3dPaintCtx	missing	
@@ -42,7 +42,7 @@ artPuttyCtx	done	auto
 artSelectCtx	done	auto
 artSetPaintCtx	done	auto
 artUserPaintCtx	done	auto
-arubaNurbsToPoly	missing	
+arubaNurbsToPoly	done	auto
 assembly	missing	
 assignCommand	missing	
 assignInputDevice	missing	
@@ -63,7 +63,7 @@ attributeName	done	auto
 attributeQuery	done	auto
 audioTrack	missing	
 autoKeyframe	done	auto
-autoPlace	missing	
+autoPlace	done	auto
 autoSave	done	auto
 backgroundEvaluationManager	missing	
 bakeClip	done	auto
@@ -87,7 +87,7 @@ blendShape	done	auto
 blendShapeEditor	done	auto
 blendShapePanel	done	auto
 blendTwoAttr	done	auto
-blindDataType	missing	
+blindDataType	done	auto
 bluePencilDrawCtx	missing	
 bluePencilFrame	missing	
 bluePencilLayer	missing	

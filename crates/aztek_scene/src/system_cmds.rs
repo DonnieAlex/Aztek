@@ -549,7 +549,8 @@ fn attribute_info(s: &mut Session, a: &Args) -> CmdResult {
             ("enumerated", at.ty == PlugType::Enum),
             ("hidden", at.has(flags::HIDDEN)),
             ("inherited", t.base.as_ref().is_some_and(|b| b.attr_index(&at.name).is_some())),
-            ("leaf", at.ty != PlugType::Vec3),
+            // A child of a compound with no children of its own.
+            ("leaf", at.name.contains('.') && at.ty != PlugType::Vec3),
             ("multi", at.is_array()),
             ("writable", at.has(flags::INPUT)),
         ];
@@ -1209,16 +1210,16 @@ pub fn register(c: &mut Commands<Session>) {
             .undoable(false),
     );
     c.register(
-        Cmd::new("attributeInfo", "A node's attributes filtered: -b boolean, -e enumerated, -h hidden, -w writable, -m multi, -lf leaf, -inh inherited; -t a type in place of a node; -s short names.", attribute_info)
+        Cmd::new("attributeInfo", "A node's attributes filtered: -b boolean, -e enumerated, -h hidden, -w writable, -m multi, -l leaf, -in inherited; -t a type in place of a node; -s short names.", attribute_info)
             .positional("object")
             .flag(f("allAttributes", "all", B, "All (what no filter gives)."))
             .flag(f("bool", "b", B, "Booleans."))
             .flag(f("enumerated", "e", B, "Enums."))
             .flag(f("hidden", "h", B, "Hidden ones."))
-            .flag(f("inherited", "inh", B, "Inherited from the base type."))
+            .flag(f("inherited", "in", B, "Inherited from the base type."))
             .flag(f("internal", "i", B, "Internal ones: none here."))
-            .flag(f("leaf", "lf", B, "Not compounds."))
-            .flag(f("logicalAnd", "la", B, "All filters must hold, not any."))
+            .flag(f("leaf", "l", B, "Leaves of compounds: attributes with a parent and no children."))
+            .flag(f("logicalAnd", "and", B, "All filters must hold, not any."))
             .flag(f("multi", "m", B, "Arrays."))
             .flag(f("short", "s", B, "Short names."))
             .flag(f("type", "t", S, "A type rather than a node."))

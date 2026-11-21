@@ -1763,37 +1763,83 @@ fn align_cmd(s: &mut Session, a: &Args) -> CmdResult {
         fail!("align: select at least two objects");
     }
     let g = &mut s.graph;
+    g.evaluate();
+    // The axes: the world's, or those of the object -cs names.
+    let frame = match a.get("coordinateSystem").and_then(Value::as_str) {
+        Some(cs) if !cs.is_empty() => {
+            let id = node_of(g, cs, "align")?;
+            let w = crate::rig::world(g, id);
+            let (_, r, t) = w.to_scale_rotation_translation();
+            glam::DMat4::from_rotation_translation(r, t)
+        }
+        _ => glam::DMat4::IDENTITY,
+    };
+    let inv = frame.inverse();
     let mut boxes = Vec::new();
     for n in &names {
-        let Some(b) = bounds_of(g, std::slice::from_ref(n), false)? else { fail!("align: {n} has no bounds") };
-        boxes.push(b);
+        let Some((lo, hi)) = bounds_of(g, std::slice::from_ref(n), false)? else { fail!("align: {n} has no bounds") };
+        let (mut blo, mut bhi) = (DVec3::splat(f64::MAX), DVec3::splat(f64::MIN));
+        for k in 0..8 {
+            let c = DVec3::new(if k & 1 == 0 { lo.x } else { hi.x }, if k & 2 == 0 { lo.y } else { hi.y }, if k & 4 == 0 { lo.z } else { hi.z });
+            let p = inv.transform_point3(c);
+            blo = blo.min(p);
+            bhi = bhi.max(p);
+        }
+        boxes.push((blo, bhi));
     }
-    for (axis, flag) in ["alignX", "alignY", "alignZ"].iter().enumerate() {
-        let Some(mode) = a.get(flag).and_then(Value::as_str) else { continue };
-        let at = |b: &(DVec3, DVec3)| match mode {
-            "Min" | "min" => b.0[axis],
-            "Max" | "max" => b.1[axis],
-            _ => (b.0[axis] + b.1[axis]) * 0.5,
-        };
-        let target = if a.bool("alignToLead") {
-            at(&boxes[names.len() - 1])
-        } else {
-            match mode {
-                "Min" | "min" => boxes.iter().map(|b| b.0[axis]).fold(f64::MAX, f64::min),
-                "Max" | "max" => boxes.iter().map(|b| b.1[axis]).fold(f64::MIN, f64::max),
-                _ => {
-                    let lo = boxes.iter().map(|b| b.0[axis]).fold(f64::MAX, f64::min);
-                    let hi = boxes.iter().map(|b| b.1[axis]).fold(f64::MIN, f64::max);
-                    (lo + hi) * 0.5
+    let mut deltas = vec![DVec3::ZERO; names.len()];
+    for (axis, flag) in ["xAxis", "yAxis", "zAxis"].iter().enumerate() {
+        let Some(mode) = a.get(flag).and_then(Value::as_str).map(str::to_ascii_lowercase) else { continue };
+        let mid = |b: &(DVec3, DVec3)| (b.0[axis] + b.1[axis]) * 0.5;
+        match mode.as_str() {
+            "none" | "" => {}
+            "min" | "mid" | "max" => {
+                let at = |b: &(DVec3, DVec3)| match mode.as_str() {
+                    "min" => b.0[axis],
+                    "max" => b.1[axis],
+                    _ => mid(b),
+                };
+                let target = if a.bool("alignToLead") {
+                    // The lead object is the one selected last.
+                    at(&boxes[names.len() - 1])
+                } else {
+                    // Averaged over the objects.
+                    boxes.iter().map(at).sum::<f64>() / boxes.len() as f64
+                };
+                for (i, b) in boxes.iter().enumerate() {
+                    deltas[i][axis] = target - at(b);
                 }
             }
-        };
-        for (n, b) in names.iter().zip(boxes.iter()) {
-            let id = node_of(g, n, "align")?;
-            let mut delta = DVec3::ZERO;
-            delta[axis] = target - at(b);
-            crate::transform_ops::move_by(g, &[id], delta, crate::transform_ops::Space::World)?;
+            "dist" => {
+                // Evenly spread between the outermost two, by their middles.
+                let mut order: Vec<usize> = (0..boxes.len()).collect();
+                order.sort_by(|&x, &y| mid(&boxes[x]).total_cmp(&mid(&boxes[y])));
+                let (first, last) = (mid(&boxes[order[0]]), mid(&boxes[*order.last().unwrap()]));
+                let step = (last - first) / (order.len() - 1) as f64;
+                for (k, &i) in order.iter().enumerate() {
+                    deltas[i][axis] = first + step * k as f64 - mid(&boxes[i]);
+                }
+            }
+            "stack" => {
+                // End to end, from the lowest, in the order they sit.
+                let mut order: Vec<usize> = (0..boxes.len()).collect();
+                order.sort_by(|&x, &y| boxes[x].0[axis].total_cmp(&boxes[y].0[axis]));
+                let mut next = boxes[order[0]].1[axis];
+                for &i in order.iter().skip(1) {
+                    deltas[i][axis] = next - boxes[i].0[axis];
+                    next += boxes[i].1[axis] - boxes[i].0[axis];
+                }
+            }
+            other => fail!("align: {other} is not none, min, mid, max, dist or stack"),
         }
+    }
+    for (n, d) in names.iter().zip(deltas) {
+        if d == DVec3::ZERO {
+            continue;
+        }
+        let id = node_of(g, n, "align")?;
+        let world = frame.transform_vector3(d);
+        crate::transform_ops::move_by(g, &[id], world, crate::transform_ops::Space::World)?;
     }
     Ok(json!(true))
 }
@@ -2429,12 +2475,13 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("unHilite", "u", B, "Take away.")),
     );
     c.register(
-        Cmd::new("align", "Lines objects' bounding boxes up: align -x Mid a b c. Min, Mid or Max per axis; -atl to the last object.", align_cmd)
-            .positional("objects")
-            .flag(f("alignX", "x", S, "Min, Mid or Max."))
-            .flag(f("alignY", "y", S, "Min, Mid or Max."))
-            .flag(f("alignZ", "z", S, "Min, Mid or Max."))
-            .flag(f("alignToLead", "atl", B, "To the last object rather than the whole set.")),
+        Cmd::new("align", "Align or spread objects along X, Y and Z by their bounding boxes: align -x mid a b c. Per axis none, min, mid or max (to their average, or the lead object's with -atl), dist (spread evenly) or stack (end to end). -cs takes the axes from an object. Returns true.", align_cmd)
+            .positional("objects (the selection when none)")
+            .flag(f("xAxis", "x", S, "none, min, mid, max, dist or stack (none)."))
+            .flag(f("yAxis", "y", S, "none, min, mid, max, dist or stack (none)."))
+            .flag(f("zAxis", "z", S, "none, min, mid, max, dist or stack (none)."))
+            .flag(f("coordinateSystem", "cs", S, "An object whose axes are X, Y and Z (the world's)."))
+            .flag(f("alignToLead", "atl", B, "Min, mid or max from the lead object (the last selected) rather than averaged over all.")),
     );
     {
         let mut sn = Cmd::new("snapMode", "Move snapping switches: -grid, -point, -curve; -q to ask.", |s, a| {
@@ -2456,9 +2503,35 @@ pub fn register(c: &mut Commands<Session>) {
         c.register(sn.flag(f("query", "q", B, "Query.")).flag(f("queried", "", ArgType::List, "What -q asks for.")));
     }
     c.register(
-        Cmd::new("angleBetween", "The rotation from -v1 to -v2: axis and angle in degrees, or -er Euler angles.", |_s, a| {
-            let (Some(x), Some(y)) = (a.vec3("vector1"), a.vec3("vector2")) else { fail!("angleBetween: give -v1 and -v2") };
-            let (x, y) = (DVec3::from_array(x).normalize_or_zero(), DVec3::from_array(y).normalize_or_zero());
+        Cmd::new("angleBetween", "The rotation from -v1 to -v2: axis and angle in degrees, or -er Euler angles. -ch on makes an angleBetween node instead and returns it.", |s, a| {
+            let vec_of = |whole: &str, parts: [&str; 3]| -> Option<DVec3> {
+                let mut v = a.vec3(whole).map(DVec3::from_array);
+                for (i, p) in parts.iter().enumerate() {
+                    if let Some(x) = a.get(p).and_then(Value::as_f64) {
+                        let mut w = v.unwrap_or(DVec3::ZERO);
+                        w[i] = x;
+                        v = Some(w);
+                    }
+                }
+                v
+            };
+            let v1 = vec_of("vector1", ["vector1X", "vector1Y", "vector1Z"]);
+            let v2 = vec_of("vector2", ["vector2X", "vector2Y", "vector2Z"]);
+            if a.get("constructionHistory").is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0)) {
+                let g = &mut s.graph;
+                let t = crate::node::types::find("angleBetween").expect("angleBetween");
+                let n = g.create_node(&t, "angleBetween1", crate::plug::NO_NODE, true)?;
+                for (attr, v) in [("vector1", v1), ("vector2", v2)] {
+                    if let (Some(v), Some(i)) = (v, t.attr_index(attr)) {
+                        g.set_value(PlugRef::new(n, i as i32), PlugValue::Vec3(v))?;
+                    }
+                }
+                crate::history_qe::apply_common(g, n, a)?;
+                g.evaluate();
+                return Ok(json!(g.path(n)));
+            }
+            let (Some(x), Some(y)) = (v1, v2) else { fail!("angleBetween: give -v1 and -v2") };
+            let (x, y) = (x.normalize_or_zero(), y.normalize_or_zero());
             let angle = x.angle_between(y);
             let axis = x.cross(y).normalize_or_zero();
             if a.bool("euler") {
@@ -2470,11 +2543,18 @@ pub fn register(c: &mut Commands<Session>) {
             let angle = if aztek_ops::units::user_call() { aztek_ops::units::to_user(aztek_ops::units::Unit::Angle, angle) } else { angle };
             Ok(json!([axis.x, axis.y, axis.z, angle]))
         })
-        .flag(f("vector1", "v1", ArgType::Vec3, "From."))
-        .flag(f("vector2", "v2", ArgType::Vec3, "To."))
-        .flag(f("euler", "er", B, "Euler angles instead."))
-        .flag(f("constructionHistory", "ch", B, "Accepted for existing scripts."))
-        .undoable(false),
+        .flag(f("vector1", "v1", ArgType::Vec3, "The vector to rotate from."))
+        .flag(f("vector1X", "v1x", ArgType::Float, "vector1's X."))
+        .flag(f("vector1Y", "v1y", ArgType::Float, "vector1's Y."))
+        .flag(f("vector1Z", "v1z", ArgType::Float, "vector1's Z."))
+        .flag(f("vector2", "v2", ArgType::Vec3, "The vector to rotate to."))
+        .flag(f("vector2X", "v2x", ArgType::Float, "vector2's X."))
+        .flag(f("vector2Y", "v2y", ArgType::Float, "vector2's Y."))
+        .flag(f("vector2Z", "v2z", ArgType::Float, "vector2's Z."))
+        .flag(f("euler", "er", B, "Euler angles instead of axis and angle."))
+        .flag(f("constructionHistory", "ch", B, "Make an angleBetween node computing it, and return the node."))
+        .flag(f("caching", "cch", B, "With -ch: the node's caching."))
+        .flag(f("nodeState", "nds", ArgType::Int, "With -ch: the node's state."))
     );
     c.register(
         Cmd::new("getModifiers", "Which modifier keys are down, as bits: none, when a script asks.", |_s, _a| Ok(json!(0))).undoable(false),

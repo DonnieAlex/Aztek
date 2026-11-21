@@ -377,7 +377,131 @@ fn scale_cmd(a: &Args, cmd: &str, pref: &str) -> CmdResult {
     Ok(Value::Null)
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// autoPlace
+
+/// Rays the views last gave, by the camera they look through: the one through the view's centre, and the one through the
+/// pointer.
+#[derive(Clone, Copy)]
+pub(crate) struct ViewRays {
+    pub centre: (glam::DVec3, glam::DVec3),
+    pub pointer: (glam::DVec3, glam::DVec3),
+}
+
+thread_local! {
+    static VIEW_RAYS: RefCell<BTreeMap<String, ViewRays>> = RefCell::new(BTreeMap::new());
+}
+
+/// A view saw the mouse: its rays, for autoPlace.
+pub(crate) fn note_pointer(camera: &str, rays: ViewRays) {
+    VIEW_RAYS.with(|r| {
+        r.borrow_mut().insert(camera.to_string(), rays);
+    });
+}
+
+fn view_rays(camera: &str, shape: &str) -> Option<ViewRays> {
+    VIEW_RAYS.with(|r| {
+        let r = r.borrow();
+        r.get(camera).or_else(|| r.get(shape)).copied()
+    })
+}
+
+/// Where a ray meets a triangle, as its distance along the ray.
+fn ray_triangle(o: glam::DVec3, d: glam::DVec3, a: glam::DVec3, b: glam::DVec3, c: glam::DVec3) -> Option<f64> {
+    let (e1, e2) = (b - a, c - a);
+    let p = d.cross(e2);
+    let det = e1.dot(p);
+    if det.abs() < 1e-14 {
+        return None;
+    }
+    let s = o - a;
+    let u = s.dot(p) / det;
+    if !(-1e-9..=1.0 + 1e-9).contains(&u) {
+        return None;
+    }
+    let q = s.cross(e1);
+    let v = d.dot(q) / det;
+    if v < -1e-9 || u + v > 1.0 + 1e-9 {
+        return None;
+    }
+    let t = e2.dot(q) / det;
+    (t >= 0.0).then_some(t)
+}
+
+/// The nearest hit of a ray on a mesh's faces, world space.
+fn ray_mesh(m: &aztek_geo::Mesh, world: &glam::DMat4, o: glam::DVec3, d: glam::DVec3) -> Option<f64> {
+    let mut best: Option<f64> = None;
+    for f in 0..m.face_capacity() {
+        if !m.face_valid(f) {
+            continue;
+        }
+        let pts: Vec<glam::DVec3> = m.face_points(f).iter().map(|&p| world.transform_point3(m.position(p))).collect();
+        for k in 1..pts.len().saturating_sub(1) {
+            if let Some(t) = ray_triangle(o, d, pts[0], pts[k], pts[k + 1]) {
+                best = Some(best.map_or(t, |b: f64| b.min(t)));
+            }
+        }
+    }
+    best
+}
+
+/// autoPlace: the point at the centre of the view in focus (or under the pointer with -um) on the live surface, or on the
+/// ground plane when nothing is live.
+fn auto_place(s: &mut Session, a: &Args) -> CmdResult {
+    let camera = crate::panel_cmds::active_camera();
+    let g = &mut s.graph;
+    g.evaluate();
+    let Some(cam) = g.find(&camera)? else { fail!("autoPlace: no camera {camera}") };
+    let tr = aztek_scene::dag::transform_of(g, cam);
+    let shape = aztek_scene::dag::shapes(g, tr, false).first().map(|&x| g.path(x)).unwrap_or_default();
+    let (o, d) = match view_rays(&g.path(tr), &shape).or_else(|| view_rays(&camera, &shape)) {
+        Some(r) if a.bool("useMouse") => r.pointer,
+        Some(r) => r.centre,
+        None => {
+            // No view has drawn this camera: its own axis.
+            let w = aztek_scene::rig::world(g, tr);
+            (w.w_axis.truncate(), -w.z_axis.truncate().normalize_or_zero())
+        }
+    };
+    let mut best: Option<f64> = None;
+    for &live in &s.live_surface.clone() {
+        let g = &mut s.graph;
+        let mesh = if let Some(m) = aztek_scene::components::as_mesh(g, live) {
+            aztek_scene::modifiers::cage(g, m).map(|x| ((*x).clone(), aztek_scene::rig::world(g, aztek_scene::dag::transform_of(g, m))))
+        } else if let Some(sf) = aztek_scene::surfaces::as_surface(g, live) {
+            aztek_scene::surfaces::world_surface(g, sf).map(|x| (x.tessellate(8, 8), glam::DMat4::IDENTITY))
+        } else {
+            None
+        };
+        if let Some((m, w)) = mesh {
+            if let Some(t) = ray_mesh(&m, &w, o, d) {
+                best = Some(best.map_or(t, |b: f64| b.min(t)));
+            }
+        }
+    }
+    let at = match best {
+        Some(t) => o + d * t,
+        None if !s.live_surface.is_empty() => fail!("autoPlace: the view's centre misses the live surface"),
+        None => {
+            // The ground plane: Y up, or Z.
+            let n = if aztek_scene::world::up_z() { glam::DVec3::Z } else { glam::DVec3::Y };
+            let den = d.dot(n);
+            if den.abs() < 1e-9 {
+                fail!("autoPlace: the view looks along the ground plane");
+            }
+            let t = -o.dot(n) / den;
+            o + d * t
+        }
+    };
+    let k = if aztek_ops::units::user_call() { aztek_ops::units::to_user(aztek_ops::units::Unit::Linear, 1.0) } else { 1.0 };
+    Ok(json!([at.x * k, at.y * k, at.z * k]))
+}
+
 pub fn register(s: &mut Session) {
+    s.register(
+        Cmd::new("autoPlace", "The point at the centre of the view in focus on the live surface, or on the ground plane when nothing is live; -um the point under the mouse. Returns x y z.", auto_place)
+            .flag(f("useMouse", "um", B, "The mouse's place in the view rather than its centre.")),
+    );
     s.register(
         Cmd::new(
             "quit",

@@ -136,7 +136,7 @@ addAttr	bt	done	auto
 addAttr	cachedInternally	done	auto
 addAttr	category	done	auto
 addAttr	ci	done	auto
-addAttr	ct	missing	
+addAttr	ct	done	auto
 addAttr	dataType	done	auto
 addAttr	dcb	done	auto
 addAttr	defaultValue	done	auto
@@ -146,9 +146,9 @@ addAttr	dv	done	auto
 addAttr	e	done	auto
 addAttr	edit	done	auto
 addAttr	en	done	auto
-addAttr	enforcingUniqueName	missing	
+addAttr	enforcingUniqueName	done	auto
 addAttr	enumName	done	auto
-addAttr	eun	missing	
+addAttr	eun	done	auto
 addAttr	ex	done	auto
 addAttr	exists	done	auto
 addAttr	fp	done	auto
@@ -203,9 +203,9 @@ addAttr	usedAsColor	done	auto
 addAttr	usedAsFilename	done	auto
 addAttr	usedAsProxy	done	auto
 addAttr	w	done	auto
-addAttr	worldSpace	missing	
+addAttr	worldSpace	done	auto
 addAttr	writable	done	auto
-addAttr	ws	missing	
+addAttr	ws	done	auto
 addExtension	at	missing	
 addExtension	attributeType	missing	
 addExtension	binaryTag	missing	
@@ -310,8 +310,8 @@ aimConstraint	aim	done	auto
 aimConstraint	aimVector	done	auto
 aimConstraint	e	done	auto
 aimConstraint	edit	done	auto
-aimConstraint	l	missing	
-aimConstraint	layer	missing	
+aimConstraint	l	done	auto
+aimConstraint	layer	done	auto
 aimConstraint	maintainOffset	done	auto
 aimConstraint	mo	done	auto
 aimConstraint	n	done	auto
@@ -392,14 +392,14 @@ aliasAttr	remove	done	auto
 aliasAttr	rm	done	auto
 align	alignToLead	done	auto
 align	atl	done	auto
-align	coordinateSystem	missing	
-align	cs	missing	
+align	coordinateSystem	done	auto
+align	cs	done	auto
 align	x	done	auto
-align	xAxis	missing	
+align	xAxis	done	auto
 align	y	done	auto
-align	yAxis	missing	
+align	yAxis	done	auto
 align	z	done	auto
-align	zAxis	missing	
+align	zAxis	done	auto
 alignCtx	a	missing	
 alignCtx	afo	missing	
 alignCtx	align	missing	
@@ -424,102 +424,102 @@ alignCtx	q	missing
 alignCtx	query	missing	
 alignCtx	sat	missing	
 alignCtx	showAlignTouch	missing	
-alignCurve	at	missing	
-alignCurve	attach	missing	
-alignCurve	caching	missing	
-alignCurve	cc	missing	
-alignCurve	cch	missing	
-alignCurve	ch	missing	
-alignCurve	constructionHistory	missing	
-alignCurve	cs1	missing	
-alignCurve	cs2	missing	
-alignCurve	curvatureContinuity	missing	
-alignCurve	curvatureScale1	missing	
-alignCurve	curvatureScale2	missing	
-alignCurve	e	missing	
-alignCurve	edit	missing	
-alignCurve	jnp	missing	
-alignCurve	joinParameter	missing	
-alignCurve	keepMultipleKnots	missing	
-alignCurve	kmk	missing	
-alignCurve	n	missing	
-alignCurve	name	missing	
-alignCurve	nds	missing	
-alignCurve	nodeState	missing	
-alignCurve	o	missing	
-alignCurve	object	missing	
-alignCurve	pc	missing	
-alignCurve	pct	missing	
-alignCurve	positionalContinuity	missing	
-alignCurve	positionalContinuityType	missing	
-alignCurve	q	missing	
-alignCurve	query	missing	
-alignCurve	replaceOriginal	missing	
-alignCurve	reverse1	missing	
-alignCurve	reverse2	missing	
-alignCurve	rpo	missing	
-alignCurve	rv1	missing	
-alignCurve	rv2	missing	
-alignCurve	tangentContinuity	missing	
-alignCurve	tangentContinuityType	missing	
-alignCurve	tangentScale1	missing	
-alignCurve	tangentScale2	missing	
-alignCurve	tc	missing	
-alignCurve	tct	missing	
-alignCurve	ts1	missing	
-alignCurve	ts2	missing	
-alignSurface	at	missing	
-alignSurface	attach	missing	
-alignSurface	caching	missing	
-alignSurface	cc	missing	
-alignSurface	cch	missing	
-alignSurface	ch	missing	
-alignSurface	constructionHistory	missing	
-alignSurface	cs1	missing	
-alignSurface	cs2	missing	
-alignSurface	curvatureContinuity	missing	
-alignSurface	curvatureScale1	missing	
-alignSurface	curvatureScale2	missing	
-alignSurface	directionU	missing	
-alignSurface	du	missing	
-alignSurface	e	missing	
-alignSurface	edit	missing	
-alignSurface	jnp	missing	
-alignSurface	joinParameter	missing	
-alignSurface	keepMultipleKnots	missing	
-alignSurface	kmk	missing	
-alignSurface	n	missing	
-alignSurface	name	missing	
-alignSurface	nds	missing	
-alignSurface	nodeState	missing	
-alignSurface	o	missing	
-alignSurface	object	missing	
-alignSurface	pc	missing	
-alignSurface	pct	missing	
-alignSurface	positionalContinuity	missing	
-alignSurface	positionalContinuityType	missing	
-alignSurface	q	missing	
-alignSurface	query	missing	
-alignSurface	replaceOriginal	missing	
-alignSurface	reverse1	missing	
-alignSurface	reverse2	missing	
-alignSurface	rpo	missing	
-alignSurface	rv1	missing	
-alignSurface	rv2	missing	
-alignSurface	sw1	missing	
-alignSurface	sw2	missing	
-alignSurface	swap1	missing	
-alignSurface	swap2	missing	
-alignSurface	tangentContinuity	missing	
-alignSurface	tangentContinuityType	missing	
-alignSurface	tangentScale1	missing	
-alignSurface	tangentScale2	missing	
-alignSurface	tc	missing	
-alignSurface	tct	missing	
-alignSurface	ts1	missing	
-alignSurface	ts2	missing	
-alignSurface	tw	missing	
-alignSurface	twist	missing	
+alignCurve	at	done	auto
+alignCurve	attach	done	auto
+alignCurve	caching	done	auto
+alignCurve	cc	done	auto
+alignCurve	cch	done	auto
+alignCurve	ch	done	auto
+alignCurve	constructionHistory	done	auto
+alignCurve	cs1	done	auto
+alignCurve	cs2	done	auto
+alignCurve	curvatureContinuity	done	auto
+alignCurve	curvatureScale1	done	auto
+alignCurve	curvatureScale2	done	auto
+alignCurve	e	done	auto
+alignCurve	edit	done	auto
+alignCurve	jnp	done	auto
+alignCurve	joinParameter	done	auto
+alignCurve	keepMultipleKnots	done	auto
+alignCurve	kmk	done	auto
+alignCurve	n	done	auto
+alignCurve	name	done	auto
+alignCurve	nds	done	auto
+alignCurve	nodeState	done	auto
+alignCurve	o	done	auto
+alignCurve	object	done	auto
+alignCurve	pc	done	auto
+alignCurve	pct	done	auto
+alignCurve	positionalContinuity	done	auto
+alignCurve	positionalContinuityType	done	auto
+alignCurve	q	done	auto
+alignCurve	query	done	auto
+alignCurve	replaceOriginal	done	auto
+alignCurve	reverse1	done	auto
+alignCurve	reverse2	done	auto
+alignCurve	rpo	done	auto
+alignCurve	rv1	done	auto
+alignCurve	rv2	done	auto
+alignCurve	tangentContinuity	done	auto
+alignCurve	tangentContinuityType	done	auto
+alignCurve	tangentScale1	done	auto
+alignCurve	tangentScale2	done	auto
+alignCurve	tc	done	auto
+alignCurve	tct	done	auto
+alignCurve	ts1	done	auto
+alignCurve	ts2	done	auto
+alignSurface	at	done	auto
+alignSurface	attach	done	auto
+alignSurface	caching	done	auto
+alignSurface	cc	done	auto
+alignSurface	cch	done	auto
+alignSurface	ch	done	auto
+alignSurface	constructionHistory	done	auto
+alignSurface	cs1	done	auto
+alignSurface	cs2	done	auto
+alignSurface	curvatureContinuity	done	auto
+alignSurface	curvatureScale1	done	auto
+alignSurface	curvatureScale2	done	auto
+alignSurface	directionU	done	auto
+alignSurface	du	done	auto
+alignSurface	e	done	auto
+alignSurface	edit	done	auto
+alignSurface	jnp	done	auto
+alignSurface	joinParameter	done	auto
+alignSurface	keepMultipleKnots	done	auto
+alignSurface	kmk	done	auto
+alignSurface	n	done	auto
+alignSurface	name	done	auto
+alignSurface	nds	done	auto
+alignSurface	nodeState	done	auto
+alignSurface	o	done	auto
+alignSurface	object	done	auto
+alignSurface	pc	done	auto
+alignSurface	pct	done	auto
+alignSurface	positionalContinuity	done	auto
+alignSurface	positionalContinuityType	done	auto
+alignSurface	q	done	auto
+alignSurface	query	done	auto
+alignSurface	replaceOriginal	done	auto
+alignSurface	reverse1	done	auto
+alignSurface	reverse2	done	auto
+alignSurface	rpo	done	auto
+alignSurface	rv1	done	auto
+alignSurface	rv2	done	auto
+alignSurface	sw1	done	auto
+alignSurface	sw2	done	auto
+alignSurface	swap1	done	auto
+alignSurface	swap2	done	auto
+alignSurface	tangentContinuity	done	auto
+alignSurface	tangentContinuityType	done	auto
+alignSurface	tangentScale1	done	auto
+alignSurface	tangentScale2	done	auto
+alignSurface	tc	done	auto
+alignSurface	tct	done	auto
+alignSurface	ts1	done	auto
+alignSurface	ts2	done	auto
+alignSurface	tw	done	auto
+alignSurface	twist	done	auto
 allNodeTypes	ia	done	auto
 allNodeTypes	includeAbstract	done	auto
 ambientLight	ambientShade	done	auto
@@ -547,33 +547,33 @@ ambientLight	sh	done	auto
 ambientLight	shadowColor	done	auto
 ambientLight	shadowDither	done	auto
 ambientLight	shadowSamples	done	auto
-ambientLight	softShadow	missing	
-ambientLight	ss	missing	
+ambientLight	softShadow	done	auto
+ambientLight	ss	done	auto
 ambientLight	useRayTraceShadows	done	auto
-angleBetween	caching	missing	
-angleBetween	cch	missing	
+angleBetween	caching	done	auto
+angleBetween	cch	done	auto
 angleBetween	ch	done	auto
 angleBetween	constructionHistory	done	auto
 angleBetween	er	done	auto
 angleBetween	euler	done	auto
-angleBetween	nds	missing	
-angleBetween	nodeState	missing	
+angleBetween	nds	done	auto
+angleBetween	nodeState	done	auto
 angleBetween	v1	done	auto
-angleBetween	v1x	missing	
-angleBetween	v1y	missing	
-angleBetween	v1z	missing	
+angleBetween	v1x	done	auto
+angleBetween	v1y	done	auto
+angleBetween	v1z	done	auto
 angleBetween	v2	done	auto
-angleBetween	v2x	missing	
-angleBetween	v2y	missing	
-angleBetween	v2z	missing	
+angleBetween	v2x	done	auto
+angleBetween	v2y	done	auto
+angleBetween	v2z	done	auto
 angleBetween	vector1	done	auto
-angleBetween	vector1X	missing	
-angleBetween	vector1Y	missing	
-angleBetween	vector1Z	missing	
+angleBetween	vector1X	done	auto
+angleBetween	vector1Y	done	auto
+angleBetween	vector1Z	done	auto
 angleBetween	vector2	done	auto
-angleBetween	vector2X	missing	
-angleBetween	vector2Y	missing	
-angleBetween	vector2Z	missing	
+angleBetween	vector2X	done	auto
+angleBetween	vector2Y	done	auto
+angleBetween	vector2Z	done	auto
 animCurveEditor	acn	done	auto
 animCurveEditor	acs	done	auto
 animCurveEditor	af	done	auto
@@ -888,16 +888,16 @@ arcLenDimContext	n	missing
 arcLenDimContext	name	missing	
 arcLenDimContext	q	missing	
 arcLenDimContext	query	missing	
-arclen	caching	missing	
-arclen	cch	missing	
+arclen	caching	done	auto
+arclen	cch	done	auto
 arclen	ch	done	auto
 arclen	constructionHistory	done	auto
-arclen	e	missing	
-arclen	edit	missing	
-arclen	nds	missing	
-arclen	nodeState	missing	
-arclen	q	missing	
-arclen	query	missing	
+arclen	e	done	auto
+arclen	edit	done	auto
+arclen	nds	done	auto
+arclen	nodeState	done	auto
+arclen	q	done	auto
+arclen	query	done	auto
 arrayMapper	da	missing	
 arrayMapper	destAttr	missing	
 arrayMapper	inputU	missing	
@@ -2710,24 +2710,24 @@ artUserPaintCtx	whichTool	missing
 artUserPaintCtx	wlR	missing	
 artUserPaintCtx	worldRadius	missing	
 artUserPaintCtx	wst	missing	
-arubaNurbsToPoly	caching	missing	
-arubaNurbsToPoly	cch	missing	
-arubaNurbsToPoly	ch	missing	
-arubaNurbsToPoly	constructionHistory	missing	
-arubaNurbsToPoly	e	missing	
-arubaNurbsToPoly	edit	missing	
-arubaNurbsToPoly	localSpace	missing	
-arubaNurbsToPoly	ls	missing	
-arubaNurbsToPoly	n	missing	
-arubaNurbsToPoly	name	missing	
-arubaNurbsToPoly	nds	missing	
-arubaNurbsToPoly	nodeState	missing	
-arubaNurbsToPoly	o	missing	
-arubaNurbsToPoly	object	missing	
-arubaNurbsToPoly	q	missing	
-arubaNurbsToPoly	query	missing	
-arubaNurbsToPoly	worldSpace	missing	
-arubaNurbsToPoly	ws	missing	
+arubaNurbsToPoly	caching	done	auto
+arubaNurbsToPoly	cch	done	auto
+arubaNurbsToPoly	ch	done	auto
+arubaNurbsToPoly	constructionHistory	done	auto
+arubaNurbsToPoly	e	done	auto
+arubaNurbsToPoly	edit	done	auto
+arubaNurbsToPoly	localSpace	done	auto
+arubaNurbsToPoly	ls	done	auto
+arubaNurbsToPoly	n	done	auto
+arubaNurbsToPoly	name	done	auto
+arubaNurbsToPoly	nds	done	auto
+arubaNurbsToPoly	nodeState	done	auto
+arubaNurbsToPoly	o	done	auto
+arubaNurbsToPoly	object	done	auto
+arubaNurbsToPoly	q	done	auto
+arubaNurbsToPoly	query	done	auto
+arubaNurbsToPoly	worldSpace	done	auto
+arubaNurbsToPoly	ws	done	auto
 assembly	a	missing	
 assembly	active	missing	
 assembly	activeLabel	missing	
@@ -2865,26 +2865,26 @@ attachCurve	bb	done	auto
 attachCurve	bki	done	auto
 attachCurve	blendBias	done	auto
 attachCurve	blendKnotInsertion	done	auto
-attachCurve	caching	missing	
-attachCurve	cch	missing	
+attachCurve	caching	done	auto
+attachCurve	cch	done	auto
 attachCurve	ch	done	auto
 attachCurve	constructionHistory	done	auto
-attachCurve	e	missing	
-attachCurve	edit	missing	
+attachCurve	e	done	auto
+attachCurve	edit	done	auto
 attachCurve	keepMultipleKnots	done	auto
 attachCurve	kmk	done	auto
 attachCurve	m	done	auto
 attachCurve	method	done	auto
 attachCurve	n	done	auto
 attachCurve	name	done	auto
-attachCurve	nds	missing	
-attachCurve	nodeState	missing	
+attachCurve	nds	done	auto
+attachCurve	nodeState	done	auto
 attachCurve	o	done	auto
 attachCurve	object	done	auto
 attachCurve	p	done	auto
 attachCurve	parameter	done	auto
-attachCurve	q	missing	
-attachCurve	query	missing	
+attachCurve	q	done	auto
+attachCurve	query	done	auto
 attachCurve	replaceOriginal	done	auto
 attachCurve	reverse1	done	auto
 attachCurve	reverse2	done	auto
@@ -2911,40 +2911,40 @@ attachSurface	bb	done	auto
 attachSurface	bki	done	auto
 attachSurface	blendBias	done	auto
 attachSurface	blendKnotInsertion	done	auto
-attachSurface	caching	missing	
-attachSurface	cch	missing	
+attachSurface	caching	done	auto
+attachSurface	cch	done	auto
 attachSurface	ch	done	auto
 attachSurface	constructionHistory	done	auto
-attachSurface	directionU	missing	
-attachSurface	du	missing	
-attachSurface	e	missing	
-attachSurface	edit	missing	
+attachSurface	directionU	done	auto
+attachSurface	du	done	auto
+attachSurface	e	done	auto
+attachSurface	edit	done	auto
 attachSurface	keepMultipleKnots	done	auto
 attachSurface	kmk	done	auto
 attachSurface	m	done	auto
 attachSurface	method	done	auto
 attachSurface	n	done	auto
 attachSurface	name	done	auto
-attachSurface	nds	missing	
-attachSurface	nodeState	missing	
+attachSurface	nds	done	auto
+attachSurface	nodeState	done	auto
 attachSurface	o	done	auto
 attachSurface	object	done	auto
 attachSurface	p	done	auto
 attachSurface	parameter	done	auto
-attachSurface	q	missing	
-attachSurface	query	missing	
+attachSurface	q	done	auto
+attachSurface	query	done	auto
 attachSurface	replaceOriginal	done	auto
-attachSurface	reverse1	missing	
-attachSurface	reverse2	missing	
+attachSurface	reverse1	done	auto
+attachSurface	reverse2	done	auto
 attachSurface	rpo	done	auto
-attachSurface	rv1	missing	
-attachSurface	rv2	missing	
-attachSurface	sw1	missing	
-attachSurface	sw2	missing	
-attachSurface	swap1	missing	
-attachSurface	swap2	missing	
-attachSurface	tw	missing	
-attachSurface	twist	missing	
+attachSurface	rv1	done	auto
+attachSurface	rv2	done	auto
+attachSurface	sw1	done	auto
+attachSurface	sw2	done	auto
+attachSurface	swap1	done	auto
+attachSurface	swap2	done	auto
+attachSurface	tw	done	auto
+attachSurface	twist	done	auto
 attrColorSliderGrp	ad2	done	auto
 attrColorSliderGrp	ad3	done	auto
 attrColorSliderGrp	ad4	done	auto
@@ -3739,7 +3739,7 @@ attributeInfo	hidden	done	auto
 attributeInfo	i	done	auto
 attributeInfo	inherited	done	auto
 attributeInfo	internal	done	auto
-attributeInfo	l	missing	
+attributeInfo	l	done	auto
 attributeInfo	leaf	done	auto
 attributeInfo	logicalAnd	done	auto
 attributeInfo	m	done	auto
@@ -3913,8 +3913,8 @@ autoKeyframe	q	done	auto
 autoKeyframe	query	done	auto
 autoKeyframe	st	done	auto
 autoKeyframe	state	done	auto
-autoPlace	um	missing	
-autoPlace	useMouse	missing	
+autoPlace	um	done	auto
+autoPlace	useMouse	done	auto
 autoSave	destination	done	auto
 autoSave	destinationFolder	done	auto
 autoSave	df	done	auto
@@ -4137,53 +4137,53 @@ bevel	cornerType	done	auto
 bevel	ct	done	auto
 bevel	d	done	auto
 bevel	depth	done	auto
-bevel	e	missing	
+bevel	e	done	auto
 bevel	ed	done	auto
-bevel	edit	missing	
+bevel	edit	done	auto
 bevel	extrudeDepth	done	auto
-bevel	joinSurfaces	missing	
-bevel	js	missing	
+bevel	joinSurfaces	done	auto
+bevel	js	done	auto
 bevel	n	done	auto
 bevel	name	done	auto
 bevel	nds	done	auto
 bevel	nodeState	done	auto
-bevel	ns	missing	
-bevel	numberOfSides	missing	
+bevel	ns	done	auto
+bevel	numberOfSides	done	auto
 bevel	o	done	auto
 bevel	object	done	auto
 bevel	po	done	auto
 bevel	polygon	done	auto
-bevel	q	missing	
-bevel	query	missing	
+bevel	q	done	auto
+bevel	query	done	auto
 bevel	range	done	auto
 bevel	rn	done	auto
 bevel	tol	done	auto
 bevel	tolerance	done	auto
 bevel	w	done	auto
 bevel	width	done	auto
-bevelPlus	bevelInside	missing	
-bevelPlus	bin	missing	
+bevelPlus	bevelInside	done	auto
+bevelPlus	bin	done	auto
 bevelPlus	cap	done	auto
 bevelPlus	capSides	done	auto
 bevelPlus	ch	done	auto
 bevelPlus	constructionHistory	done	auto
-bevelPlus	e	missing	
-bevelPlus	edit	missing	
+bevelPlus	e	done	auto
+bevelPlus	edit	done	auto
 bevelPlus	innerStyle	done	auto
-bevelPlus	joinSurfaces	missing	
-bevelPlus	js	missing	
+bevelPlus	joinSurfaces	done	auto
+bevelPlus	js	done	auto
 bevelPlus	n	done	auto
 bevelPlus	name	done	auto
-bevelPlus	no	missing	
-bevelPlus	normalsOutwards	missing	
+bevelPlus	no	done	auto
+bevelPlus	normalsOutwards	done	auto
 bevelPlus	ns	done	auto
 bevelPlus	numberOfSides	done	auto
 bevelPlus	os	done	auto
 bevelPlus	outerStyle	done	auto
 bevelPlus	po	done	auto
 bevelPlus	polygon	done	auto
-bevelPlus	q	missing	
-bevelPlus	query	missing	
+bevelPlus	q	done	auto
+bevelPlus	query	done	auto
 bevelPlus	range	done	auto
 bevelPlus	rn	done	auto
 bezierAnchorPreset	p	done	auto
@@ -4228,7 +4228,7 @@ bindSkin	byClosestPoint	done	auto
 bindSkin	byPartition	done	auto
 bindSkin	cj	done	auto
 bindSkin	colorJoints	done	auto
-bindSkin	d	missing	
+bindSkin	d	done	auto
 bindSkin	delete	done	auto
 bindSkin	dnd	done	auto
 bindSkin	doNotDescend	done	auto
@@ -4241,15 +4241,15 @@ bindSkin	partition	done	auto
 bindSkin	ta	done	auto
 bindSkin	toAll	done	auto
 bindSkin	toSelectedBones	done	auto
-bindSkin	toSkeleton	missing	
-bindSkin	ts	missing	
+bindSkin	toSkeleton	done	auto
+bindSkin	ts	done	auto
 bindSkin	tsb	done	auto
 bindSkin	ub	done	auto
 bindSkin	ubk	done	auto
-bindSkin	ul	missing	
+bindSkin	ul	done	auto
 bindSkin	unbind	done	auto
 bindSkin	unbindKeepHistory	done	auto
-bindSkin	unlock	missing	
+bindSkin	unlock	done	auto
 blend2	aa	done	auto
 blend2	an	done	auto
 blend2	autoAnchor	done	auto
@@ -4260,8 +4260,8 @@ blend2	cfr	done	auto
 blend2	ch	done	auto
 blend2	constructionHistory	done	auto
 blend2	crvsInFirstRail	done	auto
-blend2	e	missing	
-blend2	edit	missing	
+blend2	e	done	auto
+blend2	edit	done	auto
 blend2	flipLeftNormal	done	auto
 blend2	flipRightNormal	done	auto
 blend2	fln	done	auto
@@ -4284,8 +4284,8 @@ blend2	po	done	auto
 blend2	polygon	done	auto
 blend2	positionTolerance	done	auto
 blend2	pt	done	auto
-blend2	q	missing	
-blend2	query	missing	
+blend2	q	done	auto
+blend2	query	done	auto
 blend2	ra	done	auto
 blend2	re	done	auto
 blend2	reverseLeft	done	auto
@@ -4300,67 +4300,67 @@ blend2	tangentTolerance	done	auto
 blend2	tt	done	auto
 blendShape	af	done	auto
 blendShape	after	done	auto
-blendShape	afterReference	missing	
-blendShape	ar	missing	
-blendShape	at	missing	
-blendShape	automatic	missing	
+blendShape	afterReference	done	auto
+blendShape	ar	done	auto
+blendShape	at	done	auto
+blendShape	automatic	done	auto
 blendShape	before	done	auto
 blendShape	bf	done	auto
-blendShape	cd	missing	
-blendShape	cid	missing	
-blendShape	cmp	missing	
-blendShape	cms	missing	
-blendShape	components	missing	
-blendShape	copyDelta	missing	
-blendShape	copyInBetweenDelta	missing	
-blendShape	copyWeights	missing	
-blendShape	cw	missing	
-blendShape	deformerTools	missing	
-blendShape	dt	missing	
-blendShape	dui	missing	
-blendShape	dumpInfo	missing	
+blendShape	cd	done	auto
+blendShape	cid	done	auto
+blendShape	cmp	done	auto
+blendShape	cms	done	auto
+blendShape	components	done	auto
+blendShape	copyDelta	done	auto
+blendShape	copyInBetweenDelta	done	auto
+blendShape	copyWeights	done	auto
+blendShape	cw	done	auto
+blendShape	deformerTools	done	auto
+blendShape	dt	done	auto
+blendShape	dui	done	auto
+blendShape	dumpInfo	done	auto
 blendShape	e	done	auto
 blendShape	edit	done	auto
-blendShape	editTarget	missing	
-blendShape	edt	missing	
+blendShape	editTarget	done	auto
+blendShape	edt	done	auto
 blendShape	en	done	auto
 blendShape	envelope	done	auto
-blendShape	ep	missing	
-blendShape	et	missing	
-blendShape	ex	missing	
-blendShape	exclusive	missing	
-blendShape	export	missing	
-blendShape	exportTarget	missing	
-blendShape	flipTarget	missing	
+blendShape	ep	done	auto
+blendShape	et	done	auto
+blendShape	ex	done	auto
+blendShape	exclusive	done	auto
+blendShape	export	done	auto
+blendShape	exportTarget	done	auto
+blendShape	flipTarget	done	auto
 blendShape	foc	done	auto
 blendShape	frontOfChain	done	auto
-blendShape	ft	missing	
+blendShape	ft	done	auto
 blendShape	g	done	auto
 blendShape	geometry	done	auto
 blendShape	geometryIndices	done	auto
 blendShape	gi	done	auto
 blendShape	ib	done	auto
-blendShape	ibi	missing	
+blendShape	ibi	done	auto
 blendShape	ibt	done	auto
 blendShape	ignoreSelected	done	auto
-blendShape	ihs	missing	
+blendShape	ihs	done	auto
 blendShape	inBetween	done	auto
-blendShape	inBetweenIndex	missing	
+blendShape	inBetweenIndex	done	auto
 blendShape	inBetweenType	done	auto
-blendShape	includeHiddenSelections	missing	
-blendShape	ip	missing	
-blendShape	md	missing	
-blendShape	mergeSource	missing	
-blendShape	mergeTarget	missing	
-blendShape	mgs	missing	
-blendShape	mgt	missing	
-blendShape	mirrorDirection	missing	
-blendShape	mirrorTarget	missing	
-blendShape	mt	missing	
+blendShape	includeHiddenSelections	done	auto
+blendShape	ip	done	auto
+blendShape	md	done	auto
+blendShape	mergeSource	done	auto
+blendShape	mergeTarget	done	auto
+blendShape	mgs	done	auto
+blendShape	mgt	done	auto
+blendShape	mirrorDirection	done	auto
+blendShape	mirrorTarget	done	auto
+blendShape	mt	done	auto
 blendShape	n	done	auto
 blendShape	name	done	auto
-blendShape	ng	missing	
-blendShape	normalizationGroups	missing	
+blendShape	ng	done	auto
+blendShape	normalizationGroups	done	auto
 blendShape	o	done	auto
 blendShape	origin	done	auto
 blendShape	par	done	auto
@@ -4373,27 +4373,27 @@ blendShape	remove	done	auto
 blendShape	resetTargetDelta	done	auto
 blendShape	rm	done	auto
 blendShape	rtd	done	auto
-blendShape	sa	missing	
-blendShape	sd	missing	
-blendShape	se	missing	
-blendShape	selectedComponents	missing	
-blendShape	sp	missing	
-blendShape	split	missing	
-blendShape	ss	missing	
-blendShape	suppressDialog	missing	
-blendShape	symmetryAxis	missing	
-blendShape	symmetryEdge	missing	
-blendShape	symmetrySpace	missing	
+blendShape	sa	done	auto
+blendShape	sd	done	auto
+blendShape	se	done	auto
+blendShape	selectedComponents	done	auto
+blendShape	sp	done	auto
+blendShape	split	done	auto
+blendShape	ss	done	auto
+blendShape	suppressDialog	done	auto
+blendShape	symmetryAxis	done	auto
+blendShape	symmetryEdge	done	auto
+blendShape	symmetrySpace	done	auto
 blendShape	t	done	auto
-blendShape	tangentSpace	missing	
+blendShape	tangentSpace	done	auto
 blendShape	target	done	auto
 blendShape	tc	done	auto
 blendShape	topologyCheck	done	auto
-blendShape	tr	missing	
-blendShape	transform	missing	
-blendShape	ts	missing	
-blendShape	uct	missing	
-blendShape	useComponentTags	missing	
+blendShape	tr	done	auto
+blendShape	transform	done	auto
+blendShape	ts	done	auto
+blendShape	uct	done	auto
+blendShape	useComponentTags	done	auto
 blendShape	w	done	auto
 blendShape	wc	done	auto
 blendShape	weight	done	auto
@@ -4511,22 +4511,22 @@ blendTwoAttr	s	done	auto
 blendTwoAttr	shape	done	auto
 blendTwoAttr	t	done	auto
 blendTwoAttr	time	done	auto
-blindDataType	dataType	missing	
-blindDataType	dt	missing	
-blindDataType	id	missing	
-blindDataType	ldn	missing	
-blindDataType	ln	missing	
-blindDataType	longDataName	missing	
-blindDataType	longNames	missing	
-blindDataType	q	missing	
-blindDataType	query	missing	
-blindDataType	sdn	missing	
-blindDataType	shortDataName	missing	
-blindDataType	shortNames	missing	
-blindDataType	sn	missing	
-blindDataType	tn	missing	
-blindDataType	typeId	missing	
-blindDataType	typeNames	missing	
+blindDataType	dataType	done	auto
+blindDataType	dt	done	auto
+blindDataType	id	done	auto
+blindDataType	ldn	done	auto
+blindDataType	ln	done	auto
+blindDataType	longDataName	done	auto
+blindDataType	longNames	done	auto
+blindDataType	q	done	auto
+blindDataType	query	done	auto
+blindDataType	sdn	done	auto
+blindDataType	shortDataName	done	auto
+blindDataType	shortNames	done	auto
+blindDataType	sn	done	auto
+blindDataType	tn	done	auto
+blindDataType	typeId	done	auto
+blindDataType	typeNames	done	auto
 bluePencilFrame	activeViewport	missing	
 bluePencilFrame	avp	missing	
 bluePencilFrame	clear	missing	
@@ -4670,34 +4670,34 @@ bluePencilUtil	timelineFrameDisplay	missing
 bluePencilUtil	transform	missing	
 bluePencilUtil	tt	missing	
 bluePencilUtil	txo	missing	
-boneLattice	af	missing	
-boneLattice	after	missing	
-boneLattice	afterReference	missing	
-boneLattice	ar	missing	
-boneLattice	before	missing	
-boneLattice	bf	missing	
+boneLattice	af	done	auto
+boneLattice	after	done	auto
+boneLattice	afterReference	done	auto
+boneLattice	ar	done	auto
+boneLattice	before	done	auto
+boneLattice	bf	done	auto
 boneLattice	bi	done	auto
 boneLattice	bicep	done	auto
-boneLattice	cmp	missing	
-boneLattice	cms	missing	
-boneLattice	components	missing	
-boneLattice	deformerTools	missing	
-boneLattice	dt	missing	
-boneLattice	dui	missing	
-boneLattice	dumpInfo	missing	
+boneLattice	cmp	done	auto
+boneLattice	cms	done	auto
+boneLattice	components	done	auto
+boneLattice	deformerTools	done	auto
+boneLattice	dt	done	auto
+boneLattice	dui	done	auto
+boneLattice	dumpInfo	done	auto
 boneLattice	e	done	auto
 boneLattice	edit	done	auto
-boneLattice	ex	missing	
-boneLattice	exclusive	missing	
-boneLattice	foc	missing	
-boneLattice	frontOfChain	missing	
+boneLattice	ex	done	auto
+boneLattice	exclusive	done	auto
+boneLattice	foc	done	auto
+boneLattice	frontOfChain	done	auto
 boneLattice	g	done	auto
 boneLattice	geometry	done	auto
-boneLattice	geometryIndices	missing	
-boneLattice	gi	missing	
-boneLattice	ignoreSelected	missing	
-boneLattice	ihs	missing	
-boneLattice	includeHiddenSelections	missing	
+boneLattice	geometryIndices	done	auto
+boneLattice	gi	done	auto
+boneLattice	ignoreSelected	done	auto
+boneLattice	ihs	done	auto
+boneLattice	includeHiddenSelections	done	auto
 boneLattice	j	done	auto
 boneLattice	joint	done	auto
 boneLattice	lengthIn	done	auto
@@ -4706,48 +4706,48 @@ boneLattice	li	done	auto
 boneLattice	lo	done	auto
 boneLattice	n	done	auto
 boneLattice	name	done	auto
-boneLattice	par	missing	
-boneLattice	parallel	missing	
-boneLattice	pr	missing	
-boneLattice	prune	missing	
+boneLattice	par	done	auto
+boneLattice	parallel	done	auto
+boneLattice	pr	done	auto
+boneLattice	prune	done	auto
 boneLattice	q	done	auto
 boneLattice	query	done	auto
-boneLattice	remove	missing	
-boneLattice	rm	missing	
-boneLattice	selectedComponents	missing	
-boneLattice	sp	missing	
-boneLattice	split	missing	
+boneLattice	remove	done	auto
+boneLattice	rm	done	auto
+boneLattice	selectedComponents	done	auto
+boneLattice	sp	done	auto
+boneLattice	split	done	auto
 boneLattice	t	done	auto
 boneLattice	tr	done	auto
 boneLattice	transform	done	auto
 boneLattice	tricep	done	auto
-boneLattice	uct	missing	
-boneLattice	useComponentTags	missing	
+boneLattice	uct	done	auto
+boneLattice	useComponentTags	done	auto
 boneLattice	widthLeft	done	auto
 boneLattice	widthRight	done	auto
 boneLattice	wl	done	auto
 boneLattice	wr	done	auto
-boundary	caching	missing	
-boundary	cch	missing	
+boundary	caching	done	auto
+boundary	cch	done	auto
 boundary	ch	done	auto
 boundary	constructionHistory	done	auto
-boundary	e	missing	
-boundary	edit	missing	
+boundary	e	done	auto
+boundary	edit	done	auto
 boundary	endPoint	done	auto
 boundary	endPointTolerance	done	auto
 boundary	ep	done	auto
 boundary	ept	done	auto
 boundary	n	done	auto
 boundary	name	done	auto
-boundary	nds	missing	
-boundary	nodeState	missing	
+boundary	nds	done	auto
+boundary	nodeState	done	auto
 boundary	o	done	auto
 boundary	object	done	auto
 boundary	order	done	auto
 boundary	po	done	auto
 boundary	polygon	done	auto
-boundary	q	missing	
-boundary	query	missing	
+boundary	q	done	auto
+boundary	query	done	auto
 boundary	range	done	auto
 boundary	rn	done	auto
 boxDollyCtx	ac	done	auto
@@ -4813,8 +4813,8 @@ bufferCurve	sw	done	auto
 bufferCurve	swap	done	auto
 bufferCurve	t	done	auto
 bufferCurve	time	done	auto
-bufferCurve	urc	missing	
-bufferCurve	useReferencedCurve	missing	
+bufferCurve	urc	done	auto
+bufferCurve	useReferencedCurve	done	auto
 buildBookmarkMenu	ed	missing	
 buildBookmarkMenu	editor	missing	
 buildBookmarkMenu	typ	missing	
@@ -5901,47 +5901,47 @@ choice	sourceAttribute	missing
 choice	t	missing	
 choice	time	missing	
 circle	c	done	auto
-circle	caching	missing	
-circle	cch	missing	
+circle	caching	done	auto
+circle	cch	done	auto
 circle	center	done	auto
-circle	centerX	missing	
-circle	centerY	missing	
-circle	centerZ	missing	
+circle	centerX	done	auto
+circle	centerY	done	auto
+circle	centerZ	done	auto
 circle	ch	done	auto
 circle	constructionHistory	done	auto
-circle	cx	missing	
-circle	cy	missing	
-circle	cz	missing	
+circle	cx	done	auto
+circle	cy	done	auto
+circle	cz	done	auto
 circle	d	done	auto
 circle	degree	done	auto
-circle	e	missing	
-circle	edit	missing	
-circle	fc	missing	
-circle	first	missing	
-circle	firstPointX	missing	
-circle	firstPointY	missing	
-circle	firstPointZ	missing	
-circle	fixCenter	missing	
+circle	e	done	auto
+circle	edit	done	auto
+circle	fc	done	auto
+circle	first	done	auto
+circle	firstPointX	done	auto
+circle	firstPointY	done	auto
+circle	firstPointZ	done	auto
+circle	fixCenter	done	auto
 circle	fp	done	auto
-circle	fpx	missing	
-circle	fpy	missing	
-circle	fpz	missing	
+circle	fpx	done	auto
+circle	fpy	done	auto
+circle	fpz	done	auto
 circle	n	done	auto
 circle	name	done	auto
-circle	nds	missing	
-circle	nodeState	missing	
+circle	nds	done	auto
+circle	nodeState	done	auto
 circle	normal	done	auto
-circle	normalX	missing	
-circle	normalY	missing	
-circle	normalZ	missing	
+circle	normalX	done	auto
+circle	normalY	done	auto
+circle	normalZ	done	auto
 circle	nr	done	auto
-circle	nrx	missing	
-circle	nry	missing	
-circle	nrz	missing	
+circle	nrx	done	auto
+circle	nry	done	auto
+circle	nrz	done	auto
 circle	o	done	auto
 circle	object	done	auto
-circle	q	missing	
-circle	query	missing	
+circle	q	done	auto
+circle	query	done	auto
 circle	r	done	auto
 circle	radius	done	auto
 circle	s	done	auto
@@ -13214,8 +13214,8 @@ geometryAttrInfo	sbs	done	auto
 geometryAttrInfo	subsetState	done	auto
 geometryConstraint	e	done	auto
 geometryConstraint	edit	done	auto
-geometryConstraint	l	missing	
-geometryConstraint	layer	missing	
+geometryConstraint	l	done	auto
+geometryConstraint	layer	done	auto
 geometryConstraint	n	done	auto
 geometryConstraint	name	done	auto
 geometryConstraint	q	done	auto
@@ -21041,8 +21041,8 @@ normalConstraint	aim	done	auto
 normalConstraint	aimVector	done	auto
 normalConstraint	e	done	auto
 normalConstraint	edit	done	auto
-normalConstraint	l	missing	
-normalConstraint	layer	missing	
+normalConstraint	l	done	auto
+normalConstraint	layer	done	auto
 normalConstraint	n	done	auto
 normalConstraint	name	done	auto
 normalConstraint	q	done	auto
@@ -21892,8 +21892,8 @@ orientConstraint	dc	missing
 orientConstraint	deleteCache	missing	
 orientConstraint	e	done	auto
 orientConstraint	edit	done	auto
-orientConstraint	l	missing	
-orientConstraint	layer	missing	
+orientConstraint	l	done	auto
+orientConstraint	layer	done	auto
 orientConstraint	maintainOffset	done	auto
 orientConstraint	mo	done	auto
 orientConstraint	n	done	auto
@@ -22579,8 +22579,8 @@ parentConstraint	deleteCache	missing
 parentConstraint	dr	missing	
 parentConstraint	e	done	auto
 parentConstraint	edit	done	auto
-parentConstraint	l	missing	
-parentConstraint	layer	missing	
+parentConstraint	l	done	auto
+parentConstraint	layer	done	auto
 parentConstraint	maintainOffset	done	auto
 parentConstraint	mo	done	auto
 parentConstraint	n	done	auto
@@ -23216,8 +23216,8 @@ pluginInfo	wr	missing
 pluginInfo	writeRequires	missing	
 pointConstraint	e	done	auto
 pointConstraint	edit	done	auto
-pointConstraint	l	missing	
-pointConstraint	layer	missing	
+pointConstraint	l	done	auto
+pointConstraint	layer	done	auto
 pointConstraint	maintainOffset	done	auto
 pointConstraint	mo	done	auto
 pointConstraint	n	done	auto
@@ -23319,8 +23319,8 @@ pointOnCurve	top	done	auto
 pointOnCurve	turnOnPercentage	done	auto
 pointOnPolyConstraint	e	done	auto
 pointOnPolyConstraint	edit	done	auto
-pointOnPolyConstraint	l	missing	
-pointOnPolyConstraint	layer	missing	
+pointOnPolyConstraint	l	done	auto
+pointOnPolyConstraint	layer	done	auto
 pointOnPolyConstraint	maintainOffset	done	auto
 pointOnPolyConstraint	mo	done	auto
 pointOnPolyConstraint	n	done	auto
@@ -23375,8 +23375,8 @@ pointPosition	w	done	auto
 pointPosition	world	done	auto
 poleVectorConstraint	e	done	auto
 poleVectorConstraint	edit	done	auto
-poleVectorConstraint	l	missing	
-poleVectorConstraint	layer	missing	
+poleVectorConstraint	l	done	auto
+poleVectorConstraint	layer	done	auto
 poleVectorConstraint	n	done	auto
 poleVectorConstraint	name	done	auto
 poleVectorConstraint	q	done	auto
@@ -30439,8 +30439,8 @@ scaleComponents	ro	missing
 scaleComponents	rotation	missing	
 scaleConstraint	e	done	auto
 scaleConstraint	edit	done	auto
-scaleConstraint	l	missing	
-scaleConstraint	layer	missing	
+scaleConstraint	l	done	auto
+scaleConstraint	layer	done	auto
 scaleConstraint	maintainOffset	done	auto
 scaleConstraint	mo	done	auto
 scaleConstraint	n	done	auto
@@ -35685,8 +35685,8 @@ tangentConstraint	aim	done	auto
 tangentConstraint	aimVector	done	auto
 tangentConstraint	e	done	auto
 tangentConstraint	edit	done	auto
-tangentConstraint	l	missing	
-tangentConstraint	layer	missing	
+tangentConstraint	l	done	auto
+tangentConstraint	layer	done	auto
 tangentConstraint	n	done	auto
 tangentConstraint	name	done	auto
 tangentConstraint	q	done	auto

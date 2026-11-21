@@ -72,8 +72,18 @@ impl NodeBehavior for AttachNode {
                 parts.push(c.transformed(&space));
             }
         }
+        let state = crate::history_qe::node_state(d);
+        if state == 2 || state == 5 {
+            return;
+        }
         let mut it = parts.into_iter();
-        let out = it.next().map(|first| it.fold(first, |acc, c| acc.attached(&c)));
+        if state == 1 || state == 4 {
+            // Has no effect: the first curve passes through.
+            d.set_output(A_OUT, it.next().map(to_value).unwrap_or(PlugValue::Data(None)));
+            return;
+        }
+        let keep = d.bool(A_KEEP_KNOTS);
+        let out = it.next().map(|first| it.fold(first, |acc, c| crate::nurbs_align::join_curves(&acc, &c, keep)));
         d.set_output(A_OUT, out.map(to_value).unwrap_or(PlugValue::Data(None)));
     }
     fn as_any(&self) -> &dyn Any {

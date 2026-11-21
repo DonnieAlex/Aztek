@@ -40,6 +40,14 @@ const SCULPT_STATE: usize = BASE_COUNT + 8;
 /// weight for that point. The reference keeps these under inputTarget[].inputTargetGroup[].targetWeights[], which are not plugs here.
 pub(crate) const TARGET_KEYS: usize = BASE_COUNT + 9;
 pub(crate) const TARGET_KEY_STRIDE: i32 = 1_000_000;
+/// Deltas follow the surface: measured in each point's frame on the rest shape, applied in its frame as it comes in.
+const TANGENT_SPACE: usize = BASE_COUNT + 10;
+const SYM_AXIS: usize = BASE_COUNT + 11;
+const SYM_SPACE: usize = BASE_COUNT + 12;
+const SYM_EDGE: usize = BASE_COUNT + 13;
+/// A post transform (a joint): deltas turn with it from where it was when it was set.
+const POST_MATRIX: usize = BASE_COUNT + 14;
+const POST_BIND: usize = BASE_COUNT + 15;
 
 const HERO: i32 = 6000;
 
@@ -276,6 +284,20 @@ impl NodeBehavior for BlendNode {
                 }
             }
         }
+        if d.bool(TANGENT_SPACE) {
+            if let Some(b) = data_of(d) {
+                tangent_frames(&input, &b.rest, &mut total);
+            }
+        }
+        if let PlugValue::Matrix(now) = d.value(POST_MATRIX) {
+            let bind = d.matrix(POST_BIND);
+            let turn = glam::DMat3::from_mat4(*now) * glam::DMat3::from_mat4(bind).inverse();
+            if turn != glam::DMat3::IDENTITY {
+                for x in total.iter_mut() {
+                    *x = turn * *x;
+                }
+            }
+        }
         let base_owned = crate::deform::weights_of(d, &m);
         let base = base_owned.as_deref();
         for p in 0..cap as u32 {
@@ -290,6 +312,43 @@ impl NodeBehavior for BlendNode {
     }
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+/// Each point's frame: its normal, and the way to the other end of its first edge across it.
+fn frames(m: &Mesh) -> Vec<DMat3> {
+    let normals = aztek_geo::normals::point_normals(m, aztek_geo::normals::NormalWeight::Area);
+    (0..m.point_capacity())
+        .map(|p| {
+            if !m.point_valid(p) {
+                return DMat3::IDENTITY;
+            }
+            let n = normals.get(p as usize).map_or(DVec3::Z, |v| v.as_dvec3()).normalize_or_zero();
+            let e = m.point_edge(p);
+            let to = if m.edge_valid(e) { m.position(m.edge_other_point(e, p)) - m.position(p) } else { n.any_orthonormal_vector() };
+            let t = (to - n * to.dot(n)).normalize_or_zero();
+            let t = if t == DVec3::ZERO { n.any_orthonormal_vector() } else { t };
+            DMat3::from_cols(t, n.cross(t), n)
+        })
+        .collect()
+}
+
+/// Deltas measured on the rest shape, re-expressed in the frames of the shape coming in.
+fn tangent_frames(input: &Mesh, rest: &[DVec3], total: &mut [DVec3]) {
+    let mut at_rest = input.clone();
+    for p in 0..at_rest.point_capacity().min(rest.len() as u32) {
+        if at_rest.point_valid(p) {
+            at_rest.set_position(p, rest[p as usize]);
+        }
+    }
+    let (fr, fi) = (frames(&at_rest), frames(input));
+    for (p, x) in total.iter_mut().enumerate() {
+        if *x == DVec3::ZERO {
+            continue;
+        }
+        if let (Some(r), Some(i)) = (fr.get(p), fi.get(p)) {
+            *x = *i * (r.transpose() * *x);
+        }
     }
 }
 
@@ -318,6 +377,12 @@ pub(crate) fn register_types(gf: Arc<NodeType>) {
             hidden_int("sculptTargetIndex", "sti", -1, "The target being edited through the base, or -1."),
             deform::data_attr("sculptState", "sts", "The base's points and tweaks when a target edit began."),
             target_keys,
+            AttrDef { short_name: "ts".into(), ..bool_attr("tangentSpace", false, "Deltas follow the surface: measured in each point's frame on the rest shape.") },
+            AttrDef { name: "symmetryAxis".into(), short_name: "sa".into(), ty: PlugType::String, default_value: PlugValue::String("X".into()), flags: flags::INPUT | flags::STORABLE, doc: "The axis targets flip and mirror across: X, Y or Z.".into(), ..Default::default() },
+            hidden_int("symmetrySpace", "ss", 1, "Where symmetry is found: 0 topological, 1 object, 2 UV."),
+            AttrDef { name: "symmetryEdge".into(), short_name: "se".into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: flags::INPUT | flags::STORABLE, doc: "Edges on the plane of symmetry, for topological symmetry.".into(), ..Default::default() },
+            crate::rig::matrix_in("targetPostMatrix", "tpm", false, "The post transform's world matrix: deltas turn with it."),
+            AttrDef { name: "targetPostBindMatrix".into(), short_name: "tpb".into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(DMat4::IDENTITY), flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, doc: "The post transform's world matrix when it was set.".into(), ..Default::default() },
         ],
         create: Some(Arc::new(|| Box::new(BlendNode))),
         ..Default::default()
@@ -587,7 +652,7 @@ pub(crate) fn rebind(g: &mut Graph, n: NodeId) -> CmdResult<()> {
 
 fn create(s: &mut Session, a: &Args) -> CmdResult {
     let specs = target_specs(a)?;
-    let names = if a.bool("ignoreSelected") { a.named() } else { objects(s, a) };
+    let names = if a.bool("ignoreSelected") { a.named() } else { crate::deform_common::targets(s, a) };
     let g = &mut s.graph;
     // Targets, then the base; or with -t, the bases come from the flag.
     let base = match (specs.first(), names.last()) {
@@ -597,7 +662,7 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
     };
     let base = mesh_named(g, &base)?;
     let positional: Vec<String> = if specs.is_empty() { names[..names.len() - 1].to_vec() } else { names.clone() };
-    let place = if a.bool("parallel") { Place::After } else { Place::from_args(a) };
+    let place = if a.bool("parallel") { Place::After } else { crate::deform_common::placement(g, a, base) };
     g.evaluate();
     // A refusal leaves nothing behind.
     let check = a.get("topologyCheck").is_none_or(|v| v.as_bool().unwrap_or(v.as_i64() != Some(0))) && !a.bool("foreignObject");
@@ -642,6 +707,15 @@ fn create(s: &mut Session, a: &Args) -> CmdResult {
         all.extend(specs);
         add_specs(g, n, &all, a)?;
         apply_weights(g, n, a)?;
+        if a.bool("tangentSpace") {
+            g.set_value(plug(n, TANGENT_SPACE), PlugValue::Bool(true))?;
+        }
+        if let Some(ex) = a.get("exclusive").and_then(Value::as_str) {
+            crate::deform_common::exclusive(g, n, ex)?;
+        }
+        if a.bool("useComponentTags") {
+            crate::deform_common::use_component_tags(g, n)?;
+        }
         Ok(n)
     })();
     g.close_chunk();
@@ -690,7 +764,45 @@ fn query(s: &mut Session, a: &Args) -> CmdResult {
     if asked(a, "topologyCheck") {
         return Ok(json!(g.node(n).unwrap().data().bool(TOPOLOGY)));
     }
-    fail!("blendShape: query -w, -wc, -t, -g, -gi, -en, -o or -tc")
+    if let Some(v) = crate::deform_common::query(g, n, a, &[]) {
+        return Ok(v);
+    }
+    if asked(a, "editTarget") {
+        // The target being edited through the base, as the Shape Editor names it, an in-between's weight after it.
+        let d = g.node(n).unwrap().data();
+        let index = d.int(SCULPT_TARGET) as i32;
+        if index < 0 {
+            return Ok(json!(""));
+        }
+        let b = blend_of(g, n);
+        let Some(t) = b.targets.iter().find(|t| t.index == index) else { return Ok(json!("")) };
+        let state = json_of(g.node(n).unwrap().data(), SCULPT_STATE);
+        return Ok(match state.get("item").and_then(Value::as_i64) {
+            Some(iti) if iti as i32 != HERO => json!(format!("{} {}", t.name, weight_of(iti as i32))),
+            _ => json!(t.name.clone()),
+        });
+    }
+    if asked(a, "normalizationGroups") {
+        // Weight normalization groups: none are made here.
+        return Ok(json!([]));
+    }
+    if asked(a, "symmetryAxis") {
+        return Ok(json!(g.node(n).unwrap().data().string(SYM_AXIS)));
+    }
+    if asked(a, "symmetrySpace") {
+        return Ok(json!(g.node(n).unwrap().data().int(SYM_SPACE)));
+    }
+    if asked(a, "symmetryEdge") {
+        let e = g.node(n).unwrap().data().string(SYM_EDGE).to_string();
+        return Ok(json!(e.split_whitespace().collect::<Vec<_>>()));
+    }
+    if asked(a, "tangentSpace") {
+        return Ok(json!(g.node(n).unwrap().data().bool(TANGENT_SPACE)));
+    }
+    if asked(a, "transform") {
+        return Ok(g.source(&plug(n, POST_MATRIX)).map_or(json!(""), |p| json!(g.path(p.node))));
+    }
+    fail!("blendShape: query -w, -wc, -t, -g, -gi, -en, -o, -tc, -cmp, -cms, -dui, -edt, -ng, -sa, -ss, -se or -tr")
 }
 
 fn edit(s: &mut Session, a: &Args) -> CmdResult {
@@ -729,7 +841,8 @@ fn edit(s: &mut Session, a: &Args) -> CmdResult {
             let Some(t) = leader_data.targets.iter().find(|t| t.name == target) else { fail!("blendShape: no target {target} on {name}") };
             remove_target(g, n, t.index, None)?;
         } else if let Some(i) = rtd.first().and_then(Value::as_i64) {
-            let item = rtd.get(1).and_then(Value::as_i64).unwrap_or(0) as i32;
+            // -ibi names the in-between whose deltas go, as its item index.
+            let item = a.get("inBetweenIndex").and_then(Value::as_i64).map(|x| x as i32).unwrap_or(rtd.get(1).and_then(Value::as_i64).unwrap_or(0) as i32);
             for x in deform::group(g, n) {
                 let mut b = blend_of(g, x);
                 if let Some(t) = b.targets.iter_mut().find(|t| t.index == i as i32) {
@@ -749,11 +862,264 @@ fn edit(s: &mut Session, a: &Args) -> CmdResult {
         if let Some(v) = a.get("topologyCheck") {
             g.set_value(plug(n, TOPOLOGY), PlugValue::Bool(v.as_bool().unwrap_or(v.as_i64() != Some(0))))?;
         }
+        edit_tools(g, n, a)?;
         Ok(())
     })();
     g.close_chunk();
     r?;
     Ok(json!([g.path(n)]))
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Edits on the targets: copy, flip, mirror, merge, export and import
+
+fn uints(v: Option<&Value>) -> Vec<i64> {
+    flat_values(v).iter().filter_map(Value::as_i64).collect()
+}
+
+/// The hero item's deltas of a target, dense by point.
+fn dense(t: &BlendTarget, iti: Option<i32>, n: usize) -> Vec<DVec3> {
+    let mut out = vec![DVec3::ZERO; n];
+    let item = match iti {
+        Some(k) => t.items.iter().find(|i| i.iti == k),
+        None => t.items.iter().max_by_key(|i| i.iti),
+    };
+    if let Some(it) = item {
+        for (p, d) in &it.deltas {
+            if let Some(x) = out.get_mut(*p as usize) {
+                *x = *d;
+            }
+        }
+    }
+    out
+}
+
+fn sparse(v: &[DVec3]) -> Vec<(u32, DVec3)> {
+    v.iter().enumerate().filter(|(_, d)| d.length_squared() > 1e-18).map(|(p, d)| (p as u32, *d)).collect()
+}
+
+/// The node of the group on the base with this geometry index.
+fn base_node(g: &Graph, leader: NodeId, base: i64) -> Option<NodeId> {
+    deform::group(g, leader).into_iter().nth(base.max(0) as usize)
+}
+
+/// Sets an item's deltas, making the target and item when there are none; the live shape no longer says what it holds.
+fn put_item(g: &mut Graph, x: NodeId, index: i32, iti: i32, deltas: Vec<(u32, DVec3)>) -> CmdResult<()> {
+    let mut b = blend_of(g, x);
+    if !b.targets.iter().any(|t| t.index == index) {
+        let pos = b.targets.iter().position(|t| t.index > index).unwrap_or(b.targets.len());
+        b.targets.insert(pos, BlendTarget { index, name: String::new(), items: Vec::new(), weights: None });
+    }
+    let t = b.targets.iter_mut().find(|t| t.index == index).unwrap();
+    match t.items.iter_mut().find(|i| i.iti == iti) {
+        Some(it) => it.deltas = deltas,
+        None => {
+            t.items.push(BlendItem { iti, relative: false, deltas });
+            t.items.sort_by_key(|i| i.iti);
+        }
+    }
+    let needs_name = t.name.is_empty();
+    set_blend(g, x, b)?;
+    g.disconnect(&PlugRef::element(x, GEOM_TARGET as i32, item_key(index, iti)));
+    g.disconnect(&PlugRef::element(x, TARGET_MATRIX as i32, item_key(index, iti)));
+    let leader = deform::leader_of(g, x);
+    if needs_name {
+        let alias = free_alias(g, leader, &format!("weight{index}"));
+        let mut b = blend_of(g, x);
+        if let Some(t) = b.targets.iter_mut().find(|t| t.index == index) {
+            t.name = alias.clone();
+        }
+        set_blend(g, x, b)?;
+        g.set_alias(leader, &alias, Some(format!("weight[{index}]")));
+    }
+    if g.node(leader).unwrap().data().element(WEIGHT, index).is_none() {
+        g.set_value(PlugRef::element(leader, WEIGHT as i32, index), PlugValue::Float(0.0))?;
+    }
+    Ok(())
+}
+
+/// For each rest point, the point across the plane of symmetry: in object space, the nearest to its reflection.
+fn mirror_map(rest: &[DVec3], axis: usize) -> Vec<Option<usize>> {
+    let size = rest.iter().fold(0.0f64, |m, p| m.max(p.abs().max_element())).max(1e-6);
+    let tol = size * 1e-3;
+    rest.iter()
+        .map(|p| {
+            let mut q = *p;
+            q[axis] = -q[axis];
+            let (best, d) = rest.iter().enumerate().map(|(i, r)| (i, (*r - q).length())).fold((0, f64::MAX), |a, b| if b.1 < a.1 { b } else { a });
+            (d <= tol).then_some(best)
+        })
+        .collect()
+}
+
+fn axis_of(g: &Graph, n: NodeId) -> usize {
+    match g.node(n).map(|x| x.data().string(SYM_AXIS).to_ascii_uppercase()).as_deref() {
+        Some("Y") => 1,
+        Some("Z") => 2,
+        _ => 0,
+    }
+}
+
+/// A delta reflected across the axis.
+fn reflect(d: DVec3, axis: usize) -> DVec3 {
+    let mut r = d;
+    r[axis] = -r[axis];
+    r
+}
+
+/// blendShape -e's tools on targets: -cd, -cid, -cw, -ft, -mt with -md, -mgs with -mgt, -ep with -et, -ip, -sa, -ss, -se,
+/// -ts and -tr.
+fn edit_tools(g: &mut Graph, n: NodeId, a: &Args) -> CmdResult<()> {
+    if let Some(v) = a.get("symmetryAxis").and_then(Value::as_str) {
+        let v = v.to_ascii_uppercase();
+        if !matches!(v.as_str(), "X" | "Y" | "Z") {
+            fail!("blendShape: the symmetry axis is X, Y or Z");
+        }
+        g.set_value(plug(n, SYM_AXIS), PlugValue::String(v))?;
+    }
+    if let Some(v) = a.get("symmetrySpace").and_then(Value::as_i64) {
+        g.set_value(plug(n, SYM_SPACE), PlugValue::Int(v))?;
+    }
+    if a.has("symmetryEdge") {
+        let edges: Vec<String> = flat_values(a.get("symmetryEdge")).iter().filter_map(|x| x.as_str().map(str::to_string)).collect();
+        g.set_value(plug(n, SYM_EDGE), PlugValue::String(edges.join(" ")))?;
+    }
+    if a.has("tangentSpace") {
+        g.set_value(plug(n, TANGENT_SPACE), PlugValue::Bool(a.bool("tangentSpace")))?;
+    }
+    if let Some(t) = a.get("transform").and_then(Value::as_str) {
+        let id = crate::rig::find(g, t, "blendShape")?;
+        let tr = crate::dag::transform_of(g, id);
+        let now = world(g, tr);
+        g.set_value(plug(n, POST_BIND), PlugValue::Matrix(now))?;
+        g.connect(&plug(tr, Transform::WORLD_MATRIX), &plug(n, POST_MATRIX), true)?;
+    }
+    let cap = |g: &Graph, x: NodeId| blend_of(g, x).rest.len();
+    // -cd base source destination: the destination target takes the source's deltas.
+    let cd = uints(a.get("copyDelta"));
+    if cd.len() >= 3 {
+        let Some(x) = base_node(g, n, cd[0]) else { fail!("blendShape: no base {}", cd[0]) };
+        let b = blend_of(g, x);
+        let Some(src) = b.targets.iter().find(|t| t.index == cd[1] as i32) else { fail!("blendShape: no target {}", cd[1]) };
+        let items: Vec<(i32, Vec<(u32, DVec3)>)> = src.items.iter().map(|i| (i.iti, i.deltas.clone())).collect();
+        for (iti, deltas) in items {
+            put_item(g, x, cd[2] as i32, iti, deltas)?;
+        }
+    }
+    // -cid base target source destination: one in-between of a target copied onto another of its items.
+    let cid = uints(a.get("copyInBetweenDelta"));
+    if cid.len() >= 4 {
+        let Some(x) = base_node(g, n, cid[0]) else { fail!("blendShape: no base {}", cid[0]) };
+        let b = blend_of(g, x);
+        let Some(t) = b.targets.iter().find(|t| t.index == cid[1] as i32) else { fail!("blendShape: no target {}", cid[1]) };
+        let Some(it) = t.items.iter().find(|i| i.iti == cid[2] as i32) else { fail!("blendShape: target {} has no item {}", cid[1], cid[2]) };
+        let deltas = it.deltas.clone();
+        put_item(g, x, cid[1] as i32, cid[3] as i32, deltas)?;
+    }
+    // -cw base source destination: per point weights copied.
+    let cw = uints(a.get("copyWeights"));
+    if cw.len() >= 3 {
+        let Some(x) = base_node(g, n, cw[0]) else { fail!("blendShape: no base {}", cw[0]) };
+        let mut b = blend_of(g, x);
+        let w = b.targets.iter().find(|t| t.index == cw[1] as i32).map(|t| t.weights.clone()).unwrap_or(None);
+        let Some(dst) = b.targets.iter_mut().find(|t| t.index == cw[2] as i32) else { fail!("blendShape: no target {}", cw[2]) };
+        dst.weights = w;
+        set_blend(g, x, b)?;
+    }
+    // -ft base target: the target's shape flipped across the plane of symmetry.
+    let ft = uints(a.get("flipTarget"));
+    for pair in ft.chunks_exact(2) {
+        let Some(x) = base_node(g, n, pair[0]) else { fail!("blendShape: no base {}", pair[0]) };
+        let axis = axis_of(g, n);
+        let b = blend_of(g, x);
+        let map = mirror_map(&b.rest, axis);
+        let Some(t) = b.targets.iter().find(|t| t.index == pair[1] as i32) else { fail!("blendShape: no target {}", pair[1]) };
+        for it in t.items.clone() {
+            let d = dense(t, Some(it.iti), cap(g, x));
+            let flipped: Vec<DVec3> = (0..d.len()).map(|p| map[p].map_or(d[p], |q| reflect(d[q], axis))).collect();
+            put_item(g, x, pair[1] as i32, it.iti, sparse(&flipped))?;
+        }
+    }
+    // -mt base target with -md: one side's deltas mirrored onto the other.
+    let mt = uints(a.get("mirrorTarget"));
+    let positive = a.int("mirrorDirection", 0) == 1;
+    for pair in mt.chunks_exact(2) {
+        let Some(x) = base_node(g, n, pair[0]) else { fail!("blendShape: no base {}", pair[0]) };
+        let axis = axis_of(g, n);
+        let b = blend_of(g, x);
+        let map = mirror_map(&b.rest, axis);
+        let Some(t) = b.targets.iter().find(|t| t.index == pair[1] as i32) else { fail!("blendShape: no target {}", pair[1]) };
+        for it in t.items.clone() {
+            let mut d = dense(t, Some(it.iti), cap(g, x));
+            let from_side = |p: usize| if positive { b.rest[p][axis] > 1e-9 } else { b.rest[p][axis] < -1e-9 };
+            let src = d.clone();
+            for p in 0..d.len() {
+                if let Some(q) = map[p] {
+                    if from_side(q) && !from_side(p) && b.rest[p][axis].abs() > 1e-9 {
+                        d[p] = reflect(src[q], axis);
+                    }
+                }
+            }
+            put_item(g, x, pair[1] as i32, it.iti, sparse(&d))?;
+        }
+    }
+    // -mgs sources -mgt target: the sources' shapes added into the target.
+    let sources = uints(a.get("mergeSource"));
+    if let Some(dst) = a.get("mergeTarget").and_then(Value::as_i64) {
+        for x in deform::group(g, n) {
+            let b = blend_of(g, x);
+            let len = cap(g, x);
+            let mut sum = b.targets.iter().find(|t| t.index == dst as i32).map_or(vec![DVec3::ZERO; len], |t| dense(t, None, len));
+            for &src in &sources {
+                if let Some(t) = b.targets.iter().find(|t| t.index == src as i32) {
+                    for (p, d) in dense(t, None, len).into_iter().enumerate() {
+                        sum[p] += d;
+                    }
+                }
+            }
+            put_item(g, x, dst as i32, HERO, sparse(&sum))?;
+        }
+    }
+    // -ep path with -et base target pairs: the targets written to a file -ip reads back.
+    if let Some(path) = a.get("export").and_then(Value::as_str) {
+        let pairs = uints(a.get("exportTarget"));
+        let mut list = Vec::new();
+        for (k, x) in deform::group(g, n).into_iter().enumerate() {
+            let b = blend_of(g, x);
+            for t in &b.targets {
+                if !pairs.is_empty() && !pairs.chunks_exact(2).any(|p| p[0] == k as i64 && p[1] == t.index as i64) {
+                    continue;
+                }
+                let one = BlendData { rest: Vec::new(), targets: vec![t.clone()] };
+                let mut j = crate::plug::Data::to_json(&one);
+                j["base"] = json!(k);
+                list.push(j);
+            }
+        }
+        let text = serde_json::to_string_pretty(&json!({"kind": "blendShapeTargets", "targets": list})).map_err(|e| aztek_ops::CommandError::new(e.to_string()))?;
+        std::fs::write(path, text).map_err(|e| aztek_ops::CommandError::new(format!("blendShape: can't write {path}: {e}")))?;
+    }
+    if let Some(path) = a.get("import").and_then(Value::as_str) {
+        let text = std::fs::read_to_string(path).map_err(|e| aztek_ops::CommandError::new(format!("blendShape: can't read {path}: {e}")))?;
+        let file: Value = serde_json::from_str(&text).map_err(|e| aztek_ops::CommandError::new(format!("blendShape: {path} is not a shapes file: {e}")))?;
+        for j in file.get("targets").and_then(Value::as_array).cloned().unwrap_or_default() {
+            let base = j.get("base").and_then(Value::as_i64).unwrap_or(0);
+            let Some(x) = base_node(g, n, base) else { continue };
+            for t in blend_from_json(&j).targets {
+                for it in t.items {
+                    put_item(g, x, t.index, it.iti, it.deltas)?;
+                }
+                if t.weights.is_some() {
+                    let mut b = blend_of(g, x);
+                    if let Some(dst) = b.targets.iter_mut().find(|d| d.index == t.index) {
+                        dst.weights = t.weights.clone();
+                    }
+                    set_blend(g, x, b)?;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -947,7 +1313,7 @@ fn invert_shape(s: &mut Session, a: &Args) -> CmdResult {
 
 pub(crate) fn register(c: &mut Commands<Session>) {
     c.register(
-        modes(deform::common_flags(Cmd::new(
+        crate::deform_common::creation_flags(modes(deform::common_flags(Cmd::new(
             "blendShape",
             "Blend shapes: blendShape target... base. Each target gets an element of .weight under an alias named after it: setAttr \
              blendShape1.pSphere2 0.5. -t base index target weight adds targets, with -ib as in-betweens at that weight. -e -rm -t removes, \
@@ -961,7 +1327,7 @@ pub(crate) fn register(c: &mut Commands<Session>) {
                 }
                 create(s, a)
             },
-        )))
+        ))))
         .positional("targets, then the base; the blendShape with -e and -q")
         .flag(f("weight", "w", ArgType::Any, "index weight, repeatable. Query: all the weights.").multi(2))
         .flag(f("target", "t", ArgType::Any, "base index target weight, repeatable. Query: the target shapes.").multi(4))
@@ -977,7 +1343,27 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         .flag(f("geometryIndices", "gi", ArgType::Bool, "Query: the indices of the deformed shapes."))
         .flag(f("weightCount", "wc", ArgType::Any, "Query: how many targets."))
         .flag(f("foreignObject", "fg", ArgType::Bool, "Targets need not match the base: points are taken by number as far as they go."))
-        .flag(f("ignoreSelected", "ie", ArgType::Bool, "Use only the objects named, not the selection.")),
+        .flag(f("ignoreSelected", "ie", ArgType::Bool, "Use only the objects named, not the selection."))
+        .flag(f("copyDelta", "cd", ArgType::Any, "With -e: base, source and destination target indices: the destination takes the source's deltas.").multi(3))
+        .flag(f("copyInBetweenDelta", "cid", ArgType::Any, "With -e: base, target, source and destination item indices: an in-between copied onto another.").multi(4))
+        .flag(f("copyWeights", "cw", ArgType::Any, "With -e: base, source and destination target indices: per point weights copied.").multi(3))
+        .flag(f("flipTarget", "ft", ArgType::Any, "With -e: base and target index: the target flipped across the symmetry axis. Repeatable.").multi(2))
+        .flag(f("mirrorTarget", "mt", ArgType::Any, "With -e: base and target index: one side mirrored onto the other (-md). Repeatable.").multi(2))
+        .flag(f("mirrorDirection", "md", ArgType::Int, "With -mt: 0 the negative side onto the positive, 1 the positive onto the negative."))
+        .flag(f("mergeSource", "mgs", ArgType::Any, "With -e and -mgt: a target added into the merge target. Repeatable.").multi(1))
+        .flag(f("mergeTarget", "mgt", ArgType::Int, "With -e: the target the -mgs targets are added into."))
+        .flag(f("export", "ep", ArgType::String, "With -e: write the targets (those -et names, or all) to this file."))
+        .flag(f("exportTarget", "et", ArgType::Any, "With -ep: base and target index of a target to write. Repeatable.").multi(2))
+        .flag(f("import", "ip", ArgType::String, "With -e: read targets from a file -ep wrote."))
+        .flag(f("inBetweenIndex", "ibi", ArgType::Int, "With -rtd: the in-between item whose deltas go."))
+        .flag(f("editTarget", "edt", ArgType::Bool, "Query: the target being edited through the base, an in-between's weight after it."))
+        .flag(f("normalizationGroups", "ng", ArgType::Bool, "Query: the normalization groups in use."))
+        .flag(f("suppressDialog", "sd", ArgType::Bool, "Run without asking anything, with the settings as they are: there is no dialog here."))
+        .flag(f("symmetryAxis", "sa", ArgType::String, "X, Y or Z: what -ft and -mt reflect across."))
+        .flag(f("symmetryEdge", "se", ArgType::Any, "Edges on the plane of symmetry. Repeatable.").multi(1))
+        .flag(f("symmetrySpace", "ss", ArgType::Int, "0 topological, 1 object, 2 UV: where symmetry is found (object space here)."))
+        .flag(f("tangentSpace", "ts", ArgType::Bool, "Deltas follow the surface, in each point's frame."))
+        .flag(f("transform", "tr", ArgType::String, "A post transform, usually a joint: the deltas turn with it.")),
     );
     c.register(
         modes(Cmd::new(

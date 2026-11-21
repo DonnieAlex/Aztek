@@ -288,6 +288,9 @@ struct AddAttr {
     keyable: bool,
     multi: bool,
     nice: String,
+    category: Vec<String>,
+    world_space: bool,
+    not_unique: bool,
 }
 
 #[derive(Debug, Default)]
@@ -838,6 +841,9 @@ impl Doc {
                 "-min" | "-minValue" => a.min = val.and_then(Tok::num),
                 "-max" | "-maxValue" => a.max = val.and_then(Tok::num),
                 "-k" | "-keyable" => a.keyable = val.and_then(Tok::truth).unwrap_or(true),
+                "-ct" | "-category" => a.category.push(text()),
+                "-ws" | "-worldSpace" => a.world_space = val.and_then(Tok::truth).unwrap_or(true),
+                "-eun" | "-enforcingUniqueName" => a.not_unique = !val.and_then(Tok::truth).unwrap_or(true),
                 "-m" | "-multi" => {
                     a.multi = true;
                     used = false;
@@ -3407,6 +3413,12 @@ fn user_attr_def(a: &AddAttr) -> Option<AttrDef> {
     if a.multi {
         flags_on |= flags::ARRAY;
     }
+    if a.world_space {
+        flags_on |= flags::WORLD_SPACE;
+    }
+    if a.not_unique {
+        flags_on |= flags::NAME_NOT_UNIQUE;
+    }
     let mut def = AttrDef {
         name: a.long.clone(),
         short_name: if a.short == a.long { String::new() } else { a.short.clone() },
@@ -3422,6 +3434,7 @@ fn user_attr_def(a: &AddAttr) -> Option<AttrDef> {
         def = AttrDef { ..crate::node::vec3_attr(&def.name, &def.short_name, DVec3::ZERO, flags_on, "") };
     }
     def.nice_name = a.nice.clone();
+    def.category = a.category.join(";");
     Some(def)
 }
 
@@ -5448,7 +5461,16 @@ impl Writer<'_> {
 /// addAttr lines for a user attribute.
 fn attr_add_lines(a: &AttrDef) -> String {
     let short = if a.short_name.is_empty() { a.name.as_str() } else { a.short_name.as_str() };
-    let k = if a.has(flags::KEYABLE) { " -k true" } else { "" };
+    let mut k = if a.has(flags::KEYABLE) { " -k true".to_string() } else { String::new() };
+    for c in crate::commands::categories(a) {
+        let _ = write!(k, " -ct {}", quoted(&c));
+    }
+    if a.has(flags::WORLD_SPACE) {
+        k.push_str(" -ws true");
+    }
+    if a.has(flags::NAME_NOT_UNIQUE) {
+        k.push_str(" -eun false");
+    }
     let range = |o: &mut String| {
         if let Some(m) = a.min_value {
             let _ = write!(o, " -min {m}");
@@ -5482,7 +5504,7 @@ fn attr_add_lines(a: &AttrDef) -> String {
             let _ = writeln!(o, "\taddAttr -ci true{k} -sn {} -ln {} -min 0 -max {} -en {} -at \"enum\";", quoted(short), quoted(&a.name), a.enum_names.len().saturating_sub(1), quoted(&a.enum_names.join(":")));
         }
         PlugType::String => {
-            let _ = writeln!(o, "\taddAttr -ci true -sn {} -ln {} -dt \"string\";", quoted(short), quoted(&a.name));
+            let _ = writeln!(o, "\taddAttr -ci true{k} -sn {} -ln {} -dt \"string\";", quoted(short), quoted(&a.name));
         }
         PlugType::Vec3 => {
             let _ = writeln!(o, "\taddAttr -ci true{k} -sn {} -ln {} -at \"double3\" -nc 3;", quoted(short), quoted(&a.name));

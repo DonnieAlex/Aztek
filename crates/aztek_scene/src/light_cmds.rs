@@ -46,7 +46,7 @@ const SPOT: &[(&str, &str, &str, ArgType)] = &[
     ("topBarnDoorAngle", "tbd", "topBarnDoor", ArgType::Float),
     ("bottomBarnDoorAngle", "bbd", "bottomBarnDoor", ArgType::Float),
 ];
-const AMBIENT: &[(&str, &str, &str, ArgType)] = &[("ambientShade", "ambientShade", "ambientShade", ArgType::Float), ("discRadius", "drs", "shadowRadius", ArgType::Float)];
+const AMBIENT: &[(&str, &str, &str, ArgType)] = &[("ambientShade", "as", "ambientShade", ArgType::Float), ("discRadius", "drs", "shadowRadius", ArgType::Float), ("softShadow", "ss", "castSoftShadows", ArgType::Bool)];
 
 fn table_for(ty: &str) -> Vec<&'static (&'static str, &'static str, &'static str, ArgType)> {
     let mut v: Vec<_> = COMMON.iter().collect();

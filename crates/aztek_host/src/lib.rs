@@ -694,7 +694,13 @@ pub extern "C" fn aztek_view_mouse(id: i32, kind: i32, button: i32, x: f64, y: f
     with(|h| {
         let Host { core, views, .. } = h;
         match views.get_mut(&id) {
-            Some(v) => v.mouse(core, kind, button, DVec2::new(x, y), mods, buttons) as i32,
+            Some(v) => {
+                // Where the pointer is, for autoPlace -um.
+                let size = v.vp.size();
+                let rays = crate::host_general::ViewRays { centre: v.vp.cam.ray(size * 0.5, size), pointer: v.vp.cam.ray(DVec2::new(x, y), size) };
+                crate::host_general::note_pointer(&v.cam_node, rays);
+                v.mouse(core, kind, button, DVec2::new(x, y), mods, buttons) as i32
+            }
             None => 0,
         }
     })

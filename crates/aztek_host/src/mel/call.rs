@@ -141,6 +141,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("hotkey", "keyShortcut")
             | ("cmdFileOutput", "status")
             | ("repeatLast", "commandList" | "commandNameList")
+            | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
     )
 }
 
