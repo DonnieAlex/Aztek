@@ -95,7 +95,7 @@ jobs:
 
       - name: Dependencies
         run: |
-          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build python3.12-dev libglvnd-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev libvulkan-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build python3.12-dev libglvnd-dev libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libxcb-xinerama0 libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev libvulkan-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -183,7 +183,7 @@ jobs:
       - name: Dependencies
         run: |
           for i in 1 2 3 4 5; do
-            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build libgl-dev libegl-dev libglx-dev libvulkan-dev ca-certificates curl file libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev && break
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build libgl-dev libegl-dev libglx-dev libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libxcb-xinerama0 libvulkan-dev ca-certificates curl file libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev && break
             [ "$i" = 5 ] && exit 1
             sleep $((i * 60))
           done
