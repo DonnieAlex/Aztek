@@ -2,6 +2,12 @@
 
 Aztek is MIT-0. Six pieces of it come from elsewhere under the MIT licence, which asks for its notice to go with copies.
 
+The programs and packages also carry Qt and PySide6/shiboken6, under the LGPL, and Python, under the PSF licence. They
+are not part of the source: every build fetches them (`tools/qt/fetch-qt.sh`, `tools/python/fetch-pyside.sh`) and every
+package installs them beside Aztek. Qt: https://www.qt.io/licensing. PySide6 and shiboken6:
+https://doc.qt.io/qtforpython-6/licenses.html, LGPL-3.0-only or GPL-2.0-only or GPL-3.0-only. Python 3.12:
+https://docs.python.org/3/license.html.
+
 ## Binary scene type ids
 
 `crates/aztek_scene/data/mb/typeids.dat`, the four-character ids of node types in `.mb` files, is from

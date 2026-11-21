@@ -95,7 +95,7 @@ jobs:
 
       - name: Dependencies
         run: |
-          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libvulkan-dev python3.12-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build python3.12-dev libglvnd-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev libvulkan-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -105,25 +105,37 @@ jobs:
             . -> target
             . -> build/cargo
 
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.12.14-linux
+
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace
 
       - name: Build
         run: tools/ci/retry.sh 3 ./build.sh
 
-      # The real binary with no display: exit statuses, then the basics end to end.
+      - name: Bundle check
+        run: tools/check_bundle.sh build/Aztek
+
+      # The real program with no display: exit statuses, then the basics end to end. AppRun is what users start, and it
+      # sets PYTHONHOME, PYTHONNOUSERSITE and LD_LIBRARY_PATH for the bundle.
       - name: Batch
-        run: AZTEK_BIN="$PWD/build/aztek" tools/ci/retry.sh 2 cargo test -p aztek_host --test batch --test basics --test basics_python
+        run: AZTEK_BIN="$PWD/build/Aztek/AppRun" tools/ci/retry.sh 2 cargo test -p aztek_host --test batch --test basics --test basics_python
 
       - name: Examples
-        run: tools/ci/retry.sh 2 tools/check_examples.sh build/aztek
+        run: tools/ci/retry.sh 2 tools/check_examples.sh build/Aztek/AppRun
 
       - name: Channel Box under Xvfb
-        run: tools/ci/retry.sh 2 python3 tools/ui_checks/channel_box.py build/aztek
+        run: tools/ci/retry.sh 2 python3 tools/ui_checks/channel_box.py build/Aztek/AppRun
 
       - name: Package
         run: |
-          tar -czf aztek-linux-x86_64.tar.gz -C build aztek -C .. examples
+          tar -czf aztek-linux-x86_64.tar.gz -C build Aztek
           tools/ci/retry.sh 3 packaging/deb/build-deb.sh build dist
 
       - uses: actions/upload-artifact@v4
@@ -171,7 +183,7 @@ jobs:
       - name: Dependencies
         run: |
           for i in 1 2 3 4 5; do
-            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libgl-dev libvulkan-dev ca-certificates curl file && break
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build libgl-dev libvulkan-dev ca-certificates curl file libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev && break
             [ "$i" = 5 ] && exit 1
             sleep $((i * 60))
           done
@@ -184,6 +196,14 @@ jobs:
             . -> target
             . -> build/cargo
 
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.12.14-ubuntu2604
+
       # The Python 3.12 the package will carry, for the tests too. Its sysconfig names the folder it was built in, so
       # the library's folder is given to the linker, and the test programs find the library there.
       - name: Python 3.12
@@ -194,6 +214,9 @@ jobs:
 
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace
+
+      - name: Build
+        run: tools/ci/retry.sh 3 ./build.sh
 
       - name: Package
         run: tools/ci/retry.sh 3 packaging/deb/build-deb.sh build dist
@@ -253,12 +276,13 @@ jobs:
             . -> target
             . -> build/cargo
 
-      - name: Qt cache
-        if: matrix.el == 8
+      - name: Bundle cache
         uses: actions/cache@v4
         with:
-          path: /opt/qt
-          key: qt-6.8.3-el8
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.12.14-rocky${{ matrix.el }}
 
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace
@@ -279,7 +303,9 @@ jobs:
         shell: bash
         run: |
           set +u; . /opt/rh/gcc-toolset-13/enable; set -u
-          AZTEK_QT=/opt/qt/6.8.3/gcc_64 AZTEK_PYTHON=/usr/bin/python3.12 tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
+          tools/ci/retry.sh 3 ./build.sh
+          VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)
+          tools/ci/retry.sh 3 packaging/appimage/pack-appimage.sh build/Aztek "appimage/aztek-$VERSION-x86_64.AppImage"
 
       - uses: actions/upload-artifact@v4
         if: matrix.el == 8
@@ -536,28 +562,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      # setup-python off: left on, this action puts the newest Python first on PATH and the exe links that one.
-      # Qt's servers drop downloads now and then: a second try after a pause.
-      - id: qt
-        continue-on-error: true
-        uses: jurplel/install-qt-action@v4
+      # build.ps1 fetches Qt, Python and PySide6 into build\ itself; the cache keeps later runs from downloading again.
+      - name: Bundle cache
+        uses: actions/cache@v4
         with:
-          version: "6.8.*"
-          arch: win64_msvc2022_64
-          cache: true
-          setup-python: false
-
-      - if: steps.qt.outcome == 'failure'
-        shell: pwsh
-        run: Start-Sleep -Seconds 120
-
-      - if: steps.qt.outcome == 'failure'
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.8.*"
-          arch: win64_msvc2022_64
-          cache: true
-          setup-python: false
+          path: |
+            build\qt
+            build\python
+          key: bundle-qt-6.8.3-python-3.12.14-windows
 
       - name: Ninja
         run: python -m pip install ninja
@@ -576,7 +588,7 @@ jobs:
             $ok = $false
             $global:LASTEXITCODE = 0
             try {
-              .\build.ps1 -Qt $env:QT_ROOT_DIR
+              .\build.ps1
               $ok = ($LASTEXITCODE -eq 0)
             } catch {
               Write-Host $_
@@ -633,30 +645,17 @@ jobs:
       - name: Version
         run: sed -i '' 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
 
+      # python@3.12 is for the tests' pyo3; the app fetches its own Python 3.12 into build/python.
       - name: Dependencies
         run: tools/ci/retry.sh 5 brew install ninja python@3.12 molten-vk
 
-      - id: qt
-        continue-on-error: true
-        uses: jurplel/install-qt-action@v4
+      - name: Bundle cache
+        uses: actions/cache@v4
         with:
-          version: "6.8.*"
-          host: mac
-          target: desktop
-          arch: clang_64
-          cache: true
-
-      - if: steps.qt.outcome == 'failure'
-        run: sleep 120
-
-      - if: steps.qt.outcome == 'failure'
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: "6.8.*"
-          host: mac
-          target: desktop
-          arch: clang_64
-          cache: true
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.12.14-macos
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -670,8 +669,8 @@ jobs:
         continue-on-error: true
         run: PYO3_PYTHON="$(brew --prefix python@3.12)/bin/python3.12" cargo test --workspace --no-fail-fast
 
-      # The same script as on a Mac: Aztek.app with Qt and MoltenVK inside, signed ad hoc, zipped with the examples.
-      # Python stays Homebrew's python@3.12. Qt is the one installed above, through QT_ROOT_DIR.
+      # The same script as on a Mac: Aztek.app with Qt, Python, PySide6 and MoltenVK inside, signed ad hoc, zipped
+      # with the examples. build-macos.sh fetches Qt and Python itself.
       - name: Build and package
         run: tools/ci/retry.sh 3 ./build-macos.sh --package
 
