@@ -1008,6 +1008,8 @@ void MainWindow::handle_ui_request(const QString& r) {
         ScriptUi::get()->show_in_view_message(parse(payload).toObject());
     } else if (name == "lookThru") {
         if (ViewportWidget* v = active_view()) v->set("camera", "\"" + payload + "\"");
+    } else if (name == "appHome") {
+        app_home(parse(payload).toObject());
     } else if (name == "viewCube") {
         if (ViewportWidget* v = active_view()) v->set("viewCube", payload);
     } else if (name == "viewCubeMenu") {

@@ -176,6 +176,8 @@ impl Session {
         crate::harold::commands::register(&mut s.commands);
         crate::harold::bake::register(&mut s.commands);
         crate::system_cmds::register(&mut s.commands);
+        crate::extensions::register(&mut s.commands);
+        crate::sys_misc::register(&mut s.commands);
         crate::references::register(&mut s.commands);
         crate::rig_misc::register(&mut s.commands);
         crate::anim_misc::register(&mut s.commands);

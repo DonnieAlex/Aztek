@@ -4275,7 +4275,7 @@ impl Writer<'_> {
                 Err(_) => continue,
             };
             let name = ref_name(a, -1);
-            if a.has(flags::USER) {
+            if a.has(flags::USER) && !a.has(flags::EXTENSION) {
                 let line = attr_add_lines(a);
                 self.out.push_str(&line);
             }
@@ -5084,7 +5084,7 @@ impl Writer<'_> {
                 _ => {}
             }
             let n = self.s.graph.node(id).unwrap();
-            for a in n.ty().attrs.iter().filter(|a| a.has(flags::USER)) {
+            for a in n.ty().attrs.iter().filter(|a| a.has(flags::USER) && !a.has(flags::EXTENSION)) {
                 lines.push_str(&attr_add_lines(a));
             }
             let t = n.ty().clone();
@@ -5200,7 +5200,7 @@ impl Writer<'_> {
             text.push_str("\tlockNode -l 1 ;\n");
         }
         // Added attributes come first: the values and connections below can name them.
-        for a in n.ty().attrs.iter().filter(|a| a.has(flags::USER)) {
+        for a in n.ty().attrs.iter().filter(|a| a.has(flags::USER) && !a.has(flags::EXTENSION)) {
             text.push_str(&attr_add_lines(a));
         }
         text.push_str(&self.plain_attr_lines(id));

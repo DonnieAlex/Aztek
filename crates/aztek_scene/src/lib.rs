@@ -2,6 +2,8 @@
 
 pub mod alembic;
 pub mod anim;
+pub mod extensions;
+pub mod sys_misc;
 pub mod array_data;
 pub mod anim_edit;
 pub mod anim_extra;

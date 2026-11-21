@@ -274,6 +274,10 @@ pub mod flags {
     pub const NAME_NOT_UNIQUE: u32 = 1 << 19;
     /// An added array attribute that depends on the node's world transform, an element per instance (addAttr -ws).
     pub const WORLD_SPACE: u32 = 1 << 20;
+    /// Takes whatever value is connected, of any type, and passes it on as it is: the choice node's input and output.
+    pub const ANY_VALUE: u32 = 1 << 21;
+    /// Added to every node of a type by addExtension rather than to one node: scene files leave its definition out.
+    pub const EXTENSION: u32 = 1 << 22;
 }
 
 #[derive(Clone, Debug)]

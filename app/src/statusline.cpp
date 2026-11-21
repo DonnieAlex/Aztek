@@ -40,6 +40,9 @@ void MainWindow::build_status_line() {
     tb->setObjectName("statusLine");
     tb->setMovable(false);
     tb->setIconSize(QSize(20, 20));
+    // The application home: the welcome screen, shown and hidden (appHome -tv); appHome -iv hides the icon.
+    home_button_ = tb->addAction(icon("home"), "Home: show or hide the welcome screen", [] { mel("appHome -tv;"); });
+    home_button_->setVisible(ask("appHome", QJsonObject{{"query", true}, {"queried", QJsonArray{"iconVisible"}}}).toBool(true));
     menu_set_ = new QComboBox(tb);
     menu_set_->addItems({"Modeling", "Rigging", "Animation", "Dynamics", "Rendering"});
     menu_set_->setToolTip("Menu set");

@@ -661,8 +661,30 @@ fn conversion_into(g: &Graph, p: &PlugRef) -> Option<NodeId> {
     g.source(p).map(|c| c.node).filter(|&n| g.node(n).is_some_and(|x| x.ty().name == "unitConversion"))
 }
 
+/// The flags attributeQuery answers with true or false: several together answer with all of them at once.
+const BOOL_QUERIES: &[&str] = &[
+    "exists", "keyable", "channelBox", "hidden", "writable", "readable", "connectable", "storable", "multi", "indexMatters", "usedAsColor", "usedAsFilename",
+    "minExists", "maxExists", "softMinExists", "softMaxExists", "rangeExists", "softRangeExists", "affectsAppearance", "affectsWorldspace", "worldspace",
+    "cachedInternally", "enum", "message", "internal", "internalSet", "internalGet", "indeterminant", "renderSource", "usesMultiBuilder", "enforcingUniqueName",
+];
+
 /// As attribute_query, with defaults and limits in the current unit.
 fn attribute_query_shown(s: &mut Session, a: &Args) -> CmdResult {
+    let switches: Vec<&str> = BOOL_QUERIES.iter().copied().filter(|k| a.bool(k)).collect();
+    if switches.len() > 1 {
+        let mut all = true;
+        for k in switches {
+            let mut flags = a.flags.clone();
+            for o in BOOL_QUERIES {
+                if *o != k {
+                    flags.remove(*o);
+                }
+            }
+            let one = Args { positional: a.positional.clone(), flags };
+            all &= attribute_query(s, &one)?.as_bool().unwrap_or(false);
+        }
+        return Ok(json!(all));
+    }
     let mut v = attribute_query(s, a)?;
     let numeric = ["listDefault", "minimum", "maximum", "softMin", "softMax", "range", "softRange", "softRangeAll"].iter().any(|f| a.bool(f));
     if numeric && aztek_ops::units::user_call() {
@@ -725,6 +747,9 @@ fn attribute_query(s: &mut Session, a: &Args) -> CmdResult {
         if a.bool("attributeType") {
             return Ok(json!("compound"));
         }
+        if a.bool("numberOfChildren") {
+            return Ok(json!(kids.len()));
+        }
         if a.bool("longName") || a.bool("shortName") || a.bool("niceName") {
             return Ok(json!(attr));
         }
@@ -743,6 +768,62 @@ fn attribute_query(s: &mut Session, a: &Args) -> CmdResult {
         Value::Array(out)
     };
     let one = |x: Option<f64>| Value::Array(x.map(|v| json!(v)).into_iter().collect());
+    // What an extension attribute was given beyond its definition.
+    let ext = if d.has(flags::EXTENSION) { crate::extensions::meta(s, &ty, &d.name.rsplit('.').next().unwrap_or("").to_string()).cloned() } else { None };
+    let said = |k: &str| ext.as_ref().and_then(|m| m.get(k)).and_then(Value::as_bool);
+    // The transform attributes that place a node in the world.
+    const PLACING: &[&str] = &[
+        "translate", "rotate", "scale", "shear", "rotatePivot", "scalePivot", "rotatePivotTranslate", "scalePivotTranslate", "rotateAxis", "rotateOrder",
+        "inheritsTransform", "offsetParentMatrix", "jointOrient", "segmentScaleCompensate", "inverseScale",
+    ];
+    let internal_set = said("internalSet").unwrap_or(false);
+    if a.bool("rangeExists") {
+        return Ok(json!(d.min_value.is_some() && d.max_value.is_some()));
+    }
+    if a.bool("softRangeExists") {
+        return Ok(json!(d.soft_min.is_some() && d.soft_max.is_some()));
+    }
+    if a.bool("affectsAppearance") {
+        return Ok(json!(said("affectsAppearance").unwrap_or(false)));
+    }
+    if a.bool("affectsWorldspace") {
+        return Ok(json!(ty.is_a("transform") && d.has(flags::INPUT) && PLACING.contains(&leaf.as_str())));
+    }
+    if a.bool("worldspace") {
+        let world = d.has(flags::WORLD_SPACE) || (d.has(flags::OUTPUT) && leaf.starts_with("world") && (d.is_array() || matches!(d.ty, PlugType::Matrix | PlugType::Mesh | PlugType::Data)));
+        return Ok(json!(said("worldSpace").unwrap_or(world)));
+    }
+    if a.bool("cachedInternally") {
+        return Ok(json!(said("cachedInternally").unwrap_or(d.has(flags::INPUT))));
+    }
+    if a.bool("categories") {
+        return Ok(json!(crate::commands::categories(d)));
+    }
+    if a.bool("enum") {
+        return Ok(json!(d.ty == PlugType::Enum && comp < 0));
+    }
+    if a.bool("message") {
+        return Ok(json!(d.has(flags::MESSAGE)));
+    }
+    if a.bool("internalSet") {
+        return Ok(json!(internal_set));
+    }
+    if a.bool("internalGet") || a.bool("indeterminant") || a.bool("renderSource") || a.bool("usesMultiBuilder") {
+        let k = ["internalGet", "indeterminant", "renderSource", "usesMultiBuilder"].into_iter().find(|k| a.bool(k)).unwrap();
+        return Ok(json!(said(k).unwrap_or(false)));
+    }
+    if a.bool("internal") {
+        return Ok(json!(internal_set || said("internalGet").unwrap_or(false)));
+    }
+    if a.bool("localizedListEnum") {
+        return Ok(json!([d.enum_names.join(":")]));
+    }
+    if a.bool("numberOfChildren") {
+        return Ok(json!(if d.ty == PlugType::Vec3 && comp < 0 { 3 } else { 0 }));
+    }
+    if a.bool("enforcingUniqueName") {
+        return Ok(json!(!d.has(flags::NAME_NOT_UNIQUE)));
+    }
     Ok(if a.bool("keyable") {
         json!(part(i, comp).map_or(d.has(flags::KEYABLE), |p| crate::anim::is_keyable(g, &p)))
     } else if a.bool("channelBox") {
@@ -750,9 +831,9 @@ fn attribute_query(s: &mut Session, a: &Args) -> CmdResult {
     } else if a.bool("hidden") {
         json!(d.has(flags::HIDDEN))
     } else if a.bool("writable") {
-        json!(d.has(flags::INPUT))
+        json!(said("writable").unwrap_or(true) && d.has(flags::INPUT))
     } else if a.bool("readable") {
-        json!(true)
+        json!(said("readable").unwrap_or(true))
     } else if a.bool("connectable") {
         json!(true)
     } else if a.bool("storable") {
@@ -760,7 +841,7 @@ fn attribute_query(s: &mut Session, a: &Args) -> CmdResult {
     } else if a.bool("multi") {
         json!(d.is_array())
     } else if a.bool("indexMatters") {
-        json!(d.is_array())
+        json!(d.is_array() && said("indexMatters").unwrap_or(true))
     } else if a.bool("usedAsColor") {
         json!(d.has(flags::COLOR))
     } else if a.bool("usedAsFilename") {
@@ -774,7 +855,8 @@ fn attribute_query(s: &mut Session, a: &Args) -> CmdResult {
     } else if a.bool("shortName") {
         json!(short)
     } else if a.bool("niceName") {
-        json!(crate::ref_attrs::nice(if d.nice_name.is_empty() || comp >= 0 { &long } else { &d.nice_name }))
+        // A nice name given in words is the name; one in camel case reads as words.
+        json!(if !d.nice_name.is_empty() && comp < 0 && d.nice_name.contains(' ') { d.nice_name.clone() } else { crate::ref_attrs::nice(if d.nice_name.is_empty() || comp >= 0 { &long } else { &d.nice_name }) })
     } else if a.bool("listEnum") {
         json!([d.enum_names.join(":")])
     } else if a.bool("listParent") {
@@ -898,10 +980,8 @@ fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &m
         out.extend(seen.into_iter().map(|r| format!("{prefix}{r}")));
         return Ok(());
     }
-    // -extension: attributes added to every node of a type; there are none here.
-    if a.bool("extension") {
-        return Ok(());
-    }
+    // -extension: attributes addExtension added to every node of the type.
+    let extension = a.bool("extension");
     let types: Vec<String> = match a.get("attributeType") {
         Some(Value::String(t)) => vec![t.clone()],
         Some(Value::Array(v)) => v.iter().filter_map(|x| x.as_str().map(str::to_string)).collect(),
@@ -947,7 +1027,10 @@ fn list_attr_of(s: &Session, a: &Args, first: &str, patterns: &[String], out: &m
                 continue;
             }
         }
-        if (user && !d.has(flags::USER)) || (write && !d.has(flags::INPUT)) || (settable && !d.has(flags::INPUT)) || false {
+        if extension && !d.has(flags::EXTENSION) {
+            continue;
+        }
+        if (user && (!d.has(flags::USER) || d.has(flags::EXTENSION))) || (write && !d.has(flags::INPUT)) || (settable && !d.has(flags::INPUT)) || false {
             continue;
         }
         if (multi || array) && !d.is_array() {
@@ -1257,13 +1340,22 @@ pub fn register(c: &mut Commands<Session>) {
     let mut q = Cmd::new("attributeQuery", "Facts about an attribute: attributeQuery -n node -k attr, or -type nodeType.", attribute_query_shown).positional("attribute").undoable(false);
     for (name, short, doc) in [
         ("exists", "ex", "Whether it exists."), ("keyable", "k", "Keyable."), ("channelBox", "ch", "Shown in the channel box."), ("hidden", "h", "Hidden."),
-        ("writable", "w", "Takes values."), ("readable", "r", "Can be read."), ("connectable", "c", "Can connect."), ("storable", "s", "Saved."), ("multi", "m", "A multi attribute."),
+        ("writable", "w", "Takes values."), ("readable", "rd", "Can be read."), ("connectable", "c", "Can connect."), ("storable", "st", "Saved."), ("multi", "m", "A multi attribute."),
         ("indexMatters", "im", "A multi's indices matter."), ("usedAsColor", "uac", "A colour."), ("usedAsFilename", "uaf", "A file name."), ("attributeType", "at", "Its type."),
         ("typeExact", "tex", "Its exact type."), ("longName", "ln", "The long name."), ("shortName", "sn", "The short name."), ("niceName", "nn", "The nice name."),
         ("listEnum", "le", "An enum's labels."), ("listParent", "lp", "The compound it is in."), ("listChildren", "lc", "A compound's children."), ("listSiblings", "ls", "The other children."),
         ("listDefault", "ld", "The default."), ("minExists", "mne", "Has a hard minimum."), ("maxExists", "mxe", "Has a hard maximum."), ("softMinExists", "sme", "Has a soft minimum."),
         ("softMaxExists", "sxe", "Has a soft maximum."), ("minimum", "min", "The hard minimum."), ("maximum", "max", "The hard maximum."), ("mn", "", "The hard minimum."), ("mx", "", "The hard maximum."),
-        ("softMin", "smn", "The soft minimum."), ("softMax", "smx", "The soft maximum."), ("range", "rg", "The hard range."), ("softRange", "sr", "The soft range."),
+        ("softMin", "smn", "The soft minimum."), ("softMax", "smx", "The soft maximum."), ("range", "r", "The hard range."), ("softRange", "s", "The soft range."),
+        ("rangeExists", "re", "Has both a hard minimum and maximum."), ("softRangeExists", "se", "Has both a soft minimum and maximum."),
+        ("affectsAppearance", "aa", "Changing it changes how the node looks."), ("affectsWorldspace", "aws", "Changing it moves the node in the world."),
+        ("worldspace", "ws", "A world space attribute: an element per instance."), ("cachedInternally", "ci", "Its value is cached on the node."),
+        ("categories", "ct", "The categories it belongs to."), ("enum", "e", "An enum."), ("message", "msg", "A message attribute."),
+        ("internal", "i", "Set or got by its node itself (internalSet or internalGet)."), ("internalSet", "is", "Its node is told when it is set."),
+        ("internalGet", "ig", "Its node gives its value when asked."), ("indeterminant", "idt", "Whether it is used in evaluation is only known when evaluating."),
+        ("localizedListEnum", "lz", "An enum's labels in the current language."), ("numberOfChildren", "nc", "How many children a compound has."),
+        ("renderSource", "rs", "Marked as a render source."), ("usesMultiBuilder", "umb", "A multi built with the multi builder."),
+        ("enforcingUniqueName", "eun", "Its name must be unique in the attribute tree."),
     ] {
         q = q.flag(f(name, short, ArgType::Bool, doc));
     }

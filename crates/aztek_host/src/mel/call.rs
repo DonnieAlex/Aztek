@@ -151,6 +151,9 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
             | ("dgtimer", "outputFile" | "returnType" | "returnCode" | "sortType" | "sortMetric" | "show" | "hide" | "threshold" | "maxDisplay" | "name" | "type" | "rangeLower" | "rangeUpper")
             | ("dgdirty", "list")
+            | ("addExtension", "nodeType" | "longName" | "shortName")
+            | ("choice", "attribute" | "time")
+            | ("dbfootprint", "type")
             | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
             | ("proximityWrap", "canBeAdded")
@@ -387,6 +390,16 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
                         i += 1;
                     }
                     flags.insert(long, Value::Array(v));
+                } else if fd.is_some_and(|d| d.arity > 0) && flags.contains_key(&long) {
+                    // A multi-use flag given again (choice -q -index -t 1 -t 30): all its values.
+                    let have = flags.remove(&long).unwrap();
+                    let mut v = match have {
+                        Value::Array(v) => v,
+                        x => vec![x],
+                    };
+                    v.push(scalar(&toks[i]));
+                    flags.insert(long, Value::Array(v));
+                    i += 1;
                 } else {
                     flags.insert(long, scalar(&toks[i]));
                     i += 1;

@@ -1196,6 +1196,43 @@ fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
         }
         return Ok(Value::Array(out));
     }
+    let def = attr_def_from_args(a, &name)?;
+    let group = a.string("parent", "");
+    let mut out = Vec::new();
+    for o in objs {
+        let id = node_named(&s.graph, &o)?;
+        let mut child = def.clone();
+        if !group.is_empty() {
+            let multi = compound_is_multi(s, id, &group)?;
+            if multi && child.is_array() {
+                fail!("addAttr: '{group}' is a multi compound: its children hold one value per element, not arrays");
+            }
+            child.name = format!("{group}.{}", def.name);
+            if !def.short_name.is_empty() {
+                child.short_name = format!("{group}.{}", def.short_name);
+            }
+            if multi {
+                child.flags |= flags::ARRAY;
+            }
+        }
+        // The name is unique in the attribute tree unless -eun says otherwise: no leaf of another compound shares it.
+        if child.flags & flags::NAME_NOT_UNIQUE == 0 {
+            let n = s.graph.node(id).unwrap();
+            let clash = n.ty().attrs.iter().any(|x| x.name != child.name && x.name.rsplit('.').next() == Some(def.name.as_str()) && x.flags & flags::NAME_NOT_UNIQUE == 0);
+            if clash {
+                fail!("addAttr: '{}' already has an attribute named '{}' in its attribute tree", n.name(), def.name);
+            }
+        }
+        let index = s.graph.add_attr(id, child)?;
+        s.pending_compounds.remove(&(id, group.clone()));
+        out.push(json!(s.graph.plug_name(&PlugRef::new(id, index as i32))));
+    }
+    Ok(Value::Array(out))
+}
+
+/// The attribute addAttr's flags describe, before it is added: type, limits, default, enum names and switches.
+/// addExtension builds its attributes the same way.
+pub(crate) fn attr_def_from_args(a: &Args, name: &str) -> CmdResult<AttrDef> {
     let kinds: BTreeMap<&str, (PlugType, bool)> = [
         ("bool", (PlugType::Bool, false)),
         ("long", (PlugType::Int, false)),
@@ -1240,7 +1277,7 @@ fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
             "doubleLinear" => aztek_ops::units::Unit::Linear,
             _ => aztek_ops::units::Unit::None,
         },
-        name: name.clone(),
+        name: name.to_string(),
         short_name: a.string("shortName", ""),
         nice_name: a.string("niceName", ""),
         doc: a.string("doc", ""),
@@ -1311,37 +1348,7 @@ fn add_attr(s: &mut Session, a: &Args) -> CmdResult {
             def.flags |= bit;
         }
     }
-    let group = a.string("parent", "");
-    let mut out = Vec::new();
-    for o in objs {
-        let id = node_named(&s.graph, &o)?;
-        let mut child = def.clone();
-        if !group.is_empty() {
-            let multi = compound_is_multi(s, id, &group)?;
-            if multi && child.is_array() {
-                fail!("addAttr: '{group}' is a multi compound: its children hold one value per element, not arrays");
-            }
-            child.name = format!("{group}.{}", def.name);
-            if !def.short_name.is_empty() {
-                child.short_name = format!("{group}.{}", def.short_name);
-            }
-            if multi {
-                child.flags |= flags::ARRAY;
-            }
-        }
-        // The name is unique in the attribute tree unless -eun says otherwise: no leaf of another compound shares it.
-        if child.flags & flags::NAME_NOT_UNIQUE == 0 {
-            let n = s.graph.node(id).unwrap();
-            let clash = n.ty().attrs.iter().any(|x| x.name != child.name && x.name.rsplit('.').next() == Some(def.name.as_str()) && x.flags & flags::NAME_NOT_UNIQUE == 0);
-            if clash {
-                fail!("addAttr: '{}' already has an attribute named '{}' in its attribute tree", n.name(), def.name);
-            }
-        }
-        let index = s.graph.add_attr(id, child)?;
-        s.pending_compounds.remove(&(id, group.clone()));
-        out.push(json!(s.graph.plug_name(&PlugRef::new(id, index as i32))));
-    }
-    Ok(Value::Array(out))
+    Ok(def)
 }
 
 fn register_queries(c: &mut Commands<Session>) {

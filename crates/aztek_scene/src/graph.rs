@@ -790,7 +790,7 @@ impl EvalView<'_> {
                 continue;
             }
             // Numeric types convert across connections; a generic plug takes what comes.
-            if std::mem::discriminant(slot) == std::mem::discriminant(sv) || (da.has(flags::GENERIC) && matches!(sv, PlugValue::Vec3(_) | PlugValue::Float(_))) {
+            if std::mem::discriminant(slot) == std::mem::discriminant(sv) || (da.has(flags::GENERIC) && matches!(sv, PlugValue::Vec3(_) | PlugValue::Float(_))) || da.has(flags::ANY_VALUE) {
                 *slot = sv.clone();
             } else if matches!(slot, PlugValue::Mesh(_) | PlugValue::Data(_)) && matches!(sv, PlugValue::Mesh(_) | PlugValue::Data(_)) {
                 // Geometry passes between geometry data and mesh plugs as it is; empty data is no mesh.
@@ -831,6 +831,7 @@ impl EvalView<'_> {
         }
         let ctx = self.ctx;
         n.behavior.set_node_name(&n.name);
+        crate::sys_misc::count("compute", &n.data.ty.name);
         if crate::dg_timer::active() {
             let t0 = std::time::Instant::now();
             n.behavior.compute(&ctx, &mut n.data);
@@ -961,6 +962,9 @@ pub struct Graph {
     /// What a file set on a default node that isn't modelled, as it wrote it, to write back: node -> attribute -> the
     /// setAttr line's text after the plug.
     pub default_lines: BTreeMap<String, Vec<(String, String)>>,
+    /// addExtension's attributes: (node type, definition). Every node of the type or one derived from it gets them as
+    /// it is made. Kept across new scenes, as the reference keeps them for the session.
+    pub extensions: Vec<(String, AttrDef)>,
 }
 
 impl Default for Graph {
@@ -1070,6 +1074,7 @@ impl Graph {
             current_namespace: String::new(),
             live: Vec::new(),
             default_lines: BTreeMap::new(),
+            extensions: Vec::new(),
         }
     }
 
@@ -1577,6 +1582,16 @@ impl Graph {
             held: None,
             inverted: true,
         });
+        crate::sys_misc::count("createNode", &ty.name);
+        // addExtension's attributes for its type: a copy already has them.
+        if !self.extensions.is_empty() {
+            let wanted: Vec<AttrDef> = self.extensions.iter().filter(|(t, _)| ty.is_a(t)).map(|(_, d)| d.clone()).collect();
+            for d in wanted {
+                if self.node(id).is_some_and(|n| n.ty().attr_index(&d.name).is_none()) {
+                    let _ = self.add_attr(id, d);
+                }
+            }
+        }
         Ok(id)
     }
 
@@ -2945,7 +2960,8 @@ impl Graph {
         let generic = (sa.has(flags::GENERIC) || da.has(flags::GENERIC)) && [st, dt].iter().all(|&t| numeric(t) || t == PlugType::Vec3);
         // Geometry data (curves, surfaces, or any geometry, as transformGeometry takes) and meshes connect either way.
         let geometry = |t: PlugType| matches!(t, PlugType::Data | PlugType::Mesh);
-        if st != dt && !(numeric(st) && numeric(dt)) && !generic && !(geometry(st) && geometry(dt)) {
+        let any = sa.has(flags::ANY_VALUE) || da.has(flags::ANY_VALUE);
+        if st != dt && !(numeric(st) && numeric(dt)) && !generic && !any && !(geometry(st) && geometry(dt)) {
             return Err(GraphError::invalid(format!(
                 "type mismatch: {} -> {}",
                 type_name(st),
@@ -2954,6 +2970,9 @@ impl Graph {
         }
         if self.reads_depend_on(src, &dst) {
             return Err(GraphError::invalid("connection would create a cycle"));
+        }
+        if let Some(n) = self.nodes.get(&dst.node) {
+            crate::sys_misc::count("connect", &n.data.ty.name);
         }
 
         let mut clashing = Vec::new();
@@ -3619,6 +3638,9 @@ impl Graph {
                 continue;
             }
             n.dirty = true;
+            if let Some(n) = self.nodes.get(&cur) {
+                crate::sys_misc::count("dirty", &n.data.ty.name);
+            }
             if crate::dg_timer::active() {
                 crate::dg_timer::record_dirty(self.serial, cur);
             }

@@ -41,6 +41,7 @@ pub mod ui_cmds;
 pub mod update;
 pub mod environment;
 pub mod user_folder;
+pub mod sys_host;
 pub mod video;
 pub mod text;
 pub mod view;
@@ -90,6 +91,7 @@ pub(crate) fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
         Ok(mut b) => {
             if b.is_none() {
                 crate::core::install_logger();
+                crate::sys_host::install_crash_handler();
                 *b = Some(Host { core: Core::new(), views: HashMap::new(), next_view: 1, shared: None });
             }
             let host = b.as_mut().unwrap();

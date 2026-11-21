@@ -1152,6 +1152,9 @@ pub(crate) fn intercept(core: &mut crate::core::Core, name: &str, call: &Value) 
     if name == "connectDynamic" {
         return connect_dynamic(core, call);
     }
+    if name == "callbacks" {
+        return crate::sys_host::execute_callbacks(core, call);
+    }
     None
 }
 

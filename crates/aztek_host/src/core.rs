@@ -106,6 +106,7 @@ impl Core {
         crate::panel_cmds::register(&mut c.s);
         crate::host_general::register(&mut c.s);
         crate::ee_listen::register(&mut c.s);
+        crate::sys_host::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.mel_state.set_global_string("gPlayBackSlider", crate::scriptui::TIME_SLIDER);
@@ -149,6 +150,7 @@ impl Core {
 
     /// Before a command: a scene about to be replaced runs its closing scripts.
     fn before_command(&mut self, name: &str, call: &Value) {
+        crate::sys_host::log_command(name, call);
         if crate::script_jobs::replaces_scene(name, call) {
             crate::script_jobs::note_event("PreFileNewOrOpened");
             let scripts = crate::script_jobs::scene_scripts(&mut self.s, &[1, 2], false);
@@ -255,6 +257,7 @@ impl Core {
     }
 
     fn after_command(&mut self, name: &str, call: &Value, ok: bool) {
+        crate::sys_host::note_scene(self.s.scene_path.as_deref());
         aztek_scene::scripted::run_post_create(&mut self.s);
         self.note_settings();
         self.save_option_vars();
@@ -378,6 +381,9 @@ impl Core {
         }
         for (t, k) in crate::native_plugin::take_deferred() {
             self.push(t, k);
+        }
+        for t in aztek_scene::sys_misc::take_printed() {
+            self.push(t, LineKind::Info);
         }
         let lines: Vec<(log::Level, String)> = CAPTURED.lock().map(|mut c| std::mem::take(&mut *c)).unwrap_or_default();
         for (lvl, t) in lines {

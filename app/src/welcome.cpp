@@ -270,13 +270,36 @@ QPushButton* link_button(const QString& text, const QString& url, QWidget* paren
 
 } // namespace
 
+// The welcome screen open now, if one is.
+static QPointer<QDialog> open;
+
+void MainWindow::app_home(const QJsonObject& o) {
+    if (o.contains("iconVisible") && home_button_) home_button_->setVisible(o["iconVisible"].toBool());
+    if (o.contains("visible")) {
+        const bool want = o["visible"].toBool();
+        if (want && !open) show_welcome(false);
+        if (!want && open) open->close();
+    }
+    // Made again, its recent files are read afresh.
+    if (o["updateRecentFiles"].toBool() && open) show_welcome(false);
+    // A tab: the section of that name takes the focus.
+    if (o.contains("tab") && open) {
+        if (QWidget* w = open->findChild<QWidget*>("home" + o["tab"].toString())) {
+            open->raise();
+            open->activateWindow();
+            w->setFocus(Qt::OtherFocusReason);
+        }
+    }
+}
+
 void MainWindow::show_welcome(bool at_startup) {
     if (at_startup && !QSettings().value("welcome/atStartup", true).toBool()) return;
-    static QPointer<QDialog> open;
     // Opened again, it's made again where it was, so the announcements and the names going by are fetched afresh (#157).
     QRect was;
     if (open) {
         was = open->geometry();
+        // Made again: the old one going doesn't hide the home.
+        QObject::disconnect(open, &QDialog::finished, this, nullptr);
         open->close();
     }
     auto* d = new QDialog(this, editor_window_flags());
@@ -284,6 +307,9 @@ void MainWindow::show_welcome(bool at_startup) {
     d->setAttribute(Qt::WA_DeleteOnClose);
     d->setObjectName("welcome");
     d->setWindowTitle("Welcome to Aztek");
+    // appHome -q -v reads whether it is up.
+    exec_quiet("appHome", QJsonObject{{"edit", true}, {"visible", true}});
+    connect(d, &QDialog::finished, this, [this] { exec_quiet("appHome", QJsonObject{{"edit", true}, {"visible", false}}); });
     d->resize(980, 640);
     if (!was.isNull()) d->setGeometry(was);
     auto* outer = new QVBoxLayout(d);
@@ -338,6 +364,7 @@ void MainWindow::show_welcome(bool at_startup) {
     {
         auto* row = new QHBoxLayout();
         auto* fresh = new QPushButton(icon("new"), "New Scene", d);
+        fresh->setObjectName("homeGettingStarted");
         auto* open_btn = new QPushButton(icon("open"), "Open Scene...", d);
         connect(fresh, &QPushButton::clicked, this, [this, d] {
             new_scene();
@@ -356,6 +383,7 @@ void MainWindow::show_welcome(bool at_startup) {
     if (!recent.isEmpty()) {
         left->addWidget(heading("Recent", d, "clock", QColor(95, 160, 220)));
         auto* list = new QListWidget(d);
+        list->setObjectName("homeRecent");
         list->setMaximumHeight(120);
         for (const QString& f : recent.mid(0, 6)) {
             auto* it = new QListWidgetItem(QFileInfo(f).fileName(), list);
@@ -371,6 +399,7 @@ void MainWindow::show_welcome(bool at_startup) {
     }
     left->addWidget(heading("Examples", d, "folder", QColor(110, 200, 120)));
     auto* examples = new QTreeWidget(d);
+    examples->setObjectName("homeLearning");
     examples->setHeaderHidden(true);
     examples->setRootIsDecorated(true);
     const QString root = examples_folder();
@@ -430,6 +459,7 @@ void MainWindow::show_welcome(bool at_startup) {
     news_row->addWidget(link_button("All releases", kReleases, d));
     mid->addLayout(news_row);
     auto* notes = new QTextBrowser(d);
+    notes->setObjectName("homeWhatsNew");
     notes->setOpenExternalLinks(true);
     mid->addWidget(notes, 3);
     auto* ann_row = new QHBoxLayout();
@@ -437,6 +467,7 @@ void MainWindow::show_welcome(bool at_startup) {
     ann_row->addWidget(link_button("All announcements", kAnnouncementsPage, d));
     mid->addLayout(ann_row);
     auto* ann = new QListWidget(d);
+    ann->setObjectName("homeCommunity");
     connect(ann, &QListWidget::itemActivated, [](QListWidgetItem* it) {
         const QString url = it->data(Qt::UserRole).toString();
         if (!url.isEmpty()) QDesktopServices::openUrl(QUrl(url));

@@ -102,6 +102,10 @@ fn two(mut a: AttrDef) -> AttrDef {
     a.child_short[2].clear();
     a
 }
+fn any_value(mut a: AttrDef) -> AttrDef {
+    a.flags |= flags::ANY_VALUE;
+    a
+}
 fn multi(mut a: AttrDef) -> AttrDef {
     a.flags |= flags::ARRAY;
     a
@@ -739,13 +743,13 @@ fn base_table() -> Vec<Spec> {
                 let o = mats(d, "matrixIn").into_iter().fold(DMat4::IDENTITY, |acc, x| x * acc);
                 set(d, "matrixSum", o);
             }),
-        // The reference's choice takes any kind of value; rigs use it to pick a space's matrix, which is what this one
-        // carries.
+        // The reference's choice takes any kind of value: rigs use it to pick a space's matrix, the choice command to
+        // pick a channel's animation. Input and output pass on whatever is connected as it is.
         Spec("choice", "utility/general", "Passes on the input the selector names: input[selector].",
-            vec![iin("selector", "s", 0), multi(min_in("input", "i")), mout("output", "o")],
+            vec![iin("selector", "s", 0), any_value(multi(min_in("input", "i"))), any_value(mout("output", "o"))],
             |d| {
                 let pick = i(d, "selector") as i32;
-                let o = d.elements(at(d, "input")).iter().find(|(k, _)| *k == pick).map_or(DMat4::IDENTITY, |(_, x)| x.as_matrix());
+                let o = d.elements(at(d, "input")).iter().find(|(k, _)| *k == pick).map_or(PlugValue::Matrix(DMat4::IDENTITY), |(_, x)| x.clone());
                 set(d, "output", o);
             }),
         Spec("addMatrix", "utility/general", "Adds its matrices.",

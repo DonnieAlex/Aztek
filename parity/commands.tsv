@@ -1,12 +1,12 @@
 command	status	evidence
-aaf2fcp	missing	
+aaf2fcp	done	auto
 about	done	auto
 addAttr	done	auto
 addDynamic	missing	
-addExtension	missing	
+addExtension	done	auto
 addMetadata	done	auto
 addPP	missing	
-affectedNet	missing	
+affectedNet	done	auto
 affects	done	auto
 aimConstraint	done	auto
 air	done	auto
@@ -23,7 +23,7 @@ animDisplay	done	auto
 animLayer	done	auto
 animView	missing	
 annotate	done	auto
-appHome	missing	
+appHome	done	auto
 applyAttrPattern	missing	
 applyMetadata	missing	
 applyTake	missing	
@@ -65,7 +65,7 @@ audioTrack	missing
 autoKeyframe	done	auto
 autoPlace	done	auto
 autoSave	done	auto
-backgroundEvaluationManager	missing	
+backgroundEvaluationManager	done	auto
 bakeClip	done	auto
 bakeDeformer	done	auto
 bakePartialHistory	done	auto
@@ -108,7 +108,7 @@ cacheFile	missing
 cacheFileCombine	missing	
 cacheFileMerge	missing	
 cacheFileTrack	missing	
-callbacks	missing	
+callbacks	done	auto
 camera	done	auto
 cameraSet	missing	
 cameraView	missing	
@@ -124,7 +124,7 @@ characterize	done	auto
 checkBox	done	auto
 checkBoxGrp	done	auto
 checkDefaultRenderGlobals	missing	
-choice	missing	
+choice	done	auto
 circle	done	auto
 circularFillet	done	auto
 clearCache	missing	
@@ -159,7 +159,7 @@ columnLayout	done	auto
 combinationShape	done	auto
 commandEcho	done	auto
 commandLine	missing	
-commandLogging	missing	
+commandLogging	done	auto
 commandPort	missing	
 componentBox	missing	
 componentEditor	done	auto
@@ -193,7 +193,7 @@ copyDeformerWeights	done	auto
 copyFlexor	done	auto
 copyKey	done	auto
 copySkinWeights	done	auto
-crashInfo	missing	
+crashInfo	done	auto
 createAttrPatterns	missing	
 createDisplayLayer	done	auto
 createEditor	missing	
@@ -222,12 +222,12 @@ curveSketchCtx	done	auto
 cutKey	done	auto
 cycleCheck	done	auto
 cylinder	done	auto
-dagObjectCompare	missing	
+dagObjectCompare	done	auto
 dagPose	done	auto
 dataStructure	done	auto
 date	done	auto
-dbcount	missing	
-dbfootprint	missing	
+dbcount	done	auto
+dbfootprint	done	auto
 dbmessage	missing	
 dbpeek	missing	
 dbtrace	missing	

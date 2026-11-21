@@ -251,10 +251,10 @@ fn attribute_query() {
     assert_eq!(q(&mut s, "w", "mne"), true);
     assert_eq!(q(&mut s, "w", "mn"), json!([0.0]));
     assert_eq!(q(&mut s, "w", "mx"), json!([2.0]));
-    assert_eq!(q(&mut s, "w", "rg"), json!([0.0, 2.0]));
+    assert_eq!(q(&mut s, "w", "r"), json!([0.0, 2.0]));
     assert_eq!(q(&mut s, "w", "smn"), json!([0.5]));
     assert_eq!(q(&mut s, "w", "smx"), json!([1.5]));
-    assert_eq!(q(&mut s, "w", "sr"), json!([0.5, 1.5]));
+    assert_eq!(q(&mut s, "w", "s"), json!([0.5, 1.5]));
     assert_eq!(run(&mut s, "attributeQuery", json!({"args": ["outColor"], "typ": "condition", "uac": true})), true);
     assert_eq!(run(&mut s, "attributeQuery", json!({"args": ["input1D"], "typ": "plusMinusAverage", "m": true})), true);
 }

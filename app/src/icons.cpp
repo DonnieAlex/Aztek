@@ -167,6 +167,12 @@ QPixmap draw(const QString& name, int size) {
         p.drawEllipse(QRectF(6, 4, 20, 8));
         p.setBrush(QColor(40, 40, 40));
         p.drawEllipse(QRectF(11, 5.5, 10, 5));
+    } else if (name == "home") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(230, 230, 230));
+        p.drawPolygon(QPolygonF({{16, 4}, {29, 15}, {25, 15}, {25, 28}, {7, 28}, {7, 15}, {3, 15}}));
+        p.setBrush(QColor(210, 120, 60));
+        p.drawRect(QRectF(13, 19, 6, 9));
     } else if (name == "new") {
         p.setBrush(QColor(230, 230, 230));
         p.drawPolygon(QPolygonF({{7, 3}, {20, 3}, {25, 8}, {25, 29}, {7, 29}}));

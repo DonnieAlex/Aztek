@@ -54,6 +54,10 @@ pub struct Extras {
     pub eval_manager: crate::freeze::EvalManager,
     /// setAttr -caching: plugs set not to be cached (or back on), by node and attribute.
     pub plug_caching: BTreeMap<(NodeId, i32), bool>,
+    /// addExtension's attributes: what they carry beyond their definitions.
+    pub extensions: crate::extensions::ExtensionMeta,
+    /// What sys_misc's commands hold: backgroundEvaluationManager's settings.
+    pub sys: crate::sys_misc::SysState,
 }
 
 /// What a query asks for: the first flag -q names.

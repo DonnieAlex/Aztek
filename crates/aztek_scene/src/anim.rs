@@ -1035,6 +1035,9 @@ pub fn key_plug_in(g: &mut Graph, p: &PlugRef, t: f64, value: Option<f64>, itt: 
 /// A translate or rotate channel a pairBlend drives: the blend's first input for that axis, where the channel's own
 /// keys go (the reference's blend of keys with a constraint or other driver).
 pub(crate) fn pair_blend_slot(g: &Graph, p: &PlugRef) -> Option<PlugRef> {
+    if let Some(slot) = crate::sys_misc::choice_slot(g, p) {
+        return Some(slot);
+    }
     if p.component < 0 {
         return None;
     }

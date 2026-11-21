@@ -72,6 +72,8 @@ public:
     void create_reference_dialog(bool options = false);
     // Help > Welcome Screen, and at start-up unless turned off (#85).
     void show_welcome(bool at_startup = false);
+    // appHome: shows, hides, refreshes or turns the welcome screen to a section; the status line's home icon.
+    void app_home(const QJsonObject& o);
     // Windows > Modeling Toolkit: a tab beside the Attribute Editor (#107).
     void show_modeling_toolkit();
     // Quad Draw's and Multi-Cut's saved options, sent to every view (#140).
@@ -275,6 +277,7 @@ private:
     QComboBox* input_mode_ = nullptr;
     QLineEdit* input_field_ = nullptr;
     QAction* soft_button_ = nullptr;
+    QAction* home_button_ = nullptr;
     QAction* live_button_ = nullptr;
     ShelfBar* shelf_bar_ = nullptr;
     QHash<QString, RuntimeCommand> runtime_;

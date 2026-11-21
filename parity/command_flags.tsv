@@ -1,18 +1,18 @@
 command	flag	status	evidence
-aaf2fcp	deleteFile	missing	
-aaf2fcp	df	missing	
-aaf2fcp	dst	missing	
-aaf2fcp	dstPath	missing	
-aaf2fcp	getFileName	missing	
-aaf2fcp	gfn	missing	
-aaf2fcp	pr	missing	
-aaf2fcp	progress	missing	
-aaf2fcp	src	missing	
-aaf2fcp	srcFile	missing	
-aaf2fcp	t	missing	
-aaf2fcp	terminate	missing	
-aaf2fcp	waitCompletion	missing	
-aaf2fcp	wc	missing	
+aaf2fcp	deleteFile	done	auto
+aaf2fcp	df	done	auto
+aaf2fcp	dst	done	auto
+aaf2fcp	dstPath	done	auto
+aaf2fcp	getFileName	done	auto
+aaf2fcp	gfn	done	auto
+aaf2fcp	pr	done	auto
+aaf2fcp	progress	done	auto
+aaf2fcp	src	done	auto
+aaf2fcp	srcFile	done	auto
+aaf2fcp	t	done	auto
+aaf2fcp	terminate	done	auto
+aaf2fcp	waitCompletion	done	auto
+aaf2fcp	wc	done	auto
 about	a	done	auto
 about	a64	missing	
 about	api	done	auto
@@ -206,85 +206,85 @@ addAttr	w	done	auto
 addAttr	worldSpace	done	auto
 addAttr	writable	done	auto
 addAttr	ws	done	auto
-addExtension	at	missing	
-addExtension	attributeType	missing	
-addExtension	binaryTag	missing	
-addExtension	bt	missing	
-addExtension	cachedInternally	missing	
-addExtension	category	missing	
-addExtension	ci	missing	
-addExtension	ct	missing	
-addExtension	dataType	missing	
-addExtension	dcb	missing	
-addExtension	defaultValue	missing	
-addExtension	disconnectBehaviour	missing	
-addExtension	dt	missing	
-addExtension	dv	missing	
-addExtension	e	missing	
-addExtension	edit	missing	
-addExtension	en	missing	
-addExtension	enforcingUniqueName	missing	
-addExtension	enumName	missing	
-addExtension	eun	missing	
-addExtension	ex	missing	
-addExtension	exists	missing	
-addExtension	fp	missing	
-addExtension	fromPlugin	missing	
-addExtension	h	missing	
-addExtension	hasMaxValue	missing	
-addExtension	hasMinValue	missing	
-addExtension	hasSoftMaxValue	missing	
-addExtension	hasSoftMinValue	missing	
-addExtension	hidden	missing	
-addExtension	hnv	missing	
-addExtension	hsn	missing	
-addExtension	hsx	missing	
-addExtension	hxv	missing	
-addExtension	im	missing	
-addExtension	indexMatters	missing	
-addExtension	internalSet	missing	
-addExtension	k	missing	
-addExtension	keyable	missing	
-addExtension	ln	missing	
-addExtension	longName	missing	
-addExtension	m	missing	
-addExtension	max	missing	
-addExtension	maxValue	missing	
-addExtension	min	missing	
-addExtension	minValue	missing	
-addExtension	multi	missing	
-addExtension	nc	missing	
-addExtension	niceName	missing	
-addExtension	nn	missing	
-addExtension	nodeType	missing	
-addExtension	nt	missing	
-addExtension	numberOfChildren	missing	
-addExtension	p	missing	
-addExtension	parent	missing	
-addExtension	proxy	missing	
-addExtension	pxy	missing	
-addExtension	q	missing	
-addExtension	query	missing	
-addExtension	r	missing	
-addExtension	readable	missing	
-addExtension	s	missing	
-addExtension	shortName	missing	
-addExtension	smn	missing	
-addExtension	smx	missing	
-addExtension	sn	missing	
-addExtension	softMaxValue	missing	
-addExtension	softMinValue	missing	
-addExtension	storable	missing	
-addExtension	uac	missing	
-addExtension	uaf	missing	
-addExtension	uap	missing	
-addExtension	usedAsColor	missing	
-addExtension	usedAsFilename	missing	
-addExtension	usedAsProxy	missing	
-addExtension	w	missing	
-addExtension	worldSpace	missing	
-addExtension	writable	missing	
-addExtension	ws	missing	
+addExtension	at	done	auto
+addExtension	attributeType	done	auto
+addExtension	binaryTag	done	auto
+addExtension	bt	done	auto
+addExtension	cachedInternally	done	auto
+addExtension	category	done	auto
+addExtension	ci	done	auto
+addExtension	ct	done	auto
+addExtension	dataType	done	auto
+addExtension	dcb	done	auto
+addExtension	defaultValue	done	auto
+addExtension	disconnectBehaviour	done	auto
+addExtension	dt	done	auto
+addExtension	dv	done	auto
+addExtension	e	done	auto
+addExtension	edit	done	auto
+addExtension	en	done	auto
+addExtension	enforcingUniqueName	done	auto
+addExtension	enumName	done	auto
+addExtension	eun	done	auto
+addExtension	ex	done	auto
+addExtension	exists	done	auto
+addExtension	fp	done	auto
+addExtension	fromPlugin	done	auto
+addExtension	h	done	auto
+addExtension	hasMaxValue	done	auto
+addExtension	hasMinValue	done	auto
+addExtension	hasSoftMaxValue	done	auto
+addExtension	hasSoftMinValue	done	auto
+addExtension	hidden	done	auto
+addExtension	hnv	done	auto
+addExtension	hsn	done	auto
+addExtension	hsx	done	auto
+addExtension	hxv	done	auto
+addExtension	im	done	auto
+addExtension	indexMatters	done	auto
+addExtension	internalSet	done	auto
+addExtension	k	done	auto
+addExtension	keyable	done	auto
+addExtension	ln	done	auto
+addExtension	longName	done	auto
+addExtension	m	done	auto
+addExtension	max	done	auto
+addExtension	maxValue	done	auto
+addExtension	min	done	auto
+addExtension	minValue	done	auto
+addExtension	multi	done	auto
+addExtension	nc	done	auto
+addExtension	niceName	done	auto
+addExtension	nn	done	auto
+addExtension	nodeType	done	auto
+addExtension	nt	done	auto
+addExtension	numberOfChildren	done	auto
+addExtension	p	done	auto
+addExtension	parent	done	auto
+addExtension	proxy	done	auto
+addExtension	pxy	done	auto
+addExtension	q	done	auto
+addExtension	query	done	auto
+addExtension	r	done	auto
+addExtension	readable	done	auto
+addExtension	s	done	auto
+addExtension	shortName	done	auto
+addExtension	smn	done	auto
+addExtension	smx	done	auto
+addExtension	sn	done	auto
+addExtension	softMaxValue	done	auto
+addExtension	softMinValue	done	auto
+addExtension	storable	done	auto
+addExtension	uac	done	auto
+addExtension	uaf	done	auto
+addExtension	uap	done	auto
+addExtension	usedAsColor	done	auto
+addExtension	usedAsFilename	done	auto
+addExtension	usedAsProxy	done	auto
+addExtension	w	done	auto
+addExtension	worldSpace	done	auto
+addExtension	writable	done	auto
+addExtension	ws	done	auto
 addMetadata	channelName	done	auto
 addMetadata	channelType	done	auto
 addMetadata	cht	done	auto
@@ -301,8 +301,8 @@ addMetadata	streamName	done	auto
 addMetadata	structure	done	auto
 addPP	atr	missing	
 addPP	attribute	missing	
-affectedNet	t	missing	
-affectedNet	type	missing	
+affectedNet	t	done	auto
+affectedNet	type	done	auto
 affects	by	done	auto
 affects	t	done	auto
 affects	type	done	auto
@@ -830,22 +830,22 @@ annotate	p	done	auto
 annotate	point	done	auto
 annotate	text	done	auto
 annotate	tx	done	auto
-appHome	e	missing	
-appHome	edit	missing	
-appHome	i	missing	
-appHome	iconVisible	missing	
-appHome	instrument	missing	
-appHome	iv	missing	
-appHome	q	missing	
-appHome	query	missing	
-appHome	setTab	missing	
-appHome	t	missing	
-appHome	toggleVisibility	missing	
-appHome	tv	missing	
-appHome	updateRecentFiles	missing	
-appHome	urf	missing	
-appHome	v	missing	
-appHome	visible	missing	
+appHome	e	done	auto
+appHome	edit	done	auto
+appHome	i	done	auto
+appHome	iconVisible	done	auto
+appHome	instrument	done	auto
+appHome	iv	done	auto
+appHome	q	done	auto
+appHome	query	done	auto
+appHome	setTab	done	auto
+appHome	t	done	auto
+appHome	toggleVisibility	done	auto
+appHome	tv	done	auto
+appHome	updateRecentFiles	done	auto
+appHome	urf	done	auto
+appHome	v	done	auto
+appHome	visible	done	auto
 applyAttrPattern	nodeType	missing	
 applyAttrPattern	nt	missing	
 applyAttrPattern	patternName	missing	
@@ -3774,35 +3774,35 @@ attributeName	n	done	auto
 attributeName	nice	done	auto
 attributeName	s	done	auto
 attributeName	short	done	auto
-attributeQuery	aa	missing	
-attributeQuery	affectsAppearance	missing	
-attributeQuery	affectsWorldspace	missing	
+attributeQuery	aa	done	auto
+attributeQuery	affectsAppearance	done	auto
+attributeQuery	affectsWorldspace	done	auto
 attributeQuery	at	done	auto
 attributeQuery	attributeType	done	auto
-attributeQuery	aws	missing	
+attributeQuery	aws	done	auto
 attributeQuery	c	done	auto
-attributeQuery	cachedInternally	missing	
-attributeQuery	categories	missing	
+attributeQuery	cachedInternally	done	auto
+attributeQuery	categories	done	auto
 attributeQuery	ch	done	auto
 attributeQuery	channelBox	done	auto
-attributeQuery	ci	missing	
+attributeQuery	ci	done	auto
 attributeQuery	connectable	done	auto
-attributeQuery	ct	missing	
-attributeQuery	e	missing	
-attributeQuery	enum	missing	
+attributeQuery	ct	done	auto
+attributeQuery	e	done	auto
+attributeQuery	enum	done	auto
 attributeQuery	ex	done	auto
 attributeQuery	exists	done	auto
 attributeQuery	h	done	auto
 attributeQuery	hidden	done	auto
-attributeQuery	i	missing	
-attributeQuery	idt	missing	
-attributeQuery	ig	missing	
+attributeQuery	i	done	auto
+attributeQuery	idt	done	auto
+attributeQuery	ig	done	auto
 attributeQuery	im	done	auto
-attributeQuery	indeterminant	missing	
+attributeQuery	indeterminant	done	auto
 attributeQuery	indexMatters	done	auto
-attributeQuery	internal	missing	
-attributeQuery	internalGet	missing	
-attributeQuery	internalSet	missing	
+attributeQuery	internal	done	auto
+attributeQuery	internalGet	done	auto
+attributeQuery	internalSet	done	auto
 attributeQuery	k	done	auto
 attributeQuery	keyable	done	auto
 attributeQuery	lc	done	auto
@@ -3814,39 +3814,39 @@ attributeQuery	listEnum	done	auto
 attributeQuery	listParent	done	auto
 attributeQuery	listSiblings	done	auto
 attributeQuery	ln	done	auto
-attributeQuery	localizedListEnum	missing	
+attributeQuery	localizedListEnum	done	auto
 attributeQuery	longName	done	auto
 attributeQuery	lp	done	auto
 attributeQuery	ls	done	auto
-attributeQuery	lz	missing	
+attributeQuery	lz	done	auto
 attributeQuery	m	done	auto
 attributeQuery	max	done	auto
 attributeQuery	maxExists	done	auto
 attributeQuery	maximum	done	auto
-attributeQuery	message	missing	
+attributeQuery	message	done	auto
 attributeQuery	min	done	auto
 attributeQuery	minExists	done	auto
 attributeQuery	minimum	done	auto
 attributeQuery	mne	done	auto
-attributeQuery	msg	missing	
+attributeQuery	msg	done	auto
 attributeQuery	multi	done	auto
 attributeQuery	mxe	done	auto
 attributeQuery	n	done	auto
-attributeQuery	nc	missing	
+attributeQuery	nc	done	auto
 attributeQuery	niceName	done	auto
 attributeQuery	nn	done	auto
 attributeQuery	node	done	auto
-attributeQuery	numberOfChildren	missing	
+attributeQuery	numberOfChildren	done	auto
 attributeQuery	r	done	auto
 attributeQuery	range	done	auto
-attributeQuery	rangeExists	missing	
-attributeQuery	rd	missing	
-attributeQuery	re	missing	
+attributeQuery	rangeExists	done	auto
+attributeQuery	rd	done	auto
+attributeQuery	re	done	auto
 attributeQuery	readable	done	auto
-attributeQuery	renderSource	missing	
-attributeQuery	rs	missing	
+attributeQuery	renderSource	done	auto
+attributeQuery	rs	done	auto
 attributeQuery	s	done	auto
-attributeQuery	se	missing	
+attributeQuery	se	done	auto
 attributeQuery	shortName	done	auto
 attributeQuery	sme	done	auto
 attributeQuery	smn	done	auto
@@ -3857,8 +3857,8 @@ attributeQuery	softMaxExists	done	auto
 attributeQuery	softMin	done	auto
 attributeQuery	softMinExists	done	auto
 attributeQuery	softRange	done	auto
-attributeQuery	softRangeExists	missing	
-attributeQuery	st	missing	
+attributeQuery	softRangeExists	done	auto
+attributeQuery	st	done	auto
 attributeQuery	storable	done	auto
 attributeQuery	sxe	done	auto
 attributeQuery	tex	done	auto
@@ -3867,14 +3867,14 @@ attributeQuery	type	done	auto
 attributeQuery	typeExact	done	auto
 attributeQuery	uac	done	auto
 attributeQuery	uaf	done	auto
-attributeQuery	umb	missing	
+attributeQuery	umb	done	auto
 attributeQuery	usedAsColor	done	auto
 attributeQuery	usedAsFilename	done	auto
-attributeQuery	usesMultiBuilder	missing	
+attributeQuery	usesMultiBuilder	done	auto
 attributeQuery	w	done	auto
-attributeQuery	worldspace	missing	
+attributeQuery	worldspace	done	auto
 attributeQuery	writable	done	auto
-attributeQuery	ws	missing	
+attributeQuery	ws	done	auto
 audioTrack	e	missing	
 audioTrack	edit	missing	
 audioTrack	insertTrack	missing	
@@ -3935,16 +3935,16 @@ autoSave	prm	done	auto
 autoSave	prompt	done	auto
 autoSave	q	done	auto
 autoSave	query	done	auto
-backgroundEvaluationManager	i	missing	
-backgroundEvaluationManager	interrupt	missing	
-backgroundEvaluationManager	m	missing	
-backgroundEvaluationManager	mode	missing	
-backgroundEvaluationManager	p	missing	
-backgroundEvaluationManager	pause	missing	
-backgroundEvaluationManager	q	missing	
-backgroundEvaluationManager	query	missing	
-backgroundEvaluationManager	r	missing	
-backgroundEvaluationManager	resume	missing	
+backgroundEvaluationManager	i	done	auto
+backgroundEvaluationManager	interrupt	done	auto
+backgroundEvaluationManager	m	done	auto
+backgroundEvaluationManager	mode	done	auto
+backgroundEvaluationManager	p	done	auto
+backgroundEvaluationManager	pause	done	auto
+backgroundEvaluationManager	q	done	auto
+backgroundEvaluationManager	query	done	auto
+backgroundEvaluationManager	r	done	auto
+backgroundEvaluationManager	resume	done	auto
 bakeClip	b	done	auto
 bakeClip	blend	done	auto
 bakeClip	ci	done	auto
@@ -5101,26 +5101,26 @@ cacheFileTrack	so	missing
 cacheFileTrack	solo	missing	
 cacheFileTrack	t	missing	
 cacheFileTrack	track	missing	
-callbacks	ac	missing	
-callbacks	addCallback	missing	
-callbacks	cac	missing	
-callbacks	cc	missing	
-callbacks	clearAllCallbacks	missing	
-callbacks	clearCallbacks	missing	
-callbacks	dc	missing	
-callbacks	describeHooks	missing	
-callbacks	dh	missing	
-callbacks	dumpCallbacks	missing	
-callbacks	ec	missing	
-callbacks	executeCallbacks	missing	
-callbacks	h	missing	
-callbacks	hook	missing	
-callbacks	lc	missing	
-callbacks	listCallbacks	missing	
-callbacks	o	missing	
-callbacks	owner	missing	
-callbacks	rc	missing	
-callbacks	removeCallback	missing	
+callbacks	ac	done	auto
+callbacks	addCallback	done	auto
+callbacks	cac	done	auto
+callbacks	cc	done	auto
+callbacks	clearAllCallbacks	done	auto
+callbacks	clearCallbacks	done	auto
+callbacks	dc	done	auto
+callbacks	describeHooks	done	auto
+callbacks	dh	done	auto
+callbacks	dumpCallbacks	done	auto
+callbacks	ec	done	auto
+callbacks	executeCallbacks	done	auto
+callbacks	h	done	auto
+callbacks	hook	done	auto
+callbacks	lc	done	auto
+callbacks	listCallbacks	done	auto
+callbacks	o	done	auto
+callbacks	owner	done	auto
+callbacks	rc	done	auto
+callbacks	removeCallback	done	auto
 camera	ar	missing	
 camera	aspectRatio	missing	
 camera	cameraScale	missing	
@@ -5883,23 +5883,23 @@ checkBoxGrp	visibleChangeCommand	done	auto
 checkBoxGrp	vr	done	auto
 checkBoxGrp	w	done	auto
 checkBoxGrp	width	done	auto
-choice	at	missing	
-choice	attribute	missing	
-choice	controlPoints	missing	
-choice	cp	missing	
-choice	index	missing	
-choice	n	missing	
-choice	name	missing	
-choice	q	missing	
-choice	query	missing	
-choice	s	missing	
-choice	sa	missing	
-choice	selector	missing	
-choice	shape	missing	
-choice	sl	missing	
-choice	sourceAttribute	missing	
-choice	t	missing	
-choice	time	missing	
+choice	at	done	auto
+choice	attribute	done	auto
+choice	controlPoints	done	auto
+choice	cp	done	auto
+choice	index	done	auto
+choice	n	done	auto
+choice	name	done	auto
+choice	q	done	auto
+choice	query	done	auto
+choice	s	done	auto
+choice	sa	done	auto
+choice	selector	done	auto
+choice	shape	done	auto
+choice	sl	done	auto
+choice	sourceAttribute	done	auto
+choice	t	done	auto
+choice	time	done	auto
 circle	c	done	auto
 circle	caching	done	auto
 circle	cch	done	auto
@@ -7651,18 +7651,18 @@ commandLine	visible	missing
 commandLine	visibleChangeCommand	missing	
 commandLine	w	missing	
 commandLine	width	missing	
-commandLogging	historySize	missing	
-commandLogging	hs	missing	
-commandLogging	lc	missing	
-commandLogging	lf	missing	
-commandLogging	logCommands	missing	
-commandLogging	logFile	missing	
-commandLogging	q	missing	
-commandLogging	query	missing	
-commandLogging	rc	missing	
-commandLogging	recordCommands	missing	
-commandLogging	resetLogFile	missing	
-commandLogging	rl	missing	
+commandLogging	historySize	done	auto
+commandLogging	hs	done	auto
+commandLogging	lc	done	auto
+commandLogging	lf	done	auto
+commandLogging	logCommands	done	auto
+commandLogging	logFile	done	auto
+commandLogging	q	done	auto
+commandLogging	query	done	auto
+commandLogging	rc	done	auto
+commandLogging	recordCommands	done	auto
+commandLogging	resetLogFile	done	auto
+commandLogging	rl	done	auto
 commandPort	bs	missing	
 commandPort	bufferSize	missing	
 commandPort	cl	missing	
@@ -8518,14 +8518,14 @@ copySkinWeights	ss	done	auto
 copySkinWeights	surfaceAssociation	done	auto
 copySkinWeights	uv	done	auto
 copySkinWeights	uvSpace	done	auto
-crashInfo	cf	missing	
-crashInfo	cl	missing	
-crashInfo	crashFile	missing	
-crashInfo	crashLog	missing	
-crashInfo	q	missing	
-crashInfo	query	missing	
-crashInfo	savedBeforeCrash	missing	
-crashInfo	sbc	missing	
+crashInfo	cf	done	auto
+crashInfo	cl	done	auto
+crashInfo	crashFile	done	auto
+crashInfo	crashLog	done	auto
+crashInfo	q	done	auto
+crashInfo	query	done	auto
+crashInfo	savedBeforeCrash	done	auto
+crashInfo	sbc	done	auto
 createAttrPatterns	patternDefinition	missing	
 createAttrPatterns	patternFile	missing	
 createAttrPatterns	patternType	missing	
@@ -8897,20 +8897,20 @@ cylinder	tol	done	auto
 cylinder	tolerance	done	auto
 cylinder	useTolerance	done	auto
 cylinder	ut	done	auto
-dagObjectCompare	a	missing	
-dagObjectCompare	attribute	missing	
-dagObjectCompare	b	missing	
-dagObjectCompare	bail	missing	
-dagObjectCompare	c	missing	
-dagObjectCompare	connection	missing	
-dagObjectCompare	n	missing	
-dagObjectCompare	namespace	missing	
-dagObjectCompare	r	missing	
-dagObjectCompare	relative	missing	
-dagObjectCompare	s	missing	
-dagObjectCompare	short	missing	
-dagObjectCompare	t	missing	
-dagObjectCompare	type	missing	
+dagObjectCompare	a	done	auto
+dagObjectCompare	attribute	done	auto
+dagObjectCompare	b	done	auto
+dagObjectCompare	bail	done	auto
+dagObjectCompare	c	done	auto
+dagObjectCompare	connection	done	auto
+dagObjectCompare	n	done	auto
+dagObjectCompare	namespace	done	auto
+dagObjectCompare	r	done	auto
+dagObjectCompare	relative	done	auto
+dagObjectCompare	s	done	auto
+dagObjectCompare	short	done	auto
+dagObjectCompare	t	done	auto
+dagObjectCompare	type	done	auto
 dagPose	a	done	auto
 dagPose	addToPose	done	auto
 dagPose	ap	done	auto
@@ -8963,30 +8963,30 @@ date	shortTime	done	auto
 date	st	done	auto
 date	t	done	auto
 date	time	done	auto
-dbcount	e	missing	
-dbcount	enabled	missing	
-dbcount	f	missing	
-dbcount	file	missing	
-dbcount	k	missing	
-dbcount	keyword	missing	
-dbcount	l	missing	
-dbcount	list	missing	
-dbcount	maxdepth	missing	
-dbcount	md	missing	
-dbcount	q	missing	
-dbcount	quick	missing	
-dbcount	r	missing	
-dbcount	reset	missing	
-dbcount	s	missing	
-dbcount	spreadsheet	missing	
-dbfootprint	all	missing	
-dbfootprint	allObjects	missing	
-dbfootprint	of	missing	
-dbfootprint	outputFile	missing	
-dbfootprint	q	missing	
-dbfootprint	query	missing	
-dbfootprint	t	missing	
-dbfootprint	type	missing	
+dbcount	e	done	auto
+dbcount	enabled	done	auto
+dbcount	f	done	auto
+dbcount	file	done	auto
+dbcount	k	done	auto
+dbcount	keyword	done	auto
+dbcount	l	done	auto
+dbcount	list	done	auto
+dbcount	maxdepth	done	auto
+dbcount	md	done	auto
+dbcount	q	done	auto
+dbcount	quick	done	auto
+dbcount	r	done	auto
+dbcount	reset	done	auto
+dbcount	s	done	auto
+dbcount	spreadsheet	done	auto
+dbfootprint	all	done	auto
+dbfootprint	allObjects	done	auto
+dbfootprint	of	done	auto
+dbfootprint	outputFile	done	auto
+dbfootprint	q	done	auto
+dbfootprint	query	done	auto
+dbfootprint	t	done	auto
+dbfootprint	type	done	auto
 dbmessage	f	missing	
 dbmessage	file	missing	
 dbmessage	l	missing	

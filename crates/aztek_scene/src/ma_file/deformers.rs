@@ -775,7 +775,7 @@ impl Writer<'_> {
 
         // A nonlinear's settings, added to it as the reference adds them.
         if nonlinear {
-            for a in t.attrs.iter().filter(|a| a.has(flags::USER)) {
+            for a in t.attrs.iter().filter(|a| a.has(flags::USER) && !a.has(flags::EXTENSION)) {
                 o.push_str(&attr_add_lines(a));
             }
         }
