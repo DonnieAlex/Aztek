@@ -691,6 +691,119 @@ pub(crate) fn trimmed_plane(c: &NurbsCurve) -> Option<NurbsSurface> {
     Some(s)
 }
 
+/// planarSrf from one or more boundary curves: the curves are chained end to end into closed loops, and the plane over
+/// them all trimmed by the loops, even-odd, so a loop inside another is a hole; keep_outside keeps the rest instead. A
+/// lone rectangle of straight lines is a plain patch. None when the curves are not in one plane to within tol.
+pub(crate) fn planar_surface(curves: &[NurbsCurve], degree: usize, keep_outside: bool, tol: f64) -> Option<NurbsSurface> {
+    let lines: Vec<(Vec<DVec3>, bool)> = curves
+        .iter()
+        .filter(|c| c.is_valid())
+        .map(|c| {
+            // A curve whose CVs lie on one line is straight whatever its degree: its ends are enough.
+            let cv = c.distinct_cvs();
+            let (a, b) = (cv[0], cv[cv.len() - 1]);
+            let dir = (b - a).normalize_or_zero();
+            let straight = c.form == Form::Open && dir != DVec3::ZERO && cv.iter().all(|p| (*p - a - dir * (*p - a).dot(dir)).length() < 1e-9);
+            if straight {
+                (vec![a, b], true)
+            } else if c.degree == 1 {
+                (cv.to_vec(), true)
+            } else {
+                (c.tessellate(16), false)
+            }
+        })
+        .filter(|(p, _)| p.len() >= 2)
+        .collect();
+    if lines.is_empty() {
+        return None;
+    }
+    let all: Vec<DVec3> = lines.iter().flat_map(|(p, _)| p.iter().copied()).collect();
+    let (lo, hi) = all.iter().fold((DVec3::MAX, DVec3::MIN), |(a, b), p| (a.min(*p), b.max(*p)));
+    let eps = ((hi - lo).length() * 1e-3).max(1e-6);
+    // Chained into loops.
+    let mut used = vec![false; lines.len()];
+    let mut loops: Vec<Vec<DVec3>> = Vec::new();
+    for start in 0..lines.len() {
+        if used[start] {
+            continue;
+        }
+        used[start] = true;
+        let mut pts = lines[start].0.clone();
+        loop {
+            let end = *pts.last().unwrap();
+            if pts.len() > 2 && end.distance(pts[0]) < eps {
+                break;
+            }
+            let next = (0..lines.len()).find_map(|k| {
+                if used[k] {
+                    return None;
+                }
+                let l = &lines[k].0;
+                if l[0].distance(end) < eps {
+                    Some((k, false))
+                } else if l[l.len() - 1].distance(end) < eps {
+                    Some((k, true))
+                } else {
+                    None
+                }
+            });
+            let Some((k, rev)) = next else { break };
+            used[k] = true;
+            let mut more = lines[k].0.clone();
+            if rev {
+                more.reverse();
+            }
+            pts.extend(more.into_iter().skip(1));
+        }
+        if pts.len() > 1 && pts[0].distance(*pts.last().unwrap()) < eps {
+            pts.pop();
+        }
+        if pts.len() >= 3 {
+            loops.push(pts);
+        }
+    }
+    let first = loops.first()?;
+    // The plane: Newell's normal of the first loop.
+    let mut n = DVec3::ZERO;
+    for i in 0..first.len() {
+        let (a, b) = (first[i], first[(i + 1) % first.len()]);
+        n += DVec3::new((a.y - b.y) * (a.z + b.z), (a.z - b.z) * (a.x + b.x), (a.x - b.x) * (a.y + b.y));
+    }
+    let n = n.normalize_or_zero();
+    if n == DVec3::ZERO {
+        return None;
+    }
+    let o = first[0];
+    if loops.iter().flatten().any(|p| (*p - o).dot(n).abs() > tol.max(1e-9)) {
+        return None;
+    }
+    let straight = lines.iter().all(|(_, s)| *s);
+    if loops.len() == 1 && straight && !keep_outside {
+        let mut ring = first.clone();
+        ring.push(first[0]);
+        if let Some(r) = crate::surfaces::rectangle_surface(&NurbsCurve::open(1, ring)) {
+            return Some(r);
+        }
+    }
+    let x = {
+        let t = (first[1] - first[0]).normalize_or_zero();
+        if t == DVec3::ZERO { n.any_orthonormal_vector() } else { t }
+    };
+    let y = n.cross(x).normalize_or_zero();
+    let flat: Vec<Vec<DVec2>> = loops.iter().map(|l| l.iter().map(|p| DVec2::new((*p - o).dot(x), (*p - o).dot(y))).collect()).collect();
+    let lo2 = flat.iter().flatten().fold(DVec2::splat(f64::MAX), |a, b| a.min(*b));
+    let hi2 = flat.iter().flatten().fold(DVec2::splat(f64::MIN), |a, b| a.max(*b));
+    let size = (hi2 - lo2).max(DVec2::splat(1e-6));
+    let corner = o + x * lo2.x + y * lo2.y;
+    let deg = if degree <= 1 { 1 } else { 3 };
+    let mut srf = nurbs::patch_surface(corner, x * size.x, y * size.y, 1, 1, deg);
+    let (ul, uh) = srf.domain_u();
+    let (vl, vh) = srf.domain_v();
+    let uv: Vec<Vec<DVec2>> = flat.iter().map(|l| l.iter().map(|p| DVec2::new(ul + (p.x - lo2.x) / size.x * (uh - ul), vl + (p.y - lo2.y) / size.y * (vh - vl))).collect()).collect();
+    srf.trim = vec![TrimRegion { loops: uv, keep_odd: !keep_outside }];
+    Some(srf)
+}
+
 /// circularFillet's sections: where the offsets of the surfaces meet is the arc's centre.
 /// The fillet is fitted closer as the tolerances go down: the position tolerance sets how finely the offset surfaces
 /// are met, the tangent tolerance how many cross sections the fillet is lofted through (0.01 each: 16 and 16).
@@ -1024,14 +1137,24 @@ fn register_types() {
         reg(node_type(
             "pointCurveConstraint",
             "Makes a curve pass through a point at a parameter.",
-            vec![cin("inputCurve", "ic"), cout("outputCurve", "oc"), f_in("parameter", "pr", 0.0, "Where on the curve."), v_in("position", "p", DVec3::ZERO, "Where it goes."), f_in("weight", "w", 1.0, "How much.")],
+            vec![
+                cin("inputCurve", "ic"),
+                cout("outputCurve", "oc"),
+                f_in("parameter", "pr", 0.0, "Where on the curve, from older scenes; pointConstraintUVW has the say when set."),
+                v_in("position", "p", DVec3::ZERO, "Where it goes."),
+                f_in("weight", "w", 1.0, "Weight of the least-squares fit: how strictly the curve meets the point."),
+                v_in("pointConstraintUVW", "puv", DVec3::ZERO, "Where on the curve, in its parameter space (u)."),
+                f_in("pointWeight", "pw", 1.0, "How strongly the point pulls the curve."),
+            ],
             |d| {
                 let Some(mut c) = crv(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
-                let (u, at, w) = (d.float(P), d.vec3(P + 1), d.float(P + 2));
-                let target = c.eval(u).lerp(at, w);
+                let puv = d.vec3(P + 3);
+                let u = if puv != DVec3::ZERO { puv.x } else { d.float(P) };
+                let (at, w) = (d.vec3(P + 1), d.float(P + 2) * d.float(P + 4));
+                let target = c.eval(u).lerp(at, w.clamp(-10.0, 10.0));
                 crate::nurbs_components::pull_curve(&mut c, u, target);
                 put_curve(d, OUT, Some(c));
             },
@@ -1039,18 +1162,35 @@ fn register_types() {
         reg(node_type(
             "offsetCurveOnSurface",
             "A curve on a surface offset sideways in (u, v).",
-            vec![cin("inputCurve", "ic"), cout("outputCurve", "oc"), f_in("distance", "d", 1.0, "How far, in parameter space.")],
+            vec![
+                cin("inputCurve", "ic"),
+                cout("outputCurve", "oc"),
+                f_in("distance", "d", 1.0, "How far, in parameter space."),
+                int_in("checkPoints", "cp", 3, "Samples a span is checked at for the fit."),
+                int_in("connectBreaks", "cb", 2, "Where the offset breaks apart at a corner: 0 left as a straight jump, 1 joined by an arc, 2 joined at a sharp corner."),
+                AttrDef { doc: "Cut the loops out of the offset where it crosses itself.".into(), ..bin("cutLoop", "cl", false) },
+                AttrDef { doc: "Join the offset's pieces into one curve.".into(), ..bin("stitch", "st", true) },
+                int_in("subdivisionDensity", "sd", 5, "How many times a span may be halved while the offset is brought within tolerance."),
+                f_in("tolerance", "tol", 0.01, "How closely the offset keeps the distance."),
+            ],
             |d| {
                 let Some(c) = crv(d, IN) else {
                     d.set_output(OUT, PlugValue::Data(None));
                     return;
                 };
-                let dist = d.float(P);
-                let pts: Vec<DVec3> = c.tessellate(8).windows(2).map(|w| {
-                    let t = (w[1] - w[0]).normalize_or_zero();
-                    w[0] + DVec3::new(-t.y, t.x, 0.0) * dist
-                }).collect();
-                put_curve(d, OUT, (pts.len() >= 2).then(|| polyline_curve(&pts)));
+                // Offset in (u, v): to the left of the curve's direction.
+                let o = curves::OffsetOptions {
+                    distance: d.float(P),
+                    normal: Some(-DVec3::Z),
+                    connect_breaks: d.int(P + 2),
+                    cut_loop: d.bool(P + 3),
+                    cut_radius: 0.0,
+                    reparameterize: false,
+                    subdivision_density: d.int(P + 5),
+                    tolerance: d.float(P + 6),
+                    check_points: d.int(P + 1).max(1) as usize,
+                };
+                put_curve(d, OUT, Some(curves::offset_curve(&c, &o)));
             },
         ));
         reg(node_type(
@@ -3192,6 +3332,19 @@ pub fn register(c: &mut Commands<Session>) {
                 let uv = g.value(&plug(src.node, P))?;
                 g.set_value(plug(off, IN), uv)?;
                 set_f(g, off, "distance", a.float("distance", 1.0))?;
+                set_i(g, off, "checkPoints", a.int("checkPoints", 3))?;
+                set_i(g, off, "connectBreaks", a.int("connectBreaks", 2))?;
+                set_i(g, off, "subdivisionDensity", a.int("subdivisionDensity", 5))?;
+                set_f(g, off, "tolerance", a.float("tolerance", 0.01))?;
+                for (k, def) in [("cutLoop", false), ("stitch", true)] {
+                    let on = a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                    let i = at(g, off, k);
+                    g.set_value(plug(off, i), PlugValue::Bool(on))?;
+                }
+                crate::history_qe::apply_common(g, off, a)?;
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    return Ok(json!([g.path(off)]));
+                }
                 let cos = new_node(g, "curveFromSurfaceCoS", "curveFromSurfaceCoS1")?;
                 g.connect(&surf, &plug(cos, IN), false)?;
                 g.connect(&plug(off, OUT), &plug(cos, P), false)?;
@@ -3203,8 +3356,15 @@ pub fn register(c: &mut Commands<Session>) {
             g.close_chunk();
             r
         })
-        .positional("a curve on a surface")
-        .flag(f("distance", "d", Fl, "How far.")),
+        .positional("a curve on a surface; the node or the offset with -q and -e")
+        .flag(f("distance", "d", Fl, "How far, in the surface's parameter space (1)."))
+        .flag(f("checkPoints", "cp", I, "Samples a span is checked at for the fit (3)."))
+        .flag(f("connectBreaks", "cb", I, "How the offset joins where it breaks apart: 0 off, 1 an arc, 2 a sharp corner (2)."))
+        .flag(f("cutLoop", "cl", B, "Cut out the loops where the offset crosses itself (off)."))
+        .flag(f("stitch", "st", B, "Join the pieces into one curve (on)."))
+        .flag(f("subdivisionDensity", "sd", I, "How many times a span may be halved to meet the tolerance (5)."))
+        .flag(f("tolerance", "tol", Fl, "How closely the offset keeps the distance (0.01)."))
+        .flag(f("range", "rn", B, "Offset the whole curve, as always here.")),
     ));
     c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(make_flags(
         Cmd::new(
@@ -3338,23 +3498,50 @@ pub fn register(c: &mut Commands<Session>) {
             let inner = rest.trim_end_matches(']');
             let param = if kind == "ep" { cu.distinct_params().get(inner.parse::<usize>().unwrap_or(usize::MAX)).copied() } else { inner.parse().ok() };
             let Some(param) = param else { fail!("pointCurveConstraint: no such point: {n}") };
+            let param = a.vec3("pointConstraintUVW").map_or(param, |v| v[0]);
             let here = a.vec3("position").map_or(cu.eval(param), DVec3::from_array);
+            let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(g.construction_history);
             g.open_chunk("Point Curve Constraint");
             let r = (|| -> CmdResult {
-                let node = curves::insert_op(g, shape, "pointCurveConstraint", &[(P, PlugValue::Float(param)), (P + 1, PlugValue::Vec3(here)), (P + 2, PlugValue::Float(a.float("weight", 1.0)))])?;
+                let node = curves::insert_op(
+                    g,
+                    shape,
+                    "pointCurveConstraint",
+                    &[
+                        (P, PlugValue::Float(param)),
+                        (P + 1, PlugValue::Vec3(here)),
+                        (P + 2, PlugValue::Float(a.float("weight", 1.0))),
+                        (P + 3, PlugValue::Vec3(DVec3::new(param, 0.0, 0.0))),
+                        (P + 4, PlugValue::Float(a.float("pointWeight", 1.0))),
+                    ],
+                )?;
+                crate::history_qe::apply_common(g, node, a)?;
+                let tr = crate::dag::transform_of(g, shape);
+                if !ch {
+                    g.evaluate();
+                    curves::bake_history(g, shape)?;
+                    return Ok(json!([g.path(tr)]));
+                }
+                // A locator to move the point with, under the curve so its place is the curve's own space.
+                let loc_t = types::find("locator").expect("locator");
+                let (lt, _) = crate::dag::create_with_shape(g, &loc_t.name, &a.string("name", "pointCurveConstraintLocator1"), tr)?;
+                g.set_value(plug(lt, crate::transform::Transform::TRANSLATE), PlugValue::Vec3(here))?;
+                let pos = at(g, node, "position");
+                g.connect(&plug(lt, crate::transform::Transform::TRANSLATE), &plug(node, pos), false)?;
                 g.evaluate();
-                Ok(json!([g.path(crate::dag::transform_of(g, shape)), g.path(node)]))
+                Ok(json!([g.path(tr), g.path(node), g.path(lt)]))
             })();
             g.close_chunk();
             r
         })
         .positional("a point on a curve")
         .flag(f("position", "p", ArgType::Vec3, "Where it goes."))
-        .flag(f("weight", "w", Fl, "How much (1)."))
-        .flag(f("pointWeight", "pw", Fl, "Accepted for existing scripts."))
-        .flag(f("constructionHistory", "ch", B, "Keep the node (on by default)."))
-        .flag(f("replaceOriginal", "rpo", B, "Accepted: the curve itself changes."))
-        .flag(f("name", "n", S, "Accepted for existing scripts."))
-        .flag(f("object", "o", B, "Accepted for existing scripts.")),
+        .flag(f("weight", "w", Fl, "Weight of the least-squares fit: larger meets the point more strictly (1)."))
+        .flag(f("pointWeight", "pw", Fl, "How strongly the point pulls the curve (1)."))
+        .flag(f("pointConstraintUVW", "puv", ArgType::Vec3, "Where on the curve, in parameter space, in place of the point named."))
+        .flag(f("constructionHistory", "ch", B, "Keep the node, with a locator under the curve to move the point with (on by default)."))
+        .flag(f("replaceOriginal", "rpo", B, "Change the curve in place, as it always does here."))
+        .flag(f("name", "n", S, "Name of the locator."))
+        .flag(f("object", "o", B, "Make the result (on), as it always does here.")),
     );
 }

@@ -18,6 +18,66 @@ use crate::session::Session;
 use crate::transform::{DagNode, Shape, Transform};
 
 // ---------------------------------------------------------------------------------------------------------------------
+// paramLocator
+
+/// paramLocator: a locator held at a parameter of a curve (curve.u[0.5], curve.ep[1], curve.un[0.25] normalized) or of a
+/// surface (surface.uv[0.5][0.5], surface.uvn[..][..] normalized). The locator is parented under the object, its
+/// translate fed by a pointOnCurveInfo or pointOnSurfaceInfo on the shape's local geometry, so it rides the shape
+/// as the reference's locator in the shape's underworld does. -p: the parameters are normalized to 0 to 1.
+fn param_locator(s: &mut Session, a: &Args) -> CmdResult {
+    let names = objects(s, a);
+    let Some(item) = names.first().cloned() else { fail!("paramLocator: name a point on a curve or surface") };
+    let g = &mut s.graph;
+    let Some((head, rest)) = item.split_once('[') else { fail!("paramLocator: name a point: curve.u[0.5], curve.ep[1] or surface.uv[0.5][0.5]") };
+    let Some((obj, kind)) = head.rsplit_once('.') else { fail!("paramLocator: name a point: curve.u[0.5], curve.ep[1] or surface.uv[0.5][0.5]") };
+    let nums: Vec<f64> = rest.split(['[', ']']).filter(|x| !x.trim().is_empty()).filter_map(|x| x.trim().parse().ok()).collect();
+    let normalized = a.bool("position") || kind.ends_with('n');
+    let id = crate::rig::find(g, obj, "paramLocator")?;
+    let tr = crate::dag::transform_of(g, id);
+    g.open_chunk("paramLocator");
+    let r = (|| -> CmdResult {
+        let (lt, _) = crate::dag::create_with_shape(g, "locator", "locator1", tr)?;
+        if let Some(shape) = crate::curves::as_curve(g, id) {
+            let Some(c) = crate::curves::local_curve(g, shape) else { fail!("paramLocator: {obj} has no curve") };
+            let (mut u, mut top) = (nums.first().copied().unwrap_or(0.0), normalized);
+            if kind == "ep" {
+                let i = u as usize;
+                let Some(&p) = c.distinct_params().get(i) else { fail!("paramLocator: {obj} has no edit point {i}") };
+                u = p;
+                top = false;
+            } else if !matches!(kind, "u" | "un") {
+                fail!("paramLocator: a curve's point is .u[], .un[] or .ep[]");
+            }
+            let t = types::find("pointOnCurveInfo").expect("pointOnCurveInfo");
+            let info = g.create_node(&t, "pointOnCurveInfo1", NO_NODE, true)?;
+            g.connect(&plug(shape, crate::curves::CurveShape::LOCAL), &plug(info, 0), false)?;
+            g.set_value(plug(info, 1), PlugValue::Float(u))?;
+            g.set_value(plug(info, 2), PlugValue::Bool(top))?;
+            g.connect(&plug(info, 3), &plug(lt, Transform::TRANSLATE), false)?;
+        } else if let Some(shape) = crate::surfaces::as_surface(g, id) {
+            if !matches!(kind, "uv" | "uvn") || nums.len() < 2 {
+                fail!("paramLocator: a surface's point is .uv[u][v]");
+            }
+            let t = types::find("pointOnSurfaceInfo").expect("pointOnSurfaceInfo");
+            let info = g.create_node(&t, "pointOnSurfaceInfo1", NO_NODE, true)?;
+            g.connect(&plug(shape, crate::surfaces::SurfaceShape::LOCAL), &plug(info, 0), false)?;
+            g.set_value(plug(info, 1), PlugValue::Float(nums[0]))?;
+            g.set_value(plug(info, 2), PlugValue::Float(nums[1]))?;
+            g.set_value(plug(info, 3), PlugValue::Bool(normalized))?;
+            let pos = g.node(info).unwrap().ty().attr_index("position").unwrap();
+            g.connect(&plug(info, pos), &plug(lt, Transform::TRANSLATE), false)?;
+        } else {
+            fail!("paramLocator: {obj} is not a NURBS curve or surface");
+        }
+        g.evaluate();
+        g.select(&[lt], SelectMode::Replace);
+        Ok(json!(g.path(lt)))
+    })();
+    g.close_chunk();
+    r
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // arcLengthDimension
 
 const AL_U: usize = Shape::COUNT;
@@ -267,6 +327,16 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("object", "o", ArgType::Bool, "Make the polygons (on); off, only the node."))
         .flag(f("name", "n", ArgType::String, "Name of the polygon object.")),
     )));
+    c.register(
+        Cmd::new(
+            "paramLocator",
+            "A locator held at a parameter of a NURBS curve (curve.u[0.5], curve.ep[1], curve.un[0.25]) or surface (surface.uv[0.5][0.5]), \
+             following the shape as it changes. -p: the parameters are normalized, 0 to 1. Returns the locator.",
+            param_locator,
+        )
+        .positional("a point on a curve or surface (the selection when none)")
+        .flag(f("position", "p", ArgType::Bool, "The parameters are in normalized space, 0 to 1 over the range.")),
+    );
     // The NURBS commands whose settings live on a history node: -q and -e reach the node.
     crate::history_qe::extend(c, "attachCurve", &["attachCurve"], &[], Vec::new());
     crate::history_qe::extend(c, "attachSurface", &["attachSurface"], &[], Vec::new());
@@ -301,4 +371,9 @@ pub fn register(c: &mut Commands<Session>) {
     crate::history_qe::extend(c, "intersect", &["intersectSurface"], &[], Vec::new());
     crate::history_qe::extend(c, "loft", &["loft"], &[], Vec::new());
     crate::history_qe::extend(c, "nurbsCube", &["makeNurbCube"], &[], Vec::new());
+    crate::history_qe::extend(c, "nurbsPlane", &["makeNurbPlane"], &[], Vec::new());
+    crate::history_qe::extend(c, "offsetSurface", &["offsetSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "offsetCurve", &["offsetCurve"], &[], Vec::new());
+    crate::history_qe::extend(c, "offsetCurveOnSurface", &["offsetCurveOnSurface"], &[], Vec::new());
+    crate::history_qe::extend(c, "pointCurveConstraint", &["pointCurveConstraint"], &[], Vec::new());
 }

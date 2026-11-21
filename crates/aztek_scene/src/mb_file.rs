@@ -222,6 +222,11 @@ pub(crate) fn id_of(type_name: &str) -> Option<[u8; 4]> {
     ids.get(type_name).copied()
 }
 
+/// The node type a four-character id stands for.
+pub(crate) fn type_of_id(id: [u8; 4]) -> Option<&'static str> {
+    type_table().get(&id).copied()
+}
+
 /// Whether a four-character id is one of the table's.
 pub(crate) fn id_known(id: [u8; 4]) -> bool {
     type_table().contains_key(&id)

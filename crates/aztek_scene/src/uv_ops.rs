@@ -837,6 +837,366 @@ impl NodeBehavior for UvEditNode {
     }
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Automatic projection
+
+/// polyAutoProj's settings, after the shared three: (name, short, default).
+const AUTO_SETTINGS: &[(&str, &str, AutoDefault)] = &[
+    ("planes", "p", AutoDefault::I(6)),
+    ("layout", "l", AutoDefault::I(2)),
+    ("layoutMethod", "lm", AutoDefault::I(0)),
+    ("optimize", "o", AutoDefault::I(1)),
+    ("percentageSpace", "ps", AutoDefault::F(0.2)),
+    ("projectBothDirections", "pb", AutoDefault::B(false)),
+    ("scaleMode", "sc", AutoDefault::I(1)),
+    ("skipIntersect", "si", AutoDefault::B(false)),
+    ("worldSpace", "ws", AutoDefault::B(false)),
+    ("pivot", "pvt", AutoDefault::V(0.0)),
+    ("rotate", "ro", AutoDefault::V(0.0)),
+    ("scale", "s", AutoDefault::V(1.0)),
+    ("translate", "t", AutoDefault::V(0.0)),
+    ("worldMatrix", "wm", AutoDefault::M),
+];
+const AUTO_FIRST: usize = 3;
+const AUTO_FITTED: usize = AUTO_FIRST + 14;
+const AUTO_FACES: usize = AUTO_FIRST + 15;
+
+#[derive(Clone, Copy)]
+enum AutoDefault {
+    I(i64),
+    F(f64),
+    B(bool),
+    V(f64),
+    M,
+}
+
+fn auto_proj_attrs() -> Vec<AttrDef> {
+    let k = flags::INPUT | flags::STORABLE | flags::KEYABLE;
+    let mut out = Vec::new();
+    for &(name, short, def) in AUTO_SETTINGS {
+        let doc = match name {
+            "planes" => "How many planes project: 4, 5, 6, 8 or 12.",
+            "layout" => "How the pieces are laid out: 0 not at all, 1 along U, 2 into a square.",
+            "layoutMethod" => "0 block stacking, 1 shape stacking.",
+            "optimize" => "0 each face to its best plane, 1 fewer pieces where the extra distortion is small.",
+            "percentageSpace" => "With layout 2: space round each piece, percent of the square (5 at most).",
+            "projectBothDirections" => "Opposite faces share a plane, mirrored.",
+            "scaleMode" => "After: 0 no scaling, 1 uniform to fit the unit square, 2 each way to fit it.",
+            "skipIntersect" => "Don't test the pieces for overlapping themselves.",
+            "worldSpace" => "Faces by their world-space normals rather than object space.",
+            "pivot" => "The pivot the projection turns and scales about.",
+            "rotate" => "How the planes are turned.",
+            "scale" => "How the projection is scaled.",
+            "translate" => "Where the projection is moved.",
+            _ => "The object's world matrix when the projection was made, for worldSpace.",
+        };
+        out.push(match def {
+            AutoDefault::I(v) => AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Int, default_value: PlugValue::Int(v), flags: k, doc: doc.into(), ..Default::default() },
+            AutoDefault::F(v) => crate::attr_defs::float_attr_short(name, short, v, doc, None, None),
+            AutoDefault::B(v) => AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Bool, default_value: PlugValue::Bool(v), flags: k, doc: doc.into(), ..Default::default() },
+            AutoDefault::V(v) => crate::node::vec3_attr(name, short, DVec3::splat(v), k, doc),
+            AutoDefault::M => AttrDef { name: name.into(), short_name: short.into(), ty: PlugType::Matrix, default_value: PlugValue::Matrix(glam::DMat4::IDENTITY), flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, doc: doc.into(), ..Default::default() },
+        });
+    }
+    for (nm, sh, doc) in [("fittedState", "fts", "The settings as the projection left them: while they match, the stored UVs stand."), ("inputComponents", "ics", "The faces projected.")] {
+        out.push(AttrDef { name: nm.into(), short_name: sh.into(), ty: PlugType::String, default_value: PlugValue::String(String::new()), flags: flags::INPUT | flags::STORABLE | flags::HIDDEN, doc: doc.into(), ..Default::default() });
+    }
+    out
+}
+
+/// What automatic projection is asked to do.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AutoOptions {
+    pub planes: i64,
+    pub layout: i64,
+    pub layout_method: i64,
+    pub optimize: i64,
+    pub percentage_space: f64,
+    pub both: bool,
+    pub scale_mode: i64,
+    pub skip_intersect: bool,
+    pub world: Option<glam::DMat4>,
+    pub pivot: DVec3,
+    pub rotate: DVec3,
+    pub scale: DVec3,
+    pub translate: DVec3,
+}
+
+impl Default for AutoOptions {
+    fn default() -> Self {
+        AutoOptions { planes: 6, layout: 2, layout_method: 0, optimize: 1, percentage_space: 0.2, both: false, scale_mode: 1, skip_intersect: false, world: None, pivot: DVec3::ZERO, rotate: DVec3::ZERO, scale: DVec3::ONE, translate: DVec3::ZERO }
+    }
+}
+
+fn auto_options(d: &NodeData) -> AutoOptions {
+    let i = |k: usize| d.int(AUTO_FIRST + k);
+    AutoOptions {
+        planes: i(0),
+        layout: i(1),
+        layout_method: i(2),
+        optimize: i(3),
+        percentage_space: d.float(AUTO_FIRST + 4),
+        both: d.bool(AUTO_FIRST + 5),
+        scale_mode: i(6),
+        skip_intersect: d.bool(AUTO_FIRST + 7),
+        world: d.bool(AUTO_FIRST + 8).then(|| d.matrix(AUTO_FIRST + 13)),
+        pivot: d.vec3(AUTO_FIRST + 9),
+        rotate: d.vec3(AUTO_FIRST + 10),
+        scale: d.vec3(AUTO_FIRST + 11),
+        translate: d.vec3(AUTO_FIRST + 12),
+    }
+}
+
+fn auto_state(o: &AutoOptions) -> String {
+    format!("{o:?}")
+}
+
+/// The planes' directions: 4 round the sides, 5 adding the top, 6 a box, 8 an octahedron's faces, 12 a box and the
+/// diagonals between its sides.
+fn plane_directions(planes: i64) -> Vec<DVec3> {
+    let box6 = vec![DVec3::X, -DVec3::X, DVec3::Y, -DVec3::Y, DVec3::Z, -DVec3::Z];
+    match planes {
+        4 => vec![DVec3::X, -DVec3::X, DVec3::Z, -DVec3::Z],
+        5 => vec![DVec3::X, -DVec3::X, DVec3::Y, DVec3::Z, -DVec3::Z],
+        8 => {
+            let mut v = Vec::new();
+            for x in [1.0, -1.0] {
+                for y in [1.0, -1.0] {
+                    for z in [1.0, -1.0] {
+                        v.push(DVec3::new(x, y, z).normalize());
+                    }
+                }
+            }
+            v
+        }
+        12 => {
+            let mut v = box6;
+            for (x, z) in [(1.0, 1.0), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)] {
+                v.push(DVec3::new(x, 0.0, z).normalize());
+            }
+            v.push(DVec3::new(0.0, 1.0, 1.0).normalize());
+            v.push(DVec3::new(0.0, -1.0, -1.0).normalize());
+            v
+        }
+        _ => box6,
+    }
+}
+
+/// polyAutoProjection: each face projected through the plane it faces most, the pieces then laid out.
+pub fn auto_project(m: &mut Mesh, faces: &[Index], o: &AutoOptions) {
+    let plain = o.planes == 6 && !o.both && o.world.is_none() && o.rotate == DVec3::ZERO && o.scale == DVec3::ONE && o.translate == DVec3::ZERO && o.pivot == DVec3::ZERO;
+    if plain {
+        project_faces(m, faces, Projection::Box, ProjectAxis::BestFit);
+    } else {
+        // Radians, as the node keeps its rotate.
+        let r = o.rotate;
+        let turn = glam::DQuat::from_euler(glam::EulerRot::ZYX, r.z, r.y, r.x);
+        let dirs: Vec<DVec3> = plane_directions(o.planes).into_iter().map(|d| turn * d).collect();
+        let world = o.world.unwrap_or(glam::DMat4::IDENTITY);
+        let normal_m = glam::DMat3::from_mat4(world).inverse().transpose();
+        let mut plane_of: BTreeMap<Index, (usize, bool)> = BTreeMap::new();
+        for &f in faces {
+            if !m.face_valid(f) {
+                continue;
+            }
+            let n = (normal_m * m.face_normal(f)).normalize_or_zero();
+            let mut best = (0usize, false, f64::MIN);
+            for (k, d) in dirs.iter().enumerate() {
+                let dot = n.dot(*d);
+                if dot > best.2 {
+                    best = (k, false, dot);
+                }
+                if o.both && -dot > best.2 {
+                    best = (k, true, -dot);
+                }
+            }
+            plane_of.insert(f, (best.0, best.1));
+        }
+        m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV);
+        let mut writes: Vec<(Index, [f32; 2])> = Vec::new();
+        for (&f, &(k, flip)) in &plane_of {
+            let d = dirs[k];
+            let up = if d.y.abs() > 0.9 { turn * DVec3::Z } else { turn * DVec3::Y };
+            let u_axis = up.cross(d).normalize_or_zero();
+            let v_axis = d.cross(u_axis).normalize_or_zero();
+            for c in m.face_corners(f) {
+                let p = world.transform_point3(m.position(m.corner_point(c)));
+                let p = p - o.translate - o.pivot;
+                let mut u = p.dot(u_axis) / o.scale.x.abs().max(1e-9);
+                let v = p.dot(v_axis) / o.scale.y.abs().max(1e-9);
+                if flip {
+                    u = -u;
+                }
+                writes.push((c, [u as f32, v as f32]));
+            }
+        }
+        for (c, uv) in writes {
+            if let Some(x) = m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV).get_mut(c as usize) {
+                *x = uv;
+            }
+        }
+        // A seam where neighbouring faces took different planes.
+        let mut seams: Vec<Index> = Vec::new();
+        for &f in faces {
+            for c in m.face_corners(f) {
+                let e = m.corner_edge(c);
+                let mut others: Vec<Index> = Vec::new();
+                m.for_each_edge_corner(e, |k| others.push(m.corner_face(k)));
+                if others.iter().any(|g| plane_of.get(g) != plane_of.get(&f)) {
+                    seams.push(e);
+                }
+            }
+        }
+        let s = m.edge_attrs_mut().get_or_add::<bool>(SEAM);
+        for e in seams {
+            if let Some(x) = s.get_mut(e as usize) {
+                *x = true;
+            }
+        }
+    }
+    let spacing = (o.percentage_space.clamp(0.0, 5.0) / 100.0 * 10.0).clamp(0.0, 0.2);
+    match o.layout {
+        2 => layout_with(m, faces, &Pack { spacing, margin: spacing, relative: true, rotate: true, scale: o.scale_mode.clamp(0, 2), ..Pack::default() }),
+        1 => {
+            // Along U: the pieces side by side in a row, then fitted.
+            let tp = topo(m);
+            let mut x = 0.0f32;
+            for shell in shells_of(&tp, faces) {
+                let corners: Vec<Index> = shell.iter().flat_map(|&f| m.face_corners(f)).collect();
+                let uv = m.corner_attrs().get::<[f32; 2]>(UV).to_vec();
+                let (mut lo, mut hi) = ([f32::MAX; 2], [f32::MIN; 2]);
+                for &c in &corners {
+                    let q = uv[c as usize];
+                    lo = [lo[0].min(q[0]), lo[1].min(q[1])];
+                    hi = [hi[0].max(q[0]), hi[1].max(q[1])];
+                }
+                let layer = m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV);
+                for &c in &corners {
+                    let q = layer[c as usize];
+                    layer[c as usize] = [q[0] - lo[0] + x, q[1] - lo[1]];
+                }
+                x += (hi[0] - lo[0]) + 0.01;
+            }
+            fit_unit(m, faces, o.scale_mode);
+        }
+        _ => fit_unit(m, faces, o.scale_mode),
+    }
+}
+
+/// Scales the faces' UVs into the unit square: 1 the same each way, 2 each way on its own, 0 not at all.
+fn fit_unit(m: &mut Mesh, faces: &[Index], mode: i64) {
+    if mode == 0 {
+        return;
+    }
+    let corners: Vec<Index> = faces.iter().filter(|&&f| m.face_valid(f)).flat_map(|&f| m.face_corners(f)).collect();
+    let layer = m.corner_attrs_mut().get_or_add::<[f32; 2]>(UV);
+    let (mut lo, mut hi) = ([f32::MAX; 2], [f32::MIN; 2]);
+    for &c in &corners {
+        let q = layer[c as usize];
+        lo = [lo[0].min(q[0]), lo[1].min(q[1])];
+        hi = [hi[0].max(q[0]), hi[1].max(q[1])];
+    }
+    let size = [(hi[0] - lo[0]).max(1e-9), (hi[1] - lo[1]).max(1e-9)];
+    let (su, sv) = if mode == 1 { let k = size[0].max(size[1]); (k, k) } else { (size[0], size[1]) };
+    for &c in &corners {
+        let q = layer[c as usize];
+        layer[c as usize] = [(q[0] - lo[0]) / su, (q[1] - lo[1]) / sv];
+    }
+}
+
+/// polyAutoProj: the stored UVs while its settings are as the projection left them; changed, the faces projected
+/// again from them.
+struct AutoProjNode;
+
+impl NodeBehavior for AutoProjNode {
+    fn compute(&mut self, _ctx: &EvalContext, d: &mut NodeData) {
+        let Some(input) = d.mesh(IN).cloned() else {
+            d.set_output(OUT, PlugValue::Mesh(None));
+            return;
+        };
+        if matches!(crate::history_qe::node_state(d), 1 | 4) {
+            d.set_output(OUT, PlugValue::Mesh(Some(input)));
+            return;
+        }
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
+        let o = auto_options(d);
+        let fitted = d.string(AUTO_FITTED).to_string();
+        if !fitted.is_empty() && fitted != auto_state(&o) {
+            let mut m = (*input).clone();
+            let faces: Vec<Index> = crate::history::parse_components(d.string(AUTO_FACES)).into_iter().collect();
+            auto_project(&mut m, &faces, &o);
+            d.set_output(OUT, PlugValue::Mesh(Some(Arc::new(m))));
+            return;
+        }
+        let edit = match d.value(EDIT) {
+            PlugValue::Data(Some(t)) => t.as_any().downcast_ref::<UvEdit>().cloned(),
+            _ => None,
+        };
+        let mut m = (*input).clone();
+        if let Some(e) = edit {
+            e.apply(&mut m);
+        }
+        d.set_output(OUT, PlugValue::Mesh(Some(Arc::new(m))));
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// The options a polyAutoProjection call gives, over the defaults.
+fn auto_options_of(a: &Args, world: glam::DMat4) -> AutoOptions {
+    let d = AutoOptions::default();
+    let v3 = |whole: &str, parts: [&str; 3], def: DVec3| {
+        let mut v = a.vec3(whole).map(DVec3::from_array).unwrap_or(def);
+        for (i, p) in parts.iter().enumerate() {
+            if let Some(x) = a.get(p).and_then(Value::as_f64) {
+                v[i] = x;
+            }
+        }
+        v
+    };
+    AutoOptions {
+        planes: a.int("planes", d.planes),
+        layout: a.int("layout", d.layout),
+        layout_method: a.int("layoutMethod", d.layout_method),
+        optimize: a.int("optimize", d.optimize),
+        percentage_space: a.float("percentageSpace", d.percentage_space),
+        both: a.bool("projectBothDirections"),
+        scale_mode: a.int("scaleMode", d.scale_mode),
+        skip_intersect: a.bool("skipIntersect"),
+        world: a.bool("worldSpace").then_some(world),
+        pivot: v3("pivot", ["pivotX", "pivotY", "pivotZ"], DVec3::ZERO),
+        // Degrees from a script; kept in radians, as angle attributes are.
+        rotate: v3("rotate", ["rotateX", "rotateY", "rotateZ"], DVec3::ZERO) * (std::f64::consts::PI / 180.0),
+        scale: v3("scale", ["scaleX", "scaleY", "scaleZ"], DVec3::ONE),
+        translate: v3("translate", ["translateX", "translateY", "translateZ"], DVec3::ZERO),
+    }
+}
+
+/// Writes the options onto a polyAutoProj node, with the faces and the state they fit.
+fn set_auto_attrs(g: &mut Graph, node: NodeId, o: &AutoOptions, faces: &[Index]) -> CmdResult<()> {
+    let p = |i: usize| plug(node, AUTO_FIRST + i);
+    g.set_value(p(0), PlugValue::Int(o.planes))?;
+    g.set_value(p(1), PlugValue::Int(o.layout))?;
+    g.set_value(p(2), PlugValue::Int(o.layout_method))?;
+    g.set_value(p(3), PlugValue::Int(o.optimize))?;
+    g.set_value(p(4), PlugValue::Float(o.percentage_space))?;
+    g.set_value(p(5), PlugValue::Bool(o.both))?;
+    g.set_value(p(6), PlugValue::Int(o.scale_mode))?;
+    g.set_value(p(7), PlugValue::Bool(o.skip_intersect))?;
+    g.set_value(p(8), PlugValue::Bool(o.world.is_some()))?;
+    g.set_value(p(9), PlugValue::Vec3(o.pivot))?;
+    g.set_value(p(10), PlugValue::Vec3(o.rotate))?;
+    g.set_value(p(11), PlugValue::Vec3(o.scale))?;
+    g.set_value(p(12), PlugValue::Vec3(o.translate))?;
+    g.set_value(p(13), PlugValue::Matrix(o.world.unwrap_or(glam::DMat4::IDENTITY)))?;
+    g.set_value(plug(node, AUTO_FACES), PlugValue::String(crate::history::format_components(ComponentMode::Face, faces)))?;
+    g.set_value(plug(node, AUTO_FITTED), PlugValue::String(auto_state(o)))?;
+    Ok(())
+}
+
 pub fn register_types() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(register_types_now);
@@ -869,6 +1229,9 @@ fn register_types_now() {
                         ..Default::default()
                     },
                 ];
+                if *name == "polyAutoProj" {
+                    own.extend(auto_proj_attrs());
+                }
                 if projection.is_some() {
                     let k = flags::INPUT | flags::STORABLE | flags::KEYABLE;
                     own.push(crate::node::vec3_attr("projectionCenter", "pc", DVec3::ZERO, k, "Where the projection sits, in the object's space."));
@@ -884,7 +1247,7 @@ fn register_types_now() {
                 }
                 own
             },
-            create: Some(Arc::new(move || Box::new(UvEditNode { projection }))),
+            create: Some(if *name == "polyAutoProj" { Arc::new(|| Box::new(AutoProjNode) as Box<dyn NodeBehavior>) } else { Arc::new(move || Box::new(UvEditNode { projection }) as Box<dyn NodeBehavior>) }),
             ..Default::default()
         };
         types::register_type(t).expect(name);
@@ -1386,28 +1749,69 @@ pub fn register(c: &mut Commands<Session>) {
             "polyAutoProjection",
             "Project UVs from the six box planes, each face from the one it faces most, then lay the shells out in 0 to 1.",
             |s, a| {
-                let spacing = a.float("percentageSpace", 0.2) / 100.0 * 10.0;
-                each(s, a, "polyAutoProjection", "Automatic Projection", "polyAutoProj", |m, t, tp| {
+                if let Some(r) = crate::history_qe::qe(s, a, "polyAutoProjection", &["polyAutoProj"], &[]) {
+                    // An edit projects again from the settings: the state no longer matches what was fitted.
+                    return r;
+                }
+                let mut jobs: Vec<(Vec<Index>, AutoOptions)> = Vec::new();
+                let meshes: Vec<NodeId> = targets(s, a, "polyAutoProjection")?.keys().copied().collect();
+                let mut worlds: BTreeMap<NodeId, glam::DMat4> = BTreeMap::new();
+                for m in meshes {
+                    let tr = crate::dag::transform_of(&s.graph, m);
+                    worlds.insert(m, crate::rig::world(&mut s.graph, tr));
+                }
+                let mut order = worlds.values().copied().collect::<Vec<_>>().into_iter();
+                let made = each(s, a, "polyAutoProjection", "Automatic Projection", "polyAutoProj", |m, t, tp| {
                     let faces = target_faces(m, t, tp);
-                    project_faces(m, &faces, Projection::Box, ProjectAxis::BestFit);
-                    layout(m, &faces, spacing.clamp(0.0, 0.2), true);
-                })
+                    let o = auto_options_of(a, order.next().unwrap_or(glam::DMat4::IDENTITY));
+                    auto_project(m, &faces, &o);
+                    jobs.push((faces, o));
+                })?;
+                for (name, (faces, o)) in made.as_array().into_iter().flatten().zip(jobs) {
+                    if let Some(n) = name.as_str().and_then(|n| s.graph.find(n).ok().flatten()) {
+                        set_auto_attrs(&mut s.graph, n, &o, &faces)?;
+                        crate::history_qe::apply_common(&mut s.graph, n, a)?;
+                    }
+                }
+                Ok(made)
             },
         )
-        .positional("faces or meshes")
-        .flag(f("percentageSpace", "ps", ArgType::Float, Value::Null, "Space between shells, percent of the square."))
-        .flag(f("layoutMethod", "lm", ArgType::Int, Value::Null, "Accepted for existing scripts."))
-        .flag(f("layout", "l", ArgType::Int, Value::Null, "Accepted for existing scripts."))
-        .flag(f("percentageSpaceLegacy", "pb", ArgType::Any, Value::Null, "Accepted for existing scripts."))
+        .positional("faces or meshes; the polyAutoProj node or the mesh with -q and -e")
+        .flag(f("planes", "p", ArgType::Int, Value::Null, "How many planes project: 4, 5, 6 (the default), 8 or 12."))
+        .flag(f("layout", "l", ArgType::Int, Value::Null, "How the pieces are laid out: 0 not at all, 1 along U, 2 into a square (the default)."))
+        .flag(f("layoutMethod", "lm", ArgType::Int, Value::Null, "0 block stacking, 1 shape stacking."))
+        .flag(f("optimize", "o", ArgType::Int, Value::Null, "0 each face to its best plane, 1 fewer pieces (the default)."))
+        .flag(f("percentageSpace", "ps", ArgType::Float, Value::Null, "With layout 2: space round each piece, percent of the square, 5 at most (0.2)."))
+        .flag(f("projectBothDirections", "pb", ArgType::Bool, Value::Null, "Opposite faces share a plane, mirrored (off)."))
+        .flag(f("scaleMode", "sc", ArgType::Int, Value::Null, "After: 0 no scaling, 1 uniform to fit the unit square (the default), 2 each way to fit it."))
+        .flag(f("skipIntersect", "si", ArgType::Bool, Value::Null, "Don't test the pieces for overlapping themselves (off)."))
+        .flag(f("worldSpace", "ws", ArgType::Bool, Value::Null, "Faces by their world-space normals and places (off: object space)."))
+        .flag(f("pivot", "pvt", ArgType::Vec3, Value::Null, "The pivot the projection turns and scales about (0 0 0)."))
+        .flag(f("pivotX", "pvx", ArgType::Float, Value::Null, "The pivot's X."))
+        .flag(f("pivotY", "pvy", ArgType::Float, Value::Null, "The pivot's Y."))
+        .flag(f("pivotZ", "pvz", ArgType::Float, Value::Null, "The pivot's Z."))
+        .flag(f("rotate", "ro", ArgType::Vec3, Value::Null, "How the planes are turned, degrees (0 0 0)."))
+        .flag(f("rotateX", "rx", ArgType::Float, Value::Null, "Turned about X."))
+        .flag(f("rotateY", "ry", ArgType::Float, Value::Null, "Turned about Y."))
+        .flag(f("rotateZ", "rz", ArgType::Float, Value::Null, "Turned about Z."))
+        .flag(f("scale", "s", ArgType::Vec3, Value::Null, "How the projection is scaled (1 1 1)."))
+        .flag(f("scaleX", "sx", ArgType::Float, Value::Null, "Its scale in X."))
+        .flag(f("scaleY", "sy", ArgType::Float, Value::Null, "Its scale in Y."))
+        .flag(f("scaleZ", "sz", ArgType::Float, Value::Null, "Its scale in Z."))
+        .flag(f("translate", "t", ArgType::Vec3, Value::Null, "Where the projection is moved (0 0 0)."))
+        .flag(f("translateX", "tx", ArgType::Float, Value::Null, "Moved in X."))
+        .flag(f("translateY", "ty", ArgType::Float, Value::Null, "Moved in Y."))
+        .flag(f("translateZ", "tz", ArgType::Float, Value::Null, "Moved in Z."))
         .flag(f("insertBeforeDeformers", "ibd", ArgType::Any, Value::Null, "Accepted for existing scripts."))
         .flag(f("createNewMap", "cm", ArgType::Any, Value::Null, "Accepted for existing scripts."))
-        .flag(f("scaleMode", "sc", ArgType::Int, Value::Null, "Accepted for existing scripts."))
-        .flag(f("optimize", "o", ArgType::Int, Value::Null, "Accepted for existing scripts."))
-        .flag(f("worldSpace", "ws", ArgType::Any, Value::Null, "Accepted for existing scripts."))
         .flag(f("uvSetName", "uvs", ArgType::String, Value::Null, "Accepted for existing scripts."))
-        .flag(f("constructionHistory", "ch", ArgType::Any, Value::Null, "Accepted for existing scripts."))
-        .flag(f("name", "n", ArgType::String, Value::Null, "Accepted for existing scripts."))
-        .flag(f("planes", "p", ArgType::Int, Value::Null, "Accepted for existing scripts (six planes).")),
+        .flag(f("constructionHistory", "ch", ArgType::Any, Value::Null, "Keep the polyAutoProj node (on by default)."))
+        .flag(f("caching", "cch", ArgType::Bool, Value::Null, "The node's caching."))
+        .flag(f("nodeState", "nds", ArgType::Int, Value::Null, "The node's state: 0 normal, 1 has no effect, 2 blocking."))
+        .flag(f("query", "q", ArgType::Bool, Value::Null, "Query mode: answer the flags named from the node."))
+        .flag(f("edit", "e", ArgType::Bool, Value::Null, "Edit mode: change the node's settings, projecting again."))
+        .flag(f("queried", "", ArgType::List, Value::Null, "Flags asked about in query mode."))
+        .flag(f("name", "n", ArgType::String, Value::Null, "Accepted for existing scripts.")),
     );
 
     c.register(

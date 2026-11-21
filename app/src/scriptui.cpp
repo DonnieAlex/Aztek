@@ -1069,6 +1069,25 @@ void ScriptUi::apply_layout(Item* it, const QJsonObject& props) {
         if (props.contains("selectTabIndex")) it->tabs->setCurrentIndex(int(as_number(props["selectTabIndex"])) - 1);
         if (props.contains("tabsVisible")) it->tabs->tabBar()->setVisible(as_bool(props["tabsVisible"], true));
     } else if (k == "paneLayout") {
+        // -activeFrameThickness: a frame of that many pixels round the active pane.
+        // As each pane is placed too, so the frame finds its pane.
+        if (it->props.contains("activeFrameThickness") || props.contains("activePane") || props.contains("activePaneIndex")) {
+            int t = int(as_number(it->prop("activeFrameThickness"), 0));
+            int active = int(as_number(it->prop("activePaneIndex"), 0));
+            QJsonValue ap = it->prop("activePane");
+            QString by_name = ap.isString() ? ap.toString() : QString();
+            if (!active && ap.isDouble()) active = ap.toInt();
+            for (int i = 0; i < it->kids.size(); ++i) {
+                Item* kid = it->kids[i];
+                if (!kid || !kid->w) continue;
+                bool on = (active > 0 && i == active - 1) || (!by_name.isEmpty() && (kid->name == by_name || kid->path == by_name));
+                kid->w->setProperty("azActivePane", on);
+                kid->w->setAttribute(Qt::WA_StyledBackground, true);
+                kid->w->style()->unpolish(kid->w);
+                kid->w->style()->polish(kid->w);
+            }
+            it->w->setStyleSheet(t > 0 ? QString("QWidget[azActivePane=\"true\"] { border: %1px solid palette(highlight); }").arg(t) : QString());
+        }
         // Sizes in percent of the layout: what is not given is shared by the rest of the row or column.
         QJsonObject sizes = it->prop("paneSizes").toObject();
         if (it->grid && !sizes.isEmpty()) {
@@ -1405,6 +1424,10 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         connect(c, QOverload<int>::of(&QComboBox::activated), this, [this, path, c](int i) {
             fire(path, QJsonObject{{"select", i + 1}}, QJsonArray{"changeCommand"}, QJsonArray{c->itemText(i)});
         });
+        // -beforeShowPopup and -postMenuCommand run as the list is about to show; the core runs a -pmo one only once.
+        c->setProperty("azOptionMenuPath", path);
+        c->installEventFilter(this);
+        if (props.contains("maxVisibleItems")) c->setMaxVisibleItems(std::max(1, int(as_number(props["maxVisibleItems"]))));
         it->w = box;
     } else if (k == "separator") {
         auto* f = new QFrame();
@@ -2090,6 +2113,10 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             QSignalBlocker block(c);
             c->setCurrentIndex(int(as_number(props["select"])) - 1);
         }
+        if (props.contains("maxVisibleItems")) {
+            auto* c = static_cast<QComboBox*>(it->parts["combo"]);
+            c->setMaxVisibleItems(std::max(1, int(as_number(props["maxVisibleItems"]))));
+        }
     } else if (k == "textScrollList") {
         auto* l = static_cast<QListWidget*>(w);
         QSignalBlocker block(l);
@@ -2347,6 +2374,12 @@ void ScriptUi::edit(Item* it, const QJsonObject& props) {
 bool ScriptUi::eventFilter(QObject* o, QEvent* e) {
     auto* w = qobject_cast<QWidget*>(o);
     if (!w) return false;
+    // An option menu's list about to show: its -beforeShowPopup and -postMenuCommand.
+    const QString om_path = w->property("azOptionMenuPath").toString();
+    if (!om_path.isEmpty() && (e->type() == QEvent::MouseButtonPress || (e->type() == QEvent::KeyPress && (static_cast<QKeyEvent*>(e)->key() == Qt::Key_Space || static_cast<QKeyEvent*>(e)->key() == Qt::Key_Down)))) {
+        fire(om_path, QJsonObject(), QJsonArray{"beforeShowPopup", "postMenuCommand"}, QJsonArray());
+        return false;
+    }
     // Drags between controls: the middle button, as in the reference.
     const QString drag_path = w->property("azDragPath").toString();
     if (!drag_path.isEmpty()) {
@@ -2710,25 +2743,49 @@ void ScriptUi::playblast(const QJsonObject& p) {
     }
     QTemporaryDir tmp;
     QString ppm = tmp.path() + "/frame.ppm";
-    QJsonArray frames = p["frames"].toArray(), files = p["files"].toArray();
+    QJsonArray frames = p["frames"].toArray();
     int width = p["width"].toInt(), height = p["height"].toInt();
     double percent = p["percent"].toDouble(50.0);
     int quality = p["quality"].toInt(90);
+    // -exposure and -gamma on what is written: each channel times 2 to the exposure, then to the power 1 / gamma.
+    const double exposure = p["exposure"].toDouble(0.0), gamma = p["gamma"].toDouble(1.0);
+    const bool grade = exposure != 0.0 || (gamma != 1.0 && gamma > 0.0);
+    uchar lut[256];
+    for (int i = 0; i < 256; ++i) {
+        double c = i / 255.0 * std::pow(2.0, exposure);
+        if (gamma > 0.0) c = std::pow(std::max(0.0, c), 1.0 / gamma);
+        lut[i] = uchar(std::clamp(c, 0.0, 1.0) * 255.0 + 0.5);
+    }
+    // One pass per camera setup: its procedure runs first, then its frames are written.
+    QJsonArray passes = p["passes"].toArray();
+    if (passes.isEmpty()) passes.append(QJsonObject{{"setup", ""}, {"files", p["files"]}});
     QJsonArray written;
-    for (int i = 0; i < frames.size() && i < files.size(); ++i) {
-        exec_quiet("currentTime", QJsonObject{{"args", QJsonArray{frames[i].toDouble()}}});
-        if (!v->capture(ppm)) continue;
-        QImage img(ppm);
-        if (img.isNull()) continue;
-        QSize out(width > 0 ? width : img.width(), height > 0 ? height : img.height());
-        // Percent scales what -wh or the view gave, as the reference's does.
-        out = QSize(qMax(1, int(out.width() * percent / 100.0)), qMax(1, int(out.height() * percent / 100.0)));
-        if (out != img.size()) img = img.scaled(out, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-        QString path = files[i].toString();
-        QDir().mkpath(path.left(path.lastIndexOf('/')));
-        if (img.save(path, nullptr, quality)) written.append(path);
-        else log(QString("// Warning: playblast: could not write %1 //").arg(path), 4);
-        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    for (const QJsonValue& pass : passes) {
+        const QString setup = pass["setup"].toString();
+        if (!setup.isEmpty()) mel(setup + ";");
+        const QJsonArray files = pass["files"].toArray();
+        for (int i = 0; i < frames.size() && i < files.size(); ++i) {
+            exec_quiet("currentTime", QJsonObject{{"args", QJsonArray{frames[i].toDouble()}}});
+            if (!v->capture(ppm)) continue;
+            QImage img(ppm);
+            if (img.isNull()) continue;
+            QSize out(width > 0 ? width : img.width(), height > 0 ? height : img.height());
+            // Percent scales what -wh or the view gave, as the reference's does.
+            out = QSize(qMax(1, int(out.width() * percent / 100.0)), qMax(1, int(out.height() * percent / 100.0)));
+            if (out != img.size()) img = img.scaled(out, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            if (grade) {
+                img = img.convertToFormat(QImage::Format_RGB32);
+                for (int y = 0; y < img.height(); ++y) {
+                    auto* row = reinterpret_cast<QRgb*>(img.scanLine(y));
+                    for (int x = 0; x < img.width(); ++x) row[x] = qRgb(lut[qRed(row[x])], lut[qGreen(row[x])], lut[qBlue(row[x])]);
+                }
+            }
+            QString path = files[i].toString();
+            QDir().mkpath(path.left(path.lastIndexOf('/')));
+            if (img.save(path, nullptr, quality)) written.append(path);
+            else log(QString("// Warning: playblast: could not write %1 //").arg(path), 4);
+            QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        }
     }
     answer(written);
 }

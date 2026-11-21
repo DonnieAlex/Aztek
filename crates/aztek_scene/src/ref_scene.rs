@@ -2133,8 +2133,26 @@ pub fn register(c: &mut Commands<Session>) {
     extend(
         c,
         "objectType",
-        vec![f("isAType", "isa", S, "Whether it is this type or derived from it."), f("isType", "i", S, "Whether it is exactly this type.")],
+        vec![
+            f("isAType", "isa", S, "Whether it is this type or derived from it."),
+            f("isType", "i", S, "Whether it is exactly this type."),
+            f("tagFromType", "tgt", S, "The type tag of the type named: the four bytes that mark its nodes in binary scene files, as a number."),
+            f("typeFromTag", "tpt", ArgType::Int, "The type a type tag stands for."),
+            f("typeTag", "tt", B, "The object's type tag; 0 for a type that has none."),
+        ],
         |s, a, prev| {
+            if let Some(t) = a.get("tagFromType").and_then(Value::as_str) {
+                return Ok(json!(crate::mb_file::id_of(t).map_or(0, |b| u32::from_be_bytes(b) as i64)));
+            }
+            if let Some(tag) = a.get("typeFromTag").and_then(Value::as_i64) {
+                return Ok(json!(crate::mb_file::type_of_id((tag as u32).to_be_bytes()).unwrap_or_default()));
+            }
+            if a.bool("typeTag") {
+                let Some(name) = a.pos_str(0) else { fail!("objectType: name an object") };
+                let id = node_of(&s.graph, name, "objectType")?;
+                let ty = s.graph.node(id).unwrap().ty().name.clone();
+                return Ok(json!(crate::mb_file::id_of(&ty).map_or(0, |b| u32::from_be_bytes(b) as i64)));
+            }
             if let Some(t) = a.get("isAType").and_then(Value::as_str) {
                 let Some(name) = a.pos_str(0) else { fail!("objectType: name an object") };
                 let id = node_of(&s.graph, name, "objectType")?;
@@ -2329,10 +2347,31 @@ pub fn register(c: &mut Commands<Session>) {
     c.register(
         Cmd::new("selected", "The selection: objects, or components in a component mode.", |s, _| run(s, "ls", json!({"selection": true}))).undoable(false),
     );
-    extend(c, "pickWalk", vec![f("direction", "d", S, "up, down, left or right."), f("type", "typ", S, "Accepted for existing scripts.")], |s, a, prev| {
-        prev(s, a)?;
-        run(s, "ls", json!({"selection": true}))
-    });
+    extend(
+        c,
+        "pickWalk",
+        vec![
+            f("direction", "d", S, "up, down, left or right."),
+            f("type", "typ", S, "Accepted for existing scripts."),
+            f("recurse", "r", B, "Keep walking: up to the top of the hierarchy, or down to the end of it."),
+        ],
+        |s, a, prev| {
+            prev(s, a)?;
+            let dir = a.string("direction", "down");
+            if a.bool("recurse") && matches!(dir.as_str(), "up" | "down") {
+                let mut call = a.clone();
+                call.positional.clear();
+                for _ in 0..1000 {
+                    let before = s.graph.selection().to_vec();
+                    prev(s, &call)?;
+                    if s.graph.selection() == before.as_slice() {
+                        break;
+                    }
+                }
+            }
+            run(s, "ls", json!({"selection": true}))
+        },
+    );
     {
         let mut sets = Cmd::new("sets", "The reference's object set command: create, add to, take from, list and combine sets.", sets_cmd).positional("items, or a set with -q");
         sets = sets.flag(f("query", "q", B, "List a set's members.")).flag(f("edit", "e", B, "Edit.")).flag(f("queried", "", ArgType::List, "What -q asks for."));

@@ -76,7 +76,12 @@ pub(crate) fn find_hist(g: &Graph, name: &str, types: &[&str]) -> Option<NodeId>
     }
     let mut start = vec![id];
     if g.node(id).is_some_and(|n| n.ty().is_a("transform")) {
-        start.extend(crate::dag::shapes(g, id, false));
+        let own = crate::dag::shapes(g, id, false);
+        if own.is_empty() {
+            // A group of results (a square's sides): the shapes under it.
+            start.extend(g.descendants(id).into_iter().filter(|&d| g.node(d).is_some_and(|n| !n.ty().is_a("transform") && n.ty().dag)));
+        }
+        start.extend(own);
     }
     let mut seen: Vec<NodeId> = start.clone();
     let mut queue: VecDeque<NodeId> = start.into();
@@ -171,6 +176,14 @@ fn qe_run(s: &mut Session, a: &Args, cmd: &str, types: &[&str], map: &[(&str, &s
         let plug_name = format!("{path}.{attr}");
         if s.graph.plug(&plug_name).is_err() {
             fail!("{cmd}: -{flag} can't be edited");
+        }
+        // A flag with no unit of its own comes in the current units: the attribute holds stored ones.
+        let flag_unit = s.commands.find(cmd).and_then(|d| d.flags.iter().find(|f| f.name == flag)).map(|f| f.unit).unwrap_or(aztek_ops::units::Unit::None);
+        let mut v = v;
+        if aztek_ops::units::user_call() && flag_unit == aztek_ops::units::Unit::None {
+            if let Ok(p) = s.graph.plug(&plug_name) {
+                aztek_ops::units::json_to_stored(s.graph.attr(&p).unit, &mut v);
+            }
         }
         let mut args = vec![json!(plug_name)];
         match v {

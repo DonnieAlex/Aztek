@@ -1426,7 +1426,12 @@ impl NodeBehavior for TessellateNode {
             d.set_output(1, PlugValue::Mesh(None));
             return;
         };
-        let o = TessOptions {
+        match crate::history_qe::node_state(d) {
+            2 | 5 => return,
+            _ => {}
+        }
+        let at = |name: &str| d.ty.attr_index(name);
+        let mut o = TessOptions {
             format: d.int(2),
             quads: d.int(3) == 1,
             count: d.int(4),
@@ -1436,6 +1441,58 @@ impl NodeBehavior for TessellateNode {
             v_type: d.int(8),
             v_number: d.int(9),
         };
+        let novice = at("explicitTessellationAttributes").is_some_and(|i| !d.bool(i));
+        if novice {
+            // Divisions per span from the factors, more where the surface curves by the curvature tolerance.
+            let bend = match at("curvatureTolerance").map(|i| d.int(i)).unwrap_or(2) {
+                0 => 3.0,
+                1 => 2.0,
+                2 => 1.5,
+                _ => 1.0,
+            };
+            let curved = |deg: usize| if deg > 1 { bend } else { 1.0 };
+            let fu = at("uDivisionsFactor").map(|i| d.float(i)).unwrap_or(1.5);
+            let fv = at("vDivisionsFactor").map(|i| d.float(i)).unwrap_or(1.5);
+            o.format = 2;
+            o.u_type = 3;
+            o.v_type = 3;
+            o.u_number = (fu * curved(s.degree_u)).ceil().max(1.0) as i64;
+            o.v_number = (fv * curved(s.degree_v)).ceil().max(1.0) as i64;
+        }
+        let smooth = at("smoothEdge").is_some_and(|i| d.bool(i));
+        if smooth {
+            // The edges divided until no two of their segments turn more than the ratio allows.
+            let ratio = at("smoothEdgeRatio").map(|i| d.float(i)).unwrap_or(0.99).clamp(0.0, 0.999_999);
+            let worst = |params: &[f64], other: f64, along_u: bool| -> f64 {
+                let pts: Vec<DVec3> = params.iter().map(|&t| if along_u { s.eval(t, other) } else { s.eval(other, t) }).collect();
+                let mut low = 1.0_f64;
+                for w in pts.windows(3) {
+                    let (a, b) = ((w[1] - w[0]).normalize_or_zero(), (w[2] - w[1]).normalize_or_zero());
+                    if a != DVec3::ZERO && b != DVec3::ZERO {
+                        low = low.min(a.dot(b));
+                    }
+                }
+                low
+            };
+            let (vlo, vhi) = s.domain_v();
+            let (ulo, uhi) = s.domain_u();
+            let mut per_u = if o.format == 2 && o.u_type == 3 { o.u_number.max(1) } else { 1 };
+            while per_u < 64 && worst(&s.params_u(per_u as usize), vlo, true).min(worst(&s.params_u(per_u as usize), vhi, true)) < ratio {
+                per_u *= 2;
+            }
+            let mut per_v = if o.format == 2 && o.v_type == 3 { o.v_number.max(1) } else { 1 };
+            while per_v < 64 && worst(&s.params_v(per_v as usize), ulo, false).min(worst(&s.params_v(per_v as usize), uhi, false)) < ratio {
+                per_v *= 2;
+            }
+            let even_spans = o.format == 2 && o.u_type == 3 && o.v_type == 3;
+            if (!even_spans && (per_u > 1 || per_v > 1)) || (even_spans && (per_u > o.u_number || per_v > o.v_number)) {
+                o.format = 2;
+                o.u_type = 3;
+                o.v_type = 3;
+                o.u_number = per_u.max(if even_spans { o.u_number } else { 1 });
+                o.v_number = per_v.max(if even_spans { o.v_number } else { 1 });
+            }
+        }
         d.set_output(1, PlugValue::Mesh(Some(Arc::new(tessellate(s, o)))));
     }
     fn as_any(&self) -> &dyn Any {
@@ -1470,7 +1527,12 @@ impl NodeBehavior for PointOnSurfaceNode {
         let Some(s) = surface_value(d.value(0)).cloned() else { return };
         let (u, v) = (d.float(1), d.float(2));
         let (u, v) = if d.bool(3) { percent(&s, u, v) } else { (u, v) };
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
         write_point_info(&s, u, v, d, 4);
+        let (_, pu, pv) = s.eval_ders(u, v);
+        d.set_output(10, PlugValue::Vec3(pu.cross(pv)));
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -1741,6 +1803,12 @@ pub fn register_types() {
                 store_bool("normalizeTrimmedUVRange", true, "Accepted for existing scripts."),
                 store_bool("matchRenderTessellation", false, "Accepted for existing scripts."),
                 store_bool("useSurfaceShader", true, "Accepted for existing scripts."),
+                AttrDef { short_name: "eta".into(), ..store_bool("explicitTessellationAttributes", true, "The advanced settings (format and the rest) steer the tessellation; off, the novice ones: uDivisionsFactor, vDivisionsFactor and curvatureTolerance.") },
+                int_in("curvatureTolerance", "cvt", 2, "Novice mode: how much curvature adds: 0 highest tolerance (the most), 1 high, 2 medium, 3 none."),
+                f_in("uDivisionsFactor", "nuf", 1.5, "Novice mode: divisions per span along U."),
+                f_in("vDivisionsFactor", "nvf", 1.5, "Novice mode: divisions per span along V."),
+                AttrDef { short_name: "ues".into(), ..store_bool("smoothEdge", false, "Keep dividing until the surface's edges are smooth to smoothEdgeRatio.") },
+                f_in("smoothEdgeRatio", "esr", 0.99, "With smoothEdge: how smooth the edges must be, the cosine of the largest turn between edge segments; higher is smoother."),
             ],
             create: Some(Arc::new(|| Box::new(TessellateNode))),
             ..Default::default()
@@ -1761,6 +1829,7 @@ pub fn register_types() {
                 out3("tangentV", "tv", "The derivative along V."),
                 out3("normalizedTangentU", "ntu", "The unit tangent along U."),
                 out3("normalizedTangentV", "ntv", "The unit tangent along V."),
+                out3("normal", "n", "The normal, not of unit length: the U and V derivatives crossed."),
             ],
             create: Some(Arc::new(|| Box::new(PointOnSurfaceNode))),
             ..Default::default()
@@ -2598,8 +2667,37 @@ pub fn register(c: &mut Commands<Session>) {
                 let name = a.string("name", "nurbsToPoly1");
                 let mut out = Vec::new();
                 let mut made = Vec::new();
+                // The novice settings, by the node's attribute names.
+                let novice: Vec<(&str, Value)> = ["explicitTessellationAttributes", "curvatureTolerance", "uDivisionsFactor", "vDivisionsFactor", "smoothEdge", "smoothEdgeRatio"]
+                    .iter()
+                    .filter_map(|k| a.get(k).filter(|v| !v.is_null()).map(|v| (*k, v.clone())))
+                    .collect();
+                let set_novice = |g: &mut Graph, node: NodeId| -> CmdResult<()> {
+                    for (k, v) in &novice {
+                        let Some(i) = g.node(node).and_then(|n| n.ty().attr_index(k)) else { continue };
+                        let def = g.node(node).unwrap().ty().attrs[i].clone();
+                        g.set_value(plug(node, i), crate::plug::from_json(&def, v)?)?;
+                    }
+                    Ok(())
+                };
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    // Only the node, fed by the surface.
+                    for sh in shapes {
+                        let t = types::find("nurbsTessellate").expect("nurbsTessellate");
+                        let node = g.create_node(&t, "nurbsTessellate1", NO_NODE, true)?;
+                        g.connect(&plug(sh, SurfaceShape::WORLD_SPACE), &plug(node, 0), false)?;
+                        for (attr, v) in &set {
+                            g.set_value(plug(node, *attr), v.clone())?;
+                        }
+                        set_novice(g, node)?;
+                        out.push(json!(g.path(node)));
+                    }
+                    g.evaluate();
+                    return Ok(Value::Array(out));
+                }
                 for sh in shapes {
                     let (tr, node) = tessellate_plug(g, &plug(sh, SurfaceShape::WORLD_SPACE), &name, &set)?;
+                    set_novice(g, node)?;
                     g.evaluate();
                     made.push(tr);
                     out.push(json!(g.path(tr)));
@@ -2633,9 +2731,17 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("matchRenderTessellation", "mrt", ArgType::Int, "Accepted for existing scripts."))
         .flag(f("useSurfaceShader", "uss", ArgType::Bool, "Accepted for existing scripts."))
         .flag(f("matchNormalDir", "mnd", ArgType::Bool, "Accepted for existing scripts."))
+        .flag(f("explicitTessellationAttributes", "eta", ArgType::Bool, "On (the default), the advanced settings steer the tessellation; off, the novice ones: -nuf, -nvf and -cvt."))
+        .flag(f("curvatureTolerance", "cvt", ArgType::Int, "Novice mode: how much curvature adds: 0 highest tolerance, 1 high, 2 medium (the default), 3 none."))
+        .flag(f("uDivisionsFactor", "nuf", ArgType::Float, "Novice mode: divisions per span along U (1.5)."))
+        .flag(f("vDivisionsFactor", "nvf", ArgType::Float, "Novice mode: divisions per span along V (1.5)."))
+        .flag(f("smoothEdge", "ues", ArgType::Bool, "Keep dividing until the edges are smooth to -esr (off)."))
+        .flag(f("smoothEdgeRatio", "esr", ArgType::Float, "With -ues: how smooth the edges must be; higher is smoother (0.99)."))
+        .flag(f("object", "o", ArgType::Bool, "Make the polygons (on); off, only the node."))
         .flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
         .flag(f("name", "n", ArgType::String, "Name of the mesh.")),
     );
+    crate::history_qe::extend(c, "nurbsToPoly", &["nurbsTessellate"], &[], Vec::new());
 
     c.register(
         Cmd::new(
@@ -2692,43 +2798,55 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("name", "n", ArgType::String, "Name of the curve.")),
     );
 
-    c.register(
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
         Cmd::new(
             "pointOnSurface",
             "Facts at parameters of a surface, world space: -u -v (-top fractions of the range), asking -p position, -no normal, -nn unit normal, -tu -tv \
-             tangents, -ntu -ntv unit tangents (position when none).",
+             tangents, -ntu -ntv unit tangents (position when none; several together in one list). -ch on makes a pointOnSurfaceInfo node, connected \
+             to the surface, and returns it; -q and -e on the node.",
             |s, a| {
+                if let Some(r) = crate::history_qe::qe(s, a, "pointOnSurface", &["pointOnSurfaceInfo"], &[]) {
+                    return r;
+                }
                 let names = objects(s, a);
                 let Some(n) = names.first() else { fail!("pointOnSurface: name or select a surface") };
                 let g = &mut s.graph;
                 let shape = surface_arg(g, n, "pointOnSurface")?;
+                let on = |k: &str| a.get(k).is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                if on("constructionHistory") {
+                    let t = types::find("pointOnSurfaceInfo").expect("pointOnSurfaceInfo");
+                    let node = g.create_node(&t, "pointOnSurfaceInfo1", NO_NODE, true)?;
+                    g.connect(&plug(shape, SurfaceShape::WORLD_SPACE), &plug(node, 0), false)?;
+                    g.set_value(plug(node, 1), PlugValue::Float(a.float("parameterU", 0.0)))?;
+                    g.set_value(plug(node, 2), PlugValue::Float(a.float("parameterV", 0.0)))?;
+                    g.set_value(plug(node, 3), PlugValue::Bool(on("turnOnPercentage")))?;
+                    crate::history_qe::apply_common(g, node, a)?;
+                    g.evaluate();
+                    return Ok(json!(g.path(node)));
+                }
                 let Some(c) = world_surface(g, shape) else { fail!("pointOnSurface: {n} has no surface") };
                 let (u, v) = (a.float("parameterU", 0.0), a.float("parameterV", 0.0));
-                let (u, v) = if a.bool("turnOnPercentage") { percent(&c, u, v) } else { (u, v) };
+                let (u, v) = if on("turnOnPercentage") { percent(&c, u, v) } else { (u, v) };
                 let (p, pu, pv) = c.eval_ders(u, v);
-                let r = if a.bool("normal") {
-                    pu.cross(pv)
-                } else if a.bool("normalizedNormal") {
-                    c.normal(u, v)
-                } else if a.bool("tangentU") {
-                    pu
-                } else if a.bool("tangentV") {
-                    pv
-                } else if a.bool("normalizedTangentU") {
-                    pu.normalize_or_zero()
-                } else if a.bool("normalizedTangentV") {
-                    pv.normalize_or_zero()
-                } else {
-                    p
-                };
-                Ok(json!([r.x, r.y, r.z]))
+                let facts = [
+                    ("position", p),
+                    ("normal", pu.cross(pv)),
+                    ("normalizedNormal", c.normal(u, v)),
+                    ("tangentU", pu),
+                    ("tangentV", pv),
+                    ("normalizedTangentU", pu.normalize_or_zero()),
+                    ("normalizedTangentV", pv.normalize_or_zero()),
+                ];
+                let asked: Vec<DVec3> = facts.iter().filter(|(k, _)| on(k)).map(|(_, x)| *x).collect();
+                let list = if asked.is_empty() { vec![p] } else { asked };
+                Ok(Value::Array(list.iter().flat_map(|r| [json!(r.x), json!(r.y), json!(r.z)]).collect()))
             },
         )
         .undoable(false)
-        .positional("a surface (the selection when none)")
-        .flag(f("parameterU", "u", ArgType::Float, "The U parameter."))
-        .flag(f("parameterV", "v", ArgType::Float, "The V parameter."))
-        .flag(f("turnOnPercentage", "top", ArgType::Bool, "The parameters are fractions 0 to 1 of the range."))
+        .positional("a surface (the selection when none); the pointOnSurfaceInfo node with -q and -e")
+        .flag(f("parameterU", "u", ArgType::Float, "The U parameter (0)."))
+        .flag(f("parameterV", "v", ArgType::Float, "The V parameter (0)."))
+        .flag(f("turnOnPercentage", "top", ArgType::Bool, "The parameters are fractions 0 to 1 of the range (off)."))
         .flag(f("position", "p", ArgType::Bool, "Ask for the point."))
         .flag(f("normal", "no", ArgType::Bool, "Ask for the normal."))
         .flag(f("normalizedNormal", "nn", ArgType::Bool, "Ask for the unit normal."))
@@ -2736,8 +2854,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("tangentV", "tv", ArgType::Bool, "Ask for the V derivative."))
         .flag(f("normalizedTangentU", "ntu", ArgType::Bool, "Ask for the unit U tangent."))
         .flag(f("normalizedTangentV", "ntv", ArgType::Bool, "Ask for the unit V tangent."))
-        .flag(f("constructionHistory", "ch", ArgType::Bool, "Accepted for existing scripts.")),
-    );
+        .flag(f("constructionHistory", "ch", ArgType::Bool, "Make a pointOnSurfaceInfo node, connected to the surface, and return it (off).")),
+    )));
 
     c.register(
         Cmd::new(

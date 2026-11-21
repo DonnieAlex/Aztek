@@ -284,7 +284,7 @@ fn percent_sets_and_queries_weights() {
     run(&mut s, "setAttr", json!({"args": ["cluster1Handle.ty", 2.0]}));
     assert!(near(point(&mut s, "pCube1.vtx[0]"), [rest0[0], rest0[1] + 1.0, rest0[2]]));
     assert!(near(point(&mut s, "pCube1.vtx[7]"), [rest7[0], rest7[1] + 2.0, rest7[2]]));
-    run(&mut s, "percent", json!({"args": ["cluster1", "pCube1.vtx[0]"], "value": 0.5, "multiply": true}));
+    run(&mut s, "percent", json!({"args": ["cluster1", "pCube1.vtx[0]"], "value": 0.5, "multiplyPercent": true}));
     assert_eq!(run(&mut s, "percent", json!({"args": ["cluster1", "pCube1.vtx[0]"], "query": true, "queried": ["value"]})), json!([0.25]));
     assert!(s.undo());
     assert_eq!(run(&mut s, "percent", json!({"args": ["cluster1", "pCube1.vtx[0]"], "query": true, "queried": ["value"]})), json!([0.5]));

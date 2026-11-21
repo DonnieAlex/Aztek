@@ -364,21 +364,29 @@ impl NodeBehavior for CurveNode {
                 Some(circle_from(normal, center, first, r, d.int(P0 + 4).max(1) as usize, d.int(P0 + 5).max(3) as usize, sw.to_degrees(), d.bool(P0 + 7), d.float(P0 + 8), d.bool(P0 + 9)))
             }
             Kind::Square => {
+                if matches!(crate::history_qe::node_state(d), 2 | 5) {
+                    return;
+                }
                 let (normal, center) = (d.vec3(P0), d.vec3(P0 + 1));
                 let (sl, deg) = (d.float(P0 + 2), d.int(P0 + 3).max(1) as usize);
                 let (sl2, spans) = (d.float(P0 + 4), d.int(P0 + 5).max(1) as usize);
                 let n = normal.normalize_or_zero();
-                let n = if n == DVec3::ZERO { DVec3::Y } else { n };
-                let (u, v) = n.any_orthonormal_pair();
+                let n = if n == DVec3::ZERO { DVec3::Z } else { n };
+                // Up in the square's plane: world Y laid into it, or -Z for a square facing up or down.
+                let up = DVec3::Y - n * DVec3::Y.dot(n);
+                let v = if up.length() > 1e-6 { up.normalize() } else { DVec3::new(0.0, 0.0, -n.y.signum()) };
+                let u = v.cross(n).normalize_or_zero();
                 let (a, b) = (u * sl * 0.5, v * sl2 * 0.5);
-                let corners = [center + a + b, center - a + b, center - a - b, center + a - b];
-                // Each side is a curve of its own, its CVs evenly along it; the whole square is outputCurve.
-                let count = deg + spans;
-                for k in 0..4 {
-                    let (from, to) = (corners[k], corners[(k + 1) % 4]);
-                    let cvs: Vec<DVec3> = (0..count).map(|i| from.lerp(to, i as f64 / (count - 1) as f64)).collect();
-                    d.set_output(P0 + 6 + k, to_value(NurbsCurve::open(deg, cvs)));
+                // Top, left, bottom and right, each a curve of its own with its CVs evenly along it, one knot span per
+                // span.
+                let sides = [(center - a + b, center + a + b), (center - a - b, center - a + b), (center + a - b, center - a - b), (center + a + b, center + a - b)];
+                for (k, (from, to)) in sides.iter().enumerate() {
+                    let c = NurbsCurve::line(*from, *to, spans, deg);
+                    let c = c.with_domain(0.0, spans as f64);
+                    d.set_output(P0 + 6 + k, to_value(c));
                 }
+                // outputCurve: the four sides as one closed outline.
+                let corners = [center - a + b, center + a + b, center + a - b, center - a - b];
                 let mut pts: Vec<DVec3> = corners.to_vec();
                 pts.push(corners[0]);
                 Some(NurbsCurve::open(1, pts))
@@ -414,7 +422,19 @@ impl NodeBehavior for CurveNode {
             }),
             Kind::Offset => input.map(|c| {
                 let n = d.vec3(P0 + 1);
-                c.offset(d.float(P0), (n != DVec3::ZERO).then_some(n))
+                let given = d.bool(P0 + 9);
+                let o = OffsetOptions {
+                    distance: d.float(P0),
+                    normal: (given && n != DVec3::ZERO).then_some(n),
+                    connect_breaks: d.int(P0 + 2),
+                    cut_loop: d.bool(P0 + 3),
+                    cut_radius: d.float(P0 + 4),
+                    reparameterize: d.bool(P0 + 5),
+                    subdivision_density: d.int(P0 + 7),
+                    tolerance: d.float(P0 + 8),
+                    check_points: 4,
+                };
+                offset_curve(&c, &o)
             }),
             Kind::InsertKnot => input.map(|c| {
                 let mut out = c;
@@ -670,6 +690,233 @@ fn curve_op_type(name: &str, kind: Kind, doc: &str, params: Vec<AttrDef>) -> Nod
     }
 }
 
+/// offsetCurve's settings.
+pub(crate) struct OffsetOptions {
+    pub distance: f64,
+    pub normal: Option<DVec3>,
+    pub connect_breaks: i64,
+    pub cut_loop: bool,
+    pub cut_radius: f64,
+    pub reparameterize: bool,
+    pub subdivision_density: i64,
+    pub tolerance: f64,
+    /// Samples a span starts with, where the fit is checked.
+    pub check_points: usize,
+}
+
+/// The offset of a curve in its plane. A curve of straight spans is offset span by span and the breaks at its corners
+/// joined as connect_breaks says; a smooth one is sampled, each span halved (up to subdivision_density times) until the
+/// samples between keep the distance to the tolerance. Loops where the offset crosses itself are cut with cut_loop.
+pub(crate) fn offset_curve(c: &NurbsCurve, o: &OffsetOptions) -> NurbsCurve {
+    let n = o.normal.unwrap_or_else(|| c.plane_normal()).normalize_or_zero();
+    let n = if n == DVec3::ZERO { DVec3::Y } else { n };
+    let d = o.distance;
+    let side = |t: DVec3| t.normalize_or_zero().cross(n).normalize_or_zero();
+    let mut pts: Vec<DVec3>;
+    let straight = c.degree == 1;
+    if straight {
+        let cv = c.distinct_cvs().to_vec();
+        if cv.len() < 2 {
+            return c.clone();
+        }
+        pts = Vec::new();
+        for i in 0..cv.len() - 1 {
+            let off = side(cv[i + 1] - cv[i]) * d;
+            let (a, b) = (cv[i] + off, cv[i + 1] + off);
+            if i == 0 {
+                pts.push(a);
+            } else {
+                let prev = *pts.last().unwrap();
+                let into = cv[i] - cv[i - 1];
+                if prev.distance(a) > 1e-9 {
+                    match o.connect_breaks {
+                        // Joined at a sharp corner: the two offset lines met.
+                        2 => {
+                            let (p0, t0) = (prev, into.normalize_or_zero());
+                            let (p1, t1) = (a, (cv[i + 1] - cv[i]).normalize_or_zero());
+                            let w = t0.cross(t1);
+                            if w.length() > 1e-9 {
+                                let s0 = (p1 - p0).cross(t1).dot(w) / w.length_squared();
+                                *pts.last_mut().unwrap() = p0 + t0 * s0;
+                            } else {
+                                pts.push(a);
+                            }
+                        }
+                        // An arc round the corner, the distance out.
+                        1 => {
+                            let (u0, u1) = ((prev - cv[i]).normalize_or_zero(), (a - cv[i]).normalize_or_zero());
+                            let ang = u0.dot(u1).clamp(-1.0, 1.0).acos();
+                            let steps = ((ang / 0.2).ceil() as usize).max(2);
+                            let axis = u0.cross(u1).normalize_or_zero();
+                            for k in 1..steps {
+                                let q = DQuat::from_axis_angle(if axis == DVec3::ZERO { n } else { axis }, ang * k as f64 / steps as f64);
+                                pts.push(cv[i] + q * u0 * d.abs());
+                            }
+                            pts.push(a);
+                        }
+                        _ => pts.push(a),
+                    }
+                }
+            }
+            pts.push(b);
+        }
+    } else {
+        let (lo, hi) = c.domain();
+        let spans = c.spans().max(1);
+        let at = |u: f64| c.eval(u) + side(c.tangent(u)) * d;
+        let span_ends: Vec<f64> = (0..=spans).map(|i| lo + (hi - lo) * i as f64 / spans as f64).collect();
+        pts = vec![at(lo)];
+        for w in span_ends.windows(2) {
+            let mut per = o.check_points.max(1);
+            for _ in 0..o.subdivision_density.max(0) {
+                // Between two samples, how far the chord's middle is from the distance wanted.
+                let mut worst = 0.0_f64;
+                for k in 0..per {
+                    let (u0, u1) = (w[0] + (w[1] - w[0]) * k as f64 / per as f64, w[0] + (w[1] - w[0]) * (k + 1) as f64 / per as f64);
+                    let mid = (at(u0) + at(u1)) * 0.5;
+                    let near = c.eval(c.closest_param(mid));
+                    worst = worst.max((mid.distance(near) - d.abs()).abs());
+                }
+                if worst <= o.tolerance.max(1e-6) {
+                    break;
+                }
+                per *= 2;
+            }
+            for k in 1..=per {
+                pts.push(at(w[0] + (w[1] - w[0]) * k as f64 / per as f64));
+            }
+        }
+    }
+    if o.cut_loop {
+        pts = cut_loops(&pts, n, o.cut_radius);
+    }
+    if straight {
+        return NurbsCurve::open(1, pts);
+    }
+    let fit = NurbsCurve::through(c.degree, &pts);
+    if o.reparameterize {
+        // A parameterization of its own: even in length along the offset.
+        let spans = (pts.len() - 1).max(1).min(c.spans().max(1) * 4);
+        return fit.rebuilt(spans, c.degree);
+    }
+    fit.rebuilt(c.spans().max(1), c.degree)
+}
+
+/// Where a polyline crosses itself in the plane of n, the loop between is cut out, leaving a corner (or an arc of
+/// radius r) at the crossing.
+fn cut_loops(pts: &[DVec3], n: DVec3, r: f64) -> Vec<DVec3> {
+    let (x, y) = n.any_orthonormal_pair();
+    let flat = |p: DVec3| glam::DVec2::new(p.dot(x), p.dot(y));
+    let mut out: Vec<DVec3> = pts.to_vec();
+    let mut guard = 0;
+    'again: while guard < 64 {
+        guard += 1;
+        let m = out.len();
+        for i in 0..m.saturating_sub(1) {
+            for j in (i + 2)..m.saturating_sub(1) {
+                let (a, b, c2, d2) = (flat(out[i]), flat(out[i + 1]), flat(out[j]), flat(out[j + 1]));
+                let r1 = b - a;
+                let r2 = d2 - c2;
+                let den = r1.perp_dot(r2);
+                if den.abs() < 1e-12 {
+                    continue;
+                }
+                let t = (c2 - a).perp_dot(r2) / den;
+                let u = (c2 - a).perp_dot(r1) / den;
+                if t > 1e-9 && t < 1.0 - 1e-9 && u > 1e-9 && u < 1.0 - 1e-9 {
+                    let hit = out[i].lerp(out[i + 1], t);
+                    let mut next: Vec<DVec3> = out[..=i].to_vec();
+                    if r > 1e-9 {
+                        // An arc tangent to both sides, of radius r.
+                        let (t0, t1) = ((out[i + 1] - out[i]).normalize_or_zero(), (out[j + 1] - out[j]).normalize_or_zero());
+                        let ang = t0.dot(t1).clamp(-1.0, 1.0).acos();
+                        let back = r * (ang * 0.5).tan();
+                        let (p0, p1) = (hit - t0 * back, hit + t1 * back);
+                        let bis = (t1 - t0).normalize_or_zero();
+                        let centre = hit + bis * (r * r + back * back).sqrt();
+                        let (v0, v1) = ((p0 - centre).normalize_or_zero(), (p1 - centre).normalize_or_zero());
+                        let sweep = v0.dot(v1).clamp(-1.0, 1.0).acos();
+                        let axis = v0.cross(v1).normalize_or_zero();
+                        next.push(p0);
+                        let steps = ((sweep / 0.2).ceil() as usize).max(2);
+                        for k in 1..steps {
+                            next.push(centre + DQuat::from_axis_angle(if axis == DVec3::ZERO { n } else { axis }, sweep * k as f64 / steps as f64) * v0 * r);
+                        }
+                        next.push(p1);
+                    } else {
+                        next.push(hit);
+                    }
+                    next.extend_from_slice(&out[j + 1..]);
+                    out = next;
+                    continue 'again;
+                }
+            }
+        }
+        break;
+    }
+    out
+}
+
+/// The facts pointOnCurve and pointOnCurveInfo give at a parameter: position, tangent, unit tangent, normal, unit
+/// normal, centre and radius of curvature. The normal is the curve's bend, its second derivative square to the tangent;
+/// a straight curve has none, and a radius of 0.
+pub(crate) fn curve_facts(c: &NurbsCurve, u: f64) -> [Value; 7] {
+    let (lo, hi) = c.domain();
+    let u = u.clamp(lo, hi);
+    let p = c.eval(u);
+    let t = c.tangent(u);
+    let h = ((hi - lo) * 1e-4).max(1e-7);
+    let (a, b) = ((u - h).max(lo), (u + h).min(hi));
+    let dd = if b > a { (c.tangent(b) - c.tangent(a)) / (b - a) } else { DVec3::ZERO };
+    let tu = t.normalize_or_zero();
+    let normal = dd - tu * dd.dot(tu);
+    let speed = t.length();
+    let k = if speed > 1e-12 { t.cross(dd).length() / speed.powi(3) } else { 0.0 };
+    let (radius, centre) = if k > 1e-9 { (1.0 / k, p + normal.normalize_or_zero() / k) } else { (0.0, p) };
+    let v = |x: DVec3| json!([x.x, x.y, x.z]);
+    [v(p), v(t), v(tu), v(normal), v(normal.normalize_or_zero()), v(centre), json!(radius)]
+}
+
+fn point_on_curve(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(r) = crate::history_qe::qe(s, a, "pointOnCurve", &["pointOnCurveInfo"], &[]) {
+        return r;
+    }
+    let names = objects(s, a);
+    let Some(n) = names.first() else { fail!("pointOnCurve: name or select a curve") };
+    let g = &mut s.graph;
+    let shape = curve_arg(g, n, "pointOnCurve")?;
+    let on = |k: &str| a.get(k).is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+    if on("constructionHistory") {
+        let t = types::find("pointOnCurveInfo").expect("pointOnCurveInfo");
+        let node = g.create_node(&t, "pointOnCurveInfo1", NO_NODE, true)?;
+        g.connect(&plug(shape, CurveShape::WORLD_SPACE), &plug(node, 0), false)?;
+        g.set_value(plug(node, 1), PlugValue::Float(a.float("parameter", 0.0)))?;
+        g.set_value(plug(node, 2), PlugValue::Bool(on("turnOnPercentage")))?;
+        crate::history_qe::apply_common(g, node, a)?;
+        g.evaluate();
+        return Ok(json!(g.path(node)));
+    }
+    let Some(c) = world_curve(g, shape) else { fail!("pointOnCurve: {n} has no curve") };
+    let u = a.float("parameter", 0.0);
+    let u = if on("turnOnPercentage") {
+        let (lo, hi) = c.domain();
+        lo + (hi - lo) * u
+    } else {
+        u
+    };
+    let facts = curve_facts(&c, u);
+    let pick = [("position", 0), ("tangent", 1), ("normalizedTangent", 2), ("normal", 3), ("normalizedNormal", 4), ("curvatureCenter", 5), ("curvatureRadius", 6)];
+    let asked: Vec<usize> = pick.iter().filter(|(k, _)| on(k)).map(|(_, i)| *i).collect();
+    match asked.as_slice() {
+        [] => Ok(facts[0].clone()),
+        [one] => Ok(facts[*one].clone()),
+        many => Ok(Value::Array(many.iter().flat_map(|&i| match &facts[i] {
+            Value::Array(x) => x.clone(),
+            x => vec![x.clone()],
+        }).collect())),
+    }
+}
+
 /// A node reading curves: the info nodes.
 struct InfoNode;
 
@@ -699,10 +946,18 @@ impl NodeBehavior for PointOnCurveNode {
         } else {
             d.float(1)
         };
-        let t = c.tangent(u);
-        d.set_output(3, PlugValue::Vec3(c.eval(u)));
-        d.set_output(4, PlugValue::Vec3(t));
-        d.set_output(5, PlugValue::Vec3(t.normalize_or_zero()));
+        if matches!(crate::history_qe::node_state(d), 2 | 5) {
+            return;
+        }
+        let facts = curve_facts(&c, u);
+        let vec = |v: &Value| {
+            let x: Vec<f64> = v.as_array().map(|a| a.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+            DVec3::new(x[0], x[1], x[2])
+        };
+        for (i, k) in [0, 1, 2, 3, 4, 5].iter().enumerate() {
+            d.set_output(3 + i, PlugValue::Vec3(vec(&facts[*k])));
+        }
+        d.set_output(9, PlugValue::Float(facts[6].as_f64().unwrap_or(0.0)));
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -854,7 +1109,7 @@ impl NodeBehavior for SurfNode {
                         &cusp,
                     )
                 }
-                SurfKind::Planar => curves.first().and_then(|c| crate::surfaces::rectangle_surface(c).or_else(|| crate::nurbs_ops::trimmed_plane(c))),
+                SurfKind::Planar => crate::nurbs_ops::planar_surface(&curves, d.int(S_P).max(1) as usize, d.bool(S_P + 1), d.float(S_P + 2)),
                 SurfKind::Sweep => None,
             };
             d.set_output(S_OUT_SURFACE, surface.map(crate::surfaces::to_value).unwrap_or(PlugValue::Data(None)));
@@ -1129,7 +1384,23 @@ pub fn register_types() {
                     AttrDef { short_name: "nc".into(), ..store_bool("noChanges", false, "Pass the curve through unchanged.") },
                 ],
             ),
-            curve_op_type("offsetCurve", Kind::Offset, "Offset in its plane.", vec![f_in("distance", "d", 1.0, "How far."), v_in("normal", "nr", DVec3::ZERO, "The plane's normal; zero works it out.")]),
+            curve_op_type(
+                "offsetCurve",
+                Kind::Offset,
+                "Offset in its plane.",
+                vec![
+                    f_in("distance", "d", 1.0, "How far."),
+                    v_in("normal", "nr", DVec3::ZERO, "The plane's normal; zero works it out."),
+                    int_in("connectBreaks", "cb", 2, "Where the offset breaks apart at a corner: 0 left as a straight jump, 1 joined by an arc, 2 joined at a sharp corner."),
+                    AttrDef { short_name: "cl".into(), ..store_bool("cutLoop", false, "Cut the loops out of the offset where it crosses itself.") },
+                    f_in("cutRadius", "cr", 0.0, "With cutLoop: 0 a sharp corner where a loop is cut, more an arc of this radius."),
+                    AttrDef { short_name: "rp".into(), ..store_bool("reparameterize", false, "Give the offset a parameterization of its own, even along its length.") },
+                    AttrDef { short_name: "st".into(), ..store_bool("stitch", true, "Join the offset's pieces into one curve.") },
+                    int_in("subdivisionDensity", "sd", 5, "How many times a span may be halved while the offset is brought within tolerance."),
+                    f_in("tolerance", "tol", 0.01, "How closely the offset keeps the distance."),
+                    AttrDef { short_name: "ugn".into(), ..store_bool("useGivenNormal", true, "Use the normal given; off, the curve's own plane.") },
+                ],
+            ),
             curve_op_type("insertKnotCurve", Kind::InsertKnot, "A knot added.", vec![f_in("parameter", "p", 0.0, "Where."), int_in("numberOfKnots", "nk", 1, "How many.")]),
         ] {
             let name = t.name.clone();
@@ -1155,6 +1426,10 @@ pub fn register_types() {
                 vec3_attr("position", "p", DVec3::ZERO, flags::OUTPUT, "The point."),
                 vec3_attr("tangent", "t", DVec3::ZERO, flags::OUTPUT, "The tangent."),
                 vec3_attr("normalizedTangent", "nt", DVec3::ZERO, flags::OUTPUT, "The unit tangent."),
+                vec3_attr("normal", "n", DVec3::ZERO, flags::OUTPUT, "The normal: the curve's bend, square to the tangent."),
+                vec3_attr("normalizedNormal", "nn", DVec3::ZERO, flags::OUTPUT, "The unit normal."),
+                vec3_attr("curvatureCenter", "cc", DVec3::ZERO, flags::OUTPUT, "The centre of curvature."),
+                float_out("curvatureRadius", "cr", "The radius of curvature; 0 where the curve is straight."),
             ],
             create: Some(Arc::new(|| Box::new(PointOnCurveNode))),
             ..Default::default()
@@ -1230,7 +1505,16 @@ pub fn register_types() {
                     AttrDef { short_name: "cc".into(), flags: flags::INPUT | flags::STORABLE | flags::ARRAY, ..bool_attr("createCusp", false, "Per curve: a tangent break in the surface at that section.") },
                 ],
             ),
-            surf_type("planarTrim", SurfKind::Planar, "A face inside a closed curve.", vec![]),
+            surf_type(
+                "planarTrim",
+                SurfKind::Planar,
+                "A plane trimmed to closed boundary curves.",
+                vec![
+                    int_in("degree", "d", 3, "The surface's degree, 1 linear or 3 cubic, where it is a trimmed plane."),
+                    AttrDef { short_name: "ko".into(), ..store_bool("keepOutside", false, "Keep the regions outside the curves rather than inside.") },
+                    f_in("tolerance", "tol", 0.01, "How far from one plane the curves may lie."),
+                ],
+            ),
             surf_type(
                 "sweepMeshCreator",
                 SurfKind::Sweep,
@@ -1463,6 +1747,65 @@ pub(crate) fn v3(a: &Args, name: &str, def: DVec3) -> DVec3 {
     a.vec3(name).map(DVec3::from_array).unwrap_or(def)
 }
 
+/// nurbsSquare: the reference's group of four sides, topnurbsSquare1, leftnurbsSquare1, bottomnurbsSquare1 and
+/// rightnurbsSquare1, each fed by one of the makeNurbsSquare node's outputCurve1 to 4.
+fn nurbs_square(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(r) = crate::history_qe::qe(s, a, "nurbsSquare", &["makeNurbsSquare"], &[]) {
+        return r;
+    }
+    let g = &mut s.graph;
+    let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(g.construction_history);
+    let object = a.get("object").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0)));
+    let vec_of = |whole: &str, parts: [&str; 3], def: DVec3| {
+        let mut v = v3(a, whole, def);
+        for (i, p) in parts.iter().enumerate() {
+            if let Some(x) = a.get(p).and_then(Value::as_f64) {
+                v[i] = x;
+            }
+        }
+        v
+    };
+    let normal = vec_of("normal", ["normalX", "normalY", "normalZ"], DVec3::Z);
+    let center = vec_of("center", ["centerX", "centerY", "centerZ"], DVec3::ZERO);
+    let name = a.string("name", "nurbsSquare1");
+    g.open_chunk("nurbsSquare");
+    let r = (|| -> CmdResult<(Option<(NodeId, Vec<NodeId>)>, NodeId)> {
+        let t = types::find("makeNurbsSquare").unwrap();
+        let n = g.create_node(&t, "makeNurbsSquare1", NO_NODE, true)?;
+        g.set_value(plug(n, P0), PlugValue::Vec3(normal))?;
+        g.set_value(plug(n, P0 + 1), PlugValue::Vec3(center))?;
+        g.set_value(plug(n, P0 + 2), PlugValue::Float(a.float("sideLength1", 1.0)))?;
+        g.set_value(plug(n, P0 + 3), PlugValue::Int(a.int("degree", 3)))?;
+        g.set_value(plug(n, P0 + 4), PlugValue::Float(a.float("sideLength2", 1.0)))?;
+        g.set_value(plug(n, P0 + 5), PlugValue::Int(a.int("spansPerSide", 1)))?;
+        crate::history_qe::apply_common(g, n, a)?;
+        if !object {
+            return Ok((None, n));
+        }
+        let group = g.create_node(&types::find("transform").unwrap(), &name, NO_NODE, true)?;
+        let stem = g.node(group).map(|x| x.name().to_string()).unwrap_or_default();
+        let mut shapes = Vec::new();
+        for (k, side) in ["top", "left", "bottom", "right"].iter().enumerate() {
+            let (_, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, &format!("{side}{stem}"), group)?;
+            g.connect(&plug(n, P0 + 6 + k), &plug(sh, CurveShape::CREATE), false)?;
+            shapes.push(sh);
+        }
+        Ok((Some((group, shapes)), n))
+    })();
+    g.close_chunk();
+    let (made, n) = r?;
+    let Some((group, shapes)) = made else { return Ok(json!([g.path(n)])) };
+    g.select(&[group], SelectMode::Replace);
+    g.evaluate();
+    if !ch {
+        for sh in shapes {
+            bake_history(g, sh)?;
+        }
+        return Ok(json!([g.path(group)]));
+    }
+    Ok(json!([g.path(group), g.path(n)]))
+}
+
 pub fn register(c: &mut Commands<Session>) {
     register_types();
     crate::curve_history::register(c);
@@ -1666,29 +2009,30 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
 
-    c.register(
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
         Cmd::new(
             "nurbsSquare",
-            "Create a square curve (-nr normal, -c centre, -sl1 side). Returns [nurbsSquare1, makeNurbsSquare1].",
-            |s, a| {
-                let g = &mut s.graph;
-                let name = a.string("name", "nurbsSquare1");
-                let (tr, sh) = crate::dag::create_with_shape(g, SHAPE_TYPE, &name, NO_NODE)?;
-                let t = types::find("makeNurbsSquare").unwrap();
-                let n = g.create_node(&t, "makeNurbsSquare1", NO_NODE, true)?;
-                g.set_value(plug(n, P0), PlugValue::Vec3(v3(a, "normal", DVec3::Y)))?;
-                g.set_value(plug(n, P0 + 1), PlugValue::Vec3(v3(a, "center", DVec3::ZERO)))?;
-                g.set_value(plug(n, P0 + 2), PlugValue::Float(a.float("sideLength1", 1.0)))?;
-                g.connect(&plug(n, OUT), &plug(sh, CurveShape::CREATE), false)?;
-                g.select(&[tr], SelectMode::Replace);
-                Ok(json!([g.path(tr), g.path(n)]))
-            },
+            "Create a square of four curves, one per side, under a group, with a makeNurbsSquare node: -nr normal, -c centre, -sl1 and \
+             -sl2 the sides, -d degree, -sps spans per side. Returns [nurbsSquare1, makeNurbsSquare1]. -q and -e read and change the node.",
+            nurbs_square,
         )
-        .flag(f("normal", "nr", ArgType::Vec3, "The normal."))
-        .flag(f("center", "c", ArgType::Vec3, "The centre."))
-        .flag(f("sideLength1", "sl1", ArgType::Float, "The side (1)."))
-        .flag(f("name", "n", ArgType::String, "Name of the transform.")),
-    );
+        .positional("the makeNurbsSquare node or the square, with -q and -e")
+        .flag(f("normal", "nr", ArgType::Vec3, "The normal of the square's plane (0 0 1)."))
+        .flag(f("normalX", "nrx", ArgType::Float, "The normal's X (0)."))
+        .flag(f("normalY", "nry", ArgType::Float, "The normal's Y (0)."))
+        .flag(f("normalZ", "nrz", ArgType::Float, "The normal's Z (1)."))
+        .flag(f("center", "c", ArgType::Vec3, "The centre (0 0 0)."))
+        .flag(f("centerX", "cx", ArgType::Float, "The centre's X (0)."))
+        .flag(f("centerY", "cy", ArgType::Float, "The centre's Y (0)."))
+        .flag(f("centerZ", "cz", ArgType::Float, "The centre's Z (0)."))
+        .flag(f("sideLength1", "sl1", ArgType::Float, "The length of one side (1)."))
+        .flag(f("sideLength2", "sl2", ArgType::Float, "The length of the side next to it, for a rectangle (1)."))
+        .flag(f("spansPerSide", "sps", ArgType::Int, "Spans along each side (1)."))
+        .flag(f("degree", "d", ArgType::Int, "Degree of each side: 1, 2, 3, 5 or 7 (3)."))
+        .flag(f("constructionHistory", "ch", ArgType::Bool, "Keep the node (on by default)."))
+        .flag(f("object", "o", ArgType::Bool, "Make the curves (on); off, only the node."))
+        .flag(f("name", "n", ArgType::String, "Name of the group.")),
+    )));
 
     c.register(with_common(
         Cmd::new("rebuildCurve", "Rebuild with even spans: -s spans (0 keeps the count), -d degree, -kcp keeps the CVs. Returns [curve, node].", |s, a| {
@@ -1793,17 +2137,59 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("range", "rn", ArgType::Bool, "Use the whole input curve as its range: curves here are always taken whole.")),
     ));
     c.register(with_common(
-        Cmd::new("offsetCurve", "A copy offset in the curve's plane: -d distance, -nr normal. Returns [curve, node].", |s, a| {
-            let set = vec![(P0, PlugValue::Float(a.float("distance", 1.0))), (P0 + 1, PlugValue::Vec3(v3(a, "normal", DVec3::ZERO)))];
-            let mut b = a.clone();
-            b.flags.entry("replaceOriginal".to_string()).or_insert(json!(false));
-            run_op(s, &b, "offsetCurve", "offsetCurve", &set)
-        })
-        .positional("curves (the selection when none)")
-        .flag(f("distance", "d", ArgType::Float, "How far."))
+        Cmd::new(
+            "offsetCurve",
+            "A copy offset in the curve's plane: -d distance, -nr normal, -cb how corners join, -cl -cr cutting loops, -sd -tol how closely. \
+             Returns [curve, node]; -q and -e on the node.",
+            |s, a| {
+                let on = |k: &str, def: bool| a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
+                let set = vec![
+                    (P0, PlugValue::Float(a.float("distance", 1.0))),
+                    (P0 + 1, PlugValue::Vec3(v3(a, "normal", DVec3::ZERO))),
+                    (P0 + 2, PlugValue::Int(a.int("connectBreaks", 2))),
+                    (P0 + 3, PlugValue::Bool(on("cutLoop", false))),
+                    (P0 + 4, PlugValue::Float(a.float("cutRadius", 0.0))),
+                    (P0 + 5, PlugValue::Bool(on("reparameterize", false))),
+                    (P0 + 6, PlugValue::Bool(on("stitch", true))),
+                    (P0 + 7, PlugValue::Int(a.int("subdivisionDensity", 5))),
+                    (P0 + 8, PlugValue::Float(a.float("tolerance", 0.01))),
+                    (P0 + 9, PlugValue::Bool(on("useGivenNormal", true))),
+                ];
+                let mut b = a.clone();
+                b.flags.entry("replaceOriginal".to_string()).or_insert(json!(false));
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    // Only the node, fed by the curve.
+                    let names = objects(s, a);
+                    let g = &mut s.graph;
+                    let mut out = Vec::new();
+                    for n in names {
+                        let shape = curve_arg(g, &n, "offsetCurve")?;
+                        let t = types::find("offsetCurve").unwrap();
+                        let node = g.create_node(&t, "offsetCurve1", NO_NODE, true)?;
+                        g.connect(&plug(shape, CurveShape::LOCAL), &plug(node, IN), false)?;
+                        for (i, v) in &set {
+                            g.set_value(plug(node, *i), v.clone())?;
+                        }
+                        crate::history_qe::apply_common(g, node, a)?;
+                        out.push(json!(g.path(node)));
+                    }
+                    return Ok(Value::Array(out));
+                }
+                run_op(s, &b, "offsetCurve", "offsetCurve", &set)
+            },
+        )
+        .positional("curves (the selection when none); the node or the offset with -q and -e")
+        .flag(f("distance", "d", ArgType::Float, "How far (1)."))
         .flag(f("normal", "nr", ArgType::Vec3, "The plane's normal."))
-        .flag(f("useGivenNormal", "ugn", ArgType::Bool, "Accepted for existing scripts."))
-        .flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts.")),
+        .flag(f("useGivenNormal", "ugn", ArgType::Bool, "Use the -nr normal (on); off, the curve's own plane."))
+        .flag(f("connectBreaks", "cb", ArgType::Int, "How the offset joins where it breaks apart at a corner: 0 off (a straight jump), 1 an arc, 2 a sharp corner (2)."))
+        .flag(f("cutLoop", "cl", ArgType::Bool, "Cut out the loops where the offset crosses itself (off)."))
+        .flag(f("cutRadius", "cr", ArgType::Float, "With -cl: 0 a sharp corner at each cut, more an arc of this radius (0)."))
+        .flag(f("reparameterize", "rp", ArgType::Bool, "Give the offset a parameterization of its own (off)."))
+        .flag(f("stitch", "st", ArgType::Bool, "Join the pieces into one curve (on)."))
+        .flag(f("subdivisionDensity", "sd", ArgType::Int, "How many times a span may be halved to meet the tolerance (5)."))
+        .flag(f("range", "rn", ArgType::Bool, "Offset the whole curve, as always here."))
+        .flag(f("tolerance", "tol", ArgType::Float, "How closely the offset keeps the distance (0.01).")),
     ));
     c.register(with_common(
         Cmd::new("insertKnotCurve", "Add knots at -p: curve keeps its shape. Returns [curve, node].", |s, a| {
@@ -1871,38 +2257,27 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),
     );
 
-    c.register(
+    c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(
         Cmd::new(
             "pointOnCurve",
-            "Facts at a parameter of a curve: -pr parameter (-top a fraction of its length), asking -p position, -t tangent, -nt unit \
-             tangent (position when none).",
-            |s, a| {
-                let names = objects(s, a);
-                let Some(n) = names.first() else { fail!("pointOnCurve: name or select a curve") };
-                let g = &mut s.graph;
-                let shape = curve_arg(g, n, "pointOnCurve")?;
-                let Some(c) = world_curve(g, shape) else { fail!("pointOnCurve: {n} has no curve") };
-                let u = a.float("parameter", 0.0);
-                let u = if a.bool("turnOnPercentage") { c.param_at_fraction(u) } else { u };
-                let v = if a.bool("normalizedTangent") {
-                    c.tangent(u).normalize_or_zero()
-                } else if a.bool("tangent") {
-                    c.tangent(u)
-                } else {
-                    c.eval(u)
-                };
-                Ok(json!([v.x, v.y, v.z]))
-            },
+            "Facts at a parameter of a curve, world space: -pr parameter (-top a fraction of its parameter range), asking -p position, -t \
+             tangent, -nt unit tangent, -no normal, -nn unit normal, -cc centre and -cr radius of curvature (position when none). -ch on \
+             makes a pointOnCurveInfo node, connected to the curve, and returns it; -q and -e on the node.",
+            point_on_curve,
         )
         .undoable(false)
-        .positional("a curve (the selection when none)")
-        .flag(f("parameter", "pr", ArgType::Float, "The parameter."))
-        .flag(f("turnOnPercentage", "top", ArgType::Bool, "-pr is a fraction 0 to 1 of the length."))
+        .positional("a curve (the selection when none); the pointOnCurveInfo node with -q and -e")
+        .flag(f("parameter", "pr", ArgType::Float, "The parameter (0)."))
+        .flag(f("turnOnPercentage", "top", ArgType::Bool, "-pr is a fraction 0 to 1 of the parameter range (off)."))
         .flag(f("position", "p", ArgType::Bool, "Ask for the point."))
         .flag(f("tangent", "t", ArgType::Bool, "Ask for the tangent."))
         .flag(f("normalizedTangent", "nt", ArgType::Bool, "Ask for the unit tangent."))
-        .flag(f("constructionHistory", "ch", ArgType::Bool, "Accepted for existing scripts.")),
-    );
+        .flag(f("normal", "no", ArgType::Bool, "Ask for the normal: the bend of the curve, square to the tangent."))
+        .flag(f("normalizedNormal", "nn", ArgType::Bool, "Ask for the unit normal."))
+        .flag(f("curvatureCenter", "cc", ArgType::Bool, "Ask for the centre of curvature."))
+        .flag(f("curvatureRadius", "cr", ArgType::Bool, "Ask for the radius of curvature."))
+        .flag(f("constructionHistory", "ch", ArgType::Bool, "Make a pointOnCurveInfo node, connected to the curve, and return it (off).")),
+    )));
 
     c.register(surf_flags(
         Cmd::new(
@@ -2104,19 +2479,60 @@ pub fn register(c: &mut Commands<Session>) {
             "A surface filling a closed curve: a rectangle makes a plain patch, anything else a plane trimmed to it; -po 1 a polygon \
              face. Returns [planarTrimmedSurface1, planarTrim1].",
             |s, a| {
+                if let Some(r) = crate::history_qe::qe(s, a, "planar", &["planarTrim"], &[]) {
+                    return r;
+                }
                 let names = objects(s, a);
                 let g = &mut s.graph;
-                let Some(n) = names.first() else { fail!("planar: name or select a closed curve") };
-                let shape = curve_arg(g, n, "planar")?;
+                if names.is_empty() {
+                    fail!("planar: name or select closed boundary curves");
+                }
+                // Each curve named, and the curves under a group named (a square's four sides).
+                let mut shapes = Vec::new();
+                for n in &names {
+                    let id = find(g, n, "planar")?;
+                    if let Some(c) = as_curve(g, id) {
+                        shapes.push(c);
+                        continue;
+                    }
+                    let under: Vec<NodeId> = g.descendants(id).into_iter().filter(|&d| g.node(d).is_some_and(|x| x.ty().name == SHAPE_TYPE) && !g.node(d).is_some_and(|x| x.bool(DagNode::INTERMEDIATE_OBJECT))).collect();
+                    if under.is_empty() {
+                        fail!("planar: {n} is not a curve");
+                    }
+                    shapes.extend(under);
+                }
                 let polygon = a.int("polygon", 0) == 1;
-                let (tr, node) = surf_output(g, "planarTrim", &a.string("name", "planarTrimmedSurface1"), "planarTrim1", &[shape], &[], polygon)?;
+                let set = vec![
+                    (S_P, PlugValue::Int(a.int("degree", 3))),
+                    (S_P + 1, PlugValue::Bool(a.bool("keepOutside"))),
+                    (S_P + 2, PlugValue::Float(a.float("tolerance", 0.01))),
+                ];
+                if a.get("object").is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0)) {
+                    let t = types::find("planarTrim").expect("planarTrim");
+                    let node = g.create_node(&t, "planarTrim1", NO_NODE, true)?;
+                    for (i, &shape) in shapes.iter().enumerate() {
+                        g.connect(&plug(shape, CurveShape::WORLD_SPACE), &PlugRef::element(node, S_CURVES as i32, i as i32), false)?;
+                    }
+                    for (attr, v) in &set {
+                        g.set_value(plug(node, *attr), v.clone())?;
+                    }
+                    crate::history_qe::apply_common(g, node, a)?;
+                    return Ok(json!([g.path(node)]));
+                }
+                let (tr, node) = surf_output(g, "planarTrim", &a.string("name", "planarTrimmedSurface1"), "planarTrim1", &shapes, &set, polygon)?;
+                crate::history_qe::apply_common(g, node, a)?;
                 finish_surf(g, a, tr, node)
             },
         )
-        .positional("a closed curve (the selection when none)")
-        .flag(f("degree", "d", ArgType::Int, "Accepted for existing scripts."))
-        .flag(f("tolerance", "tol", ArgType::Float, "Accepted for existing scripts.")),
+        .positional("closed boundary curves, or groups of them (the selection when none); with -q and -e the planarTrim node or the surface")
+        .flag(f("degree", "d", ArgType::Int, "The surface's degree, 1 linear or 3 cubic (3), where it is a trimmed plane."))
+        .flag(f("keepOutside", "ko", ArgType::Bool, "Keep the regions outside the curves, making a hole (off)."))
+        .flag(f("tolerance", "tol", ArgType::Float, "How far from one plane the curves' CVs may lie (0.01)."))
+        .flag(f("object", "o", ArgType::Bool, "Make the surface (on); off, only the node.")),
     ));
+    if let Some(d) = c.find("planar").cloned() {
+        c.register(crate::history_qe::node_flags(crate::history_qe::qe_flags(d)));
+    }
 
     c.register(surf_flags(
         Cmd::new(

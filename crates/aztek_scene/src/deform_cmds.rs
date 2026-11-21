@@ -258,13 +258,66 @@ fn percent(s: &mut Session, a: &Args) -> CmdResult {
         }
         let value = a.float("value", 1.0);
         let members = crate::deform_sets::member_mask(g, x, size);
-        for p in ids {
+        // A dropoff round a point, along an axis from it, or round a curve: the value fades to 0 at -dds.
+        let world = deform::mesh_fed_by(g, x).map(|m| crate::rig::world(g, crate::dag::transform_of(g, m))).unwrap_or(glam::DMat4::IDENTITY);
+        let curve = match a.get("dropoffCurve").and_then(Value::as_str) {
+            Some(cn) => {
+                let shape = crate::curves::curve_arg(g, cn, "percent")?;
+                Some(crate::curves::world_curve(g, shape).ok_or_else(|| aztek_ops::CommandError::new(format!("percent: {cn} has no curve")))?)
+            }
+            None => None,
+        };
+        let from = a.vec3("dropoffPosition").map(glam::DVec3::from_array);
+        let axis = a.vec3("dropoffAxis").map(glam::DVec3::from_array).map(|v| v.normalize_or_zero());
+        let distance_of = |p: glam::DVec3| -> Option<f64> {
+            if let Some(c) = &curve {
+                return Some(c.eval(c.closest_param(p)).distance(p));
+            }
+            let o = from.unwrap_or(glam::DVec3::ZERO);
+            match axis {
+                Some(ax) if ax != glam::DVec3::ZERO => Some((p - o).dot(ax).abs()),
+                _ if from.is_some() => Some(p.distance(o)),
+                _ => None,
+            }
+        };
+        let places: Vec<(u32, Option<f64>)> = ids.iter().map(|&p| (p, input.point_valid(p).then(|| distance_of(world.transform_point3(input.position(p)))).flatten())).collect();
+        let reach = a.get("dropoffDistance").and_then(Value::as_f64).unwrap_or_else(|| places.iter().filter_map(|x| x.1).fold(0.0, f64::max));
+        let kind = a.string("dropoffType", "linear");
+        if !matches!(kind.as_str(), "linear" | "sine" | "exponential" | "linearSquared" | "none") {
+            fail!("percent: -dropoffType is linear, sine, exponential, linearSquared or none");
+        }
+        let fade = |dist: Option<f64>| -> f64 {
+            let Some(dist) = dist else { return 1.0 };
+            if kind == "none" {
+                return 1.0;
+            }
+            if reach <= 0.0 {
+                return if dist <= 0.0 { 1.0 } else { 0.0 };
+            }
+            let t = (dist / reach).clamp(0.0, 1.0);
+            match kind.as_str() {
+                "sine" => 0.5 * (1.0 + (std::f64::consts::PI * t).cos()),
+                "exponential" => ((-4.0 * t).exp() - (-4.0f64).exp()) / (1.0 - (-4.0f64).exp()),
+                "linearSquared" => (1.0 - t) * (1.0 - t),
+                _ => 1.0 - t,
+            }
+        };
+        for (p, dist) in places {
             // A point out of the deformer's set has no weight to set.
             if members.as_ref().is_some_and(|m| !m.get(p as usize).copied().unwrap_or(false)) {
                 continue;
             }
+            let k = fade(dist);
             if let Some(v) = w.get_mut(p as usize) {
-                *v = if a.bool("multiply") { *v * value } else { value };
+                *v = if a.bool("addPercent") {
+                    *v + value * k
+                } else if a.bool("multiplyPercent") {
+                    *v * (1.0 + (value - 1.0) * k)
+                } else if dist.is_some() {
+                    value * k
+                } else {
+                    value
+                };
             }
         }
         set_floats(g, x, WEIGHTS, w)?;
@@ -369,12 +422,18 @@ pub(crate) fn register(c: &mut Commands<Session>) {
         modes(Cmd::new(
             "percent",
             "Set or query deformer weights of points: percent -v 0.5 cluster1 pCube1.vtx[0:3]. -m multiplies what is there. -q -v returns \
-             one weight per point. With no points named: the selected components, else all the deformer's points.",
+             one weight per point. -ap adds, -mp multiplies; -dp, -dax and -dc drop the value off round a point, plane or curve. With no points named: the selected components, else all the deformer's points.",
             percent,
         ))
         .positional("the deformer, then points or meshes")
-        .flag(f("value", "v", ArgType::Float, "The weight."))
-        .flag(f("multiply", "m", ArgType::Bool, "Multiply the weights by the value instead of setting them.")),
+        .flag(f("value", "v", ArgType::Float, "The weight (1). With -q, the weights of the points named or selected."))
+        .flag(f("addPercent", "ap", ArgType::Bool, "Add the value to the weights instead of setting them."))
+        .flag(f("multiplyPercent", "mp", ArgType::Bool, "Multiply the weights by the value instead of setting them."))
+        .flag(f("dropoffPosition", "dp", ArgType::Vec3, "A point the value drops off from, to nothing at -dds."))
+        .flag(f("dropoffAxis", "dax", ArgType::Vec3, "With -dp: the value drops off along this axis from the point."))
+        .flag(f("dropoffCurve", "dc", ArgType::String, "A curve the value drops off from."))
+        .flag(f("dropoffDistance", "dds", ArgType::Float, "How far out the value reaches; the farthest point when not given."))
+        .flag(f("dropoffType", "dt", ArgType::String, "How it drops off: linear (the default), sine, exponential, linearSquared or none.")),
     );
     c.register(
         Cmd::new(

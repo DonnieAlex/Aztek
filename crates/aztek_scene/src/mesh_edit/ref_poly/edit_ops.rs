@@ -780,7 +780,49 @@ fn pivot_prep(kind: K) -> impl FnMut(&mut crate::graph::Graph, NodeId, &Mesh, &I
     }
 }
 
+/// polyAppendVertex as a history node: a face through the mesh's vertices (-v, -a) and then new points (-p, object
+/// space), in that order.
+fn append_vertex_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
+    fn walk(v: &Value, out: &mut Vec<f64>) {
+        match v {
+            Value::Array(x) => x.iter().for_each(|y| walk(y, out)),
+            y => out.extend(y.as_f64()),
+        }
+    }
+    let mut order: Vec<Index> = Vec::new();
+    for k in ["vertex", "append"] {
+        let mut ids = Vec::new();
+        if let Some(v) = a.get(k) {
+            walk(v, &mut ids);
+        }
+        for id in ids {
+            let id = id as i64;
+            if id < 0 || !m.point_valid(id as Index) {
+                fail!("polyAppendVertex: no vertex {id}");
+            }
+            order.push(id as Index);
+        }
+    }
+    let mut flat = Vec::new();
+    if let Some(v) = a.get("point") {
+        walk(v, &mut flat);
+    }
+    for c in flat.chunks(3).filter(|c| c.len() == 3) {
+        order.push(m.add_point(DVec3::new(c[0], c[1], c[2])));
+    }
+    order.dedup();
+    if order.len() < 3 {
+        fail!("polyAppendVertex: a face needs three points");
+    }
+    let f = m.add_face(&order);
+    if f == aztek_geo::INVALID {
+        fail!("polyAppendVertex: these points don't make a face");
+    }
+    Ok(faces(vec![f]))
+}
+
 pub(super) fn register_ops() {
+    register_op(HistoryOp { node_type: "polyAppendVertex", command: "polyAppendVertex", label: "Append to Polygon", kind: K::Vertex, run: append_vertex_op, skip_flags: &["mesh", "items"], doc: "Adds a face through vertices and new points." });
     let op = |node_type: &'static str, command: &'static str, label: &'static str, kind: K, run: crate::history::OpFn, doc: &'static str| {
         register_op(HistoryOp { node_type, command, label, kind, run, skip_flags: &[], doc })
     };
@@ -1162,7 +1204,40 @@ pub(super) fn register(c: &mut Commands<Session>) {
         }),
     );
     extend(c, "polyCrease", "polyCrease", &[], |_, _| None);
-    extend(c, "polyAppendVertex", "polyAppendVertex", &[], |_, _| None);
+    extend(c, "polyAppendVertex", "polyAppendVertex", &[], |s, a| {
+        // Named on a mesh with the reference's flags: a polyAppendVertex history node, its points held in the mesh's own
+        // space. Calls by the tools (-mesh, -items) and onto nothing go on as they did.
+        if a.has("items") || a.has("mesh") || a.named().is_empty() || a.bool("query") || a.bool("edit") {
+            return None;
+        }
+        Some((|| -> CmdResult {
+            let g = &mut s.graph;
+            g.evaluate();
+            let names = a.named();
+            let first = names[0].split('.').next().unwrap_or(&names[0]).to_string();
+            let mesh = crate::mesh_edit::mesh_arg(g, &first, "polyAppendVertex")?;
+            let world = g.node(mesh).unwrap().matrix(crate::transform::Transform::WORLD_MATRIX);
+            let to_local = world.inverse();
+            let mut call = a.clone();
+            let pts: Vec<Value> = super::mesh_cmds::points_of(a, "point")
+                .into_iter()
+                .flat_map(|p| {
+                    let q = to_local.transform_point3(p);
+                    [json!(q.x), json!(q.y), json!(q.z)]
+                })
+                .collect();
+            if !pts.is_empty() {
+                call.flags.insert("point".into(), Value::Array(pts));
+            }
+            let op = crate::history::op("polyAppendVertex").unwrap();
+            g.open_chunk("Append to Polygon");
+            let r = apply_targets(g, K::Vertex, std::collections::BTreeMap::from([(mesh, Vec::new())]), &mut |m, sel, sym| append_vertex_op(&call, m, sel, sym), Some((&*op, &call)), None);
+            g.close_chunk();
+            r.map(|made| names_of(g, &made))
+        })())
+    });
+    crate::history_qe::extend(c, "polyAppendVertex", &["polyAppendVertex"], &[], Vec::new());
+
     c.register(ref_cmd(
         "polyCollapseFacet",
         "Collapse faces to their centres; with -uat only those under -at in area. Returns the node.",

@@ -874,12 +874,154 @@ fn sets_arg(g: &Graph, a: &Args, cmd: &str) -> CmdResult<Vec<NodeId>> {
     Ok(out)
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Partitions
+
+fn plug_named(g: &Graph, n: NodeId, attr: &str) -> Option<PlugRef> {
+    g.node(n)?.ty().attr_index(attr).map(|i| PlugRef::new(n, i as i32))
+}
+
+/// The sets a partition holds, in order.
+pub fn partition_sets(g: &Graph, part: NodeId) -> Vec<NodeId> {
+    let Some(sets) = plug_named(g, part, "sets") else { return Vec::new() };
+    g.elements(&sets).iter().filter_map(|e| g.source(e)).map(|p| p.node).collect()
+}
+
+/// Whether two sets share a member: the same object, or a component of it in both.
+fn sets_overlap(g: &Graph, a: NodeId, b: NodeId) -> bool {
+    let (ma, mb) = (members(g, a), members(g, b));
+    ma.iter().any(|x| {
+        mb.iter().any(|y| {
+            x.node == y.node && (x.kind == ComponentMode::Object || y.kind == ComponentMode::Object || (x.kind == y.kind && x.ids.iter().any(|i| y.ids.contains(i))))
+        })
+    })
+}
+
+fn is_render_set(n: &Node) -> bool {
+    n.ty().is_a(crate::shading::SG_TYPE) || n.ty().attr_index("renderableOnlySet").is_some_and(|i| n.bool(i))
+}
+
+fn partition_add(g: &mut Graph, part: NodeId, set: NodeId) -> CmdResult<()> {
+    let (pname, sname) = (g.path(part), g.path(set));
+    if !g.node(set).is_some_and(is_set) {
+        fail!("partition: {sname} is not a set");
+    }
+    let held = partition_sets(g, part);
+    if held.contains(&set) {
+        return Ok(());
+    }
+    let render = plug_named(g, part, "partitionType").is_some_and(|p| g.value(&p).map(|v| v.as_int()).unwrap_or(0) == 1);
+    if render && !g.node(set).is_some_and(is_render_set) {
+        fail!("partition: {pname} is a render partition, and {sname} is not a render set");
+    }
+    if let Some(other) = held.iter().find(|&&o| sets_overlap(g, o, set)) {
+        fail!("partition: {sname} shares members with {} in {pname}", g.path(*other));
+    }
+    let (Some(sets), Some(msg)) = (plug_named(g, part, "sets"), plug_named(g, set, "message")) else { fail!("partition: {pname} can't hold sets") };
+    let next = g.elements(&sets).iter().map(|e| e.element + 1).max().unwrap_or(0);
+    g.connect(&msg, &PlugRef::element(part, sets.attr, next), false)?;
+    Ok(())
+}
+
+fn partition_remove(g: &mut Graph, part: NodeId, set: NodeId) -> CmdResult<()> {
+    let Some(sets) = plug_named(g, part, "sets") else { return Ok(()) };
+    for e in g.elements(&sets) {
+        if g.source(&e).is_some_and(|p| p.node == set) {
+            g.disconnect(&e);
+        }
+    }
+    Ok(())
+}
+
+fn partition_named(g: &Graph, name: &str) -> CmdResult<NodeId> {
+    match g.find(name)? {
+        Some(p) if g.node(p).is_some_and(|x| x.ty().name == "partition") => Ok(p),
+        Some(_) => fail!("partition: {name} is not a partition"),
+        None => fail!("partition: no partition named {name}"),
+    }
+}
+
+/// partition: make a partition of sets that share no member, add sets to one or take them out, or list its sets.
+fn partition_cmd(s: &mut Session, a: &Args) -> CmdResult {
+    let names = a.named();
+    let g = &mut s.graph;
+    let set_ids = |g: &Graph, list: &[String]| -> CmdResult<Vec<NodeId>> {
+        list.iter().map(|n| g.find(n)?.ok_or_else(|| CommandError::new(format!("partition: no set named {n}")))).collect()
+    };
+    if a.bool("query") {
+        let Some(name) = names.first() else { fail!("partition: name a partition") };
+        let part = partition_named(g, name)?;
+        if a.flags.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| matches!(x.as_str(), Some("render" | "re")))) || a.bool("render") {
+            let render = plug_named(g, part, "partitionType").is_some_and(|p| g.value(&p).map(|v| v.as_int()).unwrap_or(0) == 1);
+            return Ok(json!(render));
+        }
+        return Ok(json!(partition_sets(g, part).iter().map(|&x| g.path(x)).collect::<Vec<_>>()));
+    }
+    for (flag, adding) in [("addSet", true), ("removeSet", false)] {
+        if let Some(pn) = a.get(flag).and_then(Value::as_str) {
+            let part = partition_named(g, pn)?;
+            let sets = set_ids(g, &names)?;
+            g.open_chunk("partition");
+            let r = (|| -> CmdResult<()> {
+                for set in sets {
+                    if adding {
+                        partition_add(g, part, set)?;
+                    } else {
+                        partition_remove(g, part, set)?;
+                    }
+                }
+                Ok(())
+            })();
+            g.close_chunk();
+            r?;
+            return Ok(json!(g.path(part)));
+        }
+    }
+    let mut sets = set_ids(g, &names)?;
+    if sets.is_empty() {
+        // A set already selected goes in.
+        sets = g.selection().iter().copied().filter(|&n| g.node(n).is_some_and(is_set)).collect();
+    }
+    let t = types::find("partition").expect("partition");
+    g.open_chunk("partition");
+    let r = (|| -> CmdResult<NodeId> {
+        let part = g.create_node(&t, &a.string("name", "partition1"), NO_NODE, true)?;
+        if a.bool("render") {
+            if let Some(p) = plug_named(g, part, "partitionType") {
+                g.set_value(p, PlugValue::Int(1))?;
+            }
+        }
+        for set in sets {
+            partition_add(g, part, set)?;
+        }
+        Ok(part)
+    })();
+    g.close_chunk();
+    let part = r?;
+    Ok(json!(g.path(part)))
+}
+
 pub fn register(c: &mut Commands<Session>) {
     type T = ArgType;
     type Cmd = CommandDef<Session>;
     if c.find("createSet").is_some() {
         return;
     }
+    c.register(
+        Cmd::new(
+            "partition",
+            "Make a partition: sets no two of which share a member. partition -n p1 set1 set2; -add p1 set3 and -rm p1 set1 change one; \
+             -render makes one that holds only render sets. -q p1 lists its sets, -q -re p1 whether it is a render partition. Returns its name.",
+            partition_cmd,
+        )
+        .positional("the partition with -q, -add and -rm; then sets")
+        .flag(FlagDef::new("name", "n", T::String, Value::Null, "The new partition's name."))
+        .flag(FlagDef::new("render", "re", T::Bool, Value::Null, "Make a partition that holds only render sets; with -q, whether it is one."))
+        .flag(FlagDef::new("addSet", "add", T::String, Value::Null, "Add the sets named to this partition."))
+        .flag(FlagDef::new("removeSet", "rm", T::String, Value::Null, "Take the sets named out of this partition."))
+        .flag(FlagDef::new("query", "q", T::Bool, Value::Null, "Query mode: the partition's sets, or with -re whether it is a render partition."))
+        .flag(FlagDef::new("queried", "", T::List, Value::Null, "Flags asked about in query mode.")),
+    );
     c.register(
         Cmd::new(
             "createSet",

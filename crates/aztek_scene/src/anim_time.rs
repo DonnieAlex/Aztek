@@ -160,12 +160,37 @@ pub fn slider_range() -> Option<(f64, f64)> {
     slider().range
 }
 
+/// play -playSound: whether the sound plays along (on until a script turns it off).
+static PLAY_SOUND: AtomicBool = AtomicBool::new(true);
+
 fn play(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("query") {
         if queried(a, &["forward"]) {
             return Ok(json!(PLAY_FORWARD.load(Ordering::Relaxed)));
         }
+        if queried(a, &["playSound"]) {
+            return Ok(json!(PLAY_SOUND.load(Ordering::Relaxed)));
+        }
+        if queried(a, &["sound"]) {
+            return Ok(json!(crate::sound::displayed().0));
+        }
+        if queried(a, &["record"]) {
+            return Ok(json!(false));
+        }
         return Ok(json!(PLAYING.load(Ordering::Relaxed)));
+    }
+    if let Some(on) = a.get("playSound").and_then(Value::as_bool) {
+        PLAY_SOUND.store(on, Ordering::Relaxed);
+    }
+    if let Some(snd) = a.get("sound").and_then(Value::as_str) {
+        // The sound played along: the one the time slider shows.
+        if !snd.is_empty() && s.graph.find(snd)?.is_none() {
+            fail!("play: no sound named {snd}");
+        }
+        crate::sound::set_displayed(Some(snd.to_string()), None);
+    }
+    if a.has("playSound") && !a.has("state") && !a.has("forward") && !a.bool("wait") {
+        return Ok(Value::Null);
     }
     let forward = a.get("forward").and_then(Value::as_bool).unwrap_or(PLAY_FORWARD.load(Ordering::Relaxed));
     let state = a.get("state").and_then(Value::as_bool).unwrap_or(true);
@@ -499,7 +524,8 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(f("state", "st", ArgType::Bool, "Playing or not."))
         .flag(f("wait", "w", ArgType::Bool, "Play through before returning."))
         .flag(f("record", "rec", ArgType::Bool, "Accepted for existing scripts: there are no dynamics to record."))
-        .flag(f("sound", "s", ArgType::String, "Accepted for existing scripts."))
+        .flag(f("sound", "s", ArgType::String, "The sound (audio node) played along: the one the time slider shows."))
+        .flag(f("playSound", "ps", ArgType::Bool, "Whether the sound plays along during playback (on)."))
         .undoable(false),
     );
 

@@ -632,7 +632,7 @@ orientConstraint	done	auto
 outlinerEditor	done	auto
 outlinerPanel	done	auto
 outputWindow	missing	
-overrideModifier	missing	
+overrideModifier	done	auto
 paintEffectsDisplay	missing	
 pairBlend	done	auto
 palettePort	missing	
@@ -644,7 +644,7 @@ panelConfiguration	done	auto
 panelHistory	missing	
 paramDimContext	missing	
 paramDimension	done	auto
-paramLocator	missing	
+paramLocator	done	auto
 parent	done	auto
 parentConstraint	done	auto
 particle	done	auto
@@ -652,7 +652,7 @@ particleExists	missing
 particleFill	missing	
 particleInstancer	missing	
 particleRenderInfo	missing	
-partition	missing	
+partition	done	auto
 pasteKey	done	auto
 pathAnimation	done	auto
 pause	missing	
@@ -668,7 +668,7 @@ plane	done	auto
 play	done	auto
 playbackOptions	done	auto
 playblast	done	auto
-pluginDisplayFilter	missing	
+pluginDisplayFilter	done	auto
 pluginInfo	done	auto
 pointConstraint	done	auto
 pointCurveConstraint	done	auto
@@ -684,7 +684,7 @@ polyAppendVertex	done	auto
 polyAutoProjection	done	auto
 polyAverageNormal	done	auto
 polyAverageVertex	done	auto
-polyAxis	missing	
+polyAxis	done	auto
 polyBevel	done	auto
 polyBevel3	done	auto
 polyBlendColor	done	auto

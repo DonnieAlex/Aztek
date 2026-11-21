@@ -287,6 +287,14 @@ fn editor_to_view(panel: &str, flag: &str, v: &Value) {
     }
 }
 
+/// Nested lists as one flat list.
+fn flat_values(v: &Value) -> Vec<Value> {
+    match v {
+        Value::Array(a) => a.iter().flat_map(flat_values).collect(),
+        x => vec![x.clone()],
+    }
+}
+
 fn text(v: &Value) -> String {
     v.as_str().map_or_else(|| v.to_string(), str::to_string)
 }
@@ -373,6 +381,20 @@ fn model_editor(a: &Args) -> CmdResult {
     Ok(json!(name))
 }
 
+/// -menuBarRepeatLast, held for -q; -tearOffRestore, the panel brought back and given the focus.
+fn panel_extras(n: &str, a: &Args) {
+    if let Some(v) = a.get("menuBarRepeatLast").and_then(Value::as_bool) {
+        with_panels(|p| {
+            if let Some(x) = p.all.iter_mut().find(|x| x.name == n) {
+                x.editor.insert("menuBarRepeatLast".into(), json!(v));
+            }
+        });
+    }
+    if a.bool("tearOffRestore") {
+        push_ui_request(format!("panelFocus|{n}"));
+    }
+}
+
 fn panel_common(kind: &'static str, a: &Args) -> CmdResult {
     let name = a.pos_str(0).map(str::to_string);
     if a.bool("exists") {
@@ -391,6 +413,7 @@ fn panel_common(kind: &'static str, a: &Args) -> CmdResult {
                 "parent" => json!(x.parent),
                 "type" => json!(x.scripted_type),
                 "menuBarVisible" | "barLayout" => json!(true),
+                "menuBarRepeatLast" => x.editor.get("menuBarRepeatLast").cloned().unwrap_or(json!(false)),
                 "exists" => json!(true),
                 _ => x.editor.get(&q).cloned().unwrap_or(Value::Null),
             })
@@ -423,6 +446,7 @@ fn panel_common(kind: &'static str, a: &Args) -> CmdResult {
                 }
             });
         }
+        panel_extras(&n, a);
         return Ok(json!(n));
     }
     // Create, in the layout being built or the one named. Model panels show a real view there.
@@ -446,6 +470,7 @@ fn panel_common(kind: &'static str, a: &Args) -> CmdResult {
     let mut panel = if kind == "modelPanel" { model_panel(&n, &label, &cam, true) } else { other_panel(&n, kind, &label, &a.string("type", "")) };
     panel.parent = parent.clone();
     with_panels(|p| p.all.push(panel));
+    panel_extras(&n, a);
     match kind {
         "modelPanel" | "scriptedPanel" => crate::scriptui::embed_panel(kind, &n, Some(&parent), &cam),
         "outlinerPanel" => crate::scriptui::embed_panel("outlinerEditor", &n, Some(&parent), ""),
@@ -689,6 +714,74 @@ pub fn movie_arguments(pattern: &str, fps: f64, out: &str) -> Vec<String> {
     ["-y", "-loglevel", "error", "-framerate", &fps.to_string(), "-i", pattern, "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p", out].iter().map(|x| x.to_string()).collect()
 }
 
+/// The sounds a playblast takes: -s the one named, -uts every sound on the timeline. Each as (file, start frame, mute).
+fn playblast_sounds(s: &Session, a: &Args, first_frame: f64) -> Vec<(String, f64)> {
+    let g = &s.graph;
+    let ty = aztek_scene::sound::TYPE;
+    let mut ids: Vec<aztek_scene::plug::NodeId> = Vec::new();
+    if let Some(n) = a.get("sound").and_then(Value::as_str).filter(|n| !n.is_empty()) {
+        if let Ok(Some(id)) = g.find(n) {
+            ids.push(id);
+        }
+    }
+    if a.bool("useTraxSounds") || a.bool("useSequencerSounds") {
+        for id in g.nodes() {
+            if g.node(id).is_some_and(|n| n.ty().name == ty) && !ids.contains(&id) {
+                ids.push(id);
+            }
+        }
+    }
+    let attr = |id, k: &str| g.node(id).and_then(|n| n.ty().attr_index(k).map(|i| n.data().value(i).clone()));
+    ids.into_iter()
+        .filter(|&id| !attr(id, "mute").is_some_and(|v| v.as_bool()))
+        .filter_map(|id| {
+            let file = attr(id, "filename")?.as_str().to_string();
+            let off = attr(id, "offset").map(|v| v.as_float()).unwrap_or(0.0);
+            (!file.is_empty()).then_some((file, off - first_frame))
+        })
+        .collect()
+}
+
+/// ffmpeg's arguments adding sounds to a movie with no sound: each delayed to where it starts, one track each, or with
+/// combine all mixed into one.
+fn sound_arguments(movie: &str, sounds: &[(String, f64)], fps: f64, combine: bool, out: &str) -> Vec<String> {
+    let mut v: Vec<String> = ["-y", "-loglevel", "error", "-i", movie].iter().map(|x| x.to_string()).collect();
+    for (file, _) in sounds {
+        v.extend(["-i".to_string(), file.clone()]);
+    }
+    let mut filter = Vec::new();
+    for (i, (_, start)) in sounds.iter().enumerate() {
+        let ms = ((start / fps.max(1e-6)) * 1000.0).max(0.0).round() as i64;
+        filter.push(format!("[{}:a]adelay={ms}|{ms}[a{i}]", i + 1));
+    }
+    if combine && sounds.len() > 1 {
+        let ins: String = (0..sounds.len()).map(|i| format!("[a{i}]")).collect();
+        filter.push(format!("{ins}amix=inputs={}[mix]", sounds.len()));
+    }
+    v.extend(["-filter_complex".to_string(), filter.join(";"), "-map".to_string(), "0:v".to_string()]);
+    if combine && sounds.len() > 1 {
+        v.extend(["-map".to_string(), "[mix]".to_string()]);
+    } else {
+        for i in 0..sounds.len() {
+            v.extend(["-map".to_string(), format!("[a{i}]")]);
+        }
+    }
+    v.extend(["-c:v", "copy", "-c:a", "aac", "-shortest", out].iter().map(|x| x.to_string()));
+    v
+}
+
+fn run_ffmpeg(args: Vec<String>, what: &str) -> CmdResult<()> {
+    match std::process::Command::new("ffmpeg").args(args).output() {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => {
+            let said = String::from_utf8_lossy(&o.stderr);
+            let last = said.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
+            fail!("playblast: ffmpeg could not make {what}: {last}")
+        }
+        Err(e) => fail!("playblast: could not run ffmpeg: {e}"),
+    }
+}
+
 fn playblast(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("query") {
         let q = asked(a).unwrap_or_default();
@@ -699,15 +792,27 @@ fn playblast(s: &mut Session, a: &Args) -> CmdResult {
             _ => Value::Null,
         });
     }
+    if a.bool("activeEditor") {
+        return Ok(json!(focus_model_panel()));
+    }
+    // -options opens the Playblast options and -codecOptions the movie settings, which are those options here: no
+    // playblast either way.
+    if a.bool("options") || a.bool("codecOptions") {
+        crate::scriptui::run_soon(json!("PlayblastOptions;"), Vec::new());
+        return Ok(Value::Null);
+    }
+    let throw = a.bool("throwOnError");
     let time = aztek_scene::anim::frame(&s.graph);
     let range = |s: &mut Session, f: &str, d: f64| s.run("playbackOptions", json!({"query": true, "queried": [f]})).ok().and_then(|v| v.as_f64()).unwrap_or(d);
+    let replacing = a.get("replaceFilename").and_then(Value::as_str).filter(|x| !x.is_empty()).map(str::to_string);
     let frames: Vec<f64> = if let Some(l) = a.get("frame").and_then(Value::as_array) {
         l.iter().filter_map(Value::as_f64).collect()
     } else if let Some(v) = a.get("frame").and_then(Value::as_f64) {
         vec![v]
     } else {
-        let st = if a.has("startTime") { a.float("startTime", time) } else { range(s, "minTime", time) };
-        let et = if a.has("endTime") { a.float("endTime", time) } else { range(s, "maxTime", time) };
+        let (sk, ek) = if replacing.is_some() { ("replaceStartTime", "replaceEndTime") } else { ("startTime", "endTime") };
+        let st = if a.has(sk) { a.float(sk, time) } else if a.has("startTime") { a.float("startTime", time) } else { range(s, "minTime", time) };
+        let et = if a.has(ek) { a.float(ek, time) } else if a.has("endTime") { a.float("endTime", time) } else { range(s, "maxTime", time) };
         if et < st {
             fail!("playblast: the end time is before the start time.");
         }
@@ -721,7 +826,7 @@ fn playblast(s: &mut Session, a: &Args) -> CmdResult {
         v
     };
     let fmt = a.string("format", "image");
-    let movie = fmt != "image";
+    let movie = fmt != "image" && fmt != "iff";
     if movie && find_program("ffmpeg").is_none() {
         fail!("playblast: format \"{fmt}\" needs ffmpeg, and there is none on the PATH. Install it, or use -format image for an image sequence.");
     }
@@ -731,55 +836,122 @@ fn playblast(s: &mut Session, a: &Args) -> CmdResult {
         "tif" | "tiff" => "tif",
         _ => "png",
     };
+    let fps = s.run("playbackOptions", json!({"query": true, "queried": ["framesPerSecond"]})).ok().and_then(|v| v.as_f64()).unwrap_or(24.0);
+    let sounds = playblast_sounds(s, a, frames.first().copied().unwrap_or(time));
+    // -replaceAudioOnly: the movie keeps its pictures, the sound is put in again.
+    if a.bool("replaceAudioOnly") {
+        let Some(file) = replacing.clone().or_else(|| a.get("filename").and_then(Value::as_str).map(str::to_string)) else { fail!("playblast: -replaceAudioOnly names the movie with -replaceFilename.") };
+        if !std::path::Path::new(&file).exists() {
+            fail!("playblast: {file} doesn't exist to replace the sound of.");
+        }
+        if sounds.is_empty() {
+            fail!("playblast: -replaceAudioOnly needs a sound: -s, or -uts for the timeline's.");
+        }
+        if find_program("ffmpeg").is_none() {
+            fail!("playblast: replacing a movie's sound needs ffmpeg, and there is none on the PATH.");
+        }
+        let tmp = format!("{file}.sound.{}", std::path::Path::new(&file).extension().and_then(|e| e.to_str()).unwrap_or("mov"));
+        run_ffmpeg(sound_arguments(&file, &sounds, fps, a.bool("combineSound"), &tmp), &file)?;
+        std::fs::rename(&tmp, &file).map_err(|e| CommandError::new(format!("playblast: {e}")))?;
+        return Ok(json!(file));
+    }
     let base = match a.get("filename").and_then(Value::as_str) {
         Some(p) if !p.is_empty() => p.to_string(),
-        _ => std::env::temp_dir().join("playblast").display().to_string(),
+        _ => match &replacing {
+            Some(r) if !movie => r.clone(),
+            _ => std::env::temp_dir().join("playblast").display().to_string(),
+        },
     };
     let padding = a.int("framePadding", 4).clamp(1, 16) as usize;
-    // A movie's frames go in a folder of their own, numbered from 0 whatever frames they are, for ffmpeg to read.
-    let movie_dir = movie.then(|| std::env::temp_dir().join(format!("aztek_playblast_{}", std::process::id())));
-    let movie_out = movie.then(|| movie_file_name(&base, &fmt));
-    if let Some(out) = &movie_out {
-        if !a.bool("forceOverwrite") && std::path::Path::new(out).exists() {
-            fail!("playblast: {out} exists; use -forceOverwrite.");
-        }
+    // -cameraSetup: a procedure run before each set of frames, its camera's name on the end of the file name.
+    let setups: Vec<(String, String)> = a.get("cameraSetup").map(flat_values).unwrap_or_default().chunks(2).filter(|c| c.len() == 2).map(|c| (text(&c[0]), text(&c[1]))).collect();
+    if a.has("cameraSetup") && setups.is_empty() {
+        fail!("playblast: -cameraSetup takes a procedure and a camera name.");
     }
-    let names: Vec<String> = match &movie_dir {
-        Some(d) => (0..frames.len()).map(|i| d.join(format!("frame.{i:06}.png")).display().to_string()).collect(),
-        None => frames.iter().map(|t| format!("{base}.{:0padding$}.{compression}", t.round() as i64)).collect(),
-    };
-    if !a.bool("forceOverwrite") && !movie {
-        if let Some(n) = names.iter().find(|n| std::path::Path::new(n).exists()) {
-            fail!("playblast: {n} exists; use -forceOverwrite.");
+    let passes: Vec<(String, String)> = if setups.is_empty() { vec![(String::new(), base.clone())] } else { setups.iter().map(|(p, cam)| (p.clone(), format!("{base}{cam}"))).collect() };
+    let index_from_zero = a.bool("indexFromZero");
+    let mut payload_passes = Vec::new();
+    let mut outs: Vec<(Option<std::path::PathBuf>, Option<String>, String)> = Vec::new();
+    for (k, (proc_name, stem)) in passes.iter().enumerate() {
+        // A movie's frames go in a folder of their own, numbered from 0 whatever frames they are, for ffmpeg to read.
+        let movie_dir = movie.then(|| std::env::temp_dir().join(format!("aztek_playblast_{}_{k}", std::process::id())));
+        let movie_out = movie.then(|| if replacing.is_some() && setups.is_empty() { replacing.clone().unwrap() } else { movie_file_name(stem, &fmt) });
+        if let Some(out) = &movie_out {
+            if !a.bool("forceOverwrite") && replacing.is_none() && std::path::Path::new(out).exists() {
+                fail!("playblast: {out} exists; use -forceOverwrite.");
+            }
         }
+        let names: Vec<String> = match &movie_dir {
+            Some(d) => (0..frames.len()).map(|i| d.join(format!("frame.{i:06}.png")).display().to_string()).collect(),
+            None => frames.iter().enumerate().map(|(i, t)| format!("{stem}.{:0padding$}.{compression}", if index_from_zero { i as i64 } else { t.round() as i64 })).collect(),
+        };
+        if !a.bool("forceOverwrite") && !movie && replacing.is_none() {
+            if let Some(n) = names.iter().find(|n| std::path::Path::new(n).exists()) {
+                fail!("playblast: {n} exists; use -forceOverwrite.");
+            }
+        }
+        payload_passes.push(json!({"setup": proc_name, "files": names}));
+        outs.push((movie_dir, movie_out, format!("{stem}.{}.{compression}", "#".repeat(padding))));
     }
     let wh = a.get("widthHeight").map(|v| v.as_array().map(|l| (l.first().and_then(Value::as_i64).unwrap_or(0), l.get(1).and_then(Value::as_i64).unwrap_or(0))).unwrap_or((0, 0))).unwrap_or((a.int("width", 0), a.int("height", 0)));
     let panel = a.get("editorPanelName").map(text).unwrap_or_else(focus_model_panel);
-    let payload = json!({"frames": frames, "files": names, "width": wh.0, "height": wh.1, "percent": a.float("percent", 50.0), "quality": a.int("quality", 90), "panel": panel, "viewer": a.has("viewer") && a.bool("viewer"), "ornaments": !a.has("showOrnaments") || a.bool("showOrnaments")});
+    let payload = json!({
+        "frames": frames, "files": payload_passes[0]["files"], "passes": payload_passes, "width": wh.0, "height": wh.1, "percent": a.float("percent", 50.0),
+        "quality": a.int("quality", 90), "panel": panel, "viewer": a.has("viewer") && a.bool("viewer"), "ornaments": !a.has("showOrnaments") || a.bool("showOrnaments"),
+        "exposure": a.float("exposure", 0.0), "gamma": a.float("gamma", 1.0),
+    });
     // Each frame is set and drawn by the shell. With none there are no pixels to write.
     let written = crate::scriptui::call_hook("playblast", &payload);
     if written.is_none() {
+        if throw {
+            fail!("playblast: no view to capture without the interface.");
+        }
         crate::script_jobs::warn("playblast: no view to capture without the interface; nothing was written.");
     }
-    aztek_scene::anim::set_frame(&mut s.graph, time);
-    if let (Some(dir), Some(out)) = (movie_dir, movie_out) {
-        if written.is_none() {
-            return Ok(json!(out));
-        }
-        let fps = s.run("playbackOptions", json!({"query": true, "queried": ["framesPerSecond"]})).ok().and_then(|v| v.as_f64()).unwrap_or(24.0);
-        let run = std::process::Command::new("ffmpeg").args(movie_arguments(&dir.join("frame.%06d.png").display().to_string(), fps, &out)).output();
-        let _ = std::fs::remove_dir_all(&dir);
-        match run {
-            Ok(o) if o.status.success() => return Ok(json!(out)),
-            Ok(o) => {
-                let said = String::from_utf8_lossy(&o.stderr);
-                let last = said.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("").to_string();
-                fail!("playblast: ffmpeg could not make {out}: {last}");
-            }
-            Err(e) => fail!("playblast: could not run ffmpeg: {e}"),
-        }
+    if throw && written.as_ref().and_then(Value::as_array).is_some_and(|w| w.len() < frames.len() * passes.len()) {
+        fail!("playblast: not every frame could be written.");
     }
-    Ok(json!(format!("{base}.{}.{compression}", "#".repeat(padding))))
+    aztek_scene::anim::set_frame(&mut s.graph, time);
+    let mut first: Option<Value> = None;
+    for (movie_dir, movie_out, pattern) in outs {
+        let (Some(dir), Some(out)) = (movie_dir, movie_out) else {
+            first.get_or_insert(json!(pattern));
+            continue;
+        };
+        if written.is_none() {
+            first.get_or_insert(json!(out));
+            continue;
+        }
+        let frames_in = dir.join("frame.%06d.png").display().to_string();
+        let replace_range = replacing.is_some() && std::path::Path::new(&out).exists();
+        let fresh = if replace_range || !sounds.is_empty() { format!("{}.new.{}", dir.display(), std::path::Path::new(&out).extension().and_then(|e| e.to_str()).unwrap_or("mov")) } else { out.clone() };
+        let r = (|| -> CmdResult<()> {
+            run_ffmpeg(movie_arguments(&frames_in, fps, &fresh), &out)?;
+            if replace_range {
+                // The frames from the replace start to its end swapped into the movie there: the movie before them, the
+                // new frames, the movie after.
+                let start = (frames.first().copied().unwrap_or(0.0) - range(s, "minTime", 0.0)).max(0.0) / fps;
+                let len = frames.len() as f64 / fps;
+                let joined = format!("{fresh}.joined.{}", std::path::Path::new(&out).extension().and_then(|e| e.to_str()).unwrap_or("mov"));
+                let filter = format!("[0:v]trim=0:{start},setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[0:v]trim=start={},setpts=PTS-STARTPTS[c];[a][b][c]concat=n=3:v=1:a=0[v]", start + len);
+                let args: Vec<String> = ["-y", "-loglevel", "error", "-i", &out, "-i", &fresh, "-filter_complex", &filter, "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", &joined].iter().map(|x| x.to_string()).collect();
+                run_ffmpeg(args, &out)?;
+                let _ = std::fs::remove_file(&fresh);
+                std::fs::rename(&joined, &fresh).map_err(|e| CommandError::new(format!("playblast: {e}")))?;
+            }
+            if !sounds.is_empty() {
+                run_ffmpeg(sound_arguments(&fresh, &sounds, fps, a.bool("combineSound"), &out), &out)?;
+                let _ = std::fs::remove_file(&fresh);
+            } else if fresh != out {
+                std::fs::rename(&fresh, &out).map_err(|e| CommandError::new(format!("playblast: {e}")))?;
+            }
+            Ok(())
+        })();
+        let _ = std::fs::remove_dir_all(&dir);
+        r?;
+        first.get_or_insert(json!(out));
+    }
+    Ok(first.unwrap_or(Value::Null))
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -810,17 +982,17 @@ pub fn register(s: &mut Session) {
     }
     s.register(gp.flag(f("atPosition", "ap", ArgType::Any).multi(2)));
 
-    let spec = "camera:cam:a modelEditor:me:b label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a unParent:up:b useTemplate:ut:a barLayout:bl:b query:q:b edit:e:b queried::a";
+    let spec = "camera:cam:a modelEditor:me:b label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a tearOffRestore:tor:b menuBarRepeatLast:mrl:b unParent:up:b useTemplate:ut:a barLayout:bl:b query:q:b edit:e:b queried::a";
     s.register(add_spec(Cmd::new("modelPanel", "A panel holding a view: -q -cam, -e -cam, -me its editor.", |_s, a| panel_common("modelPanel", a)).positional("name").undoable(false), spec));
     for (name, editor) in [("outlinerPanel", "outlinerEditor:oe:b"), ("blendShapePanel", "blendShapeEditor:be:b"), ("posePanel", "poseEditor:pe:b")] {
         let kind: &'static str = name;
         let c = Cmd::new(kind, "A panel holding an editor of its kind: the editor has the panel's name.", move |_s, a| panel_common(kind, a)).positional("name").undoable(false);
-        s.register(add_spec(add_spec(c, editor), "label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a"));
+        s.register(add_spec(add_spec(c, editor), "label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a tearOffRestore:tor:b menuBarRepeatLast:mrl:b unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a"));
     }
-    s.register(add_spec(Cmd::new("panel", "Any panel: -ex, -l, -ctl, -p.", |_s, a| panel_common("panel", a)).positional("name").undoable(false), "label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a"));
+    s.register(add_spec(Cmd::new("panel", "Any panel: -ex, -l, -ctl, -p.", |_s, a| panel_common("panel", a)).positional("name").undoable(false), "label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a tearOffRestore:tor:b menuBarRepeatLast:mrl:b unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a"));
     s.register(add_spec(
         Cmd::new("scriptedPanel", "A panel of a scripted type: -typ the type, -l, -p. The type's callbacks build it.", |_s, a| scripted_panel(a)).positional("name").undoable(false),
-        "type:typ:a label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a",
+        "type:typ:a label:l:a parent:p:a control:ctl:b copy:cp:a createString:cs:b defineTemplate:dt:a docTag:dtg:a editString:es:b exists:ex:b init:in:b isUnique:iu:b menuBarVisible:mbv:b needsInit:ni:b popupMenuProcedure:pmp:a replacePanel:rp:a tearOff:to:b tearOffCopy:toc:a tearOffRestore:tor:b menuBarRepeatLast:mrl:b unParent:up:b useTemplate:ut:a query:q:b edit:e:b queried::a",
     ));
     s.register(add_spec(
         Cmd::new("scriptedPanelType", "Declare a scripted panel type: -ccb -icb -acb -rcb -dcb -scb the procedures that build and keep it.", |_s, a| {
@@ -1199,13 +1371,14 @@ pub fn register(s: &mut Session) {
         .flag(f("down", "d", ArgType::Float)),
     );
 
-    let mut pb = Cmd::new("playblast", "Write the view's frames as an image sequence: -f name, -fmt image, -st -et or -fr, -wh, -p percent, -fp padding, -fo overwrite, -c png jpg bmp tif. Returns the file pattern.", playblast).undoable(false);
-    for (n, sh) in [("filename", "f"), ("format", "fmt"), ("startTime", "st"), ("endTime", "et"), ("widthHeight", "wh"), ("width", "w"), ("height", "h"), ("framePadding", "fp"), ("percent", "p"), ("compression", "c"), ("quality", "qlt"), ("frame", "fr"), ("editorPanelName", "epn"), ("sound", "s"), ("sequenceTime", "sqt"), ("completeFilename", "cf"), ("indexFromZero", "ifz")] {
+    let mut pb = Cmd::new("playblast", "Write the view's frames as an image sequence or a movie: -f name, -fmt image or movie, -st -et or -fr, -wh, -p percent, -fp padding, -fo overwrite, -c png jpg bmp tif, -exp -g exposure and gamma, -cs a setup procedure per camera, -s or -uts sound into a movie (-csd as one track), -rf -rst -ret to replace frames of a movie, -rao its sound only. Returns the file pattern or the movie.", playblast).undoable(false);
+    for (n, sh) in [("filename", "f"), ("format", "fmt"), ("startTime", "st"), ("endTime", "et"), ("widthHeight", "wh"), ("width", "w"), ("height", "h"), ("framePadding", "fp"), ("percent", "p"), ("compression", "c"), ("quality", "qlt"), ("frame", "fr"), ("editorPanelName", "epn"), ("sound", "s"), ("sequenceTime", "sqt"), ("completeFilename", "cf"), ("replaceFilename", "rf"), ("replaceStartTime", "rst"), ("replaceEndTime", "ret"), ("exposure", "exp"), ("gamma", "g")] {
         pb = pb.flag(f(n, sh, ArgType::Any));
     }
-    for (n, sh) in [("viewer", "v"), ("forceOverwrite", "fo"), ("clearCache", "cc"), ("showOrnaments", "orn"), ("offScreen", "os"), ("offScreenViewportUpdate", "ofv"), ("activeEditor", "ae"), ("rawFrameNumbers", "rfn"), ("saveFilmGate", "sfg"), ("query", "q")] {
+    for (n, sh) in [("viewer", "v"), ("forceOverwrite", "fo"), ("clearCache", "cc"), ("showOrnaments", "orn"), ("offScreen", "os"), ("offScreenViewportUpdate", "osv"), ("activeEditor", "ae"), ("rawFrameNumbers", "rfn"), ("saveFilmGate", "sfg"), ("indexFromZero", "ifz"), ("options", "o"), ("codecOptions", "co"), ("combineSound", "csd"), ("useTraxSounds", "uts"), ("useSequencerSounds", "uss"), ("replaceAudioOnly", "rao"), ("throwOnError", "toe"), ("query", "q")] {
         pb = pb.flag(f(n, sh, ArgType::Bool));
     }
+    pb = pb.flag(f("cameraSetup", "cs", ArgType::Any).multi(2));
     s.register(pb.flag(f("queried", "", ArgType::Any)));
 }
 

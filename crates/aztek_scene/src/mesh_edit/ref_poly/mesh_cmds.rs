@@ -1093,7 +1093,7 @@ impl NodeBehavior for CreateFaceNode {
     }
 }
 
-fn points_of(a: &Args, flag: &str) -> Vec<DVec3> {
+pub(crate) fn points_of(a: &Args, flag: &str) -> Vec<DVec3> {
     fn walk(v: &Value, out: &mut Vec<f64>) {
         match v {
             Value::Array(x) => x.iter().for_each(|y| walk(y, out)),
@@ -1516,6 +1516,8 @@ pub(super) fn register(c: &mut Commands<Session>) {
         "polyAppend",
         &[],
     ));
+    crate::history_qe::extend(c, "polyAppend", &["polyAppend"], &[], Vec::new());
+    crate::history_qe::extend(c, "polyAverageVertex", &["polyAverageVertex"], &[], Vec::new());
 
     c.register(with_table(
         Cmd::new(

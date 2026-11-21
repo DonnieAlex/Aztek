@@ -497,7 +497,149 @@ fn auto_place(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!([at.x * k, at.y * k, at.z * k]))
 }
 
+/// overrideModifier: modifier keys forced down and forced up, as bits of the views' mouse modifiers (1 shift, 2 ctrl,
+/// 4 alt).
+static FORCED_DOWN: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+static FORCED_UP: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
+/// The modifiers a view's mouse event goes on with, overrideModifier's forcing applied.
+pub fn forced_modifiers(mods: i32) -> i32 {
+    use std::sync::atomic::Ordering;
+    (mods | FORCED_DOWN.load(Ordering::Relaxed)) & !FORCED_UP.load(Ordering::Relaxed)
+}
+
+fn modifier_bit(name: &str) -> CmdResult<i32> {
+    Ok(match name.to_ascii_lowercase().as_str() {
+        "shift" => 1,
+        "ctrl" | "control" => 2,
+        "alt" => 4,
+        _ => fail!("overrideModifier: the modifiers are Alt, Ctrl and Shift, not {name}"),
+    })
+}
+
+fn override_modifier(a: &Args) -> CmdResult {
+    use std::sync::atomic::Ordering;
+    let list = |k: &str| -> Vec<String> {
+        match a.get(k) {
+            Some(Value::Array(v)) => v.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+            Some(Value::String(x)) => vec![x.clone()],
+            _ => Vec::new(),
+        }
+    };
+    if a.bool("clear") {
+        FORCED_DOWN.store(0, Ordering::Relaxed);
+        FORCED_UP.store(0, Ordering::Relaxed);
+    }
+    for m in list("press") {
+        let b = modifier_bit(&m)?;
+        FORCED_DOWN.fetch_or(b, Ordering::Relaxed);
+        FORCED_UP.fetch_and(!b, Ordering::Relaxed);
+    }
+    for m in list("release") {
+        let b = modifier_bit(&m)?;
+        FORCED_UP.fetch_or(b, Ordering::Relaxed);
+        FORCED_DOWN.fetch_and(!b, Ordering::Relaxed);
+    }
+    push_ui_request(format!("overrideModifier|{}", json!({"down": FORCED_DOWN.load(Ordering::Relaxed), "up": FORCED_UP.load(Ordering::Relaxed)})));
+    Ok(Value::Null)
+}
+
+/// A display filter a plug-in registered: its label, classification and how many times it was registered.
+#[derive(Clone)]
+struct DisplayFilter {
+    label: String,
+    classification: String,
+    count: u32,
+}
+
+thread_local! {
+    static DISPLAY_FILTERS: RefCell<Vec<(String, DisplayFilter)>> = const { RefCell::new(Vec::new()) };
+}
+
+fn plugin_display_filter(a: &Args) -> CmdResult {
+    let name = a.pos_str(0).map(str::to_string);
+    if asked(a, "listFilters") {
+        return Ok(json!(DISPLAY_FILTERS.with(|f| f.borrow().iter().map(|(n, _)| n.clone()).collect::<Vec<_>>())));
+    }
+    let Some(name) = name else { fail!("pluginDisplayFilter: name a display filter") };
+    let find = |n: &str| DISPLAY_FILTERS.with(|f| f.borrow().iter().find(|(k, _)| k == n).map(|(_, v)| v.clone()));
+    if a.bool("exists") {
+        return Ok(json!(find(&name).is_some()));
+    }
+    if a.bool("query") {
+        let Some(d) = find(&name) else { fail!("pluginDisplayFilter: no display filter named {name}") };
+        if asked(a, "classification") {
+            return Ok(json!(d.classification));
+        }
+        return Ok(json!(d.label));
+    }
+    if a.bool("deregister") {
+        let gone = DISPLAY_FILTERS.with(|f| {
+            let mut f = f.borrow_mut();
+            let Some(i) = f.iter().position(|(k, _)| *k == name) else { return Err(()) };
+            f[i].1.count -= 1;
+            if f[i].1.count == 0 {
+                f.remove(i);
+            }
+            Ok(())
+        });
+        if gone.is_err() {
+            fail!("pluginDisplayFilter: no display filter named {name}");
+        }
+    } else {
+        // -register, which create mode means when neither is given. Registered twice, it takes two deregisters.
+        let label = a.get("label").and_then(Value::as_str).map(str::to_string);
+        let class = a.get("classification").and_then(Value::as_str).map(str::to_string);
+        DISPLAY_FILTERS.with(|f| {
+            let mut f = f.borrow_mut();
+            match f.iter_mut().find(|(k, _)| *k == name) {
+                Some((_, d)) => {
+                    d.count += 1;
+                    if let Some(l) = label {
+                        d.label = l;
+                    }
+                    if let Some(c) = class {
+                        d.classification = c;
+                    }
+                }
+                None => f.push((name.clone(), DisplayFilter { label: label.unwrap_or_else(|| name.clone()), classification: class.unwrap_or_default(), count: 1 })),
+            }
+        });
+    }
+    let list: Vec<Value> = DISPLAY_FILTERS.with(|f| f.borrow().iter().map(|(n, d)| json!({"name": n, "label": d.label, "classification": d.classification})).collect());
+    push_ui_request(format!("pluginDisplayFilters|{}", Value::Array(list)));
+    Ok(json!(name))
+}
+
 pub fn register(s: &mut Session) {
+    s.register(
+        Cmd::new(
+            "overrideModifier",
+            "Make another input act as a modifier key: -p Alt, Ctrl or Shift forces it down, -r forces it up (each may be used more than once), \
+             -cl forces none. The keys themselves go on working; the views take the forced ones with their mouse events.",
+            |_s, a| override_modifier(a),
+        )
+        .flag(f("clear", "cl", B, "Force no modifier keys."))
+        .flag(f("press", "p", L, "Force this modifier down: Alt, Ctrl or Shift.").multi(1))
+        .flag(f("release", "r", L, "Force this modifier up: Alt, Ctrl or Shift.").multi(1))
+        .undoable(false),
+    );
+    s.register(
+        q_flags(Cmd::new(
+            "pluginDisplayFilter",
+            "A plug-in's display filter for the views' Show menus: -r registers one (the default) with -l a label and -cls the classification of \
+             the nodes it filters; -dr deregisters it (as many times as it was registered); -ex whether one exists; -q -l, -q -cls, -q -lf every filter.",
+            |_s, a| plugin_display_filter(a),
+        ))
+        .positional("the filter's name")
+        .flag(f("register", "r", B, "Register the filter (what create mode does without -dr)."))
+        .flag(f("deregister", "dr", B, "Deregister the filter."))
+        .flag(f("exists", "ex", B, "Whether the filter exists."))
+        .flag(f("label", "l", S, "The label the Show menus give it; its name by default."))
+        .flag(f("classification", "cls", S, "The classification of the nodes it filters, as the plug-in registered them; empty filters nothing."))
+        .flag(f("listFilters", "lf", B, "With -q: every display filter."))
+        .undoable(false),
+    );
     s.register(
         Cmd::new("autoPlace", "The point at the centre of the view in focus on the live surface, or on the ground plane when nothing is live; -um the point under the mouse. Returns x y z.", auto_place)
             .flag(f("useMouse", "um", B, "The mouse's place in the view rather than its centre.")),

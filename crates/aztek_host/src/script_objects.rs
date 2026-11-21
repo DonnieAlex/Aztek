@@ -352,9 +352,10 @@ fn panel_configuration(a: &Args) -> CmdResult {
             let panels: Vec<Value> = x.get("panels").and_then(Value::as_array).cloned().unwrap_or_default();
             let column = |i: usize| Value::Array(panels.iter().map(|p| p.get(i).cloned().unwrap_or(Value::Null)).collect());
             Ok(match q.as_str() {
-                "isFixedState" => column(0),
-                "typeStrings" => column(1),
-                "labelStrings" => column(2),
+                // Each panel as -addPanel gives it: fixed, label, type, create string, edit string.
+                "isFixedState" => Value::Array(panels.iter().map(|p| json!(p.get(0).map(|v| v.as_bool().map_or(v.as_i64().unwrap_or(0), |b| b as i64)).unwrap_or(0))).collect()),
+                "labelStrings" => column(1),
+                "typeStrings" => column(2),
                 "createStrings" => column(3),
                 "editStrings" => column(4),
                 "numberOfPanels" => json!(panels.len()),
@@ -386,8 +387,18 @@ fn panel_configuration(a: &Args) -> CmdResult {
         for chunk in a.get("addPanel").map(flat).unwrap_or_default().chunks(5) {
             panels.push(json!(chunk));
         }
+        // -replacePanel: the panel numbered from 1 given again whole.
+        let whole = a.get("replacePanel").map(flat).unwrap_or_default();
+        for chunk in whole.chunks(6).filter(|c| c.len() == 6) {
+            let at = chunk[0].as_i64().unwrap_or(1).max(1) as usize - 1;
+            if at < panels.len() {
+                panels[at] = json!(chunk[1..].to_vec());
+            } else if at == panels.len() {
+                panels.push(json!(chunk[1..].to_vec()));
+            }
+        }
         // -replace... name a panel by its number from 1, then the new value.
-        for (flag, col) in [("replaceFixedState", 0), ("replaceTypeString", 1), ("replaceLabel", 2), ("replaceCreateString", 3), ("replaceEditString", 4)] {
+        for (flag, col) in [("replaceFixedState", 0), ("replaceLabel", 1), ("replaceTypeString", 2), ("replaceCreateString", 3), ("replaceEditString", 4)] {
             let v = a.get(flag).map(flat).unwrap_or_default();
             if let [i, val, ..] = v.as_slice() {
                 let at = i.as_i64().unwrap_or(1).max(1) as usize - 1;
@@ -400,6 +411,10 @@ fn panel_configuration(a: &Args) -> CmdResult {
         }
         x.insert("panels".to_string(), Value::Array(panels));
         for k in ["label", "configString", "defaultImage", "image", "sceneConfig", "userCreated"] {
+            // The default image, once set, stays.
+            if k == "defaultImage" && x.contains_key(k) {
+                continue;
+            }
             if let Some(v) = a.get(k) {
                 x.insert(k.to_string(), v.clone());
             }
@@ -579,8 +594,8 @@ pub fn register(s: &mut Session) {
         "activeList:act:b modelList:mdl:b keyframeList:key:b worldList:wl:b objectList:ol:b highlightList:hl:b connectionList:crl:b characterList:cl:b setList:sl:b addScript:as:a removeScript:rs:a addTo:add:a1 clear:clr:b deselect:d:a1 select:s:a1 remove:rm:a1 object:obj:a1 filter:f:a findObject:fo:a global:g:a identify:id:b lock:lck:b parent:p:a switch:sw:b exists:ex:b query:q:b edit:e:b queried::a",
     ));
     s.register(add(
-        Cmd::new("panelConfiguration", "A named arrangement of panels: -addPanel (fixed, type, label, create, edit), -configString, -label; getPanel -allConfigs lists them.", |_s, a| panel_configuration(a)).positional("[name]").undoable(false),
-        "addPanel:ap:a5 configString:cfs:a defaultImage:dimg:a image:img:a label:l:a labelStrings:lbl:b createStrings:ccs:b editStrings:ecs:b typeStrings:tys:b isFixedState:ifs:b numberOfPanels:np:b removeAllPanels:rap:b removeLastPanel:rlp:b replaceCreateString:rcs:a2 replaceEditString:res:a2 replaceFixedState:rfs:a2 replaceLabel:rl:a2 replaceTypeString:rts:a2 sceneConfig:sc:b userCreated:uc:b defineTemplate:dt:a useTemplate:ut:a exists:ex:b query:q:b edit:e:b queried::a",
+        Cmd::new("panelConfiguration", "A named arrangement of panels: -addPanel (fixed, label, type, create, edit), -replacePanel (number, then the same), -configString, -label; getPanel -allConfigs lists them.", |_s, a| panel_configuration(a)).positional("[name]").undoable(false),
+        "addPanel:ap:a5 configString:cfs:a defaultImage:di:a image:i:a label:l:a labelStrings:ls:b createStrings:cs:b editStrings:es:b typeStrings:ts:b isFixedState:if:b numberOfPanels:np:b removeAllPanels:rap:b removeLastPanel:rlp:b replaceCreateString:rcs:a2 replaceEditString:res:a2 replaceFixedState:rfs:a2 replaceLabel:rl:a2 replaceTypeString:rts:a2 replacePanel:rp:a6 sceneConfig:sc:b userCreated:uc:b defineTemplate:dt:a useTemplate:ut:a exists:ex:b query:q:b edit:e:b queried::a",
     ));
     s.register(add(
         Cmd::new("editorTemplate", "Inside an AE<type>Template procedure: lays out the Attribute Editor with -beginLayout, -addControl, -suppress, -addSeparator, -addExtraControls, -callCustom.", |_s, a| editor_template(a)).positional("[attribute]").undoable(false),

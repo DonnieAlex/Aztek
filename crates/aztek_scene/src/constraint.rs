@@ -103,6 +103,9 @@ const OFFSET_PARENT: usize = B + 32;
 const LOCK_OUTPUT: usize = B + 33;
 const OFFSET_POLARITY: usize = B + 34;
 const CON_VECTOR: usize = B + 35;
+/// interpType Cache: the rotation baked per frame by -createCache, and whether there is one.
+const INTERP_CACHE: usize = B + 36;
+const HAS_CACHE: usize = B + 37;
 
 /// A target's world matrix with its origin moved to its rotate pivot, which is where the reference constrains to.
 fn at_pivot(m: DMat4, rp: DVec3) -> DMat4 {
@@ -454,6 +457,10 @@ impl NodeBehavior for ConstraintNode {
                 e = rotate_for(d, &with_rest(qs));
             }
         }
+        // interpType Cache with a cache: the rotation baked for this frame.
+        if interp == 4 && d.bool(HAS_CACHE) && matches!(self.kind, PARENT | ORIENT) {
+            e = d.vec3(INTERP_CACHE);
+        }
         d.set_output(OUT_T, PlugValue::Vec3(t));
         d.set_output(OUT_R, PlugValue::Vec3(e));
         d.set_output(OUT_S, PlugValue::Vec3(s));
@@ -581,6 +588,8 @@ pub(crate) fn register_types() {
                 AttrDef { short_name: "lo".into(), ..crate::attr_defs::bool_attr("lockOutput", false, "The outputs stay as they are while on.") },
                 crate::attr_defs::float_attr_short("offsetPolarity", "op", 1.0, "Point constraint: the offset's sign, 1 or -1.", None, None),
                 vec3_attr("constraintVector", "cv", DVec3::ZERO, flags::OUTPUT, "Aim constraint: from the object to its targets, in its parent's space."),
+                vec3_attr("interpCache", "ich", DVec3::ZERO, store | flags::HIDDEN, "With interpType Cache: the rotation -createCache baked, fed by its curves."),
+                AttrDef { short_name: "hic".into(), flags: store | flags::HIDDEN, ..crate::attr_defs::bool_attr("hasInterpCache", false, "Whether -createCache made a cache.") },
             ];
         for a in &mut own {
             if !kind_has(k, &a.name) {
@@ -613,6 +622,7 @@ pub(crate) fn register_types() {
         debug_assert_eq!(ty.attr_index("target.targetMatrix"), Some(T_MATRIX));
         debug_assert_eq!(ty.attr_index("lockOutput"), Some(LOCK_OUTPUT));
         debug_assert_eq!(ty.attr_index("constraintVector"), Some(CON_VECTOR));
+        debug_assert_eq!(ty.attr_index("hasInterpCache"), Some(HAS_CACHE));
     }
 }
 
@@ -1268,8 +1278,66 @@ fn to_layer(g: &mut Graph, c: NodeId, driven: NodeId, layer_name: &str, cmd: &st
     Ok(())
 }
 
+/// The curves feeding a constraint's interpCache.
+fn cache_curves(g: &Graph, c: NodeId) -> Vec<NodeId> {
+    let mut out = Vec::new();
+    for (dst, src) in g.connections() {
+        if dst.node == c && g.attr(&dst).name.starts_with("interpCache") && g.node(src.node).is_some_and(|x| x.ty().name.starts_with("animCurve")) && !out.contains(&src.node) {
+            out.push(src.node);
+        }
+    }
+    out
+}
+
+/// -createCache start end and -deleteCache: the constraint's rotation baked frame by frame into curves its
+/// interpCache reads, with interpType set to Cache; or those curves taken away.
+fn constraint_cache(s: &mut Session, a: &Args, names: &[String], cmd: &str, kind: usize) -> CmdResult {
+    let (c, _) = resolve(&s.graph, names, cmd, kind)?;
+    let path = s.graph.path(c);
+    s.graph.open_chunk(cmd);
+    let r = (|| -> CmdResult {
+        for n in cache_curves(&s.graph, c) {
+            s.graph.delete_node(n)?;
+        }
+        s.graph.set_value(plug(c, HAS_CACHE), PlugValue::Bool(false))?;
+        if a.bool("deleteCache") && !a.has("createCache") {
+            return Ok(json!([path]));
+        }
+        let range: Vec<f64> = match a.get("createCache") {
+            Some(Value::Array(v)) => v.iter().filter_map(Value::as_f64).collect(),
+            _ => Vec::new(),
+        };
+        let [start, end] = range[..] else { fail!("{cmd}: -createCache takes a start and an end frame") };
+        let (start, end) = (start.min(end), start.max(end));
+        let was = crate::anim::frame(&s.graph);
+        let mut baked = Vec::new();
+        let mut t = start;
+        while t <= end + 1e-9 {
+            crate::anim::set_frame(&mut s.graph, t);
+            s.graph.evaluate();
+            baked.push((t, vec3_of(&s.graph, c, OUT_R)));
+            t += 1.0;
+        }
+        crate::anim::set_frame(&mut s.graph, was);
+        for (k, axis) in ["X", "Y", "Z"].iter().enumerate() {
+            for &(t, e) in &baked {
+                s.run("setKeyframe", json!({"args": [format!("{path}.interpCache{axis}")], "time": t, "value": e[k]}))?;
+            }
+        }
+        s.graph.set_value(plug(c, HAS_CACHE), PlugValue::Bool(true))?;
+        s.graph.set_value(plug(c, INTERP), PlugValue::Int(4))?;
+        s.graph.evaluate();
+        Ok(json!([path]))
+    })();
+    s.graph.close_chunk();
+    r
+}
+
 fn constrain(s: &mut Session, a: &Args, cmd: &str, kind: usize) -> CmdResult {
     let names = objects(s, a);
+    if matches!(kind, PARENT | ORIENT) && (a.has("createCache") || a.bool("deleteCache")) {
+        return constraint_cache(s, a, &names, cmd, kind);
+    }
     let g = &mut s.graph;
     if a.bool("query") {
         let (c, targets) = resolve(g, &names, cmd, kind)?;
@@ -1429,6 +1497,9 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("skip", "sk", ArgType::Any, "Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once.").multi(1))
             .flag(f("skipScale", "", ArgType::Any, "Scale axes to leave alone: x, y, z or none.").multi(1))
             .flag(f("layer", "l", ArgType::String, "The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under."))
+            .flag(f("createCache", "cc", ArgType::Any, "Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced.").multi(2))
+            .flag(f("deleteCache", "dc", ArgType::Bool, "Parent and orient constraints, with -e: take the cache away."))
+            .flag(f("decompRotationToChild", "dr", ArgType::Bool, "Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here."))
             .flag(f("edit", "e", ArgType::Bool, "Change the constraint."))
             .flag(f("query", "q", ArgType::Bool, "Ask about the constraint."))
             .flag(f("queried", "", ArgType::List, "Flags asked about in query mode.")),

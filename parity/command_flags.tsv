@@ -4466,9 +4466,9 @@ blendShapePanel	iu	done	auto
 blendShapePanel	l	done	auto
 blendShapePanel	label	done	auto
 blendShapePanel	mbv	done	auto
-blendShapePanel	menuBarRepeatLast	missing	
+blendShapePanel	menuBarRepeatLast	done	auto
 blendShapePanel	menuBarVisible	done	auto
-blendShapePanel	mrl	missing	
+blendShapePanel	mrl	done	auto
 blendShapePanel	needsInit	done	auto
 blendShapePanel	ni	done	auto
 blendShapePanel	p	done	auto
@@ -4481,10 +4481,10 @@ blendShapePanel	replacePanel	done	auto
 blendShapePanel	rp	done	auto
 blendShapePanel	tearOff	done	auto
 blendShapePanel	tearOffCopy	done	auto
-blendShapePanel	tearOffRestore	missing	
+blendShapePanel	tearOffRestore	done	auto
 blendShapePanel	to	done	auto
 blendShapePanel	toc	done	auto
-blendShapePanel	tor	missing	
+blendShapePanel	tor	done	auto
 blendShapePanel	unParent	done	auto
 blendShapePanel	up	done	auto
 blendShapePanel	useTemplate	done	auto
@@ -19945,10 +19945,10 @@ modelPanel	l	done	auto
 modelPanel	label	done	auto
 modelPanel	mbv	done	auto
 modelPanel	me	done	auto
-modelPanel	menuBarRepeatLast	missing	
+modelPanel	menuBarRepeatLast	done	auto
 modelPanel	menuBarVisible	done	auto
 modelPanel	modelEditor	done	auto
-modelPanel	mrl	missing	
+modelPanel	mrl	done	auto
 modelPanel	needsInit	done	auto
 modelPanel	ni	done	auto
 modelPanel	p	done	auto
@@ -19961,10 +19961,10 @@ modelPanel	replacePanel	done	auto
 modelPanel	rp	done	auto
 modelPanel	tearOff	done	auto
 modelPanel	tearOffCopy	done	auto
-modelPanel	tearOffRestore	missing	
+modelPanel	tearOffRestore	done	auto
 modelPanel	to	done	auto
 modelPanel	toc	done	auto
-modelPanel	tor	missing	
+modelPanel	tor	done	auto
 modelPanel	unParent	done	auto
 modelPanel	up	done	auto
 modelPanel	useTemplate	done	auto
@@ -21143,20 +21143,20 @@ nurbsEditUV	v	done	auto
 nurbsEditUV	vValue	done	auto
 nurbsPlane	ax	done	auto
 nurbsPlane	axis	done	auto
-nurbsPlane	caching	missing	
-nurbsPlane	cch	missing	
+nurbsPlane	caching	done	auto
+nurbsPlane	cch	done	auto
 nurbsPlane	ch	done	auto
 nurbsPlane	constructionHistory	done	auto
 nurbsPlane	d	done	auto
 nurbsPlane	degree	done	auto
-nurbsPlane	e	missing	
-nurbsPlane	edit	missing	
+nurbsPlane	e	done	auto
+nurbsPlane	edit	done	auto
 nurbsPlane	lengthRatio	done	auto
 nurbsPlane	lr	done	auto
 nurbsPlane	n	done	auto
 nurbsPlane	name	done	auto
-nurbsPlane	nds	missing	
-nurbsPlane	nodeState	missing	
+nurbsPlane	nds	done	auto
+nurbsPlane	nodeState	done	auto
 nurbsPlane	o	done	auto
 nurbsPlane	object	done	auto
 nurbsPlane	p	done	auto
@@ -21165,8 +21165,8 @@ nurbsPlane	patchesV	done	auto
 nurbsPlane	pivot	done	auto
 nurbsPlane	po	done	auto
 nurbsPlane	polygon	done	auto
-nurbsPlane	q	missing	
-nurbsPlane	query	missing	
+nurbsPlane	q	done	auto
+nurbsPlane	query	done	auto
 nurbsPlane	u	done	auto
 nurbsPlane	v	done	auto
 nurbsPlane	w	done	auto
@@ -21186,69 +21186,69 @@ nurbsSelect	ss	done	auto
 nurbsSelect	tb	done	auto
 nurbsSelect	topBorder	done	auto
 nurbsSquare	c	done	auto
-nurbsSquare	caching	missing	
-nurbsSquare	cch	missing	
+nurbsSquare	caching	done	auto
+nurbsSquare	cch	done	auto
 nurbsSquare	center	done	auto
-nurbsSquare	centerX	missing	
-nurbsSquare	centerY	missing	
-nurbsSquare	centerZ	missing	
-nurbsSquare	ch	missing	
-nurbsSquare	constructionHistory	missing	
-nurbsSquare	cx	missing	
-nurbsSquare	cy	missing	
-nurbsSquare	cz	missing	
-nurbsSquare	d	missing	
-nurbsSquare	degree	missing	
-nurbsSquare	e	missing	
-nurbsSquare	edit	missing	
+nurbsSquare	centerX	done	auto
+nurbsSquare	centerY	done	auto
+nurbsSquare	centerZ	done	auto
+nurbsSquare	ch	done	auto
+nurbsSquare	constructionHistory	done	auto
+nurbsSquare	cx	done	auto
+nurbsSquare	cy	done	auto
+nurbsSquare	cz	done	auto
+nurbsSquare	d	done	auto
+nurbsSquare	degree	done	auto
+nurbsSquare	e	done	auto
+nurbsSquare	edit	done	auto
 nurbsSquare	n	done	auto
 nurbsSquare	name	done	auto
-nurbsSquare	nds	missing	
-nurbsSquare	nodeState	missing	
+nurbsSquare	nds	done	auto
+nurbsSquare	nodeState	done	auto
 nurbsSquare	normal	done	auto
-nurbsSquare	normalX	missing	
-nurbsSquare	normalY	missing	
-nurbsSquare	normalZ	missing	
+nurbsSquare	normalX	done	auto
+nurbsSquare	normalY	done	auto
+nurbsSquare	normalZ	done	auto
 nurbsSquare	nr	done	auto
-nurbsSquare	nrx	missing	
-nurbsSquare	nry	missing	
-nurbsSquare	nrz	missing	
-nurbsSquare	o	missing	
-nurbsSquare	object	missing	
-nurbsSquare	q	missing	
-nurbsSquare	query	missing	
+nurbsSquare	nrx	done	auto
+nurbsSquare	nry	done	auto
+nurbsSquare	nrz	done	auto
+nurbsSquare	o	done	auto
+nurbsSquare	object	done	auto
+nurbsSquare	q	done	auto
+nurbsSquare	query	done	auto
 nurbsSquare	sideLength1	done	auto
-nurbsSquare	sideLength2	missing	
+nurbsSquare	sideLength2	done	auto
 nurbsSquare	sl1	done	auto
-nurbsSquare	sl2	missing	
-nurbsSquare	spansPerSide	missing	
-nurbsSquare	sps	missing	
-nurbsToPoly	caching	missing	
-nurbsToPoly	cch	missing	
+nurbsSquare	sl2	done	auto
+nurbsSquare	spansPerSide	done	auto
+nurbsSquare	sps	done	auto
+nurbsToPoly	caching	done	auto
+nurbsToPoly	cch	done	auto
 nurbsToPoly	ch	done	auto
 nurbsToPoly	constructionHistory	done	auto
-nurbsToPoly	curvatureTolerance	missing	
-nurbsToPoly	cvt	missing	
-nurbsToPoly	e	missing	
-nurbsToPoly	edit	missing	
-nurbsToPoly	esr	missing	
-nurbsToPoly	eta	missing	
-nurbsToPoly	explicitTessellationAttributes	missing	
+nurbsToPoly	curvatureTolerance	done	auto
+nurbsToPoly	cvt	done	auto
+nurbsToPoly	e	done	auto
+nurbsToPoly	edit	done	auto
+nurbsToPoly	esr	done	auto
+nurbsToPoly	eta	done	auto
+nurbsToPoly	explicitTessellationAttributes	done	auto
 nurbsToPoly	n	done	auto
 nurbsToPoly	name	done	auto
-nurbsToPoly	nds	missing	
-nurbsToPoly	nodeState	missing	
-nurbsToPoly	nuf	missing	
-nurbsToPoly	nvf	missing	
-nurbsToPoly	o	missing	
-nurbsToPoly	object	missing	
-nurbsToPoly	q	missing	
-nurbsToPoly	query	missing	
-nurbsToPoly	smoothEdge	missing	
-nurbsToPoly	smoothEdgeRatio	missing	
-nurbsToPoly	uDivisionsFactor	missing	
-nurbsToPoly	ues	missing	
-nurbsToPoly	vDivisionsFactor	missing	
+nurbsToPoly	nds	done	auto
+nurbsToPoly	nodeState	done	auto
+nurbsToPoly	nuf	done	auto
+nurbsToPoly	nvf	done	auto
+nurbsToPoly	o	done	auto
+nurbsToPoly	object	done	auto
+nurbsToPoly	q	done	auto
+nurbsToPoly	query	done	auto
+nurbsToPoly	smoothEdge	done	auto
+nurbsToPoly	smoothEdgeRatio	done	auto
+nurbsToPoly	uDivisionsFactor	done	auto
+nurbsToPoly	ues	done	auto
+nurbsToPoly	vDivisionsFactor	done	auto
 nurbsToPolygonsPref	chordHeight	missing	
 nurbsToPolygonsPref	chordHeightRatio	missing	
 nurbsToPolygonsPref	chr	missing	
@@ -21371,102 +21371,102 @@ objectType	i	done	auto
 objectType	isAType	done	auto
 objectType	isType	done	auto
 objectType	isa	done	auto
-objectType	tagFromType	missing	
-objectType	tgt	missing	
-objectType	tpt	missing	
-objectType	tt	missing	
-objectType	typeFromTag	missing	
-objectType	typeTag	missing	
+objectType	tagFromType	done	auto
+objectType	tgt	done	auto
+objectType	tpt	done	auto
+objectType	tt	done	auto
+objectType	typeFromTag	done	auto
+objectType	typeTag	done	auto
 objectTypeUI	i	done	auto
 objectTypeUI	isType	done	auto
 objectTypeUI	la	done	auto
 objectTypeUI	listAll	done	auto
 objectTypeUI	sc	done	auto
 objectTypeUI	superClasses	done	auto
-offsetCurve	caching	missing	
-offsetCurve	cb	missing	
-offsetCurve	cch	missing	
+offsetCurve	caching	done	auto
+offsetCurve	cb	done	auto
+offsetCurve	cch	done	auto
 offsetCurve	ch	done	auto
-offsetCurve	cl	missing	
-offsetCurve	connectBreaks	missing	
+offsetCurve	cl	done	auto
+offsetCurve	connectBreaks	done	auto
 offsetCurve	constructionHistory	done	auto
-offsetCurve	cr	missing	
-offsetCurve	cutLoop	missing	
-offsetCurve	cutRadius	missing	
+offsetCurve	cr	done	auto
+offsetCurve	cutLoop	done	auto
+offsetCurve	cutRadius	done	auto
 offsetCurve	d	done	auto
 offsetCurve	distance	done	auto
-offsetCurve	e	missing	
-offsetCurve	edit	missing	
+offsetCurve	e	done	auto
+offsetCurve	edit	done	auto
 offsetCurve	n	done	auto
 offsetCurve	name	done	auto
-offsetCurve	nds	missing	
-offsetCurve	nodeState	missing	
+offsetCurve	nds	done	auto
+offsetCurve	nodeState	done	auto
 offsetCurve	normal	done	auto
 offsetCurve	nr	done	auto
 offsetCurve	o	done	auto
 offsetCurve	object	done	auto
-offsetCurve	q	missing	
-offsetCurve	query	missing	
-offsetCurve	range	missing	
-offsetCurve	reparameterize	missing	
-offsetCurve	rn	missing	
-offsetCurve	rp	missing	
-offsetCurve	sd	missing	
-offsetCurve	st	missing	
-offsetCurve	stitch	missing	
-offsetCurve	subdivisionDensity	missing	
+offsetCurve	q	done	auto
+offsetCurve	query	done	auto
+offsetCurve	range	done	auto
+offsetCurve	reparameterize	done	auto
+offsetCurve	rn	done	auto
+offsetCurve	rp	done	auto
+offsetCurve	sd	done	auto
+offsetCurve	st	done	auto
+offsetCurve	stitch	done	auto
+offsetCurve	subdivisionDensity	done	auto
 offsetCurve	tol	done	auto
 offsetCurve	tolerance	done	auto
 offsetCurve	ugn	done	auto
 offsetCurve	useGivenNormal	done	auto
-offsetCurveOnSurface	caching	missing	
-offsetCurveOnSurface	cb	missing	
-offsetCurveOnSurface	cch	missing	
+offsetCurveOnSurface	caching	done	auto
+offsetCurveOnSurface	cb	done	auto
+offsetCurveOnSurface	cch	done	auto
 offsetCurveOnSurface	ch	done	auto
-offsetCurveOnSurface	checkPoints	missing	
-offsetCurveOnSurface	cl	missing	
-offsetCurveOnSurface	connectBreaks	missing	
+offsetCurveOnSurface	checkPoints	done	auto
+offsetCurveOnSurface	cl	done	auto
+offsetCurveOnSurface	connectBreaks	done	auto
 offsetCurveOnSurface	constructionHistory	done	auto
-offsetCurveOnSurface	cp	missing	
-offsetCurveOnSurface	cutLoop	missing	
+offsetCurveOnSurface	cp	done	auto
+offsetCurveOnSurface	cutLoop	done	auto
 offsetCurveOnSurface	d	done	auto
 offsetCurveOnSurface	distance	done	auto
-offsetCurveOnSurface	e	missing	
-offsetCurveOnSurface	edit	missing	
+offsetCurveOnSurface	e	done	auto
+offsetCurveOnSurface	edit	done	auto
 offsetCurveOnSurface	n	done	auto
 offsetCurveOnSurface	name	done	auto
-offsetCurveOnSurface	nds	missing	
-offsetCurveOnSurface	nodeState	missing	
+offsetCurveOnSurface	nds	done	auto
+offsetCurveOnSurface	nodeState	done	auto
 offsetCurveOnSurface	o	done	auto
 offsetCurveOnSurface	object	done	auto
-offsetCurveOnSurface	q	missing	
-offsetCurveOnSurface	query	missing	
-offsetCurveOnSurface	range	missing	
-offsetCurveOnSurface	rn	missing	
-offsetCurveOnSurface	sd	missing	
-offsetCurveOnSurface	st	missing	
-offsetCurveOnSurface	stitch	missing	
-offsetCurveOnSurface	subdivisionDensity	missing	
-offsetCurveOnSurface	tol	missing	
-offsetCurveOnSurface	tolerance	missing	
-offsetSurface	caching	missing	
-offsetSurface	cch	missing	
+offsetCurveOnSurface	q	done	auto
+offsetCurveOnSurface	query	done	auto
+offsetCurveOnSurface	range	done	auto
+offsetCurveOnSurface	rn	done	auto
+offsetCurveOnSurface	sd	done	auto
+offsetCurveOnSurface	st	done	auto
+offsetCurveOnSurface	stitch	done	auto
+offsetCurveOnSurface	subdivisionDensity	done	auto
+offsetCurveOnSurface	tol	done	auto
+offsetCurveOnSurface	tolerance	done	auto
+offsetSurface	caching	done	auto
+offsetSurface	cch	done	auto
 offsetSurface	ch	done	auto
 offsetSurface	constructionHistory	done	auto
 offsetSurface	d	done	auto
 offsetSurface	distance	done	auto
-offsetSurface	e	missing	
-offsetSurface	edit	missing	
+offsetSurface	e	done	auto
+offsetSurface	edit	done	auto
 offsetSurface	m	done	auto
 offsetSurface	method	done	auto
 offsetSurface	n	done	auto
 offsetSurface	name	done	auto
-offsetSurface	nds	missing	
-offsetSurface	nodeState	missing	
+offsetSurface	nds	done	auto
+offsetSurface	nodeState	done	auto
 offsetSurface	o	done	auto
 offsetSurface	object	done	auto
-offsetSurface	q	missing	
-offsetSurface	query	missing	
+offsetSurface	q	done	auto
+offsetSurface	query	done	auto
 ogs	deviceInformation	missing	
 ogs	di	missing	
 ogs	disposeReleasableTextures	missing	
@@ -21617,8 +21617,8 @@ optionMenu	l	done	auto
 optionMenu	label	done	auto
 optionMenu	m	done	auto
 optionMenu	manage	done	auto
-optionMenu	maxVisibleItems	missing	
-optionMenu	mvi	missing	
+optionMenu	maxVisibleItems	done	auto
+optionMenu	mvi	done	auto
 optionMenu	nbg	done	auto
 optionMenu	ni	done	auto
 optionMenu	noBackground	done	auto
@@ -21629,11 +21629,11 @@ optionMenu	p	done	auto
 optionMenu	parent	done	auto
 optionMenu	pma	done	auto
 optionMenu	pmc	done	auto
-optionMenu	pmo	missing	
+optionMenu	pmo	done	auto
 optionMenu	po	done	auto
 optionMenu	popupMenuArray	done	auto
 optionMenu	postMenuCommand	done	auto
-optionMenu	postMenuCommandOnce	missing	
+optionMenu	postMenuCommandOnce	done	auto
 optionMenu	preventOverride	done	auto
 optionMenu	q	done	auto
 optionMenu	query	done	auto
@@ -21886,10 +21886,10 @@ orbitCtx	q	done	auto
 orbitCtx	query	done	auto
 orbitCtx	tn	done	auto
 orbitCtx	toolName	done	auto
-orientConstraint	cc	missing	
-orientConstraint	createCache	missing	
-orientConstraint	dc	missing	
-orientConstraint	deleteCache	missing	
+orientConstraint	cc	done	auto
+orientConstraint	createCache	done	auto
+orientConstraint	dc	done	auto
+orientConstraint	deleteCache	done	auto
 orientConstraint	e	done	auto
 orientConstraint	edit	done	auto
 orientConstraint	l	done	auto
@@ -22148,9 +22148,9 @@ outlinerPanel	iu	done	auto
 outlinerPanel	l	done	auto
 outlinerPanel	label	done	auto
 outlinerPanel	mbv	done	auto
-outlinerPanel	menuBarRepeatLast	missing	
+outlinerPanel	menuBarRepeatLast	done	auto
 outlinerPanel	menuBarVisible	done	auto
-outlinerPanel	mrl	missing	
+outlinerPanel	mrl	done	auto
 outlinerPanel	needsInit	done	auto
 outlinerPanel	ni	done	auto
 outlinerPanel	oe	done	auto
@@ -22165,10 +22165,10 @@ outlinerPanel	replacePanel	done	auto
 outlinerPanel	rp	done	auto
 outlinerPanel	tearOff	done	auto
 outlinerPanel	tearOffCopy	done	auto
-outlinerPanel	tearOffRestore	missing	
+outlinerPanel	tearOffRestore	done	auto
 outlinerPanel	to	done	auto
 outlinerPanel	toc	done	auto
-outlinerPanel	tor	missing	
+outlinerPanel	tor	done	auto
 outlinerPanel	unParent	done	auto
 outlinerPanel	up	done	auto
 outlinerPanel	useTemplate	done	auto
@@ -22177,12 +22177,12 @@ outputWindow	q	missing
 outputWindow	query	missing	
 outputWindow	s	missing	
 outputWindow	show	missing	
-overrideModifier	cl	missing	
-overrideModifier	clear	missing	
-overrideModifier	p	missing	
-overrideModifier	press	missing	
-overrideModifier	r	missing	
-overrideModifier	release	missing	
+overrideModifier	cl	done	auto
+overrideModifier	clear	done	auto
+overrideModifier	p	done	auto
+overrideModifier	press	done	auto
+overrideModifier	r	done	auto
+overrideModifier	release	done	auto
 paintEffectsDisplay	me	missing	
 paintEffectsDisplay	meshDrawEnable	missing	
 paintEffectsDisplay	q	missing	
@@ -22319,10 +22319,10 @@ panZoomCtx	zm	missing
 panZoomCtx	zoomMode	missing	
 panZoomCtx	zoomScale	missing	
 panZoomCtx	zs	missing	
-paneLayout	activeFrameThickness	missing	
+paneLayout	activeFrameThickness	done	auto
 paneLayout	activePane	done	auto
 paneLayout	activePaneIndex	done	auto
-paneLayout	aft	missing	
+paneLayout	aft	done	auto
 paneLayout	ann	done	auto
 paneLayout	annotation	done	auto
 paneLayout	ap	done	auto
@@ -22353,8 +22353,8 @@ paneLayout	ex	done	auto
 paneLayout	exists	done	auto
 paneLayout	fpn	done	auto
 paneLayout	fullPathName	done	auto
-paneLayout	generalSpacing	missing	
-paneLayout	gsp	missing	
+paneLayout	generalSpacing	done	auto
+paneLayout	gsp	done	auto
 paneLayout	h	done	auto
 paneLayout	height	done	auto
 paneLayout	highlightColor	done	auto
@@ -22363,10 +22363,10 @@ paneLayout	io	done	auto
 paneLayout	isObscured	done	auto
 paneLayout	m	done	auto
 paneLayout	manage	done	auto
-paneLayout	mar	missing	
-paneLayout	margins	missing	
-paneLayout	margins4	missing	
-paneLayout	mr4	missing	
+paneLayout	mar	done	auto
+paneLayout	margins	done	auto
+paneLayout	margins4	done	auto
+paneLayout	mr4	done	auto
 paneLayout	nbg	done	auto
 paneLayout	nch	done	auto
 paneLayout	noBackground	done	auto
@@ -22437,9 +22437,9 @@ panel	iu	done	auto
 panel	l	done	auto
 panel	label	done	auto
 panel	mbv	done	auto
-panel	menuBarRepeatLast	missing	
+panel	menuBarRepeatLast	done	auto
 panel	menuBarVisible	done	auto
-panel	mrl	missing	
+panel	mrl	done	auto
 panel	needsInit	done	auto
 panel	ni	done	auto
 panel	p	done	auto
@@ -22452,10 +22452,10 @@ panel	replacePanel	done	auto
 panel	rp	done	auto
 panel	tearOff	done	auto
 panel	tearOffCopy	done	auto
-panel	tearOffRestore	missing	
+panel	tearOffRestore	done	auto
 panel	to	done	auto
 panel	toc	done	auto
-panel	tor	missing	
+panel	tor	done	auto
 panel	unParent	done	auto
 panel	up	done	auto
 panel	useTemplate	done	auto
@@ -22465,24 +22465,24 @@ panelConfiguration	ap	done	auto
 panelConfiguration	cfs	done	auto
 panelConfiguration	configString	done	auto
 panelConfiguration	createStrings	done	auto
-panelConfiguration	cs	missing	
+panelConfiguration	cs	done	auto
 panelConfiguration	defaultImage	done	auto
 panelConfiguration	defineTemplate	done	auto
-panelConfiguration	di	missing	
+panelConfiguration	di	done	auto
 panelConfiguration	dt	done	auto
 panelConfiguration	e	done	auto
 panelConfiguration	edit	done	auto
 panelConfiguration	editStrings	done	auto
-panelConfiguration	es	missing	
+panelConfiguration	es	done	auto
 panelConfiguration	ex	done	auto
 panelConfiguration	exists	done	auto
-panelConfiguration	i	missing	
+panelConfiguration	i	done	auto
 panelConfiguration	image	done	auto
 panelConfiguration	isFixedState	done	auto
 panelConfiguration	l	done	auto
 panelConfiguration	label	done	auto
 panelConfiguration	labelStrings	done	auto
-panelConfiguration	ls	missing	
+panelConfiguration	ls	done	auto
 panelConfiguration	np	done	auto
 panelConfiguration	numberOfPanels	done	auto
 panelConfiguration	q	done	auto
@@ -22495,17 +22495,17 @@ panelConfiguration	replaceCreateString	done	auto
 panelConfiguration	replaceEditString	done	auto
 panelConfiguration	replaceFixedState	done	auto
 panelConfiguration	replaceLabel	done	auto
-panelConfiguration	replacePanel	missing	
+panelConfiguration	replacePanel	done	auto
 panelConfiguration	replaceTypeString	done	auto
 panelConfiguration	res	done	auto
 panelConfiguration	rfs	done	auto
 panelConfiguration	rl	done	auto
 panelConfiguration	rlp	done	auto
-panelConfiguration	rp	missing	
+panelConfiguration	rp	done	auto
 panelConfiguration	rts	done	auto
 panelConfiguration	sc	done	auto
 panelConfiguration	sceneConfig	done	auto
-panelConfiguration	ts	missing	
+panelConfiguration	ts	done	auto
 panelConfiguration	typeStrings	done	auto
 panelConfiguration	uc	done	auto
 panelConfiguration	useTemplate	done	auto
@@ -22553,8 +22553,8 @@ paramDimContext	n	missing
 paramDimContext	name	missing	
 paramDimContext	q	missing	
 paramDimContext	query	missing	
-paramLocator	p	missing	
-paramLocator	position	missing	
+paramLocator	p	done	auto
+paramLocator	position	done	auto
 parent	a	done	auto
 parent	absolute	done	auto
 parent	add	done	auto
@@ -22571,12 +22571,12 @@ parent	s	done	auto
 parent	shape	done	auto
 parent	w	done	auto
 parent	world	done	auto
-parentConstraint	cc	missing	
-parentConstraint	createCache	missing	
-parentConstraint	dc	missing	
-parentConstraint	decompRotationToChild	missing	
-parentConstraint	deleteCache	missing	
-parentConstraint	dr	missing	
+parentConstraint	cc	done	auto
+parentConstraint	createCache	done	auto
+parentConstraint	dc	done	auto
+parentConstraint	decompRotationToChild	done	auto
+parentConstraint	deleteCache	done	auto
+parentConstraint	dr	done	auto
 parentConstraint	e	done	auto
 parentConstraint	edit	done	auto
 parentConstraint	l	done	auto
@@ -22732,16 +22732,16 @@ particleRenderInfo	q	missing
 particleRenderInfo	query	missing	
 particleRenderInfo	renderTypeCount	missing	
 particleRenderInfo	rtc	missing	
-partition	add	missing	
-partition	addSet	missing	
-partition	n	missing	
-partition	name	missing	
-partition	q	missing	
-partition	query	missing	
-partition	re	missing	
-partition	removeSet	missing	
-partition	render	missing	
-partition	rm	missing	
+partition	add	done	auto
+partition	addSet	done	auto
+partition	n	done	auto
+partition	name	done	auto
+partition	q	done	auto
+partition	query	done	auto
+partition	re	done	auto
+partition	removeSet	done	auto
+partition	render	done	auto
+partition	rm	done	auto
 pasteKey	al	missing	
 pasteKey	an	missing	
 pasteKey	animLayer	missing	
@@ -22830,20 +22830,20 @@ perCameraVisibility	remove	missing
 perCameraVisibility	removeAll	missing	
 perCameraVisibility	removeCamera	missing	
 perCameraVisibility	rm	missing	
-percent	addPercent	missing	
-percent	ap	missing	
-percent	dax	missing	
-percent	dc	missing	
-percent	dds	missing	
-percent	dp	missing	
-percent	dropoffAxis	missing	
-percent	dropoffCurve	missing	
-percent	dropoffDistance	missing	
-percent	dropoffPosition	missing	
-percent	dropoffType	missing	
-percent	dt	missing	
-percent	mp	missing	
-percent	multiplyPercent	missing	
+percent	addPercent	done	auto
+percent	ap	done	auto
+percent	dax	done	auto
+percent	dc	done	auto
+percent	dds	done	auto
+percent	dp	done	auto
+percent	dropoffAxis	done	auto
+percent	dropoffCurve	done	auto
+percent	dropoffDistance	done	auto
+percent	dropoffPosition	done	auto
+percent	dropoffType	done	auto
+percent	dt	done	auto
+percent	mp	done	auto
+percent	multiplyPercent	done	auto
 percent	q	done	auto
 percent	query	done	auto
 percent	v	done	auto
@@ -22896,8 +22896,8 @@ pfxstrokes	selected	missing
 pfxstrokes	sl	missing	
 pickWalk	d	done	auto
 pickWalk	direction	done	auto
-pickWalk	r	missing	
-pickWalk	recurse	missing	
+pickWalk	r	done	auto
+pickWalk	recurse	done	auto
 pickWalk	typ	done	auto
 pickWalk	type	done	auto
 picture	ann	done	auto
@@ -22958,26 +22958,26 @@ picture	visible	done	auto
 picture	visibleChangeCommand	done	auto
 picture	w	done	auto
 picture	width	done	auto
-planarSrf	caching	missing	
-planarSrf	cch	missing	
+planarSrf	caching	done	auto
+planarSrf	cch	done	auto
 planarSrf	ch	done	auto
 planarSrf	constructionHistory	done	auto
 planarSrf	d	done	auto
 planarSrf	degree	done	auto
-planarSrf	e	missing	
-planarSrf	edit	missing	
-planarSrf	keepOutside	missing	
-planarSrf	ko	missing	
+planarSrf	e	done	auto
+planarSrf	edit	done	auto
+planarSrf	keepOutside	done	auto
+planarSrf	ko	done	auto
 planarSrf	n	done	auto
 planarSrf	name	done	auto
-planarSrf	nds	missing	
-planarSrf	nodeState	missing	
-planarSrf	o	missing	
-planarSrf	object	missing	
+planarSrf	nds	done	auto
+planarSrf	nodeState	done	auto
+planarSrf	o	done	auto
+planarSrf	object	done	auto
 planarSrf	po	done	auto
 planarSrf	polygon	done	auto
-planarSrf	q	missing	
-planarSrf	query	missing	
+planarSrf	q	done	auto
+planarSrf	query	done	auto
 planarSrf	range	done	auto
 planarSrf	rn	done	auto
 planarSrf	tol	done	auto
@@ -22996,8 +22996,8 @@ plane	w	done	auto
 plane	width	done	auto
 play	f	done	auto
 play	forward	done	auto
-play	playSound	missing	
-play	ps	missing	
+play	playSound	done	auto
+play	ps	done	auto
 play	q	done	auto
 play	query	done	auto
 play	rec	done	auto
@@ -23046,23 +23046,23 @@ playbackOptions	view	done	auto
 playblast	activeEditor	done	auto
 playblast	ae	done	auto
 playblast	c	done	auto
-playblast	cameraSetup	missing	
+playblast	cameraSetup	done	auto
 playblast	cc	done	auto
 playblast	cf	done	auto
 playblast	clearCache	done	auto
-playblast	co	missing	
-playblast	codecOptions	missing	
-playblast	combineSound	missing	
+playblast	co	done	auto
+playblast	codecOptions	done	auto
+playblast	combineSound	done	auto
 playblast	completeFilename	done	auto
 playblast	compression	done	auto
-playblast	cs	missing	
-playblast	csd	missing	
+playblast	cs	done	auto
+playblast	csd	done	auto
 playblast	editorPanelName	done	auto
 playblast	endTime	done	auto
 playblast	epn	done	auto
 playblast	et	done	auto
-playblast	exp	missing	
-playblast	exposure	missing	
+playblast	exp	done	auto
+playblast	exposure	done	auto
 playblast	f	done	auto
 playblast	filename	done	auto
 playblast	fmt	done	auto
@@ -23073,33 +23073,33 @@ playblast	fp	done	auto
 playblast	fr	done	auto
 playblast	frame	done	auto
 playblast	framePadding	done	auto
-playblast	g	missing	
-playblast	gamma	missing	
+playblast	g	done	auto
+playblast	gamma	done	auto
 playblast	h	done	auto
 playblast	height	done	auto
 playblast	ifz	done	auto
 playblast	indexFromZero	done	auto
-playblast	o	missing	
+playblast	o	done	auto
 playblast	offScreen	done	auto
 playblast	offScreenViewportUpdate	done	auto
-playblast	options	missing	
+playblast	options	done	auto
 playblast	orn	done	auto
 playblast	os	done	auto
-playblast	osv	missing	
+playblast	osv	done	auto
 playblast	p	done	auto
 playblast	percent	done	auto
 playblast	qlt	done	auto
 playblast	quality	done	auto
-playblast	rao	missing	
+playblast	rao	done	auto
 playblast	rawFrameNumbers	done	auto
-playblast	replaceAudioOnly	missing	
-playblast	replaceEndTime	missing	
-playblast	replaceFilename	missing	
-playblast	replaceStartTime	missing	
-playblast	ret	missing	
-playblast	rf	missing	
+playblast	replaceAudioOnly	done	auto
+playblast	replaceEndTime	done	auto
+playblast	replaceFilename	done	auto
+playblast	replaceStartTime	done	auto
+playblast	ret	done	auto
+playblast	rf	done	auto
 playblast	rfn	done	auto
-playblast	rst	missing	
+playblast	rst	done	auto
 playblast	s	done	auto
 playblast	sequenceTime	done	auto
 playblast	showOrnaments	done	auto
@@ -23107,30 +23107,30 @@ playblast	sound	done	auto
 playblast	sqt	done	auto
 playblast	st	done	auto
 playblast	startTime	done	auto
-playblast	throwOnError	missing	
-playblast	toe	missing	
-playblast	useTraxSounds	missing	
-playblast	uts	missing	
+playblast	throwOnError	done	auto
+playblast	toe	done	auto
+playblast	useTraxSounds	done	auto
+playblast	uts	done	auto
 playblast	v	done	auto
 playblast	viewer	done	auto
 playblast	w	done	auto
 playblast	wh	done	auto
 playblast	width	done	auto
 playblast	widthHeight	done	auto
-pluginDisplayFilter	classification	missing	
-pluginDisplayFilter	cls	missing	
-pluginDisplayFilter	deregister	missing	
-pluginDisplayFilter	dr	missing	
-pluginDisplayFilter	ex	missing	
-pluginDisplayFilter	exists	missing	
-pluginDisplayFilter	l	missing	
-pluginDisplayFilter	label	missing	
-pluginDisplayFilter	lf	missing	
-pluginDisplayFilter	listFilters	missing	
-pluginDisplayFilter	q	missing	
-pluginDisplayFilter	query	missing	
-pluginDisplayFilter	r	missing	
-pluginDisplayFilter	register	missing	
+pluginDisplayFilter	classification	done	auto
+pluginDisplayFilter	cls	done	auto
+pluginDisplayFilter	deregister	done	auto
+pluginDisplayFilter	dr	done	auto
+pluginDisplayFilter	ex	done	auto
+pluginDisplayFilter	exists	done	auto
+pluginDisplayFilter	l	done	auto
+pluginDisplayFilter	label	done	auto
+pluginDisplayFilter	lf	done	auto
+pluginDisplayFilter	listFilters	done	auto
+pluginDisplayFilter	q	done	auto
+pluginDisplayFilter	query	done	auto
+pluginDisplayFilter	r	done	auto
+pluginDisplayFilter	register	done	auto
 pluginInfo	a	done	auto
 pluginInfo	aci	missing	
 pluginInfo	activeFile	missing	
@@ -23236,26 +23236,26 @@ pointConstraint	w	done	auto
 pointConstraint	wal	done	auto
 pointConstraint	weight	done	auto
 pointConstraint	weightAliasList	done	auto
-pointCurveConstraint	caching	missing	
-pointCurveConstraint	cch	missing	
+pointCurveConstraint	caching	done	auto
+pointCurveConstraint	cch	done	auto
 pointCurveConstraint	ch	done	auto
 pointCurveConstraint	constructionHistory	done	auto
-pointCurveConstraint	e	missing	
-pointCurveConstraint	edit	missing	
+pointCurveConstraint	e	done	auto
+pointCurveConstraint	edit	done	auto
 pointCurveConstraint	n	done	auto
 pointCurveConstraint	name	done	auto
-pointCurveConstraint	nds	missing	
-pointCurveConstraint	nodeState	missing	
+pointCurveConstraint	nds	done	auto
+pointCurveConstraint	nodeState	done	auto
 pointCurveConstraint	o	done	auto
 pointCurveConstraint	object	done	auto
 pointCurveConstraint	p	done	auto
-pointCurveConstraint	pointConstraintUVW	missing	
+pointCurveConstraint	pointConstraintUVW	done	auto
 pointCurveConstraint	pointWeight	done	auto
 pointCurveConstraint	position	done	auto
-pointCurveConstraint	puv	missing	
+pointCurveConstraint	puv	done	auto
 pointCurveConstraint	pw	done	auto
-pointCurveConstraint	q	missing	
-pointCurveConstraint	query	missing	
+pointCurveConstraint	q	done	auto
+pointCurveConstraint	query	done	auto
 pointCurveConstraint	replaceOriginal	done	auto
 pointCurveConstraint	rpo	done	auto
 pointCurveConstraint	w	done	auto
@@ -23289,30 +23289,30 @@ pointLight	shadowSamples	done	auto
 pointLight	softShadow	done	auto
 pointLight	ss	done	auto
 pointLight	useRayTraceShadows	done	auto
-pointOnCurve	caching	missing	
-pointOnCurve	cc	missing	
-pointOnCurve	cch	missing	
+pointOnCurve	caching	done	auto
+pointOnCurve	cc	done	auto
+pointOnCurve	cch	done	auto
 pointOnCurve	ch	done	auto
 pointOnCurve	constructionHistory	done	auto
-pointOnCurve	cr	missing	
-pointOnCurve	curvatureCenter	missing	
-pointOnCurve	curvatureRadius	missing	
-pointOnCurve	e	missing	
-pointOnCurve	edit	missing	
-pointOnCurve	nds	missing	
-pointOnCurve	nn	missing	
-pointOnCurve	no	missing	
-pointOnCurve	nodeState	missing	
-pointOnCurve	normal	missing	
-pointOnCurve	normalizedNormal	missing	
+pointOnCurve	cr	done	auto
+pointOnCurve	curvatureCenter	done	auto
+pointOnCurve	curvatureRadius	done	auto
+pointOnCurve	e	done	auto
+pointOnCurve	edit	done	auto
+pointOnCurve	nds	done	auto
+pointOnCurve	nn	done	auto
+pointOnCurve	no	done	auto
+pointOnCurve	nodeState	done	auto
+pointOnCurve	normal	done	auto
+pointOnCurve	normalizedNormal	done	auto
 pointOnCurve	normalizedTangent	done	auto
 pointOnCurve	nt	done	auto
 pointOnCurve	p	done	auto
 pointOnCurve	parameter	done	auto
 pointOnCurve	position	done	auto
 pointOnCurve	pr	done	auto
-pointOnCurve	q	missing	
-pointOnCurve	query	missing	
+pointOnCurve	q	done	auto
+pointOnCurve	query	done	auto
 pointOnCurve	t	done	auto
 pointOnCurve	tangent	done	auto
 pointOnCurve	top	done	auto
@@ -23339,16 +23339,16 @@ pointOnPolyConstraint	w	done	auto
 pointOnPolyConstraint	wal	done	auto
 pointOnPolyConstraint	weight	done	auto
 pointOnPolyConstraint	weightAliasList	done	auto
-pointOnSurface	caching	missing	
-pointOnSurface	cch	missing	
+pointOnSurface	caching	done	auto
+pointOnSurface	cch	done	auto
 pointOnSurface	ch	done	auto
 pointOnSurface	constructionHistory	done	auto
-pointOnSurface	e	missing	
-pointOnSurface	edit	missing	
-pointOnSurface	nds	missing	
+pointOnSurface	e	done	auto
+pointOnSurface	edit	done	auto
+pointOnSurface	nds	done	auto
 pointOnSurface	nn	done	auto
 pointOnSurface	no	done	auto
-pointOnSurface	nodeState	missing	
+pointOnSurface	nodeState	done	auto
 pointOnSurface	normal	done	auto
 pointOnSurface	normalizedNormal	done	auto
 pointOnSurface	normalizedTangentU	done	auto
@@ -23359,8 +23359,8 @@ pointOnSurface	p	done	auto
 pointOnSurface	parameterU	done	auto
 pointOnSurface	parameterV	done	auto
 pointOnSurface	position	done	auto
-pointOnSurface	q	missing	
-pointOnSurface	query	missing	
+pointOnSurface	q	done	auto
+pointOnSurface	query	done	auto
 pointOnSurface	tangentU	done	auto
 pointOnSurface	tangentV	done	auto
 pointOnSurface	top	done	auto
@@ -23393,18 +23393,18 @@ polyAppend	a	done	auto
 polyAppend	append	done	auto
 polyAppend	ch	done	auto
 polyAppend	constructionHistory	done	auto
-polyAppend	e	missing	
+polyAppend	e	done	auto
 polyAppend	ed	done	auto
 polyAppend	edge	done	auto
-polyAppend	edit	missing	
+polyAppend	edit	done	auto
 polyAppend	hl	done	auto
 polyAppend	hole	done	auto
 polyAppend	n	done	auto
 polyAppend	name	done	auto
 polyAppend	p	done	auto
 polyAppend	point	done	auto
-polyAppend	q	missing	
-polyAppend	query	missing	
+polyAppend	q	done	auto
+polyAppend	query	done	auto
 polyAppend	s	done	auto
 polyAppend	subdivision	done	auto
 polyAppend	texture	done	auto
@@ -23439,28 +23439,28 @@ polyAppendVertex	a	done	auto
 polyAppendVertex	append	done	auto
 polyAppendVertex	ch	done	auto
 polyAppendVertex	constructionHistory	done	auto
-polyAppendVertex	e	missing	
-polyAppendVertex	edit	missing	
+polyAppendVertex	e	done	auto
+polyAppendVertex	edit	done	auto
 polyAppendVertex	h	done	auto
 polyAppendVertex	hole	done	auto
 polyAppendVertex	n	done	auto
 polyAppendVertex	name	done	auto
 polyAppendVertex	p	done	auto
 polyAppendVertex	point	done	auto
-polyAppendVertex	q	missing	
-polyAppendVertex	query	missing	
+polyAppendVertex	q	done	auto
+polyAppendVertex	query	done	auto
 polyAppendVertex	texture	done	auto
 polyAppendVertex	tx	done	auto
 polyAppendVertex	v	done	auto
 polyAppendVertex	vertex	done	auto
-polyAutoProjection	caching	missing	
-polyAutoProjection	cch	missing	
+polyAutoProjection	caching	done	auto
+polyAutoProjection	cch	done	auto
 polyAutoProjection	ch	done	auto
 polyAutoProjection	cm	done	auto
 polyAutoProjection	constructionHistory	done	auto
 polyAutoProjection	createNewMap	done	auto
-polyAutoProjection	e	missing	
-polyAutoProjection	edit	missing	
+polyAutoProjection	e	done	auto
+polyAutoProjection	edit	done	auto
 polyAutoProjection	ibd	done	auto
 polyAutoProjection	insertBeforeDeformers	done	auto
 polyAutoProjection	l	done	auto
@@ -23469,54 +23469,54 @@ polyAutoProjection	layoutMethod	done	auto
 polyAutoProjection	lm	done	auto
 polyAutoProjection	n	done	auto
 polyAutoProjection	name	done	auto
-polyAutoProjection	nds	missing	
-polyAutoProjection	nodeState	missing	
+polyAutoProjection	nds	done	auto
+polyAutoProjection	nodeState	done	auto
 polyAutoProjection	o	done	auto
 polyAutoProjection	optimize	done	auto
 polyAutoProjection	p	done	auto
 polyAutoProjection	pb	done	auto
 polyAutoProjection	percentageSpace	done	auto
-polyAutoProjection	pivot	missing	
-polyAutoProjection	pivotX	missing	
-polyAutoProjection	pivotY	missing	
-polyAutoProjection	pivotZ	missing	
+polyAutoProjection	pivot	done	auto
+polyAutoProjection	pivotX	done	auto
+polyAutoProjection	pivotY	done	auto
+polyAutoProjection	pivotZ	done	auto
 polyAutoProjection	planes	done	auto
-polyAutoProjection	projectBothDirections	missing	
+polyAutoProjection	projectBothDirections	done	auto
 polyAutoProjection	ps	done	auto
-polyAutoProjection	pvt	missing	
-polyAutoProjection	pvx	missing	
-polyAutoProjection	pvy	missing	
-polyAutoProjection	pvz	missing	
-polyAutoProjection	q	missing	
-polyAutoProjection	query	missing	
-polyAutoProjection	ro	missing	
-polyAutoProjection	rotate	missing	
-polyAutoProjection	rotateX	missing	
-polyAutoProjection	rotateY	missing	
-polyAutoProjection	rotateZ	missing	
-polyAutoProjection	rx	missing	
-polyAutoProjection	ry	missing	
-polyAutoProjection	rz	missing	
-polyAutoProjection	s	missing	
+polyAutoProjection	pvt	done	auto
+polyAutoProjection	pvx	done	auto
+polyAutoProjection	pvy	done	auto
+polyAutoProjection	pvz	done	auto
+polyAutoProjection	q	done	auto
+polyAutoProjection	query	done	auto
+polyAutoProjection	ro	done	auto
+polyAutoProjection	rotate	done	auto
+polyAutoProjection	rotateX	done	auto
+polyAutoProjection	rotateY	done	auto
+polyAutoProjection	rotateZ	done	auto
+polyAutoProjection	rx	done	auto
+polyAutoProjection	ry	done	auto
+polyAutoProjection	rz	done	auto
+polyAutoProjection	s	done	auto
 polyAutoProjection	sc	done	auto
-polyAutoProjection	scale	missing	
+polyAutoProjection	scale	done	auto
 polyAutoProjection	scaleMode	done	auto
-polyAutoProjection	scaleX	missing	
-polyAutoProjection	scaleY	missing	
-polyAutoProjection	scaleZ	missing	
-polyAutoProjection	si	missing	
-polyAutoProjection	skipIntersect	missing	
-polyAutoProjection	sx	missing	
-polyAutoProjection	sy	missing	
-polyAutoProjection	sz	missing	
-polyAutoProjection	t	missing	
-polyAutoProjection	translate	missing	
-polyAutoProjection	translateX	missing	
-polyAutoProjection	translateY	missing	
-polyAutoProjection	translateZ	missing	
-polyAutoProjection	tx	missing	
-polyAutoProjection	ty	missing	
-polyAutoProjection	tz	missing	
+polyAutoProjection	scaleX	done	auto
+polyAutoProjection	scaleY	done	auto
+polyAutoProjection	scaleZ	done	auto
+polyAutoProjection	si	done	auto
+polyAutoProjection	skipIntersect	done	auto
+polyAutoProjection	sx	done	auto
+polyAutoProjection	sy	done	auto
+polyAutoProjection	sz	done	auto
+polyAutoProjection	t	done	auto
+polyAutoProjection	translate	done	auto
+polyAutoProjection	translateX	done	auto
+polyAutoProjection	translateY	done	auto
+polyAutoProjection	translateZ	done	auto
+polyAutoProjection	tx	done	auto
+polyAutoProjection	ty	done	auto
+polyAutoProjection	tz	done	auto
 polyAutoProjection	uvSetName	done	auto
 polyAutoProjection	uvs	done	auto
 polyAutoProjection	worldSpace	done	auto
@@ -23535,54 +23535,54 @@ polyAverageVertex	caching	done	auto
 polyAverageVertex	cch	done	auto
 polyAverageVertex	ch	done	auto
 polyAverageVertex	constructionHistory	done	auto
-polyAverageVertex	e	missing	
-polyAverageVertex	edit	missing	
+polyAverageVertex	e	done	auto
+polyAverageVertex	edit	done	auto
 polyAverageVertex	i	done	auto
 polyAverageVertex	iterations	done	auto
 polyAverageVertex	n	done	auto
 polyAverageVertex	name	done	auto
 polyAverageVertex	nds	done	auto
 polyAverageVertex	nodeState	done	auto
-polyAverageVertex	q	missing	
-polyAverageVertex	query	missing	
+polyAverageVertex	q	done	auto
+polyAverageVertex	query	done	auto
 polyAverageVertex	worldSpace	done	auto
 polyAverageVertex	ws	done	auto
-polyAxis	arrowType	missing	
-polyAxis	arw	missing	
-polyAxis	ax	missing	
-polyAxis	axis	missing	
-polyAxis	caching	missing	
-polyAxis	cch	missing	
-polyAxis	ch	missing	
-polyAxis	constructionHistory	missing	
-polyAxis	e	missing	
-polyAxis	edit	missing	
-polyAxis	frameType	missing	
-polyAxis	ftp	missing	
-polyAxis	lengthX	missing	
-polyAxis	lengthY	missing	
-polyAxis	lengthZ	missing	
-polyAxis	lx	missing	
-polyAxis	ly	missing	
-polyAxis	lz	missing	
-polyAxis	materialTemplate	missing	
-polyAxis	mt	missing	
-polyAxis	n	missing	
-polyAxis	name	missing	
-polyAxis	nds	missing	
-polyAxis	nodeState	missing	
-polyAxis	o	missing	
-polyAxis	object	missing	
-polyAxis	q	missing	
-polyAxis	query	missing	
-polyAxis	r	missing	
-polyAxis	radius	missing	
-polyAxis	rhd	missing	
-polyAxis	rightHanded	missing	
-polyAxis	sa	missing	
-polyAxis	sca	missing	
-polyAxis	scale	missing	
-polyAxis	subdivisionsAxis	missing	
+polyAxis	arrowType	done	auto
+polyAxis	arw	done	auto
+polyAxis	ax	done	auto
+polyAxis	axis	done	auto
+polyAxis	caching	done	auto
+polyAxis	cch	done	auto
+polyAxis	ch	done	auto
+polyAxis	constructionHistory	done	auto
+polyAxis	e	done	auto
+polyAxis	edit	done	auto
+polyAxis	frameType	done	auto
+polyAxis	ftp	done	auto
+polyAxis	lengthX	done	auto
+polyAxis	lengthY	done	auto
+polyAxis	lengthZ	done	auto
+polyAxis	lx	done	auto
+polyAxis	ly	done	auto
+polyAxis	lz	done	auto
+polyAxis	materialTemplate	done	auto
+polyAxis	mt	done	auto
+polyAxis	n	done	auto
+polyAxis	name	done	auto
+polyAxis	nds	done	auto
+polyAxis	nodeState	done	auto
+polyAxis	o	done	auto
+polyAxis	object	done	auto
+polyAxis	q	done	auto
+polyAxis	query	done	auto
+polyAxis	r	done	auto
+polyAxis	radius	done	auto
+polyAxis	rhd	done	auto
+polyAxis	rightHanded	done	auto
+polyAxis	sa	done	auto
+polyAxis	sca	done	auto
+polyAxis	scale	done	auto
+polyAxis	subdivisionsAxis	done	auto
 polyBevel	af	missing	
 polyBevel	angleTolerance	missing	
 polyBevel	at	missing	
@@ -27867,9 +27867,9 @@ posePanel	iu	done	auto
 posePanel	l	done	auto
 posePanel	label	done	auto
 posePanel	mbv	done	auto
-posePanel	menuBarRepeatLast	missing	
+posePanel	menuBarRepeatLast	done	auto
 posePanel	menuBarVisible	done	auto
-posePanel	mrl	missing	
+posePanel	mrl	done	auto
 posePanel	needsInit	done	auto
 posePanel	ni	done	auto
 posePanel	p	done	auto
@@ -27884,10 +27884,10 @@ posePanel	replacePanel	done	auto
 posePanel	rp	done	auto
 posePanel	tearOff	done	auto
 posePanel	tearOffCopy	done	auto
-posePanel	tearOffRestore	missing	
+posePanel	tearOffRestore	done	auto
 posePanel	to	done	auto
 posePanel	toc	done	auto
-posePanel	tor	missing	
+posePanel	tor	done	auto
 posePanel	unParent	done	auto
 posePanel	up	done	auto
 posePanel	useTemplate	done	auto
@@ -31077,9 +31077,9 @@ scriptedPanel	iu	done	auto
 scriptedPanel	l	done	auto
 scriptedPanel	label	done	auto
 scriptedPanel	mbv	done	auto
-scriptedPanel	menuBarRepeatLast	missing	
+scriptedPanel	menuBarRepeatLast	done	auto
 scriptedPanel	menuBarVisible	done	auto
-scriptedPanel	mrl	missing	
+scriptedPanel	mrl	done	auto
 scriptedPanel	needsInit	done	auto
 scriptedPanel	ni	done	auto
 scriptedPanel	p	done	auto
@@ -31092,10 +31092,10 @@ scriptedPanel	replacePanel	done	auto
 scriptedPanel	rp	done	auto
 scriptedPanel	tearOff	done	auto
 scriptedPanel	tearOffCopy	done	auto
-scriptedPanel	tearOffRestore	missing	
+scriptedPanel	tearOffRestore	done	auto
 scriptedPanel	to	done	auto
 scriptedPanel	toc	done	auto
-scriptedPanel	tor	missing	
+scriptedPanel	tor	done	auto
 scriptedPanel	typ	done	auto
 scriptedPanel	type	done	auto
 scriptedPanel	unParent	done	auto

@@ -345,7 +345,7 @@ const KINDS: &[(&str, &str)] = &[
     ("frameLayout", "label:l:a collapsable:cll:b collapse:cl:b marginHeight:mh:a marginWidth:mw:a borderVisible:bv:b borderStyle:bs:a labelVisible:lv:b labelIndent:li:a labelWidth:lw:a labelAlign:la:a font:fn:a collapseCommand:cc:a expandCommand:ec:a preCollapseCommand:pcc:a preExpandCommand:pec:a backgroundShade:bgs:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("scrollLayout", "horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a childResizable:cr:b resizeCommand:rc:a scrollAreaHeight:sah:b scrollAreaWidth:saw:b scrollAreaValue:sav:b scrollByPixel:sbp:a2 scrollPage:sp:a minChildWidth:mcw:a verticalScrollBarAlwaysVisible:vsb:b panEnabled:pe:b"),
     ("tabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a"),
-    ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b"),
+    ("paneLayout", "configuration:cn:a paneSize:ps:a3 separatorThickness:st:a separatorMovedCommand:smc:a setPane:sp:a2 activePane:ap:a activePaneIndex:api:a numberOfVisiblePanes:nvp:b staticWidthPane:swp:a staticHeightPane:shp:a paneUnderPointer:pup:b pane1:p1:b pane2:p2:b pane3:p3:b pane4:p4:b activeFrameThickness:aft:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("shelfLayout", "cellWidth:cwd:a cellHeight:ch:a cellWidthHeight:cwh:a spacing:spa:a alignment:aln:a position:pos:a2 style:st:a version:ver:a"),
     ("menuBarLayout", "menuBarVisible:mbv:b menuArray:ma:b menuIndex:mi:a2 numberOfMenus:nm:b generalSpacing:gsp:a margins:mar:a margins4:mr4:a4"),
     ("button", "label:l:a align:al:a command:c:a recomputeSize:rs:b actOnPress:aop:b actionIsSubstitute:ais:b"),
@@ -374,7 +374,7 @@ const KINDS: &[(&str, &str)] = &[
     ("checkBoxGrp", "label:l:a numberOfCheckBoxes:ncb:a label1:l1:a label2:l2:a label3:l3:a label4:l4:a labelArray2:la2:a2 labelArray3:la3:a3 labelArray4:la4:a4 value1:v1:b value2:v2:b value3:v3:b value4:v4:b valueArray2:va2:a2 valueArray3:va3:a3 valueArray4:va4:a4 changeCommand:cc:a changeCommand1:cc1:a changeCommand2:cc2:a changeCommand3:cc3:a changeCommand4:cc4:a onCommand:onc:a onCommand1:on1:a onCommand2:on2:a onCommand3:on3:a onCommand4:on4:a offCommand:ofc:a offCommand1:of1:a offCommand2:of2:a offCommand3:of3:a offCommand4:of4:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b editable:ed:b vertical:vr:b"),
     ("radioButton", "label:l:a select:sl:b collection:cl:a changeCommand:cc:a onCommand:onc:a offCommand:ofc:a align:al:a editable:ed:b data:da:a recomputeSize:rs:b"),
     ("radioButtonGrp", "label:l:a numberOfRadioButtons:nrb:a label1:l1:a label2:l2:a label3:l3:a label4:l4:a labelArray2:la2:a2 labelArray3:la3:a3 labelArray4:la4:a4 select:sl:a shareCollection:scl:a changeCommand:cc:a changeCommand1:cc1:a changeCommand2:cc2:a changeCommand3:cc3:a changeCommand4:cc4:a onCommand:onc:a onCommand1:on1:a onCommand2:on2:a onCommand3:on3:a onCommand4:on4:a offCommand:ofc:a offCommand1:of1:a offCommand2:of2:a offCommand3:of3:a offCommand4:of4:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b data1:da1:a data2:da2:a data3:da3:a data4:da4:a editable:ed:b vertical:vr:b"),
-    ("optionMenu", "label:l:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b beforeShowPopup:bsp:a postMenuCommand:pmc:a"),
+    ("optionMenu", "label:l:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b beforeShowPopup:bsp:a postMenuCommand:pmc:a postMenuCommandOnce:pmo:b maxVisibleItems:mvi:a"),
     ("optionMenuGrp", "label:l:a extraLabel:el:a value:v:a select:sl:a numberOfItems:ni:b itemListLong:ill:b itemListShort:ils:b changeCommand:cc:a alwaysCallChangeCommand:acc:b deleteAllItems:dai:b"),
     ("menuItem", "label:l:a command:c:a subMenu:sm:b tearOff:to:b checkBox:cb:b radioButton:rb:b divider:d:b dividerLabel:dl:a optionBox:ob:b optionBoxIcon:obi:a boldFont:bld:b italicized:itl:b image:i:a imageOverlayLabel:iol:a insertAfter:ia:a collection:cl:a data:da:a dragMenuCommand:dmc:a dragDoubleClickCommand:ddc:a echoCommand:ec:b radialPosition:rp:a mnemonic:mn:a keyEquivalent:ke:a altModifier:alt:b ctrlModifier:ctl:b shiftModifier:sht:b commandModifier:cmd:b sourceType:stp:a isOptionBox:iob:b isCheckBox:icb:b isRadioButton:irb:b familyImage:fi:a version:ver:a ltVersion:lt:a allowOptionBoxes:aob:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b enableCommandRepeat:ecr:b header:hdr:b longDivider:ld:b runTimeCommand:rtc:a"),
     ("menu", MENU),
@@ -1631,6 +1631,19 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
         }
         if let Some(f) = ev["fire"].as_array() {
             for flag in f.iter().filter_map(Value::as_str) {
+                // -postMenuCommandOnce: the menu's -pmc runs the first time it shows, not again.
+                if flag == "postMenuCommand" {
+                    let once = m.get(id).and_then(|c| c.props.get("postMenuCommandOnce")).is_some_and(truth);
+                    if once {
+                        let ran = m.get(id).and_then(|c| c.props.get("_postMenuRan")).is_some_and(truth);
+                        if ran {
+                            continue;
+                        }
+                        if let Some(c) = m.controls.get_mut(&id) {
+                            c.props.insert("_postMenuRan".into(), json!(true));
+                        }
+                    }
+                }
                 if let Some(cb) = m.get(id).and_then(|c| c.props.get(flag)).cloned() {
                     out.push((cb, args.clone()));
                 }

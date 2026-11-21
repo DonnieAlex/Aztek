@@ -680,6 +680,104 @@ fn orient_up(m: &mut Mesh, axis: i64) {
     }
 }
 
+/// polyAxis: three arms along X, Y and Z (Z flipped when left-handed), each a tube of `sides` sides ending in a flat
+/// cap, a rounded one or a cone; the wedge frame makes each arm a flat-sided wedge instead. The arms come in order, X
+/// first, the same number of faces each, so a material can go to each.
+pub(crate) fn make_axis_frame(lengths: [f64; 3], radius: f64, scale: f64, sides: i32, arrow: i32, frame: i32, right_handed: bool) -> Mesh {
+    let sides = sides.max(3) as usize;
+    let r = (radius * scale).max(1e-6);
+    let mut points: Vec<DVec3> = Vec::new();
+    let mut faces: Vec<Vec<Index>> = Vec::new();
+    let dirs = [DVec3::X, DVec3::Y, if right_handed { DVec3::Z } else { -DVec3::Z }];
+    for (k, dir) in dirs.iter().enumerate() {
+        let len = (lengths[k] * scale).max(1e-6);
+        let (u, v) = dir.any_orthonormal_pair();
+        let ring = |points: &mut Vec<DVec3>, at: f64, rad: f64| -> Index {
+            let first = points.len() as Index;
+            for i in 0..sides {
+                let a = std::f64::consts::TAU * i as f64 / sides as f64;
+                points.push(*dir * at + (u * a.cos() + v * a.sin()) * rad);
+            }
+            first
+        };
+        let band = |faces: &mut Vec<Vec<Index>>, a: Index, b: Index| {
+            for i in 0..sides as Index {
+                let j = (i + 1) % sides as Index;
+                faces.push(vec![a + i, a + j, b + j, b + i]);
+            }
+        };
+        if frame == 1 {
+            // A wedge: a flat blade from the origin out to the length, thick by the radius.
+            let w = r * 2.0;
+            let base = points.len() as Index;
+            points.extend([DVec3::ZERO + u * w, DVec3::ZERO - u * w, *dir * len + u * (w * 0.25), *dir * len - u * (w * 0.25)]);
+            let top = points.len() as Index;
+            for i in 0..4 {
+                let p = points[(base + i) as usize];
+                points.push(p + v * r);
+            }
+            for i in 0..4 {
+                points[(base + i) as usize] -= v * r;
+            }
+            faces.push(vec![base, base + 2, base + 3, base + 1]);
+            faces.push(vec![top, top + 1, top + 3, top + 2]);
+            faces.push(vec![base, top, top + 2, base + 2]);
+            faces.push(vec![base + 1, base + 3, top + 3, top + 1]);
+            faces.push(vec![base + 2, top + 2, top + 3, base + 3]);
+            faces.push(vec![base, base + 1, top + 1, top]);
+            continue;
+        }
+        let head = match arrow {
+            2 => (r * 6.0).min(len * 0.5),
+            1 => r.min(len * 0.5),
+            _ => 0.0,
+        };
+        let start = ring(&mut points, 0.0, r);
+        // The start closed by a fan to its centre.
+        let c0 = points.len() as Index;
+        points.push(DVec3::ZERO);
+        for i in 0..sides as Index {
+            faces.push(vec![c0, start + (i + 1) % sides as Index, start + i]);
+        }
+        let shaft_end = len - head;
+        let end = ring(&mut points, shaft_end, r);
+        band(&mut faces, start, end);
+        let tip = match arrow {
+            2 => {
+                // A cone twice as wide as the arm.
+                let flare = ring(&mut points, shaft_end, r * 2.0);
+                band(&mut faces, end, flare);
+                let t = points.len() as Index;
+                points.push(*dir * len);
+                for i in 0..sides as Index {
+                    faces.push(vec![flare + i, flare + (i + 1) % sides as Index, t]);
+                }
+                continue;
+            }
+            1 => {
+                // A dome: rings closing to the tip.
+                let mut prev = end;
+                for step in 1..4 {
+                    let a = std::f64::consts::FRAC_PI_2 * step as f64 / 4.0;
+                    let next = ring(&mut points, shaft_end + head * a.sin(), r * a.cos());
+                    band(&mut faces, prev, next);
+                    prev = next;
+                }
+                prev
+            }
+            _ => end,
+        };
+        let t = points.len() as Index;
+        points.push(*dir * len);
+        for i in 0..sides as Index {
+            faces.push(vec![tip + i, tip + (i + 1) % sides as Index, t]);
+        }
+    }
+    let sizes: Vec<Index> = faces.iter().map(|f| f.len() as Index).collect();
+    let flat: Vec<Index> = faces.into_iter().flatten().collect();
+    Mesh::from_polygons(&points, &sizes, &flat)
+}
+
 struct Primitive {
     /// Other flags of its command, each an alias of an attribute.
     flags: Vec<FlagAlias>,
@@ -1053,6 +1151,33 @@ fn primitives() -> Vec<Primitive> {
             false,
         ),
         prim(
+            "polyAxis",
+            "Axis",
+            vec![
+                known_as(int_attr("arrowType", 2, "The ends of the axes: 0 flat, 1 rounded, 2 cones.", 0.0, 2.0), "arw", &[]),
+                known_as(int_attr("frameType", 0, "0 an axis shape of three arms, 1 a wedge shape.", 0.0, 1.0), "ftp", &[]),
+                known_as(size_attr("lengthX", 1.0, 1.0, "Length of the X arm, cm."), "lx", &[]),
+                known_as(size_attr("lengthY", 1.0, 1.0, "Length of the Y arm, cm."), "ly", &[]),
+                known_as(size_attr("lengthZ", 1.0, 1.0, "Length of the Z arm, cm."), "lz", &[]),
+                known_as(size_attr("radius", 0.05, 0.05, "Radius of the arms, cm."), "r", &[]),
+                known_as(keyable_bool("rightHanded", true, "A right-handed frame; off, Z points the other way."), "rhd", &[]),
+                known_as(size_attr("scale", 1.0, 1.0, "Overall scale of the frame."), "sca", &[]),
+                known_as(int_attr("subdivisionsAxis", 10, "Sides round each arm.", 3.0, 1000.0), "sa", &[]),
+            ],
+            Arc::new(|n| {
+                make_axis_frame(
+                    [f(n, "lengthX"), f(n, "lengthY"), f(n, "lengthZ")],
+                    f(n, "radius"),
+                    f(n, "scale"),
+                    count(n, "subdivisionsAxis", 3),
+                    count(n, "arrowType", 0),
+                    count(n, "frameType", 0),
+                    b(n, "rightHanded"),
+                )
+            }),
+            false,
+        ),
+        prim(
             "polySuperShape",
             "SuperShape",
             vec![
@@ -1282,6 +1407,34 @@ pub fn create_mesh_node(g: &mut Graph, name: &str) -> CmdResult<(NodeId, NodeId)
     crate::dag::create_with_shape(g, "mesh", name, NO_NODE)
 }
 
+/// polyAxis -mt: the template's three materials, one per arm, made (red, green, blue lamberts) when missing, and each
+/// arm's faces given to its own.
+fn axis_materials(s: &mut Session, obj: &str, template: &str) -> CmdResult<()> {
+    s.graph.evaluate();
+    let Some(id) = s.graph.find(obj)? else { return Ok(()) };
+    let Some(mesh) = crate::components::as_mesh(&s.graph, id) else { return Ok(()) };
+    let faces = s.graph.node(mesh).and_then(|n| match n.value(MeshNode::OUT_MESH) {
+        PlugValue::Mesh(Some(m)) => Some(m.face_capacity()),
+        _ => None,
+    });
+    let per = faces.unwrap_or(0) / 3;
+    if per == 0 {
+        return Ok(());
+    }
+    for (k, (axis, rgb)) in [("X", [1.0, 0.0, 0.0]), ("Y", [0.0, 1.0, 0.0]), ("Z", [0.0, 0.0, 1.0])].iter().enumerate() {
+        let (mat, sg) = (format!("{template}{axis}"), format!("{template}{axis}SG"));
+        if s.graph.find(&sg)?.is_none() {
+            s.run("shadingNode", json!({"args": ["lambert"], "asShader": true, "name": mat}))?;
+            s.run("setAttr", json!({"args": [format!("{mat}.color"), rgb[0], rgb[1], rgb[2]]}))?;
+            s.run("sets", json!({"renderable": true, "noSurfaceShader": true, "empty": true, "name": sg}))?;
+            s.run("connectAttr", json!({"args": [format!("{mat}.outColor"), format!("{sg}.surfaceShader")], "force": true}))?;
+        }
+        let first = k as u32 * per;
+        s.run("sets", json!({"args": [format!("{obj}.f[{}:{}]", first, first + per - 1)], "forceElement": sg, "edit": true}))?;
+    }
+    Ok(())
+}
+
 /// The transform stem the reference gives a primitive: polyCube -> pCube.
 pub fn primitive_stem(ty: &str) -> String {
     if matches!(ty, "polyPlatonicSolid" | "polyPrimitive") {
@@ -1425,6 +1578,36 @@ pub fn register(c: &mut Commands<Session>) {
                 ),
             )
             .adjustable(true);
+        c.register(cmd);
+    }
+    // polyAxis: -q and -e on its node, -mt a material to each arm.
+    if let Some(old) = c.find("polyAxis").cloned() {
+        let run = old.run.clone();
+        let mut cmd = crate::history_qe::node_flags(crate::history_qe::qe_flags(old)).positional("the polyAxis node or its mesh, with -q and -e");
+        cmd = cmd.flag(FlagDef::new(
+            "materialTemplate",
+            "mt",
+            T::String,
+            Value::Null,
+            "A material template for the arms: each arm gets the template's material for it, made red, green and blue when the template is new.",
+        ));
+        // No defaults filled in: the node has its own, and an edit changes only what it names.
+        for fl in cmd.flags.iter_mut() {
+            fl.default_value = Value::Null;
+        }
+        cmd.run = Arc::new(move |s: &mut Session, a: &Args| {
+            if let Some(r) = crate::history_qe::qe(s, a, "polyAxis", &["polyAxis"], &[]) {
+                return r;
+            }
+            let out = run(s, a)?;
+            if let Some(gen) = out.get(1).and_then(Value::as_str).and_then(|n| s.graph.find(n).ok().flatten()) {
+                crate::history_qe::apply_common(&mut s.graph, gen, a)?;
+            }
+            if let (Some(mt), Some(obj)) = (a.get("materialTemplate").and_then(Value::as_str), out.get(0).and_then(Value::as_str)) {
+                axis_materials(s, obj, mt)?;
+            }
+            Ok(out)
+        });
         c.register(cmd);
     }
 
