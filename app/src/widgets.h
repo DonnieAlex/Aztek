@@ -229,7 +229,6 @@ private:
     QWidget* middle_ = nullptr;
     QList<QToolButton*> panel_buttons_;
     QPoint center_;
-    QPixmap under_;
     qint64 shown_ms_ = 0;
     bool used_ = false;
     std::function<QList<MarkItem>(int)> zones_;

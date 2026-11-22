@@ -169,6 +169,9 @@ void MarkingMenu::pick(int i, bool option) {
 
 void MarkingMenu::paintEvent(QPaintEvent*) {
     QPainter p(this);
+    p.setCompositionMode(QPainter::CompositionMode_Source);
+    p.fillRect(rect(), Qt::transparent);
+    p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     p.setRenderHint(QPainter::Antialiasing);
     p.setPen(QPen(QColor(30, 30, 30), 1.0));
     p.setBrush(QColor(200, 200, 200));

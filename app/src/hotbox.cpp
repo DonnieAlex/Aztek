@@ -18,6 +18,7 @@ namespace az {
 
 Hotbox::Hotbox(const QList<QMenu*>& common, const QList<QPair<QString, QList<QMenu*>>>& sets, QMenu* recent, QWidget* parent)
     : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint) {
+    setAttribute(Qt::WA_TranslucentBackground);
     setMouseTracking(true);
     box_ = new QWidget(this);
     auto* rows = new QVBoxLayout(box_);
@@ -97,7 +98,6 @@ void Hotbox::popup(QPoint global, const QList<QAction*>& panel_actions) {
     }
     QScreen* s = QGuiApplication::screenAt(global);
     QRect area = s ? s->geometry() : parentWidget()->window()->geometry();
-    under_ = s ? s->grabWindow(0) : QPixmap();
     setGeometry(area);
     center_ = global - area.topLeft();
     shown_ms_ = QDateTime::currentMSecsSinceEpoch();
@@ -128,9 +128,12 @@ int Hotbox::zone_at(QPoint p) const {
 
 void Hotbox::paintEvent(QPaintEvent*) {
     QPainter p(this);
+    p.setCompositionMode(QPainter::CompositionMode_Source);
+    // Nearly invisible, but still hit-testable in the marking zones on Windows.
+    p.fillRect(rect(), QColor(0, 0, 0, 1));
+    p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     p.setRenderHint(QPainter::Antialiasing);
     QRect mid = box_->geometry();
-    if (!under_.isNull()) p.drawPixmap(rect(), under_);
     // Short diagonal guides mark the outer zones without covering the viewport.
     p.setPen(QPen(QColor(230, 230, 230, 165), 1));
     for (QPoint c : {mid.topLeft(), mid.topRight(), mid.bottomLeft(), mid.bottomRight()}) {
