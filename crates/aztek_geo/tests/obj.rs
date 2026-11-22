@@ -276,15 +276,22 @@ fn file_of_points_then_normals_then_relative_faces_reads_as_written() {
         head.push_str(&format!("v {} {} {}\r\n", p[0], p[1], p[2]));
     }
     head.push_str("\r\n");
+    // More normals than points, as in the reporter's file, so a normal's index differs from its point's.
+    let spare = 2823usize;
+    for k in 0..spare {
+        head.push_str(&format!("vn 0 0 {}\r\n", if k % 2 == 0 { 1 } else { -1 }));
+    }
     for p in &pts {
         head.push_str(&format!("vn {} {} {}\r\n", p[0], p[1], p[2]));
     }
     head.push_str("\r\n");
+    let nn = (spare + pts.len()) as i64;
     let (mut abs, mut rel) = (head.clone(), head);
     for t in &tris {
-        let r = t.map(|k| k as i64 - n);
-        abs.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", t[0] + 1, t[0] + 1, t[1] + 1, t[1] + 1, t[2] + 1, t[2] + 1));
-        rel.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", r[0], r[0], r[1], r[1], r[2], r[2]));
+        let (va, na) = (t.map(|k| k + 1), t.map(|k| k + spare + 1));
+        let (vr, nr) = (t.map(|k| k as i64 - n), t.map(|k| (k + spare) as i64 - nn));
+        abs.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", va[0], na[0], va[1], na[1], va[2], na[2]));
+        rel.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", vr[0], nr[0], vr[1], nr[1], vr[2], nr[2]));
     }
     assert!(rel.len() > 8 << 20, "big enough to be read in pieces: {}", rel.len());
     let a = read_obj(abs.as_bytes(), &ObjReadOptions::default());
@@ -300,7 +307,13 @@ fn file_of_points_then_normals_then_relative_faces_reads_as_written() {
         let pr: Vec<_> = mr.face_points(f).iter().map(|&p| mr.position(p)).collect();
         assert_eq!(pa, pr, "face {f}");
     }
+    // Each corner's normal is its point's direction, which only the right normal index gives.
     let normals = mr.corner_attrs().get::<[f32; 3]>(names::NORMAL);
-    assert_eq!(normals.len(), ma.corner_attrs().get::<[f32; 3]>(names::NORMAL).len());
     assert_eq!(normals, ma.corner_attrs().get::<[f32; 3]>(names::NORMAL));
+    for f in 0..mr.face_capacity() {
+        mr.for_each_face_corner(f, |c| {
+            let p = mr.position(mr.corner_point(c));
+            assert_eq!(normals[c as usize], [p.x as f32, p.y as f32, p.z as f32], "face {f} corner {c}");
+        });
+    }
 }
