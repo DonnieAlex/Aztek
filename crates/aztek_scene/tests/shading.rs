@@ -490,3 +490,28 @@ fn a_surface_keeps_its_group_through_a_save_and_default_cameras_raise_no_warning
     assert!(w.is_empty(), "{w:?}");
     assert!(run(&mut back, "sets", json!({"query": true, "args": ["initialShadingGroup"]})).to_string().contains("ribbonShape"));
 }
+
+#[test]
+fn open_pbr_gives_the_realtime_renderer_its_layers() {
+    let mut s = scene();
+    let c = cube(&mut s);
+    run(&mut s, "shadingNode", json!({"args": ["openPBRSurface"], "asShader": true}));
+    let sg = run(&mut s, "sets", json!({"renderable": true, "noSurfaceShader": true, "empty": true, "name": "realtimeSG"}));
+    run(&mut s, "connectAttr", json!({"args": ["openPBRSurface1.outColor", "realtimeSG.surfaceShader"], "force": true}));
+    run(&mut s, "sets", json!({"args": [c], "edit": true, "forceElement": sg}));
+    for (attr, value) in [("baseColor", json!([0.2, 0.4, 0.6])), ("baseWeight", json!(0.5)), ("baseMetalness", json!(0.7)), ("specularRoughness", json!(0.25)), ("specularIOR", json!(1.45)), ("coatWeight", json!(0.3)), ("coatRoughness", json!(0.15)), ("transmissionWeight", json!(0.2))] {
+        run(&mut s, "setAttr", json!({"args": [format!("openPBRSurface1.{attr}"), value]}));
+    }
+    let id = s.graph.find("realtimeSG").unwrap().unwrap();
+    let m = shading::draw_material(&mut s.graph, id, None, None).unwrap();
+    assert!((m.pbr.base_weight - 0.5).abs() < 1e-6);
+    assert!((m.pbr.metalness - 0.7).abs() < 1e-6);
+    assert!((m.pbr.specular_roughness - 0.25).abs() < 1e-6);
+    assert!((m.pbr.specular_ior - 1.45).abs() < 1e-6);
+    assert!((m.pbr.coat_weight - 0.3).abs() < 1e-6);
+    assert!((m.pbr.transmission_weight - 0.2).abs() < 1e-6);
+    // The base colour carries the base weight, and a transmission tints it, as Viewport 2.0 draws it.
+    for (got, want) in m.color.iter().zip([0.2, 0.28, 0.36]) {
+        assert!((*got - want).abs() < 1e-6, "{:?}", m.color);
+    }
+}

@@ -356,8 +356,11 @@ impl Kind {
             "directionalLight" => Kind::Directional,
             "pointLight" => Kind::Point,
             "spotLight" => Kind::Spot,
-            "areaLight" => Kind::Area,
+            "areaLight" | "aiAreaLight" | "aiMeshLight" => Kind::Area,
             "volumeLight" => Kind::Volume,
+            "aiPhotometricLight" => Kind::Spot,
+            // The sky dome lights from every direction: the Realtime renderer reads it as the environment rather than as
+            // one more light in the block, and the legacy renderer leaves it to Use Default Lighting.
             _ => return None,
         })
     }
@@ -387,6 +390,8 @@ pub struct SceneLight {
     /// 0 outward, 1 inward, 2 down the axis.
     pub volume_dir: i32,
     pub volume_ambient: bool,
+    /// Whether the renderer should cast shadows from it (useRayTraceShadows, or Harold's aiCastShadows).
+    pub cast_shadows: bool,
 }
 
 fn read_f(g: &mut Graph, id: NodeId, name: &str, d: f64) -> f64 {
@@ -404,10 +409,20 @@ fn read_c(g: &mut Graph, id: NodeId, name: &str) -> DVec3 {
 
 /// A light shape as it shades. Follows connections and keys.
 pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
-    let kind = Kind::of(&g.node(shape)?.ty().name)?;
+    let ty = g.node(shape)?.ty().name.clone();
+    let kind = Kind::of(&ty)?;
     let color = read_c(g, shape, "color") * read_f(g, shape, "intensity", 1.0);
     let flag = |g: &mut Graph, n: &str| read_f(g, shape, n, 1.0) != 0.0;
     let world = g.node(shape)?.data().matrix(DagNode::WORLD_MATRIX);
+    // Harold's lights keep Arnold's names for the settings the two share.
+    let harold = ty.starts_with("ai") && ty != "aiSkyDomeLight";
+    let (decay, cone_deg, penumbra_deg, dropoff) = if ty == "aiPhotometricLight" {
+        (2, 180.0, 0.0, 0.0)
+    } else if harold {
+        (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))
+    } else {
+        (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))
+    };
     Some(SceneLight {
         shape,
         transform: crate::dag::transform_of(g, shape),
@@ -416,16 +431,40 @@ pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
         color: color.as_vec3().to_array(),
         diffuse: flag(g, "emitDiffuse"),
         specular: kind != Kind::Ambient && flag(g, "emitSpecular"),
-        decay: read_f(g, shape, "decayRate", 0.0) as i32,
-        cone_deg: read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(),
-        penumbra_deg: read_f(g, shape, "penumbraAngle", 0.0).to_degrees(),
-        dropoff: read_f(g, shape, "dropoff", 0.0),
+        decay,
+        cone_deg,
+        penumbra_deg,
+        dropoff,
         ambient_shade: read_f(g, shape, "ambientShade", 0.45),
-        by_area: kind == Kind::Area && !flag(g, "normalize"),
+        by_area: kind == Kind::Area && !flag(g, if harold { "aiNormalize" } else { "normalize" }),
         volume_shape: read_f(g, shape, "lightShape", 1.0) as i32,
         volume_dir: read_f(g, shape, "volumeLightDir", 0.0) as i32,
         volume_ambient: read_f(g, shape, "emitAmbient", 0.0) != 0.0,
+        cast_shadows: read_f(g, shape, "useRayTraceShadows", 1.0) != 0.0 && read_f(g, shape, "aiCastShadows", 1.0) != 0.0,
     })
+}
+
+/// A sky dome as the Realtime renderer's environment: its colour, the way its image turns with the light, and the image
+/// itself when one feeds its colour.
+#[derive(Clone, Debug)]
+pub struct EnvironmentLight {
+    pub shape: NodeId,
+    pub color: [f32; 3],
+    /// World to the dome's own space, for a latlong image.
+    pub rotation: glam::DQuat,
+    pub image: Option<crate::shading::TextureRef>,
+}
+
+/// A sky dome as the Realtime renderer's environment. The caller decides whether the light mode draws it.
+pub fn environment_of(g: &mut Graph, sh: NodeId, scene: Option<&str>, project: Option<&str>) -> Option<EnvironmentLight> {
+    if g.node(sh)?.ty().name != "aiSkyDomeLight" {
+        return None;
+    }
+    let world = g.node(sh)?.data().matrix(DagNode::WORLD_MATRIX);
+    let color = read_c(g, sh, "color") * read_f(g, sh, "intensity", 1.0) * 2f64.powf(read_f(g, sh, "aiExposure", 0.0));
+    let rotation = world.to_scale_rotation_translation().1.inverse();
+    let image = crate::shading::map_of(g, sh, "color", scene, project);
+    Some(EnvironmentLight { shape: sh, color: color.as_vec3().to_array(), rotation, image })
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

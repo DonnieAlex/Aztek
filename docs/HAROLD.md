@@ -63,6 +63,8 @@ scene holds is rendered by it; there is no choice of renderer.
   with it for every type, decay rate and setting. A scene with no lights renders with the viewport's default lighting
   (a key and a fill that follow the camera, and a little all round). `physicalLights` on the options node switches
   to physical units instead: quadratic falloff, intensity as radiant intensity, `aiDecayType` honoured.
+  The Realtime viewport renderer reads the same Arnold lights: `aiAreaLight` and `aiMeshLight` as area lights,
+  `aiPhotometricLight` as a spot, and `aiSkyDomeLight` as its image-based lighting.
   Harold's own lights: point radius (`aiRadius`), directional angle (`aiAngle`), sky dome (colour or a latitude-longitude
   image, importance sampled), Harold area lights (quad, disc, cylinder, normalised by area unless `aiNormalize` is off,
   `aiSpread`), mesh lights, photometric with IES files, and every glowing surface sampled as a light; these use
