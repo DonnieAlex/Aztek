@@ -55,6 +55,7 @@ pub mod text;
 pub mod view;
 pub mod usd_view;
 pub mod viewport;
+pub mod realtime;
 pub mod view_cube;
 
 use std::cell::RefCell;

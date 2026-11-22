@@ -112,13 +112,37 @@ pub struct MatPush {
     pub incandescence: [f32; 4],
 }
 
+/// The Realtime renderer's push constants: the material's, with its OpenPBR coat and transmission added. 256 bytes is the
+/// most many devices allow; a device with less draws Viewport 2.0 instead.
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct RtPush {
+    pub base: Push,
+    /// repeatU, repeatV, offsetU, offsetV; the realtime shader reads the wrap and mirror flags in `misc`.
+    pub uv: [f32; 4],
+    /// metalness, specular roughness, diffuse roughness, specular weight.
+    pub frame: [f32; 4],
+    /// rotation UV and frame, flags (1 wrapU, 2 wrapV, 4 mirrorU, 8 mirrorV, 16 has a colour map), alpha mode.
+    pub misc: [f32; 4],
+    /// colourGain; w set when lit.
+    pub gain: [f32; 4],
+    /// colourOffset; w is the base weight.
+    pub offs: [f32; 4],
+    /// The specular colour; w is the highlight to add from the material's own model (unused here).
+    pub ambient: [f32; 4],
+    /// The emitted colour; w is the specular IOR.
+    pub incandescence: [f32; 4],
+    /// coat weight, coat roughness, coat IOR, transmission weight.
+    pub coat: [f32; 4],
+}
+
 const MATERIAL_VS: &str = r#"#version 450
 struct Light { vec4 pos; vec4 dir; vec4 color; vec4 params; vec4 a; vec4 b; vec4 c; };
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec3 a_nrm;
 layout(location = 2) in vec2 a_uv;
 layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; vec4 uv; vec4 frame; vec4 misc; vec4 gain; vec4 offs; vec4 ambient; vec4 incandescence; } pc;
-layout(set = 2, binding = 0, std140) uniform Lights { mat4 inv_proj; ivec4 head; Light lights[16]; } lt;
+layout(set = 2, binding = 0, std140) uniform LightsBlock { mat4 inv_proj; ivec4 head; mat4 shadow_matrix; vec4 shadow; vec4 shadow_pos; vec4 shadow_range; vec4 env; vec4 env_rot; mat4 view_to_world; Light lights[16]; } lt;
 layout(location = 0) out vec3 v_nrm;
 layout(location = 1) out vec3 v_rot;
 layout(location = 2) out vec2 v_uv;
@@ -141,7 +165,7 @@ layout(location = 0) in vec3 v_nrm;
 layout(location = 1) in vec3 v_rot;
 layout(location = 2) in vec2 v_uv;
 layout(location = 3) in vec3 v_view;
-layout(set = 2, binding = 0, std140) uniform Lights { mat4 inv_proj; ivec4 head; Light lights[16]; } lt;
+layout(set = 2, binding = 0, std140) uniform LightsBlock { mat4 inv_proj; ivec4 head; mat4 shadow_matrix; vec4 shadow; vec4 shadow_pos; vec4 shadow_range; vec4 env; vec4 env_rot; mat4 view_to_world; Light lights[16]; } lt;
 layout(set = 2, binding = 1, std140) uniform Speculars { vec4 spec[1024]; } sp;
 layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; vec4 uv; vec4 frame; vec4 misc; vec4 gain; vec4 offs; vec4 ambient; vec4 incandescence; } pc;
 layout(set = 0, binding = 0) uniform texture2D t_color;
@@ -329,6 +353,283 @@ void main() {
 }
 "#;
 
+const REALTIME_VS: &str = r#"#version 450
+struct Light { vec4 pos; vec4 dir; vec4 color; vec4 params; vec4 a; vec4 b; vec4 c; };
+layout(location = 0) in vec3 a_pos;
+layout(location = 1) in vec3 a_nrm;
+layout(location = 2) in vec2 a_uv;
+layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; vec4 uv; vec4 frame; vec4 misc; vec4 gain; vec4 offs; vec4 ambient; vec4 incandescence; vec4 coat; } pc;
+layout(set = 2, binding = 0, std140) uniform LightsBlock { mat4 inv_proj; ivec4 head; mat4 shadow_matrix; vec4 shadow; vec4 shadow_pos; vec4 shadow_range; vec4 env; vec4 env_rot; mat4 view_to_world; Light lights[16]; } lt;
+layout(location = 0) out vec3 v_nrm;
+layout(location = 1) out vec3 v_rot;
+layout(location = 2) out vec2 v_uv;
+layout(location = 3) out vec3 v_view;
+void main() {
+    gl_Position = pc.mvp * vec4(a_pos, 1.0);
+    vec4 e = lt.inv_proj * gl_Position;
+    v_view = e.xyz / e.w;
+    gl_Position.z *= 1.0 + pc.n0.w;
+    v_nrm = vec3(dot(pc.n0.xyz, a_nrm), dot(pc.n1.xyz, a_nrm), dot(pc.n2.xyz, a_nrm));
+    v_rot = vec3(dot(pc.n0.xyz, a_pos), dot(pc.n1.xyz, a_pos), dot(pc.n2.xyz, a_pos));
+    v_uv = a_uv;
+}
+"#;
+
+// The OpenPBR surface as the Realtime renderer draws it: GGX specular and coat, Lambert base, an image or a sky dome
+// for image-based lighting, and the scene's one shadow map. The light block, all six light types and the falloffs are the
+// same as the legacy material shader's, so a light lights the same in either renderer.
+const REALTIME_FS: &str = r#"#version 450
+struct Light { vec4 pos; vec4 dir; vec4 color; vec4 params; vec4 a; vec4 b; vec4 c; };
+layout(location = 0) in vec3 v_nrm;
+layout(location = 1) in vec3 v_rot;
+layout(location = 2) in vec2 v_uv;
+layout(location = 3) in vec3 v_view;
+layout(set = 2, binding = 0, std140) uniform LightsBlock { mat4 inv_proj; ivec4 head; mat4 shadow_matrix; vec4 shadow; vec4 shadow_pos; vec4 shadow_range; vec4 env; vec4 env_rot; mat4 view_to_world; Light lights[16]; } lt;
+layout(push_constant) uniform PC { mat4 mvp; vec4 n0; vec4 n1; vec4 n2; vec4 color; vec4 uv; vec4 frame; vec4 misc; vec4 gain; vec4 offs; vec4 ambient; vec4 incandescence; vec4 coat; } pc;
+layout(set = 0, binding = 0) uniform texture2D t_color;
+layout(set = 0, binding = 1) uniform sampler s_color;
+layout(set = 1, binding = 0) uniform texture2D t_alpha;
+layout(set = 1, binding = 1) uniform sampler s_alpha;
+layout(set = 3, binding = 0) uniform texture2D t_env;
+layout(set = 3, binding = 1) uniform sampler s_env;
+layout(set = 4, binding = 0) uniform texture2D t_shadow;
+layout(set = 4, binding = 1) uniform sampler s_shadow;
+layout(set = 4, binding = 2) uniform textureCube t_shadow_cube;
+layout(set = 4, binding = 3) uniform sampler s_shadow_cube;
+layout(location = 0) out vec4 out_color;
+
+const float PI = 3.141592653589793;
+const float INV_PI = 0.3183098861837907;
+vec2 turned(vec2 p, float a) {
+    float c = cos(a);
+    float s = sin(a);
+    vec2 q = p - vec2(0.5);
+    return vec2(c * q.x - s * q.y, s * q.x + c * q.y) + vec2(0.5);
+}
+float decay(float rate, float d) {
+    return rate < 0.5 ? 1.0 : 1.0 / pow(max(d, 0.001), rate);
+}
+float volume_reach(vec3 u, float shape, float cone_end) {
+    if (shape < 0.5) return max(abs(u.x), max(abs(u.y), abs(u.z)));
+    if (shape < 1.5) return length(u);
+    float radius = shape < 2.5 ? 1.0 : mix(1.0, cone_end, clamp((u.z + 1.0) * 0.5, 0.0, 1.0));
+    return max(length(u.xy) / max(radius, 0.001), abs(u.z));
+}
+vec3 qrot(vec4 q, vec3 v) {
+    return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+}
+float distribution_ggx(float nh, float rough) {
+    float a = rough * rough;
+    float a2 = a * a;
+    float d = nh * nh * (a2 - 1.0) + 1.0;
+    return a2 / (PI * d * d);
+}
+float geometry_smith(float nv, float nl, float rough) {
+    float k = (rough + 1.0) * (rough + 1.0) / 8.0;
+    return (nv / (nv * (1.0 - k) + k)) * (nl / (nl * (1.0 - k) + k));
+}
+vec3 fresnel(float u, vec3 f0) {
+    return f0 + (vec3(1.0) - f0) * pow(1.0 - u, 5.0);
+}
+float f_ior(float ior) {
+    float f = (ior - 1.0) / (ior + 1.0);
+    return f * f;
+}
+
+// How much of the light reaches this point from the shadow map, 0 in shadow to 1 lit. Outside the map it is lit.
+float shadow_at(vec3 p, vec3 n) {
+    if (lt.shadow.w < 0.5) return 1.0;
+    // A surface is lifted along its normal by a little of the scene's size: a caster does not shadow itself.
+    vec3 q3 = p + n * lt.shadow.x;
+    if (lt.shadow.w > 1.5) {
+        vec3 to = q3 - lt.shadow_pos.xyz;
+        float reach = length(to);
+        if (reach < 1e-4) return 1.0;
+        vec3 d = normalize((lt.view_to_world * vec4(to, 0.0)).xyz);
+        float near = max(lt.shadow_range.x, 0.01);
+        float far = max(lt.shadow_range.y, near + 0.02);
+        // The faces are orthographic: the depth is linear in how far along the chosen axis the point is.
+        float axis = max(abs(to.x), max(abs(to.y), abs(to.z)));
+        float stored = near + texture(samplerCube(t_shadow_cube, s_shadow_cube), d).r * (far - near);
+        return axis <= stored + lt.shadow.x + 0.02 ? 1.0 : 0.0;
+    }
+    vec4 sc = lt.shadow_matrix * vec4(q3, 1.0);
+    // Clip x and y run -1 to 1, so they go to 0 to 1; Vulkan's clip z already runs 0 to 1 and must not be halved.
+    vec3 q = vec3(sc.xy / sc.w * 0.5 + 0.5, sc.z / sc.w);
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || q.z > 1.0 || q.z < 0.0) return 1.0;
+    float texel = lt.shadow.y;
+    float sum = 0.0;
+    for (int y = -1; y <= 1; y += 1) {
+        for (int x = -1; x <= 1; x += 1) {
+            float d = texture(sampler2D(t_shadow, s_shadow), q.xy + vec2(float(x), float(y)) * texel * 1.5).r;
+            sum += q.z - 0.0015 <= d ? 1.0 : 0.0;
+        }
+    }
+    return sum / 9.0;
+}
+// One light: what it adds to the base layer, and to the coat. Mirrors `aztek_scene::lights::viewport_diffuse`.
+void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 coat_spec) {
+    diff = vec3(0.0);
+    spec = vec3(0.0);
+    coat_spec = vec3(0.0);
+    int mask = int(pc.n1.w);
+    float rough = max(pc.frame.y, 0.01);
+    float coat_rough = max(pc.coat.y, 0.01);
+    float nv = max(dot(n, v), 0.001);
+    float f0d = f_ior(max(pc.incandescence.w, 1.0));
+    vec3 f0 = mix(vec3(f0d) * pc.ambient.rgb * pc.frame.w, base, clamp(pc.frame.x, 0.0, 1.0));
+    vec3 coat_f0 = vec3(f_ior(max(pc.coat.z, 1.0)));
+    for (int i = 0; i < lt.head.y; i += 1) {
+        if (((mask >> i) & 1) == 0) continue;
+        vec4 pos = lt.lights[i].pos;
+        vec4 dir = lt.lights[i].dir;
+        vec4 col = lt.lights[i].color;
+        vec4 par = lt.lights[i].params;
+        float kind = pos.w;
+        vec3 c = col.rgb;
+        vec3 l = vec3(0.0, 0.0, 1.0);
+        if (kind < 0.5) {
+            vec3 to = pos.xyz - v_view;
+            l = normalize(to);
+            diff += c * (1.0 - par.x);
+            c *= par.x;
+        } else if (kind < 1.5) {
+            l = -dir.xyz;
+        } else if (kind < 2.5) {
+            vec3 to = pos.xyz - v_view;
+            float d = length(to);
+            l = to / max(d, 0.0001);
+            c *= decay(dir.w, d);
+        } else if (kind < 3.5) {
+            vec3 to = pos.xyz - v_view;
+            float d = length(to);
+            l = to / max(d, 0.0001);
+            float cone = dot(-l, dir.xyz);
+            float edge = clamp((cone - par.x) / max(par.y - par.x, 0.00001), 0.0, 1.0);
+            c *= decay(dir.w, d) * edge * pow(max(cone, 0.0), par.z);
+        } else if (kind < 4.5) {
+            vec4 ua = lt.lights[i].a;
+            vec4 ub = lt.lights[i].b;
+            vec3 r = v_view - pos.xyz;
+            float lu = max(dot(ua.xyz, ua.xyz), 0.000001);
+            float lv = max(dot(ub.xyz, ub.xyz), 0.000001);
+            vec3 q = pos.xyz + ua.xyz * clamp(dot(r, ua.xyz) / lu, -1.0, 1.0) + ub.xyz * clamp(dot(r, ub.xyz) / lv, -1.0, 1.0);
+            vec3 to = q - v_view;
+            float d = length(to);
+            l = to / max(d, 0.0001);
+            c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0);
+        } else {
+            vec4 p = vec4(v_view, 1.0);
+            vec3 u = vec3(dot(lt.lights[i].a, p), dot(lt.lights[i].b, p), dot(lt.lights[i].c, p));
+            float reach = volume_reach(u, par.x, par.w);
+            c *= clamp(1.0 - reach, 0.0, 1.0);
+            vec3 to = pos.xyz - v_view;
+            l = length(to) > 0.0001 ? normalize(to) : n;
+            if (par.y > 1.5) l = -dir.xyz;
+            else if (par.y > 0.5) l = -l;
+            if (par.z > 0.5) {
+                diff += c;
+                c = vec3(0.0);
+            }
+        }
+        float nl = dot(n, l);
+        if (nl <= 0.0) continue;
+        int emits = int(col.w);
+        float lit = i == int(lt.shadow.z) ? shadow_at(v_view, n) : 1.0;
+        if ((emits & 1) != 0) {
+            diff += c * nl * lit;
+        }
+        if ((emits & 2) != 0 && nl > 0.0) {
+            vec3 h = normalize(l + v);
+            float nh = max(dot(n, h), 0.0);
+            vec3 f = fresnel(max(dot(h, v), 0.0), f0);
+            float d = distribution_ggx(nh, rough);
+            float g = geometry_smith(nv, nl, rough);
+            spec += c * lit * (d * g * f / max(4.0 * nv * nl, 0.0001)) * nl;
+            if (pc.coat.x > 0.0) {
+                vec3 cf = fresnel(max(dot(h, v), 0.0), coat_f0);
+                float cd = distribution_ggx(nh, coat_rough);
+                float cg = geometry_smith(nv, nl, coat_rough);
+                coat_spec += c * lit * pc.coat.x * (cd * cg * cf / max(4.0 * nv * nl, 0.0001)) * nl;
+            }
+        }
+    }
+}
+void main() {
+    int flags = int(pc.misc.z);
+    vec2 p = v_uv;
+    if ((flags & 4) != 0) p.x = 1.0 - abs(mod(p.x, 2.0) - 1.0);
+    if ((flags & 8) != 0) p.y = 1.0 - abs(mod(p.y, 2.0) - 1.0);
+    vec2 q = turned(p * pc.uv.xy + pc.uv.zw, pc.misc.x);
+    bool outside = ((flags & 1) == 0 && (q.x < 0.0 || q.x > 1.0)) || ((flags & 2) == 0 && (q.y < 0.0 || q.y > 1.0));
+    vec2 st = vec2(q.x, 1.0 - q.y);
+    vec4 texel = texture(sampler2D(t_color, s_color), st);
+    vec4 mask = texture(sampler2D(t_alpha, s_alpha), st);
+    vec3 base = pc.color.rgb;
+    if ((flags & 16) != 0 && !outside) base = texel.rgb * pc.gain.rgb + pc.offs.rgb;
+    float alpha = pc.color.a;
+    if (pc.misc.w > 1.5) alpha = dot(mask.rgb, vec3(0.3, 0.59, 0.11));
+    else if (pc.misc.w > 0.5) alpha = mask.a;
+    vec3 emission = pc.incandescence.rgb;
+    if (pc.gain.w < 0.5) {
+        out_color = vec4(pow(max(base + emission, vec3(0.0)), vec3(1.0 / 2.2)), alpha);
+        return;
+    }
+    vec3 v = lt.head.w != 0 ? vec3(0.0, 0.0, 1.0) : normalize(-v_view);
+    vec3 facet = normalize(cross(dFdx(v_view), dFdy(v_view)));
+    if (dot(facet, v) < 0.0) facet = -facet;
+    vec3 n = normalize(v_nrm);
+    bool back = dot(n, facet) < 0.0;
+    if (pc.n2.w > 0.5) n = facet;
+    else if (back) n = -n;
+    float transmission = clamp(pc.coat.w, 0.0, 1.0);
+    if (transmission > 0.5) base = mix(base, base * 0.12 + pc.ambient.rgb * 0.5, transmission);
+    // A mapped colour comes from the image; an unmapped one already carries the base weight in the material's colour.
+    bool mapped = (flags & 16) != 0 && !outside;
+    vec3 layer = mapped ? base * clamp(pc.offs.w, 0.0, 1.0) : base;
+    vec3 diff, spec, coat_spec;
+    direct(layer, n, v, diff, spec, coat_spec);
+    float metal = clamp(pc.frame.x, 0.0, 1.0);
+    vec3 diffuse_color = layer * (1.0 - metal) * (1.0 - transmission);
+    vec3 lin = emission + diff * diffuse_color * INV_PI + spec;
+    // Use Default Lighting: the viewport's key and fill, when no real light is in use.
+    if (lt.head.x == 0) {
+        vec3 k = normalize(vec3(-0.45, 0.6, 0.65));
+        vec3 f = normalize(vec3(0.6, -0.2, 0.75));
+        float d = 0.75 * abs(dot(n, k)) + 0.3 * abs(dot(n, f));
+        lin += layer * (1.0 - metal) * (0.12 + 0.95 * d);
+    }
+    // Image-based lighting: the sky dome, or nothing when the scene has none.
+    float rough = clamp(pc.frame.y, 0.02, 1.0);
+    vec3 r = reflect(-v, n);
+    vec3 wd = normalize((lt.view_to_world * vec4(r, 0.0)).xyz);
+    vec3 ld = normalize(qrot(lt.env_rot, wd));
+    vec2 euv = vec2(atan(ld.z, ld.x) / (2.0 * PI) + 0.5, acos(clamp(ld.y, -1.0, 1.0)) / PI);
+    vec3 env = lt.env.w > 0.5 ? textureLod(sampler2D(t_env, s_env), euv, rough * 6.0).rgb : vec3(1.0);
+    env *= lt.env.rgb;
+    // The diffuse half comes from the sky around the normal, blurred: an irradiance probe made of the same image.
+    vec3 wn = normalize((lt.view_to_world * vec4(n, 0.0)).xyz);
+    vec3 ln = normalize(qrot(lt.env_rot, wn));
+    vec2 nuv = vec2(atan(ln.z, ln.x) / (2.0 * PI) + 0.5, acos(clamp(ln.y, -1.0, 1.0)) / PI);
+    vec3 env_d = lt.env.w > 0.5 ? textureLod(sampler2D(t_env, s_env), nuv, 6.0).rgb : vec3(1.0);
+    env_d *= lt.env.rgb;
+    if (lt.env.w > 0.5 || dot(lt.env.rgb, lt.env.rgb) > 0.0) {
+        float nv = max(dot(n, v), 0.001);
+        float f0d = f_ior(max(pc.incandescence.w, 1.0));
+        vec3 f0 = mix(vec3(f0d) * pc.ambient.rgb * pc.frame.w, layer, metal);
+        vec3 fres = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - nv, 5.0);
+        lin += env_d * diffuse_color;
+        lin += env * fres * (1.0 - 0.7 * rough);
+        if (pc.coat.x > 0.0) {
+            vec3 cf0 = vec3(f_ior(max(pc.coat.z, 1.0)));
+            vec3 cfres = cf0 + (max(vec3(1.0 - max(pc.coat.y, 0.02)), cf0) - cf0) * pow(1.0 - nv, 5.0);
+            lin += env * pc.coat.x * cfres;
+        }
+    }
+    out_color = vec4(pow(max(lin, vec3(0.0)), vec3(1.0 / 2.2)), alpha);
+}
+"#;
+
 const LINE_VS: &str = r#"#version 450
 layout(location = 0) in vec3 a_pos;
 layout(location = 1) in vec4 a_color;
@@ -453,6 +754,12 @@ pub struct Renderer {
     material_layout: vk::PipelineLayout,
     /// A view's lights and highlights: set 2 of the material pipelines.
     pub light_layout: vk::DescriptorSetLayout,
+    /// The Realtime renderer's pipelines, and whether the device has room for their constants (256 bytes).
+    pub realtime: bool,
+    rt_layout: vk::PipelineLayout,
+    rt_pipelines: Vec<(Kind, vk::Pipeline)>,
+    /// The Realtime shadow set: a 2D map, a cube map, and a sampler for each.
+    pub rt_shadow_layout: vk::DescriptorSetLayout,
 }
 
 impl Renderer {
@@ -640,6 +947,85 @@ impl Renderer {
                 d.destroy_shader_module(vs, None);
                 d.destroy_shader_module(fs, None);
             }
+            let rt_realtime = materials && limits.max_push_constants_size as usize >= std::mem::size_of::<RtPush>();
+            let mut rt_layout = vk::PipelineLayout::null();
+            let mut rt_pipelines = Vec::new();
+            let mut rt_shadow_layout = vk::DescriptorSetLayout::null();
+            if rt_realtime {
+                let tex = crate::textures::set_layout(gpu);
+                let shadow_bindings = [
+                    vk::DescriptorSetLayoutBinding::default().binding(0).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                    vk::DescriptorSetLayoutBinding::default().binding(1).descriptor_type(vk::DescriptorType::SAMPLER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                    vk::DescriptorSetLayoutBinding::default().binding(2).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                    vk::DescriptorSetLayoutBinding::default().binding(3).descriptor_type(vk::DescriptorType::SAMPLER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                ];
+                rt_shadow_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&shadow_bindings), None).unwrap();
+                let sets = [tex, tex, light_layout, tex, rt_shadow_layout];
+                let range = [vk::PushConstantRange::default()
+                    .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)
+                    .size(std::mem::size_of::<RtPush>() as u32)];
+                rt_layout = d.create_pipeline_layout(&vk::PipelineLayoutCreateInfo::default().set_layouts(&sets).push_constant_ranges(&range), None).unwrap();
+                let vs = module(REALTIME_VS, naga::ShaderStage::Vertex);
+                let fs = module(REALTIME_FS, naga::ShaderStage::Fragment);
+                for kind in [Kind::Material, Kind::MaterialCull, Kind::MaterialBlend, Kind::MaterialBlendCull] {
+                    let stages = [
+                        vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::VERTEX).module(vs).name(c"main"),
+                        vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::FRAGMENT).module(fs).name(c"main"),
+                    ];
+                    let bindings = [
+                        vk::VertexInputBindingDescription::default().binding(0).stride(24).input_rate(vk::VertexInputRate::VERTEX),
+                        vk::VertexInputBindingDescription::default().binding(1).stride(8).input_rate(vk::VertexInputRate::VERTEX),
+                    ];
+                    let attrs = [
+                        vk::VertexInputAttributeDescription::default().location(0).binding(0).format(vk::Format::R32G32B32_SFLOAT).offset(0),
+                        vk::VertexInputAttributeDescription::default().location(1).binding(0).format(vk::Format::R32G32B32_SFLOAT).offset(12),
+                        vk::VertexInputAttributeDescription::default().location(2).binding(1).format(vk::Format::R32G32_SFLOAT).offset(0),
+                    ];
+                    let vin = vk::PipelineVertexInputStateCreateInfo::default().vertex_binding_descriptions(&bindings).vertex_attribute_descriptions(&attrs);
+                    let ia = vk::PipelineInputAssemblyStateCreateInfo::default().topology(vk::PrimitiveTopology::TRIANGLE_LIST);
+                    let vp = vk::PipelineViewportStateCreateInfo::default().viewport_count(1).scissor_count(1);
+                    let cull = matches!(kind, Kind::MaterialCull | Kind::MaterialBlendCull);
+                    let rs = vk::PipelineRasterizationStateCreateInfo::default()
+                        .polygon_mode(vk::PolygonMode::FILL)
+                        .cull_mode(if cull { vk::CullModeFlags::BACK } else { vk::CullModeFlags::NONE })
+                        .front_face(vk::FrontFace::CLOCKWISE)
+                        .line_width(1.0);
+                    let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(gpu.samples);
+                    let ds = vk::PipelineDepthStencilStateCreateInfo::default()
+                        .depth_test_enable(true)
+                        .depth_write_enable(matches!(kind, Kind::Material | Kind::MaterialCull))
+                        .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
+                    let blend = [vk::PipelineColorBlendAttachmentState::default()
+                        .blend_enable(true)
+                        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                        .color_blend_op(vk::BlendOp::ADD)
+                        .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                        .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                        .alpha_blend_op(vk::BlendOp::ADD)
+                        .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                    let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
+                    let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
+                    let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
+                    let info = vk::GraphicsPipelineCreateInfo::default()
+                        .stages(&stages)
+                        .vertex_input_state(&vin)
+                        .input_assembly_state(&ia)
+                        .viewport_state(&vp)
+                        .rasterization_state(&rs)
+                        .multisample_state(&ms)
+                        .depth_stencil_state(&ds)
+                        .color_blend_state(&cb)
+                        .dynamic_state(&dy)
+                        .layout(rt_layout)
+                        .render_pass(gpu.render_pass)
+                        .subpass(0);
+                    let p = d.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None).map_err(|e| e.1).unwrap()[0];
+                    rt_pipelines.push((kind, p));
+                }
+                d.destroy_shader_module(vs, None);
+                d.destroy_shader_module(fs, None);
+            }
             {
                 let vs = module(SMOOTH_VS, naga::ShaderStage::Vertex);
                 let fs = module(SMOOTH_FS, naga::ShaderStage::Fragment);
@@ -698,7 +1084,7 @@ impl Renderer {
                 d.destroy_shader_module(vs, None);
                 d.destroy_shader_module(fs, None);
             }
-            Renderer { layout, pipelines, line_width: feats.wide_lines != 0, materials, material_layout, light_layout }
+            Renderer { layout, pipelines, line_width: feats.wide_lines != 0, materials, material_layout, light_layout, realtime: rt_realtime, rt_layout, rt_pipelines, rt_shadow_layout }
         }
     }
 
@@ -723,6 +1109,22 @@ impl Renderer {
     pub fn bind_material(&self, gpu: &Gpu, kind: Kind, color: vk::DescriptorSet, alpha: vk::DescriptorSet, lights: vk::DescriptorSet) {
         self.bind(gpu, kind);
         unsafe { gpu.device.cmd_bind_descriptor_sets(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, self.material_layout, 0, &[color, alpha, lights], &[]) };
+    }
+
+    /// Binds a Realtime material pipeline: its colour and alpha textures, the lights, the sky dome's image and the
+    /// shadow map.
+    pub fn bind_realtime(&self, gpu: &Gpu, kind: Kind, color: vk::DescriptorSet, alpha: vk::DescriptorSet, lights: vk::DescriptorSet, env: vk::DescriptorSet, shadow: vk::DescriptorSet) {
+        let p = self.rt_pipelines.iter().find(|(k, _)| *k == kind).unwrap().1;
+        unsafe {
+            gpu.device.cmd_bind_pipeline(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, p);
+            gpu.device.cmd_bind_descriptor_sets(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, self.rt_layout, 0, &[color, alpha, lights, env, shadow], &[]);
+        }
+    }
+
+    pub fn push_realtime(&self, gpu: &Gpu, p: &RtPush) {
+        unsafe {
+            gpu.device.cmd_push_constants(gpu.cmd, self.rt_layout, vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT, 0, bytemuck::bytes_of(p));
+        }
     }
 
     pub fn push_material(&self, gpu: &Gpu, p: &MatPush) {
@@ -790,7 +1192,20 @@ mod tests {
     /// A bad shader stops the whole viewport at start-up, and shows only with a device.
     #[test]
     fn every_shader_compiles() {
-        for (src, stage) in [(SHADED_VS, naga::ShaderStage::Vertex), (SHADED_FS, naga::ShaderStage::Fragment), (LINE_VS, naga::ShaderStage::Vertex), (LINE_FS, naga::ShaderStage::Fragment), (MATERIAL_VS, naga::ShaderStage::Vertex), (MATERIAL_FS, naga::ShaderStage::Fragment), (SMOOTH_VS, naga::ShaderStage::Vertex), (SMOOTH_FS, naga::ShaderStage::Fragment)] {
+        for (src, stage) in [
+            (SHADED_VS, naga::ShaderStage::Vertex),
+            (SHADED_FS, naga::ShaderStage::Fragment),
+            (LINE_VS, naga::ShaderStage::Vertex),
+            (LINE_FS, naga::ShaderStage::Fragment),
+            (MATERIAL_VS, naga::ShaderStage::Vertex),
+            (MATERIAL_FS, naga::ShaderStage::Fragment),
+            (REALTIME_VS, naga::ShaderStage::Vertex),
+            (REALTIME_FS, naga::ShaderStage::Fragment),
+            (SMOOTH_VS, naga::ShaderStage::Vertex),
+            (SMOOTH_FS, naga::ShaderStage::Fragment),
+            (crate::realtime::SHADOW_VS, naga::ShaderStage::Vertex),
+            (crate::realtime::SHADOW_FS, naga::ShaderStage::Fragment),
+        ] {
             assert!(!compile(src, stage).is_empty());
         }
     }
@@ -799,8 +1214,16 @@ mod tests {
     fn the_light_block_is_what_the_shader_declares() {
         use crate::lighting::{GpuLight, LightBlock, MAX_LIGHTS};
         assert_eq!(std::mem::size_of::<GpuLight>(), 7 * 16);
-        assert_eq!(std::mem::size_of::<LightBlock>(), 64 + 16 + 7 * 16 * MAX_LIGHTS);
-        assert!(MATERIAL_FS.contains("Light lights[16]") && MAX_LIGHTS == 16);
+        // inv_proj, head, shadow_matrix, shadow, shadow_pos, shadow_range, env, env_rot, view_to_world, then lights.
+        assert_eq!(std::mem::size_of::<LightBlock>(), 64 + 16 + 64 + 16 + 16 + 16 + 16 + 16 + 64 + 7 * 16 * MAX_LIGHTS);
+        assert!(MATERIAL_FS.contains("Light lights[16]") && REALTIME_FS.contains("Light lights[16]") && MAX_LIGHTS == 16);
+    }
+
+    #[test]
+    fn the_realtime_constants_fit_a_device() {
+        // 256 bytes is what the Realtime pipelines ask for: 128 for the draw's, then one vec4 a layer parameter group.
+        assert_eq!(std::mem::size_of::<RtPush>(), 256);
+        assert_eq!(std::mem::size_of::<MatPush>(), 240);
     }
 
     /// The shader's lighting is `aztek_scene::lights::viewport_diffuse` in GLSL, and the renderer is tested against that

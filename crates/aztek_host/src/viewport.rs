@@ -273,7 +273,20 @@ struct Clear {
 
 /// What a shape draws with when nothing shades it: the reference's green.
 fn no_material() -> DrawMaterial {
-    DrawMaterial { group: NO_NODE, material: NO_NODE, unlit: false, color: [0.0, 1.0, 0.0], ambient: [0.0; 3], incandescence: [0.0; 3], diffuse: 1.0, transparency: 0.0, color_map: None, alpha_map: None, specular: None }
+    DrawMaterial {
+        group: NO_NODE,
+        material: NO_NODE,
+        unlit: false,
+        color: [0.0, 1.0, 0.0],
+        ambient: [0.0; 3],
+        incandescence: [0.0; 3],
+        diffuse: 1.0,
+        transparency: 0.0,
+        color_map: None,
+        alpha_map: None,
+        specular: None,
+        pbr: Default::default(),
+    }
 }
 
 /// What a surface draws with under Use Default Material.
@@ -327,6 +340,23 @@ fn material_push(base: Push, m: &DrawMaterial, sets: Option<&MatSets>) -> (MatPu
         incandescence: [m.incandescence[0], m.incandescence[1], m.incandescence[2], 0.0],
     };
     (push, alpha_mode > 0.0 || alpha < 0.999)
+}
+
+/// The same draw's constants for the Realtime pipelines, which read the fields it has no use for as the OpenPBR
+/// parameters: `frame` the roughness and weights, `offs.w` the base weight, `ambient` the specular colour, and `coat`
+/// the coat and transmission.
+fn realtime_push(mp: &MatPush, m: &DrawMaterial, highlight: f32) -> crate::render::RtPush {
+    crate::render::RtPush {
+        base: mp.base,
+        uv: mp.uv,
+        frame: [m.pbr.metalness, m.pbr.specular_roughness, m.pbr.diffuse_roughness, m.pbr.specular_weight],
+        misc: mp.misc,
+        gain: mp.gain,
+        offs: [mp.offs[0], mp.offs[1], mp.offs[2], m.pbr.base_weight],
+        ambient: [m.pbr.specular_color[0], m.pbr.specular_color[1], m.pbr.specular_color[2], highlight],
+        incandescence: [m.pbr.emission[0], m.pbr.emission[1], m.pbr.emission[2], m.pbr.specular_ior],
+        coat: [m.pbr.coat_weight, m.pbr.coat_roughness, m.pbr.coat_ior, m.pbr.transmission_weight],
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -686,6 +716,14 @@ pub struct Viewport {
     /// J held: rotate in discrete steps.
     pub discrete_hold: bool,
     pub disp: Display,
+    /// The light the Realtime renderer's shadow map is drawn from, and its camera: read by `View` before the frame.
+    pub shadow: Option<crate::lighting::ShadowPlan>,
+    /// The sky dome the Realtime renderer lights from.
+    pub environment: Option<aztek_scene::lights::EnvironmentLight>,
+    /// The Realtime renderer's shadow map, bound as set 4 of its material pipelines.
+    pub rt_shadow_set: Option<vk::DescriptorSet>,
+    /// The contact shadow the post pass marches, when Realtime draws: view-space direction to its light, reach, strength.
+    pub contact: Option<([f32; 3], f32, f32)>,
     /// Where a live-surface move lands, worked out before the drag's call.
     pub live_hit: Option<DVec3>,
     /// A live surface is set: moves snap onto it.
@@ -782,6 +820,10 @@ impl Viewport {
     pub fn new(kind: CamKind) -> Viewport {
         Viewport {
             lit: None,
+            shadow: None,
+            environment: None,
+            rt_shadow_set: None,
+            contact: None,
             look_camera: NO_NODE,
             cam: Camera::new(kind),
             meshes: HashMap::new(),
@@ -1045,7 +1087,7 @@ impl Viewport {
 
     /// Reads the materials when the scene has changed; finds this frame's textures. A missing or broken image is a
     /// warning in the script history, once, and the material draws with the file node's default colour.
-    fn prepare_materials(&mut self, gpu: &Gpu, s: &mut Session) {
+    pub fn prepare_materials(&mut self, gpu: &Gpu, s: &mut Session) {
         let stale_project = self.mats.project_read.is_none_or(|t| t.elapsed().as_secs_f64() > 2.0);
         if stale_project {
             self.mats.project = shading::project_dir(s);
@@ -1111,8 +1153,9 @@ impl Viewport {
         }
     }
 
-    /// This frame's lights, highlights and links, as the view's Lighting menu asks.
-    fn prepare_lights(&mut self, gpu: &Gpu, r: &Renderer, s: &mut Session, items: &[DrawItem]) {
+    /// This frame's lights, highlights and links, as the view's Lighting menu asks. Runs before the frame's command
+    /// buffer, so the shadow map it plans can be drawn first.
+    pub fn prepare_lights(&mut self, gpu: &Gpu, r: &Renderer, s: &mut Session, items: &[DrawItem], realtime: bool) {
         if !r.materials {
             return;
         }
@@ -1120,18 +1163,30 @@ impl Viewport {
         lit.write_speculars(self.mats.version, self.mats.materials.iter());
         let mode = self.disp.light_mode;
         let chosen = crate::lighting::chosen(&mut s.graph, mode, visible);
-        let (view, proj) = (self.cam.view(), self.cam.proj(self.rect[2].max(1.0) / self.rect[3].max(1.0)));
-        lit.write_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic);
+        let env = crate::lighting::chosen_environment(&mut s.graph, mode, visible, s.scene_path.as_deref(), self.mats.project.as_deref());
+        lit.write_environment(gpu, env.as_ref());
         if !chosen.is_empty() {
             let used: Vec<NodeId> = chosen.iter().map(|l| l.shape).collect();
             lit.update_masks(&s.graph, &used, items.iter().map(|i| i.shape));
         }
+        // The Realtime renderer draws one shadow map, for the first light that casts one, when Shadows is on.
+        self.shadow = if realtime && self.disp.shadows { crate::lighting::shadow_plan(&chosen, items) } else { None };
+        self.environment = env;
+        let shadow_plan = self.shadow;
+        let (view, proj) = (self.cam.view(), self.cam.proj(self.rect[2].max(1.0) / self.rect[3].max(1.0)));
+        // The contact shadow goes the other way from the light's shine, and reaches a little way into the scene.
+        self.contact = self.shadow.and_then(|p| {
+            let l = chosen.get(p.light)?;
+            let toward = view.transform_vector3(l.world.z_axis.truncate()).normalize_or_zero();
+            let reach = (self.disp.ao_radius * 0.25).clamp(0.01, 2.0) as f32;
+            Some((toward.as_vec3().to_array(), reach, 0.6))
+        });
+        // The block carries the shadow camera in view space: a 2D map's matrix, or a cube light's position.
+        lit.write_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic, shadow_plan.map(|p| p.block(&view)));
     }
 
-    pub fn draw(&mut self, gpu: &mut Gpu, r: &Renderer, s: &mut Session, items: &[DrawItem], scale: f64) {
+    pub fn draw(&mut self, gpu: &mut Gpu, r: &Renderer, s: &mut Session, items: &[DrawItem], scale: f64, realtime: bool) {
         self.prune(gpu, items);
-        self.prepare_materials(gpu, s);
-        self.prepare_lights(gpu, r, s, items);
         let [x, y, w, h] = self.rect;
         if w < 2.0 || h < 2.0 {
             return;
@@ -1729,8 +1784,17 @@ impl Viewport {
                                     (true, false) => Kind::MaterialBlend,
                                     (true, true) => Kind::MaterialBlendCull,
                                 };
-                                r.bind_material(gpu, kind, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set));
-                                r.push_material(gpu, &mp);
+                                let lights = self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set);
+                                if realtime && r.realtime {
+                                    let env = self.lit.as_ref().and_then(|l| l.env_set).unwrap_or(white);
+                                    let shadow = self.rt_shadow_set.unwrap_or(white);
+                                    let rp = realtime_push(&mp, m, self.lit.as_ref().map_or(0.0, |l| l.index.get(&b.group).copied().unwrap_or(0) as f32));
+                                    r.bind_realtime(gpu, kind, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), lights, env, shadow);
+                                    r.push_realtime(gpu, &rp);
+                                } else {
+                                    r.bind_material(gpu, kind, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), lights);
+                                    r.push_material(gpu, &mp);
+                                }
                                 r.draw_material(gpu, vb, uvs, ib, b.first, b.count);
                             } else {
                                 // A device without room for the material constants: flat colours.
@@ -1807,8 +1871,18 @@ impl Viewport {
             let (mut mp, _) = material_push(pc, m, sets);
             stamp_lights(&self.lit, &mut mp, c.shape, b.group);
             let white = crate::textures::with_cache(gpu, |c| c.white(gpu));
-            r.bind_material(gpu, if self.disp.backface { Kind::MaterialBlendCull } else { Kind::MaterialBlend }, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set));
-            r.push_material(gpu, &mp);
+            let kind = if self.disp.backface { Kind::MaterialBlendCull } else { Kind::MaterialBlend };
+            let lights = self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set);
+            if realtime && r.realtime {
+                let env = self.lit.as_ref().and_then(|l| l.env_set).unwrap_or(white);
+                let shadow = self.rt_shadow_set.unwrap_or(white);
+                let rp = realtime_push(&mp, m, self.lit.as_ref().map_or(0.0, |l| l.index.get(&b.group).copied().unwrap_or(0) as f32));
+                r.bind_realtime(gpu, kind, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), lights, env, shadow);
+                r.push_realtime(gpu, &rp);
+            } else {
+                r.bind_material(gpu, kind, sets.and_then(|x| x.color).unwrap_or(white), sets.and_then(|x| x.alpha).unwrap_or(white), lights);
+                r.push_material(gpu, &mp);
+            }
             r.draw_material(gpu, vb, uvs, ib, b.first, b.count);
         }
         crate::usd_view::draw(gpu, r, s, vp, view);

@@ -1244,6 +1244,7 @@ fn sampling_lights(g: &mut crate::graph::Graph) -> Vec<crate::lights::SceneLight
             volume_shape: 1,
             volume_dir: 0,
             volume_ambient: false,
+            cast_shadows: false,
         });
     }
     out

@@ -3,7 +3,7 @@
 #pragma once
 
 static const char* const kIconNames[] = {
-    "aimCon", "ambientLight", "annotationShape", "antiAlias", "areaLight", "attachCurve", "attrEditor", "autokey",
+    "aimCon", "ambientLight", "ambientOcclusion", "annotationShape", "antiAlias", "areaLight", "attachCurve", "attrEditor", "autokey",
     "backface", "bevel", "bezierCurve", "blendShape", "bookmark", "boolean", "bridge", "brushAmplify", "brushBulge",
     "brushFill", "brushFlatten", "brushFoamy", "brushFreeze", "brushGrab", "brushImprint", "brushKnife",
     "brushPinch", "brushRelax", "brushRepeat", "brushScrape", "brushSculpt", "brushSmear", "brushSmooth",

@@ -250,3 +250,27 @@ fn a_keyed_intensity_writes_with_its_connection() {
     read_text(&mut again, &text, false);
     assert_eq!(get(&mut again, "pointLightShape1.intensity"), 3.0);
 }
+
+#[test]
+fn harold_lights_read_for_the_realtime_renderer() {
+    let mut s = session();
+    // A sky dome is the environment, not one more light in the block.
+    let d = run(&mut s, "shadingNode", json!({"args": ["aiSkyDomeLight"], "asLight": true}));
+    let shape = run(&mut s, "listRelatives", json!({"args": [d], "shapes": true}))[0].as_str().unwrap().to_string();
+    run(&mut s, "setAttr", json!({"args": [format!("{shape}.color"), [0.25, 0.5, 1.0]]}));
+    run(&mut s, "setAttr", json!({"args": [format!("{shape}.intensity"), 2.0]}));
+    let id = s.graph.find(&shape).unwrap().unwrap();
+    let env = aztek_scene::lights::environment_of(&mut s.graph, id, None, None).unwrap();
+    assert!((env.color[0] - 0.5).abs() < 1e-6 && (env.color[1] - 1.0).abs() < 1e-6 && (env.color[2] - 2.0).abs() < 1e-6);
+    assert!(aztek_scene::lights::scene_light(&mut s.graph, id).is_none());
+
+    // The other Arnold lights are the legacy kinds the realtime shader already reads.
+    for (ty, kind) in [("aiAreaLight", aztek_scene::lights::Kind::Area), ("aiMeshLight", aztek_scene::lights::Kind::Area), ("aiPhotometricLight", aztek_scene::lights::Kind::Spot)] {
+        let tr = run(&mut s, "shadingNode", json!({"args": [ty], "asLight": true}));
+        let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();
+        let id = s.graph.find(&sh).unwrap().unwrap();
+        let l = aztek_scene::lights::scene_light(&mut s.graph, id).unwrap();
+        assert_eq!(l.kind, kind, "{ty}");
+        assert!(l.cast_shadows);
+    }
+}

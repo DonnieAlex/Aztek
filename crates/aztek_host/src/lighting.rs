@@ -94,6 +94,20 @@ pub struct LightBlock {
     pub inv_proj: [f32; 16],
     /// Path, light count, two sided, orthographic.
     pub head: [i32; 4],
+    /// The realtime renderer's one shadow map: world to the light's clip space.
+    pub shadow_matrix: [f32; 16],
+    /// Shadow bias (a world-space normal offset), one over its size, the light it shadows, and the map's kind.
+    pub shadow: [f32; 4],
+    /// A point light's view-space position; unused by a 2D map.
+    pub shadow_pos: [f32; 4],
+    /// A cube map's near and far planes, for turning its depth back into a distance.
+    pub shadow_range: [f32; 4],
+    /// The sky dome's colour and strength; w is 1 when an image feeds it.
+    pub env: [f32; 4],
+    /// World to the dome's space, so a latlong image turns with it.
+    pub env_rot: [f32; 4],
+    /// View space back to world, so a reflection can be looked up in a world-space environment.
+    pub view_to_world: [f32; 16],
     pub lights: [GpuLight; MAX_LIGHTS],
 }
 
@@ -197,6 +211,186 @@ pub fn chosen(g: &mut Graph, mode: LightMode, shown: impl Fn(&Graph, NodeId) -> 
     out
 }
 
+/// The sky dome the light mode draws, read as the Realtime renderer's environment.
+pub fn chosen_environment(g: &mut Graph, mode: LightMode, shown: impl Fn(&Graph, NodeId) -> bool, scene: Option<&str>, project: Option<&str>) -> Option<lights::EnvironmentLight> {
+    if !matches!(mode, LightMode::All | LightMode::Selected) {
+        return None;
+    }
+    let sel = g.selection().to_vec();
+    for sh in lights::all_shapes(g) {
+        if g.node(sh).is_none_or(|n| n.ty().name != "aiSkyDomeLight") || !shown(g, sh) {
+            continue;
+        }
+        if mode == LightMode::Selected {
+            let tr = aztek_scene::dag::transform_of(g, sh);
+            if !sel.contains(&sh) && !sel.contains(&tr) {
+                continue;
+            }
+        }
+        if let Some(e) = lights::environment_of(g, sh, scene, project) {
+            return Some(e);
+        }
+    }
+    None
+}
+
+/// One light's shadow: which light, how its map is drawn, and how far a surface is offset along its normal to keep a
+/// caster from shadowing itself.
+#[derive(Clone, Copy, Debug)]
+pub struct ShadowPlan {
+    pub light: usize,
+    pub camera: ShadowCamera,
+    pub bias: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ShadowCamera {
+    /// A directional or spot light: one map, world to the light's clip space.
+    Map2D(DMat4),
+    /// A point, area or volume light: six faces looking out along the world's axes. The light's position and the far
+    /// plane are kept for the shader.
+    Cube { faces: [DMat4; 6], position: DVec3, near: f32, far: f32 },
+}
+
+/// What `ViewLights` writes for a frame's shadow map.
+#[derive(Clone, Copy, Debug)]
+pub struct ShadowBlock {
+    pub light: usize,
+    pub matrix: [f32; 16],
+    pub pos: [f32; 4],
+    pub mode: f32,
+    pub bias: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+impl ShadowPlan {
+    /// The block's fields, in the camera's view space.
+    pub fn block(&self, view: &DMat4) -> ShadowBlock {
+        match self.camera {
+            ShadowCamera::Map2D(matrix) => ShadowBlock {
+                light: self.light,
+                matrix: (matrix * view.inverse()).as_mat4().to_cols_array(),
+                pos: [0.0; 4],
+                mode: 1.0,
+                bias: self.bias,
+                near: 0.0,
+                far: 0.0,
+            },
+            ShadowCamera::Cube { position, near, far, .. } => {
+                let p = view.transform_point3(position);
+                ShadowBlock { light: self.light, matrix: DMat4::IDENTITY.as_mat4().to_cols_array(), pos: [p.x as f32, p.y as f32, p.z as f32, far], near, far, mode: 2.0, bias: self.bias }
+            }
+        }
+    }
+}
+
+/// The six faces of a cube shadow map, in the order the shader selects them: +X, -X, +Y, -Y, +Z, -Z.
+fn cube_faces(eye: DVec3, near: f64, far: f64) -> [DMat4; 6] {
+    // (forward, up): the up axis is chosen so the face's u runs right and v runs down, as the shader looks them up.
+    let faces = [
+        (DVec3::X, -DVec3::Y),
+        (-DVec3::X, -DVec3::Y),
+        (DVec3::Y, DVec3::Z),
+        (-DVec3::Y, -DVec3::Z),
+        (DVec3::Z, -DVec3::Y),
+        (-DVec3::Z, -DVec3::Y),
+    ];
+    // Orthographic faces: their depth is linear in the distance along the face's axis, which is what the shader
+    // compares, and a point light's shadows read well enough from six such boxes.
+    let r = far;
+    let proj = DMat4::orthographic_rh(-r, r, -r, r, near, far);
+    let mut out = [DMat4::IDENTITY; 6];
+    for (i, (f, up)) in faces.iter().enumerate() {
+        out[i] = proj * DMat4::look_to_rh(eye, *f, *up);
+    }
+    out
+}
+
+/// The shadow camera for the first light of the frame that casts one. A directional light or spot gets one map; a
+/// point, area or volume light gets six, from its position.
+pub fn shadow_plan(lights: &[SceneLight], items: &[crate::viewport::DrawItem]) -> Option<ShadowPlan> {
+    let index = lights.iter().position(|l| l.cast_shadows && !matches!(l.kind, Kind::Ambient))?;
+    let light = &lights[index];
+    let (lo, hi) = scene_bounds(items);
+    let center = (lo + hi) * 0.5;
+    let radius = ((hi - lo).length() * 0.5).max(1e-3) as f64;
+    let bias = (radius * 0.01).clamp(0.001, 1.0) as f32;
+    let axis = (-light.world.z_axis.truncate()).normalize_or_zero();
+    match light.kind {
+        Kind::Directional => {
+            let eye = center - axis * (radius * 3.0 + 1.0);
+            let up = if axis.dot(DVec3::Y).abs() > 0.95 { DVec3::Z } else { DVec3::Y };
+            let view = DMat4::look_at_rh(eye, center, up);
+            let r = radius * 1.15;
+            let proj = DMat4::orthographic_rh(-r, r, -r, r, 0.01, radius * 8.0 + 2.0);
+            Some(ShadowPlan { light: index, camera: ShadowCamera::Map2D(proj * view), bias })
+        }
+        Kind::Spot => {
+            let eye = light.world.w_axis.truncate();
+            let (near, far) = scene_distance_range(items, eye);
+            let up = if axis.dot(DVec3::Y).abs() > 0.95 { DVec3::Z } else { DVec3::Y };
+            let view = DMat4::look_at_rh(eye, eye + axis, up);
+            // A map is a flat window on the cone: a very wide spot (a photometric light's 180 degrees) is held to 170,
+            // where the projection is still finite.
+            let half = ((light.cone_deg + light.penumbra_deg.abs()) * 0.5).clamp(1.0, 85.0).to_radians();
+            // The near plane as close to the scene as it can be: perspective depth has most of its precision near it, and
+            // a far plane far past the scene leaves too little to tell a caster from what it shadows.
+            let proj = DMat4::perspective_rh(2.0 * half, 1.0, near.max(0.01), far.max(near + 0.1));
+            Some(ShadowPlan { light: index, camera: ShadowCamera::Map2D(proj * view), bias })
+        }
+        Kind::Point | Kind::Area | Kind::Volume => {
+            let position = light.world.w_axis.truncate();
+            let (near, far) = scene_distance_range(items, position);
+            let faces = cube_faces(position, near.max(0.01), far.max(near + 0.1));
+            Some(ShadowPlan { light: index, camera: ShadowCamera::Cube { faces, position, near: near.max(0.01) as f32, far: far.max(near + 0.1) as f32 }, bias })
+        }
+        Kind::Ambient => None,
+    }
+}
+
+/// How near and far the scene is from a light: the closest and farthest mesh point.
+fn scene_distance_range(items: &[crate::viewport::DrawItem], eye: DVec3) -> (f64, f64) {
+    let mut near = f64::MAX;
+    let mut far = 0.0f64;
+    for it in items {
+        let m = &it.mesh;
+        for p in 0..m.point_capacity() {
+            if m.point_valid(p) {
+                let d = (it.world.transform_point3(m.position(p)) - eye).length();
+                near = near.min(d);
+                far = far.max(d);
+            }
+        }
+    }
+    if near > far {
+        (0.1, 100.0)
+    } else {
+        ((near * 0.5).max(0.01), (far * 1.05 + 0.1).max(near + 0.1))
+    }
+}
+
+/// The world bounds of what the view draws, for a shadow camera to cover.
+fn scene_bounds(items: &[crate::viewport::DrawItem]) -> (DVec3, DVec3) {
+    let mut lo = DVec3::splat(f64::MAX);
+    let mut hi = DVec3::splat(f64::MIN);
+    for it in items {
+        let m = &it.mesh;
+        for p in 0..m.point_capacity() {
+            if m.point_valid(p) {
+                let w = it.world.transform_point3(m.position(p));
+                lo = lo.min(w);
+                hi = hi.max(w);
+            }
+        }
+    }
+    if lo.x > hi.x {
+        (DVec3::splat(-1.0), DVec3::splat(1.0))
+    } else {
+        (lo, hi)
+    }
+}
+
 /// A view's lighting buffers and descriptor set.
 pub struct ViewLights {
     block: Buffer,
@@ -210,6 +404,11 @@ pub struct ViewLights {
     mask_key: Option<(u64, Vec<NodeId>)>,
     spec_version: Option<u64>,
     written_default: bool,
+    /// The sky dome for the Realtime renderer: its loaded image set, colour, rotation and strength.
+    pub env_set: Option<vk::DescriptorSet>,
+    env_key: Option<String>,
+    env: [f32; 4],
+    env_rot: [f32; 4],
 }
 
 fn write<T: Pod>(b: &Buffer, data: &[T]) {
@@ -221,7 +420,18 @@ fn write<T: Pod>(b: &Buffer, data: &[T]) {
 
 impl ViewLights {
     pub fn new(gpu: &Gpu, r: &Renderer) -> ViewLights {
-        let start = LightBlock { inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(), head: [0; 4], lights: [GpuLight::zeroed(); MAX_LIGHTS] };
+        let start = LightBlock {
+            inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(),
+            head: [0; 4],
+            shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
+            shadow: [-1.0; 4],
+            shadow_pos: [0.0; 4],
+            shadow_range: [0.0; 4],
+            env: [0.0; 4],
+            env_rot: [0.0, 0.0, 0.0, 1.0],
+            view_to_world: DMat4::IDENTITY.as_mat4().to_cols_array(),
+            lights: [GpuLight::zeroed(); MAX_LIGHTS],
+        };
         let block = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, std::slice::from_ref(&start));
         let speculars = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, &vec![[[0.0f32; 4]; 2]; MAX_SPECULARS]);
         unsafe {
@@ -239,7 +449,21 @@ impl ViewLights {
                 vk::WriteDescriptorSet::default().dst_set(set).dst_binding(1).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&infos[1]),
             ];
             d.update_descriptor_sets(&writes, &[]);
-            ViewLights { block, speculars, pool, set, index: HashMap::new(), masks: HashMap::new(), mask_key: None, spec_version: None, written_default: true }
+            ViewLights {
+                block,
+                speculars,
+                pool,
+                set,
+                index: HashMap::new(),
+                masks: HashMap::new(),
+                mask_key: None,
+                spec_version: None,
+                written_default: true,
+                env_set: None,
+                env_key: None,
+                env: [0.0; 4],
+                env_rot: [0.0, 0.0, 0.0, 1.0],
+            }
         }
     }
 
@@ -263,19 +487,76 @@ impl ViewLights {
         write(&self.speculars, &table);
     }
 
-    /// This frame's block. `lights` are what the mode chose.
-    pub fn write_block(&mut self, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool) {
+    /// The sky dome image for this frame, or white when there is none. The colour and rotation go in the block.
+    pub fn write_environment(&mut self, gpu: &Gpu, env: Option<&aztek_scene::lights::EnvironmentLight>) {
+        self.env = [0.0; 4];
+        self.env_rot = [0.0, 0.0, 0.0, 1.0];
+        let mut key = None;
+        if let Some(e) = env {
+            self.env = [e.color[0], e.color[1], e.color[2], 1.0];
+            let q = e.rotation;
+            self.env_rot = [q.x as f32, q.y as f32, q.z as f32, q.w as f32];
+            if let Some(t) = &e.image {
+                let path = t.resolved.clone();
+                key = path.clone();
+                if self.env_key != path || self.env_set.is_none() {
+                    self.env_set = path.as_ref().and_then(|p| crate::textures::with_cache(gpu, |c| c.get(gpu, p, t.srgb)).map(|l| l.set));
+                }
+            }
+        }
+        if self.env_key != key {
+            self.env_key = key;
+            if self.env_key.is_none() {
+                self.env_set = None;
+            }
+        }
+    }
+
+    /// This frame's block. `lights` are what the mode chose; `shadow` the light and its world-to-clip matrix when the
+    /// Realtime renderer draws one.
+    pub fn write_block(&mut self, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool, shadow: Option<ShadowBlock>) {
         let path = mode.shader_mode();
         // The default path reads nothing of the block but its head.
         if path == 0 {
             if !self.written_default {
-                write(&self.block, std::slice::from_ref(&LightBlock { inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(), head: [0; 4], lights: [GpuLight::zeroed(); MAX_LIGHTS] }));
+                write(
+                    &self.block,
+                    std::slice::from_ref(&LightBlock {
+                        inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(),
+                        head: [0; 4],
+                        shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
+                        shadow: [-1.0; 4],
+                        shadow_pos: [0.0; 4],
+                        shadow_range: [0.0; 4],
+                        env: [0.0; 4],
+                        env_rot: [0.0, 0.0, 0.0, 1.0],
+                        view_to_world: DMat4::IDENTITY.as_mat4().to_cols_array(),
+                        lights: [GpuLight::zeroed(); MAX_LIGHTS],
+                    }),
+                );
                 self.written_default = true;
             }
             return;
         }
         self.written_default = false;
-        let mut block = LightBlock { inv_proj: proj.inverse().as_mat4().to_cols_array(), head: [path, lights.len().min(MAX_LIGHTS) as i32, two_sided as i32, ortho as i32], lights: [GpuLight::zeroed(); MAX_LIGHTS] };
+        let mut block = LightBlock {
+            inv_proj: proj.inverse().as_mat4().to_cols_array(),
+            head: [path, lights.len().min(MAX_LIGHTS) as i32, two_sided as i32, ortho as i32],
+            shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
+            shadow: [-1.0; 4],
+            shadow_pos: [0.0; 4],
+            shadow_range: [0.0; 4],
+            env: self.env,
+            env_rot: self.env_rot,
+            view_to_world: view.inverse().as_mat4().to_cols_array(),
+            lights: [GpuLight::zeroed(); MAX_LIGHTS],
+        };
+        if let Some(s) = shadow {
+            block.shadow_matrix = s.matrix;
+            block.shadow = [s.bias, 1.0 / crate::realtime::SHADOW_SIZE as f32, s.light as f32, s.mode];
+            block.shadow_pos = s.pos;
+            block.shadow_range = [s.near, s.far, 0.0, 0.0];
+        }
         for (i, l) in lights.iter().take(MAX_LIGHTS).enumerate() {
             block.lights[i] = gpu_light(l, view);
         }
@@ -319,5 +600,57 @@ fn low_bits(n: usize) -> u32 {
         ALL_LIGHTS
     } else {
         (1u32 << n) - 1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_point_lights_faces_look_out_at_the_scene() {
+        let eye = DVec3::new(10.0, 18.0, 10.0);
+        let faces = cube_faces(eye, 1.0, 100.0);
+        // The scene is below and behind the light: the -Y face sees it.
+        let p = DVec3::ZERO;
+        let clip = faces[3] * p.extend(1.0);
+        assert!(clip.w > 0.0, "in front: {clip:?}");
+        let ndc = clip.truncate() / clip.w;
+        assert!(ndc.x.abs() <= 1.0 && ndc.y.abs() <= 1.0 && (0.0..=1.0).contains(&ndc.z), "inside the -Y face: {ndc:?}");
+        // The +Y face looks away: the point is behind its near plane.
+        let up = faces[2] * p.extend(1.0);
+        let ndc_up = up.truncate() / up.w;
+        assert!(!(0.0..=1.0).contains(&ndc_up.z) || ndc_up.x.abs() > 1.0 || ndc_up.y.abs() > 1.0, "+Y looks away: {ndc_up:?}");
+    }
+
+    #[test]
+    fn the_shadow_camera_covers_the_scene_in_vulkans_clip_space() {
+        let mut s = aztek_scene::Session::new();
+        aztek_scene::cameras::make_defaults(&mut s.graph);
+        s.run("polyCube", json!({})).unwrap();
+        s.run("directionalLight", json!({})).unwrap();
+        let items = crate::viewport::gather(&mut s.graph);
+        let light = aztek_scene::lights::all_shapes(&s.graph).into_iter().find_map(|id| aztek_scene::lights::scene_light(&mut s.graph, id)).unwrap();
+        let plan = shadow_plan(&[light], &items).unwrap();
+        let matrix = match plan.camera {
+            ShadowCamera::Map2D(m) => m,
+            ShadowCamera::Cube { .. } => panic!("a directional light has one map"),
+        };
+        let mut seen = false;
+        for it in &items {
+            for p in 0..it.mesh.point_capacity() {
+                if !it.mesh.point_valid(p) {
+                    continue;
+                }
+                let world = it.world.transform_point3(it.mesh.position(p));
+                let clip = matrix * world.extend(1.0);
+                // Vulkan: clip x and y in -w..w, clip z in 0..w.
+                assert!(clip.z >= -1e-6 && clip.z <= clip.w + 1e-6, "clip {clip:?}");
+                assert!(clip.x.abs() <= clip.w + 1e-6 && clip.y.abs() <= clip.w + 1e-6, "clip {clip:?}");
+                seen = true;
+            }
+        }
+        assert!(seen);
     }
 }
