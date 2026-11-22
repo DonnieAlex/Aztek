@@ -20,8 +20,8 @@ fn ae_attr<'a>(ae: &'a Value, name: &str) -> &'a Value {
     panic!("{name} is not in the attribute editor: {ae}");
 }
 
-fn locked(c: &mut Core, attr: &str) -> bool {
-    c.mel(&format!("getAttr -lock ball.{attr}")) == json!(true)
+fn locked(c: &mut Core, node: &str, attr: &str) -> bool {
+    c.mel(&format!("getAttr -lock {node}.{attr}")) == json!(true)
 }
 
 /// #207: a skin locks the bound transform, and deleting the history takes the skin away: the object moves again.
@@ -30,22 +30,31 @@ fn deleting_a_skins_history_frees_the_bound_transform() {
     let mut c = Core::new();
     mel(&mut c, "polySphere -n ball; select -cl; joint -n j;");
     mel(&mut c, "skinCluster -n sk j ball;");
-    assert!(locked(&mut c, "tx") && locked(&mut c, "ry") && locked(&mut c, "sz"), "a bind locks the transform");
+    assert!(locked(&mut c, "ball", "tx") && locked(&mut c, "ball", "ry") && locked(&mut c, "ball", "sz"), "a bind locks the transform");
     mel(&mut c, "DeleteHistory ball;");
-    assert!(!locked(&mut c, "tx") && !locked(&mut c, "ry") && !locked(&mut c, "sz"), "the history took the skin with it");
+    assert!(!locked(&mut c, "ball", "tx") && !locked(&mut c, "ball", "ry") && !locked(&mut c, "ball", "sz"), "the history took the skin with it");
     mel(&mut c, "setAttr ball.tx 4;");
     assert_eq!(mel(&mut c, "getAttr ball.tx;"), json!(4.0));
     assert_eq!(mel(&mut c, "objExists sk;"), json!(false), "the skinCluster went with the history");
 }
 
-/// A history that holds no skin leaves the locks as they were: unlocking is the skin's doing, not Delete History's.
+/// A deformer that does not lock the transform leaves the locks as they were: unlocking is a binding deformer's doing,
+/// not Delete History's. A lock the user made on a skinned object survives too, unless it is one the bind set.
 #[test]
-fn deleting_plain_history_keeps_a_lock_the_user_made() {
+fn deleting_history_keeps_a_lock_no_binding_deformer_made() {
     let mut c = Core::new();
     mel(&mut c, "polyCube -n ball;");
+    mel(&mut c, "nonLinear -type bend -n bend1 ball;");
     mel(&mut c, "setAttr ball.tx -lock true;");
     mel(&mut c, "DeleteHistory ball;");
-    assert!(locked(&mut c, "tx"), "a lock of the user's is not the skin's to take");
+    assert!(locked(&mut c, "ball", "tx"), "a lock of the user's is not the history's to take");
+
+    // A skinned object's own lock, off the channels the bind set, is the user's as well.
+    mel(&mut c, "polySphere -n skinned; select -cl; joint -n j2; skinCluster -n sk2 j2 skinned;");
+    mel(&mut c, "setAttr skinned.visibility -lock true;");
+    mel(&mut c, "DeleteHistory skinned;");
+    assert!(!locked(&mut c, "skinned", "tx"), "the bind's lock went with the skin");
+    assert_eq!(c.mel("getAttr -lock skinned.visibility"), json!(true), "the user's own lock stayed");
 }
 
 /// #206: the Channel Box's outputs are every node the selection drives, one level deep and all of them: a joint lists

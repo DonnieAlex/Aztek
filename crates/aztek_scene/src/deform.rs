@@ -175,6 +175,12 @@ pub fn link_handle_shape(g: &mut Graph, n: NodeId) -> CmdResult<()> {
     Ok(())
 }
 
+/// The deformers that bind what they deform and lock its transform for as long as they do: the skinCluster today.
+/// A binding deformer added later belongs here too, so Delete History frees the transform along with it (#207).
+pub fn locks_transform(type_name: &str) -> bool {
+    matches!(type_name, "skinCluster")
+}
+
 pub fn is_deformer(type_name: &str) -> bool {
     type_name == "nonLinear" || NONLINEAR.contains(&type_name) || matches!(type_name, "cluster" | "blendShape" | "ffd" | "softMod" | "deltaMush" | "tension" | "wrap" | "wire") || crate::deform_extra::TYPES.contains(&type_name) || matches!(type_name, "cloth" | "nCloth")
 }
