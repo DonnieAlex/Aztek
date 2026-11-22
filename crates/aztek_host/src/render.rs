@@ -400,6 +400,7 @@ layout(location = 0) out vec4 out_color;
 
 const float PI = 3.141592653589793;
 const float INV_PI = 0.3183098861837907;
+const float TWO_PI = 6.283185307179586;
 vec2 turned(vec2 p, float a) {
     float c = cos(a);
     float s = sin(a);
@@ -486,7 +487,9 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
         vec4 col = lt.lights[i].color;
         vec4 par = lt.lights[i].params;
         float kind = pos.w;
-        vec3 c = col.rgb;
+        // Harold scales the viewport's lights by pi so a matte surface's /pi matches it. Scaling the direct terms here
+        // gives the same radiance for the same colour and intensity, so both renderers need the same light settings.
+        vec3 c = col.rgb * PI;
         vec3 l = vec3(0.0, 0.0, 1.0);
         if (kind < 0.5) {
             vec3 to = pos.xyz - v_view;
@@ -507,6 +510,29 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
             float cone = dot(-l, dir.xyz);
             float edge = clamp((cone - par.x) / max(par.y - par.x, 0.00001), 0.0, 1.0);
             c *= decay(dir.w, d) * edge * pow(max(cone, 0.0), par.z);
+            // A photometric light's IES profile: 12 vertical samples, averaged around each ring, interpolated.
+            if (par.w > 0.5) {
+                vec3 to = -l;
+                float angle = acos(clamp(dot(to, dir.xyz), -1.0, 1.0)) / PI * 11.0;
+                float k = floor(angle);
+                float t = angle - k;
+                vec4 A = lt.lights[i].a;
+                vec4 B = lt.lights[i].b;
+                vec4 C = lt.lights[i].c;
+                float s0, s1;
+                if (k < 1.0) { s0 = A.x; s1 = A.y; }
+                else if (k < 2.0) { s0 = A.y; s1 = A.z; }
+                else if (k < 3.0) { s0 = A.z; s1 = A.w; }
+                else if (k < 4.0) { s0 = A.w; s1 = B.x; }
+                else if (k < 5.0) { s0 = B.x; s1 = B.y; }
+                else if (k < 6.0) { s0 = B.y; s1 = B.z; }
+                else if (k < 7.0) { s0 = B.z; s1 = B.w; }
+                else if (k < 8.0) { s0 = B.w; s1 = C.x; }
+                else if (k < 9.0) { s0 = C.x; s1 = C.y; }
+                else if (k < 10.0) { s0 = C.y; s1 = C.z; }
+                else { s0 = C.z; s1 = C.w; }
+                c *= mix(s0, s1, t);
+            }
         } else if (kind < 4.5) {
             vec4 ua = lt.lights[i].a;
             vec4 ub = lt.lights[i].b;
@@ -554,6 +580,29 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
             }
         }
     }
+}
+// A direction in the sky image, turned with the dome. The diffuse probe below samples a few of these around the
+// normal: the sky's brightness comes from the whole upper hemisphere, not just the point over the surface.
+vec3 env_at(vec3 world_dir, float lod) {
+    vec3 d = normalize(qrot(lt.env_rot, world_dir));
+    vec2 uv = vec2(atan(d.z, d.x) / (2.0 * PI) + 0.5, acos(clamp(d.y, -1.0, 1.0)) / PI);
+    return textureLod(sampler2D(t_env, s_env), uv, lod).rgb;
+}
+vec3 env_irradiance(vec3 n) {
+    vec3 t = normalize(cross(n, abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+    vec3 b = normalize(cross(n, t));
+    // A coarse cosine-weighted hemisphere: the normal, a 45-degree ring and a 75-degree ring, which is where a sky's
+    // bright horizon sits. Harold integrates the whole hemisphere; this reads its main bands.
+    vec3 sum = env_at(n, 5.0) * 0.30;
+    float s45 = sin(0.785398);
+    float c45 = cos(0.785398);
+    float s75 = sin(1.308997);
+    float c75 = cos(1.308997);
+    sum += (env_at(normalize(n * c45 + t * s45), 5.0) + env_at(normalize(n * c45 - t * s45), 5.0)
+          + env_at(normalize(n * c45 + b * s45), 5.0) + env_at(normalize(n * c45 - b * s45), 5.0)) * 0.125;
+    sum += (env_at(normalize(n * c75 + t * s75), 5.0) + env_at(normalize(n * c75 - t * s75), 5.0)
+          + env_at(normalize(n * c75 + b * s75), 5.0) + env_at(normalize(n * c75 - b * s75), 5.0)) * 0.05;
+    return sum;
 }
 void main() {
     int flags = int(pc.misc.z);
@@ -607,11 +656,10 @@ void main() {
     vec2 euv = vec2(atan(ld.z, ld.x) / (2.0 * PI) + 0.5, acos(clamp(ld.y, -1.0, 1.0)) / PI);
     vec3 env = lt.env.w > 0.5 ? textureLod(sampler2D(t_env, s_env), euv, rough * 6.0).rgb : vec3(1.0);
     env *= lt.env.rgb;
-    // The diffuse half comes from the sky around the normal, blurred: an irradiance probe made of the same image.
+    // The diffuse half is the sky's irradiance: a few blurred samples around the normal, so a bright horizon reaches the
+    // surface as it does through Harold's path tracing.
     vec3 wn = normalize((lt.view_to_world * vec4(n, 0.0)).xyz);
-    vec3 ln = normalize(qrot(lt.env_rot, wn));
-    vec2 nuv = vec2(atan(ln.z, ln.x) / (2.0 * PI) + 0.5, acos(clamp(ln.y, -1.0, 1.0)) / PI);
-    vec3 env_d = lt.env.w > 0.5 ? textureLod(sampler2D(t_env, s_env), nuv, 6.0).rgb : vec3(1.0);
+    vec3 env_d = lt.env.w > 0.5 ? env_irradiance(wn) : vec3(1.0);
     env_d *= lt.env.rgb;
     if (lt.env.w > 0.5 || dot(lt.env.rgb, lt.env.rgb) > 0.0) {
         float nv = max(dot(n, v), 0.001);

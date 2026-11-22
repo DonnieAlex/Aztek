@@ -274,3 +274,20 @@ fn harold_lights_read_for_the_realtime_renderer() {
         assert!(l.cast_shadows);
     }
 }
+
+#[test]
+fn a_photometric_light_reads_its_ies_profile() {
+    let mut s = session();
+    let tr = run(&mut s, "shadingNode", json!({"args": ["aiPhotometricLight"], "asLight": true}));
+    let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();
+    let path = std::env::temp_dir().join(format!("aztek_ies_{}.txt", std::process::id()));
+    std::fs::write(&path, "IESNA:LM-63-2002\nTILT=NONE\n1 1000 1 3 1 1 2 0 0 0\n1 1 100\n0 45 90\n0\n100 50 0\n").unwrap();
+    run(&mut s, "setAttr", json!({"args": [format!("{sh}.aiFilename"), path.to_string_lossy()]}));
+    let id = s.graph.find(&sh).unwrap().unwrap();
+    assert!(aztek_scene::lights::all_shapes(&s.graph).contains(&id), "the photometric light is in the light list");
+    let l = aztek_scene::lights::scene_light(&mut s.graph, id).unwrap();
+    let ies = l.ies.expect("the profile parsed");
+    assert!((ies.at(glam::Vec3::new(0.0, 0.0, -1.0)) - 1.0).abs() < 1e-4);
+    assert!((ies.at(glam::Vec3::new(1.0, 0.0, 0.0)) - 0.0).abs() < 1e-4);
+    let _ = std::fs::remove_file(path);
+}

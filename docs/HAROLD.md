@@ -104,6 +104,7 @@ named in a warning.
 | phong | roughness from the cosine power (alpha squared is 2 / (n + 2)) | as blinn's |
 | phongE | roughness from `roughness` | as blinn's |
 | anisotropic | anisotropy and rotation from the spreads and angle | as blinn's, Fresnel index |
+| openPBRSurface | base weight and colour, metalness, diffuse and specular roughness, specular weight/colour/IOR, coat, fuzz as sheen, transmission, subsurface, thin film, emission, opacity | coat darkening, dispersion |
 | rampShader | lambert's from `color` | the colour, specular and transparency ramps |
 | transparency on any of them | opacity, or transmission with `refractiveIndex` when refractions are on | |
 | incandescence | emission | |

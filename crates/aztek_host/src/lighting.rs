@@ -22,6 +22,8 @@ use crate::render::Renderer;
 pub const MAX_LIGHTS: usize = 16;
 /// Highlights held per view: the most a uniform block is sure to allow is 16 KiB. Past it, a material has no highlight.
 pub const MAX_SPECULARS: usize = 512;
+/// IES profile layers in the viewport's atlas: one per photometric light it can bake.
+pub const MAX_IES: usize = 16;
 /// Every light: the bits of the mask a shape draws with.
 pub const ALL_LIGHTS: u32 = 0xFFFF;
 
@@ -130,7 +132,9 @@ pub fn gpu_light(l: &SceneLight, view: &DMat4) -> GpuLight {
         Kind::Volume => 5.0,
     };
     let emits = l.diffuse as i32 as f32 + 2.0 * (l.specular as i32 as f32);
-    let mut out = GpuLight { pos: f4(pos, kind), dir: f4(dir, l.decay as f32), color: [l.color[0], l.color[1], l.color[2], emits], params: [0.0; 4], a: [0.0; 4], b: [0.0; 4], c: [0.0; 4] };
+    // aiExposure, as Harold applies it too: the same light settings give the same result in both.
+    let gain = 2f64.powf(l.exposure) as f32;
+    let mut out = GpuLight { pos: f4(pos, kind), dir: f4(dir, l.decay as f32), color: [l.color[0] * gain, l.color[1] * gain, l.color[2] * gain, emits], params: [0.0; 4], a: [0.0; 4], b: [0.0; 4], c: [0.0; 4] };
     match l.kind {
         Kind::Ambient => out.params[0] = l.ambient_shade as f32,
         Kind::Spot => {
@@ -138,6 +142,25 @@ pub fn gpu_light(l: &SceneLight, view: &DMat4) -> GpuLight {
             // A positive penumbra widens the edge outside the cone, a negative one inside it.
             let (inner, outer) = if l.penumbra_deg >= 0.0 { (half, half + l.penumbra_deg) } else { (half + l.penumbra_deg, half) };
             out.params = [outer.clamp(0.0, 180.0).to_radians().cos() as f32, inner.clamp(0.0, 180.0).to_radians().cos() as f32, l.dropoff as f32, 0.0];
+            // A photometric light's IES profile as 12 vertical samples, averaged around each ring: the viewport's
+            // compact form of the profile. Harold samples the full two-dimensional table.
+            if let Some(ies) = l.ies.as_ref() {
+                let mut s = [0.0f32; 12];
+                for (k, value) in s.iter_mut().enumerate() {
+                    let vert = k as f32 / 11.0 * std::f32::consts::PI;
+                    let mut sum = 0.0f32;
+                    const H: usize = 32;
+                    for h in 0..H {
+                        let horiz = h as f32 / H as f32 * std::f32::consts::TAU;
+                        let d = glam::Vec3::new(vert.sin() * horiz.cos(), vert.sin() * horiz.sin(), -vert.cos());
+                        sum += ies.at(d);
+                    }
+                    *value = sum / H as f32;
+                }
+                out.a = [s[0], s[1], s[2], s[3]];
+                out.b = [s[4], s[5], s[6], s[7]];
+                out.c = [s[8], s[9], s[10], s[11]];
+            }
         }
         Kind::Area => {
             let (u, v) = (vw.x_axis.truncate(), vw.y_axis.truncate());
@@ -558,7 +581,11 @@ impl ViewLights {
             block.shadow_range = [s.near, s.far, 0.0, 0.0];
         }
         for (i, l) in lights.iter().take(MAX_LIGHTS).enumerate() {
-            block.lights[i] = gpu_light(l, view);
+            let mut g = gpu_light(l, view);
+            if l.ies.is_some() {
+                g.params[3] = 1.0;
+            }
+            block.lights[i] = g;
         }
         write(&self.block, std::slice::from_ref(&block));
     }
