@@ -7,7 +7,7 @@
 #              dist/aztek-macos-<arch>.zip with the examples, as the release build does
 #   --install  copy Aztek.app to ~/Applications (implies --package)
 # Qt comes from Homebrew, or from QT_ROOT_DIR when that's set (the release build's Qt).
-# Python is Homebrew's python@3.12: the app links it from /opt/homebrew (or /usr/local on Intel Macs).
+# Python is Homebrew's python@3.13: the app links it from /opt/homebrew (or /usr/local on Intel Macs).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -28,7 +28,7 @@ done
 command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
 if [ "$DEPS" = 1 ]; then
   xcode-select -p >/dev/null 2>&1 || { echo "Installing Xcode's command line tools; run this again when they're in."; xcode-select --install; exit 1; }
-  brew install cmake ninja python@3.12 molten-vk
+  brew install cmake ninja python@3.13 molten-vk
   [ -n "${QT_ROOT_DIR:-}" ] || brew install qt
   [ -f "$HOME/.cargo/env" ] || command -v cargo >/dev/null || curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
 fi
@@ -40,8 +40,8 @@ for t in cmake ninja; do
   command -v "$t" >/dev/null || { echo "$t is missing (./build-macos.sh --deps installs it)"; exit 1; }
 done
 
-PY="$(brew --prefix python@3.12 2>/dev/null || true)/bin/python3.12"
-[ -x "$PY" ] || { echo "Homebrew's python@3.12 is missing (./build-macos.sh --deps installs it)"; exit 1; }
+PY="$(brew --prefix python@3.13 2>/dev/null || true)/bin/python3.13"
+[ -x "$PY" ] || { echo "Homebrew's python@3.13 is missing (./build-macos.sh --deps installs it)"; exit 1; }
 QT="${QT_ROOT_DIR:-$(brew --prefix qt 2>/dev/null || true)}"
 [ -d "$QT/lib/cmake/Qt6" ] || { echo "Qt 6 is missing (./build-macos.sh --deps installs it, or set QT_ROOT_DIR)"; exit 1; }
 MVK="$(brew --prefix molten-vk 2>/dev/null || true)/lib/libMoltenVK.dylib"

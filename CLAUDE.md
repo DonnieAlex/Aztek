@@ -64,7 +64,7 @@ released by srlegrand at https://github.com/srlegrand/Aztek. PARITY.md holds the
   handles drawn as lines, snapping X/V, pivot mode D), `tools.rs` (Multi-Cut, Quad Draw and other view tools),
   `python.rs` + `python/bootstrap.py` (pyo3), `scriptui.rs`, `panel_cmds.rs`, `ui_cmds.rs`, `ctx_cmds.rs` and
   `script_jobs.rs` (script-built UI, panels, tool contexts, scriptJob), `mel/` (the MEL interpreter).
-- `app/src` Qt 6 Widgets shell in C++17: `mainwindow.*` (menus by menu set, shelves, hotkeys, time slider, editors),
+- `app/src` Qt 6 Widgets shell in C++20: `mainwindow.*` (menus by menu set, shelves, hotkeys, time slider, editors),
   `panels.*` (outliner, channel box with picked channels and virtual slider, layer and attribute editors, script
   editor), `viewport.*`, `widgets.*` (option boxes, time and range sliders, splash, About), `grapheditor.*`,
   `uveditor.*`, `dopesheet.*`, `nodeeditor.*`, `toolsettings.*`, `shapeeditor.cpp`, `runtime.cpp` (script-built windows),
@@ -83,8 +83,8 @@ command once on release so the history shows one reference-style line.
     build.bat                  # Windows (PowerShell script build.ps1)
     cargo test --workspace     # all Rust tests; keep them green
 
-Python is 3.12 only: pyo3 must build against a python3.12 (`PYO3_PYTHON=/usr/bin/python3.12` where `python3` is newer),
-or aztek_host's build script stops. Without a system 3.12, `tools/python/fetch-python.sh <folder>` fetches one; cargo
+Python is 3.13 only: pyo3 must build against a python3.13 (`PYO3_PYTHON=/usr/bin/python3.13` where `python3` is newer),
+or aztek_host's build script stops. Without a system 3.13, `tools/python/fetch-python.sh <folder>` fetches one; cargo
 then also needs `RUSTFLAGS="-L <folder>/lib -C link-arg=-Wl,-rpath,<folder>/lib"`.
 
 The GitHub Action `.github/workflows/build.yml` builds Linux, Rocky Linux 8 and 9 and Windows on every push to main and attaches

@@ -13,14 +13,14 @@ VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$SRC/Cargo.toml" | head -n1)
 ARCH=$(dpkg --print-architecture)
 FILE="aztek_${VERSION}-1_ubuntu${VERSION_ID}_${ARCH}.deb"
 
-# Python 3.12, the only version Aztek embeds: the system's where Ubuntu has it (24.04), else one inside the package in
-# /usr/lib/aztek/python (26.04 ships 3.13 and later only).
-if [ -x /usr/bin/python3.12 ] && [ -f /usr/include/python3.12/Python.h ]; then
-  export PYO3_PYTHON=/usr/bin/python3.12
-  PYARGS=(-DPython3_EXECUTABLE=/usr/bin/python3.12 -DAZTEK_PYTHON_BUNDLE=)
+# Python 3.13, the only version Aztek embeds: the system's where Ubuntu has it (24.04), else one inside the package in
+# /usr/lib/aztek/python (24.04 has 3.12, 26.04 3.14).
+if [ -x /usr/bin/python3.13 ] && [ -f /usr/include/python3.13/Python.h ]; then
+  export PYO3_PYTHON=/usr/bin/python3.13
+  PYARGS=(-DPython3_EXECUTABLE=/usr/bin/python3.13 -DAZTEK_PYTHON_BUNDLE=)
 else
   BUNDLE=$("$SRC/tools/python/fetch-python.sh" "$BUILD/python")
-  export PYO3_PYTHON="$BUNDLE/bin/python3.12"
+  export PYO3_PYTHON="$BUNDLE/bin/python3.13"
   PYARGS=(-DAZTEK_PYTHON_BUNDLE="$BUNDLE")
 fi
 cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release "${PYARGS[@]}"

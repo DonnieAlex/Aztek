@@ -67,7 +67,7 @@ jobs:
       - name: Compile
         run: tools/check_kit.sh
 
-  # The shell's C++ as strict C++17 under clang and GCC, in a few minutes: what would stop the Windows (MSVC) or macOS
+  # The shell's C++ as strict C++20 under clang and GCC, in a few minutes: what would stop the Windows (MSVC) or macOS
   # (AppleClang) compile stops here first, and those builds don't start on code that can't compile.
   app:
     runs-on: ubuntu-24.04
@@ -95,7 +95,7 @@ jobs:
 
       - name: Dependencies
         run: |
-          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libvulkan-dev python3.12-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build qt6-base-dev libvulkan-dev curl xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -104,6 +104,14 @@ jobs:
           workspaces: |
             . -> target
             . -> build/cargo
+
+      # The Python 3.13 the build fetches (Ubuntu 24.04 has none), for the tests too. Its sysconfig names the folder it
+      # was built in, so the library's folder is given to the linker, and the test programs find the library there.
+      - name: Python 3.13
+        run: |
+          P=$(tools/python/fetch-python.sh "$PWD/build/python")
+          echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
 
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace
@@ -123,7 +131,10 @@ jobs:
 
       - name: Package
         run: |
-          tar -czf aztek-linux-x86_64.tar.gz -C build aztek -C .. examples
+          # The program finds the Python beside it ($ORIGIN/python/lib), without Tcl/Tk and IDLE.
+          tar -czf aztek-linux-x86_64.tar.gz --exclude=__pycache__ --exclude='libtcl*' --exclude='libtk*' --exclude='tcl9*' \
+            --exclude='tk9*' --exclude='itcl*' --exclude='thread3*' --exclude=tkinter --exclude=idlelib --exclude=turtledemo \
+            --exclude='_tkinter*' -C build aztek python/lib python/include -C .. examples
           tools/ci/retry.sh 3 packaging/deb/build-deb.sh build dist
 
       - uses: actions/upload-artifact@v4
@@ -136,7 +147,7 @@ jobs:
           name: aztek-deb-ubuntu24.04
           path: dist/*.deb
 
-  # Ubuntu 26.04 has its own Qt, so it gets its own package. It has no Python 3.12: the package carries one.
+  # Ubuntu 26.04 has its own Qt, so it gets its own package. It has no Python 3.13: the package carries one.
   ubuntu-2604:
     needs: gate
     if: needs.gate.outputs.go == 'true'
@@ -184,12 +195,12 @@ jobs:
             . -> target
             . -> build/cargo
 
-      # The Python 3.12 the package will carry, for the tests too. Its sysconfig names the folder it was built in, so
+      # The Python 3.13 the package will carry, for the tests too. Its sysconfig names the folder it was built in, so
       # the library's folder is given to the linker, and the test programs find the library there.
-      - name: Python 3.12
+      - name: Python 3.13
         run: |
           P=$(tools/python/fetch-python.sh "$PWD/build/python")
-          echo "PYO3_PYTHON=$P/bin/python3.12" >> "$GITHUB_ENV"
+          echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
 
       - name: Test
@@ -228,8 +239,6 @@ jobs:
       fail-fast: false
       matrix:
         el: [8, 9]
-    env:
-      PYO3_PYTHON: /usr/bin/python3.12
     steps:
       - uses: actions/checkout@v4
 
@@ -260,6 +269,18 @@ jobs:
           path: /opt/qt
           key: qt-6.8.3-el8
 
+      # Python 3.13: AppStream's where it has one, else the one the package will carry, for the tests too.
+      - name: Python 3.13
+        shell: bash
+        run: |
+          if [ -f /usr/include/python3.13/Python.h ]; then
+            echo "PYO3_PYTHON=/usr/bin/python3.13" >> "$GITHUB_ENV"
+          else
+            P=$(tools/python/fetch-python.sh "$PWD/build/python")
+            echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
+            echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
+          fi
+
       - name: Test
         run: tools/ci/retry.sh 2 cargo test --workspace
 
@@ -278,8 +299,8 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set +u; . /opt/rh/gcc-toolset-13/enable; set -u
-          AZTEK_QT=/opt/qt/6.8.3/gcc_64 AZTEK_PYTHON=/usr/bin/python3.12 tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
+          set +u; . /opt/rh/gcc-toolset-14/enable; set -u
+          AZTEK_QT=/opt/qt/6.8.3/gcc_64 tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
 
       - uses: actions/upload-artifact@v4
         if: matrix.el == 8
@@ -300,8 +321,6 @@ jobs:
       image: rockylinux:9
       env:
         PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    env:
-      PYO3_PYTHON: /usr/bin/python3.12
     steps:
       - uses: actions/checkout@v4
 
@@ -322,7 +341,7 @@ jobs:
 
       - name: AppImage
         shell: bash
-        run: AZTEK_PYTHON=/usr/bin/python3.12 tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
+        run: tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
 
       - uses: actions/upload-artifact@v4
         with:
@@ -534,7 +553,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       # setup-python off: left on, this action puts the newest Python first on PATH and the exe links that one.
       # Qt's servers drop downloads now and then: a second try after a pause.
@@ -570,7 +589,7 @@ jobs:
             . -> target
             . -> build/cargo
 
-      # The Rust tests, as the Linux jobs run them, against the Python 3.12 setup-python put on PATH.
+      # The Rust tests, as the Linux jobs run them, against the Python 3.13 setup-python put on PATH.
       - name: Test
         shell: bash
         run: PYO3_PYTHON="$pythonLocation/python.exe" tools/ci/retry.sh 2 cargo test --workspace
@@ -641,7 +660,7 @@ jobs:
         run: sed -i '' 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
 
       - name: Dependencies
-        run: tools/ci/retry.sh 5 brew install ninja python@3.12 molten-vk
+        run: tools/ci/retry.sh 5 brew install ninja python@3.13 molten-vk
 
       - id: qt
         continue-on-error: true
@@ -675,16 +694,16 @@ jobs:
 
       - name: Test
         continue-on-error: true
-        run: PYO3_PYTHON="$(brew --prefix python@3.12)/bin/python3.12" cargo test --workspace --no-fail-fast
+        run: PYO3_PYTHON="$(brew --prefix python@3.13)/bin/python3.13" cargo test --workspace --no-fail-fast
 
       # The same script as on a Mac: Aztek.app with Qt and MoltenVK inside, signed ad hoc, zipped with the examples.
-      # Python stays Homebrew's python@3.12. Qt is the one installed above, through QT_ROOT_DIR.
+      # Python stays Homebrew's python@3.13. Qt is the one installed above, through QT_ROOT_DIR.
       - name: Build and package
         run: tools/ci/retry.sh 3 ./build-macos.sh --package
 
       - name: Batch
         continue-on-error: true
-        run: AZTEK_BIN="$PWD/build/aztek.app/Contents/MacOS/aztek" PYO3_PYTHON="$(brew --prefix python@3.12)/bin/python3.12" cargo test -p aztek_host --no-fail-fast --test batch --test basics --test basics_python
+        run: AZTEK_BIN="$PWD/build/aztek.app/Contents/MacOS/aztek" PYO3_PYTHON="$(brew --prefix python@3.13)/bin/python3.13" cargo test -p aztek_host --no-fail-fast --test batch --test basics --test basics_python
 
       - name: Check
         run: otool -L dist/Aztek/Aztek.app/Contents/MacOS/aztek

@@ -37,21 +37,21 @@ Prebuilt packages are under [Install](#install).
 afterwards; `--install` puts it in `~/.local` with a menu entry and icon; `--debug` builds into `build-debug/`. Rust comes from [rustup](https://rustup.rs). An active conda
 environment is fine: the script ignores conda's Python and libraries.
 
-Python 3.12 is the only version Aztek embeds, as the reference's is 3.12. The build uses the system's `python3.12` with
-its development files where the distribution has it (`--deps` installs it on Ubuntu 24.04 and Rocky), and elsewhere
-(Ubuntu 26.04, Arch and others with only newer versions) fetches a relocatable 3.12 from
+Python 3.13 is the only version Aztek embeds, as the VFX Reference Platform CY2027 specifies. The build uses the system's `python3.13` with
+its development files where the distribution has it (`--deps` installs it where the package manager offers it), and
+elsewhere (Ubuntu 24.04 and 26.04, Rocky, Arch and others) fetches a relocatable 3.13 from
 [python-build-standalone](https://github.com/astral-sh/python-build-standalone) into `build/python` with
 `tools/python/fetch-python.sh`, checked against its SHA-256; the program links that one and installs it beside itself.
 A build against any other version stops with a message naming the one it found.
 
-**macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, Qt, Python 3.12, MoltenVK and Rust. The build is
+**macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, Qt, Python 3.13, MoltenVK and Rust. The build is
 `build/aztek.app`. `--package` makes a self-contained `Aztek.app` and `dist/aztek-macos-<arch>.zip`, as the release
 build does; `--install` puts it in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked
 there yet.
 
 **Windows**, from PowerShell or a command prompt: `build.bat` needs Visual Studio 2022 (or its Build Tools) with "Desktop development with C++", Rust from
-[rustup](https://rustup.rs) and CMake, Qt 6.4+ for MSVC from the [Qt online installer](https://www.qt.io/download-qt-installer-oss).
-Python 3.12 is used if installed (the `py` launcher's, else `python` on PATH); otherwise the script fetches one into
+[rustup](https://rustup.rs) and CMake, Qt 6.8 for MSVC (the VFX Reference Platform CY2027 version) from the [Qt online installer](https://www.qt.io/download-qt-installer-oss).
+Python 3.13 is used if installed (the `py` launcher's, else `python` on PATH); otherwise the script fetches one into
 `build\python` with `tools\python\fetch-python.ps1`. The script finds Visual Studio and the newest Qt
 under `C:\Qt` (or takes `-Qt C:\Qt\6.8.0\msvc2022_64`), builds, and makes a folder that runs by itself in `build\dist`:
 Qt's DLLs, the VC runtime and Python's standard library beside `aztek.exe`.
@@ -611,7 +611,7 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt and Python are inside) |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
 | Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
-| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | `brew install python@3.12`, unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
+| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | `brew install python@3.13`, unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
 draws through MoltenVK, which comes inside Aztek.app.
