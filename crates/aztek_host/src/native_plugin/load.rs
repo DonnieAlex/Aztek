@@ -267,10 +267,12 @@ pub(crate) fn key_of(name: &str) -> String {
 }
 
 fn open(path: &Path) -> Result<libloading::Library, String> {
-    #[cfg(unix)]
     // openMayaPref -lazyLoad: unresolved references fail when called rather than when loaded.
-    let bind = if crate::sys_info::lazy_load() { libc::RTLD_LAZY } else { libc::RTLD_NOW };
-    let r = unsafe { libloading::os::unix::Library::open(Some(path), bind | libc::RTLD_LOCAL) }.map(libloading::Library::from);
+    #[cfg(unix)]
+    let r = {
+        let bind = if crate::sys_info::lazy_load() { libc::RTLD_LAZY } else { libc::RTLD_NOW };
+        unsafe { libloading::os::unix::Library::open(Some(path), bind | libc::RTLD_LOCAL) }.map(libloading::Library::from)
+    };
     #[cfg(windows)]
     let r = unsafe { libloading::os::windows::Library::load_with_flags(path, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH) }.map(libloading::Library::from);
     r.map_err(|e| {
