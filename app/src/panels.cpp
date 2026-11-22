@@ -16,6 +16,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -52,8 +53,37 @@ QJsonObject args(const QJsonArray& a) {
 }
 
 // The Channel Box's settings (Ctrl+right-click > Settings and Channel Names), kept between sessions.
+// While a box draws, the settings channelBox gave it come first.
+static QJsonObject g_cb_options;
+
 QVariant cb_setting(const QString& key, const QVariant& fallback) {
+    if (g_cb_options.contains(key)) return g_cb_options[key].toVariant();
     return QSettings().value("channelBox/" + key, fallback);
+}
+
+// A Channel Box setting changed in its menus: kept between sessions, and told to mainChannelBox so channelBox -q says it.
+void cb_store(const QString& key, const QVariant& v) {
+    QSettings().setValue("channelBox/" + key, v);
+    QJsonObject call{{"edit", true}, {"args", QJsonArray{"mainChannelBox"}}};
+    if (key == "names") {
+        call["niceNames"] = v.toInt() == 0;
+        call["longNames"] = v.toInt() == 1;
+    } else if (key == "namespace") {
+        call["showNamespace"] = v.toBool();
+    } else if (key == "precision") {
+        call["precision"] = v.toInt();
+    } else if (key == "hyperbolic") {
+        call["hyperbolic"] = v.toBool();
+    } else if (key == "speed") {
+        static const double speeds[] = {0.01, 0.1, 1.0, 10.0};
+        call["speed"] = speeds[qBound(0, v.toInt(), 3)];
+    } else if (key == "manipulators") {
+        static const char* kinds[] = {"none", "invisible", "standard"};
+        call["useManips"] = kinds[qBound(0, v.toInt(), 2)];
+    } else {
+        return;
+    }
+    exec_quiet("channelBox", call);
 }
 
 QString fmt(double v) {
@@ -195,6 +225,11 @@ QStringList selected_input_plugs() {
 // Picked translate channels put the Move manipulator in the parent's axes, as the reference does: those channels are
 // values in the parent's space (#136).
 void tell_channel_space() {
+    // The core answers channelBox -q -selectedMainAttributes and the rest from these.
+    QJsonArray attrs, plugs;
+    for (const QString& a : g_channel_sel) attrs.append(a);
+    for (const QString& p : selected_input_plugs()) plugs.append(p);
+    query("uiChannelPicks", QString::fromUtf8(QJsonDocument(QJsonObject{{"attrs", attrs}, {"plugs", plugs}}).toJson(QJsonDocument::Compact)));
     bool translate = false;
     for (const QString& a : g_channel_sel) translate = translate || a.startsWith("translate") || a == "tx" || a == "ty" || a == "tz";
     // Only the views change: the manipulator's axes.
@@ -422,6 +457,17 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     label->setProperty("node", node);
     label->setProperty("main", parent->property("mainNode").toString() == node);
     label->setProperty("channel", ch.toVariantMap());
+    // channelBox -attrColor and -attrBgColor.
+    {
+        QString style;
+        auto colour = [](const QJsonValue& v) {
+            QJsonArray a = v.toArray();
+            return a.size() >= 3 ? QColor::fromRgbF(float(a[0].toDouble()), float(a[1].toDouble()), float(a[2].toDouble())).name() : QString();
+        };
+        if (!colour(ch["fg"]).isEmpty()) style += "color: " + colour(ch["fg"]) + ";";
+        if (!colour(ch["bg"]).isEmpty()) style += "background-color: " + colour(ch["bg"]) + ";";
+        if (!style.isEmpty()) label->setStyleSheet("QLabel { " + style + " }");
+    }
     g_channel_labels << label;
     auto* edit = new QLineEdit(value_text(ch), row);
     edit->setProperty("attr", ch["attr"].toString());
@@ -434,6 +480,7 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     edit->setObjectName(st == "keyed" ? "channelKeyed" : st == "keyOnFrame" ? "channelKeyOnFrame" : st == "changed" ? "channelChanged"
                         : st == "layered" ? "channelLayered" : st == "muted" ? "channelMuted" : st == "locked" ? "channelLocked" : (st == "connected" || ch["connected"].toBool()) ? "channelConnected" : "channelValue");
     edit->setFixedHeight(18);
+    if (g_cb_options.contains("fieldWidth")) edit->setFixedWidth(qMax(20, g_cb_options["fieldWidth"].toInt()));
     // Right-click is the channel box's menu, not the text field's.
     edit->setContextMenuPolicy(Qt::NoContextMenu);
     QString plug = ch["plug"].toString();
@@ -658,7 +705,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
             a->setChecked(cb_setting(key, fallback).toInt() == i);
             group->addAction(a);
             QObject::connect(a, &QAction::triggered, [key, i, refresh] {
-                QSettings().setValue("channelBox/" + key, i);
+                cb_store(key, i);
                 refresh();
             });
         }
@@ -670,7 +717,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
         a->setCheckable(true);
         a->setChecked(cb_setting(key, fallback).toBool());
         QObject::connect(a, &QAction::toggled, [key = QString(key), refresh](bool on) {
-            QSettings().setValue("channelBox/" + key, on);
+            cb_store(key, on);
             refresh();
         });
     }
@@ -681,7 +728,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
         bool ok = false;
         const int p = QInputDialog::getInt(main_window_widget(), "Change Precision", "Decimal places:", cb_setting("precision", 3).toInt(), 0, 15, 1, &ok);
         if (!ok) return;
-        QSettings().setValue("channelBox/precision", p);
+        cb_store("precision", p);
         refresh();
     });
     settings->addAction("Reset to Default", [refresh] {
@@ -698,7 +745,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
         a->setChecked(cb_setting("names", 0).toInt() == i);
         group->addAction(a);
         QObject::connect(a, &QAction::triggered, [i, refresh] {
-            QSettings().setValue("channelBox/names", i);
+            cb_store("names", i);
             refresh();
         });
     }
@@ -706,7 +753,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
 
 } // namespace
 
-ChannelBox::ChannelBox(QWidget* parent) : Panel(parent) {
+ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), name_(name) {
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
@@ -783,11 +830,67 @@ void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels) {
     QFontMetrics fm(font());
     int w = 60;
     for (const QJsonValue& c : channels) w = qMax(w, fm.horizontalAdvance(c.toObject()["nice"].toString()) + 8);
+    if (options_.contains("labelWidth")) w = qMax(10, options_["labelWidth"].toInt());
     for (const QJsonValue& c : channels) lay->addWidget(channel_row(c.toObject(), body_, w));
 }
 
+// The INPUTS or OUTPUTS heading and its nodes, each a button that opens its channels.
+void ChannelBox::add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes) {
+    if (nodes.isEmpty()) return;
+    lay->addSpacing(6);
+    lay->addWidget(section(heading, body_));
+    for (const QJsonValue& v : nodes) {
+        QJsonObject in = v.toObject();
+        QString p = in["path"].toString();
+        auto* b = new QPushButton(in["name"].toString(), body_);
+        b->setProperty("node", p);
+        b->setObjectName("channelNodeButton");
+        b->setFlat(true);
+        connect(b, &QPushButton::clicked, this, [this, p] {
+            // The Show Manipulator tool shows the node picked here.
+            query("uiShowManip", p);
+            if (open_inputs_.contains(p))
+                open_inputs_.remove(p);
+            else
+                open_inputs_.insert(p);
+            refresh();
+        });
+        lay->addWidget(b);
+        if (open_inputs_.contains(p)) {
+            body_->setProperty("inInputs", true);
+            add_channels(lay, in["channels"].toArray());
+            body_->setProperty("inInputs", false);
+        }
+    }
+}
+
+void ChannelBox::apply_flags(const QJsonObject& props) {
+    if (props.contains("takeFocus") && props["takeFocus"].toBool()) setFocus(Qt::OtherFocusReason);
+    if (props.contains("maxWidth") && props["maxWidth"].toInt() > 0) setMaximumWidth(props["maxWidth"].toInt());
+    if (props.contains("maxHeight") && props["maxHeight"].toInt() > 0) setMaximumHeight(props["maxHeight"].toInt());
+    refresh();
+}
+
 void ChannelBox::refresh() {
-    QJsonObject cb = query("channelBox").toObject();
+    QJsonObject cb = query("channelBox", name_).toObject();
+    // A script's picks (channelBox -select) replace the ones made here.
+    static quint64 seen_serial = 0;
+    if (cb.contains("picks")) {
+        QJsonObject pk = cb["picks"].toObject();
+        const quint64 serial = quint64(pk["serial"].toDouble());
+        if (serial != seen_serial) {
+            seen_serial = serial;
+            g_channel_sel.clear();
+            g_input_plugs.clear();
+            for (const QJsonValue& a : pk["attrs"].toArray()) g_channel_sel << a.toString();
+            for (const QJsonValue& p : pk["plugs"].toArray()) g_input_plugs.insert(p.toString().section('.', -1), p.toString());
+        }
+    }
+    options_ = cb["options"].toObject();
+    g_cb_options = options_;
+    struct Reset {
+        ~Reset() { g_cb_options = QJsonObject(); }
+    } reset;
     g_channel_labels.clear();
     g_channel_fields.clear();
     int scroll = scroll_->verticalScrollBar()->value();
@@ -830,34 +933,8 @@ void ChannelBox::refresh() {
             add_channels(lay, s.toObject()["channels"].toArray());
         }
     }
-    QJsonArray inputs = cb["inputs"].toArray();
-    if (!inputs.isEmpty()) {
-        lay->addSpacing(6);
-        lay->addWidget(section("INPUTS", body_));
-        for (const QJsonValue& v : inputs) {
-            QJsonObject in = v.toObject();
-            QString p = in["path"].toString();
-            auto* b = new QPushButton(in["name"].toString(), body_);
-            b->setProperty("node", p);
-            b->setObjectName("channelNodeButton");
-            b->setFlat(true);
-            connect(b, &QPushButton::clicked, this, [this, p] {
-                // The Show Manipulator tool shows the node picked here.
-                query("uiShowManip", p);
-                if (open_inputs_.contains(p))
-                    open_inputs_.remove(p);
-                else
-                    open_inputs_.insert(p);
-                refresh();
-            });
-            lay->addWidget(b);
-            if (open_inputs_.contains(p)) {
-                body_->setProperty("inInputs", true);
-                add_channels(lay, in["channels"].toArray());
-                body_->setProperty("inInputs", false);
-            }
-        }
-    }
+    add_nodes(lay, "INPUTS", cb["inputs"].toArray());
+    add_nodes(lay, "OUTPUTS", cb["outputs"].toArray());
     lay->addStretch(1);
     scroll_->setWidget(body_);
     scroll_->verticalScrollBar()->setValue(scroll);

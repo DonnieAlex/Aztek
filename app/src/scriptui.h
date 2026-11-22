@@ -63,6 +63,7 @@ private:
     void build_menu(Item* it, Item* parent, const QJsonObject& props);
     void build_menu_item(Item* it, Item* parent, const QJsonObject& props);
     void place(Item* parent, Item* child);
+    void nav_extras(Item* it, const QJsonObject& props);
     void apply_common(Item* it, const QJsonObject& props);
     void apply_control(Item* it, const QJsonObject& props);
     void apply_layout(Item* it, const QJsonObject& props);

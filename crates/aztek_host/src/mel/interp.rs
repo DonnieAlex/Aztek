@@ -130,6 +130,13 @@ pub fn has_global_proc(core: &Core, name: &str) -> bool {
     core.mel_state.global_procs.contains_key(name)
 }
 
+/// Every global procedure defined now, sorted.
+pub fn global_proc_names(core: &Core) -> Vec<String> {
+    let mut v: Vec<String> = core.mel_state.global_procs.keys().cloned().collect();
+    v.sort();
+    v
+}
+
 /// As `run_callback`, with the script's value: nothing echoed, and what it prints is printed.
 pub fn call_for_value(core: &mut Core, src: &str) -> Result<J, String> {
     core.mel_state.running += 1;
@@ -306,8 +313,8 @@ impl Interp<'_> {
     }
 
     pub fn is_command(&self, name: &str) -> bool {
-        // These answer as MEL expects (about -linux is 1, env lists globals); the registered ones are for Python.
-        if matches!(name, "about" | "env" | "getenv" | "putenv") {
+        // These answer as MEL expects (env lists globals); the registered ones are for Python.
+        if matches!(name, "env" | "getenv" | "putenv") {
             return false;
         }
         call::alias(name).is_some() || self.core.s.commands.find(name).is_some()
@@ -1220,7 +1227,15 @@ impl Interp<'_> {
         let here = self.st().frames.len() - 1;
         self.st().cur = here;
         self.st().calls += 1;
+        // profiler -instrumentMel: the call is timed.
+        let timed = crate::profiler::instrumented(name);
+        if timed {
+            crate::profiler::begin(name, aztek_scene::anim::frame(&self.core.s.graph), true);
+        }
         let r = self.exec_block(&p.body);
+        if timed {
+            crate::profiler::end();
+        }
         self.st().calls -= 1;
         self.st().cur = saved;
         // Arrays are passed by reference: what the procedure did to them shows in the caller's variable.

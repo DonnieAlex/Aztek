@@ -104,6 +104,9 @@ int main(int argc, char** argv) {
     QApplication::setWindowIcon(QIcon(":/aztek-icon.png"));
     QGuiApplication::setDesktopFileName("aztek");
     apply_style(app);
+    // For about: the windowing platform and the interface font in use.
+    qputenv("AZTEK_QT_PLATFORM", QGuiApplication::platformName().toUtf8());
+    qputenv("AZTEK_FONT_INFO", QString("%1 %2pt").arg(QApplication::font().family()).arg(QApplication::font().pointSizeF()).toUtf8());
     // The views' samples a pixel, as chosen in a view's Lighting > Anti-aliasing. The environment's own value wins.
     if (qEnvironmentVariableIsEmpty("AZTEK_MSAA")) {
         const int samples = QSettings().value("viewport/samples", 4).toInt();

@@ -30,8 +30,8 @@ struct State {
     command: Vec<String>,
     place_holders: Vec<(String, String)>,
     replace_names: Vec<(String, String)>,
-    /// What -buildLoadSettings read: each reference node and whether it starts unloaded.
-    implicit_load_settings: Vec<(String, bool)>,
+    /// What -buildLoadSettings read: the file, then its references in pre-order (selLoadSettings' IDs).
+    load_settings: Vec<LoadSetting>,
     /// -proxyManager, -proxyTag and -activeProxy by reference node.
     proxies: HashMap<String, (String, String, String)>,
 }
@@ -51,7 +51,7 @@ impl Default for State {
             command: Vec::new(),
             place_holders: Vec::new(),
             replace_names: Vec::new(),
-            implicit_load_settings: Vec::new(),
+            load_settings: Vec::new(),
             proxies: HashMap::new(),
         }
     }
@@ -818,33 +818,289 @@ fn import(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
 // ---------------------------------------------------------------------------------------------------------------------
 // Open
 
-/// The top level references a file names and whether each starts unloaded, from its `file -r` lines.
-fn reference_lines(path: &str) -> Vec<(String, bool)> {
-    let Ok(mut bytes) = std::fs::read(path) else { return Vec::new() };
+/// One implicit load setting: the file being opened (ID 0) or one of the references under it.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct LoadSetting {
+    /// The setting this one is under; None for the file itself.
+    parent: Option<usize>,
+    rfn: String,
+    namespace: String,
+    unresolved: String,
+    resolved: String,
+    deferred: bool,
+}
+
+/// A `file` line of a scene's head: its flags' values and the path, the last quoted word.
+struct RefLine {
+    depth: u32,
+    ns: String,
+    rfn: String,
+    deferred: bool,
+    path: String,
+}
+
+fn quoted_words(t: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_q = false;
+    let mut chars = t.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if in_q => {
+                if let Some(n) = chars.next() {
+                    cur.push(n);
+                }
+            }
+            '"' => {
+                if in_q {
+                    out.push(std::mem::take(&mut cur));
+                }
+                in_q = !in_q;
+            }
+            c if !in_q && (c.is_whitespace() || c == ';') => {
+                if !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+/// The `file -rdi` and `file -r` lines of a scene file.
+fn ref_lines(path: &str) -> (Vec<RefLine>, Vec<RefLine>) {
+    let Ok(mut bytes) = std::fs::read(path) else { return (Vec::new(), Vec::new()) };
     if bytes.starts_with(&[0x1f, 0x8b]) {
         bytes = gunzip(&bytes).unwrap_or_default();
     }
     let text = String::from_utf8_lossy(&bytes);
-    let mut out: Vec<(String, bool)> = Vec::new();
+    let (mut rdi, mut r) = (Vec::new(), Vec::new());
     for line in text.lines() {
         let t = line.trim();
-        if !t.starts_with("file ") || !(t.contains(" -r ") || t.contains(" -rdi ")) {
+        // The head ends where the nodes begin.
+        if t.starts_with("createNode ") {
+            break;
+        }
+        if !t.starts_with("file ") {
             continue;
         }
-        let words: Vec<&str> = t.split_whitespace().collect();
-        let rfn = words.windows(2).find(|w| w[0] == "-rfn").map(|w| w[1].trim_matches('"').trim_end_matches(';').trim_matches('"').to_string());
-        let deferred = words.windows(2).find(|w| w[0] == "-dr").is_some_and(|w| w[1].trim_end_matches(';') == "1");
-        // The -rdi line says how the reference loads; the -r line after it always says -dr 1.
-        let rdi = t.contains(" -rdi ");
-        if let Some(r) = rfn {
-            match out.iter_mut().find(|x| x.0 == r) {
-                Some(x) if rdi => x.1 = deferred,
-                Some(_) => {}
-                None => out.push((r, deferred)),
+        let w = quoted_words(t);
+        let val = |f: &str| w.windows(2).find(|x| x[0] == f).map(|x| x[1].clone());
+        let is_rdi = w.iter().any(|x| x == "-rdi");
+        if !is_rdi && !w.iter().any(|x| x == "-r" || x == "-reference") {
+            continue;
+        }
+        let Some(path) = w.last().filter(|p| !p.starts_with('-')).cloned() else { continue };
+        let line = RefLine {
+            depth: val("-rdi").and_then(|d| d.parse().ok()).unwrap_or(1),
+            ns: val("-ns").unwrap_or_default(),
+            rfn: val("-rfn").unwrap_or_default(),
+            deferred: val("-dr").is_some_and(|d| d == "1" || d == "true"),
+            path,
+        };
+        if is_rdi {
+            rdi.push(line);
+        } else {
+            r.push(line);
+        }
+    }
+    (rdi, r)
+}
+
+fn stem_of(path: &str) -> String {
+    Path::new(&path.replace('\\', "/")).file_stem().and_then(|x| x.to_str()).unwrap_or("reference").to_string()
+}
+
+fn find_file(s: &mut Session, written: &str, beside: &str) -> String {
+    let w = written.replace('\\', "/");
+    if let Some(dir) = Path::new(beside).parent() {
+        let p = dir.join(&w);
+        if !Path::new(&w).is_absolute() && p.is_file() {
+            return p.to_string_lossy().replace('\\', "/");
+        }
+        if let Some(name) = Path::new(&w).file_name() {
+            let p = dir.join(name);
+            if !Path::new(&w).is_file() && p.is_file() {
+                return p.to_string_lossy().replace('\\', "/");
             }
         }
     }
+    crate::references::resolve_written(s, &w).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or(w)
+}
+
+/// The references of a file one level down, each with what is under it read from its own file.
+fn add_from_file(s: &mut Session, out: &mut Vec<LoadSetting>, parent: usize, file: &str, depth: u32) {
+    if depth > 32 {
+        return;
+    }
+    let (_, lines) = ref_lines(file);
+    let above = out[parent].namespace.clone();
+    let join = |n: &str| if above.is_empty() { n.to_string() } else { format!("{above}:{n}") };
+    for l in lines {
+        let resolved = find_file(s, &l.path, file);
+        let ns = if l.ns == ":" { above.clone() } else if l.ns.is_empty() { join(&stem_of(&l.path)) } else { join(&l.ns) };
+        let rfn = if l.rfn.is_empty() { format!("{ns}RN") } else { join(&l.rfn) };
+        out.push(LoadSetting { parent: Some(parent), rfn, namespace: ns, unresolved: l.path.clone(), resolved: resolved.clone(), deferred: l.deferred });
+        let me = out.len() - 1;
+        add_from_file(s, out, me, &resolved, depth + 1);
+    }
+}
+
+/// file -buildLoadSettings: the file, then every reference under it in pre-order. A scene the reference saved lists
+/// them all with their depth and load state (`file -rdi`); otherwise each referenced file is read for its own.
+fn build_load_settings(s: &mut Session, path: &str) -> Vec<LoadSetting> {
+    let mut out = vec![LoadSetting { parent: None, unresolved: path.to_string(), resolved: path.to_string(), ..Default::default() }];
+    let (rdi, _) = ref_lines(path);
+    if rdi.is_empty() {
+        add_from_file(s, &mut out, 0, path, 0);
+        return out;
+    }
+    // Pre-order with depths: each line's parent is the last line one level up.
+    let mut stack: Vec<usize> = vec![0];
+    for l in rdi {
+        let depth = l.depth.max(1) as usize;
+        stack.truncate(depth);
+        let parent = *stack.last().unwrap_or(&0);
+        let above = out[parent].namespace.clone();
+        let join = |n: &str| if above.is_empty() { n.to_string() } else { format!("{above}:{n}") };
+        let ns = if l.ns == ":" { above.clone() } else if l.ns.is_empty() { join(&stem_of(&l.path)) } else { join(&l.ns) };
+        let beside = out[parent].resolved.clone();
+        let resolved = find_file(s, &l.path, &beside);
+        let rfn = if l.rfn.is_empty() { format!("{ns}RN") } else { l.rfn.clone() };
+        out.push(LoadSetting { parent: Some(parent), rfn, namespace: ns, unresolved: l.path.clone(), resolved, deferred: l.deferred });
+        stack.push(out.len() - 1);
+    }
     out
+}
+
+fn descendants(list: &[LoadSetting], of: usize) -> Vec<usize> {
+    let mut out = Vec::new();
+    for (i, l) in list.iter().enumerate() {
+        let mut p = l.parent;
+        while let Some(x) = p {
+            if x == of {
+                out.push(i);
+                break;
+            }
+            p = list[x].parent;
+        }
+    }
+    out
+}
+
+/// selLoadSettings: the implicit load settings -buildLoadSettings made, by ID: 0 the file, then its references.
+fn sel_load_settings(_s: &mut Session, a: &Args) -> CmdResult {
+    let ids: Vec<usize> = a
+        .positional
+        .iter()
+        .filter_map(|v| v.as_u64().map(|n| n as usize).or_else(|| v.as_f64().map(|f| f as usize)).or_else(|| v.as_str().and_then(|t| t.trim().parse().ok())))
+        .collect();
+    let mut list = st(|x| x.load_settings.clone());
+    if list.is_empty() {
+        list.push(LoadSetting::default());
+    }
+    let n = list.len();
+    if let Some(bad) = ids.iter().find(|i| **i >= n) {
+        fail!("selLoadSettings: no load setting {bad}; there are {n}");
+    }
+    let q: Vec<String> = a.get("queried").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_str).map(str::to_string).collect()).unwrap_or_default();
+    let wants = |f: &str| q.iter().any(|x| x == f) || (a.bool("query") && a.get(f).and_then(Value::as_bool) == Some(true));
+    let edit = a.bool("edit");
+    let query = a.bool("query") || (!edit && ["numSettings", "fileName", "referenceNode", "proxyManager", "proxyTag", "proxySetTags", "proxySetFiles"].iter().any(|f| a.get(f).is_some_and(|v| v.as_bool() == Some(true))));
+    if query {
+        if wants("numSettings") || a.has("numSettings") && q.is_empty() {
+            return Ok(json!(n));
+        }
+        if ids.is_empty() {
+            fail!("selLoadSettings: give the load setting IDs to query");
+        }
+        let proxy = |l: &LoadSetting| st(|x| x.proxies.get(&l.rfn).cloned());
+        let each = |f: &dyn Fn(&LoadSetting) -> Value| -> Value {
+            let v: Vec<Value> = ids.iter().map(|&i| f(&list[i])).collect();
+            if v.len() == 1 {
+                v.into_iter().next().unwrap()
+            } else {
+                Value::Array(v)
+            }
+        };
+        let short = a.bool("shortName") || q.iter().any(|x| x == "shortName");
+        let unresolved = a.bool("unresolvedName") || q.iter().any(|x| x == "unresolvedName");
+        if wants("fileName") {
+            return Ok(each(&|l| {
+                let f = if unresolved { &l.unresolved } else { &l.resolved };
+                json!(if short { f.rsplit(['/', '\\']).next().unwrap_or(f).to_string() } else { f.clone() })
+            }));
+        }
+        if wants("deferReference") {
+            return Ok(each(&|l| json!(l.deferred)));
+        }
+        if wants("referenceNode") {
+            return Ok(each(&|l| json!(l.rfn)));
+        }
+        if wants("proxyManager") {
+            return Ok(each(&|l| json!(proxy(l).map(|p| p.0).unwrap_or_default())));
+        }
+        if wants("proxyTag") {
+            return Ok(each(&|l| json!(proxy(l).map(|p| p.1).unwrap_or_default())));
+        }
+        if wants("activeProxy") {
+            return Ok(each(&|l| json!(proxy(l).map(|p| if p.2.is_empty() { p.1 } else { p.2 }).unwrap_or_default())));
+        }
+        // A reference with no proxies is a set of one: itself, under no tag.
+        if wants("proxySetTags") {
+            return Ok(each(&|l| json!([proxy(l).map(|p| p.1).unwrap_or_default()])));
+        }
+        if wants("proxySetFiles") {
+            return Ok(each(&|l| json!([if short { l.resolved.rsplit(['/', '\\']).next().unwrap_or(&l.resolved).to_string() } else { l.resolved.clone() }])));
+        }
+        fail!("selLoadSettings: name what to query");
+    }
+    if ids.is_empty() {
+        fail!("selLoadSettings: give the load setting IDs to edit");
+    }
+    let mut warnings = Vec::new();
+    if let Some(v) = a.get("deferReference").filter(|v| !v.is_null()) {
+        let defer = v.as_bool().unwrap_or(v.as_f64().is_some_and(|x| x != 0.0) || v.as_str().is_some_and(|t| matches!(t, "true" | "1" | "on")));
+        for &i in &ids {
+            if i == 0 {
+                warnings.push("selLoadSettings: the file being opened is always loaded".to_string());
+                continue;
+            }
+            if !defer {
+                if let Some(p) = list[i].parent.filter(|&p| p != 0 && list[p].deferred) {
+                    warnings.push(format!("selLoadSettings: {} can't load while {} is unloaded", list[i].rfn, list[p].rfn));
+                    continue;
+                }
+            }
+            // Children follow their parent.
+            list[i].deferred = defer;
+            for d in descendants(&list, i) {
+                list[d].deferred = defer;
+            }
+        }
+    }
+    if let Some(tag) = a.get("activeProxy").and_then(Value::as_str) {
+        for &i in &ids {
+            let rfn = list[i].rfn.clone();
+            st(|x| {
+                let e = x.proxies.entry(rfn).or_default();
+                e.2 = tag.to_string();
+            });
+        }
+    }
+    st(|x| {
+        if !x.load_settings.is_empty() {
+            x.load_settings = list;
+        }
+    });
+    for w in warnings {
+        log::warn!("{w}");
+    }
+    Ok(Value::Null)
 }
 
 fn open(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
@@ -854,8 +1110,8 @@ fn open(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
         if !Path::new(&p).is_file() {
             fail!("file: {p} not found");
         }
-        let list = reference_lines(&p);
-        st(|x| x.implicit_load_settings = list);
+        let list = build_load_settings(s, &p);
+        st(|x| x.load_settings = list);
         return Ok(json!(p));
     }
     use crate::references::LoadMode;
@@ -871,7 +1127,7 @@ fn open(s: &mut Session, a: &Args, prev: &RunFn<Session>) -> CmdResult {
             _ => None,
         }
     } else if a.string("loadSettings", "") == "implicitLoadSettings" {
-        Some(LoadMode::Map(st(|x| x.implicit_load_settings.iter().cloned().collect())))
+        Some(LoadMode::Map(st(|x| x.load_settings.iter().skip(1).map(|l| (l.rfn.clone(), l.deferred)).collect())))
     } else {
         None
     };
@@ -1150,6 +1406,7 @@ fn lock_unpublished(s: &mut Session, among: &[NodeId]) {
 }
 
 pub fn register(c: &mut Commands<Session>) {
+    register_sel_load_settings(c);
     let Some(old) = c.find("file").cloned() else { return };
     let mut def = old.clone();
     let prev = def.run.clone();
@@ -1236,4 +1493,43 @@ mod tests {
         let z = super::gzip(&text);
         assert_eq!(super::gunzip(&z).unwrap(), text);
     }
+}
+
+fn register_sel_load_settings(c: &mut Commands<Session>) {
+    use aztek_ops::CommandDef;
+    let f = |n: &str, sh: &str, ty: ArgType, doc: &str| FlagDef::new(n, sh, ty, Value::Null, doc);
+    c.register(
+        CommandDef::new(
+            "selLoadSettings",
+            "The implicit load settings of the file file -buildLoadSettings read, for the Preload Reference Editor: ID 0 is the file, then its references in pre-order. -e -deferReference sets which references the next file -open -loadSettings implicitLoadSettings loads; children follow their parent.",
+            sel_load_settings,
+        )
+        .undoable(false)
+        .positional("load setting IDs")
+        .flag(f("query", "q", ArgType::Bool, "Query mode."))
+        .flag(f("edit", "e", ArgType::Bool, "Edit mode."))
+        .flag(f("queried", "", ArgType::List, "Flags asked about in query mode."))
+        .flag(f("activeProxy", "ap", ArgType::String, "The tag of the proxy set's active proxy; in edit mode, makes the proxy of that tag active."))
+        .flag(f("deferReference", "dr", ArgType::Bool, "Whether the reference stays unloaded."))
+        .flag(f("fileName", "fn", ArgType::String, "The file of each load setting, resolved unless -unresolvedName."))
+        .flag(f("numSettings", "ns", ArgType::Int, "How many load settings: the references plus one."))
+        .flag(f("proxyManager", "pm", ArgType::String, "The proxy manager of each load setting."))
+        .flag(f("proxySetFiles", "psf", ArgType::String, "The files of the proxies in each load setting's proxy set."))
+        .flag(f("proxySetTags", "pst", ArgType::String, "The tags of the proxies in each load setting's proxy set."))
+        .flag(f("proxyTag", "pt", ArgType::String, "The proxy tag of each load setting."))
+        .flag(f("referenceNode", "rfn", ArgType::String, "The reference node of each load setting."))
+        .flag(f("shortName", "shn", ArgType::Bool, "With -fileName: the file's name only."))
+        .flag(f("unresolvedName", "un", ArgType::Bool, "With -fileName: the name as the reference was made, found or not.")),
+    );
+}
+
+/// The load settings as the Preload Reference Editor shows them: ID, parent ID (-1 for the file), name, file, unloaded.
+pub fn load_settings_rows() -> Value {
+    Value::Array(
+        st(|x| x.load_settings.clone())
+            .iter()
+            .enumerate()
+            .map(|(i, l)| json!({"id": i, "parent": l.parent.map_or(-1, |p| p as i64), "node": l.rfn, "file": l.resolved, "unloaded": l.deferred}))
+            .collect(),
+    )
 }

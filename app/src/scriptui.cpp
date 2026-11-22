@@ -31,6 +31,7 @@
 #include <QMimeData>
 #include <QFileDialog>
 #include <QFile>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -64,6 +65,7 @@
 #include <QStyle>
 #include <QTabBar>
 #include <QTableWidget>
+#include <QTreeWidget>
 #include <QHeaderView>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -396,6 +398,108 @@ QString frame_title(const QString& label, bool collapsable, bool collapsed) {
 
 // A slider with a float range, in the integer steps Qt has.
 const int SLIDER_STEPS = 10000;
+
+// The profiler's events as bars along time: a row per thread, category or CPU as profilerTool sets the view. Click
+// picks an event, Shift adds to the pick; the framed range (profilerTool -frameAll, -frameSelected) is what shows.
+class ProfilerView : public QWidget {
+public:
+    ProfilerView() {
+        setMinimumSize(300, 120);
+        setMouseTracking(true);
+    }
+    void refresh() {
+        data_ = ask("aztekProfilerView").toObject();
+        update();
+    }
+protected:
+    QString row_key(const QJsonObject& e) const {
+        QString mode = data_["mode"].toString();
+        if (mode == "category") {
+            QJsonArray names = data_["categories"].toArray();
+            int c = e["category"].toInt();
+            return c < names.size() ? names[c].toString() : QString::number(c);
+        }
+        if (mode == "cpu") return QString("CPU %1").arg(e["cpu"].toInt());
+        return QString("Thread %1").arg(e["thread"].toInt());
+    }
+    void range(double& t0, double& t1) const {
+        QJsonArray f = data_["framed"].toArray();
+        t0 = f.size() > 1 ? f[0].toDouble() : 0;
+        t1 = f.size() > 1 ? f[1].toDouble() : 0;
+        if (t1 <= t0) {
+            t0 = 1e300;
+            t1 = -1e300;
+            for (const QJsonValue& v : data_["events"].toArray()) {
+                QJsonObject e = v.toObject();
+                t0 = std::min(t0, e["start"].toDouble());
+                t1 = std::max(t1, e["start"].toDouble() + e["duration"].toDouble());
+            }
+            if (t1 <= t0) t0 = 0, t1 = 1;
+        }
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.fillRect(rect(), palette().base());
+        QJsonArray events = data_["events"].toArray();
+        if (events.isEmpty()) {
+            p.setPen(palette().color(QPalette::Disabled, QPalette::Text));
+            p.drawText(rect(), Qt::AlignCenter, "No events recorded. Start sampling with profiler -sampling true.");
+            return;
+        }
+        double t0, t1;
+        range(t0, t1);
+        QStringList rows;
+        for (const QJsonValue& v : events) {
+            QString k = row_key(v.toObject());
+            if (!rows.contains(k)) rows << k;
+        }
+        rows.sort();
+        const int label_w = 90, row_h = 22;
+        QSet<int> sel, mark;
+        for (const QJsonValue& v : data_["selected"].toArray()) sel.insert(v.toInt());
+        for (const QJsonValue& v : data_["critical"].toArray()) mark.insert(v.toInt());
+        for (const QJsonValue& v : data_["hotspot"].toArray()) mark.insert(v.toInt());
+        bars_.clear();
+        double w = std::max(1, width() - label_w - 4);
+        for (int r = 0; r < rows.size(); ++r) {
+            int y = 4 + r * row_h;
+            p.setPen(palette().color(QPalette::Text));
+            p.drawText(QRect(4, y, label_w - 8, row_h), Qt::AlignVCenter | Qt::AlignLeft, rows[r]);
+        }
+        for (const QJsonValue& v : events) {
+            QJsonObject e = v.toObject();
+            int r = rows.indexOf(row_key(e));
+            double s = e["start"].toDouble(), d = e["duration"].toDouble();
+            double x0 = label_w + (s - t0) / (t1 - t0) * w, x1 = label_w + (s + d - t0) / (t1 - t0) * w;
+            QRectF bar(x0, 4 + r * row_h + 2, std::max(2.0, x1 - x0), row_h - 4);
+            int idx = e["index"].toInt();
+            QColor c = QColor::fromHsv((e["color"].toInt() * 47) % 360, 120, 200);
+            p.setPen(sel.contains(idx) ? QPen(palette().color(QPalette::Highlight), 2) : mark.contains(idx) ? QPen(QColor(230, 60, 40), 2) : QPen(c.darker(150)));
+            p.setBrush(c);
+            if (e["signal"].toBool()) p.drawLine(QPointF(x0, bar.top()), QPointF(x0, bar.bottom()));
+            else p.drawRect(bar);
+            if (bar.width() > 40) {
+                p.setPen(Qt::black);
+                p.drawText(bar.adjusted(3, 0, -2, 0), Qt::AlignVCenter | Qt::AlignLeft, e["name"].toString());
+            }
+            bars_.append({bar, idx});
+        }
+    }
+    void mousePressEvent(QMouseEvent* ev) override {
+        QJsonArray picked;
+        if (ev->modifiers() & Qt::ShiftModifier) picked = data_["selected"].toArray();
+        for (int i = bars_.size() - 1; i >= 0; --i)
+            if (bars_[i].first.adjusted(-1, 0, 1, 0).contains(ev->position())) {
+                picked.append(bars_[i].second);
+                break;
+            }
+        exec_quiet("aztekProfilerView", QJsonObject{{"select", picked}});
+        refresh();
+    }
+private:
+    QJsonObject data_;
+    QList<QPair<QRectF, int>> bars_;
+};
 
 } // namespace
 
@@ -1612,6 +1716,10 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         auto* o = new Outliner();
         o->setMinimumSize(120, 80);
         it->w = o;
+    } else if (k == "channelBox") {
+        auto* c = new ChannelBox(nullptr, path);
+        c->setMinimumSize(120, 80);
+        it->w = c;
     } else if (k == "nodeEditor") {
         auto* n = new NodeEditor();
         n->setMinimumSize(200, 120);
@@ -1656,6 +1764,47 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         update();
         connect(Host::get(), &Host::sceneChanged, l, update);
         it->w = l;
+    } else if (k == "preloadRefEd") {
+        // The file being opened and the references under it; ticked ones load. Picking one sets -selectFileNode.
+        auto* t = new QTreeWidget();
+        t->setHeaderLabels({"Reference", "File"});
+        t->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+        t->setMinimumSize(200, 100);
+        auto update = [t] {
+            QSignalBlocker block(t);
+            t->clear();
+            QHash<int, QTreeWidgetItem*> made;
+            for (const QJsonValue& v : ask("aztekPreloadRefEdRows").toArray()) {
+                QJsonObject r = v.toObject();
+                int id = r["id"].toInt(), parent = r["parent"].toInt();
+                QString file = r["file"].toString();
+                auto* i = parent < 0 ? new QTreeWidgetItem(t) : new QTreeWidgetItem(made.value(parent, nullptr) ? made.value(parent) : t->invisibleRootItem());
+                i->setText(0, parent < 0 ? QFileInfo(file).fileName() : r["node"].toString());
+                i->setText(1, file);
+                i->setData(0, Qt::UserRole, id);
+                if (parent >= 0) i->setCheckState(0, r["unloaded"].toBool() ? Qt::Unchecked : Qt::Checked);
+                made.insert(id, i);
+            }
+            t->expandAll();
+        };
+        connect(t, &QTreeWidget::itemChanged, this, [update](QTreeWidgetItem* i, int col) {
+            if (col != 0) return;
+            exec("selLoadSettings", QJsonObject{{"edit", true}, {"deferReference", i->checkState(0) != Qt::Checked}, {"args", QJsonArray{QString::number(i->data(0, Qt::UserRole).toInt())}}});
+            QTimer::singleShot(0, update);
+        });
+        connect(t, &QTreeWidget::itemSelectionChanged, this, [this, path, t] {
+            auto items = t->selectedItems();
+            if (items.isEmpty()) return;
+            fire(path, QJsonObject{{"selectFileNode", QString::number(items.first()->data(0, Qt::UserRole).toInt())}}, QJsonArray{"selectCommand"}, QJsonArray());
+        });
+        update();
+        connect(Host::get(), &Host::sceneChanged, t, update);
+        it->w = t;
+    } else if (k == "profilerTool") {
+        auto* v = new ProfilerView();
+        v->refresh();
+        connect(Host::get(), &Host::sceneChanged, v, [v] { v->refresh(); });
+        it->w = v;
     } else if (k == "keyframeOutliner") {
         auto* l = new QListWidget();
         l->setMinimumSize(120, 60);
@@ -1810,6 +1959,30 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
                 sel.append(i.column() + 1);
             }
             fire(path, QJsonObject{{"selectedCells", sel}}, QJsonArray{"selectionChangedCmd"}, QJsonArray());
+        });
+        it->w = t;
+    } else if (k == "switchTable") {
+        // A shading switch's shapes and what feeds each: two columns, one row picked.
+        auto* t = new QTableWidget(0, 2);
+        t->setMinimumSize(160, 80);
+        t->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        t->setSelectionBehavior(QAbstractItemView::SelectRows);
+        t->setSelectionMode(QAbstractItemView::SingleSelection);
+        t->horizontalHeader()->setStretchLastSection(true);
+        t->verticalHeader()->setVisible(false);
+        t->setMouseTracking(true);
+        connect(t, &QTableWidget::itemSelectionChanged, this, [this, path, t] {
+            QModelIndexList rows = t->selectionModel()->selectedRows();
+            int r = rows.isEmpty() ? 0 : rows.first().row() + 1;
+            fire(path, QJsonObject{{"selectedRow", r}}, QJsonArray(), QJsonArray());
+        });
+        connect(t, &QTableWidget::cellEntered, this, [this, path](int r, int) { fire(path, QJsonObject{{"underPointerRow", r + 1}}, QJsonArray(), QJsonArray()); });
+        // The switch's connections change with the scene: the core works the rows out again.
+        connect(Host::get(), &Host::sceneChanged, t, [this, path] {
+            auto* i = items_.value(path);
+            if (!i) return;
+            QString node = i->prop("switchNode").toString();
+            if (!node.isEmpty()) ask("switchTable", QJsonObject{{"edit", true}, {"switchNode", node}, {"args", QJsonArray{path}}});
         });
         it->w = t;
     } else if (k == "timePort") {
@@ -2078,6 +2251,21 @@ void ScriptUi::build_group(Item* it, const QJsonObject& props) {
             fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
         });
         connect(s, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
+        // -alphaValue shows a second slider, for the colour's alpha.
+        auto* alpha = new QSlider(Qt::Horizontal, box);
+        alpha->setRange(0, SLIDER_STEPS);
+        alpha->setToolTip("Alpha");
+        alpha->setVisible(props.contains("alphaValue"));
+        g->addWidget(alpha, 0, col++);
+        it->parts["alpha"] = alpha;
+        connect(alpha, &QSlider::sliderMoved, this, [this, path](int pos) {
+            auto* i = items_.value(path);
+            if (!i) return;
+            QJsonObject ch{{"alphaValue", double(pos) / SLIDER_STEPS}};
+            i->props.insert("alphaValue", ch["alphaValue"]);
+            fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
+        });
+        connect(alpha, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
     } else if (k == "checkBoxGrp") {
         int n = qBound(1, int(as_number(props["numberOfCheckBoxes"], 1)), 4);
         for (int i = 1; i <= n; ++i) {
@@ -2214,6 +2402,8 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         if (auto* u = qobject_cast<UvEditor*>(w)) u->apply_flags(props);
     } else if (k == "outlinerEditor") {
         if (auto* o = qobject_cast<Outliner*>(w)) o->set_editor_options(props);
+    } else if (k == "channelBox") {
+        if (auto* c = qobject_cast<ChannelBox*>(w)) c->apply_flags(props);
     } else if (k == "nodeEditor") {
         if (auto* n = qobject_cast<NodeEditor*>(w)) {
             if (as_bool(props["rootsFromSelection"])) n->graph_selection(as_bool(it->prop("upstream")) || as_bool(it->prop("downstream")) ? 2 : 1);
@@ -2343,6 +2533,23 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             QSet<int> hidden;
             for (const QJsonValue& v : it->prop("hiddenRows").toArray()) hidden.insert(int(as_number(v)) - 1);
             for (int r = 0; r < rows; ++r) t->setRowHidden(r, hidden.contains(r));
+        }
+    }
+    if (k == "switchTable") {
+        auto* t = static_cast<QTableWidget*>(w);
+        QSignalBlocker block(t);
+        t->setHorizontalHeaderLabels(QStringList{it->props.contains("label1") ? it->prop("label1").toString() : QString("Shape"), it->props.contains("label2") ? it->prop("label2").toString() : QString("Input")});
+        if (props.contains("cells")) {
+            QJsonArray cells = it->prop("cells").toArray();
+            t->setRowCount(cells.size());
+            for (int r = 0; r < cells.size(); ++r) {
+                QJsonArray row = cells[r].toArray();
+                for (int c = 0; c < 2; ++c) {
+                    QString v = c < row.size() ? row[c].toString() : QString();
+                    if (QTableWidgetItem* cell = t->item(r, c)) cell->setText(v);
+                    else t->setItem(r, c, new QTableWidgetItem(v));
+                }
+            }
         }
     }
     if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "symbolCheckBox" || k == "iconTextRadioButton") {
@@ -2583,6 +2790,11 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         auto* s = static_cast<QSlider*>(it->parts["slider"]);
         QSignalBlocker block(s);
         s->setValue(int(c.valueF() * SLIDER_STEPS));
+        if (auto* alpha = qobject_cast<QSlider*>(it->parts.value("alpha")); alpha && it->props.contains("alphaValue")) {
+            QSignalBlocker block_alpha(alpha);
+            alpha->setVisible(true);
+            alpha->setValue(int(as_number(it->prop("alphaValue"), 1.0) * SLIDER_STEPS));
+        }
     } else if (k == "checkBoxGrp") {
         for (int i = 1; i <= 4; ++i) {
             QString slot = QString::number(i);
@@ -2645,7 +2857,44 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     }
 }
 
+// attrNavigationControlGrp: nodes dropped on it, and its right-click menu (Set Key and Break Connection unless
+// -noKeyableMenu, Ignore with -ignore).
+void ScriptUi::nav_extras(Item* it, const QJsonObject& props) {
+    QWidget* w = it->w;
+    if (!w) return;
+    const QString path = it->path;
+    if (props.contains("hasNodeDrop") && it->kind != "shelfButton") {
+        QList<QWidget*> all = w->findChildren<QWidget*>();
+        all << w;
+        for (QWidget* x : all) {
+            x->setAcceptDrops(true);
+            x->setProperty("azNodeDropPath", path);
+            x->installEventFilter(this);
+        }
+    }
+    if (props.contains("navMenu")) {
+        w->setContextMenuPolicy(Qt::CustomContextMenu);
+        QObject::disconnect(w, &QWidget::customContextMenuRequested, nullptr, nullptr);
+        connect(w, &QWidget::customContextMenuRequested, this, [this, path, w](const QPoint& at) {
+            Item* me = items_.value(path);
+            if (!me) return;
+            QJsonObject nav = me->prop("navMenu").toObject();
+            QMenu menu;
+            if (nav["keyable"].toBool(true)) {
+                menu.addAction("Set Key", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navSetKey"}, QJsonArray()); });
+                menu.addAction("Break Connection", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navBreak"}, QJsonArray()); });
+            }
+            if (nav["ignore"].toBool()) {
+                if (!menu.isEmpty()) menu.addSeparator();
+                menu.addAction("Ignore", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navIgnore"}, QJsonArray()); });
+            }
+            if (!menu.isEmpty()) menu.exec(w->mapToGlobal(at));
+        });
+    }
+}
+
 void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
+    if (props.contains("hasNodeDrop") || props.contains("navMenu")) nav_extras(it, props);
     QWidget* w = it->w;
     if (!w || it->menu) return;
     if (props.contains("width")) {
@@ -2687,6 +2936,11 @@ void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
     if (props.contains("topLeftCorner")) {
         QJsonArray a = flat(props["topLeftCorner"]);
         if (a.size() >= 2) w->move(int(as_number(a[1])), int(as_number(a[0])));
+    }
+    // A window preference can open a window maximized.
+    if (props.contains("maximized") && it->kind == "window") {
+        Qt::WindowStates st = w->windowState();
+        w->setWindowState(as_bool(props["maximized"]) ? (st | Qt::WindowMaximized) : (st & ~Qt::WindowMaximized));
     }
     if (props.contains("backgroundColor")) {
         QColor c = color_of(props["backgroundColor"]);
@@ -2807,7 +3061,9 @@ bool ScriptUi::eventFilter(QObject* o, QEvent* e) {
         auto* de = static_cast<QDropEvent*>(e);
         if (de->mimeData()->hasText() && !de->mimeData()->hasFormat(CONTROL_MIME)) {
             de->acceptProposedAction();
-            for (const QString& node : de->mimeData()->text().split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts)) fire(node_drop, QJsonObject(), QJsonArray{"handleNodeDropCallback"}, QJsonArray{node});
+            Item* target = items_.value(node_drop);
+            const QString flag = target && target->props.contains("nodeDropFlag") ? target->prop("nodeDropFlag").toString() : QString("handleNodeDropCallback");
+            for (const QString& node : de->mimeData()->text().split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts)) fire(node_drop, QJsonObject(), QJsonArray{flag}, QJsonArray{node});
             return true;
         }
     }

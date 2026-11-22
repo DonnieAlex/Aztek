@@ -58,7 +58,7 @@ attrFieldGrp	done	auto
 attrFieldSliderGrp	done	auto
 attrNavigationControlGrp	done	auto
 attributeInfo	done	auto
-attributeMenu	missing	
+attributeMenu	done	auto
 attributeName	done	auto
 attributeQuery	done	auto
 audioTrack	missing	
@@ -99,8 +99,8 @@ boundary	done	auto
 boxDollyCtx	done	auto
 boxZoomCtx	done	auto
 bufferCurve	done	auto
-buildBookmarkMenu	missing	
-buildKeyframeMenu	missing	
+buildBookmarkMenu	done	auto
+buildKeyframeMenu	done	auto
 button	done	auto
 buttonManip	missing	
 cacheEvaluator	missing	
@@ -117,7 +117,7 @@ canCreateManip	missing
 canvas	done	auto
 changeSubdivComponentDisplayLevel	missing	
 changeSubdivRegion	missing	
-channelBox	missing	
+channelBox	done	auto
 character	done	auto
 characterMap	done	auto
 characterize	done	auto
@@ -539,7 +539,7 @@ makeIdentity	done	auto
 makeLive	done	auto
 makePaintable	done	auto
 makeSingleSurface	done	auto
-makebot	missing	
+makebot	done	auto
 manipMoveContext	done	auto
 manipMoveLimitsCtx	missing	
 manipOptions	done	auto
@@ -553,9 +553,9 @@ matchTransform	done	auto
 matrixUtil	done	auto
 mayaDpiSetting	done	auto
 mayaHasRenderSetup	missing	
-melInfo	missing	
-melOptions	missing	
-memory	missing	
+melInfo	done	auto
+melOptions	done	auto
+memory	done	auto
 menu	done	auto
 menuBarLayout	done	auto
 menuEditor	missing	
@@ -572,12 +572,12 @@ modelEditor	done	auto
 modelPanel	done	auto
 moduleInfo	done	auto
 mouse	missing	
-movIn	missing	
-movOut	missing	
+movIn	done	auto
+movOut	done	auto
 move	done	auto
 moveKeyCtx	done	auto
 moveVertexAlongDirection	done	auto
-movieInfo	missing	
+movieInfo	done	auto
 multiProfileBirailSurface	done	auto
 multiTouch	missing	
 mute	done	auto
@@ -607,7 +607,7 @@ nurbsPlane	done	auto
 nurbsSelect	done	auto
 nurbsSquare	done	auto
 nurbsToPoly	done	auto
-nurbsToPolygonsPref	missing	
+nurbsToPolygonsPref	done	auto
 nurbsToSubdiv	missing	
 nurbsToSubdivPref	missing	
 nurbsUVSet	done	auto
@@ -620,9 +620,9 @@ offsetCurveOnSurface	done	auto
 offsetSurface	done	auto
 ogs	missing	
 ogsRender	missing	
-openCLInfo	missing	
-openGLExtension	missing	
-openMayaPref	missing	
+openCLInfo	done	auto
+openGLExtension	done	auto
+openMayaPref	done	auto
 optionMenu	done	auto
 optionMenuGrp	done	auto
 optionVar	done	auto
@@ -658,7 +658,7 @@ pathAnimation	done	auto
 pause	done	auto
 perCameraVisibility	missing	
 percent	done	auto
-performanceOptions	missing	
+performanceOptions	done	auto
 pfxstrokes	missing	
 pickWalk	done	auto
 picture	done	auto
@@ -829,10 +829,10 @@ pose	done	auto
 poseEditor	done	auto
 posePanel	done	auto
 preferredRenderer	done	auto
-preloadRefEd	missing	
+preloadRefEd	done	auto
 prepareRender	missing	
-profiler	missing	
-profilerTool	missing	
+profiler	done	auto
+profilerTool	done	auto
 progressBar	done	auto
 progressWindow	done	auto
 projectCurve	done	auto
@@ -897,7 +897,7 @@ reroot	done	auto
 resampleFluid	missing	
 resetTool	done	auto
 resolutionNode	done	auto
-resourceManager	missing	
+resourceManager	done	auto
 retimeKeyCtx	missing	
 reverseCurve	done	auto
 reverseSurface	done	auto
@@ -919,8 +919,8 @@ saveFluid	missing
 saveImage	missing	
 saveInitialState	missing	
 saveMenu	missing	
-savePrefObjects	missing	
-savePrefs	missing	
+savePrefObjects	done	auto
+savePrefs	done	auto
 saveShelf	missing	
 saveToolSettings	done	auto
 saveViewportSettings	done	auto
@@ -930,11 +930,11 @@ scaleConstraint	done	auto
 scaleKey	done	auto
 scaleKeyCtx	done	auto
 sceneEditor	missing	
-sceneLint	missing	
-sceneUIReplacement	missing	
-scmh	missing	
+sceneLint	done	auto
+sceneUIReplacement	done	auto
+scmh	done	auto
 scriptCtx	done	auto
-scriptEditorInfo	missing	
+scriptEditorInfo	done	auto
 scriptJob	done	auto
 scriptNode	done	auto
 scriptTable	done	auto
@@ -947,7 +947,7 @@ sculptKeyCtx	missing
 sculptMeshCacheChangeCloneSource	missing	
 sculptMeshCacheCtx	done	auto
 sculptTarget	done	auto
-selLoadSettings	missing	
+selLoadSettings	done	auto
 select	done	auto
 selectContext	missing	
 selectKey	done	auto
@@ -975,7 +975,7 @@ setKeyPath	done	auto
 setKeyframe	done	auto
 setKeyframeBlendshapeTargetWts	done	auto
 setMenuMode	missing	
-setNodeTypeFlag	missing	
+setNodeTypeFlag	done	auto
 setParent	done	auto
 setParticleAttr	done	auto
 setRenderPassType	missing	
@@ -989,7 +989,7 @@ shadingGeometryRelCtx	missing
 shadingLightRelCtx	missing	
 shadingNetworkCompare	missing	
 shadingNode	done	auto
-shapeCompare	missing	
+shapeCompare	done	auto
 shapeEditor	missing	
 shapePanel	missing	
 shelfButton	done	auto
@@ -1061,13 +1061,13 @@ subdiv	missing
 subdivCrease	missing	
 subdivDisplaySmoothness	missing	
 substituteGeometry	done	auto
-suitePrefs	missing	
+suitePrefs	done	auto
 surface	done	auto
 surfaceSampler	missing	
 surfaceShaderList	missing	
 swatchDisplayPort	missing	
 swatchRefresh	missing	
-switchTable	missing	
+switchTable	done	auto
 symbolButton	done	auto
 symbolCheckBox	done	auto
 symmetricModelling	done	auto
@@ -1123,7 +1123,7 @@ toggle	done	auto
 toggleAxis	done	auto
 toggleDisplacement	missing	
 toggleWindowVisibility	missing	
-tolerance	missing	
+tolerance	done	auto
 toolBar	missing	
 toolButton	done	auto
 toolCollection	done	auto
@@ -1156,14 +1156,14 @@ unfold	done	auto
 ungroup	done	auto
 uniform	done	auto
 unknownNode	done	auto
-unknownPlugin	missing	
+unknownPlugin	done	auto
 unloadPlugin	done	auto
 untangleUV	done	auto
 untrim	done	auto
 upAxis	done	auto
 uvLink	done	auto
 uvSnapshot	done	auto
-vectorize	missing	
+vectorize	done	auto
 view2dToolCtx	missing	
 viewCamera	done	auto
 viewClipPlane	done	auto

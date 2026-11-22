@@ -108,6 +108,11 @@ impl Core {
         crate::ee_listen::register(&mut c.s);
         crate::sys_host::register(&mut c.s);
         crate::sys_more::register(&mut c.s);
+        crate::sys_info::register(&mut c.s);
+        crate::about::register(&mut c.s);
+        crate::attr_menus::register(&mut c.s);
+        crate::sys_prefs::register(&mut c.s);
+        crate::profiler::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.mel_state.set_global_string("gPlayBackSlider", crate::scriptui::TIME_SLIDER);
@@ -144,8 +149,13 @@ impl Core {
             let bare = text.trim_start_matches("// Error: ").trim_start_matches("# Error: ").trim_end_matches(" //").trim_end_matches(" #");
             crate::script_jobs::set_last_error(bare);
         }
+        // scriptEditorInfo -suppress...: the line is left out of the history.
+        if crate::sys_prefs::hides(kind) {
+            return;
+        }
         crate::batch::echo(&text, kind);
         crate::environment::line(&text);
+        crate::sys_prefs::history_line(&text);
         self.log.push(LogLine { text, kind });
     }
 
@@ -222,6 +232,11 @@ impl Core {
         // The tool contexts the reference's scripts name through these globals.
         self.mel("global string $gSelect = \"selectSuperContext\"; global string $gMove = \"moveSuperContext\"; global string $gRotate = \"RotateSuperContext\"; global string $gScale = \"scaleSuperContext\";");
         self.mel("source \"setDefaultTemplates.mel\"; source \"initAuxiliary.mel\"; source \"initAfter.mel\";");
+        // What savePrefs kept: the colours and the windows' sizes and places.
+        for p in crate::sys_prefs::startup_pref_files() {
+            let quoted = p.to_string_lossy().replace('\\', "/").replace('"', "\\\"");
+            self.mel(&format!("source \"{quoted}\";"));
+        }
         if !crate::user_folder::load_choice().user_setup {
             return Vec::new();
         }
@@ -271,6 +286,9 @@ impl Core {
         }
         for (cb, args) in crate::scriptui::take_immediate() {
             self.run_callback(&cb, &args);
+        }
+        for cb in crate::channel_box::rebuild_callbacks(&mut self.s) {
+            self.run_callback(&cb, &[]);
         }
         if crate::script_jobs::take_flush() {
             self.idle();
@@ -430,10 +448,12 @@ impl Core {
     pub fn exec_quiet(&mut self, name: &str, call: Value, src: CallSource) -> Result<Value, String> {
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
+        crate::profiler::begin(&name, aztek_scene::anim::frame(&self.s.graph), false);
         let r = match crate::host_general::intercept(self, &name, &call) {
             Some(r) => r.map_err(aztek_ops::CommandError::new),
             None => execute(&mut self.s, &name, &call, src),
         };
+        crate::profiler::end();
         self.ensure_defaults();
         self.version += 1;
         self.drain_captured();
@@ -539,10 +559,12 @@ impl Core {
     fn exec_plain(&mut self, name: &str, call: Value) -> Result<Value, String> {
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
+        crate::profiler::begin(&name, aztek_scene::anim::frame(&self.s.graph), false);
         let r = match crate::host_general::intercept(self, &name, &call) {
             Some(r) => r.map_err(aztek_ops::CommandError::new),
             None => execute(&mut self.s, &name, &call, CallSource::Script),
         };
+        crate::profiler::end();
         self.version += 1;
         self.drain_captured();
         self.after_command(&name, &call, r.is_ok());
@@ -609,10 +631,12 @@ impl Core {
         let before = self.s.graph.undo_stack().newest_id();
         let (name, call) = pivot_move(name, call);
         self.before_command(&name, &call);
+        crate::profiler::begin(&name, aztek_scene::anim::frame(&self.s.graph), false);
         let r = match crate::host_general::intercept(self, &name, &call) {
             Some(r) => r.map_err(aztek_ops::CommandError::new),
             None => execute(&mut self.s, &name, &call, CallSource::Script),
         };
+        crate::profiler::end();
         self.ensure_defaults();
         self.after_command(&name, &call, r.is_ok());
         let after = self.s.graph.undo_stack().newest_id();

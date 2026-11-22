@@ -118,6 +118,13 @@ impl Shared {
             .iter()
             .map(|e| CStr::from_ptr(e.extension_name.as_ptr()).to_string_lossy().into_owned())
             .collect();
+        {
+            // openGLExtension answers from the device the views draw with.
+            let props = instance.get_physical_device_properties(phys);
+            let v = props.api_version;
+            let version = format!("Vulkan {}.{}.{}", vk::api_version_major(v), vk::api_version_minor(v), vk::api_version_patch(v));
+            crate::sys_info::set_gpu_info(&device_name, props.vendor_id, &version, &dev_exts_avail);
+        }
         let mut dev_exts = vec![khr::swapchain::NAME.as_ptr()];
         if dev_exts_avail.iter().any(|e| e == "VK_KHR_portability_subset") {
             dev_exts.push(c"VK_KHR_portability_subset".as_ptr());

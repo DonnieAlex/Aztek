@@ -42,7 +42,14 @@ pub mod update;
 pub mod environment;
 pub mod user_folder;
 pub mod sys_host;
+pub mod select_cmds;
 pub mod sys_more;
+pub mod sys_prefs;
+pub mod profiler;
+pub mod sys_info;
+pub mod about;
+pub mod channel_box;
+pub mod attr_menus;
 pub mod video;
 pub mod text;
 pub mod view;
@@ -395,7 +402,15 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
         c.s.graph.evaluate();
         out_json(match what.as_str() {
             "outliner" => query::outliner(c, &arg),
-            "channelBox" => aztek_usd::panels::channel_box(&mut c.s).unwrap_or_else(|| query::channel_box(c)),
+            "channelBox" => {
+                let v = aztek_usd::panels::channel_box(&mut c.s).unwrap_or_else(|| query::channel_box(c));
+                channel_box::decorate(&mut c.s, &arg, v)
+            }
+            // The channels picked in a channel box, from the shell: {"attrs": [...], "plugs": [...]}.
+            "uiChannelPicks" => {
+                channel_box::shell_picks(&arg);
+                Value::Null
+            }
             "animCurves" => query::anim_curves(c, &arg),
             "nodeGraph" => query::node_graph(c, &arg),
             "uiRequests" => core::take_ui_requests(),

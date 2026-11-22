@@ -250,6 +250,7 @@ pub fn register_script_type(name: &str, owner: &str, attrs: &[Value], kind: Nati
         ..Default::default()
     })?;
     TYPE_OWNERS.write().unwrap().insert(name.to_string(), owner.to_string());
+    KINDS.write().unwrap().insert(name.to_string(), kind);
     if kind == NativeKind::Shape {
         SHAPES.write().unwrap().insert(name.to_string());
     }
@@ -265,6 +266,8 @@ pub fn deregister_type(name: &str) {
     SHAPES.write().unwrap().remove(name);
     IK_SOLVERS.write().unwrap().remove(name);
     TYPE_OWNERS.write().unwrap().remove(name);
+    KINDS.write().unwrap().remove(name);
+    TYPE_IDS.write().unwrap().remove(name);
 }
 
 /// What runs the postConstructors of compiled plug-ins' nodes just made, set by the host: at the end of a command and
@@ -377,6 +380,7 @@ pub fn register_native_type(name: &str, owner: &str, attrs: &[Value], kind: Nati
         ..Default::default()
     })?;
     TYPE_OWNERS.write().unwrap().insert(name.to_string(), owner.to_string());
+    KINDS.write().unwrap().insert(name.to_string(), kind);
     if deformer {
         DEFORMERS.write().unwrap().insert(name.to_string());
     }
@@ -396,6 +400,45 @@ pub fn is_plugin_deformer(name: &str) -> bool {
 /// The plug-in a node type came from.
 pub fn plugin_of_type(name: &str) -> Option<String> {
     TYPE_OWNERS.read().unwrap().get(name).cloned()
+}
+
+/// What each plug-in node type is built on.
+static KINDS: RwLock<BTreeMap<String, NativeKind>> = RwLock::new(BTreeMap::new());
+/// The type id each plug-in node type registered with.
+static TYPE_IDS: RwLock<BTreeMap<String, u32>> = RwLock::new(BTreeMap::new());
+/// Loaded plug-ins pluginInfo -writeRequires turned on: saved files require them whether or not they hold their nodes.
+/// The host keeps it to the loaded ones.
+static WRITE_REQUIRES: RwLock<BTreeSet<String>> = RwLock::new(BTreeSet::new());
+
+/// Every plug-in node type and the plug-in it came from.
+pub fn plugin_types() -> Vec<(String, String)> {
+    TYPE_OWNERS.read().unwrap().iter().map(|(t, o)| (t.clone(), o.clone())).collect()
+}
+
+/// What a plug-in node type is built on.
+pub fn plugin_kind(name: &str) -> Option<NativeKind> {
+    KINDS.read().unwrap().get(name).copied()
+}
+
+pub fn set_type_id(name: &str, id: u32) {
+    TYPE_IDS.write().unwrap().insert(name.to_string(), id);
+}
+
+pub fn type_id(name: &str) -> Option<u32> {
+    TYPE_IDS.read().unwrap().get(name).copied()
+}
+
+pub fn set_write_requires(owner: &str, on: bool) {
+    let mut w = WRITE_REQUIRES.write().unwrap();
+    if on {
+        w.insert(owner.to_string());
+    } else {
+        w.remove(owner);
+    }
+}
+
+pub fn write_requires() -> Vec<String> {
+    WRITE_REQUIRES.read().unwrap().iter().cloned().collect()
 }
 
 pub fn set_plugin_version(owner: &str, version: &str) {

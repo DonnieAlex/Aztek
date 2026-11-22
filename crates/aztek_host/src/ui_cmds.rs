@@ -1,5 +1,5 @@
 //! Commands that belong to the application rather than the scene: optionVar, runTimeCommand, nameCommand, hotkey,
-//! selectType, selectPref, headsUpDisplay, lookThru, isolateSelect, workspace and toggle. State lives here;
+//! selectScope, headsUpDisplay, lookThru, isolateSelect, workspace and toggle. State lives here;
 //! requests the Qt shell must carry out go through the UI request list as "name|payload" strings.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -20,11 +20,8 @@ fn f(name: &str, short: &str, ty: ArgType, doc: &str) -> FlagDef {
 
 #[derive(Default)]
 struct Ui {
-    /// Mask categories switched off: polymesh, curve, joint, ikHandle, deformer, locator, camera, group.
-    masks_off: BTreeSet<String>,
     /// 0 hierarchy (roots), 1 object, 2 component.
     scope: i32,
-    lock_selection: bool,
     prefs: Map<String, Value>,
     option_vars: Map<String, Value>,
     loaded: bool,
@@ -98,11 +95,6 @@ pub(crate) fn set_option_vars(values: &[(&str, Value)]) {
     })
 }
 
-/// Does the selection mask let this category be picked?
-pub fn mask_allows(cat: &str) -> bool {
-    with_ui(|u| !u.masks_off.contains(cat))
-}
-
 /// What a pick selects, by the selection scope: the root of the hierarchy, or the node itself.
 pub fn scoped(g: &Graph, id: NodeId) -> NodeId {
     if with_ui(|u| u.scope) != 0 {
@@ -119,7 +111,7 @@ pub fn scoped(g: &Graph, id: NodeId) -> NodeId {
 }
 
 pub fn selection_locked() -> bool {
-    with_ui(|u| u.lock_selection)
+    pref_bool("lockSelection", false)
 }
 
 /// A selectPref setting that is on or off (useDepth, preSelectHilite, preSelectBackfacing...).
@@ -362,6 +354,23 @@ pub fn register_ui_names(s: &mut Session, list: &Value) {
             .undoable(false),
         );
     }
+}
+
+/// The current hotkey set's name and its file's text, for savePrefs -hotkeys.
+pub(crate) fn current_hotkey_set_file() -> (String, String) {
+    let set = with_ui(|u| u.hotkey_set.clone()).unwrap_or_else(|| "Aztek_Default".to_string());
+    let text = export_hotkeys(&set);
+    (set, text)
+}
+
+/// Writes the optionVars where the next session reads them, whether or not they are kept as they change.
+pub(crate) fn write_option_var_map(vars: &std::collections::BTreeMap<String, Value>) -> std::io::Result<()> {
+    let p = option_var_file();
+    if let Some(d) = p.parent() {
+        std::fs::create_dir_all(d)?;
+    }
+    let m: Map<String, Value> = vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    std::fs::write(p, Value::Object(m).to_string())
 }
 
 /// The keys the hotkey command has bound, with their name commands, as a hotkey set file.
@@ -782,68 +791,7 @@ pub fn register(s: &mut Session) {
         .flag(f("queried", "", ArgType::Any, "What a query asks for.")),
     );
 
-    let mut st = Cmd::new("selectType", "Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells pick the component kind, and -pv -pe -pf together are Multi. -q reads one.", |s, a| {
-        // The component kinds: points, edges, faces, UVs, vertex faces, UV shells and Multi.
-        let comp = aztek_scene::surfaces::select_type_components(&mut s.graph, a);
-        if a.bool("query") {
-            if let Some(v) = comp {
-                return Ok(v);
-            }
-        }
-        with_ui(|u| {
-            let names = [
-                ("polymesh", "polymesh"),
-                ("nurbsCurve", "curve"),
-                ("nurbsSurface", "surface"),
-                ("joint", "joint"),
-                ("ikHandle", "ikHandle"),
-                ("handle", "ikHandle"),
-                ("cluster", "deformer"),
-                ("nonlinear", "deformer"),
-                ("locator", "locator"),
-                ("camera", "camera"),
-                ("group", "group"),
-            ];
-            let query = a.bool("query");
-            if a.bool("allObjects") {
-                u.masks_off.clear();
-            }
-            for (flag, cat) in names {
-                if let Some(v) = a.get(flag) {
-                    if query {
-                        return Ok(json!(!u.masks_off.contains(cat)));
-                    }
-                    if v.as_bool().unwrap_or(false) {
-                        u.masks_off.remove(cat);
-                    } else {
-                        u.masks_off.insert(cat.to_string());
-                    }
-                }
-            }
-            Ok(Value::Null)
-        })
-    })
-    .undoable(false)
-    .flag(f("query", "q", ArgType::Bool, "Query."))
-    .flag(f("allObjects", "alo", ArgType::Bool, "Everything on."));
-    for (n, sh) in [("polymesh", "pm"), ("nurbsCurve", "nc"), ("nurbsSurface", "ns"), ("joint", "j"), ("ikHandle", "ikh"), ("handle", "ha"), ("cluster", "cl"), ("nonlinear", "nl"), ("locator", "lc"), ("camera", "ca"), ("group", "gr")] {
-        st = st.flag(f(n, sh, ArgType::Bool, "This kind can be selected."));
-    }
-    for (n, sh, doc) in [
-        ("controlVertex", "cv", "CVs."),
-        ("vertex", "v", "Points."),
-        ("polymeshVertex", "pv", "Mesh vertices."),
-        ("polymeshEdge", "pe", "Mesh edges."),
-        ("polymeshFace", "pf", "Mesh faces."),
-        ("polymeshUV", "puv", "Mesh UVs."),
-        ("polymeshVtxFace", "pvf", "Mesh vertex faces."),
-        ("meshUVShell", "msh", "UV shells: a UV pick takes its whole shell."),
-        ("editPoint", "ep", "Curve edit points."),
-        ("curveParameterPoint", "cpp", "Curve points: a click on a curve takes the place clicked."),
-    ] {
-        st = st.flag(f(n, sh, ArgType::Bool, doc));
-    }
-    s.register(st);
+    crate::select_cmds::register(s);
 
     reg(
         s,
@@ -863,43 +811,6 @@ pub fn register(s: &mut Session) {
         })
         .positional("[scope]")
         .undoable(false),
-    );
-
-    reg(
-        s,
-        Cmd::new("selectPref", "Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection, -clickBoxSize. -q reads.", |_s, a| {
-            with_ui(|u| {
-                let query = a.bool("query");
-                let mut out = Value::Null;
-                for name in ["clickDrag", "trackSelectionOrder", "preSelectHilite", "preSelectBackfacing", "xformNoSelect", "useDepth", "affectsActive", "lockSelection", "clickBoxSize"] {
-                    if let Some(v) = a.get(name) {
-                        if query {
-                            out = match name {
-                                "lockSelection" => json!(u.lock_selection),
-                                "clickBoxSize" => u.prefs.get(name).cloned().unwrap_or(json!(4)),
-                                _ => u.prefs.get(name).cloned().unwrap_or(json!(false)),
-                            };
-                        } else if name == "lockSelection" {
-                            u.lock_selection = v.as_bool().unwrap_or(false);
-                        } else {
-                            u.prefs.insert(name.to_string(), v.clone());
-                        }
-                    }
-                }
-                Ok(out)
-            })
-        })
-        .undoable(false)
-        .flag(f("query", "q", ArgType::Bool, "Query."))
-        .flag(f("clickDrag", "cld", ArgType::Bool, "Click and drag to select or to move what's under the cursor."))
-        .flag(f("trackSelectionOrder", "tso", ArgType::Bool, "Keep the order things were picked in."))
-        .flag(f("preSelectHilite", "psh", ArgType::Bool, "Highlight what's under the cursor."))
-        .flag(f("preSelectBackfacing", "psb", ArgType::Bool, "Highlight back-facing components under the cursor too."))
-        .flag(f("xformNoSelect", "xns", ArgType::Bool, "A click on an object under the transform tools doesn't reselect."))
-        .flag(f("useDepth", "ud", ArgType::Bool, "Marquee only picks what's visible."))
-        .flag(f("affectsActive", "aa", ArgType::Bool, "Selection affects the active list."))
-        .flag(f("lockSelection", "lck", ArgType::Bool, "The selection doesn't change on a click."))
-        .flag(f("clickBoxSize", "cbs", ArgType::Int, "Half the side, in pixels, of the square a click picks in (4).")),
     );
 
     const HUD_COMMON: &str = "section:s:a block:b:a blockSize:bs:a blockAlignment:ba:a padding:p:a visible:vis:b allowOverlap:ao:b";

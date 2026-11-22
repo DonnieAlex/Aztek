@@ -284,6 +284,14 @@ fn item_filter_type(a: &Args) -> CmdResult {
     fail!("itemFilterType: use -query -type or -text.")
 }
 
+/// The filters of one kind (itemFilter, itemFilterAttr), each with its -text.
+pub fn filters_of(kind: &str) -> Vec<(String, String)> {
+    with(|o| {
+        let map = if kind == "itemFilterAttr" { &o.attr_filters } else { &o.filters };
+        map.iter().map(|(k, v)| (k.clone(), v.get("text").and_then(Value::as_str).unwrap_or("").to_string())).collect()
+    })
+}
+
 /// Whether a name is an item filter of either kind, for delete.
 pub fn is_filter(name: &str) -> bool {
     with(|o| o.filters.contains_key(name) || o.attr_filters.contains_key(name))

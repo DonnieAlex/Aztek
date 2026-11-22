@@ -1400,7 +1400,9 @@ void MainWindow::build_docks() {
     channel_dock_ = new QDockWidget("Channel Box / Layer Editor", this);
     channel_dock_->setObjectName("channelDock");
     auto* split = new QSplitter(Qt::Vertical, channel_dock_);
-    split->addWidget(new ChannelBox(split));
+    auto* channel_box = new ChannelBox(split);
+    split->addWidget(channel_box);
+    ScriptUi::get()->add_builtin_editor("mainChannelBox", "channelBox", channel_box);
     auto* layers = new QWidget(split);
     auto* ll = new QVBoxLayout(layers);
     ll->setContentsMargins(0, 0, 0, 0);

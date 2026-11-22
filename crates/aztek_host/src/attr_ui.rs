@@ -804,7 +804,56 @@ fn default_label(s: &mut Session, cmd: &str, a: &Args, plug: &str, flags: &mut M
     }
 }
 
+/// attrControlGrp -q -handlesAttribute: whether the attribute is one it can make a control for. Plain numbers, switches,
+/// enums, strings, and compounds of up to four numbers (vectors, colours) are; messages, matrices, geometry and whole
+/// arrays are not.
+pub(crate) fn handles_attribute(s: &mut Session, plug: &str) -> bool {
+    let Some((node, attr)) = split_plug(plug) else { return false };
+    let leaf = attr.rsplit('.').next().unwrap_or(attr).split('[').next().unwrap_or(attr).to_string();
+    let ask = |s: &mut Session, flag: &str| s.run("attributeQuery", json!({"args": [&leaf], "node": node, flag: true})).ok();
+    let Some(at) = ask(s, "attributeType").map(|v| text(&v)) else { return false };
+    if matches!(at.as_str(), "message" | "matrix" | "fltMatrix" | "mesh" | "nurbsCurve" | "nurbsSurface" | "lattice" | "") {
+        return false;
+    }
+    // A whole multi, not one of its elements.
+    if !attr.ends_with(']') && ask(s, "multi").is_some_and(|v| v.as_bool() == Some(true) || number(&v) != 0.0) {
+        return false;
+    }
+    match read_plug(s, plug) {
+        Some(Value::Bool(_) | Value::Number(_) | Value::String(_)) => true,
+        Some(v @ Value::Array(_)) => {
+            let vals = flat(&v);
+            matches!(&v, Value::Array(a) if a.len() <= 1 || a.iter().all(|x| !x.is_array())) && (1..=4).contains(&vals.len()) && vals.iter().all(|x| x.is_number() || x.is_boolean())
+        }
+        _ => false,
+    }
+}
+
 fn attr_command(s: &mut Session, cmd: &'static str, a: &Args) -> CmdResult {
+    if cmd == "attrControlGrp" && a.bool("query") {
+        let asked_ha = a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x.as_str() == Some("handlesAttribute")));
+        if asked_ha || a.has("handlesAttribute") {
+            let Some(plug) = a.get("handlesAttribute").map(text).filter(|t| !t.is_empty() && t != "true") else {
+                fail!("attrControlGrp: -handlesAttribute needs an attribute in query mode.")
+            };
+            return Ok(json!(handles_attribute(s, &plug)));
+        }
+    }
+    // -alphaValue takes only beside -rgbValue or -hsvValue.
+    let stripped;
+    let a = if cmd == "attrColorSliderGrp" && a.has("alphaValue") && !a.bool("query") && !a.has("rgbValue") && !a.has("hsvValue") {
+        let mut c = a.clone();
+        c.flags.remove("alphaValue");
+        stripped = c;
+        &stripped
+    } else {
+        a
+    };
+    if cmd == "attrControlGrp" && a.bool("edit") && a.has("handlesAttribute") {
+        let mut c = a.clone();
+        c.flags.remove("handlesAttribute");
+        return attr_command(s, cmd, &c);
+    }
     if a.bool("query") || (a.bool("exists") && !a.bool("edit")) {
         let plain = crate::scriptui::command_for(cmd, a);
         return plain;
@@ -915,11 +964,11 @@ const ATTR_COMMON: &str = "attribute:at:a label:l:a changeCommand:cc:a extraButt
 const ATTR_KINDS: &[(&str, &str)] = &[
     ("attrFieldSliderGrp", "minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderMinValue:smn:a sliderMaxValue:smx:a step:s:a fieldStep:fs:a sliderStep:ss:a value:v:a"),
     ("attrFieldGrp", "minValue:min:a maxValue:max:a step:s:a numberOfFields:nf:a"),
-    ("attrControlGrp", "attribute:a:a enable:en:b"),
-    ("attrColorSliderGrp", "rgbValue:rgb:a hsvValue:hsv:a showButton:sb:b attrNavDecision:nd:a2 hideButton:hb:b"),
+    ("attrControlGrp", "attribute:a:a enable:en:b handlesAttribute:ha:a"),
+    ("attrColorSliderGrp", "rgbValue:rgb:a hsvValue:hsv:a alphaValue:alp:a showButton:sb:b attrNavDecision:and:a2 hideButton:hb:b"),
     ("attrEnumOptionMenuGrp", "enumeratedItem:ei:a2 value:v:a select:sl:a"),
     ("attrEnumOptionMenu", "enumeratedItem:ei:a2 value:v:a select:sl:a"),
-    ("attrNavigationControlGrp", "attrNavDecision:nd:a2 connectToExisting:ce:a createNew:cn:a defaultTraversal:dtv:a delete:d:a disconnect:dn:a ignoreNotSupported:ins:b noIgnorableMenu:nim:b relatedNodes:ren:a text:tx:a unignore:u:a"),
+    ("attrNavigationControlGrp", "attrNavDecision:and:a2 connectAttrToDropped:cad:a connectNodeToDropped:cnd:a connectToExisting:ce:a createNew:cn:a defaultTraversal:dtv:a delete:d:a disconnect:dn:a ignore:i:a ignoreNotSupported:ins:b noIgnorableMenu:nim:b noKeyableMenu:nkm:b relatedNodes:ren:a text:tx:a unignore:u:a"),
 ];
 
 pub(crate) fn register(s: &mut Session) {

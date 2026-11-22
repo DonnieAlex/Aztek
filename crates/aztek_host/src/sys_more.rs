@@ -84,13 +84,7 @@ fn list_incorrect(s: &mut Session, _a: &Args) -> CmdResult {
 }
 
 fn load_pref_objects(s: &mut Session, _a: &Args) -> CmdResult {
-    let file = crate::user_folder::user_pref_dir().join("userPrefObjects.ma");
-    if !file.is_file() {
-        return Ok(json!(false));
-    }
-    let path = file.to_string_lossy().replace('\\', "/");
-    s.run("file", json!({"args": [path], "import": true}))?;
-    Ok(json!(true))
+    crate::sys_prefs::load_pref_objects(s)
 }
 
 pub fn register(s: &mut Session) {

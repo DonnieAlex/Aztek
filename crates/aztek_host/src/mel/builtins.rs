@@ -9,7 +9,7 @@ use crate::core::LineKind;
 
 /// Every name `call` answers.
 pub const NAMES: &[&str] = &[
-    "getApplicationVersionAsFloat", "getProcArguments", "print", "eval", "evalEcho", "evalDeferred", "source", "error", "warning", "python", "whatIs", "exists", "about", "env", "getenv", "putenv", "size", "sizeBytes",
+    "getApplicationVersionAsFloat", "getProcArguments", "print", "eval", "evalEcho", "evalDeferred", "source", "error", "warning", "python", "whatIs", "exists", "env", "getenv", "putenv", "size", "sizeBytes",
     "substring", "tokenize", "tokenizeList", "match", "gmatch", "substitute", "substituteAllString", "strip", "toupper", "tolower", "startsWith", "endsWith", "strcmp", "stringArrayToString",
     "stringToStringArray", "stringArrayContains", "stringArrayRemove", "stringArrayRemoveExact", "stringArrayRemoveDuplicates", "stringArrayCount", "stringArrayFind", "stringArrayCatenate",
     "stringArrayInsertAtIndex", "stringArrayReverse", "startString", "endString", "capitalizeString", "shortNameOf", "rootOf", "longNameOf", "basename", "dirname", "fromNativePath",
@@ -24,6 +24,17 @@ pub const NAMES: &[&str] = &[
     "delrandstr", "containsMultibyte", "copyArray", "interToUI", "nodeAttrJoin", "stringArrayAddPrefix", "stringArrayRemovePrefix",
     "stringArrayDuplicates", "stringArrayIntersection", "floatArrayRemoveAtIndex", "intArrayRemoveAtIndex",
 ];
+
+/// melOptions -duplicateVariableWarnings: as a script is sourced, a warning for each variable declared twice in one scope.
+fn dup_warnings(it: &mut Interp, text: &str, file: &str) {
+    let on = it.core.s.option_vars.get(crate::sys_info::DUP_WARNINGS_VAR).is_some_and(|v| v.as_i64().unwrap_or(0) != 0 || v.as_bool() == Some(true));
+    if !on {
+        return;
+    }
+    for name in super::dupvars::duplicates(text) {
+        it.core.push(format!("// Warning: {file}: variable \"${name}\" is declared again in the same scope. //"), LineKind::Warning);
+    }
+}
 
 /// The linear tolerance `equivalent` compares by: the reference's default (its page's example, `tolerance -q -l`).
 const LINEAR_TOLERANCE: f64 = 0.001;
@@ -300,6 +311,7 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
                 let stem = file.strip_suffix(".mel").unwrap_or(&file);
                 if !stem.contains(['/', '\\']) {
                     if let Some((shown, text)) = super::bundled::file(stem) {
+                        dup_warnings(it, text, &shown);
                         it.run_quiet(text, Some(&shown))?;
                         return Ok(Value::Void);
                     }
@@ -307,6 +319,7 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
                 return err(format!("Cannot find file \"{file}\" for source statement."));
             };
             let text = std::fs::read_to_string(&path).map_err(|e| Flow::Error(format!("{file}: {e}")))?;
+            dup_warnings(it, &text, &path.to_string_lossy());
             it.run_quiet(&text, Some(&path.to_string_lossy()))?;
             Ok(Value::Void)
         }
@@ -366,25 +379,6 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
         }
         // A script of the reference's, here a built-in: the version as a number, for tools that branch on it.
         "getApplicationVersionAsFloat" => Ok(Value::Float(aztek_core::REFERENCE_VERSION.parse().unwrap_or(0.0))),
-        "about" => {
-            let flag = a.iter().map(s).find(|f| f.starts_with('-')).unwrap_or_default();
-            let on = |b: bool| Value::Int(b as i32);
-            Ok(match flag.trim_start_matches('-') {
-                "v" | "version" | "iv" | "installedVersion" | "f" | "file" => Value::Str("2025".into()),
-                "api" | "apiVersion" => Value::Int(20250000),
-                "os" | "operatingSystem" => Value::Str(if cfg!(windows) { "win64" } else if cfg!(target_os = "macos") { "mac" } else { "linux64" }.into()),
-                "ov" | "operatingSystemVersion" => Value::Str(std::env::consts::OS.into()),
-                "a" | "application" => Value::Str("aztek".into()),
-                "p" | "product" => Value::Str("Aztek".into()),
-                "b" | "batch" => on(aztek_core::batch_mode()),
-                "li" | "linux" => on(cfg!(target_os = "linux")),
-                "nt" | "windows" | "win" => on(cfg!(windows)),
-                "mac" | "macOS" => on(cfg!(target_os = "macos")),
-                "ui" | "uiLanguage" => Value::Str("en_US".into()),
-                "" => return err("about: name what to ask about."),
-                f => return err(format!("about: invalid flag -{f}")),
-            })
-        }
         "env" => {
             need(0)?;
             Ok(vs(it.global_names()))

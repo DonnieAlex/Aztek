@@ -619,8 +619,8 @@ fn introspection() {
     assert_eq!(c.mel(r#"exists "nothingAtAll";"#), json!(0));
     assert_eq!(c.mel(r#"exists nothingAtAll;"#), json!(0));
     assert!(c.mel("about -v;").as_str().is_some());
-    assert_eq!(c.mel(r#"about("-batch");"#), json!(0));
-    assert_eq!(c.mel("about -linux;"), json!(cfg!(target_os = "linux") as i32));
+    assert_eq!(c.mel(r#"about("-batch");"#), json!(false));
+    assert_eq!(c.mel("about -linux;"), json!(cfg!(target_os = "linux")));
     assert!(c.mel_checked("about -nosuch;").is_err());
     c.mel("polyCube -n box;");
     assert_eq!(c.mel("objExists box;"), json!(true));

@@ -410,6 +410,8 @@ struct Doc {
     /// Plug-ins the file's requires lines name.
     /// Plug-ins the file names, each with the node types it says come from it.
     requires: Vec<(String, Vec<String>)>,
+    /// The data types each requires line gives its plug-in.
+    plugin_data_types: HashMap<String, Vec<String>>,
     /// The version each requires line gives its plug-in.
     plugin_versions: HashMap<String, String>,
     /// fileInfo lines, in order.
@@ -516,7 +518,7 @@ impl Doc {
 
     fn parse(text: &str) -> Doc {
         FILE_UNITS.with(|u| u.set((1.0, std::f64::consts::PI / 180.0)));
-        let mut d = Doc { light_set: Vec::new(), relationships: Vec::new(), nodes: Vec::new(), by_name: HashMap::new(), conns: Vec::new(), lin: 1.0, ang: std::f64::consts::PI / 180.0, fps: None, drop_frame: false, warnings: Vec::new(), refs: Vec::new(), ref_load: Vec::new(), instances: Vec::new(), ref_conns: Vec::new(), up_z: false, requires: Vec::new(), plugin_versions: HashMap::new(), file_info: Vec::new(), characters: Vec::new() };
+        let mut d = Doc { light_set: Vec::new(), relationships: Vec::new(), nodes: Vec::new(), by_name: HashMap::new(), conns: Vec::new(), lin: 1.0, ang: std::f64::consts::PI / 180.0, fps: None, drop_frame: false, warnings: Vec::new(), refs: Vec::new(), ref_load: Vec::new(), instances: Vec::new(), ref_conns: Vec::new(), up_z: false, requires: Vec::new(), plugin_versions: HashMap::new(), plugin_data_types: HashMap::new(), file_info: Vec::new(), characters: Vec::new() };
         let mut lex = Lexer::new(text);
         let mut st = Vec::new();
         let mut current: Option<usize> = None;
@@ -531,6 +533,10 @@ impl Doc {
                         let types: Vec<String> = st.windows(2).filter(|w| matches!(w[0].text(), Some("-nodeType") | Some("-nt"))).filter_map(|w| w[1].text().map(str::to_string)).collect();
                         if let Some(v) = plain.get(1) {
                             d.plugin_versions.insert(name.to_string(), v.to_string());
+                        }
+                        let data: Vec<String> = st.windows(2).filter(|w| matches!(w[0].text(), Some("-dataType") | Some("-dt"))).filter_map(|w| w[1].text().map(str::to_string)).collect();
+                        if !data.is_empty() {
+                            d.plugin_data_types.insert(name.to_string(), data);
                         }
                         d.requires.push((name.to_string(), types));
                     }
@@ -3918,6 +3924,13 @@ pub fn read_text(s: &mut Session, text: &str, import: bool) -> Vec<String> {
             }
             let loaded = s.run("loadPlugin", json!({"args": [name], "quiet": true}));
             let found = loaded.as_ref().is_ok_and(|v| v.as_array().is_some_and(|l| !l.is_empty()));
+            // One that can't be loaded is kept as the scene's unknown plug-in (unknownPlugin), and written back.
+            if !found {
+                let e = s.extras.unknown_plugins.entry(name.clone()).or_default();
+                e.version = doc.plugin_versions.get(name).cloned().unwrap_or_default();
+                e.node_types = its_types.clone();
+                e.data_types = doc.plugin_data_types.get(name).cloned().unwrap_or_default();
+            }
             // A plug-in that names its types matters only when one of them is used and unknown here; one that names none,
             // when an unknown type is used that no plug-in claims.
             let claimed = |ty: &String| doc.requires.iter().any(|(_, t)| t.contains(ty));
@@ -5695,15 +5708,32 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
             plugins.insert(p);
         }
     }
+    // And those pluginInfo -writeRequires names.
+    plugins.extend(crate::scripted::write_requires());
     let mut unknown_plugins = unknown::plugins(w.s, &w.keep);
     unknown_plugins.retain(|p, _| !plugins.contains(p));
-    for p in plugins {
-        let _ = writeln!(w.out, "requires {} {};", quoted(&p), quoted(&crate::scripted::plugin_version(&p)));
+    for p in &plugins {
+        let _ = writeln!(w.out, "requires {} {};", quoted(p), quoted(&crate::scripted::plugin_version(p)));
     }
-    // The plug-ins of nodes kept as unknown, as the file they came from named them.
-    for (p, (v, tys)) in unknown_plugins {
+    // The plug-ins of nodes kept as unknown, as the file they came from named them, and the unknown plug-ins the scene
+    // named with no nodes kept.
+    let mut unknown_plugins: BTreeMap<String, (String, Vec<String>, Vec<String>)> = unknown_plugins.into_iter().map(|(p, (v, tys))| (p, (v, tys.into_iter().collect(), Vec::new()))).collect();
+    for (p, u) in &w.s.extras.unknown_plugins {
+        if plugins.contains(p) {
+            continue;
+        }
+        let e = unknown_plugins.entry(p.clone()).or_insert_with(|| (u.version.clone(), Vec::new(), Vec::new()));
+        for t in &u.node_types {
+            if !e.1.contains(t) {
+                e.1.push(t.clone());
+            }
+        }
+        e.2 = u.data_types.clone();
+    }
+    for (p, (v, tys, dts)) in unknown_plugins {
         let nt: String = tys.iter().map(|t| format!("-nodeType {} ", quoted(t))).collect();
-        let _ = writeln!(w.out, "requires {nt}{} {};", quoted(&p), quoted(&v));
+        let dt: String = dts.iter().map(|t| format!("-dataType {} ", quoted(t))).collect();
+        let _ = writeln!(w.out, "requires {nt}{dt}{} {};", quoted(&p), quoted(&v));
     }
     let _ = writeln!(w.out, "currentUnit -l {} -a {} -t {};", units::linear_full_name(), units::angle_full_name(), time_unit_name(fps));
     let _ = writeln!(w.out, "fileInfo \"application\" \"aztek\";");

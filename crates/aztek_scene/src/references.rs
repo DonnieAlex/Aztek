@@ -270,6 +270,11 @@ pub(crate) fn rebaseline(s: &mut Session, at: usize) {
     e.connections.clear();
 }
 
+/// Where a reference's file is, found as a file -r line's path is.
+pub(crate) fn resolve_written(s: &mut Session, written: &str) -> Option<PathBuf> {
+    resolve(s, written)
+}
+
 fn resolve(s: &mut Session, written: &str) -> Option<PathBuf> {
     let expanded = crate::shading::expand_env(written.trim()).replace('\\', "/");
     let expanded = expanded.split('{').next().unwrap_or(&expanded).to_string();

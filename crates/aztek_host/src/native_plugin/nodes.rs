@@ -538,7 +538,7 @@ impl NodeBehavior for NativeNode {
     }
 }
 
-pub(crate) unsafe extern "C" fn register_node(plugin: *mut c_void, name: *const c_char, _type_id: u32, kind: i32, attrs: *const c_char, outputs: *const c_char, cls: *const AzNodeClass) -> *mut c_char {
+pub(crate) unsafe extern "C" fn register_node(plugin: *mut c_void, name: *const c_char, type_id: u32, kind: i32, attrs: *const c_char, outputs: *const c_char, cls: *const AzNodeClass) -> *mut c_char {
     let (Some(p), false) = ((plugin as *mut PluginState).as_mut(), cls.is_null()) else { return give("registerNode: no plug-in") };
     // A plug-in built with an older ABI gives a shorter class.
     let cls: AzNodeClass = if p.abi >= 3 {
@@ -594,6 +594,7 @@ pub(crate) unsafe extern "C" fn register_node(plugin: *mut c_void, name: *const 
         idx.extend(t.attr_index("output"));
     }
     let _ = entry.outputs.set(idx);
+    scripted::set_type_id(&name, type_id);
     p.nodes.push(name);
     std::ptr::null_mut()
 }

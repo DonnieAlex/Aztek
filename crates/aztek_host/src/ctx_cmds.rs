@@ -221,6 +221,11 @@ pub fn current() -> String {
     with_ctx(|c| c.current.clone())
 }
 
+/// A context's type, by its name.
+pub fn kind_of(name: &str) -> Option<String> {
+    with_ctx(|c| c.all.get(name).map(|x| x.kind.clone()))
+}
+
 /// The shell changed tool: the current context follows, unless it already means that tool.
 pub fn shell_tool_changed(tool: &str) {
     with_ctx(|c| {
