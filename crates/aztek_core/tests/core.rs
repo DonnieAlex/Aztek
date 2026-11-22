@@ -209,3 +209,11 @@ fn paths_stored_and_resolved() {
         paths::set_current_scene_dir(&old);
     }
 }
+
+#[test]
+fn script_spelling_drops_the_verbatim_prefix_and_uses_forward_slashes() {
+    assert_eq!(paths::script_spelling(Path::new(r"\\?\C:\Users\me\plug.py")), "C:/Users/me/plug.py");
+    assert_eq!(paths::script_spelling(Path::new(r"\\?\UNC\server\share\plug.py")), "//server/share/plug.py");
+    assert_eq!(paths::script_spelling(Path::new(r"C:\plug.py")), "C:/plug.py");
+    assert_eq!(paths::script_spelling(Path::new("/opt/aztek/plug.py")), "/opt/aztek/plug.py");
+}

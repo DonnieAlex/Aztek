@@ -5,6 +5,14 @@
 use aztek_host::Core;
 use serde_json::{json, Value};
 
+/// The lines commands print go to one process-wide buffer, and the first core to read it takes them: the tests that
+/// read what was printed take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn ok(c: &mut Core, src: &str) -> Value {
     c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"))
 }
@@ -58,8 +66,14 @@ fn scratch(name: &str) -> std::path::PathBuf {
     d
 }
 
+/// A path written into a MEL string: forward slashes, since MEL reads a backslash as an escape.
+fn mel(p: &std::path::Path) -> String {
+    p.to_string_lossy().replace('\\', "/")
+}
+
 #[test]
 fn choice_switches_a_channel_over_time() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n a; polyCube -n drv; connectAttr drv.translate a.translate; setAttr drv.ty 2;");
     // A new choice node takes what drove the channel as its first input and keys its selector at each time.
@@ -104,6 +118,7 @@ fn choice_switches_a_channel_over_time() {
 
 #[test]
 fn affected_net_networks() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "affectedNet -t transform;");
     // A node an attribute; what affects it connects to its input.
@@ -131,6 +146,7 @@ fn affected_net_networks() {
 
 #[test]
 fn add_extension_attributes() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n before;");
     ok(&mut c, "addExtension -nodeType mesh -longName mass -sn ms -defaultValue 1.0 -minValue 0.001 -maxValue 10000;");
@@ -167,11 +183,11 @@ fn add_extension_attributes() {
     // Saved values, not definitions.
     let dir = scratch("ext");
     let file = dir.join("ext.ma");
-    ok(&mut c, &format!("setAttr beforeShape.mass 5; file -rename \"{}\"; file -save -type mayaAscii;", file.display()));
+    ok(&mut c, &format!("setAttr beforeShape.mass 5; file -rename \"{}\"; file -save -type mayaAscii;", mel(&file)));
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(!text.contains("-ln \"mass\""), "the definition is left out");
     assert!(text.contains(".mass\" 5") || text.contains(".ms\" 5"), "the value is kept");
-    ok(&mut c, &format!("file -f -new; file -o \"{}\";", file.display()));
+    ok(&mut c, &format!("file -f -new; file -o \"{}\";", mel(&file)));
     assert_eq!(num(&ok(&mut c, "getAttr beforeShape.mass;")), 5.0);
 
     // A multi double3, a compound with children, a colour of three floats, a spectrum data type, on every dag node.
@@ -208,6 +224,7 @@ fn add_extension_attributes() {
 
 #[test]
 fn attribute_query_more_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n a;");
     ok(&mut c, "addAttr -ln lim -at double -min 0 -max 5 a; addAttr -ln soft -at double -smn 1 -smx 3 a; addAttr -ln mode -at enum -en \"x:y:z\" a;");
@@ -243,6 +260,7 @@ fn attribute_query_more_flags() {
 
 #[test]
 fn background_evaluation_manager() {
+    let _turn = turn();
     let mut c = Core::new();
     assert_eq!(ok(&mut c, "backgroundEvaluationManager -q -m;"), json!("parallel"));
     assert!(truth(&ok(&mut c, "backgroundEvaluationManager -mode \"serial\";")));
@@ -263,6 +281,7 @@ fn background_evaluation_manager() {
 
 #[test]
 fn callbacks_at_hooks() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "global proc string u13Classify() { return \"texture/2d\"; }");
     ok(&mut c, "global proc string u13Pair(string $a, string $b) { return ($a + \"+\" + $b); }");
@@ -295,14 +314,15 @@ fn callbacks_at_hooks() {
 
 #[test]
 fn command_logging_and_crash_info() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "commandLogging -historySize 20;");
     assert_eq!(num(&ok(&mut c, "commandLogging -q -historySize;")), 20.0);
     assert!(truth(&ok(&mut c, "commandLogging -q -recordCommands;")));
     let dir = scratch("log");
     let log = dir.join("log.txt");
-    ok(&mut c, &format!("commandLogging -logFile \"{}\";", log.display()));
-    assert_eq!(ok(&mut c, "commandLogging -q -logFile;"), json!(log.display().to_string()));
+    ok(&mut c, &format!("commandLogging -logFile \"{}\";", mel(&log)));
+    assert_eq!(ok(&mut c, "commandLogging -q -logFile;"), json!(mel(&log)));
     ok(&mut c, "commandLogging -logCommands 1;");
     assert!(truth(&ok(&mut c, "commandLogging -q -logCommands;")));
     ok(&mut c, "polyCube -n loggedCube;");
@@ -340,6 +360,7 @@ fn command_logging_and_crash_info() {
 
 #[test]
 fn app_home_visibility() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "appHome -e -v 0;");
     assert!(!truth(&ok(&mut c, "appHome -q -v;")));
@@ -359,6 +380,7 @@ fn app_home_visibility() {
 
 #[test]
 fn dag_object_compare_reports() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n a; duplicate -n b a; group -n g b;");
     printed(&mut c);
@@ -395,6 +417,7 @@ fn dag_object_compare_reports() {
 
 #[test]
 fn dbcount_counters() {
+    let _turn = turn();
     let mut c = Core::new();
     bad(&mut c, "dbcount;");
     assert_eq!(strs(&ok(&mut c, "dbcount -e \"on\";")), vec!["compute", "dirty", "createNode", "connect"]);
@@ -411,7 +434,7 @@ fn dbcount_counters() {
     assert!(printed(&mut c).iter().all(|l| !l.contains('{') && !l.trim().starts_with("multiplyDivide")));
     let dir = scratch("dbcount");
     let file = dir.join("xls.txt");
-    ok(&mut c, &format!("dbcount -s -f \"{}\";", file.display()));
+    ok(&mut c, &format!("dbcount -s -f \"{}\";", mel(&file)));
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(text.starts_with("Counter\tCount\n") && text.contains("createNode/multiplyDivide\t"), "{text}");
     // Reset keeps only the top counters, at zero.
@@ -430,6 +453,7 @@ fn dbcount_counters() {
 
 #[test]
 fn dbfootprint_memory() {
+    let _turn = turn();
     let mut c = Core::new();
     assert_eq!(strs(&ok(&mut c, "dbfootprint -q;")), vec!["nodes"]);
     assert!(ok(&mut c, "dbfootprint -q -t nodes;").as_str().unwrap().contains("bytes"));
@@ -447,7 +471,7 @@ fn dbfootprint_memory() {
     assert!(all["objects"].as_object().unwrap().len() > 5 && all["total"].as_u64().unwrap() > ball);
     let dir = scratch("footprint");
     let file = dir.join("fp.json");
-    assert_eq!(ok(&mut c, &format!("dbfootprint -of \"{}\" ball;", file.display())), Value::Null);
+    assert_eq!(ok(&mut c, &format!("dbfootprint -of \"{}\" ball;", mel(&file))), Value::Null);
     let text: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
     assert!(text["objects"].get("ball").is_some());
 }
@@ -512,11 +536,12 @@ fn write_aaf(path: &std::path::Path, mob: &str) {
 
 #[test]
 fn aaf_to_final_cut_xml() {
+    let _turn = turn();
     let mut c = Core::new();
     let dir = scratch("aaf");
     let src = dir.join("edit.aaf");
     write_aaf(&src, "Main Sequence");
-    let h = num(&ok(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", src.display(), dir.display()))) as i64;
+    let h = num(&ok(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", mel(&src), mel(&dir)))) as i64;
     assert!(h > 0);
     let out = ok(&mut c, &format!("aaf2fcp -getFileName {h};")).as_str().unwrap().to_string();
     assert!(out.ends_with("edit.xml"));
@@ -528,18 +553,19 @@ fn aaf_to_final_cut_xml() {
     assert!(std::path::Path::new(&out).exists());
     bad(&mut c, &format!("aaf2fcp -progress {h};"));
     // Deleting the file as it ends.
-    let h = num(&ok(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", src.display(), dir.display()))) as i64;
+    let h = num(&ok(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", mel(&src), mel(&dir)))) as i64;
     ok(&mut c, &format!("aaf2fcp -wc {h}; aaf2fcp -t {h} -df true;"));
     assert!(!std::path::Path::new(&out).exists());
     // Not an AAF file.
     let not = dir.join("not.aaf");
     std::fs::write(&not, b"plain text, not structured storage").unwrap();
-    bad(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", not.display(), dir.display()));
+    bad(&mut c, &format!("aaf2fcp -src \"{}\" -dst \"{}\";", mel(&not), mel(&dir)));
     bad(&mut c, "aaf2fcp -src \"/no/such/file.aaf\" -dst \"/tmp\";");
 }
 
 #[test]
 fn every_flag_of_the_unit_is_there() {
+    let _turn = turn();
     let c = Core::new();
     let want: &[(&str, &str)] = &[
         ("aaf2fcp", "deleteFile df dst dstPath getFileName gfn pr progress src srcFile t terminate waitCompletion wc"),

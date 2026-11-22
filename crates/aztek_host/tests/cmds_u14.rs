@@ -5,6 +5,14 @@
 use aztek_host::{take_ui_requests_for_tests as take_ui_requests, Core};
 use serde_json::{json, Value};
 
+/// The lines commands print go to one process-wide buffer, and the first core to read it takes them: the tests that
+/// read what was printed take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn ok(c: &mut Core, src: &str) -> Value {
     c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"))
 }
@@ -65,6 +73,7 @@ fn path(p: &std::path::Path) -> String {
 
 #[test]
 fn dgfilter_defines_combines_and_tests_filters() {
+    let _turn = turn();
     let mut c = Core::new();
     // The reference's own example.
     assert_eq!(text(&ok(&mut c, "dgfilter -atr translateX -n TX;")), "TX");
@@ -93,6 +102,7 @@ fn dgfilter_defines_combines_and_tests_filters() {
 
 #[test]
 fn dbmessage_monitors_messages_into_a_file() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("msg");
     let file = path(&d.join("msgs.txt"));
@@ -118,6 +128,7 @@ fn dbmessage_monitors_messages_into_a_file() {
 
 #[test]
 fn dbtrace_turns_traces_on_and_sends_them_out() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("trace");
     let file = path(&d.join("trace.txt"));
@@ -151,13 +162,14 @@ fn dbtrace_turns_traces_on_and_sends_them_out() {
     assert!(out.contains("setAttr: box.translateY"), "{out}");
     assert!(!out.contains("castsShadows"), "filtered out: {out}");
     assert!(out.lines().any(|l| l.starts_with('[') && l.contains("box.translateZ")), "timed: {out}");
-    assert!(!out.contains("box.translateX (transform)\n") || !out.contains("9"), "off: {out}");
+    assert_eq!(out.matches("setAttr: box.translateX").count(), 1, "tx 3 traced, tx 9 after -off not: {out}");
     assert!(text(&ok(&mut c, "dbtrace -q -i -k dirty;")).contains("dirty"));
     bad(&mut c, "dbtrace -k noSuchKeyword;");
 }
 
 #[test]
 fn dbpeek_operations_and_their_help() {
+    let _turn = turn();
     let mut c = Core::new();
     let ops = strs(&ok(&mut c, "dbpeek -op -query;"));
     for o in ["nodes", "plugIterator", "metadata", "references"] {
@@ -197,6 +209,7 @@ fn dbpeek_operations_and_their_help() {
 
 #[test]
 fn dgmodified_lists_nodes_changed_since_saving() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("mod");
     assert!(strs(&ok(&mut c, "dgmodified;")).is_empty(), "a new scene has nothing changed");
@@ -213,6 +226,7 @@ fn dgmodified_lists_nodes_changed_since_saving() {
 
 #[test]
 fn dgvalidatecurve_tags_static_curves() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box; setKeyframe -at tx -t 1 -v 0 box; setKeyframe -at tx -t 10 -v 5 box; setKeyframe -at ty -t 1 -v 2 box; setKeyframe -at ty -t 10 -v 2 box;");
     // The flat curve gets its static tag; again, nothing changes.
@@ -232,6 +246,7 @@ fn dgvalidatecurve_tags_static_curves() {
 
 #[test]
 fn displaystring_table() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "displayString -value \"Hello world\" kExampleHelloWorld;");
     assert_eq!(text(&ok(&mut c, "displayString -query -value kExampleHelloWorld;")), "Hello world");
@@ -255,6 +270,7 @@ fn displaystring_table() {
 
 #[test]
 fn evaluator_turns_evaluators_and_types_on_and_off() {
+    let _turn = turn();
     let mut c = Core::new();
     let all = strs(&ok(&mut c, "evaluator -q;"));
     for e in ["dynamics", "deformer", "pruneRoots", "frozen", "invisibility"] {
@@ -294,6 +310,7 @@ fn evaluator_turns_evaluators_and_types_on_and_off() {
 
 #[test]
 fn deformerevaluator_partitions_deformation_chains() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polySphere -sx 40 -sy 40 -n ball; select ball; nonLinear -type bend; polyCube -n box; select box; cluster; select -cl;");
     let dfs = strs(&ok(&mut c, "deformerEvaluator -q -deformers;"));
@@ -341,6 +358,7 @@ fn deformerevaluator_partitions_deformation_chains() {
 
 #[test]
 fn deleteextension_keeps_values_unless_forced() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "addExtension -nt transform -ln martians -sn mr -at double; createNode transform -n jupiter; createNode transform -n mars; setAttr mars.mr 35;");
     // Off: a node holds a value, so it stays everywhere.
@@ -367,6 +385,7 @@ fn deleteextension_keeps_values_unless_forced() {
 
 #[test]
 fn displaypref_ghost_frames_and_texture_limit() {
+    let _turn = turn();
     let mut c = Core::new();
     assert!(num(&ok(&mut c, "displayPref -q -mhr;")) >= 1024.0);
     assert!(num(&ok(&mut c, "displayPref -q -maxHardwareTextureResolution;")) >= 1024.0);
@@ -382,6 +401,7 @@ fn displaypref_ghost_frames_and_texture_limit() {
 
 #[test]
 fn disableincorrectnamewarning_silences_bad_names_in_files() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("names");
     let f = d.join("bad.ma");
@@ -396,6 +416,7 @@ fn disableincorrectnamewarning_silences_bad_names_in_files() {
 
 #[test]
 fn event_acts_on_particle_collisions() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "playbackOptions -min 1 -max 40; polyPlane -w 200 -h 200 -n floor; collider floor; particle -p 0 10 0 -p 5 10 0 -p -5 10 0 -n pt; particle -n other;");
     ok(&mut c, "global string $hits[]; global proc hitProc(string $obj, int $id, string $objHit) { global string $hits[]; $hits[size($hits)] = ($obj + \" \" + $id + \" \" + $objHit); }");
@@ -439,6 +460,7 @@ fn event_acts_on_particle_collisions() {
 
 #[test]
 fn event_split_and_count() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "playbackOptions -min 1 -max 40; polyPlane -w 200 -h 200 -n floor; collider floor; particle -p 0 10 0 -p 5 10 0 -n pt;");
     // Splitting: each colliding particle leaves its object and becomes two in the target.
@@ -460,6 +482,7 @@ fn event_split_and_count() {
 
 #[test]
 fn exportedits_round_trips_reference_edits() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("edits");
     let refbox = path(&d.join("refbox.ma"));
@@ -505,6 +528,7 @@ fn exportedits_round_trips_reference_edits() {
 
 #[test]
 fn definedataserver_connects_and_undefines() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("server");
     // No server there: no device.
@@ -548,6 +572,7 @@ fn definedataserver_connects_and_undefines() {
 
 #[test]
 fn fcheck_opens_images_and_sequences() {
+    let _turn = turn();
     let mut c = Core::new();
     let d = scratch("fcheck");
     for n in ["myImage.png", "myTest1.png", "myTest2.png", "mySequence.1.png", "mySequence.2.png", "mySequence.10.png"] {

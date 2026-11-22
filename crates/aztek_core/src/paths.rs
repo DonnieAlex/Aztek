@@ -130,6 +130,14 @@ fn root_name(p: &Path) -> String {
     }
 }
 
+/// A path as commands hand it to scripts: forward slashes, and without the `\\?\` prefix Windows' canonical form adds,
+/// as the reference spells paths on every platform.
+pub fn script_spelling(p: &Path) -> String {
+    let s = p.to_string_lossy();
+    let s = s.strip_prefix(r"\\?\UNC\").map(|rest| format!(r"\\{rest}")).unwrap_or_else(|| s.strip_prefix(r"\\?\").unwrap_or(&s).to_string());
+    s.replace('\\', "/")
+}
+
 /// Lexically normal form.
 pub fn normalize(p: &Path) -> PathBuf {
     let mut out = PathBuf::new();

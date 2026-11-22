@@ -404,7 +404,8 @@ fn image_plane_queries() {
     std::fs::create_dir_all(&dir).unwrap();
     let png = dir.join("plate.png");
     image::RgbImage::new(64, 32).save(&png).unwrap();
-    let ip = strs(&ok(&mut c, &format!("imagePlane -fn \"{}\" -n foo;", png.display())));
+    let png_mel = png.to_string_lossy().replace('\\', "/");
+    let ip = strs(&ok(&mut c, &format!("imagePlane -fn \"{png_mel}\" -n foo;")));
     assert_eq!(ok(&mut c, &format!("imagePlane -q -iz {};", ip[1])), json!([64, 32]));
     assert_eq!(ok(&mut c, &format!("imagePlane -q -qt {};", ip[1])), json!(false));
     assert_eq!(ok(&mut c, &format!("imagePlane -q -tt {};", ip[1])), json!(false));

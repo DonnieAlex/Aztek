@@ -467,7 +467,7 @@ fn load_plugin(s: &mut Session, a: &Args) -> CmdResult {
                 let file = if name.ends_with(".py") { name.to_string() } else { format!("{name}.py") };
                 search_path().into_iter().map(|d| d.join(&file)).find(|f| f.is_file()).map(|f| f.to_string_lossy().into_owned())
             });
-            out.push(json!(path.unwrap_or_default()));
+            out.push(json!(path.map(|p| aztek_core::paths::script_spelling(Path::new(&p))).unwrap_or_default()));
             continue;
         }
         let before = out.len();
