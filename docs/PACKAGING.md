@@ -9,6 +9,9 @@ The workflow trades speed for builds that finish (from 14/11/2026):
 - Two jobs at a time everywhere (`CARGO_BUILD_JOBS`, `CMAKE_BUILD_PARALLEL_LEVEL`, `RUST_TEST_THREADS`), no
   incremental builds and no debug info in test builds, so a build stays within the runner's memory.
 - Every package download (apt, dnf, Homebrew, pip, Qt, crates) is tried again before it fails.
+- What the build downloads and runs is pinned and checked: Python against its SHA-256 (`tools/python/fetch-python.sh`),
+  appimagetool 1.9.1 against its SHA-256 (`tools/appimage/fetch-appimagetool.sh`), and aqtinstall with everything it
+  needs at exact versions with hashes (`tools/qt/aqtinstall-requirements.txt`, installed with `--require-hashes`).
 - Build, test, package and smoke-test steps go through `tools/ci/retry.sh`: up to three tries, and after a failure one
   job at a time, the least memory there is. Windows does the same in its build step.
 - The Linux jobs first remove the runner's unused SDKs (`tools/ci/free-disk.sh`), about 25 GB, through volumes in the

@@ -6,7 +6,7 @@
 # AZTEK_QT: a Qt kit to bundle (as packaging/linux/install-qt.sh makes); without it the system's Qt 6 is bundled.
 # AZTEK_PYTHON: the interpreter to embed, a 3.13 (the only version Aztek embeds); by default the system's python3.13 with
 # its development files, else one fetched with tools/python/fetch-python.sh. APPIMAGETOOL: an appimagetool to use, else
-# downloaded.
+# a pinned release, downloaded and checked (tools/appimage/fetch-appimagetool.sh).
 set -euo pipefail
 
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
@@ -165,8 +165,8 @@ fi
 
 TOOL=${APPIMAGETOOL:-}
 if [ -z "$TOOL" ]; then
-  TOOL=$BUILD/appimagetool-${MACHINE}.AppImage
-  [ -x "$TOOL" ] || { curl -fsSL -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${MACHINE}.AppImage" && chmod 755 "$TOOL"; }
+  # A pinned appimagetool, checked against its SHA-256.
+  TOOL=$("$SRC/tools/appimage/fetch-appimagetool.sh" "$BUILD/appimagetool-${MACHINE}.AppImage")
 fi
 # Run unpacked: a container has no FUSE to mount the tool with.
 ARCH=$MACHINE "$TOOL" --appimage-extract-and-run --no-appstream "$APPDIR" "$OUT/$FILE"
