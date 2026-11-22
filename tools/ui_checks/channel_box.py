@@ -102,6 +102,8 @@ try:
             break
         time.sleep(0.5)
     else:
+        # The work folder goes in the finally below, so the log has to be said here to be seen at all.
+        print(open(log.name).read()[-4000:])
         raise SystemExit("the app never wrote its state: see " + log.name)
     time.sleep(3)
     # The main window, active.
