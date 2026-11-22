@@ -23,7 +23,8 @@ $venv = Join-Path $Dest ".aqt"
 & $Python -m venv $venv
 if ($LASTEXITCODE) { throw "aqtinstall's venv could not be made" }
 $aqt = Join-Path $venv "Scripts\python.exe"
-& $aqt -m pip install -q --retries 10 --timeout 120 aqtinstall
+# Pinned with hashes, so a changed or new release on PyPI never runs here.
+& $aqt -m pip install -q --retries 10 --timeout 120 --require-hashes -r (Join-Path $PSScriptRoot "aqtinstall-requirements.txt")
 if ($LASTEXITCODE) { throw "aqtinstall could not be installed" }
 # Qt's download servers drop connections now and then: a few tries, each starting clean.
 for ($i = 1; $i -le 5; $i++) {

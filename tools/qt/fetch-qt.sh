@@ -33,7 +33,9 @@ mkdir -p "$DEST"
 # aqtinstall in a venv of its own, so neither the build's Python nor the system's pip is changed. Their chatter goes to
 # stderr: stdout carries the kit's path and nothing else.
 "$PY" -m venv "$DEST/.aqt" >&2
-"$DEST/.aqt/bin/python" -m pip install -q --retries 10 --timeout 120 aqtinstall >&2
+# Pinned with hashes, so a changed or new release on PyPI never runs here.
+"$DEST/.aqt/bin/python" -m pip install -q --retries 10 --timeout 120 --require-hashes \
+  -r "$(cd "$(dirname "$0")" && pwd)/aqtinstall-requirements.txt" >&2
 # Qt's download servers drop connections now and then: a few tries, each starting clean.
 for i in 1 2 3 4 5; do
   if "$DEST/.aqt/bin/python" -m aqt install-qt "$HOST" desktop "$VER" "$ARCH" --outputdir "$DEST" >&2; then
