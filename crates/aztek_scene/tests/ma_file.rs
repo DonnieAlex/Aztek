@@ -860,6 +860,40 @@ fn weight_locks_round_trip() {
 }
 
 #[test]
+fn file_save_declares_each_skin_influences_lock_once() {
+    let mut s = Session::new();
+    run(&mut s, "joint", json!({"name": "root"}));
+    run(&mut s, "joint", json!({"name": "tip", "position": [1, 0, 0]}));
+    run(&mut s, "addAttr", json!({"args": ["tip"], "ln": "lockInfluenceWeights", "sn": "liw", "at": "bool"}));
+    for (mesh, cluster) in [("first", "firstSkin"), ("second", "secondSkin")] {
+        run(&mut s, "polyCube", json!({"name": mesh}));
+        run(&mut s, "skinCluster", json!({"args": ["root", mesh], "name": cluster}));
+        run(&mut s, "skinCluster", json!({"args": [cluster], "edit": true, "influence": "tip", "lockWeights": true}));
+    }
+
+    // #208: both the locked and unlocked influences need declarations before their connections.
+    let path = temp("influence_locks.ma");
+    run(&mut s, "file", json!({"rename": path}));
+    run(&mut s, "file", json!({"save": true, "type": "mayaAscii"}));
+    let text = std::fs::read_to_string(&path).unwrap();
+    let decl = "-sn \"liw\" -ln \"lockInfluenceWeights\"";
+    assert_eq!(text.matches(decl).count(), 2, "one declaration per influence");
+    for (name, use_of_lock) in [("root", "connectAttr \"root.liw\""), ("tip", "setAttr \"tip.liw\" yes;")] {
+        let node = text.split_once(&format!("createNode joint -n \"{name}\"")).unwrap().1;
+        let body = node.split("createNode ").next().unwrap();
+        assert!(body.contains(decl), "{name} lacks a declaration");
+        assert!(node.contains(use_of_lock), "{name} lacks its exported lock value or connection");
+    }
+
+    let mut reopened = Session::new();
+    run(&mut reopened, "file", json!({"args": [path], "open": true, "force": true}));
+    for name in ["firstSkin", "secondSkin"] {
+        let cluster = reopened.graph.find(name).unwrap().unwrap();
+        assert_eq!(skin::bind_of(&reopened.graph, cluster).unwrap().locks, vec![false, true]);
+    }
+}
+
+#[test]
 fn locks_user_attrs_and_layers_round_trip() {
     let mut a = Session::new();
     run(&mut a, "createNode", json!({"args": ["transform"], "name": "t"}));
