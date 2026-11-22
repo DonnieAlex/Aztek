@@ -342,7 +342,9 @@ impl View {
             if let Some(rt) = self.realtime.as_mut() {
                 rt.render(&mut self.gpu, &items, self.vp.shadow);
             }
-            self.vp.rt_shadow_set = if self.vp.shadow.is_some() { self.realtime.as_ref().and_then(|r| r.set()) } else { None };
+            // The material pipelines' set 4 has this renderer's four bindings: it is bound whether or not a shadow map
+            // is drawn this frame, and the shader skips the sampling when no light casts one (#228 review).
+            self.vp.rt_shadow_set = self.realtime.as_ref().and_then(|r| r.set());
         } else {
             self.vp.rt_shadow_set = None;
         }

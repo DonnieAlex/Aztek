@@ -329,12 +329,24 @@ void ModelPanel::build_menus() {
     auto* renderer_group = new QActionGroup(this);
     auto renderer_item = [v, renderer, renderer_group](const QString& label, const QString& mode) {
         QAction* a = renderer->addAction(label, [v, mode] {
-            v->set("renderer", QString("\"%1\"").arg(mode));
-            // Realtime's shadows, contact shadows and occlusion are what it is for: turn them on when it is chosen.
+            const QJsonObject now = parse(v->get("disp")).toObject();
             if (mode == "realtime") {
+                // Realtime's shadows, contact shadows and occlusion are what it is for: turn them on when it is chosen,
+                // remembering what the view had so Viewport 2.0 brings it back. The global preference is the user's and
+                // is left alone, so no other view inherits Realtime's flags (#228 review).
+                if (!v->property("rtSavedDisp").toBool()) {
+                    v->setProperty("rtSavedShadows", now["shadows"].toBool());
+                    v->setProperty("rtSavedAo", now["ambientOcclusion"].toBool());
+                    v->setProperty("rtSavedDisp", true);
+                }
                 v->set("disp", "{\"shadows\":true,\"ambientOcclusion\":true}");
-                QSettings().setValue("viewport/ambientOcclusion", true);
+            } else if (v->property("rtSavedDisp").toBool()) {
+                v->set("disp", QString("{\"shadows\":%1,\"ambientOcclusion\":%2}")
+                                   .arg(v->property("rtSavedShadows").toBool() ? "true" : "false")
+                                   .arg(v->property("rtSavedAo").toBool() ? "true" : "false"));
+                v->setProperty("rtSavedDisp", false);
             }
+            v->set("renderer", QString("\"%1\"").arg(mode));
         });
         a->setCheckable(true);
         a->setData(mode);
@@ -349,8 +361,15 @@ void ModelPanel::build_menus() {
     for (QAction* a : renderer->actions())
         if (a->data().toString() == start_renderer) a->setChecked(true);
     v->set("renderer", QString("\"%1\"").arg(start_renderer));
-    if (start_renderer == "realtime")
+    if (start_renderer == "realtime") {
+        // A test build starts in Realtime with the same flags the menu would set, and the view keeps what it had so
+        // switching to Viewport 2.0 restores it.
+        const QJsonObject before = parse(v->get("disp")).toObject();
+        v->setProperty("rtSavedShadows", before["shadows"].toBool());
+        v->setProperty("rtSavedAo", before["ambientOcclusion"].toBool());
+        v->setProperty("rtSavedDisp", true);
         v->set("disp", QString("{\"shadows\":true,\"ambientOcclusion\":%1}").arg(qEnvironmentVariableIsEmpty("AZTEK_VIEW_AO") || qEnvironmentVariableIntValue("AZTEK_VIEW_AO") != 0 ? "true" : "false"));
+    }
     connect(renderer, &QMenu::aboutToShow, this, [v, renderer] {
         const QString now = v->get("renderer").remove('"');
         for (QAction* a : renderer->actions())

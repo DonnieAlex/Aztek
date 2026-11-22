@@ -104,12 +104,40 @@ unsafe fn depth_image(gpu: &Gpu, layers: u32, cube: bool) -> (vk::Image, vk::Ima
     (image, view, alloc)
 }
 
+/// Puts a fresh depth image in the layout its descriptor declares, before any shadow pass has run: a frame that draws
+/// no shadow map still samples nothing, but the binding it hands the shader is valid.
+unsafe fn sample_ready(gpu: &Gpu, image: vk::Image, layers: u32) {
+    let d = &gpu.device;
+    let pool = d
+        .create_command_pool(&vk::CommandPoolCreateInfo::default().queue_family_index(gpu.shared.queue_family).flags(vk::CommandPoolCreateFlags::TRANSIENT), None)
+        .expect("shadow command pool");
+    let cmd = d
+        .allocate_command_buffers(&vk::CommandBufferAllocateInfo::default().command_pool(pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(1))
+        .expect("shadow command buffer")[0];
+    d.begin_command_buffer(cmd, &vk::CommandBufferBeginInfo::default()).expect("shadow begin");
+    let barrier = [vk::ImageMemoryBarrier::default()
+        .image(image)
+        .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::DEPTH).level_count(1).layer_count(layers))
+        .old_layout(vk::ImageLayout::UNDEFINED)
+        .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+        .src_access_mask(vk::AccessFlags::empty())
+        .dst_access_mask(vk::AccessFlags::SHADER_READ)];
+    d.cmd_pipeline_barrier(cmd, vk::PipelineStageFlags::TOP_OF_PIPE, vk::PipelineStageFlags::FRAGMENT_SHADER, vk::DependencyFlags::empty(), &[], &[], &barrier);
+    d.end_command_buffer(cmd).expect("shadow end");
+    d.queue_submit(gpu.queue, &[vk::SubmitInfo::default().command_buffers(&[cmd])], vk::Fence::null()).expect("shadow submit");
+    d.queue_wait_idle(gpu.queue).expect("shadow wait");
+    d.free_command_buffers(pool, &[cmd]);
+    d.destroy_command_pool(pool, None);
+}
+
 impl Realtime {
     pub fn new(gpu: &Gpu, shadow_layout: vk::DescriptorSetLayout) -> Realtime {
         unsafe {
             let d = &gpu.device;
             let (image, view, alloc) = depth_image(gpu, 1, false);
             let (cube_image, cube_view, cube_alloc) = depth_image(gpu, 6, true);
+            sample_ready(gpu, image, 1);
+            sample_ready(gpu, cube_image, 6);
             let mut cube_faces = [vk::ImageView::null(); 6];
             let mut cube_framebuffers = [vk::Framebuffer::null(); 6];
             let attachment = [vk::AttachmentDescription::default()
@@ -119,7 +147,9 @@ impl Realtime {
                 .store_op(vk::AttachmentStoreOp::STORE)
                 .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
                 .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
+                // The images are put in the sampled layout as they are made, so a frame that draws no shadow map still
+                // binds a descriptor whose layout is the image's (#228 review).
+                .initial_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
                 .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
             let depth = vk::AttachmentReference::default().attachment(0).layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             let sub = [vk::SubpassDescription::default().pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS).depth_stencil_attachment(&depth)];
