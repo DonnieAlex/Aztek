@@ -862,6 +862,10 @@ fn ensure() -> Result<(), String> {
                 // Set before Python starts, on the thread that starts it; taken out again just after.
                 std::env::set_var("PYTHONHOME", h);
             }
+            if home.is_some() || cfg!(target_os = "windows") {
+                // The interpreter's own packages only: a user site one would shadow the bundled PySide6 and the rest.
+                std::env::set_var("PYTHONNOUSERSITE", "1");
+            }
             Python::initialize();
             if home.is_some() {
                 // Read once, at start-up: kept, it would point the system's own Python, run from a script, at this one.
@@ -884,19 +888,34 @@ fn ensure() -> Result<(), String> {
         .clone()
 }
 
-/// The home of a bundled Python (tools/python/fetch-python.sh): the folder above the libpython this process loaded,
-/// when its standard library is there. Such a Python was built for another folder and doesn't find its own; a
-/// system's Python does, and isn't given one. None as well when PYTHONHOME is already set.
+/// The home of a bundled Python (tools/python/fetch-python.sh): the folder above the libpython this process loaded on
+/// Linux, or Contents/Resources/python in the app on macOS, when its standard library is there. Such a Python was built
+/// for another folder and doesn't find its own; a system's Python does, and isn't given one. None as well when
+/// PYTHONHOME is already set.
 fn bundled_home() -> Option<std::path::PathBuf> {
-    if !cfg!(target_os = "linux") || std::env::var_os("PYTHONHOME").is_some() {
+    if std::env::var_os("PYTHONHOME").is_some() {
         return None;
     }
-    let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
-    let lib = maps.lines().filter_map(|l| l.find('/').map(|i| &l[i..])).find(|p| p.contains("/libpython3.13.so"))?;
-    let dir = std::path::Path::new(lib).parent()?;
-    let home = dir.parent()?;
-    let own = dir.file_name()? == "lib" && !["/usr", "/usr/local"].iter().any(|s| home == std::path::Path::new(s));
-    (own && home.join("lib/python3.13/os.py").is_file()).then(|| home.to_path_buf())
+    #[cfg(target_os = "linux")]
+    {
+        let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
+        let lib = maps.lines().filter_map(|l| l.find('/').map(|i| &l[i..])).find(|p| p.contains("/libpython3.13.so"))?;
+        let dir = std::path::Path::new(lib).parent()?;
+        let home = dir.parent()?;
+        let own = dir.file_name()? == "lib" && !["/usr", "/usr/local"].iter().any(|s| home == std::path::Path::new(s));
+        (own && home.join("lib/python3.13/os.py").is_file()).then(|| home.to_path_buf())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // Aztek.app/Contents/MacOS/aztek, and the standard library build-macos.sh puts in Contents/Resources/python.
+        let exe = std::env::current_exe().ok()?;
+        let home = exe.parent()?.parent()?.join("Resources/python");
+        (home.join("lib/python3.13/os.py").is_file()).then(|| home)
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        None
+    }
 }
 
 /// Aztek's own folder of Python packages, for this Python's version: what `aztekpy -m pip install` puts there is on

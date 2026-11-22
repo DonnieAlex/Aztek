@@ -3545,8 +3545,8 @@ reference in none of them.
   to Interactive; Value follows Min/Max (`artAttrSkinPaintCtx -mnv -mxv`), so Scale can pass 1; Hammer works on
   selected vertices only; Select Geometry; Use Color Ramp. Not done: editing the ramp (its colours are not checked
   against the reference's), stylus pressure.
-- PySide6 (57): the AppImage ships one built for its Qt; on the `.deb` and `.rpm` a PySide6 built for another Qt
-  is refused with a message rather than crashing.
+- PySide6 (57): every package ships PySide6 and shiboken6 at its Qt version; a PySide6 built for another Qt is refused
+  with a message rather than crashing.
 - glTF (58): export Y Up and import As Is, Y Up, Z Up, remembered; every influence written, past four.
 - Views: endless orthographic grids in each view's plane and the camera's own up after a switch (61); Grid Options as
   the reference's (lines every, subdivisions, colours, per-kind switches, thicker axes, numbers) (62); the sky
