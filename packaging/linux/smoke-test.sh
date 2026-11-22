@@ -9,19 +9,31 @@ set -euo pipefail
 OUT=${1:-/tmp/aztek-smoke}
 mkdir -p "$OUT"
 
+# The packages install the bundle in /opt/aztek, with /usr/bin/aztek starting it; an AppImage or a staged build is an
+# AppDir whose AppRun is given as AZTEK_BIN.
 if [ -n "${AZTEK_BIN:-}" ]; then
   BIN=$AZTEK_BIN
-  # An AppImage brings its libraries: what its program and plugins still look for outside must be on this system.
   ROOT=$(dirname "$(readlink -f "$BIN")")
-  for f in "$ROOT/usr/bin/aztek" "$ROOT"/usr/plugins/*/*.so; do
+elif [ -x /opt/aztek/AppRun ]; then
+  BIN=/opt/aztek/AppRun
+  ROOT=/opt/aztek
+else
+  BIN=$(command -v aztek)
+  ROOT=$(dirname "$(readlink -f "$BIN")")
+fi
+LIBDIR=""
+[ -d "$ROOT/usr/lib" ] && LIBDIR=$ROOT/usr/lib
+
+# What the program and its plugins load, the bundled ones found in the tree.
+if [ -n "$LIBDIR" ]; then
+  for f in "$ROOT/usr/bin/aztek" "$ROOT/usr/bin/harold" "$ROOT"/usr/plugins/*/*.so; do
     [ -e "$f" ] || continue
-    if LD_LIBRARY_PATH="$ROOT/usr/lib" ldd "$f" | grep "not found"; then
+    if LD_LIBRARY_PATH="$LIBDIR" ldd "$f" | grep "not found"; then
       echo "unresolved libraries in $f"
       exit 1
     fi
   done
 else
-  BIN=$(command -v aztek)
   echo "== ldd $BIN"
   ldd "$BIN" | tee "$OUT/ldd.txt"
   if grep -q "not found" "$OUT/ldd.txt"; then
@@ -30,15 +42,6 @@ else
   fi
 fi
 
-# A bundled Qt's plugins are loaded later, by name, and would only fail at run time.
-for lib in /usr/lib64/aztek/plugins/*/*.so; do
-  [ -e "$lib" ] || continue
-  if ldd "$lib" | grep "not found"; then
-    echo "unresolved libraries in $lib"
-    exit 1
-  fi
-done
-
 echo "== aztek --help"
 QT_QPA_PLATFORM=offscreen "$BIN" --help
 
@@ -46,7 +49,7 @@ ldconfig -p | grep -q 'libvulkan\.so\.1' || { echo "libvulkan.so.1 is missing"; 
 
 cat >"$OUT/check.py" <<PY
 import sys, json, ctypes, ssl, sqlite3, zlib
-assert sys.version_info[:2] == (3, 12), sys.version
+assert sys.version_info[:2] == (3, 13), sys.version
 import aztek.cmds as cmds
 cube = cmds.polyCube()
 with open("$OUT/python.txt", "w") as f:

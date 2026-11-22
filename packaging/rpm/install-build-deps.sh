@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Installs what an RPM build needs on Rocky Linux 8 or 9 (run as root in the container).
-# Rust is not here: it comes from rustup, the distribution's cargo is too old.
+# Installs what a build on Rocky Linux 8 or 9 needs (run as root in the container).
+#   install-build-deps.sh [--system-qt]
+# Without arguments, for the RPM: the development libraries Qt's own kit looks for. With --system-qt, for the ARM
+# AppImage, which builds against Rocky 9's own Qt instead.
+# Rust is not here: it comes from rustup, the distribution's cargo is too old. Qt, Python and PySide6 are not here
+# either: build.sh fetches them.
 set -euo pipefail
 
 . /etc/os-release
@@ -13,16 +17,24 @@ else
   dnf config-manager --set-enabled crb
 fi
 
-COMMON="git-core tar gzip xz findutils which file rpm-build cmake ninja-build desktop-file-utils
-        gcc gcc-c++ make vulkan-loader-devel python3.12 python3.12-devel"
+# The tools. Python 3.13 is not in AppStream: the build and `cargo test` use the one tools/python/fetch-python.sh fetches.
+BASE="git-core tar gzip xz findutils which file rpm-build cmake ninja-build desktop-file-utils
+      gcc gcc-c++ make xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm vulkan-loader-devel"
+# What Qt's own kit asks for when CMake looks at it.
+AQT="libglvnd-devel libxkbcommon-devel libxkbcommon-x11 fontconfig freetype dbus-libs glib2
+     xcb-util-cursor xcb-util-image xcb-util-keysyms xcb-util-renderutil xcb-util-wm"
 
-if [ "$EL" = 8 ]; then
-  # No Qt 6 in any Rocky 8 repository: Qt comes from packaging/linux/install-qt.sh and is bundled. Its prebuilt
-  # kit wants a newer compiler than gcc 8 for its headers, and the system libraries its CMake files look for.
-  # xcb-util-cursor is only in EPEL here, so the package bundles it.
-  dnf -y --setopt=retries=10 install $COMMON python3.12-pip gcc-toolset-13-gcc-c++ libglvnd-devel libxkbcommon-devel \
-    fontconfig freetype dbus-libs glib2 libxkbcommon-x11 xcb-util-cursor xcb-util-image xcb-util-keysyms \
-    xcb-util-renderutil xcb-util-wm
+if [ "${1:-}" = --system-qt ]; then
+  [ "$EL" != 8 ] || { echo "--system-qt: Rocky 8 has no Qt 6 packages" >&2; exit 1; }
+  # The ARM AppImage, against Rocky 9's Qt.
+  dnf -y --setopt=retries=10 install $BASE qt6-qtbase-devel
+elif [ "$EL" = 8 ]; then
+  # Qt's prebuilt kit wants a newer compiler than gcc 8 for its headers (gcc 14, the VFX Reference Platform CY2027's),
+  # and the development libraries its CMake files look for, which are not part of any Rocky 8 Qt package because there
+  # is no Qt package.
+  dnf -y --setopt=retries=10 install $BASE $AQT gcc-toolset-14-gcc-c++
 else
-  dnf -y --setopt=retries=10 install $COMMON qt6-qtbase-devel
+  # Rocky 9's Qt development package brings the same libraries, and pulls everything the fetched kit's CMake files ask
+  # for. The fetched kit is what the RPM builds against; this package's own Qt is never linked.
+  dnf -y --setopt=retries=10 install $BASE qt6-qtbase-devel
 fi

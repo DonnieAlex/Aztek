@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compiles the shell's C++ (app/src) with clang and GCC as strict C++17, in a few minutes and without building Rust:
+# Compiles the shell's C++ (app/src) with clang and GCC as strict C++20, in a few minutes and without building Rust:
 # what MSVC, AppleClang or GCC would stop on shows here before the long Windows, macOS and Linux builds reach it.
 # tools/check_app.sh. Needs Qt 6 development files and CMake; Ninja when it is there.
 set -uo pipefail

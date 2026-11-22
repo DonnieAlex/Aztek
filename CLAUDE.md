@@ -64,7 +64,7 @@ released by srlegrand at https://github.com/srlegrand/Aztek. PARITY.md holds the
   handles drawn as lines, snapping X/V, pivot mode D), `tools.rs` (Multi-Cut, Quad Draw and other view tools),
   `python.rs` + `python/bootstrap.py` (pyo3), `scriptui.rs`, `panel_cmds.rs`, `ui_cmds.rs`, `ctx_cmds.rs` and
   `script_jobs.rs` (script-built UI, panels, tool contexts, scriptJob), `mel/` (the MEL interpreter).
-- `app/src` Qt 6 Widgets shell in C++17: `mainwindow.*` (menus by menu set, shelves, hotkeys, time slider, editors),
+- `app/src` Qt 6 Widgets shell in C++20: `mainwindow.*` (menus by menu set, shelves, hotkeys, time slider, editors),
   `panels.*` (outliner, channel box with picked channels and virtual slider, layer and attribute editors, script
   editor), `viewport.*`, `widgets.*` (option boxes, time and range sliders, splash, About), `grapheditor.*`,
   `uveditor.*`, `dopesheet.*`, `nodeeditor.*`, `toolsettings.*`, `shapeeditor.cpp`, `runtime.cpp` (script-built windows),
@@ -79,13 +79,16 @@ command once on release so the history shows one reference-style line.
 
 ## Build and test
 
-    ./build.sh                 # Linux; --deps installs packages, --run starts it, --install puts it in ~/.local
-    build.bat                  # Windows (PowerShell script build.ps1)
+    ./build.sh                 # Linux: fetches Qt 6.8.3, Python 3.13 and PySide6 (the VFX Reference Platform
+                               # CY2027's versions) into build/ the first time, builds, and stages build/Aztek; --run starts it
+    build.bat                  # Windows (PowerShell script build.ps1), which fetches them into build\ and makes build\dist
     cargo test --workspace     # all Rust tests; keep them green
 
-Python is 3.12 only: pyo3 must build against a python3.12 (`PYO3_PYTHON=/usr/bin/python3.12` where `python3` is newer),
-or aztek_host's build script stops. Without a system 3.12, `tools/python/fetch-python.sh <folder>` fetches one; cargo
-then also needs `RUSTFLAGS="-L <folder>/lib -C link-arg=-Wl,-rpath,<folder>/lib"`.
+The build never uses the system's Qt or Python: `tools/bundle/versions.sh` holds the versions, `tools/qt/fetch-qt.sh`
+and `tools/python/fetch-python.sh` fetch them once, and `tools/python/fetch-pyside.sh` installs PySide6 and shiboken6
+against that Qt. `cargo test` still needs a Python 3.13 for pyo3: point `PYO3_PYTHON` at
+`build/python/bin/python3.13` once `./build.sh` has fetched it, and add
+`RUSTFLAGS="-L $PWD/build/python/lib -C link-arg=-Wl,-rpath,$PWD/build/python/lib"` so the test programs find its library.
 
 The GitHub Action `.github/workflows/build.yml` builds Linux, Rocky Linux 8 and 9 and Windows on every push to main and attaches
 the packages to the release. `packaging/` holds the RPM spec, the deb and Windows installer scripts and the install checks; see
@@ -95,13 +98,14 @@ Checking a real `.ma` with no UI: `cargo run --release -p aztek_scene --example 
 rig is from what the file stored; `--example rig_diff -- a.ma b.ma node.attr=value` compares two files under a pose. Rig files and their
 textures from elsewhere stay out of the repo: tests use small `.ma` text written by hand (`tests/rig_files.rs`).
 
-Checking anything else without a display: `./build/aztek --batch --script file.py` (or `.mel`, `--command mel`, a scene file) has
-no window and no Vulkan, and exits with the script's status. `AZTEK_BIN=$PWD/build/aztek cargo test -p aztek_host --test batch` runs
-its tests through the binary.
+Checking anything else without a display: `./build/Aztek/AppRun --batch --script file.py` (or `.mel`, `--command mel`, a
+scene file) has no window and no Vulkan, and exits with the script's status.
+`AZTEK_BIN=$PWD/build/Aztek/AppRun cargo test -p aztek_host --test batch` runs its tests through the bundle, and
+`tools/check_bundle.sh build/Aztek` checks that Python, PySide6, shiboken6 and Qt all come from it.
 
 Checking the UI without a display: run under Xvfb and look at the pictures.
 
-    xvfb-run -a -s "-screen 0 1700x1050x24" ./build/aztek --script scene.mel --screenshot out.png
+    xvfb-run -a -s "-screen 0 1700x1050x24" ./build/Aztek/AppRun --script scene.mel --screenshot out.png
 
 `--script` runs MEL or Python at start and leaves the camera where the script or file put it (`viewFit -all` frames); `--screenshot` saves the main window (viewports included) and quits. For
 interaction (marking menus, drags, separate editor windows) drive a real Xvfb with xdotool and grab the screen with

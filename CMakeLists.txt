@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(Aztek LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# C++20, the VFX Reference Platform CY2027 standard.
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Standard C++ as MSVC compiles it, not GNU C++.
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -21,11 +22,11 @@ if(UNIX AND NOT APPLE AND TARGET WrapOpenGL::WrapOpenGL)
   set_property(TARGET WrapOpenGL::WrapOpenGL PROPERTY INTERFACE_LINK_LIBRARIES "")
 endif()
 
-# Python for aztek.cmds and the maya.cmds shim: the interpreter cargo's pyo3 builds against, and its library. Python 3.12
-# only, the reference's version. AZTEK_PYTHON_BUNDLE names a Python 3.12 from tools/python/fetch-python.sh, for systems
-# with no 3.12 of their own: the program links it and, on Linux, installs it beside itself in lib/aztek/python.
+# Python for aztek.cmds and the maya.cmds shim: the interpreter cargo's pyo3 builds against, and its library. Python 3.13
+# only, the VFX Reference Platform CY2027 version. AZTEK_PYTHON_BUNDLE names a Python 3.13 from tools/python/fetch-python.sh, for systems
+# with no 3.13 of their own: the program links it and, on Linux, installs it beside itself in lib/aztek/python.
 option(AZTEK_PYTHON "Embed Python" ON)
-set(AZTEK_PYTHON_BUNDLE "" CACHE PATH "A Python 3.12 from tools/python/fetch-python.sh to link and ship")
+set(AZTEK_PYTHON_BUNDLE "" CACHE PATH "A Python 3.13 from tools/python/fetch-python.sh to link and ship")
 set(AZTEK_CARGO_FEATURES "")
 if(AZTEK_PYTHON)
   if(AZTEK_PYTHON_BUNDLE)
@@ -34,18 +35,18 @@ if(AZTEK_PYTHON)
       set(Python3_EXECUTABLE ${AZTEK_PYTHON_BUNDLE}/python.exe)
     else()
       # Its sysconfig names the folder it was built in, not this one: the library and headers are given outright.
-      set(Python3_EXECUTABLE ${AZTEK_PYTHON_BUNDLE}/bin/python3.12)
-      set(Python3_INCLUDE_DIR ${AZTEK_PYTHON_BUNDLE}/include/python3.12)
+      set(Python3_EXECUTABLE ${AZTEK_PYTHON_BUNDLE}/bin/python3.13)
+      set(Python3_INCLUDE_DIR ${AZTEK_PYTHON_BUNDLE}/include/python3.13)
       if(APPLE)
-        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.12.dylib)
+        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.13.dylib)
       else()
-        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.12.so)
+        set(Python3_LIBRARY ${AZTEK_PYTHON_BUNDLE}/lib/libpython3.13.so)
       endif()
     endif()
   endif()
-  find_package(Python3 3.12 EXACT COMPONENTS Interpreter Development.Embed)
+  find_package(Python3 3.13 EXACT COMPONENTS Interpreter Development.Embed)
   if(NOT Python3_FOUND)
-    message(FATAL_ERROR "Python 3.12 with its development files is required. ./build.sh --deps (or build.ps1) installs or "
+    message(FATAL_ERROR "Python 3.13 with its development files is required. ./build.sh --deps (or build.ps1) installs or "
                         "fetches it; tools/python/fetch-python.sh <folder> then -DAZTEK_PYTHON_BUNDLE=<folder> uses a "
                         "downloaded one; -DAZTEK_PYTHON=OFF builds without Python.")
   endif()
@@ -204,8 +205,9 @@ if(AZTEK_PYTHON)
   target_link_libraries(aztek PRIVATE Python3::Python)
   target_compile_definitions(aztek PRIVATE AZTEK_HAS_PYTHON=1)
   if(AZTEK_PYTHON_BUNDLE AND UNIX AND NOT APPLE)
-    # The bundled library: from its own folder in the build, from lib/aztek/python/lib once installed.
-    set_target_properties(aztek PROPERTIES BUILD_RPATH ${AZTEK_PYTHON_BUNDLE}/lib
+    # The bundled library: from its own folder in the build (or from python/lib beside the program, as the Linux tar.gz
+    # carries it), from lib/aztek/python/lib once installed.
+    set_target_properties(aztek PROPERTIES BUILD_RPATH "${AZTEK_PYTHON_BUNDLE}/lib;$ORIGIN/python/lib"
                           INSTALL_RPATH "$ORIGIN/../lib/aztek/python/lib")
   endif()
 endif()
@@ -213,7 +215,7 @@ if(MSVC)
   target_compile_options(aztek PRIVATE /utf-8 /permissive-)
   target_compile_definitions(aztek PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  # Plain C++17 and nothing more, as MSVC holds the shell to it: a later standard's syntax or a compiler extension fails
+  # Plain C++20 and nothing more, as MSVC holds the shell to it: a later standard's syntax or a compiler extension fails
   # the Linux and macOS builds, and a build here, instead of only the Windows one.
   target_compile_options(aztek PRIVATE -pedantic-errors)
 endif()
@@ -256,7 +258,7 @@ if(AZTEK_PYTHON AND AZTEK_PYTHON_BUNDLE AND UNIX AND NOT APPLE)
           PATTERN "__pycache__" EXCLUDE PATTERN "libtcl*" EXCLUDE PATTERN "libtk*" EXCLUDE PATTERN "tcl9*" EXCLUDE
           PATTERN "tk9*" EXCLUDE PATTERN "itcl*" EXCLUDE PATTERN "thread3*" EXCLUDE PATTERN "pkgconfig" EXCLUDE
           PATTERN "tkinter" EXCLUDE PATTERN "idlelib" EXCLUDE PATTERN "turtledemo" EXCLUDE
-          PATTERN "_tkinter*" EXCLUDE PATTERN "config-3.12-*" EXCLUDE)
+          PATTERN "_tkinter*" EXCLUDE PATTERN "config-3.13-*" EXCLUDE)
 endif()
 if(UNIX AND NOT APPLE)
   install(FILES app/aztek.desktop DESTINATION share/applications)

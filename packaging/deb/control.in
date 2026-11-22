@@ -6,9 +6,10 @@ Architecture: @ARCH@
 Installed-Size: @SIZE@
 Maintainer: srlegrand <srlegrand@users.noreply.github.com>
 Homepage: https://github.com/srlegrand/AKA-Crest-Aztek
-Depends: @SHLIBS@, libvulkan1, qt6-qpa-plugins, hicolor-icon-theme
+Depends: @SHLIBS@, libvulkan1, hicolor-icon-theme, libegl1, libgl1, libglib2.0-0t64, libfontconfig1, libfreetype6, libdbus-1-3, libx11-6, libxcb1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-shape0, libxcb-sync1, libxcb-xfixes0, libxi6, libsm6, libice6
 Recommends: mesa-vulkan-drivers
 Description: Modelling, UV, rigging and animation application
  Aztek is a modelling, UV, rigging and animation application, with MEL and
- Python scripting and .ma files. The viewport needs a Vulkan driver: the NVIDIA
+ Python scripting and .ma files. The Qt, Python and PySide6 it runs on are
+ inside it, in /opt/aztek. The viewport needs a Vulkan driver: the NVIDIA
  driver's own, or Mesa's.

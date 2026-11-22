@@ -1897,7 +1897,10 @@ too. Wireframes, curves and manipulators still use the samples.
 
 A file of a megabyte or more is read in pieces at once. Faces written with relative indices (`f -3 -2 -1`, counted
 back from the last vertex) that reached back into the piece before were read as other vertices, which scrambled the
-mesh. They now point where they say. Unverified against the reporter's own file, which we haven't had yet.
+mesh. They now point where they say. Checked on 22/11/2026 against the layout of the reporter's file, the 74 MB
+Stanford dragon.obj: every point, then every normal, then faces such as `f -435545//-438368 ...` with CRLF line ends,
+so every face read in a piece after the first reaches back. Builds from before 20/11/2026 (the reporter's 2.300 among
+them) read it scrambled; a test reads a file laid out the same way.
 
 ### Report videos show the pointer, clicks and keys (20/11/2026, #201)
 
@@ -3545,8 +3548,8 @@ reference in none of them.
   to Interactive; Value follows Min/Max (`artAttrSkinPaintCtx -mnv -mxv`), so Scale can pass 1; Hammer works on
   selected vertices only; Select Geometry; Use Color Ramp. Not done: editing the ramp (its colours are not checked
   against the reference's), stylus pressure.
-- PySide6 (57): the AppImage ships one built for its Qt; on the `.deb` and `.rpm` a PySide6 built for another Qt
-  is refused with a message rather than crashing.
+- PySide6 (57): every package ships PySide6 and shiboken6 at its Qt version; a PySide6 built for another Qt is refused
+  with a message rather than crashing.
 - glTF (58): export Y Up and import As Is, Y Up, Z Up, remembered; every influence written, past four.
 - Views: endless orthographic grids in each view's plane and the camera's own up after a switch (61); Grid Options as
   the reference's (lines every, subdivisions, colours, per-kind switches, thicker axes, numbers) (62); the sky
