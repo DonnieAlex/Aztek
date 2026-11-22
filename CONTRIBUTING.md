@@ -70,9 +70,12 @@ Other checks CI runs, worth running when you touch their area:
 
 ## What a change carries
 
-- **The fix and nothing else.** One issue per pull request, the smallest change that does it, in the style of the
-  code around it. No refactoring, renaming or reformatting the fix doesn't need. Related issues fixed by one change can
-  share a pull request; say which in the title.
+- **The fix and nothing else.** The smallest change that does it, in the style of the code around it. No
+  refactoring, renaming or reformatting the fix doesn't need.
+- **Related issues together, unrelated ones apart.** A pull request may fix several issues when they are connected:
+  the same code, the same feature, or one causing another. Claim each of them, name them in the title, and give each
+  its own `Fixes #N` line so merging closes them all. Issues with nothing in common go in separate pull requests, so
+  one can go in while another waits.
 - **A test**, in the `tests/` folder of the crate you changed, when the fix can be tested. For a bug, the test
   fails without the fix and passes with it: run it once before the fix goes in, and say in the pull request that you
   did. Scene files in tests are
@@ -112,7 +115,7 @@ Two ways, both described in the README:
 
   Name the branch `fix/<issue>-<a-few-words>`. `auto/` and `patch/` branches are made by the bots.
 
-Fill in the pull request template: `Fixes #N`, what was wrong and what happens now, what you checked (steps in the
+Fill in the pull request template: `Fixes #N` (one line per issue), what was wrong and what happens now, what you checked (steps in the
 app, tests run, and what you could not check), and how it was made. A pull request that says plainly what wasn't
 checked is easier to take than one that sounds sure.
 
