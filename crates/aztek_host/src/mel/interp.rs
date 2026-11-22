@@ -1227,7 +1227,15 @@ impl Interp<'_> {
         let here = self.st().frames.len() - 1;
         self.st().cur = here;
         self.st().calls += 1;
+        // profiler -instrumentMel: the call is timed.
+        let timed = crate::profiler::instrumented(name);
+        if timed {
+            crate::profiler::begin(name, aztek_scene::anim::frame(&self.core.s.graph), true);
+        }
         let r = self.exec_block(&p.body);
+        if timed {
+            crate::profiler::end();
+        }
         self.st().calls -= 1;
         self.st().cur = saved;
         // Arrays are passed by reference: what the procedure did to them shows in the caller's variable.

@@ -409,6 +409,7 @@ const KINDS: &[(&str, &str)] = &[
     ("dopeSheetEditor", "autoFit:af:a autoFitTime:aft:a displayActiveKeyTangents:dat:a displayActiveKeys:dak:a displayInfinities:di:a displayKeys:dk:a displayTangents:dtn:a displayValues:dv:a dropCommand:dc:a hierarchyBelow:hb:b lookAt:la:a outliner:o:a selectionWindow:sel:a showScene:sc:b showSummary:ss:b showTicks:stk:b snapTime:st:a snapValue:sv:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("animCurveEditor", "areCurvesSelected:acs:b autoFit:af:a autoFitTime:aft:a classicMode:cm:b clipTime:ct:a constrainDrag:cd:a curvesShown:cs:b denormalizeCurvesCommand:dcc:a displayActiveKeyTangents:dat:a displayActiveKeys:dak:a displayInfinities:di:a displayKeys:dk:a displayNormalized:dn:b displayTangents:dtn:a displayValues:dv:a keyingTime:kt:a lookAt:la:a menu:m:a normalizeCurvesCommand:ncc:a outliner:o:a preSelectionHighlight:psh:b renormalizeCurves:rnc:b resultSamples:rs:a resultScreenSamples:rss:a resultUpdate:ru:a showActiveCurveNames:acn:b showBufferCurves:sb:a showCurveNames:scn:b showResults:sr:a showUpstreamCurves:suc:b simpleKeyView:skv:a smoothness:s:a snapTime:st:a snapValue:sv:a stackedCurves:sc:b stackedCurvesMax:scx:a stackedCurvesMin:scm:a stackedCurvesSpace:scs:a valueLinesToggle:vlt:a control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("blendShapeEditor", "targetControlList:tcl:b targetList:tl:b verticalSliders:vs:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
+    ("preloadRefEd", "selectCommand:sc:a selectFileNode:sf:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("poseEditor", "targetControlList:tcl:b targetList:tl:b verticalSliders:vs:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("componentEditor", "floatField:ff:a floatSlider:fs:a hidePathName:hpn:b hideZeroColumns:hzc:b lockInput:lck:b newTab:nt:a3 operationCount:oc:b operationLabels:ol:b operationType:ot:a precision:pre:a removeTab:rt:a selected:sl:b setOperationLabel:sol:a2 showObjects:so:a showSelected:ss:b sortAlpha:sa:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
     ("spreadSheetEditor", "attrRegExp:are:a execute:exe:a fixedAttrList:fal:a1 header:hdr:b keyableOnly:ko:b longNames:ln:b niceNames:nn:b precision:pre:a selectedAttr:sla:b showShapes:ssh:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
@@ -424,7 +425,7 @@ const KINDS: &[(&str, &str)] = &[
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
 fn is_editor(kind: &str) -> bool {
-    matches!(kind, "outlinerEditor" | "nodeEditor" | "dopeSheetEditor" | "animCurveEditor" | "blendShapeEditor" | "poseEditor" | "componentEditor" | "spreadSheetEditor" | "keyframeOutliner" | "textureWindow")
+    matches!(kind, "preloadRefEd" | "outlinerEditor" | "nodeEditor" | "dopeSheetEditor" | "animCurveEditor" | "blendShapeEditor" | "poseEditor" | "componentEditor" | "spreadSheetEditor" | "keyframeOutliner" | "textureWindow")
 }
 
 /// The widget a command makes, when it is another command's with more on it.
@@ -1174,6 +1175,15 @@ pub(crate) fn template_defaults(cmd: &str, use_template: Option<&str>) -> Map<St
     })
 }
 
+/// The window sizes and places windowPref keeps, by window.
+pub(crate) fn window_prefs_all() -> Vec<(String, Value)> {
+    with_model(|m| {
+        let mut v: Vec<(String, Value)> = m.window_prefs.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        v.sort_by(|a, b| a.0.cmp(&b.0));
+        v
+    })
+}
+
 pub(crate) fn control_prop(path: &str, key: &str) -> Option<Value> {
     with_model(|m| m.find(path).and_then(|i| m.get(i)).and_then(|c| c.props.get(key).cloned()))
 }
@@ -1531,6 +1541,9 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("outlinerEditor", "displayMode") => json!("DAG"),
         ("outlinerEditor", "showShapes" | "showAttributes" | "showDagOnly" | "showConnected" | "showAnimCurvesOnly") => json!(c.kind == "outlinerEditor" && key == "showDagOnly"),
         ("componentEditor", "precision") => json!(3),
+        // The file being opened, until a reference is picked in the list.
+        ("preloadRefEd", "selectFileNode") => json!("0"),
+        ("preloadRefEd", "selectCommand") => json!(""),
         ("keyframeStats", "precision") => json!(3),
         ("keyframeStats", "autoUnitWidth") => json!(0),
         ("keyframeStats", "animEditor" | "timeAnnotation" | "valueAnnotation") => json!(""),
@@ -1613,6 +1626,19 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
     match key {
         "exists" => json!(true),
         "fullPathName" => json!(c.path),
+        "control" if c.kind == "preloadRefEd" => json!(c.path),
+        "stateString" if c.kind == "preloadRefEd" => {
+            // What makes another editor like this one, for $editorName.
+            let mut out = String::from("preloadRefEd -e");
+            for k in ["filter", "mainListConnection", "selectionConnection", "highlightConnection", "docTag"] {
+                let v = text(&prop(k));
+                if !v.is_empty() {
+                    out.push_str(&format!(" -{k} \"{}\"", v.replace('\\', "\\\\").replace('"', "\\\"")));
+                }
+            }
+            out.push_str(" $editorName;");
+            json!(out)
+        }
         "parent" => json!(c.parent.and_then(|p| m.get(p)).map(|p| p.path.clone()).unwrap_or_default()),
         "childArray" => {
             let kids: Vec<Id> = c.children.iter().copied().filter(|k| m.cat(*k) != Cat::Menu || m.get(*k).is_some_and(|x| x.kind == "optionMenu" || x.kind == "optionMenuGrp")).collect();

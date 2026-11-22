@@ -161,6 +161,9 @@ public:
     explicit ScriptEditor(QWidget* parent = nullptr);
     ~ScriptEditor() override;
     void append(const QJsonArray& lines);
+    // scriptEditorInfo -clearHistory and -input.
+    void clear_history();
+    void set_input(const QString& text);
     void run(bool clear_after);
     // Opens a .mel or .py file in a tab of its own.
     void load_file(const QString& path);

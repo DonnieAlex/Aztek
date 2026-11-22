@@ -1113,7 +1113,108 @@ fn playblast(s: &mut Session, a: &Args) -> CmdResult {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------------------------------------------
+// sceneUIReplacement
+
+/// The panels there are before any scene's own: what -deleteRemaining leaves alone.
+const START_PANELS: &[&str] = &["modelPanel1", "modelPanel2", "modelPanel3", "modelPanel4", "outlinerPanel1", "graphEditor1", "dopeSheetPanel1", "nodeEditorPanel1", "polyTexturePlacementPanel1", "hyperGraphPanel1"];
+
+#[derive(Default)]
+struct Replacing {
+    panels: std::collections::HashSet<String>,
+    filters: std::collections::HashSet<String>,
+}
+
+thread_local! {
+    static REPLACING: RefCell<Option<Replacing>> = const { RefCell::new(None) };
+}
+
+/// The next of `candidates` (name, label) not handed out since -update: one with the label if there is one.
+fn next_of(candidates: Vec<(String, String)>, label: &str, used: &mut std::collections::HashSet<String>) -> String {
+    let free: Vec<&(String, String)> = candidates.iter().filter(|(n, _)| !used.contains(n)).collect();
+    // With none of that label, the last one free, as the reference hands out its perspective view.
+    let pick = free.iter().find(|(_, l)| l == label).or_else(|| free.last()).map(|(n, _)| n.clone());
+    match pick {
+        Some(n) => {
+            used.insert(n.clone());
+            n
+        }
+        None => String::new(),
+    }
+}
+
+fn scene_ui_replacement(s: &mut Session, a: &Args) -> CmdResult {
+    let pair = |k: &str| -> Option<(String, String)> {
+        let v = a.get(k)?;
+        let w: Vec<String> = match v {
+            Value::Array(x) => x.iter().map(text).collect(),
+            x => vec![text(x)],
+        };
+        Some((w.first().cloned().unwrap_or_default(), w.get(1).cloned().unwrap_or_default()))
+    };
+    // -update names the pane layout the panels are in; every panel here is in the main window's.
+    if a.has("update") {
+        REPLACING.with(|r| *r.borrow_mut() = Some(Replacing::default()));
+        return Ok(Value::Null);
+    }
+    if a.bool("clear") {
+        REPLACING.with(|r| *r.borrow_mut() = None);
+        return Ok(Value::Null);
+    }
+    let started = REPLACING.with(|r| r.borrow().is_some());
+    if !started && (a.has("getNextPanel") || a.has("getNextScriptedPanel") || a.has("getNextFilter") || a.bool("deleteRemaining")) {
+        fail!("sceneUIReplacement: run -update first");
+    }
+    if let Some((kind, label)) = pair("getNextPanel") {
+        let cands = with_panels(|p| p.all.iter().filter(|x| x.kind == kind).map(|x| (x.name.clone(), x.label.clone())).collect());
+        return Ok(json!(REPLACING.with(|r| next_of(cands, &label, &mut r.borrow_mut().as_mut().unwrap().panels))));
+    }
+    if let Some((kind, label)) = pair("getNextScriptedPanel") {
+        let cands = with_panels(|p| p.all.iter().filter(|x| x.kind == "scriptedPanel" && x.scripted_type == kind).map(|x| (x.name.clone(), x.label.clone())).collect());
+        return Ok(json!(REPLACING.with(|r| next_of(cands, &label, &mut r.borrow_mut().as_mut().unwrap().panels))));
+    }
+    if let Some((kind, name)) = pair("getNextFilter") {
+        // A filter is found by its name, or by the label (-text) it shows.
+        let cands: Vec<(String, String)> = crate::script_objects::filters_of(&kind).into_iter().map(|(n, t)| (n.clone(), if t.is_empty() || n == name { n } else { t })).collect();
+        return Ok(json!(REPLACING.with(|r| next_of(cands, &name, &mut r.borrow_mut().as_mut().unwrap().filters))));
+    }
+    if a.bool("deleteRemaining") {
+        let (panels, filters) = REPLACING.with(|r| {
+            let r = r.borrow();
+            let r = r.as_ref().unwrap();
+            (r.panels.clone(), r.filters.clone())
+        });
+        let stale: Vec<String> = with_panels(|p| p.all.iter().map(|x| x.name.clone()).filter(|n| !panels.contains(n) && !START_PANELS.contains(&n.as_str())).collect());
+        for n in stale {
+            if s.run("deleteUI", json!({"args": [n.clone()], "panel": true})).is_err() {
+                delete_panel(&n);
+            }
+        }
+        for (n, _) in crate::script_objects::filters_of("itemFilter").into_iter().chain(crate::script_objects::filters_of("itemFilterAttr")) {
+            let user = s.run("itemFilter", json!({"args": [n.clone()], "query": true, "queried": ["classification"]})).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_else(|| "user".into());
+            if !filters.contains(&n) && user != "builtIn" {
+                crate::script_objects::delete_filter(&n);
+            }
+        }
+        return Ok(Value::Null);
+    }
+    Ok(Value::Null)
+}
+
 pub fn register(s: &mut Session) {
+    s.register(
+        Cmd::new(
+            "sceneUIReplacement",
+            "Hands a scene being opened the panels and filters already there that it can use again: -update starts, each -getNext... gives the next not yet handed out (one with the label asked for first), -deleteRemaining deletes the scene's panels and filters none were handed out for, -clear ends.",
+            scene_ui_replacement,
+        )
+        .flag(f("clear", "cl", ArgType::Bool))
+        .flag(f("deleteRemaining", "dr", ArgType::Bool))
+        .flag(FlagDef::new("getNextFilter", "gf", ArgType::Any, Value::Null, "The filter type and name.").multi(2))
+        .flag(FlagDef::new("getNextPanel", "gp", ArgType::Any, Value::Null, "The panel type and label.").multi(2))
+        .flag(FlagDef::new("getNextScriptedPanel", "gsp", ArgType::Any, Value::Null, "The scripted panel type and label.").multi(2))
+        .flag(f("update", "u", ArgType::String)),
+    );
     s.register(
         Cmd::new(
             "excludeObjectDisplayPreset",

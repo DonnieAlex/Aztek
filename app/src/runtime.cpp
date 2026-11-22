@@ -975,6 +975,12 @@ void MainWindow::handle_ui_request(const QString& r) {
         QTimer::singleShot(0, this, [this, code] {
             if (close()) QCoreApplication::exit(code);
         });
+    } else if (name == "scriptEditorClear") {
+        // scriptEditorInfo -clearHistory: the history pane, and what was kept for it before it opened.
+        log_before_editor_ = QJsonArray();
+        if (script_editor_) script_editor_->clear_history();
+    } else if (name == "scriptEditorInput") {
+        if (script_editor_) script_editor_->set_input(payload);
     } else if (name == "aboutBox") {
         // license -showProductInfoDialog.
         show_about(this);

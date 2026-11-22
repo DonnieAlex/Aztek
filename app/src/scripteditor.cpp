@@ -538,6 +538,14 @@ void ScriptEditor::save_current(bool as) {
     inputs_->setTabText(inputs_->currentIndex(), QFileInfo(f).fileName());
 }
 
+void ScriptEditor::clear_history() {
+    history_->clear();
+}
+
+void ScriptEditor::set_input(const QString& text) {
+    if (QPlainTextEdit* e = current()) e->setPlainText(text);
+}
+
 void ScriptEditor::append(const QJsonArray& lines) {
     for (const QJsonValue& v : lines) {
         QJsonObject l = v.toObject();

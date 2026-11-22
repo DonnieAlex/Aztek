@@ -27898,48 +27898,48 @@ preferredRenderer	makeCurrent	done	auto
 preferredRenderer	mc	done	auto
 preferredRenderer	q	done	auto
 preferredRenderer	query	done	auto
-preloadRefEd	control	missing	
-preloadRefEd	ctl	missing	
-preloadRefEd	defineTemplate	missing	
-preloadRefEd	docTag	missing	
-preloadRefEd	dt	missing	
-preloadRefEd	dtg	missing	
-preloadRefEd	e	missing	
-preloadRefEd	edit	missing	
-preloadRefEd	ex	missing	
-preloadRefEd	exists	missing	
-preloadRefEd	f	missing	
-preloadRefEd	filter	missing	
-preloadRefEd	fmc	missing	
-preloadRefEd	forceMainConnection	missing	
-preloadRefEd	highlightConnection	missing	
-preloadRefEd	hlc	missing	
-preloadRefEd	lck	missing	
-preloadRefEd	lockMainConnection	missing	
-preloadRefEd	mainListConnection	missing	
-preloadRefEd	mlc	missing	
-preloadRefEd	p	missing	
-preloadRefEd	panel	missing	
-preloadRefEd	parent	missing	
-preloadRefEd	pnl	missing	
-preloadRefEd	q	missing	
-preloadRefEd	query	missing	
-preloadRefEd	sc	missing	
-preloadRefEd	selectCommand	missing	
-preloadRefEd	selectFileNode	missing	
-preloadRefEd	selectionConnection	missing	
-preloadRefEd	sf	missing	
-preloadRefEd	slc	missing	
-preloadRefEd	stateString	missing	
-preloadRefEd	sts	missing	
-preloadRefEd	ulk	missing	
-preloadRefEd	unParent	missing	
-preloadRefEd	unlockMainConnection	missing	
-preloadRefEd	up	missing	
-preloadRefEd	upd	missing	
-preloadRefEd	updateMainConnection	missing	
-preloadRefEd	useTemplate	missing	
-preloadRefEd	ut	missing	
+preloadRefEd	control	done	auto
+preloadRefEd	ctl	done	auto
+preloadRefEd	defineTemplate	done	auto
+preloadRefEd	docTag	done	auto
+preloadRefEd	dt	done	auto
+preloadRefEd	dtg	done	auto
+preloadRefEd	e	done	auto
+preloadRefEd	edit	done	auto
+preloadRefEd	ex	done	auto
+preloadRefEd	exists	done	auto
+preloadRefEd	f	done	auto
+preloadRefEd	filter	done	auto
+preloadRefEd	fmc	done	auto
+preloadRefEd	forceMainConnection	done	auto
+preloadRefEd	highlightConnection	done	auto
+preloadRefEd	hlc	done	auto
+preloadRefEd	lck	done	auto
+preloadRefEd	lockMainConnection	done	auto
+preloadRefEd	mainListConnection	done	auto
+preloadRefEd	mlc	done	auto
+preloadRefEd	p	done	auto
+preloadRefEd	panel	done	auto
+preloadRefEd	parent	done	auto
+preloadRefEd	pnl	done	auto
+preloadRefEd	q	done	auto
+preloadRefEd	query	done	auto
+preloadRefEd	sc	done	auto
+preloadRefEd	selectCommand	done	auto
+preloadRefEd	selectFileNode	done	auto
+preloadRefEd	selectionConnection	done	auto
+preloadRefEd	sf	done	auto
+preloadRefEd	slc	done	auto
+preloadRefEd	stateString	done	auto
+preloadRefEd	sts	done	auto
+preloadRefEd	ulk	done	auto
+preloadRefEd	unParent	done	auto
+preloadRefEd	unlockMainConnection	done	auto
+preloadRefEd	up	done	auto
+preloadRefEd	upd	done	auto
+preloadRefEd	updateMainConnection	done	auto
+preloadRefEd	useTemplate	done	auto
+preloadRefEd	ut	done	auto
 prepareRender	d	missing	
 prepareRender	defaultTraversalSet	missing	
 prepareRender	deregister	missing	
@@ -27990,122 +27990,122 @@ prepareRender	traversalSet	missing
 prepareRender	traversalSetInit	missing	
 prepareRender	ts	missing	
 prepareRender	tsi	missing	
-profiler	a	missing	
-profiler	ac	missing	
-profiler	addCategory	missing	
-profiler	allCategories	missing	
-profiler	b	missing	
-profiler	bufferSize	missing	
-profiler	cam	missing	
-profiler	categoryIndex	missing	
-profiler	categoryIndexToName	missing	
-profiler	categoryInfo	missing	
-profiler	categoryName	missing	
-profiler	categoryNameToIndex	missing	
-profiler	categoryRecording	missing	
-profiler	cf	missing	
-profiler	ci	missing	
-profiler	cin	missing	
-profiler	clearAllMelInstrumentation	missing	
-profiler	cn	missing	
-profiler	cni	missing	
-profiler	coi	missing	
-profiler	colorIndex	missing	
-profiler	cr	missing	
-profiler	ec	missing	
-profiler	eca	missing	
-profiler	eci	missing	
-profiler	eco	missing	
-profiler	ed	missing	
-profiler	edu	missing	
-profiler	ei	missing	
-profiler	en	missing	
-profiler	et	missing	
-profiler	eti	missing	
-profiler	eventCPUId	missing	
-profiler	eventCategory	missing	
-profiler	eventColor	missing	
-profiler	eventCount	missing	
-profiler	eventDescription	missing	
-profiler	eventDuration	missing	
-profiler	eventIndex	missing	
-profiler	eventName	missing	
-profiler	eventStartTime	missing	
-profiler	eventThreadId	missing	
-profiler	instrumentMel	missing	
-profiler	l	missing	
-profiler	load	missing	
-profiler	o	missing	
-profiler	output	missing	
-profiler	pd	missing	
-profiler	pn	missing	
-profiler	procedureDescription	missing	
-profiler	procedureName	missing	
-profiler	q	missing	
-profiler	query	missing	
-profiler	r	missing	
-profiler	rc	missing	
-profiler	removeCategory	missing	
-profiler	reset	missing	
-profiler	s	missing	
-profiler	sampling	missing	
-profiler	sig	missing	
-profiler	signalEvent	missing	
-profiler	signalMelEvent	missing	
-profiler	sim	missing	
-profilerTool	cat	missing	
-profilerTool	categoryView	missing	
-profilerTool	collapseSelectedEvents	missing	
-profilerTool	collapseSelectedEventsRepetition	missing	
-profilerTool	cpu	missing	
-profilerTool	cpuView	missing	
-profilerTool	cs	missing	
-profilerTool	csr	missing	
-profilerTool	destroy	missing	
-profilerTool	dtr	missing	
-profilerTool	e	missing	
-profilerTool	edit	missing	
-profilerTool	es	missing	
-profilerTool	esr	missing	
-profilerTool	et	missing	
-profilerTool	eventTypes	missing	
-profilerTool	ex	missing	
-profilerTool	exists	missing	
-profilerTool	expandSelectedEvents	missing	
-profilerTool	expandSelectedEventsRepetition	missing	
-profilerTool	fa	missing	
-profilerTool	findNext	missing	
-profilerTool	findPrevious	missing	
-profilerTool	fn	missing	
-profilerTool	fp	missing	
-profilerTool	frameAll	missing	
-profilerTool	frameSelected	missing	
-profilerTool	fs	missing	
-profilerTool	isolateSegment	missing	
-profilerTool	make	missing	
-profilerTool	matchWholeWord	missing	
-profilerTool	mk	missing	
-profilerTool	mww	missing	
-profilerTool	q	missing	
-profilerTool	query	missing	
-profilerTool	sa	missing	
-profilerTool	sc	missing	
-profilerTool	scp	missing	
-profilerTool	se	missing	
-profilerTool	searchEvent	missing	
-profilerTool	segmentCount	missing	
-profilerTool	sh	missing	
-profilerTool	showAllEvent	missing	
-profilerTool	showCriticalPath	missing	
-profilerTool	showHotspot	missing	
-profilerTool	showSelectedEvents	missing	
-profilerTool	showSelectedEventsRepetition	missing	
-profilerTool	ss	missing	
-profilerTool	ssr	missing	
-profilerTool	thd	missing	
-profilerTool	threadView	missing	
-profilerTool	uis	missing	
-profilerTool	unisolateSegment	missing	
+profiler	a	done	auto
+profiler	ac	done	auto
+profiler	addCategory	done	auto
+profiler	allCategories	done	auto
+profiler	b	done	auto
+profiler	bufferSize	done	auto
+profiler	cam	done	auto
+profiler	categoryIndex	done	auto
+profiler	categoryIndexToName	done	auto
+profiler	categoryInfo	done	auto
+profiler	categoryName	done	auto
+profiler	categoryNameToIndex	done	auto
+profiler	categoryRecording	done	auto
+profiler	cf	done	auto
+profiler	ci	done	auto
+profiler	cin	done	auto
+profiler	clearAllMelInstrumentation	done	auto
+profiler	cn	done	auto
+profiler	cni	done	auto
+profiler	coi	done	auto
+profiler	colorIndex	done	auto
+profiler	cr	done	auto
+profiler	ec	done	auto
+profiler	eca	done	auto
+profiler	eci	done	auto
+profiler	eco	done	auto
+profiler	ed	done	auto
+profiler	edu	done	auto
+profiler	ei	done	auto
+profiler	en	done	auto
+profiler	et	done	auto
+profiler	eti	done	auto
+profiler	eventCPUId	done	auto
+profiler	eventCategory	done	auto
+profiler	eventColor	done	auto
+profiler	eventCount	done	auto
+profiler	eventDescription	done	auto
+profiler	eventDuration	done	auto
+profiler	eventIndex	done	auto
+profiler	eventName	done	auto
+profiler	eventStartTime	done	auto
+profiler	eventThreadId	done	auto
+profiler	instrumentMel	done	auto
+profiler	l	done	auto
+profiler	load	done	auto
+profiler	o	done	auto
+profiler	output	done	auto
+profiler	pd	done	auto
+profiler	pn	done	auto
+profiler	procedureDescription	done	auto
+profiler	procedureName	done	auto
+profiler	q	done	auto
+profiler	query	done	auto
+profiler	r	done	auto
+profiler	rc	done	auto
+profiler	removeCategory	done	auto
+profiler	reset	done	auto
+profiler	s	done	auto
+profiler	sampling	done	auto
+profiler	sig	done	auto
+profiler	signalEvent	done	auto
+profiler	signalMelEvent	done	auto
+profiler	sim	done	auto
+profilerTool	cat	done	auto
+profilerTool	categoryView	done	auto
+profilerTool	collapseSelectedEvents	done	auto
+profilerTool	collapseSelectedEventsRepetition	done	auto
+profilerTool	cpu	done	auto
+profilerTool	cpuView	done	auto
+profilerTool	cs	done	auto
+profilerTool	csr	done	auto
+profilerTool	destroy	done	auto
+profilerTool	dtr	done	auto
+profilerTool	e	done	auto
+profilerTool	edit	done	auto
+profilerTool	es	done	auto
+profilerTool	esr	done	auto
+profilerTool	et	done	auto
+profilerTool	eventTypes	done	auto
+profilerTool	ex	done	auto
+profilerTool	exists	done	auto
+profilerTool	expandSelectedEvents	done	auto
+profilerTool	expandSelectedEventsRepetition	done	auto
+profilerTool	fa	done	auto
+profilerTool	findNext	done	auto
+profilerTool	findPrevious	done	auto
+profilerTool	fn	done	auto
+profilerTool	fp	done	auto
+profilerTool	frameAll	done	auto
+profilerTool	frameSelected	done	auto
+profilerTool	fs	done	auto
+profilerTool	isolateSegment	done	auto
+profilerTool	make	done	auto
+profilerTool	matchWholeWord	done	auto
+profilerTool	mk	done	auto
+profilerTool	mww	done	auto
+profilerTool	q	done	auto
+profilerTool	query	done	auto
+profilerTool	sa	done	auto
+profilerTool	sc	done	auto
+profilerTool	scp	done	auto
+profilerTool	se	done	auto
+profilerTool	searchEvent	done	auto
+profilerTool	segmentCount	done	auto
+profilerTool	sh	done	auto
+profilerTool	showAllEvent	done	auto
+profilerTool	showCriticalPath	done	auto
+profilerTool	showHotspot	done	auto
+profilerTool	showSelectedEvents	done	auto
+profilerTool	showSelectedEventsRepetition	done	auto
+profilerTool	ss	done	auto
+profilerTool	ssr	done	auto
+profilerTool	thd	done	auto
+profilerTool	threadView	done	auto
+profilerTool	uis	done	auto
+profilerTool	unisolateSegment	done	auto
 progressBar	ann	done	auto
 progressBar	annotation	done	auto
 progressBar	backgroundColor	done	auto
@@ -29617,10 +29617,10 @@ resolutionNode	s	done	auto
 resolutionNode	shared	done	auto
 resolutionNode	skipSelect	done	auto
 resolutionNode	ss	done	auto
-resourceManager	nameFilter	missing	
-resourceManager	nf	missing	
-resourceManager	s	missing	
-resourceManager	saveAs	missing	
+resourceManager	nameFilter	done	auto
+resourceManager	nf	done	auto
+resourceManager	s	done	auto
+resourceManager	saveAs	done	auto
 retimeKeyCtx	ch	missing	
 retimeKeyCtx	e	missing	
 retimeKeyCtx	edit	missing	
@@ -30355,20 +30355,20 @@ saveInitialState	all	missing
 saveInitialState	atr	missing	
 saveInitialState	attribute	missing	
 saveInitialState	saveall	missing	
-savePrefs	c	missing	
-savePrefs	colors	missing	
-savePrefs	f	missing	
-savePrefs	file	missing	
-savePrefs	g	missing	
-savePrefs	general	missing	
-savePrefs	hk	missing	
-savePrefs	hotkeys	missing	
-savePrefs	menuSets	missing	
-savePrefs	ms	missing	
-savePrefs	pl	missing	
-savePrefs	plugins	missing	
-savePrefs	ui	missing	
-savePrefs	uiLayout	missing	
+savePrefs	c	done	auto
+savePrefs	colors	done	auto
+savePrefs	f	done	auto
+savePrefs	file	done	auto
+savePrefs	g	done	auto
+savePrefs	general	done	auto
+savePrefs	hk	done	auto
+savePrefs	hotkeys	done	auto
+savePrefs	menuSets	done	auto
+savePrefs	ms	done	auto
+savePrefs	pl	done	auto
+savePrefs	plugins	done	auto
+savePrefs	ui	done	auto
+savePrefs	uiLayout	done	auto
 scale	a	done	auto
 scale	absolute	done	auto
 scale	centerPivot	done	auto
@@ -30576,32 +30576,32 @@ sceneEditor	useTemplate	missing
 sceneEditor	ut	missing	
 sceneEditor	wcn	missing	
 sceneEditor	withoutCopyNumber	missing	
-sceneLint	i	missing	
-sceneLint	issueType	missing	
-sceneLint	q	missing	
-sceneLint	query	missing	
-sceneLint	v	missing	
-sceneLint	verbose	missing	
-sceneUIReplacement	cl	missing	
-sceneUIReplacement	clear	missing	
-sceneUIReplacement	deleteRemaining	missing	
-sceneUIReplacement	dr	missing	
-sceneUIReplacement	getNextFilter	missing	
-sceneUIReplacement	getNextPanel	missing	
-sceneUIReplacement	getNextScriptedPanel	missing	
-sceneUIReplacement	gf	missing	
-sceneUIReplacement	gp	missing	
-sceneUIReplacement	gsp	missing	
-sceneUIReplacement	u	missing	
-sceneUIReplacement	update	missing	
-scmh	a	missing	
-scmh	absolute	missing	
-scmh	i	missing	
-scmh	ignore	missing	
-scmh	q	missing	
-scmh	quiet	missing	
-scmh	r	missing	
-scmh	relative	missing	
+sceneLint	i	done	auto
+sceneLint	issueType	done	auto
+sceneLint	q	done	auto
+sceneLint	query	done	auto
+sceneLint	v	done	auto
+sceneLint	verbose	done	auto
+sceneUIReplacement	cl	done	auto
+sceneUIReplacement	clear	done	auto
+sceneUIReplacement	deleteRemaining	done	auto
+sceneUIReplacement	dr	done	auto
+sceneUIReplacement	getNextFilter	done	auto
+sceneUIReplacement	getNextPanel	done	auto
+sceneUIReplacement	getNextScriptedPanel	done	auto
+sceneUIReplacement	gf	done	auto
+sceneUIReplacement	gp	done	auto
+sceneUIReplacement	gsp	done	auto
+sceneUIReplacement	u	done	auto
+sceneUIReplacement	update	done	auto
+scmh	a	done	auto
+scmh	absolute	done	auto
+scmh	i	done	auto
+scmh	ignore	done	auto
+scmh	q	done	auto
+scmh	quiet	done	auto
+scmh	r	done	auto
+scmh	relative	done	auto
 scriptCtx	abd	done	auto
 scriptCtx	ac	done	auto
 scriptCtx	ait	done	auto
@@ -30832,30 +30832,30 @@ scriptCtx	tx	done	auto
 scriptCtx	v	done	auto
 scriptCtx	vertex	done	auto
 scriptCtx	xyz	done	auto
-scriptEditorInfo	ch	missing	
-scriptEditorInfo	chf	missing	
-scriptEditorInfo	clearHistory	missing	
-scriptEditorInfo	clearHistoryFile	missing	
-scriptEditorInfo	e	missing	
-scriptEditorInfo	edit	missing	
-scriptEditorInfo	hfn	missing	
-scriptEditorInfo	historyFilename	missing	
-scriptEditorInfo	i	missing	
-scriptEditorInfo	input	missing	
-scriptEditorInfo	q	missing	
-scriptEditorInfo	query	missing	
-scriptEditorInfo	se	missing	
-scriptEditorInfo	si	missing	
-scriptEditorInfo	sr	missing	
-scriptEditorInfo	ssw	missing	
-scriptEditorInfo	suppressErrors	missing	
-scriptEditorInfo	suppressInfo	missing	
-scriptEditorInfo	suppressResults	missing	
-scriptEditorInfo	suppressStackWindow	missing	
-scriptEditorInfo	suppressWarnings	missing	
-scriptEditorInfo	sw	missing	
-scriptEditorInfo	wh	missing	
-scriptEditorInfo	writeHistory	missing	
+scriptEditorInfo	ch	done	auto
+scriptEditorInfo	chf	done	auto
+scriptEditorInfo	clearHistory	done	auto
+scriptEditorInfo	clearHistoryFile	done	auto
+scriptEditorInfo	e	done	auto
+scriptEditorInfo	edit	done	auto
+scriptEditorInfo	hfn	done	auto
+scriptEditorInfo	historyFilename	done	auto
+scriptEditorInfo	i	done	auto
+scriptEditorInfo	input	done	auto
+scriptEditorInfo	q	done	auto
+scriptEditorInfo	query	done	auto
+scriptEditorInfo	se	done	auto
+scriptEditorInfo	si	done	auto
+scriptEditorInfo	sr	done	auto
+scriptEditorInfo	ssw	done	auto
+scriptEditorInfo	suppressErrors	done	auto
+scriptEditorInfo	suppressInfo	done	auto
+scriptEditorInfo	suppressResults	done	auto
+scriptEditorInfo	suppressStackWindow	done	auto
+scriptEditorInfo	suppressWarnings	done	auto
+scriptEditorInfo	sw	done	auto
+scriptEditorInfo	wh	done	auto
+scriptEditorInfo	writeHistory	done	auto
 scriptJob	aa	done	auto
 scriptJob	ac	done	auto
 scriptJob	ad	done	auto
@@ -31594,32 +31594,32 @@ sculptTarget	t	done	auto
 sculptTarget	target	done	auto
 sculptTarget	uct	missing	
 sculptTarget	useComponentTags	missing	
-selLoadSettings	activeProxy	missing	
-selLoadSettings	ap	missing	
-selLoadSettings	deferReference	missing	
-selLoadSettings	dr	missing	
-selLoadSettings	e	missing	
-selLoadSettings	edit	missing	
-selLoadSettings	fileName	missing	
-selLoadSettings	fn	missing	
-selLoadSettings	ns	missing	
-selLoadSettings	numSettings	missing	
-selLoadSettings	pm	missing	
-selLoadSettings	proxyManager	missing	
-selLoadSettings	proxySetFiles	missing	
-selLoadSettings	proxySetTags	missing	
-selLoadSettings	proxyTag	missing	
-selLoadSettings	psf	missing	
-selLoadSettings	pst	missing	
-selLoadSettings	pt	missing	
-selLoadSettings	q	missing	
-selLoadSettings	query	missing	
-selLoadSettings	referenceNode	missing	
-selLoadSettings	rfn	missing	
-selLoadSettings	shn	missing	
-selLoadSettings	shortName	missing	
-selLoadSettings	un	missing	
-selLoadSettings	unresolvedName	missing	
+selLoadSettings	activeProxy	done	auto
+selLoadSettings	ap	done	auto
+selLoadSettings	deferReference	done	auto
+selLoadSettings	dr	done	auto
+selLoadSettings	e	done	auto
+selLoadSettings	edit	done	auto
+selLoadSettings	fileName	done	auto
+selLoadSettings	fn	done	auto
+selLoadSettings	ns	done	auto
+selLoadSettings	numSettings	done	auto
+selLoadSettings	pm	done	auto
+selLoadSettings	proxyManager	done	auto
+selLoadSettings	proxySetFiles	done	auto
+selLoadSettings	proxySetTags	done	auto
+selLoadSettings	proxyTag	done	auto
+selLoadSettings	psf	done	auto
+selLoadSettings	pst	done	auto
+selLoadSettings	pt	done	auto
+selLoadSettings	q	done	auto
+selLoadSettings	query	done	auto
+selLoadSettings	referenceNode	done	auto
+selLoadSettings	rfn	done	auto
+selLoadSettings	shn	done	auto
+selLoadSettings	shortName	done	auto
+selLoadSettings	un	done	auto
+selLoadSettings	unresolvedName	done	auto
 select	add	done	auto
 select	addFirst	done	auto
 select	adn	done	auto

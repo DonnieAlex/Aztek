@@ -7,7 +7,7 @@
 //! then use. A node's compute may run on a worker thread: there only the data block and mesh handles are open
 //! (`IN_COMPUTE`), and the node type's scheduling decides which lock it holds.
 
-mod info;
+pub(crate) mod info;
 mod load;
 pub(crate) mod messages;
 mod nodes;

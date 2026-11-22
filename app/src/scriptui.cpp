@@ -31,6 +31,7 @@
 #include <QMimeData>
 #include <QFileDialog>
 #include <QFile>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -64,6 +65,7 @@
 #include <QStyle>
 #include <QTabBar>
 #include <QTableWidget>
+#include <QTreeWidget>
 #include <QHeaderView>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -396,6 +398,108 @@ QString frame_title(const QString& label, bool collapsable, bool collapsed) {
 
 // A slider with a float range, in the integer steps Qt has.
 const int SLIDER_STEPS = 10000;
+
+// The profiler's events as bars along time: a row per thread, category or CPU as profilerTool sets the view. Click
+// picks an event, Shift adds to the pick; the framed range (profilerTool -frameAll, -frameSelected) is what shows.
+class ProfilerView : public QWidget {
+public:
+    ProfilerView() {
+        setMinimumSize(300, 120);
+        setMouseTracking(true);
+    }
+    void refresh() {
+        data_ = ask("aztekProfilerView").toObject();
+        update();
+    }
+protected:
+    QString row_key(const QJsonObject& e) const {
+        QString mode = data_["mode"].toString();
+        if (mode == "category") {
+            QJsonArray names = data_["categories"].toArray();
+            int c = e["category"].toInt();
+            return c < names.size() ? names[c].toString() : QString::number(c);
+        }
+        if (mode == "cpu") return QString("CPU %1").arg(e["cpu"].toInt());
+        return QString("Thread %1").arg(e["thread"].toInt());
+    }
+    void range(double& t0, double& t1) const {
+        QJsonArray f = data_["framed"].toArray();
+        t0 = f.size() > 1 ? f[0].toDouble() : 0;
+        t1 = f.size() > 1 ? f[1].toDouble() : 0;
+        if (t1 <= t0) {
+            t0 = 1e300;
+            t1 = -1e300;
+            for (const QJsonValue& v : data_["events"].toArray()) {
+                QJsonObject e = v.toObject();
+                t0 = std::min(t0, e["start"].toDouble());
+                t1 = std::max(t1, e["start"].toDouble() + e["duration"].toDouble());
+            }
+            if (t1 <= t0) t0 = 0, t1 = 1;
+        }
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.fillRect(rect(), palette().base());
+        QJsonArray events = data_["events"].toArray();
+        if (events.isEmpty()) {
+            p.setPen(palette().color(QPalette::Disabled, QPalette::Text));
+            p.drawText(rect(), Qt::AlignCenter, "No events recorded. Start sampling with profiler -sampling true.");
+            return;
+        }
+        double t0, t1;
+        range(t0, t1);
+        QStringList rows;
+        for (const QJsonValue& v : events) {
+            QString k = row_key(v.toObject());
+            if (!rows.contains(k)) rows << k;
+        }
+        rows.sort();
+        const int label_w = 90, row_h = 22;
+        QSet<int> sel, mark;
+        for (const QJsonValue& v : data_["selected"].toArray()) sel.insert(v.toInt());
+        for (const QJsonValue& v : data_["critical"].toArray()) mark.insert(v.toInt());
+        for (const QJsonValue& v : data_["hotspot"].toArray()) mark.insert(v.toInt());
+        bars_.clear();
+        double w = std::max(1, width() - label_w - 4);
+        for (int r = 0; r < rows.size(); ++r) {
+            int y = 4 + r * row_h;
+            p.setPen(palette().color(QPalette::Text));
+            p.drawText(QRect(4, y, label_w - 8, row_h), Qt::AlignVCenter | Qt::AlignLeft, rows[r]);
+        }
+        for (const QJsonValue& v : events) {
+            QJsonObject e = v.toObject();
+            int r = rows.indexOf(row_key(e));
+            double s = e["start"].toDouble(), d = e["duration"].toDouble();
+            double x0 = label_w + (s - t0) / (t1 - t0) * w, x1 = label_w + (s + d - t0) / (t1 - t0) * w;
+            QRectF bar(x0, 4 + r * row_h + 2, std::max(2.0, x1 - x0), row_h - 4);
+            int idx = e["index"].toInt();
+            QColor c = QColor::fromHsv((e["color"].toInt() * 47) % 360, 120, 200);
+            p.setPen(sel.contains(idx) ? QPen(palette().color(QPalette::Highlight), 2) : mark.contains(idx) ? QPen(QColor(230, 60, 40), 2) : QPen(c.darker(150)));
+            p.setBrush(c);
+            if (e["signal"].toBool()) p.drawLine(QPointF(x0, bar.top()), QPointF(x0, bar.bottom()));
+            else p.drawRect(bar);
+            if (bar.width() > 40) {
+                p.setPen(Qt::black);
+                p.drawText(bar.adjusted(3, 0, -2, 0), Qt::AlignVCenter | Qt::AlignLeft, e["name"].toString());
+            }
+            bars_.append({bar, idx});
+        }
+    }
+    void mousePressEvent(QMouseEvent* ev) override {
+        QJsonArray picked;
+        if (ev->modifiers() & Qt::ShiftModifier) picked = data_["selected"].toArray();
+        for (int i = bars_.size() - 1; i >= 0; --i)
+            if (bars_[i].first.adjusted(-1, 0, 1, 0).contains(ev->position())) {
+                picked.append(bars_[i].second);
+                break;
+            }
+        exec_quiet("aztekProfilerView", QJsonObject{{"select", picked}});
+        refresh();
+    }
+private:
+    QJsonObject data_;
+    QList<QPair<QRectF, int>> bars_;
+};
 
 } // namespace
 
@@ -1656,6 +1760,47 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         update();
         connect(Host::get(), &Host::sceneChanged, l, update);
         it->w = l;
+    } else if (k == "preloadRefEd") {
+        // The file being opened and the references under it; ticked ones load. Picking one sets -selectFileNode.
+        auto* t = new QTreeWidget();
+        t->setHeaderLabels({"Reference", "File"});
+        t->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+        t->setMinimumSize(200, 100);
+        auto update = [t] {
+            QSignalBlocker block(t);
+            t->clear();
+            QHash<int, QTreeWidgetItem*> made;
+            for (const QJsonValue& v : ask("aztekPreloadRefEdRows").toArray()) {
+                QJsonObject r = v.toObject();
+                int id = r["id"].toInt(), parent = r["parent"].toInt();
+                QString file = r["file"].toString();
+                auto* i = parent < 0 ? new QTreeWidgetItem(t) : new QTreeWidgetItem(made.value(parent, nullptr) ? made.value(parent) : t->invisibleRootItem());
+                i->setText(0, parent < 0 ? QFileInfo(file).fileName() : r["node"].toString());
+                i->setText(1, file);
+                i->setData(0, Qt::UserRole, id);
+                if (parent >= 0) i->setCheckState(0, r["unloaded"].toBool() ? Qt::Unchecked : Qt::Checked);
+                made.insert(id, i);
+            }
+            t->expandAll();
+        };
+        connect(t, &QTreeWidget::itemChanged, this, [update](QTreeWidgetItem* i, int col) {
+            if (col != 0) return;
+            exec("selLoadSettings", QJsonObject{{"edit", true}, {"deferReference", i->checkState(0) != Qt::Checked}, {"args", QJsonArray{QString::number(i->data(0, Qt::UserRole).toInt())}}});
+            QTimer::singleShot(0, update);
+        });
+        connect(t, &QTreeWidget::itemSelectionChanged, this, [this, path, t] {
+            auto items = t->selectedItems();
+            if (items.isEmpty()) return;
+            fire(path, QJsonObject{{"selectFileNode", QString::number(items.first()->data(0, Qt::UserRole).toInt())}}, QJsonArray{"selectCommand"}, QJsonArray());
+        });
+        update();
+        connect(Host::get(), &Host::sceneChanged, t, update);
+        it->w = t;
+    } else if (k == "profilerTool") {
+        auto* v = new ProfilerView();
+        v->refresh();
+        connect(Host::get(), &Host::sceneChanged, v, [v] { v->refresh(); });
+        it->w = v;
     } else if (k == "keyframeOutliner") {
         auto* l = new QListWidget();
         l->setMinimumSize(120, 60);

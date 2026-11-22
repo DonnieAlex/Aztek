@@ -364,6 +364,23 @@ pub fn register_ui_names(s: &mut Session, list: &Value) {
     }
 }
 
+/// The current hotkey set's name and its file's text, for savePrefs -hotkeys.
+pub(crate) fn current_hotkey_set_file() -> (String, String) {
+    let set = with_ui(|u| u.hotkey_set.clone()).unwrap_or_else(|| "Aztek_Default".to_string());
+    let text = export_hotkeys(&set);
+    (set, text)
+}
+
+/// Writes the optionVars where the next session reads them, whether or not they are kept as they change.
+pub(crate) fn write_option_var_map(vars: &std::collections::BTreeMap<String, Value>) -> std::io::Result<()> {
+    let p = option_var_file();
+    if let Some(d) = p.parent() {
+        std::fs::create_dir_all(d)?;
+    }
+    let m: Map<String, Value> = vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    std::fs::write(p, Value::Object(m).to_string())
+}
+
 /// The keys the hotkey command has bound, with their name commands, as a hotkey set file.
 fn export_hotkeys(set: &str) -> String {
     let q = |s: &str| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));

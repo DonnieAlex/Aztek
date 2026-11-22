@@ -279,7 +279,7 @@ fn quote(t: &str) -> String {
 }
 
 /// -savePluginPrefs: each plug-in's autoload setting, as lines -loadPluginPrefs reads back.
-fn save_prefs(s: &mut Session) -> CmdResult {
+pub(crate) fn save_prefs(s: &mut Session) -> CmdResult {
     let rows = list_plugins(s);
     let mut text = String::from("// The plug-ins loaded at start, written by pluginInfo -savePluginPrefs.\n");
     for r in rows.as_array().into_iter().flatten() {

@@ -138,6 +138,15 @@ pub fn set_display_rgb(name: &str, rgba: [f64; 4]) {
     });
 }
 
+/// Every colour displayRGBColor was given, by name.
+pub fn display_rgb_all() -> Vec<(String, [f64; 4])> {
+    COLORS.with(|c| {
+        let mut v: Vec<(String, [f64; 4])> = c.borrow().rgb.iter().map(|(k, v)| (k.clone(), *v)).collect();
+        v.sort_by(|a, b| a.0.cmp(&b.0));
+        v
+    })
+}
+
 pub fn reset_display_rgb() {
     COLORS.with(|c| c.borrow_mut().rgb.clear());
 }
