@@ -6415,316 +6415,316 @@ cmdFileOutput	q	done	auto
 cmdFileOutput	query	done	auto
 cmdFileOutput	s	done	auto
 cmdFileOutput	status	done	auto
-cmdScrollFieldExecuter	acb	missing	
-cmdScrollFieldExecuter	ann	missing	
-cmdScrollFieldExecuter	annotation	missing	
-cmdScrollFieldExecuter	appendText	missing	
-cmdScrollFieldExecuter	at	missing	
-cmdScrollFieldExecuter	autoCloseBraces	missing	
-cmdScrollFieldExecuter	backgroundColor	missing	
-cmdScrollFieldExecuter	bgc	missing	
-cmdScrollFieldExecuter	cco	missing	
-cmdScrollFieldExecuter	cl	missing	
-cmdScrollFieldExecuter	clear	missing	
-cmdScrollFieldExecuter	clr	missing	
-cmdScrollFieldExecuter	commandCompletion	missing	
-cmdScrollFieldExecuter	copySelection	missing	
-cmdScrollFieldExecuter	cp	missing	
-cmdScrollFieldExecuter	ct	missing	
-cmdScrollFieldExecuter	currentLine	missing	
-cmdScrollFieldExecuter	cutSelection	missing	
-cmdScrollFieldExecuter	defineTemplate	missing	
-cmdScrollFieldExecuter	dgc	missing	
-cmdScrollFieldExecuter	docTag	missing	
-cmdScrollFieldExecuter	dpc	missing	
-cmdScrollFieldExecuter	dragCallback	missing	
-cmdScrollFieldExecuter	dropCallback	missing	
-cmdScrollFieldExecuter	dt	missing	
-cmdScrollFieldExecuter	dtg	missing	
-cmdScrollFieldExecuter	e	missing	
-cmdScrollFieldExecuter	ebg	missing	
-cmdScrollFieldExecuter	edit	missing	
-cmdScrollFieldExecuter	ekf	missing	
-cmdScrollFieldExecuter	en	missing	
-cmdScrollFieldExecuter	enable	missing	
-cmdScrollFieldExecuter	enableBackground	missing	
-cmdScrollFieldExecuter	enableKeyboardFocus	missing	
-cmdScrollFieldExecuter	ex	missing	
-cmdScrollFieldExecuter	exa	missing	
-cmdScrollFieldExecuter	exc	missing	
-cmdScrollFieldExecuter	execute	missing	
-cmdScrollFieldExecuter	executeAll	missing	
-cmdScrollFieldExecuter	exists	missing	
-cmdScrollFieldExecuter	fcc	missing	
-cmdScrollFieldExecuter	fileChangedCommand	missing	
-cmdScrollFieldExecuter	filename	missing	
-cmdScrollFieldExecuter	filterKeyPress	missing	
-cmdScrollFieldExecuter	fkp	missing	
-cmdScrollFieldExecuter	fn	missing	
-cmdScrollFieldExecuter	fpn	missing	
-cmdScrollFieldExecuter	fullPathName	missing	
-cmdScrollFieldExecuter	h	missing	
-cmdScrollFieldExecuter	hasFocus	missing	
-cmdScrollFieldExecuter	hasSelection	missing	
-cmdScrollFieldExecuter	height	missing	
-cmdScrollFieldExecuter	hf	missing	
-cmdScrollFieldExecuter	highlightColor	missing	
-cmdScrollFieldExecuter	hlc	missing	
-cmdScrollFieldExecuter	hsl	missing	
-cmdScrollFieldExecuter	insertText	missing	
-cmdScrollFieldExecuter	io	missing	
-cmdScrollFieldExecuter	isObscured	missing	
-cmdScrollFieldExecuter	it	missing	
-cmdScrollFieldExecuter	ld	missing	
-cmdScrollFieldExecuter	ldc	missing	
-cmdScrollFieldExecuter	ldf	missing	
-cmdScrollFieldExecuter	load	missing	
-cmdScrollFieldExecuter	loadContents	missing	
-cmdScrollFieldExecuter	loadFile	missing	
-cmdScrollFieldExecuter	m	missing	
-cmdScrollFieldExecuter	manage	missing	
-cmdScrollFieldExecuter	mcc	missing	
-cmdScrollFieldExecuter	mod	missing	
-cmdScrollFieldExecuter	modificationChangedCommand	missing	
-cmdScrollFieldExecuter	modified	missing	
-cmdScrollFieldExecuter	nbg	missing	
-cmdScrollFieldExecuter	nl	missing	
-cmdScrollFieldExecuter	noBackground	missing	
-cmdScrollFieldExecuter	npm	missing	
-cmdScrollFieldExecuter	numberOfLines	missing	
-cmdScrollFieldExecuter	numberOfPopupMenus	missing	
-cmdScrollFieldExecuter	objectPathCompletion	missing	
-cmdScrollFieldExecuter	opc	missing	
-cmdScrollFieldExecuter	p	missing	
-cmdScrollFieldExecuter	parent	missing	
-cmdScrollFieldExecuter	pasteSelection	missing	
-cmdScrollFieldExecuter	pma	missing	
-cmdScrollFieldExecuter	po	missing	
-cmdScrollFieldExecuter	popupMenuArray	missing	
-cmdScrollFieldExecuter	preventOverride	missing	
-cmdScrollFieldExecuter	pst	missing	
-cmdScrollFieldExecuter	q	missing	
-cmdScrollFieldExecuter	query	missing	
-cmdScrollFieldExecuter	rd	missing	
-cmdScrollFieldExecuter	redo	missing	
-cmdScrollFieldExecuter	removeStoredContents	missing	
-cmdScrollFieldExecuter	replaceAll	missing	
-cmdScrollFieldExecuter	rpa	missing	
-cmdScrollFieldExecuter	rsc	missing	
-cmdScrollFieldExecuter	sas	missing	
-cmdScrollFieldExecuter	saveFile	missing	
-cmdScrollFieldExecuter	saveSelection	missing	
-cmdScrollFieldExecuter	saveSelectionToShelf	missing	
-cmdScrollFieldExecuter	sbm	missing	
-cmdScrollFieldExecuter	sd	missing	
-cmdScrollFieldExecuter	searchAndSelect	missing	
-cmdScrollFieldExecuter	searchDown	missing	
-cmdScrollFieldExecuter	searchMatchCase	missing	
-cmdScrollFieldExecuter	searchString	missing	
-cmdScrollFieldExecuter	searchWraps	missing	
-cmdScrollFieldExecuter	select	missing	
-cmdScrollFieldExecuter	selectAll	missing	
-cmdScrollFieldExecuter	selectedText	missing	
-cmdScrollFieldExecuter	showLineNumbers	missing	
-cmdScrollFieldExecuter	showTabsAndSpaces	missing	
-cmdScrollFieldExecuter	showTooltipHelp	missing	
-cmdScrollFieldExecuter	sl	missing	
-cmdScrollFieldExecuter	sla	missing	
-cmdScrollFieldExecuter	sln	missing	
-cmdScrollFieldExecuter	slt	missing	
-cmdScrollFieldExecuter	smc	missing	
-cmdScrollFieldExecuter	source	missing	
-cmdScrollFieldExecuter	sourceType	missing	
-cmdScrollFieldExecuter	spacesPerTab	missing	
-cmdScrollFieldExecuter	spt	missing	
-cmdScrollFieldExecuter	src	missing	
-cmdScrollFieldExecuter	ss	missing	
-cmdScrollFieldExecuter	st	missing	
-cmdScrollFieldExecuter	statusBarMessage	missing	
-cmdScrollFieldExecuter	stc	missing	
-cmdScrollFieldExecuter	sth	missing	
-cmdScrollFieldExecuter	storeContents	missing	
-cmdScrollFieldExecuter	sts	missing	
-cmdScrollFieldExecuter	sv	missing	
-cmdScrollFieldExecuter	svf	missing	
-cmdScrollFieldExecuter	svs	missing	
-cmdScrollFieldExecuter	sw	missing	
-cmdScrollFieldExecuter	t	missing	
-cmdScrollFieldExecuter	tabsForIndent	missing	
-cmdScrollFieldExecuter	text	missing	
-cmdScrollFieldExecuter	textLength	missing	
-cmdScrollFieldExecuter	tfi	missing	
-cmdScrollFieldExecuter	tl	missing	
-cmdScrollFieldExecuter	ud	missing	
-cmdScrollFieldExecuter	undo	missing	
-cmdScrollFieldExecuter	useTemplate	missing	
-cmdScrollFieldExecuter	ut	missing	
-cmdScrollFieldExecuter	vcc	missing	
-cmdScrollFieldExecuter	vis	missing	
-cmdScrollFieldExecuter	visible	missing	
-cmdScrollFieldExecuter	visibleChangeCommand	missing	
-cmdScrollFieldExecuter	w	missing	
-cmdScrollFieldExecuter	width	missing	
-cmdScrollFieldReporter	ann	missing	
-cmdScrollFieldReporter	annotation	missing	
-cmdScrollFieldReporter	backgroundColor	missing	
-cmdScrollFieldReporter	bgc	missing	
-cmdScrollFieldReporter	clear	missing	
-cmdScrollFieldReporter	clr	missing	
-cmdScrollFieldReporter	copySelection	missing	
-cmdScrollFieldReporter	cp	missing	
-cmdScrollFieldReporter	ct	missing	
-cmdScrollFieldReporter	cutSelection	missing	
-cmdScrollFieldReporter	defineTemplate	missing	
-cmdScrollFieldReporter	dgc	missing	
-cmdScrollFieldReporter	docTag	missing	
-cmdScrollFieldReporter	dpc	missing	
-cmdScrollFieldReporter	dragCallback	missing	
-cmdScrollFieldReporter	dropCallback	missing	
-cmdScrollFieldReporter	dt	missing	
-cmdScrollFieldReporter	dtg	missing	
-cmdScrollFieldReporter	e	missing	
-cmdScrollFieldReporter	eac	missing	
-cmdScrollFieldReporter	ebg	missing	
-cmdScrollFieldReporter	echoAllCommands	missing	
-cmdScrollFieldReporter	edit	missing	
-cmdScrollFieldReporter	ekf	missing	
-cmdScrollFieldReporter	en	missing	
-cmdScrollFieldReporter	enable	missing	
-cmdScrollFieldReporter	enableBackground	missing	
-cmdScrollFieldReporter	enableKeyboardFocus	missing	
-cmdScrollFieldReporter	ex	missing	
-cmdScrollFieldReporter	exists	missing	
-cmdScrollFieldReporter	filterSourceType	missing	
-cmdScrollFieldReporter	fpn	missing	
-cmdScrollFieldReporter	fst	missing	
-cmdScrollFieldReporter	fullPathName	missing	
-cmdScrollFieldReporter	h	missing	
-cmdScrollFieldReporter	hasFocus	missing	
-cmdScrollFieldReporter	height	missing	
-cmdScrollFieldReporter	hf	missing	
-cmdScrollFieldReporter	highlightColor	missing	
-cmdScrollFieldReporter	hlc	missing	
-cmdScrollFieldReporter	io	missing	
-cmdScrollFieldReporter	isObscured	missing	
-cmdScrollFieldReporter	lineNumbers	missing	
-cmdScrollFieldReporter	ln	missing	
-cmdScrollFieldReporter	m	missing	
-cmdScrollFieldReporter	manage	missing	
-cmdScrollFieldReporter	nbg	missing	
-cmdScrollFieldReporter	noBackground	missing	
-cmdScrollFieldReporter	npm	missing	
-cmdScrollFieldReporter	numberOfPopupMenus	missing	
-cmdScrollFieldReporter	p	missing	
-cmdScrollFieldReporter	parent	missing	
-cmdScrollFieldReporter	pasteSelection	missing	
-cmdScrollFieldReporter	pma	missing	
-cmdScrollFieldReporter	po	missing	
-cmdScrollFieldReporter	popupMenuArray	missing	
-cmdScrollFieldReporter	preventOverride	missing	
-cmdScrollFieldReporter	pst	missing	
-cmdScrollFieldReporter	q	missing	
-cmdScrollFieldReporter	query	missing	
-cmdScrollFieldReporter	receiveFocusCommand	missing	
-cmdScrollFieldReporter	rfc	missing	
-cmdScrollFieldReporter	saveSelection	missing	
-cmdScrollFieldReporter	saveSelectionToShelf	missing	
-cmdScrollFieldReporter	sbm	missing	
-cmdScrollFieldReporter	se	missing	
-cmdScrollFieldReporter	select	missing	
-cmdScrollFieldReporter	selectAll	missing	
-cmdScrollFieldReporter	si	missing	
-cmdScrollFieldReporter	sl	missing	
-cmdScrollFieldReporter	sla	missing	
-cmdScrollFieldReporter	sr	missing	
-cmdScrollFieldReporter	sst	missing	
-cmdScrollFieldReporter	st	missing	
-cmdScrollFieldReporter	stackTrace	missing	
-cmdScrollFieldReporter	statusBarMessage	missing	
-cmdScrollFieldReporter	suppressErrors	missing	
-cmdScrollFieldReporter	suppressInfo	missing	
-cmdScrollFieldReporter	suppressResults	missing	
-cmdScrollFieldReporter	suppressStackTrace	missing	
-cmdScrollFieldReporter	suppressWarnings	missing	
-cmdScrollFieldReporter	sv	missing	
-cmdScrollFieldReporter	svs	missing	
-cmdScrollFieldReporter	sw	missing	
-cmdScrollFieldReporter	t	missing	
-cmdScrollFieldReporter	text	missing	
-cmdScrollFieldReporter	textLength	missing	
-cmdScrollFieldReporter	tl	missing	
-cmdScrollFieldReporter	useTemplate	missing	
-cmdScrollFieldReporter	ut	missing	
-cmdScrollFieldReporter	vcc	missing	
-cmdScrollFieldReporter	vis	missing	
-cmdScrollFieldReporter	visible	missing	
-cmdScrollFieldReporter	visibleChangeCommand	missing	
-cmdScrollFieldReporter	w	missing	
-cmdScrollFieldReporter	width	missing	
-cmdShell	ann	missing	
-cmdShell	annotation	missing	
-cmdShell	backgroundColor	missing	
-cmdShell	bgc	missing	
-cmdShell	c	missing	
-cmdShell	cl	missing	
-cmdShell	clear	missing	
-cmdShell	command	missing	
-cmdShell	defineTemplate	missing	
-cmdShell	dgc	missing	
-cmdShell	docTag	missing	
-cmdShell	dpc	missing	
-cmdShell	dragCallback	missing	
-cmdShell	dropCallback	missing	
-cmdShell	dt	missing	
-cmdShell	dtg	missing	
-cmdShell	e	missing	
-cmdShell	ebg	missing	
-cmdShell	edit	missing	
-cmdShell	ekf	missing	
-cmdShell	en	missing	
-cmdShell	enable	missing	
-cmdShell	enableBackground	missing	
-cmdShell	enableKeyboardFocus	missing	
-cmdShell	ex	missing	
-cmdShell	exists	missing	
-cmdShell	fpn	missing	
-cmdShell	fullPathName	missing	
-cmdShell	h	missing	
-cmdShell	height	missing	
-cmdShell	highlightColor	missing	
-cmdShell	hlc	missing	
-cmdShell	io	missing	
-cmdShell	isObscured	missing	
-cmdShell	m	missing	
-cmdShell	manage	missing	
-cmdShell	nbg	missing	
-cmdShell	nhl	missing	
-cmdShell	noBackground	missing	
-cmdShell	npm	missing	
-cmdShell	nsl	missing	
-cmdShell	numberOfHistoryLines	missing	
-cmdShell	numberOfPopupMenus	missing	
-cmdShell	numberOfSavedLines	missing	
-cmdShell	p	missing	
-cmdShell	parent	missing	
-cmdShell	pma	missing	
-cmdShell	po	missing	
-cmdShell	popupMenuArray	missing	
-cmdShell	pr	missing	
-cmdShell	preventOverride	missing	
-cmdShell	prompt	missing	
-cmdShell	q	missing	
-cmdShell	query	missing	
-cmdShell	sbm	missing	
-cmdShell	statusBarMessage	missing	
-cmdShell	useTemplate	missing	
-cmdShell	ut	missing	
-cmdShell	vcc	missing	
-cmdShell	vis	missing	
-cmdShell	visible	missing	
-cmdShell	visibleChangeCommand	missing	
-cmdShell	w	missing	
-cmdShell	width	missing	
+cmdScrollFieldExecuter	acb	done	auto
+cmdScrollFieldExecuter	ann	done	auto
+cmdScrollFieldExecuter	annotation	done	auto
+cmdScrollFieldExecuter	appendText	done	auto
+cmdScrollFieldExecuter	at	done	auto
+cmdScrollFieldExecuter	autoCloseBraces	done	auto
+cmdScrollFieldExecuter	backgroundColor	done	auto
+cmdScrollFieldExecuter	bgc	done	auto
+cmdScrollFieldExecuter	cco	done	auto
+cmdScrollFieldExecuter	cl	done	auto
+cmdScrollFieldExecuter	clear	done	auto
+cmdScrollFieldExecuter	clr	done	auto
+cmdScrollFieldExecuter	commandCompletion	done	auto
+cmdScrollFieldExecuter	copySelection	done	auto
+cmdScrollFieldExecuter	cp	done	auto
+cmdScrollFieldExecuter	ct	done	auto
+cmdScrollFieldExecuter	currentLine	done	auto
+cmdScrollFieldExecuter	cutSelection	done	auto
+cmdScrollFieldExecuter	defineTemplate	done	auto
+cmdScrollFieldExecuter	dgc	done	auto
+cmdScrollFieldExecuter	docTag	done	auto
+cmdScrollFieldExecuter	dpc	done	auto
+cmdScrollFieldExecuter	dragCallback	done	auto
+cmdScrollFieldExecuter	dropCallback	done	auto
+cmdScrollFieldExecuter	dt	done	auto
+cmdScrollFieldExecuter	dtg	done	auto
+cmdScrollFieldExecuter	e	done	auto
+cmdScrollFieldExecuter	ebg	done	auto
+cmdScrollFieldExecuter	edit	done	auto
+cmdScrollFieldExecuter	ekf	done	auto
+cmdScrollFieldExecuter	en	done	auto
+cmdScrollFieldExecuter	enable	done	auto
+cmdScrollFieldExecuter	enableBackground	done	auto
+cmdScrollFieldExecuter	enableKeyboardFocus	done	auto
+cmdScrollFieldExecuter	ex	done	auto
+cmdScrollFieldExecuter	exa	done	auto
+cmdScrollFieldExecuter	exc	done	auto
+cmdScrollFieldExecuter	execute	done	auto
+cmdScrollFieldExecuter	executeAll	done	auto
+cmdScrollFieldExecuter	exists	done	auto
+cmdScrollFieldExecuter	fcc	done	auto
+cmdScrollFieldExecuter	fileChangedCommand	done	auto
+cmdScrollFieldExecuter	filename	done	auto
+cmdScrollFieldExecuter	filterKeyPress	done	auto
+cmdScrollFieldExecuter	fkp	done	auto
+cmdScrollFieldExecuter	fn	done	auto
+cmdScrollFieldExecuter	fpn	done	auto
+cmdScrollFieldExecuter	fullPathName	done	auto
+cmdScrollFieldExecuter	h	done	auto
+cmdScrollFieldExecuter	hasFocus	done	auto
+cmdScrollFieldExecuter	hasSelection	done	auto
+cmdScrollFieldExecuter	height	done	auto
+cmdScrollFieldExecuter	hf	done	auto
+cmdScrollFieldExecuter	highlightColor	done	auto
+cmdScrollFieldExecuter	hlc	done	auto
+cmdScrollFieldExecuter	hsl	done	auto
+cmdScrollFieldExecuter	insertText	done	auto
+cmdScrollFieldExecuter	io	done	auto
+cmdScrollFieldExecuter	isObscured	done	auto
+cmdScrollFieldExecuter	it	done	auto
+cmdScrollFieldExecuter	ld	done	auto
+cmdScrollFieldExecuter	ldc	done	auto
+cmdScrollFieldExecuter	ldf	done	auto
+cmdScrollFieldExecuter	load	done	auto
+cmdScrollFieldExecuter	loadContents	done	auto
+cmdScrollFieldExecuter	loadFile	done	auto
+cmdScrollFieldExecuter	m	done	auto
+cmdScrollFieldExecuter	manage	done	auto
+cmdScrollFieldExecuter	mcc	done	auto
+cmdScrollFieldExecuter	mod	done	auto
+cmdScrollFieldExecuter	modificationChangedCommand	done	auto
+cmdScrollFieldExecuter	modified	done	auto
+cmdScrollFieldExecuter	nbg	done	auto
+cmdScrollFieldExecuter	nl	done	auto
+cmdScrollFieldExecuter	noBackground	done	auto
+cmdScrollFieldExecuter	npm	done	auto
+cmdScrollFieldExecuter	numberOfLines	done	auto
+cmdScrollFieldExecuter	numberOfPopupMenus	done	auto
+cmdScrollFieldExecuter	objectPathCompletion	done	auto
+cmdScrollFieldExecuter	opc	done	auto
+cmdScrollFieldExecuter	p	done	auto
+cmdScrollFieldExecuter	parent	done	auto
+cmdScrollFieldExecuter	pasteSelection	done	auto
+cmdScrollFieldExecuter	pma	done	auto
+cmdScrollFieldExecuter	po	done	auto
+cmdScrollFieldExecuter	popupMenuArray	done	auto
+cmdScrollFieldExecuter	preventOverride	done	auto
+cmdScrollFieldExecuter	pst	done	auto
+cmdScrollFieldExecuter	q	done	auto
+cmdScrollFieldExecuter	query	done	auto
+cmdScrollFieldExecuter	rd	done	auto
+cmdScrollFieldExecuter	redo	done	auto
+cmdScrollFieldExecuter	removeStoredContents	done	auto
+cmdScrollFieldExecuter	replaceAll	done	auto
+cmdScrollFieldExecuter	rpa	done	auto
+cmdScrollFieldExecuter	rsc	done	auto
+cmdScrollFieldExecuter	sas	done	auto
+cmdScrollFieldExecuter	saveFile	done	auto
+cmdScrollFieldExecuter	saveSelection	done	auto
+cmdScrollFieldExecuter	saveSelectionToShelf	done	auto
+cmdScrollFieldExecuter	sbm	done	auto
+cmdScrollFieldExecuter	sd	done	auto
+cmdScrollFieldExecuter	searchAndSelect	done	auto
+cmdScrollFieldExecuter	searchDown	done	auto
+cmdScrollFieldExecuter	searchMatchCase	done	auto
+cmdScrollFieldExecuter	searchString	done	auto
+cmdScrollFieldExecuter	searchWraps	done	auto
+cmdScrollFieldExecuter	select	done	auto
+cmdScrollFieldExecuter	selectAll	done	auto
+cmdScrollFieldExecuter	selectedText	done	auto
+cmdScrollFieldExecuter	showLineNumbers	done	auto
+cmdScrollFieldExecuter	showTabsAndSpaces	done	auto
+cmdScrollFieldExecuter	showTooltipHelp	done	auto
+cmdScrollFieldExecuter	sl	done	auto
+cmdScrollFieldExecuter	sla	done	auto
+cmdScrollFieldExecuter	sln	done	auto
+cmdScrollFieldExecuter	slt	done	auto
+cmdScrollFieldExecuter	smc	done	auto
+cmdScrollFieldExecuter	source	done	auto
+cmdScrollFieldExecuter	sourceType	done	auto
+cmdScrollFieldExecuter	spacesPerTab	done	auto
+cmdScrollFieldExecuter	spt	done	auto
+cmdScrollFieldExecuter	src	done	auto
+cmdScrollFieldExecuter	ss	done	auto
+cmdScrollFieldExecuter	st	done	auto
+cmdScrollFieldExecuter	statusBarMessage	done	auto
+cmdScrollFieldExecuter	stc	done	auto
+cmdScrollFieldExecuter	sth	done	auto
+cmdScrollFieldExecuter	storeContents	done	auto
+cmdScrollFieldExecuter	sts	done	auto
+cmdScrollFieldExecuter	sv	done	auto
+cmdScrollFieldExecuter	svf	done	auto
+cmdScrollFieldExecuter	svs	done	auto
+cmdScrollFieldExecuter	sw	done	auto
+cmdScrollFieldExecuter	t	done	auto
+cmdScrollFieldExecuter	tabsForIndent	done	auto
+cmdScrollFieldExecuter	text	done	auto
+cmdScrollFieldExecuter	textLength	done	auto
+cmdScrollFieldExecuter	tfi	done	auto
+cmdScrollFieldExecuter	tl	done	auto
+cmdScrollFieldExecuter	ud	done	auto
+cmdScrollFieldExecuter	undo	done	auto
+cmdScrollFieldExecuter	useTemplate	done	auto
+cmdScrollFieldExecuter	ut	done	auto
+cmdScrollFieldExecuter	vcc	done	auto
+cmdScrollFieldExecuter	vis	done	auto
+cmdScrollFieldExecuter	visible	done	auto
+cmdScrollFieldExecuter	visibleChangeCommand	done	auto
+cmdScrollFieldExecuter	w	done	auto
+cmdScrollFieldExecuter	width	done	auto
+cmdScrollFieldReporter	ann	done	auto
+cmdScrollFieldReporter	annotation	done	auto
+cmdScrollFieldReporter	backgroundColor	done	auto
+cmdScrollFieldReporter	bgc	done	auto
+cmdScrollFieldReporter	clear	done	auto
+cmdScrollFieldReporter	clr	done	auto
+cmdScrollFieldReporter	copySelection	done	auto
+cmdScrollFieldReporter	cp	done	auto
+cmdScrollFieldReporter	ct	done	auto
+cmdScrollFieldReporter	cutSelection	done	auto
+cmdScrollFieldReporter	defineTemplate	done	auto
+cmdScrollFieldReporter	dgc	done	auto
+cmdScrollFieldReporter	docTag	done	auto
+cmdScrollFieldReporter	dpc	done	auto
+cmdScrollFieldReporter	dragCallback	done	auto
+cmdScrollFieldReporter	dropCallback	done	auto
+cmdScrollFieldReporter	dt	done	auto
+cmdScrollFieldReporter	dtg	done	auto
+cmdScrollFieldReporter	e	done	auto
+cmdScrollFieldReporter	eac	done	auto
+cmdScrollFieldReporter	ebg	done	auto
+cmdScrollFieldReporter	echoAllCommands	done	auto
+cmdScrollFieldReporter	edit	done	auto
+cmdScrollFieldReporter	ekf	done	auto
+cmdScrollFieldReporter	en	done	auto
+cmdScrollFieldReporter	enable	done	auto
+cmdScrollFieldReporter	enableBackground	done	auto
+cmdScrollFieldReporter	enableKeyboardFocus	done	auto
+cmdScrollFieldReporter	ex	done	auto
+cmdScrollFieldReporter	exists	done	auto
+cmdScrollFieldReporter	filterSourceType	done	auto
+cmdScrollFieldReporter	fpn	done	auto
+cmdScrollFieldReporter	fst	done	auto
+cmdScrollFieldReporter	fullPathName	done	auto
+cmdScrollFieldReporter	h	done	auto
+cmdScrollFieldReporter	hasFocus	done	auto
+cmdScrollFieldReporter	height	done	auto
+cmdScrollFieldReporter	hf	done	auto
+cmdScrollFieldReporter	highlightColor	done	auto
+cmdScrollFieldReporter	hlc	done	auto
+cmdScrollFieldReporter	io	done	auto
+cmdScrollFieldReporter	isObscured	done	auto
+cmdScrollFieldReporter	lineNumbers	done	auto
+cmdScrollFieldReporter	ln	done	auto
+cmdScrollFieldReporter	m	done	auto
+cmdScrollFieldReporter	manage	done	auto
+cmdScrollFieldReporter	nbg	done	auto
+cmdScrollFieldReporter	noBackground	done	auto
+cmdScrollFieldReporter	npm	done	auto
+cmdScrollFieldReporter	numberOfPopupMenus	done	auto
+cmdScrollFieldReporter	p	done	auto
+cmdScrollFieldReporter	parent	done	auto
+cmdScrollFieldReporter	pasteSelection	done	auto
+cmdScrollFieldReporter	pma	done	auto
+cmdScrollFieldReporter	po	done	auto
+cmdScrollFieldReporter	popupMenuArray	done	auto
+cmdScrollFieldReporter	preventOverride	done	auto
+cmdScrollFieldReporter	pst	done	auto
+cmdScrollFieldReporter	q	done	auto
+cmdScrollFieldReporter	query	done	auto
+cmdScrollFieldReporter	receiveFocusCommand	done	auto
+cmdScrollFieldReporter	rfc	done	auto
+cmdScrollFieldReporter	saveSelection	done	auto
+cmdScrollFieldReporter	saveSelectionToShelf	done	auto
+cmdScrollFieldReporter	sbm	done	auto
+cmdScrollFieldReporter	se	done	auto
+cmdScrollFieldReporter	select	done	auto
+cmdScrollFieldReporter	selectAll	done	auto
+cmdScrollFieldReporter	si	done	auto
+cmdScrollFieldReporter	sl	done	auto
+cmdScrollFieldReporter	sla	done	auto
+cmdScrollFieldReporter	sr	done	auto
+cmdScrollFieldReporter	sst	done	auto
+cmdScrollFieldReporter	st	done	auto
+cmdScrollFieldReporter	stackTrace	done	auto
+cmdScrollFieldReporter	statusBarMessage	done	auto
+cmdScrollFieldReporter	suppressErrors	done	auto
+cmdScrollFieldReporter	suppressInfo	done	auto
+cmdScrollFieldReporter	suppressResults	done	auto
+cmdScrollFieldReporter	suppressStackTrace	done	auto
+cmdScrollFieldReporter	suppressWarnings	done	auto
+cmdScrollFieldReporter	sv	done	auto
+cmdScrollFieldReporter	svs	done	auto
+cmdScrollFieldReporter	sw	done	auto
+cmdScrollFieldReporter	t	done	auto
+cmdScrollFieldReporter	text	done	auto
+cmdScrollFieldReporter	textLength	done	auto
+cmdScrollFieldReporter	tl	done	auto
+cmdScrollFieldReporter	useTemplate	done	auto
+cmdScrollFieldReporter	ut	done	auto
+cmdScrollFieldReporter	vcc	done	auto
+cmdScrollFieldReporter	vis	done	auto
+cmdScrollFieldReporter	visible	done	auto
+cmdScrollFieldReporter	visibleChangeCommand	done	auto
+cmdScrollFieldReporter	w	done	auto
+cmdScrollFieldReporter	width	done	auto
+cmdShell	ann	done	auto
+cmdShell	annotation	done	auto
+cmdShell	backgroundColor	done	auto
+cmdShell	bgc	done	auto
+cmdShell	c	done	auto
+cmdShell	cl	done	auto
+cmdShell	clear	done	auto
+cmdShell	command	done	auto
+cmdShell	defineTemplate	done	auto
+cmdShell	dgc	done	auto
+cmdShell	docTag	done	auto
+cmdShell	dpc	done	auto
+cmdShell	dragCallback	done	auto
+cmdShell	dropCallback	done	auto
+cmdShell	dt	done	auto
+cmdShell	dtg	done	auto
+cmdShell	e	done	auto
+cmdShell	ebg	done	auto
+cmdShell	edit	done	auto
+cmdShell	ekf	done	auto
+cmdShell	en	done	auto
+cmdShell	enable	done	auto
+cmdShell	enableBackground	done	auto
+cmdShell	enableKeyboardFocus	done	auto
+cmdShell	ex	done	auto
+cmdShell	exists	done	auto
+cmdShell	fpn	done	auto
+cmdShell	fullPathName	done	auto
+cmdShell	h	done	auto
+cmdShell	height	done	auto
+cmdShell	highlightColor	done	auto
+cmdShell	hlc	done	auto
+cmdShell	io	done	auto
+cmdShell	isObscured	done	auto
+cmdShell	m	done	auto
+cmdShell	manage	done	auto
+cmdShell	nbg	done	auto
+cmdShell	nhl	done	auto
+cmdShell	noBackground	done	auto
+cmdShell	npm	done	auto
+cmdShell	nsl	done	auto
+cmdShell	numberOfHistoryLines	done	auto
+cmdShell	numberOfPopupMenus	done	auto
+cmdShell	numberOfSavedLines	done	auto
+cmdShell	p	done	auto
+cmdShell	parent	done	auto
+cmdShell	pma	done	auto
+cmdShell	po	done	auto
+cmdShell	popupMenuArray	done	auto
+cmdShell	pr	done	auto
+cmdShell	preventOverride	done	auto
+cmdShell	prompt	done	auto
+cmdShell	q	done	auto
+cmdShell	query	done	auto
+cmdShell	sbm	done	auto
+cmdShell	statusBarMessage	done	auto
+cmdShell	useTemplate	done	auto
+cmdShell	ut	done	auto
+cmdShell	vcc	done	auto
+cmdShell	vis	done	auto
+cmdShell	visible	done	auto
+cmdShell	visibleChangeCommand	done	auto
+cmdShell	w	done	auto
+cmdShell	width	done	auto
 collision	e	missing	
 collision	edit	missing	
 collision	f	missing	
@@ -6759,22 +6759,22 @@ colorAtPoint	u	missing
 colorAtPoint	v	missing	
 colorAtPoint	xu	missing	
 colorAtPoint	xv	missing	
-colorEditor	a	missing	
-colorEditor	alpha	missing	
-colorEditor	hsv	missing	
-colorEditor	hsvValue	missing	
-colorEditor	m	missing	
-colorEditor	mini	missing	
-colorEditor	p	missing	
-colorEditor	parent	missing	
-colorEditor	pos	missing	
-colorEditor	position	missing	
-colorEditor	q	missing	
-colorEditor	query	missing	
-colorEditor	r	missing	
-colorEditor	result	missing	
-colorEditor	rgb	missing	
-colorEditor	rgbValue	missing	
+colorEditor	a	done	auto
+colorEditor	alpha	done	auto
+colorEditor	hsv	done	auto
+colorEditor	hsvValue	done	auto
+colorEditor	m	done	auto
+colorEditor	mini	done	auto
+colorEditor	p	done	auto
+colorEditor	parent	done	auto
+colorEditor	pos	done	auto
+colorEditor	position	done	auto
+colorEditor	q	done	auto
+colorEditor	query	done	auto
+colorEditor	r	done	auto
+colorEditor	result	done	auto
+colorEditor	rgb	done	auto
+colorEditor	rgbValue	done	auto
 colorIndex	active	done	auto
 colorIndex	atv	done	auto
 colorIndex	dor	done	auto

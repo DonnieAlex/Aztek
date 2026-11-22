@@ -158,6 +158,7 @@ impl Core {
         crate::batch::echo(&text, kind);
         crate::environment::line(&text);
         crate::sys_prefs::history_line(&text);
+        crate::cmd_fields::history_line(&text, kind);
         self.log.push(LogLine { text, kind });
     }
 
@@ -382,7 +383,11 @@ impl Core {
         let mut scripts = crate::script_jobs::scan(&mut self.s);
         scripts.extend(crate::ee_listen::due(&self.s));
         let deferred = crate::script_jobs::take_deferred();
+        let watched = crate::cmd_fields::file_changes();
         self.drain_captured();
+        for (cb, args) in watched {
+            self.run_callback(&cb, &args);
+        }
         self.run_callbacks(scripts);
         self.run_callbacks(deferred);
         self.run_event_procs();

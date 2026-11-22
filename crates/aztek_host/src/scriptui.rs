@@ -321,6 +321,7 @@ impl Model {
         for g in gone {
             if let Some(c) = self.controls.remove(&g) {
                 GONE.with(|l| l.borrow_mut().push(c.path.clone()));
+                crate::cmd_fields::forget(&c.path);
                 if let Some(cb) = c.props.get("closeCommand") {
                     close.push(cb.clone());
                 }
@@ -458,6 +459,9 @@ const KINDS: &[(&str, &str)] = &[
     ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a widthHeight:wh:a2"),
     ("timeRangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a"),
     ("channelBox", crate::channel_box::FLAGS),
+    ("cmdScrollFieldExecuter", crate::cmd_fields::EXECUTER),
+    ("cmdScrollFieldReporter", crate::cmd_fields::REPORTER),
+    ("cmdShell", crate::cmd_fields::SHELL),
 ];
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
@@ -1275,6 +1279,29 @@ pub(crate) fn command_for(cmd: &str, a: &Args) -> CmdResult {
 /// Every control of a kind, as (path, flags).
 pub(crate) fn controls_of(kind: &str) -> Vec<(String, Map<String, Value>)> {
     with_model(|m| m.controls.values().filter(|c| c.kind == kind).map(|c| (c.path.clone(), c.props.clone())).collect())
+}
+
+/// As `controls_of`, or None while the model is in use further up the stack (a line printed from inside a command).
+pub(crate) fn try_controls_of(kind: &str) -> Option<Vec<(String, Map<String, Value>)>> {
+    UI.with(|m| {
+        let mut m = m.try_borrow_mut().ok()?;
+        ensure_built_in(&mut m);
+        Some(m.controls.values().filter(|c| c.kind == kind).map(|c| (c.path.clone(), c.props.clone())).collect())
+    })
+}
+
+/// As `model_edit`, doing nothing while the model is in use further up the stack.
+pub(crate) fn try_model_edit(path: &str, flags: &Map<String, Value>) {
+    UI.with(|m| {
+        let Ok(mut m) = m.try_borrow_mut() else { return };
+        let Some(id) = m.find(path) else { return };
+        if let Ok(changed) = apply(&mut m, id, flags) {
+            if !changed.is_empty() {
+                let p = m.get(id).unwrap().path.clone();
+                op(json!({"op": "edit", "path": p, "props": changed}));
+            }
+        }
+    })
 }
 
 fn tab_labels(m: &Model, id: Id) -> Map<String, Value> {
@@ -2200,6 +2227,15 @@ fn after_create(cmd: &str, result: &CmdResult, a: &Args) {
 
 /// `{"path", "set": {flag: value}, "fire": [flag...], "args": [...], "closed": bool}`. Returns the callbacks to run.
 pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
+    let field = crate::cmd_fields::before_shell_event(ev);
+    let mut out = shell_event_model(ev);
+    if let Some(b) = field {
+        out.extend(crate::cmd_fields::after_shell_event(b, ev));
+    }
+    out
+}
+
+fn shell_event_model(ev: &Value) -> Vec<(Value, Vec<Value>)> {
     let path = ev["path"].as_str().unwrap_or("");
     let args: Vec<Value> = ev["args"].as_array().cloned().unwrap_or_default();
     with_model(|m| {
@@ -3189,6 +3225,9 @@ pub fn register(s: &mut Session) {
             if cmd == "channelBox" {
                 return crate::channel_box::command(s, a);
             }
+            if crate::cmd_fields::is_field(cmd) {
+                return crate::cmd_fields::command(s, cmd, a);
+            }
             let r = control_command(cmd, a);
             if !a.bool("query") && !a.bool("edit") {
                 after_create(cmd, &r, a);
@@ -3238,6 +3277,7 @@ pub fn register(s: &mut Session) {
     }
 
     crate::attr_ui::register(s);
+    crate::cmd_fields::register(s);
 
     for (name, spec) in [
         ("toolCollection", "clear:cl:b select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),

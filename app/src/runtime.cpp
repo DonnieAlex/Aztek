@@ -979,6 +979,10 @@ void MainWindow::handle_ui_request(const QString& r) {
         // scriptEditorInfo -clearHistory: the history pane, and what was kept for it before it opened.
         log_before_editor_ = QJsonArray();
         if (script_editor_) script_editor_->clear_history();
+    } else if (name == "shelfAdd") {
+        // A field's -saveSelectionToShelf: a button on the current shelf.
+        QJsonObject o = parse(payload).toObject();
+        if (shelf_bar_) shelf_bar_->add_to_current(o["label"].toString(), "script", o["command"].toString(), o["sourceType"].toString("mel"));
     } else if (name == "scriptEditorInput") {
         if (script_editor_) script_editor_->set_input(payload);
     } else if (name == "aboutBox") {

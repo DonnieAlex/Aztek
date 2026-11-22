@@ -17,6 +17,9 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QClipboard>
+#include <QFontDatabase>
+#include <QTextBlock>
 #include <QCloseEvent>
 #include <QColorDialog>
 #include <QComboBox>
@@ -1534,6 +1537,261 @@ void ScriptUi::fire(const QString& path, const QJsonObject& set, const QJsonArra
     sync();
 }
 
+namespace {
+
+// cmdScrollFieldExecuter, cmdScrollFieldReporter and cmdShell: the script editor's fields as scripts build them. The core
+// keeps the text, caret and selection; this reports what the user types and does what the keys mean in each.
+class CmdField : public QPlainTextEdit {
+public:
+    QString kind;
+    // What the user did: values for the core and the flags to fire.
+    std::function<void(const QJsonObject&, const QJsonArray&, const QJsonArray&)> report;
+    bool numbers = false, auto_braces = true, tabs_for_indent = true, filter_keys = false;
+    int spaces_per_tab = 4;
+    QString path;
+    // cmdShell: the prompt, where typing starts, and the lines entered.
+    QString prompt;
+    int input_from = 0;
+    QStringList history;
+    int history_at = -1;
+
+    explicit CmdField(const QString& k) : kind(k) {
+        setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        setLineWrapMode(QPlainTextEdit::NoWrap);
+        gutter_ = new Gutter(this);
+        connect(this, &QPlainTextEdit::blockCountChanged, this, [this] { fit_gutter(); });
+        connect(this, &QPlainTextEdit::updateRequest, this, [this](const QRect& r, int dy) {
+            if (dy) gutter_->scroll(0, dy);
+            else gutter_->update(0, r.y(), gutter_->width(), r.height());
+        });
+        if (kind == "cmdScrollFieldReporter") setReadOnly(true);
+        if (kind != "cmdShell") {
+            connect(this, &QPlainTextEdit::textChanged, this, [this] {
+                if (kind == "cmdScrollFieldExecuter") send(true);
+            });
+            connect(this, &QPlainTextEdit::cursorPositionChanged, this, [this] { send(false); });
+            connect(this, &QPlainTextEdit::selectionChanged, this, [this] { send(false); });
+        }
+        fit_gutter();
+    }
+
+    void set_numbers(bool on) {
+        numbers = on;
+        fit_gutter();
+    }
+
+    void set_tab_width() { setTabStopDistance(fontMetrics().horizontalAdvance(' ') * std::max(1, spaces_per_tab)); }
+
+    void show_marks(bool on) {
+        QTextOption o = document()->defaultTextOption();
+        o.setFlags(on ? (o.flags() | QTextOption::ShowTabsAndSpaces) : (o.flags() & ~QTextOption::ShowTabsAndSpaces));
+        document()->setDefaultTextOption(o);
+    }
+
+    // The core's text and place, shown without echoing them back.
+    void take_props(const QJsonObject& props) {
+        QSignalBlocker block(this);
+        if (props.contains("text") && props["text"].toString() != toPlainText()) {
+            setPlainText(props["text"].toString());
+            if (kind == "cmdShell") {
+                input_from = toPlainText().size();
+                moveCursor(QTextCursor::End);
+                history_at = -1;
+            }
+        }
+        if (props.contains("__append")) {
+            QTextCursor c(document());
+            c.movePosition(QTextCursor::End);
+            c.insertText(props["__append"].toString());
+            moveCursor(QTextCursor::End);
+            ensureCursorVisible();
+        }
+        if (kind != "cmdShell" && (props.contains("__caret") || props.contains("__sel"))) {
+            const int n = toPlainText().size();
+            int caret = std::clamp(int(as_number(props.value("__caret"), textCursor().position())), 0, n);
+            QJsonArray sel = flat(props.value("__sel"));
+            QTextCursor c = textCursor();
+            if (sel.size() >= 2) {
+                int a = std::clamp(int(as_number(sel[0])), 0, n), b = std::clamp(int(as_number(sel[1])), 0, n);
+                if (a != b) {
+                    c.setPosition(caret == a ? b : a);
+                    c.setPosition(caret, QTextCursor::KeepAnchor);
+                } else {
+                    c.setPosition(caret);
+                }
+            } else {
+                c.setPosition(caret);
+            }
+            setTextCursor(c);
+        }
+        if (props.contains("__history")) {
+            history.clear();
+            for (const QJsonValue& v : props["__history"].toArray()) history << v.toString();
+        }
+        if (props.contains("prompt")) prompt = props["prompt"].toString();
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent* e) override {
+        if (kind == "cmdShell") return shell_key(e);
+        if (kind == "cmdScrollFieldExecuter") {
+            if (filter_keys && filtered(e)) return;
+            const bool enter = e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return;
+            // Ctrl+Enter and the keypad's Enter run the selection, or all the text.
+            if ((e->key() == Qt::Key_Return && (e->modifiers() & Qt::ControlModifier)) || (e->key() == Qt::Key_Enter && (e->modifiers() & Qt::KeypadModifier))) {
+                report(QJsonObject(), QJsonArray{"__exec"}, QJsonArray());
+                return;
+            }
+            if (e->key() == Qt::Key_Tab && !tabs_for_indent && !(e->modifiers() & Qt::ControlModifier)) {
+                insertPlainText(QString(std::max(1, spaces_per_tab), ' '));
+                return;
+            }
+            if (enter && auto_braces) {
+                QTextCursor c = textCursor();
+                const QString line = c.block().text().left(c.positionInBlock());
+                if (line.trimmed().endsWith('{')) {
+                    QString indent;
+                    for (QChar ch : line) {
+                        if (ch != ' ' && ch != '\t') break;
+                        indent += ch;
+                    }
+                    const QString step = tabs_for_indent ? QString("\t") : QString(std::max(1, spaces_per_tab), ' ');
+                    c.beginEditBlock();
+                    c.insertText("\n" + indent + step);
+                    const int at = c.position();
+                    c.insertText("\n" + indent + "}");
+                    c.endEditBlock();
+                    c.setPosition(at);
+                    setTextCursor(c);
+                    return;
+                }
+            }
+        }
+        QPlainTextEdit::keyPressEvent(e);
+    }
+
+    void focusInEvent(QFocusEvent* e) override {
+        QPlainTextEdit::focusInEvent(e);
+        if (report) report(QJsonObject{{"hasFocus", true}}, QJsonArray{"receiveFocusCommand"}, QJsonArray());
+    }
+
+    void focusOutEvent(QFocusEvent* e) override {
+        QPlainTextEdit::focusOutEvent(e);
+        if (report) report(QJsonObject{{"hasFocus", false}}, QJsonArray(), QJsonArray());
+    }
+
+    void resizeEvent(QResizeEvent* e) override {
+        QPlainTextEdit::resizeEvent(e);
+        QRect r = contentsRect();
+        gutter_->setGeometry(QRect(r.left(), r.top(), gutter_width(), r.height()));
+    }
+
+private:
+    struct Gutter : QWidget {
+        CmdField* f;
+        explicit Gutter(CmdField* field) : QWidget(field), f(field) {}
+        QSize sizeHint() const override { return QSize(f->gutter_width(), 0); }
+        void paintEvent(QPaintEvent* e) override { f->paint_gutter(e); }
+    };
+    Gutter* gutter_ = nullptr;
+
+    int gutter_width() const {
+        if (!numbers) return 0;
+        int digits = QString::number(std::max(1, blockCount())).size();
+        return 8 + fontMetrics().horizontalAdvance('9') * std::max(2, digits);
+    }
+
+    void fit_gutter() {
+        setViewportMargins(gutter_width(), 0, 0, 0);
+        gutter_->setVisible(numbers);
+    }
+
+    void paint_gutter(QPaintEvent* e) {
+        QPainter p(gutter_);
+        p.fillRect(e->rect(), palette().color(QPalette::AlternateBase));
+        p.setPen(palette().color(QPalette::PlaceholderText));
+        QTextBlock b = firstVisibleBlock();
+        int top = int(blockBoundingGeometry(b).translated(contentOffset()).top());
+        while (b.isValid() && top <= e->rect().bottom()) {
+            int bottom = top + int(blockBoundingRect(b).height());
+            if (b.isVisible() && bottom >= e->rect().top())
+                p.drawText(0, top, gutter_->width() - 4, fontMetrics().height(), Qt::AlignRight, QString::number(b.blockNumber() + 1));
+            b = b.next();
+            top = bottom;
+        }
+    }
+
+    void send(bool with_text) {
+        if (!report) return;
+        QTextCursor c = textCursor();
+        QJsonObject set{{"__caret", c.position()}, {"__sel", QJsonArray{c.selectionStart(), c.selectionEnd()}}};
+        if (with_text) set.insert("text", toPlainText());
+        report(set, QJsonArray(), QJsonArray());
+    }
+
+    // -filterKeyPress: the script sees the key first; 1 back means it took it.
+    bool filtered(QKeyEvent* e) {
+        int mods = 0;
+        if (e->modifiers() & Qt::ShiftModifier) mods |= 1;
+        if (e->modifiers() & Qt::ControlModifier) mods |= 4;
+        if (e->modifiers() & Qt::AltModifier) mods |= 8;
+        if (e->modifiers() & Qt::MetaModifier) mods |= 16;
+        static const QHash<int, QString> names{{Qt::Key_Up, "Up"}, {Qt::Key_Down, "Down"}, {Qt::Key_Right, "Right"}, {Qt::Key_Left, "Left"}, {Qt::Key_Home, "Home"}, {Qt::Key_End, "End"}, {Qt::Key_PageUp, "Page_Up"}, {Qt::Key_PageDown, "Page_Down"}, {Qt::Key_Insert, "Insert"}, {Qt::Key_Return, "Return"}, {Qt::Key_Enter, "Return"}, {Qt::Key_Space, "Space"}, {Qt::Key_Tab, "Tab"}, {Qt::Key_Backspace, "Backspace"}, {Qt::Key_Delete, "Delete"}, {Qt::Key_Escape, "Escape"}};
+        QString key = names.value(e->key());
+        if (key.isEmpty() && e->key() >= Qt::Key_F1 && e->key() <= Qt::Key_F12) key = "F" + QString::number(e->key() - Qt::Key_F1 + 1);
+        if (key.isEmpty() && !e->text().isEmpty() && e->text()[0].isPrint()) key = e->text().left(1);
+        if (key.isEmpty() && e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) key = QString(QChar('a' + (e->key() - Qt::Key_A)));
+        if (key.isEmpty()) return false;
+        QByteArray call = QJsonDocument(QJsonObject{{"args", QJsonArray{path, mods, key}}}).toJson(QJsonDocument::Compact);
+        char* raw = aztek_ask("aztekCmdFieldKey", call.constData());
+        if (!raw) return false;
+        QJsonObject r = parse(take(raw)).toObject();
+        return as_number(r.value("ok")) != 0;
+    }
+
+    QString input() const { return toPlainText().mid(input_from); }
+
+    void set_input(const QString& t) {
+        QTextCursor c(document());
+        c.setPosition(input_from);
+        c.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+        c.insertText(t);
+        moveCursor(QTextCursor::End);
+    }
+
+    // The shell: typing only after the prompt, Enter runs the line, the arrows walk the lines entered before.
+    void shell_key(QKeyEvent* e) {
+        QTextCursor c = textCursor();
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            const QString line = input();
+            report(QJsonObject(), QJsonArray{"__shellRun"}, QJsonArray{line});
+            return;
+        }
+        if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down) {
+            if (history.isEmpty()) return;
+            if (e->key() == Qt::Key_Up) history_at = history_at < 0 ? int(history.size()) - 1 : std::max(0, history_at - 1);
+            else history_at = history_at < 0 ? -1 : history_at + 1;
+            if (history_at >= int(history.size())) history_at = -1;
+            set_input(history_at < 0 ? QString() : history[history_at]);
+            return;
+        }
+        const bool moves = e->matches(QKeySequence::Copy) || e->key() == Qt::Key_Left || e->key() == Qt::Key_Right || e->key() == Qt::Key_PageUp || e->key() == Qt::Key_PageDown;
+        if (!moves && (c.selectionStart() < input_from || c.position() < input_from)) {
+            moveCursor(QTextCursor::End);
+            c = textCursor();
+        }
+        if ((e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Left) && c.position() <= input_from && !c.hasSelection()) return;
+        if (e->key() == Qt::Key_Home) {
+            c.setPosition(input_from, (e->modifiers() & Qt::ShiftModifier) ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor);
+            setTextCursor(c);
+            return;
+        }
+        QPlainTextEdit::keyPressEvent(e);
+    }
+};
+
+} // namespace
+
 void ScriptUi::build_control(Item* it, const QJsonObject& props) {
     const QString& k = it->kind;
     const QString path = it->path;
@@ -1586,6 +1844,14 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         });
         connect(e, &QLineEdit::returnPressed, this, [this, path, e] { fire(path, QJsonObject{{"text", e->text()}}, QJsonArray{"enterCommand"}, QJsonArray{e->text()}); });
         it->w = e;
+    } else if (k == "cmdScrollFieldExecuter" || k == "cmdScrollFieldReporter" || k == "cmdShell") {
+        auto* f = new CmdField(k);
+        f->path = path;
+        f->report = [this, path](const QJsonObject& set, const QJsonArray& flags, const QJsonArray& args) { fire(path, set, flags, args); };
+        f->set_numbers(k == "cmdScrollFieldExecuter" && as_bool(props["showLineNumbers"], true));
+        f->set_tab_width();
+        it->w = f;
+        apply_control(it, props);
     } else if (k == "scrollField") {
         auto* e = new QPlainTextEdit();
         e->installEventFilter(this);
@@ -2609,6 +2875,19 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         }
         if (props.contains("placeholderText")) e->setPlaceholderText(props["placeholderText"].toString());
         if (props.contains("editable")) e->setReadOnly(!as_bool(props["editable"], true));
+    } else if (k == "cmdScrollFieldExecuter" || k == "cmdScrollFieldReporter" || k == "cmdShell") {
+        auto* f = static_cast<CmdField*>(w);
+        if (props.contains("showLineNumbers")) f->set_numbers(as_bool(props["showLineNumbers"], true));
+        if (props.contains("spacesPerTab")) {
+            f->spaces_per_tab = int(as_number(props["spacesPerTab"], 4));
+            f->set_tab_width();
+        }
+        if (props.contains("tabsForIndent")) f->tabs_for_indent = as_bool(props["tabsForIndent"], true);
+        if (props.contains("autoCloseBraces")) f->auto_braces = as_bool(props["autoCloseBraces"], true);
+        if (props.contains("showTabsAndSpaces")) f->show_marks(as_bool(props["showTabsAndSpaces"]));
+        if (props.contains("filterKeyPress")) f->filter_keys = !props["filterKeyPress"].toString("x").isEmpty() || props["filterKeyPress"].isObject();
+        if (props.contains("__clipboard")) QApplication::clipboard()->setText(props["__clipboard"].toString());
+        f->take_props(props);
     } else if (k == "scrollField") {
         auto* e = static_cast<QPlainTextEdit*>(w);
         QSignalBlocker block(e);
@@ -3341,6 +3620,7 @@ void ScriptUi::hook(const QString& kind, const QJsonObject& payload) {
     else if (kind == "promptDialog") prompt_dialog(payload);
     else if (kind == "fileDialog2") file_dialog2(payload);
     else if (kind == "fileDialog") file_dialog(payload);
+    else if (kind == "colorEditor") color_editor(payload);
     else if (kind == "playblast") {
         // What the script set on the views just before this has to show in the frames.
         if (take_requests_) take_requests_();
@@ -3418,6 +3698,24 @@ void ScriptUi::prompt_dialog(const QJsonObject& p) {
         picked = p.contains("cancelButton") ? p["cancelButton"].toString() : p["dismissString"].toString("dismiss");
     }
     answer(QJsonObject{{"button", picked}, {"text", line ? line->text() : area->toPlainText()}});
+}
+
+// colorEditor: the colour picker, with alpha, on -parent's window or the screen, at -position when given.
+void ScriptUi::color_editor(const QJsonObject& p) {
+    QWidget* owner = main_;
+    if (Item* w = items_.value(p["parent"].toString()); w && w->w) owner = w->w->window();
+    else if (QApplication::activeWindow()) owner = QApplication::activeWindow();
+    QJsonArray rgb = flat(p["rgbValue"]);
+    QColor start = QColor::fromRgbF(rgb.size() > 0 ? float(as_number(rgb[0])) : 0.f, rgb.size() > 1 ? float(as_number(rgb[1])) : 0.f, rgb.size() > 2 ? float(as_number(rgb[2])) : 0.f, float(as_number(p["alpha"], 1.0)));
+    QColorDialog d(start, owner);
+    d.setWindowTitle("Color Chooser");
+    d.setOption(QColorDialog::ShowAlphaChannel, true);
+    d.setOption(QColorDialog::DontUseNativeDialog, true);
+    QJsonArray pos = flat(p["position"]);
+    if (pos.size() >= 2) d.move(int(as_number(pos[0])), int(as_number(pos[1])));
+    const bool ok = d.exec() == QDialog::Accepted;
+    QColor c = ok ? d.currentColor() : start;
+    answer(QJsonObject{{"result", ok}, {"rgbValue", QJsonArray{c.redF(), c.greenF(), c.blueF()}}, {"alpha", c.alphaF()}});
 }
 
 void ScriptUi::file_dialog2(const QJsonObject& p) {

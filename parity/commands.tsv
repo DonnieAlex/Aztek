@@ -138,14 +138,14 @@ closeCurve	done	auto
 closeSurface	done	auto
 cluster	done	auto
 cmdFileOutput	done	auto
-cmdScrollFieldExecuter	missing	
-cmdScrollFieldReporter	missing	
-cmdShell	missing	
+cmdScrollFieldExecuter	done	auto
+cmdScrollFieldReporter	done	auto
+cmdShell	done	auto
 coarsenSubdivSelectionList	missing	
 collision	missing	
 color	done	auto
 colorAtPoint	missing	
-colorEditor	missing	
+colorEditor	done	auto
 colorIndex	done	auto
 colorIndexSliderGrp	done	auto
 colorInputWidgetGrp	missing	
