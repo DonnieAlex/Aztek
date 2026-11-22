@@ -374,7 +374,7 @@ freeFormFillet	done	auto
 freeze	done	auto
 freezeOptions	done	auto
 geomBind	done	auto
-geomToBBox	missing	
+geomToBBox	done	auto
 geometryAttrInfo	done	auto
 geometryConstraint	done	auto
 getAttr	done	auto
@@ -446,7 +446,7 @@ ikSplineHandleCtx	done	auto
 ikSystem	done	auto
 ikSystemInfo	done	auto
 ikfkDisplayMethod	done	auto
-illustratorCurves	missing	
+illustratorCurves	done	auto
 image	done	auto
 imagePlane	done	auto
 imfPlugins	missing	
@@ -474,8 +474,8 @@ isDirty	done	auto
 isTrue	done	auto
 isolateSelect	done	auto
 itemFilter	done	auto
-itemFilterAttr	missing	
-itemFilterType	missing	
+itemFilterAttr	done	auto
+itemFilterType	done	auto
 joint	done	auto
 jointCluster	done	auto
 jointCtx	done	auto
@@ -499,17 +499,17 @@ keyingGroup	done	auto
 lassoContext	done	auto
 lattice	done	auto
 latticeDeformKeyCtx	missing	
-launch	missing	
+launch	done	auto
 launchImageEditor	missing	
 layerButton	done	auto
 layeredShaderPort	missing	
 layeredTexturePort	missing	
 layout	done	auto
 layoutDialog	missing	
-license	missing	
+license	done	auto
 lightList	missing	
 lightlink	done	auto
-linearPrecision	missing	
+linearPrecision	done	auto
 listAnimatable	done	auto
 listAttr	done	auto
 listAttrPatterns	missing	
@@ -521,13 +521,13 @@ listInputDeviceAxes	missing
 listInputDeviceButtons	missing	
 listInputDevices	missing	
 listNodeTypes	done	auto
-listNodesWithIncorrectNames	missing	
+listNodesWithIncorrectNames	done	auto
 listRelatives	done	auto
 listSets	done	auto
 loadFluid	missing	
-loadModule	missing	
+loadModule	done	auto
 loadPlugin	done	auto
-loadPrefObjects	missing	
+loadPrefObjects	done	auto
 loadUI	missing	
 lockNode	done	auto
 loft	done	auto

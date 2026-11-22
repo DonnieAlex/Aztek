@@ -11363,75 +11363,75 @@ falloffCurveAttr	visible	missing
 falloffCurveAttr	visibleChangeCommand	missing	
 falloffCurveAttr	w	missing	
 falloffCurveAttr	width	missing	
-file	absoluteName	missing	
-file	activeProxy	missing	
-file	add	missing	
-file	amf	missing	
-file	an	missing	
-file	anyModified	missing	
-file	ap	missing	
-file	applyTo	missing	
-file	at	missing	
-file	bls	missing	
-file	buildLoadSettings	missing	
-file	c	missing	
+file	absoluteName	done	auto
+file	activeProxy	done	auto
+file	add	done	auto
+file	amf	done	auto
+file	an	done	auto
+file	anyModified	done	auto
+file	ap	done	auto
+file	applyTo	done	auto
+file	at	done	auto
+file	bls	done	auto
+file	buildLoadSettings	done	auto
+file	c	done	auto
 file	ch	done	auto
 file	channels	done	auto
 file	chn	done	auto
 file	cleanReference	done	auto
-file	cmp	missing	
-file	cnl	missing	
-file	command	missing	
-file	compress	missing	
+file	cmp	done	auto
+file	cnl	done	auto
+file	command	done	auto
+file	compress	done	auto
 file	con	done	auto
 file	constraints	done	auto
 file	constructionHistory	done	auto
-file	copyNumberList	missing	
+file	copyNumberList	done	auto
 file	cr	done	auto
-file	de	missing	
-file	defaultExtensions	missing	
-file	defaultNamespace	missing	
+file	de	done	auto
+file	defaultExtensions	done	auto
+file	defaultNamespace	done	auto
 file	deferReference	done	auto
-file	dns	missing	
+file	dns	done	auto
 file	dr	done	auto
 file	e	done	auto
 file	ea	done	auto
-file	ean	missing	
-file	ear	missing	
-file	eas	missing	
+file	ean	done	auto
+file	ear	done	auto
+file	eas	done	auto
 file	ec	done	auto
 file	edit	done	auto
 file	editCommand	done	auto
-file	er	missing	
-file	err	missing	
-file	errorStatus	missing	
+file	er	done	auto
+file	err	done	auto
+file	errorStatus	done	auto
 file	es	done	auto
-file	esa	missing	
-file	esc	missing	
-file	esn	missing	
-file	ess	missing	
+file	esa	done	auto
+file	esc	done	auto
+file	esn	done	auto
+file	ess	done	auto
 file	eur	done	auto
 file	ex	done	auto
-file	executeScriptNodes	missing	
+file	executeScriptNodes	done	auto
 file	exists	done	auto
 file	exn	done	auto
 file	exp	done	auto
 file	expandName	done	auto
 file	exportAll	done	auto
-file	exportAnim	missing	
-file	exportAnimFromReference	missing	
-file	exportAsReference	missing	
+file	exportAnim	done	auto
+file	exportAnimFromReference	done	auto
+file	exportAsReference	done	auto
 file	exportSelected	done	auto
-file	exportSelectedAnim	missing	
-file	exportSelectedAnimFromReference	missing	
-file	exportSelectedStrict	missing	
-file	exportSnapshotCallback	missing	
+file	exportSelectedAnim	done	auto
+file	exportSelectedAnimFromReference	done	auto
+file	exportSelectedStrict	done	auto
+file	exportSnapshotCallback	done	auto
 file	exportUnloadedReferences	done	auto
 file	expressions	done	auto
 file	f	done	auto
-file	fileMetaData	missing	
+file	fileMetaData	done	auto
 file	flushReference	done	auto
-file	fmd	missing	
+file	fmd	done	auto
 file	force	done	auto
 file	fr	done	auto
 file	gl	done	auto
@@ -11441,124 +11441,124 @@ file	groupLocator	done	auto
 file	groupName	done	auto
 file	groupReference	done	auto
 file	i	done	auto
-file	ifr	missing	
+file	ifr	done	auto
 file	ignoreVersion	done	auto
-file	importFrameRate	missing	
+file	importFrameRate	done	auto
 file	importReference	done	auto
-file	importTimeRange	missing	
+file	importTimeRange	done	auto
 file	ir	done	auto
-file	itr	missing	
+file	itr	done	auto
 file	iv	done	auto
 file	l	done	auto
-file	lad	missing	
-file	lar	missing	
-file	lastFileOption	missing	
-file	lastTempFile	missing	
+file	lad	done	auto
+file	lar	done	auto
+file	lastFileOption	done	auto
+file	lastTempFile	done	auto
 file	lck	done	auto
-file	lcu	missing	
-file	lf	missing	
-file	lfo	missing	
+file	lcu	done	auto
+file	lf	done	auto
+file	lfo	done	auto
 file	list	done	auto
-file	lnr	missing	
-file	loadAllDeferred	missing	
-file	loadAllReferences	missing	
-file	loadNoReferences	missing	
+file	lnr	done	auto
+file	loadAllDeferred	done	auto
+file	loadAllReferences	done	auto
+file	loadNoReferences	done	auto
 file	loadReference	done	auto
 file	loadReferenceDepth	done	auto
 file	loadReferencePreview	done	auto
-file	loadSettings	missing	
-file	loc	missing	
-file	location	missing	
-file	lockContainerUnpublished	missing	
-file	lockFile	missing	
+file	loadSettings	done	auto
+file	loc	done	auto
+file	location	done	auto
+file	lockContainerUnpublished	done	auto
+file	lockFile	done	auto
 file	lockReference	done	auto
 file	lr	done	auto
 file	lrd	done	auto
 file	lrp	done	auto
-file	ls	missing	
-file	ltf	missing	
-file	mapPlaceHolderNamespace	missing	
-file	mbl	missing	
-file	mergeBaseAnimLayer	missing	
-file	mergeNamespaceWithParent	missing	
-file	mergeNamespaceWithRoot	missing	
+file	ls	done	auto
+file	ltf	done	auto
+file	mapPlaceHolderNamespace	done	auto
+file	mbl	done	auto
+file	mergeBaseAnimLayer	done	auto
+file	mergeNamespaceWithParent	done	auto
+file	mergeNamespaceWithRoot	done	auto
 file	mergeNamespacesOnClash	done	auto
 file	mf	done	auto
 file	mnc	done	auto
-file	mnp	missing	
-file	mnr	missing	
-file	mns	missing	
+file	mnp	done	auto
+file	mnr	done	auto
+file	mns	done	auto
 file	modified	done	auto
-file	moveSelected	missing	
-file	ms	missing	
+file	moveSelected	done	auto
+file	ms	done	auto
 file	namespace	done	auto
 file	new	done	auto
-file	newFile	missing	
+file	newFile	done	auto
 file	ns	done	auto
 file	o	done	auto
 file	op	done	auto
 file	open	done	auto
 file	options	done	auto
-file	parentNamespace	missing	
-file	pm	missing	
+file	parentNamespace	done	auto
+file	pm	done	auto
 file	pmt	done	auto
-file	pn	missing	
-file	pns	missing	
-file	pos	missing	
-file	postSaveScript	missing	
+file	pn	done	auto
+file	pns	done	auto
+file	pos	done	auto
+file	postSaveScript	done	auto
 file	pr	done	auto
-file	preSaveScript	missing	
-file	preserveName	missing	
+file	preSaveScript	done	auto
+file	preserveName	done	auto
 file	preserveReferences	done	auto
-file	preview	missing	
+file	preview	done	auto
 file	prompt	done	auto
-file	proxyManager	missing	
-file	proxyTag	missing	
-file	prs	missing	
-file	pt	missing	
-file	pv	missing	
+file	proxyManager	done	auto
+file	proxyTag	done	auto
+file	prs	done	auto
+file	pt	done	auto
+file	pv	done	auto
 file	q	done	auto
 file	query	done	auto
 file	r	done	auto
 file	ra	done	auto
 file	rdi	done	auto
-file	rdn	missing	
+file	rdn	done	auto
 file	reference	done	auto
 file	referenceDepthInfo	done	auto
 file	referenceNode	done	auto
-file	relativeNamespace	missing	
-file	removeDuplicateNetworks	missing	
+file	relativeNamespace	done	auto
+file	removeDuplicateNetworks	done	auto
 file	removeReference	done	auto
 file	rename	done	auto
 file	renameAll	done	auto
-file	renameToSave	missing	
+file	renameToSave	done	auto
 file	renamingPrefix	done	auto
-file	renamingPrefixList	missing	
-file	rep	missing	
-file	replaceName	missing	
-file	rer	missing	
-file	reserveNamespaces	missing	
-file	resetError	missing	
+file	renamingPrefixList	done	auto
+file	rep	done	auto
+file	replaceName	done	auto
+file	rer	done	auto
+file	reserveNamespaces	done	auto
+file	resetError	done	auto
 file	returnNewNodes	done	auto
 file	rfn	done	auto
 file	rn	done	auto
 file	rnn	done	auto
-file	rns	missing	
-file	rpl	missing	
+file	rns	done	auto
+file	rpl	done	auto
 file	rpr	done	auto
 file	rr	done	auto
-file	rts	missing	
-file	rvn	missing	
+file	rts	done	auto
+file	rvn	done	auto
 file	s	done	auto
-file	sa	missing	
+file	sa	done	auto
 file	save	done	auto
-file	saveDiskCache	missing	
-file	saveReference	missing	
+file	saveDiskCache	done	auto
+file	saveReference	done	auto
 file	saveReferencesUnloaded	done	auto
-file	saveTextures	missing	
+file	saveTextures	done	auto
 file	sceneName	done	auto
-file	sdc	missing	
-file	selectAll	missing	
+file	sdc	done	auto
+file	selectAll	done	auto
 file	sh	done	auto
 file	shader	done	auto
 file	sharedNodes	done	auto
@@ -11568,29 +11568,29 @@ file	shn	done	auto
 file	shortName	done	auto
 file	sn	done	auto
 file	sns	done	auto
-file	sr	missing	
+file	sr	done	auto
 file	srf	done	auto
 file	sru	done	auto
-file	str	missing	
-file	strict	missing	
-file	stx	missing	
+file	str	done	auto
+file	strict	done	auto
+file	stx	done	auto
 file	swapNamespace	done	auto
 file	typ	done	auto
 file	type	done	auto
-file	uc	missing	
-file	uiConfiguration	missing	
-file	uiLoadConfiguration	missing	
-file	ulc	missing	
+file	uc	done	auto
+file	uiConfiguration	done	auto
+file	uiLoadConfiguration	done	auto
+file	ulc	done	auto
 file	un	done	auto
 file	unloadReference	done	auto
 file	unresolvedName	done	auto
 file	uns	done	auto
 file	ur	done	auto
 file	usingNamespaces	done	auto
-file	w	missing	
+file	w	done	auto
 file	wcn	done	auto
 file	withoutCopyNumber	done	auto
-file	writable	missing	
+file	writable	done	auto
 fileBrowserDialog	actionName	missing	
 fileBrowserDialog	an	missing	
 fileBrowserDialog	dialogStyle	missing	
@@ -13146,26 +13146,26 @@ geomBind	maxInfluences	done	auto
 geomBind	mi	done	auto
 geomBind	q	done	auto
 geomBind	query	done	auto
-geomToBBox	ba	missing	
-geomToBBox	bakeAnimation	missing	
-geomToBBox	cm	missing	
-geomToBBox	combineMesh	missing	
-geomToBBox	endTime	missing	
-geomToBBox	et	missing	
-geomToBBox	keepOriginal	missing	
-geomToBBox	ko	missing	
-geomToBBox	n	missing	
-geomToBBox	name	missing	
-geomToBBox	nameSuffix	missing	
-geomToBBox	ns	missing	
-geomToBBox	s	missing	
-geomToBBox	sampleBy	missing	
-geomToBBox	sb	missing	
-geomToBBox	sc	missing	
-geomToBBox	shaderColor	missing	
-geomToBBox	single	missing	
-geomToBBox	st	missing	
-geomToBBox	startTime	missing	
+geomToBBox	ba	done	auto
+geomToBBox	bakeAnimation	done	auto
+geomToBBox	cm	done	auto
+geomToBBox	combineMesh	done	auto
+geomToBBox	endTime	done	auto
+geomToBBox	et	done	auto
+geomToBBox	keepOriginal	done	auto
+geomToBBox	ko	done	auto
+geomToBBox	n	done	auto
+geomToBBox	name	done	auto
+geomToBBox	nameSuffix	done	auto
+geomToBBox	ns	done	auto
+geomToBBox	s	done	auto
+geomToBBox	sampleBy	done	auto
+geomToBBox	sb	done	auto
+geomToBBox	sc	done	auto
+geomToBBox	shaderColor	done	auto
+geomToBBox	single	done	auto
+geomToBBox	st	done	auto
+geomToBBox	startTime	done	auto
 geometryAttrInfo	bb	done	auto
 geometryAttrInfo	boundingBox	done	auto
 geometryAttrInfo	castToEdges	done	auto
@@ -15797,22 +15797,22 @@ ikfkDisplayMethod	d	done	auto
 ikfkDisplayMethod	display	done	auto
 ikfkDisplayMethod	q	done	auto
 ikfkDisplayMethod	query	done	auto
-illustratorCurves	caching	missing	
-illustratorCurves	cch	missing	
-illustratorCurves	ch	missing	
-illustratorCurves	constructionHistory	missing	
-illustratorCurves	e	missing	
-illustratorCurves	edit	missing	
-illustratorCurves	ifn	missing	
-illustratorCurves	illustratorFilename	missing	
-illustratorCurves	nds	missing	
-illustratorCurves	nodeState	missing	
-illustratorCurves	o	missing	
-illustratorCurves	object	missing	
-illustratorCurves	q	missing	
-illustratorCurves	query	missing	
-illustratorCurves	tl	missing	
-illustratorCurves	tolerance	missing	
+illustratorCurves	caching	done	auto
+illustratorCurves	cch	done	auto
+illustratorCurves	ch	done	auto
+illustratorCurves	constructionHistory	done	auto
+illustratorCurves	e	done	auto
+illustratorCurves	edit	done	auto
+illustratorCurves	ifn	done	auto
+illustratorCurves	illustratorFilename	done	auto
+illustratorCurves	nds	done	auto
+illustratorCurves	nodeState	done	auto
+illustratorCurves	o	done	auto
+illustratorCurves	object	done	auto
+illustratorCurves	q	done	auto
+illustratorCurves	query	done	auto
+illustratorCurves	tl	done	auto
+illustratorCurves	tolerance	done	auto
 image	ann	done	auto
 image	annotation	done	auto
 image	backgroundColor	done	auto
@@ -16755,8 +16755,8 @@ itemFilter	neg	done	auto
 itemFilter	negate	done	auto
 itemFilter	p	done	auto
 itemFilter	parent	done	auto
-itemFilter	pym	missing	
-itemFilter	pythonModule	missing	
+itemFilter	pym	done	auto
+itemFilter	pythonModule	done	auto
 itemFilter	q	done	auto
 itemFilter	query	done	auto
 itemFilter	secondScript	done	auto
@@ -16767,63 +16767,63 @@ itemFilter	un	done	auto
 itemFilter	union	done	auto
 itemFilter	uniqueNodeNames	done	auto
 itemFilter	unn	done	auto
-itemFilterAttr	bn	missing	
-itemFilterAttr	bns	missing	
-itemFilterAttr	bs	missing	
-itemFilterAttr	byName	missing	
-itemFilterAttr	byNameString	missing	
-itemFilterAttr	byScript	missing	
-itemFilterAttr	classification	missing	
-itemFilterAttr	cls	missing	
-itemFilterAttr	dy	missing	
-itemFilterAttr	dynamic	missing	
-itemFilterAttr	e	missing	
-itemFilterAttr	edit	missing	
-itemFilterAttr	ex	missing	
-itemFilterAttr	exists	missing	
-itemFilterAttr	h	missing	
-itemFilterAttr	hasCurve	missing	
-itemFilterAttr	hasDrivenKey	missing	
-itemFilterAttr	hasExpression	missing	
-itemFilterAttr	hc	missing	
-itemFilterAttr	hdk	missing	
-itemFilterAttr	he	missing	
-itemFilterAttr	hidden	missing	
-itemFilterAttr	intersect	missing	
-itemFilterAttr	k	missing	
-itemFilterAttr	keyable	missing	
-itemFilterAttr	lbf	missing	
-itemFilterAttr	listBuiltInFilters	missing	
-itemFilterAttr	listOtherFilters	missing	
-itemFilterAttr	listUserFilters	missing	
-itemFilterAttr	lof	missing	
-itemFilterAttr	luf	missing	
-itemFilterAttr	neg	missing	
-itemFilterAttr	negate	missing	
-itemFilterAttr	pub	missing	
-itemFilterAttr	published	missing	
-itemFilterAttr	q	missing	
-itemFilterAttr	query	missing	
-itemFilterAttr	r	missing	
-itemFilterAttr	readable	missing	
-itemFilterAttr	scaleRotateTranslate	missing	
-itemFilterAttr	secondScript	missing	
-itemFilterAttr	srt	missing	
-itemFilterAttr	ss	missing	
-itemFilterAttr	t	missing	
-itemFilterAttr	text	missing	
-itemFilterAttr	un	missing	
-itemFilterAttr	union	missing	
-itemFilterAttr	w	missing	
-itemFilterAttr	writable	missing	
-itemFilterType	e	missing	
-itemFilterType	edit	missing	
-itemFilterType	q	missing	
-itemFilterType	query	missing	
-itemFilterType	t	missing	
-itemFilterType	text	missing	
-itemFilterType	typ	missing	
-itemFilterType	type	missing	
+itemFilterAttr	bn	done	auto
+itemFilterAttr	bns	done	auto
+itemFilterAttr	bs	done	auto
+itemFilterAttr	byName	done	auto
+itemFilterAttr	byNameString	done	auto
+itemFilterAttr	byScript	done	auto
+itemFilterAttr	classification	done	auto
+itemFilterAttr	cls	done	auto
+itemFilterAttr	dy	done	auto
+itemFilterAttr	dynamic	done	auto
+itemFilterAttr	e	done	auto
+itemFilterAttr	edit	done	auto
+itemFilterAttr	ex	done	auto
+itemFilterAttr	exists	done	auto
+itemFilterAttr	h	done	auto
+itemFilterAttr	hasCurve	done	auto
+itemFilterAttr	hasDrivenKey	done	auto
+itemFilterAttr	hasExpression	done	auto
+itemFilterAttr	hc	done	auto
+itemFilterAttr	hdk	done	auto
+itemFilterAttr	he	done	auto
+itemFilterAttr	hidden	done	auto
+itemFilterAttr	intersect	done	auto
+itemFilterAttr	k	done	auto
+itemFilterAttr	keyable	done	auto
+itemFilterAttr	lbf	done	auto
+itemFilterAttr	listBuiltInFilters	done	auto
+itemFilterAttr	listOtherFilters	done	auto
+itemFilterAttr	listUserFilters	done	auto
+itemFilterAttr	lof	done	auto
+itemFilterAttr	luf	done	auto
+itemFilterAttr	neg	done	auto
+itemFilterAttr	negate	done	auto
+itemFilterAttr	pub	done	auto
+itemFilterAttr	published	done	auto
+itemFilterAttr	q	done	auto
+itemFilterAttr	query	done	auto
+itemFilterAttr	r	done	auto
+itemFilterAttr	readable	done	auto
+itemFilterAttr	scaleRotateTranslate	done	auto
+itemFilterAttr	secondScript	done	auto
+itemFilterAttr	srt	done	auto
+itemFilterAttr	ss	done	auto
+itemFilterAttr	t	done	auto
+itemFilterAttr	text	done	auto
+itemFilterAttr	un	done	auto
+itemFilterAttr	union	done	auto
+itemFilterAttr	w	done	auto
+itemFilterAttr	writable	done	auto
+itemFilterType	e	done	auto
+itemFilterType	edit	done	auto
+itemFilterType	q	done	auto
+itemFilterType	query	done	auto
+itemFilterType	t	done	auto
+itemFilterType	text	done	auto
+itemFilterType	typ	done	auto
+itemFilterType	type	done	auto
 joint	a	done	auto
 joint	absolute	done	auto
 joint	al	done	auto
@@ -17760,14 +17760,14 @@ latticeDeformKeyCtx	q	missing
 latticeDeformKeyCtx	query	missing	
 latticeDeformKeyCtx	scaleLatticePts	missing	
 latticeDeformKeyCtx	slp	missing	
-launch	dir	missing	
-launch	directory	missing	
-launch	mov	missing	
-launch	movie	missing	
-launch	pdf	missing	
-launch	pdfFile	missing	
-launch	web	missing	
-launch	webPage	missing	
+launch	dir	done	auto
+launch	directory	done	auto
+launch	mov	done	auto
+launch	movie	done	auto
+launch	pdf	done	auto
+launch	pdfFile	done	auto
+launch	web	done	auto
+launch	webPage	done	auto
 launchImageEditor	editImageFile	missing	
 launchImageEditor	eif	missing	
 launchImageEditor	viewImageFile	missing	
@@ -18062,29 +18062,29 @@ layoutDialog	t	missing
 layoutDialog	title	missing	
 layoutDialog	ui	missing	
 layoutDialog	uiScript	missing	
-license	b	missing	
-license	borrow	missing	
-license	i	missing	
-license	ib	missing	
-license	ie	missing	
-license	info	missing	
-license	isBorrowed	missing	
-license	isExported	missing	
-license	isTrial	missing	
-license	it	missing	
-license	licenseMethod	missing	
-license	lm	missing	
-license	pc	missing	
-license	productChoice	missing	
-license	r	missing	
-license	s	missing	
-license	sbi	missing	
-license	showBorrowInfo	missing	
-license	showProductInfoDialog	missing	
-license	spi	missing	
-license	status	missing	
-license	u	missing	
-license	usage	missing	
+license	b	done	auto
+license	borrow	done	auto
+license	i	done	auto
+license	ib	done	auto
+license	ie	done	auto
+license	info	done	auto
+license	isBorrowed	done	auto
+license	isExported	done	auto
+license	isTrial	done	auto
+license	it	done	auto
+license	licenseMethod	done	auto
+license	lm	done	auto
+license	pc	done	auto
+license	productChoice	done	auto
+license	r	done	auto
+license	s	done	auto
+license	sbi	done	auto
+license	showBorrowInfo	done	auto
+license	showProductInfoDialog	done	auto
+license	spi	done	auto
+license	status	done	auto
+license	u	done	auto
+license	usage	done	auto
 lightList	add	missing	
 lightList	remove	missing	
 lightList	rm	missing	
@@ -18298,12 +18298,12 @@ loadFluid	ic	missing
 loadFluid	initialConditions	missing	
 loadFluid	q	missing	
 loadFluid	query	missing	
-loadModule	a	missing	
-loadModule	allModules	missing	
-loadModule	ld	missing	
-loadModule	load	missing	
-loadModule	sc	missing	
-loadModule	scan	missing	
+loadModule	a	done	auto
+loadModule	allModules	done	auto
+loadModule	ld	done	auto
+loadModule	load	done	auto
+loadModule	sc	done	auto
+loadModule	scan	done	auto
 loadPlugin	a	done	auto
 loadPlugin	ac	done	auto
 loadPlugin	addCallback	done	auto
@@ -18374,33 +18374,33 @@ lookThru	farClip	done	auto
 lookThru	fc	done	auto
 lookThru	nc	done	auto
 lookThru	nearClip	done	auto
-ls	absoluteName	missing	
-ls	allPaths	missing	
-ls	an	missing	
-ls	ap	missing	
+ls	absoluteName	done	auto
+ls	allPaths	done	auto
+ls	an	done	auto
+ls	ap	done	auto
 ls	assemblies	done	auto
 ls	ca	done	auto
 ls	cameras	done	auto
-ls	con	missing	
-ls	containerType	missing	
-ls	containers	missing	
-ls	ct	missing	
+ls	con	done	auto
+ls	containerType	done	auto
+ls	containers	done	auto
+ls	ct	done	auto
 ls	dag	done	auto
 ls	dagObjects	done	auto
 ls	defaultNodes	done	auto
-ls	dep	missing	
-ls	dependencyNodes	missing	
+ls	dep	done	auto
+ls	dependencyNodes	done	auto
 ls	dn	done	auto
 ls	et	done	auto
 ls	exactType	done	auto
-ls	excludeType	missing	
-ls	ext	missing	
+ls	excludeType	done	auto
+ls	ext	done	auto
 ls	fl	done	auto
 ls	flatten	done	auto
 ls	g	done	auto
 ls	geometry	done	auto
-ls	gh	missing	
-ls	ghost	missing	
+ls	gh	done	auto
+ls	ghost	done	auto
 ls	hd	done	auto
 ls	head	done	auto
 ls	hilite	done	auto
@@ -18413,79 +18413,79 @@ ls	l	done	auto
 ls	leaf	done	auto
 ls	lf	done	auto
 ls	lights	done	auto
-ls	live	missing	
+ls	live	done	auto
 ls	ln	done	auto
 ls	lockedNodes	done	auto
 ls	long	done	auto
 ls	lt	done	auto
-ls	lv	missing	
+ls	lv	done	auto
 ls	mat	done	auto
 ls	materials	done	auto
-ls	mod	missing	
-ls	modified	missing	
+ls	mod	done	auto
+ls	modified	done	auto
 ls	ni	done	auto
 ls	noIntermediate	done	auto
 ls	nodeTypes	done	auto
 ls	nt	done	auto
 ls	o	done	auto
 ls	objectsOnly	done	auto
-ls	ocs	missing	
-ls	orderedComponentSelection	missing	
+ls	ocs	done	auto
+ls	orderedComponentSelection	done	auto
 ls	orderedSelection	done	auto
 ls	os	done	auto
-ls	partitions	missing	
-ls	persistentNodes	missing	
-ls	pl	missing	
-ls	planes	missing	
-ls	pn	missing	
-ls	pr	missing	
-ls	preSelectHilite	missing	
-ls	psh	missing	
-ls	r	missing	
+ls	partitions	done	auto
+ls	persistentNodes	done	auto
+ls	pl	done	auto
+ls	planes	done	auto
+ls	pn	done	auto
+ls	pr	done	auto
+ls	preSelectHilite	done	auto
+ls	psh	done	auto
+ls	r	done	auto
 ls	readOnly	done	auto
-ls	recursive	missing	
+ls	recursive	done	auto
 ls	referencedNodes	done	auto
-ls	references	missing	
-ls	renderGlobals	missing	
-ls	renderQualities	missing	
-ls	renderResolutions	missing	
-ls	renderSetups	missing	
-ls	rf	missing	
-ls	rg	missing	
+ls	references	done	auto
+ls	renderGlobals	done	auto
+ls	renderQualities	done	auto
+ls	renderResolutions	done	auto
+ls	renderSetups	done	auto
+ls	rf	done	auto
+ls	rg	done	auto
 ls	rn	done	auto
 ls	ro	done	auto
-ls	rq	missing	
-ls	rr	missing	
-ls	rs	missing	
+ls	rq	done	auto
+ls	rr	done	auto
+ls	rs	done	auto
 ls	s	done	auto
 ls	selection	done	auto
 ls	set	done	auto
 ls	sets	done	auto
 ls	shapes	done	auto
 ls	shortNames	done	auto
-ls	showNamespace	missing	
+ls	showNamespace	done	auto
 ls	showType	done	auto
 ls	sl	done	auto
 ls	sn	done	auto
-ls	sns	missing	
+ls	sns	done	auto
 ls	st	done	auto
 ls	tail	done	auto
-ls	templated	missing	
+ls	templated	done	auto
 ls	tex	done	auto
 ls	textures	done	auto
 ls	tl	done	auto
-ls	tm	missing	
+ls	tm	done	auto
 ls	tr	done	auto
 ls	transforms	done	auto
 ls	typ	done	auto
 ls	type	done	auto
 ls	ud	done	auto
-ls	ufe	missing	
-ls	ufeObjects	missing	
+ls	ufe	done	auto
+ls	ufeObjects	done	auto
 ls	uid	done	auto
 ls	undeletable	done	auto
-ls	untemplated	missing	
-ls	ut	missing	
+ls	untemplated	done	auto
+ls	ut	done	auto
 ls	uuid	done	auto
 ls	v	done	auto
 ls	visible	done	auto

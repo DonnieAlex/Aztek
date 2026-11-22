@@ -1104,7 +1104,7 @@ fn absolute_namespace(g: &Graph, name: &str) -> String {
     }
 }
 
-pub(crate) fn namespace_exists(g: &Graph, full: &str) -> bool {
+pub fn namespace_exists(g: &Graph, full: &str) -> bool {
     full.is_empty()
         || g.namespaces.contains(full)
         || g.nodes().iter().any(|&i| g.node(i).is_some_and(|n| n.namespace() == full || n.namespace().starts_with(&format!("{full}:"))))

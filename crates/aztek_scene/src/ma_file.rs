@@ -3248,6 +3248,10 @@ impl Build<'_> {
 
     /// Curves with something left to drive; the rest are dropped with what they animated.
     fn curve_is_needed(&self, i: usize) -> bool {
+        // Keys on a scene node the file doesn't hold (an animation export), connected by name as it is imported.
+        if OUTSIDE_SOURCES.with(|o| o.borrow().contains(&self.doc.nodes[i].name)) {
+            return true;
+        }
         // Keys on a node of a reference, through its placeholder or by name.
         let start = format!("{}.", self.doc.nodes[i].name);
         if self.doc.ref_conns.iter().any(|c| c.src.starts_with(&start)) {
@@ -3576,13 +3580,33 @@ fn apply_tweaks(doc: &Doc, m: &mut Mesh, tweaks: &[usize]) {
 
 thread_local! {
     static LAST_READ_NAMES: std::cell::RefCell<Vec<(NodeId, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// -exportSelectedStrict: export writes the nodes given and none of what they need.
+    pub(crate) static EXPORT_STRICT: Cell<bool> = const { Cell::new(false) };
+    /// The nodes of a file being imported that connect to nodes it doesn't hold.
+    static OUTSIDE_SOURCES: std::cell::RefCell<HashSet<String>> = std::cell::RefCell::new(HashSet::new());
+    /// file -saveReference: the file written holds none of the scene's references.
+    pub(crate) static NO_REFERENCES: Cell<bool> = const { Cell::new(false) };
+    /// An animation export: curves are written though what they drive isn't.
+    static ANIM_EXPORT: Cell<bool> = const { Cell::new(false) };
+    /// -importFrameRate on the next import: the file's frame rate becomes the scene's.
+    pub(crate) static IMPORT_FRAME_RATE: Cell<bool> = const { Cell::new(false) };
+    /// -importTimeRange on the next import: keep, override or combine the playback range with the file's.
+    pub(crate) static IMPORT_TIME_RANGE: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    /// file -defaultExtensions: a name with no extension takes the type's on save and export.
+    pub(crate) static DEFAULT_EXTENSIONS: Cell<bool> = const { Cell::new(true) };
+}
+
+/// The nodes the last read made, with the names the file gave them.
+pub(crate) fn last_read_names() -> Vec<(NodeId, String)> {
+    LAST_READ_NAMES.with(|n| n.borrow().clone())
 }
 
 /// Builds the document in the session. Everything goes in one pass; the graph evaluates on demand for world matrices.
 fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
     let prior: Vec<NodeId> = s.graph.selection().to_vec();
-    let fps = if import { anim::fps() } else { doc.fps.unwrap_or_else(anim::fps) };
-    if !import {
+    let take_rate = import && IMPORT_FRAME_RATE.with(Cell::get);
+    let fps = if import && !take_rate { anim::fps() } else { doc.fps.unwrap_or_else(anim::fps) };
+    if !import || take_rate {
         if let Some(f) = doc.fps {
             let _ = s.run("playbackOptions", json!({"framesPerSecond": f}));
             anim::set_drop_frame(doc.drop_frame);
@@ -3731,7 +3755,15 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
             anim::set_frame(&mut b.s.graph, t);
         }
         if let Some(script) = doc.nodes.iter().find(|n| n.ty == "script" && n.name == "sceneConfigurationScriptNode") {
-            playback_from_script(b.s, script);
+            playback_from_script(b.s, script, "override");
+        }
+    } else {
+        // -importTimeRange: keep (the default) leaves the playback range alone.
+        let mode = IMPORT_TIME_RANGE.with(|m| m.borrow().clone());
+        if mode == "override" || mode == "combine" {
+            if let Some(script) = doc.nodes.iter().find(|n| n.ty == "script" && n.name == "sceneConfigurationScriptNode") {
+                playback_from_script(b.s, script, &mode);
+            }
         }
     }
 
@@ -3813,7 +3845,7 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
 }
 
 /// The playback range the reference keeps in a script node: `playbackOptions -min 1 -max 120 -ast 1 -aet 200 `.
-fn playback_from_script(s: &mut Session, script: &MaNode) {
+fn playback_from_script(s: &mut Session, script: &MaNode, mode: &str) {
     let Some(text) = script.text(&["b", "before"]) else { return };
     let Some(at) = text.find("playbackOptions") else { return };
     let mut call = serde_json::Map::new();
@@ -3829,6 +3861,15 @@ fn playback_from_script(s: &mut Session, script: &MaNode) {
             _ => continue,
         };
         call.insert(key.into(), json!(v));
+    }
+    // -importTimeRange combine: the scene's range widened to take in the file's.
+    if mode == "combine" {
+        for (k, wider) in [("minTime", -1.0), ("maxTime", 1.0), ("animationStartTime", -1.0), ("animationEndTime", 1.0)] {
+            let now = s.run("playbackOptions", json!({"query": true, "queried": [k]})).ok().and_then(|v| v.as_f64());
+            if let (Some(now), Some(f)) = (now, call.get(k).and_then(Value::as_f64)) {
+                call.insert(k.into(), json!(if wider < 0.0 { now.min(f) } else { now.max(f) }));
+            }
+        }
     }
     if !call.is_empty() {
         let _ = s.run("playbackOptions", Value::Object(call));
@@ -5617,9 +5658,11 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     });
     s.graph.evaluate();
     // Before anything's borrowed: this reads the scene against what the files gave.
-    let (ref_head, ref_tail) = crate::references::ma_statements(s);
+    let (ref_head, ref_tail) = if NO_REFERENCES.with(Cell::get) { (String::new(), String::new()) } else { crate::references::ma_statements(s) };
     let g = &s.graph;
     let mut keep = match only {
+        // -exportSelectedStrict: what is selected and nothing else.
+        Some(list) if EXPORT_STRICT.with(Cell::get) => list.iter().copied().collect(),
         Some(list) => closure(g, list),
         None => g.nodes().into_iter().collect::<HashSet<NodeId>>(),
     };
@@ -5717,7 +5760,7 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
                 let dt = w.s.graph.node(d.node).unwrap().ty().name.as_str();
                 w.s.graph.node(d.node).unwrap().reference_id() != 0 || (w.keep.contains(&d.node) && (rig::CONSTRAINT_TYPES.contains(&dt) || w.dag_written(d.node) || DRIVEN_CURVES.contains(&dt) || is_plain_node(dt) || crate::deform::is_deformer(dt)))
             });
-            if drives || crate::references::held_by_unloaded(w.s, n.name()) {
+            if drives || ANIM_EXPORT.with(Cell::get) || crate::references::held_by_unloaded(w.s, n.name()) {
                 w.write_curve(id);
             } else {
                 w.warnings.push(format!("{}: keys on what is not written; omitted", n.name()));
@@ -5933,7 +5976,11 @@ struct SceneText {
 }
 
 fn read_scene_text(path: &str) -> Result<SceneText, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+    let mut bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+    // A file saved with -compress is gzipped.
+    if bytes.starts_with(&[0x1f, 0x8b]) {
+        bytes = crate::file_more::gunzip(&bytes).map_err(|e| format!("{path}: {e}"))?;
+    }
     if crate::mb_file::is_binary(&bytes) {
         let mut c = crate::mb_file::convert(&bytes).map_err(|e| format!("{path}: {e}"))?;
         let text = std::mem::take(&mut c.text);
@@ -5970,6 +6017,61 @@ pub fn write_file(s: &mut Session, path: &str, format: Format, only: Option<&[No
         log::warn!("{w}");
     }
     Ok(warnings)
+}
+
+/// file -exportAnim and the like: the curves given and what they drive, written as connections to nodes the file
+/// doesn't hold, which an import makes to the nodes of those names.
+pub(crate) fn write_anim_file(s: &mut Session, path: &str, format: Format, curves: &[NodeId]) -> Result<(), String> {
+    let mut lines = String::new();
+    for &c in curves {
+        let g = &s.graph;
+        let Some(n) = g.node(c) else { continue };
+        let Some(out) = n.ty().attr_index("output") else { continue };
+        for d in g.destinations(&PlugRef::new(c, out as i32)) {
+            if curves.contains(&d.node) {
+                continue;
+            }
+            let Some(dn) = g.node(d.node) else { continue };
+            let attr = ref_name(&dn.ty().attrs[d.attr as usize], d.component);
+            let _ = writeln!(lines, "connectAttr {} {};", quoted(&format!("{}.o", g.path(c))), quoted(&format!("{}.{attr}", g.path(d.node))));
+        }
+    }
+    let write = |s: &mut Session| -> (String, Vec<String>) {
+        ANIM_EXPORT.with(|c| c.set(true));
+        let (mut text, w) = write_text(s, path, Some(curves));
+        ANIM_EXPORT.with(|c| c.set(false));
+        let at = text.rfind("// End of").unwrap_or(text.len());
+        text.insert_str(at, &lines);
+        (text, w)
+    };
+    match format {
+        Format::Ma => {
+            let (text, _) = write(s);
+            std::fs::write(path, text).map_err(|e| format!("{path}: {e}"))
+        }
+        Format::Mb => {
+            let (lin, ang) = (units::cm_per_unit(), units::rad_per_unit());
+            let (linear, angle) = (units::linear_name().to_string(), units::angle_name().to_string());
+            units::set_linear(1.0);
+            units::set_angle(1.0);
+            let (text, _) = write(s);
+            units::set_linear(lin);
+            units::set_angle(ang);
+            let fps = anim::fps();
+            let hints = crate::mb_write::Hints { linear, angle, time: time_unit_name(fps), fps, dag_roots: Default::default(), transform_types: Default::default() };
+            let (bytes, _) = crate::mb_write::encode(&text, &hints);
+            std::fs::write(path, bytes).map_err(|e| format!("{path}: {e}"))
+        }
+    }
+}
+
+/// What export would write for these nodes: what export selected takes with them, or just them when strict.
+pub(crate) fn export_closure(s: &Session, only: &[NodeId], strict: bool) -> Vec<NodeId> {
+    let g = &s.graph;
+    let keep: HashSet<NodeId> = if strict { only.iter().copied().collect() } else { closure(g, only) };
+    let mut v: Vec<NodeId> = keep.into_iter().filter(|&id| g.node(id).is_some_and(|n| n.reference_id() == 0)).collect();
+    v.sort();
+    v
 }
 
 /// The scene as a binary file: its `.ma` text in internal units (values in a binary file are centimetres and
@@ -6040,12 +6142,71 @@ fn binary_warnings(binary: &Option<crate::mb_file::Converted>) -> Vec<String> {
     w
 }
 
+/// The file's nodes with connections into nodes it doesn't hold.
+fn outside_sources(text: &str) -> HashSet<String> {
+    let mut made: HashSet<String> = HashSet::new();
+    let mut pairs = Vec::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("createNode ") {
+            if let Some(n) = rest.split("-n \"").nth(1).and_then(|x| x.split('"').next()) {
+                made.insert(n.to_string());
+            }
+        } else if let Some(rest) = t.strip_prefix("connectAttr ") {
+            let q: Vec<&str> = rest.split('"').collect();
+            if q.len() >= 4 {
+                if let (Some((a, _)), Some((b, _))) = (q[1].split_once('.'), q[3].split_once('.')) {
+                    pairs.push((a.to_string(), b.trim_start_matches(':').to_string()));
+                }
+            }
+        }
+    }
+    pairs.into_iter().filter(|(a, b)| made.contains(a) && !made.contains(b) && !b.is_empty()).map(|x| x.0).collect()
+}
+
+/// The file's connections from its own nodes into nodes it doesn't hold, made to the scene's nodes of those names: what
+/// an animation export (file -exportAnim) leaves for the import to connect.
+fn connect_to_scene(s: &mut Session, text: &str) {
+    let read = LAST_READ_NAMES.with(|n| n.borrow().clone());
+    if read.is_empty() || !text.contains("connectAttr") {
+        return;
+    }
+    let short = |n: &str| n.rsplit('|').next().unwrap_or(n).to_string();
+    for line in text.lines() {
+        let Some(rest) = line.trim().strip_prefix("connectAttr ") else { continue };
+        let q: Vec<&str> = rest.split('"').collect();
+        if q.len() < 4 {
+            continue;
+        }
+        let (a, b) = (q[1], q[3]);
+        let (Some((an, aa)), Some((bn, ba))) = (a.split_once('.'), b.split_once('.')) else { continue };
+        if read.iter().any(|(_, n)| short(n) == short(bn)) {
+            continue;
+        }
+        let Some((src_id, _)) = read.iter().find(|(_, n)| short(n) == short(an)) else { continue };
+        let g = &mut s.graph;
+        // Only animation: anything else the file connects outside itself is the reader's.
+        if !g.node(*src_id).is_some_and(|n| n.ty().is_a("animCurve") || DRIVEN_CURVES.contains(&n.ty().name.as_str())) {
+            continue;
+        }
+        let from = format!("{}.{aa}", g.path(*src_id));
+        if let (Ok(f), Ok(t)) = (g.plug(&from), g.plug(&format!("{bn}.{ba}"))) {
+            if g.source(&t).is_none() {
+                let _ = g.connect(&f, &t, true);
+            }
+        }
+    }
+}
+
 /// Adds a `.ma` or `.mb` scene file's contents to the scene. One undo step.
 pub fn import_scene(s: &mut Session, path: &str) -> Result<Vec<String>, String> {
     let SceneText { text, binary } = read_scene_text(path)?;
     crate::references::note_scene_folder(s, path);
     let mut w = binary_warnings(&binary);
+    OUTSIDE_SOURCES.with(|o| *o.borrow_mut() = outside_sources(&text));
     w.extend(read_text(s, &text, true));
+    OUTSIDE_SOURCES.with(|o| o.borrow_mut().clear());
+    connect_to_scene(s, &text);
     // An edits file (exportEdits): its reference edits go onto the nodes they name.
     if text.contains("\n//edit ") {
         crate::references::apply_edit_lines(s, &text);
@@ -6447,7 +6608,7 @@ fn obj_file(s: &mut Session, a: &Args, path: Option<&str>, ty: Option<&str>) -> 
 
 /// A bare name takes the extension of the type asked for, as the reference does.
 fn with_type_extension(path: &str, ty: Option<&str>) -> String {
-    if extension(path).is_empty() {
+    if extension(path).is_empty() && DEFAULT_EXTENSIONS.with(Cell::get) {
         match ty {
             Some("mayaAscii") => return format!("{path}.ma"),
             Some("mayaBinary") => return format!("{path}.mb"),

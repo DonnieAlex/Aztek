@@ -13,6 +13,8 @@ type Cmd = CommandDef<Session>;
 #[derive(Default)]
 struct Objects {
     filters: BTreeMap<String, Map<String, Value>>,
+    /// itemFilterAttr's filters, of attributes.
+    attr_filters: BTreeMap<String, Map<String, Value>>,
     connections: BTreeMap<String, Connection>,
     configs: BTreeMap<String, Map<String, Value>>,
     /// What editorTemplate has been told since the template began.
@@ -34,6 +36,8 @@ struct Connection {
 
 thread_local! {
     static OBJECTS: RefCell<Objects> = RefCell::new(Objects::default());
+    /// What filter scripts answered, worked out by the host before a listing: (filter, item) passes.
+    static SCRIPT_PASS: RefCell<std::collections::HashMap<(String, String), bool>> = RefCell::new(Default::default());
 }
 
 fn with<R>(f: impl FnOnce(&mut Objects) -> R) -> R {
@@ -125,6 +129,9 @@ fn filter_matches(filters: &BTreeMap<String, Map<String, Value>>, name: &str, no
     }
     let sub = |n: &str| filter_matches(filters, n, node, types, depth + 1);
     let mut ok = true;
+    if x.get("byScript").is_some() || x.get("secondScript").is_some() {
+        ok &= with_pass(name, node);
+    }
     if let Some(p) = x.get("byName") {
         ok &= strings(Some(p)).iter().any(|q| glob(q, node));
     }
@@ -147,13 +154,35 @@ fn filter_matches(filters: &BTreeMap<String, Map<String, Value>>, name: &str, no
     ok
 }
 
+/// What the host worked out for a filter's script; an item it didn't is let through.
+fn with_pass(filter: &str, item: &str) -> bool {
+    SCRIPT_PASS.with(|p| p.borrow().get(&(filter.to_string(), item.to_string())).copied().unwrap_or(true))
+}
+
+/// The filters of one classification: builtIn, user (also those that give none) or other.
+fn classified(map: &BTreeMap<String, Map<String, Value>>, kind: &str) -> Vec<String> {
+    map.iter().filter(|(_, x)| x.get("classification").and_then(Value::as_str).unwrap_or("user") == kind).map(|(k, _)| k.clone()).collect()
+}
+
+fn list_filters(a: &Args, attr: bool) -> Option<Value> {
+    let pick = |o: &Objects| if attr { o.attr_filters.clone() } else { o.filters.clone() };
+    for (flag, kind) in [("listBuiltInFilters", "builtIn"), ("listOtherFilters", "other"), ("listUserFilters", "user")] {
+        if a.bool(flag) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == flag)) {
+            return Some(json!(with(|o| classified(&pick(o), kind))));
+        }
+    }
+    None
+}
+
 fn item_filter(a: &Args) -> CmdResult {
     let name = a.pos_str(0).map(str::to_string);
-    if a.bool("listBuiltInFilters") || a.bool("listOtherFilters") {
-        return Ok(json!(Vec::<String>::new()));
+    if let Some(v) = list_filters(a, false) {
+        return Ok(v);
     }
-    if a.bool("listUserFilters") {
-        return Ok(json!(with(|o| o.filters.keys().cloned().collect::<Vec<_>>())));
+    if let Some(c) = a.get("classification").and_then(Value::as_str) {
+        if !matches!(c, "builtIn" | "user" | "other") {
+            fail!("itemFilter: -classification takes builtIn, user or other");
+        }
     }
     if a.bool("exists") && !a.bool("query") {
         return Ok(json!(name.is_some_and(|n| with(|o| o.filters.contains_key(&n)))));
@@ -181,8 +210,164 @@ fn item_filter(a: &Args) -> CmdResult {
     Ok(json!(n))
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// itemFilterAttr and itemFilterType
+
+fn item_filter_attr(a: &Args) -> CmdResult {
+    let name = a.pos_str(0).map(str::to_string);
+    if let Some(v) = list_filters(a, true) {
+        return Ok(v);
+    }
+    let named_scripts = a.has("byScript") || a.has("secondScript");
+    if named_scripts && (a.has("byName") || a.has("byNameString")) {
+        fail!("itemFilterAttr: -byScript and -secondScript can't be used with -byName or -byNameString");
+    }
+    if let Some(c) = a.get("classification").and_then(Value::as_str) {
+        if !matches!(c, "builtIn" | "user" | "other") {
+            fail!("itemFilterAttr: -classification takes builtIn, user or other");
+        }
+    }
+    let mut flags = a.flags.clone();
+    flags.retain(|k, v| !matches!(k.as_str(), "query" | "edit" | "queried") && !v.is_null());
+    if a.bool("query") {
+        let Some(n) = name else { fail!("itemFilterAttr: name a filter.") };
+        let Some(q) = asked(a) else { fail!("itemFilterAttr: name what to ask about.") };
+        return with(|o| {
+            let Some(x) = o.attr_filters.get(&n) else { fail!("itemFilterAttr: Object '{n}' not found.") };
+            Ok(x.get(&q).cloned().unwrap_or(if matches!(q.as_str(), "byName" | "byScript" | "secondScript" | "text" | "classification") { json!("") } else if matches!(q.as_str(), "byNameString" | "union" | "intersect") { json!([]) } else { json!(false) }))
+        });
+    }
+    if a.bool("edit") {
+        let Some(n) = name else { fail!("itemFilterAttr: name a filter.") };
+        return with(|o| {
+            let Some(x) = o.attr_filters.get_mut(&n) else { fail!("itemFilterAttr: Object '{n}' not found.") };
+            // A new test of one kind replaces the other kind's.
+            if flags.contains_key("byScript") || flags.contains_key("secondScript") {
+                x.remove("byName");
+                x.remove("byNameString");
+            }
+            if flags.contains_key("byName") || flags.contains_key("byNameString") {
+                x.remove("byScript");
+                x.remove("secondScript");
+            }
+            x.extend(flags);
+            Ok(json!(n))
+        });
+    }
+    let n = name.unwrap_or_else(|| fresh("itemFilterAttr", |t| with(|o| o.attr_filters.contains_key(t) || o.filters.contains_key(t))));
+    with(|o| o.attr_filters.insert(n.clone(), flags));
+    Ok(json!(n))
+}
+
+fn item_filter_type(a: &Args) -> CmdResult {
+    let Some(n) = a.pos_str(0).map(str::to_string) else { fail!("itemFilterType: name a filter.") };
+    let kind = with(|o| if o.filters.contains_key(&n) { "itemFilter" } else if o.attr_filters.contains_key(&n) { "attributeFilter" } else { "unknownFilter" });
+    if a.bool("edit") {
+        let Some(t) = a.get("text").and_then(Value::as_str).map(str::to_string) else { return Ok(json!(n)) };
+        return with(|o| match o.filters.get_mut(&n).or(o.attr_filters.get_mut(&n)) {
+            Some(x) => {
+                x.insert("text".into(), json!(t));
+                Ok(json!(n))
+            }
+            None => fail!("itemFilterType: Object '{n}' not found."),
+        });
+    }
+    if a.bool("query") && asked(a).as_deref() == Some("text") {
+        return with(|o| match o.filters.get(&n).or(o.attr_filters.get(&n)) {
+            Some(x) => Ok(x.get("text").cloned().unwrap_or(json!(""))),
+            None => fail!("itemFilterType: Object '{n}' not found."),
+        });
+    }
+    if a.bool("query") {
+        return Ok(json!(kind));
+    }
+    fail!("itemFilterType: use -query -type or -text.")
+}
+
+/// Whether a name is an item filter of either kind, for delete.
+pub fn is_filter(name: &str) -> bool {
+    with(|o| o.filters.contains_key(name) || o.attr_filters.contains_key(name))
+}
+
+/// Takes filters away, as delete does.
+pub fn delete_filter(name: &str) -> bool {
+    with(|o| o.filters.remove(name).is_some() | o.attr_filters.remove(name).is_some())
+}
+
+/// What the host needs to run a filter's scripts: each filter reachable from `name` that has one, with its byScript,
+/// secondScript and pythonModule.
+pub fn scripted_filters(name: &str) -> Vec<(String, String, String, String)> {
+    let mut out = Vec::new();
+    let mut todo = vec![name.to_string()];
+    let mut seen = std::collections::HashSet::new();
+    while let Some(n) = todo.pop() {
+        if !seen.insert(n.clone()) {
+            continue;
+        }
+        let Some(x) = with(|o| o.filters.get(&n).cloned().or_else(|| o.attr_filters.get(&n).cloned())) else { continue };
+        let t = |k: &str| x.get(k).map(text).unwrap_or_default();
+        if !t("byScript").is_empty() || !t("secondScript").is_empty() {
+            out.push((n.clone(), t("byScript"), t("secondScript"), t("pythonModule")));
+        }
+        for k in ["union", "intersect", "difference"] {
+            todo.extend(strings(x.get(k)));
+        }
+    }
+    out
+}
+
+pub fn set_script_pass(results: Vec<((String, String), bool)>) {
+    SCRIPT_PASS.with(|p| {
+        let mut p = p.borrow_mut();
+        p.clear();
+        p.extend(results);
+    });
+}
+
+pub fn is_attr_filter(name: &str) -> bool {
+    with(|o| o.attr_filters.contains_key(name))
+}
+
+/// Whether node.attr passes an attribute filter; `facts` answers the attribute's properties.
+pub fn attr_passes(name: &str, node: &str, attr: &str, facts: &dyn Fn(&str) -> bool, depth: u32) -> bool {
+    let Some(x) = with(|o| o.attr_filters.get(name).cloned()) else { return false };
+    if depth > 16 {
+        return false;
+    }
+    let on = |k: &str| x.get(k).is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().is_some_and(|i| i != 0)));
+    let mut ok = true;
+    if let Some(p) = x.get("byName") {
+        ok &= glob(&text(p), attr);
+    }
+    if let Some(p) = x.get("byNameString") {
+        ok &= strings(Some(p)).iter().any(|q| q == attr);
+    }
+    if x.get("byScript").is_some() || x.get("secondScript").is_some() {
+        ok &= with_pass(name, &format!("{node}.{attr}"));
+    }
+    for k in ["keyable", "readable", "writable", "hidden", "dynamic", "hasCurve", "hasExpression", "hasDrivenKey", "scaleRotateTranslate", "published", "exists"] {
+        if on(k) {
+            ok &= facts(k);
+        }
+    }
+    for (flag, both) in [("union", false), ("intersect", true)] {
+        let parts = strings(x.get(flag));
+        if let [l, r, ..] = parts.as_slice() {
+            let (a, b) = (attr_passes(l, node, attr, facts, depth + 1), attr_passes(r, node, attr, facts, depth + 1));
+            ok &= if both { a && b } else { a || b };
+        }
+    }
+    if on("negate") {
+        ok = !ok;
+    }
+    ok
+}
+
 fn ls_through_filter(s: &mut Session, a: &Args) -> CmdResult {
     let Some(name) = a.pos_str(0).map(str::to_string) else { fail!("lsThroughFilter: name a filter.") };
+    if is_attr_filter(&name) {
+        return ls_attrs_through(s, a, &name);
+    }
     if !with(|o| o.filters.contains_key(&name)) {
         fail!("lsThroughFilter: Object '{name}' not found.");
     }
@@ -209,6 +394,59 @@ fn ls_through_filter(s: &mut Session, a: &Args) -> CmdResult {
         let short = path.rsplit('|').next().unwrap_or(&path).to_string();
         if with(|o| filter_matches(&o.filters, &name, &short, &types, 0)) {
             out.push(path);
+        }
+    }
+    if a.bool("sort") {
+        out.sort();
+    }
+    if a.bool("reverse") {
+        out.reverse();
+    }
+    Ok(json!(out))
+}
+
+/// An attribute filter through lsThroughFilter: the plugs of the items given (or the selected nodes) that pass.
+fn ls_attrs_through(s: &mut Session, a: &Args, name: &str) -> CmdResult {
+    let mut items = strings(a.get("item"));
+    if items.is_empty() {
+        items = s.graph.selection().iter().map(|&i| s.graph.path(i)).collect();
+    }
+    let mut out = Vec::new();
+    for node in items {
+        let list = |s: &mut Session, flag: Option<&str>| -> Vec<String> {
+            let mut call = json!({"args": [node.clone()]});
+            if let Some(f) = flag {
+                call[f] = json!(true);
+            }
+            s.run("listAttr", call).ok().map(|v| strings(Some(&v))).unwrap_or_default()
+        };
+        let all = list(s, None);
+        let keyable = list(s, Some("keyable"));
+        let readable = list(s, Some("read"));
+        let writable = list(s, Some("write"));
+        let dynamic = list(s, Some("userDefined"));
+        for attr in &all {
+            let plug = format!("{node}.{attr}");
+            let src_type = s.graph.plug(&plug).ok().and_then(|p| s.graph.source(&p)).and_then(|p| s.graph.node(p.node).map(|n| n.ty().name.clone())).unwrap_or_default();
+            let hidden = s.run("attributeQuery", json!({"args": [attr.clone()], "node": node.clone(), "hidden": true})).ok().and_then(|v| v.as_bool().or(v.as_i64().map(|i| i != 0))).unwrap_or(false);
+            let facts = |k: &str| -> bool {
+                match k {
+                    "keyable" => keyable.contains(attr),
+                    "readable" => readable.contains(attr),
+                    "writable" => writable.contains(attr),
+                    "dynamic" => dynamic.contains(attr),
+                    "hidden" => hidden,
+                    "hasCurve" => src_type.starts_with("animCurveT"),
+                    "hasDrivenKey" => src_type.starts_with("animCurveU"),
+                    "hasExpression" => src_type == "expression",
+                    "scaleRotateTranslate" => ["translate", "rotate", "scale"].iter().any(|b| attr.starts_with(b)),
+                    "published" => false,
+                    _ => true,
+                }
+            };
+            if attr_passes(name, &node, attr, &facts, 0) {
+                out.push(plug);
+            }
         }
     }
     if a.bool("sort") {
@@ -678,7 +916,15 @@ pub fn register(s: &mut Session) {
     *aztek_scene::ref_scene::INTERNAL_NODES.write().unwrap() = Some(|| with(|o| o.filters.keys().cloned().collect()));
     s.register(add(
         Cmd::new("itemFilter", "A named test of nodes for editors and lsThroughFilter: -byName, -byType, -union, -intersect, -difference, -negate.", |_s, a| item_filter(a)).positional("[name]").undoable(false),
-        "byName:bn:a byType:bt:a1 byBin:bk:a1 byScript:bs:a secondScript:ss:a classification:cls:a clearByBin:cbk:b clearByType:cbt:b category:cat:a1 customCategory:ctg:a difference:di:a2 intersect:in:a2 union:un:a2 negate:neg:b listBuiltInFilters:lbf:b listOtherFilters:lof:b listUserFilters:luf:b parent:p:a text:t:a uniqueNodeNames:unn:b exists:ex:b query:q:b edit:e:b queried::a",
+        "pythonModule:pym:a byName:bn:a byType:bt:a1 byBin:bk:a1 byScript:bs:a secondScript:ss:a classification:cls:a clearByBin:cbk:b clearByType:cbt:b category:cat:a1 customCategory:ctg:a difference:di:a2 intersect:in:a2 union:un:a2 negate:neg:b listBuiltInFilters:lbf:b listOtherFilters:lof:b listUserFilters:luf:b parent:p:a text:t:a uniqueNodeNames:unn:b exists:ex:b query:q:b edit:e:b queried::a",
+    ));
+    s.register(add(
+        Cmd::new("itemFilterAttr", "A named test of attributes for editors and lsThroughFilter: -byName, -byNameString, -byScript, -keyable, -hidden, -hasCurve and the rest, -union, -intersect, -negate.", |_s, a| item_filter_attr(a)).positional("[name]").undoable(false),
+        "byName:bn:a byNameString:bns:a1 byScript:bs:a secondScript:ss:a classification:cls:a dynamic:dy:b exists:ex:b hasCurve:hc:b hasDrivenKey:hdk:b hasExpression:he:b hidden:h:b intersect:in:a2 keyable:k:b listBuiltInFilters:lbf:b listOtherFilters:lof:b listUserFilters:luf:b negate:neg:b parent:p:a published:pub:b readable:r:b scaleRotateTranslate:srt:b text:t:a union:un:a2 writable:w:b query:q:b edit:e:b queried::a",
+    ));
+    s.register(add(
+        Cmd::new("itemFilterType", "What kind a filter is (-q -type: itemFilter, attributeFilter, renderFilter or unknownFilter) and its note (-text).", |_s, a| item_filter_type(a)).positional("filter").undoable(false),
+        "text:t:a type:typ:b query:q:b edit:e:b queried::a",
     ));
     s.register(add(
         Cmd::new("lsThroughFilter", "The nodes a filter passes: -item limits it to those named, -selection to the selected, -sort, -reverse.", ls_through_filter).positional("filter").undoable(false),

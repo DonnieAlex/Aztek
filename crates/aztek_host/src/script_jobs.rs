@@ -147,11 +147,13 @@ pub fn note_command(name: &str, call: &Value) -> bool {
             note("NewSceneOpened");
         }
         "file" if !on("query") && !on("q") => {
-            if on("new") {
+            if on("new") || on("newFile") {
                 note("deleteAll");
                 note("NewSceneOpened");
             } else if on("open") || on("o") {
-                opened = true;
+                // -executeScriptNodes off: the file's script nodes don't run.
+                let off = |k: &str| call.get(k).is_some_and(|v| v.as_bool() == Some(false) || v.as_i64() == Some(0));
+                opened = !off("executeScriptNodes") && !off("esn");
                 note("deleteAll");
                 note("PostSceneRead");
                 note("SceneOpened");
@@ -169,7 +171,7 @@ pub fn note_command(name: &str, call: &Value) -> bool {
 /// Whether a command is about to replace the scene.
 pub fn replaces_scene(name: &str, call: &Value) -> bool {
     let on = |k: &str| call.get(k).is_some_and(|v| v.as_bool().unwrap_or(v.as_i64().is_some_and(|i| i != 0)));
-    name == "newScene" || (name == "file" && !on("query") && !on("q") && (on("new") || on("open") || on("o")))
+    name == "newScene" || (name == "file" && !on("query") && !on("q") && (on("new") || on("newFile") || on("open") || on("o")))
 }
 
 /// A scene with time-changed scripts needs the time watched, jobs or no jobs.

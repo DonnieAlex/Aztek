@@ -2217,6 +2217,10 @@ fn make_plane(s: &mut Session, a: &Args) -> CmdResult {
     let shape_type = types::find(curves::SHAPE_TYPE).unwrap();
     let sh = g.create_node(&shape_type, &name, tr, false)?;
     curves::set_cached(g, sh, outline)?;
+    // Marked as a construction plane, for ls -planes.
+    let mut mark = crate::attr_defs::bool_attr(crate::ls_more::PLANE_ATTR, true, "A construction plane's outline.");
+    mark.default_value = PlugValue::Bool(true);
+    g.add_attr(sh, mark)?;
     g.select(&[tr], SelectMode::Replace);
     Ok(json!(g.path(tr)))
 }

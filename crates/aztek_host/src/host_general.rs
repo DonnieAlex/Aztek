@@ -1149,6 +1149,9 @@ static NEXT_HANDLER: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64
 
 /// Commands the host answers before the scene does: connectDynamic's handlers, which run Python.
 pub(crate) fn intercept(core: &mut crate::core::Core, name: &str, call: &Value) -> Option<Result<Value, String>> {
+    if let Some(r) = crate::sys_more::intercept(core, name, call) {
+        return Some(r);
+    }
     if name == "connectDynamic" {
         return connect_dynamic(core, call);
     }

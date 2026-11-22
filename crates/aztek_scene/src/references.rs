@@ -243,12 +243,47 @@ fn plug_full_name(g: &Graph, p: &PlugRef) -> String {
 
 /// Where a reference's file is: as written, under the project and the folders of the scene and of the file referencing it,
 /// then by its name in those. A path from another machine is found this way.
+/// How an open loads the references its file holds, when told otherwise than the file says (file -lnr, -lar, -lrd,
+/// -loadSettings).
+#[derive(Clone, Debug)]
+pub enum LoadMode {
+    All,
+    None,
+    TopOnly,
+    /// Each reference node and whether it starts unloaded.
+    Map(HashMap<String, bool>),
+}
+
+thread_local! {
+    pub(crate) static LOAD_MODE: std::cell::RefCell<Option<LoadMode>> = const { std::cell::RefCell::new(None) };
+    /// file -strict: a relative path is looked for in the project only.
+    pub(crate) static STRICT_PATHS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// After file -saveReference: what the reference holds now is what its file holds, so it has no edits.
+pub(crate) fn rebaseline(s: &mut Session, at: usize) {
+    let id = s.extras.references.entries[at].id;
+    let b = snapshot(&mut s.graph, id);
+    let e = &mut s.extras.references.entries[at];
+    e.baseline = b;
+    e.edits.clear();
+    e.connections.clear();
+}
+
 fn resolve(s: &mut Session, written: &str) -> Option<PathBuf> {
     let expanded = crate::shading::expand_env(written.trim()).replace('\\', "/");
     let expanded = expanded.split('{').next().unwrap_or(&expanded).to_string();
     let as_written = Path::new(&expanded);
     if as_written.is_file() {
         return Some(as_written.to_path_buf());
+    }
+    if STRICT_PATHS.with(std::cell::Cell::get) {
+        if as_written.is_absolute() {
+            return None;
+        }
+        let root = crate::shading::project_dir(s)?;
+        let p = PathBuf::from(root).join(as_written);
+        return p.is_file().then_some(p);
     }
     let mut dirs: Vec<PathBuf> = s.extras.references.search.iter().rev().cloned().collect();
     if let Some(d) = s.scene_path.as_deref().and_then(|p| Path::new(p).parent()) {
@@ -1719,7 +1754,15 @@ pub(crate) fn begin_read(s: &mut Session, edits: &[(String, Vec<String>)], load_
 pub fn from_ma(s: &mut Session, r: &FileRef) -> Result<(), String> {
     let at = add_entry(s, r);
     let rfn = s.extras.references.entries[at].rfn.clone();
-    let deferred = s.extras.references.load_state.get(&rfn).copied().unwrap_or(r.deferred);
+    let mut deferred = s.extras.references.load_state.get(&rfn).copied().unwrap_or(r.deferred);
+    let nested = !s.extras.references.stack.is_empty();
+    match LOAD_MODE.with(|m| m.borrow().clone()) {
+        Some(LoadMode::All) => deferred = false,
+        Some(LoadMode::None) => deferred = true,
+        Some(LoadMode::TopOnly) => deferred = nested,
+        Some(LoadMode::Map(m)) => deferred = m.get(&rfn).copied().unwrap_or(deferred),
+        None => {}
+    }
     let mk = |s: &mut Session| {
         let (id, file) = (s.extras.references.entries[at].id, PathBuf::from(&s.extras.references.entries[at].path));
         s.graph.without_undo(|g| {

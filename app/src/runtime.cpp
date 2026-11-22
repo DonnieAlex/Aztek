@@ -22,6 +22,8 @@
 #include "widgets.h"
 
 #include <QApplication>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QFileInfo>
 #include <QImage>
 #include <QPixmap>
@@ -973,6 +975,13 @@ void MainWindow::handle_ui_request(const QString& r) {
         QTimer::singleShot(0, this, [this, code] {
             if (close()) QCoreApplication::exit(code);
         });
+    } else if (name == "aboutBox") {
+        // license -showProductInfoDialog.
+        show_about(this);
+    } else if (name == "launch") {
+        // launch: a page, movie, PDF or folder in the application the system has for it.
+        QUrl url = payload.contains("://") ? QUrl(payload) : QUrl::fromLocalFile(payload);
+        QDesktopServices::openUrl(url);
     } else if (name == "fcheck") {
         // fcheck: an image in its own window, or a numbered sequence played at the scene's rate.
         QJsonObject o = parse(payload).toObject();

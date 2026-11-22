@@ -107,6 +107,7 @@ impl Core {
         crate::host_general::register(&mut c.s);
         crate::ee_listen::register(&mut c.s);
         crate::sys_host::register(&mut c.s);
+        crate::sys_more::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.mel_state.set_global_string("gPlayBackSlider", crate::scriptui::TIME_SLIDER);

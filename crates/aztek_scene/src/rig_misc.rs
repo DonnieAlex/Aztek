@@ -763,7 +763,7 @@ pub(crate) fn container_centric(g: &Graph, id: NodeId) -> NodeId {
     out
 }
 
-fn container_members(g: &Graph, c: NodeId) -> Vec<(i32, NodeId)> {
+pub(crate) fn container_members(g: &Graph, c: NodeId) -> Vec<(i32, NodeId)> {
     let n = g.node(c).unwrap();
     n.elements(CT_MEMBER).iter().filter_map(|(i, v)| if let PlugValue::String(t) = v { resolve_ref(g, t).map(|x| (*i, x)) } else { None }).collect()
 }

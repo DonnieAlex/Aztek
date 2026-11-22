@@ -1041,6 +1041,64 @@ fn module_info(_s: &mut Session, a: &Args) -> CmdResult {
     })
 }
 
+/// The module definition files on the module paths that haven't been read: what loadModule -scan finds.
+fn unread_module_files() -> Vec<PathBuf> {
+    let read: Vec<PathBuf> = applied().found.iter().map(|m| m.definition.clone()).collect();
+    let mut dirs = path_list("AZTEK_MODULE_PATH");
+    dirs.extend(path_list("MAYA_MODULE_PATH"));
+    let mut out = Vec::new();
+    for d in dirs {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        let mut files: Vec<PathBuf> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "mod")).collect();
+        files.sort();
+        for f in files {
+            if !read.contains(&f) && !out.contains(&f) {
+                out.push(f);
+            }
+        }
+    }
+    out
+}
+
+/// Reads a module definition file into what is in force: its folders go on the paths. Returns the modules it added.
+fn load_module_file(file: &Path) -> Vec<String> {
+    let mut a = applied();
+    let had: Vec<String> = a.found.iter().map(|m| m.name.clone()).collect();
+    let version = a.version.clone();
+    read_mod_file(&mut a, file, &version);
+    let added: Vec<String> = a.found.iter().map(|m| m.name.clone()).filter(|n| !had.contains(n)).collect();
+    *APPLIED.lock().unwrap() = Some(a);
+    added
+}
+
+fn load_module(_s: &mut Session, a: &Args) -> CmdResult {
+    if a.bool("scan") {
+        return Ok(json!(unread_module_files().iter().map(|p| p.to_string_lossy().replace('\\', "/")).collect::<Vec<_>>()));
+    }
+    if let Some(f) = a.get("load").and_then(Value::as_str) {
+        let p = PathBuf::from(f);
+        if !p.is_file() {
+            return Err(CommandError::new(format!("loadModule: {f} not found")));
+        }
+        return Ok(json!(load_module_file(&p)));
+    }
+    if a.bool("allModules") {
+        let mut out = Vec::new();
+        for f in unread_module_files() {
+            out.extend(load_module_file(&f));
+        }
+        return Ok(json!(out));
+    }
+    Err(CommandError::new("loadModule: give -scan, -load or -allModules"))
+}
+
+/// The user folder's preferences folder, as internalVar -userPrefDir gives it.
+pub fn user_pref_dir() -> PathBuf {
+    let ap = applied();
+    let base = if ap.version.is_empty() { ap.root.clone() } else { ap.root.join(&ap.version) };
+    ap.prefs.clone().unwrap_or_else(|| base.join("prefs"))
+}
+
 /// Where a module lives, for getModulePath.
 pub fn module_path(name: &str) -> Option<String> {
     modules().into_iter().find(|m| m.name == name).map(|m| m.path.to_string_lossy().into_owned())
@@ -1113,6 +1171,13 @@ pub fn register_commands(s: &mut Session) {
             .flag(b("userTmpDir", "utd", "The temporary folder."))
             .flag(b("mayaInstallDir", "mid", "Where the application is installed."))
             .undoable(false),
+    );
+    s.register(
+        CommandDef::<Session>::new("loadModule", "Modules added since start-up: -scan lists module files not yet read, -load file reads one, -allModules reads every one -scan finds. Returns the files, or the modules read.", load_module)
+            .undoable(false)
+            .flag(b("allModules", "a", "Read every module file not read yet."))
+            .flag(FlagDef::new("load", "ld", ArgType::String, Value::Null, "Read this module definition file."))
+            .flag(b("scan", "sc", "List the module files on the module paths not read yet; nothing is read.")),
     );
     s.register(
         CommandDef::<Session>::new("moduleInfo", "Ask about the modules found: -listModules, or -moduleName with -path, -version or -definition.", module_info)
