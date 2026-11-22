@@ -4,6 +4,14 @@
 use aztek_host::Core;
 use serde_json::{json, Value};
 
+/// The frame rate and playback range are process-wide, as in the reference, and new, open and import set them: the
+/// tests take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn ok(c: &mut Core, src: &str) -> Value {
     c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"))
 }
@@ -33,6 +41,7 @@ fn exists(c: &mut Core, n: &str) -> bool {
 
 #[test]
 fn file_settings_and_queries() {
+    let _turn = turn();
     let mut c = Core::new();
     assert_eq!(ok(&mut c, "file -q -defaultExtensions;"), json!(true));
     assert_eq!(ok(&mut c, "file -q -renameToSave;"), json!(false));
@@ -67,6 +76,7 @@ fn file_settings_and_queries() {
 
 #[test]
 fn saves_compressed_through_a_temporary_file() {
+    let _turn = turn();
     let d = dir("cmp");
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box;");
@@ -97,6 +107,7 @@ fn saves_compressed_through_a_temporary_file() {
 
 #[test]
 fn strict_preview_and_animation_exports() {
+    let _turn = turn();
     let d = dir("exp");
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box; group -n grp box; select -r box;");
@@ -129,6 +140,7 @@ fn strict_preview_and_animation_exports() {
 
 #[test]
 fn export_as_reference_swaps_the_selection() {
+    let _turn = turn();
     let d = dir("er");
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box; select -r box;");
@@ -141,6 +153,7 @@ fn export_as_reference_swaps_the_selection() {
 
 #[test]
 fn import_options() {
+    let _turn = turn();
     let d = dir("imp");
     let mut c = Core::new();
     ok(&mut c, "currentUnit -t pal; playbackOptions -min 5 -max 50; polyCube -n box;");
@@ -182,6 +195,7 @@ fn import_options() {
 
 #[test]
 fn opening_with_reference_load_choices() {
+    let _turn = turn();
     let d = dir("open");
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box;");
@@ -211,6 +225,7 @@ fn opening_with_reference_load_choices() {
 
 #[test]
 fn reference_queries_select_lock_and_save_back() {
+    let _turn = turn();
     let d = dir("refs");
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box;");
@@ -254,6 +269,7 @@ fn reference_queries_select_lock_and_save_back() {
 
 #[test]
 fn scripts_around_a_save_and_snapshot_exports() {
+    let _turn = turn();
     let d = dir("scripts");
     let mut c = Core::new();
     ok(&mut c, "global int $gPre = 0; global int $gPost = 0; polyCube -n box;");
@@ -279,6 +295,7 @@ fn scripts_around_a_save_and_snapshot_exports() {
 
 #[test]
 fn wave_time_reference() {
+    let _turn = turn();
     let d = dir("wav");
     let mut bext = vec![0u8; 602];
     bext[338..342].copy_from_slice(&48000u32.to_le_bytes());
@@ -298,6 +315,7 @@ fn wave_time_reference() {
 
 #[test]
 fn ls_more_kinds_and_shapes_of_answer() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box; polySphere -n ball; namespace -add ns; namespace -set ns; polyCube -n inner; namespace -set \":\";");
     let ex = list(&ok(&mut c, "ls -excludeType camera;"));
@@ -352,6 +370,7 @@ fn ls_more_kinds_and_shapes_of_answer() {
 
 #[test]
 fn geom_to_bbox_boxes() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polySphere -r 1 -n a; polySphere -r 2 -n b; move 10 0 0 b; parent b a; select -r a;");
     ok(&mut c, "geomToBBox -keepOriginal -name \"bx\" -nameSuffix \"_bb\" -shaderColor 1 0 0;");
@@ -380,6 +399,7 @@ fn geom_to_bbox_boxes() {
 
 #[test]
 fn illustrator_files_to_curves() {
+    let _turn = turn();
     let d = dir("ai");
     std::fs::write(format!("{d}/a.ai"), "%!PS-Adobe-3.0\n%%Creator: test\n0 0 m\n10 0 l\n10 10 20 10 20 0 c\nS\n5 5 10 10 re\nf\n").unwrap();
     let mut c = Core::new();
@@ -401,6 +421,7 @@ fn illustrator_files_to_curves() {
 
 #[test]
 fn item_filters_scripts_attributes_and_types() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n boxA; polyCube -n boxB; spaceLocator -n loc;");
     ok(&mut c, "global proc int onlyA(string $n) { return `gmatch $n \"*boxA\"`; }");
@@ -445,6 +466,7 @@ fn item_filters_scripts_attributes_and_types() {
 
 #[test]
 fn launch_license_precision_and_names() {
+    let _turn = turn();
     let d = dir("misc");
     let mut c = Core::new();
     ok(&mut c, "launch -web \"https://example.com\";");
@@ -470,6 +492,7 @@ fn launch_license_precision_and_names() {
 
 #[test]
 fn modules_and_pref_objects() {
+    let _turn = turn();
     let d = dir("mods");
     let mods = format!("{d}/modules");
     std::fs::create_dir_all(format!("{mods}/late/scripts")).unwrap();

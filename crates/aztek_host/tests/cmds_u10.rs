@@ -9,6 +9,14 @@
 use aztek_host::Core;
 use serde_json::{json, Value};
 
+/// The lines commands print go to one process-wide buffer, and the first core to read it takes them: the tests that
+/// read what was printed take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn ok(c: &mut Core, src: &str) -> Value {
     c.mel_checked(src).unwrap_or_else(|e| panic!("{src}: {e}"))
 }
@@ -80,6 +88,7 @@ fn temp_dir(name: &str) -> std::path::PathBuf {
 
 #[test]
 fn text_scroll_list_items_enabled_and_tags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "window w; columnLayout; textScrollList -a \"one\" -a \"two\" -a \"three\" -utg \"t1\" -utg \"t2\" -utg \"t3\" -el \"Nothing\" l;");
     assert_eq!(strs(&ok(&mut c, "textScrollList -q -ait l;")), vec!["t1", "t2", "t3"]);
@@ -111,6 +120,7 @@ fn text_scroll_list_items_enabled_and_tags() {
 
 #[test]
 fn tool_button_images_and_state() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "window w; columnLayout; toolCollection tc;");
     ok(&mut c, "toolButton -t moveSuperContext -t scaleSuperContext -ti1 moveSuperContext \"move_M.png\" -ti1 scaleSuperContext \"scale_M.png\" b;");
@@ -150,6 +160,7 @@ fn tool_button_images_and_state() {
 
 #[test]
 fn tool_collection_clear_and_tool_dropped() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "window w; columnLayout col; toolCollection tc; toolButton -t moveSuperContext b1; toolButton -t scaleSuperContext b2;");
     ok(&mut c, "toolCollection -e -sl b2 tc;");
@@ -171,6 +182,7 @@ fn tool_collection_clear_and_tool_dropped() {
 
 #[test]
 fn torus_query_and_edit() {
+    let _turn = turn();
     let mut c = Core::new();
     let r = strs(&ok(&mut c, "torus -n tor -r 2 -hr 0.25;"));
     assert_eq!(r.len(), 2);
@@ -192,6 +204,7 @@ fn torus_query_and_edit() {
 
 #[test]
 fn trim_and_untrim_query_and_edit() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "nurbsPlane -n p -ax 0 1 0 -w 10 -lr 1 -d 1;");
     let on = ok(&mut c, "curveOnSurface -d 1 -uv 0.25 0.25 -uv 0.75 0.25 -uv 0.75 0.75 -uv 0.25 0.75 -uv 0.25 0.25 p;");
@@ -236,6 +249,7 @@ fn trim_and_untrim_query_and_edit() {
 
 #[test]
 fn track_up_distances() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "camera; setAttr camera1.t 0 0 0;");
     ok(&mut c, "track -u 2 cameraShape1;");
@@ -251,6 +265,7 @@ fn track_up_distances() {
 
 #[test]
 fn transfer_attributes_query_and_edit() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polySphere -n src; polySphere -n dst; move 0 0.5 0 src;");
     let r = strs(&ok(&mut c, "transferAttributes -pos 1 -spa 0 src dst;"));
@@ -274,6 +289,7 @@ fn transfer_attributes_query_and_edit() {
 
 #[test]
 fn translator_rules_and_finding() {
+    let _turn = turn();
     let mut c = Core::new();
     assert_eq!(ok(&mut c, "translator -q -dfr \"FBX\";"), json!("FBX"));
     assert_eq!(ok(&mut c, "translator -q -ot mayaAscii;"), json!("mayaAscii"));
@@ -292,6 +308,7 @@ fn translator_rules_and_finding() {
 
 #[test]
 fn undo_info_prints_queues() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n a; polySphere -n b;");
     ok(&mut c, "undo;");
@@ -305,6 +322,7 @@ fn undo_info_prints_queues() {
 
 #[test]
 fn unfold_apply_to_shell() {
+    let _turn = turn();
     // The second face's UVs pulled out of shape; the first face is unfolded.
     let run = |flag: &str| -> (f64, f64) {
         let mut c = Core::new();
@@ -322,6 +340,7 @@ fn unfold_apply_to_shell() {
 
 #[test]
 fn unknown_node_class_tag() {
+    let _turn = turn();
     let mut c = Core::new();
     let dir = temp_dir("unknown");
     let file = dir.join("u.ma");
@@ -334,6 +353,7 @@ fn unknown_node_class_tag() {
 
 #[test]
 fn unload_plugin_callbacks() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "global string $gGone = \"\"; global proc onGone(string $p) { global string $gGone; $gGone = $gGone + $p + \";\"; }");
     ok(&mut c, "unloadPlugin -ac \"onGone\";");
@@ -348,6 +368,7 @@ fn unload_plugin_callbacks() {
 
 #[test]
 fn uv_snapshot_uv_set() {
+    let _turn = turn();
     let mut c = Core::new();
     let dir = temp_dir("snap");
     ok(&mut c, "polyPlane -w 1 -h 1 -sx 2 -sy 2 -n p; polyUVSet -cr -uvs \"second\" p;");
@@ -363,6 +384,7 @@ fn uv_snapshot_uv_set() {
 
 #[test]
 fn view_fit_clip_planes_and_children() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n box -h 4; move 0 10 0 box;");
     ok(&mut c, "setAttr topShape.nearClipPlane 0.1; setAttr topShape.farClipPlane 100000;");
@@ -391,6 +413,7 @@ fn view_fit_clip_planes_and_children() {
 
 #[test]
 fn view_place_directions() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "camera;");
     ok(&mut c, "viewPlace -eye 0 0 10 -vd 0 0 -1 cameraShape1;");
@@ -409,6 +432,7 @@ fn view_place_directions() {
 
 #[test]
 fn view_set_back_and_queries() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "camera;");
     ok(&mut c, "viewSet -b cameraShape1;");
@@ -439,6 +463,7 @@ fn view_set_back_and_queries() {
 
 #[test]
 fn window_menu_bar_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "window -mb 1 w; menu -l \"A\" ma; menu -l \"B\" mbb; menu -l \"C\" mc; columnLayout; button bt; text tx;");
     assert_eq!(ok(&mut c, "window -q -nm w;"), json!(3));
@@ -464,6 +489,7 @@ fn window_menu_bar_flags() {
 
 #[test]
 fn workspace_control_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "global string $gInit = \"\"; global int $gDir = -1;");
     ok(&mut c, "global proc wcInit(string $n) { global string $gInit; $gInit = $n; }");
@@ -501,6 +527,7 @@ fn workspace_control_flags() {
 
 #[test]
 fn workspace_control_state_kept() {
+    let _turn = turn();
     let mut c = Core::new();
     assert_eq!(ok(&mut c, "workspaceControlState -ex s1;"), json!(false));
     ok(&mut c, "workspaceControlState -wh 400 300 -tlc 10 20 s1;");
@@ -526,6 +553,7 @@ fn workspace_control_state_kept() {
 
 #[test]
 fn workspace_layout_manager_layouts() {
+    let _turn = turn();
     let prefs = temp_dir("layouts");
     std::env::set_var("AZTEK_PREFS", &prefs);
     let mut c = Core::new();
@@ -576,6 +604,7 @@ fn workspace_layout_manager_layouts() {
 
 #[test]
 fn texture_deformer_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polySphere -n s; polyCube -n hidden; hide hidden;");
     let r = strs(&ok(&mut c, "select -r s hidden; textureDeformer -envelope 0.8 -strength 1.0 -offset 1.0 -direction \"Normal\" -pointSpace \"World\" -ex \"texPart\";"));
@@ -607,6 +636,7 @@ fn texture_deformer_flags() {
 
 #[test]
 fn wire_holder_count_and_deformer_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyPlane -w 10 -h 10 -sx 10 -sy 10 -n pa; polyPlane -w 10 -h 10 -sx 10 -sy 10 -n pb;");
     ok(&mut c, "curve -d 1 -p -5 0 0 -p 5 0 0 -n w1; curve -d 1 -p -5 0 3 -p 5 0 3 -n w2; curve -d 1 -p -5 0 2 -p 5 0 2 -n h;");
@@ -656,6 +686,7 @@ fn wire_holder_count_and_deformer_flags() {
 
 #[test]
 fn wrinkle_shape_flags() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyPlane -w 10 -h 10 -sx 20 -sy 20 -n wp;");
     let r = strs(&ok(&mut c, "wrinkle -ct 2 0 1 -ax 1 0 0 wp;"));
@@ -722,6 +753,7 @@ fn wrinkle_shape_flags() {
 
 #[test]
 fn xform_euler_parent_space_and_reflection() {
+    let _turn = turn();
     let mut c = Core::new();
     ok(&mut c, "polyCube -n a; polyCube -n b;");
     ok(&mut c, "xform -ro 30 0 0 a; xform -r -eu -ro 0 30 0 a;");
@@ -787,6 +819,7 @@ fn xform_euler_parent_space_and_reflection() {
 
 #[test]
 fn every_flag_of_the_unit_is_there() {
+    let _turn = turn();
     let c = Core::new();
     for (cmd, flags) in [
         ("textScrollList", "ait allItemsUniqueTags ea ei eii el emptyLabel enableAll enableIndexedItem enableItem enableUniqueTagItem eut"),

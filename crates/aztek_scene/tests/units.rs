@@ -3,6 +3,13 @@
 use aztek_scene::session::Session;
 use serde_json::{json, Value};
 
+/// The frame rate is process-wide, as in the reference, and a new scene sets it: the tests take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn run(s: &mut Session, name: &str, call: Value) -> Value {
     s.run(name, call).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
@@ -31,6 +38,7 @@ fn fresh() -> Session {
 
 #[test]
 fn every_linear_unit_reads_the_same_length() {
+    let _turn = turn();
     let mut s = fresh();
     run(&mut s, "polyCube", json!({"name": "a"}));
     run(&mut s, "setAttr", json!({"args": ["a.tx", 254.0]}));
@@ -43,6 +51,7 @@ fn every_linear_unit_reads_the_same_length() {
 
 #[test]
 fn a_matrix_stays_in_centimetres() {
+    let _turn = turn();
     let mut s = fresh();
     run(&mut s, "polyCube", json!({"name": "a"}));
     units(&mut s, "m", "rad");
@@ -55,6 +64,7 @@ fn a_matrix_stays_in_centimetres() {
 
 #[test]
 fn primitives_and_flags_take_the_current_unit() {
+    let _turn = turn();
     let mut s = fresh();
     units(&mut s, "m", "deg");
     run(&mut s, "polyCube", json!({"name": "a", "width": 2.0}));
@@ -68,6 +78,7 @@ fn primitives_and_flags_take_the_current_unit() {
 
 #[test]
 fn keys_hold_stored_values_and_answer_in_current_units() {
+    let _turn = turn();
     let mut s = fresh();
     run(&mut s, "polyCube", json!({"name": "a"}));
     units(&mut s, "m", "rad");
@@ -85,6 +96,7 @@ fn keys_hold_stored_values_and_answer_in_current_units() {
 
 #[test]
 fn connections_between_kinds_go_through_a_conversion_node() {
+    let _turn = turn();
     let mut s = fresh();
     run(&mut s, "polyCube", json!({"name": "a"}));
     run(&mut s, "polyCube", json!({"name": "b"}));
@@ -103,6 +115,7 @@ fn connections_between_kinds_go_through_a_conversion_node() {
 
 #[test]
 fn a_whole_vector_converts_per_axis() {
+    let _turn = turn();
     let mut s = fresh();
     run(&mut s, "polyCube", json!({"name": "a"}));
     run(&mut s, "polyCube", json!({"name": "b"}));
@@ -115,6 +128,7 @@ fn a_whole_vector_converts_per_axis() {
 
 #[test]
 fn a_file_is_written_in_the_scenes_units_and_read_back_in_them() {
+    let _turn = turn();
     let dir = std::env::temp_dir().join(format!("aztek_units_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("metres.ma").to_string_lossy().replace('\\', "/");
@@ -148,6 +162,7 @@ fn a_file_is_written_in_the_scenes_units_and_read_back_in_them() {
 
 #[test]
 fn a_new_scene_goes_back_to_the_defaults() {
+    let _turn = turn();
     let mut s = fresh();
     units(&mut s, "m", "rad");
     run(&mut s, "newScene", json!({}));
@@ -157,6 +172,7 @@ fn a_new_scene_goes_back_to_the_defaults() {
 
 #[test]
 fn time_units_by_name_and_custom_rates() {
+    let _turn = turn();
     let mut s = fresh();
     for (name, fps) in [("film", 24.0), ("pal", 25.0), ("ntsc", 30.0), ("show", 48.0), ("37fps", 37.0)] {
         run(&mut s, "currentUnit", json!({"time": "film"}));

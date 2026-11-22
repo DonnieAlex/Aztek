@@ -7,6 +7,13 @@ use aztek_scene::Session;
 use glam::DVec3;
 use serde_json::{json, Value};
 
+/// The layer options (key mode, lock muted) are process-wide, as in the reference: the tests take turns.
+static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn turn() -> std::sync::MutexGuard<'static, ()> {
+    TURN.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn run(s: &mut Session, name: &str, call: Value) -> Value {
     s.run(name, call).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
@@ -44,6 +51,7 @@ fn one_layer(s: &mut Session) {
 
 #[test]
 fn scalar_blend_table() {
+    let _turn = turn();
     // output = a * wa + b * wb
     for (a, b, wa, wb, want) in [(10.0, 4.0, 1.0, 1.0, 14.0), (10.0, 4.0, 1.0, 0.5, 12.0), (10.0, 4.0, 0.5, 0.5, 7.0), (10.0, 4.0, 0.0, 1.0, 4.0), (10.0, 4.0, 1.0, 0.0, 10.0)] {
         near(blend_scalar(BlendKind::Add, a, b, wa, wb, 0), want, 1e-12, "additive");
@@ -63,6 +71,7 @@ fn scalar_blend_table() {
 
 #[test]
 fn rotation_blend_table() {
+    let _turn = turn();
     let xyz = RotateOrder::Xyz;
     let v = |x, y, z| DVec3::new(x, y, z);
     // By component: the sum of Euler values, axes kept apart.
@@ -86,6 +95,7 @@ fn rotation_blend_table() {
 
 #[test]
 fn layer_modes_on_a_channel() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     near(at(&mut s, "pCube1.tx", 1.0), 14.0, 1e-9, "additive");
@@ -103,6 +113,7 @@ fn layer_modes_on_a_channel() {
 
 #[test]
 fn weight_keys_play_and_key_resolution_reads_them() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     run(&mut s, "setKeyframe", json!({"args": ["L1.weight"], "time": 1, "value": 0.0}));
@@ -117,6 +128,7 @@ fn weight_keys_play_and_key_resolution_reads_them() {
 
 #[test]
 fn solo_and_mute_through_the_hierarchy() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     layer_on(&mut s, "L2", "pCube1.tx");
@@ -145,6 +157,7 @@ fn solo_and_mute_through_the_hierarchy() {
 
 #[test]
 fn key_modes() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     layer_on(&mut s, "L2", "pCube1.tx");
@@ -168,6 +181,7 @@ fn key_modes() {
 
 #[test]
 fn identity_key_nullifies_the_layer() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     run(&mut s, "setKeyframe", json!({"args": ["pCube1.tx"], "animLayer": "L1", "time": 5, "identity": true}));
@@ -181,6 +195,7 @@ fn identity_key_nullifies_the_layer() {
 
 #[test]
 fn keying_a_rotate_by_layer_resolves_the_whole_rotation() {
+    let _turn = turn();
     let mut s = Session::new();
     cube(&mut s);
     run(&mut s, "setAttr", json!({"args": ["pCube1.rx", 90.0]}));
@@ -198,6 +213,7 @@ fn keying_a_rotate_by_layer_resolves_the_whole_rotation() {
 
 #[test]
 fn merge_options() {
+    let _turn = turn();
     // Automatic mode: an override among the merged makes an override result, and the result stays.
     let mut s = Session::new();
     one_layer(&mut s);
@@ -237,6 +253,7 @@ fn merge_options() {
 
 #[test]
 fn menu_commands() {
+    let _turn = turn();
     let mut s = Session::new();
     one_layer(&mut s);
     // Copy with and without animation; copyAnimation and extractAnimation by name.
@@ -272,6 +289,7 @@ fn menu_commands() {
 
 #[test]
 fn ma_layout_and_round_trip() {
+    let _turn = turn();
     let mut s = Session::new();
     cube(&mut s);
     run(&mut s, "setKeyframe", json!({"args": ["pCube1.tx", "pCube1.ry", "pCube1.sx", "pCube1.v"], "time": 1}));
@@ -370,6 +388,7 @@ connectAttr "ball_rotate_AnimLayer1_inputBX.o" "ball_rotate_AnimLayer1.ibx";
 
 #[test]
 fn reads_a_scene_in_the_references_words() {
+    let _turn = turn();
     let mut s = Session::new();
     let warnings = aztek_scene::ma_file::read_text(&mut s, REF_TEXT, false);
     assert!(warnings.iter().all(|w| !w.contains("AnimLayer") && !w.contains("animLayer") && !w.contains("BaseAnimation")), "{warnings:?}");
@@ -384,6 +403,7 @@ fn reads_a_scene_in_the_references_words() {
 
 #[test]
 fn undo_takes_a_layer_back() {
+    let _turn = turn();
     let mut s = Session::new();
     cube(&mut s);
     run(&mut s, "setKeyframe", json!({"args": ["pCube1.ry"], "time": 1, "value": 5.0}));
@@ -396,6 +416,7 @@ fn undo_takes_a_layer_back() {
 
 #[test]
 fn bake_with_layers() {
+    let _turn = turn();
     let curve = |s: &mut Session, name: &str, t: f64| run(s, "keyframe", json!({"args": [name], "query": true, "time": t, "queried": ["valueChange"]}))[0].as_f64().unwrap();
     // By default the result goes on the base and the layers are muted.
     let mut s = Session::new();
