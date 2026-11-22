@@ -247,3 +247,73 @@ fn relative_indices_reaching_into_an_earlier_chunk_read_as_the_absolute_ones() {
         assert_eq!(pa, pr, "face {f}");
     }
 }
+
+#[test]
+fn file_of_points_then_normals_then_relative_faces_reads_as_written() {
+    // #152: the reporter's dragon.obj (74 MB) lists every point, then every normal, then faces such as
+    // `f -435545//-438368 -435544//-438367 ...`, all counted back from the end of the lists, with CRLF line ends. Every
+    // piece after the first that holds faces has no points of its own, so each of its indices reaches back.
+    let (cols, rows) = (600usize, 400usize);
+    let mut pts = Vec::new();
+    for j in 0..rows {
+        for i in 0..cols {
+            let (u, v) = (i as f64 / cols as f64 * std::f64::consts::TAU, (j as f64 + 0.5) / rows as f64 * std::f64::consts::PI);
+            pts.push([v.sin() * u.cos(), v.cos(), v.sin() * u.sin()]);
+        }
+    }
+    let mut tris = Vec::new();
+    for j in 0..rows - 1 {
+        for i in 0..cols {
+            let (a, b) = (j * cols + i, j * cols + (i + 1) % cols);
+            let (c, d) = (a + cols, b + cols);
+            tris.push([a, c, b]);
+            tris.push([b, c, d]);
+        }
+    }
+    let n = pts.len() as i64;
+    let mut head = String::from("# Dragon\r\n\r\n\r\ng root \r\n\r\n");
+    for p in &pts {
+        head.push_str(&format!("v {} {} {}\r\n", p[0], p[1], p[2]));
+    }
+    head.push_str("\r\n");
+    // More normals than points, as in the reporter's file, so a normal's index differs from its point's.
+    let spare = 2823usize;
+    for k in 0..spare {
+        head.push_str(&format!("vn 0 0 {}\r\n", if k % 2 == 0 { 1 } else { -1 }));
+    }
+    for p in &pts {
+        head.push_str(&format!("vn {} {} {}\r\n", p[0], p[1], p[2]));
+    }
+    head.push_str("\r\n");
+    let nn = (spare + pts.len()) as i64;
+    let (mut abs, mut rel) = (head.clone(), head);
+    for t in &tris {
+        let (va, na) = (t.map(|k| k + 1), t.map(|k| k + spare + 1));
+        let (vr, nr) = (t.map(|k| k as i64 - n), t.map(|k| (k + spare) as i64 - nn));
+        abs.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", va[0], na[0], va[1], na[1], va[2], na[2]));
+        rel.push_str(&format!("f {}//{} {}//{} {}//{}\r\n", vr[0], nr[0], vr[1], nr[1], vr[2], nr[2]));
+    }
+    assert!(rel.len() > 8 << 20, "big enough to be read in pieces: {}", rel.len());
+    let a = read_obj(abs.as_bytes(), &ObjReadOptions::default());
+    let r = read_obj(rel.as_bytes(), &ObjReadOptions::default());
+    assert!(a.ok() && r.ok());
+    assert_eq!(r.objects.len(), 1);
+    let (ma, mr) = (&a.objects[0].mesh, &r.objects[0].mesh);
+    assert_eq!(ma.num_faces() as usize, tris.len());
+    assert_eq!(mr.num_faces() as usize, tris.len());
+    assert_eq!(mr.num_points() as usize, pts.len());
+    for f in 0..ma.face_capacity() {
+        let pa: Vec<_> = ma.face_points(f).iter().map(|&p| ma.position(p)).collect();
+        let pr: Vec<_> = mr.face_points(f).iter().map(|&p| mr.position(p)).collect();
+        assert_eq!(pa, pr, "face {f}");
+    }
+    // Each corner's normal is its point's direction, which only the right normal index gives.
+    let normals = mr.corner_attrs().get::<[f32; 3]>(names::NORMAL);
+    assert_eq!(normals, ma.corner_attrs().get::<[f32; 3]>(names::NORMAL));
+    for f in 0..mr.face_capacity() {
+        mr.for_each_face_corner(f, |c| {
+            let p = mr.position(mr.corner_point(c));
+            assert_eq!(normals[c as usize], [p.x as f32, p.y as f32, p.z as f32], "face {f} corner {c}");
+        });
+    }
+}

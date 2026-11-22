@@ -44,7 +44,7 @@ mp4 = "0.14"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# The Python pyo3 builds against, checked to be 3.12.
+# The Python pyo3 builds against, checked to be 3.13.
 [build-dependencies]
 pyo3-build-config = { version = "0.30", optional = true }
 

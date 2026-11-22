@@ -1,14 +1,14 @@
-# Python 3.12, the version Aztek embeds (as the reference's own Python is 3.12), for machines that have no 3.12: a
+# Python 3.13, the version Aztek embeds (the VFX Reference Platform CY2027 version), for machines that have no 3.13: a
 # relocatable build from python-build-standalone, checked against its published SHA-256.
 #   tools\python\fetch-python.ps1 <folder>
-# Unpacks into <folder> (python.exe, python312.dll, Lib, DLLs) and returns <folder>. Nothing is downloaded when it is
+# Unpacks into <folder> (python.exe, python313.dll, Lib, DLLs) and returns <folder>. Nothing is downloaded when it is
 # already there.
 param([Parameter(Mandatory = $true)][string]$Dest)
 $ErrorActionPreference = "Stop"
 
-$release = "20260924"
-$version = "3.12.14"
-$sum = "c5303174bc29f5205decf6721ac549d4eb41c448f9b8c46cbc562d00348865bb"
+$release = "20261110"
+$version = "3.13.18"
+$sum = "7e93813bd362c6413f30788b248590e2f169df2d17dcac81aafbcc7a6eeb542c"
 $stamp = Join-Path $Dest ".aztek-python-$version-$release"
 if (Test-Path $stamp) { return (Resolve-Path $Dest).Path }
 

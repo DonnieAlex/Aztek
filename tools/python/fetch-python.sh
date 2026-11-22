@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Python 3.12, the version Aztek embeds (as the reference's own Python is 3.12), for systems that have no 3.12 of
+# Python 3.13, the version Aztek embeds (the VFX Reference Platform CY2027 version), for systems that have no 3.13 of
 # their own: a relocatable build from python-build-standalone, checked against its published SHA-256.
 #   tools/python/fetch-python.sh <folder>
 # Unpacks into <folder> (bin/, include/, lib/) and prints <folder>. Nothing is downloaded when it is already there.
 set -euo pipefail
 
 DEST=${1:?usage: fetch-python.sh <folder>}
-RELEASE=20260924
-VERSION=3.12.14
+RELEASE=20261110
+VERSION=3.13.18
 
 case "$(uname -s)-$(uname -m)" in
-  Linux-x86_64) TRIPLE=x86_64-unknown-linux-gnu SUM=5eae8cf79dd47fc2496a4fccc892936be831ce7a84d984b2299dfb1cdb592682 ;;
-  Linux-aarch64) TRIPLE=aarch64-unknown-linux-gnu SUM=c0574c9c9fec561eb192ad510e4e79aaad039929b3531b3bb873e2f630fb14a9 ;;
-  Darwin-arm64) TRIPLE=aarch64-apple-darwin SUM=9763f43db2481a6af36af82ec40302aab7a73632f880129d07a6e81aec846277 ;;
-  Darwin-x86_64) TRIPLE=x86_64-apple-darwin SUM=0d6a4a299908123f00bc844df737603f047ff9eba14fda6cad83f3cf3cb3a2af ;;
-  *) echo "No Python $VERSION build for $(uname -s) $(uname -m): install Python 3.12 with its development files" >&2; exit 1 ;;
+  Linux-x86_64) TRIPLE=x86_64-unknown-linux-gnu SUM=50c774f6674740739f791c05a9177ed03e2fe02abebda9bca3512eb7309b37cc ;;
+  Linux-aarch64) TRIPLE=aarch64-unknown-linux-gnu SUM=d25a65036d5e149db902fa52ad65878d0c00e9301360ec197832f99063087e9e ;;
+  Darwin-arm64) TRIPLE=aarch64-apple-darwin SUM=1afd3983237c2a10277345f235be730e9cb49a123e0574ed252dbf3a841a24e4 ;;
+  Darwin-x86_64) TRIPLE=x86_64-apple-darwin SUM=a46bcdeecd28ba253522b321dcb3806da1b0ff581479fc1d27e9613e3ac44764 ;;
+  *) echo "No Python $VERSION build for $(uname -s) $(uname -m): install Python 3.13 with its development files" >&2; exit 1 ;;
 esac
 
 if [ -f "$DEST/.aztek-python-$VERSION-$RELEASE" ]; then

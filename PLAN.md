@@ -181,7 +181,7 @@ From PARITY.md's own lists; each one a user notices in the first hour.
 
 What studio tools need before they run at all.
 
-- [~] 5.1 (15/11/2026, issue 57: the AppImage ships PySide6 for its Qt, `MQtUtil` answers; the `.deb` and `.rpm` use the system's PySide6 if it matches the system Qt; Windows and macOS not checked) PySide6 and shiboken6 bundled to match Aztek's Qt, `maya.OpenMayaUI.MQtUtil` (`mainWindow`, `findControl`,
+- [~] 5.1 (21/11/2026: every package ships PySide6 and shiboken6 at its Qt, `MQtUtil` answers; Windows and macOS build the same way but are not checked on real hardware) PySide6 and shiboken6 bundled to match Aztek's Qt, `maya.OpenMayaUI.MQtUtil` (`mainWindow`, `findControl`,
   `findLayout`, `fullName`, `getCurrentParent`), so tools that build Qt windows parent them to the main window and find
   script-built controls.
 - [~] 5.2 (`maya.OpenMaya` imports with `MScriptUtil`; how much of the list is covered not audited) `maya.OpenMaya` (API 1) subset over the same core as API 2: `MGlobal`, `MSelectionList`, `MDagPath`,
