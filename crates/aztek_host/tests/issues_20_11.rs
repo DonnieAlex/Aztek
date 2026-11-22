@@ -103,4 +103,12 @@ fn the_attribute_editor_knows_the_locks() {
     mel(&mut c, "setAttr ball.visibility -lock true;");
     let ae = query::attribute_editor(&c, "ball");
     assert_eq!(ae_attr(&ae, "visibility")["locked"], json!(true));
+
+    // A driven vector is read-only but is not locked: its row must not read as one.
+    mel(&mut c, "polySphere -n driver; polySphere -n driven; select -cl; connectAttr driver.translate driven.translate;");
+    let ae = query::attribute_editor(&c, "driven");
+    let translate = ae_attr(&ae, "translate");
+    assert_eq!(translate["connected"], json!(true));
+    assert_eq!(translate["locked"], json!(false));
+    assert_eq!(translate["childLocked"], json!([false, false, false]), "a connection is not a lock");
 }

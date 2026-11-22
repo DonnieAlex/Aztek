@@ -662,8 +662,10 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             // Three to a row: thin padding, so a value shows whole at the panel's usual width.
             e->setStyleSheet("padding-left: 1px; padding-right: 0px;");
             e->setMinimumWidth(38);
-            bool locked = ro || childLocked.at(k).toBool();
-            e->setReadOnly(locked);
+            // A locked part takes the locked shade. A driven or output-only part is read-only but is not locked, so it
+            // keeps its own look instead of reading as a lock (#212 review).
+            const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
+            e->setReadOnly(ro || locked);
             if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
             if (locked) e->setObjectName("lockedField");
             QString child = kids.at(k).toString();
