@@ -32,10 +32,11 @@
 %endif
 
 %if %{with bundled_python}
-# The bundled Python is left as it comes: its own byte-code and shebangs, not the system Python's.
+# The bundled Python is left as it comes: its own byte-code and shebangs, not the system Python's. The shebang exclusion
+# comes first: on Rocky 8 the line below copies __os_install_post with its macros already expanded.
+%global __brp_mangle_shebangs_exclude_from ^%{_prefix}/lib/aztek/python/.*$
 %global __brp_python_bytecompile %{nil}
 %global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
-%global __brp_mangle_shebangs_exclude_from ^%{_prefix}/lib/aztek/python/.*$
 %endif
 
 Name:           aztek
