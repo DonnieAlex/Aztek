@@ -20,14 +20,14 @@ author prefers. If you can't tell what the reference does, say so on the issue r
 
 1. Look at the issue's comments and at the open pull requests (search for `#N`). If someone has a pull request open
    for it, or a claim on it that hasn't lapsed (below), pick another or offer to help there.
-2. Leave a comment saying you are working on it, with your plan in one line, for example
-   `Working on this: the joint's lockInfluenceWeights is declared in the .ma writer`. That is not a request for
-   permission; it saves two people fixing the same thing, and the plan lets anyone who knows the area say early if it
-   is the wrong one. If you stop, say so.
+2. Leave a comment that starts with `Claimed:` and gives your plan in one line, for example
+   `Claimed: declare the joint's lockInfluenceWeights in the .ma writer`. One fixed word makes claims easy to spot
+   and to search for. That is not a request for permission; it saves two people fixing the same thing, and the plan
+   lets anyone who knows the area say early if it is the wrong one. If you stop, comment `Unclaimed:` and why.
 3. Open a draft pull request with `Fixes #N` as soon as you have a first commit, and push to it as you go. The draft
    shows the work in the pull request list, where people look before starting.
 4. A claim lapses after 3 days with nothing from its claimant: no comment, push or pull request update. Anyone may
-   then take the issue over by commenting `Taking this over from @name`, starting from the draft's last commit if
+   then take the issue over with their own claim, `Claimed: taking over from @name, <plan>`, starting from the draft's last commit if
    there is one, on their own branch. Don't push to someone else's branch unless they ask.
 5. Issues labelled `auto:working`, `auto:pr` or `needs-srlegrand` belong to the issue bot (below) or to srlegrand.
    Leave them unless srlegrand asks.
