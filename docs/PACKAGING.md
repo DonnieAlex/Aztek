@@ -15,17 +15,35 @@ The workflow trades speed for builds that finish (from 14/11/2026):
   container jobs, so the two target directories, Qt and the packages fit.
 - Each job may take up to 340 minutes.
 
+## VFX Reference Platform
+
+The builds follow the VFX Reference Platform for CY2027 (vfxplatform.com, final 30/08/2026) where Aztek uses what it
+lists:
+
+- Python 3.13.x, the only version Aztek embeds (3.13.18 where it is fetched, `tools/python/fetch-python.sh`).
+- Qt 6.8.x where Qt is bundled: Windows, macOS, the Rocky 8 RPM and the x86_64 AppImage (6.8.3, the last open source
+  6.8 release). The Ubuntu and Rocky 9 packages and the ARM AppImage use the distribution's Qt (6.4 on Ubuntu 24.04,
+  6.10 in EPEL 9), so they stay installable with its other packages.
+- C++20 for the shell (`CMAKE_CXX_STANDARD`). The plug-in kit compiles as C++14 and C++20 (`tools/check_kit.sh`).
+- gcc 14 at most: `gcc-toolset-14` on Rocky 8, the system's gcc 11 on Rocky 9.
+- glibc: the RPM and AppImage built on Rocky 8 need glibc 2.28 or newer, older than the platform's 2.34, so they run on
+  EL8 as well as EL9.
+- macOS 14.0 deployment target, Visual Studio 2022 (toolset v14.44 on the windows-2022 runner).
+
+OpenEXR, OpenUSD and the rest of the platform's libraries are not linked: `.exr` and USD are read and written by Rust
+crates (`exr`, `openusd`) with no C++ dependency.
+
 | Package | Built on | Script | Qt | Python |
 | --- | --- | --- | --- | --- |
-| `aztek-<version>-1.el8.x86_64.rpm` | `rockylinux:8` container | `packaging/rpm/build-rpm.sh` | 6.8 bundled | 3.12 from AppStream |
-| `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | EPEL | 3.12 from AppStream |
-| `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | system | system 3.12 |
-| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | system | 3.12 bundled |
-| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.8 bundled | 3.12 bundled |
-| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8 bundled | 3.12 bundled |
-| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | system 3.12 |
-| `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `packaging/appimage/build-appimage.sh` | 6.8 bundled | 3.12 bundled |
-| `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.12 bundled |
+| `aztek-<version>-1.el8.x86_64.rpm` | `rockylinux:8` container | `packaging/rpm/build-rpm.sh` | 6.8 bundled | AppStream's 3.13, else bundled |
+| `aztek-<version>-1.el9.x86_64.rpm` | `rockylinux:9` container | `packaging/rpm/build-rpm.sh` | EPEL | AppStream's 3.13, else bundled |
+| `aztek_<version>-1_ubuntu24.04_amd64.deb` | ubuntu-24.04 | `packaging/deb/build-deb.sh` | system | 3.13 bundled |
+| `aztek_<version>-1_ubuntu26.04_amd64.deb` | `ubuntu:26.04` container | `packaging/deb/build-deb.sh` | system | 3.13 bundled |
+| `aztek-<version>-setup-x64.exe` | windows-2022 | `packaging/windows/build-installer.ps1` | 6.8 bundled | 3.13 bundled |
+| `aztek-windows-x86_64.zip` | windows-2022 | `build.ps1` | 6.8 bundled | 3.13 bundled |
+| `aztek-linux-x86_64.tar.gz` | ubuntu-24.04 | `build.sh` | system | 3.13 beside the program |
+| `aztek-<version>-x86_64.AppImage` | `rockylinux:8` container | `packaging/appimage/build-appimage.sh` | 6.8 bundled | 3.13 bundled |
+| `aztek-<version>-aarch64.AppImage` | `rockylinux:9` container on ubuntu-24.04-arm | `packaging/appimage/build-appimage.sh` | Rocky 9's, bundled | 3.13 bundled |
 
 ## Rocky Linux
 
@@ -33,7 +51,7 @@ Rocky 8 has no Qt 6 in AppStream, PowerTools or EPEL, so `packaging/linux/instal
 aqtinstall, and `packaging/linux/bundle-qt.sh` copies what the binary and its plugins need into `/usr/lib64/aztek`, with
 `libxcb-cursor`, which Rocky 8 only has in EPEL. The package installs from the base repositories alone. The binary has an
 RPATH to that folder rather than a RUNPATH, so a Qt on a studio's `LD_LIBRARY_PATH` does not replace it. It builds with
-`gcc-toolset-13` because Qt's headers want more than gcc 8.
+`gcc-toolset-14` because Qt's headers want more than gcc 8, and 14 is the platform's.
 
 Rocky 9 needs EPEL enabled at install, for `qt6-qtbase-gui` and `libb2`. The package requires the Qt version it was built
 against or newer (`libQt6Core.so.6(Qt_6.10)` at the moment), so a mirror frozen on an older EPEL will refuse it.
@@ -41,8 +59,11 @@ against or newer (`libQt6Core.so.6(Qt_6.10)` at the moment), so a mirror frozen 
     dnf install epel-release            # Rocky 9 only
     dnf install ./aztek-*.rpm
 
-Both use `python3.12` rather than the system Python (3.6 on Rocky 8, which pyo3 does not support, and 3.9 on Rocky 9).
-It needs AppStream from 8.10 or 9.4 on.
+Both embed Python 3.13 rather than the system Python (3.6 on Rocky 8, 3.9 on Rocky 9): AppStream's `python3.13` where
+it has one, otherwise `build-rpm.sh` fetches one (`tools/python/fetch-python.sh`) and builds with `--with
+bundled_python`, which puts it in `/usr/lib/aztek/python` as the Ubuntu package does, keeps rpm from offering its
+`libpython3.13.so` to other packages, and leaves its byte-code and shebangs alone. The Rocky 8 build runs aqtinstall with
+`python3.12`. It needs AppStream from 8.10 or 9.4 on.
 
 To build by hand, as root in a container, with the checkout mounted:
 
@@ -104,18 +125,18 @@ not start in the clean containers, which have no `libOpenGL.so.0`. `CMakeLists.t
 Depends come from `dpkg-shlibdeps`, plus what it cannot see from `packaging/deb/control.in`: `libvulkan1`,
 `qt6-qpa-plugins` and `hicolor-icon-theme`.
 
-Python 3.12 is the only version Aztek embeds. Ubuntu 24.04 has it, and its package depends on `libpython3.12`. Ubuntu
-26.04 ships 3.13 and later only, so its package carries a 3.12 from
+Python 3.13 is the only version Aztek embeds. Where Ubuntu has `python3.13` with its development files the package
+depends on `libpython3.13`; Ubuntu 24.04 (3.12) and 26.04 (3.14) do not, so their packages carry a 3.13 from
 [python-build-standalone](https://github.com/astral-sh/python-build-standalone) (`tools/python/fetch-python.sh`, pinned
 release and SHA-256) in `/usr/lib/aztek/python`, stripped, without Tcl/Tk and IDLE. The program finds its library
 through its RUNPATH (`$ORIGIN/../lib/aztek/python/lib`) and points Python at that folder when it starts, without leaving
-`PYTHONHOME` set for scripts that run the system's Python. The smoke test checks the version is 3.12.
+`PYTHONHOME` set for scripts that run the system's Python. The smoke test checks the version is 3.13.
 
 ## Windows
 
 `build.ps1` makes `build\dist`, which runs on a machine with nothing else installed: Qt from `windeployqt`, the VC runtime
-copied beside the exe, Python's DLL, its standard library in `Lib` and its extension modules in `DLLs`. Python is 3.12
-only: the installed one (`py -3.12`, else `python` on PATH when it is 3.12), else a python-build-standalone 3.12 fetched
+copied beside the exe, Python's DLL, its standard library in `Lib` and its extension modules in `DLLs`. Python is 3.13
+only: the installed one (`py -3.13`, else `python` on PATH when it is 3.13), else a python-build-standalone 3.13 fetched
 into `build\python` by `tools\python\fetch-python.ps1`. CMake is told which, so the exe links the one that is copied.
 The installer carries it, so it needs no Python on the machine it installs on.
 
@@ -146,7 +167,7 @@ release yet: when it fails, the other packages still go out.
 
 - `Aztek.app` carries Qt (`macdeployqt`) and `libMoltenVK.dylib` in `Contents/Frameworks`, with an ad-hoc signature.
   It isn't notarized: the first start is a right-click and Open.
-- Python is Homebrew's `python@3.12`, linked from `/opt/homebrew`: `brew install python@3.12` before starting it.
+- Python is Homebrew's `python@3.13`, linked from `/opt/homebrew`: `brew install python@3.13` before starting it.
 - `gpu.rs` loads MoltenVK from the bundle first, then a Vulkan loader on the library path, then Homebrew's folders.
   The viewport draws through `AZTEK_APPKIT`: the widget's `NSView`, with a Metal layer from `ash_window`.
 - `./build-macos.sh` builds it (`--deps` installs the dependencies with Homebrew); `--package` makes the same `Aztek.app` and zip as the release build, which runs that script.

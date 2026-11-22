@@ -892,11 +892,11 @@ fn bundled_home() -> Option<std::path::PathBuf> {
         return None;
     }
     let maps = std::fs::read_to_string("/proc/self/maps").ok()?;
-    let lib = maps.lines().filter_map(|l| l.find('/').map(|i| &l[i..])).find(|p| p.contains("/libpython3.12.so"))?;
+    let lib = maps.lines().filter_map(|l| l.find('/').map(|i| &l[i..])).find(|p| p.contains("/libpython3.13.so"))?;
     let dir = std::path::Path::new(lib).parent()?;
     let home = dir.parent()?;
     let own = dir.file_name()? == "lib" && !["/usr", "/usr/local"].iter().any(|s| home == std::path::Path::new(s));
-    (own && home.join("lib/python3.12/os.py").is_file()).then(|| home.to_path_buf())
+    (own && home.join("lib/python3.13/os.py").is_file()).then(|| home.to_path_buf())
 }
 
 /// Aztek's own folder of Python packages, for this Python's version: what `aztekpy -m pip install` puts there is on

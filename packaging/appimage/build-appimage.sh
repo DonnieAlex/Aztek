@@ -4,14 +4,25 @@
 #   packaging/appimage/build-appimage.sh [build dir] [output dir]
 # Built on the oldest system it should run on: its C library is the newest the result needs (CI uses Rocky 8).
 # AZTEK_QT: a Qt kit to bundle (as packaging/linux/install-qt.sh makes); without it the system's Qt 6 is bundled.
-# AZTEK_PYTHON: the interpreter to embed, python3.12 by default (the only version Aztek embeds). APPIMAGETOOL: an appimagetool to use, else downloaded.
+# AZTEK_PYTHON: the interpreter to embed, a 3.13 (the only version Aztek embeds); by default the system's python3.13 with
+# its development files, else one fetched with tools/python/fetch-python.sh. APPIMAGETOOL: an appimagetool to use, else
+# downloaded.
 set -euo pipefail
 
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
 mkdir -p "${1:-$SRC/build}" "${2:-$SRC/dist}"
 BUILD=$(cd "${1:-$SRC/build}" && pwd)
 OUT=$(cd "${2:-$SRC/dist}" && pwd)
-PY=${AZTEK_PYTHON:-$(command -v python3.12)}
+PY=${AZTEK_PYTHON:-}
+BUNDLE=""
+if [ -z "$PY" ]; then
+  if [ -x /usr/bin/python3.13 ] && [ -f /usr/include/python3.13/Python.h ]; then
+    PY=/usr/bin/python3.13
+  else
+    BUNDLE=$("$SRC/tools/python/fetch-python.sh" "$BUILD/python")
+    PY="$BUNDLE/bin/python3.13"
+  fi
+fi
 QT=${AZTEK_QT:-}
 VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' "$SRC/Cargo.toml" | head -n1)
 # The kind of machine it is built on is the kind it runs on (#193).
@@ -23,7 +34,7 @@ case "$MACHINE" in
 esac
 FILE="aztek-${VERSION}-${MACHINE}.AppImage"
 
-ARGS=(-DPython3_EXECUTABLE="$PY")
+if [ -n "$BUNDLE" ]; then ARGS=(-DAZTEK_PYTHON_BUNDLE="$BUNDLE"); else ARGS=(-DPython3_EXECUTABLE="$PY"); fi
 [ -n "$QT" ] && ARGS+=(-DCMAKE_PREFIX_PATH="$QT")
 PYO3_PYTHON="$PY" cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release "${ARGS[@]}"
 PYO3_PYTHON="$PY" cmake --build "$BUILD"
@@ -33,6 +44,12 @@ rm -rf "$APPDIR"
 DESTDIR=$APPDIR cmake --install "$BUILD" --prefix /usr --strip
 LIB=$APPDIR/usr/lib
 mkdir -p "$LIB" "$APPDIR/usr/share/aztek/examples"
+# A fetched Python is laid out below like any other: its library with the others, its standard library in usr/lib.
+if [ -n "$BUNDLE" ]; then
+  rm -rf "$APPDIR/usr/lib/aztek/python"
+  cp -pL "$BUNDLE/lib/libpython3.13.so.1.0" "$LIB/"
+  chmod 755 "$LIB/libpython3.13.so.1.0"
+fi
 
 # Qt's plugins: the kit's, or the system's.
 if [ -n "$QT" ]; then

@@ -4,18 +4,38 @@
 #
 # --with bundled_qt: Qt from aztek_qt (a kit from aqtinstall) goes into the private folder _libdir/aztek. Rocky 8 needs
 # this: none of its repositories has Qt 6. Rocky 9 uses EPEL's Qt.
+#
+# --with bundled_python: the Python 3.13 in aztek_python (from tools/python/fetch-python.sh) goes into the private folder
+# _prefix/lib/aztek/python, for a Rocky with no python3.13 in AppStream.
 
 %bcond_with bundled_qt
+%bcond_with bundled_python
 
 %global debug_package %{nil}
 # No /usr/lib/.build-id links: a bundled Qt library would clash with the same library in any other package.
 %global _build_id_links none
-%global python_bin /usr/bin/python3.12
+%global python_bin /usr/bin/python3.13
 
-%if %{with bundled_qt}
 # The bundled libraries are private: nothing else may resolve against them, and rpm must not look for them elsewhere.
+%if %{with bundled_qt} && %{with bundled_python}
+%global __provides_exclude_from ^(%{_libdir}/aztek|%{_prefix}/lib/aztek/python)/.*$
+%global __requires_exclude ^(libQt6|libicu(data|i18n|uc)\\.so\\.[0-9]+\\(|libxcb-cursor\\.so|libpython3\\.13\\.so)
+%else
+%if %{with bundled_qt}
 %global __provides_exclude_from ^%{_libdir}/aztek/.*$
 %global __requires_exclude ^(libQt6|libicu(data|i18n|uc)\\.so\\.[0-9]+\\(|libxcb-cursor\\.so)
+%endif
+%if %{with bundled_python}
+%global __provides_exclude_from ^%{_prefix}/lib/aztek/python/.*$
+%global __requires_exclude ^libpython3\\.13\\.so
+%endif
+%endif
+
+%if %{with bundled_python}
+# The bundled Python is left as it comes: its own byte-code and shebangs, not the system Python's.
+%global __brp_python_bytecompile %{nil}
+%global __os_install_post %(echo '%{__os_install_post}' | sed -e 's!/usr/lib[^[:space:]]*/brp-python-bytecompile[[:space:]].*$!!g')
+%global __brp_mangle_shebangs_exclude_from ^%{_prefix}/lib/aztek/python/.*$
 %endif
 
 Name:           aztek
@@ -29,7 +49,9 @@ ExclusiveArch:  x86_64
 BuildRequires:  cmake >= 3.21
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
-BuildRequires:  python3.12-devel
+%if %{without bundled_python}
+BuildRequires:  python3.13-devel
+%endif
 BuildRequires:  vulkan-loader-devel
 BuildRequires:  desktop-file-utils
 %if %{without bundled_qt}
@@ -54,8 +76,13 @@ QT_ARGS='-DCMAKE_PREFIX_PATH=%{aztek_qt} -DCMAKE_INSTALL_RPATH=$ORIGIN/../%{_lib
 %else
 QT_ARGS=
 %endif
+%if %{with bundled_python}
+PY_ARGS='-DAZTEK_PYTHON_BUNDLE=%{aztek_python}'
+%else
+PY_ARGS='-DPython3_EXECUTABLE=%{python_bin}'
+%endif
 cmake -S . -B %{aztek_build} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=%{_prefix} \
-  -DPython3_EXECUTABLE=%{python_bin} $QT_ARGS
+  $PY_ARGS $QT_ARGS
 cmake --build %{aztek_build}
 
 %install

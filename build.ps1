@@ -1,7 +1,7 @@
 # Builds Aztek on Windows: .\build.ps1 [-Debug] [-Run] [-Qt C:\Qt\6.8.0\msvc2022_64]
-# Needs Visual Studio 2022 (or Build Tools) with the C++ workload, Rust (rustup), CMake, Qt 6.4+ for MSVC and the Vulkan
-# runtime (comes with the GPU driver). Ninja ships with Visual Studio's CMake tools. Python 3.12 is the only version
-# Aztek embeds: an installed 3.12 is used (the py launcher's, else python on PATH), else one is fetched into the build
+# Needs Visual Studio 2022 (or Build Tools) with the C++ workload, Rust (rustup), CMake, Qt 6.8 for MSVC and the Vulkan
+# runtime (comes with the GPU driver). Ninja ships with Visual Studio's CMake tools. Python 3.13 is the only version
+# Aztek embeds: an installed 3.13 is used (the py launcher's, else python on PATH), else one is fetched into the build
 # folder. Either way it is copied beside the exe, so the installer needs no Python on the machine it installs on.
 param(
     [switch]$Debug,
@@ -41,22 +41,22 @@ if (-not $Qt -or -not (Test-Path "$Qt\lib\cmake\Qt6")) {
 }
 Write-Host "Qt: $Qt"
 
-# Python 3.12: what the exe links must be the one copied below, not another CMake finds in the registry.
-function Get-Python312 {
+# Python 3.13: what the exe links must be the one copied below, not another CMake finds in the registry.
+function Get-Python313 {
     if (Get-Command py -ErrorAction SilentlyContinue) {
-        $p = & py -3.12 -c "import sys; print(sys.executable)" 2>$null
+        $p = & py -3.13 -c "import sys; print(sys.executable)" 2>$null
         if ($LASTEXITCODE -eq 0 -and $p) { return $p.Trim() }
     }
     $global:LASTEXITCODE = 0
     $onPath = (Get-Command python -ErrorAction SilentlyContinue).Source
     if ($onPath) {
         $v = & $onPath -c "import sys; print('%d.%d' % sys.version_info[:2])" 2>$null
-        if ($v -and $v.Trim() -eq "3.12") { return $onPath }
+        if ($v -and $v.Trim() -eq "3.13") { return $onPath }
     }
     $global:LASTEXITCODE = 0
     return $null
 }
-$py = Get-Python312
+$py = Get-Python313
 if (-not $py) {
     $bundle = & "$PSScriptRoot\tools\python\fetch-python.ps1" (Join-Path $PSScriptRoot "$dir\python")
     $py = Join-Path $bundle "python.exe"
