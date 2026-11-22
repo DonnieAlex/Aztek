@@ -1897,7 +1897,10 @@ too. Wireframes, curves and manipulators still use the samples.
 
 A file of a megabyte or more is read in pieces at once. Faces written with relative indices (`f -3 -2 -1`, counted
 back from the last vertex) that reached back into the piece before were read as other vertices, which scrambled the
-mesh. They now point where they say. Unverified against the reporter's own file, which we haven't had yet.
+mesh. They now point where they say. Checked on 22/11/2026 against the layout of the reporter's file, the 74 MB
+Stanford dragon.obj: every point, then every normal, then faces such as `f -435545//-438368 ...` with CRLF line ends,
+so every face read in a piece after the first reaches back. Builds from before 20/11/2026 (the reporter's 2.300 among
+them) read it scrambled; a test reads a file laid out the same way.
 
 ### Report videos show the pointer, clicks and keys (20/11/2026, #201)
 
