@@ -149,8 +149,7 @@ void Hotbox::mousePressEvent(QMouseEvent* e) {
     if (!zones_) return;
     QPoint global = e->globalPosition().toPoint();
     QList<MarkItem> items = zones_(zone);
-    hide();
-    if (!items.isEmpty()) MarkingMenu::show_at(global, items);
+    if (!items.isEmpty()) MarkingMenu::show_at(global, items, this);
 }
 
 void Hotbox::keyReleaseEvent(QKeyEvent* e) {

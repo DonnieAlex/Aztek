@@ -30,7 +30,7 @@ class MarkingMenu : public QWidget {
 public:
     /// What a picked item runs inside, so G can repeat it.
     static std::function<void(const QString&, const std::function<void()>&)>& around();
-    static void show_at(QPoint global, const QList<MarkItem>& items);
+    static void show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner = nullptr);
     // How long the pointer rests on a submenu's item before it opens.
     static constexpr int kSubmenuDelayMs = 350;
 protected:
@@ -39,9 +39,10 @@ protected:
     void mouseReleaseEvent(QMouseEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
+    void keyReleaseEvent(QKeyEvent*) override;
 private:
-    MarkingMenu(QPoint global, const QList<MarkItem>& items);
-    static void open(QPoint global, const QList<MarkItem>& items);
+    MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner);
+    static void open(QPoint global, const QList<MarkItem>& items, QWidget* owner);
     void back_to_parent();
     int item_at(QPoint local) const;
     void pick(int i, bool option = false);

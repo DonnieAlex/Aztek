@@ -1,5 +1,6 @@
 #include "markingmenu.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -23,20 +24,21 @@ QList<QPair<QPoint, QList<MarkItem>>>& parents() {
 }
 } // namespace
 
-void MarkingMenu::show_at(QPoint global, const QList<MarkItem>& items) {
+void MarkingMenu::show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner) {
     parents().clear();
-    open(global, items);
+    open(global, items, owner);
 }
 
-void MarkingMenu::open(QPoint global, const QList<MarkItem>& items) {
-    auto* m = new MarkingMenu(global, items);
+void MarkingMenu::open(QPoint global, const QList<MarkItem>& items, QWidget* owner) {
+    auto* m = new MarkingMenu(global, items, owner);
     m->setAttribute(Qt::WA_DeleteOnClose);
     m->show();
     m->grabMouse();
     m->setFocus();
 }
 
-MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items) : QWidget(nullptr, Qt::Popup | Qt::FramelessWindowHint), items_(items) {
+MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner)
+    : QWidget(owner, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint), items_(items) {
     setAttribute(Qt::WA_TranslucentBackground);
     setMouseTracking(true);
     QFontMetrics fm(font());
@@ -95,7 +97,8 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items) : QWidget(
         back_ += center_;
         mask += QRegion(QRect(back_ - QPoint(6, 6), QSize(12, 12)), QRegion::Ellipse);
     }
-    setMask(mask);
+    // XWayland composites the alpha buffer. A native shape can make the popup's backing rectangle visible.
+    if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) setMask(mask);
     sub_timer_ = new QTimer(this);
     sub_timer_->setSingleShot(true);
     sub_timer_->setInterval(kSubmenuDelayMs);
@@ -130,7 +133,7 @@ void MarkingMenu::open_sub(int i) {
     parents().append({mapToGlobal(center_), items_});
     releaseMouse();
     close();
-    open(at, sub);
+    open(at, sub, parentWidget());
 }
 
 // Back over the dot: the menu this one came from opens again where it was.
@@ -139,7 +142,7 @@ void MarkingMenu::back_to_parent() {
     const auto up = parents().takeLast();
     releaseMouse();
     close();
-    open(up.first, up.second);
+    open(up.first, up.second, parentWidget());
 }
 
 QRect MarkingMenu::option_box(int i) const {
@@ -279,6 +282,15 @@ void MarkingMenu::mousePressEvent(QMouseEvent* e) {
 
 void MarkingMenu::keyPressEvent(QKeyEvent* e) {
     if (e->key() == Qt::Key_Escape) pick(-1, false);
+}
+
+void MarkingMenu::keyReleaseEvent(QKeyEvent* e) {
+    if (auto* owner = parentWidget(); owner && e->key() == Qt::Key_Space && !e->isAutoRepeat()) {
+        pick(-1, false);
+        QCoreApplication::sendEvent(owner, e);
+        return;
+    }
+    QWidget::keyReleaseEvent(e);
 }
 
 } // namespace az

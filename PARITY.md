@@ -1815,6 +1815,7 @@ GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
 Compact common and active panel menus sit above Recent Commands, the Aztek camera tile and Hotbox Controls.
 Modeling, Rigging, Animation, Dynamics and Rendering each get a centered row, regardless of the main menu set.
 Hotbox Controls can hide each task row. The surrounding viewport keeps its original brightness.
+A quadrant marking menu leaves the Hotbox visible while Space is held. Releasing Space dismisses both.
 The 2026 help illustration sets the layout. Exact spacing, zone boundaries and the full Hotbox Style menu
 remain PROVISIONAL.
 
