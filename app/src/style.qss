@@ -51,9 +51,11 @@ QFrame#inViewEditor { background: @chrome; border: 1px solid @border; }
 QLineEdit#cmdResult { background: @alt; }
 QLineEdit#cmdResult[error="true"] { background: #8a2f2f; color: white; }
 QToolButton#cmdLang { min-width: 34px; }
-QToolButton#hotboxButton { background: @menu; padding: 5px 10px; border: 1px solid @border; }
+QToolButton#hotboxButton { background: @menu; color: @text; padding: 4px 8px; border: 0; border-radius: 0; }
 QToolButton#hotboxButton:hover { background: @hi; }
-QLabel#hotboxCenter { background: @chrome; color: @bright; border: 1px solid @border; padding: 4px 10px; }
+QToolButton#hotboxButton:disabled { color: @dim; }
+QToolButton#hotboxButton::menu-indicator { image: none; width: 0; }
+QLabel#hotboxCenter { background: @menu; color: @bright; padding: 7px 16px; }
 QPlainTextEdit#scriptHistory { background: @base; }
 QPlainTextEdit#scriptInput { background: @base; }
 QTreeWidget#outliner { background: @base; alternate-background-color: @alt; }

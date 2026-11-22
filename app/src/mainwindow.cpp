@@ -1238,23 +1238,32 @@ void MainWindow::build_menu_set(const QString& set) {
     QMenuBar* mb = menuBar();
     mb->clear();
     for (QMenu* m : set_menus_) m->deleteLater();
-    set_menus_.clear();
-    QList<QMenu*> menus = {file_menu(), edit_menu(), create_menu(), select_menu(), modify_menu(), display_menu(), windows_menu()};
-    menus << lighting_shading_menu();
-    if (set == "Modeling")
-        menus << mesh_menu() << edit_mesh_menu() << mesh_tools_menu() << mesh_display_menu() << curves_menu() << surfaces_menu() << uv_menu() << deform_menu() << generate_menu();
-    else if (set == "Rigging")
-        menus << skeleton_menu() << skin_menu() << deform_menu() << constrain_menu() << control_menu();
-    else if (set == "Dynamics")
-        menus << dynamics_menus() << generate_menu() << playback_menu();
-    else if (set == "Rendering")
-        menus << render_menu(this) << harold_menu(this);
-    else
-        menus << key_menu() << playback_menu() << audio_menu() << visualize_menu() << deform_menu() << constrain_menu() << cache_menu();
-    for (QMenu* m : menus) {
+    for (QMenu* m : hotbox_menus_) m->deleteLater();
+    hotbox_menus_.clear();
+    QList<QMenu*> common = {file_menu(), edit_menu(), create_menu(), select_menu(), modify_menu(), display_menu(), windows_menu()};
+    auto* recents = common[1]->findChild<QMenu*>("recentCommands");
+    auto* light = lighting_shading_menu();
+    auto* deform = deform_menu();
+    auto* generate = generate_menu();
+    auto* playback = playback_menu();
+    auto* constrain = constrain_menu();
+    QList<QPair<QString, QList<QMenu*>>> sets = {
+        {"Modeling", {mesh_menu(), edit_mesh_menu(), mesh_tools_menu(), mesh_display_menu(), curves_menu(), surfaces_menu(), uv_menu(), deform, generate}},
+        {"Rigging", {skeleton_menu(), skin_menu(), deform, constrain, control_menu()}},
+        {"Animation", {key_menu(), playback, audio_menu(), visualize_menu(), deform, constrain, cache_menu()}},
+        {"Dynamics", dynamics_menus() + QList<QMenu*>{generate, playback}},
+        {"Rendering", {render_menu(this), harold_menu(this)}},
+    };
+    set_menus_ = common;
+    set_menus_.append(light);
+    for (const auto& [name, menus] : sets)
+        if (name == set) set_menus_.append(menus);
+    for (const auto& entry : sets)
+        for (auto* menu : entry.second)
+            if (!set_menus_.contains(menu) && !hotbox_menus_.contains(menu)) hotbox_menus_.append(menu);
+    for (QMenu* m : set_menus_) {
         m->setToolTipsVisible(true);
         mb->addMenu(m);
-        set_menus_.append(m);
     }
     auto* help = new QMenu("Help", this);
     help->addAction("Welcome Screen", [this] { show_welcome(); });
@@ -1266,7 +1275,9 @@ void MainWindow::build_menu_set(const QString& set) {
     // The menus scripts hung on the main window stay, after Help, whatever the menu set.
     for (QAction* a : ScriptUi::get()->main_window_menus()) mb->addAction(a);
     if (hotbox_) hotbox_->deleteLater();
-    hotbox_ = new Hotbox(set_menus_, 7, this);
+    common.append(help);
+    sets.last().second.prepend(light);
+    hotbox_ = new Hotbox(common, sets, recents, this);
     hotbox_->set_zones([this](int zone) { return hotbox_zone(zone); });
     connect(hotbox_, &Hotbox::spaceReleased, this, [this](bool tap) {
         held_.remove(Qt::Key_Space);

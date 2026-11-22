@@ -20,6 +20,15 @@ Ahead of the phases below. XJEN first is srlegrand's call (16/11/2026); the orde
 5. Harold standalone, part 2 (`haroldForAztek`), then the Harold tickets.
 6. Run the capture kit (`capture.py`): phase 0 is done on Aztek's side and every test still guesses until it runs.
 
+## Hotbox layout (22/11/2026)
+
+Use the [2026 Hotbox illustration](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-06174D85-0B39-4EAD-B814-D1E06C3344AE.htm)
+for the centered common, panel and task rows, and the three controls between the top and bottom rows.
+Reuse the panel's menus and the existing task menus. Keep the camera marking menu on the Aztek tile.
+The [Hotbox controls](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Customizing/files/GUID-F182139D-1E00-44E6-9D79-4AF053860EDA.htm)
+document row visibility. The [2027 illustration and help](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-06174D85-0B39-4EAD-B814-D1E06C3344AE.htm)
+describe the same layout. Exact spacing and zone boundaries are PROVISIONAL pending a live capture.
+
 ## How to work an item
 
 - One item, one branch, small commits, tests green, then merge. Mark the item `[x]` with the date and a one-line note

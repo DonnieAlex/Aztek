@@ -476,6 +476,7 @@ QMenu* MainWindow::edit_menu() {
     m->addAction(icon("redo"), "Redo\tShift+Z", [] { aztek_redo(); Host::get()->poke(); });
     m->addAction("Repeat\tG", this, &MainWindow::repeat_last);
     QMenu* recents = m->addMenu("Recent Commands List");
+    recents->setObjectName("recentCommands");
     connect(recents, &QMenu::aboutToShow, this, [this, recents] {
         recents->clear();
         for (const QString& c : recent_commands_) recents->addAction(c.left(70), [c] { mel(c); });

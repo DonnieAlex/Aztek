@@ -1062,9 +1062,7 @@ QString skin(const Theme& t, const QString& a) {
         s += "QLabel#aeSection { background: @section; color: @sectiontext; border-radius: " + r2 + "; }\n";
         s += "QToolButton#foldHead:hover, QToolButton#aeSectionButton:hover { background: @hover; }\n";
     }
-    s += "QToolButton#hotboxButton { background: @menu; color: @text; border: 1px solid @border; border-radius: " + r2 + "; padding: 5px 10px; }\n";
     s += "QToolButton#hotboxButton:hover { background: @hi; color: @hitext; }\n";
-    s += "QLabel#hotboxCenter { border-radius: " + r2 + "; }\n";
     s += "QToolButton#statusHandle { border: none; border-left: 1px solid @border; border-right: 1px solid @light; background: @chrome; }\n";
     s += "QToolButton#statusHandle:hover { background: @hi; }\n";
     return s;

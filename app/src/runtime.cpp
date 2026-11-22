@@ -497,7 +497,16 @@ void MainWindow::build_runtime() {
         space_down_ms_ = QDateTime::currentMSecsSinceEpoch();
         space_held_ = true;
         // At once, as the reference's: a quick tap with nothing picked still toggles the view.
-        if (hotbox_ && !hotbox_->isVisible()) hotbox_->popup(QCursor::pos());
+        if (hotbox_ && !hotbox_->isVisible()) {
+            QList<QAction*> actions;
+            for (QWidget* w = active_view(); w; w = w->parentWidget()) {
+                if (auto* panel = qobject_cast<ModelPanel*>(w)) {
+                    actions = panel->panel_menu_actions();
+                    break;
+                }
+            }
+            hotbox_->popup(QCursor::pos(), actions);
+        }
     });
     r("HotBoxRelease", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_held_ = false;
