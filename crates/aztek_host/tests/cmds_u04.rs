@@ -319,7 +319,9 @@ fn load_plugin_flags() {
     let file = dir.join("u04Plug.py");
     std::fs::write(&file, "import maya.api.OpenMaya as om\ndef maya_useNewAPI(): pass\ndef initializePlugin(o): om.MFnPlugin(o)\ndef uninitializePlugin(o): pass\n").unwrap();
     let path = file.to_string_lossy().replace('\\', "/");
-    assert_eq!(ok(&mut c, &format!("loadPlugin -pp \"{path}\";")), json!([path.clone()]));
+    // -pp gives the file's full path, so a short (8.3) or linked temp folder comes back resolved.
+    let full = aztek_core::paths::script_spelling(&std::fs::canonicalize(&file).unwrap());
+    assert_eq!(ok(&mut c, &format!("loadPlugin -pp \"{path}\";")), json!([full]));
     ok(&mut c, "global proc u04Loaded(string $p) { global string $u04Got; $u04Got = $p; }");
     ok(&mut c, "loadPlugin -ac u04Loaded;");
     let r = c.mel_checked(&format!("loadPlugin \"{path}\";"));
