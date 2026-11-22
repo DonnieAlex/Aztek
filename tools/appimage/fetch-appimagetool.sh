@@ -23,9 +23,13 @@ fi
 
 URL="https://github.com/AppImage/appimagetool/releases/download/$VERSION/appimagetool-$MACHINE.AppImage"
 mkdir -p "$(dirname "$DEST")"
+# A file of this run's own beside the destination: two builds at once never check or move each other's download, and
+# the rename is atomic.
+PART=$(mktemp "$DEST.XXXXXX")
+trap 'rm -f "$PART"' EXIT
 echo "Downloading appimagetool $VERSION: $URL" >&2
-curl -fsSL --retry 5 --retry-delay 10 -o "$DEST.part" "$URL" >&2
-[ "$(sum "$DEST.part")" = "$SUM" ] || { rm -f "$DEST.part"; echo "appimagetool download: checksum mismatch" >&2; exit 1; }
-mv "$DEST.part" "$DEST"
-chmod 755 "$DEST"
+curl -fsSL --retry 5 --retry-delay 10 -o "$PART" "$URL" >&2
+[ "$(sum "$PART")" = "$SUM" ] || { echo "appimagetool download: checksum mismatch" >&2; exit 1; }
+chmod 755 "$PART"
+mv "$PART" "$DEST"
 echo "$DEST"
