@@ -10,7 +10,18 @@ def _f32(x):
 
 
 def _fail(status="kInvalidParameter", message="Object is incompatible with this method"):
-    raise RuntimeError("(%s): %s" % (status, message))
+    text = "(%s): %s" % (status, message)
+    # openMayaPref -errlog: the host writes it, with where it came from, when the log is on.
+    try:
+        import _aztek
+
+        if _aztek.api_errlog():
+            import traceback
+
+            _aztek.api_error(text, "".join(traceback.format_stack(limit=6)[:-1]))
+    except Exception:
+        pass
+    raise RuntimeError(text)
 
 
 def _num(x):

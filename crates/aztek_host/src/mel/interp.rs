@@ -130,6 +130,13 @@ pub fn has_global_proc(core: &Core, name: &str) -> bool {
     core.mel_state.global_procs.contains_key(name)
 }
 
+/// Every global procedure defined now, sorted.
+pub fn global_proc_names(core: &Core) -> Vec<String> {
+    let mut v: Vec<String> = core.mel_state.global_procs.keys().cloned().collect();
+    v.sort();
+    v
+}
+
 /// As `run_callback`, with the script's value: nothing echoed, and what it prints is printed.
 pub fn call_for_value(core: &mut Core, src: &str) -> Result<J, String> {
     core.mel_state.running += 1;

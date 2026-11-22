@@ -18601,18 +18601,18 @@ makeSingleSurface	q	done	auto
 makeSingleSurface	query	done	auto
 makeSingleSurface	st	done	auto
 makeSingleSurface	stitchTolerance	done	auto
-makebot	c	missing	
-makebot	checkdepends	missing	
-makebot	checkres	missing	
-makebot	i	missing	
-makebot	input	missing	
-makebot	nooverwrite	missing	
-makebot	nov	missing	
-makebot	o	missing	
-makebot	output	missing	
-makebot	r	missing	
-makebot	v	missing	
-makebot	verbose	missing	
+makebot	c	done	auto
+makebot	checkdepends	done	auto
+makebot	checkres	done	auto
+makebot	i	done	auto
+makebot	input	done	auto
+makebot	nooverwrite	done	auto
+makebot	nov	done	auto
+makebot	o	done	auto
+makebot	output	done	auto
+makebot	r	done	auto
+makebot	v	done	auto
+makebot	verbose	done	auto
 manipMoveContext	aa	done	auto
 manipMoveContext	activeHandle	done	auto
 manipMoveContext	activeHandleNormal	done	auto
@@ -19089,50 +19089,50 @@ mayaHasRenderSetup	enableCurrentSession	missing
 mayaHasRenderSetup	enableDuringTests	missing	
 mayaHasRenderSetup	q	missing	
 mayaHasRenderSetup	query	missing	
-melOptions	duplicateVariableWarnings	missing	
-melOptions	dvw	missing	
-melOptions	q	missing	
-melOptions	query	missing	
-memory	adjustedVirtualMemory	missing	
-memory	af	missing	
-memory	asFloat	missing	
-memory	av	missing	
-memory	dbg	missing	
-memory	debug	missing	
-memory	fr	missing	
-memory	freeMemory	missing	
-memory	gb	missing	
-memory	gigaByte	missing	
-memory	he	missing	
-memory	heapMemory	missing	
-memory	kb	missing	
-memory	kiloByte	missing	
-memory	mb	missing	
-memory	megaByte	missing	
-memory	pageFaults	missing	
-memory	pageReclaims	missing	
-memory	pf	missing	
-memory	phy	missing	
-memory	physicalMemory	missing	
-memory	pr	missing	
-memory	processVirtualMemory	missing	
-memory	pv	missing	
-memory	sum	missing	
-memory	summary	missing	
-memory	sw	missing	
-memory	swapFree	missing	
-memory	swapLogical	missing	
-memory	swapMax	missing	
-memory	swapPhysical	missing	
-memory	swapReserved	missing	
-memory	swapVirtual	missing	
-memory	swaps	missing	
-memory	swf	missing	
-memory	swl	missing	
-memory	swm	missing	
-memory	swp	missing	
-memory	swr	missing	
-memory	swv	missing	
+melOptions	duplicateVariableWarnings	done	auto
+melOptions	dvw	done	auto
+melOptions	q	done	auto
+melOptions	query	done	auto
+memory	adjustedVirtualMemory	done	auto
+memory	af	done	auto
+memory	asFloat	done	auto
+memory	av	done	auto
+memory	dbg	done	auto
+memory	debug	done	auto
+memory	fr	done	auto
+memory	freeMemory	done	auto
+memory	gb	done	auto
+memory	gigaByte	done	auto
+memory	he	done	auto
+memory	heapMemory	done	auto
+memory	kb	done	auto
+memory	kiloByte	done	auto
+memory	mb	done	auto
+memory	megaByte	done	auto
+memory	pageFaults	done	auto
+memory	pageReclaims	done	auto
+memory	pf	done	auto
+memory	phy	done	auto
+memory	physicalMemory	done	auto
+memory	pr	done	auto
+memory	processVirtualMemory	done	auto
+memory	pv	done	auto
+memory	sum	done	auto
+memory	summary	done	auto
+memory	sw	done	auto
+memory	swapFree	done	auto
+memory	swapLogical	done	auto
+memory	swapMax	done	auto
+memory	swapPhysical	done	auto
+memory	swapReserved	done	auto
+memory	swapVirtual	done	auto
+memory	swaps	done	auto
+memory	swf	done	auto
+memory	swl	done	auto
+memory	swm	done	auto
+memory	swp	done	auto
+memory	swr	done	auto
+memory	swv	done	auto
 menu	allowOptionBoxes	done	auto
 menu	aob	done	auto
 menu	dai	done	auto
@@ -19987,18 +19987,18 @@ mouse	mouseButtonTracking	missing
 mouse	mouseButtonTrackingStatus	missing	
 mouse	scrollWheelStatus	missing	
 mouse	sws	missing	
-movIn	f	missing	
-movIn	file	missing	
-movIn	st	missing	
-movIn	startTime	missing	
-movOut	c	missing	
-movOut	comment	missing	
-movOut	f	missing	
-movOut	file	missing	
-movOut	pre	missing	
-movOut	precision	missing	
-movOut	t	missing	
-movOut	time	missing	
+movIn	f	done	auto
+movIn	file	done	auto
+movIn	st	done	auto
+movIn	startTime	done	auto
+movOut	c	done	auto
+movOut	comment	done	auto
+movOut	f	done	auto
+movOut	file	done	auto
+movOut	pre	done	auto
+movOut	precision	done	auto
+movOut	t	done	auto
+movOut	time	done	auto
 move	a	done	auto
 move	absolute	done	auto
 move	aos	done	auto
@@ -20101,34 +20101,34 @@ moveVertexAlongDirection	uvNormalDirection	done	auto
 moveVertexAlongDirection	uvn	done	auto
 moveVertexAlongDirection	v	done	auto
 moveVertexAlongDirection	vDirection	done	auto
-movieInfo	cn	missing	
-movieInfo	counter	missing	
-movieInfo	df	missing	
-movieInfo	dropFrame	missing	
-movieInfo	f	missing	
-movieInfo	fd	missing	
-movieInfo	frameCount	missing	
-movieInfo	frameDuration	missing	
-movieInfo	h	missing	
-movieInfo	height	missing	
-movieInfo	movieTexture	missing	
-movieInfo	mt	missing	
-movieInfo	negTimesOK	missing	
-movieInfo	nf	missing	
-movieInfo	nt	missing	
-movieInfo	numFrames	missing	
-movieInfo	qt	missing	
-movieInfo	quickTime	missing	
-movieInfo	tc	missing	
-movieInfo	tf	missing	
-movieInfo	timeCode	missing	
-movieInfo	timeCodeTrack	missing	
-movieInfo	timeScale	missing	
-movieInfo	ts	missing	
-movieInfo	tt	missing	
-movieInfo	twentyFourHourMax	missing	
-movieInfo	w	missing	
-movieInfo	width	missing	
+movieInfo	cn	done	auto
+movieInfo	counter	done	auto
+movieInfo	df	done	auto
+movieInfo	dropFrame	done	auto
+movieInfo	f	done	auto
+movieInfo	fd	done	auto
+movieInfo	frameCount	done	auto
+movieInfo	frameDuration	done	auto
+movieInfo	h	done	auto
+movieInfo	height	done	auto
+movieInfo	movieTexture	done	auto
+movieInfo	mt	done	auto
+movieInfo	negTimesOK	done	auto
+movieInfo	nf	done	auto
+movieInfo	nt	done	auto
+movieInfo	numFrames	done	auto
+movieInfo	qt	done	auto
+movieInfo	quickTime	done	auto
+movieInfo	tc	done	auto
+movieInfo	tf	done	auto
+movieInfo	timeCode	done	auto
+movieInfo	timeCodeTrack	done	auto
+movieInfo	timeScale	done	auto
+movieInfo	ts	done	auto
+movieInfo	tt	done	auto
+movieInfo	twentyFourHourMax	done	auto
+movieInfo	w	done	auto
+movieInfo	width	done	auto
 multiProfileBirailSurface	caching	done	auto
 multiProfileBirailSurface	cch	done	auto
 multiProfileBirailSurface	ch	done	auto
@@ -21249,44 +21249,44 @@ nurbsToPoly	smoothEdgeRatio	done	auto
 nurbsToPoly	uDivisionsFactor	done	auto
 nurbsToPoly	ues	done	auto
 nurbsToPoly	vDivisionsFactor	done	auto
-nurbsToPolygonsPref	chordHeight	missing	
-nurbsToPolygonsPref	chordHeightRatio	missing	
-nurbsToPolygonsPref	chr	missing	
-nurbsToPolygonsPref	cht	missing	
-nurbsToPolygonsPref	d	missing	
-nurbsToPolygonsPref	delta3D	missing	
-nurbsToPolygonsPref	edgeSwap	missing	
-nurbsToPolygonsPref	es	missing	
-nurbsToPolygonsPref	f	missing	
-nurbsToPolygonsPref	format	missing	
-nurbsToPolygonsPref	fraction	missing	
-nurbsToPolygonsPref	ft	missing	
-nurbsToPolygonsPref	m	missing	
-nurbsToPolygonsPref	matchRenderTessellation	missing	
-nurbsToPolygonsPref	mel	missing	
-nurbsToPolygonsPref	merge	missing	
-nurbsToPolygonsPref	mergeTolerance	missing	
-nurbsToPolygonsPref	minEdgeLen	missing	
-nurbsToPolygonsPref	mrt	missing	
-nurbsToPolygonsPref	mt	missing	
-nurbsToPolygonsPref	pc	missing	
-nurbsToPolygonsPref	polyCount	missing	
-nurbsToPolygonsPref	polyType	missing	
-nurbsToPolygonsPref	pt	missing	
-nurbsToPolygonsPref	q	missing	
-nurbsToPolygonsPref	query	missing	
-nurbsToPolygonsPref	uNumber	missing	
-nurbsToPolygonsPref	uType	missing	
-nurbsToPolygonsPref	uch	missing	
-nurbsToPolygonsPref	ucr	missing	
-nurbsToPolygonsPref	un	missing	
-nurbsToPolygonsPref	useChordHeight	missing	
-nurbsToPolygonsPref	useChordHeightRatio	missing	
-nurbsToPolygonsPref	ut	missing	
-nurbsToPolygonsPref	vNumber	missing	
-nurbsToPolygonsPref	vType	missing	
-nurbsToPolygonsPref	vn	missing	
-nurbsToPolygonsPref	vt	missing	
+nurbsToPolygonsPref	chordHeight	done	auto
+nurbsToPolygonsPref	chordHeightRatio	done	auto
+nurbsToPolygonsPref	chr	done	auto
+nurbsToPolygonsPref	cht	done	auto
+nurbsToPolygonsPref	d	done	auto
+nurbsToPolygonsPref	delta3D	done	auto
+nurbsToPolygonsPref	edgeSwap	done	auto
+nurbsToPolygonsPref	es	done	auto
+nurbsToPolygonsPref	f	done	auto
+nurbsToPolygonsPref	format	done	auto
+nurbsToPolygonsPref	fraction	done	auto
+nurbsToPolygonsPref	ft	done	auto
+nurbsToPolygonsPref	m	done	auto
+nurbsToPolygonsPref	matchRenderTessellation	done	auto
+nurbsToPolygonsPref	mel	done	auto
+nurbsToPolygonsPref	merge	done	auto
+nurbsToPolygonsPref	mergeTolerance	done	auto
+nurbsToPolygonsPref	minEdgeLen	done	auto
+nurbsToPolygonsPref	mrt	done	auto
+nurbsToPolygonsPref	mt	done	auto
+nurbsToPolygonsPref	pc	done	auto
+nurbsToPolygonsPref	polyCount	done	auto
+nurbsToPolygonsPref	polyType	done	auto
+nurbsToPolygonsPref	pt	done	auto
+nurbsToPolygonsPref	q	done	auto
+nurbsToPolygonsPref	query	done	auto
+nurbsToPolygonsPref	uNumber	done	auto
+nurbsToPolygonsPref	uType	done	auto
+nurbsToPolygonsPref	uch	done	auto
+nurbsToPolygonsPref	ucr	done	auto
+nurbsToPolygonsPref	un	done	auto
+nurbsToPolygonsPref	useChordHeight	done	auto
+nurbsToPolygonsPref	useChordHeightRatio	done	auto
+nurbsToPolygonsPref	ut	done	auto
+nurbsToPolygonsPref	vNumber	done	auto
+nurbsToPolygonsPref	vType	done	auto
+nurbsToPolygonsPref	vn	done	auto
+nurbsToPolygonsPref	vt	done	auto
 nurbsToSubdiv	addUnderTransform	missing	
 nurbsToSubdiv	aut	missing	
 nurbsToSubdiv	caching	missing	
@@ -21543,34 +21543,34 @@ ogsRender	q	missing
 ogsRender	query	missing	
 ogsRender	w	missing	
 ogsRender	width	missing	
-openCLInfo	dbl	missing	
-openCLInfo	limitMinimumVerts	missing	
-openCLInfo	lmv	missing	
-openCLInfo	minVertexBuffer	missing	
-openCLInfo	mvb	missing	
-openCLInfo	q	missing	
-openCLInfo	query	missing	
-openCLInfo	supportsDoublePrecision	missing	
-openCLInfo	v	missing	
-openCLInfo	valid	missing	
-openGLExtension	ext	missing	
-openGLExtension	extension	missing	
-openGLExtension	renderer	missing	
-openGLExtension	rnd	missing	
-openGLExtension	vendor	missing	
-openGLExtension	ver	missing	
-openGLExtension	version	missing	
-openGLExtension	vnd	missing	
-openMayaPref	e	missing	
-openMayaPref	edit	missing	
-openMayaPref	el	missing	
-openMayaPref	errlog	missing	
-openMayaPref	lazyLoad	missing	
-openMayaPref	lz	missing	
-openMayaPref	oldPluginWarning	missing	
-openMayaPref	ow	missing	
-openMayaPref	q	missing	
-openMayaPref	query	missing	
+openCLInfo	dbl	done	auto
+openCLInfo	limitMinimumVerts	done	auto
+openCLInfo	lmv	done	auto
+openCLInfo	minVertexBuffer	done	auto
+openCLInfo	mvb	done	auto
+openCLInfo	q	done	auto
+openCLInfo	query	done	auto
+openCLInfo	supportsDoublePrecision	done	auto
+openCLInfo	v	done	auto
+openCLInfo	valid	done	auto
+openGLExtension	ext	done	auto
+openGLExtension	extension	done	auto
+openGLExtension	renderer	done	auto
+openGLExtension	rnd	done	auto
+openGLExtension	vendor	done	auto
+openGLExtension	ver	done	auto
+openGLExtension	version	done	auto
+openGLExtension	vnd	done	auto
+openMayaPref	e	done	auto
+openMayaPref	edit	done	auto
+openMayaPref	el	done	auto
+openMayaPref	errlog	done	auto
+openMayaPref	lazyLoad	done	auto
+openMayaPref	lz	done	auto
+openMayaPref	oldPluginWarning	done	auto
+openMayaPref	ow	done	auto
+openMayaPref	q	done	auto
+openMayaPref	query	done	auto
 optionMenu	acc	done	auto
 optionMenu	alwaysCallChangeCommand	done	auto
 optionMenu	ann	done	auto
@@ -22848,46 +22848,46 @@ percent	q	done	auto
 percent	query	done	auto
 percent	v	done	auto
 percent	value	done	auto
-performanceOptions	clusterResolution	missing	
-performanceOptions	cr	missing	
-performanceOptions	disableStitch	missing	
-performanceOptions	disableTrimBoundaryDisplay	missing	
-performanceOptions	disableTrimDisplay	missing	
-performanceOptions	ds	missing	
-performanceOptions	dt	missing	
-performanceOptions	dtb	missing	
-performanceOptions	latticeResolution	missing	
-performanceOptions	lr	missing	
-performanceOptions	passThroughBindSkinAndFlexors	missing	
-performanceOptions	passThroughBlendShape	missing	
-performanceOptions	passThroughCluster	missing	
-performanceOptions	passThroughDeltaMush	missing	
-performanceOptions	passThroughFlexors	missing	
-performanceOptions	passThroughLattice	missing	
-performanceOptions	passThroughMeshBoolean	missing	
-performanceOptions	passThroughPaintEffects	missing	
-performanceOptions	passThroughSculpt	missing	
-performanceOptions	passThroughWire	missing	
-performanceOptions	pbf	missing	
-performanceOptions	pbs	missing	
-performanceOptions	pc	missing	
-performanceOptions	pdm	missing	
-performanceOptions	pf	missing	
-performanceOptions	pl	missing	
-performanceOptions	pmb	missing	
-performanceOptions	pp	missing	
-performanceOptions	ps	missing	
-performanceOptions	pw	missing	
-performanceOptions	q	missing	
-performanceOptions	query	missing	
-performanceOptions	regionOfEffect	missing	
-performanceOptions	roe	missing	
-performanceOptions	sht	missing	
-performanceOptions	skipHierarchyTraversal	missing	
-performanceOptions	ucr	missing	
-performanceOptions	ulr	missing	
-performanceOptions	useClusterResolution	missing	
-performanceOptions	useLatticeResolution	missing	
+performanceOptions	clusterResolution	done	auto
+performanceOptions	cr	done	auto
+performanceOptions	disableStitch	done	auto
+performanceOptions	disableTrimBoundaryDisplay	done	auto
+performanceOptions	disableTrimDisplay	done	auto
+performanceOptions	ds	done	auto
+performanceOptions	dt	done	auto
+performanceOptions	dtb	done	auto
+performanceOptions	latticeResolution	done	auto
+performanceOptions	lr	done	auto
+performanceOptions	passThroughBindSkinAndFlexors	done	auto
+performanceOptions	passThroughBlendShape	done	auto
+performanceOptions	passThroughCluster	done	auto
+performanceOptions	passThroughDeltaMush	done	auto
+performanceOptions	passThroughFlexors	done	auto
+performanceOptions	passThroughLattice	done	auto
+performanceOptions	passThroughMeshBoolean	done	auto
+performanceOptions	passThroughPaintEffects	done	auto
+performanceOptions	passThroughSculpt	done	auto
+performanceOptions	passThroughWire	done	auto
+performanceOptions	pbf	done	auto
+performanceOptions	pbs	done	auto
+performanceOptions	pc	done	auto
+performanceOptions	pdm	done	auto
+performanceOptions	pf	done	auto
+performanceOptions	pl	done	auto
+performanceOptions	pmb	done	auto
+performanceOptions	pp	done	auto
+performanceOptions	ps	done	auto
+performanceOptions	pw	done	auto
+performanceOptions	q	done	auto
+performanceOptions	query	done	auto
+performanceOptions	regionOfEffect	done	auto
+performanceOptions	roe	done	auto
+performanceOptions	sht	done	auto
+performanceOptions	skipHierarchyTraversal	done	auto
+performanceOptions	ucr	done	auto
+performanceOptions	ulr	done	auto
+performanceOptions	useClusterResolution	done	auto
+performanceOptions	useLatticeResolution	done	auto
 pfxstrokes	filename	missing	
 pfxstrokes	fn	missing	
 pfxstrokes	pc	missing	
@@ -23132,88 +23132,88 @@ pluginDisplayFilter	query	done	auto
 pluginDisplayFilter	r	done	auto
 pluginDisplayFilter	register	done	auto
 pluginInfo	a	done	auto
-pluginInfo	aci	missing	
-pluginInfo	activeFile	missing	
-pluginInfo	ae	missing	
-pluginInfo	af	missing	
-pluginInfo	allEvaluators	missing	
-pluginInfo	animCurveInterp	missing	
+pluginInfo	aci	done	auto
+pluginInfo	activeFile	done	auto
+pluginInfo	ae	done	auto
+pluginInfo	af	done	auto
+pluginInfo	allEvaluators	done	auto
+pluginInfo	animCurveInterp	done	auto
 pluginInfo	apiVersion	done	auto
 pluginInfo	autoload	done	auto
 pluginInfo	av	done	auto
 pluginInfo	c	done	auto
-pluginInfo	cacheFormat	missing	
-pluginInfo	cc	missing	
-pluginInfo	cf	missing	
-pluginInfo	changedCommand	missing	
-pluginInfo	cnc	missing	
+pluginInfo	cacheFormat	done	auto
+pluginInfo	cc	done	auto
+pluginInfo	cf	done	auto
+pluginInfo	changedCommand	done	auto
+pluginInfo	cnc	done	auto
 pluginInfo	command	done	auto
-pluginInfo	constraintCommand	missing	
-pluginInfo	controlCommand	missing	
-pluginInfo	ctc	missing	
-pluginInfo	d	missing	
-pluginInfo	data	missing	
-pluginInfo	ddb	missing	
+pluginInfo	constraintCommand	done	auto
+pluginInfo	controlCommand	done	auto
+pluginInfo	ctc	done	auto
+pluginInfo	d	done	auto
+pluginInfo	data	done	auto
+pluginInfo	ddb	done	auto
 pluginInfo	dependNode	done	auto
-pluginInfo	dependNodeByType	missing	
-pluginInfo	dependNodeId	missing	
-pluginInfo	device	missing	
+pluginInfo	dependNodeByType	done	auto
+pluginInfo	dependNodeId	done	auto
+pluginInfo	device	done	auto
 pluginInfo	dn	done	auto
-pluginInfo	dni	missing	
-pluginInfo	dnt	missing	
-pluginInfo	dragAndDropBehavior	missing	
-pluginInfo	dv	missing	
+pluginInfo	dni	done	auto
+pluginInfo	dnt	done	auto
+pluginInfo	dragAndDropBehavior	done	auto
+pluginInfo	dv	done	auto
 pluginInfo	e	done	auto
 pluginInfo	edit	done	auto
-pluginInfo	evaluator	missing	
-pluginInfo	ik	missing	
-pluginInfo	iksolver	missing	
+pluginInfo	evaluator	done	auto
+pluginInfo	ik	done	auto
+pluginInfo	iksolver	done	auto
 pluginInfo	l	done	auto
 pluginInfo	listPlugins	done	auto
 pluginInfo	listPluginsPath	done	auto
-pluginInfo	loadPluginPrefs	missing	
+pluginInfo	loadPluginPrefs	done	auto
 pluginInfo	loaded	done	auto
-pluginInfo	lpp	missing	
+pluginInfo	lpp	done	auto
 pluginInfo	ls	done	auto
 pluginInfo	lsp	done	auto
-pluginInfo	mec	missing	
-pluginInfo	modelEditorCommand	missing	
+pluginInfo	mec	done	auto
+pluginInfo	modelEditorCommand	done	auto
 pluginInfo	n	done	auto
 pluginInfo	name	done	auto
 pluginInfo	p	done	auto
 pluginInfo	path	done	auto
-pluginInfo	pluginsInUse	missing	
-pluginInfo	pu	missing	
+pluginInfo	pluginsInUse	done	auto
+pluginInfo	pu	done	auto
 pluginInfo	q	done	auto
 pluginInfo	query	done	auto
 pluginInfo	r	done	auto
-pluginInfo	rdr	missing	
-pluginInfo	referenceTranslators	missing	
+pluginInfo	rdr	done	auto
+pluginInfo	referenceTranslators	done	auto
 pluginInfo	registered	done	auto
-pluginInfo	remove	missing	
-pluginInfo	renderer	missing	
-pluginInfo	rm	missing	
-pluginInfo	rtr	missing	
-pluginInfo	savePluginPrefs	missing	
-pluginInfo	sd	missing	
-pluginInfo	serviceDescriptions	missing	
-pluginInfo	set	missing	
-pluginInfo	settings	missing	
-pluginInfo	spp	missing	
-pluginInfo	t	missing	
-pluginInfo	tool	missing	
-pluginInfo	tr	missing	
-pluginInfo	translator	missing	
-pluginInfo	u	missing	
-pluginInfo	unloadOk	missing	
-pluginInfo	uo	missing	
-pluginInfo	userNamed	missing	
+pluginInfo	remove	done	auto
+pluginInfo	renderer	done	auto
+pluginInfo	rm	done	auto
+pluginInfo	rtr	done	auto
+pluginInfo	savePluginPrefs	done	auto
+pluginInfo	sd	done	auto
+pluginInfo	serviceDescriptions	done	auto
+pluginInfo	set	done	auto
+pluginInfo	settings	done	auto
+pluginInfo	spp	done	auto
+pluginInfo	t	done	auto
+pluginInfo	tool	done	auto
+pluginInfo	tr	done	auto
+pluginInfo	translator	done	auto
+pluginInfo	u	done	auto
+pluginInfo	unloadOk	done	auto
+pluginInfo	uo	done	auto
+pluginInfo	userNamed	done	auto
 pluginInfo	v	done	auto
 pluginInfo	vd	done	auto
 pluginInfo	vendor	done	auto
 pluginInfo	version	done	auto
-pluginInfo	wr	missing	
-pluginInfo	writeRequires	missing	
+pluginInfo	wr	done	auto
+pluginInfo	writeRequires	done	auto
 pointConstraint	e	done	auto
 pointConstraint	edit	done	auto
 pointConstraint	l	done	auto

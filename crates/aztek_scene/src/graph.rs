@@ -835,6 +835,11 @@ impl EvalView<'_> {
         if crate::db_cmds::active() {
             crate::db_cmds::hook(self.serial, crate::db_cmds::Ev::Compute, &n.name, &n.data.ty.name, None, None);
         }
+        if crate::perf_options::bypass(&mut n.data) {
+            n.dirty = false;
+            n.evaluated_pass = self.pass;
+            return;
+        }
         if crate::dg_timer::active() {
             let t0 = std::time::Instant::now();
             n.behavior.compute(&ctx, &mut n.data);

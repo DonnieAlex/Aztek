@@ -4,6 +4,7 @@ pub mod alembic;
 pub mod anim;
 pub mod extensions;
 pub mod sys_misc;
+pub mod perf_options;
 pub mod db_cmds;
 pub mod eval_cmds;
 pub mod dyn_events;

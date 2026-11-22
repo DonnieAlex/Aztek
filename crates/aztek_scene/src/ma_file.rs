@@ -5695,6 +5695,8 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
             plugins.insert(p);
         }
     }
+    // And those pluginInfo -writeRequires names.
+    plugins.extend(crate::scripted::write_requires());
     let mut unknown_plugins = unknown::plugins(w.s, &w.keep);
     unknown_plugins.retain(|p, _| !plugins.contains(p));
     for p in plugins {

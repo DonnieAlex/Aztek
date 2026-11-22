@@ -1154,7 +1154,7 @@ class MFnPlugin(MFnBase):
             if "$group" in s:
                 groups.setdefault(s["$group"], {})[s["$child"]] = (s["name"], s.get("default"))
         host_attrs = [{k: v for k, v in a.items() if not k.startswith("$")} for a in attrs]
-        _az.register_node(name, self._p["name"], _json.dumps(host_attrs), kind)
+        _az.register_node(name, self._p["name"], _json.dumps(host_attrs), kind, MTypeId(typeId).id() & 0xFFFFFFFF)
         _node_classes[name] = {
             "creator": creator, "id": MTypeId(typeId), "owner": self._p["name"], "outputs": outputs, "units": units, "children": children,
             "attrs": attrs, "kind": kind, "groups": groups,
@@ -1748,6 +1748,17 @@ def _plugin_info(args, flags):
     if name is None:
         _fail(message="pluginInfo: name a plug-in")
     p = _plugins.get(_plugin_key(name))
+    if p is None:
+        p = next((x for x in _plugins.values() if x["path"] == name), None)
+    if flags.get("__record__"):
+        # Everything it registered, for the host's pluginInfo.
+        if p is None:
+            return None
+        return {
+            "name": p["name"], "path": p["path"], "vendor": p["vendor"], "version": p["version"], "api": p["api"],
+            "commands": list(p["commands"]), "nodes": list(p["nodes"]), "data": list(p.get("data", [])),
+            "translators": list(p.get("translators", [])),
+        }
     if flags.get("loaded"):
         return p is not None
     if flags.get("registered"):

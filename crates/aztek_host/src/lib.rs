@@ -43,6 +43,7 @@ pub mod environment;
 pub mod user_folder;
 pub mod sys_host;
 pub mod sys_more;
+pub mod sys_info;
 pub mod video;
 pub mod text;
 pub mod view;

@@ -25,6 +25,17 @@ pub const NAMES: &[&str] = &[
     "stringArrayDuplicates", "stringArrayIntersection", "floatArrayRemoveAtIndex", "intArrayRemoveAtIndex",
 ];
 
+/// melOptions -duplicateVariableWarnings: as a script is sourced, a warning for each variable declared twice in one scope.
+fn dup_warnings(it: &mut Interp, text: &str, file: &str) {
+    let on = it.core.s.option_vars.get(crate::sys_info::DUP_WARNINGS_VAR).is_some_and(|v| v.as_i64().unwrap_or(0) != 0 || v.as_bool() == Some(true));
+    if !on {
+        return;
+    }
+    for name in super::dupvars::duplicates(text) {
+        it.core.push(format!("// Warning: {file}: variable \"${name}\" is declared again in the same scope. //"), LineKind::Warning);
+    }
+}
+
 /// The linear tolerance `equivalent` compares by: the reference's default (its page's example, `tolerance -q -l`).
 const LINEAR_TOLERANCE: f64 = 0.001;
 
@@ -300,6 +311,7 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
                 let stem = file.strip_suffix(".mel").unwrap_or(&file);
                 if !stem.contains(['/', '\\']) {
                     if let Some((shown, text)) = super::bundled::file(stem) {
+                        dup_warnings(it, text, &shown);
                         it.run_quiet(text, Some(&shown))?;
                         return Ok(Value::Void);
                     }
@@ -307,6 +319,7 @@ fn run(it: &mut Interp, name: &str, a: &mut Vec<Value>) -> R<Value> {
                 return err(format!("Cannot find file \"{file}\" for source statement."));
             };
             let text = std::fs::read_to_string(&path).map_err(|e| Flow::Error(format!("{file}: {e}")))?;
+            dup_warnings(it, &text, &path.to_string_lossy());
             it.run_quiet(&text, Some(&path.to_string_lossy()))?;
             Ok(Value::Void)
         }

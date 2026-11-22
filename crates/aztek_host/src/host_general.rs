@@ -1152,6 +1152,9 @@ pub(crate) fn intercept(core: &mut crate::core::Core, name: &str, call: &Value) 
     if let Some(r) = crate::sys_more::intercept(core, name, call) {
         return Some(r);
     }
+    if let Some(r) = crate::sys_info::intercept(core, name, call) {
+        return Some(r);
+    }
     if name == "connectDynamic" {
         return connect_dynamic(core, call);
     }

@@ -7,6 +7,7 @@
 //! then use. A node's compute may run on a worker thread: there only the data block and mesh handles are open
 //! (`IN_COMPUTE`), and the node type's scheduling decides which lock it holds.
 
+mod info;
 mod load;
 pub(crate) mod messages;
 mod nodes;
@@ -137,7 +138,11 @@ pub(crate) fn take(p: *mut c_char) -> String {
 fn answer(r: Result<Value, String>) -> *mut c_char {
     give(&match r {
         Ok(v) => json!({ "ok": v }).to_string(),
-        Err(e) => json!({ "error": e }).to_string(),
+        Err(e) => {
+            // openMayaPref -errlog: a failed call of the kit's.
+            crate::sys_info::log_api_error(&e, "    from a compiled plug-in's call to the host");
+            json!({ "error": e }).to_string()
+        }
     })
 }
 

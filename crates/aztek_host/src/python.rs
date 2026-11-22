@@ -207,8 +207,8 @@ fn deregister_command(py: Python<'_>, name: &str) -> PyResult<()> {
 
 /// kind: 0 a dependency node, 1 a deformer, 2 a locator, 3 a transform, 4 a constraint, 5 a shape, 6 an IK solver (the ABI's numbers).
 #[pyfunction]
-#[pyo3(signature = (name, owner, attrs, kind=0))]
-fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32) -> PyResult<()> {
+#[pyo3(signature = (name, owner, attrs, kind=0, type_id=0))]
+fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32, type_id: u32) -> PyResult<()> {
     let attrs: Vec<Value> = serde_json::from_str(attrs).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     let kind = match kind {
         1 => scripted::NativeKind::Deformer,
@@ -219,7 +219,21 @@ fn register_node(py: Python<'_>, name: &str, owner: &str, attrs: &str, kind: i32
         6 => scripted::NativeKind::IkSolver,
         _ => scripted::NativeKind::Depend,
     };
-    py.detach(|| scripted::register_script_type(name, owner, &attrs, kind)).map_err(|e| PyRuntimeError::new_err(e.to_string()))
+    py.detach(|| scripted::register_script_type(name, owner, &attrs, kind)).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    scripted::set_type_id(name, type_id);
+    Ok(())
+}
+
+/// Whether openMayaPref -errlog is on.
+#[pyfunction]
+fn api_errlog() -> bool {
+    crate::sys_info::errlog_on()
+}
+
+/// A failed API call, for openMayaPref -errlog: written to the error log when it is on.
+#[pyfunction]
+fn api_error(text: &str, stack: &str) {
+    crate::sys_info::log_api_error(text, stack);
 }
 
 /// A plug-in's file translator (MPxFileTranslator): `file` hands its type's files to the plug-in's reader and writer.
@@ -806,6 +820,8 @@ fn _aztek(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(deregister_command, m)?)?;
     m.add_function(wrap_pyfunction!(register_node, m)?)?;
     m.add_function(wrap_pyfunction!(register_translator, m)?)?;
+    m.add_function(wrap_pyfunction!(api_error, m)?)?;
+    m.add_function(wrap_pyfunction!(api_errlog, m)?)?;
     m.add_function(wrap_pyfunction!(deregister_translator, m)?)?;
     m.add_function(wrap_pyfunction!(register_data, m)?)?;
     m.add_function(wrap_pyfunction!(deregister_data, m)?)?;

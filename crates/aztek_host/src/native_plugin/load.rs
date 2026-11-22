@@ -15,7 +15,7 @@ const EXTENSIONS: &[&str] = &["dll", "mll"];
 #[cfg(not(windows))]
 const EXTENSIONS: &[&str] = &["so"];
 
-fn search_path() -> Vec<PathBuf> {
+pub(super) fn search_path() -> Vec<PathBuf> {
     let mut out = Vec::new();
     for var in ["AZTEK_PLUG_IN_PATH", "MAYA_PLUG_IN_PATH"] {
         if let Some(v) = std::env::var_os(var) {
@@ -124,7 +124,7 @@ pub fn autoload_list() -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn set_autoload(path: &str, on: bool) -> std::io::Result<()> {
+pub(super) fn set_autoload(path: &str, on: bool) -> std::io::Result<()> {
     let mut list = autoload_list();
     list.retain(|p| p != path);
     if on {
@@ -135,7 +135,7 @@ fn set_autoload(path: &str, on: bool) -> std::io::Result<()> {
 }
 
 /// Every plug-in file in the folders of the plug-in path, in the path's order, then what is loaded from elsewhere.
-fn list_plugins(s: &mut Session) -> Value {
+pub(super) fn list_plugins(s: &mut Session) -> Value {
     let mut loaded: Vec<(String, String)> = PLUGINS.with(|p| p.borrow().iter().map(|x| (x.name.clone(), x.path.clone())).collect());
     if python_started() {
         let mut f = Map::new();
@@ -246,7 +246,7 @@ pub(crate) fn find_native(name: &str) -> Option<PathBuf> {
 }
 
 /// Whether a Python plug-in by that name is there to load.
-fn python_file(name: &str) -> bool {
+pub(super) fn python_file(name: &str) -> bool {
     let p = Path::new(name);
     if p.extension().is_some_and(|e| e == "py") && p.is_file() {
         return true;
@@ -268,7 +268,9 @@ pub(crate) fn key_of(name: &str) -> String {
 
 fn open(path: &Path) -> Result<libloading::Library, String> {
     #[cfg(unix)]
-    let r = unsafe { libloading::os::unix::Library::open(Some(path), libc::RTLD_NOW | libc::RTLD_LOCAL) }.map(libloading::Library::from);
+    // openMayaPref -lazyLoad: unresolved references fail when called rather than when loaded.
+    let bind = if crate::sys_info::lazy_load() { libc::RTLD_LAZY } else { libc::RTLD_NOW };
+    let r = unsafe { libloading::os::unix::Library::open(Some(path), bind | libc::RTLD_LOCAL) }.map(libloading::Library::from);
     #[cfg(windows)]
     let r = unsafe { libloading::os::windows::Library::load_with_flags(path, libloading::os::windows::LOAD_WITH_ALTERED_SEARCH_PATH) }.map(libloading::Library::from);
     r.map_err(|e| {
@@ -325,6 +327,13 @@ fn load_native(s: &mut Session, key: &str, path: &Path) -> Result<(), String> {
             _ => format!("initializePlugin of {key} failed: {err}"),
         });
     }
+    // openMayaPref -oldPluginWarning: built with an older kit, or for an older release than the reference's.
+    if crate::sys_info::old_plugin_warning() {
+        let api = PLUGINS.with(|p| p.borrow().iter().find(|x| x.name == key).map(|x| x.api.clone())).unwrap_or_default();
+        if let Some(w) = crate::sys_info::old_plugin_text(key, version as u32, ABI_VERSION, &api) {
+            defer(w, LineKind::Warning);
+        }
+    }
     Ok(())
 }
 
@@ -371,23 +380,23 @@ fn unload_native(s: &mut Session, key: &str, force: bool) -> Result<(), String> 
 }
 
 #[cfg(feature = "python")]
-fn python_call(s: &mut Session, method: &'static str, name: Option<&str>, flags: &Map<String, Value>) -> CmdResult {
+pub(super) fn python_call(s: &mut Session, method: &'static str, name: Option<&str>, flags: &Map<String, Value>) -> CmdResult {
     let a = Args { positional: name.map(|n| vec![json!(n)]).unwrap_or_default(), flags: flags.clone() };
     crate::python::plugin_command(s, method, &a)
 }
 
 #[cfg(feature = "python")]
-fn python_started() -> bool {
+pub(super) fn python_started() -> bool {
     crate::python::started()
 }
 
 #[cfg(not(feature = "python"))]
-fn python_call(_s: &mut Session, _method: &'static str, name: Option<&str>, _flags: &Map<String, Value>) -> CmdResult {
+pub(super) fn python_call(_s: &mut Session, _method: &'static str, name: Option<&str>, _flags: &Map<String, Value>) -> CmdResult {
     Err(CommandError::new(format!("Plug-in \"{}\": this build has no Python.", name.unwrap_or(""))))
 }
 
 #[cfg(not(feature = "python"))]
-fn python_started() -> bool {
+pub(super) fn python_started() -> bool {
     false
 }
 
@@ -472,7 +481,9 @@ fn load_plugin(s: &mut Session, a: &Args) -> CmdResult {
         }
         let before = out.len();
         load_one(s, a, name, &key, quiet, &mut out)?;
+        let named = a.get("name").and_then(Value::as_str).is_some_and(|n| !n.is_empty());
         for loaded in out[before..].iter().filter_map(Value::as_str).map(str::to_string).collect::<Vec<_>>() {
+            super::info::registry_changed(&loaded, true, named && loaded == key);
             queue_load_callbacks(&loaded);
         }
     }
@@ -568,104 +579,11 @@ fn unload_plugin(s: &mut Session, a: &Args) -> CmdResult {
         } else {
             return Err(CommandError::new(format!("Plug-in \"{name}\" is not loaded.")));
         }
+        super::info::registry_changed(&key, false, false);
         done.push(json!(key));
     }
     // The internal names of the plug-ins unloaded.
     Ok(Value::Array(done))
-}
-
-fn plugin_info(s: &mut Session, a: &Args) -> CmdResult {
-    let on = |k: &str| a.bool(k);
-    if a.get("autoload").is_some() {
-        let Some(name) = a.positional.first().and_then(Value::as_str) else { return Err(CommandError::new("pluginInfo: name a plug-in")) };
-        if crate::builtin_plugins::find(name).is_some() {
-            if on("query") {
-                return Ok(json!(crate::builtin_plugins::autoload(name)));
-            }
-            crate::builtin_plugins::set_autoload(name, on("autoload")).map_err(|e| CommandError::new(format!("pluginInfo: {e}")))?;
-            return Ok(Value::Null);
-        }
-        // By its file: the one loaded under that name, or the one that name finds on the path.
-        let key = key_of(name);
-        let rows = list_plugins(s);
-        let row = rows.as_array().and_then(|r| r.iter().find(|r| r["path"] == name).or_else(|| r.iter().find(|r| r["name"] == key.as_str())));
-        let Some(path) = row.and_then(|r| r["path"].as_str()).map(str::to_string).or_else(|| Path::new(name).is_file().then(|| name.to_string())) else {
-            return Err(CommandError::new(format!("Plug-in \"{name}\" was not found on the plug-in path.")));
-        };
-        if on("query") {
-            return Ok(json!(autoload_list().iter().any(|p| *p == path)));
-        }
-        set_autoload(&path, on("autoload")).map_err(|e| CommandError::new(format!("pluginInfo: {e}")))?;
-        return Ok(Value::Null);
-    }
-    if on("listPluginsPath") {
-        return Ok(json!(search_path().iter().map(|p| p.to_string_lossy().into_owned()).collect::<Vec<_>>()));
-    }
-    if on("listPlugins") {
-        let mut names = loaded_names();
-        names.extend(crate::builtin_plugins::loaded());
-        if python_started() {
-            if let Value::Array(l) = python_call(s, "plugin_info", None, &a.flags)? {
-                names.extend(l.into_iter().filter_map(|x| x.as_str().map(str::to_string)));
-            }
-        }
-        names.sort();
-        return Ok(json!(names));
-    }
-    let Some(name) = a.positional.first().and_then(Value::as_str) else { return Err(CommandError::new("pluginInfo: name a plug-in")) };
-    let key = key_of(name);
-    if let Some(b) = crate::builtin_plugins::find(name) {
-        let is_loaded = crate::builtin_plugins::is_loaded(b.name);
-        return Ok(if on("loaded") {
-            json!(is_loaded)
-        } else if on("registered") {
-            json!(true)
-        } else if on("version") {
-            json!(env!("CARGO_PKG_VERSION"))
-        } else if on("vendor") {
-            json!(crate::builtin_plugins::VENDOR)
-        } else if on("path") || on("name") {
-            json!(b.name)
-        } else if on("command") {
-            json!(if is_loaded { b.all_commands() } else { Vec::new() })
-        } else if on("dependNode") {
-            json!(if is_loaded { b.nodes.to_vec() } else { Vec::new() })
-        } else {
-            return Err(CommandError::new("pluginInfo: nothing asked"));
-        });
-    }
-    let Some(p) = plugin_named(&key) else {
-        if python_started() {
-            return python_call(s, "plugin_info", Some(name), &a.flags);
-        }
-        if on("loaded") {
-            return Ok(json!(false));
-        }
-        if on("registered") {
-            return Ok(json!(find_native(name).is_some() || python_file(name)));
-        }
-        return Err(CommandError::new(format!("Plug-in \"{name}\" is not loaded.")));
-    };
-    let p = unsafe { &*p };
-    Ok(if on("loaded") || on("registered") {
-        json!(true)
-    } else if on("version") {
-        json!(p.version)
-    } else if on("vendor") {
-        json!(p.vendor)
-    } else if on("path") {
-        json!(p.path)
-    } else if on("name") {
-        json!(p.name)
-    } else if on("apiVersion") {
-        json!(p.api)
-    } else if on("command") {
-        json!(p.commands)
-    } else if on("dependNode") {
-        json!(p.nodes)
-    } else {
-        return Err(CommandError::new("pluginInfo: nothing asked"));
-    })
 }
 
 /// loadPlugin, unloadPlugin and pluginInfo for every kind of plug-in, and the command callbacks arrive by.
@@ -694,26 +612,66 @@ pub fn register_commands(s: &mut Session) {
             .flag(FlagDef::new("removeCallback", "rc", ArgType::Any, Value::Null, "Take back a script -addCallback gave."))
             .undoable(false),
     );
-    s.register(
-        CommandDef::<Session>::new("pluginInfo", "Ask about plug-ins: pluginInfo -q -loaded name, -listPlugins, -version, -vendor, -path, -command, -dependNode.", plugin_info)
-            .positional("plug-in name")
-            .flag(b("query", "q", "Query."))
-            .flag(b("edit", "e", "Accepted for scripts."))
-            .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What is asked."))
-            .flag(b("loaded", "l", "Whether it is loaded."))
-            .flag(b("registered", "r", "Whether it is known."))
-            .flag(b("listPlugins", "ls", "The loaded plug-ins."))
-            .flag(b("version", "v", "Its version."))
-            .flag(b("vendor", "vd", "Its vendor."))
-            .flag(b("path", "p", "Its file."))
-            .flag(b("name", "n", "Its name."))
-            .flag(b("command", "c", "The commands it registered."))
-            .flag(b("dependNode", "dn", "The node types it registered."))
-            .flag(b("apiVersion", "av", "The API version it asked for."))
-            .flag(b("autoload", "a", "Whether it loads at start: -e -autoload true name sets it, -q -autoload name asks."))
-            .flag(b("listPluginsPath", "lsp", "The folders plug-ins are looked for in."))
-            .undoable(false),
-    );
+    let st = |name: &str, short: &str, doc: &str| FlagDef::new(name, short, ArgType::String, Value::Null, doc);
+    let mut info = CommandDef::<Session>::new(
+        "pluginInfo",
+        "The plug-in registry: what each plug-in registered (-q -command, -dependNode, -translator, ...), whether it is loaded, loads at start or is in use, and the plug-in preferences.",
+        super::info::plugin_info,
+    )
+    .positional("plug-in name or path")
+    .flag(b("query", "q", "Query."))
+    .flag(b("edit", "e", "Edit."))
+    .flag(FlagDef::new("queried", "", ArgType::List, Value::Null, "What is asked."));
+    for (n, sh, doc) in [
+        ("activeFile", "af", "-dependNode and -pluginsInUse look only at the selection, as an export of the selection writes it."),
+        ("allEvaluators", "ae", "The evaluator types every plug-in registered."),
+        ("apiVersion", "av", "The API version it was built against."),
+        ("autoload", "a", "Whether it loads at every start: -e -autoload true name sets it, -q -autoload name asks."),
+        ("cacheFormat", "cf", "The geometry cache formats plug-ins registered."),
+        ("constraintCommand", "cnc", "The constraint commands it registered."),
+        ("controlCommand", "ctc", "The control commands it registered."),
+        ("dependNode", "dn", "The node types it registered."),
+        ("device", "dv", "The devices it registered."),
+        ("dragAndDropBehavior", "ddb", "The drag and drop behaviours it registered."),
+        ("evaluator", "e", "The evaluator types it registered."),
+        ("iksolver", "ik", "The IK solvers it registered."),
+        ("listPlugins", "ls", "The loaded plug-ins."),
+        ("listPluginsPath", "lsp", "The full paths of the loaded plug-ins."),
+        ("loadPluginPrefs", "lpp", "Read the plug-in preferences (what loads at start) from pluginPrefs.mel."),
+        ("loaded", "l", "Whether it is loaded."),
+        ("modelEditorCommand", "mec", "The model editor commands it registered."),
+        ("pluginsInUse", "pu", "The plug-ins the scene uses."),
+        ("referenceTranslators", "rtr", "With -pluginsInUse: true lists only those with translators that read the scene's referenced files, false only the others."),
+        ("registered", "r", "Whether the registry knows it."),
+        ("remove", "rm", "Edit: take its record out of the registry."),
+        ("renderer", "rdr", "The renderers it registered."),
+        ("savePluginPrefs", "spp", "Write the plug-in preferences (what loads at start) to pluginPrefs.mel."),
+        ("serviceDescriptions", "sd", "Short descriptions of the services it uses."),
+        ("settings", "set", "Whether it is loaded, loads at start and is registered."),
+        ("translator", "tr", "The file translators it registered."),
+        ("unloadOk", "uo", "Whether it can be unloaded safely: false while the scene has nodes of its types."),
+        ("userNamed", "u", "Whether it was given its name by loadPlugin -name."),
+        ("version", "v", "Its version."),
+        ("writeRequires", "wr", "Whether saved files require it, so opening them loads it."),
+    ] {
+        info = info.flag(b(n, sh, doc));
+    }
+    for (n, sh, doc) in [
+        ("animCurveInterp", "aci", "The animation curve interpolators it registered."),
+        ("changedCommand", "cc", "A script run whenever the registry changes."),
+        ("command", "c", "The commands it registered."),
+        ("data", "d", "The data types it registered."),
+        ("dependNodeByType", "dnt", "The plug-in node types of an MPxNode type class, such as kLocatorNode."),
+        ("dependNodeId", "dni", "The ids of the node types it registered."),
+        ("name", "n", "The name it is registered under."),
+        ("path", "p", "Its file."),
+        ("pluginForNodeType", "pnt", "The plug-in that registered a node type, or \"\"."),
+        ("tool", "t", "The tool contexts it registered."),
+        ("vendor", "vd", "Its vendor."),
+    ] {
+        info = info.flag(st(n, sh, doc));
+    }
+    s.register(info.undoable(false));
     s.register(
         CommandDef::<Session>::new(
             "aztekPlugins",

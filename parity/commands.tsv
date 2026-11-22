@@ -539,7 +539,7 @@ makeIdentity	done	auto
 makeLive	done	auto
 makePaintable	done	auto
 makeSingleSurface	done	auto
-makebot	missing	
+makebot	done	auto
 manipMoveContext	done	auto
 manipMoveLimitsCtx	missing	
 manipOptions	done	auto
@@ -553,9 +553,9 @@ matchTransform	done	auto
 matrixUtil	done	auto
 mayaDpiSetting	done	auto
 mayaHasRenderSetup	missing	
-melInfo	missing	
-melOptions	missing	
-memory	missing	
+melInfo	done	auto
+melOptions	done	auto
+memory	done	auto
 menu	done	auto
 menuBarLayout	done	auto
 menuEditor	missing	
@@ -572,12 +572,12 @@ modelEditor	done	auto
 modelPanel	done	auto
 moduleInfo	done	auto
 mouse	missing	
-movIn	missing	
-movOut	missing	
+movIn	done	auto
+movOut	done	auto
 move	done	auto
 moveKeyCtx	done	auto
 moveVertexAlongDirection	done	auto
-movieInfo	missing	
+movieInfo	done	auto
 multiProfileBirailSurface	done	auto
 multiTouch	missing	
 mute	done	auto
@@ -607,7 +607,7 @@ nurbsPlane	done	auto
 nurbsSelect	done	auto
 nurbsSquare	done	auto
 nurbsToPoly	done	auto
-nurbsToPolygonsPref	missing	
+nurbsToPolygonsPref	done	auto
 nurbsToSubdiv	missing	
 nurbsToSubdivPref	missing	
 nurbsUVSet	done	auto
@@ -620,9 +620,9 @@ offsetCurveOnSurface	done	auto
 offsetSurface	done	auto
 ogs	missing	
 ogsRender	missing	
-openCLInfo	missing	
-openGLExtension	missing	
-openMayaPref	missing	
+openCLInfo	done	auto
+openGLExtension	done	auto
+openMayaPref	done	auto
 optionMenu	done	auto
 optionMenuGrp	done	auto
 optionVar	done	auto
@@ -658,7 +658,7 @@ pathAnimation	done	auto
 pause	done	auto
 perCameraVisibility	missing	
 percent	done	auto
-performanceOptions	missing	
+performanceOptions	done	auto
 pfxstrokes	missing	
 pickWalk	done	auto
 picture	done	auto

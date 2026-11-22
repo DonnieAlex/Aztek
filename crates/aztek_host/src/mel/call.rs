@@ -147,6 +147,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("hotkey", "keyShortcut" | "ctxClient" | "commandName")
             | ("animLayer", "affectedLayersAttribute")
             | ("cmdFileOutput", "status")
+            | ("pluginInfo", "dependNodeByType" | "pluginForNodeType")
             | ("repeatLast", "commandList" | "commandNameList")
             | ("blindDataType", "typeId" | "longDataName" | "shortDataName" | "dataType")
             | ("dgtimer", "outputFile" | "returnType" | "returnCode" | "sortType" | "sortMetric" | "show" | "hide" | "threshold" | "maxDisplay" | "name" | "type" | "rangeLower" | "rangeUpper")
