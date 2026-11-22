@@ -1716,6 +1716,10 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         auto* o = new Outliner();
         o->setMinimumSize(120, 80);
         it->w = o;
+    } else if (k == "channelBox") {
+        auto* c = new ChannelBox(nullptr, path);
+        c->setMinimumSize(120, 80);
+        it->w = c;
     } else if (k == "nodeEditor") {
         auto* n = new NodeEditor();
         n->setMinimumSize(200, 120);
@@ -2247,6 +2251,21 @@ void ScriptUi::build_group(Item* it, const QJsonObject& props) {
             fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
         });
         connect(s, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
+        // -alphaValue shows a second slider, for the colour's alpha.
+        auto* alpha = new QSlider(Qt::Horizontal, box);
+        alpha->setRange(0, SLIDER_STEPS);
+        alpha->setToolTip("Alpha");
+        alpha->setVisible(props.contains("alphaValue"));
+        g->addWidget(alpha, 0, col++);
+        it->parts["alpha"] = alpha;
+        connect(alpha, &QSlider::sliderMoved, this, [this, path](int pos) {
+            auto* i = items_.value(path);
+            if (!i) return;
+            QJsonObject ch{{"alphaValue", double(pos) / SLIDER_STEPS}};
+            i->props.insert("alphaValue", ch["alphaValue"]);
+            fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
+        });
+        connect(alpha, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
     } else if (k == "checkBoxGrp") {
         int n = qBound(1, int(as_number(props["numberOfCheckBoxes"], 1)), 4);
         for (int i = 1; i <= n; ++i) {
@@ -2383,6 +2402,8 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         if (auto* u = qobject_cast<UvEditor*>(w)) u->apply_flags(props);
     } else if (k == "outlinerEditor") {
         if (auto* o = qobject_cast<Outliner*>(w)) o->set_editor_options(props);
+    } else if (k == "channelBox") {
+        if (auto* c = qobject_cast<ChannelBox*>(w)) c->apply_flags(props);
     } else if (k == "nodeEditor") {
         if (auto* n = qobject_cast<NodeEditor*>(w)) {
             if (as_bool(props["rootsFromSelection"])) n->graph_selection(as_bool(it->prop("upstream")) || as_bool(it->prop("downstream")) ? 2 : 1);
@@ -2769,6 +2790,11 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         auto* s = static_cast<QSlider*>(it->parts["slider"]);
         QSignalBlocker block(s);
         s->setValue(int(c.valueF() * SLIDER_STEPS));
+        if (auto* alpha = qobject_cast<QSlider*>(it->parts.value("alpha")); alpha && it->props.contains("alphaValue")) {
+            QSignalBlocker block_alpha(alpha);
+            alpha->setVisible(true);
+            alpha->setValue(int(as_number(it->prop("alphaValue"), 1.0) * SLIDER_STEPS));
+        }
     } else if (k == "checkBoxGrp") {
         for (int i = 1; i <= 4; ++i) {
             QString slot = QString::number(i);
@@ -2831,7 +2857,44 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     }
 }
 
+// attrNavigationControlGrp: nodes dropped on it, and its right-click menu (Set Key and Break Connection unless
+// -noKeyableMenu, Ignore with -ignore).
+void ScriptUi::nav_extras(Item* it, const QJsonObject& props) {
+    QWidget* w = it->w;
+    if (!w) return;
+    const QString path = it->path;
+    if (props.contains("hasNodeDrop") && it->kind != "shelfButton") {
+        QList<QWidget*> all = w->findChildren<QWidget*>();
+        all << w;
+        for (QWidget* x : all) {
+            x->setAcceptDrops(true);
+            x->setProperty("azNodeDropPath", path);
+            x->installEventFilter(this);
+        }
+    }
+    if (props.contains("navMenu")) {
+        w->setContextMenuPolicy(Qt::CustomContextMenu);
+        QObject::disconnect(w, &QWidget::customContextMenuRequested, nullptr, nullptr);
+        connect(w, &QWidget::customContextMenuRequested, this, [this, path, w](const QPoint& at) {
+            Item* me = items_.value(path);
+            if (!me) return;
+            QJsonObject nav = me->prop("navMenu").toObject();
+            QMenu menu;
+            if (nav["keyable"].toBool(true)) {
+                menu.addAction("Set Key", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navSetKey"}, QJsonArray()); });
+                menu.addAction("Break Connection", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navBreak"}, QJsonArray()); });
+            }
+            if (nav["ignore"].toBool()) {
+                if (!menu.isEmpty()) menu.addSeparator();
+                menu.addAction("Ignore", this, [this, path] { fire(path, QJsonObject(), QJsonArray{"__navIgnore"}, QJsonArray()); });
+            }
+            if (!menu.isEmpty()) menu.exec(w->mapToGlobal(at));
+        });
+    }
+}
+
 void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
+    if (props.contains("hasNodeDrop") || props.contains("navMenu")) nav_extras(it, props);
     QWidget* w = it->w;
     if (!w || it->menu) return;
     if (props.contains("width")) {
@@ -2998,7 +3061,9 @@ bool ScriptUi::eventFilter(QObject* o, QEvent* e) {
         auto* de = static_cast<QDropEvent*>(e);
         if (de->mimeData()->hasText() && !de->mimeData()->hasFormat(CONTROL_MIME)) {
             de->acceptProposedAction();
-            for (const QString& node : de->mimeData()->text().split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts)) fire(node_drop, QJsonObject(), QJsonArray{"handleNodeDropCallback"}, QJsonArray{node});
+            Item* target = items_.value(node_drop);
+            const QString flag = target && target->props.contains("nodeDropFlag") ? target->prop("nodeDropFlag").toString() : QString("handleNodeDropCallback");
+            for (const QString& node : de->mimeData()->text().split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts)) fire(node_drop, QJsonObject(), QJsonArray{flag}, QJsonArray{node});
             return true;
         }
     }

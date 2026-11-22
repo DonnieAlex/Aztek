@@ -1911,7 +1911,7 @@ fn about(_s: &mut Session, a: &Args) -> CmdResult {
         json!(20250000)
     } else if a.bool("operatingSystem") {
         json!(if win { "win64" } else if mac { "mac" } else { "linux64" })
-    } else if a.bool("windows") || a.bool("nt") {
+    } else if a.bool("windows") || a.bool("ntOS") {
         json!(win)
     } else if a.bool("linux") {
         json!(linux)
@@ -2509,7 +2509,7 @@ pub fn register(c: &mut Commands<Session>) {
     );
     {
         let mut ab = Cmd::new("about", "About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api, -qt.", about).undoable(false);
-        for (name, short) in [("version", "v"), ("apiVersion", "api"), ("operatingSystem", "os"), ("windows", "win"), ("nt", "nt"), ("linux", "li"), ("macOS", "mac"), ("batch", "b"), ("is64", "x64"), ("uiLanguage", "uil"), ("codeset", "cs"), ("product", "p"), ("application", "a"), ("qtVersion", "qt")] {
+        for (name, short) in [("version", "v"), ("apiVersion", "api"), ("operatingSystem", "os"), ("windows", "win"), ("ntOS", "nt"), ("linux", "li"), ("macOS", "mac"), ("batch", "b"), ("is64", "x64"), ("uiLanguage", "uil"), ("codeset", "cs"), ("product", "p"), ("application", "a"), ("qtVersion", "qt")] {
             ab = ab.flag(f(name, short, B, "What to ask."));
         }
         c.register(ab);

@@ -109,6 +109,8 @@ impl Core {
         crate::sys_host::register(&mut c.s);
         crate::sys_more::register(&mut c.s);
         crate::sys_info::register(&mut c.s);
+        crate::about::register(&mut c.s);
+        crate::attr_menus::register(&mut c.s);
         crate::sys_prefs::register(&mut c.s);
         crate::profiler::register(&mut c.s);
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
@@ -284,6 +286,9 @@ impl Core {
         }
         for (cb, args) in crate::scriptui::take_immediate() {
             self.run_callback(&cb, &args);
+        }
+        for cb in crate::channel_box::rebuild_callbacks(&mut self.s) {
+            self.run_callback(&cb, &[]);
         }
         if crate::script_jobs::take_flush() {
             self.idle();

@@ -120,6 +120,7 @@ fn ensure_built_in(m: &mut Model) {
         ("dopeSheetEditor", "dopeSheetPanel1DopeSheetEd"),
         ("outlinerEditor", "dopeSheetPanel1OutlineEd"),
         ("nodeEditor", "nodeEditorPanel1NodeEditorEd"),
+        ("channelBox", crate::channel_box::MAIN),
     ] {
         m.next += 1;
         m.controls.insert(m.next, Control { kind: kind.into(), name: name.into(), path: name.into(), parent: None, children: Vec::new(), props: Map::new() });
@@ -165,6 +166,11 @@ pub(crate) fn run_soon(cb: Value, args: Vec<Value>) {
 pub fn take_gone() -> Vec<String> {
     GONE.with(|g| std::mem::take(&mut *g.borrow_mut()))
 }
+
+/// attrNavigationControlGrp's flags that are scripts, though their names don't say so.
+const NAV_SCRIPTS: &[&str] = &["connectAttrToDropped", "connectNodeToDropped", "ignore", "unignore", "delete", "relatedNodes", "createNew", "connectToExisting", "disconnect", "defaultTraversal"];
+/// What the shell fires when a node is dropped on an attrNavigationControlGrp, and from its right-click menu.
+const NAV_DROP: &str = "__navNodeDrop";
 
 /// A flag whose value is a script.
 pub fn is_callback(flag: &str) -> bool {
@@ -451,6 +457,7 @@ const KINDS: &[(&str, &str)] = &[
     ("soundPopup", ""),
     ("rangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a widthHeight:wh:a2"),
     ("timeRangeControl", "minRange:min:a maxRange:max:a changedCommand:cc:a"),
+    ("channelBox", crate::channel_box::FLAGS),
 ];
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
@@ -470,7 +477,13 @@ fn display_of(cmd: &str) -> &str {
 pub(crate) fn parse_flag(tok: &str) -> Option<FlagDef> {
     let mut it = tok.split(':');
     let (long, short, ty) = (it.next()?, it.next()?, it.next()?);
-    let mut d = FlagDef::new(long, short, if ty == "b" { ArgType::Bool } else { ArgType::Any }, Value::Null, "");
+    // b a switch, l a list of words (a string array), a anything, aN N values and used more than once.
+    let kind = match ty {
+        "b" => ArgType::Bool,
+        "l" => ArgType::List,
+        _ => ArgType::Any,
+    };
+    let mut d = FlagDef::new(long, short, kind, Value::Null, "");
     if let Some(n) = ty.strip_prefix('a').and_then(|n| n.parse::<u8>().ok()) {
         d = d.multi(n);
     }
@@ -533,11 +546,12 @@ fn numeric(kind: &str, v: &Value) -> Value {
 fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String, Value>, String> {
     let mut changed = Map::new();
     let kind = m.get(id).map(|c| c.kind.clone()).unwrap_or_default();
+    let nav = m.get(id).and_then(|c| c.props.get("__cmd")).and_then(Value::as_str) == Some("attrNavigationControlGrp");
     for (key, raw) in flags {
         if META.contains(&key.as_str()) || raw.is_null() {
             continue;
         }
-        if is_callback(key) {
+        if is_callback(key) || (nav && NAV_SCRIPTS.contains(&key.as_str())) {
             // -sourceType beside a callback says which language its string is.
             let cb = match (flags.get("sourceType").and_then(Value::as_str), raw) {
                 (Some("python"), Value::String(s)) => json!({ "__pysrc__": s }),
@@ -565,11 +579,24 @@ fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String
                 "labelEditingCallback" => {
                     changed.insert("hasLabelEdit".to_string(), json!(true));
                 }
+                // attrNavigationControlGrp: a node dropped on it goes to these.
+                "connectAttrToDropped" | "connectNodeToDropped" if nav => {
+                    changed.insert("hasNodeDrop".to_string(), json!(true));
+                    changed.insert("nodeDropFlag".to_string(), json!(NAV_DROP));
+                }
                 _ => {}
             }
             continue;
         }
         apply_one(m, id, &kind, key, raw, &mut changed)?;
+    }
+    // attrNavigationControlGrp's right-click menu: the keyable items unless -noKeyableMenu, Ignore with -ignore.
+    if nav && (flags.contains_key("ignore") || flags.contains_key("noKeyableMenu") || !m.get(id).is_some_and(|c| c.props.contains_key("__navMenu"))) {
+        if let Some(c) = m.controls.get_mut(&id) {
+            c.props.insert("__navMenu".into(), json!(true));
+            let keyable = !c.props.get("noKeyableMenu").is_some_and(truth);
+            changed.insert("navMenu".to_string(), json!({"keyable": keyable, "ignore": c.props.contains_key("ignore")}));
+        }
     }
     // A shelf button's popup menu: -menuItem label command, -menuItemWithOptionBox label command optionCommand, in the
     // order given, -menuItemPython marking which are Python.
@@ -1219,6 +1246,11 @@ pub(crate) fn template_defaults(cmd: &str, use_template: Option<&str>) -> Map<St
     })
 }
 
+/// The menu items go in now (setParent -menu), by its full path.
+pub(crate) fn current_menu() -> Option<String> {
+    with_model(|m| m.menu.and_then(|i| m.get(i)).map(|c| c.path.clone()))
+}
+
 pub(crate) fn control_prop(path: &str, key: &str) -> Option<Value> {
     with_model(|m| m.find(path).and_then(|i| m.get(i)).and_then(|c| c.props.get(key).cloned()))
 }
@@ -1542,6 +1574,11 @@ fn radio_exclusive(m: &mut Model, id: Id) {
 // Query
 
 fn default_value(c: &Control, key: &str) -> Value {
+    if c.kind == "channelBox" {
+        if let Some(v) = crate::channel_box::default_value(key) {
+            return v;
+        }
+    }
     match (c.kind.as_str(), key) {
         ("window" | "workspaceControl" | "dockControl" | "progressWindow", "visible") => json!(false),
         (_, "enable" | "visible" | "manage" | "editable" | "sizeable" | "minimizeButton" | "maximizeButton" | "titleBar" | "titleBarMenu" | "enableKeyboardFocus" | "enableButton") => json!(true),
@@ -1595,6 +1632,7 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("layerButton", "layerState") => json!("normal"),
         ("layerButton", "name") => json!(c.name),
         ("colorIndexSliderGrp", "maxValue") => json!(31),
+        ("colorSliderGrp", "alphaValue") => json!(1.0),
         (k, "minValue") if is_int_kind(k) || is_float_kind(k) => zero(k),
         (k, "maxValue") if k.ends_with("Slider") || k.ends_with("ScrollBar") => hundred(k),
         (k, "value" | "value1" | "value2" | "value3" | "value4" | "step") if is_int_kind(k) || is_float_kind(k) => zero(k),
@@ -2181,6 +2219,10 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
         }
         if let Some(f) = ev["fire"].as_array() {
             for flag in f.iter().filter_map(Value::as_str) {
+                if flag.starts_with("__nav") {
+                    out.extend(nav_event(m, id, flag, &args));
+                    continue;
+                }
                 // -postMenuCommandOnce: the menu's -pmc runs the first time it shows, not again.
                 if flag == "postMenuCommand" {
                     let once = m.get(id).and_then(|c| c.props.get("postMenuCommandOnce")).is_some_and(truth);
@@ -2218,6 +2260,41 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
         }
         out
     })
+}
+
+/// An attrNavigationControlGrp's drop and menu: a node dropped goes to -connectAttrToDropped (node, attribute) or else
+/// -connectNodeToDropped (node, the attribute's node); Set Key keys the attribute, Break Connection cuts what drives it.
+fn nav_event(m: &Model, id: Id, flag: &str, args: &[Value]) -> Vec<(Value, Vec<Value>)> {
+    let Some(c) = m.get(id) else { return Vec::new() };
+    let attr = c.props.get("attribute").map(text).filter(|t| !t.is_empty()).or_else(|| c.props.get("attrNavDecision").and_then(|v| flat(v).first().map(text))).unwrap_or_default();
+    let quote = |t: &str| format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""));
+    let call = |cb: &Value, extra: &[String]| -> (Value, Vec<Value>) {
+        match cb {
+            Value::String(src) => (json!(format!("{src} {}", extra.iter().map(|x| quote(x)).collect::<Vec<_>>().join(" "))), Vec::new()),
+            o => (o.clone(), extra.iter().map(|x| json!(x)).collect()),
+        }
+    };
+    match flag {
+        NAV_DROP => {
+            let mut out = Vec::new();
+            for node in args.iter().map(text).filter(|n| !n.is_empty()) {
+                if let Some(cb) = c.props.get("connectAttrToDropped") {
+                    out.push(call(cb, &[node.clone(), attr.clone()]));
+                } else if let Some(cb) = c.props.get("connectNodeToDropped") {
+                    let dest = attr.split('.').next().unwrap_or("").to_string();
+                    out.push(call(cb, &[node.clone(), dest]));
+                }
+            }
+            out
+        }
+        "__navIgnore" => c.props.get("ignore").map(|cb| vec![(cb.clone(), vec![json!(attr)])]).unwrap_or_default(),
+        "__navSetKey" if !attr.is_empty() => vec![(json!(format!("setKeyframe {};", quote(&attr))), Vec::new())],
+        "__navBreak" if !attr.is_empty() => {
+            let q = quote(&attr);
+            vec![(json!(format!("{{ string $s[] = `listConnections -p 1 -s 1 -d 0 {q}`; if (size($s)) disconnectAttr $s[0] {q}; }}")), Vec::new())]
+        }
+        _ => Vec::new(),
+    }
 }
 
 /// A window or dock closed: kept hidden when it is retained (a dock or workspace control unless -retain says not, a
@@ -3107,6 +3184,9 @@ pub fn register(s: &mut Session) {
             }
             if cmd == "switchTable" {
                 return switch_table(s, a);
+            }
+            if cmd == "channelBox" {
+                return crate::channel_box::command(s, a);
             }
             let r = control_command(cmd, a);
             if !a.bool("query") && !a.bool("edit") {

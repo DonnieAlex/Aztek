@@ -14,121 +14,121 @@ aaf2fcp	terminate	done	auto
 aaf2fcp	waitCompletion	done	auto
 aaf2fcp	wc	done	auto
 about	a	done	auto
-about	a64	missing	
+about	a64	done	auto
 about	api	done	auto
 about	apiVersion	done	auto
 about	application	done	auto
-about	arm64	missing	
-about	asi	missing	
+about	arm64	done	auto
+about	asi	done	auto
 about	b	done	auto
 about	batch	done	auto
-about	bd	missing	
-about	buildDirectory	missing	
-about	buildVariant	missing	
-about	bv	missing	
-about	c	missing	
-about	cd	missing	
-about	cm	missing	
-about	cnt	missing	
+about	bd	done	auto
+about	buildDirectory	done	auto
+about	buildVariant	done	auto
+about	bv	done	auto
+about	c	done	auto
+about	cd	done	auto
+about	cm	done	auto
+about	cnt	done	auto
 about	codeset	done	auto
-about	compositingManager	missing	
-about	connected	missing	
-about	cre	missing	
-about	creativeVersion	missing	
+about	compositingManager	done	auto
+about	connected	done	auto
+about	cre	done	auto
+about	creativeVersion	done	auto
 about	cs	done	auto
-about	ct	missing	
-about	cti	missing	
-about	ctime	missing	
-about	currentDate	missing	
-about	currentTime	missing	
-about	customVersion	missing	
-about	customVersionClient	missing	
-about	customVersionMajor	missing	
-about	customVersionMinor	missing	
-about	customVersionString	missing	
-about	cutIdentifier	missing	
-about	cv	missing	
-about	cvc	missing	
-about	cvm	missing	
-about	cvn	missing	
-about	cvs	missing	
-about	d	missing	
-about	date	missing	
-about	env	missing	
-about	environmentFile	missing	
-about	ev	missing	
-about	evalVersion	missing	
-about	f	missing	
-about	file	missing	
-about	foi	missing	
-about	fontInfo	missing	
-about	hdd	missing	
-about	helpDataDirectory	missing	
-about	installedVersion	missing	
-about	io	missing	
-about	ioVersion	missing	
-about	ir	missing	
-about	irix	missing	
+about	ct	done	auto
+about	cti	done	auto
+about	ctime	done	auto
+about	currentDate	done	auto
+about	currentTime	done	auto
+about	customVersion	done	auto
+about	customVersionClient	done	auto
+about	customVersionMajor	done	auto
+about	customVersionMinor	done	auto
+about	customVersionString	done	auto
+about	cutIdentifier	done	auto
+about	cv	done	auto
+about	cvc	done	auto
+about	cvm	done	auto
+about	cvn	done	auto
+about	cvs	done	auto
+about	d	done	auto
+about	date	done	auto
+about	env	done	auto
+about	environmentFile	done	auto
+about	ev	done	auto
+about	evalVersion	done	auto
+about	f	done	auto
+about	file	done	auto
+about	foi	done	auto
+about	fontInfo	done	auto
+about	hdd	done	auto
+about	helpDataDirectory	done	auto
+about	installedVersion	done	auto
+about	io	done	auto
+about	ioVersion	done	auto
+about	ir	done	auto
+about	irix	done	auto
 about	is64	done	auto
-about	iv	missing	
-about	l64	missing	
-about	languageResources	missing	
+about	iv	done	auto
+about	l64	done	auto
+about	languageResources	done	auto
 about	li	done	auto
 about	linux	done	auto
-about	linux64	missing	
-about	liveUpdate	missing	
-about	localizedResourceLocation	missing	
-about	lr	missing	
-about	lrl	missing	
-about	lt	missing	
-about	ltVersion	missing	
-about	lu	missing	
+about	linux64	done	auto
+about	liveUpdate	done	auto
+about	localizedResourceLocation	done	auto
+about	lr	done	auto
+about	lrl	done	auto
+about	lt	done	auto
+about	ltVersion	done	auto
+about	lu	done	auto
 about	mac	done	auto
 about	macOS	done	auto
-about	macOSASi	missing	
-about	macOSppc	missing	
-about	macOSx86	missing	
-about	majorVersion	missing	
-about	minorVersion	missing	
-about	mjv	missing	
-about	mnv	missing	
+about	macOSASi	done	auto
+about	macOSppc	done	auto
+about	macOSx86	done	auto
+about	majorVersion	done	auto
+about	minorVersion	done	auto
+about	mjv	done	auto
+about	mnv	done	auto
 about	nt	done	auto
-about	ntOS	missing	
+about	ntOS	done	auto
 about	operatingSystem	done	auto
-about	operatingSystemVersion	missing	
+about	operatingSystemVersion	done	auto
 about	os	done	auto
-about	osv	missing	
+about	osv	done	auto
 about	p	done	auto
-about	patchVersion	missing	
-about	pd	missing	
-about	ppc	missing	
-about	preferences	missing	
+about	patchVersion	done	auto
+about	pd	done	auto
+about	ppc	done	auto
+about	preferences	done	auto
 about	product	done	auto
-about	pv	missing	
+about	pv	done	auto
 about	qt	done	auto
 about	qtVersion	done	auto
-about	tab	missing	
-about	tablet	missing	
-about	tabletMode	missing	
-about	tm	missing	
+about	tab	done	auto
+about	tablet	done	auto
+about	tabletMode	done	auto
+about	tm	done	auto
 about	uiLanguage	done	auto
-about	uiLanguageForStartup	missing	
-about	uiLanguageIsLocalized	missing	
-about	uiLocaleLanguage	missing	
-about	uii	missing	
+about	uiLanguageForStartup	done	auto
+about	uiLanguageIsLocalized	done	auto
+about	uiLocaleLanguage	done	auto
+about	uii	done	auto
 about	uil	done	auto
-about	uis	missing	
-about	ull	missing	
+about	uis	done	auto
+about	ull	done	auto
 about	v	done	auto
 about	version	done	auto
-about	w64	missing	
+about	w64	done	auto
 about	win	done	auto
-about	win64	missing	
-about	windowManager	missing	
+about	win64	done	auto
+about	windowManager	done	auto
 about	windows	done	auto
-about	wm	missing	
+about	wm	done	auto
 about	x64	done	auto
-about	x86	missing	
+about	x86	done	auto
 addAttr	at	done	auto
 addAttr	attributeType	done	auto
 addAttr	binaryTag	done	auto
@@ -2957,8 +2957,8 @@ attrColorSliderGrp	adjustableColumn3	done	auto
 attrColorSliderGrp	adjustableColumn4	done	auto
 attrColorSliderGrp	adjustableColumn5	done	auto
 attrColorSliderGrp	adjustableColumn6	done	auto
-attrColorSliderGrp	alp	missing	
-attrColorSliderGrp	alphaValue	missing	
+attrColorSliderGrp	alp	done	auto
+attrColorSliderGrp	alphaValue	done	auto
 attrColorSliderGrp	ann	done	auto
 attrColorSliderGrp	annotation	done	auto
 attrColorSliderGrp	at	done	auto
@@ -3086,8 +3086,8 @@ attrControlGrp	en	done	auto
 attrControlGrp	enable	done	auto
 attrControlGrp	ex	done	auto
 attrControlGrp	exists	done	auto
-attrControlGrp	ha	missing	
-attrControlGrp	handlesAttribute	missing	
+attrControlGrp	ha	done	auto
+attrControlGrp	handlesAttribute	done	auto
 attrControlGrp	hideMapButton	done	auto
 attrControlGrp	hmb	done	auto
 attrControlGrp	l	done	auto
@@ -3597,7 +3597,7 @@ attrNavigationControlGrp	attrNavDecision	done	auto
 attrNavigationControlGrp	attribute	done	auto
 attrNavigationControlGrp	backgroundColor	done	auto
 attrNavigationControlGrp	bgc	done	auto
-attrNavigationControlGrp	cad	missing	
+attrNavigationControlGrp	cad	done	auto
 attrNavigationControlGrp	cal	done	auto
 attrNavigationControlGrp	cat	done	auto
 attrNavigationControlGrp	ce	done	auto
@@ -3607,7 +3607,7 @@ attrNavigationControlGrp	cl4	done	auto
 attrNavigationControlGrp	cl5	done	auto
 attrNavigationControlGrp	cl6	done	auto
 attrNavigationControlGrp	cn	done	auto
-attrNavigationControlGrp	cnd	missing	
+attrNavigationControlGrp	cnd	done	auto
 attrNavigationControlGrp	co2	done	auto
 attrNavigationControlGrp	co3	done	auto
 attrNavigationControlGrp	co4	done	auto
@@ -3637,8 +3637,8 @@ attrNavigationControlGrp	columnWidth3	done	auto
 attrNavigationControlGrp	columnWidth4	done	auto
 attrNavigationControlGrp	columnWidth5	done	auto
 attrNavigationControlGrp	columnWidth6	done	auto
-attrNavigationControlGrp	connectAttrToDropped	missing	
-attrNavigationControlGrp	connectNodeToDropped	missing	
+attrNavigationControlGrp	connectAttrToDropped	done	auto
+attrNavigationControlGrp	connectNodeToDropped	done	auto
 attrNavigationControlGrp	connectToExisting	done	auto
 attrNavigationControlGrp	createNew	done	auto
 attrNavigationControlGrp	ct2	done	auto
@@ -3688,8 +3688,8 @@ attrNavigationControlGrp	h	done	auto
 attrNavigationControlGrp	height	done	auto
 attrNavigationControlGrp	highlightColor	done	auto
 attrNavigationControlGrp	hlc	done	auto
-attrNavigationControlGrp	i	missing	
-attrNavigationControlGrp	ignore	missing	
+attrNavigationControlGrp	i	done	auto
+attrNavigationControlGrp	ignore	done	auto
 attrNavigationControlGrp	io	done	auto
 attrNavigationControlGrp	isObscured	done	auto
 attrNavigationControlGrp	l	done	auto
@@ -3698,10 +3698,10 @@ attrNavigationControlGrp	m	done	auto
 attrNavigationControlGrp	manage	done	auto
 attrNavigationControlGrp	nbg	done	auto
 attrNavigationControlGrp	nim	done	auto
-attrNavigationControlGrp	nkm	missing	
+attrNavigationControlGrp	nkm	done	auto
 attrNavigationControlGrp	noBackground	done	auto
 attrNavigationControlGrp	noIgnorableMenu	done	auto
-attrNavigationControlGrp	noKeyableMenu	missing	
+attrNavigationControlGrp	noKeyableMenu	done	auto
 attrNavigationControlGrp	npm	done	auto
 attrNavigationControlGrp	numberOfPopupMenus	done	auto
 attrNavigationControlGrp	p	done	auto
@@ -3752,20 +3752,20 @@ attributeInfo	ui	done	auto
 attributeInfo	userInterface	done	auto
 attributeInfo	w	done	auto
 attributeInfo	writable	done	auto
-attributeMenu	beg	missing	
-attributeMenu	beginMenu	missing	
-attributeMenu	editor	missing	
-attributeMenu	edt	missing	
-attributeMenu	finishMenu	missing	
-attributeMenu	fsh	missing	
-attributeMenu	inp	missing	
-attributeMenu	inputs	missing	
-attributeMenu	p	missing	
-attributeMenu	plug	missing	
-attributeMenu	regPulldownMenuCommand	missing	
-attributeMenu	rpm	missing	
-attributeMenu	unregPulldownMenuCommand	missing	
-attributeMenu	upm	missing	
+attributeMenu	beg	done	auto
+attributeMenu	beginMenu	done	auto
+attributeMenu	editor	done	auto
+attributeMenu	edt	done	auto
+attributeMenu	finishMenu	done	auto
+attributeMenu	fsh	done	auto
+attributeMenu	inp	done	auto
+attributeMenu	inputs	done	auto
+attributeMenu	p	done	auto
+attributeMenu	plug	done	auto
+attributeMenu	regPulldownMenuCommand	done	auto
+attributeMenu	rpm	done	auto
+attributeMenu	unregPulldownMenuCommand	done	auto
+attributeMenu	upm	done	auto
 attributeName	l	done	auto
 attributeName	leaf	done	auto
 attributeName	lf	done	auto
@@ -4815,10 +4815,10 @@ bufferCurve	t	done	auto
 bufferCurve	time	done	auto
 bufferCurve	urc	done	auto
 bufferCurve	useReferencedCurve	done	auto
-buildBookmarkMenu	ed	missing	
-buildBookmarkMenu	editor	missing	
-buildBookmarkMenu	typ	missing	
-buildBookmarkMenu	type	missing	
+buildBookmarkMenu	ed	done	auto
+buildBookmarkMenu	editor	done	auto
+buildBookmarkMenu	typ	done	auto
+buildBookmarkMenu	type	done	auto
 button	actOnPress	done	auto
 button	actionIsSubstitute	done	auto
 button	ais	done	auto
@@ -5369,137 +5369,137 @@ changeSubdivRegion	a	missing
 changeSubdivRegion	action	missing	
 changeSubdivRegion	l	missing	
 changeSubdivRegion	level	missing	
-channelBox	ac	missing	
-channelBox	aem	missing	
-channelBox	af	missing	
-channelBox	ann	missing	
-channelBox	annotation	missing	
-channelBox	ar	missing	
-channelBox	attrBgColor	missing	
-channelBox	attrColor	missing	
-channelBox	attrFilter	missing	
-channelBox	attrRegex	missing	
-channelBox	attributeEditorMode	missing	
-channelBox	backgroundColor	missing	
-channelBox	bc	missing	
-channelBox	bgc	missing	
-channelBox	cat	missing	
-channelBox	containerAtTop	missing	
-channelBox	defineTemplate	missing	
-channelBox	dgc	missing	
-channelBox	docTag	missing	
-channelBox	dpc	missing	
-channelBox	dragCallback	missing	
-channelBox	dropCallback	missing	
-channelBox	dt	missing	
-channelBox	dtg	missing	
-channelBox	e	missing	
-channelBox	ebg	missing	
-channelBox	edit	missing	
-channelBox	ekf	missing	
-channelBox	els	missing	
-channelBox	en	missing	
-channelBox	enable	missing	
-channelBox	enableBackground	missing	
-channelBox	enableKeyboardFocus	missing	
-channelBox	enableLabelSelection	missing	
-channelBox	ex	missing	
-channelBox	exe	missing	
-channelBox	execute	missing	
-channelBox	exists	missing	
-channelBox	fal	missing	
-channelBox	fieldWidth	missing	
-channelBox	fixedAttrList	missing	
-channelBox	fpn	missing	
-channelBox	fullPathName	missing	
-channelBox	fw	missing	
-channelBox	h	missing	
-channelBox	height	missing	
-channelBox	highlightColor	missing	
-channelBox	historyObjectList	missing	
-channelBox	hlc	missing	
-channelBox	hol	missing	
-channelBox	hyp	missing	
-channelBox	hyperbolic	missing	
-channelBox	inputs	missing	
-channelBox	io	missing	
-channelBox	isObscured	missing	
-channelBox	labelWidth	missing	
-channelBox	ln	missing	
-channelBox	longNames	missing	
-channelBox	lw	missing	
-channelBox	m	missing	
-channelBox	mainListConnection	missing	
-channelBox	mainObjectList	missing	
-channelBox	manage	missing	
-channelBox	maxHeight	missing	
-channelBox	maxWidth	missing	
-channelBox	mh	missing	
-channelBox	mlc	missing	
-channelBox	mnp	missing	
-channelBox	mol	missing	
-channelBox	mw	missing	
-channelBox	nbg	missing	
-channelBox	niceNames	missing	
-channelBox	nn	missing	
-channelBox	noBackground	missing	
-channelBox	nodeRegex	missing	
-channelBox	npm	missing	
-channelBox	nr	missing	
-channelBox	numberOfPopupMenus	missing	
-channelBox	ool	missing	
-channelBox	out	missing	
-channelBox	outputObjectList	missing	
-channelBox	outputs	missing	
-channelBox	p	missing	
-channelBox	parent	missing	
-channelBox	pma	missing	
-channelBox	po	missing	
-channelBox	popupMenuArray	missing	
-channelBox	pre	missing	
-channelBox	precision	missing	
-channelBox	preventOverride	missing	
-channelBox	q	missing	
-channelBox	query	missing	
-channelBox	rbc	missing	
-channelBox	rebuildCommand	missing	
-channelBox	s	missing	
-channelBox	sbm	missing	
-channelBox	select	missing	
-channelBox	selectedHistoryAttributes	missing	
-channelBox	selectedMainAttributes	missing	
-channelBox	selectedOutputAttributes	missing	
-channelBox	selectedShapeAttributes	missing	
-channelBox	sha	missing	
-channelBox	shapeObjectList	missing	
-channelBox	shapes	missing	
-channelBox	showNamespace	missing	
-channelBox	showTransforms	missing	
-channelBox	shp	missing	
-channelBox	sma	missing	
-channelBox	sn	missing	
-channelBox	soa	missing	
-channelBox	sol	missing	
-channelBox	spd	missing	
-channelBox	speed	missing	
-channelBox	ssa	missing	
-channelBox	st	missing	
-channelBox	statusBarMessage	missing	
-channelBox	takeFocus	missing	
-channelBox	tf	missing	
-channelBox	u	missing	
-channelBox	ual	missing	
-channelBox	ufeFixedAttrList	missing	
-channelBox	update	missing	
-channelBox	useManips	missing	
-channelBox	useTemplate	missing	
-channelBox	ut	missing	
-channelBox	vcc	missing	
-channelBox	vis	missing	
-channelBox	visible	missing	
-channelBox	visibleChangeCommand	missing	
-channelBox	w	missing	
-channelBox	width	missing	
+channelBox	ac	done	auto
+channelBox	aem	done	auto
+channelBox	af	done	auto
+channelBox	ann	done	auto
+channelBox	annotation	done	auto
+channelBox	ar	done	auto
+channelBox	attrBgColor	done	auto
+channelBox	attrColor	done	auto
+channelBox	attrFilter	done	auto
+channelBox	attrRegex	done	auto
+channelBox	attributeEditorMode	done	auto
+channelBox	backgroundColor	done	auto
+channelBox	bc	done	auto
+channelBox	bgc	done	auto
+channelBox	cat	done	auto
+channelBox	containerAtTop	done	auto
+channelBox	defineTemplate	done	auto
+channelBox	dgc	done	auto
+channelBox	docTag	done	auto
+channelBox	dpc	done	auto
+channelBox	dragCallback	done	auto
+channelBox	dropCallback	done	auto
+channelBox	dt	done	auto
+channelBox	dtg	done	auto
+channelBox	e	done	auto
+channelBox	ebg	done	auto
+channelBox	edit	done	auto
+channelBox	ekf	done	auto
+channelBox	els	done	auto
+channelBox	en	done	auto
+channelBox	enable	done	auto
+channelBox	enableBackground	done	auto
+channelBox	enableKeyboardFocus	done	auto
+channelBox	enableLabelSelection	done	auto
+channelBox	ex	done	auto
+channelBox	exe	done	auto
+channelBox	execute	done	auto
+channelBox	exists	done	auto
+channelBox	fal	done	auto
+channelBox	fieldWidth	done	auto
+channelBox	fixedAttrList	done	auto
+channelBox	fpn	done	auto
+channelBox	fullPathName	done	auto
+channelBox	fw	done	auto
+channelBox	h	done	auto
+channelBox	height	done	auto
+channelBox	highlightColor	done	auto
+channelBox	historyObjectList	done	auto
+channelBox	hlc	done	auto
+channelBox	hol	done	auto
+channelBox	hyp	done	auto
+channelBox	hyperbolic	done	auto
+channelBox	inputs	done	auto
+channelBox	io	done	auto
+channelBox	isObscured	done	auto
+channelBox	labelWidth	done	auto
+channelBox	ln	done	auto
+channelBox	longNames	done	auto
+channelBox	lw	done	auto
+channelBox	m	done	auto
+channelBox	mainListConnection	done	auto
+channelBox	mainObjectList	done	auto
+channelBox	manage	done	auto
+channelBox	maxHeight	done	auto
+channelBox	maxWidth	done	auto
+channelBox	mh	done	auto
+channelBox	mlc	done	auto
+channelBox	mnp	done	auto
+channelBox	mol	done	auto
+channelBox	mw	done	auto
+channelBox	nbg	done	auto
+channelBox	niceNames	done	auto
+channelBox	nn	done	auto
+channelBox	noBackground	done	auto
+channelBox	nodeRegex	done	auto
+channelBox	npm	done	auto
+channelBox	nr	done	auto
+channelBox	numberOfPopupMenus	done	auto
+channelBox	ool	done	auto
+channelBox	out	done	auto
+channelBox	outputObjectList	done	auto
+channelBox	outputs	done	auto
+channelBox	p	done	auto
+channelBox	parent	done	auto
+channelBox	pma	done	auto
+channelBox	po	done	auto
+channelBox	popupMenuArray	done	auto
+channelBox	pre	done	auto
+channelBox	precision	done	auto
+channelBox	preventOverride	done	auto
+channelBox	q	done	auto
+channelBox	query	done	auto
+channelBox	rbc	done	auto
+channelBox	rebuildCommand	done	auto
+channelBox	s	done	auto
+channelBox	sbm	done	auto
+channelBox	select	done	auto
+channelBox	selectedHistoryAttributes	done	auto
+channelBox	selectedMainAttributes	done	auto
+channelBox	selectedOutputAttributes	done	auto
+channelBox	selectedShapeAttributes	done	auto
+channelBox	sha	done	auto
+channelBox	shapeObjectList	done	auto
+channelBox	shapes	done	auto
+channelBox	showNamespace	done	auto
+channelBox	showTransforms	done	auto
+channelBox	shp	done	auto
+channelBox	sma	done	auto
+channelBox	sn	done	auto
+channelBox	soa	done	auto
+channelBox	sol	done	auto
+channelBox	spd	done	auto
+channelBox	speed	done	auto
+channelBox	ssa	done	auto
+channelBox	st	done	auto
+channelBox	statusBarMessage	done	auto
+channelBox	takeFocus	done	auto
+channelBox	tf	done	auto
+channelBox	u	done	auto
+channelBox	ual	done	auto
+channelBox	ufeFixedAttrList	done	auto
+channelBox	update	done	auto
+channelBox	useManips	done	auto
+channelBox	useTemplate	done	auto
+channelBox	ut	done	auto
+channelBox	vcc	done	auto
+channelBox	vis	done	auto
+channelBox	visible	done	auto
+channelBox	visibleChangeCommand	done	auto
+channelBox	w	done	auto
+channelBox	width	done	auto
 character	add	done	auto
 character	addElement	done	auto
 character	addOffsetObject	done	auto

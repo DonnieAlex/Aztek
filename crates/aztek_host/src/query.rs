@@ -323,7 +323,7 @@ fn shown_json(a: &aztek_scene::plug::AttrDef, v: &PlugValue) -> Value {
     j
 }
 
-fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
+pub(crate) fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
     let Some(n) = g.node(id) else { return Vec::new() };
     let path = g.path(id);
     let ty = n.ty();
@@ -400,6 +400,11 @@ fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
 pub fn channel_box(core: &Core) -> Value {
     let g = &core.s.graph;
     let Some(&lead) = g.selection().last() else { return Value::Null };
+    channel_box_of(g, lead, g.selection().len())
+}
+
+/// The channel box for one object: its channels, its shapes' and its inputs'. `count` is how many objects it stands for.
+pub fn channel_box_of(g: &Graph, lead: NodeId, count: usize) -> Value {
     let Some(n) = g.node(lead) else { return Value::Null };
     let is_xf = n.ty().is_a("transform");
     let shapes: Vec<NodeId> = if is_xf { aztek_scene::dag::shapes(g, lead, false) } else if is_shape(g, lead) { vec![lead] } else { vec![] };
@@ -426,7 +431,7 @@ pub fn channel_box(core: &Core) -> Value {
         "channels": if is_xf || !is_shape(g, lead) { channels(g, lead, !n.ty().dag) } else { Vec::new() },
         "shapes": shape_list,
         "inputs": inputs,
-        "count": g.selection().len(),
+        "count": count,
     })
 }
 

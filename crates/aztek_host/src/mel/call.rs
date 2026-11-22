@@ -158,6 +158,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("profilerTool", "searchEvent")
             | ("sceneLint", "issueType")
             | ("dbfootprint", "type")
+            | ("attrControlGrp", "handlesAttribute")
             | ("dbpeek", "operation" | "argument")
             | ("dbtrace", "keyword")
             | ("evaluator", "name" | "nodeType" | "valueName")

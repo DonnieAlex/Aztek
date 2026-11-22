@@ -58,7 +58,7 @@ attrFieldGrp	done	auto
 attrFieldSliderGrp	done	auto
 attrNavigationControlGrp	done	auto
 attributeInfo	done	auto
-attributeMenu	missing	
+attributeMenu	done	auto
 attributeName	done	auto
 attributeQuery	done	auto
 audioTrack	missing	
@@ -99,8 +99,8 @@ boundary	done	auto
 boxDollyCtx	done	auto
 boxZoomCtx	done	auto
 bufferCurve	done	auto
-buildBookmarkMenu	missing	
-buildKeyframeMenu	missing	
+buildBookmarkMenu	done	auto
+buildKeyframeMenu	done	auto
 button	done	auto
 buttonManip	missing	
 cacheEvaluator	missing	
@@ -117,7 +117,7 @@ canCreateManip	missing
 canvas	done	auto
 changeSubdivComponentDisplayLevel	missing	
 changeSubdivRegion	missing	
-channelBox	missing	
+channelBox	done	auto
 character	done	auto
 characterMap	done	auto
 characterize	done	auto

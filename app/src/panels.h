@@ -93,14 +93,22 @@ void clear_channel_selection();
 class ChannelBox : public Panel {
     Q_OBJECT
 public:
-    explicit ChannelBox(QWidget* parent = nullptr);
+    // name: the channelBox control it is (mainChannelBox for the application's own).
+    explicit ChannelBox(QWidget* parent = nullptr, const QString& name = "mainChannelBox");
+    // What channelBox -e changed: -takeFocus, and anything else draws it again.
+    void apply_flags(const QJsonObject& props);
+    const QString& box_name() const { return name_; }
 protected:
     void refresh() override;
 private:
     void add_channels(QVBoxLayout* lay, const QJsonArray& channels);
+    void add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes);
     QScrollArea* scroll_;
     QWidget* body_ = nullptr;
     QSet<QString> open_inputs_;
+    QString name_;
+    // The settings channelBox gave this box (labelWidth, fieldWidth...).
+    QJsonObject options_;
 };
 
 class LayerEditor : public Panel {
