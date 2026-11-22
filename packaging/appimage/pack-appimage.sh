@@ -17,11 +17,8 @@ ln -sf aztek.png "$APPDIR/.DirIcon"
 install -Dm644 "$SRC/LICENSE" "$APPDIR/usr/share/doc/aztek/LICENSE"
 
 MACHINE=$(uname -m)
-TOOL=${APPIMAGETOOL:-$APPDIR/../appimagetool-$MACHINE.AppImage}
-if [ ! -x "$TOOL" ]; then
-  curl -fsSL -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$MACHINE.AppImage"
-  chmod 755 "$TOOL"
-fi
+# A pinned appimagetool, checked against its SHA-256, unless APPIMAGETOOL names one.
+TOOL=${APPIMAGETOOL:-$("$SRC/tools/appimage/fetch-appimagetool.sh" "$APPDIR/../appimagetool-$MACHINE.AppImage")}
 # Run unpacked: a container has no FUSE to mount the tool with.
 ARCH=$MACHINE "$TOOL" --appimage-extract-and-run --no-appstream "$APPDIR" "$OUT"
 chmod 755 "$OUT"
