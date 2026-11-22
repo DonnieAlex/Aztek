@@ -110,6 +110,10 @@ fn multi(mut a: AttrDef) -> AttrDef {
     a.flags |= flags::ARRAY;
     a
 }
+/// A message input, as a shading switch's inShape.
+fn msg_in(name: &str, short: &str) -> AttrDef {
+    base(name, short, PlugType::Int, PlugValue::Int(0), flags::INPUT | flags::STORABLE | flags::MESSAGE)
+}
 /// A child of a multi compound: value[3].value_Position.
 fn kid(group: &str, gshort: &str, mut a: AttrDef) -> AttrDef {
     a.name = format!("{group}.{}", a.name);
@@ -751,6 +755,40 @@ fn base_table() -> Vec<Spec> {
                 let pick = i(d, "selector") as i32;
                 let o = d.elements(at(d, "input")).iter().find(|(k, _)| *k == pick).map_or(PlugValue::Matrix(DMat4::IDENTITY), |(_, x)| x.clone());
                 set(d, "output", o);
+            }),
+        // The shading switches: a value for each shape (input[i].inShape) and a default. Every shape is seen
+        // through the default here: the per shape values are kept for the switchTable and saved.
+        Spec("singleShadingSwitch", "utility/switch", "A value per shape: input[i].inSingle for input[i].inShape, else default.",
+            vec![kid("input", "i", msg_in("inShape", "is")), kid("input", "i", fin("inSingle", "isg", 0.0)), fin("default", "def", 0.0), fout("output", "out")],
+            |d| {
+                let v = f(d, "default");
+                set(d, "output", v);
+            }),
+        Spec("doubleShadingSwitch", "utility/switch", "Two values per shape: input[i].inDouble for input[i].inShape, else default.",
+            vec![kid("input", "i", msg_in("inShape", "is")), kid("input", "i", two(vin("inDouble", "idb", [0.0; 3]))), two(vin("default", "def", [0.0; 3])), two(vout("output", "out"))],
+            |d| {
+                let v = d.value(at(d, "default")).clone();
+                set(d, "output", v);
+            }),
+        Spec("tripleShadingSwitch", "utility/switch", "Three values per shape: input[i].inTriple for input[i].inShape, else default.",
+            vec![kid("input", "i", msg_in("inShape", "is")), kid("input", "i", vin("inTriple", "it", [0.0; 3])), vin("default", "def", [0.0; 3]), vout("output", "out")],
+            |d| {
+                let v = d.value(at(d, "default")).clone();
+                set(d, "output", v);
+            }),
+        Spec("quadShadingSwitch", "utility/switch", "Four values per shape: input[i].inQuad for input[i].inShape, else default.",
+            {
+                let mut v = vec![kid("input", "i", msg_in("inShape", "is"))];
+                v.extend(quat("inQuad", "iq", IN).into_iter().map(|a| kid("input", "i", a)));
+                v.extend(quat("default", "def", IN));
+                v.extend(quat("output", "out", OUT));
+                v
+            },
+            |d| {
+                for c in ["X", "Y", "Z", "W"] {
+                    let v = f(d, &format!("default{c}"));
+                    set(d, &format!("output{c}"), v);
+                }
             }),
         Spec("addMatrix", "utility/general", "Adds its matrices.",
             vec![multi(min_in("matrixIn", "i")), mout("matrixSum", "o")],

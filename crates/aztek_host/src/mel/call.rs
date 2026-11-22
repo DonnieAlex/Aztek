@@ -166,7 +166,7 @@ fn query_takes_value(cmd: &str, flag: &str) -> bool {
             | ("evaluationManager", "downstreamFrom" | "upstreamFrom" | "cycleCluster")
             | ("deformerWeights", "shape")
             | ("proximityWrap", "canBeAdded")
-            | ("selectPriority", "queryByName")
+            | ("selectPriority" | "selectType", "queryByName")
             | ("setInfinity", "attribute")
             | ("copyDeformerWeights", "sourceShape" | "destinationShape" | "sourceDeformer" | "destinationDeformer")
             | (
@@ -318,9 +318,28 @@ fn flag_value(fd: &FlagDef, name: &str, toks: &[Tok], i: &mut usize, own: &dyn F
                 return Ok(json!(""));
             }
             *i += 1;
-            scalar(&toks[*i - 1])
+            let v = scalar(&toks[*i - 1]);
+            // A linear or angular value may carry its unit (0.02cm, 0.5rad): given in the current unit.
+            match (&v, fd.unit) {
+                (Value::String(t), aztek_ops::units::Unit::Linear | aztek_ops::units::Unit::Angle) => unit_value(t, fd.unit).map_or(v, |x| json!(x)),
+                _ => v,
+            }
         }
     })
+}
+
+/// "0.02cm" as a number in the current linear unit, "0.5rad" in the current angular unit.
+fn unit_value(t: &str, unit: aztek_ops::units::Unit) -> Option<f64> {
+    let t = t.trim();
+    let split = t.find(|c: char| c.is_ascii_alphabetic())?;
+    let (num, suffix) = t.split_at(split);
+    let x: f64 = num.trim().parse().ok()?;
+    use aztek_ops::units;
+    match unit {
+        units::Unit::Linear => Some(x * units::linear_factor(suffix)? / units::cm_per_unit()),
+        units::Unit::Angle => Some(x * units::angle_factor(suffix)? / units::rad_per_unit()),
+        _ => None,
+    }
 }
 
 /// A command (the reference's spelling or ours) and its evaluated arguments to (command, call).

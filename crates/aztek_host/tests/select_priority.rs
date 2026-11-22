@@ -40,7 +40,7 @@ fn a_marquee_takes_the_highest_priority_kind_and_a_joint_chain_by_its_top() {
     scene(&mut c);
     let vp = view();
     assert_eq!(marquee(&mut c, &vp), vec!["ikHandle1".to_string()]);
-    c.mel("selectType -handle 0;");
+    c.mel("selectType -ikHandle 0;");
     assert_eq!(marquee(&mut c, &vp), vec!["joint1".to_string()]);
     c.mel("selectType -joint 0;");
     assert_eq!(marquee(&mut c, &vp), vec!["curve1".to_string()]);

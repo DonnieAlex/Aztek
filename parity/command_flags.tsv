@@ -31749,56 +31749,56 @@ selectMode	t	done	auto
 selectMode	template	done	auto
 selectPref	aa	done	auto
 selectPref	affectsActive	done	auto
-selectPref	ahs	missing	
-selectPref	allowHiliteSelection	missing	
-selectPref	asc	missing	
-selectPref	asm	missing	
-selectPref	aud	missing	
-selectPref	autoSelectContainer	missing	
-selectPref	autoSelectOutlinerSetMembers	missing	
-selectPref	autoUseDepth	missing	
+selectPref	ahs	done	auto
+selectPref	allowHiliteSelection	done	auto
+selectPref	asc	done	auto
+selectPref	asm	done	auto
+selectPref	aud	done	auto
+selectPref	autoSelectContainer	done	auto
+selectPref	autoSelectOutlinerSetMembers	done	auto
+selectPref	autoUseDepth	done	auto
 selectPref	cbs	done	auto
-selectPref	ccs	missing	
+selectPref	ccs	done	auto
 selectPref	cld	done	auto
 selectPref	clickBoxSize	done	auto
 selectPref	clickDrag	done	auto
-selectPref	containerCentricSelection	missing	
-selectPref	dcp	missing	
-selectPref	disableComponentPopups	missing	
-selectPref	epl	missing	
-selectPref	expandPopupList	missing	
-selectPref	ignoreSelectionPriority	missing	
-selectPref	isp	missing	
-selectPref	manipClickBoxSize	missing	
-selectPref	mcb	missing	
-selectPref	paintSelect	missing	
-selectPref	paintSelectWithDepth	missing	
-selectPref	pds	missing	
-selectPref	pdt	missing	
-selectPref	phs	missing	
-selectPref	pms	missing	
-selectPref	popupMenuSelection	missing	
+selectPref	containerCentricSelection	done	auto
+selectPref	dcp	done	auto
+selectPref	disableComponentPopups	done	auto
+selectPref	epl	done	auto
+selectPref	expandPopupList	done	auto
+selectPref	ignoreSelectionPriority	done	auto
+selectPref	isp	done	auto
+selectPref	manipClickBoxSize	done	auto
+selectPref	mcb	done	auto
+selectPref	paintSelect	done	auto
+selectPref	paintSelectWithDepth	done	auto
+selectPref	pds	done	auto
+selectPref	pdt	done	auto
+selectPref	phs	done	auto
+selectPref	pms	done	auto
+selectPref	popupMenuSelection	done	auto
 selectPref	preSelectBackfacing	done	auto
-selectPref	preSelectClosest	missing	
-selectPref	preSelectDeadSpace	missing	
+selectPref	preSelectClosest	done	auto
+selectPref	preSelectDeadSpace	done	auto
 selectPref	preSelectHilite	done	auto
-selectPref	preSelectHiliteSize	missing	
-selectPref	preSelectTweakDeadSpace	missing	
-selectPref	ps	missing	
+selectPref	preSelectHiliteSize	done	auto
+selectPref	preSelectTweakDeadSpace	done	auto
+selectPref	ps	done	auto
 selectPref	psb	done	auto
-selectPref	psc	missing	
-selectPref	psd	missing	
+selectPref	psc	done	auto
+selectPref	psd	done	auto
 selectPref	psh	done	auto
 selectPref	q	done	auto
 selectPref	query	done	auto
-selectPref	sbs	missing	
-selectPref	sch	missing	
-selectPref	selectTypeChangeAffectsActive	missing	
-selectPref	selectionChildHighlightMode	missing	
-selectPref	singleBoxSelection	missing	
-selectPref	sld	missing	
-selectPref	stc	missing	
-selectPref	straightLineDistance	missing	
+selectPref	sbs	done	auto
+selectPref	sch	done	auto
+selectPref	selectTypeChangeAffectsActive	done	auto
+selectPref	selectionChildHighlightMode	done	auto
+selectPref	singleBoxSelection	done	auto
+selectPref	sld	done	auto
+selectPref	stc	done	auto
+selectPref	straightLineDistance	done	auto
 selectPref	trackSelectionOrder	done	auto
 selectPref	tso	done	auto
 selectPref	ud	done	auto
@@ -31977,182 +31977,182 @@ selectPriority	tx	done	auto
 selectPriority	v	done	auto
 selectPriority	vertex	done	auto
 selectPriority	xyz	done	auto
-selectType	abd	missing	
-selectType	ac	missing	
-selectType	ait	missing	
-selectType	ak	missing	
-selectType	alc	missing	
-selectType	allComponents	missing	
+selectType	abd	done	auto
+selectType	ac	done	auto
+selectType	ait	done	auto
+selectType	ak	done	auto
+selectType	alc	done	auto
+selectType	allComponents	done	auto
 selectType	allObjects	done	auto
 selectType	alo	done	auto
-selectType	animBreakdown	missing	
-selectType	animCurve	missing	
-selectType	animInTangent	missing	
-selectType	animKeyframe	missing	
-selectType	animOutTangent	missing	
-selectType	aot	missing	
-selectType	bn	missing	
-selectType	byName	missing	
-selectType	c	missing	
+selectType	animBreakdown	done	auto
+selectType	animCurve	done	auto
+selectType	animInTangent	done	auto
+selectType	animKeyframe	done	auto
+selectType	animOutTangent	done	auto
+selectType	aot	done	auto
+selectType	bn	done	auto
+selectType	byName	done	auto
+selectType	c	done	auto
 selectType	ca	done	auto
 selectType	camera	done	auto
-selectType	ck	missing	
+selectType	ck	done	auto
 selectType	cl	done	auto
-selectType	clm	missing	
+selectType	clm	done	auto
 selectType	cluster	done	auto
-selectType	collisionModel	missing	
+selectType	collisionModel	done	auto
 selectType	controlVertex	done	auto
-selectType	cos	missing	
+selectType	cos	done	auto
 selectType	cpp	done	auto
-selectType	curve	missing	
-selectType	curveKnot	missing	
-selectType	curveOnSurface	missing	
+selectType	curve	done	auto
+selectType	curveKnot	done	auto
+selectType	curveOnSurface	done	auto
 selectType	curveParameterPoint	done	auto
 selectType	cv	done	auto
-selectType	dc	missing	
-selectType	dim	missing	
-selectType	dimension	missing	
-selectType	dynamicConstraint	missing	
-selectType	edge	missing	
+selectType	dc	done	auto
+selectType	dim	done	auto
+selectType	dimension	done	auto
+selectType	dynamicConstraint	done	auto
+selectType	edge	done	auto
 selectType	editPoint	done	auto
-selectType	eg	missing	
-selectType	em	missing	
-selectType	emitter	missing	
+selectType	eg	done	auto
+selectType	em	done	auto
+selectType	emitter	done	auto
 selectType	ep	done	auto
-selectType	facet	missing	
-selectType	fc	missing	
-selectType	fi	missing	
-selectType	field	missing	
-selectType	fl	missing	
-selectType	fluid	missing	
-selectType	fo	missing	
-selectType	follicle	missing	
+selectType	facet	done	auto
+selectType	fc	done	auto
+selectType	fi	done	auto
+selectType	field	done	auto
+selectType	fl	done	auto
+selectType	fluid	done	auto
+selectType	fo	done	auto
+selectType	follicle	done	auto
 selectType	ha	done	auto
-selectType	hairSystem	missing	
+selectType	hairSystem	done	auto
 selectType	handle	done	auto
-selectType	hl	missing	
-selectType	hs	missing	
-selectType	hull	missing	
-selectType	iee	missing	
-selectType	ig	missing	
-selectType	ikEndEffector	missing	
+selectType	hl	done	auto
+selectType	hs	done	auto
+selectType	hull	done	auto
+selectType	iee	done	auto
+selectType	ig	done	auto
+selectType	ikEndEffector	done	auto
 selectType	ikHandle	done	auto
 selectType	ikh	done	auto
-selectType	imagePlane	missing	
-selectType	implicitGeometry	missing	
-selectType	ip	missing	
-selectType	iso	missing	
-selectType	isoparm	missing	
+selectType	imagePlane	done	auto
+selectType	implicitGeometry	done	auto
+selectType	ip	done	auto
+selectType	iso	done	auto
+selectType	isoparm	done	auto
 selectType	j	done	auto
 selectType	joint	done	auto
-selectType	jointPivot	missing	
-selectType	jp	missing	
-selectType	la	missing	
-selectType	lattice	missing	
-selectType	latticePoint	missing	
+selectType	jointPivot	done	auto
+selectType	jp	done	auto
+selectType	la	done	auto
+selectType	lattice	done	auto
+selectType	latticePoint	done	auto
 selectType	lc	done	auto
-selectType	light	missing	
-selectType	localRotationAxis	missing	
+selectType	light	done	auto
+selectType	localRotationAxis	done	auto
 selectType	locator	done	auto
-selectType	locatorUV	missing	
-selectType	locatorXYZ	missing	
-selectType	lp	missing	
-selectType	lt	missing	
-selectType	luv	missing	
+selectType	locatorUV	done	auto
+selectType	locatorXYZ	done	auto
+selectType	lp	done	auto
+selectType	lt	done	auto
+selectType	luv	done	auto
 selectType	meshUVShell	done	auto
-selectType	motionTrailPoint	missing	
-selectType	motionTrailTangent	missing	
+selectType	motionTrailPoint	done	auto
+selectType	motionTrailTangent	done	auto
 selectType	msh	done	auto
-selectType	mtp	missing	
-selectType	mtt	missing	
-selectType	nCloth	missing	
-selectType	nParticle	missing	
-selectType	nParticleShape	missing	
-selectType	nRigid	missing	
+selectType	mtp	done	auto
+selectType	mtt	done	auto
+selectType	nCloth	done	auto
+selectType	nParticle	done	auto
+selectType	nParticleShape	done	auto
+selectType	nRigid	done	auto
 selectType	nc	done	auto
-selectType	ncl	missing	
+selectType	ncl	done	auto
 selectType	nl	done	auto
 selectType	nonlinear	done	auto
-selectType	npr	missing	
-selectType	nps	missing	
-selectType	nr	missing	
+selectType	npr	done	auto
+selectType	nps	done	auto
+selectType	nr	done	auto
 selectType	ns	done	auto
 selectType	nurbsCurve	done	auto
 selectType	nurbsSurface	done	auto
-selectType	objectComponent	missing	
-selectType	ocm	missing	
-selectType	ol	missing	
-selectType	orientationLocator	missing	
-selectType	p	missing	
-selectType	particle	missing	
-selectType	particleShape	missing	
+selectType	objectComponent	done	auto
+selectType	ocm	done	auto
+selectType	ol	done	auto
+selectType	orientationLocator	done	auto
+selectType	p	done	auto
+selectType	particle	done	auto
+selectType	particleShape	done	auto
 selectType	pe	done	auto
 selectType	pf	done	auto
-selectType	pfe	missing	
-selectType	pl	missing	
-selectType	plane	missing	
+selectType	pfe	done	auto
+selectType	pl	done	auto
+selectType	plane	done	auto
 selectType	polymesh	done	auto
 selectType	polymeshEdge	done	auto
 selectType	polymeshFace	done	auto
-selectType	polymeshFreeEdge	missing	
+selectType	polymeshFreeEdge	done	auto
 selectType	polymeshUV	done	auto
 selectType	polymeshVertex	done	auto
 selectType	polymeshVtxFace	done	auto
-selectType	pr	missing	
-selectType	ps	missing	
+selectType	pr	done	auto
+selectType	ps	done	auto
 selectType	puv	done	auto
 selectType	pv	done	auto
 selectType	pvf	done	auto
 selectType	q	done	auto
-selectType	qbn	missing	
+selectType	qbn	done	auto
 selectType	query	done	auto
-selectType	queryByName	missing	
-selectType	ra	missing	
-selectType	rb	missing	
-selectType	rc	missing	
-selectType	rigidBody	missing	
-selectType	rigidConstraint	missing	
-selectType	rotatePivot	missing	
-selectType	rp	missing	
-selectType	sc	missing	
-selectType	scalePivot	missing	
-selectType	sculpt	missing	
-selectType	sd	missing	
-selectType	se	missing	
-selectType	selectHandle	missing	
-selectType	sf	missing	
-selectType	sh	missing	
-selectType	sk	missing	
-selectType	sme	missing	
-selectType	smf	missing	
-selectType	smp	missing	
-selectType	smu	missing	
-selectType	sp	missing	
-selectType	spc	missing	
-selectType	spp	missing	
-selectType	spr	missing	
-selectType	spring	missing	
-selectType	springComponent	missing	
-selectType	sr	missing	
-selectType	str	missing	
-selectType	stroke	missing	
-selectType	subdiv	missing	
-selectType	subdivMeshEdge	missing	
-selectType	subdivMeshFace	missing	
-selectType	subdivMeshPoint	missing	
-selectType	subdivMeshUV	missing	
-selectType	surfaceEdge	missing	
-selectType	surfaceFace	missing	
-selectType	surfaceKnot	missing	
-selectType	surfaceParameterPoint	missing	
-selectType	surfaceRange	missing	
-selectType	surfaceUV	missing	
-selectType	suv	missing	
-selectType	texture	missing	
-selectType	tx	missing	
+selectType	queryByName	done	auto
+selectType	ra	done	auto
+selectType	rb	done	auto
+selectType	rc	done	auto
+selectType	rigidBody	done	auto
+selectType	rigidConstraint	done	auto
+selectType	rotatePivot	done	auto
+selectType	rp	done	auto
+selectType	sc	done	auto
+selectType	scalePivot	done	auto
+selectType	sculpt	done	auto
+selectType	sd	done	auto
+selectType	se	done	auto
+selectType	selectHandle	done	auto
+selectType	sf	done	auto
+selectType	sh	done	auto
+selectType	sk	done	auto
+selectType	sme	done	auto
+selectType	smf	done	auto
+selectType	smp	done	auto
+selectType	smu	done	auto
+selectType	sp	done	auto
+selectType	spc	done	auto
+selectType	spp	done	auto
+selectType	spr	done	auto
+selectType	spring	done	auto
+selectType	springComponent	done	auto
+selectType	sr	done	auto
+selectType	str	done	auto
+selectType	stroke	done	auto
+selectType	subdiv	done	auto
+selectType	subdivMeshEdge	done	auto
+selectType	subdivMeshFace	done	auto
+selectType	subdivMeshPoint	done	auto
+selectType	subdivMeshUV	done	auto
+selectType	surfaceEdge	done	auto
+selectType	surfaceFace	done	auto
+selectType	surfaceKnot	done	auto
+selectType	surfaceParameterPoint	done	auto
+selectType	surfaceRange	done	auto
+selectType	surfaceUV	done	auto
+selectType	suv	done	auto
+selectType	texture	done	auto
+selectType	tx	done	auto
 selectType	v	done	auto
 selectType	vertex	done	auto
-selectType	xyz	missing	
+selectType	xyz	done	auto
 selectionConnection	acl	done	auto
 selectionConnection	act	done	auto
 selectionConnection	activeCacheList	done	auto
@@ -32493,12 +32493,12 @@ setKeyframe	time	done	auto
 setKeyframe	useCurrentLockedWeights	done	auto
 setKeyframe	v	done	auto
 setKeyframe	value	done	auto
-setNodeTypeFlag	display	missing	
-setNodeTypeFlag	dsp	missing	
-setNodeTypeFlag	q	missing	
-setNodeTypeFlag	query	missing	
-setNodeTypeFlag	threadSafe	missing	
-setNodeTypeFlag	ts	missing	
+setNodeTypeFlag	display	done	auto
+setNodeTypeFlag	dsp	done	auto
+setNodeTypeFlag	q	done	auto
+setNodeTypeFlag	query	done	auto
+setNodeTypeFlag	threadSafe	done	auto
+setNodeTypeFlag	ts	done	auto
 setParent	defineTemplate	done	auto
 setParent	dt	done	auto
 setParent	m	done	auto
@@ -35165,12 +35165,12 @@ substituteGeometry	reWeightDistTolerance	done	auto
 substituteGeometry	retainOldGeometry	done	auto
 substituteGeometry	rog	done	auto
 substituteGeometry	wdt	done	auto
-suitePrefs	applyToSuite	missing	
-suitePrefs	ats	missing	
-suitePrefs	ias	missing	
-suitePrefs	ics	missing	
-suitePrefs	installedAsSuite	missing	
-suitePrefs	isCompleteSuite	missing	
+suitePrefs	applyToSuite	done	auto
+suitePrefs	ats	done	auto
+suitePrefs	ias	done	auto
+suitePrefs	ics	done	auto
+suitePrefs	installedAsSuite	done	auto
+suitePrefs	isCompleteSuite	done	auto
 surface	degreeU	done	auto
 surface	degreeV	done	auto
 surface	du	done	auto
@@ -35320,70 +35320,70 @@ swatchDisplayPort	w	missing
 swatchDisplayPort	wh	missing	
 swatchDisplayPort	width	missing	
 swatchDisplayPort	widthHeight	missing	
-switchTable	ann	missing	
-switchTable	annotation	missing	
-switchTable	backgroundColor	missing	
-switchTable	bgc	missing	
-switchTable	defineTemplate	missing	
-switchTable	dgc	missing	
-switchTable	docTag	missing	
-switchTable	dpc	missing	
-switchTable	dragCallback	missing	
-switchTable	dropCallback	missing	
-switchTable	dt	missing	
-switchTable	dtg	missing	
-switchTable	e	missing	
-switchTable	ebg	missing	
-switchTable	edit	missing	
-switchTable	ekf	missing	
-switchTable	en	missing	
-switchTable	enable	missing	
-switchTable	enableBackground	missing	
-switchTable	enableKeyboardFocus	missing	
-switchTable	ex	missing	
-switchTable	exists	missing	
-switchTable	fpn	missing	
-switchTable	fullPathName	missing	
-switchTable	h	missing	
-switchTable	height	missing	
-switchTable	highlightColor	missing	
-switchTable	hlc	missing	
-switchTable	io	missing	
-switchTable	isObscured	missing	
-switchTable	l1	missing	
-switchTable	l2	missing	
-switchTable	label1	missing	
-switchTable	label2	missing	
-switchTable	m	missing	
-switchTable	manage	missing	
-switchTable	nbg	missing	
-switchTable	noBackground	missing	
-switchTable	npm	missing	
-switchTable	numberOfPopupMenus	missing	
-switchTable	p	missing	
-switchTable	parent	missing	
-switchTable	pma	missing	
-switchTable	po	missing	
-switchTable	popupMenuArray	missing	
-switchTable	preventOverride	missing	
-switchTable	q	missing	
-switchTable	query	missing	
-switchTable	sbm	missing	
-switchTable	selectedRow	missing	
-switchTable	sn	missing	
-switchTable	sr	missing	
-switchTable	statusBarMessage	missing	
-switchTable	switchNode	missing	
-switchTable	underPointerRow	missing	
-switchTable	upr	missing	
-switchTable	useTemplate	missing	
-switchTable	ut	missing	
-switchTable	vcc	missing	
-switchTable	vis	missing	
-switchTable	visible	missing	
-switchTable	visibleChangeCommand	missing	
-switchTable	w	missing	
-switchTable	width	missing	
+switchTable	ann	done	auto
+switchTable	annotation	done	auto
+switchTable	backgroundColor	done	auto
+switchTable	bgc	done	auto
+switchTable	defineTemplate	done	auto
+switchTable	dgc	done	auto
+switchTable	docTag	done	auto
+switchTable	dpc	done	auto
+switchTable	dragCallback	done	auto
+switchTable	dropCallback	done	auto
+switchTable	dt	done	auto
+switchTable	dtg	done	auto
+switchTable	e	done	auto
+switchTable	ebg	done	auto
+switchTable	edit	done	auto
+switchTable	ekf	done	auto
+switchTable	en	done	auto
+switchTable	enable	done	auto
+switchTable	enableBackground	done	auto
+switchTable	enableKeyboardFocus	done	auto
+switchTable	ex	done	auto
+switchTable	exists	done	auto
+switchTable	fpn	done	auto
+switchTable	fullPathName	done	auto
+switchTable	h	done	auto
+switchTable	height	done	auto
+switchTable	highlightColor	done	auto
+switchTable	hlc	done	auto
+switchTable	io	done	auto
+switchTable	isObscured	done	auto
+switchTable	l1	done	auto
+switchTable	l2	done	auto
+switchTable	label1	done	auto
+switchTable	label2	done	auto
+switchTable	m	done	auto
+switchTable	manage	done	auto
+switchTable	nbg	done	auto
+switchTable	noBackground	done	auto
+switchTable	npm	done	auto
+switchTable	numberOfPopupMenus	done	auto
+switchTable	p	done	auto
+switchTable	parent	done	auto
+switchTable	pma	done	auto
+switchTable	po	done	auto
+switchTable	popupMenuArray	done	auto
+switchTable	preventOverride	done	auto
+switchTable	q	done	auto
+switchTable	query	done	auto
+switchTable	sbm	done	auto
+switchTable	selectedRow	done	auto
+switchTable	sn	done	auto
+switchTable	sr	done	auto
+switchTable	statusBarMessage	done	auto
+switchTable	switchNode	done	auto
+switchTable	underPointerRow	done	auto
+switchTable	upr	done	auto
+switchTable	useTemplate	done	auto
+switchTable	ut	done	auto
+switchTable	vcc	done	auto
+switchTable	vis	done	auto
+switchTable	visible	done	auto
+switchTable	visibleChangeCommand	done	auto
+switchTable	w	done	auto
+switchTable	width	done	auto
 symbolButton	ann	done	auto
 symbolButton	annotation	done	auto
 symbolButton	backgroundColor	done	auto
@@ -38087,12 +38087,12 @@ toggleAxis	q	done	auto
 toggleAxis	query	done	auto
 toggleAxis	v	done	auto
 toggleAxis	view	done	auto
-tolerance	a	missing	
-tolerance	angular	missing	
-tolerance	l	missing	
-tolerance	linear	missing	
-tolerance	q	missing	
-tolerance	query	missing	
+tolerance	a	done	auto
+tolerance	angular	done	auto
+tolerance	l	done	auto
+tolerance	linear	done	auto
+tolerance	q	done	auto
+tolerance	query	done	auto
 toolBar	a	missing	
 toolBar	aa	missing	
 toolBar	allowedArea	missing	
@@ -39036,18 +39036,18 @@ unknownNode	rcn	done	auto
 unknownNode	rct	done	auto
 unknownNode	realClassName	done	auto
 unknownNode	realClassTag	done	auto
-unknownPlugin	dataTypes	missing	
-unknownPlugin	dt	missing	
-unknownPlugin	l	missing	
-unknownPlugin	list	missing	
-unknownPlugin	nodeTypes	missing	
-unknownPlugin	nt	missing	
-unknownPlugin	q	missing	
-unknownPlugin	query	missing	
-unknownPlugin	r	missing	
-unknownPlugin	remove	missing	
-unknownPlugin	v	missing	
-unknownPlugin	version	missing	
+unknownPlugin	dataTypes	done	auto
+unknownPlugin	dt	done	auto
+unknownPlugin	l	done	auto
+unknownPlugin	list	done	auto
+unknownPlugin	nodeTypes	done	auto
+unknownPlugin	nt	done	auto
+unknownPlugin	q	done	auto
+unknownPlugin	query	done	auto
+unknownPlugin	r	done	auto
+unknownPlugin	remove	done	auto
+unknownPlugin	v	done	auto
+unknownPlugin	version	done	auto
 unloadPlugin	ac	done	auto
 unloadPlugin	addCallback	done	auto
 unloadPlugin	f	done	auto
@@ -39139,83 +39139,83 @@ uvSnapshot	xResolution	done	auto
 uvSnapshot	xr	done	auto
 uvSnapshot	yResolution	done	auto
 uvSnapshot	yr	done	auto
-vectorize	bf	missing	
-vectorize	browserView	missing	
-vectorize	bv	missing	
-vectorize	byFrame	missing	
-vectorize	c	missing	
-vectorize	camera	missing	
-vectorize	ce	missing	
-vectorize	cf	missing	
-vectorize	cfe	missing	
-vectorize	combineFillsEdges	missing	
-vectorize	ct	missing	
-vectorize	currentFrame	missing	
-vectorize	curveTolerance	missing	
-vectorize	customExtension	missing	
-vectorize	detailLevel	missing	
-vectorize	dl	missing	
-vectorize	ec	missing	
-vectorize	ed	missing	
-vectorize	edgeColor	missing	
-vectorize	edgeDetail	missing	
-vectorize	edgeStyle	missing	
-vectorize	edgeWeight	missing	
-vectorize	ef	missing	
-vectorize	endFrame	missing	
-vectorize	es	missing	
-vectorize	ew	missing	
-vectorize	ff	missing	
-vectorize	filenameFormat	missing	
-vectorize	fillStyle	missing	
-vectorize	flashVersion	missing	
-vectorize	fr	missing	
-vectorize	frameRate	missing	
-vectorize	fs	missing	
-vectorize	fv	missing	
-vectorize	h	missing	
-vectorize	he	missing	
-vectorize	height	missing	
-vectorize	hi	missing	
-vectorize	hiddenEdges	missing	
-vectorize	highlightLevel	missing	
-vectorize	highlights	missing	
-vectorize	hl	missing	
-vectorize	imageFormat	missing	
-vectorize	l	missing	
-vectorize	layer	missing	
-vectorize	mea	missing	
-vectorize	minEdgeAngle	missing	
-vectorize	oai	missing	
-vectorize	of	missing	
-vectorize	outlinesAtIntersections	missing	
-vectorize	outputFileName	missing	
-vectorize	par	missing	
-vectorize	pixelAspectRatio	missing	
-vectorize	rd	missing	
-vectorize	reflectionDepth	missing	
-vectorize	reflections	missing	
-vectorize	renderLayers	missing	
-vectorize	renderOptimization	missing	
-vectorize	renderView	missing	
-vectorize	rf	missing	
-vectorize	rl	missing	
-vectorize	ro	missing	
-vectorize	rv	missing	
-vectorize	sa	missing	
-vectorize	sb	missing	
-vectorize	sc	missing	
-vectorize	scf	missing	
-vectorize	secondaryCurveFitting	missing	
-vectorize	sf	missing	
-vectorize	sh	missing	
-vectorize	shadows	missing	
-vectorize	showBackFaces	missing	
-vectorize	startFrame	missing	
-vectorize	svgAnimation	missing	
-vectorize	svgCompression	missing	
-vectorize	w	missing	
-vectorize	width	missing	
+vectorize	bf	done	auto
+vectorize	browserView	done	auto
+vectorize	bv	done	auto
+vectorize	byFrame	done	auto
+vectorize	c	done	auto
+vectorize	camera	done	auto
+vectorize	ce	done	auto
+vectorize	cf	done	auto
+vectorize	cfe	done	auto
+vectorize	combineFillsEdges	done	auto
+vectorize	ct	done	auto
+vectorize	currentFrame	done	auto
+vectorize	curveTolerance	done	auto
+vectorize	customExtension	done	auto
+vectorize	detailLevel	done	auto
+vectorize	dl	done	auto
+vectorize	ec	done	auto
+vectorize	ed	done	auto
+vectorize	edgeColor	done	auto
+vectorize	edgeDetail	done	auto
+vectorize	edgeStyle	done	auto
+vectorize	edgeWeight	done	auto
+vectorize	ef	done	auto
+vectorize	endFrame	done	auto
+vectorize	es	done	auto
+vectorize	ew	done	auto
+vectorize	ff	done	auto
+vectorize	filenameFormat	done	auto
+vectorize	fillStyle	done	auto
+vectorize	flashVersion	done	auto
+vectorize	fr	done	auto
+vectorize	frameRate	done	auto
+vectorize	fs	done	auto
+vectorize	fv	done	auto
+vectorize	h	done	auto
+vectorize	he	done	auto
+vectorize	height	done	auto
+vectorize	hi	done	auto
+vectorize	hiddenEdges	done	auto
+vectorize	highlightLevel	done	auto
+vectorize	highlights	done	auto
+vectorize	hl	done	auto
+vectorize	imageFormat	done	auto
+vectorize	l	done	auto
+vectorize	layer	done	auto
+vectorize	mea	done	auto
+vectorize	minEdgeAngle	done	auto
+vectorize	oai	done	auto
+vectorize	of	done	auto
+vectorize	outlinesAtIntersections	done	auto
+vectorize	outputFileName	done	auto
+vectorize	par	done	auto
+vectorize	pixelAspectRatio	done	auto
+vectorize	rd	done	auto
+vectorize	reflectionDepth	done	auto
+vectorize	reflections	done	auto
+vectorize	renderLayers	done	auto
+vectorize	renderOptimization	done	auto
+vectorize	renderView	done	auto
+vectorize	rf	done	auto
+vectorize	rl	done	auto
+vectorize	ro	done	auto
+vectorize	rv	done	auto
+vectorize	sa	done	auto
+vectorize	sb	done	auto
+vectorize	sc	done	auto
+vectorize	scf	done	auto
+vectorize	secondaryCurveFitting	done	auto
+vectorize	sf	done	auto
+vectorize	sh	done	auto
+vectorize	shadows	done	auto
+vectorize	showBackFaces	done	auto
+vectorize	startFrame	done	auto
+vectorize	svgAnimation	done	auto
+vectorize	svgCompression	done	auto
+vectorize	w	done	auto
+vectorize	width	done	auto
 view2dToolCtx	ac	missing	
 view2dToolCtx	alternateContext	missing	
 view2dToolCtx	boxzoom	missing	

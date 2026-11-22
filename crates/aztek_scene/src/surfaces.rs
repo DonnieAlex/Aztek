@@ -3124,7 +3124,9 @@ pub fn select_type_components(g: &mut crate::graph::Graph, a: &Args) -> Option<V
         ("vertex", ComponentMode::Vertex),
         ("polymeshVertex", ComponentMode::Vertex),
         ("polymeshEdge", ComponentMode::Edge),
+        ("edge", ComponentMode::Edge),
         ("polymeshFace", ComponentMode::Face),
+        ("facet", ComponentMode::Face),
         ("polymeshUV", ComponentMode::Uv),
         ("polymeshVtxFace", ComponentMode::VertexFace),
     ];

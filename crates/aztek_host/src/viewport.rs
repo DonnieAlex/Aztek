@@ -2091,7 +2091,7 @@ impl Viewport {
         if !ds::pickable(g, id) {
             return false;
         }
-        crate::ui_cmds::mask_allows(type_category(g, id))
+        crate::select_cmds::pickable(g, id)
     }
 
     fn rig_shown(&self, g: &Graph, node: NodeId) -> bool {
@@ -3142,7 +3142,9 @@ impl Viewport {
             }
         }
         // Camera Based Selection (selectPref -useDepth): components hidden behind a surface stay out.
-        let depth = crate::ui_cmds::select_pref("useDepth", false) && !self.disp.xray && !self.wireframe;
+        // With autoUseDepth, it is on in shaded views and off in wireframe whatever useDepth says.
+        let use_depth = if crate::ui_cmds::select_pref("autoUseDepth", false) { !self.wireframe } else { crate::ui_cmds::select_pref("useDepth", false) };
+        let depth = use_depth && !self.disp.xray && !self.wireframe;
         let trees: Vec<MeshBvh> = if depth { items.iter().map(|it| MeshBvh::new(&it.mesh)).collect() } else { Vec::new() };
         let size = self.size();
         let seen = |wp: DVec3| -> bool {
@@ -3245,7 +3247,12 @@ impl Viewport {
             }
             }
         }
-        out.extend(by_priority(g, &picked));
+        let mut objects = by_priority(g, &picked);
+        // selectPref -singleBoxSelection: a marquee over several objects takes one.
+        if crate::ui_cmds::select_pref("singleBoxSelection", false) {
+            objects.truncate(1);
+        }
+        out.extend(objects);
         out
     }
 
@@ -3549,6 +3556,8 @@ impl Viewport {
 
     /// The manipulator handle under a pixel.
     pub fn manip_hit(&self, pivot: DVec3, px: DVec2, scale: f64) -> Option<Handle> {
+        // selectPref -manipClickBoxSize: how near an axis or ring a click takes it.
+        let reach = crate::ui_cmds::pref_f64("manipClickBoxSize", 8.0).max(1.0);
         let screen = self.screen();
         let len = self.handle_len(pivot, scale);
         let c = screen.project(pivot)?;
@@ -3602,7 +3611,7 @@ impl Viewport {
                 let Some((pa, pb)) = screen.project_segment(pivot, pivot + ax * len) else { continue };
                 seg_dist(px, pa, pb)
             };
-            if d < 8.0 * scale && best.is_none_or(|b| d < b.0) {
+            if d < reach * scale && best.is_none_or(|b| d < b.0) {
                 best = Some((d, Handle::Axis(i)));
             }
         }
@@ -3622,7 +3631,7 @@ impl Viewport {
                         Some(seg_dist(px, pa, pb))
                     })
                     .fold(f64::MAX, f64::min);
-                if d < 8.0 * scale && ring.is_none_or(|b| d < b.0) {
+                if d < reach * scale && ring.is_none_or(|b| d < b.0) {
                     ring = Some((d, i));
                 }
             }
@@ -4246,7 +4255,9 @@ fn priority_rank(g: &Graph, id: NodeId) -> u8 {
 /// highest in each chain, as the reference's. Each pair is the object hit and what that selects.
 fn by_priority(g: &Graph, picked: &[(NodeId, NodeId)]) -> Vec<String> {
     let Some(top) = picked.iter().map(|p| priority_rank(g, p.0)).min() else { return Vec::new() };
-    let won: Vec<&(NodeId, NodeId)> = picked.iter().filter(|p| priority_rank(g, p.0) == top).collect();
+    // selectPref -ignoreSelectionPriority: every kind the region takes.
+    let ignore = crate::ui_cmds::select_pref("ignoreSelectionPriority", false);
+    let won: Vec<&(NodeId, NodeId)> = picked.iter().filter(|p| ignore || priority_rank(g, p.0) == top).collect();
     let hit: std::collections::HashSet<NodeId> = won.iter().map(|p| p.0).collect();
     let under_hit_joint = |id: NodeId| {
         let mut n = g.parent(id);

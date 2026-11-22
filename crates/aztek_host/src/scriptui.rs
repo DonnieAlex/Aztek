@@ -402,6 +402,7 @@ const KINDS: &[(&str, &str)] = &[
     ("floatSliderButtonGrp", "precision:pre:a showTrailingZeros:tze:b buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
     ("shelfTabLayout", "tabLabel:tl:a2 tabLabelIndex:tli:a2 selectTabIndex:sti:a selectTab:st:a changeCommand:cc:a selectCommand:sc:a preSelectCommand:psc:a doubleClickCommand:dcc:a tabsVisible:tv:b innerMarginWidth:imw:a innerMarginHeight:imh:a scrollable:scr:b childResizable:cr:b horizontalScrollBarThickness:hst:a verticalScrollBarThickness:vst:a moveTab:mt:a2 newTabCommand:ntc:a showNewTab:snt:b tabPosition:tp:a tabTooltip:tt:a2 tabsClosable:tc:b closeTabCommand:ctc:a minChildWidth:mcw:a image:i:a imageVisible:iv:b borderStyle:bs:a closeTab:ct:a generalSpacing:gsp:a margins:mar:a margins4:mr4:a4 postMenuCommand:pmc:a scrollableTabs:stb:b tabIcon:ti:a2 tabIconIndex:tii:a2 tabTooltipIndex:tti:a2"),
     ("scriptTable", "rows:r:a columns:c:a label:l:a2 columnWidth:cw:a2 rowHeight:rh:a getCellCmd:gcc:a cellChangedCmd:ccc:a afterCellChangedCmd:acc:a selectionChangedCmd:scc:a selectedRow:sr:b selectedRows:srs:a selectedColumns:scs:a selectedCells:sc:a clearTable:ct:b clearRow:cr:a deleteRow:dr:a insertRow:ir:a excludingHeaders:eh:b multiEditEnabled:mee:b underPointerRow:upr:b underPointerColumn:upc:b useDoubleClickEdit:udc:b sortEnabled:se:b cellIndex:ci:a cellValue:cv:a cellBackgroundColorCommand:cbc:a cellForegroundColorCommand:cfc:a columnFilter:cf:a2 editable:ed:b rowsRemovedCmd:rrc:a rowsToBeRemovedCmd:rtc:a selectionBehavior:sb:a selectionMode:sm:a"),
+    ("switchTable", "label1:l1:a label2:l2:a selectedRow:sr:b switchNode:sn:a underPointerRow:upr:b"),
     ("layerButton", "label:l:a name:n:a changeCommand:cc:a color:cl:a command:c:a current:cr:b doubleClickCommand:dcc:a hideOnPlaybackCommand:hpc:a identification:id:a labelWidth:lw:a layerHideOnPlayback:hp:b layerState:ls:a layerVisible:lv:b renameCommand:rc:a select:s:b transparent:t:b typeCommand:tc:a visibleCommand:vc:a"),
     ("toolButton", "tool:t:a1 allowMultipleTools:amt:b collection:cl:a select:sl:b changeCommand:cc:a onCommand:onc:a offCommand:ofc:a doubleClickCommand:dcc:a image1:i1:a image2:i2:a image3:i3:a imageOverlayLabel:iol:a style:st:a popupIndicatorVisible:piv:b stateSelfManaged:ssm:b toolImage1:ti1:a2 toolImage2:ti2:a2 toolImage3:ti3:a2 toolArray:ta:b toolCount:tc:b version:ver:a ltVersion:lt:a"),
     ("outlinerEditor", "alwaysToggleSelect:ats:b animLayerFilterOptions:alf:a attrAlphaOrder:aao:a attrFilter:af:a autoExpand:xpd:b autoExpandLayers:ael:b autoSelectNewObjects:aso:b containersIgnoreFilters:cif:b directSelect:ds:b displayMode:dm:a doNotSelectNewObjects:dns:b dropIsParent:dip:b editAttrName:ean:b expandAllItems:eai:b expandAllSelectedItems:eas:b expandAttribute:xta:b expandConnections:xc:b expandObjects:eo:b feedbackItemName:fbn:b feedbackRowNumber:fbr:b getCurrentSetOfItem:gcs:a highlightActive:ha:b highlightSecondary:hs:b ignoreDagHierarchy:hir:b ignoreHiddenAttribute:iha:b ignoreOutlinerColor:ioc:b isChildSelected:ics:a isSet:isSet:a isSetMember:ism:a lineHeight:lh:a longNames:ln:b niceNames:nn:b object:obj:a organizeByClip:obc:b organizeByLayer:obl:b parentObject:po:b pinPlug:pin:a refresh:rfs:b removeFromCurrentSet:rcs:a renameItem:rni:a renameSelectedItem:rsi:b renderFilterActive:rfa:b renderFilterIndex:rfi:a renderFilterVisible:rfv:b selectCommand:sec:a setDefaultFilter:sdf:b setFilter:sf:a setsIgnoreFilters:sif:b showAnimCurvesOnly:aco:b showAnimLayerWeight:salw:b showAssets:a:b showAssignedMaterials:am:b showAttrValues:av:b showAttributes:sat:b showCompounds:cmp:b showConnected:sc:b showContainedOnly:sco:b showContainerContents:scc:b showDagOnly:dag:b showLeafs:laf:b showMuteInfo:smi:b showNamespace:sn:b showNumericAttrsOnly:num:b showParentContainers:spc:b showPinIcons:spi:b showPublishedAsConnected:spu:b showReferenceMembers:srm:b showReferenceNodes:rn:b showSelected:ssd:b showSetMembers:ssm:b showShapes:shp:b showTextureNodesOnly:tno:b showTimeEditor:ste:b showUVAttrsOnly:uv:b showUnitlessCurves:su:b showUpstreamCurves:suc:b sortOrder:so:a transmitFilters:tf:b control:ctl:b defineTemplate:dt:a docTag:dtg:a filter:f:a forceMainConnection:fmc:a highlightConnection:hlc:a lockMainConnection:lck:b mainListConnection:mlc:a panel:pnl:a selectionConnection:slc:a stateString:sts:b unParent:up:b unlockMainConnection:ulk:b updateMainConnection:upd:b useTemplate:ut:a"),
@@ -1513,6 +1514,10 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("floatSliderGrp" | "intSliderGrp" | "colorIndexSliderGrp" | "floatSliderButtonGrp", "minValue") => zero(&c.kind),
         ("floatSliderGrp" | "intSliderGrp" | "floatSliderButtonGrp", "maxValue") => ten(&c.kind),
         ("scriptTable", "rows" | "columns" | "selectionBehavior") => json!(0),
+        ("switchTable", "label1") => json!("Shape"),
+        ("switchTable", "label2") => json!("Input"),
+        ("switchTable", "selectedRow" | "underPointerRow") => json!(0),
+        ("switchTable", "switchNode") => json!(""),
         // Click, Ctrl and Shift as a list's: what the table shows when no mode is given.
         ("scriptTable", "selectionMode") => json!(3),
         ("outlinerEditor", "mainListConnection") => json!("worldList"),
@@ -1741,6 +1746,7 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
                 json!("")
             }
         }
+        "selectedRow" | "underPointerRow" if c.kind == "switchTable" => c.props.get(key).cloned().unwrap_or(json!(0)),
         "underPointerRow" | "underPointerColumn" => json!(0),
         "isOptionBox" => json!(c.props.get("optionBox").is_some_and(truth)),
         "isCheckBox" => json!(c.props.contains_key("checkBox")),
@@ -2734,6 +2740,9 @@ pub fn register(s: &mut Session) {
             if let Some(v) = crate::attr_ui::live_query(s, cmd, a) {
                 return Ok(v);
             }
+            if cmd == "switchTable" {
+                return switch_table(s, a);
+            }
             let r = control_command(cmd, a);
             if !a.bool("query") && !a.bool("edit") {
                 after_create(cmd, &r, a);
@@ -3172,4 +3181,53 @@ pub fn register(s: &mut Session) {
         iv = iv.flag(f(n, sh, ArgType::Bool));
     }
     s.register(iv);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// switchTable
+
+/// The rows a switch table shows for a shading switch: each input's shape and what feeds its value.
+fn switch_rows(s: &mut Session, node: &str) -> Vec<Vec<String>> {
+    let g = &s.graph;
+    let Ok(Some(id)) = g.find(node) else { return Vec::new() };
+    let mut rows: std::collections::BTreeMap<i32, [String; 2]> = std::collections::BTreeMap::new();
+    for (d, src) in g.connections() {
+        if d.node != id {
+            continue;
+        }
+        let name = g.attr(&d).name.clone();
+        let Some(child) = name.strip_prefix("input.") else { continue };
+        let e = rows.entry(d.element.max(0)).or_default();
+        let from = if child == "inShape" { g.path(src.node) } else { format!("{}.{}", g.path(src.node), g.attr(&src).name) };
+        if child == "inShape" {
+            e[0] = from;
+        } else if e[1].is_empty() {
+            e[1] = from;
+        }
+    }
+    // Inputs with only a value set show it.
+    rows.into_values().map(|[a, b]| vec![a, b]).collect()
+}
+
+/// switchTable: a script UI control showing a shading switch's shapes and their inputs, two columns.
+fn switch_table(s: &mut Session, a: &Args) -> CmdResult {
+    if let Some(n) = a.get("switchNode").map(text).filter(|n| !n.is_empty()) {
+        if !a.bool("query") {
+            let ok = s.graph.find(&n).ok().flatten().is_some_and(|id| s.graph.node(id).is_some_and(|x| x.ty().name.ends_with("ShadingSwitch")));
+            if !ok {
+                fail!("switchTable: {n} is not a shading switch node");
+            }
+        }
+    }
+    let r = control_command("switchTable", a)?;
+    if a.bool("query") {
+        return Ok(r);
+    }
+    // The rows, worked out from the scene whenever the control is made or edited.
+    let path = if a.bool("edit") { a.pos_str(0).and_then(control_full_path).unwrap_or_default() } else { r.as_str().unwrap_or("").to_string() };
+    if let Some(node) = control_prop(&path, "switchNode").map(|v| text(&v)).filter(|n| !n.is_empty()) {
+        let rows = switch_rows(s, &node);
+        let _ = model_edit(&path, &Map::from_iter([("cells".to_string(), json!(rows))]));
+    }
+    Ok(r)
 }

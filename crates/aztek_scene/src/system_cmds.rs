@@ -46,6 +46,8 @@ pub struct Extras {
     pub harold: crate::harold::commands::State,
     /// fileInfo's keyword and value pairs, in the order they were set.
     pub file_info: Vec<(String, String)>,
+    /// Plug-ins the scene's requires lines named that could not be loaded (unknownPlugin).
+    pub unknown_plugins: BTreeMap<String, crate::sys_extra::UnknownPlugin>,
     /// What optionVar keeps beside the values: defaults, categories, stashes, transient names.
     pub option_var_meta: crate::ref_scene::OptionVarMeta,
     /// The project, as `workspace` keeps it.

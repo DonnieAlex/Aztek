@@ -214,6 +214,8 @@ impl Session {
         crate::ls_more::register(&mut s.commands);
         crate::geom_bbox::register(&mut s.commands);
         crate::illustrator::register(&mut s.commands);
+        crate::sys_extra::register(&mut s.commands);
+        crate::vectorize::register(&mut s.commands);
         // Last: history node types take their attributes from the commands registered above.
         crate::history::register(&mut s.commands);
         crate::unit_tables::tag_commands(&mut s.commands);

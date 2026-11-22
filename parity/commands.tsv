@@ -975,7 +975,7 @@ setKeyPath	done	auto
 setKeyframe	done	auto
 setKeyframeBlendshapeTargetWts	done	auto
 setMenuMode	missing	
-setNodeTypeFlag	missing	
+setNodeTypeFlag	done	auto
 setParent	done	auto
 setParticleAttr	done	auto
 setRenderPassType	missing	
@@ -989,7 +989,7 @@ shadingGeometryRelCtx	missing
 shadingLightRelCtx	missing	
 shadingNetworkCompare	missing	
 shadingNode	done	auto
-shapeCompare	missing	
+shapeCompare	done	auto
 shapeEditor	missing	
 shapePanel	missing	
 shelfButton	done	auto
@@ -1061,13 +1061,13 @@ subdiv	missing
 subdivCrease	missing	
 subdivDisplaySmoothness	missing	
 substituteGeometry	done	auto
-suitePrefs	missing	
+suitePrefs	done	auto
 surface	done	auto
 surfaceSampler	missing	
 surfaceShaderList	missing	
 swatchDisplayPort	missing	
 swatchRefresh	missing	
-switchTable	missing	
+switchTable	done	auto
 symbolButton	done	auto
 symbolCheckBox	done	auto
 symmetricModelling	done	auto
@@ -1123,7 +1123,7 @@ toggle	done	auto
 toggleAxis	done	auto
 toggleDisplacement	missing	
 toggleWindowVisibility	missing	
-tolerance	missing	
+tolerance	done	auto
 toolBar	missing	
 toolButton	done	auto
 toolCollection	done	auto
@@ -1156,14 +1156,14 @@ unfold	done	auto
 ungroup	done	auto
 uniform	done	auto
 unknownNode	done	auto
-unknownPlugin	missing	
+unknownPlugin	done	auto
 unloadPlugin	done	auto
 untangleUV	done	auto
 untrim	done	auto
 upAxis	done	auto
 uvLink	done	auto
 uvSnapshot	done	auto
-vectorize	missing	
+vectorize	done	auto
 view2dToolCtx	missing	
 viewCamera	done	auto
 viewClipPlane	done	auto

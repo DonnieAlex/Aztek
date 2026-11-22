@@ -1957,6 +1957,30 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             fire(path, QJsonObject{{"selectedCells", sel}}, QJsonArray{"selectionChangedCmd"}, QJsonArray());
         });
         it->w = t;
+    } else if (k == "switchTable") {
+        // A shading switch's shapes and what feeds each: two columns, one row picked.
+        auto* t = new QTableWidget(0, 2);
+        t->setMinimumSize(160, 80);
+        t->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        t->setSelectionBehavior(QAbstractItemView::SelectRows);
+        t->setSelectionMode(QAbstractItemView::SingleSelection);
+        t->horizontalHeader()->setStretchLastSection(true);
+        t->verticalHeader()->setVisible(false);
+        t->setMouseTracking(true);
+        connect(t, &QTableWidget::itemSelectionChanged, this, [this, path, t] {
+            QModelIndexList rows = t->selectionModel()->selectedRows();
+            int r = rows.isEmpty() ? 0 : rows.first().row() + 1;
+            fire(path, QJsonObject{{"selectedRow", r}}, QJsonArray(), QJsonArray());
+        });
+        connect(t, &QTableWidget::cellEntered, this, [this, path](int r, int) { fire(path, QJsonObject{{"underPointerRow", r + 1}}, QJsonArray(), QJsonArray()); });
+        // The switch's connections change with the scene: the core works the rows out again.
+        connect(Host::get(), &Host::sceneChanged, t, [this, path] {
+            auto* i = items_.value(path);
+            if (!i) return;
+            QString node = i->prop("switchNode").toString();
+            if (!node.isEmpty()) ask("switchTable", QJsonObject{{"edit", true}, {"switchNode", node}, {"args", QJsonArray{path}}});
+        });
+        it->w = t;
     } else if (k == "timePort") {
         auto* t = new TimeSlider();
         t->setMinimumHeight(30);
@@ -2488,6 +2512,23 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             QSet<int> hidden;
             for (const QJsonValue& v : it->prop("hiddenRows").toArray()) hidden.insert(int(as_number(v)) - 1);
             for (int r = 0; r < rows; ++r) t->setRowHidden(r, hidden.contains(r));
+        }
+    }
+    if (k == "switchTable") {
+        auto* t = static_cast<QTableWidget*>(w);
+        QSignalBlocker block(t);
+        t->setHorizontalHeaderLabels(QStringList{it->props.contains("label1") ? it->prop("label1").toString() : QString("Shape"), it->props.contains("label2") ? it->prop("label2").toString() : QString("Input")});
+        if (props.contains("cells")) {
+            QJsonArray cells = it->prop("cells").toArray();
+            t->setRowCount(cells.size());
+            for (int r = 0; r < cells.size(); ++r) {
+                QJsonArray row = cells[r].toArray();
+                for (int c = 0; c < 2; ++c) {
+                    QString v = c < row.size() ? row[c].toString() : QString();
+                    if (QTableWidgetItem* cell = t->item(r, c)) cell->setText(v);
+                    else t->setItem(r, c, new QTableWidgetItem(v));
+                }
+            }
         }
     }
     if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "symbolCheckBox" || k == "iconTextRadioButton") {

@@ -2985,7 +2985,7 @@ fn nurbs_boolean(s: &mut Session, a: &Args) -> CmdResult {
         fail!("nurbsBoolean: name the surfaces of two shells");
     }
     let ch = a.get("constructionHistory").and_then(Value::as_bool).unwrap_or(s.graph.construction_history);
-    let tol = a.float("tolerance", 0.01).max(1e-6);
+    let tol = a.float("tolerance", crate::sys_extra::linear_tolerance()).max(1e-6);
     let mut meshes = Vec::new();
     s.graph.open_chunk("NURBS Boolean");
     let r = (|| -> CmdResult<Value> {
@@ -3252,7 +3252,7 @@ pub fn register(c: &mut Commands<Session>) {
                 set_i(g, node, "bevelShapeType", a.int("bevelShapeType", 1))?;
                 set_i(g, node, "numberOfSides", a.int("numberOfSides", 4))?;
                 set_i(g, node, "cornerType", a.int("cornerType", 2))?;
-                set_f(g, node, "tolerance", a.float("tolerance", 0.01))?;
+                set_f(g, node, "tolerance", a.float("tolerance", crate::sys_extra::linear_tolerance()))?;
                 let join = a.get("joinSurfaces").map_or(true, |v| v.as_bool().unwrap_or(v.as_i64() != Some(0)));
                 set_b(g, node, "joinSurfaces", join)?;
                 if join {
@@ -3420,7 +3420,7 @@ pub fn register(c: &mut Commands<Session>) {
                 connect_world_surface(g, s2, n, P)?;
                 set_f(g, n, "primaryRadius", a.float("primaryRadius", r0))?;
                 set_f(g, n, "secondaryRadius", a.float("secondaryRadius", r0))?;
-                set_f(g, n, "positionTolerance", a.float("positionTolerance", 0.01))?;
+                set_f(g, n, "positionTolerance", a.float("positionTolerance", crate::sys_extra::linear_tolerance()))?;
                 set_f(g, n, "tangentTolerance", a.float("tangentTolerance", 0.01))?;
                 crate::history_qe::apply_common(g, n, a)?;
                 surface_from(g, a, n, plug(n, OUT), "circularFillet1")
@@ -3495,7 +3495,7 @@ pub fn register(c: &mut Commands<Session>) {
                 let n = new_node(g, "intersectSurface", "intersectSurface1")?;
                 connect_world_surface(g, s1, n, IN)?;
                 connect_world_surface(g, s2, n, P)?;
-                set_f(g, n, "tolerance", a.float("tolerance", 0.01))?;
+                set_f(g, n, "tolerance", a.float("tolerance", crate::sys_extra::linear_tolerance()))?;
                 set_b(g, n, "firstSurface", a.bool("firstSurface"))?;
                 g.evaluate();
                 let count = g.node(n).unwrap().elements(OUT).len();
@@ -3888,7 +3888,7 @@ pub fn register(c: &mut Commands<Session>) {
                 set_i(g, off, "checkPoints", a.int("checkPoints", 3))?;
                 set_i(g, off, "connectBreaks", a.int("connectBreaks", 2))?;
                 set_i(g, off, "subdivisionDensity", a.int("subdivisionDensity", 5))?;
-                set_f(g, off, "tolerance", a.float("tolerance", 0.01))?;
+                set_f(g, off, "tolerance", a.float("tolerance", crate::sys_extra::linear_tolerance()))?;
                 for (k, def) in [("cutLoop", false), ("stitch", true)] {
                     let on = a.get(k).map_or(def, |v| v.as_bool().unwrap_or(v.as_i64().unwrap_or(0) != 0));
                     let i = at(g, off, k);

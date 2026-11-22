@@ -750,6 +750,9 @@ pub fn node_graph(core: &Core, arg: &str) -> Value {
         }
         set.extend(more);
     }
+    // Node types setNodeTypeFlag -display hides stay out, unless asked for by name.
+    let roots: Vec<String> = parsed.get("roots").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_string).collect();
+    set.retain(|&id| g.node(id).is_some_and(|n| aztek_scene::sys_extra::type_displayed(&n.ty().name)) || roots.iter().any(|r| g.find(r).ok().flatten() == Some(id)));
     let nodes: Vec<Value> = set
         .iter()
         .filter_map(|&id| {

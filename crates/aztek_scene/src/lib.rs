@@ -99,6 +99,8 @@ pub mod file_more;
 pub mod ls_more;
 pub mod geom_bbox;
 pub mod illustrator;
+pub mod sys_extra;
+pub mod vectorize;
 pub mod mb_file;
 pub mod mb_write;
 pub mod ref_cmds;
