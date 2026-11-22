@@ -2874,6 +2874,11 @@ void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
         QJsonArray a = flat(props["topLeftCorner"]);
         if (a.size() >= 2) w->move(int(as_number(a[1])), int(as_number(a[0])));
     }
+    // A window preference can open a window maximized.
+    if (props.contains("maximized") && it->kind == "window") {
+        Qt::WindowStates st = w->windowState();
+        w->setWindowState(as_bool(props["maximized"]) ? (st | Qt::WindowMaximized) : (st & ~Qt::WindowMaximized));
+    }
     if (props.contains("backgroundColor")) {
         QColor c = color_of(props["backgroundColor"]);
         if (c.isValid()) {

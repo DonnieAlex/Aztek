@@ -39805,14 +39805,14 @@ windowPref	ex	done	auto
 windowPref	exists	done	auto
 windowPref	h	done	auto
 windowPref	height	done	auto
-windowPref	la	missing	
+windowPref	la	done	auto
 windowPref	le	done	auto
 windowPref	leftEdge	done	auto
-windowPref	loadAll	missing	
-windowPref	max	missing	
-windowPref	maximized	missing	
-windowPref	parentMain	missing	
-windowPref	pm	missing	
+windowPref	loadAll	done	auto
+windowPref	max	done	auto
+windowPref	maximized	done	auto
+windowPref	parentMain	done	auto
+windowPref	pm	done	auto
 windowPref	q	done	auto
 windowPref	query	done	auto
 windowPref	r	done	auto
@@ -39821,8 +39821,8 @@ windowPref	remove	done	auto
 windowPref	removeAll	done	auto
 windowPref	restoreMainWindowState	done	auto
 windowPref	rms	done	auto
-windowPref	sa	missing	
-windowPref	saveAll	missing	
+windowPref	sa	done	auto
+windowPref	saveAll	done	auto
 windowPref	saveMainWindowState	done	auto
 windowPref	sms	done	auto
 windowPref	te	done	auto

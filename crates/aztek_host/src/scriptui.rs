@@ -43,7 +43,10 @@ pub(crate) struct Model {
     wait_cursor: bool,
     prompt_text: String,
     built_in: bool,
-    window_prefs: HashMap<String, Value>,
+    /// windowPref: each window's saved size and place, by its name.
+    window_prefs: BTreeMap<String, Map<String, Value>>,
+    /// windowPref -enableAll false: windows ignore the saved values.
+    window_prefs_off: bool,
     /// workspaceControlState: each workspace control's saved size and place, by its name.
     ws_states: BTreeMap<String, Map<String, Value>>,
     dirty_tables: Vec<Id>,
@@ -262,6 +265,28 @@ impl Model {
         }
     }
 
+    /// Keeps a window's size and place under its name, for the next window of that name.
+    fn record_window_pref(&mut self, c: &Control) {
+        if c.kind != "window" || c.name == MAIN_WINDOW {
+            return;
+        }
+        let e = self.window_prefs.entry(c.name.clone()).or_default();
+        for (k, d) in [("width", Some(546)), ("height", Some(350)), ("topEdge", None), ("leftEdge", None)] {
+            match (c.props.get(k), d) {
+                (Some(v), _) => {
+                    e.insert(k.into(), json!(number(v) as i64));
+                }
+                (None, Some(d)) if !e.contains_key(k) => {
+                    e.insert(k.into(), json!(d));
+                }
+                _ => {}
+            }
+        }
+        if let Some(v) = c.props.get("maximized") {
+            e.insert("maximized".into(), json!(truth(v)));
+        }
+    }
+
     fn remove(&mut self, id: Id, gone: &mut Vec<Id>) {
         let kids = self.get(id).map(|c| c.children.clone()).unwrap_or_default();
         for k in kids {
@@ -272,6 +297,10 @@ impl Model {
 
     /// Deletes a control and all under it. Current parents inside it fall back.
     fn delete(&mut self, id: Id) -> Vec<Value> {
+        // A shown window leaves its size and place as its windowPref.
+        if let Some(c) = self.get(id).filter(|c| c.kind == "window" && c.props.get("visible").is_some_and(truth)).cloned() {
+            self.record_window_pref(&c);
+        }
         let mut gone = Vec::new();
         self.remove(id, &mut gone);
         let mut close = Vec::new();
@@ -595,6 +624,20 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             }
         }
         (_, "width" | "height") => set(m, id, key, json!(number(raw) as i64), changed),
+        // A window's place: kept as its two edges, sent to the shell as one corner.
+        ("window", "topLeftCorner" | "topEdge" | "leftEdge") => {
+            if key == "topLeftCorner" {
+                if vals.len() >= 2 {
+                    set(m, id, "topEdge", json!(number(&vals[0]) as i64), changed);
+                    set(m, id, "leftEdge", json!(number(&vals[1]) as i64), changed);
+                }
+            } else {
+                set(m, id, key, json!(number(raw) as i64), changed);
+            }
+            let props = m.get(id).map(|c| c.props.clone()).unwrap_or_default();
+            let edge = |k: &str| props.get(k).map(|v| number(v) as i64).unwrap_or(0);
+            changed.insert("topLeftCorner".into(), json!([edge("topEdge"), edge("leftEdge")]));
+        }
         ("dockControl", "state") => {
             // What -q -state gave: hex of the dock's settings.
             let t = text(raw);
@@ -1173,15 +1216,6 @@ pub(crate) fn template_defaults(cmd: &str, use_template: Option<&str>) -> Map<St
             }
         }
         out
-    })
-}
-
-/// The window sizes and places windowPref keeps, by window.
-pub(crate) fn window_prefs_all() -> Vec<(String, Value)> {
-    with_model(|m| {
-        let mut v: Vec<(String, Value)> = m.window_prefs.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        v.sort_by(|a, b| a.0.cmp(&b.0));
-        v
     })
 }
 
@@ -2064,6 +2098,10 @@ fn control_command(cmd: &str, a: &Args) -> CmdResult {
 
 /// Runs what a window's making asks for: the uiScript of a workspace control, inside it.
 fn after_create(cmd: &str, result: &CmdResult, a: &Args) {
+    if cmd == "window" && result.is_ok() {
+        apply_window_pref(result.as_ref().ok().and_then(Value::as_str).unwrap_or(""), a);
+        return;
+    }
     if cmd == "dockControl" && result.is_ok() {
         // Docks float here: what shows is the window it holds.
         if let Some(content) = a.get("content").map(text) {
@@ -2187,6 +2225,9 @@ pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
 /// Returns the close commands to run.
 fn close_control(m: &mut Model, id: Id) -> Vec<Value> {
     let Some(c) = m.get(id).cloned() else { return Vec::new() };
+    if c.kind == "window" {
+        m.record_window_pref(&c);
+    }
     if c.kind == "workspaceControl" {
         let st = m.ws_states.entry(c.name.clone()).or_default();
         for k in ["width", "height", "topEdge", "leftEdge", "maximized"] {
@@ -2567,6 +2608,330 @@ fn workspace_control_state(_s: &mut Session, a: &Args) -> CmdResult {
     })
 }
 
+/// The flags a windowPref line in windowPrefs.mel can carry, as (long, short, values).
+const WINDOW_PREF_FLAGS: [(&str, &str, usize); 8] = [
+    ("topEdge", "te", 1),
+    ("leftEdge", "le", 1),
+    ("width", "w", 1),
+    ("height", "h", 1),
+    ("topLeftCorner", "tlc", 2),
+    ("widthHeight", "wh", 2),
+    ("maximized", "max", 1),
+    ("parentMain", "pm", 1),
+];
+
+/// Sets a window preference from the values given: the two-value flags are split into their edges and sizes.
+fn set_window_pref(e: &mut Map<String, Value>, key: &str, vals: &[Value]) {
+    let int = |v: &Value| json!(number(v) as i64);
+    match (key, vals) {
+        ("widthHeight", [w, h, ..]) => {
+            e.insert("width".into(), int(w));
+            e.insert("height".into(), int(h));
+        }
+        ("topLeftCorner", [t, l, ..]) => {
+            e.insert("topEdge".into(), int(t));
+            e.insert("leftEdge".into(), int(l));
+        }
+        ("width" | "height" | "topEdge" | "leftEdge", [v, ..]) => {
+            e.insert(key.into(), int(v));
+        }
+        ("maximized" | "parentMain", [v, ..]) => {
+            e.insert(key.into(), json!(truth(v)));
+        }
+        _ => {}
+    }
+}
+
+/// The saved window preferences as windowPref statements, one per window, for windowPrefs.mel.
+pub(crate) fn window_pref_lines() -> Vec<String> {
+    let quote = |t: &str| format!("\"{}\"", t.replace('\\', "\\\\").replace('"', "\\\""));
+    with_model(|m| {
+        m.window_prefs
+            .iter()
+            .map(|(name, p)| {
+                let mut l = String::from("windowPref");
+                for k in ["topEdge", "leftEdge", "width", "height"] {
+                    if let Some(v) = p.get(k) {
+                        l.push_str(&format!(" -{k} {}", number(v) as i64));
+                    }
+                }
+                for k in ["maximized", "parentMain"] {
+                    if let Some(v) = p.get(k) {
+                        l.push_str(&format!(" -{k} {}", truth(v) as i32));
+                    }
+                }
+                l.push_str(&format!(" {};", quote(name)));
+                l
+            })
+            .collect()
+    })
+}
+
+/// Reads windowPref statements (as -saveAll or savePrefs writes them) into the saved preferences.
+fn load_window_prefs(text: &str) {
+    // Statements end at a semicolon outside quotes; words split on spaces, quoted words kept whole.
+    let mut words: Vec<Vec<(String, bool)>> = vec![Vec::new()];
+    let mut cur = String::new();
+    let (mut quoted, mut was_quoted, mut esc) = (false, false, false);
+    let mut in_comment = false;
+    let mut chars = text.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if in_comment {
+            if ch == '\n' {
+                in_comment = false;
+            }
+            continue;
+        }
+        if quoted {
+            match (esc, ch) {
+                (true, 'n') => {
+                    cur.push('\n');
+                    esc = false;
+                }
+                (true, c) => {
+                    cur.push(c);
+                    esc = false;
+                }
+                (false, '\\') => esc = true,
+                (false, '"') => quoted = false,
+                (false, c) => cur.push(c),
+            }
+            continue;
+        }
+        match ch {
+            '/' if chars.peek() == Some(&'/') => in_comment = true,
+            '"' => {
+                quoted = true;
+                was_quoted = true;
+            }
+            c if c.is_whitespace() || c == ';' => {
+                if !cur.is_empty() || was_quoted {
+                    words.last_mut().unwrap().push((std::mem::take(&mut cur), was_quoted));
+                    was_quoted = false;
+                }
+                if c == ';' {
+                    words.push(Vec::new());
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() || was_quoted {
+        words.last_mut().unwrap().push((cur, was_quoted));
+    }
+    with_model(|m| {
+        for st in words {
+            if st.first().map(|w| w.0.as_str()) != Some("windowPref") {
+                continue;
+            }
+            let mut e = Map::new();
+            let mut name = None;
+            let mut i = 1;
+            while i < st.len() {
+                let (w, q) = &st[i];
+                i += 1;
+                if !q && w.starts_with('-') {
+                    let fl = &w[1..];
+                    if let Some(&(long, _, n)) = WINDOW_PREF_FLAGS.iter().find(|x| x.0 == fl || x.1 == fl) {
+                        let vals: Vec<Value> = st.iter().skip(i).take(n).map(|x| x.0.parse::<f64>().map(|v| json!(v)).unwrap_or(json!(x.0 == "true" || x.0 == "on"))).collect();
+                        i += n;
+                        set_window_pref(&mut e, long, &vals);
+                    }
+                    continue;
+                }
+                name = Some(w.clone());
+            }
+            if let Some(n) = name.filter(|n| !n.is_empty()) {
+                m.window_prefs.entry(n).or_default().extend(e);
+            }
+        }
+    });
+}
+
+/// A saved preference sizes and places a window just made, where the call doesn't.
+fn apply_window_pref(name: &str, a: &Args) {
+    with_model(|m| {
+        if m.window_prefs_off {
+            return;
+        }
+        let Some(pref) = m.window_prefs.get(name).cloned() else { return };
+        let Some(id) = m.find(name).filter(|i| m.get(*i).is_some_and(|c| c.kind == "window")) else { return };
+        let given = |k: &str| match k {
+            "width" | "height" => a.has(k) || a.has("widthHeight"),
+            "topEdge" | "leftEdge" => a.has(k) || a.has("topLeftCorner"),
+            _ => a.has(k),
+        };
+        let Some(c) = m.controls.get_mut(&id) else { return };
+        let mut edit = Map::new();
+        for k in ["width", "height", "topEdge", "leftEdge", "maximized"] {
+            if let Some(v) = pref.get(k).filter(|_| !given(k)) {
+                c.props.insert(k.into(), v.clone());
+                edit.insert(k.into(), v.clone());
+            }
+        }
+        if edit.contains_key("topEdge") || edit.contains_key("leftEdge") {
+            let edge = |k: &str| c.props.get(k).map(|v| number(v) as i64).unwrap_or(0);
+            edit.insert("topLeftCorner".into(), json!([edge("topEdge"), edge("leftEdge")]));
+        }
+        if !edit.is_empty() {
+            op(json!({"op": "edit", "path": c.path, "props": edit}));
+        }
+    });
+}
+
+/// A main window state file: a name without a folder is in the preferences folder.
+fn main_window_state_path(name: &str) -> std::path::PathBuf {
+    let p = std::path::PathBuf::from(name);
+    if p.is_absolute() {
+        p
+    } else {
+        crate::user_folder::user_pref_dir().join(p)
+    }
+}
+
+/// -saveMainWindowState: the main window's size and place and each workspace control's place, docking and showing.
+fn save_main_window_state(name: &str) -> CmdResult {
+    let st = with_model(|m| {
+        let main = m.find(MAIN_WINDOW).and_then(|i| m.get(i)).map(|c| {
+            let mut o = Map::new();
+            for k in ["width", "height", "topEdge", "leftEdge", "maximized"] {
+                if let Some(v) = c.props.get(k) {
+                    o.insert(k.into(), v.clone());
+                }
+            }
+            o
+        });
+        let mut wcs: BTreeMap<String, Map<String, Value>> = m.ws_states.clone();
+        for c in m.controls.values().filter(|c| c.kind == "workspaceControl") {
+            let e = wcs.entry(c.name.clone()).or_default();
+            for k in ["width", "height", "topEdge", "leftEdge", "maximized", "floating", "visible", "dockToMainWindow", "dockToControl", "tabToControl"] {
+                if let Some(v) = c.props.get(k) {
+                    e.insert(k.into(), v.clone());
+                }
+            }
+        }
+        json!({"mainWindow": main, "workspaceControls": wcs})
+    });
+    let path = main_window_state_path(name);
+    if let Some(d) = path.parent() {
+        std::fs::create_dir_all(d).map_err(|e| aztek_ops::CommandError::new(format!("windowPref: {}: {e}", d.display())))?;
+    }
+    std::fs::write(&path, serde_json::to_string_pretty(&st).unwrap_or_default()).map_err(|e| aztek_ops::CommandError::new(format!("windowPref: {}: {e}", path.display())))?;
+    Ok(Value::Null)
+}
+
+/// -restoreMainWindowState: reads what -saveMainWindowState wrote and puts the main window and workspace controls back.
+fn restore_main_window_state(name: &str) -> CmdResult {
+    let path = main_window_state_path(name);
+    let text = std::fs::read_to_string(&path).map_err(|e| aztek_ops::CommandError::new(format!("windowPref: {}: {e}", path.display())))?;
+    let st: Value = serde_json::from_str(&text).map_err(|e| aztek_ops::CommandError::new(format!("windowPref: {} is not a main window state: {e}", path.display())))?;
+    with_model(|m| {
+        let apply = |m: &mut Model, name: &str, props: &Map<String, Value>| {
+            let Some(c) = m.find(name).and_then(|i| m.controls.get_mut(&i)) else { return };
+            let mut edit = props.clone();
+            edit.retain(|k, _| !matches!(k.as_str(), "dockToMainWindow" | "dockToControl" | "tabToControl"));
+            for (k, v) in &edit {
+                c.props.insert(k.clone(), v.clone());
+            }
+            if let (Some(t), Some(l)) = (edit.get("topEdge").cloned(), edit.get("leftEdge").cloned()) {
+                edit.insert("topLeftCorner".into(), json!([t, l]));
+            }
+            if !edit.is_empty() {
+                op(json!({"op": "edit", "path": c.path, "props": edit}));
+            }
+        };
+        if let Some(main) = st.get("mainWindow").and_then(Value::as_object) {
+            apply(m, MAIN_WINDOW, main);
+        }
+        if let Some(wcs) = st.get("workspaceControls").and_then(Value::as_object) {
+            for (n, v) in wcs {
+                let Some(o) = v.as_object() else { continue };
+                let kept = m.ws_states.entry(n.clone()).or_default();
+                for k in ["width", "height", "topEdge", "leftEdge", "maximized"] {
+                    if let Some(x) = o.get(k) {
+                        kept.insert(k.into(), x.clone());
+                    }
+                }
+                apply(m, n, o);
+            }
+        }
+    });
+    Ok(Value::Null)
+}
+
+fn window_pref(_s: &mut Session, a: &Args) -> CmdResult {
+    let name = a.pos_str(0).unwrap_or("").to_string();
+    let query = a.bool("query");
+    let asked = |k: &str| a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k)) || (query && a.bool(k));
+    if let Some(f) = a.get("saveMainWindowState").filter(|_| !query) {
+        return save_main_window_state(&text(f));
+    }
+    if let Some(f) = a.get("restoreMainWindowState").filter(|_| !query) {
+        return restore_main_window_state(&text(f));
+    }
+    let file = || crate::user_folder::user_pref_dir().join("windowPrefs.mel");
+    if a.bool("saveAll") {
+        crate::sys_prefs::write_window_prefs(&file())?;
+        return Ok(Value::Null);
+    }
+    if a.bool("loadAll") {
+        if let Ok(t) = std::fs::read_to_string(file()) {
+            load_window_prefs(&t);
+        }
+        return Ok(Value::Null);
+    }
+    with_model(|m| {
+        if a.bool("exists") {
+            return Ok(json!(m.window_prefs.contains_key(&name)));
+        }
+        if query && asked("enableAll") {
+            return Ok(json!(!m.window_prefs_off));
+        }
+        if !query && a.has("enableAll") {
+            m.window_prefs_off = !a.bool("enableAll");
+            return Ok(Value::Null);
+        }
+        if a.bool("removeAll") {
+            m.window_prefs.clear();
+            return Ok(Value::Null);
+        }
+        if name.is_empty() {
+            fail!("windowPref: name a window.");
+        }
+        if a.bool("remove") {
+            m.window_prefs.remove(&name);
+            return Ok(Value::Null);
+        }
+        if query {
+            let Some(e) = m.window_prefs.get(&name) else { fail!("windowPref: no window preference is kept for {name}.") };
+            let int = |k: &str| e.get(k).map(|v| number(v) as i64).unwrap_or(0);
+            return Ok(if asked("widthHeight") {
+                json!([int("width"), int("height")])
+            } else if asked("topLeftCorner") {
+                json!([int("topEdge"), int("leftEdge")])
+            } else if asked("maximized") {
+                json!(e.get("maximized").is_some_and(truth))
+            } else if asked("parentMain") {
+                json!(e.get("parentMain").map_or(true, truth))
+            } else if let Some(k) = ["width", "height", "topEdge", "leftEdge"].into_iter().find(|k| asked(k)) {
+                json!(int(k))
+            } else {
+                fail!("windowPref: name what to query.")
+            });
+        }
+        if a.bool("edit") && !m.window_prefs.contains_key(&name) {
+            fail!("windowPref: no window preference is kept for {name}.");
+        }
+        let e = m.window_prefs.entry(name).or_default();
+        for &(k, _, _) in &WINDOW_PREF_FLAGS {
+            if let Some(v) = a.get(k) {
+                set_window_pref(e, k, &flat(v));
+            }
+        }
+        Ok(Value::Null)
+    })
+}
+
 /// The workspace control a control or panel is in, or "".
 pub(crate) fn parent_workspace_control(name: &str) -> String {
     with_model(|m| {
@@ -2941,35 +3306,13 @@ pub fn register(s: &mut Session) {
     );
 
     s.register(
-        Cmd::new("windowPref", "Saved window positions and sizes: -exists, -remove, -wh, -tlc. None are kept here between sessions.", |_s, a| {
-            let name = a.pos_str(0).unwrap_or("").to_string();
-            with_model(|m| {
-                if a.bool("remove") {
-                    m.window_prefs.remove(&name);
-                    return Ok(Value::Null);
-                }
-                if a.bool("exists") {
-                    return Ok(json!(m.window_prefs.contains_key(&name)));
-                }
-                if a.bool("query") {
-                    let e = m.window_prefs.get(&name).cloned().unwrap_or(json!({}));
-                    for k in ["widthHeight", "width", "height", "topLeftCorner", "topEdge", "leftEdge"] {
-                        if a.bool(k) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == k)) {
-                            return Ok(e.get(k).cloned().unwrap_or(json!(0)));
-                        }
-                    }
-                    return Ok(e);
-                }
-                let e = m.window_prefs.entry(name).or_insert(json!({}));
-                for k in ["widthHeight", "width", "height", "topLeftCorner", "topEdge", "leftEdge"] {
-                    if let Some(v) = a.get(k) {
-                        e[k] = v.clone();
-                    }
-                }
-                Ok(Value::Null)
-            })
-        })
-        .positional("window")
+        Cmd::new(
+            "windowPref",
+            "Saved window sizes and places, by window name. One is kept when a window closes and sizes and places the next \
+             window of that name. -loadAll and -saveAll read and write windowPrefs.mel in the preferences folder.",
+            window_pref,
+        )
+        .positional("[window]")
         .undoable(false)
         .flag(f("query", "q", ArgType::Bool))
         .flag(f("edit", "e", ArgType::Bool))
@@ -2977,15 +3320,19 @@ pub fn register(s: &mut Session) {
         .flag(f("exists", "ex", ArgType::Bool))
         .flag(f("remove", "r", ArgType::Bool))
         .flag(f("removeAll", "ra", ArgType::Bool))
-        .flag(f("widthHeight", "wh", ArgType::Any))
+        .flag(f("loadAll", "la", ArgType::Bool))
+        .flag(f("saveAll", "sa", ArgType::Bool))
+        .flag(f("widthHeight", "wh", ArgType::Any).multi(2))
         .flag(f("width", "w", ArgType::Any))
         .flag(f("height", "h", ArgType::Any))
-        .flag(f("topLeftCorner", "tlc", ArgType::Any))
+        .flag(f("topLeftCorner", "tlc", ArgType::Any).multi(2))
         .flag(f("topEdge", "te", ArgType::Any))
         .flag(f("leftEdge", "le", ArgType::Any))
-        .flag(f("restoreMainWindowState", "rms", ArgType::Any))
-        .flag(f("saveMainWindowState", "sms", ArgType::Any))
-        .flag(f("enableAll", "ea", ArgType::Bool)),
+        .flag(f("maximized", "max", ArgType::Bool))
+        .flag(f("parentMain", "pm", ArgType::Bool))
+        .flag(f("restoreMainWindowState", "rms", ArgType::String))
+        .flag(f("saveMainWindowState", "sms", ArgType::String))
+        .flag(f("enableAll", "ea", ArgType::Bool))
     );
 
     s.register(

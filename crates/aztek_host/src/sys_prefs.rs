@@ -179,6 +179,11 @@ fn write_pref_file(path: &Path, lines: &[String]) -> CmdResult<()> {
     std::fs::write(path, text).map_err(|e| err(format!("savePrefs: {}: {e}", path.display())))
 }
 
+/// The saved window sizes and places, as windowPrefs.mel: for savePrefs and windowPref -saveAll.
+pub(crate) fn write_window_prefs(path: &Path) -> CmdResult<()> {
+    write_pref_file(path, &crate::scriptui::window_pref_lines())
+}
+
 /// The optionVars that are kept between sessions, without those a category saves to a file of its own.
 fn kept_vars(s: &Session, file: Option<&str>) -> BTreeMap<String, Value> {
     let meta = &s.extras.option_var_meta;
@@ -244,25 +249,7 @@ fn save_prefs(s: &mut Session, a: &Args) -> CmdResult {
         crate::native_plugin::info::save_prefs(s)?;
     }
     if want("uiLayout") {
-        let mut lines = Vec::new();
-        for (name, p) in crate::scriptui::window_prefs_all() {
-            let mut l = String::from("windowPref");
-            let num = |k: &str| p.get(k).and_then(Value::as_f64);
-            let wh = p.get("widthHeight").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_f64).collect::<Vec<_>>());
-            let tlc = p.get("topLeftCorner").and_then(Value::as_array).map(|v| v.iter().filter_map(Value::as_f64).collect::<Vec<_>>());
-            let top = num("topEdge").or_else(|| tlc.as_ref().and_then(|v| v.first().copied()));
-            let left = num("leftEdge").or_else(|| tlc.as_ref().and_then(|v| v.get(1).copied()));
-            let width = num("width").or_else(|| wh.as_ref().and_then(|v| v.first().copied()));
-            let height = num("height").or_else(|| wh.as_ref().and_then(|v| v.get(1).copied()));
-            for (flag, v) in [("topEdge", top), ("leftEdge", left), ("width", width), ("height", height)] {
-                if let Some(v) = v {
-                    l.push_str(&format!(" -{flag} {}", v as i64));
-                }
-            }
-            l.push_str(&format!(" {};", mel_quote(&name)));
-            lines.push(l);
-        }
-        write_pref_file(&dir.join("windowPrefs.mel"), &lines)?;
+        write_window_prefs(&dir.join("windowPrefs.mel"))?;
     }
     Ok(Value::Null)
 }
