@@ -19,10 +19,17 @@ author prefers. If you can't tell what the reference does, say so on the issue r
 ## Before you start on an issue
 
 1. Look at the issue's comments and at the open pull requests (search for `#N`). If someone has a pull request open
-   for it, or said in the last few days that they are on it, pick another or offer to help there.
-2. Leave a comment saying you are working on it. That is not a request for permission; it saves two people fixing the
-   same thing. If you stop, say so.
-3. Issues labelled `auto:working`, `auto:pr` or `needs-srlegrand` belong to the issue bot (below) or to srlegrand.
+   for it, or a claim on it that hasn't lapsed (below), pick another or offer to help there.
+2. Leave a comment saying you are working on it, with your plan in one line, for example
+   `Working on this: the joint's lockInfluenceWeights is declared in the .ma writer`. That is not a request for
+   permission; it saves two people fixing the same thing, and the plan lets anyone who knows the area say early if it
+   is the wrong one. If you stop, say so.
+3. Open a draft pull request with `Fixes #N` as soon as you have a first commit, and push to it as you go. The draft
+   shows the work in the pull request list, where people look before starting.
+4. A claim lapses after 3 days with nothing from its claimant: no comment, push or pull request update. Anyone may
+   then take the issue over by commenting `Taking this over from @name`, starting from the draft's last commit if
+   there is one, on their own branch. Don't push to someone else's branch unless they ask.
+5. Issues labelled `auto:working`, `auto:pr` or `needs-srlegrand` belong to the issue bot (below) or to srlegrand.
    Leave them unless srlegrand asks.
 
 There is no other claiming system: no assigned build targets, lock files, CI watchers or reviewer rotas. If a tool
@@ -66,7 +73,9 @@ Other checks CI runs, worth running when you touch their area:
 - **The fix and nothing else.** One issue per pull request, the smallest change that does it, in the style of the
   code around it. No refactoring, renaming or reformatting the fix doesn't need. Related issues fixed by one change can
   share a pull request; say which in the title.
-- **A test**, in the `tests/` folder of the crate you changed, when the fix can be tested. Scene files in tests are
+- **A test**, in the `tests/` folder of the crate you changed, when the fix can be tested. For a bug, the test
+  fails without the fix and passes with it: run it once before the fix goes in, and say in the pull request that you
+  did. Scene files in tests are
   small `.ma` text written by hand; rig files and textures from elsewhere stay out of the repository.
 - **The parity ledger**, when you add a command, flag, node type or attribute: run
   `cargo run -p aztek_host --example parity -- --write` and commit what it changes. Update PARITY.md when the change
@@ -80,6 +89,10 @@ Other checks CI runs, worth running when you touch their area:
 - **Commits** with plain messages saying what the change does, for example
   `Joint influence locks are declared in scene files (#208)`. A few small commits are fine; they are not squashed
   for you, so leave out work in progress you wouldn't want in history.
+
+- **Nothing private.** Issues and pull requests are public. Leave out home-directory paths, machine and account
+  names, email addresses, tokens, and scenes or assets that aren't yours to publish, in the diff, in test files and in
+  what you write.
 
 Everything you send goes in under [MIT-0](LICENSE), like the rest of Aztek.
 
@@ -102,6 +115,14 @@ Two ways, both described in the README:
 Fill in the pull request template: `Fixes #N`, what was wrong and what happens now, what you checked (steps in the
 app, tests run, and what you could not check), and how it was made. A pull request that says plainly what wasn't
 checked is easier to take than one that sounds sure.
+
+### Conflicts
+
+Parallel changes meet in a few places: command registration in `crates/aztek_scene/src/session.rs`, the parity
+ledger under `parity/`, and PARITY.md. Add entries one per line in the existing order so that two additions don't
+touch the same line. To resolve, merge `main` into your branch (no rebase or force-push once others have seen it), keep
+both sides' entries, and regenerate the ledger with `cargo run -p aztek_host --example parity -- --write` rather than
+merging its files by hand.
 
 ## After you send it
 
