@@ -747,6 +747,9 @@ pub fn delete_history(g: &mut Graph, mesh: NodeId) -> CmdResult<bool> {
     }
     let value = g.value(&src)?;
     let doomed = upstream_nodes(g, &base);
+    // A skinCluster locks the transform it binds, and the history is where the skin lives: gone, the object moves
+    // again, as Detach Skin does (#207).
+    let skinned = doomed.iter().any(|&id| g.node(id).is_some_and(|n| n.ty().name == "skinCluster"));
     g.disconnect(&base);
     g.set_value(base, value)?;
     let drivers = crate::deform::orphan_drivers(g, &doomed);
@@ -759,6 +762,9 @@ pub fn delete_history(g: &mut Graph, mesh: NodeId) -> CmdResult<bool> {
         if g.node(id).is_some() {
             g.delete_node(id)?;
         }
+    }
+    if skinned {
+        crate::skin::unlock_bound_transform(g, mesh)?;
     }
     Ok(true)
 }
