@@ -378,3 +378,26 @@ fn exported_to_a_harold_scene_file_it_renders_as_the_scene_does() {
     assert_eq!(names, ["seq.0001.hss", "seq.0002.hss", "seq.0003.hss"]);
     assert!(s.run("haroldExportHss", json!({})).is_err());
 }
+
+/// An OpenPBR surface becomes the standard surface: its base colour, weight, metalness and roughness reach the renderer.
+#[test]
+fn open_pbr_translates_to_the_standard_surface() {
+    let mut s = scene();
+    let plane = run(&mut s, "polyPlane", json!({"width": 40, "height": 40}))[0].as_str().unwrap().to_string();
+    run(&mut s, "pointLight", json!({"position": [0.0, 2.0, 0.0]}));
+    small(&mut s, 2);
+    set(&mut s, "topShape.orthographicWidth", json!(0.2));
+    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    let m = run(&mut s, "shadingNode", json!({"args": ["openPBRSurface"], "asShader": true})).as_str().unwrap().to_string();
+    run(&mut s, "sets", json!({"renderable": true, "noSurfaceShader": true, "empty": true, "name": "openPBRSG"}));
+    run(&mut s, "connectAttr", json!({"args": [format!("{m}.outColor"), "openPBRSG.surfaceShader"], "force": true}));
+    run(&mut s, "sets", json!({"args": [plane], "edit": true, "forceElement": "openPBRSG"}));
+    set(&mut s, &format!("{m}.baseColor"), json!([0.0, 1.0, 0.0]));
+    set(&mut s, &format!("{m}.baseWeight"), json!(1.0));
+    set(&mut s, &format!("{m}.baseMetalness"), json!(0.0));
+    set(&mut s, &format!("{m}.specularWeight"), json!(0.0));
+    let (film, warnings) = render(&mut s, "top");
+    assert!(!warnings.iter().any(|w| w.contains("default material")), "{warnings:?}");
+    let c = centre(&film);
+    assert!((c.y - 1.0).abs() < 0.05 && c.x.abs() < 0.02 && c.z.abs() < 0.02, "green: {c}");
+}

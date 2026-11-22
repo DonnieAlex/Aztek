@@ -451,9 +451,9 @@ impl NetBuilder<'_> {
             "aiAmbientOcclusion" => Node::Traced { kind: 0, white: self.input(id, "white"), black: self.input(id, "black"), samples: self.num(id, "samples", 3.0).max(1.0) as u32, distance: self.num(id, "farClip", 100.0) },
             "aiCurvature" => Node::Traced { kind: 1, white: Input::c(1.0), black: Input::c(0.0), samples: self.num(id, "samples", 3.0).max(1.0) as u32, distance: self.num(id, "radius", 0.1) },
             "aiUtility" | "aiFlat" | "surfaceShader" => Node::Constant(get_v(self.g, id, if ty == "surfaceShader" { "outColor" } else { "color" }, Vec3::ONE).extend(1.0)),
-            "standardSurface" | "aiStandardSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" => {
+            "standardSurface" | "aiStandardSurface" | "openPBRSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" => {
                 // A material read as a colour: its main colour.
-                let a = if ty == "aiStandardSurface" { "base_color" } else if ty == "standardSurface" { "baseColor" } else { "color" };
+                let a = if ty == "aiStandardSurface" { "base_color" } else if ty == "standardSurface" || ty == "openPBRSurface" { "baseColor" } else { "color" };
                 let i = self.input(id, a);
                 self.net.nodes[slot as usize] = Node::Utility { mode: 0, color: i };
                 return Some(slot);
@@ -570,7 +570,7 @@ impl NetBuilder<'_> {
 fn is_shading(ty: &str) -> bool {
     matches!(
         ty,
-        "file" | "psdFileTex" | "aiImage" | "place2dTexture" | "checker" | "ramp" | "noise" | "layeredTexture" | "multiplyDivide" | "plusMinusAverage" | "blendColors" | "remapValue" | "reverse" | "clamp" | "luminance" | "gammaCorrect" | "setRange" | "condition" | "contrast" | "hsvToRgb" | "rgbToHsv" | "samplerInfo" | "aiAmbientOcclusion" | "aiCurvature" | "aiUtility" | "aiFlat" | "surfaceShader" | "standardSurface" | "aiStandardSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" | "projection" | "fractal" | "cloth" | "grid" | "bulge" | "stucco" | "leather" | "marble" | "wood" | "granite" | "rock" | "crater" | "solidFractal" | "volumeNoise" | "mountain" | "water" | "envSphere" | "envBall" | "brownian" | "cloud" | "snow"
+        "file" | "psdFileTex" | "aiImage" | "place2dTexture" | "checker" | "ramp" | "noise" | "layeredTexture" | "multiplyDivide" | "plusMinusAverage" | "blendColors" | "remapValue" | "reverse" | "clamp" | "luminance" | "gammaCorrect" | "setRange" | "condition" | "contrast" | "hsvToRgb" | "rgbToHsv" | "samplerInfo" | "aiAmbientOcclusion" | "aiCurvature" | "aiUtility" | "aiFlat" | "surfaceShader" | "standardSurface" | "aiStandardSurface" | "openPBRSurface" | "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" | "projection" | "fractal" | "cloth" | "grid" | "bulge" | "stucco" | "leather" | "marble" | "wood" | "granite" | "rock" | "crater" | "solidFractal" | "volumeNoise" | "mountain" | "water" | "envSphere" | "envBall" | "brownian" | "cloud" | "snow"
     )
 }
 

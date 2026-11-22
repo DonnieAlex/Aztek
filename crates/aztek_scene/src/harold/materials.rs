@@ -214,10 +214,53 @@ impl MatBuilder<'_, '_> {
         crate::shading::is_material_type(&t).then(|| self.material(src.node))
     }
 
+    /// OpenPBR's layers as the standard surface Harold renders: the base, specular, coat, fuzz as sheen, transmission,
+    /// subsurface, thin film, emission and opacity. Coat darkening and the OpenPBR-only dispersion controls have no
+    /// standard-surface counterpart and are left out.
+    fn openpbr(&mut self, id: NodeId) -> Standard {
+        let i = |me: &mut Self, a: &str| me.nb.input(id, a);
+        let mut s = Standard::default();
+        s.base = i(self, "baseWeight");
+        s.base_color = i(self, "baseColor");
+        s.diffuse_roughness = i(self, "baseDiffuseRoughness");
+        s.metalness = i(self, "baseMetalness");
+        s.specular = i(self, "specularWeight");
+        s.specular_color = i(self, "specularColor");
+        s.specular_roughness = i(self, "specularRoughness");
+        s.specular_ior = i(self, "specularIOR");
+        s.specular_anisotropy = i(self, "specularRoughnessAnisotropy");
+        s.transmission = i(self, "transmissionWeight");
+        s.transmission_color = i(self, "transmissionColor");
+        s.transmission_depth = i(self, "transmissionDepth");
+        s.transmission_scatter = i(self, "transmissionScatter");
+        s.transmission_scatter_anisotropy = i(self, "transmissionScatterAnisotropy");
+        s.subsurface = i(self, "subsurfaceWeight");
+        s.subsurface_color = i(self, "subsurfaceColor");
+        s.subsurface_radius = i(self, "subsurfaceRadiusScale");
+        s.subsurface_anisotropy = i(self, "subsurfaceScatterAnisotropy");
+        s.sheen = i(self, "fuzzWeight");
+        s.sheen_color = i(self, "fuzzColor");
+        s.sheen_roughness = i(self, "fuzzRoughness");
+        s.coat = i(self, "coatWeight");
+        s.coat_color = i(self, "coatColor");
+        s.coat_roughness = i(self, "coatRoughness");
+        s.coat_ior = i(self, "coatIOR");
+        s.coat_anisotropy = i(self, "coatRoughnessAnisotropy");
+        s.emission = i(self, "emissionLuminance");
+        s.emission_color = i(self, "emissionColor");
+        s.opacity = i(self, "geometryOpacity");
+        s.thin_walled = get_b(self.nb.g, id, "geometryThinWalled", false);
+        let film = get_f(self.nb.g, id, "thinFilmWeight", 0.0);
+        s.thin_film_thickness = if film > 0.0 { i(self, "thinFilmThickness") } else { Input::c(0.0) };
+        s.thin_film_ior = i(self, "thinFilmIOR");
+        s
+    }
+
     fn translate(&mut self, id: NodeId, ty: &str, name: &str) -> Material {
         match ty {
             "standardSurface" => Material::Standard(Box::new(self.standard(id, false))),
             "aiStandardSurface" => Material::Standard(Box::new(self.standard(id, true))),
+            "openPBRSurface" => Material::Standard(Box::new(self.openpbr(id))),
             "lambert" | "blinn" | "phong" | "phongE" | "anisotropic" | "rampShader" => self.legacy(id, ty, name),
             "surfaceShader" => {
                 let c = self.nb.input(id, "outColor");
