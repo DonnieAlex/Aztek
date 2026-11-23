@@ -1,4 +1,5 @@
 #include "panels.h"
+#include "aztek.h"
 #include "colorchooser.h"
 #include <QStyle>
 #include <QMouseEvent>
@@ -490,6 +491,51 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
         edit->setProperty("editing", false);
         commit_channels(label, plug, edit->text());
     });
+    const QString type = ch["type"].toString();
+    QJsonArray choices = type == "bool" ? QJsonArray{"off", "on"} : ch["enum"].toArray();
+    // Sparse enum values are stored as label=value. Keep their existing numeric editor until those values are supported.
+    for (int i = 0; i < choices.size(); ++i)
+        if (choices.at(i).toString().contains('=')) {
+            choices = QJsonArray{};
+            break;
+        }
+    if (!choices.isEmpty()) {
+        auto* drop = edit->addAction(edit->style()->standardIcon(QStyle::SP_ArrowDown), QLineEdit::TrailingPosition);
+        drop->setText("Choose value");
+        drop->setToolTip("Choose value (Alt+Down)");
+        drop->setShortcut(QKeySequence("Alt+Down"));
+        drop->setShortcutContext(Qt::WidgetShortcut);
+        drop->setEnabled(st != "locked" && st != "connected");
+        auto* menu = new QMenu(edit);
+        for (int i = 0; i < choices.size(); ++i) {
+            const QString text = choices[i].toString();
+            if (text.isEmpty()) continue;
+            QAction* action = menu->addAction(text);
+            action->setCheckable(true);
+            action->setData(i);
+            QObject::connect(action, &QAction::triggered, edit, [edit, plug, i, type, ch] {
+                if (edit->property("choiceVersion").toULongLong() != aztek_version()) return;
+                edit->setProperty("editing", false);
+                QPointer<QLineEdit> current(edit);
+                set_attr(plug, type == "bool" ? QJsonValue(i != 0) : QJsonValue(i), type);
+                if (!current) return;
+                QJsonObject updated = ch;
+                updated["value"] = ask("getAttr", args(QJsonArray{plug}));
+                current->setText(value_text(updated));
+            });
+        }
+        const auto row_version = aztek_version();
+        QObject::connect(drop, &QAction::triggered, edit, [edit, label, menu, plug, type, row_version] {
+            if (aztek_version() != row_version) return;
+            pick_channel(label->property("attr").toString(), Qt::NoModifier, true);
+            restyle_channel_labels();
+            QJsonValue value = ask("getAttr", args(QJsonArray{plug}));
+            int current = type == "bool" ? int(value.toBool()) : value.toInt(-1);
+            for (auto* action : menu->actions()) action->setChecked(action->data().toInt() == current);
+            edit->setProperty("choiceVersion", QVariant::fromValue(qulonglong(aztek_version())));
+            menu->popup(edit->mapToGlobal(QPoint(0, edit->height())));
+        });
+    }
     h->addWidget(label);
     h->addWidget(edit, 1);
     return row;
