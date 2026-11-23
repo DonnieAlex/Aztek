@@ -18499,41 +18499,41 @@ lsThroughFilter	selection	done	auto
 lsThroughFilter	sl	done	auto
 lsThroughFilter	so	done	auto
 lsThroughFilter	sort	done	auto
-lsUI	cl	missing	
-lsUI	cmdTemplates	missing	
-lsUI	col	missing	
-lsUI	collection	missing	
-lsUI	contexts	missing	
-lsUI	controlLayouts	missing	
-lsUI	controls	missing	
-lsUI	ct	missing	
-lsUI	ctl	missing	
-lsUI	ctx	missing	
-lsUI	dumpWidgets	missing	
-lsUI	dw	missing	
-lsUI	ed	missing	
-lsUI	editors	missing	
-lsUI	hd	missing	
-lsUI	head	missing	
-lsUI	l	missing	
-lsUI	long	missing	
-lsUI	m	missing	
-lsUI	menuItems	missing	
-lsUI	menus	missing	
-lsUI	mi	missing	
+lsUI	cl	done	auto
+lsUI	cmdTemplates	done	auto
+lsUI	col	done	auto
+lsUI	collection	done	auto
+lsUI	contexts	done	auto
+lsUI	controlLayouts	done	auto
+lsUI	controls	done	auto
+lsUI	ct	done	auto
+lsUI	ctl	done	auto
+lsUI	ctx	done	auto
+lsUI	dumpWidgets	done	auto
+lsUI	dw	done	auto
+lsUI	ed	done	auto
+lsUI	editors	done	auto
+lsUI	hd	done	auto
+lsUI	head	done	auto
+lsUI	l	done	auto
+lsUI	long	done	auto
+lsUI	m	done	auto
+lsUI	menuItems	done	auto
+lsUI	menus	done	auto
+lsUI	mi	done	auto
 lsUI	numWidgets	missing	
-lsUI	nw	missing	
-lsUI	p	missing	
-lsUI	panels	missing	
+lsUI	nw	done	auto
+lsUI	p	done	auto
+lsUI	panels	done	auto
 lsUI	radioMenuItemCollections	missing	
 lsUI	rmc	missing	
-lsUI	tail	missing	
-lsUI	tl	missing	
-lsUI	typ	missing	
-lsUI	type	missing	
+lsUI	tail	done	auto
+lsUI	tl	done	auto
+lsUI	typ	done	auto
+lsUI	type	done	auto
 lsUI	wc	missing	
-lsUI	windows	missing	
-lsUI	wnd	missing	
+lsUI	windows	done	auto
+lsUI	wnd	done	auto
 lsUI	workspaceControls	missing	
 makeIdentity	a	done	auto
 makeIdentity	apply	done	auto
