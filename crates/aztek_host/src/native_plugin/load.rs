@@ -22,20 +22,7 @@ pub(super) fn search_path() -> Vec<PathBuf> {
             out.extend(std::env::split_paths(&v).filter(|p| !p.as_os_str().is_empty()));
         }
     }
-    // Last, the plug-ins that ship with Aztek: one of the same name on the path comes first.
-    for d in shipped_dirs() {
-        if !out.contains(&d) {
-            out.push(d);
-        }
-    }
     out
-}
-
-/// Where the plug-ins built with Aztek are (plugins/ in the source): plug-ins/ beside the program (a build, Windows),
-/// lib/aztek/plug-ins beside its bin/ (Linux installs, the AppImage), PlugIns/aztek in the Mac app. Those that exist.
-pub fn shipped_dirs() -> Vec<PathBuf> {
-    let Some(bin) = std::env::current_exe().ok().and_then(|e| e.canonicalize().ok()).and_then(|e| e.parent().map(Path::to_path_buf)) else { return Vec::new() };
-    [bin.join("plug-ins"), bin.join("../lib/aztek/plug-ins"), bin.join("../PlugIns/aztek")].into_iter().filter(|d| d.is_dir()).filter_map(|d| d.canonicalize().ok()).collect()
 }
 
 fn is_native(p: &Path) -> bool {
@@ -202,8 +189,8 @@ pub(super) fn list_plugins(s: &mut Session) -> Value {
 }
 
 /// One row a plug-in name: the copy that is loaded, else the one `loadPlugin` takes by name (the first on the path
-/// Aztek can load), else the first. A plug-in in two folders of the path (mGear's shipped with Aztek and in an mGear
-/// module, say) is listed once.
+/// Aztek can load), else the first. A plug-in in two folders of the path (an mGear module's and an older copy
+/// elsewhere, say) is listed once.
 fn one_per_name(rows: Vec<Value>) -> Vec<Value> {
     let name = |r: &Value| r["name"].as_str().unwrap_or("").to_string();
     let rank = |r: &Value| {
@@ -260,7 +247,7 @@ pub(crate) fn find_native(name: &str) -> Option<PathBuf> {
         return None;
     }
     // The first one built with Aztek's kit: one built for the reference earlier on the path (an mGear install's own
-    // binaries, say) can't load, and the one Aztek ships with may come after it.
+    // binaries, say) can't load, and one built with the kit may come after it.
     let mut first = None;
     for dir in search_path() {
         let mut candidates = Vec::new();

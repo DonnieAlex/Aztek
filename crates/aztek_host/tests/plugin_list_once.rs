@@ -1,4 +1,4 @@
-//! A plug-in in two folders of the plug-in path (mGear's shipped with Aztek and in an mGear module) is listed once in
+//! A plug-in in two folders of the plug-in path (an mGear module's and another copy on the path) is listed once in
 //! the Plug-in Manager: the copy loadPlugin takes by name.
 
 use aztek_host::Core;

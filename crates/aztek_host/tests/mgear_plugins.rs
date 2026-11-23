@@ -1,5 +1,6 @@
-//! The plug-ins that ship with Aztek (plugins/), built with CMake against devkit/ as the program's build builds them,
-//! and loaded by name as a scene that requires them loads them. Without CMake and a C++ compiler it says so and passes.
+//! mGear's compiled plug-ins (tests/mgear_plugins/, which Aztek does not ship), built with CMake against devkit/ and put
+//! on the plug-in path, then loaded by name as a scene that requires them loads them: Aztek runs mGear's nodes as an
+//! mGear install built from the fork brings them. Without CMake and a C++ compiler it says so and passes.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -18,14 +19,14 @@ fn build() -> Option<PathBuf> {
 }
 
 fn build_now() -> Option<PathBuf> {
-    let out = root().join("target").join("shipped-plugins");
-    let configure = Command::new("cmake").arg("-S").arg(root().join("plugins")).arg("-B").arg(&out).arg("-DCMAKE_BUILD_TYPE=Release").output().ok()?;
+    let out = root().join("target").join("mgear-plugins");
+    let configure = Command::new("cmake").arg("-S").arg(root().join("crates/aztek_host/tests/mgear_plugins")).arg("-B").arg(&out).arg("-DCMAKE_BUILD_TYPE=Release").output().ok()?;
     if !configure.status.success() {
         eprintln!("cmake configure failed:\n{}", String::from_utf8_lossy(&configure.stderr));
         return None;
     }
     let built = Command::new("cmake").arg("--build").arg(&out).arg("--config").arg("Release").output().expect("cmake --build");
-    assert!(built.status.success(), "the shipped plug-ins don't build:\n{}{}", String::from_utf8_lossy(&built.stdout), String::from_utf8_lossy(&built.stderr));
+    assert!(built.status.success(), "the mGear plug-ins don't build:\n{}{}", String::from_utf8_lossy(&built.stdout), String::from_utf8_lossy(&built.stderr));
     Some(out.join("plug-ins"))
 }
 
@@ -45,9 +46,9 @@ fn near(a: &[f64], b: &[f64], tol: f64) -> bool {
 }
 
 #[test]
-fn mgear_solvers_ship_and_work() {
+fn mgear_solvers_load_and_work() {
     let Some(dir) = build() else {
-        eprintln!("no CMake or C++ compiler: the shipped plug-ins not tested");
+        eprintln!("no CMake or C++ compiler: the mGear plug-ins not tested");
         return;
     };
     std::env::set_var("AZTEK_PLUG_IN_PATH", &dir);
@@ -98,9 +99,9 @@ fn save_and_open(c: &mut Core, name: &str) {
 }
 
 #[test]
-fn mgear_weight_driver_ships_and_works() {
+fn mgear_weight_driver_loads_and_works() {
     let Some(dir) = build() else {
-        eprintln!("no CMake or C++ compiler: the shipped plug-ins not tested");
+        eprintln!("no CMake or C++ compiler: the mGear plug-ins not tested");
         return;
     };
     std::env::set_var("AZTEK_PLUG_IN_PATH", &dir);
@@ -162,9 +163,9 @@ fn mgear_weight_driver_ships_and_works() {
 }
 
 #[test]
-fn cvwrap_ships_and_works() {
+fn cvwrap_loads_and_works() {
     let Some(dir) = build() else {
-        eprintln!("no CMake or C++ compiler: the shipped plug-ins not tested");
+        eprintln!("no CMake or C++ compiler: the mGear plug-ins not tested");
         return;
     };
     std::env::set_var("AZTEK_PLUG_IN_PATH", &dir);
