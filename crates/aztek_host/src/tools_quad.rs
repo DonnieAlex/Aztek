@@ -656,18 +656,21 @@ impl View {
         out
     }
 
-    /// Slice Along Plane: each selected mesh cut through its middle across X (YZ), Y (ZX) or Z (XY), in world space.
+    /// Slice Along Plane: each Multi-Cut target cut through its middle across X (YZ), Y (ZX) or Z (XY), in world space.
     pub(crate) fn slice_along(&mut self, core: &mut Core, plane: &str) {
         let n = match plane {
             "yz" => DVec3::X,
             "zx" => DVec3::Y,
             _ => DVec3::Z,
         };
+        let targets = crate::tools::multi_cut_targets(core).to_vec();
         let g = &mut core.s.graph;
         g.evaluate();
         let mut shapes = Vec::new();
-        for id in g.selection().to_vec() {
-            let Some(shape) = components::as_mesh(g, id) else { continue };
+        for shape in targets {
+            if core.s.live_surface.contains(&shape) {
+                continue;
+            }
             let Some(m) = mesh_of(g, shape) else { continue };
             let xf = aztek_scene::dag::transform_of(g, shape);
             let world = aztek_scene::rig::world(g, xf);

@@ -65,6 +65,8 @@ pub struct Core {
     in_idle: bool,
     /// The Show Manipulator tool's node and drag.
     pub node_manip: crate::node_manip::State,
+    /// Multi-Cut targets shared by all panels, scoped to the scene they were picked in.
+    pub(crate) multi_cut: Option<(u64, Vec<aztek_scene::plug::NodeId>)>,
     /// The up axis and units as last seen, to tell when a command changed them.
     settings: Settings,
     /// The optionVars as last saved.
@@ -93,7 +95,7 @@ impl Settings {
 
 impl Core {
     pub fn new() -> Core {
-        let mut c = Core { s: Session::new(), log: Vec::new(), log_read: 0, version: 1, preview: Vec::new(), mel_state: Default::default(), in_idle: false, node_manip: Default::default(), settings: Settings::now(), saved_vars: Default::default() };
+        let mut c = Core { s: Session::new(), log: Vec::new(), log_read: 0, version: 1, preview: Vec::new(), mel_state: Default::default(), in_idle: false, node_manip: Default::default(), multi_cut: None, settings: Settings::now(), saved_vars: Default::default() };
         register_ui_commands(&mut c.s);
         aztek_scene::scripted::set_post_create_hook(crate::native_plugin::run_post_create);
         crate::ui_cmds::register(&mut c.s);
@@ -133,7 +135,7 @@ impl Core {
 
     /// A core around a session moved here while Python is called back from inside a command: no UI commands of its own.
     pub(crate) fn nested(s: Session) -> Core {
-        Core { s, log: Vec::new(), log_read: 0, version: 1, preview: Vec::new(), mel_state: Default::default(), in_idle: false, node_manip: Default::default(), settings: Settings::now(), saved_vars: Default::default() }
+        Core { s, log: Vec::new(), log_read: 0, version: 1, preview: Vec::new(), mel_state: Default::default(), in_idle: false, node_manip: Default::default(), multi_cut: None, settings: Settings::now(), saved_vars: Default::default() }
     }
 
     /// A new scene has the default cameras and sets, as the reference's does. Cheap when they're there.
