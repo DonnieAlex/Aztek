@@ -3423,14 +3423,24 @@ impl Viewport {
             }
         };
         let shade = |c: [u8; 4], k: f32| [(c[0] as f32 * k).min(255.0) as u8, (c[1] as f32 * k).min(255.0) as u8, (c[2] as f32 * k).min(255.0) as u8, c[3]];
+        let camera_dir = self.cam.dir_to_eye().as_vec3();
+        let eye = self.cam.eye().as_vec3();
+        let ortho = self.cam.ortho();
+        // Solid handles draw over the scene, so hide their back faces here instead of using scene depth.
+        let faces_eye = |a: Vec3, b: Vec3, c: Vec3| {
+            let to_eye = if ortho { camera_dir } else { eye - a };
+            (b - a).cross(c - a).dot(to_eye) > 0.0
+        };
         let cube = |at: Vec3, x: Vec3, y: Vec3, z: Vec3, col: [u8; 4], tri: &mut dyn FnMut(Vec3, Vec3, Vec3, [u8; 4])| {
             // Each face a little lighter or darker, so the box reads as one.
             for (n, u, w, k) in [(x, y, z, 1.0), (-x, z, y, 0.8), (y, z, x, 1.15), (-y, x, z, 0.65), (z, x, y, 0.9), (-z, y, x, 0.75)] {
                 let c = at + n;
                 let q = [c + u + w, c - u + w, c - u - w, c + u - w];
-                let col = shade(col, k);
-                tri(q[0], q[1], q[2], col);
-                tri(q[0], q[2], q[3], col);
+                if faces_eye(q[0], q[1], q[2]) {
+                    let col = shade(col, k);
+                    tri(q[0], q[1], q[2], col);
+                    tri(q[0], q[2], q[3], col);
+                }
             }
         };
         let mut line = |a: Vec3, b: Vec3, c: [u8; 4]| {
@@ -3502,8 +3512,12 @@ impl Viewport {
                         for j in 0..n {
                             let (a0, a1) = (j as f32 / n as f32 * std::f32::consts::TAU, (j + 1) as f32 / n as f32 * std::f32::consts::TAU);
                             let (e0, e1) = (base + (u * a0.cos() + w * a0.sin()) * k, base + (u * a1.cos() + w * a1.sin()) * k);
-                            tri(tip, e0, e1, shade(c, 0.75 + 0.35 * a0.cos().abs()));
-                            tri(base, e1, e0, shade(c, 0.6));
+                            if faces_eye(tip, e0, e1) {
+                                tri(tip, e0, e1, shade(c, 0.75 + 0.35 * a0.cos().abs()));
+                            }
+                            if faces_eye(base, e1, e0) {
+                                tri(base, e1, e0, shade(c, 0.6));
+                            }
                         }
                     }
                 }
