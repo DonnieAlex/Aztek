@@ -205,7 +205,7 @@ impl View {
                 let points = std::mem::take(&mut self.ts.cut_points);
                 self.ts.cut_world.clear();
                 if let (Some(mesh), false) = (self.ts.cut_mesh.take(), points.is_empty()) {
-                    if self.ts.cut_scene != core.s.graph.serial() || !multi_cut_targets(core).contains(&mesh) || !items.iter().any(|it| it.shape == mesh) {
+                    if self.ts.cut_scene != core.s.graph.scene_serial() || !multi_cut_targets(core).contains(&mesh) || !items.iter().any(|it| it.shape == mesh) {
                         self.tool_preview_clear();
                         return;
                     }
@@ -298,7 +298,7 @@ impl View {
     }
 
     pub(crate) fn sync_multi_cut_scene(&mut self, core: &Core) {
-        let scene = core.s.graph.serial();
+        let scene = core.s.graph.scene_serial();
         if self.ts.cut_scene != scene {
             self.ts.cut_scene = scene;
             self.ts.cut_mesh = None;
@@ -321,7 +321,7 @@ impl View {
                         return true;
                     }
                     let name = core.s.graph.path(it.xf);
-                    if core.exec("select", json!({"args": [name]})).is_ok() && core.s.graph.serial() == scene {
+                    if core.exec("select", json!({"args": [name]})).is_ok() && core.s.graph.scene_serial() == scene {
                         aztek_scene::components::set_mode_exact(&mut core.s.graph, aztek_scene::components::ComponentMode::Edge);
                         core.multi_cut = Some((scene, vec![it.shape]));
                     }
@@ -1069,8 +1069,27 @@ impl View {
 }
 
 pub(crate) fn multi_cut_targets(core: &Core) -> &[NodeId] {
-    core.multi_cut.as_ref().filter(|(scene, _)| *scene == core.s.graph.serial())
+    core.multi_cut.as_ref().filter(|(scene, _)| *scene == core.s.graph.scene_serial())
         .map_or(&[], |(_, targets)| targets.as_slice())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multi_cut_forgets_targets_when_the_scene_is_cleared() {
+        let mut core = Core::new();
+        core.mel_checked("polyCube -n original; select original;").unwrap();
+        let targets = components::hilited_meshes(&core.s.graph);
+        assert_eq!(targets.len(), 1);
+        core.multi_cut = Some((core.s.graph.scene_serial(), targets));
+
+        core.mel_checked("polyCube -n another;").unwrap();
+        assert_eq!(multi_cut_targets(&core).len(), 1);
+        core.mel_checked("newScene; polyCube -n original;").unwrap();
+        assert!(multi_cut_targets(&core).is_empty());
+    }
 }
 
 /// The call that appends a face onto the picked border edges, ordered so the face is simple.

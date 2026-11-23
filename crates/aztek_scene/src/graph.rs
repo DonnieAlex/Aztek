@@ -885,6 +885,8 @@ impl Default for MoveOptions {
 pub struct Graph {
     /// Tells this graph's message notes from another's (see messages.rs).
     serial: u64,
+    /// Identifies the current scene across clears of the same graph.
+    scene_serial: u64,
     /// While a file is read: evaluating as each node arrives costs a pass per constraint and nothing reads the results.
     pub(crate) evaluation_suspended: bool,
     /// The evaluation pass rig nodes were last brought in step with the scene at (see rig.rs).
@@ -1025,8 +1027,10 @@ type IdMap<V> = HashMap<NodeId, V, std::hash::BuildHasherDefault<IdHasher>>;
 
 impl Graph {
     pub fn new() -> Self {
+        let serial = next_structure();
         Self {
-            serial: next_structure(),
+            serial,
+            scene_serial: serial,
             rig_synced_pass: u64::MAX,
             evaluation_suspended: false,
             nodes: Default::default(),
@@ -1261,6 +1265,7 @@ impl Graph {
             }
         }
         self.restructured();
+        self.scene_serial = self.structure;
         self.default_lines.clear();
         self.nodes.clear();
         self.names.clear();
@@ -4127,6 +4132,10 @@ impl Graph {
 
     pub fn serial(&self) -> u64 {
         self.serial
+    }
+
+    pub fn scene_serial(&self) -> u64 {
+        self.scene_serial
     }
 
     #[inline]

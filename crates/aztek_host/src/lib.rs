@@ -461,7 +461,7 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
                         aztek_scene::components::set_mode_exact(g, aztek_scene::components::ComponentMode::Edge);
                         c.version += 1;
                     }
-                    (g.serial(), targets)
+                    (g.scene_serial(), targets)
                 });
                 Value::Null
             }
