@@ -159,7 +159,7 @@ impl Tracer<'_> {
                 sum += v;
                 groups[0] += v;
             }
-            let mask = self.allowed_mask(&depth, caustics);
+            let mask = self.allowed_mask(&depth, caustics, bsdf.hair_extra);
             let mut bsdf = bsdf;
             let counts = [1.0f32; 6];
             // Lit by every lobe, whatever depth is left; after a diffuse bounce specular light makes caustics, off
@@ -182,10 +182,10 @@ impl Tracer<'_> {
                 break;
             }
             let Some(smp) = bsdf.sample(wo, mask & bsdf.mask(), sampler.next_1d(), sampler.next_2d()) else { break };
-            if !self.depth_allows(&depth, smp.cat) {
+            if !self.depth_allows_bsdf(&depth, smp.cat, bsdf.hair_extra) {
                 break;
             }
-            mask_vis = Self::bump(&mut depth, smp.cat);
+            mask_vis = self.bump_bsdf(&mut depth, smp.cat, bsdf.hair_extra);
             throughput *= smp.weight;
             if smp.cat == Category::Sss {
                 let Some((exit, w, _)) = self.sss_walk(&sp, &params, smp.wi, ray.time, sampler) else { break };

@@ -32,6 +32,8 @@ pub struct Depth {
     pub transparency: u32,
     /// A diffuse bounce happened: caustics are cut after it unless a material asks for them.
     pub after_diffuse: bool,
+    /// Bounces through hair taken past the specular depth, against the hair's extra_depth.
+    pub hair: u32,
 }
 
 /// What the previous vertex knew, for weighting light found by its sample.
@@ -363,7 +365,7 @@ impl<'a> Tracer<'a> {
             let (hp, emission) = shade::hair_params(self.s, hi, &ctx);
             let mut p = shade::params(self.s, s, &ctx, ao);
             p.base_color = hp.base_color;
-            let b = Bsdf::hair(&hp, sp.n, sp.dpdu, sp.ng, sp.curve_h.unwrap_or(0.0), emission);
+            let b = Bsdf::hair(&hp, sp.n, sp.dpdu, sp.ng, sp.curve_h.unwrap_or(0.0), emission, hi.extra_depth);
             return Some((b, p));
         }
         let mut p = shade::params(self.s, s, &ctx, ao);
@@ -402,6 +404,25 @@ impl<'a> Tracer<'a> {
         }
     }
 
+    /// As depth_allows, for a bsdf that may be hair: its specular bounces go on past the specular depth for up to
+    /// `hair_extra` more, as Arnold's standard_hair extra_depth.
+    pub fn depth_allows_bsdf(&self, d: &Depth, cat: Category, hair_extra: u32) -> bool {
+        if self.depth_allows(d, cat) {
+            return true;
+        }
+        cat == Category::Specular && hair_extra > 0 && d.hair < hair_extra && d.total < self.s.options.total_depth
+    }
+
+    /// As bump, counting a hair bounce past the specular depth against the hair's own allowance.
+    pub fn bump_bsdf(&self, d: &mut Depth, cat: Category, hair_extra: u32) -> u8 {
+        if cat == Category::Specular && hair_extra > 0 && d.specular >= self.s.options.specular_depth {
+            d.total += 1;
+            d.hair += 1;
+            return vis::SPECULAR_REFLECT;
+        }
+        Self::bump(d, cat)
+    }
+
     pub fn bump(d: &mut Depth, cat: Category) -> u8 {
         d.total += 1;
         match cat {
@@ -422,10 +443,10 @@ impl<'a> Tracer<'a> {
     }
 
     /// Mask of lobe categories a path may still take.
-    pub fn allowed_mask(&self, d: &Depth, caustics: bool) -> u8 {
+    pub fn allowed_mask(&self, d: &Depth, caustics: bool, hair_extra: u32) -> u8 {
         let mut m = 0;
         for c in crate::bsdf::CATEGORIES {
-            if self.depth_allows(d, c) {
+            if self.depth_allows_bsdf(d, c, hair_extra) {
                 m |= c.bit();
             }
         }

@@ -283,6 +283,7 @@ impl MatBuilder<'_, '_> {
                     transmission_tint: i(self, "transmissionTint"),
                     emission: i(self, "emission"),
                     emission_color: i(self, "emissionColor"),
+                    extra_depth: get_f(self.nb.g, id, "extraDepth", 16.0).max(0.0) as u32,
                 };
                 let opacity = i(self, "opacity");
                 Material::Standard(Box::new(Standard { hair: Some(hair), opacity, ..Default::default() }))

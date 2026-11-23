@@ -326,6 +326,8 @@ pub struct Bsdf {
     pub thin_walled: bool,
     /// For the albedo AOV.
     pub albedo: Vec3,
+    /// Hair's bounces allowed past the specular depth (aiStandardHair's extra_depth); 0 for everything else.
+    pub hair_extra: u32,
 }
 
 const MIN_ALPHA: f32 = 1e-4;
@@ -358,7 +360,7 @@ impl Bsdf {
             frame = Frame::from_nt(n, frame.t * c + frame.b * s);
         }
         let coat_frame = Frame::from_nt(p.coat_n, p.tangent);
-        let mut b = Bsdf { frame, coat_frame, ng, lobes: [None; 8], count: 0, emission: Vec3::ZERO, entering, thin_walled: p.thin_walled, albedo: Vec3::ZERO };
+        let mut b = Bsdf { frame, coat_frame, ng, lobes: [None; 8], count: 0, emission: Vec3::ZERO, entering, thin_walled: p.thin_walled, albedo: Vec3::ZERO, hair_extra: 0 };
         let mu = wo.dot(n).abs().max(1e-4);
         let mu_c = wo.dot(p.coat_n).abs().max(1e-4);
 
@@ -442,16 +444,16 @@ impl Bsdf {
     }
 
     /// A hair fibre at a point: `t` runs along it, `n` faces the ray, `h` is the offset across it.
-    pub fn hair(hp: &crate::hair::HairParams, n: Vec3, t: Vec3, ng: Vec3, h: f32, emission: Vec3) -> Bsdf {
+    pub fn hair(hp: &crate::hair::HairParams, n: Vec3, t: Vec3, ng: Vec3, h: f32, emission: Vec3, extra_depth: u32) -> Bsdf {
         let frame = Frame::from_nt(n, t);
-        let mut b = Bsdf { frame, coat_frame: frame, ng, lobes: [None; 8], count: 0, emission, entering: true, thin_walled: true, albedo: hp.base_color };
+        let mut b = Bsdf { frame, coat_frame: frame, ng, lobes: [None; 8], count: 0, emission, entering: true, thin_walled: true, albedo: hp.base_color, hair_extra: extra_depth };
         b.push(Lobe { kind: LobeKind::Hair(crate::hair::HairLobe::new(hp, h)), weight: Vec3::ONE, pick: 1.0, cat: Category::Specular, coat_frame: false });
         b
     }
 
     /// A plain lambert: for tests and simple cases.
     pub fn lambert(color: Vec3, n: Vec3, ng: Vec3) -> Bsdf {
-        let mut b = Bsdf { frame: Frame::from_n(n), coat_frame: Frame::from_n(n), ng, lobes: [None; 8], count: 0, emission: Vec3::ZERO, entering: true, thin_walled: false, albedo: color };
+        let mut b = Bsdf { frame: Frame::from_n(n), coat_frame: Frame::from_n(n), ng, lobes: [None; 8], count: 0, emission: Vec3::ZERO, entering: true, thin_walled: false, albedo: color, hair_extra: 0 };
         b.push(Lobe { kind: LobeKind::Diffuse { color, sigma: 0.0 }, weight: Vec3::ONE, pick: 1.0, cat: Category::Diffuse, coat_frame: false });
         b
     }

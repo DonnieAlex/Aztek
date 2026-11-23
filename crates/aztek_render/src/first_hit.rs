@@ -269,7 +269,7 @@ impl Tracer<'_> {
                 let mut sub = sampler.split(k, n, ci as u32 + 1);
                 let Some(smp) = bsdf.sample(wo, c.bit(), sub.next_1d(), sub.next_2d()) else { continue };
                 let mut depth = Depth::default();
-                if !self.depth_allows(&depth, c) {
+                if !self.depth_allows_bsdf(&depth, c, bsdf.hair_extra) {
                     // Depth 0 for this type: direct light only, as Arnold does with a depth of 0.
                     if c != Category::Sss {
                         let mut g2 = [Vec3::ZERO; MAX_GROUPS];
@@ -285,7 +285,7 @@ impl Tracer<'_> {
                     }
                     continue;
                 }
-                let mask_vis = Self::bump(&mut depth, c);
+                let mask_vis = self.bump_bsdf(&mut depth, c, bsdf.hair_extra);
                 let mut w = throughput * smp.weight * inv;
                 let mut g2 = [Vec3::ZERO; MAX_GROUPS];
                 let (ray, prev, medium) = if c == Category::Sss {

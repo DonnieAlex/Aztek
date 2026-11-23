@@ -741,6 +741,13 @@ pub struct HairInputs {
     pub transmission_tint: Input,
     pub emission: Input,
     pub emission_color: Input,
+    /// Arnold's extra_depth: bounces through hair allowed past the specular depth, so light hair keeps its brightness.
+    #[serde(default = "default_extra_depth")]
+    pub extra_depth: u32,
+}
+
+fn default_extra_depth() -> u32 {
+    16
 }
 
 impl Default for HairInputs {
@@ -761,6 +768,7 @@ impl Default for HairInputs {
             transmission_tint: c(1.0),
             emission: c(0.0),
             emission_color: c(1.0),
+            extra_depth: default_extra_depth(),
         }
     }
 }
