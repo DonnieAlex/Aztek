@@ -17,11 +17,12 @@
 
 namespace az {
 
-void ask_user_folder_at_first_start(QWidget* parent) {
+void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     const QJsonObject uf = ask("aztekUserFolder", QJsonObject{{"query", true}}).toObject();
     const QString maya = uf["detected"].toString();
     // Asked on the first start, and again whenever the folder in use is gone: Aztek's own deleted, a linked one moved.
     if (!uf["needsChoice"].toBool()) return;
+    if (splash) splash->hide();
     const QString own = uf["ownFolder"].toString();
     const bool own_exists = uf["ownExists"].toBool();
     auto shown = [](const QString& p) { return QDir::toNativeSeparators(p); };
