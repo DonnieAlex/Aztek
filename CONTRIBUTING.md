@@ -25,7 +25,8 @@ author prefers. If you can't tell what the reference does, say so on the issue r
    and to search for. That is not a request for permission; it saves two people fixing the same thing, and the plan
    lets anyone who knows the area say early if it is the wrong one. If you stop, comment `Unclaimed:` and why.
 3. Open a draft pull request with `Fixes #N` as soon as you have a first commit, and push to it as you go. The draft
-   shows the work in the pull request list, where people look before starting.
+   shows the work in the pull request list, where people look before starting. You, the author, mark it ready for
+   review (below) when it is done; nobody else does.
 4. A claim lapses after 3 days with nothing from its claimant: no comment, push or pull request update. Anyone may
    then take the issue over with their own claim, `Claimed: taking over from @name, <plan>`, starting from the draft's last commit if
    there is one, on their own branch. Don't push to someone else's branch unless they ask.
@@ -129,11 +130,19 @@ merging its files by hand.
 
 ## After you send it
 
-- **CI.** The Build workflow runs on every pull request: a quick compile of the plug-in kit and the C++ shell, then
-  `cargo test --workspace`, the full build and the batch tests on Linux, Rocky Linux, ARM, Windows and macOS. A first pull
-  request from a new contributor waits for a maintainer to approve the run; that is GitHub's rule, not a judgement.
-  Look at the run's log yourself if something fails and push a fix to the same branch; there is no separate command
-  to watch it.
+- **CI.** The Build workflow runs by itself on every push to a pull request: a quick compile of the plug-in kit and
+  the C++ shell, then `cargo test --workspace`, the full build and the batch tests on Linux, Rocky Linux, ARM, Windows
+  and macOS. Until you have had a pull request merged here, GitHub holds each run from your fork until a maintainer
+  presses Approve and run; that is GitHub's rule for first-time contributors, not a judgement, and it stops after your
+  first merge. Look at the run's log yourself if something fails and push a fix to the same branch; there is no
+  separate command to watch it.
+- **CI in your own fork**, without waiting for approval: on your fork, open Actions and enable workflows once, then
+  Actions, Build, Run workflow, and pick your branch. It runs the same jobs on your fork's own minutes (free for a
+  public fork), and publishes nothing: the release job only runs on `main`. Link the run in the pull request.
+- **Draft to ready.** When the fix is complete, the pull request template is filled in and CI is green on your last
+  push (in this repository, or in your fork if the run here is still waiting), press Ready for review. Only you do
+  that. Maintainers review pull requests that are out of draft; a draft is read as work in progress. If review asks
+  for more than a small change, you may turn it back into a draft while you work on it.
 - **Review.** A maintainer reviews it. srlegrand has the final say on what goes in, and nothing reaches `main` until
   a pull request is merged. Answer review comments on the pull request by pushing to the same branch. Don't close and
   reopen a pull request to restart CI, and don't force-push over review history unless you are asked to.
