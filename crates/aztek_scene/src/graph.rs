@@ -2194,6 +2194,16 @@ impl Graph {
                     }
                 }
             }
+            // An axis of a Vec3 in an array compound: target[0].targetOffsetRotateZ, read here as
+            // target.targetOffsetRotateZ with element 0.
+            if a.ty == PlugType::Vec3 && a.is_array() && element >= 0 {
+                let group = a.name.rsplit_once('.').map(|(g, _)| g);
+                if let Some(child) = attr_name.split_once('.').filter(|(h, _)| Some(*h) == group).map(|(_, c)| c) {
+                    if let Some(c) = (0..3).find(|&c| !child.is_empty() && (a.child_names[c] == child || a.child_short[c] == child)) {
+                        return Ok(PlugRef { node: id, attr: i as i32, component: c as i32, element });
+                    }
+                }
+            }
         }
         // group[3].child with either spelling of each half, or a child of a Vec3 element (input3D[3].input3Dx).
         if let (true, Some((group, child))) = (element >= 0, attr_name.split_once('.')) {

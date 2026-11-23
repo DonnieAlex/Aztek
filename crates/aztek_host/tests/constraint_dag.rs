@@ -70,3 +70,18 @@ fn constraint_kinds_show_their_own_outputs() {
     mel(&mut c, "setAttr pc.offsetPolarity -1;");
     assert_eq!(mel(&mut c, "getAttr box.ty;"), json!(-1.0));
 }
+
+/// What mGear's arm and leg do: set one axis of a parent constraint target's offset, target[0].targetOffsetRotateZ.
+#[test]
+fn a_target_offset_axis_is_set_on_its_own() {
+    let mut c = Core::new();
+    mel(&mut c, "createNode transform -n drv; createNode transform -n obj; parentConstraint drv obj;");
+    mel(&mut c, "setAttr obj_parentConstraint1.target[0].targetOffsetRotateZ 180;");
+    assert_eq!(mel(&mut c, "getAttr obj_parentConstraint1.target[0].torz;"), json!(180.0));
+    assert_eq!(mel(&mut c, "getAttr obj_parentConstraint1.target[0].targetOffsetRotate;"), json!([0.0, 0.0, 180.0]));
+    mel(&mut c, "setAttr obj_parentConstraint1.target[0].targetOffsetTranslateX 2;");
+    let t = mel(&mut c, "getAttr obj.t;");
+    let r = mel(&mut c, "getAttr obj.r;");
+    assert!((t[0].as_f64().unwrap() - 2.0).abs() < 1e-6, "{t}");
+    assert!((r[2].as_f64().unwrap().abs() - 180.0).abs() < 1e-6, "{r}");
+}

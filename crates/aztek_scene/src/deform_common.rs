@@ -226,10 +226,13 @@ pub(crate) fn creation_args(s: &mut Session, a: &Args, cmd: &str) -> CmdResult<A
         let kept = targets(s, a);
         // Hidden objects taken in, or some left out: the inner command is given the objects by name.
         if kept.len() != all.len() || a.bool("includeHiddenSelections") {
-            if kept.is_empty() {
+            // The generic deformer command takes a selection that is all hidden as it is: mGear makes its
+            // slideCurve2 on a hidden curve it has just selected, and the reference makes it.
+            let take = if kept.is_empty() && cmd == "deformer" { &all } else { &kept };
+            if take.is_empty() {
                 fail!("{cmd}: the objects selected are hidden (use -includeHiddenSelections)");
             }
-            b.positional = kept.iter().map(|k| json!(k)).collect();
+            b.positional = take.iter().map(|k| json!(k)).collect();
         }
     }
     if a.bool("afterReference") || a.bool("automatic") || a.bool("split") || a.bool("parallel") {

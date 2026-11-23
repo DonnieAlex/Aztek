@@ -536,11 +536,21 @@ pub(crate) fn register_types() {
             a.child_short = Default::default();
             a
         };
+        // With its X, Y and Z, as the reference's: scripts set one (mGear sets target[0].targetOffsetRotateZ).
+        let array_xyz = |n: &str, short: &str, doc: &str| {
+            let mut a = vec3_attr(n, short, DVec3::ZERO, store | flags::ARRAY | flags::HIDDEN, doc);
+            // The children are named on their own, without the target compound's prefix.
+            let leaf = n.rsplit('.').next().unwrap_or(n);
+            for (i, up) in ['X', 'Y', 'Z'].into_iter().enumerate() {
+                a.child_names[i] = format!("{leaf}{up}");
+            }
+            a
+        };
         let out = flags::OUTPUT | flags::HIDDEN;
         let mut own = vec![
                 matrix_in("target.targetMatrix", "tgm", true, "Each target's world matrix."),
-                array_vec("target.targetOffsetTranslate", "tot", "Parent constraint: the object's place in the target's frame."),
-                array_vec("target.targetOffsetRotate", "tor", "Parent constraint: the object's rotation in the target's frame, Euler XYZ degrees."),
+                array_xyz("target.targetOffsetTranslate", "tot", "Parent constraint: the object's place in the target's frame."),
+                array_xyz("target.targetOffsetRotate", "tor", "Parent constraint: the object's rotation in the target's frame, Euler XYZ degrees."),
                 AttrDef {
                     name: "target.targetGeometry".into(),
                     short_name: "tgg".into(),

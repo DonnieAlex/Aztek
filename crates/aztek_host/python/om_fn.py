@@ -1558,13 +1558,14 @@ class MFnNurbsCurve(MFnDagNode):
         return (p * self._world() if space == MSpace.kWorld else p, r["param"])
 
     def getParamAtPoint(self, point, tolerance=1e-3, space=MSpace.kObject):
-        p, t = self.closestPoint(point, False, tolerance, space)
+        # This class's closestPoint, not a subclass's: OpenMaya 1.0's returns the point alone.
+        p, t = MFnNurbsCurve.closestPoint(self, point, False, tolerance, space)
         if p.distanceTo(MPoint(point)) > max(tolerance, 1e-3):
             _fail(status="kFailure", message="Point is not on the curve")
         return t
 
     def isPointOnCurve(self, point, tolerance=1e-3, space=MSpace.kObject):
-        p, _ = self.closestPoint(point, False, tolerance, space)
+        p, _ = MFnNurbsCurve.closestPoint(self, point, False, tolerance, space)
         return p.distanceTo(MPoint(point)) <= tolerance
 
     def isParamOnCurve(self, param):

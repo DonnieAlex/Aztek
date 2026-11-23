@@ -202,9 +202,11 @@ fn deformer_and_delta_mush_shared_flags() {
     ok(&mut c, &format!("deformer -e -pr {d};"));
     // Nothing moves yet, so prune leaves no points in its set.
     assert!(strs(&ok(&mut c, &format!("deformer -q -cmp {d};"))).is_empty());
+    // A selection that is all hidden still takes a deformer, as mGear's builds rely on; the cluster command leaves it out.
     ok(&mut c, "polyCube -n hid; hide hid; select hid;");
-    assert!(c.mel_checked("deformer -type cluster;").is_err(), "hidden objects are left out");
-    ok(&mut c, "deformer -type cluster -ihs;");
+    ok(&mut c, "deformer -type cluster;");
+    assert!(c.mel_checked("select hid; cluster;").is_err(), "hidden objects are left out");
+    ok(&mut c, "select hid; deformer -type cluster -ihs;");
 }
 
 #[test]
