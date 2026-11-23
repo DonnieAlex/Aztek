@@ -80,18 +80,20 @@ struct HudPart {
 /// Which of the view's renderers draws the scene. The Renderer menu chooses it; both read the same scene and lights.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum RendererKind {
-    /// The reference's Viewport 2.0: the material shader with highlights and the fixed default lighting.
-    #[default]
+    /// Legacy in the menu: the reference's Viewport 2.0, the material shader with highlights and the fixed default
+    /// lighting.
     Viewport2,
-    /// OpenPBR shading with one shadow map, the sky dome's image and ambient occlusion.
+    /// Default in the menu, and what a view starts in: OpenPBR shading with one shadow map, the sky dome's image and
+    /// ambient occlusion.
+    #[default]
     Realtime,
 }
 
 impl RendererKind {
     pub fn parse(s: &str) -> Option<RendererKind> {
         Some(match s.to_ascii_lowercase().as_str() {
-            "viewport2" | "viewport 2.0" | "viewport 2" | "vp2" => RendererKind::Viewport2,
-            "realtime" | "real-time" | "real time" => RendererKind::Realtime,
+            "viewport2" | "viewport 2.0" | "viewport 2" | "vp2" | "legacy" => RendererKind::Viewport2,
+            "realtime" | "real-time" | "real time" | "default" => RendererKind::Realtime,
             _ => return None,
         })
     }
@@ -204,7 +206,7 @@ impl View {
         View {
             gpu,
             r,
-            renderer: RendererKind::Viewport2,
+            renderer: RendererKind::Realtime,
             realtime: None,
             post,
             retired: Vec::new(),
@@ -334,7 +336,7 @@ impl View {
         let realtime = self.renderer == RendererKind::Realtime && self.r.realtime;
         if self.renderer == RendererKind::Realtime && !self.r.realtime && !self.rt_warned {
             self.rt_warned = true;
-            core.push("// Warning: Realtime needs a graphics device with 256 bytes of push constants: drawing with Viewport 2.0 //".to_string(), crate::core::LineKind::Warning);
+            core.push("// Warning: the Default renderer needs a graphics device with 256 bytes of push constants: drawing with Legacy //".to_string(), crate::core::LineKind::Warning);
         }
         self.vp.prepare_lights(&self.gpu, &self.r, &mut core.s, &items, realtime);
         // The shadow map is drawn before the scene's pass, with the lights read.
@@ -2675,7 +2677,9 @@ mod renderer_tests {
         assert_eq!(RendererKind::parse("viewport 2.0"), Some(RendererKind::Viewport2));
         assert_eq!(RendererKind::parse("Realtime"), Some(RendererKind::Realtime));
         assert_eq!(RendererKind::parse("real-time"), Some(RendererKind::Realtime));
+        assert_eq!(RendererKind::parse("Legacy"), Some(RendererKind::Viewport2));
+        assert_eq!(RendererKind::parse("Default"), Some(RendererKind::Realtime));
         assert_eq!(RendererKind::parse("eevee"), None);
-        assert_eq!(RendererKind::default(), RendererKind::Viewport2);
+        assert_eq!(RendererKind::default(), RendererKind::Realtime);
     }
 }

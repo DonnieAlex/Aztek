@@ -327,8 +327,9 @@ void ModelPanel::build_menus() {
         if (a) a->setChecked(true);
     });
 
-    // Renderer: which of the two renderers draws this view. Viewport 2.0 is the reference's material shader; Realtime is
-    // OpenPBR shading with a shadow map, contact shadows, the sky dome's image and ambient occlusion. Kept for new views.
+    // Renderer: which of the two renderers draws this view. Default (realtime) is OpenPBR shading with a shadow map,
+    // contact shadows, the sky dome's image and ambient occlusion; Legacy (viewport2) is the reference's Viewport 2.0
+    // material shader. Kept for new views.
     QMenu* renderer = menus_->addMenu("Renderer");
     auto* renderer_group = new QActionGroup(this);
     auto renderer_item = [v, renderer, renderer_group](const QString& label, const QString& mode) {
@@ -336,7 +337,7 @@ void ModelPanel::build_menus() {
             const QJsonObject now = parse(v->get("disp")).toObject();
             if (mode == "realtime") {
                 // Realtime's shadows, contact shadows and occlusion are what it is for: turn them on when it is chosen,
-                // remembering what the view had so Viewport 2.0 brings it back. The global preference is the user's and
+                // remembering what the view had so Legacy brings it back. The global preference is the user's and
                 // is left alone, so no other view inherits Realtime's flags (#228 review).
                 if (!v->property("rtSavedDisp").toBool()) {
                     v->setProperty("rtSavedShadows", now["shadows"].toBool());
@@ -357,17 +358,18 @@ void ModelPanel::build_menus() {
         renderer_group->addAction(a);
         return a;
     };
-    renderer_item("Viewport 2.0", "viewport2");
-    renderer_item("Realtime", "realtime");
-    // The renderer always starts as Viewport 2.0, whatever the last session chose: a new view is the reference's.
-    // AZTEK_VIEW_RENDERER=realtime starts the test builds in Realtime; nothing a user sets reads it.
-    const QString start_renderer = qEnvironmentVariable("AZTEK_VIEW_RENDERER") == "realtime" ? "realtime" : "viewport2";
+    renderer_item("Default", "realtime");
+    renderer_item("Legacy", "viewport2");
+    // A view always starts in Default, whatever the last session chose. AZTEK_VIEW_RENDERER=legacy (or viewport2)
+    // starts the test builds in Legacy; nothing a user sets reads it.
+    const QString asked = qEnvironmentVariable("AZTEK_VIEW_RENDERER").toLower();
+    const QString start_renderer = asked == "legacy" || asked == "viewport2" ? "viewport2" : "realtime";
     for (QAction* a : renderer->actions())
         if (a->data().toString() == start_renderer) a->setChecked(true);
     v->set("renderer", QString("\"%1\"").arg(start_renderer));
     if (start_renderer == "realtime") {
-        // A test build starts in Realtime with the same flags the menu would set, and the view keeps what it had so
-        // switching to Viewport 2.0 restores it.
+        // A view starts in Default with the same flags the menu would set, and keeps what it had so switching to
+        // Legacy restores it.
         const QJsonObject before = parse(v->get("disp")).toObject();
         v->setProperty("rtSavedShadows", before["shadows"].toBool());
         v->setProperty("rtSavedAo", before["ambientOcclusion"].toBool());

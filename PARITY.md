@@ -1353,6 +1353,12 @@ the window hides, a count shows in the corner of the screen, and the screenshot 
 count, so a drag, a menu or a tool's feedback in the views can be caught. Take Another adds the picture after the
 others (docs/issues/126-screenshot-delay.png).
 
+### Renderer menu: Default and Legacy (23/11/2026)
+
+The Renderer menu's Realtime is now Default and is what every view starts in; Viewport 2.0 is now Legacy. A device
+that can't draw Default falls back to Legacy with a warning, as before. `AZTEK_VIEW_RENDERER=legacy` starts test
+builds in Legacy.
+
 ### Mesh history in scene files (23/11/2026, #209)
 
 A mesh's construction history now goes through `.ma` and `.mb` as the reference keeps it, in place of being baked into
