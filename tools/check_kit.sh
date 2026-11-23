@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Compiles the plug-in kit and every shipped plug-in with clang and GCC, to catch in a minute what would fail the
-# macOS (clang) and Linux builds: tools/check_kit.sh. Only errors fail it; the plug-ins' own warnings are theirs.
+# Compiles the plug-in kit and the plug-ins it is tested with (plugins/) with clang and GCC, to catch in a minute what
+# would fail the macOS (clang) and Linux builds: tools/check_kit.sh. Only errors fail it; the plug-ins' own warnings are theirs.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 fail=0

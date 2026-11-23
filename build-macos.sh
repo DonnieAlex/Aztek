@@ -106,11 +106,6 @@ done
 install_name_tool -add_rpath "@executable_path/../Resources/python/lib/python3.13/site-packages/PySide6/Qt/lib" \
   "$APP/Contents/MacOS/aztek" 2>/dev/null || true
 
-# The plug-ins that ship with Aztek (plugins/), where it looks for them inside the app.
-if [ -d "$DIR/plug-ins" ]; then
-  mkdir -p "$APP/Contents/PlugIns/aztek"
-  cp "$DIR"/plug-ins/*.so "$APP/Contents/PlugIns/aztek/"
-fi
 # Harold's command-line renderer, beside the program.
 cp "$DIR/harold" "$APP/Contents/MacOS/"
 codesign --force --deep --sign - "$APP"

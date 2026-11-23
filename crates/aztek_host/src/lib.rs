@@ -39,6 +39,7 @@ pub mod tools;
 pub mod tools_quad;
 pub mod ui_cmds;
 pub mod update;
+pub mod mgear;
 pub mod environment;
 pub mod user_folder;
 pub mod sys_host;
@@ -318,6 +319,12 @@ pub extern "C" fn aztek_update_progress(done: *mut u64, total: *mut u64) {
 #[no_mangle]
 pub extern "C" fn aztek_fetch_json(url: *const c_char) -> *mut c_char {
     out(update::get_json(&cstr(url)))
+}
+
+/// The newest mGear release for this Aztek, as mgear::release. Blocks: call it off the interface thread.
+#[no_mangle]
+pub extern "C" fn aztek_mgear_release() -> *mut c_char {
+    out_json(mgear::release())
 }
 
 #[no_mangle]
