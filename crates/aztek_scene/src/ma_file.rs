@@ -4457,17 +4457,16 @@ impl Writer<'_> {
             }
             self.create_line(&ty, &name, parent);
             // Influence locks are dynamic attributes in the file, even when the scene stores them on the skin.
-            if ty == "joint" {
-                let g = &self.s.graph;
-                if g.node(id).unwrap().ty().attr_index("liw").is_none()
-                    && g.destinations(&PlugRef::new(id, Transform::WORLD_MATRIX as i32)).iter().any(|d| {
-                        d.element >= 0 && self.keep.contains(&d.node) && g.node(d.node).is_some_and(|n| {
-                            n.ty().name == skin::SKIN_TYPE && n.ty().attr_index("matrix") == Some(d.attr as usize)
-                        })
+            let g = &self.s.graph;
+            let node_type = g.node(id).unwrap().ty();
+            if node_type.is_a("transform") && node_type.attr_index("liw").is_none()
+                && g.destinations(&PlugRef::new(id, Transform::WORLD_MATRIX as i32)).iter().any(|d| {
+                    d.element >= 0 && self.keep.contains(&d.node) && g.node(d.node).is_some_and(|n| {
+                        n.ty().name == skin::SKIN_TYPE && n.ty().attr_index("matrix") == Some(d.attr as usize)
                     })
-                {
-                    self.out.push_str("\taddAttr -ci true -sn \"liw\" -ln \"lockInfluenceWeights\" -at \"bool\";\n");
-                }
+                })
+            {
+                self.out.push_str("\taddAttr -ci true -sn \"liw\" -ln \"lockInfluenceWeights\" -at \"bool\";\n");
             }
             self.write_channels(id);
             if is_plain_node(&ty) {

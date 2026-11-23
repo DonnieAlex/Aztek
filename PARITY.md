@@ -1870,7 +1870,7 @@ preprocessing tolerances. docs/RETOPOLOGY.md has the details and measurements.
 
 ### Joint influence locks in scene files (22/11/2026, #208)
 
-Scene saves declare the dynamic boolean `lockInfluenceWeights` (`liw`) once on each local joint used by a saved
+Scene saves declare the dynamic boolean `lockInfluenceWeights` (`liw`) once on each local influence used by a saved
 skin, before the lock value and the connections to `skinCluster.lw`. Existing declarations are reused.
 The checked-in `TwoJointsLogicalParentAnim.ma` capture shows this declaration and connection. The 2026
 [skinCluster node docs](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Tech-Docs/Nodes/skinCluster.html#attrlockWeights)
