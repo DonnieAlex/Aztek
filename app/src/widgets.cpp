@@ -732,6 +732,17 @@ void TimeSlider::paintEvent(QPaintEvent*) {
             c.setAlpha(40);
             p.fillRect(QRectF(a, 6, z - a, height() - 6), c);
         }
+    // The frame rate at the top left, as the reference shows it until its Show/Hide frame rate button hides it.
+    if (frame_rate_shown_) {
+        const QString rate = QString("%1 fps").arg(frame_rate_, 0, 'g', 6);
+        const QRectF label(6, 1, 60, 12);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(40, 40, 40, 200));
+        p.drawRoundedRect(label, 2, 2);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QColor(190, 190, 190));
+        p.drawText(label.adjusted(3, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, rate);
+    }
     double x = 8 + (time_ - start_) / span * w;
     p.fillRect(QRectF(x - fw / 2, 0, fw, height()), cur_color_);
     p.setPen(QColor(230, 230, 230));

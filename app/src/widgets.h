@@ -85,6 +85,8 @@ public:
     bool has_range() const { return range_a_ != range_b_ || selecting_; }
     void set_tick_width(int w) { tick_width_ = w; update(); }
     void set_ticks_shown(bool on) { ticks_shown_ = on; update(); }
+    // The frame rate shown at the top left, and whether it shows at all (the reference's Show/Hide frame rate).
+    void set_frame_rate(bool shown, double fps) { frame_rate_shown_ = shown; frame_rate_ = fps; update(); }
     QString range_text() const;
     // Time Slider bookmarks: node, name, first and last frame, colour.
     struct Bookmark {
@@ -116,6 +118,8 @@ private:
     double frame_at(int x) const;
     int tick_width_ = 2;
     bool ticks_shown_ = true;
+    bool frame_rate_shown_ = true;
+    double frame_rate_ = 24;
     double time_ = 1, start_ = 1, end_ = 120;
     QVector<double> keys_;
     QVector<double> breakdowns_;
