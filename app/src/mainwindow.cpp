@@ -2684,13 +2684,17 @@ void MainWindow::closeEvent(QCloseEvent* e) {
     e->accept();
 }
 
+void MainWindow::restore_saved_window() {
+    QSettings s;
+    if (!s.contains("window/geometry")) return;
+    restoreGeometry(s.value("window/geometry").toByteArray());
+    restore_layout(s.value("window/state").toByteArray());
+}
+
 void MainWindow::run_startup(const QString& script, const QString& screenshot) {
     no_prompts_ = !screenshot.isEmpty();
     QSettings s;
-    if (s.contains("window/geometry") && screenshot.isEmpty()) {
-        restoreGeometry(s.value("window/geometry").toByteArray());
-        restore_layout(s.value("window/state").toByteArray());
-    }
+    // The saved geometry and panels were restored before the window was shown (#225).
     exec_quiet("constructionHistory", QJsonObject{{"state", s.value("prefs/constructionHistory", true).toBool()}});
     const QString workspace = s.value("workspaces_current", "General").toString();
     const QString saved_workspace = s.value("window/workspace").toString();

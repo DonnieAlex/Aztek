@@ -65,6 +65,8 @@ public:
     MainWindow();
     PanelLayout* panels() const { return panels_; }
     void run_startup(const QString& script, const QString& screenshot);
+    // The window's size and panels as they were last closed; before the window is shown (#225).
+    void restore_saved_window();
     void open_file(const QString& path);
     void show_reference_editor();
     void dragEnterEvent(QDragEnterEvent* e) override;
