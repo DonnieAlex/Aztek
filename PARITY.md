@@ -1810,6 +1810,13 @@ Record. The window steps aside, a count shows in the corner, and the windows of 
 frames a second as H.264 in an MP4 (about 3 MB for ten seconds, well under GitHub's 10 MB). Play shows it; Open on
 GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
 
+### Deleted history no longer brings back old tool settings (22/11/2026, #205)
+
+The Show Manipulator tool tracks the history node it was asked to edit. Deleting that node drops its handles,
+even if a later edit reuses its name. The In-View Editor refreshes or closes when that target goes away.
+The [2026 Extrude help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm)
+ties the tool and editor to construction history. Exact timing after Delete History is PROVISIONAL.
+
 ### The hotbox's Aztek box: Perspective at the top, Top View on the left (20/11/2026, #192)
 
 Top View and Perspective were the wrong way round in the camera marking menu over the hotbox's Aztek box. As in the

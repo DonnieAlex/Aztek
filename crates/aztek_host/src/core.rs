@@ -273,6 +273,9 @@ impl Core {
     }
 
     fn after_command(&mut self, name: &str, call: &Value, ok: bool) {
+        if ok && crate::script_jobs::replaces_scene(name, call) {
+            self.node_manip = Default::default();
+        }
         crate::sys_host::note_scene(self.s.scene_path.as_deref());
         aztek_scene::scripted::run_post_create(&mut self.s);
         self.note_settings();

@@ -69,7 +69,7 @@ struct Grab {
 #[derive(Default)]
 pub struct State {
     /// The node asked for, and the selection it was asked for under: a new selection forgets it.
-    target: Option<(String, Value)>,
+    target: Option<(NodeId, Value)>,
     /// The extrude family's handles in world rather than local axes.
     pub world: bool,
     /// The channel highlighted: a middle drag anywhere takes its handle.
@@ -174,7 +174,7 @@ fn selection_now(core: &mut Core) -> Value {
 /// Asks for a node's handles under the present selection.
 pub fn show_node(core: &mut Core, name: &str) {
     let sel = selection_now(core);
-    core.node_manip.target = Some((name.to_string(), sel));
+    core.node_manip.target = core.s.graph.find(name).ok().flatten().map(|id| (id, sel));
     core.node_manip.active_attr = None;
 }
 
@@ -198,13 +198,13 @@ pub fn after_action(core: &mut Core, result: &Value) -> bool {
 pub fn target(core: &mut Core) -> Option<NodeId> {
     if core.node_manip.target.is_some() {
         let now = selection_now(core);
-        if let Some((name, sel)) = &core.node_manip.target {
-            if *sel == now {
-                if let Ok(Some(id)) = core.s.graph.find(name) {
-                    return Some(id);
-                }
+        if let Some((id, sel)) = &core.node_manip.target {
+            if *sel == now && core.s.graph.node(*id).is_some() {
+                return Some(*id);
             }
         }
+        core.node_manip.target = None;
+        core.node_manip.active_attr = None;
     }
     let g = &core.s.graph;
     let lead = *g.selection().last()?;
