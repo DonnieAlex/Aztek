@@ -443,6 +443,8 @@ void commit_channels(QLabel* edited, const QString& plug, const QString& text) {
     if (many) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
 }
 
+void fill_channels_menu(QMenu* m, bool titled);
+
 // A channel row: right-aligned name, value field. Enter commits a setAttr.
 QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     auto* row = new QWidget(parent);
@@ -489,8 +491,17 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
                         : st == "layered" ? "channelLayered" : st == "muted" ? "channelMuted" : st == "locked" ? "channelLocked" : (st == "connected" || ch["connected"].toBool()) ? "channelConnected" : "channelValue");
     edit->setFixedHeight(18);
     if (g_cb_options.contains("fieldWidth")) edit->setFixedWidth(qMax(20, g_cb_options["fieldWidth"].toInt()));
-    // Right-click is the channel box's menu, not the text field's.
-    edit->setContextMenuPolicy(Qt::NoContextMenu);
+    // Right-click on the row is the reference's Channels menu for this channel.
+    auto row_menu = [attr = ch["attr"].toString()](QWidget* w, const QPoint& at) {
+        pick_channel(attr, Qt::NoModifier, false);
+        QMenu m;
+        fill_channels_menu(&m, true);
+        m.exec(w->mapToGlobal(at));
+    };
+    label->setContextMenuPolicy(Qt::CustomContextMenu);
+    QObject::connect(label, &QWidget::customContextMenuRequested, label, [row_menu, label](const QPoint& at) { row_menu(label, at); });
+    edit->setContextMenuPolicy(Qt::CustomContextMenu);
+    QObject::connect(edit, &QWidget::customContextMenuRequested, edit, [row_menu, edit](const QPoint& at) { row_menu(edit, at); });
     QString plug = ch["plug"].toString();
     QObject::connect(edit, &QLineEdit::textEdited, edit, [edit] { edit->setProperty("editing", true); });
     QObject::connect(edit, &QLineEdit::editingFinished, edit, [edit, label, plug] {
@@ -1139,6 +1150,29 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         }
         Host::get()->poke();
     });
+    layers_menu->addSeparator();
+    auto set_layers = [this, current_layer](const char* scope, const char* attr, int value) {
+        QStringList names;
+        if (QString(scope) == "current") {
+            const QString layer = current_layer();
+            if (!layer.isEmpty()) names << layer;
+        } else {
+            for (const QJsonValue& v : query("layers").toArray()) names << v.toObject()["name"].toString();
+        }
+        for (const QString& n : names) exec("setAttr", args(QJsonArray{n + "." + attr, value}));
+        Host::get()->poke();
+    };
+    for (auto [label, scope] : {std::pair{"Set All Layers", "all"}, {"Set Selected Layers", "current"}, {"Set Only Selected Layers", "current"}}) {
+        QMenu* sub = layers_menu->addMenu(label);
+        sub->addAction("Visible", [set_layers, scope] { set_layers(scope, "visibility", 1); });
+        sub->addAction("Invisible", [set_layers, scope] { set_layers(scope, "visibility", 0); });
+        sub->addAction("Visible Playback", [set_layers, scope] { set_layers(scope, "hideOnPlayback", 0); });
+        sub->addAction("Invisible Playback", [set_layers, scope] { set_layers(scope, "hideOnPlayback", 1); });
+        sub->addSeparator();
+        sub->addAction("Normal", [set_layers, scope] { set_layers(scope, "displayType", 0); });
+        sub->addAction("Template", [set_layers, scope] { set_layers(scope, "displayType", 1); });
+        sub->addAction("Reference", [set_layers, scope] { set_layers(scope, "displayType", 2); });
+    }
     layers_menu->addSeparator();
     auto* sort_group = new QActionGroup(layers_menu);
     for (auto [label, value] : {std::pair{"Chronologically", "chronological"}, {"Alphabetically", "alphabetical"}}) {
