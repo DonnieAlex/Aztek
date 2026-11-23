@@ -3477,10 +3477,31 @@ impl Viewport {
         self.units_per_px(pivot) * 100.0 * scale * self.manip_scale
     }
 
+    fn rotation_arc(&self, axis: DVec3, pivot: DVec3, radius: f64) -> impl Iterator<Item = (DVec3, DVec3)> {
+        let axis = axis.normalize_or_zero();
+        let toward_eye = if self.cam.ortho() { self.cam.dir_to_eye() } else { (self.cam.eye() - pivot).normalize_or_zero() };
+        let across = axis.cross(toward_eye);
+        // Face-on rings have no back half. Keep them whole when both sides lie in the view plane.
+        let (u, w, start, span) = if across.length_squared() < 1e-12 {
+            let (u, w) = axis.normalize_or(DVec3::Z).any_orthonormal_pair();
+            (u, w, 0.0, std::f64::consts::TAU)
+        } else {
+            let w = across.normalize();
+            (w.cross(axis), w, -std::f64::consts::FRAC_PI_2, std::f64::consts::PI)
+        };
+        let point = move |k| {
+            let angle = start + span * k as f64 / 64.0;
+            pivot + (u * angle.cos() + w * angle.sin()) * radius
+        };
+        let segments = if axis == DVec3::ZERO { 0 } else { 64 };
+        (0..segments).map(move |k| (point(k), point(k + 1)))
+    }
+
     fn draw_manip(&mut self, gpu: &mut Gpu, r: &Renderer, s: &mut Session, scale: f64) {
         let items = gather(&mut s.graph);
         let Some(pivot) = self.manip_pivot(s, &items) else { return };
-        let len = self.handle_len(pivot, scale) as f32;
+        let radius = self.handle_len(pivot, scale);
+        let len = radius as f32;
         let p = pivot.as_vec3();
         let colors = [[230, 40, 40, 255], [40, 230, 40, 255], [40, 80, 255, 255]];
         let active = self.drag.as_ref().map(|d| d.handle).or(self.hover);
@@ -3542,21 +3563,29 @@ impl Viewport {
         }
         match self.eff_tool() {
             Tool::Rotate => {
-                let ring = |u: Vec3, w: Vec3, r: f32, c: [u8; 4], line: &mut dyn FnMut(Vec3, Vec3, [u8; 4])| {
-                    let n = 64;
-                    for k in 0..n {
-                        let a0 = k as f32 / n as f32 * std::f32::consts::TAU;
-                        let a1 = (k + 1) as f32 / n as f32 * std::f32::consts::TAU;
-                        line(p + (u * a0.cos() + w * a0.sin()) * r, p + (u * a1.cos() + w * a1.sin()) * r, c);
-                    }
+                let view_color = if active.is_none() && remembered.is_none() {
+                    [255, 255, 0, 255]
+                } else {
+                    tint(Handle::ViewRing, [90, 200, 230, 255])
                 };
-                for (i, ax) in axes.iter().enumerate() {
-                    let (u, w) = ax.any_orthonormal_pair();
-                    ring(u, w, len, tint(Handle::Axis(i), colors[i]), &mut line);
+                let rim = |k| {
+                    let angle = std::f32::consts::TAU * k as f32 / 64.0;
+                    (right * angle.cos() + up * angle.sin()) * len
+                };
+                for k in 0..64 {
+                    let (a, b) = (rim(k), rim(k + 1));
+                    line(p + a * 1.25, p + b * 1.25, view_color);
+                    line(p + a, p + b, [70, 70, 70, 255]);
+                    if active == Some(Handle::Trackball) {
+                        tri(p, p + a, p + b, [90, 90, 90, 96]);
+                    }
                 }
-                // The outer ring turns about the view axis; the sphere's outline shows the trackball.
-                ring(right, up, len * 1.25, tint(Handle::ViewRing, [90, 200, 230, 255]), &mut line);
-                ring(right, up, len, tint(Handle::Trackball, [140, 140, 140, 255]), &mut line);
+                for (i, c) in colors.into_iter().enumerate() {
+                    let c = tint(Handle::Axis(i), c);
+                    for (a, b) in self.rotation_arc(self.frame.col(i), pivot, radius) {
+                        line(a.as_vec3(), b.as_vec3(), c);
+                    }
+                }
             }
             _ => {
                 let scaling = self.eff_tool() == Tool::Scale;
@@ -3672,14 +3701,9 @@ impl Viewport {
         for i in 0..3 {
             let ax = self.frame.col(i);
             let d = if rotate {
-                let (u, w) = ax.any_orthonormal_pair();
-                (0..48)
-                    .filter_map(|k| {
-                        let a = k as f64 / 48.0 * std::f64::consts::TAU;
-                        let b = (k + 1) as f64 / 48.0 * std::f64::consts::TAU;
-                        let (pa, pb) = screen.project_segment(pivot + (u * a.cos() + w * a.sin()) * len, pivot + (u * b.cos() + w * b.sin()) * len)?;
-                        Some(seg_dist(px, pa, pb))
-                    })
+                self.rotation_arc(ax, pivot, len)
+                    .filter_map(|(a, b)| screen.project_segment(a, b))
+                    .map(|(a, b)| seg_dist(px, a, b))
                     .fold(f64::MAX, f64::min)
             } else {
                 let Some((pa, pb)) = screen.project_segment(pivot, pivot + ax * len) else { continue };
