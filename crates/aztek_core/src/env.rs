@@ -233,7 +233,7 @@ pub const VARS: &[Var] = &[
     v("MAYA_ASCII_ENABLE_BULK_PARSING", ASCII, NotRead, ""),
     v("MAYA_ASCII_SUPPORT_MAC_LINE_ENDINGS", ASCII, NotRead, ""),
     v("AZTEK_APP_DIR", OWN, Read, "Aztek's own user folder, in place of ~/aztek (Documents/aztek on Windows)."),
-    v("AZTEK_PREFS", OWN, Read, "Where Aztek keeps its preferences, in place of ~/.aztek."),
+    v("AZTEK_PREFS", OWN, Read, "Where Aztek keeps its preferences. On Linux the default is $XDG_CONFIG_HOME/aztek, or ~/.config/aztek when unset. Other platforms default to ~/.aztek."),
     v("AZTEK_CONFIG_DIR", OWN, Read, "Where Aztek keeps its settings, in place of the system's settings folder."),
     v("AZTEK_STUDIO_PREFS", OWN, Read, "Folders of preferences a studio provides."),
     v("AZTEK_LOCATION", OWN, Read, "Set at start to where Aztek is installed."),

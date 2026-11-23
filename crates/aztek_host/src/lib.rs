@@ -222,6 +222,13 @@ pub extern "C" fn aztek_use_prefs() {
     with(|h| h.core.use_prefs());
 }
 
+#[no_mangle]
+pub extern "C" fn aztek_preferences_dir() -> *mut c_char {
+    #[cfg(target_os = "linux")]
+    aztek_core::paths::linux_config_dir();
+    out(aztek_core::paths::to_utf8(&user_folder::prefs_base()))
+}
+
 /// Once the main window is up: loads the plug-ins marked to load at start and runs the user folder's userSetup
 /// scripts, which may add menus and shelves.
 #[no_mangle]

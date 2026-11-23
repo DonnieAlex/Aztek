@@ -184,7 +184,7 @@ the file; a warning says so.
 | Variable | Read | Notes |
 |---|---|---|
 | `AZTEK_APP_DIR` | yes | Aztek's own user folder, in place of ~/aztek (Documents/aztek on Windows). |
-| `AZTEK_PREFS` | yes | Where Aztek keeps its preferences, in place of ~/.aztek. |
+| `AZTEK_PREFS` | yes | Where Aztek keeps its preferences. On Linux the default is $XDG_CONFIG_HOME/aztek, or ~/.config/aztek when unset. Other platforms default to ~/.aztek. |
 | `AZTEK_CONFIG_DIR` | yes | Where Aztek keeps its settings, in place of the system's settings folder. |
 | `AZTEK_STUDIO_PREFS` | yes | Folders of preferences a studio provides. |
 | `AZTEK_LOCATION` | yes | Set at start to where Aztek is installed. |

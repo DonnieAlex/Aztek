@@ -575,7 +575,8 @@ underlined or pills), the edges round panels (line, groove, raised, thick, round
 bars (gradient, underlined, a highlight stripe, inverse or a folder tab). Every built-in theme has its own mix of these;
 Martino follows Softimage XSI: warm grey panels, soft rounded buttons, blue-grey section bars, dark rounded entry
 fields and a white bar for what is picked. Built-in themes stay as they are and saving makes a
-copy of your own, kept as JSON in `~/.aztek/themes`, which Import and Export pass around.
+copy of your own, kept as JSON in the Aztek settings folder's `themes` directory, which Import and Export pass around.
+On Linux that folder is `~/.config/aztek` by default, and Aztek copies existing settings there without replacing files already present.
 
 ![Theme Editor](docs/theme-editor.png)
 

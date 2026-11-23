@@ -12,6 +12,7 @@ void aztek_init(void);
 void aztek_set_main_window(void* window);
 // The application's start-up: reads the saved preferences (up axis, new scene units, optionVars) and keeps them.
 void aztek_use_prefs(void);
+char* aztek_preferences_dir(void);
 // Once the main window is up: loads the plug-ins marked to load at start and runs the user folder's userSetup scripts.
 void aztek_startup_scripts(void);
 // The application is about to quit: what listens for it hears.

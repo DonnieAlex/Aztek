@@ -14,7 +14,6 @@
 #include "widgets.h"
 #include <QCommandLineParser>
 #include <QFile>
-#include <QDir>
 #include <QScreen>
 #include <QJsonObject>
 #include <QJsonDocument>
@@ -86,7 +85,7 @@ int main(int argc, char** argv) {
     // Interface scaling as mayaDpiSetting left it (optionVars aztekDpiMode, aztekDpiScale): 0 by the system's DPI,
     // Qt's own; 1 a set scale; 2 none. The environment's own settings win.
     if (qEnvironmentVariableIsEmpty("QT_SCALE_FACTOR") && qEnvironmentVariableIsEmpty("QT_ENABLE_HIGHDPI_SCALING")) {
-        const QString prefs = qEnvironmentVariableIsEmpty("AZTEK_PREFS") ? QDir::homePath() + "/.aztek" : qEnvironmentVariable("AZTEK_PREFS");
+        const QString prefs = az::take(aztek_preferences_dir());
         QFile f(prefs + "/optionVars.json");
         if (f.open(QIODevice::ReadOnly)) {
             const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
@@ -99,7 +98,12 @@ int main(int argc, char** argv) {
     if (QScreen* screen = QGuiApplication::primaryScreen()) qputenv("AZTEK_SYSTEM_DPI", QByteArray::number(screen->logicalDotsPerInch()));
     // The Qt this runs on, for about -qtVersion and the PySide check in Python.
     qputenv("AZTEK_QT_VERSION", qVersion());
+#ifdef Q_OS_LINUX
+    az::take(aztek_preferences_dir());
+    QApplication::setOrganizationName("aztek");
+#else
     QApplication::setOrganizationName("Aztek");
+#endif
     QApplication::setApplicationName("Aztek");
     QApplication::setWindowIcon(QIcon(":/aztek-icon.png"));
     QGuiApplication::setDesktopFileName("aztek");

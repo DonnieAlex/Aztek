@@ -8,29 +8,123 @@ fn env_path(name: &str) -> PathBuf {
     std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_default()
 }
 
-/// %APPDATA%/Aztek, ~/.config/Aztek, ~/Library/Application Support/Aztek, or AZTEK_CONFIG_DIR. Created on first call.
+#[cfg(target_os = "linux")]
+fn linux_config_home() -> PathBuf {
+    let xdg = env_path("XDG_CONFIG_HOME");
+    if xdg.is_absolute() {
+        xdg
+    } else {
+        env_path("HOME").join(".config")
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn copy_missing(from: &Path, to: &Path) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        let kind = entry.file_type()?;
+        if kind.is_dir() {
+            if !target.exists() {
+                std::fs::create_dir_all(&target)?;
+            }
+            if target.symlink_metadata()?.is_dir() {
+                copy_missing(&entry.path(), &target)?;
+            }
+        } else if kind.is_file() {
+            let mut input = std::fs::File::open(entry.path())?;
+            let mut output = match std::fs::OpenOptions::new().write(true).create_new(true).open(&target) {
+                Ok(file) => file,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            };
+            if let Err(error) = std::io::copy(&mut input, &mut output) {
+                drop(output);
+                let _ = std::fs::remove_file(&target);
+                return Err(error);
+            }
+        } else if kind.is_symlink() && !target.exists() {
+            let link = std::fs::read_link(entry.path())?;
+            let link = if link.is_absolute() { link } else { from.join(link) };
+            match std::os::unix::fs::symlink(link, target) {
+                Ok(()) => (),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => (),
+                Err(error) => return Err(error),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Linux configuration shared by the shell and host. Earlier settings are copied once without overwriting files.
+#[cfg(target_os = "linux")]
+pub fn linux_config_dir() -> PathBuf {
+    static DIR: OnceLock<PathBuf> = OnceLock::new();
+    DIR.get_or_init(|| {
+        let base = linux_config_home();
+        let path = base.join("aztek");
+        let marker = path.join(".legacy-config-copied");
+        if !marker.exists() {
+            let migrate = || -> std::io::Result<()> {
+                std::fs::create_dir_all(&path)?;
+                for old in [base.join("Aztek"), env_path("HOME").join(".aztek")] {
+                    if old.is_dir() && old.canonicalize()? != path.canonicalize()? {
+                        copy_missing(&old, &path)?;
+                    }
+                }
+                std::fs::File::create(marker)?;
+                Ok(())
+            };
+            if let Err(error) = migrate() {
+                eprintln!("Aztek could not copy its old settings: {error}");
+            }
+        }
+        path
+    })
+    .clone()
+}
+
+/// Aztek's default preference directory, overridden by AZTEK_PREFS.
+pub fn user_prefs_dir() -> PathBuf {
+    let over = env_path("AZTEK_PREFS");
+    if !over.as_os_str().is_empty() {
+        return over;
+    }
+    #[cfg(target_os = "linux")]
+    return linux_config_dir();
+    #[cfg(not(target_os = "linux"))]
+    PathBuf::from(std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).unwrap_or_default()).join(".aztek")
+}
+
+/// %APPDATA%/Aztek, ~/.config/aztek on Linux, ~/Library/Application Support/Aztek, or AZTEK_CONFIG_DIR.
 pub fn user_config_dir() -> PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| {
-        let base = if cfg!(windows) {
-            env_path("APPDATA")
-        } else if cfg!(target_os = "macos") {
-            env_path("HOME").join("Library").join("Application Support")
-        } else {
-            let x = env_path("XDG_CONFIG_HOME");
-            if x.as_os_str().is_empty() {
-                env_path("HOME").join(".config")
-            } else {
-                x
-            }
-        };
-        let mut d = base.join("Aztek");
         let over = env_path("AZTEK_CONFIG_DIR");
         if !over.as_os_str().is_empty() {
-            d = over;
+            let _ = std::fs::create_dir_all(&over);
+            return over;
         }
-        let _ = std::fs::create_dir_all(&d);
-        d
+        #[cfg(target_os = "linux")]
+        return linux_config_dir();
+        #[cfg(not(target_os = "linux"))]
+        {
+            let base = if cfg!(windows) {
+                env_path("APPDATA")
+            } else if cfg!(target_os = "macos") {
+                env_path("HOME").join("Library").join("Application Support")
+            } else {
+                let x = env_path("XDG_CONFIG_HOME");
+                if x.as_os_str().is_empty() {
+                    env_path("HOME").join(".config")
+                } else {
+                    x
+                }
+            };
+            let d = base.join("Aztek");
+            let _ = std::fs::create_dir_all(&d);
+            d
+        }
     })
     .clone()
 }
