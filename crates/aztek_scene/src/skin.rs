@@ -1349,6 +1349,11 @@ pub fn rebind_weights(g: &mut Graph, sk: NodeId, method: i64, max_inf: usize, dr
     set_bind(g, sk, bind)
 }
 
+/// Frees the transform a skin bound: what deleting the skin's history does (#207).
+pub(crate) fn unlock_bound_transform(g: &mut Graph, mesh: NodeId) -> CmdResult<()> {
+    lock_bound_transform(g, mesh, false)
+}
+
 /// Locks or frees translate, rotate and scale on the transform over a bound shape.
 fn lock_bound_transform(g: &mut Graph, mesh: NodeId, locked: bool) -> CmdResult<()> {
     let xf = if g.node(mesh).is_some_and(|n| n.ty().is_a("transform")) { mesh } else { g.parent(mesh) };

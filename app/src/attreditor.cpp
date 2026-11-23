@@ -54,6 +54,12 @@ QString fmt3(double v) {
     return s == "-0.000" ? "0.000" : s;
 }
 
+// Whether a field shows a value it does not take: an output, a connection a key does not still drive, or a locked
+// attribute (#212).
+bool read_only(const QJsonObject& a) {
+    return a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool()) || a["locked"].toBool();
+}
+
 void set_plug(const QString& plug, const QJsonValue& v, const QString& type) {
     QJsonObject call = args(QJsonArray{plug, v});
     if (type == "string") call["type"] = "string";
@@ -426,10 +432,11 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     s->setRange(0, 1000);
     auto to_pos = [lo, hi](double v) { return int(qBound(0.0, (v - lo) / qMax(1e-9, hi - lo), 1.0) * 1000 + 0.5); };
     s->setValue(to_pos(value));
-    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
+    bool ro = read_only(a);
     e->setReadOnly(ro);
     if (a["keyed"].toBool()) e->setObjectName("keyedField");
     else if (a["connected"].toBool()) e->setObjectName("connectedField");
+    if (a["locked"].toBool()) e->setObjectName("lockedField");
     s->setEnabled(!ro);
     bool is_int = type == "int";
     auto value_of = [lo, hi, is_int](int p) {
@@ -476,7 +483,7 @@ const char* kImageFilter = "Images (*.png *.jpg *.jpeg *.tga *.bmp *.tif *.tiff 
 // A colour: its swatch, and the slot a texture goes in.
 QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     QString plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
+    bool ro = read_only(a);
     auto* w = new QWidget(parent);
     auto* h = new QHBoxLayout(w);
     h->setContentsMargins(0, 0, 0, 0);
@@ -564,7 +571,7 @@ QWidget* file_field(const QJsonObject& a, QWidget* parent) {
 // The override colour's index: its swatch, which opens the palette, and a slider through the 32 entries.
 QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
     QString plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
+    bool ro = read_only(a);
     int index = a["value"].toInt();
     auto* w = new QWidget(parent);
     auto* h = new QHBoxLayout(w);
@@ -605,7 +612,7 @@ QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
 
 QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
     QString type = a["type"].toString(), plug = a["plug"].toString();
-    bool ro = a["output"].toBool() || (a["connected"].toBool() && !a["keyed"].toBool());
+    bool ro = read_only(a);
     if (a["attr"].toString() == "overrideColor") return color_index_field(a, parent);
     if (type == "vec3" && a["color"].toBool()) return color_field(a, parent);
     if (type == "string" && a["file"].toBool() && !ro) return file_field(a, parent);
@@ -649,13 +656,18 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
         h->setSpacing(3);
         QJsonArray v = a["value"].toArray();
         QJsonArray kids = a["children"].toArray();
+        QJsonArray childLocked = a["childLocked"].toArray();
         for (int k = 0; k < (a["pair"].toBool() ? 2 : 3); ++k) {
             auto* e = new QLineEdit(fmt3(v.at(k).toDouble()), w);
             // Three to a row: thin padding, so a value shows whole at the panel's usual width.
             e->setStyleSheet("padding-left: 1px; padding-right: 0px;");
             e->setMinimumWidth(38);
-            e->setReadOnly(ro);
+            // A locked part takes the locked shade. A driven or output-only part is read-only but is not locked, so it
+            // keeps its own look instead of reading as a lock (#212 review).
+            const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
+            e->setReadOnly(ro || locked);
             if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
+            if (locked) e->setObjectName("lockedField");
             QString child = kids.at(k).toString();
             if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
             QString cp = plug.left(plug.lastIndexOf('.')) + "." + child;
@@ -682,10 +694,14 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             e->setProperty("editing", false);
             set_plug(plug, is_int ? QJsonValue(qint64(e->text().toDouble())) : QJsonValue(e->text().toDouble()), "float");
         });
-        if (!a["mappable"].toBool()) return e;
+        if (!a["mappable"].toBool()) {
+            if (a["locked"].toBool()) e->setObjectName("lockedField");
+            return e;
+        }
         // A number a texture can drive: the field, then the map button at the row's end where the sliders' are.
         if (a["keyed"].toBool()) e->setObjectName("keyedField");
-    else if (a["connected"].toBool()) e->setObjectName("connectedField");
+        else if (a["connected"].toBool()) e->setObjectName("connectedField");
+        if (a["locked"].toBool()) e->setObjectName("lockedField");
         auto* w = new QWidget(parent);
         auto* h = new QHBoxLayout(w);
         h->setContentsMargins(0, 0, 0, 0);
@@ -701,6 +717,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
         auto* e = new QLineEdit(a["value"].toString(), parent);
         e->setProperty("plugKey", plug);
         e->setReadOnly(ro);
+        if (a["locked"].toBool()) e->setObjectName("lockedField");
         QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
         QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
             if (!e->property("editing").toBool()) return;
@@ -723,12 +740,22 @@ public:
         setProperty("rowLabel", true);
     }
 
+    // A locked row is drawn dimmed, as the reference dims it (#212), and still takes the unlock menu.
+    void setLocked(bool on) {
+        locked_ = on;
+        update();
+    }
+
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        p.setPen(palette().color(isEnabled() ? QPalette::Active : QPalette::Disabled, QPalette::WindowText));
+        const bool dim = locked_ || !isEnabled();
+        p.setPen(palette().color(dim ? QPalette::Disabled : QPalette::Active, QPalette::WindowText));
         p.drawText(rect(), Qt::AlignRight | Qt::AlignVCenter, fontMetrics().elidedText(text(), Qt::ElideLeft, width()));
     }
+
+private:
+    bool locked_ = false;
 };
 
 // Widens a tab's name column to its longest name, between the default and a cap, so names read whole.
@@ -746,6 +773,7 @@ void fit_labels(QWidget* body) {
 QLabel* attr_label(const QString& text, const QJsonObject& a, QWidget* parent, QWidget* field_widget) {
     QPointer<QWidget> field = field_widget;
     auto* l = new RowLabel(text, parent);
+    l->setLocked(a["locked"].toBool());
     l->setContextMenuPolicy(Qt::CustomContextMenu);
     const QString plug = a["plug"].toString(), source = a["source"].toString();
     const bool mappable = a["mappable"].toBool(), connected = a["connected"].toBool(), output = a["output"].toBool(), keyed = a["keyed"].toBool();

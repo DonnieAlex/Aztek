@@ -468,6 +468,9 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             // Driven by keys (an animation curve, or a layer's): it can still be typed into and keyed again (#174).
             "keyed": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))
                 || aztek_scene::draw_style::driven_by_layer(g, &aztek_scene::plug::PlugRef::new(id, i as i32)),
+            // Locked: shown but not typed into, as in the Channel Box (#212). A vector's parts lock one by one.
+            "locked": g.is_locked(&aztek_scene::plug::PlugRef::new(id, i as i32)),
+            "childLocked": (0..3).map(|k| g.is_locked(&aztek_scene::plug::PlugRef::component(id, i as i32, k as i32))).collect::<Vec<bool>>(),
             // A vector's parts keyed one by one, as Set Key on its row keys them.
             "childKeyed": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))).collect::<Vec<bool>>(),
             // Wire and interface colours are shown as they are stored; materials' are linear.
