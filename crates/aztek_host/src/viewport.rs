@@ -762,7 +762,7 @@ pub struct Viewport {
     pub node_lines: Vec<(DVec3, DVec3, [u8; 4])>,
 }
 
-const WIRE: [u8; 4] = [10, 10, 30, 255];
+const WIRE: [u8; 4] = JOINT_COLOR;
 /// The live surface's wire: the reference's dark green.
 const LIVE_WIRE: [u8; 4] = [22, 96, 34, 255];
 
@@ -4402,7 +4402,7 @@ fn selected_lattices(g: &Graph) -> Vec<(NodeId, NodeId, [u32; 3], Vec<DVec3>)> {
 
 /// A joint's colour when nothing sets one: a mid blue, a shade darker than it was, nearer the reference's (#150).
 /// Unverified against a measured value.
-pub const JOINT_COLOR: [u8; 4] = [48, 84, 196, 255];
+pub const JOINT_COLOR: [u8; 4] = [6, 9, 98, 255];
 
 pub fn rig_items(g: &Graph) -> Vec<RigItem> {
     use aztek_scene::rig::Joint;
