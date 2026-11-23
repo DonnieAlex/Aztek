@@ -360,5 +360,5 @@ fn joints_draw_in_their_blue() {
     let mut c = Core::new();
     mel(&mut c, "select -cl; joint -p 0 0 0;");
     let items = aztek_host::viewport::rig_items(&c.s.graph);
-    assert_eq!(items[0].color, aztek_host::viewport::JOINT_COLOR);
+    assert_eq!(items[0].color, [6, 9, 98, 255]);
 }

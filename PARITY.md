@@ -825,6 +825,11 @@ Shallower than the reference:
 
 ## Drawing overrides and wireframe colours (07/11/2026)
 
+On 22/11/2026, joints and dormant wires use the dark blue requested in #215. The lead selection uses the
+requested green. The [2026 Display Layer Editor help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-8415A1A6-7798-43F5-9D64-783BD0642071.htm)
+confirms that templates draw as wireframes and references keep the current display mode. Factory RGB values
+in the reference are PROVISIONAL.
+
 The colour a control has in its file now carries through. Found on a production rig: `.ove` and `.ovc` on curve shapes were dropped on
 reading, so every control drew the default blue. Names, short names and defaults are from the reference's 2024 node reference for dagNode and
 displayLayer. `crates/aztek_scene/src/draw_style.rs` makes every decision, so `tests/draw_style.rs` tests them with no GPU; the viewport

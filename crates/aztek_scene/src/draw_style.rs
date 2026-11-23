@@ -48,7 +48,7 @@ pub const DISPLAY_COLORS: &[(&str, i64, i64)] = &[
     ("ikHandle", 5, 18), ("dimension", 5, 18), ("referenceLayer", 1, 1),
 ];
 
-pub const LEAD: [u8; 4] = [66, 255, 163, 255];
+pub const LEAD: [u8; 4] = [81, 255, 177, 255];
 pub const SELECTED: [u8; 4] = [255, 255, 255, 255];
 
 /// What the colour commands change. They are preferences rather than scene data, so they outlive a new scene; a new
