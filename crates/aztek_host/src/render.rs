@@ -378,6 +378,21 @@ void main() {
 // The OpenPBR surface as the Realtime renderer draws it: GGX specular and coat, Lambert base, an image or a sky dome
 // for image-based lighting, and the scene's one shadow map. The light block, all six light types and the falloffs are the
 // same as the legacy material shader's, so a light lights the same in either renderer.
+/// The two colour attachments' blending for a pipeline in the scene pass: the picture, and the surface colour bounce
+/// light reads, which only the Realtime renderer's materials write.
+pub(crate) fn scene_blend(albedo: bool) -> [vk::PipelineColorBlendAttachmentState; 2] {
+    let blend = vk::PipelineColorBlendAttachmentState::default()
+        .blend_enable(true)
+        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        .color_blend_op(vk::BlendOp::ADD)
+        .src_alpha_blend_factor(vk::BlendFactor::ONE)
+        .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+        .alpha_blend_op(vk::BlendOp::ADD)
+        .color_write_mask(vk::ColorComponentFlags::RGBA);
+    [blend, if albedo { blend } else { blend.color_write_mask(vk::ColorComponentFlags::empty()) }]
+}
+
 const REALTIME_FS: &str = r#"#version 450
 struct Light { vec4 pos; vec4 dir; vec4 color; vec4 params; vec4 a; vec4 b; vec4 c; };
 layout(location = 0) in vec3 v_nrm;
@@ -397,6 +412,8 @@ layout(set = 4, binding = 1) uniform sampler s_shadow;
 layout(set = 4, binding = 2) uniform textureCube t_shadow_cube;
 layout(set = 4, binding = 3) uniform sampler s_shadow_cube;
 layout(location = 0) out vec4 out_color;
+// The surface's diffuse colour, linear: what bounce light arriving here is tinted by.
+layout(location = 1) out vec4 out_albedo;
 
 const float PI = 3.141592653589793;
 const float INV_PI = 0.3183098861837907;
@@ -622,6 +639,7 @@ void main() {
     vec3 emission = pc.incandescence.rgb;
     if (pc.gain.w < 0.5) {
         out_color = vec4(pow(max(base + emission, vec3(0.0)), vec3(1.0 / 2.2)), alpha);
+        out_albedo = vec4(0.0, 0.0, 0.0, alpha);
         return;
     }
     vec3 v = lt.head.w != 0 ? vec3(0.0, 0.0, 1.0) : normalize(-v_view);
@@ -641,6 +659,7 @@ void main() {
     float metal = clamp(pc.frame.x, 0.0, 1.0);
     vec3 diffuse_color = layer * (1.0 - metal) * (1.0 - transmission);
     vec3 lin = emission + diff * diffuse_color * INV_PI + spec;
+    out_albedo = vec4(clamp(diffuse_color, 0.0, 1.0), alpha);
     // Use Default Lighting: the viewport's key and fill, when no real light is in use.
     if (lt.head.x == 0) {
         vec3 k = normalize(vec3(-0.45, 0.6, 0.65));
@@ -884,15 +903,7 @@ impl Renderer {
                     .depth_test_enable(!on_top)
                     .depth_write_enable(matches!(kind, Kind::Shaded | Kind::ShadedCull | Kind::Lines | Kind::ColorTris))
                     .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                let blend = [vk::PipelineColorBlendAttachmentState::default()
-                    .blend_enable(true)
-                    .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-                    .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .color_blend_op(vk::BlendOp::ADD)
-                    .src_alpha_blend_factor(vk::BlendFactor::ONE)
-                    .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .alpha_blend_op(vk::BlendOp::ADD)
-                    .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                let blend = scene_blend(false);
                 let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                 let mut dyns = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                 if feats.wide_lines != 0 && !shaded {
@@ -964,15 +975,7 @@ impl Renderer {
                         .depth_test_enable(true)
                         .depth_write_enable(matches!(kind, Kind::Material | Kind::MaterialCull))
                         .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                    let blend = [vk::PipelineColorBlendAttachmentState::default()
-                        .blend_enable(true)
-                        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-                        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                        .color_blend_op(vk::BlendOp::ADD)
-                        .src_alpha_blend_factor(vk::BlendFactor::ONE)
-                        .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                        .alpha_blend_op(vk::BlendOp::ADD)
-                        .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                    let blend = scene_blend(false);
                     let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                     let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                     let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
@@ -1043,15 +1046,7 @@ impl Renderer {
                         .depth_test_enable(true)
                         .depth_write_enable(matches!(kind, Kind::Material | Kind::MaterialCull))
                         .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                    let blend = [vk::PipelineColorBlendAttachmentState::default()
-                        .blend_enable(true)
-                        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-                        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                        .color_blend_op(vk::BlendOp::ADD)
-                        .src_alpha_blend_factor(vk::BlendFactor::ONE)
-                        .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                        .alpha_blend_op(vk::BlendOp::ADD)
-                        .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                    let blend = scene_blend(true);
                     let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                     let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                     let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
@@ -1102,15 +1097,7 @@ impl Renderer {
                     .depth_test_enable(true)
                     .depth_write_enable(false)
                     .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                let blend = [vk::PipelineColorBlendAttachmentState::default()
-                    .blend_enable(true)
-                    .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
-                    .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .color_blend_op(vk::BlendOp::ADD)
-                    .src_alpha_blend_factor(vk::BlendFactor::ONE)
-                    .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-                    .alpha_blend_op(vk::BlendOp::ADD)
-                    .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                let blend = scene_blend(false);
                 let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                 let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                 let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);

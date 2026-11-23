@@ -4,7 +4,7 @@
 
 static const char* const kIconNames[] = {
     "aimCon", "ambientLight", "ambientOcclusion", "annotationShape", "antiAlias", "areaLight", "attachCurve", "attrEditor", "autokey",
-    "backface", "bevel", "bezierCurve", "blendShape", "bookmark", "boolean", "bridge", "brushAmplify", "brushBulge",
+    "backface", "bevel", "bezierCurve", "blendShape", "bookmark", "boolean", "bounceLight", "bridge", "brushAmplify", "brushBulge",
     "brushFill", "brushFlatten", "brushFoamy", "brushFreeze", "brushGrab", "brushImprint", "brushKnife",
     "brushPinch", "brushRelax", "brushRepeat", "brushScrape", "brushSculpt", "brushSmear", "brushSmooth",
     "brushSpray", "brushWax", "camera", "channelBoxIcon", "circle", "cluster", "collapse", "combine", "cone", "cube",

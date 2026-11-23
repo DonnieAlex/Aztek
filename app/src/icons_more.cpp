@@ -200,6 +200,21 @@ bool draw_more(const QString& name, QPainter& p) {
         p.drawEllipse(QRectF(4, 19, 22, 9));
         return true;
     }
+    if (name == "bounceLight") {
+        // Light coming down onto a red floor and going back up off it, tinted: bounce light.
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(200, 70, 60));
+        p.drawRect(QRectF(3, 24, 26, 5));
+        line_pen(p, kYellow, 1.8);
+        p.drawLine(QPointF(5, 4), QPointF(13, 21));
+        p.drawLine(QPointF(13, 21), QPointF(9.5, 18.5));
+        p.drawLine(QPointF(13, 21), QPointF(13.5, 16.8));
+        line_pen(p, QColor(235, 120, 100), 1.8);
+        p.drawLine(QPointF(17, 21), QPointF(26, 5));
+        p.drawLine(QPointF(26, 5), QPointF(22.3, 7.4));
+        p.drawLine(QPointF(26, 5), QPointF(26.2, 9.4));
+        return true;
+    }
     if (name == "shadows") {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(40, 40, 40, 200));

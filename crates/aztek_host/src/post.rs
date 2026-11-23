@@ -1,5 +1,6 @@
-//! What happens to a view's picture between the scene being drawn and the window showing it: ambient occlusion from the
-//! depth the scene left. One full-screen pass reads the scene's colour and depth and writes the window's image.
+//! What happens to a view's picture between the scene being drawn and the window showing it: ambient occlusion and
+//! bounce light from the depth and colour the scene left. One full-screen pass works those out; another reads them with
+//! the scene's colour and writes the window's image.
 
 use ash::vk;
 use glam::Mat4;
@@ -26,6 +27,7 @@ layout(set = 0, binding = 0) uniform texture2D t_scene;
 layout(set = 0, binding = 1) uniform DEPTH_TEXTURE t_depth;
 layout(set = 0, binding = 2) uniform sampler s_point;
 layout(set = 0, binding = 3) uniform texture2D t_open;
+layout(set = 0, binding = 5) uniform texture2D t_albedo;
 layout(push_constant) uniform P {
     // Clip space back to the camera's.
     mat4 inv_proj;
@@ -45,7 +47,8 @@ layout(set = 0, binding = 4, std140) uniform Params {
     vec4 contact_dir;
     // Contact shadow strength, and whether it is on (0 off).
     vec4 contact;
-    // x: 1 when the Realtime renderer asks for the finer occlusion (more taps, a wider blur).
+    // x: 1 when the Realtime renderer asks for the finer occlusion (more taps, a wider blur). y: how strong the bounce
+    // light is, 0 with it off.
     vec4 quality;
 } pp;
 
@@ -59,9 +62,22 @@ vec3 point_at(vec2 px, float d) {
     vec4 p = pc.inv_proj * vec4(px * pc.size.zw * 2.0 - 1.0, d, 1.0);
     return p.xyz / p.w;
 }
+
+// The surface's normal from its neighbours, taking on each axis the side nearer in depth so an edge doesn't bend it.
+// It faces the eye.
+vec3 normal_at(vec2 c, float d, vec3 p) {
+    float dl = depth_at(c - vec2(1.0, 0.0)), dr = depth_at(c + vec2(1.0, 0.0));
+    float du = depth_at(c - vec2(0.0, 1.0)), dd = depth_at(c + vec2(0.0, 1.0));
+    vec3 ax = abs(dr - d) < abs(d - dl) ? point_at(c + vec2(1.0, 0.0), dr) - p : p - point_at(c - vec2(1.0, 0.0), dl);
+    vec3 ay = abs(dd - d) < abs(d - du) ? point_at(c + vec2(0.0, 1.0), dd) - p : p - point_at(c - vec2(0.0, 1.0), du);
+    vec3 n = normalize(cross(ax, ay));
+    vec3 to_eye = pc.ao.w > 0.5 ? vec3(0.0, 0.0, 1.0) : normalize(-p);
+    return dot(n, to_eye) < 0.0 ? -n : n;
+}
 "#;
 
-/// How open each pixel is: 1 with nothing near it, less in creases and where things meet.
+/// How open each pixel is (alpha): 1 with nothing near it, less in creases and where things meet. And the light that
+/// reaches it bounced off what the view shows round about (rgb), before the surface's own colour takes its share.
 const AO_MAIN: &str = r#"
 // Noise that differs from pixel to pixel with no pattern the eye picks out.
 float noise(vec2 px) {
@@ -72,18 +88,11 @@ void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
     float d = depth_at(c);
     if (d <= 0.0) {
-        o = vec4(1.0);
+        o = vec4(0.0, 0.0, 0.0, 1.0);
         return;
     }
     vec3 p = point_at(c, d);
-    // The surface's normal from its neighbours, taking on each axis the side nearer in depth so an edge doesn't bend it.
-    float dl = depth_at(c - vec2(1.0, 0.0)), dr = depth_at(c + vec2(1.0, 0.0));
-    float du = depth_at(c - vec2(0.0, 1.0)), dd = depth_at(c + vec2(0.0, 1.0));
-    vec3 ax = abs(dr - d) < abs(d - dl) ? point_at(c + vec2(1.0, 0.0), dr) - p : p - point_at(c - vec2(1.0, 0.0), dl);
-    vec3 ay = abs(dd - d) < abs(d - du) ? point_at(c + vec2(0.0, 1.0), dd) - p : p - point_at(c - vec2(0.0, 1.0), du);
-    vec3 n = normalize(cross(ax, ay));
-    vec3 to_eye = pc.ao.w > 0.5 ? vec3(0.0, 0.0, 1.0) : normalize(-p);
-    if (dot(n, to_eye) < 0.0) n = -n;
+    vec3 n = normal_at(c, d, p);
 
     float reach = pc.ao.x;
     // How far that is on screen at this depth, kept to a size worth sampling.
@@ -138,12 +147,61 @@ void main() {
         }
     }
     float open = pc.ao.z > 0.5 ? clamp(1.0 - pc.ao.y * sum / float(taps), 0.0, 1.0) : 1.0;
-    o = vec4(clamp(open * contact, 0.0, 1.0));
+    // Bounce light, as screen-space global illumination does it: each tap a patch of the lit surfaces round about,
+    // sending what the scene drew there towards this point. Taps are spread evenly over a disc whose radius is two
+    // fifths of the view, so each stands for the same share of it; a few steps along the way check nothing in front cuts
+    // it off.
+    // Only what the view shows gives light, so it costs the same however the lights move.
+    vec3 gi = vec3(0.0);
+    if (pp.quality.y > 0.0) {
+        float gi_px = clamp(0.4 * min(pc.size.x, pc.size.y), 16.0, 600.0);
+        float gturn = noise(c.yx + vec2(17.0, 5.0)) * 6.2831853;
+        const int GI_TAPS = 24;
+        for (int i = 0; i < GI_TAPS; ++i) {
+            float t = sqrt((float(i) + 0.5) / float(GI_TAPS));
+            float a = gturn + float(i) * 2.39996323;
+            vec2 q = floor(c + vec2(cos(a), sin(a)) * gi_px * t) + 0.5;
+            if (q.x < 0.0 || q.y < 0.0 || q.x > pc.size.x || q.y > pc.size.y) continue;
+            float dq = depth_at(q);
+            if (dq <= 0.0) continue;
+            vec3 pq = point_at(q, dq);
+            vec3 v = pq - p;
+            float dist2 = dot(v, v);
+            if (dist2 < 1e-10) continue;
+            vec3 dir = v * inversesqrt(dist2);
+            float cr = dot(n, dir);
+            if (cr <= 0.0) continue;
+            float cs = -dot(normal_at(q, dq, pq), dir);
+            if (cs <= 0.0) continue;
+            bool hidden = false;
+            for (int k = 1; k < 4; ++k) {
+                float f = float(k) * 0.25;
+                vec2 m = floor(mix(c, q, f)) + 0.5;
+                float dm = depth_at(m);
+                if (dm <= 0.0) continue;
+                // Something stands nearer the eye than the line between the two points, by more than a slope's worth.
+                float zm = point_at(m, dm).z;
+                float zl = mix(p.z, pq.z, f);
+                if (zm - zl > 0.05 * sqrt(dist2)) {
+                    hidden = true;
+                    break;
+                }
+            }
+            if (hidden) continue;
+            vec3 lq = pow(texelFetch(sampler2D(t_scene, s_point), ivec2(q), 0).rgb, vec3(2.2));
+            float per_q = length(point_at(q + vec2(1.0, 0.0), dq) - pq);
+            float area = 3.14159265 * (gi_px * per_q) * (gi_px * per_q) / float(GI_TAPS);
+            gi += lq * cr * cs * area / max(dist2, area);
+        }
+        gi *= pp.quality.y * 0.31830988;
+    }
+    o = vec4(gi, clamp(open * contact, 0.0, 1.0));
 }
 "#;
 
-/// The picture: the scene's colour, darkened by how closed in each pixel is. The occlusion is smoothed over the pixels
-/// round about that lie on the same surface, which takes the sampling's grain out and keeps edges sharp.
+/// The picture: the scene's colour, darkened by how closed in each pixel is, with the bounce light the surface's colour
+/// sends back. Both are smoothed over the pixels round about that lie on the same surface, which takes the sampling's
+/// grain out and keeps edges sharp.
 const COMPOSITE_MAIN: &str = r#"
 void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
@@ -156,13 +214,14 @@ void main() {
         o = vec4(color, 1.0);
         return;
     }
-    if ((pc.ao.z < 0.5 && pp.contact.x <= 0.0) || d <= 0.0) {
+    if ((pc.ao.z < 0.5 && pp.contact.x <= 0.0 && pp.quality.y <= 0.0) || d <= 0.0) {
         o = vec4(color, 1.0);
         return;
     }
     float z = point_at(c, d).z;
     float per_px = length(point_at(c + vec2(1.0, 0.0), d) - point_at(c, d));
-    float sum = 0.0, weight = 0.0;
+    vec4 sum = vec4(0.0);
+    float weight = 0.0;
     // Realtime smooths over a wider square, which takes the finer sampling's remaining grain out.
     int blur = pp.quality.x > 0.5 ? 4 : 3;
     for (int y = -blur; y <= blur; ++y) {
@@ -174,12 +233,19 @@ void main() {
             // Pixels much nearer or farther are another surface: a slope across the square is not.
             float dz = abs(point_at(q, dq).z - z) / (per_px * float(blur * 2) + 1e-9);
             float w = exp(-float(x * x + y * y) / float(blur * blur * 2)) * max(1.0 - dz, 0.0);
-            sum += texelFetch(sampler2D(t_open, s_point), at, 0).r * w;
+            sum += texelFetch(sampler2D(t_open, s_point), at, 0) * w;
             weight += w;
         }
     }
-    float open = weight > 0.0 ? sum / weight : 1.0;
-    o = vec4(color * open, 1.0);
+    vec4 got = weight > 0.0 ? sum / weight : vec4(0.0, 0.0, 0.0, 1.0);
+    float open = got.a;
+    vec3 shaded = color * open;
+    if (pp.quality.y > 0.0) {
+        // The bounce is added in linear light, then the picture goes back to the display's encoding.
+        vec3 albedo = texelFetch(sampler2D(t_albedo, s_point), ivec2(c), 0).rgb;
+        shaded = pow(pow(shaded, vec3(2.2)) + albedo * got.rgb * open, vec3(1.0 / 2.2));
+    }
+    o = vec4(shaded, 1.0);
 }
 "#;
 
@@ -198,11 +264,13 @@ pub struct PostSettings {
     pub contact: Option<([f32; 3], f32, f32)>,
     /// The Realtime renderer's finer occlusion: more taps and a wider blur.
     pub high_quality: bool,
+    /// How strong the bounce light is, 0 with it off. Only the Realtime renderer's materials take it.
+    pub bounce: f32,
 }
 
 impl Default for PostSettings {
     fn default() -> Self {
-        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36, contact: None, high_quality: false }
+        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36, contact: None, high_quality: false, bounce: 0.0 }
     }
 }
 
@@ -258,10 +326,11 @@ impl Post {
                 vk::DescriptorSetLayoutBinding::default().binding(2).descriptor_type(vk::DescriptorType::SAMPLER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                vk::DescriptorSetLayoutBinding::default().binding(5).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
             ];
             let set_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings), None).unwrap();
             let sizes = [
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(6),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(8),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(2),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(2),
             ];
@@ -334,6 +403,7 @@ impl Post {
         let depth = [vk::DescriptorImageInfo::default().image_view(gpu.depth_view).image_layout(vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL)];
         let point = [vk::DescriptorImageInfo::default().sampler(self.sampler)];
         let open = [vk::DescriptorImageInfo::default().image_view(gpu.ao_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let albedo = [vk::DescriptorImageInfo::default().image_view(gpu.albedo_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let params = [vk::DescriptorBufferInfo::default().buffer(self.params.buffer).offset(0).range(std::mem::size_of::<PostParams>() as u64)];
         let mut writes = Vec::new();
         for (set, last) in [(self.set, &open), (self.ao_set, &color)] {
@@ -342,6 +412,7 @@ impl Post {
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(2).descriptor_type(vk::DescriptorType::SAMPLER).image_info(&point));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(last));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&params));
+            writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(5).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&albedo));
         }
         unsafe { gpu.device.update_descriptor_sets(&writes, &[]) };
     }
@@ -364,7 +435,7 @@ impl Post {
             proj: proj.to_cols_array(),
             contact_dir: match s.contact { Some((d, reach, _)) => [d[0], d[1], d[2], reach.max(0.0)], None => [0.0; 4] },
             contact: match s.contact { Some((_, _, strength)) => [strength.max(0.0), 0.0, 0.0, 0.0], None => [0.0; 4] },
-            quality: [if s.high_quality { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0],
+            quality: [if s.high_quality { 1.0 } else { 0.0 }, s.bounce.max(0.0), 0.0, 0.0],
         };
         let bytes: &[u8] = bytemuck::bytes_of(&data);
         if let Some(p) = self.params.alloc.as_ref().and_then(|a| a.mapped_ptr()) {
@@ -384,7 +455,7 @@ impl Post {
 
     /// Works out the occlusion. Between `Gpu::begin_occlusion` and `Gpu::begin_post`. Nothing is drawn with it off.
     pub fn draw_occlusion(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
-        if s.ambient_occlusion || s.contact.is_some() {
+        if s.ambient_occlusion || s.contact.is_some() || s.bounce > 0.0 {
             self.pass(gpu, self.ao_pipeline, self.ao_set, &self.push(gpu, proj, orthographic, s));
         }
     }

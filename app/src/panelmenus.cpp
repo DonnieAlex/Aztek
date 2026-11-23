@@ -248,6 +248,8 @@ void ModelPanel::build_menus() {
     lighting->addSeparator();
     flag_item(lighting, v, "Two Sided Lighting", "twoSided", *flags);
     flag_item(lighting, v, "Shadows", "shadows", *flags);
+    // The Default renderer's bounce light: screen-space global illumination, off what the view shows.
+    flag_item(lighting, v, "Bounce Light", "bounceLight", *flags);
     // Ambient occlusion: this view's switch, with its reach and strength under it. The choice is kept for new views.
     QAction* ao = lighting->addAction("Ambient Occlusion");
     ao->setCheckable(true);
@@ -525,6 +527,7 @@ void ModelPanel::build_menus() {
     connect(all_lights, &QAction::triggered, this, [v](bool on) { v->set("disp", QString("{\"displayLights\":\"%1\"}").arg(on ? "all" : "default")); });
     connect(lighting, &QMenu::aboutToShow, all_lights, [v, all_lights] { all_lights->setChecked(parse(v->get("disp")).toObject()["displayLights"].toString() == "all"); });
     bar_flag("shadows", "Shadows", "shadows");
+    bar_flag("bounceLight", "Bounce Light (Default renderer)", "bounceLight");
     // Ambient occlusion, which both renderers draw. Realtime takes more samples in the post pass.
     QAction* ao_button = bar_->addAction(icon("ambientOcclusion"), "Ambient Occlusion");
     ao_button->setCheckable(true);

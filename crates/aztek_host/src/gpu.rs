@@ -217,6 +217,14 @@ pub struct Gpu {
     pub scene_view: vk::ImageView,
     pub scene_alloc: Option<Allocation>,
     pub scene_framebuffer: vk::Framebuffer,
+    /// The surface's own colour, before any light, at one sample a pixel: what bounce light picks up as it leaves.
+    /// Drawn through `albedo_msaa_image` when multisampled. Only the Realtime renderer writes it; elsewhere it stays 0.
+    pub albedo_image: vk::Image,
+    pub albedo_view: vk::ImageView,
+    pub albedo_alloc: Option<Allocation>,
+    pub albedo_msaa_image: vk::Image,
+    pub albedo_msaa_view: vk::ImageView,
+    pub albedo_msaa_alloc: Option<Allocation>,
     /// How open each pixel is to the light around it, worked out from the scene's depth before the picture is put together.
     pub ao_pass: vk::RenderPass,
     pub ao_image: vk::Image,
@@ -315,6 +323,12 @@ impl Gpu {
             scene_view: vk::ImageView::null(),
             scene_alloc: None,
             scene_framebuffer: vk::Framebuffer::null(),
+            albedo_image: vk::Image::null(),
+            albedo_view: vk::ImageView::null(),
+            albedo_alloc: None,
+            albedo_msaa_image: vk::Image::null(),
+            albedo_msaa_view: vk::ImageView::null(),
+            albedo_msaa_alloc: None,
             ao_pass,
             ao_image: vk::Image::null(),
             ao_view: vk::ImageView::null(),
@@ -356,6 +370,19 @@ impl Gpu {
                     let _ = self.shared.allocator.lock().unwrap().free(a);
                 }
                 self.ao_view = vk::ImageView::null();
+            }
+            for (view, image, alloc) in [
+                (&mut self.albedo_view, self.albedo_image, &mut self.albedo_alloc),
+                (&mut self.albedo_msaa_view, self.albedo_msaa_image, &mut self.albedo_msaa_alloc),
+            ] {
+                if *view != vk::ImageView::null() {
+                    self.device.destroy_image_view(*view, None);
+                    self.device.destroy_image(image, None);
+                    if let Some(a) = alloc.take() {
+                        let _ = self.shared.allocator.lock().unwrap().free(a);
+                    }
+                    *view = vk::ImageView::null();
+                }
             }
             if self.scene_view != vk::ImageView::null() {
                 self.device.destroy_image_view(self.scene_view, None);
@@ -535,7 +562,17 @@ impl Gpu {
                 &vk::ImageViewCreateInfo::default().image(self.scene_image).view_type(vk::ImageViewType::TYPE_2D).format(self.format).subresource_range(color_range()),
                 None,
             )?;
-            let att: Vec<vk::ImageView> = if multi { vec![self.msaa_view, self.depth_view, self.scene_view] } else { vec![self.scene_view, self.depth_view] };
+            let (image, view, alloc) = self.color_image("albedo", ALBEDO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.albedo_image, self.albedo_view, self.albedo_alloc) = (image, view, Some(alloc));
+            if multi {
+                let (image, view, alloc) = self.color_image("msaa albedo", ALBEDO_FORMAT, self.samples, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT, extent)?;
+                (self.albedo_msaa_image, self.albedo_msaa_view, self.albedo_msaa_alloc) = (image, view, Some(alloc));
+            }
+            let att: Vec<vk::ImageView> = if multi {
+                vec![self.msaa_view, self.depth_view, self.scene_view, self.albedo_msaa_view, self.albedo_view]
+            } else {
+                vec![self.scene_view, self.depth_view, self.albedo_view]
+            };
             self.scene_framebuffer = self.device.create_framebuffer(
                 &vk::FramebufferCreateInfo::default().render_pass(self.render_pass).attachments(&att).width(extent.width).height(extent.height).layers(1),
                 None,
@@ -579,6 +616,32 @@ impl Gpu {
             }
         }
         Ok(())
+    }
+
+    /// A colour image the view's size, with its memory and a view of it.
+    unsafe fn color_image(&self, name: &str, format: vk::Format, samples: vk::SampleCountFlags, usage: vk::ImageUsageFlags, extent: vk::Extent2D) -> Res<(vk::Image, vk::ImageView, Allocation)> {
+        let image = self.device.create_image(
+            &vk::ImageCreateInfo::default()
+                .image_type(vk::ImageType::TYPE_2D)
+                .format(format)
+                .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
+                .mip_levels(1)
+                .array_layers(1)
+                .samples(samples)
+                .usage(usage),
+            None,
+        )?;
+        let req = self.device.get_image_memory_requirements(image);
+        let alloc = self.shared.allocator.lock().unwrap().allocate(&AllocationCreateDesc {
+            name,
+            requirements: req,
+            location: MemoryLocation::GpuOnly,
+            linear: false,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+        })?;
+        self.device.bind_image_memory(image, alloc.memory(), alloc.offset())?;
+        let view = self.device.create_image_view(&vk::ImageViewCreateInfo::default().image(image).view_type(vk::ImageViewType::TYPE_2D).format(format).subresource_range(color_range()), None)?;
+        Ok((image, view, alloc))
     }
 
     /// A host-visible buffer holding data.
@@ -655,8 +718,12 @@ impl Gpu {
                 vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 0.0, stencil: 0 } },
                 // The resolve target, not cleared.
                 vk::ClearValue { color: vk::ClearColorValue { float32: clear } },
+                // The albedo, none where nothing is drawn, and its resolve target.
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
             ];
-            let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &clears[..2] } else { &clears[..] };
+            let one = [clears[0], clears[1], clears[3]];
+            let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &one[..] } else { &clears[..] };
             self.device.cmd_begin_render_pass(
                 self.cmd,
                 &vk::RenderPassBeginInfo::default()
@@ -849,7 +916,10 @@ impl Drop for Gpu {
 }
 
 /// One number a pixel: how open it is.
-pub const AO_FORMAT: vk::Format = vk::Format::R8_UNORM;
+/// The occlusion pass's image: bounce light in rgb, how open the pixel is in a.
+pub const AO_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
+/// The surface colour the scene pass writes beside its picture.
+pub const ALBEDO_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
 
 pub fn color_range() -> vk::ImageSubresourceRange {
     vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::COLOR).level_count(1).layer_count(1)
@@ -877,20 +947,41 @@ unsafe fn scene_pass(device: &ash::Device, format: vk::Format, samples: vk::Samp
                 .initial_layout(vk::ImageLayout::UNDEFINED)
                 .final_layout(vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL),
         ];
+        let resolved = |format| {
+            vk::AttachmentDescription::default()
+                .format(format)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .load_op(vk::AttachmentLoadOp::DONT_CARE)
+                .store_op(vk::AttachmentStoreOp::STORE)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+        };
         if multi {
-            attachments.push(
-                vk::AttachmentDescription::default()
-                    .format(format)
-                    .samples(vk::SampleCountFlags::TYPE_1)
-                    .load_op(vk::AttachmentLoadOp::DONT_CARE)
-                    .store_op(vk::AttachmentStoreOp::STORE)
-                    .initial_layout(vk::ImageLayout::UNDEFINED)
-                    .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL),
-            );
+            attachments.push(resolved(format));
         }
-        let color_ref = [vk::AttachmentReference::default().attachment(0).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)];
+        // The surface colour beside the picture: 3 (resolved into 4) with several samples, 2 with one.
+        attachments.push(
+            vk::AttachmentDescription::default()
+                .format(ALBEDO_FORMAT)
+                .samples(samples)
+                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .store_op(if multi { vk::AttachmentStoreOp::DONT_CARE } else { vk::AttachmentStoreOp::STORE })
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .final_layout(if multi { vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL }),
+        );
+        if multi {
+            attachments.push(resolved(ALBEDO_FORMAT));
+        }
+        let albedo = if multi { 3 } else { 2 };
+        let color_ref = [
+            vk::AttachmentReference::default().attachment(0).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(albedo).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+        ];
         let depth_ref = vk::AttachmentReference::default().attachment(1).layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        let resolve_ref = [vk::AttachmentReference::default().attachment(2).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)];
+        let resolve_ref = [
+            vk::AttachmentReference::default().attachment(2).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(4).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+        ];
         let mut sp = vk::SubpassDescription::default()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
             .color_attachments(&color_ref)

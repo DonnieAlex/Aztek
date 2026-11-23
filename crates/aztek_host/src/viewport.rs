@@ -604,6 +604,8 @@ pub struct Display {
     pub two_sided: bool,
     /// Kept for scripts and the menu: no shadows are drawn.
     pub shadows: bool,
+    /// The Realtime renderer's bounce light: screen-space global illumination off what the view shows.
+    pub bounce_light: bool,
     /// Show > Lights: the icons.
     pub lights: bool,
 }
@@ -649,6 +651,7 @@ impl Default for Display {
             light_mode: crate::lighting::LightMode::Default,
             two_sided: true,
             shadows: false,
+            bounce_light: true,
             lights: true,
         }
     }
