@@ -38,6 +38,16 @@ layout(push_constant) uniform P {
     vec4 bg_top;
     vec4 bg_bottom;
 } pc;
+// The camera's projection and the contact shadow, in a uniform buffer: the push block stays what every device allows.
+layout(set = 0, binding = 4, std140) uniform Params {
+    mat4 proj;
+    // The direction in view space towards the shadow-casting light; w is how far its contact shadow reaches.
+    vec4 contact_dir;
+    // Contact shadow strength, and whether it is on (0 off).
+    vec4 contact;
+    // x: 1 when the Realtime renderer asks for the finer occlusion (more taps, a wider blur).
+    vec4 quality;
+} pp;
 
 float depth_at(vec2 px) {
     ivec2 at = clamp(ivec2(px), ivec2(0), ivec2(pc.size.xy) - 1);
@@ -83,10 +93,12 @@ void main() {
     float r = min(reach, reach_px * per_px);
     float turn = noise(c) * 6.2831853;
     float sum = 0.0;
-    const int TAPS = 16;
-    for (int i = 0; i < TAPS; ++i) {
+    // Realtime takes twice the taps: a smoother term and less of the sampling's grain.
+    int taps = pp.quality.x > 0.5 ? 32 : 16;
+    for (int i = 0; i < 32; ++i) {
+        if (i >= taps) break;
         // A spiral out from the pixel.
-        float t = (float(i) + 0.5) / float(TAPS);
+        float t = (float(i) + 0.5) / float(taps);
         float a = turn + t * 6.2831853 * 7.0;
         vec2 q = floor(c + vec2(cos(a), sin(a)) * reach_px * t) + 0.5;
         float dq = depth_at(q);
@@ -99,7 +111,34 @@ void main() {
         float f = max(1.0 - vv / (r * r), 0.0);
         sum += f * f * f * max(vn, 0.0) * r / (vv + 0.0001 * r * r);
     }
-    o = vec4(clamp(1.0 - pc.ao.y * sum / float(TAPS), 0.0, 1.0));
+    // Contact shadows: march from the point towards the light and see whether the surface stands in the way. This is the
+    // short-range shadow a shadow map's texels are too coarse for, as EEVEE's contact shadows are.
+    float contact = 1.0;
+    if (pp.contact.x > 0.0 && pp.contact_dir.w > 0.0) {
+        vec3 dir = normalize(pp.contact_dir.xyz);
+        float far = pp.contact_dir.w;
+        float step_len = far / 16.0;
+        float t = step_len;
+        for (int i = 0; i < 16; ++i) {
+            vec4 clip = pp.proj * vec4(p + dir * t, 1.0);
+            if (clip.w <= 0.0) break;
+            vec2 sx = clip.xy / clip.w * 0.5 + 0.5;
+            if (sx.x < 0.0 || sx.x > 1.0 || sx.y < 0.0 || sx.y > 1.0) break;
+            vec2 q = floor(sx * pc.size.xy) + 0.5;
+            float dq = depth_at(q);
+            if (dq > 0.0) {
+                float zq = point_at(q, dq).z;
+                float zr = (p + dir * t).z;
+                if (zq - zr > far * 0.02 && zq - zr < far * 0.75) {
+                    contact = 1.0 - pp.contact.x;
+                    break;
+                }
+            }
+            t += step_len;
+        }
+    }
+    float open = pc.ao.z > 0.5 ? clamp(1.0 - pc.ao.y * sum / float(taps), 0.0, 1.0) : 1.0;
+    o = vec4(clamp(open * contact, 0.0, 1.0));
 }
 "#;
 
@@ -117,22 +156,24 @@ void main() {
         o = vec4(color, 1.0);
         return;
     }
-    if (pc.ao.z < 0.5 || d <= 0.0) {
+    if ((pc.ao.z < 0.5 && pp.contact.x <= 0.0) || d <= 0.0) {
         o = vec4(color, 1.0);
         return;
     }
     float z = point_at(c, d).z;
     float per_px = length(point_at(c + vec2(1.0, 0.0), d) - point_at(c, d));
     float sum = 0.0, weight = 0.0;
-    for (int y = -3; y <= 3; ++y) {
-        for (int x = -3; x <= 3; ++x) {
+    // Realtime smooths over a wider square, which takes the finer sampling's remaining grain out.
+    int blur = pp.quality.x > 0.5 ? 4 : 3;
+    for (int y = -blur; y <= blur; ++y) {
+        for (int x = -blur; x <= blur; ++x) {
             vec2 q = c + vec2(float(x), float(y));
             ivec2 at = clamp(ivec2(q), ivec2(0), ivec2(pc.size.xy) - 1);
             float dq = depth_at(q);
             if (dq <= 0.0) continue;
-            // Pixels much nearer or farther are another surface: a slope across the 7 pixels is not.
-            float dz = abs(point_at(q, dq).z - z) / (per_px * 6.0 + 1e-9);
-            float w = exp(-float(x * x + y * y) / 8.0) * max(1.0 - dz, 0.0);
+            // Pixels much nearer or farther are another surface: a slope across the square is not.
+            float dz = abs(point_at(q, dq).z - z) / (per_px * float(blur * 2) + 1e-9);
+            float w = exp(-float(x * x + y * y) / float(blur * blur * 2)) * max(1.0 - dz, 0.0);
             sum += texelFetch(sampler2D(t_open, s_point), at, 0).r * w;
             weight += w;
         }
@@ -153,11 +194,15 @@ pub struct PostSettings {
     pub gradient: Option<([f32; 3], [f32; 3])>,
     /// The grey the scene was cleared to.
     pub clear_grey: f32,
+    /// The contact shadow: the view-space direction towards its light, how far it reaches and how strong it is.
+    pub contact: Option<([f32; 3], f32, f32)>,
+    /// The Realtime renderer's finer occlusion: more taps and a wider blur.
+    pub high_quality: bool,
 }
 
 impl Default for PostSettings {
     fn default() -> Self {
-        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36 }
+        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36, contact: None, high_quality: false }
     }
 }
 
@@ -171,6 +216,16 @@ struct PostPush {
     bg_bottom: [f32; 4],
 }
 
+/// The projection and contact shadow, in a uniform buffer so the push block stays at the 128 bytes every device gives.
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct PostParams {
+    proj: [f32; 16],
+    contact_dir: [f32; 4],
+    contact: [f32; 4],
+    quality: [f32; 4],
+}
+
 pub struct Post {
     pipeline: vk::Pipeline,
     ao_pipeline: vk::Pipeline,
@@ -180,6 +235,7 @@ pub struct Post {
     set: vk::DescriptorSet,
     ao_set: vk::DescriptorSet,
     sampler: vk::Sampler,
+    params: crate::gpu::Buffer,
 }
 
 fn fragment_source(main: &str, multisampled: bool) -> String {
@@ -201,11 +257,13 @@ impl Post {
                 vk::DescriptorSetLayoutBinding::default().binding(1).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(2).descriptor_type(vk::DescriptorType::SAMPLER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                vk::DescriptorSetLayoutBinding::default().binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
             ];
             let set_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings), None).unwrap();
             let sizes = [
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(6),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(2),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(2),
             ];
             let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(2).pool_sizes(&sizes), None).unwrap();
             let layouts = [set_layout];
@@ -221,6 +279,7 @@ impl Post {
                     None,
                 )
                 .unwrap();
+            let params = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, &[PostParams { proj: glam::Mat4::IDENTITY.to_cols_array(), contact_dir: [0.0; 4], contact: [0.0; 4], quality: [0.0; 4] }]);
             let push = [vk::PushConstantRange::default().stage_flags(vk::ShaderStageFlags::FRAGMENT).offset(0).size(std::mem::size_of::<PostPush>() as u32)];
             let layout = d.create_pipeline_layout(&vk::PipelineLayoutCreateInfo::default().set_layouts(&layouts).push_constant_ranges(&push), None).unwrap();
             let stages = [
@@ -261,7 +320,7 @@ impl Post {
             d.destroy_shader_module(vs, None);
             d.destroy_shader_module(fs, None);
             d.destroy_shader_module(ao_fs, None);
-            Post { pipeline, ao_pipeline, layout, set_layout, pool, set, ao_set, sampler }
+            Post { pipeline, ao_pipeline, layout, set_layout, pool, set, ao_set, sampler, params }
         }
     }
 
@@ -275,17 +334,20 @@ impl Post {
         let depth = [vk::DescriptorImageInfo::default().image_view(gpu.depth_view).image_layout(vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL)];
         let point = [vk::DescriptorImageInfo::default().sampler(self.sampler)];
         let open = [vk::DescriptorImageInfo::default().image_view(gpu.ao_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let params = [vk::DescriptorBufferInfo::default().buffer(self.params.buffer).offset(0).range(std::mem::size_of::<PostParams>() as u64)];
         let mut writes = Vec::new();
         for (set, last) in [(self.set, &open), (self.ao_set, &color)] {
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(0).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&color));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(1).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&depth));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(2).descriptor_type(vk::DescriptorType::SAMPLER).image_info(&point));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(last));
+            writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&params));
         }
         unsafe { gpu.device.update_descriptor_sets(&writes, &[]) };
     }
 
     fn push(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) -> PostPush {
+        self.write_params(proj, s);
         let (w, h) = (gpu.extent.width.max(1) as f32, gpu.extent.height.max(1) as f32);
         PostPush {
             inv_proj: proj.inverse().to_cols_array(),
@@ -293,6 +355,20 @@ impl Post {
             size: [w, h, 1.0 / w, 1.0 / h],
             bg_top: match s.gradient { Some((t, _)) => [t[0], t[1], t[2], 1.0], None => [0.0; 4] },
             bg_bottom: match s.gradient { Some((_, b)) => [b[0], b[1], b[2], s.clear_grey], None => [0.0, 0.0, 0.0, s.clear_grey] },
+        }
+    }
+
+    /// The projection and contact shadow, into the uniform buffer the shaders read.
+    fn write_params(&self, proj: Mat4, s: &PostSettings) {
+        let data = PostParams {
+            proj: proj.to_cols_array(),
+            contact_dir: match s.contact { Some((d, reach, _)) => [d[0], d[1], d[2], reach.max(0.0)], None => [0.0; 4] },
+            contact: match s.contact { Some((_, _, strength)) => [strength.max(0.0), 0.0, 0.0, 0.0], None => [0.0; 4] },
+            quality: [if s.high_quality { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0],
+        };
+        let bytes: &[u8] = bytemuck::bytes_of(&data);
+        if let Some(p) = self.params.alloc.as_ref().and_then(|a| a.mapped_ptr()) {
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), p.as_ptr() as *mut u8, bytes.len()) };
         }
     }
 
@@ -308,7 +384,7 @@ impl Post {
 
     /// Works out the occlusion. Between `Gpu::begin_occlusion` and `Gpu::begin_post`. Nothing is drawn with it off.
     pub fn draw_occlusion(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
-        if s.ambient_occlusion {
+        if s.ambient_occlusion || s.contact.is_some() {
             self.pass(gpu, self.ao_pipeline, self.ao_set, &self.push(gpu, proj, orthographic, s));
         }
     }
@@ -327,6 +403,10 @@ impl Post {
             d.destroy_descriptor_pool(self.pool, None);
             d.destroy_descriptor_set_layout(self.set_layout, None);
             d.destroy_sampler(self.sampler, None);
+            d.destroy_buffer(self.params.buffer, None);
+            if let Some(a) = self.params.alloc.take() {
+                let _ = gpu.shared.allocator.lock().unwrap().free(a);
+            }
         }
     }
 }
@@ -347,7 +427,8 @@ mod tests {
 
     #[test]
     fn the_push_block_is_what_the_shader_declares() {
-        // A mat4 and four vec4s: the 128 bytes every device gives.
+        // In reverse projection, the occlusion, the size and the two background colours: the 128 bytes every device gives.
+        // The projection and contact shadow ride in a uniform buffer, so this stays at that minimum.
         assert_eq!(std::mem::size_of::<PostPush>(), 128);
     }
 }

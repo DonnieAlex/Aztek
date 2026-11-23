@@ -1223,6 +1223,48 @@ pub struct DrawSpecular {
     pub roll_off: f32,
 }
 
+/// The OpenPBR parameters the realtime renderer shades with. The viewport's legacy renderer keeps to `color`, `diffuse`
+/// and `specular`; these are read for every material all the same, so switching renderers shows the same look.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PbrParams {
+    /// How much of the base layer is there: OpenPBR's baseWeight.
+    pub base_weight: f32,
+    /// 0 a dielectric, 1 a metal.
+    pub metalness: f32,
+    /// The base layer's own roughness: OpenPBR's baseDiffuseRoughness.
+    pub diffuse_roughness: f32,
+    /// How strong the dielectric reflection is: OpenPBR's specularWeight.
+    pub specular_weight: f32,
+    pub specular_color: [f32; 3],
+    pub specular_roughness: f32,
+    pub specular_ior: f32,
+    pub coat_weight: f32,
+    pub coat_roughness: f32,
+    pub coat_ior: f32,
+    pub transmission_weight: f32,
+    /// Emitted radiance: emission colour times its weight or luminance.
+    pub emission: [f32; 3],
+}
+
+impl Default for PbrParams {
+    fn default() -> Self {
+        PbrParams {
+            base_weight: 1.0,
+            metalness: 0.0,
+            diffuse_roughness: 0.0,
+            specular_weight: 1.0,
+            specular_color: [1.0; 3],
+            specular_roughness: 0.3,
+            specular_ior: 1.5,
+            coat_weight: 0.0,
+            coat_roughness: 0.0,
+            coat_ior: 1.6,
+            transmission_weight: 0.0,
+            emission: [0.0; 3],
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawMaterial {
     pub group: NodeId,
@@ -1240,6 +1282,66 @@ pub struct DrawMaterial {
     pub alpha_map: Option<TextureRef>,
     /// Drawn when real lights are in use.
     pub specular: Option<DrawSpecular>,
+    /// The OpenPBR layer weights and roughnesses the Realtime renderer shades with.
+    pub pbr: PbrParams,
+}
+
+/// The OpenPBR values behind a material, by the names its node type gives them.
+fn pbr_of(g: &mut Graph, material: NodeId, ty: &str, specular: Option<&DrawSpecular>) -> PbrParams {
+    let num = |g: &mut Graph, name: &str, d: f64| value_f(g, material, name).unwrap_or(d) as f32;
+    let col = |g: &mut Graph, name: &str, d: DVec3| value_v(g, material, name).unwrap_or(d);
+    let mut p = PbrParams::default();
+    match ty {
+        "openPBRSurface" => {
+            p.base_weight = num(g, "baseWeight", 1.0);
+            p.metalness = num(g, "baseMetalness", 0.0);
+            p.diffuse_roughness = num(g, "baseDiffuseRoughness", 0.0);
+            p.specular_weight = num(g, "specularWeight", 1.0);
+            p.specular_color = f3(col(g, "specularColor", DVec3::ONE));
+            p.specular_roughness = num(g, "specularRoughness", 0.3);
+            p.specular_ior = num(g, "specularIOR", 1.5);
+            p.coat_weight = num(g, "coatWeight", 0.0);
+            p.coat_roughness = num(g, "coatRoughness", 0.0);
+            p.coat_ior = num(g, "coatIOR", 1.6);
+            p.transmission_weight = num(g, "transmissionWeight", 0.0);
+            let emission = num(g, "emissionLuminance", 0.0);
+            let color = col(g, "emissionColor", DVec3::ONE).as_vec3().to_array();
+            p.emission = [color[0] * emission, color[1] * emission, color[2] * emission];
+        }
+        "standardSurface" | "aiStandardSurface" => {
+            let snake = ty == "aiStandardSurface";
+            let n = |camel: &'static str, snake_name: &'static str| -> &'static str { if snake { snake_name } else { camel } };
+            p.base_weight = num(g, n("base", "base"), 1.0);
+            p.metalness = num(g, n("metalness", "metalness"), 0.0);
+            p.diffuse_roughness = num(g, n("diffuseRoughness", "diffuse_roughness"), 0.0);
+            p.specular_weight = num(g, n("specular", "specular"), 1.0);
+            p.specular_color = f3(col(g, n("specularColor", "specular_color"), DVec3::ONE));
+            p.specular_roughness = num(g, n("specularRoughness", "specular_roughness"), 0.2);
+            p.specular_ior = num(g, n("specularIOR", "specular_IOR"), 1.5);
+            p.coat_weight = num(g, n("coat", "coat"), 0.0);
+            p.coat_roughness = num(g, n("coatRoughness", "coat_roughness"), 0.1);
+            p.coat_ior = num(g, n("coatIOR", "coat_IOR"), 1.5);
+            p.transmission_weight = num(g, n("transmission", "transmission"), 0.0);
+            let emission = num(g, n("emission", "emission"), 0.0);
+            let color = col(g, n("emissionColor", "emission_color"), DVec3::ONE).as_vec3().to_array();
+            p.emission = [color[0] * emission, color[1] * emission, color[2] * emission];
+        }
+        _ => {
+            // The older materials: a matte base and the highlight drawn above it.
+            p.diffuse_roughness = 1.0;
+            p.specular_weight = 0.0;
+            if let Some(s) = specular {
+                p.specular_weight = 1.0;
+                p.specular_color = s.color;
+                p.specular_roughness = match s.model {
+                    SpecularModel::Phong => (2.0 / (s.shininess.max(1.0) + 2.0)).sqrt(),
+                    SpecularModel::Blinn => s.shininess.clamp(0.0, 1.0).sqrt(),
+                };
+            }
+            p.emission = f3(col(g, "incandescence", DVec3::ZERO));
+        }
+    }
+    p
 }
 
 /// A material's highlight. phong and blinn draw theirs. phongE, anisotropic and standardSurface draw a blinn of the same
@@ -1425,10 +1527,15 @@ pub fn draw_material(g: &mut Graph, sg: NodeId, scene: Option<&str>, project: Op
         "surfaceShader" => ("outColor", "outTransparency", true),
         "standardSurface" => ("baseColor", "opacity", false),
         "aiStandardSurface" => ("base_color", "opacity", false),
+        "openPBRSurface" => ("baseColor", "", false),
         _ => ("color", "transparency", false),
     };
     let mut color = value_v(g, material, color_attr).unwrap_or(DVec3::splat(0.5));
-    let mut transparency = value_v(g, material, trans_attr).unwrap_or(DVec3::ZERO);
+    let mut transparency = if t.name == "openPBRSurface" {
+        DVec3::splat(1.0 - value_f(g, material, "geometryOpacity").unwrap_or(1.0))
+    } else {
+        value_v(g, material, trans_attr).unwrap_or(DVec3::ZERO)
+    };
     if t.name == "standardSurface" || t.name == "aiStandardSurface" {
         transparency = DVec3::ONE - transparency;
         color *= value_f(g, material, "base").unwrap_or(1.0);
@@ -1441,16 +1548,33 @@ pub fn draw_material(g: &mut Graph, sg: NodeId, scene: Option<&str>, project: Op
             transparency = transparency.max(DVec3::splat(0.6 * trans));
         }
     }
+    if t.name == "openPBRSurface" {
+        color *= value_f(g, material, "baseWeight").unwrap_or(1.0);
+        let trans = value_f(g, material, "transmissionWeight").unwrap_or(0.0).clamp(0.0, 1.0);
+        if trans > 0.0 {
+            let tc = value_v(g, material, "transmissionColor").unwrap_or(DVec3::ONE);
+            color = color * (1.0 - trans) + tc * trans * 0.6;
+            transparency = transparency.max(DVec3::splat(0.6 * trans));
+        }
+    }
     let color_map = map_feeding(g, material, color_attr, scene, project);
     let alpha_map = map_feeding(g, material, trans_attr, scene, project);
     // Without textures shown, a mapped colour is seen as the map's mean: the attribute alone is one sample of it.
     if let Some(pic) = color_map.as_ref().and_then(|t| t.baked.as_ref()) {
-        let weight = if t.name == "standardSurface" || t.name == "aiStandardSurface" { value_f(g, material, "base").unwrap_or(1.0) } else { 1.0 };
+        let weight = if t.name == "standardSurface" || t.name == "aiStandardSurface" {
+            value_f(g, material, "base").unwrap_or(1.0)
+        } else if t.name == "openPBRSurface" {
+            value_f(g, material, "baseWeight").unwrap_or(1.0)
+        } else {
+            1.0
+        };
         color = DVec3::new(pic.mean[0] as f64, pic.mean[1] as f64, pic.mean[2] as f64) * weight;
     }
     let specular = draw_specular(g, material, &t.name);
+    let pbr = pbr_of(g, material, &t.name, specular.as_ref());
     Some(DrawMaterial {
         specular,
+        pbr,
         group: sg,
         material,
         unlit,
@@ -1462,6 +1586,11 @@ pub fn draw_material(g: &mut Graph, sg: NodeId, scene: Option<&str>, project: Op
         color_map,
         alpha_map,
     })
+}
+
+/// The image or network feeding an attribute, as an environment light's colour uses it.
+pub fn map_of(g: &mut Graph, id: NodeId, attr: &str, scene: Option<&str>, project: Option<&str>) -> Option<TextureRef> {
+    map_feeding(g, id, attr, scene, project)
 }
 
 /// Every shape's shading: for each its groups, with None for the whole shape or the faces they hold.

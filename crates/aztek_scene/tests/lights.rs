@@ -250,3 +250,44 @@ fn a_keyed_intensity_writes_with_its_connection() {
     read_text(&mut again, &text, false);
     assert_eq!(get(&mut again, "pointLightShape1.intensity"), 3.0);
 }
+
+#[test]
+fn harold_lights_read_for_the_realtime_renderer() {
+    let mut s = session();
+    // A sky dome is the environment, not one more light in the block.
+    let d = run(&mut s, "shadingNode", json!({"args": ["aiSkyDomeLight"], "asLight": true}));
+    let shape = run(&mut s, "listRelatives", json!({"args": [d], "shapes": true}))[0].as_str().unwrap().to_string();
+    run(&mut s, "setAttr", json!({"args": [format!("{shape}.color"), [0.25, 0.5, 1.0]]}));
+    run(&mut s, "setAttr", json!({"args": [format!("{shape}.intensity"), 2.0]}));
+    let id = s.graph.find(&shape).unwrap().unwrap();
+    let env = aztek_scene::lights::environment_of(&mut s.graph, id, None, None).unwrap();
+    assert!((env.color[0] - 0.5).abs() < 1e-6 && (env.color[1] - 1.0).abs() < 1e-6 && (env.color[2] - 2.0).abs() < 1e-6);
+    assert!(aztek_scene::lights::scene_light(&mut s.graph, id).is_none());
+
+    // The other Arnold lights are the legacy kinds the realtime shader already reads.
+    for (ty, kind) in [("aiAreaLight", aztek_scene::lights::Kind::Area), ("aiMeshLight", aztek_scene::lights::Kind::Area), ("aiPhotometricLight", aztek_scene::lights::Kind::Spot)] {
+        let tr = run(&mut s, "shadingNode", json!({"args": [ty], "asLight": true}));
+        let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();
+        let id = s.graph.find(&sh).unwrap().unwrap();
+        let l = aztek_scene::lights::scene_light(&mut s.graph, id).unwrap();
+        assert_eq!(l.kind, kind, "{ty}");
+        assert!(l.cast_shadows);
+    }
+}
+
+#[test]
+fn a_photometric_light_reads_its_ies_profile() {
+    let mut s = session();
+    let tr = run(&mut s, "shadingNode", json!({"args": ["aiPhotometricLight"], "asLight": true}));
+    let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();
+    let path = std::env::temp_dir().join(format!("aztek_ies_{}.txt", std::process::id()));
+    std::fs::write(&path, "IESNA:LM-63-2002\nTILT=NONE\n1 1000 1 3 1 1 2 0 0 0\n1 1 100\n0 45 90\n0\n100 50 0\n").unwrap();
+    run(&mut s, "setAttr", json!({"args": [format!("{sh}.aiFilename"), path.to_string_lossy()]}));
+    let id = s.graph.find(&sh).unwrap().unwrap();
+    assert!(aztek_scene::lights::all_shapes(&s.graph).contains(&id), "the photometric light is in the light list");
+    let l = aztek_scene::lights::scene_light(&mut s.graph, id).unwrap();
+    let ies = l.ies.expect("the profile parsed");
+    assert!((ies.at(glam::Vec3::new(0.0, 0.0, -1.0)) - 1.0).abs() < 1e-4);
+    assert!((ies.at(glam::Vec3::new(1.0, 0.0, 0.0)) - 0.0).abs() < 1e-4);
+    let _ = std::fs::remove_file(path);
+}

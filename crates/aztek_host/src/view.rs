@@ -77,9 +77,39 @@ struct HudPart {
     precision: usize,
 }
 
+/// Which of the view's renderers draws the scene. The Renderer menu chooses it; both read the same scene and lights.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum RendererKind {
+    /// The reference's Viewport 2.0: the material shader with highlights and the fixed default lighting.
+    #[default]
+    Viewport2,
+    /// OpenPBR shading with one shadow map, the sky dome's image and ambient occlusion.
+    Realtime,
+}
+
+impl RendererKind {
+    pub fn parse(s: &str) -> Option<RendererKind> {
+        Some(match s.to_ascii_lowercase().as_str() {
+            "viewport2" | "viewport 2.0" | "viewport 2" | "vp2" => RendererKind::Viewport2,
+            "realtime" | "real-time" | "real time" => RendererKind::Realtime,
+            _ => return None,
+        })
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            RendererKind::Viewport2 => "viewport2",
+            RendererKind::Realtime => "realtime",
+        }
+    }
+}
+
 pub struct View {
     pub gpu: Gpu,
     pub r: Renderer,
+    /// Which renderer the view's menu has chosen.
+    pub renderer: RendererKind,
+    /// The Realtime renderer's shadow map.
+    realtime: Option<crate::realtime::Realtime>,
     /// What turns the drawn scene into the window's picture.
     post: crate::post::Post,
     /// Renderers of sample counts no longer in use: what was allocated against their layouts is still about.
@@ -150,6 +180,8 @@ pub struct View {
     /// Last frame read back on request, as RGB.
     pub capture: Option<(u32, u32, Vec<u8>)>,
     pub want_capture: bool,
+    /// Whether this view already said the device cannot draw the Realtime renderer.
+    rt_warned: bool,
 }
 
 impl Drop for View {
@@ -159,6 +191,9 @@ impl Drop for View {
             let _ = self.gpu.device.queue_wait_idle(self.gpu.queue);
         }
         self.post.destroy(&self.gpu);
+        if let Some(rt) = self.realtime.take() {
+            rt.release(&self.gpu);
+        }
     }
 }
 
@@ -169,6 +204,8 @@ impl View {
         View {
             gpu,
             r,
+            renderer: RendererKind::Viewport2,
+            realtime: None,
             post,
             retired: Vec::new(),
             vp: Viewport::new(kind),
@@ -211,6 +248,7 @@ impl View {
             needs_redraw: true,
             capture: None,
             want_capture: false,
+            rt_warned: false,
         }
     }
 
@@ -241,12 +279,12 @@ impl View {
         self.vp.rect = [0.0, 0.0, e.width as f64, e.height as f64];
         let bg = self.background;
         let prof = Prof::start();
-        let mut frame = self.gpu.begin_frame([bg[0], bg[1], bg[2], 1.0]);
+        let mut frame = self.gpu.begin_frame_deferred();
         prof.mark("  wait for the last frame");
         if frame.is_none() {
             // Out of date (the window changed size): remake at the window's size and try once more.
             self.resize(e.width, e.height);
-            frame = self.gpu.begin_frame([bg[0], bg[1], bg[2], 1.0]);
+            frame = self.gpu.begin_frame_deferred();
         }
         let e = self.gpu.extent;
         self.vp.rect = [0.0, 0.0, e.width as f64, e.height as f64];
@@ -289,7 +327,29 @@ impl View {
             }
         }
         self.vp.look_camera = core.s.graph.find(&self.cam_node).ok().flatten().and_then(|id| aztek_scene::cameras::shape_of(&core.s.graph, id)).unwrap_or(aztek_scene::plug::NO_NODE);
-        self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr);
+        self.vp.prepare_materials(&self.gpu, &mut core.s);
+        let realtime = self.renderer == RendererKind::Realtime && self.r.realtime;
+        if self.renderer == RendererKind::Realtime && !self.r.realtime && !self.rt_warned {
+            self.rt_warned = true;
+            core.push("// Warning: Realtime needs a graphics device with 256 bytes of push constants: drawing with Viewport 2.0 //".to_string(), crate::core::LineKind::Warning);
+        }
+        self.vp.prepare_lights(&self.gpu, &self.r, &mut core.s, &items, realtime);
+        // The shadow map is drawn before the scene's pass, with the lights read.
+        if realtime {
+            if self.realtime.is_none() {
+                self.realtime = Some(crate::realtime::Realtime::new(&self.gpu, self.r.rt_shadow_layout));
+            }
+            if let Some(rt) = self.realtime.as_mut() {
+                rt.render(&mut self.gpu, &items, self.vp.shadow);
+            }
+            // The material pipelines' set 4 has this renderer's four bindings: it is bound whether or not a shadow map
+            // is drawn this frame, and the shader skips the sampling when no light casts one (#228 review).
+            self.vp.rt_shadow_set = self.realtime.as_ref().and_then(|r| r.set());
+        } else {
+            self.vp.rt_shadow_set = None;
+        }
+        self.gpu.begin_scene([bg[0], bg[1], bg[2], 1.0]);
+        self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr, realtime);
         prof.mark("  draw");
         if crate::usd_view::busy() {
             core.version += 1;
@@ -303,7 +363,16 @@ impl View {
         let d = &self.vp.disp;
         let rgb = |n: &str| aztek_scene::system_cmds::view_rgb(n).map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]).unwrap_or([0.0; 3]);
         let gradient = aztek_scene::system_cmds::display_gradient(&core.s).then(|| (rgb("backgroundTop"), rgb("backgroundBottom")));
-        let settings = crate::post::PostSettings { ambient_occlusion: d.ambient_occlusion && !d.xray, ao_radius: d.ao_radius as f32, ao_intensity: d.ao_intensity as f32, gradient, clear_grey: bg[0] };
+        let contact = if realtime && d.shadows && !d.xray { self.vp.contact } else { None };
+        let settings = crate::post::PostSettings {
+            ambient_occlusion: d.ambient_occlusion && !d.xray,
+            ao_radius: d.ao_radius as f32,
+            ao_intensity: d.ao_intensity as f32,
+            gradient,
+            clear_grey: bg[0],
+            contact,
+            high_quality: realtime,
+        };
         let (proj, ortho) = (self.vp.cam.proj(self.vp.aspect()).as_mat4(), self.vp.cam.ortho());
         self.gpu.begin_occlusion();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
@@ -2125,6 +2194,11 @@ impl View {
             }
             "wireframe" => self.vp.wireframe = v.as_bool().unwrap_or(false),
             "wireOnShaded" => self.vp.wire_on_shaded = v.as_bool().unwrap_or(false),
+            "renderer" => {
+                if let Some(k) = v.as_str().and_then(RendererKind::parse) {
+                    self.renderer = k;
+                }
+            }
             "grid" => self.show_grid = v.as_bool().unwrap_or(true),
             "camera" => {
                 if let Some(name) = v.as_str() {
@@ -2389,6 +2463,7 @@ impl View {
             "tool" => json!(format!("{:?}", self.vp.tool).to_lowercase()),
             "wireframe" => json!(self.vp.wireframe),
             "wireOnShaded" => json!(self.vp.wire_on_shaded),
+            "renderer" => json!(self.renderer.name()),
             "grid" => json!(self.show_grid),
             "dragging" => json!(self.vp.drag.is_some() || self.nav.is_some() || self.marquee.is_some()),
             "brushDragged" => json!(self.brush_dragged),
@@ -2584,5 +2659,20 @@ impl Prof {
             eprintln!("{what} {:.2}", t.get().elapsed().as_secs_f64() * 1000.0);
             t.set(std::time::Instant::now());
         }
+    }
+}
+
+#[cfg(test)]
+mod renderer_tests {
+    use super::RendererKind;
+
+    #[test]
+    fn the_renderer_menu_names_parse_as_the_view_expects() {
+        assert_eq!(RendererKind::parse("viewport2"), Some(RendererKind::Viewport2));
+        assert_eq!(RendererKind::parse("viewport 2.0"), Some(RendererKind::Viewport2));
+        assert_eq!(RendererKind::parse("Realtime"), Some(RendererKind::Realtime));
+        assert_eq!(RendererKind::parse("real-time"), Some(RendererKind::Realtime));
+        assert_eq!(RendererKind::parse("eevee"), None);
+        assert_eq!(RendererKind::default(), RendererKind::Viewport2);
     }
 }

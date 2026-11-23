@@ -7,6 +7,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
+use aztek_render::lights::Ies;
+
 use glam::{DMat4, DVec3};
 
 use crate::graph::Graph;
@@ -356,8 +358,11 @@ impl Kind {
             "directionalLight" => Kind::Directional,
             "pointLight" => Kind::Point,
             "spotLight" => Kind::Spot,
-            "areaLight" => Kind::Area,
+            "areaLight" | "aiAreaLight" | "aiMeshLight" => Kind::Area,
             "volumeLight" => Kind::Volume,
+            "aiPhotometricLight" => Kind::Spot,
+            // The sky dome lights from every direction: the Realtime renderer reads it as the environment rather than as
+            // one more light in the block, and the legacy renderer leaves it to Use Default Lighting.
             _ => return None,
         })
     }
@@ -387,11 +392,25 @@ pub struct SceneLight {
     /// 0 outward, 1 inward, 2 down the axis.
     pub volume_dir: i32,
     pub volume_ambient: bool,
+    /// Whether the renderer should cast shadows from it (useRayTraceShadows, or Harold's aiCastShadows).
+    pub cast_shadows: bool,
+    /// Arnold's exposure, in stops: the viewport and the renderer both multiply colour times 2^exposure.
+    pub exposure: f64,
+    /// An IES profile for a photometric light.
+    pub ies: Option<Arc<Ies>>,
 }
 
 fn read_f(g: &mut Graph, id: NodeId, name: &str, d: f64) -> f64 {
     let Some(i) = g.node(id).and_then(|n| n.ty().attr_index(name)) else { return d };
     g.value(&PlugRef::new(id, i as i32)).ok().and_then(|v| v.scalar()).unwrap_or(d)
+}
+
+fn read_s(g: &mut Graph, id: NodeId, name: &str) -> String {
+    let Some(i) = g.node(id).and_then(|n| n.ty().attr_index(name)) else { return String::new() };
+    match g.value(&PlugRef::new(id, i as i32)) {
+        Ok(PlugValue::String(v)) => v,
+        _ => String::new(),
+    }
 }
 
 fn read_c(g: &mut Graph, id: NodeId, name: &str) -> DVec3 {
@@ -404,10 +423,20 @@ fn read_c(g: &mut Graph, id: NodeId, name: &str) -> DVec3 {
 
 /// A light shape as it shades. Follows connections and keys.
 pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
-    let kind = Kind::of(&g.node(shape)?.ty().name)?;
+    let ty = g.node(shape)?.ty().name.clone();
+    let kind = Kind::of(&ty)?;
     let color = read_c(g, shape, "color") * read_f(g, shape, "intensity", 1.0);
     let flag = |g: &mut Graph, n: &str| read_f(g, shape, n, 1.0) != 0.0;
     let world = g.node(shape)?.data().matrix(DagNode::WORLD_MATRIX);
+    // Harold's lights keep Arnold's names for the settings the two share.
+    let harold = ty.starts_with("ai") && ty != "aiSkyDomeLight";
+    let (decay, cone_deg, penumbra_deg, dropoff) = if ty == "aiPhotometricLight" {
+        (2, 180.0, 0.0, 0.0)
+    } else if harold {
+        (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))
+    } else {
+        (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))
+    };
     Some(SceneLight {
         shape,
         transform: crate::dag::transform_of(g, shape),
@@ -416,16 +445,49 @@ pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
         color: color.as_vec3().to_array(),
         diffuse: flag(g, "emitDiffuse"),
         specular: kind != Kind::Ambient && flag(g, "emitSpecular"),
-        decay: read_f(g, shape, "decayRate", 0.0) as i32,
-        cone_deg: read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(),
-        penumbra_deg: read_f(g, shape, "penumbraAngle", 0.0).to_degrees(),
-        dropoff: read_f(g, shape, "dropoff", 0.0),
+        decay,
+        cone_deg,
+        penumbra_deg,
+        dropoff,
         ambient_shade: read_f(g, shape, "ambientShade", 0.45),
-        by_area: kind == Kind::Area && !flag(g, "normalize"),
+        by_area: kind == Kind::Area && !flag(g, if harold { "aiNormalize" } else { "normalize" }),
         volume_shape: read_f(g, shape, "lightShape", 1.0) as i32,
         volume_dir: read_f(g, shape, "volumeLightDir", 0.0) as i32,
         volume_ambient: read_f(g, shape, "emitAmbient", 0.0) != 0.0,
+        cast_shadows: read_f(g, shape, "useRayTraceShadows", 1.0) != 0.0 && read_f(g, shape, "aiCastShadows", 1.0) != 0.0,
+        exposure: read_f(g, shape, "aiExposure", 0.0),
+        ies: if ty == "aiPhotometricLight" {
+            std::fs::read_to_string(read_s(g, shape, "aiFilename")).ok().and_then(|t| Ies::parse(&t)).map(Arc::new)
+        } else {
+            None
+        },
     })
+}
+
+/// A sky dome as the Realtime renderer's environment: its colour, the way its image turns with the light, and the image
+/// itself when one feeds its colour.
+#[derive(Clone, Debug)]
+pub struct EnvironmentLight {
+    pub shape: NodeId,
+    pub color: [f32; 3],
+    /// World to the dome's own space, for a latlong image.
+    pub rotation: glam::DQuat,
+    pub image: Option<crate::shading::TextureRef>,
+}
+
+/// A sky dome as the Realtime renderer's environment. The caller decides whether the light mode draws it.
+pub fn environment_of(g: &mut Graph, sh: NodeId, scene: Option<&str>, project: Option<&str>) -> Option<EnvironmentLight> {
+    if g.node(sh)?.ty().name != "aiSkyDomeLight" {
+        return None;
+    }
+    let world = g.node(sh)?.data().matrix(DagNode::WORLD_MATRIX);
+    let rotation = world.to_scale_rotation_translation().1.inverse();
+    let image = crate::shading::map_of(g, sh, "color", scene, project);
+    let gain = read_f(g, sh, "intensity", 1.0) * 2f64.powf(read_f(g, sh, "aiExposure", 0.0));
+    // An image is its own radiance, as Harold reads it: the dome's colour is then just intensity and exposure. Reading
+    // the connected input can give the file node's default rather than the light it carries.
+    let color = if image.is_some() { DVec3::splat(gain) } else { read_c(g, sh, "color") * gain };
+    Some(EnvironmentLight { shape: sh, color: color.as_vec3().to_array(), rotation, image })
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -472,7 +534,7 @@ pub fn volume_reach(u: DVec3, shape: i32) -> f64 {
 pub fn viewport_diffuse(l: &SceneLight, p: DVec3, n: DVec3) -> DVec3 {
     let pos = l.world.w_axis.truncate();
     let axis = (-l.world.z_axis.truncate()).normalize_or_zero();
-    let mut c = DVec3::from_array(l.color.map(f64::from));
+    let mut c = DVec3::from_array(l.color.map(f64::from)) * 2f64.powf(l.exposure);
     let mut diff = DVec3::ZERO;
     let lv;
     match l.kind {

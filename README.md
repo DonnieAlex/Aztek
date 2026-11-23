@@ -402,6 +402,14 @@ Every extra copy makes the project harder to lose.
 
   ![Materials and a file texture in Textured mode](docs/materials.png)
 - **Lights:** ambient, directional, point, spot, area and volume lights with their icons, attributes and `.ma` layout; Use All Lights (7), Use Selected Lights, flat and no lights in the viewport, with decay, spot cones, blinn and phong highlights and light linking. A matte surface lights the same in the viewport and in Harold.
+- **Two viewport renderers:** the Renderer menu of a view chooses Viewport 2.0, the reference's material shader, or
+  Realtime: OpenPBR shading from the scene's `openPBRSurface` and standard surface materials (base, metalness,
+  diffuse and specular roughness, specular IOR, coat, transmission, emission) with a shadow map for a directional or
+  spot light, six-face cube shadows for a point, area or volume light, screen-space contact shadows, ambient occlusion,
+  and image-based lighting from an `aiSkyDomeLight`'s latlong image or colour. Realtime reads the same six legacy
+  lights and Harold's `aiAreaLight`, `aiMeshLight` and `aiPhotometricLight`; it falls back to Viewport 2.0 on a device
+  with less than 256 bytes of push constants. The viewport toolbar's AO button turns ambient occlusion on in either
+  renderer, with more taps and a wider blur in Realtime.
 
 **Pipeline**
 

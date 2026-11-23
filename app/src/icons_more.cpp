@@ -184,6 +184,22 @@ bool draw_more(const QString& name, QPainter& p) {
         p.setRenderHint(QPainter::Antialiasing, true);
         return true;
     }
+    if (name == "ambientOcclusion") {
+        // A ball with the crease around its base darkened: the contact an occlusion term draws.
+        QRadialGradient g(QPointF(13, 11), 11);
+        g.setColorAt(0, QColor(235, 235, 235));
+        g.setColorAt(0.65, QColor(165, 165, 165));
+        g.setColorAt(1, QColor(60, 60, 60));
+        p.setPen(Qt::NoPen);
+        p.setBrush(g);
+        p.drawEllipse(QPointF(15, 14), 9, 9);
+        QRadialGradient ring(QPointF(15, 24), 11);
+        ring.setColorAt(0, QColor(0, 0, 0, 220));
+        ring.setColorAt(1, QColor(0, 0, 0, 0));
+        p.setBrush(ring);
+        p.drawEllipse(QRectF(4, 19, 22, 9));
+        return true;
+    }
     if (name == "shadows") {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(40, 40, 40, 200));

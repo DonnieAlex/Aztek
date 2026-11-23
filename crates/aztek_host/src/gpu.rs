@@ -629,8 +629,9 @@ impl Gpu {
         }
     }
 
-    /// Waits for the last frame and acquires the next image. None when the swapchain needs remaking.
-    pub fn begin_frame(&mut self, clear: [f32; 4]) -> Option<u32> {
+    /// Waits for the last frame and acquires the next image, with the command buffer begun but no render pass yet. A
+    /// view draws its shadow map between this and `begin_scene`. None when the swapchain needs remaking.
+    pub fn begin_frame_deferred(&mut self) -> Option<u32> {
         unsafe {
             self.device.wait_for_fences(&[self.fence], true, u64::MAX).ok()?;
             self.free_garbage();
@@ -641,6 +642,13 @@ impl Gpu {
             self.device.reset_fences(&[self.fence]).ok()?;
             self.device.reset_command_buffer(self.cmd, vk::CommandBufferResetFlags::empty()).ok()?;
             self.device.begin_command_buffer(self.cmd, &vk::CommandBufferBeginInfo::default()).ok()?;
+            Some(index)
+        }
+    }
+
+    /// Begins the scene's pass: what the view draws from here until `begin_occlusion`.
+    pub fn begin_scene(&mut self, clear: [f32; 4]) {
+        unsafe {
             let clears = [
                 vk::ClearValue { color: vk::ClearColorValue { float32: clear } },
                 // Reversed Z: far is 0.
@@ -659,8 +667,14 @@ impl Gpu {
                 vk::SubpassContents::INLINE,
             );
             self.in_post = false;
-            Some(index)
         }
+    }
+
+    /// Waits for the last frame and acquires the next image. None when the swapchain needs remaking.
+    pub fn begin_frame(&mut self, clear: [f32; 4]) -> Option<u32> {
+        let index = self.begin_frame_deferred()?;
+        self.begin_scene(clear);
+        Some(index)
     }
 
     /// Ends the scene pass and begins the one that works out the occlusion from its depth.

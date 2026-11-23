@@ -63,6 +63,8 @@ scene holds is rendered by it; there is no choice of renderer.
   with it for every type, decay rate and setting. A scene with no lights renders with the viewport's default lighting
   (a key and a fill that follow the camera, and a little all round). `physicalLights` on the options node switches
   to physical units instead: quadratic falloff, intensity as radiant intensity, `aiDecayType` honoured.
+  The Realtime viewport renderer reads the same Arnold lights: `aiAreaLight` and `aiMeshLight` as area lights,
+  `aiPhotometricLight` as a spot, and `aiSkyDomeLight` as its image-based lighting.
   Harold's own lights: point radius (`aiRadius`), directional angle (`aiAngle`), sky dome (colour or a latitude-longitude
   image, importance sampled), Harold area lights (quad, disc, cylinder, normalised by area unless `aiNormalize` is off,
   `aiSpread`), mesh lights, photometric with IES files, and every glowing surface sampled as a light; these use
@@ -102,6 +104,7 @@ named in a warning.
 | phong | roughness from the cosine power (alpha squared is 2 / (n + 2)) | as blinn's |
 | phongE | roughness from `roughness` | as blinn's |
 | anisotropic | anisotropy and rotation from the spreads and angle | as blinn's, Fresnel index |
+| openPBRSurface | base weight and colour, metalness, diffuse and specular roughness, specular weight/colour/IOR, coat, fuzz as sheen, transmission, subsurface, thin film, emission, opacity | coat darkening, dispersion |
 | rampShader | lambert's from `color` | the colour, specular and transparency ramps |
 | transparency on any of them | opacity, or transmission with `refractiveIndex` when refractions are on | |
 | incandescence | emission | |

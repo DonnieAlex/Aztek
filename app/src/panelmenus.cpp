@@ -1,4 +1,5 @@
-// A model panel's menus: View, Shading, Lighting, Show, Panels, and its icon bar. Each panel keeps its own settings.
+// A model panel's menus: View, Shading, Lighting, Renderer, Show, Panels, and its icon bar. Each panel keeps its own
+// settings.
 #include "viewport.h"
 #include "dopesheet.h"
 #include "grapheditor.h"
@@ -322,6 +323,59 @@ void ModelPanel::build_menus() {
         if (a) a->setChecked(true);
     });
 
+    // Renderer: which of the two renderers draws this view. Viewport 2.0 is the reference's material shader; Realtime is
+    // OpenPBR shading with a shadow map, contact shadows, the sky dome's image and ambient occlusion. Kept for new views.
+    QMenu* renderer = menus_->addMenu("Renderer");
+    auto* renderer_group = new QActionGroup(this);
+    auto renderer_item = [v, renderer, renderer_group](const QString& label, const QString& mode) {
+        QAction* a = renderer->addAction(label, [v, mode] {
+            const QJsonObject now = parse(v->get("disp")).toObject();
+            if (mode == "realtime") {
+                // Realtime's shadows, contact shadows and occlusion are what it is for: turn them on when it is chosen,
+                // remembering what the view had so Viewport 2.0 brings it back. The global preference is the user's and
+                // is left alone, so no other view inherits Realtime's flags (#228 review).
+                if (!v->property("rtSavedDisp").toBool()) {
+                    v->setProperty("rtSavedShadows", now["shadows"].toBool());
+                    v->setProperty("rtSavedAo", now["ambientOcclusion"].toBool());
+                    v->setProperty("rtSavedDisp", true);
+                }
+                v->set("disp", "{\"shadows\":true,\"ambientOcclusion\":true}");
+            } else if (v->property("rtSavedDisp").toBool()) {
+                v->set("disp", QString("{\"shadows\":%1,\"ambientOcclusion\":%2}")
+                                   .arg(v->property("rtSavedShadows").toBool() ? "true" : "false")
+                                   .arg(v->property("rtSavedAo").toBool() ? "true" : "false"));
+                v->setProperty("rtSavedDisp", false);
+            }
+            v->set("renderer", QString("\"%1\"").arg(mode));
+        });
+        a->setCheckable(true);
+        a->setData(mode);
+        renderer_group->addAction(a);
+        return a;
+    };
+    renderer_item("Viewport 2.0", "viewport2");
+    renderer_item("Realtime", "realtime");
+    // The renderer always starts as Viewport 2.0, whatever the last session chose: a new view is the reference's.
+    // AZTEK_VIEW_RENDERER=realtime starts the test builds in Realtime; nothing a user sets reads it.
+    const QString start_renderer = qEnvironmentVariable("AZTEK_VIEW_RENDERER") == "realtime" ? "realtime" : "viewport2";
+    for (QAction* a : renderer->actions())
+        if (a->data().toString() == start_renderer) a->setChecked(true);
+    v->set("renderer", QString("\"%1\"").arg(start_renderer));
+    if (start_renderer == "realtime") {
+        // A test build starts in Realtime with the same flags the menu would set, and the view keeps what it had so
+        // switching to Viewport 2.0 restores it.
+        const QJsonObject before = parse(v->get("disp")).toObject();
+        v->setProperty("rtSavedShadows", before["shadows"].toBool());
+        v->setProperty("rtSavedAo", before["ambientOcclusion"].toBool());
+        v->setProperty("rtSavedDisp", true);
+        v->set("disp", QString("{\"shadows\":true,\"ambientOcclusion\":%1}").arg(qEnvironmentVariableIsEmpty("AZTEK_VIEW_AO") || qEnvironmentVariableIntValue("AZTEK_VIEW_AO") != 0 ? "true" : "false"));
+    }
+    connect(renderer, &QMenu::aboutToShow, this, [v, renderer] {
+        const QString now = v->get("renderer").remove('"');
+        for (QAction* a : renderer->actions())
+            if (a->data().toString() == now) a->setChecked(true);
+    });
+
     // Show: what this view draws.
     QMenu* show = menus_->addMenu("Show");
     show->addAction("All", [v] { v->set("disp", "{\"polygons\":true,\"surfaces\":true,\"curves\":true,\"joints\":true,\"ikHandles\":true,\"deformers\":true,\"locators\":true,\"cameras\":true,\"lights\":true}"); });
@@ -457,6 +511,13 @@ void ModelPanel::build_menus() {
     connect(all_lights, &QAction::triggered, this, [v](bool on) { v->set("disp", QString("{\"displayLights\":\"%1\"}").arg(on ? "all" : "default")); });
     connect(lighting, &QMenu::aboutToShow, all_lights, [v, all_lights] { all_lights->setChecked(parse(v->get("disp")).toObject()["displayLights"].toString() == "all"); });
     bar_flag("shadows", "Shadows", "shadows");
+    // Ambient occlusion, which both renderers draw. Realtime takes more samples in the post pass.
+    QAction* ao_button = bar_->addAction(icon("ambientOcclusion"), "Ambient Occlusion");
+    ao_button->setCheckable(true);
+    connect(ao_button, &QAction::triggered, this, [v](bool on) {
+        v->set("disp", QString("{\"ambientOcclusion\":%1}").arg(on ? "true" : "false"));
+        QSettings().setValue("viewport/ambientOcclusion", on);
+    });
     // Anti-aliasing, as the reference's toolbar has it: on at the count last chosen, or off.
     QAction* aa_button = bar_->addAction(icon("antiAlias"), "Multisample Anti-aliasing");
     aa_button->setCheckable(true);
@@ -480,7 +541,7 @@ void ModelPanel::build_menus() {
     // Keep the toggles in step with the view. Cheap: one state read a few times a second while the panel shows.
     auto* sync = new QTimer(this);
     sync->setInterval(250);
-    connect(sync, &QTimer::timeout, this, [this, v, bar_state, wire_button, shade_button, all_lights, wos2, grid2] {
+    connect(sync, &QTimer::timeout, this, [this, v, bar_state, wire_button, shade_button, all_lights, wos2, grid2, ao_button] {
         if (!isVisible() || type_ != "model") return;
         QJsonObject d = parse(v->get("disp")).toObject();
         if (d.isEmpty()) return;
@@ -496,6 +557,7 @@ void ModelPanel::build_menus() {
         put(wire_button, wire);
         put(shade_button, !wire && !d["boundingBox"].toBool() && !d["flat"].toBool());
         put(all_lights, d["displayLights"].toString() == "all");
+        put(ao_button, d["ambientOcclusion"].toBool());
         if (wos2->isChecked() != d["wireOnShaded"].toBool()) wos2->setChecked(d["wireOnShaded"].toBool());
         if (grid2->isChecked() != d["grid"].toBool()) grid2->setChecked(d["grid"].toBool());
     });
