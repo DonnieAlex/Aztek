@@ -111,6 +111,8 @@ private:
     QWidget* body_ = nullptr;
     QSet<QString> open_inputs_;
     QString name_;
+    // The reference's three buttons above the channels: manipulators, slider speed, hyperbolic.
+    QToolButton *manip_button_ = nullptr, *speed_button_ = nullptr, *hyperbolic_button_ = nullptr;
     // The settings channelBox gave this box (labelWidth, fieldWidth...).
     QJsonObject options_;
 };

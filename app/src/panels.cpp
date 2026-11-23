@@ -6,8 +6,10 @@
 #include "host.h"
 #include "icons.h"
 #include "viewport.h"
+#include "widgets.h"
 
 #include <QApplication>
+#include <algorithm>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDropEvent>
@@ -27,6 +29,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QTabWidget>
 #include <QDockWidget>
@@ -691,9 +694,10 @@ void fill_channels_menu(QMenu* m, bool titled) {
 
 // Ctrl+right-click: the reference's Edit menu for the node the click was on (the object, a shape or an input): editors,
 // attributes, the node itself and the Channel Box's settings (#137).
-void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh) {
+void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh, bool title = true) {
     const bool any = !g_channel_sel.isEmpty();
-    menu_title(m, "Edit");
+    const bool have = !node.isEmpty();
+    if (title) menu_title(m, "Edit");
     m->addAction("Expressions...", [] { mel_action("ExpressionEditor"); })->setEnabled(any);
     m->addAction("Set Driven Key...", [] { mel_action("SetDrivenKeyOptions"); })->setEnabled(any);
     m->addAction("Graph Editor", [] { mel_action("GraphEditor"); });
@@ -713,9 +717,9 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
             mel_action("AttributeEditor");
             return;
         }
-    });
+    })->setEnabled(have);
     m->addSeparator();
-    m->addAction("Add Attribute", [] { mel_action("AddAttribute"); });
+    m->addAction("Add Attribute", [] { mel_action("AddAttribute"); })->setEnabled(have);
     // Rename the one picked attribute (one added with Add Attribute).
     m->addAction("Edit Attribute", [node, refresh] {
         const QString a = g_channel_sel.first();
@@ -726,7 +730,7 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
             g_channel_sel = {to};
             refresh();
         }
-    })->setEnabled(g_channel_sel.size() == 1);
+    })->setEnabled(g_channel_sel.size() == 1 && have);
     QAction* dup = m->addAction("Duplicate Attribute");
     dup->setEnabled(false);
     dup->setToolTip("Not in Aztek yet.");
@@ -743,9 +747,9 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
         a->setToolTip("Assets are not in Aztek yet.");
     }
     m->addSeparator();
-    m->addAction("Select Node", [node] { exec("select", QJsonObject{{"args", QJsonArray{node}}, {"replace", true}}); });
-    m->addAction("Delete Node", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}}); });
-    m->addAction("Delete History", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}, {"constructionHistory", true}}); });
+    m->addAction("Select Node", [node] { exec("select", QJsonObject{{"args", QJsonArray{node}}, {"replace", true}}); })->setEnabled(have);
+    m->addAction("Delete Node", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}}); })->setEnabled(have);
+    m->addAction("Delete History", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}, {"constructionHistory", true}}); })->setEnabled(have);
     QMenu* settings = m->addMenu("Settings");
     auto radio = [settings, refresh](const QString& key, int fallback, const QStringList& labels) {
         auto* group = new QActionGroup(settings);
@@ -807,7 +811,40 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
-    // The reference's menu bar over the channels: Channels, Edit, Object.
+    // The reference's three buttons above the channels, at the right: manipulators, slider speed, hyperbolic.
+    auto* top = new QWidget(this);
+    auto* top_l = new QHBoxLayout(top);
+    top_l->setContentsMargins(2, 1, 2, 1);
+    top_l->setSpacing(2);
+    top_l->addStretch(1);
+    auto top_button = [this, top, top_l](const char* object, const QString& tip) {
+        auto* b = new QToolButton(top);
+        b->setObjectName(object);
+        b->setFixedSize(19, 19);
+        b->setIconSize(QSize(16, 16));
+        b->setAutoRaise(true);
+        b->setToolTip(tip);
+        top_l->addWidget(b);
+        return b;
+    };
+    manip_button_ = top_button("cbManipsButton", "Switch between using standard manipulators, no manipulators, or invisible manipulators when attributes are selected in the Channel Box");
+    speed_button_ = top_button("cbSpeedButton", "Switch between slowest / slow / medium / fast channel slider setting\nHold Ctrl, Ctrl+Shift or Shift while dragging to further slow down or speed up the current drag speed setting");
+    hyperbolic_button_ = top_button("cbHyperbolicButton", "Switch between linear and hyperbolic channel slider setting");
+    hyperbolic_button_->setCheckable(true);
+    connect(manip_button_, &QToolButton::clicked, this, [this] {
+        cb_store("manipulators", (cb_setting("manipulators", 2).toInt() + 1) % 3);
+        refresh();
+    });
+    connect(speed_button_, &QToolButton::clicked, this, [this] {
+        cb_store("speed", (cb_setting("speed", 2).toInt() + 1) % 4);
+        refresh();
+    });
+    connect(hyperbolic_button_, &QToolButton::toggled, this, [this](bool on) {
+        cb_store("hyperbolic", on);
+        refresh();
+    });
+    lay->addWidget(top);
+    // The reference's menu bar over the channels: Channels, Edit, Object, Show.
     auto* bar = new QMenuBar(this);
     bar->setNativeMenuBar(false);
     bar->setObjectName("panelMenus");
@@ -817,12 +854,12 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
         fill_channels_menu(channels, false);
     });
     QMenu* edit = bar->addMenu("Edit");
-    edit->addAction("Expressions...", [] { mel_action("ExpressionEditor"); });
-    edit->addAction("Set Driven Key...", [] { mel_action("SetDrivenKeyOptions"); });
-    edit->addAction("Connection Editor...", [] { mel_action("ConnectionEditor"); });
-    edit->addAction("Graph Editor...", [] { mel_action("GraphEditor"); });
-    edit->addSeparator();
-    edit->addAction("Channel Control...", [] { mel_action("ChannelControlEditor"); });
+    connect(edit, &QMenu::aboutToShow, edit, [this, edit] {
+        edit->clear();
+        const QJsonArray sel = state()["selection"].toArray();
+        const QString lead = sel.isEmpty() ? QString() : sel.last().toString().section('.', 0, 0);
+        fill_edit_menu(edit, lead, [this] { refresh(); }, false);
+    });
     // Object: the selected objects; picking one shows it here.
     QMenu* object = bar->addMenu("Object");
     connect(object, &QMenu::aboutToShow, object, [object] {
@@ -846,6 +883,30 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
             a->setCheckable(true);
             a->setChecked(n == nodes.last());
         }
+    });
+    // Show: the reference's Assets submenu and Show at top. The attribute category filters follow later.
+    QMenu* show = bar->addMenu("Show");
+    QMenu* assets = show->addMenu("Assets");
+    auto* asset_group = new QActionGroup(assets);
+    for (auto [label, value] : {std::pair{"All attributes", "all"}, {"Selected object attributes", "select"}}) {
+        QAction* a = assets->addAction(label);
+        a->setCheckable(true);
+        a->setData(value);
+        a->setChecked(QSettings().value("channelBox/showType", "all").toString() == value);
+        asset_group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, a] {
+            QSettings().setValue("channelBox/showType", a->data().toString());
+            refresh();
+        });
+    }
+    assets->addSeparator();
+    QAction* at_top = assets->addAction("Show at top");
+    at_top->setCheckable(true);
+    at_top->setChecked(QSettings().value("channelBox/containerAtTop", false).toBool());
+    at_top->setToolTip("Show the asset at the top of the channel box when an asset member is selected.");
+    connect(at_top, &QAction::toggled, this, [this](bool on) {
+        QSettings().setValue("channelBox/containerAtTop", on);
+        exec_quiet("channelBox", QJsonObject{{"edit", true}, {"args", QJsonArray{name_}}, {"containerAtTop", on}});
     });
     lay->addWidget(bar);
     scroll_ = new QScrollArea(this);
@@ -922,6 +983,13 @@ void ChannelBox::apply_flags(const QJsonObject& props) {
 }
 
 void ChannelBox::refresh() {
+    if (manip_button_) {
+        const int m = cb_setting("manipulators", 2).toInt();
+        manip_button_->setIcon(icon(m == 0 ? "channelBoxNoManips" : m == 1 ? "channelBoxInvisibleManips" : "channelBoxManips"));
+        speed_button_->setIcon(icon("channelBoxSpeed"));
+        const QSignalBlocker block(hyperbolic_button_);
+        hyperbolic_button_->setChecked(cb_setting("hyperbolic", false).toBool());
+    }
     QJsonObject cb = query("channelBox", name_).toObject();
     // A script's picks (channelBox -select) replace the ones made here.
     static quint64 seen_serial = 0;
@@ -949,42 +1017,62 @@ void ChannelBox::refresh() {
     lay->setContentsMargins(4, 4, 4, 4);
     lay->setSpacing(1);
     if (cb.isEmpty()) {
-        // Nothing selected: the picked channels go too, as in the reference (#136).
+        // Nothing selected: the reference's message, and the picked channels go too, as in the reference (#136).
         if (!g_channel_sel.isEmpty()) clear_channel_selection();
+        lay->addStretch(1);
+        auto* msg = new QLabel("Select objects in the scene to view, edit and set keyframes on channels (attributes)", body_);
+        msg->setObjectName("channelEmpty");
+        msg->setAlignment(Qt::AlignCenter);
+        msg->setWordWrap(true);
+        lay->addWidget(msg);
         lay->addStretch(1);
         scroll_->setWidget(body_);
         return;
     }
-    // Object name, editable to rename.
-    // Settings > Show Namespace off drops the namespace from the name shown.
-    const QString full = cb["name"].toString();
-    auto* name = new QLineEdit(cb_setting("namespace", true).toBool() ? full : full.section(':', -1), body_);
-    name->setObjectName("channelHeader");
-    QString path = cb["path"].toString();
-    connect(name, &QLineEdit::textEdited, name, [name] { name->setProperty("editing", true); });
-    connect(name, &QLineEdit::editingFinished, name, [name, path] {
-        if (!name->property("editing").toBool()) return;
-        name->setProperty("editing", false);
-        exec("rename", args(QJsonArray{path, name->text().trimmed()}));
-    });
-    name->setProperty("node", path);
-    lay->addWidget(name);
-    body_->setProperty("mainNode", path);
-    add_channels(lay, cb["channels"].toArray());
-    QJsonArray shapes = cb["shapes"].toArray();
-    if (!shapes.isEmpty()) {
-        lay->addSpacing(6);
-        lay->addWidget(section("SHAPES", body_));
-        for (const QJsonValue& s : shapes) {
-            auto* l = new QLabel(s.toObject()["name"].toString(), body_);
-            l->setProperty("node", s.toObject()["path"].toString());
-            l->setObjectName("channelNode");
-            lay->addWidget(l);
-            add_channels(lay, s.toObject()["channels"].toArray());
+    // One block per selected object, lead last, as the reference stacks them.
+    auto add_object = [&](const QJsonObject& o, bool lead) {
+        // Object name, editable to rename.
+        // Settings > Show Namespace off drops the namespace from the name shown.
+        const QString full = o["name"].toString();
+        auto* name = new QLineEdit(cb_setting("namespace", true).toBool() ? full : full.section(':', -1), body_);
+        name->setObjectName("channelHeader");
+        const QString path = o["path"].toString();
+        connect(name, &QLineEdit::textEdited, name, [name] { name->setProperty("editing", true); });
+        connect(name, &QLineEdit::editingFinished, name, [name, path] {
+            if (!name->property("editing").toBool()) return;
+            name->setProperty("editing", false);
+            exec("rename", args(QJsonArray{path, name->text().trimmed()}));
+        });
+        name->setProperty("node", path);
+        lay->addWidget(name);
+        if (lead) body_->setProperty("mainNode", path);
+        add_channels(lay, o["channels"].toArray());
+        const QJsonArray shapes = o["shapes"].toArray();
+        if (!shapes.isEmpty()) {
+            lay->addSpacing(6);
+            lay->addWidget(section("SHAPES", body_));
+            for (const QJsonValue& s : shapes) {
+                auto* l = new QLabel(s.toObject()["name"].toString(), body_);
+                l->setProperty("node", s.toObject()["path"].toString());
+                l->setObjectName("channelNode");
+                lay->addWidget(l);
+                add_channels(lay, s.toObject()["channels"].toArray());
+            }
         }
+        add_nodes(lay, "INPUTS", o["inputs"].toArray());
+        add_nodes(lay, "OUTPUTS", o["outputs"].toArray());
+    };
+    const QJsonArray objects = cb["objects"].toArray();
+    const bool only_lead = QSettings().value("channelBox/showType", "all").toString() == "select";
+    if (!objects.isEmpty()) {
+        const int first = only_lead ? qMax(0, objects.size() - 1) : 0;
+        for (int i = first; i < objects.size(); ++i) {
+            if (i > first) lay->addSpacing(8);
+            add_object(objects[i].toObject(), i == objects.size() - 1);
+        }
+    } else {
+        add_object(cb, true);
     }
-    add_nodes(lay, "INPUTS", cb["inputs"].toArray());
-    add_nodes(lay, "OUTPUTS", cb["outputs"].toArray());
     lay->addStretch(1);
     scroll_->setWidget(body_);
     scroll_->verticalScrollBar()->setValue(scroll);
@@ -996,10 +1084,104 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(2, 2, 2, 2);
     lay->setSpacing(2);
+    // The reference's Display tab menu bar: Layers, Options, Help.
+    auto* mb = new QMenuBar(this);
+    mb->setNativeMenuBar(false);
+    mb->setObjectName("panelMenus");
+    QMenu* layers_menu = mb->addMenu("Layers");
+    auto current_layer = [this]() -> QString {
+        auto* it = list_ ? list_->currentItem() : nullptr;
+        return it ? it->data(0, Qt::UserRole).toString() : QString();
+    };
+    auto create = [this](bool empty) {
+        QJsonObject c;
+        if (empty) c["empty"] = true;
+        if (QSettings().value("displayLayer/makeCurrent", false).toBool()) c["makeCurrent"] = true;
+        exec("createDisplayLayer", c);
+        Host::get()->poke();
+    };
+    layers_menu->addAction("Create Empty Layer", this, [create] { create(true); });
+    layers_menu->addAction("Create Layer from Selected", this, [create] { create(false); });
+    layers_menu->addSeparator();
+    layers_menu->addAction("Select Objects in Selected Layers", this, [this, current_layer] {
+        const QString layer = current_layer();
+        if (layer.isEmpty()) return;
+        const QJsonArray members = ask("displayLayer", args(QJsonArray{layer})).toObject()["members"].toArray();
+        if (!members.isEmpty()) exec("select", args(members));
+    });
+    layers_menu->addAction("Remove Selected Objects from Selected Layers", this, [current_layer] {
+        const QString layer = current_layer();
+        if (layer.isEmpty()) return;
+        QJsonArray a{"defaultLayer"};
+        for (const QJsonValue& v : state()["selection"].toArray()) a.append(v.toString());
+        if (a.size() > 1) exec("editDisplayLayerMembers", args(a));
+        Host::get()->poke();
+    });
+    layers_menu->addSeparator();
+    layers_menu->addAction("Membership", this, [this] { show_relationship_editor(this, "displayLayers"); });
+    layers_menu->addAction("Attributes", this, [current_layer] {
+        const QString layer = current_layer();
+        if (layer.isEmpty()) return;
+        exec("select", args(QJsonArray{layer}));
+        mel_action("AttributeEditor");
+    });
+    layers_menu->addSeparator();
+    layers_menu->addAction("Delete Selected Layers", this, [current_layer] {
+        const QString layer = current_layer();
+        if (!layer.isEmpty()) exec("deleteDisplayLayer", args(QJsonArray{layer}));
+        Host::get()->poke();
+    });
+    layers_menu->addAction("Delete Unused Layers", this, [this] {
+        for (const QJsonValue& v : query("layers").toArray()) {
+            QJsonObject l = v.toObject();
+            if (l["members"].toArray().isEmpty()) exec("deleteDisplayLayer", args(QJsonArray{l["name"]}));
+        }
+        Host::get()->poke();
+    });
+    layers_menu->addSeparator();
+    auto* sort_group = new QActionGroup(layers_menu);
+    for (auto [label, value] : {std::pair{"Chronologically", "chronological"}, {"Alphabetically", "alphabetical"}}) {
+        QAction* a = layers_menu->addAction(label);
+        a->setCheckable(true);
+        a->setData(value);
+        a->setChecked(QSettings().value("displayLayer/sort", "chronological").toString() == value);
+        sort_group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, a] {
+            QSettings().setValue("displayLayer/sort", a->data().toString());
+            refresh();
+        });
+    }
+    QMenu* options_menu = mb->addMenu("Options");
+    auto option = [this, options_menu](const char* label, const char* key, bool value) {
+        QAction* a = options_menu->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(QSettings().value(key, value).toBool());
+        connect(a, &QAction::toggled, this, [this, key = QString(key)](bool on) {
+            QSettings().setValue(key, on);
+            refresh();
+        });
+    };
+    option("Make New Layers Current", "displayLayer/makeCurrent", false);
+    option("Show Namespace", "displayLayer/namespace", true);
+    QMenu* help_menu = mb->addMenu("Help");
+    help_menu->addAction("Help on Display Layers", [] { mel_action("showHelp DisplayLayer"); });
+    lay->addWidget(mb);
     auto* bar = new QToolBar(this);
     bar->setIconSize(QSize(16, 16));
-    bar->addAction(icon("layer"), "Create a new layer", [] { exec("createDisplayLayer", QJsonObject{{"empty", true}}); });
-    bar->addAction(icon("layerSelected"), "Create a new layer and assign selected objects", [] { exec("createDisplayLayer"); });
+    auto move = [this](int dir) {
+        QTreeWidgetItem* it = list_ ? list_->currentItem() : nullptr;
+        if (!it) return;
+        const int row = list_->indexOfTopLevelItem(it), count = list_->topLevelItemCount();
+        const int to = row + dir;
+        if (to < 0 || to >= count) return;
+        const QString layer = it->data(0, Qt::UserRole).toString();
+        exec("reorderDisplayLayer", args(QJsonArray{layer, count - 1 - to}));
+        Host::get()->poke();
+    };
+    bar->addAction(icon("moveUp"), "Move selection up in list", [move] { move(-1); });
+    bar->addAction(icon("moveDown"), "Move selection down in list", [move] { move(1); });
+    bar->addAction(icon("layer"), "Create a new layer", [create] { create(true); });
+    bar->addAction(icon("layerSelected"), "Create a new layer and assign selected objects", [create] { create(false); });
     lay->addWidget(bar);
     list_ = new QTreeWidget(this);
     // V, P, T or R, colour, name.
@@ -1066,16 +1248,23 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
 
 void LayerEditor::refresh() {
     list_->clear();
-    for (const QJsonValue& v : query("layers").toArray()) {
-        QJsonObject l = v.toObject();
+    QList<QJsonObject> rows;
+    for (const QJsonValue& v : query("layers").toArray()) rows << v.toObject();
+    if (QSettings().value("displayLayer/sort", "chronological").toString() == "alphabetical")
+        std::sort(rows.begin(), rows.end(), [](const QJsonObject& a, const QJsonObject& b) {
+            return a["name"].toString().compare(b["name"].toString(), Qt::CaseInsensitive) < 0;
+        });
+    const bool namespaces = QSettings().value("displayLayer/namespace", true).toBool();
+    for (const QJsonObject& l : rows) {
         auto* it = new QTreeWidgetItem(list_);
         bool vis = l["visible"].toBool();
         bool play = l.contains("playback") ? l["playback"].toBool() : true;
         int type = l["displayType"].toInt();
+        const QString name = namespaces ? l["name"].toString() : l["name"].toString().section(':', -1);
         it->setText(0, vis ? "V" : "");
         it->setText(1, play ? "P" : "");
         it->setText(2, type == 1 ? "T" : type == 2 ? "R" : "");
-        it->setText(4, l["name"].toString());
+        it->setText(4, name);
         it->setData(0, Qt::UserRole, l["name"].toString());
         it->setData(0, Qt::UserRole + 1, vis);
         it->setData(1, Qt::UserRole, play);

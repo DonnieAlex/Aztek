@@ -479,6 +479,44 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(15, 15.5), QPointF(28, 15.5));
         p.drawLine(QPointF(24, 15.5), QPointF(24, 21));
         p.drawLine(QPointF(28, 15.5), QPointF(28, 20));
+    } else if (name == "channelBoxManips" || name == "channelBoxNoManips" || name == "channelBoxInvisibleManips") {
+        // The Channel Box's manipulator states: a four-way move, a crossed-out one, a dashed one.
+        const QColor c = name == "channelBoxInvisibleManips" ? QColor(150, 150, 150) : kInk;
+        pen_color(c, 1.6);
+        if (name == "channelBoxNoManips") {
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(QRectF(10, 10, 12, 12));
+            p.drawLine(QPointF(8, 8), QPointF(24, 24));
+        } else {
+            if (name == "channelBoxInvisibleManips") p.setPen(QPen(c, 1.6, Qt::DashLine, Qt::RoundCap));
+            p.drawLine(QPointF(16, 5), QPointF(16, 27));
+            p.drawLine(QPointF(5, 16), QPointF(27, 16));
+            p.drawPolygon(QPolygonF({{16, 3}, {12, 9}, {20, 9}}));
+            p.drawPolygon(QPolygonF({{16, 29}, {12, 23}, {20, 23}}));
+            p.drawPolygon(QPolygonF({{3, 16}, {9, 12}, {9, 20}}));
+            p.drawPolygon(QPolygonF({{29, 16}, {23, 12}, {23, 20}}));
+        }
+    } else if (name == "channelBoxSpeed") {
+        // A speedometer.
+        p.setBrush(Qt::NoBrush);
+        pen_color(kInk, 1.5);
+        p.drawArc(QRectF(5, 7, 22, 22), 200 * 16, 140 * 16);
+        p.drawLine(QPointF(16, 18), QPointF(23, 11));
+        p.drawEllipse(QPointF(16, 18), 2, 2);
+    } else if (name == "channelBoxHyperbolic") {
+        // A hyperbola, the slider's curve.
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(kBlue, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawLine(QPointF(5, 27), QPointF(11, 20));
+        p.drawLine(QPointF(11, 20), QPointF(16, 13));
+        p.drawLine(QPointF(16, 13), QPointF(21, 7));
+        p.drawLine(QPointF(21, 7), QPointF(27, 5));
+        p.drawEllipse(QPointF(16, 13), 1.8, 1.8);
+    } else if (name == "moveUp" || name == "moveDown") {
+        p.setBrush(kInk);
+        p.setPen(Qt::NoPen);
+        if (name == "moveUp") p.drawPolygon(QPolygonF({{16, 6}, {26, 19}, {6, 19}}));
+        else p.drawPolygon(QPolygonF({{16, 26}, {6, 13}, {26, 13}}));
     } else if (name == "stop") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);
