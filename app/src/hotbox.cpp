@@ -3,6 +3,7 @@
 #include "widgets.h"
 
 #include <QDateTime>
+#include <QBoxLayout>
 #include <QGridLayout>
 #include <QGuiApplication>
 #include <QKeyEvent>
@@ -15,71 +16,102 @@
 
 namespace az {
 
-Hotbox::Hotbox(const QList<QMenu*>& menus, int common, QWidget* parent) : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint) {
+Hotbox::Hotbox(const QList<QMenu*>& common, const QList<QPair<QString, QList<QMenu*>>>& sets, QMenu* recent, QWidget* parent)
+    : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint) {
+    setAttribute(Qt::WA_TranslucentBackground);
     setMouseTracking(true);
     box_ = new QWidget(this);
-    auto* grid = new QGridLayout(box_);
-    grid->setContentsMargins(6, 6, 6, 6);
-    grid->setSpacing(3);
-    auto add = [this, grid](QMenu* m, int row, int col) {
-        auto* b = new QToolButton(box_);
-        b->setText(m->title().remove('&'));
-        b->setMenu(m);
+    auto* rows = new QVBoxLayout(box_);
+    rows->setContentsMargins(0, 0, 0, 0);
+    rows->setSpacing(6);
+    auto button = [this](const QString& title, QMenu* menu = nullptr) {
+        auto* b = new QToolButton;
+        b->setText(QString(title).remove('&'));
+        b->setMenu(menu);
         b->setPopupMode(QToolButton::InstantPopup);
         b->setObjectName("hotboxButton");
-        b->setMinimumWidth(92);
-        connect(m, &QMenu::aboutToShow, this, [this] { used_ = true; });
-        grid->addWidget(b, row, col);
+        if (menu) connect(menu, &QMenu::aboutToShow, this, &Hotbox::mark_used, Qt::UniqueConnection);
+        return b;
     };
-    // Common menus on top, the menu set's below, as the reference's rows, with the Aztek box between them.
-    const int per_row = 9;
-    int row = 0, col = 0;
-    for (int i = 0; i < common && i < menus.size(); ++i) {
-        if (col == per_row) {
-            row += 1;
-            col = 0;
-        }
-        add(menus[i], row, col++);
+    auto row = [rows] {
+        auto* strip = new QWidget;
+        auto* items = new QHBoxLayout(strip);
+        items->setContentsMargins(0, 0, 0, 0);
+        items->setSpacing(0);
+        rows->addWidget(strip, 0, Qt::AlignHCenter);
+        return items;
+    };
+    auto menu_row = [&row, &button](const QList<QMenu*>& menus) {
+        auto* items = row();
+        for (auto* menu : menus) items->addWidget(button(menu->title(), menu));
+        return items->parentWidget();
+    };
+    menu_row(common);
+
+    auto* pane = row();
+    for (const char* label : {"View", "Shading", "Lighting", "Show", "Renderer", "Panels"}) {
+        auto* b = button(label);
+        pane->addWidget(b);
+        panel_buttons_.append(b);
     }
-    row += 1;
-    auto* mid = new QLabel("Aztek", box_);
+
+    auto* center = new QWidget;
+    auto* controls_row = new QGridLayout(center);
+    controls_row->setContentsMargins(0, 6, 0, 6);
+    controls_row->setHorizontalSpacing(54);
+    auto* recents = button("Recent Commands", recent);
+    auto* controls = new QMenu("Hotbox Controls", this);
+    auto* options = button(controls->title(), controls);
+    auto* mid = new QLabel("Aztek");
     mid->setObjectName("hotboxCenter");
     mid->setAlignment(Qt::AlignCenter);
-    mid->setMinimumHeight(26);
-    QFont f = mid->font();
-    f.setBold(true);
-    mid->setFont(f);
     middle_ = mid;
-    grid->addWidget(mid, row, per_row / 2 - 1, 1, 3);
-    row += 1;
-    col = 0;
-    for (int i = common; i < menus.size(); ++i) {
-        if (col == per_row) {
-            row += 1;
-            col = 0;
-        }
-        add(menus[i], row, col++);
+    controls_row->addWidget(recents, 0, 0, Qt::AlignRight | Qt::AlignVCenter);
+    controls_row->addWidget(mid, 0, 1);
+    controls_row->addWidget(options, 0, 2, Qt::AlignLeft | Qt::AlignVCenter);
+    const int side = qMax(recents->sizeHint().width(), options->sizeHint().width());
+    controls_row->setColumnMinimumWidth(0, side);
+    controls_row->setColumnMinimumWidth(2, side);
+    rows->addWidget(center, 0, Qt::AlignHCenter);
+
+    for (const auto& [label, menus] : sets) {
+        auto* strip = menu_row(menus);
+        auto* action = controls->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(true);
+        connect(action, &QAction::toggled, strip, &QWidget::setVisible);
     }
-    // Laid out now, so the Aztek box's place is known before the first show.
-    grid->activate();
-    box_->adjustSize();
 }
 
-void Hotbox::popup(QPoint global) {
+void Hotbox::popup(QPoint global, const QList<QAction*>& panel_actions) {
+    for (auto* b : panel_buttons_) {
+        QMenu* menu = nullptr;
+        for (auto* action : panel_actions) {
+            if (QString(action->text()).remove('&') != b->text()) continue;
+            menu = action->menu();
+            break;
+        }
+        b->setMenu(menu);
+        b->setEnabled(menu);
+        b->setToolTip(menu ? QString() : QStringLiteral("Unavailable in this panel"));
+        if (menu) connect(menu, &QMenu::aboutToShow, this, &Hotbox::mark_used, Qt::UniqueConnection);
+    }
     QScreen* s = QGuiApplication::screenAt(global);
     QRect area = s ? s->geometry() : parentWidget()->window()->geometry();
-    under_ = s ? s->grabWindow(0) : QPixmap();
     setGeometry(area);
     center_ = global - area.topLeft();
-    // The Aztek box under the cursor, ready for the cameras.
-    // A layout places its widgets only once shown: placed here by hand, so the Aztek box's spot is known.
-    box_->resize(box_->sizeHint());
-    box_->layout()->setGeometry(QRect(QPoint(), box_->size()));
-    QPoint mid = middle_ ? middle_->geometry().center() : QPoint(box_->width() / 2, box_->height() / 2);
-    box_->move(center_ - mid);
     shown_ms_ = QDateTime::currentMSecsSinceEpoch();
     used_ = false;
     show();
+    // Center on the camera tile after Qt has laid out the nested rows.
+    box_->adjustSize();
+    box_->layout()->activate();
+    middle_->parentWidget()->layout()->activate();
+    const QPoint mid = middle_->mapTo(box_, middle_->rect().center());
+    const QPoint pos = center_ - mid;
+    box_->move(qBound(0, pos.x(), qMax(0, width() - box_->width())),
+               qBound(0, pos.y(), qMax(0, height() - box_->height())));
+    center_ = box_->pos() + mid;
     activateWindow();
     setFocus();
 }
@@ -88,8 +120,7 @@ int Hotbox::zone_at(QPoint p) const {
     // The Aztek box; the rest of the menus' block; outside it the screen splits along its diagonals, as the reference's
     // zones do.
     QRect mid = box_->geometry();
-    if (middle_ && middle_->geometry().translated(mid.topLeft()).contains(p)) return 4;
-    if (mid.contains(p)) return 5;
+    if (middle_->rect().contains(middle_->mapFrom(this, p))) return 4;
     QPoint d = p - center_;
     if (std::abs(d.x()) * mid.height() > std::abs(d.y()) * mid.width()) return d.x() > 0 ? 1 : 3;
     return d.y() > 0 ? 2 : 0;
@@ -97,40 +128,28 @@ int Hotbox::zone_at(QPoint p) const {
 
 void Hotbox::paintEvent(QPaintEvent*) {
     QPainter p(this);
+    p.setCompositionMode(QPainter::CompositionMode_Source);
+    // Nearly invisible, but still hit-testable in the marking zones on Windows.
+    p.fillRect(rect(), QColor(0, 0, 0, 1));
+    p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     p.setRenderHint(QPainter::Antialiasing);
     QRect mid = box_->geometry();
-    if (!under_.isNull()) p.drawPixmap(rect(), under_);
-    p.fillRect(rect(), QColor(0, 0, 0, 90));
-    p.setBrush(QColor(40, 40, 40, 215));
-    p.setPen(Qt::NoPen);
-    p.drawRoundedRect(mid, 5, 5);
-    // The zone lines, from the block's corners outwards.
-    p.setPen(QPen(QColor(210, 210, 210, 90), 1));
+    // Short diagonal guides mark the outer zones without covering the viewport.
+    p.setPen(QPen(QColor(230, 230, 230, 165), 1));
     for (QPoint c : {mid.topLeft(), mid.topRight(), mid.bottomLeft(), mid.bottomRight()}) {
-        QPointF d = QPointF(c - center_);
-        p.drawLine(QPointF(c), QPointF(c) + d * 4);
+        const QPointF d(c.x() < center_.x() ? -1 : 1, c.y() < center_.y() ? -1 : 1);
+        p.drawLine(QPointF(c) + d * 10, QPointF(c) + d * 26);
     }
-    p.setPen(QColor(235, 235, 235));
-    QFont f = font();
-    f.setBold(true);
-    p.setFont(f);
-    static const char* names[] = {"Panels and Layouts", "Display", "Panel Types", "Selection Masks"};
-    int off = 44;
-    p.drawText(QRect(center_.x() - 100, mid.top() - off, 200, 20), Qt::AlignCenter, names[0]);
-    p.drawText(QRect(mid.right() + 16, center_.y() - 10, 200, 20), Qt::AlignLeft | Qt::AlignVCenter, names[1]);
-    p.drawText(QRect(center_.x() - 100, mid.bottom() + off - 20, 200, 20), Qt::AlignCenter, names[2]);
-    p.drawText(QRect(mid.left() - 216, center_.y() - 10, 200, 20), Qt::AlignRight | Qt::AlignVCenter, names[3]);
 }
 
 void Hotbox::mousePressEvent(QMouseEvent* e) {
     QPoint at = e->position().toPoint();
     int zone = zone_at(at);
     used_ = true;
-    if (zone == 5 || !zones_) return;
+    if (!zones_) return;
     QPoint global = e->globalPosition().toPoint();
     QList<MarkItem> items = zones_(zone);
-    hide();
-    if (!items.isEmpty()) MarkingMenu::show_at(global, items);
+    if (!items.isEmpty()) MarkingMenu::show_at(global, items, this);
 }
 
 void Hotbox::keyReleaseEvent(QKeyEvent* e) {

@@ -267,6 +267,7 @@ private:
     QDockWidget* tool_dock_ = nullptr;
     QComboBox* menu_set_ = nullptr;
     QList<QMenu*> set_menus_;
+    QList<QMenu*> hotbox_menus_;
     QHash<QString, QAction*> mode_buttons_;
     QHash<QString, QAction*> tool_buttons_;
     QHash<QString, QAction*> scope_buttons_;

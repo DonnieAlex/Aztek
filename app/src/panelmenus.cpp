@@ -71,6 +71,10 @@ void ModelPanel::set_panel_type(const QString& type) {
     bar_->setVisible(type == "model");
 }
 
+QList<QAction*> ModelPanel::panel_menu_actions() const {
+    return menus_->actions();
+}
+
 void ModelPanel::build_menus() {
     auto* v = view_;
     auto set = [v](const char* k, const QString& j) { return [v, k, j] { v->set(k, j); }; };

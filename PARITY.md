@@ -1820,6 +1820,15 @@ Record. The window steps aside, a count shows in the corner, and the windows of 
 frames a second as H.264 in an MP4 (about 3 MB for ten seconds, well under GitHub's 10 MB). Play shows it; Open on
 GitHub puts aztek-video.mp4 in the report's folder to drag onto the page.
 
+### Hotbox menu rows (22/11/2026)
+
+Compact common and active panel menus sit above Recent Commands, the Aztek camera tile and Hotbox Controls.
+Modeling, Rigging, Animation, Dynamics and Rendering each get a centered row, regardless of the main menu set.
+Hotbox Controls can hide each task row. The surrounding viewport keeps its original brightness.
+A quadrant marking menu leaves the Hotbox visible while Space is held. Releasing Space dismisses both.
+The 2026 help illustration sets the layout. Exact spacing, zone boundaries and the full Hotbox Style menu
+remain PROVISIONAL.
+
 ### The hotbox's Aztek box: Perspective at the top, Top View on the left (20/11/2026, #192)
 
 Top View and Perspective were the wrong way round in the camera marking menu over the hotbox's Aztek box. As in the

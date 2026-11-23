@@ -67,6 +67,7 @@ class ModelPanel : public QWidget {
 public:
     explicit ModelPanel(const QString& camera, QWidget* parent = nullptr);
     ViewportWidget* view() const { return view_; }
+    QList<QAction*> panel_menu_actions() const;
     // What the panel shows: model, outliner, graph, dope or node.
     void set_panel_type(const QString& type);
     QString panel_type() const { return type_; }
