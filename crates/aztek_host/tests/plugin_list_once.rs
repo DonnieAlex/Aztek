@@ -18,6 +18,6 @@ fn a_plugin_in_two_folders_is_listed_once() {
     let rows = c.mel_checked("aztekPlugins;").unwrap();
     let dups: Vec<&Value> = rows.as_array().unwrap().iter().filter(|r| r["name"] == "dupPlugin").collect();
     assert_eq!(dups.len(), 1, "{dups:?}");
-    assert!(dups[0]["folder"].as_str().unwrap().ends_with("/a"), "{dups:?}");
+    assert!(std::path::Path::new(dups[0]["folder"].as_str().unwrap()).ends_with("a"), "{dups:?}");
     let _ = std::fs::remove_dir_all(&root);
 }
