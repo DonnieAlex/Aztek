@@ -986,7 +986,8 @@ void ChannelBox::refresh() {
     if (manip_button_) {
         const int m = cb_setting("manipulators", 2).toInt();
         manip_button_->setIcon(icon(m == 0 ? "channelBoxNoManips" : m == 1 ? "channelBoxInvisibleManips" : "channelBoxManips"));
-        speed_button_->setIcon(icon("channelBoxSpeed"));
+        static const char* speed_icons[] = {"channelBoxSlowest", "channelBoxSlow", "channelBoxMedium", "channelBoxFast"};
+        speed_button_->setIcon(icon(speed_icons[qBound(0, cb_setting("speed", 2).toInt(), 3)]));
         const QSignalBlocker block(hyperbolic_button_);
         hyperbolic_button_->setChecked(cb_setting("hyperbolic", false).toBool());
     }
@@ -1240,6 +1241,11 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         });
         m.addAction("Remove Selected Objects", [] { exec("removeFromDisplayLayer"); });
         m.addAction("Select Objects", [members] { exec("select", args(members)); });
+        m.addAction("Rename...", [this, layer] {
+            bool ok = false;
+            const QString name = QInputDialog::getText(this, "Rename Layer", "Name:", QLineEdit::Normal, layer, &ok).trimmed();
+            if (ok && !name.isEmpty() && name != layer) exec("displayLayer", QJsonObject{{"edit", true}, {"args", QJsonArray{layer}}, {"name", name}});
+        });
         m.addSeparator();
         m.addAction("Delete Layer", [layer] { exec("deleteDisplayLayer", args(QJsonArray{layer})); });
         m.exec(list_->viewport()->mapToGlobal(p));

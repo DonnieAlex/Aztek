@@ -1422,6 +1422,7 @@ void MainWindow::build_docks() {
     tabs->setDocumentMode(true);
     tabs->addTab(new LayerEditor(tabs), "Display");
     tabs->addTab(new AnimLayerEditor(tabs), "Anim");
+    tabs->setCurrentIndex(1);
     ll->addWidget(tabs);
     split->addWidget(layers);
     split->setStretchFactor(0, 3);

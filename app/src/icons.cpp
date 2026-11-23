@@ -496,12 +496,16 @@ QPixmap draw(const QString& name, int size) {
             p.drawPolygon(QPolygonF({{3, 16}, {9, 12}, {9, 20}}));
             p.drawPolygon(QPolygonF({{29, 16}, {23, 12}, {23, 20}}));
         }
-    } else if (name == "channelBoxSpeed") {
-        // A speedometer.
+    } else if (name == "channelBoxSpeed" || name == "channelBoxSlowest" || name == "channelBoxSlow" || name == "channelBoxMedium" || name == "channelBoxFast") {
+        // A speedometer, its needle at the setting.
         p.setBrush(Qt::NoBrush);
         pen_color(kInk, 1.5);
         p.drawArc(QRectF(5, 7, 22, 22), 200 * 16, 140 * 16);
-        p.drawLine(QPointF(16, 18), QPointF(23, 11));
+        const QPointF end = name == "channelBoxSlowest" ? QPointF(9, 15)
+                          : name == "channelBoxSlow" ? QPointF(12, 10)
+                          : name == "channelBoxFast" ? QPointF(25, 9)
+                          : QPointF(23, 11);
+        p.drawLine(QPointF(16, 18), end);
         p.drawEllipse(QPointF(16, 18), 2, 2);
     } else if (name == "channelBoxHyperbolic") {
         // A hyperbola, the slider's curve.
@@ -512,6 +516,30 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(16, 13), QPointF(21, 7));
         p.drawLine(QPointF(21, 7), QPointF(27, 5));
         p.drawEllipse(QPointF(16, 13), 1.8, 1.8);
+    } else if (name == "animZeroKey" || name == "animZeroWeight" || name == "animFullWeight") {
+        // Animation layer weight keys: a key and its value.
+        QFont f = p.font();
+        f.setPixelSize(10);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(kInk);
+        p.drawText(QRectF(0, 0, 20, 32), Qt::AlignCenter, name == "animFullWeight" ? "1" : "0");
+        pen_color(name == "animZeroKey" ? kRed : kGreen, 1.8);
+        p.drawEllipse(QRectF(18, 16, 7, 7));
+        p.drawLine(QPointF(25, 19.5), QPointF(30, 19.5));
+        p.drawLine(QPointF(29, 19.5), QPointF(29, 23));
+    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
+        p.setBrush(QColor(70, 110, 170));
+        p.setPen(QPen(kInk, 1.0));
+        p.drawRect(QRectF(5, 10, 16, 13));
+        p.setBrush(kInk);
+        p.setPen(Qt::NoPen);
+        if (name == "newLayerEmpty") {
+            p.drawRect(QRectF(21, 4, 3, 11));
+            p.drawRect(QRectF(17, 8, 11, 3));
+        } else {
+            p.drawPolygon(QPolygonF({{22, 6}, {30, 12}, {22, 18}}));
+        }
     } else if (name == "moveUp" || name == "moveDown") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);

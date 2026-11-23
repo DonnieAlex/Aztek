@@ -18,6 +18,8 @@ class QLabel;
 class QToolButton;
 class QMenu;
 class QCheckBox;
+class QSlider;
+class QDoubleSpinBox;
 
 namespace az {
 
@@ -137,6 +139,7 @@ protected:
 private:
     QWidget* make_row(const QJsonObject& layer);
     QString current() const;
+    void update_weight();
     void create(bool from_selected, bool override_mode);
     void zero_key();
     void key_weight(const QString& layer);
@@ -146,6 +149,9 @@ private:
     void build_options_menu(QMenu* m);
     void build_show_menu(QMenu* m);
     QTreeWidget* list_ = nullptr;
+    // The reference's weight controls under the tree, for the current layer.
+    QSlider* weight_slider_ = nullptr;
+    QDoubleSpinBox* weight_spin_ = nullptr;
     bool updating_ = false;
     bool only_affected_ = false;
 };

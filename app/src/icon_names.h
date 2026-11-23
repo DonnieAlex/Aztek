@@ -3,17 +3,17 @@
 #pragma once
 
 static const char* const kIconNames[] = {
-    "aimCon", "ambientLight", "ambientOcclusion", "annotationShape", "antiAlias", "areaLight", "attachCurve", "attrEditor", "autokey",
+    "aimCon", "ambientLight", "ambientOcclusion", "animFullWeight", "animZeroKey", "animZeroWeight", "annotationShape", "antiAlias", "areaLight", "attachCurve", "attrEditor", "autokey",
     "backface", "bevel", "bezierCurve", "blendShape", "bookmark", "boolean", "bounceLight", "bridge", "brushAmplify", "brushBulge",
     "brushFill", "brushFlatten", "brushFoamy", "brushFreeze", "brushGrab", "brushImprint", "brushKnife",
     "brushPinch", "brushRelax", "brushRepeat", "brushScrape", "brushSculpt", "brushSmear", "brushSmooth",
-    "brushSpray", "brushWax", "camera", "channelBoxHyperbolic", "channelBoxInvisibleManips", "channelBoxManips", "channelBoxNoManips", "channelBoxSpeed", "channelBoxIcon", "circle", "cluster", "collapse", "combine", "cone", "cube",
+    "brushSpray", "brushWax", "camera", "channelBoxHyperbolic", "channelBoxInvisibleManips", "channelBoxManips", "channelBoxNoManips", "channelBoxFast", "channelBoxMedium", "channelBoxSlow", "channelBoxSlowest", "channelBoxSpeed", "channelBoxIcon", "circle", "cluster", "collapse", "combine", "cone", "cube",
     "curveCv", "curveEp", "cutKey", "cylinder", "defaultMaterial", "detachCurve", "dgNode", "directionalLight",
     "disc", "distanceDimShape", "dopeSheet", "drivenKey", "edge", "extrude", "extrudeCurve", "face", "filmGate",
     "first", "four", "frameAll", "frameSel", "graph", "grid", "group", "highlightSel", "history", "humanIK",
     "hypershade", "ik", "influenceLocked", "influenceUnlocked", "insertLoop", "isolate", "joint", "key", "keyMove",
     "keyRotate", "keyScale", "lasso", "last", "lastTool", "layer", "lightsAll", "locator", "lockSel", "loft",
-    "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "maskSurface", "merge", "mesh", "mirror", "moveDown", "moveUp",
+    "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "maskSurface", "merge", "mesh", "mirror", "moveDown", "moveUp", "newLayerEmpty", "newLayerSelected",
     "modelingToolkit", "mtkEdge", "mtkFace", "mtkObject", "mtkUV", "mtkVertex", "move", "multiCut", "new", "next", "nextKey", "nurbsCurve", "nurbsSurface", "object",
     "objectSet", "offsetCurve", "offsetLoop", "open", "options", "orientCon", "outlinerIcon", "paintSelect",
     "paintSkin", "parentCon", "pause", "perspOutliner", "pipe", "planarSurface", "plane", "play", "playBack", "pointCon",
