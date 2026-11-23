@@ -141,6 +141,21 @@ void ViewportWidget::showEvent(QShowEvent*) {
 }
 
 void ViewportWidget::paintEvent(QPaintEvent*) {
+#ifdef Q_OS_MACOS
+    // Cocoa can paint synchronously while committing a layer transaction. Submit Metal frames after it returns,
+    // otherwise presenting the frame can keep that transaction painting and starve the application's event loop.
+    if (render_queued_) return;
+    render_queued_ = true;
+    QTimer::singleShot(0, this, [this] {
+        render_queued_ = false;
+        if (isVisible()) render_frame();
+    });
+#else
+    render_frame();
+#endif
+}
+
+void ViewportWidget::render_frame() {
     ensure();
     QElapsedTimer t;
     t.start();

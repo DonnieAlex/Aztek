@@ -40,6 +40,10 @@ protected:
     void dropEvent(QDropEvent*) override;
 private:
     void ensure();
+    void render_frame();
+#ifdef Q_OS_MACOS
+    bool render_queued_ = false;
+#endif
     void mouse(int kind, QMouseEvent* e);
     // Moves are handled once per pass of the event loop, the latest one: a fast mouse sends hundreds a second, and
     // each would evaluate the scene for a place the pointer has already left.
