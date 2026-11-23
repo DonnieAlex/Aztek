@@ -240,7 +240,6 @@ private:
     void toggle_play(int dir);
     void stop_play();
     void sync_time_range();
-    void sync_time_selectors();
 
     PanelLayout* panels_ = nullptr;
     ScriptEditor* script_editor_ = nullptr;
@@ -308,11 +307,6 @@ private:
     double play_started_frame_ = 1;
     QComboBox* fps_box_ = nullptr;
     QComboBox* speed_box_ = nullptr;
-    // The reference's Time Slider selectors and buttons: the current character set, the active animation layer, and
-    // the frame rate label's show/hide button.
-    QComboBox* character_box_ = nullptr;
-    QComboBox* anim_layer_box_ = nullptr;
-    QAction* frame_rate_button_ = nullptr;
     double last_full_min_ = 0, last_full_max_ = 0;
     QAction* history_button_ = nullptr;
     QDockWidget* outliner_dock_ = nullptr;

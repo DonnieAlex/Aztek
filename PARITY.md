@@ -4166,13 +4166,3 @@ plug-ins Aztek ships:
 - `progressWindow` answers false while one is showing, as the reference's, rather than failing.
 Not done: a plug-in locator under the transform it drives (mGear's weightDriver under its driven node) is read as a
 cycle and its outputs are left unconnected; ikSpringSolver.
-
-### Time Slider selectors, frame rate label and preferences (23/11/2026)
-
-The Time Slider has the reference's two selectors stacked at its left end: the current character set, read from
-`currentCharacters` and the scene's characters, and the active animation layer, which follows `animLayer`'s selected
-layer; choosing one makes it the layer keys are written on. A Show/Hide frame rate button puts the scene's frame rate
-at the slider's top left and keeps the choice, and a Time Slider preferences button opens the preferences at the Time
-Slider page. The current frame and the four range fields carry the reference's descriptions.
-Not added: the cached playback toggle, the cut slider and the volume button, since Aztek has no cached playback, no
-clip (Trax) interface and no audio output yet; the buttons would do nothing until those exist.

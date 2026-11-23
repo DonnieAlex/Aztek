@@ -479,14 +479,6 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(15, 15.5), QPointF(28, 15.5));
         p.drawLine(QPointF(24, 15.5), QPointF(24, 21));
         p.drawLine(QPointF(28, 15.5), QPointF(28, 20));
-    } else if (name == "frameRate") {
-        // The frame rate label: a small "fps".
-        QFont f = p.font();
-        f.setPixelSize(10);
-        f.setBold(true);
-        p.setFont(f);
-        p.setPen(kInk);
-        p.drawText(full, Qt::AlignCenter, "fps");
     } else if (name == "stop") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);

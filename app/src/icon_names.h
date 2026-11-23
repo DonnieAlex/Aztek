@@ -10,7 +10,7 @@ static const char* const kIconNames[] = {
     "brushSpray", "brushWax", "camera", "channelBoxIcon", "circle", "cluster", "collapse", "combine", "cone", "cube",
     "curveCv", "curveEp", "cutKey", "cylinder", "defaultMaterial", "detachCurve", "dgNode", "directionalLight",
     "disc", "distanceDimShape", "dopeSheet", "drivenKey", "edge", "extrude", "extrudeCurve", "face", "filmGate",
-    "first", "four", "frameAll", "frameRate", "frameSel", "graph", "grid", "group", "highlightSel", "history", "humanIK",
+    "first", "four", "frameAll", "frameSel", "graph", "grid", "group", "highlightSel", "history", "humanIK",
     "hypershade", "ik", "influenceLocked", "influenceUnlocked", "insertLoop", "isolate", "joint", "key", "keyMove",
     "keyRotate", "keyScale", "lasso", "last", "lastTool", "layer", "lightsAll", "locator", "lockSel", "loft",
     "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "maskSurface", "merge", "mesh", "mirror",
