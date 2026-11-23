@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1328 commands.
+1457 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -150,8 +150,9 @@ Make a light, selected: Create > Lights.
 | `intensity` | `i` | intensity |
 | `shadowSamples` | `sh` | shadowRays |
 | `useRayTraceShadows` | `rs` | useRayTraceShadows |
-| `ambientShade` | `ambientShade` | ambientShade |
+| `ambientShade` | `as` | ambientShade |
 | `discRadius` | `drs` | shadowRadius |
+| `softShadow` | `ss` | castSoftShadows |
 
 ## CreateAreaLight
 
@@ -1530,26 +1531,85 @@ Open the USD Layer Editor.
 
 Open the USD Stats window.
 
-## about
+## aaf2fcp
 
-About the application and the system: -v, -os, -win, -linux, -mac, -batch, -api, -qt.
+Convert an AAF file to Final Cut Pro XML in the background: -src and -dst start it and return its handle; -pr its progress, -gfn the file it writes, -wc waits for it, -t ends it (-df deletes the file).
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `version` | `v` | What to ask. |
-| `apiVersion` | `api` | What to ask. |
-| `operatingSystem` | `os` | What to ask. |
-| `windows` | `win` | What to ask. |
-| `nt` | `nt` | What to ask. |
-| `linux` | `li` | What to ask. |
-| `macOS` | `mac` | What to ask. |
-| `batch` | `b` | What to ask. |
-| `is64` | `x64` | What to ask. |
-| `uiLanguage` | `uil` | What to ask. |
-| `codeset` | `cs` | What to ask. |
-| `product` | `p` | What to ask. |
-| `application` | `a` | What to ask. |
-| `qtVersion` | `qt` | What to ask. |
+| `srcFile` | `src` | The AAF file. |
+| `dstPath` | `dst` | The folder to write to. |
+| `getFileName` | `gfn` | A conversion's output file. |
+| `progress` | `pr` | How far a conversion is, in percent. |
+| `waitCompletion` | `wc` | Wait for a conversion to finish. |
+| `terminate` | `t` | End a conversion. |
+| `deleteFile` | `df` | With -terminate: delete the file written. |
+
+## about
+
+The application, its build and the system: one answer per flag; with none, the version line.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `apiVersion` | `api` | The API version. |
+| `application` | `a` | The application's name. |
+| `arm64` | `a64` | Whether this build runs on an arm64 processor. |
+| `armHost` | `ah` | Whether the machine's processor is arm64, whatever this build is. |
+| `batch` | `b` | Whether this is a batch session. |
+| `buildDirectory` | `bd` | The folder the application runs from. |
+| `buildVariant` | `bv` | The build variant: release or debug. |
+| `codeset` | `cs` | The locale's code set. |
+| `compositingManager` | `cm` | On Linux, whether a compositing manager runs; true elsewhere. |
+| `connected` | `cnt` | Whether the machine has a route to the Internet. |
+| `creativeVersion` | `cre` | Whether this is the reference's Creative edition: false. |
+| `ctime` | `cti` | The local time as ctime writes it. |
+| `currentDate` | `cd` | Today's date, yyyy/mm/dd. |
+| `currentTime` | `ct` | The local time, hh:mm:ss. |
+| `customVersion` | `cv` | Whether this is a custom version: false. |
+| `customVersionClient` | `cvc` | The custom version's client: empty. |
+| `customVersionMajor` | `cvm` | The custom version's major number: 0. |
+| `customVersionMinor` | `cvn` | The custom version's minor number: 0. |
+| `customVersionString` | `cvs` | The custom version's string: empty. |
+| `cutIdentifier` | `c` | The build's cut: when it was built. |
+| `date` | `d` | The build date, yyyy/mm/dd. |
+| `environmentFile` | `env` | The environment file read at start, or where it would be. |
+| `evalVersion` | `ev` | Obsolete: false. |
+| `file` | `f` | The scene file version this writes. |
+| `fontInfo` | `foi` | The fonts asked for and the ones in use. |
+| `helpDataDirectory` | `hdd` | The folder of the help pages. |
+| `installedVersion` | `iv` | The product and its version. |
+| `ioVersion` | `io` | Whether this is the reference's IO edition: false. |
+| `irix` | `ir` | Obsolete: false. |
+| `is64` | `x64` | Whether the application is 64 bit. |
+| `languageResources` | `lr` | The installed languages, each locale:name:ISO 639-2 code. |
+| `linux` | `li` | Whether the system is Linux. |
+| `linux64` | `l64` | Whether the system is 64 bit Linux. |
+| `liveUpdate` | `lu` | Obsolete: the product and version. |
+| `localizedResourceLocation` | `lrl` | Where the language's resources are when it isn't the default one: empty. |
+| `ltVersion` | `lt` | Obsolete: false. |
+| `macOS` | `mac` | Whether the system is macOS. |
+| `macOSASi` | `asi` | Whether the system is macOS on Apple silicon. |
+| `macOSppc` | `ppc` | Whether the system is macOS on PowerPC: false. |
+| `macOSx86` | `x86` | Whether the system is macOS on Intel. |
+| `majorVersion` | `mjv` | The major version. |
+| `minorVersion` | `mnv` | The minor version. |
+| `ntOS` | `nt` | Whether the system is Windows. |
+| `operatingSystem` | `os` | nt, win64, mac, linux or linux64. |
+| `operatingSystemVersion` | `osv` | The system's version; on Linux as uname -srvm gives it. |
+| `patchVersion` | `pv` | The patch version. |
+| `preferences` | `pd` | The preferences folder. |
+| `product` | `p` | The product's name. |
+| `qtVersion` | `qt` | The Qt version; empty in batch. |
+| `tablet` | `tab` | Whether the machine is a Tablet PC: Windows only. |
+| `tabletMode` | `tm` | tablet or laptop mode: Windows only. |
+| `uiLanguage` | `uil` | The interface's language. |
+| `uiLanguageForStartup` | `uis` | The interface language the next start uses. |
+| `uiLanguageIsLocalized` | `uii` | Whether the interface runs in a language other than the default. |
+| `uiLocaleLanguage` | `ull` | The system locale's language. |
+| `version` | `v` | The version. |
+| `win64` | `w64` | Whether the system is 64 bit Windows. |
+| `windowManager` | `wm` | The window manager's name. |
+| `windows` | `win` | Whether the system is Windows. |
 
 ## addAttr
 
@@ -1577,7 +1637,9 @@ Arguments: objects
 | `hidden` | `h` | Hide it from editors. |
 | `usedAsColor` | `uac` | A double3 holding a colour: editors show a swatch. |
 | `usedAsFilename` | `uaf` | A string holding a file path: editors offer a file browser. |
-| `category` |  | A heading the Attribute Editor groups it under. |
+| `category` | `ct` | A category identifying the attribute, such as the plug-in that made it. Repeat it for more; the first is the heading the Attribute Editor groups it under. |
+| `enforcingUniqueName` | `eun` | Its name must be unique in the attribute tree (on); off, a child may share a name with another attribute. |
+| `worldSpace` | `ws` | A multi attribute that depends on the node's world transform, an element per instance. |
 | `doc` |  | What it is for: editors show it as a tooltip. |
 | `query` | `q` | Query. |
 | `edit` | `e` | Edit. |
@@ -1597,6 +1659,53 @@ Arguments: objects
 | `binaryTag` | `bt` | Accepted for existing scripts. |
 | `proxy` | `pxy` | Accepted for existing scripts. |
 | `usedAsProxy` | `uap` | Accepted for existing scripts. |
+
+## addExtension
+
+Add an attribute to every node of a type, those there now and those made later: addExtension -nt mesh -ln mass -at double. -q with -nt and -ln asks about one; -e changes its default, limits, nice name, enum names and categories.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `nodeType` | `nt` | The node type that gets the attribute. |
+| `longName` | `ln` | The attribute's long name. |
+| `shortName` | `sn` | Its short name. |
+| `niceName` | `nn` | The name editors show. |
+| `attributeType` | `at` | Its type, as addAttr takes it: double, long, bool, enum, double3, float3, compound and the rest. |
+| `parent` | `p` | The compound it is a child of. |
+| `numberOfChildren` | `nc` | How many children a compound has. |
+| `defaultValue` | `dv` | The default of a number. |
+| `minValue` | `min` | The hard minimum. |
+| `maxValue` | `max` | The hard maximum. |
+| `softMinValue` | `smn` | The slider's minimum. |
+| `softMaxValue` | `smx` | The slider's maximum. |
+| `hasMinValue` | `hnv` | Whether it has a hard minimum; off takes it away. |
+| `hasMaxValue` | `hxv` | Whether it has a hard maximum; off takes it away. |
+| `hasSoftMinValue` | `hsn` | Whether it has a soft minimum. |
+| `hasSoftMaxValue` | `hsx` | Whether it has a soft maximum. |
+| `enumName` | `en` | An enum's names, a:b:c, each =value optional. |
+| `multi` | `m` | An array attribute. |
+| `keyable` | `k` | Keyable by default. |
+| `hidden` | `h` | Hidden from editors. |
+| `readable` | `r` | Connections can come out of it (on). |
+| `writable` | `w` | Connections can go into it (on). |
+| `storable` | `s` | Saved with the scene (on). |
+| `cachedInternally` | `ci` | Its value is cached on the node: on for writable attributes unless said. |
+| `internalSet` | `is` | Its node is told when it is set. |
+| `indexMatters` | `im` | A multi's connections need an index (on). |
+| `disconnectBehaviour` | `dcb` | What a disconnection does: 0 deletes the element, 1 resets it, 2 nothing (the default). |
+| `enforcingUniqueName` | `eun` | Its name must be unique in the attribute tree (on). |
+| `fromPlugin` | `fp` | A plug-in made it. |
+| `binaryTag` | `bt` | Obsolete; kept and answered, has no effect. |
+| `proxy` | `pxy` | Another node's attribute this one stands in for; marks it as a proxy. |
+| `usedAsProxy` | `uap` | It stands in for another attribute. |
+| `usedAsColor` | `uac` | Holds a colour: three float or double children. |
+| `usedAsFilename` | `uaf` | A string holding a file name. |
+| `worldSpace` | `ws` | An array attribute that depends on the node's world transform. |
+| `exists` | `ex` | With -q: whether the extension attribute exists. |
+| `dataType` | `dt` | A data type, as setAttr takes them; give it again for each it accepts. |
+| `category` | `ct` | A category for it, such as the plug-in that made it; give it again for more. Edit adds, never removes. |
 
 ## addMetadata
 
@@ -1634,6 +1743,16 @@ Add members (the selection by default) to a set. Returns the set's members.
 
 Arguments: set, members
 
+## affectedNet
+
+A network of TdnAffect nodes, one for each attribute of a node or of the -t node types, an input connected to the outputs it affects.
+
+Arguments: node
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `type` | `t` | A node type to read in place of a node; give it again for more. |
+
 ## affects
 
 The attributes of a node, or of a node type with -type, that affect the one named; -by those it affects. A node here computes every output from every input.
@@ -1670,6 +1789,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -1710,16 +1834,83 @@ Arguments: alias plug, or a node with -q
 
 ## align
 
-Lines objects' bounding boxes up: align -x Mid a b c. Min, Mid or Max per axis; -atl to the last object.
+Align or spread objects along X, Y and Z by their bounding boxes: align -x mid a b c. Per axis none, min, mid or max (to their average, or the lead object's with -atl), dist (spread evenly) or stack (end to end). -cs takes the axes from an object. Returns true.
 
-Arguments: objects
+Arguments: objects (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `alignX` | `x` | Min, Mid or Max. |
-| `alignY` | `y` | Min, Mid or Max. |
-| `alignZ` | `z` | Min, Mid or Max. |
-| `alignToLead` | `atl` | To the last object rather than the whole set. |
+| `xAxis` | `x` | none, min, mid, max, dist or stack (none). |
+| `yAxis` | `y` | none, min, mid, max, dist or stack (none). |
+| `zAxis` | `z` | none, min, mid, max, dist or stack (none). |
+| `coordinateSystem` | `cs` | An object whose axes are X, Y and Z (the world's). |
+| `alignToLead` | `atl` | Min, mid or max from the lead object (the last selected) rather than averaged over all. |
+
+## alignCurve
+
+Align the end of the first curve to the start of the second through an alignCurve node: positional continuity (-pc, -pct), tangent (-tc, -tct) and curvature (-cc). With no flags, positional and tangent on the two selected. Returns [curve, node]; -rpo off makes new curves, -ch off keeps no node.
+
+Arguments: two curves (the selection when none); the node or a curve with -q and -e
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `positionalContinuity` | `pc` | Make the ends meet (on). |
+| `positionalContinuityType` | `pct` | 1 move the first (the default), 2 move the second, 3 move both, 4 change the first's end, 5 the second's, 6 both. |
+| `tangentContinuity` | `tc` | Line the tangents up where they meet (on). |
+| `tangentContinuityType` | `tct` | 1 change the first (the default), 2 the second. |
+| `curvatureContinuity` | `cc` | Match the curvature as well (off); takes tangent continuity with it. |
+| `curvatureScale1` | `cs1` | Shapes the first's curvature continuity (0). |
+| `curvatureScale2` | `cs2` | Shapes the second's curvature continuity (0). |
+| `tangentScale1` | `ts1` | Scales the first's tangent (1). |
+| `tangentScale2` | `ts2` | Scales the second's tangent (1). |
+| `joinParameter` | `jnp` | Where on the one kept as it is the other meets it (123456: its end). |
+| `reverse1` | `rv1` | Reverse the first before aligning (off). |
+| `reverse2` | `rv2` | Reverse the second before aligning (off). |
+| `attach` | `at` | Join them into the first once aligned. |
+| `keepMultipleKnots` | `kmk` | Joined, keep the multiple knots where they meet (on). |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `replaceOriginal` | `rpo` | Change the originals (on); off, new objects. |
+| `object` | `o` | Make the result (on); off, only the node. |
+| `name` | `n` | Name of the new node. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## alignSurface
+
+Align the edge of the first surface to the edge of the second through an alignSurface node: along U (-du) or V, positional (-pc, -pct), tangent (-tc, -tct) and curvature (-cc) continuity. Returns [surface, node].
+
+Arguments: two surfaces (the selection when none); the node or a surface with -q and -e
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `positionalContinuity` | `pc` | Make the ends meet (on). |
+| `positionalContinuityType` | `pct` | 1 move the first (the default), 2 move the second, 3 move both, 4 change the first's end, 5 the second's, 6 both. |
+| `tangentContinuity` | `tc` | Line the tangents up where they meet (on). |
+| `tangentContinuityType` | `tct` | 1 change the first (the default), 2 the second. |
+| `curvatureContinuity` | `cc` | Match the curvature as well (off); takes tangent continuity with it. |
+| `curvatureScale1` | `cs1` | Shapes the first's curvature continuity (0). |
+| `curvatureScale2` | `cs2` | Shapes the second's curvature continuity (0). |
+| `tangentScale1` | `ts1` | Scales the first's tangent (1). |
+| `tangentScale2` | `ts2` | Scales the second's tangent (1). |
+| `joinParameter` | `jnp` | Where on the one kept as it is the other meets it (123456: its end). |
+| `reverse1` | `rv1` | Reverse the first before aligning (off). |
+| `reverse2` | `rv2` | Reverse the second before aligning (off). |
+| `attach` | `at` | Join them into the first once aligned. |
+| `keepMultipleKnots` | `kmk` | Joined, keep the multiple knots where they meet (on). |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `replaceOriginal` | `rpo` | Change the originals (on); off, new objects. |
+| `object` | `o` | Make the result (on); off, only the node. |
+| `name` | `n` | Name of the new node. |
+| `directionU` | `du` | Along U (on); off, along V. |
+| `swap1` | `sw1` | Swap the first's U and V before aligning. |
+| `swap2` | `sw2` | Swap the second's U and V before aligning. |
+| `twist` | `tw` | Reverse the second across the direction before aligning, against a twist. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## allNodeTypes
 
@@ -1749,19 +1940,28 @@ Arguments: the light, to edit or query
 | `intensity` | `i` | intensity |
 | `shadowSamples` | `sh` | shadowRays |
 | `useRayTraceShadows` | `rs` | useRayTraceShadows |
-| `ambientShade` | `ambientShade` | ambientShade |
+| `ambientShade` | `as` | ambientShade |
 | `discRadius` | `drs` | shadowRadius |
+| `softShadow` | `ss` | castSoftShadows |
 
 ## angleBetween
 
-The rotation from -v1 to -v2: axis and angle in degrees, or -er Euler angles.
+The rotation from -v1 to -v2: axis and angle in degrees, or -er Euler angles. -ch on makes an angleBetween node instead and returns it.
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `vector1` | `v1` | From. |
-| `vector2` | `v2` | To. |
-| `euler` | `er` | Euler angles instead. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `vector1` | `v1` | The vector to rotate from. |
+| `vector1X` | `v1x` | vector1's X. |
+| `vector1Y` | `v1y` | vector1's Y. |
+| `vector1Z` | `v1z` | vector1's Z. |
+| `vector2` | `v2` | The vector to rotate to. |
+| `vector2X` | `v2x` | vector2's X. |
+| `vector2Y` | `v2y` | vector2's Y. |
+| `vector2Z` | `v2z` | vector2's Z. |
+| `euler` | `er` | Euler angles instead of axis and angle. |
+| `constructionHistory` | `ch` | Make an angleBetween node computing it, and return the node. |
+| `caching` | `cch` | With -ch: the node's caching. |
+| `nodeState` | `nds` | With -ch: the node's state. |
 
 ## animCurveEditor
 
@@ -1876,6 +2076,7 @@ Arguments: the layer, or for -afl and -bl the objects or plugs
 | `addRelatedKG` | `akg` | With -aso or -rso: the keying groups the objects are in too. |
 | `addSelectedObjects` | `aso` | Add the selected objects' keyable channels. |
 | `affectedLayers` | `afl` | Query: the layers the objects or plugs are in. |
+| `affectedLayersAttribute` | `afa` | Query, with -afl: only these attributes count. |
 | `animCurves` | `anc` | Query: the layer's curves. |
 | `attribute` | `at` | Plug(s) to add; query: the layer's plugs. |
 | `baseAnimCurves` | `bac` | Query: the base curves of the layer's channels. |
@@ -1961,6 +2162,21 @@ Arguments: object
 | `text` | `tx` | The note. |
 | `point` | `p` | Where it goes. |
 
+## appHome
+
+Show and hide the application home, the welcome screen: -v on or off, -tv toggles, -t a tab (Recent, GettingStarted, Learning, WhatsNew, Community), -urf refreshes its recent files, -iv the status line's home icon. -q asks.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `visible` | `v` | Show or hide it. |
+| `toggleVisibility` | `tv` | Show it if hidden, hide it if shown. |
+| `setTab` | `t` | The tab to show: Recent, GettingStarted, Learning, WhatsNew or Community. |
+| `updateRecentFiles` | `urf` | Refresh its recent files. |
+| `iconVisible` | `iv` | Show the home icon in the status line (a preference). |
+| `instrument` | `i` | A string to instrument the command with. |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+
 ## applyAllModifiers
 
 Bake every modifier of a mesh into its base mesh, leaving an empty stack over an editable source.
@@ -1979,6 +2195,12 @@ Bake a modifier (and everything below it in the stack) into the base mesh.
 
 Arguments: modifier
 
+## arcLengthDimension
+
+Measure the arc length of a curve or surface up to a point: arcLengthDimension curveShape1.u[0.5], or surface.uv[0.5][0.5] for the lengths along U and V. Makes a live arcLengthDimension shape there; returns it.
+
+Arguments: a point on a curve or surface
+
 ## archiveScene
 
 File > Archive Scene: the saved scene and every file it uses (references, file textures, image planes, sounds, Alembic and XJEN caches) zipped into <scene>.zip beside it, or -file. Files that can't be found are left out with a warning. Aztek's name for the menu item. Returns the zip.
@@ -1989,13 +2211,17 @@ File > Archive Scene: the saved scene and every file it uses (references, file t
 
 ## arclen
 
-The length of a curve along its arc, world space.
+The length of a curve along its arc, world space. -ch on makes a curveInfo node computing it, connected to the curve, and returns the node, whose arcLength follows the curve. -q and -e on the node: -cch, -nds.
 
-Arguments: a curve (the selection when none)
+Arguments: a curve (the selection when none); the curveInfo node with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `constructionHistory` | `ch` | Make a curveInfo node computing the length and return it (off). |
+| `caching` | `cch` | With -ch: the node's caching. |
+| `nodeState` | `nds` | With -ch: the node's state; 2 blocking keeps the length it gave. |
+| `query` | `q` | Query mode, on the node. |
+| `edit` | `e` | Edit mode, on the node. |
 
 ## arnoldRender
 
@@ -2296,6 +2522,24 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## arubaNurbsToPoly
+
+Tessellate a NURBS surface to polygons through an arubaTessellate node. -ls (the default) in the surface's space, -ws in world space. Returns the polygon object, and the node with history.
+
+Arguments: a NURBS surface (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `localSpace` | `ls` | Tessellate in local space (the default). |
+| `worldSpace` | `ws` | Tessellate in world space. |
+| `constructionHistory` | `ch` | Keep the node, so the tessellation follows the surface (on by default). |
+| `object` | `o` | Make the polygons (on); off, only the node. |
+| `name` | `n` | Name of the polygon object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
 ## attachCurve
 
 Join curves end to end through an attachCurve node. -rpo (on by default) changes the first curve; off, a new curve. Returns [curve, node].
@@ -2315,10 +2559,14 @@ Arguments: curves (the selection when none)
 | `reverse2` | `rv2` | Reverse the second curve. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## attachSurface
 
-Join two surfaces along -d, 1 U or 0 V; -m 0 connects, 1 blends at -bb. The first takes the result with -rpo (on). Returns [surface, node].
+Join two surfaces end to start along U (-du, on) or V; -m 0 connects, 1 blends at -bb. -rv1, -rv2 reverse, -sw1, -sw2 swap U and V, -tw turns the second across first; -kmk off smooths the join. The first takes the result with -rpo (on). Returns [surface, node].
 
 Arguments: two surfaces (the selection when none)
 
@@ -2326,15 +2574,24 @@ Arguments: two surfaces (the selection when none)
 | --- | --- | --- |
 | `method` | `m` | 0 connect, 1 blend (0). |
 | `blendBias` | `bb` | Where a blend meets (0.5). |
-| `direction` | `d` | 1 U, 0 V (1). |
-| `keepMultipleKnots` | `kmk` | Accepted for existing scripts. |
-| `blendKnotInsertion` | `bki` | Accepted for existing scripts. |
-| `parameter` | `p` | Accepted for existing scripts. |
+| `directionU` | `du` | Along U (on); off, along V. |
+| `keepMultipleKnots` | `kmk` | Keep the multiple knots where they meet (on); off, smooth across. |
+| `blendKnotInsertion` | `bki` | Insert a knot at -p for a blend (off). |
+| `parameter` | `p` | Where a blend's knot goes (0.1). |
+| `reverse1` | `rv1` | Reverse the first along the direction first (off). |
+| `reverse2` | `rv2` | Reverse the second along the direction first (off). |
+| `swap1` | `sw1` | Swap the first's U and V first (off). |
+| `swap2` | `sw2` | Swap the second's U and V first (off). |
+| `twist` | `tw` | Reverse the second across the direction first, against a twist (off). |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the surface itself (on by default). |
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## attrColorSliderGrp
 
@@ -2346,8 +2603,9 @@ Arguments: [name]
 | --- | --- | --- |
 | `rgbValue` | `rgb` |  |
 | `hsvValue` | `hsv` |  |
+| `alphaValue` | `alp` |  |
 | `showButton` | `sb` |  |
-| `attrNavDecision` | `nd` |  |
+| `attrNavDecision` | `and` |  |
 | `hideButton` | `hb` |  |
 | `attribute` | `at` |  |
 | `label` | `l` |  |
@@ -2459,6 +2717,7 @@ Arguments: [name]
 | --- | --- | --- |
 | `attribute` | `a` |  |
 | `enable` | `en` |  |
+| `handlesAttribute` | `ha` |  |
 | `label` | `l` |  |
 | `changeCommand` | `cc` |  |
 | `extraButton` | `eb` |  |
@@ -3003,14 +3262,18 @@ Arguments: [name]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `attrNavDecision` | `nd` |  |
+| `attrNavDecision` | `and` |  |
+| `connectAttrToDropped` | `cad` |  |
+| `connectNodeToDropped` | `cnd` |  |
 | `connectToExisting` | `ce` |  |
 | `createNew` | `cn` |  |
 | `defaultTraversal` | `dtv` |  |
 | `delete` | `d` |  |
 | `disconnect` | `dn` |  |
+| `ignore` | `i` |  |
 | `ignoreNotSupported` | `ins` |  |
 | `noIgnorableMenu` | `nim` |  |
+| `noKeyableMenu` | `nkm` |  |
 | `relatedNodes` | `ren` |  |
 | `text` | `tx` |  |
 | `unignore` | `u` |  |
@@ -3128,7 +3391,7 @@ Arguments: a deformed mesh
 
 ## attributeInfo
 
-A node's attributes filtered: -b boolean, -e enumerated, -h hidden, -w writable, -m multi, -lf leaf, -inh inherited; -t a type in place of a node; -s short names.
+A node's attributes filtered: -b boolean, -e enumerated, -h hidden, -w writable, -m multi, -l leaf, -in inherited; -t a type in place of a node; -s short names.
 
 Arguments: object
 
@@ -3138,15 +3401,31 @@ Arguments: object
 | `bool` | `b` | Booleans. |
 | `enumerated` | `e` | Enums. |
 | `hidden` | `h` | Hidden ones. |
-| `inherited` | `inh` | Inherited from the base type. |
+| `inherited` | `in` | Inherited from the base type. |
 | `internal` | `i` | Internal ones: none here. |
-| `leaf` | `lf` | Not compounds. |
-| `logicalAnd` | `la` | All filters must hold, not any. |
+| `leaf` | `l` | Leaves of compounds: attributes with a parent and no children. |
+| `logicalAnd` | `and` | All filters must hold, not any. |
 | `multi` | `m` | Arrays. |
 | `short` | `s` | Short names. |
 | `type` | `t` | A type rather than a node. |
 | `userInterface` | `ui` | Accepted for existing scripts. |
 | `writable` | `w` | Writable ones. |
+
+## attributeMenu
+
+Builds a connection menu in the current menu: a node's inputs or outputs, to start a connection or to complete one to -plug.
+
+Arguments: node
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `beginMenu` | `beg` | Start a connection: every input or output of the node. |
+| `editor` | `edt` | The editor the menu is for. |
+| `finishMenu` | `fsh` | End the menu. |
+| `inputs` | `inp` | List inputs (true) or outputs (false). |
+| `plug` | `p` | The plug at the other end of the connection being completed. |
+| `regPulldownMenuCommand` | `rpm` | Register a procedure that builds the menu for some nodes; gives its id. |
+| `unregPulldownMenuCommand` | `upm` | Unregister the procedure with this id. |
 
 ## attributeName
 
@@ -3174,9 +3453,9 @@ Arguments: attribute
 | `channelBox` | `ch` | Shown in the channel box. |
 | `hidden` | `h` | Hidden. |
 | `writable` | `w` | Takes values. |
-| `readable` | `r` | Can be read. |
+| `readable` | `rd` | Can be read. |
 | `connectable` | `c` | Can connect. |
-| `storable` | `s` | Saved. |
+| `storable` | `st` | Saved. |
 | `multi` | `m` | A multi attribute. |
 | `indexMatters` | `im` | A multi's indices matter. |
 | `usedAsColor` | `uac` | A colour. |
@@ -3201,8 +3480,26 @@ Arguments: attribute
 | `mx` |  | The hard maximum. |
 | `softMin` | `smn` | The soft minimum. |
 | `softMax` | `smx` | The soft maximum. |
-| `range` | `rg` | The hard range. |
-| `softRange` | `sr` | The soft range. |
+| `range` | `r` | The hard range. |
+| `softRange` | `s` | The soft range. |
+| `rangeExists` | `re` | Has both a hard minimum and maximum. |
+| `softRangeExists` | `se` | Has both a soft minimum and maximum. |
+| `affectsAppearance` | `aa` | Changing it changes how the node looks. |
+| `affectsWorldspace` | `aws` | Changing it moves the node in the world. |
+| `worldspace` | `ws` | A world space attribute: an element per instance. |
+| `cachedInternally` | `ci` | Its value is cached on the node. |
+| `categories` | `ct` | The categories it belongs to. |
+| `enum` | `e` | An enum. |
+| `message` | `msg` | A message attribute. |
+| `internal` | `i` | Set or got by its node itself (internalSet or internalGet). |
+| `internalSet` | `is` | Its node is told when it is set. |
+| `internalGet` | `ig` | Its node gives its value when asked. |
+| `indeterminant` | `idt` | Whether it is used in evaluation is only known when evaluating. |
+| `localizedListEnum` | `lz` | An enum's labels in the current language. |
+| `numberOfChildren` | `nc` | How many children a compound has. |
+| `renderSource` | `rs` | Marked as a render source. |
+| `usesMultiBuilder` | `umb` | A multi built with the multi builder. |
+| `enforcingUniqueName` | `eun` | Its name must be unique in the attribute tree. |
 | `node` | `n` | The node. |
 | `type` | `typ` | A node type. |
 
@@ -3230,13 +3527,25 @@ Arguments: meshes
 
 ## autoKeyframe
 
-Auto key: changing an animated channel keys it at the current frame. Returns whether it is on.
+Auto key: changing an animated channel keys it at the current frame. -addAttr adds plugs keyed with the next one (the list is cleared after the next set, and when -state changes unless -noReset); with no flags the plugs on that list are keyed now. Returns how many keys were set; -q -st whether it is on.
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Return the value of the flags named instead of setting them. |
 | `edit` | `e` | Change the flags named. |
 | `state` | `st` | On or off. |
+| `addAttr` | `aa` | With -e: a node.attribute to key along with the next auto key. |
+| `listAttr` | `lsa` | Query: the plugs -addAttr has listed. |
+| `noReset` | `nr` | With -state: keep the -addAttr list. |
+| `characterOption` | `co` | standard (the default) or all: keying a character member keys all its members. |
+
+## autoPlace
+
+The point at the centre of the view in focus on the live surface, or on the ground plane when nothing is live; -um the point under the mouse. Returns x y z.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `useMouse` | `um` | The mouse's place in the view rather than its centre. |
 
 ## autoSave
 
@@ -3284,6 +3593,17 @@ Arguments: the light
 | --- | --- | --- |
 | `set` | `set` | In or out. |
 
+## aztekMgear
+
+mGear built for Aztek (github.com/srlegrand/mgear), installed as a module in the user folder's modules folder. -release finds the release for this Aztek, -install downloads and installs it, -installFile installs a release's zip, -query says what is installed. Aztek's own command.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Where mGear goes and what is installed there: {modules, installed: {version, path, definition} or null}. |
+| `release` | `rel` | The newest release for this Aztek: {tag, version, asset}, or {error}. |
+| `install` | `i` | Download the newest release for this Aztek and install it. |
+| `installFile` | `if` | Install a release's zip from disk. |
+
 ## aztekParity
 
 How far Aztek is towards the reference, from the parity ledger (parity/ in the source): the share done over all its areas, and each area's counts. Shown at the foot of the welcome screen.
@@ -3302,6 +3622,18 @@ Arguments: callback id, then what it is told
 
 Every plug-in file in the folders of the plug-in path, for the Plug-in Manager: its name, file, folder, kind (aztek, python, or foreign for one compiled for another application), and whether it is loaded and loads at start.
 
+## aztekPreloadRefEdRows
+
+For the Preload Reference Editor: the load settings as rows (id, parent, node, file, unloaded).
+
+## aztekProfilerView
+
+For the profiler panel: the recorded events and the view's state; -select picks events by index.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `select` |  | The events picked. |
+
 ## aztekPython
 
 Run Python from inside a command, as schema translators do.
@@ -3310,13 +3642,18 @@ Arguments: code
 
 ## aztekSoundPeaks
 
-For the time slider: the waveform of the sound timeControl shows, from -start to -end frame in -count buckets, each bucket's lowest and highest sample. Empty when no sound is shown.
+For the time slider: the waveform of the sound timeControl shows (or -sound's), from -start to -end frame in -count buckets, each bucket's lowest and highest sample. Empty when no sound is shown.
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `start` | `s` | First frame. |
 | `end` | `e` | Last frame. |
 | `count` | `c` | Buckets. |
+| `sound` | `snd` | The sound (audio node) to read, instead of the time slider's. |
+
+## aztekTimeControlState
+
+For the main window's time slider: what timeControl set on it, as one object (colours 0 to 1, the waveform part, whether it drives the scene's time, snapping, tick span and width, shown and enabled).
 
 ## aztekUsdBeforeSave
 
@@ -3337,7 +3674,7 @@ What file runs for a USD type or extension.
 
 ## aztekUserFolder
 
-Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place and never written to) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
+Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -3349,16 +3686,29 @@ Where scripts, plug-ins, modules and preferences kept between versions are looke
 | `copyFrom` | `cf` | Copy this folder into Aztek's own and use that. |
 | `listVersions` | `lv` | The versions a folder holds, newest first. |
 
+## backgroundEvaluationManager
+
+Pause and resume background evaluation: -pause, -resume, -mode serial|parallel, -interrupt on fast interruption. -q asks.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `mode` | `m` | serial or parallel. |
+| `pause` | `p` | Pause background evaluation; with -q, whether it is paused. |
+| `resume` | `r` | Resume it, unless someone else paused it too. |
+| `interrupt` | `i` | Interrupt background work quickly while working interactively. |
+
 ## bakeClip
 
-Bake clips into one, frame by frame: -ci which (all by default), -bl a blend's two, -k keeps the originals disabled, -n its name. Returns the new clip.
+Bake clips into one, frame by frame: -ci which (all by default), -b a blend's two, -k keeps the originals disabled, -n its name. Returns the new clip.
 
 Arguments: character
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `clipIndex` | `ci` | A clip's place on the scheduler. |
-| `blend` | `bl` | A blend's two clips. |
+| `blend` | `b` | The two clips of a blend, by index. |
 | `keepOriginals` | `k` | Keep the clips, disabled. |
 | `name` | `n` | The new clip's name. |
 
@@ -3372,6 +3722,25 @@ Arguments: objects
 | --- | --- | --- |
 | `position` | `pos` | Bake the pivot's place. |
 | `orientation` | `ori` | Bake the pivot's axes. |
+
+## bakeDeformer
+
+Fit linear blend skin weights to what deforms a mesh: the source skeleton (-ss) goes through a range of motion, the source mesh (-sm) is sampled in each pose, and the destination mesh (-dm, the source by default) is bound to the destination skeleton's (-ds) matching joints with the weights found. -mi caps influences per point, -sw smooths, -pw prunes. -brm keys the range of motion and returns the number of poses; -rom uses the frames of a range and returns the influences that hardly move. Returns the skinCluster.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `srcMeshName` | `sm` | The mesh whose deformation is matched. |
+| `srcSkeletonName` | `ss` | The source skeleton's root joint. |
+| `dstMeshName` | `dm` | The mesh bound with the weights found (the source mesh). |
+| `dstSkeletonName` | `ds` | The destination skeleton's root joint (the source skeleton). |
+| `influences` | `i` | The joints that become influences (the whole source skeleton). |
+| `hierarchy` | `hi` | With -i: the children of the joints named too. |
+| `maxInfluences` | `mi` | The most influences a point has (4). |
+| `pruneWeights` | `pw` | Afterwards, weights below this become zero. |
+| `smoothWeights` | `sw` | Afterwards, smooth the weights this many times. |
+| `bakeRangeOfMotion` | `brm` | Key the range of motion on the source skeleton, one pose a frame from the current one; returns how many poses. |
+| `customRangeOfMotion` | `rom` | Use the frames of this range as the poses, "1:40"; open ends are the animation range's. |
+| `colorizeSkeleton` | `cs` | Give the new skin's joints colours of their own (needs -ss and -ds). |
 
 ## bakeModifierStack
 
@@ -3387,6 +3756,8 @@ Arguments: objects
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `allShapes` | `all` | Every shape in the scene rather than the selection. |
+| `preCache` | `pc` | What comes before a cache, deformers included; -q: the nodes that would be baked. |
 | `prePostDeformers` | `ppt` | Before and after the deformers. |
 | `preDeformers` | `pre` | Before the deformers. |
 | `postSmooth` | `nps` | With -prePostDeformers: the weights of the points the edits after the deformers made are smoothed with their neighbours'. |
@@ -3427,6 +3798,12 @@ Arguments: objects or plugs (the selection when none)
 | `minimizeRotation` | `mr` | Accepted for existing scripts. |
 | `controlPoints` | `cp` | Accepted for existing scripts. |
 | `shape` | `s` | Accepted for existing scripts. |
+| `animation` | `an` | keysOrObjects (the default), keys or objects: keys bakes the active keys' channels over their span. |
+| `float` | `f` | A range of driver values, as -t is for time. |
+| `index` | `in` | Keys by index: the bake spans them. |
+| `includeUpperBound` | `iub` | Whether the range's end is baked (on). |
+| `oversamplingRate` | `osr` | How many times the scene steps per -sampleBy (1). |
+| `smart` | `sr` | Smart bake: keys only where the source had keys; an optional tolerance adds keys where the result strays. |
 
 ## bakeSimulation
 
@@ -3452,6 +3829,12 @@ Arguments: objects or plugs (the selection when none)
 | `minimizeRotation` | `mr` | Accepted for existing scripts. |
 | `controlPoints` | `cp` | Accepted for existing scripts. |
 | `shape` | `s` | Accepted for existing scripts. |
+| `animation` | `an` | keysOrObjects (the default), keys or objects: keys bakes the active keys' channels over their span. |
+| `float` | `f` | A range of driver values, as -t is for time. |
+| `index` | `in` | Keys by index: the bake spans them. |
+| `includeUpperBound` | `iub` | Whether the range's end is baked (on). |
+| `oversamplingRate` | `osr` | How many times the scene steps per -sampleBy (1). |
+| `smart` | `sr` | Smart bake: keys only where the source had keys; an optional tolerance adds keys where the result strays. |
 
 ## baseTemplate
 
@@ -3480,19 +3863,23 @@ Arguments: a curve
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `width` | `w` | How far out (0.1). |
-| `depth` | `d` | How deep the bevel (0.1). |
+| `width` | `w` | How far out (0.5). |
+| `depth` | `d` | How deep the bevel (0.5). |
 | `extrudeDepth` | `ed` | How deep the wall (1). |
-| `bevelShapeType` | `bst` | 1 straight, 2 arc. |
-| `cornerType` | `ct` | Accepted for existing scripts. |
+| `bevelShapeType` | `bst` | 1 straight cut, 2 curving out, 3 curving in (1). |
+| `numberOfSides` | `ns` | Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both (4). |
+| `joinSurfaces` | `js` | One surface for the curve (on); off, a surface for each bevel and the wall. |
+| `cornerType` | `ct` | 1 linear, 2 circular (2). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## bevelApplyEdges
 
@@ -3541,18 +3928,23 @@ Arguments: a curve
 | `width` | `w` | How far out (0.1). |
 | `depth` | `d` | How deep the bevel (0.1). |
 | `extrudeDepth` | `ed` | How deep the wall (1). |
-| `numberOfSides` | `ns` | Sides of the round. |
+| `numberOfSides` | `ns` | Where the bevel goes: 1 none, 2 the start, 3 the end, 4 both (4). |
 | `capSides` | `cap` | 1 none, 2 front, 3 back, 4 both. |
+| `bevelInside` | `bin` | Keep the bevel within the outline (off). |
+| `joinSurfaces` | `js` | One surface for the curve (on); off, a surface for each bevel and the wall. |
+| `normalsOutwards` | `no` | Normals point out of the shape (on). |
 | `innerStyle` | `is` | Accepted for existing scripts. |
 | `outerStyle` | `os` | Accepted for existing scripts. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## bezierAnchorPreset
 
@@ -3608,13 +4000,15 @@ Arguments: skeleton and geometry
 | `byClosestPoint` | `bcp` | Accepted: closest point is how it binds. |
 | `byPartition` | `bp` | Accepted for existing scripts. |
 | `colorJoints` | `cj` | Accepted for existing scripts. |
-| `delete` | `del` | Remove the skin. |
+| `delete` | `d` | Detach the skin from the skeletons and remove its history. |
 | `doNotDescend` | `dnd` | Only the joints named. |
 | `enable` | `en` | Accepted for existing scripts. |
 | `name` | `n` | The skinCluster's name. |
 | `partition` | `p` | Accepted for existing scripts. |
 | `toAll` | `ta` | The whole skeleton (the default). |
 | `toSelectedBones` | `tsb` | Only the joints named. |
+| `toSkeleton` | `ts` | The whole skeleton of each joint named (the default). |
+| `unlock` | `ul` | Unlock the translate, rotate and scale that binding locked on the objects. |
 | `unbind` | `ub` | Remove the skin. |
 | `unbindKeepHistory` | `ubk` | Stop skinning, keep the node. |
 
@@ -3633,6 +4027,10 @@ Arguments: a profile and two rails (the selection when none)
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
 | `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## blend2
 
@@ -3646,8 +4044,8 @@ Arguments: two rails (the selection when none)
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
 | `autoAnchor` | `aa` | On closed rails, line them up. |
@@ -3666,6 +4064,8 @@ Arguments: two rails (the selection when none)
 | `rightEnd` | `re` | Where it ends on the right (1). |
 | `rightStart` | `rs` | Where it starts on the right. |
 | `tangentTolerance` | `tt` | Held. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## blendShape
 
@@ -3683,6 +4083,16 @@ Arguments: targets, then the base; the blendShape with -e and -q
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
 | `weight` | `w` | index weight, repeatable. Query: all the weights. |
 | `target` | `t` | base index target weight, repeatable. Query: the target shapes. |
 | `inBetween` | `ib` | -t adds an in-between at its weight rather than replacing the target. |
@@ -3698,6 +4108,26 @@ Arguments: targets, then the base; the blendShape with -e and -q
 | `weightCount` | `wc` | Query: how many targets. |
 | `foreignObject` | `fg` | Targets need not match the base: points are taken by number as far as they go. |
 | `ignoreSelected` | `ie` | Use only the objects named, not the selection. |
+| `copyDelta` | `cd` | With -e: base, source and destination target indices: the destination takes the source's deltas. |
+| `copyInBetweenDelta` | `cid` | With -e: base, target, source and destination item indices: an in-between copied onto another. |
+| `copyWeights` | `cw` | With -e: base, source and destination target indices: per point weights copied. |
+| `flipTarget` | `ft` | With -e: base and target index: the target flipped across the symmetry axis. Repeatable. |
+| `mirrorTarget` | `mt` | With -e: base and target index: one side mirrored onto the other (-md). Repeatable. |
+| `mirrorDirection` | `md` | With -mt: 0 the negative side onto the positive, 1 the positive onto the negative. |
+| `mergeSource` | `mgs` | With -e and -mgt: a target added into the merge target. Repeatable. |
+| `mergeTarget` | `mgt` | With -e: the target the -mgs targets are added into. |
+| `export` | `ep` | With -e: write the targets (those -et names, or all) to this file. |
+| `exportTarget` | `et` | With -ep: base and target index of a target to write. Repeatable. |
+| `import` | `ip` | With -e: read targets from a file -ep wrote. |
+| `inBetweenIndex` | `ibi` | With -rtd: the in-between item whose deltas go. |
+| `editTarget` | `edt` | Query: the target being edited through the base, an in-between's weight after it. |
+| `normalizationGroups` | `ng` | Query: the normalization groups in use. |
+| `suppressDialog` | `sd` | Run without asking anything, with the settings as they are: there is no dialog here. |
+| `symmetryAxis` | `sa` | X, Y or Z: what -ft and -mt reflect across. |
+| `symmetryEdge` | `se` | Edges on the plane of symmetry. Repeatable. |
+| `symmetrySpace` | `ss` | 0 topological, 1 object, 2 UV: where symmetry is found (object space here). |
+| `tangentSpace` | `ts` | Deltas follow the surface, in each point's frame. |
+| `transform` | `tr` | A post transform, usually a joint: the deltas turn with it. |
 
 ## blendShapeEditor
 
@@ -3776,6 +4206,8 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `query` | `q` |  |
@@ -3801,6 +4233,21 @@ Arguments: objects or plugs (the selection when none); the node with -q and -e
 | `shape` | `s` | Accepted for existing scripts; has no effect. |
 | `time` | `t` | The range to blend over; a single time is an abrupt change. |
 
+## blindDataType
+
+Create a blind data type as a blindDataTemplate node: -id, then -dt -ldn -sdn for each attribute (largest types first). A type can't be changed once made. -q -id returns its node, with -tn, -ln, -sn its attributes' types and names (one attribute with -ldn or -sdn).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `typeId` | `id` | The type's id. |
+| `dataType` | `dt` | An attribute's type: int, float, double, string, boolean or binary. Repeat it. |
+| `longDataName` | `ldn` | An attribute's long name. Repeat it. |
+| `shortDataName` | `sdn` | An attribute's short name. Repeat it. |
+| `query` | `q` | Ask about the type rather than make it. |
+| `typeNames` | `tn` | With -q: the attributes' types. |
+| `longNames` | `ln` | With -q: the attributes' long names. |
+| `shortNames` | `sn` | With -q: the attributes' short names. |
+
 ## boneLattice
 
 A flexor's node on a lattice along a bone: the joint's bend bulges the lattice's points. Returns the node. Less than the reference: it does not move the lattice's ends rigidly (flexor parents the lattice to the bone).
@@ -3821,6 +4268,23 @@ Arguments: the lattice (the selection when none); the node with -q and -e
 | `bicep` | `bi` | Bulge on the inside of the bend. |
 | `tricep` | `tr` | Bulge on the outside of the bend. |
 | `transform` | `t` | The transform the bend is measured against: the joint's parent by default. |
+| `after` | `af` | Go after the other flexors on the lattice's points (the default). |
+| `before` | `bf` | Go before the other flexors on the lattice's points. |
+| `frontOfChain` | `foc` | Go at the start of the flexors on the lattice's points. |
+| `afterReference` | `ar` | Go after the others on a referenced lattice, else before them. |
+| `parallel` | `par` | Work alongside the others, from the lattice's own points. |
+| `split` | `sp` | A branch of its own from the lattice's own points. |
+| `exclusive` | `ex` | The partition the node goes into; -q: the partition. |
+| `ignoreSelected` | `is` | Use only the lattice named, not the selection. |
+| `includeHiddenSelections` | `ihs` | Take hidden lattices in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: a flexor makes no sets or tweaks here anyway. |
+| `components` | `cmp` | Query: the lattice points it acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the transforms that drive it. |
+| `dumpInfo` | `dui` | Query: the geometry index, how many points it acts on and how many the lattice has. |
+| `geometryIndices` | `gi` | Query: the index of the lattice it deforms. |
+| `prune` | `pr` | With -e: the lattice points it doesn't move now leave it. |
+| `remove` | `rm` | With -e -g: take the node off the lattice. |
 
 ## boundary
 
@@ -3838,6 +4302,10 @@ Arguments: three or four curves (the selection when none)
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
 | `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## boxDollyCtx
 
@@ -3897,11 +4365,29 @@ Arguments: objects, plugs or curves (the selection when none)
 | `controlPoints` | `cp` | Accepted for existing scripts: control points have no channels of their own here. |
 | `shape` | `s` | Include the channels of the objects' shapes. |
 | `animation` | `an` | objects (the default), keys or keysOrObjects: keys means the selected keys. |
-| `overwrite` | `ov` | Replace what the buffer holds (on by default). |
+| `overwrite` | `ov` | Replace a buffer curve already there; left out, one there stays. |
+| `useReferencedCurve` | `urc` | The buffer becomes the curve as its referenced file has it; -q: whether the keys' curves show it. |
 | `swap` | `sw` | Swap the curve and its buffer. |
 | `exists` | `ex` | Whether a curve has a buffer. |
 | `selected` | `sl` | Curves of the keys selectKey selected. |
 | `query` | `q` | With -ex. |
+
+## buildBookmarkMenu
+
+Fills a menu with the bookmarks of one type: the sets whose text (sets -text) is -type.
+
+Arguments: menu
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `editor` | `ed` | The editor the menu belongs to. |
+| `type` | `typ` | The bookmark type, as sets -text gives it. |
+
+## buildKeyframeMenu
+
+Fills a menu with what can be keyed on the selection, as the current tool narrows it.
+
+Arguments: menu
 
 ## button
 
@@ -3944,6 +4430,25 @@ Arguments: name
 | `width` | `w` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## callbacks
+
+Callbacks at the interface's hooks, so scripts and plug-ins can extend it: -ac adds one for a -hook and -owner, -rc removes one, -cc clears an owner's, -cac all; -lc lists a hook's, -dc all of them, -dh the standard hooks; -ec runs a hook's callbacks with the arguments given and returns what each returns.
+
+Arguments: arguments for -executeCallbacks
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `addCallback` | `ac` | A callback to add: a MEL procedure's name or a Python callable. |
+| `removeCallback` | `rc` | A callback to remove. |
+| `clearCallbacks` | `cc` | Remove the -owner's callbacks, on the -hook if one is given. |
+| `clearAllCallbacks` | `cac` | Remove every callback of every hook and owner. |
+| `listCallbacks` | `lc` | The callbacks on the -hook, the -owner's if one is given. |
+| `dumpCallbacks` | `dc` | Every callback: hook, owner and callback. |
+| `describeHooks` | `dh` | The standard hooks with their arguments and what they return. |
+| `executeCallbacks` | `ec` | Run the -hook's callbacks with the arguments given; what each returns. |
+| `hook` | `h` | The hook. |
+| `owner` | `o` | Who adds the callback, typically a plug-in. |
 
 ## camera
 
@@ -4016,6 +4521,81 @@ Move pivots to the centre of each object's bounding box (mesh points, curve poin
 
 Arguments: objects
 
+## channelBox
+
+Script UI: channelBox, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `attrBgColor` | `bc` |  |
+| `attrColor` | `ac` |  |
+| `attrFilter` | `af` |  |
+| `attrRegex` | `ar` |  |
+| `attributeEditorMode` | `aem` |  |
+| `containerAtTop` | `cat` |  |
+| `enableLabelSelection` | `els` |  |
+| `execute` | `exe` |  |
+| `fieldWidth` | `fw` |  |
+| `fixedAttrList` | `fal` |  |
+| `historyObjectList` | `hol` |  |
+| `hyperbolic` | `hyp` |  |
+| `inputs` | `in` |  |
+| `labelWidth` | `lw` |  |
+| `longNames` | `ln` |  |
+| `mainListConnection` | `mlc` |  |
+| `mainObjectList` | `mol` |  |
+| `maxHeight` | `mh` |  |
+| `maxWidth` | `mw` |  |
+| `niceNames` | `nn` |  |
+| `nodeRegex` | `nr` |  |
+| `outputObjectList` | `ool` |  |
+| `outputs` | `out` |  |
+| `precision` | `pre` |  |
+| `rebuildCommand` | `rbc` |  |
+| `select` | `s` |  |
+| `selectedHistoryAttributes` | `sha` |  |
+| `selectedMainAttributes` | `sma` |  |
+| `selectedOutputAttributes` | `soa` |  |
+| `selectedShapeAttributes` | `ssa` |  |
+| `shapeObjectList` | `sol` |  |
+| `shapes` | `shp` |  |
+| `showNamespace` | `sn` |  |
+| `showTransforms` | `st` |  |
+| `speed` | `spd` |  |
+| `takeFocus` | `tf` |  |
+| `ufeFixedAttrList` | `ual` |  |
+| `update` | `u` |  |
+| `useManips` | `mnp` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## character
 
 Create a character set from channels or objects (-n names it, -em for an empty one), add to one (-add), remove (-rm), clear (-cl). -q lists its channels, -q -no its nodes, -q -at its attribute names; -im asks whether channels are in it. Returns its name.
@@ -4042,6 +4622,23 @@ Arguments: channels or objects (the selection when none); the character when que
 | `excludeScale` | `es` | Leave out scale channels. |
 | `excludeVisibility` | `ev` | Leave out visibility. |
 | `excludeDynamic` | `ed` | Accepted for existing scripts: objects give their keyable channels. |
+| `include` | `in` | The character to add to; what can't go in is left out with a warning. |
+| `anyMember` | `am` | Whether any of the items is in this character. |
+| `flatten` | `fl` | The character whose sub-characters give it their members. |
+| `union` | `un` | Query: the members of this character and the others named. |
+| `intersection` | `int` | Query: the members this character shares with all the others named. |
+| `subtract` | `sub` | Query: the members of this character not in the others named. |
+| `isIntersecting` | `ii` | Query: whether this character shares members with the others named. |
+| `split` | `sp` | The character the items leave for a new one. |
+| `noWarnings` | `nw` | No warnings for items that can't be added. |
+| `text` | `t` | A note kept with the character. |
+| `memberIndex` | `mi` | Query: the member at this index, or the index of the member named. |
+| `characterPlug` | `cp` | Query: the character's plug for the member named. |
+| `userAlias` | `ua` | Query: the alias given to the character's plug for a member, or an empty string. |
+| `root` | `rt` | A transform to be the character's root, with a characterOffset node. |
+| `offsetNode` | `ofs` | Query: the characterOffset node. |
+| `addOffsetObject` | `aoo` | The character whose offset objects the selected members join; -q lists them. |
+| `removeOffsetObject` | `roo` | The character whose offset objects the selected members leave. |
 
 ## characterMap
 
@@ -4058,8 +4655,8 @@ Arguments: two characters, or a map
 | `mapAttr` | `ma` | Two plugs to pair. |
 | `unmapAttr` | `ua` | Two plugs to part. |
 | `mapMethod` | `mm` | Accepted: by name is what it does. |
-| `mapNode` | `mn` | Accepted for existing scripts. |
-| `unmapNode` | `un` | Accepted for existing scripts. |
+| `mapNode` | `mn` | Two nodes: pair every member attribute of the first with its namesake on the second. |
+| `unmapNode` | `umn` | Two nodes: part the pairs between them whose attribute names match. |
 
 ## characterize
 
@@ -4246,24 +4843,59 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
-## circle
+## choice
 
-Create a NURBS circle, with a makeNurbCircle node (-nr normal, -c centre, -r radius, -d degree, -s sections, -sw sweep). Returns [nurbsCircle1, makeNurbCircle1].
+Switch what drives a channel over time: a choice node goes between the channel and what drove it, -sa connects another source to an input, and the selector is keyed to pick that input at each -t (the current time by default). Returns the choice nodes and the selector plugs keyed.
+
+Arguments: objects
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `normal` | `nr` | The circle's normal (0 0 1). |
-| `center` | `c` | The centre. |
-| `firstPoint` | `fp` | Toward the first section's start. |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `attribute` | `at` | The attributes to put choice nodes on (every keyable one by default). |
+| `controlPoints` | `cp` | Take in a shape's control points too (off). |
+| `shape` | `s` | Take in the attributes of the shapes below a transform (on). |
+| `index` | `in` | The input to connect the source to; with -q, the input picked at each -t. |
+| `name` | `n` | The name of new choice nodes; with -q, the choice nodes. |
+| `selector` | `sl` | An attribute to drive the selector, in place of keys; with -q, the attribute driving it. |
+| `sourceAttribute` | `sa` | The attribute to connect to the choice for the -t times. |
+| `time` | `t` | When the choice picks the source (the current time by default). |
+
+## circle
+
+Create a NURBS circle or arc, with a makeNurbCircle node (-nr normal, -c centre, -r radius, -d degree, -s sections, -sw sweep, -fp first point; -fc off starts it at the first point; -ut sets the sections from -tol). Returns [nurbsCircle1, makeNurbCircle1]. -q and -e read and change the node.
+
+Arguments: the makeNurbCircle node or the circle, with -q and -e
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `normal` | `nr` | The normal of the circle's plane (0 0 1). |
+| `normalX` | `nrx` | The normal's X (0). |
+| `normalY` | `nry` | The normal's Y (0). |
+| `normalZ` | `nrz` | The normal's Z (1). |
+| `center` | `c` | The centre (0 0 0). |
+| `centerX` | `cx` | The centre's X (0). |
+| `centerY` | `cy` | The centre's Y (0). |
+| `centerZ` | `cz` | The centre's Z (0). |
+| `first` | `fp` | The start point with -fc off; with -fc on, which way the first section starts (1 0 0). |
+| `firstPointX` | `fpx` | The first point's X (1). |
+| `firstPointY` | `fpy` | The first point's Y (0). |
+| `firstPointZ` | `fpz` | The first point's Z (0). |
+| `fixCenter` | `fc` | Keep the centre (on); off, the circle starts at the first point. |
 | `radius` | `r` | Radius (1). |
-| `degree` | `d` | Degree (3). |
-| `sections` | `s` | Sections (8). |
+| `degree` | `d` | Degree: 1 linear or 3 cubic (3). |
+| `sections` | `s` | Sections, when -ut is off (8). |
 | `sweep` | `sw` | Degrees covered (360). |
-| `useTolerance` | `ut` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `useTolerance` | `ut` | Take the sections from -tol (off). |
+| `tolerance` | `tol` | How far the points may be from the true circle, with -ut (0.01). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
-| `object` | `o` | Accepted for existing scripts. |
+| `object` | `o` | Make the circle (on); off, only the node. |
 | `name` | `n` | Name of the transform. |
+| `caching` | `cch` | The node's caching. |
+| `nodeState` | `nds` | The node's state: 0 normal, 2 blocking (it keeps what it gave). |
+| `query` | `q` | Query mode: read the node's settings. |
+| `edit` | `e` | Edit mode: change the node's settings. |
 
 ## circularFillet
 
@@ -4276,15 +4908,19 @@ Arguments: two surfaces
 | `radius` | `r` | Both offsets (1). |
 | `primaryRadius` | `pr` | Offset from the first. |
 | `secondaryRadius` | `sr` | Offset from the second. |
+| `positionTolerance` | `pt` | How far the fillet may stray from where it touches the surfaces (0.01). |
+| `tangentTolerance` | `tt` | How far its tangents may stray from the surfaces' (0.01). |
 | `curveOnSurface` | `cos` | Accepted for existing scripts. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## cleanUpScene
 
@@ -4431,18 +5067,25 @@ Arguments: the scheduler, or its character
 
 ## closeCurve
 
-Close a curve. Returns [curve, node].
+Close a curve, making it periodic: -ps 0 on its CVs, 1 keeping its shape (the default), 2 blending the ends at -bb. Returns [curve, node].
 
 Arguments: curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `preserveShape` | `ps` | Accepted for existing scripts. |
-| `blendBias` | `bb` | Accepted for existing scripts. |
+| `preserveShape` | `ps` | 0 on the CVs as they are, 1 keep the shape (1), 2 blend the ends. |
+| `blendBias` | `bb` | Where the ends of a blend meet, from the end (0) to the start (1) (0.5). |
+| `blendKnotInsertion` | `bki` | With a blend: a knot goes in near each end first (off). |
+| `parameter` | `p` | Where that knot goes, a fraction of the end span (0.1). |
+| `curveOnSurface` | `cos` | A curve on a surface stays one where it can; other curves close in 3D. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## closeSurface
 
@@ -4462,6 +5105,10 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## closestPointOnMesh
 
@@ -4486,15 +5133,39 @@ Arguments: cloth nodes or meshes
 
 ## cluster
 
-Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. Returns [cluster, handle].
+Make a cluster of the selected vertices or CVs (or whole meshes, curves and surfaces): a handle they follow. -rel: only the handle's own transform moves them. -wn transform [node below it]: an existing transform drives it in place of a new handle; -bs binds it as it sits. Returns [cluster, handle].
 
-Arguments: meshes, curves, surfaces, vertices or CVs (the selection when none)
+Arguments: meshes, curves, surfaces, vertices or CVs (the selection when none); the cluster or its handle with -e and -q
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the cluster; its handle takes the name plus Handle. |
-| `edit` | `e` | Edit a cluster: with -prune. |
-| `prune` | `pr` | With -e: take the points it doesn't move out of its set. |
+| `before` | `bf` | Go just above the deformer nearest the shape. |
+| `after` | `af` | Go nearest the shape, after the other deformers (the default). |
+| `frontOfChain` | `foc` | Go above every other deformer. |
+| `envelope` | `en` | How much of the deformation applies (1). |
+| `relative` | `rel` | Only the transform directly above the cluster moves the points, not its parents (off). |
+| `bindState` | `bs` | The points keep their places however the driving transform sits when bound. |
+| `weightedNode` | `wn` | The transform that drives the cluster and the node below it its matrix is read from (the handle). |
+| `resetGeometry` | `rg` | With -e: the deformed objects' matrices are taken again as they are now, after scaling one, say. |
+| `edit` | `e` | Edit mode. |
+| `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
+| `prune` | `pr` | With -e: the points it doesn't move leave its set. |
 
 ## cmdFileOutput
 
@@ -4543,7 +5214,10 @@ Arguments: index [r g b]
 | --- | --- | --- |
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
-| `hueSaturationValue` | `hsv` | Accepted for existing scripts. |
+| `hueSaturationValue` | `hsv` | The values are hue (degrees), saturation and value; -q answers so. |
+| `active` | `atv` | The active palette: the colours selected objects draw in. |
+| `dormant` | `dor` | The dormant palette (the default). |
+| `userColor` | `uc` | The eight user colours, 1 to 8. |
 | `resetToFactory` | `rf` | Back to the factory colours. |
 | `resetToSaved` | `rs` | Back to the saved colours. |
 
@@ -4716,6 +5390,9 @@ Arguments: name
 | `columnOffset` | `co` |  |
 | `columnWidth` | `cw` |  |
 | `rowSpacing` | `rs` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -4777,6 +5454,19 @@ What is echoed: -st on echoes commands called from Python too, -f and -af filter
 | `filter` | `f` | Names to filter out. |
 | `lineNumbers` | `ln` | Line numbers in messages. |
 | `state` | `st` | Echo everything. |
+
+## commandLogging
+
+The commands run, kept in memory for crash logs (-rc, -hs entries) and written to a log file (-lc, -lf; -rl puts the default file back). -q asks.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `historySize` | `hs` | How many commands memory keeps. |
+| `recordCommands` | `rc` | Keep the commands in memory. |
+| `logCommands` | `lc` | Write the commands to the log file. |
+| `logFile` | `lf` | The log file; logging moves to it. |
+| `resetLogFile` | `rl` | Log to the default file, aztekCommandLog.txt in the application folder. |
+| `query` | `q` | Query mode. |
 
 ## componentEditor
 
@@ -4902,8 +5592,11 @@ Arguments: its name
 
 Create a NURBS cone with a makeNurbCone node. Returns [nurbsCone1, makeNurbCone1].
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
+| `useOldInitBehaviour` | `oib` | The base on the origin rather than the cone centred on it (off). |
 | `axis` | `ax` | The axis (1 0 0). |
 | `pivot` | `p` | The centre. |
 | `constructionHistory` | `ch` | Keep the make node (on by default). |
@@ -4919,6 +5612,10 @@ Create a NURBS cone with a makeNurbCone node. Returns [nurbsCone1, makeNurbCone1
 | `useTolerance` | `ut` | Accepted for existing scripts. |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `heightRatio` | `hr` | Height over radius. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## confirmDialog
 
@@ -4976,6 +5673,8 @@ Arguments: bodies
 | `collisions` | `c` | Colliders. |
 | `delete` | `d` | Disconnect instead. |
 | `solver` | `sv` | The solver a body with none joins. |
+| `addScriptHandler` | `ash` | A Python function that may handle the calls instead, given fields, emitters, collisionObjects and objects as keywords; True says it did. Alone; returns a number for -rsh. |
+| `removeScriptHandler` | `rsh` | Take away the handler of this number; an unknown one does nothing. Alone. |
 
 ## connectJoint
 
@@ -5005,6 +5704,7 @@ Arguments: plug
 | `isSource` | `is` | Drives something. |
 | `isExactSource` | `ies` | Drives something directly. |
 | `isLocked` | `il` | Locked. |
+| `getLockedAncestor` | `gla` | The locked plug or its nearest locked ancestor, or "". |
 
 ## constructionHistory
 
@@ -5014,6 +5714,7 @@ Turn construction history on or off for later poly edits, or query it. Returns w
 | --- | --- | --- |
 | `toggle` | `tgl` | Turn it on if off, off if on. |
 | `state` | `st` | Turn it on (True) or off (False). |
+| `query` | `q` | Query: whether it is on. |
 
 ## container
 
@@ -5040,7 +5741,7 @@ Arguments: container
 
 ## contextInfo
 
-About a tool context: -ex whether it exists, -c its class, -t its title.
+About a tool context: -ex whether it exists, -c its class, -t its title; -esc the command that leaves the current tool.
 
 Arguments: context
 
@@ -5052,6 +5753,7 @@ Arguments: context
 | `image1` | `i1` |  |
 | `image2` | `i2` |  |
 | `image3` | `i3` |  |
+| `escapeContext` | `esc` |  |
 
 ## control
 
@@ -5102,14 +5804,16 @@ Arguments: objects
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
 | `parent` | `p` | The parent control, or with -q ask. |
-| `children` | `c` | With -q: its children. |
+| `children` | `cld` | With -q: its children, in order. |
 | `allControllers` | `ac` | All the controls. |
 | `isController` | `ic` | Whether the object is a control. |
 | `unparent` | `unp` | Take from its parent. |
-| `group` | `g` | Accepted for existing scripts. |
-| `index` | `idx` | Accepted for existing scripts. |
-| `pickWalkDown` | `pwd` | Accepted for existing scripts. |
-| `pickWalkUp` | `pwu` | Accepted for existing scripts. |
+| `group` | `g` | Make a control of no object, the parent of those named or selected. |
+| `index` | `idx` | Its place among its parent's children: -q reads it, -e moves it there. |
+| `pickWalkDown` | `pwd` | With -q: its first child. |
+| `pickWalkUp` | `pwu` | With -q: its parent. |
+| `pickWalkLeft` | `pwl` | With -q: the sibling before it. |
+| `pickWalkRight` | `pwr` | With -q: the sibling after it. |
 
 ## convertSelection
 
@@ -5137,7 +5841,16 @@ Arguments: attribute, then objects or faces (the selection when none)
 | `uvRange` | `uvr` | u0 u1 v0 v1. |
 | `force` | `f` | Write over the file. |
 | `name` | `n` | The file node's name. |
-| `doubleSided` | `ds` | Accepted: both sides are the same here. |
+| `doubleSided` | `ds` | Normals facing away from the camera are turned round, so the side it sees is sampled. |
+| `camera` | `cam` | The camera for -doubleSided (persp). |
+| `componentRange` | `cr` | With faces named: the image covers their UV extent. |
+| `fullUvRange` | `fur` | The image covers the surfaces' whole UV extent; a placement maps it back. |
+| `pixelFormat` | `pf` | 8 or 16 bits a channel (8); 16 where the format takes it (png, tif). |
+| `reuseDepthMap` | `rdm` | Accepted: no shadows are baked, so there are no depth maps. |
+| `samplePlane` | `sp` | Sample a flat plane whose UVs span -samplePlaneRange rather than the surfaces. |
+| `samplePlaneRange` | `spr` | u0 u1 v0 v1 for -samplePlane (0 1 0 1). |
+| `uvBBoxIntersect` | `ubi` | Obsolete: has no effect. |
+| `uvSetName` | `uv` | The UV set sampled; the image is named surface-set. |
 | `shadows` | `sh` | Accepted: no lighting is baked. |
 | `noFileNode` | `nfn` | Aztek: only the image, no file node. |
 
@@ -5190,11 +5903,13 @@ Copy a deformer's weights to another by closest point in world space: -sd, -dd, 
 | `sourceShape` | `ss` | Its shape. |
 | `destinationShape` | `ds` | Its shape. |
 | `mirrorMode` | `mm` | XY, XZ or YZ. |
-| `mirrorInverse` | `mi` | Accepted for existing scripts. |
+| `mirrorInverse` | `mi` | Mirror from the negative side to the positive. |
 | `noMirror` | `nm` | Don't mirror. |
-| `smooth` | `sm` | Accepted for existing scripts. |
+| `smooth` | `sm` | Between the nearest points by distance, rather than from the one nearest. |
 | `surfaceAssociation` | `sa` | Accepted: closest point is what's used. |
 | `uvSpace` | `uv` | Accepted for existing scripts. |
+| `edit` | `e` | Edit mode. |
+| `query` | `q` | Query mode. |
 
 ## copyFlexor
 
@@ -5220,6 +5935,8 @@ Arguments: objects, plugs or curves (the selection when none)
 | `shape` | `s` | Include the channels of the objects' shapes. |
 | `animation` | `an` | objects (the default), keys or keysOrObjects: keys means the selected keys. |
 | `selected` | `sl` | Copy the keys selectKey selected. |
+| `animLayer` | `al` | Only the keys on this animation layer. |
+| `forceIndependentEulerAngles` | `fea` | Rotation curves go to the clipboard as independent Euler curves (off). |
 | `option` | `o` | keys (the default) or curve. |
 | `clipboard` | `cb` | Accepted for existing scripts. |
 
@@ -5233,14 +5950,30 @@ Arguments: source then destination (the selection when none)
 | --- | --- | --- |
 | `sourceSkin` | `ss` | Source skinCluster. |
 | `destinationSkin` | `ds` | Destination skinCluster. |
-| `mirrorMode` | `mm` | Mirror plane: YZ (default), XZ or XY. |
+| `mirrorMode` | `mm` | Mirror plane: XY (the default), YZ or XZ. |
 | `mirrorInverse` | `mi` | Copy from the negative side to the positive. |
 | `noMirror` | `nm` | A plain copy. |
 | `surfaceAssociation` | `sa` | closestPoint (default), rayCast or closestComponent. |
 | `influenceAssociation` | `ia` | closestJoint (default), closestBone, oneToOne, label or name, tried in turn. |
 | `normalize` | `nr` | Normalize the copied weights (default on). |
 | `uvSpace` | `uv` | Source and destination UV sets: points read the source at their UV position, between the corners of the face there. Sets beyond map1 aren't kept here. |
-| `sampleSpace` | `spa` | Accepted for existing scripts. |
+| `sampleSpace` | `spa` | 0 compare the shapes in world space (the default), 1 in their own spaces. |
+| `noBlendWeight` | `nbw` | Leave the destination's blend weights (linear against dual quaternion) as they are. |
+| `selectedComponents` | `sc` | With -ss and -ds: only the selected points take weights. |
+| `smooth` | `sm` | Between the nearest points rather than from the one nearest, with -sa closestComponent. |
+| `edit` | `e` | Edit mode. |
+| `query` | `q` | Query mode. |
+
+## crashInfo
+
+The files the last crash left: -q -cf the scene kept from it, -cl its log, -sbc the scene open when it happened.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `crashFile` | `cf` | The scene kept from the crashed session. |
+| `crashLog` | `cl` | The crash's log. |
+| `savedBeforeCrash` | `sbc` | The scene that was open. |
+| `query` | `q` | Query mode. |
 
 ## createCloth
 
@@ -5290,6 +6023,9 @@ Arguments: objects
 | --- | --- | --- |
 | `name` | `n` | Name; layer1 when empty, made unique. |
 | `empty` | `e` | Make it with no members, whatever is selected. |
+| `noRecurse` | `nr` | Only the objects themselves go in, not their descendants. |
+| `number` | `num` | The layer's number (its identification); the lowest free one from 1 when not given. |
+| `makeCurrent` | `mc` | Make it the current layer. |
 
 ## createMesh
 
@@ -5460,8 +6196,8 @@ Toggle the current tool's edit mode: the pivot, for the move, rotate and scale t
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` |  |
-| `buttonDown` | `bd` |  |
-| `buttonUp` | `bu` |  |
+| `buttonDown` | `btd` |  |
+| `buttonUp` | `btu` |  |
 
 ## currentCharacters
 
@@ -5541,6 +6277,7 @@ Arguments: a curve, with -a or -r
 | `degree` | `d` | Degree (3). |
 | `point` | `p` | A CV: x y z. Repeat it. |
 | `editPoint` | `ep` | An edit point to pass through: x y z. Repeat it. |
+| `pointWeight` | `pw` | A CV with its weight: x y z w. Repeat it; a weight over 1 pulls the curve to the CV. |
 | `knot` | `k` | A knot. Repeat it; CVs + degree - 1 of them. |
 | `periodic` | `per` | A closed, periodic curve. |
 | `bezier` | `bez` | The points are Bezier points. |
@@ -5668,16 +6405,23 @@ Arguments: [name]
 
 ## curveIntersect
 
-Where two curves cross, as text: "u1 u2 u1 u2 ..." on the first and second. -ud -d flattens along a direction first; -tol how close.
+Where two curves cross: the parameters on the first, then those on the second, as text. -ud with -d projects them along a direction first; -tol how close counts. With -ch, a curveIntersect node instead, its parameter1 and parameter2 following the curves.
 
 Arguments: two curves
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `tolerance` | `tol` | How close counts (0.001). |
-| `useDirection` | `ud` | Flatten along -d first. |
-| `direction` | `d` | Which way. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `useDirection` | `ud` | Project along -d first (off). |
+| `direction` | `d` | The direction projected along. |
+| `directionX` | `dx` | Its X. |
+| `directionY` | `dy` | Its Y. |
+| `directionZ` | `dz` | Its Z. |
+| `constructionHistory` | `ch` | Make a curveIntersect node and return it (off). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## curveMoveEPCtx
 
@@ -5715,6 +6459,22 @@ Arguments: a surface
 | `replace` | `r` | Accepted for existing scripts. |
 | `positionTolerance` | `pt` | Accepted for existing scripts. |
 | `tangentTolerance` | `tt` | Accepted for existing scripts. |
+
+## curveRGBColor
+
+Colours for curves in the Graph Editor: curveRGBColor "translateX" 1 0 1, or a pattern with ? and * ("*Y"). -r removes one, -l writes them out, -ln returns the names, -rf and -rs go back to the standard colours, -q reads one. A UI setting, not saved with the scene.
+
+Arguments: name [r g b]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `hueSaturationValue` | `hsv` | The values are hue (degrees), saturation and value; -q answers so. |
+| `list` | `l` | Write out every custom curve colour. |
+| `listNames` | `ln` | Every custom curve colour's name. |
+| `remove` | `r` | Remove the colour named; those curves go back to the standard colour. |
+| `resetToFactory` | `rf` | Remove every custom curve colour. |
+| `resetToSaved` | `rs` | Back to the saved colours: none are saved apart from the session, so every custom colour goes. |
+| `query` | `q` | Read a colour. |
 
 ## curveSketchCtx
 
@@ -5778,7 +6538,7 @@ Arguments: objects, plugs or curves (the selection when none)
 | `shape` | `s` | Include the channels of the objects' shapes. |
 | `animation` | `an` | objects (the default), keys or keysOrObjects: keys means the selected keys. |
 | `clear` | `cl` | Delete without copying to the clipboard. |
-| `selected` | `sl` | Delete the keys selectKey selected. |
+| `selectKey` | `sl` | Select the keys of the curves that had keys removed. |
 | `option` | `o` | keys (the default), curve, curveCollapse, curveConnect or areaCollapse. |
 
 ## cycleCheck
@@ -5794,14 +6554,21 @@ Arguments: objects
 | `evaluation` | `ev` | Warn about cycles while evaluating. |
 | `all` | `all` | Look through the whole scene. |
 | `list` | `l` | List the plugs on a cycle. |
-| `firstCycleOnly` | `fco` | Accepted: the first found is what's listed. |
+| `firstCycleOnly` | `fco` | With -l: only the first cycle found. |
+| `firstPlugPerNode` | `fpn` | With -l: only the first plug of each node on a cycle. |
+| `lastPlugPerNode` | `lpn` | With -l: only the last plug of each node on a cycle. |
+| `listSeparator` | `ls` | With -l: this string goes between one cycle's plugs and the next's. |
+| `secondary` | `s` | Look at the plugs related to those named too (on with -all). |
+| `timeLimit` | `tl` | Stop looking after this long: 10sec, 2min, or seconds. |
 | `children` | `c` | Accepted for existing scripts. |
 | `parents` | `p` | Accepted for existing scripts. |
-| `dag` | `dag` | Accepted for existing scripts. |
+| `dag` | `dag` | Count parenting too: a parent's world matrix feeds its children. |
 
 ## cylinder
 
 Create a NURBS cylinder with a makeNurbCylinder node. Returns [nurbsCylinder1, makeNurbCylinder1].
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -5820,6 +6587,26 @@ Create a NURBS cylinder with a makeNurbCylinder node. Returns [nurbsCylinder1, m
 | `useTolerance` | `ut` | Accepted for existing scripts. |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `heightRatio` | `hr` | Height over radius. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## dagObjectCompare
+
+Compare two DAG objects by -t type, -r relatives, -c connections and -a attributes (all four when none is given), printing the differences. -n names the baseline's namespace; -b first or category stops early; -s prints less.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `type` | `t` | Compare their types. |
+| `relative` | `r` | Compare their parents and children. |
+| `connection` | `c` | Compare their connections. |
+| `attribute` | `a` | Compare their attributes' values. |
+| `namespace` | `n` | The baseline's namespace. |
+| `bail` | `b` | never (the default), first or category: when to stop on a difference. |
+| `short` | `s` | Shorter lines. |
 
 ## dagPose
 
@@ -5834,7 +6621,13 @@ Arguments: joints or a dagPose (the selection when none)
 | `bindPose` | `bp` | The bind pose. |
 | `global` | `g` | The whole pose, not only what's below the joints named. |
 | `selection` | `sl` | With -save, only the objects named or selected, not their hierarchies. |
-| `name` | `n` | Name of a saved pose. |
+| `name` | `n` | Name of a saved pose; with -q, the poses the joints are in. |
+| `members` | `m` | With -q: the pose's members. |
+| `atPose` | `ap` | With -q: the members not where the pose has them; empty when all are. |
+| `addToPose` | `a` | Add the joints named or selected to the pose, as they are now. |
+| `remove` | `rm` | Take the joints named or selected out of the pose. |
+| `reset` | `rs` | The pose takes the joints named or selected as they are now. |
+| `worldParent` | `wp` | Work the members named out as if parented to the world, so they go back to where they sat after reparenting. |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 
@@ -5852,8 +6645,83 @@ Define a metadata structure: -fmt raw -asString "name=N:int32=ID:string=label", 
 | `format` | `fmt` | raw is the one there is. |
 | `listMemberNames` | `lmn` | The member names. |
 | `name` | `n` | The structure asked about. |
-| `remove` | `rm` | Remove -n. |
+| `remove` | `rem` | Remove the structure named with -n; it must exist. Returns its name. |
 | `removeAll` | `ral` | Remove all. |
+
+## dbcount
+
+Counters of what the graph does: computes, dirty messages, nodes made and connections made, each by node type. -e on|off turns them on; with no action the counts are printed (-f a file, -k a keyword, -q totals only, -s as a spreadsheet, -md how deep); -r resets; -l lists them.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `enabled` | `e` | Turn the counters on or off; returns those changed. |
+| `file` | `f` | Where the counts go: a file, or stdout, stderr or msdev for the Script Editor. |
+| `keyword` | `k` | Only counters whose names hold this. |
+| `list` | `l` | List the counters and whether each is on. |
+| `maxdepth` | `md` | How many levels down to print; 0 for all. |
+| `quick` | `q` | Only each counter's total. |
+| `reset` | `r` | Set the counters to 0 and drop all but the top ones; returns those reset. |
+| `spreadsheet` | `s` | Print as a spreadsheet: a header row, then a counter and its count a line. |
+
+## dbfootprint
+
+The memory parts of the scene hold, as JSON: of the objects named or selected, or all (-all). -t the kind of footprint (nodes); -q lists the kinds, -q -t one describes it; -of writes it to a file.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `allObjects` | `all` | Measure every object, whatever is named or selected. |
+| `outputFile` | `of` | A file for the output, or stdout, cout, stderr or cerr. |
+| `type` | `t` | The kind of footprint: nodes. |
+
+## dbmessage
+
+Monitor the graph's messages as they are sent: -m on|off for the types matching -t (all by default), returning those monitored; -l lists the types and their state; -f where the lines go (stdout, stderr, msdev or a file).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | Where the monitor lines go: stdout (the default), stderr or msdev for the Script Editor, or a file. |
+| `list` | `l` | List the message types and whether each is monitored. |
+| `monitor` | `m` | Turn monitoring on or off; returns the types monitored after. |
+| `type` | `t` | Only the message types whose names hold this. |
+
+## dbpeek
+
+Look into the scene's data with a peek operation (-op nodes, plugIterator, metadata, references) over the objects named or selected, or all; -a its arguments, -c its count, -eg only the nodes animation reaches, -of a file. -q -op lists the operations; -q -op name describes one, -q -op name -a its arguments.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `allObjects` | `all` | Every applicable object, whatever is named or selected. |
+| `argument` | `a` | An argument for the operation: name or name=value. |
+| `count` | `c` | A count for the operation: what it means depends on it (see -q -op). |
+| `evaluationGraph` | `eg` | Only the nodes animation reaches. |
+| `operation` | `op` | The peek operation. |
+| `outputFile` | `of` | A file for the output, or stdout, stderr or msdev for the Script Editor; returns the errors met. |
+
+## dbtrace
+
+Trace objects: turn on those of a -k keyword (the default action), -off them, send them to -o a file, -f filter them with a dgfilter, -m mark or -t title their outputs, -tm time them. -q lists the keywords on (off with -off), or with -o, -f, -tm or -i what each trace object has.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `filter` | `f` | A dgfilter for the trace objects; a name that is no filter yet filters on that node type. |
+| `info` | `i` | Query: what each trace object traces. |
+| `keyword` | `k` | The keyword of the trace objects to change or ask about. |
+| `mark` | `m` | Write a mark to the outputs of the trace objects. |
+| `off` |  | Turn the trace objects off; with -q, list the keywords off. |
+| `output` | `o` | Where the trace objects write: stdout, stderr or msdev for the Script Editor, or a file. |
+| `timed` | `tm` | Time each line of the trace objects' output. |
+| `title` | `t` | Write a title line to the outputs of the trace objects. |
+| `verbose` | `v` | Every trace object in the output and filter queries, not only those on. |
 
 ## defaultAmbientLight
 
@@ -5885,13 +6753,15 @@ Connects as dropping one node on another does: -connectToExisting -source file1 
 | `force` | `f` | Accepted: a connection is always replaced. |
 | `quiet` | `qt` | Accepted for scripts. |
 | `createNew` | `cn` | Accepted for scripts. |
-| `defaultTraversal` | `dtv` | Accepted for scripts. |
+| `defaultTraversal` | `dtv` | The node to go to from -destination: what feeds it, else the node. |
 | `defaultAttribute` | `da` | Accepted for scripts. |
 | `navigatorDecisionString` | `nds` | Accepted for scripts. |
-| `relatedNodes` | `ren` | Accepted for scripts. |
+| `relatedNodes` | `ren` | The nodes feeding -destination, directly or not. |
 | `ignore` | `i` | Accepted for scripts. |
 | `unignore` | `u` | Accepted for scripts. |
-| `delete` | `del` | Accepted for scripts. |
+| `delete` | `del` | Delete the nodes feeding -destination, once they feed nothing else. |
+| `disconnect` | `dis` | Break the connection into -destination. |
+| `defaultWorkingNode` | `dwn` | The node most likely wanted when looking at -destination: a shading group's material, a transform's shape, else the node. |
 
 ## defaultPointLight
 
@@ -5924,6 +6794,16 @@ Arguments: script
 | `evaluateNext` | `en` |  |
 | `list` | `ls` |  |
 
+## defineDataServer
+
+Connect to a data server and make a device of it: -s a local socket name (/tmp/name, or a full path) or a UDP host:service, -d the device's name, which must be new. -u -d closes the connection and removes the device.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `device` | `d` | The device's name. |
+| `server` | `s` | The server: a socket name, or host:service for UDP (host defaults to this machine). |
+| `undefine` | `u` | Remove the device and close its connection. |
+
 ## deformableShape
 
 The plugs of a deformable shape: -cog makes the intermediate original if there is none and returns its output, -og returns that output, -ogm the shape's own, -lsi and -lso the local in and out attributes, -wso the world out attribute.
@@ -5938,6 +6818,22 @@ Arguments: a mesh
 | `localShapeInAttr` | `lsi` | The local input attribute. |
 | `localShapeOutAttr` | `lso` | The local output attribute. |
 | `worldShapeOutAttr` | `wso` | The world output attribute. |
+| `deformShapeInAttr` | `dsi` | The attribute deformed geometry comes in by. |
+| `deformShapeOutAttr` | `dso` | The attribute deformed geometry goes out by. |
+| `chain` | `ch` | The deformers deforming the shape, nearest it first. |
+| `chainHistory` | `his` | The chain in detail: each node, its type and plugs (for Python). |
+| `nodeChain` | `nch` | The shape and the nodes its geometry passes through, nearest first. |
+| `plugChain` | `pch` | The input and output plugs along the chain. |
+| `outputPlugChain` | `och` | The output plugs along the chain. |
+| `frontOfChain` | `foc` | The plug at the front of the chain: the original shape's, or "". |
+| `tweakNode` | `tw` | The tweak node in the chain, if any. |
+| `tweakAttr` | `twa` | The attribute the shape keeps its point moves in. |
+| `createTweakNode` | `ctw` | Make a tweak node at the front of the chain if there is none. |
+| `supportsComponentTags` | `sct` | Whether the shape takes component tags. |
+| `tagInjectionNode` | `ti` | The highest shape in the chain holding component tags, not referenced: the original, or the shape. |
+| `tagInjectionList` | `til` | The shapes in the chain holding component tags. |
+| `upstreamTagInjectionNode` | `uti` | The upstream shape holding component tags, the original; "" when there is none. |
+| `createUpstreamTagInjectionNode` | `cti` | Make the original shape to hold component tags if there is none. |
 
 ## deformer
 
@@ -5957,6 +6853,55 @@ Arguments: objects to deform (the selection when none); the deformer with -e and
 | `before` | `bf` | Go just above the deformer nearest the mesh. |
 | `after` | `af` | Go nearest the mesh (the default). |
 | `frontOfChain` | `foc` | Go above every other deformer. |
+| `prune` | `pr` | With -e: the points it doesn't move leave its set. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+
+## deformerEvaluator
+
+The deformer evaluator's state: what it takes (deformation chains of the deformers it supports, on large enough meshes, not blocked), with -ls the nodes on the GPU, -d the deformers it supports, -dch the chains, -mbr, -msg, -ns, -ni about the nodes named or selected (-act every active one), -di and -dol everything. Shown in the Script Editor, or returned with -q.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `active` | `act` | Every active node, in place of the selection. |
+| `allowDownloadRejections` | `adr` | Whether parts of the graph that depend on downloads may be rejected. |
+| `allowDownloads` | `adl` | Whether data may come back from the GPU to the CPU. |
+| `asNodeName` | `nm` | Answers start with the node's name. |
+| `asText` | `txt` | Node states as text, not codes. |
+| `deformerChain` | `dch` | The deformation chains of the meshes. |
+| `deformers` | `d` | The deformers the evaluator supports. |
+| `dumpInfo` | `di` | Every supported chain, as JSON. |
+| `dumpOutliner` | `dol` | Every supported node, as a Python list. |
+| `gpuBlockPolicy` | `gbp` | A node's GPU blocking policy: off, on, group, upstream, upstreamExcl, upstreamMesh, downstream, downstreamExcl, groupDownload. |
+| `isOpenCLValid` | `clv` | Whether OpenCL is valid and set up. |
+| `limitMinimumVerts` | `lmv` | Whether meshes under the minimum vertex count stay off the GPU. |
+| `list` | `ls` | The nodes on the GPU. |
+| `members` | `mbr` | The nodes in the same cluster as those named. |
+| `meshes` | `m` | Only meshes. |
+| `message` | `msg` | Why the nodes are or are not on the GPU. |
+| `minimumVerts` | `mnv` | The fewest vertices a mesh needs to go on the GPU (500). |
+| `nodeInfo` | `ni` | All that partitioning found about the nodes. |
+| `nodeStatus` | `ns` | The nodes' states on the GPU, as codes (0 not handled, 1 active, 2 unsupported, 3 too few vertices, 4 blocked, 5 evaluator off, 6 no OpenCL) or with -txt as text. |
+| `omitPassthroughs` | `opt` | Leave out the nodes that pass their input on (groupParts, groupId, tweak). |
+| `outlinerHash` | `olh` | A hash of what -dol shows. |
+| `partition` | `prt` | Partition the graph again. |
+| `purge` | `prg` | Drop the data of unused GPU nodes. |
+| `reuseMode` | `ru` | How GPU nodes are kept on partitioning, for deformers and display meshes: never, immediate or always. |
+| `verbose` | `v` | More detail. |
 
 ## deformerWeights
 
@@ -5977,6 +6922,14 @@ Arguments: the file
 | `weightPrecision` | `wp` | Decimal places in XML (3). |
 | `weightTolerance` | `wt` | Leave out weights at or below this. |
 | `ignoreName` | `ig` | Match deformers and sources by order, not name. |
+| `attribute` | `at` | A deformer attribute (numbers or a matrix) written and read with the weights: envelope, say. Repeat it. |
+| `positionTolerance` | `pt` | With -method nearest: how far to look for a point (no limit). |
+| `remap` | `r` | "pattern;format": names matching the pattern become the format, $1 to $9 its groups; scene names to the file's on export, the file's to the scene's on import. Repeat it. |
+| `skip` | `sk` | Deformers, shapes and influences whose names match are left out. Repeat it. |
+| `vertexConnections` | `vc` | With -ex: write the faces too, which -method barycentric and bilinear use. |
+| `worldSpace` | `ws` | With -method nearest: compare world positions rather than the shapes' own. |
+| `edit` | `e` | Edit mode. |
+| `query` | `q` | Query mode. |
 
 ## delete
 
@@ -5999,6 +6952,7 @@ Arguments: objects
 | `inputConnectionsAndNodes` | `icn` | Everything feeding the channels. |
 | `controlPoints` | `cp` | Accepted for existing scripts. |
 | `motionPaths` | `mp` | Accepted for existing scripts. |
+| `all` | `all` | Every object in the scene, for the kind the other flags name: delete -all -c, delete -all -e, delete -all -cn. |
 
 ## deleteAttr
 
@@ -6020,6 +6974,16 @@ Delete the selected vertices, edges or faces (with whatever depends on them).
 Delete display layers; their objects stay, in no layer.
 
 Arguments: layers
+
+## deleteExtension
+
+Delete an extension attribute from a node type and its nodes, by long or short name; a compound goes with its children. Nodes holding values for it keep it unless -forceDelete is on. Returns how many nodes lost data.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `attribute` | `at` | The extension attribute, by long or short name. |
+| `forceDelete` | `fd` | On: delete it with every node's values. Off: keep it while any node holds a value for it. |
+| `nodeType` | `nt` | The node type it was added to. |
 
 ## deleteSet
 
@@ -6065,12 +7029,27 @@ Arguments: meshes or vertices (the selection when none); the deformer with -e an
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 | `smoothingIterations` | `si` | Smoothing passes (10). |
 | `smoothingStep` | `ss` | How far each pass moves a point towards its neighbours (0.5). |
 | `pinBorderVertices` | `pbv` | Border points stay out of the smoothing (on). |
 | `pin` | `pin` | The same as -pinBorderVertices. |
-| `inwardConstraint` | `ic` | Stops points moving in along the normal: 0 free, 1 not at all. |
-| `outwardConstraint` | `oc` | Stops points moving out along the normal: 0 free, 1 not at all. |
+| `inwardConstraint` | `iwc` | Stops points moving in along the normal, keeping the contour: 0 free, 1 not at all (0). |
+| `outwardConstraint` | `owc` | Stops points moving out along the normal, keeping the contour: 0 free, 1 not at all (0). |
 | `displacement` | `dis` | How much of the rest pose's detail goes back on (1). |
 
 ## detachCurve
@@ -6087,6 +7066,11 @@ Arguments: a curve (the selection when none)
 | `name` | `n` | Accepted for existing scripts. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `object` | `o` | Make objects (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `curveOnSurface` | `cos` | A curve on a surface gives pieces on the surface where it can; other curves give 3D pieces. |
 
 ## detachSurface
 
@@ -6104,6 +7088,10 @@ Arguments: a surface (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## dgInfo
 
@@ -6114,56 +7102,120 @@ Arguments: objects
 | Flag | Short | Description |
 | --- | --- | --- |
 | `allNodes` | `all` | Every node. |
-| `nodes` | `nd` | List nodes (what it lists anyway). |
+| `nodes` | `n` | List nodes (what it lists anyway). |
 | `connections` | `c` | List connections. |
 | `dirty` | `d` | Only nodes in this dirty state. |
-| `nonDeletable` | `nod` | Only locked nodes. |
+| `nonDeletable` | `nd` | Take in the nodes every scene has, left out otherwise. |
+| `size` | `sz` | The nodes' sizes: how many nodes, datablocks and bytes. |
 | `outputFile` | `of` | Write to this file. |
 | `propagation` | `p` | Accepted for existing scripts. |
 | `short` | `s` | Accepted for existing scripts. |
 | `subgraph` | `sub` | Accepted for existing scripts. |
 | `type` | `nt` | Only this type. |
 
+## dgValidateCurve
+
+Check that the animation curves named or selected (-a all) carry the static tag their keys call for, and fix it; returns how many changed. -v prints each.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `allCurves` | `a` | Every animation curve, whatever is named or selected. |
+| `verbose` | `v` | Print each curve and whether it is static. |
+
 ## dgdirty
 
-Marks nodes for recompute: named, or -a every one.
+Sends dirty messages to the nodes or plugs named or selected, or -a every one; -c cleans them (brings them up to date) instead. Returns how many plugs took a message. -l data, plug or connection lists the dirty ones (the clean ones with -c) rather than sending anything.
 
 Arguments: objects or plugs
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `allPlugs` | `a` | Every node. |
-| `clean` | `c` | Accepted for existing scripts. |
-| `verbose` | `v` | Accepted for existing scripts. |
+| `clean` | `c` | Clean rather than dirty; with -l, list the clean ones. |
+| `verbose` | `v` | Print each plug set dirty. |
+| `implicit` | `i` | With -a: the nodes every scene has too. |
+| `list` | `l` | List instead: data (plugs with dirty data), plug (plugs in a dirty state), connection (dirty connections, in pairs). |
+| `propagation` | `p` | Dirty messages flow on through the graph (as they always do here). |
+| `showTiming` | `st` | Print how long the messages took. |
+| `query` | `q` | With -l: the kinds of list there are. |
 
 ## dgeval
 
-Brings nodes or plugs up to date.
+Brings the nodes or plugs named or selected up to date. Returns how many plugs were evaluated.
 
 Arguments: objects or plugs
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `verbose` | `v` | Accepted for existing scripts. |
+| `verbose` | `v` | Print what each plug evaluated to. |
+| `src` | `src` | Obsolete: has no effect. |
 
-## dgtimer
+## dgfilter
 
-A stub: nothing is timed here. -on, -off, -reset are accepted, every result is 0.
+Filters of graph objects: by -atr attribute, -p plug, -nd node or -nt node type pattern, or -and, -or and -not of other filters, under -n a name. With objects, whether all pass the filter; without, the filter's name. -l lists the filters, -l -n describes one.
+
+Arguments: objects
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `query` | `q` | Query mode. |
-| `edit` | `e` | Edit mode. |
-| `timerOn` | `on` | Turn the timer on or off. |
-| `timerOff` | `off` | Accepted. |
-| `reset` | `r` | Accepted. |
-| `outputFile` | `o` | Accepted. |
-| `maxDisplay` | `m` | Accepted. |
-| `sortMetric` | `sm` | Accepted. |
-| `sortType` | `st` | Accepted. |
-| `threshold` | `th` | Accepted. |
-| `timerType` | `tt` | Accepted. |
-| `uniqueName` | `un` | Accepted. |
+| `attribute` | `atr` | Objects whose attribute names match this pattern. |
+| `list` | `l` | List the filters; with -n, describe that one. |
+| `logicalAnd` | `and` | Two filters that must both pass. |
+| `logicalNot` | `not` | A filter that must fail. |
+| `logicalOr` | `or` | Two filters of which one must pass. |
+| `name` | `n` | The filter to use, or to make under that name. |
+| `node` | `nd` | Objects whose node names match this pattern. |
+| `nodeType` | `nt` | Objects whose node types match this pattern. |
+| `plug` | `p` | Objects whose plugs (node.attribute) match this pattern. |
+
+## dgmodified
+
+The nodes changed since the scene was last opened, saved or made new.
+
+## dgtimer
+
+Times each node's work: -on starts (all nodes, or -name or -type), -off stops, -reset zeroes, -q reports the timers sorted by -sortMetric and -sortType, to -outputFile (a file, stdout, or MEL for a list). Compute is timed and dirty messages counted; draw, callback and fetch report zero. Returns the total of the sorted column.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Report the timers. |
+| `timerOn` | `on` | Turn timing on, for all nodes or those -name or -type pick. |
+| `timerOff` | `off` | Turn timing off; with every node off, the global timing too. |
+| `reset` | `r` | Zero the timers: all and the global ones, or those -name or -type pick. |
+| `outputFile` | `o` | Where the report and trace go: a file, stdout, or MEL (the report comes back as a list). |
+| `maxDisplay` | `m` | Report only this many of the most expensive. |
+| `sortMetric` | `sm` | The metric sorted on: callback, compute, dirty, draw or fetch (the first shown). |
+| `sortType` | `st` | The timer sorted on: self (the default), inclusive, count, or none (no percentages; returns the node count). |
+| `threshold` | `th` | Leave out rows whose sorted figure is under this. |
+| `uniqueName` | `un` | Full DAG paths in the report. |
+| `combineType` | `ct` | One row per node type. |
+| `hide` | `hi` | Show every column but these. Repeat it. |
+| `show` | `sh` | The metric columns shown: all, callback, compute, dirty, draw, compcb or compncb (compute). Repeat it. |
+| `hierarchy` | `h` | With -name: its descendants too. |
+| `name` | `n` | The node to reset, time or report. |
+| `type` | `t` | The nodes of this type. |
+| `noHeader` | `nh` | Only the rows: no global figures, header or totals. |
+| `overhead` | `oh` | Measure the timing's own cost (reported, not taken off). |
+| `rangeLower` | `rgl` | Leave out rows under this percentage of the total (0). |
+| `rangeUpper` | `rgu` | Leave out rows over this percentage of the total (100). |
+| `returnCode` | `rc` | Old scripts' return choice: nodecount, count or selftime. |
+| `returnType` | `rt` | total (the column's total) or all (each row's figure). |
+| `trace` | `tr` | Write a begin and end line for each operation to -outputFile while timing. |
+| `updateHeatMap` | `uhm` | Rebuild the heat map with this many divisions; returns the largest figure. |
+
+## dimWhen
+
+dimWhen [-f] [-t] [-c] condition control: dims a control or menu item while a named condition is true (-t, the default) or false (-f); -c stops it.
+
+Arguments: condition control
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `true` | `t` |  |
+| `false` | `f` |  |
+| `clear` | `c` |  |
 
 ## directKeyCtx
 
@@ -6235,6 +7287,10 @@ Arguments: the control
 | --- | --- | --- |
 | `value` | `v` | True disables, false enables. |
 
+## disableIncorrectNameWarning
+
+Stop warning, for the rest of the session, when a file read holds node names the reference would not take.
+
 ## disconnectAttr
 
 disconnectAttr('dst.attr'), or (src, dst). A whole array input loses every element, or with src only the ones src drives.
@@ -6250,6 +7306,11 @@ Arguments: [src] dst
 Break a skeleton at a joint, deleting handles across the break. Returns the new end joint left on the old parent, then the joint.
 
 Arguments: joint
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `deleteHandleMode` | `dhm` | Delete the handles on the joint as well as those across the break. |
+| `attachHandleMode` | `ahm` | Obsolete: has no effect. |
 
 ## displayAffected
 
@@ -6334,7 +7395,6 @@ Viewport display preferences, kept for scripts: each flag sets, -q reads.
 | `fontSettingMode` | `fm` | A setting. |
 | `lineWidth` | `lw` | A setting. |
 | `materialLoadingMode` | `mld` | A setting. |
-| `maxHardwareTextureResolution` | `mhl` | A setting. |
 | `maxTextureResolution` | `mtr` | A setting. |
 | `purgeExistingTextures` | `pet` | A setting. |
 | `regionOfEffect` | `roe` | A setting. |
@@ -6345,6 +7405,8 @@ Viewport display preferences, kept for scripts: each flag sets, -q reads.
 | `wireframeOnBackgroundFaces` | `wbf` | A setting. |
 | `workspaceMode` | `wsm` | A setting. |
 | `xrayActiveComponents` | `xac` | A setting. |
+| `ghostFrames` | `gf` | Obsolete: the ghosting command's frames before, frames after and step, as three numbers. |
+| `maxHardwareTextureResolution` | `mhr` | Query: the largest texture the viewport's graphics card takes. |
 
 ## displayRGBColor
 
@@ -6378,6 +7440,13 @@ Arguments: objects (the selection when none)
 | `polygonObject` | `po` | Meshes: 1 the cage, 2 the cage and the smoothed mesh, 3 the smoothed mesh. |
 | `query` | `q` | Ask: -po answers per object. |
 | `all` | `all` | Every surface. |
+| `hull` | `hl` | Draw the hull: the CVs rather than evaluated points. |
+| `full` | `f` | Draw the surface in full (the default). |
+| `boundary` | `bn` | Draw only the surface's boundaries in wireframe. |
+| `simplifyU` | `su` | With the hull: draw every this many spans along U. |
+| `simplifyV` | `sv` | With the hull: draw every this many spans along V. |
+| `renderTessellation` | `rt` | Shaded, draw as finely as the surface renders. |
+| `defaultCreation` | `dc` | With -du, -dv, -pw and -ps: what new surfaces take; -q -dc reads it. |
 
 ## displayStats
 
@@ -6394,9 +7463,25 @@ Which statistics a viewport shows, kept for scripts: each flag sets, -q reads.
 | `viewAxis` | `va` | A setting. |
 | `selectionDetails` | `sd` | A setting. |
 
+## displayString
+
+A string table: an identifier given a -v value (the identifier itself by default); -r to change one; -q -v reads it with ^1s to ^3s taken from the arguments after; -ex whether it exists, -k the identifiers holding a text, -d deletes.
+
+Arguments: identifier
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `delete` | `d` | Remove the identifier; fails if it does not exist. |
+| `exists` | `ex` | Whether the identifier exists. |
+| `keys` | `k` | The identifiers that hold the text given. |
+| `replace` | `r` | Change an identifier that exists. |
+| `value` | `v` | The string. |
+
 ## displaySurface
 
-How a surface draws, kept for scripts: -xr X-ray, -tsl two-sided lighting, -fn flip normals. On named or selected objects; -q reads the first.
+How the named or selected surfaces draw: -x X-ray (see-through), -two two-sided (off culls the back faces, and the shape renders single sided), -flp flips the normals drawn. -q reads the first.
 
 Arguments: objects
 
@@ -6404,9 +7489,9 @@ Arguments: objects
 | --- | --- | --- |
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
-| `xRay` | `xr` | Draw see-through. |
-| `twoSidedLighting` | `tsl` | Light both sides (on by default). |
-| `flipNormals` | `fn` | Flip the normals drawn. |
+| `xRay` | `x` | Draw see-through. |
+| `twoSidedLighting` | `two` | Two-sided (on by default); off, single sided: the back faces are culled. |
+| `flipNormals` | `flp` | Flip the normals drawn. |
 
 ## distanceDimension
 
@@ -6416,6 +7501,20 @@ Measure between two points: -sp, -ep, with locators there (made when none is). R
 | --- | --- | --- |
 | `startPoint` | `sp` | One end. |
 | `endPoint` | `ep` | The other end. |
+
+## doBlur
+
+2.5D motion blur: blurs the -c colour image along the -v motion vector image (red and green the screen motion, mid grey still, 256 pixels each way) and writes name_blur.ext beside it. Returns that file.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `colorFile` | `c` | The colour image to blur. |
+| `vectorFile` | `v` | The motion vector image. |
+| `length` | `l` | Scales the motion vectors, 0 and up (1). |
+| `sharpness` | `s` | The filter's shape, 0 and up: higher, a narrower, sharper blur (1). |
+| `smooth` | `m` | The box that smooths the result, 1 to 5: higher softens the alpha's edges more (1). |
+| `smoothColor` | `r` | Smooth the colour as well as the alpha. |
+| `memCapSize` | `o` | How many bytes to work in at once; the image goes in strips that fit. |
 
 ## dockControl
 
@@ -6430,9 +7529,16 @@ Arguments: name
 | `allowedArea` | `aa` |  |
 | `label` | `l` |  |
 | `floating` | `fl` |  |
-| `retain` | `r` |  |
+| `retain` | `ret` |  |
+| `raise` | `r` |  |
 | `moveable` | `mov` |  |
 | `sizeable` | `s` |  |
+| `fixedWidth` | `fw` |  |
+| `fixedHeight` | `fh` |  |
+| `enablePopupOption` | `epo` |  |
+| `dockStation` | `ds` |  |
+| `splitLayout` | `sl` |  |
+| `state` | `st` |  |
 | `closeCommand` | `cc` |  |
 | `floatChangeCommand` | `fcc` |  |
 | `childArray` | `ca` |  |
@@ -6571,6 +7677,29 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## doubleProfileBirailSurface
+
+Sweep the first profile along two rails into the second: profile1 profile2 rail1 rail2, curves or isoparms (surface.u[0.5]). -bl weighs the first profile against the second, -tp1 -tp2 keep the result tangent to a profile's surface, -tm 1 scales the profiles whole. Returns [surface, node]; -q and -e on the node or the surface.
+
+Arguments: two profiles and two rails (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `blendFactor` | `bl` | How much the first profile weighs against the second (0.5). |
+| `tangentContinuityProfile1` | `tp1` | Tangent continuous across the first profile, on its surface (off). |
+| `tangentContinuityProfile2` | `tp2` | Tangent continuous across the second profile, on its surface (off). |
+| `transformMode` | `tm` | 0 non-proportional (0), 1 proportional. |
+| `object` | `o` | Make the surface (on); off, only the node. |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `range` | `rn` | Accepted for existing scripts. |
+| `name` | `n` | Name of the new object. |
+| `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
 ## drag
 
 Make a drag field acting on the selected bodies, or -q/-e one. Returns [field].
@@ -6628,6 +7757,7 @@ Arguments: objects
 | `transformsOnly` | `to` | Leave out the shapes. |
 | `instanceLeaf` | `ilf` | Copy the hierarchy, with its leaf shapes instances of the originals'. |
 | `groupUnder` | `gu` | Where the copies go: parent (beside their originals, the default), world, or group (a new group, as -group). |
+| `fullPath` | `f` | Return full path names rather than object names. |
 
 ## duplicateCurve
 
@@ -6639,9 +7769,17 @@ Arguments: an isoparm or a curve (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `local` | `l` | Follow the surface in object space, not the world. |
-| `range` | `rn` | Accepted for existing scripts. |
-| `relative` | `r` | Accepted for existing scripts. |
+| `range` | `rn` | Take the whole isoparm, whatever -min and -max say. |
+| `relative` | `r` | -min and -max run 0 to 1 over the isoparm (off). |
+| `minValue` | `min` | Where the curve starts along the isoparm (1); the whole isoparm while it isn't below -max. |
+| `maxValue` | `max` | Where the curve ends along the isoparm (-1). |
+| `mergeItems` | `mi` | Merge component results where it can: the result here is whole objects. |
+| `object` | `o` | Make the curve (on); off, only the node. |
 | `name` | `n` | Name of the curve. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## duplicateModifier
 
@@ -6658,15 +7796,21 @@ Arguments: a surface or patches
 | Flag | Short | Description |
 | --- | --- | --- |
 | `local` | `l` | Keep following it. |
-| `mergeItems` | `mi` | Accepted for existing scripts. |
+| `firstFaceU` | `ffu` | The first patch in U (0). |
+| `firstFaceV` | `ffv` | The first patch in V (0). |
+| `faceCountU` | `fcu` | How many patches in U (1). |
+| `faceCountV` | `fcv` | How many patches in V (1). |
+| `mergeItems` | `mi` | Merge component results where it can: the result here is whole objects. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## duplicateWithTransform
 
@@ -6735,9 +7879,21 @@ Arguments: components or objects
 | `glueStrength` | `gs` | Tear: breaks past this stretch. |
 | `solver` | `sv` | The solver to join. |
 
+## editDisplayLayerGlobals
+
+Settings all display layers share: -cdl the current layer (new objects go in it while -uc is on), -bi where new layers' numbers start, -mt how imported layers merge (0 none, 1 by number, 2 by name). -q reads one.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `baseId` | `bi` | Where new layers start looking for a free number (1). |
+| `currentDisplayLayer` | `cdl` | The current layer, which new objects go in; defaultLayer for none. |
+| `mergeType` | `mt` | How imported layers merge: 0 none, 1 by number, 2 by name. |
+| `useCurrent` | `uc` | New objects go in the current layer (on). |
+| `query` | `q` | Query mode. |
+
 ## editDisplayLayerMembers
 
-Put objects (the selection by default) in a display layer, moving them out of their old one. Naming defaultLayer takes them out of any layer. Returns the layer's members.
+Put objects (the selection by default) and their descendants (not with -nr) in a display layer, moving them out of their old one; only DAG objects can be in one. Naming defaultLayer takes them out of any layer. -clear moves every member to the default layer. Returns how many objects were added (or cleared); -q lists the members.
 
 Arguments: layer, objects
 
@@ -6745,7 +7901,9 @@ Arguments: layer, objects
 | --- | --- | --- |
 | `query` | `q` | List the layer's members. |
 | `fullNames` | `fn` | Query: full DAG paths. |
-| `noRecurse` | `nr` | Accepted: members are listed, not their children. |
+| `noRecurse` | `nr` | Only the objects named go in, not their descendants. |
+| `clear` | `clr` | Move every member of the layer to the default layer. |
+| `ufeObjects` | `ufe` | Query: objects of other kinds too; display layers here hold only DAG objects. |
 
 ## editKeys
 
@@ -6792,15 +7950,17 @@ Arguments: [attribute]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `addAdskAssetControl` | `aac` |  |
-| `addComponents` | `acm` |  |
+| `addAdskAssetControls` | `aac` |  |
+| `addComponents` | `acp` |  |
+| `annotateFieldOnly` | `afo` |  |
+| `forceRebuild` | `fr` |  |
 | `addControl` | `ac` |  |
 | `addDynamicControl` | `adc` |  |
 | `addExtraControls` | `aec` |  |
 | `addSeparator` | `as` |  |
 | `annotation` | `ann` |  |
 | `beginLayout` | `bl` |  |
-| `beginNoOptimize` | `bno` |  |
+| `beginNoOptimize` | `bn` |  |
 | `beginScrollLayout` | `bsl` |  |
 | `callCustom` | `ccu` |  |
 | `callback` | `cb` |  |
@@ -6808,7 +7968,7 @@ Arguments: [attribute]
 | `debugMode` | `dbm` |  |
 | `dimControl` | `dc` |  |
 | `endLayout` | `el` |  |
-| `endNoOptimize` | `eno` |  |
+| `endNoOptimize` | `en` |  |
 | `endScrollLayout` | `esl` |  |
 | `extraControlsLabel` | `ecl` |  |
 | `interruptOptimize` | `io` |  |
@@ -6872,7 +8032,9 @@ Every environment variable, as NAME=value lines.
 
 ## evaluationManager
 
-The evaluation mode, as a setting scripts can read: -mode off|serial|parallel|emp. It doesn't change how the graph evaluates.
+The evaluation mode, as a setting scripts can read: -mode off|serial|parallel|emp; -dst, -ust and -ccl walk the graph; node type overrides and settings are held. The graph evaluates as before whatever the mode.
+
+Arguments: node types, for the node type overrides
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -6883,6 +8045,65 @@ The evaluation mode, as a setting scripts can read: -mode off|serial|parallel|em
 | `invalidate` | `inv` | Accepted for existing scripts. |
 | `manipulation` | `man` | Accepted for existing scripts. |
 | `idleBuild` | `ib` | Accepted for existing scripts. |
+| `cycleCluster` | `ccl` | The nodes in a cycle with this one; none while the mode is off or it is in no cycle. |
+| `disableInfo` | `di` | Query: why evaluation was turned off by a problem; empty while it runs as set. |
+| `downstreamFrom` | `dst` | The nodes the one named feeds; with -q the whole walk down, level then node. |
+| `upstreamFrom` | `ust` | The nodes feeding the one named; with -q the whole walk up, level then node. |
+| `empty` | `mt` | Query: whether the graph has no nodes of the scene's own. |
+| `fallbackTriggered` | `ft` | Query: whether errors made evaluation fall back to serial since the mode was set. |
+| `idleAction` | `ia` | What runs on idle: 0 nothing, 1 graph rebuild, 2 manipulation preparation, 3 both. |
+| `manipulationPrevalidation` | `mp` | Check for known manipulation patterns first. |
+| `manipulationReady` | `mr` | Query: whether manipulation is ready. |
+| `nodeTypeGloballySerialize` | `ntg` | Schedule the node types named globally serial; -q lists the types, or answers for those named. |
+| `nodeTypeParallel` | `ntp` | Schedule the node types named in parallel; -q lists the types, or answers for those named. |
+| `nodeTypeSerialize` | `nts` | Schedule the node types named locally serial; -q lists the types, or answers for those named. |
+| `nodeTypeUntrusted` | `ntu` | Schedule the node types named apart from the rest; -q lists the types, or answers for those named. |
+| `reduceGraphRebuild` | `rgr` | Rebuild the graph less when animation is connected. |
+| `safeMode` | `sfm` | Fall back to serial when the graph is missing dependencies (on). |
+
+## evaluator
+
+The evaluation manager's custom evaluators: -en on|off -n turns one on or off (returning its state before), with -nt for node types it handles (-ntc and their derived types); -p its priority; -c configuration messages. -q lists them; -q -n with -en, -cl, -i, -p, -c or -vn asks about one.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `clusters` | `cl` | Query: the clusters the evaluator claims, each its node count then its nodes. |
+| `configuration` | `c` | A configuration message, key=value; with -q, those the evaluator takes. |
+| `enable` | `en` | Turn the evaluator on or off, or the node types given to it; with -q, its state. |
+| `info` | `i` | Query: what the evaluator does. |
+| `name` | `n` | The evaluator. |
+| `nodeType` | `nt` | A node type for the evaluator to handle or not. |
+| `nodeTypeChildren` | `ntc` | With -nt: the types derived from it too. |
+| `priority` | `p` | The evaluator's priority: higher ones claim nodes first. Priorities are unique. |
+| `valueName` | `vn` | Query: a value the evaluator answers. |
+
+## event
+
+Collision events on particles: each collision (or the -ct'th) of a particle emits -em particles into -t a target (or its own object), splits it into -spl, kills it (-die), or calls -pr a procedure (object, id, objectHit). Returns the event's name; -ls lists events, -d deletes one, -e -n edits one (-re renames it), -q -n asks.
+
+Arguments: object
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `count` | `ct` | The collision it acts on, for each particle; 0 (the default) every one. |
+| `delete` | `d` | Delete the event. |
+| `dieAtCollision` | `die` | The particle dies at the collision -count names (the first, without it). |
+| `emit` | `em` | Emit this many new particles into the target; the colliding one lives on. |
+| `list` | `ls` | The events of the object, or object and event pairs of every particle object. |
+| `name` | `n` | The event's name: a new one's, or which one to edit, ask about or delete. |
+| `proc` | `pr` | A global procedure called at each collision: proc(string obj, int id, string objHit). |
+| `random` | `r` | With -split or -emit: a random number of particles from 1 to that number. |
+| `rename` | `re` | A new name for the event being edited. |
+| `select` | `s` | Obsolete: use -name. |
+| `split` | `spl` | Split the particle into this many new ones in the target. |
+| `spread` | `sp` | How far new particles stray from the rebound direction, as a fraction (0 to 1) of 90 degrees. |
+| `target` | `t` | The particle object new particles go into (the colliding one's own by default). |
 
 ## exactWorldBoundingBox
 
@@ -6895,6 +8116,16 @@ Arguments: objects
 | `ignoreInvisible` | `ii` | Leave out hidden shapes. |
 | `calculateExactly` | `ce` | Accepted: bounds are always exact here. |
 
+## excludeObjectDisplayPreset
+
+Named presets of which kinds of object a view leaves out, for modelEditor: -listPresets gives their names, All (every kind shown) and None.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `listPresets` |  |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## expandedSelection
 
 The selection and what is connected to it: -d steps (1), -et DG, EG or SG. EG and SG follow the same connections as DG: there is no separate evaluation graph here, and clusters are not reported.
@@ -6903,6 +8134,33 @@ The selection and what is connected to it: -d steps (1), -et DG, EG or SG. EG an
 | --- | --- | --- |
 | `depth` | `d` | Steps away from the selection. |
 | `expansionType` | `et` | DG, EG or SG. |
+
+## exportEdits
+
+Write nodes, their connections and the reference edits on referenced nodes to an edits file (editMA) that file -import brings into another scene. Targets: -sel the selection's edits, -orn a reference's, -exs the selected nodes themselves; -ian, -ic, -idf, -sdk, -ish, -inw add what goes with them, -in and -en name nodes, -ec limits the edit commands. Returns the file written; -q the nodes that would be considered.
+
+Arguments: file
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `editCommand` | `ec` | Only edits of this command: addAttr, connectAttr, deleteAttr, disconnectAttr, parent, setAttr, lock or unlock (all by default). |
+| `excludeHierarchy` | `ehr` | Leave out the DAG parents and history that would otherwise go with the nodes. |
+| `excludeNode` | `en` | A node to keep out. |
+| `exportSelected` | `exs` | Write the selected nodes, their connections to each other and to nodes not written; include and exclude flags are not used. |
+| `force` | `f` | Write over a file there already. |
+| `includeAnimation` | `ian` | Add the animation curves and the nodes between them and the targets. |
+| `includeConstraints` | `ic` | Add the constraints driving the targets. |
+| `includeDeformers` | `idf` | Add the deformers of the targets. |
+| `includeNetwork` | `inw` | Add every node connected to the targets. |
+| `includeNode` | `in` | A node to add. |
+| `includeSetAttrs` | `isa` | Whether setAttr edits go out (on). |
+| `includeSetDrivenKeys` | `sdk` | Add the set driven key curves driving the targets. |
+| `includeShaders` | `ish` | Add the shading groups and shading networks of the targets. |
+| `onReferenceNode` | `orn` | Only the edits this reference node holds. |
+| `selected` | `sel` | The selection's edits, without the nodes themselves. |
+| `type` | `typ` | The file type: editMA (the default) or editMB. |
 
 ## exportFbx
 
@@ -6983,22 +8241,52 @@ Arguments: [expression node, for -q and -e]
 | `shortNames` | `sn` | Accepted for existing scripts. |
 | `safe` | `sf` | Accepted for existing scripts. |
 | `timeDependent` | `td` | With -q: whether it reads time or frame. |
+| `attribute` | `a` | The attribute the expression sets: the source is what it is set to, unless it assigns it itself. |
+| `animated` | `an` | The node's animation mode: 0 not animated, 1 animated, 2 animated with no callback. |
+
+## expressionEditorListen
+
+For the Expression Editor: hear when a file is saved, when a node's attributes or name change, or when an expression changes, and pass it to the editor's procedures.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `listenFile` | `lf` | Hear when this file changes: the editor reads it back. |
+| `listenForAttr` | `la` | Hear when this node's attributes change. |
+| `listenForExpression` | `le` | Hear when this expression changes. |
+| `listenForName` | `ln` | Hear when this node is renamed. |
+| `stopListenForAttr` | `sla` | Stop hearing about this node's attributes. |
+| `stopListenForExpression` | `sle` | Stop hearing about this expression. |
+| `stopListenForName` | `sln` | Stop hearing about this node's name. |
 
 ## extendCurve
 
-Lengthen a curve along its tangent: -d distance, -s 0 end, 1 start, 2 both. Returns [curve, node].
+Extend a curve past its ends: -s 0 the end, 1 the start (the default), 2 both; -em 0 by -d distance, 2 to the point -ip (or -px -py -pz); -et 0 linear, 1 circular, 2 extrapolated; -jn joins the extension to the curve (on), -rmk smooths the join. Returns [curve, node].
 
 Arguments: curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `distance` | `d` | How far. |
-| `start` | `s` | 0 the end, 1 the start, 2 both. |
-| `extensionType` | `et` | Accepted for existing scripts. |
+| `distance` | `d` | How far, with -em 0 (1). |
+| `start` | `s` | 0 the end, 1 the start (1), 2 both. |
+| `extendMethod` | `em` | 0 by distance (0), 2 to a point. |
+| `extensionType` | `et` | 0 linear (0), 1 circular, 2 extrapolated. |
+| `inputPoint` | `ip` | The point extended to, with -em 2. |
+| `pointX` | `px` | Its X (0). |
+| `pointY` | `py` | Its Y (0). |
+| `pointZ` | `pz` | Its Z (0). |
+| `join` | `jn` | Join the extension to the curve (on); off, the result is the extension alone. |
+| `removeMultipleKnots` | `rmk` | With -jn: remove the multiple knots at the join, refitting the curve smooth (off). |
+| `noChanges` | `nc` | The node passes the curve through unchanged (off). |
+| `curveOnSurface` | `cos` | Make a curve on a surface where the input is one; curves here are 3D, so the result is too. |
+| `range` | `rn` | Use the whole input curve as its range: curves here are always taken whole. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## extendSurface
 
@@ -7009,20 +8297,22 @@ Arguments: surfaces (the selection when none)
 | Flag | Short | Description |
 | --- | --- | --- |
 | `distance` | `d` | How far (1). |
-| `extendDirection` | `ed` | 0 U, 1 V, 2 both. |
-| `extendSide` | `es` | 0 start, 1 end, 2 both. |
-| `extensionType` | `et` | Accepted: tangent lines. |
-| `extendMethod` | `em` | Accepted for existing scripts. |
-| `join` | `jn` | Accepted for existing scripts. |
+| `extendDirection` | `ed` | 0 U (0), 1 V, 2 both. |
+| `extendSide` | `es` | 0 the end, 1 the start (1), 2 both. |
+| `extensionType` | `et` | 0 tangent (0), 2 extrapolated. |
+| `extendMethod` | `em` | 0 by distance (0). |
+| `join` | `jn` | Join the extension to the surface (on); off, the result is the extension alone. |
 | `replaceOriginal` | `rpo` | Change the surface itself (on by default). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## extrude
 
@@ -7039,13 +8329,32 @@ Arguments: the profile, then the path (the selection when none)
 | `length` | `l` | Length, with no path. |
 | `divisions` | `dv` | Mesh points per span of the profile. |
 | `fixedPath` | `fpt` | The surface sits on the path, not where the profile is. |
-| `useComponentPivot` | `ucp` | Accepted for existing scripts. |
-| `useProfileNormal` | `upn` | Accepted for existing scripts. |
-| `reverseSurfaceIfPathReversed` | `rsp` | Accepted for existing scripts. |
+| `useComponentPivot` | `ucp` | A tube's pivot: 0 the path's end nearest the profile (0), 1 -p, 2 the middle of the profile's bounding box. |
+| `useProfileNormal` | `upn` | Turn the profile's plane square to the path's start (off). |
+| `reverseSurfaceIfPathReversed` | `rsp` | A tube along a path taken from its far end is reversed to run with the path (off). |
+| `degreeAlongLength` | `dl` | The surface's degree along a distance extrude (1). |
+| `directionX` | `dx` | The direction's X (0). |
+| `directionY` | `dy` | The direction's Y (1). |
+| `directionZ` | `dz` | The direction's Z (0). |
+| `pivot` | `p` | The profile's pivot, with -ucp 1 (the middle of its CVs). |
+| `subCurveSubSurface` | `scs` | The path's curve range applies to the surface rather than cutting the path first (off). |
+| `rebuild` | `rb` | Rebuild the input curves first, with uniform knots (off). |
+| `mergeItems` | `mi` | Merge component results where it can: the result here is whole objects. |
+| `object` | `o` | Make the surface (on); off, only the node. |
 | `polygon` | `po` | 0 NURBS (the default), 1 polygons. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## fcheck
+
+Show images in their own windows: a file, every file a wildcard matches (a window each), or with a trailing dot (mySequence.) the numbered images of a sequence, played.
+
+Arguments: images
 
 ## file
 
@@ -7055,7 +8364,6 @@ Arguments: the file
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `new` | `new` | A new, empty scene. |
 | `list` | `l` | With -q: the scene's file and every file it uses. |
 | `open` | `o` | Replace the scene with the file. |
 | `save` | `s` | Write the scene under its name. |
@@ -7111,6 +8419,66 @@ Arguments: the file
 | `shader` | `sh` | Accepted for existing scripts. |
 | `returnNewNodes` | `rnn` | With a reference, return the new nodes. |
 | `namespace` | `ns` | The namespace a reference or an import goes under. |
+| `newFile` | `new` | A new, empty scene. |
+| `absoluteName` | `an` | Namespaces as full paths from the root, :a:b. |
+| `activeProxy` | `ap` | With -reference: the proxy that is active. |
+| `add` | `add` | With -selectAll: add to the selection rather than replace it. |
+| `anyModified` | `amf` | Query: whether the scene has edits (as -modified). |
+| `applyTo` | `at` | Importing or referencing an edits file: apply it to this reference node; : is the root namespace. |
+| `buildLoadSettings` | `bls` | With -open: read only which references the file holds, as implicitLoadSettings, without opening it. |
+| `command` | `c` | A script and its type, run before each file operation. Query: what they are. |
+| `compress` | `cmp` | With -save: gzip the file (adding .gz unless -preserveName). |
+| `copyNumberList` | `cnl` | Query: a number for each time the file is in use. |
+| `defaultExtensions` | `de` | Whether a name with no extension takes the type's on save (on, for the session). |
+| `defaultNamespace` | `dns` | Import into the root namespace with no clash handling: a name the scene has is an error. |
+| `errorStatus` | `err` | Query: whether the last file read failed. |
+| `executeScriptNodes` | `esn` | Whether the file's script nodes run when it opens (on). |
+| `exportAnim` | `ean` | Export the scene's animation curves, connected by name to what they drive. |
+| `exportAnimFromReference` | `ear` | Export the animation on referenced nodes; -rfn picks one reference. |
+| `exportAsReference` | `er` | Export the selection to the file and bring it back as a reference to it. Returns the reference node. |
+| `exportSelectedAnim` | `eas` | Export the animation on the selected objects. |
+| `exportSelectedAnimFromReference` | `esa` | Export the animation on the selected referenced objects; -rfn picks one reference. |
+| `exportSelectedStrict` | `ess` | Export the selected nodes and nothing they need. |
+| `exportSnapshotCallback` | `esc` | A script and a namespace: export copies of what is exported, made in that namespace, after the script has run on them. |
+| `fileMetaData` | `fmd` | Query: a Broadcast Wave file's time reference in samples; 0 for other files. |
+| `importFrameRate` | `ifr` | With -import: the file's frame rate becomes the scene's. |
+| `importTimeRange` | `itr` | With -import: keep, override or combine the playback range with the file's. |
+| `lastFileOption` | `lfo` | Query: the last -options string given. |
+| `lastTempFile` | `ltf` | Query: the temporary file the last save wrote first. |
+| `loadAllDeferred` | `lad` | With -open: on loads every reference, deferred ones too. |
+| `loadAllReferences` | `lar` | With -open: load every reference. |
+| `loadNoReferences` | `lnr` | With -open: load no references. |
+| `loadSettings` | `ls` | With -open: the reference load settings to use: empty for the file's, or implicitLoadSettings. |
+| `location` | `loc` | Query: where the file is. |
+| `lockContainerUnpublished` | `lcu` | Saved with the scene: a file referencing it locks its containers' unpublished members. |
+| `lockFile` | `lf` | Saved with the scene: a file referencing it locks all of it. |
+| `mapPlaceHolderNamespace` | `mns` | With -import or -reference: a placeholder namespace (<name>) and the reference node it stands for; : is the root. |
+| `mergeBaseAnimLayer` | `mbl` | With -import: the file's base animation layer merges into the scene's. |
+| `mergeNamespaceWithParent` | `mnp` | With -removeReference: what is left in its namespace goes to the parent namespace. |
+| `mergeNamespaceWithRoot` | `mnr` | With -removeReference: what is left in its namespace goes to the root namespace. |
+| `moveSelected` | `ms` | Obsolete; does nothing. |
+| `parentNamespace` | `pns` | Query: a referenced file's parent namespace. |
+| `postSaveScript` | `pos` | With -save: a script run after the save. |
+| `preSaveScript` | `prs` | With -save: a script run before the save. |
+| `preserveName` | `pn` | With -compress: keep the name as given, with no .gz. |
+| `preview` | `pv` | With an export flag: the nodes it would write, and nothing written. |
+| `proxyManager` | `pm` | With -reference: the proxy manager node of the file's proxies. |
+| `proxyTag` | `pt` | With -reference and -proxyManager: the proxy's name in its set. |
+| `relativeNamespace` | `rns` | With an export: nodes in this namespace are written without it. |
+| `removeDuplicateNetworks` | `rdn` | With -import: shading networks the scene has already are not added. |
+| `renameToSave` | `rts` | Whether a save needs the scene renamed first. Query: whether it does. |
+| `renamingPrefixList` | `rpl` | Query: the renaming prefixes the file's references use. |
+| `replaceName` | `rep` | With -import or -reference: a name pattern and what it becomes. |
+| `reserveNamespaces` | `rvn` | With -open: the namespaces of unloaded references are made. |
+| `resetError` | `rer` | Clear the error status. |
+| `saveDiskCache` | `sdc` | always or never: whether disk caches are copied on save as. Query: which. |
+| `saveReference` | `sr` | Write a reference's nodes as they are now back to its file. |
+| `saveTextures` | `stx` | always, unlessRef or never: whether painted textures are saved on save as. Query: which. |
+| `selectAll` | `sa` | Select everything the file (and the files in it) brought in. |
+| `strict` | `str` | With -open, -import, -importReference or -reference: a relative path is the project's only. |
+| `uiConfiguration` | `uc` | Whether panels are saved with the scene (on). Query: whether they are. |
+| `uiLoadConfiguration` | `ulc` | Whether panels saved with a scene are read (on). Query: whether they are. |
+| `writable` | `w` | Query: whether the file can be written: the scene's file by the file system, a referenced one never. |
 
 ## fileDialog
 
@@ -7147,7 +8515,8 @@ The file browser. -fm 0 any file, 1 an existing file, 2 a folder, 3 a folder onl
 | `optionsUIInit` | `oin` |  |
 | `optionsUICommit` | `ocm` |  |
 | `optionsUICommit2` | `oc2` |  |
-| `optionsUICancel` | `ocl` |  |
+| `optionsUICancel` | `oca` |  |
+| `optionsUITitle` | `oti` |  |
 | `buttonBoxOrientation` | `bbo` |  |
 | `selectionChanged` | `sc` |  |
 
@@ -7173,26 +8542,62 @@ Arguments: two curves
 | --- | --- | --- |
 | `radius` | `r` | The radius (1). |
 | `circular` | `cir` | A circular fillet (the default). |
-| `freeformBlend` | `fb` | A free-form fillet. |
-| `depth` | `d` | How far a free-form fillet reaches. |
-| `bias` | `b` | Which way it leans. |
-| `blendControl` | `bc` | Accepted for existing scripts. |
+| `freeformBlend` | `fb` | With -cir off: a blend (on) rather than a tangent fillet (off). |
+| `depth` | `d` | How far a free-form fillet reaches, with -bc (0.5). |
+| `bias` | `b` | Which curve it leans toward, with -bc (0). |
+| `blendControl` | `bc` | Let -d and -b apply (off). |
 | `curveParameter1` | `cp1` | Where on the first curve. |
 | `curveParameter2` | `cp2` | Where on the second curve. |
-| `join` | `jn` | Trim the curves back too. |
-| `trim` | `t` | Trim the curves back. |
+| `join` | `jn` | Trim the curves and join them and the fillet into one new curve. |
+| `trim` | `t` | Trim the curves back to the fillet. |
+| `replaceOriginal` | `rpo` | In place: the first curve becomes the curves and fillet joined; the second goes. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## filter
+
+Make a filter node for recorded device data (-t filterEuler, filterResample, filterSimplify or filterClosestSample; -n its name), or with -e and -q change and read it. The node's attributes are flags too. Returns its name.
+
+Arguments: the filter, with -e or -q
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | The filter's name. |
+| `type` | `t` | The kind of filter (filterEuler). |
+| `query` | `q` | Read. |
+| `edit` | `e` | Change. |
+| `nearestTo` | `nt` | The filter node's attribute. |
+| `initialRotation` | `ir` | The filter node's attribute. |
+| `initialRotationX` | `irx` | The filter node's attribute. |
+| `initialRotationY` | `iry` | The filter node's attribute. |
+| `initialRotationZ` | `irz` | The filter node's attribute. |
+| `smooth` | `s` | The filter node's attribute. |
+| `outputUsageOpt` | `use` | The filter node's attribute. |
+| `enableInitialRotation` | `eir` | The filter node's attribute. |
+| `weight` | `w` | The filter node's attribute. |
+| `weightX` | `wx` | The filter node's attribute. |
+| `weightY` | `wy` | The filter node's attribute. |
+| `weightZ` | `wz` | The filter node's attribute. |
+| `kernel` | `kr` | The filter node's attribute. |
+| `timeStep` | `ts` | The filter node's attribute. |
+| `allowDuplicates` | `ad` | The filter node's attribute. |
+| `maxTimeStep` | `mxt` | The filter node's attribute. |
+| `minTimeStep` | `mnt` | The filter node's attribute. |
+| `timeTolerance` | `tt` | The filter node's attribute. |
+| `tolerance` | `tol` | The filter node's attribute. |
+| `frequency` | `f` | The filter node's attribute. |
 
 ## filterCurve
 
-Filter curves: euler (default: rotations without jumps), butterworth (-cof, -sr), gaussian (-wd), keyReducer (-pre percent), keySync (keys where any curve has one), peakRemover (-tol), resample (-per seconds), simplify (-tol, -tto). -stt/-edt limit it in time, -sk to the selected keys. Returns how many curves it changed.
+Filter curves: euler (default: rotations without jumps), butterworth (-cof, -sr), gaussian (-w, -sc), keyReducer (-pre percent), keySync (keys where any curve has one), peakRemover (-tol), resample (-per seconds), simplify (-tol, -tto). -s/-e limit it in time, -sk to the selected keys. Returns how many curves it changed.
 
 Arguments: curves, objects or plugs (the selection when none)
 
@@ -7202,14 +8607,19 @@ Arguments: curves, objects or plugs (the selection when none)
 | `attribute` | `at` | Channel name(s). |
 | `cutoffFrequency` | `cof` | Butterworth: cutoff in Hz (7). |
 | `samplingRate` | `sr` | Butterworth and gaussian: samples per second, at most one a frame. |
-| `width` | `wd` | Gaussian: width in frames (1). |
+| `width` | `w` | Gaussian: width in frames (1). |
+| `sampleCount` | `sc` | Gaussian: the kernel's size in samples. |
+| `kernel` | `ker` | Resample: closest, lirp (the default), box, triangle, gaussian2 or gaussian4. |
+| `keySync` | `ks` | Key reducer: a channel's X, Y and Z curves get each other's keys afterwards. |
+| `precisionMode` | `pm` | Key reducer: -pre is a value (0) or a percentage of the curve's range (1, the default). |
+| `useQuaternion` | `uq` | Butterworth and gaussian: filter a rotate's curves together as quaternions. |
 | `period` | `per` | Resample: seconds between keys (1/30). |
 | `keepKeysOnFrame` | `kof` | Resample: keep new keys on whole frames. |
 | `precision` | `pre` | Key reducer: percent of the curve's range it may move (5). |
 | `tolerance` | `tol` | Peak remover and simplify: value tolerance. |
 | `timeTolerance` | `tto` | Simplify: time tolerance. |
-| `startTime` | `stt` | Start of the part filtered. |
-| `endTime` | `edt` | End of the part filtered. |
+| `startTime` | `s` | Start of the part filtered (the first key). |
+| `endTime` | `e` | End of the part filtered (the last key). |
 | `selectedKeys` | `sk` | Only between the selected keys. |
 | `minTimeStep` | `mns` | Accepted for existing scripts. |
 | `maxTimeStep` | `mxs` | Accepted for existing scripts. |
@@ -7218,7 +8628,7 @@ Arguments: curves, objects or plugs (the selection when none)
 
 ## filterExpand
 
-The selection (or arguments) filtered by selection mask and flattened: -sm 31 vertices, 32 edges, 34 faces, 35 UVs, 70 vertex faces, 28 CVs, 12 meshes, 9 curves, 22 locators. -ex 0 keeps ranges. -fp full paths. None when nothing matches.
+The selection (or arguments) filtered by selection mask and flattened: -sm 31 vertices, 32 edges, 34 faces, 35 UVs, 70 vertex faces, 28 CVs, 12 meshes, 9 curves, 22 locators. -ex 0 keeps ranges. -fp full paths. Empty when nothing matches (None in Python).
 
 Arguments: components or meshes (the selection when none)
 
@@ -7236,6 +8646,26 @@ Arguments: components or meshes (the selection when none)
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+
+## filterInstances
+
+Drop selected items that are instances of one selected before them (the same shape or the same components). -s counts transforms whose shapes are instances. Returns the selection left; -q whether any were instances.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `shapes` | `s` | Look at the shapes below selected transforms to tell whether they are instances. |
+| `query` | `q` | Whether any selected item is an instance of another. |
+
+## filterStudioImport
+
+The studio import options, set without the options window: -ic cameras, -il lights, -sp shells as meshes, -td where its binary files go.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `includeCameras` | `ic` | Translate the cameras. |
+| `includeLights` | `il` | Translate the lights. |
+| `convertShellToPoly` | `sp` | Shells become triangle meshes rather than groups of surfaces. |
+| `transferDirectoryName` | `td` | Where embedded binary files go; empty is the temporary folder. |
 
 ## findComponents
 
@@ -7268,14 +8698,24 @@ Arguments: objects
 
 ## findKeyframe
 
-The frame of the next, previous, first or last key on the objects (the selection when none).
+The time of the next, previous, first or last key in a keyset: the objects' or channels' keys (the active keys when nothing is named), or with -ts the time slider's ticks. -c lists the curves instead. The current time when there are no keys.
 
-Arguments: objects
+Arguments: objects, plugs or curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `attribute` | `at` | Channel name(s). |
+| `time` | `t` | A frame or range "10:20". |
+| `float` | `f` | A range of driver values on driven key curves, as -t is for time. |
+| `index` | `in` | Key index(es) on each curve, or a range "0:2". |
+| `includeUpperBound` | `iub` | Whether a range's end counts (on by default). |
+| `hierarchy` | `hi` | none, below, above or both. |
+| `controlPoints` | `cp` | Accepted for existing scripts: control points have no channels of their own here. |
+| `shape` | `s` | Include the channels of the objects' shapes. |
+| `animation` | `an` | objects (the default), keys or keysOrObjects: keys means the selected keys. |
 | `which` | `w` | next, previous, first or last. |
-| `time` | `t` | Search from this frame instead of the current one. |
+| `curve` | `c` | Return the curves driving the objects or attributes. |
+| `timeSlider` | `ts` | Use the time slider's ticks; -animation is ignored. |
 
 ## findRelatedDeformer
 
@@ -7291,7 +8731,7 @@ Arguments: a mesh or its transform
 
 ## findType
 
-Nodes of a type upstream of the objects (-fwd downstream), the nearest unless -d. -e exact type.
+Nodes of a type connected upstream of the objects (the selection when none), or with -f downstream, the objects themselves included: the nearest, or every one with -d. -e matches the type exactly.
 
 Arguments: objects
 
@@ -7300,21 +8740,25 @@ Arguments: objects
 | `type` | `t` | The type. |
 | `deep` | `d` | Every one, not just the nearest. |
 | `exact` | `e` | This type exactly. |
-| `forward` | `fwd` | Look downstream. |
+| `forward` | `f` | Look downstream. |
 
 ## fitBspline
 
-A cubic through the curve's CVs. Returns [curve, node].
+A cubic fitted to the curve's CVs, within -tol of them (0.1), with as few spans as that allows. Returns [curve, node].
 
 Arguments: curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `tolerance` | `tol` | How far the fit may stray from the CVs (0.1). |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## flexor
 
@@ -7489,6 +8933,7 @@ Arguments: name
 | `minValue` | `min` |  |
 | `maxValue` | `max` |  |
 | `step` | `s` |  |
+| `largeStep` | `ls` |  |
 | `horizontal` | `hr` |  |
 | `changeCommand` | `cc` |  |
 | `dragCommand` | `dc` |  |
@@ -7740,16 +9185,17 @@ Arguments: name
 
 ## flow
 
-Deform an object on a motion path through a lattice that travels with it. Needs the lattice deformer.
+Deform an object on a motion path through a lattice: round the object (-oc on) or round the path. Returns the flow node, then the ffd, the lattice and its base. -q on the flow node or the object reads -dv, -ld, -lc and -oc.
 
-Arguments: the object (the selection when none)
+Arguments: the object (the selection when none); the flow node or the object with -q
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `divisions` | `dv` | Lattice divisions. |
-| `localCompute` | `lc` | Accepted for existing scripts. |
-| `localDivisions` | `ld` | Accepted for existing scripts. |
-| `objectCentered` | `oc` | Accepted for existing scripts. |
+| `divisions` | `dv` | Lattice slices in X, Y and Z (2 5 2). |
+| `localCompute` | `lc` | Local control of the deformation: on for a lattice round the path, off round the object. |
+| `localDivisions` | `ld` | The local region of effect in X, Y and Z (2 2 2). |
+| `objectCentered` | `oc` | Round the object (on); off, round the path. |
+| `query` | `q` | Query mode. |
 
 ## flowLayout
 
@@ -7760,8 +9206,12 @@ Arguments: name
 | Flag | Short | Description |
 | --- | --- | --- |
 | `vertical` | `v` |  |
+| `horizontal` | `hr` |  |
 | `wrap` | `wr` |  |
 | `columnSpacing` | `cs` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -7819,6 +9269,9 @@ Arguments: name
 | `attachNone` | `an` |  |
 | `attachOppositeForm` | `aof` |  |
 | `attachOppositeControl` | `aoc` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -7873,6 +9326,10 @@ Arguments: name
 | `expandCommand` | `ec` |  |
 | `preCollapseCommand` | `pcc` |  |
 | `preExpandCommand` | `pec` |  |
+| `backgroundShade` | `bgs` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -7911,18 +9368,54 @@ Arguments: two edges
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `depth` | `d` | How far the tangents reach (0.5). |
-| `bias` | `bb` | Which way it leans. |
-| `positionTolerance` | `pt` | Accepted for existing scripts. |
-| `tangentTolerance` | `tt` | Accepted for existing scripts. |
+| `depth` | `d` | The curvature across the fillet: how far the tangents reach (0.5). |
+| `bias` | `b` | How the tangents at the two ends are scaled (0.5 alike). |
+| `positionTolerance` | `pt` | How far its edges may stray from the surfaces (0.1): they meet them exactly here. |
+| `tangentTolerance` | `tt` | How far its tangents may stray (0.1): they follow the surfaces exactly here. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## freeze
+
+Freeze nodes: a frozen node ignores changes to its inputs and keeps what it had. The named or selected nodes (-all every node) are frozen directly; -dn, -fd and -up spread it indirectly (frozenAffected). -i takes the nodes under invisible ones, -dl the members of invisible display layers, -f those already frozen. -uf unfreezes, -n only reports. Returns the nodes set, then after an empty string those reached. -q lists frozen, then affected, then the rest.
+
+Arguments: nodes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `allNodes` | `all` | Every node in the scene, when none are named. |
+| `displayLayers` | `dl` | The members of invisible display layers among the nodes. |
+| `downstream` | `dn` | Spread the state downstream, to nodes whose inputs are all frozen. |
+| `forceDownstream` | `fd` | Spread the state downstream, whatever else feeds those nodes. |
+| `frozen` | `f` | Only nodes already frozen: to spread their state. |
+| `invisible` | `i` | The nodes under invisible nodes among the nodes. |
+| `noFreeze` | `n` | Report what would be frozen, changing nothing. |
+| `unfreeze` | `uf` | Unfreeze rather than freeze; with -q, list the unfrozen. |
+| `upstream` | `up` | Spread the state upstream, to nodes only frozen nodes use. |
+| `query` | `q` | Query mode: list nodes by their frozen state. |
+
+## freezeOptions
+
+How the frozen state spreads and what counts as frozen, kept as preferences: -dn and -up none, safe or force, -inv, -dl, -rn, -ep, -rt. -q reads one.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `displayLayers` | `dl` | Nodes in an invisible display layer count as frozen. |
+| `downstream` | `dn` | Downstream: none, safe (all upstream frozen) or force (any upstream frozen). |
+| `explicitPropagation` | `ep` | Spread the state when the graph is built. |
+| `invisible` | `inv` | Invisible nodes count as frozen. |
+| `referencedNodes` | `rn` | Nodes of a frozen reference count as frozen. |
+| `runtimePropagation` | `rt` | Spread the state as the graph evaluates. |
+| `upstream` | `up` | Upstream: none, safe (all downstream frozen) or force (any downstream frozen). |
+| `query` | `q` | Query mode. |
 
 ## freezeTransforms
 
@@ -7935,25 +9428,44 @@ Arguments: objects
 | `normal` | `n` | Accepted for existing scripts. |
 | `preserveNormals` | `pn` | Accepted for existing scripts. |
 | `hierarchy` |  | Freeze everything parented under the objects too. |
-| `jointOrient` |  | Also line joints' axes up with the world, zeroing their orientation. |
 | `apply` | `a` | On: bake into the geometry. Off, when given: back to identity, the object moving. |
 | `translate` | `t` | Freeze translation. |
 | `rotate` | `r` | Freeze rotation. |
 | `scale` | `s` | Freeze scale. |
+| `jointOrient` | `jo` | Joints: their jointOrient is reset so they line up with world space. |
 
 ## geomBind
 
-Recomputes a skinCluster's weights following the surface: -bm 3 (the geodesic voxel method, which runs the heat bind here), -mi, -fo.
+Compute skinClusters' weights following the surface (the geodesic voxel bind, which runs the heat bind here): -fo, -mi, -gvp. Makes a geomBind node holding the settings, connected to the skinClusters; -e on a skinCluster computes again with new ones, -q reads them.
 
-Arguments: skinCluster or skinned mesh
+Arguments: skinClusters or skinned meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `bindMethod` | `bm` | 3 geodesic voxel; 2 heat map; 0 and 1 closest distance and hierarchy. |
-| `falloff` | `fo` | 0 to 1, how far influences reach. |
-| `maxInfluences` | `mi` | Most influences on a point. |
-| `geodesicVoxelParams` | `gvp` | Accepted for existing scripts. |
-| `postVoxelSmooth` | `pvs` | Accepted for existing scripts. |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `bindMethod` | `bm` | 3 geodesic voxel (3), the only method. |
+| `falloff` | `fo` | 0 to 1: the bind's stiffness, how far influences reach. |
+| `maxInfluences` | `mi` | Most influences on a point (-1: all). |
+| `geodesicVoxelParams` | `gvp` | The voxel grid's largest resolution, a power of two (256), and whether to check the voxels after (on). |
+| `postVoxelSmooth` | `pvs` | Smoothing passes after voxelising, held for existing scripts. |
+
+## geomToBBox
+
+Polygon boxes for the selected geometry's world bounds: one per shape, or one per selected hierarchy with -single.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `bakeAnimation` | `ba` | Key the boxes to follow the bounds from -startTime to -endTime by -sampleBy (the time slider's range by default). |
+| `combineMesh` | `cm` | Combine the boxes into one mesh. Not with -single. |
+| `endTime` | `et` | Where baking ends. |
+| `keepOriginal` | `ko` | Keep the selected objects; otherwise they are deleted. |
+| `name` | `n` | The boxes' name. |
+| `nameSuffix` | `ns` | Put after each box's name (_BBox). |
+| `sampleBy` | `sb` | The step between baked samples (1). |
+| `shaderColor` | `sc` | The boxes' lambert colour, 0 to 1 (0.5 0.5 0.5). |
+| `single` | `s` | One box per selected hierarchy. |
+| `startTime` | `st` | Where baking starts. |
 
 ## geometryAttrInfo
 
@@ -7964,6 +9476,12 @@ Arguments: a geometry plug, or a shape
 | Flag | Short | Description |
 | --- | --- | --- |
 | `componentTagExpression` | `cex` | Limit the results to what the expression names. |
+| `groupId` | `gid` | Limit the results to the components of this group. |
+| `plugChain` | `pch` | The plugs upstream of this one the geometry came through, inputs and outputs. |
+| `outputPlugChain` | `och` | The output plugs upstream of this one the geometry came through. |
+| `componentTagHash` | `hsh` | A hash of the tags' state: it changes when tags are added, removed, renamed or change components. |
+| `componentTagHistory` | `cth` | Each tag, then the node it was added at. |
+| `componentTagHistoryHash` | `chh` | A hash of the tags' history: it changes when other nodes make them or they change. |
 | `componentTagNames` | `cnm` | The tags' names. |
 | `componentTagCategory` | `ccy` | v, e, f, or unknown. |
 | `components` | `cmp` | The components. |
@@ -8006,6 +9524,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -8032,6 +9555,7 @@ Arguments: plug
 | `expandEnvironmentVariables` | `x` | Accepted for existing scripts. |
 | `lock` | `l` | Whether it is locked. |
 | `multiIndices` | `mi` | The element indices of a multi attribute. |
+| `caching` | `ca` | Whether the attribute is set to be cached (on unless setAttr -caching turned it off). |
 
 ## getChain
 
@@ -8128,6 +9652,7 @@ Arguments: particles or particle1.pt[0:3]
 | --- | --- | --- |
 | `attribute` | `at` | position, velocity, rgbPP, opacityPP, lifespanPP, age, radiusPP, particleId. |
 | `array` | `a` | Every value. |
+| `object` | `o` | Obsolete: the particle object, when none is named. |
 
 ## getenv
 
@@ -8170,28 +9695,30 @@ Arguments: objects (the selection when none)
 
 ## globalStitch
 
-Stitch a whole set of surfaces: every pair of edges within -ms of each other. Returns the surfaces and nodes.
+Stitch a set of surfaces through a globalStitch node: edges (-se) and corners (-sc) within -ms of each other meet, -lk keeps a surface as it is, -ss 1 lines the CVs up across the edges. Returns the surfaces, then the node. -q and -e on the node or a surface it feeds.
 
-Arguments: surfaces
+Arguments: surfaces; the node or a surface it feeds with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `maxSeparation` | `ms` | How far apart edges may be (0.1). |
-| `lockSurface` | `lk` | Accepted for existing scripts. |
-| `modificationResistance` | `mr` | Accepted for existing scripts. |
-| `sampling` | `sam` | Accepted for existing scripts. |
-| `stitchCorners` | `sc` | Accepted for existing scripts. |
-| `stitchEdges` | `se` | Accepted for existing scripts. |
-| `stitchPartialEdges` | `spe` | Accepted for existing scripts. |
-| `stitchSmoothness` | `ss` | Accepted for existing scripts. |
+| `maxSeparation` | `ms` | The widest gap still stitched (0.1). |
+| `lockSurface` | `lk` | Keep the surface at this index as it is (off). One per surface, in order. |
+| `modificationResistance` | `mr` | How much the CVs resist moving (0.1). |
+| `sampling` | `sam` | How finely edges are sampled (1). |
+| `stitchCorners` | `sc` | 0 off, 1 closest point (1), 2 closest knot. |
+| `stitchEdges` | `se` | 0 off, 1 closest point (1), 2 matching parameters. |
+| `stitchPartialEdges` | `spe` | Stitch edges only partly within reach, where they are (off). |
+| `stitchSmoothness` | `ss` | 0 off (0), 1 tangent, 2 normal. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## gotoBindPose
 
@@ -8321,6 +9848,9 @@ Arguments: name
 | `columnsResizable` | `cr` |  |
 | `position` | `pos` |  |
 | `gridOrder` | `go` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -8388,6 +9918,10 @@ Arguments: CVs (the selection when none)
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## haroldExportHss
 
@@ -8446,7 +9980,7 @@ Arguments: message
 | `time` | `t` |  |
 | `uvTextureEditor` | `uve` |  |
 | `verticalOffset` | `vo` |  |
-| `horizontalOffset` | `hoo` |  |
+| `horizontalOffset` | `ho` |  |
 | `viewport` | `vp` |  |
 
 ## help
@@ -8477,10 +10011,12 @@ Arguments: objects
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `clearSelection` | `cs` | Accepted for existing scripts. |
+| `clearSelection` | `cs` | Clear the selection afterwards. |
 | `returnHidden` | `rh` | Return what was hidden. |
 | `invertComponents` | `ic` | Accepted for existing scripts. |
-| `testVisibility` | `tv` | Whether they are hidden, changing nothing. |
+| `testVisibility` | `tv` | Change nothing: 1 when they are all hidden, 2 all visible, 3 some of each. |
+| `clearLastHidden` | `clh` | Forget what was hidden last: the caller keeps its own list for showing them again. |
+| `allObjects` | `all` | Hide every top level object. |
 
 ## hikBake
 
@@ -8834,6 +10370,8 @@ Arguments: control x y
 
 Bind a key: -k the key, -alt -ctl -sht modifiers, -n the name command for press, -rn for release.
 
+Arguments: key, when querying
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Ask what the key is bound to: -n for press, -rn for release. |
@@ -8844,9 +10382,9 @@ Bind a key: -k the key, -alt -ctl -sht modifiers, -n the name command for press,
 | `name` | `n` | The name command for press. |
 | `releaseName` | `rn` | The name command for release. |
 | `commandModifier` | `cmd` | With Command: as Ctrl here. |
-| `ctxClient` | `ctc` | Binds in one editor's context: held, not bound in the views. |
+| `ctxClient` | `cc` | The hotkey context the binding is in (the global one when none); bindings in an editor's context are kept, not bound in the views. |
 | `dragPress` | `dp` | Accepted; has no effect. |
-| `isModifier` | `ism` | Accepted; has no effect. |
+| `isModifier` | `mod` | Obsolete in the reference; accepted, has no effect. |
 | `pressCommandRepeat` | `pcr` | Accepted; has no effect. |
 | `releaseCommandRepeat` | `rcr` | Accepted; has no effect. |
 | `autoSave` | `as` | Accepted: bindings are saved as they are made. |
@@ -8899,6 +10437,7 @@ Arguments: name
 | `hotkeySetArray` | `hsa` | With -q: every set. |
 | `import` | `ip` | Runs a hotkey set file. |
 | `export` | `ep` | Writes the bound keys as a hotkey set file. |
+| `rename` | `re` | With -e: the set's new name; white space becomes underscores. |
 | `ip` |  | Accepted for older files. |
 | `edit` | `e` | Change a set. |
 | `query` | `q` | Read. |
@@ -9244,6 +10783,10 @@ Arguments: start and end joints (the selection when -sj/-ee are not given), or t
 | `snapHandleToEffector` | `see` | Put the handle at the end joint now. |
 | `sticky` | `s` | off or sticky. |
 | `forceSolver` | `fs` | Run the solver every time. |
+| `connectEffector` | `ce` | The effector's translate follows the end joint's (on). |
+| `createRootAxis` | `cra` | Spline IK: a transform above the chain's start, so a motion path can't flip the root (off). |
+| `freezeJoints` | `fj` | Spline IK with -c: the curve is reshaped through the chain, rather than the joints moving onto it. |
+| `setupForRPsolver` | `srp` | Edit, RP solver: take the pole vector from the chain as it is, so it doesn't move. |
 | `exists` | `ex` | Whether a handle of this name exists. |
 | `edit` | `e` | Change a handle. |
 | `query` | `q` | Ask about a handle. |
@@ -9355,7 +10898,12 @@ Scene wide IK: -e -sol 0 stops every handle solving, -e -sn 0 stops handles snap
 | --- | --- | --- |
 | `solve` | `sol` | Whether any IK solves. |
 | `snap` | `sn` | Whether handles snap to their effectors. |
-| `listSolvers` | `ls` | Query: the solver nodes. |
+| `allowRotation` | `ar` | Whether a handle keyed on translation may be rotated. |
+| `list` | `ls` | Query: the solvers in the order they run. Edit: move the solver at one place to another (from 0). |
+| `solverTypes` | `st` | Query: the solver types there are. |
+| `autoPriority` | `ap` | Edit: set every handle's priority from its depth in the hierarchy. |
+| `autoPrioritySC` | `aps` | Edit: the same for the single chain handles (RP and SC solvers). |
+| `autoPriorityMC` | `apm` | Edit: the same for the other handles. |
 | `edit` | `e` | Change the settings. |
 | `query` | `q` | Ask about the settings. |
 
@@ -9378,6 +10926,23 @@ Held for scripts: how IK/FK blending shows on a selected handle, -d none, ik, fk
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
 | `display` | `d` | none, ik, fk or ikfk. |
+
+## illustratorCurves
+
+NURBS curves from an Illustrator file's paths, grouped. Returns the group and the illustratorCurves node.
+
+Arguments: [node]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `caching` | `cch` | Keep the node's results so they are not computed again. |
+| `constructionHistory` | `ch` | Make the illustratorCurves node (on). |
+| `illustratorFilename` | `ifn` | The Illustrator file. |
+| `nodeState` | `nds` | 0 normal, 1 has no effect, 2 blocking. |
+| `object` | `o` | Make the curves (on); off makes only the node. |
+| `tolerance` | `tl` | Contiguous CVs closer than this snap together (0.001). |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
 
 ## image
 
@@ -9433,6 +10998,17 @@ Arguments: image plane
 | `showInAllViews` | `sia` | Shown in every view, not only looking through its camera. |
 | `lookThrough` | `lt` | The camera it is shown on, by name. |
 | `detach` | `d` | Free it from its camera. |
+| `imageSize` | `iz` | Query: the picture's width and height in pixels. |
+| `quickTime` | `qt` | Query: whether the picture is a movie. |
+| `timeCodeTrack` | `tt` | Query: whether the movie has a timecode track. |
+| `timeCode` | `tc` | Query: the timecode, as a frame count. |
+| `counter` | `cn` | Query: whether the timecode is a frame count rather than hours, minutes, seconds and frames. |
+| `numFrames` | `nf` | Query: the timecode format's whole frames per second. |
+| `timeScale` | `ts` | Query: the timecode format's time scale. |
+| `frameDuration` | `fd` | Query: the timecode format's frame duration. |
+| `dropFrame` | `df` | Query: the timecode format's drop frame flag. |
+| `negTimesOK` | `nt` | Query: the timecode format's negative times flag. |
+| `twentyFourHourMax` | `tf` | Query: the timecode format's 24 hour maximum flag. |
 | `edit` | `e` | Change one. |
 | `query` | `q` | Read one. |
 
@@ -9492,7 +11068,7 @@ Arguments: path
 
 ## inViewMessage
 
-A message that fades in the view: -amg assist message, -msg, -pos, -fade.
+A message over the active view: -amg, -msg or -smg the text (HTML allowed), -pos where, -fade to fade after -fit, -fst and -fot milliseconds; -ck and -dk delete it on a click or a drag. -cl position clears the message there; -hd, -sh, -min and -res hide, show, minimize and restore every message.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -9506,17 +11082,19 @@ A message that fades in the view: -amg assist message, -msg, -pos, -fade.
 | `alpha` | `a` |  |
 | `backColor` | `bkc` |  |
 | `textAlpha` | `ta` |  |
-| `textOffset` | `to` |  |
-| `frameOffset` | `fo` |  |
-| `font` | `fn` |  |
-| `clear` | `clr` |  |
+| `textOffset` | `tof` |  |
+| `frameOffset` | `fof` |  |
+| `font` | `ft` |  |
+| `fontSize` | `fts` |  |
+| `clear` | `cl` |  |
 | `fade` | `f` |  |
+| `clickKill` | `ck` |  |
 | `dragKill` | `dk` |  |
+| `hide` | `hd` |  |
+| `show` | `sh` |  |
 | `minimize` | `min` |  |
-| `restore` | `rst` |  |
+| `restore` | `res` |  |
 | `uvEditor` | `uv` |  |
-| `query` | `q` |  |
-| `edit` | `e` |  |
 
 ## inheritTransform
 
@@ -9529,7 +11107,8 @@ Arguments: objects
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
 | `toggle` | `tgl` | Toggle (what it does anyway). |
-| `on` | `on` | Set on or off. |
+| `on` | `on` | Turn inheriting on. |
+| `off` | `off` | Turn inheriting off: the object acts as if under the world. |
 | `preserve` | `p` | Keep the world position. |
 
 ## insertJoint
@@ -9593,6 +11172,11 @@ Arguments: curves (the selection when none)
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `curveOnSurface` | `cos` | Make a curve on a surface where the input is one; curves here are 3D, so the result is too. |
 
 ## insertKnotSurface
 
@@ -9612,6 +11196,10 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## instance
 
@@ -9795,6 +11383,7 @@ Arguments: name
 | `minValue` | `min` |  |
 | `maxValue` | `max` |  |
 | `step` | `s` |  |
+| `largeStep` | `ls` |  |
 | `horizontal` | `hr` |  |
 | `changeCommand` | `cc` |  |
 | `dragCommand` | `dc` |  |
@@ -9978,16 +11567,18 @@ Arguments: two surfaces
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `curveOnSurface` | `cos` | As curves on the first surface. |
-| `firstSurface` | `fs` | Accepted for existing scripts. |
+| `curveOnSurface` | `cos` | As curves on the surfaces. |
+| `firstSurface` | `fs` | With -cos: on the first surface only (off: on both). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## invertSelection
 
@@ -10058,6 +11649,7 @@ Arguments: [name]
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `pythonModule` | `pym` |  |
 | `byName` | `bn` |  |
 | `byType` | `bt` |  |
 | `byBin` | `bk` |  |
@@ -10079,6 +11671,54 @@ Arguments: [name]
 | `text` | `t` |  |
 | `uniqueNodeNames` | `unn` |  |
 | `exists` | `ex` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## itemFilterAttr
+
+A named test of attributes for editors and lsThroughFilter: -byName, -byNameString, -byScript, -keyable, -hidden, -hasCurve and the rest, -union, -intersect, -negate.
+
+Arguments: [name]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `byName` | `bn` |  |
+| `byNameString` | `bns` |  |
+| `byScript` | `bs` |  |
+| `secondScript` | `ss` |  |
+| `classification` | `cls` |  |
+| `dynamic` | `dy` |  |
+| `exists` | `ex` |  |
+| `hasCurve` | `hc` |  |
+| `hasDrivenKey` | `hdk` |  |
+| `hasExpression` | `he` |  |
+| `hidden` | `h` |  |
+| `intersect` | `in` |  |
+| `keyable` | `k` |  |
+| `listBuiltInFilters` | `lbf` |  |
+| `listOtherFilters` | `lof` |  |
+| `listUserFilters` | `luf` |  |
+| `negate` | `neg` |  |
+| `parent` | `p` |  |
+| `published` | `pub` |  |
+| `readable` | `r` |  |
+| `scaleRotateTranslate` | `srt` |  |
+| `text` | `t` |  |
+| `union` | `un` |  |
+| `writable` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## itemFilterType
+
+What kind a filter is (-q -type: itemFilter, attributeFilter, renderFilter or unknownFilter) and its note (-text).
+
+Arguments: filter
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `text` | `t` |  |
+| `type` | `typ` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
@@ -10132,8 +11772,10 @@ Arguments: joints (edit and query)
 | `assumePreferredAngles` | `apa` | Set rotate to the preferred angle. |
 | `setPreferredAngles` | `spa` | Set the preferred angle to rotate. |
 | `orientJoint` | `oj` | Aim axis order, xyz, yzx... or none. |
+| `autoOrientSecondaryAxis` | `aos` | With -oj and -sao: the second axis square to the plane of the joint, its parent and child, on the side -sao names. |
 | `secondaryAxisOrient` | `sao` | Where the second axis points, yup, zup, xdown... |
 | `children` | `ch` | Edit: the joints below too. |
+| `automaticLimits` | `al` | Make a joint between one parent and one child joint, off the line between them and square to one of its rotation axes, a hinge with limits. |
 | `zeroScaleOrient` | `zso` | Set rotateAxis to zero; jointOrient takes the change. |
 | `symmetry` | `sym` | Also make the joint's mirrored twin, kept mirrored by a symmetryConstraint. |
 | `symmetryAxis` | `sa` | The axes -sym mirrors across: any of x, y and z (x). |
@@ -10155,22 +11797,24 @@ Arguments: joints (edit and query)
 
 ## jointCluster
 
-Record a joint's rigid bind settings on a jointCluster node: -j, -ab, -bb, -av, -bv. Returns the node. It softens nothing here.
+Record a joint's rigid bind settings on a jointCluster node: -j, -ab, -bb, -av, -bv, -adt, -bdt. Returns the node. -q and -e take the node or its joint. It softens nothing here.
 
-Arguments: joint
+Arguments: joint, or with -q and -e the jointCluster
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `joint` | `j` | The joint. |
-| `aboveBound` | `ab` | How far above, percent. |
-| `belowBound` | `bb` | How far below, percent. |
-| `aboveValue` | `av` | Weight above. |
-| `belowValue` | `bv` | Weight below. |
-| `aboveDropoffType` | `adt` | Accepted for existing scripts. |
-| `belowDropoffType` | `bdt` | Accepted for existing scripts. |
-| `aboveCluster` | `ac` | Accepted for existing scripts. |
-| `belowCluster` | `bc` | Accepted for existing scripts. |
-| `deformerTools` | `dt` | Accepted for existing scripts. |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `joint` | `j` | The joint the cluster acts about. |
+| `aboveBound` | `ab` | Where the drop-off starts along the bone above, percent of its length (10). |
+| `belowBound` | `bb` | Where the drop-off ends along the bone below, percent of its length (10). |
+| `aboveValue` | `av` | The drop-off percentage toward the bone above (50). |
+| `belowValue` | `bv` | The drop-off percentage toward the joint below (50). |
+| `aboveDropoffType` | `adt` | The drop-off curve above: linear, exponential, sine or none (linear). |
+| `belowDropoffType` | `bdt` | The drop-off curve below: linear, exponential, sine or none (linear). |
+| `aboveCluster` | `ac` | With -q: the cluster of the bone above, the parent joint's jointCluster. |
+| `belowCluster` | `bc` | With -q: this joint's cluster. |
+| `deformerTools` | `dt` | With -q: the helper nodes, the joint it acts about. |
 | `name` | `n` | The node's name. |
 
 ## jointCtx
@@ -10252,6 +11896,27 @@ Arguments: the lattice (the selection when none); the node with -q and -e
 | `lowerTransform` | `lt` | The transform of the lower part: the joint by default. |
 | `upperBindSkin` | `ub` | Accepted for existing scripts; has no effect. |
 | `lowerBindSkin` | `lb` | Accepted for existing scripts; has no effect. |
+| `after` | `af` | Go after the other flexors on the lattice's points (the default). |
+| `before` | `bf` | Go before the other flexors on the lattice's points. |
+| `frontOfChain` | `foc` | Go at the start of the flexors on the lattice's points. |
+| `afterReference` | `ar` | Go after the others on a referenced lattice, else before them. |
+| `parallel` | `par` | Work alongside the others, from the lattice's own points. |
+| `split` | `sp` | A branch of its own from the lattice's own points. |
+| `exclusive` | `ex` | The partition the node goes into; -q: the partition. |
+| `ignoreSelected` | `is` | Use only the lattice named, not the selection. |
+| `includeHiddenSelections` | `ihs` | Take hidden lattices in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: a flexor makes no sets or tweaks here anyway. |
+| `components` | `cmp` | Query: the lattice points it acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the transforms that drive it. |
+| `dumpInfo` | `dui` | Query: the geometry index, how many points it acts on and how many the lattice has. |
+| `geometryIndices` | `gi` | Query: the index of the lattice it deforms. |
+| `prune` | `pr` | With -e: the lattice points it doesn't move now leave it. |
+| `remove` | `rm` | With -e -g: take the node off the lattice. |
+
+## keyStats
+
+What the Graph Editor's stats fields show: [frame, value] of the selected keys, each blank when the keys differ.
 
 ## keyTangent
 
@@ -10291,6 +11956,7 @@ Arguments: objects, plugs or curves (the selection when none)
 | `selected` | `sl` | Work on the keys selectKey selected. |
 | `stepAttributes` | `sa` | Accepted for existing scripts: step tangents apply to any channel. |
 | `global` | `g` | The default tangents for new keys. |
+| `pluginTangentTypes` | `ptt` | Query: the plug-in tangent types loaded. |
 
 ## keyTimes
 
@@ -10332,6 +11998,7 @@ Arguments: objects, plugs or curves (the selection when none)
 | `lastSelected` | `lsl` | Work on the key selected last. |
 | `adjustBreakdown` | `abd` | Breakdowns keep their place between keys that move (on by default). |
 | `tickDrawSpecial` | `tds` | Query or set the special tick colour of keys. |
+| `clipTime` | `ct` | Offset, pivot and scale applied to where the keys end up. |
 
 ## keyframeOutliner
 
@@ -10341,7 +12008,7 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `animCurve` | `an` |  |
+| `animCurve` | `ac` |  |
 | `display` | `dsp` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
@@ -10554,36 +12221,132 @@ Arguments: [name]
 
 ## keyframeStats
 
-The Graph Editor's stats fields: -q -ta the selected keys' frame, -q -va their value, blank when they differ.
+Script UI: keyframeStats, with create, edit and query as in the reference's command.
 
-Arguments: the control's name, accepted for existing scripts
+Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `query` | `q` | Return the value of the flags named instead of setting them. |
-| `edit` | `e` | Change the flags named. |
-| `timeAnnotation` | `ta` | Query: the time field. |
-| `valueAnnotation` | `va` | Query: the value field. |
-| `precision` | `pre` | Accepted for existing scripts. |
-| `classicMode` | `cm` | Accepted for existing scripts. |
-| `animEditor` | `ae` | Accepted for existing scripts. |
+| `animEditor` | `ae` |  |
+| `precision` | `pre` |  |
+| `autoUnitWidth` | `auw` |  |
+| `timeAnnotation` | `tan` |  |
+| `valueAnnotation` | `van` |  |
+| `columnWidth1` | `cw1` |  |
+| `columnAlign1` | `cl1` |  |
+| `columnAttach1` | `ct1` |  |
+| `columnOffset1` | `co1` |  |
+| `columnWidth2` | `cw2` |  |
+| `columnAlign2` | `cl2` |  |
+| `columnAttach2` | `ct2` |  |
+| `columnOffset2` | `co2` |  |
+| `adjustableColumn2` | `ad2` |  |
+| `columnWidth3` | `cw3` |  |
+| `columnAlign3` | `cl3` |  |
+| `columnAttach3` | `ct3` |  |
+| `columnOffset3` | `co3` |  |
+| `adjustableColumn3` | `ad3` |  |
+| `columnWidth4` | `cw4` |  |
+| `columnAlign4` | `cl4` |  |
+| `columnAttach4` | `ct4` |  |
+| `columnOffset4` | `co4` |  |
+| `adjustableColumn4` | `ad4` |  |
+| `columnWidth5` | `cw5` |  |
+| `columnAlign5` | `cl5` |  |
+| `columnAttach5` | `ct5` |  |
+| `columnOffset5` | `co5` |  |
+| `adjustableColumn5` | `ad5` |  |
+| `columnWidth6` | `cw6` |  |
+| `columnAlign6` | `cl6` |  |
+| `columnAttach6` | `ct6` |  |
+| `columnOffset6` | `co6` |  |
+| `adjustableColumn6` | `ad6` |  |
+| `adjustableColumn` | `adj` |  |
+| `columnWidth` | `cw` |  |
+| `columnAlign` | `cal` |  |
+| `columnAttach` | `cat` |  |
+| `rowAttach` | `rat` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## keyingGroup
 
-A set of objects keyed together: -n, -em empty; -e -add and -rm change it; -q lists it.
+A keying group: objects (and groups inside it) keyed as one. Keying an activator (-act) keys the group when the global filter (-fil) lets its category (-cat) through. The set flags work as the sets command's. Returns its name; -q lists it.
 
-Arguments: objects
+Arguments: objects; the group with -e and -q
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
-| `name` | `n` | The set's name. |
+| `name` | `n` | The group's name. |
 | `empty` | `em` | Make it empty. |
+| `activator` | `act` | With -e: the selected nodes become activators; -q lists them. |
+| `removeActivator` | `rac` | With -e: the selected nodes stop being activators. |
+| `category` | `cat` | The category the active filter matches. |
+| `setActiveFilter` | `fil` | AllKeyingGroups (the default), NoKeyingGroups, or the category whose groups are active. |
+| `minimizeRotation` | `mr` | Keys on the group's rotations take the shortest way. |
+| `excludeDynamic` | `ed` | Made without dynamic attributes. |
+| `excludeRotate` | `er` | Made without rotate channels. |
+| `excludeScale` | `es` | Made without scale channels. |
+| `excludeTranslate` | `et` | Made without translate channels. |
+| `excludeVisibility` | `ev` | Made without visibility. |
 | `addElement` | `add` | With -e: what to add. |
-| `include` | `in` | With -e: what to add. |
+| `include` | `in` | With -e: what to add, with a warning for what can't go in. |
+| `forceElement` | `fe` | With -e: what to add, taken from any other set of its partition. |
 | `remove` | `rm` | With -e: what to remove. |
-| `minimizeRotation` | `mr` | Accepted for existing scripts. |
+| `clear` | `cl` | With -e: empty the group. |
+| `flatten` | `fl` | With -e: groups inside give it their members. |
+| `anyMember` | `am` | Whether any of the items is in the group. |
+| `isMember` | `im` | Whether all the items are in the group. |
+| `union` | `un` | The members of this group and the others. |
+| `intersection` | `int` | The members this group shares with the others. |
+| `subtract` | `sub` | The members of this group not in the others. |
+| `isIntersecting` | `ii` | Whether this group shares members with the others. |
+| `copy` | `cp` | A new group holding this one's members. |
+| `split` | `sp` | The items leave this group for a new one. |
+| `text` | `t` | A note kept with the group. |
+| `size` | `s` | Query: how many members. |
+| `nodesOnly` | `no` | Query: each node once. |
+| `ordered` | `o` | Members in the order they were added. |
+| `noIntermediate` | `ni` | Leave out intermediate objects. |
+| `noWarnings` | `nw` | No warnings for items that can't be added. |
+| `afterFilters` | `af` | With -e on a deformer's set: change the set, not what the deformer acts on. |
+| `channelSetColor` | `csc` | Its dope sheet colour, used when its colour index is -1. |
+| `channelSetColorIndex` | `coi` | Its dope sheet colour by index; -1 uses -channelSetColor. |
+| `color` | `co` | Highlight colour, -1 to 7. |
+| `edges` | `eg` | Edges only. |
+| `editPoints` | `ep` | Edit points only. |
+| `facets` | `fc` | Faces only. |
+| `vertices` | `v` | Vertices only. |
+| `renderable` | `r` | Renderable. |
+| `noSurfaceShader` | `nss` | With -r: no default surface shader. |
+| `layer` | `l` | Obsolete. |
 
 ## lassoContext
 
@@ -10621,20 +12384,49 @@ Arguments: meshes or vertices (the selection when none); the ffd or lattice with
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 | `divisions` | `dv` | Control points in S, T and U (2 2 2). |
 | `ldivisions` | `ldv` | Local influence in S, T and U: how many control points move a point (2 2 2). |
 | `objectCentered` | `oc` | Fit the lattice round the geometry (on). Off, a unit lattice at the origin. |
 | `outsideLattice` | `ol` | 0 only points inside deform, 1 all of them, 2 falling off with distance. |
-| `outsideFalloffDist` | `ofd` | With -ol 2: how far the effect reaches, in lattice widths. |
+| `outsideFalloffDistance` | `ofd` | With -ol 2: how far the effect reaches, in lattice widths. |
+| `outsideFalloffDist` |  | The same as -outsideFalloffDistance. |
+| `minimumSize` | `mns` | With -oc: the least length of a side, so flat geometry gets a lattice with depth. |
+| `commonParent` | `cp` | Group the lattice and its base under one transform. |
+| `dualBase` | `db` | Make a second base lattice beside the first, as flexors use (off). |
 | `freezeMapping` | `fm` | Hold each point's place in the lattice from now on, wherever it goes. |
 | `position` | `pos` | Where to put the lattice. |
 | `rotation` | `ro` | Rotation of the lattice, degrees. |
 | `scale` | `s` | Size of the lattice. |
 | `remap` | `rmp` | With -e: take the frozen mapping again from where the points are now. |
 | `resetLattice` | `rl` | With -e: put the control points back on the regular grid. |
-| `latticeReset` | `ltr` | With -e: the same as -resetLattice. |
-| `removeTweaks` | `rt` | With -e: the same as -resetLattice. |
-| `geometry` | `g` | Query: the deformed shapes. |
+| `latticeReset` | `lr` | With -e: the lattice back on its base, points and placement, undoing its deformation. |
+| `removeTweaks` | `rt` | With -e: the control points back on the grid; the lattice's move, turn and scale stay. |
+
+## launch
+
+Open a web page, movie, PDF or folder in the system's application for it.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `directory` | `dir` | A folder. |
+| `movie` | `mov` | A movie: .mpg, .mpeg, .mp4, .wmv, .mov or .qt. |
+| `pdfFile` | `pdf` | A PDF document. |
+| `webPage` | `web` | A web page. |
 
 ## layerButton
 
@@ -10646,7 +12438,7 @@ Arguments: name
 | --- | --- | --- |
 | `label` | `l` |  |
 | `name` | `n` |  |
-| `changedCommand` | `cc` |  |
+| `changeCommand` | `cc` |  |
 | `color` | `cl` |  |
 | `command` | `c` |  |
 | `current` | `cr` |  |
@@ -10654,7 +12446,7 @@ Arguments: name
 | `hideOnPlaybackCommand` | `hpc` |  |
 | `identification` | `id` |  |
 | `labelWidth` | `lw` |  |
-| `layerHideOnPlayback` | `lhp` |  |
+| `layerHideOnPlayback` | `hp` |  |
 | `layerState` | `ls` |  |
 | `layerVisible` | `lv` |  |
 | `renameCommand` | `rc` |  |
@@ -10744,6 +12536,9 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -10774,6 +12569,25 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## license
+
+The application's version; -showProductInfoDialog shows the About box. The other flags are obsolete.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `borrow` | `b` | Obsolete. |
+| `info` | `i` | Obsolete. |
+| `isBorrowed` | `ib` | Obsolete. |
+| `isExported` | `ie` | Obsolete. |
+| `isTrial` | `it` | Obsolete. |
+| `licenseMethod` | `lm` | Obsolete. |
+| `productChoice` | `pc` | Obsolete. |
+| `return` | `r` | Obsolete. |
+| `showBorrowInfo` | `sbi` | Obsolete. |
+| `showProductInfoDialog` | `spi` | Show the About box. |
+| `status` | `s` | Obsolete. |
+| `usage` | `u` | Obsolete. |
+
 ## lightlink
 
 Make, break and query which lights light which objects: -l lights -o objects, -m, -b, -q. With both and no mode it makes; with one it queries.
@@ -10795,6 +12609,30 @@ Arguments: lights and objects
 | `useActiveLights` | `ual` | Use the selected lights. |
 | `useActiveObjects` | `uao` | Use the selected objects. |
 
+## linearPrecision
+
+How many digits after the point linear fields show, 0 to 6 (more is taken as 6). Query: how many.
+
+Arguments: digits
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+
+## listAnimatable
+
+The animatable (keyable) attributes of the objects named or selected and the shapes under them, as full plug paths; -typ their node types instead; -m and -mh only those the current manipulator moves.
+
+Arguments: [objects]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `active` | `act` | Obsolete. |
+| `manip` | `m` | Only what the current manipulator moves. |
+| `manipHandle` | `mh` | Only what the current manipulator handle moves. |
+| `shape` | `s` | Obsolete. |
+| `type` | `typ` | Node types instead of attributes. |
+
 ## listAttr
 
 Attribute names of a node.
@@ -10806,7 +12644,7 @@ Arguments: object
 | `keyable` | `k` | Only keyable. |
 | `unlocked` | `u` | Only unlocked. |
 | `connectable` | `c` | Only connectable. |
-| `settable` | `s` | Only settable. |
+| `settable` | `se` | Only settable. |
 | `multi` | `m` | Only multi attributes, with their elements. |
 | `userDefined` | `ud` | Only added ones. |
 | `locked` | `l` | Only locked. |
@@ -10816,7 +12654,7 @@ Arguments: object
 | `visible` | `v` | Only visible. |
 | `leaf` | `lf` | Only leaves of compounds. |
 | `scalarAndArray` | `sa` | Only scalars and arrays of them. |
-| `scalar` | `sc` | Only scalars. |
+| `scalar` | `s` | Only scalars. |
 | `shortNames` | `sn` | Short names. |
 | `array` | `a` | Only arrays. |
 | `output` | `o` | Only outputs. |
@@ -10824,6 +12662,15 @@ Arguments: object
 | `inUse` | `iu` | Accepted for existing scripts. |
 | `changedSinceFileOpen` | `cfo` | Accepted for existing scripts. |
 | `nodeName` | `nn` | Accepted for existing scripts. |
+| `caching` | `ca` | Only attributes cached internally. |
+| `extension` | `ex` | Only extension attributes, shared by every node of the type. |
+| `fromPlugin` | `fp` | Only attributes a plug-in made. |
+| `hasNullData` | `hnd` | Only attributes whose data was never given: a string with no value, data not yet made. |
+| `ramp` | `ra` | Only ramp attributes. |
+| `readOnly` | `ro` | Only attributes that read but can't be written. |
+| `usedAsFilename` | `uf` | Only attributes that hold file names. |
+| `fullNodeName` | `fnn` | Each name with the node's full name before it. |
+| `attributeType` | `at` | Only attributes of this type (double, float3, message...), or these. |
 | `string` | `st` | Only names matching this pattern, or these. |
 | `category` | `ct` | Accepted for existing scripts. |
 
@@ -10852,6 +12699,7 @@ Arguments: objects or plugs
 | `shapes` | `sh` | A connected shape is named, not its transform. |
 | `skipConversionNodes` | `scn` | Report what is beyond unitConversion nodes. |
 | `type` | `t` | Only nodes of this type. |
+| `fullNodeName` | `fnn` | Nodes by their full DAG paths. |
 
 ## listDisplayLayers
 
@@ -10869,6 +12717,18 @@ Arguments: objects
 | `pruneDagObjects` | `pdo` | Leave out shapes and transforms: only the history nodes. |
 | `future` | `f` | The nodes downstream instead: what the object feeds. |
 | `allConnections` | `ac` | Walk every connection, through transforms as well. |
+| `allFuture` | `af` | With -f: all of the future; otherwise a shape whose output geometry is connected gives only what is downstream of that. |
+| `allGraphs` | `ag` | Obsolete in the reference: no effect. |
+| `breadthFirst` | `bf` | Nearest nodes first; otherwise each branch is followed to its end first. |
+| `fastIteration` | `fi` | The faster walk for nodes with many connections: the same results here. |
+| `fullNodeName` | `fnn` | Nodes by their full DAG paths. |
+| `groupLevels` | `gl` | The nodes level by level: each level's nodes together, nearest level first. |
+| `interestLevel` | `il` | Only nodes whose isHistoricallyInteresting is at least this: 0 for everyone, 1 for TDs, 2 for users. |
+| `leaf` | `lf` | For a transform, the history of its shape (on); off, of the transform itself. |
+| `futureLocalAttr` | `fl` | With -q: the shape's attribute its local-space future comes from. |
+| `futureWorldAttr` | `fw` | With -q: the shape's attribute its world-space future comes from. |
+| `historyAttr` | `ha` | With -q: the shape's attribute its history connects to. |
+| `query` | `q` | Query mode. |
 | `levels` | `lv` | How many connections out to go; 0 for no limit. |
 
 ## listLights
@@ -10889,6 +12749,10 @@ Arguments: classification
 | Flag | Short | Description |
 | --- | --- | --- |
 | `exclude` | `ex` | A classification to leave out. |
+
+## listNodesWithIncorrectNames
+
+Print the nodes whose names aren't valid to the Script Editor.
 
 ## listRelatives
 
@@ -10921,6 +12785,16 @@ Every object set's name in creation order. quickSelect=True lists only quick sel
 | `allSets` | `as` | Every set, rendering sets too. |
 | `extendToShape` | `ets` | With -object: a transform stands for its shapes. |
 
+## loadModule
+
+Modules added since start-up: -scan lists module files not yet read, -load file reads one, -allModules reads every one -scan finds. Returns the files, or the modules read.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `allModules` | `a` | Read every module file not read yet. |
+| `load` | `ld` | Read this module definition file. |
+| `scan` | `sc` | List the module files on the module paths not read yet; nothing is read. |
+
 ## loadPlugin
 
 Load a plug-in: a compiled one (.so, .dll) built with Aztek's kit or a Python one (.py), by path or by name from the folders in AZTEK_PLUG_IN_PATH and MAYA_PLUG_IN_PATH. Returns its name in a list.
@@ -10930,6 +12804,15 @@ Arguments: plug-in file or name
 | Flag | Short | Description |
 | --- | --- | --- |
 | `quiet` | `qt` | Don't complain when it can't be found. |
+| `allPlugins` | `a` | Load every plug-in on the plug-in path. |
+| `name` | `n` | The name the plug-in registers under, numbered when it is taken. |
+| `pluginPath` | `pp` | The full path of the plug-in file found, or "" when there is none; nothing loads. |
+| `addCallback` | `ac` | A script run after each plug-in loads, given its name: a MEL global proc taking string $pluginName, or Python (a string with %s, or a callable). |
+| `removeCallback` | `rc` | Take back a script -addCallback gave. |
+
+## loadPrefObjects
+
+Read the preference nodes in userPrefObjects.ma in the preferences folder, if it is there. Returns whether it was read.
 
 ## lockNode
 
@@ -10961,10 +12844,18 @@ Arguments: curves in order (the selection when none)
 | `degree` | `d` | Degree across the curves, 1 to 3 (3). |
 | `sectionSpans` | `ss` | Spans between each pair of curves (1). |
 | `reverseSurfaceNormals` | `rsn` | Flip the normals. |
+| `reverse` | `r` | Per curve, in order: turn it round first, when -ar is off. Repeat it. |
+| `createCusp` | `cc` | Per curve, in order: a tangent break in the surface at that section. Repeat it. |
+| `rebuild` | `rb` | Rebuild the curves first, each through a rebuildCurve node. |
+| `object` | `o` | Make the surface (on); off, only the node. |
 | `polygon` | `po` | 0 NURBS (the default), 1 polygons. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## lookThru
 
@@ -10992,7 +12883,7 @@ Arguments: names or patterns
 | `flatten` | `fl` | Components one per item. |
 | `long` | `l` | Full DAG paths. |
 | `shortNames` | `sn` | Shortest unique names (the default). |
-| `type` | `typ` | Only nodes of this type or derived; a list of types too. |
+| `type` | `typ` | Only nodes of this type or derived; several -typ for several types. |
 | `exactType` | `et` | Only nodes of exactly this type. |
 | `dag` | `dag` | Only DAG nodes; with names or -sl, the DAG nodes below them too. |
 | `referencedNodes` | `rn` | Only nodes from references. |
@@ -11022,6 +12913,30 @@ Arguments: names or patterns
 | `head` | `hd` | Only the first n. |
 | `tail` | `tl` | Only the last n. |
 | `uuid` | `uid` | UUIDs rather than names. |
+| `absoluteName` | `an` | With -showNamespace: namespaces from the root, :a:b. |
+| `allPaths` | `ap` | Every path to an instanced shape, with -dag or names. |
+| `containerType` | `ct` | Only containers of this type; several -ct for several. |
+| `containers` | `con` | Only containers. |
+| `dependencyNodes` | `dep` | Dependency nodes, DAG ones included (every node). |
+| `excludeType` | `ext` | Leave out nodes of this type or derived; several -ext for several. |
+| `ghost` | `gh` | Only ghosted objects. |
+| `live` | `lv` | Only the live objects. |
+| `modified` | `mod` | Only nodes changed since the scene was last opened, saved or made new. |
+| `orderedComponentSelection` | `ocs` | With -sl: components together by their object. |
+| `partitions` | `pr` | Only partitions. |
+| `persistentNodes` | `pn` | The nodes a new scene keeps: item filters and the like. |
+| `planes` | `pl` | Only construction planes. |
+| `preSelectHilite` | `psh` | The components hilited for pre-selection. |
+| `recursive` | `r` | Names match in every namespace. |
+| `references` | `rf` | Only reference nodes of files. |
+| `renderGlobals` | `rg` | Only render settings nodes. |
+| `renderQualities` | `rq` | Only render quality nodes. |
+| `renderResolutions` | `rr` | Only resolution nodes. |
+| `renderSetups` | `rs` | As -renderGlobals. |
+| `showNamespace` | `sns` | Each name followed by its namespace. |
+| `templated` | `tm` | Only templated DAG nodes. |
+| `ufeObjects` | `ufe` | With -sl: other objects in the selection as well. |
+| `untemplated` | `ut` | Only DAG nodes that aren't templated. |
 
 ## lsThroughFilter
 
@@ -11074,22 +12989,29 @@ Arguments: objects
 | `normal` | `n` | Accepted for existing scripts. |
 | `preserveNormals` | `pn` | Accepted for existing scripts. |
 | `hierarchy` |  | Freeze everything parented under the objects too. |
-| `jointOrient` |  | Also line joints' axes up with the world, zeroing their orientation. |
 | `apply` | `a` | On: bake into the geometry. Off, when given: back to identity, the object moving. |
 | `translate` | `t` | Freeze translation. |
 | `rotate` | `r` | Freeze rotation. |
 | `scale` | `s` | Freeze scale. |
+| `jointOrient` | `jo` | Joints: their jointOrient is reset so they line up with world space. |
 
 ## makeLive
 
-Make a mesh the live surface: Quad Draw and the snap to live draw on it. -none clears it. -q asks.
+Make meshes the live surface: Quad Draw and the snap to live draw on it. -none clears it; -e -ao adds, -e -ro takes off. Each set made live is remembered in a registry of -registrySize entries, newest first; -registry n makes one live again.
 
 Arguments: meshes (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `none` | `n` | Clear the live surface. |
+| `none` | `n` | Make the live objects dormant. |
+| `addObjects` | `ao` | With -e: add the objects named to the live ones. |
+| `removeObjects` | `ro` | With -e: take the objects named off the live ones. |
+| `registry` | `r` | Make the objects of this registry entry live; with -q, the objects in it. |
+| `registryCount` | `rc` | With -q: how many entries the registry holds. |
+| `registryReset` | `rr` | Empty the registry and put its size back to the default. |
+| `registrySize` | `rs` | The most entries the registry remembers; with -q, that number. |
 | `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
 
 ## makePaintable
 
@@ -11112,27 +13034,42 @@ Arguments: node type and attribute
 
 ## makeSingleSurface
 
-Join surfaces meeting edge to edge into one. Returns [surface].
+Stitch and tessellate: the surfaces as one polygon surface, their edges merged where they meet within -st. Returns [mesh, polyMergeVert node]; -q and -e on either.
 
 Arguments: surfaces
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `stitchTolerance` | `st` | Accepted for existing scripts. |
+| `stitchTolerance` | `st` | How close the edges' points must be to be stitched together (0.1). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## makeUnique
 
 Give instances and references data of their own, so edits to them stop reaching the other members. An instance gets a live copy of its source's stack, a reference its own base mesh; a source hands its data to its first instance and keeps a copy. Returns the meshes changed.
 
 Arguments: meshes
+
+## makebot
+
+Make a block ordered texture (BOT) file of an image, for texture caching. A relative -input is found by the project's rules; a relative -output goes in its source images folder.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `checkdepends` | `c` | Only when the BOT file isn't there or is older than the image. |
+| `checkres` | `r` | Only when the image's width or height is at least this. |
+| `input` | `i` | The image. |
+| `nooverwrite` | `nov` | Where -c or -r would make the BOT file again, leave one that is there. |
+| `output` | `o` | The BOT file. |
+| `verbose` | `v` | Say what it does. |
 
 ## manipMoveContext
 
@@ -11359,6 +13296,26 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## marker
+
+Markers on a motion path's curve at -t (the current time): a position marker (-pm, the default) keys uValue at -u, an orientation marker (-om) keys the twists (-ft, -ut, -st). One of each kind a time. -a and -d attach and detach position markers. Returns the markers; -q reads one.
+
+Arguments: the path curve, or a marker with -q
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Return the value of the flags named instead of setting them. |
+| `edit` | `e` | Change the flags named. |
+| `attach` | `a` | Attach the selected position markers to their curve. |
+| `detach` | `d` | Detach the selected position markers from their curve into 3D space. |
+| `positionMarker` | `pm` | A position marker (the default). |
+| `orientationMarker` | `om` | An orientation marker. |
+| `time` | `t` | The marker's frame (the current one). |
+| `valueU` | `u` | Where the position marker is on the curve (where the path is at that time). |
+| `frontTwist` | `ft` | Turn about the front direction, degrees (0). |
+| `upTwist` | `ut` | Turn about the up direction, degrees (0). |
+| `sideTwist` | `st` | Turn about the side direction, degrees (0). |
+
 ## matchPivot
 
 Copy the first object's pivot onto the others, keeping them where they are. position=False keeps their pivot positions and orient=False their pivot orientations.
@@ -11379,9 +13336,21 @@ Arguments: objects, then the target
 | Flag | Short | Description |
 | --- | --- | --- |
 | `position` | `pos` | Line the pivots up. |
+| `positionX` | `px` | Match the X position. |
+| `positionY` | `py` | Match the Y position. |
+| `positionZ` | `pz` | Match the Z position. |
 | `rotation` | `rot` | Match rotation. |
+| `rotationX` | `rx` | Match the X rotation. |
+| `rotationY` | `ry` | Match the Y rotation. |
+| `rotationZ` | `rz` | Match the Z rotation. |
 | `scale` | `scl` | Match scale. |
-| `pivots` | `piv` | Match the pivots. |
+| `scaleX` | `sx` | Match the X scale. |
+| `scaleY` | `sy` | Match the Y scale. |
+| `scaleZ` | `sz` | Match the Z scale. |
+| `scaleBox` | `box` | Match scaling by the bounding boxes of the objects and their children. |
+| `pivots` | `piv` | Match the rotate and scale pivots to the target's. |
+| `rotatePivot` | `rp` | Match the rotate pivot to the target's. |
+| `scalePivot` | `sp` | Match the scale pivot to the target's. |
 | `positionConstraint` | `pcp` | Accepted for existing scripts. |
 
 ## matrixUtil
@@ -11402,6 +13371,19 @@ Arguments: a matrix: 16 numbers
 | `transpose` | `tp` | The transpose. |
 | `query` | `q` | Query. |
 | `edit` | `e` | Edit. |
+
+## mayaDpiSetting
+
+Interface scaling, from the next start: -m 0 by the system's DPI, 1 by -sv (1, 1.25, 1.5 or 2), 2 none. -q -m, -sv, -rsv (the scale in effect) and -sd (the system DPI).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `mode` | `m` | 0 system DPI, 1 custom, 2 none. |
+| `scaleValue` | `sv` | The custom scale. |
+| `realScaleValue` | `rsv` | The scale in effect. |
+| `systemDpi` | `sd` | The system's DPI. |
 
 ## mayaHIKgetInputCharacter
 
@@ -11592,6 +13574,46 @@ Arguments: file
 
 A proxy shape on a new anonymous layer. Returns the shape.
 
+## melInfo
+
+The names of the global MEL procedures defined now. whatIs gives each one's definition.
+
+## melOptions
+
+Options of the MEL language. -duplicateVariableWarnings: warn, as a script is sourced, of a variable declared twice in one scope.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `duplicateVariableWarnings` | `dvw` | Warn of variables declared twice in one scope, as scripts are sourced (optionVar melDuplicateVariableWarnings). |
+
+## memory
+
+Memory available and in use. Sizes are in bytes unless a unit flag says otherwise; an int past 2147483647 is cut to it.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `asFloat` | `af` | The number as a float, keeping what a unit would round off. |
+| `debug` | `dbg` | Print the arena allocator's statistics, if there is one. |
+| `gigaByte` | `gb` | In gigabytes (1024^3 bytes). |
+| `kiloByte` | `kb` | In kilobytes (1024 bytes). |
+| `megaByte` | `mb` | In megabytes (1024^2 bytes). |
+| `summary` | `sum` | A summary of it all, in megabytes; size flags are ignored. |
+| `adjustedVirtualMemory` | `av` | The process's memory use: its virtual size less what was reserved at launch. |
+| `freeMemory` | `fr` | Free memory. |
+| `heapMemory` | `he` | The heap's size. |
+| `pageFaults` | `pf` | The number of page faults. |
+| `pageReclaims` | `pr` | The number of page reclaims. |
+| `physicalMemory` | `phy` | Physical memory. |
+| `processVirtualMemory` | `pv` | Virtual memory the process has. |
+| `swapFree` | `swf` | Free swap. |
+| `swapLogical` | `swl` | Logical swap: memory committed. |
+| `swapMax` | `swm` | The most swap there can be. |
+| `swapPhysical` | `swp` | Physical swap. |
+| `swapReserved` | `swr` | Reserved swap: swap in use. |
+| `swapVirtual` | `swv` | Virtual swap: the commit limit. |
+| `swaps` | `sw` | The number of swaps. |
+
 ## menu
 
 Script UI: menu, with create, edit and query as in the reference's command.
@@ -11612,7 +13634,8 @@ Arguments: name
 | `mnemonic` | `mn` |  |
 | `ltVersion` | `lt` |  |
 | `version` | `ver` |  |
-| `scrollable` | `scr` |  |
+| `scrollable` | `srb` |  |
+| `helpMenu` | `hm` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -11653,6 +13676,9 @@ Arguments: name
 | `menuArray` | `ma` |  |
 | `menuIndex` | `mi` |  |
 | `numberOfMenus` | `nm` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -11728,6 +13754,10 @@ Arguments: name
 | `allowOptionBoxes` | `aob` |  |
 | `postMenuCommand` | `pmc` |  |
 | `postMenuCommandOnce` | `pmo` |  |
+| `enableCommandRepeat` | `ecr` |  |
+| `header` | `hdr` |  |
+| `longDivider` | `ld` |  |
+| `runTimeCommand` | `rtc` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -11810,6 +13840,16 @@ Arguments: three vertices of a face
 | --- | --- | --- |
 | `intermediate` | `i` | Accepted. |
 
+## mimicManipulation
+
+Do what a manipulator does to plugs, for testing the evaluation manager: -m a JSON {"session": [[{"plug": "node.tx", "value": 1.0}], ...]}, each inner array a transaction. Returns per transaction whether the evaluation manager took it.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `manipulations` | `m` | The manipulations as JSON: a session of transactions, each a list of plug and value. |
+| `prevalidation` | `p` | Check the plugs can go through the evaluation manager before the first transaction (on). |
+| `refresh` | `r` | Evaluate after each transaction (on); evaluation needs it. |
+
 ## mirrorJoint
 
 Mirror a joint and the joints below it across a world plane: a new hierarchy beside the old one. -mb keeps mirrored behaviour (equal rotate values make mirrored motion); without it the new joints keep the old world axes. Returns the new joints.
@@ -11823,6 +13863,22 @@ Arguments: joints
 | `mirrorXZ` | `mxz` | Across the XZ plane. |
 | `mirrorBehavior` | `mb` | Mirror the behaviour, not the orientation. |
 | `searchReplace` | `sr` | Two strings: replace the first with the second in the new names. |
+
+## mlDeformer
+
+The machine learning deformer's utility command, on the mlDeformer named: -reloadModel takes the model again, -exportActive turns export on or off, -vertexDeltas and -vertexFrames give the base's deltas to the target and its point frames, -controlMinimums and -controlMaximums the models' control ranges. -multiIndex picks the geometries.
+
+Arguments: the mlDeformer
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `exportActive` | `exp` | On: pass the base through while exporting; off, deform with the model. |
+| `multiIndex` | `mi` | A geometry of the deformer by its index; repeat it; all when none. |
+| `reloadModel` | `rm` | Take the model again, from the target as it is now. |
+| `vertexDeltas` | `vd` | The deltas from base to target, x y z a point: dbs in the base's point frames, pos, dos, dbp, dop, or auto. |
+| `vertexFrames` | `vf` | The base's point frames now, a 4x4 matrix each, flattened. |
+| `controlMinimums` | `cmn` | The least of each control of the models. |
+| `controlMaximums` | `cmx` | The most of each control of the models. |
 
 ## modelCurrentTimeCtx
 
@@ -11947,6 +14003,8 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `barLayout` | `bl` |  |
@@ -12024,6 +14082,30 @@ Arguments: the object (the selection when none), or the trail
 | `points` | `pts` | Query: the points. |
 | `keyframeTimes` | `kt` | Query: the frames with keys. |
 
+## movIn
+
+Read a .mov file of numbers into animation curves on the attributes named, a row per frame from the current time (or -startTime). Keys there are replaced.
+
+Arguments: attributes
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `file` | `f` | The .mov file; .mov is added to a name without an extension. |
+| `startTime` | `st` | The frame the first row goes on; the current time when not given. |
+
+## movOut
+
+Write the attributes named to a .mov file: a row per frame of the range, values in current units.
+
+Arguments: attributes
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `comment` | `c` | Write the attributes in a comment at the top (false). |
+| `file` | `f` | The .mov file; .mov is added to a name without an extension. |
+| `precision` | `pre` | Digits after the point (6). |
+| `time` | `t` | The range, as "start:end"; the playback range when not given. |
+
 ## move
 
 Move objects. move(by=(x, y, z)) moves relative in `space`; move(to=(x, y, z)) puts each pivot at a world position. A selected parent and child move once. move(x=0) sets one world axis and leaves the others: each selected object's pivot, or with components selected every selected point, so move(x=0) puts an edge loop on the centre line.
@@ -12049,8 +14131,6 @@ Arguments: objects
 | `deletePriorHistory` | `dph` | Accepted for existing scripts. |
 | `xformConstraint` | `xc` | Accepted for existing scripts. |
 | `constrainAlongNormal` | `xn` | Accepted for existing scripts. |
-| `orientJoint` | `oj` | Accepted for existing scripts. |
-| `secondaryAxisOrient` | `sao` | Accepted for existing scripts. |
 | `componentSpace` | `cs` | Accepted for existing scripts. |
 | `componentOffset` | `co` | move -r -co -ls: components moved each in its own space, the first value along its normal. |
 | `x` |  | This axis: a value, or on to read the positional value. |
@@ -12063,6 +14143,19 @@ Arguments: objects
 | `moveXZ` | `xz` | The axes the values are for. |
 | `moveYZ` | `yz` | The axes the values are for. |
 | `moveXYZ` | `xyz` | The axes the values are for. |
+| `orientJoint` | `oj` | Joints moved, and the joint above each, aim along this axis order (xyz...). |
+| `secondaryAxisOrient` | `sao` | With -oj: where the second axis points (yup, zdown...). |
+| `autoOrientSecondaryAxis` | `aos` | With -oj and -sao: the second axis from the plane of the joints around, else -sao alone. |
+| `parameter` | `p` | Move curve points along the curve, in parameter space. |
+| `preserveUV` | `puv` | UVs of the components moved follow, projected along the move. |
+| `reflection` | `rfl` | Move the symmetric components too. |
+| `reflectionAboutBBox` | `rab` | With -rfl: the mirror plane at the middle of the object's bounding box. |
+| `reflectionAboutOrigin` | `rao` | With -rfl: the mirror plane through the origin (the default). |
+| `reflectionAboutX` | `rax` | With -rfl: mirror across X = 0 (the default). |
+| `reflectionAboutY` | `ray` | With -rfl: mirror across Y = 0. |
+| `reflectionAboutZ` | `raz` | With -rfl: mirror across Z = 0. |
+| `reflectionTolerance` | `rft` | With -rfl: how far a point and its mirror image may be apart to pair. |
+| `symNegative` | `smn` | With -rfl: the move is relative to the negative side of the plane. |
 
 ## moveComponents
 
@@ -12140,6 +14233,50 @@ Arguments: vertices (the selection when none)
 | `magnitude` | `m` | How far along it. |
 | `uvNormalDirection` | `uvn` | u, v and normal at once. |
 
+## movieInfo
+
+Facts about a movie file (QuickTime, MPEG-4 or AVI): frames, size, and its timecode track's format.
+
+Arguments: movie file
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `movieTexture` | `mt` | A movie texture node: the movie it has loaded. |
+| `counter` | `cn` | Whether the timecode is a counter: -timeCode is then a frame count rather than hours, minutes, seconds and frames. |
+| `dropFrame` | `df` | The timecode format's drop frame flag. |
+| `frameCount` | `f` | The number of frames. |
+| `frameDuration` | `fd` | The timecode format's frame duration. |
+| `height` | `h` | The height. |
+| `negTimesOK` | `nt` | The timecode format's negative times OK flag. |
+| `numFrames` | `nf` | The timecode format's whole frames per second. |
+| `quickTime` | `qt` | Whether it is a QuickTime movie. |
+| `timeCode` | `tc` | The timecode of the current frame. |
+| `timeCodeTrack` | `tt` | Whether it has a timecode track. |
+| `timeScale` | `ts` | The timecode format's time scale. |
+| `twentyFourHourMax` | `tf` | The timecode format's 24 hour maximum flag. |
+| `width` | `w` | The width. |
+
+## multiProfileBirailSurface
+
+Sweep profiles along two rails, turning from each into the next: profile1 profile2 profile3 ... rail1 rail2, curves or isoparms (surface.u[0.5]). -tp1 -tp2 keep the result tangent to the first and last profile's surface, -tm 1 scales the profiles whole. Returns [surface, node]; -q and -e on the node or the surface.
+
+Arguments: three profiles or more, then two rails (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `tangentContinuityProfile1` | `tp1` | Tangent continuous across the first profile, on its surface (off). |
+| `tangentContinuityProfile2` | `tp2` | Tangent continuous across the last profile, on its surface (off). |
+| `transformMode` | `tm` | 0 non-proportional (0), 1 proportional. |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `range` | `rn` | Accepted for existing scripts. |
+| `name` | `n` | Name of the new object. |
+| `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
 ## mute
 
 Mute channels: they stay at their value while what drives them carries on underneath. -d turns the mute off and -d -f removes the mute node. -q says whether any is muted. Returns the mute nodes.
@@ -12199,10 +14336,23 @@ Arguments: particles (query)
 | `lowerLeft` | `ll` | Grid: one corner. |
 | `upperRight` | `ur` | Grid: the other corner. |
 | `gridSpacing` | `grs` | Grid: spacing. |
-| `conserve` | `c` | Accepted for old scripts. |
+| `conserve` | `c` | How much momentum is kept from frame to frame, 0 to 1 (1). |
+| `inherit` | `i` | How much of an emitter's velocity new particles take, 0 to 1. |
+| `cache` | `ch` | Keep solved frames for scrubbing back (on); off, going back solves again from the start. |
+| `deleteCache` | `dc` | Throw away the frames kept. |
+| `dynamicAttrList` | `dal` | Query: the attributes added to the particles. |
+| `perParticleDouble` | `ppd` | Query: the per particle number attributes. |
+| `perParticleVector` | `ppv` | Query: the per particle vector attributes. |
 | `count` | `ct` | Query: how many. |
-| `attribute` | `at` | Query: a per particle value. |
-| `id` | `id` | Query: which particle. |
+| `attribute` | `at` | A per particle attribute, queried or with -e set. |
+| `particleId` | `id` | The particle by its id, for -attribute. |
+| `order` | `or` | The particle by its place in the array, from 0, for -attribute. |
+| `floatValue` | `fv` | With -e -attribute: a number. |
+| `vectorValue` | `vv` | With -e -attribute: a vector. |
+| `shapeName` | `sn` | The particle shape's name. |
+| `jitterBasePoint` | `jbp` | A centre to scatter particles round: x y z. Repeat it. |
+| `jitterRadius` | `jr` | How far from the centre they scatter, for each -jbp in turn. |
+| `numJitters` | `nj` | How many particles round each -jbp in turn. |
 | `solver` | `sv` | The solver to join. |
 
 ## nameCommand
@@ -12216,6 +14366,10 @@ Arguments: name
 | `command` | `c` | The command. |
 | `annotation` | `ann` | What it does. |
 | `sourceType` | `stp` | mel or python. |
+| `data1` | `da1` | A string of the user's own kept with it. |
+| `data2` | `da2` | A second one. |
+| `data3` | `da3` | A third one. |
+| `default` | `d` | A default name command: not saved with the hotkey set. |
 
 ## namespace
 
@@ -12236,6 +14390,8 @@ Arguments: [namespace]
 | `validateName` | `vn` | As in the reference. |
 | `mergeNamespaceWithRoot` | `mnr` | As in the reference. |
 | `mergeNamespaceWithParent` | `mnp` | As in the reference. |
+| `mergeNamespaceWithOther` | `mno` | As in the reference. |
+| `collapseAncestors` | `ch` | As in the reference. |
 | `deleteNamespaceContent` | `dnc` | As in the reference. |
 | `rename` | `ren` | As in the reference. |
 | `moveNamespace` | `mv` | As in the reference. |
@@ -12263,6 +14419,7 @@ Arguments: [namespace]
 | `parent` | `p` | As in the reference. |
 | `isRootNamespace` | `ir` | As in the reference. |
 | `shortName` | `sn` | As in the reference. |
+| `internal` | `int` | As in the reference. |
 
 ## namingConvention
 
@@ -12508,6 +14665,7 @@ Arguments: object
 | `apiType` | `api` | The API type name. |
 | `derived` | `d` | Types derived from it. |
 | `isTypeName` | `itn` | The argument is a type, not a node. |
+| `ufeRuntimeName` | `urn` | The runtime the object belongs to: Maya-DG for the scene's own nodes, USD for prims of a USD stage. |
 
 ## nonLinear
 
@@ -12517,7 +14675,6 @@ Arguments: meshes (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `name` | `n` | Name of the deformer; its handle takes the name plus Handle. |
 | `type` | `typ` | bend, twist, squash, flare, sine or wave. |
 | `curvature` | `cur` | bend: how far it bends. |
 | `startAngle` | `sa` | twist: degrees at the low bound. |
@@ -12525,6 +14682,34 @@ Arguments: meshes (the selection when none)
 | `factor` | `f` | squash: stretch (positive) or squash (negative). |
 | `amplitude` | `amp` | sine, wave: height of the waves. |
 | `wavelength` | `wav` | sine, wave: length of the waves. |
+| `lowBound` | `lb` | bend, twist, squash, flare, sine: where along the handle the deformation starts (-1). |
+| `highBound` | `hb` | bend, twist, squash, flare, sine: where along the handle it ends (1). |
+| `autoParent` | `ap` | Parent the handle under the one object deformed. |
+| `commonParent` | `cp` | A new transform over the one object deformed and the handle. |
+| `defaultScale` | `ds` | A handle of scale 1, rather than as large as the objects. |
+| `name` | `n` | Name of the deformer. |
+| `before` | `bf` | Go just above the deformer nearest the mesh. |
+| `after` | `af` | Go nearest the mesh, after the other deformers (the default). |
+| `frontOfChain` | `foc` | Go above every other deformer. |
+| `envelope` | `en` | How much of the deformation applies (1). |
+| `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
+| `edit` | `e` | Edit mode. |
+| `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 
 ## normalConstraint
 
@@ -12551,22 +14736,33 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
 ## nurbsBoolean
 
-A boolean of two surfaces, as a polygon mesh: there are no NURBS solids to trim back. -op 0 union, 1 difference, 2 intersection.
+A boolean of two shells of surfaces, as a polygon mesh: there are no NURBS solids to trim back. -op 0 union, 1 difference, 2 intersection; -nsf how many of the surfaces make the first shell. Returns [mesh, polyCBoolOp node]; -q and -e on either.
 
-Arguments: two surfaces
+Arguments: the surfaces of the two shells
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `operation` | `op` | 0 union, 1 difference, 2 intersection. |
-| `smartConnection` | `sc` | Accepted for existing scripts. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
-| `nsrfsInFirstShell` | `nsf` | Accepted for existing scripts. |
-| `name` | `n` | Accepted for existing scripts. |
+| `operation` | `op` | 0 union, 1 difference, 2 intersection (0). |
+| `tolerance` | `tlb` | How closely the surfaces are tessellated to work out the boolean (0.01). |
+| `smartConnection` | `sc` | Look for a boolean already in the surfaces' history (on): this one is made anew. |
+| `constructionHistory` | `ch` | Keep the nodes, so the result follows the surfaces. |
+| `object` | `o` | Make the result (on). |
+| `nsrfsInFirstShell` | `nsf` | How many of the surfaces named make the first shell (1). |
+| `name` | `n` | The result's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## nurbsCopyUVSet
 
@@ -12577,6 +14773,8 @@ Arguments: a surface (the selection when none)
 ## nurbsCube
 
 Create a cube of six NURBS patches under a group, with a makeNurbCube node. Returns [nurbsCube1, makeNurbCube1].
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -12592,6 +14790,10 @@ Create a cube of six NURBS patches under a group, with a makeNurbCube node. Retu
 | `degree` | `d` | The degree (3). |
 | `patchesU` | `u` | Patches along U (1). |
 | `patchesV` | `v` | Patches along V (1). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## nurbsCurveToBezier
 
@@ -12632,6 +14834,8 @@ Arguments: surface.cv[u][v] (the selection when none)
 
 Create a NURBS plane with a makeNurbPlane node. Returns [nurbsPlane1, makeNurbPlane1].
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `axis` | `ax` | The axis (1 0 0). |
@@ -12645,6 +14849,10 @@ Create a NURBS plane with a makeNurbPlane node. Returns [nurbsPlane1, makeNurbPl
 | `degree` | `d` | The degree (3). |
 | `patchesU` | `u` | Patches along U (1). |
 | `patchesV` | `v` | Patches along V (1). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## nurbsSelect
 
@@ -12664,14 +14872,31 @@ Arguments: surfaces (the selection when none)
 
 ## nurbsSquare
 
-Create a square curve (-nr normal, -c centre, -sl1 side). Returns [nurbsSquare1, makeNurbsSquare1].
+Create a square of four curves, one per side, under a group, with a makeNurbsSquare node: -nr normal, -c centre, -sl1 and -sl2 the sides, -d degree, -sps spans per side. Returns [nurbsSquare1, makeNurbsSquare1]. -q and -e read and change the node.
+
+Arguments: the makeNurbsSquare node or the square, with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `normal` | `nr` | The normal. |
-| `center` | `c` | The centre. |
-| `sideLength1` | `sl1` | The side (1). |
-| `name` | `n` | Name of the transform. |
+| `normal` | `nr` | The normal of the square's plane (0 0 1). |
+| `normalX` | `nrx` | The normal's X (0). |
+| `normalY` | `nry` | The normal's Y (0). |
+| `normalZ` | `nrz` | The normal's Z (1). |
+| `center` | `c` | The centre (0 0 0). |
+| `centerX` | `cx` | The centre's X (0). |
+| `centerY` | `cy` | The centre's Y (0). |
+| `centerZ` | `cz` | The centre's Z (0). |
+| `sideLength1` | `sl1` | The length of one side (1). |
+| `sideLength2` | `sl2` | The length of the side next to it, for a rectangle (1). |
+| `spansPerSide` | `sps` | Spans along each side (1). |
+| `degree` | `d` | Degree of each side: 1, 2, 3, 5 or 7 (3). |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `object` | `o` | Make the curves (on); off, only the node. |
+| `name` | `n` | Name of the group. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## nurbsToPoly
 
@@ -12700,8 +14925,45 @@ Arguments: surfaces (the selection when none)
 | `matchRenderTessellation` | `mrt` | Accepted for existing scripts. |
 | `useSurfaceShader` | `uss` | Accepted for existing scripts. |
 | `matchNormalDir` | `mnd` | Accepted for existing scripts. |
+| `explicitTessellationAttributes` | `eta` | On (the default), the advanced settings steer the tessellation; off, the novice ones: -nuf, -nvf and -cvt. |
+| `curvatureTolerance` | `cvt` | Novice mode: how much curvature adds: 0 highest tolerance, 1 high, 2 medium (the default), 3 none. |
+| `uDivisionsFactor` | `nuf` | Novice mode: divisions per span along U (1.5). |
+| `vDivisionsFactor` | `nvf` | Novice mode: divisions per span along V (1.5). |
+| `smoothEdge` | `ues` | Keep dividing until the edges are smooth to -esr (off). |
+| `smoothEdgeRatio` | `esr` | With -ues: how smooth the edges must be; higher is smoother (0.99). |
+| `object` | `o` | Make the polygons (on); off, only the node. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | Name of the mesh. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## nurbsToPolygonsPref
+
+The NURBS to polygons (tessellate) preference the menu items use, kept between sessions. The settings are the nurbsTessellate node's.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `chordHeight` | `cht` | The nurbsTessellate setting of this name (1 at first). |
+| `chordHeightRatio` | `chr` | The nurbsTessellate setting of this name (0.1 at first). |
+| `delta3D` | `d` | The nurbsTessellate setting of this name (0.1 at first). |
+| `edgeSwap` | `es` | The nurbsTessellate setting of this name (0 at first). |
+| `format` | `f` | The nurbsTessellate setting of this name (1 at first). |
+| `fraction` | `ft` | The nurbsTessellate setting of this name (0.01 at first). |
+| `matchRenderTessellation` | `mrt` | The nurbsTessellate setting of this name (0 at first). |
+| `merge` | `m` | The nurbsTessellate setting of this name (0 at first). |
+| `mergeTolerance` | `mt` | The nurbsTessellate setting of this name (0.1 at first). |
+| `minEdgeLen` | `mel` | The nurbsTessellate setting of this name (0.001 at first). |
+| `polyCount` | `pc` | The nurbsTessellate setting of this name (200 at first). |
+| `polyType` | `pt` | The nurbsTessellate setting of this name (0 at first). |
+| `uNumber` | `un` | The nurbsTessellate setting of this name (3 at first). |
+| `uType` | `ut` | The nurbsTessellate setting of this name (1 at first). |
+| `useChordHeight` | `uch` | The nurbsTessellate setting of this name (0 at first). |
+| `useChordHeightRatio` | `ucr` | The nurbsTessellate setting of this name (0 at first). |
+| `vNumber` | `vn` | The nurbsTessellate setting of this name (3 at first). |
+| `vType` | `vt` | The nurbsTessellate setting of this name (1 at first). |
 
 ## nurbsUVSet
 
@@ -12746,6 +15008,9 @@ Arguments: object
 | --- | --- | --- |
 | `isAType` | `isa` | Whether it is this type or derived from it. |
 | `isType` | `i` | Whether it is exactly this type. |
+| `tagFromType` | `tgt` | The type tag of the type named: the four bytes that mark its nodes in binary scene files, as a number. |
+| `typeFromTag` | `tpt` | The type a type tag stands for. |
+| `typeTag` | `tt` | The object's type tag; 0 for a type that has none. |
 
 ## objectTypeUI
 
@@ -12761,34 +15026,56 @@ Arguments: name
 
 ## offsetCurve
 
-A copy offset in the curve's plane: -d distance, -nr normal. Returns [curve, node].
+A copy offset in the curve's plane: -d distance, -nr normal, -cb how corners join, -cl -cr cutting loops, -sd -tol how closely. Returns [curve, node]; -q and -e on the node.
 
-Arguments: curves (the selection when none)
+Arguments: curves (the selection when none); the node or the offset with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `distance` | `d` | How far. |
+| `distance` | `d` | How far (1). |
 | `normal` | `nr` | The plane's normal. |
-| `useGivenNormal` | `ugn` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `useGivenNormal` | `ugn` | Use the -nr normal (on); off, the curve's own plane. |
+| `connectBreaks` | `cb` | How the offset joins where it breaks apart at a corner: 0 off (a straight jump), 1 an arc, 2 a sharp corner (2). |
+| `cutLoop` | `cl` | Cut out the loops where the offset crosses itself (off). |
+| `cutRadius` | `cr` | With -cl: 0 a sharp corner at each cut, more an arc of this radius (0). |
+| `reparameterize` | `rp` | Give the offset a parameterization of its own (off). |
+| `stitch` | `st` | Join the pieces into one curve (on). |
+| `subdivisionDensity` | `sd` | How many times a span may be halved to meet the tolerance (5). |
+| `range` | `rn` | Offset the whole curve, as always here. |
+| `tolerance` | `tol` | How closely the offset keeps the distance (0.01). |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## offsetCurveOnSurface
 
 A curve on a surface offset sideways: -d distance in parameter space. Returns [surface->curve, node].
 
-Arguments: a curve on a surface
+Arguments: a curve on a surface; the node or the offset with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `distance` | `d` | How far. |
+| `distance` | `d` | How far, in the surface's parameter space (1). |
+| `checkPoints` | `cp` | Samples a span is checked at for the fit (3). |
+| `connectBreaks` | `cb` | How the offset joins where it breaks apart: 0 off, 1 an arc, 2 a sharp corner (2). |
+| `cutLoop` | `cl` | Cut out the loops where the offset crosses itself (off). |
+| `stitch` | `st` | Join the pieces into one curve (on). |
+| `subdivisionDensity` | `sd` | How many times a span may be halved to meet the tolerance (5). |
+| `tolerance` | `tol` | How closely the offset keeps the distance (0.01). |
+| `range` | `rn` | Offset the whole curve, as always here. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## offsetSurface
 
@@ -12805,6 +15092,45 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## openCLInfo
+
+The GPU deformer evaluation's settings. -q -valid: whether it is set up (1).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `limitMinimumVerts` | `lmv` | Whether geometry under -minVertexBuffer stays off the GPU. For debugging; not saved. |
+| `minVertexBuffer` | `mvb` | The fewest vertices geometry has to go on the GPU. For debugging; not saved. |
+| `supportsDoublePrecision` | `dbl` | Whether double precision is used; it can't be turned on where it isn't supported. |
+| `valid` | `v` | Query only: whether it is set up. |
+
+## openGLExtension
+
+The views' graphics device: -renderer, -vendor, -version, or whether an extension is supported (its name, or ""). Empty before a view has been made.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `extension` | `ext` | The extension asked about; "" lists them all. |
+| `renderer` | `rnd` | The device. |
+| `vendor` | `vnd` | Who made it. |
+| `version` | `ver` | The graphics API version. |
+
+## openMayaPref
+
+The API preferences: the error log of failed API calls, lazy binding of compiled plug-ins, and the warning about plug-ins built for older releases. Returns 1.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `errlog` | `el` | Log failed API calls, with where they were called from, to OpenMayaErrorLog in the current folder (off). |
+| `lazyLoad` | `lz` | Load compiled plug-ins with lazy binding: an unresolved reference fails when it is called, not when loading (off). |
+| `oldPluginWarning` | `ow` | Warn when loadPlugin loads a plug-in built for an older release (on). |
 
 ## optionMenu
 
@@ -12825,6 +15151,8 @@ Arguments: name
 | `deleteAllItems` | `dai` |  |
 | `beforeShowPopup` | `bsp` |  |
 | `postMenuCommand` | `pmc` |  |
+| `postMenuCommandOnce` | `pmo` |  |
+| `maxVisibleItems` | `mvi` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -12935,23 +15263,45 @@ Arguments: name
 
 ## optionVar
 
-Named values that last the session: -iv, -fv, -sv, -q, -ex, -rm.
+Named preference values kept between sessions, with defaults, categories and stashes.
 
-Arguments: a name with -q; a value in MEL
+Arguments: a name with -q
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `query` | `q` | The value of the name given. |
-| `exists` | `ex` | Whether this name is set. |
-| `remove` | `rm` | Unset this name. |
-| `clearArray` | `ca` | Empty this array. |
+| `query` | `q` | The value of the name given; with -default, its default. |
+| `default` | `d` | Set the default as well as the value; with -q, -exists, -list or -listModified, work on defaults. |
+| `transient` | `t` | Not kept between sessions; with -exists or -list, only transient names. |
+| `init` | `ini` | true: set value and default; false: only the default (and the value if the name isn't set). |
+| `category` | `cat` | The category the names set belong to; with -list or -listModified, only that category. |
+| `prefFile` | `pf` | With -category: the preferences file the category is saved to. |
 | `list` | `l` | Every name. |
-| `intValue` | `iv` | Name and value. |
-| `floatValue` | `fv` | Name and value. |
-| `stringValue` | `sv` | Name and value. |
-| `intValueAppend` | `iva` | Name and value. |
-| `floatValueAppend` | `fva` | Name and value. |
-| `stringValueAppend` | `sva` | Name and value. |
+| `listModified` | `lm` | The names whose value differs from their default. |
+| `listCategories` | `lc` | Every category. |
+| `exists` | `ex` | Whether this name is set. |
+| `arraySize` | `as` | The array's size: 0 when unset, 1 when not an array. |
+| `version` | `v` | The preferences version. |
+| `remove` | `rm` | A name. |
+| `clearArray` | `ca` | A name. |
+| `intArray` | `ia` | A name. |
+| `floatArray` | `fa` | A name. |
+| `stringArray` | `sa` | A name. |
+| `stash` | `st` | A name. |
+| `unstash` | `us` | A name. |
+| `clearStash` | `cs` | A name. |
+| `intValue` | `iv` | A name and its values. |
+| `intValue2` | `iv2` | A name and its values. |
+| `intValue3` | `iv3` | A name and its values. |
+| `intValue4` | `iv4` | A name and its values. |
+| `floatValue` | `fv` | A name and its values. |
+| `floatValue2` | `fv2` | A name and its values. |
+| `floatValue3` | `fv3` | A name and its values. |
+| `floatValue4` | `fv4` | A name and its values. |
+| `stringValue` | `sv` | A name and its values. |
+| `intValueAppend` | `iva` | A name and its values. |
+| `floatValueAppend` | `fva` | A name and its values. |
+| `stringValueAppend` | `sva` | A name and its values. |
+| `removeFromArray` | `rfa` | A name and its values. |
 
 ## orbit
 
@@ -13014,6 +15364,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -13181,10 +15536,22 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## overrideModifier
+
+Make another input act as a modifier key: -p Alt, Ctrl or Shift forces it down, -r forces it up (each may be used more than once), -cl forces none. The keys themselves go on working; the views take the forced ones with their mouse events.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `clear` | `cl` | Force no modifier keys. |
+| `press` | `p` | Force this modifier down: Alt, Ctrl or Shift. |
+| `release` | `r` | Force this modifier up: Alt, Ctrl or Shift. |
 
 ## pairBlend
 
@@ -13241,6 +15608,10 @@ Arguments: name
 | `pane2` | `p2` |  |
 | `pane3` | `p3` |  |
 | `pane4` | `p4` |  |
+| `activeFrameThickness` | `aft` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -13296,6 +15667,8 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `query` | `q` |  |
@@ -13303,7 +15676,7 @@ Arguments: name
 
 ## panelConfiguration
 
-A named arrangement of panels: -addPanel (fixed, type, label, create, edit), -configString, -label; getPanel -allConfigs lists them.
+A named arrangement of panels: -addPanel (fixed, label, type, create, edit), -replacePanel (number, then the same), -configString, -label; getPanel -allConfigs lists them.
 
 Arguments: [name]
 
@@ -13311,14 +15684,14 @@ Arguments: [name]
 | --- | --- | --- |
 | `addPanel` | `ap` |  |
 | `configString` | `cfs` |  |
-| `defaultImage` | `dimg` |  |
-| `image` | `img` |  |
+| `defaultImage` | `di` |  |
+| `image` | `i` |  |
 | `label` | `l` |  |
-| `labelStrings` | `lbl` |  |
-| `createStrings` | `ccs` |  |
-| `editStrings` | `ecs` |  |
-| `typeStrings` | `tys` |  |
-| `isFixedState` | `ifs` |  |
+| `labelStrings` | `ls` |  |
+| `createStrings` | `cs` |  |
+| `editStrings` | `es` |  |
+| `typeStrings` | `ts` |  |
+| `isFixedState` | `if` |  |
 | `numberOfPanels` | `np` |  |
 | `removeAllPanels` | `rap` |  |
 | `removeLastPanel` | `rlp` |  |
@@ -13327,6 +15700,7 @@ Arguments: [name]
 | `replaceFixedState` | `rfs` |  |
 | `replaceLabel` | `rl` |  |
 | `replaceTypeString` | `rts` |  |
+| `replacePanel` | `rp` |  |
 | `sceneConfig` | `sc` |  |
 | `userCreated` | `uc` |  |
 | `defineTemplate` | `dt` |  |
@@ -13340,6 +15714,16 @@ Arguments: [name]
 Label a point with its parameter: curve1.u[0.5] or surface1.uv[0.5][0.5]. Returns the shape.
 
 Arguments: point
+
+## paramLocator
+
+A locator held at a parameter of a NURBS curve (curve.u[0.5], curve.ep[1], curve.un[0.25]) or surface (surface.uv[0.5][0.5]), following the shape as it changes. -p: the parameters are normalized, 0 to 1. Returns the locator.
+
+Arguments: a point on a curve or surface (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `position` | `p` | The parameters are in normalized space, 0 to 1 over the range. |
 
 ## parent
 
@@ -13385,6 +15769,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -13403,28 +15792,64 @@ Arguments: particles (query)
 | `lowerLeft` | `ll` | Grid: one corner. |
 | `upperRight` | `ur` | Grid: the other corner. |
 | `gridSpacing` | `grs` | Grid: spacing. |
-| `conserve` | `c` | Accepted for old scripts. |
+| `conserve` | `c` | How much momentum is kept from frame to frame, 0 to 1 (1). |
+| `inherit` | `i` | How much of an emitter's velocity new particles take, 0 to 1. |
+| `cache` | `ch` | Keep solved frames for scrubbing back (on); off, going back solves again from the start. |
+| `deleteCache` | `dc` | Throw away the frames kept. |
+| `dynamicAttrList` | `dal` | Query: the attributes added to the particles. |
+| `perParticleDouble` | `ppd` | Query: the per particle number attributes. |
+| `perParticleVector` | `ppv` | Query: the per particle vector attributes. |
 | `count` | `ct` | Query: how many. |
-| `attribute` | `at` | Query: a per particle value. |
-| `id` | `id` | Query: which particle. |
+| `attribute` | `at` | A per particle attribute, queried or with -e set. |
+| `particleId` | `id` | The particle by its id, for -attribute. |
+| `order` | `or` | The particle by its place in the array, from 0, for -attribute. |
+| `floatValue` | `fv` | With -e -attribute: a number. |
+| `vectorValue` | `vv` | With -e -attribute: a vector. |
+| `shapeName` | `sn` | The particle shape's name. |
+| `jitterBasePoint` | `jbp` | A centre to scatter particles round: x y z. Repeat it. |
+| `jitterRadius` | `jr` | How far from the centre they scatter, for each -jbp in turn. |
+| `numJitters` | `nj` | How many particles round each -jbp in turn. |
 | `solver` | `sv` | The solver to join. |
+
+## partition
+
+Make a partition: sets no two of which share a member. partition -n p1 set1 set2; -add p1 set3 and -rm p1 set1 change one; -render makes one that holds only render sets. -q p1 lists its sets, -q -re p1 whether it is a render partition. Returns its name.
+
+Arguments: the partition with -q, -add and -rm; then sets
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | The new partition's name. |
+| `render` | `re` | Make a partition that holds only render sets; with -q, whether it is one. |
+| `addSet` | `add` | Add the sets named to this partition. |
+| `removeSet` | `rm` | Take the sets named out of this partition. |
+| `query` | `q` | Query mode: the partition's sets, or with -re whether it is a render partition. |
 
 ## pasteKey
 
-Paste the key clipboard onto channels at -t (the current time by default). -o insert (the default) moves later keys along, replace clears the pasted range, replaceCompletely clears the curve, merge overlays. -to and -vo offset, -cp repeats.
+Paste the key clipboard onto channels at -t (the current time by default). -o insert (the default) moves later keys along, replace clears the pasted range, replaceCompletely clears the curve, merge overlays; the scale and fit forms first scale the clipboard to the -t range or cut it to the range's length. -to and -vo offset, -cp repeats. Returns how many curves took keys.
 
 Arguments: objects or plugs (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `attribute` | `at` | Channel name(s). |
-| `time` | `t` | Where to paste. |
-| `option` | `o` | insert, replace, replaceCompletely or merge. |
-| `timeOffset` | `to` | Added to the paste time. |
+| `time` | `t` | Where to paste: a time, or a range the scale and fit options fit to. |
+| `float` | `f` | Where to paste on driven key curves: a driver value or range, as -t is for time. |
+| `index` | `in` | Paste at the time of the key with this index on each curve. |
+| `includeUpperBound` | `iub` | Whether replace takes out keys at the end of the -t range (on). |
+| `animation` | `an` | Where the targets come from: objects, keys (the curves of the active keys) or keysOrObjects (the default). |
+| `animLayer` | `al` | Paste only onto the curves the channels have on this layer; none when they have none there. |
+| `option` | `o` | insert, replace, replaceCompletely, merge, scaleInsert, scaleReplace, scaleMerge, fitInsert, fitReplace or fitMerge. |
+| `timeOffset` | `to` | Added to the paste time, on time curves. |
+| `floatOffset` | `fo` | Added to the paste place, on driven key curves. |
 | `valueOffset` | `vo` | Added to the values. |
 | `copies` | `cp` | How many times to paste. |
-| `connect` | `c` | Accepted for existing scripts. |
-| `clipboard` | `cb` | Accepted for existing scripts. |
+| `connect` | `c` | Shift the pasted values so they start from the target's value at the paste time (off). |
+| `matchByName` | `mn` | Paste only where the object and channel names match a clipboard entry's exactly (off). |
+| `matchByAttr` | `ma` | Paste where object and channel names match, or failing that the channel name alone. |
+| `selectPasted` | `sp` | Select the pasted keys. |
+| `clipboard` | `cb` | anim (the default) or api: there is one key clipboard. |
 
 ## pathAnimation
 
@@ -13457,9 +15882,17 @@ Arguments: objects (the selection when none); without -c the last is the curve
 | `startU` | `su` | The U it starts at (the curve's start). |
 | `endU` | `eu` | The U it ends at (the curve's end). |
 
+## pause
+
+Wait the given number of seconds before the script goes on: for demos and tests, to see what it did.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `seconds` | `sec` | How many seconds to wait. |
+
 ## percent
 
-Set or query deformer weights of points: percent -v 0.5 cluster1 pCube1.vtx[0:3]. -m multiplies what is there. -q -v returns one weight per point. With no points named: the selected components, else all the deformer's points.
+Set or query deformer weights of points: percent -v 0.5 cluster1 pCube1.vtx[0:3]. -m multiplies what is there. -q -v returns one weight per point. -ap adds, -mp multiplies; -dp, -dax and -dc drop the value off round a point, plane or curve. With no points named: the selected components, else all the deformer's points.
 
 Arguments: the deformer, then points or meshes
 
@@ -13467,8 +15900,41 @@ Arguments: the deformer, then points or meshes
 | --- | --- | --- |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
-| `value` | `v` | The weight. |
-| `multiply` | `m` | Multiply the weights by the value instead of setting them. |
+| `value` | `v` | The weight (1). With -q, the weights of the points named or selected. |
+| `addPercent` | `ap` | Add the value to the weights instead of setting them. |
+| `multiplyPercent` | `mp` | Multiply the weights by the value instead of setting them. |
+| `dropoffPosition` | `dp` | A point the value drops off from, to nothing at -dds. |
+| `dropoffAxis` | `dax` | With -dp: the value drops off along this axis from the point. |
+| `dropoffCurve` | `dc` | A curve the value drops off from. |
+| `dropoffDistance` | `dds` | How far out the value reaches; the farthest point when not given. |
+| `dropoffType` | `dt` | How it drops off: linear (the default), sine, exponential, linearSquared or none. |
+
+## performanceOptions
+
+The global performance options: features turned off always (on), never (off) or during playback (interactive). None of them affect rendering. Query: an option's state, or a resolution.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `clusterResolution` | `cr` | The global cluster resolution, 0.0 (exact) to 10.0 (rough). |
+| `latticeResolution` | `lr` | The global lattice resolution, 0.0 (exact) to 1.0 (rough). |
+| `skipHierarchyTraversal` | `sht` | Invisible objects' hierarchies are not walked. |
+| `disableStitch` | `ds` | Stitch surfaces are not made. on, off or interactive. |
+| `disableTrimBoundaryDisplay` | `dtb` | Surface trim boundaries are not drawn. on, off or interactive. |
+| `disableTrimDisplay` | `dt` | Surface trims are not drawn. on, off or interactive. |
+| `passThroughBindSkinAndFlexors` | `pbf` | Skin clusters and flexors pass their input through. on, off or interactive. |
+| `passThroughBlendShape` | `pbs` | Blend shapes pass their input through. on, off or interactive. |
+| `passThroughCluster` | `pc` | Clusters pass their input through. on, off or interactive. |
+| `passThroughDeltaMush` | `pdm` | Delta mush deformers pass their input through. on, off or interactive. |
+| `passThroughFlexors` | `pf` | Flexors pass their input through. on, off or interactive. |
+| `passThroughLattice` | `pl` | Lattice deformers pass their input through. on, off or interactive. |
+| `passThroughMeshBoolean` | `pmb` | Mesh booleans pass their first input through. on, off or interactive. |
+| `passThroughPaintEffects` | `pp` | Paint effects strokes pass their input through. on, off or interactive. |
+| `passThroughSculpt` | `ps` | Sculpt deformers pass their input through. on, off or interactive. |
+| `passThroughWire` | `pw` | Wire deformers pass their input through. on, off or interactive. |
+| `regionOfEffect` | `roe` | Moving components with a manipulator updates only what changed. on, off or interactive. |
+| `useClusterResolution` | `ucr` | Clusters may be computed at -clusterResolution. on, off or interactive. |
+| `useLatticeResolution` | `ulr` | Lattices may be computed at -latticeResolution. on, off or interactive. |
 
 ## pickWalk
 
@@ -13478,6 +15944,7 @@ Walk the selection through the hierarchy like the arrow keys: up to the parent, 
 | --- | --- | --- |
 | `direction` | `d` | up, down, left or right. |
 | `type` | `typ` | Accepted for existing scripts. |
+| `recurse` | `r` | Keep walking: up to the top of the hierarchy, or down to the end of it. |
 
 ## picture
 
@@ -13533,31 +16000,43 @@ Arguments: x y
 
 A surface filling a closed curve: a rectangle makes a plain patch, anything else a plane trimmed to it; -po 1 a polygon face. Returns [planarTrimmedSurface1, planarTrim1].
 
-Arguments: a closed curve (the selection when none)
+Arguments: closed boundary curves, or groups of them (the selection when none); with -q and -e the planarTrim node or the surface
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `degree` | `d` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `degree` | `d` | The surface's degree, 1 linear or 3 cubic (3), where it is a trimmed plane. |
+| `keepOutside` | `ko` | Keep the regions outside the curves, making a hole (off). |
+| `tolerance` | `tol` | How far from one plane the curves' CVs may lie (0.01). |
+| `object` | `o` | Make the surface (on); off, only the node. |
 | `polygon` | `po` | 0 NURBS (the default), 1 polygons. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## planarSrf
 
 A trimmed plane in a closed curve: planar under its node's name.
 
-Arguments: a closed curve (the selection when none)
+Arguments: closed boundary curves, or groups of them (the selection when none); with -q and -e the planarTrim node or the surface
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `degree` | `d` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `degree` | `d` | The surface's degree, 1 linear or 3 cubic (3), where it is a trimmed plane. |
+| `keepOutside` | `ko` | Keep the regions outside the curves, making a hole (off). |
+| `tolerance` | `tol` | How far from one plane the curves' CVs may lie (0.01). |
+| `object` | `o` | Make the surface (on); off, only the node. |
 | `polygon` | `po` | 0 NURBS (the default), 1 polygons. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## plane
 
@@ -13584,7 +16063,8 @@ Start or stop playback: -st on or off, -f forward or back. -w plays the range th
 | `state` | `st` | Playing or not. |
 | `wait` | `w` | Play through before returning. |
 | `record` | `rec` | Accepted for existing scripts: there are no dynamics to record. |
-| `sound` | `s` | Accepted for existing scripts. |
+| `sound` | `s` | The sound (audio node) played along: the one the time slider shows. |
+| `playSound` | `ps` | Whether the sound plays along during playback (on). |
 
 ## playbackOptions
 
@@ -13605,10 +16085,17 @@ The playback range (min/max), the whole animation range (ast/aet), looping and s
 | `by` | `by` | Frames between played frames. |
 | `view` | `v` | Which views update during playback: all or active. |
 | `preroll` | `pp` | Stored for scripts that set it. |
+| `stepLoop` | `slp` | Stepping a frame past either end of the range goes round to the other. |
+| `stepKeyLoop` | `skl` | Stepping to the next or previous key goes round past the range's ends. |
+| `blockingAnim` | `ba` | Plays every tangent as stepped, pose to pose. |
+| `disable` | `dsb` | Turns the min, max and animation start and end off. |
+| `selectionStartTime` | `sst` | Start of the time selection. |
+| `selectionEndTime` | `set` | End of the time selection. |
+| `selectionVisible` | `sv` | Whether the time selection shows. |
 
 ## playblast
 
-Write the view's frames as an image sequence: -f name, -fmt image, -st -et or -fr, -wh, -p percent, -fp padding, -fo overwrite, -c png jpg bmp tif. Returns the file pattern.
+Write the view's frames as an image sequence or a movie: -f name, -fmt image or movie, -st -et or -fr, -wh, -p percent, -fp padding, -fo overwrite, -c png jpg bmp tif, -exp -g exposure and gamma, -cs a setup procedure per camera, -s or -uts sound into a movie (-csd as one track), -rf -rst -ret to replace frames of a movie, -rao its sound only. Returns the file pattern or the movie.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -13628,40 +16115,99 @@ Write the view's frames as an image sequence: -f name, -fmt image, -st -et or -f
 | `sound` | `s` |  |
 | `sequenceTime` | `sqt` |  |
 | `completeFilename` | `cf` |  |
-| `indexFromZero` | `ifz` |  |
+| `replaceFilename` | `rf` |  |
+| `replaceStartTime` | `rst` |  |
+| `replaceEndTime` | `ret` |  |
+| `exposure` | `exp` |  |
+| `gamma` | `g` |  |
 | `viewer` | `v` |  |
 | `forceOverwrite` | `fo` |  |
 | `clearCache` | `cc` |  |
 | `showOrnaments` | `orn` |  |
 | `offScreen` | `os` |  |
-| `offScreenViewportUpdate` | `ofv` |  |
+| `offScreenViewportUpdate` | `osv` |  |
 | `activeEditor` | `ae` |  |
 | `rawFrameNumbers` | `rfn` |  |
 | `saveFilmGate` | `sfg` |  |
+| `indexFromZero` | `ifz` |  |
+| `options` | `o` |  |
+| `codecOptions` | `co` |  |
+| `combineSound` | `csd` |  |
+| `useTraxSounds` | `uts` |  |
+| `useSequencerSounds` | `uss` |  |
+| `replaceAudioOnly` | `rao` |  |
+| `throwOnError` | `toe` |  |
 | `query` | `q` |  |
+| `cameraSetup` | `cs` |  |
+
+## pluginDisplayFilter
+
+A plug-in's display filter for the views' Show menus: -r registers one (the default) with -l a label and -cls the classification of the nodes it filters; -dr deregisters it (as many times as it was registered); -ex whether one exists; -q -l, -q -cls, -q -lf every filter.
+
+Arguments: the filter's name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `register` | `r` | Register the filter (what create mode does without -dr). |
+| `deregister` | `dr` | Deregister the filter. |
+| `exists` | `ex` | Whether the filter exists. |
+| `label` | `l` | The label the Show menus give it; its name by default. |
+| `classification` | `cls` | The classification of the nodes it filters, as the plug-in registered them; empty filters nothing. |
+| `listFilters` | `lf` | With -q: every display filter. |
 
 ## pluginInfo
 
-Ask about plug-ins: pluginInfo -q -loaded name, -listPlugins, -version, -vendor, -path, -command, -dependNode.
+The plug-in registry: what each plug-in registered (-q -command, -dependNode, -translator, ...), whether it is loaded, loads at start or is in use, and the plug-in preferences.
 
-Arguments: plug-in name
+Arguments: plug-in name or path
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Query. |
-| `edit` | `e` | Accepted for scripts. |
-| `loaded` | `l` | Whether it is loaded. |
-| `registered` | `r` | Whether it is known. |
-| `listPlugins` | `ls` | The loaded plug-ins. |
-| `version` | `v` | Its version. |
-| `vendor` | `vd` | Its vendor. |
-| `path` | `p` | Its file. |
-| `name` | `n` | Its name. |
-| `command` | `c` | The commands it registered. |
+| `edit` | `e` | Edit. |
+| `activeFile` | `af` | -dependNode and -pluginsInUse look only at the selection, as an export of the selection writes it. |
+| `allEvaluators` | `ae` | The evaluator types every plug-in registered. |
+| `apiVersion` | `av` | The API version it was built against. |
+| `autoload` | `a` | Whether it loads at every start: -e -autoload true name sets it, -q -autoload name asks. |
+| `cacheFormat` | `cf` | The geometry cache formats plug-ins registered. |
+| `constraintCommand` | `cnc` | The constraint commands it registered. |
+| `controlCommand` | `ctc` | The control commands it registered. |
 | `dependNode` | `dn` | The node types it registered. |
-| `apiVersion` | `av` | The API version it asked for. |
-| `autoload` | `a` | Whether it loads at start: -e -autoload true name sets it, -q -autoload name asks. |
-| `listPluginsPath` | `lsp` | The folders plug-ins are looked for in. |
+| `device` | `dv` | The devices it registered. |
+| `dragAndDropBehavior` | `ddb` | The drag and drop behaviours it registered. |
+| `evaluator` | `e` | The evaluator types it registered. |
+| `iksolver` | `ik` | The IK solvers it registered. |
+| `listPlugins` | `ls` | The loaded plug-ins. |
+| `listPluginsPath` | `lsp` | The full paths of the loaded plug-ins. |
+| `loadPluginPrefs` | `lpp` | Read the plug-in preferences (what loads at start) from pluginPrefs.mel. |
+| `loaded` | `l` | Whether it is loaded. |
+| `modelEditorCommand` | `mec` | The model editor commands it registered. |
+| `pluginsInUse` | `pu` | The plug-ins the scene uses. |
+| `referenceTranslators` | `rtr` | With -pluginsInUse: true lists only those with translators that read the scene's referenced files, false only the others. |
+| `registered` | `r` | Whether the registry knows it. |
+| `remove` | `rm` | Edit: take its record out of the registry. |
+| `renderer` | `rdr` | The renderers it registered. |
+| `savePluginPrefs` | `spp` | Write the plug-in preferences (what loads at start) to pluginPrefs.mel. |
+| `serviceDescriptions` | `sd` | Short descriptions of the services it uses. |
+| `settings` | `set` | Whether it is loaded, loads at start and is registered. |
+| `translator` | `tr` | The file translators it registered. |
+| `unloadOk` | `uo` | Whether it can be unloaded safely: false while the scene has nodes of its types. |
+| `userNamed` | `u` | Whether it was given its name by loadPlugin -name. |
+| `version` | `v` | Its version. |
+| `writeRequires` | `wr` | Whether saved files require it, so opening them loads it. |
+| `animCurveInterp` | `aci` | The animation curve interpolators it registered. |
+| `changedCommand` | `cc` | A script run whenever the registry changes. |
+| `command` | `c` | The commands it registered. |
+| `data` | `d` | The data types it registered. |
+| `dependNodeByType` | `dnt` | The plug-in node types of an MPxNode type class, such as kLocatorNode. |
+| `dependNodeId` | `dni` | The ids of the node types it registered. |
+| `name` | `n` | The name it is registered under. |
+| `path` | `p` | Its file. |
+| `pluginForNodeType` | `pnt` | The plug-in that registered a node type, or "". |
+| `tool` | `t` | The tool contexts it registered. |
+| `vendor` | `vd` | Its vendor. |
 
 ## pointConstraint
 
@@ -13688,6 +16234,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -13700,12 +16251,17 @@ Arguments: a point on a curve
 | Flag | Short | Description |
 | --- | --- | --- |
 | `position` | `p` | Where it goes. |
-| `weight` | `w` | How much (1). |
-| `pointWeight` | `pw` | Accepted for existing scripts. |
-| `constructionHistory` | `ch` | Keep the node (on by default). |
-| `replaceOriginal` | `rpo` | Accepted: the curve itself changes. |
-| `name` | `n` | Accepted for existing scripts. |
-| `object` | `o` | Accepted for existing scripts. |
+| `weight` | `w` | Weight of the least-squares fit: larger meets the point more strictly (1). |
+| `pointWeight` | `pw` | How strongly the point pulls the curve (1). |
+| `pointConstraintUVW` | `puv` | Where on the curve, in parameter space, in place of the point named. |
+| `constructionHistory` | `ch` | Keep the node, with a locator under the curve to move the point with (on by default). |
+| `replaceOriginal` | `rpo` | Change the curve in place, as it always does here. |
+| `name` | `n` | Name of the locator. |
+| `object` | `o` | Make the result (on), as it always does here. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## pointLight
 
@@ -13733,18 +16289,26 @@ Arguments: the light, to edit or query
 
 ## pointOnCurve
 
-Facts at a parameter of a curve: -pr parameter (-top a fraction of its length), asking -p position, -t tangent, -nt unit tangent (position when none).
+Facts at a parameter of a curve, world space: -pr parameter (-top a fraction of its parameter range), asking -p position, -t tangent, -nt unit tangent, -no normal, -nn unit normal, -cc centre and -cr radius of curvature (position when none). -ch on makes a pointOnCurveInfo node, connected to the curve, and returns it; -q and -e on the node.
 
-Arguments: a curve (the selection when none)
+Arguments: a curve (the selection when none); the pointOnCurveInfo node with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `parameter` | `pr` | The parameter. |
-| `turnOnPercentage` | `top` | -pr is a fraction 0 to 1 of the length. |
+| `parameter` | `pr` | The parameter (0). |
+| `turnOnPercentage` | `top` | -pr is a fraction 0 to 1 of the parameter range (off). |
 | `position` | `p` | Ask for the point. |
 | `tangent` | `t` | Ask for the tangent. |
 | `normalizedTangent` | `nt` | Ask for the unit tangent. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `normal` | `no` | Ask for the normal: the bend of the curve, square to the tangent. |
+| `normalizedNormal` | `nn` | Ask for the unit normal. |
+| `curvatureCenter` | `cc` | Ask for the centre of curvature. |
+| `curvatureRadius` | `cr` | Ask for the radius of curvature. |
+| `constructionHistory` | `ch` | Make a pointOnCurveInfo node, connected to the curve, and return it (off). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## pointOnCurveDeformer
 
@@ -13791,20 +16355,25 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
 ## pointOnSurface
 
-Facts at parameters of a surface, world space: -u -v (-top fractions of the range), asking -p position, -no normal, -nn unit normal, -tu -tv tangents, -ntu -ntv unit tangents (position when none).
+Facts at parameters of a surface, world space: -u -v (-top fractions of the range), asking -p position, -no normal, -nn unit normal, -tu -tv tangents, -ntu -ntv unit tangents (position when none; several together in one list). -ch on makes a pointOnSurfaceInfo node, connected to the surface, and returns it; -q and -e on the node.
 
-Arguments: a surface (the selection when none)
+Arguments: a surface (the selection when none); the pointOnSurfaceInfo node with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `parameterU` | `u` | The U parameter. |
-| `parameterV` | `v` | The V parameter. |
-| `turnOnPercentage` | `top` | The parameters are fractions 0 to 1 of the range. |
+| `parameterU` | `u` | The U parameter (0). |
+| `parameterV` | `v` | The V parameter (0). |
+| `turnOnPercentage` | `top` | The parameters are fractions 0 to 1 of the range (off). |
 | `position` | `p` | Ask for the point. |
 | `normal` | `no` | Ask for the normal. |
 | `normalizedNormal` | `nn` | Ask for the unit normal. |
@@ -13812,7 +16381,11 @@ Arguments: a surface (the selection when none)
 | `tangentV` | `tv` | Ask for the V derivative. |
 | `normalizedTangentU` | `ntu` | Ask for the unit U tangent. |
 | `normalizedTangentV` | `ntv` | Ask for the unit V tangent. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `constructionHistory` | `ch` | Make a pointOnSurfaceInfo node, connected to the surface, and return it (off). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## pointPosition
 
@@ -13850,6 +16423,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -13869,9 +16447,11 @@ Arguments: components or meshes (the selection when none)
 | `texture` | `tx` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyAppendFacetCtx
 
@@ -13916,31 +16496,54 @@ Arguments: components or meshes (the selection when none)
 | `texture` | `tx` | See the command reference. |
 | `vertex` | `v` | See the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyAutoProjection
 
 Project UVs from the six box planes, each face from the one it faces most, then lay the shells out in 0 to 1.
 
-Arguments: faces or meshes
+Arguments: faces or meshes; the polyAutoProj node or the mesh with -q and -e
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `percentageSpace` | `ps` | Space between shells, percent of the square. |
-| `layoutMethod` | `lm` | Accepted for existing scripts. |
-| `layout` | `l` | Accepted for existing scripts. |
-| `percentageSpaceLegacy` | `pb` | Accepted for existing scripts. |
+| `planes` | `p` | How many planes project: 4, 5, 6 (the default), 8 or 12. |
+| `layout` | `l` | How the pieces are laid out: 0 not at all, 1 along U, 2 into a square (the default). |
+| `layoutMethod` | `lm` | 0 block stacking, 1 shape stacking. |
+| `optimize` | `o` | 0 each face to its best plane, 1 fewer pieces (the default). |
+| `percentageSpace` | `ps` | With layout 2: space round each piece, percent of the square, 5 at most (0.2). |
+| `projectBothDirections` | `pb` | Opposite faces share a plane, mirrored (off). |
+| `scaleMode` | `sc` | After: 0 no scaling, 1 uniform to fit the unit square (the default), 2 each way to fit it. |
+| `skipIntersect` | `si` | Don't test the pieces for overlapping themselves (off). |
+| `worldSpace` | `ws` | Faces by their world-space normals and places (off: object space). |
+| `pivot` | `pvt` | The pivot the projection turns and scales about (0 0 0). |
+| `pivotX` | `pvx` | The pivot's X. |
+| `pivotY` | `pvy` | The pivot's Y. |
+| `pivotZ` | `pvz` | The pivot's Z. |
+| `rotate` | `ro` | How the planes are turned, degrees (0 0 0). |
+| `rotateX` | `rx` | Turned about X. |
+| `rotateY` | `ry` | Turned about Y. |
+| `rotateZ` | `rz` | Turned about Z. |
+| `scale` | `s` | How the projection is scaled (1 1 1). |
+| `scaleX` | `sx` | Its scale in X. |
+| `scaleY` | `sy` | Its scale in Y. |
+| `scaleZ` | `sz` | Its scale in Z. |
+| `translate` | `t` | Where the projection is moved (0 0 0). |
+| `translateX` | `tx` | Moved in X. |
+| `translateY` | `ty` | Moved in Y. |
+| `translateZ` | `tz` | Moved in Z. |
 | `insertBeforeDeformers` | `ibd` | Accepted for existing scripts. |
 | `createNewMap` | `cm` | Accepted for existing scripts. |
-| `scaleMode` | `sc` | Accepted for existing scripts. |
-| `optimize` | `o` | Accepted for existing scripts. |
-| `worldSpace` | `ws` | Accepted for existing scripts. |
 | `uvSetName` | `uvs` | Accepted for existing scripts. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `constructionHistory` | `ch` | Keep the polyAutoProj node (on by default). |
+| `caching` | `cch` | The node's caching. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect, 2 blocking. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings, projecting again. |
 | `name` | `n` | Accepted for existing scripts. |
-| `planes` | `p` | Accepted for existing scripts (six planes). |
 
 ## polyAverageColor
 
@@ -13989,13 +16592,51 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyAxis
+
+Create a Axis mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: the polyAxis node or its mesh, with -q and -e
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | Name of the mesh; made unique. |
+| `position` |  | World position. |
+| `rotation` |  | Rotation in degrees. |
+| `normal` |  | Turn the up axis to this direction, as for placing on a surface; a dome cut by fraction then sits on position by its open base. |
+| `generator` |  | Keep the generator node so its parameters stay editable. |
+| `object` | `o` | Accepted: the transform and shape are always made. |
+| `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
+| `texture` | `tx` | How UVs are laid out; accepted. |
+| `axis` | `ax` | The direction the primitive's up points, as a vector. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `constructionHistory` | `ch` | False: no generator node, as generator=False. |
+| `arrowType` | `arw` | The ends of the axes: 0 flat, 1 rounded, 2 cones. |
+| `frameType` | `ftp` | 0 an axis shape of three arms, 1 a wedge shape. |
+| `lengthX` | `lx` | Length of the X arm, cm. |
+| `lengthY` | `ly` | Length of the Y arm, cm. |
+| `lengthZ` | `lz` | Length of the Z arm, cm. |
+| `radius` | `r` | Radius of the arms, cm. |
+| `rightHanded` | `rhd` | A right-handed frame; off, Z points the other way. |
+| `scale` | `sca` | Overall scale of the frame. |
+| `subdivisionsAxis` | `sa` | Sides round each arm. |
+| `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `materialTemplate` | `mt` | A material template for the arms: each arm gets the template's material for it, made red, green and blue when the template is new. |
 
 ## polyBevel
 
 Bevel the selected edges (vertex or face selections convert to their edges).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -14008,7 +16649,22 @@ Bevel the selected edges (vertex or face selections convert to their edges).
 | `segments` | `sg` | Segments across the bevel. |
 | `profile` |  | 0.5 round, 0.25 straight, toward 1 square. |
 | `clamp` |  | Keep widths from overlapping. |
-| `smoothingAngle` |  | New edges sharper than this are hard. |
+| `smoothingAngle` | `sa` | New edges sharper than this are hard. |
+| `autoFit` | `af` | Round off a smooth angle (on); off rounds by -roundness. |
+| `roundness` | `r` | How round the bevel is when -autoFit is off (0.5). |
+| `angleTolerance` | `at` | Angle under which extra triangles are made; kept for older scenes (20). |
+| `miteringAngle` | `ma` | Faces meeting at less than this are mitred (0). |
+| `mergeVertices` | `mv` | Weld vertices closer than -mergeVertexTolerance after. |
+| `mergeVertexTolerance` | `mvt` | How close vertices weld with -mergeVertices, cm (0). |
+| `subdivideNgons` | `sn` | Split new faces of more than four sides. |
+| `useLegacyBevelAlgorithm` | `com` | Bevel as the reference's 2014 release did; the one bevel here serves both. |
+| `uvAssignment` | `ua` | UVs of new faces: 0 projected along the old surface's normal, 1 along the new one's. |
+| `constructionHistory` | `ch` | Keep the history node (on). |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## polyBevel3
 
@@ -14041,9 +16697,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyBlendColor
 
@@ -14055,8 +16713,8 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `baseColorName` | `bcn` | One set. |
 | `srcColorName` | `src` | The other set. |
@@ -14066,6 +16724,8 @@ Arguments: components or meshes (the selection when none)
 | `blendWeightB` | `bwb` | Weight of the second. |
 | `blendWeightC` | `bwc` | Alpha weight of the first. |
 | `blendWeightD` | `bwd` | Alpha weight of the second. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyBlindData
 
@@ -14086,7 +16746,10 @@ Arguments: components or meshes (the selection when none)
 | `shortDataName` | `sdn` | The short name. |
 | `doubleData` | `dbd` | A number. |
 | `intData` | `ind` | A whole number. |
-| `int64Data` | `lng` | A whole number. |
+| `int64Data` | `lid` | A whole number, 64 bits. |
+| `delete` | `del` | Remove the data from the components. |
+| `rescan` | `res` | Look over the blind data again; nothing is cached here, so it is always current. |
+| `edit` | `e` | Change the node that already holds this type and name on the mesh, or make one. |
 | `booleanData` | `bd` | On or off. |
 | `stringData` | `sd` | Refused: numbers only. |
 | `binaryData` | `bnd` | Refused: numbers only. |
@@ -14112,8 +16775,8 @@ Arguments: components or meshes (the selection when none)
 | `mergeUVSets` | `muv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `classification` | `cls` | The node's attribute of that name. |
 | `useCarveBooleans` | `ucb` | The node's attribute of that name. |
@@ -14130,6 +16793,8 @@ Arguments: components or meshes (the selection when none)
 | `filletWidth` | `fw` | The node's attribute of that name. |
 | `filletSegments` | `fs` | The node's attribute of that name. |
 | `hardAngle` | `ha` | The node's attribute of that name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyBoolean
 
@@ -14172,8 +16837,8 @@ Arguments: components or meshes (the selection when none)
 | `reorderMesh` | `rom` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `useThresholds` | `uth` | The node's attribute of that name. |
 | `vertexDistanceThreshold` | `vdt` | The node's attribute of that name. |
@@ -14193,6 +16858,8 @@ Arguments: components or meshes (the selection when none)
 | `filletWidth` | `fw` | The node's attribute of that name. |
 | `filletSegments` | `fs` | The node's attribute of that name. |
 | `hardAngle` | `ha` | The node's attribute of that name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyBridge
 
@@ -14250,9 +16917,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCBoolOp
 
@@ -14273,8 +16942,8 @@ Arguments: components or meshes (the selection when none)
 | `tagIntersection` | `ti` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `edgeInterpolation` | `eit` | The node's attribute of that name. |
 | `planarTolerance` | `ptl` | The node's attribute of that name. |
@@ -14288,6 +16957,23 @@ Arguments: components or meshes (the selection when none)
 | `filletWidth` | `fw` | The node's attribute of that name. |
 | `filletSegments` | `fs` | The node's attribute of that name. |
 | `hardAngle` | `ha` | The node's attribute of that name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyCacheMonitor
+
+Count a node's cache up (-chv on, the default) or down (-chv off). While the count is above zero the node keeps its output mesh.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `cacheValue` | `chv` | On counts the node's cache up, off counts it down. |
+| `nodeName` | `nm` | The node whose cache count changes. |
+
+## polyCanBridgeEdge
+
+True when the edges named or selected can be bridged by polyBridgeEdge: border edges in two runs of the same length on one mesh.
+
+Arguments: edges (the selection when none)
 
 ## polyCapsule
 
@@ -14397,9 +17083,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCircularize
 
@@ -14425,9 +17113,57 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyCircularizeEdge
+
+Make the loops of the edges named or selected round: a polyCircularize node. Returns the node.
+
+Arguments: edges or faces (the selection when none); with -q and -e, the node or the mesh
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `alignment` | `al` | How the circle is turned against the surface. |
+| `evenlyDistribute` | `ed` | Space the points evenly round the circle. |
+| `normalOrientation` | `nor` | How the circle's plane is found: 0 from the faces' normals, 1 from the loop. |
+| `radialOffset` | `ro` | How far the points move out along the radius. |
+| `smoothingAngle` | `sa` | New edges sharper than this are hard. |
+| `worldSpace` | `ws` | Values in world space (on) or the object's (off). |
+| `createCurve` | `cc` | Also make a NURBS circle along each loop made round. |
+| `inputCurve` | `inc` | A curve for the operation to follow. |
+| `constructionHistory` | `ch` | Keep the history node (on). |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+
+## polyCircularizeFace
+
+Make the border of each region of the faces named or selected round: a polyCircularize node. Returns the node.
+
+Arguments: edges or faces (the selection when none); with -q and -e, the node or the mesh
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `alignment` | `al` | How the circle is turned against the surface. |
+| `evenlyDistribute` | `ed` | Space the points evenly round the circle. |
+| `normalOrientation` | `nor` | How the circle's plane is found: 0 from the faces' normals, 1 from the loop. |
+| `radialOffset` | `ro` | How far the points move out along the radius. |
+| `smoothingAngle` | `sa` | New edges sharper than this are hard. |
+| `worldSpace` | `ws` | Values in world space (on) or the object's (off). |
+| `createCurve` | `cc` | Also make a NURBS circle along each loop made round. |
+| `inputCurve` | `inc` | A curve for the operation to follow. |
+| `constructionHistory` | `ch` | Keep the history node (on). |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## polyClean
 
@@ -14439,13 +17175,15 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `cleanEdges` | `ce` | Loose edges. |
 | `cleanVertices` | `cv` | Loose vertices. |
 | `cleanUVs` | `cuv` | Accepted: UVs belong to corners here, so none are loose. |
 | `cleanPartialUVMapping` | `cpm` | UVs that aren't numbers go to 0. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCleanup
 
@@ -14506,9 +17244,11 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCollapse
 
@@ -14524,9 +17264,11 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCollapseFacet
 
@@ -14540,40 +17282,72 @@ Arguments: components or meshes (the selection when none)
 | `useAreaThreshold` | `uat` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyCollapseTweaks
+
+Bake a mesh's vertex tweaks into its points (the selected mesh when none is named). -q -hvt says whether it has any.
+
+Arguments: a mesh (the selected one when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `hasVertexTweaks` | `hvt` | With -q: whether the mesh has vertex tweaks. |
+| `query` | `q` | Query mode. |
 
 ## polyColorBlindData
 
-Show blind data as colours in the set "blindData": -id, -at, -ldn, -m 0 binary or shaded between -mnv and -mxv; -cr -cg -cb and -ncr -ncg -ncb the colours. Returns the node.
+Colour the components (or meshes) holding blind data, by -id and its attributes -n with -v values, in the colour set "blindData". -m: 0 has the data, 1 equals -v, 2 between -mnv and -mxv, 3 bits set, 4 bits not set, 5 bits equal, 6 grayscale from -mnv to -mxv, 7 the data is the colour. Each rule repeats its flags; components two rules colour differently take the clash colour. -q returns the components that match instead of colouring them.
 
-Arguments: components or meshes (the selection when none)
+Arguments: meshes (the selection, or every mesh, when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `constructionHistory` | `ch` | Accepted; see the command reference. |
-| `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
-| `frozen` | `fzn` | Accepted; see the command reference. |
-| `typeId` | `id` | The data's type id. |
-| `associationType` | `at` | face, vertex or edge. |
-| `longDataName` | `ldn` | The name. |
-| `shortDataName` | `sdn` | The short name. |
-| `mode` | `m` | 0 binary, others shaded. |
-| `colorRed` | `cr` | The colour. |
-| `colorGreen` | `cg` | The colour. |
-| `colorBlue` | `cb` | The colour. |
-| `noColorRed` | `ncr` | Where there's no data. |
-| `noColorGreen` | `ncg` | Where there's no data. |
-| `noColorBlue` | `ncb` | Where there's no data. |
-| `minValue` | `mnv` | Lowest of the shading. |
-| `maxValue` | `mxv` | Highest of the shading. |
+| `typeId` | `id` | The blind data type of this rule. |
+| `numIdTypes` | `num` | How many attributes of the type this rule reads. |
+| `attrName` | `n` | An attribute's name; one for each of -num. |
+| `dataType` | `dt` | An attribute's data type; one for each of -num. |
+| `value` | `v` | An attribute's value to match; one for each of -num. |
+| `mode` | `m` | How this rule colours: 0 to 7. |
+| `colorRed` | `cr` | This rule's colour. |
+| `colorGreen` | `cg` | This rule's colour. |
+| `colorBlue` | `cb` | This rule's colour. |
+| `minValue` | `mnv` | Lowest value of the range or the grayscale. |
+| `maxValue` | `mxv` | Highest value of the range or the grayscale. |
+| `useMin` | `umn` | Whether the range has a lowest value. |
+| `useMax` | `umx` | Whether the range has a highest value. |
+| `minColorRed` | `mnr` | Grayscale: the colour at the lowest value. |
+| `minColorGreen` | `mng` | Grayscale: the colour at the lowest value. |
+| `minColorBlue` | `mnb` | Grayscale: the colour at the lowest value. |
+| `maxColorRed` | `mxr` | Grayscale: the colour at the highest value. |
+| `maxColorGreen` | `mxg` | Grayscale: the colour at the highest value. |
+| `maxColorBlue` | `mxb` | Grayscale: the colour at the highest value. |
+| `belowMinColorRed` | `bmr` | Grayscale: the colour below the lowest value. |
+| `belowMinColorGreen` | `bmg` | Grayscale: the colour below the lowest value. |
+| `belowMinColorBlue` | `bmb` | Grayscale: the colour below the lowest value. |
+| `aboveMaxColorRed` | `amr` | Grayscale: the colour above the highest value. |
+| `aboveMaxColorGreen` | `amg` | Grayscale: the colour above the highest value. |
+| `aboveMaxColorBlue` | `amb` | Grayscale: the colour above the highest value. |
+| `noColorRed` | `ncr` | Where no rule colours (0.2). |
+| `noColorGreen` | `ncg` | Where no rule colours (0.2). |
+| `noColorBlue` | `ncb` | Where no rule colours (0.2). |
+| `clashColorRed` | `ccr` | Where rules colour differently. |
+| `clashColorGreen` | `ccg` | Where rules colour differently. |
+| `clashColorBlue` | `ccb` | Where rules colour differently. |
+| `enableFalseColor` | `efc` | Off takes the false colours off every mesh. |
+| `queryMode` | `q` | Colour nothing: return the components that match. |
+| `associationType` | `at` | The domain the node paints: worked out from where the data is. |
+| `longDataName` | `ldn` | The data's name, as -attrName. |
+| `shortDataName` | `sdn` | The data's short name, as -attrName. |
+| `blindColors` |  | The colour of each component, worked out from the rules. |
 
 ## polyColorDel
 
-Remove a colour set: -cn (the current one). Returns the node.
+Delete the colour of the faces named or selected in a colour set: -cls (the current one); a whole mesh loses the set. Returns the node.
 
 Arguments: components or meshes (the selection when none)
 
@@ -14581,14 +17355,16 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
-| `colorSetName` | `cn` | The set. |
+| `colorSetName` | `cls` | The colour set. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyColorMod
 
-Change colours: -hv adds to hue, -sv and -v scale saturation and value. Returns the node.
+Change colours: -h adds to hue, -s and -v scale saturation and value; each channel's ramp (-rfv, -gfv, -bfv, -afv, -nfv for intensity) scales it. Returns the node.
 
 Arguments: components or meshes (the selection when none)
 
@@ -14596,13 +17372,30 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `baseColorName` | `bcn` | The colour set (the current one). |
-| `huev` | `hv` | Degrees of hue. |
-| `satv` | `sv` | Saturation scale. |
-| `value` | `v` | Value scale. |
+| `huev` | `h` | Degrees the hue turns. |
+| `satv` | `s` | Saturation scale. |
+| `value` | `v` | Value (brightness) scale. |
+| `redScale_Position` | `rp` | Where the ramp's entry sits along the channel, 0 to 1. |
+| `redScale_FloatValue` | `rfv` | The ramp entry's value: the channel is scaled by it (1). |
+| `redScale_Interp` | `ri` | How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `greenScale_Position` | `gp` | Where the ramp's entry sits along the channel, 0 to 1. |
+| `greenScale_FloatValue` | `gfv` | The ramp entry's value: the channel is scaled by it (1). |
+| `greenScale_Interp` | `gi` | How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `blueScale_Position` | `bp` | Where the ramp's entry sits along the channel, 0 to 1. |
+| `blueScale_FloatValue` | `bfv` | The ramp entry's value: the channel is scaled by it (1). |
+| `blueScale_Interp` | `bi` | How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `alphaScale_Position` | `ap` | Where the ramp's entry sits along the channel, 0 to 1. |
+| `alphaScale_FloatValue` | `afv` | The ramp entry's value: the channel is scaled by it (1). |
+| `alphaScale_Interp` | `ai` | How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `intensityScale_Position` | `np` | Where the ramp's entry sits along the channel, 0 to 1. |
+| `intensityScale_FloatValue` | `nfv` | The ramp entry's value: the channel is scaled by it (1). |
+| `intensityScale_Interp` | `ni` | How the ramp blends to its next entry: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyColorPerVertex
 
@@ -14693,6 +17486,8 @@ Arguments: two meshes
 
 Create a Cone mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -14704,8 +17499,8 @@ Create a Cone mesh. Returns [mesh, generator] (generator is None with generator=
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | cm. |
 | `height` | `h` | cm. |
@@ -14723,6 +17518,8 @@ Create a Cone mesh. Returns [mesh, generator] (generator is None with generator=
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `subdivisionsZ` | `sz` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyConform
 
@@ -14779,9 +17576,11 @@ Arguments: components or meshes (the selection when none)
 | `insertWithEdgeFlow` | `ief` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyContourProjection
 
@@ -14809,9 +17608,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCopyUV
 
@@ -14827,28 +17628,28 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCrease
 
-Set the crease of the selected edges (-v 0 to 10): it holds them sharper under smoothing. -q -v asks.
+Set crease values on edges (-v) and vertices (-vv): they hold sharper under smoothing. -rv adds to what they have; -op 1 takes the crease off the components, -op 2 off the whole mesh. -v and -vv repeat, one value per component in order. -q -v and -q -vv read them back.
 
-Arguments: edges (the selection when none)
+Arguments: edges or vertices (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `value` | `v` | Crease value: 0 to 10. |
-| `relativeValue` | `rv` | Accepted for existing scripts. |
+| `value` | `v` | Crease of the edges, 0 to 10; repeat it for one value per edge. |
+| `vertexValue` | `vv` | Crease of the vertices; repeat it for one value per vertex. |
+| `relativeValue` | `rv` | Add this to the crease of every edge and vertex named. |
+| `operation` | `op` | 0 crease the components, 1 take their crease off, 2 take every crease off the mesh. |
+| `createHistory` | `ch` | Make a polyCreaseEdge history node on a mesh that has no history (one with history always gets one). |
 | `query` | `q` | Query mode. |
-| `operation` | `op` | See the command reference. |
-| `vertexValue` | `vv` | See the command reference. |
-| `constructionHistory` | `ch` | Accepted; see the command reference. |
-| `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
-| `frozen` | `fzn` | Accepted; see the command reference. |
+| `edit` | `e` | Edit mode: the same as creasing. |
+| `creaseVertices` |  | The vertices a polyCreaseEdge node creases, worked out from the arguments. |
 
 ## polyCreaseCtx
 
@@ -14885,9 +17686,11 @@ Arguments: components or meshes (the selection when none)
 | `texture` | `tx` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCreateFacetCtx
 
@@ -14918,6 +17721,8 @@ Arguments: [name]
 
 Create a Cube mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -14929,8 +17734,8 @@ Create a Cube mesh. Returns [mesh, generator] (generator is None with generator=
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `width` | `w` | Size along X, cm. |
 | `height` | `h` | Size along the up axis, cm. |
@@ -14943,6 +17748,8 @@ Create a Cube mesh. Returns [mesh, generator] (generator is None with generator=
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `subdivisionsZ` | `sz` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCut
 
@@ -14954,8 +17761,8 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 | `cutPlaneCenter` | `pc` | The plane's centre. |
 | `cutPlaneRotate` | `ro` | The plane's rotation. |
@@ -14963,10 +17770,23 @@ Arguments: components or meshes (the selection when none)
 | `cutPlaneHeight` | `ph` | Accepted: the plane has no edge here. |
 | `deleteFaces` | `df` | Delete the side the normal points to. |
 | `extractFaces` | `ef` | Pull that side off. |
-| `extractOffset` | `eo` | How far. |
+| `extractOffset` | `eo` | How far extracted faces move (0.5 each way). |
 | `onObject` | `oo` | Accepted for existing scripts. |
 | `worldSpace` | `ws` | The plane is in world space (always). |
 | `worldInverse` |  | The object's inverse world matrix when the edit was made. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `cutPlaneCenterX` | `pcx` | The cut plane's centre in X. |
+| `cutPlaneCenterY` | `pcy` | The cut plane's centre in Y. |
+| `cutPlaneCenterZ` | `pcz` | The cut plane's centre in Z. |
+| `cutPlaneRotateX` | `rx` | The cut plane's rotation about X. |
+| `cutPlaneRotateY` | `ry` | The cut plane's rotation about Y. |
+| `cutPlaneRotateZ` | `rz` | The cut plane's rotation about Z. |
+| `extractOffsetX` | `eox` | How far extracted faces move in X. |
+| `extractOffsetY` | `eoy` | How far extracted faces move in Y. |
+| `extractOffsetZ` | `eoz` | How far extracted faces move in Z. |
+| `cutPlaneSize` | `ps` | The cut plane's width and height. |
+| `cuttingDirection` | `cd` | x, y or z: the plane across that axis through the middle of the faces' bounding box. |
 
 ## polyCutCtx
 
@@ -14994,6 +17814,8 @@ Arguments: [name]
 
 Create a Cylinder mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -15005,8 +17827,8 @@ Create a Cylinder mesh. Returns [mesh, generator] (generator is None with genera
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | cm. |
 | `height` | `h` | cm. |
@@ -15023,18 +17845,53 @@ Create a Cylinder mesh. Returns [mesh, generator] (generator is None with genera
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `subdivisionsZ` | `sz` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyCylindricalProjection
 
 Project UVs through a cylindrical projection: polyProjection -t cylindrical.
 
-Arguments: faces or meshes
+Arguments: faces or meshes; with -q and -e, the polyCylProj node or the mesh
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
 | `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `uvSetName` | `uvs` | The UV set projected into. |
+| `createNewMap` | `cm` | Make the -uvs set when the mesh lacks it. |
+| `insertBeforeDeformers` | `ibd` | Before or after the deformers: accepted; the projection goes where Aztek's history puts it. |
+| `keepImageRatio` | `kir` | Planar: the same scale in U and V, as the fit does. |
+| `smartFit` | `sf` | Cylindrical and spherical: the manipulator fitted to the object, as the fit does. |
+| `seamCorrect` | `sc` | Cut the seam where the map wraps. |
+| `imageCenterX` | `icx` | U offset of the projected UVs. |
+| `imageCenterY` | `icy` | V offset of the projected UVs. |
+| `imageScaleU` | `isu` | U scale of the projected UVs. |
+| `imageScaleV` | `isv` | V scale of the projected UVs. |
+| `projectionCenterX` | `pcx` | The manipulator's centre. |
+| `projectionCenterY` | `pcy` | The manipulator's centre. |
+| `projectionCenterZ` | `pcz` | The manipulator's centre. |
+| `projectionScaleU` | `psu` | The map's sweep round the cylinder. |
+| `projectionScaleV` | `psv` | The map's height. |
+| `rotateX` | `rx` | The manipulator's rotation. |
+| `rotateY` | `ry` | The manipulator's rotation. |
+| `rotateZ` | `rz` | The manipulator's rotation. |
+| `rotationAngle` | `ra` | How far the UVs turn, counterclockwise. |
+| `projectionCenter` | `pc` | Where the projection sits. |
+| `projectionHeight` | `ph` | The cylinder's height. |
+| `projectionHorizontalSweep` | `phs` | How far round the cylinder the map wraps. |
+| `projectionScale` | `ps` | The map's sweep (degrees) and height. |
+| `imageCenter` | `ic` | Where the middle of the UVs goes (0.5 0.5). |
+| `imageScale` | `is` | How the UVs scale about that middle (1 1). |
+| `radius` | `r` | The manipulator's radius (10). |
+| `worldSpace` | `ws` | Values in world space (on) or the object's (off). |
+| `perInstance` | `pi` | A new map for this instance only; UV sets are shared by every instance here. |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## polyDelEdge
 
@@ -15048,9 +17905,11 @@ Arguments: components or meshes (the selection when none)
 | `cleanVertices` | `cv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyDelFacet
 
@@ -15062,9 +17921,11 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyDelVertex
 
@@ -15077,6 +17938,10 @@ Arguments: vertices (the selection when none)
 | `withFaces` |  | Delete the faces round them instead. |
 | `constructionHistory` | `ch` | Off: no history node. |
 | `name` | `n` | Name of the node. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## polyDetachEdges
 
@@ -15153,9 +18018,11 @@ Arguments: components or meshes (the selection when none)
 | `startVertexOffset` | `svo` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyDuplicateFaces
 
@@ -15176,9 +18043,11 @@ Arguments: components or meshes (the selection when none)
 | `iterations` |  | Passes of Smooth Along Loop. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyEditUV
 
@@ -15188,8 +18057,12 @@ Arguments: UVs (pCube1.map[0:3]), faces or meshes
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `u` | `u` | U offset (or value with -r 0). |
-| `v` | `v` | V offset (or value with -r 0). |
+| `uValue` | `u` | U offset (or value with -r 0). |
+| `vValue` | `v` | V offset (or value with -r 0). |
+| `scale` | `s` | Use the scale values (on). |
+| `rotation` | `rot` | Use the turn (on). |
+| `rotateRatio` | `rr` | The turn is -angle times this (1). |
+| `uvSetName` | `uvs` | The UV set to edit (the current one). |
 | `scaleU` | `su` | Scale in U about the pivot. |
 | `scaleV` | `sv` | Scale in V about the pivot. |
 | `angle` | `a` | Turn, degrees, about the pivot. |
@@ -15214,12 +18087,14 @@ Arguments: UVs, faces or meshes (the selection when none)
 | `vValue` | `v` | V offset, or value with -r 0. |
 | `scaleU` | `su` | U scale. |
 | `scaleV` | `sv` | V scale. |
-| `rotateRatio` | `rr` | Accepted: the same as -a. |
+| `rotateRatio` | `rr` | The turn is -angle times this (1). |
+| `scale` | `s` | Use the scale values (on). |
+| `uvSetName` | `uvs` | The UV set to edit (the current one). |
 | `angle` | `a` | Turn, degrees. |
 | `pivotU` | `pu` | Pivot U. |
 | `pivotV` | `pv` | Pivot V. |
 | `relative` | `r` | Offsets (the default) or values. |
-| `rotation` | `rot` | Accepted for existing scripts. |
+| `rotation` | `rot` | Use the turn (on). |
 | `query` | `q` | Return u, v of each UV. |
 
 ## polyEvaluate
@@ -15250,7 +18125,7 @@ Arguments: meshes or components (the selection when none)
 | `faceComponent` | `fc` | Selected face count. |
 | `uvComponent` | `uvc` | Selected UV count. |
 | `uvShell` | `us` | UV shell count. |
-| `uvShellIds` | `uid` | The UV shell of each selected UV. |
+| `uvShellIds` | `usi` | The UV shell of each selected UV. |
 | `uvsInShell` | `uis` | The UVs in this UV shell. |
 | `activeUVShells` | `aus` | The UV shells the selection touches. |
 | `activeShells` | `as` | The mesh shells the selection touches. |
@@ -15258,6 +18133,11 @@ Arguments: meshes or components (the selection when none)
 | `displayStats` | `ds` | Accepted for existing scripts. |
 | `boundingBox2d` | `b2` | UV bounds: [[umin, umax], [vmin, vmax]]. |
 | `boundingBoxComponent2d` | `bc2` | UV bounds of the components named. |
+| `faceArea` | `fa` | The area of each face named or selected, in the object's space. |
+| `worldFaceArea` | `wfa` | The area of each face named or selected, in world space. |
+| `uvFaceArea` | `ufa` | The UV area of each face named or selected. |
+| `uvArea` | `uva` | The UV area of the object's faces (those named, when components are). |
+| `uvEdgePairs` | `uep` | The UVs at the ends of each edge named or selected, a pair for each face along it. |
 
 ## polyExtract
 
@@ -15340,9 +18220,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyExtrudeFacet
 
@@ -15418,9 +18300,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyExtrudeVertex
 
@@ -15436,9 +18320,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyFillHole
 
@@ -15466,7 +18352,7 @@ Arguments: components or meshes (the selection when none)
 
 Mirror UVs across the middle of their bounds: -ft 0 horizontally (in U), 1 vertically.
 
-Arguments: UVs, faces or meshes
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -15482,9 +18368,11 @@ Arguments: UVs, faces or meshes
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyForceUV
 
@@ -15514,23 +18402,38 @@ Arguments: components or meshes (the selection when none)
 
 ## polyGeoSampler
 
-Fill a colour set from the mesh's own colours, scaled by -sf and clamped; there are no lights to sample here. Returns the node.
+Sample the surface's colour and transparency as its lights (or a default light along the view) shine on it, at each vertex of the faces named or selected (each face with -bf), and store them as colours (blended by -cbl and -abl), or push the points along their normals by them (-dg). Returns the node.
 
-Arguments: components or meshes (the selection when none)
+Arguments: faces, vertices or meshes (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `alphaBlend` | `abl` | How the sampled alpha combines with the stored one: none, overwrite (the default), add, subtract, multiply, divide or average. |
+| `colorBlend` | `cbl` | How the sampled colour combines with the stored one, as -abl. |
+| `averageColor` | `ac` | One colour per vertex, shared by its faces (off: each face's corner its own). |
+| `clampAlphaMax` | `amx` | The most the stored alpha may be. |
+| `clampAlphaMin` | `amn` | The least the stored alpha may be. |
+| `clampRGBMax` | `cmx` | The most each stored colour channel may be. |
+| `clampRGBMin` | `cmn` | The least each stored colour channel may be. |
+| `colorDisplayOption` | `cdo` | Show the mesh's vertex colours. |
+| `computeShadows` | `cs` | Accepted: lights sample without shadows here. |
+| `reuseShadows` | `rs` | Accepted: lights sample without shadows here. |
+| `useLightShadows` | `ul` | Accepted: lights sample without shadows here. |
+| `displaceGeometry` | `dg` | Push the points along their normals by the samples' brightness rather than store colours. |
+| `flatShading` | `fs` | Sample with the faces' own normals rather than smooth ones. |
+| `ignoreDoubleSided` | `ids` | Light only the side the normals face, even on a double-sided mesh. |
+| `lightingOnly` | `lo` | Sample the light arriving rather than the lit colour. |
+| `sampleByFace` | `bf` | One sample per face rather than per vertex. |
+| `scaleFactor` | `sf` | Scale the samples (1); below 0 pushes points inward with -dg. |
+| `shareUV` | `su` | Share UVs at each vertex; UVs are left as they are here. |
+| `edit` | `e` | Edit mode: change the named polyGeoSampler node's settings. |
+| `baseColorName` | `bcn` | The colour set (the current one). |
+| `geoSamples` |  | The samples, worked out when the command ran. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
-| `baseColorName` | `bcn` | The colour set (the current one). |
-| `scaleFactor` | `sf` | Scale. |
-| `clampMin` | `cmn` | Lowest value. |
-| `clampMax` | `cmx` | Highest value. |
-| `computeShadows` | `cs` | Accepted for existing scripts. |
-| `sampleByFace` | `sbf` | Accepted for existing scripts. |
 
 ## polyGridFill
 
@@ -15545,6 +18448,8 @@ Rebuild triangle fans and other patches as a quad grid inside a ring of quads: s
 
 Create a Helix mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -15556,8 +18461,8 @@ Create a Helix mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `coils` | `c` | Turns. |
 | `height` | `h` | cm. |
@@ -15568,7 +18473,10 @@ Create a Helix mesh. Returns [mesh, generator] (generator is None with generator
 | `subdivisionsCoil` | `sco` | Segments per coil. |
 | `subdivisionsCaps` | `sc` | Rings on each end. |
 | `roundCap` | `rcp` | Accepted; the ends stay flat. |
+| `useOldInitBehaviour` | `oib` | Build the helix up from the origin, as the reference's older releases did, rather than centred on it. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyHole
 
@@ -15579,13 +18487,14 @@ Arguments: components or meshes (the selection when none)
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Query mode. |
-| `edit` | `e` | Edit mode. |
+| `edit` | `e` | Edit mode: set or clear holes as in create mode. |
 | `assignHole` | `ah` | See the command reference. |
-| `constructionHistory` | `ch` | Accepted; see the command reference. |
+| `constructionHistory` |  | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `createHistory` | `ch` | Make a history node even on a mesh with none (off); a mesh with history always gets one. |
 
 ## polyIcoSphere
 
@@ -15699,7 +18608,7 @@ Knife / multi-cut: cut a mesh along a path of points, splitting the faces betwee
 
 Pack UV shells into 0 to 1: -ps percent space between them, -rbf 0 keeps them unturned. Returns the node.
 
-Arguments: components or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -15714,9 +18623,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyListComponentConversion
 
@@ -15754,7 +18665,18 @@ Store the current shading normals of the selected meshes as split normals, so la
 
 Cut UVs along the selected edges: each side gets its own UVs, splitting shells.
 
-Arguments: edges
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `moveratio` | `mvr` | How far the cut opens: a share of the way from each cut edge to the middle of its face. |
+| `constructionHistory` | `ch` | Keep a history node (on). |
+| `name` | `n` | The node's name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyMapDel
 
@@ -15766,25 +18688,45 @@ Arguments: UVs, faces or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
 | `name` | `n` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMapSew
 
 Sew UVs along the selected edges: the two sides meet halfway.
 
-Arguments: edges
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `constructionHistory` | `ch` | Keep a history node (on). |
+| `name` | `n` | The node's name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyMapSewMove
 
 Move and Sew: the smaller shell moves onto the other along the selected edges, then they're sewn.
 
-Arguments: edges
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `nf` | `nf` | Accepted for existing scripts. |
-| `lps` | `lps` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `limitPieceSize` | `lps` | Refuse to move pieces of more than numberFaces faces. |
+| `numberFaces` | `nf` | With limitPieceSize: the most faces a piece moved may have. |
+| `worldSpace` | `ws` | World-space values rather than the object's; UVs are the same either way. |
+| `constructionHistory` | `ch` | Keep a history node (on). |
+| `name` | `n` | The node's name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyMerge
 
@@ -15813,9 +18755,11 @@ Arguments: components or meshes (the selection when none)
 | `secondEdge` | `se` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMergeEdgeCtx
 
@@ -15860,9 +18804,11 @@ Arguments: components or meshes (the selection when none)
 | `secondFacet` | `sf` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMergeFacetCtx
 
@@ -15897,7 +18843,7 @@ Arguments: [name]
 
 Merge UVs closer than -d into one, where they share a vertex. Returns the node.
 
-Arguments: components or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -15906,9 +18852,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMergeVertex
 
@@ -15926,9 +18874,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMirror
 
@@ -15990,9 +18940,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMoveEdge
 
@@ -16041,9 +18993,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMoveFacet
 
@@ -16103,15 +19057,17 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyMoveFacetUV
 
 Move UVs of faces: polyMoveUV under its other name.
 
-Arguments: components or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16131,15 +19087,18 @@ Arguments: components or meshes (the selection when none)
 | `translateV` | `tv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyMoveUV
 
 Move UVs: -t -tu -tv, -ra degrees, -s -su -sv, about -pvt. Returns the node.
 
-Arguments: components or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16159,9 +19118,12 @@ Arguments: components or meshes (the selection when none)
 | `translateV` | `tv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyMoveVertex
 
@@ -16201,9 +19163,35 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyMultiLayoutUV
+
+Lay out the UVs of the meshes named or selected together, so no two pieces overlap across them: each mesh's pieces packed, then the meshes' blocks arranged (-l) and fitted (-sc), scaled by -su -sv and moved by -ou -ov.
+
+Arguments: meshes or faces (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `flipReversed` | `fr` | Mirror pieces whose UVs face backwards (on). |
+| `gridU` | `gu` | With -l 3: cells across. |
+| `gridV` | `gv` | With -l 3: cells up. |
+| `layout` | `l` | How pieces move: 0 not at all, 1 along U, 2 into a square (the default), 3 into a grid of cells, 4 to the nearest free space. |
+| `layoutMethod` | `lm` | 0 block stacking, 1 shape stacking. |
+| `offsetU` | `ou` | Move the layout in U. |
+| `offsetV` | `ov` | Move the layout in V. |
+| `percentageSpace` | `ps` | With a square layout: space round each piece, percent of the square (5 at most). |
+| `prescale` | `psc` | Before: 0 pieces as they are, 1 to their sizes in object space, 2 in world space. |
+| `rotateForBestFit` | `rbf` | 0 no turning, 1 by right angles, 2 freely. |
+| `scale` | `sc` | After: 0 no scaling, 1 uniform into the unit square (the default), 2 each way into it. |
+| `sizeU` | `su` | Scale the layout in U (1). |
+| `sizeV` | `sv` | Scale the layout in V (1). |
+| `uvSetName` | `uvs` | The UV set to lay out (the current one). |
+| `createNewMap` |  | Make the UV set named if a mesh lacks it. |
 
 ## polyNormal
 
@@ -16217,9 +19205,11 @@ Arguments: components or meshes (the selection when none)
 | `userNormalMode` | `unm` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyNormalPerVertex
 
@@ -16250,13 +19240,24 @@ Arguments: components or meshes (the selection when none)
 
 Fit UVs into 0 to 1: all together (-nt 1) or each shell on its own (-nt 0), keeping proportions unless -pa 0.
 
-Arguments: faces or meshes
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `normalizeType` | `nt` | 1 all together, 0 each shell. |
 | `normalizeDirection` | `nd` | 0 along U and V, 1 along U alone, 2 along V alone. |
 | `preserveAspectRatio` | `pa` | Keep proportions (default on). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `centerOnTile` | `cot` | Centre on the tile the UVs are mostly over, rather than on 0 to 1. |
+| `worldSpace` | `ws` | World-space values rather than the object's; UVs are the same either way. |
+| `constructionHistory` | `ch` | Keep a history node (on). |
+| `name` | `n` | The node's name. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
+| `createNewMap` | `cm` | Make the UV set -uvs names, a copy of the current one, when the mesh lacks it. |
+| `insertBeforeDeformers` | `ibd` | Accepted: the node goes into the mesh's history as any UV edit does. |
 
 ## polyOffsetLoop
 
@@ -16274,14 +19275,14 @@ Insert an edge loop either side of the selected edges, parallel to them (the ref
 
 Relax UVs: flattens each shell again, keeping its place and size. Returns the node.
 
-Arguments: UVs, faces or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
 | `name` | `n` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `iterations` | `i` | Accepted: the solver decides. |
 | `stoppingThreshold` | `ss` | Accepted: the solver decides. |
 | `useScale` | `us` | Accepted for existing scripts. |
@@ -16293,6 +19294,10 @@ Arguments: UVs, faces or meshes (the selection when none)
 | `pinSelected` | `ps` | Accepted for existing scripts. |
 | `pinUvBorder` | `pub` | Accepted for existing scripts. |
 | `applyToShell` | `as` | Accepted: shells are what it works on. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `worldSpace` | `ws` | World-space values rather than the object's; UVs are the same either way. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polyOptions
 
@@ -16313,6 +19318,7 @@ Arguments: components or meshes (the selection when none)
 | `displayAlphaAsGreyScale` | `dal` | See the command reference. |
 | `displayBlueChannel` | `dbc` | See the command reference. |
 | `displayBorder` | `db` | See the command reference. |
+| `displayColorAsGreyScale` | `dcl` | See the command reference. |
 | `displayCenter` | `dc` | See the command reference. |
 | `displayCreaseEdge` | `dce` | See the command reference. |
 | `displayCreaseVertex` | `dcv` | See the command reference. |
@@ -16360,23 +19366,30 @@ Arguments: components or meshes (the selection when none)
 
 ## polyOutput
 
-A mesh's description as text: -v, -ed, -f, -fn; -a all, the default; -of a file.
+A mesh's description as text: a summary, and with each flag one part of it (-a everything). A plug (polySubdFace1.output) describes the mesh flowing through it. Returns the lines; -of writes them to a file, -no gives nothing.
 
-Arguments: meshes
+Arguments: meshes or mesh plugs (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `allValues` | `a` | Everything. |
-| `vert` | `v` | Vertices. |
-| `edge` | `ed` | Edges. |
-| `face` | `f` | Faces. |
-| `faceNorm` | `fn` | Face normals. |
-| `vertNorm` | `vn` | Accepted for existing scripts. |
-| `triangle` | `t` | Accepted for existing scripts. |
-| `uvValue` | `uv` | Accepted for existing scripts. |
-| `color` | `c` | Accepted for existing scripts. |
-| `group` | `g` | Accepted for existing scripts. |
-| `outputFile` | `of` | Write here. |
+| `allValues` | `a` | Every part. |
+| `force` | `fo` | Bring the scene up to date first. |
+| `noOutput` | `no` | Work it out but give nothing. |
+| `outputFile` | `of` | Write the lines to this file. |
+| `vert` | `v` | Vertex positions. |
+| `edge` | `e` | Each edge's two vertices and whether it is smooth. |
+| `face` | `f` | Each face's vertices and edges. |
+| `faceNorm` | `fn` | Each face's normal. |
+| `vertNorm` | `vn` | The normals at each face's corners. |
+| `triangle` | `t` | The triangles each face is drawn with. |
+| `uvValue` | `uv` | UV positions, for each UV set. |
+| `uvDesc` | `uvd` | Each face's UV ids, for each UV set. |
+| `color` | `c` | The colour at each face's corners, for each colour set. |
+| `colorDesc` | `cd` | Each face's colour ids, for each colour set. |
+| `normDesc` | `nd` | Each face's corner normal ids. |
+| `edgeFace` | `ef` | The faces on each edge. |
+| `vertEdge` | `ve` | The edges at each vertex. |
+| `group` | `g` | The shading groups holding the mesh and which of its faces. |
 
 ## polyPasteFace
 
@@ -16401,15 +19414,20 @@ Arguments: components or meshes (the selection when none)
 | `unpinned` | `unp` | See the command reference. |
 | `uvSetName` | `uvs` | See the command reference. |
 | `value` | `v` | See the command reference. |
-| `constructionHistory` | `ch` | Accepted; see the command reference. |
+| `constructionHistory` |  | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `createHistory` | `ch` | Accepted: pins are written into the mesh, which carries them through its history. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPipe
 
 Create a Pipe mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16422,8 +19440,8 @@ Create a Pipe mesh. Returns [mesh, generator] (generator is None with generator=
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | Outer radius, cm. |
 | `thickness` | `t` | Wall thickness, cm. |
@@ -16439,22 +19457,59 @@ Create a Pipe mesh. Returns [mesh, generator] (generator is None with generator=
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `subdivisionsZ` | `sz` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPlanarProjection
 
 Project UVs through a planar projection: polyProjection -t planar.
 
-Arguments: faces or meshes
+Arguments: faces or meshes; with -q and -e, the polyPlanarProj node or the mesh
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
 | `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `uvSetName` | `uvs` | The UV set projected into. |
+| `createNewMap` | `cm` | Make the -uvs set when the mesh lacks it. |
+| `insertBeforeDeformers` | `ibd` | Before or after the deformers: accepted; the projection goes where Aztek's history puts it. |
+| `keepImageRatio` | `kir` | Planar: the same scale in U and V, as the fit does. |
+| `smartFit` | `sf` | Cylindrical and spherical: the manipulator fitted to the object, as the fit does. |
+| `seamCorrect` | `sc` | Cut the seam where the map wraps. |
+| `imageCenterX` | `icx` | U offset of the projected UVs. |
+| `imageCenterY` | `icy` | V offset of the projected UVs. |
+| `imageScaleU` | `isu` | U scale of the projected UVs. |
+| `imageScaleV` | `isv` | V scale of the projected UVs. |
+| `projectionCenterX` | `pcx` | The manipulator's centre. |
+| `projectionCenterY` | `pcy` | The manipulator's centre. |
+| `projectionCenterZ` | `pcz` | The manipulator's centre. |
+| `projectionScaleU` | `psu` | The manipulator's width. |
+| `projectionScaleV` | `psv` | The manipulator's height. |
+| `rotateX` | `rx` | The manipulator's rotation. |
+| `rotateY` | `ry` | The manipulator's rotation. |
+| `rotateZ` | `rz` | The manipulator's rotation. |
+| `rotationAngle` | `ra` | How far the UVs turn, counterclockwise. |
+| `projectionCenter` | `pc` | The point on the object the projection is centred on (0 0 0). |
+| `projectionHeight` | `ph` | The map's height along the projection. |
+| `projectionHorizontalSweep` | `phs` | The angle the projection sweeps across. |
+| `projectionScale` | `ps` | The map's width and height along the projection (1 1). |
+| `imageCenter` | `ic` | Where the middle of the UVs goes (0.5 0.5). |
+| `imageScale` | `is` | How the UVs scale about that middle (1 1). |
+| `rotate` | `ro` | The projection's rotation (0 0 0). |
+| `worldSpace` | `ws` | Values in world space (on) or the object's (off). |
+| `perInstance` | `pi` | A new map for this instance only; UV sets are shared by every instance here. |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## polyPlane
 
 Create a Plane mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16467,8 +19522,8 @@ Create a Plane mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `width` | `w` | Size along X, cm. |
 | `height` | `h` | Size along Z, cm. |
@@ -16479,10 +19534,14 @@ Create a Plane mesh. Returns [mesh, generator] (generator is None with generator
 | `subdivisionsZ` | `sz` | Another name for the attribute it sets. |
 | `depth` |  | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPlatonicSolid
 
 Create a Solid mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16495,13 +19554,15 @@ Create a Solid mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | Centre to each point, cm. |
-| `sideLength` | `w` | Accepted; the radius sets the size. |
+| `sideLength` | `l` | Accepted; the radius sets the size. |
 | `solidType` | `st` | 0 dodecahedron, 1 icosahedron, 2 octahedron, 3 tetrahedron. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPoke
 
@@ -16523,14 +19584,18 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPrimitive
 
 Create a Solid mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -16542,18 +19607,22 @@ Create a Solid mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | Centre to each point, cm. |
-| `sideLength` | `w` | Accepted; the radius sets the size. |
+| `sideLength` | `l` | Accepted; the radius sets the size. |
 | `polyType` | `pt` | 0 soccer ball. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyPrism
 
 Create a Prism mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -16565,35 +19634,40 @@ Create a Prism mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `length` | `l` | Height, cm. |
 | `sideLength` | `w` | Length of each side of the ends, cm. |
 | `numberOfSides` | `ns` | Sides. |
 | `subdivisionsHeight` | `sh` | Segments up. |
 | `subdivisionsCaps` | `sc` | Rings on each end. |
+| `numderOfSides` | `nsi` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyProjectCurve
 
-Project a curve onto a mesh along -d: makes a curve lying on the surface, for polySplit -pc. Takes the curve, then the mesh. Returns the new curve's transform.
+Project a curve onto a mesh along -d (the camera's view when left out): a curve lying on the surface, made by a live polyProjectCurve node, for polySplit -pc. Takes the curve and the mesh, either way round. Returns the curve and the node.
 
-Arguments: the curve, then the mesh
+Arguments: the curve and the mesh
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `addUnderTransform` | `aut` | See the command reference. |
-| `direction` | `d` | See the command reference. |
-| `directionX` | `dx` | See the command reference. |
-| `directionY` | `dy` | See the command reference. |
-| `directionZ` | `dz` | See the command reference. |
-| `tolerance` | `tol` | See the command reference. |
+| `addUnderTransform` | `aut` | Put the result under the mesh's transform (on). |
+| `direction` | `d` | The way to project (the camera's view). |
+| `tolerance` | `tol` | How closely the result follows the shadow (0.01). |
+| `directionX` | `dx` | A part of the direction. |
+| `directionY` | `dy` | A part of the direction. |
+| `directionZ` | `dz` | A part of the direction. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyProjection
 
@@ -16607,10 +19681,31 @@ Arguments: faces or meshes
 | `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
 | `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `uvSetName` | `uvs` | The UV set projected into. |
+| `createNewMap` | `cm` | Make the -uvs set when the mesh lacks it. |
+| `insertBeforeDeformers` | `ibd` | Before or after the deformers: accepted; the projection goes where Aztek's history puts it. |
+| `keepImageRatio` | `kir` | Planar: the same scale in U and V, as the fit does. |
+| `smartFit` | `sf` | Cylindrical and spherical: the manipulator fitted to the object, as the fit does. |
+| `seamCorrect` | `sc` | Accepted: the seam is cut where the projection wraps. |
+| `imageCenterX` | `icx` | U offset of the projected UVs. |
+| `imageCenterY` | `icy` | V offset of the projected UVs. |
+| `imageScaleU` | `isu` | U scale of the projected UVs. |
+| `imageScaleV` | `isv` | V scale of the projected UVs. |
+| `projectionCenterX` | `pcx` | The manipulator's centre. |
+| `projectionCenterY` | `pcy` | The manipulator's centre. |
+| `projectionCenterZ` | `pcz` | The manipulator's centre. |
+| `projectionScaleU` | `psu` | The manipulator's width. |
+| `projectionScaleV` | `psv` | The manipulator's height. |
+| `rotateX` | `rx` | The manipulator's rotation. |
+| `rotateY` | `ry` | The manipulator's rotation. |
+| `rotateZ` | `rz` | The manipulator's rotation. |
+| `rotationAngle` | `ra` | The UVs' rotation in UV space. |
 
 ## polyPyramid
 
 Create a Pyramid mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -16623,14 +19718,17 @@ Create a Pyramid mesh. Returns [mesh, generator] (generator is None with generat
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `sideLength` | `w` | Length of each side, cm. |
 | `numberOfSides` | `ns` | Sides of the base. |
 | `subdivisionsHeight` | `sh` | Segments up. |
 | `subdivisionsCaps` | `sc` | Rings on the base. |
+| `numderOfSides` | `nsi` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyQuad
 
@@ -16647,9 +19745,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyQuadSphere
 
@@ -16696,6 +19796,13 @@ Arguments: components or meshes (the selection when none)
 | `shortDataName` | `sdn` | The short name. |
 | `subString` | `ss` | A part of the name. |
 | `showComp` | `sc` | List the components too. |
+| `doubleData` | `dbd` | Only components whose value is this number. |
+| `intData` | `ind` | Only components whose value is this whole number. |
+| `booleanData` | `bd` | Only components whose value is this on or off. |
+| `minValue` | `min` | Only values of at least this. |
+| `maxValue` | `max` | Only values of at most this. |
+| `stringData` | `sd` | Only text data of this value; blind data here holds numbers, so none match. |
+| `binaryData` | `bnd` | Only binary data of this value; blind data here holds numbers, so none match. |
 
 ## polyReduce
 
@@ -16752,9 +19859,11 @@ Arguments: objects
 | `weightCoefficient` | `wc` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyRemesh
 
@@ -16772,9 +19881,11 @@ Arguments: components or meshes (the selection when none)
 | `useRelativeValues` | `urv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyRetopo
 
@@ -16872,6 +19983,7 @@ Arguments: components or meshes (the selection when none)
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer what the flags would select, leaving the selection alone. |
 
 ## polySelectConstraint
 
@@ -16945,6 +20057,16 @@ Arguments: components or meshes (the selection when none)
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+
+## polySelectConstraintMonitor
+
+The selection constraint monitor: -c makes it, -d removes it, -cc callback window sets the script run (with the window's name) to refresh the window each time polySelectConstraint changes the constraints.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `create` | `c` | Make the monitor. |
+| `delete` | `d` | Remove the monitor and its callback. |
+| `changeCommand` | `cc` | The script that refreshes the window, then the window's name. |
 
 ## polySelectCtx
 
@@ -17022,9 +20144,11 @@ Arguments: components or meshes (the selection when none)
 | `separateSpecificShell` | `sss` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySetToFaceNormal
 
@@ -17051,12 +20175,14 @@ Arguments: components or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
-| `tolerance` | `tx` | How close the ends must be. |
-| `texture` | `tx2` | Accepted for existing scripts. |
-| `worldSpace` | `ws` | Accepted for existing scripts. |
+| `tolerance` | `t` | How close the ends must be (0). |
+| `texture` | `tx` | Sew the UVs along with the edges (on). |
+| `worldSpace` | `ws` | World-space values rather than the object's; the tolerance is a distance either way. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyShortestPathCtx
 
@@ -17085,8 +20211,9 @@ Slide the selected edges within the faces beside them: -v -1 to 1, a fraction of
 | Flag | Short | Description |
 | --- | --- | --- |
 | `value` | `v` | How far: -1 to 1. |
-| `absolute` | `a` | Accepted for existing scripts. |
-| `direction` | `d` | Accepted for existing scripts. |
+| `edgeDirection` | `ed` | How far, as a share of the side edges (0.5 is half way; more than 1 goes past them). |
+| `absolute` | `a` | With -ed: every vertex moves the same distance, that share of the shortest side edge. |
+| `direction` | `d` | With -ed: 0 toward one side, 1 toward the other, 2 along the vertex normals. |
 | `edgeFlow` | `ef` | Accepted for existing scripts. |
 | `symmetry` | `sym` | Accepted for existing scripts. |
 
@@ -17125,6 +20252,56 @@ Arguments: components or meshes (the selection when none)
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
 
+## polySmartExtrude
+
+Smart Extrude: extrude faces as one region, moved by -lt -lr -ls in each region's own space (-ltz along its normal) and by -t -ro -s about -pvt. Returns the node.
+
+Arguments: with -q and -e: the node, or an object it feeds
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `localCenter` | `lc` | The local centre on an edge: 0 its middle, 1 its start, 2 its end. |
+| `localDirection` | `ld` | The direction of the local X axis (1 0 0). |
+| `localDirectionX` | `ldx` | A part of the local X axis's direction. |
+| `localDirectionY` | `ldy` | A part of the local X axis's direction. |
+| `localDirectionZ` | `ldz` | A part of the local X axis's direction. |
+| `localRotate` | `lr` | Turn in the region's own space (0 0 0). |
+| `localRotateX` | `lrx` | Turn about one local axis; Z is the normal. |
+| `localRotateY` | `lry` | Turn about one local axis; Z is the normal. |
+| `localRotateZ` | `lrz` | Turn about one local axis; Z is the normal. |
+| `localScale` | `ls` | Scale in the region's own space (1 1 1). |
+| `localScaleX` | `lsx` | Scale along one local axis. |
+| `localScaleY` | `lsy` | Scale along one local axis. |
+| `localScaleZ` | `lsz` | Scale along one local axis. |
+| `localTranslate` | `lt` | Move in the region's own space (0 0 0). |
+| `localTranslateX` | `ltx` | Move along one local axis; Z is the normal. |
+| `localTranslateY` | `lty` | Move along one local axis; Z is the normal. |
+| `localTranslateZ` | `ltz` | Move along one local axis; Z is the normal. |
+| `pivot` | `pvt` | The pivot for -ro and -s (the middle of the faces). |
+| `pivotX` | `pvx` | A part of the pivot. |
+| `pivotY` | `pvy` | A part of the pivot. |
+| `pivotZ` | `pvz` | A part of the pivot. |
+| `rotate` | `ro` | Turn about the pivot (0 0 0). |
+| `rotateX` | `rx` | Turn about one axis. |
+| `rotateY` | `ry` | Turn about one axis. |
+| `rotateZ` | `rz` | Turn about one axis. |
+| `scale` | `s` | Scale about the pivot (1 1 1). |
+| `scaleX` | `sx` | Scale along one axis. |
+| `scaleY` | `sy` | Scale along one axis. |
+| `scaleZ` | `sz` | Scale along one axis. |
+| `translate` | `t` | Move (0 0 0). |
+| `translateX` | `tx` | Move along one axis. |
+| `translateY` | `ty` | Move along one axis. |
+| `translateZ` | `tz` | Move along one axis. |
+| `worldSpace` | `ws` | Values in world space rather than the object's (off). |
+| `worldInverse` |  | The object's inverse world matrix when the edit was made. |
+| `constructionHistory` | `ch` | Keep the history node (on). |
+| `name` | `n` | The node's name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
 ## polySmooth
 
 Smooth meshes or faces: -mth 0 Catmull-Clark (whole meshes), 1 linear; -dv levels; -kb keep borders sharp, -khe hard edges. Returns the polySmoothFace node.
@@ -17157,9 +20334,11 @@ Arguments: components or meshes (the selection when none)
 | `subdivisionType` | `sdt` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySoccerBall
 
@@ -17194,13 +20373,17 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySphere
 
 Create a Sphere mesh. Returns [mesh, generator] (generator is None with generator=False).
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -17213,8 +20396,8 @@ Create a Sphere mesh. Returns [mesh, generator] (generator is None with generato
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | cm. |
 | `subdivisionsAxis` | `sa` | Segments around. |
@@ -17224,18 +20407,53 @@ Create a Sphere mesh. Returns [mesh, generator] (generator is None with generato
 | `subdivisionsX` | `sx` | Another name for the attribute it sets. |
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySphericalProjection
 
 Project UVs through a spherical projection: polyProjection -t spherical.
 
-Arguments: faces or meshes
+Arguments: faces or meshes; with -q and -e, the polySphProj node or the mesh
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `mapDirection` | `md` | x, y, z, b (best plane), c (through the camera, -cam) or n (along the faces' normals). |
 | `camera` | `cam` | The camera -md c projects through (persp). |
 | `constructionHistory` | `ch` | Accepted for existing scripts. |
+| `uvSetName` | `uvs` | The UV set projected into. |
+| `createNewMap` | `cm` | Make the -uvs set when the mesh lacks it. |
+| `insertBeforeDeformers` | `ibd` | Before or after the deformers: accepted; the projection goes where Aztek's history puts it. |
+| `keepImageRatio` | `kir` | Planar: the same scale in U and V, as the fit does. |
+| `smartFit` | `sf` | Cylindrical and spherical: the manipulator fitted to the object, as the fit does. |
+| `seamCorrect` | `sc` | Cut the seam where the map wraps. |
+| `imageCenterX` | `icx` | U offset of the projected UVs. |
+| `imageCenterY` | `icy` | V offset of the projected UVs. |
+| `imageScaleU` | `isu` | U scale of the projected UVs. |
+| `imageScaleV` | `isv` | V scale of the projected UVs. |
+| `projectionCenterX` | `pcx` | The manipulator's centre. |
+| `projectionCenterY` | `pcy` | The manipulator's centre. |
+| `projectionCenterZ` | `pcz` | The manipulator's centre. |
+| `projectionScaleU` | `psu` | The map's width as an angle (180): half of what it covers round the sphere. |
+| `projectionScaleV` | `psv` | The map's height as an angle (90): half of what it covers up and down. |
+| `rotateX` | `rx` | The manipulator's rotation. |
+| `rotateY` | `ry` | The manipulator's rotation. |
+| `rotateZ` | `rz` | The manipulator's rotation. |
+| `rotationAngle` | `ra` | How far the UVs turn, counterclockwise. |
+| `projectionCenter` | `pc` | Where the projection sits. |
+| `projectionHorizontalSweep` | `phs` | The angle the map covers round the sphere, 0 to 360. |
+| `projectionScale` | `ps` | The map's width and height as angles (180 90): half of what it covers each way. |
+| `imageCenter` | `ic` | Where the middle of the UVs goes (0.5 0.5). |
+| `imageScale` | `is` | How the UVs scale about that middle (1 1). |
+| `radius` | `r` | The manipulator's radius. |
+| `worldSpace` | `ws` | Values in world space (on) or the object's (off). |
+| `perInstance` | `pi` | A new map for this instance only; UV sets are shared by every instance here. |
+| `name` | `n` | The node's name. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `rotate` | `ro` | The projection's turn (0 0 0). |
 
 ## polySpherize
 
@@ -17289,9 +20507,11 @@ Arguments: components or meshes (the selection when none)
 | `subdivision` | `s` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySplitCtx
 
@@ -17318,6 +20538,34 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## polySplitCtx2
+
+A polySplitCtx2 tool context: create by name, -e and -q its settings. setToolTo makes it current.
+
+Arguments: [name]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `adjustEdgeFlow` | `aef` |  |
+| `constrainToEdges` | `cte` |  |
+| `edgeMagnets` | `em` |  |
+| `insertWithEdgeFlow` | `ief` |  |
+| `snapTolerance` | `st` |  |
+| `snappedToEdgeColor` | `sec` |  |
+| `snappedToFaceColor` | `sfc` |  |
+| `snappedToMagnetColor` | `smc` |  |
+| `snappedToVertexColor` | `svc` |  |
+| `image1` | `i1` |  |
+| `image2` | `i2` |  |
+| `image3` | `i3` |  |
+| `title` | `t` |  |
+| `exists` | `ex` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+| `name` | `n` |  |
+| `history` | `ch` |  |
+| `dragSlider` | `ds` |  |
+
 ## polySplitEdge
 
 Part the faces along edges, wherever the edges divide them at a vertex. Returns the node.
@@ -17329,9 +20577,11 @@ Arguments: components or meshes (the selection when none)
 | `operation` | `op` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySplitFacet
 
@@ -17397,9 +20647,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polySplitRings
 
@@ -17422,9 +20674,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyStraighten
 
@@ -17440,18 +20694,22 @@ Straighten the selected edge chains (or chains of selected vertices) into lines 
 
 Straighten a run of border UVs between its ends: -bo blends back to where they were, -cur bows the line, -pl keeps their spacing. Whole borders without maps picked. Returns the node.
 
-Arguments: UVs, faces or meshes (the selection when none)
+Arguments: UVs, edges, faces or meshes; with -q and -e, the node or a mesh it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
 | `name` | `n` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `blendOriginal` | `bo` | 0 straight, 1 as it was. |
 | `curvature` | `c` | How much to bow. |
 | `preserveLength` | `pl` | 1 keeps spacing, 0 evens it. |
-| `gapTolerance` | `gt` | Accepted for existing scripts. |
+| `gapTolerance` | `gt` | Fill gaps of up to this many UVs between the UVs picked (0). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `worldSpace` | `ws` | World-space values rather than the object's; UVs are the same either way. |
+| `uvSetName` | `uvs` | The UV set to work on (the current one). |
 
 ## polySubdivide
 
@@ -17623,6 +20881,8 @@ A curve through a chain of selected edges, as the reference's Mesh > Create Curv
 
 Create a Torus mesh. Returns [mesh, generator] (generator is None with generator=False).
 
+Arguments: with -q and -e: the node, or an object it feeds
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `name` | `n` | Name of the mesh; made unique. |
@@ -17634,8 +20894,8 @@ Create a Torus mesh. Returns [mesh, generator] (generator is None with generator
 | `createUVs` | `cuv` | 0 leaves the mesh without UVs. |
 | `texture` | `tx` | How UVs are laid out; accepted. |
 | `axis` | `ax` | The direction the primitive's up points, as a vector. |
-| `caching` | `cch` | Accepted. |
-| `nodeState` | `nds` | Accepted. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `constructionHistory` | `ch` | False: no generator node, as generator=False. |
 | `radius` | `r` | Ring radius, cm. |
 | `sectionRadius` | `sr` | Tube radius, cm. |
@@ -17647,24 +20907,28 @@ Create a Torus mesh. Returns [mesh, generator] (generator is None with generator
 | `subdivisionsX` | `sx` | Another name for the attribute it sets. |
 | `subdivisionsY` | `sy` | Another name for the attribute it sets. |
 | `upAxis` |  | Direction the primitive's up points: x, y, z, -x, -y or -z (or a vector, as the reference's -ax 1 0 0); the scene up axis when left out. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyTransfer
 
-Copy from another mesh of the same topology, -ao names it: -uv UVs (on by default), -v vertices, -vc colours. UVs go through a polyTransfer node; vertices and colours change the mesh directly. Returns the node when there is one.
+Copy UVs (-uv, on), vertex positions (-v) and vertex colours (-vc) from the -ao object, of the same topology, through a polyTransfer node that follows the other object as it changes. Returns the node.
 
 Arguments: components or meshes (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `alternateObject` | `ao` | See the command reference. |
-| `uvSets` | `uv` | See the command reference. |
-| `vertexColor` | `vc` | See the command reference. |
-| `vertices` | `v` | See the command reference. |
+| `alternateObject` | `ao` | The object to copy from: the same topology as the object changed. |
+| `uvSets` | `uv` | Copy the UV sets (on). |
+| `vertexColor` | `vc` | Copy the vertex colours (off). |
+| `vertices` | `v` | Copy the vertex positions (off). |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyTriangulate
 
@@ -17678,9 +20942,11 @@ Arguments: components or meshes (the selection when none)
 | `quadSplit` |  | Quads split along the shorter diagonal (what display, export and MikkTSpace use) or always from the first corner. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyUVCoverage
 
@@ -17713,8 +20979,10 @@ Arguments: UVs, faces or meshes (the selection when none)
 | --- | --- | --- |
 | `constructionHistory` | `ch` | Accepted: a node is made while history is on. |
 | `name` | `n` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyUVSet
 
@@ -17752,7 +21020,7 @@ Arguments: components or meshes (the selection when none)
 
 ## polyUVStackSimilarShells
 
-Stack shells that are alike (same counts, same 3D area within -tol) on the first of each kind, by their middles. Returns the node.
+Stack shells that are alike (same counts, same 3D area within -to) on the first of each kind, by their middles. Returns the UVs of the shells stacked.
 
 Arguments: UVs, faces or meshes (the selection when none)
 
@@ -17762,8 +21030,8 @@ Arguments: UVs, faces or meshes (the selection when none)
 | `name` | `n` | Accepted for existing scripts. |
 | `caching` | `cch` | Accepted for existing scripts. |
 | `nodeState` | `nds` | Accepted for existing scripts. |
-| `tolerance` | `tol` | How close the areas must be, as a fraction. |
-| `onlyMatch` | `om` | Accepted for existing scripts. |
+| `tolerance` | `to` | How close the shells' areas must be, as a fraction (0.01). |
+| `onlyMatch` | `om` | Only find the matches: return the UVs of the target shells and move nothing. |
 
 ## polyUnite
 
@@ -17778,9 +21046,26 @@ Arguments: components or meshes (the selection when none)
 | `objectPivot` | `op` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+
+## polyUniteSkinned
+
+Combine meshes as polyUnite does, keeping their smooth skinning: the result is bound to every influence of the meshes, each point keeping its weights. The meshes are combined as they are at bind. Returns [transform, node], or [transform] with -ch 0.
+
+Arguments: the meshes (the selection when none)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `centerPivot` | `cp` | Put the result's pivot at the middle of the meshes' bounding box. |
+| `constructionHistory` | `ch` | Keep the polyUnite node and the meshes feeding it (on). |
+| `mergeUVSets` | `muv` | 0 every UV set of every mesh a set of its own, 1 sets of the same name merged (the default), 2 merged so UV links keep working. |
+| `objectPivot` | `op` | Put the result's pivot at the last mesh's pivot. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyUnlockNormals
 
@@ -17797,9 +21082,12 @@ Arguments: components or meshes (the selection when none)
 | `divisionLevels` | `dlv` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
-| `frozen` | `fzn` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `frozen` | `fzn` | The node's frozen state. |
+| `replaceOriginal` | `rpo` | Make the result in place of the original (on); off, on a copy of each mesh, which keeps no shaders from the original. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyWarpImage
 
@@ -17836,9 +21124,11 @@ Arguments: components or meshes (the selection when none)
 | `worldSpace` | `ws` | See the command reference. |
 | `constructionHistory` | `ch` | Accepted; see the command reference. |
 | `name` | `n` | Accepted; see the command reference. |
-| `caching` | `cch` | Accepted; see the command reference. |
-| `nodeState` | `nds` | Accepted; see the command reference. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## polyWeightedNormals
 
@@ -17862,7 +21152,7 @@ Arguments: name
 | `button` | `b` |  |
 | `ctrlModifier` | `ctl` |  |
 | `altModifier` | `alt` |  |
-| `shiftModifier` | `sht` |  |
+| `shiftModifier` | `sh` |  |
 | `markingMenu` | `mm` |  |
 | `allowOptionBoxes` | `aob` |  |
 | `deleteAllItems` | `dai` |  |
@@ -18009,16 +21299,155 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## preferredRenderer
+
+The renderer new scenes start with: preferredRenderer name sets it, -q reads it, -mc takes the current one, -f the fallback when the preferred isn't there.
+
+Arguments: [renderer]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `fallback` | `f` | The renderer used when the preferred one isn't there. |
+| `makeCurrent` | `mc` | The current renderer becomes the preferred one. |
 
 ## prefixHierarchy
 
 prefixHierarchy(root, prefix): puts prefix in front of the name of root and all under it.
 
 Arguments: root prefix
+
+## preloadRefEd
+
+Script UI: preloadRefEd, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `selectCommand` | `sc` |  |
+| `selectFileNode` | `sf` |  |
+| `control` | `ctl` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `filter` | `f` |  |
+| `forceMainConnection` | `fmc` |  |
+| `highlightConnection` | `hlc` |  |
+| `lockMainConnection` | `lck` |  |
+| `mainListConnection` | `mlc` |  |
+| `panel` | `pnl` |  |
+| `selectionConnection` | `slc` |  |
+| `stateString` | `sts` |  |
+| `unParent` | `up` |  |
+| `unlockMainConnection` | `ulk` |  |
+| `updateMainConnection` | `upd` |  |
+| `useTemplate` | `ut` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## profiler
+
+Record timed events while -sampling is on (each command run, and the MEL procedures and commands instrumented with -instrumentMel), and query them by -eventIndex. Times are in microseconds. Events go in categories, each of which can be turned off. -output saves them, -load reads them back.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `addCategory` | `a` | Add a category; returns its index. -categoryInfo gives its description. |
+| `allCategories` | `ac` | Query: every category's name; with -categoryInfo, each name then its description. |
+| `bufferSize` | `b` | How many events the buffer holds, in megabytes of events (20). Only while sampling is off; taken up when sampling next starts. |
+| `categoryCount` | `cc` | Query: how many categories there are. |
+| `categoryIndex` | `ci` | The category the other flags are about, by index. |
+| `categoryIndexToName` | `cin` | The name of the category of this index. |
+| `categoryInfo` | `cf` | With -addCategory, the new category's description; query: the description of the category named. |
+| `categoryName` | `cn` | The category the other flags are about, by name. |
+| `categoryNameToIndex` | `cni` | The index of the category of this name. |
+| `categoryRecording` | `cr` | Whether the category named records events. |
+| `clearAllMelInstrumentation` | `cam` | Take every MEL procedure and command off instrumentation. |
+| `colorIndex` | `coi` | With -instrumentMel true: the colour index its events are drawn in. |
+| `eventCPUId` | `eci` | Query: the processor the event ran on. |
+| `eventCategory` | `eca` | Query: the event's category index. |
+| `eventColor` | `eco` | Query: the event's colour index. |
+| `eventCount` | `ec` | Query: how many events the buffer holds. |
+| `eventDescription` | `ed` | Query: the event's description. |
+| `eventDuration` | `edu` | Query: the event's duration in microseconds; 0 for a signal event. |
+| `eventIndex` | `ei` | The event the query is about. |
+| `eventName` | `en` | Query: the event's name. |
+| `eventStartTime` | `et` | Query: when the event started, in microseconds. |
+| `eventThreadId` | `eti` | Query: the thread the event ran on. |
+| `instrumentMel` | `in` | Time a MEL procedure or command (true, with -procedureName, -categoryIndex and -colorIndex) or stop (false, with -procedureName). |
+| `load` | `l` | Read events from a file -output wrote, in place of the buffer's. |
+| `output` | `o` | Write the recorded events to a file. With -load as well, only this is done. |
+| `procedureDescription` | `pd` | With -instrumentMel true: the description its events get. |
+| `procedureName` | `pn` | The MEL procedure or command -instrumentMel is about. |
+| `removeCategory` | `rc` | Remove the category of this name; returns its index. |
+| `reset` | `r` | Clear the recorded events. Only while sampling is off. |
+| `sampling` | `s` | Start (true) or stop (false) recording events. Starting clears the buffer. |
+| `signalEvent` | `sig` | Query: whether the event is a signal event, which has a start but no duration. |
+| `signalMelEvent` | `sim` | With -instrumentMel true: its events are signal events. |
+
+## profilerTool
+
+The profiler panel's view of the recorded events: thread, category or CPU layout, framing, which events show, segments (the events of one frame), search and the critical path or hotspot of a frame.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `categoryView` | `cat` | Lay the events out by category. |
+| `collapseSelectedEvents` | `cs` | Hide what runs inside the selected events. |
+| `collapseSelectedEventsRepetition` | `csr` | Hide the repeats, by comment, of what runs inside the selected events. |
+| `cpuView` | `cpu` | Lay the events out by processor. |
+| `destroy` | `dtr` | Destroy the tool's view (for the panel). |
+| `eventTypes` | `et` | Query: the kinds of event there are, as JSON (type, description, color, category, count); true: of the selected events only. |
+| `exists` | `ex` | Query: whether the view has been made with -make. |
+| `expandSelectedEvents` | `es` | Show what runs inside the selected events. |
+| `expandSelectedEventsRepetition` | `esr` | Show the repeats, by comment, of what runs inside the selected events. |
+| `findNext` | `fn` | With -searchEvent: the next match after the selected event, which it selects. |
+| `findPrevious` | `fp` | With -searchEvent: the match before the selected event, which it selects. |
+| `frameAll` | `fa` | Frame every event. |
+| `frameSelected` | `fs` | Frame the selected events. |
+| `isolateSegment` | `is` | Show only this segment (from 0). |
+| `make` | `mk` | Make the tool's view in the current layout (for the panel). |
+| `matchWholeWord` | `mww` | Whether -searchEvent matches whole names only (false). |
+| `searchEvent` | `se` | Query: the events whose names contain this (or are it, with -matchWholeWord); they are selected. |
+| `segmentCount` | `sc` | Query: how many segments the events make. |
+| `showAllEvent` | `sa` | Show (true) or hide (false) every event. |
+| `showCriticalPath` | `scp` | Pick out the critical path of the selected frame. |
+| `showHotspot` | `sh` | Pick out the hotspot of the selected frame. |
+| `showSelectedEvents` | `ss` | Show only (true) or hide (false) the selected events. |
+| `showSelectedEventsRepetition` | `ssr` | Show only (true) or hide (false) the events with the selected events' comments. |
+| `threadView` | `thd` | Lay the events out by thread. |
+| `unisolateSegment` | `uis` | Show every segment again. |
 
 ## progressBar
 
@@ -18088,40 +21517,50 @@ A progress window: -t -pr -st -min -max -ii, -e to update, -q -ic asks whether i
 
 A curve's shadow on a surface as a curve on it: -d the way (0 0 1), -un along the normal. Returns [surface->curve, node].
 
-Arguments: a curve and a surface
+Arguments: a curve and a surface, in either order
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `direction` | `d` | Which way. |
-| `useNormal` | `un` | Along the surface's normal. |
+| `direction` | `d` | Which way, when not along the normal (0 0 1). |
+| `directionX` | `dx` | The direction's X (0). |
+| `directionY` | `dy` | The direction's Y (0). |
+| `directionZ` | `dz` | The direction's Z (1). |
+| `useNormal` | `un` | Along the surface's normal rather than the direction (off). |
 | `curveSamples` | `cs` | How many samples (50). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## projectTangent
 
 Turn a curve's end to follow what it meets: another curve or a surface. -ts scale, -ro rotate, -rt reverse, -td 1 U or 2 V. Returns [curve, node].
 
-Arguments: a curve and what to follow
+Arguments: a curve and what to follow: a surface (or an isoparm of one), or two curves
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `tangentScale` | `tsc` | How far the next CV goes (1). |
-| `rotate` | `ro` | Degrees. |
-| `reverseTangent` | `rt` | The other way. |
-| `tangentDirection` | `td` | 1 U or 2 V. |
-| `curvature` | `cvt` | Accepted for existing scripts. |
-| `ignoreEdges` | `ie` | Accepted for existing scripts. |
+| `tangentScale` | `ts` | How far the next CV goes, a share of where it was (1). |
+| `rotate` | `ro` | Turn the tangent by this many degrees about the end; not with -td 3 (0). |
+| `reverseTangent` | `rt` | The tangent the other way (off). |
+| `tangentDirection` | `td` | 1 U (or the first curve), 2 V (or the second curve), 3 the normal where they meet (1). |
+| `curvature` | `c` | Curvature continuity with a surface as well (off). |
+| `curvatureScale` | `cs` | With -c: the surface's curvature is matched times one more than this (0). |
+| `ignoreEdges` | `ie` | On a trimmed surface, the surface's own U and V tangents rather than its trim edges'; surfaces here follow their own (off). |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## promptDialog
 
@@ -18160,7 +21599,13 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 | `drivers` | `drv` | The driver meshes. Query: them. |
-| `addDrivers` | `ad` | With -e: a driver to add. |
+| `addDrivers` | `ad` | With -e: a driver to add and connect; repeat it for more. |
+| `removeDrivers` | `rd` | With -e: a connected driver to take away; repeat it for more. |
+| `applyUserDefaults` | `aud` | With -addDrivers: new drivers take the user's default driver settings (on); drivers here have no settings of their own. |
+| `canBeAdded` | `cba` | Query: whether the shapes named could all be added as drivers: none a driver already, the deformed geometry or not a mesh. |
+| `driverIndices` | `di` | Query: the indices of the drivers connected. |
+| `dumpInfo` | `dui` | Query: what the node holds, as a dictionary: its drivers by index, the geometry and its settings. |
+| `freeDriverIndex` | `fdi` | Query: the first index with no driver connected. |
 | `wrapMode` | `wm` | 0 offset, 1 surface, 2 snap. |
 | `maxDrivers` | `md` | How many driver points each point follows (4). |
 | `falloffScale` | `fsc` | How far each binding reaches (1). |
@@ -18436,6 +21881,7 @@ Arguments: name
 | `minRange` | `min` |  |
 | `maxRange` | `max` |  |
 | `changedCommand` | `cc` |  |
+| `widthHeight` | `wh` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -18466,25 +21912,32 @@ Arguments: name
 
 ## rebuildCurve
 
-Rebuild with even spans: -s spans (0 keeps the count), -d degree, -kcp keeps the CVs. Returns [curve, node].
+Rebuild a curve: -rt 0 uniform with -s spans (0 keeps the count), 1 the fewest spans within -tol, 2 matching the knots of a second curve named, 3 without multiple knots, 4 by curvature, 5 its end conditions, 6 clean; -d degree, -kcp keeps the CVs, -kr the range. Returns [curve, node].
 
-Arguments: curves (the selection when none)
+Arguments: curves (the selection when none); with -rt 2, the curve and the curve to match
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `spans` | `s` | Spans. |
-| `degree` | `d` | Degree. |
-| `keepControlPoints` | `kcp` | Keep the CVs. |
-| `rebuildType` | `rt` | Accepted for existing scripts (uniform). |
-| `endKnots` | `end` | Accepted for existing scripts. |
-| `keepRange` | `kr` | Accepted for existing scripts. |
-| `keepEndPoints` | `kep` | Accepted for existing scripts. |
-| `keepTangents` | `kt` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `spans` | `s` | Spans of a uniform rebuild (4); 0 keeps the count. |
+| `degree` | `d` | Degree: 1, 2, 3, 5 or 7 (3). |
+| `keepControlPoints` | `kcp` | Keep the CVs as they are (off). |
+| `rebuildType` | `rt` | 0 uniform, 1 reduce spans, 2 match knots, 3 no multiple knots, 4 curvature, 5 end conditions, 6 clean (0). |
+| `endKnots` | `end` | 0 uniform end knots, 1 multiple end knots (0); the ends are always clamped here. |
+| `keepRange` | `kr` | 0 range 0 to 1, 1 the original's (the default), 2 0 to the number of spans. |
+| `keepEndPoints` | `kep` | The ends stay where they are (on). |
+| `keepTangents` | `kt` | The end tangents stay as they are (on). |
+| `tolerance` | `tol` | How far a reduced or cleaned curve may stray (0.01). |
+| `fitRebuild` | `fr` | A least squares fit (on); off, the curve's points at even parameters become the CVs. |
+| `smartSurfaceCurveRebuild` | `scr` | Rebuild a curve on a surface in 3D, keeping what it is on the surface (off). |
+| `range` | `rn` | Work on the whole curve: here the whole input curve always is. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## rebuildSurface
 
@@ -18511,6 +21964,10 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## recordAttr
 
@@ -18602,13 +22059,15 @@ Arguments: node, reference node or file
 
 ## refresh
 
-Brings the scene up to date; the viewports draw on their own.
+Bring the scene up to date and redraw the views; -fn writes a snapshot of the view to a file (-fe its type, -cv the current view only).
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `force` | `f` | Accepted for existing scripts. |
 | `suspend` | `su` | Accepted for existing scripts. |
 | `currentView` | `cv` | Accepted for existing scripts. |
+| `fileExtension` | `fe` |  |
+| `filename` | `fn` |  |
 
 ## relationship
 
@@ -18622,6 +22081,12 @@ Arguments: the type, the owner, then what is related
 | `edit` | `e` | Edit mode. |
 | `b` | `b` | Break it. |
 | `relationshipData` | `rd` | Data for it. |
+
+## rememberCtxSettings
+
+rememberCtxSettings context: gives a tool made just now the settings saved for it.
+
+Arguments: context
 
 ## removeFromDisplayLayer
 
@@ -18649,9 +22114,14 @@ Arguments: modifiers
 
 ## removeMultiInstance
 
-Remove array elements with their connections and values: 'node.attr[3]', or 'node.group[3]' for every child of a grouped array.
+Remove an element of a multi attribute: 'node.attr[3]'. Connected elements need -b on, which breaks their connections first; -all removes every child of a compound multi's element ('node.group[3]'). Returns true when removed.
 
-Arguments: plugs
+Arguments: the element plug
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `allChildren` | `all` | Remove every child of the multi parent's element. |
+| `break` | `b` | Break the element's connections first (off: a connected element stays and the command fails). |
 
 ## removeUnusedInfluences
 
@@ -18725,6 +22195,65 @@ Arguments: editor
 | `gamma` | `ga` | Display gamma. |
 | `currentCamera` | `crc` | The camera rendered through. |
 
+## renderer
+
+The registry of renderers: renderer name registers one (or edits it) with its procedures and settings, -q reads them; -ex whether it is registered, -ava the names of all, -gn its globals nodes, -gtl -gtc -gtu its Render Settings tabs, -unr removes it.
+
+Arguments: renderer
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query. |
+| `edit` | `e` | Edit. |
+| `batchRenderOptionsProcedure` | `bro` | A procedure or setting of the renderer. |
+| `batchRenderOptionsStringProcedure` | `bso` | A procedure or setting of the renderer. |
+| `batchRenderProcedure` | `br` | A procedure or setting of the renderer. |
+| `cancelBatchRenderProcedure` | `cbr` | A procedure or setting of the renderer. |
+| `changeIprRegionProcedure` | `cir` | A procedure or setting of the renderer. |
+| `commandRenderProcedure` | `cr` | A procedure or setting of the renderer. |
+| `iprOptionsMenuLabel` | `ipm` | A procedure or setting of the renderer. |
+| `iprOptionsProcedure` | `io` | A procedure or setting of the renderer. |
+| `iprOptionsSubMenuProcedure` | `ips` | A procedure or setting of the renderer. |
+| `iprRenderProcedure` | `ipr` | A procedure or setting of the renderer. |
+| `iprRenderSubMenuProcedure` | `irs` | A procedure or setting of the renderer. |
+| `isRunningIprProcedure` | `isr` | A procedure or setting of the renderer. |
+| `logoCallbackProcedure` | `lgc` | A procedure or setting of the renderer. |
+| `logoImageName` | `log` | A procedure or setting of the renderer. |
+| `pauseIprRenderProcedure` | `psi` | A procedure or setting of the renderer. |
+| `polyPrelightProcedure` | `pp` | A procedure or setting of the renderer. |
+| `refreshIprRenderProcedure` | `rfi` | A procedure or setting of the renderer. |
+| `renderDiagnosticsProcedure` | `rd` | A procedure or setting of the renderer. |
+| `renderGlobalsProcedure` | `rg` | A procedure or setting of the renderer. |
+| `renderMenuProcedure` | `rm` | A procedure or setting of the renderer. |
+| `renderOptionsProcedure` | `ro` | A procedure or setting of the renderer. |
+| `renderProcedure` | `r` | A procedure or setting of the renderer. |
+| `renderRegionProcedure` | `rr` | A procedure or setting of the renderer. |
+| `renderSequenceProcedure` | `rs` | A procedure or setting of the renderer. |
+| `rendererUIName` | `ui` | A procedure or setting of the renderer. |
+| `renderingEditorsSubMenuProcedure` | `res` | A procedure or setting of the renderer. |
+| `showBatchRenderLogProcedure` | `brl` | A procedure or setting of the renderer. |
+| `showBatchRenderProcedure` | `sbr` | A procedure or setting of the renderer. |
+| `showRenderLogProcedure` | `srl` | A procedure or setting of the renderer. |
+| `startIprRenderProcedure` | `sti` | A procedure or setting of the renderer. |
+| `stopIprRenderProcedure` | `spi` | A procedure or setting of the renderer. |
+| `textureBakingProcedure` | `tb` | A procedure or setting of the renderer. |
+| `exists` | `ex` | See the description. |
+| `globalsNodes` | `gn` | See the description. |
+| `globalsTabCreateProcNames` | `gtc` | See the description. |
+| `globalsTabLabels` | `gtl` | See the description. |
+| `globalsTabUpdateProcNames` | `gtu` | See the description. |
+| `materialViewRendererList` | `mvl` | See the description. |
+| `namesOfAvailableRenderers` | `ava` | See the description. |
+| `unregisterRenderer` | `unr` | See the description. |
+| `supportColorManagement` | `scm` | A switch of the renderer. |
+| `supportUFECameras` | `suc` | A switch of the renderer. |
+| `materialViewRendererPause` | `mvp` | A switch of the renderer. |
+| `materialViewRendererSuspend` | `mvs` | A switch of the renderer. |
+| `addGlobalsNode` | `agn` | A render settings node the renderer uses. |
+| `addGlobalsTab` | `agt` | A Render Settings tab: label, create procedure, update procedure. |
+| `capability` | `cap` | A named capability. |
+| `capabilityValue` | `cpv` | The capability's value. |
+
 ## reorder
 
 Moves objects among their siblings: -f front, -b back, -r n places.
@@ -18743,6 +22272,10 @@ Swap two deformers' places in a mesh's history: reorderDeformers cluster1 ffd1 p
 
 Arguments: two deformers, then optionally the geometry
 
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | Obsolete: not used. |
+
 ## reorderDisplayLayer
 
 Move a display layer to a row of the Display Layers panel (0 is the top).
@@ -18752,6 +22285,22 @@ Arguments: layer
 | Flag | Short | Description |
 | --- | --- | --- |
 | `index` | `i` | Row it moves to. |
+
+## repeatLast
+
+The recent commands Edit > Repeat runs: -ac a script to add as the latest, -acl its label; on its own repeats the latest, -i the one that many back; -q -cl and -cnl the scripts and labels (up to the number given), -q -nhi how many; -hl how many are kept.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `addCommand` | `ac` | A script to add as the latest command. |
+| `addCommandLabel` | `acl` | Its label in Recent Commands. |
+| `commandList` | `cl` | With -q: the scripts, latest first. |
+| `commandNameList` | `cnl` | With -q: the labels, latest first. |
+| `historyLimit` | `hl` | How many are kept. |
+| `item` | `i` | Repeat the one this many back. |
+| `numberOfHistoryItems` | `nhi` | With -q: how many there are. |
 
 ## requires
 
@@ -18788,18 +22337,44 @@ Put translate, rotate and scale back to their defaults (the object moves).
 
 Arguments: objects
 
+## resolutionNode
+
+Make a render resolution node (width, height, aspect ratios), as createNode can't. Returns its name.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `name` | `n` | The new node's name; a namespace in it is made if missing. |
+| `parent` | `p` | The DAG parent; a resolution node is not a DAG node, so it is left out. |
+| `shared` | `s` | Shared across files: made only if no node of the name exists, which is returned. |
+| `skipSelect` | `ss` | Leave the selection as it is. |
+
+## resourceManager
+
+List the application's resources (its images and those on the icon path) by name, or save a copy of one as a file.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `nameFilter` | `nf` | Only the resources whose names match; ? and * are wildcards. |
+| `saveAs` | `s` | Save a copy of the resource (first) as the file (second). |
+
 ## reverseCurve
 
-Reverse the direction. Returns [curve, node].
+Reverse the direction, keeping the parameter range. Returns [curve, node].
 
 Arguments: curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `curveOnSurface` | `cos` | Make the result a curve on the surface where it can; curves here are reversed as 3D curves. |
+| `range` | `rn` | Work on the whole curve: here the whole input curve always is. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## reverseSurface
 
@@ -18815,6 +22390,10 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## revolve
 
@@ -18831,12 +22410,31 @@ Arguments: a curve (the selection when none)
 | `startSweep` | `ssw` | Start, degrees. |
 | `endSweep` | `esw` | End, degrees. |
 | `degree` | `d` | Degree around (3). |
-| `useTolerance` | `ut` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `useTolerance` | `ut` | Take the sections from -tol rather than -s (off). |
+| `tolerance` | `tol` | How far the surface may stray from the true revolve, with -ut (0.01). |
+| `autoCorrectNormal` | `acn` | Turn the axis round where that makes the normals face out (off). |
+| `axisChoice` | `aco` | With -cpa 2: the axis along the flat curve's longer side (0), its first (1) or its second (2). |
+| `axisX` | `axx` | The axis's X (1). |
+| `axisY` | `axy` | The axis's Y (0). |
+| `axisZ` | `axz` | The axis's Z (0). |
+| `bridge` | `br` | Close a partial revolve with straight sides, a pie shape (off). |
+| `computePivotAndAxis` | `cpa` | 0 the axis and pivot given, 1 the pivot worked out, 2 both worked out from the curve (0). |
+| `pivotX` | `px` | The pivot's X (0). |
+| `pivotY` | `py` | The pivot's Y (0). |
+| `pivotZ` | `pz` | The pivot's Z (0). |
+| `radius` | `r` | How far a pivot worked out stands from the curve's bounding box (1). |
+| `radiusAnchor` | `ra` | Where on the curve, 0 to 1, that distance is measured from; outside that, the bounding box (-1). |
+| `rebuild` | `rb` | Rebuild the profile first, through a rebuildCurve node (off). |
+| `useLocalPivot` | `ulp` | Start the axis at the profile curve's own pivot (off). |
+| `object` | `o` | Make the surface (on); off, only the node. |
 | `polygon` | `po` | 0 NURBS (the default), 1 polygons. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## rigidBind
 
@@ -18849,13 +22447,15 @@ Arguments: skeleton and geometry
 | `byClosestPoint` | `bcp` | Accepted: closest point is how it binds. |
 | `byPartition` | `bp` | Accepted for existing scripts. |
 | `colorJoints` | `cj` | Accepted for existing scripts. |
-| `delete` | `del` | Remove the skin. |
+| `delete` | `d` | Detach the skin from the skeletons and remove its history. |
 | `doNotDescend` | `dnd` | Only the joints named. |
 | `enable` | `en` | Accepted for existing scripts. |
 | `name` | `n` | The skinCluster's name. |
 | `partition` | `p` | Accepted for existing scripts. |
 | `toAll` | `ta` | The whole skeleton (the default). |
 | `toSelectedBones` | `tsb` | Only the joints named. |
+| `toSkeleton` | `ts` | The whole skeleton of each joint named (the default). |
+| `unlock` | `ul` | Unlock the translate, rotate and scale that binding locked on the objects. |
 | `unbind` | `ub` | Remove the skin. |
 | `unbindKeepHistory` | `ubk` | Stop skinning, keep the node. |
 
@@ -18957,7 +22557,19 @@ Arguments: objects
 | `pivot` | `p` | The world point to turn about. |
 | `euler` | `eu` | Accepted for existing scripts. |
 | `forceOrderXYZ` | `fo` | Accepted for existing scripts. |
-| `objectCenterPivot` | `ocp` | Accepted for existing scripts. |
+| `translate` | `t` | About a pivot other than the object's: the move goes into translate rather than the rotate pivot's translation. |
+| `centerPivot` | `cp` | Turn or scale about the middle of the bounding box of everything named. |
+| `objectCenterPivot` | `ocp` | Each object about the middle of its own bounding box. |
+| `orientAxes` | `oa` | The axes the values are about, as Euler angles from the world's. |
+| `preserveUV` | `puv` | UVs of the components changed follow, projected across the change. |
+| `reflection` | `rfl` | Change the symmetric components too. |
+| `reflectionAboutBBox` | `rab` | With -rfl: the mirror plane at the middle of the object's bounding box. |
+| `reflectionAboutOrigin` | `rao` | With -rfl: the mirror plane through the origin (the default). |
+| `reflectionAboutX` | `rax` | With -rfl: mirror across X = 0 (the default). |
+| `reflectionAboutY` | `ray` | With -rfl: mirror across Y = 0. |
+| `reflectionAboutZ` | `raz` | With -rfl: mirror across Z = 0. |
+| `reflectionTolerance` | `rft` | With -rfl: how far a point and its mirror image may be apart to pair. |
+| `symNegative` | `smn` | With -rfl: the change is relative to the negative side of the plane. |
 
 ## rotateComponents
 
@@ -18967,6 +22579,7 @@ Rotate the selected components about a world pivot (default: their centre; with 
 | --- | --- | --- |
 | `by` |  | Rotation, degrees. |
 | `pivot` |  | World pivot. |
+| `orient` |  | The axes the rotation is about, as Euler angles from the world's. |
 
 ## rotationInterpolation
 
@@ -19034,6 +22647,9 @@ Arguments: name
 | `rowHeight` | `rh` |  |
 | `rowOffset` | `ro` |  |
 | `rowSpacing` | `rs` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -19074,11 +22690,15 @@ Arguments: name
 | --- | --- | --- |
 | `numberOfColumns` | `nc` |  |
 | `adjustableColumn` | `adj` |  |
+| `adjustableColumn1` | `ad1` |  |
 | `rowAttach` | `rat` |  |
 | `columnAlign` | `cal` |  |
 | `columnAttach` | `cat` |  |
 | `columnWidth` | `cw` |  |
 | `columnOffset` | `co` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `columnWidth1` | `cw1` |  |
 | `columnAlign1` | `cl1` |  |
 | `columnAttach1` | `ct1` |  |
@@ -19140,7 +22760,7 @@ Arguments: name
 
 ## runTimeCommand
 
-Create a named command that runs a script: -c the script, -ann its annotation, -cat its category, -cl mel or python.
+Named commands that run a script: runTimeCommand -c script name makes one; -ann, -cat, -l, -i, -k, -t and the rest describe it; -q reads them; -e changes them; -del removes a user one; -ca, -dca, -uca, -caa and -nc, -ndc, -nuc list and count them.
 
 Arguments: name
 
@@ -19148,13 +22768,59 @@ Arguments: name
 | --- | --- | --- |
 | `query` | `q` | Query. |
 | `edit` | `e` | Edit. |
-| `exists` | `ex` | Whether the command exists. |
-| `delete` | `del` | Delete it. |
-| `command` | `c` | The script. |
-| `annotation` | `ann` | What it does. |
-| `category` | `cat` | Its category in the Hotkey Editor. |
-| `commandLanguage` | `cl` | mel or python. |
-| `default` | `d` | A factory command. |
+| `command` | `c` | A field of the command. |
+| `annotation` | `ann` | A field of the command. |
+| `category` | `cat` | A field of the command. |
+| `commandLanguage` | `cl` | A field of the command. |
+| `label` | `l` | A field of the command. |
+| `image` | `i` | A field of the command. |
+| `keywords` | `k` | A field of the command. |
+| `tags` | `t` | A field of the command. |
+| `helpUrl` | `url` | A field of the command. |
+| `hotkeyCtx` | `hc` | A field of the command. |
+| `longAnnotation` | `la` | A field of the command. |
+| `plugin` | `p` | A field of the command. |
+| `version` | `ver` | A field of the command. |
+| `exists` | `ex` | See the description. |
+| `delete` | `del` | See the description. |
+| `default` | `d` | See the description. |
+| `save` | `s` | See the description. |
+| `commandArray` | `ca` | See the description. |
+| `defaultCommandArray` | `dca` | See the description. |
+| `userCommandArray` | `uca` | See the description. |
+| `categoryArray` | `caa` | See the description. |
+| `numberOfCommands` | `nc` | See the description. |
+| `numberOfDefaultCommands` | `ndc` | See the description. |
+| `numberOfUserCommands` | `nuc` | See the description. |
+| `showInHotkeyEditor` | `she` | See the description. |
+| `addKeyword` | `ak` | One more search keyword. |
+| `addTag` | `at` | One more search tag. |
+
+## savePrefObjects
+
+Save the preference nodes to userPrefObjects.ma in the preferences folder. Returns true when it is written.
+
+## savePrefs
+
+Save preferences to the preferences folder. With no flags, all of them: optionVars (userPrefs.mel), colours (userRGBColors2.mel), hotkeys (hotkeys/<set>.mhk), menu sets (menuSetPrefs.mel), plug-ins (pluginPrefs.mel) and window sizes and places (windowPrefs.mel).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `colors` | `c` | Save the colour preferences. |
+| `file` | `f` | Save the optionVars whose category optionVar -prefFile sends to this file. |
+| `general` | `g` | Save the general preferences (optionVars). |
+| `hotkeys` | `hk` | Save the hotkeys. |
+| `menuSets` | `ms` | Save the menu set preferences. |
+| `plugins` | `pl` | Save the plug-in preferences. |
+| `uiLayout` | `ui` | Save each window's size and place. |
+
+## saveToolSettings
+
+Saves every tool's settings with the preferences, for rememberCtxSettings to bring back next session.
+
+## saveViewportSettings
+
+Every 3D view keeps its settings as optionVars, as the reference does when it quits: its camera and what its model editor shows.
 
 ## scale
 
@@ -19196,17 +22862,31 @@ Arguments: objects
 | `scaleXYZ` | `xyz` | The axes the values are for. |
 | `pivot` | `p` | The world point to scale about. |
 | `distanceOnly` | `dso` | Accepted for existing scripts. |
-| `objectCenterPivot` | `ocp` | Accepted for existing scripts. |
+| `centerPivot` | `cp` | Turn or scale about the middle of the bounding box of everything named. |
+| `objectCenterPivot` | `ocp` | Each object about the middle of its own bounding box. |
+| `orientAxes` | `oa` | The axes the values are about, as Euler angles from the world's. |
+| `preserveUV` | `puv` | UVs of the components changed follow, projected across the change. |
+| `reflection` | `rfl` | Change the symmetric components too. |
+| `reflectionAboutBBox` | `rab` | With -rfl: the mirror plane at the middle of the object's bounding box. |
+| `reflectionAboutOrigin` | `rao` | With -rfl: the mirror plane through the origin (the default). |
+| `reflectionAboutX` | `rax` | With -rfl: mirror across X = 0 (the default). |
+| `reflectionAboutY` | `ray` | With -rfl: mirror across Y = 0. |
+| `reflectionAboutZ` | `raz` | With -rfl: mirror across Z = 0. |
+| `reflectionTolerance` | `rft` | With -rfl: how far a point and its mirror image may be apart to pair. |
+| `symNegative` | `smn` | With -rfl: the change is relative to the negative side of the plane. |
 
 ## scaleComponents
 
 Scale the selected components about a world pivot (default: their centre; with symmetry, a pair clear of the mirror plane scales about each side's own centre).
 
+Arguments: three scale factors, then components (the selection when none)
+
 | Flag | Short | Description |
 | --- | --- | --- |
 | `by` |  | Factor per axis: the world axes, or the axes orient= turns them to. |
-| `pivot` |  | World pivot. |
+| `pivot` | `p` | World pivot. |
 | `orient` |  | Rotation of the scale axes from the world axes, degrees, XYZ order. |
+| `rotation` | `ro` | The rotational offset of the scale axes from the world's, degrees, XYZ order (none). |
 
 ## scaleConstraint
 
@@ -19233,12 +22913,17 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
 ## scaleKey
 
-Scale keys in time about -tp (-ts) and in value about -vp (-vs). -t limits them. Returns how many.
+Scale keys in time about -tp (-ts), or into -nst to -net; driven key curves about -fp (-fs), or into -nsf to -nef; and values about -vp (-vs). -t, -f and -in pick the keys. Returns how many curves were scaled.
 
 Arguments: objects, plugs or curves (the selection when none)
 
@@ -19256,8 +22941,16 @@ Arguments: objects, plugs or curves (the selection when none)
 | `selected` | `sl` | Scale the keys selectKey selected. |
 | `timeScale` | `ts` | Time scale. |
 | `timePivot` | `tp` | Time pivot. |
+| `floatScale` | `fs` | Scale along the driver axis of driven key curves. |
+| `floatPivot` | `fp` | Pivot along the driver axis of driven key curves. |
 | `valueScale` | `vs` | Value scale. |
 | `valuePivot` | `vp` | Value pivot. |
+| `newStartTime` | `nst` | Where the picked keys' time range starts after scaling. |
+| `newEndTime` | `net` | Where the picked keys' time range ends after scaling. |
+| `newStartFloat` | `nsf` | Where the picked keys' driver range starts after scaling, on driven key curves. |
+| `newEndFloat` | `nef` | Where the picked keys' driver range ends after scaling, on driven key curves. |
+| `scaleSpecifiedKeys` | `ssk` | Only the picked keys move (on). Off, the keys after them move with the range's end, and those before with its start. |
+| `autoSnap` | `asp` | Snap scaled keys to whole frames (the scaleKeyAutoSnap option var by default). |
 
 ## scaleKeyCtx
 
@@ -19280,6 +22973,42 @@ Arguments: [name]
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
 
+## sceneLint
+
+Look through the scene for what costs speed, memory or clutter. Returns JSON: {"sceneLint": {issue: {description, mitigation: [{objects, benefit, description, code}]}}}; each mitigation's Python runs with exec(code, {}, {'OBJECTS': objects}). Query: the issue types.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `issueType` | `i` | Check only this issue type; query: its name and description. |
+| `verbose` | `v` | Query: each issue type's description after its name. |
+
+## sceneUIReplacement
+
+Hands a scene being opened the panels and filters already there that it can use again: -update starts, each -getNext... gives the next not yet handed out (one with the label asked for first), -deleteRemaining deletes the scene's panels and filters none were handed out for, -clear ends.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `clear` | `cl` |  |
+| `deleteRemaining` | `dr` |  |
+| `getNextFilter` | `gf` | The filter type and name. |
+| `getNextPanel` | `gp` | The panel type and label. |
+| `getNextScriptedPanel` | `gsp` | The scripted panel type and label. |
+| `update` | `u` |  |
+
+## scmh
+
+Set the current manipulator handle's values: the active handle of the move, rotate or scale tool, on the selected objects, in the current units.
+
+Arguments: values
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `absolute` | `a` | The values are what the handle is set to (the default). |
+| `ignore` | `i` | Leave the value of this entry (from 1) as it is. |
+| `quiet` | `q` | Say nothing when it fails. |
+| `relative` | `r` | The values are added to the handle's (multiplied, for scale). |
+
 ## scriptCtx
 
 A scriptCtx tool context: create by name, -e and -q its settings. setToolTo makes it current.
@@ -19288,33 +23017,112 @@ Arguments: [name]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `toolStart` | `ts` |  |
-| `toolFinish` | `tf` |  |
-| `finalCommandScript` | `fcs` |  |
-| `setSelectionCount` | `ssc` |  |
-| `setAllowExcessCount` | `sae` |  |
-| `setAutoToggleSelection` | `sat` |  |
-| `setAutoComplete` | `sac` |  |
-| `setDoneSelectionPrompt` | `dsp` |  |
-| `setNoSelectionPrompt` | `nsp` |  |
-| `setNoSelectionHeadsUp` | `nsh` |  |
-| `setSelectionPrompt` | `ssp` |  |
-| `setSelectionHeadsUp` | `ssh` |  |
-| `totalSelectionSets` | `tss` |  |
-| `exitUponCompletion` | `euc` |  |
-| `enableRootSelection` | `ers` |  |
-| `ignoreInvalidItems` | `iii` |  |
-| `cumulativeLists` | `cls` |  |
-| `expandSelectionList` | `esl` |  |
-| `showManipulators` | `sm` |  |
 | `baseClassName` | `bcn` |  |
+| `cumulativeLists` | `cls` |  |
+| `enableRootSelection` | `ers` |  |
+| `escToQuit` | `esc` |  |
+| `exitUponCompletion` | `euc` |  |
+| `expandSelectionList` | `esl` |  |
+| `finalCommandScript` | `fcs` |  |
+| `forceAddSelect` | `fas` |  |
+| `ignoreInvalidItems` | `iii` |  |
+| `lastAutoComplete` | `lac` |  |
+| `objectComponent` | `ocm` |  |
+| `showManipulators` | `sm` |  |
 | `toolCursorType` | `tct` |  |
+| `toolFinish` | `tf` |  |
+| `toolStart` | `ts` |  |
+| `totalSelectionSets` | `tss` |  |
 | `allComponents` | `alc` |  |
-| `vertex` | `v` |  |
-| `edge` | `eg` |  |
-| `facet` | `fc` |  |
+| `allObjects` | `alo` |  |
+| `animBreakdown` | `abd` |  |
+| `animCurve` | `ac` |  |
+| `animInTangent` | `ait` |  |
+| `animKeyframe` | `ak` |  |
+| `animOutTangent` | `aot` |  |
+| `camera` | `ca` |  |
+| `cluster` | `cl` |  |
+| `collisionModel` | `clm` |  |
+| `controlVertex` | `cv` |  |
 | `curve` | `c` |  |
-| `polymesh` | `pl` |  |
+| `curveKnot` | `ck` |  |
+| `curveOnSurface` | `cos` |  |
+| `curveParameterPoint` | `cpp` |  |
+| `dimension` | `dim` |  |
+| `dynamicConstraint` | `dc` |  |
+| `edge` | `eg` |  |
+| `editPoint` | `ep` |  |
+| `emitter` | `em` |  |
+| `facet` | `fc` |  |
+| `field` | `fi` |  |
+| `fluid` | `fl` |  |
+| `follicle` | `fo` |  |
+| `hairSystem` | `hs` |  |
+| `handle` | `ha` |  |
+| `hull` | `hl` |  |
+| `ikEndEffector` | `iee` |  |
+| `ikHandle` | `ikh` |  |
+| `imagePlane` | `ip` |  |
+| `implicitGeometry` | `ig` |  |
+| `isoparm` | `iso` |  |
+| `joint` | `j` |  |
+| `jointPivot` | `jp` |  |
+| `lattice` | `la` |  |
+| `latticePoint` | `lp` |  |
+| `light` | `lt` |  |
+| `localRotationAxis` | `ra` |  |
+| `locator` | `lc` |  |
+| `locatorUV` | `luv` |  |
+| `locatorXYZ` | `xyz` |  |
+| `nCloth` | `ncl` |  |
+| `nParticle` | `npr` |  |
+| `nParticleShape` | `nps` |  |
+| `nRigid` | `nr` |  |
+| `nonlinear` | `nl` |  |
+| `nurbsCurve` | `nc` |  |
+| `nurbsSurface` | `ns` |  |
+| `orientationLocator` | `ol` |  |
+| `particle` | `pr` |  |
+| `particleShape` | `ps` |  |
+| `plane` | `pl` |  |
+| `polymesh` | `p` |  |
+| `polymeshEdge` | `pe` |  |
+| `polymeshFace` | `pf` |  |
+| `polymeshFreeEdge` | `pfe` |  |
+| `polymeshUV` | `puv` |  |
+| `polymeshVertex` | `pv` |  |
+| `polymeshVtxFace` | `pvf` |  |
+| `rigidBody` | `rb` |  |
+| `rigidConstraint` | `rc` |  |
+| `rotatePivot` | `rp` |  |
+| `scalePivot` | `sp` |  |
+| `sculpt` | `sc` |  |
+| `selectHandle` | `sh` |  |
+| `setAllowExcessCount` | `sae` |  |
+| `setAutoComplete` | `sac` |  |
+| `setAutoToggleSelection` | `sat` |  |
+| `setDoneSelectionPrompt` | `dsp` |  |
+| `setNoSelectionHeadsUp` | `snh` |  |
+| `setNoSelectionPrompt` | `snp` |  |
+| `setSelectionCount` | `ssc` |  |
+| `setSelectionHeadsUp` | `ssh` |  |
+| `setSelectionPrompt` | `ssp` |  |
+| `spring` | `spr` |  |
+| `springComponent` | `spc` |  |
+| `stroke` | `str` |  |
+| `subdiv` | `sd` |  |
+| `subdivMeshEdge` | `sme` |  |
+| `subdivMeshFace` | `smf` |  |
+| `subdivMeshPoint` | `smp` |  |
+| `subdivMeshUV` | `smu` |  |
+| `surfaceEdge` | `se` |  |
+| `surfaceFace` | `sf` |  |
+| `surfaceKnot` | `sk` |  |
+| `surfaceParameterPoint` | `spp` |  |
+| `surfaceRange` | `sr` |  |
+| `surfaceUV` | `suv` |  |
+| `texture` | `tx` |  |
+| `vertex` | `v` |  |
 | `image1` | `i1` |  |
 | `image2` | `i2` |  |
 | `image3` | `i3` |  |
@@ -19325,6 +23133,25 @@ Arguments: [name]
 | `name` | `n` |  |
 | `history` | `ch` |  |
 | `dragSlider` | `ds` |  |
+
+## scriptEditorInfo
+
+The Script Editor's history: which kinds of line it leaves out, the file its lines are written to, and clearing it. Returns the Command Window's name.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `clearHistory` | `ch` | Clear the history pane. |
+| `clearHistoryFile` | `chf` | Empty the history file, while -writeHistory is on; it is otherwise added to. |
+| `historyFilename` | `hfn` | The file the history is written to; a relative name is in the user folder. Empty: scriptEditorHistory.txt there. |
+| `input` | `i` | Set the text of the input pane; empty clears it. |
+| `suppressErrors` | `se` | Leave error messages out of the history. |
+| `suppressInfo` | `si` | Leave information messages out of the history. |
+| `suppressResults` | `sr` | Leave command results out of the history. |
+| `suppressStackWindow` | `ssw` | With stack traces on, show them in the output window rather than a window of their own. |
+| `suppressWarnings` | `sw` | Leave warnings out of the history. |
+| `writeHistory` | `wh` | Write the history's lines to the history file as well. |
 
 ## scriptJob
 
@@ -19343,6 +23170,7 @@ Run a script when something happens: -e event script, -ct -cf -cc condition scri
 | `nodeDeleted` | `nd` |  |
 | `nodeNameChanged` | `nnc` |  |
 | `uiDeleted` | `uid` |  |
+| `optionVarChanged` | `ovc` |  |
 | `timeChange` | `tc` |  |
 | `idleEvent` | `ie` |  |
 | `kill` | `k` |  |
@@ -19360,7 +23188,7 @@ Run a script when something happens: -e event script, -ct -cf -cc condition scri
 | `permanent` | `per` |  |
 | `replacePrevious` | `rp` |  |
 | `compressUndo` | `cu` |  |
-| `disregardIndex` | `di` |  |
+| `disregardIndex` | `dri` |  |
 | `allChildren` | `alc` |  |
 
 ## scriptNode
@@ -19380,7 +23208,7 @@ Arguments: name
 | `sourceType` | `stp` |  |
 | `executeBefore` | `eb` |  |
 | `executeAfter` | `ea` |  |
-| `ignoreReferenceEdit` | `ire` |  |
+| `ignoreReferenceEdits` | `ire` |  |
 
 ## scriptTable
 
@@ -19403,7 +23231,7 @@ Arguments: name
 | `selectedRows` | `srs` |  |
 | `selectedColumns` | `scs` |  |
 | `selectedCells` | `sc` |  |
-| `clearTable` | `clr` |  |
+| `clearTable` | `ct` |  |
 | `clearRow` | `cr` |  |
 | `deleteRow` | `dr` |  |
 | `insertRow` | `ir` |  |
@@ -19411,12 +23239,18 @@ Arguments: name
 | `multiEditEnabled` | `mee` |  |
 | `underPointerRow` | `upr` |  |
 | `underPointerColumn` | `upc` |  |
-| `useDoubleClickEdit` | `dce` |  |
+| `useDoubleClickEdit` | `udc` |  |
 | `sortEnabled` | `se` |  |
 | `cellIndex` | `ci` |  |
 | `cellValue` | `cv` |  |
-| `cellBackgroundColor` | `cbc` |  |
-| `cellForegroundColor` | `cfc` |  |
+| `cellBackgroundColorCommand` | `cbc` |  |
+| `cellForegroundColorCommand` | `cfc` |  |
+| `columnFilter` | `cf` |  |
+| `editable` | `ed` |  |
+| `rowsRemovedCmd` | `rrc` |  |
+| `rowsToBeRemovedCmd` | `rtc` |  |
+| `selectionBehavior` | `sb` |  |
+| `selectionMode` | `sm` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -19471,6 +23305,8 @@ Arguments: name
 | `replacePanel` | `rp` |  |
 | `tearOff` | `to` |  |
 | `tearOffCopy` | `toc` |  |
+| `tearOffRestore` | `tor` |  |
+| `menuBarRepeatLast` | `mrl` |  |
 | `unParent` | `up` |  |
 | `useTemplate` | `ut` |  |
 | `query` | `q` |  |
@@ -19478,7 +23314,7 @@ Arguments: name
 
 ## scriptedPanelType
 
-Declare a scripted panel type: -ccb -icb -acb -rcb -dcb -scb the procedures that build and keep it.
+Declare a scripted panel type: -ccb -icb -acb -rcb -dcb -scb -ocb the procedures that build, keep and copy it, -hkc its hotkey context. -q and -e read and change a type.
 
 Arguments: name
 
@@ -19490,7 +23326,8 @@ Arguments: name
 | `removeCallback` | `rcb` |  |
 | `deleteCallback` | `dcb` |  |
 | `saveStateCallback` | `scb` |  |
-| `hotkeyCtxCallback` | `hcb` |  |
+| `copyStateCallback` | `ocb` |  |
+| `hotkeyCtxClient` | `hkc` |  |
 | `customView` | `cv` |  |
 | `defineTemplate` | `dt` |  |
 | `exists` | `ex` |  |
@@ -19570,6 +23407,10 @@ Arguments: name
 | `minChildWidth` | `mcw` |  |
 | `verticalScrollBarAlwaysVisible` | `vsb` |  |
 | `panEnabled` | `pe` |  |
+| `borderVisible` | `bv` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -19674,6 +23515,28 @@ searchReplaceNames(search, replace, 'all'|'hierarchy'|'selected'): renames what 
 
 Arguments: search replace scope
 
+## selLoadSettings
+
+The implicit load settings of the file file -buildLoadSettings read, for the Preload Reference Editor: ID 0 is the file, then its references in pre-order. -e -deferReference sets which references the next file -open -loadSettings implicitLoadSettings loads; children follow their parent.
+
+Arguments: load setting IDs
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `activeProxy` | `ap` | The tag of the proxy set's active proxy; in edit mode, makes the proxy of that tag active. |
+| `deferReference` | `dr` | Whether the reference stays unloaded. |
+| `fileName` | `fn` | The file of each load setting, resolved unless -unresolvedName. |
+| `numSettings` | `ns` | How many load settings: the references plus one. |
+| `proxyManager` | `pm` | The proxy manager of each load setting. |
+| `proxySetFiles` | `psf` | The files of the proxies in each load setting's proxy set. |
+| `proxySetTags` | `pst` | The tags of the proxies in each load setting's proxy set. |
+| `proxyTag` | `pt` | The proxy tag of each load setting. |
+| `referenceNode` | `rfn` | The reference node of each load setting. |
+| `shortName` | `shn` | With -fileName: the file's name only. |
+| `unresolvedName` | `un` | With -fileName: the name as the reference was made, found or not. |
+
 ## select
 
 Select objects. Replaces the selection unless add/deselect/toggle.
@@ -19696,6 +23559,7 @@ Arguments: objects
 | `all` | `all` | Every object. |
 | `symmetry` | `sym` | Accepted for existing scripts. |
 | `symmetrySide` | `sys` | Accepted for existing scripts. |
+| `containerCentric` | `cc` | Pick as the views do: a member of a black-boxed container that isn't published picks the container. |
 
 ## selectAllComponents
 
@@ -19962,20 +23826,40 @@ Arguments: mesh
 
 ## selectPref
 
-Selection preferences: -clickDrag, -trackSelectionOrder, -preSelectHilite, -xformNoSelect, -useDepth, -affectsActive, -lockSelection, -clickBoxSize. -q reads.
+Selection preferences: how clicks, marquees, preselection and the select tools behave. -q reads one.
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `query` | `q` | Query. |
-| `clickDrag` | `cld` | Click and drag to select or to move what's under the cursor. |
-| `trackSelectionOrder` | `tso` | Keep the order things were picked in. |
-| `preSelectHilite` | `psh` | Highlight what's under the cursor. |
-| `preSelectBackfacing` | `psb` | Highlight back-facing components under the cursor too. |
-| `xformNoSelect` | `xns` | A click on an object under the transform tools doesn't reselect. |
-| `useDepth` | `ud` | Marquee only picks what's visible. |
-| `affectsActive` | `aa` | Selection affects the active list. |
+| `query` | `q` | Read a setting. |
+| `affectsActive` | `aa` | Switching between object and component selection changes the active list. |
+| `allowHiliteSelection` | `ahs` | In component mode, picking another object hilites it for editing. |
+| `autoSelectContainer` | `asc` | With container centric selection, picking a root transform also selects its container. |
+| `autoSelectOutlinerSetMembers` | `asm` | Picking a set in the Outliner selects its members instead. |
+| `autoUseDepth` | `aud` | useDepth and paintSelectWithDepth on in shaded views and off in wireframe. |
+| `clickBoxSize` | `cbs` | Half the side, in pixels, of the square a click picks in; must be positive (4). |
+| `clickDrag` | `cld` | Click and drag selection. |
+| `containerCentricSelection` | `ccs` | Picking a node in a container selects its root transform, or its highest node. |
+| `disableComponentPopups` | `dcp` | No popup menus when picking components (with popupMenuSelection). |
+| `expandPopupList` | `epl` | In popup selection, each object or component of a candidate is its own item. |
+| `ignoreSelectionPriority` | `isp` | A marquee takes every kind it covers, not only the highest in selection priority. |
 | `lockSelection` | `lck` | The selection doesn't change on a click. |
-| `clickBoxSize` | `cbs` | Half the side, in pixels, of the square a click picks in (4). |
+| `manipClickBoxSize` | `mcb` | Half the side, in pixels, of the square a click picks a manipulator handle in; must be positive (8). |
+| `paintSelect` | `ps` | The select tool paints a selection with a brush instead of dragging a marquee. |
+| `paintSelectWithDepth` | `psd` | Paint selection leaves out components behind surfaces. |
+| `popupMenuSelection` | `pms` | A marquee over several candidates shows a popup to pick one. |
+| `preSelectBackfacing` | `psb` | Preselection highlights back-facing components too. |
+| `preSelectClosest` | `psc` | Over a surface, preselection highlights the closest component however far. |
+| `preSelectDeadSpace` | `pds` | Pixels round the cursor preselection looks in off the surface (8). |
+| `preSelectHilite` | `psh` | Highlights the component under the cursor that a click would pick. |
+| `preSelectHiliteSize` | `phs` | Pixels round the cursor the closest component is highlighted in (7). |
+| `preSelectTweakDeadSpace` | `pdt` | As preSelectDeadSpace, in tweak mode (120). |
+| `selectTypeChangeAffectsActive` | `stc` | A selectType change takes what can no longer be picked out of the selection. |
+| `selectionChildHighlightMode` | `sch` | Children of a selected object highlighted: 0 always, 1 never, 2 by each object's Selection Child Highlighting. |
+| `singleBoxSelection` | `sbs` | A marquee over several objects selects only one. |
+| `straightLineDistance` | `sld` | Nearness for selection measured in a straight line. |
+| `trackSelectionOrder` | `tso` | Keeps the order things are picked in, for ls -orderedSelection. |
+| `useDepth` | `ud` | A marquee leaves out components behind surfaces. |
+| `xformNoSelect` | `xns` | The transform tools don't select. |
 
 ## selectPriority
 
@@ -19992,7 +23876,7 @@ Selection priorities by component and object type: -cv 5, -q -cv. Kept for scrip
 | `animInTangent` | `ait` | The priority. |
 | `animKeyframe` | `ak` | The priority. |
 | `animOutTangent` | `aot` | The priority. |
-| `byName` | `bn` | The priority. |
+| `byName` | `bn` | A user-defined selection type and whether it takes priority: -bn name on. |
 | `camera` | `ca` | The priority. |
 | `cluster` | `cl` | The priority. |
 | `collisionModel` | `clm` | The priority. |
@@ -20008,7 +23892,10 @@ Selection priorities by component and object type: -cv 5, -q -cv. Kept for scrip
 | `emitter` | `em` | The priority. |
 | `facet` | `fc` | The priority. |
 | `field` | `fi` | The priority. |
-| `flexor` | `fl` | The priority. |
+| `fluid` | `fl` | The priority. |
+| `follicle` | `fo` | The priority. |
+| `hairSystem` | `hs` | The priority. |
+| `handle` | `ha` | The priority. |
 | `hull` | `hl` | The priority. |
 | `ikEndEffector` | `iee` | The priority. |
 | `ikHandle` | `ikh` | The priority. |
@@ -20023,14 +23910,20 @@ Selection priorities by component and object type: -cv 5, -q -cv. Kept for scrip
 | `localRotationAxis` | `ra` | The priority. |
 | `locator` | `lc` | The priority. |
 | `locatorUV` | `luv` | The priority. |
-| `locatorXYZ` | `lxyz` | The priority. |
+| `locatorXYZ` | `xyz` | The priority. |
+| `meshUVShell` | `msh` | The priority. |
+| `motionTrailPoint` | `mtp` | The priority. |
+| `motionTrailTangent` | `mtt` | The priority. |
 | `nCloth` | `ncl` | The priority. |
 | `nParticle` | `npr` | The priority. |
+| `nParticleShape` | `nps` | The priority. |
 | `nRigid` | `nr` | The priority. |
+| `nonlinear` | `nl` | The priority. |
 | `nurbsCurve` | `nc` | The priority. |
 | `nurbsSurface` | `ns` | The priority. |
 | `orientationLocator` | `ol` | The priority. |
 | `particle` | `pr` | The priority. |
+| `particleShape` | `ps` | The priority. |
 | `plane` | `pl` | The priority. |
 | `polymesh` | `p` | The priority. |
 | `polymeshEdge` | `pe` | The priority. |
@@ -20050,14 +23943,19 @@ Selection priorities by component and object type: -cv 5, -q -cv. Kept for scrip
 | `springComponent` | `spc` | The priority. |
 | `stroke` | `str` | The priority. |
 | `subdiv` | `sd` | The priority. |
+| `subdivMeshEdge` | `sme` | The priority. |
+| `subdivMeshFace` | `smf` | The priority. |
+| `subdivMeshPoint` | `smp` | The priority. |
+| `subdivMeshUV` | `smu` | The priority. |
 | `surfaceEdge` | `se` | The priority. |
 | `surfaceFace` | `sf` | The priority. |
-| `surfaceKnot` | `skn` | The priority. |
+| `surfaceKnot` | `sk` | The priority. |
 | `surfaceParameterPoint` | `spp` | The priority. |
-| `surfaceRange` | `srn` | The priority. |
+| `surfaceRange` | `sr` | The priority. |
 | `surfaceUV` | `suv` | The priority. |
 | `texture` | `tx` | The priority. |
 | `vertex` | `v` | The priority. |
+| `queryByName` | `qbn` | With -q: a user-defined selection type's priority, by name. |
 
 ## selectScope
 
@@ -20077,33 +23975,99 @@ Arguments: sets
 
 ## selectType
 
-Selection masks: -polymesh, -joint, -nurbsCurve, -ikHandle, -locator, -cluster, -camera and so on, each on or off; -cv, -v, -pv points, -pe edges, -pf faces, -puv UVs, -pvf vertex faces, -msh UV shells pick the component kind, and -pv -pe -pf together are Multi. -q reads one.
+Which kinds of object and component the select tools pick. Each object flag (-polymesh, -joint, -nurbsCurve, -light...) turns its mask on or off; component flags (-vertex, -polymeshEdge, -controlVertex, -hull...) set the component masks, and the kinds Aztek has component modes for switch to that mode (-pv -pe -pf together are Multi). -objectComponent sets and reads the component masks that apply in object mode. -allObjects and -allComponents set every mask at once, before the single flags. -byName name on|off sets a user-defined mask; -q -queryByName name reads it. -q reads one mask.
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `query` | `q` | Query. |
-| `allObjects` | `alo` | Everything on. |
-| `polymesh` | `pm` | This kind can be selected. |
-| `nurbsCurve` | `nc` | This kind can be selected. |
-| `nurbsSurface` | `ns` | This kind can be selected. |
-| `joint` | `j` | This kind can be selected. |
-| `ikHandle` | `ikh` | This kind can be selected. |
-| `handle` | `ha` | This kind can be selected. |
-| `cluster` | `cl` | This kind can be selected. |
-| `nonlinear` | `nl` | This kind can be selected. |
-| `locator` | `lc` | This kind can be selected. |
-| `camera` | `ca` | This kind can be selected. |
-| `group` | `gr` | This kind can be selected. |
-| `controlVertex` | `cv` | CVs. |
-| `vertex` | `v` | Points. |
-| `polymeshVertex` | `pv` | Mesh vertices. |
+| `query` | `q` | Read a mask. |
+| `allObjects` | `alo` | Every object mask on or off. |
+| `allComponents` | `alc` | Every component mask on or off. |
+| `objectComponent` | `ocm` | The component flags given apply to object selection mode. |
+| `byName` | `bn` | A user-defined mask and whether it is on: -bn name on. |
+| `queryByName` | `qbn` | With -q: a user-defined mask, by name. |
+| `camera` | `ca` | Cameras. |
+| `cluster` | `cl` | Cluster and soft modification handles. |
+| `collisionModel` | `clm` | Collision models. |
+| `curve` | `c` | Curves: NURBS curves and curves on surfaces. |
+| `curveOnSurface` | `cos` | Curves on surfaces. |
+| `dimension` | `dim` | Dimension shapes: distances, angles, arc lengths and parameters. |
+| `dynamicConstraint` | `dc` | Dynamic constraints. |
+| `emitter` | `em` | Emitters. |
+| `field` | `fi` | Fields. |
+| `fluid` | `fl` | Fluids. |
+| `follicle` | `fo` | Follicles. |
+| `hairSystem` | `hs` | Hair systems. |
+| `handle` | `ha` | Object handles. |
+| `ikEndEffector` | `iee` | IK end effectors. |
+| `ikHandle` | `ikh` | IK handles. |
+| `implicitGeometry` | `ig` | Implicit geometry: implicit spheres, boxes and cones. |
+| `joint` | `j` | Joints. |
+| `lattice` | `la` | Lattices and their bases. |
+| `light` | `lt` | Lights. |
+| `locator` | `lc` | Every kind of locator. |
+| `locatorUV` | `luv` | UV locators. |
+| `locatorXYZ` | `xyz` | XYZ locators. |
+| `nCloth` | `ncl` | Cloth. |
+| `nParticleShape` | `nps` | Particle shapes (nParticle). |
+| `nRigid` | `nr` | Passive colliders (nRigid). |
+| `nonlinear` | `nl` | Nonlinear deformer handles. |
+| `nurbsCurve` | `nc` | NURBS curves. |
+| `nurbsSurface` | `ns` | NURBS surfaces. |
+| `orientationLocator` | `ol` | Orientation locators. |
+| `particleShape` | `ps` | Particle shapes. |
+| `plane` | `pl` | Sketch planes. |
+| `polymesh` | `p` | Polygon meshes. |
+| `rigidBody` | `rb` | Rigid bodies. |
+| `rigidConstraint` | `rc` | Rigid constraints. |
+| `sculpt` | `sc` | Sculpt objects. |
+| `spring` | `spr` | Spring shapes. |
+| `stroke` | `str` | Strokes. |
+| `subdiv` | `sd` | Subdivision surfaces. |
+| `texture` | `tx` | Texture placements. |
+| `group` | `gr` | Transforms with no shape (groups). |
+| `animBreakdown` | `abd` | Breakdown keys. |
+| `animCurve` | `ac` | Animation curves. |
+| `animInTangent` | `ait` | In tangents of keys. |
+| `animKeyframe` | `ak` | Keys. |
+| `animOutTangent` | `aot` | Out tangents of keys. |
+| `controlVertex` | `cv` | Control vertices. |
+| `curveKnot` | `ck` | Curve knots. |
+| `curveParameterPoint` | `cpp` | Curve points: a click on a curve takes the place clicked. |
+| `edge` | `eg` | Mesh edges. |
+| `editPoint` | `ep` | Curve edit points. |
+| `facet` | `fc` | Mesh faces. |
+| `hull` | `hl` | Hulls. |
+| `imagePlane` | `ip` | Image planes. |
+| `isoparm` | `iso` | Surface isoparms. |
+| `jointPivot` | `jp` | Joint pivots. |
+| `latticePoint` | `lp` | Lattice points. |
+| `localRotationAxis` | `ra` | Local rotation axes. |
+| `meshUVShell` | `msh` | UV shells: a UV pick takes its whole shell. |
+| `motionTrailPoint` | `mtp` | Motion trail points. |
+| `motionTrailTangent` | `mtt` | Motion trail point tangents. |
+| `nParticle` | `npr` | Particle points (nParticle). |
+| `particle` | `pr` | Particle points. |
 | `polymeshEdge` | `pe` | Mesh edges. |
 | `polymeshFace` | `pf` | Mesh faces. |
+| `polymeshFreeEdge` | `pfe` | Mesh border edges. |
 | `polymeshUV` | `puv` | Mesh UVs. |
+| `polymeshVertex` | `pv` | Mesh vertices. |
 | `polymeshVtxFace` | `pvf` | Mesh vertex faces. |
-| `meshUVShell` | `msh` | UV shells: a UV pick takes its whole shell. |
-| `editPoint` | `ep` | Curve edit points. |
-| `curveParameterPoint` | `cpp` | Curve points: a click on a curve takes the place clicked. |
+| `rotatePivot` | `rp` | Rotate pivots. |
+| `scalePivot` | `sp` | Scale pivots. |
+| `selectHandle` | `sh` | Selection handles. |
+| `springComponent` | `spc` | Single springs. |
+| `subdivMeshEdge` | `sme` | Subdivision surface edges. |
+| `subdivMeshFace` | `smf` | Subdivision surface faces. |
+| `subdivMeshPoint` | `smp` | Subdivision surface points. |
+| `subdivMeshUV` | `smu` | Subdivision surface UVs. |
+| `surfaceEdge` | `se` | Surface edges. |
+| `surfaceFace` | `sf` | Surface patches. |
+| `surfaceKnot` | `sk` | Surface knots. |
+| `surfaceParameterPoint` | `spp` | Surface points. |
+| `surfaceRange` | `sr` | Surface ranges. |
+| `surfaceUV` | `suv` | Surface UVs. |
+| `vertex` | `v` | Mesh vertices. |
 
 ## selected
 
@@ -20126,14 +24090,20 @@ Arguments: [name]
 | Flag | Short | Description |
 | --- | --- | --- |
 | `activeList` | `act` |  |
+| `activeCharacterList` | `acl` |  |
+| `activeCacheList` | `atc` |  |
+| `editor` | `ed` |  |
 | `modelList` | `mdl` |  |
 | `keyframeList` | `key` |  |
 | `worldList` | `wl` |  |
 | `objectList` | `ol` |  |
 | `highlightList` | `hl` |  |
-| `connectionList` | `crl` |  |
+| `connectionList` | `lst` |  |
 | `characterList` | `cl` |  |
 | `setList` | `sl` |  |
+| `maxObjects` | `mxo` |  |
+| `defineTemplate` | `dt` |  |
+| `useTemplate` | `ut` |  |
 | `addScript` | `as` |  |
 | `removeScript` | `rs` |  |
 | `addTo` | `add` |  |
@@ -20204,9 +24174,10 @@ Arguments: plug [value]
 | `lock` | `l` | Lock or unlock the plug. |
 | `type` | `typ` | double3, string, matrix, stringArray, doubleArray and so on. |
 | `clamp` | `c` | Accepted: values are always held inside an attribute's limits. |
-| `size` | `s` | Accepted for existing scripts. |
+| `size` | `s` | The element count of a multi attribute, a hint for allocating it: elements are made as values come. |
+| `capacityHint` | `ch` | A memory hint where -size can't say enough (a mesh's face edge lists when a file is read): elements are made as values come. |
 | `alteredValue` | `av` | Accepted for existing scripts. |
-| `caching` | `ca` | Accepted for existing scripts. |
+| `caching` | `ca` | Set whether the attribute is cached internally; getAttr -caching reads it. |
 
 ## setAttrMapping
 
@@ -20248,20 +24219,26 @@ Arguments: a curve (the selection when none)
 
 ## setDrivenKeyframe
 
-Set a driven key: at the driver's value (-cd plug, -dv value, or its current one) the channel takes its value (-v, or its current one). -q -dr lists a channel's drivers, -q -dn a driver's driven channels.
+Set a driven key: at the driver's value (-cd plug, -dv value, or its current one) the channel takes its value (-v, or its current one). -i inserts a key keeping the curve's shape. -q -dr lists a channel's drivers, -q -cd its current driver, -q -dn a driver's driven channels; with -cnt, how many.
 
 Arguments: the driven object or channels (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `currentDriver` | `cd` | The driving attribute. |
-| `driverValue` | `dv` | The driver's value at this key (its current one by default). |
+| `driverValue` | `dv` | The driver's value at this key (its current one by default); used more than once, a key at each. |
 | `value` | `v` | The channel's value at this key (its current one by default). |
 | `attribute` | `at` | Channel name(s). |
 | `inTangentType` | `itt` | Tangent into the key. |
 | `outTangentType` | `ott` | Tangent out of the key. |
 | `driver` | `dr` | Query: the channel's drivers. |
 | `driven` | `dn` | Query: the driver's driven channels. |
+| `count` | `cnt` | Query: with -dr, -dn or -cd, how many instead of their names. |
+| `insert` | `i` | Insert a key at the driver value keeping the curve's shape; the tangents around it become fixed. |
+| `insertBlend` | `ib` | A translate or rotate channel driven by something other than driven keys gets a pairBlend between that driver and its keys; off, such channels get no key. |
+| `hierarchy` | `hi` | Take in the hierarchy: above, below, both or none (none). |
+| `shape` | `s` | Take in the channels of the shapes under the transforms, not their control points (on). |
+| `controlPoints` | `cp` | Take in the shapes' control points too (off). |
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
 
@@ -20302,6 +24279,9 @@ Arguments: objects, plugs or curves (the selection when none)
 | `attribute` | `at` | Channel name(s). |
 | `preInfinite` | `pri` | Before the first key. |
 | `postInfinite` | `poi` | After the last key. |
+| `controlPoints` | `cp` | Take in the shapes' control points too (off). |
+| `hierarchy` | `hi` | Take in the hierarchy: above, below, both or none (none). |
+| `shape` | `s` | Take in the channels of the shapes under the transforms, not their control points (on). |
 | `query` | `q` | Query mode. |
 | `edit` | `e` | Edit mode. |
 
@@ -20356,6 +24336,14 @@ Arguments: objects or object.attribute plugs (the selection when none)
 | `animLayer` | `al` | The layer to key. Ignored for channels not in it, as in the reference. |
 | `dirtyDG` | `dd` | Accepted for existing scripts: keying always dirties what it drives. |
 | `identity` | `id` | An identity key: one that nullifies the layer here. Only on channels driven by layers. |
+| `animated` | `an` | Key only channels that already have keys (off). |
+| `adjustTangent` | `adt` | With -i: the keys either side change their tangents to keep the curve's shape (on). |
+| `preserveCurveShape` | `pcs` | A key added between keys at the curve's value keeps the curve's shape, as -i does (the keySetPreserveCurveShape option var by default). |
+| `insertBlend` | `ib` | A translate or rotate channel driven by something other than keys gets a pairBlend between that driver and its keys. |
+| `clip` | `c` | Put the key in this clip of the channel's character; ignored when the channel isn't in it. |
+| `useCurrentLockedWeights` | `lw` | Keying over a key with locked weights keeps those weights (off: they go back to the default). |
+| `query` | `q` | With -bd: whether the keys at the time are breakdowns. |
+| `edit` | `e` | With -bd: make the keys at the time breakdowns, or not, without setting keys. |
 
 ## setKeyframeBlendshapeTargetWts
 
@@ -20395,6 +24383,18 @@ Arguments: a mesh
 | `u` |  | U per face corner. |
 | `v` |  | V per face corner. |
 
+## setNodeTypeFlag
+
+Static data on a node type, by name or type tag (objectType -tagFromType). -display false keeps nodes of the type out of the interface's editors. Returns 1.
+
+Arguments: node type name or tag
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `display` | `dsp` | Whether the node type shows in the interface (on). |
+| `threadSafe` | `ts` | Obsolete: has no effect. |
+
 ## setParent
 
 The parent new controls go under: a name, .. for one level up, -top the window, -menu the menu parent instead. -q reads it.
@@ -20421,7 +24421,11 @@ Arguments: particles or particle1.pt[0:3]
 | --- | --- | --- |
 | `attribute` | `at` | position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP. |
 | `vectorValue` | `vv` | A vector. |
-| `floatValue` | `fv` | A number. |
+| `floatValue` | `fv` | A number: on each axis of a vector attribute. |
+| `object` | `o` | Only this particle object, every particle of it; what is named or selected is passed over. |
+| `randomFloat` | `rf` | Add a random amount from -this to +this to each particle's value (0). |
+| `randomVector` | `rv` | Add a random amount within -x -y -z to x y z to each particle's value (0 0 0). |
+| `relative` | `r` | Add the value to each particle's value rather than replace it (off). |
 
 ## setPivot
 
@@ -20520,10 +24524,22 @@ Arguments: items, or a set with -q
 | `size` | `s` | With -q: how many. |
 | `flatten` | `fl` | Accepted for existing scripts. |
 | `noWarnings` | `nw` | Accepted for existing scripts. |
-| `vertices` | `v` | Accepted for existing scripts. |
-| `edges` | `ed` | Accepted for existing scripts. |
-| `facets` | `fc` | Accepted for existing scripts. |
-| `text` | `t` | Accepted for existing scripts. |
+| `vertices` | `v` | The new set holds mesh vertices only (off); -q: whether it does. |
+| `edges` | `eg` | The new set holds edges only (off); -q: whether it does. |
+| `facets` | `fc` | The new set holds faces only (off); -q: whether it does. |
+| `editPoints` | `ep` | The new set holds edit points only (off); -q: whether it does. |
+| `afterFilters` | `af` | With -e on a deformer's set: change the set, not what the deformer acts on (off). |
+| `channelSetColor` | `csc` | A channel set's dope sheet colour, used when its colour index is -1. |
+| `channelSetColorIndex` | `coi` | A channel set's dope sheet colour by index (0); -1 uses -channelSetColor. |
+| `text` | `t` | A note kept with the set: on creation, with -e, or read with -q. |
+| `anyMember` | `am` | Whether any of the items is in this set. |
+| `copy` | `cp` | A new set holding this set's members. |
+| `split` | `sp` | The items moved out of this set into a new one. |
+| `nodesOnly` | `no` | With -q: each node once. |
+| `ordered` | `o` | Members in the order they were added (as they are kept). |
+| `noIntermediate` | `ni` | Accepted for existing scripts. |
+| `color` | `co` | Accepted for existing scripts. |
+| `layer` | `l` | Obsolete. |
 | `noSurfaceShader` | `nss` | With -renderable: leave the new shading group with no material, rather than lambert1. |
 | `renderable` | `r` | Make a shading group; with -q, whether the set is one. |
 
@@ -20546,6 +24562,12 @@ Arguments: type
 | `name` | `n` | Its name. |
 | `shared` | `s` | Reuse a node of that name. |
 | `skipSelect` | `ss` | Accepted: shading nodes don't change the selection. |
+
+## shapeCompare
+
+Compares two shapes (named, or the two selected): meshes by topology and points, curves and surfaces by degree, form, CVs and knots. Returns 0 when they are the same, 1 when not.
+
+Arguments: two shapes
 
 ## shelfButton
 
@@ -20584,6 +24606,15 @@ Arguments: name
 | `useAlpha` | `ua` |  |
 | `flexibleWidthType` | `fwt` |  |
 | `flexibleWidthValue` | `fwv` |  |
+| `enableCommandRepeat` | `ecr` |  |
+| `flipX` | `fx` |  |
+| `flipY` | `fy` |  |
+| `handleNodeDropCallback` | `hnd` |  |
+| `labelEditingCallback` | `lec` |  |
+| `menuItem` | `mi` |  |
+| `menuItemPython` | `mip` |  |
+| `menuItemWithOptionBox` | `mio` |  |
+| `noDefaultPopup` | `ndp` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -20620,7 +24651,7 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `cellWidth` | `cwd` |  |
+| `cellWidth` | `cw` |  |
 | `cellHeight` | `ch` |  |
 | `cellWidthHeight` | `cwh` |  |
 | `spacing` | `spa` |  |
@@ -20628,6 +24659,10 @@ Arguments: name
 | `position` | `pos` |  |
 | `style` | `st` |  |
 | `version` | `ver` |  |
+| `horizontal` | `hr` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -20691,6 +24726,16 @@ Arguments: name
 | `minChildWidth` | `mcw` |  |
 | `image` | `i` |  |
 | `imageVisible` | `iv` |  |
+| `borderStyle` | `bs` |  |
+| `closeTab` | `ct` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
+| `postMenuCommand` | `pmc` |  |
+| `scrollableTabs` | `stb` |  |
+| `tabIcon` | `ti` |  |
+| `tabIconIndex` | `tii` |  |
+| `tabTooltipIndex` | `tti` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -20731,17 +24776,33 @@ Arguments: objects
 | --- | --- | --- |
 | `all` |  | Show everything. |
 
+## showHelp
+
+Opens help in the web browser: -a a full address as given; otherwise Aztek's documentation, -d a page under it, or a topic. -q gives the address it would open; -v the reference version it follows. -ht is held.
+
+Arguments: [topic]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode. |
+| `absolute` | `a` | A full address, opened as given. |
+| `docs` | `d` | A page under the documentation. |
+| `helpTable` | `ht` | The table topics are looked up in (held). |
+| `version` | `v` | The reference version followed. |
+
 ## showHidden
 
-Show objects: named, -a every one, -b those below the named. Components (or, with none named, the component selection in a component mode) show their hidden faces.
+Show objects: named, -all every one, -b those below the named too, -a those above, -lh what the last hide hid. Components (or, with none named, the component selection in a component mode) show their hidden faces.
 
 Arguments: objects
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `all` | `a` | Every hidden object. |
-| `below` | `b` | The objects under those named. |
-| `above` | `ab` | The objects above those named. |
+| `allObjects` | `all` | Every hidden object, the cameras too. |
+| `below` | `b` | The objects named and every hidden one under them. |
+| `above` | `a` | The objects named and every hidden one above them, so they show. |
+| `lastHidden` | `lh` | What the last hide hid. |
 
 ## showLastHidden
 
@@ -20833,9 +24894,9 @@ Arguments: objects, plugs or curves (the selection when none)
 | `controlPoints` | `cp` | Accepted for existing scripts: control points have no channels of their own here. |
 | `shape` | `s` | Include the channels of the objects' shapes. |
 | `animation` | `an` | objects (the default), keys or keysOrObjects: keys means the selected keys. |
-| `valueTolerance` | `vtl` | How far the curve may move (0.01). |
-| `timeTolerance` | `tol` | Keys closer than this become one (0.05). |
-| `floatTolerance` | `ftl` | As -tol, for driven curves. |
+| `valueTolerance` | `vt` | How far the curve may move (0.01). |
+| `timeTolerance` | `tt` | Curves driven by time: keys closer than this become one (0.05). |
+| `floatTolerance` | `ft` | Curves driven by another value, as set driven keys: keys closer than this become one (0.05). |
 
 ## singleProfileBirailSurface
 
@@ -20852,6 +24913,10 @@ Arguments: a profile and two rails (the selection when none)
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
 | `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## skeletonEmbed
 
@@ -20928,7 +24993,7 @@ Arguments: joints, then the mesh (the selection when none); a skinCluster or ski
 | `weight` | `wt` | With -ai: starting weight of the added influence. |
 | `influence` | `inf` | With -e -lw: the joint. Query: the influences. |
 | `weightedInfluence` | `wi` | Query: influences holding weight. |
-| `geometry` | `g` | Query: the deformed shape. |
+| `geometry` | `g` | Query: the deformed shape. With -e -rm: the geometry to take off. |
 | `lockWeights` | `lw` | With -inf: lock or unlock an influence's weights; alone on -e, every influence. |
 | `forceNormalizeWeights` | `fnw` | With -e: normalize the selected points now. |
 | `smoothWeights` | `sw` | With -e: smooth the selected points' weights by this much (0 to 1). |
@@ -20936,6 +25001,32 @@ Arguments: joints, then the mesh (the selection when none); a skinCluster or ski
 | `recacheBindMatrices` | `rbm` | With -e: the joints' current pose becomes the bind pose. |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `after` | `af` | Go nearest the mesh, after the other deformers. |
+| `before` | `bf` | Go just above the deformer nearest the mesh. |
+| `frontOfChain` | `foc` | Go above every other deformer, but not above tweaks. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from: in front of them here. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain: in front of it here. |
+| `exclusive` | `ex` | The partition the skin's points go into (a set of them is made); -q: the partition. |
+| `useComponentTags` | `uct` | Work by component tags: no set, groupId, groupParts or tweak is made (none is for a skin here). |
+| `ignoreSelected` | `is` | Bind only what is named, not the selection. |
+| `multi` | `mul` | Allow another skinCluster on geometry already skinned (off: that is an error). |
+| `toSkeletonAndTransforms` | `tst` | Bind to the skeleton and every transform in its hierarchy too; the last object is what is bound. |
+| `ignoreHierarchy` | `ih` | Obsolete, use -bindMethod: closest distance rather than closest in the hierarchy. -q: whether the bind ignored it. |
+| `ignoreBindPose` | `ibp` | Obsolete, and ignored. |
+| `nurbsSamples` | `ns` | Samples along a NURBS curve influence or across a surface one (10). |
+| `volumeBind` | `vb` | Volume binding: a volume round each bone, grown to take the points weighted at least this much to it, gives the weights. |
+| `volumeType` | `vt` | The volumes' shape with -volumeBind: 0 the default (a capsule), 1 a capsule, 2 a cylinder. |
+| `selectInfluenceVerts` | `siv` | With -e: select the points this influence moves. |
+| `addToSelection` | `ats` | With -siv: add them to the selection. |
+| `removeFromSelection` | `rfs` | With -siv: take them off the selection. |
+| `remove` | `rm` | With -e -g: the geometry is no longer skinned. |
+| `prune` | `pr` | With -e: points no influence moves leave the skin's set. |
+| `components` | `cmp` | Query: the points the skin acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the skin's tool objects (it has none). |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometryIndices` | `gi` | Query: the index of each geometry. |
 
 ## skinPaintStamp
 
@@ -20985,6 +25076,10 @@ Arguments: curves (the selection when none)
 | `replaceOriginal` | `rpo` | Change the curve itself (on by default). |
 | `name` | `n` | Name of a new curve. |
 | `object` | `o` | Make an object (accepted for existing scripts). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## smoothPreview
 
@@ -21012,10 +25107,14 @@ Arguments: surfaces (the selection when none)
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## snapKey
 
-Move keys to whole multiples of -tm (1 by default), and to multiples of -vm if given.
+Move keys to whole multiples of -tm (1 by default), and values to multiples of -vm if given. Keys don't pass their neighbours; -md merges keys that land on one frame. Returns how many curves had keys left unsnapped by a clash.
 
 Arguments: objects, plugs or curves (the selection when none)
 
@@ -21033,19 +25132,30 @@ Arguments: objects, plugs or curves (the selection when none)
 | `selected` | `sl` | Snap the keys selectKey selected. |
 | `timeMultiple` | `tm` | Snap time to multiples of this. |
 | `valueMultiple` | `vm` | Snap value to multiples of this. |
+| `mergeDuplicate` | `md` | Keys that snap onto one frame become one (off). |
 
 ## snapMode
 
-Move snapping switches: -grid, -point, -curve; -q to ask.
+Snapping switches and settings: -grid, -point, -curve, -viewPlane, -meshCenter, -livePoint, -liveFaceCenter, -pixelSnap, -pixelCenter, -useTolerance on or off; -tolerance, -distanceIncrement and the edge magnets; -q to ask.
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `grid` | `gr` | This snap. |
-| `point` | `p` | This snap. |
-| `curve` | `c` | This snap. |
-| `liveFace` | `lf` | This snap. |
-| `viewPlane` | `vp` | This snap. |
-| `meshCenter` | `mc` | This snap. |
+| `grid` | `gr` | Grid snapping. |
+| `point` | `p` | Point snapping. |
+| `curve` | `c` | Curve snapping. |
+| `liveFace` | `lf` | Snapping to a live surface's faces. |
+| `viewPlane` | `vp` | View plane snapping. |
+| `meshCenter` | `mc` | While moving, snap to the centre of the mesh under the cursor. |
+| `livePoint` | `lp` | While moving on a live polygon object, snap to its vertices. |
+| `liveFaceCenter` | `lfc` | While moving on a live polygon object, snap to its face centres. |
+| `pixelSnap` | `ps` | UVs snap to the nearest pixel centre or corner. |
+| `pixelCenter` | `pc` | With -pixelSnap: to the pixel centre rather than the corner. |
+| `useTolerance` | `ut` | Point snapping only within -tolerance of the cursor. |
+| `distanceIncrement` | `dsi` | The distance to snap by along objects such as lines or planes (0). |
+| `edgeMagnet` | `em` | Extra magnets to snap to, evenly along an edge (0). |
+| `edgeMagnetTolerance` | `emt` | How near edge magnet snapping must come (10). |
+| `tolerance` | `t` | With -useTolerance: points snap within this many pixels of the cursor, each way (20). |
+| `uvTolerance` | `uvt` | As -tolerance, in the UV editor (20). |
 | `query` | `q` | Query. |
 
 ## snapTogetherCtx
@@ -21074,18 +25184,22 @@ Arguments: [name]
 
 Copies of objects at every -i frames from -st to -et, in a group. Returns the group and the snapshot node. With -mt, makes a motion trail instead.
 
-Arguments: objects (the selection when none)
+Arguments: objects (the selection when none); with -q or -e the snapshot node, its group, or a trail
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `startTime` | `st` | First frame (the playback start). |
-| `endTime` | `et` | Last frame (the playback end). |
+| `startTime` | `st` | First frame (1). |
+| `endTime` | `et` | Last frame (10). |
 | `increment` | `i` | Frames between copies (1). |
-| `constructionHistory` | `ch` | Accepted for existing scripts: copies are made once. |
+| `constructionHistory` | `ch` | Recorded on the node; -e with new times makes the copies again. |
 | `c` | `c` | As -ch. |
 | `name` | `n` | The snapshot's name. |
-| `update` | `u` | always or animCurve: recorded on the node. |
+| `update` | `u` | always (the default), animCurve or demand: recorded on the node. |
 | `motionTrail` | `mt` | Make a motion trail. |
+| `anchorTransform` | `at` | With -mt: the trail is drawn in this transform's space, its handle under it. |
+| `offsetParentMatrix` | `opm` | With -at: the handle follows the anchor through its offsetParentMatrix instead of being parented under it. |
+| `query` | `q` | Query mode. |
+| `edit` | `e` | Edit mode: new times make the copies, or the trail, again. |
 
 ## softMod
 
@@ -21103,6 +25217,31 @@ Arguments: vertices or meshes (the selection when none); the softMod with -e and
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
+| `bindState` | `bs` | With -weightedNode: make up for where its transforms stand, so the objects stay where they are. |
+| `curvePoint` | `cp` | A point of the falloff ramp: where along the radius, 0 to 1. One per point, with -cv and -ci. |
+| `curveValue` | `cv` | The ramp's weight at that point. |
+| `curveInterpolation` | `ci` | From that point on: 0 none, 1 linear, 2 smooth, 3 spline. |
+| `falloffBasedOnX` | `fbx` | Distance counts along X (on). |
+| `falloffBasedOnY` | `fby` | Distance counts along Y (on). |
+| `falloffBasedOnZ` | `fbz` | Distance counts along Z (on). |
+| `falloffMasking` | `fm` | Only the selected points move (off). |
+| `resetGeometry` | `rg` | With -e: the deformed objects' matrices as they are now, so scaling them before has no effect. |
+| `weightedNode` | `wn` | The transform it takes its matrix from, then the one whose world matrix it reads (its handle). |
 | `falloffRadius` | `fr` | How far the effect reaches, cm (5). |
 | `falloffMode` | `fom` | 0 straight through space, 1 along the surface. |
 | `falloffCenter` | `fc` | Centre of the falloff, world space. |
@@ -21139,6 +25278,12 @@ Soft selection (B): -sse 1 turns it on, -ssd sets the falloff radius. -q -sse / 
 | `softSelectEnabled` | `sse` | 1 on, 0 off. |
 | `softSelectDistance` | `ssd` | Falloff radius, world units. |
 | `softSelectFalloff` | `ssf` | 0 volume, 1 surface, 2 global, 3 object. |
+| `softSelectCurve` | `ssc` | The falloff curve: three numbers per point, the weight, the distance (0 at the selection, 1 at the radius) and the interpolation (0 none, 1 linear, 2 smooth, 3 spline), comma separated. |
+| `softSelectColorCurve` | `scc` | The false colour ramp: five numbers per point, red, green and blue, the weight, and the interpolation, comma separated. |
+| `enableFalseColor` | `efc` | 1 shows the false colours of the weights in the views, 0 doesn't (1). |
+| `softSelectUVDistance` | `sud` | The falloff radius in UV space (0.5). |
+| `softSelectReset` | `ssr` | Put the settings back to their defaults. |
+| `compressUndo` | `cu` | 0 every change undoes on its own, 1 changes in a row undo as one, 2 only interactive ones do (0). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
 
@@ -21234,9 +25379,96 @@ Arguments: sound
 | `edit` | `e` | Change one. |
 | `query` | `q` | Read one. |
 
+## soundControl
+
+Script UI: soundControl, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `sound` | `s` |  |
+| `soundSource` | `ss` |  |
+| `displaySound` | `ds` |  |
+| `waveform` | `wf` |  |
+| `minTime` | `min` |  |
+| `maxTime` | `max` |  |
+| `pressCommand` | `pc` |  |
+| `releaseCommand` | `rc` |  |
+| `repeatChunkSize` | `rcs` |  |
+| `repeatOnHold` | `roh` |  |
+| `resample` | `r` |  |
+| `beginScrub` | `bs` |  |
+| `endScrub` | `es` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## soundPopup
+
+Script UI: soundPopup, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## spaceLocator
 
 Create a locator: a transform with a locator shape under it. Returns [transform].
+
+Arguments: with -q and -e: the locator
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -21244,10 +25476,14 @@ Create a locator: a transform with a locator shape under it. Returns [transform]
 | `position` | `p` | Where the locator shape sits in its transform's space (localPosition). |
 | `absolute` | `a` | The position is world, with the pivots at it. |
 | `relative` | `r` | The position is local (the default). |
+| `query` | `q` | Query mode: -p reads the locator's position. |
+| `edit` | `e` | Edit mode: -p moves the locator shape in its transform, -n renames it. |
 
 ## sphere
 
 Create a NURBS sphere with a makeNurbSphere node. Returns [nurbsSphere1, makeNurbSphere1].
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -21266,6 +25502,10 @@ Create a NURBS sphere with a makeNurbSphere node. Returns [nurbsSphere1, makeNur
 | `useTolerance` | `ut` | Accepted for existing scripts. |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `heightRatio` | `hr` | Height over radius. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## splitRingsApplySelection
 
@@ -21377,39 +25617,61 @@ Arguments: name
 
 ## square
 
-A surface inside four curves, in order round the edge. Returns [squareSurface1, squareSrf1].
+A surface inside three or four curves, in order round the edge. -ct1 to -ct4 each curve's continuity, -rc1 to -rc4 rebuild a curve first. Returns [squareSurface1, squareSrf1].
 
-Arguments: four curves (the selection when none)
+Arguments: three or four curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `degree` | `d` | Accepted for existing scripts. |
-| `continuityType1` | `cp` | Accepted for existing scripts. |
-| `endPointTolerance` | `ept` | Accepted for existing scripts. |
-| `rebuildCurve1` | `rc1` | Accepted for existing scripts. |
+| `continuityType1` | `ct1` | Curve 1: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType2` | `ct2` | Curve 2: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType3` | `ct3` | Curve 3: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType4` | `ct4` | Curve 4: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `curveFitCheckpoints` | `cfc` | Points per span checked for tangency, with tangent continuity (5). |
+| `endPointTolerance` | `ept` | How near the ends must be (0.1). |
+| `rebuildCurve1` | `rc1` | Rebuild curve 1 for curvature continuity (off). |
+| `rebuildCurve2` | `rc2` | Rebuild curve 2 for curvature continuity (off). |
+| `rebuildCurve3` | `rc3` | Rebuild curve 3 for curvature continuity (off). |
+| `rebuildCurve4` | `rc4` | Rebuild curve 4 for curvature continuity (off). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
 | `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## squareSurface
 
 A surface from four curves in order round its edge: square under its other name.
 
-Arguments: four curves (the selection when none)
+Arguments: three or four curves (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `degree` | `d` | Accepted for existing scripts. |
-| `continuityType1` | `cp` | Accepted for existing scripts. |
-| `endPointTolerance` | `ept` | Accepted for existing scripts. |
-| `rebuildCurve1` | `rc1` | Accepted for existing scripts. |
+| `continuityType1` | `ct1` | Curve 1: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType2` | `ct2` | Curve 2: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType3` | `ct3` | Curve 3: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `continuityType4` | `ct4` | Curve 4: 1 fixed boundary, 2 tangent (2), 3 implied tangent. |
+| `curveFitCheckpoints` | `cfc` | Points per span checked for tangency, with tangent continuity (5). |
+| `endPointTolerance` | `ept` | How near the ends must be (0.1). |
+| `rebuildCurve1` | `rc1` | Rebuild curve 1 for curvature continuity (off). |
+| `rebuildCurve2` | `rc2` | Rebuild curve 2 for curvature continuity (off). |
+| `rebuildCurve3` | `rc3` | Rebuild curve 3 for curvature continuity (off). |
+| `rebuildCurve4` | `rc4` | Rebuild curve 4 for curvature continuity (off). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
 | `object` | `o` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## stackTrace
 
@@ -21423,46 +25685,77 @@ Whether errors show the procedure stack: -state on or off, -q reads it. -dump wr
 
 ## stitchSurface
 
-Close the gap between two surfaces' edges (surface.u[x] or the nearest): -b 0.5 meets halfway, 0 moves only the second, 1 only the first. Returns the surfaces and nodes.
+Close the gap between two surfaces' edges (surface.u[x] or the nearest): they meet where -wt0 and -wt1 weigh them (halfway), -b blends from the input surfaces (0) to that (1), -tc lines the CV rows either side up for tangency. Returns each surface and its stitch node.
 
 Arguments: two surfaces or edges
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `bias` | `b` | Which moves (0.5). |
-| `cascade` | `c` | Accepted for existing scripts. |
-| `keepG0Continuity` | `kg0` | Accepted for existing scripts. |
-| `keepG1Continuity` | `kg1` | Accepted for existing scripts. |
-| `numberOfSamples` | `ns` | Accepted for existing scripts. |
-| `stepCount` | `sc` | Accepted for existing scripts. |
-| `fixBoundary` | `fb` | Accepted for existing scripts. |
-| `replaceOriginal` | `rpo` | Accepted: the surfaces themselves change. |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `bias` | `b` | Blends the CVs between the input surface (0) and the stitch result (1). |
+| `cascade` | `c` | Cascade the stitch node onto stitch history the surface has (off): each stitch is a node of its own here. |
+| `keepG0Continuity` | `kg0` | Stitch with positional continuity (on). |
+| `keepG1Continuity` | `kg1` | Stitch with tangent continuity (off). |
+| `fixBoundary` | `fb` | Keep the boundary CVs while lining up for tangency (off). |
+| `replaceOriginal` | `rpo` | Make the result in place of the original: the surfaces themselves change. |
+| `cvIthIndex` | `ci` | The U index of a CV a point constraint holds (-1). |
+| `cvJthIndex` | `cj` | The V index of a CV a point constraint holds (-1). |
+| `parameterU` | `u` | The U parameter of a point a point constraint holds (-10000). |
+| `parameterV` | `v` | The V parameter of a point a point constraint holds (-10000). |
+| `positionalContinuity` | `pc` | G0 continuity at the edge (on). |
+| `tangentialContinuity` | `tc` | G1 continuity across the edge (off). |
+| `stepCount` | `sc` | Discretisation steps (20). |
+| `togglePointNormals` | `tpn` | Point constraints hold the normal too (off). |
+| `togglePointPosition` | `tpp` | Point constraints hold the position (on). |
+| `toggleTolerance` | `tt` | Discretise by the tolerance rather than the step count (off). |
+| `tolerance` | `tol` | The tolerance discretising the edge (0.1). |
+| `numberOfSamples` | `ns` | Samples along the edge (20). |
+| `weight0` | `wt0` | The first edge's weight (0.5). |
+| `weight1` | `wt1` | The second edge's weight (0.5). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## stitchSurfacePoints
 
-Move CVs to one place: their mean, or -ew 0 the first. Returns them.
+Move points of two or more surfaces, one on each, to one place: their mean with -ewt (on), or the first's. Returns each surface and its stitch node.
 
-Arguments: CVs
+Arguments: CVs or edit points, one on each surface (the selection when none)
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `equalWeight` | `ew` | Their mean (the default), or the first. |
-| `bias` | `b` | Accepted for existing scripts. |
-| `constructionHistory` | `ch` | Accepted for existing scripts. |
-| `cascade` | `c` | Accepted for existing scripts. |
-| `keepG0Continuity` | `kg0` | Accepted for existing scripts. |
-| `keepG1Continuity` | `kg1` | Accepted for existing scripts. |
-| `replaceOriginal` | `rpo` | Accepted: they change in place. |
-| `stepCount` | `sc` | Accepted for existing scripts. |
-| `tolerance` | `tol` | Accepted for existing scripts. |
+| `constructionHistory` | `ch` | Keep the node (on by default). |
+| `name` | `n` | The new object's name. |
+| `object` | `o` | Accepted for existing scripts. |
+| `range` | `rn` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
+| `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `bias` | `b` | Blends the CVs between the input surface (0) and the stitch result (1). |
+| `cascade` | `c` | Cascade the stitch node onto stitch history the surface has (off): each stitch is a node of its own here. |
+| `keepG0Continuity` | `kg0` | Stitch with positional continuity (on). |
+| `keepG1Continuity` | `kg1` | Stitch with tangent continuity (off). |
+| `fixBoundary` | `fb` | Keep the boundary CVs while lining up for tangency (off). |
+| `replaceOriginal` | `rpo` | Make the result in place of the original: the surfaces themselves change. |
+| `cvIthIndex` | `ci` | The U index of a CV a point constraint holds (-1). |
+| `cvJthIndex` | `cj` | The V index of a CV a point constraint holds (-1). |
+| `parameterU` | `u` | The U parameter of a point a point constraint holds (-10000). |
+| `parameterV` | `v` | The V parameter of a point a point constraint holds (-10000). |
+| `positionalContinuity` | `pc` | G0 continuity at the edge (on). |
+| `tangentialContinuity` | `tc` | G1 continuity across the edge (off). |
+| `stepCount` | `sc` | Discretisation steps (20). |
+| `togglePointNormals` | `tpn` | Point constraints hold the normal too (off). |
+| `togglePointPosition` | `tpp` | Point constraints hold the position (on). |
+| `toggleTolerance` | `tt` | Discretise by the tolerance rather than the step count (off). |
+| `tolerance` | `tol` | The tolerance discretising the edge (0.1). |
+| `equalWeight` | `ewt` | Equal weights, so the points meet at their mean (on); off, the first point has all the weight. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## stringArrayIntersector
 
@@ -21492,6 +25785,21 @@ Arguments: the skinned mesh, then its replacement (the selection when none)
 | `oldGeometry` | `og` | The skinned mesh. |
 | `newGeometry` | `ng` | Its replacement. |
 | `retainOldGeometry` | `rog` | Keep the old mesh. |
+| `disableNonSkinDeformers` | `dnd` | Leave the deformers other than skins on the geometry with no effect afterwards (off). |
+| `newGeometryToLayer` | `ngl` | Put the new geometry in a new display layer. |
+| `oldGeometryToLayer` | `ogl` | Keep the old geometry, in a new display layer. |
+| `reWeightDistTolerance` | `wdt` | New points farther than this from the old geometry take their weights from their neighbours, not from points they were matched to by mistake. |
+
+## suitePrefs
+
+A suite install's shared mouse and keyboard interaction. This is a stand-alone install: -installedAsSuite and -isCompleteSuite answer false.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `applyToSuite` | `ats` | Whose interaction settings every suite application uses: "Maya", "3dsMax" or "undefined" (each its own). |
+| `installedAsSuite` | `ias` | Whether this is part of a suite install. |
+| `isCompleteSuite` | `ics` | Whether the suite install has every product of the suite. |
 
 ## surface
 
@@ -21528,6 +25836,47 @@ Arguments: a curve (the selection when none)
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `range` | `rn` | Accepted for existing scripts. |
 | `name` | `n` | Name of the new object. |
+
+## switchTable
+
+Script UI: switchTable, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `label1` | `l1` |  |
+| `label2` | `l2` |  |
+| `selectedRow` | `sr` |  |
+| `switchNode` | `sn` |  |
+| `underPointerRow` | `upr` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## symbolButton
 
@@ -21578,6 +25927,10 @@ Arguments: name
 | `image` | `i` |  |
 | `onImage` | `oni` |  |
 | `offImage` | `ofi` |  |
+| `disableOnImage` | `dni` |  |
+| `disableOffImage` | `dfi` |  |
+| `innerMargin` | `im` |  |
+| `version` | `ver` |  |
 | `value` | `v` |  |
 | `onCommand` | `onc` |  |
 | `offCommand` | `ofc` |  |
@@ -21620,10 +25973,11 @@ Symmetry for component edits: -e -s on, -ax x|y|z, -ab world|object|topo, -ts on
 | `edit` | `e` | Edit mode. |
 | `symmetry` | `s` | On or off. |
 | `axis` | `ax` | x, y or z. |
-| `about` | `ab` | world, object or topo. All mirror in the object's axes here; topo pairs by topology. |
+| `about` | `a` | world, object or topo. All mirror in the object's axes here; topo pairs by topology. |
 | `topoSymmetry` | `ts` | Pair by topology from the selected seam edge. |
 | `worldSpace` | `ws` | About world. |
-| `tolerance` | `tol` | How close a pair must be. |
+| `tolerance` | `t` | How close a pair must be. |
+| `seamFalloffCurve` | `sf` | The seam's falloff curve, how strongly the seam holds across its tolerance: three numbers per point, the strength, the distance (0 to 1) and the interpolation (0 none, 1 linear, 2 smooth, 3 spline), comma separated. |
 | `reset` | `r` | Back to the defaults. |
 | `allowPartial` | `ap` | Accepted for existing scripts. |
 | `preserveSeam` | `ps` | 1 keeps points on the plane there; 0 lets them leave it. |
@@ -21727,6 +26081,18 @@ Arguments: name
 | `tabsClosable` | `tc` |  |
 | `closeTabCommand` | `ctc` |  |
 | `minChildWidth` | `mcw` |  |
+| `image` | `i` |  |
+| `imageVisible` | `iv` |  |
+| `borderStyle` | `bs` |  |
+| `closeTab` | `ct` |  |
+| `generalSpacing` | `gsp` |  |
+| `margins` | `mar` |  |
+| `margins4` | `mr4` |  |
+| `postMenuCommand` | `pmc` |  |
+| `scrollableTabs` | `stb` |  |
+| `tabIcon` | `ti` |  |
+| `tabIconIndex` | `tii` |  |
+| `tabTooltipIndex` | `tti` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -21782,6 +26148,11 @@ Arguments: targets, then the object to drive or the constraint
 | `skipRotate` | `sr` | Rotate axes to leave alone: x, y, z or none. May be used more than once. |
 | `skip` | `sk` | Axes of this constraint's channel to leave alone: x, y, z or none. May be used more than once. |
 | `skipScale` |  | Scale axes to leave alone: x, y, z or none. |
+| `layer` | `l` | The animation layer the constraint goes into: it feeds the layer, whose weight blends it over what is under. |
+| `scaleCompensate` | `sc` | Scale constraint on a joint: the joint's segmentScaleCompensate feeds the constraint's constraintScaleCompensate. |
+| `createCache` | `cc` | Parent and orient constraints, with -e: bake the rotation from a start to an end frame into a cache, and set interpType to Cache; a cache there already is replaced. |
+| `deleteCache` | `dc` | Parent and orient constraints, with -e: take the cache away. |
+| `decompRotationToChild` | `dr` | Parent constraint, with -mo: the offset rotation is taken near the constrained object rather than the target. The offset is the same matrix either way here. |
 | `edit` | `e` | Change the constraint. |
 | `query` | `q` | Ask about the constraint. |
 
@@ -21822,12 +26193,27 @@ Arguments: meshes or vertices (the selection when none); the deformer with -e an
 | `prune` | `pr` | With -e: take the points it doesn't move out of its set (cluster, lattice, wire, sculpt). |
 | `edit` | `e` | Edit mode. |
 | `query` | `q` | Query mode. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 | `smoothingIterations` | `si` | Smoothing passes (10). |
 | `smoothingStep` | `ss` | How far each pass moves a point towards its neighbours (0.5). |
 | `pinBorderVertices` | `pbv` | Border points stay out of the smoothing (on). |
 | `pin` | `pin` | The same as -pinBorderVertices. |
-| `inwardConstraint` | `ic` | Stops points moving in along the normal: 0 free, 1 not at all. |
-| `outwardConstraint` | `oc` | Stops points moving out along the normal: 0 free, 1 not at all. |
+| `inwardConstraint` | `iwc` | Stops points moving in along the normal, keeping the contour: 0 free, 1 not at all (0). |
+| `outwardConstraint` | `owc` | Stops points moving out along the normal, keeping the contour: 0 free, 1 not at all (0). |
 | `squashConstraint` | `sqc` | Stops squashed edges relaxing: 0 free, 1 not at all. |
 | `stretchConstraint` | `stc` | Stops stretched edges relaxing: 0 free, 1 not at all. |
 
@@ -22478,6 +26864,7 @@ Arguments: name
 | `recomputeSize` | `rs` |  |
 | `wordWrap` | `ww` |  |
 | `hyperlink` | `hl` |  |
+| `dropRectCallback` | `drc` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -22761,6 +27148,12 @@ Arguments: name
 | `allowAutomaticSelection` | `aas` |  |
 | `uniqueTag` | `utg` |  |
 | `selectUniqueTagItem` | `sut` |  |
+| `allItemsUniqueTags` | `ait` |  |
+| `emptyLabel` | `el` |  |
+| `enableAll` | `ea` |  |
+| `enableItem` | `ei` |  |
+| `enableIndexedItem` | `eii` |  |
+| `enableUniqueTagItem` | `eut` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -22807,11 +27200,26 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `query` | `q` | Query mode. |
 | `strength` | `s` | How far a white texture moves points (1). |
 | `offset` | `o` | Added to the move, not scaled by strength. |
-| `direction` | `d` | 0 normal, 1 the handle's up axis (the default), 2 vector. |
-| `vectorSpace` | `vsp` | With direction vector: 0 object, 1 world, 2 tangent. |
+| `direction` | `d` | Normal, Handle (the handle's up axis, the default) or Vector; or 0, 1, 2. |
+| `vectorSpace` | `vsp` | With direction Vector: Object, World or Tangent; or 0, 1, 2. |
 | `vectorStrength` | `vs` | With direction vector: on each axis. |
 | `vectorOffset` | `vo` | With direction vector: added on each axis. |
-| `pointSpace` | `ps` | 0 world, 1 local, 2 UV (the default). |
+| `pointSpace` | `ps` | World, Local or UV (the default); or 0, 1, 2. |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 
 ## textureLassoContext
 
@@ -23053,9 +27461,9 @@ Held for scripts: the file's time code, -msf, -psf, -psh, -psm, -pss, read back 
 
 ## timeControl
 
-The time slider's state: the range selected on it (-q -ra, -q -rng, -q -rv), its key display and snapping.
+The time slider, the one timeControl ($gPlayBackSlider): the range picked on it (-q -ra, -q -rng, -q -rv), its key display and snapping, the sound it shows and how, its colours, and scripts run on mouse down and up. -q -acn lists the curves whose keys it shows.
 
-Arguments: the slider's name, accepted for existing scripts
+Arguments: the slider's name ($gPlayBackSlider)
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -23065,15 +27473,57 @@ Arguments: the slider's name, accepted for existing scripts
 | `range` | `rng` | Query: the selected range as a string. |
 | `rangeVisible` | `rv` | Query: whether a range is selected. |
 | `showKeys` | `sk` | Whose keys show: active, none or a selection connection. |
-| `snap` | `snp` | Snap to whole frames. |
-| `tickSize` | `ts` | How wide ticks are drawn. |
-| `minTime` | `min` | Query: the playback start. |
-| `maxTime` | `max` | Query: the playback end. |
+| `snap` | `sn` | Snap to whole frames. |
+| `showKeysCombined` | `skc` | Show the keys of all the attributes as one row. |
+| `animLayerShowWeight` | `asw` | Show the current animation layer's weight keys. |
+| `tickSize` | `ts` | How wide ticks are drawn, 1 to 63. |
 | `sound` | `s` | The sound (audio node) the slider shows the waveform of; empty for none. |
 | `displaySound` | `ds` | Show the sound's waveform. |
-| `beginScrub` | `bs` | Accepted for existing scripts. |
-| `endScrub` | `es` | Accepted for existing scripts. |
-| `forceRedraw` | `fr` | Accepted for existing scripts. |
+| `animCurveNames` | `acn` |  |
+| `animLayerFilterOptions` | `alf` |  |
+| `currentFrameColor` | `cfc` |  |
+| `foregroundColor` | `fgc` |  |
+| `globalTime` | `gt` |  |
+| `mainListConnection` | `mlc` |  |
+| `tickSpan` | `tsp` |  |
+| `forceRefresh` | `fr` |  |
+| `forceRedraw` | `fd` |  |
+| `soundSource` | `ss` |  |
+| `waveform` | `wf` |  |
+| `minTime` | `min` |  |
+| `maxTime` | `max` |  |
+| `pressCommand` | `pc` |  |
+| `releaseCommand` | `rc` |  |
+| `repeatChunkSize` | `rcs` |  |
+| `repeatOnHold` | `roh` |  |
+| `resample` | `r` |  |
+| `beginScrub` | `bs` |  |
+| `endScrub` | `es` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
 
 ## timePort
 
@@ -23223,6 +27673,16 @@ Toggle visibility (the H key). Defaults to the selection. Every object ends up t
 
 Arguments: objects
 
+## tolerance
+
+The tolerances modelling operations use when not given their own: -linear (positional) and -angular (tangential).
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `linear` | `l` | The positional tolerance, in the current linear unit (0.01 cm). |
+| `angular` | `a` | The tangential tolerance, in the current angular unit (0.1 degrees). |
+
 ## toolButton
 
 Script UI: toolButton, with create, edit and query as in the reference's command.
@@ -23244,7 +27704,11 @@ Arguments: name
 | `image3` | `i3` |  |
 | `imageOverlayLabel` | `iol` |  |
 | `style` | `st` |  |
-| `popupIndicatorVisible` | `pin` |  |
+| `popupIndicatorVisible` | `piv` |  |
+| `stateSelfManaged` | `ssm` |  |
+| `toolImage1` | `ti1` |  |
+| `toolImage2` | `ti2` |  |
+| `toolImage3` | `ti3` |  |
 | `toolArray` | `ta` |  |
 | `toolCount` | `tc` |  |
 | `version` | `ver` |  |
@@ -23285,6 +27749,7 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `clear` | `cl` |  |
 | `select` | `sl` |  |
 | `collectionItemArray` | `cia` |  |
 | `numberOfCollectionItems` | `nci` |  |
@@ -23296,15 +27761,42 @@ Arguments: name
 | `defineTemplate` | `dt` |  |
 | `useTemplate` | `ut` |  |
 
+## toolDropped
+
+Runs what recreates a tool's button where the tool was dropped: a toolButton for it in the current layout, in the current tool collection, showing the tool's image.
+
+Arguments: tool
+
 ## toolHasOptions
 
 Whether a tool context has settings to show.
 
 Arguments: context
 
+## toolPropertyWindow
+
+The Tool Settings window: on its own, or with -restore, opens it; -q and -e the names of its parts and its commands.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+| `field` | `fld` |  |
+| `helpButton` | `hb` |  |
+| `icon` | `icn` |  |
+| `inMainWindow` | `imw` |  |
+| `location` | `loc` |  |
+| `noviceMode` | `nm` |  |
+| `resetButton` | `rb` |  |
+| `restore` | `rs` |  |
+| `selectCommand` | `sel` |  |
+| `showCommand` | `shw` |  |
+
 ## torus
 
 Create a NURBS torus with a makeNurbTorus node. Returns [nurbsTorus1, makeNurbTorus1].
+
+Arguments: with -q and -e: the node, or an object it feeds
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -23324,10 +27816,14 @@ Create a NURBS torus with a makeNurbTorus node. Returns [nurbsTorus1, makeNurbTo
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `heightRatio` | `hr` | Height over radius. |
 | `minorSweep` | `msw` | Degrees of the tube's section (360). |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## track
 
-Slide a camera sideways: -l left, -r right, -u up, -d down, in units.
+Slide a camera sideways: -l left, -r right, -u or -up up, -d down, in units.
 
 Arguments: [camera]
 
@@ -23335,7 +27831,8 @@ Arguments: [camera]
 | --- | --- | --- |
 | `left` | `l` |  |
 | `right` | `r` |  |
-| `up` | `u` |  |
+| `upDistance01` | `u` |  |
+| `upDistance02` | `up` |  |
 | `down` | `d` |  |
 
 ## trackCtx
@@ -23408,6 +27905,9 @@ Arguments: components or meshes (the selection when none)
 | `caching` | `cch` | Accepted; see the command reference. |
 | `nodeState` | `nds` | Accepted; see the command reference. |
 | `frozen` | `fzn` | Accepted; see the command reference. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `dumpInfo` | `dui` | Query: the target's index, how many points it acts on and how many there are. |
 
 ## transferBetweenInfluences
 
@@ -23482,6 +27982,11 @@ Arguments: file type
 | `writeSupport` | `ws` | Whether it writes. |
 | `loaded` | `ld` | Whether its plug-in is loaded. |
 | `defaultOptions` | `do` | Its default options string. |
+| `defaultFileRule` | `dfr` | The workspace file rule its files go by. |
+| `objectType` | `ot` | Obsolete: the same as -defaultFileRule. |
+| `optionsScript` | `os` | The MEL procedure that posts its options, or "". |
+| `fileCompression` | `cmp` | compressed, uncompressed or asCompressed: what saving its files does; -q gives it. |
+| `findTranslator` | `ft` | A file and 0 read, 1 write or 2 both: the translator that handles it. |
 | `query` | `q` | Read. |
 
 ## trim
@@ -23495,15 +28000,18 @@ Arguments: a surface, then curves on it
 | `locatorU` | `lu` | Where, in U (0.5). |
 | `locatorV` | `lv` | Where, in V (0.5). |
 | `selected` | `sl` | 0 keeps that region, 1 throws it away. |
-| `shrink` | `sh` | Accepted for existing scripts. |
+| `shrink` | `sh` | Cut the surface underneath down to the outer bounds of what is kept (off). |
+| `tolerance` | `tol` | The tolerance trimming works to (0.001). |
 | `constructionHistory` | `ch` | Keep the node (on by default). |
 | `name` | `n` | The new object's name. |
 | `object` | `o` | Accepted for existing scripts. |
 | `range` | `rn` | Accepted for existing scripts. |
-| `caching` | `cch` | Accepted for existing scripts. |
-| `nodeState` | `nds` | Accepted for existing scripts. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 | `tolerance` | `tol` | Accepted for existing scripts. |
 | `polygon` | `po` | 0 NURBS, 1 polygons. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
 
 ## tumble
 
@@ -23725,7 +28233,8 @@ Query or control the undo queue. openChunk/closeChunk group everything in betwee
 | `redoQueueEmpty` | `rqe` | With -q: whether there is nothing to redo. |
 | `length` | `l` | How many steps to keep. |
 | `infinity` | `infinity` | Keep every step. |
-| `printQueue` | `pq` | Accepted for existing scripts. |
+| `printQueue` | `pq` | With -q: print the undo queue to the Script Editor. |
+| `printRedoQueue` | `prq` | With -q: print the redo queue to the Script Editor. |
 
 ## undoJump
 
@@ -23746,6 +28255,7 @@ Arguments: UVs, faces or meshes
 | `iterations` | `i` | The solver's passes: every thousand is twelve of Aztek's. |
 | `pinSelected` | `ps` | The selected UVs stay where they are. |
 | `pinUvBorder` | `pub` | Each shell's border stays where it is. |
+| `applyToShell` | `as` | Unfold whole shells: those with something selected or pinned. |
 | `stoppingThreshold` | `ss` | Accepted for existing scripts. |
 | `globalBlend` | `gb` | Accepted for existing scripts. |
 | `globalMethodBlend` | `gmb` | Accepted for existing scripts. |
@@ -23821,6 +28331,22 @@ Arguments: the unknown node
 | `query` | `q` | Query mode. |
 | `realClassName` | `rcn` | Query: the node's type in the file. |
 | `plugin` | `p` | Query: the plug-in the file said that type comes from. |
+| `realClassTag` | `rct` | Query: the type's class tag in a binary file, or 0 with a warning for a node read from a text file. |
+
+## unknownPlugin
+
+The plug-ins the scene names that could not be loaded: -q -list, and of one plug-in -q -version, -nodeTypes, -dataTypes; -remove takes one away when none of its node types is in use.
+
+Arguments: plug-in name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Query mode. |
+| `list` | `l` | With -q: the unknown plug-ins. |
+| `version` | `v` | With -q: the version the scene gave the plug-in. |
+| `nodeTypes` | `nt` | With -q: the node types the plug-in gave. |
+| `dataTypes` | `dt` | With -q: the data types the plug-in gave. |
+| `remove` | `r` | Removes the plug-in from the scene. |
 
 ## unloadPlugin
 
@@ -23831,6 +28357,8 @@ Arguments: plug-in name
 | Flag | Short | Description |
 | --- | --- | --- |
 | `force` | `f` | Unload even with its nodes in the scene. |
+| `addCallback` | `ac` | A script run as each plug-in unloads, given its name: a MEL global proc taking string $pluginName, or Python (a string with %s, or a callable). |
+| `removeCallback` | `rc` | Take back a script -addCallback gave. |
 
 ## untangleUV
 
@@ -23863,11 +28391,16 @@ Arguments: surfaces (the selection when none)
 | --- | --- | --- |
 | `curveOnSurface` | `cos` | Accepted for existing scripts. |
 | `noChanges` | `nc` | Accepted for existing scripts. |
+| `untrimAll` | `all` | With -q and -e: every trim comes off (on), or only the last one. |
 | `constructionHistory` | `ch` | Keep a history node (on by default). |
 | `replaceOriginal` | `rpo` | Change the surface itself (on by default). |
 | `name` | `n` | Name of a new surface. |
 | `object` | `o` | Accepted for existing scripts. |
 | `polygon` | `po` | Accepted for existing scripts. |
+| `query` | `q` | Query mode: answer the flags named from the node. |
+| `edit` | `e` | Edit mode: change the node's settings the flags name. |
+| `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
+| `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
 ## upAxis
 
@@ -24092,6 +28625,53 @@ Arguments: faces or meshes (the selection when none)
 | `fileFormat` | `ff` | png, or ppm. |
 | `antiAliased` | `aa` | Accepted for existing scripts. |
 | `entireUVRange` | `euv` | Accepted for existing scripts. |
+| `uvSetName` | `uvs` | The UV set to draw (the current one). |
+
+## vectorize
+
+Renders the scene with the vector renderer: the visible meshes and surfaces through a camera, faces filled by -fillStyle and edges drawn by -edgeStyle, written as SWF, SVG, EPS or Illustrator, or rasterised into an image. Not undoable.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `browserView` | `bv` | Opens the SWF file in the web browser when done. |
+| `byFrame` | `bf` | The frame step (1). |
+| `camera` | `c` | The camera to render through (the renderable camera). |
+| `combineFillsEdges` | `cfe` | SWF: fills and edges in one shape each face. |
+| `currentFrame` | `cf` | Renders only the current frame. |
+| `curveTolerance` | `ct` | Curve fitting, 0 (none) to 15 (aggressive). Edges are kept straight here. |
+| `customExtension` | `ce` | The file name's extension instead of the format's. |
+| `detailLevel` | `dl` | 0 to 50: lower shares colours between more faces (20). |
+| `edgeColor` | `ec` | Edge colour, red green blue 0 to 255 (black). |
+| `edgeDetail` | `ed` | Draws edges where neighbouring faces meet at more than -minEdgeAngle. |
+| `edgeStyle` | `es` | Outline, EntireMesh or None (Outline). |
+| `edgeWeight` | `ew` | Edge width in points, 72 to the inch; 0 a hairline (1). |
+| `endFrame` | `ef` | The last frame (the start frame). |
+| `filenameFormat` | `ff` | name, name.ext, name.#.ext, name.ext.#, name.#, name#.ext or name_#.ext. |
+| `fillStyle` | `fs` | SingleColor, TwoColor, FourColor, FullColor, AverageColor, AreaGradient, MeshGradient or None (SingleColor). |
+| `flashVersion` | `fv` | SWF: the Flash version, 3, 4 or 5 (5). |
+| `frameRate` | `fr` | SVG and SWF: frames a second (the scene's). |
+| `height` | `h` | Image height in pixels (defaultResolution's). |
+| `hiddenEdges` | `he` | Also draws the edges the camera can't see, over everything. |
+| `highlightLevel` | `hl` | Rings a highlight is drawn in, 1 to 8 (4); SingleColor, AverageColor and AreaGradient. |
+| `highlights` | `hi` | Draws highlights; SingleColor, AverageColor and AreaGradient. |
+| `imageFormat` | `if` | swf, svg, eps, ai, png, jpg, tga, tif, bmp or sgi (swf). |
+| `layer` | `l` | Renders this render layer, which becomes the current one; its name goes on the file's. |
+| `minEdgeAngle` | `mea` | With -edgeDetail: the angle in degrees, 0 to 90, between faces that draws their edge (30). |
+| `outlinesAtIntersections` | `oai` | Edges where polygons pass through each other (on). |
+| `outputFileName` | `of` | The output file's name, without extension (the scene's). |
+| `pixelAspectRatio` | `par` | The pixel aspect ratio (defaultResolution's). |
+| `reflectionDepth` | `rd` | Reflection levels, 1 to 4; no effect for ai, eps or svg. |
+| `reflections` | `rf` | Renders reflections; no effect for ai, eps or svg. |
+| `renderLayers` | `rl` | Renders each renderable render layer into its own file. |
+| `renderOptimization` | `ro` | Safe drops degenerate faces, Good also sub-pixel ones, Aggressive also faces about a pixel big (Safe). |
+| `renderView` | `rv` | Shows the image in the Render View. |
+| `secondaryCurveFitting` | `scf` | Secondary curve fitting. |
+| `shadows` | `sh` | Renders shadows; no effect for ai, eps or svg. |
+| `showBackFaces` | `sb` | Renders faces turned away from the camera. |
+| `startFrame` | `sf` | The first frame (the current frame). |
+| `svgAnimation` | `sa` | SVG: Native (SMIL) or HTMLScript (a script) animation. |
+| `svgCompression` | `sc` | SVG: gzip compressed (.svgz). |
+| `width` | `w` | Image width in pixels (defaultResolution's). |
 
 ## viewCamera
 
@@ -24130,6 +28710,8 @@ Arguments: [camera]
 | --- | --- | --- |
 | `allObjects` | `all` |  |
 | `fitFactor` | `f` |  |
+| `fitClipPlanes` | `fcp` |  |
+| `noChildren` | `noc` |  |
 | `animate` | `an` |  |
 | `center` | `c` |  |
 | `namespace` | `ns` |  |
@@ -24190,15 +28772,17 @@ The ViewCube: -visible shows or hides it, -topLeft -topRight -bottomLeft -bottom
 
 ## viewPlace
 
-Place a camera: -eye -la look at -up, -fov degrees, -o orthographic, -p perspective, -ow its width.
+Place a camera: -eye, -la a point to look at or -vd a direction to look in, -up, -fov degrees, -o orthographic, -p perspective, -ow its width.
 
 Arguments: [camera]
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `eye` | `eye` |  |
+| `eyePoint` | `eye` |  |
 | `lookAt` | `la` |  |
-| `up` | `up` |  |
+| `upDirection` | `up` |  |
+| `viewDirection` | `vd` |  |
+| `animate` | `an` |  |
 | `fieldOfView` | `fov` |  |
 | `ortho` | `o` |  |
 | `perspective` | `p` |  |
@@ -24217,7 +28801,7 @@ Arguments: [camera]
 | `front` | `f` |  |
 | `side` | `s` |  |
 | `bottom` | `bo` |  |
-| `back` | `bk` |  |
+| `back` | `b` |  |
 | `leftSide` | `ls` |  |
 | `rightSide` | `rs` |  |
 | `home` | `h` |  |
@@ -24234,6 +28818,7 @@ Arguments: [camera]
 | `animate` | `an` |  |
 | `fitFactor` | `ff` |  |
 | `namespace` | `ns` |  |
+| `query` | `q` |  |
 
 ## volumeAxis
 
@@ -24354,8 +28939,8 @@ Arguments: name
 | `title` | `t` |  |
 | `widthHeight` | `wh` |  |
 | `sizeable` | `s` |  |
-| `minimizeBox` | `mnb` |  |
-| `maximizeBox` | `mxb` |  |
+| `minimizeButton` | `mnb` |  |
+| `maximizeButton` | `mxb` |  |
 | `resizeToFitChildren` | `rtf` |  |
 | `menuBar` | `mb` |  |
 | `menuBarVisible` | `mbv` |  |
@@ -24377,10 +28962,15 @@ Arguments: name
 | `mainWindow` | `mw` |  |
 | `nestedDockingEnabled` | `nde` |  |
 | `dockCorner` | `dc` |  |
-| `dockStation` | `dcs` |  |
+| `dockStation` | `ds` |  |
 | `dockingLayout` | `dl` |  |
 | `state` | `st` |  |
 | `menuArray` | `ma` |  |
+| `mainMenuBar` | `mm` |  |
+| `menuBarCornerWidget` | `mcw` |  |
+| `menuBarResize` | `mbr` |  |
+| `menuIndex` | `mi` |  |
+| `numberOfMenus` | `nm` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -24413,9 +29003,9 @@ Arguments: name
 
 ## windowPref
 
-Saved window positions and sizes: -exists, -remove, -wh, -tlc. None are kept here between sessions.
+Saved window sizes and places, by window name. One is kept when a window closes and sizes and places the next window of that name. -loadAll and -saveAll read and write windowPrefs.mel in the preferences folder.
 
-Arguments: window
+Arguments: [window]
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -24424,12 +29014,16 @@ Arguments: window
 | `exists` | `ex` |  |
 | `remove` | `r` |  |
 | `removeAll` | `ra` |  |
+| `loadAll` | `la` |  |
+| `saveAll` | `sa` |  |
 | `widthHeight` | `wh` |  |
 | `width` | `w` |  |
 | `height` | `h` |  |
 | `topLeftCorner` | `tlc` |  |
 | `topEdge` | `te` |  |
 | `leftEdge` | `le` |  |
+| `maximized` | `max` |  |
+| `parentMain` | `pm` |  |
 | `restoreMainWindowState` | `rms` |  |
 | `saveMainWindowState` | `sms` |  |
 | `enableAll` | `ea` |  |
@@ -24452,25 +29046,70 @@ Arguments: meshes to deform, then the wire unless -w names it (the selection whe
 | `query` | `q` | Query mode. |
 | `wire` | `w` | The curve to follow, or several. Any shape with points will do. |
 | `dropoffDistance` | `dds` | Wire index, then how far it reaches, cm (1). |
+| `holder` | `ho` | Wire index, then the curve or surface bounding where it acts: full effect at the wire, none at the holder. With -q: the holders. |
+| `wireCount` | `wc` | How many wires: wires past that many come off. With -q: how many there are. |
 | `groupWithBase` | `gw` | Accepted and ignored: the base wire is held on the node, so there is nothing to group. |
 | `rotation` | `rt` | How much points turn with the wire: 0 not at all, 1 fully (1). |
 | `crossingEffect` | `ce` | Where wires cross: 0 they blend, 1 they add up (0). |
 | `tension` | `tn` | How tightly the effect gathers to the wire (1). |
 | `localInfluence` | `li` | Where wires cross: how much a still wire holds its points, 0 to 1 (0). |
+| `afterReference` | `ar` | Go before the other deformers, or after them when the geometry is referenced. |
+| `automatic` | `at` | Go in front of the chain when only invertible deformers (skin, clusters) are there, else before. |
+| `split` | `sp` | A branch of its own from the original shape rather than into the chain. |
+| `exclusive` | `ex` | The partition the deformer's set goes into; -q: the partition. |
+| `includeHiddenSelections` | `ihs` | Deform hidden objects in the selection too (off). |
+| `useComponentTags` | `uct` | Work by component tags: no deformer set is made. |
+| `components` | `cmp` | Query: the points the deformer acts on. |
+| `selectedComponents` | `cms` | Query: those of its points that are selected. |
+| `deformerTools` | `dt` | Query: the deformer's tool objects. |
+| `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
+| `geometry` | `g` | With -e: geometry to add (or take off with -remove). With -q: the shapes it deforms. |
+| `geometryIndices` | `gi` | With -q -g: the index of each shape. |
+| `remove` | `rm` | With -e -g: take the geometry off the deformer. |
+| `ignoreSelected` | `is` | Deform only the objects named, not the selection. |
+| `parallel` | `par` | Work beside the other deformers, from the shape they start from. |
 
 ## workspace
 
-The project: -q -rd or -fn gives its folder, -o and -dir change to one.
+The project: -o opens one, -q -rd its root, -fr and -fre its file rules, -v and -ve its variables, -en expands a name under it, -pp makes a path relative to it, -dir where file browsers start, -cr makes a folder, -s saves workspace.mel.
 
 Arguments: [path]
 
 | Flag | Short | Description |
 | --- | --- | --- |
 | `query` | `q` | Query. |
-| `rootDirectory` | `rd` | The project folder, with a slash. |
-| `fullName` | `fn` | The project folder. |
-| `directory` | `dir` | Change to this folder. |
-| `openWorkspace` | `o` | Open this project. |
+| `active` | `act` | See the description. |
+| `fileRuleList` | `frl` | See the description. |
+| `objectTypeList` | `otl` | See the description. |
+| `renderTypeList` | `rtl` | See the description. |
+| `variableList` | `vl` | See the description. |
+| `listWorkspaces` | `lw` | See the description. |
+| `listFullWorkspaces` | `lfw` | See the description. |
+| `rootDirectory` | `rd` | See the description. |
+| `saveWorkspace` | `s` | See the description. |
+| `update` | `u` | See the description. |
+| `updateAll` | `ua` | See the description. |
+| `filter` | `f` | See the description. |
+| `baseWorkspace` | `bw` | See the description. |
+| `create` | `cr` | See the description. |
+| `directory` | `dir` | See the description. |
+| `expandName` | `en` | See the description. |
+| `fileRuleEntry` | `fre` | See the description. |
+| `objectTypeEntry` | `ote` | See the description. |
+| `renderTypeEntry` | `rte` | See the description. |
+| `fullName` | `fn` | See the description. |
+| `list` | `l` | See the description. |
+| `newWorkspace` | `n` | See the description. |
+| `openWorkspace` | `o` | See the description. |
+| `projectPath` | `pp` | See the description. |
+| `removeFileRuleEntry` | `rfr` | See the description. |
+| `removeVariableEntry` | `rve` | See the description. |
+| `shortName` | `sn` | See the description. |
+| `variableEntry` | `ve` | See the description. |
+| `fileRule` | `fr` | A name and a value. |
+| `objectType` | `ot` | A name and a value. |
+| `renderType` | `rt` | A name and a value. |
+| `variable` | `v` | A name and a value. |
 
 ## workspaceControl
 
@@ -24487,7 +29126,7 @@ Arguments: name
 | `initialHeight` | `ih` |  |
 | `minimumWidth` | `mw` |  |
 | `minimumHeight` | `mh` |  |
-| `retain` | `r` |  |
+| `retain` | `rt` |  |
 | `widthProperty` | `wp` |  |
 | `heightProperty` | `hp` |  |
 | `dockToMainWindow` | `dtm` |  |
@@ -24501,11 +29140,20 @@ Arguments: name
 | `requiredControl` | `rc` |  |
 | `loadImmediately` | `li` |  |
 | `checksPlugins` | `cp` |  |
-| `actLikeMayaUIElement` | `aui` |  |
+| `actLikeMayaUIElement` | `alm` |  |
 | `duplicatable` | `dup` |  |
 | `horizontal` | `hr` |  |
 | `stateString` | `ss` |  |
 | `uiScriptCommand` | `uic` |  |
+| `close` | `cl` |  |
+| `initCallback` | `ic` |  |
+| `layoutDirectionCallback` | `ldc` |  |
+| `resizeHeight` | `rsh` |  |
+| `resizeWidth` | `rsw` |  |
+| `tabPosition` | `tp` |  |
+| `raise` | `r` |  |
+| `maximumWidth` | `mxw` |  |
+| `maximumHeight` | `mxh` |  |
 | `childArray` | `ca` |  |
 | `numberOfChildren` | `nch` |  |
 | `annotation` | `ann` |  |
@@ -24538,7 +29186,7 @@ Arguments: name
 
 ## workspaceControlState
 
-Saved state of workspace controls: none are kept here, so -ex is false and -remove does nothing.
+The size and place a workspace control is given when it is made: kept for each name, made when a workspace control closes or by this command, and taken off with -remove. -ex says whether one is kept.
 
 Arguments: name
 
@@ -24548,16 +29196,19 @@ Arguments: name
 | `edit` | `e` |  |
 | `exists` | `ex` |  |
 | `remove` | `r` |  |
-| `defaultTopLeftCorner` | `dtc` |  |
+| `defaultTopLeftCorner` | `dc` |  |
 | `defaultWidthHeight` | `dwh` |  |
-| `heightProperty` | `hp` |  |
+| `height` | `h` |  |
+| `width` | `w` |  |
 | `leftEdge` | `le` |  |
-| `maximumWidthHeight` | `mwh` |  |
-| `minimumWidthHeight` | `nwh` |  |
 | `topEdge` | `te` |  |
+| `maximized` | `max` |  |
 | `topLeftCorner` | `tlc` |  |
 | `widthHeight` | `wh` |  |
+| `heightProperty` | `hp` |  |
 | `widthProperty` | `wp` |  |
+| `maximumWidthHeight` | `mwh` |  |
+| `minimumWidthHeight` | `nwh` |  |
 
 ## workspaceLayoutManager
 
@@ -24569,7 +29220,20 @@ The window's workspaces, as the reference's: -setCurrent name switches to one, -
 | `setCurrent` | `sc` | Switch to this workspace. |
 | `current` | `cu` | Query: the workspace shown. |
 | `listLayouts` | `ll` | The workspaces there are. |
-| `reset` | `rs` | The current workspace as it ships. |
+| `listUserLayouts` | `lul` | The workspaces the user saved. |
+| `listModuleLayouts` | `lml` | The workspaces modules bring. |
+| `reset` | `rs` | The current workspace as it ships, or as its file has it for one of the user's. |
+| `save` | `s` | Save the current workspace. |
+| `saveAs` | `sa` | Save the current workspace under this name, which becomes current. |
+| `delete` | `d` | Delete a workspace the user saved, by its name. |
+| `import` | `i` | Copy a workspace file into the workspaces folder: an absolute path. |
+| `modified` | `m` | Whether the workspace named was changed since it was loaded or saved. |
+| `type` | `t` | FACTORY, FACTORY_OVERRIDE, MODULE, MODULE_OVERRIDE or USER. |
+| `parentWorkspaceControl` | `pwc` | The workspace control a control or panel is in, or an empty string. |
+| `collapseMainWindowControls` | `cmw` | Keep the main window's layout and collapse its controls but the one named; the switch also hides the main window's bars. |
+| `restoreMainWindowControls` | `rmw` | Put back the main window's layout -collapseMainWindowControls kept. |
+| `setCurrentCallback` | `scc` | MEL: a global proc given the layout's name each time -setCurrent makes one current. |
+| `setModifiedCallback` | `smc` | MEL: a global proc, taking nothing, run when a layout's modified state changes. |
 
 ## wrap
 
@@ -24620,6 +29284,12 @@ Arguments: what to deform, and any target last (the selection when none); the de
 | `dropoffDistance` | `dds` | How far they reach from the handle. |
 | `scale` | `sc` | Multiplies the depth (1). |
 | `x` | `x` | Lines run across X rather than Z. |
+| `axis` | `ax` | The normal of the wrinkle's plane: the handle's up axis turns to it. |
+| `center` | `ct` | Where the wrinkle is centred: the handle goes there (the middle of what is deformed). |
+| `branchCount` | `brc` | How many each radial crease splits into at a branching (2). |
+| `branchDepth` | `bd` | How many times radial creases branch (0). |
+| `crease` | `cr` | An existing curve to serve as a wrinkle; repeat it for more. |
+| `uvSpace` | `uv` | Half length, half breadth, rotation in degrees, centre u and v: the patch in UV space the wrinkle is made in. |
 
 ## xbmLangPathList
 
@@ -24657,11 +29327,18 @@ Arguments: Transforms to edit or query; the selection when none are given.
 | `centerPivotsOnComponents` | `cpc` | Centre the pivots on the bounding box. |
 | `zeroTransformPivots` | `ztp` | Put the pivots back at the origin of the object. |
 | `worldSpaceDistance` | `wd` | Accepted: distances are in world units already. |
-| `eulerFilter` | `eu` | Accepted for existing scripts. |
+| `euler` | `eu` | With -r: the rotation values add to the XYZ angles there are, rather than turning the object by them. |
 | `deletePriorHistory` | `dph` | Accepted for existing scripts. |
-| `reflection` | `rfl` | Accepted for existing scripts. |
+| `reflection` | `rfl` | On components: move the symmetric components too. |
 | `disableReflection` | `drp` | Accepted for existing scripts. |
-| `requiresAll` | `rab` | Accepted for existing scripts. |
+| `parentSpace` | `ps` | Pivots, translations, rotations, the rotate axis, the matrix and the bounding box in the parent's space. |
+| `preserveUV` | `puv` | On components: their UVs follow, projected across the change (off). |
+| `reflectionAboutBBox` | `rab` | With -rfl: the mirror plane at the middle of the object's bounding box. |
+| `reflectionAboutOrigin` | `rao` | With -rfl: the mirror plane through the origin (the default). |
+| `reflectionAboutX` | `rax` | With -rfl: mirror across X = 0 (the default). |
+| `reflectionAboutY` | `ray` | With -rfl: mirror across Y = 0. |
+| `reflectionAboutZ` | `raz` | With -rfl: mirror across Z = 0. |
+| `reflectionTolerance` | `rft` | With -rfl: how far a point and its mirror image may be apart to pair. |
 
 ## xformConstraint
 
