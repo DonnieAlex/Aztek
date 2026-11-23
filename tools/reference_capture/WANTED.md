@@ -51,6 +51,7 @@ Each is a guess in a test, marked `// unverified:` at the line. `calls.json` car
 
 | Question | Test | Call |
 | --- | --- | --- |
+| Where do the default Move and Scale plane handles sit relative to the axis tips in a front view? | `plane_handles.rs` | Front view screenshots |
 | Is an instanced shape listed by its path (`pCube3\|pCubeShape1`)? | `basics.rs` `duplicate_and_instance` | `instance.*` |
 | `duplicate -st` after a moved duplicate: is the offset repeated? | `duplicate_and_instance` | `duplicate.*` |
 | Does `rename` rename the shape with its transform? | `basics.rs` rename test | `rename.*` |

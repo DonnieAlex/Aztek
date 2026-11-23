@@ -3991,6 +3991,15 @@ describes the same controls. The exact trackball gray and hover opacity are PROV
 [2026 guide](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-169906C5-CBC4-45CD-8DFB-F716D51D6168.htm)
 [2027 guide](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-169906C5-CBC4-45CD-8DFB-F716D51D6168.htm)
 
+### Move and Scale plane handles (23/11/2026, #256)
+
+The Move and Scale plane handles sit farther from the pivot. Drawing and picking use the same offset for each
+tool. Edge-on plane handles leave the axis handles clear. The exact distances are PROVISIONAL estimates from the [2026 Move guide](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-ABF1A141-7860-4234-889B-00278F20B9A3.htm)
+and [2026 Scale guide](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-09D0E733-74DF-44E2-937A-C857001E45B2.htm).
+The [2027 Move guide](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-ABF1A141-7860-4234-889B-00278F20B9A3.htm)
+and [2027 Scale guide](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-09D0E733-74DF-44E2-937A-C857001E45B2.htm)
+show the same illustrations.
+
 ### Bake Pivot's runtime command and Snap Pivot Orientation (16/11/2026)
 
 PLAN 3.6, part. `BakeCustomPivot` (and `bakeCustomToolPivot -pos -ori`, the reference's command name, which runs
