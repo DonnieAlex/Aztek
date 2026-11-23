@@ -1801,7 +1801,7 @@ void MainWindow::set_tool(const QString& tool) {
     tool_ = tool;
     if (tool_buttons_.contains(tool)) tool_buttons_[tool]->setChecked(true);
     // Tools that place points in the view show the reference's cross-hair.
-    const bool cross = tool == "joint";
+    const bool cross = tool == "joint" || tool == "multiCut";
     for (ViewportWidget* v : panels_->views()) {
         v->set("tool", "\"" + tool + "\"");
         if (cross) v->setCursor(Qt::CrossCursor);

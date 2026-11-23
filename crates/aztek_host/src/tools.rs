@@ -40,6 +40,7 @@ pub struct ToolState {
     pub cut_mesh: Option<NodeId>,
     pub cut_points: Vec<Value>,
     pub cut_world: Vec<DVec3>,
+    pub cut_scene: u64,
     /// Press on an edge, its fraction; or a slide's start.
     pub press: Option<DVec2>,
     pub edge: Option<(NodeId, Index, f64)>,
@@ -204,6 +205,10 @@ impl View {
                 let points = std::mem::take(&mut self.ts.cut_points);
                 self.ts.cut_world.clear();
                 if let (Some(mesh), false) = (self.ts.cut_mesh.take(), points.is_empty()) {
+                    if self.ts.cut_scene != core.s.graph.serial() || !multi_cut_targets(core).contains(&mesh) || !items.iter().any(|it| it.shape == mesh) {
+                        self.tool_preview_clear();
+                        return;
+                    }
                     let name = core.s.graph.path(mesh);
                     let eye = self.vp.cam.eye();
                     let call = json!({"mesh": name, "points": points, "eye": [eye.x, eye.y, eye.z], "select": false});
@@ -292,8 +297,39 @@ impl View {
         }
     }
 
+    pub(crate) fn sync_multi_cut_scene(&mut self, core: &Core) {
+        let scene = core.s.graph.serial();
+        if self.ts.cut_scene != scene {
+            self.ts.cut_scene = scene;
+            self.ts.cut_mesh = None;
+            self.ts.cut_points.clear();
+            self.ts.cut_world.clear();
+            self.ts.slice_from = None;
+            self.tool_preview_clear();
+        }
+    }
+
     fn multi_cut(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, items: &[DrawItem]) -> bool {
-        let snap = snap_at(self, items, px);
+        self.sync_multi_cut_scene(core);
+        let scene = self.ts.cut_scene;
+        let targets = multi_cut_targets(core);
+        if targets.is_empty() {
+            if kind == 0 && button == 1 && mods & (SHIFT | CTRL) == 0 {
+                if let Some((i, _, _)) = self.vp.raycast(items, px) {
+                    let it = &items[i];
+                    if components::as_mesh(&core.s.graph, it.shape).is_none() || !self.vp.pickable(&core.s.graph, it.shape) {
+                        return true;
+                    }
+                    let name = core.s.graph.path(it.xf);
+                    if core.exec("select", json!({"args": [name]})).is_ok() && core.s.graph.serial() == scene {
+                        aztek_scene::components::set_mode_exact(&mut core.s.graph, aztek_scene::components::ComponentMode::Edge);
+                        core.multi_cut = Some((scene, vec![it.shape]));
+                    }
+                }
+            }
+            return true;
+        }
+        let snap = snap_at(self, items, px).filter(|s| targets.contains(&items[s.item].shape));
         let shift = mods & SHIFT != 0;
         let ctrl = mods & CTRL != 0;
         let near_px = 12.0 * self.dpr;
@@ -308,9 +344,9 @@ impl View {
                 let (a, b) = (it.mesh.edge_point(s.edge.0, 0), it.mesh.edge_point(s.edge.0, 1));
                 let (pa, pb) = (it.mesh.position(a), it.mesh.position(b));
                 let mut t = s.edge.1;
-                if shift && ctrl {
+                if shift && ctrl && v.ts.cut_mesh == Some(it.shape) {
                     if let (Some(&last), Some(prev)) = (v.ts.cut_world.last(), v.ts.cut_points.last()) {
-                        if let Some(e0) = prev.get("edge").and_then(Value::as_u64) {
+                        if let Some(e0) = prev.get("edge").and_then(Value::as_u64).filter(|e| it.mesh.edge_valid(*e as Index)) {
                             let (qa, qb) = (it.mesh.position(it.mesh.edge_point(e0 as Index, 0)), it.mesh.position(it.mesh.edge_point(e0 as Index, 1)));
                             let d0 = it.world.transform_vector3(qb - qa).normalize_or_zero();
                             let (wa, wb) = (it.world.transform_point3(pa), it.world.transform_point3(pb));
@@ -387,7 +423,7 @@ impl View {
                     return true;
                 }
                 let (at, n) = crate::tools_quad::screen_plane(self, from, to);
-                let shapes: Vec<(NodeId, DVec3, DVec3)> = self.meshes_under_line(items, from, to).into_iter().map(|m| (m, at, n)).collect();
+                let shapes: Vec<_> = self.meshes_under_line(items, from, to).into_iter().filter(|m| targets.contains(m)).map(|m| (m, at, n)).collect();
                 self.slice(core, &shapes);
                 true
             }
@@ -1030,6 +1066,11 @@ impl View {
             _ => false,
         }
     }
+}
+
+pub(crate) fn multi_cut_targets(core: &Core) -> &[NodeId] {
+    core.multi_cut.as_ref().filter(|(scene, _)| *scene == core.s.graph.serial())
+        .map_or(&[], |(_, targets)| targets.as_slice())
 }
 
 /// The call that appends a face onto the picked border edges, ordered so the face is simple.

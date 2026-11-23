@@ -237,6 +237,9 @@ impl View {
     }
 
     pub fn render(&mut self, core: &mut Core) {
+        if self.vp.tool == Tool::MultiCut {
+            self.sync_multi_cut_scene(core);
+        }
         let e = self.gpu.extent;
         self.vp.rect = [0.0, 0.0, e.width as f64, e.height as f64];
         let bg = self.background;

@@ -454,6 +454,15 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             }
             "uiToolChanged" => {
                 ctx_cmds::shell_tool_changed(&arg);
+                c.multi_cut = (arg == "multiCut").then(|| {
+                    let g = &mut c.s.graph;
+                    let targets = aztek_scene::components::hilited_meshes(g);
+                    if !targets.is_empty() {
+                        aztek_scene::components::set_mode_exact(g, aztek_scene::components::ComponentMode::Edge);
+                        c.version += 1;
+                    }
+                    (g.serial(), targets)
+                });
                 Value::Null
             }
             "melEcho" => {
