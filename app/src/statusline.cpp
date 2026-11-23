@@ -126,6 +126,7 @@ void MainWindow::build_status_line() {
 
     // The selection scope, the masks, the locks, snapping, symmetry, history, rendering and the fields.
     auto* preset_form = new QWidget(left);
+    preset_form->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* preset_l = new QHBoxLayout(preset_form);
     preset_l->setContentsMargins(0, 0, 0, 0);
     preset_l->setSpacing(1);
@@ -189,6 +190,7 @@ void MainWindow::build_status_line() {
     files << preset_form;
 
     auto* select_modes = new QWidget(left);
+    select_modes->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* mode_l = new QHBoxLayout(select_modes);
     mode_l->setContentsMargins(0, 0, 0, 0);
     mode_l->setSpacing(1);
@@ -215,6 +217,7 @@ void MainWindow::build_status_line() {
 
     // The selection mask group: hierarchy, object or component masks, then the lock and highlight buttons.
     auto* mask_set = new QWidget(left);
+    mask_set->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* mask_set_l = new QHBoxLayout(mask_set);
     mask_set_l->setContentsMargins(0, 0, 0, 0);
     mask_set_l->setSpacing(1);
@@ -259,6 +262,7 @@ void MainWindow::build_status_line() {
     };
 
     hierarchy_masks_ = new QWidget(mask_set);
+    hierarchy_masks_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* hier_l = new QHBoxLayout(hierarchy_masks_);
     hier_l->setContentsMargins(0, 0, 0, 0);
     hier_l->setSpacing(1);
@@ -303,6 +307,7 @@ void MainWindow::build_status_line() {
     };
 
     object_masks_widget_ = new QWidget(mask_set);
+    object_masks_widget_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* obj_l = new QHBoxLayout(object_masks_widget_);
     obj_l->setContentsMargins(0, 0, 0, 0);
     obj_l->setSpacing(1);
@@ -317,6 +322,7 @@ void MainWindow::build_status_line() {
     obj_l->insertWidget(0, mask_popup(object_masks_widget_, "Set the object selection mask", object_masks_, false));
 
     component_masks_widget_ = new QWidget(mask_set);
+    component_masks_widget_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* comp_l = new QHBoxLayout(component_masks_widget_);
     comp_l->setContentsMargins(0, 0, 0, 0);
     comp_l->setSpacing(1);
@@ -350,6 +356,7 @@ void MainWindow::build_status_line() {
 
     // Snapping and Make Live, with the live object's name after them.
     auto* snap_group = new QWidget(left);
+    snap_group->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* snap_l = new QHBoxLayout(snap_group);
     snap_l->setContentsMargins(0, 0, 0, 0);
     snap_l->setSpacing(1);
@@ -425,6 +432,7 @@ void MainWindow::build_status_line() {
 
     // Symmetry: the arrow menu and the mode text.
     auto* symmetry_group = new QWidget(left);
+    symmetry_group->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* sym_l = new QHBoxLayout(symmetry_group);
     sym_l->setContentsMargins(0, 0, 0, 0);
     sym_l->setSpacing(1);
@@ -456,6 +464,7 @@ void MainWindow::build_status_line() {
 
     // History: inputs, outputs and construction history.
     auto* history_group = new QWidget(left);
+    history_group->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* hist_l = new QHBoxLayout(history_group);
     hist_l->setContentsMargins(0, 0, 0, 0);
     hist_l->setSpacing(1);
@@ -500,6 +509,7 @@ void MainWindow::build_status_line() {
 
     // The rendering group.
     auto* render_group = new QWidget(left);
+    render_group->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* render_l = new QHBoxLayout(render_group);
     render_l->setContentsMargins(0, 0, 0, 0);
     render_l->setSpacing(1);
@@ -525,6 +535,7 @@ void MainWindow::build_status_line() {
 
     // The quick input fields, with the mode button and its menu.
     auto* input_group = new QWidget(left);
+    input_group->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* input_l = new QHBoxLayout(input_group);
     input_l->setContentsMargins(0, 0, 0, 0);
     input_l->setSpacing(1);
@@ -654,10 +665,12 @@ void MainWindow::build_status_line() {
     add_group("showStatusInputField", "Show/Hide the select field", QList<QWidget*>{input_group});
     // The IPM button has nothing to hold here, as the reference's placeholder on a build without it.
     auto* ipm = new QWidget(left);
+    ipm->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     ipm->setFixedWidth(0);
     ipm->setFixedHeight(22);
     add_group("showStatusIPMButton", "Show/Hide the IPM Button", QList<QWidget*>{ipm});
 
+    l->addStretch(1);
     row->addWidget(left, 1);
 
     // The editor toggles at the far right.
