@@ -2,9 +2,11 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScreen>
 #include <QTimer>
 #include <cmath>
@@ -24,23 +26,30 @@ QList<QPair<QPoint, QList<MarkItem>>>& parents() {
 }
 } // namespace
 
-void MarkingMenu::show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner) {
+void MarkingMenu::show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner, bool hotbox_zone) {
     parents().clear();
-    open(global, items, owner);
+    open(global, items, owner, hotbox_zone);
 }
 
-void MarkingMenu::open(QPoint global, const QList<MarkItem>& items, QWidget* owner) {
-    auto* m = new MarkingMenu(global, items, owner);
+void MarkingMenu::open(QPoint global, const QList<MarkItem>& items, QWidget* owner, bool hotbox_zone) {
+    auto* m = new MarkingMenu(global, items, owner, hotbox_zone);
     m->setAttribute(Qt::WA_DeleteOnClose);
     m->show();
     m->grabMouse();
     m->setFocus();
 }
 
-MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner)
-    : QWidget(owner, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint), items_(items) {
+MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner, bool hotbox_zone)
+    : QWidget(owner, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint), items_(items),
+      opening_point_(global), hotbox_zone_(hotbox_zone) {
     setAttribute(Qt::WA_TranslucentBackground);
     setMouseTracking(true);
+    if (hotbox_zone_) {
+        QFont text = font();
+        text.setPixelSize(11);
+        text.setBold(true);
+        setFont(text);
+    }
     QFontMetrics fm(font());
     // Lay out round a centre, then size the window to fit.
     QList<QRect> rs;
@@ -54,7 +63,8 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
     int list_y = compass ? 2 * kRow + kH + 10 : 14;
     QList<QRect> rules;
     for (const MarkItem& it : items_) {
-        int w = fm.horizontalAdvance(it.label) + 24 + (it.checkable ? 18 : 0) + (it.sub.isEmpty() ? 0 : 14) + (it.option ? 22 : 0);
+        int w = fm.horizontalAdvance(it.label) + (hotbox_zone_ ? 50 : 24)
+            + (it.checkable ? 18 : 0) + (it.sub.isEmpty() || hotbox_zone_ ? 0 : 14) + (it.option ? 22 : 0);
         QRect r;
         if (it.dir >= 0) {
             // The reference's compass (#183): five rows a little over an item apart, north and south centred over the
@@ -63,7 +73,8 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
             const double a = it.dir * M_PI / 4.0;
             const int x = int(std::lround(std::sin(a) * kSide)), y = rows[it.dir] * kRow;
             int left = it.dir == 0 || it.dir == 4 ? x - w / 2 : (it.dir < 4 ? x : x - w);
-            r = QRect(left, y - kH / 2, w, kH);
+            const int h = hotbox_zone_ ? 21 : kH;
+            r = QRect(left, y - h / 2, w, h);
         } else {
             if (it.separator) {
                 rules.append(QRect(-85, list_y, list_w, 7));
@@ -76,6 +87,15 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
     }
     QRect bound(-6, -6, 12, 12);
     for (const QRect& r : rs) bound = bound.united(r);
+    if (hotbox_zone_) {
+        if (QScreen* s = QGuiApplication::screenAt(global)) {
+            const QRect area = s->availableGeometry().adjusted(4, 4, -4, -4);
+            if (area.width() >= bound.width())
+                global.setX(qBound(area.left() - bound.left(), global.x(), area.right() - bound.right()));
+            if (area.height() >= bound.height())
+                global.setY(qBound(area.top() - bound.top(), global.y(), area.bottom() - bound.bottom()));
+        }
+    }
     if (!parents().isEmpty()) {
         has_back_ = true;
         back_ = parents().last().first - global;
@@ -83,6 +103,7 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
     }
     bound.adjust(-4, -4, 4, 4);
     center_ = -bound.topLeft();
+    cursor_ = center_;
     for (QRect& r : rs) r.translate(center_);
     for (QRect& r : rules) r.translate(center_);
     rects_ = rs;
@@ -90,15 +111,15 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
     resize(bound.size());
     move(global - center_);
     // Without a compositor the translucent background shows black: show only the items and the centre.
-    QRegion mask(QRect(center_ - QPoint(6, 6), QSize(12, 12)), QRegion::Ellipse);
-    for (const QRect& r : rects_) mask += r.adjusted(-1, -1, 1, 1);
-    for (const QRect& r : rules_) mask += r.adjusted(-1, 0, 1, 0);
+    shape_ = QRegion(QRect(center_ - QPoint(7, 7), QSize(14, 14)), QRegion::Ellipse);
+    for (const QRect& r : rects_) shape_ += r.adjusted(-1, -1, 1, 1);
+    for (const QRect& r : rules_) shape_ += r.adjusted(-1, 0, 1, 0);
     if (has_back_) {
         back_ += center_;
-        mask += QRegion(QRect(back_ - QPoint(6, 6), QSize(12, 12)), QRegion::Ellipse);
+        shape_ += QRegion(QRect(back_ - QPoint(7, 7), QSize(14, 14)), QRegion::Ellipse);
     }
     // XWayland composites the alpha buffer. A native shape can make the popup's backing rectangle visible.
-    if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) setMask(mask);
+    update_shape();
     sub_timer_ = new QTimer(this);
     sub_timer_->setSingleShot(true);
     sub_timer_->setInterval(kSubmenuDelayMs);
@@ -106,6 +127,25 @@ MarkingMenu::MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* o
         if (sub_pending_ >= 0 && sub_pending_ == hover_) open_sub(sub_pending_);
     });
     opened_ms_ = QDateTime::currentMSecsSinceEpoch();
+}
+
+void MarkingMenu::update_shape() {
+    if (!qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) return;
+    QRegion mask = shape_;
+    if (hotbox_zone_) {
+        auto line = [&mask](QPoint from, QPoint to) {
+            QPainterPath path;
+            path.moveTo(from);
+            path.lineTo(to);
+            QPainterPathStroker stroke;
+            // Only the line pixels belong in the native mask, or the backing rectangle shows.
+            stroke.setWidth(2);
+            mask += QRegion(stroke.createStroke(path).toFillPolygon().toPolygon());
+        };
+        if (has_back_) line(back_, center_);
+        if (hover_ >= 0 && dragged_) line(center_, cursor_);
+    }
+    setMask(mask);
 }
 
 int MarkingMenu::item_at(QPoint p) const {
@@ -129,11 +169,12 @@ std::function<void(const QString&, const std::function<void()>&)>& MarkingMenu::
 
 void MarkingMenu::open_sub(int i) {
     const QList<MarkItem> sub = items_[i].sub;
-    const QPoint at = mapToGlobal(rects_[i].center());
+    QPoint at = mapToGlobal(rects_[i].center());
+    if (hotbox_zone_ && items_[i].dir == 2) at.setX(mapToGlobal(rects_[i].topRight()).x() + 40);
     parents().append({mapToGlobal(center_), items_});
     releaseMouse();
     close();
-    open(at, sub, parentWidget());
+    open(at, sub, parentWidget(), hotbox_zone_);
 }
 
 // Back over the dot: the menu this one came from opens again where it was.
@@ -142,7 +183,7 @@ void MarkingMenu::back_to_parent() {
     const auto up = parents().takeLast();
     releaseMouse();
     close();
-    open(up.first, up.second, parentWidget());
+    open(up.first, up.second, parentWidget(), hotbox_zone_);
 }
 
 QRect MarkingMenu::option_box(int i) const {
@@ -176,17 +217,24 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
     p.fillRect(rect(), Qt::transparent);
     p.setCompositionMode(QPainter::CompositionMode_SourceOver);
     p.setRenderHint(QPainter::Antialiasing);
+    if (hotbox_zone_) {
+        p.setPen(QPen(QColor(215, 215, 215), 1));
+        if (has_back_) p.drawLine(back_, center_);
+        if (hover_ >= 0 && dragged_) p.drawLine(center_, cursor_);
+    }
     p.setPen(QPen(QColor(30, 30, 30), 1.0));
-    p.setBrush(QColor(200, 200, 200));
-    p.drawEllipse(center_, 4, 4);
-    if (hover_ >= 0 && items_[hover_].dir >= 0) {
+    const QColor hotbox_dot(112, 112, 112);
+    p.setBrush(hotbox_zone_ ? hotbox_dot : QColor(200, 200, 200));
+    const int dot = hotbox_zone_ ? 6 : 4;
+    p.drawEllipse(center_, dot, dot);
+    if (!hotbox_zone_ && hover_ >= 0 && items_[hover_].dir >= 0) {
         p.setPen(QPen(QColor(230, 230, 230), 1.5));
         p.drawLine(center_, rects_[hover_].center());
     }
     if (has_back_) {
         p.setPen(QPen(QColor(30, 30, 30), 1.0));
-        p.setBrush(QColor(160, 160, 160));
-        p.drawEllipse(back_, 4, 4);
+        p.setBrush(hotbox_zone_ ? hotbox_dot : QColor(160, 160, 160));
+        p.drawEllipse(back_, dot, dot);
     }
     for (int i = 0; i < items_.size(); ++i) {
         const MarkItem& it = items_[i];
@@ -194,7 +242,8 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
         bool hot = i == hover_;
         p.setPen(QPen(QColor(25, 25, 25), 1.0));
         p.setBrush(hot ? QColor(82, 133, 166) : QColor(78, 78, 78));
-        p.drawRoundedRect(r, 2, 2);
+        if (hotbox_zone_) p.drawRect(r.adjusted(0, 0, -1, -1));
+        else p.drawRoundedRect(r, 2, 2);
         const QColor ink = it.enabled ? (hot ? QColor(Qt::white) : QColor(225, 225, 225)) : QColor(130, 130, 130);
         p.setPen(ink);
         QString text = it.label;
@@ -214,7 +263,8 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
         } else if (it.checked) {
             text = QString::fromUtf8("✓ ") + text;
         }
-        p.drawText(r.adjusted(left, 0, -6, 0), Qt::AlignVCenter | Qt::AlignLeft, text);
+        if (hotbox_zone_) p.drawText(r, Qt::AlignCenter, text);
+        else p.drawText(r.adjusted(left, 0, -6, 0), Qt::AlignVCenter | Qt::AlignLeft, text);
         if (it.option) {
             const QRect box = option_box(i);
             p.setPen(QPen(ink, 1.0));
@@ -239,14 +289,17 @@ void MarkingMenu::paintEvent(QPaintEvent*) {
 
 void MarkingMenu::mouseMoveEvent(QMouseEvent* e) {
     QPoint pos = e->position().toPoint();
-    if ((pos - center_).manhattanLength() > 8) dragged_ = true;
+    const QPoint movement = hotbox_zone_ && !has_back_ ? e->globalPosition().toPoint() - opening_point_ : pos - center_;
+    if (movement.manhattanLength() > 8) dragged_ = true;
     if (has_back_ && (pos - back_).manhattanLength() < 9) {
         back_to_parent();
         return;
     }
     int h = item_at(pos);
-    if (h != hover_) {
+    if (h != hover_ || (hotbox_zone_ && pos != cursor_)) {
         hover_ = h;
+        cursor_ = pos;
+        if (hotbox_zone_) update_shape();
         update();
     }
     // On a submenu's own item, its menu opens there once the pointer rests on it, so the list under a compass
@@ -264,7 +317,9 @@ void MarkingMenu::mouseMoveEvent(QMouseEvent* e) {
 
 void MarkingMenu::mouseReleaseEvent(QMouseEvent* e) {
     QPoint pos = e->position().toPoint();
-    int i = item_at(pos);
+    const bool opening_click = hotbox_zone_ && !has_back_ && !dragged_
+        && (e->globalPosition().toPoint() - opening_point_).manhattanLength() <= 8;
+    int i = opening_click ? -1 : item_at(pos);
     qint64 held = QDateTime::currentMSecsSinceEpoch() - opened_ms_;
     // A quick click leaves the menu open for a second click.
     if (i < 0 && !dragged_ && held < 400) return;

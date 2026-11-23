@@ -1279,7 +1279,7 @@ void MainWindow::build_menu_set(const QString& set) {
     common.append(help);
     sets.last().second.prepend(light);
     hotbox_ = new Hotbox(common, sets, recents, this);
-    hotbox_->set_zones([this](int zone) { return hotbox_zone(zone); });
+    hotbox_->set_zones([this](int zone, QPoint origin) { return hotbox_zone(zone, origin); });
     connect(hotbox_, &Hotbox::spaceReleased, this, [this](bool tap) {
         held_.remove(Qt::Key_Space);
         space_held_ = false;
@@ -1481,7 +1481,10 @@ void MainWindow::build_bottom() {
     auto* v = new QVBoxLayout(w);
     v->setContentsMargins(0, 0, 0, 0);
     v->setSpacing(2);
-    auto* row1 = new QHBoxLayout();
+    auto* time_row = new QWidget(w);
+    time_row->setObjectName("timeSliderRow");
+    auto* row1 = new QHBoxLayout(time_row);
+    row1->setContentsMargins(0, 0, 0, 0);
     time_slider_ = new TimeSlider(w);
     auto* current = new QSpinBox(w);
     current_frame_ = current;
@@ -1542,8 +1545,11 @@ void MainWindow::build_bottom() {
     play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
-    v->addLayout(row1);
-    auto* row2 = new QHBoxLayout();
+    v->addWidget(time_row);
+    auto* range_row = new QWidget(w);
+    range_row->setObjectName("rangeSliderRow");
+    auto* row2 = new QHBoxLayout(range_row);
+    row2->setContentsMargins(0, 0, 0, 0);
     auto field = [w](double val) {
         auto* s = new QSpinBox(w);
         s->setRange(-100000, 100000);
@@ -1645,7 +1651,7 @@ void MainWindow::build_bottom() {
     auto_key_->setCheckable(true);
     auto_key_->setObjectName("autoKey");
     row2->addWidget(tb);
-    v->addLayout(row2);
+    v->addWidget(range_row);
     bottom->addWidget(w);
 
     help_line_ = new QLabel(this);

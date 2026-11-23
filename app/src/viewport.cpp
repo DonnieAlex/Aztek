@@ -333,6 +333,7 @@ bool ViewportWidget::capture(const QString& path) {
 // ---------------------------------------------------------------------------------------------------------------------
 
 ModelPanel::ModelPanel(const QString& camera, QWidget* parent) : QWidget(parent) {
+    setFocusPolicy(Qt::StrongFocus);
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
@@ -404,8 +405,17 @@ void PanelLayout::relayout() {
     case 1: place(order[0], 0, 0, 1, 1); place(order[1], 0, 1, 1, 1); break;
     case 2: place(order[0], 0, 0, 1, 1); place(order[1], 1, 0, 1, 1); break;
     case 3: place(order[0], 0, 0, 1, 1); place(order[1], 0, 1, 1, 1); place(order[2], 1, 0, 1, 2); break;
+    case 5: place(order[0], 0, 0, 1, 2); place(order[1], 1, 0, 1, 1); place(order[2], 1, 1, 1, 1); break;
     default:
         for (int i = 0; i < 4; ++i) place(panels_[i], i / 2, i % 2, 1, 1);
+    }
+    if (kind_ == 2 || kind_ == 5) {
+        grid_->setRowStretch(0, top_share_);
+        grid_->setRowStretch(1, 100 - top_share_);
+    }
+    if (kind_ == 5) {
+        grid_->setColumnStretch(0, left_share_);
+        grid_->setColumnStretch(1, 100 - left_share_);
     }
 }
 
@@ -413,16 +423,56 @@ void PanelLayout::set_single(bool single) {
     set_layout(single ? 0 : 4);
 }
 
-void PanelLayout::set_layout(int kind) {
-    if (kind_ != 0) last_multi_ = kind_;
+void PanelLayout::set_layout(int kind, int top_share, int left_share) {
+    layout_before_single_.clear();
+    if (kind_ != 0) {
+        last_multi_ = kind_;
+        last_multi_focus_ = focus_;
+    }
     kind_ = kind;
+    top_share_ = top_share;
+    left_share_ = left_share;
     relayout();
+}
+
+void PanelLayout::set_editor_layout(int kind, const QStringList& types, int top_share, int left_share) {
+    if (kind == 0) {
+        if (kind_ != 0) {
+            layout_before_single_ = state_json();
+        }
+        focus_ = 1;
+        kind_ = 0;
+        panels_[focus_]->set_panel_type("model");
+        last_ = panels_[focus_]->view();
+        last_->set("camera", "\"persp\"");
+        relayout();
+        return;
+    }
+    // The perspective viewport keeps its camera in every preset, including when another pane comes first.
+    focus_ = types.first() == "model" ? 1 : 0;
+    const QList<ModelPanel*> order{panels_[focus_], panels_[1 - focus_], panels_[2], panels_[3]};
+    for (int i = 0; i < types.size(); ++i) {
+        const QString& type = types[i];
+        order[i]->set_panel_type(type);
+        if (type == "model") {
+            last_ = order[i]->view();
+            last_->set("camera", "\"persp\"");
+        }
+    }
+    set_layout(kind, top_share, left_share);
 }
 
 void PanelLayout::toggle() {
     if (kind_ == 0) {
+        if (!layout_before_single_.isEmpty()) {
+            const QString previous = layout_before_single_;
+            restore_json(previous);
+            return;
+        }
         kind_ = last_multi_;
+        focus_ = last_multi_focus_;
     } else {
+        last_multi_focus_ = focus_;
         ViewportWidget* a = active();
         for (int i = 0; i < panels_.size(); ++i)
             if (panels_[i]->view() == a) focus_ = i;
@@ -435,10 +485,12 @@ void PanelLayout::toggle() {
 QString PanelLayout::state_json() const {
     QJsonArray ps;
     for (auto* p : panels_) ps.append(QJsonObject{{"camera", p->view()->get("camera").remove('"')}, {"type", p->panel_type()}});
-    return QString::fromUtf8(QJsonDocument(QJsonObject{{"kind", kind_}, {"focus", focus_}, {"panels", ps}}).toJson(QJsonDocument::Compact));
+    return QString::fromUtf8(QJsonDocument(QJsonObject{{"kind", kind_}, {"focus", focus_}, {"panels", ps},
+        {"topShare", top_share_}, {"leftShare", left_share_}}).toJson(QJsonDocument::Compact));
 }
 
 void PanelLayout::restore_json(const QString& json) {
+    layout_before_single_.clear();
     QJsonObject o = QJsonDocument::fromJson(json.toUtf8()).object();
     QJsonArray ps = o["panels"].toArray();
     for (int i = 0; i < panels_.size() && i < ps.size(); ++i) {
@@ -448,6 +500,8 @@ void PanelLayout::restore_json(const QString& json) {
     }
     focus_ = qBound(0, o["focus"].toInt(1), int(panels_.size()) - 1);
     kind_ = o["kind"].toInt(0);
+    top_share_ = qBound(1, o["topShare"].toInt(50), 99);
+    left_share_ = qBound(1, o["leftShare"].toInt(50), 99);
     relayout();
 }
 
@@ -461,7 +515,17 @@ ViewportWidget* PanelLayout::active() const {
         }
     }
     if (last_ && last_->isVisible()) return last_;
+    for (auto* p : panels_)
+        if (p->view()->isVisible()) return p->view();
     return panels_[focus_]->view();
+}
+
+ModelPanel* PanelLayout::panel_at(QPoint global) const {
+    for (auto* p : panels_)
+        if (p->isVisible() && p->rect().contains(p->mapFromGlobal(global))) return p;
+    for (auto* p : panels_)
+        if (p->view() == last_ && p->isVisible()) return p;
+    return panels_[focus_];
 }
 
 QList<ViewportWidget*> PanelLayout::views() const {

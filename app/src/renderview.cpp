@@ -355,7 +355,7 @@ private:
 
 class RenderView : public QWidget {
 public:
-    explicit RenderView(QWidget* parent) : QWidget(parent, editor_window_flags()) {
+    explicit RenderView(QWidget* parent, bool embedded = false) : QWidget(parent, embedded ? Qt::Widget : editor_window_flags()) {
         setWindowTitle("Harold RenderView");
         setObjectName("haroldRenderView");
         auto* v = new QVBoxLayout(this);
@@ -366,8 +366,10 @@ public:
         bar->setNativeMenuBar(false);
         QMenu* file = bar->addMenu("File");
         file->addAction("Save Image...", [this] { save_image(); });
-        file->addSeparator();
-        file->addAction("Close", [this] { close(); });
+        if (!embedded) {
+            file->addSeparator();
+            file->addAction("Close", [this] { close(); });
+        }
         QMenu* render = bar->addMenu("Render");
         render->addAction("Render", [this] { render_now(); });
         render->addAction("IPR", [this] { ipr_->toggle(); });
@@ -1002,6 +1004,10 @@ QString selected_shape(const QString& type) {
 }
 
 } // namespace
+
+QWidget* make_render_view(QWidget* parent) {
+    return new RenderView(parent, true);
+}
 
 void show_render_view(QWidget* parent) {
     view(parent);

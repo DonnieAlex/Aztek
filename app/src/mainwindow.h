@@ -192,7 +192,7 @@ private:
     void show_history_manips();
     void tool_marking_menu(QPoint global, const QString& hold);
     void tool_options_marking_menu(QPoint global);
-    QList<MarkItem> hotbox_zone(int zone);
+    QList<MarkItem> hotbox_zone(int zone, QPoint origin);
     void object_marking_items(const QString& hit, QPoint global, QList<MarkItem>& items);
     void apply_workspace(const QString& name);
     // The reference's workspaces (#134): which docks, editors, shelf, menu set and bars each shows.
@@ -271,6 +271,7 @@ private:
     QHash<QString, QAction*> mode_buttons_;
     QHash<QString, QAction*> tool_buttons_;
     QHash<QString, QAction*> scope_buttons_;
+    void sync_object_masks();
     QList<QAction*> object_masks_;
     QSet<QString> snap_on_;
     QString snap_held_;
@@ -321,7 +322,6 @@ private:
     void watch_menus();
     void run_repeatable(const QString& label, const std::function<void()>& fn);
     void note_repeat(const QString& label, const std::function<void()>& fn, double undo_before);
-    qint64 space_down_ms_ = 0;
     bool space_held_ = false;
     bool pivot_mode_ = false;
     // When D went down: a tap toggles Edit Pivot, a hold edits the pivot only while held.

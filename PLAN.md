@@ -29,6 +29,16 @@ The [Hotbox controls](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Customiz
 document row visibility. The [2027 illustration and help](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-06174D85-0B39-4EAD-B814-D1E06C3344AE.htm)
 describe the same layout. Exact spacing and zone boundaries are PROVISIONAL pending a live capture.
 
+### Quadrant marking menus (23/11/2026)
+
+The [2026 defaults](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Customizing/files/GUID-280FE025-66DF-4DF8-AD44-417DC202A889.htm)
+and [2027 defaults](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Customizing/files/GUID-280FE025-66DF-4DF8-AD44-417DC202A889.htm)
+agree on the five zones. Hold Space and press in an empty zone. North changes layouts, east controls interface
+visibility, south changes the panel, west changes selection masks, and the center holds the camera menu. Use the
+desktop captures for compass positions, the Attributes submenu and appearance. The installed 2027 and 2028 zone
+and layout definitions agree. Qt layout can vary with content minimum sizes. Exact hover colors and timing are
+PROVISIONAL. The hybrid object/component preset modes and selection priorities remain open.
+
 ## How to work an item
 
 - One item, one branch, small commits, tests green, then merge. Mark the item `[x]` with the date and a one-line note

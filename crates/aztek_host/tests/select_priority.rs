@@ -37,6 +37,7 @@ fn marquee(c: &mut Core, vp: &Viewport) -> Vec<String> {
 fn a_marquee_takes_the_highest_priority_kind_and_a_joint_chain_by_its_top() {
     let _one = MASKS.lock().unwrap_or_else(|e| e.into_inner());
     let mut c = Core::new();
+    c.mel("selectType -allObjects 1;");
     scene(&mut c);
     let vp = view();
     assert_eq!(marquee(&mut c, &vp), vec!["ikHandle1".to_string()]);
@@ -46,6 +47,25 @@ fn a_marquee_takes_the_highest_priority_kind_and_a_joint_chain_by_its_top() {
     assert_eq!(marquee(&mut c, &vp), vec!["curve1".to_string()]);
     c.mel("selectType -nurbsCurve 0;");
     assert_eq!(marquee(&mut c, &vp), vec!["pSphere1".to_string()]);
+}
+
+#[test]
+fn hotbox_masks_filter_picks_and_normal_scope_restores_the_previous_masks() {
+    let _one = MASKS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut c = Core::new();
+    c.mel("selectType -allObjects 1 -camera 0;");
+    scene(&mut c);
+    let vp = view();
+    c.mel("selectScope deformations;");
+    assert_eq!(marquee(&mut c, &vp), vec!["curve1".to_string()]);
+    c.mel("selectScope rendering;");
+    assert!(marquee(&mut c, &vp).is_empty());
+    c.mel("selectScope polyModeling;");
+    assert_eq!(c.mel("selectMode;"), serde_json::json!("face"));
+    c.mel("selectScope object;");
+    assert_eq!(marquee(&mut c, &vp), vec!["ikHandle1".to_string()]);
+    assert_eq!(c.mel("selectType -q -camera;"), serde_json::json!(false));
+    c.mel("selectType -allObjects 1;");
 }
 
 #[test]

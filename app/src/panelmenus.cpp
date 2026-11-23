@@ -2,11 +2,14 @@
 // settings.
 #include "viewport.h"
 #include "dopesheet.h"
+#include "editors.h"
 #include "grapheditor.h"
 #include "host.h"
 #include "icons.h"
 #include "nodeeditor.h"
 #include "panels.h"
+#include "renderui.h"
+#include "widgets.h"
 
 #include <QPointer>
 #include <QAction>
@@ -52,7 +55,6 @@ PanelLayout* layout_of(QWidget* w) {
 } // namespace
 
 void ModelPanel::set_panel_type(const QString& type) {
-    type_ = type;
     QWidget* show = view_;
     if (type != "model") {
         if (!others_.contains(type)) {
@@ -61,12 +63,18 @@ void ModelPanel::set_panel_type(const QString& type) {
             else if (type == "graph") w = new GraphEditor(this);
             else if (type == "dope") w = new DopeSheet(this);
             else if (type == "node") w = new NodeEditor(this);
+            else if (type == "hypershade") w = make_hypershade(this);
+            else if (type == "render") w = make_render_view(this);
+            else if (type == "relationship" || type == "sets") w = make_relationship_editor(this, "sets");
+            else if (type == "hypergraph") w = make_editor_window("hypergraphHierarchy", this);
             if (!w) return;
+            w->setWindowFlags(Qt::Widget);
             stack_->addWidget(w);
             others_[type] = w;
         }
         show = others_[type];
     }
+    type_ = type;
     stack_->setCurrentWidget(show);
     bar_->setVisible(type == "model");
 }
