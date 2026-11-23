@@ -1231,7 +1231,7 @@ void MainWindow::build_menus() {
     row->addWidget(lock);
     mb->setCornerWidget(corner, Qt::TopRightCorner);
     lock_layout(locked);
-    build_menu_set(menu_set_->currentText());
+    build_menu_set(menu_set_);
 }
 
 void MainWindow::build_menu_set(const QString& set) {

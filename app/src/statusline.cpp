@@ -24,6 +24,7 @@
 #include <QPushButton>
 #include <QStandardItemModel>
 #include <QToolBar>
+#include <QTimer>
 #include <QToolButton>
 #include <algorithm>
 
@@ -95,38 +96,28 @@ void MainWindow::build_status_line() {
         return a;
     };
 
-    // The menu set, 100 pixels wide, with the reference's Customize entry (no menu set editor here yet). The hidden
-    // combo holds the list and its current item for scripts; the button shows it and opens the menu, as an optionMenu.
-    menu_set_ = new QComboBox(left);
-    menu_set_->setFixedSize(100, 22);
-    for (auto [label, set] : {std::pair{"Modeling", "Modeling"}, {"Rigging", "Rigging"}, {"Animation", "Animation"}, {"FX", "FX"}, {"Rendering", "Rendering"}})
-        menu_set_->addItem(label, set);
-    menu_set_->addItem("Customize ...", QString());
-    if (auto* model = qobject_cast<QStandardItemModel*>(menu_set_->model())) model->item(menu_set_->count() - 1)->setEnabled(false);
-    menu_set_->hide();
+    // The menu set, 100 pixels wide: the reference's option menu as a button over its list, with the Customize entry
+    // (no menu set editor here yet).
     menu_set_button_ = new QToolButton(left);
     menu_set_button_->setFixedSize(100, 22);
     menu_set_button_->setToolButtonStyle(Qt::ToolButtonTextOnly);
     menu_set_button_->setPopupMode(QToolButton::InstantPopup);
-    menu_set_button_->setText(menu_set_->currentText());
+    menu_set_button_->setText(menu_set_);
     auto* menu_set_menu = new QMenu(menu_set_button_);
     menu_set_button_->setMenu(menu_set_menu);
-    for (int i = 0; i < menu_set_->count(); ++i) {
-        QAction* a = menu_set_menu->addAction(menu_set_->itemText(i));
+    for (const QString& name : menu_set_names()) {
+        QAction* a = menu_set_menu->addAction(name);
         a->setCheckable(true);
-        if (menu_set_->itemText(i) == "Customize ...") a->setEnabled(false);
-        connect(a, &QAction::triggered, this, [this, i] {
-            menu_set_->setCurrentIndex(i);
+        connect(a, &QAction::triggered, this, [this, name] {
+            set_menu_set(name);
             if (ViewportWidget* v = panels_->active()) v->setFocus(Qt::OtherFocusReason);
         });
     }
+    menu_set_menu->addSeparator();
+    QAction* customize = menu_set_menu->addAction("Customize ...");
+    customize->setEnabled(false);
     connect(menu_set_menu, &QMenu::aboutToShow, this, [this, menu_set_menu] {
-        for (QAction* a : menu_set_menu->actions()) a->setChecked(a->text() == menu_set_->currentText());
-    });
-    // Scripts and workspaces set the menu set by name; the reference's option menu rebuilds then too.
-    connect(menu_set_, &QComboBox::currentTextChanged, this, [this](const QString& text) {
-        if (menu_set_button_) menu_set_button_->setText(text);
-        if (text != "Customize ...") build_menu_set(text);
+        for (QAction* a : menu_set_menu->actions()) a->setChecked(a->text() == menu_set_);
     });
     add(menu_set_button_);
 
@@ -728,6 +719,15 @@ void MainWindow::build_status_line() {
     row->addWidget(right);
 
     tb->addWidget(bar);
+    // Qt can leave an empty, unmanaged container over the first button (it is not in the bar's layout and has no
+    // children); it would swallow the menu set button's clicks.
+    auto clear_strays = [left] {
+        for (QWidget* c : left->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+            if (c->metaObject()->className() == QLatin1String("QWidget") && c->layout() && c->layout()->count() == 0) c->hide();
+    };
+    clear_strays();
+    QTimer::singleShot(0, this, clear_strays);
+    QTimer::singleShot(250, this, clear_strays);
     home_button_ = nullptr;
 }
 
@@ -873,6 +873,19 @@ void MainWindow::sync_status_line() {
     shown(ae_button_, attr_dock_ && attr_dock_->isVisible());
     shown(tool_settings_button_, tool_dock_ && tool_dock_->isVisible());
     shown(channel_box_button_, channel_dock_ && channel_dock_->isVisible());
+}
+
+QStringList MainWindow::menu_set_names() const {
+    return {"Modeling", "Rigging", "Animation", "FX", "Rendering"};
+}
+
+void MainWindow::set_menu_set(const QString& set) {
+    const QString name = set == "Dynamics" ? QString("FX") : set;
+    if (name.isEmpty() || name == "Customize ...") return;
+    if (menu_set_button_) menu_set_button_->setText(name);
+    if (name == menu_set_) return;
+    menu_set_ = name;
+    build_menu_set(name);
 }
 
 } // namespace az

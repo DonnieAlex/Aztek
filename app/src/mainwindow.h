@@ -92,6 +92,8 @@ private:
     // Menus.
     void build_menus();
     void build_menu_set(const QString& set);
+    QStringList menu_set_names() const;
+    void set_menu_set(const QString& set);
     QMenu* file_menu();
     QMenu* edit_menu();
     QMenu* create_menu();
@@ -266,7 +268,7 @@ private:
     QLabel* help_line_ = nullptr;
     ToolSettings* tool_settings_ = nullptr;
     QDockWidget* tool_dock_ = nullptr;
-    QComboBox* menu_set_ = nullptr;
+    QString menu_set_ = "Modeling";
     QToolButton* menu_set_button_ = nullptr;
     QList<QMenu*> set_menus_;
     QList<QMenu*> hotbox_menus_;

@@ -1061,7 +1061,7 @@ void MainWindow::apply_workspace(const QString& name) {
         if (hik_dock_) hik_dock_->hide();
     };
     auto set_menus = [this](const QString& set) {
-        if (menu_set_) menu_set_->setCurrentText(set);
+        set_menu_set(set);
     };
     auto shelf = [this](const QString& n) {
         if (shelf_bar_) shelf_bar_->select_shelf(n);

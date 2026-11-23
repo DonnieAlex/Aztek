@@ -399,13 +399,13 @@ void MainWindow::build_runtime() {
     });
     r("ManipBigger", "Display", "Bigger manipulator", [this] { scale_manip(0.25); });
     r("ManipSmaller", "Display", "Smaller manipulator", [this] { scale_manip(-0.25); });
-    r("MenuSetAnimation", "Menus", "Animation menus", [this] { menu_set_->setCurrentText("Animation"); });
-    r("MenuSetModeling", "Menus", "Modeling menus", [this] { menu_set_->setCurrentText("Modeling"); });
-    r("MenuSetRigging", "Menus", "Rigging menus", [this] { menu_set_->setCurrentText("Rigging"); });
-    r("MenuSetRendering", "Menus", "Rendering menus", [this] { menu_set_->setCurrentText("Rendering"); });
+    r("MenuSetAnimation", "Menus", "Animation menus", [this] { set_menu_set("Animation"); });
+    r("MenuSetModeling", "Menus", "Modeling menus", [this] { set_menu_set("Modeling"); });
+    r("MenuSetRigging", "Menus", "Rigging menus", [this] { set_menu_set("Rigging"); });
+    r("MenuSetRendering", "Menus", "Rendering menus", [this] { set_menu_set("Rendering"); });
     r("InteractiveGroomEditor", "Windows", "Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); });
     r("InteractiveGroomTool", "Tools", "The Interactive Groom tools, with the tool xjenGroomCtx names", [this] { set_tool("groom"); });
-    r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("FX"); });
+    r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { set_menu_set("FX"); });
     // H as the reference's: a tap shows or hides the selection (Display > Toggle Show/Hide), held with a left click in a
     // view it's the menu sets (#175).
     r("MenuSetHoldPress", "Menus", "H: hold with a left click in a view for the menu sets", [this] {
@@ -421,11 +421,10 @@ void MainWindow::build_runtime() {
     // The menu sets at the pointer, as the reference's H marking menu offers them.
     r("MenuSetMenu", "Menus", "Choose a menu set at the pointer", [this] {
         QMenu menu(this);
-        for (int i = 0; i < menu_set_->count(); ++i) {
-            QString t = menu_set_->itemText(i);
-            QAction* a = menu.addAction(t, [this, t] { menu_set_->setCurrentText(t); });
+        for (const QString& t : menu_set_names()) {
+            QAction* a = menu.addAction(t, [this, t] { set_menu_set(t); });
             a->setCheckable(true);
-            a->setChecked(t == menu_set_->currentText());
+            a->setChecked(t == menu_set_);
         }
         menu.exec(QCursor::pos());
     });
