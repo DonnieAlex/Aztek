@@ -95,21 +95,40 @@ void MainWindow::build_status_line() {
         return a;
     };
 
-    // The menu set, 100 pixels wide, with the reference's Customize entry (no menu set editor here yet).
+    // The menu set, 100 pixels wide, with the reference's Customize entry (no menu set editor here yet). The hidden
+    // combo holds the list and its current item for scripts; the button shows it and opens the menu, as an optionMenu.
     menu_set_ = new QComboBox(left);
     menu_set_->setFixedSize(100, 22);
     for (auto [label, set] : {std::pair{"Modeling", "Modeling"}, {"Rigging", "Rigging"}, {"Animation", "Animation"}, {"FX", "FX"}, {"Rendering", "Rendering"}})
         menu_set_->addItem(label, set);
     menu_set_->addItem("Customize ...", QString());
     if (auto* model = qobject_cast<QStandardItemModel*>(menu_set_->model())) model->item(menu_set_->count() - 1)->setEnabled(false);
-    connect(menu_set_, QOverload<int>::of(&QComboBox::activated), this, [this](int) {
-        if (ViewportWidget* v = panels_->active()) v->setFocus(Qt::OtherFocusReason);
+    menu_set_->hide();
+    menu_set_button_ = new QToolButton(left);
+    menu_set_button_->setFixedSize(100, 22);
+    menu_set_button_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    menu_set_button_->setPopupMode(QToolButton::InstantPopup);
+    menu_set_button_->setText(menu_set_->currentText());
+    auto* menu_set_menu = new QMenu(menu_set_button_);
+    menu_set_button_->setMenu(menu_set_menu);
+    for (int i = 0; i < menu_set_->count(); ++i) {
+        QAction* a = menu_set_menu->addAction(menu_set_->itemText(i));
+        a->setCheckable(true);
+        if (menu_set_->itemText(i) == "Customize ...") a->setEnabled(false);
+        connect(a, &QAction::triggered, this, [this, i] {
+            menu_set_->setCurrentIndex(i);
+            if (ViewportWidget* v = panels_->active()) v->setFocus(Qt::OtherFocusReason);
+        });
+    }
+    connect(menu_set_menu, &QMenu::aboutToShow, this, [this, menu_set_menu] {
+        for (QAction* a : menu_set_menu->actions()) a->setChecked(a->text() == menu_set_->currentText());
     });
     // Scripts and workspaces set the menu set by name; the reference's option menu rebuilds then too.
     connect(menu_set_, &QComboBox::currentTextChanged, this, [this](const QString& text) {
+        if (menu_set_button_) menu_set_button_->setText(text);
         if (text != "Customize ...") build_menu_set(text);
     });
-    add(menu_set_);
+    add(menu_set_button_);
 
     // The file group, folded by the first handle.
     QList<QWidget*> files;
