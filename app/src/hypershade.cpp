@@ -566,9 +566,13 @@ private:
 
 } // namespace
 
+QWidget* make_hypershade(QWidget* parent) {
+    return new Hypershade(parent);
+}
+
 void MainWindow::show_hypershade() {
     if (!hypershade_window_) {
-        hypershade_window_ = new Hypershade(this);
+        hypershade_window_ = make_hypershade(this);
         hypershade_window_->setWindowFlags(editor_window_flags());
     }
     float_dockable("hypershade", hypershade_window_, "Hypershade");

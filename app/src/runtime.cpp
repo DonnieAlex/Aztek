@@ -494,26 +494,17 @@ void MainWindow::build_runtime() {
         help_line_->setText(on ? "Soft Select off" : "Soft Select on: hold B and drag to size the falloff");
     });
     r("HotBoxPress", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
-        space_down_ms_ = QDateTime::currentMSecsSinceEpoch();
         space_held_ = true;
         // At once, as the reference's: a quick tap with nothing picked still toggles the view.
         if (hotbox_ && !hotbox_->isVisible()) {
-            QList<QAction*> actions;
-            for (QWidget* w = active_view(); w; w = w->parentWidget()) {
-                if (auto* panel = qobject_cast<ModelPanel*>(w)) {
-                    actions = panel->panel_menu_actions();
-                    break;
-                }
-            }
-            hotbox_->popup(QCursor::pos(), actions);
+            const QPoint origin = QCursor::pos();
+            hotbox_->popup(origin, panels_->panel_at(origin)->panel_menu_actions());
         }
     });
     r("HotBoxRelease", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_held_ = false;
-        qint64 held = QDateTime::currentMSecsSinceEpoch() - space_down_ms_;
         QWidget* popup = QApplication::activePopupWidget();
-        if (hotbox_ && hotbox_->isVisible() && !(popup && popup->inherits("QMenu"))) hotbox_->hide();
-        if (held < 220) panels_->toggle();
+        if (hotbox_ && hotbox_->isVisible() && !(popup && popup->inherits("QMenu"))) hotbox_->finish();
     });
     // Holding a tool key with a left press in a view opens that tool's marking menu; K and I work a drag in the view.
     auto held_key = [this](const char* name, const char* id) {

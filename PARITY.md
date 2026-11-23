@@ -1858,6 +1858,10 @@ Compact common and active panel menus sit above Recent Commands, the Aztek camer
 Modeling, Rigging, Animation, Dynamics and Rendering each get a centered row, regardless of the main menu set.
 Hotbox Controls can hide each task row. The surrounding viewport keeps its original brightness.
 A quadrant marking menu leaves the Hotbox visible while Space is held. Releasing Space dismisses both.
+The north, east, south and west menus use the captured compass positions for layouts, interface visibility, panel
+types and selection masks (23/11/2026). The east Attributes submenu keeps the Channel Box and Layer Editor paired
+in their combined dock. West uses the available object masks and the polygon face mode. The reference's hybrid
+preset selection modes and automatic priority changes still need support.
 The 2026 help illustration sets the layout. Exact spacing, zone boundaries and the full Hotbox Style menu
 remain PROVISIONAL.
 ### Deleted history no longer brings back old tool settings (22/11/2026, #205)

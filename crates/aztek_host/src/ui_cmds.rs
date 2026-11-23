@@ -793,6 +793,10 @@ pub fn register(s: &mut Session) {
         s,
         Cmd::new("selectScope", "Status line scope: hierarchy (roots), object or component. No argument returns it.", |s, a| {
             if let Some(v) = a.pos_str(0) {
+                if let Some(components) = crate::select_cmds::hotbox_mask(s, v) {
+                    with_ui(|u| u.scope = if components { 2 } else { 1 });
+                    return Ok(json!(if components { "component" } else { "object" }));
+                }
                 let n = match v {
                     "hierarchy" => 0,
                     "component" => 2,

@@ -10,6 +10,7 @@ namespace az {
 
 // renderview.cpp
 void show_render_view(QWidget* parent);
+QWidget* make_render_view(QWidget* parent);
 // Render Current Frame: the Render View opens and the frame starts in the background.
 void render_current_frame(QWidget* parent);
 void render_ipr(QWidget* parent);

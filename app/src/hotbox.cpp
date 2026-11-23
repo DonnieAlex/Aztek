@@ -84,6 +84,7 @@ Hotbox::Hotbox(const QList<QMenu*>& common, const QList<QPair<QString, QList<QMe
 }
 
 void Hotbox::popup(QPoint global, const QList<QAction*>& panel_actions) {
+    origin_ = global;
     for (auto* b : panel_buttons_) {
         QMenu* menu = nullptr;
         for (auto* action : panel_actions) {
@@ -148,16 +149,18 @@ void Hotbox::mousePressEvent(QMouseEvent* e) {
     used_ = true;
     if (!zones_) return;
     QPoint global = e->globalPosition().toPoint();
-    QList<MarkItem> items = zones_(zone);
-    if (!items.isEmpty()) MarkingMenu::show_at(global, items, this);
+    QList<MarkItem> items = zones_(zone, origin_);
+    if (!items.isEmpty()) MarkingMenu::show_at(global, items, this, zone < 4);
+}
+
+void Hotbox::finish() {
+    const bool tap = !used_ && QDateTime::currentMSecsSinceEpoch() - shown_ms_ < 220;
+    hide();
+    emit spaceReleased(tap);
 }
 
 void Hotbox::keyReleaseEvent(QKeyEvent* e) {
-    if (e->key() == Qt::Key_Space && !e->isAutoRepeat()) {
-        const bool tap = !used_ && QDateTime::currentMSecsSinceEpoch() - shown_ms_ < 220;
-        hide();
-        emit spaceReleased(tap);
-    }
+    if (e->key() == Qt::Key_Space && !e->isAutoRepeat()) finish();
 }
 
 } // namespace az

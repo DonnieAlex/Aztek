@@ -24,6 +24,7 @@
 #include <QStandardItemModel>
 #include <QToolBar>
 #include <QToolButton>
+#include <algorithm>
 
 namespace az {
 
@@ -74,6 +75,7 @@ void MainWindow::build_status_line() {
         connect(a, &QAction::triggered, this, [this, id] {
             exec_quiet("selectScope", args(QJsonArray{id}));
             if (id == "component" && state()["mode"].toString() == "object") set_mode("vertex");
+            sync_object_masks();
             Host::get()->poke();
         });
         scope_buttons_[id] = a;
@@ -85,6 +87,7 @@ void MainWindow::build_status_line() {
         QAction* a = tb->addAction(icon(ic), tip);
         a->setCheckable(true);
         a->setChecked(true);
+        a->setProperty("maskFlags", flags);
         connect(a, &QAction::toggled, this, [flags](bool on) {
             QJsonObject c;
             for (const QString& f : flags) c[f] = on;
@@ -314,6 +317,16 @@ void MainWindow::input_entered(const QString& raw) {
     for (const QJsonValue& o : sel)
         for (int i = 0; i < 3; ++i)
             if (given[i]) exec("setAttr", args(QJsonArray{o.toString() + "." + t + axis[i], v[i]}));
+}
+
+void MainWindow::sync_object_masks() {
+    for (QAction* action : object_masks_) {
+        const auto flags = action->property("maskFlags").toStringList();
+        const QSignalBlocker block(action);
+        action->setChecked(std::any_of(flags.begin(), flags.end(), [](const QString& flag) {
+            return ask("selectType", QJsonObject{{"query", true}, {flag, true}}).toBool();
+        }));
+    }
 }
 
 void MainWindow::sync_status_line() {

@@ -108,6 +108,10 @@ public:
         else refresh();
     }
 
+    void reject() override {
+        if (isWindow()) QDialog::reject();
+    }
+
 private:
     QString kind() const { return kind_->currentData().toString(); }
 
@@ -231,6 +235,12 @@ private:
 };
 
 } // namespace
+
+QWidget* make_relationship_editor(QWidget* parent, const QString& kind) {
+    auto* editor = new RelationshipEditor(parent);
+    editor->set_kind(kind);
+    return editor;
+}
 
 void show_relationship_editor(QWidget* parent, const QString& kind) {
     static QPointer<RelationshipEditor> open;

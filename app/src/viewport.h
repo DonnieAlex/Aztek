@@ -2,6 +2,7 @@
 #pragma once
 #include <functional>
 #include <QHash>
+#include <QStringList>
 #include <QWidget>
 
 class QStackedLayout;
@@ -68,7 +69,7 @@ public:
     explicit ModelPanel(const QString& camera, QWidget* parent = nullptr);
     ViewportWidget* view() const { return view_; }
     QList<QAction*> panel_menu_actions() const;
-    // What the panel shows: model, outliner, graph, dope or node.
+    // What the panel shows: the model view or an editor.
     void set_panel_type(const QString& type);
     QString panel_type() const { return type_; }
 private:
@@ -91,13 +92,15 @@ public:
     explicit PanelLayout(QWidget* parent = nullptr);
     void set_single(bool single);
     bool single() const { return kind_ == 0; }
-    // 0 single, 1 two side by side, 2 two stacked, 3 three, 4 four.
-    void set_layout(int kind);
+    // 0 single, 1 two side by side, 2 two stacked, 3 three, 4 four, 5 one above two.
+    void set_layout(int kind, int top_share = 50, int left_share = 50);
+    void set_editor_layout(int kind, const QStringList& types, int top_share = 50, int left_share = 50);
     int layout_kind() const { return kind_; }
     QString state_json() const;
     void restore_json(const QString& json);
     // The view under the cursor, else the last one used.
     ViewportWidget* active() const;
+    ModelPanel* panel_at(QPoint global) const;
     QList<ViewportWidget*> views() const;
     // Single view of the panel under the cursor, or back to four (space tap).
     void toggle();
@@ -111,7 +114,11 @@ private:
     QGridLayout* grid_;
     int kind_ = 0;
     int last_multi_ = 4;
+    int last_multi_focus_ = 1;
     int focus_ = 0;
+    int top_share_ = 50;
+    int left_share_ = 50;
+    QString layout_before_single_;
     mutable ViewportWidget* last_ = nullptr;
 };
 

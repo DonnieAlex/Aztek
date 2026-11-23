@@ -1,6 +1,7 @@
 // Reference-style marking menus: items at the eight compass points round the cursor plus a list below. Drag toward an
 // item and release to pick it, or release in place and click.
 #pragma once
+#include <QRegion>
 #include <QWidget>
 #include <functional>
 
@@ -30,7 +31,7 @@ class MarkingMenu : public QWidget {
 public:
     /// What a picked item runs inside, so G can repeat it.
     static std::function<void(const QString&, const std::function<void()>&)>& around();
-    static void show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner = nullptr);
+    static void show_at(QPoint global, const QList<MarkItem>& items, QWidget* owner = nullptr, bool hotbox_zone = false);
     // How long the pointer rests on a submenu's item before it opens.
     static constexpr int kSubmenuDelayMs = 350;
 protected:
@@ -41,18 +42,23 @@ protected:
     void keyPressEvent(QKeyEvent*) override;
     void keyReleaseEvent(QKeyEvent*) override;
 private:
-    MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner);
-    static void open(QPoint global, const QList<MarkItem>& items, QWidget* owner);
+    MarkingMenu(QPoint global, const QList<MarkItem>& items, QWidget* owner, bool hotbox_zone);
+    static void open(QPoint global, const QList<MarkItem>& items, QWidget* owner, bool hotbox_zone);
     void back_to_parent();
     int item_at(QPoint local) const;
     void pick(int i, bool option = false);
     // Where item i draws its option box.
     QRect option_box(int i) const;
     void open_sub(int i);
+    void update_shape();
     QList<QRect> rules_;
     QList<MarkItem> items_;
     QList<QRect> rects_;
     QPoint center_;
+    QPoint opening_point_;
+    QPoint cursor_;
+    QRegion shape_;
+    bool hotbox_zone_;
     int hover_ = -1;
     bool dragged_ = false;
     qint64 opened_ms_ = 0;

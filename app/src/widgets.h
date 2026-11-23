@@ -29,6 +29,8 @@ void show_thanks(QWidget* parent);
 // Windows > Relationship Editors, opened on one kind: displayLayers, sets, deformerSets, shadingGroups, characters,
 // lightCentric or objectCentric.
 void show_relationship_editor(QWidget* parent, const QString& kind);
+QWidget* make_relationship_editor(QWidget* parent, const QString& kind);
+QWidget* make_hypershade(QWidget* parent);
 
 
 // A command's settings, built from its flags and remembered between sessions.
@@ -215,8 +217,9 @@ class Hotbox : public QWidget {
 public:
     Hotbox(const QList<QMenu*>& common, const QList<QPair<QString, QList<QMenu*>>>& sets, QMenu* recent, QWidget* parent);
     void popup(QPoint global, const QList<QAction*>& panel_actions);
+    void finish();
     // Zone: 0 north, 1 east, 2 south, 3 west, 4 the Aztek box in the middle.
-    void set_zones(std::function<QList<MarkItem>(int)> f) { zones_ = std::move(f); }
+    void set_zones(std::function<QList<MarkItem>(int, QPoint)> f) { zones_ = std::move(f); }
 signals:
     // Space up; a tap, quick and with nothing done in the hotbox, toggles the view under the cursor.
     void spaceReleased(bool tap);
@@ -231,9 +234,10 @@ private:
     QWidget* middle_ = nullptr;
     QList<QToolButton*> panel_buttons_;
     QPoint center_;
+    QPoint origin_;
     qint64 shown_ms_ = 0;
     bool used_ = false;
-    std::function<QList<MarkItem>(int)> zones_;
+    std::function<QList<MarkItem>(int, QPoint)> zones_;
 };
 
 class Preferences : public QDialog {

@@ -1577,59 +1577,102 @@ void MainWindow::tool_options_marking_menu(QPoint global) {
     MarkingMenu::show_at(global, items);
 }
 
-QList<MarkItem> MainWindow::hotbox_zone(int zone) {
-    QList<MarkItem> items;
-    auto lay = [this](int k) { return [this, k] { panels_->set_layout(k); }; };
-    auto cam = [this](const char* c) {
-        QString n = c;
-        return [this, n] { if (ViewportWidget* v = active_view()) v->set("camera", "\"" + n + "\""); };
-    };
-    auto shade = [this](const char* key, const char* val) {
-        QString k = key, j = val;
-        return [this, k, j] { if (ViewportWidget* v = active_view()) v->set(k, j); };
-    };
-    auto mask_all = [](bool on) {
-        return [on] {
-            QJsonObject c;
-            for (const char* f : {"polymesh", "nurbsSurface", "nurbsCurve", "joint", "ikHandle", "handle", "cluster", "nonlinear", "locator", "camera", "group"}) c[f] = on;
-            exec_quiet("selectType", c);
-        };
-    };
+QList<MarkItem> MainWindow::hotbox_zone(int zone, QPoint origin) {
+    ModelPanel* panel = panels_->panel_at(origin);
     switch (zone) {
-    case 0:
-        items = {{"Single Pane", 0, lay(0)}, {"Two Side by Side", 2, lay(1)}, {"Two Stacked", 4, lay(2)}, {"Four Panes", 6, lay(4)}, {"Three Panes", 1, lay(3)}};
-        break;
-    case 1:
-        items = {{"Wireframe", 0, shade("wireframe", "true")}, {"Smooth Shade", 4, shade("wireframe", "false")}, {"X-Ray", 2, [this] { toggle_view_flag("xray"); }},
-                 {"Wireframe on Shaded", 6, [this] { if (ViewportWidget* v = active_view()) v->set("wireOnShaded", v->get("wireOnShaded") == "true" ? "false" : "true"); }}};
-        break;
-    case 2: {
-        // What the panel under the cursor shows, as the reference's south zone.
-        auto type = [this](const char* t) {
-            QString k = t;
-            return [this, k] {
-                for (QWidget* w = active_view(); w; w = w->parentWidget())
-                    if (auto* p = qobject_cast<ModelPanel*>(w)) {
-                        p->set_panel_type(k);
-                        return;
-                    }
+    case 0: {
+        auto layout = [this](int kind, const QStringList& types, int top = 50, int left = 50) {
+            return [this, kind, types, top, left] {
+                panels_->set_editor_layout(kind, types, top, left);
+                panels_->active()->setFocus(Qt::OtherFocusReason);
             };
         };
-        items = {{"Perspective", 0, [this, type] { type("model")(); if (ViewportWidget* v = active_view()) v->set("camera", "\"persp\""); }}, {"Outliner", 2, type("outliner")},
-                 {"Graph Editor", 4, type("graph")}, {"Dope Sheet", 6, type("dope")}, {"Node Editor", 5, type("node")}};
-        break;
+        return {{"Single Perspective", 0, layout(0, {"model"})},
+                {"Hypershade/Render/Persp", 1, layout(5, {"hypershade", "model", "render"}, 55)},
+                {"Hypershade/Persp", 2, layout(1, {"hypershade", "model"})},
+                {"Hypershade/Outliner/Persp", 3, layout(5, {"hypershade", "model", "outliner"}, 55)},
+                {"Toggle Outliner", 4, [] { mel("ToggleOutliner;"); }},
+                {"Persp/Graph/Outliner", 5, layout(5, {"model", "graph", "outliner"}, 55, 78)},
+                {"Persp/Graph", 6, layout(2, {"model", "graph"}, 46)},
+                {"Persp/Relationship Editor", 7, layout(2, {"model", "relationship"}, 61)}};
     }
-    case 4:
+    case 1: {
+        auto toggle = [](QWidget* widget) {
+            return [widget] { widget->setVisible(!widget->isVisible()); };
+        };
+        auto tool_bar = [this, toggle](const char* name) { return toggle(findChild<QToolBar*>(name)); };
+        auto slider = [this](const char* name, const char* other_name) {
+            auto* bar = findChild<QToolBar*>("timeBar");
+            auto* row = bar->findChild<QWidget*>(name);
+            auto* other = bar->findChild<QWidget*>(other_name);
+            return [bar, row, other] {
+                if (bar->isHidden()) {
+                    other->hide();
+                    row->show();
+                    bar->show();
+                } else {
+                    row->setVisible(row->isHidden());
+                    if (row->isHidden() && other->isHidden()) {
+                        bar->hide();
+                        row->show();
+                    }
+                }
+            };
+        };
+        // The Channel Box and Layer Editor share a dock, as they do in the reference's combined mode.
+        MarkItem attributes{"Attributes", 2};
+        attributes.sub = {{"Tool Settings", 0, [] { mel("ToggleToolSettings;"); }},
+                          {"Channel Box", 2, [] { mel("ToggleChannelBox;"); }},
+                          {"Layer Editor", 4, [] { mel("ToggleChannelBox;"); }},
+                          {"Attribute Editor", 6, [this] {
+                               if (attr_dock_->isVisible() && !attr_dock_->visibleRegion().isEmpty()) attr_dock_->hide();
+                               else show_attribute_editor();
+                           }}};
+        return {{"Help Line", 0, toggle(statusBar())}, {"Status Line", 1, tool_bar("statusLine")}, attributes,
+                {"Tool Box", 3, tool_bar("toolbox")}, {"Time Slider", 4, slider("timeSliderRow", "rangeSliderRow")},
+                {"Range Slider", 5, slider("rangeSliderRow", "timeSliderRow")},
+                {"Shelf", 6, tool_bar("shelf")}, {"Command Line", 7, tool_bar("commandLine")}};
+    }
+    case 2: {
+        auto type = [panel](const char* t) {
+            QString k = t;
+            return [panel, k] {
+                panel->set_panel_type(k);
+                panel->setFocus(Qt::OtherFocusReason);
+            };
+        };
+        return {{"Outliner", 0, type("outliner")}, {"Sets", 1, type("sets")}, {"Graph Editor", 2, type("graph")},
+                {"Dope Sheet", 3, type("dope")}, {"Hypergraph", 4, type("hypergraph")}, {"Node Editor", 5, type("node")},
+                {"Hypershade", 6, type("hypershade")}, {"Render View", 7, type("render")}};
+    }
+    case 3: {
+        auto mask = [this](const QString& name) {
+            return [this, name] {
+                exec("selectScope", args(QJsonArray{name}));
+                sync_object_masks();
+            };
+        };
+        return {{"NURBS Mask", 0, mask("nurbsModeling")}, {"Hierarchy", 1, mask("hierarchy")},
+                {"Animation Mask", 2, mask("animation")}, {"Deformations Mask", 3, mask("deformations")},
+                {"Dynamics Mask", 4, mask("dynamics")}, {"Polygons Mask", 5, mask("polyModeling")},
+                {"Rendering Mask", 6, mask("rendering")}, {"Object/Components", 7, [this] {
+                    const bool components = state()["mode"].toString() != "object";
+                    scope_buttons_.value(components ? "object" : "component")->trigger();
+                }}};
+    }
+    case 4: {
+        auto cam = [panel](const QString& name) {
+            return [panel, name] {
+                panel->set_panel_type("model");
+                panel->view()->set("camera", "\"" + name + "\"");
+                panel->view()->setFocus(Qt::OtherFocusReason);
+            };
+        };
         // The Aztek box: the cameras, as the reference's, Perspective at the top and Top View on the left (#192).
-        items = {{"Perspective", 0, cam("persp")}, {"Right View", 2, cam("side")}, {"Front View", 4, cam("front")}, {"Top View", 6, cam("top")}};
-        break;
-    case 3:
-        items = {{"All Objects On", 0, mask_all(true)}, {"All Objects Off", 4, mask_all(false)}, {"Vertex", 2, [this] { set_mode("vertex"); }}, {"Edge", 1, [this] { set_mode("edge"); }},
-                 {"Face", 3, [this] { set_mode("face"); }}, {"Object Mode", 6, [this] { set_mode("object"); }}};
-        break;
-    default: break;
+        return {{"Perspective", 0, cam("persp")}, {"Right View", 2, cam("side")}, {"Front View", 4, cam("front")}, {"Top View", 6, cam("top")}};
     }
-    return items;
+    default: return {};
+    }
 }
 
 void MainWindow::marking_menu(QPoint global, int mods) {

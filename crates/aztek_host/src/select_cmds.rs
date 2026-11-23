@@ -123,6 +123,7 @@ struct Masks {
     object_components: BTreeMap<String, bool>,
     /// User-defined masks by name (-byName); unset ones are on.
     by_name: BTreeMap<String, bool>,
+    before_preset: Option<(BTreeMap<String, bool>, BTreeMap<String, bool>)>,
 }
 
 static MASKS: Mutex<Option<Masks>> = Mutex::new(None);
@@ -130,6 +131,48 @@ static MASKS: Mutex<Option<Masks>> = Mutex::new(None);
 fn with_masks<R>(f: impl FnOnce(&mut Masks) -> R) -> R {
     let mut g = MASKS.lock().unwrap();
     f(g.get_or_insert_with(Masks::default))
+}
+
+/// Set a Hotbox mask using the objects this picker supports. Polygons also picks faces.
+pub(crate) fn hotbox_mask(s: &mut Session, preset: &str) -> Option<bool> {
+    let flags: &[&str] = match preset {
+        "nurbsModeling" => &["curve", "nurbsSurface", "plane"],
+        "animation" => &["joint", "handle", "ikHandle"],
+        "deformations" => &["lattice", "cluster", "sculpt", "nonlinear", "curve"],
+        "dynamics" => &["particleShape", "nParticleShape", "emitter", "field", "fluid", "hairSystem", "follicle", "collisionModel",
+            "spring", "rigidBody", "rigidConstraint", "nCloth", "nRigid", "dynamicConstraint"],
+        "polyModeling" => &["polymesh", "subdiv", "plane"],
+        "rendering" => &["light", "camera", "plane"],
+        "hierarchy" | "object" | "component" => {
+            with_masks(|m| {
+                if let Some((objects, components)) = m.before_preset.take() {
+                    m.objects = objects;
+                    m.components = components;
+                }
+            });
+            return None;
+        }
+        _ => return None,
+    };
+    with_masks(|m| {
+        if m.before_preset.is_none() {
+            m.before_preset = Some((m.objects.clone(), m.components.clone()));
+        }
+    });
+    let polygons = preset == "polyModeling";
+    let _ = s.run("selectMode", json!({"args": ["object"]}));
+    let mut call = json!({"allObjects": false, "allComponents": false});
+    for &flag in flags {
+        call[flag] = json!(true);
+    }
+    if preset == "deformations" {
+        call["curveOnSurface"] = json!(false);
+    }
+    if polygons {
+        call["polymeshFace"] = json!(true);
+    }
+    let _ = s.run("selectType", call);
+    Some(polygons)
 }
 
 /// Whether an object mask is on.
