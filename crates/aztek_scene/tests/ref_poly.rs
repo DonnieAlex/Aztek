@@ -714,6 +714,12 @@ fn triangulate_quad_mirror_normal() {
     assert_eq!(counts(&mut s, "pCube1").2, 12);
     let m = run(&mut s, "meshInfo", json!({"args": ["pCube1"]}));
     assert!((m["boundsMax"][0].as_f64().unwrap() - 1.5).abs() < 1e-9, "{m}");
+    for negative in [-1, 0] {
+        set(&mut s, "polyMirror1.axisDirection", json!(negative));
+        let m = run(&mut s, "meshInfo", json!({"args": ["pCube1"]}));
+        assert!((m["boundsMin"][0].as_f64().unwrap() + 1.5).abs() < 1e-9, "{m}");
+    }
+    set(&mut s, "polyMirror1.axisDirection", json!(1));
     set(&mut s, "polyMirror1.axis", json!(1));
     let m = run(&mut s, "meshInfo", json!({"args": ["pCube1"]}));
     assert!((m["boundsMax"][1].as_f64().unwrap() - 1.5).abs() < 1e-9, "{m}");

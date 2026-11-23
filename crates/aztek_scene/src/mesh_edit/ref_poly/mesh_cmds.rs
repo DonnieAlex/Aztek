@@ -211,7 +211,7 @@ fn retopo_op(a: &Args, m: &mut Mesh, sel: &Ids, _sym: Option<&SymmetryMap>) -> C
 
 fn mirror_op(a: &Args, m: &mut Mesh, _sel: &Ids, _sym: Option<&SymmetryMap>) -> CmdResult<EditResult> {
     let mut axis = a.get("axis").and_then(Value::as_i64).unwrap_or(0).clamp(0, 2) as usize;
-    let mut positive = a.int("axisDirection", 1) != 0;
+    let mut positive = a.int("axisDirection", 1) > 0;
     let d = a.get("direction").and_then(Value::as_i64).unwrap_or(0);
     if d > 0 {
         axis = (d / 2).clamp(0, 2) as usize;
