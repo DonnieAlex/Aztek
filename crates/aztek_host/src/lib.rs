@@ -94,7 +94,8 @@ thread_local! {
 
 /// The host. A dialog a command opens runs the shell's event loop on top of that command, whose frames hold the host: the
 /// shell's calls from that loop take it from `LIVE`. Those frames are suspended in the hook call and touch nothing until
-/// it returns. Any other second borrow is a bug, and panics.
+/// it returns. A Python callback can do the same, a tool calling `QApplication.processEvents()` in its window setup; its
+/// frames are suspended in the Python call. Any other second borrow is a bug, and panics.
 pub(crate) fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
     HOST.with(|h| match h.try_borrow_mut() {
         Ok(mut b) => {
@@ -108,11 +109,24 @@ pub(crate) fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
             f(host)
         }
         Err(_) => {
-            assert!(scriptui::in_hook(), "the host was entered twice");
+            assert!(scriptui::in_hook() || in_host_callback(), "the host was entered twice");
             let host = unsafe { &mut *LIVE.with(std::cell::Cell::get) };
             lend_session(host, f)
         }
     })
+}
+
+/// Whether this thread is inside Python the host lent its session to. Qt may run a nested event loop there, and the
+/// shell's timers and paint calls then reach the host again.
+fn in_host_callback() -> bool {
+    #[cfg(feature = "python")]
+    {
+        python::in_host_callback()
+    }
+    #[cfg(not(feature = "python"))]
+    {
+        false
+    }
 }
 
 #[cfg(feature = "python")]
@@ -821,4 +835,24 @@ pub extern "C" fn aztek_view_hit(id: i32, x: f64, y: f64) -> *mut c_char {
         let hit = v.vp.raycast(&items, px).map(|(i, _, _)| core.s.graph.path(items[i].xf)).unwrap_or_default();
         out(hit)
     })
+}
+
+#[cfg(all(test, feature = "python"))]
+mod tests {
+    use super::*;
+
+    /// A tool's Python callback can run a nested Qt event loop (`QApplication.processEvents()`, which the Red Kite
+    /// shelves do while building their tabs). The shell's poller and paint calls reach the host from that loop, and must
+    /// find it, as they do from a dialog's hook.
+    #[test]
+    fn the_host_is_lent_to_a_nested_event_loop_in_python() {
+        with(|h| {
+            let core_ptr: *mut core::Core = &mut h.core;
+            let version = h.core.version;
+            python::test_nested(core_ptr, || {
+                with(|h| h.core.version += 1);
+            });
+            assert!(h.core.version > version);
+        });
+    }
 }

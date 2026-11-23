@@ -47,6 +47,21 @@ fn usable() -> bool {
     !IN_COMPUTE.with(Cell::get) && (ENTERED.with(Cell::get) || MAIN.get().is_some_and(|t| *t == std::thread::current().id()))
 }
 
+/// Whether the host lent its session to Python on this thread: a callback, command or node compute. What Python runs
+/// there may start a nested Qt event loop, whose timers and paint calls reach the host again.
+pub(crate) fn in_host_callback() -> bool {
+    !NESTED.with(Cell::get).is_null()
+}
+
+/// Runs `f` as if from a Python callback the host lent `core` to, without starting the interpreter.
+#[cfg(test)]
+pub(crate) fn test_nested<R>(core: *mut Core, f: impl FnOnce() -> R) -> R {
+    let saved = NESTED.with(|n| n.replace(core));
+    let r = f();
+    NESTED.with(|n| n.set(saved));
+    r
+}
+
 fn with_core<R>(f: impl FnOnce(&mut Core) -> R) -> Result<R, String> {
     if !usable() {
         return Err(NO_HOST.to_string());
