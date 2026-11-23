@@ -188,12 +188,16 @@ void Panel::showEvent(QShowEvent*) {
     schedule();
     // A dock tabbed behind another counts as shown with nothing of it on screen, so it waits; bringing its tab to the
     // front shows nothing new, only the dock says so. Tool Settings behind the Outliner stayed empty (#105).
+    // Each panel watches its own dock, and the looks it took while hidden start again from none: a panel shown behind
+    // another at start-up used them all up, and its tab brought to the front later never refreshed it (#253).
     for (QWidget* up = parentWidget(); up; up = up->parentWidget())
         if (auto* dock = qobject_cast<QDockWidget*>(up)) {
-            if (!dock->property("panelWatch").toBool()) {
-                dock->setProperty("panelWatch", true);
+            if (watched_dock_ != dock) {
+                watched_dock_ = dock;
                 connect(dock, &QDockWidget::visibilityChanged, this, [this](bool on) {
-                    if (on) QTimer::singleShot(0, this, [this] { schedule(); });
+                    if (!on) return;
+                    retries_ = 0;
+                    QTimer::singleShot(0, this, [this] { schedule(); });
                 });
             }
             break;

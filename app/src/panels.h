@@ -1,10 +1,12 @@
 // The docked editors: outliner, channel box with the layer editor, attribute editor, script editor.
 #pragma once
 #include <QJsonObject>
+#include <QPointer>
 #include <QSet>
 #include <QWidget>
 #include <functional>
 
+class QDockWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QPlainTextEdit;
@@ -35,6 +37,8 @@ private:
     bool waiting_for_release_ = false;
     // Looks taken since it showed with nothing of it on screen yet.
     int retries_ = 0;
+    // The dock whose tab coming to the front refreshes it.
+    QPointer<QDockWidget> watched_dock_;
 };
 
 class Outliner : public Panel {
