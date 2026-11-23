@@ -1235,6 +1235,8 @@ void MainWindow::build_menus() {
 }
 
 void MainWindow::build_menu_set(const QString& set) {
+    // The reference calls the dynamics menu set FX; scripts still say Dynamics.
+    const QString wanted = set == "Dynamics" ? QString("FX") : set;
     QMenuBar* mb = menuBar();
     mb->clear();
     for (QMenu* m : set_menus_) m->deleteLater();
@@ -1251,13 +1253,13 @@ void MainWindow::build_menu_set(const QString& set) {
         {"Modeling", {mesh_menu(), edit_mesh_menu(), mesh_tools_menu(), mesh_display_menu(), curves_menu(), surfaces_menu(), uv_menu(), deform, generate}},
         {"Rigging", {skeleton_menu(), skin_menu(), deform, constrain, control_menu()}},
         {"Animation", {key_menu(), playback, audio_menu(), visualize_menu(), deform, constrain, cache_menu()}},
-        {"Dynamics", dynamics_menus() + QList<QMenu*>{generate, playback}},
+        {"FX", dynamics_menus() + QList<QMenu*>{generate, playback}},
         {"Rendering", {render_menu(this), harold_menu(this)}},
     };
     set_menus_ = common;
     set_menus_.append(light);
     for (const auto& [name, menus] : sets)
-        if (name == set) set_menus_.append(menus);
+        if (name == wanted) set_menus_.append(menus);
     for (const auto& entry : sets)
         for (auto* menu : entry.second)
             if (!set_menus_.contains(menu) && !hotbox_menus_.contains(menu)) hotbox_menus_.append(menu);
@@ -1763,7 +1765,10 @@ void MainWindow::refresh_state() {
     auto_key_->setChecked(ask("autoKeyframe", QJsonObject{{"query", true}}).toBool());
     auto_key_->blockSignals(false);
     QString mode = st["mode"].toString();
-    if (mode_buttons_.contains(mode)) mode_buttons_[mode]->setChecked(true);
+    if (mode_buttons_.contains(mode)) {
+        const QSignalBlocker block(mode_buttons_[mode]);
+        mode_buttons_[mode]->setChecked(true);
+    }
     history_button_->setChecked(st["history"].toBool());
     sync_status_line();
     update_title();

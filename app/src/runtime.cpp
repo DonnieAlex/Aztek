@@ -123,7 +123,7 @@ void MainWindow::apply_snap() {
     // A held key wins; otherwise the first toggle that's on.
     QString m = snap_held_;
     if (m.isEmpty())
-        for (const char* s : {"point", "curve", "grid", "viewPlane", "live"})
+        for (const char* s : {"point", "curve", "grid", "viewPlane", "meshCenter", "live"})
             if (snap_on_.contains(s)) {
                 m = s;
                 break;
@@ -405,7 +405,7 @@ void MainWindow::build_runtime() {
     r("MenuSetRendering", "Menus", "Rendering menus", [this] { menu_set_->setCurrentText("Rendering"); });
     r("InteractiveGroomEditor", "Windows", "Interactive Groom Editor", [this] { show_named_window("interactiveGroomEditor"); });
     r("InteractiveGroomTool", "Tools", "The Interactive Groom tools, with the tool xjenGroomCtx names", [this] { set_tool("groom"); });
-    r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("Dynamics"); });
+    r("MenuSetDynamics", "Menus", "Dynamics menus", [this] { menu_set_->setCurrentText("FX"); });
     // H as the reference's: a tap shows or hides the selection (Display > Toggle Show/Hide), held with a left click in a
     // view it's the menu sets (#175).
     r("MenuSetHoldPress", "Menus", "H: hold with a left click in a view for the menu sets", [this] {
