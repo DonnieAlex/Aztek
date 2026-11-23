@@ -241,6 +241,7 @@ connectAttr "floorWallShape.iog" "whiteWallSG.dsm" -na;
 connectAttr "greenWall.msg" ":defaultShaderList1.s" -na;
 connectAttr "greenWallSG.pa" ":renderPartition.st" -na;
 connectAttr "lampShape.ltd" ":lightList1.l" -na;
+connectAttr "lamp.iog" ":defaultLightSet.dsm" -na;
 connectAttr "leftWallShape.iog" "redWallSG.dsm" -na;
 connectAttr "redWall.msg" ":defaultShaderList1.s" -na;
 connectAttr "redWallSG.pa" ":renderPartition.st" -na;
