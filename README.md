@@ -100,6 +100,9 @@ filled in with. GitHub takes files up to 25 MB and images up to 10 MB.
 If something is wrong and you can see how to fix it, fix it and send the change. Small fixes are as welcome as large
 ones, and there is nothing to ask first. Three ways. **Click one to unfold it:**
 
+[CONTRIBUTING.md](CONTRIBUTING.md) has the short version, with how to say you are on an issue, what a change carries
+and what happens after you send it.
+
 <details>
 <summary><h3>By hand: build it, change it, send a patch or a pull request</h3></summary>
 
