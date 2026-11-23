@@ -132,13 +132,14 @@ merging its files by hand.
 
 - **CI.** The Build workflow runs by itself on every push to a pull request: a quick compile of the plug-in kit and
   the C++ shell, then `cargo test --workspace`, the full build and the batch tests on Linux, Rocky Linux, ARM, Windows
-  and macOS. Until you have had a pull request merged here, GitHub holds each run from your fork until a maintainer
-  presses Approve and run; that is GitHub's rule for first-time contributors, not a judgement, and it stops after your
-  first merge. Look at the run's log yourself if something fails and push a fix to the same branch; there is no
+  and macOS. GitHub may hold a run from your fork until a maintainer presses Approve and run; that is GitHub's rule,
+  not a judgement. With the repository's default setting it applies only until you have had a pull request merged
+  here; if the setting requires approval for all outside collaborators, every run waits. Look at the run's log yourself if something fails and push a fix to the same branch; there is no
   separate command to watch it.
 - **CI in your own fork**, without waiting for approval: on your fork, open Actions and enable workflows once, then
-  Actions, Build, Run workflow, and pick your branch. It runs the same jobs on your fork's own minutes (free for a
-  public fork), and publishes nothing: the release job only runs on `main`. Link the run in the pull request.
+  Actions, Build, Run workflow, and pick your feature branch, not `main` or a `v*` tag. It runs the same jobs on your
+  fork's own minutes (free for a public fork). On a feature branch it publishes nothing; on your fork's `main` or a
+  version tag the release job runs and makes a release in your fork. Link the run in the pull request.
 - **Draft to ready.** When the fix is complete, the pull request template is filled in and CI is green on your last
   push (in this repository, or in your fork if the run here is still waiting), press Ready for review. Only you do
   that. Maintainers review pull requests that are out of draft; a draft is read as work in progress. If review asks
