@@ -1,3 +1,6 @@
+If you are not a maintainer of srlegrand/Aztek (you have no push access to it), stop here and follow CONTRIBUTING.md:
+work from a fork, send a pull request, and don't push to `main` or close issues. The protocol below is for maintainers.
+
 ## Autonomous GitHub Issue Resolution Protocol
 1. **Discover & Inspect:** Check open issues using `gh issue list --repo srlegrand/Aztek`. Read full descriptions and comments with `gh issue view <issue_id> --comments`.
 2. **Context & Investigation:** Review relevant files in the workspace, run existing tests or build commands, and verify current state before touching code.
