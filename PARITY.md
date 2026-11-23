@@ -3913,6 +3913,15 @@ rotate in Gimbal (where a ring is one channel), scale on an axis handle, one obj
 snapped, as relative does. Move had both already. Not done: absolute rotate snap in Object and World (a ring there
 turns several channels), the Universal Manipulator (Ctrl+T).
 
+### Visible Rotate tool arcs (22/11/2026)
+
+The Rotate tool draws and picks the front of each axis ring. An axis seen straight on still has a full ring.
+The outer ring turns around the view axis and the gray area between the rings turns freely. The reference's
+2026 guide shows a yellow active outer ring and describes the inactive ring as light blue. The 2027 guide
+describes the same controls. The exact trackball gray and hover opacity are PROVISIONAL.
+[2026 guide](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Basics/files/GUID-169906C5-CBC4-45CD-8DFB-F716D51D6168.htm)
+[2027 guide](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-Basics/files/GUID-169906C5-CBC4-45CD-8DFB-F716D51D6168.htm)
+
 ### Bake Pivot's runtime command and Snap Pivot Orientation (16/11/2026)
 
 PLAN 3.6, part. `BakeCustomPivot` (and `bakeCustomToolPivot -pos -ori`, the reference's command name, which runs
