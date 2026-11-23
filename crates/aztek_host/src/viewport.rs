@@ -3477,6 +3477,21 @@ impl Viewport {
         self.units_per_px(pivot) * 100.0 * scale * self.manip_scale
     }
 
+    fn plane_handle_offset(&self) -> f64 {
+        // PROVISIONAL: fractions of the axis length estimated from the reference's illustrations.
+        if self.eff_tool() == Tool::Scale { 0.76 } else { 0.62 }
+    }
+
+    fn plane_handle_visibility(&self, pivot: DVec3) -> [bool; 3] {
+        let to_eye = if self.cam.ortho() { self.cam.dir_to_eye() } else { (self.cam.eye() - pivot).normalize_or_zero() };
+        // Edge-on planes collapse onto a line and can cover an axis handle.
+        std::array::from_fn(|i| {
+            let a = self.frame.col((i + 1) % 3);
+            let b = self.frame.col((i + 2) % 3);
+            a.cross(b).normalize_or_zero().dot(to_eye).abs() > 1e-6
+        })
+    }
+
     fn rotation_arc(&self, axis: DVec3, pivot: DVec3, radius: f64) -> impl Iterator<Item = (DVec3, DVec3)> {
         let axis = axis.normalize_or_zero();
         let toward_eye = if self.cam.ortho() { self.cam.dir_to_eye() } else { (self.cam.eye() - pivot).normalize_or_zero() };
@@ -3625,10 +3640,14 @@ impl Viewport {
                     }
                 }
                 // Plane handles: a small square between each pair of axes, coloured for the axis it locks.
-                for i in 0..3 {
+                let offset = self.plane_handle_offset() as f32;
+                let (l0, l1) = (len * (offset - 0.08), len * (offset + 0.08));
+                for (i, visible) in self.plane_handle_visibility(pivot).into_iter().enumerate() {
+                    if !visible {
+                        continue;
+                    }
                     let (a, b) = (axes[(i + 1) % 3], axes[(i + 2) % 3]);
                     let c = tint(Handle::Plane(i), colors[i]);
-                    let (l0, l1) = (len * 0.22, len * 0.38);
                     let q = [p + a * l0 + b * l0, p + a * l1 + b * l0, p + a * l1 + b * l1, p + a * l0 + b * l1];
                     for j in 0..4 {
                         line(q[j], q[(j + 1) % 4], c);
@@ -3701,9 +3720,13 @@ impl Viewport {
                 return Some(Handle::ViewRing);
             }
         } else {
-            for i in 0..3 {
+            let offset = len * self.plane_handle_offset();
+            for (i, visible) in self.plane_handle_visibility(pivot).into_iter().enumerate() {
+                if !visible {
+                    continue;
+                }
                 let (a, b) = (self.frame.col((i + 1) % 3), self.frame.col((i + 2) % 3));
-                let mid = pivot + (a + b) * len * 0.3;
+                let mid = pivot + (a + b) * offset;
                 if let Some(q) = screen.project(mid) {
                     if (px - q).length() < 9.0 * scale {
                         return Some(Handle::Plane(i));
