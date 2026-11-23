@@ -41,8 +41,8 @@ fn the_freeze_survives_save_and_open() {
     let mut d = Core::new();
     d.mel_checked(&format!("file -f -open \"{path}\";")).unwrap();
     assert_eq!(d.mel_checked("pointPosition -w a.vtx[2];").unwrap(), before);
-    // History is saved as the geometry it makes, as for every mesh.
-    assert!(!d.mel_checked("listHistory a;").unwrap().to_string().contains("transformGeometry"));
+    // The freeze is saved as the history it is, as the reference keeps it (#209).
+    assert!(d.mel_checked("listHistory a;").unwrap().to_string().contains("transformGeometry"));
     std::fs::remove_file(path).ok();
 }
 

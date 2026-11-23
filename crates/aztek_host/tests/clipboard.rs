@@ -43,7 +43,7 @@ fn import_into_a_namespace() {
     std::fs::create_dir_all(&tmp).unwrap();
     let f = tmp.join("box.ma").to_string_lossy().replace('\\', "/");
     let mut c = Core::new();
-    mel(&mut c, &format!("polyCube -n box; select box; file -force -exportSelected -type \"mayaAscii\" \"{f}\";"));
+    mel(&mut c, &format!("polyCube -n box; delete -ch box; select box; file -force -exportSelected -type \"mayaAscii\" \"{f}\";"));
     assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -returnNewNodes \"{f}\";")), json!(["lib:box", "lib:boxShape"]));
     assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -returnNewNodes \"{f}\";")), json!(["lib1:box", "lib1:boxShape"]));
     assert_eq!(mel(&mut c, &format!("file -import -namespace \"lib\" -mergeNamespacesOnClash true -returnNewNodes \"{f}\";")), json!(["lib:box1", "lib:box1|lib:boxShape"]));

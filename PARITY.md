@@ -1353,6 +1353,27 @@ the window hides, a count shows in the corner of the screen, and the screenshot 
 count, so a drag, a menu or a tool's feedback in the views can be caught. Take Another adds the picture after the
 others (docs/issues/126-screenshot-delay.png).
 
+### Mesh history in scene files (23/11/2026, #209)
+
+A mesh's construction history now goes through `.ma` and `.mb` as the reference keeps it, in place of being baked into
+the shape. Written, the creator (`polyCube` and the other primitives), every edit (`polyBevel3`, `polyExtrudeFace`, the
+UV projections and every other edit with a history node here), `polyTweak` and `transformGeometry` go out as nodes,
+connected `.out` to `.ip` down to the shape's `.i`; the shape holds no geometry of its own. Settings use the
+reference's short names (filled in from the command reference where the node here had none), the components as a
+`componentList` in `.ics`, the world matrix of a world-space edit as `.ix` with the shape's `.wm` into `.mp`, and a cut's
+points as `.e`/`.d`. The few settings a node has here and not in the reference go as hidden added attributes, which the
+reference keeps without using. Under deformers the history feeds the Orig shape. Keys on a setting go with it.
+
+Read, every node of a mesh's chain that has a node type here is made as that node and connected in order, before and
+after deformers, so a bevelled cube from the reference opens bevelled and live (it opened as a plain cube). Chains
+with a node there is no type for read as before, from stored geometry, with a warning.
+
+Component lists name components as the mesh numbers them at that step, so history is written only where reading it
+back numbers them the same: from a creator, or from a stored mesh with no gaps in its numbering (and, under deformers,
+no gaps in the original's points). Otherwise it is baked with a warning saying why. Thirty-six kinds of edit are
+checked to read back to the same mesh (`tests/history_files.rs`). Matching the reference's own numbering after each
+edit, so that its files' component lists pick the same components here, is each edit's parity, not the file's.
+
 ### Report window attachments laid out (23/11/2026, #225)
 
 The report window's attachments are always on show, one box each for Pictures, Video and Scene, in place of tick boxes

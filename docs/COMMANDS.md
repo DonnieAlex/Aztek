@@ -7104,7 +7104,7 @@ Arguments: the file
 | `prompt` | `pmt` | Accepted for existing scripts. |
 | `ignoreVersion` | `iv` | Accepted for existing scripts. |
 | `preserveReferences` | `pr` | Accepted for existing scripts. |
-| `constructionHistory` | `ch` | Accepted for existing scripts; history is baked in .ma. |
+| `constructionHistory` | `ch` | Accepted for existing scripts; a mesh's history is written with it. |
 | `channels` | `chn` | Accepted for existing scripts. |
 | `constraints` | `con` | Accepted for existing scripts. |
 | `expressions` | `exp` | Accepted for existing scripts. |

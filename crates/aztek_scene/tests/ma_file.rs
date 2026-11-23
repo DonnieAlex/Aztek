@@ -650,6 +650,8 @@ fn scene(s: &mut Session) {
 fn the_writer_writes_what_the_reference_expects() {
     let mut s = Session::new();
     run(&mut s, "polyCube", json!({"name": "box"}));
+    // A mesh with no history holds its geometry; one with history is written as its history (history_files.rs).
+    run(&mut s, "delete", json!({"args": ["box"], "constructionHistory": true}));
     run(&mut s, "setAttr", json!({"args": ["box.t", 1.0, 2.0, 3.0]}));
     run(&mut s, "setKeyframe", json!({"args": ["box.tx"], "time": 1, "value": 0.0}));
     run(&mut s, "setKeyframe", json!({"args": ["box.tx"], "time": 12, "value": 3.0}));
@@ -680,7 +682,7 @@ fn the_writer_writes_what_the_reference_expects() {
     ] {
         assert!(t.contains(want), "missing {want}\n{t}");
     }
-    assert!(!t.contains("polyCube"), "history is baked:\n{t}");
+    assert!(!t.contains("polyCube"), "no history:\n{t}");
     assert!(t.find("createNode transform -n \"box\"").unwrap() < t.find("createNode mesh").unwrap());
     // Same scene, same text.
     let (again, _) = write_text(&mut s, "/tmp/foo.ma", None);
@@ -1260,6 +1262,7 @@ fn statements_span_lines_and_strings_join() {
 fn big_meshes_chunk_like_the_reference_and_read_back() {
     let mut a = Session::new();
     run(&mut a, "polyPlane", json!({"name": "grid", "subdivisionsX": 40, "subdivisionsZ": 40}));
+    run(&mut a, "delete", json!({"args": ["grid"], "constructionHistory": true}));
     let (text, _) = write_text(&mut a, "x.ma", None);
     assert!(text.contains("\".vt[0:165]\""), "chunks");
     assert!(text.contains("\".vt[166:331]\""), "chunks");

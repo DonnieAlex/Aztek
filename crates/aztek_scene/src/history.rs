@@ -387,6 +387,19 @@ fn attr_for(f: &aztek_ops::FlagDef) -> Option<AttrDef> {
     Some(a)
 }
 
+/// The reference's flags for an op's node: its command's under the node's own name (polyBridgeEdge) and under the name
+/// of the command here, when that differs (polyBridge).
+pub fn reference_flags(op: &HistoryOp) -> impl Iterator<Item = &'static crate::mesh_edit::ref_poly::flag_table::Row> {
+    let table = crate::mesh_edit::ref_poly::flag_table::table;
+    let other: &'static [crate::mesh_edit::ref_poly::flag_table::Row] = if op.command == op.node_type { &[] } else { table(op.command) };
+    table(op.node_type).iter().chain(other.iter())
+}
+
+/// The reference's short name for an attribute of an op's node, where its flags give one.
+pub fn reference_short(op: &HistoryOp, long: &str) -> Option<&'static str> {
+    reference_flags(op).find(|r| r.0 == long).map(|r| r.1).filter(|s| !s.is_empty())
+}
+
 /// Registers an op; its node type is made by register_types once its command exists.
 pub fn register_op(op: HistoryOp) {
     OPS.write().unwrap().insert(op.node_type.to_string(), Arc::new(op));
@@ -457,12 +470,20 @@ pub fn register_types(c: &Commands<Session>) {
             log::warn!("history op {}: no command {}", op.node_type, op.command);
             continue;
         };
-        let own: Vec<AttrDef> = cmd
+        let mut own: Vec<AttrDef> = cmd
             .flags
             .iter()
             .filter(|f| !op.skip_flags.contains(&f.name.as_str()) && !NOT_ATTRS.contains(&f.name.as_str()) && !is_vector_part(&cmd.flags, f))
             .filter_map(attr_for)
             .collect();
+        // The reference's short names where the command here has none: files name attributes by them (.dv).
+        let mut taken: Vec<String> = base.attrs.iter().chain(own.iter()).flat_map(|a| [a.name.clone(), a.short_name.clone()]).filter(|n| !n.is_empty()).collect();
+        for a in own.iter_mut().filter(|a| a.short_name.is_empty()) {
+            if let Some(short) = reference_short(op, &a.name).filter(|s| !taken.iter().any(|t| t == s)) {
+                taken.push(short.to_string());
+                a.short_name = short.to_string();
+            }
+        }
         let op2 = op.clone();
         let t = NodeType {
             name: op.node_type.into(),

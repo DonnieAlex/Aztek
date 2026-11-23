@@ -4,8 +4,10 @@
 //! no graph involved; then what Aztek can represent is built from that list, and the rest is reported by node type.
 //! Files are read tolerantly: unknown commands and attributes are skipped, unknown node types become a warning.
 //!
-//! Writing bakes every mesh to stored geometry (.vt .ed .fc), since Aztek's history nodes are not all the reference's. A deformed
-//! mesh gets an intermediate Orig shape holding what its deformers read, as the reference does (see `deformers`). Aztek's internal nodes (ikSolve, its
+//! A mesh with construction history is read and written as its history, the creator and every edit as the reference's
+//! nodes (see `history_io`); one with none, or with history that can't go in a file, as stored geometry (.vt .ed .fc). A
+//! deformed mesh gets an intermediate Orig shape holding, or fed by the history making, what its deformers read, as the
+//! reference does (see `deformers`). Aztek's internal nodes (ikSolve, its
 //! matrix-fed constraints) are written as the nodes the reference expects: ikEffector and a solver, constraints with their
 //! target compounds.
 //!
@@ -20,6 +22,7 @@ mod lights;
 mod shading;
 mod nurbs;
 mod characters;
+mod history_io;
 
 use aztek_ops::units;
 use std::cell::Cell;
@@ -1828,7 +1831,7 @@ fn walk_chain(doc: &Doc, shape: usize, stored: &HashMap<usize, MaMesh>) -> Chain
                     c.pre_edits.insert(0, next)
                 }
             }
-            t if creator_attrs(t).is_some() => {
+            t if history_io::creator_type(t) => {
                 c.creator = Some(next);
                 break;
             }
@@ -2055,7 +2058,9 @@ impl Build<'_> {
             }
             // A default node of Aztek's may have it already (defaultRenderGlobals.defaultSurfaceShader).
             // A nonLinear has its kind's settings already, as the reference's addAttr lines give them.
-            if (crate::defaults::is_scene_node(&n.name) || n.ty == "nonLinear") && self.s.graph.node(id).is_some_and(|x| x.ty().attr_index(&a.long).is_some()) {
+            // A history node or creator has its own settings already: written as added attributes so the reference keeps them.
+            let own_settings = history_io::history_type(&n.ty).is_some() || history_io::creator_type(&n.ty);
+            if (crate::defaults::is_scene_node(&n.name) || n.ty == "nonLinear" || own_settings) && self.s.graph.node(id).is_some_and(|x| x.ty().attr_index(&a.long).is_some()) {
                 continue;
             }
             let Some(def) = user_attr_def(a) else {
@@ -2269,6 +2274,7 @@ impl Build<'_> {
         self.ids[i] = Some(id);
         self.used[i] = true;
         self.apply_channels(i);
+        self.history_settings(i, id, &t);
         if let Some(ax) = n.vec3(&["ax", "axis"]) {
             let k = (0..3).max_by(|&a, &b| ax[a].abs().total_cmp(&ax[b].abs())).unwrap();
             let index = if ax[k] < 0.0 { k + 3 } else { k } as i64;
@@ -2416,6 +2422,11 @@ impl Build<'_> {
         let Some(shape) = self.id(i) else { return };
         let doc = self.doc;
         let n = &doc.nodes[i];
+        // History the file keeps is made as history, every step of it (#209).
+        if let Some(o) = history_io::walk_ordered(doc, i, &self.meshes) {
+            self.build_ordered(i, shape, o);
+            return;
+        }
         let chain = walk_chain(doc, i, &self.meshes);
         let own = self.meshes.get(&i).is_some_and(MaMesh::has_geometry);
         let in_mesh = PlugRef::new(shape, MeshNode::IN_MESH as i32);
@@ -3147,6 +3158,27 @@ impl Build<'_> {
             }
             let plain_dst = plain_attr(&c.dst_attr);
             let is_curve = st.attr_index("keys").is_some() && st.attr_index("output").is_some();
+            // Into a setting of a history node or creator, by the reference's names; the mesh and the world matrix
+            // went in with the chain.
+            if history_io::history_type(&dt.name).is_some() || history_io::creator_type(&dt.name) {
+                if matches!(plain_dst.as_str(), "ip" | "inputPolymesh" | "mp" | "manipMatrix" | "ix" | "inputMatrix") {
+                    continue;
+                }
+                let to = history_io::setting_index(&dt, &plain_dst).map(|a| match first_index(&c.dst_attr) {
+                    Some(e) if dt.attrs[a].is_array() => PlugRef::element(dst, a as i32, e as i32),
+                    _ => PlugRef::new(dst, a as i32),
+                });
+                let from = if is_curve { st.attr_index("output").map(|o| PlugRef::new(src, o as i32)) } else { self.s.graph.plug(&format!("{}.{sa}", self.s.graph.path(src))).ok() };
+                match (from, to) {
+                    (Some(a), Some(b)) => {
+                        if let Err(e) = self.s.graph.connect(&a, &b, false) {
+                            self.warnings.push(format!("{}.{} -> {}.{}: {e}", doc.nodes[sn].name, sa, doc.nodes[c.dst].name, c.dst_attr));
+                        }
+                    }
+                    _ => self.note_drop(&dt.name, &plain_dst, "connection to"),
+                }
+                continue;
+            }
             // Into a driven curve, from a channel.
             let dst_plug = if DRIVEN_CURVES.contains(&dt.name.as_str()) {
                 if !matches!(plain_dst.as_str(), "i" | "input") {
@@ -3269,6 +3301,7 @@ impl Build<'_> {
                 let plain = plain_attr(&c.dst_attr);
                 match self.id(c.dst) {
                     Some(_) if is_plain_node(&d.ty) || deformers::is_file_deformer(&d.ty) => true,
+                    Some(id) if history_io::history_type(&d.ty).is_some() || history_io::creator_type(&d.ty) => history_io::setting_index(self.s.graph.node(id).unwrap().ty(), &plain).is_some(),
                     Some(id) => channel(self.s.graph.node(id).unwrap().ty(), &plain).is_some(),
                     None => d.ty == "unitConversion" || d.ty == "ikHandle" || d.ty.starts_with("deform") || rig::CONSTRAINT_TYPES.contains(&d.ty.as_str()),
                 }
@@ -4278,6 +4311,8 @@ fn vec_text(v: DVec3) -> String {
 struct Writer<'a> {
     /// Deformers written with their mesh.
     chain_written: HashSet<NodeId>,
+    /// Creators, edits and intermediate meshes written as a mesh's history: their mesh connections are written with them.
+    history_written: HashSet<NodeId>,
     s: &'a mut Session,
     out: String,
     /// Connections, sorted when written.
@@ -4691,6 +4726,25 @@ impl Writer<'_> {
                 let base = self.s.graph.value(&PlugRef::new(first, ip as i32)).ok().and_then(|v| v.as_mesh().cloned());
                 let Some(base) = base else { return };
                 let stored = stored_mesh(&base);
+                // The history before the deformers feeds the original, as the reference has it, when it reads back
+                // numbered as it is here: the deformers' points are the original's.
+                let into = PlugRef::new(first, ip as i32);
+                let start = match self.s.graph.source(&into) {
+                    Some(s) if self.s.graph.node(s.node).is_some_and(|n| n.ty().is_a("mesh") && n.bool(DagNode::INTERMEDIATE_OBJECT)) => PlugRef::new(s.node, MeshNode::IN_MESH as i32),
+                    _ => into,
+                };
+                let history = match self.history_chain(start) {
+                    Ok(Some(h)) if base.num_points() == base.point_capacity() => Some(h),
+                    Ok(Some(_)) => {
+                        self.warnings.push(format!("{path}: history baked into its original: its points are numbered with gaps, which the deformers' weights would not survive"));
+                        None
+                    }
+                    Ok(None) => None,
+                    Err(why) => {
+                        self.warnings.push(format!("{path}: history baked into its original: {why}"));
+                        None
+                    }
+                };
                 // The scene's own original isn't written as itself: this one takes its place and its name.
                 let wanted = format!("{name}Orig");
                 if self.s.graph.find(&wanted).ok().flatten().is_some_and(|o| self.s.graph.node(o).is_some_and(|x| x.bool(DagNode::INTERMEDIATE_OBJECT))) {
@@ -4700,10 +4754,29 @@ impl Writer<'_> {
                 self.create_line("mesh", &orig, parent);
                 let _ = writeln!(self.out, "\tsetAttr -k off \".v\";");
                 let _ = writeln!(self.out, "\tsetAttr \".io\" yes;");
-                write_stored(&mut self.out, &stored);
+                match history {
+                    Some(h) => {
+                        // The original's own tags, which the deformers' sets may name.
+                        if let Some(m) = self.s.graph.source(&into).map(|s| s.node).filter(|&m| self.s.graph.node(m).is_some_and(|n| n.ty().is_a("mesh"))) {
+                            self.node_tag_lines(m);
+                        }
+                        self.write_history(&h, &path, parent, &format!("{orig}.i"));
+                    }
+                    None => write_stored(&mut self.out, &stored),
+                }
                 self.write_chain(&chain, &path, &orig, &stored);
             }
             None => {
+                // A mesh with history is written as its history, the shape holding no geometry of its own (#209).
+                match self.history_chain(PlugRef::new(shape, MeshNode::IN_MESH as i32)) {
+                    Ok(Some(h)) => {
+                        self.node_tag_lines(shape);
+                        self.write_history(&h, &path, parent, &format!("{path}.i"));
+                        return;
+                    }
+                    Ok(None) => {}
+                    Err(why) => self.warnings.push(format!("{path}: history baked: {why}")),
+                }
                 let m = self.s.graph.value(&out_plug).ok().and_then(|v| v.as_mesh().cloned());
                 if let Some(m) = m {
                     write_stored(&mut self.out, &stored_mesh(&m));
@@ -5403,6 +5476,10 @@ impl Writer<'_> {
                 }
                 continue;
             }
+            if self.history_written.contains(&dst.node) || self.history_written.contains(&src.node) {
+                self.history_connection(src, dst);
+                continue;
+            }
             if !self.keep.contains(&dst.node) || !self.keep.contains(&src.node) {
                 continue;
             }
@@ -5700,7 +5777,7 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
     });
     let used: HashSet<String> = g.nodes().iter().filter_map(|&id| g.node(id).map(|n| n.name().to_string())).collect();
     let roots = g.roots().to_vec();
-    let mut w = Writer { s, out: String::new(), conns: Vec::new(), shading: Vec::new(), warnings: Vec::new(), used, keep, pending: Vec::new(), solvers: HashSet::new(), chain_written: HashSet::new(), needs_links: Vec::new(), links_text: String::new(), char_driven: HashMap::new(), char_channels: HashMap::new() };
+    let mut w = Writer { s, out: String::new(), conns: Vec::new(), shading: Vec::new(), warnings: Vec::new(), used, keep, pending: Vec::new(), solvers: HashSet::new(), chain_written: HashSet::new(), history_written: HashSet::new(), needs_links: Vec::new(), links_text: String::new(), char_driven: HashMap::new(), char_channels: HashMap::new() };
     w.plan_characters();
 
     let fps = anim::fps();
@@ -5800,7 +5877,7 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
             let to_ik_joint = |d: &PlugRef| crate::ik::joint_plug_for_fk(&w.s.graph, d).is_some_and(|j| w.keep.contains(&j.node));
             let drives = w.s.graph.destinations(&output).iter().any(|d| w.char_channels.contains_key(&d.node) || to_ik_joint(d)) || w.s.graph.destinations(&output).iter().any(|d| {
                 let dt = w.s.graph.node(d.node).unwrap().ty().name.as_str();
-                w.s.graph.node(d.node).unwrap().reference_id() != 0 || (w.keep.contains(&d.node) && (rig::CONSTRAINT_TYPES.contains(&dt) || w.dag_written(d.node) || DRIVEN_CURVES.contains(&dt) || is_plain_node(dt) || crate::deform::is_deformer(dt)))
+                w.s.graph.node(d.node).unwrap().reference_id() != 0 || w.history_written.contains(&d.node) || (w.keep.contains(&d.node) && (rig::CONSTRAINT_TYPES.contains(&dt) || w.dag_written(d.node) || DRIVEN_CURVES.contains(&dt) || is_plain_node(dt) || crate::deform::is_deformer(dt)))
             });
             if drives || ANIM_EXPORT.with(Cell::get) || crate::references::held_by_unloaded(w.s, n.name()) {
                 w.write_curve(id);
@@ -6753,7 +6830,7 @@ pub fn register(c: &mut Commands<Session>) {
         .flag(b("prompt", "pmt", "Accepted for existing scripts."))
         .flag(b("ignoreVersion", "iv", "Accepted for existing scripts."))
         .flag(b("preserveReferences", "pr", "Accepted for existing scripts."))
-        .flag(b("constructionHistory", "ch", "Accepted for existing scripts; history is baked in .ma."))
+        .flag(b("constructionHistory", "ch", "Accepted for existing scripts; a mesh's history is written with it."))
         .flag(b("channels", "chn", "Accepted for existing scripts."))
         .flag(b("constraints", "con", "Accepted for existing scripts."))
         .flag(b("expressions", "exp", "Accepted for existing scripts."))
