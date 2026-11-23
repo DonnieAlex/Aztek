@@ -166,12 +166,11 @@ pub fn gpu_light(l: &SceneLight, view: &DMat4) -> GpuLight {
             let (u, v) = (vw.x_axis.truncate(), vw.y_axis.truncate());
             out.a = f4(u, 0.0);
             out.b = f4(v, 0.0);
-            if l.by_area {
-                let k = (u.length() * v.length()) as f32;
-                for x in &mut out.color[..3] {
-                    *x *= k;
-                }
-            }
+            // u and v are half its sides. x: what its radiance takes of the colour, spread over the area when the light
+            // is normalised, as Harold's. y: the nearest-point light's scale when it isn't normalised.
+            let area = 4.0 * u.cross(v).length() as f32;
+            out.params[0] = if l.by_area { 1.0 } else { 1.0 / area.max(1e-6) };
+            out.params[1] = if l.by_area { (u.length() * v.length()) as f32 } else { 1.0 };
         }
         Kind::Volume => {
             let to_unit = vw.inverse().transpose();
@@ -319,10 +318,9 @@ fn cube_faces(eye: DVec3, near: f64, far: f64) -> [DMat4; 6] {
         (DVec3::Z, -DVec3::Y),
         (-DVec3::Z, -DVec3::Y),
     ];
-    // Orthographic faces: their depth is linear in the distance along the face's axis, which is what the shader
-    // compares, and a point light's shadows read well enough from six such boxes.
-    let r = far;
-    let proj = DMat4::orthographic_rh(-r, r, -r, r, near, far);
+    // Each face sees a quarter turn from the light, as it does: the shader turns the depth back into the distance along
+    // the face's axis to compare.
+    let proj = DMat4::perspective_rh(std::f64::consts::FRAC_PI_2, 1.0, near, far);
     let mut out = [DMat4::IDENTITY; 6];
     for (i, (f, up)) in faces.iter().enumerate() {
         out[i] = proj * DMat4::look_to_rh(eye, *f, *up);

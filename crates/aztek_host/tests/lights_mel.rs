@@ -120,8 +120,18 @@ fn what_the_shader_is_given() {
     assert_eq!(&g.a[..3], &[3.0, 0.0, 0.0]);
     assert_eq!(&g.b[..3], &[0.0, 2.0, 0.0]);
     assert_eq!(g.color[0], 2.0);
+    assert_eq!(g.params[1], 1.0);
+    // Normalised, its radiance is spread over the area (twice each half side): 1 / 24.
+    assert!((g.params[0] - 1.0 / 24.0).abs() < 1e-6);
     mel(&mut c, "setAttr rShape.normalize 0;");
-    assert_eq!(gpu_light(&light(&mut c, "r"), &view).color[0], 12.0);
+    let g = gpu_light(&light(&mut c, "r"), &view);
+    assert_eq!(g.color[0], 2.0);
+    assert_eq!(g.params[1], 6.0, "the nearest-point light scales by the half sides");
+    assert_eq!(g.params[0], 1.0);
+
+    // Arnold's area light falls off with the square of distance, as Harold lights it.
+    mel(&mut c, "createNode transform -n q; createNode aiAreaLight -n qShape -p q;");
+    assert_eq!(gpu_light(&light(&mut c, "q"), &view).dir[3], 2.0);
 
     // A volume light's rows take view space to its unit shape, through the camera too.
     mel(&mut c, "shadingNode -asLight volumeLight -n v; move 10 0 0 v; setAttr v.scaleX 2;");
