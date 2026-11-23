@@ -12,6 +12,8 @@
 #include <cstring>
 #include <QIcon>
 #include <QSplashScreen>
+#include <QElapsedTimer>
+#include <QWindow>
 #include "widgets.h"
 #include <QCommandLineParser>
 #include <QFile>
@@ -140,6 +142,11 @@ int main(int argc, char** argv) {
     if (!args.isSet(shot)) {
         splash = new QSplashScreen(az::splash_pixmap());
         splash->show();
+        // Drawn before the core starts and holds the event loop: a splash mapped but not yet painted showed what was
+        // behind it on the screen (#225).
+        QElapsedTimer exposed;
+        exposed.start();
+        while (!(splash->windowHandle() && splash->windowHandle()->isExposed()) && exposed.elapsed() < 1000) app.processEvents(QEventLoop::AllEvents, 20);
         splash->showMessage("Starting the core...", Qt::AlignBottom | Qt::AlignRight, QColor(150, 150, 150));
         app.processEvents();
     }
@@ -153,7 +160,11 @@ int main(int argc, char** argv) {
     w.show();
     if (splash) {
         splash->finish(&w);
-        splash->deleteLater();
+        delete splash;
+        splash = nullptr;
+        // The window drawn again where the splash was, before the start-up scripts hold the event loop (#225).
+        w.repaint();
+        app.processEvents();
     }
     // The plug-ins marked to load at start and the user folder's userSetup scripts, with the window there for the
     // menus and shelves they add.
