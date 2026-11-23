@@ -9,8 +9,10 @@
 #include "host.h"
 #include "icons.h"
 #include "panels.h"
+#include "widgets.h"
 
 #include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -327,12 +329,13 @@ void MainWindow::show_welcome(bool at_startup) {
                                          "<br><span style='font-size:12pt'>%2 What shall we make today?</span>")
                                      .arg(QString(AZTEK_VERSION).toHtmlEscaped(), hello),
                                  d);
-        top->addWidget(title, 1);
-        // Top right: thanks to the people reporting issues, their GitHub names going by (#148).
+        top->addWidget(title);
+        top->addSpacing(24);
+        // Top right: thanks to the people reporting issues, their GitHub names going by (#148). It takes all the width
+        // the title leaves, so more names show at once.
         auto* thanks = new QLabel("<b>Thanks to:</b>", d);
         auto* names = new Ticker(d);
         names->setMinimumWidth(300);
-        names->setMaximumWidth(420);
         auto show = [thanks, names](const QStringList& list) {
             thanks->setVisible(!list.isEmpty());
             names->setVisible(!list.isEmpty());
@@ -347,10 +350,10 @@ void MainWindow::show_welcome(bool at_startup) {
         auto* thanks_col = new QVBoxLayout();
         auto* thanks_row = new QHBoxLayout();
         thanks_row->addWidget(thanks);
-        thanks_row->addWidget(names);
+        thanks_row->addWidget(names, 1);
         thanks_col->addLayout(thanks_row);
         thanks_col->addStretch(1);
-        top->addLayout(thanks_col);
+        top->addLayout(thanks_col, 1);
         outer->addLayout(top);
     }
 
@@ -587,7 +590,6 @@ void MainWindow::show_welcome(bool at_startup) {
     right->addWidget(link_button("Discussions", "https://github.com/srlegrand/Aztek/discussions", d, "chat", QColor(150, 170, 190)));
     right->addWidget(link_button("Discord", "https://discord.gg/XDEgpWDVKa", d, "chat", QColor(120, 130, 230)));
     right->addWidget(link_button("Report an issue", "https://github.com/srlegrand/Aztek/issues/new/choose", d, "bug", QColor(220, 90, 80)));
-    right->addWidget(link_button("Support on Ko-fi", "https://ko-fi.com/turtleface", d, "heart", QColor(240, 110, 140)));
     // The greyhound, under the links.
     {
         auto* dog = new QLabel(d);
@@ -653,6 +655,36 @@ void MainWindow::show_welcome(bool at_startup) {
 
     d->show();
     d->raise();
+}
+
+// Help > Thanks: the names the welcome screen's ticker goes through, each a link to its GitHub page. The last list kept
+// shows at once; the fresh one replaces it when it comes.
+void show_thanks(QWidget* parent) {
+    auto* d = new QDialog(parent);
+    d->setAttribute(Qt::WA_DeleteOnClose);
+    d->setWindowTitle("Thanks");
+    auto* v = new QVBoxLayout(d);
+    auto* names = new QTextBrowser(d);
+    names->setOpenExternalLinks(true);
+    v->addWidget(names, 1);
+    auto fill = [names](const QStringList& list) {
+        QStringList links;
+        for (const QString& n : list)
+            links << QString("<a href=\"https://github.com/%1\" style=\"color:#7fb4d6\">%1</a>").arg(n.toHtmlEscaped());
+        names->setHtml(QString("<p>Thanks to everyone on GitHub who has helped make Aztek:</p><p style=\"line-height:150%\">%1</p>")
+                           .arg(links.isEmpty() ? QString("<i>Fetching the names from GitHub...</i>") : links.join("&nbsp;&nbsp;\u00b7&nbsp;&nbsp; ")));
+    };
+    fill(QSettings().value("welcome/thanks").toStringList());
+    fetch_reporters(d, [fill](const QStringList& list) {
+        if (list.isEmpty()) return;
+        QSettings().setValue("welcome/thanks", list);
+        fill(list);
+    });
+    auto* ok = new QDialogButtonBox(QDialogButtonBox::Ok, d);
+    QObject::connect(ok, &QDialogButtonBox::accepted, d, &QDialog::accept);
+    v->addWidget(ok);
+    d->resize(560, 420);
+    d->show();
 }
 
 } // namespace az

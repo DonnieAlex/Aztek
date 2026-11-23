@@ -20,11 +20,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  # Built and deployed in two jobs, as GitHub lays it out: deploy-pages looking for the artifact in the job that has just
+  # uploaded it found none, or two, and failed the deploys of 23/11/2026.
+  build:
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       # announcements.json: the latest posts of the Announcements discussion category, [{title, url, date}], for the
@@ -51,5 +50,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4

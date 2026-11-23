@@ -7,7 +7,6 @@
   <a href="#fix-it-yourself"><img src="https://img.shields.io/badge/Fix%20it%20yourself-white?style=for-the-badge" alt="Fix it yourself"></a>
   <a href="https://srlegrand.github.io/Aztek/"><img src="https://img.shields.io/badge/Website-white?style=for-the-badge" alt="Website"></a>
   <a href="https://discord.gg/XDEgpWDVKa"><img src="https://img.shields.io/badge/Join%20the%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join the Discord"></a>
-  <a href="https://ko-fi.com/turtleface"><img src="https://img.shields.io/badge/Support%20on%20Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 ## Build Linux
@@ -681,7 +680,8 @@ In the channel box, click channel names to pick them (Ctrl and Shift add); middl
 - Welcome screen at start-up (Help > Welcome Screen): a new or recent scene, the examples, links, every change of the day
   in its commit's words and the newest announcements when update checks are on, a parity bar along the foot (the parity ledger's
   overall figure, over the reference's commands, flags and global MEL procedures so far, `aztekParity -q`: 41.7% on
-  21/11/2026), and a greyhound under the links.
+  21/11/2026), and a greyhound under the links. Help > Thanks lists the GitHub names the welcome screen thanks, each a
+  link to its page.
 
   ![Welcome screen](docs/welcome-screen.png)
 - Modeling Toolkit (Windows > Modeling Editors), docked beside the Attribute Editor: selection types (Ctrl converts,
@@ -729,10 +729,6 @@ read and rendered with Harold, with a warning naming what isn't honoured.
 ## Discord
 
 Questions, show and tell, and talk about where Aztek goes next: [join the Discord](https://discord.gg/XDEgpWDVKa).
-
-## Support
-
-Aztek is free and stays free. If it helps your work and you'd like to chip in, there's a [Ko-fi page](https://ko-fi.com/turtleface).
 
 ## Licence
 
