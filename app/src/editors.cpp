@@ -1301,7 +1301,7 @@ void InViewEditor::update_values() {
     if (!isVisible()) return;
     QJsonObject info = query("nodeManip").toObject();
     if (info["node"].toString() != shown_node_) {
-        if (!shown_node_.isEmpty() && !info["fields"].toArray().isEmpty()) show_fields();
+        if (!shown_node_.isEmpty()) show_last();
         return;
     }
     for (const QJsonValue& fv : info["fields"].toArray()) {

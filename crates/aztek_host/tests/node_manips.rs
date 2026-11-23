@@ -174,6 +174,19 @@ fn t_finds_the_newest_node_with_handles_and_a_new_selection_forgets_the_asked_on
 }
 
 #[test]
+fn deleted_history_manipulator_does_not_follow_a_reused_name() {
+    let mut c = Core::new();
+    c.mel_checked("polyCube; select pCube1.f[1]; polyExtrudeFacet; select pCube1;").unwrap();
+    node_manip::show_node(&mut c, "polyExtrudeFace1");
+    assert_eq!(node_manip::fields_json(&mut c)["node"], "polyExtrudeFace1");
+
+    c.mel_checked("DeleteHistory pCube1; polyCube -n other; select other.f[1]; polyExtrudeFacet; select pCube1;").unwrap();
+    let info = node_manip::fields_json(&mut c);
+    assert_eq!(info["node"], "pCube1");
+    assert_eq!(info["fields"], json!([]));
+}
+
+#[test]
 fn primitives_have_size_handles() {
     let mut c = Core::new();
     let vp = view();

@@ -1828,6 +1828,12 @@ Hotbox Controls can hide each task row. The surrounding viewport keeps its origi
 A quadrant marking menu leaves the Hotbox visible while Space is held. Releasing Space dismisses both.
 The 2026 help illustration sets the layout. Exact spacing, zone boundaries and the full Hotbox Style menu
 remain PROVISIONAL.
+### Deleted history no longer brings back old tool settings (22/11/2026, #205)
+
+The Show Manipulator tool tracks the history node it was asked to edit. Deleting that node drops its handles,
+even if a later edit reuses its name. The In-View Editor refreshes or closes when that target goes away.
+The [2026 Extrude help](https://help.autodesk.com/cloudhelp/2026/ENU/Maya-Modeling/files/GUID-20202ED3-5EC7-420E-860E-EC29D101A7A8.htm)
+ties the tool and editor to construction history. Exact timing after Delete History is PROVISIONAL.
 
 ### The hotbox's Aztek box: Perspective at the top, Top View on the left (20/11/2026, #192)
 
