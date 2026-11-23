@@ -1,5 +1,6 @@
-// The report window: text, optional screenshot with drawing on top, optional zipped copy of the scene. Everything goes
-// through the person's browser: see feedback.h. The screenshot stays in memory until they press Open on GitHub.
+// The report window: text, and optional pictures (screenshots or the person's own images, drawn on), a video (recorded
+// here or their own) and a zipped copy of the scene. Everything goes through the person's browser: see feedback.h. The
+// pictures stay in memory until they press Open on GitHub.
 #include "feedback.h"
 
 #include "aztek.h"
@@ -18,6 +19,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
 #include <QMimeData>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -41,10 +43,12 @@
 #include <QPointer>
 #include <QProcess>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QScreen>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QStyle>
 #include <QSysInfo>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -352,6 +356,8 @@ public:
         emit changed();
     }
     int count() const { return int(pictures.size()); }
+    // No picture at all: the one slot there always is holds nothing.
+    bool empty() const { return count() == 1 && base.isNull(); }
     void select(int i) {
         if (i < 0 || i >= count() || i == current) return;
         stash();
@@ -365,6 +371,13 @@ public:
     // Another picture after the others, which becomes the one worked on.
     void add(const QImage& image) {
         if (image.isNull()) return;
+        if (empty()) {
+            pictures[0] = Picture{};
+            current = 0;
+            set_picture(image.convertToFormat(QImage::Format_RGB32));
+            emit pictures_changed();
+            return;
+        }
         stash();
         pictures.push_back(Picture{image.convertToFormat(QImage::Format_RGB32), {}, {}});
         current = -1;
@@ -446,7 +459,7 @@ protected:
         p.fillRect(rect(), QColor(30, 30, 30));
         if (doc_->base.isNull()) {
             p.setPen(QColor(150, 150, 150));
-            p.drawText(rect(), Qt::AlignCenter | Qt::TextWordWrap, "No picture.\nDrop one here, or use Add Picture or Paste.");
+            p.drawText(rect(), Qt::AlignCenter | Qt::TextWordWrap, "No picture.\nDrop one here.");
             return;
         }
         p.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -642,7 +655,7 @@ bool open_link(const QString& url) {
 class NextSteps : public QDialog {
 public:
     NextSteps(QWidget* parent, const QString& url, const QString& full_text, const QList<QImage>& pictures, const QString& folder, const QString& file_to_show,
-              const QString& picture_note, bool shortened, bool opened, bool has_zip, bool has_video = false) : QDialog(parent), pictures_(pictures) {
+              const QString& picture_note, bool shortened, bool opened, bool has_zip, const QString& video_name = QString()) : QDialog(parent), pictures_(pictures) {
         const QImage picture = pictures.isEmpty() ? QImage() : pictures.first();
         setAttribute(Qt::WA_DeleteOnClose);
         setProperty(kOwnWindow, true);
@@ -658,7 +671,7 @@ public:
         if (pictures.size() > 1)
             steps << QString("Click in the description box and press Ctrl+V to add the first picture; it is on the clipboard. Copy each of the others with its button below and paste it the same way, or drag the %1 PNGs in from the folder.").arg(pictures.size());
         if (!picture_note.isEmpty()) steps << picture_note;
-        if (has_video) steps << "Drag <b>aztek-video.mp4</b> from the folder onto the description box.";
+        if (!video_name.isEmpty()) steps << QString("Drag <b>%1</b> from the folder onto the description box.").arg(video_name);
         if (has_zip) steps << "Drag <b>aztek-scene.zip</b> from the folder onto the description box.";
         steps << "Read it through, then press <b>Submit new issue</b>. Nothing is public until you do.";
         QString html = "<ol style=\"margin-left: 0px; -qt-list-indent: 1;\">";
@@ -694,79 +707,212 @@ private:
     QList<QImage> pictures_;
 };
 
-class LargeDrawing : public QDialog {
+// The pictures at a size to work on: one tab each, drawing, crop, retake and remove.
+class PictureEditor : public QDialog {
 public:
-    LargeDrawing(QWidget* parent, Annotation* doc) : QDialog(parent) {
+    PictureEditor(QWidget* parent, Annotation* doc, std::function<void()> retake) : QDialog(parent), doc_(doc) {
         setAttribute(Qt::WA_DeleteOnClose);
         setProperty(kOwnWindow, true);
-        setObjectName("feedbackLargeDrawing");
-        setWindowTitle("Draw on the Screenshot");
+        setObjectName("feedbackPictureEditor");
+        setWindowTitle("Draw on the Pictures");
         auto* v = new QVBoxLayout(this);
+        tabs_ = new QTabBar(this);
+        tabs_->setObjectName("feedbackPictures");
+        tabs_->setExpanding(false);
+        tabs_->setDrawBase(false);
+        v->addWidget(tabs_);
         v->addWidget(new AnnotationView(doc, this), 1);
         auto* row = new QHBoxLayout;
-        row->addStretch(1);
+        auto* again = new QPushButton("Retake", this);
+        again->setAutoDefault(false);
+        again->setToolTip("Hides the report and takes this screenshot again, after the delay set in the report. What is drawn on it is cleared.");
+        connect(again, &QPushButton::clicked, this, [retake] { retake(); });
+        auto* remove = new QPushButton("Remove", this);
+        remove->setAutoDefault(false);
+        remove->setToolTip("Takes this picture out of the report.");
+        connect(remove, &QPushButton::clicked, this, [this] {
+            doc_->remove_current();
+            if (doc_->empty()) close();
+        });
         auto* done = new QPushButton("Done", this);
-        done->setAutoDefault(false);
+        done->setDefault(true);
         connect(done, &QPushButton::clicked, this, &QDialog::close);
+        row->addWidget(again);
+        row->addWidget(remove);
+        row->addStretch(1);
         row->addWidget(done);
         v->addLayout(row);
+        connect(tabs_, &QTabBar::currentChanged, this, [this](int i) {
+            if (!syncing_) doc_->select(i);
+        });
+        connect(doc_, &Annotation::pictures_changed, this, &PictureEditor::sync);
+        sync();
         resize(QSize(1100, 760).boundedTo(parent->screen()->availableSize() * 0.9));
     }
+
+private:
+    void sync() {
+        syncing_ = true;
+        const int n = doc_->empty() ? 0 : doc_->count();
+        while (tabs_->count() > n) tabs_->removeTab(tabs_->count() - 1);
+        while (tabs_->count() < n) tabs_->addTab(QString());
+        for (int i = 0; i < n; ++i) tabs_->setTabText(i, QString("Picture %1").arg(i + 1));
+        if (n) tabs_->setCurrentIndex(doc_->current);
+        tabs_->setVisible(n > 1);
+        syncing_ = false;
+    }
+    Annotation* doc_;
+    QTabBar* tabs_;
+    bool syncing_ = false;
 };
+
+bool is_video_file(const QString& path) {
+    const QString ext = QFileInfo(path).suffix().toLower();
+    return ext == "mp4" || ext == "mov" || ext == "webm";
+}
+
+QString first_video(const QMimeData* d) {
+    if (!d) return QString();
+    for (const QUrl& u : d->urls())
+        if (u.isLocalFile() && is_video_file(u.toLocalFile())) return u.toLocalFile();
+    return QString();
+}
+
+const int kThumbWidth = 136, kThumbHeight = 84;
+
+// A titled box for one kind of attachment, with a line saying what it does.
+QFrame* card(QWidget* parent, const QString& title, const QString& about, QVBoxLayout** body) {
+    auto* f = new QFrame(parent);
+    f->setObjectName("feedbackCard");
+    auto* v = new QVBoxLayout(f);
+    v->setContentsMargins(10, 8, 10, 10);
+    v->setSpacing(6);
+    auto* head = new QLabel(QString("<b>%1</b>").arg(title), f);
+    v->addWidget(head);
+    if (!about.isEmpty()) {
+        auto* line = new QLabel(about, f);
+        line->setObjectName("feedbackHint");
+        line->setWordWrap(true);
+        v->addWidget(line);
+    }
+    *body = v;
+    return f;
+}
 
 class FeedbackDialog : public QDialog {
 public:
-    FeedbackDialog(QWidget* main_window, const QImage& picture) : QDialog(main_window), main_(main_window) {
+    FeedbackDialog(QWidget* main_window, const QImage& picture) : QDialog(main_window), main_(main_window), opening_shot_(picture) {
         setAttribute(Qt::WA_DeleteOnClose);
         setProperty(kOwnWindow, true);
         setObjectName("feedbackDialog");
         setWindowTitle("This doesn't feel right!");
+        setAcceptDrops(true);
         doc_ = new Annotation;
         doc_->setParent(this);
-        doc_->base = picture;
 
-        auto* outer = new QHBoxLayout(this);
-        auto* left = new QVBoxLayout;
-        outer->addLayout(left, 1);
-
-        auto* intro = new QLabel("Say what behaves differently from what you expect. This opens a GitHub issue page in your browser, "
-                                 "filled in with what you write here. Nothing goes public until you press Submit on GitHub, and you need a GitHub account to do that.", this);
+        auto* v = new QVBoxLayout(this);
+        v->setSpacing(8);
+        auto* intro = new QLabel("Say what behaves differently from what you expect. This opens a filled-in GitHub issue in your browser; "
+                                 "nothing is public until you press Submit there, and you need a GitHub account to do that.", this);
         intro->setWordWrap(true);
-        left->addWidget(intro);
+        v->addWidget(intro);
 
         title_ = new QLineEdit(this);
         title_->setObjectName("feedbackTitle");
         title_->setPlaceholderText("Short title (optional: the first line of the text is used otherwise)");
-        left->addWidget(title_);
+        v->addWidget(title_);
         text_ = new QPlainTextEdit(this);
         text_->setObjectName("feedbackText");
         text_->setPlaceholderText("What did you do? What did you expect? What happened?");
         text_->setTabChangesFocus(true);
-        left->addWidget(text_, 2);
+        text_->setMinimumHeight(110);
+        text_->installEventFilter(this);
+        text_->viewport()->installEventFilter(this);
+        v->addWidget(text_, 2);
 
-        auto* ticks = new QHBoxLayout;
-        shot_tick_ = new QCheckBox("Include a screenshot", this);
-        shot_tick_->setObjectName("feedbackScreenshot");
-        scene_tick_ = new QCheckBox("Include my current scene file", this);
-        scene_tick_->setObjectName("feedbackScene");
-        video_tick_ = new QCheckBox("Include a video", this);
-        video_tick_->setObjectName("feedbackVideo");
-        ticks->addWidget(shot_tick_);
-        ticks->addWidget(video_tick_);
-        ticks->addWidget(scene_tick_);
-        ticks->addStretch(1);
-        left->addLayout(ticks);
+        auto* attach = new QLabel("<b>Attachments</b> (optional)", this);
+        v->addWidget(attach);
 
-        // The video: a few seconds of the windows, recorded after the delay with this window out of the way (#153).
-        video_box_ = new QWidget(this);
-        auto* video_row = new QHBoxLayout(video_box_);
-        video_row->setContentsMargins(0, 0, 0, 0);
-        video_length_ = new QComboBox(video_box_);
+        // Pictures: the screenshot from when the window opened is offered first; any number of others after it.
+        QVBoxLayout* body = nullptr;
+        v->addWidget(card(this, "Pictures",
+                          "Screenshots of Aztek, or images of your own: drop them on this window or paste them. Click a picture to draw on it or crop it.",
+                          &body));
+        auto* strip_scroll = new QScrollArea(this);
+        strip_scroll->setObjectName("feedbackStrip");
+        strip_scroll->setFrameShape(QFrame::NoFrame);
+        strip_scroll->setWidgetResizable(true);
+        strip_scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        strip_scroll->setFixedHeight(kThumbHeight + 30);
+        auto* strip = new QWidget(strip_scroll);
+        strip_row_ = new QHBoxLayout(strip);
+        strip_row_->setContentsMargins(0, 0, 0, 0);
+        strip_row_->setSpacing(6);
+        strip_scroll->setWidget(strip);
+        body->addWidget(strip_scroll);
+        auto* picture_row = new QHBoxLayout;
+        auto* shoot = new QPushButton("Take Screenshot", this);
+        shoot->setObjectName("feedbackTakeScreenshot");
+        shoot->setAutoDefault(false);
+        shoot->setToolTip("Hides this window, waits the delay and takes a screenshot of Aztek's windows, added to the report.");
+        connect(shoot, &QPushButton::clicked, this, [this] {
+            if (confirm(Kind::Pictures)) capture_later(true);
+        });
+        delay_ = new QSpinBox(this);
+        delay_->setObjectName("feedbackDelay");
+        delay_->setRange(0, 30);
+        delay_->setSuffix(" s");
+        delay_->setPrefix("Delay ");
+        delay_->setToolTip("How long to wait before the screenshot, with a count in the corner of the screen: time to start a drag or open a menu.");
+        delay_->setValue(QSettings().value("feedback/delay", 0).toInt());
+        connect(delay_, &QSpinBox::valueChanged, this, [](int v) { QSettings().setValue("feedback/delay", v); });
+        auto* from_file = new QPushButton("Add Image File...", this);
+        from_file->setObjectName("feedbackAddImage");
+        from_file->setAutoDefault(false);
+        connect(from_file, &QPushButton::clicked, this, [this] {
+            const QStringList files = QFileDialog::getOpenFileNames(this, "Add Image File", QString(), "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)");
+            for (const QString& f : files) {
+                QImage img(f);
+                if (img.isNull()) QMessageBox::warning(this, "Can't Read the Image", f);
+                else if (!add_picture(img)) break;
+            }
+        });
+        auto* paste = new QPushButton("Paste", this);
+        paste->setObjectName("feedbackPaste");
+        paste->setAutoDefault(false);
+        paste->setToolTip("Adds the image on the clipboard. Ctrl+V in the description does the same.");
+        connect(paste, &QPushButton::clicked, this, [this] {
+            const QImage img = image_from(QApplication::clipboard()->mimeData());
+            if (img.isNull()) QMessageBox::information(this, "Paste", "There is no image on the clipboard.");
+            else add_picture(img);
+        });
+        picture_row->addWidget(shoot);
+        picture_row->addWidget(delay_);
+        picture_row->addSpacing(12);
+        picture_row->addWidget(from_file);
+        picture_row->addWidget(paste);
+        picture_row->addStretch(1);
+        body->addLayout(picture_row);
+
+        // Video: a few seconds of the windows recorded after the delay with this window out of the way (#153), or a file.
+        v->addWidget(card(this, "Video",
+                          "Records a few seconds of Aztek's windows at 720p, with your pointer, clicks and keys drawn on, kept under GitHub's 10 MB. "
+                          "Or attach a video of your own.",
+                          &body));
+        auto* video_row = new QHBoxLayout;
+        auto* record = new QPushButton(QString::fromUtf8("●  Record"), this);
+        record->setObjectName("feedbackRecord");
+        record->setAutoDefault(false);
+        record->setToolTip("Hides this window, waits the delay and records the windows of Aztek, with the pointer, clicks and keys: 720p, 24 frames a second.");
+        connect(record, &QPushButton::clicked, this, [this] {
+            if (confirm(Kind::Video)) record_later();
+        });
+        video_length_ = new QComboBox(this);
         video_length_->setObjectName("feedbackVideoLength");
         for (int sec : {3, 5, 10}) video_length_->addItem(QString("%1 seconds").arg(sec), sec);
         video_length_->setCurrentIndex(qBound(0, QSettings().value("feedback/videoLength", 1).toInt(), 2));
         connect(video_length_, &QComboBox::currentIndexChanged, this, [](int i) { QSettings().setValue("feedback/videoLength", i); });
-        video_delay_ = new QSpinBox(video_box_);
+        video_delay_ = new QSpinBox(this);
         video_delay_->setObjectName("feedbackVideoDelay");
         video_delay_->setRange(0, 30);
         video_delay_->setSuffix(" s");
@@ -774,40 +920,72 @@ public:
         video_delay_->setToolTip("How long to wait before recording starts, with a count in the corner of the screen.");
         video_delay_->setValue(QSettings().value("feedback/videoDelay", 3).toInt());
         connect(video_delay_, &QSpinBox::valueChanged, this, [](int v) { QSettings().setValue("feedback/videoDelay", v); });
-        auto* record = new QPushButton("Record", video_box_);
-        record->setObjectName("feedbackRecord");
-        record->setAutoDefault(false);
-        record->setToolTip("Hides this window, waits the delay and records the windows of Aztek, with the pointer, clicks and keys: 720p, 24 frames a second.");
-        connect(record, &QPushButton::clicked, this, &FeedbackDialog::record_later);
-        video_play_ = new QPushButton("Play", video_box_);
-        video_play_->setAutoDefault(false);
-        video_play_->setEnabled(false);
-        connect(video_play_, &QPushButton::clicked, this, [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(video_path_)); });
-        video_state_ = new QLabel("Not recorded yet.", video_box_);
-        video_state_->setObjectName("feedbackVideoState");
+        auto* video_file = new QPushButton("Add Video File...", this);
+        video_file->setObjectName("feedbackAddVideo");
+        video_file->setAutoDefault(false);
+        connect(video_file, &QPushButton::clicked, this, [this] {
+            const QString f = QFileDialog::getOpenFileName(this, "Add Video File", QString(), "Videos (*.mp4 *.mov *.webm)");
+            if (!f.isEmpty()) add_video_file(f);
+        });
+        video_row->addWidget(record);
         video_row->addWidget(video_length_);
         video_row->addWidget(video_delay_);
-        video_row->addWidget(record);
-        video_row->addWidget(video_play_);
-        video_row->addWidget(video_state_, 1);
-        video_box_->hide();
-        left->addWidget(video_box_);
+        video_row->addSpacing(12);
+        video_row->addWidget(video_file);
+        video_row->addStretch(1);
+        body->addLayout(video_row);
+        auto* video_have = new QHBoxLayout;
+        video_state_ = new QLabel("No video.", this);
+        video_state_->setObjectName("feedbackVideoState");
+        video_play_ = new QPushButton("Play", this);
+        video_play_->setAutoDefault(false);
+        connect(video_play_, &QPushButton::clicked, this, [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(video_path_)); });
+        video_remove_ = new QPushButton("Remove", this);
+        video_remove_->setAutoDefault(false);
+        video_remove_->setToolTip("Takes the video out of the report.");
+        connect(video_remove_, &QPushButton::clicked, this, &FeedbackDialog::remove_video);
+        video_have->addWidget(video_state_, 1);
+        video_have->addWidget(video_play_);
+        video_have->addWidget(video_remove_);
+        body->addLayout(video_have);
+
+        v->addWidget(card(this, "Scene", QString(), &body));
+        scene_tick_ = new QCheckBox("Attach a zipped copy of my current scene", this);
+        scene_tick_->setObjectName("feedbackScene");
+        scene_tick_->setToolTip(kSceneWarning);
+        body->addWidget(scene_tick_);
+        connect(scene_tick_, &QCheckBox::clicked, this, [this](bool on) {
+            if (on && !confirm(Kind::Scene)) scene_tick_->setChecked(false);
+            refresh();
+        });
 
         warning_ = new QLabel(this);
         warning_->setObjectName("feedbackWarning");
         warning_->setWordWrap(true);
         warning_->hide();
-        left->addWidget(warning_);
+        v->addWidget(warning_);
 
-        left->addWidget(new QLabel("What the page will be filled in with:", this));
+        auto* show_preview = new QToolButton(this);
+        show_preview->setObjectName("feedbackShowPreview");
+        show_preview->setText("What the issue page will be filled in with");
+        show_preview->setCheckable(true);
+        show_preview->setAutoRaise(true);
+        show_preview->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        show_preview->setArrowType(Qt::RightArrow);
+        v->addWidget(show_preview);
         preview_ = new QPlainTextEdit(this);
         preview_->setObjectName("feedbackPreview");
         preview_->setReadOnly(true);
-        left->addWidget(preview_, 1);
+        preview_->hide();
+        v->addWidget(preview_, 1);
+        connect(show_preview, &QToolButton::toggled, this, [this, show_preview](bool on) {
+            show_preview->setArrowType(on ? Qt::DownArrow : Qt::RightArrow);
+            preview_->setVisible(on);
+        });
         short_note_ = new QLabel("This is too long for a link, so the page opens with it shortened. Copy Full Text gets you the whole of it to paste in.", this);
         short_note_->setWordWrap(true);
         short_note_->hide();
-        left->addWidget(short_note_);
+        v->addWidget(short_note_);
 
         auto* buttons = new QHBoxLayout;
         copy_full_ = new QPushButton("Copy Full Text", this);
@@ -826,102 +1004,20 @@ public:
         submit_->setToolTip("Opens the filled-in page in your browser. Nothing is posted until you press Submit there.");
         connect(submit_, &QPushButton::clicked, this, &FeedbackDialog::go);
         buttons->addWidget(submit_);
-        left->addLayout(buttons);
-
-        // The picture: only once the box is ticked and accepted.
-        picture_box_ = new QWidget(this);
-        auto* right = new QVBoxLayout(picture_box_);
-        right->setContentsMargins(0, 0, 0, 0);
-        auto* about_picture = new QLabel("Shows the main window and any editor windows that are open. Draw on it to point things out, crop it, "
-                                         "or add pictures of your own: drop them on it, Add Picture or Paste.", this);
-        about_picture->setWordWrap(true);
-        right->addWidget(about_picture);
-        // The report's pictures, one tab each.
-        auto* pictures_row = new QHBoxLayout;
-        tabs_ = new QTabBar(picture_box_);
-        tabs_->setObjectName("feedbackPictures");
-        tabs_->setExpanding(false);
-        tabs_->setDrawBase(false);
-        pictures_row->addWidget(tabs_, 1);
-        auto* add_file = new QPushButton("Add Picture...", picture_box_);
-        add_file->setAutoDefault(false);
-        connect(add_file, &QPushButton::clicked, this, [this] {
-            const QStringList files = QFileDialog::getOpenFileNames(this, "Add Picture", QString(), "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp)");
-            for (const QString& f : files) {
-                QImage img(f);
-                if (img.isNull()) QMessageBox::warning(this, "Can't Read the Picture", f);
-                else doc_->add(img);
-            }
-        });
-        auto* paste = new QPushButton("Paste", picture_box_);
-        paste->setAutoDefault(false);
-        paste->setToolTip("Adds the picture on the clipboard.");
-        connect(paste, &QPushButton::clicked, this, [this] {
-            const QImage img = image_from(QApplication::clipboard()->mimeData());
-            if (img.isNull()) QMessageBox::information(this, "Paste", "There is no picture on the clipboard.");
-            else doc_->add(img);
-        });
-        auto* remove = new QPushButton("Remove", picture_box_);
-        remove->setAutoDefault(false);
-        remove->setToolTip("Takes this picture out of the report.");
-        connect(remove, &QPushButton::clicked, doc_, &Annotation::remove_current);
-        pictures_row->addWidget(add_file);
-        pictures_row->addWidget(paste);
-        pictures_row->addWidget(remove);
-        right->addLayout(pictures_row);
-        connect(tabs_, &QTabBar::currentChanged, this, [this](int i) {
-            if (!syncing_) doc_->select(i);
-        });
-        connect(doc_, &Annotation::pictures_changed, this, &FeedbackDialog::sync_tabs);
-        sync_tabs();
-        right->addWidget(new AnnotationView(doc_, picture_box_), 1);
-        auto* picture_row = new QHBoxLayout;
-        auto* larger = new QPushButton("Open Larger...", picture_box_);
-        larger->setAutoDefault(false);
-        connect(larger, &QPushButton::clicked, this, [this] {
-            if (!large_) large_ = new LargeDrawing(this, doc_);
-            large_->show();
-            large_->raise();
-        });
-        auto* retake = new QPushButton("Retake", picture_box_);
-        retake->setAutoDefault(false);
-        retake->setToolTip("Hides this window and takes the screenshot again, in place of the picture shown. What you have drawn on it is cleared.");
-        connect(retake, &QPushButton::clicked, this, &FeedbackDialog::retake);
-        // Another screenshot, kept beside the others: with a delay, to catch the views in the middle of something (#126).
-        auto* another = new QPushButton("Take Another", picture_box_);
-        another->setAutoDefault(false);
-        another->setToolTip("Hides this window and takes one more screenshot, added after the others.");
-        connect(another, &QPushButton::clicked, this, [this] { capture_later(true); });
-        delay_ = new QSpinBox(picture_box_);
-        delay_->setObjectName("feedbackDelay");
-        delay_->setRange(0, 30);
-        delay_->setSuffix(" s");
-        delay_->setPrefix("Delay ");
-        delay_->setToolTip("How long Retake and Take Another wait before the screenshot, with a count in the corner of the screen: time to start a drag or open a menu.");
-        delay_->setValue(QSettings().value("feedback/delay", 0).toInt());
-        connect(delay_, &QSpinBox::valueChanged, this, [](int v) { QSettings().setValue("feedback/delay", v); });
-        picture_row->addWidget(larger);
-        picture_row->addWidget(retake);
-        picture_row->addWidget(another);
-        picture_row->addWidget(delay_);
-        picture_row->addStretch(1);
-        right->addLayout(picture_row);
-        picture_box_->hide();
-        outer->addWidget(picture_box_, 2);
+        v->addLayout(buttons);
 
         connect(title_, &QLineEdit::textChanged, this, &FeedbackDialog::refresh);
         connect(text_, &QPlainTextEdit::textChanged, this, &FeedbackDialog::refresh);
-        // clicked and not toggled: only the person's own click asks, and declining unticks without asking again.
-        connect(shot_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(shot_tick_, on, false); });
-        connect(scene_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(scene_tick_, on, true); });
-        connect(video_tick_, &QCheckBox::clicked, this, [this](bool on) { ticked(video_tick_, on, false); });
+        connect(doc_, &Annotation::changed, this, &FeedbackDialog::schedule_strip);
+        connect(doc_, &Annotation::pictures_changed, this, &FeedbackDialog::schedule_strip);
         // The theme's placeholder colour is too dim to read here, and this text matters.
         QPalette hint = text_->palette();
         hint.setColor(QPalette::PlaceholderText, QColor(165, 165, 165));
         text_->setPalette(hint);
         title_->setPalette(hint);
-        resize(620, 620);
-        refresh();
+        update_video();
+        rebuild_strip();
+        resize(680, 760);
     }
 
     void reject() override {
@@ -929,54 +1025,210 @@ public:
             auto answer = QMessageBox::question(this, "Discard Report", "Discard what you have written?", QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
             if (answer != QMessageBox::Discard) return;
         }
+        if (!video_own_ && !video_path_.isEmpty()) QFile::remove(video_path_);
         QDialog::reject();
     }
 
-private:
-    void sync_tabs() {
-        syncing_ = true;
-        while (tabs_->count() > doc_->count()) tabs_->removeTab(tabs_->count() - 1);
-        while (tabs_->count() < doc_->count()) tabs_->addTab(QString());
-        for (int i = 0; i < tabs_->count(); ++i) tabs_->setTabText(i, QString("Picture %1").arg(i + 1));
-        tabs_->setCurrentIndex(doc_->current);
-        syncing_ = false;
+protected:
+    void dragEnterEvent(QDragEnterEvent* e) override {
+        if (!image_from(e->mimeData()).isNull() || !first_video(e->mimeData()).isEmpty()) e->acceptProposedAction();
+    }
+    void dropEvent(QDropEvent* e) override {
+        if (take_drop(e->mimeData())) e->acceptProposedAction();
+    }
+    // The description takes pasted and dropped images and videos as attachments; its text it handles itself.
+    bool eventFilter(QObject* o, QEvent* e) override {
+        if (o == text_ && e->type() == QEvent::KeyPress && static_cast<QKeyEvent*>(e)->matches(QKeySequence::Paste)) {
+            const QMimeData* d = QApplication::clipboard()->mimeData();
+            if (d && !d->hasText() && !image_from(d).isNull()) {
+                add_picture(image_from(d));
+                return true;
+            }
+        }
+        if (o == text_->viewport()) {
+            if (e->type() == QEvent::DragEnter || e->type() == QEvent::DragMove) {
+                auto* d = static_cast<QDragMoveEvent*>(e);
+                if (!image_from(d->mimeData()).isNull() || !first_video(d->mimeData()).isEmpty()) {
+                    d->acceptProposedAction();
+                    return true;
+                }
+            } else if (e->type() == QEvent::Drop) {
+                auto* d = static_cast<QDropEvent*>(e);
+                if (take_drop(d->mimeData())) {
+                    d->acceptProposedAction();
+                    return true;
+                }
+            }
+        }
+        return QDialog::eventFilter(o, e);
     }
 
-    void ticked(QCheckBox* box, bool on, bool scene) {
-        // The red warning stays on the window either way; this asks once more unless told not to.
+private:
+    enum class Kind { Pictures, Video, Scene };
+
+    // The public warning, once per kind of attachment unless told not to ask again. The red line on the window stays.
+    bool confirm(Kind kind) {
+        bool& asked = kind == Kind::Pictures ? pictures_ok_ : kind == Kind::Video ? video_ok_ : scene_ok_;
         const char* skip = "feedback/skipPublicWarning";
-        if (on && !QSettings().value(skip, false).toBool()) {
-            QMessageBox ask(this);
-            ask.setIcon(QMessageBox::Warning);
-            ask.setWindowTitle(scene ? "Include Your Scene File?" : box == video_tick_ ? "Include a Video?" : "Include a Screenshot?");
-            ask.setText(QString("<b>%1</b>").arg(kPublicWarning));
-            if (scene) ask.setInformativeText(kSceneWarning);
-            QPushButton* yes = ask.addButton("I Understand, Include It", QMessageBox::AcceptRole);
-            QPushButton* no = ask.addButton("Don't Include It", QMessageBox::RejectRole);
-            ask.setDefaultButton(no);
-            ask.setEscapeButton(no);
-            auto* never = new QCheckBox("Don't ask again", &ask);
-            ask.setCheckBox(never);
-            ask.exec();
-            if (ask.clickedButton() != yes) box->setChecked(false);
-            else if (never->isChecked()) QSettings().setValue(skip, true);
+        if (asked || QSettings().value(skip, false).toBool()) return true;
+        QMessageBox ask(this);
+        ask.setIcon(QMessageBox::Warning);
+        ask.setWindowTitle(kind == Kind::Scene ? "Include Your Scene File?" : kind == Kind::Video ? "Include a Video?" : "Include a Picture?");
+        ask.setText(QString("<b>%1</b>").arg(kPublicWarning));
+        if (kind == Kind::Scene) ask.setInformativeText(kSceneWarning);
+        QPushButton* yes = ask.addButton("I Understand, Include It", QMessageBox::AcceptRole);
+        QPushButton* no = ask.addButton("Don't Include It", QMessageBox::RejectRole);
+        ask.setDefaultButton(no);
+        ask.setEscapeButton(no);
+        auto* never = new QCheckBox("Don't ask again", &ask);
+        ask.setCheckBox(never);
+        ask.exec();
+        if (ask.clickedButton() != yes) return false;
+        if (never->isChecked()) QSettings().setValue(skip, true);
+        asked = true;
+        return true;
+    }
+
+    bool add_picture(const QImage& img) {
+        if (img.isNull() || !confirm(Kind::Pictures)) return false;
+        doc_->add(img);
+        return true;
+    }
+
+    bool take_drop(const QMimeData* d) {
+        const QString video = first_video(d);
+        if (!video.isEmpty()) {
+            add_video_file(video);
+            return true;
         }
-        video_box_->setVisible(video_tick_->isChecked());
-        const bool shot = shot_tick_->isChecked();
-        if (shot != picture_box_->isVisible()) {
-            if (shot) narrow_width_ = width();
-            picture_box_->setVisible(shot);
-            layout()->activate();
-            resize(shot ? narrow_width_ + 560 : narrow_width_, height());
-            keep_on_screen();
+        const QImage img = image_from(d);
+        if (img.isNull()) return false;
+        add_picture(img);
+        return true;
+    }
+
+    void schedule_strip() {
+        if (strip_pending_) return;
+        strip_pending_ = true;
+        QTimer::singleShot(0, this, [this] { rebuild_strip(); });
+    }
+
+    // The pictures as small tiles, the opening screenshot offered after them until it is added.
+    void rebuild_strip() {
+        strip_pending_ = false;
+        while (QLayoutItem* it = strip_row_->takeAt(0)) {
+            if (it->widget()) it->widget()->deleteLater();
+            delete it;
         }
+        const QList<QImage> pictures = doc_->composites();
+        for (int i = 0; i < pictures.size(); ++i) strip_row_->addWidget(tile(pictures[i], i));
+        if (!opening_used_ && !opening_shot_.isNull()) strip_row_->addWidget(suggestion());
+        if (pictures.isEmpty()) {
+            const bool offered = !opening_used_ && !opening_shot_.isNull();
+            auto* none = new QLabel(offered ? "The screenshot taken as this window opened.\nClick it to add it." : "No pictures yet.\nDrop or paste images here.",
+                                    strip_row_->parentWidget());
+            none->setObjectName("feedbackHint");
+            strip_row_->addWidget(none);
+        }
+        strip_row_->addStretch(1);
         refresh();
     }
 
-    void keep_on_screen() {
-        const QRect room = screen()->availableGeometry();
-        resize(qMin(width(), room.width()), qMin(height(), room.height()));
-        move(qBound(room.left(), x(), qMax(room.left(), room.right() + 1 - width())), qBound(room.top(), y(), qMax(room.top(), room.bottom() + 1 - height())));
+    QToolButton* tile(const QImage& img, int i) {
+        auto* b = new QToolButton(strip_row_->parentWidget());
+        b->setObjectName("feedbackThumb");
+        b->setFixedSize(kThumbWidth + 8, kThumbHeight + 8);
+        b->setIconSize(QSize(kThumbWidth, kThumbHeight));
+        b->setIcon(QIcon(QPixmap::fromImage(img.scaled(kThumbWidth, kThumbHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation))));
+        b->setCursor(Qt::PointingHandCursor);
+        b->setToolTip(QString("Picture %1: click to draw on it, crop it or retake it.").arg(i + 1));
+        connect(b, &QToolButton::clicked, this, [this, i] {
+            doc_->select(i);
+            open_editor();
+        });
+        auto* x = new QToolButton(b);
+        x->setObjectName("feedbackThumbRemove");
+        x->setText(QString::fromUtf8("✕"));
+        x->setToolTip("Take this picture out of the report.");
+        x->setFixedSize(20, 20);
+        x->move(b->width() - 22, 2);
+        connect(x, &QToolButton::clicked, this, [this, i] {
+            doc_->select(i);
+            doc_->remove_current();
+        });
+        return b;
+    }
+
+    QToolButton* suggestion() {
+        QPixmap pm = QPixmap::fromImage(opening_shot_.scaled(kThumbWidth, kThumbHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        {
+            QPainter p(&pm);
+            p.fillRect(pm.rect(), QColor(0, 0, 0, 140));
+            QFont f = p.font();
+            f.setBold(true);
+            f.setPixelSize(15);
+            p.setFont(f);
+            p.setPen(Qt::white);
+            p.drawText(pm.rect(), Qt::AlignCenter, "+ Add");
+        }
+        auto* b = new QToolButton(strip_row_->parentWidget());
+        b->setObjectName("feedbackSuggest");
+        b->setFixedSize(kThumbWidth + 8, kThumbHeight + 8);
+        b->setIconSize(QSize(kThumbWidth, kThumbHeight));
+        b->setIcon(QIcon(pm));
+        b->setCursor(Qt::PointingHandCursor);
+        b->setToolTip("The screenshot taken as this window opened. Click to add it.");
+        connect(b, &QToolButton::clicked, this, [this] {
+            if (!add_picture(opening_shot_)) return;
+            opening_used_ = true;
+            schedule_strip();
+        });
+        return b;
+    }
+
+    void open_editor() {
+        if (doc_->empty()) return;
+        if (!editor_) editor_ = new PictureEditor(this, doc_, [this] { retake(); });
+        editor_->show();
+        editor_->raise();
+        editor_->activateWindow();
+    }
+
+    void add_video_file(const QString& path) {
+        const QFileInfo fi(path);
+        if (!fi.exists()) return;
+        if (fi.size() > kImageLimit) {
+            QMessageBox::warning(this, "Video Too Large", QString("%1 is %2. GitHub takes videos up to 10 MB.").arg(fi.fileName(), megabytes(fi.size())));
+            return;
+        }
+        if (!confirm(Kind::Video)) return;
+        set_video(path, true, QString("%1, %2.").arg(fi.fileName(), megabytes(fi.size())));
+    }
+
+    // The report's one video; a recording made here is deleted when replaced, a file of the person's own never is.
+    void set_video(const QString& path, bool own, const QString& state) {
+        if (!video_own_ && !video_path_.isEmpty() && video_path_ != path) QFile::remove(video_path_);
+        video_path_ = path;
+        video_own_ = own;
+        video_state_->setText(state);
+        update_video();
+        refresh();
+    }
+    void remove_video() {
+        if (!video_own_ && !video_path_.isEmpty()) QFile::remove(video_path_);
+        video_path_.clear();
+        video_own_ = false;
+        video_state_->setText("No video.");
+        update_video();
+        refresh();
+    }
+    void update_video() {
+        const bool has = !video_path_.isEmpty();
+        video_play_->setVisible(has);
+        video_remove_->setVisible(has);
+        video_state_->setObjectName(has ? "feedbackVideoState" : "feedbackHint");
+        video_state_->style()->unpolish(video_state_);
+        video_state_->style()->polish(video_state_);
     }
 
     QJsonObject build_report(const QStringList& attachments) const {
@@ -990,10 +1242,14 @@ private:
         return parse(take(aztek_feedback_issue(json.constData()))).toObject();
     }
 
-    QStringList ticked_attachments() const {
+    int picture_count() const { return doc_->empty() ? 0 : doc_->count(); }
+
+    QStringList attachments() const {
         QStringList out;
-        if (shot_tick_->isChecked()) out << (doc_->count() > 1 ? QString("%1 pictures").arg(doc_->count()) : QString("screenshot"));
-        if (video_tick_->isChecked() && !video_path_.isEmpty()) out << "video";
+        const int n = picture_count();
+        if (n == 1) out << "screenshot";
+        if (n > 1) out << QString("%1 pictures").arg(n);
+        if (!video_path_.isEmpty()) out << "video";
         if (scene_tick_->isChecked()) out << "scene file (zip)";
         return out;
     }
@@ -1001,12 +1257,12 @@ private:
     void refresh() {
         const bool has_text = !text_->toPlainText().trimmed().isEmpty();
         submit_->setEnabled(has_text);
-        report_ = build_report(ticked_attachments());
+        report_ = build_report(attachments());
         const bool shortened = report_["shortened"].toBool();
         preview_->setPlainText(has_text ? "Title: " + report_["title"].toString() + "\n\n" + report_["body"].toString() : QString());
         short_note_->setVisible(shortened);
         copy_full_->setVisible(shortened);
-        const bool warn = shot_tick_->isChecked() || video_tick_->isChecked() || scene_tick_->isChecked();
+        const bool warn = picture_count() > 0 || !video_path_.isEmpty() || scene_tick_->isChecked();
         if (warn) {
             QString text = kPublicWarning;
             if (scene_tick_->isChecked()) text += QString(" ") + kSceneWarning;
@@ -1017,60 +1273,11 @@ private:
 
     void retake() {
         if (!doc_->marks.empty()) {
-            auto answer = QMessageBox::question(this, "Retake Screenshot", "Taking it again clears what you have drawn. Go on?", QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+            auto answer = QMessageBox::question(editor_ ? static_cast<QWidget*>(editor_) : this, "Retake Screenshot", "Taking it again clears what you have drawn. Go on?",
+                                                QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
             if (answer != QMessageBox::Yes) return;
         }
-        capture_later(false);
-    }
-
-    // Hides this window, waits the delay with a count in the corner, and takes the screenshot: in place of the one shown,
-    // or added after them.
-    void capture_later(bool add) {
-        if (large_) large_->close();
-        hide();
-        const int seconds = delay_ ? delay_->value() : 0;
-        auto* count = new QLabel(nullptr, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus);
-        count->setAttribute(Qt::WA_ShowWithoutActivating);
-        count->setAttribute(Qt::WA_TransparentForMouseEvents);
-        count->setStyleSheet("QLabel { background: #d85a1a; color: white; font-weight: bold; padding: 6px 12px; border-radius: 4px; }");
-        auto place = [count, this] {
-            const QRect r = main_ ? main_->frameGeometry() : QApplication::primaryScreen()->geometry();
-            count->adjustSize();
-            count->move(r.right() - count->width() - 16, r.bottom() - count->height() - 40);
-        };
-        auto left = std::make_shared<int>(seconds);
-        auto* tick = new QTimer(count);
-        auto shoot = [this, add, count] {
-            count->hide();
-            // Long enough for the window system to take this window and the count off the screen.
-            QTimer::singleShot(250, this, [this, add, count] {
-                QApplication::processEvents();
-                const QImage shot = capture_app(main_);
-                count->deleteLater();
-                if (add) doc_->add(shot);
-                else doc_->set_picture(shot);
-                show();
-                raise();
-                activateWindow();
-            });
-        };
-        if (seconds <= 0) {
-            shoot();
-            return;
-        }
-        count->setText(QString("Screenshot in %1").arg(*left));
-        place();
-        count->show();
-        connect(tick, &QTimer::timeout, count, [count, left, tick, shoot, place] {
-            if (--*left <= 0) {
-                tick->stop();
-                shoot();
-                return;
-            }
-            count->setText(QString("Screenshot in %1").arg(*left));
-            place();
-        });
-        tick->start(1000);
+        capture_later(false, true);
     }
 
     // A count in the corner of the main window, for the screenshot's and the video's delays.
@@ -1088,11 +1295,53 @@ private:
         l->move(r.right() - l->width() - 16, r.bottom() - l->height() - 40);
     }
 
+    // Hides this window, waits the delay with a count in the corner, and takes the screenshot: added after the others,
+    // or in place of the one being worked on, and then the editor back if it was asked for.
+    void capture_later(bool add, bool reopen = false) {
+        if (editor_) editor_->close();
+        hide();
+        auto* count = corner_label("#d85a1a");
+        auto left = std::make_shared<int>(delay_->value());
+        auto shoot = [this, add, reopen, count] {
+            count->hide();
+            // Long enough for the window system to take this window and the count off the screen.
+            QTimer::singleShot(250, this, [this, add, reopen, count] {
+                QApplication::processEvents();
+                const QImage shot = capture_app(main_);
+                count->deleteLater();
+                if (add) doc_->add(shot);
+                else doc_->set_picture(shot);
+                show();
+                raise();
+                activateWindow();
+                if (reopen) open_editor();
+            });
+        };
+        if (*left <= 0) {
+            shoot();
+            return;
+        }
+        count->setText(QString("Screenshot in %1").arg(*left));
+        place_corner(count);
+        count->show();
+        auto* tick = new QTimer(count);
+        connect(tick, &QTimer::timeout, count, [this, count, left, tick, shoot] {
+            if (--*left <= 0) {
+                tick->stop();
+                shoot();
+                return;
+            }
+            count->setText(QString("Screenshot in %1").arg(*left));
+            place_corner(count);
+        });
+        tick->start(1000);
+    }
+
     // Hides this window, counts the delay down and records: each frame the windows as the screenshot takes them, on a
-    // 1280x720 frame, with the pointer, clicks and keys drawn on it (#201), encoded as it goes. A frame that takes longer than its 24th of a second is held, so the video
-    // runs as long as asked (#153).
+    // 1280x720 frame, with the pointer, clicks and keys drawn on it (#201), encoded as it goes. A frame that takes longer
+    // than its 24th of a second is held, so the video runs as long as asked (#153).
     void record_later() {
-        if (large_) large_->close();
+        if (editor_) editor_->close();
         const int seconds = video_length_->currentData().toInt();
         const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback");
         QDir().mkpath(dir);
@@ -1148,20 +1397,16 @@ private:
                 const qint64 bytes = aztek_video_end(video, 1);
                 count->deleteLater();
                 if (bytes > 0) {
-                    if (!video_path_.isEmpty() && video_path_ != path) QFile::remove(video_path_);
-                    video_path_ = path;
                     if (*full >= 0)
-                        video_state_->setText(QString("Stopped after %1 of %2 seconds to stay under GitHub's 10 MB, %3.").arg(qMax(1, *full)).arg(seconds).arg(megabytes(bytes)));
+                        set_video(path, false, QString("Recorded, stopped after %1 of %2 seconds to stay under GitHub's 10 MB, %3.").arg(qMax(1, *full)).arg(seconds).arg(megabytes(bytes)));
                     else
-                        video_state_->setText(QString("%1 seconds, %2.").arg(seconds).arg(megabytes(bytes)));
-                    video_play_->setEnabled(true);
+                        set_video(path, false, QString("Recorded, %1 seconds, %2.").arg(seconds).arg(megabytes(bytes)));
                 } else {
                     video_state_->setText("The recording failed.");
                 }
                 show();
                 raise();
                 activateWindow();
-                refresh();
             };
             connect(timer, &QTimer::timeout, count, frame);
             timer->start(1000 / kVideoFps);
@@ -1190,13 +1435,17 @@ private:
         tick->start(1000);
     }
 
-    // Writes what was ticked, opens the browser and shows what is left to do.
+    QString new_folder() const {
+        return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback/" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+    }
+
+    // Writes the attachments, opens the browser and shows what is left to do.
     void go() {
-        const bool want_shot = shot_tick_->isChecked(), want_scene = scene_tick_->isChecked();
-        const bool want_video = video_tick_->isChecked() && !video_path_.isEmpty() && QFileInfo::exists(video_path_);
+        const bool want_shot = picture_count() > 0, want_scene = scene_tick_->isChecked();
+        const bool want_video = !video_path_.isEmpty() && QFileInfo::exists(video_path_);
         QString folder;
         if (want_shot || want_scene || want_video) {
-            folder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback/" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+            folder = new_folder();
             if (!QDir().mkpath(folder)) {
                 QMessageBox::warning(this, "Can't Save", "Could not make the folder for the attachments:\n" + folder);
                 return;
@@ -1225,10 +1474,10 @@ private:
                 big.exec();
                 QFile::remove(zip_path);
                 if (big.clickedButton() != on) {
-                    if (!want_shot) QDir().rmdir(folder);
+                    if (!want_shot && !want_video) QDir().rmdir(folder);
                     return;
                 }
-                if (!want_shot) {
+                if (!want_shot && !want_video) {
                     QDir().rmdir(folder);
                     folder.clear();
                 }
@@ -1239,12 +1488,13 @@ private:
         QString video_name;
         if (want_video) {
             if (folder.isEmpty()) {
-                folder = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath("feedback/" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+                folder = new_folder();
                 QDir().mkpath(folder);
             }
-            const QString to = QDir(folder).filePath("aztek-video.mp4");
+            const QString name = "aztek-video." + QFileInfo(video_path_).suffix().toLower();
+            const QString to = QDir(folder).filePath(name);
             QFile::remove(to);
-            if (QFile::copy(video_path_, to)) video_name = "aztek-video.mp4";
+            if (QFile::copy(video_path_, to)) video_name = name;
             else QMessageBox::warning(this, "Can't Save the Video", "The video could not be copied to:\n" + to);
         }
         QList<QImage> pictures;
@@ -1266,12 +1516,12 @@ private:
             if (!pictures.isEmpty()) QApplication::clipboard()->setImage(pictures.first());
         }
 
-        QStringList attachments;
-        if (pictures.size() == 1) attachments << "screenshot";
-        if (pictures.size() > 1) attachments << QString("%1 pictures").arg(pictures.size());
-        if (!video_name.isEmpty()) attachments << "video";
-        if (!zip_name.isEmpty()) attachments << "scene file (zip)";
-        const QJsonObject report = build_report(attachments);
+        QStringList sent;
+        if (pictures.size() == 1) sent << "screenshot";
+        if (pictures.size() > 1) sent << QString("%1 pictures").arg(pictures.size());
+        if (!video_name.isEmpty()) sent << "video";
+        if (!zip_name.isEmpty()) sent << "scene file (zip)";
+        const QJsonObject report = build_report(sent);
         const QString url = report["url"].toString();
         const QString show_file = !zip_name.isEmpty() ? zip_name : !video_name.isEmpty() ? video_name : png_name;
 
@@ -1287,36 +1537,40 @@ private:
             show_in_folder(folder, show_file);
         }
         const bool opened = open_link(url);
-        auto* steps = new NextSteps(main_, url, report["fullBody"].toString(), pictures, folder, show_file, picture_note, report["shortened"].toBool(), opened, !zip_name.isEmpty(), !video_name.isEmpty());
+        auto* steps = new NextSteps(main_, url, report["fullBody"].toString(), pictures, folder, show_file, picture_note, report["shortened"].toBool(), opened, !zip_name.isEmpty(), video_name);
         steps->show();
+        // The recording has its copy in the report's folder now.
+        if (!video_name.isEmpty() && !video_own_) QFile::remove(video_path_);
+        video_path_.clear();
         QDialog::accept();
     }
 
     QWidget* main_;
     Annotation* doc_;
+    // Taken just before the window opened, offered as the first picture.
+    QImage opening_shot_;
+    bool opening_used_ = false;
     QLineEdit* title_;
     QPlainTextEdit* text_;
     QPlainTextEdit* preview_;
-    QCheckBox* shot_tick_;
+    QHBoxLayout* strip_row_;
+    bool strip_pending_ = false;
+    QSpinBox* delay_;
     QCheckBox* scene_tick_;
-    QCheckBox* video_tick_;
-    QWidget* video_box_;
     QComboBox* video_length_;
     QSpinBox* video_delay_;
     QPushButton* video_play_;
+    QPushButton* video_remove_;
     QLabel* video_state_;
-    // The last recording, in the app's folder until the report is opened.
+    // The report's video: a recording in the app's folder, or a file of the person's own.
     QString video_path_;
+    bool video_own_ = false;
+    bool pictures_ok_ = false, video_ok_ = false, scene_ok_ = false;
     QLabel* warning_;
     QLabel* short_note_;
     QPushButton* copy_full_;
     QPushButton* submit_;
-    QWidget* picture_box_;
-    QTabBar* tabs_;
-    bool syncing_ = false;
-    QPointer<LargeDrawing> large_;
-    QSpinBox* delay_ = nullptr;
-    int narrow_width_ = 620;
+    QPointer<PictureEditor> editor_;
     QJsonObject report_;
 };
 

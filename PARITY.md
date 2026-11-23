@@ -1348,6 +1348,16 @@ the window hides, a count shows in the corner of the screen, and the screenshot 
 count, so a drag, a menu or a tool's feedback in the views can be caught. Take Another adds the picture after the
 others (docs/issues/126-screenshot-delay.png).
 
+### Report window attachments laid out (23/11/2026, #225)
+
+The report window's attachments are always on show, one box each for Pictures, Video and Scene, in place of tick boxes
+that hid their controls until ticked. Pictures are a row of thumbnails with a remove button each; the screenshot taken
+as the window opened is offered as the first, added with a click. Take Screenshot (with its delay), Add Image File and
+Paste add more, as does an image pasted into the description or dropped anywhere on the window. A thumbnail opens the
+pictures at a size to draw on, crop, retake or remove. The video box records as before, and also takes a video file of
+the person's own (`.mp4`, `.mov`, `.webm`, up to 10 MB), from a file or a drop; a file of theirs is copied, never
+deleted. The preview of the page is folded away. The public warning is asked the first time each kind is added.
+
 ### Live surfaces can't be edited (17/11/2026, #125, #127)
 
 A live surface never goes into component mode: picked in the Outliner, it stays drawn as an object whatever the

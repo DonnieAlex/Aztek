@@ -27,6 +27,16 @@ QToolButton#feelFold { border: none; background: transparent; color: @text; font
 QToolButton#feelFold:hover { background: @hover; border-radius: 3px; }
 QLabel#feedbackWarning { background: #b00020; color: #ffffff; font-weight: bold; padding: 6px; border-radius: 3px; }
 QPushButton#feedbackSubmit { font-weight: bold; padding: 3px 12px; }
+QFrame#feedbackCard { border: 1px solid @border; border-radius: 4px; }
+QLabel#feedbackHint { color: @dim; }
+QToolButton#feedbackThumb { border: 1px solid @border; border-radius: 3px; background: @chrome; }
+QToolButton#feedbackThumb:hover { border-color: @hi; }
+QToolButton#feedbackSuggest { border: 1px dashed @dim; border-radius: 3px; background: transparent; }
+QToolButton#feedbackSuggest:hover { border-color: @hi; }
+QToolButton#feedbackThumbRemove { border: none; border-radius: 10px; background: rgba(0, 0, 0, 160); color: #ffffff; font-weight: bold; }
+QToolButton#feedbackThumbRemove:hover { background: #b00020; }
+QPushButton#feedbackRecord { font-weight: bold; padding: 3px 12px; }
+QToolButton#feedbackShowPreview { border: none; color: @dim; }
 QLineEdit { background: @base; border: 1px solid @border; padding: 1px 3px; selection-background-color: @hi; }
 QLineEdit:read-only { background: @alt; }
 QLineEdit#channelValue { background: @base; border: none; }

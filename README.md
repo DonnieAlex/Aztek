@@ -80,20 +80,24 @@ GitHub issue, so every rough edge anyone notices ends up in one public list.
 ![The This doesn't feel right! window over the main window](docs/feedback.png)
 
 It is also under Help > This doesn't feel right!, and the `AztekFeedback` runtime command. The small arrow on the
-button's left folds it away, and brings it back; Aztek remembers which. Optionally add:
+button's left folds it away, and brings it back; Aztek remembers which. The window's Attachments section has a box for each kind,
+all optional:
 
-- a screenshot of the app, which you can draw on with a pen, arrows, rectangles and text;
-- a video of Aztek's windows, 3, 5 or 10 seconds at 720p, recorded after a delay you set and kept under GitHub's 10 MB;
-- a zipped `.ma` copy of the current scene. Your scene stays as it is, and the copy has a generic name. It holds the names of everything in
-  the scene and may hold file paths. Referenced files and textures are not included.
+- **Pictures**: the screenshot taken as the window opened (click it to add it), more screenshots after a delay, and images of your own,
+  added from a file, pasted (Ctrl+V in the description works too) or dropped on the window. Click a picture to draw on it with a pen,
+  arrows, rectangles and text, crop it or retake it;
+- **Video**: Record takes 3, 5 or 10 seconds of Aztek's windows at 720p after a delay you set, with your pointer, clicks and keys drawn
+  on, kept under GitHub's 10 MB; or attach a video of your own (`.mp4`, `.mov` or `.webm`, up to 10 MB) from a file or by dropping it;
+- **Scene**: a zipped `.ma` copy of the current scene. Your scene stays as it is, and the copy has a generic name. It holds the names of
+  everything in the scene and may hold file paths. Referenced files and textures are not included.
 
-All are off by default and ask you to confirm. **Reports are public: never include work under NDA or anything confidential. If you do, it
+Nothing is attached until you add it, and the first of each kind asks you to confirm. **Reports are public: never include work under NDA or anything confidential. If you do, it
 is at your own risk.**
 
 Sending a report makes no network request from the app. "Open on GitHub" opens a filled-in issue page in your browser, puts the picture on the clipboard (Ctrl+V
 in the description box) and shows the folder holding the attachments, under `feedback/` in the app's data location, so the zip can be dragged
 in. GitHub plays the video in the issue. You need a GitHub account, and nothing is public until you press Submit on that page. The window shows exactly what the page will be
-filled in with. GitHub takes files up to 25 MB and images up to 10 MB.
+filled in with, folded under the attachments. GitHub takes files up to 25 MB and images up to 10 MB.
 
 ## Fix it yourself
 
