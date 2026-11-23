@@ -827,7 +827,8 @@ QWidget* grid_options(QWidget* parent) {
         b->setProperty("color", c);
         b->setStyleSheet(QString("background:%1; border:1px solid #222;").arg(c.name()));
         QObject::connect(b, &QPushButton::clicked, b, [b] {
-            const QColor c = QColorDialog::getColor(b->property("color").value<QColor>(), b);
+            // On the window, not the button: the button's swatch style sheet would colour the whole picker (#217).
+            const QColor c = QColorDialog::getColor(b->property("color").value<QColor>(), b->window(), "Color");
             if (!c.isValid()) return;
             b->setProperty("color", c);
             b->setStyleSheet(QString("background:%1; border:1px solid #222;").arg(c.name()));
