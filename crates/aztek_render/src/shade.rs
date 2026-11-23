@@ -18,7 +18,7 @@ pub enum Resolved<'a> {
 pub fn ctx_of(scene: &Scene, sp: &SurfacePoint, wo: Vec3, footprint: f32, time: f32) -> ShadeCtx {
     let inst = &scene.geo.instances[sp.inst as usize];
     let (_, inv) = inst.xform_at(time);
-    ShadeCtx { p: sp.p, p_obj: inv.transform_point3(sp.p), n: sp.n, ng: sp.ng, uv: sp.uv, dpdu: sp.dpdu, dpdv: sp.dpdv, footprint, wo, front: sp.front, object_id: inst.id }
+    ShadeCtx { p: sp.p, p_obj: inv.transform_point3(sp.p), n: sp.n, ng: sp.ng, uv: sp.uv, dpdu: sp.dpdu, dpdv: sp.dpdv, tangent: sp.tangent, footprint, wo, front: sp.front, object_id: inst.id }
 }
 
 /// Picks one side of each mix by chance, in proportion to its share: unbiased on average, and cheaper than shading both.
@@ -99,12 +99,19 @@ fn bent_normal(scene: &Scene, m: &NormalMod, ctx: &ShadeCtx, n: Vec3) -> Vec3 {
                 let nn = t.normalize_or_zero();
                 return if nn.length_squared() < 0.5 { n } else { nn };
             }
-            let tu = (ctx.dpdu - n * n.dot(ctx.dpdu)).normalize_or_zero();
+            // The mesh's smooth tangent when it has one, else the triangle's own uv direction.
+            let smooth = ctx.tangent.truncate();
+            let along = if smooth.length_squared() > 0.5 { smooth } else { ctx.dpdu };
+            let tu = (along - n * n.dot(along)).normalize_or_zero();
             if tu.length_squared() < 0.5 {
                 return n;
             }
             let mut b = n.cross(tu);
-            if b.dot(ctx.dpdv) < 0.0 {
+            if smooth.length_squared() > 0.5 {
+                // The shading normal was turned round when the ray hit the back.
+                let side = if ctx.front { 1.0 } else { -1.0 };
+                b *= ctx.tangent.w * side;
+            } else if b.dot(ctx.dpdv) < 0.0 {
                 b = -b;
             }
             let mut nn = (tu * t.x + b * t.y + n * t.z).normalize_or_zero();

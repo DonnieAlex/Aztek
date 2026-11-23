@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::bvh::{Aabb, Bvh};
 use crate::math::Ray;
@@ -30,6 +30,10 @@ pub struct MeshData {
     pub normals: Vec<Vec<Vec3>>,
     /// Texture coordinates per vertex; empty when the mesh has none.
     pub uvs: Vec<Vec2>,
+    /// Per vertex, the direction u grows along the surface and, in w, which way v runs from it (1 or -1): smooth
+    /// across the triangles that share the vertex, for tangent-space normal maps. Made from the uvs and normals.
+    #[serde(skip)]
+    pub tangents: Vec<Vec4>,
     pub tris: Vec<[u32; 3]>,
     /// Per triangle, the index into its instance's shader list.
     pub tri_shader: Vec<u16>,
@@ -70,7 +74,7 @@ pub struct Curves {
 impl MeshData {
     pub fn new(name: &str, positions: Vec<Vec3>, normals: Vec<Vec3>, uvs: Vec<Vec2>, tris: Vec<[u32; 3]>, tri_shader: Vec<u16>) -> MeshData {
         let normals = if normals.len() == positions.len() { vec![normals] } else { Vec::new() };
-        let mut m = MeshData { name: name.into(), keys: vec![positions], normals, uvs, tris, tri_shader, bvh: Bvh::default(), curves: None };
+        let mut m = MeshData { name: name.into(), keys: vec![positions], normals, uvs, tangents: Vec::new(), tris, tri_shader, bvh: Bvh::default(), curves: None };
         m.build();
         m
     }
@@ -103,7 +107,7 @@ impl MeshData {
         if c.radius.len() != points.len() {
             c.radius.resize(points.len(), c.radius.last().copied().unwrap_or(0.01));
         }
-        let mut m = MeshData { name: name.into(), keys: vec![points], normals: Vec::new(), uvs: Vec::new(), tris: Vec::new(), tri_shader, bvh: Bvh::default(), curves: Some(c) };
+        let mut m = MeshData { name: name.into(), keys: vec![points], normals: Vec::new(), uvs: Vec::new(), tangents: Vec::new(), tris: Vec::new(), tri_shader, bvh: Bvh::default(), curves: Some(c) };
         m.build();
         m
     }
@@ -168,6 +172,44 @@ impl MeshData {
             self.tri_shader.resize(n, 0);
         }
         self.bvh = Bvh::build(&self.tri_bounds());
+        self.tangents = self.vertex_tangents();
+    }
+
+    /// Each triangle's uv directions summed onto its corners, then made square to the vertex normal: the tangent frame
+    /// a normal map was baked against, so it turns smoothly where the normals do.
+    fn vertex_tangents(&self) -> Vec<Vec4> {
+        let pos = &self.keys[0];
+        let Some(nrm) = self.normals.first() else { return Vec::new() };
+        if self.curves.is_some() || self.uvs.len() != pos.len() || nrm.len() != pos.len() {
+            return Vec::new();
+        }
+        let mut su = vec![Vec3::ZERO; pos.len()];
+        let mut sv = vec![Vec3::ZERO; pos.len()];
+        for t in &self.tris {
+            let (a, b, c) = (t[0] as usize, t[1] as usize, t[2] as usize);
+            let (e1, e2) = (pos[b] - pos[a], pos[c] - pos[a]);
+            let (d1, d2) = (self.uvs[b] - self.uvs[a], self.uvs[c] - self.uvs[a]);
+            let det = d1.x * d2.y - d1.y * d2.x;
+            if det.abs() < 1e-20 {
+                continue;
+            }
+            // Weighted by the triangle's area: the direction scaled by det's sign only.
+            let s = det.signum();
+            let du = (e1 * d2.y - e2 * d1.y) * s;
+            let dv = (e2 * d1.x - e1 * d2.x) * s;
+            for i in [a, b, c] {
+                su[i] += du;
+                sv[i] += dv;
+            }
+        }
+        (0..pos.len())
+            .map(|i| {
+                let n = nrm[i];
+                let t = (su[i] - n * n.dot(su[i])).normalize_or_zero();
+                let w = if n.cross(t).dot(sv[i]) < 0.0 { -1.0 } else { 1.0 };
+                t.extend(w)
+            })
+            .collect()
     }
 
     /// The same triangles with points moved: keeps the tree and refits it.
@@ -464,6 +506,8 @@ pub struct SurfacePoint {
     pub uv: Vec2,
     pub dpdu: Vec3,
     pub dpdv: Vec3,
+    /// The mesh's smooth tangent here, in world space, with v's handedness in w; zero when it has none.
+    pub tangent: Vec4,
     /// The ray arrived on the side the triangle's winding faces.
     pub front: bool,
     /// Texture space per world length: for choosing a texture's level of detail.
@@ -530,13 +574,23 @@ impl Geometry {
                 dpdv = f.1;
             }
         }
+        let tangent = if mesh.tangents.len() == mesh.keys[0].len() {
+            let tg = &mesh.tangents;
+            let (ta, tb, tc) = (tg[t[0] as usize], tg[t[1] as usize], tg[t[2] as usize]);
+            let v = m.transform_vector3(ta.truncate() * w + tb.truncate() * h.u + tc.truncate() * h.v).normalize_or_zero();
+            // A mirrored transform turns v the other way round.
+            let flip = if m.determinant() < 0.0 { -1.0 } else { 1.0 };
+            v.extend(ta.w * flip)
+        } else {
+            Vec4::ZERO
+        };
         // Normals face the incoming ray; the shading normal follows the geometric one's side.
         let ng_out = if front { ng } else { -ng };
         if n.dot(ng_out) < 0.0 {
             n = -n;
         }
         let shader = inst.shaders.get(mesh.tri_shader[h.prim as usize] as usize).or(inst.shaders.first()).copied().unwrap_or(0);
-        SurfacePoint { p, ng: ng_out, n, uv, dpdu, dpdv, front, uv_density: density, inst: h.inst, prim: h.prim, shader, curve_h: None }
+        SurfacePoint { p, ng: ng_out, n, uv, dpdu, dpdv, tangent, front, uv_density: density, inst: h.inst, prim: h.prim, shader, curve_h: None }
     }
 
     /// A curve's point: dpdu runs along the curve, the normal faces the ray (a ribbon) or out of the tube (thick).
@@ -570,7 +624,7 @@ impl Geometry {
         // offset across and the distance along.
         let uv = c.root_uv.get(ci).copied().unwrap_or(Vec2::new(h.v * 0.5 + 0.5, along));
         let shader = inst.shaders.get(mesh.tri_shader[h.prim as usize] as usize).or(inst.shaders.first()).copied().unwrap_or(0);
-        SurfacePoint { p, ng: facing, n, uv, dpdu: t, dpdv: facing.cross(t), front: true, uv_density: 1.0, inst: h.inst, prim: h.prim, shader, curve_h: Some(h.v) }
+        SurfacePoint { p, ng: facing, n, uv, dpdu: t, dpdv: facing.cross(t), tangent: Vec4::ZERO, front: true, uv_density: 1.0, inst: h.inst, prim: h.prim, shader, curve_h: Some(h.v) }
     }
 }
 
@@ -622,6 +676,24 @@ pub fn sphere(center: Vec3, radius: f32, rings: u32, segments: u32) -> MeshData 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vertex_tangents_follow_u_and_are_shared() {
+        // Two triangles whose own uv directions differ: each shared corner gets one tangent, square to its normal.
+        let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)];
+        let n = vec![Vec3::Z; 4];
+        let uv = vec![Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(1.2, 1.0), Vec2::new(0.0, 1.0)];
+        let m = MeshData::new("q", p, n, uv, vec![[0, 1, 2], [0, 2, 3]], vec![0, 0]);
+        assert_eq!(m.tangents.len(), 4);
+        for t in &m.tangents {
+            assert!(t.truncate().dot(Vec3::Z).abs() < 1e-5);
+            assert!(t.x > 0.9 && t.w == 1.0, "{t:?}");
+        }
+        // Mirrored v flips the handedness.
+        let p = vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 0.0)];
+        let m = MeshData::new("m", p, vec![Vec3::Z; 3], vec![Vec2::new(0.0, 1.0), Vec2::new(1.0, 1.0), Vec2::new(1.0, 0.0)], vec![[0, 1, 2]], vec![0]);
+        assert!(m.tangents.iter().all(|t| t.w == -1.0));
+    }
 
     #[test]
     fn instanced_sphere_hits() {

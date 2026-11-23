@@ -50,7 +50,7 @@ fn probes() -> Vec<(DVec3, DVec3)> {
 fn harold_at(scene: &Scene, p: DVec3, n: DVec3, samples: u32) -> Vec3 {
     let t = Tracer::new(scene);
     let (pf, nf) = (p.as_vec3(), n.as_vec3());
-    let sp = SurfacePoint { p: pf, ng: nf, n: nf, uv: Vec2::ZERO, dpdu: Vec3::X, dpdv: Vec3::Z, front: true, uv_density: 1.0, inst: 0, prim: 0, shader: 0, curve_h: None };
+    let sp = SurfacePoint { p: pf, ng: nf, n: nf, uv: Vec2::ZERO, dpdu: Vec3::X, dpdv: Vec3::Z, tangent: glam::Vec4::ZERO, front: true, uv_density: 1.0, inst: 0, prim: 0, shader: 0, curve_h: None };
     let b = Bsdf::lambert(Vec3::ONE, nf, nf);
     let mut sum = Vec3::ZERO;
     for k in 0..samples {

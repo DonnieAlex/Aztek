@@ -53,6 +53,8 @@ pub struct ShadeCtx {
     pub uv: Vec2,
     pub dpdu: Vec3,
     pub dpdv: Vec3,
+    /// The mesh's smooth tangent, with v's handedness in w; zero when there is none.
+    pub tangent: Vec4,
     /// Footprint in UV units, for texture level.
     pub footprint: f32,
     /// Towards the viewer.
@@ -63,7 +65,7 @@ pub struct ShadeCtx {
 
 impl Default for ShadeCtx {
     fn default() -> Self {
-        ShadeCtx { p: Vec3::ZERO, p_obj: Vec3::ZERO, n: Vec3::Z, ng: Vec3::Z, uv: Vec2::ZERO, dpdu: Vec3::X, dpdv: Vec3::Y, footprint: 0.0, wo: Vec3::Z, front: true, object_id: 0 }
+        ShadeCtx { p: Vec3::ZERO, p_obj: Vec3::ZERO, n: Vec3::Z, ng: Vec3::Z, uv: Vec2::ZERO, dpdu: Vec3::X, dpdv: Vec3::Y, tangent: Vec4::ZERO, footprint: 0.0, wo: Vec3::Z, front: true, object_id: 0 }
     }
 }
 
