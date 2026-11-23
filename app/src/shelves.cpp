@@ -1,4 +1,5 @@
 #include "shelves.h"
+#include "aztek.h"
 #include "envvars.h"
 #include "host.h"
 #include "icons.h"
@@ -53,14 +54,12 @@ const char* kMoveMime = "application/x-aztek-shelf-move";
 
 // Where the shelves are kept as files, as the reference keeps shelf_Name.mel in its prefs folder (#117).
 QString shelves_folder() {
-    const QByteArray env = qgetenv("AZTEK_PREFS");
-    return (env.isEmpty() ? QDir::homePath() + "/.aztek" : QString::fromLocal8Bit(env)) + "/prefs/shelves";
+    return take(aztek_preferences_dir()) + "/prefs/shelves";
 }
 
 // Pictures the user keeps for shelf buttons: searched by the icon browser, which opens files there.
 QString icons_folder() {
-    const QByteArray env = qgetenv("AZTEK_PREFS");
-    return (env.isEmpty() ? QDir::homePath() + "/.aztek" : QString::fromLocal8Bit(env)) + "/prefs/icons";
+    return take(aztek_preferences_dir()) + "/prefs/icons";
 }
 
 QString mel_quote(QString v) {

@@ -49,11 +49,7 @@ fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> R {
 }
 
 fn option_var_file() -> PathBuf {
-    let base = std::env::var_os("AZTEK_PREFS").map(PathBuf::from).unwrap_or_else(|| {
-        let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).unwrap_or_default();
-        PathBuf::from(home).join(".aztek")
-    });
-    base.join("optionVars.json")
+    crate::user_folder::prefs_base().join("optionVars.json")
 }
 
 fn load_option_vars(u: &mut Ui) {

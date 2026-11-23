@@ -92,9 +92,9 @@ fn home() -> PathBuf {
     PathBuf::from(std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).unwrap_or_default())
 }
 
-/// Where Aztek's own preference files are: `AZTEK_PREFS`, or `~/.aztek`.
+/// Where Aztek's own preference files are.
 pub fn prefs_base() -> PathBuf {
-    std::env::var_os("AZTEK_PREFS").map(PathBuf::from).unwrap_or_else(|| home().join(".aztek"))
+    aztek_core::paths::user_prefs_dir()
 }
 
 /// Aztek's own user folder: `AZTEK_APP_DIR`, or `~/aztek` (in Documents on Windows, where such folders live).

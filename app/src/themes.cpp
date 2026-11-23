@@ -1,4 +1,6 @@
 #include "themes.h"
+#include "aztek.h"
+#include "host.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -581,8 +583,7 @@ QList<Theme> builtins() {
 }
 
 QString prefs_root() {
-    const QByteArray env = qgetenv("AZTEK_PREFS");
-    return env.isEmpty() ? QDir::homePath() + "/.aztek" : QString::fromLocal8Bit(env);
+    return take(aztek_preferences_dir());
 }
 
 QList<Theme> user_themes() {
