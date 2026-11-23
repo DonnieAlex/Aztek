@@ -22,7 +22,7 @@ env = dict(os.environ, DISPLAY=DISPLAY, CHECK_STATE=state_file, XDG_CONFIG_HOME=
 
 # Where the rows are on a fresh layout at this screen size: the labels' and the fields' x, each row's y.
 LABEL_X, FIELD_X = 1348, 1470
-ROW = {"tx": 199, "ty": 218, "tz": 237, "rx": 256, "ry": 275, "rz": 294, "sx": 313, "sy": 332, "sz": 351}
+ROW = {"tx": 220, "ty": 239, "tz": 258, "rx": 277, "ry": 296, "rz": 315, "sx": 334, "sy": 353, "sz": 372}
 
 
 def xdo(*args):

@@ -590,7 +590,7 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
     let name = if name.is_empty() { MAIN } else { name };
     let Some(path) = box_path(name) else { return snapshot };
     let mut v = snapshot;
-    let mut objs: Vec<NodeId> = objects(s, &path);
+    let objs: Vec<NodeId> = objects(s, &path);
     if prop(&path, "mainListConnection").is_some_and(|c| !text(&c).is_empty()) {
         v = match objs.last() {
             Some(&lead) => crate::query::channel_box_of(&s.graph, lead, objs.len()),
