@@ -58,8 +58,8 @@ jobs:
           echo "go=$go" >> "$GITHUB_OUTPUT"
           echo "Building $version: $go"
 
-  # The plug-in kit and the plug-ins it is tested with under clang (as on macOS) and GCC, in a minute: a compile error
-  # shows here before the long builds reach it.
+  # The plug-in kit and the shipped plug-ins under clang (as on macOS) and GCC, in a minute: a compile error shows here
+  # before the long builds reach it.
   kit:
     runs-on: ubuntu-24.04
     steps:

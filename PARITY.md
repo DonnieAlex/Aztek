@@ -4139,26 +4139,16 @@ translate and rotate and of a skinned joint with an orient. Not done: blend shap
 animated properties, several takes (FBXExportSplitAnimationIntoTakes is held), animation layers, Update animation
 (exmerge), the curves' own tangents both ways, ASCII files.
 
-### mGear from Help > Install mGear (23/11/2026)
+### Shifter builds an mGear 4 guide (23/11/2026)
 
-mGear's plug-ins no longer ship with Aztek. Help > Install mGear (`aztekMgear -install`) takes the release of
-https://github.com/srlegrand/mgear for this Aztek's plug-in ABI and platform and unpacks it into the `modules` folder
-of the user folder chosen at the first start: `aztek-mGear.mod` and `mGear-aztek/` with mGear's scripts and icons and
-`mgear_solvers`, `mGearWeightDriver`, `cvwrap` and weightDriver 3.6.1 (the node mGear 4 rigs use) built with the kit.
-The module's block is for `MAYAVERSION:aztek`: Maya passes over it, and Aztek takes it, and any module built for Aztek,
-before a module of the same name built for the reference, wherever each is, so a Maya build of mGear in the same user
-folder no longer puts its plug-ins (which can't load) on the path beside these. A scene that needs one of the four and
-doesn't find it says Help > Install mGear installs it.
-
-Checked with mGear 5.4.8 built from the fork in a fresh user folder: the four plug-ins load, mGear and Shifter import,
-the Kaneda rig (mGear 4, Maya 2022) opens with its plug-ins and no unknown node but an `envBall` texture, its arm
-follows the IK control and the FK control, and the Kaneda guide updates (Shifter's Update Guide) and builds: 540
-joints, 532 controls. What the build asked for and was fixed:
+Checked with mGear 5.4.8 (plug-ins built with the kit) on the Kaneda character: its rig (mGear 4, Maya 2022) opens
+with its plug-ins and no unknown node but an `envBall` texture, its arm follows the IK control and the FK control, and
+its guide updates (Shifter's Update Guide) and builds: 540 joints, 532 controls. What the build asked for and was
+fixed:
 - `deformer -type` on a selection that is all hidden makes the deformer on it (mGear makes its `mgear_slideCurve2` on
   a hidden curve it has just selected); `cluster` and the other deformer commands still leave hidden objects out.
 - A parent constraint target's offset has its axes, `target[0].targetOffsetRotateZ` and the rest (they could only be
   set whole), and an axis of a Vec3 in an array compound is found by name with its index.
 - OpenMaya 1.0's `MFnNurbsCurve.getParamAtPoint` into an `MScriptUtil` pointer called the 1.0 `closestPoint`, which
   returns the point alone, and failed.
-Not done: the weightDriver's cones and poses in the viewport; Shifter's own pane hiding during a build
-(`paneLayout` on the main pane) does nothing in batch.
+Not done: Shifter's own pane hiding during a build (`paneLayout` on the main pane) does nothing in batch.

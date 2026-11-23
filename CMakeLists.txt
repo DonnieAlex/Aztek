@@ -139,7 +139,6 @@ add_executable(aztek WIN32
   app/src/pluginmanager.cpp
   app/src/feedback.cpp
   app/src/external.cpp
-  app/src/mgearinstall.cpp
   app/src/editors.cpp
   app/src/attreditor.cpp
   app/src/colorchooser.cpp
@@ -237,8 +236,11 @@ else()
   target_link_options(aztek PRIVATE "LINKER:--as-needed")
 endif()
 
-# mGear's plug-ins don't ship with Aztek: Help > Install mGear installs them, built for Aztek, with mGear's scripts
-# (github.com/srlegrand/mgear). plugins/ keeps their source to test the plug-in kit with (crates/aztek_host/tests).
+# The plug-ins that ship with Aztek, built from their source with the plug-in kit (plugins/CMakeLists.txt).
+option(AZTEK_SHIPPED_PLUGINS "Build the plug-ins that ship with Aztek" ON)
+if(AZTEK_SHIPPED_PLUGINS)
+  add_subdirectory(plugins)
+endif()
 
 # Install: the binary, and on Linux its desktop entry and icon (cmake --install build --prefix ~/.local).
 install(TARGETS aztek RUNTIME DESTINATION bin BUNDLE DESTINATION .)

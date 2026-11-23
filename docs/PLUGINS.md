@@ -14,26 +14,24 @@ export). They load at start, are listed in the Plug-in Manager under "Aztek (bui
 from loading there. `loadPlugin fbx`, `unloadPlugin fbx` and `pluginInfo -q -loaded fbx` work as for any other. File >
 Import and File > Export list a format while its plug-in is loaded.
 
-### mGear
+### Compiled plug-ins that ship with Aztek
 
-mGear's plug-ins don't ship with Aztek. Help > Install mGear installs mGear built for Aztek: the release of
-https://github.com/srlegrand/mgear for this Aztek's plug-in ABI and platform, with mGear's scripts and icons and its
-plug-ins compiled with the kit, as a module in the `modules` folder of the user folder chosen at the first start
-(`~/aztek`, or a Maya user folder): `aztek-mGear.mod` and `mGear-aztek/`. The module's block is for `MAYAVERSION:aztek`,
-so Maya passes over it, and Aztek takes it before a Maya build of mGear in the same folder, whose plug-ins can't load
-here. `aztekMgear -install` does the same from a script, `-installFile` installs a release's zip, `-query` says what is
-installed.
+`plugins/` holds the source of compiled plug-ins other projects publish under licences that let them ship, built with
+the kit by the program's own build into `plug-ins/` beside the program (installed to `lib/aztek/plug-ins` on Linux,
+`plug-ins\` beside `aztek.exe` on Windows, `Contents/PlugIns/aztek` in the Mac app). Aztek looks there after the
+folders below, so a scene that requires one loads it with nothing else installed, and one of the same name on the path
+is used first. A file of that name built for the reference, earlier on the path, is passed over for the one Aztek ships.
 
 - `mgear_solvers`: mGear's solver nodes (`mgear_matrixConstraint`, `mgear_curveCns`, `mgear_rollSplineKine`,
-  `mgear_ikfk2Bone` and the rest).
-- `mGearWeightDriver`: mGear's RBF and vector angle node. Its locator shape computes in all three modes (vector angle,
-  generic RBF, RBF on matrices); the cones and poses it draws in the reference are not drawn in Aztek's viewport yet.
-- `weightDriver`: Ingo Clemens' weightDriver 3.6.1, the node rigs made with mGear 4 use.
-- `cvwrap`: the cvWrap deformer and command. `cvWrap`, `cvWrap -rb` (rebind to some faces), `-ex`/`-im` (export and
-  import a binding) and `-b` work. Its GPU override is registered and never used: Aztek deforms on the CPU.
-
-`plugins/` in Aztek's source keeps the source of `mgear_solvers`, `mGearWeightDriver` and `cvwrap` to test the kit
-with; they are not built with the program.
+  `mgear_ikfk2Bone` and the rest), from mGear's source, unchanged. A rig built with mGear opens and works without mGear
+  installed.
+- `mGearWeightDriver`: mGear's RBF and vector angle node, from its source, unchanged. Its locator shape computes in
+  all three modes (vector angle, generic RBF, RBF on matrices); the cones and poses it draws in the reference are not
+  drawn in Aztek's viewport yet.
+- `cvwrap`: the cvWrap deformer and command, mGear's copy, unchanged. `cvWrap`, `cvWrap -rb` (rebind to some faces),
+  `-ex`/`-im` (export and import a binding) and `-b` work. Its GPU override is registered and never used: Aztek
+  deforms on the CPU. Loaded in the interface it asks Python for its menu module (`cvwrap.menu`), which is not shipped,
+  as the reference does when that module is missing.
 
 ## The Plug-in Manager
 

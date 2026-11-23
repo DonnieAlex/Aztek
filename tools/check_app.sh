@@ -12,7 +12,7 @@ for cxx in clang++ g++; do
   command -v "$cxx" >/dev/null || { echo "$cxx: not installed, skipped"; continue; }
   dir=$(mktemp -d)
   # The moc and uic output is all a syntax check needs: Python and the Rust build stay out of it.
-  if ! cmake -S "$root" -B "$dir" "${gen[@]}" -DCMAKE_CXX_COMPILER="$cxx" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DAZTEK_PYTHON=OFF -DCMAKE_AUTOGEN_ORIGIN_DEPENDS=OFF >"$dir/configure.log" 2>&1; then
+  if ! cmake -S "$root" -B "$dir" "${gen[@]}" -DCMAKE_CXX_COMPILER="$cxx" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DAZTEK_PYTHON=OFF -DAZTEK_SHIPPED_PLUGINS=OFF -DCMAKE_AUTOGEN_ORIGIN_DEPENDS=OFF >"$dir/configure.log" 2>&1; then
     echo "$cxx: configure failed"; tail -20 "$dir/configure.log"; fail=1; continue
   fi
   if ! cmake --build "$dir" --target aztek_autogen >"$dir/autogen.log" 2>&1; then
