@@ -141,14 +141,14 @@ int main(int argc, char** argv) {
     aztek_use_prefs();
     az::MainWindow w;
     aztek_set_main_window(static_cast<QMainWindow*>(&w));
+    // Keep the viewport hidden while the first-run dialog processes events. On macOS, presenting a frame here can
+    // block the dialog while Metal waits for a drawable. Script and screenshot runs skip the prompt.
+    if (!args.isSet(script) && !args.isSet(shot)) az::ask_user_folder_at_first_start(&w, splash);
     w.show();
     if (splash) {
         splash->finish(&w);
         splash->deleteLater();
     }
-    // The first start with the reference's user folder there: how to use it is asked before anything of it runs. Not
-    // when a script or a screenshot drives the run.
-    if (!args.isSet(script) && !args.isSet(shot)) az::ask_user_folder_at_first_start(&w);
     // The plug-ins marked to load at start and the user folder's userSetup scripts, with the window there for the
     // menus and shelves they add.
     aztek_startup_scripts();
