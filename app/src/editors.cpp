@@ -43,6 +43,7 @@ extern "C" {
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <algorithm>
 
 namespace az {
@@ -1371,6 +1372,8 @@ bool InViewEditor::show_fields() {
     move(12, 40);
     show();
     raise();
+    // The native viewport can be stacked above this widget even when Qt's widget order is correct.
+    if (auto* window = windowHandle()) window->raise();
     return true;
 }
 
@@ -1424,6 +1427,7 @@ void InViewEditor::show_last() {
     move(p->width() - width() - 12, 40);
     show();
     raise();
+    if (auto* window = windowHandle()) window->raise();
 }
 
 } // namespace az
