@@ -23,3 +23,19 @@ assert abs(u.getDouble(p) - 0.4) < 1e-6, u.getDouble(p)\")",
     );
     assert!(r.is_ok(), "{r:?}");
 }
+
+/// What opening mGear rigs and its Guide Manager asked for: curveInfo's control points (the eyelids aim at them), lsUI,
+/// and progressWindow answering false while one is showing rather than failing.
+#[test]
+fn curve_info_points_lsui_and_a_second_progress_window() {
+    let mut c = Core::new();
+    c.mel("curve -d 1 -p 0 0 0 -p 2 0 0 -p 2 3 0 -n crv; createNode curveInfo -n ci; connectAttr crvShape.worldSpace[0] ci.inputCurve;");
+    assert_eq!(c.mel_checked("getAttr ci.controlPoints[2];").unwrap(), serde_json::json!([2.0, 3.0, 0.0]));
+    assert_eq!(c.mel_checked("getAttr ci.cp[1].xv;").unwrap(), serde_json::json!(2.0));
+    c.mel("createNode transform -n aim; connectAttr ci.cp[2] aim.t;");
+    assert_eq!(c.mel_checked("getAttr aim.ty;").unwrap(), serde_json::json!(3.0));
+    assert!(c.mel_checked("lsUI -menus;").unwrap().is_array());
+    assert_eq!(c.mel_checked("progressWindow -title \"a\" -progress 0;").unwrap(), serde_json::json!(true));
+    assert_eq!(c.mel_checked("progressWindow -title \"b\" -progress 0;").unwrap(), serde_json::json!(false));
+    c.mel("progressWindow -endProgress;");
+}

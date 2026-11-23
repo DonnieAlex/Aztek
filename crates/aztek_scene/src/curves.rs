@@ -996,6 +996,9 @@ impl NodeBehavior for InfoNode {
         }
         let Some(c) = curve_value(d.value(0)).cloned() else { return };
         d.set_output(1, PlugValue::Float(c.length()));
+        d.set_output_elements(2, c.cvs.iter().enumerate().map(|(i, p)| (i as i32, PlugValue::Vec3(*p))).collect());
+        d.set_output_elements(3, (0..c.cvs.len()).map(|i| (i as i32, PlugValue::Float(1.0))).collect());
+        d.set_output_elements(4, c.knots.iter().enumerate().map(|(i, k)| (i as i32, PlugValue::Float(*k))).collect());
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -1602,8 +1605,20 @@ pub fn register_types() {
         types::register_type(NodeType {
             name: "curveInfo".into(),
             icon: "chart-line".into(),
-            doc: "Facts about a curve: its arc length.".into(),
-            own_attrs: vec![curve_attr("inputCurve", "ic", flags::INPUT | flags::HIDDEN, "The curve."), float_out("arcLength", "al", "Length along the curve.")],
+            doc: "Facts about a curve: its arc length, control points, weights and knots.".into(),
+            own_attrs: vec![
+                curve_attr("inputCurve", "ic", flags::INPUT | flags::HIDDEN, "The curve."),
+                float_out("arcLength", "al", "Length along the curve."),
+                {
+                    // Rigs hang things on the CVs: mGear's eyelids aim at curveInfo.controlPoints[n].
+                    let mut a = vec3_attr("controlPoints", "cp", DVec3::ZERO, flags::OUTPUT | flags::ARRAY, "Each control point, in the input curve's space.");
+                    a.child_names = ["xValue".into(), "yValue".into(), "zValue".into()];
+                    a.child_short = ["xv".into(), "yv".into(), "zv".into()];
+                    a
+                },
+                AttrDef { flags: flags::OUTPUT | flags::ARRAY, ..float_out("weights", "wt", "Each control point's weight: 1, the curves being polynomial.") },
+                AttrDef { flags: flags::OUTPUT | flags::ARRAY, ..float_out("knots", "kn", "The knots, as the file writes them.") },
+            ],
             create: Some(Arc::new(|| Box::new(InfoNode))),
             ..Default::default()
         })

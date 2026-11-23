@@ -4152,3 +4152,17 @@ fixed:
 - OpenMaya 1.0's `MFnNurbsCurve.getParamAtPoint` into an `MScriptUtil` pointer called the 1.0 `closestPoint`, which
   returns the point alone, and failed.
 Not done: Shifter's own pane hiding during a build (`paneLayout` on the main pane) does nothing in batch.
+
+### mGear rigs and the Plug-in Manager (23/11/2026)
+
+Found opening the Kaneda and FoalSpirit rigs and the Guide Manager with mGear installed as a module beside the
+plug-ins Aztek ships:
+- The Plug-in Manager lists a plug-in found in two folders of the plug-in path once: the copy loaded, else the one
+  `loadPlugin` takes by name.
+- curveInfo has its `controlPoints` (`cp`, with `xValue`, `yValue`, `zValue`), `weights` and `knots`; mGear's eyelids
+  aim at its control points, and those connections were dropped on reading.
+- `lsUI` lists the script interface: `-windows`, `-menus`, `-menuItems`, `-controls`, `-controlLayouts`,
+  `-collection`, `-type`, `-long`, `-head`, `-tail`, `-numWindows`. mGear's menu asks it for the menus.
+- `progressWindow` answers false while one is showing, as the reference's, rather than failing.
+Not done: a plug-in locator under the transform it drives (mGear's weightDriver under its driven node) is read as a
+cycle and its outputs are left unconnected; ikSpringSolver.

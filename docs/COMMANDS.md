@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1456 commands.
+1457 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -12946,6 +12946,29 @@ Arguments: filter
 The nodes of a type, ended by "<done>".
 
 Arguments: a node type
+
+## lsUI
+
+The interface elements by name: -windows, -menus, -menuItems, -controls, -controlLayouts, -collection, -type for some kinds, all with none of those or -dumpWidgets; -long gives full paths, -head and -tail cut the list.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `windows` | `wnd` |  |
+| `menus` | `m` |  |
+| `menuItems` | `mi` |  |
+| `controls` | `ctl` |  |
+| `controlLayouts` | `cl` |  |
+| `collection` | `col` |  |
+| `panels` | `p` |  |
+| `editors` | `ed` |  |
+| `contexts` | `ctx` |  |
+| `cmdTemplates` | `ct` |  |
+| `type` | `typ` |  |
+| `long` | `l` |  |
+| `head` | `hd` |  |
+| `tail` | `tl` |  |
+| `numWindows` | `nw` |  |
+| `dumpWidgets` | `dw` |  |
 
 ## makeCollideNCloth
 

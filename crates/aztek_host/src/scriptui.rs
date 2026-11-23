@@ -2525,7 +2525,8 @@ fn progress_window(a: &Args) -> CmdResult {
         }
         let id = match existing {
             Some(id) if a.bool("edit") => id,
-            Some(_) => return Err("progressWindow: one is already showing.".into()),
+            // As the reference: false when one is already showing, the call failing quietly.
+            Some(_) => return Ok(json!(false)),
             None if a.bool("edit") => return Err("progressWindow: none is showing.".into()),
             None => {
                 m.next += 1;
@@ -3317,6 +3318,59 @@ pub fn register(s: &mut Session) {
         .flag(f("isType", "i", ArgType::Any))
         .flag(f("listAll", "la", ArgType::Bool))
         .flag(f("superClasses", "sc", ArgType::Bool)),
+    );
+
+    s.register(
+        Cmd::new(
+            "lsUI",
+            "The interface elements by name: -windows, -menus, -menuItems, -controls, -controlLayouts, -collection, -type for \
+             some kinds, all with none of those or -dumpWidgets; -long gives full paths, -head and -tail cut the list.",
+            |_s, a| {
+                let pick = [("windows", Cat::Window), ("menus", Cat::Menu), ("menuItems", Cat::MenuItem), ("controls", Cat::Control), ("controlLayouts", Cat::Layout), ("collection", Cat::Collection)];
+                let cats: Vec<Cat> = pick.iter().filter(|(f, _)| a.bool(f)).map(|(_, c)| *c).collect();
+                let types: Vec<String> = a.get("type").map(|v| flat(v).iter().map(text).collect()).unwrap_or_default();
+                let long = a.bool("long");
+                // Panels, editors, contexts and templates aren't kept here: asked for alone, nothing.
+                let everything = cats.is_empty() && types.is_empty() && !["panels", "editors", "contexts", "cmdTemplates"].iter().any(|f| a.bool(f));
+                let mut out: Vec<String> = with_model(|m| {
+                    m.controls
+                        .values()
+                        .filter(|c| everything || cats.contains(&cat_of(&c.kind)) || types.iter().any(|t| *t == c.kind || *t == object_type_of(&c.kind)))
+                        .map(|c| if long { c.path.clone() } else { c.name.clone() })
+                        .collect()
+                });
+                if let Some(n) = a.get("head").map(number) {
+                    out.truncate(n.max(0.0) as usize);
+                }
+                if let Some(n) = a.get("tail").map(number) {
+                    let n = n.max(0.0) as usize;
+                    if out.len() > n {
+                        out.drain(..out.len() - n);
+                    }
+                }
+                if a.bool("numWindows") {
+                    return Ok(json!(with_model(|m| m.controls.values().filter(|c| cat_of(&c.kind) == Cat::Window).count())));
+                }
+                Ok(json!(out))
+            },
+        )
+        .undoable(false)
+        .flag(f("windows", "wnd", ArgType::Bool))
+        .flag(f("menus", "m", ArgType::Bool))
+        .flag(f("menuItems", "mi", ArgType::Bool))
+        .flag(f("controls", "ctl", ArgType::Bool))
+        .flag(f("controlLayouts", "cl", ArgType::Bool))
+        .flag(f("collection", "col", ArgType::Bool))
+        .flag(f("panels", "p", ArgType::Bool))
+        .flag(f("editors", "ed", ArgType::Bool))
+        .flag(f("contexts", "ctx", ArgType::Bool))
+        .flag(f("cmdTemplates", "ct", ArgType::Bool))
+        .flag(f("type", "typ", ArgType::Any))
+        .flag(f("long", "l", ArgType::Bool))
+        .flag(f("head", "hd", ArgType::Any))
+        .flag(f("tail", "tl", ArgType::Any))
+        .flag(f("numWindows", "nw", ArgType::Bool))
+        .flag(f("dumpWidgets", "dw", ArgType::Bool)),
     );
 
     s.register(

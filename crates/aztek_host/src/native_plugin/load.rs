@@ -198,7 +198,40 @@ pub(super) fn list_plugins(s: &mut Session) -> Value {
             None => out.push(json!({"name": name, "file": name, "path": path, "folder": folder.to_string_lossy(), "kind": "aztek", "loaded": true, "autoload": false, "note": ""})),
         }
     }
-    Value::Array(out)
+    Value::Array(one_per_name(out))
+}
+
+/// One row a plug-in name: the copy that is loaded, else the one `loadPlugin` takes by name (the first on the path
+/// Aztek can load), else the first. A plug-in in two folders of the path (mGear's shipped with Aztek and in an mGear
+/// module, say) is listed once.
+fn one_per_name(rows: Vec<Value>) -> Vec<Value> {
+    let name = |r: &Value| r["name"].as_str().unwrap_or("").to_string();
+    let rank = |r: &Value| {
+        if r["loaded"].as_bool() == Some(true) {
+            0
+        } else if matches!(r["kind"].as_str(), Some("aztek") | Some("python")) {
+            1
+        } else {
+            2
+        }
+    };
+    let mut keep: Vec<Option<Value>> = Vec::new();
+    let mut at: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for r in rows {
+        let n = name(&r);
+        match at.get(&n) {
+            Some(&i) => {
+                if rank(&r) < keep[i].as_ref().map_or(3, rank) {
+                    keep[i] = Some(r);
+                }
+            }
+            None => {
+                at.insert(n, keep.len());
+                keep.push(Some(r));
+            }
+        }
+    }
+    keep.into_iter().flatten().collect()
 }
 
 /// Loads the plug-ins marked to load at start. One that fails is reported and the rest go on.
