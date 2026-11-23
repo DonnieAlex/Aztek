@@ -1,5 +1,6 @@
 // Aztek: Qt shell over the Rust host library.
 #include "userfolder.h"
+#include "external.h"
 #include "aztek.h"
 #include "tearoff.h"
 #include "themes.h"
@@ -79,7 +80,11 @@ int main(int argc, char** argv) {
         }
 #ifdef Q_OS_LINUX
     // The viewport draws into X11 windows; on a Wayland session Qt runs through XWayland.
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) qputenv("QT_QPA_PLATFORM", "xcb");
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "xcb");
+        // So the browser and file manager Aztek starts are not told to use it too.
+        qputenv("AZTEK_QPA_SET", "1");
+    }
 #endif
     QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     // Interface scaling as mayaDpiSetting left it (optionVars aztekDpiMode, aztekDpiScale): 0 by the system's DPI,
@@ -108,6 +113,7 @@ int main(int argc, char** argv) {
     QApplication::setWindowIcon(QIcon(":/aztek-icon.png"));
     QGuiApplication::setDesktopFileName("aztek");
     apply_style(app);
+    az::install_link_handler();
     // For about: the windowing platform and the interface font in use.
     qputenv("AZTEK_QT_PLATFORM", QGuiApplication::platformName().toUtf8());
     qputenv("AZTEK_FONT_INFO", QString("%1 %2pt").arg(QApplication::font().family()).arg(QApplication::font().pointSizeF()).toUtf8());

@@ -4,6 +4,7 @@
 #include "feedback.h"
 
 #include "aztek.h"
+#include "external.h"
 #include "host.h"
 #include "viewport.h"
 
@@ -630,6 +631,7 @@ void show_in_folder(const QString& folder, const QString& file) {
 #elif defined(Q_OS_LINUX)
     if (!file.isEmpty()) {
         QProcess p;
+        p.setProcessEnvironment(az::desktop_environment());
         p.start("dbus-send", {"--session", "--print-reply", "--dest=org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
                               "org.freedesktop.FileManager1.ShowItems", "array:string:" + QUrl::fromLocalFile(path).toString(), "string:"});
         if (p.waitForFinished(1500) && p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0) return;
@@ -639,7 +641,7 @@ void show_in_folder(const QString& folder, const QString& file) {
 #else
     Q_UNUSED(path);
 #endif
-    QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
+    az::open_external(QUrl::fromLocalFile(folder));
 }
 
 QString dry_run_file() {
@@ -648,7 +650,7 @@ QString dry_run_file() {
 
 bool open_link(const QString& url) {
     if (!dry_run_file().isEmpty()) return true;
-    return QDesktopServices::openUrl(QUrl::fromEncoded(url.toLatin1()));
+    return az::open_external(QUrl::fromEncoded(url.toLatin1()));
 }
 
 // What is left to do on the page, after the browser has been asked to open it.
@@ -939,7 +941,7 @@ public:
         video_state_->setObjectName("feedbackVideoState");
         video_play_ = new QPushButton("Play", this);
         video_play_->setAutoDefault(false);
-        connect(video_play_, &QPushButton::clicked, this, [this] { QDesktopServices::openUrl(QUrl::fromLocalFile(video_path_)); });
+        connect(video_play_, &QPushButton::clicked, this, [this] { az::open_external(QUrl::fromLocalFile(video_path_)); });
         video_remove_ = new QPushButton("Remove", this);
         video_remove_->setAutoDefault(false);
         video_remove_->setToolTip("Takes the video out of the report.");

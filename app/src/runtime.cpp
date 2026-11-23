@@ -1,6 +1,7 @@
 // Named actions (the reference's runtime commands), the hotkey table that runs them and the Hotkey Editor. A hotkey runs a named
 #include <tuple>
 // action or MEL; bindings the user changes are saved in the settings over the defaults.
+#include "external.h"
 #include "themes.h"
 #include "envvars.h"
 #include "editors.h"
@@ -996,7 +997,7 @@ void MainWindow::handle_ui_request(const QString& r) {
     } else if (name == "launch") {
         // launch: a page, movie, PDF or folder in the application the system has for it.
         QUrl url = payload.contains("://") ? QUrl(payload) : QUrl::fromLocalFile(payload);
-        QDesktopServices::openUrl(url);
+        az::open_external(url);
     } else if (name == "fcheck") {
         // fcheck: an image in its own window, or a numbered sequence played at the scene's rate.
         QJsonObject o = parse(payload).toObject();
@@ -1051,7 +1052,7 @@ void MainWindow::handle_ui_request(const QString& r) {
     } else if (name == "repeatLast") {
         repeat_last();
     } else if (name == "openUrl") {
-        QDesktopServices::openUrl(QUrl::fromUserInput(payload));
+        az::open_external(QUrl::fromUserInput(payload));
     } else if (name == "ctxCompleted") {
         for (ViewportWidget* v : panels_->views()) v->set("finishTool", "true");
     } else if (name == "uvTool") {
