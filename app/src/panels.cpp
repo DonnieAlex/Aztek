@@ -1274,8 +1274,8 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
     };
     bar->addAction(icon("moveUp"), "Move selection up in list", [move] { move(-1); });
     bar->addAction(icon("moveDown"), "Move selection down in list", [move] { move(1); });
-    bar->addAction(icon("layer"), "Create a new layer", [create] { create(true); });
-    bar->addAction(icon("layerSelected"), "Create a new layer and assign selected objects", [create] { create(false); });
+    bar->addAction(icon("newLayerEmpty"), "Create a new layer", [create] { create(true); });
+    bar->addAction(icon("newLayerSelected"), "Create a new layer and assign selected objects", [create] { create(false); });
     lay->addWidget(bar);
     list_ = new QTreeWidget(this);
     // V, P, T or R, colour, name.
@@ -1384,50 +1384,65 @@ void LayerEditor::refresh() {
         it->setData(2, Qt::UserRole, type);
         it->setData(4, Qt::UserRole, l["members"].toArray());
         it->setSizeHint(0, QSize(0, 24));
-        auto* vcheck = new QCheckBox;
-        vcheck->setChecked(vis);
-        vcheck->setToolTip("Visible");
-        connect(vcheck, &QCheckBox::toggled, this, [layer](bool on) {
+        auto boxed = [](const QString& text, bool on, const QString& tip) {
+            auto* b = new QToolButton;
+            b->setText(text);
+            b->setCheckable(true);
+            b->setChecked(on);
+            b->setFixedSize(18, 18);
+            b->setToolTip(tip);
+            b->setStyleSheet("QToolButton { border: 1px solid #5a5a5a; background: #2a2a2a; color: #777777; font-size: 9px; padding: 0; }"
+                             "QToolButton:checked { background: #333333; color: #dddddd; }");
+            return b;
+        };
+        auto* vbox = boxed("V", vis, "Visible");
+        connect(vbox, &QToolButton::toggled, this, [layer](bool on) {
             exec("setAttr", args(QJsonArray{layer + ".visibility", on}));
             Host::get()->poke();
         });
-        list_->setItemWidget(it, 0, centered(vcheck));
-        auto* pcheck = new QCheckBox;
-        pcheck->setChecked(play);
-        pcheck->setToolTip("Visible on playback");
-        connect(pcheck, &QCheckBox::toggled, this, [layer](bool on) {
+        list_->setItemWidget(it, 0, vbox);
+        auto* pbox = boxed("P", play, "Visible on playback");
+        connect(pbox, &QToolButton::toggled, this, [layer](bool on) {
             exec("setAttr", args(QJsonArray{layer + ".hideOnPlayback", !on}));
             Host::get()->poke();
         });
-        list_->setItemWidget(it, 1, centered(pcheck));
-        auto* type_button = new QToolButton;
-        type_button->setAutoRaise(true);
-        type_button->setFixedSize(20, 20);
-        type_button->setIconSize(QSize(16, 16));
-        type_button->setIcon(icon(type == 1 ? "layerTemplate" : type == 2 ? "layerReference" : "layerNormal"));
-        type_button->setToolTip(type == 1 ? "Template" : type == 2 ? "Reference" : "Normal");
-        connect(type_button, &QToolButton::clicked, this, [layer, type] {
-            exec("setAttr", args(QJsonArray{layer + ".displayType", (type + 1) % 3}));
-            Host::get()->poke();
-        });
-        list_->setItemWidget(it, 2, centered(type_button));
+        list_->setItemWidget(it, 1, pbox);
+        auto* tbox = new QToolButton;
+        tbox->setText("T");
+        tbox->setFixedSize(18, 18);
+        tbox->setToolTip(type == 1 ? "Template" : type == 2 ? "Reference" : "Normal");
+        tbox->setPopupMode(QToolButton::InstantPopup);
+        tbox->setStyleSheet("QToolButton { border: 1px solid #5a5a5a; background: #333333; color: #dddddd; font-size: 9px; padding: 0; }"
+                            "QToolButton::menu-indicator { image: none; width: 0; }");
+        auto* tmenu = new QMenu(tbox);
+        tbox->setMenu(tmenu);
+        for (auto [label, mode] : {std::pair{"Normal", 0}, {"Template", 1}, {"Reference", 2}}) {
+            QAction* a = tmenu->addAction(label);
+            a->setCheckable(true);
+            a->setChecked(type == mode);
+            connect(a, &QAction::triggered, this, [layer, mode] {
+                exec("setAttr", args(QJsonArray{layer + ".displayType", mode}));
+                Host::get()->poke();
+            });
+        }
+        list_->setItemWidget(it, 2, tbox);
         const bool use_rgb = l["useRgb"].toBool();
         const int index = l["colorIndex"].toInt();
         const QColor colour = layer_colour(l);
         auto* colour_button = new QToolButton;
-        colour_button->setAutoRaise(true);
-        colour_button->setFixedSize(20, 20);
+        colour_button->setFixedSize(18, 18);
         colour_button->setIconSize(QSize(14, 14));
+        colour_button->setToolTip("Layer color. Click to choose.");
+        colour_button->setStyleSheet("QToolButton { border: 1px solid #5a5a5a; background: #2a2a2a; padding: 0; }");
         QPixmap swatch(14, 14);
         swatch.fill(Qt::transparent);
         QPainter sp(&swatch);
         if (colour.isValid()) sp.fillRect(QRectF(1, 1, 12, 12), colour);
-        sp.setPen(QPen(QColor(40, 40, 40), 1));
+        sp.setPen(QPen(QColor(190, 190, 190), 1));
         sp.drawRect(QRectF(1, 1, 12, 12));
         if (!colour.isValid()) sp.drawLine(QPointF(2, 12), QPointF(12, 2));
         sp.end();
         colour_button->setIcon(QIcon(swatch));
-        colour_button->setToolTip("Layer color. Click to choose.");
         connect(colour_button, &QToolButton::clicked, this, [this, layer, index, use_rgb, colour] {
             ColorChoice c = choose_display_color(this, "Layer Color", index, use_rgb, colour);
             if (!c.accepted) return;
@@ -1436,7 +1451,7 @@ void LayerEditor::refresh() {
             else exec("setAttr", args(QJsonArray{layer + ".color", c.index}));
             Host::get()->poke();
         });
-        list_->setItemWidget(it, 3, centered(colour_button));
+        list_->setItemWidget(it, 3, colour_button);
         it->setFlags((it->flags() | Qt::ItemIsDragEnabled) & ~Qt::ItemIsDropEnabled);
         it->setToolTip(4, QString("%1 members. Double-click to select them.").arg(l["members"].toArray().size()));
     }
