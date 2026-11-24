@@ -1084,39 +1084,45 @@ QList<AeBox> poly_boxes(const QString& type) {
     AeBox history;
     if (type == "polyCube") {
         history = box("Poly Cube History",
-                      {row("width"), row("height"), row("depth"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
-                       shown("", "", "separator"), row("subdivisionsWidth"), row("subdivisionsHeight"), row("subdivisionsDepth"),
-                       shown("", "", "separator"), shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      {shown("width", "", "slider", "0,10"), shown("height", "", "slider", "0,10"), shown("depth", "", "slider", "0,10"),
+                       shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "slider", "0,10"),
+                       shown("", "", "separator"), shown("subdivisionsWidth", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"),
+                       shown("subdivisionsDepth", "", "slider", "0,20"),
+                       shown("", "", "separator"), shown("createUVs", "Create UVs", "widecombo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     } else if (type == "polySphere") {
         history = box("Poly Sphere History",
-                      {row("radius"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"), shown("", "", "separator"),
-                       row("subdivisionsAxis"), row("subdivisionsHeight"), shown("", "", "separator"),
+                      {shown("radius", "", "slider", "0,10"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "slider", "0,10"), shown("", "", "separator"),
+                       shown("subdivisionsAxis", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"), shown("", "", "separator"),
                        shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     } else if (type == "polyCylinder") {
         history = box("Poly Cylinder History",
-                      {row("radius"), row("height"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
-                       shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"), row("subdivisionsCaps"),
+                      {shown("radius", "", "slider", "0,10"), shown("height", "", "slider", "0,10"), shown("", "", "separator"),
+                       shown("heightBaseline", "Height Baseline", "slider", "0,10"), shown("", "", "separator"),
+                       shown("subdivisionsAxis", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"), shown("subdivisionsCaps", "", "slider", "0,20"),
                        shown("", "", "separator"), shown("roundCap", "Round Cap", "check"),
                        shown("roundCapHeightCompensation", "Round Cap Height Compensation", "float"), shown("", "", "separator"),
                        shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     } else if (type == "polyCone") {
         history = box("Poly Cone History",
-                      {row("radius"), row("height"), shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"),
-                       row("subdivisionsCaps"), shown("", "", "separator"), shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      {shown("radius", "", "slider", "0,10"), shown("height", "", "slider", "0,10"), shown("", "", "separator"),
+                       shown("subdivisionsAxis", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"),
+                       shown("subdivisionsCaps", "", "slider", "0,20"), shown("", "", "separator"), shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     } else if (type == "polyTorus") {
         history = box("Poly Torus History",
-                      {row("radius"), row("sectionRadius"), row("twist"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
-                       shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"), shown("", "", "separator"),
+                      {shown("radius", "", "slider", "0,10"), shown("sectionRadius", "", "slider", "0,10"), shown("twist", "", "slider", "0,360"),
+                       shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "slider", "0,10"), shown("", "", "separator"),
+                       shown("subdivisionsAxis", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"), shown("", "", "separator"),
                        shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     } else {
         history = box("Poly Plane History",
-                      {row("width"), row("height"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
-                       shown("", "", "separator"), row("subdivisionsWidth"), row("subdivisionsHeight"), shown("", "", "separator"),
+                      {shown("width", "", "slider", "0,10"), shown("height", "", "slider", "0,10"), shown("", "", "separator"),
+                       shown("heightBaseline", "Height Baseline", "slider", "0,10"), shown("", "", "separator"),
+                       shown("subdivisionsWidth", "", "slider", "0,20"), shown("subdivisionsHeight", "", "slider", "0,20"), shown("", "", "separator"),
                        shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
                       1);
     }
@@ -1389,12 +1395,12 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         b->setEnabled(false);
         return b;
     }
-    if (kind == "combo") {
+    if (kind == "combo" || kind == "widecombo") {
         auto* box = new QComboBox(parent);
         QString source = !r.extra.isEmpty() ? r.extra : r.fallback;
         QStringList items = source.isEmpty() ? QStringList{"None"} : source.split('|');
         for (const QString& s : items) box->addItem(s);
-        box->setFixedWidth(148);
+        box->setFixedWidth(kind == "widecombo" ? 300 : 148);
         box->setEnabled(false);
         return box;
     }
@@ -1434,6 +1440,21 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         e->setEnabled(false);
         return e;
     }
+    if (kind == "slider") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        auto* e = new QLineEdit(w);
+        e->setFixedSize(72, 20);
+        e->setEnabled(false);
+        auto* s = new QSlider(Qt::Horizontal, w);
+        s->setRange(0, 1000);
+        s->setEnabled(false);
+        h->addWidget(e);
+        h->addWidget(s, 1);
+        return w;
+    }
     auto* e = new QLineEdit(parent);
     e->setFixedSize(72, 20);
     e->setEnabled(false);
@@ -1444,7 +1465,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
 QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QWidget* parent) {
     QString type = a["type"].toString();
     bool ro = read_only(a);
-    if (r.kind == "combo" && type != "enum") {
+    if ((r.kind == "combo" || r.kind == "widecombo") && type != "enum") {
         auto* box = new QComboBox(parent);
         QString source = !r.extra.isEmpty() ? r.extra : r.fallback;
         QStringList items;
@@ -1452,7 +1473,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
         if (items.isEmpty()) items = source.isEmpty() ? QStringList{"None"} : source.split('|');
         for (const QString& item : items) box->addItem(item);
         box->setCurrentIndex(qBound(0, a["value"].toInt(), box->count() - 1));
-        box->setFixedWidth(148);
+        box->setFixedWidth(r.kind == "widecombo" ? 300 : 148);
         box->setEnabled(!ro);
         QString plug = a["plug"].toString();
         QObject::connect(box, QOverload<int>::of(&QComboBox::activated), box, [plug](int i) { set_plug(plug, i, "int"); });
@@ -1853,6 +1874,13 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             v->addWidget(rw);
             continue;
         }
+        if (r.kind == "slider" && !a.isEmpty()) {
+            QStringList bounds = (r.extra.isEmpty() ? r.fallback : r.extra).split(',');
+            if (bounds.size() == 2) {
+                a["min"] = bounds.at(0).toDouble();
+                a["max"] = bounds.at(1).toDouble();
+            }
+        }
         const bool checklike = r.kind == "check" || r.kind == "channels" || (r.kind.isEmpty() && a["type"].toString() == "bool");
         if (r.kind == "freedom") {
             auto* rw = new QWidget(parent);
@@ -2140,9 +2168,11 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     auto* noGlobal = showMenu->addAction("Show default if no global view");
     noGlobal->setCheckable(true);
     noGlobal->setChecked(true);
+    noGlobal->setEnabled(false);
     auto* viewLabels = showMenu->addAction("Show View Labels");
     viewLabels->setCheckable(true);
     viewLabels->setChecked(true);
+    viewLabels->setEnabled(false);
     auto* showNotes = showMenu->addAction("Show Notes");
     showNotes->setCheckable(true);
     showNotes->setChecked(show_notes_);
@@ -2155,6 +2185,7 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     auto* colorPots = showMenu->addAction("Show Color Managed Pots");
     colorPots->setCheckable(true);
     colorPots->setChecked(true);
+    colorPots->setEnabled(false);
     menu_button("Show", showMenu);
 
     auto* helpMenu = new QMenu(this);
