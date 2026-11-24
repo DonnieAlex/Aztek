@@ -406,6 +406,27 @@ pub fn channel_box(core: &Core) -> Value {
     channel_box_of(g, lead, g.selection().len())
 }
 
+/// A Channel Box node's channels. The reference shows Visibility last on the selected object and not at all on its
+/// shapes, inputs or outputs.
+pub fn channel_box_channels(g: &Graph, id: NodeId, all_inputs: bool, keep_visibility: bool) -> Vec<Value> {
+    let mut list = channels(g, id, all_inputs);
+    let mut visibility = None;
+    list.retain(|c| {
+        if c["attr"].as_str() == Some("visibility") {
+            visibility = Some(c.clone());
+            false
+        } else {
+            true
+        }
+    });
+    if keep_visibility {
+        if let Some(c) = visibility {
+            list.push(c);
+        }
+    }
+    list
+}
+
 /// The channel box for one object: its channels, its shapes' and its inputs'. `count` is how many objects it stands for.
 pub fn channel_box_of(g: &Graph, lead: NodeId, count: usize) -> Value {
     let Some(n) = g.node(lead) else { return Value::Null };
@@ -419,19 +440,19 @@ pub fn channel_box_of(g: &Graph, lead: NodeId, count: usize) -> Value {
                 if hn.ty().dag {
                     continue;
                 }
-                inputs.push(json!({"name": hn.name(), "path": g.path(h), "type": hn.ty().name, "channels": channels(g, h, true)}));
+                inputs.push(json!({"name": hn.name(), "path": g.path(h), "type": hn.ty().name, "channels": channel_box_channels(g, h, true, false)}));
             }
         }
     }
     let shape_list: Vec<Value> = shapes
         .iter()
-        .filter_map(|&s| g.node(s).map(|n| json!({"name": n.name(), "path": g.path(s), "type": n.ty().name, "channels": channels(g, s, false)})))
+        .filter_map(|&s| g.node(s).map(|n| json!({"name": n.name(), "path": g.path(s), "type": n.ty().name, "channels": channel_box_channels(g, s, false, false)})))
         .collect();
     json!({
         "name": n.name(),
         "path": g.path(lead),
         "type": n.ty().name,
-        "channels": if is_xf || !is_shape(g, lead) { channels(g, lead, !n.ty().dag) } else { Vec::new() },
+        "channels": if is_xf || !is_shape(g, lead) { channel_box_channels(g, lead, !n.ty().dag, true) } else { Vec::new() },
         "shapes": shape_list,
         "inputs": inputs,
         "count": count,

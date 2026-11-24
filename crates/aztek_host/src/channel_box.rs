@@ -618,7 +618,7 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
             .into_iter()
             .filter_map(|o| {
                 let n = s.graph.node(o)?;
-                Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channels(&s.graph, o, true)}))
+                Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channel_box_channels(&s.graph, o, true, false)}))
             })
             .collect();
         let mut dressed = Vec::new();
@@ -654,7 +654,7 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
                     .into_iter()
                     .filter_map(|o| {
                         let n = s.graph.node(o)?;
-                        Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channels(&s.graph, o, true)}))
+                        Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channel_box_channels(&s.graph, o, true, false)}))
                     })
                     .collect();
                 let mut dressed = Vec::new();
