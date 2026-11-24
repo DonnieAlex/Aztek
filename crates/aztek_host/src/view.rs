@@ -122,6 +122,8 @@ pub struct View {
     nav: Option<(i32, DVec2)>,
     marquee: Option<DVec2>,
     joint_press: Option<DVec2>,
+    /// The curves a joint placed with C held can land on, gathered once when the joint tool's button goes down.
+    joint_curves: Vec<(DVec3, DVec3)>,
     /// The camera node this view looks through, by name, and what was last read from or written to it.
     pub cam_node: String,
     cam_sync: Option<[f64; 14]>,
@@ -215,6 +217,7 @@ impl View {
             nav: None,
             marquee: None,
             joint_press: None,
+            joint_curves: Vec::new(),
             cam_node: kind.name().to_string(),
             cam_sync: None,
             ts: Default::default(),
@@ -1482,11 +1485,7 @@ impl View {
                             }
                         }
                     }
-                    let snap_curves: Vec<(DVec3, DVec3)> = crate::viewport::rig_items(&core.s.graph)
-                        .into_iter()
-                        .filter(|it| crate::viewport::type_category(&core.s.graph, it.node) == "curve")
-                        .flat_map(|it| it.segs)
-                        .collect();
+                    let snap_curves = crate::viewport::snap_curves(&core.s.graph);
                     let choose_axis = button == 2 && mods & SHIFT != 0 && hit.is_none();
                     let lead = core.s.graph.selection().last().copied();
                     let (start_rotate, start_scale) = match lead.and_then(|l| crate::viewport::channels(&core.s.graph, l)) {
@@ -1531,6 +1530,9 @@ impl View {
                 }
                 if button == 1 && matches!(self.vp.tool, Tool::Joint | Tool::CurveCv | Tool::CurveEp | Tool::CurveAddPt | Tool::ArcTwo | Tool::ArcThree) {
                     self.joint_press = Some(px);
+                    if self.vp.tool == Tool::Joint {
+                        self.joint_curves = crate::viewport::snap_curves(&core.s.graph);
+                    }
                     return false;
                 }
                 if button == 1 {
@@ -1547,7 +1549,7 @@ impl View {
                 if self.joint_press.is_some() && self.vp.tool == Tool::Joint && px.x > -1e5 {
                     let g = &core.s.graph;
                     let from = g.selection().last().copied().filter(|&id| aztek_scene::rig::is_joint(g, id)).and_then(|id| g.node(id)).map(|n| n.data().matrix(aztek_scene::transform::DagNode::WORLD_MATRIX).w_axis.truncate());
-                    self.vp.joint_preview = Some((from, self.vp.place_joint_point(g, px)));
+                    self.vp.joint_preview = Some((from, self.vp.place_joint_point(&self.joint_curves, px)));
                     return true;
                 }
                 if let Some((b, last)) = self.nav {
@@ -1906,7 +1908,7 @@ impl View {
                     // A joint goes where the button comes up, however far it was dragged.
                     if self.vp.tool == Tool::Joint {
                         self.vp.joint_preview = None;
-                        let at = self.vp.place_joint_point(&core.s.graph, px);
+                        let at = self.vp.place_joint_point(&std::mem::take(&mut self.joint_curves), px);
                         place_joint(core, at);
                     } else if (px - start).length() < 6.0 * self.dpr {
                         let at = self.vp.place_point(px);

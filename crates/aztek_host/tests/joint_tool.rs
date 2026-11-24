@@ -3,7 +3,7 @@
 
 use aztek_host::camera::CamKind;
 use aztek_host::view::{finish_joint_chain, place_joint};
-use aztek_host::viewport::Viewport;
+use aztek_host::viewport::{snap_curves, Viewport};
 use aztek_host::Core;
 use glam::{DVec2, DVec3};
 use serde_json::{json, Value};
@@ -101,12 +101,13 @@ fn with_c_held_the_joint_goes_on_the_curve_under_the_cursor() {
     vp.cam.yaw = 0.3;
     vp.cam.pitch = -0.6;
     vp.cam.distance = 30.0;
+    let curves = snap_curves(&c.s.graph);
     let on = DVec3::new(2.0, 3.0, 0.0);
     let px = vp.screen().project(on).unwrap() + DVec2::new(0.0, 5.0);
     // Without a snap the click lands on the ground, below the curve.
-    assert!(vp.place_joint_point(&c.s.graph, px).y.abs() < 1e-6);
+    assert!(vp.place_joint_point(&curves, px).y.abs() < 1e-6);
     vp.snap = 3;
-    let at = vp.place_joint_point(&c.s.graph, px);
+    let at = vp.place_joint_point(&curves, px);
     assert!((at.y - 3.0).abs() < 1e-6 && at.z.abs() < 1e-6, "{at:?} is off the curve");
     assert!((at.x - 2.0).abs() < 0.5, "{at:?} is not near the cursor");
     place_joint(&mut c, at);
@@ -114,5 +115,5 @@ fn with_c_held_the_joint_goes_on_the_curve_under_the_cursor() {
     assert!((t[1] - 3.0).abs() < 1e-6, "{t:?}");
     // Far from any curve the joint goes where it would without the snap.
     let far = DVec2::new(5.0, 795.0);
-    assert_eq!(vp.place_joint_point(&c.s.graph, far), vp.place_point(far));
+    assert_eq!(vp.place_joint_point(&curves, far), vp.place_point(far));
 }

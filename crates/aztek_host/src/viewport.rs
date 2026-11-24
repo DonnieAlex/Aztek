@@ -2702,11 +2702,11 @@ impl Viewport {
         best.map(|(_, p)| p)
     }
 
-    /// Where the joint tool puts a joint: with C held, on the curve nearest the cursor, else as place_point does.
-    pub fn place_joint_point(&self, g: &Graph, px: DVec2) -> DVec3 {
+    /// Where the joint tool puts a joint: with C held, on the curve nearest the cursor (curves from snap_curves), else
+    /// as place_point does.
+    pub fn place_joint_point(&self, curves: &[(DVec3, DVec3)], px: DVec2) -> DVec3 {
         if self.snap == 3 {
-            let segs: Vec<(DVec3, DVec3)> = rig_items(g).into_iter().filter(|it| type_category(g, it.node) == "curve").flat_map(|it| it.segs).collect();
-            if let Some(p) = self.nearest_on_curves(&segs, px) {
+            if let Some(p) = self.nearest_on_curves(curves, px) {
                 return p;
             }
         }
@@ -4555,6 +4555,11 @@ fn selected_lattices(g: &Graph) -> Vec<(NodeId, NodeId, [u32; 3], Vec<DVec3>)> {
 /// A joint's colour when nothing sets one: a mid blue, a shade darker than it was, nearer the reference's (#150).
 /// Unverified against a measured value.
 pub const JOINT_COLOR: [u8; 4] = [6, 9, 98, 255];
+
+/// The world segments of the curves drawn in the view, for a curve snap (C) to land on.
+pub fn snap_curves(g: &Graph) -> Vec<(DVec3, DVec3)> {
+    rig_items(g).into_iter().filter(|it| type_category(g, it.node) == "curve").flat_map(|it| it.segs).collect()
+}
 
 pub fn rig_items(g: &Graph) -> Vec<RigItem> {
     use aztek_scene::rig::Joint;
