@@ -1229,6 +1229,10 @@ QList<AeBox> poly_boxes(const QString& type) {
     return l;
 }
 
+// The trees whose builders come later.
+QList<AeBox> light_boxes(const QString& type);
+QWidget* light_header(const QString& type, QWidget* parent);
+
 // The tree for a node type, when its reference template is laid out here. Other types keep the generic sections.
 QList<AeBox> ae_tree(const QString& type) {
     if (type == "transform" || type == "locator" || type == "ikHandle") return transform_boxes();
@@ -1236,6 +1240,8 @@ QList<AeBox> ae_tree(const QString& type) {
     if (type == "mesh") return mesh_boxes();
     if (type == "camera") return camera_boxes();
     if (type == "openPBRSurface") return openpbr_boxes();
+    static const QSet<QString> lights{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
+    if (lights.contains(type)) return light_boxes(type);
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
     static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
@@ -1376,6 +1382,113 @@ void style_ae_menu(QMenu* m) {
                      "QMenu::item:selected { background: #587f9d; color: #ffffff; }"
                      "QMenu::item:disabled { color: #9a9a9a; }"
                      "QMenu::separator { height: 1px; background: #3d3d3d; margin: 3px 4px; }");
+}
+
+// A light's sample box, as the reference draws it above the light's own frames.
+QWidget* light_header(const QString& type, QWidget* parent) {
+    static const QHash<QString, QString> icons{{"ambientLight", "ambientLight"}, {"directionalLight", "directionalLight"},
+                                               {"pointLight", "pointLight"}, {"spotLight", "spotLight"},
+                                               {"areaLight", "areaLight"}, {"volumeLight", "volumeLight"}};
+    auto* w = new QWidget(parent);
+    auto* v = new QVBoxLayout(w);
+    v->setContentsMargins(2, 6, 12, 6);
+    v->setSpacing(2);
+    auto* row = new QWidget(w);
+    auto* h = new QHBoxLayout(row);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(4);
+    auto* label = new QLabel("Sample", row);
+    label->setObjectName("aeRowLabel");
+    label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    label->setFixedWidth(140);
+    h->addWidget(label);
+    QPixmap px(56, 56);
+    px.fill(QColor(20, 20, 20));
+    QPainter p(&px);
+    QIcon ic = icon(icons.value(type, "pointLight"), 40);
+    ic.paint(&p, 8, 8, 40, 40);
+    auto* sample = new QLabel(row);
+    sample->setPixmap(px);
+    sample->setFixedSize(56, 56);
+    h->addWidget(sample);
+    h->addStretch(1);
+    v->addWidget(row);
+    return w;
+}
+
+// A light's tab: Type, Color, Intensity, Illuminates by Default, Emit Diffuse and Specular, then its own frames.
+QList<AeBox> light_boxes(const QString& type) {
+    QList<AeBox> l;
+    QList<AeRow> rows;
+    rows << shown("__lightType", "Type", "lightType") << shown("color", "Color", "color") << shown("intensity", "Intensity", "slider", "0,10")
+         << shown("__illuminates", "Illuminates by Default", "illuminates");
+    if (type == "ambientLight") rows << shown("ambientShade", "Ambient Shade", "slider", "0,1");
+    else {
+        rows << shown("emitDiffuse", "Emit Diffuse", "check2");
+        rows.last().extra = "emitSpecular";
+    }
+    if (type == "spotLight") rows << shown("coneAngle", "Cone Angle", "slider", "0,180") << shown("penumbraAngle", "Penumbra Angle", "slider", "-10,10")
+                                  << shown("dropoff", "Dropoff", "slider", "0,255") << shown("decayRate", "Decay Rate", "combo", "No Decay|Linear|Quadratic|Cubic");
+    else if (type == "areaLight") rows << shown("decayRate", "Decay Rate", "combo", "No Decay|Linear|Quadratic|Cubic") << shown("normalize", "Normalize", "check");
+    else if (type == "pointLight") rows << shown("decayRate", "Decay Rate", "combo", "No Decay|Linear|Quadratic|Cubic");
+    else if (type == "volumeLight")
+        rows << shown("lightShape", "Light Shape", "combo", "Sphere|Cylinder|Cone") << shown("volumeLightDir", "Volume Light Dir", "combo", "Outward|Inward|Down Axis")
+             << shown("arc", "Arc", "slider", "0,360") << shown("coneEndRadius", "Cone End Radius", "slider", "0,10")
+             << shown("emitAmbient", "Emit Ambient", "check");
+    const char* title = type == "pointLight" ? "Point Light Attributes"
+                      : type == "directionalLight" ? "Directional Light Attributes"
+                      : type == "spotLight" ? "Spot Light Attributes"
+                      : type == "ambientLight" ? "Ambient Light Attributes"
+                      : type == "areaLight" ? "Area Light Attributes"
+                                             : "Volume Light Attributes";
+    l << box(title, {}, 1);
+    l.last().rows = rows;
+    if (type == "pointLight" || type == "spotLight") {
+        AeBox effects;
+        effects.title = "Light Effects";
+        effects.open = 0;
+        if (type == "pointLight")
+            effects.rows = {shown("", "Light Fog", "text"), row("fogType"), row("fogRadius"), row("fogIntensity"),
+                            shown("", "", "separator"), shown("", "Light Glow", "text")};
+        else effects.rows = {row("fogSpread"), row("fogIntensity"), row("barnDoors"), row("leftBarnDoor"), row("rightBarnDoor"),
+                             row("topBarnDoor"), row("bottomBarnDoor"), row("useDecayRegions"), row("startDistance1"), row("endDistance1"),
+                             row("startDistance2"), row("endDistance2"), row("startDistance3"), row("endDistance3")};
+        l << effects;
+    }
+    AeBox shadows;
+    shadows.title = "Shadows";
+    shadows.rows = {row("shadowColor")};
+    AeBox depth;
+    depth.title = "Depth Map Shadow Attributes";
+    depth.open = -1;
+    depth.rows = {row("useDepthMapShadows"), shown("dmapResolution", "Resolution", "int"), shown("useMidDist", "Use Mid Dist", "check"),
+                  shown("useAutoFocus", "Use Auto Focus", "check"), shown("dmapFocus", "Focus", "float"),
+                  shown("dmapFilterSize", "Filter Size", "int"), shown("dmapBias", "Bias", "float"),
+                  shown("fogShadowIntensity", "Fog Shadow Intensity", "float"), shown("fogShadowSamples", "Fog Shadow Samples", "int"),
+                  shown("diskBasedDmaps", "Disk Based Dmaps", "combo", "Off|Overwrite Existing Dmap(s)|Reuse Existing Dmap(s)"),
+                  shown("dmapName", "Shadow Map File Name", "text"), shown("addSceneName", "Add Scene Name", "check"),
+                  shown("addLightName", "Add Light Name", "check"), shown("addFrameExt", "Add Frame Ext", "check")};
+    if (type == "ambientLight" || type == "volumeLight") depth.rows = {row("useDepthMapShadows")};
+    AeBox raytrace;
+    raytrace.title = "Ray Trace Shadow Attributes";
+    raytrace.open = -1;
+    raytrace.rows = {row("useRayTraceShadows")};
+    if (type == "directionalLight") raytrace.rows << shown("lightAngle", "Light Angle", "float");
+    else raytrace.rows << shown("lightRadius", "Light Radius", "float");
+    raytrace.rows << row("shadowRays") << row("rayDepthLimit");
+    if (type == "ambientLight") raytrace.rows << row("castSoftShadows") << shown("shadowRadius", "Shadow Radius", "float");
+    shadows.subs << depth << raytrace;
+    l << shadows;
+    l << box("Object Display",
+             {shown("visibility", "Visibility", "check2"), shown("lodVisibility", "LOD Visibility", "check2"),
+              shown("hideOnPlayback", "Hide on playback", "check2"), shown("hiddenInOutliner", "Hidden In Outliner", "check2"),
+              shown("useOutlinerColor", "Use Outliner Color", "check2"), shown("outlinerColor", "Outliner Color", "color")});
+    l.last().rows[0].extra = "template";
+    l << box("Arnold", {});
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
 }
 
 // A material's sample sphere and its shader type, above the frames as the reference draws them.
@@ -2050,6 +2163,45 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 a["max"] = bounds.at(1).toDouble();
             }
         }
+        if (r.kind == "lightType") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(2, 0, 12, 0);
+            h->setSpacing(4);
+            h->addWidget(ae_label(label, rw));
+            auto* box = new QComboBox(rw);
+            for (const char* n : {"Ambient Light", "Directional Light", "Point Light", "Spot Light", "Area Light", "Volume Light"}) box->addItem(n);
+            box->setCurrentIndex(qBound(0, a["value"].toInt(), box->count() - 1));
+            box->setFixedWidth(148);
+            const QString node = a["plug"].toString();
+            const QStringList types{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
+            QObject::connect(box, QOverload<int>::of(&QComboBox::activated), box, [node, types](int i) {
+                if (i >= 0 && i < types.size()) exec("aztekChangeLightType", args(QJsonArray{node, types.at(i)}));
+            });
+            h->addWidget(box);
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
+        if (r.kind == "illuminates") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(2, 0, 12, 0);
+            h->setSpacing(4);
+            auto* pad = new QWidget(rw);
+            pad->setFixedWidth(140);
+            h->addWidget(pad);
+            auto* cb = new QCheckBox(label, rw);
+            cb->setChecked(a["value"].toBool());
+            const QString node = a["plug"].toString();
+            QObject::connect(cb, &QCheckBox::toggled, cb, [node](bool on) {
+                exec("aztekIlluminatesByDefault", QJsonObject{{"args", QJsonArray{node}}, {"set", on}});
+            });
+            h->addWidget(cb);
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
         if (r.kind == "pair") {
             auto* rw = new QWidget(parent);
             auto* h = new QHBoxLayout(rw);
@@ -2564,6 +2716,22 @@ void AttributeEditor::refresh() {
             if (a["attr"].toString() == "notes") notes = a["value"];
         }
         QString notes_plug = path + ".notes";
+        static const QSet<QString> light_node_types{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
+        if (light_node_types.contains(node_type)) {
+            static const QStringList order{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
+            QJsonObject kind;
+            kind["attr"] = "__lightType";
+            kind["plug"] = path;
+            kind["type"] = "int";
+            kind["value"] = order.indexOf(node_type);
+            by.insert("__lightType", kind);
+            QJsonObject lit;
+            lit["attr"] = "__illuminates";
+            lit["plug"] = path;
+            lit["type"] = "bool";
+            lit["value"] = ask("aztekIlluminatesByDefault", args(QJsonArray{path})).toBool();
+            by.insert("__illuminates", lit);
+        }
 
         // The node's type above its name field, with the reference's connection buttons, Focus, Presets and Show/Hide.
         auto* nameRow = new QWidget(body);
@@ -2688,6 +2856,7 @@ void AttributeEditor::refresh() {
         static const QSet<QString> material_types{"lambert", "blinn", "phong", "phongE", "anisotropic", "standardSurface",
                                                    "aiStandardSurface", "openPBRSurface", "surfaceShader"};
         if (material_types.contains(node_type)) v->addWidget(material_header(node_type, by, body));
+        if (light_node_types.contains(node_type)) v->addWidget(light_header(node_type, body));
 
         QList<AeBox> boxes = ae_tree(node_type);
         // A blend shape's target weights, named after their targets as the reference names them.

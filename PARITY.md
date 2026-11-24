@@ -4271,7 +4271,11 @@ skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; bl
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
 A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
 Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
-AEopenPBRSurfaceTemplate orders them.
+AEopenPBRSurfaceTemplate orders them. A light is headed by its sample, and its tab has Type, Color, Intensity,
+Illuminates by Default, Emit Diffuse and Emit Specular on one row and Decay Rate; Light Effects with Light Fog and
+Light Glow; Shadows with the Depth Map Shadow Attributes and Ray Trace Shadow Attributes frames; Object Display,
+Arnold, Node Behavior, UUID and Extra Attributes. A light's default light set is the last tab, as the reference
+tabifies it.
 
 Notes sit in a fixed area under the scrolling sections, with the reference's dotted rule, and Select, Load Attributes
 and Copy Tab fill the panel's width as three equal buttons. A right-click on an attribute's name gives Set Key, Break

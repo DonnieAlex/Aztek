@@ -594,6 +594,15 @@ pub fn attribute_editor(core: &Core, path: &str) -> Value {
             tabs.insert(0, xf);
         }
     }
+    // A light's default light set comes last, as the reference tabifies it.
+    let light = tabs.iter().any(|&t| g.node(t).is_some_and(|n| n.ty().is_a("light") || matches!(n.ty().name.as_str(), "ambientLight" | "directionalLight" | "pointLight" | "spotLight" | "areaLight" | "volumeLight")));
+    if light {
+        if let Ok(Some(set)) = g.find("defaultLightSet") {
+            if !tabs.contains(&set) {
+                tabs.push(set);
+            }
+        }
+    }
     json!({"focus": g.path(id), "tabs": tabs.iter().map(|&t| node_attrs(g, t)).collect::<Vec<_>>()})
 }
 
