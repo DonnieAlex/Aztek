@@ -107,8 +107,8 @@ public:
 protected:
     void refresh() override;
 private:
-    void add_channels(QVBoxLayout* lay, const QJsonArray& channels);
-    void add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes);
+    void add_channels(QVBoxLayout* lay, const QJsonArray& channels, int label_width = 0);
+    void add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes, int label_width = 0);
     QScrollArea* scroll_;
     QWidget* body_ = nullptr;
     QSet<QString> open_inputs_;

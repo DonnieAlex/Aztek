@@ -991,11 +991,14 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
     });
 }
 
-void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels) {
-    QFontMetrics fm(font());
-    int w = 60;
-    for (const QJsonValue& c : channels) w = qMax(w, fm.horizontalAdvance(c.toObject()["nice"].toString()) + 8);
-    if (options_.contains("labelWidth")) w = qMax(10, options_["labelWidth"].toInt());
+void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels, int label_width) {
+    int w = label_width;
+    if (w <= 0) {
+        QFontMetrics fm(font());
+        w = 60;
+        for (const QJsonValue& c : channels) w = qMax(w, fm.horizontalAdvance(c.toObject()["nice"].toString()) + 8);
+        if (options_.contains("labelWidth")) w = qMax(10, options_["labelWidth"].toInt());
+    }
     const QString kind = QSettings().value("channelBox/filter", "all").toString();
     const bool invert = QSettings().value("channelBox/invertFilter", false).toBool();
     for (const QJsonValue& v : channels) {
@@ -1007,7 +1010,7 @@ void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels) {
 }
 
 // The INPUTS or OUTPUTS heading and its nodes, each a button that opens its channels.
-void ChannelBox::add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes) {
+void ChannelBox::add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes, int label_width) {
     if (nodes.isEmpty()) return;
     lay->addSpacing(6);
     lay->addWidget(section(heading, body_));
@@ -1030,7 +1033,7 @@ void ChannelBox::add_nodes(QVBoxLayout* lay, const QString& heading, const QJson
         lay->addWidget(b);
         if (open_inputs_.contains(p)) {
             body_->setProperty("inInputs", true);
-            add_channels(lay, in["channels"].toArray());
+            add_channels(lay, in["channels"].toArray(), label_width);
             body_->setProperty("inInputs", false);
         }
     }
@@ -1092,6 +1095,27 @@ void ChannelBox::refresh() {
         scroll_->setWidget(body_);
         return;
     }
+    const QJsonArray objects = cb["objects"].toArray();
+    const bool only_lead = QSettings().value("channelBox/showType", "all").toString() == "select";
+    // One label column for the whole box: every attribute label, in the object and in its shapes, inputs and outputs,
+    // ends at the same edge as the reference's.
+    int label_width = 60;
+    {
+        QFontMetrics fm(font());
+        auto scan = [&](const QJsonArray& channels) {
+            for (const QJsonValue& v : channels) label_width = qMax(label_width, fm.horizontalAdvance(v.toObject()["nice"].toString()) + 8);
+        };
+        auto scan_node = [&](const QJsonObject& o) {
+            scan(o["channels"].toArray());
+            for (const QJsonValue& sh : o["shapes"].toArray()) scan(sh.toObject()["channels"].toArray());
+            for (const char* key : {"inputs", "outputs"})
+                for (const QJsonValue& n : o[key].toArray()) scan(n.toObject()["channels"].toArray());
+        };
+        if (objects.isEmpty()) scan_node(cb);
+        else
+            for (const QJsonValue& v : objects) scan_node(v.toObject());
+        if (options_.contains("labelWidth")) label_width = qMax(10, options_["labelWidth"].toInt());
+    }
     // One block per selected object, lead last, as the reference stacks them.
     auto add_object = [&](const QJsonObject& o, bool lead) {
         // Object name, editable to rename.
@@ -1109,7 +1133,7 @@ void ChannelBox::refresh() {
         name->setProperty("node", path);
         lay->addWidget(name);
         if (lead) body_->setProperty("mainNode", path);
-        add_channels(lay, o["channels"].toArray());
+        add_channels(lay, o["channels"].toArray(), label_width);
         const QJsonArray shapes = o["shapes"].toArray();
         if (!shapes.isEmpty()) {
             lay->addSpacing(6);
@@ -1118,15 +1142,14 @@ void ChannelBox::refresh() {
                 auto* l = new QLabel(s.toObject()["name"].toString(), body_);
                 l->setProperty("node", s.toObject()["path"].toString());
                 l->setObjectName("channelNode");
+                l->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
                 lay->addWidget(l);
-                add_channels(lay, s.toObject()["channels"].toArray());
+                add_channels(lay, s.toObject()["channels"].toArray(), label_width);
             }
         }
-        add_nodes(lay, "INPUTS", o["inputs"].toArray());
-        add_nodes(lay, "OUTPUTS", o["outputs"].toArray());
+        add_nodes(lay, "INPUTS", o["inputs"].toArray(), label_width);
+        add_nodes(lay, "OUTPUTS", o["outputs"].toArray(), label_width);
     };
-    const QJsonArray objects = cb["objects"].toArray();
-    const bool only_lead = QSettings().value("channelBox/showType", "all").toString() == "select";
     if (!objects.isEmpty()) {
         const int first = only_lead ? qMax(0, objects.size() - 1) : 0;
         for (int i = first; i < objects.size(); ++i) {
@@ -1283,7 +1306,14 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
     list_->setHeaderHidden(true);
     list_->setRootIsDecorated(false);
     list_->header()->setStretchLastSection(true);
-    for (int i = 0; i < 4; ++i) list_->setColumnWidth(i, 22);
+    list_->setIndentation(0);
+    list_->setUniformRowHeights(true);
+    list_->header()->setMinimumSectionSize(18);
+    for (int i = 0; i < 4; ++i) {
+        list_->header()->setSectionResizeMode(i, QHeaderView::Fixed);
+        list_->setColumnWidth(i, 20);
+    }
+    list_->header()->setSectionResizeMode(4, QHeaderView::Stretch);
     list_->setDragDropMode(QAbstractItemView::InternalMove);
     list_->setSelectionMode(QAbstractItemView::SingleSelection);
     lay->addWidget(list_, 1);
@@ -1355,13 +1385,6 @@ void LayerEditor::refresh() {
             return a["name"].toString().compare(b["name"].toString(), Qt::CaseInsensitive) < 0;
         });
     const bool namespaces = QSettings().value("displayLayer/namespace", true).toBool();
-    auto centered = [](QWidget* w) {
-        auto* box = new QWidget;
-        auto* h = new QHBoxLayout(box);
-        h->setContentsMargins(0, 0, 0, 0);
-        h->addWidget(w, 0, Qt::AlignCenter);
-        return box;
-    };
     auto layer_colour = [](const QJsonObject& l) -> QColor {
         if (l["useRgb"].toBool()) {
             const QJsonArray c = l["rgb"].toArray();

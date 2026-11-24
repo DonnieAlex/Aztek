@@ -53,8 +53,8 @@ QLabel#channelEmpty { color: @dim; padding: 12px; }
 QLabel#channelName[picked="true"] { background: @hi; color: #ffffff; }
 QLineEdit#channelValue[picked="true"], QLineEdit#channelKeyed[picked="true"], QLineEdit#channelKeyOnFrame[picked="true"], QLineEdit#channelChanged[picked="true"], QLineEdit#channelLayered[picked="true"], QLineEdit#channelMuted[picked="true"], QLineEdit#channelLocked[picked="true"], QLineEdit#channelConnected[picked="true"] { background: @hi; color: #ffffff; border: none; selection-background-color: #ffffff; selection-color: @hi; }
 QLabel#channelSection { color: @dim; font-weight: bold; padding-top: 4px; }
-QLabel#channelNode { color: @bright; padding-left: 6px; }
-QPushButton#channelNodeButton { text-align: left; padding: 2px 6px; color: @bright; border: none; }
+QLabel#channelNode { color: @bright; background: #3a3a3a; padding: 2px 6px; }
+QPushButton#channelNodeButton { text-align: left; padding: 2px 6px; color: @bright; border: none; background: #3a3a3a; }
 QPushButton#channelNodeButton:hover { background: @hover; }
 QLabel#aeSection { background: @button; padding: 3px 6px; font-weight: bold; }
 QToolButton#aeSectionButton { background: @button; padding: 3px 6px; font-weight: bold; border: none; text-align: left; }
