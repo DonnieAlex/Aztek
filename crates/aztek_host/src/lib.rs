@@ -40,6 +40,8 @@ pub mod scriptui;
 pub mod tools;
 pub mod tools_quad;
 pub mod ui_cmds;
+pub mod hud;
+pub mod ramp_controls;
 pub mod update;
 pub mod environment;
 pub mod user_folder;

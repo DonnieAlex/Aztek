@@ -479,18 +479,86 @@ impl View {
         if self.vp.iso.active() {
             rows.push((2, "Isolate Select".to_string()));
         }
-        for (section, _block, label, command) in crate::ui_cmds::custom_huds() {
-            let lines = core.log.len();
-            let val = if command.is_empty() { Value::Null } else { core.mel_checked(&command).unwrap_or(Value::Null) };
-            core.log.truncate(lines);
-            let text = match val {
-                Value::Null => String::new(),
-                Value::String(t) => t,
-                o => o.to_string(),
-            };
-            rows.push((section, format!("{label} {text}").trim().to_string()));
-        }
         rows
+    }
+
+    /// The scripted heads up display blocks, the presets' values worked out.
+    fn hud_blocks(&mut self, core: &mut Core, items: &[crate::viewport::DrawItem]) -> Vec<crate::hud::Block> {
+        let mut blocks = crate::hud::blocks(core);
+        if !blocks.iter().any(|b| !b.preset.is_empty()) {
+            return blocks;
+        }
+        let sel = core.s.graph.selection().to_vec();
+        // Totals over what the view shows, over the selected objects, and the selected components.
+        let mut all = [0u64; 5];
+        let mut picked = [0u64; 5];
+        for it in items {
+            let m = &it.mesh;
+            let (mut v, mut e, mut f, mut t) = (0u64, 0u64, 0u64, 0u64);
+            for p in 0..m.point_capacity() {
+                v += m.point_valid(p) as u64;
+            }
+            for i in 0..m.edge_capacity() {
+                e += m.edge_valid(i) as u64;
+            }
+            for i in 0..m.face_capacity() {
+                if m.face_valid(i) {
+                    f += 1;
+                    t += (m.face_points(i).len() as u64).saturating_sub(2);
+                }
+            }
+            let path = core.s.graph.path(it.shape);
+            let uv = core.s.run("polyEvaluate", json!({"args": [path], "uvcoord": true})).ok().and_then(|v| v.as_u64()).unwrap_or(0);
+            for (k, x) in [v, e, f, uv, t].into_iter().enumerate() {
+                all[k] += x;
+                if sel.contains(&it.xf) || sel.contains(&it.shape) {
+                    picked[k] += x;
+                }
+            }
+        }
+        let active = |core: &mut Core, flag: &str| core.s.run("polyEvaluate", json!({ flag: true })).ok().and_then(|v| v.as_u64()).unwrap_or(0);
+        for b in blocks.iter_mut().filter(|b| !b.preset.is_empty()) {
+            b.data = match b.preset.as_str() {
+                "polyVerts" | "polyEdges" | "polyFaces" | "polyUVs" | "polyTriangles" => {
+                    let (k, flag) = match b.preset.as_str() {
+                        "polyVerts" => (0, "vertexComponent"),
+                        "polyEdges" => (1, "edgeComponent"),
+                        "polyFaces" => (2, "faceComponent"),
+                        "polyUVs" => (3, "uvComponent"),
+                        _ => (4, "triangleComponent"),
+                    };
+                    vec![all[k].to_string(), picked[k].to_string(), active(core, flag).to_string()]
+                }
+                "cameraNames" => vec![self.cam_node.clone()],
+                "frameRate" => {
+                    let now = std::time::Instant::now();
+                    self.frame_times.push_back(now);
+                    while self.frame_times.len() > 30 {
+                        self.frame_times.pop_front();
+                    }
+                    let fps = match self.frame_times.front() {
+                        Some(a) if self.frame_times.len() > 1 => (self.frame_times.len() - 1) as f64 / (now - *a).as_secs_f64().max(1e-3),
+                        _ => 0.0,
+                    };
+                    vec![format!("{fps:.1} fps")]
+                }
+                "distanceFromCamera" => {
+                    let names: Vec<Value> = sel.iter().map(|&i| json!(core.s.graph.path(i))).collect();
+                    let bb = if names.is_empty() { Value::Null } else { core.s.run("exactWorldBoundingBox", json!({"args": names})).unwrap_or(Value::Null) };
+                    let v: Vec<f64> = bb.as_array().into_iter().flatten().filter_map(Value::as_f64).collect();
+                    if v.len() >= 6 {
+                        let c = DVec3::new(v[0] + v[3], v[1] + v[4], v[2] + v[5]) * 0.5;
+                        vec![format!("{:.*}", b.precision, self.vp.cam.eye().distance(c))]
+                    } else {
+                        vec![String::new()]
+                    }
+                }
+                // Nothing loads in the background here.
+                "materialLoadingCount" | "textureLoadingCount" => vec!["0".to_string()],
+                _ => Vec::new(),
+            };
+        }
+        blocks
     }
 
     /// Where the script-made controls of the heads up display sit: a section's column, a block's row.
@@ -766,8 +834,10 @@ impl View {
     }
 
     fn overlay(&mut self, core: &mut Core, items: &[crate::viewport::DrawItem]) {
-        let hud = self.hud_rows(core, items);
-        let hud_parts = self.hud_parts();
+        let hud_shown = crate::hud::layout_visible();
+        let hud = if hud_shown { self.hud_rows(core, items) } else { Vec::new() };
+        let hud_blocks = if hud_shown { self.hud_blocks(core, items) } else { Vec::new() };
+        let hud_parts = if hud_shown { self.hud_parts() } else { Vec::new() };
         let readout = self.readout();
         let gate = self.gate_aspects(core);
         let numbers = self.weight_numbers(core, items);
@@ -850,7 +920,7 @@ impl View {
             text::label(text, *at + DVec2::new(4.0 * s, -3.0 * s), 6.0 * s, c8(*col), &mut tris);
         }
         // Axis triad, bottom left.
-        if crate::ui_cmds::hud_on("viewAxis") {
+        if hud_shown && crate::ui_cmds::hud_on("viewAxis") {
             let origin = DVec2::new(34.0 * s, h - 34.0 * s);
             let view = self.vp.cam.view();
             let axes = [(DVec3::X, [230, 50, 50, 255], 'x'), (DVec3::Y, [60, 220, 60, 255], 'y'), (DVec3::Z, [70, 110, 255, 255], 'z')];
@@ -863,17 +933,91 @@ impl View {
             }
         }
         // Camera name, bottom centre.
-        if crate::ui_cmds::hud_on("cameraNames") {
+        if hud_shown && crate::ui_cmds::hud_on("cameraNames") {
             let name = self.cam_node.as_str();
             let size = 11.0 * s;
             let tw = text::width(name, size);
             text::label(name, DVec2::new(w * 0.5 - tw * 0.5, h - 12.0 * s), size, c8([225, 225, 225, 255]), &mut tris);
         }
-        // Heads up display text by section.
+        // The scripted blocks: each section a fifth of the view across, its blocks down from the top or up from the bottom.
+        let col_w = w / 5.0;
+        let mut used_px = [0.0f64; 10];
+        for section in 0..10i64 {
+            let mut mine: Vec<&crate::hud::Block> = hud_blocks.iter().filter(|b| b.section == section).collect();
+            mine.sort_by_key(|b| b.block);
+            let Some(last) = mine.last().map(|b| b.block) else { continue };
+            let height_of = |k: i64| mine.iter().find(|b| b.block == k).map_or(20.0, |b| b.height) * s;
+            used_px[section as usize] = (0..=last).map(height_of).sum::<f64>();
+            for b in &mine {
+                let below: f64 = (0..b.block).map(height_of).sum();
+                let bh = b.height * s;
+                let top = if section < 5 { below } else { h - below - bh };
+                let (lsize, dsize) = (if b.label_large { 13.0 } else { 10.0 } * s, if b.data_large { 13.0 } else { 10.0 } * s);
+                let fit = |t: &str, width: f64, size: f64| -> String {
+                    if width <= 0.0 {
+                        return t.to_string();
+                    }
+                    let mut out = t.to_string();
+                    while !out.is_empty() && text::width(&out, size) > width {
+                        out.pop();
+                    }
+                    out
+                };
+                let label_w = if b.label_width > 0.0 { b.label_width * s } else if b.label.is_empty() { 0.0 } else { text::width(&b.label, lsize) + 6.0 * s };
+                let data_w: Vec<f64> = b.data.iter().map(|d| if b.data_width > 0.0 { b.data_width * s } else { text::width(d, dsize) + 6.0 * s }).collect();
+                let total = if b.preset == "viewAxis" { 50.0 * s } else { label_w + data_w.iter().sum::<f64>() };
+                let (lo, hi) = (col_w * (section % 5) as f64 + b.padding * s, col_w * ((section % 5) + 1) as f64 - b.padding * s);
+                let x0 = match b.align.as_str() {
+                    "right" => hi - total,
+                    "center" => (lo + hi) * 0.5 - total * 0.5,
+                    _ => lo,
+                };
+                let base = top + bh * 0.5 + 4.0 * s;
+                if b.preset == "viewAxis" {
+                    let origin = DVec2::new(x0 + 25.0 * s, top + 25.0 * s);
+                    let view = self.vp.cam.view();
+                    for (ax, c, name) in [(DVec3::X, [230, 50, 50, 255], 'x'), (DVec3::Y, [60, 220, 60, 255], 'y'), (DVec3::Z, [70, 110, 255, 255], 'z')] {
+                        let v = view.transform_vector3(ax);
+                        seg(origin, origin + DVec2::new(v.x, -v.y) * 18.0 * s, c);
+                        let lp = origin + DVec2::new(v.x, -v.y) * 24.0 * s - DVec2::new(3.0, -4.0) * s;
+                        text::label(&name.to_string(), lp, 7.0 * s, c8(c), &mut tris);
+                    }
+                    continue;
+                }
+                let white = c8([230, 230, 230, 255]);
+                if !b.label.is_empty() {
+                    text::label(&fit(&b.label, label_w, lsize), DVec2::new(x0, base), lsize, white, &mut tris);
+                }
+                let mut x = x0 + label_w;
+                for (d, dw) in b.data.iter().zip(&data_w) {
+                    let t = fit(d, *dw, dsize);
+                    let tx = if b.data_right { x + dw - text::width(&t, dsize) - 3.0 * s } else { x };
+                    text::label(&t, DVec2::new(tx, base), dsize, white, &mut tris);
+                    x += dw;
+                }
+            }
+        }
+        // -showGrid: the sections' columns and the small blocks' rows.
+        if let Some(ci) = crate::hud::grid() {
+            let c = aztek_scene::draw_style::INDEX_COLORS[ci.clamp(0, 31) as usize];
+            let c = [c[0], c[1], c[2], 255];
+            for k in 1..5 {
+                let x = col_w * k as f64;
+                seg(DVec2::new(x, 0.0), DVec2::new(x, h), c);
+            }
+            let mut y = 0.0;
+            while y <= h * 0.5 {
+                seg(DVec2::new(0.0, y), DVec2::new(w, y), c);
+                seg(DVec2::new(0.0, h - y), DVec2::new(w, h - y), c);
+                y += 20.0 * s;
+            }
+        }
+        // The built-in rows, under the section's blocks.
         let size = 10.0 * s;
         let row_h = 15.0 * s;
         for section in [0i64, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
             let col: Vec<&String> = hud.iter().filter(|(k, _)| *k == section).map(|(_, t)| t).collect();
+            let skip = used_px[section as usize];
             for (i, t) in col.iter().enumerate() {
                 let tw = text::width(t, size);
                 let x = match section % 5 {
@@ -882,7 +1026,7 @@ impl View {
                     _ => w - tw - 10.0 * s,
                 };
                 let x = if section == 4 || section == 9 { w - tw - 10.0 * s } else { x };
-                let y = if section < 5 { 16.0 * s + i as f64 * row_h } else { h - 26.0 * s - (col.len() - 1 - i) as f64 * row_h };
+                let y = if section < 5 { skip + 16.0 * s + i as f64 * row_h } else { h - skip - 26.0 * s - (col.len() - 1 - i) as f64 * row_h };
                 text::label(t, DVec2::new(x, y), size, c8([230, 230, 230, 255]), &mut tris);
             }
         }

@@ -471,6 +471,9 @@ const KINDS: &[(&str, &str)] = &[
     ("falloffCurve", crate::more_controls::CURVE_FLAGS),
     ("falloffCurveAttr", crate::more_controls::CURVE_ATTR_FLAGS),
     ("componentBox", crate::more_controls::COMPONENT_BOX_FLAGS),
+    ("gradientControl", crate::ramp_controls::ATTR_FLAGS),
+    ("gradientControlNoAttr", crate::ramp_controls::NO_ATTR_FLAGS),
+    ("helpLine", ""),
 ];
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
@@ -3318,6 +3321,9 @@ pub fn register(s: &mut Session) {
             }
             if crate::more_controls::is_mine(cmd) {
                 return crate::more_controls::command(s, cmd, a);
+            }
+            if crate::ramp_controls::is_mine(cmd) {
+                return crate::ramp_controls::command(s, cmd, a);
             }
             let r = control_command(cmd, a);
             if !a.bool("query") && !a.bool("edit") {

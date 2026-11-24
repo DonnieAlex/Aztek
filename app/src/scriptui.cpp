@@ -55,6 +55,10 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QCursor>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QToolTip>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
@@ -2013,6 +2017,261 @@ private:
     }
 };
 
+// gradientControl and gradientControlNoAttr: entries of a position, a colour or value and an interpolation (0 none,
+// 1 linear, 2 smooth, 3 spline). A colour ramp is a bar with a handle under it per entry; a curve ramp is a graph with a
+// point per entry. A click picks or adds an entry, a drag moves it, Delete removes the picked one.
+class RampWidget : public QWidget {
+public:
+    struct E { double pos; double v[3]; int interp; };
+    QVector<E> es;
+    bool color = false, read_only = false, static_pos = false, static_count = false, vertical = false, adaptive = false, key_info = false, on_release = false;
+    QString highlight = "off";
+    QColor hl_color;
+    int current = 0;
+    std::function<void(int)> changed; // 0 picked, 1 while dragging, 2 changed
+
+    RampWidget() {
+        setMinimumSize(80, 40);
+        setFocusPolicy(Qt::ClickFocus);
+        setMouseTracking(true);
+    }
+    QSize sizeHint() const override { return vertical ? QSize(60, 200) : QSize(240, color ? 40 : 90); }
+    bool dragging() const { return drag_; }
+    QString as_string() const {
+        QStringList l;
+        for (const E& e : es) {
+            if (color) l << QString::number(e.v[0], 'g', 6) << QString::number(e.v[1], 'g', 6) << QString::number(e.v[2], 'g', 6);
+            else l << QString::number(e.v[0], 'g', 6);
+            l << QString::number(e.pos, 'g', 6) << QString::number(e.interp);
+        }
+        return l.join(',');
+    }
+    void set_string(const QString& s) {
+        QStringList n = s.split(',', Qt::SkipEmptyParts);
+        const int step = color ? 5 : 3;
+        es.clear();
+        for (int i = 0; i + step - 1 < n.size(); i += step) {
+            E e{};
+            if (color) {
+                e = E{n[i + 3].toDouble(), {n[i].toDouble(), n[i + 1].toDouble(), n[i + 2].toDouble()}, n[i + 4].toInt()};
+            } else {
+                double v = n[i].toDouble();
+                e = E{n[i + 1].toDouble(), {v, v, v}, n[i + 2].toInt()};
+            }
+            es << e;
+        }
+        std::stable_sort(es.begin(), es.end(), [](const E& a, const E& b) { return a.pos < b.pos; });
+        update();
+    }
+    // The ramp at a position, as the core works it out.
+    void at(double t, double out[3]) const {
+        for (int c = 0; c < 3; ++c) out[c] = 0.0;
+        if (es.isEmpty()) return;
+        if (t <= es.first().pos) { for (int c = 0; c < 3; ++c) out[c] = es.first().v[c]; return; }
+        if (t >= es.last().pos) { for (int c = 0; c < 3; ++c) out[c] = es.last().v[c]; return; }
+        int k = 0;
+        for (int i = 0; i < es.size(); ++i) if (es[i].pos <= t) k = i;
+        const E& a = es[k];
+        const E& b = es[std::min(k + 1, int(es.size()) - 1)];
+        const double u = std::clamp((t - a.pos) / std::max(1e-12, b.pos - a.pos), 0.0, 1.0);
+        for (int c = 0; c < 3; ++c) {
+            const double p0 = a.v[c], p1 = b.v[c];
+            const double pm = k > 0 ? es[k - 1].v[c] : p0, pn = k + 2 < es.size() ? es[k + 2].v[c] : p1;
+            switch (a.interp) {
+            case 0: out[c] = p0; break;
+            case 2: out[c] = p0 + (p1 - p0) * u * u * (3.0 - 2.0 * u); break;
+            case 3: out[c] = 0.5 * (2.0 * p0 + (-pm + p1) * u + (2.0 * pm - 5.0 * p0 + 4.0 * p1 - pn) * u * u + (-pm + 3.0 * p0 - 3.0 * p1 + pn) * u * u * u); break;
+            default: out[c] = p0 + (p1 - p0) * u;
+            }
+        }
+    }
+
+protected:
+    static constexpr int M = 6;
+    double top() const {
+        double t = 1.0;
+        if (adaptive && !color) for (const E& e : es) t = std::max(t, std::ceil(e.v[0]));
+        return t;
+    }
+    QRectF area() const {
+        if (color) return vertical ? QRectF(M, M, width() - 2 * M - 12, height() - 2 * M) : QRectF(M, M, width() - 2 * M, height() - 2 * M - 12);
+        return QRectF(M, M, width() - 2 * M, height() - 2 * M);
+    }
+    // Position along the ramp and value across it, to the screen and back.
+    QPointF to_screen(double pos, double val) const {
+        QRectF r = area();
+        const double v = val / top();
+        return vertical ? QPointF(r.left() + v * r.width(), r.bottom() - pos * r.height()) : QPointF(r.left() + pos * r.width(), r.bottom() - v * r.height());
+    }
+    double pos_at(const QPointF& s) const {
+        QRectF r = area();
+        return std::clamp(vertical ? (r.bottom() - s.y()) / std::max(1.0, r.height()) : (s.x() - r.left()) / std::max(1.0, r.width()), 0.0, 1.0);
+    }
+    double val_at(const QPointF& s) const {
+        QRectF r = area();
+        return std::max(0.0, (vertical ? (s.x() - r.left()) / std::max(1.0, r.width()) : (r.bottom() - s.y()) / std::max(1.0, r.height())) * top());
+    }
+    QPointF handle(int i) const {
+        QRectF r = area();
+        if (!color) return to_screen(es[i].pos, es[i].v[0]);
+        return vertical ? QPointF(r.right() + 6, r.bottom() - es[i].pos * r.height()) : QPointF(r.left() + es[i].pos * r.width(), r.bottom() + 6);
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QRectF r = area();
+        p.fillRect(rect(), palette().color(QPalette::Base));
+        const bool lit = highlight == "always" || (highlight == "hover" && underMouse());
+        const QColor line = lit ? (hl_color.isValid() ? hl_color : palette().color(QPalette::Highlight)) : (isEnabled() ? palette().color(QPalette::Text) : palette().color(QPalette::Mid));
+        if (color) {
+            const int n = int(vertical ? r.height() : r.width());
+            for (int i = 0; i < n; ++i) {
+                double c[3];
+                at((i + 0.5) / std::max(1, n), c);
+                p.setPen(QColor::fromRgbF(std::clamp(c[0], 0.0, 1.0), std::clamp(c[1], 0.0, 1.0), std::clamp(c[2], 0.0, 1.0)));
+                if (vertical) p.drawLine(QPointF(r.left(), r.bottom() - i), QPointF(r.right(), r.bottom() - i));
+                else p.drawLine(QPointF(r.left() + i, r.top()), QPointF(r.left() + i, r.bottom()));
+            }
+            p.setPen(QPen(lit ? line : palette().color(QPalette::Dark), lit ? 2 : 1));
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(r);
+        } else {
+            p.setPen(QPen(palette().color(QPalette::Mid), 1));
+            for (int i = 1; i < 10; ++i) {
+                double x = r.left() + r.width() * i / 10.0, y = r.top() + r.height() * i / 10.0;
+                p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()));
+                p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y));
+            }
+            p.setPen(QPen(palette().color(QPalette::Dark), 1));
+            p.drawRect(r);
+            QPolygonF curve;
+            const int n = 120;
+            for (int i = 0; i <= n; ++i) {
+                double c[3];
+                at(double(i) / n, c);
+                curve << to_screen(double(i) / n, c[0]);
+            }
+            p.setPen(QPen(line, lit ? 2.5 : 1.5));
+            p.drawPolyline(curve);
+        }
+        if (read_only) return;
+        for (int i = 0; i < es.size(); ++i) {
+            QPointF h = handle(i);
+            p.setPen(palette().color(QPalette::Shadow));
+            if (color) p.setBrush(QColor::fromRgbF(std::clamp(es[i].v[0], 0.0, 1.0), std::clamp(es[i].v[1], 0.0, 1.0), std::clamp(es[i].v[2], 0.0, 1.0)));
+            else p.setBrush(palette().color(QPalette::Button).lighter(150));
+            if (i == current) p.setPen(QPen(palette().color(QPalette::Highlight), 2));
+            p.drawRect(QRectF(h.x() - 4, h.y() - 4, 8, 8));
+        }
+    }
+    int hit(const QPointF& at) const {
+        for (int i = 0; i < es.size(); ++i)
+            if (QLineF(handle(i), at).length() < 7) return i;
+        return -1;
+    }
+    void tip(const QPoint& global) {
+        if (!key_info || current < 0 || current >= es.size()) return;
+        const E& e = es[current];
+        QString t = QString("%1: %2").arg(QString::number(e.pos, 'f', 3), color ? QString("%1 %2 %3").arg(e.v[0], 0, 'f', 3).arg(e.v[1], 0, 'f', 3).arg(e.v[2], 0, 'f', 3) : QString::number(e.v[0], 'f', 3));
+        QToolTip::showText(global, t, this);
+    }
+    void mousePressEvent(QMouseEvent* e) override {
+        if (!isEnabled() || e->button() != Qt::LeftButton || read_only) return;
+        int h = hit(e->position());
+        if (h >= 0) {
+            current = h;
+            drag_ = !static_pos;
+            update();
+            tip(e->globalPosition().toPoint());
+            if (changed) changed(0);
+            return;
+        }
+        if (static_count) return;
+        E n{};
+        n.pos = pos_at(e->position());
+        n.interp = es.isEmpty() ? 1 : es[std::max(0, current < es.size() ? current : 0)].interp;
+        if (color) at(n.pos, n.v);
+        else { const double v = val_at(e->position()); n.v[0] = n.v[1] = n.v[2] = v; }
+        es << n;
+        current = resort(es.size() - 1);
+        drag_ = !static_pos;
+        moved_ = true;
+        update();
+        if (changed) changed(on_release ? 0 : 1);
+    }
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if (!drag_ || current < 0 || current >= es.size()) { update(); return; }
+        es[current].pos = pos_at(e->position());
+        if (!color) es[current].v[0] = es[current].v[1] = es[current].v[2] = val_at(e->position());
+        current = resort(current);
+        moved_ = true;
+        update();
+        tip(e->globalPosition().toPoint());
+        if (changed && !on_release) changed(1);
+    }
+    void mouseReleaseEvent(QMouseEvent*) override {
+        drag_ = false;
+        if (moved_ && changed) changed(2);
+        moved_ = false;
+    }
+    void leaveEvent(QEvent*) override { update(); }
+    void enterEvent(QEnterEvent*) override { update(); }
+    void keyPressEvent(QKeyEvent* e) override {
+        if (!read_only && !static_count && (e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace) && es.size() > 1 && current >= 0 && current < es.size()) {
+            es.remove(current);
+            current = std::max(0, std::min(current, int(es.size()) - 1));
+            update();
+            if (changed) changed(2);
+            return;
+        }
+        QWidget::keyPressEvent(e);
+    }
+
+private:
+    bool drag_ = false, moved_ = false;
+    int resort(int keep) {
+        QVector<int> order(es.size());
+        for (int i = 0; i < order.size(); ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [this](int a, int b) { return es[a].pos < es[b].pos; });
+        QVector<E> sorted;
+        int at_ = 0;
+        for (int i = 0; i < order.size(); ++i) {
+            sorted << es[order[i]];
+            if (order[i] == keep) at_ = i;
+        }
+        es = sorted;
+        return at_;
+    }
+};
+
+// helpLine: the annotation or status tip of whatever the mouse is over, anywhere in the application.
+class HelpLine : public QLabel {
+public:
+    HelpLine() {
+        setMinimumHeight(18);
+        setTextInteractionFlags(Qt::NoTextInteraction);
+        qApp->installEventFilter(this);
+    }
+    ~HelpLine() override { qApp->removeEventFilter(this); }
+
+protected:
+    bool eventFilter(QObject* o, QEvent* e) override {
+        if (e->type() == QEvent::StatusTip) {
+            setText(static_cast<QStatusTipEvent*>(e)->tip());
+        } else if (e->type() == QEvent::Enter && o->isWidgetType()) {
+            for (QWidget* w = static_cast<QWidget*>(o); w; w = w->parentWidget()) {
+                const QString t = !w->statusTip().isEmpty() ? w->statusTip() : w->toolTip();
+                if (!t.isEmpty()) {
+                    setText(t);
+                    break;
+                }
+                if (w->isWindow()) break;
+            }
+        }
+        return false;
+    }
+};
+
 } // namespace
 
 void ScriptUi::build_control(Item* it, const QJsonObject& props) {
@@ -2582,6 +2841,18 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             fire(path, set, QJsonArray{points ? "__curveChanged" : "__curveKeyPicked"}, QJsonArray());
         };
         it->w = c;
+    } else if (k == "gradientControl" || k == "gradientControlNoAttr") {
+        auto* r = new RampWidget();
+        r->changed = [this, path, r](int what) {
+            QJsonObject set{{"currentKey", r->current}};
+            if (what > 0) set.insert("asString", r->as_string());
+            if (Item* i = items_.value(path))
+                for (auto x = set.begin(); x != set.end(); ++x) i->props.insert(x.key(), x.value());
+            fire(path, set, QJsonArray{what == 0 ? "__rampPicked" : what == 1 ? "__rampDrag" : "__rampChanged"}, QJsonArray());
+        };
+        it->w = r;
+    } else if (k == "helpLine") {
+        it->w = new HelpLine();
     } else if (k == "componentBox") {
         auto* t = new QTableWidget(0, 3);
         t->setHorizontalHeaderLabels({"X", "Y", "Z"});
@@ -3070,6 +3341,26 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             c->read_only = as_bool(it->prop("readOnly"));
             c->snap = as_bool(it->prop("snapToGrid"));
             c->update();
+        }
+    } else if (k == "gradientControl" || k == "gradientControlNoAttr") {
+        if (auto* r = dynamic_cast<RampWidget*>(w)) {
+            r->color = as_bool(it->prop(k == "gradientControl" ? "__color" : "rampAsColor"));
+            if (props.contains("asString") && !r->dragging()) r->set_string(props["asString"].toString());
+            if (props.contains("currentKey") && !r->dragging()) r->current = int(as_number(props["currentKey"]));
+            r->read_only = as_bool(it->prop("readOnly"));
+            r->static_pos = as_bool(it->prop("staticPositions"));
+            r->static_count = as_bool(it->prop("staticNumberOfControls"));
+            r->adaptive = as_bool(it->prop("adaptiveScaling"));
+            r->key_info = as_bool(it->prop("displayKeyInfo"));
+            r->on_release = as_number(it->prop("refreshOnRelease")) != 0.0;
+            r->highlight = it->prop("highlightMode").toString("off");
+            r->hl_color = it->props.contains("highlightColor") ? color_of(it->prop("highlightColor")) : QColor();
+            const bool vertical = as_bool(it->prop("verticalLayout"));
+            if (vertical != r->vertical) {
+                r->vertical = vertical;
+                r->updateGeometry();
+            }
+            r->update();
         }
     } else if (k == "componentBox") {
         if (auto* t = qobject_cast<QTableWidget*>(w)) {
@@ -3683,7 +3974,12 @@ void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
         else if (it->dock) it->dock->hide();
         else w->hide();
     }
-    if (props.contains("annotation")) w->setToolTip(props["annotation"].toString());
+    if (props.contains("annotation")) {
+        w->setToolTip(props["annotation"].toString());
+        if (!it->props.contains("statusBarMessage")) w->setStatusTip(props["annotation"].toString());
+    }
+    // -statusBarMessage: what the help line shows over the control.
+    if (props.contains("statusBarMessage")) w->setStatusTip(props["statusBarMessage"].toString());
     if (props.contains("hasDrag") || props.contains("hasDrop")) {
         // Children ignore a middle drag only if told to: the group's parts report as the group.
         QList<QWidget*> all = w->findChildren<QWidget*>();
@@ -4105,6 +4401,7 @@ void ScriptUi::hook(const QString& kind, const QJsonObject& payload) {
     else if (kind == "fileDialog") file_dialog(payload);
     else if (kind == "framelessDialog") frameless_dialog(payload);
     else if (kind == "fontDialog") font_dialog(payload);
+    else if (kind == "grabColor") grab_color(payload);
     else if (kind == "colorEditor") color_editor(payload);
     else if (kind == "playblast") {
         // What the script set on the views just before this has to show in the frames.
@@ -4234,6 +4531,49 @@ void ScriptUi::frameless_dialog(const QJsonObject& p) {
     if (owner) d.move(owner->geometry().center() - d.rect().center());
     d.exec();
     answer(picked);
+}
+
+// grabColor: the screen under the cursor, shown still and full size with a cross cursor; the press reads its pixel.
+void ScriptUi::grab_color(const QJsonObject&) {
+    QScreen* screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen) {
+        answer(QJsonArray{0.0, 0.0, 0.0, 1.0});
+        return;
+    }
+    const QPixmap shot = screen->grabWindow(0);
+    const QImage img = shot.toImage();
+    QDialog d(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+    d.setGeometry(screen->geometry());
+    auto* view = new QLabel(&d);
+    view->setPixmap(shot);
+    view->setGeometry(0, 0, screen->geometry().width(), screen->geometry().height());
+    view->setScaledContents(true);
+    d.setCursor(Qt::CrossCursor);
+    QColor picked(0, 0, 0);
+    struct Press : QObject {
+        QDialog* d; const QImage* img; QColor* out; QScreen* scr;
+        bool eventFilter(QObject*, QEvent* e) override {
+            if (e->type() == QEvent::MouseButtonPress) {
+                auto* m = static_cast<QMouseEvent*>(e);
+                const QPoint g = m->globalPosition().toPoint() - scr->geometry().topLeft();
+                const double k = img->width() / double(std::max(1, scr->geometry().width()));
+                const QPoint at(std::clamp(int(g.x() * k), 0, img->width() - 1), std::clamp(int(g.y() * k), 0, img->height() - 1));
+                *out = img->pixelColor(at);
+                d->accept();
+                return true;
+            }
+            return false;
+        }
+    } press;
+    press.d = &d;
+    press.img = &img;
+    press.out = &picked;
+    press.scr = screen;
+    d.installEventFilter(&press);
+    view->installEventFilter(&press);
+    d.exec();
+    answer(QJsonArray{picked.redF(), picked.greenF(), picked.blueF(), picked.alphaF()});
 }
 
 // fontDialog: the fonts Qt knows; -FontList answers with all of them, else the family picked or nothing.

@@ -19,7 +19,7 @@ fn f(name: &str, short: &str, ty: ArgType, doc: &str) -> FlagDef {
 }
 
 #[derive(Default)]
-struct Ui {
+pub(crate) struct Ui {
     /// 0 hierarchy (roots), 1 object, 2 component.
     scope: i32,
     prefs: Map<String, Value>,
@@ -27,9 +27,11 @@ struct Ui {
     loaded: bool,
     run_time: BTreeMap<String, Value>,
     name_commands: BTreeMap<String, Value>,
-    huds: BTreeMap<String, Value>,
+    pub(crate) huds: BTreeMap<String, Value>,
     /// Which of the built-in heads up displays are on.
-    hud_on: BTreeSet<String>,
+    pub(crate) hud_on: BTreeSet<String>,
+    /// The heads up display's layout: the last ID given, the options, the grid and whether any of it shows.
+    pub(crate) hud: crate::hud::Layout,
     /// What `hotkey` has bound, for hotkeyCheck.
     hotkeys: Vec<Value>,
     /// hotkeySet: the sets made, and the current one (None: the default set).
@@ -42,7 +44,7 @@ struct Ui {
 
 static UI: Mutex<Option<Ui>> = Mutex::new(None);
 
-fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> R {
+pub(crate) fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> R {
     let mut g = UI.lock().unwrap();
     let u = g.get_or_insert_with(|| Ui { scope: 1, hud_on: ["viewAxis".to_string(), "cameraNames".to_string()].into_iter().collect(), ..Default::default() });
     f(u)
@@ -264,26 +266,10 @@ fn hud_control(kind: &'static str, a: &aztek_ops::Args) -> aztek_ops::CmdResult 
                 fail!("{kind}: Object's name '{n}' is not unique.");
             }
             flags.insert("kind".to_string(), json!(kind));
+            flags.insert("id".to_string(), json!(u.hud.next_id()));
             u.huds.insert(n.clone(), Value::Object(flags));
         }
         Ok(json!(n))
-    })
-}
-
-pub fn custom_huds() -> Vec<(i64, i64, String, String)> {
-    with_ui(|u| {
-        u.huds
-            .values()
-            .filter(|h| h.get("kind").is_none() && h.get("visible").and_then(Value::as_bool).unwrap_or(true))
-            .map(|h| {
-                (
-                    h.get("section").and_then(Value::as_i64).unwrap_or(0),
-                    h.get("block").and_then(Value::as_i64).unwrap_or(0),
-                    h.get("label").and_then(Value::as_str).unwrap_or("").to_string(),
-                    h.get("command").and_then(Value::as_str).unwrap_or("").to_string(),
-                )
-            })
-            .collect()
     })
 }
 
@@ -825,56 +811,7 @@ pub fn register(s: &mut Session) {
         reg(s, c);
     }
 
-    reg(
-        s,
-        Cmd::new("headsUpDisplay", "Text in the views: -s section -b block -l label -c command; -rem removes; -ex tests; -lh lists.", |_s, a| {
-            let name = a.pos_str(0).map(str::to_string);
-            with_ui(|u| {
-                if a.bool("listHeadsUpDisplays") {
-                    return Ok(json!(u.huds.keys().cloned().collect::<Vec<_>>()));
-                }
-                if let Some(rm) = a.get("remove") {
-                    if let Some(n) = rm.as_str().map(str::to_string).or(name.clone()) {
-                        u.huds.remove(&n);
-                    }
-                    return Ok(Value::Null);
-                }
-                let Some(n) = name else { return Ok(Value::Null) };
-                if a.bool("exists") {
-                    return Ok(json!(u.huds.contains_key(&n) || u.hud_on.contains(&n)));
-                }
-                if a.has("visible") && !a.has("section") && !u.huds.contains_key(&n) {
-                    if a.bool("visible") {
-                        u.hud_on.insert(n);
-                    } else {
-                        u.hud_on.remove(&n);
-                    }
-                    return Ok(Value::Null);
-                }
-                let e = u.huds.entry(n).or_insert(json!({}));
-                for (k, ty) in [("section", 0), ("block", 0), ("label", 1), ("command", 1), ("visible", 2)] {
-                    if a.has(k) {
-                        e[k] = match ty {
-                            0 => json!(a.int(k, 0)),
-                            1 => json!(a.string(k, "")),
-                            _ => json!(a.bool(k)),
-                        };
-                    }
-                }
-                Ok(Value::Null)
-            })
-        })
-        .positional("name")
-        .undoable(false)
-        .flag(f("section", "s", ArgType::Int, "Screen section, 0 to 9."))
-        .flag(f("block", "b", ArgType::Int, "Row in the section."))
-        .flag(f("label", "l", ArgType::String, "Label text."))
-        .flag(f("command", "c", ArgType::String, "MEL giving the value."))
-        .flag(f("visible", "vis", ArgType::Bool, "Show it."))
-        .flag(f("remove", "rem", ArgType::Any, "Remove it."))
-        .flag(f("exists", "ex", ArgType::Bool, "Whether it exists."))
-        .flag(f("listHeadsUpDisplays", "lh", ArgType::Bool, "List them.")),
-    );
+    crate::hud::register(s);
 
     reg(
         s,

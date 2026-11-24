@@ -366,6 +366,7 @@ impl Core {
         let due = crate::scriptui::shell_event(ev);
         crate::attr_ui::shell_changed(self, ev);
         crate::more_controls::shell_changed(self, ev);
+        crate::ramp_controls::shell_changed(self, ev);
         for (cb, args) in due {
             self.run_callback(&cb, &args);
         }
@@ -381,6 +382,7 @@ impl Core {
         self.note_settings();
         crate::attr_ui::idle(self);
         crate::more_controls::idle(self);
+        crate::ramp_controls::idle(self);
         crate::host_general::watch(&mut self.s);
         aztek_scene::messages::flush(&mut self.s);
         self.run_conditions();
@@ -394,6 +396,7 @@ impl Core {
         }
         self.run_callbacks(scripts);
         self.run_callbacks(deferred);
+        crate::hud::idle(self);
         self.run_event_procs();
         crate::command_port::serve(self);
         self.in_idle = false;
@@ -596,6 +599,12 @@ impl Core {
         }
         // move's own component options (-reflection, -preserveUV, -parameter) are worked by move itself.
         if name == "move" && ["reflection", "preserveUV", "parameter"].iter().any(|k| call.get(*k).is_some_and(|v| v.as_bool() != Some(false))) {
+            return (name, call);
+        }
+        // An absolute move puts the points where it says: move works that out in the space asked for.
+        // So does one with single axes (move -a -x 0, move -r -y 1).
+        let absolute = call.get("to").is_some() && call.get("relative").and_then(Value::as_bool) != Some(true) && call.get("by").is_none();
+        if name == "move" && (absolute || ["x", "y", "z"].iter().any(|k| call.get(*k).is_some_and(|v| !v.is_null() && v != &json!(false)))) {
             return (name, call);
         }
         // And rotate's and scale's (-reflection, -preserveUV, -orientAxes).

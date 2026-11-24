@@ -887,7 +887,27 @@ fn frameless_dialog(a: &Args) -> CmdResult {
     Ok(json!(primary.iter().find(|b| buttons.contains(b)).or(buttons.first()).cloned().unwrap_or_default()))
 }
 
+/// grabColor: the shell waits for a mouse press and reports the pixel under the cursor as red, green, blue and alpha
+/// from 0 to 1. With no shell to ask there is no screen: black, opaque.
+fn grab_color(a: &Args) -> CmdResult {
+    let got: Vec<f64> = call_hook("grabColor", &json!({})).map(|v| flat(&v).iter().map(number).collect()).unwrap_or_default();
+    let px = |i: usize, d: f64| got.get(i).copied().unwrap_or(d).clamp(0.0, 1.0);
+    let rgb = [px(0, 0.0), px(1, 0.0), px(2, 0.0)];
+    let mut out: Vec<f64> = if a.bool("hsvValue") && !a.bool("rgbValue") { crate::scriptui::rgb_to_hsv(rgb).to_vec() } else { rgb.to_vec() };
+    if a.bool("alpha") {
+        out.push(px(3, 1.0));
+    }
+    Ok(json!(out))
+}
+
 pub(crate) fn register(s: &mut Session) {
+    s.register(
+        Cmd::new("grabColor", "Waits for a mouse press and returns the colour of the pixel under the cursor: red, green and blue (-rgb, the default) or hue, saturation and value (-hsv), with -a its alpha after.", |_s, a| grab_color(a))
+            .undoable(true)
+            .flag(f("alpha", "a", ArgType::Bool))
+            .flag(f("hsvValue", "hsv", ArgType::Bool))
+            .flag(f("rgbValue", "rgb", ArgType::Bool)),
+    );
     s.register(
         Cmd::new(
             "fileBrowserDialog",

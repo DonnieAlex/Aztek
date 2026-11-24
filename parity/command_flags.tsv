@@ -13538,180 +13538,180 @@ goal	useTransformAsGoal	missing
 goal	utr	missing	
 goal	w	missing	
 goal	weight	missing	
-grabColor	a	missing	
-grabColor	alpha	missing	
-grabColor	hsv	missing	
-grabColor	hsvValue	missing	
-grabColor	rgb	missing	
-grabColor	rgbValue	missing	
-gradientControl	adaptiveScaling	missing	
-gradientControl	ann	missing	
-gradientControl	annotation	missing	
-gradientControl	at	missing	
-gradientControl	attribute	missing	
-gradientControl	backgroundColor	missing	
-gradientControl	bgc	missing	
-gradientControl	cla	missing	
-gradientControl	clearAttribute	missing	
-gradientControl	defineTemplate	missing	
-gradientControl	dgc	missing	
-gradientControl	displayKeyInfo	missing	
-gradientControl	dki	missing	
-gradientControl	docTag	missing	
-gradientControl	dpc	missing	
-gradientControl	dragCallback	missing	
-gradientControl	dropCallback	missing	
-gradientControl	dt	missing	
-gradientControl	dtg	missing	
-gradientControl	e	missing	
-gradientControl	ebg	missing	
-gradientControl	edit	missing	
-gradientControl	ekf	missing	
-gradientControl	en	missing	
-gradientControl	enable	missing	
-gradientControl	enableBackground	missing	
-gradientControl	enableKeyboardFocus	missing	
-gradientControl	ex	missing	
-gradientControl	exists	missing	
-gradientControl	fpn	missing	
-gradientControl	fullPathName	missing	
-gradientControl	h	missing	
-gradientControl	height	missing	
-gradientControl	highlightColor	missing	
-gradientControl	highlightMode	missing	
-gradientControl	hlc	missing	
-gradientControl	hlm	missing	
-gradientControl	io	missing	
-gradientControl	isObscured	missing	
-gradientControl	m	missing	
-gradientControl	manage	missing	
-gradientControl	nbg	missing	
-gradientControl	nc	missing	
-gradientControl	noBackground	missing	
-gradientControl	npm	missing	
-gradientControl	numberOfControls	missing	
-gradientControl	numberOfPopupMenus	missing	
-gradientControl	p	missing	
-gradientControl	parent	missing	
-gradientControl	pma	missing	
-gradientControl	po	missing	
-gradientControl	popupMenuArray	missing	
-gradientControl	preventOverride	missing	
-gradientControl	q	missing	
-gradientControl	query	missing	
-gradientControl	readOnly	missing	
-gradientControl	refreshOnRelease	missing	
-gradientControl	ro	missing	
-gradientControl	ror	missing	
-gradientControl	sbm	missing	
-gradientControl	scc	missing	
-gradientControl	selectedColorControl	missing	
-gradientControl	selectedInterpControl	missing	
-gradientControl	selectedPositionControl	missing	
-gradientControl	sic	missing	
-gradientControl	snc	missing	
-gradientControl	sp	missing	
-gradientControl	spc	missing	
-gradientControl	staticNumberOfControls	missing	
-gradientControl	staticPositions	missing	
-gradientControl	statusBarMessage	missing	
-gradientControl	ulc	missing	
-gradientControl	upperLimitControl	missing	
-gradientControl	useTemplate	missing	
-gradientControl	ut	missing	
-gradientControl	vcc	missing	
-gradientControl	verticalLayout	missing	
-gradientControl	vis	missing	
-gradientControl	visible	missing	
-gradientControl	visibleChangeCommand	missing	
-gradientControl	vl	missing	
-gradientControl	w	missing	
-gradientControl	width	missing	
-gradientControlNoAttr	addEntry	missing	
-gradientControlNoAttr	ae	missing	
-gradientControlNoAttr	ann	missing	
-gradientControlNoAttr	annotation	missing	
-gradientControlNoAttr	asString	missing	
-gradientControlNoAttr	backgroundColor	missing	
-gradientControlNoAttr	bgc	missing	
-gradientControlNoAttr	cc	missing	
-gradientControlNoAttr	changeCommand	missing	
-gradientControlNoAttr	civ	missing	
-gradientControlNoAttr	ck	missing	
-gradientControlNoAttr	ckc	missing	
-gradientControlNoAttr	clv	missing	
-gradientControlNoAttr	currentKey	missing	
-gradientControlNoAttr	currentKeyChanged	missing	
-gradientControlNoAttr	currentKeyColorValue	missing	
-gradientControlNoAttr	currentKeyCurveValue	missing	
-gradientControlNoAttr	currentKeyInterpValue	missing	
-gradientControlNoAttr	cvv	missing	
-gradientControlNoAttr	dc	missing	
-gradientControlNoAttr	defineTemplate	missing	
-gradientControlNoAttr	dgc	missing	
-gradientControlNoAttr	displayKeyInfo	missing	
-gradientControlNoAttr	dki	missing	
-gradientControlNoAttr	docTag	missing	
-gradientControlNoAttr	dpc	missing	
-gradientControlNoAttr	dragCallback	missing	
-gradientControlNoAttr	dragCommand	missing	
-gradientControlNoAttr	dropCallback	missing	
-gradientControlNoAttr	dt	missing	
-gradientControlNoAttr	dtg	missing	
-gradientControlNoAttr	e	missing	
-gradientControlNoAttr	ebg	missing	
-gradientControlNoAttr	edit	missing	
-gradientControlNoAttr	ekf	missing	
-gradientControlNoAttr	en	missing	
-gradientControlNoAttr	enable	missing	
-gradientControlNoAttr	enableBackground	missing	
-gradientControlNoAttr	enableKeyboardFocus	missing	
-gradientControlNoAttr	ex	missing	
-gradientControlNoAttr	exists	missing	
-gradientControlNoAttr	fpn	missing	
-gradientControlNoAttr	fullPathName	missing	
-gradientControlNoAttr	h	missing	
-gradientControlNoAttr	height	missing	
-gradientControlNoAttr	highlightColor	missing	
-gradientControlNoAttr	highlightMode	missing	
-gradientControlNoAttr	hlc	missing	
-gradientControlNoAttr	hlm	missing	
-gradientControlNoAttr	io	missing	
-gradientControlNoAttr	isObscured	missing	
-gradientControlNoAttr	m	missing	
-gradientControlNoAttr	manage	missing	
-gradientControlNoAttr	nbg	missing	
-gradientControlNoAttr	noBackground	missing	
-gradientControlNoAttr	npm	missing	
-gradientControlNoAttr	numberOfPopupMenus	missing	
-gradientControlNoAttr	optionVar	missing	
-gradientControlNoAttr	ov	missing	
-gradientControlNoAttr	p	missing	
-gradientControlNoAttr	parent	missing	
-gradientControlNoAttr	pma	missing	
-gradientControlNoAttr	po	missing	
-gradientControlNoAttr	popupMenuArray	missing	
-gradientControlNoAttr	preventOverride	missing	
-gradientControlNoAttr	q	missing	
-gradientControlNoAttr	query	missing	
-gradientControlNoAttr	rac	missing	
-gradientControlNoAttr	rampAsColor	missing	
-gradientControlNoAttr	readOnly	missing	
-gradientControlNoAttr	ro	missing	
-gradientControlNoAttr	sbm	missing	
-gradientControlNoAttr	snc	missing	
-gradientControlNoAttr	staticNumberOfControls	missing	
-gradientControlNoAttr	statusBarMessage	missing	
-gradientControlNoAttr	useTemplate	missing	
-gradientControlNoAttr	ut	missing	
-gradientControlNoAttr	valueAtPoint	missing	
-gradientControlNoAttr	vap	missing	
-gradientControlNoAttr	vcc	missing	
-gradientControlNoAttr	vis	missing	
-gradientControlNoAttr	visible	missing	
-gradientControlNoAttr	visibleChangeCommand	missing	
-gradientControlNoAttr	w	missing	
-gradientControlNoAttr	width	missing	
+grabColor	a	done	auto
+grabColor	alpha	done	auto
+grabColor	hsv	done	auto
+grabColor	hsvValue	done	auto
+grabColor	rgb	done	auto
+grabColor	rgbValue	done	auto
+gradientControl	adaptiveScaling	done	auto
+gradientControl	ann	done	auto
+gradientControl	annotation	done	auto
+gradientControl	at	done	auto
+gradientControl	attribute	done	auto
+gradientControl	backgroundColor	done	auto
+gradientControl	bgc	done	auto
+gradientControl	cla	done	auto
+gradientControl	clearAttribute	done	auto
+gradientControl	defineTemplate	done	auto
+gradientControl	dgc	done	auto
+gradientControl	displayKeyInfo	done	auto
+gradientControl	dki	done	auto
+gradientControl	docTag	done	auto
+gradientControl	dpc	done	auto
+gradientControl	dragCallback	done	auto
+gradientControl	dropCallback	done	auto
+gradientControl	dt	done	auto
+gradientControl	dtg	done	auto
+gradientControl	e	done	auto
+gradientControl	ebg	done	auto
+gradientControl	edit	done	auto
+gradientControl	ekf	done	auto
+gradientControl	en	done	auto
+gradientControl	enable	done	auto
+gradientControl	enableBackground	done	auto
+gradientControl	enableKeyboardFocus	done	auto
+gradientControl	ex	done	auto
+gradientControl	exists	done	auto
+gradientControl	fpn	done	auto
+gradientControl	fullPathName	done	auto
+gradientControl	h	done	auto
+gradientControl	height	done	auto
+gradientControl	highlightColor	done	auto
+gradientControl	highlightMode	done	auto
+gradientControl	hlc	done	auto
+gradientControl	hlm	done	auto
+gradientControl	io	done	auto
+gradientControl	isObscured	done	auto
+gradientControl	m	done	auto
+gradientControl	manage	done	auto
+gradientControl	nbg	done	auto
+gradientControl	nc	done	auto
+gradientControl	noBackground	done	auto
+gradientControl	npm	done	auto
+gradientControl	numberOfControls	done	auto
+gradientControl	numberOfPopupMenus	done	auto
+gradientControl	p	done	auto
+gradientControl	parent	done	auto
+gradientControl	pma	done	auto
+gradientControl	po	done	auto
+gradientControl	popupMenuArray	done	auto
+gradientControl	preventOverride	done	auto
+gradientControl	q	done	auto
+gradientControl	query	done	auto
+gradientControl	readOnly	done	auto
+gradientControl	refreshOnRelease	done	auto
+gradientControl	ro	done	auto
+gradientControl	ror	done	auto
+gradientControl	sbm	done	auto
+gradientControl	scc	done	auto
+gradientControl	selectedColorControl	done	auto
+gradientControl	selectedInterpControl	done	auto
+gradientControl	selectedPositionControl	done	auto
+gradientControl	sic	done	auto
+gradientControl	snc	done	auto
+gradientControl	sp	done	auto
+gradientControl	spc	done	auto
+gradientControl	staticNumberOfControls	done	auto
+gradientControl	staticPositions	done	auto
+gradientControl	statusBarMessage	done	auto
+gradientControl	ulc	done	auto
+gradientControl	upperLimitControl	done	auto
+gradientControl	useTemplate	done	auto
+gradientControl	ut	done	auto
+gradientControl	vcc	done	auto
+gradientControl	verticalLayout	done	auto
+gradientControl	vis	done	auto
+gradientControl	visible	done	auto
+gradientControl	visibleChangeCommand	done	auto
+gradientControl	vl	done	auto
+gradientControl	w	done	auto
+gradientControl	width	done	auto
+gradientControlNoAttr	addEntry	done	auto
+gradientControlNoAttr	ae	done	auto
+gradientControlNoAttr	ann	done	auto
+gradientControlNoAttr	annotation	done	auto
+gradientControlNoAttr	asString	done	auto
+gradientControlNoAttr	backgroundColor	done	auto
+gradientControlNoAttr	bgc	done	auto
+gradientControlNoAttr	cc	done	auto
+gradientControlNoAttr	changeCommand	done	auto
+gradientControlNoAttr	civ	done	auto
+gradientControlNoAttr	ck	done	auto
+gradientControlNoAttr	ckc	done	auto
+gradientControlNoAttr	clv	done	auto
+gradientControlNoAttr	currentKey	done	auto
+gradientControlNoAttr	currentKeyChanged	done	auto
+gradientControlNoAttr	currentKeyColorValue	done	auto
+gradientControlNoAttr	currentKeyCurveValue	done	auto
+gradientControlNoAttr	currentKeyInterpValue	done	auto
+gradientControlNoAttr	cvv	done	auto
+gradientControlNoAttr	dc	done	auto
+gradientControlNoAttr	defineTemplate	done	auto
+gradientControlNoAttr	dgc	done	auto
+gradientControlNoAttr	displayKeyInfo	done	auto
+gradientControlNoAttr	dki	done	auto
+gradientControlNoAttr	docTag	done	auto
+gradientControlNoAttr	dpc	done	auto
+gradientControlNoAttr	dragCallback	done	auto
+gradientControlNoAttr	dragCommand	done	auto
+gradientControlNoAttr	dropCallback	done	auto
+gradientControlNoAttr	dt	done	auto
+gradientControlNoAttr	dtg	done	auto
+gradientControlNoAttr	e	done	auto
+gradientControlNoAttr	ebg	done	auto
+gradientControlNoAttr	edit	done	auto
+gradientControlNoAttr	ekf	done	auto
+gradientControlNoAttr	en	done	auto
+gradientControlNoAttr	enable	done	auto
+gradientControlNoAttr	enableBackground	done	auto
+gradientControlNoAttr	enableKeyboardFocus	done	auto
+gradientControlNoAttr	ex	done	auto
+gradientControlNoAttr	exists	done	auto
+gradientControlNoAttr	fpn	done	auto
+gradientControlNoAttr	fullPathName	done	auto
+gradientControlNoAttr	h	done	auto
+gradientControlNoAttr	height	done	auto
+gradientControlNoAttr	highlightColor	done	auto
+gradientControlNoAttr	highlightMode	done	auto
+gradientControlNoAttr	hlc	done	auto
+gradientControlNoAttr	hlm	done	auto
+gradientControlNoAttr	io	done	auto
+gradientControlNoAttr	isObscured	done	auto
+gradientControlNoAttr	m	done	auto
+gradientControlNoAttr	manage	done	auto
+gradientControlNoAttr	nbg	done	auto
+gradientControlNoAttr	noBackground	done	auto
+gradientControlNoAttr	npm	done	auto
+gradientControlNoAttr	numberOfPopupMenus	done	auto
+gradientControlNoAttr	optionVar	done	auto
+gradientControlNoAttr	ov	done	auto
+gradientControlNoAttr	p	done	auto
+gradientControlNoAttr	parent	done	auto
+gradientControlNoAttr	pma	done	auto
+gradientControlNoAttr	po	done	auto
+gradientControlNoAttr	popupMenuArray	done	auto
+gradientControlNoAttr	preventOverride	done	auto
+gradientControlNoAttr	q	done	auto
+gradientControlNoAttr	query	done	auto
+gradientControlNoAttr	rac	done	auto
+gradientControlNoAttr	rampAsColor	done	auto
+gradientControlNoAttr	readOnly	done	auto
+gradientControlNoAttr	ro	done	auto
+gradientControlNoAttr	sbm	done	auto
+gradientControlNoAttr	snc	done	auto
+gradientControlNoAttr	staticNumberOfControls	done	auto
+gradientControlNoAttr	statusBarMessage	done	auto
+gradientControlNoAttr	useTemplate	done	auto
+gradientControlNoAttr	ut	done	auto
+gradientControlNoAttr	valueAtPoint	done	auto
+gradientControlNoAttr	vap	done	auto
+gradientControlNoAttr	vcc	done	auto
+gradientControlNoAttr	vis	done	auto
+gradientControlNoAttr	visible	done	auto
+gradientControlNoAttr	visibleChangeCommand	done	auto
+gradientControlNoAttr	w	done	auto
+gradientControlNoAttr	width	done	auto
 graphDollyCtx	ch	done	auto
 graphDollyCtx	e	done	auto
 graphDollyCtx	edit	done	auto
@@ -14017,100 +14017,100 @@ hasMetadata	six	missing
 hasMetadata	startIndex	missing	
 hasMetadata	stn	missing	
 hasMetadata	streamName	missing	
-headsUpDisplay	ac	missing	
-headsUpDisplay	ad	missing	
-headsUpDisplay	allDescendants	missing	
-headsUpDisplay	allowOverlap	missing	
-headsUpDisplay	ao	missing	
-headsUpDisplay	atr	missing	
-headsUpDisplay	attachToRefresh	missing	
-headsUpDisplay	attributeChange	missing	
+headsUpDisplay	ac	done	auto
+headsUpDisplay	ad	done	auto
+headsUpDisplay	allDescendants	done	auto
+headsUpDisplay	allowOverlap	done	auto
+headsUpDisplay	ao	done	auto
+headsUpDisplay	atr	done	auto
+headsUpDisplay	attachToRefresh	done	auto
+headsUpDisplay	attributeChange	done	auto
 headsUpDisplay	b	done	auto
-headsUpDisplay	ba	missing	
+headsUpDisplay	ba	done	auto
 headsUpDisplay	block	done	auto
-headsUpDisplay	blockAlignment	missing	
-headsUpDisplay	blockSize	missing	
-headsUpDisplay	bs	missing	
+headsUpDisplay	blockAlignment	done	auto
+headsUpDisplay	blockSize	done	auto
+headsUpDisplay	bs	done	auto
 headsUpDisplay	c	done	auto
-headsUpDisplay	cc	missing	
-headsUpDisplay	cf	missing	
+headsUpDisplay	cc	done	auto
+headsUpDisplay	cf	done	auto
 headsUpDisplay	command	done	auto
-headsUpDisplay	con	missing	
-headsUpDisplay	conditionChange	missing	
-headsUpDisplay	conditionFalse	missing	
-headsUpDisplay	conditionTrue	missing	
-headsUpDisplay	connectionChange	missing	
-headsUpDisplay	ct	missing	
-headsUpDisplay	da	missing	
-headsUpDisplay	dataAlignment	missing	
-headsUpDisplay	dataFontSize	missing	
-headsUpDisplay	dataWidth	missing	
-headsUpDisplay	decimalPrecision	missing	
-headsUpDisplay	dfs	missing	
-headsUpDisplay	di	missing	
-headsUpDisplay	disregardIndex	missing	
-headsUpDisplay	dp	missing	
-headsUpDisplay	dw	missing	
-headsUpDisplay	e	missing	
-headsUpDisplay	edit	missing	
-headsUpDisplay	ev	missing	
-headsUpDisplay	event	missing	
+headsUpDisplay	con	done	auto
+headsUpDisplay	conditionChange	done	auto
+headsUpDisplay	conditionFalse	done	auto
+headsUpDisplay	conditionTrue	done	auto
+headsUpDisplay	connectionChange	done	auto
+headsUpDisplay	ct	done	auto
+headsUpDisplay	da	done	auto
+headsUpDisplay	dataAlignment	done	auto
+headsUpDisplay	dataFontSize	done	auto
+headsUpDisplay	dataWidth	done	auto
+headsUpDisplay	decimalPrecision	done	auto
+headsUpDisplay	dfs	done	auto
+headsUpDisplay	di	done	auto
+headsUpDisplay	disregardIndex	done	auto
+headsUpDisplay	dp	done	auto
+headsUpDisplay	dw	done	auto
+headsUpDisplay	e	done	auto
+headsUpDisplay	edit	done	auto
+headsUpDisplay	ev	done	auto
+headsUpDisplay	event	done	auto
 headsUpDisplay	ex	done	auto
 headsUpDisplay	exists	done	auto
-headsUpDisplay	gco	missing	
-headsUpDisplay	getOption	missing	
-headsUpDisplay	gridColor	missing	
+headsUpDisplay	gco	done	auto
+headsUpDisplay	getOption	done	auto
+headsUpDisplay	gridColor	done	auto
 headsUpDisplay	l	done	auto
 headsUpDisplay	label	done	auto
-headsUpDisplay	labelFontSize	missing	
-headsUpDisplay	labelWidth	missing	
-headsUpDisplay	lastOccupiedBlock	missing	
-headsUpDisplay	layoutVisibility	missing	
-headsUpDisplay	lc	missing	
-headsUpDisplay	le	missing	
-headsUpDisplay	lfs	missing	
+headsUpDisplay	labelFontSize	done	auto
+headsUpDisplay	labelWidth	done	auto
+headsUpDisplay	lastOccupiedBlock	done	auto
+headsUpDisplay	layoutVisibility	done	auto
+headsUpDisplay	lc	done	auto
+headsUpDisplay	le	done	auto
+headsUpDisplay	lfs	done	auto
 headsUpDisplay	lh	done	auto
-headsUpDisplay	listConditions	missing	
-headsUpDisplay	listEvents	missing	
+headsUpDisplay	listConditions	done	auto
+headsUpDisplay	listEvents	done	auto
 headsUpDisplay	listHeadsUpDisplays	done	auto
-headsUpDisplay	listNodeChanges	missing	
-headsUpDisplay	listPresets	missing	
-headsUpDisplay	lnc	missing	
-headsUpDisplay	lob	missing	
-headsUpDisplay	lp	missing	
-headsUpDisplay	lv	missing	
-headsUpDisplay	lw	missing	
-headsUpDisplay	n	missing	
-headsUpDisplay	name	missing	
-headsUpDisplay	nc	missing	
-headsUpDisplay	nextFreeBlock	missing	
-headsUpDisplay	nfb	missing	
-headsUpDisplay	nodeChanges	missing	
-headsUpDisplay	op	missing	
-headsUpDisplay	p	missing	
-headsUpDisplay	padding	missing	
-headsUpDisplay	pre	missing	
-headsUpDisplay	preset	missing	
-headsUpDisplay	q	missing	
-headsUpDisplay	query	missing	
-headsUpDisplay	r	missing	
-headsUpDisplay	refresh	missing	
+headsUpDisplay	listNodeChanges	done	auto
+headsUpDisplay	listPresets	done	auto
+headsUpDisplay	lnc	done	auto
+headsUpDisplay	lob	done	auto
+headsUpDisplay	lp	done	auto
+headsUpDisplay	lv	done	auto
+headsUpDisplay	lw	done	auto
+headsUpDisplay	n	done	auto
+headsUpDisplay	name	done	auto
+headsUpDisplay	nc	done	auto
+headsUpDisplay	nextFreeBlock	done	auto
+headsUpDisplay	nfb	done	auto
+headsUpDisplay	nodeChanges	done	auto
+headsUpDisplay	op	done	auto
+headsUpDisplay	p	done	auto
+headsUpDisplay	padding	done	auto
+headsUpDisplay	pre	done	auto
+headsUpDisplay	preset	done	auto
+headsUpDisplay	q	done	auto
+headsUpDisplay	query	done	auto
+headsUpDisplay	r	done	auto
+headsUpDisplay	refresh	done	auto
 headsUpDisplay	rem	done	auto
 headsUpDisplay	remove	done	auto
-headsUpDisplay	removeID	missing	
-headsUpDisplay	removePosition	missing	
-headsUpDisplay	resetNodeChanges	missing	
-headsUpDisplay	rid	missing	
-headsUpDisplay	rnc	missing	
-headsUpDisplay	rp	missing	
+headsUpDisplay	removeID	done	auto
+headsUpDisplay	removePosition	done	auto
+headsUpDisplay	resetNodeChanges	done	auto
+headsUpDisplay	rid	done	auto
+headsUpDisplay	rnc	done	auto
+headsUpDisplay	rp	done	auto
 headsUpDisplay	s	done	auto
-headsUpDisplay	scriptResult	missing	
+headsUpDisplay	scriptResult	done	auto
 headsUpDisplay	section	done	auto
-headsUpDisplay	setOption	missing	
-headsUpDisplay	sg	missing	
-headsUpDisplay	showGrid	missing	
-headsUpDisplay	so	missing	
-headsUpDisplay	sr	missing	
+headsUpDisplay	setOption	done	auto
+headsUpDisplay	sg	done	auto
+headsUpDisplay	showGrid	done	auto
+headsUpDisplay	so	done	auto
+headsUpDisplay	sr	done	auto
 headsUpDisplay	vis	done	auto
 headsUpDisplay	visible	done	auto
 headsUpMessage	ho	done	auto
@@ -14147,60 +14147,60 @@ help	rm	done	auto
 help	rolloverMode	done	auto
 help	so	done	auto
 help	syntaxOnly	done	auto
-helpLine	ann	missing	
-helpLine	annotation	missing	
-helpLine	backgroundColor	missing	
-helpLine	bgc	missing	
-helpLine	defineTemplate	missing	
-helpLine	dgc	missing	
-helpLine	docTag	missing	
-helpLine	dpc	missing	
-helpLine	dragCallback	missing	
-helpLine	dropCallback	missing	
-helpLine	dt	missing	
-helpLine	dtg	missing	
-helpLine	e	missing	
-helpLine	ebg	missing	
-helpLine	edit	missing	
-helpLine	ekf	missing	
-helpLine	en	missing	
-helpLine	enable	missing	
-helpLine	enableBackground	missing	
-helpLine	enableKeyboardFocus	missing	
-helpLine	ex	missing	
-helpLine	exists	missing	
-helpLine	fpn	missing	
-helpLine	fullPathName	missing	
-helpLine	h	missing	
-helpLine	height	missing	
-helpLine	highlightColor	missing	
-helpLine	hlc	missing	
-helpLine	io	missing	
-helpLine	isObscured	missing	
-helpLine	m	missing	
-helpLine	manage	missing	
-helpLine	nbg	missing	
-helpLine	noBackground	missing	
-helpLine	npm	missing	
-helpLine	numberOfPopupMenus	missing	
-helpLine	p	missing	
-helpLine	parent	missing	
-helpLine	pma	missing	
-helpLine	po	missing	
-helpLine	popupMenuArray	missing	
-helpLine	preventOverride	missing	
-helpLine	q	missing	
-helpLine	query	missing	
-helpLine	sbm	missing	
-helpLine	statusBarMessage	missing	
-helpLine	useTemplate	missing	
-helpLine	ut	missing	
-helpLine	vcc	missing	
-helpLine	vis	missing	
-helpLine	visible	missing	
-helpLine	visibleChangeCommand	missing	
-helpLine	w	missing	
-helpLine	width	missing	
+helpLine	ann	done	auto
+helpLine	annotation	done	auto
+helpLine	backgroundColor	done	auto
+helpLine	bgc	done	auto
+helpLine	defineTemplate	done	auto
+helpLine	dgc	done	auto
+helpLine	docTag	done	auto
+helpLine	dpc	done	auto
+helpLine	dragCallback	done	auto
+helpLine	dropCallback	done	auto
+helpLine	dt	done	auto
+helpLine	dtg	done	auto
+helpLine	e	done	auto
+helpLine	ebg	done	auto
+helpLine	edit	done	auto
+helpLine	ekf	done	auto
+helpLine	en	done	auto
+helpLine	enable	done	auto
+helpLine	enableBackground	done	auto
+helpLine	enableKeyboardFocus	done	auto
+helpLine	ex	done	auto
+helpLine	exists	done	auto
+helpLine	fpn	done	auto
+helpLine	fullPathName	done	auto
+helpLine	h	done	auto
+helpLine	height	done	auto
+helpLine	highlightColor	done	auto
+helpLine	hlc	done	auto
+helpLine	io	done	auto
+helpLine	isObscured	done	auto
+helpLine	m	done	auto
+helpLine	manage	done	auto
+helpLine	nbg	done	auto
+helpLine	noBackground	done	auto
+helpLine	npm	done	auto
+helpLine	numberOfPopupMenus	done	auto
+helpLine	p	done	auto
+helpLine	parent	done	auto
+helpLine	pma	done	auto
+helpLine	po	done	auto
+helpLine	popupMenuArray	done	auto
+helpLine	preventOverride	done	auto
+helpLine	q	done	auto
+helpLine	query	done	auto
+helpLine	sbm	done	auto
+helpLine	statusBarMessage	done	auto
+helpLine	useTemplate	done	auto
+helpLine	ut	done	auto
+helpLine	vcc	done	auto
+helpLine	vis	done	auto
+helpLine	visible	done	auto
+helpLine	visibleChangeCommand	done	auto
+helpLine	w	done	auto
+helpLine	width	done	auto
 hide	all	done	auto
 hide	allObjects	done	auto
 hide	clearLastHidden	done	auto
