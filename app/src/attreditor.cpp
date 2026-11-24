@@ -771,6 +771,8 @@ void fit_labels(QWidget* body) {
     for (QLabel* l : labels) l->setFixedWidth(need);
 }
 
+void style_ae_menu(QMenu* m);
+
 // What a right click on an attribute gives, for what the attribute can take: its connection, its key, its texture.
 void attach_attr_menu(QWidget* target, const QJsonObject& a, QWidget* field) {
     QPointer<QWidget> fieldp = field;
@@ -780,6 +782,7 @@ void attach_attr_menu(QWidget* target, const QJsonObject& a, QWidget* field) {
     target->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect(target, &QWidget::customContextMenuRequested, target, [=](const QPoint& at) {
         QMenu m;
+        style_ae_menu(&m);
         if (!source.isEmpty()) {
             m.addAction(source + "...", [source] { exec("select", args(QJsonArray{source})); });
             m.addSeparator();
@@ -1913,7 +1916,8 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
         } else {
             auto* lab = ae_label(label, rowWidget);
             if (!a.isEmpty()) {
-                lab->setToolTip(a["attr"].toString());
+                const QString doc = a["doc"].toString();
+                lab->setToolTip(doc.isEmpty() ? a["attr"].toString() : doc);
                 if (a["locked"].toBool()) lab->setProperty("locked", true);
                 attach_attr_menu(lab, a, field);
             } else {
@@ -2313,14 +2317,20 @@ void AttributeEditor::refresh() {
         in->setIconSize(QSize(14, 14));
         in->setFixedSize(18, 9);
         in->setToolTip("Go to input connection");
-        in->setEnabled(false);
+        const QString inputNode = t["inputNode"].toString();
+        in->setEnabled(!inputNode.isEmpty());
+        if (!inputNode.isEmpty())
+            connect(in, &QToolButton::clicked, in, [inputNode] { exec("select", args(QJsonArray{inputNode})); });
         auto* out = new QToolButton(links);
         out->setObjectName("aeLinkButton");
         out->setIcon(connect_icon(false));
         out->setIconSize(QSize(14, 14));
         out->setFixedSize(18, 9);
         out->setToolTip("Go to output connection");
-        out->setEnabled(false);
+        const QString outputNode = t["outputNode"].toString();
+        out->setEnabled(!outputNode.isEmpty());
+        if (!outputNode.isEmpty())
+            connect(out, &QToolButton::clicked, out, [outputNode] { exec("select", args(QJsonArray{outputNode})); });
         lv->addWidget(in);
         lv->addWidget(out);
         nh->addWidget(links);

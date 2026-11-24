@@ -4241,7 +4241,8 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 The Attribute Editor is rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
 Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
 the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show
-and Hide stacked at the right. List pins the tab and lists the node types; Selected lists the selected nodes and
+and Hide stacked at the right; the connection arrows are live when the node reads from or feeds another. With
+nothing selected the panel says so in the reference's own words. List pins the tab and lists the node types; Selected lists the selected nodes and
 checks the one on show; Focus lists the tabs' paths; Attributes opens Add, Edit and Delete Attribute; Display >
 Attribute Names offers Nice, Long and Short labels; Show has its filter entries, Show View Labels, Show Notes and Show
 Color Managed Pots; Help's entries are present and greyed, as no local help ships.

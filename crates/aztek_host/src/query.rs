@@ -527,7 +527,26 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             weights.push(json!({"name": t.name, "index": t.index, "plug": plug, "value": value}));
         }
     }
-    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights})
+    // The first node this one reads from and the first it feeds, for the two buttons beside its name.
+    let mut input_node = String::new();
+    let mut output_node = String::new();
+    for i in 0..n.ty().attrs.len() {
+        let plug = aztek_scene::plug::PlugRef::new(id, i as i32);
+        if let Some(src) = g.source(&plug) {
+            if src.node != id {
+                input_node = g.path(src.node);
+                break;
+            }
+        }
+    }
+    for (src, dst) in g.connections() {
+        if src.node == id && dst.node != id {
+            output_node = g.path(dst.node);
+            break;
+        }
+    }
+    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights,
+           "inputNode": input_node, "outputNode": output_node})
 }
 
 /// The attribute editor's tabs for a node: the transform, its shape, and the shape's history, as the reference shows them.
