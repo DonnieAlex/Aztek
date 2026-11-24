@@ -176,6 +176,7 @@ protected:
 private:
     QTabWidget* tabs_;
     QString current_tab_;
+    QString last_focus_;
     QString pinned_;
     // List > Display > Attribute Names: Nice, Long or Short.
     QString name_style_ = "Nice";

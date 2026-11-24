@@ -512,7 +512,22 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             "hardMax": a.max_value,
         }));
     }
-    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs})
+    // A blend shape's targets, as the reference lists them in its Weight frame: the alias is the target's name.
+    let mut weights = Vec::new();
+    if n.ty().name == "blendShape" {
+        let blend = aztek_scene::deform_blend::blend_of(g, id);
+        for t in &blend.targets {
+            let plug = format!("{path}.weight[{}]", t.index);
+            let value = g.plug(&plug).ok().and_then(|p| g.peek(&p)).map(|v| match v {
+                PlugValue::Float(x) => x,
+                PlugValue::Int(x) => x as f64,
+                PlugValue::Bool(x) => if x { 1.0 } else { 0.0 },
+                _ => 0.0,
+            }).unwrap_or(0.0);
+            weights.push(json!({"name": t.name, "index": t.index, "plug": plug, "value": value}));
+        }
+    }
+    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights})
 }
 
 /// The attribute editor's tabs for a node: the transform, its shape, and the shape's history, as the reference shows them.

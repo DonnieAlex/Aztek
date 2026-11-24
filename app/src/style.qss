@@ -133,3 +133,6 @@ QWidget#aePage QCheckBox { font-size: 11px; }
 QWidget#aePage QLabel { font-size: 11px; }
 QPushButton#aeTinyButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 10px; padding: 0; }
 QPushButton#aeTinyButton:hover { background: #6a6a6a; }
+QWidget#aePage QLineEdit:disabled, QTabWidget#aeTabs QLineEdit:disabled { background: #2b2b2b; color: #7a7a7a; border: 1px solid #1c1c1c; }
+QWidget#aePage QComboBox:disabled { background: #4a4a4a; color: #7a7a7a; border: 1px solid #1c1c1c; }
+QWidget#aePage QCheckBox:disabled { color: #7a7a7a; }

@@ -28,6 +28,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QScrollArea>
 #include <QMouseEvent>
 #include <QPainter>
@@ -931,13 +932,14 @@ QList<AeBox> transform_boxes() {
 QList<AeBox> joint_boxes() {
     QList<AeBox> l;
     l << transform_boxes().first();
-    AeBox joint = box("Joint", {row("drawStyle"), row("radius"), row("jointTypeX"), row("stiffness"), row("preferredAngle"), row("jointOrient"),
-                                row("segmentScaleCompensate")},
+    AeBox joint = box("Joint", {row("drawStyle"), row("radius"), shown("", "Degrees of Freedom", "freedom"), row("stiffness"),
+                                row("preferredAngle"), row("jointOrient"), row("segmentScaleCompensate")},
                       1);
     joint.subs << box("Joint Labelling", {row("side"), row("type"), shown("otherType", "Other Type", "text"), row("drawLabel")}, 1);
     l << joint;
     QList<AeBox> rest = transform_boxes();
     rest.removeFirst();
+    rest.removeFirst(); // no Pivots on a joint
     l << rest;
     return l;
 }
@@ -946,27 +948,38 @@ QList<AeBox> mesh_boxes() {
     QList<AeBox> l;
     l << box("Tessellation Attributes",
              {shown("maxTriangles", "Max Triangles", "int"), shown("useMaxSubdivisions", "Use Max Subdivisions", "check"),
-              shown("maxSubd", "Max Subdiv", "int"), shown("useMinScreen", "Use Min Screen", "check"),
+              shown("maxSubd", "Max Subd", "int"), shown("useMinScreen", "Use Min Screen", "check"),
               shown("minScreen", "Min Screen", "float"), shown("useMaxUV", "Use Max UV", "check"), shown("maxUV", "Max UV", "float"),
               shown("useMinEdgeLength", "Use Min Edge Length", "check"), shown("minEdgeLength", "Min Edge Length", "float"),
               shown("useMaxEdgeLength", "Use Max Edge Length", "check"), shown("maxEdgeLength", "Max Edge Length", "float")});
     l << box("Mesh Component Display",
              {shown("displayImmediate", "Display Immediate", "check"), row("displayVertices"),
               shown("vertexSize", "Vertex Size", "float"), shown("vertexBackfaceCulling", "Vertex Backface Culling", "check"),
-              shown("backfaceCulling", "Backface Culling", "check"), shown("", "", "separator"), shown("displayEdges", "Display Edges", "check"),
-              row("displayBorders"), shown("borderWidth", "Border Width", "int"), shown("", "", "separator"), row("displayCenter"),
-              row("displayTriangles"), shown("displayUVs", "Display UVs", "check"), shown("uvSize", "UV Size", "float"),
-              shown("displayNonPlanar", "Display Non-Planar", "check"), shown("displayInvisibleFaces", "Display Invisible Faces", "check"),
-              shown("", "", "separator"), row("displayColors"), shown("displayColorChannel", "Display Color Channel", "combo"),
-              shown("materialBlend", "Material Blend", "float"), shown("", "", "separator"), shown("displayNormal", "Display Normals", "check"),
-              shown("displayTangent", "Display Tangents", "check"), shown("normalSize", "Normal Size", "float"),
-              shown("normalType", "Normal Type", "combo", "Vertex")});
-    l << box("Mesh Controls", {shown("allowTopologyMod", "Allow Topology Modification", "check"), shown("quadSplit", "Quad Split", "combo"),
-                               shown("vertexNormalMethod", "Vertex Normal Method", "combo"), shown("", "", "separator"),
-                               shown("reuseTriangles", "Reuse Triangles", "check")});
-    l << box("Tangent Space", {shown("tangentSpace", "Coordinate System:", "combo", "Right Handed"), shown("", "UV Winding Order:", "combo", "Detect"),
-                               shown("tangentSmoothingAngle", "Smoothing Angle", "float"), shown("tangentNormalThreshold", "Normal Threshold", "float")});
-    AeBox smooth = box("Smooth Mesh", {row("displaySmoothMesh")}, -1);
+              shown("backfaceCulling", "Backface Culling", "combo", "off"), shown("", "", "separator"),
+              shown("displayEdges", "Display Edges", "combo", "Standard"), row("displayBorders"), shown("borderWidth", "Border Width", "int"),
+              shown("", "", "separator"), row("displayCenter"), row("displayTriangles"), shown("displayUVs", "Display UVs", "check"),
+              shown("uvSize", "UV Size", "float"), shown("displayNonPlanar", "Display Non Planar", "check"),
+              shown("displayInvisibleFaces", "Display Invisible Faces", "check"), shown("", "", "separator"), shown("displayColors", "Display Colors", "check"),
+              shown("displayColorChannel", "Display Color Channel", "combo", "Ambient+Diffuse"),
+              shown("materialBlend", "Material Blend", "combo", "overwrite"), shown("", "Channels", "channels"),
+              shown("displayColorAsGreyScale", "Display color as greyscale", "check"),
+              shown("displayAlphaAsGreyScale", "Display alpha as greyscale", "check"), shown("", "", "separator"),
+              shown("displayNormal", "Display Normal", "check"), shown("displayTangent", "Display Tangent", "check"),
+              shown("normalSize", "Normal Size", "float"), shown("normalType", "Normal Type", "combo", "face")});
+    l << box("Mesh Controls",
+             {shown("currentUVSet", "Current UVSet", "combo", "map1"), shown("currentColorSet", "Current Color Set", "combo", ""),
+              shown("motionVectorColorSet", "Motion Vector Color Set", "combo", ""), shown("vertexColorSource", "Vertex Color Source", "combo", "None"),
+              shown("weightsVisualization", "Weights Visualization", "combo", "off"), shown("allowTopologyMod", "Allow Topology Mod", "check"),
+              shown("quadSplit", "Quad Split", "combo", "Best Shape"),
+              shown("vertexNormalMethod", "Vertex Normal Method", "combo", "Angle And Area Weighted")});
+    l << box("Tangent Space",
+             {shown("", "Coordinate System:", "radio2", "0"), shown("", "UV Winding Order:", "radio2", "0"),
+              shown("tangentSmoothingAngle", "Tangent Smoothing Angle", "float"), shown("tangentNormalThreshold", "Tangent Normal Threshold", "float")});
+    AeBox smooth = box("Smooth Mesh", {shown("displaySmoothMesh", "Smooth Mesh Preview", "check")});
+    smooth.rows << shown("", "Display", "radio2", "0");
+    smooth.rows.last().extra = "Cage + Smooth Mesh|Smooth Mesh";
+    smooth.rows << shown("useGlobalSmoothDrawType", "Subdivision Method", "checktext", "Use Global (OpenSubdiv Catmull-Clark)");
+    smooth.rows << shown("smoothDrawType", "", "combo", "OpenSubdiv Catmull-Clark");
     smooth.subs << box("Subdivision Levels", {shown("displaySubdComps", "Display Subdivisions", "check"), row("smoothLevel"),
                                               shown("useSmoothPreviewForRender", "Use Preview Level for Rendering", "check"), row("renderSmoothLevel")},
                        1);
@@ -981,15 +994,29 @@ QList<AeBox> mesh_boxes() {
     l << box("Displacement Map",
              {shown("featureDisplacement", "Feature Displacement", "check"), shown("initialSampleRate", "Initial Sample Rate", "int"),
               shown("extraSampleRate", "Extra Sample Rate", "int"), shown("textureThreshold", "Texture Threshold", "float"),
-              shown("normalThreshold", "Normal Threshold", "float"), shown("", "", "separator"), shown("boundingBoxScale", "Bounding Box Scale", "float")});
-    l << box("Render Stats",
-             {row("castsShadows"), row("receiveShadows"), shown("holdOut", "Hold-Out", "check"), row("motionBlur"), row("primaryVisibility"),
-              row("smoothShading"), row("visibleInReflections"), row("visibleInRefractions"), row("doubleSided"), shown("", "", "separator"),
-              shown("geometryAntialiasingOverride", "Geometry Anti-aliasing Override", "check"), shown("antialiasingLevel", "Anti-aliasing Level", "int"),
-              shown("shadingSamplesOverride", "Shading Samples Override", "check"), shown("shadingSamples", "Shading Samples", "int"),
-              shown("maxShadingSamples", "Max Shading Samples", "int")});
-    AeBox object = box("Object Display", {row("visibility"), row("template"), row("lodVisibility"), row("hideOnPlayback"),
-                                          row("hiddenInOutliner"), row("useOutlinerColor"), row("outlinerColor"), row("intermediateObject")});
+              shown("normalThreshold", "Normal Threshold", "float"), shown("", "", "separator"),
+              shown("boundingBoxScale", "Bounding Box Scale", "vec3"), shown("", "Calculate Bounding Box Scale", "button")});
+    AeBox render = box("Render Stats",
+                       {row("castsShadows"), row("receiveShadows"), shown("holdOut", "Hold-Out", "check"), row("motionBlur"),
+                        row("primaryVisibility"), row("smoothShading"), row("visibleInReflections"), row("visibleInRefractions"),
+                        row("doubleSided"), shown("opposite", "Opposite", "check"), shown("", "", "separator"),
+                        shown("geometryAntialiasingOverride", "Geometry Anti-aliasing Override", "check"),
+                        shown("antialiasingLevel", "Anti-aliasing Level", "int"), shown("shadingSamplesOverride", "Shading Samples Override", "check"),
+                        shown("shadingSamples", "Shading Samples", "int"), shown("maxShadingSamples", "Max Shading Samples", "int")});
+    render.subs << box("3D Motion Blur", {shown("", "Max Visib. Samples", "int"), row("motionBlur")});
+    l << render;
+    AeBox object = box("Object Display", {});
+    object.rows << shown("visibility", "Visibility", "check2");
+    object.rows.last().extra = "template";
+    object.rows << shown("lodVisibility", "LOD Visibility", "check2");
+    object.rows << shown("ignoreHwShader", "Ignore Hardware Shader", "check2");
+    object.rows << shown("hideOnPlayback", "Hide on playback", "check2");
+    object.rows.last().extra = "intermediateObject";
+    object.rows << shown("hiddenInOutliner", "Hidden In Outliner", "check2");
+    object.rows << shown("useOutlinerColor", "Use Outliner Color", "check2");
+    object.rows << shown("outlinerColor", "Outliner Color", "color");
+    AeBox ghost = box("Ghosting Information", {row("ghosting"), row("ghostPreSteps"), row("ghostPostSteps"), row("ghostStepSize")});
+    object.subs << ghost;
     object.subs << box("Bounding Box Information", {shown("boundingBoxMin", "Bounding Box Min", "vec3"), shown("boundingBoxMax", "Bounding Box Max", "vec3")});
     AeBox meshOverrides;
     meshOverrides.title = "Drawing Overrides";
@@ -1007,11 +1034,49 @@ QList<AeBox> mesh_boxes() {
     return l;
 }
 
+QList<AeBox> blend_boxes() {
+    QList<AeBox> l;
+    l << box("Blend Shape Attributes", {row("origin")}, 1);
+    AeBox weights = box("Weight", {shown("supportNegativeWeights", "Support Negative Weights", "check")}, 1);
+    l << weights;
+    AeBox deformer = box("Deformer Attributes", {row("envelope")});
+    deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
+    l << deformer;
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
+QList<AeBox> skin_boxes() {
+    QList<AeBox> l;
+    AeBox skin = box("Smooth Skin Attributes",
+                     {shown("skinningMethod", "Skinning Method", "combo", "Classic Linear|Dual Quaternion|Weight Blended"),
+                      shown("useComponents", "Use Components", "check"), shown("deformUserNormals", "Deform User Normals", "check"),
+                      shown("relativeSpaceMode", "Relative Space Mode", "combo"),
+                      shown("relativeSpaceMatrix", "Relative Space Matrix", "matrix"),
+                      shown("dqsSupportNonRigid", "Support Non-Rigid Transformations", "check"), shown("dqsScale", "Scale", "float"),
+                      shown("", "", "separator"), shown("normalizeWeights", "Normalize Weights", "combo", "None|Interactive"),
+                      shown("weightDistribution", "Weight Distribution", "combo", "None|Distance|Interactive"), shown("maxInfluences", "Max Influences", "int"),
+                      shown("maintainMaxInfluences", "Maintain Max Influences", "check")},
+                     1);
+    l << skin;
+    AeBox deformer = box("Deformer Attributes", {row("envelope")});
+    deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
+    l << deformer;
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // The tree for a node type, when its reference template is laid out here. Other types keep the generic sections.
 QList<AeBox> ae_tree(const QString& type) {
     if (type == "transform" || type == "locator" || type == "ikHandle") return transform_boxes();
     if (type == "joint") return joint_boxes();
     if (type == "mesh") return mesh_boxes();
+    if (type == "blendShape") return blend_boxes();
+    if (type == "skinCluster") return skin_boxes();
     return {};
 }
 
@@ -1142,10 +1207,25 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
 }
 
 // The reference's greyed control for a feature Aztek does not have yet: present, and taking no typing.
+QLabel* ae_label(const QString& text, QWidget* parent, int width = 124) {
+    auto* l = new QLabel(parent);
+    l->setObjectName("aeRowLabel");
+    l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    l->setFixedWidth(width);
+    l->setText(l->fontMetrics().elidedText(text, Qt::ElideLeft, width - 2));
+    l->setToolTip(text);
+    return l;
+}
+
 QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
     const QString kind = r.kind.isEmpty() ? "float" : r.kind;
     if (kind == "check") {
         auto* cb = new QCheckBox(parent);
+        cb->setEnabled(false);
+        return cb;
+    }
+    if (kind == "checktext") {
+        auto* cb = new QCheckBox(r.fallback, parent);
         cb->setEnabled(false);
         return cb;
     }
@@ -1166,9 +1246,52 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         h->addStretch(1);
         return w;
     }
+    if (kind == "radio2") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        QStringList items = r.extra.isEmpty() ? QStringList{"Right Handed", "Left Handed"} : r.extra.split('|');
+        if (r.label == "UV Winding Order:") items = QStringList{"Detect", "Ignore"};
+        for (int k = 0; k < items.size(); ++k) {
+            auto* rb = new QRadioButton(items.at(k), w);
+            rb->setChecked(k == (r.fallback.isEmpty() ? 0 : r.fallback.toInt()));
+            rb->setEnabled(false);
+            h->addWidget(rb);
+            if (k == 0) h->addSpacing(10);
+        }
+        h->addStretch(1);
+        return w;
+    }
+    if (kind == "channels") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        auto* lab = new QLabel(r.label.isEmpty() ? "Channels" : r.label, w);
+        h->addWidget(lab);
+        for (const char* c : {"R", "G", "B"}) {
+            auto* cb = new QCheckBox(w);
+            cb->setFixedSize(14, 14);
+            cb->setEnabled(false);
+            h->addWidget(cb);
+            h->addWidget(new QLabel(c, w));
+            h->addSpacing(12);
+        }
+        h->addStretch(1);
+        return w;
+    }
+    if (kind == "button") {
+        auto* b = new QPushButton(r.label, parent);
+        b->setObjectName("aeSmallButton");
+        b->setFixedSize(240, 22);
+        b->setEnabled(false);
+        return b;
+    }
     if (kind == "combo") {
         auto* box = new QComboBox(parent);
-        QStringList items = r.extra.isEmpty() ? QStringList{"None"} : r.extra.split('|');
+        QString source = !r.extra.isEmpty() ? r.extra : r.fallback;
+        QStringList items = source.isEmpty() ? QStringList{"None"} : source.split('|');
         for (const QString& s : items) box->addItem(s);
         box->setFixedWidth(148);
         box->setEnabled(false);
@@ -1220,6 +1343,25 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
 QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QWidget* parent) {
     QString type = a["type"].toString();
     bool ro = read_only(a);
+    if (r.kind == "combo" && type != "enum") {
+        auto* box = new QComboBox(parent);
+        QString source = !r.extra.isEmpty() ? r.extra : r.fallback;
+        for (const QString& item : (source.isEmpty() ? QStringList{"None"} : source.split('|'))) box->addItem(item);
+        box->setCurrentIndex(qBound(0, a["value"].toInt(), box->count() - 1));
+        box->setFixedWidth(148);
+        box->setEnabled(!ro);
+        QString plug = a["plug"].toString();
+        QObject::connect(box, QOverload<int>::of(&QComboBox::activated), box, [plug](int i) { set_plug(plug, i, "int"); });
+        return box;
+    }
+    if (r.kind == "check") {
+        auto* cb = new QCheckBox(parent);
+        cb->setChecked(a["value"].toBool() || (a["value"].isDouble() && a["value"].toDouble() != 0));
+        cb->setEnabled(!ro);
+        QString plug = a["plug"].toString();
+        QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
+        return cb;
+    }
     QWidget* field = nullptr;
     if (r.kind == "text") {
         auto* w = new QWidget(parent);
@@ -1250,7 +1392,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
     field = attr_field(a, parent);
     int width = 0;
     if (r.kind == "matrix" || type == "matrix") width = 295;
-    else if (r.kind == "combo" || type == "enum") width = 148;
+    else if (r.kind == "combo" || type == "enum") width = r.attr == "rotateOrder" ? 72 : 148;
     else if (type == "vec3") width = 224;
     else if (r.kind == "text") width = 0;
     else if (type == "float" || type == "int") {
@@ -1465,11 +1607,7 @@ void ae_extra_rows(QVBoxLayout* v, QWidget* parent, const QHash<QString, QJsonOb
         auto* h = new QHBoxLayout(rowWidget);
         h->setContentsMargins(18, 0, 12, 0);
         h->setSpacing(4);
-        auto* lab = new QLabel(a["nice"].toString(), rowWidget);
-        lab->setObjectName("aeRowLabel");
-        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        lab->setFixedWidth(124);
-        lab->setToolTip(a["attr"].toString());
+        auto* lab = ae_label(a["nice"].toString(), rowWidget);
         h->addWidget(lab);
         h->addWidget(field);
         h->addStretch(1);
@@ -1517,13 +1655,10 @@ void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<
             auto* h = new QHBoxLayout(rw);
             h->setContentsMargins(18, 0, 12, 0);
             h->setSpacing(4);
-            auto* lab = new QLabel(b.title == "Translate" ? QString("Trans Limit %1").arg(axis)
-                                    : b.title == "Rotate"  ? QString("Rot Limit %1").arg(axis)
-                                                           : QString("Scale Limit %1").arg(axis),
-                                    rw);
-            lab->setObjectName("aeRowLabel");
-            lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-            lab->setFixedWidth(124);
+            auto* lab = ae_label(b.title == "Translate" ? QString("Trans Limit %1").arg(axis)
+                                  : b.title == "Rotate" ? QString("Rot Limit %1").arg(axis)
+                                                        : QString("Scale Limit %1").arg(axis),
+                                  rw);
             h->addWidget(lab);
             h->addWidget(ae_limit_row(b, axis, by, rw, lab->text()));
             h->addStretch(1);
@@ -1579,8 +1714,41 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 h->addWidget(l);
             };
             add_check(r.attr, label, true);
-            h->addSpacing(26);
-            add_check(r.extra, "Template", true);
+            if (!r.extra.isEmpty()) {
+                h->addSpacing(26);
+                QString second = by.value(r.extra).isEmpty() ? QString() : by.value(r.extra)["nice"].toString();
+                if (second.isEmpty()) second = r.extra == "template" ? "Template" : r.extra == "intermediateObject" ? "Intermediate Object" : r.extra;
+                add_check(r.extra, second, true);
+            }
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
+        const bool checklike = r.kind == "check" || r.kind == "channels" || (r.kind.isEmpty() && a["type"].toString() == "bool");
+        if (r.kind == "freedom") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(18, 0, 12, 0);
+            h->setSpacing(4);
+            auto* lab = ae_label(label, rw);
+            h->addWidget(lab);
+            for (const char* axis : {"X", "Y", "Z"}) {
+                QString name = QString("jointType") + axis;
+                QJsonObject at = by.value(name);
+                auto* cb = new QCheckBox(rw);
+                cb->setFixedSize(14, 14);
+                if (!at.isEmpty()) {
+                    cb->setChecked(at["value"].toBool());
+                    QString plug = at["plug"].toString();
+                    QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
+                    used.insert(name);
+                } else {
+                    cb->setEnabled(false);
+                }
+                h->addWidget(cb);
+                h->addWidget(new QLabel(axis, rw));
+                h->addSpacing(18);
+            }
             h->addStretch(1);
             v->addWidget(rw);
             continue;
@@ -1591,28 +1759,39 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             if (a["type"].toString() == "matrix") field = ae_placeholder(r, a, parent);
             else if (a["type"].toString() == "vec3") field = ae_vec3(a, parent);
             else field = ae_field(r, a, style, parent);
+            if (checklike) {
+                if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setText(label);
+                else for (QCheckBox* cb : field->findChildren<QCheckBox*>()) cb->setText(label);
+            }
             if (a["type"].toString() == "string" && r.kind != "text" && r.kind != "combo") {
                 field->setMinimumWidth(295);
             }
         } else {
             field = ae_placeholder(r, a, parent);
+            if (checklike) {
+                if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setText(label);
+                else for (QCheckBox* cb : field->findChildren<QCheckBox*>()) cb->setText(label);
+            }
         }
         field->setToolTip(a.isEmpty() ? QString() : a["doc"].toString());
         auto* rowWidget = new QWidget(parent);
         auto* h = new QHBoxLayout(rowWidget);
         h->setContentsMargins(18, 0, 12, 0);
         h->setSpacing(4);
-        auto* lab = new QLabel(label, rowWidget);
-        lab->setObjectName("aeRowLabel");
-        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        lab->setFixedWidth(124);
-        lab->setToolTip(a.isEmpty() ? label : a["attr"].toString());
-        if (!a.isEmpty()) {
-            if (a["locked"].toBool()) lab->setProperty("locked", true);
+        if (checklike) {
+            auto* pad = new QWidget(rowWidget);
+            pad->setFixedWidth(124);
+            h->addWidget(pad);
         } else {
-            lab->setObjectName("aeDimLabel");
+            auto* lab = ae_label(label, rowWidget);
+            if (!a.isEmpty()) {
+                lab->setToolTip(a["attr"].toString());
+                if (a["locked"].toBool()) lab->setProperty("locked", true);
+            } else {
+                lab->setObjectName("aeDimLabel");
+            }
+            h->addWidget(lab);
         }
-        h->addWidget(lab);
         h->addWidget(field);
         h->addStretch(1);
         v->addWidget(rowWidget);
@@ -1656,10 +1835,7 @@ void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, 
                 auto* h = new QHBoxLayout(rw);
                 h->setContentsMargins(18, 0, 12, 0);
                 h->setSpacing(4);
-                auto* lab = new QLabel(override_label(n, a["nice"].toString()), rw);
-                lab->setObjectName("aeRowLabel");
-                lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-                lab->setFixedWidth(124);
+                auto* lab = ae_label(override_label(n, a["nice"].toString()), rw);
                 h->addWidget(lab);
                 h->addWidget(field);
                 h->addStretch(1);
@@ -1698,6 +1874,10 @@ void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, 
 } // namespace
 
 AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel(parent), pinned_(pinned) {
+    QFont editorFont = font();
+    editorFont.setFamily("Noto Sans");
+    editorFont.setPixelSize(11);
+    setFont(editorFont);
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
@@ -1916,6 +2096,11 @@ void AttributeEditor::refresh() {
         if (sl->isSliderDown()) return;
     last_ = now;
     QString keep = current_tab_;
+    const QString focus_path = ae["focus"].toString();
+    if (!focus_path.isEmpty() && focus_path != last_focus_) {
+        keep = focus_path.section('|', -1);
+        last_focus_ = focus_path;
+    }
     // The field being typed in, and where the tab was scrolled to, come back after the rebuild: a value set and Tab
     // to the next field rebuilds the editor, and the cursor goes on to that next field, as in the reference.
     QString focus_key;
@@ -2076,6 +2261,30 @@ void AttributeEditor::refresh() {
         v->addWidget(nameRow);
 
         QList<AeBox> boxes = ae_tree(node_type);
+        // A blend shape's target weights, named after their targets as the reference names them.
+        if (node_type == "blendShape") {
+            QList<AeRow> weightRows;
+            for (const QJsonValue& wv : t["weights"].toArray()) {
+                QJsonObject w = wv.toObject();
+                QString key = QString("weight[%1]").arg(w["index"].toInt());
+                QJsonObject a;
+                a["attr"] = key;
+                a["plug"] = w["plug"];
+                a["nice"] = w["name"];
+                a["type"] = "float";
+                a["value"] = w["value"];
+                a["min"] = 0.0;
+                a["max"] = 1.0;
+                by.insert(key, a);
+                weightRows << row(key.toUtf8().constData());
+            }
+            for (AeBox& b : boxes) {
+                if (b.title != "Weight") continue;
+                QList<AeRow> all = weightRows;
+                all.append(b.rows);
+                b.rows = all;
+            }
+        }
         const bool tree_layout = !boxes.isEmpty();
         QSet<QString> used;
         if (tree_layout) {
