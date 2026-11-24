@@ -146,7 +146,7 @@ const QList<Section>& sections_for(const QString& type) {
         {"Arnold", kHaroldShape},
         {"Arnold Subdivision", kHaroldSubdiv},
         {"Arnold Displacement", kHaroldDisp},
-        {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
+        {"Object Display", "visibility template intermediateObject hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> camera{
@@ -155,49 +155,49 @@ const QList<Section>& sections_for(const QString& type) {
         {"Orthographic Views", "orthographic orthographicWidth"},
         {"Arnold", "renderable depthOfField fStop focusDistance focusRegionScale shutterAngle motionBlur"},
         {"Display Options", "displayFilmGate displayResolution displayGateMask overscan"},
-        {"Display", "visibility locatorScale"}};
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"}};
     static const QList<Section> ambient{
         {"Ambient Light Attributes", "color intensity ambientShade"},
         {"Shadows", "shadowColor useRayTraceShadows shadowRays rayDepthLimit castSoftShadows shadowRadius receiveShadows"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> directional{
         {"Directional Light Attributes", "color intensity emitDiffuse emitSpecular"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightAngle shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> point{
         {"Point Light Attributes", "color intensity emitDiffuse emitSpecular decayRate"},
         {"Light Effects", "fogType fogRadius fogIntensity"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightRadius shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> spot{
         {"Spot Light Attributes", "color intensity emitDiffuse emitSpecular decayRate coneAngle penumbraAngle dropoff"},
         {"Light Effects", "fogSpread fogIntensity barnDoors leftBarnDoor rightBarnDoor topBarnDoor bottomBarnDoor useDecayRegions startDistance1 endDistance1 startDistance2 endDistance2 startDistance3 endDistance3"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightRadius shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> area{
         {"Area Light Attributes", "color intensity emitDiffuse emitSpecular decayRate normalize"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> volume{
         {"Volume Light Attributes", "color intensity lightShape volumeLightDir arc coneEndRadius emitAmbient emitDiffuse emitSpecular"},
         {"Shadows", "shadowColor useRayTraceShadows lightRadius shadowRays rayDepthLimit"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> curve{
         {"NURBS Curve History", "degree form spans"},
         {"Component Display", "dispCV dispEP dispHull lineWidth"},
-        {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
+        {"Object Display", "visibility template intermediateObject hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> skin{
@@ -223,7 +223,7 @@ const QList<Section>& sections_for(const QString& type) {
     static const QList<Section> group{{"Shading Group Attributes", "surfaceShader volumeShader displacementShader imageShader renderableOnlySet annotation"}};
     static const QList<Section> other{{"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> shape{
-        {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
+        {"Object Display", "visibility template intermediateObject hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> surface{
@@ -231,7 +231,7 @@ const QList<Section>& sections_for(const QString& type) {
         {"Arnold", kHaroldShape},
         {"Arnold Subdivision", kHaroldSubdiv},
         {"Arnold Displacement", kHaroldDisp},
-        {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
+        {"Object Display", "visibility template intermediateObject hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
     if (type == "nurbsSurface") return surface;
@@ -242,22 +242,22 @@ const QList<Section>& sections_for(const QString& type) {
     static const QList<Section> sky{
         {"Sky Dome Light Attributes", "color intensity aiExposure shadowColor resolution aiResolution format camera aiCamera skyRadius"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> ai_area{
         {"Area Light Attributes", "color intensity aiExposure shadowColor aiTranslator aiSpread aiRoundness aiSoftEdge"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> mesh_light{
         {"Mesh Light Attributes", "color intensity aiExposure shadowColor lightVisible"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> photometric{
         {"Photometric Light Attributes", "color intensity aiExposure shadowColor aiFilename"},
         {"Arnold", kHaroldLight},
-        {"Display", "visibility locatorScale"},
+        {"Object Display", "visibility template hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor"},
         {"Node Behaviour", "caching nodeState frozen"}};
     if (type == "aiSkyDomeLight") return sky;
     if (type == "aiAreaLight") return ai_area;
@@ -847,7 +847,7 @@ QString material_label(const QString& section, const QString& attr, const QStrin
 QSet<QString>& closed_sections() {
     static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity",
                            "Raytrace Options", "Light Effects", "Shadows", "Arnold", "Arnold Subdivision", "Arnold Displacement",
-                           "Drawing Overrides", "Display", "Transmission", "Subsurface", "Coat", "Sheen", "Emission",
+                           "Drawing Overrides", "Display", "Object Display", "Transmission", "Subsurface", "Coat", "Sheen", "Emission",
                            "Thin Film", "Geometry", "Advanced", "File Attributes", "Color Balance", "Effects",
                            "2d Texture Placement"};
     return s;
