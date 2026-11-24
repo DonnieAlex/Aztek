@@ -1117,7 +1117,7 @@ void ChannelBox::refresh() {
         if (options_.contains("labelWidth")) label_width = qMax(10, options_["labelWidth"].toInt());
     }
     // One block per selected object, lead last, as the reference stacks them.
-    auto add_object = [&](const QJsonObject& o, bool lead) {
+    auto add_object = [&](const QJsonObject& o) {
         // Object name, editable to rename.
         // Settings > Show Namespace off drops the namespace from the name shown.
         const QString full = o["name"].toString();
@@ -1132,7 +1132,7 @@ void ChannelBox::refresh() {
         });
         name->setProperty("node", path);
         lay->addWidget(name);
-        if (lead) body_->setProperty("mainNode", path);
+        body_->setProperty("mainNode", path);
         add_channels(lay, o["channels"].toArray(), label_width);
         const QJsonArray shapes = o["shapes"].toArray();
         if (!shapes.isEmpty()) {
@@ -1154,10 +1154,10 @@ void ChannelBox::refresh() {
         const int first = only_lead ? qMax(0, objects.size() - 1) : 0;
         for (int i = first; i < objects.size(); ++i) {
             if (i > first) lay->addSpacing(8);
-            add_object(objects[i].toObject(), i == objects.size() - 1);
+            add_object(objects[i].toObject());
         }
     } else {
-        add_object(cb, true);
+        add_object(cb);
     }
     lay->addStretch(1);
     scroll_->setWidget(body_);
