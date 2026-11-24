@@ -16,6 +16,11 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Attribute Editor (24/11/2026): the chrome and the transform, mesh, joint, skinCluster and blendShape layouts are in;
+  controls the reference has and Aztek has no attribute for are greyed and empty (world pivots, Show Manip Default,
+  Manip History Node, mesh component display detail, DoF scale, GPU options). skinCluster's input table and Manage
+  Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
+  tab's right-click menu are not built. Translate and Scale limits are not attributes on a transform.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing

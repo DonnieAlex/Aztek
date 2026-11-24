@@ -4233,3 +4233,50 @@ viewport pause have no feature in Aztek yet and are greyed; the right-click pick
 each mask, where the reference divides the object and component masks into their long category lists. The hierarchy
 Leaf and Template buttons set the modes selectMode accepts for scripts, but selection stays at the roots, and Snap to
 Projected Center sets snapMode -meshCenter while the viewport does not use that snap yet.
+
+### The Attribute Editor, to the reference's own chrome (24/11/2026)
+
+![The Attribute Editor](docs/attribute-editor.png)
+
+The Attribute Editor is rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
+Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
+the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show
+and Hide stacked at the right. List pins the tab and lists the node types; Selected lists the selected nodes and
+checks the one on show; Focus lists the tabs' paths; Attributes opens Add, Edit and Delete Attribute; Display >
+Attribute Names offers Nice, Long and Short labels; Show has its filter entries, Show View Labels, Show Notes and Show
+Color Managed Pots; Help's entries are present and greyed, as no local help ships.
+
+Sections are the reference's raised 22 pixel bands, nested where the templates nest, with its gradients, triangles and
+per-template collapse defaults, and Shift-click takes every section on the tab with it. Rows right-align their names
+in the reference's 140 pixel column, put a checkbox and its text at the value column, pair checkboxes on the two-column
+rows, and draw separators where the templates do. Controls the reference has and Aztek has no attribute for are present
+and greyed, never left out.
+
+The transform tab follows AEtransformMain and AEtransformNoScroll: Transform Attributes with Offset Parent Matrix;
+Pivots with Local Space and World Space; Limit Information with Translate, Rotate and Scale, each with the reference's
+Min, Current and Max columns, enable boxes and arrows; Display with Display Handle, Display Local Axis, Selection
+Handle, Show Manip Default, Manip History Node, Visibility, Template, LOD Visibility, Hide on playback, Hidden In
+Outliner, Outliner Color and the Ghosting Information, Bounding Box Information, Drawing Overrides and Selection
+sections; Node Behavior, UUID and Extra Attributes. The mesh tab follows AEmeshTemplate and AEshapeTemplate:
+Tessellation Attributes, Mesh Component Display with its four groups, Mesh Controls, Tangent Space with its radio
+groups, Smooth Mesh with Subdivision Levels, OpenSubdiv Controls and Maya Catmull-Clark Controls, Displacement Map with
+Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, Component Tags, Deformation, Arnold,
+Node Behavior, UUID and Extra Attributes. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
+Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
+skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
+Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
+
+Notes sit in a fixed area under the scrolling sections, with the reference's dotted rule, and Select, Load Attributes
+and Copy Tab fill the panel's width as three equal buttons. A right-click on an attribute's name gives Set Key, Break
+Connection, Create New Texture, Color Chooser and Lock or Unlock, for what the attribute can take; entering a numeric
+field selects its value.
+
+Not done: controls whose attributes Aztek lacks are greyed and empty rather than carrying the reference's defaults
+(world pivots, Show Manip Default, Manip History Node, the mesh component display detail, DoF scale, GPU options).
+The limits of transforms read from the compound min/max vectors and show two decimals; a transform's Translate and
+Scale limits are not attributes yet, so their rows are greyed. skinCluster's input table and Manage Deformed Geometry
+are not built, and its skinning method and weight distribution are lists of the reference's names over Aztek's numbers.
+blendShape's in-between weights, target management and the weight section's add/remove menus are not built; each weight
+is a 0 to 1 slider. Load Selected Attributes and Show's filters are greyed; tabs cannot be torn off or reordered, and a
+tab's right-click menu is not built. The name field is intentionally empty, and long attribute names elide at the left
+of their column.
