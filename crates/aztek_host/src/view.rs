@@ -1547,7 +1547,7 @@ impl View {
                 if self.joint_press.is_some() && self.vp.tool == Tool::Joint && px.x > -1e5 {
                     let g = &core.s.graph;
                     let from = g.selection().last().copied().filter(|&id| aztek_scene::rig::is_joint(g, id)).and_then(|id| g.node(id)).map(|n| n.data().matrix(aztek_scene::transform::DagNode::WORLD_MATRIX).w_axis.truncate());
-                    self.vp.joint_preview = Some((from, self.vp.place_point(px)));
+                    self.vp.joint_preview = Some((from, self.vp.place_joint_point(g, px)));
                     return true;
                 }
                 if let Some((b, last)) = self.nav {
@@ -1906,7 +1906,8 @@ impl View {
                     // A joint goes where the button comes up, however far it was dragged.
                     if self.vp.tool == Tool::Joint {
                         self.vp.joint_preview = None;
-                        place_joint(core, self.vp.place_point(px));
+                        let at = self.vp.place_joint_point(&core.s.graph, px);
+                        place_joint(core, at);
                     } else if (px - start).length() < 6.0 * self.dpr {
                         let at = self.vp.place_point(px);
                         {

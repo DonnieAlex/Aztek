@@ -86,3 +86,31 @@ fn looking_above_the_horizon_the_joint_goes_in_front_of_the_camera() {
     assert!((p - eye).dot(to_coi) > 1.0, "{p:?} is behind the camera at {eye:?}");
     assert!(p.y > 5.0);
 }
+
+#[test]
+fn with_c_held_the_joint_goes_on_the_curve_under_the_cursor() {
+    // #273: the joint tool snaps to a curve as it is placed, not only once a joint is moved.
+    let mut c = Core::new();
+    mel(&mut c, "curve -d 1 -p -5 3 0 -p 5 3 0;");
+    mel(&mut c, "select -cl;");
+    let mut vp = Viewport::new(CamKind::Persp);
+    vp.rect = [0.0, 0.0, 800.0, 800.0];
+    vp.cam.coi = DVec3::ZERO;
+    vp.cam.yaw = 0.3;
+    vp.cam.pitch = -0.6;
+    vp.cam.distance = 30.0;
+    let on = DVec3::new(2.0, 3.0, 0.0);
+    let px = vp.screen().project(on).unwrap() + DVec2::new(0.0, 5.0);
+    // Without a snap the click lands on the ground, below the curve.
+    assert!(vp.place_joint_point(&c.s.graph, px).y.abs() < 1e-6);
+    vp.snap = 3;
+    let at = vp.place_joint_point(&c.s.graph, px);
+    assert!((at.y - 3.0).abs() < 1e-6 && at.z.abs() < 1e-6, "{at:?} is off the curve");
+    assert!((at.x - 2.0).abs() < 0.5, "{at:?} is not near the cursor");
+    place_joint(&mut c, at);
+    let t: Vec<f64> = serde_json::from_value(mel(&mut c, "xform -q -ws -t joint1;")).unwrap();
+    assert!((t[1] - 3.0).abs() < 1e-6, "{t:?}");
+    // Far from any curve the joint goes where it would without the snap.
+    let far = DVec2::new(5.0, 795.0);
+    assert_eq!(vp.place_joint_point(&c.s.graph, far), vp.place_point(far));
+}
