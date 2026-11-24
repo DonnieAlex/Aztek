@@ -4261,7 +4261,8 @@ sections; Node Behavior, UUID and Extra Attributes. The mesh tab follows AEmeshT
 Tessellation Attributes, Mesh Component Display with its four groups, Mesh Controls, Tangent Space with its radio
 groups, Smooth Mesh with Subdivision Levels, OpenSubdiv Controls and Maya Catmull-Clark Controls, Displacement Map with
 Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, Component Tags, Deformation, Arnold,
-Node Behavior, UUID and Extra Attributes. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
+Node Behavior, UUID and Extra Attributes. The poly primitives' history tabs follow AEpolyCubeTemplate and its
+siblings, with the primitive's own history section, Axis and Component Tags. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
 Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
 skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.

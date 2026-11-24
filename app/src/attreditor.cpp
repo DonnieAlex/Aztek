@@ -737,7 +737,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
 class RowLabel : public QLabel {
 public:
     RowLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
-        setFixedWidth(112);
+        setFixedWidth(140);
         setToolTip(text);
         setProperty("rowLabel", true);
     }
@@ -765,7 +765,7 @@ void fit_labels(QWidget* body) {
     // By a property: findChildren needs Q_OBJECT on the class it looks for, and newer Qt refuses to build without it.
     QList<QLabel*> labels = body->findChildren<QLabel*>();
     labels.removeIf([](QLabel* l) { return !l->property("rowLabel").toBool(); });
-    int need = 112;
+    int need = 140;
     for (QLabel* l : labels) need = std::max(need, l->fontMetrics().horizontalAdvance(l->text()) + 8);
     need = std::min(need, 240);
     for (QLabel* l : labels) l->setFixedWidth(need);
@@ -842,7 +842,7 @@ QString material_label(const QString& section, const QString& attr, const QStrin
 
 // A collapsible section header, remembered per title across refreshes.
 QSet<QString>& closed_sections() {
-    static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes"};
+    static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity", "Raytrace Options"};
     return s;
 }
 
@@ -1075,6 +1075,60 @@ QList<AeBox> skin_boxes() {
     return l;
 }
 
+// The poly primitives' history, from their AETemplates: the shape's own settings, Axis, Component Tags.
+QList<AeBox> poly_boxes(const QString& type) {
+    QList<AeBox> l;
+    AeBox history;
+    if (type == "polyCube") {
+        history = box("Poly Cube History",
+                      {row("width"), row("height"), row("depth"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
+                       shown("", "", "separator"), row("subdivisionsWidth"), row("subdivisionsHeight"), row("subdivisionsDepth"),
+                       shown("", "", "separator"), shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    } else if (type == "polySphere") {
+        history = box("Poly Sphere History",
+                      {row("radius"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"), shown("", "", "separator"),
+                       row("subdivisionsAxis"), row("subdivisionsHeight"), shown("", "", "separator"),
+                       shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    } else if (type == "polyCylinder") {
+        history = box("Poly Cylinder History",
+                      {row("radius"), row("height"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
+                       shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"), row("subdivisionsCaps"),
+                       shown("", "", "separator"), shown("roundCap", "Round Cap", "check"),
+                       shown("roundCapHeightCompensation", "Round Cap Height Compensation", "float"), shown("", "", "separator"),
+                       shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    } else if (type == "polyCone") {
+        history = box("Poly Cone History",
+                      {row("radius"), row("height"), shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"),
+                       row("subdivisionsCaps"), shown("", "", "separator"), shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    } else if (type == "polyTorus") {
+        history = box("Poly Torus History",
+                      {row("radius"), row("sectionRadius"), row("twist"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
+                       shown("", "", "separator"), row("subdivisionsAxis"), row("subdivisionsHeight"), shown("", "", "separator"),
+                       shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    } else {
+        history = box("Poly Plane History",
+                      {row("width"), row("height"), shown("", "", "separator"), shown("heightBaseline", "Height Baseline", "float"),
+                       shown("", "", "separator"), row("subdivisionsWidth"), row("subdivisionsHeight"), shown("", "", "separator"),
+                       shown("createUVs", "Create UVs", "combo", "Normalize Collectively and Preserve Aspect Ratio")},
+                      1);
+    }
+    l << history;
+    l << box("Axis", {row("axis")}, 1);
+    l << box("Component Tags", {shown("componentTagCreate", "Component Tag Create", "check"),
+                                shown("componentTagPrefix", "Component Tag Prefix", "text"),
+                                shown("componentTagSuffix", "Component Tag Suffix", "text")},
+             1);
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // The tree for a node type, when its reference template is laid out here. Other types keep the generic sections.
 QList<AeBox> ae_tree(const QString& type) {
     if (type == "transform" || type == "locator" || type == "ikHandle") return transform_boxes();
@@ -1082,6 +1136,8 @@ QList<AeBox> ae_tree(const QString& type) {
     if (type == "mesh") return mesh_boxes();
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
+    static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
+    if (polys.contains(type)) return poly_boxes(type);
     return {};
 }
 
@@ -1212,31 +1268,39 @@ QIcon pin_icon() {
     return QIcon(px);
 }
 
+// The reference's menus: 11 pixel text on 16 pixel rows, over a dark grey panel.
+void style_ae_menu(QMenu* m) {
+    m->setStyleSheet("QMenu { background: #525252; border: 1px solid #2a2a2a; padding: 2px 0; }"
+                     "QMenu::item { padding: 1px 20px 1px 22px; font-size: 11px; color: #e4e4e4; }"
+                     "QMenu::item:selected { background: #587f9d; color: #ffffff; }"
+                     "QMenu::item:disabled { color: #9a9a9a; }"
+                     "QMenu::separator { height: 1px; background: #3d3d3d; margin: 3px 4px; }");
+}
+
 QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) {
-    auto* head = new QToolButton(parent);
-    head->setObjectName("aeSectionButton");
-    head->setText(title);
-    head->setCheckable(true);
-    bool open = !closed_sections().contains(title);
-    head->setChecked(open);
-    head->setArrowType(open ? Qt::DownArrow : Qt::RightArrow);
-    head->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    head->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    v->addWidget(head);
+    const bool open = !closed_sections().contains(title);
+    auto* headWrap = new QWidget(parent);
+    auto* hw = new QHBoxLayout(headWrap);
+    hw->setContentsMargins(18, 0, 18, 0);
+    hw->setSpacing(0);
+    auto* head = new AeHead(title, open, 0, headWrap);
+    hw->addWidget(head);
+    v->addWidget(headWrap);
     auto* box = new QWidget(parent);
+    box->setStyleSheet("background: #494949;");
     auto* f = new QFormLayout(box);
     f->setLabelAlignment(Qt::AlignRight);
-    f->setContentsMargins(4, 2, 2, 6);
+    f->setContentsMargins(2, 3, 30, 6);
     f->setHorizontalSpacing(4);
     f->setVerticalSpacing(3);
     box->setVisible(open);
     v->addWidget(box);
-    QObject::connect(head, &QToolButton::toggled, box, [box, head, title](bool on) {
+    head->toggled = [box, head, title](bool on) {
         box->setVisible(on);
-        head->setArrowType(on ? Qt::DownArrow : Qt::RightArrow);
+        head->set_open(on);
         if (on) closed_sections().remove(title);
         else closed_sections().insert(title);
-    });
+    };
     return f;
 }
 
@@ -1380,7 +1444,10 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
     if (r.kind == "combo" && type != "enum") {
         auto* box = new QComboBox(parent);
         QString source = !r.extra.isEmpty() ? r.extra : r.fallback;
-        for (const QString& item : (source.isEmpty() ? QStringList{"None"} : source.split('|'))) box->addItem(item);
+        QStringList items;
+        for (const QJsonValue& e : a["enum"].toArray()) items << e.toString();
+        if (items.isEmpty()) items = source.isEmpty() ? QStringList{"None"} : source.split('|');
+        for (const QString& item : items) box->addItem(item);
         box->setCurrentIndex(qBound(0, a["value"].toInt(), box->count() - 1));
         box->setFixedWidth(148);
         box->setEnabled(!ro);
@@ -1958,6 +2025,7 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
         b->setText(text);
         b->setPopupMode(QToolButton::InstantPopup);
         b->setMenu(menu);
+        style_ae_menu(menu);
         b->setToolTip(text);
         barLay->addWidget(b);
         return b;
@@ -2000,6 +2068,9 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
             connect(a, &QAction::triggered, this, [this, n] {
                 for (int i = 0; i < tabs_->count(); ++i)
                     if (tabs_->tabText(i) == n) {
+                        QWidget* w = tabs_->widget(i);
+                        QString node = w ? w->property("nodePath").toString() : QString();
+                        if (!node.isEmpty()) exec("select", args(QJsonArray{node}));
                         tabs_->setCurrentIndex(i);
                         return;
                     }
@@ -2119,8 +2190,8 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     });
 
     auto* bottom = new QHBoxLayout();
-    bottom->setContentsMargins(2, 2, 2, 2);
-    bottom->setSpacing(2);
+    bottom->setContentsMargins(4, 4, 4, 4);
+    bottom->setSpacing(4);
     auto* sel = new QPushButton("Select", this);
     auto* load = new QPushButton("Load Attributes", this);
     auto* copy = new QPushButton("Copy Tab", this);
@@ -2266,6 +2337,7 @@ void AttributeEditor::refresh() {
         presets->setFixedHeight(20);
         presets->setPopupMode(QToolButton::InstantPopup);
         auto* pmenu = new QMenu(presets);
+        style_ae_menu(pmenu);
         presets->setMenu(pmenu);
         rv->addWidget(presets);
         connect(pmenu, &QMenu::aboutToShow, this, [this, pmenu] {
@@ -2348,6 +2420,21 @@ void AttributeEditor::refresh() {
         const bool tree_layout = !boxes.isEmpty();
         QSet<QString> used;
         if (tree_layout) {
+            // Attributes the reference's template suppresses never reach Extra Attributes.
+            static const QStringList xfSuppressed{"rotationInterpolation", "pivotOrient", "intermediateObject", "specifiedManipLocation",
+                                                  "message", "useObjectColor", "objectColor", "objectColorRGB", "wireColorRGB"};
+            if (node_type == "transform" || node_type == "joint" || node_type == "locator" || node_type == "ikHandle")
+                for (const QString& n : xfSuppressed) used.insert(n);
+            if (node_type == "joint")
+                for (const QString& n : {"inverseScale", "bindPose", "bindRotation", "bindJointOrient", "bindScale", "bindInverseScale",
+                                         "bindSegmentScaleCompensate", "jointOrientType", "jointType", "dofMask", "fkRotate", "ikRotate"})
+                    used.insert(n);
+            if (node_type == "mesh")
+                for (const QString& n : {"symmetry", "smoothPreview", "symmetryPlane", "symmetryOffset", "radialCount", "radialAxis",
+                                         "radialDirection", "radialDirectionX", "radialDirectionY", "radialDirectionZ", "radialMirror",
+                                         "radialPhase", "radialCenter", "radialCenterX", "radialCenterY", "radialCenterZ", "displayMapBorders",
+                                         "message", "componentTags", "instObjGroups"})
+                    used.insert(n);
             ae_render_tree(v, body, boxes, by, used, name_style_);
         } else {
         // A light's type, which swaps the shape, and whether it is in the default light set.

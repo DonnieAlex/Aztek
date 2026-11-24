@@ -20,7 +20,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   controls the reference has and Aztek has no attribute for are greyed and empty (world pivots, Show Manip Default,
   Manip History Node, mesh component display detail, DoF scale, GPU options). skinCluster's input table and Manage
   Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
-  tab's right-click menu are not built. Translate and Scale limits are not attributes on a transform.
+  tab's right-click menu are not built. Translate and Scale limits are not attributes on a transform; Attribute
+  Names' Short mode shows the long names, as Aztek keeps no short ones.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing

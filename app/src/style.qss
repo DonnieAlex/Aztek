@@ -137,3 +137,6 @@ QWidget#aePage QLineEdit:disabled, QTabWidget#aeTabs QLineEdit:disabled { backgr
 QWidget#aePage QComboBox:disabled { background: #4a4a4a; color: #7a7a7a; border: 1px solid #1c1c1c; }
 QWidget#aePage QCheckBox:disabled { color: #7a7a7a; }
 QTabWidget#aeTabs QTabBar::tab:first { margin-left: 10px; }
+QWidget#aePage QSlider::groove:horizontal { background: #262626; height: 3px; border: none; }
+QWidget#aePage QSlider::sub-page:horizontal { background: #3c3c3c; height: 3px; }
+QWidget#aePage QSlider::handle:horizontal { background: #c4c4c4; width: 7px; margin: -4px 0; border: 1px solid #1a1a1a; }
