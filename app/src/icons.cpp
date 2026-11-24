@@ -27,6 +27,9 @@ const QColor kOrange(240, 160, 50);
 const QColor kGreen(110, 200, 120);
 const QColor kRed(220, 90, 80);
 const QColor kFill(150, 170, 190);
+const QColor kSePaper(206, 206, 206);
+const QColor kSeTeal(72, 176, 190);
+const QColor kSeDark(38, 38, 38);
 
 // A cube in a simple oblique view, on a 32 unit canvas.
 void cube(QPainter& p, QRectF r, const QColor& c, bool fill = true) {
@@ -747,6 +750,202 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(11, 20), QPointF(11, 16));
         p.drawLine(QPointF(16, 20), QPointF(16, 13));
         p.drawLine(QPointF(21, 20), QPointF(21, 16));
+    } else if (name == "seOpenScript") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(12, 2, 15, 12));
+        p.setBrush(QColor(42, 94, 102));
+        p.drawRect(QRectF(14, 5, 10, 2));
+        p.drawRect(QRectF(14, 8, 7, 2));
+        p.setBrush(kSePaper);
+        p.drawPolygon(QPolygonF({{5, 7}, {25, 7}, {25, 28}, {11, 28}, {5, 22}}));
+        p.setBrush(QColor(150, 150, 150));
+        p.drawPolygon(QPolygonF({{5, 22}, {11, 28}, {11, 22}}));
+    } else if (name == "seSourceScript") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSePaper);
+        p.drawPolygon(QPolygonF({{4, 5}, {23, 5}, {23, 25}, {10, 25}, {4, 19}}));
+        p.setBrush(QColor(150, 150, 150));
+        p.drawPolygon(QPolygonF({{4, 19}, {10, 25}, {10, 19}}));
+        p.setBrush(kSeTeal);
+        p.drawPolygon(QPolygonF({{18, 18}, {29, 23}, {18, 28}}));
+    } else if (name == "seSaveScript") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSePaper);
+        p.drawPolygon(QPolygonF({{5, 5}, {23, 5}, {27, 9}, {27, 27}, {5, 27}}));
+        p.setBrush(QColor(105, 105, 105));
+        p.drawRect(QRectF(10, 5, 11, 5));
+        p.setBrush(QColor(80, 80, 80));
+        p.drawRect(QRectF(9, 17, 13, 10));
+        p.setBrush(QColor(170, 170, 170));
+        p.drawRect(QRectF(11, 19, 9, 2));
+    } else if (name == "seSaveToShelf") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSePaper);
+        p.drawPolygon(QPolygonF({{8, 3}, {23, 3}, {26, 6}, {26, 19}, {8, 19}}));
+        p.setBrush(QColor(105, 105, 105));
+        p.drawRect(QRectF(12, 3, 9, 4));
+        p.setBrush(QColor(80, 80, 80));
+        p.drawRect(QRectF(11, 11, 11, 6));
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(4, 20, 24, 7));
+        p.setBrush(QColor(30, 70, 76));
+        for (int i = 0; i < 4; ++i) p.drawEllipse(QPointF(8 + i * 5, 23.5), 1.1, 1.1);
+    } else if (name == "seClearHistory") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawPolyline(QPolygonF({{5, 6}, {5, 26}, {25, 26}, {25, 7}, {23, 5}, {16, 5}}));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(8, 8, 14, 5));
+        p.setBrush(kSePaper);
+        for (int i = 0; i < 4; ++i) p.drawRect(QRectF(8 + i * 5, 21, 3, 2));
+        p.setPen(QPen(kSePaper, 2.2));
+        p.drawLine(QPointF(21, 1), QPointF(29, 9));
+        p.drawLine(QPointF(21, 9), QPointF(29, 1));
+    } else if (name == "seClearInput") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 5, 21, 21));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSePaper);
+        for (int i = 0; i < 4; ++i) p.drawRect(QRectF(7 + i * 5, 7, 3, 2));
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 12, 15, 6));
+        p.setPen(QPen(kSePaper, 2.2));
+        p.drawLine(QPointF(21, 20), QPointF(30, 29));
+        p.drawLine(QPointF(21, 29), QPointF(30, 20));
+    } else if (name == "seClearAll") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 5, 21, 21));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 9, 13, 4));
+        p.drawRect(QRectF(7, 16, 13, 4));
+        p.setPen(QPen(kSePaper, 2.2));
+        p.drawLine(QPointF(21, 1), QPointF(30, 10));
+        p.drawLine(QPointF(21, 10), QPointF(30, 1));
+    } else if (name == "seShowHistory") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 5, 23, 22));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 8, 17, 5));
+        p.setBrush(kSePaper);
+        for (int i = 0; i < 4; ++i) p.drawRect(QRectF(7 + i * 5, 21, 3, 2));
+    } else if (name == "seShowInput") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 5, 23, 22));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSePaper);
+        for (int i = 0; i < 4; ++i) p.drawRect(QRectF(7 + i * 5, 8, 3, 2));
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 16, 17, 5));
+    } else if (name == "seShowBoth") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 5, 23, 22));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 8, 17, 5));
+        p.drawRect(QRectF(7, 17, 17, 5));
+    } else if (name == "seEchoCommands") {
+        p.setPen(QPen(kSePaper, 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(4, 4, 20, 19));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(7, 7, 14, 13));
+        p.setBrush(QColor(34, 76, 82));
+        p.drawRect(QRectF(9, 10, 8, 2));
+        p.drawRect(QRectF(9, 14, 5, 2));
+        p.setBrush(kSeTeal);
+        p.drawPolygon(QPolygonF({{19, 18}, {29, 23}, {19, 28}}));
+    } else if (name == "seShowLineNumbers") {
+        p.setPen(Qt::NoPen);
+        QFont f = p.font();
+        f.setPixelSize(11);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(kSePaper);
+        for (int i = 0; i < 3; ++i) p.drawText(QRectF(0, 3 + i * 8, 9, 8), Qt::AlignCenter, QString::number(i + 1));
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        for (int i = 0; i < 3; ++i) p.drawRect(QRectF(11, 4 + i * 8, 16, 4));
+    } else if (name == "seExecuteAll") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawPolygon(QPolygonF({{7, 9}, {17, 16}, {7, 23}}));
+        p.drawPolygon(QPolygonF({{16, 9}, {26, 16}, {16, 23}}));
+    } else if (name == "seExecute") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(kSeTeal);
+        p.drawPolygon(QPolygonF({{9, 6}, {27, 16}, {9, 26}}));
+    } else if (name == "seSearchDown" || name == "seSearchUp") {
+        p.setBrush(Qt::NoBrush);
+        pen_color(kSeTeal, 2.2);
+        p.drawEllipse(QPointF(13, 13), 7, 7);
+        p.drawLine(QPointF(18, 18), QPointF(24, 24));
+        const bool up = name == "seSearchUp";
+        pen_color(kSePaper, 2.0);
+        p.drawLine(QPointF(25, up ? 10 : 3), QPointF(25, up ? 3 : 10));
+        p.drawPolyline(QPolygonF({{22.0, up ? 6.0 : 7.0}, {25.0, up ? 3.0 : 10.0}, {28.0, up ? 6.0 : 7.0}}));
+    } else if (name == "seGotoLine") {
+        p.setPen(QPen(kSePaper, 2.2));
+        p.setBrush(Qt::NoBrush);
+        p.drawPolyline(QPolygonF({{7, 5}, {7, 18}, {12, 18}}));
+        p.setBrush(kSePaper);
+        p.setPen(Qt::NoPen);
+        p.drawPolygon(QPolygonF({{12, 14}, {18, 18}, {12, 22}}));
+        p.setBrush(kSeTeal);
+        p.drawRect(QRectF(19, 6, 9, 3));
+        p.drawRect(QRectF(19, 17, 9, 3));
+        p.drawRect(QRectF(19, 23, 9, 3));
+    } else if (name == "seMenuSearch") {
+        p.setBrush(Qt::NoBrush);
+        pen_color(kSePaper, 2.4);
+        p.drawEllipse(QPointF(14, 13), 7, 7);
+        p.drawLine(QPointF(19, 18), QPointF(26, 25));
+    } else if (name == "seMenuHelp") {
+        p.setBrush(Qt::NoBrush);
+        pen_color(kSePaper, 2.0);
+        p.drawEllipse(QPointF(16, 16), 10, 10);
+        QFont f = p.font();
+        f.setPixelSize(15);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(kSePaper);
+        p.drawText(QRectF(6, 6, 20, 20), Qt::AlignCenter, "?");
+    } else if (name == "seTabClose") {
+        pen_color(kSePaper, 2.6);
+        p.drawLine(QPointF(6, 6), QPointF(19, 19));
+        p.drawLine(QPointF(19, 6), QPointF(6, 19));
+    } else if (name == "sePythonTab") {
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(55, 118, 171));
+        p.drawRoundedRect(QRectF(4, 2, 20, 12), 4, 4);
+        p.drawRoundedRect(QRectF(4, 8, 10, 14), 4, 4);
+        p.setBrush(QColor(255, 212, 59));
+        p.drawRoundedRect(QRectF(8, 18, 20, 12), 4, 4);
+        p.drawRoundedRect(QRectF(18, 10, 10, 16), 4, 4);
+        p.setBrush(QColor(255, 255, 255));
+        p.drawEllipse(QPointF(9, 7.5), 2.0, 2.0);
+        p.setBrush(QColor(30, 30, 30));
+        p.drawEllipse(QPointF(9, 7.5), 0.9, 0.9);
+        p.drawEllipse(QPointF(23, 24), 1.2, 1.2);
+    } else if (name == "seMelTab") {
+        p.setPen(QPen(kSePaper, 1.2));
+        p.setBrush(QColor(46, 92, 130));
+        p.drawRect(QRectF(3, 3, 26, 26));
+        QFont f = p.font();
+        f.setPixelSize(9);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(QColor(190, 225, 245));
+        p.drawText(QRectF(2, 2, 28, 28), Qt::AlignCenter, "MEL");
     } else if (draw_more(name, p)) {
         // Drawn in icons_more.cpp.
     } else if (draw_render_icon(name, p)) {

@@ -4233,3 +4233,23 @@ viewport pause have no feature in Aztek yet and are greyed; the right-click pick
 each mask, where the reference divides the object and component masks into their long category lists. The hierarchy
 Leaf and Template buttons set the modes selectMode accepts for scripts, but selection stays at the roots, and Snap to
 Projected Center sets snapMode -meshCenter while the viewport does not use that snap yet.
+
+### Script Editor chrome (24/11/2026)
+
+The floating Script Editor window follows Autodesk Maya 2026.3's: the File, Edit, History, Command, Tabs and Help menus
+with the reference's items, order, separators, tick and radio states, shortcuts and tear-off strips; the toolbar's
+fourteen icon buttons in the reference's four groups, the search field with Search down and Search up, and the goto
+line field with Go, at the reference's 23 pixel buttons, drawn icons, enabled and ticked states (Show line numbers
+ticked, Echo All Commands clear) and tooltips from `scriptEditorPanel.mel` and MayaStrings; the 8 pixel splitter over
+the history and input panes; the input tab strip at the reference's 20 pixels with each tab's language icon, an 11
+pixel label, close X and the + button, and the scroll arrows; the line-number gutter,
+syntax colours and the horizontal scrollbar; and the Search and Replace window with its Find what and Replace with
+fields, Search Down, Match Case and Wrap, and its four buttons. The Show History, Show Input and Show Both buttons
+switch the pane layout, the search and goto fields work, Execute runs the current tab and ExecuteAll every tab, and
+the tab strip's context menu is the reference's.
+The scroll bars are the reference's 8 pixel groove, bordered handle and triangle arrows. The Source Type and Rename
+Tab prompts take the reference's buttons.
+Not done: the history output filter (Show Both, Show MEL Only, Show Python Only) is stored but the history is not
+filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
+because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
+drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
