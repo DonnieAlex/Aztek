@@ -2275,7 +2275,7 @@ void ae_extra_rows(QVBoxLayout* v, QWidget* parent, const QHash<QString, QJsonOb
     for (const QString& n : names) {
         if (used.contains(n)) continue;
         const QJsonObject a = by.value(n);
-        if (a["type"].toString() == "matrix" || n == "notes") continue;
+        if (a["type"].toString() == "matrix" || n == "notes" || n == "message") continue;
         QWidget* field = attr_field(a, parent);
         field->setToolTip(a["doc"].toString());
         if (a["mapped"].toBool()) field->setEnabled(false);
