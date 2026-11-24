@@ -2278,6 +2278,15 @@ longer creeps on in ever smaller steps: it pushes the centre of interest ahead a
 centimetres a wheel step (a share of 10 cm), and tracking from there moves as it would 10 cm from the centre of
 interest instead of crawling. Dollying out goes back by shares of the distance; framing (F) still sets it afresh.
 
+### Time and Range Sliders dock (24/11/2026, #272)
+
+The Time Slider and the Range Slider are docked controls of their own, TimeSlider and RangeSlider as the reference
+names them, each with a grab handle down its left that pads it off the window's edge. Dragged by it they dock above or
+below the views or float as windows; a double-click on it docks them again. They run the window's width under the side
+panels, though the toolbox still runs down beside them. Display > UI Elements, the hotbox and the preferences show and
+hide each one, and the layout lock keeps them where they are (docs/issues/272-slider-docks.png: docked, then both
+floated).
+
 ### Collapse the sides (17/11/2026, #97)
 
 Thin handles with an arrow either side of the view panels fold away everything docked on that side at a click and
