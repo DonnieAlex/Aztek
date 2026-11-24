@@ -847,7 +847,9 @@ QString material_label(const QString& section, const QString& attr, const QStrin
 QSet<QString>& closed_sections() {
     static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity",
                            "Raytrace Options", "Light Effects", "Shadows", "Arnold", "Arnold Subdivision", "Arnold Displacement",
-                           "Drawing Overrides", "Display"};
+                           "Drawing Overrides", "Display", "Transmission", "Subsurface", "Coat", "Sheen", "Emission",
+                           "Thin Film", "Geometry", "Advanced", "File Attributes", "Color Balance", "Effects",
+                           "2d Texture Placement"};
     return s;
 }
 
@@ -1343,7 +1345,7 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
     box->setStyleSheet("background: #494949;");
     auto* f = new QFormLayout(box);
     f->setLabelAlignment(Qt::AlignRight);
-    f->setContentsMargins(2, 3, 30, 6);
+    f->setContentsMargins(2, 3, 64, 6);
     f->setHorizontalSpacing(4);
     f->setVerticalSpacing(3);
     box->setVisible(open);
