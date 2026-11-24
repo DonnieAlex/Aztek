@@ -1078,6 +1078,48 @@ QList<AeBox> skin_boxes() {
     return l;
 }
 
+// The camera's tab, from AEcameraTemplateCommon.
+QList<AeBox> camera_boxes() {
+    QList<AeBox> l;
+    l << box("Camera Attributes",
+             {shown("", "Controls", "combo", "Camera|Camera and Aim|Camera, Aim and Up"),
+              shown("", "Angle of View", "float"), shown("focalLength", "Focal Length", "slider", "1,200"),
+              shown("cameraScale", "Camera Scale", "float"), shown("bestFitClippingPlanes", "Auto Render Clip Plane", "check"),
+              shown("nearClipPlane", "Near Clip Plane", "float"), shown("farClipPlane", "Far Clip Plane", "float")},
+             1);
+    l << box("Frustum Display Controls",
+             {shown("displayCameraNearClip", "Display Camera Near Clip", "check"), shown("displayCameraFarClip", "Display Camera Far Clip", "check"),
+              shown("displayCameraFrustum", "Display Camera Frustum", "check")});
+    l << box("Film Back",
+             {shown("", "Film Gate", "combo", "User|16mm|35mm Academy|35mm Full Aperture"),
+              shown("horizontalFilmAperture", "Camera Aperture (inch)", "pair", "verticalFilmAperture"),
+              shown("", "Camera Aperture (mm)", "pair"), shown("", "Film Aspect Ratio", "float"),
+              shown("lensSqueezeRatio", "Lens Squeeze Ratio", "float"), shown("filmFit", "Fit Resolution Gate", "combo", "Fill|Horizontal|Vertical|Overscan"),
+              shown("filmFitOffset", "Film Fit Offset", "float"), shown("horizontalFilmOffset", "Film Offset", "pair", "verticalFilmOffset"),
+              shown("", "", "separator"), shown("shakeEnabled", "Shake Enabled", "check"),
+              shown("horizontalShake", "Shake", "pair", "verticalShake"), shown("", "Shake Overscan Enabled", "check"),
+              shown("", "Shake Overscan", "pair"), shown("", "", "separator"), shown("preScale", "Pre Scale", "float"),
+              shown("", "Film Translate", "pair"), shown("", "Film Roll Pivot", "pair"), shown("", "Film Roll Value", "float"),
+              shown("", "Film Roll Order", "combo", "Rotate-Translate|Translate-Rotate"), shown("postScale", "Post Scale", "float")},
+             1);
+    l << box("Depth of Field", {shown("depthOfField", "Depth Of Field", "check"), shown("focusDistance", "Focus Distance", "slider", "0,10000"),
+                                shown("fStop", "F Stop", "slider", "1,64"), shown("focusRegionScale", "Focus Region Scale", "slider", "0,10")});
+    l << box("Output Settings", {shown("renderable", "Renderable", "check"), shown("image", "Image", "check"), shown("mask", "Mask", "check"),
+                                 shown("depth", "Depth", "check"), shown("threshold", "Threshold", "float")});
+    l << box("Environment", {shown("imagePlane", "Image Plane", "check")});
+    l << box("Special Effects", {shown("shutterAngle", "Shutter Angle", "slider", "0,360")});
+    l << box("Display Options",
+             {shown("displayFilmGate", "Display Film Gate", "check"), shown("displayResolution", "Display Resolution", "check"),
+              shown("displayGateMask", "Display Gate Mask", "check"), shown("displaySafeAction", "Display Safe Action", "check"),
+              shown("displaySafeTitle", "Display Safe Title", "check"), shown("displayFieldChart", "Display Field Chart", "check"),
+              shown("displayFilmOrigin", "Display Film Origin", "check"), shown("displayFilmPivot", "Display Film Pivot", "check"),
+              shown("overscan", "Overscan", "slider", "0,10")});
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // The poly primitives' history, from their AETemplates: the shape's own settings, Axis, Component Tags.
 QList<AeBox> poly_boxes(const QString& type) {
     QList<AeBox> l;
@@ -1143,6 +1185,7 @@ QList<AeBox> ae_tree(const QString& type) {
     if (type == "transform" || type == "locator" || type == "ikHandle") return transform_boxes();
     if (type == "joint") return joint_boxes();
     if (type == "mesh") return mesh_boxes();
+    if (type == "camera") return camera_boxes();
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
     static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
@@ -1881,6 +1924,43 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 a["max"] = bounds.at(1).toDouble();
             }
         }
+        if (r.kind == "pair") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(2, 0, 12, 0);
+            h->setSpacing(4);
+            auto* lab = ae_label(label, rw);
+            h->addWidget(lab);
+            const QString secondName = r.extra.isEmpty() ? r.fallback : r.extra;
+            for (const QString& name : {r.attr, secondName}) {
+                QJsonObject at = name.isEmpty() ? QJsonObject() : by.value(name);
+                auto* e = new QLineEdit(rw);
+                e->setFixedSize(72, 20);
+                if (!at.isEmpty()) {
+                    used.insert(name);
+                    if (at["type"].toString() == "vec3") {
+                        QJsonArray values = at["value"].toArray();
+                        e->setText(fmt3(values.at(0).toDouble()));
+                    } else {
+                        e->setText(fmt3(at["value"].toDouble()));
+                    }
+                    e->setReadOnly(read_only(at));
+                    QString plug = at["plug"].toString();
+                    QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+                    QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
+                        if (!e->property("editing").toBool()) return;
+                        e->setProperty("editing", false);
+                        set_plug(plug, e->text().toDouble(), "float");
+                    });
+                } else {
+                    e->setEnabled(false);
+                }
+                h->addWidget(e);
+            }
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
         const bool checklike = r.kind == "check" || r.kind == "channels" || (r.kind.isEmpty() && a["type"].toString() == "bool");
         if (r.kind == "freedom") {
             auto* rw = new QWidget(parent);
@@ -2235,6 +2315,9 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     auto* sel = new QPushButton("Select", this);
     auto* load = new QPushButton("Load Attributes", this);
     auto* copy = new QPushButton("Copy Tab", this);
+    sel->setToolTip("Select the node shown");
+    load->setToolTip("Load the attributes selected in the Channel Box");
+    copy->setToolTip("Open the current tab in a window of its own");
     for (auto* b : {sel, load, copy}) {
         b->setObjectName("aeBottomButton");
         b->setMinimumHeight(23);
@@ -2425,10 +2508,12 @@ void AttributeEditor::refresh() {
         show->setObjectName("aeTinyButton");
         show->setFixedHeight(20);
         show->setToolTip("Show the node");
+        show->setEnabled(by.contains("visibility"));
         auto* hide = new QPushButton("Hide", showHide);
         hide->setObjectName("aeTinyButton");
         hide->setFixedHeight(20);
         hide->setToolTip("Hide the node");
+        hide->setEnabled(by.contains("visibility"));
         sh->addWidget(show);
         sh->addWidget(hide);
         connect(show, &QPushButton::clicked, show, [path] { exec("setAttr", QJsonObject{{"args", QJsonArray{path + ".visibility", true}}}); });

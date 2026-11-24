@@ -18,7 +18,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 ## Waiting
 - Attribute Editor (24/11/2026): the chrome and the transform, mesh, joint, skinCluster and blendShape layouts are in;
   controls the reference has and Aztek has no attribute for are greyed and empty (world pivots, Show Manip Default,
-  Manip History Node, mesh component display detail, DoF scale, GPU options). skinCluster's input table and Manage
+  Manip History Node, mesh component display detail, DoF scale, GPU options, a camera's Angle of View and millimetre
+  aperture). skinCluster's input table and Manage
   Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
   tab's right-click menu are not built. Translate and Scale limits are not attributes on a transform; Attribute
   Names' Short mode shows the long names, as Aztek keeps no short ones.

@@ -4263,7 +4263,9 @@ Tessellation Attributes, Mesh Component Display with its four groups, Mesh Contr
 groups, Smooth Mesh with Subdivision Levels, OpenSubdiv Controls and Maya Catmull-Clark Controls, Displacement Map with
 Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, Component Tags, Deformation, Arnold,
 Node Behavior, UUID and Extra Attributes. The poly primitives' history tabs follow AEpolyCubeTemplate and its
-siblings, with the primitive's own history section, Axis and Component Tags. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
+siblings, with the primitive's own history section, Axis and Component Tags; a camera follows
+AEcameraTemplateCommon, with Camera Attributes, Frustum Display Controls, Film Back, Depth of Field, Output Settings,
+Environment, Special Effects and Display Options. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
 Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
 skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
@@ -4274,7 +4276,8 @@ Connection, Create New Texture, Color Chooser and Lock or Unlock, for what the a
 field selects its value.
 
 Not done: controls whose attributes Aztek lacks are greyed and empty rather than carrying the reference's defaults
-(world pivots, Show Manip Default, Manip History Node, the mesh component display detail, DoF scale, GPU options).
+(world pivots, Show Manip Default, Manip History Node, the mesh component display detail, DoF scale, GPU options,
+a camera's Angle of View and millimetre aperture and its film rolls).
 The limits of transforms read from the compound min/max vectors and show two decimals; a transform's Translate and
 Scale limits are not attributes yet, so their rows are greyed. skinCluster's input table and Manage Deformed Geometry
 are not built, and its skinning method and weight distribution are lists of the reference's names over Aztek's numbers.
