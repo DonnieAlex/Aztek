@@ -1,6 +1,7 @@
 // The docked editors: outliner, channel box with the layer editor, attribute editor, script editor.
 #pragma once
 #include <QJsonObject>
+#include <QHash>
 #include <QPointer>
 #include <QSet>
 #include <QWidget>
@@ -11,6 +12,8 @@ class QTreeWidget;
 class QTreeWidgetItem;
 class QPlainTextEdit;
 class QTabWidget;
+class QTabBar;
+class QStackedWidget;
 class QVBoxLayout;
 class QScrollArea;
 class QLineEdit;
@@ -20,6 +23,9 @@ class QMenu;
 class QCheckBox;
 class QSlider;
 class QDoubleSpinBox;
+class QAction;
+class QDialog;
+class QSplitter;
 
 namespace az {
 
@@ -200,6 +206,7 @@ public:
     void load_file(const QString& path);
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
+    void showEvent(QShowEvent* e) override;
 private:
     void add_tab(const QString& language, const QString& name, const QString& text, const QString& path = QString());
     void rename_tab(int i);
@@ -207,25 +214,40 @@ private:
     void save_current(bool as);
     void store_tabs();
     QPlainTextEdit* current() const;
-    // Ctrl+F: the find bar, over the pane it was opened from (#93).
-    void open_find(QPlainTextEdit* target);
+    // Ctrl+F focuses the search field; Edit > Search and Replace... opens the dialog.
+    void open_search_replace();
     void find(bool back);
+    // Replaces the match under the cursor (and finds the next), or every match; returns how many.
+    int replace(bool all);
     // The history's lines coloured again for the theme in use (#88).
     void recolour_history();
     QPlainTextEdit* history_;
-    QTabWidget* inputs_;
-    QWidget* find_bar_ = nullptr;
+    QWidget* input_pane_ = nullptr;
+    QTabBar* tab_bar_ = nullptr;
+    QStackedWidget* stack_ = nullptr;
+    QList<QWidget*> pages_;
     QLineEdit* find_ = nullptr;
-    QCheckBox* find_case_ = nullptr;
-    QCheckBox* find_word_ = nullptr;
-    QWidget* replace_row_ = nullptr;
     QLineEdit* replace_ = nullptr;
-    // Replaces the match under the cursor (and finds the next), or every match; returns how many.
-    int replace(bool all);
+    QCheckBox* find_case_ = nullptr;
+    QCheckBox* find_down_ = nullptr;
+    QCheckBox* find_wrap_ = nullptr;
+    QDialog* find_dialog_ = nullptr;
     QPlainTextEdit* find_target_ = nullptr;
     bool show_numbers_ = true;
     bool stack_trace_ = true;
     bool echo_all_ = false;
+    // The history, the input, or both: the Show History, Show Input and Show Both buttons.
+    QSplitter* split_ = nullptr;
+    QWidget* history_pane_ = nullptr;
+    QLineEdit* search_field_ = nullptr;
+    QLineEdit* goto_field_ = nullptr;
+    QHash<QString, QAction*> option_actions_;
+    int pane_mode_ = 2;
+    QList<int> both_sizes_ = {315, 313};
+    bool split_sized_ = false;
+    void set_pane_mode(int mode);
+    QPlainTextEdit* search_pane() const;
+    void run_all();
     // The reference's menus and marking menus (#133).
     void new_tab_prompt();
     void step_tab(int by);
@@ -233,6 +255,7 @@ private:
     void save_all_tabs();
     void save_to_shelf();
     void goto_line();
+    void goto_line_number(int line);
     void indent(bool in);
     void quick_help(bool documentation);
     void marking_menu(QPlainTextEdit* pane, QPoint global);
