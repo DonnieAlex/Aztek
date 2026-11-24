@@ -4172,15 +4172,20 @@ cycle and its outputs are left unconnected; ikSpringSolver.
 ![The Channel Box and Layer Editor](docs/channel-box.png)
 
 The Channel Box now stacks every selected object, lead last, with the reference's per-object name, channels, SHAPES,
-INPUTS and OUTPUTS; Visibility is the last channel of the selected object and is not shown on its shapes, history
-nodes or outputs; Show ▸ Assets chooses all attributes or the selected object's, and its Attributes filter has All,
+INPUTS and OUTPUTS; one label column right-aligns every attribute in the object and in its shapes, history nodes and
+outputs, whose node rows are full-width bars at the left; Visibility is the last channel of the selected object and is
+not shown on its shapes, history nodes or outputs; Show ▸ Assets chooses all attributes or the selected object's, and its Attributes filter has All,
 Keyable, Non-keyable and Connected with Invert Shown and Show All. The three buttons above the channels are in: the
 manipulator cycle, the slider speed cycle and the hyperbolic toggle, with the reference's tooltips and icons. The panel
 has the reference's empty-selection message, a full Edit menu (the same editors, attributes and Channel Box settings
 as the Ctrl+right-click menu), and a right-click row menu on a channel that acts on that channel.
 The Layer Editor opens on Anim, as the reference's does. Its Display tab has the Layers, Options and Help menus, the
 move up and down, new empty and new-from-selected buttons, rename, sorting, the Set All/Selected/Only Selected Layers
-submenus, and the display options that exist here. The Anim tab has Layers, Options, Show and Help, the seven symbol
+submenus (Visible/Invisible, playback, Normal/Template/Reference, Full Detail/Bounding Box, Shaded/Unshaded and
+Textured/Untextured), and the display options that exist here. Each row's boxed V, P and T buttons sit with the colour
+swatch and name at the left; T cycles Normal (empty), Template (T) and Reference (R). The layer's right-click menu is
+the reference's: Add/Remove/Select Objects, the three Set submenus, Empty the Layer, Delete Layer, Delete Selected
+Layers, Membership and Attributes. The Anim tab has Layers, Options, Show and Help, the seven symbol
 buttons (zero key, zero and full weight and key, move up and down, new empty and new from selected), and the reference's
 weight field, slider and K under the tree; the menu names and order follow `layerEditor.mel`.
 Not done: the Show menu's Selected Type(s), Select Attributes, Create Entry and Delete Entry are not built; its
