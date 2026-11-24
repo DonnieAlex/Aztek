@@ -534,7 +534,7 @@ loft	done	auto
 lookThru	done	auto
 ls	done	auto
 lsThroughFilter	done	auto
-lsUI	missing	
+lsUI	done	auto
 makeIdentity	done	auto
 makeLive	done	auto
 makePaintable	done	auto
