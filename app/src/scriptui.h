@@ -82,6 +82,8 @@ private:
     void prompt_dialog(const QJsonObject& p);
     void file_dialog2(const QJsonObject& p);
     void file_dialog(const QJsonObject& p);
+    void frameless_dialog(const QJsonObject& p);
+    void font_dialog(const QJsonObject& p);
     void color_editor(const QJsonObject& p);
     void playblast(const QJsonObject& p);
     void pump();

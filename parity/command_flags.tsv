@@ -7685,74 +7685,74 @@ commandPort	securityWarning	done	auto
 commandPort	sourceType	done	auto
 commandPort	stp	done	auto
 commandPort	sw	done	auto
-componentBox	ann	missing	
-componentBox	annotation	missing	
-componentBox	backgroundColor	missing	
-componentBox	bgc	missing	
-componentBox	defineTemplate	missing	
-componentBox	dgc	missing	
-componentBox	docTag	missing	
-componentBox	dpc	missing	
-componentBox	dragCallback	missing	
-componentBox	dropCallback	missing	
-componentBox	dt	missing	
-componentBox	dtg	missing	
-componentBox	e	missing	
-componentBox	ebg	missing	
-componentBox	edit	missing	
-componentBox	ekf	missing	
-componentBox	en	missing	
-componentBox	enable	missing	
-componentBox	enableBackground	missing	
-componentBox	enableKeyboardFocus	missing	
-componentBox	ex	missing	
-componentBox	exe	missing	
-componentBox	execute	missing	
-componentBox	exists	missing	
-componentBox	fpn	missing	
-componentBox	fullPathName	missing	
-componentBox	h	missing	
-componentBox	height	missing	
-componentBox	highlightColor	missing	
-componentBox	hlc	missing	
-componentBox	io	missing	
-componentBox	isObscured	missing	
-componentBox	labelWidth	missing	
-componentBox	lw	missing	
-componentBox	m	missing	
-componentBox	manage	missing	
-componentBox	maxHeight	missing	
-componentBox	maxWidth	missing	
-componentBox	mh	missing	
-componentBox	mw	missing	
-componentBox	nbg	missing	
-componentBox	noBackground	missing	
-componentBox	npm	missing	
-componentBox	numberOfPopupMenus	missing	
-componentBox	p	missing	
-componentBox	parent	missing	
-componentBox	pma	missing	
-componentBox	po	missing	
-componentBox	popupMenuArray	missing	
-componentBox	pre	missing	
-componentBox	precision	missing	
-componentBox	preventOverride	missing	
-componentBox	q	missing	
-componentBox	query	missing	
-componentBox	rh	missing	
-componentBox	rowHeight	missing	
-componentBox	sbm	missing	
-componentBox	selectedAttr	missing	
-componentBox	sla	missing	
-componentBox	statusBarMessage	missing	
-componentBox	useTemplate	missing	
-componentBox	ut	missing	
-componentBox	vcc	missing	
-componentBox	vis	missing	
-componentBox	visible	missing	
-componentBox	visibleChangeCommand	missing	
-componentBox	w	missing	
-componentBox	width	missing	
+componentBox	ann	done	auto
+componentBox	annotation	done	auto
+componentBox	backgroundColor	done	auto
+componentBox	bgc	done	auto
+componentBox	defineTemplate	done	auto
+componentBox	dgc	done	auto
+componentBox	docTag	done	auto
+componentBox	dpc	done	auto
+componentBox	dragCallback	done	auto
+componentBox	dropCallback	done	auto
+componentBox	dt	done	auto
+componentBox	dtg	done	auto
+componentBox	e	done	auto
+componentBox	ebg	done	auto
+componentBox	edit	done	auto
+componentBox	ekf	done	auto
+componentBox	en	done	auto
+componentBox	enable	done	auto
+componentBox	enableBackground	done	auto
+componentBox	enableKeyboardFocus	done	auto
+componentBox	ex	done	auto
+componentBox	exe	done	auto
+componentBox	execute	done	auto
+componentBox	exists	done	auto
+componentBox	fpn	done	auto
+componentBox	fullPathName	done	auto
+componentBox	h	done	auto
+componentBox	height	done	auto
+componentBox	highlightColor	done	auto
+componentBox	hlc	done	auto
+componentBox	io	done	auto
+componentBox	isObscured	done	auto
+componentBox	labelWidth	done	auto
+componentBox	lw	done	auto
+componentBox	m	done	auto
+componentBox	manage	done	auto
+componentBox	maxHeight	done	auto
+componentBox	maxWidth	done	auto
+componentBox	mh	done	auto
+componentBox	mw	done	auto
+componentBox	nbg	done	auto
+componentBox	noBackground	done	auto
+componentBox	npm	done	auto
+componentBox	numberOfPopupMenus	done	auto
+componentBox	p	done	auto
+componentBox	parent	done	auto
+componentBox	pma	done	auto
+componentBox	po	done	auto
+componentBox	popupMenuArray	done	auto
+componentBox	pre	done	auto
+componentBox	precision	done	auto
+componentBox	preventOverride	done	auto
+componentBox	q	done	auto
+componentBox	query	done	auto
+componentBox	rh	done	auto
+componentBox	rowHeight	done	auto
+componentBox	sbm	done	auto
+componentBox	selectedAttr	done	auto
+componentBox	sla	done	auto
+componentBox	statusBarMessage	done	auto
+componentBox	useTemplate	done	auto
+componentBox	ut	done	auto
+componentBox	vcc	done	auto
+componentBox	vis	done	auto
+componentBox	visible	done	auto
+componentBox	visibleChangeCommand	done	auto
+componentBox	w	done	auto
+componentBox	width	done	auto
 componentEditor	control	done	auto
 componentEditor	ctl	done	auto
 componentEditor	defineTemplate	done	auto
@@ -7900,8 +7900,8 @@ cone	tolerance	done	auto
 cone	useOldInitBehaviour	done	auto
 cone	useTolerance	done	auto
 cone	ut	done	auto
-confirmDialog	ann	missing	
-confirmDialog	annotation	missing	
+confirmDialog	ann	done	auto
+confirmDialog	annotation	done	auto
 confirmDialog	b	done	auto
 confirmDialog	backgroundColor	done	auto
 confirmDialog	bgc	done	auto
@@ -11213,156 +11213,156 @@ extrude	ucp	done	auto
 extrude	upn	done	auto
 extrude	useComponentPivot	done	auto
 extrude	useProfileNormal	done	auto
-falloffCurve	acv	missing	
-falloffCurve	addControlVertex	missing	
-falloffCurve	ann	missing	
-falloffCurve	annotation	missing	
-falloffCurve	asString	missing	
-falloffCurve	backgroundColor	missing	
-falloffCurve	bgc	missing	
-falloffCurve	cc	missing	
-falloffCurve	ccw	missing	
-falloffCurve	changeCommand	missing	
-falloffCurve	ck	missing	
-falloffCurve	ckv	missing	
-falloffCurve	currentKey	missing	
-falloffCurve	currentKeyValue	missing	
-falloffCurve	customCurveWidget	missing	
-falloffCurve	dcv	missing	
-falloffCurve	defineTemplate	missing	
-falloffCurve	deleteControlVertex	missing	
-falloffCurve	dgc	missing	
-falloffCurve	docTag	missing	
-falloffCurve	dpc	missing	
-falloffCurve	dragCallback	missing	
-falloffCurve	dropCallback	missing	
-falloffCurve	dt	missing	
-falloffCurve	dtg	missing	
-falloffCurve	e	missing	
-falloffCurve	ebg	missing	
-falloffCurve	edit	missing	
-falloffCurve	ekf	missing	
-falloffCurve	en	missing	
-falloffCurve	enable	missing	
-falloffCurve	enableBackground	missing	
-falloffCurve	enableKeyboardFocus	missing	
-falloffCurve	ex	missing	
-falloffCurve	exists	missing	
-falloffCurve	fpn	missing	
-falloffCurve	fullPathName	missing	
-falloffCurve	h	missing	
-falloffCurve	height	missing	
-falloffCurve	highlightColor	missing	
-falloffCurve	hlc	missing	
-falloffCurve	io	missing	
-falloffCurve	isObscured	missing	
-falloffCurve	m	missing	
-falloffCurve	manage	missing	
-falloffCurve	nbg	missing	
-falloffCurve	noBackground	missing	
-falloffCurve	npm	missing	
-falloffCurve	numberOfPopupMenus	missing	
-falloffCurve	optionVar	missing	
-falloffCurve	ov	missing	
-falloffCurve	p	missing	
-falloffCurve	parent	missing	
-falloffCurve	pma	missing	
-falloffCurve	po	missing	
-falloffCurve	popupMenuArray	missing	
-falloffCurve	preventOverride	missing	
-falloffCurve	q	missing	
-falloffCurve	query	missing	
-falloffCurve	readOnly	missing	
-falloffCurve	ro	missing	
-falloffCurve	sbm	missing	
-falloffCurve	snapToGrid	missing	
-falloffCurve	statusBarMessage	missing	
-falloffCurve	stg	missing	
-falloffCurve	useTemplate	missing	
-falloffCurve	ut	missing	
-falloffCurve	vcc	missing	
-falloffCurve	vis	missing	
-falloffCurve	visible	missing	
-falloffCurve	visibleChangeCommand	missing	
-falloffCurve	w	missing	
-falloffCurve	width	missing	
-falloffCurveAttr	acv	missing	
-falloffCurveAttr	addControlVertex	missing	
-falloffCurveAttr	ann	missing	
-falloffCurveAttr	annotation	missing	
-falloffCurveAttr	asString	missing	
-falloffCurveAttr	at	missing	
-falloffCurveAttr	attribute	missing	
-falloffCurveAttr	backgroundColor	missing	
-falloffCurveAttr	bgc	missing	
-falloffCurveAttr	cc	missing	
-falloffCurveAttr	ccw	missing	
-falloffCurveAttr	changeCommand	missing	
-falloffCurveAttr	ck	missing	
-falloffCurveAttr	ckv	missing	
-falloffCurveAttr	currentKey	missing	
-falloffCurveAttr	currentKeyValue	missing	
-falloffCurveAttr	customCurveWidget	missing	
-falloffCurveAttr	dcv	missing	
-falloffCurveAttr	defineTemplate	missing	
-falloffCurveAttr	deleteControlVertex	missing	
-falloffCurveAttr	dgc	missing	
-falloffCurveAttr	docTag	missing	
-falloffCurveAttr	dpc	missing	
-falloffCurveAttr	dragCallback	missing	
-falloffCurveAttr	dropCallback	missing	
-falloffCurveAttr	dt	missing	
-falloffCurveAttr	dtg	missing	
-falloffCurveAttr	e	missing	
-falloffCurveAttr	ebg	missing	
-falloffCurveAttr	edit	missing	
-falloffCurveAttr	ekf	missing	
-falloffCurveAttr	en	missing	
-falloffCurveAttr	enable	missing	
-falloffCurveAttr	enableBackground	missing	
-falloffCurveAttr	enableKeyboardFocus	missing	
-falloffCurveAttr	ex	missing	
-falloffCurveAttr	exists	missing	
-falloffCurveAttr	fpn	missing	
-falloffCurveAttr	fullPathName	missing	
-falloffCurveAttr	h	missing	
-falloffCurveAttr	height	missing	
-falloffCurveAttr	highlightColor	missing	
-falloffCurveAttr	hlc	missing	
-falloffCurveAttr	io	missing	
-falloffCurveAttr	isObscured	missing	
-falloffCurveAttr	m	missing	
-falloffCurveAttr	manage	missing	
-falloffCurveAttr	nbg	missing	
-falloffCurveAttr	noBackground	missing	
-falloffCurveAttr	npm	missing	
-falloffCurveAttr	numberOfPopupMenus	missing	
-falloffCurveAttr	p	missing	
-falloffCurveAttr	parent	missing	
-falloffCurveAttr	pma	missing	
-falloffCurveAttr	po	missing	
-falloffCurveAttr	popupMenuArray	missing	
-falloffCurveAttr	preventOverride	missing	
-falloffCurveAttr	q	missing	
-falloffCurveAttr	query	missing	
-falloffCurveAttr	readOnly	missing	
-falloffCurveAttr	ro	missing	
-falloffCurveAttr	sbm	missing	
-falloffCurveAttr	selectedPositionControl	missing	
-falloffCurveAttr	selectedValueControl	missing	
-falloffCurveAttr	snapToGrid	missing	
-falloffCurveAttr	spc	missing	
-falloffCurveAttr	statusBarMessage	missing	
-falloffCurveAttr	stg	missing	
-falloffCurveAttr	svc	missing	
-falloffCurveAttr	useTemplate	missing	
-falloffCurveAttr	ut	missing	
-falloffCurveAttr	vcc	missing	
-falloffCurveAttr	vis	missing	
-falloffCurveAttr	visible	missing	
-falloffCurveAttr	visibleChangeCommand	missing	
-falloffCurveAttr	w	missing	
-falloffCurveAttr	width	missing	
+falloffCurve	acv	done	auto
+falloffCurve	addControlVertex	done	auto
+falloffCurve	ann	done	auto
+falloffCurve	annotation	done	auto
+falloffCurve	asString	done	auto
+falloffCurve	backgroundColor	done	auto
+falloffCurve	bgc	done	auto
+falloffCurve	cc	done	auto
+falloffCurve	ccw	done	auto
+falloffCurve	changeCommand	done	auto
+falloffCurve	ck	done	auto
+falloffCurve	ckv	done	auto
+falloffCurve	currentKey	done	auto
+falloffCurve	currentKeyValue	done	auto
+falloffCurve	customCurveWidget	done	auto
+falloffCurve	dcv	done	auto
+falloffCurve	defineTemplate	done	auto
+falloffCurve	deleteControlVertex	done	auto
+falloffCurve	dgc	done	auto
+falloffCurve	docTag	done	auto
+falloffCurve	dpc	done	auto
+falloffCurve	dragCallback	done	auto
+falloffCurve	dropCallback	done	auto
+falloffCurve	dt	done	auto
+falloffCurve	dtg	done	auto
+falloffCurve	e	done	auto
+falloffCurve	ebg	done	auto
+falloffCurve	edit	done	auto
+falloffCurve	ekf	done	auto
+falloffCurve	en	done	auto
+falloffCurve	enable	done	auto
+falloffCurve	enableBackground	done	auto
+falloffCurve	enableKeyboardFocus	done	auto
+falloffCurve	ex	done	auto
+falloffCurve	exists	done	auto
+falloffCurve	fpn	done	auto
+falloffCurve	fullPathName	done	auto
+falloffCurve	h	done	auto
+falloffCurve	height	done	auto
+falloffCurve	highlightColor	done	auto
+falloffCurve	hlc	done	auto
+falloffCurve	io	done	auto
+falloffCurve	isObscured	done	auto
+falloffCurve	m	done	auto
+falloffCurve	manage	done	auto
+falloffCurve	nbg	done	auto
+falloffCurve	noBackground	done	auto
+falloffCurve	npm	done	auto
+falloffCurve	numberOfPopupMenus	done	auto
+falloffCurve	optionVar	done	auto
+falloffCurve	ov	done	auto
+falloffCurve	p	done	auto
+falloffCurve	parent	done	auto
+falloffCurve	pma	done	auto
+falloffCurve	po	done	auto
+falloffCurve	popupMenuArray	done	auto
+falloffCurve	preventOverride	done	auto
+falloffCurve	q	done	auto
+falloffCurve	query	done	auto
+falloffCurve	readOnly	done	auto
+falloffCurve	ro	done	auto
+falloffCurve	sbm	done	auto
+falloffCurve	snapToGrid	done	auto
+falloffCurve	statusBarMessage	done	auto
+falloffCurve	stg	done	auto
+falloffCurve	useTemplate	done	auto
+falloffCurve	ut	done	auto
+falloffCurve	vcc	done	auto
+falloffCurve	vis	done	auto
+falloffCurve	visible	done	auto
+falloffCurve	visibleChangeCommand	done	auto
+falloffCurve	w	done	auto
+falloffCurve	width	done	auto
+falloffCurveAttr	acv	done	auto
+falloffCurveAttr	addControlVertex	done	auto
+falloffCurveAttr	ann	done	auto
+falloffCurveAttr	annotation	done	auto
+falloffCurveAttr	asString	done	auto
+falloffCurveAttr	at	done	auto
+falloffCurveAttr	attribute	done	auto
+falloffCurveAttr	backgroundColor	done	auto
+falloffCurveAttr	bgc	done	auto
+falloffCurveAttr	cc	done	auto
+falloffCurveAttr	ccw	done	auto
+falloffCurveAttr	changeCommand	done	auto
+falloffCurveAttr	ck	done	auto
+falloffCurveAttr	ckv	done	auto
+falloffCurveAttr	currentKey	done	auto
+falloffCurveAttr	currentKeyValue	done	auto
+falloffCurveAttr	customCurveWidget	done	auto
+falloffCurveAttr	dcv	done	auto
+falloffCurveAttr	defineTemplate	done	auto
+falloffCurveAttr	deleteControlVertex	done	auto
+falloffCurveAttr	dgc	done	auto
+falloffCurveAttr	docTag	done	auto
+falloffCurveAttr	dpc	done	auto
+falloffCurveAttr	dragCallback	done	auto
+falloffCurveAttr	dropCallback	done	auto
+falloffCurveAttr	dt	done	auto
+falloffCurveAttr	dtg	done	auto
+falloffCurveAttr	e	done	auto
+falloffCurveAttr	ebg	done	auto
+falloffCurveAttr	edit	done	auto
+falloffCurveAttr	ekf	done	auto
+falloffCurveAttr	en	done	auto
+falloffCurveAttr	enable	done	auto
+falloffCurveAttr	enableBackground	done	auto
+falloffCurveAttr	enableKeyboardFocus	done	auto
+falloffCurveAttr	ex	done	auto
+falloffCurveAttr	exists	done	auto
+falloffCurveAttr	fpn	done	auto
+falloffCurveAttr	fullPathName	done	auto
+falloffCurveAttr	h	done	auto
+falloffCurveAttr	height	done	auto
+falloffCurveAttr	highlightColor	done	auto
+falloffCurveAttr	hlc	done	auto
+falloffCurveAttr	io	done	auto
+falloffCurveAttr	isObscured	done	auto
+falloffCurveAttr	m	done	auto
+falloffCurveAttr	manage	done	auto
+falloffCurveAttr	nbg	done	auto
+falloffCurveAttr	noBackground	done	auto
+falloffCurveAttr	npm	done	auto
+falloffCurveAttr	numberOfPopupMenus	done	auto
+falloffCurveAttr	p	done	auto
+falloffCurveAttr	parent	done	auto
+falloffCurveAttr	pma	done	auto
+falloffCurveAttr	po	done	auto
+falloffCurveAttr	popupMenuArray	done	auto
+falloffCurveAttr	preventOverride	done	auto
+falloffCurveAttr	q	done	auto
+falloffCurveAttr	query	done	auto
+falloffCurveAttr	readOnly	done	auto
+falloffCurveAttr	ro	done	auto
+falloffCurveAttr	sbm	done	auto
+falloffCurveAttr	selectedPositionControl	done	auto
+falloffCurveAttr	selectedValueControl	done	auto
+falloffCurveAttr	snapToGrid	done	auto
+falloffCurveAttr	spc	done	auto
+falloffCurveAttr	statusBarMessage	done	auto
+falloffCurveAttr	stg	done	auto
+falloffCurveAttr	svc	done	auto
+falloffCurveAttr	useTemplate	done	auto
+falloffCurveAttr	ut	done	auto
+falloffCurveAttr	vcc	done	auto
+falloffCurveAttr	vis	done	auto
+falloffCurveAttr	visible	done	auto
+falloffCurveAttr	visibleChangeCommand	done	auto
+falloffCurveAttr	w	done	auto
+falloffCurveAttr	width	done	auto
 file	absoluteName	done	auto
 file	activeProxy	done	auto
 file	add	done	auto
@@ -11591,25 +11591,25 @@ file	w	done	auto
 file	wcn	done	auto
 file	withoutCopyNumber	done	auto
 file	writable	done	auto
-fileBrowserDialog	actionName	missing	
-fileBrowserDialog	an	missing	
-fileBrowserDialog	dialogStyle	missing	
-fileBrowserDialog	ds	missing	
-fileBrowserDialog	fc	missing	
-fileBrowserDialog	fileCommand	missing	
-fileBrowserDialog	fileType	missing	
-fileBrowserDialog	filterList	missing	
-fileBrowserDialog	fl	missing	
-fileBrowserDialog	ft	missing	
-fileBrowserDialog	includeName	missing	
-fileBrowserDialog	m	missing	
-fileBrowserDialog	mode	missing	
-fileBrowserDialog	om	missing	
-fileBrowserDialog	operationMode	missing	
-fileBrowserDialog	tipMessage	missing	
-fileBrowserDialog	tm	missing	
-fileBrowserDialog	windowTitle	missing	
-fileBrowserDialog	wt	missing	
+fileBrowserDialog	actionName	done	auto
+fileBrowserDialog	an	done	auto
+fileBrowserDialog	dialogStyle	done	auto
+fileBrowserDialog	ds	done	auto
+fileBrowserDialog	fc	done	auto
+fileBrowserDialog	fileCommand	done	auto
+fileBrowserDialog	fileType	done	auto
+fileBrowserDialog	filterList	done	auto
+fileBrowserDialog	fl	done	auto
+fileBrowserDialog	ft	done	auto
+fileBrowserDialog	includeName	done	auto
+fileBrowserDialog	m	done	auto
+fileBrowserDialog	mode	done	auto
+fileBrowserDialog	om	done	auto
+fileBrowserDialog	operationMode	done	auto
+fileBrowserDialog	tipMessage	done	auto
+fileBrowserDialog	tm	done	auto
+fileBrowserDialog	windowTitle	done	auto
+fileBrowserDialog	wt	done	auto
 fileDialog	app	done	auto
 fileDialog	application	done	auto
 fileDialog	defaultFileName	done	auto
@@ -12340,80 +12340,80 @@ floatSlider	visible	done	auto
 floatSlider	visibleChangeCommand	done	auto
 floatSlider	w	done	auto
 floatSlider	width	done	auto
-floatSlider2	ann	missing	
-floatSlider2	annotation	missing	
-floatSlider2	backgroundColor	missing	
-floatSlider2	bgc	missing	
-floatSlider2	cc1	missing	
-floatSlider2	cc2	missing	
-floatSlider2	changeCommand1	missing	
-floatSlider2	changeCommand2	missing	
-floatSlider2	defineTemplate	missing	
-floatSlider2	dgc	missing	
-floatSlider2	docTag	missing	
-floatSlider2	dpc	missing	
-floatSlider2	dragCallback	missing	
-floatSlider2	dropCallback	missing	
-floatSlider2	dt	missing	
-floatSlider2	dtg	missing	
-floatSlider2	e	missing	
-floatSlider2	ebg	missing	
-floatSlider2	edit	missing	
-floatSlider2	ekf	missing	
-floatSlider2	en	missing	
-floatSlider2	enable	missing	
-floatSlider2	enableBackground	missing	
-floatSlider2	enableKeyboardFocus	missing	
-floatSlider2	ex	missing	
-floatSlider2	exists	missing	
-floatSlider2	fpn	missing	
-floatSlider2	fullPathName	missing	
-floatSlider2	h	missing	
-floatSlider2	height	missing	
-floatSlider2	highlightColor	missing	
-floatSlider2	hlc	missing	
-floatSlider2	io	missing	
-floatSlider2	isObscured	missing	
-floatSlider2	m	missing	
-floatSlider2	manage	missing	
-floatSlider2	max	missing	
-floatSlider2	maximum	missing	
-floatSlider2	min	missing	
-floatSlider2	minimum	missing	
-floatSlider2	nbg	missing	
-floatSlider2	noBackground	missing	
-floatSlider2	npm	missing	
-floatSlider2	numberOfPopupMenus	missing	
-floatSlider2	p	missing	
-floatSlider2	parent	missing	
-floatSlider2	pc1	missing	
-floatSlider2	pc2	missing	
-floatSlider2	pma	missing	
-floatSlider2	po	missing	
-floatSlider2	pol	missing	
-floatSlider2	polarity	missing	
-floatSlider2	popupMenuArray	missing	
-floatSlider2	positionControl1	missing	
-floatSlider2	positionControl2	missing	
-floatSlider2	preventOverride	missing	
-floatSlider2	q	missing	
-floatSlider2	query	missing	
-floatSlider2	sbm	missing	
-floatSlider2	statusBarMessage	missing	
-floatSlider2	useTemplate	missing	
-floatSlider2	ut	missing	
-floatSlider2	v1	missing	
-floatSlider2	v2	missing	
-floatSlider2	value1	missing	
-floatSlider2	value2	missing	
-floatSlider2	values	missing	
-floatSlider2	vcc	missing	
-floatSlider2	vis	missing	
-floatSlider2	visible	missing	
-floatSlider2	visibleChangeCommand	missing	
-floatSlider2	vs	missing	
-floatSlider2	w	missing	
-floatSlider2	width	missing	
+floatSlider2	ann	done	auto
+floatSlider2	annotation	done	auto
+floatSlider2	backgroundColor	done	auto
+floatSlider2	bgc	done	auto
+floatSlider2	cc1	done	auto
+floatSlider2	cc2	done	auto
+floatSlider2	changeCommand1	done	auto
+floatSlider2	changeCommand2	done	auto
+floatSlider2	defineTemplate	done	auto
+floatSlider2	dgc	done	auto
+floatSlider2	docTag	done	auto
+floatSlider2	dpc	done	auto
+floatSlider2	dragCallback	done	auto
+floatSlider2	dropCallback	done	auto
+floatSlider2	dt	done	auto
+floatSlider2	dtg	done	auto
+floatSlider2	e	done	auto
+floatSlider2	ebg	done	auto
+floatSlider2	edit	done	auto
+floatSlider2	ekf	done	auto
+floatSlider2	en	done	auto
+floatSlider2	enable	done	auto
+floatSlider2	enableBackground	done	auto
+floatSlider2	enableKeyboardFocus	done	auto
+floatSlider2	ex	done	auto
+floatSlider2	exists	done	auto
+floatSlider2	fpn	done	auto
+floatSlider2	fullPathName	done	auto
+floatSlider2	h	done	auto
+floatSlider2	height	done	auto
+floatSlider2	highlightColor	done	auto
+floatSlider2	hlc	done	auto
+floatSlider2	io	done	auto
+floatSlider2	isObscured	done	auto
+floatSlider2	m	done	auto
+floatSlider2	manage	done	auto
+floatSlider2	max	done	auto
+floatSlider2	maximum	done	auto
+floatSlider2	min	done	auto
+floatSlider2	minimum	done	auto
+floatSlider2	nbg	done	auto
+floatSlider2	noBackground	done	auto
+floatSlider2	npm	done	auto
+floatSlider2	numberOfPopupMenus	done	auto
+floatSlider2	p	done	auto
+floatSlider2	parent	done	auto
+floatSlider2	pc1	done	auto
+floatSlider2	pc2	done	auto
+floatSlider2	pma	done	auto
+floatSlider2	po	done	auto
+floatSlider2	pol	done	auto
+floatSlider2	polarity	done	auto
+floatSlider2	popupMenuArray	done	auto
+floatSlider2	positionControl1	done	auto
+floatSlider2	positionControl2	done	auto
+floatSlider2	preventOverride	done	auto
+floatSlider2	q	done	auto
+floatSlider2	query	done	auto
+floatSlider2	sbm	done	auto
+floatSlider2	statusBarMessage	done	auto
+floatSlider2	useTemplate	done	auto
+floatSlider2	ut	done	auto
+floatSlider2	v1	done	auto
+floatSlider2	v2	done	auto
+floatSlider2	value1	done	auto
+floatSlider2	value2	done	auto
+floatSlider2	values	done	auto
+floatSlider2	vcc	done	auto
+floatSlider2	vis	done	auto
+floatSlider2	visible	done	auto
+floatSlider2	visibleChangeCommand	done	auto
+floatSlider2	vs	done	auto
+floatSlider2	w	done	auto
+floatSlider2	width	done	auto
 floatSliderButtonGrp	ad2	done	auto
 floatSliderButtonGrp	ad3	done	auto
 floatSliderButtonGrp	ad4	done	auto
@@ -12870,10 +12870,10 @@ fluidVoxelInfo	yIndex	missing
 fluidVoxelInfo	yi	missing	
 fluidVoxelInfo	zIndex	missing	
 fluidVoxelInfo	zi	missing	
-fontDialog	FontList	missing	
-fontDialog	fl	missing	
-fontDialog	sc	missing	
-fontDialog	scalable	missing	
+fontDialog	FontList	done	auto
+fontDialog	fl	done	auto
+fontDialog	sc	done	auto
+fontDialog	scalable	done	auto
 formLayout	ac	done	auto
 formLayout	af	done	auto
 formLayout	an	done	auto
@@ -13060,18 +13060,18 @@ frameLayout	visible	done	auto
 frameLayout	visibleChangeCommand	done	auto
 frameLayout	w	done	auto
 frameLayout	width	done	auto
-framelessDialog	b	missing	
-framelessDialog	button	missing	
-framelessDialog	m	missing	
-framelessDialog	message	missing	
-framelessDialog	p	missing	
-framelessDialog	parent	missing	
-framelessDialog	pat	missing	
-framelessDialog	path	missing	
-framelessDialog	pr	missing	
-framelessDialog	primary	missing	
-framelessDialog	t	missing	
-framelessDialog	title	missing	
+framelessDialog	b	done	auto
+framelessDialog	button	done	auto
+framelessDialog	m	done	auto
+framelessDialog	message	done	auto
+framelessDialog	p	done	auto
+framelessDialog	parent	done	auto
+framelessDialog	pat	done	auto
+framelessDialog	path	done	auto
+framelessDialog	pr	done	auto
+framelessDialog	primary	done	auto
+framelessDialog	t	done	auto
+framelessDialog	title	done	auto
 freeFormFillet	b	done	auto
 freeFormFillet	bias	done	auto
 freeFormFillet	caching	done	auto

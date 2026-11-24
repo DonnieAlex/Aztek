@@ -467,6 +467,10 @@ const KINDS: &[(&str, &str)] = &[
     ("cmdScrollFieldExecuter", crate::cmd_fields::EXECUTER),
     ("cmdScrollFieldReporter", crate::cmd_fields::REPORTER),
     ("cmdShell", crate::cmd_fields::SHELL),
+    ("floatSlider2", crate::more_controls::SLIDER2_FLAGS),
+    ("falloffCurve", crate::more_controls::CURVE_FLAGS),
+    ("falloffCurveAttr", crate::more_controls::CURVE_ATTR_FLAGS),
+    ("componentBox", crate::more_controls::COMPONENT_BOX_FLAGS),
 ];
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
@@ -1711,7 +1715,15 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("nodeEditor", "nodeTitleMode") => json!("name"),
         ("outlinerEditor", "displayMode") => json!("DAG"),
         ("outlinerEditor", "showShapes" | "showAttributes" | "showDagOnly" | "showConnected" | "showAnimCurvesOnly") => json!(c.kind == "outlinerEditor" && key == "showDagOnly"),
-        ("componentEditor", "precision") => json!(3),
+        ("componentEditor" | "componentBox", "precision") => json!(3),
+        ("componentBox", "labelWidth" | "maxHeight" | "maxWidth") => json!(0),
+        ("floatSlider2", "minimum" | "value1") => json!(0.0),
+        ("floatSlider2", "maximum" | "value2") => json!(10.0),
+        ("floatSlider2", "polarity") => json!(0),
+        ("falloffCurve" | "falloffCurveAttr", "currentKey") => json!(0),
+        ("falloffCurve", "readOnly" | "snapToGrid" | "customCurveWidget") => json!(false),
+        ("falloffCurveAttr", "readOnly" | "snapToGrid" | "customCurveWidget") => json!(0),
+        ("falloffCurve", "optionVar") => json!(""),
         // The file being opened, until a reference is picked in the list.
         ("preloadRefEd", "selectFileNode") => json!("0"),
         ("preloadRefEd", "selectCommand") => json!(""),
@@ -3304,6 +3316,9 @@ pub fn register(s: &mut Session) {
             if crate::cmd_fields::is_field(cmd) {
                 return crate::cmd_fields::command(s, cmd, a);
             }
+            if crate::more_controls::is_mine(cmd) {
+                return crate::more_controls::command(s, cmd, a);
+            }
             let r = control_command(cmd, a);
             if !a.bool("query") && !a.bool("edit") {
                 after_create(cmd, &r, a);
@@ -3355,6 +3370,7 @@ pub fn register(s: &mut Session) {
 
     crate::attr_ui::register(s);
     crate::cmd_fields::register(s);
+    crate::more_controls::register(s);
 
     for (name, spec) in [
         ("toolCollection", "clear:cl:b select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
@@ -3617,7 +3633,7 @@ pub fn register(s: &mut Session) {
 
     s.register(
         Cmd::new("confirmDialog", "A modal question with buttons. Returns the button pressed, or -dismissString when closed.", |_s, a| {
-            if let Some(v) = dialog_answer(a, "confirmDialog", &["title", "message", "messageAlign", "button", "defaultButton", "cancelButton", "dismissString", "icon", "backgroundColor"]) {
+            if let Some(v) = dialog_answer(a, "confirmDialog", &["title", "message", "messageAlign", "button", "defaultButton", "cancelButton", "dismissString", "icon", "backgroundColor", "annotation", "detailedMessage"]) {
                 return Ok(v);
             }
             Ok(dialog_default(a))
@@ -3632,6 +3648,8 @@ pub fn register(s: &mut Session) {
         .flag(f("dismissString", "ds", ArgType::Any))
         .flag(f("icon", "icn", ArgType::Any))
         .flag(f("backgroundColor", "bgc", ArgType::Any))
+        .flag(f("annotation", "ann", ArgType::Any).multi(1))
+        .flag(f("detailedMessage", "dm", ArgType::Any))
         .flag(f("parent", "p", ArgType::Any)),
     );
 

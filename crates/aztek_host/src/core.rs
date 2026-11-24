@@ -365,6 +365,7 @@ impl Core {
     pub fn ui_event(&mut self, ev: &Value) {
         let due = crate::scriptui::shell_event(ev);
         crate::attr_ui::shell_changed(self, ev);
+        crate::more_controls::shell_changed(self, ev);
         for (cb, args) in due {
             self.run_callback(&cb, &args);
         }
@@ -379,6 +380,7 @@ impl Core {
         self.in_idle = true;
         self.note_settings();
         crate::attr_ui::idle(self);
+        crate::more_controls::idle(self);
         crate::host_general::watch(&mut self.s);
         aztek_scene::messages::flush(&mut self.s);
         self.run_conditions();

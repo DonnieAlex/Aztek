@@ -20,6 +20,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QFontDatabase>
+#include <QFontDialog>
 #include <QTextBlock>
 #include <QCloseEvent>
 #include <QColorDialog>
@@ -1626,8 +1627,11 @@ public:
             setTextCursor(c);
         }
         if (props.contains("__history")) {
+            // The core keeps a one-line history as a plain string, longer ones as a list.
             history.clear();
-            for (const QJsonValue& v : props["__history"].toArray()) history << v.toString();
+            const QJsonValue h = props["__history"];
+            if (h.isString()) history << h.toString();
+            for (const QJsonValue& v : h.toArray()) history << v.toString();
         }
         if (props.contains("prompt")) prompt = props["prompt"].toString();
     }
@@ -1815,6 +1819,197 @@ protected:
             return;
         }
         QLineEdit::keyPressEvent(e);
+    }
+};
+
+// floatSlider2: one range, two handles; handle 1 never passes handle 2. -polarity 1 puts the maximum on the left.
+class TwoHandleSlider : public QWidget {
+public:
+    double lo = 0.0, hi = 10.0, v[2] = {0.0, 10.0};
+    bool reversed = false;
+    std::function<void(int, double)> moved;
+
+    TwoHandleSlider() {
+        setMinimumSize(80, 20);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+    QSize sizeHint() const override { return QSize(200, 22); }
+
+protected:
+    static constexpr int M = 7;
+    double t_of(double x) const {
+        double t = hi > lo ? (x - lo) / (hi - lo) : 0.0;
+        return reversed ? 1.0 - t : t;
+    }
+    int x_of(double val) const { return M + int(std::round(t_of(val) * (width() - 2 * M))); }
+    double val_at(int x) const {
+        double t = std::clamp(double(x - M) / std::max(1, width() - 2 * M), 0.0, 1.0);
+        if (reversed) t = 1.0 - t;
+        return lo + t * (hi - lo);
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const int cy = height() / 2;
+        p.setPen(Qt::NoPen);
+        p.setBrush(palette().color(QPalette::Base));
+        p.drawRoundedRect(QRect(M, cy - 2, width() - 2 * M, 4), 2, 2);
+        int a = x_of(v[0]), b = x_of(v[1]);
+        p.setBrush(palette().color(isEnabled() ? QPalette::Highlight : QPalette::Mid));
+        p.drawRect(QRect(std::min(a, b), cy - 2, std::abs(b - a), 4));
+        p.setBrush(palette().color(QPalette::Button).lighter(140));
+        p.setPen(palette().color(QPalette::Shadow));
+        for (int x : {a, b}) p.drawRoundedRect(QRect(x - 5, cy - 8, 10, 16), 2, 2);
+    }
+    void mousePressEvent(QMouseEvent* e) override {
+        if (!isEnabled() || e->button() != Qt::LeftButton) return;
+        const int x = int(e->position().x());
+        int da = std::abs(x - x_of(v[0])), db = std::abs(x - x_of(v[1]));
+        // Handles on top of each other: the one the press is on the side of.
+        if (da == db) drag_ = (val_at(x) > v[1]) ? 1 : (val_at(x) < v[0] ? 0 : (x > x_of(v[0]) ? 1 : 0));
+        else drag_ = da < db ? 0 : 1;
+        move_to(x);
+    }
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if (drag_ >= 0) move_to(int(e->position().x()));
+    }
+    void mouseReleaseEvent(QMouseEvent*) override { drag_ = -1; }
+
+private:
+    int drag_ = -1;
+    void move_to(int x) {
+        double val = val_at(x);
+        val = drag_ == 0 ? std::min(val, v[1]) : std::max(val, v[0]);
+        if (val == v[drag_]) return;
+        v[drag_] = val;
+        update();
+        if (moved) moved(drag_, val);
+    }
+};
+
+// falloffCurve and falloffCurveAttr: control points in the unit square joined by straight lines, flat past the ends.
+// A click picks a point or adds one, a drag moves it, Delete removes the picked one.
+class CurveWidget : public QWidget {
+public:
+    QVector<QPointF> pts;
+    int current = 0;
+    bool read_only = false, snap = false;
+    std::function<void(bool)> changed; // true when the points changed, false when only the pick did
+
+    CurveWidget() {
+        setMinimumSize(120, 80);
+        setFocusPolicy(Qt::ClickFocus);
+    }
+    QSize sizeHint() const override { return QSize(240, 120); }
+    bool dragging() const { return drag_; }
+    QString as_string() const {
+        QStringList l;
+        for (const QPointF& p : pts) l << QString::number(p.x(), 'g', 6) << QString::number(p.y(), 'g', 6);
+        return l.join(',');
+    }
+    void set_string(const QString& s) {
+        QStringList n = s.split(',', Qt::SkipEmptyParts);
+        pts.clear();
+        for (int i = 0; i + 1 < n.size(); i += 2) pts << QPointF(n[i].toDouble(), n[i + 1].toDouble());
+        std::sort(pts.begin(), pts.end(), [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
+        update();
+    }
+
+protected:
+    static constexpr int M = 6;
+    QRectF area() const { return QRectF(M, M, width() - 2 * M, height() - 2 * M); }
+    QPointF to_screen(const QPointF& p) const { QRectF r = area(); return QPointF(r.left() + p.x() * r.width(), r.bottom() - p.y() * r.height()); }
+    QPointF to_curve(const QPointF& s) const {
+        QRectF r = area();
+        QPointF p(std::clamp((s.x() - r.left()) / std::max(1.0, r.width()), 0.0, 1.0), std::clamp((r.bottom() - s.y()) / std::max(1.0, r.height()), 0.0, 1.0));
+        if (snap) p = QPointF(std::round(p.x() * 10.0) / 10.0, std::round(p.y() * 10.0) / 10.0);
+        return p;
+    }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QRectF r = area();
+        p.fillRect(rect(), palette().color(QPalette::Base));
+        p.setPen(QPen(palette().color(QPalette::Mid), 1));
+        for (int i = 1; i < 10; ++i) {
+            double x = r.left() + r.width() * i / 10.0, y = r.top() + r.height() * i / 10.0;
+            p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()));
+            p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y));
+        }
+        p.setPen(QPen(palette().color(QPalette::Dark), 1));
+        p.drawRect(r);
+        if (pts.isEmpty()) return;
+        QPolygonF line;
+        line << to_screen(QPointF(0.0, pts.first().y()));
+        for (const QPointF& q : pts) line << to_screen(q);
+        line << to_screen(QPointF(1.0, pts.last().y()));
+        p.setPen(QPen(isEnabled() ? palette().color(QPalette::Text) : palette().color(QPalette::Mid), 1.5));
+        p.drawPolyline(line);
+        for (int i = 0; i < pts.size(); ++i) {
+            QPointF s = to_screen(pts[i]);
+            p.setPen(palette().color(QPalette::Shadow));
+            p.setBrush(i == current ? palette().color(QPalette::Highlight) : palette().color(QPalette::Button).lighter(150));
+            p.drawRect(QRectF(s.x() - 3.5, s.y() - 3.5, 7, 7));
+        }
+    }
+    void mousePressEvent(QMouseEvent* e) override {
+        if (!isEnabled() || e->button() != Qt::LeftButton) return;
+        int hit = -1;
+        for (int i = 0; i < pts.size(); ++i)
+            if (QLineF(to_screen(pts[i]), e->position()).length() < 6) hit = i;
+        if (hit >= 0) {
+            current = hit;
+            drag_ = !read_only;
+            update();
+            if (changed) changed(false);
+            return;
+        }
+        if (read_only) return;
+        pts << to_curve(e->position());
+        current = resort(pts.size() - 1);
+        drag_ = true;
+        moved_ = true;
+        update();
+    }
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if (!drag_ || current < 0 || current >= pts.size()) return;
+        pts[current] = to_curve(e->position());
+        current = resort(current);
+        moved_ = true;
+        update();
+    }
+    void mouseReleaseEvent(QMouseEvent*) override {
+        drag_ = false;
+        if (moved_ && changed) changed(true);
+        moved_ = false;
+    }
+    void keyPressEvent(QKeyEvent* e) override {
+        if (!read_only && (e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace) && current >= 0 && current < pts.size()) {
+            pts.remove(current);
+            current = std::max(0, std::min(current, int(pts.size()) - 1));
+            update();
+            if (changed) changed(true);
+            return;
+        }
+        QWidget::keyPressEvent(e);
+    }
+
+private:
+    bool drag_ = false, moved_ = false;
+    int resort(int keep) {
+        QPointF k = pts[keep];
+        QVector<int> order(pts.size());
+        for (int i = 0; i < order.size(); ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [this](int a, int b) { return pts[a].x() < pts[b].x(); });
+        QVector<QPointF> sorted;
+        int at = 0;
+        for (int i = 0; i < order.size(); ++i) {
+            sorted << pts[order[i]];
+            if (order[i] == keep) at = i;
+        }
+        pts = sorted;
+        Q_UNUSED(k);
+        return at;
     }
 };
 
@@ -2368,6 +2563,51 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             fire(path, QJsonObject{{"minRange", a}, {"maxRange", b}}, QJsonArray{"changedCommand"}, QJsonArray());
         });
         it->w = r;
+    } else if (k == "floatSlider2") {
+        auto* s = new TwoHandleSlider();
+        s->moved = [this, path](int handle, double v) {
+            const QString key = handle == 0 ? "value1" : "value2";
+            // The shell's copy too, as the core sends no edit back for what the shell set.
+            if (Item* i = items_.value(path)) i->props.insert(key, v);
+            fire(path, QJsonObject{{key, v}}, QJsonArray{handle == 0 ? "__slider2Moved1" : "__slider2Moved2"}, QJsonArray{v});
+        };
+        it->w = s;
+    } else if (k == "falloffCurve" || k == "falloffCurveAttr") {
+        auto* c = new CurveWidget();
+        c->changed = [this, path, c](bool points) {
+            QJsonObject set{{"currentKey", c->current}};
+            if (points) set.insert("asString", c->as_string());
+            if (Item* i = items_.value(path))
+                for (auto x = set.begin(); x != set.end(); ++x) i->props.insert(x.key(), x.value());
+            fire(path, set, QJsonArray{points ? "__curveChanged" : "__curveKeyPicked"}, QJsonArray());
+        };
+        it->w = c;
+    } else if (k == "componentBox") {
+        auto* t = new QTableWidget(0, 3);
+        t->setHorizontalHeaderLabels({"X", "Y", "Z"});
+        t->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        t->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        t->setMinimumHeight(60);
+        connect(t, &QTableWidget::itemChanged, this, [this, path, t](QTableWidgetItem* cell) {
+            if (t->property("azLoading").toBool()) return;
+            QString comp = t->verticalHeaderItem(cell->row()) ? t->verticalHeaderItem(cell->row())->text() : QString();
+            bool ok = false;
+            double v = cell->text().toDouble(&ok);
+            if (!ok || comp.isEmpty()) return;
+            fire(path, QJsonObject(), QJsonArray{"__componentBoxEdit"}, QJsonArray{comp, cell->column(), v});
+        });
+        connect(t, &QTableWidget::itemSelectionChanged, this, [this, path, t] {
+            if (t->property("azLoading").toBool()) return;
+            static const char* axes[] = {"xValue", "yValue", "zValue"};
+            QJsonArray sel;
+            for (QTableWidgetItem* cell : t->selectedItems()) {
+                QTableWidgetItem* h = t->verticalHeaderItem(cell->row());
+                if (h) sel.append(h->text() + "." + axes[std::clamp(cell->column(), 0, 2)]);
+            }
+            if (Item* i = items_.value(path)) i->props.insert("selectedAttr", sel);
+            fire(path, QJsonObject{{"selectedAttr", sel}}, QJsonArray(), QJsonArray());
+        });
+        it->w = t;
     } else if (k == "modelPanel") {
         QString cam = props["camera"].toString("persp");
         auto* v = new ViewportWidget(cam);
@@ -2812,6 +3052,60 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
     if (k == "button" || k == "iconTextButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "iconTextRadioButton") {
         if (props.contains("label")) {
             if (auto* b = qobject_cast<QAbstractButton*>(w)) b->setText(amp(props["label"].toString()));
+        }
+    }
+    if (k == "floatSlider2") {
+        if (auto* s = dynamic_cast<TwoHandleSlider*>(w)) {
+            s->lo = as_number(it->prop("minimum"), 0.0);
+            s->hi = as_number(it->prop("maximum"), 10.0);
+            s->v[0] = as_number(it->prop("value1"), s->lo);
+            s->v[1] = as_number(it->prop("value2"), s->hi);
+            s->reversed = as_number(it->prop("polarity")) != 0.0;
+            s->update();
+        }
+    } else if (k == "falloffCurve" || k == "falloffCurveAttr") {
+        if (auto* c = dynamic_cast<CurveWidget*>(w)) {
+            if (props.contains("asString") && !c->dragging()) c->set_string(props["asString"].toString());
+            if (props.contains("currentKey") && !c->dragging()) c->current = int(as_number(props["currentKey"]));
+            c->read_only = as_bool(it->prop("readOnly"));
+            c->snap = as_bool(it->prop("snapToGrid"));
+            c->update();
+        }
+    } else if (k == "componentBox") {
+        if (auto* t = qobject_cast<QTableWidget*>(w)) {
+            const int pre = int(as_number(it->prop("precision"), 3));
+            if (props.contains("__rows") || props.contains("precision")) {
+                // Not while a cell is being typed in.
+                QWidget* fw = QApplication::focusWidget();
+                if (!(fw && t->isAncestorOf(fw) && qobject_cast<QLineEdit*>(fw))) {
+                    t->setProperty("azLoading", true);
+                    QJsonArray rows = it->prop("__rows").toObject()["rows"].toArray();
+                    QStringList sel = strings(it->prop("selectedAttr"));
+                    t->clearContents();
+                    t->setRowCount(rows.size());
+                    QStringList names;
+                    static const char* axes[] = {"xValue", "yValue", "zValue"};
+                    for (int r = 0; r < rows.size(); ++r) {
+                        QJsonObject row = rows[r].toObject();
+                        names << row["name"].toString();
+                        QJsonArray vals = row["values"].toArray();
+                        for (int c = 0; c < 3; ++c) {
+                            auto* cell = new QTableWidgetItem(QString::number(vals.at(c).toDouble(), 'f', pre));
+                            t->setItem(r, c, cell);
+                            if (sel.contains(names.last() + "." + axes[c])) cell->setSelected(true);
+                        }
+                    }
+                    t->setVerticalHeaderLabels(names);
+                    t->setProperty("azLoading", false);
+                }
+            }
+            const int lw = int(as_number(it->prop("labelWidth")));
+            if (lw > 0) t->verticalHeader()->setFixedWidth(lw);
+            const int rh = int(as_number(it->prop("rowHeight")));
+            if (rh > 0) t->verticalHeader()->setDefaultSectionSize(rh);
+            const int mh = int(as_number(it->prop("maxHeight"))), mw = int(as_number(it->prop("maxWidth")));
+            t->setMaximumHeight(mh > 0 ? mh : QWIDGETSIZE_MAX);
+            t->setMaximumWidth(mw > 0 ? mw : QWIDGETSIZE_MAX);
         }
     }
     if (k == "textureWindow") {
@@ -3809,6 +4103,8 @@ void ScriptUi::hook(const QString& kind, const QJsonObject& payload) {
     else if (kind == "promptDialog") prompt_dialog(payload);
     else if (kind == "fileDialog2") file_dialog2(payload);
     else if (kind == "fileDialog") file_dialog(payload);
+    else if (kind == "framelessDialog") frameless_dialog(payload);
+    else if (kind == "fontDialog") font_dialog(payload);
     else if (kind == "colorEditor") color_editor(payload);
     else if (kind == "playblast") {
         // What the script set on the views just before this has to show in the frames.
@@ -3833,9 +4129,13 @@ static void add_dialog_buttons(QDialog* d, QLayout* into, const QJsonObject& p, 
     auto* row = new QHBoxLayout();
     row->addStretch(1);
     QString def = p["defaultButton"].toString();
-    for (const QString& n : names) {
+    // -annotation: each button's tooltip, in the order of the buttons.
+    const QStringList tips = strings(p["annotation"]);
+    for (int i = 0; i < names.size(); ++i) {
+        const QString& n = names[i];
         auto* b = new QPushButton(n, d);
         b->setAutoDefault(false);
+        if (i < tips.size()) b->setToolTip(tips[i]);
         if (n == def) b->setDefault(true);
         QObject::connect(b, &QPushButton::clicked, d, [d, n, picked] {
             *picked = n;
@@ -3855,12 +4155,101 @@ void ScriptUi::confirm_dialog(const QJsonObject& p) {
     m->setAlignment(alignment(p["messageAlign"].toString("center")));
     m->setMinimumWidth(240);
     v->addWidget(m);
+    // -detailedMessage: more text, shown on asking.
+    if (!p["detailedMessage"].toString().isEmpty()) {
+        auto* more = new QPushButton("Show Details...", &d);
+        more->setAutoDefault(false);
+        auto* text = new QPlainTextEdit(p["detailedMessage"].toString(), &d);
+        text->setReadOnly(true);
+        text->setVisible(false);
+        QObject::connect(more, &QPushButton::clicked, &d, [more, text] {
+            text->setVisible(!text->isVisible());
+            more->setText(text->isVisible() ? "Hide Details..." : "Show Details...");
+        });
+        auto* row = new QHBoxLayout();
+        row->addWidget(more);
+        row->addStretch(1);
+        v->addLayout(row);
+        v->addWidget(text);
+    }
     QString picked;
     add_dialog_buttons(&d, v, p, &picked);
     if (d.exec() != QDialog::Accepted) {
         picked = p.contains("cancelButton") ? p["cancelButton"].toString() : p["dismissString"].toString("dismiss");
     }
     answer(picked);
+}
+
+// framelessDialog: a message, an optional path under it and buttons, with no window frame; the primary buttons stand out.
+// Centred on -parent's window, or the screen.
+void ScriptUi::frameless_dialog(const QJsonObject& p) {
+    QWidget* owner = nullptr;
+    if (Item* w = items_.value(p["parent"].toString()); w && w->w) owner = w->w->window();
+    QDialog d(owner, Qt::Dialog | Qt::FramelessWindowHint);
+    d.setObjectName("framelessDialog");
+    d.setStyleSheet("#framelessDialog { border: 1px solid palette(mid); }");
+    auto* v = new QVBoxLayout(&d);
+    v->setContentsMargins(18, 14, 18, 14);
+    if (!p["title"].toString().isEmpty()) {
+        auto* t = new QLabel(p["title"].toString(), &d);
+        QFont f = t->font();
+        f.setBold(true);
+        f.setPointSizeF(f.pointSizeF() * 1.2);
+        t->setFont(f);
+        v->addWidget(t);
+    }
+    if (!p["message"].toString().isEmpty()) {
+        auto* m = new QLabel(p["message"].toString(), &d);
+        m->setWordWrap(true);
+        m->setMinimumWidth(280);
+        v->addWidget(m);
+    }
+    if (!p["path"].toString().isEmpty()) {
+        auto* path = new QLabel(p["path"].toString(), &d);
+        path->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        path->setWordWrap(true);
+        path->setStyleSheet("color: palette(mid);");
+        v->addWidget(path);
+    }
+    const QStringList names = strings(p["button"]);
+    const QStringList primary = strings(p["primary"]);
+    QString picked;
+    auto* row = new QHBoxLayout();
+    row->addStretch(1);
+    for (const QString& n : names) {
+        auto* b = new QPushButton(n, &d);
+        b->setAutoDefault(false);
+        if (primary.contains(n)) {
+            b->setDefault(true);
+            b->setStyleSheet("font-weight: bold;");
+        }
+        QObject::connect(b, &QPushButton::clicked, &d, [&d, n, &picked] {
+            picked = n;
+            d.accept();
+        });
+        row->addWidget(b);
+    }
+    v->addLayout(row);
+    d.adjustSize();
+    if (owner) d.move(owner->geometry().center() - d.rect().center());
+    d.exec();
+    answer(picked);
+}
+
+// fontDialog: the fonts Qt knows; -FontList answers with all of them, else the family picked or nothing.
+void ScriptUi::font_dialog(const QJsonObject& p) {
+    const bool scalable = as_bool(p["scalable"]);
+    if (as_bool(p["fontList"])) {
+        QJsonArray out;
+        for (const QString& f : QFontDatabase::families())
+            if (!scalable || QFontDatabase::isScalable(f)) out.append(f);
+        answer(out);
+        return;
+    }
+    QFontDialog d(QApplication::activeWindow() ? QApplication::activeWindow() : main_);
+    d.setOption(QFontDialog::DontUseNativeDialog, true);
+    if (scalable) d.setOption(QFontDialog::ScalableFonts, true);
+    answer(d.exec() == QDialog::Accepted ? d.selectedFont().family() : QString());
 }
 
 void ScriptUi::prompt_dialog(const QJsonObject& p) {

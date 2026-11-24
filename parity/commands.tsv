@@ -161,7 +161,7 @@ commandEcho	done	auto
 commandLine	done	auto
 commandLogging	done	auto
 commandPort	done	auto
-componentBox	missing	
+componentBox	done	auto
 componentEditor	done	auto
 componentTag	done	auto
 condition	done	auto
@@ -328,11 +328,11 @@ expressionEditorListen	done	auto
 extendCurve	done	auto
 extendSurface	done	auto
 extrude	done	auto
-falloffCurve	missing	
-falloffCurveAttr	missing	
+falloffCurve	done	auto
+falloffCurveAttr	done	auto
 fcheck	done	auto
 file	done	auto
-fileBrowserDialog	missing	
+fileBrowserDialog	done	auto
 fileDialog	done	auto
 fileDialog2	done	auto
 fileInfo	done	auto
@@ -355,7 +355,7 @@ floatField	done	auto
 floatFieldGrp	done	auto
 floatScrollBar	done	auto
 floatSlider	done	auto
-floatSlider2	missing	
+floatSlider2	done	auto
 floatSliderButtonGrp	done	auto
 floatSliderGrp	done	auto
 flow	done	auto
@@ -364,12 +364,12 @@ fluidCacheInfo	missing
 fluidEmitter	missing	
 fluidVoxelInfo	missing	
 flushUndo	done	auto
-fontDialog	missing	
+fontDialog	done	auto
 formLayout	done	auto
 format	done	auto
 frameBufferName	missing	
 frameLayout	done	auto
-framelessDialog	missing	
+framelessDialog	done	auto
 freeFormFillet	done	auto
 freeze	done	auto
 freezeOptions	done	auto

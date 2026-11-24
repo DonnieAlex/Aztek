@@ -52,6 +52,7 @@ pub mod sys_info;
 pub mod about;
 pub mod channel_box;
 pub mod cmd_fields;
+pub mod more_controls;
 pub mod attr_menus;
 pub mod video;
 pub mod text;
