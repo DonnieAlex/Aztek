@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <QJsonDocument>
+#include <QSettings>
 // The Attribute Editor: a tab per node in the chain, sections by node type, sliders on ranged attributes, a Notes box, and
 // Select, Load Attributes and Copy Tab along the bottom.
 #include "panels.h"
@@ -839,6 +840,279 @@ QSet<QString>& closed_sections() {
     return s;
 }
 
+// The Attribute Editor's layout follows the reference's templates: sections that nest, and open or closed by default.
+struct AeRow {
+    QString attr;
+    QString label;
+    // The control a row draws when the node has no such attribute: still in place, greyed, as the reference's feature
+    // being absent leaves it. Empty when the row needs the real attribute.
+    QString fallback;
+    QString kind; // "", "check", "float", "int", "vec3", "combo", "text", "color", "matrix", "check2", "separator"
+    QString extra; // the second attribute of a check2 row, or the combo's entries separated by "|"
+};
+
+struct AeBox {
+    QString title;
+    QList<AeRow> rows;
+    QList<AeBox> subs;
+    int open = 0;
+    QString limit; // "Trans", "Rot" or "Scale": the group draws the reference's Min, Current and Max rows.
+};
+
+AeRow row(const char* attr) {
+    AeRow r;
+    r.attr = attr;
+    return r;
+}
+
+AeRow shown(const char* attr, const char* label, const char* kind, const char* fallback = "") {
+    AeRow r;
+    r.attr = attr;
+    r.label = label;
+    r.kind = kind;
+    r.fallback = fallback;
+    return r;
+}
+
+AeBox box(const char* title, std::initializer_list<AeRow> rows, int open = 0) {
+    AeBox b;
+    b.title = title;
+    b.rows = QList<AeRow>(rows);
+    b.open = open;
+    return b;
+}
+
+// The reference's labels for the parts every shape shares.
+const char* const kDisplayRows = "visibility template lodVisibility hideOnPlayback hiddenInOutliner useOutlinerColor outlinerColor";
+
+QList<AeBox> transform_boxes() {
+    QList<AeBox> l;
+    l << box("Transform Attributes",
+             {row("translate"), row("rotate"), row("scale"), row("shear"), row("rotateOrder"), row("rotateAxis"), row("inheritsTransform"),
+              shown("offsetParentMatrix", "Offset Parent Matrix", "matrix")},
+             1);
+    AeBox pivots = box("Pivots", {row("displayRotatePivot"), row("displayScalePivot")});
+    pivots.subs << box("Local Space", {shown("rotatePivot", "Local Rotate Pivot", "vec3"), shown("scalePivot", "Local Scale Pivot", "vec3")});
+    pivots.subs << box("World Space",
+                       {shown("", "World Rotate Pivot", "vec3"), shown("", "World Scale Pivot", "vec3")}, 1);
+    l << pivots;
+    AeBox limits = box("Limit Information", {});
+    AeBox trans = box("Translate", {});
+    trans.limit = "Trans";
+    AeBox rot = box("Rotate", {});
+    rot.limit = "Rot";
+    rot.open = 1;
+    AeBox scale = box("Scale", {});
+    scale.limit = "Scale";
+    limits.subs << trans << rot << scale;
+    l << limits;
+    AeBox display = box("Display",
+                        {row("displayHandle"), row("displayLocalAxis"), shown("selectHandle", "Selection Handle", "vec3"),
+                         shown("showManipDefault", "Show Manip Default", "combo", "None"), shown("manipHistoryNode", "Manip History Node", "text"),
+                         shown("", "Visibility", "check2", ""), row("lodVisibility"), row("hideOnPlayback"), row("hiddenInOutliner"),
+                         row("useOutlinerColor"), row("outlinerColor")});
+    display.rows[5].extra = "template";
+    display.subs << box("Ghosting Information", {row("ghosting"), row("ghostPreSteps"), row("ghostPostSteps"), row("ghostStepSize")});
+    display.subs << box("Bounding Box Information", {shown("boundingBoxMin", "Bounding Box Min", "vec3"), shown("boundingBoxMax", "Bounding Box Max", "vec3")});
+    AeBox overrides = box("Drawing Overrides",
+                          {shown("overrideEnabled", "Enable Overrides", "check"), row("overrideDisplayType"), row("overrideLevelOfDetail"), row("overrideShading"),
+                           row("overrideTexturing"), row("overridePlayback"), row("overrideVisibility"), row("overrideRGBColors"), row("overrideColor"),
+                           shown("overrideColorA", "Color Alpha", "float")});
+    overrides.open = -1;
+    display.subs << overrides;
+    display.subs << box("Selection", {row("selectionChildHighlighting")});
+    l << display;
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
+QList<AeBox> joint_boxes() {
+    QList<AeBox> l;
+    l << transform_boxes().first();
+    AeBox joint = box("Joint", {row("drawStyle"), row("radius"), row("jointTypeX"), row("stiffness"), row("preferredAngle"), row("jointOrient"),
+                                row("segmentScaleCompensate")},
+                      1);
+    joint.subs << box("Joint Labelling", {row("side"), row("type"), shown("otherType", "Other Type", "text"), row("drawLabel")}, 1);
+    l << joint;
+    QList<AeBox> rest = transform_boxes();
+    rest.removeFirst();
+    l << rest;
+    return l;
+}
+
+QList<AeBox> mesh_boxes() {
+    QList<AeBox> l;
+    l << box("Tessellation Attributes",
+             {shown("maxTriangles", "Max Triangles", "int"), shown("useMaxSubdivisions", "Use Max Subdivisions", "check"),
+              shown("maxSubd", "Max Subdiv", "int"), shown("useMinScreen", "Use Min Screen", "check"),
+              shown("minScreen", "Min Screen", "float"), shown("useMaxUV", "Use Max UV", "check"), shown("maxUV", "Max UV", "float"),
+              shown("useMinEdgeLength", "Use Min Edge Length", "check"), shown("minEdgeLength", "Min Edge Length", "float"),
+              shown("useMaxEdgeLength", "Use Max Edge Length", "check"), shown("maxEdgeLength", "Max Edge Length", "float")});
+    l << box("Mesh Component Display",
+             {shown("displayImmediate", "Display Immediate", "check"), row("displayVertices"),
+              shown("vertexSize", "Vertex Size", "float"), shown("vertexBackfaceCulling", "Vertex Backface Culling", "check"),
+              shown("backfaceCulling", "Backface Culling", "check"), shown("", "", "separator"), shown("displayEdges", "Display Edges", "check"),
+              row("displayBorders"), shown("borderWidth", "Border Width", "int"), shown("", "", "separator"), row("displayCenter"),
+              row("displayTriangles"), shown("displayUVs", "Display UVs", "check"), shown("uvSize", "UV Size", "float"),
+              shown("displayNonPlanar", "Display Non-Planar", "check"), shown("displayInvisibleFaces", "Display Invisible Faces", "check"),
+              shown("", "", "separator"), row("displayColors"), shown("displayColorChannel", "Display Color Channel", "combo"),
+              shown("materialBlend", "Material Blend", "float"), shown("", "", "separator"), shown("displayNormal", "Display Normals", "check"),
+              shown("displayTangent", "Display Tangents", "check"), shown("normalSize", "Normal Size", "float"),
+              shown("normalType", "Normal Type", "combo", "Vertex")});
+    l << box("Mesh Controls", {shown("allowTopologyMod", "Allow Topology Modification", "check"), shown("quadSplit", "Quad Split", "combo"),
+                               shown("vertexNormalMethod", "Vertex Normal Method", "combo"), shown("", "", "separator"),
+                               shown("reuseTriangles", "Reuse Triangles", "check")});
+    l << box("Tangent Space", {shown("tangentSpace", "Coordinate System:", "combo", "Right Handed"), shown("", "UV Winding Order:", "combo", "Detect"),
+                               shown("tangentSmoothingAngle", "Smoothing Angle", "float"), shown("tangentNormalThreshold", "Normal Threshold", "float")});
+    AeBox smooth = box("Smooth Mesh", {row("displaySmoothMesh")}, -1);
+    smooth.subs << box("Subdivision Levels", {shown("displaySubdComps", "Display Subdivisions", "check"), row("smoothLevel"),
+                                              shown("useSmoothPreviewForRender", "Use Preview Level for Rendering", "check"), row("renderSmoothLevel")},
+                       1);
+    smooth.subs << box("OpenSubdiv Controls",
+                       {shown("osdVertBoundary", "Vertex Boundary", "combo"), shown("osdFvarBoundary", "UV Boundary Smoothing", "combo"),
+                        shown("osdPropagateCorners", "Propagate UV Corners", "check"), shown("osdSmoothTriangles", "Smooth Triangles", "check"),
+                        shown("osdCreaseMethod", "Crease Method", "combo"), shown("enableOpenCL", "OpenCL Acceleration", "check")});
+    smooth.subs << box("Maya Catmull-Clark Controls",
+                       {shown("boundaryRule", "Boundary Rules", "combo"), row("continuity"), shown("smoothUVs", "Smooth UVs", "check"),
+                        shown("propagateEdgeHardness", "Propagate Edge Hardness", "check")});
+    l << smooth;
+    l << box("Displacement Map",
+             {shown("featureDisplacement", "Feature Displacement", "check"), shown("initialSampleRate", "Initial Sample Rate", "int"),
+              shown("extraSampleRate", "Extra Sample Rate", "int"), shown("textureThreshold", "Texture Threshold", "float"),
+              shown("normalThreshold", "Normal Threshold", "float"), shown("", "", "separator"), shown("boundingBoxScale", "Bounding Box Scale", "float")});
+    l << box("Render Stats",
+             {row("castsShadows"), row("receiveShadows"), shown("holdOut", "Hold-Out", "check"), row("motionBlur"), row("primaryVisibility"),
+              row("smoothShading"), row("visibleInReflections"), row("visibleInRefractions"), row("doubleSided"), shown("", "", "separator"),
+              shown("geometryAntialiasingOverride", "Geometry Anti-aliasing Override", "check"), shown("antialiasingLevel", "Anti-aliasing Level", "int"),
+              shown("shadingSamplesOverride", "Shading Samples Override", "check"), shown("shadingSamples", "Shading Samples", "int"),
+              shown("maxShadingSamples", "Max Shading Samples", "int")});
+    AeBox object = box("Object Display", {row("visibility"), row("template"), row("lodVisibility"), row("hideOnPlayback"),
+                                          row("hiddenInOutliner"), row("useOutlinerColor"), row("outlinerColor"), row("intermediateObject")});
+    object.subs << box("Bounding Box Information", {shown("boundingBoxMin", "Bounding Box Min", "vec3"), shown("boundingBoxMax", "Bounding Box Max", "vec3")});
+    AeBox meshOverrides;
+    meshOverrides.title = "Drawing Overrides";
+    meshOverrides.rows = transform_boxes().at(3).subs.at(2).rows;
+    meshOverrides.open = -1;
+    object.subs << meshOverrides;
+    object.subs << box("Selection", {row("selectionChildHighlighting")});
+    l << object;
+    l << box("Component Tags", {});
+    l << box("Deformation", {});
+    l << box("Arnold", {});
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
+// The tree for a node type, when its reference template is laid out here. Other types keep the generic sections.
+QList<AeBox> ae_tree(const QString& type) {
+    if (type == "transform" || type == "locator" || type == "ikHandle") return transform_boxes();
+    if (type == "joint") return joint_boxes();
+    if (type == "mesh") return mesh_boxes();
+    return {};
+}
+
+// A section's bar: the reference's raised grey band with its triangle at the left.
+class AeHead : public QWidget {
+public:
+    AeHead(const QString& title, bool open, int depth, QWidget* parent) : QWidget(parent), title_(title), open_(open), depth_(depth) {
+        setFixedHeight(22);
+        setCursor(Qt::PointingHandCursor);
+        setToolTip(title);
+    }
+    std::function<void(bool)> toggled;
+
+    void set_open(bool on) {
+        open_ = on;
+        update();
+    }
+    bool open() const { return open_; }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        QLinearGradient g(0, 0, 0, height());
+        if (underMouse()) {
+            g.setColorAt(0, QColor(112, 112, 112));
+            g.setColorAt(1, QColor(100, 100, 100));
+        } else {
+            g.setColorAt(0, QColor(101, 101, 101));
+            g.setColorAt(1, QColor(91, 91, 91));
+        }
+        p.fillRect(rect(), g);
+        p.fillRect(0, 0, width(), 1, QColor(118, 118, 118));
+        p.fillRect(0, height() - 1, width(), 1, QColor(54, 54, 54));
+        const int left = 8 + depth_ * 12;
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(226, 226, 226));
+        QPolygon tri;
+        if (open_)
+            tri << QPoint(left, height() / 2 - 2) << QPoint(left + 8, height() / 2 - 2) << QPoint(left + 4, height() / 2 + 3);
+        else
+            tri << QPoint(left + 1, height() / 2 - 4) << QPoint(left + 1, height() / 2 + 4) << QPoint(left + 6, height() / 2);
+        p.drawPolygon(tri);
+        QFont f = font();
+        f.setPixelSize(11);
+        f.setWeight(QFont::DemiBold);
+        p.setFont(f);
+        p.setPen(QColor(232, 232, 232));
+        p.drawText(QRect(left + 16, 0, width() - left - 18, height()), Qt::AlignLeft | Qt::AlignVCenter, title_);
+    }
+    void mousePressEvent(QMouseEvent* e) override {
+        if (e->button() != Qt::LeftButton) return;
+        open_ = !open_;
+        update();
+        if (toggled) toggled(open_);
+        e->accept();
+    }
+
+private:
+    QString title_;
+    bool open_;
+    int depth_;
+};
+
+QString ae_type_label(const QString& type) {
+    if (type.startsWith("ai") && type.size() > 2 && type[2].isUpper()) return "harold" + type.mid(2);
+    return type;
+}
+
+// The two small buttons beside the name field: where the node's input and output connections are.
+QIcon connect_icon(bool in) {
+    QPixmap px(14, 14);
+    px.fill(Qt::transparent);
+    QPainter p(&px);
+    p.setPen(QPen(QColor(220, 220, 220), 1));
+    p.drawRect(in ? 7 : 2, 3, 6, 8);
+    if (in) {
+        p.drawLine(1, 7, 7, 7);
+        p.drawLine(1, 7, 4, 4);
+        p.drawLine(1, 7, 4, 10);
+    } else {
+        p.drawLine(8, 7, 13, 7);
+        p.drawLine(13, 7, 10, 4);
+        p.drawLine(13, 7, 10, 10);
+    }
+    return QIcon(px);
+}
+
+// The reference's small solid triangle on the limit buttons.
+QIcon triangle_icon(bool left) {
+    QPixmap px(9, 9);
+    px.fill(Qt::transparent);
+    QPainter p(&px);
+    p.setRenderHint(QPainter::Antialiasing, false);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(220, 220, 220));
+    QPolygon tri;
+    if (left) tri << QPoint(6, 1) << QPoint(6, 8) << QPoint(1, 4);
+    else tri << QPoint(2, 1) << QPoint(2, 8) << QPoint(7, 4);
+    p.drawPolygon(tri);
+    return QIcon(px);
+}
 QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) {
     auto* head = new QToolButton(parent);
     head->setObjectName("aeSectionButton");
@@ -867,79 +1141,752 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
     return f;
 }
 
+// The reference's greyed control for a feature Aztek does not have yet: present, and taking no typing.
+QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
+    const QString kind = r.kind.isEmpty() ? "float" : r.kind;
+    if (kind == "check") {
+        auto* cb = new QCheckBox(parent);
+        cb->setEnabled(false);
+        return cb;
+    }
+    if (kind == "check2") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        for (int k = 0; k < 2; ++k) {
+            auto* cb = new QCheckBox(parent);
+            cb->setEnabled(false);
+            h->addWidget(cb);
+            auto* l = new QLabel(k == 0 ? (r.label.isEmpty() ? a["nice"].toString() : r.label) : a["nice"].toString(), w);
+            l->setObjectName("aeDimLabel");
+            h->addWidget(l);
+            if (k == 0) h->addSpacing(24);
+        }
+        h->addStretch(1);
+        return w;
+    }
+    if (kind == "combo") {
+        auto* box = new QComboBox(parent);
+        QStringList items = r.extra.isEmpty() ? QStringList{"None"} : r.extra.split('|');
+        for (const QString& s : items) box->addItem(s);
+        box->setFixedWidth(148);
+        box->setEnabled(false);
+        return box;
+    }
+    if (kind == "vec3" || kind == "color") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        if (kind == "color") {
+            auto* sw = new QPushButton(w);
+            sw->setObjectName("colorSwatch");
+            sw->setFixedSize(40, 18);
+            sw->setEnabled(false);
+            h->addWidget(sw);
+        }
+        int count = kind == "color" ? 1 : 3;
+        for (int k = 0; k < count; ++k) {
+            auto* e = new QLineEdit(w);
+            e->setFixedSize(kind == "color" ? 148 : 72, 20);
+            e->setEnabled(false);
+            h->addWidget(e);
+        }
+        h->addStretch(1);
+        return w;
+    }
+    if (kind == "matrix" || kind == "text") {
+        auto* e = new QLineEdit(parent);
+        e->setFixedHeight(20);
+        e->setMinimumWidth(295);
+        e->setEnabled(false);
+        return e;
+    }
+    if (kind == "uuid") {
+        auto* e = new QLineEdit(parent);
+        e->setFixedHeight(20);
+        e->setReadOnly(true);
+        e->setEnabled(false);
+        return e;
+    }
+    auto* e = new QLineEdit(parent);
+    e->setFixedSize(72, 20);
+    e->setEnabled(false);
+    return e;
+}
+
+// One attribute row's field, sized as the reference sizes it.
+QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QWidget* parent) {
+    QString type = a["type"].toString();
+    bool ro = read_only(a);
+    QWidget* field = nullptr;
+    if (r.kind == "text") {
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        auto* e = new QLineEdit(w);
+        e->setFixedHeight(20);
+        e->setMinimumWidth(270);
+        if (type == "string") {
+            e->setText(a["value"].toString());
+            e->setReadOnly(ro);
+            QString plug = a["plug"].toString();
+            QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+            QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
+                if (!e->property("editing").toBool()) return;
+                e->setProperty("editing", false);
+                set_plug(plug, e->text(), "string");
+            });
+            if (a["locked"].toBool()) e->setObjectName("lockedField");
+        } else {
+            e->setEnabled(false);
+        }
+        h->addWidget(e, 1);
+        if (a["mappable"].toBool()) h->addWidget(map_button(a, w));
+        return w;
+    }
+    field = attr_field(a, parent);
+    int width = 0;
+    if (r.kind == "matrix" || type == "matrix") width = 295;
+    else if (r.kind == "combo" || type == "enum") width = 148;
+    else if (type == "vec3") width = 224;
+    else if (r.kind == "text") width = 0;
+    else if (type == "float" || type == "int") {
+        // Ranged numbers keep their slider, and the slider runs to the end of the value column.
+        width = (a["min"].isDouble() && a["max"].isDouble() && a["max"].toDouble() > a["min"].toDouble()) ? 254 : 72;
+        if (type == "int" && !(a["min"].isDouble() && a["max"].isDouble())) width = 72;
+    }
+    if (width > 0) {
+        if (type == "vec3") {
+            field->setFixedWidth(width);
+            // Three valued parts a row: each 72 wide, as the reference's fields.
+            for (QLineEdit* e : field->findChildren<QLineEdit*>()) e->setFixedSize(72, 20);
+        } else if (type == "enum") {
+            field->setFixedWidth(width);
+        } else {
+            field->setFixedWidth(width);
+        }
+    }
+    if (type == "float" || type == "int" || type == "string" || type == "vec3") {
+        for (QLineEdit* e : field->findChildren<QLineEdit*>()) e->setFixedHeight(20);
+    }
+    return field;
+}
+
+// A vector's three parts, the reference's three fields of 72 pixels.
+QWidget* ae_vec3(const QJsonObject& a, QWidget* parent) {
+    auto* w = new QWidget(parent);
+    auto* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(4);
+    QJsonArray v = a["value"].toArray();
+    QJsonArray kids = a["children"].toArray();
+    QJsonArray childLocked = a["childLocked"].toArray();
+    QString plug = a["plug"].toString();
+    int count = a["pair"].toBool() ? 2 : 3;
+    for (int k = 0; k < count; ++k) {
+        auto* e = new QLineEdit(fmt3(v.at(k).toDouble()), w);
+        e->setFixedSize(72, 20);
+        const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
+        e->setReadOnly(read_only(a) || locked);
+        if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
+        if (locked) e->setObjectName("lockedField");
+        QString child = kids.at(k).toString();
+        if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
+        QString cp = plug.left(plug.lastIndexOf('.')) + "." + child;
+        e->setProperty("plugKey", cp);
+        QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+        QObject::connect(e, &QLineEdit::editingFinished, e, [e, cp] {
+            if (!e->property("editing").toBool()) return;
+            e->setProperty("editing", false);
+            set_plug(cp, e->text().toDouble(), "float");
+        });
+        h->addWidget(e);
+    }
+    h->addStretch(1);
+    return w;
+}
+
+// The reference's three column limit row: the minimum and maximum greyed until enabled, and buttons that take them.
+QWidget* ae_limit_row(const AeBox& group, const QString& axis, const QHash<QString, QJsonObject>& by, QWidget* parent, const QString& label) {
+    auto* w = new QWidget(parent);
+    auto* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(2);
+    QString type = group.limit;
+    QString prefix = type == "Trans" ? "Trans" : type;
+    QString curName = (type == "Trans" ? "translate" : type == "Rot" ? "rotate" : "scale") + axis;
+    QString minName = "min" + prefix + axis + "Limit";
+    QString maxName = "max" + prefix + axis + "Limit";
+    auto value_field = [&](const QString& name, int width) {
+        QJsonObject a = by.value(name);
+        int part = -1;
+        if (a.isEmpty() && name.size() > 1) {
+            QChar last = name.back();
+            if (last == 'X' || last == 'Y' || last == 'Z') {
+                QJsonObject parentAttr = by.value(name.left(name.size() - 1));
+                if (!parentAttr.isEmpty() && parentAttr["type"].toString() == "vec3") {
+                    a = parentAttr;
+                    part = last == 'X' ? 0 : last == 'Y' ? 1 : 2;
+                }
+            }
+        }
+        auto* e = new QLineEdit(w);
+        e->setFixedSize(width, 20);
+        if (!a.isEmpty()) {
+            if (part >= 0) {
+                QJsonArray values = a["value"].toArray();
+                e->setText(fmt3(values.at(part).toDouble()));
+                QString base = a["plug"].toString();
+                QString plug = base.left(base.lastIndexOf('.')) + "." + name.right(1).toLower();
+                e->setProperty("plugKey", plug);
+                e->setReadOnly(read_only(a));
+                QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+                QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
+                    if (!e->property("editing").toBool()) return;
+                    e->setProperty("editing", false);
+                    set_plug(plug, e->text().toDouble(), "float");
+                });
+            } else {
+            e->setText(a["type"].toString() == "int" ? QString::number(a["value"].toInteger()) : fmt3(a["value"].toDouble()));
+            e->setReadOnly(read_only(a));
+            QString plug = a["plug"].toString();
+            QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+            QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
+                if (!e->property("editing").toBool()) return;
+                e->setProperty("editing", false);
+                set_plug(plug, e->text().toDouble(), "float");
+            });
+            }
+        } else {
+            e->setEnabled(false);
+        }
+        return e;
+    };
+    auto enable_box = [&](const QString& name) {
+        auto* cb = new QCheckBox(w);
+        cb->setFixedSize(14, 14);
+        QJsonObject a = by.value(name);
+        if (!a.isEmpty()) {
+            cb->setChecked(a["value"].toBool());
+            QString plug = a["plug"].toString();
+            QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
+        } else {
+            cb->setEnabled(false);
+        }
+        return cb;
+    };
+    QLineEdit* minField = value_field(minName, 33);
+    QLineEdit* maxField = value_field(maxName, 33);
+    QCheckBox* minOn = enable_box("min" + prefix + axis + "LimitEnable");
+    QCheckBox* maxOn = enable_box("max" + prefix + axis + "LimitEnable");
+    QLineEdit* curField = value_field(curName, 42);
+    auto* lo = new QToolButton(w);
+    lo->setObjectName("aeArrowButton");
+    lo->setIcon(triangle_icon(true));
+    lo->setIconSize(QSize(9, 9));
+    lo->setFixedSize(16, 20);
+    auto* hi = new QToolButton(w);
+    hi->setObjectName("aeArrowButton");
+    hi->setIcon(triangle_icon(false));
+    hi->setIconSize(QSize(9, 9));
+    hi->setFixedSize(16, 20);
+    QJsonObject cur = by.value(curName);
+    QString curPlug = cur.value("plug").toString();
+    QObject::connect(lo, &QToolButton::clicked, lo, [=] {
+        if (curPlug.isEmpty()) return;
+        exec("setAttr", args(QJsonArray{curPlug, minField->text().toDouble()}));
+    });
+    QObject::connect(hi, &QToolButton::clicked, hi, [=] {
+        if (curPlug.isEmpty()) return;
+        exec("setAttr", args(QJsonArray{curPlug, maxField->text().toDouble()}));
+    });
+    minField->setEnabled(minOn->isChecked() && minOn->isEnabled());
+    maxField->setEnabled(maxOn->isChecked() && maxOn->isEnabled());
+    QObject::connect(minOn, &QCheckBox::toggled, minField, [minField](bool on) { minField->setEnabled(on); });
+    QObject::connect(maxOn, &QCheckBox::toggled, maxField, [maxField](bool on) { maxField->setEnabled(on); });
+    h->addWidget(minField);
+    h->addWidget(minOn);
+    h->addWidget(lo);
+    h->addWidget(curField);
+    h->addWidget(hi);
+    h->addWidget(maxField);
+    h->addWidget(maxOn);
+    h->addStretch(1);
+    Q_UNUSED(label);
+    return w;
+}
+
+QWidget* ae_limit_header(QWidget* parent) {
+    auto* w = new QWidget(parent);
+    auto* h = new QHBoxLayout(w);
+    h->setContentsMargins(0, 0, 0, 0);
+    h->setSpacing(2);
+    auto add = [&](const char* text, int width) {
+        auto* l = new QLabel(text, w);
+        l->setObjectName("aeDimLabel");
+        l->setAlignment(Qt::AlignCenter);
+        l->setFixedWidth(width);
+        h->addWidget(l);
+    };
+    add("Min", 48);
+    add("Current", 76);
+    add("Max", 48);
+    h->addStretch(1);
+    return w;
+}
+
+class AeRowLine : public QFrame {
+public:
+    AeRowLine(QWidget* parent) : QFrame(parent) {
+        setFixedHeight(1);
+        setStyleSheet("background: #3d3d3d; border: none;");
+    }
+};
+
+// Which of the node's attributes the fixed layout has placed.
+void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
+                    const QString& style, int depth);
+
+// An extra attribute the layout does not name: its own row, under Extra Attributes.
+void ae_extra_rows(QVBoxLayout* v, QWidget* parent, const QHash<QString, QJsonObject>& by, QSet<QString>& used, const QString& style) {
+    QList<QString> names = by.keys();
+    names.sort();
+    for (const QString& n : names) {
+        if (used.contains(n)) continue;
+        const QJsonObject a = by.value(n);
+        if (a["type"].toString() == "matrix" || n == "notes") continue;
+        QWidget* field = attr_field(a, parent);
+        field->setToolTip(a["doc"].toString());
+        if (a["mapped"].toBool()) field->setEnabled(false);
+        QWidget* rowWidget = new QWidget(parent);
+        auto* h = new QHBoxLayout(rowWidget);
+        h->setContentsMargins(18, 0, 12, 0);
+        h->setSpacing(4);
+        auto* lab = new QLabel(a["nice"].toString(), rowWidget);
+        lab->setObjectName("aeRowLabel");
+        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lab->setFixedWidth(124);
+        lab->setToolTip(a["attr"].toString());
+        h->addWidget(lab);
+        h->addWidget(field);
+        h->addStretch(1);
+        v->addWidget(rowWidget);
+        used.insert(n);
+    }
+}
+
+void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
+                   const QString& style, int depth) {
+    bool open = b.open != 0;
+    if (b.open == -1) open = !closed_sections().contains(b.title);
+    auto* headWrap = new QWidget(parent);
+    auto* hw = new QHBoxLayout(headWrap);
+    hw->setContentsMargins(18, 0, 18, 0);
+    hw->setSpacing(0);
+    auto* head = new AeHead(b.title, open, depth, headWrap);
+    hw->addWidget(head);
+    v->addWidget(headWrap);
+    auto* content = new QWidget(parent);
+    content->setStyleSheet("background: #494949;");
+    auto* cv = new QVBoxLayout(content);
+    cv->setContentsMargins(0, 3, 0, 5);
+    cv->setSpacing(2);
+    content->setVisible(open);
+    v->addWidget(content);
+    head->toggled = [content, head, title = b.title](bool on) {
+        content->setVisible(on);
+        head->set_open(on);
+        if (on) closed_sections().remove(title);
+        else closed_sections().insert(title);
+    };
+    // The group's three limit rows, with the reference's Min, Current and Max above them.
+    if (!b.limit.isEmpty()) {
+        auto* hw = new QWidget(content);
+        auto* hh = new QHBoxLayout(hw);
+        hh->setContentsMargins(18, 0, 12, 0);
+        auto* pad = new QWidget(hw);
+        pad->setFixedWidth(124);
+        hh->addWidget(pad);
+        hh->addWidget(ae_limit_header(hw));
+        cv->addWidget(hw);
+        for (const char* axis : {"X", "Y", "Z"}) {
+            auto* rw = new QWidget(content);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(18, 0, 12, 0);
+            h->setSpacing(4);
+            auto* lab = new QLabel(b.title == "Translate" ? QString("Trans Limit %1").arg(axis)
+                                    : b.title == "Rotate"  ? QString("Rot Limit %1").arg(axis)
+                                                           : QString("Scale Limit %1").arg(axis),
+                                    rw);
+            lab->setObjectName("aeRowLabel");
+            lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            lab->setFixedWidth(124);
+            h->addWidget(lab);
+            h->addWidget(ae_limit_row(b, axis, by, rw, lab->text()));
+            h->addStretch(1);
+            cv->addWidget(rw);
+        }
+        return;
+    }
+    ae_render_rows(cv, content, b.rows, by, used, style, depth);
+    for (const AeBox& sub : b.subs) ae_render_box(cv, content, sub, by, used, style, depth + 1);
+}
+
+void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
+                    const QString& style, int depth) {
+    const bool extra = false;
+    for (const AeRow& r : rows) {
+        if (r.kind == "separator") {
+            auto* line = new AeRowLine(parent);
+            auto* wrap = new QWidget(parent);
+            auto* wh = new QHBoxLayout(wrap);
+            wh->setContentsMargins(18, depth * 0, 12, 0);
+            wh->addWidget(line);
+            v->addWidget(wrap);
+            continue;
+        }
+        QJsonObject a = by.value(r.attr);
+        QString label = r.label;
+        if (style == "Long" && !a.isEmpty()) label = a["attr"].toString();
+        if (label.isEmpty() && !a.isEmpty()) label = a["nice"].toString();
+        if (label.isEmpty() && !r.attr.isEmpty()) label = r.attr;
+        if (r.kind == "check2") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(18, 0, 12, 0);
+            h->setSpacing(4);
+            auto* pad = new QWidget(rw);
+            pad->setFixedWidth(124);
+            h->addWidget(pad);
+            auto add_check = [&](const QString& name, const QString& text, bool enabled) {
+                QJsonObject at = by.value(name);
+                auto* cb = new QCheckBox(rw);
+                cb->setFixedSize(14, 14);
+                if (!at.isEmpty()) {
+                    cb->setChecked(at["value"].toBool());
+                    QString plug = at["plug"].toString();
+                    QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
+                    used.insert(name);
+                } else {
+                    cb->setEnabled(false);
+                }
+                Q_UNUSED(enabled);
+                auto* l = new QLabel(text, rw);
+                h->addWidget(cb);
+                h->addWidget(l);
+            };
+            add_check(r.attr, label, true);
+            h->addSpacing(26);
+            add_check(r.extra, "Template", true);
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
+        QWidget* field = nullptr;
+        if (!a.isEmpty()) {
+            used.insert(r.attr);
+            if (a["type"].toString() == "matrix") field = ae_placeholder(r, a, parent);
+            else if (a["type"].toString() == "vec3") field = ae_vec3(a, parent);
+            else field = ae_field(r, a, style, parent);
+            if (a["type"].toString() == "string" && r.kind != "text" && r.kind != "combo") {
+                field->setMinimumWidth(295);
+            }
+        } else {
+            field = ae_placeholder(r, a, parent);
+        }
+        field->setToolTip(a.isEmpty() ? QString() : a["doc"].toString());
+        auto* rowWidget = new QWidget(parent);
+        auto* h = new QHBoxLayout(rowWidget);
+        h->setContentsMargins(18, 0, 12, 0);
+        h->setSpacing(4);
+        auto* lab = new QLabel(label, rowWidget);
+        lab->setObjectName("aeRowLabel");
+        lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lab->setFixedWidth(124);
+        lab->setToolTip(a.isEmpty() ? label : a["attr"].toString());
+        if (!a.isEmpty()) {
+            if (a["locked"].toBool()) lab->setProperty("locked", true);
+        } else {
+            lab->setObjectName("aeDimLabel");
+        }
+        h->addWidget(lab);
+        h->addWidget(field);
+        h->addStretch(1);
+        v->addWidget(rowWidget);
+    }
+    Q_UNUSED(extra);
+}
+
+void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
+                    const QString& style) {
+    for (const AeBox& b : boxes) {
+        if (b.title == "Arnold") {
+            auto* headWrap = new QWidget(parent);
+            auto* hw = new QHBoxLayout(headWrap);
+            hw->setContentsMargins(18, 0, 18, 0);
+            hw->setSpacing(0);
+            auto* head = new AeHead(b.title, b.open != 0, 0, headWrap);
+            hw->addWidget(head);
+            v->addWidget(headWrap);
+            auto* content = new QWidget(parent);
+            content->setStyleSheet("background: #494949;");
+            auto* cv = new QVBoxLayout(content);
+            cv->setContentsMargins(0, 3, 0, 5);
+            cv->setSpacing(2);
+            content->setVisible(b.open != 0);
+            v->addWidget(content);
+            head->toggled = [content, head, title = b.title](bool on) {
+                content->setVisible(on);
+                head->set_open(on);
+                if (on) closed_sections().remove(title);
+                else closed_sections().insert(title);
+            };
+            QList<QString> names = by.keys();
+            names.sort();
+            for (const QString& n : names) {
+                if (!n.startsWith("ai") || used.contains(n)) continue;
+                QJsonObject a = by.value(n);
+                if (a["type"].toString() == "matrix") continue;
+                used.insert(n);
+                QWidget* field = attr_field(a, content);
+                auto* rw = new QWidget(content);
+                auto* h = new QHBoxLayout(rw);
+                h->setContentsMargins(18, 0, 12, 0);
+                h->setSpacing(4);
+                auto* lab = new QLabel(override_label(n, a["nice"].toString()), rw);
+                lab->setObjectName("aeRowLabel");
+                lab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+                lab->setFixedWidth(124);
+                h->addWidget(lab);
+                h->addWidget(field);
+                h->addStretch(1);
+                cv->addWidget(rw);
+            }
+            continue;
+        }
+        if (b.title == "Extra Attributes") {
+            auto* headWrap = new QWidget(parent);
+            auto* hw = new QHBoxLayout(headWrap);
+            hw->setContentsMargins(18, 0, 18, 0);
+            hw->setSpacing(0);
+            auto* head = new AeHead(b.title, b.open != 0, 0, headWrap);
+            hw->addWidget(head);
+            v->addWidget(headWrap);
+            auto* content = new QWidget(parent);
+            content->setStyleSheet("background: #494949;");
+            auto* cv = new QVBoxLayout(content);
+            cv->setContentsMargins(0, 3, 0, 5);
+            cv->setSpacing(2);
+            content->setVisible(b.open != 0);
+            v->addWidget(content);
+            head->toggled = [content, head, title = b.title](bool on) {
+                content->setVisible(on);
+                head->set_open(on);
+                if (on) closed_sections().remove(title);
+                else closed_sections().insert(title);
+            };
+            ae_extra_rows(cv, content, by, used, style);
+            continue;
+        }
+        ae_render_box(v, parent, b, by, used, style, 0);
+    }
+}
+
 } // namespace
 
 AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel(parent), pinned_(pinned) {
     auto* lay = new QVBoxLayout(this);
-    lay->setContentsMargins(2, 2, 2, 2);
-    lay->setSpacing(2);
-    // List, Selected, Focus, Attributes, as a row of buttons above the tabs.
-    auto* top = new QHBoxLayout();
-    auto* back = new QToolButton(this);
-    back->setArrowType(Qt::LeftArrow);
-    back->setToolTip("The node before this one in the chain");
-    auto* fwd = new QToolButton(this);
-    fwd->setArrowType(Qt::RightArrow);
-    fwd->setToolTip("The node after this one in the chain");
-    connect(back, &QToolButton::clicked, this, [this] { tabs_->setCurrentIndex(qMax(0, tabs_->currentIndex() - 1)); });
-    connect(fwd, &QToolButton::clicked, this, [this] { tabs_->setCurrentIndex(qMin(tabs_->count() - 1, tabs_->currentIndex() + 1)); });
-    top->addWidget(back);
-    top->addWidget(fwd);
-    top->addStretch(1);
-    // Presets, as the reference's: save this node's settings, apply one (replacing or blended), bring in the
-    // reference's MEL presets as YAML.
-    auto* presets = new QToolButton(this);
-    presets->setText("Presets");
-    presets->setPopupMode(QToolButton::InstantPopup);
-    auto* pmenu = new QMenu(presets);
-    presets->setMenu(pmenu);
-    top->addWidget(presets);
-    connect(pmenu, &QMenu::aboutToShow, this, [this, pmenu] {
-        pmenu->clear();
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(0);
+    name_style_ = QSettings().value("ae/nameStyle", "Nice").toString();
+    show_notes_ = QSettings().value("ae/showNotes", true).toBool();
+
+    // The reference's menu bar above the tabs, and the pin at its right.
+    auto* bar = new QWidget(this);
+    bar->setObjectName("aeMenuBar");
+    auto* barLay = new QHBoxLayout(bar);
+    barLay->setContentsMargins(14, 0, 8, 0);
+    barLay->setSpacing(0);
+    auto menu_button = [&](const QString& text, QMenu* menu) {
+        auto* b = new QToolButton(bar);
+        b->setObjectName("aeMenuItem");
+        b->setText(text);
+        b->setPopupMode(QToolButton::InstantPopup);
+        b->setMenu(menu);
+        b->setToolTip(text);
+        barLay->addWidget(b);
+        return b;
+    };
+    auto* listMenu = new QMenu(this);
+    auto* pinAction = listMenu->addAction("Pin Tab");
+    pinAction->setCheckable(true);
+    pinAction->setChecked(!pinned_.isEmpty());
+    connect(pinAction, &QAction::toggled, this, [this](bool on) {
         QWidget* w = tabs_->currentWidget();
-        const QString node = w ? w->property("nodePath").toString() : QString();
-        if (node.isEmpty()) {
-            pmenu->addAction("No node")->setEnabled(false);
+        pinned_ = on && w ? w->property("nodePath").toString() : QString();
+        refresh();
+    });
+    auto* loadSel = listMenu->addAction("Load Selected Attributes");
+    loadSel->setEnabled(false);
+    auto* selItems = listMenu->addAction("Selected Items");
+    selItems->setEnabled(false);
+    listMenu->addSeparator();
+    for (const char* t : {"Dynamics", "Kinematics", "Deformers", "Lights", "Shading"}) {
+        QMenu* sub = listMenu->addMenu(t);
+        sub->addAction("None")->setEnabled(false);
+        sub->setEnabled(false);
+    }
+    menu_button("List", listMenu);
+
+    auto* selectedMenu = new QMenu(this);
+    connect(selectedMenu, &QMenu::aboutToShow, this, [this, selectedMenu] {
+        selectedMenu->clear();
+        QStringList names;
+        for (const QJsonValue& v : ask("ls", QJsonObject{{"args", QJsonArray{}}, {"selection", true}}).toArray()) names << v.toString().section('|', -1);
+        if (names.isEmpty()) {
+            selectedMenu->addAction("No Selection")->setEnabled(false);
             return;
         }
-        const QString type = exec_quiet("nodeType", QJsonObject{{"args", QJsonArray{node}}}).toString();
-        pmenu->addAction(QString("Save %1 Preset...").arg(type), this, [this, node] {
-            bool ok = false;
-            const QString name = QInputDialog::getText(this, "Save Attribute Preset", "Preset name:", QLineEdit::Normal, QString(), &ok).trimmed();
-            if (ok && !name.isEmpty()) exec("nodePreset", QJsonObject{{"save", QJsonArray{node, name}}});
-        });
-        pmenu->addAction("Import Reference Presets...", this, [this] {
-            const QStringList files = QFileDialog::getOpenFileNames(this, "Import Reference Presets", QString(), "MEL presets (*.mel)");
-            if (files.isEmpty()) return;
-            exec("importAttrPresets", QJsonObject{{"args", QJsonArray::fromStringList(files)}});
-        });
-        const QJsonArray list = exec_quiet("nodePreset", QJsonObject{{"list", node}}).toArray();
-        if (!list.isEmpty()) pmenu->addSeparator();
-        for (const QJsonValue& v : list) {
-            const QString name = v.toString();
-            QMenu* sub = pmenu->addMenu(name);
-            sub->addAction("Replace", this, [node, name] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, name, 100}}}); });
-            for (int pct : {90, 75, 50, 25, 10})
-                sub->addAction(QString("Blend %1%").arg(pct), this, [node, name, pct] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, name, pct}}}); });
-            sub->addSeparator();
-            sub->addAction("Delete", this, [node, name] { exec("nodePreset", QJsonObject{{"delete", QJsonArray{node, name}}}); });
+        const QString focused = tabs_->currentWidget() ? tabs_->currentWidget()->property("nodePath").toString().section('|', -1) : QString();
+        for (const QString& n : names) {
+            auto* a = selectedMenu->addAction(n);
+            a->setCheckable(true);
+            a->setChecked(n == focused);
+            connect(a, &QAction::triggered, this, [this, n] {
+                for (int i = 0; i < tabs_->count(); ++i)
+                    if (tabs_->tabText(i) == n) {
+                        tabs_->setCurrentIndex(i);
+                        return;
+                    }
+            });
         }
     });
-    lay->addLayout(top);
+    menu_button("Selected", selectedMenu);
+
+    auto* focusMenu = new QMenu(this);
+    connect(focusMenu, &QMenu::aboutToShow, this, [this, focusMenu] {
+        focusMenu->clear();
+        for (int i = 0; i < tabs_->count(); ++i) {
+            QWidget* w = tabs_->widget(i);
+            QString path = w ? w->property("nodePath").toString() : QString();
+            auto* a = focusMenu->addAction(path);
+            if (i == tabs_->currentIndex()) a->setCheckable(true), a->setChecked(true);
+            connect(a, &QAction::triggered, this, [path] { exec("select", args(QJsonArray{path})); });
+        }
+    });
+    menu_button("Focus", focusMenu);
+
+    auto* attrsMenu = new QMenu(this);
+    attrsMenu->addAction("Add Attributes...", this, [] { exec("AddAttribute"); });
+    attrsMenu->addAction("Delete Attributes...", this, [this] { exec("DeleteAttribute"); });
+    attrsMenu->addAction("Edit Attributes...", this, [this] { exec("EditAttribute"); });
+    menu_button("Attributes", attrsMenu);
+
+    auto* displayMenu = new QMenu(this);
+    auto* namesMenu = displayMenu->addMenu("Attribute Names");
+    auto* nice = namesMenu->addAction("Nice");
+    auto* lng = namesMenu->addAction("Long");
+    auto* shortNames = namesMenu->addAction("Short");
+    for (auto* a : {nice, lng, shortNames}) a->setCheckable(true);
+    nice->setChecked(name_style_ == "Nice");
+    lng->setChecked(name_style_ == "Long");
+    shortNames->setChecked(name_style_ == "Short");
+    auto set_style = [this, nice, lng, shortNames](const QString& s) {
+        name_style_ = s;
+        QSettings().setValue("ae/nameStyle", s);
+        nice->setChecked(s == "Nice");
+        lng->setChecked(s == "Long");
+        shortNames->setChecked(s == "Short");
+        last_.clear();
+        refresh();
+    };
+    connect(nice, &QAction::triggered, this, [set_style] { set_style("Nice"); });
+    connect(lng, &QAction::triggered, this, [set_style] { set_style("Long"); });
+    connect(shortNames, &QAction::triggered, this, [set_style] { set_style("Short"); });
+    menu_button("Display", displayMenu);
+
+    auto* showMenu = new QMenu(this);
+    auto* byType = showMenu->addMenu("By Node Type");
+    byType->addAction("None")->setEnabled(false);
+    showMenu->addAction("Add New Filter Type...")->setEnabled(false);
+    showMenu->addAction("Add Filter Types for Selected")->setEnabled(false);
+    showMenu->addAction("Add Filter Types for Related")->setEnabled(false);
+    showMenu->addAction("Remove Filter Type")->setEnabled(false);
+    showMenu->addAction("Save Show Preset")->setEnabled(false);
+    showMenu->addAction("Load Show Preset")->setEnabled(false);
+    showMenu->addAction("Set Current View")->setEnabled(false);
+    showMenu->addAction("Set Global View")->setEnabled(false);
+    showMenu->addSeparator();
+    auto* noGlobal = showMenu->addAction("Show default if no global view");
+    noGlobal->setCheckable(true);
+    noGlobal->setChecked(true);
+    auto* viewLabels = showMenu->addAction("Show View Labels");
+    viewLabels->setCheckable(true);
+    viewLabels->setChecked(true);
+    auto* showNotes = showMenu->addAction("Show Notes");
+    showNotes->setCheckable(true);
+    showNotes->setChecked(show_notes_);
+    connect(showNotes, &QAction::toggled, this, [this](bool on) {
+        show_notes_ = on;
+        QSettings().setValue("ae/showNotes", on);
+        last_.clear();
+        refresh();
+    });
+    auto* colorPots = showMenu->addAction("Show Color Managed Pots");
+    colorPots->setCheckable(true);
+    colorPots->setChecked(true);
+    menu_button("Show", showMenu);
+
+    auto* helpMenu = new QMenu(this);
+    helpMenu->addAction("Help on Attribute Editor")->setEnabled(false);
+    helpMenu->addSeparator();
+    helpMenu->addAction("Help on \"mesh\"")->setEnabled(false);
+    helpMenu->addAction("Help on \"openPBRSurface\"")->setEnabled(false);
+    helpMenu->addAction("Help on \"polyCube\"")->setEnabled(false);
+    helpMenu->addAction("Help on \"transform\"")->setEnabled(false);
+    helpMenu->addSeparator();
+    helpMenu->addAction("Node and Attribute Reference")->setEnabled(false);
+    menu_button("Help", helpMenu);
+
+    barLay->addStretch(1);
+    auto* pin = new QToolButton(bar);
+    pin->setObjectName("aePin");
+    pin->setText(QString::fromUtf8("\u2934"));
+    pin->setToolTip("Pin Tab");
+    pin->setCheckable(true);
+    pin->setChecked(!pinned_.isEmpty());
+    connect(pin, &QToolButton::toggled, this, [this, pin, pinAction](bool on) {
+        QWidget* w = tabs_->currentWidget();
+        pinned_ = on && w ? w->property("nodePath").toString() : QString();
+        if (pinAction->isChecked() != on) pinAction->setChecked(on);
+        refresh();
+    });
+    barLay->addWidget(pin);
+    lay->addWidget(bar);
+
     tabs_ = new QTabWidget(this);
-    tabs_->setDocumentMode(true);
+    tabs_->setObjectName("aeTabs");
+    tabs_->setDocumentMode(false);
     tabs_->setUsesScrollButtons(true);
     lay->addWidget(tabs_, 1);
     connect(tabs_, &QTabWidget::currentChanged, this, [this](int i) {
         if (i >= 0) current_tab_ = tabs_->tabText(i);
     });
+
     auto* bottom = new QHBoxLayout();
+    bottom->setContentsMargins(2, 2, 2, 2);
+    bottom->setSpacing(2);
     auto* sel = new QPushButton("Select", this);
     auto* load = new QPushButton("Load Attributes", this);
     auto* copy = new QPushButton("Copy Tab", this);
-    bottom->addWidget(sel);
-    bottom->addWidget(load);
-    bottom->addWidget(copy);
+    for (auto* b : {sel, load, copy}) {
+        b->setObjectName("aeBottomButton");
+        b->setMinimumHeight(23);
+        bottom->addWidget(b, 1);
+    }
     lay->addLayout(bottom);
     connect(sel, &QPushButton::clicked, this, [this] {
         QWidget* w = tabs_->currentWidget();
@@ -954,7 +1901,7 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
         win->setAttribute(Qt::WA_DeleteOnClose);
         win->setWindowFlags(editor_window_flags());
         win->setWindowTitle(tabs_->tabText(tabs_->currentIndex()));
-        win->resize(380, 560);
+        win->resize(480, 700);
         win->show();
     });
 }
@@ -980,7 +1927,7 @@ void AttributeEditor::refresh() {
         focus_text = fe->text();
     }
     int scrolled = 0;
-    if (auto* sa = qobject_cast<QScrollArea*>(tabs_->currentWidget())) scrolled = sa->verticalScrollBar()->value();
+    if (auto* sa = tabs_->currentWidget() ? tabs_->currentWidget()->findChild<QScrollArea*>() : nullptr) scrolled = sa->verticalScrollBar()->value();
     tabs_->blockSignals(true);
     while (tabs_->count()) {
         QWidget* w = tabs_->widget(0);
@@ -997,29 +1944,143 @@ void AttributeEditor::refresh() {
         // Rows fit the panel's width: the sliders give, so the map buttons at the rows' ends stay in sight.
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         auto* body = new QWidget();
-        // Narrower than its rows would like, it still takes the panel's width: the sliders are what give way.
+        body->setObjectName("aePage");
         body->setMinimumWidth(40);
         auto* v = new QVBoxLayout(body);
-        v->setContentsMargins(3, 6, 3, 6);
+        v->setContentsMargins(0, 8, 0, 8);
         v->setSpacing(2);
-        auto* head = new QHBoxLayout();
-        // Harold's node types carry the ai prefix of the files they are read from: the heading says whose they are.
-        const bool harold_type = node_type.startsWith("ai") && node_type.size() > 2 && node_type[2].isUpper();
-        head->addWidget(new QLabel(QString("<b>%1:</b>").arg(harold_type ? "harold" + node_type.mid(2) : node_type), body));
-        auto* name = new QLineEdit(t["name"].toString(), body);
-        name->setMinimumWidth(40);
+
         QString path = t["path"].toString();
         scroll->setProperty("nodePath", path);
+
+        QJsonArray attrs = t["attrs"].toArray();
+        QHash<QString, QJsonObject> by;
+        QJsonValue notes;
+        for (const QJsonValue& av : attrs) {
+            QJsonObject a = av.toObject();
+            by.insert(a["attr"].toString(), a);
+            if (a["attr"].toString() == "notes") notes = a["value"];
+        }
+        QString notes_plug = path + ".notes";
+
+        // The node's type above its name field, with the reference's connection buttons, Focus, Presets and Show/Hide.
+        auto* nameRow = new QWidget(body);
+        auto* nh = new QHBoxLayout(nameRow);
+        nh->setContentsMargins(18, 2, 18, 10);
+        nh->setSpacing(4);
+        auto* typeLabel = new QLabel(ae_type_label(node_type) + ":", nameRow);
+        typeLabel->setObjectName("aeTypeLabel");
+        typeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        typeLabel->setFixedWidth(124);
+        nh->addWidget(typeLabel);
+        auto* name = new QLineEdit(nameRow);
+        name->setObjectName("aeNameField");
+        name->setFixedSize(127, 20);
+        name->setText(QString());
         connect(name, &QLineEdit::editingFinished, name, [name, path] {
-            if (name->text().trimmed() != path.section('|', -1)) exec("rename", args(QJsonArray{path, name->text().trimmed()}));
+            if (!name->text().trimmed().isEmpty() && name->text().trimmed() != path.section('|', -1))
+                exec("rename", args(QJsonArray{path, name->text().trimmed()}));
         });
-        head->addWidget(name, 1);
-        auto* focus = new QToolButton(body);
-        focus->setIcon(icon("frameSel", 16));
-        focus->setToolTip("Focus: select this node");
-        connect(focus, &QToolButton::clicked, focus, [path] { exec("select", args(QJsonArray{path})); });
-        head->addWidget(focus);
-        v->addLayout(head);
+        nh->addWidget(name);
+        auto* links = new QWidget(nameRow);
+        auto* lv = new QVBoxLayout(links);
+        lv->setContentsMargins(0, 0, 0, 0);
+        lv->setSpacing(1);
+        auto* in = new QToolButton(links);
+        in->setObjectName("aeLinkButton");
+        in->setIcon(connect_icon(true));
+        in->setIconSize(QSize(14, 14));
+        in->setFixedSize(18, 9);
+        in->setToolTip("Go to input connection");
+        in->setEnabled(false);
+        auto* out = new QToolButton(links);
+        out->setObjectName("aeLinkButton");
+        out->setIcon(connect_icon(false));
+        out->setIconSize(QSize(14, 14));
+        out->setFixedSize(18, 9);
+        out->setToolTip("Go to output connection");
+        out->setEnabled(false);
+        lv->addWidget(in);
+        lv->addWidget(out);
+        nh->addWidget(links);
+        nh->addSpacing(8);
+        auto* right = new QWidget(nameRow);
+        right->setFixedWidth(62);
+        auto* rv = new QVBoxLayout(right);
+        rv->setContentsMargins(0, 0, 0, 0);
+        rv->setSpacing(1);
+        auto* focus = new QPushButton("Focus", right);
+        focus->setObjectName("aeSmallButton");
+        focus->setFixedHeight(20);
+        focus->setToolTip("Select this node");
+        connect(focus, &QPushButton::clicked, focus, [path] { exec("select", args(QJsonArray{path})); });
+        rv->addWidget(focus);
+        auto* presets = new QToolButton(right);
+        presets->setObjectName("aeSmallButton");
+        presets->setText("Presets");
+        presets->setFixedHeight(20);
+        presets->setPopupMode(QToolButton::InstantPopup);
+        auto* pmenu = new QMenu(presets);
+        presets->setMenu(pmenu);
+        rv->addWidget(presets);
+        connect(pmenu, &QMenu::aboutToShow, this, [this, pmenu] {
+            pmenu->clear();
+            QWidget* w = tabs_->currentWidget();
+            const QString node = w ? w->property("nodePath").toString() : QString();
+            if (node.isEmpty()) {
+                pmenu->addAction("No node")->setEnabled(false);
+                return;
+            }
+            const QString type = exec_quiet("nodeType", QJsonObject{{"args", QJsonArray{node}}}).toString();
+            pmenu->addAction(QString("Save %1 Preset...").arg(type), this, [this, node] {
+                bool ok = false;
+                const QString name = QInputDialog::getText(this, "Save Attribute Preset", "Preset name:", QLineEdit::Normal, QString(), &ok).trimmed();
+                if (ok && !name.isEmpty()) exec("nodePreset", QJsonObject{{"save", QJsonArray{node, name}}});
+            });
+            pmenu->addAction("Import Reference Presets...", this, [this] {
+                const QStringList files = QFileDialog::getOpenFileNames(this, "Import Reference Presets", QString(), "MEL presets (*.mel)");
+                if (files.isEmpty()) return;
+                exec("importAttrPresets", QJsonObject{{"args", QJsonArray::fromStringList(files)}});
+            });
+            const QJsonArray list = exec_quiet("nodePreset", QJsonObject{{"list", node}}).toArray();
+            if (!list.isEmpty()) pmenu->addSeparator();
+            for (const QJsonValue& pv : list) {
+                const QString preset = pv.toString();
+                QMenu* sub = pmenu->addMenu(preset);
+                sub->addAction("Replace", this, [node, preset] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, preset, 100}}}); });
+                for (int pct : {90, 75, 50, 25, 10})
+                    sub->addAction(QString("Blend %1%").arg(pct), this, [node, preset, pct] { exec("applyAttrPreset", QJsonObject{{"args", QJsonArray{node, preset, pct}}}); });
+                sub->addSeparator();
+                sub->addAction("Delete", this, [node, preset] { exec("nodePreset", QJsonObject{{"delete", QJsonArray{node, preset}}}); });
+            }
+        });
+        auto* showHide = new QWidget(right);
+        auto* sh = new QHBoxLayout(showHide);
+        sh->setContentsMargins(0, 0, 0, 0);
+        sh->setSpacing(1);
+        auto* show = new QPushButton("Show", showHide);
+        show->setObjectName("aeTinyButton");
+        show->setFixedHeight(20);
+        show->setToolTip("Show the node");
+        auto* hide = new QPushButton("Hide", showHide);
+        hide->setObjectName("aeTinyButton");
+        hide->setFixedHeight(20);
+        hide->setToolTip("Hide the node");
+        sh->addWidget(show);
+        sh->addWidget(hide);
+        connect(show, &QPushButton::clicked, show, [path] { exec("setAttr", QJsonObject{{"args", QJsonArray{path + ".visibility", true}}}); });
+        connect(hide, &QPushButton::clicked, hide, [path] { exec("setAttr", QJsonObject{{"args", QJsonArray{path + ".visibility", false}}}); });
+        rv->addWidget(showHide);
+        nh->addWidget(right);
+        nh->addStretch(1);
+        v->addWidget(nameRow);
+
+        QList<AeBox> boxes = ae_tree(node_type);
+        const bool tree_layout = !boxes.isEmpty();
+        QSet<QString> used;
+        if (tree_layout) {
+            ae_render_tree(v, body, boxes, by, used, name_style_);
+        } else {
         // A light's type, which swaps the shape, and whether it is in the default light set.
         static const QStringList light_types{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
         if (light_types.contains(node_type)) {
@@ -1039,7 +2100,6 @@ void AttributeEditor::refresh() {
             });
             form->addRow("Illuminates by Default", by_default);
         }
-
         // A parent constraint's offset from each target, as the reference's Target Offsets: Update takes the object's
         // place now as the offset, Key keys the offsets (#121).
         if (node_type == "parentConstraint") {
@@ -1103,7 +2163,6 @@ void AttributeEditor::refresh() {
         }
 
         QJsonArray attrs = t["attrs"].toArray();
-        QSet<QString> used;
         // A script's AE<type>Template lays the tab out: what it does not name shows only under -addExtraControls.
         QJsonArray layout = query("aeTemplate", node_type + " " + path).toArray();
         bool extra = layout.isEmpty();
@@ -1167,8 +2226,6 @@ void AttributeEditor::refresh() {
         }
         // The rest grouped by their own category, then Extra Attributes.
         QMap<QString, QFormLayout*> forms;
-        QJsonValue notes;
-        QString notes_plug = path + ".notes";
         for (const QJsonValue& av : attrs) {
             QJsonObject a = av.toObject();
             QString n = a["attr"].toString();
@@ -1184,29 +2241,56 @@ void AttributeEditor::refresh() {
             field->setToolTip(a["doc"].toString());
             forms[cat]->addRow(attr_label(a["nice"].toString(), a, body, field), field);
         }
-        // Notes: a string attribute added the first time it's written.
-        auto* note_head = new QLabel("Notes: " + t["name"].toString(), body);
-        note_head->setObjectName("aeSection");
-        v->addWidget(note_head);
-        auto* note = new QPlainTextEdit(notes.toString(), body);
-        note->setFixedHeight(70);
-        note->setProperty("editing", false);
-        bool had = !notes.isUndefined();
-        connect(note, &QPlainTextEdit::textChanged, note, [note] { note->setProperty("editing", true); });
-        note->installEventFilter(this);
-        note->setProperty("notesPlug", notes_plug);
-        note->setProperty("notesNode", path);
-        note->setProperty("notesHad", had);
-        v->addWidget(note);
+        }
+        // Notes: a string attribute added the first time it's written, in the reference's fixed area under the sections.
+        auto* page = new QWidget();
+        page->setProperty("nodePath", path);
+        auto* pl = new QVBoxLayout(page);
+        pl->setContentsMargins(0, 0, 0, 0);
+        pl->setSpacing(0);
+        pl->addWidget(scroll, 1);
+        if (show_notes_) {
+            auto* notesArea = new QWidget(page);
+            notesArea->setObjectName("aeNotesArea");
+            auto* nv = new QVBoxLayout(notesArea);
+            nv->setContentsMargins(10, 2, 12, 2);
+            nv->setSpacing(1);
+            auto* dots = new QWidget(notesArea);
+            dots->setFixedHeight(6);
+            auto* dl = new QHBoxLayout(dots);
+            dl->setContentsMargins(0, 4, 0, 0);
+            dl->addStretch(1);
+            auto* line = new QFrame(dots);
+            line->setObjectName("aeDottedLine");
+            line->setFixedSize(146, 1);
+            dl->addWidget(line);
+            dl->addStretch(1);
+            nv->addWidget(dots);
+            auto* note_head = new QLabel("Notes: " + t["name"].toString(), notesArea);
+            note_head->setObjectName("aeNotesLabel");
+            nv->addWidget(note_head);
+            auto* note = new QPlainTextEdit(notes.toString(), notesArea);
+            note->setObjectName("aeNotes");
+            note->setFixedHeight(96);
+            note->setProperty("editing", false);
+            bool had = !notes.isUndefined();
+            connect(note, &QPlainTextEdit::textChanged, note, [note] { note->setProperty("editing", true); });
+            note->installEventFilter(this);
+            note->setProperty("notesPlug", notes_plug);
+            note->setProperty("notesNode", path);
+            note->setProperty("notesHad", had);
+            nv->addWidget(note);
+            pl->addWidget(notesArea);
+        }
         v->addStretch(1);
         fit_labels(body);
         scroll->setWidget(body);
-        int idx = tabs_->addTab(scroll, t["name"].toString());
+        int idx = tabs_->addTab(page, t["name"].toString());
         if (t["name"].toString() == keep) select = idx;
     }
     tabs_->setCurrentIndex(select);
     tabs_->blockSignals(false);
-    if (auto* sa = qobject_cast<QScrollArea*>(tabs_->currentWidget())) {
+    if (auto* sa = tabs_->currentWidget() ? tabs_->currentWidget()->findChild<QScrollArea*>() : nullptr) {
         QScrollBar* bar = sa->verticalScrollBar();
         // After the layout has given the page its height.
         QTimer::singleShot(0, bar, [bar, scrolled] { bar->setValue(scrolled); });

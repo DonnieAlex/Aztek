@@ -96,3 +96,40 @@ QToolButton#mapButton:hover { background: @button; }
 QToolButton#statusHandle { border: none; border-left: 1px solid @border; border-right: 1px solid @hover; background: @chrome; margin: 2px 2px; padding: 0; color: @dim; font-size: 9px; }
 QToolButton#statusHandle:hover { background: @hi; }
 QToolButton#statusHandle:checked { background: @chrome; }
+
+/* The Attribute Editor's chrome, to the reference's own measurements. */
+QWidget#aeMenuBar { background: @window; border: none; }
+QWidget#aeMenuBar QToolButton#aeMenuItem { background: transparent; border: none; padding: 4px 8px; font-size: 11px; color: @text; }
+QWidget#aeMenuBar QToolButton#aeMenuItem:hover { background: @hi; color: #ffffff; }
+QWidget#aeMenuBar QToolButton#aeMenuItem::menu-indicator { image: none; width: 0; }
+QToolButton#aePin { background: transparent; border: none; color: @text; font-size: 13px; padding: 0 4px; }
+QToolButton#aePin:hover { background: @hover; }
+QToolButton#aePin:checked { color: #ffffff; }
+QTabWidget#aeTabs::pane { border: none; background: @window; top: 0px; }
+QTabWidget#aeTabs QTabBar { background: @window; }
+QTabWidget#aeTabs QTabBar::tab { background: #4a4a4a; color: #c4c4c4; border: 1px solid #2a2a2a; border-bottom: none; padding: 3px 6px; margin-right: 1px; font-size: 11px; min-height: 16px; }
+QTabWidget#aeTabs QTabBar::tab:selected { background: #5d5d5d; color: #f0f0f0; }
+QTabWidget#aeTabs QTabBar::tab:hover { background: #555555; }
+QWidget#aePage { background: @window; }
+QLabel#aeTypeLabel { font-size: 11px; color: @text; }
+QLineEdit#aeNameField { background: #242424; border: 1px solid #1a1a1a; color: #dddddd; padding: 1px 4px; }
+QLabel#aeRowLabel { font-size: 11px; color: @text; }
+QLabel#aeDimLabel { font-size: 11px; color: @disabled; }
+QPushButton#aeSmallButton, QToolButton#aeSmallButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 11px; padding: 0 4px; }
+QPushButton#aeSmallButton:hover, QToolButton#aeSmallButton:hover { background: #6a6a6a; }
+QPushButton#aeSmallButton:pressed, QToolButton#aeSmallButton:pressed { background: #4f4f4f; }
+QToolButton#aeSmallButton::menu-indicator { image: none; width: 0; }
+QToolButton#aeLinkButton { border: none; background: transparent; }
+QPushButton#aeBottomButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e8e8e8; font-size: 11px; padding: 2px 4px; }
+QPushButton#aeBottomButton:hover { background: #6a6a6a; }
+QToolButton#aeArrowButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e0e0e0; font-size: 10px; padding: 0; }
+QWidget#aeNotesArea { background: @window; }
+QFrame#aeDottedLine { border: none; border-top: 1px dotted #8a8a8a; max-height: 1px; }
+QLabel#aeNotesLabel { font-size: 11px; font-weight: bold; color: #e4e4e4; }
+QPlainTextEdit#aeNotes { background: #2b2b2b; border: 1px solid #202020; color: #dddddd; font-size: 11px; }
+QTabWidget#aeTabs QLineEdit, QWidget#aePage QLineEdit { background: #232323; border: 1px solid #191919; color: #dddddd; font-size: 11px; padding: 1px 3px; }
+QWidget#aePage QComboBox { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 11px; padding: 1px 4px; }
+QWidget#aePage QCheckBox { font-size: 11px; }
+QWidget#aePage QLabel { font-size: 11px; }
+QPushButton#aeTinyButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 10px; padding: 0; }
+QPushButton#aeTinyButton:hover { background: #6a6a6a; }
