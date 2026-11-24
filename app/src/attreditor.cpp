@@ -2027,7 +2027,10 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             if (!a.isEmpty()) {
                 const QString doc = a["doc"].toString();
                 lab->setToolTip(doc.isEmpty() ? a["attr"].toString() : doc);
-                if (a["locked"].toBool()) lab->setProperty("locked", true);
+                if (a["locked"].toBool()) {
+                    lab->setProperty("locked", true);
+                    lab->setEnabled(false);
+                }
                 attach_attr_menu(lab, a, field);
             } else {
                 lab->setObjectName("aeDimLabel");
@@ -2790,6 +2793,35 @@ void AttributeEditor::refresh() {
 }
 
 bool AttributeEditor::eventFilter(QObject* o, QEvent* e) {
+    // A middle drag on a number scrubs it, as the reference's fields do.
+    if (auto* le = qobject_cast<QLineEdit*>(o)) {
+        const QString plug = le->property("plugKey").toString();
+        if (!plug.isEmpty()) {
+            if (e->type() == QEvent::MouseButtonPress) {
+                auto* me = static_cast<QMouseEvent*>(e);
+                if (me->button() == Qt::MiddleButton) {
+                    le->setProperty("aeDragX", int(me->globalPosition().x()));
+                    le->setProperty("aeDragStart", le->text().toDouble());
+                    le->setProperty("aeDragging", true);
+                    return true;
+                }
+            } else if (e->type() == QEvent::MouseMove && le->property("aeDragging").toBool()) {
+                auto* me = static_cast<QMouseEvent*>(e);
+                const int dx = int(me->globalPosition().x()) - le->property("aeDragX").toInt();
+                const double start = le->property("aeDragStart").toDouble();
+                const double step = qMax(0.01, qAbs(start) * 0.01);
+                const double value = start + dx * step;
+                le->setText(QString::number(value, 'f', 3));
+                exec_quiet("setAttr", args(QJsonArray{plug, value}));
+                Host::get()->poke();
+                return true;
+            } else if (e->type() == QEvent::MouseButtonRelease && le->property("aeDragging").toBool()) {
+                le->setProperty("aeDragging", false);
+                exec("setAttr", args(QJsonArray{plug, le->text().toDouble()}));
+                return true;
+            }
+        }
+    }
     // A numeric field takes its whole value on entering it, as the reference's fields do.
     if (e->type() == QEvent::FocusIn) {
         if (auto* le = qobject_cast<QLineEdit*>(o))
