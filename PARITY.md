@@ -4238,21 +4238,21 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 
 ![The Attribute Editor](docs/attribute-editor.png)
 
-Tabs drag to reorder and keep that order while the editor runs, and a tab dragged out of the strip tears off into a
-window of its own. The Attribute Editor is
-rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
+The Attribute Editor is rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
 Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
 the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show
 and Hide stacked at the right; the connection arrows are live when the node reads from or feeds another. With
-nothing selected the panel says so in the reference's own words. List pins the tab and lists the node types; Selected lists the selected nodes and
-checks the one on show; Focus lists the tabs' paths; Attributes opens Add, Edit and Delete Attribute; Display >
-Attribute Names offers Nice, Long and Short labels; Show has its filter entries, Show View Labels, Show Notes and Show
-Color Managed Pots; Help's entries are present and greyed, as no local help ships.
+nothing selected the panel says so in the reference's own words. List pins the tab and lists the node categories
+(Dynamics, Kinematics, Deformers, Lights, Shading) from the scene; Selected lists the selected nodes and checks the one
+on show; Focus lists the tabs' paths; Attributes opens Add, Edit and Delete Attribute; Display > Attribute Names offers
+Nice, Long and Short labels; Show carries the reference's filter entries, Show View Labels, Show Notes and Show Color
+Managed Pots, with the ones Aztek has no feature for greyed; Help's entries are present and greyed, as no local help
+ships.
 
 Sections are the reference's raised 22 pixel bands, nested where the templates nest, with its gradients, triangles and
 per-template collapse defaults, and Shift-click takes every section on the tab with it. Rows right-align their names
-in the reference's 140 pixel column, put a checkbox and its text at the value column, pair checkboxes on the two-column
-rows, and draw separators where the templates do. Controls the reference has and Aztek has no attribute for are present
+in the reference's 160 pixel column, put a checkbox and its text at the value column, pair checkboxes on the two-column
+rows, use its 68 pixel fields, and draw separators where the templates do. Controls the reference has and Aztek has no attribute for are present
 and greyed, never left out.
 
 The transform tab follows AEtransformMain and AEtransformNoScroll: Transform Attributes with Offset Parent Matrix;
@@ -4273,7 +4273,8 @@ skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; bl
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
 Both Deformer Attributes frames carry the reference's Manage Deformed Geometry button and its input table (Index,
 Component Tag, Falloff, Geometry), filled with the deformed shape.
-A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
+A material is headed by the reference's sample sphere and its Type list (greyed, as a material cannot change type
+here), then its own frames: the OpenPBR surface has
 Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
 AEopenPBRSurfaceTemplate orders them. Deformers follow their templates: a cluster handle has its Origin and Weighted Node, a cluster its Cluster Attributes
 and Deformer Attributes, a lattice its Lattice History, the nonlinear deformers their Handle Display (the width only
@@ -4293,13 +4294,48 @@ and Copy Tab fill the panel's width as three equal buttons. A right-click on an 
 Connection, Create New Texture, Color Chooser and Lock or Unlock, for what the attribute can take; entering a numeric
 field selects its value.
 
-Not done: controls whose attributes Aztek lacks are greyed and empty rather than carrying the reference's defaults
-(world pivots, Show Manip Default, Manip History Node, the mesh component display detail, DoF scale, GPU options,
-a camera's Angle of View and millimetre aperture and its film rolls).
-The limits of transforms read from the compound min/max vectors and show two decimals; a transform's Translate and
-Scale limits are not attributes yet, so their rows are greyed. skinCluster's input table and Manage Deformed Geometry
-are not built, and its skinning method and weight distribution are lists of the reference's names over Aztek's numbers.
-blendShape's in-between weights, target management and the weight section's add/remove menus are not built; each weight
-is a 0 to 1 slider. Load Selected Attributes and Show's filters are greyed; tabs cannot be torn off or reordered, and a
-tab's right-click menu is not built; Attribute Names' Short mode shows the long names, as Aztek keeps no short ones.
-The name field is intentionally empty, and long attribute names elide at the left of their column.
+Not done:
+
+**Chrome and behaviour**
+- Load Selected Attributes is greyed: the Channel Box's selected attributes are not read into the panel.
+- Show's filters, By Node Type, Add/Remove Filter Type, Save/Load Show Preset, Set Current/Global View, Show View Labels
+  and Show Color Managed Pots are present and greyed: Aztek has no attribute filters, view labels or colour-managed
+  pots to drive from the Attribute Editor.
+- Help's entries are present and greyed: no local help is installed.
+- A tab's right-click menu is not built. Tab reordering and tear-off are wired in the tab bar but were not exercised
+  against the reference; the order is not saved, and a torn-off tab's window keeps no order.
+- Attribute Names' Short mode shows the long names, as Aztek keeps no short ones. Long changes the template layouts'
+  labels only, not the generic material rows'.
+- The name field is intentionally empty. Long attribute names elide at the left of their column. The dock's own title
+  bar remains as Aztek's panel chrome, where the reference has only its vertical tab.
+
+**Transform, mesh and joint**
+- Controls whose attributes Aztek lacks are greyed and empty rather than carrying the reference's defaults: world
+  rotate and scale pivots, Show Manip Default, Manip History Node, the mesh component display's immediate mode, vertex
+  size and backface controls, display edges, UV size, normals and tangents, the tessellation values and the smooth mesh
+  controls. They are present so the layout matches, and do nothing because there is no control behind them.
+- A transform's Translate and Scale limits are not attributes in Aztek, so those limit rows are greyed; the Rotate
+  limits read from the compound min/max vectors and show two decimals.
+- The mesh Deformation frame does not list a deformer chain; it is empty, as it is in the reference for an undeformed
+  mesh, but it stays empty when a mesh has deformers.
+- Poly primitives' Component Tag Create is greyed (no attribute), and Create UVs shows the reference's default name
+  over Aztek's number.
+
+**Deformers, skinning and shapes**
+- skinCluster's Use Components, Deform User Normals, relative space mode and matrix, DQS support and scale, and weight
+  distribution are greyed: the attributes are not in Aztek, and its skinning method and weight distribution lists use
+  the reference's names over Aztek's numbers. Its related history and bind pose tabs are not tabified with it. The
+  Manage Deformed Geometry menu's add and remove entries are greyed.
+- blendShape's in-between weights have no sliders or markers, and target management and the weight frame's add/remove
+  menus are not built; each target is a 0 to 1 slider and Support Negative Weights is greyed.
+- A material's Type list is greyed, as a material cannot change type here; its sample sphere is drawn, not rendered
+  with the material. Lambert, Blinn, Phong, Phong E, Anisotropic, Surface Shader, file and PSD textures,
+  place2dTexture, shading groups, constraints, cloth and other node families without their own tree keep the generic
+  section layouts: the section names and rows come from the sections table, not from every template's nested frames.
+- A light's Type list changes the shape; its sample is drawn, not rendered. Disk Based Dmaps, its file-name fields, the
+  fog shadow values and the rest of the light's depth-map controls are greyed for lack of attributes.
+- A camera's Angle of View, millimetre apertures and film roll controls are greyed for lack of attributes.
+- A NURBS curve has no Components table in its history; a surface's advanced tessellation controls are greyed for lack
+  of attributes.
+- A cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed; the sculpt's
+  advanced sculpt maps and attribute buttons are not built.

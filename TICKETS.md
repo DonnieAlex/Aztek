@@ -16,20 +16,16 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
-- Attribute Editor (24/11/2026): the chrome and the transform, mesh, joint, skinCluster and blendShape layouts are in;
-  controls the reference has and Aztek has no attribute for are greyed and empty (world pivots, Show Manip Default,
-  Manip History Node, mesh component display detail, DoF scale, GPU options, a camera's Angle of View and millimetre
-  aperture). skinCluster's input table and Manage
-  Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
-  tab's right-click menu are not built; a material's Type list and a light's Type list are present (a light's changes
-  the shape), samples are drawn rather than rendered, and a light's disk-based depth map names and fog shadows are
-  greyed; the skin cluster's tab strip does not add the history and bind pose tabs the reference tabifies, and
-  blendShape in-betweens have no separate sliders (the reference's Weight frame lists the target weights only);
-  NURBS curves have no component table in their history, and a surface's advanced tessellation controls are
-  greyed; a cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed, and
-  the sculpt's advanced sculpt maps are not built; a torn-off tab's window does not remember its tab order, and the
-  dock's own title bar stays as the host panel chrome. Translate and Scale limits are not attributes on a transform; Attribute
-  Names' Short mode shows the long names, as Aztek keeps no short ones.
+- Attribute Editor (24/11/2026): the chrome and the transform, mesh, joint, skinCluster (with its Deformer Attributes
+  input table), blendShape, material/openPBR, light, primitive, camera, NURBS curve/surface and deformer layouts are
+  in. The remaining gaps are listed item by item under "Not done" in PARITY.md's Attribute Editor section: Load
+  Selected Attributes; the Show filters, view labels and colour-managed pots; a tab's right-click menu; tab reorder
+  and tear-off (wired, not exercised, order not saved); short attribute names and Long labels on generic material rows;
+  the controls with no Aztek attribute behind them (world pivots, Show Manip Default, mesh display detail, DoF and DQS
+  values, camera angle and film rolls, light depth-map extras); transform Translate and Scale limits; the mesh
+  Deformation chain; skinCluster's related tabs and Manage actions; blendShape in-betweens and target management;
+  materials' Type list and the node families that still use the generic section layout; drawn samples; the NURBS
+  component table and advanced tessellation; the cluster handle's Origin frame and the sculpt's advanced maps.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
