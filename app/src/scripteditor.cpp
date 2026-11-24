@@ -279,7 +279,7 @@ public:
         auto* b = new QToolButton(this);
         b->setObjectName("scriptToolButton");
         b->setIcon(icon(icon_name));
-        b->setIconSize(QSize(18, 18));
+        b->setIconSize(QSize(17, 17));
         b->setFixedSize(23, 23);
         b->setAutoRaise(true);
         b->setToolTip(tip);
@@ -396,8 +396,8 @@ public:
 };
 
 const char* const kScriptMenuStyleTemplate = R"(
-QMenu#scriptMenu { background:#525252; color:#e6e6e6; border:1px solid #333333; padding:0; font-size:11px; }
-QMenu#scriptMenu::item { background:transparent; padding:2px 26px 2px 26px; min-height:17px; font-size:11px; }
+QMenu#scriptMenu { background:#525252; color:#e6e6e6; border:1px solid #333333; padding:0; }
+QMenu#scriptMenu::item { background:transparent; padding:2px 26px 2px 26px; min-height:17px; }
 QMenu#scriptMenu::item:selected { background:#4a6d8c; color:#ffffff; }
 QMenu#scriptMenu::item:disabled { color:#8a8a8a; }
 QMenu#scriptMenu::separator { height:1px; background:#6f6f6f; margin:0 8px; }
@@ -415,6 +415,25 @@ const QString& script_icon_dir() {
     static const QString dir = [] {
         const QString path = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/scripteditor";
         QDir().mkpath(path);
+        auto arrow = [&](const QString& name, int dx, int dy) {
+            QPixmap pm(9, 9);
+            pm.fill(Qt::transparent);
+            QPainter p(&pm);
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(200, 200, 200));
+            QPolygonF tri;
+            if (dy < 0) tri = {{1.5, 6.0}, {7.5, 6.0}, {4.5, 2.0}};
+            else if (dy > 0) tri = {{1.5, 3.0}, {7.5, 3.0}, {4.5, 7.0}};
+            else if (dx < 0) tri = {{6.0, 1.5}, {6.0, 7.5}, {2.0, 4.5}};
+            else tri = {{3.0, 1.5}, {3.0, 7.5}, {7.0, 4.5}};
+            p.drawPolygon(tri);
+            pm.save(path + "/" + name + ".png");
+        };
+        arrow("up", 0, -1);
+        arrow("down", 0, 1);
+        arrow("left", -1, 0);
+        arrow("right", 1, 0);
         return path;
     }();
     return dir;
@@ -463,9 +482,9 @@ QString script_menu_style() {
     return style;
 }
 
-const char* const kScriptStyle = R"(
+const char* const kScriptStyleTemplate = R"(
 QMenuBar#scriptMenuBar { background:#444444; color:#dcdcdc; border-top:1px solid #808080; }
-QMenuBar#scriptMenuBar::item { padding:5px 7px; font-size:10px; }
+QMenuBar#scriptMenuBar::item { padding:5px 7px; }
 QMenuBar#scriptMenuBar::item:selected { background:#4a8bbd; color:#ffffff; }
 QToolButton#scriptToolButton, QToolButton#seEchoButton, QToolButton#seLineNumbersButton { border:none; background:transparent; padding:0; }
 QToolButton#scriptToolButton:hover, QToolButton#seEchoButton:hover, QToolButton#seLineNumbersButton:hover { background:#505050; }
@@ -485,6 +504,7 @@ QTabBar#scriptTabBar::tab:selected { background:#3f3f3f; }
 QTabBar#scriptTabBar::tab:!selected { color:#c4c4c4; }
 QTabBar#scriptTabBar::tab:hover:!selected { background:#3b3b3b; }
 QTabBar#scriptTabBar::scroller { width:18px; }
+QTabBar#scriptTabBar QToolButton { background:#373737; border:none; }
 QToolButton#scriptTabClose { border:none; background:transparent; padding:0; }
 QToolButton#scriptTabClose:hover { background:#4a4a4a; border-radius:2px; }
 QPlainTextEdit#scriptHistory QScrollBar:vertical, QPlainTextEdit#scriptInput QScrollBar:vertical { background:#444444; width:8px; margin:0; border:none; }
@@ -493,7 +513,20 @@ QPlainTextEdit#scriptHistory QScrollBar:horizontal, QPlainTextEdit#scriptInput Q
 QPlainTextEdit#scriptHistory QScrollBar::handle:horizontal, QPlainTextEdit#scriptInput QScrollBar::handle:horizontal { background:#5e5e5e; border:1px solid #6f6f6f; min-width:24px; }
 QPlainTextEdit#scriptHistory QScrollBar::add-line, QPlainTextEdit#scriptHistory QScrollBar::sub-line, QPlainTextEdit#scriptInput QScrollBar::add-line, QPlainTextEdit#scriptInput QScrollBar::sub-line { background:#4a4a4a; border:none; width:8px; height:8px; }
 QPlainTextEdit#scriptHistory QScrollBar::add-page, QPlainTextEdit#scriptHistory QScrollBar::sub-page, QPlainTextEdit#scriptInput QScrollBar::add-page, QPlainTextEdit#scriptInput QScrollBar::sub-page { background:#444444; }
+QPlainTextEdit#scriptHistory QScrollBar::up-arrow:vertical, QPlainTextEdit#scriptInput QScrollBar::up-arrow:vertical { image:url(@DIR/up.png); width:9px; height:9px; }
+QPlainTextEdit#scriptHistory QScrollBar::down-arrow:vertical, QPlainTextEdit#scriptInput QScrollBar::down-arrow:vertical { image:url(@DIR/down.png); width:9px; height:9px; }
+QPlainTextEdit#scriptHistory QScrollBar::left-arrow:horizontal, QPlainTextEdit#scriptInput QScrollBar::left-arrow:horizontal { image:url(@DIR/left.png); width:9px; height:9px; }
+QPlainTextEdit#scriptHistory QScrollBar::right-arrow:horizontal, QPlainTextEdit#scriptInput QScrollBar::right-arrow:horizontal { image:url(@DIR/right.png); width:9px; height:9px; }
 )";
+
+QString script_style() {
+    static QString style = [] {
+        QString q = QString::fromUtf8(kScriptStyleTemplate);
+        q.replace("@DIR", script_icon_dir());
+        return q;
+    }();
+    return style;
+}
 
 const char* const kScriptFindStyleTemplate = R"(
 QDialog#scriptFind { background:#444444; }
@@ -529,7 +562,7 @@ QFont script_font() {
 
 ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     setObjectName("scriptEditor");
-    setStyleSheet(kScriptStyle);
+    setStyleSheet(script_style());
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
@@ -541,10 +574,16 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     auto* mb = new QMenuBar(this);
     mb->setObjectName("scriptMenuBar");
     mb->setNativeMenuBar(false);
+    QFont mbf = mb->font();
+    mbf.setPixelSize(10);
+    mb->setFont(mbf);
     lay->addWidget(mb);
 
     // Every menu is the reference's: a tear-off strip, the same background, item height and indicators.
     auto dress = [](QMenu* m) {
+        QFont mf = m->font();
+        mf.setPixelSize(11);
+        m->setFont(mf);
         m->setObjectName("scriptMenu");
         m->setStyleSheet(script_menu_style());
         static ScriptMenuStyle style;
@@ -575,6 +614,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     };
 
     QMenu* file = make_menu("File");
+    file->setMinimumWidth(195);
     QAction* open_act = file->addAction("Open Script...", this, [this] {
         QString f = QFileDialog::getOpenFileName(this, "Open Script", QSettings().value("project/current").toString(), "Scripts (*.mel *.py);;All files (*)");
         if (!f.isEmpty()) load_file(f);
@@ -593,6 +633,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     QAction* shelf_act = file->addAction("Save Script to Shelf...", this, [this] { save_to_shelf(); });
 
     QMenu* edit = make_menu("Edit");
+    edit->setMinimumWidth(199);
     edit->addAction("Undo", [this] { if (auto* e = current()) e->undo(); });
     edit->addAction("Redo", [this] { if (auto* e = current()) e->redo(); });
     edit->addSeparator();
@@ -613,6 +654,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     edit->addAction("Clear All", [this] { history_->clear(); if (auto* e = current()) e->clear(); });
 
     QMenu* hist = make_menu("History");
+    hist->setMinimumWidth(281);
     toggle(hist, "Batch Render Messages", "batchRenderMessages", true);
     toggle(hist, "Echo All Commands", "echoAll", false, [this](bool on) {
         echo_all_ = on;
@@ -626,6 +668,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     toggle(hist, "Show Stack Trace", "stackTrace", true, [this](bool on) { stack_trace_ = on; });
     hist->addSeparator();
     QMenu* output = make_sub(hist, "History Output");
+    output->setMinimumWidth(181);
     auto* outputs = new QActionGroup(output);
     const QStringList shown{"Show Both", "Show MEL Only", "Show Python Only"};
     for (int i = 0; i < shown.size(); ++i) {
@@ -644,6 +687,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     toggle(hist, "Suppress Stack Window", "suppressStackWindow", false);
 
     QMenu* cmd = make_menu("Command");
+    cmd->setMinimumWidth(206);
     toggle(cmd, "Show line numbers", "lineNumbers", true, [this](bool on) {
         show_numbers_ = on;
         for (int i = 0; i < tab_bar_->count(); ++i)
@@ -656,14 +700,15 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     toggle(cmd, "Use tabs for indent", "tabsForIndent", false);
     toggle(cmd, "Show tabs and spaces", "showTabsAndSpaces", false, [this](bool) { apply_editor_options(); });
     toggle(cmd, "Auto-close braces", "autoCloseBraces", true);
-    toggle(cmd, "Command Completion", "commandCompletion", false);
-    toggle(cmd, "Object Path Completion", "objectPathCompletion", false);
-    toggle(cmd, "Show Tooltip Help", "tooltipHelp", false);
-    toggle(cmd, "Show quick help", "quickHelp", false);
+    toggle(cmd, "Command Completion", "commandCompletion", false)->setEnabled(false);
+    toggle(cmd, "Object Path Completion", "objectPathCompletion", false)->setEnabled(false);
+    toggle(cmd, "Show Tooltip Help", "tooltipHelp", false)->setEnabled(false);
+    toggle(cmd, "Show quick help", "quickHelp", false)->setEnabled(false);
     cmd->addSeparator();
     cmd->addAction("Execute", [this] { run(false); });
 
     QMenu* tabs = make_menu("Tabs");
+    tabs->setMinimumWidth(195);
     tabs->addAction("New Tab...", [this] { new_tab_prompt(); });
     tabs->addAction("Rename Tab...", [this] { rename_tab(tab_bar_->currentIndex()); });
     tabs->addAction("Go to Previous Tab", [this] { step_tab(-1); });
@@ -672,6 +717,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     tabs->addAction("Delete All Other Tabs", [this] { delete_other_tabs(); });
 
     QMenu* help = make_menu("Help");
+    help->setMinimumWidth(236);
     const QString repo = "https://github.com/srlegrand/Aztek";
     auto link = [help](const QString& label, const QString& url) { help->addAction(label, [url] { QDesktopServices::openUrl(QUrl(url)); }); };
     QAction* search = help->addAction(icon("seMenuSearch"), "Search");
@@ -770,6 +816,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     split_->setHandleWidth(8);
     split_->setChildrenCollapsible(false);
     history_ = new QPlainTextEdit(split_);
+    history_->setMinimumWidth(1);
     history_->setReadOnly(true);
     history_->setObjectName("scriptHistory");
     history_->setMaximumBlockCount(20000);
@@ -782,6 +829,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     history_->document()->setDocumentMargin(3);
     input_pane_ = new QWidget(split_);
     input_pane_->setObjectName("scriptInputPane");
+    input_pane_->setMinimumWidth(1);
     auto* input_layout = new QVBoxLayout(input_pane_);
     input_layout->setContentsMargins(0, 0, 0, 0);
     input_layout->setSpacing(0);
@@ -796,6 +844,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     input_layout->addWidget(tab_bar_);
     stack_ = new QStackedWidget(input_pane_);
     stack_->setObjectName("scriptStack");
+    stack_->setMinimumWidth(1);
     input_layout->addWidget(stack_, 1);
     connect(tb, &QTabBar::currentChanged, this, [this](int i) {
         if (i >= 0 && i < pages_.size()) stack_->setCurrentWidget(pages_[i]);
@@ -833,6 +882,9 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     if (saved.size() == 2) sizes = {saved[0].toInt(), saved[1].toInt()};
     split_->setSizes(sizes);
     lay->addWidget(split_, 1);
+    lay->setSizeConstraint(QLayout::SetNoConstraint);
+    lay->activate();
+    setMinimumSize(143, 150);
     history_->installEventFilter(this);
     // Right-click is the reference's marking menu, over the history and over the input.
     history_->viewport()->installEventFilter(this);
@@ -1077,7 +1129,7 @@ void ScriptEditor::open_search_replace() {
         g->addWidget(find_case_, 3, 1);
         g->addWidget(find_wrap_, 4, 1);
         g->addWidget(replace_all_b, 2, 2, 3, 1, Qt::AlignTop);
-        g->addWidget(close_b, 5, 2, Qt::AlignRight | Qt::AlignBottom);
+        g->addWidget(close_b, 5, 2, Qt::AlignLeft | Qt::AlignBottom);
         g->setRowMinimumHeight(5, 22);
     }
     find_dialog_->show();
