@@ -143,9 +143,9 @@ const QList<Section>& sections_for(const QString& type) {
         {"Smooth Mesh", "displaySmoothMesh smoothLevel smoothPreview"},
         {"Symmetry", "symmetry symmetryPlane"},
         {"Render Stats", kRenderStats},
-        {"Harold", kHaroldShape},
-        {"Harold Subdivision", kHaroldSubdiv},
-        {"Harold Displacement", kHaroldDisp},
+        {"Arnold", kHaroldShape},
+        {"Arnold Subdivision", kHaroldSubdiv},
+        {"Arnold Displacement", kHaroldDisp},
         {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
@@ -153,45 +153,45 @@ const QList<Section>& sections_for(const QString& type) {
         {"Camera Attributes", "focalLength lensSqueezeRatio cameraScale nearClipPlane farClipPlane centerOfInterest"},
         {"Film Back", "horizontalFilmAperture verticalFilmAperture filmFit filmFitOffset horizontalFilmOffset verticalFilmOffset"},
         {"Orthographic Views", "orthographic orthographicWidth"},
-        {"Harold", "renderable depthOfField fStop focusDistance focusRegionScale shutterAngle motionBlur"},
+        {"Arnold", "renderable depthOfField fStop focusDistance focusRegionScale shutterAngle motionBlur"},
         {"Display Options", "displayFilmGate displayResolution displayGateMask overscan"},
         {"Display", "visibility locatorScale"}};
     static const QList<Section> ambient{
         {"Ambient Light Attributes", "color intensity ambientShade"},
         {"Shadows", "shadowColor useRayTraceShadows shadowRays rayDepthLimit castSoftShadows shadowRadius receiveShadows"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> directional{
         {"Directional Light Attributes", "color intensity emitDiffuse emitSpecular"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightAngle shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> point{
         {"Point Light Attributes", "color intensity emitDiffuse emitSpecular decayRate"},
         {"Light Effects", "fogType fogRadius fogIntensity"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightRadius shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> spot{
         {"Spot Light Attributes", "color intensity emitDiffuse emitSpecular decayRate coneAngle penumbraAngle dropoff"},
         {"Light Effects", "fogSpread fogIntensity barnDoors leftBarnDoor rightBarnDoor topBarnDoor bottomBarnDoor useDecayRegions startDistance1 endDistance1 startDistance2 endDistance2 startDistance3 endDistance3"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows lightRadius shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> area{
         {"Area Light Attributes", "color intensity emitDiffuse emitSpecular decayRate normalize"},
         {"Shadows", "shadowColor useDepthMapShadows useRayTraceShadows shadowRays rayDepthLimit dmapResolution dmapFilterSize dmapBias"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> volume{
         {"Volume Light Attributes", "color intensity lightShape volumeLightDir arc coneEndRadius emitAmbient emitDiffuse emitSpecular"},
         {"Shadows", "shadowColor useRayTraceShadows lightRadius shadowRays rayDepthLimit"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> curve{
@@ -228,9 +228,9 @@ const QList<Section>& sections_for(const QString& type) {
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> surface{
         {"Render Stats", kRenderStats},
-        {"Harold", kHaroldShape},
-        {"Harold Subdivision", kHaroldSubdiv},
-        {"Harold Displacement", kHaroldDisp},
+        {"Arnold", kHaroldShape},
+        {"Arnold Subdivision", kHaroldSubdiv},
+        {"Arnold Displacement", kHaroldDisp},
         {"Display", "visibility template intermediateObject useObjectColor objectColor wireColorRGB useOutlinerColor outlinerColor hiddenInOutliner"},
         {"Drawing Overrides", kDrawingOverrides},
         {"Node Behaviour", "caching nodeState frozen"}};
@@ -241,22 +241,22 @@ const QList<Section>& sections_for(const QString& type) {
     if (type == "aiStandardSurface") return ai_standard;
     static const QList<Section> sky{
         {"Sky Dome Light Attributes", "color intensity aiExposure shadowColor resolution aiResolution format camera aiCamera skyRadius"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> ai_area{
         {"Area Light Attributes", "color intensity aiExposure shadowColor aiTranslator aiSpread aiRoundness aiSoftEdge"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> mesh_light{
         {"Mesh Light Attributes", "color intensity aiExposure shadowColor lightVisible"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     static const QList<Section> photometric{
         {"Photometric Light Attributes", "color intensity aiExposure shadowColor aiFilename"},
-        {"Harold", kHaroldLight},
+        {"Arnold", kHaroldLight},
         {"Display", "visibility locatorScale"},
         {"Node Behaviour", "caching nodeState frozen"}};
     if (type == "aiSkyDomeLight") return sky;
@@ -1269,7 +1269,6 @@ private:
 };
 
 QString ae_type_label(const QString& type) {
-    if (type.startsWith("ai") && type.size() > 2 && type[2].isUpper()) return "harold" + type.mid(2);
     return type;
 }
 
@@ -2568,25 +2567,6 @@ void AttributeEditor::refresh() {
                     used.insert(n);
             ae_render_tree(v, body, boxes, by, used, name_style_);
         } else {
-        // A light's type, which swaps the shape, and whether it is in the default light set.
-        static const QStringList light_types{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
-        if (light_types.contains(node_type)) {
-            auto* form = add_section(v, body, "Light");
-            auto* kind = new QComboBox(body);
-            for (const QString& lt : {"Ambient", "Directional", "Point", "Spot", "Area", "Volume"}) kind->addItem(lt);
-            kind->setCurrentIndex(light_types.indexOf(node_type));
-            connect(kind, QOverload<int>::of(&QComboBox::activated), kind, [path](int i) {
-                exec("aztekChangeLightType", args(QJsonArray{path, light_types.at(i)}));
-            });
-            form->addRow("Type", kind);
-            auto* by_default = new QCheckBox(body);
-            QString shape = path;
-            by_default->setChecked(ask("aztekIlluminatesByDefault", args(QJsonArray{shape})).toBool());
-            connect(by_default, &QCheckBox::toggled, by_default, [shape](bool on) {
-                exec("aztekIlluminatesByDefault", QJsonObject{{"args", QJsonArray{shape}}, {"set", on}});
-            });
-            form->addRow("Illuminates by Default", by_default);
-        }
         // A parent constraint's offset from each target, as the reference's Target Offsets: Update takes the object's
         // place now as the offset, Key keys the offsets (#121).
         if (node_type == "parentConstraint") {
