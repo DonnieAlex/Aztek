@@ -2678,6 +2678,7 @@ void MainWindow::closeEvent(QCloseEvent* e) {
     QSettings s;
     s.setValue("window/geometry", saveGeometry());
     s.setValue("window/state", saveState());
+    s.setValue("window/workspace", s.value("workspaces_current", "General"));
     s.setValue("session/running", false);
     e->accept();
 }
@@ -2690,6 +2691,15 @@ void MainWindow::run_startup(const QString& script, const QString& screenshot) {
         restore_layout(s.value("window/state").toByteArray());
     }
     exec_quiet("constructionHistory", QJsonObject{{"state", s.value("prefs/constructionHistory", true).toBool()}});
+    const QString workspace = s.value("workspaces_current", "General").toString();
+    const QString saved_workspace = s.value("window/workspace").toString();
+    if (screenshot.isEmpty() && (workspace != "General" || s.contains("workspaces/General")
+                               || (!saved_workspace.isEmpty() && saved_workspace != workspace))) {
+        // Workspace editors must exist before Qt can put their docks back where the user left them.
+        apply_workspace(workspace);
+        if (saved_workspace == workspace)
+            restoreState(s.value("window/state").toByteArray());
+    }
     // Last time ended without closing: offer the newest autosave. Not when a script or a screenshot drives the run.
     const bool crashed = s.value("session/running", false).toBool();
     s.setValue("session/running", true);
