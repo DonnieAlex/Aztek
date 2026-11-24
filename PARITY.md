@@ -1840,6 +1840,8 @@ They opened as windows of their own. They open as floating panels now: dragged b
 window or onto another panel, they dock beside it or as a tab, as in the reference. Right-clicking a panel's title gives
 that panel's Undock Tab and Close Tab rather than the list of every panel and bar.
 
+23/11/2026 (#274): File > Close in the Render View closes the panel. Opening it again brings back the same view.
+
 ### The second Outliner (19/11/2026, #188)
 
 As in the reference, a second Outliner sits under the first, closed: drag the bottom edge of the Outliner up to bring
