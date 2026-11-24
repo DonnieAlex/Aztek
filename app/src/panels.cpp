@@ -1225,19 +1225,21 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         Host::get()->poke();
     });
     layers_menu->addSeparator();
-    auto set_layers = [this, current_layer](const char* scope, const char* attr, int value) {
+    auto set_layers = [this](const char* scope, const char* attr, int value) {
         QStringList names;
-        if (QString(scope) == "current") {
-            const QString layer = current_layer();
-            if (!layer.isEmpty()) names << layer;
-        } else {
+        if (QString(scope) == "all") {
             for (const QJsonValue& v : query("layers").toArray()) names << v.toObject()["name"].toString();
+        } else {
+            for (QTreeWidgetItem* it : list_->selectedItems()) names << it->data(0, Qt::UserRole).toString();
+            if (names.isEmpty()) {
+                if (QTreeWidgetItem* it = list_->currentItem()) names << it->data(0, Qt::UserRole).toString();
+            }
         }
         for (const QString& n : names) exec("setAttr", args(QJsonArray{n + "." + attr, value}));
         Host::get()->poke();
     };
-    for (auto [label, scope] : {std::pair{"Set All Layers", "all"}, {"Set Selected Layers", "current"}, {"Set Only Selected Layers", "current"}}) {
-        QMenu* sub = layers_menu->addMenu(label);
+    auto add_set_menu = [set_layers](QMenu* parent, const QString& label, const char* scope) {
+        QMenu* sub = parent->addMenu(label);
         sub->addAction("Visible", [set_layers, scope] { set_layers(scope, "visibility", 1); });
         sub->addAction("Invisible", [set_layers, scope] { set_layers(scope, "visibility", 0); });
         sub->addAction("Visible Playback", [set_layers, scope] { set_layers(scope, "hideOnPlayback", 0); });
@@ -1246,7 +1248,19 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         sub->addAction("Normal", [set_layers, scope] { set_layers(scope, "displayType", 0); });
         sub->addAction("Template", [set_layers, scope] { set_layers(scope, "displayType", 1); });
         sub->addAction("Reference", [set_layers, scope] { set_layers(scope, "displayType", 2); });
-    }
+        sub->addSeparator();
+        sub->addAction("Full Detail", [set_layers, scope] { set_layers(scope, "levelOfDetail", 0); });
+        sub->addAction("Bounding Box", [set_layers, scope] { set_layers(scope, "levelOfDetail", 1); });
+        sub->addSeparator();
+        sub->addAction("Shaded", [set_layers, scope] { set_layers(scope, "shading", 1); });
+        sub->addAction("Unshaded", [set_layers, scope] { set_layers(scope, "shading", 0); });
+        sub->addSeparator();
+        sub->addAction("Textured", [set_layers, scope] { set_layers(scope, "texturing", 1); });
+        sub->addAction("Untextured", [set_layers, scope] { set_layers(scope, "texturing", 0); });
+    };
+    add_set_menu(layers_menu, "Set All Layers", "all");
+    add_set_menu(layers_menu, "Set Selected Layers", "selected");
+    add_set_menu(layers_menu, "Set Only Selected Layers", "selected");
     layers_menu->addSeparator();
     auto* sort_group = new QActionGroup(layers_menu);
     for (auto [label, value] : {std::pair{"Chronologically", "chronological"}, {"Alphabetically", "alphabetical"}}) {
@@ -1315,7 +1329,7 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
     }
     list_->header()->setSectionResizeMode(4, QHeaderView::Stretch);
     list_->setDragDropMode(QAbstractItemView::InternalMove);
-    list_->setSelectionMode(QAbstractItemView::SingleSelection);
+    list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     lay->addWidget(list_, 1);
     // A drag in the list is the new order, top first.
     connect(list_->model(), &QAbstractItemModel::rowsMoved, this, [this] {
@@ -1352,12 +1366,15 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         if (col == 4) exec("select", args(it->data(4, Qt::UserRole).toJsonArray()));
     });
     list_->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(list_, &QWidget::customContextMenuRequested, this, [this](const QPoint& p) {
+    connect(list_, &QWidget::customContextMenuRequested, this, [this, add_set_menu](const QPoint& p) {
         QTreeWidgetItem* it = list_->itemAt(p);
         if (!it) return;
-        QString layer = it->data(0, Qt::UserRole).toString();
-        QJsonArray members = it->data(4, Qt::UserRole).toJsonArray();
+        const QString layer = it->data(0, Qt::UserRole).toString();
+        const QJsonArray members = it->data(4, Qt::UserRole).toJsonArray();
         QMenu m;
+        QAction* title = m.addAction(layer + "...");
+        title->setEnabled(false);
+        m.addSeparator();
         m.addAction("Add Selected Objects", [layer] {
             QJsonArray a{layer};
             for (const QJsonValue& s : state()["selection"].toArray()) a.append(s);
@@ -1365,13 +1382,29 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         });
         m.addAction("Remove Selected Objects", [] { exec("removeFromDisplayLayer"); });
         m.addAction("Select Objects", [members] { exec("select", args(members)); });
-        m.addAction("Rename...", [this, layer] {
-            bool ok = false;
-            const QString name = QInputDialog::getText(this, "Rename Layer", "Name:", QLineEdit::Normal, layer, &ok).trimmed();
-            if (ok && !name.isEmpty() && name != layer) exec("displayLayer", QJsonObject{{"edit", true}, {"args", QJsonArray{layer}}, {"name", name}});
-        });
         m.addSeparator();
+        add_set_menu(&m, "Set All Layers", "all");
+        add_set_menu(&m, "Set Selected Layers", "selected");
+        add_set_menu(&m, "Set Only Selected Layers", "selected");
+        m.addSeparator();
+        m.addAction("Empty the Layer", [layer] {
+            exec("editDisplayLayerMembers", QJsonObject{{"args", QJsonArray{layer}}, {"clear", true}});
+            Host::get()->poke();
+        });
         m.addAction("Delete Layer", [layer] { exec("deleteDisplayLayer", args(QJsonArray{layer})); });
+        m.addAction("Delete Selected Layers", [this, layer] {
+            QSet<QString> names{layer};
+            for (QTreeWidgetItem* sel : list_->selectedItems()) names.insert(sel->data(0, Qt::UserRole).toString());
+            QJsonArray a;
+            for (const QString& n : names) a.append(n);
+            exec("deleteDisplayLayer", args(a));
+            Host::get()->poke();
+        });
+        m.addAction("Membership", [this] { show_relationship_editor(this, "displayLayers"); });
+        m.addAction("Attributes", [layer] {
+            exec("select", args(QJsonArray{layer}));
+            mel_action("AttributeEditor");
+        });
         m.exec(list_->viewport()->mapToGlobal(p));
     });
 }
@@ -1431,23 +1464,14 @@ void LayerEditor::refresh() {
         });
         list_->setItemWidget(it, 1, pbox);
         auto* tbox = new QToolButton;
-        tbox->setText("T");
+        tbox->setText(type == 1 ? "T" : type == 2 ? "R" : "");
         tbox->setFixedSize(18, 18);
         tbox->setToolTip(type == 1 ? "Template" : type == 2 ? "Reference" : "Normal");
-        tbox->setPopupMode(QToolButton::InstantPopup);
-        tbox->setStyleSheet("QToolButton { border: 1px solid #5a5a5a; background: #333333; color: #dddddd; font-size: 9px; padding: 0; }"
-                            "QToolButton::menu-indicator { image: none; width: 0; }");
-        auto* tmenu = new QMenu(tbox);
-        tbox->setMenu(tmenu);
-        for (auto [label, mode] : {std::pair{"Normal", 0}, {"Template", 1}, {"Reference", 2}}) {
-            QAction* a = tmenu->addAction(label);
-            a->setCheckable(true);
-            a->setChecked(type == mode);
-            connect(a, &QAction::triggered, this, [layer, mode] {
-                exec("setAttr", args(QJsonArray{layer + ".displayType", mode}));
-                Host::get()->poke();
-            });
-        }
+        tbox->setStyleSheet("QToolButton { border: 1px solid #5a5a5a; background: #333333; color: #dddddd; font-size: 9px; padding: 0; }");
+        connect(tbox, &QToolButton::clicked, this, [layer, type] {
+            exec("setAttr", args(QJsonArray{layer + ".displayType", (type + 1) % 3}));
+            Host::get()->poke();
+        });
         list_->setItemWidget(it, 2, tbox);
         const bool use_rgb = l["useRgb"].toBool();
         const int index = l["colorIndex"].toInt();
