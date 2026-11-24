@@ -4283,5 +4283,5 @@ Scale limits are not attributes yet, so their rows are greyed. skinCluster's inp
 are not built, and its skinning method and weight distribution are lists of the reference's names over Aztek's numbers.
 blendShape's in-between weights, target management and the weight section's add/remove menus are not built; each weight
 is a 0 to 1 slider. Load Selected Attributes and Show's filters are greyed; tabs cannot be torn off or reordered, and a
-tab's right-click menu is not built. The name field is intentionally empty, and long attribute names elide at the left
-of their column.
+tab's right-click menu is not built; Attribute Names' Short mode shows the long names, as Aztek keeps no short ones.
+The name field is intentionally empty, and long attribute names elide at the left of their column.
