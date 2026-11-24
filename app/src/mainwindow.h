@@ -194,7 +194,7 @@ private:
     void scale_manip(double by);
     void show_history_manips();
     void tool_marking_menu(QPoint global, const QString& hold);
-    void tool_options_marking_menu(QPoint global);
+    void selection_marking_menu(QPoint global);
     QList<MarkItem> hotbox_zone(int zone, QPoint origin);
     void object_marking_items(const QString& hit, QPoint global, QList<MarkItem>& items);
     void apply_workspace(const QString& name);

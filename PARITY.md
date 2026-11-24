@@ -1807,10 +1807,14 @@ too, so a chain curls with each joint turned by the same amount, by the manipula
 scale in scripts. About a point, only the tops of the selection travel round it. Move still moves the tops only, so a
 child doesn't go twice as far.
 
-### Shift and Ctrl+Shift right-click menus as the reference's (19/11/2026, #183)
+### Viewport marking menus (23/11/2026, #183)
 
-Shift+right-click in object, vertex, edge and face mode and Ctrl+Shift+right-click give the reference's menus item for
-item, in its places and order: round the compass, the list under it with its rules, the submenus (Merge Vertices,
+Ctrl+right-click opens the selection conversion menu. Ctrl+Shift+right-click opens Symmetry, Lasso, Select and Paint
+Select around the compass, with Selection Constraints and Transform Constraints below.
+With nothing selected, Shift+right-click opens the polygon creation compass and the full list below it, with icons,
+option boxes, Interactive Creation and Polygon Display All.
+Shift+right-click in object, vertex, edge and face mode gives the reference's menus item for
+item, in their places and order: round the compass, the list under it with its rules, the submenus (Merge Vertices,
 Vertex Normals, Merge/Collapse Edges, Flip/Spin Edge, Soften/Harden Edges, Face Normals, Mapping, Booleans, Polygon
 Display) and the option boxes, which open the command's option window or the tool's settings. Items Aztek has nothing
 behind yet (Smart Extrude, Connect Tool, Vertex Normal Edit Tool, Transfer Vertex Order, Split mesh with projected
