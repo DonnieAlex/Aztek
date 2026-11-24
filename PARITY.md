@@ -4271,7 +4271,11 @@ skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; bl
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
 A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
 Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
-AEopenPBRSurfaceTemplate orders them. A NURBS curve follows AEnurbsCurveTemplate: NURBS Curve History (Lock Length, its range, Spans, Form, Degree),
+AEopenPBRSurfaceTemplate orders them. Deformers follow their templates: a cluster handle has its Origin and Weighted Node, a cluster its Cluster Attributes
+and Deformer Attributes, a lattice its Lattice History, the nonlinear deformers their Handle Display (the width only
+where the template adds it, as the bend's curvature stays with its manipulator), a sculpt its Sculpt History and
+Deformer Attributes, and wrap and shrinkWrap their Deformer Attributes; all carry Object Display, Node Behavior, UUID
+and Extra Attributes. A NURBS curve follows AEnurbsCurveTemplate: NURBS Curve History (Lock Length, its range, Spans, Form, Degree),
 Component Display, Object Display, Node Behavior, UUID and Extra Attributes; a NURBS surface follows
 AEnurbsSurfaceTemplate with its history, display, tessellation frames, Render Stats and Object Display.
 A light is headed by its sample, and its tab has Type, Color, Intensity,

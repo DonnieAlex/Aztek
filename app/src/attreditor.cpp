@@ -1082,6 +1082,49 @@ QList<AeBox> skin_boxes() {
     return l;
 }
 
+// A deformer's tab, from the cluster, lattice, nonlinear, sculpt, soft modification and wrap templates.
+QList<AeBox> deformer_boxes(const QString& type) {
+    QList<AeBox> l;
+    const bool nonlinear = type == "nonLinear" || type == "deformBend" || type == "deformTwist" || type == "deformSquash" ||
+                           type == "deformFlare" || type == "deformSine" || type == "deformWave";
+    const bool handle = type == "clusterHandle" || type == "softModHandle";
+    if (nonlinear) {
+        QList<AeRow> rows;
+        if (type == "nonLinear" || type == "deformTwist" || type == "deformSquash" || type == "deformFlare")
+            rows << shown("handleWidth", "Handle Width", "float");
+        l << box("Handle Display", {}, 0);
+        l.last().rows = rows;
+    } else if (handle) {
+        l << box("Cluster Attributes", {shown("origin", "Origin", "float")}, 1);
+        if (type == "softModHandle") l.last().title = "Soft Modification Attributes";
+        l << box("Weighted Node", {shown("", "Use Weighted Node", "check"), shown("", "Weighted Node", "text")}, 0);
+    } else if (type == "cluster") {
+        l << box("Cluster Attributes", {row("relative"), shown("angleInterpolation", "Angle Interpolation", "combo", "None|Quaternion")}, 1);
+        l << box("Deformer Attributes", {row("envelope")});
+    } else if (type == "lattice" || type == "baseLattice") {
+        l << box("Lattice History", {row("sDivisions"), row("tDivisions"), row("uDivisions")}, 1);
+    } else if (type == "sculpt") {
+        l << box("Sculpt History",
+                 {shown("mode", "Mode", "combo", "Flip|Project|Stretch"), shown("insideMode", "Inside Mode", "check"),
+                  shown("maximumDisplacement", "Maximum Displacement", "slider", "0,10"), shown("dropoffType", "Dropoff Type", "combo", "Linear|Cubic"),
+                  shown("dropoffDistance", "Dropoff Distance", "slider", "0,10")},
+                 1);
+        l << box("Deformer Attributes", {row("envelope")});
+    } else {
+        l << box("Deformer Attributes", {row("envelope")});
+    }
+    AeBox display = box("Object Display",
+                        {shown("visibility", "Visibility", "check2"), shown("lodVisibility", "LOD Visibility", "check2"),
+                         shown("hideOnPlayback", "Hide on playback", "check2"), shown("hiddenInOutliner", "Hidden In Outliner", "check2"),
+                         shown("useOutlinerColor", "Use Outliner Color", "check2"), shown("outlinerColor", "Outliner Color", "color")});
+    display.rows[0].extra = "template";
+    l << display;
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // A NURBS curve's tab, from AEnurbsCurveTemplate.
 QList<AeBox> curve_boxes() {
     QList<AeBox> l;
@@ -1330,6 +1373,10 @@ QList<AeBox> ae_tree(const QString& type) {
     if (lights.contains(type)) return light_boxes(type);
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
+    static const QSet<QString> deformers{"nonLinear", "clusterHandle", "cluster", "lattice", "baseLattice", "deformBend", "deformTwist",
+                                         "deformSquash", "deformFlare", "deformSine", "deformWave", "sculpt", "softModHandle",
+                                         "wrap", "shrinkWrap"};
+    if (deformers.contains(type)) return deformer_boxes(type);
     if (type == "nurbsCurve") return curve_boxes();
     if (type == "nurbsSurface") return surface_boxes();
     static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
@@ -2947,6 +2994,10 @@ void AttributeEditor::refresh() {
         if (light_node_types.contains(node_type)) v->addWidget(light_header(node_type, body));
 
         QList<AeBox> boxes = ae_tree(node_type);
+        if (node_type == "nonLinear") {
+            for (AeBox& b : boxes)
+                if (b.title == "Handle Display") b.rows.removeIf([&by](const AeRow& r) { return r.attr == "handleWidth" && !by.contains("handleWidth"); });
+        }
         // A blend shape's target weights, named after their targets as the reference names them.
         if (node_type == "blendShape") {
             QList<AeRow> weightRows;
